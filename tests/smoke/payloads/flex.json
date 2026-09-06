@@ -57,6 +57,64 @@
   "subject_ids": [
     "ernie"
   ],
-  "tags": [],
-  "overwrite": false
+  "parallel_subjects": 1,
+  "subject_configs": [
+    {
+      "subject_id": "ernie",
+      "config": {
+        "subject_id": "ernie",
+        "goal": "mean",
+        "postproc": "max_TI",
+        "anisotropy_type": "scalar",
+        "aniso_maxratio": 10,
+        "aniso_maxcond": 2,
+        "current_mA": 1,
+        "electrode": {
+          "shape": "ellipse",
+          "dimensions": [
+            8,
+            8
+          ],
+          "gel_thickness": 4
+        },
+        "roi": {
+          "_type": "AtlasROI",
+          "atlas_path": [
+            "/mnt/000/derivatives/SimNIBS/sub-ernie/m2m_ernie/segmentation/lh.ernie_DK40.annot"
+          ],
+          "label": [
+            1
+          ],
+          "hemisphere": [
+            "lh"
+          ]
+        },
+        "non_roi_method": null,
+        "non_roi": null,
+        "thresholds": null,
+        "intensity_weight": 0,
+        "optimize_current_ratio": false,
+        "ratio_total_mA": null,
+        "ratio_levels": 21,
+        "eeg_net": null,
+        "enable_mapping": false,
+        "disable_mapping_simulation": false,
+        "output_folder": null,
+        "run_final_electrode_simulation": false,
+        "n_multistart": 1,
+        "max_iterations": 500,
+        "population_size": 13,
+        "tolerance": 0.1,
+        "mutation": "0.01,0.5",
+        "recombination": 0.7,
+        "cpus": null,
+        "min_electrode_distance": 5,
+        "detailed_results": false,
+        "visualize_valid_skin_region": true,
+        "skin_visualization_net": null,
+        "skin_region_margin_mm": 0,
+        "avoid_landmark_regions": true
+      }
+    }
+  ]
 }

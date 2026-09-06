@@ -3,8 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Locator, type Page } from "@playwright/test";
 import { expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
-import { closeSubjects, openSubjects, subjectRows } from "./_subjects";
-import { analysisRows, closeAnalysisTarget, openAnalysisTarget } from "./_jobs";
+import { analysisRows, closeAnalysisTarget, closeOptEditor, openAnalysisTarget, openOptEditor, optRows, setOptCell } from "./_jobs";
 
 /**
  * `pages/_shared/roi` — one idiom per idea, and rows/options that can be addressed (fix round,
@@ -37,8 +36,10 @@ function field(label: string, root: Page | Locator = page): Locator {
   return root.locator(".field", { hasText: label }).first();
 }
 
+/** Since the Optimizer's 2026-09-06 jobs rework the method is a cell of a job ROW, and the picker
+ *  lives in that row's editor — the same move the Analyzer's target made. */
 async function pickMethod(name: "Flex" | "Ex" | "mEx"): Promise<void> {
-  await page.getByRole("radiogroup", { name: "Method" }).getByRole("radio", { name, exact: true }).click();
+  await setOptCell(page, optRows(page).first(), "method", name);
 }
 
 test.beforeAll(async () => {
@@ -67,8 +68,12 @@ test("defect 1: the ROI type is the same control on the Optimizer and the Analyz
   await gotoPage(page, "optimizer", "Optimizer");
   await expectPage(page, "optimizer");
   await pickMethod("Flex");
+  // The page itself holds no picker at all any more — it is a property of a search, and a search
+  // is a row.
+  await expect(page.getByTestId("page-work").locator(".roi-picker")).toHaveCount(0);
 
-  const picker = page.getByTestId("page-work").locator(".roi-picker");
+  let dialog = await openOptEditor(page, optRows(page).first());
+  const picker = dialog.locator(".roi-picker");
   await expect(picker).toHaveCount(1);
   // The one idiom: a segmented control. Not "a segmented control exists somewhere" — the picker
   // must hold no `RadioGroup` at all, which is what the mixed state looked like.
@@ -84,12 +89,16 @@ test("defect 1: the ROI type is the same control on the Optimizer and the Analyz
   await expect(field("Space", picker).locator(".segmented")).toHaveCount(1);
 
   // Ex/mEx's saved-ROI mode: the fourth option of the same control, same idiom.
+  await closeOptEditor(page);
   await pickMethod("Ex");
-  await expect(picker.locator(".segmented").first().getByRole("radio")).toHaveText([
+  dialog = await openOptEditor(page, optRows(page).first());
+  const exPicker = dialog.locator(".roi-picker");
+  await expect(exPicker.locator(".segmented").first().getByRole("radio")).toHaveText([
     "Saved",
     "Subcortical",
   ]);
-  await expect(picker.locator(".radio-group, .radio-group-cards")).toHaveCount(0);
+  await expect(exPicker.locator(".radio-group, .radio-group-cards")).toHaveCount(0);
+  await closeOptEditor(page);
 
   /*
    * The Analyzer since 2026-09-06: the target is a cell of a job ROW, opened in a dialog holding
@@ -118,42 +127,42 @@ test("defect 2a: a saved-ROI row is not a subject row", async () => {
   await expectPage(page, "optimizer");
   await pickMethod("Ex");
 
-  // With the Subjects disclosure closed there is no subject row on this page at all. Before the
-  // fix this read 3 — the saved-ROI rows, wearing the subject row's class.
-  await closeSubjects(page);
-  console.log(
-    `FIXD-ROWS subject-picker-row=${await page.locator(".subject-picker-row").count()} ` +
-      `roi-saved-row=${await page.locator(".roi-saved-row").count()} (subjects closed)`,
-  );
-  // The saved ROIs the fixture gives ernie (tests/fixtures/rois_seed.json).
-  await expect(page.getByTestId("page-work").locator(".roi-saved-row")).toHaveCount(3);
-  // Scoped to the ACTIVE page: retained hidden panels keep their own SubjectsField mounted, and
-  // since R3 every one of them opens by default, so a bare document-wide count also sees rows
-  // belonging to a page the user is not on.
+  // The Optimizer has no page-level subject control at all since the jobs rework, so the page-wide
+  // count is the whole assertion: before the fix it read 3 — the saved-ROI rows, wearing the
+  // subject row's class. Scoped to the ACTIVE page, because retained hidden panels keep their own
+  // SubjectsField mounted.
+  await expect(page.locator('[data-page-active="true"]').getByTestId("subjects-field")).toHaveCount(0);
   await expect(page.locator('[data-page-active="true"]').locator(".subject-picker-row")).toHaveCount(0);
 
-  // Open it, and the page-wide locator agrees with the field-scoped one: one row per subject,
-  // nothing else — no saved-ROI row wearing the subject row's class.
-  await openSubjects(page);
-  await expect(page.locator('[data-page-active="true"]').locator(".subject-picker-row")).toHaveCount(3);
-  await expect(subjectRows(page)).toHaveCount(3);
-  await closeSubjects(page);
+  // The saved ROIs the fixture gives ernie (tests/fixtures/rois_seed.json) live in the row's editor.
+  const dialog = await openOptEditor(page, optRows(page).first());
+  await expect(dialog.locator(".roi-saved-row")).toHaveCount(3);
+  console.log(
+    `FIXD-ROWS subject-picker-row=${await page.locator(".subject-picker-row").count()} ` +
+      `roi-saved-row=${await page.locator(".roi-saved-row").count()} (row editor open)`,
+  );
+  // The row's own Subject picker IS a subject list — and it is the only one, opened deliberately.
+  await closeOptEditor(page);
+  await optRows(page).first().locator('td[data-cell="subject"]').getByRole("combobox").click();
+  await expect(page.getByRole("dialog").locator(".subject-picker-row, [role='option']").first()).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Done", exact: true }).click();
 });
 
 test("defect 2b: every region option can be found by its accessible name", async () => {
   await gotoPage(page, "optimizer", "Optimizer");
   await expectPage(page, "optimizer");
   await pickMethod("Flex");
-  await page.getByTestId("page-work").getByRole("radio", { name: "Cortical", exact: true }).click();
+  const editor = await openOptEditor(page, optRows(page).first());
+  await editor.getByRole("radio", { name: "Cortical", exact: true }).click();
 
-  await field("Atlas").getByRole("button").click();
+  await field("Atlas", editor).getByRole("button").click();
   await page.getByPlaceholder("Search atlases…").fill("DK40");
   // The mock names it "Desikan-Killiany (DK40)", the real server just "DK40".
   await page.getByRole("option", { name: /DK40/i }).first().click();
 
   // The whole list, unfiltered — SCC's case was 140 options, not a list narrowed to one by a
   // search term, and the workaround it had to write was a `/^L/` regex on the label.
-  await field("Region(s)").getByRole("combobox").click();
+  await field("Region(s)", editor).getByRole("combobox").click();
   if (process.env.FIXD_DIAG === "1") {
     const dump = await page.$$eval('[role="option"]', (els) =>
       els.slice(0, 6).map((el) => ({
@@ -185,17 +194,18 @@ test("defect 2b: every region option can be found by its accessible name", async
   // The closed control states the selection in words — `ui/SelectionList`'s trigger, which answers
   // "what did I pick?" without being opened (the chip row it replaced truncated at two). One
   // region reads as its own name.
-  await expect(field("Region(s)").getByRole("combobox")).toHaveText("L · bankssts");
+  await expect(field("Region(s)", editor).getByRole("combobox")).toHaveText("L · bankssts");
 
   // More than one, and the COUNT comes first (maintainer, 2026-09-06) — "how many" is the question
   // a closed control is actually asked, and the old trailing `+N more` answered it last and was
   // the first thing an ellipsis ate.
-  await field("Region(s)").getByRole("combobox").click();
+  await field("Region(s)", editor).getByRole("combobox").click();
   // ⌘-click ADDS, per the one selection grammar (`selection.spec.ts`); a plain click replaces.
   await page.locator('[role="option"][data-option-value="rh:1"]').click({ modifiers: ["Meta"] });
   await page.locator('[role="option"][data-option-value="lh:2"]').click({ modifiers: ["Meta"] });
   await page.getByTestId("roi-region-done").click();
-  await expect(field("Region(s)").getByRole("combobox")).toHaveText(/^3 regions · L · bankssts, R · bankssts…$/);
+  await expect(field("Region(s)", editor).getByRole("combobox")).toHaveText(/^3 regions · L · bankssts, R · bankssts…$/);
   // The full list is still one hover away.
-  await expect(field("Region(s)").getByRole("combobox")).toHaveAttribute("title", /bankssts/);
+  await expect(field("Region(s)", editor).getByRole("combobox")).toHaveAttribute("title", /bankssts/);
+  await closeOptEditor(page);
 });

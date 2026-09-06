@@ -101,3 +101,237 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* ------------------------------------------------------------------------------------------------
+ * The Jobs table (lane OJ, 2026-09-06).
+ *
+ * Same grammar as the Simulator's `sim-jobs-table` and the Analyzer's `analysis-jobs-table`: a
+ * two-line entry per job, fixed geometry from a `<colgroup>` plus `table-layout: fixed`, resizable
+ * header boundaries, and an active-row wash that covers both lines. The entry is **63 px** — the
+ * Analyzer's measured height, so a user moving between the three run pages meets one rhythm.
+ * --------------------------------------------------------------------------------------------- */
+
+.opt-jobs-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.opt-jobs-table th,
+.opt-jobs-table tr.opt-job-line1 > td {
+  overflow: hidden;
+}
+
+/* 34 + 29 = 63px per job, whatever is inside it: a row switching from Flex to mEx changes what its
+   cells hold and moves nothing. */
+.opt-jobs-table tr.opt-job-line1 {
+  height: 34px;
+}
+.opt-jobs-table tr.opt-job-line2 {
+  height: 29px; /* a floor: a very long target wraps to two lines rather than clipping */
+}
+
+.opt-jobs-table tbody td {
+  vertical-align: middle;
+  height: auto;
+}
+
+/* One hairline per JOB — under line 2, never between the two lines of one job. */
+.opt-jobs-table tbody.opt-job-group td {
+  border-bottom: none;
+  border-left: none;
+}
+.opt-jobs-table tr.opt-job-line1 > td {
+  padding: 5px 4px 1px;
+}
+.opt-jobs-table tr.opt-job-line2 > td {
+  /* 4px, not 5: line 1 measures 34px (6px of padding around a 28px control) and the entry is 63px,
+     so line 2 gets 29 — the Analyzer's own measured entry height, to the pixel. */
+  padding: 0 4px 4px;
+  border-bottom: 1px solid var(--line);
+  border-top: none;
+}
+.opt-jobs-table th {
+  padding: 0 4px;
+  position: relative;
+}
+
+/* The actions cell spans both lines; its buttons stay on line 1. Icon-only, 28px, right-aligned —
+   three of them plus their gaps are exactly the 96px OPT_ACTIONS_W reserves. */
+/* The cell spans both lines and stays a table cell, so it paints the whole 63px; the buttons are a
+   flex row inside it, sitting on line 1. `display: flex` on the cell ITSELF makes the browser drop
+   the `rowSpan`, which leaves the other 29px unpainted — a white notch at the right of every
+   active row. Icon-only, 28px, right-aligned: three of them plus their gaps are exactly the 96px
+   `OPT_ACTIONS_W` reserves, and there is no slack column after them. */
+.opt-jobs-table td.opt-actions {
+  vertical-align: top;
+}
+.opt-actions-row {
+  display: flex;
+  height: 28px;
+  gap: 2px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+/* Compact triggers, for the same measured reason the Simulator's table has them: the default
+   select spends 40px per control on padding, gap and chevron, which at the ~608px this table gets
+   is the difference between `EEG10-10_UI_Jurak_2007` and `EEG10-10_UI_Jur…`. */
+.opt-jobs-table .select-trigger,
+.opt-jobs-table .combobox-trigger,
+.opt-jobs-table .selection-trigger {
+  padding: 0 4px;
+  gap: 2px;
+  max-width: none;
+}
+.opt-jobs-table .picker-value {
+  flex: 1 1 auto;
+}
+.opt-jobs-table td > * {
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+/* Ex/mEx have no goal to choose; the cell says so rather than holding a dead control. */
+.opt-goal-na {
+  color: var(--ink-3);
+  padding-left: 4px;
+}
+
+/* The active row's wash covers both lines — one job, one highlight. Set on the CELLS: `.data-table
+   tbody td` paints every cell `--surface`, which would paint straight over a row background. */
+.opt-jobs-table tbody[data-active="true"] > tr > td {
+  background-color: var(--accent-soft);
+}
+.opt-jobs-table tbody[data-active="true"] > tr > td:first-child {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.opt-jobs-table tbody.opt-job-group:hover > tr > td {
+  background-color: color-mix(in srgb, var(--accent-soft) 40%, var(--surface));
+}
+.opt-jobs-table tbody[data-active="true"]:hover > tr > td {
+  background-color: var(--accent-soft);
+}
+
+/* ---------- Resizable columns ---------- */
+
+/* 8px of target on a 1px rule — grabbable without drawing a second line down the header. */
+.opt-col-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 8px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: col-resize;
+  z-index: 2;
+  touch-action: none;
+}
+.opt-col-handle::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  right: 0;
+  width: 1px;
+  background: var(--line);
+}
+.opt-col-handle:hover::after,
+.opt-col-handle:focus-visible::after {
+  background: var(--accent);
+  top: 0;
+  bottom: 0;
+  width: 2px;
+}
+
+/* ---------- Line 2: the target and the search, in words ---------- */
+
+.opt-target-button {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  padding: 2px var(--space-2) 2px 0;
+  border: none;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-control);
+}
+.opt-target-button:hover .opt-target-text {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.opt-target-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.opt-target-caption {
+  flex: none;
+  width: 44px;
+  color: var(--ink-3);
+}
+.opt-target-button[data-empty="true"] .opt-target-text {
+  color: var(--ink-3);
+  font-style: italic;
+}
+/* One line, ellipsed, with the whole sentence in the button's `title` — and the row editor one
+   click away. The Analyzer clamps its target line to two, but this line carries the target AND the
+   search summary, and a line that can grow would break the entry's fixed 63px: a table where a
+   longer target makes a row taller is the movement the fixed-geometry rule exists to forbid. */
+.opt-target-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- The row editor ---------- */
+
+/* Wider than the shared 480px default: this dialog holds whole form sections whose label column is
+   128px and whose electrode buckets are a two-up grid. `:has` scopes it without a className prop
+   on the shared `Dialog`. */
+.dialog-content:has(.optimizer-row-editor) {
+  width: min(760px, calc(100vw - 32px));
+}
+
+.optimizer-row-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* The sections inside the dialog keep their own two-up grid: the dialog is 760px, which is past
+   the 700px threshold `.page-optimizer` sets for honest two-up columns. */
+.optimizer-row-editor .form-grid {
+  --field-label-w: 128px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.optimizer-row-editor .optimizer-span {
+  grid-column: 1 / -1;
+}
+
+.optimizer-row-target {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.optimizer-row-target > h4 {
+  margin: 0;
+  color: var(--ink-3);
+}
+/* The mode control spans the dialog, so the modes are one full-width row rather than buttons
+   floating at the left — the Analyzer's target dialog, same shape. */
+.optimizer-row-target .roi-picker > .segmented {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  width: 100%;
+}

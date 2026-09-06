@@ -194,3 +194,64 @@ export async function setAnalysisSphere(
 export function analysisTargetText(row: Locator): Locator {
   return cell(row, "target").locator(".analysis-target-text");
 }
+
+/* ---------------------------------------------------------------- Optimizer */
+
+/**
+ * The Optimizer's Jobs table rows (lane OJ, 2026-09-06). One search is one `<tbody>` of two
+ * `<tr>`s — line 1 `Subject · Method · Net/leadfield · Goal`, line 2 the target and the search
+ * summary — so the row a spec addresses is the group, and `td[data-cell=…]` reaches either line.
+ */
+export function optRows(page: Page): Locator {
+  return page.locator("tbody[data-opt-row]");
+}
+
+export async function setOptSubject(page: Page, row: Locator, subject: string): Promise<void> {
+  await cell(row, "subject").getByRole("combobox").click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("option", { name: subject, exact: true }).click();
+  await dialog.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(row).toHaveAttribute("data-subject", subject);
+}
+
+/** Sets a cell of line 1: the method, the net/leadfield, or the goal. */
+export async function setOptCell(page: Page, row: Locator, name: "method" | "net" | "goal", option: string): Promise<void> {
+  await cell(row, name).getByRole("combobox").click();
+  await page.getByRole("option", { name: option, exact: true }).click();
+}
+
+/** Opens the row's editor — the per-method dialog holding the target picker and the form
+ *  sections, scoped to that row. Returns the dialog. */
+export async function openOptEditor(page: Page, row: Locator): Promise<Locator> {
+  await cell(row, "target").getByRole("button").click();
+  const dialog = page.getByRole("dialog").filter({ has: page.getByTestId("opt-row-editor") });
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+export async function closeOptEditor(page: Page): Promise<void> {
+  await page.getByTestId("opt-row-done").click();
+  await expect(page.getByTestId("opt-row-editor")).toHaveCount(0);
+}
+
+/** The row's line 2, as it reads with the editor closed. */
+export function optRowSummary(row: Locator): Locator {
+  return cell(row, "target").locator(".opt-target-text");
+}
+
+/** Adds a fresh row. The editor opens with it (a new job's first act is configuring it), so this
+ *  closes it again and hands back the row. */
+export async function addOptRow(page: Page): Promise<Locator> {
+  const before = await optRows(page).count();
+  await page.getByRole("button", { name: "Add job", exact: true }).click();
+  await expect(optRows(page)).toHaveCount(before + 1);
+  await closeOptEditor(page);
+  return optRows(page).nth(before);
+}
+
+/** Empties the table, so a spec's job counts are exact rather than additive. */
+export async function clearOptRows(page: Page): Promise<void> {
+  const remove = page.getByRole("button", { name: /^Remove job / });
+  for (let i = (await remove.count()) - 1; i >= 0; i--) await remove.first().click();
+  await expect(optRows(page)).toHaveCount(0);
+}

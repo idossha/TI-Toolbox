@@ -86,20 +86,21 @@ function fastSimConfig(subject: string) {
 // -------------------------------------------------------------------------------------------
 
 /*
- * 2026-09-06 jobs rework: the Simulator and the Analyzer no longer take a page-level subject SET —
+ * 2026-09-06 jobs rework: the Simulator, the Analyzer and the Optimizer no longer take a
+ * page-level subject SET —
  * a row of their Jobs table owns its own subject (maintainer: "within a job users could manipulate
  * the subject, the mode, the montage"). They are asserted below as jobs tables instead; what is
  * left here is the pages whose whole job IS a batch over subjects.
  */
-const SUBJECT_TAKING: { id: string; nav: string }[] = [
-  { id: "preprocess", nav: "Pre-processing" },
-  { id: "optimizer", nav: "Optimizer" },
-];
+const SUBJECT_TAKING: { id: string; nav: string }[] = [{ id: "preprocess", nav: "Pre-processing" }];
 
-/** The two pages where the subject is a cell of a job row, not a page-level tick list. */
+/** The three pages where the subject is a cell of a job row, not a page-level tick list. The
+ *  Optimizer joined them on 2026-09-06 (lane OJ): a search's subject, method, leadfield, goal and
+ *  target are all per job, so a page-level subject set had nothing left to decide. */
 const JOB_TABLE_PAGES: { id: string; nav: string; table: string; row: string }[] = [
   { id: "simulator", nav: "Simulator", table: "sim-jobs-table", row: "tr[data-job-row]" },
   { id: "analyzer", nav: "Analyzer", table: "analysis-jobs-table", row: "tbody[data-analysis-row]" },
+  { id: "optimizer", nav: "Optimizer", table: "opt-jobs-table", row: "tbody[data-opt-row]" },
 ];
 
 for (const workflow of SUBJECT_TAKING) {

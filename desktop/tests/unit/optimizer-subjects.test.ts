@@ -1,20 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { atlasTarget, defaultExFormState, defaultMExFormState, exSubmissions, savedTargets } from "../../src/renderer/pages/optimizer/exConfig";
-import { defaultFlexFormState, flexSubmissions } from "../../src/renderer/pages/optimizer/flexConfig";
-import type { RoiConfig } from "../../src/renderer/pages/_shared/roi";
+import { jobsForRow, rowFormReason } from "../../src/renderer/pages/optimizer/plan";
+import { emptyOptimizerRow, type OptimizerRow } from "../../src/renderer/pages/optimizer/rows";
+import type { AtlasLookup, RoiValue } from "../../src/renderer/pages/_shared/roi";
 import type { ExConfigBody, MExConfigBody } from "../../src/renderer/pages/optimizer/api";
 
 /**
- * U16 for the Optimizer: the page owns its subject set, so a run for N subjects has to expand into
- * N (or N × targets) submissions that each carry **that subject's own** paths. U11 removed the
- * shell's batch control, which left `useSubject().batch` with no writer and this page able to run
- * one subject only; these are the derivations the page's Run button drives.
+ * The Optimizer's Run button, from a jobs-table row to the wire (lane OJ, 2026-09-06).
  *
- * The trap these tests exist for: every per-subject path in an optimizer config points into that
- * subject's derivatives — `leadfield_hdf` at `sub-<id>/leadfields/`, an atlas target's
- * `atlas_path` at `derivatives/freesurfer/sub-<id>/mri/`. Resolving either once (for the primary
- * subject) and reusing it across the batch produces jobs that silently optimise every subject
- * against the first subject's anatomy.
+ * The trap these tests exist for is U16's, now per row rather than per page: every per-subject path
+ * in an optimizer config points into that subject's own derivatives — `leadfield_hdf` at
+ * `sub-<id>/leadfields/`, an atlas target's `atlas_path` at `derivatives/freesurfer/sub-<id>/`.
+ * Resolving either once and reusing it across the table produces jobs that silently optimise every
+ * subject against the first row's anatomy. Since the rework a row names its OWN subject, so the
+ * defect is one row away rather than one batch away, and `jobsForRow` takes both facts through
+ * `resolve` for exactly that reason.
  */
 const leadfields: Record<string, string | null> = {
   ernie: "/mnt/000/derivatives/SimNIBS/sub-ernie/leadfields/ernie_leadfield_EEG10-10_UI_Jurak_2007.hdf5",
@@ -22,117 +21,150 @@ const leadfields: Record<string, string | null> = {
   MNI152: null,
 };
 const atlasPath = (subject: string) => `/mnt/000/derivatives/freesurfer/sub-${subject}/mri/aparc.DKTatlas+aseg.mgz`;
+const corticalPath = (subject: string) => `/mnt/000/derivatives/freesurfer/sub-${subject}/label/lh.DK40.annot`;
 
-const exForm = { ...defaultExFormState(), buckets: { e1_plus: ["Fp1"], e1_minus: ["Fp2"], e2_plus: ["F3"], e2_minus: ["F4"] } };
-const mexForm = {
-  ...defaultMExFormState(),
-  buckets: {
-    e1_plus: ["Fp1"], e1_minus: ["Fp2"], e2_plus: ["F3"], e2_minus: ["F4"],
-    e3_plus: ["C3"], e3_minus: ["C4"], e4_plus: ["P3"], e4_minus: ["P4"],
-  },
+/** The resolvers the page hands `jobsForRow`, answering per subject as the real ones do. */
+const resolve = {
+  atlas: (subject: string, roi: RoiValue) => (): AtlasLookup | undefined =>
+    roi.mode === "cortical" ? { path: corticalPath(subject) } : { path: atlasPath(subject) },
+  leadfield: (subject: string) => leadfields[subject] ?? null,
 };
 
-describe("exSubmissions — one Ex/mEx job per (subject × target)", () => {
-  it("carries every selected subject's id, and each subject's own leadfield", () => {
-    const runs = exSubmissions(
-      "ex",
-      ["ernie", "101"],
-      (s) => ({ leadfieldHdf: leadfields[s] ?? null, targets: savedTargets(["L_Insula_MNI.csv"], false) }),
-      { ex: exForm, mex: mexForm },
-      "smoke-ui-ex",
-    );
-    expect(runs.map((r) => r.subject)).toEqual(["ernie", "101"]);
-    expect(runs.map((r) => (r.config as ExConfigBody).subject_id)).toEqual(["ernie", "101"]);
-    expect(runs.map((r) => (r.config as ExConfigBody).leadfield_hdf)).toEqual([leadfields.ernie, leadfields["101"]]);
-    // The run name is the user's and is shared: the outputs are per subject
-    // (`derivatives/SimNIBS/sub-<id>/ex-search/<run>`), so they cannot collide.
-    expect(new Set(runs.map((r) => (r.config as ExConfigBody).run_name))).toEqual(new Set(["smoke-ui-ex"]));
+const EX_BUCKETS = { e1_plus: ["Fp1"], e1_minus: ["Fp2"], e2_plus: ["F3"], e2_minus: ["F4"] };
+const MEX_BUCKETS = {
+  ...EX_BUCKETS,
+  e3_plus: ["C3"], e3_minus: ["C4"], e4_plus: ["P3"], e4_minus: ["P4"],
+};
+
+function flexRow(subject: string, extra: Partial<OptimizerRow> = {}): OptimizerRow {
+  return {
+    ...emptyOptimizerRow({ subjectId: subject, method: "flex" }),
+    roi: { mode: "cortical", atlas: "DK40", regions: [{ id: 1, name: "bankssts", hemi: "lh" }] },
+    ...extra,
+  };
+}
+
+function savedRoi(names: string[], combine = false): RoiValue {
+  return { mode: "saved", selected: names, combine, radius: 3.0, space: "subject" };
+}
+
+function exRow(subject: string, roi: RoiValue, method: "ex" | "mex" = "ex"): OptimizerRow {
+  const row = emptyOptimizerRow({ subjectId: subject, method });
+  return {
+    ...row,
+    roi,
+    net: "EEG10-10_UI_Jurak_2007",
+    ex: { ...row.ex, buckets: EX_BUCKETS },
+    mex: { ...row.mex, buckets: MEX_BUCKETS },
+  };
+}
+
+describe("jobsForRow — one row, its own subject's paths", () => {
+  it("gives a Flex row one job carrying its subject's own resolved ROI path", () => {
+    const jobs = ["ernie", "101"].flatMap((s) => jobsForRow(flexRow(s), resolve));
+    expect(jobs.map((j) => j.subject)).toEqual(["ernie", "101"]);
+    expect(jobs.map((j) => j.kind)).toEqual(["flex", "flex"]);
+    expect(jobs.map((j) => j.stage)).toEqual(["flex", "flex"]);
+    expect(jobs.map((j) => (j.config as { subject_id: string }).subject_id)).toEqual(["ernie", "101"]);
+    expect(jobs.map((j) => (j.config as { roi: { atlas_path: string[] } }).roi.atlas_path[0])).toEqual([
+      corticalPath("ernie"),
+      corticalPath("101"),
+    ]);
   });
 
-  it("resolves a subcortical target's atlas_path per subject, never the primary's for all", () => {
-    const runs = exSubmissions(
-      "ex",
-      ["ernie", "101"],
-      (s) => ({
-        leadfieldHdf: leadfields[s] ?? null,
-        targets: [atlasTarget("aparc.DKTatlas+aseg.mgz", atlasPath(s), [17])],
-      }),
-      { ex: exForm, mex: mexForm },
-      "",
-    );
-    expect(runs.map((r) => (r.config as ExConfigBody).roi_atlas?.[0]?.atlas_path)).toEqual([atlasPath("ernie"), atlasPath("101")]);
-    // The target's *name* is subject-independent — which is why the plan grid can use one column
-    // per target across every subject row.
-    expect(new Set(runs.map((r) => (r.config as ExConfigBody).roi_name))).toEqual(new Set(["aparc.DKTatlas+aseg.mgz_1region"]));
+  it("submits the adaptive and Pareto methods as their own job kinds", () => {
+    expect(jobsForRow(flexRow("ernie", { method: "flex_adaptive" }), resolve)[0]?.kind).toBe("flex_adaptive");
+    expect(jobsForRow(flexRow("ernie", { method: "flex_pareto" }), resolve)[0]?.kind).toBe("flex_pareto");
+    // Choosing the method IS choosing focality with that mode — the config cannot disagree.
+    const config = jobsForRow(flexRow("ernie", { method: "flex_adaptive" }), resolve)[0]?.config as { goal: string; adaptive: unknown };
+    expect(config.goal).toBe("focality");
+    expect(config.adaptive).toBeDefined();
   });
 
-  it("multiplies subjects by targets, in subject-major order", () => {
-    const runs = exSubmissions(
-      "ex",
-      ["ernie", "101"],
-      (s) => ({ leadfieldHdf: leadfields[s] ?? null, targets: savedTargets(["A.csv", "B.csv"], false) }),
-      { ex: exForm, mex: mexForm },
-      "",
-    );
-    expect(runs.map((r) => `${r.subject}:${(r.config as ExConfigBody).roi_name}`)).toEqual([
+  it("carries the row's run name into the flex output folder", () => {
+    const job = jobsForRow(flexRow("ernie", { runName: " smoke-ui-flex " }), resolve)[0];
+    expect((job?.config as { output_folder: string }).output_folder).toBe("smoke-ui-flex");
+  });
+
+  it("gives an Ex row one job per uncombined target, with that subject's leadfield", () => {
+    const jobs = ["ernie", "101"].flatMap((s) => jobsForRow(exRow(s, savedRoi(["A.csv", "B.csv"])), resolve));
+    expect(jobs.map((j) => `${j.subject}:${(j.config as ExConfigBody).roi_name}`)).toEqual([
       "ernie:A.csv",
       "ernie:B.csv",
       "101:A.csv",
       "101:B.csv",
     ]);
-  });
-
-  it("skips a subject with no leadfield rather than submitting it with another subject's matrix", () => {
-    const runs = exSubmissions(
-      "ex",
-      ["ernie", "MNI152"],
-      (s) => ({ leadfieldHdf: leadfields[s] ?? null, targets: savedTargets(["L_Insula_MNI.csv"], false) }),
-      { ex: exForm, mex: mexForm },
-      "",
-    );
-    expect(runs.map((r) => r.subject)).toEqual(["ernie"]);
-  });
-
-  it("builds mEx configs (eight buckets) for every subject when the method is mex", () => {
-    const runs = exSubmissions(
-      "mex",
-      ["ernie", "101"],
-      (s) => ({ leadfieldHdf: leadfields[s] ?? null, targets: savedTargets(["L_Insula_MNI.csv"], false) }),
-      { ex: exForm, mex: mexForm },
-      "smoke-ui-mex",
-    );
-    expect(runs).toHaveLength(2);
-    for (const run of runs) {
-      const config = run.config as MExConfigBody;
-      expect((config.electrodes as { e4_minus: string[] }).e4_minus).toEqual(["P4"]);
-      expect(config.subject_id).toBe(run.subject);
-    }
-  });
-});
-
-describe("flexSubmissions — one flex job per subject", () => {
-  const roiFor = (subject: string): RoiConfig => ({
-    _type: "AtlasROI",
-    atlas_path: [`/mnt/000/derivatives/freesurfer/sub-${subject}/label/lh.aparc.annot`],
-    label: [1],
-    hemisphere: ["lh"],
-  });
-
-  it("carries each subject's id and its own resolved ROI paths", () => {
-    const runs = flexSubmissions(["ernie", "101"], defaultFlexFormState(), (s) => ({ roi: roiFor(s), nonRoi: undefined }));
-    expect(runs.map((r) => r.subject)).toEqual(["ernie", "101"]);
-    expect(runs.map((r) => r.config.subject_id)).toEqual(["ernie", "101"]);
-    expect(runs.map((r) => (r.config.roi as RoiConfig & { atlas_path: string[] }).atlas_path[0])).toEqual([
-      "/mnt/000/derivatives/freesurfer/sub-ernie/label/lh.aparc.annot",
-      "/mnt/000/derivatives/freesurfer/sub-101/label/lh.aparc.annot",
+    expect(jobs.map((j) => (j.config as ExConfigBody).leadfield_hdf)).toEqual([
+      leadfields.ernie,
+      leadfields.ernie,
+      leadfields["101"],
+      leadfields["101"],
     ]);
   });
 
-  it("skips a subject whose ROI has not resolved yet", () => {
-    const runs = flexSubmissions(["ernie", "101"], defaultFlexFormState(), (s) => ({
-      roi: s === "ernie" ? roiFor(s) : undefined,
-      nonRoi: undefined,
-    }));
-    expect(runs.map((r) => r.subject)).toEqual(["ernie"]);
+  it("combines saved ROIs into one target when the row asks for it", () => {
+    const jobs = jobsForRow(exRow("ernie", savedRoi(["A.csv", "B.csv"], true)), resolve);
+    expect(jobs).toHaveLength(1);
+    expect((jobs[0]!.config as ExConfigBody).roi_names).toEqual(["A.csv", "B.csv"]);
+  });
+
+  it("resolves a subcortical target's atlas_path per subject, never one subject's for all", () => {
+    const roi: RoiValue = {
+      mode: "subcortical",
+      atlasSpace: "subject",
+      atlas: "aparc.DKTatlas+aseg.mgz",
+      regions: [{ id: 17, name: "Left-Hippocampus" }],
+      tissues: "GM",
+    };
+    const jobs = ["ernie", "101"].flatMap((s) => jobsForRow(exRow(s, roi), resolve));
+    expect(jobs.map((j) => (j.config as ExConfigBody).roi_atlas?.[0]?.atlas_path)).toEqual([atlasPath("ernie"), atlasPath("101")]);
+    // The target's *name* is subject-independent, which is why one plan column serves every row.
+    expect(new Set(jobs.map((j) => (j.config as ExConfigBody).roi_name))).toEqual(new Set(["aparc.DKTatlas+aseg.mgz_1region"]));
+  });
+
+  it("yields nothing for a subject with no leadfield rather than another subject's matrix", () => {
+    expect(jobsForRow(exRow("MNI152", savedRoi(["A.csv"])), resolve)).toEqual([]);
+  });
+
+  it("builds an mEx config with all eight buckets", () => {
+    const job = jobsForRow(exRow("ernie", savedRoi(["A.csv"]), "mex"), resolve)[0];
+    expect(job?.kind).toBe("mex");
+    expect((job?.config as MExConfigBody).electrodes).toMatchObject({ e4_minus: ["P4"] });
+    expect((job?.config as MExConfigBody).subject_id).toBe("ernie");
+  });
+
+  it("yields nothing for a row with no subject, or an unresolved target", () => {
+    expect(jobsForRow(emptyOptimizerRow(), resolve)).toEqual([]);
+    expect(jobsForRow(emptyOptimizerRow({ subjectId: "ernie" }), resolve)).toEqual([]);
+  });
+});
+
+describe("rowFormReason — the per-row half of the disabled-Run sentence", () => {
+  it("names an empty Ex bucket, and is silent once every bucket is filled", () => {
+    const empty = emptyOptimizerRow({ subjectId: "ernie", method: "ex" });
+    expect(rowFormReason(empty)).toBe("Fill in every electrode bucket.");
+    expect(rowFormReason(exRow("ernie", savedRoi(["A.csv"])))).toBeNull();
+  });
+
+  it("names all eight buckets for mEx", () => {
+    expect(rowFormReason(emptyOptimizerRow({ subjectId: "ernie", method: "mex" }))).toBe("Fill in all eight electrode buckets.");
+    expect(rowFormReason(exRow("ernie", savedRoi(["A.csv"]), "mex"))).toBeNull();
+  });
+
+  it("asks for a threshold only when focality is in manual mode", () => {
+    const row = flexRow("ernie");
+    expect(rowFormReason({ ...row, flex: { ...row.flex, goal: "focality", focalityMode: "manual" } })).toBe(
+      "Enter at least one E-field threshold.",
+    );
+    // Adaptive/Pareto derive their thresholds; the manual field is not theirs to fill.
+    expect(rowFormReason({ ...row, method: "flex_adaptive" })).toBeNull();
+    expect(rowFormReason({ ...row, method: "flex_pareto" })).toBeNull();
+  });
+
+  it("asks for the net a mapped-electrode simulation needs", () => {
+    const row = flexRow("ernie");
+    expect(rowFormReason({ ...row, flex: { ...row.flex, enableMapping: true, eegNet: undefined } })).toBe(
+      "Select an EEG net for the mapped-electrode simulation.",
+    );
   });
 });

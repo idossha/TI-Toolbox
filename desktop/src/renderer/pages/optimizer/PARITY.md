@@ -141,3 +141,28 @@ pane is the shared `RunPanel` (lane B2) with `kind` following the segment and
 5. **Anisotropy type**: Qt offers `scalar`/`vn`/`dir`/`mc`; `FlexConfig`'s docstring documents only
    the first two. Still built with two.
 6. **`disable_mapping_simulation`** — schema field, hardcoded `false`, as in Qt.
+
+## 2026-09-06 — the jobs table (lane OJ)
+
+Every control below is still accounted for; what changed is **where** it lives. The page had one
+global copy of each; a search now owns its own, because one row of the Jobs table is one search
+(DESIGN.md §4.7). Concretely:
+
+* Method, run name, target (and focality's avoid ROI), Objective, Electrodes, Solver, After the
+  search, Current, Carriers, and the leadfield strip → the **row editor**, a dialog per method,
+  built from the same `FlexSections` / `ExSections` components.
+* Subject → the row's own `SelectionPicker` cell. The page-level `SubjectsField` is gone.
+* `Flex adaptive` and `Flex Pareto` were promoted from a mode inside the focality form to their own
+  **methods**, matching the job kinds they always submitted as (`flex_adaptive`, `flex_pareto`).
+
+This does not lose 2.5.0 parity: 2.5.0's "Global Parameters" box was per *tab*, which is per
+method, which is per row.
+
+### Open contract item — one group per kind
+
+`POST /api/jobs/groups` carries a single `kind` (`tit/jobs/plans.py::GROUP_KINDS`), so a table
+mixing Flex and Ex rows is submitted as **one group per kind** rather than one group. Everything
+else about the submission is unchanged (one `subject_configs` entry per job, each carrying its own
+subject id, which the server then forces). A `JobGroupRequest` that admitted mixed kinds — or a
+group-of-groups — would make one Run click one request again; until then the page states what it
+did ("Queued 3 searches in 2 groups (ex, flex)") instead of implying an atomic batch.

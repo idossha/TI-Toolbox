@@ -72,7 +72,16 @@ const DEAD_SPACE_MAX = 0.45;
  * Measured 51.2 % at 1280x800 with one row; it falls back towards the global limit as rows are
  * added, which is the state a user actually runs in.
  */
-const DEAD_SPACE_BY_PAGE: Record<string, number> = { preprocess: 0.62, analyzer: 0.55 };
+/**
+ * The Optimizer's allowance, same rule again. The 2026-09-06 jobs-table pass (lane OJ) removed
+ * FOUR global sections from this page — TARGET, OBJECTIVE/ELECTRODES, SOLVER and the page-level
+ * Subjects table — because every one of them is a property of a *search*, and a search is now a
+ * row whose editor is a dialog. What is left in the work column is one Jobs table, so the room
+ * below it is pane, not filler: exactly Pre-processing's and the Analyzer's case. Measured 53.6 %
+ * at 1280x800 with one row; it falls back towards the global limit as rows are added, which is the
+ * state a user actually runs in.
+ */
+const DEAD_SPACE_BY_PAGE: Record<string, number> = { preprocess: 0.62, analyzer: 0.55, optimizer: 0.58 };
 
 const SUBJECT = "ernie";
 

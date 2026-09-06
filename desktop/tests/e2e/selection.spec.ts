@@ -76,15 +76,13 @@ async function selectOnlyErnie(): Promise<void> {
 }
 
 /*
- * 2026-09-06 jobs rework: the Simulator and the Analyzer have no page-level subject control — the
+ * 2026-09-06 jobs rework: the Simulator, the Analyzer and the Optimizer have no page-level subject
+ * control — the
  * subject is a cell of a job row, picked with the same `SelectionPicker` grammar (asserted in
  * `batch.spec.ts` and in each page's own spec). What is left here is the pages whose whole job IS
  * a batch over subjects.
  */
-const SUBJECT_PAGES = [
-  ["preprocess", "Pre-processing"],
-  ["optimizer", "Optimizer"],
-] as const;
+const SUBJECT_PAGES = [["preprocess", "Pre-processing"]] as const;
 
 for (const [id, title] of SUBJECT_PAGES) {
   test(`${title}: the subject control is the one selection list, with the same testids`, async () => {

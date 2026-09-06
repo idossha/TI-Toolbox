@@ -1,37 +1,53 @@
 /**
- * Optimizer — one page for all three searches (program U7, DESIGN.md v3 §9). `optimizer-flex` and
- * `optimizer-ex` were two nav entries copied from the PyQt tab strip, not two workflows: both ask
- * "where do the electrodes go for this target", and both end in one job on the same rail. A
- * `Method ⟨Flex │ Ex │ mEx⟩` segment is the first row of the work pane, one shared `RoiPicker`
- * serves all three, and the right pane is the shared `RunPanel` with the segment's kind.
+ * Optimizer — one page for every search, described as a **jobs table** (lane OJ, 2026-09-06).
  *
- * Every control of both predecessors is accounted for in `PARITY.md`, including the ones that
- * moved to another page or were deliberately dropped.
+ * U7 merged `optimizer-flex` and `optimizer-ex` into one page because both ask "where do the
+ * electrodes go for this target". What that merge kept from the PyQt tabs was the *shape* of a
+ * tab: one page-level subject set, one method segment, one global TARGET / ELECTRODES / COST form.
+ * The maintainer's screenshot of it ("No subjects selected", a global Subjects list) came with the
+ * ask that closes the gap:
+ *
+ * > "create something similar logically to the Simulator and Analyzer: choose a subject, then an
+ * > optimisation approach (Flex, Ex, mEx…) and configure each job exactly how they want, so users
+ * > create a list of jobs and run them."
+ *
+ * So the page is now the same §4.7 grammar as the other two run pages: **one row is one search**,
+ * the row owns its subject, its method, its net or leadfield, its goal, its target and its whole
+ * form, and there is nothing global left — per 2.5.0 there never was anything global here, because
+ * the "Global Parameters" box was per *tab*, which is per method, which is per row.
+ *
+ * What did not change: `POST /api/plan/{kind}` per job, `planModelFrom`, the existing-outputs
+ * dialog (C3), the disabled-Run grammar (§4.2 rule 8) and the one shared `RoiPicker` — only their
+ * scope did, from the page to the row.
+ *
+ * One deliberate difference from the Simulator: **one Run click is one submission per job kind**,
+ * not one submission full stop. `POST /api/jobs/groups` takes a single `kind`
+ * (`tit/jobs/plans.py::GROUP_KINDS`), so a table mixing Flex and Ex rows cannot be one group
+ * without a server change. The page states this in its own success message rather than pretending
+ * otherwise; `PARITY.md` carries it as the open contract item.
  */
 import { useEffect, useMemo, useState } from "react";
-import { Target } from "lucide-react";
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Info, Target, Workflow } from "lucide-react";
+import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import type { Subject } from "../../api/client";
 import type { PageDef } from "../../app/registry";
 import { useSubject } from "../../app/subjectContext";
 import { useExecutionPrefs } from "../../app/executionPrefs";
 import { usePageSession } from "../../app/pageSession";
 import { PageLayout, FormSection, PaneHeaderControls, usePaneController } from "../../ui/Layout";
 import { ActionBar } from "../../ui/Chrome";
-import { Button } from "../../ui/Button";
-import { Field, TextInput } from "../../ui/Field";
-import { SegmentedControl } from "../../ui/SegmentedControl";
-
-import { Callout } from "../../ui/Feedback";
+import { Button, IconButton } from "../../ui/Button";
+import { Popover } from "../../ui/Overlay";
+import { Callout, EmptyState } from "../../ui/Feedback";
 import { notify } from "../../ui/Toast";
-import { RoiPicker, emptyRoi, roiToConfig, getAtlases, type Atlas, type AtlasLookup, type RoiValue } from "../_shared/roi";
-import { SubjectsField, blockedSubjects, presenceColumns, subjectsBlockedReason, type SubjectColumn } from "../_shared/subjects";
+import { getAtlases, type Atlas, type AtlasLookup, type RoiValue } from "../_shared/roi";
+import { subjectsBlockedReason } from "../_shared/subjects";
 import {
   RunPanel,
   RunWork,
   planCounts,
   ExistingOutputsDialog,
+  mergePlanResults,
   planDigest,
   planModelFrom,
   stepsFor,
@@ -41,35 +57,30 @@ import {
   type PlanKind,
   type PlanModel,
   type PlanResult,
+  type PlanStage,
 } from "../_shared/run";
 import { ScenePane } from "../_shared/scene";
 import { viewerSearch } from "../results";
-import { getEegNets, getLeadfields, planFor, submitLeadfieldJob, validateFor, type FlexConfigWire, type Leadfield } from "./api";
-import { buildFlexConfig, defaultFlexFormState, flexSubmissions, jobKindFor, type FlexFormState } from "./flexConfig";
+import { getEegNets, getLeadfields, planFor, submitLeadfieldJob, validateFor, type EegNet, type Leadfield } from "./api";
+import { leadfieldPathFor } from "./nets";
+import { OptimizerJobRows, type OptimizerSubject } from "./JobRows";
+import { jobsForRow, rowFormReason, type OptimizerJobSpec } from "./plan";
 import {
-  buildExConfig,
-  buildMExConfig,
-  defaultExFormState,
-  defaultMExFormState,
-  exSubmissions,
-  exTargets,
-  EX_BUCKET_KEYS,
-  MEX_BUCKET_KEYS,
-  type ExFormState,
-  type MExFormState,
-} from "./exConfig";
-import { defaultNet as defaultNetFor, electrodesForNet, leadfieldPathFor } from "./nets";
-import { exCost, flexCost, mexCost } from "./cost";
-import { ElectrodesSection, ObjectiveSection, PostRunSection, SolverSection } from "./FlexSections";
-import { ExCurrentSection, ExElectrodesSection, LeadfieldStrip, MExCarrierSection, MExElectrodesSection } from "./ExSections";
+  emptyOptimizerRow,
+  isFlexMethod,
+  isRunnableOptimizerRow,
+  optimizerJobsSummary,
+  OPT_METHOD_LABEL,
+  rowPlanKind,
+  type OptimizerRow,
+} from "./rows";
 import "./optimizer.css";
 
-export type Method = "flex" | "ex" | "mex";
-
-const METHOD_OPTIONS: { value: Method; label: string; title: string }[] = [
-  { value: "flex", label: "Flex", title: "Differential-evolution search over free electrode positions" },
-  { value: "ex", label: "Ex", title: "Exhaustive two-channel search over a precomputed leadfield" },
-  { value: "mex", label: "mEx", title: "Exhaustive four-pair (mTI) search over a precomputed leadfield" },
+/** The plan grid's columns: the three families, counted per subject (`cellDetail="counts"`). */
+const PLAN_STAGES: PlanStage[] = [
+  { id: "flex", label: "Flex" },
+  { id: "ex", label: "Ex" },
+  { id: "mex", label: "mEx" },
 ];
 
 function useDebounced<T>(value: T, delayMs: number): T {
@@ -82,379 +93,261 @@ function useDebounced<T>(value: T, delayMs: number): T {
 }
 
 /**
- * Resolves an atlas id to its path for `roiToConfig` / `exTargets`, **per subject**, from the same
- * query key the picker uses internally — a cache hit for the primary subject, not a second request.
+ * Atlas paths, resolved **per (subject, atlas kind)** from the same query key the picker uses — a
+ * cache hit, not a second request.
  *
- * Per subject, not once: an atlas id (`"aparc.DKTatlas+aseg.mgz"`, `"DK40"`) is the same string for
- * every subject but its path is not (`derivatives/freesurfer/sub-<id>/mri/…`). Since U16 a run page
- * can queue the same optimisation for several subjects, so resolving the path once for the primary
- * and reusing it would point every job in the batch at the first subject's anatomy.
+ * Per subject, not once: an atlas id (`"DK40"`) is the same string for every subject but its path
+ * is not (`derivatives/…/sub-<id>/…`). Now that a row names its own subject, a page-wide resolver
+ * would point every job at the first row's anatomy — the U16 defect, made per row.
  */
-interface AtlasLookups {
-  /** The per-subject atlas resolver `roiToConfig` / `exTargets` take. */
-  lookup: (subject: string) => (atlas: string) => AtlasLookup | undefined;
-  /** True once this subject's atlas list has actually landed. A readiness column must not call a
-   *  subject "no target" while its own query is still in flight. */
-  ready: (subject: string) => boolean;
+interface AtlasKey {
+  subject: string;
+  kind: "cortical" | "subcortical";
+  space: "subject" | "mni" | undefined;
 }
 
-function useAtlasLookups(subjects: string[], value: RoiValue): AtlasLookups {
-  const kind = value.mode === "cortical" ? "cortical" : value.mode === "subcortical" ? "subcortical" : undefined;
-  const space = value.mode === "subcortical" ? value.atlasSpace : undefined;
+function atlasKeyOf(subject: string, roi: RoiValue): AtlasKey | null {
+  if (!subject) return null;
+  if (roi.mode === "cortical") return { subject, kind: "cortical", space: undefined };
+  if (roi.mode === "subcortical") return { subject, kind: "subcortical", space: roi.atlasSpace };
+  return null;
+}
+
+function atlasKeyId(k: AtlasKey): string {
+  return `${k.subject}|${k.kind}|${k.space ?? ""}`;
+}
+
+/** One query per distinct (subject, kind, space) the table asks about; react-query de-duplicates
+ *  the rest, so N rows on one subject cost one request. */
+function useAtlasResolver(keys: AtlasKey[]): (subject: string, roi: RoiValue) => (atlas: string) => AtlasLookup | undefined {
   const results = useQueries({
-    queries: subjects.map((subject) => ({
-      queryKey: kind === "subcortical" ? ["atlases", subject, "subcortical", space] : ["atlases", subject, "cortical"],
-      queryFn: () => getAtlases(subject, kind as "cortical" | "subcortical", space),
-      enabled: kind !== undefined,
+    queries: keys.map((k) => ({
+      queryKey: k.kind === "subcortical" ? ["atlases", k.subject, "subcortical", k.space] : ["atlases", k.subject, "cortical"],
+      queryFn: () => getAtlases(k.subject, k.kind, k.space),
     })),
   });
-  const bySubject: Record<string, Atlas[] | undefined> = {};
-  const readyBySubject: Record<string, boolean> = {};
-  subjects.forEach((subject, i) => {
-    bySubject[subject] = results[i]?.data;
-    readyBySubject[subject] = results[i]?.isSuccess === true;
+  const byId: Record<string, Atlas[] | undefined> = {};
+  keys.forEach((k, i) => {
+    byId[atlasKeyId(k)] = results[i]?.data;
   });
-  return {
-    lookup: (subject: string) => (atlasId: string) => bySubject[subject]?.find((a) => a.id === atlasId),
-    ready: (subject: string) => readyBySubject[subject] === true,
-  };
-}
-
-/**
- * Merge one plan per ex/mEx target into a single `PlanResult`, so one grid shows every run the
- * press of Run will queue — the columns become the **targets**, which is what an optimizer has
- * instead of stages.
- *
- * Each job is stamped with its target's name in `PlanJob.label`, the field `stageIdOf` reads
- * before falling back to `basename(output_dir)`. Without it the column id would be the resolved
- * run directory, which is the same string for every target until a run name is typed — a
- * three-target plan would collapse into one column and under-report what Run will queue.
- */
-function mergePlanResults(sources: { label: string; result: PlanResult | undefined }[]): PlanResult | undefined {
-  const present = sources.filter((s): s is { label: string; result: PlanResult } => s.result !== undefined);
-  if (present.length === 0) return undefined;
-  const first = present[0] as { label: string; result: PlanResult };
-  return {
-    ...first.result,
-    jobs: present.flatMap((s) => s.result.jobs.map((j) => ({ ...j, label: s.label }))),
-    lock_conflicts: present.flatMap((s) => s.result.lock_conflicts ?? []),
-    warnings: Array.from(new Set(present.flatMap((s) => s.result.warnings ?? []))),
+  return (subject: string, roi: RoiValue) => {
+    const key = atlasKeyOf(subject, roi);
+    const list = key ? byId[atlasKeyId(key)] : undefined;
+    return (atlasId: string) => list?.find((a) => a.id === atlasId);
   };
 }
 
 function OptimizerPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { id: shellSubject, selection, subjects: projectSubjects } = useSubject();
+  const { id: shellSubject, subjects: projectSubjects } = useSubject();
 
-  // `usePageSession` for everything the user decided, `useState` for what is transient (lane N2):
-  // the page unmounts on every navigation, so a plain `useState` threw away the method, the ROI
-  // and the typed run name the moment they looked at Results. A confirm dialog and a stale
-  // validation list are not "where they left off" and stay local.
-  const [method, setMethod] = usePageSession<Method>("method", "flex");
-  const [runName, setRunName] = usePageSession("runName", "");
+  // `usePageSession` for everything the user decided (lane N2): the page unmounts on every
+  // navigation, and a table of assembled jobs is exactly the thing a step onto Results must not
+  // throw away.
+  const [rows, setRows] = usePageSession<OptimizerRow[]>("jobRows", []);
+  const [activeRowId, setActiveRowId] = usePageSession<string | null>("activeRow", null);
   const [overwrite, setOverwrite] = usePageSession("overwrite", false);
-  const parallelSubjects = useExecutionPrefs((s) => s.parallelSubjects);
+  const [pinnedJobId, setPinnedJobId] = usePageSession<string | null>("pinnedJob", null);
   const [confirmOverwrite, setConfirmOverwrite] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [pinnedJobId, setPinnedJobId] = usePageSession<string | null>("pinnedJob", null);
+  const parallelSubjects = useExecutionPrefs((s) => s.parallelSubjects);
   const scenePane = usePaneController({ pageId: "optimizer", name: "run" });
 
-  // One ROI value per method family: switching Flex ↔ Ex must not silently discard a target the
-  // other method cannot express (a saved CSV is not a sphere table), and switching back restores it.
-  const [flexRoi, setFlexRoiState] = usePageSession<RoiValue>("flexRoi", () => emptyRoi("cortical"));
-  const [nonRoi, setNonRoi] = usePageSession<RoiValue>("nonRoi", () => emptyRoi("cortical"));
-  const [exRoi, setExRoi] = usePageSession<RoiValue>("exRoi", () => emptyRoi("saved"));
-  function setFlexRoi(next: RoiValue) {
-    setFlexRoiState(next);
-    // Parity `_sync_nonroi_mode`: keep the non-ROI picker on the ROI's mode, in one render.
-    setNonRoi((prev) => (prev.mode === next.mode ? prev : emptyRoi(next.mode)));
-  }
+  // Only subjects with a head model are asked about: `GET /api/catalog/{leadfields,atlases}`
+  // answers 404 for a subject with no `m2m_<id>/`, and react-query retries a failure three times.
+  const modelled = useMemo(() => projectSubjects.filter((s) => s.has_m2m).map((s) => s.id), [projectSubjects]);
 
-  const [flexForm, setFlexForm] = usePageSession<FlexFormState>("flexForm", defaultFlexFormState);
-  const [exForm, setExForm] = usePageSession<ExFormState>("exForm", defaultExFormState);
-  const [mexForm, setMexForm] = usePageSession<MExFormState>("mexForm", defaultMExFormState);
-  const patchFlex = (patch: Partial<FlexFormState>) => setFlexForm((f) => ({ ...f, ...patch }));
-  const patchEx = (patch: Partial<ExFormState>) => setExForm((f) => ({ ...f, ...patch }));
-  const patchMex = (patch: Partial<MExFormState>) => setMexForm((f) => ({ ...f, ...patch }));
+  const netQueries = useQueries({
+    queries: modelled.map((id) => ({ queryKey: ["eeg-nets", id], queryFn: () => getEegNets(id), staleTime: 60_000 })),
+  });
+  const netsBySubject: Record<string, EegNet[] | undefined> = {};
+  modelled.forEach((id, i) => {
+    netsBySubject[id] = netQueries[i]?.data;
+  });
 
-  const isExFamily = method !== "flex";
-
-  // U16: the subject set is the page's, not the shell's. U11 deleted the context bar's batch
-  // control, which left `useSubject().batch` with no writer and this page unable to reach a
-  // multi-subject run at all. Seeded from the shell's current subject and kept in step with it
-  // exactly as Pre-processing's own batch table does — a page control must not re-scope the app.
-  const [subjects, setSubjects] = usePageSession<string[]>("subjects", () => selection);
-  const [lastShellSubject, setLastShellSubject] = useState(shellSubject);
-  if (shellSubject !== lastShellSubject) {
-    setLastShellSubject(shellSubject);
-    if (shellSubject && !subjects.includes(shellSubject)) setSubjects([shellSubject, ...subjects]);
-  }
-  /** The subject whose catalog fills the shared controls (nets, atlases, saved ROIs). */
-  const subjectId = subjects[0] ?? null;
-  // Only subjects with a head model: `GET /api/catalog/{leadfields,atlases}` answers **404** for a
-  // subject with no `m2m_<id>/` (measured on Dataset 000's `sub-test` and `sub-102`), and React
-  // Query retries a failure three times — 14 requests per such subject per page visit against 6
-  // for a real one, in the container's own access log. A subject with no head model can have
-  // neither a leadfield nor an atlas, so asking is never worth one request, let alone four.
-  const allSubjectIds = useMemo(() => projectSubjects.filter((s) => s.has_m2m).map((s) => s.id), [projectSubjects]);
-
-  const eegNets = useQuery({ queryKey: ["eeg-nets", subjectId], queryFn: () => getEegNets(subjectId as string), enabled: subjectId !== null });
-  // One leadfield query per PROJECT subject (Ex/mEx only): the HDF5 lives under that subject's own
-  // derivatives, so a batch run needs every subject's path — and the Subjects table's `leadfield`
-  // column has to answer for a subject the user has not ticked yet, which is when the answer is
-  // still useful. Cheap (`GET /api/catalog/leadfields?subject=…` is a directory read) and cached.
-  const leadfieldSubjects = useMemo(() => (isExFamily ? allSubjectIds : []), [isExFamily, allSubjectIds]);
+  // Leadfields are only fetched once the table actually has an Ex/mEx row: a 3 GB HDF5 listing is
+  // a directory read, but a page with no exhaustive search has nothing to do with the answer.
+  const wantsLeadfields = rows.some((r) => !isFlexMethod(r.method));
   const leadfieldQueries = useQueries({
-    queries: leadfieldSubjects.map((s) => ({ queryKey: ["leadfields", s], queryFn: () => getLeadfields(s) })),
+    queries: modelled.map((id) => ({ queryKey: ["leadfields", id], queryFn: () => getLeadfields(id), enabled: wantsLeadfields, staleTime: 60_000 })),
   });
   const leadfieldsBySubject: Record<string, Leadfield[] | undefined> = {};
-  const leadfieldsReady: Record<string, boolean> = {};
-  leadfieldSubjects.forEach((s, i) => {
-    leadfieldsBySubject[s] = leadfieldQueries[i]?.data;
-    leadfieldsReady[s] = leadfieldQueries[i]?.isSuccess === true;
+  modelled.forEach((id, i) => {
+    leadfieldsBySubject[id] = leadfieldQueries[i]?.data;
   });
-  // The strip states the PRIMARY subject's leadfields — index 0 of the query list is the first
-  // subject of the project, which is not the same thing once the list covers every subject.
-  const primaryLeadfields = leadfieldQueries[leadfieldSubjects.indexOf(subjectId ?? "")];
 
-  const [pickedNet, setPickedNet] = usePageSession<string | null>("net", null);
-  // Default to a net that already has a leadfield, derived at render so an explicit pick wins and
-  // there is nothing to synchronise. Every net identity on this page is the BARE name (`nets.ts`).
-  const net = pickedNet ?? defaultNetFor(leadfieldsBySubject[subjectId ?? ""], eegNets.data);
-  const leadfieldHdf = leadfieldPathFor(leadfieldsBySubject[subjectId ?? ""], net);
-  const electrodes = electrodesForNet(eegNets.data, net);
+  // The page starts with one row on the shell's subject: a table whose first act is "press Add
+  // job" would make the page's own subject a thing to discover (the Simulator's own seeding).
+  const [seeded, setSeeded] = useState(false);
+  if (!seeded && rows.length === 0 && modelled.length > 0) {
+    setSeeded(true);
+    const first = emptyOptimizerRow({ subjectId: shellSubject && modelled.includes(shellSubject) ? shellSubject : modelled[0] });
+    setRows([first]);
+    setActiveRowId(first.id);
+  }
+
+  const atlasKeys = useMemo(() => {
+    const seen = new Map<string, AtlasKey>();
+    for (const row of rows) {
+      for (const roi of [row.roi, row.nonRoi]) {
+        const k = atlasKeyOf(row.subjectId, roi);
+        if (k) seen.set(atlasKeyId(k), k);
+      }
+    }
+    return [...seen.values()];
+  }, [rows]);
+  const atlasFor = useAtlasResolver(atlasKeys);
+
+  const leadfieldFor = (subject: string, net: string | null): string | null =>
+    leadfieldPathFor(leadfieldsBySubject[subject], net);
+  const hasLeadfield = (row: OptimizerRow): boolean => leadfieldFor(row.subjectId, row.net) !== null;
+
+  const runnableRows = rows.filter((r) => isRunnableOptimizerRow(r, hasLeadfield));
+  // Stable identity, so the plan model is not rebuilt on every render: subject ids carry no commas
+  // (they are BIDS labels), so the joined string is a faithful key for the list.
+  const planSubjectsSig = [...new Set(runnableRows.map((r) => r.subjectId))].join(",");
+  const planSubjects = useMemo(() => (planSubjectsSig ? planSubjectsSig.split(",") : []), [planSubjectsSig]);
+
+  /**
+   * Every job the table will queue, in row order — the one list the plan, the digest, the count
+   * and the submission all read, so none of them can promise a job another does not queue.
+   *
+   * Derived every render rather than memoized, and then **debounced as a string**: `useQueries`
+   * hands back a fresh array each render, so every resolver above it is a fresh closure and a
+   * `useMemo` over them could only ever be keyed on a serialisation anyway (the Simulator's
+   * `useSimPlan` reached the same conclusion). Debouncing the JSON and parsing it back is what
+   * makes `debouncedJobs` stable — a new array identity every 400 ms would re-arm its own timer.
+   */
+  const jobs = runnableRows.flatMap((row) => jobsForRow(row, { atlas: atlasFor, leadfield: leadfieldFor }));
+  const jobsSig = JSON.stringify(jobs);
+  const debouncedSig = useDebounced(jobsSig, 400);
+  const debouncedOverwrite = useDebounced(overwrite, 400);
+  const debouncedJobs = useMemo(() => JSON.parse(debouncedSig) as OptimizerJobSpec[], [debouncedSig]);
+
+  // One `POST /api/plan/{kind}` per job, exactly as the Simulator plans one per (subject, montage)
+  // row: a job's config is its own, so it is the only thing that can be planned.
+  const planQueries = useQueries({
+    queries: debouncedJobs.map((job) => ({
+      queryKey: ["plan", job.kind, job.subject, JSON.stringify(job.config), debouncedOverwrite],
+      queryFn: () => planFor(job.kind, job.config, [job.subject], debouncedOverwrite),
+    })),
+  });
+
+  const planResults = planQueries.map((q) => q.data as PlanResult | undefined);
+  const allPlanned = planResults.length > 0 && planResults.every((r) => r !== undefined);
+  /** The signature the derived plan objects are keyed on: which queries have answered, and when. */
+  const planSig = `${debouncedSig.length}:${planQueries.map((q) => `${q.status}@${q.dataUpdatedAt}`).join("|")}`;
+
+  /** `merged.jobs[i]` → the family column that job belongs in. Built alongside the merge so the
+   *  grid's `stageFor` never has to guess a kind back out of an output directory. */
+  const stageByJobIndex = useMemo(() => {
+    const out: string[] = [];
+    debouncedJobs.forEach((job, i) => {
+      for (let k = 0; k < (planResults[i]?.jobs.length ?? 0); k++) out.push(job.stage);
+    });
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- planResults is a fresh array every render.
+  }, [planSig]);
+
+  const merged = useMemo(
+    () => (allPlanned ? mergePlanResults(planResults as PlanResult[]) : undefined),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- planResults is a fresh array every render.
+    [allPlanned, planSig],
+  );
+
+  const subjectsBlocked = subjectsBlockedReason(
+    planSubjects,
+    planSubjects
+      .map((id) => ({ id, reason: projectSubjects.find((s) => s.id === id)?.has_m2m === false ? "no head model (m2m)" : undefined }))
+      .filter((b): b is { id: string; reason: string } => !!b.reason),
+  );
+
+  const blockedReason = useMemo<string | null>(() => {
+    // §4.7 rule 3: the disabled sentence states the TABLE being empty before it states anything
+    // about subjects — an empty table is not a subject problem.
+    if (rows.length === 0) return "Add a search job.";
+    if (runnableRows.length === 0) return "Complete a job: choose a subject, a target, and (for Ex/mEx) a leadfield.";
+    if (subjectsBlocked) return subjectsBlocked;
+    for (const [i, row] of runnableRows.entries()) {
+      const reason = rowFormReason(row);
+      if (reason) return `Job ${rows.indexOf(row) + 1}: ${reason}`;
+      void i;
+    }
+    if (jobs.length === 0) return "No job resolves to a target yet.";
+    return null;
+  }, [rows, runnableRows, subjectsBlocked, jobs]);
+
+  /** The panel's own kind — the family of the first job, which is what its step list describes. */
+  const planKind: PlanKind = runnableRows[0] ? rowPlanKind(runnableRows[0]) : "flex";
+
+  const plan: PlanModel | null = useMemo(
+    () =>
+      merged
+        ? planModelFrom(planKind, merged, planSubjects, {
+            blockedReason,
+            stages: PLAN_STAGES,
+            stageFor: (_job, index) => stageByJobIndex[index] ?? "flex",
+          })
+        : null,
+    [merged, planKind, planSubjects, blockedReason, stageByJobIndex],
+  );
+
+  const planLoading = planQueries.some((q) => q.isPending && q.fetchStatus !== "idle");
+  const planRefetching = planQueries.some((q) => q.isRefetching);
+  const planError = planQueries.some((q) => q.error);
+  function refetchPlan(): void {
+    for (const q of planQueries) void q.refetch();
+  }
+
+  const counts = planCounts(plan);
+  const digest = plan ? planDigest(plan) : (blockedReason ?? "Resolving the plan…");
 
   const generateLeadfield = useMutation({
-    mutationFn: (n: string) => submitLeadfieldJob(subjectId as string, n),
-    onSuccess: (_d, n) => {
-      notify.success(`Queued: leadfield generation for ${n}`);
-      void queryClient.invalidateQueries({ queryKey: ["leadfields", subjectId] });
+    mutationFn: ({ subject, net }: { subject: string; net: string }) => submitLeadfieldJob(subject, net),
+    onSuccess: (_d, { subject, net }) => {
+      notify.success(`Queued: leadfield generation for ${net}`);
+      void queryClient.invalidateQueries({ queryKey: ["leadfields", subject] });
     },
     onError: () => notify.error("Could not queue the leadfield job."),
   });
 
-  // Every project subject, not only the ticked ones: the Subjects table states per-subject
-  // readiness ("this subject has no such target") BEFORE it is ticked, which is the whole point of
-  // a readiness column. React Query de-duplicates and caches these by subject, and the same cache
-  // entries are what the submit path resolves each job's own atlas path from.
-  const flexAtlasLookups = useAtlasLookups(allSubjectIds, flexRoi);
-  const nonRoiAtlasLookups = useAtlasLookups(allSubjectIds, nonRoi);
-  const exAtlasLookups = useAtlasLookups(allSubjectIds, exRoi);
-  const flexAtlasLookup = flexAtlasLookups.lookup(subjectId ?? "");
-  const nonRoiAtlasLookup = nonRoiAtlasLookups.lookup(subjectId ?? "");
-  const exAtlasLookup = exAtlasLookups.lookup(subjectId ?? "");
-
-  const flexRoiConfig = useMemo(() => roiToConfig(flexRoi, flexAtlasLookup), [flexRoi, flexAtlasLookup]);
-  const isFocality = flexForm.goal === "focality" || flexForm.goal === "focality_tf";
-  const nonRoiConfig = useMemo(
-    () => (isFocality && flexForm.nonRoiMethod === "specific" ? roiToConfig(nonRoi, nonRoiAtlasLookup) : undefined),
-    [isFocality, flexForm.nonRoiMethod, nonRoi, nonRoiAtlasLookup],
-  );
-
-  // The plan's target list (and the grid's columns) come from the primary subject; a target's
-  // *name* is subject-independent, only its resolved atlas path is not — which is why the submit
-  // path re-resolves per subject rather than reusing these.
-  const targets = useMemo(
-    () => (isExFamily ? exTargets(exRoi, exAtlasLookup, method === "ex") : []),
-    [isExFamily, exRoi, exAtlasLookup, method],
-  );
-
-  // Both of this page's per-subject blockers are `eligibility` (J3), so the Subjects table refuses
-  // to tick a subject that cannot run and the action bar's sentence is the grammar's own — one
-  // wording for "this subject cannot run", shared with Pre-processing, Simulator and Analyzer.
-  //
-  // 1. The leadfield: `sub-101` may have its own matrix for one net and none for another.
-  // 2. The target: an atlas region exists per subject, and Dataset 000 proves it — `sub-ernie` has
-  //    `aparc.DKTatlas+aseg.mgz` from FreeSurfer, `sub-101` has only SimNIBS's `labeling.nii.gz`.
-  //    Without this the plan grid would show a row for 101 (the server plans every id it is given)
-  //    while `exSubmissions` silently dropped it for having no resolvable target — a plan that
-  //    promises a job Run never queues. Saved-ROI targets are name-only, so a missing CSV on the
-  //    second subject is still only caught by the runner (open issue in this lane's notes).
-  //
-  // Each check answers only for a subject whose own query has landed: a readiness column must not
-  // call a subject "no leadfield" while its request is still in flight.
-  const eligibility = (s: { id: string; has_m2m?: boolean }) => {
-    if (s.has_m2m === false) return { ok: false, reason: "no head model (m2m)" };
-    if (!isExFamily) return { ok: true };
-    if (net && leadfieldsReady[s.id] && !leadfieldPathFor(leadfieldsBySubject[s.id], net)) {
-      return { ok: false, reason: `no ${net} leadfield` };
-    }
-    if (targets.length > 0 && exAtlasLookups.ready(s.id) && exTargets(exRoi, exAtlasLookups.lookup(s.id), method === "ex").length === 0) {
-      return { ok: false, reason: "this target does not exist for it" };
-    }
-    return { ok: true };
-  };
-  const subjectsBlocked = subjectsBlockedReason(subjects, blockedSubjects(projectSubjects, subjects, eligibility));
-
-  /** The readiness columns this page can answer: a head model always, a leadfield in Ex/mEx. */
-  const subjectColumns: SubjectColumn<{ id: string }>[] = [
-    ...(presenceColumns<Subject>().filter((c) => c.id === "m2m") as unknown as SubjectColumn<{ id: string }>[]),
-    ...(isExFamily
-      ? [
-          {
-            id: "leadfield",
-            label: "leadfield",
-            title: net ? `A precomputed ${net} leadfield` : "A precomputed leadfield for the selected net",
-            present: (s: { id: string }) => !!net && !!leadfieldPathFor(leadfieldsBySubject[s.id], net),
-          },
-        ]
-      : []),
-  ];
-
-  const jobKind = method === "flex" ? jobKindFor(flexForm) : method;
-  const planKind: PlanKind = method === "flex" ? "flex" : method;
-
-  const flexConfig: FlexConfigWire | undefined = useMemo(
-    () => (flexRoiConfig ? buildFlexConfig(subjects[0] ?? "", flexForm, flexRoiConfig, nonRoiConfig) : undefined),
-    [subjects, flexForm, flexRoiConfig, nonRoiConfig],
-  );
-
-  const debouncedFlex = useDebounced(flexConfig, 400);
-  const debouncedSubjects = useDebounced(subjects, 400);
-  const debouncedOverwrite = useDebounced(overwrite, 400);
-  const debouncedExKey = useDebounced(JSON.stringify({ exForm, mexForm, targets, runName, leadfieldHdf }), 400);
-
-  const flexPlan = useQuery({
-    queryKey: ["plan", jobKind, debouncedFlex, debouncedSubjects, debouncedOverwrite],
-    queryFn: () => planFor(jobKind, debouncedFlex as FlexConfigWire, debouncedSubjects, debouncedOverwrite),
-    enabled: method === "flex" && debouncedFlex !== undefined && debouncedSubjects.length > 0,
-  });
-
-  // One plan request per target, each asking for EVERY selected subject: `_plan_ex`/`_plan_mex`
-  // loop over `subject_ids` and resolve `pm.ex_search_run(sid, run_name)` per subject (the
-  // leadfield path in the config is not part of that resolution), so N subjects × M targets is
-  // M requests, and the merged grid is subjects (rows) × targets (columns).
-  const exPlans = useQueries({
-    queries:
-      isExFamily && leadfieldHdf && subjectId
-        ? targets.map((t) => ({
-            queryKey: ["plan", method, debouncedSubjects, leadfieldHdf, debouncedExKey, t.roiName],
-            queryFn: () =>
-              planFor(
-                method,
-                method === "ex"
-                  ? buildExConfig(subjectId, leadfieldHdf, exForm, t, runName)
-                  : buildMExConfig(subjectId, leadfieldHdf, mexForm, t, runName),
-                debouncedSubjects,
-                overwrite,
-              ),
-          }))
-        : [],
-  });
-
-  const blockedReason = useMemo<string | null>(() => {
-    if (subjects.length === 0) return subjectsBlocked;
-    if (method === "flex") {
-      if (!flexRoiConfig) return "Complete the ROI definition.";
-      if (isFocality && flexForm.nonRoiMethod === "specific" && !nonRoiConfig) return "Complete the non-ROI region, or switch it to “everything else”.";
-      if (flexForm.goal === "focality" && flexForm.focalityMode === "manual" && !flexForm.manualThresholds.trim()) return "Enter at least one E-field threshold.";
-      if (flexForm.enableMapping && !flexForm.eegNet) return "Select an EEG net for the mapped-electrode simulation.";
-      if (flexForm.visualizeSkinElectrodes && !flexForm.skinVisualizationNet) return "Select a visualization EEG net.";
-      return null;
-    }
-    if (!net) return "Select an EEG net.";
-    if (!leadfieldHdf) return "Generate a leadfield for this net first.";
-    // The per-subject clause keeps its old position: after the page-wide preconditions, before the
-    // form's own completeness checks — but the sentence is now the grammar's (J3), so it reads the
-    // same here as on the other three run pages.
-    if (subjectsBlocked) return subjectsBlocked;
-    if (method === "ex" && exForm.electrodeMode === "bucketed" && EX_BUCKET_KEYS.some((k) => (exForm.buckets[k] ?? []).length === 0)) return "Fill in every electrode bucket.";
-    if (method === "ex" && exForm.electrodeMode === "all" && exForm.pool.length < 4) return "Add at least four electrodes to the pool.";
-    if (method === "mex" && MEX_BUCKET_KEYS.some((k) => (mexForm.buckets[k] ?? []).length === 0)) return "Fill in all eight electrode buckets.";
-    if (targets.length === 0) return "Select at least one saved ROI, or an atlas region.";
-    return null;
-  }, [subjects, subjectsBlocked, method, flexRoiConfig, isFocality, flexForm, nonRoiConfig, net, leadfieldHdf, exForm, mexForm, targets]);
-
-  const mergedExResult = useMemo(
-    () => mergePlanResults(targets.map((t, i) => ({ label: t.roiName, result: exPlans[i]?.data as PlanResult | undefined }))),
-    [targets, exPlans],
-  );
-  const planResult = method === "flex" ? (flexPlan.data as PlanResult | undefined) : mergedExResult;
-  const plan: PlanModel | null = useMemo(
-    () => (planResult ? planModelFrom(planKind, planResult, subjects, { blockedReason }) : null),
-    [planResult, planKind, subjects, blockedReason],
-  );
-
-  const planLoading = method === "flex" ? flexPlan.isPending && flexPlan.fetchStatus !== "idle" : exPlans.some((q) => q.isPending && q.fetchStatus !== "idle");
-  const planRefetching = method === "flex" ? flexPlan.isRefetching : exPlans.some((q) => q.isRefetching);
-  const planError = method === "flex" ? !!flexPlan.error : exPlans.some((q) => q.error);
-  function refetchPlan(): void {
-    if (method === "flex") void flexPlan.refetch();
-    else for (const q of exPlans) void q.refetch();
-  }
-
-  const costLine = method === "flex" ? flexCost(flexForm).line : method === "ex" ? exCost(exForm).line : mexCost(mexForm).line;
-  const counts = planCounts(plan);
-  const digest = plan ? `${planDigest(plan)}${plan.blockedReason ? "" : ` · ${costLine}`}` : (blockedReason ?? "Resolving the plan…");
-
-  /**
-   * One `POST /api/jobs/groups` for a whole batch of runs, whatever the method (R3). `runs` is
-   * already one entry per job — per subject for flex, per (subject, target) for ex/mEx — so each
-   * becomes its own `subject_configs` entry under one group id and one scheduler-enforced cap.
-   */
-  async function submitGroup(
-    kind: GroupKind,
-    runs: { subject: string; config: unknown }[],
-    tags: string[],
-    overwriteFlag: boolean,
-  ): Promise<void> {
-    const subjectIds = [...new Set(runs.map((r) => r.subject))];
-    await submitJobGroup(kind, runs[0]!.config, subjectIds, parallelSubjects, {
-      subjectConfigs: runs.map((r) => ({ subject_id: r.subject, config: r.config })),
-      tags,
-      overwrite: overwriteFlag,
-    });
-  }
-
   const submit = useMutation({
     mutationFn: async (overwriteFlag: boolean) => {
-      if (method === "flex") {
-        if (!flexRoiConfig) throw new Error("Complete the ROI definition.");
-        // Each subject's ROI is resolved against that subject's own atlases (`useAtlasLookups`).
-        const runs = flexSubmissions(subjects, flexForm, (subject) => ({
-          roi: roiToConfig(flexRoi, flexAtlasLookups.lookup(subject)),
-          nonRoi: isFocality && flexForm.nonRoiMethod === "specific" ? roiToConfig(nonRoi, nonRoiAtlasLookups.lookup(subject)) : undefined,
-        }));
-        if (runs.length === 0) throw new Error("Complete the ROI definition.");
-        const validation = await validateFor(jobKind, runs[0]!.config).catch(() => null);
+      if (jobs.length === 0) throw new Error("Complete a job row.");
+      // `POST /api/jobs/groups` takes ONE kind (`GROUP_KINDS`), so a mixed table is one group per
+      // kind — in kind order, so the message can name them. Everything else about the submission
+      // is unchanged: each job travels as its own `subject_configs` entry carrying its own
+      // subject, and the server forces each config's `subject_id` to match.
+      const byKind = new Map<GroupKind, OptimizerJobSpec[]>();
+      for (const job of jobs) byKind.set(job.kind, [...(byKind.get(job.kind) ?? []), job]);
+
+      // Validate one representative config per kind before anything is queued (the flex path's
+      // long-standing behaviour, now covering every kind the table holds).
+      for (const [kind, group] of byKind) {
+        const validation = await validateFor(kind, group[0]!.config).catch(() => null);
         if (validation && !validation.ok) {
-          setValidationErrors(validation.errors.map((e) => `${e.path}: ${e.message}`));
+          setValidationErrors(validation.errors.map((e) => `${kind}: ${e.path}: ${e.message}`));
           throw new Error("invalid");
         }
-        setValidationErrors([]);
-        // ONE request for the batch (R3): the group is created queued in a single
-        // `POST /api/jobs/groups` carrying `parallel_subjects`, and the scheduler releases the
-        // members that-many-at-a-time. This used to be an awaited `for` loop of `POST /api/jobs`,
-        // which decided nothing about concurrency — the server admitted whatever fit its budget.
-        // Each subject's config is already resolved against its own atlases, so every run goes in
-        // as its own `subject_configs` entry (and the server forces each config's `subject_id`).
-        await submitGroup(
-          jobKind as GroupKind,
-          runs,
-          subjects.length > 1 ? ["flex-batch"] : [],
-          overwriteFlag,
-        );
-        return runs.length;
       }
-      const runs = exSubmissions(
-        method,
-        subjects,
-        (subject) => ({
-          leadfieldHdf: leadfieldPathFor(leadfieldsBySubject[subject], net),
-          targets: exTargets(exRoi, exAtlasLookups.lookup(subject), method === "ex"),
-        }),
-        { ex: exForm, mex: mexForm },
-        runName,
-      );
-      await submitGroup(method, runs, subjects.length > 1 ? [`${method}-batch`] : [], overwriteFlag);
-      return runs.length;
+      setValidationErrors([]);
+
+      for (const [kind, group] of byKind) {
+        const subjectIds = [...new Set(group.map((j) => j.subject))];
+        await submitJobGroup(kind, group[0]!.config, subjectIds, parallelSubjects, {
+          subjectConfigs: group.map((j) => ({ subject_id: j.subject, config: j.config })),
+          tags: group.length > 1 ? [`${kind}-batch`] : [],
+          overwrite: overwriteFlag,
+        });
+      }
+      return { jobs: jobs.length, kinds: [...byKind.keys()] };
     },
-    onSuccess: (n) => {
+    onSuccess: ({ jobs: n, kinds }) => {
       notify.success(
-        n > 1
-          ? `Queued ${n} ${method} runs (${parallelSubjects > 1 ? `${parallelSubjects} at a time` : "one at a time"}).`
-          : `Queued: ${method} search for ${subjects[0]}.`,
+        n === 1
+          ? `Queued: ${OPT_METHOD_LABEL[kinds[0] as keyof typeof OPT_METHOD_LABEL] ?? kinds[0]} search.`
+          : `Queued ${n} searches in ${kinds.length} group${kinds.length === 1 ? "" : "s"} (${kinds.join(", ")}).`,
       );
       setPinnedJobId(null);
     },
@@ -469,8 +362,7 @@ function OptimizerPage() {
       notify.error(blockedReason);
       return;
     }
-    // The one existing-outputs question (C3): asked whenever anything already has output, with
-    // Skip as a real answer — before, "Cancel" was the only alternative to overwriting.
+    // The one existing-outputs question (C3), unchanged.
     if (!overwrite && counts.existing > 0) {
       setConfirmOverwrite(true);
       return;
@@ -479,44 +371,43 @@ function OptimizerPage() {
   }
   useRunShortcut(handleRunClick);
 
-  // Ex/mEx queue one job per (subject × target) — the label counts what Run will actually submit.
-  const exRunCount = subjects.length * targets.length;
-  const runLabel =
-    method === "flex"
-      ? subjects.length > 1
-        ? `Run flex search for ${subjects.length} subjects`
-        : "Run flex search"
-      : exRunCount > 1
-        ? `Run ${exRunCount} ${method === "ex" ? "ex" : "mEx"} searches`
-        : `Run ${method === "ex" ? "ex" : "mEx"} search`;
+  const runLabel = jobs.length > 1 ? `Run ${jobs.length} searches` : "Run search";
+
+  const jobSubjects: OptimizerSubject[] = useMemo(() => {
+    const anyModel = projectSubjects.some((s) => s.has_m2m);
+    return projectSubjects.map((s) => ({
+      id: s.id,
+      blockedReason: s.has_m2m || !anyModel ? undefined : "no head model (m2m)",
+    }));
+  }, [projectSubjects]);
 
   /*
-   * The scene pane in `target` mode (plan §2.4). What a click means depends on what the ROI picker
-   * is currently expressing, because that is the thing it has to stay in sync with:
-   *
-   *  - flex + cortical  -> add/remove that atlas region, straight into `flexRoi.regions`;
-   *  - flex + spherical -> move the sphere centre, but ONLY in subject space: the scene's
-   *    coordinates are the head model's own millimetres, and writing them into an MNI field would
-   *    be off by the whole subject-to-template transform with nothing on screen to say so;
-   *  - anything else (subcortical, a saved ROI CSV, ex/mEx) -> the anatomy, read-only, and a line
-   *    saying why. A volumetric atlas id is not a cortical `.annot`, so asking `/api/scene/regions`
-   *    for one would 404 the whole pane for a target the form can express perfectly well.
+   * The scene pane in `target` mode, showing the **active row's** target — the same contract the
+   * Analyzer's pane has. What a click means depends on what that row's picker is expressing:
+   * cortical rows edit their own regions, everything else is the read-only reference guide with a
+   * line saying why (a volumetric atlas id is not a cortical `.annot`, so asking
+   * `/api/scene/regions` for one would 404 the pane for a target the form expresses perfectly).
    */
-  const sceneCortical = method === "flex" && flexRoi.mode === "cortical";
-  const sceneSpherical = method === "flex" && flexRoi.mode === "spherical";
-  const sceneSphereSpace = flexRoi.mode === "spherical" ? flexRoi.space : "subject";
-  const sceneNote =
-    sceneCortical || (sceneSpherical && sceneSphereSpace === "subject")
-      ? undefined
-      : sceneSpherical
-        ? "Coordinates are typed, not picked — the pane draws the reference guide, not this subject."
-        : method === "flex"
-          ? "Subcortical targets are volumetric — pick them in the form; the pane shows the reference guide."
-          : "Ex and mEx targets are saved ROIs — pick them in the form; the pane shows the reference guide.";
+  const activeRow = rows.find((r) => r.id === activeRowId) ?? rows[0] ?? null;
+  const sceneCortical = !!activeRow && isFlexMethod(activeRow.method) && activeRow.roi.mode === "cortical";
+  const sceneSpherical = !!activeRow && activeRow.roi.mode === "spherical";
+  const sceneNote = sceneCortical
+    ? undefined
+    : sceneSpherical
+      ? "Coordinates are typed, not picked — the pane draws the reference guide, not this subject."
+      : !activeRow || isFlexMethod(activeRow.method)
+        ? "Subcortical targets are volumetric — pick them in the job's editor; the pane shows the reference guide."
+        : "Ex and mEx targets are saved ROIs — pick them in the job's editor; the pane shows the reference guide.";
+
+  function patchActiveRoi(next: RoiValue): void {
+    if (!activeRow) return;
+    setRows(rows.map((r) => (r.id === activeRow.id ? { ...r, roi: next } : r)));
+  }
 
   function openViewer(): void {
-    if (!subjectId) return;
-    navigate({ pathname: "/viewer", search: viewerSearch({ subject: subjectId, kind: "subject" }) });
+    const subject = activeRow?.subjectId;
+    if (!subject) return;
+    navigate({ pathname: "/viewer", search: viewerSearch({ subject, kind: "subject" }) });
   }
 
   return (
@@ -529,12 +420,14 @@ function OptimizerPage() {
           kind={planKind}
           jobKinds={["flex", "ex", "mex"]}
           plan={plan}
+          /* Summary columns (Flex · Ex · mEx), so a cell counts its jobs. */
+          cellDetail="counts"
           loading={planLoading}
           refetching={planRefetching}
           error={planError ? "Could not build the plan for this search." : undefined}
           onRefetch={refetchPlan}
-          subjects={subjects}
-          emptyMessage={blockedReason ?? "Choose a target to see the plan."}
+          subjects={planSubjects}
+          emptyMessage={blockedReason ?? "Add a job to see the plan."}
           pinnedJobId={pinnedJobId}
           onPinJob={setPinnedJobId}
           steps={stepsFor(planKind)}
@@ -543,16 +436,16 @@ function OptimizerPage() {
           scene={
             <ScenePane
               mode="target"
-              atlas={sceneCortical && flexRoi.mode === "cortical" ? (flexRoi.atlas ?? null) : null}
-              regions={sceneCortical && flexRoi.mode === "cortical" ? flexRoi.regions : undefined}
+              atlas={sceneCortical && activeRow?.roi.mode === "cortical" ? (activeRow.roi.atlas ?? null) : null}
+              regions={sceneCortical && activeRow?.roi.mode === "cortical" ? activeRow.roi.regions : undefined}
               onAtlasChange={
-                sceneCortical
-                  ? (atlas) => setFlexRoi({ ...(flexRoi as Extract<RoiValue, { mode: "cortical" }>), atlas })
+                sceneCortical && activeRow?.roi.mode === "cortical"
+                  ? (atlas) => patchActiveRoi({ ...(activeRow.roi as Extract<RoiValue, { mode: "cortical" }>), atlas })
                   : undefined
               }
               onRegionsChange={
-                sceneCortical
-                  ? (regions) => setFlexRoi({ ...(flexRoi as Extract<RoiValue, { mode: "cortical" }>), regions })
+                sceneCortical && activeRow?.roi.mode === "cortical"
+                  ? (regions) => patchActiveRoi({ ...(activeRow.roi as Extract<RoiValue, { mode: "cortical" }>), regions })
                   : undefined
               }
               note={sceneNote}
@@ -579,88 +472,57 @@ function OptimizerPage() {
         />
       }
     >
-      {/* `fill={false}`: the Optimizer's sections are already sized to the pane (B3 measured it as
-          the densest of the four run pages), so the fill controller has nothing to add and would
-          only fight the method segment's own show/hide. */}
       <RunWork fill={false}>
-        {/* Subjects (J1/J2): the one shared control, first on the page. It moved out of the method
-            row — a summary line plus a table is not a form field, and every other run page states
-            its subject set in exactly this shape. Adding subjects runs the same search on each. */}
+        {/*
+         * JOBS: the one table where a run is described, first on the page and `data-tier="1"` (§8 —
+         * never closed by the fill controller). It replaces the page-level Subjects table *and* the
+         * global TARGET / ELECTRODES / OBJECTIVE / SOLVER sections: every one of those was a
+         * property of a search, and a search is a row.
+         *
+         * Deliberately not a `FormSection` at the top level for the same reason the Simulator's is
+         * not: that primitive registers with the fill controller, which was measured to oscillate a
+         * page's first table open/closed once later content grew after mount.
+         */}
         <div data-tier="1">
-          <SubjectsField
-            subjects={projectSubjects}
-            value={subjects}
-            onChange={setSubjects}
-            columns={subjectColumns}
-            eligibility={eligibility}
-            mode="per-subject"
-            defaultOpen
-          />
-        </div>
-
-        <div data-tier="1">
-          <div className="optimizer-method-row">
-            <SegmentedControl
-              aria-label="Method"
-              value={method}
-              onValueChange={(v) => setMethod(v as Method)}
-              options={METHOD_OPTIONS.map((o) => ({ value: o.value, label: o.label, title: o.title }))}
-            />
-            <Field label="Run name" htmlFor="optimizer-run-name" help="Defaults to a timestamp.">
-              <TextInput id="optimizer-run-name" value={runName} onChange={(e) => setRunName(e.target.value)} placeholder="auto (timestamp)" />
-            </Field>
-          </div>
-          {isExFamily && (
-            <LeadfieldStrip
-              leadfields={primaryLeadfields?.data}
-              loading={!!primaryLeadfields?.isPending && primaryLeadfields.fetchStatus !== "idle"}
-              nets={eegNets.data}
-              selectedNet={net}
-              onSelectNet={setPickedNet}
-              onGenerate={(n) => generateLeadfield.mutate(n)}
-              generating={generateLeadfield.isPending}
-            />
-          )}
-        </div>
-
-        <div data-tier="1">
-          <FormSection title="Target">
-            {/* `FormSection` lays its children out as a two-column `.form-grid`; the picker is one
-                object and takes the whole row, or every atlas control is squeezed into half a pane. */}
-            <div className="optimizer-span">
-              {method === "flex" ? (
-                <RoiPicker
-                  value={flexRoi}
-                  onChange={setFlexRoi}
-                  modes={["cortical", "subcortical", "spherical"]}
-                  subject={subjectId ?? undefined}
-                  onOpenViewer={flexRoi.mode === "spherical" ? openViewer : undefined}
+          <FormSection
+            title="Jobs"
+            summary={optimizerJobsSummary(rows, runnableRows)}
+            helpSlot={
+              <Popover trigger={<IconButton aria-label="About search jobs" icon={<Info size={13} />} variant="ghost" size="sm" />}>
+                <div style={{ maxWidth: 360 }} className="text-dense">
+                  One row is one search. Each row picks its own subject and its own method — flex over free
+                  electrode positions, or an exhaustive two-channel (Ex) or four-pair (mEx) search over a
+                  precomputed leadfield — and carries its own target, goal and parameters. Duplicate a row to
+                  run the same search on another subject.
+                </div>
+              </Popover>
+            }
+          >
+            <div style={{ gridColumn: "1 / -1" }}>
+              {projectSubjects.length === 0 ? (
+                <EmptyState
+                  icon={<Workflow size={24} />}
+                  message="No subjects in this project yet."
+                  actionLabel="Go to Pre-processing"
+                  onAction={() => navigate("/preprocess")}
                 />
               ) : (
-                <RoiPicker value={exRoi} onChange={setExRoi} modes={["saved", "subcortical"]} subject={subjectId ?? undefined} allowCombine={method === "ex"} />
+                <OptimizerJobRows
+                  subjects={jobSubjects}
+                  netsBySubject={netsBySubject}
+                  leadfieldsBySubject={leadfieldsBySubject}
+                  rows={rows}
+                  onRowsChange={setRows}
+                  activeRowId={activeRowId}
+                  onActiveRowChange={setActiveRowId}
+                  onGenerateLeadfield={(subject, net) => generateLeadfield.mutate({ subject, net })}
+                  generatingLeadfield={generateLeadfield.isPending}
+                  onOpenViewer={openViewer}
+                />
               )}
             </div>
           </FormSection>
         </div>
-
-        <div data-tier="1">
-          {method === "flex" && (
-            <ObjectiveSection form={flexForm} onChange={patchFlex} nonRoi={nonRoi} onNonRoiChange={setNonRoi} subject={subjectId ?? undefined} />
-          )}
-          {method === "ex" && <ExElectrodesSection form={exForm} onChange={patchEx} electrodes={electrodes} disabled={!net} />}
-          {method === "mex" && <MExElectrodesSection form={mexForm} onChange={patchMex} electrodes={electrodes} disabled={!net} />}
-        </div>
-
-        {method === "flex" && (
-          <>
-            <ElectrodesSection form={flexForm} onChange={patchFlex} />
-            <SolverSection form={flexForm} onChange={patchFlex} eegNets={eegNets.data ?? []} />
-            <PostRunSection form={flexForm} onChange={patchFlex} eegNets={eegNets.data ?? []} />
-          </>
-        )}
-        {method === "ex" && <ExCurrentSection form={exForm} onChange={patchEx} />}
-        {method === "mex" && <MExCarrierSection form={mexForm} onChange={patchMex} />}
-
 
         {validationErrors.length > 0 && (
           <Callout kind="danger" title="The server rejected this configuration">

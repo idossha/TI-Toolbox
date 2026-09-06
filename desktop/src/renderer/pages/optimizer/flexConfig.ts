@@ -193,31 +193,3 @@ export function buildFlexConfig(subjectId: string, form: FlexFormState, roi: Roi
   }
   return base;
 }
-
-/** One queued flex run: the subject it belongs to and its wire config. */
-export interface FlexSubmission {
-  subject: string;
-  config: FlexConfigWire;
-}
-
-/**
- * Expand the page's state into one flex submission per selected subject (U16).
- *
- * `resolve` hands back that subject's own ROI configs, because an atlas ROI's `atlas_path` points
- * into `derivatives/freesurfer/sub-<id>/` — reusing the primary subject's resolved path for every
- * subject in a batch would optimise each of them against the first subject's anatomy file. A
- * subject whose ROI cannot be resolved yet is skipped rather than submitted half-built.
- */
-export function flexSubmissions(
-  subjects: string[],
-  form: FlexFormState,
-  resolve: (subject: string) => { roi: RoiConfig | undefined; nonRoi: RoiConfig | undefined },
-): FlexSubmission[] {
-  const out: FlexSubmission[] = [];
-  for (const subject of subjects) {
-    const { roi, nonRoi } = resolve(subject);
-    if (!roi) continue;
-    out.push({ subject, config: buildFlexConfig(subject, form, roi, nonRoi) });
-  }
-  return out;
-}

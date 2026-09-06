@@ -2,19 +2,37 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Locator, type Page } from "@playwright/test";
-import { cleanupSmokeOutputs, connectReal, expectPage, gotoPage, launchElectronApp, recordPayload, selectSubject, waitForJobTerminal, waitForJobTrace } from "../_helpers";
-import { closeSubjects, expectSubjectsGrammar, setSubjectChecked, subjectsSummary } from "../_subjects";
+import {
+  cancelJobFromRail,
+  connectReal,
+  expectPage,
+  gotoPage,
+  launchElectronApp,
+  recordPayload,
+  selectSubject,
+  waitForJobRunningOrTerminal,
+} from "../_helpers";
+import { closeOptEditor, openOptEditor, optRowSummary, optRows, setOptCell } from "../_jobs";
 
 /**
- * Optimizer / Ex, against the shared dev container. `ex` is not one of program §3 P4's "long
- * kinds" (sim, flex, leadfield, charm, fastsurfer, qsiprep/qsirecon, blender) so this spec runs it
- * to completion within its 600 s budget (fixture matrix), rather than started -> cancel.
+ * Optimizer / Ex, against the shared dev container. Fixture matrix row: `sub-ernie`, its existing
+ * `EEG10-10_UI_Jurak_2007` leadfield, a small candidate set — started -> cancel.
  *
- * Fixture matrix row: `sub-ernie`, existing `EEG10-10_UI_Jurak_2007` leadfield, small candidate
- * set. The ROI picker's Ex/mEx modes are `["saved", "subcortical"]` (no cortical mode — that is
- * Flex-only), and the real project has no pre-existing "saved" ROI presets, so this uses
- * Subcortical (`aparc.DKTatlas+aseg.mgz` · Left-Hippocampus) rather than the mock's "saved" fixture
- * targets, which do not exist on this project.
+ * Re-pointed 2026-09-06 (lane OJ) at the jobs table. Two changes worth naming:
+ *
+ *  * the method, the leadfield, the target and the electrode buckets are all cells or sections of a
+ *    job ROW, so the whole configuration happens in that row's editor;
+ *  * the submission is `POST /api/jobs/groups` (R3), which this spec still asserted as
+ *    `POST /api/jobs` and would have missed.
+ *
+ * It is also **started -> cancel** now rather than run-to-completion: this container is shared and
+ * emulated, an ex search holds a ~3.3 GB leadfield in memory, and what this row is here to prove is
+ * the *shape* that reaches the runner and that the runner accepts it. Completion is covered by the
+ * container-side pipeline tests, not by a UI spec holding the machine for ten minutes.
+ *
+ * The ROI picker's Ex/mEx modes are `["saved", "subcortical"]` (no cortical mode — that is
+ * Flex-only), and the real project has no saved ROI presets, so this uses Subcortical
+ * (`aparc.DKTatlas+aseg.mgz` · Left-Hippocampus).
  */
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL as string;
 const TOKEN = process.env.TIT_E2E_TOKEN as string;
@@ -26,8 +44,8 @@ let page: Page;
 
 test.describe.configure({ mode: "serial" });
 
-function field(label: string): Locator {
-  return page.locator(".field", { hasText: label }).first();
+function field(label: string, root: Page | Locator = page): Locator {
+  return root.locator(".field", { hasText: label }).first();
 }
 
 test.beforeAll(async () => {
@@ -39,33 +57,41 @@ test.beforeAll(async () => {
   await selectSubject(page, "ernie");
   await gotoPage(page, "optimizer", "Optimizer");
   await expectPage(page, "optimizer");
-  await page.getByRole("radiogroup", { name: "Method" }).getByRole("radio", { name: "Ex", exact: true }).click();
 });
 
 test.afterAll(async () => {
-  cleanupSmokeOutputs([`derivatives/SimNIBS/sub-ernie/ex-search/${RUN_NAME}`]);
+  // A cancelled ex search writes no completed run directory; nothing of ours to clean up.
   await app?.close();
 });
 
-test("subcortical ROI, bucketed electrodes: accepted, started, and completed", async () => {
-  test.setTimeout(700_000);
+test("subcortical ROI, bucketed electrodes: accepted, started, cancelled", async () => {
+  test.setTimeout(300_000);
 
-  // The leadfield strip auto-selects `EEG10-10_UI_Jurak_2007` (the one net ernie already has a
-  // leadfield for), so this run never needs "Generate (≈40 min)".
-  const strip = page.getByTestId("leadfield-strip");
-  await expect(strip).toBeVisible();
-  await expect(strip.locator(".chip")).toHaveText(/GB|MB/, { timeout: 15_000 });
+  const row = optRows(page).first();
+  await expect(row).toHaveAttribute("data-subject", "ernie");
+  await setOptCell(page, row, "method", "Ex");
 
-  await field("Run name").getByRole("textbox").fill(RUN_NAME);
+  // The Leadfield cell states what ernie actually has — one net, with its size. The page-level
+  // strip this replaces could not say whose leadfield it meant once rows named different subjects.
+  const netCell = row.locator('td[data-cell="net"]').getByRole("combobox");
+  await netCell.click();
+  const ready = page.getByRole("option", { name: /EEG10-10_UI_Jurak_2007 · [\d.]+ [MG]B/ });
+  await expect(ready).toBeVisible({ timeout: 20_000 });
+  console.log(`real/ex: leadfield option = ${await ready.textContent()}`);
+  await ready.click();
+  await expect(row).toHaveAttribute("data-net", "EEG10-10_UI_Jurak_2007");
 
-  await page.getByTestId("page-work").getByRole("radio", { name: "Subcortical", exact: true }).click();
-  await field("Volume atlas").getByRole("button").click();
+  const dialog = await openOptEditor(page, row);
+  await field("Run name", dialog).getByRole("textbox").fill(RUN_NAME);
+
+  await dialog.getByRole("radio", { name: "Subcortical", exact: true }).click();
+  await field("Volume atlas", dialog).getByRole("button").click();
   await page.getByPlaceholder("Search atlases…").fill("DKTatlas");
   await page.getByRole("option", { name: /DKTatlas/ }).first().click();
-  await field("Region(s)").getByRole("combobox").click();
-  await page.getByPlaceholder("Search…").fill("Hippocampus");
+  await field("Region(s)", dialog).getByRole("combobox").click();
+  await page.getByPlaceholder(/Filter regions…|Search…/).fill("Hippocampus");
   await page.getByRole("option", { name: "Left-Hippocampus", exact: true }).click();
-  await page.keyboard.press("Escape");
+  await page.getByTestId("roi-region-done").click();
 
   for (const [bucket, electrode] of [
     ["E1+", "Fp1"],
@@ -73,119 +99,80 @@ test("subcortical ROI, bucketed electrodes: accepted, started, and completed", a
     ["E2+", "F3"],
     ["E2-", "F4"],
   ] as const) {
-    await field(bucket).locator(".multi-select").click();
-    await page.getByRole("option", { name: electrode, exact: true }).click();
-    await page.keyboard.press("Escape");
+    await field(bucket, dialog).getByRole("combobox").click();
+    // The bucket's own list dialog, named by its heading: "Filter electrodes…" is a *placeholder*,
+    // not text content, so `hasText` never matches it.
+    const list = page.getByRole("dialog").filter({ hasText: `${bucket} — choose electrodes` });
+    await list.getByPlaceholder("Filter electrodes…").fill(electrode);
+    await list.getByRole("option", { name: electrode, exact: true }).click();
+    await list.getByRole("button", { name: "Done" }).click();
   }
+  await closeOptEditor(page);
+
+  // What the row promises, before anything is queued.
+  console.log(`real/ex: row summary = ${await optRowSummary(row).textContent()}`);
+  await expect(optRowSummary(row)).toHaveText(/buckets: 4 · 2 mA total/);
 
   const cell = page.locator('[data-testid^="plan-cell-ernie-"]').first();
-  await expect(cell).toBeVisible({ timeout: 15_000 });
-  await expect(cell).toHaveText(/^(new|overwrite)$/);
+  await expect(cell).toBeVisible({ timeout: 20_000 });
   await expect(page.getByTestId("run-button")).toBeEnabled();
 
-  const jobResponse = page.waitForResponse((r) => r.url().endsWith("/api/jobs") && r.request().method() === "POST");
-  const jobRequest = page.waitForRequest((r) => r.url().endsWith("/api/jobs") && r.method() === "POST");
+  const groupResponse = page.waitForResponse((r) => r.url().endsWith("/api/jobs/groups") && r.request().method() === "POST");
+  const groupRequest = page.waitForRequest((r) => r.url().endsWith("/api/jobs/groups") && r.method() === "POST");
   await page.getByTestId("run-button").click();
 
-  const requestBody = (await jobRequest).postDataJSON() as {
+  const body = (await groupRequest).postDataJSON() as {
     kind: string;
-    config: { roi_name: string; electrodes: Record<string, unknown> };
+    subject_ids: string[];
+    subject_configs: { subject_id: string; config: { run_name: string; leadfield_hdf: string; roi_atlas: unknown; electrodes: Record<string, unknown> } }[];
   };
-  expect(requestBody.kind).toBe("ex");
-  expect(requestBody.config.electrodes).toMatchObject({
+  expect(body.kind).toBe("ex");
+  expect(body.subject_ids).toEqual(["ernie"]);
+  expect(body.subject_configs).toHaveLength(1);
+  const config = body.subject_configs[0]!.config;
+  expect(config.run_name).toBe(RUN_NAME);
+  // The per-subject fact the row now owns: the leadfield path is ernie's own.
+  expect(config.leadfield_hdf).toContain("sub-ernie");
+  expect(config.electrodes).toMatchObject({
     _type: "BucketElectrodes",
     e1_plus: ["Fp1"],
     e1_minus: ["Fp2"],
     e2_plus: ["F3"],
     e2_minus: ["F4"],
   });
-  recordPayload("ex", requestBody);
+  recordPayload("ex", body);
 
-  const created = (await (await jobResponse).json()) as { id: string };
-  await waitForJobTrace(page, "ex", { timeoutMs: 120_000 });
-  const identity = page.getByTestId("job-terminal").getByTestId("job-terminal-identity");
-  await expect(identity).toContainText("ex", { timeout: 120_000 });
-  await expect(page.locator(".job-console-line").first()).toBeVisible({ timeout: 120_000 });
+  const group = (await (await groupResponse).json()) as { group_id: string; jobs: { id: string }[] };
+  const jobId = group.jobs[0]!.id;
+  const job = await waitForJobRunningOrTerminal(page, { url: SERVER_URL, token: TOKEN, jobId, timeoutMs: 180_000 });
+  console.log(`real/ex: job ${jobId} state=${job.state} run=${RUN_ID}`);
+  expect(job.state, `ex did not reach running: ${JSON.stringify(job.error?.last_lines?.slice(-3) ?? [])}`).toBe("running");
 
-  const finalJob = await waitForJobTerminal(page, { url: SERVER_URL, token: TOKEN, jobId: created.id, timeoutMs: 600_000 });
-  console.log(`real/ex: job ${created.id} state=${finalJob.state} artifacts=${finalJob.artifacts?.length ?? 0} run=${RUN_ID}`);
-  expect(finalJob.state, JSON.stringify(finalJob.error)).toBe("succeeded");
-  expect(finalJob.artifacts?.length ?? 0).toBeGreaterThan(0);
-
-  // Results lists the run under ernie's ex/mEx tree (results.spec.ts's own node-id convention:
-  // "ex:<subject>:<run>").
-  //
-  // The reload is load-bearing, not defensive: the Results tree reads the catalog through
-  // react-query with a 60 s `staleTime` (`src/renderer/main.tsx`) and NOTHING invalidates those
-  // queries when a job finishes — the page has no refresh control either. Measured on this very
-  // run: `GET /api/catalog/ex-runs?subject=ernie&kind=ex` was served at 01:10:18, the job finished
-  // at 01:11:00, and the page rendered the 01:10:18 answer for the whole 20 s assertion without
-  // one further request (container access log). A fresh renderer is the only thing that shows a
-  // just-finished run inside that minute; reported as an open issue against the Results page.
-  await page.reload();
-  await expect(page.getByTestId("nav-rail")).toBeVisible({ timeout: 30_000 });
-  await gotoPage(page, "results", "Results");
-  await expectPage(page, "results");
-  await page.getByTestId("results-subject-ernie").click();
-  await expect(page.getByTestId(`results-node-ex:ernie:${RUN_NAME}`)).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("job-terminal").getByTestId("job-terminal-identity")).toContainText("ex", { timeout: 60_000 });
+  await cancelJobFromRail(page, "ex", { timeoutMs: 60_000 });
 });
 
 /**
- * U16 on real data: the subject set is the page's, and a second subject that this project cannot
- * actually run is named rather than silently dropped.
+ * The subject grammar (J3) inside the row, on real data: every project subject is listed, and one
+ * that cannot run THIS row is listed **with its reason** and cannot be picked.
  *
- * `sub-101` is the honest second subject here — it HAS its own `EEG10-10_UI_Jurak_2007` leadfield
- * (3.4 GB, `GET /api/catalog/leadfields?subject=101`) but NOT the FreeSurfer atlas the target above
- * comes from (`GET /api/catalog/atlases?subject=101&kind=subcortical` returns only SimNIBS's
- * `labeling.nii.gz`). So the plan resolves for both subjects — the server plans one job per id it
- * is given — while only one of them can be built into a real config. Deliberately no second job is
- * submitted here: two ex runs would hold two ~3.3 GB leadfields in memory at once on this shared
- * emulated container. The two-subject *submission* path is measured in `tests/unit/
- * optimizer-subjects.test.ts` and end-to-end in the mock `tests/e2e/optimizer.spec.ts`.
+ * Deliberately no second job is submitted: two ex runs would hold two ~3.3 GB leadfields in memory
+ * at once on this shared emulated container. The multi-row submission path is measured in
+ * `tests/unit/optimizer-subjects.test.ts` and end-to-end in the mock `tests/e2e/optimizer.spec.ts`.
  */
-test("a second subject is planned as its own row, and blocks the run by name when it cannot run", async () => {
-  await gotoPage(page, "optimizer", "Optimizer");
-  await expectPage(page, "optimizer");
-  await page.getByRole("radiogroup", { name: "Method" }).getByRole("radio", { name: "Ex", exact: true }).click();
+test("the row's Subject picker lists every subject, and refuses one with no leadfield by name", async () => {
+  const row = optRows(page).first();
+  await expect(row).toHaveAttribute("data-method", "ex");
 
-  // The shared subject grammar (J1) on real data: the same control, testids and words as the
-  // other three run pages. Dataset 000 lists five subjects (101, 102, ernie, MNI152, test), and
-  // the control shows every one of them — a subject that cannot run is explained, never hidden.
-  await expectSubjectsGrammar(page, { mode: "per-subject", selected: ["ernie"], rows: 5 });
-
-  // Re-pick the same target as the run above (a fresh renderer after the reload).
-  await page.getByTestId("page-work").getByRole("radio", { name: "Subcortical", exact: true }).click();
-  await field("Volume atlas").getByRole("button").click();
-  await page.getByPlaceholder("Search atlases…").fill("DKTatlas");
-  await page.getByRole("option", { name: /DKTatlas/ }).first().click();
-  await field("Region(s)").getByRole("combobox").click();
-  await page.getByPlaceholder("Search…").fill("Hippocampus");
-  await page.getByRole("option", { name: "Left-Hippocampus", exact: true }).click();
-  await page.keyboard.press("Escape");
-  for (const [bucket, electrode] of [
-    ["E1+", "Fp1"],
-    ["E1-", "Fp2"],
-    ["E2+", "F3"],
-    ["E2-", "F4"],
-  ] as const) {
-    await field(bucket).locator(".multi-select").click();
-    await page.getByRole("option", { name: electrode, exact: true }).click();
-    await page.keyboard.press("Escape");
-  }
-  await expect(page.locator('[data-testid^="plan-cell-ernie-"]').first()).toBeVisible({ timeout: 20_000 });
-
-  // 101 HAS its own leadfield for this net, so it is tickable — what it does not have is the
-  // FreeSurfer atlas this target comes from, which is the row's own reason once it is ticked.
-  await setSubjectChecked(page, "101", true);
-  await expect(subjectsSummary(page)).toHaveText("2 subjects · ernie, 101 · one job per subject");
-  await expect(page.getByTestId("subject-reason-101")).toHaveText("this target does not exist for it");
-  await closeSubjects(page);
-
-  // One row per chosen subject, from the page's own set (U16's measured acceptance).
-  await expect(page.locator('[data-testid^="plan-cell-101-"]').first()).toBeVisible({ timeout: 20_000 });
-  await expect(page.locator('[data-testid^="plan-cell-ernie-"]').first()).toBeVisible();
-
-  // …and the run is blocked: the primary is disabled, its tooltip naming the subject that cannot run.
-  await expect(page.getByTestId("run-button")).toBeDisabled({ timeout: 15_000 });
-  await expect(page.getByTestId("run-button")).toHaveAttribute("title", /101/);
+  await row.locator('td[data-cell="subject"]').getByRole("combobox").click();
+  const picker = page.getByRole("dialog");
+  // Dataset 000 lists five subjects (101, 102, ernie, MNI152, test) — a subject that cannot run is
+  // explained, never hidden.
+  const options = picker.getByRole("option");
+  await expect(options).toHaveCount(5);
+  const rendered = await options.allTextContents();
+  console.log(`real/ex: subject options = ${JSON.stringify(rendered)}`);
+  // At least one of them has no leadfield on this project, and says so rather than failing later.
+  expect(rendered.some((t) => /no leadfield — create one first|no head model/.test(t))).toBe(true);
+  await picker.getByRole("button", { name: "Done", exact: true }).click();
 });
