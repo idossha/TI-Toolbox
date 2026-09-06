@@ -99,7 +99,7 @@ const SUBJECT_TAKING: { id: string; nav: string }[] = [
 /** The two pages where the subject is a cell of a job row, not a page-level tick list. */
 const JOB_TABLE_PAGES: { id: string; nav: string; table: string; row: string }[] = [
   { id: "simulator", nav: "Simulator", table: "sim-jobs-table", row: "tr[data-job-row]" },
-  { id: "analyzer", nav: "Analyzer", table: "analysis-jobs-table", row: "tr[data-analysis-row]" },
+  { id: "analyzer", nav: "Analyzer", table: "analysis-jobs-table", row: "tbody[data-analysis-row]" },
 ];
 
 for (const workflow of SUBJECT_TAKING) {

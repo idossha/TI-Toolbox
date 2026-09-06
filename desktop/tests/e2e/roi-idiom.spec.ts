@@ -183,6 +183,19 @@ test("defect 2b: every region option can be found by its accessible name", async
   await expect(page.locator('[role="option"][data-option-value="rh:1"]')).toHaveCount(1);
   await page.getByTestId("roi-region-done").click();
   // The closed control states the selection in words — `ui/SelectionList`'s trigger, which answers
-  // "what did I pick?" without being opened (the chip row it replaced truncated at two).
+  // "what did I pick?" without being opened (the chip row it replaced truncated at two). One
+  // region reads as its own name.
   await expect(field("Region(s)").getByRole("combobox")).toHaveText("L · bankssts");
+
+  // More than one, and the COUNT comes first (maintainer, 2026-09-06) — "how many" is the question
+  // a closed control is actually asked, and the old trailing `+N more` answered it last and was
+  // the first thing an ellipsis ate.
+  await field("Region(s)").getByRole("combobox").click();
+  // ⌘-click ADDS, per the one selection grammar (`selection.spec.ts`); a plain click replaces.
+  await page.locator('[role="option"][data-option-value="rh:1"]').click({ modifiers: ["Meta"] });
+  await page.locator('[role="option"][data-option-value="lh:2"]').click({ modifiers: ["Meta"] });
+  await page.getByTestId("roi-region-done").click();
+  await expect(field("Region(s)").getByRole("combobox")).toHaveText(/^3 regions · L · bankssts, R · bankssts…$/);
+  // The full list is still one hover away.
+  await expect(field("Region(s)").getByRole("combobox")).toHaveAttribute("title", /bankssts/);
 });

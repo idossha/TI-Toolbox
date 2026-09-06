@@ -17,6 +17,7 @@ import {
   selectAllVisible,
   selectNoneVisible,
   selectionBadge,
+  selectionNoun,
   selectionSummary,
   type SelectionItem,
 } from "../../src/renderer/ui/SelectionList";
@@ -136,7 +137,26 @@ describe("the words the control says", () => {
 
   it("a closed picker still answers “what did I pick?”", () => {
     expect(selectionSummary([], "Add electrode…")).toBe("Add electrode…");
+    // One thing chosen reads as its own name — "1 regions · insula" is never right.
+    expect(selectionSummary(["F7"])).toBe("F7");
     expect(selectionSummary(["F7", "P7"])).toBe("F7, P7");
-    expect(selectionSummary(["F7", "P7", "F3", "P3", "Cz"])).toBe("F7, P7, F3, +2 more");
+    expect(selectionSummary(["F7", "P7", "F3", "P3", "Cz"])).toBe("F7, P7…");
+    /*
+     * Count first (maintainer, 2026-09-06): with more than one chosen, "how many" is what a closed
+     * control is asked, and the old trailing `+2 more` answered it last — and was the first thing
+     * an ellipsis ate in a narrow cell.
+     */
+    expect(selectionSummary(["F7", "P7", "F3", "P3", "Cz"], "Choose…", 2, "regions")).toBe(
+      "5 regions · F7, P7…",
+    );
+    expect(selectionSummary(["F7", "P7"], "Choose…", 2, "regions")).toBe("2 regions · F7, P7");
+    expect(selectionSummary(["F7"], "Choose…", 2, "regions")).toBe("F7");
+  });
+
+  it("the noun the count counts is the list's own label, singular or plural", () => {
+    expect(selectionNoun("Regions", 3)).toBe("regions");
+    expect(selectionNoun("Region(s)", 3)).toBe("regions");
+    expect(selectionNoun("Subject", 2)).toBe("subjects");
+    expect(selectionNoun("Subject", 1)).toBe("subject");
   });
 });

@@ -197,12 +197,29 @@ export function selectionBadge(selectedCount: number, total: number): string {
   return `${selectedCount} of ${total} selected`;
 }
 
-/** The picker trigger's summary: `F7, P7, +3 more` / `Choose…`. Names, never ids — the trigger is
- *  what a person reads when the list is closed, and `lh:1` is not an answer. */
-export function selectionSummary(value: string[], placeholder = "Choose…", cap = 3): string {
+/**
+ * The picker trigger's summary: `3 regions · F7, P7…` / `F7` / `Choose…`. Names, never ids — the
+ * trigger is what a person reads when the list is closed, and `lh:1` is not an answer.
+ *
+ * **The count comes first** (maintainer, 2026-09-06, on the Analyzer's region picker, applied
+ * site-wide because it is better everywhere): with more than one thing chosen, "how many" is the
+ * question a closed control is actually asked, and the old `a, b, c, +2 more` answered it last and
+ * only by arithmetic — and, in a narrow cell, often not at all, because the trailing `+2 more` is
+ * exactly the part that gets ellipsised away. One selection still reads as its own name: `2
+ * subjects · ernie, 101` is right, `1 subjects · ernie` never is.
+ */
+export function selectionSummary(value: string[], placeholder = "Choose…", cap = 2, noun?: string): string {
   if (value.length === 0) return placeholder;
-  if (value.length <= cap) return value.join(", ");
-  return `${value.slice(0, cap).join(", ")}, +${value.length - cap} more`;
+  if (value.length === 1) return value[0] as string;
+  const names = value.slice(0, cap).join(", ");
+  const shown = value.length > cap ? `${names}…` : names;
+  return noun ? `${value.length} ${noun} · ${shown}` : shown;
+}
+
+/** `Regions` -> `regions`, `Subject` -> `subjects`: the noun the count is counting. */
+export function selectionNoun(label: string, count: number): string {
+  const word = label.trim().toLowerCase().replace(/\(s\)$/, "").replace(/s$/, "");
+  return count === 1 ? word : `${word}s`;
 }
 
 /* -------------------------------------------------------------- Component */
@@ -716,7 +733,7 @@ export function SelectionPicker({
         title={count > 0 ? names.join(", ") : undefined}
       >
         <span className={cn("selection-trigger-text", count === 0 && "selection-trigger-empty")}>
-          {selectionSummary(names, placeholder)}
+          {selectionSummary(names, placeholder, 2, typeof list.label === "string" ? selectionNoun(list.label, count) : undefined)}
         </span>
       </Button>
       <Dialog

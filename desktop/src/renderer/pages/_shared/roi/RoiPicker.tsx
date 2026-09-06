@@ -19,7 +19,7 @@
  * correctly end-to-end against the real server until B2 lands the integer label + hemi there too.
  */
 import { useMemo, useState } from "react";
-import { Compass, Plus, Target, Trash2 } from "lucide-react";
+import { Compass, Info, Plus, Target, Trash2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Field, TextInput } from "../../../ui/Field";
 import { NumberInput } from "../../../ui/NumberInput";
@@ -32,7 +32,7 @@ import { regionKey } from "../scene/model";
 import { useGuideRegions } from "../scene/queries";
 import { Button, IconButton } from "../../../ui/Button";
 import { Skeleton, Callout } from "../../../ui/Feedback";
-import { Dialog, AlertDialog } from "../../../ui/Overlay";
+import { Dialog, AlertDialog, Popover } from "../../../ui/Overlay";
 import { CoordinateInput, type Coordinate } from "../../../ui/CoordinateInput";
 import { notify } from "../../../ui/Toast";
 import { getAtlases, getAtlasRegions, getRois, saveRoi, deleteRoi, type Roi } from "./api";
@@ -373,19 +373,36 @@ function SphericalPanel({
         Add sphere
       </Button>
       <p className="field-help">Each row is a sphere. Multiple rows union into one combined target.</p>
-      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+      {/* One line: the option, the (i) that explains it, and the compartment it applies to
+          (maintainer, 2026-09-06). The sentence this replaces was the whole explanation printed as
+          a checkbox label, which wrapped to three lines in any dialog and still had to be read in
+          full before the checkbox could be understood. */}
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
         <Checkbox
           checked={value.volumetric}
           onCheckedChange={(v) => onChange({ ...value, volumetric: v })}
           disabled={disabled}
-          label="Volumetric (evaluate on volume tetrahedra instead of the cortical surface)"
+          label="Volumetric evaluation"
         />
+        <Popover
+          trigger={
+            <button type="button" className="field-help-trigger" aria-label="Help">
+              <Info size={12} aria-hidden />
+            </button>
+          }
+        >
+          <div className="field-help-popover">
+            <div className="field-help-popover-title">Volumetric evaluation</div>
+            Evaluate the field on the volume tetrahedra inside the ROI instead of on the cortical surface.
+          </div>
+        </Popover>
         {value.volumetric && (
           <Select
             value={value.tissues}
             onValueChange={(v) => onChange({ ...value, tissues: v as TissueKind })}
             options={TISSUE_OPTIONS}
             disabled={disabled}
+            aria-label="Volumetric tissue"
           />
         )}
       </div>
