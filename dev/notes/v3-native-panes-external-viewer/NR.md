@@ -111,7 +111,43 @@ $ npx vitest run                               → 89 files / 1064 passed; 3 fil
                                                  tetravox-updated-event, mock-server contract)
 ```
 
-<!-- E2E-RESULTS -->
+### Mock e2e (offscreen, no window on screen)
+
+```
+$ TIT_E2E_OFFSCREEN=1 npx playwright test tests/e2e/scene-pane.spec.ts tests/e2e/guide.spec.ts \
+    tests/e2e/scene-errors.spec.ts tests/e2e/scene-tabs.spec.ts tests/e2e/scene.spec.ts \
+    tests/e2e/roi-idiom.spec.ts --reporter=line
+  28 passed, 1 failed (1.8m)      ← the one failure was this lane's own locator, fixed and re-run:
+$ TIT_E2E_OFFSCREEN=1 npx playwright test tests/e2e/scene-pane.spec.ts --reporter=line
+  4 passed (6.1s)                 ← 29/29 across the six files
+```
+
+The numbers the restored renderer printed on that run (`tests/e2e/scene.spec.ts`, the gallery, all
+independently computed by the spec and compared against the GPU):
+
+```
+SCENE-FPS        triangles=156096  fps=120.0  frames=324  lastFrameMs=0.000  canvas=1280x800@2
+SCENE-PICKAT     error=1.086mm  tolerance=1.865mm  worldPerPx=0.453  cosIncidence=0.272
+SCENE-PICKAT     radial=0.293mm  form=0.99128
+SCENE-FRAMING     880x420 fill=0.926 |  348x544 fill=0.908 | 1192x544 fill=0.926 | 420x420 fill=0.897
+SCENE-OCCLUSION  hidden=12 drawn=0 maxDelta=0 | occlusion OFF drawn=12 maxDelta=136 | control near=6 drawn=6 minDelta=123
+```
+
+**120 fps at 1280×800 on a ×2 backing store with 156 096 triangles** — the S8 budget is 30 fps, and
+the plan's NR clause asks for 60. The occlusion line is the N2 claim measured either side of one
+switch: with occlusion on, all twelve far-side electrodes are hidden (zero changed pixels); with it
+off, all twelve are painted over the head.
+
+The NR gate's two mock clauses, by name:
+
+| Gate clause | Test | Result |
+|---|---|---|
+| atlas click selects a region that appears in `RoiPicker` | `scene-pane.spec.ts` "a region picked in the scene is the region the ROI picker lists" | pass — the pane's picked region is what the picker's trigger then reads |
+| ...and vice versa | `scene-pane.spec.ts` "a region chosen in the ROI picker is highlighted by the pane" | pass — the region is chosen **from the pane's own legend**, so the assertion is about the sync and not about whether two catalogs overlap |
+| electrode click fills the montage slot | `scene-pane.spec.ts` "clicking the electrode the projection aims at…" + `guide.spec.ts` "an electrode pick writes a NAME…" | pass — the click is aimed by the renderer's own projection of the marker nearest the eye, and the assertion is on the form |
+| no iframe under the run pages | `scene-pane.spec.ts` `expect(page.locator("iframe")).toHaveCount(0)` | pass |
+| changing subjects: zero guide requests, zero remounts | `guide.spec.ts` (same **canvas** element after three subject switches) | pass |
+| drawing-buffer pixels, warm first paint, orbit fps **on the real server** | `tests/e2e/real/scene-electrodes.spec.ts` | **not run** — see §5 |
 
 ## 4. Proposed record entries
 
