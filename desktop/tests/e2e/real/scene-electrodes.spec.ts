@@ -20,7 +20,8 @@ import { expect, test, type Page } from "@playwright/test";
 import { connectReal, gotoPage, launchElectronApp, selectSubject } from "../_helpers";
 import { SCENE_PALETTE } from "../../../src/renderer/scene/palette";
 
-const NET = process.env.TIT_E2E_NET ?? "GSN-HydroCel-185";
+// The option label is the net's real filename, as everywhere else in the app.
+const NET = process.env.TIT_E2E_NET ?? "GSN-HydroCel-185.csv";
 /** Every probe was measured to sit within this of the palette colour: the marker shader's own
  *  centre term is exactly 1.0, so the only slack is the 8-bit round trip and the alpha edge. */
 const COLOUR_TOLERANCE = 12;
@@ -37,8 +38,8 @@ async function settled(page: Page): Promise<void> {
 
 /** The marker nearest the eye, with its projection — an electrode round the back of the head is
  *  hidden by the scalp by design, so "any visible one" is not good enough. */
-async function frontMarker(page: Page): Promise<{ index: number; id: string; x: number; y: number }> {
-  return page.evaluate(() => {
+async function frontMarker(page: Page, exclude: string[] = []): Promise<{ index: number; id: string; x: number; y: number }> {
+  return page.evaluate((skip: string[]) => {
     const scene = window.__scene;
     if (!scene) throw new Error("window.__scene is absent — build out/ with VITE_SCENE_HOOKS=1");
     const cam = scene.camera as { target: number[]; distance: number; yaw: number; pitch: number };
@@ -59,12 +60,12 @@ async function frontMarker(page: Page): Promise<{ index: number; id: string; x: 
           marker.world[2] - (eye[2] as number),
         ),
       }))
-      .filter((c) => c.projection.inFront)
+      .filter((c) => c.projection.inFront && !skip.includes(c.id))
       .sort((a, b) => a.d - b.d);
     const best = ranked[0];
     if (!best) throw new Error("no marker in front of the camera");
     return { index: best.index, id: best.id, x: best.projection.x, y: best.projection.y };
-  });
+  }, exclude);
 }
 
 /** RGBA at one canvas CSS point, from the drawing buffer of a freshly rendered frame. */
@@ -126,12 +127,28 @@ test("an electrode's colour is its whole state, and selecting it adds no ring", 
     await selectSubject(page, process.env.TIT_E2E_SUBJECT ?? "ernie");
     await gotoPage(page, "simulator");
     const panel = page.locator('[data-page-panel="simulator"]');
-    await panel.locator("tr[data-montage-row]").first().locator('td[data-cell="net"]').getByRole("combobox").click();
+    // One row is one job since 2026-09-06; the net is the row's own cell.
+    await panel.locator("tr[data-job-row]").first().locator('td[data-cell="net"]').getByRole("combobox").click();
     await page.getByRole("option", { name: NET, exact: true }).click();
     await expect(panel.getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready", { timeout: 60_000 });
     await settled(page);
 
-    const marker = await frontMarker(page);
+    // Prime the pair editor with ONE electrode before measuring anything. Placing the first one
+    // makes the channel legend appear above the pane, which shortens the canvas and reframes the
+    // camera — every marker then projects somewhere else, and a before/after pixel pair straddling
+    // that reflow compares two different points on the head. With a channel already present the
+    // second placement changes colour and nothing else, which is the claim under test.
+    const primingBox = await panel.getByTestId("scene-canvas").boundingBox();
+    if (!primingBox) throw new Error("the scene canvas has no bounding box");
+    const priming = await frontMarker(page);
+    await page.mouse.click(primingBox.x + priming.x, primingBox.y + priming.y);
+    await expect(panel.locator(".electrode-pair-row").first().getByRole("combobox").first()).toContainText(priming.id, {
+      timeout: 15_000,
+    });
+    await page.mouse.move(primingBox.x + 4, primingBox.y + 4);
+    await settled(page);
+
+    const marker = await frontMarker(page, [priming.id]);
     const idle = await pixelAt(page, marker.x, marker.y);
     const background = await pixelAt(page, marker.x, marker.y, false);
     // The marker is really painted here: with the marker pass suppressed the same pixel is the
@@ -145,11 +162,17 @@ test("an electrode's colour is its whole state, and selecting it adds no ring", 
     if (!box) throw new Error("the scene canvas has no bounding box");
     const profile = await changedProfile(page, marker.x, marker.y, 40, async () => {
       await page.mouse.click(box.x + marker.x, box.y + marker.y);
-      await expect(panel.locator(".electrode-pair-row").first().getByRole("combobox").first()).toContainText(marker.id, {
-        timeout: 15_000,
-      });
+      await expect(panel.locator(".electrode-pair-row").first()).toContainText(marker.id, { timeout: 15_000 });
+      // Park the cursor off the marker before the "after" frame: hover paints white (it is the
+      // renderer's only other per-marker colour), so a pointer left where it clicked would make
+      // every one of these pixels measure hover feedback instead of selection.
+      await page.mouse.move(box.x + 4, box.y + 4);
       await page.waitForTimeout(150);
     });
+    // The before/after pair is only a colour measurement if the geometry stayed put: a reflow that
+    // moved the camera would make every "changed" pixel a change of subject, not of state.
+    const after = await frontMarker(page, [priming.id]);
+    expect(Math.hypot(after.x - marker.x, after.y - marker.y), "the pane reflowed under the click").toBeLessThan(1);
 
     const selected = await pixelAt(page, marker.x, marker.y);
     const channel0 = rgb255(SCENE_PALETTE.channels[0] as number[]);
