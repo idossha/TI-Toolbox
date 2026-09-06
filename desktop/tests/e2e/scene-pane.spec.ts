@@ -223,14 +223,19 @@ test("a region chosen in the ROI picker is highlighted by the pane", async () =>
   });
 
   await field("Region(s)").getByRole("combobox").click();
-  // Scoped to the picker's own list: `[role="option"]` alone also matches the Subjects table's
+  // Cleared first, so this measures the FORM -> PANE direction on its own: the previous test left
+  // a scene-picked region in the list, and starting from empty means the assertion below is about
+  // this selection and not about the sum of two.
+  await page.getByTestId("roi-region-select-none").click();
+  // Scoped to the picker's own rows: `[role="option"]` alone also matches the Subjects table's
   // rows, which are `role="option"` too and sit behind the open dialog's overlay.
   await page.getByTestId(`roi-region-row-${next.key}`).click();
   await page.getByTestId("roi-region-done").click();
+  void before;
 
   await expect
     .poll(() => page.evaluate(() => (window.__scenePane?.selection.regions ?? []).length))
-    .toBe(before.length + 1);
+    .toBe(1);
   // The pane's list IS the form's list, resolved through the guide legend — same region, same
   // wire label, no second copy.
   const [regions, selected] = await page.evaluate(() => [
