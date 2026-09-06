@@ -30,10 +30,16 @@ from tit.server.settings import ServerSettings
 # its Rust->WASM engine needs, on responses under /tetravox/ only. This header no longer needs
 # (and no longer grants) it: plain JS eval and WASM instantiation both stay blocked in the app's
 # own origin. 'frame-src self' keeps permitting that iframe.
+#: The published documentation website. Help -> Docs frames it (and probes it with a `no-cors`
+#: fetch first), so it needs both `frame-src` and `connect-src`; nothing else in the app talks to
+#: an outside origin. Framing a same-origin `/docs/` instead is what made that tab render the app
+#: inside itself -- the static route is an SPA catch-all (`tit/server/static.py`).
+DOCS_SITE_ORIGIN = "https://idossha.github.io"
+
 CSP_HEADER = (
-    "default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; "
+    f"default-src 'self'; connect-src 'self' {DOCS_SITE_ORIGIN}; img-src 'self' data: blob:; "
     "style-src 'self' 'unsafe-inline'; script-src 'self'; "
-    "worker-src 'self' blob:; frame-src 'self'; object-src 'none'"
+    f"worker-src 'self' blob:; frame-src 'self' {DOCS_SITE_ORIGIN}; object-src 'none'"
 )
 
 DEFAULT_ALLOWED_HOSTS = ("127.0.0.1", "localhost")

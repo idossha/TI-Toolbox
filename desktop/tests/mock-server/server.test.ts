@@ -142,15 +142,6 @@ describe("mock server: cookie CSRF (parity with tit/server/auth.py)", () => {
   });
 });
 
-describe("mock server: /docs stub", () => {
-  it("serves an unauthenticated HTML index so the Help > Docs tab's presence check succeeds", async () => {
-    const res = await fetch(`${BASE}/docs/`);
-    expect(res.status).toBe(200);
-    expect(res.headers.get("content-type")).toMatch(/text\/html/);
-    expect(await res.text()).toMatch(/<!doctype html>/i);
-  });
-});
-
 describe("mock server: /ws/system origin policy", () => {
   it("allows an absent Origin and a same-origin one; rejects foreign origins before auth", async () => {
     const auth = { authorization: `Bearer ${TOKEN}` };

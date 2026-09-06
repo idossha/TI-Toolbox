@@ -267,10 +267,6 @@ function readBody(req) {
     req.on("error", reject);
   });
 }
-const DOCS_STUB_HTML = `<!doctype html><title>TI-Toolbox docs (mock)</title>
-<p>Stub for the bundled offline docs site normally served at <code>/docs</code> by
-<code>tit.server</code> (see <code>desktop/src/renderer/pages/help/PARITY.md</code>). Present here
-only so the Help &gt; Docs tab's iframe-present path is exercised against the mock.</p>`;
 const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".json": "application/json", ".map": "application/json", ".woff2": "font/woff2", ".wasm": "application/wasm" };
 function serveStatic(res, pathname) {
   if (!existsSync(join(rendererDir, "index.html"))) {
@@ -2885,15 +2881,6 @@ const server = createServer(async (req, res) => {
     sessions.delete(cookies(req).tit_session);
     res.writeHead(204, { "set-cookie": "tit_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0" });
     return res.end();
-  }
-
-  // Stub for the offline docs bundle (docs/ rendered into desktop/resources/docs/, served at
-  // /docs by the real tit.server -- see pages/help/PARITY.md). Unauthenticated, like "/": a
-  // presence-checked static bundle, not project data. Real content is Stage-3/integration-tested
-  // against tit.server; this only exercises the Docs tab's iframe-present path against the mock.
-  if (p === "/docs" || p.startsWith("/docs/")) {
-    if (req.method !== "GET") return json(res, 405, { detail: "method not allowed" });
-    return text(res, 200, DOCS_STUB_HTML, "text/html; charset=utf-8");
   }
 
   // /tetravox/* (D1/D3, dev/notes/v3-docker-streamline-plan.md): unauthenticated static asset

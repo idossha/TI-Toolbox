@@ -8,13 +8,28 @@ stand-in — `desktop/src/renderer/pages/about/` removed by this change).
 
 - [x] "TI-Toolbox Help Center" + intro — **not** ported verbatim: `help_tab.py`'s 740 lines are
       static rich-text (BIDS directory layout, per-tool walkthroughs) that TODO.md §2.9 explicitly
-      retires in favor of the bundled docs site (`docs/` rendered into `desktop/resources/docs/`,
-      served at `/docs` by `tit.server`). Reproducing that text a second time inside the app would
-      immediately drift from the real docs. Instead: a **Docs** tab that iframes `/docs` when the
-      bundle is present, falling back to a link list (the published wiki) — the literal ask in
-      `dev/notes/v3-build-plan.md`'s P8 row ("offline docs (iframe to /docs if present else
-      links)").
-- [x] Presence check for `/docs` — `HEAD`-style `fetch("/docs/")`, not a hardcoded assumption.
+      retires in favor of the documentation site. Reproducing that text a second time inside the
+      app would immediately drift from the real docs. Instead: a **Docs** tab that frames the
+      published documentation website, <https://idossha.github.io/TI-Toolbox/> (the `url` +
+      `baseurl` of `docs/_config.yml`, pinned by `tests/unit/help-docs.test.ts`), with an explicit
+      "Open in browser" button (`shell.openExternal` through the preload bridge) and an offline
+      fallback card carrying the same links.
+- [x] **Never the app's own origin.** The earlier version probed and framed the same-origin path
+      `/docs/`, expecting a bundled offline docs copy. `tit.server`'s static route is an SPA
+      catch-all (`tit/server/static.py`: only `api`/`ws`/`auth`/`tetravox` are reserved), so
+      `/docs/` answers 200 with the app's own `index.html` — the presence check always passed and
+      the tab rendered TI-Toolbox inside TI-Toolbox (verified on the dev container: `GET /docs/`
+      → the app's index). No offline docs bundle is shipped in the image, so there is nothing to
+      fall back to locally and no markdown renderer was added. `help.spec.ts` now asserts the
+      iframe's origin differs from the app origin and that the framed document has no
+      `[data-nav-id]` rail.
+- [x] Reachability probe — `no-cors` `fetch(DOCS_SITE)` with a 5s abort; on failure the tab shows
+      one sentence plus the links, never a broken frame.
+- [x] CSP — `tit/server/app.py` grants `frame-src`/`connect-src` exactly
+      `https://idossha.github.io` (nothing else in the app talks to an outside origin);
+      `tests/test_server_skeleton.py::test_csp_header_is_exactly_the_todo_string` pins the string.
+      Electron needs no extra allowance: the renderer inherits that server CSP and the main
+      process installs no header rewriting of its own.
 
 ## acknowledgments_tab.py
 
@@ -64,6 +79,10 @@ row (Pipeline did, in 2026-09) moves the numbers in both places at once.
 ## Known gaps (reported, not hacked around)
 
 - No update-check endpoint/banner wiring — see About tab note above.
+- **Round 3 (2026-09):** the mock server's `/docs/` stub is gone with the code that probed it —
+  it existed only to make that presence check pass, and its divergence from the real server (an
+  HTML stub vs. the SPA catch-all) is what hid this bug from E2E. Both Docs branches (site framed
+  / offline card) are now covered against the mock by routing the docs origin.
 - **Round 2:** the mock server (`tests/mock-server/server.mjs`) now serves a stub `/docs/` page
   (ra_13 finding #16 — the "not served by the mock" note above was stale by this round), so the
   iframe branch is what `help.spec.ts` exercises by default; the fallback (link list) branch is

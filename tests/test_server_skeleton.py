@@ -703,10 +703,17 @@ def test_status_page_when_bundle_dir_missing(project: Path) -> None:
 
 
 def test_csp_header_is_exactly_the_todo_string() -> None:
+    """The TODO string plus the docs website, the app's one outside origin.
+
+    Help -> Docs frames https://idossha.github.io/TI-Toolbox/ (and probes it
+    with a ``no-cors`` fetch first), so that origin -- and only that one --
+    appears in ``frame-src``/``connect-src``.
+    """
     assert CSP_HEADER == (
-        "default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; "
+        "default-src 'self'; connect-src 'self' https://idossha.github.io; "
+        "img-src 'self' data: blob:; "
         "style-src 'self' 'unsafe-inline'; script-src 'self'; "
-        "worker-src 'self' blob:; frame-src 'self'; object-src 'none'"
+        "worker-src 'self' blob:; frame-src 'self' https://idossha.github.io; object-src 'none'"
     )
 
 

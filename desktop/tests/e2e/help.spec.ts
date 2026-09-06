@@ -9,6 +9,10 @@ const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
 const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
 const ARTIFACTS = process.env.TIT_E2E_ARTIFACTS ?? join(__dirname, "artifacts");
 
+// Kept in step with pages/help/api.ts's DOCS_SITE (unit-pinned there against docs/_config.yml).
+const DOCS_SITE = "https://idossha.github.io/TI-Toolbox/";
+const DOCS_STUB = "<!doctype html><title>docs</title><h1>TI-Toolbox documentation (stub)</h1>";
+
 let app: ElectronApplication;
 let page: Page;
 
@@ -37,15 +41,17 @@ test.afterEach(async () => {
   await app?.close();
 });
 
-test("every Help tab renders, including the docs fallback links", async () => {
+test("every Help tab renders, and Docs frames the published website", async () => {
   await connect();
 
-  // Force pages/help/DocsTab.tsx's "offline docs bundle isn't present" branch: the mock server
-  // now serves /docs/ itself (tests/mock-server/server.mjs's own presence-check stub, exercised
-  // by tests/mock-server/server.test.ts), which would otherwise make `docsAvailable()` resolve
-  // true and render the iframe instead — this spec's job is the fallback link list a real server
-  // without the offline bundle shows, not to re-prove the mock's own /docs stub.
-  await page.route("**/docs/", (route) => route.fulfill({ status: 404, body: "not found" }));
+  // Docs: the tab frames the *published documentation website*, never a path on the app's own
+  // origin. `tit.server`'s static route is an SPA catch-all, so the old same-origin `/docs/`
+  // answered 200 with the app's own index.html and the tab rendered TI-Toolbox inside itself.
+  // The site is stubbed here so the assertion is about which origin is framed, not about this
+  // machine having internet.
+  await page.route(`${DOCS_SITE}**`, (route) =>
+    route.fulfill({ status: 200, contentType: "text/html", body: DOCS_STUB }),
+  );
 
   await page.getByRole("link", { name: "Help", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Help" })).toBeVisible();
@@ -55,10 +61,19 @@ test("every Help tab renders, including the docs fallback links", async () => {
   const headerBox = (await page.locator(".page-header").boundingBox())!;
   expect(Math.round(headerBox.height)).toBe(28);
 
-  // Docs tab: fetch("/docs/") 404s (routed above), so this exercises the fallback link list.
-  // ExternalLinkButton renders a <Button> (role "button"), not an <a>, inside Electron — see
-  // pages/help/links.tsx.
-  await expect(page.getByRole("button", { name: "Full documentation (wiki)" })).toBeVisible({ timeout: 20_000 });
+  const frame = page.getByTestId("docs-frame");
+  await expect(frame).toBeVisible({ timeout: 20_000 });
+  const src = (await frame.getAttribute("src"))!;
+  expect(src).toBe(DOCS_SITE);
+  expect(new URL(src).origin).not.toBe(new URL(SERVER_URL).origin);
+
+  // ...and what it loaded is the docs site, not the app: no rail, no app chrome inside the frame.
+  const inner = page.frameLocator('[data-testid="docs-frame"]');
+  await expect(inner.locator("h1")).toHaveText("TI-Toolbox documentation (stub)");
+  expect(await inner.locator("[data-nav-id]").count()).toBe(0);
+
+  // Explicit escape hatch to the real browser (shell.openExternal via the preload bridge).
+  await expect(page.getByRole("button", { name: "Open in browser" })).toBeVisible();
   await page.screenshot({ path: join(ARTIFACTS, "help-light.png") });
 
   // Keyboard tab: Q5's copy (a Cmd+number per workflow page in nav order, Settings on the first
@@ -105,4 +120,20 @@ test("every Help tab renders, including the docs fallback links", async () => {
   await page.getByRole("link", { name: "Help", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Help" })).toBeVisible();
   await page.screenshot({ path: join(ARTIFACTS, "help-dark.png") });
+});
+
+test("Docs falls back to a readable offline card, never to the app inside itself", async () => {
+  await connect();
+
+  // Offline machine: the reachability probe (and the frame) fail to reach the docs origin.
+  await page.route(`${DOCS_SITE}**`, (route) => route.abort("connectionfailed"));
+
+  await page.getByRole("link", { name: "Help", exact: true }).click();
+  await expect(page.getByText(/documentation website couldn't be reached/i)).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(DOCS_SITE, { exact: false })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open documentation in browser" })).toBeVisible();
+
+  // The regression guard: no iframe at all in the fallback, and certainly not one on the app's
+  // own origin (which the SPA catch-all would answer with the app's own index.html).
+  expect(await page.locator("iframe").count()).toBe(0);
 });
