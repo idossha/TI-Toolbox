@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Locator, type Page } from "@playwright/test";
 import { expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
 import { closeSubjects, openSubjects, subjectRows } from "./_subjects";
+import { analysisRows, closeAnalysisTarget, openAnalysisTarget } from "./_jobs";
 
 /**
  * `pages/_shared/roi` — one idiom per idea, and rows/options that can be addressed (fix round,
@@ -90,13 +91,26 @@ test("defect 1: the ROI type is the same control on the Optimizer and the Analyz
   ]);
   await expect(picker.locator(".radio-group, .radio-group-cards")).toHaveCount(0);
 
+  /*
+   * The Analyzer since 2026-09-06: the target is a cell of a job ROW, opened in a dialog holding
+   * this same picker (maintainer: "we can modify our analysis input per job"). The idiom claim is
+   * unchanged — it is the picker that must be the same control on both pages — only the place the
+   * user opens it moved, so this drives it through the row's Target cell.
+   */
   await gotoPage(page, "analyzer", "Analyzer");
   await expectPage(page, "analyzer");
-  const analyzerModes = await field("Region").locator(".segmented").getByRole("radio").allTextContents();
+  await expect(page.locator('[data-page-active="true"]').locator(".roi-picker")).toHaveCount(0);
+  const targetDialog = await openAnalysisTarget(page, analysisRows(page).first());
+  const analyzerPicker = targetDialog.locator(".roi-picker");
+  await expect(analyzerPicker).toHaveCount(1);
+  const analyzerModes = await analyzerPicker.locator(".segmented").first().getByRole("radio").allTextContents();
   expect(analyzerModes).toEqual(["Cortical", "Subcortical", "Spherical"]);
   // The Analyzer's own spherical rows carried the last `RadioGroup` on the page (LAY's request).
-  await expect(field("Coordinate space").locator(".segmented")).toHaveCount(1);
-  await expect(page.getByTestId("page-work").locator(".radio-group, .radio-group-cards")).toHaveCount(0);
+  await analyzerPicker.locator(".segmented").first().getByRole("radio", { name: "Spherical", exact: true }).click();
+  await expect(field("Space", analyzerPicker).locator(".segmented")).toHaveCount(1);
+  await expect(analyzerPicker.locator(".radio-group, .radio-group-cards")).toHaveCount(0);
+  await closeAnalysisTarget(page);
+  await expect(page.locator('[data-page-active="true"]').locator(".radio-group, .radio-group-cards")).toHaveCount(0);
 });
 
 test("defect 2a: a saved-ROI row is not a subject row", async () => {

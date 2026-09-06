@@ -8,10 +8,12 @@ import {
   buildConfig,
 } from "../../src/renderer/pages/analyzer/buildConfig";
 import { EMPTY_SPHERE } from "../../src/renderer/pages/analyzer/SphereRows";
-import { blockedReasonFor, cohortSubjects, groupMismatchReason } from "../../src/renderer/pages/analyzer/AnalyzerPage";
+import { blockedReasonFor, cohortSubjects, groupMismatchReason, rowTargets } from "../../src/renderer/pages/analyzer/AnalyzerPage";
 import {
   analyzerJobsSummary,
+  analyzerTargetLabel,
   emptyAnalyzerRow,
+  isPlannableAnalyzerRow,
   isRunnableAnalyzerRow,
   type AnalyzerRow,
 } from "../../src/renderer/pages/analyzer/JobRows";
@@ -274,5 +276,79 @@ describe("the Analyzer's job rows", () => {
       "Complete the target before running.",
     );
     expect(blockedReasonFor({ subjectsBlocked: null, rowCount: 1, targetReady: true })).toBeNull();
+  });
+});
+
+/*
+ * 2026-09-06, maintainer's second jobs pass: *"we can modify our analysis input per job"*. The
+ * TARGET section is gone from the page — a ROW owns its ROI, states it in words in its Target
+ * cell, and edits it in the shared `RoiPicker` scoped to that row.
+ */
+describe("a row's own target", () => {
+  const sphereRoi = (over: Partial<Extract<RoiValue, { mode: "spherical" }>> = {}): RoiValue => ({
+    mode: "spherical",
+    spheres: [{ x: 10, y: 10, z: 10, radius: 30 }],
+    space: "mni",
+    volumetric: false,
+    tissues: "GM",
+    ...over,
+  });
+  const rowWith = (roi: RoiValue, over: Partial<AnalyzerRow> = {}): AnalyzerRow =>
+    emptyAnalyzerRow({ subjectId: "ernie", simulation: "Thalamus", roi, ...over });
+
+  it("the Target cell states the target in words, and says so when there is none", () => {
+    expect(analyzerTargetLabel(emptyAnalyzerRow().roi)).toBe("Choose a target…");
+    expect(analyzerTargetLabel(sphereRoi())).toBe("Sphere 10,10,10 r30 MNI");
+    expect(analyzerTargetLabel(sphereRoi({ space: "subject" }))).toBe("Sphere 10,10,10 r30 subject");
+    expect(analyzerTargetLabel(corticalRoi)).toBe("Cortical · DK40 · lh.insula");
+    expect(analyzerTargetLabel(subcorticalRoi)).toBe("Subcortical · CIT168_Pu_Putamen");
+  });
+
+  it("more than one region or sphere is stated as a count, so the cell is one line", () => {
+    expect(
+      analyzerTargetLabel({
+        mode: "cortical",
+        atlas: "DK40",
+        regions: [
+          { id: 29, name: "insula", hemi: "lh" },
+          { id: 29, name: "insula", hemi: "rh" },
+        ],
+      }),
+    ).toBe("Cortical · DK40 · lh.insula +1");
+    expect(
+      analyzerTargetLabel(sphereRoi({ spheres: [{ x: 10, y: 10, z: 10, radius: 30 }, { x: 1, y: 2, z: 3, radius: 5 }] })),
+    ).toBe("Sphere 10,10,10 r30 MNI +1");
+  });
+
+  it("a row is plannable only once its own target is complete", () => {
+    expect(isRunnableAnalyzerRow(rowWith(emptyAnalyzerRow().roi))).toBe(true);
+    expect(isPlannableAnalyzerRow(rowWith(emptyAnalyzerRow().roi))).toBe(false);
+    expect(isPlannableAnalyzerRow(rowWith(sphereRoi()))).toBe(true);
+  });
+
+  it("one row is one config, except where 2.5.0 already fanned out", () => {
+    // One sphere, one region set: one config.
+    expect(rowTargets(rowWith(sphereRoi()))).toHaveLength(1);
+    expect(rowTargets(rowWith(corticalRoi))).toHaveLength(1);
+    // N sphere rows are N separate analyses — `center`/`radius` are a single point.
+    expect(rowTargets(rowWith(sphereRoi({ spheres: [{ x: 1, y: 1, z: 1, radius: 5 }, { x: 2, y: 2, z: 2, radius: 5 }] })))).toHaveLength(2);
+    // "Combine regions into one ROI" off: one analysis per region.
+    const multi: RoiValue = {
+      mode: "cortical",
+      atlas: "DK40",
+      regions: [
+        { id: 29, name: "insula", hemi: "lh" },
+        { id: 29, name: "insula", hemi: "rh" },
+      ],
+    };
+    expect(rowTargets(rowWith(multi, { combine: true }))).toHaveLength(1);
+    expect(rowTargets(rowWith(multi, { combine: false }))).toHaveLength(2);
+  });
+
+  it("a cohort needs the rows to agree about the target too", () => {
+    const a = rowWith(sphereRoi());
+    const b = rowWith(sphereRoi(), { subjectId: "101" });
+    expect(groupMismatchReason([a, b])).toBeNull();
+    expect(groupMismatchReason([a, rowWith(corticalRoi, { subjectId: "101" })])).toMatch(/one target/);
   });
 });

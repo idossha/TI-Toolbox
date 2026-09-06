@@ -37,12 +37,12 @@ export async function setJobNet(page: Page, row: Locator, option: string): Promi
 
 /** A flex row's placement: the optimiser's own coordinates, or an EEG net's labels. */
 export async function setJobPlacement(page: Page, row: Locator, mode: "Optimised" | "Map to net"): Promise<void> {
-  await cell(row, "net").getByRole("radio", { name: mode, exact: true }).click();
+  await jobDetail(row).getByRole("radio", { name: mode, exact: true }).click();
 }
 
 /** The net a flex row is mapped onto — only present once "Map to net" is chosen. */
 export async function setJobMappedNet(page: Page, row: Locator, net: string): Promise<void> {
-  await cell(row, "net").getByRole("combobox").click();
+  await jobDetail(row).getByRole("combobox").click();
   await page.getByRole("option", { name: net, exact: true }).click();
 }
 
@@ -52,9 +52,23 @@ export async function setJobMontage(page: Page, row: Locator, option: string): P
   await page.getByRole("option", { name: option, exact: true }).click();
 }
 
+/**
+ * A job's **second line** — the placement, the electrode pairs in full, and the currents. Since the
+ * 2026-09-06 redesign a job is two `<tr>`s: `tr[data-job-row]` (what the job is) and the detail row
+ * immediately after it (what it will do).
+ */
+export function jobDetail(row: Locator): Locator {
+  return row.locator("xpath=following-sibling::tr[1]");
+}
+
+/** The row's electrode-pairs text, on line 2. */
+export function jobPairs(row: Locator): Locator {
+  return jobDetail(row).locator('[data-cell="pairs"]');
+}
+
 /** The row's current (mA) inputs — the count follows its polarity. */
 export function jobCurrents(row: Locator): Locator {
-  return cell(row, "currents").getByRole("spinbutton");
+  return jobDetail(row).getByRole("spinbutton");
 }
 
 /** Empties the table, so a test's job counts are exact rather than additive. */
@@ -107,4 +121,42 @@ export async function setAnalysisSubject(page: Page, row: Locator, subject: stri
 export async function setAnalysisCell(page: Page, row: Locator, name: "simulation" | "space" | "field", option: string): Promise<void> {
   await cell(row, name).getByRole("combobox").click();
   await page.getByRole("option", { name: option, exact: true }).click();
+}
+
+/**
+ * Opens a row's Target editor — the dialog holding the shared `RoiPicker`, scoped to that row
+ * (maintainer, 2026-09-06: "we can modify our analysis input per job"). Returns the dialog.
+ */
+export async function openAnalysisTarget(page: Page, row: Locator): Promise<Locator> {
+  await cell(row, "target").getByRole("button").click();
+  const dialog = page.getByRole("dialog").filter({ has: page.getByTestId("analysis-target-editor") });
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+export async function closeAnalysisTarget(page: Page): Promise<void> {
+  await page.getByTestId("analysis-target-done").click();
+  await expect(page.getByTestId("analysis-target-editor")).toHaveCount(0);
+}
+
+/** The whole spherical-target gesture for one row: open, type the sphere, close. */
+export async function setAnalysisSphere(
+  page: Page,
+  row: Locator,
+  s: { x: number; y: number; z: number; radius: number; space?: "Subject" | "MNI" },
+): Promise<void> {
+  const dialog = await openAnalysisTarget(page, row);
+  await dialog.getByRole("radio", { name: "Spherical", exact: true }).click();
+  if (s.space) await dialog.getByRole("radio", { name: s.space, exact: true }).click();
+  await dialog.getByLabel("Sphere 1 X").fill(String(s.x));
+  await dialog.getByLabel("Sphere 1 Y").fill(String(s.y));
+  await dialog.getByLabel("Sphere 1 Z").fill(String(s.z));
+  await dialog.getByLabel("Sphere 1 radius").fill(String(s.radius));
+  await closeAnalysisTarget(page);
+  await expect(row).toHaveAttribute("data-target-ready", "true");
+}
+
+/** The row's Target cell, as it reads with the dialog closed. */
+export function analysisTargetText(row: Locator): Locator {
+  return cell(row, "target").locator(".analysis-target-text");
 }

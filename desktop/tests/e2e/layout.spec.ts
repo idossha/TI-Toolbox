@@ -2,7 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import { setSectionOpen, expectPage, gotoPage, launchElectronApp, openPalette, setTheme, type Theme } from "./_helpers";
+import { expectPage, gotoPage, launchElectronApp, openPalette, setTheme, type Theme } from "./_helpers";
 import { analysisRows, setAnalysisCell } from "./_jobs";
 import {
   actionBarReach,
@@ -63,7 +63,16 @@ const DEAD_SPACE_MAX = 0.45;
  * subjects; both fall back towards the global limit as a real project's list grows. Every other
  * page is held to L5a exactly.
  */
-const DEAD_SPACE_BY_PAGE: Record<string, number> = { preprocess: 0.62 };
+/**
+ * The Analyzer's allowance, same rule — stated, not hidden in a lower global limit. The
+ * 2026-09-06 target-per-job pass removed two whole sections from this page: OUTPUT (Results owns a
+ * simulation's existing analyses) and TARGET (the ROI is a cell of a job row now, edited in a
+ * dialog). What is left in the work column is the Jobs table and one collapsed Space options
+ * section, so the room below the table is pane, not filler — exactly Pre-processing's case.
+ * Measured 51.2 % at 1280x800 with one row; it falls back towards the global limit as rows are
+ * added, which is the state a user actually runs in.
+ */
+const DEAD_SPACE_BY_PAGE: Record<string, number> = { preprocess: 0.62, analyzer: 0.55 };
 
 const SUBJECT = "ernie";
 
@@ -235,18 +244,16 @@ test("the fill controller settles after the content grows (lane UC's second find
     );
 
   // Since the 2026-09-06 jobs rework the Analyzer's simulation is a *row* cell, not a page-level
-  // combobox. `ResultsPanel` — the content whose growth this test is about — populates from the
-  // row, so the growth trigger is the same; only the control that fires it moved.
+  // combobox, and (second pass) the Output section that used to be the growth is gone — Results
+  // owns a simulation's existing analyses. The Jobs table is what grows now: three more rows are
+  // three more rows of content appearing after mount, which is the same shape of growth the
+  // controller must react to once and then stop reacting to.
   const analysisRow = analysisRows(page).first();
   await expect(analysisRow).toBeVisible();
   await setAnalysisCell(page, analysisRow, "simulation", "Thalamus");
-  // Open "Output" by hand rather than waiting for the fill controller to open it: at 1280x800 the
-  // Analyzer does not reliably have the 96px of slack the controller needs to open a fifth section
-  // on its own, and this test is not about the controller's threshold. The
-  // growth this test is about — `ResultsPanel` going from an empty table to a populated one — is
-  // the same either way, and the assertions below (react once, then STOP) are unchanged.
-  await setSectionOpen(page, "Output", true);
-  await expect(page.getByTestId("analyses-table")).toBeVisible({ timeout: 15_000 });
+  const addRow = page.getByTestId("analysis-jobs-footer").getByRole("button", { name: "Add row", exact: true });
+  for (let i = 0; i < 3; i++) await addRow.click();
+  await expect(analysisRows(page)).toHaveCount(4);
   await page.waitForTimeout(1_200);
 
   const first = await openState();

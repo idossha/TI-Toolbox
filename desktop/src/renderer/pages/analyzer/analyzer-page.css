@@ -1,0 +1,78 @@
+/* The Analyzer's Jobs table (2026-09-06, maintainer: "we can modify our analysis input per job").
+   Two things this file exists for: the row a click makes ACTIVE — the row the 3-D pane is drawing,
+   marked exactly as the Simulator's table marks its own — and a Target cell that states a target
+   of any length in one fixed-width line. */
+
+/* The colgroup percentages are the whole layout: `table-layout: fixed` is what makes them
+   authoritative, so a long target truncates inside its cell instead of widening the table past the
+   work pane (measured: without it the actions column hit-tested to the run panel at 1280). */
+.analysis-jobs-table {
+  table-layout: fixed;
+}
+
+.analysis-jobs-table td > * {
+  max-width: 100%;
+}
+
+/* Thicker rows: a row now carries five controls plus a sentence, and the Target button needs a
+   click target that is not a hairline. */
+.analysis-jobs-table tbody td {
+  padding-block: var(--space-2);
+}
+
+.analysis-jobs-table tbody tr[data-active="true"] > td {
+  background-color: var(--accent-soft);
+}
+
+.analysis-jobs-table tbody tr[data-active="true"] > td:first-child {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.analysis-jobs-table tbody tr:hover > td {
+  background-color: color-mix(in srgb, var(--accent-soft) 40%, var(--surface));
+}
+
+.analysis-jobs-table tbody tr[data-active="true"]:hover > td {
+  background-color: var(--accent-soft);
+}
+
+/* The Target cell. `min-width: 0` on the flex child plus `overflow: hidden` is what actually
+   truncates inside a table cell — without it the text sets the column's intrinsic width and every
+   other row shifts when one target grows. */
+.analysis-target-button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.analysis-target-button:hover {
+  border-color: var(--accent);
+}
+
+.analysis-target-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.analysis-target-button[data-empty="true"] {
+  color: var(--ink-3);
+  border-style: dashed;
+}
+
+.analysis-target-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

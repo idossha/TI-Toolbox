@@ -1,27 +1,29 @@
 /**
- * Analyzer page — parity source `tit/gui/analyzer_tab.py` (see PARITY.md). Single/group mode,
- * subject(s) + simulation, mesh/voxel space, field selector, spherical/cortical/subcortical
- * target, a Plan panel, and a Results section for the simulation's existing analyses.
+ * Analyzer page — parity source `tit/gui/analyzer_tab.py` (see PARITY.md). A Jobs table where one
+ * row is one analysis job, a Plan panel, and the 3-D pane showing the active row's target.
  *
  * Uses plain component state rather than the react-hook-form + ajv infra: the config here is
- * really a *batch* of `AnalyzerConfig` objects (one per sphere row, see PARITY.md), which does
- * not map onto a single schema-validated form the way a one-shot Run screen does. Matches the
- * existing `pages/overview/index.tsx` precedent of plain `useState` for non-trivial screens.
+ * really a *batch* of `AnalyzerConfig` objects (one per row, and one per sphere/region a row's
+ * target expands into — see PARITY.md), which does not map onto a single schema-validated form
+ * the way a one-shot Run screen does. Matches the existing `pages/overview/index.tsx` precedent of
+ * plain `useState` for non-trivial screens.
  *
- * Cortical/subcortical targets reuse the shared `pages/_shared/roi` picker (P3), per the build
- * plan. Spherical does **not**: that picker's spherical mode unions multiple rows into one
- * combined `SphericalROI` (flex-search's semantics) — `AnalyzerConfig.center`/`.radius` are a
- * single point, and `tit/gui/analyzer_tab.py` runs N sphere rows as N *separate* analyses
- * (`build_single_analysis_commands`), never a union. Reusing the shared spherical panel here
- * would silently misrepresent what Run does, so this page keeps its own `SphereRows` for that
- * one mode (see PARITY.md and the report to the orchestrator).
+ * **2026-09-06, maintainer, second jobs pass.** Two sections left the page:
+ *
+ *  - **OUTPUT** ("Analyses of this simulation…") — `pages/results` owns a simulation's existing
+ *    analyses, and a run screen restating them was a second place for the same truth.
+ *  - **TARGET** — *"we can modify our analysis input per job"*. The target is now a cell of the
+ *    row (`JobRows.tsx`), editable in a dialog holding the shared `RoiPicker` scoped to that row.
+ *    The 3-D pane draws the **active** row's target, and its region clicks edit that row.
+ *
+ * What stays global is what is a property of the *run* rather than of one job: the voxel tissue
+ * compartment (Space options).
  */
 import { useEffect, useMemo, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { FormSection, PageLayout, PaneHeaderControls, usePaneController } from "../../ui/Layout";
 import { ActionBar } from "../../ui/Chrome";
-import { SegmentedControl } from "../../ui/SegmentedControl";
 import { Field } from "../../ui/Field";
 import { Select } from "../../ui/Select";
 import { Button } from "../../ui/Button";
@@ -31,29 +33,23 @@ import { useSubject } from "../../app/subjectContext";
 import { usePageSession } from "../../app/pageSession";
 import { subjectsBlockedReason } from "../_shared/subjects";
 import { ExistingOutputsDialog, planCounts, RunPanel, RunWork, planDigest, planModelFrom, stepsFor, useRunShortcut, type PlanModel, type PlanResult as SharedPlanResult } from "../_shared/run";
-import {
-  RoiPicker,
-  emptyRoi,
-  isRoiComplete,
-  type RoiMode,
-  type RoiValue,
-} from "../_shared/roi";
+import { isRoiComplete, type RoiValue } from "../_shared/roi";
 import { ScenePane } from "../_shared/scene";
 import { TI_NORMAL_VOXEL_HELP } from "./fields";
 import {
   AnalyzerJobRows,
   analyzerJobsSummary,
   emptyAnalyzerRow,
+  isPlannableAnalyzerRow,
   isRunnableAnalyzerRow,
+  sameTarget,
   type AnalyzerRow,
   type AnalyzerSubject,
 } from "./JobRows";
-import { EMPTY_SPHERE, SphereRows, type Sphere } from "./SphereRows";
-import { ResultsPanel } from "./ResultsPanel";
+import { EMPTY_SPHERE } from "./SphereRows";
 import { viewerSearch } from "../results";
 import {
   buildConfig,
-  sphereComplete,
   type Space,
   type AnalysisType,
 } from "./buildConfig";
@@ -93,9 +89,9 @@ export function cohortSubjects(rows: AnalyzerRow[]): string[] {
 }
 
 /**
- * A group analysis is one job over one simulation name (`run_group_analysis` reads the same
- * simulation out of every subject's derivatives), so rows that disagree are a state the page must
- * refuse rather than silently resolve to the first row's answer.
+ * A group analysis is one job over one simulation name in one space, measuring one field in one
+ * ROI (`run_group_analysis` reads the same thing out of every subject's derivatives), so rows that
+ * disagree are a state the page must refuse rather than silently resolve to the first row's answer.
  */
 export function groupMismatchReason(rows: AnalyzerRow[]): string | null {
   const runnable = rows.filter(isRunnableAnalyzerRow);
@@ -106,7 +102,30 @@ export function groupMismatchReason(rows: AnalyzerRow[]): string | null {
   if (spaces.length > 1) return "A group analysis runs in one space — these rows mix mesh and voxel.";
   const fields = [...new Set(runnable.map((r) => r.field))];
   if (fields.length > 1) return "A group analysis measures one field — these rows name more than one.";
+  // Since the target became a row's own (maintainer, 2026-09-06), a cohort needs the rows to agree
+  // about it too — the one ROI the group job is given.
+  const lead = runnable[0] as AnalyzerRow;
+  if (runnable.some((r) => !sameTarget(lead, r)))
+    return "A group analysis measures one target — these rows name more than one.";
   return null;
+}
+
+/**
+ * The `AnalyzerConfig`-shaped targets one row expands into.
+ *
+ * A row owns **one** ROI, and normally is one config. Two cases fan out, both 2.5.0's own
+ * semantics: `AnalyzerConfig.center`/`.radius` are a single point, so N sphere rows are N separate
+ * analyses (`build_single_analysis_commands`, never a union); and with "Combine regions into one
+ * ROI" unchecked, each selected region is its own analysis.
+ */
+export function rowTargets(row: AnalyzerRow): RoiValue[] {
+  const roi = row.roi;
+  if (roi.mode === "spherical") return roi.spheres.map((s) => ({ ...roi, spheres: [s] }));
+  if (roi.mode === "cortical" || roi.mode === "subcortical") {
+    if (row.combine || roi.regions.length <= 1) return [roi];
+    return roi.regions.map((r) => ({ ...roi, regions: [r] }));
+  }
+  return [roi];
 }
 
 export function AnalyzerPage() {
@@ -114,20 +133,16 @@ export function AnalyzerPage() {
   const { id: shellSubject, subjects } = useSubject();
   /*
    * 2026-09-06 jobs rework (maintainer): "we need a list of jobs in a table that allows users
-   * flexibility in what they input to the job". The page-level Subjects table and the single
-   * Simulation combobox are gone — a ROW names its subject, its simulation, its space and its
-   * field, which is 2.5.0's Subject × Simulation pair table with the two per-job choices that had
-   * no business being global folded in.
+   * flexibility in what they input to the job", then "we can modify our analysis input per job".
+   * The page-level Subjects table, the Simulation combobox and the TARGET section are gone — a ROW
+   * names its subject, its simulation, its space, its field and its target.
    *
    * `usePageSession` for what the user chose (lane N2): this page unmounts on every navigation.
    */
   const [rows, setRows] = usePageSession<AnalyzerRow[]>("jobRows", []);
   const [group, setGroup] = usePageSession("group", false);
   const [tissueType, setTissueType] = usePageSession("tissue", "GM");
-  const [analysisType, setAnalysisTypeState] = usePageSession<AnalysisType>("analysisType", "spherical");
-  const [coordinateSpace, setCoordinateSpace] = usePageSession<"subject" | "mni">("coordinateSpace", "subject");
-  const [spheres, setSpheres] = usePageSession<Sphere[]>("spheres", () => [{ ...EMPTY_SPHERE }]);
-  const [roiValue, setRoiValue] = usePageSession<RoiValue>("roi", () => emptyRoi("cortical"));
+  const [activeRowId, setActiveRowId] = usePageSession<string | null>("activeRow", null);
   const [overwrite, setOverwrite] = usePageSession("overwrite", false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [running, setRunning] = useState(false);
@@ -160,52 +175,42 @@ export function AnalyzerPage() {
   const [seeded, setSeeded] = useState(false);
   if (!seeded && rows.length === 0 && subjects.length > 0) {
     setSeeded(true);
-    setRows([emptyAnalyzerRow({ subjectId: shellSubject ?? subjects[0]?.id ?? "" })]);
+    const first = emptyAnalyzerRow({ subjectId: shellSubject ?? subjects[0]?.id ?? "" });
+    setRows([first]);
+    setActiveRowId(first.id);
   }
 
   const runnableRows = rows.filter(isRunnableAnalyzerRow);
   const cohort = cohortSubjects(rows);
   const firstRow = runnableRows[0];
   const primarySubjectId = firstRow?.subjectId ?? rows[0]?.subjectId ?? null;
-  // In group mode every row shares one space (`groupMismatchReason` refuses otherwise), so the ROI
-  // space is the first runnable row's; with no rows yet it is mesh's subject space.
+  // The row the 3-D pane draws and the pane's clicks edit — the Simulator's idiom, here for the
+  // target. Falls back to the first row so a pane is never showing nothing while rows exist.
+  const activeRow = rows.find((r) => r.id === activeRowId) ?? rows[0] ?? null;
   const space: Space = firstRow?.space ?? "mesh";
-  const roiSpace: "subject" | "mni" = space === "mesh" ? "subject" : "mni";
   const effectiveSubjectIds = group ? cohort : runnableRows.map((r) => r.subjectId);
 
-  // Derived-field resets happen inside the setter that changes the driving field, not a
-  // `useEffect` watching it — one render, no `react-hooks/set-state-in-effect` violation.
-  function setAnalysisType(next: AnalysisType) {
-    setAnalysisTypeState(next);
-    if (next !== "spherical") setRoiValue(emptyRoi(next as RoiMode, roiSpace));
-  }
   function setRows2(next: AnalyzerRow[]) {
     setRows(next);
-    // A row switching to voxel moves the ROI into MNI space and back — the same reset the old
-    // page-level Space segment did, driven by the rows that now own the choice.
-    const nextSpace = next.filter(isRunnableAnalyzerRow)[0]?.space ?? "mesh";
-    if (nextSpace !== space && analysisType !== "spherical") {
-      setRoiValue(emptyRoi(analysisType as RoiMode, nextSpace === "mesh" ? "subject" : "mni"));
-    }
-  }
-  // Group mode analyses one cohort with one sphere: N sphere rows are N separate single-subject
-  // analyses in 2.5.0 and cannot be folded into a cohort job.
-  function setGroupMode(next: boolean) {
-    setGroup(next);
-    if (next && spheres.length > 1) setSpheres((s) => [s[0] as Sphere]);
   }
 
-  const targetReady =
-    analysisType === "spherical"
-      ? spheres.length > 0 && spheres.every(sphereComplete)
-      : isRoiComplete(roiValue);
+  /** Patches the ACTIVE row's ROI — the writer the 3-D pane's region/atlas picks go through. */
+  function patchActiveRoi(roi: RoiValue) {
+    if (!activeRow) return;
+    setRows(rows.map((r) => (r.id === activeRow.id ? { ...r, roi } : r)));
+  }
+
+  // Every runnable row must carry a complete target of its own; the disabled Run says which.
+  const incompleteTargetRow = runnableRows.find((r) => !isRoiComplete(r.roi));
+  const targetReady = runnableRows.length > 0 && incompleteTargetRow === undefined;
   const groupMismatch = group ? groupMismatchReason(rows) : null;
-  const configsValid = runnableRows.length > 0 && targetReady && !groupMismatch;
+  const plannableRows = rows.filter(isPlannableAnalyzerRow);
+  const configsValid = plannableRows.length > 0 && targetReady && !groupMismatch;
 
   /**
-   * One `AnalyzerConfig` per (row × sphere) — 2.5.0's `build_single_analysis_commands`, where N
-   * sphere rows are N *separate* analyses and never a union. In group mode the rows are the cohort
-   * instead: one config per sphere, carrying every row's subject in `subject_ids`.
+   * One `AnalyzerConfig` per (row × target) — the row's own ROI, expanded by `rowTargets`. In
+   * group mode the rows are the cohort instead: the lead row's target (every row shares it, or
+   * `groupMismatchReason` refuses), carrying every row's subject in `subject_ids`.
    *
    * Derived on every render rather than memoized (the precedent `RunControls.tsx`'s `useSimPlan`
    * set): the rows are derived arrays, so a `useMemo` over them could only be keyed on a
@@ -216,8 +221,7 @@ export function AnalyzerPage() {
   const configs: AnalyzerConfig[] = !configsValid
     ? []
     : (() => {
-        const targets = analysisType === "spherical" ? spheres : [EMPTY_SPHERE];
-        const make = (row: AnalyzerRow, sphere: Sphere) =>
+        const make = (row: AnalyzerRow, roi: RoiValue) =>
           buildConfig({
             mode: group ? "group" : "single",
             subjectId: group ? null : row.subjectId,
@@ -226,16 +230,17 @@ export function AnalyzerPage() {
             space: row.space,
             tissueType,
             field: row.field,
-            analysisType,
-            coordinateSpace,
-            roiValue,
-            sphere,
+            analysisType: roi.mode as AnalysisType,
+            coordinateSpace:
+              roi.mode === "spherical" ? roi.space : roi.mode === "subcortical" ? roi.atlasSpace : "subject",
+            roiValue: roi,
+            sphere: roi.mode === "spherical" ? (roi.spheres[0] ?? EMPTY_SPHERE) : EMPTY_SPHERE,
           });
         if (group) {
-          const lead = runnableRows[0];
-          return lead ? targets.map((sphere) => make(lead, sphere)) : [];
+          const lead = plannableRows[0];
+          return lead ? rowTargets(lead).map((roi) => make(lead, roi)) : [];
         }
-        return runnableRows.flatMap((row) => targets.map((sphere) => make(row, sphere)));
+        return plannableRows.flatMap((row) => rowTargets(row).map((roi) => make(row, roi)));
       })();
 
   /**
@@ -338,22 +343,17 @@ export function AnalyzerPage() {
   const digest = planModel ? planDigest(planModel) : (blockedReason ?? "Resolving the plan…");
 
   /*
-   * The scene pane in `inspect` mode (plan §2.4): the ROI is drawn **where it will be measured**,
-   * and the only thing a click may change is the sphere centre.
-   *
-   * Read-only for regions on purpose — an Analyzer run measures a simulation that already exists,
-   * so the pane's job here is to let a user see that the region they typed is the region they
-   * meant, not to be a second region editor. The sphere gesture is offered only in subject space
-   * and only for the first row: the scene's coordinates are this subject's own millimetres, and an
-   * MNI field written from them would be wrong by the whole template transform.
+   * The scene pane in `inspect` mode (plan §2.4): the ACTIVE ROW's target is drawn where it will
+   * be measured, and a click in the pane edits that row's regions — the same `onRegionsChange` /
+   * `onAtlasChange` writers, now pointed at one row rather than at a page-level ROI.
    */
-  const sceneCortical = analysisType === "cortical" && roiValue.mode === "cortical";
-  const sceneSpherical = analysisType === "spherical";
+  const activeRoi = activeRow?.roi;
+  const sceneCortical = activeRoi?.mode === "cortical";
   const scenePane = usePaneController({ pageId: "analyzer", name: "run" });
   const sceneNote = sceneCortical
     ? undefined
-    : sceneSpherical
-      ? coordinateSpace === "subject"
+    : activeRoi?.mode === "spherical"
+      ? activeRoi.space === "subject"
         ? undefined
         : "Coordinates are typed, not picked — the pane draws the reference guide, not this subject."
       : "Subcortical targets are volumetric — the preview shows the head model, not the label volume.";
@@ -381,16 +381,16 @@ export function AnalyzerPage() {
           scene={
             <ScenePane
               mode="inspect"
-              atlas={sceneCortical && roiValue.mode === "cortical" ? (roiValue.atlas ?? null) : null}
-              regions={sceneCortical && roiValue.mode === "cortical" ? roiValue.regions : undefined}
+              atlas={sceneCortical && activeRoi.mode === "cortical" ? (activeRoi.atlas ?? null) : null}
+              regions={sceneCortical && activeRoi.mode === "cortical" ? activeRoi.regions : undefined}
               onAtlasChange={
                 sceneCortical
-                  ? (atlas) => setRoiValue({ ...(roiValue as Extract<RoiValue, { mode: "cortical" }>), atlas })
+                  ? (atlas) => patchActiveRoi({ ...(activeRoi as Extract<RoiValue, { mode: "cortical" }>), atlas })
                   : undefined
               }
               onRegionsChange={
                 sceneCortical
-                  ? (regions) => setRoiValue({ ...(roiValue as Extract<RoiValue, { mode: "cortical" }>), regions })
+                  ? (regions) => patchActiveRoi({ ...(activeRoi as Extract<RoiValue, { mode: "cortical" }>), regions })
                   : undefined
               }
               note={sceneNote}
@@ -420,10 +420,9 @@ export function AnalyzerPage() {
       <RunWork>
         {/*
          * JOBS (2026-09-06 rework): the one table where the analysis is described, first on the
-         * page and `data-tier="1"` (§8 — never closed by `RunWork`'s fill controller). It replaces
-         * the page-level Subjects table, the Scope segment and the single Simulation combobox: a
-         * row names its own subject, simulation, space and field, which is 2.5.0's Subject ×
-         * Simulation pair table with "+ Add Pair" and "Quick Add".
+         * page and `data-tier="1"` (§8 — never closed by `RunWork`'s fill controller). A row names
+         * its own subject, simulation, space, field and TARGET, which is 2.5.0's Subject ×
+         * Simulation pair table with every per-job choice folded in.
          *
          * It is deliberately not wrapped in a plain `FormSection` alone for the fill controller's
          * sake — the `data-tier="1"` box is what keeps it out of the oscillation lane UC measured.
@@ -444,7 +443,10 @@ export function AnalyzerPage() {
                   onRowsChange={setRows2}
                   fieldsFor={fieldsFor}
                   group={group}
-                  onGroupChange={setGroupMode}
+                  onGroupChange={setGroup}
+                  activeRowId={activeRow?.id ?? null}
+                  onActiveRowChange={setActiveRowId}
+                  onOpenViewer={primarySubjectId ? openInViewer : undefined}
                 />
               )}
             </div>
@@ -453,87 +455,44 @@ export function AnalyzerPage() {
                 <Callout kind="warning">{groupMismatch}</Callout>
               </div>
             )}
+            {!groupMismatch && incompleteTargetRow && (
+              <div style={{ gridColumn: "1 / -1" }}>
+                <Callout kind="warning">
+                  {`${incompleteTargetRow.subjectId} · ${incompleteTargetRow.simulation} has no target yet — open its Target cell to choose one.`}
+                </Callout>
+              </div>
+            )}
           </FormSection>
         </div>
 
         {subjects.length > 0 && (
-          <>
-            <FormSection
-              title="Space options"
-              collapsible
-              defaultOpen={false}
-              summary={space === "voxel" ? `voxel · ${tissueType}` : "mesh · GM"}
+          <FormSection
+            title="Space options"
+            collapsible
+            defaultOpen={false}
+            summary={space === "voxel" ? `voxel · ${tissueType}` : "mesh · GM"}
+          >
+            <Field
+              label="Tissue"
+              htmlFor="analyzer-tissue"
+              help="Voxel space only — mesh analyses are gray matter."
+              // Voxel space is why TI_normal is unavailable in a row's Field cell — a reason for
+              // a disabled option, so it is stated on the form rather than behind an (i).
+              note={space === "voxel" ? TI_NORMAL_VOXEL_HELP : undefined}
             >
-              <Field
-                label="Tissue"
-                htmlFor="analyzer-tissue"
-                help="Voxel space only — mesh analyses are gray matter."
-                // Voxel space is why TI_normal is unavailable in a row's Field cell — a reason for
-                // a disabled option, so it is stated on the form rather than behind an (i).
-                note={space === "voxel" ? TI_NORMAL_VOXEL_HELP : undefined}
-              >
-                <Select
-                  id="analyzer-tissue"
-                  value={tissueType}
-                  onValueChange={setTissueType}
-                  disabled={space === "mesh"}
-                  options={[
-                    { value: "GM", label: "Gray matter (GM)" },
-                    { value: "WM", label: "White matter (WM)" },
-                    { value: "both", label: "GM + WM (both)" },
-                  ]}
-                />
-              </Field>
-            </FormSection>
-
-            <FormSection title="Target" summary={analysisType}>
-                <Field label="Region">
-                  <SegmentedControl
-                    value={analysisType}
-                    onValueChange={(v) => setAnalysisType(v as AnalysisType)}
-                    options={[
-                      { value: "cortical", label: "Cortical" },
-                      { value: "subcortical", label: "Subcortical" },
-                      { value: "spherical", label: "Spherical" },
-                    ]}
-                    aria-label="Target region type"
-                  />
-                </Field>
-                <div style={{ gridColumn: "1 / -1" }}>
-                  {analysisType === "subcortical" && (
-                    <Callout kind="warning" title="Not yet implemented">
-                      Subcortical analysis is accepted by the config but the analyzer runner only handles spherical and
-                      cortical targets today — a submitted job will complete without producing output. Tracked as a known
-                      backend gap (see PARITY.md).
-                    </Callout>
-                  )}
-                  {analysisType === "spherical" ? (
-                    <SphereRows
-                      spheres={spheres}
-                      onSpheresChange={setSpheres}
-                      coordinateSpace={coordinateSpace}
-                      onCoordinateSpaceChange={setCoordinateSpace}
-                      allowMultiple={!group}
-                      onOpenViewer={primarySubjectId ? openInViewer : undefined}
-                    />
-                  ) : (
-                    <RoiPicker
-                      value={roiValue}
-                      onChange={setRoiValue}
-                      modes={[analysisType]}
-                      subject={primarySubjectId ?? undefined}
-                      space={roiSpace}
-                    />
-                  )}
-                </div>
-            </FormSection>
-
-            <FormSection title="Output" collapsible defaultOpen={false} summary="CSV + PDF report">
-              <div style={{ gridColumn: "1 / -1" }}>
-                <ResultsPanel subjectId={primarySubjectId} simulation={firstRow?.simulation || undefined} />
-              </div>
-            </FormSection>
-          </>
+              <Select
+                id="analyzer-tissue"
+                value={tissueType}
+                onValueChange={setTissueType}
+                disabled={space === "mesh"}
+                options={[
+                  { value: "GM", label: "Gray matter (GM)" },
+                  { value: "WM", label: "White matter (WM)" },
+                  { value: "both", label: "GM + WM (both)" },
+                ]}
+              />
+            </Field>
+          </FormSection>
         )}
       </RunWork>
 
@@ -563,8 +522,9 @@ export function blockedReasonFor(state: {
   subjectsBlocked: string | null;
   /** Rows that name both a subject and a simulation. */
   rowCount: number;
-  /** Group mode over rows that disagree about simulation, space or field. */
+  /** Group mode over rows that disagree about simulation, space, field or target. */
   groupMismatch?: string | null;
+  /** Every runnable row carries a complete target of its own. */
   targetReady: boolean;
 }): string | null {
   // The table is what is empty, so that is what the button says — before the subject grammar's

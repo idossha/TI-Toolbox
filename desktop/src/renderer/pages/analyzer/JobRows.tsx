@@ -8,34 +8,54 @@
  * it with a page-level Subjects table plus a single Simulation combobox, which cannot express
  * "ernie/Thalamus and 101/Motor" at all.
  *
- * So the row is the pair again, plus the two per-job choices that were global and had no business
- * being so — the analysis `Space` (mesh/voxel) and the `Field`. Everything that is genuinely a
- * property of the *question being asked* rather than of one job — the ROI, the tissue, the
- * coordinate space — stays global on the page, exactly as it was in 2.5.0.
+ * So the row is the pair again, plus every per-job choice that was global and had no business
+ * being so — the analysis `Space` (mesh/voxel), the `Field`, and (maintainer, second pass) the
+ * **Target**: *"we can modify our analysis input per job"*. The row's Target cell states the
+ * target in words and opens the shared `RoiPicker` scoped to that row; the page-level TARGET
+ * section is gone, as is the OUTPUT section (Results owns a simulation's existing analyses).
+ *
+ * Two layout rules the cell obeys, because a target changing must not move a row:
+ *
+ *  1. the columns are fixed percentages (`<colgroup>`), so a longer target cannot widen a column;
+ *  2. the Target cell truncates to one line and carries the full text in `title`.
  *
  * Group mode is a switch over the same rows (`Combine into one group analysis`), living on the
- * table's own footer line beside `+ Add row`: the rows name the cohort, and one job is submitted
- * over all of them. 2.5.0's "Quick Add" button is gone (maintainer, 2026-09-06) — `+ Add row`,
- * duplicate and remove are the whole gesture set.
+ * table's own footer line beside `+ Add row`: the rows name the cohort, one job is submitted over
+ * all of them, and rows that disagree about the simulation, the space, the field **or the target**
+ * are refused with the reason on the Run button.
  */
-import { useMemo } from "react";
-import { Copy, Info, Plus, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Copy, Info, Plus, Target as TargetIcon, X } from "lucide-react";
 import { Button, IconButton } from "../../ui/Button";
-import { Popover } from "../../ui/Overlay";
-import { Switch } from "../../ui/Toggle";
+import { Dialog, Popover } from "../../ui/Overlay";
+import { Switch, Checkbox } from "../../ui/Toggle";
 import { Select } from "../../ui/Select";
 import { SelectionPicker } from "../../ui/SelectionList";
+import { RoiPicker, emptyRoi, isRoiComplete, type RoiRegion, type RoiValue } from "../_shared/roi";
 import { AUTO_FIELD, type Space } from "./buildConfig";
 import { FIELD_REGISTRY } from "./fields";
+import "./analyzer-page.css";
 
-/** One row of the table = one (subject, simulation, space, field) analysis job. */
+/**
+ * One row of the table = one (subject, simulation, space, field, target) analysis job.
+ *
+ * `roi` is the row's own target — the same `RoiValue` the shared picker edits, in its cortical,
+ * subcortical or spherical mode. `combine` is the picker's "Combine regions into one ROI":
+ * checked, the row's regions are one ROI on one config (the config's `region` list); unchecked,
+ * each region is its own analysis, which is what 2.5.0's per-sphere rows already did.
+ */
 export interface AnalyzerRow {
   id: string;
   subjectId: string;
   simulation: string;
   space: Space;
   field: string;
+  roi: RoiValue;
+  combine: boolean;
 }
+
+/** The three target modes the analyzer runner understands (`saved` is an ex/mEx target). */
+export const ANALYZER_ROI_MODES = ["cortical", "subcortical", "spherical"] as const;
 
 let rowSeq = 0;
 
@@ -52,12 +72,55 @@ export function emptyAnalyzerRow(seed?: Partial<AnalyzerRow>): AnalyzerRow {
     simulation: seed?.simulation ?? "",
     space: seed?.space ?? "mesh",
     field: seed?.field ?? AUTO_FIELD,
+    roi: seed?.roi ?? emptyRoi("spherical"),
+    combine: seed?.combine ?? true,
   };
 }
 
 /** A row is a job once it names a subject and a simulation. */
 export function isRunnableAnalyzerRow(row: AnalyzerRow): boolean {
   return !!row.subjectId && !!row.simulation;
+}
+
+/** A runnable row can be *planned* once its own target is complete too. */
+export function isPlannableAnalyzerRow(row: AnalyzerRow): boolean {
+  return isRunnableAnalyzerRow(row) && isRoiComplete(row.roi);
+}
+
+/** `lh.insula` — the hemisphere is part of a cortical region's identity. */
+function regionLabel(r: RoiRegion): string {
+  return r.hemi ? `${r.hemi}.${r.name}` : r.name;
+}
+
+function num(v: number | undefined): string {
+  return v === undefined ? "?" : String(v);
+}
+
+/**
+ * The row's target **in words** — what the Target cell prints and what its `title` carries in
+ * full. An incomplete target says so rather than printing a half-typed coordinate.
+ */
+export function analyzerTargetLabel(roi: RoiValue): string {
+  if (!isRoiComplete(roi)) return "Choose a target…";
+  if (roi.mode === "spherical") {
+    const first = roi.spheres[0];
+    if (!first) return "Choose a target…";
+    const head = `Sphere ${num(first.x)},${num(first.y)},${num(first.z)} r${num(first.radius)} ${
+      roi.space === "mni" ? "MNI" : "subject"
+    }`;
+    return roi.spheres.length > 1 ? `${head} +${roi.spheres.length - 1}` : head;
+  }
+  if (roi.mode === "saved") return "Choose a target…";
+  const names = roi.regions.map(regionLabel);
+  const head = names.length > 1 ? `${names[0]} +${names.length - 1}` : (names[0] ?? "");
+  // Cortical names its atlas (a region name means little without one); subcortical atlases are
+  // one-per-space and the region name is already unique, so it reads as the maintainer wrote it.
+  return roi.mode === "cortical" ? `Cortical · ${roi.atlas} · ${head}` : `Subcortical · ${head}`;
+}
+
+/** Two rows agree about their target when the picker's whole value agrees. */
+export function sameTarget(a: AnalyzerRow, b: AnalyzerRow): boolean {
+  return JSON.stringify([a.roi, a.combine]) === JSON.stringify([b.roi, b.combine]);
 }
 
 /**
@@ -93,6 +156,9 @@ export function AnalyzerJobRows({
   fieldsFor,
   group,
   onGroupChange,
+  activeRowId,
+  onActiveRowChange,
+  onOpenViewer,
 }: {
   subjects: AnalyzerSubject[];
   rows: AnalyzerRow[];
@@ -102,7 +168,15 @@ export function AnalyzerJobRows({
   onGroupChange: (next: boolean) => void;
   /** Fields a given (subject, simulation) actually wrote; empty falls back to the registry. */
   fieldsFor: (subjectId: string, simulation: string) => string[];
+  /** The row the 3-D pane is drawing — highlighted here, exactly as the Simulator's table does. */
+  activeRowId: string | null;
+  onActiveRowChange: (id: string) => void;
+  /** Spherical targets offer "Open T1 in viewer"; omitted, the button is not drawn. */
+  onOpenViewer?: () => void;
 }) {
+  /** Which row's target dialog is open, if any. */
+  const [targetRowId, setTargetRowId] = useState<string | null>(null);
+
   const subjectItems = useMemo(
     () =>
       subjects.map((s) => ({
@@ -139,25 +213,34 @@ export function AnalyzerJobRows({
 
   function addRow() {
     const last = rows[rows.length - 1];
-    onRowsChange([...rows, emptyAnalyzerRow(last ?? { subjectId: subjects.find((s) => !s.blockedReason)?.id })]);
+    const seed = last ?? { subjectId: subjects.find((s) => !s.blockedReason)?.id };
+    const next = emptyAnalyzerRow(seed);
+    onRowsChange([...rows, next]);
+    onActiveRowChange(next.id);
   }
 
   function duplicate(row: AnalyzerRow) {
     const at = rows.findIndex((r) => r.id === row.id);
-    onRowsChange([...rows.slice(0, at + 1), { ...row, id: newAnalyzerRowId() }, ...rows.slice(at + 1)]);
+    const copy = { ...row, id: newAnalyzerRowId() };
+    onRowsChange([...rows.slice(0, at + 1), copy, ...rows.slice(at + 1)]);
+    onActiveRowChange(copy.id);
   }
 
+  const targetRow = rows.find((r) => r.id === targetRowId) ?? null;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
       <div className="data-table-container" data-testid="analysis-jobs-table-container">
         <table className="data-table analysis-jobs-table" data-testid="analysis-jobs-table">
+          {/* Fixed widths, so a row whose target grows from "Choose a target…" to a five-region
+              cortical union changes what one CELL prints and moves nothing. */}
           <colgroup>
-            <col style={{ width: "22%" }} />
-            <col style={{ width: "30%" }} />
-            <col style={{ width: "18%" }} />
-            <col style={{ width: "20%" }} />
+            <col style={{ width: "15%" }} />
+            <col style={{ width: "19%" }} />
             <col style={{ width: "10%" }} />
+            <col style={{ width: "13%" }} />
+            <col style={{ width: "30%" }} />
+            <col style={{ width: "13%" }} />
           </colgroup>
           <thead>
             <tr>
@@ -165,82 +248,116 @@ export function AnalyzerJobRows({
               <th>Simulation</th>
               <th>Space</th>
               <th>Field</th>
+              <th>Target</th>
               <th />
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, i) => (
-              <tr
-                key={row.id}
-                data-analysis-row={row.id}
-                data-subject={row.subjectId || undefined}
-                data-simulation={row.simulation || undefined}
-                data-runnable={isRunnableAnalyzerRow(row) ? "true" : "false"}
-              >
-                <td data-cell="subject">
-                  <SelectionPicker
-                    mode="single"
-                    label="Subject"
-                    items={subjectItems}
-                    value={row.subjectId ? [row.subjectId] : []}
-                    onChange={(v) => {
-                      const next = v[0];
-                      if (!next) return;
-                      // A simulation the new subject has not run is not a job — clear it rather
-                      // than carrying a row the plan will refuse.
-                      const keeps = simulationsOf(next).includes(row.simulation);
-                      patch(row.id, { subjectId: next, simulation: keeps ? row.simulation : "" });
-                    }}
-                    placeholder="Subject"
-                    headers={{ label: "Subject", reason: "Why not" }}
-                    hideBulk
-                    idPrefix={`analysis-subject-${row.id}`}
-                    triggerTestId={`analysis-subject-${row.id}`}
-                  />
-                </td>
-                <td data-cell="simulation">
-                  <Select
-                    value={simulationsOf(row.subjectId).includes(row.simulation) ? row.simulation : undefined}
-                    onValueChange={(v) => patch(row.id, { simulation: v, field: AUTO_FIELD })}
-                    options={simulationsOf(row.subjectId).map((s) => ({ value: s, label: s }))}
-                    placeholder={row.subjectId ? (simulationsOf(row.subjectId).length === 0 ? "No simulations" : "Choose a simulation") : "Pick a subject"}
-                    disabled={!row.subjectId || simulationsOf(row.subjectId).length === 0}
-                    aria-label="Simulation"
-                  />
-                </td>
-                <td data-cell="space">
-                  <Select
-                    value={row.space}
-                    onValueChange={(v) =>
-                      // Voxel space cannot analyze TI_normal, so a row switching into it drops back
-                      // to Auto rather than planning a field that will not resolve.
-                      patch(row.id, { space: v as Space, field: v === "voxel" && row.field === "TI_normal" ? AUTO_FIELD : row.field })
-                    }
-                    options={[
-                      { value: "mesh", label: "Mesh" },
-                      { value: "voxel", label: "Voxel" },
-                    ]}
-                    aria-label="Space"
-                  />
-                </td>
-                <td data-cell="field">
-                  <Select
-                    value={row.field}
-                    onValueChange={(v) => patch(row.id, { field: v })}
-                    options={fieldOptions(row)}
-                    aria-label="Field"
-                  />
-                </td>
-                <td data-cell="actions" className="montage-actions">
-                  <IconButton aria-label={`Duplicate row ${i + 1}`} icon={<Copy size={14} />} onClick={() => duplicate(row)} />
-                  <IconButton
-                    aria-label={`Remove row ${i + 1}`}
-                    icon={<X size={14} />}
-                    onClick={() => onRowsChange(rows.filter((r) => r.id !== row.id))}
-                  />
-                </td>
-              </tr>
-            ))}
+            {rows.map((row, i) => {
+              const label = analyzerTargetLabel(row.roi);
+              return (
+                <tr
+                  key={row.id}
+                  data-analysis-row={row.id}
+                  data-subject={row.subjectId || undefined}
+                  data-simulation={row.simulation || undefined}
+                  data-runnable={isRunnableAnalyzerRow(row) ? "true" : "false"}
+                  data-target-ready={isRoiComplete(row.roi) ? "true" : "false"}
+                  data-active={activeRowId === row.id ? "true" : undefined}
+                  aria-selected={activeRowId === row.id}
+                  tabIndex={0}
+                  onClick={(e) => {
+                    // A click on a control in the row is that control's, not the row's.
+                    if ((e.target as HTMLElement).closest("button, input, [role='combobox'], [role='dialog']")) return;
+                    onActiveRowChange(row.id);
+                  }}
+                  onFocus={() => onActiveRowChange(row.id)}
+                >
+                  <td data-cell="subject">
+                    <SelectionPicker
+                      mode="single"
+                      label="Subject"
+                      items={subjectItems}
+                      value={row.subjectId ? [row.subjectId] : []}
+                      onChange={(v) => {
+                        const next = v[0];
+                        if (!next) return;
+                        // A simulation the new subject has not run is not a job — clear it rather
+                        // than carrying a row the plan will refuse.
+                        const keeps = simulationsOf(next).includes(row.simulation);
+                        patch(row.id, { subjectId: next, simulation: keeps ? row.simulation : "" });
+                      }}
+                      placeholder="Subject"
+                      headers={{ label: "Subject", reason: "Why not" }}
+                      hideBulk
+                      idPrefix={`analysis-subject-${row.id}`}
+                      triggerTestId={`analysis-subject-${row.id}`}
+                    />
+                  </td>
+                  <td data-cell="simulation">
+                    <Select
+                      value={simulationsOf(row.subjectId).includes(row.simulation) ? row.simulation : undefined}
+                      onValueChange={(v) => patch(row.id, { simulation: v, field: AUTO_FIELD })}
+                      options={simulationsOf(row.subjectId).map((s) => ({ value: s, label: s }))}
+                      placeholder={row.subjectId ? (simulationsOf(row.subjectId).length === 0 ? "No simulations" : "Choose a simulation") : "Pick a subject"}
+                      disabled={!row.subjectId || simulationsOf(row.subjectId).length === 0}
+                      aria-label="Simulation"
+                    />
+                  </td>
+                  <td data-cell="space">
+                    <Select
+                      value={row.space}
+                      onValueChange={(v) =>
+                        // Voxel space cannot analyze TI_normal, so a row switching into it drops back
+                        // to Auto rather than planning a field that will not resolve.
+                        patch(row.id, { space: v as Space, field: v === "voxel" && row.field === "TI_normal" ? AUTO_FIELD : row.field })
+                      }
+                      options={[
+                        { value: "mesh", label: "Mesh" },
+                        { value: "voxel", label: "Voxel" },
+                      ]}
+                      aria-label="Space"
+                    />
+                  </td>
+                  <td data-cell="field">
+                    <Select
+                      value={row.field}
+                      onValueChange={(v) => patch(row.id, { field: v })}
+                      options={fieldOptions(row)}
+                      aria-label="Field"
+                    />
+                  </td>
+                  <td data-cell="target">
+                    {/* The whole target in one cell: it STATES the target, and opens the shared
+                        picker scoped to this row. Truncated to one line with the full text in
+                        `title`, so the column width is independent of what is in it. */}
+                    <button
+                      type="button"
+                      className="analysis-target-button"
+                      data-testid={`analysis-target-${row.id}`}
+                      data-empty={isRoiComplete(row.roi) ? undefined : "true"}
+                      title={label}
+                      aria-label={`Target for row ${i + 1}: ${label}`}
+                      onClick={() => {
+                        onActiveRowChange(row.id);
+                        setTargetRowId(row.id);
+                      }}
+                    >
+                      <TargetIcon size={12} aria-hidden />
+                      <span className="analysis-target-text">{label}</span>
+                    </button>
+                  </td>
+                  <td data-cell="actions" className="montage-actions">
+                    <IconButton aria-label={`Duplicate row ${i + 1}`} icon={<Copy size={14} />} onClick={() => duplicate(row)} />
+                    <IconButton
+                      aria-label={`Remove row ${i + 1}`}
+                      icon={<X size={14} />}
+                      onClick={() => onRowsChange(rows.filter((r) => r.id !== row.id))}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -272,10 +389,56 @@ export function AnalyzerJobRows({
             <div className="field-help-popover">
               <div className="field-help-popover-title">Combine into one group analysis</div>
               One cohort analysis over every row&apos;s subject (run_group_analysis), instead of one job per row.
+              Every row must name the same simulation, space, field and target.
             </div>
           </Popover>
         </div>
       </div>
+
+      {/* The row's target editor. A dialog rather than a popover because the picker itself opens
+          an atlas combobox and a region dialog — overlays a popover would have to survive. */}
+      <Dialog
+        open={targetRow !== null}
+        onOpenChange={(open) => !open && setTargetRowId(null)}
+        title="Analysis target"
+        description={
+          targetRow
+            ? `${targetRow.subjectId || "no subject"} · ${targetRow.simulation || "no simulation"}`
+            : undefined
+        }
+        footer={
+          <Button variant="primary" onClick={() => setTargetRowId(null)} data-testid="analysis-target-done">
+            Done
+          </Button>
+        }
+      >
+        {targetRow && (
+          <div data-testid="analysis-target-editor" data-row={targetRow.id}>
+            <RoiPicker
+              value={targetRow.roi}
+              onChange={(roi) => patch(targetRow.id, { roi })}
+              modes={[...ANALYZER_ROI_MODES]}
+              subject={targetRow.subjectId || undefined}
+              space={targetRow.space === "voxel" ? "mni" : "subject"}
+              onOpenViewer={onOpenViewer}
+            />
+            {targetRow.roi.mode !== "spherical" && (
+              <div style={{ marginTop: "var(--space-3)" }}>
+                <Checkbox
+                  checked={targetRow.combine}
+                  onCheckedChange={(on) => patch(targetRow.id, { combine: on })}
+                  label="Combine regions into one ROI"
+                />
+                <p className="field-help">
+                  {targetRow.combine
+                    ? "The selected regions are measured together as one ROI."
+                    : "Each selected region is analyzed separately — one job per region."}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </Dialog>
     </div>
   );
 }
