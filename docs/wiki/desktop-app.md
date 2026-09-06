@@ -5,10 +5,13 @@ permalink: /wiki/desktop-app/
 ---
 
 The TI-Toolbox Desktop Application is an Electron shell around a single Docker container:
-`idossha/ti-toolbox:<version>` computes and serves everything (SimNIBS, FastSurfer, the
-toolbox UI, and the Tetravox Embed viewer), the host renders it. There is no X11 anywhere in
-this design, and no second container to manage — one image, one container, driven entirely
-through Docker's own Engine API.
+`idossha/ti-toolbox:<version>` computes and serves everything (SimNIBS, FastSurfer and the
+toolbox UI), the host renders it. There is no X11 anywhere in this design, and no second
+container to manage — one image, one container, driven entirely through Docker's own Engine API.
+
+3D viewing is a **separate desktop application**, [Tetravox](https://github.com/idossha/tetravox),
+installed on the host. The toolbox writes a scene file and asks the app to open it; the app
+updates itself and knows nothing about TI-Toolbox's release cycle.
 
 ## Architecture Overview
 
@@ -17,9 +20,10 @@ Host                                                          idossha/ti-toolbox
 ┌─ Electron shell ───────────────────────────────┐            ┌────────────────────────────────────────────┐
 │ main: Engine-API client ─ compose.v3.yml ──────┼─ socket ──▶│ entrypoint → simnibs_python -m tit.server   │
 │ renderer (served by the container, :port) ─────┼─ http ────▶│   /            → /opt/ti-toolbox/ui         │
-│   └─ <iframe src=/tetravox/index.html?embed=1> │            │   /tetravox/   → the active embed (CSP)     │
-│        WebGL2+WASM on the host GPU  ◀─ files ──┼───────────▶│   /api/files/raw/{path}  (jailed stream)    │
-│        postMessage: load/setCursor/screenshot… │            │   /api/view/{kind} → Tetravox ViewSpec v2   │
+│   └─ run-page 3-D panes: own WebGL2 renderer   │            │   /api/scene/*  → surfaces, electrodes, atlas│
+│                                                │            │   /api/files/raw/{path}  (jailed stream)    │
+│ ┌─ Tetravox.app (host) ◀─ spawn <scene file> ──┼───────────▶│   /api/view/open → <project>/code/ti-toolbox/│
+│ └─ its own window, its own updates             │            │                    viewer/*.tetravox.json   │
 └────────────────────────────────────────────────┘            │ jobs: charm · subject_atlas · FastSurfer    │
       docker.sock mounted for DWI (QSIPrep/QSIRecon)          │       seg_only · tit.sim/opt/analyzer/stats │
                                                               └────────────────────────────────────────────┘
@@ -37,9 +41,9 @@ right volumes/env, wait for it to answer a health check, then point a `BrowserWi
 | | v2 | v3 |
 |---|---|---|
 | **UI** | PyQt5, rendered by the container over X11 forwarding to a host X server | HTML/JS served by the container, rendered by Electron (a normal browser-engine renderer process) — no X server anywhere |
-| **Viewer** | Freeview and Gmsh, launched as separate X11 processes inside the container | Tetravox Embed: WebGL2 + WASM, running on the **host** GPU inside an `<iframe>` in the same window, driven by a `postMessage` protocol |
+| **Viewer** | Freeview and Gmsh, launched as separate X11 processes inside the container | The **Tetravox desktop app** on the host, opened with a scene file the server writes. The run pages' own 3-D panes are drawn in-app by a small WebGL2 renderer |
 | **Docker orchestration** | `dockerode` for health checks/log streaming + the `docker compose` CLI shelled out to for starting/stopping services | A dependency-free Docker Engine API client only — no CLI subprocess at all, except `docker context inspect` to discover the active context |
-| **Images** | Two: `idossha/simnibs` (~19 GB) + a separate FreeSurfer image (~67 GB) | One: `idossha/ti-toolbox:<ver>` (~6.7 GB), SimNIBS + FastSurfer + the UI + the viewer baked in |
+| **Images** | Two: `idossha/simnibs` (~19 GB) + a separate FreeSurfer image (~67 GB) | One: `idossha/ti-toolbox:<ver>` (~6.7 GB), SimNIBS + FastSurfer + the UI. No viewer is baked in |
 | **X11 host setup** | XQuartz (macOS) / VcXsrv (Windows) / native X11 (Linux), `xhost` permission juggling on every launch | None |
 | **Compose's role** | Read by both the app (for its own bookkeeping) and shelled out to via the `docker compose` CLI | Still the stack *definition* (one `tit` service, `desktop/docker/docker-compose.v3.yml`), but the app parses the YAML itself and realizes it purely through Engine API calls — `docker compose` is never invoked |
 
@@ -51,10 +55,9 @@ right volumes/env, wait for it to answer a health check, then point a `BrowserWi
 
 The window's content is the container's own served UI — the renderer process is a normal
 web page (HTML/CSS/JS built from the toolbox's TypeScript sources) loaded from
-`http://127.0.0.1:<port>/`, exactly like visiting the app in a browser. The one exception is
-the viewer: when a page needs to show a 3D scene or a volume, it mounts an `<iframe>` pointed
-at `/tetravox/index.html?embed=1&hostOrigin=<origin>` — the same container's static Tetravox
-Embed bundle — and talks to it with `postMessage` (see "The embed protocol" below).
+`http://127.0.0.1:<port>/`, exactly like visiting the app in a browser. Nothing in it is framed:
+the run pages' 3-D panes are drawn by the app's own WebGL2 renderer, and full viewing is the
+Tetravox desktop app (see "Opening a scene in Tetravox" below).
 
 #### **Main Process** (Backend)
 
@@ -87,43 +90,36 @@ Supported engines: **Docker Desktop** and **Docker Engine**. Colima/OrbStack are
 (same Engine API, not actively tested); Podman is not supported (its `/version` response is
 detected and refused by name).
 
-### Updating the viewer without updating the toolbox
+### Opening a scene in Tetravox
 
-The Tetravox embed is delivered dynamically, so a Tetravox release does not require a TI-Toolbox
-release (`dev/notes/v3-embed-convergence-plan.md`, decisions E1-E4):
+The 3D/volume viewer is not part of this app and is not served by the container — it is
+[Tetravox](https://github.com/idossha/tetravox), an ordinary signed, notarised desktop
+application that auto-updates itself. TI-Toolbox's part is one file
+(`dev/notes/v3-native-panes-external-viewer-plan.md`, decisions V1-V4):
 
-- **The app pins a protocol *range*, not a version.** `tit/tetravox/protocol.py` (and its
-  renderer twin `desktop/src/renderer/viewer/embedProtocol.ts`) declare the supported range and a
-  map of *named* features — `markers`, `pick`, `camera` — so a page asks "can this embed do
-  markers" rather than comparing version numbers. `GET /api/capabilities` reports the active
-  bundle's `version`, `protocol`, `source`, `features` and whether it is `compatible`.
-- **Two roots, newest compatible wins.** The image still bakes a floor version at
-  `/opt/tetravox/embed`, so an offline or air-gapped install is unaffected. Bundles installed
-  later live under the user config directory (`~/.config/ti-toolbox/tetravox/embed/<version>/`,
-  mounted into the container), and `/tetravox/` resolves on **every request**: the
-  `--tetravox-dir` dev override, then the pinned or newest compatible installed version, then the
-  baked one. No restart is involved.
-- **Installing is explicit and verified.** *Settings → Viewer engine* shows what is running and
-  where it came from, checks a release index on request, and installs a bundle by URL + sha256.
-  The digest is verified before the archive is opened, extraction rejects absolute paths, `..`
-  and links, the manifest's protocol must be inside the supported range, and activation is a
-  single atomic rename — a half-extracted bundle is never served. Nothing auto-installs.
-- **Rolling back never deletes.** "Use this" on the baked row pins the image's own copy; the
-  installed bundle stays on disk, so going forward again is one click.
+- **The Viewer page is a selector.** Pick a subject, a simulation, an analysis, a group result or
+  an arbitrary file, then press **Open in Tetravox**.
+- **The server writes the scene.** `POST /api/view/open` builds the same ViewSpec v2 document
+  `GET /api/view/{kind}` returns, rewrites every dataset path from an `/api/files/raw/…` URL to
+  the **host's** own absolute path, and writes it to
+  `<project>/code/ti-toolbox/viewer/<kind>.tetravox.json`. The extension matters: that compound
+  extension is what the Tetravox app registers as its scene document, and any other suffix is
+  read as a data file instead.
+- **The shell opens it.** Electron's main process maps the container path to the host path
+  through the same project mount `openPath` uses, then spawns the app detached
+  (`open -a Tetravox <scene>` on macOS, the resolved binary elsewhere). A second Open is a second
+  spawn: Tetravox holds a single-instance lock and routes the file into the window already on
+  screen instead of opening another one.
+- **Discovery, and one override.** `/Applications/Tetravox.app` and `~/Applications` on macOS,
+  `%LOCALAPPDATA%\Programs\Tetravox\Tetravox.exe` on Windows, `tetravox` on `PATH` (or
+  `~/.local/bin`, `/usr/bin`, `/usr/local/bin`) on Linux. *Settings → Viewer* shows the resolved
+  path and version, offers a path override for an AppImage outside `PATH`, and links to the
+  download when nothing is found.
+- **In a browser**, where there is no main process to spawn anything, the button downloads the
+  scene file instead; open it with **File ▸ Open Scene…**.
 
-### The embed protocol
-
-The 3D/volume viewer is not part of the Electron bundle — it is a separate web app
-(**Tetravox Embed**) that the container serves at `/tetravox/` and that the toolbox UI mounts
-in an `<iframe>` wherever a scene needs to be shown. The two talk over `postMessage`:
-the host sends `load {scene}` (a Tetravox `ViewSpec` v2 document that `tit.server` builds
-from the simulation/analysis on disk), `setCursor`, `probe`, `screenshot`, layer
-visibility/opacity toggles; the embed answers with `ready`, `loaded`, `status`, `cursor`,
-`probe`, `screenshot`, `layers`. Every dataset reference inside a scene is an
-origin-relative URL — `/api/files/raw/<path>` — so the iframe can `fetch()` mesh/volume bytes
-directly from the same container that served it, with no path rewriting on either side. See
-[Viewer]({{ site.baseurl }}/wiki/visualizers/) for what this looks like from the UI, and
-Tetravox's own `docs/EMBED.md` for the full protocol.
+Nothing about the viewer is a server capability any more: the container has no display, ships no
+viewer, and `GET /api/capabilities` says nothing about one.
 
 ## Launch Workflow
 
@@ -134,7 +130,7 @@ Tetravox's own `docs/EMBED.md` for the full protocol.
 5. **Container start** — network/volume ensured, container created with the project mounted, the app's env map, and the right labels, then started
 6. **Health check** — polled against `/api/health`, raced against "did the container exit" so a crash on boot reports its exit code instead of a generic timeout
 7. **Window opens** on `http://127.0.0.1:<port>/`, the container's own served UI
-8. **Active session** — the user interacts with the UI; the viewer, when needed, is an `<iframe>` onto the same container's `/tetravox/`
+8. **Active session** — the user interacts with the UI; full 3-D viewing, when needed, opens in the host's Tetravox app
 9. **Cleanup** — on quit, the container is stopped and removed (named volumes are kept)
 
 ## Job Model
@@ -185,9 +181,13 @@ npm run dev
   every renderer.
 - **No X11 permissions:** there is nothing to grant or revert on launch/exit — removed
   entirely along with X11 itself.
-- **Tetravox Embed's CSP:** the `/tetravox/` route serves its own Content-Security-Policy
-  (`script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:`), scoped to that route only
-  — the app's own top-level page does not carry `'wasm-unsafe-eval'`.
+- **No WASM eval, and nothing framed:** with the embed retired the app's CSP grants neither
+  `'unsafe-eval'` nor `'wasm-unsafe-eval'` anywhere, and the only `frame-src` it allows is the
+  published documentation site.
+- **The launch bridge names no program:** `window.tit.viewer.open` takes a *container* path the
+  server just wrote, which main maps through the known project mount and refuses unless it ends
+  in `.tetravox.json`. The only executable it can start is the one discovery (or the user's own
+  Settings override) says Tetravox is.
 
 ## Performance
 

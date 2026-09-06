@@ -45,13 +45,13 @@ work-pane cap, no decorative outer margin, and no pane that exists without conte
 most two panes — work, plus a *purposeful* right pane — and there are exactly three shapes.
 
 ```
-Shape A — run page (U2)                          Shape B — browser (U4)                    Shape C — embed (U5)
+Shape A — run page (U2)                          Shape B — browser (U4)                    Shape C — bleed (U5/V1)
 ┌──────┬─────────────────────┬────────────────┐  ┌──────┬───────┬─────────┬──────────┐  ┌──────┬──────────────────────┐
 │ rail │ work pane           │ RUN PANEL      │  │ rail │ list  │ tree    │ preview  │  │ rail │ source bar        40 │
 │ 216  │ (flush sections,    │ ┌────────────┐ │  │ 216  │ 200   │ flex    │ 40 %     │  │  56  ├──────────────────────┤
-│      │  2-col at ≥1440)    │ │ PLAN grid  │ │  │      │       │         │          │  │      │ <iframe> embed       │
-│      │                     │ ├────────────┤ │  │      │       │         │          │  │      │ fills; ≥1200×≥640    │
-│      │                     │ │ TERMINAL   │ │  │      │       │         │          │  │      │ at 1280×800          │
+│      │  2-col at ≥1440)    │ │ PLAN grid  │ │  │      │       │         │          │  │      │ "what will open"     │
+│      │                     │ ├────────────┤ │  │      │       │         │          │  │      │ fills the content    │
+│      │                     │ │ TERMINAL   │ │  │      │       │         │          │  │      │ box, no right pane   │
 │      ├─────────────────────┤ │ (fills)    │ │  └──────┴───────┴─────────┴──────────┘  └──────┴──────────────────────┘
 │      │ action bar       44 │ └────────────┘ │
 ├──────┴─────────────────────┴────────────────┤   jobs rail 32 (⌘J → 260)
@@ -61,7 +61,7 @@ Shape A — run page (U2)                          Shape B — browser (U4)     
 |---|---|---|---|
 | **A `run`** | Pre-processing, Simulator, Optimizer, Analyzer | form, flush sections, sticky action bar | `RunPanel` — Plan grid over Terminal (§4.5, §4.6) |
 | **B `browse`** | Results, Subjects, Jobs | internally split list → detail | preview / detail, **rendered only when it has content** |
-| **C `bleed`** | Viewer | the embed itself | none — the Viewer has no inspector (§10) |
+| **C `bleed`** | Viewer | the source bar + the "what will open" summary | none — the Viewer has no right pane (§10) |
 
 ### 2.1 Exact widths
 
@@ -76,7 +76,7 @@ above it**; the browser and embed shapes negate it.
 | **A** form grid columns | 1 or 2 (container ≥ 760 either size — see §4.2) | 2 (770 ≥ 760) |
 | **B** list / tree / preview | 200 / 534 / 490 | 200 / 534 / 490 |
 | **B** two-pane degenerate (Subjects, Jobs) | 1224 / 0 (no selection) | 1224 / 0 (no selection) |
-| **C** source bar / embed | 40 / **1224 × 664** | 40 / **1224 × 764** |
+| **C** source bar / stage | 40 / **1224 × 664** | 40 / **1224 × 764** |
 
 The nav rail's 160 px of labels at ≥ 1440 is funded by the window's own 160 px of extra width
 (1440 − 1280), so the content box is **1224 px wide at both sizes** — every page but the run shape
@@ -120,7 +120,7 @@ current `screens.spec.ts` capture rather than this table before relying on eithe
 
 | breakpoint | what changes | why |
 |---|---|---|
-| **1440** | `--page-pad` 16 → 24; run panel 360 → 400; nav rail 56 icons → 216 labelled (Q1, §9) | below 1440 a 216 px labelled rail would leave only 1064 px of content — too little for the Viewer's ≥ 1200 px embed — so every page (not just the Viewer) takes the icon rail below this width and gains the width back |
+| **1440** | `--page-pad` 16 → 24; run panel 360 → 400; nav rail 56 icons → 216 labelled (Q1, §9) | below 1440 a 216 px labelled rail would leave only 1064 px of content — too little for a run page's work pane beside its 3-D pane — so every page takes the icon rail below this width and gains the width back |
 | **1100** | the right pane stops being a column and becomes a drawer over the work pane (`⌘⇧I` opens it) | below this a 360 px pane leaves the form under 600 px |
 | **900** | `--page-pad` → 8 | last resort before the minimum |
 | *container* **760** | `.form-grid` 2 → 1 column | measured on the pane, so a form in a dialog collapses on its own merits |
@@ -858,7 +858,7 @@ group heading told the user a page belonged to a subject when it did not.
   a `SegmentedControl` **Method ⟨Flex │ Ex │ mEx⟩** as the first row of the work pane and one shared
   `RoiPicker`. Two nav entries were a copy of the PyQt tab strip, not a workflow.
 - **Icons + tooltips below 1440; icons + labels at ≥ 1440** (Q1, §0). A 216 px labelled rail below
-  1440 would leave only 1064 px of content — too little for the Viewer's ≥ 1200 px embed (§10) —
+  1440 would leave only 1064 px of content — too little for the run pages' 3-D panes —
   so the icon breakpoint moved to 1440 for every page rather than forcing the Viewer alone onto a
   permanent icon rail (`PageDef.railMode: "icons"` still exists for a future page that needs it,
   but no page sets it today: at 1440 the Viewer's content box is 1224 px either way).
@@ -918,64 +918,57 @@ interval. Rollback to the baked bundle or the previous install stays one click.
 
 ## 10. Viewer
 
-**The Viewer page is the embed** (program U5). It is a 40 px source bar and an iframe, and nothing
-else. TI's own inspector — the Layers, Cursor and Scene blocks the v2 page drew down the right-hand
-side — **is removed entirely**: every one of those controls exists in the embed's own panels, drawn
-in the engine's theme against the engine's state, and two copies of one control give two answers to
-"what is the window". The rule that used to split them ("the embed owns the image, the inspector
-owns the data") is retired with the inspector.
+**The Viewer page is a data selector, not a viewer** (V1,
+`dev/notes/v3-native-panes-external-viewer-plan.md`). The maintainer's words: *"the viewer tab only
+acts as the data selection and it actually opens up everything in [an external window] like we have
+in 2.5.0."*
+
+The embed is retired. Nothing on this page draws pixels and nothing on this page is an `<iframe>`:
+the picture belongs to the **Tetravox desktop app**, a signed, notarised, self-updating application
+on the host, with its own window, its own theme, its own panels and its own release cadence. What
+this page owes a person is the selection, one sentence about what will open, and a button.
 
 ```
 ┌──────┬────────────────────────────────────────────────────────────┐
 │ rail │ TYPE ⟨Simulation ▾⟩ SUBJECT ⟨ernie ▾⟩ SIMULATION ⟨… ▾⟩     │ 40  source bar
-│  56  │ FIELD ⟨TI_max ▾⟩            SPACE ⟨Subject│MNI⟩ [Load] [⟳] │
+│  56  │ FIELD ⟨TI_max ▾⟩       SPACE ⟨Subject│MNI⟩ [Open in Tetravox]│
 │      ├────────────────────────────────────────────────────────────┤
-│      │                                                            │
-│      │  <iframe src="/tetravox/">   1224 × 664 at 1280 × 800      │
-│      │                              1224 × 764 at 1440 × 900      │
+│      │  What will open                                            │
+│      │  · T1.nii.gz                                    grayscale  │
+│      │  · Thalamus_TI_max.nii.gz                            heat  │
+│      │  Opened simulation.tetravox.json — /Users/…/viewer/…       │
 └──────┴────────────────────────────────────────────────────────────┘
 ```
 
-- **The source bar owns the *draft* selection; Load owns the request.** A view Type selector plus
+- **The source bar owns the *draft* selection; Open owns the command.** A view Type selector plus
   the selectors that type takes (subject, simulation, analysis, field, atlas, space, ROI, custom
-  path), then **Load**, then the reload `IconButton`. Editing a selector changes nothing on screen;
-  Load performs exactly one `GET /api/view/{kind}` and hands the embed exactly one scene. The bar
-  scrolls horizontally rather than growing a second row — the stage's height belongs to the canvas.
-  Everything a layer or a cursor can do belongs to the embed.
-- **A failed load keeps the picture.** The error is a strip above the canvas naming the selection
-  that failed; the last successfully loaded scene stays in the viewport. Reload re-sends *that*
-  scene, not the draft.
-- **The embed fills.** No page header, no shell padding, no max width, no right pane. The Viewer
-  needs ≥ 1200 px of iframe width to keep its own panels open — below 1000 px the embed collapses
-  them and the page becomes a picture with no controls at all. It does not force its own icon rail:
-  the shared Q1 breakpoint (§9; program §0) already keeps every page's content box at 1224 px at both 1280
-  and 1440, which clears the Viewer's floor without a page-specific rule.
-- **The canvas is dark in both themes** (`--canvas`, `#0B0D10`). This is an imaging convention, not
-  a preference: a light viewport changes what a greyscale T1 and a heat overlay look like. No theme
-  block may override it. The app calls `Engine.setTheme` in the same tick as its own `data-theme`
-  flip so the embed's chrome matches.
+  path), then **Open in Tetravox**. Editing a selector changes nothing but the draft: no request,
+  no window. Open performs exactly one `POST /api/view/open` and hands the shell exactly one file.
+  The bar scrolls horizontally rather than growing a second row.
+- **A second Open reuses the window that is already open.** Tetravox holds a single-instance lock
+  and routes a second launch's file into the running window (verified in its repo at 0.3.11), so
+  this page never has to track whether the app is running.
+- **The summary is a list of files, not a picture of one.** "What will open" names each layer the
+  server would build, with its colormap. It is the honest thing a selector can say, and it is
+  deliberately not a thumbnail: a small wrong preview is worse than none.
+- **The page is allowed to be mostly empty.** It is a form and a summary; padding it out to fill a
+  1440 px window would be filling space, not designing it. This is the one page whose dead-space
+  budget (§9) does not apply.
+- **Three states, each naming what happened.**
+  - **Nothing selected** — "Choose what to look at above, then press Open in Tetravox."
+  - **Tetravox not installed** — the shell looked in the platform's usual places and in the
+    Settings override and found nothing. Leads with that fact and offers **Download Tetravox**;
+    Open is disabled rather than failing on click. Everything else on the page still works.
+  - **Browser mode** — there is no main process to start an application, so the button reads
+    **Download scene** and the sentence afterwards says to open it with File ▸ Open Scene…. This is
+    a complete answer, not a degraded one: the file is the interface.
+- **Settings ▸ Viewer is the other half.** The resolved path and version, a path override for an
+  AppImage outside `PATH`, and the same download link. It reaches no network — it looks at the
+  local filesystem through `window.tit.viewer.probe`.
 - **Layer names are the server's.** `tit/viewspec.py` decides what a layer is called; no
   display-name mapping lives in the client.
-- **Loading.** Per-dataset progress with the byte count, over `--canvas`. A scene whose only
-  3D-capable layer is hidden says so over the canvas rather than leaving an unexplained black pane.
-- **Three designed states, not errors.** There is no "Open externally" anywhere — Freeview and Gmsh
-  are gone, the viewer is TI-Toolbox's only way to look at a subject or a result, and each state
-  names what happened rather than offering a fallback that does not exist. With the inspector gone,
-  each one is a centred block over the full content box, `max-width: 480px`:
-  - **No WebGL2** (`TetravoxFrame`, `status === "no-webgl2"`) — names the detected renderer when the
-    embed reported one and explains that Chromium M137 removed the automatic software fallback, so
-    there is nothing to switch on. No buttons.
-  - **No embed answered** (`status === "no-embed"`) — the iframe mounted at `/tetravox/` but nothing
-    replied to the handshake inside 8 s. Leads with the *timeout* and names the seconds, because a
-    bundle that is present but failed to start looks exactly like this and the first thing to try is
-    a reload. One `Reload viewer` button.
-  - **Not bundled** (the page itself, before it mounts a frame) — `GET /api/capabilities` reported
-    `tetravox_embed.available === false`. Leads with the *capability answer* ("This server has no
-    viewer bundle") and says nothing timed out, because nothing was mounted. The source bar is not
-    rendered either — there is nothing to source. The two states must be tellable apart from one
-    cropped sentence in a support screenshot; that is why neither reuses the other's wording.
-- **Keyboard.** The canvas owns unmodified keys while focused; the shell keeps only ⌘-prefixed ones.
-  `⌘⇧V` focuses the canvas; `?` lists both key sets in one sheet.
+- **Keyboard.** `⌘⇧V` is gone with the canvas it focused. There is nothing on this page that owns
+  unmodified keys, so the shell keeps all of its shortcuts here as on every other page.
 
 ## 11. Status bar — removed
 
@@ -1063,7 +1056,7 @@ numbers are captured at 1440 × 900 and in dark, where they may only improve.
 | `optimizer` | ≤ 22 % | work ≥ 560 · right 576 | `hidden` empty |
 | `analyzer` | ≤ 25 % | work ≥ 560 · right 576 | `hidden` empty |
 | `results` | ≤ 20 % | list 200 · tree ≥ 400 · preview 426 ± 8 | n/a |
-| `viewer` | ≤ 12 % | nav **56** · embed ≥ 1200 × ≥ 640 | n/a |
+| `viewer` | n/a (V1: a selector page is meant to be mostly empty — §10) | nav **56** · work ≥ 1200 | n/a |
 | `jobs` | ≤ 25 % with history · ≤ 30 % empty | work ≥ 704 · right 360 or **0** | n/a |
 
 `subjects` was ≤ 25 % / ≤ 30 % while four cards of readiness chips covered the lower half of the

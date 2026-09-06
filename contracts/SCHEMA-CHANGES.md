@@ -1160,3 +1160,43 @@ was edited, so every v1 client keeps working unchanged.
 
 4. **Regenerated** `contracts/openapi.v1.json` (`python3 dev/build_contract.py`) and
    `desktop/src/renderer/api/schema.d.ts` (`pnpm run gen:api`).
+
+## 2026-09-06 — feat:external-viewer — `POST /api/view/open` lands; the whole `tetravox` section goes
+
+Plan of record: `dev/notes/v3-native-panes-external-viewer-plan.md`, decisions V1-V4.
+No dataclass changes, so `contracts/schema.json` is untouched; `openapi.v1.yaml` was
+edited and `openapi.v1.json` / `desktop/src/renderer/api/schema.d.ts` regenerated with
+`python3 dev/build_contract.py` and `pnpm run gen:api`.
+
+**This entry is a removal, and a breaking one.** The in-app Tetravox *embed* is retired.
+Viewing is now the Tetravox **desktop app**, installed on the host, which signs, notarises
+and updates itself. A container with no display could never have run it; an embed baked into
+an image tied a viewer release to a toolbox release, which is exactly what the previous
+entry's dynamic-delivery machinery existed to undo — by adding five routes, four schemas,
+a WebSocket and an installer instead of removing the coupling's cause.
+
+1. **Added: `POST /api/view/open`** → `ViewerOpen` (`{name, path, host_path, scene}`).
+   Builds exactly the ViewSpec `GET /api/view/{kind}` would build for the same selection,
+   rewrites every dataset and sidecar `path`/`absPath` from an `/api/files/raw/…` URL to the
+   **host's** own absolute path, and writes it to
+   `<project>/code/ti-toolbox/viewer/<kind>.tetravox.json`. `host_path` is `null` when this
+   server cannot know its project's host root (`tit/server/host_path.py`), which the client
+   renders as "download the file" rather than "launch". One file per view kind, overwritten,
+   so the directory does not grow inside the user's project.
+2. **Removed: the whole `tetravox` tag** — `GET /api/tetravox`, `GET /api/tetravox/updates`,
+   `POST /api/tetravox/{policy,install,activate}`, `DELETE /api/tetravox/{version}` — and the
+   schemas `TetravoxRelease`, `TetravoxState`, `TetravoxUpdate`, `TetravoxUpdates`,
+   `TetravoxUpdateOutcome`, `ProtocolRange`.
+3. **Removed: `/ws/tetravox`** and its one `tetravox.updated` event.
+4. **Breaking: `Capabilities.tetravox_embed` is gone**, and with it that key from
+   `required`. A capability is what *this runtime* can do; whether a desktop application is
+   installed on the user's machine is a fact about the host, answered by the Electron shell
+   (`window.tit.viewer.probe`), not by an HTTP route. `contracts/openapi.v0.yaml`'s own
+   `Capabilities` was updated in the same commit, since `test_openapi_covers_v0_contract`
+   checks the live dump against it.
+5. **Relaxed: `contracts/tetravox-viewspec-v2.schema.json`'s `DatasetRef.path`/`absPath`**
+   no longer require the `^/api/files/raw/` prefix. That pattern was our own addition, not
+   the engine's: a ViewSpec dataset path is a path, and the desktop app opens files rather
+   than fetching URLs. The pattern now accepts the URL form, a POSIX absolute path or a
+   Windows drive path, and still rejects a bare relative name — the app would resolve one
+   beside the scene file, which is not where the data is.

@@ -69,10 +69,14 @@ export function ViewerCard() {
           </p>
 
           {tetravox.mode === "browser" ? (
-            <Callout kind="info" data-testid="viewer-card-browser">
-              Running in a browser, so this page cannot see what is installed on your computer. The Viewer page downloads a scene file, which
-              you open in Tetravox with File ▸ Open Scene…
-            </Callout>
+            // `Callout` and `Chip` render their own markup and take no `data-testid`, so the
+            // hook for a spec is a wrapper here rather than a prop threaded through the UI kit.
+            <div data-testid="viewer-card-browser">
+              <Callout kind="info">
+                Running in a browser, so this page cannot see what is installed on your computer. The Viewer page downloads a scene file,
+                which you open in Tetravox with File ▸ Open Scene…
+              </Callout>
+            </div>
           ) : info === null ? (
             <p className="field-help">Checking…</p>
           ) : info.available ? (
@@ -80,9 +84,9 @@ export function ViewerCard() {
               entries={[
                 [
                   "Status",
-                  <Chip key="s" kind="success" data-testid="viewer-card-status">
-                    Installed
-                  </Chip>,
+                  <span key="s" data-testid="viewer-card-status">
+                    <Chip kind="success">Installed</Chip>
+                  </span>,
                 ],
                 ["Path", <span key="p" className="mono" data-testid="viewer-card-path">{info.path}</span>],
                 ["Version", <span key="v" data-testid="viewer-card-version">{info.version ?? "—"}</span>],
@@ -90,19 +94,21 @@ export function ViewerCard() {
               ]}
             />
           ) : (
-            <Callout kind="warning" data-testid="viewer-card-missing">
-              <p>Tetravox was not found on this computer, so the Viewer page cannot open anything yet.</p>
-              <Button
-                variant="primary"
-                size="sm"
-                icon={<Download size={14} />}
-                onClick={openDownload}
-                data-testid="viewer-card-download"
-                style={{ marginTop: "var(--space-2)" }}
-              >
-                Download Tetravox
-              </Button>
-            </Callout>
+            <div data-testid="viewer-card-missing">
+              <Callout kind="warning">
+                <p>Tetravox was not found on this computer, so the Viewer page cannot open anything yet.</p>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<Download size={14} />}
+                  onClick={openDownload}
+                  data-testid="viewer-card-download"
+                  style={{ marginTop: "var(--space-2)" }}
+                >
+                  Download Tetravox
+                </Button>
+              </Callout>
+            </div>
           )}
 
           {tetravox.mode === "electron" && (

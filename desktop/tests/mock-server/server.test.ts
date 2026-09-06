@@ -225,7 +225,7 @@ describe("POST /api/view/open", () => {
       body: JSON.stringify({ kind: "subject", subject: "ernie" }),
     });
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as { name: string; path: string; host_path: string };
     // `.tetravox.json`, not `.tvx.json`: the app classifies anything else as data.
     expect(body.name.endsWith(".tetravox.json")).toBe(true);
     expect(body.path).toContain("/code/ti-toolbox/viewer/");
@@ -239,7 +239,7 @@ describe("POST /api/view/open", () => {
       headers: { "content-type": "application/json", authorization: `Bearer ${TOKEN}` },
       body: JSON.stringify({ kind: "subject", subject: "ernie" }),
     });
-    const body = await res.json();
+    const body = (await res.json()) as { scene: { datasets: { path: string; absPath: string }[] } };
     expect(body.scene.datasets.length).toBeGreaterThan(0);
     for (const dataset of body.scene.datasets) {
       expect(dataset.path.startsWith("/api/")).toBe(false);

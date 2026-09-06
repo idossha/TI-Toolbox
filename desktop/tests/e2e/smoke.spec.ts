@@ -179,13 +179,13 @@ test("the rail's icon/label breakpoint updates on resize even while the Viewer s
 
   await page.keyboard.press(`${MOD}+8`);
   await expectPage(page, "viewer");
-  // R5: the source bar drafts, Load commands. Nothing reaches the embed until Load is pressed.
+  // R5/V1: the source bar drafts, Open commands — and what Open commands is an application on the
+  // host, so this smoke test drafts and stops. Launching is viewer.spec.ts's, behind a stub.
   await page.getByTestId("viewer-select-kind").getByRole("combobox").click();
   await page.getByRole("option", { name: "Simulation", exact: true }).click();
   await page.getByTestId("viewer-select-simulation").getByRole("combobox").click();
   await page.getByRole("option", { name: "Thalamus", exact: true }).click();
-  await page.getByTestId("viewer-load").click();
-  await expect(page.getByTestId("tetravox-host")).toHaveAttribute("data-viewer-status", "ready", { timeout: 15_000 });
+  await expect(page.getByTestId("viewer-plan")).toBeVisible({ timeout: 15_000 });
 
   const rail = page.getByRole("navigation", { name: "Main" });
   await expect(rail).toHaveAttribute("data-rail-mode", "icons");

@@ -7,10 +7,15 @@ via `./build.sh` — see below; it manages its own build context).
 
 One image (D1, `dev/notes/v3-docker-streamline-plan.md`): SimNIBS 4.6 + `tit` + `tit.server`
 + fastapi/uvicorn/pyyaml/psutil baked in (no pip install at container start) + the built
-desktop UI at `/opt/ti-toolbox/ui` + the Tetravox Embed at `/opt/tetravox/embed` +
-FastSurfer `--seg_only` at `/opt/fastsurfer` with checkpoints pre-downloaded. No FreeSurfer
-(D2 — dropped from the core image entirely), no X11 (D3 — no display libraries, no
-`xhost`/`.Xauthority`, no `DISPLAY`; viewing happens in Tetravox Embed on the host GPU).
+desktop UI at `/opt/ti-toolbox/ui` + FastSurfer `--seg_only` at `/opt/fastsurfer` with
+checkpoints pre-downloaded. No FreeSurfer (D2 — dropped from the core image entirely), no X11
+(D3 — no display libraries, no `xhost`/`.Xauthority`, no `DISPLAY`).
+
+**No viewer of any kind is baked in** (V4, `../../dev/notes/v3-native-panes-external-viewer-plan.md`).
+The Tetravox *embed* that used to live at `/opt/tetravox/embed` is retired; viewing is the
+Tetravox **desktop app**, installed on the host, which signs, notarises and updates itself. That
+is the honest consequence of D3: a container with no display cannot draw, and an embed baked into
+an image is a viewer release tied to a toolbox release.
 
 Two recipes:
 
@@ -19,10 +24,7 @@ Two recipes:
 | `Dockerfile.ti-toolbox` | From-scratch: installs SimNIBS 4.6 itself (Ubuntu 22.04 → the SimNIBS installer tarball), builds the UI in a Node stage, vendors FastSurfer in its own stage. Multi-stage. | **CI.** This is what gets published. 30-60+ minutes even on native hardware; not attempted in the Phase-A W2 session (see `../../dev/notes/v3-docker-streamline/w2-image-notes.md`). |
 | `Dockerfile.ti-toolbox.layered` | The same v3 additions, layered `FROM idossha/simnibs:v2.5.0` (already has SimNIBS, torch, bpy, etc. baked in from `Dockerfile.simnibs`'s own build). | **Local iteration** on a machine that already has (or can pull) `idossha/simnibs:v2.5.0` — minutes, not the better part of an hour. Not what CI publishes. |
 
-Both take the same build args: `TI_TOOLBOX_VERSION` (image label), `VCS_REF` (image label),
-`TETRAVOX_EMBED_TGZ` (an http(s) URL to a released `tetravox-embed-<ver>.tgz`; when it is
-empty a placeholder `manifest.json`/`index.html` is written instead — see "Which Tetravox
-gets baked" below, since `build.sh` now fills this in on its own).
+Both take the same build args: `TI_TOOLBOX_VERSION` (image label) and `VCS_REF` (image label).
 `Dockerfile.ti-toolbox` additionally takes `TI_TOOLBOX_REF` (git ref to clone, default
 `main`) and `CACHE_BUST` (force a fresh clone while keeping earlier layers cached — same
 pattern `Dockerfile.simnibs` already uses).
@@ -32,36 +34,8 @@ pattern `Dockerfile.simnibs` already uses).
 ```bash
 ./build.sh                          # layered, tag idossha/ti-toolbox:<version>-dev
 ./build.sh --from-scratch           # the real CI recipe (slow)
-./build.sh --tag idossha/ti-toolbox:dev --tetravox-tgz https://.../tetravox-embed-1.0.0.tgz
-./build.sh --no-tetravox            # bake the placeholder deliberately (air-gapped build)
+./build.sh --tag idossha/ti-toolbox:dev
 ```
-
-### Which Tetravox gets baked
-
-With no `--tetravox-tgz`, `build.sh` resolves it itself (A5,
-`../../dev/notes/v3-tetravox-selection-pipeline-plan.md`): the newest **non-draft,
-non-prerelease** release of `idossha/tetravox` that carries all three assets —
-`tetravox-embed-<ver>.tgz`, `tetravox-embed-<ver>.tgz.sha256` and
-`tetravox-embed-<ver>.manifest.json` — and whose manifest `protocol` is inside the range
-this checkout supports. That range is read out of `tit/tetravox/protocol.py`, not copied
-into the script, so bumping `SUPPORTED_PROTOCOL_MAX` changes what a build bakes without
-anyone editing this directory. The lookup is `curl` plus the Python **standard library**
-only (no `jq`, no `pip install`), and it never downloads the tarball to decide — the protocol
-comes from the manifest asset.
-
-This is deliberately the same rule the running server applies at runtime
-(`tit/tetravox/updates.py`), so "what a fresh image ships" and "what a running install would
-update itself to" can never disagree about which release is incorporable.
-
-Failure is never fatal: an unreachable API, a GitHub rate limit (60 requests/hour/IP
-unauthenticated), or no release carrying the assets prints one line and falls through to the
-placeholder. The image is still usable — the app can install a bundle at runtime through
-Settings → Viewer engine, and `/tetravox/` simply 404s until it does.
-
-**Today this resolves to nothing**, and says so: no `idossha/tetravox` release carries an
-embed asset yet (the first will be 0.3.12 or later — Tetravox PR #35). Verified 2026-09-05:
-`resolve_tetravox_tgz` exits 1 against the real API, and returns the right URL against a
-release payload that does carry the assets.
 
 `build.sh` stages a small, purpose-built build **context** under `mktemp -d` for each
 recipe rather than using the repo root directly — `desktop/node_modules` alone is ~700 MB,
@@ -106,7 +80,7 @@ and nothing in this repo provisions a self-hosted/large executor for it yet. The
    `${TIT_REPO_DIR}:/ti-toolbox` documents, so the smoke test and pytest subset below run
    against the commit under test, not whatever was baked in at image-build time
 3. waits for the Dockerfile's own `HEALTHCHECK` to report `healthy`
-4. smokes `/api/health`, `/`, `/tetravox/manifest.json`, `run_fastsurfer.sh --help`, and
+4. smokes `/api/health`, `/`, that `/tetravox/` is *not* served (V4), `run_fastsurfer.sh --help`, and
    `import simnibs, fastapi, torch` / `import simnibs.segmentation, brainnet` — the same
    checks `dev/notes/v3-docker-streamline/w2-image-notes.md` ran locally
 5. runs a small, stable pytest subset inside the container (server skeleton, viewspec,

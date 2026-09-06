@@ -119,7 +119,8 @@ test("the shell's chrome, the palette and a full-bleed page screenshot in both t
   // must fill the shell's content box edge to edge, and neither it nor the document may grow a
   // second scrollbar (plan §1, DESIGN.md §4.1). (The dev-only `viewer-dev` harness this test used
   // to exercise was un-vendored along with the bundled Tetravox engine, W5/R2 item 8 — the real
-  // Viewer page now carries the same full-bleed contract, so the check moved here.)
+  // Viewer page now carries the same full-bleed contract, so the check moved here. V1 replaced
+  // the embed with a selector; the full-bleed contract is unchanged and is what is measured.)
   await gotoPage(page, "viewer", "Viewer");
   await expect(page.getByTestId("viewer-source-bar")).toBeVisible();
   const geometry = await page.evaluate(() => {
@@ -154,8 +155,7 @@ test("the shell's chrome, the palette and a full-bleed page screenshot in both t
   // shell still states on every page is the connection, in the context bar.
   await page.getByTestId("viewer-select-subject").getByRole("combobox").click();
   await page.getByRole("option", { name: "ernie", exact: true }).click();
-  await page.getByTestId("viewer-load").click();
-  await expect(page.getByTestId("tetravox-host")).toHaveAttribute("data-viewer-status", "ready", { timeout: 15_000 });
+  await expect(page.getByTestId("viewer-plan")).toBeVisible({ timeout: 15_000 });
   await gotoPage(page, "overview", "Overview");
   await expectPage(page, "overview");
   await expect(page.locator(".status-bar")).toHaveCount(0);

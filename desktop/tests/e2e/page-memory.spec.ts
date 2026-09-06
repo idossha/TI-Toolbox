@@ -185,13 +185,13 @@ test("settings, results, jobs and viewer keep session-only page state beyond the
   await submitMockJob("analyzer");
   await gotoPage(page, "jobs");
   await expectPage(page, "jobs");
-  await expect(page.getByTestId("jobs-table").getByText("analyzer", { exact: true }).first()).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("sim-jobs-table").getByText("analyzer", { exact: true }).first()).toBeVisible({ timeout: 10_000 });
   await chooseSelectByLabel("Kind", "analyzer");
   await page.getByRole("radiogroup", { name: "Grouping" }).getByRole("radio", { name: "Groups", exact: true }).click();
   await awayAndBack("jobs");
   await expect(page.locator("#jobs-filter-kind")).toContainText("analyzer");
   await expect(page.getByTestId("jobs-groups")).toBeVisible();
-  await expect(page.getByTestId("jobs-table")).toHaveCount(0);
+  await expect(page.getByTestId("sim-jobs-table")).toHaveCount(0);
 
   await gotoPage(page, "viewer");
   await expectPage(page, "viewer");

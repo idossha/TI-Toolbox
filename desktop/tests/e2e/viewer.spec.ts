@@ -159,19 +159,38 @@ test("one Open writes one scene file and calls the launch bridge once, with that
   expect(launched[0]!.endsWith(".tetravox.json")).toBe(true);
 });
 
-test("no page in the app contains an iframe", async () => {
+test("no page in the app frames anything but the published documentation site", async () => {
   // The claim V4 makes is about the whole app, not about the Viewer: the embed was hosted here
   // *and* in the run pages' scene panes, and "we removed the iframe" is only true if none is left.
+  //
+  // Two iframes legitimately survive, and neither is a renderer: Help ▸ Docs frames
+  // https://idossha.github.io (the only `frame-src` the app's CSP still grants), and Results
+  // frames a generated HTML report at /api/files/report/<id>. Both are *documents*, which is what
+  // an iframe is for. What must be gone is any frame that draws a scene — the embed at
+  // /tetravox/ — together with the host component that mounted it. Retained pages keep every
+  // visited page's DOM alive, so this walks the whole app and reads srcs, not counts.
   await connect();
   await chooseSubject("ernie");
+  // The rail's own hrefs are the page list: `/viewer`, `/results`, … (NavRail renders one
+  // `<NavLink to={"/" + page.id}>` per enabled page).
   const ids = await page.getByTestId("nav-rail").getByRole("link").evaluateAll((links) =>
-    links.map((l) => (l as HTMLElement).getAttribute("data-page-id") ?? "").filter(Boolean),
+    links.map((l) => new URL((l as HTMLAnchorElement).href).pathname.replace(/^\//, "")).filter(Boolean),
   );
   expect(ids.length).toBeGreaterThan(3);
+  const framed: string[] = [];
   for (const id of ids) {
     await gotoPage(page, id);
-    await expect(page.locator("iframe"), `${id} draws an iframe`).toHaveCount(0);
+    const srcs = await page.locator("iframe").evaluateAll((nodes) => nodes.map((n) => (n as HTMLIFrameElement).src));
+    for (const src of srcs) {
+      const document_ = src.startsWith("https://idossha.github.io") || src.includes("/api/files/report/");
+      if (!document_) framed.push(`${id}: ${src}`);
+    }
+    // The embed's own host elements, by the ids every spec used to reach it through.
+    for (const testid of ["tetravox-frame", "tetravox-host", "scene-pane-tetravox-frame"]) {
+      await expect(page.getByTestId(testid), `${id} still mounts ${testid}`).toHaveCount(0);
+    }
   }
+  expect(framed, "a scene is still being drawn in an iframe").toEqual([]);
 });
 
 test("says so, and offers the download, when Tetravox is not installed", async () => {

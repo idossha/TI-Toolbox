@@ -105,10 +105,12 @@ jobs:
             code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18765/)"
             [ "$code" = "200" ] || { echo "expected 200, got $code"; exit 1; }
 
-            echo "-- /tetravox/manifest.json --"
+            # V4 (dev/notes/v3-native-panes-external-viewer-plan.md): /tetravox/ is gone with the
+            # embed. The image bakes no viewer; viewing is the host-installed Tetravox desktop app.
+            # This smokes that the route really is gone, so a resurrected bake fails here.
+            echo "-- /tetravox/ is retired --"
             code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18765/tetravox/manifest.json)"
-            [ "$code" = "200" ] || { echo "expected 200, got $code"; exit 1; }
-            curl -s http://127.0.0.1:18765/tetravox/manifest.json
+            [ "$code" != "200" ] || { echo "the embed route is still served"; exit 1; }
 
             echo "-- FastSurfer --help --"
             docker exec tit-ci-smoke bash -lc \

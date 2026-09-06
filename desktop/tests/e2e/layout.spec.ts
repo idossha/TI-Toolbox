@@ -68,27 +68,13 @@ const SUBJECT = "ernie";
 
 let app: ElectronApplication;
 let page: Page;
-let restoreMockEmbed: { version: string; removeProtocol2: boolean } | undefined;
 
 test.describe.configure({ mode: "serial" });
 
 test.beforeAll(async () => {
-  if (TOKEN === "mock-token") {
-    // The baked mock bundle speaks protocol 1: it shows the missing-camera error instead of a
-    // populated ScenePane. The density gate must measure a ready viewport, not that failure box.
-    const headers = { authorization: `Bearer ${TOKEN}`, "content-type": "application/json" };
-    const before = await fetch(`${SERVER_URL}/api/tetravox`, { headers });
-    expect(before.ok, "read the mock viewer state before the layout fixture").toBe(true);
-    const state = await before.json() as { active: { source: string; version: string }; installed: { version: string }[] };
-    const installed = await fetch(`${SERVER_URL}/api/tetravox/install`, {
-      method: "POST", headers, body: JSON.stringify({ version: "0.4.0" }),
-    });
-    expect(installed.ok, "activate the mock protocol-2 scene fixture").toBe(true);
-    restoreMockEmbed = {
-      version: state.active.source === "baked" ? "baked" : state.active.version,
-      removeProtocol2: !state.installed.some((release) => release.version === "0.4.0"),
-    };
-  }
+  // V4 (dev/notes/v3-native-panes-external-viewer-plan.md): the embed and its protocol range are
+  // gone, so this suite no longer has to install a fixture bundle around itself to get a populated
+  // pane. The panes draw with the app's own renderer.
   const userDataDir = mkdtempSync(join(tmpdir(), "tit-e2e-lay-"));
   app = await launchElectronApp({ userDataDir });
   page = await app.firstWindow();
@@ -109,21 +95,7 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  try {
-    await app?.close();
-  } finally {
-    if (restoreMockEmbed) {
-      const headers = { authorization: `Bearer ${TOKEN}`, "content-type": "application/json" };
-      const restored = await fetch(`${SERVER_URL}/api/tetravox/activate`, {
-        method: "POST", headers, body: JSON.stringify({ version: restoreMockEmbed.version }),
-      });
-      expect(restored.ok, "restore the mock viewer active before the layout fixture").toBe(true);
-      if (restoreMockEmbed.removeProtocol2) {
-        const removed = await fetch(`${SERVER_URL}/api/tetravox/0.4.0`, { method: "DELETE", headers });
-        expect(removed.ok, "remove the layout-only mock viewer installation").toBe(true);
-      }
-    }
-  }
+  await app?.close();
 });
 
 /** Lets the fill controller settle before anything is measured (it works over rAF passes). */

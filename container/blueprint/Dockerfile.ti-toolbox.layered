@@ -114,37 +114,6 @@ RUN simnibs_python "${FASTSURFER_HOME}/FastSurferCNN/download_checkpoints.py" --
 # ---------------------------------------------------------------------------------------
 COPY ui /opt/ti-toolbox/ui
 
-# ---------------------------------------------------------------------------------------
-# Tetravox Embed. TETRAVOX_EMBED_TGZ, when given, is an http(s) URL to a released
-# `tetravox-embed-<ver>.tgz` (lane W1's `pack:embed` output + release-asset step) —
-# fetched and extracted at build time. Left empty (the default, until W1 ships a release),
-# a placeholder manifest + landing page is written instead so /opt/tetravox/embed always
-# exists and always has a manifest.json, whatever lane W3a's route ends up doing with it.
-# ---------------------------------------------------------------------------------------
-ARG TETRAVOX_EMBED_TGZ=""
-RUN mkdir -p /opt/tetravox/embed && \
-    if [ -n "$TETRAVOX_EMBED_TGZ" ]; then \
-        echo "Fetching Tetravox Embed: $TETRAVOX_EMBED_TGZ" && \
-        curl -fsSL "$TETRAVOX_EMBED_TGZ" -o /tmp/tetravox-embed.tgz && \
-        # The release tarball is <name>-<ver>/{dist/, manifest.json, LICENSE, EMBED.md, *.schema.json}
-        # (Tetravox docs/EMBED.md). What tit.server serves at /tetravox/ is dist/ plus manifest.json;
-        # the documents and schemas sit one level up, out of the served jail.
-        mkdir -p /tmp/tvx /opt/tetravox && \
-        tar -xzf /tmp/tetravox-embed.tgz -C /tmp/tvx --strip-components=1 && \
-        cp -r /tmp/tvx/dist/. /opt/tetravox/embed/ && \
-        cp /tmp/tvx/manifest.json /opt/tetravox/embed/manifest.json && \
-        cp /tmp/tvx/LICENSE /tmp/tvx/EMBED.md /tmp/tvx/*.schema.json /opt/tetravox/ && \
-        test -f /opt/tetravox/embed/index.html && test -f /opt/tetravox/embed/manifest.json && \
-        rm -rf /tmp/tvx /tmp/tetravox-embed.tgz; \
-    else \
-        echo "TETRAVOX_EMBED_TGZ not set; writing placeholder embed" && \
-        printf '{"name":"tetravox-embed","version":"0.0.0-placeholder","protocol":1}\n' \
-            > /opt/tetravox/embed/manifest.json && \
-        printf '%s\n' \
-            '<!doctype html><html><head><meta charset="utf-8"><title>Tetravox Embed</title></head>' \
-            '<body><p>The Tetravox embed bundle is not packaged in this build.</p></body></html>' \
-            > /opt/tetravox/embed/index.html; \
-    fi
 
 # ---------------------------------------------------------------------------------------
 # Entrypoint — execs `tit.server` directly (D1); no X11, no interactive-shell setup (D3),

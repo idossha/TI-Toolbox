@@ -2,13 +2,12 @@
 # build.sh — build idossha/ti-toolbox:<ver> from either recipe.
 #
 # Usage:
-#   ./build.sh [--layered|--from-scratch] [--tag IMAGE:TAG] [--tetravox-tgz URL]
+#   ./build.sh [--layered|--from-scratch] [--tag IMAGE:TAG]
 #              [--ti-toolbox-ref REF] [--skip-ui-build] [--no-cache]
 #
-# --tetravox-tgz is optional: with no URL, the newest Tetravox release this build can host is
-# resolved automatically from the GitHub Releases API (A5, dev/notes/v3-tetravox-selection-
-# pipeline-plan.md), so a fresh image never ships the placeholder bundle. Pass --tetravox-tgz to
-# pin one, or --no-tetravox to bake the placeholder deliberately (an air-gapped build).
+# --tetravox-tgz / --no-tetravox are accepted and ignored, so an old command line still builds:
+# V4 (dev/notes/v3-native-panes-external-viewer-plan.md) retired the embedded viewer, and this
+# image bakes no viewer of any kind.
 #
 # Defaults: --layered (fast, FROM idossha/simnibs:v2.5.0 — see Dockerfile.ti-toolbox.layered's
 # own header for why this exists), tag idossha/ti-toolbox:<version from tit/__init__.py>-dev.
@@ -89,74 +88,18 @@ trap cleanup EXIT
 
 echo "build.sh: recipe=$RECIPE tag=$TAG version=$VERSION vcs_ref=$VCS_REF stage=$STAGE_DIR"
 
-# --- A5: the same rule as the runtime updater, in bash + python3 stdlib ---------------------
+# V4 (dev/notes/v3-native-panes-external-viewer-plan.md): there is no embed to bake.
 #
-# The image's baked bundle is the *floor* the runtime can always fall back to (E2), so baking a
-# placeholder means a fresh, offline install has no viewer at all until someone installs one.
-# Resolving it here uses exactly the rule tit/tetravox/updates.py uses at runtime: the newest
-# non-draft, non-prerelease release of idossha/tetravox carrying tetravox-embed-<ver>.tgz plus
-# its .tgz.sha256 and .manifest.json sidecars, whose manifest `protocol` is inside the range this
-# checkout supports (read from tit/tetravox/protocol.py -- one source of truth, not a number
-# copied into this script). curl + python3 stdlib only: no jq, no pip install, nothing this
-# script may assume is on a maintainer's machine.
+# This script used to resolve the newest compatible Tetravox *embed* release from the GitHub
+# Releases API and bake it at /opt/tetravox/embed, so that a fresh offline install had a viewer.
+# The embed is retired: viewing is the Tetravox **desktop app**, installed on the host, which
+# signs, notarises and updates itself. Nothing about it belongs in this image -- the container has
+# no display to render in, which is why the embed existed and why it could never have been the
+# desktop app.
 #
-# Failure is never fatal: an unreachable API, a rate limit, or no release carrying the assets all
-# print one line and fall through to the placeholder, because a build that cannot reach GitHub is
-# still a build.
-resolve_tetravox_tgz() {
-    local min max
-    min="$(grep -m1 '^SUPPORTED_PROTOCOL_MIN' "$REPO_ROOT/tit/tetravox/protocol.py" | sed -E 's/[^0-9]*([0-9]+).*/\1/')"
-    max="$(grep -m1 '^SUPPORTED_PROTOCOL_MAX' "$REPO_ROOT/tit/tetravox/protocol.py" | sed -E 's/[^0-9]*([0-9]+).*/\1/')"
-    [ -n "$min" ] && [ -n "$max" ] || return 1
-    local body
-    body="$(curl -fsSL -H "Accept: application/vnd.github+json" \
-        "https://api.github.com/repos/idossha/tetravox/releases" 2>/dev/null)" || return 1
-    printf '%s' "$body" | python3 -c '
-import json, re, sys, urllib.request
-
-MIN, MAX = int(sys.argv[1]), int(sys.argv[2])
-TGZ = re.compile(r"^tetravox-embed-(.+)\.tgz$")
-try:
-    releases = json.load(sys.stdin)
-except ValueError:
-    sys.exit(1)
-for release in releases if isinstance(releases, list) else []:
-    if release.get("draft") or release.get("prerelease"):
-        continue
-    assets = {a.get("name"): a.get("browser_download_url") for a in release.get("assets") or []}
-    tgz = next((n for n in assets if TGZ.match(n or "")), None)
-    if not tgz:
-        continue
-    version = TGZ.match(tgz).group(1)
-    manifest_url = assets.get(f"tetravox-embed-{version}.manifest.json")
-    if not manifest_url or f"{tgz}.sha256" not in assets:
-        continue
-    try:
-        with urllib.request.urlopen(manifest_url, timeout=30) as fh:
-            protocol = json.load(fh).get("protocol")
-    except Exception:
-        continue
-    if isinstance(protocol, int) and MIN <= protocol <= MAX:
-        print(assets[tgz])
-        sys.exit(0)
-sys.exit(1)
-' "$min" "$max"
-}
-
-if [ -z "$TETRAVOX_TGZ" ] && [ -z "$NO_TETRAVOX" ]; then
-    echo "build.sh: resolving the newest compatible Tetravox embed release..."
-    if TETRAVOX_TGZ="$(resolve_tetravox_tgz)" && [ -n "$TETRAVOX_TGZ" ]; then
-        echo "build.sh: baking $TETRAVOX_TGZ"
-    else
-        TETRAVOX_TGZ=""
-        echo "build.sh: no compatible Tetravox embed release found (or GitHub unreachable);" \
-             "baking the placeholder. The app can still install a bundle at runtime." >&2
-    fi
-fi
-
 build_args=(--platform linux/amd64 --build-arg "TI_TOOLBOX_VERSION=$VERSION" --build-arg "VCS_REF=$VCS_REF")
-if [ -n "$TETRAVOX_TGZ" ]; then
-    build_args+=(--build-arg "TETRAVOX_EMBED_TGZ=$TETRAVOX_TGZ")
+if [ -n "$TETRAVOX_TGZ" ] || [ -n "$NO_TETRAVOX" ]; then
+    echo "build.sh: --tetravox-tgz/--no-tetravox are obsolete and ignored; this image bakes no viewer." >&2
 fi
 if [ -n "$NO_CACHE" ]; then
     build_args+=("$NO_CACHE")
