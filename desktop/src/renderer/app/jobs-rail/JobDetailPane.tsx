@@ -29,7 +29,7 @@ import {
   TERMINAL_STATES,
   type JobStatus,
 } from "./api";
-import { elapsedLabel, errorLabel } from "./format";
+import { elapsedLabel, errorLabel, failureReason } from "./format";
 import { openNative, reveal } from "./reveal";
 
 type ConfirmKind = "stop" | "force" | "delete";
@@ -335,16 +335,14 @@ function ErrorTaxonomyPanel({ job, onOpenJob }: { job: JobStatus; onOpenJob: (jo
     );
   }
   if (job.error) {
+    // One line, not the traceback: the CONSOLE excerpt below is the single place the tail is shown
+    // (maintainer, Sep 2026 — the callout used to repeat it verbatim). `failureReason` picks the
+    // last meaningful error line of the captured output, else "exited with code N".
     return (
       <Callout kind={job.state === "skipped" ? "warning" : "danger"} title={errorLabel(job.error.type)}>
-        <Stack gap={2}>
-          <p style={{ margin: 0 }}>{job.error.message}</p>
-          {job.error.last_lines.length > 0 && (
-            <pre className="job-detail-log job-detail-log-inline mono text-caption">
-              {job.error.last_lines.slice(-20).join("\n")}
-            </pre>
-          )}
-        </Stack>
+        <p className="job-detail-reason mono" style={{ margin: 0 }} data-testid="job-detail-reason">
+          {failureReason(job.error.last_lines, job.exit_code)}
+        </p>
       </Callout>
     );
   }

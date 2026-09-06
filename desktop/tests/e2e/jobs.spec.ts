@@ -153,6 +153,52 @@ test("the full page lists a running job, opens its detail pane, and stops it", a
   await page.screenshot({ path: join(ARTIFACTS, "jobs-dark.png") });
 });
 
+/**
+ * A failed job's Summary tab (maintainer, Sep 2026): "this is redundant — just show the failed job
+ * logically; we have the raw entire log next to it if we want to dive deeper". The callout used to
+ * carry a scrolling traceback box that the CONSOLE excerpt below it repeated verbatim.
+ */
+test("a failed job's Summary shows one line of reason, and the traceback only once", async () => {
+  await submitJob({
+    kind: "sim",
+    config: { __mock_fast: true, __mock_fail: true },
+    subject_ids: ["failer"],
+    tags: ["e2e-failed"],
+  });
+
+  await connect();
+  await openJobs();
+  const table = page.getByTestId("jobs-table");
+  const row = table.getByRole("row", { name: /failer/ });
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  await expect(row.getByText("failed", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await row.click();
+
+  const detail = page.getByTestId("job-detail");
+  await expect(detail).toBeVisible();
+
+  // The callout: the taxonomy title plus exactly one line — the traceback's last error line.
+  await expect(detail.getByText("Runner failed", { exact: true })).toBeVisible();
+  const reason = detail.getByTestId("job-detail-reason");
+  await expect(reason).toHaveText(
+    "TypeError: SimulationConfig.__init__() missing 2 required positional arguments: 'subject_id' and 'montages'",
+  );
+  // …and no log box inside the callout itself.
+  expect(await reason.locator("xpath=ancestor::*[contains(@class,'callout')]").locator("pre").count()).toBe(0);
+
+  // The console excerpt is the single place the tail is shown, still "last 40 lines".
+  const console_ = detail.getByTestId("job-detail-console");
+  await expect(console_).toBeVisible();
+  await expect(console_.getByText("Console · last 40 lines")).toBeVisible();
+  await expect(console_).toContainText("Traceback (most recent call last):", { timeout: 15_000 });
+
+  // The traceback appears exactly once in the whole Summary tab.
+  const summaryText = (await detail.locator(".job-detail-body").innerText()).split(/\r?\n/);
+  expect(summaryText.filter((l) => l.includes("Traceback (most recent call last):")).length).toBe(1);
+  expect(summaryText.filter((l) => l.includes('File "/opt/tit/sim/runner.py"')).length).toBe(1);
+  await page.screenshot({ path: join(ARTIFACTS, "jobs-failed-summary.png") });
+});
+
 test("the toolbar filters the table and toggles the group trees", async () => {
   await submitJob({ kind: "sim", config: { __mock_fast: true }, subject_ids: ["ernie"], tags: ["e2e-fast"] });
   await submitJob({ kind: "analyzer", config: { __mock_fast: true }, subject_ids: ["ernie"], tags: ["e2e-fast"] });

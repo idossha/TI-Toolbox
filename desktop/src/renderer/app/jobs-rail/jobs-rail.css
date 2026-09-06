@@ -336,3 +336,9 @@
   min-height: 0;
   overflow: auto;
 }
+
+/* The failed-job callout's single line of reason (the traceback lives in the console excerpt). */
+.job-detail-reason {
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}

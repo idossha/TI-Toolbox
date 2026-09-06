@@ -57,12 +57,12 @@ and the live-monitoring behaviour v3 is adding, not replacing.
    write side). `reveal()` (`pages/jobs/reveal.ts`) mirrors the exact fallback
    `pages/results/index.tsx` already uses ("Reveal in file manager isn't wired up yet") so both
    pages behave identically until P9 lands the bridge method — no page change needed once it does.
-6. **The mock's synthetic `error.type` values (`MockFailure`, `Forced`, `DependencyFailed`) are not
+6. **Some of the mock's synthetic `error.type` values (`Forced`, `DependencyFailed`) are not
    in the nine-value taxonomy** the real server is meant to emit (`preflight`/`lock_wait`/
    `budget_wait`/`runner_failed`/`oom_suspected`/`cancelled`/`skipped`/`lost`/`docker_unavailable`).
    `errorLabel()` (`format.ts`) falls back to a humanised version of whatever string it gets, so
    the panel never shows a raw enum-looking string, but the E2E test can only exercise
-   `__mock_fail`'s `MockFailure` path, not the nine real categories — those need a real
+   `__mock_fail`'s `runner_failed` path, not the other eight categories — those need a real
    `tit.server`/`tit.jobs.runner` integration test (B1/B4 own that surface).
 7. **`components["schemas"]["JobStatus"]` (contract-generated) and `app/jobs/types.ts`'s
    `JobStatus` (the shared `/ws/jobs` store's hand-written type) are not structurally

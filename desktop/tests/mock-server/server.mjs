@@ -1194,11 +1194,23 @@ function finishJob(job) {
   const outputs = Object.fromEntries(artifacts.map((a, i) => [a.kind || `artifact_${i}`, a.path]));
   emitEvent(job, { type: "result", outputs, artifacts });
   if (cfg.__mock_fail === true) {
-    emitEvent(job, { type: "log", level: "error", logger: loggerFor(job.status.kind), msg: "run failed: synthetic __mock_fail was set on the job config" });
+    // A realistic Python traceback, so the failed-job fixture exercises the Summary tab's one-line
+    // reason (`failureReason` in app/jobs-rail/format.ts) against frames it must skip.
+    for (const msg of [
+      "Traceback (most recent call last):",
+      '  File "/opt/tit/sim/__main__.py", line 42, in <module>',
+      "    main()",
+      '  File "/opt/tit/sim/runner.py", line 88, in main',
+      "    cfg = SimulationConfig(**payload)",
+      "          ^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+      "TypeError: SimulationConfig.__init__() missing 2 required positional arguments: 'subject_id' and 'montages'",
+    ]) {
+      emitEvent(job, { type: "log", level: "error", logger: loggerFor(job.status.kind), msg });
+    }
     emitEvent(job, { type: "exit", code: 1 });
     job.status.exit_code = 1;
     job.status.state = "failed";
-    job.status.error = { type: "MockFailure", message: "synthetic failure requested via config.__mock_fail", last_lines: lastLogLines(job, 5) };
+    job.status.error = { type: "runner_failed", message: "synthetic failure requested via config.__mock_fail", last_lines: lastLogLines(job, 10) };
   } else {
     emitEvent(job, { type: "exit", code: 0 });
     job.status.exit_code = 0;

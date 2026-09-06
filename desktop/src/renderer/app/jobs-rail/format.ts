@@ -47,3 +47,23 @@ export function errorLabel(type: string): string {
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .replace(/^./, (c) => c.toUpperCase());
 }
+
+/**
+ * One line of reason for a failed job (maintainer, Sep 2026: "this is redundant — just show the
+ * failed job logically; we have the raw entire log next to it"). The Summary tab's callout used to
+ * repeat the whole traceback the CONSOLE excerpt below it already shows; this picks the single line
+ * that says what went wrong — the last non-empty line that is not a traceback frame (`  File "…"`,
+ * the `^^^` marker line, or an indented source/call line) — falling back to the exit code.
+ */
+export function failureReason(lines: readonly string[] | undefined, exitCode: number | null | undefined): string {
+  const fallback = typeof exitCode === "number" ? `exited with code ${exitCode}` : "the runner exited without a status";
+  const all = lines ?? [];
+  for (let i = all.length - 1; i >= 0; i -= 1) {
+    const line = (all[i] ?? "").replace(/\s+$/, "");
+    if (line.trim() === "") continue;
+    if (/^\s/.test(line)) continue; // frames, `^^^` markers and the source lines under them
+    if (/^Traceback \(most recent call last\)/.test(line)) continue;
+    return line;
+  }
+  return fallback;
+}
