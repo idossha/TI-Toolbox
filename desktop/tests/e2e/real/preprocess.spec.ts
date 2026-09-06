@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
 import {
+  answerExistingOutputs,
   connectReal,
   expectPage,
   gotoPage,
@@ -78,9 +79,9 @@ test("tissue analysis on sub-101: accepted, started, and completed with a real a
   const groupResponse = page.waitForResponse((r) => r.url().endsWith("/api/jobs/groups") && r.request().method() === "POST");
   await page.getByTestId("run-button").click();
 
-  // 101 already has tissue_analysis on disk (see file header) — the replace confirm fires.
-  const confirm = page.getByRole("alertdialog").getByRole("button", { name: "Replace and rerun" });
-  if (await confirm.isVisible({ timeout: 3_000 }).catch(() => false)) await confirm.click();
+  // 101 already has tissue_analysis on disk (see file header) — the shared existing-outputs
+  // question fires. It is a plain `dialog` (`ExistingOutputsDialog.tsx`), answered by test id.
+  await answerExistingOutputs(page, "replace");
 
   const reqBody = (await groupRequest).postDataJSON() as { kind: string; subject_ids: string[]; config: Record<string, unknown> };
   expect(reqBody.kind).toBe("pre");
@@ -206,6 +207,10 @@ test("sub-102 DICOM onboarding: not converted -> plan -> run -> converted (lane 
     // second as this timestamp is never mistaken for a pre-existing one.
     submittedAtMs = Date.now() - 2000;
     await page.getByTestId("run-button").click();
+    // sub-102 already carries a pre-existing report (see SUB102_REPORTS_DIR), so the group's own
+    // trailing `report` job trips the shared existing-outputs question even though the DICOM stage
+    // itself is new. Skip: the DICOM job runs either way, and nothing pre-existing is overwritten.
+    await answerExistingOutputs(page, "skip");
 
     const reqBody = (await groupRequest).postDataJSON() as { kind: string; subject_ids: string[]; config: Record<string, unknown> };
     expect(reqBody.kind).toBe("pre");
@@ -248,7 +253,9 @@ test("sub-102 DICOM onboarding: not converted -> plan -> run -> converted (lane 
     const reportJob = respBody.jobs.find((j) => j.kind === "report");
     if (reportJob) {
       const finalReportJob = await waitForJobTerminal(page, { url: SERVER_URL, token: TOKEN, jobId: reportJob.id, timeoutMs: 30_000 });
-      expect(finalReportJob.state, JSON.stringify(finalReportJob.error)).toBe("succeeded");
+      // "skipped" is the right answer when the dialog above was answered "skip" — the point is
+      // only that the report job reached a terminal state before `finally` reads the directory.
+      expect(["succeeded", "skipped"], JSON.stringify(finalReportJob.error)).toContain(finalReportJob.state);
     }
   } finally {
     // The two whole-directory claims: the pre-flight check already proved neither pre-existed, so
@@ -276,9 +283,13 @@ test("sub-102 DICOM onboarding: not converted -> plan -> run -> converted (lane 
  * there and return to the page the caller was on.
  */
 async function setExistingOutputsPolicy(page: Page, label: "Skip existing outputs" | "Replace and rerun"): Promise<void> {
-  const from = await page.locator('[data-page-active="true"]').getAttribute("data-page");
-  await page.locator('[data-nav-id="settings"]').click();
-  await page.locator('[data-page-active="true"] .segmented[aria-label="Existing outputs"]').getByRole("radio", { name: label, exact: true }).click();
-  await page.locator(`[data-nav-id="${from}"]`).click();
-  await expect(page.locator('[data-page-active="true"]')).toHaveAttribute("data-page", from ?? "");
+  const from = await page.getByTestId("shell-content").getAttribute("data-page");
+  await gotoPage(page, "settings", "Settings");
+  await expectPage(page, "settings");
+  await page
+    .locator('[data-page-active="true"] .segmented[aria-label="Existing outputs"]')
+    .getByRole("radio", { name: label, exact: true })
+    .click();
+  await gotoPage(page, from ?? "preprocess");
+  await expectPage(page, from ?? "preprocess");
 }

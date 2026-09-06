@@ -28,8 +28,9 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, test, type ElectronApplication, type Locator, type Page } from "@playwright/test";
+import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
 import { expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
+import { activePage as activePageOf, fingerprint, settle, useThePage } from "./_pageMemory";
 import { waitForScene } from "./_runPane";
 
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
@@ -43,32 +44,12 @@ const RUN_PAGES = ["preprocess", "simulator", "optimizer", "analyzer"] as const;
 /** The neutral page every round bounces off: it owns no run-page state of its own. */
 const AWAY = "jobs";
 
-interface Fingerprint {
-  /** Collapsible section id → open?; a non-collapsible section is not listed. */
-  sections: Record<string, boolean>;
-  /** The right pane's Terminal · Scene host, or `null` on a page that has none. */
-  tab: string | null;
-  /** Work-pane scroll offset, in px. */
-  scrollTop: number;
-  /** Segmented control (by `aria-label`) → the label of the chosen segment. */
-  segments: Record<string, string>;
-  /** Text input (by id, or by its label) → its value. */
-  texts: Record<string, string>;
-  /** Real (non-ground) table rows in the work pane — the maintainer's "row count changed 1 to 2". */
-  rows: number;
-  /**
-   * Checkbox (by id, or by its accessible name) → ticked?. Pre-processing's whole form is
-   * checkboxes and it has no collapsible section, no segmented control and no text field, so
-   * without this its fingerprint was constant and remembering it proved nothing.
-   */
-  checks: Record<string, boolean>;
-}
-
 let app: ElectronApplication;
 let page: Page;
 
-function activePage(target: Page = page): Locator {
-  return target.locator('[data-page-active="true"]');
+/** The shared helper takes its page explicitly; this file's call sites predate that. */
+function activePage(target: Page = page) {
+  return activePageOf(target);
 }
 
 // Deliberately NOT `mode: "serial"`, unlike the other specs that share one app: one round of this
@@ -138,131 +119,6 @@ test.afterAll(async () => {
     expect(removed.ok, "remove this suite's mock embed fixture").toBe(true);
   }
 });
-
-/** The fill controller works over rAF passes; nothing is read until it has stopped moving. */
-async function settle(target: Page): Promise<void> {
-  await target
-    .waitForFunction(() => document.querySelectorAll('[data-page-active="true"] .skeleton').length === 0, undefined, { timeout: 5_000 })
-    .catch(() => undefined);
-  await target.waitForTimeout(500);
-}
-
-async function fingerprint(target: Page): Promise<Fingerprint> {
-  return activePage(target).evaluate((root) => {
-    const sections: Record<string, boolean> = {};
-    root.querySelectorAll<HTMLElement>("[data-fill-section]").forEach((el) => {
-      const trigger = el.querySelector<HTMLElement>("button.form-section-header-trigger");
-      if (!trigger) return; // not collapsible — it has no state to remember
-      sections[el.dataset.fillSection ?? ""] = trigger.getAttribute("aria-expanded") === "true";
-    });
-    const host = root.querySelector<HTMLElement>('[data-testid="run-pane-tabs"]');
-    const scroller = root.querySelector<HTMLElement>("[data-page-work-scroll]");
-    const segments: Record<string, string> = {};
-    root.querySelectorAll<HTMLElement>(".segmented[aria-label]").forEach((group) => {
-      const on = group.querySelector<HTMLElement>('.segmented-item[data-state="on"]');
-      segments[group.getAttribute("aria-label") ?? ""] = on?.textContent?.trim() ?? "";
-    });
-    const texts: Record<string, string> = {};
-    root.querySelectorAll<HTMLInputElement>('input[type="text"], input:not([type])').forEach((input) => {
-      const key = input.id || input.getAttribute("aria-label") || "";
-      if (key) texts[key] = input.value;
-    });
-    // Ground rows (`tr.run-table-filler`, `tr.data-table-filler`) are `aria-hidden` padding drawn
-    // to the bottom of a `fill` table and are not data — counting them would make this number a
-    // function of the window height rather than of what the page holds.
-    const rows = scroller
-      ? scroller.querySelectorAll("table tbody tr:not([aria-hidden='true'])").length
-      : 0;
-    const checks: Record<string, boolean> = {};
-    root.querySelectorAll<HTMLElement>('[role="checkbox"], input[type="checkbox"]').forEach((box) => {
-      const key = box.id || box.getAttribute("aria-label") || box.closest("label")?.textContent?.trim() || "";
-      if (!key || key in checks) return;
-      checks[key] =
-        box instanceof HTMLInputElement ? box.checked : box.getAttribute("aria-checked") === "true";
-    });
-    return {
-      sections,
-      checks,
-      tab: host?.dataset.tab ?? null,
-      scrollTop: Math.round(scroller?.scrollTop ?? 0),
-      segments,
-      texts,
-      rows,
-    };
-  });
-}
-
-/** Clicks a section header by its `data-fill-section` id and waits for the new `aria-expanded`. */
-async function toggleSection(target: Page, id: string, want: boolean): Promise<void> {
-  const trigger = activePage(target).locator(`[data-fill-section="${id}"] button.form-section-header-trigger`);
-  await trigger.click();
-  await expect(trigger).toHaveAttribute("aria-expanded", String(want));
-}
-
-/**
- * Everything a user would change on a run page in one visit, in one pass:
- * close an open section, open a closed one, pick Terminal, scroll, type.
- * Returns the settled state that navigating away and back must reproduce exactly.
- */
-async function useThePage(target: Page): Promise<Fingerprint> {
-  const start = await fingerprint(target);
-  // Collapsible sections are the richest thing to remember, but they are not universal: Pre-processing
-  // lost its only collapsible section when the Existing-outputs disclosure was removed (2026-09-06),
-  // and its two FormSections are plain. So the guard is that this pass changed SOMETHING — sections,
-  // or the tab, or a typed value, or the scroll offset — rather than that sections exist. A page
-  // where nothing at all is changeable would still prove nothing, and is still caught.
-
-  // Close one and open a DIFFERENT one, so both directions are on the page at once: the fill
-  // controller's natural drift is to open, so a section left closed is the harder half, and a
-  // page that only ever re-opens what it closed would prove half the rule.
-  //
-  // Re-read between the two clicks: closing a section frees height, and the controller is entitled
-  // to spend it on a section the user has never touched, so `start` no longer describes the page
-  // by the time of the second click.
-  const toClose = Object.entries(start.sections).find(([, open]) => open)?.[0];
-  if (toClose) {
-    await toggleSection(target, toClose, false);
-    await settle(target);
-  }
-  const mid = await fingerprint(target);
-  const toOpen = Object.entries(mid.sections).find(([id, open]) => !open && id !== toClose)?.[0];
-  if (toOpen) {
-    await toggleSection(target, toOpen, true);
-    await settle(target);
-  }
-
-  // The right pane's tab: Scene is the default while nothing runs, so Terminal is always a change.
-  if (start.tab !== null) {
-    await target.getByRole("radiogroup", { name: "Run pane" }).getByRole("radio", { name: "Terminal", exact: true }).click();
-    await expect(activePage(target).getByTestId("run-pane-tabs")).toHaveAttribute("data-tab", "terminal");
-  }
-
-  // A checkbox, where the page has one — Pre-processing's only changeable state.
-  const firstCheck = activePage(target).locator('[role="checkbox"], input[type="checkbox"]').first();
-  if ((await firstCheck.count()) > 0 && (await firstCheck.isEnabled())) {
-    await firstCheck.click();
-    await settle(target);
-  }
-
-  // Something typed, where the page has a free-text field of its own.
-  const runName = activePage(target).locator("#optimizer-run-name");
-  if ((await runName.count()) > 0) await runName.fill("n2-probe");
-
-  // Scroll the work pane as far as it goes; 0 would not be a change.
-  await activePage(target).evaluate((root) => {
-    const el = root.querySelector<HTMLElement>("[data-page-work-scroll]");
-    if (el) el.scrollTop = el.scrollHeight;
-  });
-
-  await settle(target);
-  const end = await fingerprint(target);
-  expect(
-    JSON.stringify({ s: end.sections, t: end.tab, x: end.texts, o: end.scrollTop, c: end.checks }) !==
-      JSON.stringify({ s: start.sections, t: start.tab, x: start.texts, o: start.scrollTop, c: start.checks }),
-    "this page offered nothing to change, so remembering it proves nothing",
-  ).toBe(true);
-  return end;
-}
 
 for (const id of RUN_PAGES) {
   test(`${id} — comes back exactly as the user left it`, async () => {

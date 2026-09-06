@@ -64,7 +64,13 @@ test("a uni-polar montage plans as a 2-pair, 2-current SimulationConfig", async 
       ["B1", "B2"],
     ],
   });
-  await expect(page.getByTestId(`plan-cell-101-${TI_NAME}`)).toBeVisible({ timeout: 30_000 });
+  // The plan grid's column is the montage *source*, not the montage name (`RunControls.tsx`'s
+  // `stageFor: sourceOfJob`), so the montage this test built is proved by the plan REQUEST it
+  // triggered, not by a per-name cell that no longer exists.
+  await expect(page.getByTestId("plan-cell-101-montage")).toBeVisible({ timeout: 30_000 });
+  await expect.poll(() => planned.some((c) => (c.montages as { name?: string }[] | undefined)?.[0]?.name === TI_NAME), {
+    timeout: 30_000,
+  }).toBe(true);
 
   const config = lastConfigFor(TI_NAME);
   expect(config).toMatchObject({
@@ -103,7 +109,10 @@ test("a multi-polar montage plans as a 4-pair, 4-current SimulationConfig", asyn
       ["B3", "B4"],
     ],
   });
-  await expect(page.getByTestId(`plan-cell-101-${MTI_NAME}`)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("plan-cell-101-montage")).toBeVisible({ timeout: 30_000 });
+  await expect.poll(() => planned.some((c) => (c.montages as { name?: string }[] | undefined)?.[0]?.name === MTI_NAME), {
+    timeout: 30_000,
+  }).toBe(true);
 
   const config = lastConfigFor(MTI_NAME);
   expect(config).toMatchObject({

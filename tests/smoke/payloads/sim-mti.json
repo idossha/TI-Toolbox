@@ -1,11 +1,14 @@
 {
   "kind": "sim",
+  "subject_ids": [
+    "101"
+  ],
   "config": {
     "subject_id": "101",
     "montages": [
       {
         "_type": "Montage",
-        "name": "smoke-ui-6519-mti",
+        "name": "smoke-ui-36361-mti",
         "mode": "net",
         "electrode_pairs": [
           [
@@ -44,9 +47,5 @@
     "output_fields": [
       "TI_max"
     ]
-  },
-  "subject_ids": [
-    "101"
-  ],
-  "overwrite": false
+  }
 }
