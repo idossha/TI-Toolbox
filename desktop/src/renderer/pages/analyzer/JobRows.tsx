@@ -25,7 +25,7 @@
  * are refused with the reason on the Run button.
  */
 import { useMemo, useState } from "react";
-import { Copy, Info, Plus, Target as TargetIcon, X } from "lucide-react";
+import { Copy, Info, Pencil, Plus, Target as TargetIcon, X } from "lucide-react";
 import { Button, IconButton } from "../../ui/Button";
 import { Dialog, Popover } from "../../ui/Overlay";
 import { Switch, Checkbox } from "../../ui/Toggle";
@@ -238,6 +238,37 @@ export function AnalyzerJobRows({
     onActiveRowChange(copy.id);
   }
 
+  /** Opens a row's Target dialog, remembering what it had so Cancel can put it back. */
+  function openTarget(row: AnalyzerRow): void {
+    onActiveRowChange(row.id);
+    setTargetDraft({ roi: row.roi, combine: row.combine });
+    setTargetRowId(row.id);
+  }
+
+  /**
+   * Keyboard on the table: ↑/↓ move the active row, Enter opens that row's target dialog
+   * (coordinator, 2026-09-06 — a single click must only move focus, so the keyboard needs its own
+   * way in). Typing inside a cell's control is that control's.
+   */
+  function onTableKeyDown(e: React.KeyboardEvent<HTMLTableElement>): void {
+    if (rows.length === 0) return;
+    const inControl = (e.target as HTMLElement).closest("input, textarea, [role='combobox'], [role='dialog']");
+    if (inControl) return;
+    if (e.key === "Enter") {
+      const row = rows.find((r) => r.id === activeRowId) ?? rows[0];
+      if (!row) return;
+      e.preventDefault();
+      openTarget(row);
+      return;
+    }
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    const at = rows.findIndex((r) => r.id === activeRowId);
+    const next = e.key === "ArrowDown" ? Math.min(rows.length - 1, at + 1) : Math.max(0, (at === -1 ? 0 : at) - 1);
+    onActiveRowChange(rows[next]!.id);
+    e.currentTarget.querySelectorAll<HTMLElement>("tbody tr.analysis-job-line1")[next]?.focus();
+  }
+
   const targetRow = rows.find((r) => r.id === targetRowId) ?? null;
 
   /** Cancel puts back the target the row had when the dialog opened. */
@@ -249,20 +280,23 @@ export function AnalyzerJobRows({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
       <div className="data-table-container" data-testid="analysis-jobs-table-container">
-        <table className="data-table analysis-jobs-table" data-testid="analysis-jobs-table">
+        <table className="data-table analysis-jobs-table" onKeyDown={onTableKeyDown} data-testid="analysis-jobs-table">
           {/*
             Fixed widths in pixels, not percentages (maintainer, 2026-09-06: the cells were
             printing "Choose a sim…", "M…" and a truncated atlas name). Space needs 80px to print
             "Voxel", Field 110px for "mTI_normal", Subject 150px for the longest id a project has;
             Simulation takes whatever is left, because a montage name is the one cell whose length
             nobody controls. `table-layout: fixed` (analyzer-page.css) makes them authoritative.
+            The actions column grew from 72 to 96 when the row gained its Edit pencil.
           */}
           <colgroup>
             <col style={{ width: "150px" }} />
             <col />
             <col style={{ width: "104px" }} />
             <col style={{ width: "110px" }} />
-            <col style={{ width: "72px" }} />
+            {/* 96px: three 28px icon buttons (duplicate · edit · remove) plus their gaps — the
+                same actions column the Simulator's and Optimizer's jobs tables reserve. */}
+            <col style={{ width: "96px" }} />
           </colgroup>
           <thead>
             <tr>
@@ -297,6 +331,12 @@ export function AnalyzerJobRows({
                   // A click on a control in the row is that control's, not the row's.
                   if ((e.target as HTMLElement).closest("button, input, [role='combobox'], [role='dialog']")) return;
                   onActiveRowChange(row.id);
+                }}
+                /* A single click only moves the active-row focus; the *second* click is the one
+                   that means "let me change this" — the same gesture a file gets in a file list. */
+                onDoubleClick={(e) => {
+                  if ((e.target as HTMLElement).closest("button, input, [role='combobox'], [role='dialog']")) return;
+                  openTarget(row);
                 }}
                 onFocus={() => onActiveRowChange(row.id)}
               >
@@ -357,6 +397,10 @@ export function AnalyzerJobRows({
                   </td>
                   <td data-cell="actions" className="montage-actions">
                     <IconButton aria-label={`Duplicate row ${i + 1}`} icon={<Copy size={14} />} onClick={() => duplicate(row)} />
+                    {/* The explicit way in, beside the implicit ones (the target line, a
+                        double-click, Enter): the Simulator's and Optimizer's rows both carry a
+                        pencil, and a row whose only editor was a text link was the odd one out. */}
+                    <IconButton aria-label={`Edit row ${i + 1}`} icon={<Pencil size={14} />} onClick={() => openTarget(row)} />
                     <IconButton
                       aria-label={`Remove row ${i + 1}`}
                       icon={<X size={14} />}
@@ -376,11 +420,7 @@ export function AnalyzerJobRows({
                       data-empty={isRoiComplete(row.roi) ? undefined : "true"}
                       title={label}
                       aria-label={`Target for row ${i + 1}: ${label}`}
-                      onClick={() => {
-                        onActiveRowChange(row.id);
-                        setTargetDraft({ roi: row.roi, combine: row.combine });
-                        setTargetRowId(row.id);
-                      }}
+                      onClick={() => openTarget(row)}
                     >
                       <span className="analysis-target-caption text-eyebrow">Target</span>
                       <TargetIcon size={12} aria-hidden />

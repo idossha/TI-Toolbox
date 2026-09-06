@@ -164,6 +164,51 @@ test("one page, one jobs table: no page-level subject set and no global search f
   await expect(page.getByTestId("page-work").locator(".action-bar")).toBeVisible();
 });
 
+test("adding a row does not open the editor, and neither does clicking one", async () => {
+  // Coordinator, 2026-09-06: adding a job and configuring it are two acts, and a single click on a
+  // row only moves the active-row focus. A dialog that opens itself takes the keyboard away from
+  // someone assembling three rows, and a click-to-edit row cannot be *selected* at all.
+  await clearOptRows(page);
+  await page.getByRole("button", { name: "Add job", exact: true }).click();
+  await expect(optRows(page)).toHaveCount(1);
+  await expect(page.getByTestId("opt-row-editor")).toHaveCount(0);
+  const first = optRows(page).first();
+  // The new row is the ACTIVE one — the wash and the 3-D pane follow it.
+  await expect(first).toHaveAttribute("data-active", "true");
+
+  const second = await addOptRow(page);
+  await expect(page.getByTestId("opt-row-editor")).toHaveCount(0);
+  await expect(second).toHaveAttribute("data-active", "true");
+
+  // A single click moves focus back, and opens nothing.
+  await first.locator('td[data-cell="method"]').click({ position: { x: 2, y: 2 } });
+  await expect(first).toHaveAttribute("data-active", "true");
+  await expect(second).not.toHaveAttribute("data-active", "true");
+  await expect(page.getByTestId("opt-row-editor")).toHaveCount(0);
+
+  // The three ways IN: the pencil, the target line, and a double-click on the row.
+  await openOptEditor(page, first, "pencil");
+  await closeOptEditor(page);
+  await openOptEditor(page, first);
+  await closeOptEditor(page);
+  await first.locator('td[data-cell="method"]').dblclick({ position: { x: 2, y: 2 } });
+  await expect(page.getByTestId("opt-row-editor")).toBeVisible();
+  await closeOptEditor(page);
+
+  // Keyboard: the arrows move the active row, Enter opens its editor.
+  await first.locator("tr.opt-job-line1").focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(second).toHaveAttribute("data-active", "true");
+  await page.keyboard.press("ArrowUp");
+  await expect(first).toHaveAttribute("data-active", "true");
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("opt-row-editor")).toHaveAttribute("data-row", await first.getAttribute("data-opt-row") as string);
+  await closeOptEditor(page);
+
+  await second.locator('td[data-cell="actions"]').getByRole("button", { name: /^Remove job/ }).click();
+  await expect(optRows(page)).toHaveCount(1);
+});
+
 test("the entry is two lines of a fixed 63px, and the table never scrolls sideways", async () => {
   const row = optRows(page).first();
   const box = (await row.boundingBox())!;

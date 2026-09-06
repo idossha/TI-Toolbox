@@ -149,6 +149,31 @@ export function OptimizerJobRows({
 
   // Derived, not synchronised: a row removed while its editor is open resolves to `null` here and
   // the editor renders nothing — there is no state to put back in step, so there is no effect.
+  /**
+   * Keyboard on the table: ↑/↓ move the active row (the wash and the 3-D pane follow), Enter opens
+   * that row's editor. Typing inside a cell's own control is that control's, so the handler steps
+   * aside for anything that is not the row itself.
+   */
+  function onTableKeyDown(e: React.KeyboardEvent<HTMLTableElement>): void {
+    if (rows.length === 0) return;
+    const inControl = (e.target as HTMLElement).closest("input, textarea, [role='combobox'], [role='dialog']");
+    if (e.key === "Enter") {
+      if (inControl) return;
+      const id = activeRowId ?? rows[0]?.id;
+      if (!id) return;
+      e.preventDefault();
+      setEditingId(id);
+      return;
+    }
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    if (inControl) return;
+    e.preventDefault();
+    const at = rows.findIndex((r) => r.id === activeRowId);
+    const next = e.key === "ArrowDown" ? Math.min(rows.length - 1, at + 1) : Math.max(0, (at === -1 ? 0 : at) - 1);
+    onActiveRowChange(rows[next]!.id);
+    e.currentTarget.querySelectorAll<HTMLElement>("tbody tr.opt-job-line1")[next]?.focus();
+  }
+
   const editing = rows.find((r) => r.id === editingId) ?? null;
 
   /** Subject options for one row: the whole project, blocked ones listed with their reason. */
@@ -199,8 +224,9 @@ export function OptimizerJobRows({
       : { subjectId: subjects.find((s) => !s.blockedReason)?.id };
     const next = emptyOptimizerRow(seed);
     onRowsChange([...rows, next]);
+    // Active, NOT open: adding a row and configuring it are two acts (coordinator, 2026-09-06).
+    // A dialog that opens itself takes the keyboard away from someone adding three rows in a row.
     onActiveRowChange(next.id);
-    setEditingId(next.id);
   }
 
   function duplicate(row: OptimizerRow): void {
@@ -213,7 +239,7 @@ export function OptimizerJobRows({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
       <div className="data-table-container" ref={box} data-testid="opt-jobs-table-container">
-        <table className="data-table opt-jobs-table" data-testid="opt-jobs-table">
+        <table className="data-table opt-jobs-table" onKeyDown={onTableKeyDown} data-testid="opt-jobs-table">
           <colgroup>
             <col style={{ width: width ? cols.subject : "17%" }} />
             <col style={{ width: width ? cols.method : "24%" }} />
@@ -268,6 +294,13 @@ export function OptimizerJobRows({
                 data-active={active ? "true" : undefined}
                 aria-selected={active}
                 onClick={claim}
+                /* A single click only moves the active-row focus; the *second* click is the one
+                   that means "let me change this" — the same gesture a file gets in a file list. */
+                onDoubleClick={(e) => {
+                  if ((e.target as HTMLElement).closest("button, input, [role='combobox'], [role='dialog']")) return;
+                  onActiveRowChange(row.id);
+                  setEditingId(row.id);
+                }}
                 onFocus={() => onActiveRowChange(row.id)}
               >
                 <tr className="opt-job-line1" tabIndex={0}>

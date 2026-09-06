@@ -278,6 +278,47 @@ test("each row owns its target, the pane follows the active row, and a target ch
  * thicker entries so there's place for everything, and the pop-ups should be better organised."*
  * Measured at 1280, where the cramping was ("Choose a sim…", "M…", a truncated atlas name).
  */
+test("adding a row does not open the target dialog, and neither does clicking one", async () => {
+  // Coordinator, 2026-09-06: the same rule as the Optimizer's table. A single click on a row only
+  // moves the active-row focus (the wash and the 3-D pane follow it); the dialog is opened
+  // deliberately — the Target line, the Edit pencil, a double-click, or Enter.
+  const first = analysisRows(page).first();
+  await page.getByTestId("analysis-jobs-footer").getByRole("button", { name: "Add row", exact: true }).click();
+  await expect(analysisRows(page)).toHaveCount(2);
+  await expect(page.getByTestId("analysis-target-editor")).toHaveCount(0);
+  const second = analysisRows(page).nth(1);
+  await expect(second).toHaveAttribute("data-active", "true");
+
+  // A single click moves focus back, and opens nothing.
+  await first.locator('td[data-cell="space"]').click({ position: { x: 2, y: 2 } });
+  await expect(first).toHaveAttribute("data-active", "true");
+  await expect(second).not.toHaveAttribute("data-active", "true");
+  await expect(page.getByTestId("analysis-target-editor")).toHaveCount(0);
+
+  // The three deliberate ways in.
+  await first.getByRole("button", { name: "Edit row 1" }).click();
+  await expect(page.getByTestId("analysis-target-editor")).toBeVisible();
+  await closeAnalysisTarget(page);
+  await openAnalysisTarget(page, first);
+  await closeAnalysisTarget(page);
+  await first.locator('td[data-cell="space"]').dblclick({ position: { x: 2, y: 2 } });
+  await expect(page.getByTestId("analysis-target-editor")).toBeVisible();
+  await closeAnalysisTarget(page);
+
+  // Keyboard: the arrows move the active row, Enter opens its target.
+  await first.locator("tr.analysis-job-line1").focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(second).toHaveAttribute("data-active", "true");
+  await page.keyboard.press("ArrowUp");
+  await expect(first).toHaveAttribute("data-active", "true");
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("analysis-target-editor")).toHaveAttribute("data-row", await first.getAttribute("data-analysis-row") as string);
+  await closeAnalysisTarget(page);
+
+  await second.getByRole("button", { name: "Remove row 2" }).click();
+  await expect(analysisRows(page)).toHaveCount(1);
+});
+
 test("a job entry is two lines ~56-64px tall, and every cell prints its full value", async () => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1280, height: 800 });

@@ -29,25 +29,33 @@ export async function setJobSource(page: Page, row: Locator, label: string): Pro
   await page.getByRole("option", { name: label, exact: true }).click();
 }
 
-/** Sets a row's EEG net — the montage source's net select. */
+/** Sets a row's EEG net — the montage source's net select, whichever column it sits in. */
 export async function setJobNet(page: Page, row: Locator, option: string): Promise<void> {
-  await cell(row, "net").getByRole("combobox").click();
+  await pickBy(page, row, "EEG net", option);
+}
+
+/**
+ * Opens the row's control with this `aria-label` and picks `option`. Addressing controls by what
+ * they are rather than by which column they sit in: since the v5 reorder the third column holds
+ * the net, the flex run or the free-hand set depending on the row's source.
+ */
+async function pickBy(page: Page, row: Locator, label: string, option: string): Promise<void> {
+  const trigger = row.getByRole("combobox", { name: label, exact: true });
+  await expect(trigger).toBeVisible();
+  // A real mouse click at the trigger's centre: `locator.click()`'s hit-target check reports the
+  // cell's own parent as the hit inside a two-line row, so the pointer is driven directly rather
+  // than the actionability assertion being forced off. The option list proves it opened.
+  const box = (await trigger.boundingBox())!;
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await page.getByRole("option", { name: option, exact: true }).click();
 }
 
 /**
  * A flex row's placement — the optimiser's own coordinates, or the EEG net to map them onto. One
- * select in the row's EEG-net cell (v4 redesign), so both choices are the same gesture.
+ * select, in the column after the run it qualifies.
  */
 export async function setJobPlacement(page: Page, row: Locator, option: string): Promise<void> {
-  const trigger = cell(row, "net").getByRole("combobox");
-  await expect(trigger).toBeVisible();
-  // A real mouse click at the trigger's centre: `locator.click()`'s hit-target check reports this
-  // cell's own parent as the hit inside the two-line row, so the pointer is driven directly rather
-  // than the actionability assertion being forced off. The option list proves it opened.
-  const box = (await trigger.boundingBox())!;
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-  await page.getByRole("option", { name: option, exact: true }).click();
+  await pickBy(page, row, "Placement", option);
 }
 
 /** The net a flex row maps its optimised positions onto. */
@@ -55,10 +63,15 @@ export async function setJobMappedNet(page: Page, row: Locator, net: string): Pr
   await setJobPlacement(page, row, net);
 }
 
-/** Sets a row's montage / flex run / free-hand set — the fourth column, whatever the source. */
+/** Sets a row's montage, flex run or free-hand set — whichever its source names. */
 export async function setJobMontage(page: Page, row: Locator, option: string): Promise<void> {
-  await cell(row, "montage").getByRole("combobox").click();
-  await page.getByRole("option", { name: option, exact: true }).click();
+  for (const label of ["Montage", "Flex run", "Free-hand configuration"]) {
+    if ((await row.getByRole("combobox", { name: label, exact: true }).count()) > 0) {
+      await pickBy(page, row, label, option);
+      return;
+    }
+  }
+  throw new Error(`row has no montage / run / free-hand control to set to ${option}`);
 }
 
 /**
@@ -222,8 +235,9 @@ export async function setOptCell(page: Page, row: Locator, name: "method" | "net
 
 /** Opens the row's editor — the per-method dialog holding the target picker and the form
  *  sections, scoped to that row. Returns the dialog. */
-export async function openOptEditor(page: Page, row: Locator): Promise<Locator> {
-  await cell(row, "target").getByRole("button").click();
+export async function openOptEditor(page: Page, row: Locator, via: "target" | "pencil" = "target"): Promise<Locator> {
+  if (via === "pencil") await cell(row, "actions").getByRole("button", { name: /^Edit job / }).click();
+  else await cell(row, "target").getByRole("button").click();
   const dialog = page.getByRole("dialog").filter({ has: page.getByTestId("opt-row-editor") });
   await expect(dialog).toBeVisible();
   return dialog;
@@ -239,13 +253,13 @@ export function optRowSummary(row: Locator): Locator {
   return cell(row, "target").locator(".opt-target-text");
 }
 
-/** Adds a fresh row. The editor opens with it (a new job's first act is configuring it), so this
- *  closes it again and hands back the row. */
+/** Adds a fresh row. Adding does NOT open the editor — the row is appended and made active, and
+ *  configuring it is a separate act (the pencil, the target line, a double-click, or Enter). */
 export async function addOptRow(page: Page): Promise<Locator> {
   const before = await optRows(page).count();
   await page.getByRole("button", { name: "Add job", exact: true }).click();
   await expect(optRows(page)).toHaveCount(before + 1);
-  await closeOptEditor(page);
+  await expect(page.getByTestId("opt-row-editor")).toHaveCount(0);
   return optRows(page).nth(before);
 }
 
