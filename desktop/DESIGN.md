@@ -716,8 +716,15 @@ A run page that submits **more than one job at a time** describes the run as a t
 row is one job**, and the row owns every input that differs between jobs. This is now the grammar of
 all three: the Simulator's row is `Subject · Source · EEG net · Montage · Pairs · Currents`; the
 Analyzer's is `Subject · Simulation · Space · Field`; the Optimizer's is
-`Subject · Method · Net / leadfield · Goal` — five methods (flex, adaptive, pareto, ex, mEx) in the
-Method cell, where the page previously described exactly one search.
+`Subject · Method · Net / leadfield · Goal`, where the page previously described exactly one search.
+
+**Method names a method; the job kind is derived.** The Method cell offers **Flex** and **Ex** — two
+things a user chooses between — and the page derives which of the five job kinds to submit from
+options the row already holds: the flex variants from whether focality thresholds are derived
+(`flex_adaptive`) or swept (`flex_pareto`), and `ex` vs `mex` from the electrode count, 4 electrodes
+being TI and 8 mTI, the same inference the Simulator makes from a montage's pairs. Line 2 states the
+variant it derived. A list of five would have offered as peers two pairs of things that are one
+thing under two settings, which is a menu describing our job kinds rather than the user's choice.
 
 **A row is two lines, and the split is not cosmetic.** Line 1 carries the columns a user *scans*
 down to compare rows — the identifying four or five, never truncated, in a resolver-sized colgroup.

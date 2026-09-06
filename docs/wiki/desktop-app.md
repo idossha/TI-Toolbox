@@ -107,10 +107,18 @@ application. **You do not have to install it.** TI-Toolbox installs and maintain
   extension is what the Tetravox app registers as its scene document, and any other suffix is
   read as a data file instead.
 - **The shell opens it.** Electron's main process maps the container path to the host path
-  through the same project mount `openPath` uses, then spawns the app detached
-  (`open -a Tetravox <scene>` on macOS, the resolved binary elsewhere). A second Open is a second
-  spawn: Tetravox holds a single-instance lock and routes the file into the window already on
-  screen instead of opening another one.
+  through the same project mount `openPath` uses, then launches the app: on macOS
+  `open -a Tetravox <scene>` **followed by a plain `open -a Tetravox`**, elsewhere the resolved
+  binary, detached. A second Open is a second launch: Tetravox holds a single-instance lock and
+  routes the file into the window already on screen instead of opening another one.
+  The second, document-less call is not decoration. A macOS app whose window you closed with ⌘W
+  keeps running with no window; in that state Tetravox's `open-file` handler stores the scene and
+  creates nothing, `open` still exits 0, and the launch would report success with nothing on
+  screen. The extra call is an *activation*, which is what makes the app create a window — and
+  that window then picks up the scene the first call handed over.
+- **A launch that fails says so.** `open`'s exit code and stderr are the result of the launch
+  (they used to be discarded), so a moved bundle or a refused document reaches the Viewer page as
+  a failure with a reason, not as "Opened …".
 - **The managed install.** The first **Open in Tetravox** on a machine that has no viewer
   downloads one — one click, no dialog, progress while it runs — into
   `<userData>/tetravox/<version>/`, and then opens the scene. TI-Toolbox picks the newest
