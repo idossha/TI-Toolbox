@@ -15,6 +15,7 @@ import { createAndSelectMontage, deleteMontage } from "./_simMontage";
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL as string;
 const TOKEN = process.env.TIT_E2E_TOKEN as string;
 const RUN_ID = process.env.TIT_E2E_RUN_ID ?? "real";
+const SUBJECT = "101";
 const MONTAGE_NAME = `smoke-ui-${RUN_ID}-mti`;
 
 let app: ElectronApplication;
@@ -28,7 +29,7 @@ test.beforeAll(async () => {
   page = await app.firstWindow();
   await page.setViewportSize({ width: 1280, height: 900 });
   await connectReal(page, { url: SERVER_URL, token: TOKEN });
-  await selectSubject(page, "101");
+  await selectSubject(page, SUBJECT);
   await gotoPage(page, "simulator", "Simulator");
   await expectPage(page, "simulator");
 });
@@ -43,6 +44,7 @@ test("mTI montage: accepted, started, and cancelled cleanly", async () => {
   test.setTimeout(180_000);
 
   await createAndSelectMontage(page, {
+    subject: SUBJECT,
     net: "BioSemi-128-A1.csv",
     name: MONTAGE_NAME,
     pairs: [

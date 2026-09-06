@@ -126,7 +126,7 @@ test("an electrode's colour is its whole state, and selecting it adds no ring", 
     await selectSubject(page, process.env.TIT_E2E_SUBJECT ?? "ernie");
     await gotoPage(page, "simulator");
     const panel = page.locator('[data-page-panel="simulator"]');
-    await panel.locator("tr[data-montage-row]").first().getByRole("combobox").nth(0).click();
+    await panel.locator("tr[data-montage-row]").first().locator('td[data-cell="net"]').getByRole("combobox").click();
     await page.getByRole("option", { name: NET, exact: true }).click();
     await expect(panel.getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready", { timeout: 60_000 });
     await settled(page);

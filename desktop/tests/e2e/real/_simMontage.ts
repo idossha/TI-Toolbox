@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test";
+import { configureMontageJob, jobRows } from "../_jobs";
 
 /** The `.field` whose label matches — the montage editor's "EEG net"/"Montage name" fields pass
  *  no `htmlFor`/`id` (program `optimizer.spec.ts`'s own `field()` convention, reused here since
@@ -19,7 +20,7 @@ function field(page: Page, label: string) {
  */
 export async function createAndSelectMontage(
   page: Page,
-  opts: { net: string; name: string; pairs: [string, string][] },
+  opts: { subject: string; net: string; name: string; pairs: [string, string][] },
 ): Promise<void> {
   const { net, name, pairs } = opts;
   const kind: "uni_polar" | "multi_polar" = pairs.length === 2 ? "uni_polar" : "multi_polar";
@@ -59,19 +60,19 @@ export async function createAndSelectMontage(
   await page.getByRole("button", { name: "Save montage" }).evaluate((el) => (el as HTMLButtonElement).click());
   await expect(page.getByText(`Saved montage "${name}".`)).toBeVisible({ timeout: 10_000 });
 
-  // Select it in the table: the row's net column, then its montage column (both polarities are in
-  // the one list, labelled `<name> · TI` / `<name> · mTI`).
-  await page.getByRole("button", { name: "Add row", exact: true }).click();
-  const row = page.locator("tr[data-montage-row]").last();
-  await row.getByRole("combobox").nth(0).click();
-  await page.getByRole("option", { name: net, exact: true }).click();
-  await row.getByRole("combobox").nth(1).click();
-  await page.getByRole("option", { name: `${name} · ${kind === "uni_polar" ? "TI" : "mTI"}`, exact: true }).click();
+  // Select it in the Jobs table: the seeded row's subject (already the shell's), then its net and
+  // its montage (both polarities are in the one list, labelled `<name> · TI` / `<name> · mTI`).
+  const row = jobRows(page).first();
+  await configureMontageJob(page, row, {
+    subject: opts.subject,
+    net,
+    montage: `${name} · ${kind === "uni_polar" ? "TI" : "mTI"}`,
+  });
 }
 
 /** Deletes the montage this spec created, through the UI, at teardown. */
 export async function deleteMontage(page: Page, name: string): Promise<void> {
-  const row = page.locator(`tr[data-montage-row="${name}"]`);
+  const row = page.locator(`tr[data-job-row][data-montage-row="${name}"]`);
   if ((await row.count()) === 0) return;
   await row.getByRole("button", { name: `Delete ${name}` }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete montage" }).click();

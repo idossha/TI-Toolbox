@@ -74,13 +74,8 @@ test("a tab the user chose is not taken away by the next job", async () => {
   await showRunPaneTab(page, "scene");
   await expect(page.getByTestId("run-pane-tabs")).toHaveAttribute("data-chosen", "scene");
 
-  // A different montage in the same row, so Run submits a genuinely new job. (Run empties the
-  // table on submit, so the row is re-seeded first.)
-  await configureMontageJob(page, jobRows(page).first(), {
-    subject: "ernie",
-    net: "GSN-HydroCel-185",
-    montage: "F3_F4 · TI",
-  });
+  // A different montage in the same row, so Run submits a genuinely new job. (The table keeps its
+  // rows after a run — 2.5.0's job cards did too.)
   await setJobMontage(page, jobRows(page).first(), "Thalamus_target · TI");
   await page.getByTestId("run-button").click();
   await expect(page.getByTestId("run-pane-tabs")).toHaveAttribute("data-active-job", "1", { timeout: 20_000 });

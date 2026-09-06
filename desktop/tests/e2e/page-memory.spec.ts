@@ -29,7 +29,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import { expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
+import { expectPage, gotoPage, launchElectronApp, openPalette, setSectionOpen } from "./_helpers";
 import { activePage as activePageOf, fingerprint, settle, useThePage } from "./_pageMemory";
 import { waitForScene } from "./_runPane";
 
@@ -57,15 +57,9 @@ function activePage(target: Page = page) {
 // `layout.spec.ts` reports all four run pages' numbers before it fails.
 
 test.beforeAll(async () => {
-  if (TOKEN === "mock-token") {
-    // Live run-pane continuity needs protocol 2 (meshes/camera), not the mock's protocol-1 floor.
-    const installed = await fetch(`${SERVER_URL}/api/tetravox/install`, {
-      method: "POST",
-      headers: { authorization: `Bearer ${TOKEN}`, "content-type": "application/json" },
-      body: JSON.stringify({ version: "0.4.0" }),
-    });
-    expect(installed.ok, "mock activates the protocol-2 scene fixture").toBe(true);
-  }
+  // V4 (dev/notes/v3-native-panes-external-viewer-plan.md): the embed, its protocol range and the
+  // install/activate dance this suite used to perform around itself are gone. The run panes draw
+  // with the app's own renderer and need nothing installed.
   app = await launchElectronApp({ userDataDir: mkdtempSync(join(tmpdir(), "tit-e2e-memory-")) });
   page = await app.firstWindow();
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -106,18 +100,6 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await app?.close();
-  if (TOKEN === "mock-token") {
-    const activated = await fetch(`${SERVER_URL}/api/tetravox/activate`, {
-      method: "POST",
-      headers: { authorization: `Bearer ${TOKEN}`, "content-type": "application/json" },
-      body: JSON.stringify({ version: "baked" }),
-    });
-    expect(activated.ok, "restore the mock's original embed after this suite").toBe(true);
-    const removed = await fetch(`${SERVER_URL}/api/tetravox/0.4.0`, {
-      method: "DELETE", headers: { authorization: `Bearer ${TOKEN}` },
-    });
-    expect(removed.ok, "remove this suite's mock embed fixture").toBe(true);
-  }
 });
 
 for (const id of RUN_PAGES) {
@@ -213,15 +195,13 @@ test("settings, results, jobs and viewer keep session-only page state beyond the
 
   await gotoPage(page, "viewer");
   await expectPage(page, "viewer");
-  // R5: selectors draft, Load commands — so MNI has to be drafted and then loaded before the
-  // page can be said to be showing MNI at all.
+  // R5: selectors draft, Open commands. V1: what Open commands is the external Tetravox app, so
+  // the page remembers a *selection*, which is all it ever had to remember.
   await page.getByTestId("viewer-select-kind").getByRole("combobox").click();
   await page.getByRole("option", { name: "Simulation", exact: true }).click();
   await page.getByTestId("viewer-select-simulation").getByRole("combobox").click();
   await page.getByRole("option", { name: "Thalamus", exact: true }).click();
   await page.getByRole("radiogroup", { name: "Space" }).getByRole("radio", { name: "MNI", exact: true }).click();
-  await page.getByTestId("viewer-load").click();
-  await expect(page.getByTestId("tetravox-host")).toHaveAttribute("data-viewer-status", "ready", { timeout: 15_000 });
   await awayAndBack("viewer");
   await expect(page.getByRole("radiogroup", { name: "Space" }).getByRole("radio", { name: "MNI", exact: true })).toBeChecked();
   await expect(page.getByTestId("viewer-select-simulation").getByRole("combobox")).toContainText("Thalamus");
@@ -318,21 +298,8 @@ test("changing another tab's subject preserves preprocessing and the live viewer
   await page.getByTestId("viewer-select-kind").getByRole("combobox").click();
   await page.getByRole("option", { name: "Subject", exact: true }).click();
   await expect(page.getByTestId("viewer-source-bar").getByRole("combobox")).toHaveCount(3);
-  await page.getByTestId("viewer-load").click();
-  await expect(page.getByTestId("tetravox-host")).toHaveAttribute("data-viewer-status", "ready", { timeout: 15_000 });
   const viewerSource = await page.getByTestId("viewer-source-bar").getByRole("combobox").allTextContents();
-  const frameNode = await page.getByTestId("tetravox-frame").elementHandle();
-  const embed = await frameNode!.contentFrame();
-  expect(embed).not.toBeNull();
-  await embed!.locator("body").click();
-  const messages = await embed!.evaluateHandle(() => {
-    const counts = { load: 0, reset: 0, hello: 0 };
-    window.addEventListener("message", (event) => {
-      const type = event.data?.type as keyof typeof counts;
-      if (event.source === window.parent && event.data?.tvx === 1 && type in counts) counts[type]++;
-    });
-    return counts;
-  });
+  const viewerNode = await viewer.elementHandle();
 
   await gotoPage(page, "simulator");
   await expect(viewer).toBeHidden();
@@ -350,20 +317,18 @@ test("changing another tab's subject preserves preprocessing and the live viewer
   await expectPage(page, "viewer");
   await expect(viewer).toBeVisible();
   await expect(page.getByTestId("shell-content")).toHaveAttribute("data-subject", "ernie");
-  expect(await page.getByTestId("tetravox-frame").evaluate((current, previous) => current === previous, frameNode)).toBe(true);
+  expect(await viewer.evaluate((current, previous) => current === previous, viewerNode)).toBe(true);
   expect(await page.getByTestId("viewer-source-bar").getByRole("combobox").allTextContents()).toEqual(viewerSource);
   await settle(page);
-  expect(await messages.jsonValue()).toEqual({ load: 0, reset: 0, hello: 0 });
   expect(errors).toEqual([]);
   page.off("pageerror", recordError);
 });
 
-test("Results deep links replace the retained viewer selection without replacing its iframe", async () => {
+test("Results deep links replace the retained viewer selection without remounting the page", async () => {
   test.skip(TOKEN !== "mock-token", "the named simulations come from the mock catalog");
   await gotoPage(page, "viewer");
-  await page.getByTestId("viewer-load").click();
-  await expect(page.getByTestId("tetravox-host")).toHaveAttribute("data-viewer-status", "ready", { timeout: 15_000 });
-  const frame = await page.getByTestId("tetravox-frame").elementHandle();
+  const viewerPanel = page.locator('[data-page-panel="viewer"]');
+  const viewerNode = await viewerPanel.elementHandle();
   await gotoPage(page, "results");
   await page.getByTestId("results-subject-filter").fill("");
   await page.getByTestId("results-subject-ernie").click();
@@ -372,11 +337,9 @@ test("Results deep links replace the retained viewer selection without replacing
   await page.getByTestId("results-node-simulation:ernie:docs_example").click();
   await page.getByTestId("results-open-in-viewer").click();
   await expectPage(page, "viewer");
-  // A deep link prefills the draft and loads nothing (R5); Load is what replaces the scene.
+  // A deep link prefills the draft and opens nothing (R5/V1); Open is what launches Tetravox.
   await expect(page.getByTestId("viewer-select-simulation").getByRole("combobox")).toContainText("docs_example");
-  await page.getByTestId("viewer-load").click();
-  await expect(page.getByTestId("tetravox-host")).toHaveAttribute("data-viewer-status", "ready", { timeout: 15_000 });
-  expect(await page.getByTestId("tetravox-frame").evaluate((current, previous) => current === previous, frame)).toBe(true);
+  expect(await viewerPanel.evaluate((current, previous) => current === previous, viewerNode)).toBe(true);
   await awayAndBack("viewer");
   await expect(page.getByTestId("viewer-select-simulation").getByRole("combobox")).toContainText("docs_example");
 });
@@ -434,7 +397,9 @@ test("pane collapse and expansion retain the live iframe, work DOM and a scrolle
   await gotoPage(page, "simulator");
   await expectPage(page, "simulator");
   const current = activePage();
-  await current.getByRole("radiogroup", { name: "Montage source" }).getByRole("radio", { name: "Free-hand", exact: true }).click();
+  // The free-hand editor is a collapsible section of its own since the 2026-09-06 jobs rework —
+  // authoring a placement and *choosing* one in a job row are two different acts.
+  await setSectionOpen(page, "Free-hand placements", true);
   await current.getByPlaceholder("e.g. custom_4electrode", { exact: true }).fill("pane_draft");
   await current.getByLabel("Position 1 X", { exact: true }).fill("12.5");
   await current.getByRole("button", { name: "Add position", exact: true }).click();
@@ -500,22 +465,18 @@ test("pane collapse and expansion retain the live iframe, work DOM and a scrolle
   console.log(`PANE-MEMORY scroll=${scrollBefore}->${await scroller.evaluate((el) => el.scrollTop)} iframe=same loads=0 resets=0 hellos=0`);
 });
 
-test("Free-hand to Montage and back preserves the subject, unfinished positions and validation", async () => {
+test("the free-hand draft survives a navigation away and back", async () => {
   test.skip(TOKEN !== "mock-token", "the two named subjects come from the mock catalog");
   await gotoPage(page, "simulator");
   await expectPage(page, "simulator");
   const current = activePage();
-  const subjects = current.getByTestId("subjects-field");
-  if ((await subjects.getAttribute("data-open")) !== "true") await subjects.getByTestId("subjects-change").click();
-  await subjects.getByTestId("subjects-filter").fill("");
-  for (const id of ["ernie", "101"]) {
-    const box = subjects.getByRole("checkbox", { name: id, exact: true });
-    if (!(await box.isChecked())) await box.click();
-  }
-  await subjects.getByTestId("subjects-change").click();
-  const sources = current.getByRole("radiogroup", { name: "Montage source" });
-  await sources.getByRole("radio", { name: "Free-hand", exact: true }).click();
-  // Change the editor's current subject, rather than merely proving its first-subject default.
+  /*
+   * Since the 2026-09-06 jobs rework the free-hand editor is a section of the Simulator, not a
+   * source *tab* — a job row picks a saved set in its own Montage cell. What the memory rule is
+   * about is unchanged: an unfinished placement belongs to the project session, so stepping to
+   * another page and back must not discard it.
+   */
+  await setSectionOpen(page, "Free-hand placements", true);
   const subject = current.locator(".field", { hasText: /^Subject/ }).getByRole("combobox");
   const draftSubject = (await subject.textContent())?.trim() === "101" ? "ernie" : "101";
   await subject.click();
@@ -524,7 +485,7 @@ test("Free-hand to Montage and back preserves the subject, unfinished positions 
   await current.getByLabel("Position 1 label", { exact: true }).fill("custom-A");
   await current.getByLabel("Position 1 Y", { exact: true }).fill("-23.5");
   await current.getByLabel("Position 1 Z", { exact: true }).fill("67.5");
-  // Five positions are deliberately incomplete; changing source must not silently repair them.
+  // Five positions are deliberately incomplete; a navigation must not silently repair them.
   while (await current.getByRole("button", { name: /^Remove position / }).count() > 4) {
     await current.getByRole("button", { name: /^Remove position / }).last().click();
   }
@@ -532,15 +493,18 @@ test("Free-hand to Montage and back preserves the subject, unfinished positions 
   await expect(current.getByRole("button", { name: /^Remove position / })).toHaveCount(5);
   await expect(current.locator(".field-error")).toContainText("Use 4 positions");
 
-  await sources.getByRole("radio", { name: "Montage", exact: true }).click();
-  await expect(current.getByPlaceholder("e.g. custom_4electrode", { exact: true })).toHaveCount(0);
-  await sources.getByRole("radio", { name: "Free-hand", exact: true }).click();
-  await expect(subject).toContainText(draftSubject);
-  await expect(current.getByPlaceholder("e.g. custom_4electrode", { exact: true })).toHaveValue("unfinished_source_draft");
-  await expect(current.getByLabel("Position 1 label", { exact: true })).toHaveValue("custom-A");
-  await expect(current.getByLabel("Position 1 Y", { exact: true })).toHaveValue("-23.5");
-  await expect(current.getByLabel("Position 1 Z", { exact: true })).toHaveValue("67.5");
-  await expect(current.getByRole("button", { name: /^Remove position / })).toHaveCount(5);
-  await expect(current.locator(".field-error")).toContainText("Use 4 positions");
-  await expect(current.getByRole("button", { name: "Save configuration", exact: true })).toBeDisabled();
+  await gotoPage(page, "analyzer");
+  await expectPage(page, "analyzer");
+  await gotoPage(page, "simulator");
+  await expectPage(page, "simulator");
+  const back = activePage();
+  await setSectionOpen(page, "Free-hand placements", true);
+  await expect(back.locator(".field", { hasText: /^Subject/ }).getByRole("combobox")).toContainText(draftSubject);
+  await expect(back.getByPlaceholder("e.g. custom_4electrode", { exact: true })).toHaveValue("unfinished_source_draft");
+  await expect(back.getByLabel("Position 1 label", { exact: true })).toHaveValue("custom-A");
+  await expect(back.getByLabel("Position 1 Y", { exact: true })).toHaveValue("-23.5");
+  await expect(back.getByLabel("Position 1 Z", { exact: true })).toHaveValue("67.5");
+  await expect(back.getByRole("button", { name: /^Remove position / })).toHaveCount(5);
+  await expect(back.locator(".field-error")).toContainText("Use 4 positions");
+  await expect(back.getByRole("button", { name: "Save configuration", exact: true })).toBeDisabled();
 });

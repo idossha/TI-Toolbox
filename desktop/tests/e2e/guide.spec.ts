@@ -56,7 +56,9 @@ test.beforeAll(async () => {
   await expectPage(page, "simulator");
   // The net is the montage table's first column now (no standalone "EEG net" selector): setting
   // it on a row is also what tells the scene pane which net's electrodes to draw.
-  await page.locator("tr[data-montage-row]").first().getByRole("combobox").nth(0).click();
+  // Addressed by the CELL, not by a combobox index: the montage table gained a Subject column on
+  // 2026-09-06 and `nth(0)` silently became the subject picker.
+  await page.locator("tr[data-montage-row]").first().locator('td[data-cell="net"]').getByRole("combobox").click();
   await page.getByRole("option", { name: NET, exact: true }).click();
   await expectRunPaneTab(page, "scene");
   await expect(page.getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready", { timeout: 20_000 });
