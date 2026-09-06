@@ -28,17 +28,26 @@ search.
 
 | Cell | Flex family | Ex / mEx |
 | --- | --- | --- |
-| **Method** | `Flex` · `Flex adaptive` · `Flex Pareto` | `Ex` · `mEx` |
+| **Method** | `Flex` | `Ex` |
 | **Net / leadfield** | the EEG net optimised positions are mapped onto, or `Optimised positions` | the subject's leadfields, each with its size; a net *without* one is listed as `<net> — no leadfield` and is unselectable |
 | **Goal** | `mean` / `max` / `focality` / `focality_tf`; fixed to `focality` (disabled) for the two orchestrated methods | `—`, with the reason in its `title`: an exhaustive search ranks every montage by the ROI field and has no goal to choose |
 | **line 2** | `Cortical · DK40 · lh.bankssts · avoid everything else · 2 pairs · 1 mA · ratio 1:1 · population 13 × 500 generations ≈ 6,500 solves` | `Saved · Thalamus_target · r3 mm · Subject · buckets: 4 · 2 mA total · 4 electrodes · 7 splits · 7 combinations` |
 
-* **The method vocabulary is five, not three.** `flex_adaptive` / `flex_pareto` were a mode buried
-  three controls inside a focality form, while being *separate job kinds on the wire*
-  (`jobKindFor`) that queue a different number of solves. They are methods now, and
-  `flexFormForMethod` derives `goal`/`focalityMode` from the method so the two cannot disagree —
-  including in the row editor, where changing the Objective section's Goal away from `focality`
-  moves the row back to plain `Flex` rather than being silently reverted.
+* **Two methods; five kinds, all derived.** A method is the kind of *search* — free electrode
+  positions, or an exhaustive sweep over a leadfield. The five job kinds this page submits are not
+  five methods, and `rowJobKind` derives every one of them from options the row's editor already
+  holds:
+  * Flex → `jobKindFor(form)`, the focality mode. `flex` / `flex_adaptive` / `flex_pareto`,
+    unchanged from 2.5.0.
+  * Ex → the electrode count, in two-pair steps. Four electrodes (two pairs) is `ex` (TI), eight
+    (four pairs) is `mex` (mTI) — the same inference the Simulator makes from a montage's pairs.
+    The editor's `Electrodes` control is where the user says which, and the buckets follow it.
+
+  A select that also let the kind be *chosen* would be a second control able to disagree with the
+  first. Line 2 states the derived variant (`Flex · adaptive`, `Ex · 8 electrodes (mTI)`) and the
+  row carries it as `data-kind`, so the kind is readable — and assertable — without opening the
+  editor. The one thing that follows the derived kind rather than the family: `allowCombine`, since
+  mTI has no combined-target mode.
 * **The subject is a `SelectionPicker` inside the row** (J3), and its "why not" is per row: `no
   head model (m2m)` always, plus `no leadfield — create one first` when *that row* is Ex/mEx.
   Measured on Dataset 000: `101` is offered (it has an EEG10-10 leadfield), `MNI152` is refused for
@@ -81,8 +90,8 @@ The disabled sentence can now name *which* row: `Job 1: Fill in all eight electr
 ## Files
 
 **Source** — `desktop/src/renderer/pages/optimizer/`
-`rows.ts` (new: the row model, the method vocabulary, the readable summaries, the column
-resolver), `plan.ts` (new, pure: `jobsForRow`, `rowFormReason`), `JobRows.tsx` (new: the table and
+`rows.ts` (new: the row model, the two-method vocabulary, `rowJobKind`'s derivation, the readable
+summaries, the column resolver), `plan.ts` (new, pure: `jobsForRow`, `rowFormReason`), `JobRows.tsx` (new: the table and
 the per-method row editor), `index.tsx` (rewritten page shell), `optimizer.css` (the table, the
 line-2 button, the row-editor dialog), `flexConfig.ts` / `exConfig.ts` (dead `flexSubmissions` /
 `exSubmissions` removed — `jobsForRow` supersedes them).

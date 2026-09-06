@@ -25,6 +25,7 @@ import { Button, IconButton } from "../../ui/Button";
 import { Dialog } from "../../ui/Overlay";
 import { Field, TextInput } from "../../ui/Field";
 import { Select } from "../../ui/Select";
+import { SegmentedControl } from "../../ui/SegmentedControl";
 import { SelectionPicker } from "../../ui/SelectionList";
 import { RoiPicker, type RoiValue } from "../_shared/roi";
 import type { EegNet, Leadfield } from "./api";
@@ -32,7 +33,7 @@ import { ElectrodesSection, ObjectiveSection, PostRunSection, SolverSection } fr
 import { ExCurrentSection, ExElectrodesSection, LeadfieldStrip, MExCarrierSection, MExElectrodesSection } from "./ExSections";
 import { formatBytes } from "./exConfig";
 import { electrodesForNet, leadfieldPathFor, netKey, netOptions } from "./nets";
-import { flexFormForMethod, isFlexMethod, GOAL_LABEL, OPT_METHODS, optimizerAvoidLabel, optimizerMethodSummary, optimizerTargetLabel, roiModesFor, rowGoal, withMethod, emptyOptimizerRow, newOptimizerRowId, readStoredOptColumns, resolveOptColumnWidths, writeStoredOptColumns, type OptColumnKey, type OptColumnWidths, type OptimizerRow, type OptMethod, type StoredOptColumns } from "./rows";
+import { isFlexMethod, GOAL_LABEL, OPT_METHODS, optimizerAvoidLabel, optimizerMethodSummary, optimizerTargetLabel, roiModesFor, rowGoal, rowJobKind, withMethod, emptyOptimizerRow, newOptimizerRowId, readStoredOptColumns, resolveOptColumnWidths, writeStoredOptColumns, type OptColumnKey, type OptColumnWidths, type OptimizerRow, type OptMethod, type StoredOptColumns } from "./rows";
 import type { OptGoal } from "./flexConfig";
 import "./optimizer.css";
 
@@ -289,6 +290,9 @@ export function OptimizerJobRows({
                 data-opt-row={row.id}
                 data-subject={row.subjectId || undefined}
                 data-method={row.method}
+                /* The kind is DERIVED (`rowJobKind`), so the row states which one it resolved to —
+                   a spec, and a reader, can see `flex_pareto` without opening the editor. */
+                data-kind={rowJobKind(row)}
                 data-net={row.net ?? undefined}
                 data-target-ready={target === "Choose a target…" ? "false" : "true"}
                 data-active={active ? "true" : undefined}
@@ -360,10 +364,6 @@ export function OptimizerJobRows({
                         value={goal}
                         onValueChange={(v) => patch(row.id, { flex: { ...row.flex, goal: v as OptGoal } })}
                         options={GOAL_OPTIONS}
-                        // Flex adaptive / Flex Pareto ARE focality: the method cell already made
-                        // this choice, and a second control that could disagree with it is the
-                        // thing the method vocabulary exists to remove.
-                        disabled={row.method !== "flex"}
                         aria-label="Goal"
                       />
                     )}
@@ -476,20 +476,8 @@ function RowEditor({
 }) {
   if (!row) return null;
 
-  const flexForm = flexFormForMethod(row.flex, row.method);
-  /**
-   * The Objective section's own Goal control and the row's Goal cell are one decision. A goal that
-   * leaves `focality` also leaves the adaptive/Pareto *methods*, because those two ARE focality
-   * with a mode — without this the section would offer a change the method then silently reverted.
-   */
-  const patchFlex = (p: Partial<typeof row.flex>) => {
-    const flex = { ...row.flex, ...p };
-    if (p.goal !== undefined && p.goal !== "focality" && row.method !== "flex") {
-      onChange({ ...withMethod(row, "flex"), flex });
-      return;
-    }
-    onChange({ ...row, flex });
-  };
+  const flexForm = row.flex;
+  const patchFlex = (p: Partial<typeof row.flex>) => onChange({ ...row, flex: { ...row.flex, ...p } });
   const patchEx = (p: Partial<typeof row.ex>) => onChange({ ...row, ex: { ...row.ex, ...p } });
   const patchMex = (p: Partial<typeof row.mex>) => onChange({ ...row, mex: { ...row.mex, ...p } });
   const electrodes = electrodesForNet(nets, row.net);
@@ -541,7 +529,9 @@ function RowEditor({
             onChange={(roi: RoiValue) => onChange({ ...row, roi })}
             modes={roiModesFor(row.method)}
             subject={row.subjectId || undefined}
-            allowCombine={row.method === "ex"}
+            /* The mTI run path has no combined mode, so the control must follow the DERIVED kind,
+               not the family: eight electrodes is `mex`, and `mex` cannot union its targets. */
+            allowCombine={rowJobKind(row) === "ex"}
             onOpenViewer={row.roi.mode === "spherical" ? onOpenViewer : undefined}
           />
         </section>
@@ -562,14 +552,34 @@ function RowEditor({
         )}
         {row.method === "ex" && (
           <>
-            <ExElectrodesSection form={row.ex} onChange={patchEx} electrodes={electrodes} disabled={!row.net} />
-            <ExCurrentSection form={row.ex} onChange={patchEx} />
-          </>
-        )}
-        {row.method === "mex" && (
-          <>
-            <MExElectrodesSection form={row.mex} onChange={patchMex} electrodes={electrodes} disabled={!row.net} />
-            <MExCarrierSection form={row.mex} onChange={patchMex} />
+            {/*
+              The one control that decides `ex` from `mex`, in two-pair steps — and it is an
+              *electrode count*, not a method name (coordinator, 2026-09-06). Four electrodes is a
+              two-channel TI search; eight is the multipolar mTI one. The same inference the
+              Simulator makes from how many pairs a montage has, and the buckets below follow it.
+            */}
+            <Field label="Electrodes" help="Four electrodes are two pairs (TI); eight are four pairs (mTI). The search kind follows the count.">
+              <SegmentedControl
+                aria-label="Electrode count"
+                value={String(row.exPairs)}
+                onValueChange={(v) => onChange({ ...row, exPairs: Number(v) === 4 ? 4 : 2 })}
+                options={[
+                  { value: "2", label: "4 electrodes (TI)" },
+                  { value: "4", label: "8 electrodes (mTI)" },
+                ]}
+              />
+            </Field>
+            {row.exPairs === 2 ? (
+              <>
+                <ExElectrodesSection form={row.ex} onChange={patchEx} electrodes={electrodes} disabled={!row.net} />
+                <ExCurrentSection form={row.ex} onChange={patchEx} />
+              </>
+            ) : (
+              <>
+                <MExElectrodesSection form={row.mex} onChange={patchMex} electrodes={electrodes} disabled={!row.net} />
+                <MExCarrierSection form={row.mex} onChange={patchMex} />
+              </>
+            )}
           </>
         )}
       </div>

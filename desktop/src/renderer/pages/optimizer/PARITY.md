@@ -152,8 +152,11 @@ global copy of each; a search now owns its own, because one row of the Jobs tabl
   search, Current, Carriers, and the leadfield strip → the **row editor**, a dialog per method,
   built from the same `FlexSections` / `ExSections` components.
 * Subject → the row's own `SelectionPicker` cell. The page-level `SubjectsField` is gone.
-* `Flex adaptive` and `Flex Pareto` were promoted from a mode inside the focality form to their own
-  **methods**, matching the job kinds they always submitted as (`flex_adaptive`, `flex_pareto`).
+* The Method column offers **two** methods, `Flex` and `Ex`. Every job kind is *derived*: the flex
+  variants from the focality mode (`jobKindFor`, exactly as in 2.5.0), and `ex` vs `mex` from the
+  electrode count the editor holds — four electrodes (two pairs) is TI, eight (four pairs) is mTI,
+  the same inference the Simulator makes from a montage's pairs. Nothing chooses a job kind
+  directly, so no second control can disagree with the first.
 
 This does not lose 2.5.0 parity: 2.5.0's "Global Parameters" box was per *tab*, which is per
 method, which is per row.

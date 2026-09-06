@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   emptyOptimizerRow,
-  flexFormForMethod,
   isFlexMethod,
   isRunnableOptimizerRow,
   OPT_COLUMN_MIN,
+  OPT_METHODS,
   optimizerAvoidLabel,
   optimizerJobsSummary,
   optimizerMethodSummary,
@@ -13,7 +13,10 @@ import {
   resolveOptColumnWidths,
   roiModesFor,
   rowGoal,
+  rowJobKind,
   rowPlanKind,
+  rowStage,
+  rowVariantLabel,
   withMethod,
   type OptimizerRow,
 } from "../../src/renderer/pages/optimizer/rows";
@@ -27,14 +30,12 @@ import type { RoiValue } from "../../src/renderer/pages/_shared/roi";
 const cortical: RoiValue = { mode: "cortical", atlas: "DK40", regions: [{ id: 1, name: "insula", hemi: "lh" }] };
 
 describe("the method vocabulary", () => {
-  it("treats the three flex kinds as one family and ex/mEx as another", () => {
-    expect(["flex", "flex_adaptive", "flex_pareto"].every((m) => isFlexMethod(m as never))).toBe(true);
-    expect(["ex", "mex"].some((m) => isFlexMethod(m as never))).toBe(false);
-  });
-
-  it("plans the whole flex family under one kind, and ex/mEx under their own", () => {
-    expect(rowPlanKind(emptyOptimizerRow({ method: "flex_pareto" }))).toBe("flex");
-    expect(rowPlanKind(emptyOptimizerRow({ method: "mex" }))).toBe("mex");
+  it("offers exactly two methods — a search is free-placement or exhaustive", () => {
+    // Coordinator, 2026-09-06: the five job kinds this page submits are not five methods. A method
+    // is the kind of SEARCH; the kind is derived from options the row's editor already holds.
+    expect(OPT_METHODS.map((m) => m.value)).toEqual(["flex", "ex"]);
+    expect(isFlexMethod("flex")).toBe(true);
+    expect(isFlexMethod("ex")).toBe(false);
   });
 
   it("offers each family only the ROI modes it can express", () => {
@@ -43,25 +44,57 @@ describe("the method vocabulary", () => {
     expect(roiModesFor("ex")).toEqual(["saved", "subcortical"]);
   });
 
-  it("derives goal and focality mode from the method, so the two cannot disagree", () => {
-    const base = emptyOptimizerRow().flex;
-    expect(flexFormForMethod(base, "flex_adaptive")).toMatchObject({ goal: "focality", focalityMode: "adaptive" });
-    expect(flexFormForMethod(base, "flex_pareto")).toMatchObject({ goal: "focality", focalityMode: "pareto" });
-    // Coming back to plain Flex from an orchestrated mode lands on manual thresholds, not on a
-    // kind the row no longer is.
-    const adaptive = flexFormForMethod(base, "flex_adaptive");
-    expect(flexFormForMethod(adaptive, "flex").focalityMode).toBe("manual");
-    expect(rowGoal(emptyOptimizerRow({ method: "flex_pareto" }))).toBe("focality");
-    // Ex/mEx rank every montage by the ROI field — there is no goal to choose.
-    expect(rowGoal(emptyOptimizerRow({ method: "ex" }))).toBeNull();
-  });
-
-  it("keeps a target when the family does not change, and clears it when it does", () => {
+  it("clears the target when the family changes, and is a no-op otherwise", () => {
     const row: OptimizerRow = { ...emptyOptimizerRow({ method: "flex" }), roi: cortical };
-    expect(withMethod(row, "flex_pareto").roi).toEqual(cortical);
+    expect(withMethod(row, "flex")).toBe(row);
     // A saved CSV is not a cortical parcellation: carrying one across would leave a row that looks
     // configured and can never be planned.
     expect(withMethod(row, "ex").roi).toMatchObject({ mode: "saved", selected: [] });
+  });
+
+  it("has no goal for an exhaustive search — it ranks every montage by the ROI field", () => {
+    expect(rowGoal(emptyOptimizerRow({ method: "flex" }))).toBe("mean");
+    expect(rowGoal(emptyOptimizerRow({ method: "ex" }))).toBeNull();
+  });
+});
+
+describe("rowJobKind — the kind is derived, never chosen", () => {
+  const flex = (patch: Partial<OptimizerRow["flex"]>): OptimizerRow => {
+    const row = emptyOptimizerRow({ method: "flex" });
+    return { ...row, flex: { ...row.flex, ...patch } };
+  };
+
+  it("reads a flex row's kind off its focality mode, exactly as 2.5.0 did", () => {
+    expect(rowJobKind(flex({ goal: "mean" }))).toBe("flex");
+    expect(rowJobKind(flex({ goal: "focality_tf" }))).toBe("flex");
+    expect(rowJobKind(flex({ goal: "focality", focalityMode: "manual" }))).toBe("flex");
+    expect(rowJobKind(flex({ goal: "focality", focalityMode: "adaptive" }))).toBe("flex_adaptive");
+    expect(rowJobKind(flex({ goal: "focality", focalityMode: "pareto" }))).toBe("flex_pareto");
+    // A mode only means something under the focality goal: `mean` with `pareto` left over from an
+    // earlier edit is still a plain flex search.
+    expect(rowJobKind(flex({ goal: "mean", focalityMode: "pareto" }))).toBe("flex");
+  });
+
+  it("reads an exhaustive row's kind off its electrode count — 4 is TI, 8 is mTI", () => {
+    expect(rowJobKind(emptyOptimizerRow({ method: "ex", exPairs: 2 }))).toBe("ex");
+    expect(rowJobKind(emptyOptimizerRow({ method: "ex", exPairs: 4 }))).toBe("mex");
+  });
+
+  it("plans the whole flex family under one kind, and ex/mEx under their own", () => {
+    expect(rowPlanKind(flex({ goal: "focality", focalityMode: "pareto" }))).toBe("flex");
+    expect(rowPlanKind(emptyOptimizerRow({ method: "ex", exPairs: 4 }))).toBe("mex");
+    // The plan grid's three columns follow the same derivation.
+    expect(rowStage(flex({ goal: "focality", focalityMode: "adaptive" }))).toBe("flex");
+    expect(rowStage(emptyOptimizerRow({ method: "ex", exPairs: 2 }))).toBe("ex");
+    expect(rowStage(emptyOptimizerRow({ method: "ex", exPairs: 4 }))).toBe("mex");
+  });
+
+  it("states the derived variant in words, and says nothing for a plain flex search", () => {
+    expect(rowVariantLabel(flex({ goal: "mean" }))).toBe("");
+    expect(rowVariantLabel(flex({ goal: "focality", focalityMode: "adaptive" }))).toBe("adaptive");
+    expect(rowVariantLabel(flex({ goal: "focality", focalityMode: "pareto" }))).toBe("Pareto");
+    expect(rowVariantLabel(emptyOptimizerRow({ method: "ex", exPairs: 2 }))).toBe("4 electrodes (TI)");
+    expect(rowVariantLabel(emptyOptimizerRow({ method: "ex", exPairs: 4 }))).toBe("8 electrodes (mTI)");
   });
 });
 
@@ -98,22 +131,27 @@ describe("what the row says about itself", () => {
   it("names the avoid ROI only for a focality goal", () => {
     const row: OptimizerRow = { ...emptyOptimizerRow(), roi: cortical };
     expect(optimizerAvoidLabel(row)).toBeNull();
-    expect(optimizerAvoidLabel({ ...row, method: "flex_adaptive" })).toBe("avoid everything else");
+    const focal = { ...row, flex: { ...row.flex, goal: "focality" as const, focalityMode: "adaptive" as const } };
+    expect(optimizerAvoidLabel(focal)).toBe("avoid everything else");
     expect(
-      optimizerAvoidLabel({ ...row, method: "flex_adaptive", flex: { ...row.flex, nonRoiMethod: "specific" }, nonRoi: cortical }),
+      optimizerAvoidLabel({ ...focal, flex: { ...focal.flex, nonRoiMethod: "specific" }, nonRoi: cortical }),
     ).toBe("avoid Cortical · DK40 · lh.insula");
     // Ex/mEx have no non-ROI at all.
     expect(optimizerAvoidLabel({ ...row, method: "ex" })).toBeNull();
   });
 
   it("summarises the search in its own method's vocabulary, from the shared cost functions", () => {
-    const flex = optimizerMethodSummary({ ...emptyOptimizerRow(), roi: cortical });
-    expect(flex).toContain("2 pairs · 1 mA · ratio 1:1");
+    const flexRow = { ...emptyOptimizerRow(), roi: cortical };
+    const flex = optimizerMethodSummary(flexRow);
+    expect(flex).toContain("Flex · 2 pairs · 1 mA · ratio 1:1");
     expect(flex).toContain("≈ 6,500 solves");
+    // The derived variant is stated, so a reader sees the kind without opening the editor.
+    expect(optimizerMethodSummary({ ...flexRow, flex: { ...flexRow.flex, goal: "focality", focalityMode: "adaptive" } })).toContain("Flex · adaptive");
+    expect(optimizerMethodSummary({ ...flexRow, flex: { ...flexRow.flex, goal: "focality", focalityMode: "pareto" } })).toContain("Flex · Pareto");
     const row = emptyOptimizerRow({ method: "ex" });
     const ex = optimizerMethodSummary({ ...row, ex: { ...row.ex, buckets: { e1_plus: ["E1"], e1_minus: ["E2"], e2_plus: ["E3"], e2_minus: ["E4"] } } });
-    expect(ex).toBe("buckets: 4 · 2 mA total · 4 electrodes · 7 splits · 7 combinations");
-    expect(optimizerMethodSummary(emptyOptimizerRow({ method: "mex" }))).toContain("buckets: 8");
+    expect(ex).toBe("Ex · 4 electrodes (TI) · buckets: 4 · 2 mA total · 4 electrodes · 7 splits · 7 combinations");
+    expect(optimizerMethodSummary(emptyOptimizerRow({ method: "ex", exPairs: 4 }))).toContain("Ex · 8 electrodes (mTI) · buckets: 8");
   });
 
   it("summarises the table the way the disabled Run and the plan grid count it", () => {

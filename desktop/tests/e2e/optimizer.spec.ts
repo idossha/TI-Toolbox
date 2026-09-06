@@ -152,6 +152,10 @@ test("one page, one jobs table: no page-level subject set and no global search f
   await expect(optRows(page)).toHaveCount(1);
   await expect(optRows(page).first()).toHaveAttribute("data-subject", "ernie");
   await expect(optRows(page).first()).toHaveAttribute("data-method", "flex");
+  // Two methods, not five: the kind a row submits as is derived from its editor, never picked here.
+  await optRows(page).first().locator('td[data-cell="method"]').getByRole("combobox").click();
+  await expect(page.getByRole("option")).toHaveText(["Flex", "Ex"]);
+  await page.keyboard.press("Escape");
 
   // §2.3 / §8: no page header; shape A is work pane + run panel + action bar.
   await expect(page.locator(".page-header")).toHaveCount(0);
@@ -230,8 +234,8 @@ test("the entry is two lines of a fixed 63px, and the table never scrolls sidewa
   // Nothing a row does to itself moves a column: the widths come from the colgroup resolver, and
   // only a deliberate drag of a header boundary changes one.
   const before = await container.evaluate((el) => [...el.querySelectorAll("thead th")].map((th) => Math.round(th.getBoundingClientRect().width)));
-  await setOptCell(page, row, "method", "mEx");
-  await expect(row).toHaveAttribute("data-method", "mex");
+  await setOptCell(page, row, "method", "Ex");
+  await expect(row).toHaveAttribute("data-method", "ex");
   const after = await container.evaluate((el) => [...el.querySelectorAll("thead th")].map((th) => Math.round(th.getBoundingClientRect().width)));
   expect(after).toEqual(before);
   await setOptCell(page, row, "method", "Flex");
@@ -257,7 +261,7 @@ test("Flex: the row's editor holds the target and the form, and one flex job rea
   // Line 2 states the target AND what the search will cost, from the same `cost.ts` the digest
   // reads — the two cannot disagree.
   await expect(row).toHaveAttribute("data-target-ready", "true");
-  await expect(optRowSummary(row)).toHaveText(/^Cortical · DK40 · lh\.bankssts · 2 pairs · 1 mA · ratio 1:1 · population 13 × 500 generations ≈ 6,500 solves$/);
+  await expect(optRowSummary(row)).toHaveText(/^Cortical · DK40 · lh\.bankssts · Flex · 2 pairs · 1 mA · ratio 1:1 · population 13 × 500 generations ≈ 6,500 solves$/);
 
   await expect(page.getByTestId("plan-grid").getByTestId("plan-stat-jobs")).toBeVisible({ timeout: 15_000 });
   await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job · \d+ CPU · \d+ GB/);
@@ -322,14 +326,23 @@ test("duplicate, then re-point the copy: two subjects, two rows, each with its O
   await expect(optRows(page)).toHaveCount(1);
 });
 
-test("Flex adaptive and Flex Pareto are their own methods, and their own job kinds", async () => {
+test("the flex variants are DERIVED from the focality mode, not chosen as methods", async () => {
+  // Coordinator, 2026-09-06: the Method column offers two methods, and `flex_adaptive` /
+  // `flex_pareto` are what a flex search BECOMES when its thresholds are derived or swept. The
+  // kind is read off the editor's own focality options (`jobKindFor`), exactly as in 2.5.0.
   const row = optRows(page).first();
-  // The goal cell is the method's, not a second control that could disagree with it.
+  await expect(row.locator('td[data-cell="method"]').getByRole("combobox")).toHaveText("Flex");
+  await expect(row).toHaveAttribute("data-kind", "flex");
   await expect(row.locator('td[data-cell="goal"]').getByRole("combobox")).toHaveText("mean");
-  await setOptCell(page, row, "method", "Flex adaptive");
-  await expect(row.locator('td[data-cell="goal"]').getByRole("combobox")).toHaveText("focality");
-  await expect(row.locator('td[data-cell="goal"]').getByRole("combobox")).toBeDisabled();
-  await expect(optRowSummary(row)).toHaveText(/avoid everything else · .*adaptive 80\/20%/);
+
+  // Goal `focality` in the row, then the mode in the editor.
+  await setOptCell(page, row, "goal", "focality");
+  const dialog = await openOptEditor(page, row);
+  await field("Threshold mode", dialog).getByRole("radio", { name: "Adaptive (single run)", exact: true }).click();
+  await closeOptEditor(page);
+  await expect(row).toHaveAttribute("data-kind", "flex_adaptive");
+  // Line 2 states the variant, so the kind is readable without opening the editor.
+  await expect(optRowSummary(row)).toHaveText(/^Cortical · DK40 · lh\.bankssts · avoid everything else · Flex · adaptive · /);
 
   const groups = collectGroups();
   await expect(page.getByTestId("plan-stat-jobs").locator(".plan-stat-value")).toHaveText("1", { timeout: 15_000 });
@@ -338,9 +351,14 @@ test("Flex adaptive and Flex Pareto are their own methods, and their own job kin
   groups.stop();
   expect((groups.bodies[0] as { kind: string }).kind).toBe("flex_adaptive");
 
-  await setOptCell(page, row, "method", "Flex Pareto");
-  await expect(optRowSummary(row)).toHaveText(/sweep 1×3 = 3/);
-  await setOptCell(page, row, "method", "Flex");
+  const again = await openOptEditor(page, row);
+  await field("Threshold mode", again).getByRole("radio", { name: "Pareto sweep", exact: true }).click();
+  await closeOptEditor(page);
+  await expect(row).toHaveAttribute("data-kind", "flex_pareto");
+  await expect(optRowSummary(row)).toHaveText(/Flex · Pareto · .*sweep 1×3 = 3/);
+
+  await setOptCell(page, row, "goal", "mean");
+  await expect(row).toHaveAttribute("data-kind", "flex");
 });
 
 test("Ex: the Leadfield cell lists what a subject has, and names the refusal when it has none", async () => {
@@ -375,7 +393,7 @@ test("Ex: the Leadfield cell lists what a subject has, and names the refusal whe
   // The cost is stated beside the buckets that change it — the same function line 2 reads.
   await expect(dialog.getByTestId("optimizer-cost-ex")).toHaveText("4 electrodes · 7 splits · 7 combinations");
   await closeOptEditor(page);
-  await expect(optRowSummary(row)).toHaveText(/^Saved · Thalamus_target \+ L_Insula_target · r3 mm · Subject · buckets: 4 · 2 mA total · 4 electrodes · 7 splits · 7 combinations$/);
+  await expect(optRowSummary(row)).toHaveText(/^Saved · Thalamus_target \+ L_Insula_target · r3 mm · Subject · Ex · 4 electrodes \(TI\) · buckets: 4 · 2 mA total · 4 electrodes · 7 splits · 7 combinations$/);
 
   await expect(page.getByTestId("plan-cell-ernie-ex")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId("run-button")).toHaveText("Run 2 searches");
@@ -397,14 +415,24 @@ test("Ex: the Leadfield cell lists what a subject has, and names the refusal whe
   expect(body.subject_configs[0]!.config.electrodes).toEqual({ _type: "BucketElectrodes", e1_plus: ["E1"], e1_minus: ["E2"], e2_plus: ["E3"], e2_minus: ["E4"] });
 });
 
-test("mEx: eight buckets, carrier wiring, no goal and no Combine control", async () => {
+test("mEx is Ex with eight electrodes: the count decides the kind", async () => {
+  // Coordinator, 2026-09-06: `mex` is what an exhaustive search BECOMES when it is given four
+  // pairs instead of two — the same inference the Simulator makes from a montage's pairs. There is
+  // no "mEx" method to pick.
   const row = optRows(page).first();
-  await setOptCell(page, row, "method", "mEx");
+  await expect(row).toHaveAttribute("data-method", "ex");
+  await expect(row).toHaveAttribute("data-kind", "ex");
   // Ex/mEx rank every montage by the ROI field: the Goal cell says so rather than holding a dead
   // control (and there is no goal on the wire to disagree with).
   await expect(row.locator('td[data-cell="goal"]')).toHaveText("—");
 
-  const dialog = await openOptEditor(page, row);
+  let dialog = await openOptEditor(page, row);
+  await field("Electrodes", dialog).getByRole("radio", { name: "8 electrodes (mTI)", exact: true }).click();
+  await closeOptEditor(page);
+  await expect(row).toHaveAttribute("data-kind", "mex");
+  await expect(optRowSummary(row)).toHaveText(/Ex · 8 electrodes \(mTI\) · buckets: 8/);
+
+  dialog = await openOptEditor(page, row);
   // The mTI run path has no combined mode, so the control does not exist rather than existing dead.
   await expect(dialog.getByLabel("Combine selected ROIs into one target")).toHaveCount(0);
   for (const bucket of ["E1+", "E1-", "E2+", "E2-", "E3+", "E3-", "E4+", "E4-"]) {
@@ -418,7 +446,12 @@ test("mEx: eight buckets, carrier wiring, no goal and no Combine control", async
   // rule 3), which a page-level form could never do.
   await expect(page.getByTestId("run-button")).toBeDisabled();
   await expect(page.getByTestId("run-button")).toHaveAttribute("title", /Job 1: Fill in all eight electrode buckets\./);
-  await setOptCell(page, row, "method", "Ex");
+
+  // Back to four electrodes, and the row is an `ex` search again — with the buckets it already had.
+  dialog = await openOptEditor(page, row);
+  await field("Electrodes", dialog).getByRole("radio", { name: "4 electrodes (TI)", exact: true }).click();
+  await closeOptEditor(page);
+  await expect(row).toHaveAttribute("data-kind", "ex");
 });
 
 test("a mixed table submits one group per kind, and says so", async () => {

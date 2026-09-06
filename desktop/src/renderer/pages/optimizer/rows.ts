@@ -24,46 +24,62 @@
  */
 import { emptyRoi, isRoiComplete, type RoiRegion, type RoiValue } from "../_shared/roi";
 import type { PlanKind } from "../_shared/run";
-import { defaultFlexFormState, type FlexFormState, type OptGoal } from "./flexConfig";
+import { defaultFlexFormState, jobKindFor, type FlexFormState, type OptGoal } from "./flexConfig";
 import { defaultExFormState, defaultMExFormState, type ExFormState, type MExFormState } from "./exConfig";
 import { exCost, flexCost, mexCost } from "./cost";
 import { parsePctList, sweepCombinationCount } from "./flexConfig";
 
 /**
- * The five things a row can be. `flex_adaptive` / `flex_pareto` are their own *methods* here
- * rather than a mode buried three controls deep inside a focality form: they are separate job
- * kinds on the wire (`jobKindFor`), they queue a different number of solves, and the maintainer's
- * own list names them ("Flex, Flex adaptive, Flex Pareto, Ex, mEx"). Choosing one *is* choosing
- * `goal = focality` with that focality mode — `flexFormForMethod` keeps the form honest, so the
- * method cell and the form can never disagree about which kind will be submitted.
+ * The **two** things a row can be. A method is the kind of *search* — free electrode positions, or
+ * an exhaustive sweep over a precomputed leadfield — and nothing more.
+ *
+ * Coordinator, 2026-09-06, on a Method select listing five entries: the five job kinds this page
+ * submits are not five methods. `flex_adaptive` / `flex_pareto` are what a flex search *becomes*
+ * when its focality thresholds are derived or swept, and `mex` is what an exhaustive search
+ * *becomes* when it is given four pairs instead of two. Both are **derived** from options the user
+ * already sets in the row's editor (`rowJobKind`), exactly as the Simulator infers TI from mTI from
+ * how many electrode pairs a montage has. A select that also let the kind be *chosen* would be a
+ * second control able to disagree with the first.
  */
-export type OptMethod = "flex" | "flex_adaptive" | "flex_pareto" | "ex" | "mex";
+export type OptMethod = "flex" | "ex";
+
+/** What actually goes on the wire, and to `POST /api/plan/{kind}`. Never chosen directly. */
+export type OptJobKind = "flex" | "flex_adaptive" | "flex_pareto" | "ex" | "mex";
 
 export const OPT_METHODS: { value: OptMethod; label: string; title: string }[] = [
   { value: "flex", label: "Flex", title: "Differential-evolution search over free electrode positions" },
-  { value: "flex_adaptive", label: "Flex adaptive", title: "Flex focality with thresholds derived from an unconstrained run" },
-  { value: "flex_pareto", label: "Flex Pareto", title: "Flex focality swept over a grid of ROI / non-ROI percentiles" },
-  { value: "ex", label: "Ex", title: "Exhaustive two-channel search over a precomputed leadfield" },
-  { value: "mex", label: "mEx", title: "Exhaustive four-pair (mTI) search over a precomputed leadfield" },
+  { value: "ex", label: "Ex", title: "Exhaustive search over a precomputed leadfield — two pairs (TI) or four (mTI)" },
 ];
 
-export const OPT_METHOD_LABEL: Record<OptMethod, string> = Object.fromEntries(
-  OPT_METHODS.map((m) => [m.value, m.label]),
-) as Record<OptMethod, string>;
+export const OPT_METHOD_LABEL: Record<OptMethod, string> = { flex: "Flex", ex: "Ex" };
 
 /** The Flex family shares one form, one ROI vocabulary and one plan shape. */
 export function isFlexMethod(method: OptMethod): boolean {
-  return method === "flex" || method === "flex_adaptive" || method === "flex_pareto";
+  return method === "flex";
 }
 
-/** The job kind (and `POST /api/jobs/groups` group kind) a row submits as. */
-export function rowJobKind(row: OptimizerRow): OptMethod {
-  return row.method;
+/**
+ * The job kind a row submits as, **derived** from what the row's editor holds:
+ *
+ *  * Flex — `jobKindFor(form)`: the focality mode. `focality` + manual thresholds is plain `flex`;
+ *    `adaptive` and `pareto` are their own orchestration kinds. Unchanged from 2.5.0.
+ *  * Ex — the electrode count. Four electrodes (two pairs) is a two-channel TI search (`ex`);
+ *    eight (four pairs) is the multipolar mTI search (`mex`). The same inference the Simulator
+ *    makes from a montage's pairs.
+ */
+export function rowJobKind(row: OptimizerRow): OptJobKind {
+  if (row.method === "flex") return jobKindFor(row.flex);
+  return row.exPairs === 4 ? "mex" : "ex";
 }
 
 /** `PlanKind` for `POST /api/plan/{kind}` and the run panel's step list. */
 export function rowPlanKind(row: OptimizerRow): PlanKind {
-  return isFlexMethod(row.method) ? "flex" : (row.method as "ex" | "mex");
+  return row.method === "flex" ? "flex" : (rowJobKind(row) as "ex" | "mex");
+}
+
+/** The plan grid's column for a row: the three families the panel counts per subject. */
+export function rowStage(row: OptimizerRow): "flex" | "ex" | "mex" {
+  return row.method === "flex" ? "flex" : (rowJobKind(row) as "ex" | "mex");
 }
 
 /**
@@ -78,6 +94,13 @@ export interface OptimizerRow {
   id: string;
   subjectId: string;
   method: OptMethod;
+  /**
+   * Ex only: how many electrode PAIRS the exhaustive search enumerates — 2 (four electrodes, TI)
+   * or 4 (eight electrodes, mTI). This is the whole of the `ex` / `mex` decision, in two-pair
+   * steps, and it lives here rather than being read back out of the bucket contents so a row that
+   * is half filled in still knows which search it is.
+   */
+  exPairs: 2 | 4;
   /** Flex: the EEG net optimised positions are mapped onto (optional). Ex/mEx: the leadfield's
    *  net — the *bare* name, which is this page's one net identity (`nets.ts`). */
   net: string | null;
@@ -112,6 +135,7 @@ export function emptyOptimizerRow(seed?: Partial<OptimizerRow>): OptimizerRow {
     id: newOptimizerRowId(),
     subjectId: seed?.subjectId ?? "",
     method,
+    exPairs: seed?.exPairs ?? 2,
     net: seed?.net ?? null,
     roi: seed?.roi ?? emptyRoi(isFlexMethod(method) ? "cortical" : "saved"),
     nonRoi: seed?.nonRoi ?? emptyRoi("cortical"),
@@ -128,35 +152,28 @@ export function emptyOptimizerRow(seed?: Partial<OptimizerRow>): OptimizerRow {
  * cannot be planned. Within the Flex family the target survives (all three take the same ROI).
  */
 export function withMethod(row: OptimizerRow, method: OptMethod): OptimizerRow {
-  const sameFamily = isFlexMethod(row.method) === isFlexMethod(method);
-  return {
-    ...row,
-    method,
-    roi: sameFamily ? row.roi : emptyRoi(isFlexMethod(method) ? "cortical" : "saved"),
-    flex: flexFormForMethod(row.flex, method),
-  };
-}
-
-/**
- * The flex form implied by the method. `flex_adaptive` / `flex_pareto` ARE focality with that
- * mode, so the two facts are derived from one, and `jobKindFor(form)` agrees with `row.method` by
- * construction rather than by a synchronising effect.
- */
-export function flexFormForMethod(form: FlexFormState, method: OptMethod): FlexFormState {
-  if (method === "flex_adaptive") return { ...form, goal: "focality", focalityMode: "adaptive" };
-  if (method === "flex_pareto") return { ...form, goal: "focality", focalityMode: "pareto" };
-  if (method === "flex") {
-    // Plain Flex covers every goal except the two orchestrated focality modes; a row coming back
-    // from adaptive/Pareto lands on manual thresholds rather than on a kind it no longer is.
-    return form.goal === "focality" ? { ...form, focalityMode: "manual" } : form;
-  }
-  return form;
+  if (method === row.method) return row;
+  // A saved CSV is not a cortical parcellation: carrying a target across families would leave a
+  // row that looks configured and can never be planned.
+  return { ...row, method, roi: emptyRoi(method === "flex" ? "cortical" : "saved") };
 }
 
 /** The goal a row optimises. Ex/mEx rank montages by ROI field and have no goal of their own. */
 export function rowGoal(row: OptimizerRow): OptGoal | null {
-  if (!isFlexMethod(row.method)) return null;
-  return row.method === "flex" ? row.flex.goal : "focality";
+  return row.method === "flex" ? row.flex.goal : null;
+}
+
+/**
+ * The **variant** a row's derived kind reads as, for line 2 — `adaptive`, `Pareto`, or the
+ * electrode count that decides TI from mTI. Empty for a plain flex search, which has no variant to
+ * state.
+ */
+export function rowVariantLabel(row: OptimizerRow): string {
+  if (row.method === "flex") {
+    const kind = rowJobKind(row);
+    return kind === "flex_adaptive" ? "adaptive" : kind === "flex_pareto" ? "Pareto" : "";
+  }
+  return `${row.exPairs * 2} electrodes (${row.exPairs === 4 ? "mTI" : "TI"})`;
 }
 
 export const GOAL_LABEL: Record<OptGoal, string> = {
@@ -174,7 +191,7 @@ export const GOAL_LABEL: Record<OptGoal, string> = {
 export function isRunnableOptimizerRow(row: OptimizerRow, hasLeadfield: (row: OptimizerRow) => boolean): boolean {
   if (!row.subjectId) return false;
   if (!isRoiComplete(row.roi)) return false;
-  if (!isFlexMethod(row.method) && !hasLeadfield(row)) return false;
+  if (row.method === "ex" && !hasLeadfield(row)) return false;
   return true;
 }
 
@@ -223,7 +240,7 @@ export function optimizerTargetLabel(roi: RoiValue): string {
 
 /** The avoid-ROI clause of line 2, or `null` when the row is not avoiding anything. */
 export function optimizerAvoidLabel(row: OptimizerRow): string | null {
-  if (!isFlexMethod(row.method)) return null;
+  if (row.method !== "flex") return null;
   const goal = rowGoal(row);
   if (goal !== "focality" && goal !== "focality_tf") return null;
   if (row.flex.nonRoiMethod !== "specific") return "avoid everything else";
@@ -239,25 +256,32 @@ export function optimizerAvoidLabel(row: OptimizerRow): string | null {
  * about how expensive a search is (the whole point of that module).
  */
 export function optimizerMethodSummary(row: OptimizerRow): string {
-  if (isFlexMethod(row.method)) {
-    const form = flexFormForMethod(row.flex, row.method);
+  // Line 2 opens with the method and the variant its options DERIVED — "Flex · adaptive",
+  // "Ex · 8 electrodes (mTI)" — so the kind that will be submitted is readable without opening the
+  // editor, even though it is nowhere chosen as a "method".
+  const variant = rowVariantLabel(row);
+  const head = variant ? `${OPT_METHOD_LABEL[row.method]} · ${variant}` : OPT_METHOD_LABEL[row.method];
+  if (row.method === "flex") {
+    const form = row.flex;
+    const kind = rowJobKind(row);
     const parts = [
+      head,
       "2 pairs",
       `${form.currentMA} mA`,
       form.optimizeCurrentRatio ? `ratio sweep ${form.ratioLevels} levels` : "ratio 1:1",
       flexCost(form).line,
     ];
-    if (row.method === "flex_adaptive") parts.push(`adaptive ${form.adaptiveRoiPct}/${form.adaptiveNonRoiPct}%`);
-    if (row.method === "flex_pareto") {
+    if (kind === "flex_adaptive") parts.push(`${form.adaptiveRoiPct}/${form.adaptiveNonRoiPct}%`);
+    if (kind === "flex_pareto") {
       parts.push(`sweep ${parsePctList(form.paretoRoiPcts).length}×${parsePctList(form.paretoNonRoiPcts).length} = ${sweepCombinationCount(form)}`);
     }
     return parts.join(" · ");
   }
-  if (row.method === "ex") {
+  if (row.exPairs === 2) {
     const buckets = row.ex.electrodeMode === "bucketed" ? "buckets: 4" : `pool: ${row.ex.pool.length}`;
-    return `${buckets} · ${row.ex.totalCurrent} mA total · ${exCost(row.ex).line}`;
+    return `${head} · ${buckets} · ${row.ex.totalCurrent} mA total · ${exCost(row.ex).line}`;
   }
-  return `buckets: 8 · ${row.mex.currentMa} mA per pair · ${mexCost(row.mex).line}`;
+  return `${head} · buckets: 8 · ${row.mex.currentMa} mA per pair · ${mexCost(row.mex).line}`;
 }
 
 /**

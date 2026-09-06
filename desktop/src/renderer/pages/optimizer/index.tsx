@@ -67,7 +67,6 @@ import { OptimizerJobRows, type OptimizerSubject } from "./JobRows";
 import { jobsForRow, rowFormReason, type OptimizerJobSpec } from "./plan";
 import {
   emptyOptimizerRow,
-  isFlexMethod,
   isRunnableOptimizerRow,
   optimizerJobsSummary,
   OPT_METHOD_LABEL,
@@ -168,7 +167,7 @@ function OptimizerPage() {
 
   // Leadfields are only fetched once the table actually has an Ex/mEx row: a 3 GB HDF5 listing is
   // a directory read, but a page with no exhaustive search has nothing to do with the answer.
-  const wantsLeadfields = rows.some((r) => !isFlexMethod(r.method));
+  const wantsLeadfields = rows.some((r) => r.method === "ex");
   const leadfieldQueries = useQueries({
     queries: modelled.map((id) => ({ queryKey: ["leadfields", id], queryFn: () => getLeadfields(id), enabled: wantsLeadfields, staleTime: 60_000 })),
   });
@@ -389,13 +388,13 @@ function OptimizerPage() {
    * `/api/scene/regions` for one would 404 the pane for a target the form expresses perfectly).
    */
   const activeRow = rows.find((r) => r.id === activeRowId) ?? rows[0] ?? null;
-  const sceneCortical = !!activeRow && isFlexMethod(activeRow.method) && activeRow.roi.mode === "cortical";
+  const sceneCortical = !!activeRow && activeRow.method === "flex" && activeRow.roi.mode === "cortical";
   const sceneSpherical = !!activeRow && activeRow.roi.mode === "spherical";
   const sceneNote = sceneCortical
     ? undefined
     : sceneSpherical
       ? "Coordinates are typed, not picked — the pane draws the reference guide, not this subject."
-      : !activeRow || isFlexMethod(activeRow.method)
+      : !activeRow || activeRow.method === "flex"
         ? "Subcortical targets are volumetric — pick them in the job's editor; the pane shows the reference guide."
         : "Ex and mEx targets are saved ROIs — pick them in the job's editor; the pane shows the reference guide.";
 

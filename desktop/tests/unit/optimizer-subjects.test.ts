@@ -48,8 +48,8 @@ function savedRoi(names: string[], combine = false): RoiValue {
   return { mode: "saved", selected: names, combine, radius: 3.0, space: "subject" };
 }
 
-function exRow(subject: string, roi: RoiValue, method: "ex" | "mex" = "ex"): OptimizerRow {
-  const row = emptyOptimizerRow({ subjectId: subject, method });
+function exRow(subject: string, roi: RoiValue, pairs: 2 | 4 = 2): OptimizerRow {
+  const row = emptyOptimizerRow({ subjectId: subject, method: "ex", exPairs: pairs });
   return {
     ...row,
     roi,
@@ -72,13 +72,27 @@ describe("jobsForRow — one row, its own subject's paths", () => {
     ]);
   });
 
-  it("submits the adaptive and Pareto methods as their own job kinds", () => {
-    expect(jobsForRow(flexRow("ernie", { method: "flex_adaptive" }), resolve)[0]?.kind).toBe("flex_adaptive");
-    expect(jobsForRow(flexRow("ernie", { method: "flex_pareto" }), resolve)[0]?.kind).toBe("flex_pareto");
-    // Choosing the method IS choosing focality with that mode — the config cannot disagree.
-    const config = jobsForRow(flexRow("ernie", { method: "flex_adaptive" }), resolve)[0]?.config as { goal: string; adaptive: unknown };
+  it("derives the adaptive and Pareto job kinds from the row's own focality mode", () => {
+    const base = flexRow("ernie");
+    const focal = (mode: "adaptive" | "pareto") => ({ ...base, flex: { ...base.flex, goal: "focality" as const, focalityMode: mode } });
+    expect(jobsForRow(focal("adaptive"), resolve)[0]?.kind).toBe("flex_adaptive");
+    expect(jobsForRow(focal("pareto"), resolve)[0]?.kind).toBe("flex_pareto");
+    // The kind and the config are read off ONE fact, so they cannot disagree.
+    const config = jobsForRow(focal("adaptive"), resolve)[0]?.config as { goal: string; adaptive: unknown };
     expect(config.goal).toBe("focality");
     expect(config.adaptive).toBeDefined();
+  });
+
+  it("derives ex from mEx by the electrode count the row configured", () => {
+    const four = jobsForRow(exRow("ernie", savedRoi(["A.csv"]), 2), resolve)[0];
+    const eight = jobsForRow(exRow("ernie", savedRoi(["A.csv"]), 4), resolve)[0];
+    expect(four?.kind).toBe("ex");
+    expect(four?.stage).toBe("ex");
+    expect(eight?.kind).toBe("mex");
+    expect(eight?.stage).toBe("mex");
+    // …and each builds its own config shape: four buckets against eight.
+    expect(Object.keys((four?.config as { electrodes: Record<string, unknown> }).electrodes)).toContain("e2_minus");
+    expect(Object.keys((eight?.config as { electrodes: Record<string, unknown> }).electrodes)).toContain("e4_minus");
   });
 
   it("carries the row's run name into the flex output folder", () => {
@@ -127,7 +141,7 @@ describe("jobsForRow — one row, its own subject's paths", () => {
   });
 
   it("builds an mEx config with all eight buckets", () => {
-    const job = jobsForRow(exRow("ernie", savedRoi(["A.csv"]), "mex"), resolve)[0];
+    const job = jobsForRow(exRow("ernie", savedRoi(["A.csv"]), 4), resolve)[0];
     expect(job?.kind).toBe("mex");
     expect((job?.config as MExConfigBody).electrodes).toMatchObject({ e4_minus: ["P4"] });
     expect((job?.config as MExConfigBody).subject_id).toBe("ernie");
@@ -147,8 +161,8 @@ describe("rowFormReason — the per-row half of the disabled-Run sentence", () =
   });
 
   it("names all eight buckets for mEx", () => {
-    expect(rowFormReason(emptyOptimizerRow({ subjectId: "ernie", method: "mex" }))).toBe("Fill in all eight electrode buckets.");
-    expect(rowFormReason(exRow("ernie", savedRoi(["A.csv"]), "mex"))).toBeNull();
+    expect(rowFormReason(emptyOptimizerRow({ subjectId: "ernie", method: "ex", exPairs: 4 }))).toBe("Fill in all eight electrode buckets.");
+    expect(rowFormReason(exRow("ernie", savedRoi(["A.csv"]), 4))).toBeNull();
   });
 
   it("asks for a threshold only when focality is in manual mode", () => {
@@ -157,8 +171,8 @@ describe("rowFormReason — the per-row half of the disabled-Run sentence", () =
       "Enter at least one E-field threshold.",
     );
     // Adaptive/Pareto derive their thresholds; the manual field is not theirs to fill.
-    expect(rowFormReason({ ...row, method: "flex_adaptive" })).toBeNull();
-    expect(rowFormReason({ ...row, method: "flex_pareto" })).toBeNull();
+    expect(rowFormReason({ ...row, flex: { ...row.flex, goal: "focality", focalityMode: "adaptive" } })).toBeNull();
+    expect(rowFormReason({ ...row, flex: { ...row.flex, goal: "focality", focalityMode: "pareto" } })).toBeNull();
   });
 
   it("asks for the net a mapped-electrode simulation needs", () => {

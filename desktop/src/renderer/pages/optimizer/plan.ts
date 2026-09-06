@@ -14,7 +14,7 @@ import type { GroupKind } from "../_shared/run";
 import type { FlexConfigWire } from "./api";
 import { buildFlexConfig } from "./flexConfig";
 import { buildExConfig, buildMExConfig, exTargets, EX_BUCKET_KEYS, MEX_BUCKET_KEYS, type ExTarget } from "./exConfig";
-import { flexFormForMethod, isFlexMethod, OPT_METHOD_LABEL, type OptimizerRow } from "./rows";
+import { OPT_METHOD_LABEL, rowJobKind, rowStage, type OptimizerRow } from "./rows";
 
 /** One planned/submitted job: which row it came from, its kind, its subject and its wire config. */
 export interface OptimizerJobSpec {
@@ -39,8 +39,8 @@ export function jobsForRow(
   },
 ): OptimizerJobSpec[] {
   if (!row.subjectId) return [];
-  if (isFlexMethod(row.method)) {
-    const form = flexFormForMethod(row.flex, row.method);
+  if (row.method === "flex") {
+    const form = row.flex;
     const roi = roiToConfig(row.roi, resolve.atlas(row.subjectId, row.roi));
     if (!roi) return [];
     const focality = form.goal === "focality" || form.goal === "focality_tf";
@@ -52,19 +52,23 @@ export function jobsForRow(
     const config = buildFlexConfig(row.subjectId, form, roi, nonRoi) as FlexConfigWire;
     // The run name is the flex output folder; the wire field is `output_folder`.
     if (row.runName.trim()) config.output_folder = row.runName.trim();
-    return [{ rowId: row.id, kind: row.method as GroupKind, stage: "flex", subject: row.subjectId, label: OPT_METHOD_LABEL[row.method], config }];
+    // The KIND is derived from the form's focality mode (`jobKindFor`), never chosen.
+    return [{ rowId: row.id, kind: rowJobKind(row) as GroupKind, stage: "flex", subject: row.subjectId, label: OPT_METHOD_LABEL[row.method], config }];
   }
   const hdf = resolve.leadfield(row.subjectId, row.net);
   if (!hdf) return [];
-  const targets: ExTarget[] = exTargets(row.roi, resolve.atlas(row.subjectId, row.roi), row.method === "ex");
+  // Two pairs is the two-channel TI search, four is the multipolar mTI one — the same inference the
+  // Simulator makes from a montage's pairs, and the only thing that decides `ex` from `mex`.
+  const kind = rowJobKind(row);
+  const targets: ExTarget[] = exTargets(row.roi, resolve.atlas(row.subjectId, row.roi), kind === "ex");
   return targets.map((t) => ({
     rowId: row.id,
-    kind: row.method as GroupKind,
-    stage: row.method as "ex" | "mex",
+    kind: kind as GroupKind,
+    stage: rowStage(row),
     subject: row.subjectId,
     label: t.roiName,
     config:
-      row.method === "ex"
+      kind === "ex"
         ? buildExConfig(row.subjectId, hdf, row.ex, t, row.runName)
         : buildMExConfig(row.subjectId, hdf, row.mex, t, row.runName),
   }));
@@ -75,8 +79,8 @@ export function jobsForRow(
  * globally, now made per row so the sentence can name which row.
  */
 export function rowFormReason(row: OptimizerRow): string | null {
-  if (isFlexMethod(row.method)) {
-    const form = flexFormForMethod(row.flex, row.method);
+  if (row.method === "flex") {
+    const form = row.flex;
     if (form.goal === "focality" && form.focalityMode === "manual" && !form.manualThresholds.trim()) {
       return "Enter at least one E-field threshold.";
     }
@@ -84,7 +88,7 @@ export function rowFormReason(row: OptimizerRow): string | null {
     if (form.visualizeSkinElectrodes && !form.skinVisualizationNet) return "Select a visualization EEG net.";
     return null;
   }
-  if (row.method === "ex") {
+  if (row.exPairs === 2) {
     if (row.ex.electrodeMode === "bucketed" && EX_BUCKET_KEYS.some((k) => (row.ex.buckets[k] ?? []).length === 0)) {
       return "Fill in every electrode bucket.";
     }
