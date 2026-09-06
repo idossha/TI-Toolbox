@@ -18,6 +18,32 @@ const RUN_ID = process.env.TIT_E2E_RUN_ID ?? "simulator";
 let app: ElectronApplication;
 let page: Page;
 
+/** The montage table's real rows (the `run-table-filler` ground rows carry no attribute). */
+function montageRows() {
+  return page.locator("tr[data-montage-row]");
+}
+
+/** Picks a montage in one row of the table — column 2, listing both polarities of the row's net. */
+async function pickMontage(row: ReturnType<typeof montageRows>, option: string) {
+  await row.getByRole("combobox").nth(1).click();
+  await page.getByRole("option", { name: option, exact: true }).click();
+}
+
+/** Sets one row's EEG net — column 1. */
+async function pickNet(row: ReturnType<typeof montageRows>, net: string) {
+  await row.getByRole("combobox").nth(0).click();
+  await page.getByRole("option", { name: net, exact: true }).click();
+}
+
+/** Empties the table, so a test's job counts are exact rather than additive. */
+async function clearMontageRows() {
+  const remove = page.getByRole("button", { name: /^Remove row / });
+  // Re-resolved each pass: removing a row re-renders the table, so a list captured up front goes
+  // stale after the first click.
+  for (let guard = 0; (await remove.count()) > 0 && guard < 20; guard++) await remove.first().click();
+  await expect(remove).toHaveCount(0);
+}
+
 test.describe.configure({ mode: "serial" });
 
 test.beforeAll(async () => {
@@ -82,9 +108,16 @@ test("with nothing ticked the primary is disabled, with the reason as its toolti
   await expect(run).toHaveAttribute("title", "Select at least one montage.");
 });
 
-test("ticking a montage builds a subject x montage matrix and a derived digest", async () => {
-  const row = page.locator(".data-table tbody tr").first();
-  await row.getByRole("checkbox").click();
+test("choosing a montage in a row builds a subject x montage matrix and a derived digest", async () => {
+  // The table's first column is the net and the second is that net's montages — uni-polar and
+  // multi-polar in one list, the polarity read off the montage itself and shown as a chip. There
+  // are no standalone "EEG net" / "Polarity" selectors above the table any more.
+  await expect(page.locator(".field", { hasText: "Polarity" })).toHaveCount(0);
+  const row = montageRows().first();
+  await pickNet(row, "GSN-HydroCel-185");
+  await pickMontage(row, "F3_F4 · TI");
+  await expect(row).toHaveAttribute("data-polarity", "uni_polar");
+  await expect(row.locator(".chip", { hasText: /^TI$/ })).toBeVisible();
 
   /*
    * §4.5: for `kind="sim"` the columns are the montages of the run. They come from
@@ -99,15 +132,34 @@ test("ticking a montage builds a subject x montage matrix and a derived digest",
   await expect(cell).toHaveText(/^(new|skip|overwrite|blocked|wait)$/);
   await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job · \d+ CPU · \d+ GB/);
   await expect(page.getByTestId("run-button")).toHaveText("Run simulation");
-  // The currents editor lives in the montage row itself now, not in a second "Selected jobs" card.
-  await expect(row.getByRole("spinbutton").first()).toBeVisible();
+  // The currents editor lives in the montage row itself now, not in a second "Selected jobs" card,
+  // and the number of fields follows the polarity: a uni-polar (TI) montage takes exactly 2.
+  await expect(row.getByRole("spinbutton")).toHaveCount(2);
+});
+
+test("a multi-polar montage row takes one current per pair", async () => {
+  await clearMontageRows();
+  const row = montageRows().first();
+  await pickNet(row, "GSN-HydroCel-185");
+  await pickMontage(row, "mTI_F3F4_P3P4 · mTI");
+  await expect(row).toHaveAttribute("data-polarity", "multi_polar");
+  await expect(row.locator(".chip", { hasText: /^mTI$/ })).toBeVisible();
+  // 4 pairs -> 4 currents, derived from the montage, not from a control the user has to set.
+  await expect(row.getByRole("spinbutton")).toHaveCount(4);
+  await expect(row.locator("td.mono")).toHaveText("E24–E124 · E67–E77 · E36–E104 · E12–E62");
+
+  // One uni-polar and one multi-polar row side by side.
+  await page.getByRole("button", { name: "Add row", exact: true }).click();
+  const second = montageRows().nth(1);
+  await pickNet(second, "GSN-HydroCel-185");
+  await pickMontage(second, "F3_F4 · TI");
+  await expect(montageRows()).toHaveCount(2);
 });
 
 test("U16: choosing two subjects yields a plan with two jobs and two matrix rows", async () => {
-  // Undo the previous test's single-subject tick first, so this test's job/row counts are exact
-  // rather than additive on top of whatever state the suite left behind.
-  const firstRow = page.locator(".data-table tbody tr").first();
-  await firstRow.getByRole("checkbox").click();
+  // Undo the previous test's rows first, so this test's job/row counts are exact rather than
+  // additive on top of whatever state the suite left behind.
+  await clearMontageRows();
   await expect(page.getByTestId("run-button")).toBeDisabled();
 
   // Tick a second subject in this page's own Subjects table (U16) — ernie is already ticked
@@ -118,13 +170,11 @@ test("U16: choosing two subjects yields a plan with two jobs and two matrix rows
   await expect(subjectsSummary(page)).toHaveText("2 subjects · ernie, 101 · one job per subject");
 
   // Both subjects carry `GSN-HydroCel-185` (the mock's fixture); ernie also has `EGI_template`,
-  // which 101 does not, so the shared net is picked explicitly rather than relying on whichever
-  // one the montage manager defaults to.
-  await page.locator(".field", { hasText: "EEG net" }).getByRole("combobox").click();
-  await page.getByRole("option", { name: "GSN-HydroCel-185", exact: true }).click();
-
-  const montageRow = page.locator(".data-table tbody tr").first();
-  await montageRow.getByRole("checkbox").click();
+  // which 101 does not, so the shared net is picked explicitly in the row itself rather than
+  // relying on whichever one the table defaults to.
+  const montageRow = montageRows().first();
+  await pickNet(montageRow, "GSN-HydroCel-185");
+  await pickMontage(montageRow, "F3_F4 · TI");
 
   const ernieCell = page.locator('[data-testid^="plan-cell-ernie-"]').first();
   const cell101 = page.locator('[data-testid^="plan-cell-101-"]').first();
@@ -181,10 +231,38 @@ test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.
     expect(row.deadSpaceRatio, `${row.theme} @${row.width}`).toBeLessThanOrEqual(0.58) /* measured 0.62–0.75 (pre) / 0.42–0.55 (sim) across rounds; +0.05 margin so a few-thousandths drift at 1440 light is not a failure — this is a regression guard, not the design target */;
     expect(row.pageHeaderHeight).toBe(0);
     expect(row.panes.nav).toBe(row.width >= 1440 ? 216 : 56);
-    expect(row.panes.right).toBe(row.width >= 1440 ? 400 : 360);
-    expect(row.panes.work).toBeGreaterThanOrEqual(row.width >= 1440 ? 760 : 660);
+    // 36 % of the window, not a fixed 360/400 (commit 25d00d52) — `preprocess.spec.ts` already
+    // carries the same two numbers.
+    expect(row.panes.right).toBe(row.width >= 1440 ? 504 : 461);
+    // The 36 %-wide run pane is ceilinged so the work pane keeps its >=660 px floor at both
+    // sizes (`preprocess.spec.ts` states the same rule).
+    expect(row.panes.work).toBeGreaterThanOrEqual(660);
   }
 
   const first = rows.find((r) => r.width === 1280 && r.theme === "light");
   expect(first?.firstScreenControls.hidden).toEqual([]);
+});
+
+
+/*
+ * Evidence only (§8.1), never the assertion — and deliberately last in this serial file: it
+ * collapses the run pane and widens the window so the currents column is not clipped by the
+ * table's own horizontal scroll, which would move the geometry the acceptance test above measures.
+ */
+test("records the montage table (uni-polar + multi-polar rows) as an artifact", async () => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await clearMontageRows();
+  const first = montageRows().first();
+  await pickNet(first, "GSN-HydroCel-185");
+  await pickMontage(first, "mTI_F3F4_P3P4 · mTI");
+  await page.getByRole("button", { name: "Add row", exact: true }).click();
+  const second = montageRows().nth(1);
+  await pickNet(second, "GSN-HydroCel-185");
+  await pickMontage(second, "F3_F4 · TI");
+  await expect(montageRows()).toHaveCount(2);
+
+  const chord = process.platform === "darwin" ? "Meta+Shift+i" : "Control+Shift+i";
+  await page.setViewportSize({ width: 1800, height: 900 });
+  await page.keyboard.press(chord);
+  await page.locator("table.data-table").first().screenshot({ path: "tests/e2e/artifacts/montage-table.png" });
 });

@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, IconButton } from "../../ui/Button";
-import { Checkbox } from "../../ui/Toggle";
 import { AlertDialog } from "../../ui/Overlay";
 import { Field, TextInput } from "../../ui/Field";
 import { Select } from "../../ui/Select";
@@ -12,35 +11,86 @@ import { ElectrodePairsEditor, type ElectrodePair } from "../../ui/ElectrodePair
 import { notify } from "../../ui/Toast";
 import { NumberInput } from "../../ui/NumberInput";
 import { deleteMontage, getEegNets, getMontages, putMontage } from "./api";
-import { defaultCurrents, type SelectedRow } from "./types";
+import {
+  currentsCount,
+  defaultCurrentsFor,
+  inferMontageKind,
+  polarityLabel,
+  type MontageKind,
+  type SelectedRow,
+} from "./types";
 
 /** Minimum visible rows in the montage table (DESIGN.md §4.3 density + FXU1's fill rule). */
 const MIN_MONTAGE_ROWS = 6;
 
-/** One `NumberInput` per pair current (mA); `row.currents` stays the comma-joined wire string. */
-function CurrentsCell({ rows, onChange }: { rows: SelectedRow[]; onChange: (currents: string) => void }) {
+export type Kind = MontageKind;
+
+/** A montage as the table addresses it: which net's bucket it lives in, and its pairs. */
+export interface CatalogMontage {
+  net: string;
+  kind: MontageKind;
+  name: string;
+  pairs: [string, string][];
+}
+
+/** `${kind}:${name}` — the montage `Select`'s option value, since one name can exist in both
+ *  buckets of the same net. */
+export function montageOptionValue(kind: MontageKind, name: string): string {
+  return `${kind}:${name}`;
+}
+
+export function parseMontageOptionValue(value: string): { kind: MontageKind; name: string } {
+  const cut = value.indexOf(":");
+  return { kind: value.slice(0, cut) as MontageKind, name: value.slice(cut + 1) };
+}
+
+/** `E1–E2 · E3–E4` — the read-only pairs cell. */
+export function formatPairs(pairs: [string, string][]): string {
+  return pairs.map(([a, b]) => `${a}–${b}`).join(" · ");
+}
+
+/** The row's currents, normalised to the count its polarity requires (extra values dropped, a
+ *  short list padded with 1.0) so the number of inputs always follows the montage. */
+export function currentValues(currents: string, count: number): number[] {
+  const parsed = currents.split(",").map((v) => (v.trim() === "" ? Number.NaN : Number(v.trim())));
+  return Array.from({ length: count }, (_, i) => {
+    const v = parsed[i];
+    return v === undefined || Number.isNaN(v) ? 1.0 : v;
+  });
+}
+
+/** One `NumberInput` per required current (mA); `row.currents` stays the comma-joined wire string. */
+function CurrentsCell({
+  rows,
+  count,
+  label,
+  onChange,
+}: {
+  rows: SelectedRow[];
+  count: number;
+  label: string;
+  onChange: (currents: string) => void;
+}) {
   const first = rows[0];
   if (!first) return <span className="field-help">—</span>;
-  const values = first.currents.split(",").map((v) => Number(v.trim()));
+  const values = currentValues(first.currents, count);
   return (
     <div style={{ display: "flex", gap: "var(--space-1)" }}>
       {values.map((v, i) => (
         <NumberInput
           key={i}
-          value={Number.isNaN(v) ? undefined : v}
+          value={v}
           onValueChange={(next) => onChange(values.map((old, idx) => (idx === i ? (next ?? old) : old)).join(","))}
           step={0.1}
           min={0}
           unit="mA"
           style={{ width: 84 }}
-          aria-label={`${first.name} pair ${i + 1} current`}
+          aria-label={`${label} pair ${i + 1} current`}
         />
       ))}
     </div>
   );
 }
-
-export type Kind = "uni_polar" | "multi_polar";
 
 /**
  * The montage being written — the editor's whole state, lifted to the page (SCC).
@@ -53,20 +103,28 @@ export type Kind = "uni_polar" | "multi_polar";
 export interface MontageDraft {
   name: string;
   pairs: ElectrodePair[];
+  /** The bucket an *existing* montage was opened from — a new draft has none and infers it. */
+  savedAs?: MontageKind;
 }
 
-/** A fresh draft of the right shape: 2 pairs for uni-polar (TI), 4 for multi-polar (mTI). */
-export function emptyDraft(kind: Kind): MontageDraft {
-  return {
-    name: "",
-    pairs: kind === "multi_polar" ? [["", ""], ["", ""], ["", ""], ["", ""]] : [["", ""], ["", ""]],
-  };
+/** A fresh draft: two empty pairs, the smallest real montage (TI). Its polarity is not a choice —
+ *  it follows from how many pairs the user ends up filling in (`inferMontageKind`). */
+export function emptyDraft(): MontageDraft {
+  return { name: "", pairs: [["", ""], ["", ""]] };
 }
 
 /** Matches `Montage.simulation_mode`: exactly 2 pairs (TI) or 4+ pairs (mTI); 1 or 3 is invalid. */
 function isValidPairCount(n: number): boolean {
   return n === 2 || n >= 4;
 }
+
+/** A row of the montage table that has no montage picked yet. */
+interface PendingRow {
+  key: string;
+  net?: string;
+}
+
+let pendingSeq = 0;
 
 export function MontageManager({
   selectedSubjects,
@@ -75,8 +133,6 @@ export function MontageManager({
   onAddRow,
   onRemoveRow,
   onCurrentsChange,
-  kind,
-  onKindChange,
   draft,
   onDraftChange,
   onNetChange,
@@ -87,9 +143,6 @@ export function MontageManager({
   selectedRows: SelectedRow[];
   onAddRow: (row: SelectedRow) => void;
   onRemoveRow: (id: string) => void;
-  /** Uni-/multi-polar, owned by the page so a scene-started draft has the right pair count. */
-  kind: Kind;
-  onKindChange: (kind: Kind) => void;
   /** The montage being written, owned by the page and shared with the scene pane. */
   draft: MontageDraft | null;
   onDraftChange: (draft: MontageDraft | null) => void;
@@ -112,40 +165,59 @@ export function MontageManager({
     return [...nets].sort();
   }, [subjectNets, montages.data]);
 
-  // Derived, not effect-synced state: falls back to the first available net until the user picks
-  // one explicitly, without an extra render (react-hooks/set-state-in-effect).
+  /*
+   * The net is a column of the table now, not a control above it (maintainer call): every row
+   * carries its own, so one run can mix nets. `editorNet` is only the net a *new* row and the
+   * montage editor start on — the last net the user touched, falling back to the first available.
+   */
   const [netChoice, setNetChoice] = useState<string | undefined>(undefined);
-  const net = netChoice && availableNets.includes(netChoice) ? netChoice : availableNets[0];
-  const setNet = setNetChoice;
+  const editorNet = netChoice && availableNets.includes(netChoice) ? netChoice : availableNets[0];
 
-  const setKind = onKindChange;
+  const [pendingRows, setPendingRows] = useState<PendingRow[]>([]);
   // An inline panel (Card), not a Dialog: a `Select` popover's z-index (60) sits below a Dialog's
   // own overlay/content (80/90) in ui/components.css, which makes the electrode-pair pickers
   // inside a modal montage editor unclickable (reported to F2 — see PARITY.md).
   const editing = draft;
   const setEditing = onDraftChange;
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<CatalogMontage | null>(null);
 
-  // The net is derived (see above), so the page learns it from here rather than duplicating the
-  // fallback rule. Reported in an effect, not during render: it is the parent's state.
+  // The scene pane draws the net the editor is on. Reported in an effect, not during render: it
+  // is the parent's state.
   useEffect(() => {
-    onNetChange?.(net);
-  }, [net, onNetChange]);
+    onNetChange?.(editorNet);
+  }, [editorNet, onNetChange]);
 
   const netElectrodes = useQuery({
-    queryKey: ["eeg-net-electrodes", net, selectedSubjects[0]],
+    queryKey: ["eeg-net-electrodes", editorNet, selectedSubjects[0]],
     queryFn: async () => {
-      const subject = selectedSubjects.find((s) => subjectNets[s]?.includes(net!)) ?? selectedSubjects[0];
-      if (!subject || !net) return [] as string[];
+      const subject = selectedSubjects.find((s) => subjectNets[s]?.includes(editorNet!)) ?? selectedSubjects[0];
+      if (!subject || !editorNet) return [] as string[];
       const nets = await getEegNets(subject);
-      return nets.find((n) => n.name === net)?.electrodes ?? [];
+      return nets.find((n) => n.name === editorNet)?.electrodes ?? [];
     },
-    enabled: !!net && selectedSubjects.length > 0,
+    enabled: !!editorNet && selectedSubjects.length > 0,
   });
 
+  /** Every montage of one net, both buckets, in one list — the montage column's options. */
+  const montagesOf = useMemo(() => {
+    return (net: string | undefined): CatalogMontage[] => {
+      if (!net) return [];
+      const entry = montages.data?.nets[net];
+      if (!entry) return [];
+      const of = (kind: MontageKind, bucket: Record<string, string[][]> | undefined) =>
+        Object.entries(bucket ?? {}).map(([name, pairs]) => ({
+          net,
+          kind,
+          name,
+          pairs: pairs.map((p) => [p[0], p[1]] as [string, string]),
+        }));
+      return [...of("uni_polar", entry.uni_polar), ...of("multi_polar", entry.multi_polar)];
+    };
+  }, [montages.data]);
+
   const saveMontage = useMutation({
-    mutationFn: ({ name, pairs }: { name: string; pairs: ElectrodePair[] }) =>
-      putMontage(net!, kind, name, pairs.map((p) => [p[0], p[1]])),
+    mutationFn: ({ net, kind, name, pairs }: { net: string; kind: MontageKind; name: string; pairs: ElectrodePair[] }) =>
+      putMontage(net, kind, name, pairs.map((p) => [p[0], p[1]])),
     onSuccess: (_data, vars) => {
       notify.success(`Saved montage "${vars.name}".`);
       setEditing(null);
@@ -155,113 +227,148 @@ export function MontageManager({
   });
 
   const removeMontage = useMutation({
-    mutationFn: (name: string) => deleteMontage(net!, kind, name),
-    onSuccess: (_data, name) => {
-      notify.success(`Deleted montage "${name}".`);
+    mutationFn: (m: CatalogMontage) => deleteMontage(m.net, m.kind, m.name),
+    onSuccess: (_data, m) => {
+      notify.success(`Deleted montage "${m.name}".`);
       setDeleteTarget(null);
-      // Selected rows are keyed per-subject (`${id}:${subject}`) — drop every subject's copy.
-      const id = rowId(net!, kind, name);
-      for (const subject of selectedSubjects) onRemoveRow(`${id}:${subject}`);
+      dropSelection(m);
       void queryClient.invalidateQueries({ queryKey: ["montages"] });
     },
     onError: (err: unknown) => notify.error("Could not delete the montage.", err instanceof Error ? err.message : undefined),
   });
 
-  const bucket = net ? (kind === "uni_polar" ? montages.data?.nets[net]?.uni_polar : montages.data?.nets[net]?.multi_polar) : undefined;
-  const entries = Object.entries(bucket ?? {});
+  const eligibleSubjects = selectedSubjects.filter((s) => !editorNet || (subjectNets[s]?.includes(editorNet) ?? false));
 
-  function rowId(n: string, k: Kind, name: string) {
-    return `montage:${n}:${k}:${name}`;
+  function eligibleFor(net: string): string[] {
+    return selectedSubjects.filter((s) => subjectNets[s]?.includes(net) ?? false);
   }
 
-  function toggle(name: string, pairs: string[][], checked: boolean) {
-    if (!net) return;
-    const id = rowId(net, kind, name);
-    if (checked) {
-      for (const subject of eligibleSubjects) {
-        onAddRow({
-          id: `${id}:${subject}`,
-          subjectId: subject,
-          source: "montage",
-          kind,
-          eegNet: net,
-          name,
-          pairs: pairs.map((p) => [p[0], p[1]] as [string, string]),
-          currents: defaultCurrents(pairs.length),
+  function rowId(m: { net: string; kind: MontageKind; name: string }) {
+    return `montage:${m.net}:${m.kind}:${m.name}`;
+  }
+
+  /** The table's rows: one per montage the user has chosen, in the order they chose it. Rows and
+   *  the plan are the same list — a row exists exactly when its (subject, montage) jobs do. */
+  const chosen = useMemo(() => {
+    const out: { key: string; montage: CatalogMontage; rows: SelectedRow[] }[] = [];
+    const seen = new Map<string, number>();
+    for (const r of selectedRows) {
+      if (r.source !== "montage" || !r.eegNet || !r.kind) continue;
+      const key = rowId({ net: r.eegNet, kind: r.kind, name: r.name });
+      const at = seen.get(key);
+      if (at === undefined) {
+        seen.set(key, out.length);
+        out.push({
+          key,
+          montage: { net: r.eegNet, kind: r.kind, name: r.name, pairs: r.pairs ?? [] },
+          rows: [r],
         });
+      } else {
+        out[at]!.rows.push(r);
       }
-    } else {
-      for (const subject of selectedSubjects) onRemoveRow(`${id}:${subject}`);
+    }
+    return out;
+  }, [selectedRows]);
+
+  function dropSelection(m: { net: string; kind: MontageKind; name: string }) {
+    const id = rowId(m);
+    for (const subject of selectedSubjects) onRemoveRow(`${id}:${subject}`);
+    // Belt and braces: a subject that has since left the selection still owns rows with this id.
+    for (const r of selectedRows) if (r.id.startsWith(`${id}:`)) onRemoveRow(r.id);
+  }
+
+  /** Fans one montage out to one job row per eligible subject (multi-subject fan-out). */
+  function addSelection(m: CatalogMontage) {
+    const id = rowId(m);
+    const currents = defaultCurrentsFor(m.kind, m.pairs.length);
+    for (const subject of eligibleFor(m.net)) {
+      onAddRow({
+        id: `${id}:${subject}`,
+        subjectId: subject,
+        source: "montage",
+        kind: m.kind,
+        eegNet: m.net,
+        name: m.name,
+        pairs: m.pairs,
+        currents,
+      });
     }
   }
 
-  const eligibleSubjects = selectedSubjects.filter((s) => !net || (subjectNets[s]?.includes(net) ?? false));
-  const ineligibleCount = selectedSubjects.length - eligibleSubjects.length;
-
-  /** Every ticked (subject, montage) row for one montage name — they share one currents value,
-   *  because the montage's pair count is what the currents are per. */
-  function selectedRowsFor(name: string): SelectedRow[] {
-    if (!net) return [];
-    const id = rowId(net, kind, name);
-    return selectedRows.filter((r) => r.id.startsWith(`${id}:`));
+  function pickMontage(rowKey: string | null, net: string, value: string) {
+    const { kind, name } = parseMontageOptionValue(value);
+    const montage = montagesOf(net).find((m) => m.kind === kind && m.name === name);
+    if (!montage) return;
+    // Replacing the montage of a filled row drops the old one's jobs first.
+    const previous = chosen.find((c) => c.key === rowKey);
+    if (previous) dropSelection(previous.montage);
+    addSelection(montage);
+    setPendingRows((prev) => prev.filter((p) => p.key !== rowKey));
+    setNetChoice(net);
   }
 
-  function isChecked(name: string): boolean {
-    if (!net) return false;
-    const id = rowId(net, kind, name);
-    return eligibleSubjects.length > 0 && eligibleSubjects.every((s) => selectedRows.some((r) => r.id === `${id}:${s}`));
+  function changeNet(rowKey: string, net: string) {
+    setNetChoice(net);
+    const filled = chosen.find((c) => c.key === rowKey);
+    if (filled) {
+      // The montage belonged to the old net — the row goes back to "pick a montage", on the new one.
+      dropSelection(filled.montage);
+      setPendingRows((prev) => [...prev, { key: `pending-${pendingSeq++}`, net }]);
+      return;
+    }
+    setPendingRows((prev) => prev.map((p) => (p.key === rowKey ? { ...p, net } : p)));
   }
 
-  /** Matches `Montage.simulation_mode`: a uni-polar (TI) montage needs exactly 2 pairs, a
-   *  multi-polar (mTI) montage needs 4 or more. */
+  function addRow() {
+    setPendingRows((prev) => [...prev, { key: `pending-${pendingSeq++}`, net: editorNet }]);
+  }
+
+  /** A brand-new montage always starts as a 2-pair draft; adding pairs makes it multi-polar. */
   function startNewMontage() {
-    setEditing(emptyDraft(kind));
+    setEditing(emptyDraft());
+  }
+
+  const draftKind = editing ? inferMontageKind(editing.pairs.length) : "uni_polar";
+
+  // The table always offers at least one row to fill in, without holding a pending row in state
+  // for the empty case (nothing to clean up when it is used).
+  const emptyRow: PendingRow[] = chosen.length === 0 && pendingRows.length === 0 ? [{ key: "row-1", net: editorNet }] : [];
+  const displayed = chosen.length + pendingRows.length + emptyRow.length;
+
+  function renderNetCell(rowKey: string, net: string | undefined, label: string) {
+    return (
+      <Select
+        value={net}
+        onValueChange={(v) => changeNet(rowKey, v)}
+        options={availableNets.map((n) => ({ value: n, label: n }))}
+        placeholder="EEG net"
+        aria-label={`${label} EEG net`}
+      />
+    );
+  }
+
+  function montageOptions(net: string | undefined) {
+    return montagesOf(net).map((m) => ({
+      value: montageOptionValue(m.kind, m.name),
+      label: `${m.name} · ${polarityLabel(m.kind)}`,
+    }));
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-      <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap", alignItems: "flex-end" }}>
-        <Field label="EEG net">
-          <Select value={net} onValueChange={setNet} options={availableNets.map((n) => ({ value: n, label: n }))} placeholder="Choose a net" />
-        </Field>
-        <Field label="Polarity">
-          <Select
-            value={kind}
-            onValueChange={(v) => setKind(v as Kind)}
-            options={[
-              { value: "uni_polar", label: "Uni-polar (TI, 2 pairs)" },
-              { value: "multi_polar", label: "Multi-polar (mTI, 4+ pairs)" },
-            ]}
-          />
-        </Field>
-        <Button variant="secondary" icon={<Plus size={14} />} disabled={!net} onClick={startNewMontage}>
-          New montage
-        </Button>
-      </div>
-
       {selectedSubjects.length === 0 && <Callout kind="info">Pick at least one subject above to add montages to the run.</Callout>}
-      {ineligibleCount > 0 && net && (
-        <Callout kind="warning">
-          {ineligibleCount} of {selectedSubjects.length} selected subjects do not have the "{net}" net and will be skipped for this montage.
-        </Callout>
-      )}
 
       {montages.isPending && <Skeleton height={160} />}
       {montages.error && <Callout kind="danger">Could not load montages.</Callout>}
-      {montages.data && entries.length === 0 && (
-        <EmptyState
-          icon={<Plus size={24} />}
-          message={net ? `No ${kind === "uni_polar" ? "uni-polar" : "multi-polar"} montages for ${net} yet.` : "Choose a net to see its montages."}
-          actionLabel={net ? "New montage" : undefined}
-          onAction={net ? startNewMontage : undefined}
-        />
+      {montages.data && availableNets.length === 0 && (
+        <EmptyState icon={<Plus size={24} />} message="No EEG nets available for the selected subjects." />
       )}
-      {montages.data && entries.length > 0 && (
+      {montages.data && availableNets.length > 0 && (
         <div className="data-table-container scroll-x">
           <table className="data-table run-table-min-rows">
             <thead>
               <tr>
-                <th />
+                <th>EEG net</th>
                 <th>Montage</th>
                 <th>Pairs</th>
                 <th>Currents</th>
@@ -269,38 +376,89 @@ export function MontageManager({
               </tr>
             </thead>
             <tbody>
-              {entries.map(([name, pairs]) => (
-                <tr key={name}>
-                  <td>
-                    <Checkbox
-                      checked={isChecked(name)}
-                      onCheckedChange={(checked) => toggle(name, pairs, checked)}
-                      disabled={eligibleSubjects.length === 0}
-                    />
-                  </td>
-                  <td className="mono">{name}</td>
-                  <td className="text-dense">{pairs.map((p) => `${p[0]}→${p[1]}`).join(", ")}</td>
-                  <td>
-                    <CurrentsCell
-                      rows={selectedRowsFor(name)}
-                      onChange={(currents) => selectedRowsFor(name).forEach((r) => onCurrentsChange?.(r.id, currents))}
-                    />
-                  </td>
-                  <td style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
-                    <IconButton
-                      aria-label={`Edit ${name}`}
-                      icon={<Pencil size={14} />}
-                      onClick={() => setEditing({ name, pairs: pairs.map((p) => [p[0], p[1]] as ElectrodePair) })}
-                    />
-                    <IconButton aria-label={`Delete ${name}`} icon={<Trash2 size={14} />} onClick={() => setDeleteTarget(name)} />
-                  </td>
-                </tr>
-              ))}
+              {chosen.map(({ key, montage, rows }) => {
+                const count = currentsCount(montage.kind, montage.pairs.length);
+                const missing = selectedSubjects.length - eligibleFor(montage.net).length;
+                return (
+                  <tr key={key} data-montage-row={montage.name} data-polarity={montage.kind}>
+                    <td>{renderNetCell(key, montage.net, montage.name)}</td>
+                    <td>
+                      <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+                        <Select
+                          value={montageOptionValue(montage.kind, montage.name)}
+                          onValueChange={(v) => pickMontage(key, montage.net, v)}
+                          options={montageOptions(montage.net)}
+                          placeholder="Choose a montage"
+                          aria-label={`Montage for ${montage.net}`}
+                        />
+                        <span className="chip chip-neutral" title={montage.kind === "uni_polar" ? "Uni-polar (2 pairs)" : "Multi-polar (4+ pairs)"}>
+                          {polarityLabel(montage.kind)}
+                        </span>
+                        {missing > 0 && (
+                          <span className="chip chip-warning" title={`${missing} selected subject(s) do not have the "${montage.net}" net`}>
+                            {missing} skipped
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="mono text-dense">{formatPairs(montage.pairs)}</td>
+                    <td>
+                      <CurrentsCell
+                        rows={rows}
+                        count={count}
+                        label={montage.name}
+                        onChange={(currents) => rows.forEach((r) => onCurrentsChange?.(r.id, currents))}
+                      />
+                    </td>
+                    <td style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+                      <IconButton
+                        aria-label={`Edit ${montage.name}`}
+                        icon={<Pencil size={14} />}
+                        onClick={() => {
+                          setNetChoice(montage.net);
+                          setEditing({ name: montage.name, pairs: montage.pairs.map((p) => [p[0], p[1]] as ElectrodePair), savedAs: montage.kind });
+                        }}
+                      />
+                      <IconButton aria-label={`Delete ${montage.name}`} icon={<Trash2 size={14} />} onClick={() => setDeleteTarget(montage)} />
+                      <IconButton aria-label={`Remove row ${montage.name}`} icon={<X size={14} />} onClick={() => dropSelection(montage)} />
+                    </td>
+                  </tr>
+                );
+              })}
+              {[...pendingRows, ...emptyRow].map((p, i) => {
+                const net = p.net && availableNets.includes(p.net) ? p.net : editorNet;
+                const label = `row ${chosen.length + i + 1}`;
+                return (
+                  <tr key={p.key} data-montage-row="" data-polarity="">
+                    <td>{renderNetCell(p.key, net, label)}</td>
+                    <td>
+                      <Select
+                        value={undefined}
+                        onValueChange={(v) => net && pickMontage(p.key, net, v)}
+                        options={montageOptions(net)}
+                        placeholder="Choose a montage"
+                        aria-label={`Montage for ${label}`}
+                      />
+                    </td>
+                    <td className="field-help">—</td>
+                    <td className="field-help">—</td>
+                    <td style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+                      {pendingRows.some((r) => r.key === p.key) && (
+                        <IconButton
+                          aria-label={`Remove ${label}`}
+                          icon={<X size={14} />}
+                          onClick={() => setPendingRows((prev) => prev.filter((r) => r.key !== p.key))}
+                        />
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
               {/* A minimum of six visible rows (FXU1). The montage table is the Simulator's Tier-1
                   control and a two-row table left the pane looking unfinished; the filler rows are
                   drawn as ground (`--surface` + the same rule), not as blank page, so they read as
                   "room for more montages" rather than as a rendering fault. */}
-              {Array.from({ length: Math.max(0, MIN_MONTAGE_ROWS - entries.length) }, (_, i) => (
+              {Array.from({ length: Math.max(0, MIN_MONTAGE_ROWS - displayed) }, (_, i) => (
                 <tr key={`filler-${i}`} className="run-table-filler" aria-hidden>
                   <td colSpan={5} />
                 </tr>
@@ -310,14 +468,46 @@ export function MontageManager({
         </div>
       )}
 
+      <div style={{ display: "flex", gap: "var(--space-2)" }}>
+        <Button variant="secondary" icon={<Plus size={14} />} disabled={availableNets.length === 0} onClick={addRow}>
+          Add row
+        </Button>
+        <Button variant="secondary" icon={<Plus size={14} />} disabled={!editorNet} onClick={startNewMontage}>
+          New montage
+        </Button>
+      </div>
+
+      {eligibleSubjects.length === 0 && selectedSubjects.length > 0 && editorNet && (
+        <Callout kind="warning">None of the selected subjects have the "{editorNet}" net.</Callout>
+      )}
+
       {editing && (
         <Card>
           <CardHeader title={editing.name ? `Edit montage "${editing.name}"` : "New montage"} />
           <CardBody>
-            <p className="field-help" style={{ marginBottom: "var(--space-3)" }}>
-              {kind === "uni_polar" ? "Uni-polar (2 electrode pairs)" : "Multi-polar (4 or more electrode pairs)"} montage on {net ?? "…"}.
-            </p>
             <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+              <div className="field-row-inline">
+                <Field label="EEG net" help="The net whose electrode labels the pairs are picked from.">
+                  <Select
+                    value={editorNet}
+                    onValueChange={setNetChoice}
+                    options={availableNets.map((n) => ({ value: n, label: n }))}
+                    placeholder="Choose a net"
+                  />
+                </Field>
+                {/* Polarity is not a choice any more (maintainer call): it follows from how many
+                    pairs the user picked, and the label states which bucket the save will land in. */}
+                <Field label="Polarity" help="Set by the number of pairs: 2 pairs is TI, more is mTI.">
+                  <div data-testid="montage-draft-polarity" style={{ display: "flex", gap: "var(--space-2)", alignItems: "center", minHeight: 28 }}>
+                    <span className="chip chip-neutral">{polarityLabel(draftKind)}</span>
+                    <span className="field-help">
+                      {draftKind === "uni_polar"
+                        ? "Uni-polar — saved as uni_polar_montages"
+                        : "Multi-polar — saved as multi_polar_montages"}
+                    </span>
+                  </div>
+                </Field>
+              </div>
               <Field label="Montage name" required>
                 <TextInput value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} placeholder="e.g. F3_F4" />
               </Field>
@@ -326,7 +516,6 @@ export function MontageManager({
                 {!netElectrodes.isFetching && (
                   <ElectrodePairsEditor
                     mode="net"
-
                     electrodes={netElectrodes.data ?? []}
                     pairs={editing.pairs}
                     onPairsChange={(pairs) => setEditing({ ...editing, pairs })}
@@ -345,8 +534,22 @@ export function MontageManager({
                 <Button
                   variant="primary"
                   loading={saveMontage.isPending}
-                  disabled={!editing.name.trim() || editing.pairs.some((p) => !p[0] || !p[1]) || !isValidPairCount(editing.pairs.length)}
-                  onClick={() => saveMontage.mutate({ name: editing.name.trim(), pairs: editing.pairs })}
+                  disabled={
+                    !editorNet ||
+                    !editing.name.trim() ||
+                    editing.pairs.some((p) => !p[0] || !p[1]) ||
+                    !isValidPairCount(editing.pairs.length)
+                  }
+                  onClick={() => {
+                    if (!editorNet) return;
+                    // An edit that changed a montage's polarity moves buckets: delete the old
+                    // entry so the same name cannot exist in both.
+                    if (editing.savedAs && editing.savedAs !== draftKind) {
+                      void deleteMontage(editorNet, editing.savedAs, editing.name.trim()).catch(() => undefined);
+                      dropSelection({ net: editorNet, kind: editing.savedAs, name: editing.name.trim() });
+                    }
+                    saveMontage.mutate({ net: editorNet, kind: draftKind, name: editing.name.trim(), pairs: editing.pairs });
+                  }}
                 >
                   Save montage
                 </Button>
@@ -359,7 +562,7 @@ export function MontageManager({
       <AlertDialog
         open={deleteTarget !== null}
         onOpenChange={(o) => !o && setDeleteTarget(null)}
-        title={`Delete montage "${deleteTarget}"?`}
+        title={`Delete montage "${deleteTarget?.name ?? ""}"?`}
         description="This removes the montage definition for this net. Simulations already run from it are unaffected."
         confirmLabel="Delete montage"
         onConfirm={() => deleteTarget && removeMontage.mutate(deleteTarget)}

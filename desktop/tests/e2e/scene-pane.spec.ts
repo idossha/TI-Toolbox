@@ -42,7 +42,9 @@ test.beforeAll(async () => {
   await expect(page.getByTestId("shell-content")).toHaveAttribute("data-subject", SUBJECT, { timeout: 10_000 });
   await gotoPage(page, "simulator", "Simulator");
   await expectPage(page, "simulator");
-  await page.locator(".field", { hasText: "EEG net" }).first().getByRole("combobox").click();
+  // The net is the montage table's first column now (no standalone "EEG net" selector): setting
+  // it on a row is also what tells the scene pane which net's electrodes to draw.
+  await page.locator("tr[data-montage-row]").first().getByRole("combobox").nth(0).click();
   await page.getByRole("option", { name: NET, exact: true }).click();
 });
 

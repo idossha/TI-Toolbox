@@ -4,7 +4,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createAjvResolver } from "../../src/renderer/forms/ajvResolver";
 import { resetSchemaCache, type JSONSchema } from "../../src/renderer/forms/schema";
 import { buildSimulationConfig, type GlobalParams } from "../../src/renderer/pages/simulator/buildConfig";
-import type { SelectedRow } from "../../src/renderer/pages/simulator/types";
+import {
+  currentsCount,
+  defaultCurrentsFor,
+  inferMontageKind,
+  polarityLabel,
+  type SelectedRow,
+} from "../../src/renderer/pages/simulator/types";
+import {
+  currentValues,
+  formatPairs,
+  montageOptionValue,
+  parseMontageOptionValue,
+} from "../../src/renderer/pages/simulator/MontageManager";
 import { eligibleSubjectsFor, seedWithShellSubject } from "../../src/renderer/pages/simulator/index";
 
 // contracts/schema.json is repo-root; desktop/tests/unit -> ../../.. reaches the repo root.
@@ -168,5 +180,49 @@ describe("Simulator's page-owned subject selection (U16)", () => {
 
   it("two ticked subjects both stay eligible when both have a head model — the two-subject plan case", () => {
     expect(eligibleSubjectsFor(["ernie", "101"], ["ernie", "101", "MNI152"])).toEqual(["ernie", "101"]);
+  });
+});
+
+
+// The montage table's own derivations: the net and the montage are columns of the table, and
+// everything else in the row — the polarity chip, the pairs cell, how many current fields there
+// are — follows from the montage rather than from a control the user has to set.
+describe("montage table derivations", () => {
+  it("infers a new montage's polarity from its pair count: 2 pairs is TI, more is mTI", () => {
+    expect(inferMontageKind(2)).toBe("uni_polar");
+    expect(inferMontageKind(4)).toBe("multi_polar");
+    expect(inferMontageKind(6)).toBe("multi_polar");
+    // Degenerate counts still resolve (the editor refuses to save them separately).
+    expect(inferMontageKind(1)).toBe("uni_polar");
+    expect(inferMontageKind(3)).toBe("multi_polar");
+  });
+
+  it("labels the polarity as the chip does", () => {
+    expect(polarityLabel("uni_polar")).toBe("TI");
+    expect(polarityLabel("multi_polar")).toBe("mTI");
+  });
+
+  it("takes 2 currents for a uni-polar montage and one per pair for a multi-polar one", () => {
+    expect(currentsCount("uni_polar", 2)).toBe(2);
+    expect(currentsCount("multi_polar", 4)).toBe(4);
+    expect(defaultCurrentsFor("uni_polar", 2)).toBe("1.0,1.0");
+    expect(defaultCurrentsFor("multi_polar", 4)).toBe("1.0,1.0,1.0,1.0");
+  });
+
+  it("normalises a row's currents to the count its polarity requires", () => {
+    expect(currentValues("1.0,2.0", 2)).toEqual([1, 2]);
+    expect(currentValues("1.0,2.0", 4)).toEqual([1, 2, 1, 1]);
+    expect(currentValues("1,2,3,4", 2)).toEqual([1, 2]);
+    expect(currentValues("", 2)).toEqual([1, 1]);
+  });
+
+  it("renders the pairs cell read-only, in the maintainer's notation", () => {
+    expect(formatPairs([["E1", "E2"], ["E3", "E4"]])).toBe("E1\u2013E2 \u00b7 E3\u2013E4");
+  });
+
+  it("round-trips a montage option value, so one name can exist in both buckets of a net", () => {
+    expect(montageOptionValue("multi_polar", "mTI:odd")).toBe("multi_polar:mTI:odd");
+    expect(parseMontageOptionValue("multi_polar:mTI:odd")).toEqual({ kind: "multi_polar", name: "mTI:odd" });
+    expect(parseMontageOptionValue(montageOptionValue("uni_polar", "F3_F4"))).toEqual({ kind: "uni_polar", name: "F3_F4" });
   });
 });

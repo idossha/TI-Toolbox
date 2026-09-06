@@ -162,11 +162,14 @@ test("the receipt sits above Run, counts the plan's jobs, and updates live", asy
   // Exactly one montage, so the plan is one job: with none ticked the page is blocked on the
   // montage, and the mock plans every montage into the same output directory, so several would
   // collapse into one plan column and the count comparison below would compare unlike things.
-  const montageBoxes = page.locator('[data-page-active="true"] .data-table tbody tr').getByRole("checkbox");
-  for (const box of await montageBoxes.all()) {
-    if (await box.isChecked()) await box.click();
-  }
-  await montageBoxes.first().click();
+  const active = page.locator('[data-page-active="true"]');
+  const removeRow = active.getByRole("button", { name: /^Remove row / });
+  for (let guard = 0; (await removeRow.count()) > 0 && guard < 20; guard++) await removeRow.first().click();
+  await expect(removeRow).toHaveCount(0);
+  // The montage table's second column: pick the net's first montage (the polarity comes with it).
+  const montageRow = active.locator("tr[data-montage-row]").first();
+  await montageRow.getByRole("combobox").nth(1).click();
+  await page.getByRole("option", { name: "F3_F4 · TI", exact: true }).click();
 
   const receipt = page.locator('[data-page-active="true"]').getByTestId("run-receipt");
   await expect(receipt).toBeVisible();

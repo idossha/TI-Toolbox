@@ -19,7 +19,7 @@ import { Checkbox } from "../../ui/Toggle";
 import { Popover } from "../../ui/Overlay";
 import { SubjectsField, blockedSubjects, presenceColumns, subjectsBlockedReason } from "../_shared/subjects";
 import { getSubjectDetail } from "./api";
-import { MontageManager, emptyDraft, type Kind, type MontageDraft } from "./MontageManager";
+import { MontageManager, emptyDraft, type MontageDraft } from "./MontageManager";
 import { FlexTab } from "./FlexTab";
 import { FreehandTab } from "./FreehandTab";
 import { ConductivityDialog, type CustomConductivities } from "./ConductivityDialog";
@@ -109,7 +109,6 @@ function SimulatorPage() {
   // The montage editor's state, lifted here (SCC): the scene pane and the pairs editor are two
   // editors of ONE draft, which is what makes "click an electrode" and "pick it in the form" the
   // same act rather than two states that can disagree (plan decision S6).
-  const [montageKind, setMontageKind] = usePageSession<Kind>("montageKind", "uni_polar");
   const [montageDraft, setMontageDraft] = usePageSession<MontageDraft | null>("montageDraft", null);
   const [montageNet, setMontageNet] = usePageSession<string | undefined>("montageNet", undefined);
   const scenePane = usePaneController({ pageId: "simulator", name: "run" });
@@ -169,12 +168,12 @@ function SimulatorPage() {
   const digest = plan.model ? planDigest(plan.model) : (plan.blockedReason ?? "Resolving the plan…");
 
   function setDraftPairs(pairs: [string, string][]): void {
-    setMontageDraft((draft) => (draft ? { ...draft, pairs } : { ...emptyDraft(montageKind), pairs }));
+    setMontageDraft((draft) => (draft ? { ...draft, pairs } : { ...emptyDraft(), pairs }));
   }
   /** A pick with no montage open starts one, with that electrode already in pair 1 slot A —
    *  otherwise the first click on the pane would do nothing and the gesture would be undiscoverable. */
   function startDraftFromScene(electrode: string): void {
-    const fresh = emptyDraft(montageKind);
+    const fresh = emptyDraft();
     setMontageDraft({ ...fresh, pairs: withSlot(fresh.pairs, 0, electrode) });
   }
   const runButton = (
@@ -293,8 +292,6 @@ function SimulatorPage() {
                         onAddRow={addRow}
                         onRemoveRow={removeRow}
                         onCurrentsChange={updateRowCurrents}
-                        kind={montageKind}
-                        onKindChange={setMontageKind}
                         draft={montageDraft}
                         onDraftChange={setMontageDraft}
                         onNetChange={setMontageNet}
