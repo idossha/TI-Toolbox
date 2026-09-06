@@ -180,7 +180,12 @@ TI-Toolbox ships no viewer. 3-D viewing is **Tetravox**, a signed, notarised des
 installed on the host, which auto-updates through electron-updater and whose releases are not
 coupled to this project's. The whole interface between the two is one document.
 
-`POST /api/view/open` builds the ViewSpec v2 document `GET /api/view/{kind}` already built, rewrites
+`POST /api/view/open` builds the ViewSpec v2 document `GET /api/view/{kind}` already built — or,
+where the caller sends one, opens the **explicit list of files the user edited** on the Viewer page,
+each resolved by the same layer builders the derived list uses, so an added file and a derived one
+are described identically. Layer *appearance* is not in this app: opacity, colormap, threshold,
+layout and camera belong to Tetravox's inspector, and duplicating them here would be a second source
+of truth that loses. `POST /api/view/open` rewrites
 every dataset and sidecar path from an `/api/files/raw/…` URL to the **host's** own absolute path,
 and writes `<project>/code/ti-toolbox/viewer/<kind>.tetravox.json`. The extension is load-bearing:
 `.tetravox.json` is the compound extension the app registers as its scene document, and any other
@@ -193,9 +198,20 @@ Electron main maps the container path with the same project mount `openPath` use
 not ending `.tetravox.json`, and spawns the app detached (`open -a Tetravox <scene>` on macOS, the
 resolved binary elsewhere). A second Open is a second spawn: Tetravox holds a single-instance lock
 and routes the file into the window already on screen, so nothing on this side tracks whether the
-app is running. Discovery is the platform's conventional locations plus one Settings override; there
-is no bundled copy, no version pin, no protocol number and no update channel, because none of those
-is this project's to hold.
+app is running. There is no protocol number, because a file is not a protocol.
+
+*Amended 2026-09-06 (managed install).* Discovery is the platform's conventional locations plus one
+Settings override **plus a copy the desktop app installs and maintains itself**, so that a user who
+has never heard of Tetravox can press Open and have a scene appear. The install is the Electron
+shell's, on the host, and never the image's: the container has no display server. What version to
+fetch and what bytes are correct are read from the **publisher's own** release index and
+`latest*.yml` digest — this project pins nothing, because a pin of our own is a hash we must update
+by hand and a false "corrupt download" the day they re-cut a release. On macOS the quarantine
+attribute comes off only after `codesign --verify --deep --strict` passes on the unpacked bundle,
+never before. A newly downloaded version activates on the **next** launch and never under a running
+window. **Settings ▸ Viewer** states which of the three sources answered, where it is and which
+version, and offers the release page when none did. The version is never asserted by running the
+application: a test, or an app, must not put another application's window on a user's screen.
 
 **What this replaces.** The previous §7.1 described a protocol range, a named-feature map, a release
 index, a two-root install store with a pin, a digest-verified installer, a background update policy
@@ -316,16 +332,31 @@ and the Help page both derive their rows from that list rather than restating it
 *Added 2026-09-06; refines §7.4 and removes the subject-set × montage fan-out from the Simulator and
 the Analyzer.*
 
+*Extended 2026-09-06 to the Optimizer, which makes it all three run pages.*
+
 **One row is one job**, and the row owns every input that differs between jobs: the Simulator's row
 is `Subject · Source · EEG net · Montage · Pairs · Currents`, the Analyzer's is
-`Subject · Simulation · Space · Field`. A page with a jobs table therefore has **no page-level
+`Subject · Simulation · Space · Field`, and the Optimizer's is
+`Subject · Method · Net / leadfield · Goal` over a target line. The Optimizer's row carries the four
+sections that page used to hold globally — target, objective/electrodes, solver and the subject
+table — because every one of them is a property of a *search*, and a search is a row. Two clauses
+follow from that page and hold everywhere:
+
+* **A row may be a different KIND of job.** Where a page's rows submit as more than one kind, one
+  Run is one submission *per kind* (`POST /api/jobs/groups` takes one `kind`), and the page says so
+  rather than implying a single atomic batch.
+* **A cell with nothing to decide says so.** A column meaningless for a row's method prints a muted
+  `—` with the reason in its title, never a disabled control that reads as a choice the user has
+  failed to make. A page with a jobs table therefore has **no page-level
 subject control** — §7.4's grammar applies inside the subject cell, where a subject that cannot run
 here is listed with its reason and cannot be picked. Properties of the *run* rather than of a job —
 electrode geometry, conductivity, output fields, the analysis ROI — stay page-level sections.
 
-The cross-product the page used to be is now something the user asks for: `Add job for each ready
-subject` and `Quick add: every subject with X` repeat a row, and duplicating one row is the
-one-click gesture for "the same job for another subject". A half-filled row is shown and is not
+The cross-product the page used to be is now something the user asks for: **Duplicate**, the row's
+own action, is the one gesture for "the same job, another subject", and the user changes the cell
+that differs. (The earlier `Add job for each ready subject` / `Quick add` buttons were specified and
+then not built: one explicit gesture proved to be enough, and `analyzer.spec.ts` asserts the Quick
+add control is absent so the two do not drift back apart.) A half-filled row is shown and is not
 planned — one predicate is the gate between visible and submitted. A group is a **switch over the
 same rows**, not a mode with its own selection: the rows name the cohort, and rows that disagree
 about what a cohort job can only do once are refused with the reason on the button rather than

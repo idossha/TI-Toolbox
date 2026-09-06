@@ -563,6 +563,12 @@ literals: `debug` `--ink-3`,
 `info` `--ink`, `warning` `--warning`, `error` `--danger`. **Reveal log** is a 24 px icon button in
 the header (`aria-label="Reveal log file"`) wired to the existing `onRevealLogFile`.
 
+**The Jobs page's Raw log is the same console, not a `<pre>`** (2026-09-06). The Raw log tab fills
+the detail pane with the shared renderer rather than a fixed-height excerpt under a "Load more"
+button, so "what did it print" has one answer with one set of behaviours — follow-tail, filter,
+level colours, Reveal — wherever it is asked. The run page's Terminal and the Jobs detail pane are
+two callers of one component; neither is a summary of the other.
+
 **Height.** The Terminal fills the run panel below the plan grid and never shrinks below **180 px**:
 the plan grid is capped at 45 % of the panel height and scrolls internally past that, so a
 twelve-subject plan cannot squeeze the log out of existence.
@@ -702,13 +708,24 @@ markers re-derive from it in one pass — there is no partial update to get wron
 
 ### 4.10 Jobs table
 
-*Added 2026-09-06 (`docs/ARCHITECTURE.md` §7.5). It removes the page-level subject set from the
-Simulator and the Analyzer, and with it §4.4.1's "a set" answer for those two pages.*
+*Added 2026-09-06 (`docs/ARCHITECTURE.md` §7.5), extended the same day to the Optimizer. It removes
+the page-level subject set from all three run pages that submit batches, and with it §4.4.1's "a
+set" answer for them.*
 
 A run page that submits **more than one job at a time** describes the run as a table in which **one
-row is one job**, and the row owns every input that differs between jobs. The Simulator's row is
-`Subject · Source · EEG net · Montage · Pairs · Currents`; the Analyzer's is
-`Subject · Simulation · Space · Field`.
+row is one job**, and the row owns every input that differs between jobs. This is now the grammar of
+all three: the Simulator's row is `Subject · Source · EEG net · Montage · Pairs · Currents`; the
+Analyzer's is `Subject · Simulation · Space · Field`; the Optimizer's is
+`Subject · Method · Net / leadfield · Goal` — five methods (flex, adaptive, pareto, ex, mEx) in the
+Method cell, where the page previously described exactly one search.
+
+**A row is two lines, and the split is not cosmetic.** Line 1 carries the columns a user *scans*
+down to compare rows — the identifying four or five, never truncated, in a resolver-sized colgroup.
+Line 2 carries what only makes sense *within* that row: the Simulator's per-channel pairs and their
+own currents, the Analyzer's and the Optimizer's target sentence. Line 2 is prose, not columns, so
+it can be long, and it can change length (TI's two pairs to mTI's four) without any column moving
+anywhere. Anything richer than a sentence — an ROI with an atlas, a hemisphere and a label set —
+opens a **dialog** from the row, so the table stays a table.
 
 1. **The row owns its subject.** A page with a jobs table has no page-level subject control. The
    subject grammar (§4.4.1, J3) still applies, inside the cell: a subject that cannot run here is
@@ -731,6 +748,12 @@ row is one job**, and the row owns every input that differs between jobs. The Si
    right-aligned on the same row with its label and an (i) popover, and no separate field label
    repeating the word the switch already says (maintainer, 2026-09-06).
 7. **The table survives the run.** Submitting does not empty it.
+8. **A row may be a different KIND of job.** Where a page's rows submit as more than one job kind —
+   the Optimizer's flex and ex families — one Run is one submission *per kind*, and the page says
+   so rather than implying a single atomic batch.
+9. **A cell with nothing to decide says so.** A column meaningless for a row's method prints a muted
+   `—` with the reason in its `title`, never a disabled control, which reads as a choice the user
+   has failed to make.
 
 **Authoring is not choosing.** The Simulator's free-hand *editor* is its own section, opened on
 demand; picking a saved placement in a row is a different act from writing one, the same split the
@@ -939,6 +962,16 @@ Palette on the left (the node kinds), the React Flow canvas in the middle, the r
 Terminal on the right — the same right pane every run page has, because a pipeline run is a job group
 like any other.
 
+- The **Subjects node** is the source of the graph and the only place a cohort is named
+  (2026-09-06). Every other node takes its subjects over a `subjects` wire, so two steps in one
+  document cannot disagree about who the study is about, and no node carries a copy to retype.
+- A **subjects wire is refused on what those subjects actually have.** Each kind declares what it
+  requires (`raw | m2m | leadfield | simulation`) and what it produces, and the canvas checks the
+  drag against the project's own readiness — before a graph exists, using `GET /api/pipelines/kinds`
+  — then again at validate and at run, from the same table, so the refusal is one sentence and not
+  three. It names the subjects that fail, never a count: *"102 has no head model"*. A chain may
+  satisfy what a cohort cannot: `Subjects(raw) → Pre → Simulator` is accepted because Pre produces
+  `m2m`, while `Subjects(raw) → Simulator` is refused.
 - A **node** is one existing job kind carrying exactly the config the matching page builds. Double-click
   opens that page's own form sections — imported, not copied.
 - An **edge** is a typed binding between one node's named output and another's same-named input:

@@ -411,3 +411,103 @@ reachable through main. It replaces capability the app previously had with *no* 
 an entry it does not belong to. `smoke.spec.ts` asserts the exact key list, which is what holds a
 fourteenth to an ADR line.
 
+
+## 2026-09-06 — The viewer is installed on the host, not baked into the image
+
+**Decision.** The desktop app downloads, verifies and maintains its own copy of Tetravox on the
+user's machine (Settings ▸ Viewer states where it is and which version), keyed to the publisher's
+own release digest. It is not added to the container image, and it is never pinned by us.
+
+**Why.** Tetravox is a windowed application on the *user's* desktop; the container has no display
+server and never will. Baking it in would also chain a Tetravox release to a TI-Toolbox image
+release, which is the coupling this whole program exists to remove — the point of an external
+viewer is that it ships on its own clock. The publisher's `latest*.yml` digest is the only
+authority on what a given version is; substituting a pin of our own means a hash we have to update
+by hand and a "corrupt download" the day they re-cut a release.
+
+**Alternatives rejected.** A bundled copy inside the app bundle doubles our download for every
+user who already has one and makes the version un-upgradable without a TI-Toolbox release. A
+"please install it yourself" dialog is the state this replaced. Activating a newly downloaded copy
+under a running window is refused outright: the new version takes effect on the next launch.
+
+## 2026-09-06 — A cohort is a node, and a wire is refused on what its subjects have
+
+**Decision.** Architecture §7.6. The pipeline canvas gains a **Subjects** node, which is the only
+source of subjects in a document, and every edge out of it is validated against a readiness table:
+a step declares what it *requires* and what it *produces*, and a wire whose subjects cannot satisfy
+the requirement — directly or through an upstream step that produces it — is refused with the
+subject and the reason on the edge.
+
+**Why.** Subjects were a property of each node, so the same cohort was retyped per step and could
+silently disagree between two of them. And a canvas that accepts any wire and fails an hour later
+inside a container is not a canvas: `Subjects(102) → Simulator` is knowably wrong at the moment of
+the drag, because 102 has no head model, and `Subjects(102) → Pre → Simulator` is knowably right,
+because Pre-processing produces one.
+
+**Alternatives rejected.** Validating only at Run keeps the canvas honest but moves every mistake
+past the point where the user still remembers what they meant. A warning rather than a refusal
+makes the edge a fact the user must re-derive; §7.6's issues carry a machine-readable `code` and
+`port` precisely so the refusal can say which end is wrong.
+
+## 2026-09-06 — All three run pages carry a jobs table
+
+**Decision.** Architecture §7.5 extends to the Optimizer: the Simulator, the Analyzer and the
+Optimizer each describe a run as a table in which one row is one job, and the row owns everything
+that differs between jobs. Global sections survive only for properties of the *run*.
+
+**Why.** The Optimizer had the same defect as the other two and worse: a target, an objective, an
+electrode set and a solver were all page-level, so one page could describe exactly one search. A
+row is the unit a user actually thinks in ("this ROI with this goal, and that one with that"), and
+making it the unit on all three pages means one grammar to learn rather than three. The
+consequence is stated rather than hidden: where a page's rows submit as more than one job *kind*,
+one Run is one submission per kind, and the page says so.
+
+**Alternatives rejected.** Leaving the Optimizer page-level because a search is "bigger" than a
+simulation is the argument that produced the defect. A cell that is meaningless for a row's method
+prints a muted `—` with the reason in its title rather than a disabled control, which would read
+as a choice the user has failed to make.
+
+## 2026-09-06 — Translucent surfaces are resolved as two depth sheets
+
+**Decision.** The native scene pane resolves the two nearest depth crossings per pixel and blends
+those, rather than depth-sorting geometry or accepting whatever order the draw calls arrive in.
+Regions are painted in the colours their `.annot` colour table carries, read from the file, and a
+selected region is outlined by a thin edge rather than a border.
+
+**Why.** A translucent skin over a translucent grey matter has no correct single depth, and
+back-to-front sorting of a 222k-triangle cortex per frame is not affordable at 120 fps. Two sheets
+is a bounded approximation — a third crossing deeper inside a sulcus is dropped rather than
+mis-ordered — and it is the same bound Tetravox ships, which matters because the two renderers must
+agree about the same subject. The atlas colours are read and not invented because a legend that
+names a region in a colour the file does not give it is a lie the user cannot check.
+
+**Alternatives rejected.** Inventing a palette per atlas makes two views of the same subject
+disagree. The first outline implementation drew a border and produced "a border of white shards" on
+a folded surface; a thin edge computed in the same pass does not.
+
+## 2026-09-06 — The run terminal never auto-pins a finished job
+
+**Decision.** The run page's terminal pins a job only while it is live. A job that has finished is
+never pinned by the page on the user's behalf.
+
+**Why.** Auto-pinning a finished job takes the terminal away from whatever the user was reading and
+replaces it with a log that has stopped changing — an interruption that costs attention and returns
+nothing, since a finished job's log is reachable from the Jobs page whenever it is wanted. The Raw
+log tab is now the shared console filling the detail pane, so there is one place that answers "what
+did it print", and it is not the run page's terminal deciding for the user.
+
+## 2026-09-06 — The Viewer page is a file list, and Open is the only verb
+
+**Decision.** The Viewer page is an editable list of the files that will open, plus **Open in
+Tetravox**. Layer appearance — opacity, colormap, threshold, layout, camera — is not duplicated on
+this page; it belongs to Tetravox's own inspector.
+
+**Why.** Two applications offering the same appearance controls over the same file is two sources
+of truth, and the one the user tuned is not the one that opened. What this app knows and Tetravox
+does not is *which files belong together*, so that is the whole job of the page: derive the list,
+let the user edit it, hand it over. The written scene is a real file in the user's own project
+(`code/ti-toolbox/viewer/…`) — it opens later by double-clicking, with no app in the middle.
+
+**Alternatives rejected.** A composition panel with layers, layout, camera and presets was built
+first and is the version this replaced; it was a better *panel* and a worse *page*, because every
+knob on it was a knob Tetravox already had and would win.
