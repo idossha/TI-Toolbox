@@ -400,6 +400,7 @@ test("pane collapse and expansion retain the live iframe, work DOM and a scrolle
   // The free-hand editor is a collapsible section of its own since the 2026-09-06 jobs rework —
   // authoring a placement and *choosing* one in a job row are two different acts.
   await setSectionOpen(page, "Free-hand placements", true);
+  await current.getByRole("button", { name: "New placement", exact: true }).click();
   await current.getByPlaceholder("e.g. custom_4electrode", { exact: true }).fill("pane_draft");
   await current.getByLabel("Position 1 X", { exact: true }).fill("12.5");
   await current.getByRole("button", { name: "Add position", exact: true }).click();
@@ -477,6 +478,7 @@ test("the free-hand draft survives a navigation away and back", async () => {
    * another page and back must not discard it.
    */
   await setSectionOpen(page, "Free-hand placements", true);
+  await current.getByRole("button", { name: "New placement", exact: true }).click();
   const subject = current.locator(".field", { hasText: /^Subject/ }).getByRole("combobox");
   const draftSubject = (await subject.textContent())?.trim() === "101" ? "ernie" : "101";
   await subject.click();

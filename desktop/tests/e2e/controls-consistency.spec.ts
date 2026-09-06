@@ -5,6 +5,14 @@ import { expectPage, gotoPage, launchElectronApp, openPalette, setTheme } from "
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
 const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
 const RUN_PAGES = ["preprocess", "simulator", "optimizer", "analyzer"] as const;
+/**
+ * Pages whose first control is a page-level subject selector. Since the 2026-09-06 jobs rework the
+ * Simulator and the Analyzer have none — the subject is a cell of a job row — so their "first
+ * control" clause is asserted on the Jobs table instead (below).
+ */
+const SUBJECT_FIELD_PAGES = new Set<string>(["preprocess", "optimizer"]);
+const JOBS_CONTAINER = '[data-testid="sim-jobs-table-container"], [data-testid="analysis-jobs-table-container"]';
+const FIRST_CONTROL = `.subjects-field, ${JOBS_CONTAINER}`;
 
 let app: ElectronApplication;
 let page: Page;
@@ -63,22 +71,33 @@ for (const theme of ["light", "dark"] as const) {
       await gotoPage(page, id);
       await expectPage(page, id);
       const work = activePage().getByTestId("page-work");
-      const subjects = work.getByTestId("subjects-field");
-      await expect(subjects).toBeVisible();
-      const disclosure = subjects.getByTestId("subjects-change");
-      if ((await disclosure.getAttribute("aria-expanded")) !== "true") await disclosure.click();
-      const selectedSubject = subjects.getByRole("checkbox", { name: "ernie", exact: true });
-      await expect(selectedSubject).toBeVisible();
-      await expect(disclosure).toHaveAttribute("aria-expanded", "true");
-      expect(await disclosure.getAttribute("aria-controls")).toBeTruthy();
-      await disclosure.click();
-      await expect(disclosure).toHaveAttribute("aria-expanded", "false");
+      if (SUBJECT_FIELD_PAGES.has(id)) {
+        const subjects = work.getByTestId("subjects-field");
+        await expect(subjects).toBeVisible();
+        const disclosure = subjects.getByTestId("subjects-change");
+        if ((await disclosure.getAttribute("aria-expanded")) !== "true") await disclosure.click();
+        const selectedSubject = subjects.getByRole("checkbox", { name: "ernie", exact: true });
+        await expect(selectedSubject).toBeVisible();
+        await expect(disclosure).toHaveAttribute("aria-expanded", "true");
+        expect(await disclosure.getAttribute("aria-controls")).toBeTruthy();
+        await disclosure.click();
+        await expect(disclosure).toHaveAttribute("aria-expanded", "false");
+      } else {
+        // The jobs pages: the row owns the subject, so the first control is the table, and its
+        // Subject cell is the one selection grammar behind a combobox trigger.
+        const table = work.locator(JOBS_CONTAINER).first();
+        await expect(table).toBeVisible();
+        await expect(table.locator('td[data-cell="subject"]').first().getByRole("combobox")).toBeVisible();
+      }
 
       const primary = work.getByTestId("run-button");
       await expect(primary).toBeVisible();
-      const geometry = await work.evaluate((element) => {
-        const subject = element.querySelector(".subjects-field")!;
-        const firstSection = element.querySelector(".form-section")!;
+      const geometry = await work.evaluate((element, firstControl) => {
+        const subject = element.querySelector(firstControl)!;
+        // The first section that is NOT the one holding that control: on a jobs page the table
+        // lives inside its own `Jobs` section, so "the subject control comes first" is a claim
+        // about the sections that follow it.
+        const firstSection = Array.from(element.querySelectorAll(".form-section")).find((s) => !s.contains(subject))!;
         const bar = element.querySelector(".action-bar")!.getBoundingClientRect();
         const button = element.querySelector('[data-testid="run-button"]')!.getBoundingClientRect();
         // The digest is absent while a run is blocked (the disabled primary carries the reason),
@@ -96,7 +115,7 @@ for (const theme of ["light", "dark"] as const) {
           overlap: button.bottom > bar.bottom || button.top < bar.top,
           overflow: element.scrollWidth - element.clientWidth,
         };
-      });
+      }, FIRST_CONTROL);
       measured.push({ page: id, ...geometry });
       expect(geometry.subjectsFirst, id).toBe(true);
       expect(geometry.primaryHeight, id).toBe(32);

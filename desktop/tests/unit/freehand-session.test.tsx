@@ -42,6 +42,12 @@ describe("Free-hand source draft", () => {
     ));
   }
 
+  /** The editor opens on demand now (see `FreehandTab`) — press "New placement" first. */
+  function openEditor() {
+    const button = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("New placement"));
+    if (button) act(() => button.click());
+  }
+
   const input = (selector: string) => container.querySelector<HTMLInputElement>(selector)!;
   function fill(selector: string, value: string) {
     const target = input(selector);
@@ -55,6 +61,7 @@ describe("Free-hand source draft", () => {
 
   it("restores name, coordinates, labels and invalid row count after a source-tab unmount", () => {
     render();
+    openEditor();
     fill("#sim-freehand-name", "unfinished_placement");
     fill('[aria-label="Position 1 label"]', "custom-A");
     fill('[aria-label="Position 1 X"]', "12.5");
@@ -76,11 +83,16 @@ describe("Free-hand source draft", () => {
 
   it("starts clean after the project session is cleared", () => {
     render();
+    openEditor();
     fill("#sim-freehand-name", "previous_project");
     fill('[aria-label="Position 1 X"]', "41");
     render(false);
     clearPageSession();
     render();
+    // A cleared session closes the editor too — the draft AND the fact one was open are both
+    // page-session state.
+    expect(container.querySelector("#sim-freehand-name")).toBeNull();
+    openEditor();
     expect(input("#sim-freehand-name").value).toBe("");
     expect(input('[aria-label="Position 1 X"]').value).toBe("0");
     expect(container.querySelectorAll("tbody tr")).toHaveLength(4);

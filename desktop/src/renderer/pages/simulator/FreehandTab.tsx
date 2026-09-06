@@ -48,7 +48,17 @@ export function FreehandTab({ subjects: selectedSubjects }: { subjects: string[]
     })),
   });
 
-  // Source tabs may unmount the editor; an unfinished placement belongs to the project session.
+  /*
+   * The editor is opened on demand, exactly as the montage catalog's "New montage" is — and for a
+   * measured reason, not only symmetry: a permanently-rendered 4-row coordinate table made this
+   * section tall enough that the run shape's fill controller reached a *different* decision about
+   * which other section to auto-open after a navigation away and back, which
+   * `page-memory.spec.ts` catches as a page that did not come back as the user left it.
+   *
+   * The draft itself is page-session state, so closing the editor — or leaving the page — never
+   * discards an unfinished placement.
+   */
+  const [open, setOpen] = usePageSession("freehand.open", false);
   const [editSubject, setEditSubject] = usePageSession<string | undefined>("freehand.subject", undefined);
   const [name, setName] = usePageSession("freehand.name", "");
   const [positions, setPositions] = usePageSession<ElectrodePosition[]>("freehand.positions", () => [
@@ -83,6 +93,12 @@ export function FreehandTab({ subjects: selectedSubjects }: { subjects: string[]
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+      {!open && (
+        <Button variant="secondary" size="sm" icon={<Plus size={14} />} onClick={() => setOpen(true)}>
+          New placement
+        </Button>
+      )}
+      {open && (
       <Card>
         <CardHeader title="New free-hand configuration" />
         <CardBody>
@@ -164,6 +180,7 @@ export function FreehandTab({ subjects: selectedSubjects }: { subjects: string[]
           {!validCount && <span className="field-error">Use 4 positions (2 pairs, standard TI) or 8 or more (4+ pairs, multi-channel mTI).</span>}
         </CardBody>
       </Card>
+      )}
 
       {selectedSubjects.length === 0 && <Callout kind="info">Pick at least one subject above to see or add its free-hand configurations.</Callout>}
       {isLoading && <Skeleton height={100} />}

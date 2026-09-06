@@ -151,7 +151,7 @@ test("Quick add fills the table, and the group switch folds the rows into one co
   await expect(page.getByTestId("run-button")).toHaveText("Queue 2 jobs", { timeout: 15_000 });
 
   // Evidence (§8.1).
-  await page.getByTestId("analysis-jobs-container").screenshot({ path: "tests/e2e/artifacts/jobs-table-analyzer.png" });
+  await page.getByTestId("analysis-jobs-table-container").screenshot({ path: "tests/e2e/artifacts/jobs-table-analyzer.png" });
 
   // Leave one row for the acceptance measurement below.
   await analysisRows(page).nth(1).getByRole("button", { name: "Remove row 2" }).click();

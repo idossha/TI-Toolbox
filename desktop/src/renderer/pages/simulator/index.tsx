@@ -363,13 +363,14 @@ function SimulatorPage() {
                 </div>
               </FormSection>
 
+
               {/*
                * Free-hand placements are AUTHORED here and CHOSEN in a job row's Montage cell — the
                * same split the montage catalog has (its editor is inside the table's own "New
                * montage"). Collapsed by default: writing electrode coordinates by hand is rare
                * next to picking a montage.
                */}
-              <FormSection title="Free-hand placements" collapsible defaultOpen={false} summary="author XYZ electrode sets">
+              <FormSection title="Free-hand placements" collapsible defaultOpen={false} tier={2} summary="author XYZ electrode sets">
                 <div style={{ gridColumn: "1 / -1" }}>
                   <FreehandTab subjects={usable} />
                 </div>

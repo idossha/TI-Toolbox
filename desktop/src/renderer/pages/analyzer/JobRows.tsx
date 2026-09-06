@@ -175,7 +175,7 @@ export function AnalyzerJobRows({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-      <div className="data-table-container" data-testid="analysis-jobs-container">
+      <div className="data-table-container" data-testid="analysis-jobs-table-container">
         <table className="data-table analysis-jobs-table" data-testid="analysis-jobs-table">
           <colgroup>
             <col style={{ width: "22%" }} />

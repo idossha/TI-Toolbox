@@ -808,13 +808,13 @@ export function JobsTable({
         <EmptyState icon={<Plus size={24} />} message="No EEG nets available in this project." />
       )}
       {montages.data && availableNets.length > 0 && (
-        <div className="data-table-container" ref={tableBox} data-testid="jobs-table-container">
+        <div className="data-table-container" ref={tableBox} data-testid="sim-jobs-table-container">
           {/* Fixed geometry: an explicit `<colgroup>` plus `table-layout: fixed` (simulator-page.css).
               Nothing a user does to one ROW — its subject, its source, its montage, its polarity —
               may move a cell in another; only a deliberate drag of a header boundary changes a
               COLUMN. The widths come from `resolveColumnWidths`, which always sums to the
               container, so the table cannot scroll sideways at any pane width. */}
-          <table className="data-table montage-table jobs-table" onKeyDown={onTableKeyDown} data-testid="jobs-table">
+          <table className="data-table montage-table sim-jobs-table" onKeyDown={onTableKeyDown} data-testid="sim-jobs-table">
             <colgroup>
               <col style={{ width: tableWidth ? cols.subject : "14%" }} />
               <col style={{ width: tableWidth ? cols.source : "15%" }} />
