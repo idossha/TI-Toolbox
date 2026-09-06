@@ -35,9 +35,12 @@ export interface RunPanelProps {
   onPinJob?: (jobId: string | null) => void;
   emptyMessage?: string;
   onEmptyAction?: () => void;
-  /** The ordered steps of the current configuration — the terminal's "What will run" source. */
+  /**
+   * Accepted and ignored since FXU2: the terminal's "What will run" preview was retired (an idle
+   * pane must not look like a run in progress). The pages still compute their step list, so the
+   * props stay in the signature rather than rippling an edit through four pages.
+   */
   steps?: RunStep[];
-  /** Subjects that may run at once, for the preview's estimate (Pre-processing's parallel count). */
   parallel?: number;
   onTerminalSourceChange?: (source: TerminalSource) => void;
   /** A `<ScenePane>`. Given, the lower half becomes the Terminal · Scene tab host (S7). */
@@ -63,8 +66,6 @@ export function RunPanel({
   onPinJob,
   emptyMessage,
   onEmptyAction,
-  steps,
-  parallel,
   onTerminalSourceChange,
   scene,
   onPaneTabChange,
@@ -87,9 +88,6 @@ export function RunPanel({
       pinnedJobId={pinnedJobId}
       onPinJob={onPinJob}
       onRevealLogFile={onRevealLogFile}
-      steps={steps}
-      plan={plan}
-      parallel={parallel}
       onSourceChange={onTerminalSourceChange}
     />
   );

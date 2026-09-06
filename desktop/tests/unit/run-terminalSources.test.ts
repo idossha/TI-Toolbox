@@ -1,73 +1,20 @@
 /**
- * The Terminal's three-source rule and the plan grid's legend, as pure functions (fix lane FXU1).
- * No browser, no socket: the rules are the thing under test, not React.
+ * The run pages' step catalogue, its estimate, and the plan grid's legend, as pure functions. No
+ * browser, no socket: the rules are the thing under test, not React.
+ *
+ * The Terminal's log-FILE source and its "What will run" preview were retired in fix lane FXU2 —
+ * the pane shows a running job or an empty console — so `parseLogText`/`pickLogFile`/`logBasename`
+ * and their tests went with them. The follow rule itself lives in `run-jobTerminal.test.ts`.
  */
 import { describe, expect, it } from "vitest";
 import {
   durationLabel,
   estimateMinutes,
-  logBasename,
-  parseLogText,
-  pickLogFile,
   RUN_STEPS,
   stepsFor,
-  type LogFileEntry,
 } from "../../src/renderer/pages/_shared/run/terminalSources";
 import { chipsPresent } from "../../src/renderer/pages/_shared/run/PlanGrid";
 import { planModelFrom, type PlanResult } from "../../src/renderer/pages/_shared/run/planModel";
-
-const file = (name: string, kind: string, modified: string): LogFileEntry => ({
-  path: `/mnt/example/derivatives/ti-toolbox/logs/sub-ernie/${name}`,
-  name,
-  kind,
-  modified,
-});
-
-describe("parseLogText", () => {
-  it("maps the level word onto the console's four levels", () => {
-    const lines = parseLogText(
-      [
-        "2026-08-27 08:41:02 INFO  tit.pre start",
-        "2026-08-27 08:48:02 WARNING tit.pre low contrast",
-        "2026-08-27 08:49:02 ERROR tit.pre boom",
-        "2026-08-27 08:49:03 DEBUG tit.pre noise",
-      ].join("\n"),
-    );
-    expect(lines.map((l) => l.level)).toEqual(["info", "warning", "error", "debug"]);
-    expect(lines.map((l) => l.seq)).toEqual([0, 1, 2, 3]);
-  });
-
-  it("treats a line with no level word as info, not debug", () => {
-    // A traceback's continuation lines must not be greyed out into invisibility.
-    expect(parseLogText("    File \"x.py\", line 3").map((l) => l.level)).toEqual(["info"]);
-  });
-
-  it("drops only the trailing newline, so a blank line inside a log survives", () => {
-    expect(parseLogText("a\n\nb\n").map((l) => l.text)).toEqual(["a", "", "b"]);
-  });
-});
-
-describe("pickLogFile", () => {
-  const files = [
-    file("preprocess_20260827_084102.log", "pre", "2026-08-27T09:16:33Z"),
-    file("Simulator_20260828_140211.log", "sim", "2026-08-28T14:12:05Z"),
-    file("preprocess_20260901_101500.log", "pre", "2026-09-01T10:40:00Z"),
-  ];
-
-  it("takes the newest file of one of the page's kinds, not the first the server sent", () => {
-    expect(pickLogFile(files, ["pre"])?.name).toBe("preprocess_20260901_101500.log");
-  });
-
-  it("is null when no file matches the kind, so the caller falls through to the preview", () => {
-    expect(pickLogFile(files, ["flex"])).toBeNull();
-    expect(pickLogFile([], ["pre"])).toBeNull();
-  });
-
-  it("accepts several kinds (the Optimizer follows flex, ex and mex)", () => {
-    const opt = [file("ex_search_a.log", "ex", "2026-08-30T09:22:40Z"), file("flex_search_a.log", "flex", "2026-08-29T10:44:31Z")];
-    expect(pickLogFile(opt, ["flex", "ex", "mex"])?.kind).toBe("ex");
-  });
-});
 
 describe("the estimate", () => {
   it("scales with the plan's subject rows and divides by the parallelism", () => {
@@ -111,12 +58,6 @@ describe("stepsFor", () => {
         expect(s.minutes, `${kind}/${s.id}`).toBeGreaterThan(0);
       }
     }
-  });
-});
-
-describe("logBasename", () => {
-  it("keeps the file name only", () => {
-    expect(logBasename("/mnt/example/derivatives/ti-toolbox/logs/sub-ernie/preprocess_1.log")).toBe("preprocess_1.log");
   });
 });
 

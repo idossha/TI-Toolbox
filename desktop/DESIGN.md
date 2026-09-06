@@ -541,8 +541,13 @@ terminals.
 1. the pinned job, if the user clicked a plan row or a job trace (`pinnedJobId`);
 2. the **newest running or queued** job whose `kind` is one of the page's kinds *and* whose subjects
    intersect the page's current subject selection;
-3. the same, dropping the subject filter (a run started from this page before the selection changed);
-4. the **most recently finished** job matching (2)'s kind filter.
+3. the same, dropping the subject filter (a run started from this page before the selection changed).
+
+There is deliberately no fourth rule. **A finished job is never followed automatically** (FXU2):
+opening a tab showed `pre · 102 · succeeded 12s` with a full DICOM log, which reads as "a job is
+happening" on a page that ran nothing. A finished log is shown only because someone asked for it —
+the Jobs page, a plan cell, or this pane's pin button — and a pin the user made is page-session
+state, so it survives navigation within the session.
 
 Ties break on `created_at` descending. Starting a new run of the page's kind clears the pin. The
 header states the resolved identity — `pre · ernie · running 4m12s` — so "which log am I reading"
@@ -562,9 +567,10 @@ the header (`aria-label="Reveal log file"`) wired to the existing `onRevealLogFi
 the plan grid is capped at 45 % of the panel height and scrolls internally past that, so a
 twelve-subject plan cannot squeeze the log out of existence.
 
-**Empty state.** One line, `--ink-2`, no icon, no button: *"No run yet for this page."* with the
-kind named underneath in `--ink-3` ("Pre-processing jobs appear here."). A finished job's log stays
-readable after it ends — that is the point of rule 4 above.
+**Empty state.** One quiet line, `--ink-2`, no icon and no button: *"No job running. Start one with
+Run, or pick a job from the Jobs page."*, with the header reading `Terminal · No job`. The pane is
+an empty console and nothing else — no tail of the last log file, no "What will run" step list:
+content in the log pane of a page you merely opened is what made an idle tab look busy.
 
 ### 4.7 The run-page skeleton, and the four numbers it is held to
 

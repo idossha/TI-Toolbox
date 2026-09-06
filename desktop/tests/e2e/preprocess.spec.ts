@@ -109,35 +109,37 @@ test("the plan is a subject x stage matrix of chips, with one legend and no free
   await expect(page.getByTestId("run-button")).toHaveText(/^Queue 8 jobs$/);
 });
 
-test("the terminal is never an empty box, and its header names which of the three it shows", async () => {
+test("opening the page starts nothing, and the terminal pins nothing (FXU2)", async () => {
+  // The bug this replaces: opening Pre-processing showed `pre · 102 · succeeded 12s` with a full
+  // DICOM-conversion log, which reads as "a job is happening". Two facts are asserted here.
+  //
+  // 1. Nothing is SUBMITTED by navigating. Every non-GET request the app makes while the page is
+  //    left and re-entered is recorded; none of them may be a job submission.
+  const writes: string[] = [];
+  const record = (r: import("@playwright/test").Request) => {
+    if (r.method() === "GET") return;
+    writes.push(`${r.method()} ${new URL(r.url()).pathname}`);
+  };
+  page.on("request", record);
+  await gotoPage(page, "jobs", "Jobs");
+  await gotoPage(page, "preprocess", "Pre-processing");
+  await expectPage(page, "preprocess");
+  await expect(page.getByTestId("job-terminal")).toBeVisible();
+  await page.waitForTimeout(1_500);
+  page.off("request", record);
+  expect(writes.filter((w) => /\/api\/jobs/.test(w))).toEqual([]);
+
+  // 2. Nothing is PINNED. The mock's fixture has finished pre jobs; not one of them may be
+  //    followed by a page the user merely opened. The pane is an empty console with one line.
   const terminal = page.getByTestId("job-terminal");
-  // FXU1: `live` | `file` | `preview`, first available wins; the pane always carries content.
-  const source = await terminal.getAttribute("data-source");
-  expect(["live", "file", "preview"]).toContain(source);
-  const identity = terminal.getByTestId("job-terminal-identity");
-  await expect(identity).toHaveCount(1);
-
-  if (source === "file") {
-    // Nothing has run in this session, but the subject's last pre-processing log has, and the
-    // header says so by name rather than leaving the box blank.
-    await expect(identity).toContainText("Last run");
-    await expect(identity).toContainText(/\.log$/);
-    expect(await page.locator(".job-console-line").count()).toBeGreaterThan(5);
-  }
-
-  if (source !== "preview") {
-    // R2: whichever log this run page is showing, it is the one shared `JobConsole` — same
-    // Follow switch and same source-aware Clear as the Jobs rail (`terminal.spec.ts`).
-    await expect(terminal.getByRole("switch", { name: "Follow tail" })).toBeVisible();
-    await expect(terminal.getByRole("button", { name: "Clear terminal" })).toBeVisible();
-  }
-
-  if (source === "preview") {
-    await expect(identity).toContainText("What will run");
-    const preview = terminal.getByTestId("run-preview");
-    await expect(preview.locator(".run-preview-step").first()).toBeVisible();
-    await expect(preview.getByText("Estimated total")).toBeVisible();
-  }
+  await expect(terminal).toHaveAttribute("data-source", "empty");
+  await expect(terminal.getByTestId("job-terminal-identity")).toHaveText("No job");
+  await expect(terminal.getByTestId("job-terminal-empty")).toHaveText(
+    "No job running. Start one with Run, or pick a job from the Jobs page.",
+  );
+  // No log is rendered at all — not a line of one, and no console furniture to suggest there is.
+  await expect(terminal.locator(".job-console-line")).toHaveCount(0);
+  await expect(terminal.getByRole("switch", { name: "Follow tail" })).toHaveCount(0);
 });
 
 test("queues the group, and the terminal then follows the job it started", async () => {
@@ -159,12 +161,11 @@ test("queues the group, and the terminal then follows the job it started", async
 
   await expect(page.getByText(/Queued preprocessing for 2 subjects \(\d+ jobs\)\./)).toBeVisible({ timeout: 10_000 });
 
-  // §4.6 rules 2 and 4: with a job of this kind now running, the terminal names it.
+  // FXU2: a job of this kind is now genuinely running, so — and only so — the terminal names it.
   const identity = page.getByTestId("job-terminal").getByTestId("job-terminal-identity");
   await expect(identity).toBeVisible({ timeout: 15_000 });
   await expect(identity).toContainText("pre");
-  // §4.6: the pane shows the configuration preview until the job it picked has actually said
-  // something; once it has, the body is the one shared `JobConsole` with its Follow/Clear pair.
+  // The body is the one shared `JobConsole`, with its Follow/Clear pair.
   await expect(page.getByTestId("job-terminal")).toHaveAttribute("data-source", "live", { timeout: 60_000 });
   await expect(page.getByTestId("job-terminal").getByRole("button", { name: "Clear terminal" })).toBeVisible({ timeout: 15_000 });
 
@@ -172,6 +173,29 @@ test("queues the group, and the terminal then follows the job it started", async
   // itself (the terminal header and the action bar's digest), not in a rail along the bottom.
   await expect(page.locator(".status-bar")).toHaveCount(0);
   await expect(page.locator("[data-status-cell]")).toHaveCount(0);
+});
+
+test("a pin the user made survives leaving the page and coming back (FXU2)", async () => {
+  // The other half of the rule: the terminal pins nothing by itself, but what the USER pinned is
+  // page-session state (`usePageSession("pinnedJob")`) and is theirs until they clear it — which
+  // is what makes a finished log readable at all now that nothing auto-follows one.
+  const terminal = page.getByTestId("job-terminal");
+  await expect(terminal).toHaveAttribute("data-source", "live", { timeout: 30_000 });
+  const subject = await terminal.getByTestId("job-terminal-identity").innerText();
+  await terminal.getByRole("button", { name: "Pin this job" }).click();
+  await expect(terminal.getByRole("button", { name: "Unpin this job" })).toBeVisible();
+
+  await gotoPage(page, "jobs", "Jobs");
+  await gotoPage(page, "preprocess", "Pre-processing");
+  await expectPage(page, "preprocess");
+  await expect(terminal).toHaveAttribute("data-source", "live");
+  await expect(terminal.getByTestId("job-terminal-identity")).toContainText(subject.split("\n")[0]!);
+  await expect(terminal.getByRole("button", { name: "Unpin this job" })).toBeVisible();
+
+  // Unpinning hands the page back to the rule: the pane follows a running job or nothing, and a
+  // finished job is never followed again once the pin that held it is gone.
+  await terminal.getByRole("button", { name: "Unpin this job" }).click();
+  await expect(terminal.getByRole("button", { name: "Unpin this job" })).toHaveCount(0);
 });
 
 test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.3)", async () => {

@@ -393,7 +393,10 @@ test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.
     // deleting them RAISES the number while removing chrome, which is exactly the case where the
     // instrument and the design disagree. Measured after the removal: 0.63 (1280) / 0.69 (1440);
     // +0.02 margin, and still a regression guard on anything that adds real emptiness.
-    expect(row.deadSpaceRatio, `${row.theme} @${row.width}`).toBeLessThanOrEqual(0.71);
+    // Raised again to 0.75 by FXU2: the terminal no longer fills itself with a "What will run"
+    // step list when nothing is running, because content in the log pane of a page you merely
+    // opened reads as a job in progress. Measured after that change: 0.7076 (1280) / 0.7295 (1440).
+    expect(row.deadSpaceRatio, `${row.theme} @${row.width}`).toBeLessThanOrEqual(0.75);
     expect(row.pageHeaderHeight).toBe(0);
     expect(row.panes.nav).toBe(row.width >= 1440 ? 216 : 56);
     // DESIGN.md §2.1: the run panel is `clamp(320px, 45vw, calc(100% - 566px))` — 45 % of the

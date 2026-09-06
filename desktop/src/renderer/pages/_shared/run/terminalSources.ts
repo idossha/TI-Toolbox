@@ -1,20 +1,70 @@
 /**
- * What the run page's Terminal shows when no job of its kind is live (DESIGN.md v3 §4.6, fix lane
- * FXU1). The rule the orchestrator's visual verdict added: **the terminal is never an empty box.**
+ * What the run page's Terminal follows, and what it shows when it follows nothing (DESIGN.md v3
+ * §4.6, fix lane FXU2).
  *
- * Three sources, first available wins:
- *   1. `live`    — the followed job's event stream (`JobTerminal`'s existing rules 1–4);
- *   2. `file`    — the LAST log file of this page's kind for the current subject, tailed from the
- *                  server (`GET /api/catalog/logs` → `GET /api/files/text?path=&tail=200`);
- *   3. `preview` — a "What will run" panel: the ordered steps of the current configuration with a
- *                  one-line description each and an estimated duration.
+ * The rule the maintainer's screenshot forced (a freshly opened Pre-processing tab showing
+ * `pre · 102 · ● succeeded 12s` with a full DICOM log, which reads as "a job is happening"):
+ *
+ *   **The terminal never pins a finished job by itself.** On page open it follows a job only when
+ *   one of this page's kinds is *currently running or queued* — then something really is
+ *   happening and naming it is the truth. Otherwise the pane is an empty console with one quiet
+ *   line, until the user runs from this page (the job it starts is running, so rule 2 picks it
+ *   up) or pins a job explicitly (a plan-cell click, the Jobs page, this pane's own pin button).
+ *   A pin the user made is page-session state and survives navigation within the session.
+ *
+ * The two sources the previous lane (FXU1) added — tailing the last log FILE of the kind, and a
+ * "What will run" preview — are gone with it: both put content in the pane that a reader could
+ * mistake for a run of their own. The step catalogue below stays, because the pages compute their
+ * step list from it and it is the natural input for a future work-pane preview.
  *
  * Everything here is pure so the rules are unit-tested without a browser or a socket.
  */
-import type { JobLogLine } from "../../../ui/Jobs";
+import type { JobSummary } from "../../../ui/Jobs";
+import type { JobState } from "../../../ui/Status";
 import type { PlanKind, PlanModel } from "./planModel";
 
-export type TerminalSource = "live" | "file" | "preview";
+/** What the pane is showing: a followed job's live log, or nothing at all. */
+export type TerminalSource = "live" | "empty";
+
+/**
+ * `ui/Jobs.tsx`'s `JobSummary` plus the two facts the follow rule needs and a rail trace does not:
+ * every subject a job is scoped to (the selection is intersected with it) and the creation instant
+ * (the tie-break). Structurally a `JobSummary`, so it still renders anywhere one does.
+ */
+export interface FollowableJob extends JobSummary {
+  subjects: string[];
+  createdAt: number;
+  logPath?: string;
+}
+
+/** Queued counts as "happening": the job exists, is going to run, and is the one to watch. */
+const RUNNING: JobState[] = ["running", "queued"];
+
+/**
+ * Which job the terminal follows — `null` for "nothing is running; show the empty console".
+ *
+ * Order, first match wins, ties on `createdAt` descending:
+ *   1. the job the user pinned (whatever its state — they asked for that log by name);
+ *   2. the newest running/queued job of one of `kinds` whose subjects intersect `subjects`;
+ *   3. the newest running/queued job of one of `kinds`, when nothing intersects.
+ *
+ * There is deliberately no fourth rule. A finished job is only ever shown because someone asked
+ * for it: from the Jobs page, from a plan cell, or from this pane's pin button.
+ */
+export function resolveFollowedJob(
+  jobs: FollowableJob[],
+  kinds: PlanKind[],
+  subjects: string[],
+  pinnedJobId?: string | null,
+): FollowableJob | null {
+  const byNewest = [...jobs].sort((a, b) => b.createdAt - a.createdAt);
+  if (pinnedJobId) {
+    const pinned = byNewest.find((j) => j.id === pinnedJobId);
+    if (pinned) return pinned;
+  }
+  const running = byNewest.filter((j) => kinds.includes(j.kind as PlanKind) && RUNNING.includes(j.state));
+  return running.find((j) => j.subjects.some((s) => subjects.includes(s))) ?? running[0] ?? null;
+}
 
 /** One entry of a page's "What will run" list. */
 export interface RunStep {
@@ -26,59 +76,6 @@ export interface RunStep {
   detail: string;
   /** Rough wall-clock minutes for ONE subject on a typical workstation. */
   minutes: number;
-}
-
-/** A log file the server lists for a subject (`GET /api/catalog/logs`). */
-export interface LogFileEntry {
-  path: string;
-  name: string;
-  kind: string;
-  /** ISO-8601. */
-  modified: string;
-  size?: number;
-}
-
-const LEVEL_RE = /\b(DEBUG|INFO|WARNING|WARN|ERROR|CRITICAL|FATAL)\b/;
-
-/**
- * A tailed log file → the same `JobLogLine[]` the live console renders, so one component draws
- * both and the level colours stay the token set (§4.6). A line with no level word is `info`:
- * inventing `debug` for it would grey out a traceback's continuation lines.
- */
-export function parseLogText(text: string): JobLogLine[] {
-  return text
-    .replace(/\r\n/g, "\n")
-    .split("\n")
-    .filter((line, i, all) => line.trim() !== "" || i < all.length - 1)
-    .map((text, i) => {
-      const m = LEVEL_RE.exec(text);
-      const word = m?.[1]?.toUpperCase();
-      const level: JobLogLine["level"] =
-        word === "DEBUG"
-          ? "debug"
-          : word === "WARNING" || word === "WARN"
-            ? "warning"
-            : word === "ERROR" || word === "CRITICAL" || word === "FATAL"
-              ? "error"
-              : "info";
-      return { seq: i, level, text };
-    });
-}
-
-/**
- * The newest log file of one of `kinds`. The server sorts newest-first, but a mock, a proxy or a
- * future paginated route may not, so the pick is made here rather than assumed.
- */
-export function pickLogFile(files: LogFileEntry[], kinds: PlanKind[]): LogFileEntry | null {
-  const of = files.filter((f) => kinds.includes(f.kind as PlanKind));
-  if (of.length === 0) return null;
-  return of.reduce((best, f) => (Date.parse(f.modified) > Date.parse(best.modified) ? f : best));
-}
-
-/** `/a/b/c.log` → `c.log`. */
-export function logBasename(path: string): string {
-  const parts = path.split("/").filter(Boolean);
-  return parts[parts.length - 1] ?? path;
 }
 
 /**

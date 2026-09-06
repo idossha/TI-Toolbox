@@ -205,9 +205,12 @@ test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.
 
   for (const row of rows) {
     // See preprocess.spec.ts for why this is not §12.3's 25 %. Raised from 0.65 to 0.70 when the
-    // run panel went to 45 vw: at 1440 the pane is 610 px of PLAN + TERMINAL, and before a run the
-    // terminal is empty by definition — measured 0.6716 light and dark, 0.6154 at 1280.
-    expect(row.deadSpaceRatio, `${row.theme} @${row.width}`).toBeLessThanOrEqual(0.7);
+    // run panel went to 45 vw: at 1440 the pane is 610 px of PLAN + TERMINAL. Raised again to 0.78
+    // by FXU2, which retired the terminal's "What will run" step list: an idle page's terminal is
+    // now literally an empty console with one line, so the pane really is that much ground —
+    // measured 0.7553 at 1280 and 0.7427 at 1440, both themes. The number is honest about the
+    // state, and the state is the one the maintainer asked for (a tab you open ran nothing).
+    expect(row.deadSpaceRatio, `${row.theme} @${row.width}`).toBeLessThanOrEqual(0.78);
     expect(row.pageHeaderHeight).toBe(0);
     expect(row.panes.nav).toBe(row.width >= 1440 ? 216 : 56);
     // DESIGN.md §2.1: the run panel is `clamp(320px, 45vw, calc(100% - 566px))` — 45 % of the

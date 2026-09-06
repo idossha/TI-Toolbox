@@ -57,6 +57,17 @@ test.afterAll(async () => {
 test("tissue analysis on sub-101: accepted, started, and completed with a real artifact", async () => {
   test.setTimeout(360_000);
 
+  /*
+   * FXU2, against a server that really does hold this project's finished pre-processing jobs (the
+   * exact condition of the maintainer's screenshot: opening the tab showed `pre · 102 · succeeded`
+   * with a full DICOM-conversion log). Nothing of this page's kind is running, so the terminal
+   * pins nothing and says so.
+   */
+  const terminal = page.getByTestId("job-terminal");
+  await expect(terminal).toHaveAttribute("data-source", "empty");
+  await expect(terminal.getByTestId("job-terminal-empty")).toBeVisible();
+  await expect(terminal.locator(".job-console-line")).toHaveCount(0);
+
   // Tick sub-101 in the page's own batch table (U6) — matches the fixture matrix's "pre: tissue
   // analysis" row.
   await page.locator(".subject-picker-row", { hasText: "101" }).getByRole("checkbox").click();
