@@ -304,7 +304,7 @@ export function MontageManager({
    * electrodes as idle dots, its own pairs coloured by channel) — visual confirmation of a row
    * that is already chosen, not an editor. `null` when no row is active.
    */
-  onPreviewChange?: (preview: { net: string; pairs: [string, string][] } | null) => void;
+  onPreviewChange?: (preview: { net: string; name: string; pairs: [string, string][] } | null) => void;
   /**
    * Per-pair currents, edited in this table's own row (v3): the v2 page carried a second
    * "Selected jobs" card below the montage list that repeated every ticked row purely to hold
@@ -431,12 +431,13 @@ export function MontageManager({
 
   const activeRow = chosen.find((c) => c.key === activeKey) ?? null;
   const activeNet = activeRow?.montage.net;
+  const activeName = activeRow?.montage.name;
   const activePairs = activeRow?.montage.pairs;
   // Reported in an effect, not during render: it is the page's state (which then hands it to the
   // shared scene pane exactly the way the montage draft is handed over).
   useEffect(() => {
-    onPreviewChange?.(activeNet && activePairs ? { net: activeNet, pairs: activePairs } : null);
-  }, [activeNet, activePairs, onPreviewChange]);
+    onPreviewChange?.(activeNet && activeName && activePairs ? { net: activeNet, name: activeName, pairs: activePairs } : null);
+  }, [activeNet, activeName, activePairs, onPreviewChange]);
 
   function dropSelection(m: { net: string; kind: MontageKind; name: string }) {
     const id = rowId(m);

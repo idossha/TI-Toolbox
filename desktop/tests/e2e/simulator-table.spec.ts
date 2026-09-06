@@ -147,6 +147,40 @@ test("the row the 3-D pane is drawing is tinted, and up/down moves it", async ()
   await expect(rows.nth(1)).not.toHaveAttribute("data-active", "true");
 });
 
+test("the 3-D pane names the row it is drawing, in the row's own accent", async () => {
+  const rows = montageRows();
+  const chip = page.getByTestId("scene-pane-showing");
+
+  // Row 2 is the uni-polar one; row 1 the multi-polar. Both name themselves in the pane.
+  for (const index of [1, 0]) {
+    await rows.nth(index).locator("td.mono").click();
+    await expect(rows.nth(index)).toHaveAttribute("data-active", "true");
+    const montage = await rows.nth(index).getAttribute("data-montage-row");
+    await expect(chip).toHaveText(`Showing: ${montage} · GSN-HydroCel-185`);
+  }
+
+  // The chip's colours ARE the row's colours — the same two tokens, read back computed.
+  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
+  const rowTint = await rows.nth(0).locator("td").first().evaluate((td) => getComputedStyle(td).backgroundColor);
+  const chipStyle = await chip.evaluate((el) => {
+    const cs = getComputedStyle(el);
+    return { background: cs.backgroundColor, bar: cs.borderLeftColor, barWidth: cs.borderLeftWidth };
+  });
+  expect(chipStyle.background).toBe(rowTint);
+  expect(chipStyle.bar).toBe("rgb(31, 91, 215)"); // --accent, light
+  expect(chipStyle.barWidth).toBe("2px");
+
+  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
+  const darkRow = await rows.nth(0).locator("td").first().evaluate((td) => getComputedStyle(td).backgroundColor);
+  const darkChip = await chip.evaluate((el) => {
+    const cs = getComputedStyle(el);
+    return { background: cs.backgroundColor, bar: cs.borderLeftColor };
+  });
+  expect(darkChip.background).toBe(darkRow);
+  expect(darkChip.bar).toBe("rgb(127, 166, 255)"); // --accent, dark
+  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
+});
+
 /* Evidence (§8.1), never the assertion. */
 test("records the montage table", async () => {
   await container().screenshot({ path: "tests/e2e/artifacts/montage-table-v3.png" });

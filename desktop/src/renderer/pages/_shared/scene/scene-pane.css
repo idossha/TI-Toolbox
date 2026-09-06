@@ -149,3 +149,28 @@
 .channel-chip-name {
   white-space: nowrap;
 }
+
+/*
+ * "Showing: <montage> · <net>" — the pane's half of the Simulator's active-row highlight.
+ *
+ * The tokens are the same two the montage table tints its active row with (simulator-page.css):
+ * `--accent-soft` ground, a 2px `--accent` bar on the leading edge. Both are theme tokens, so the
+ * dark pair applies without a second rule, and the user reads one accent for one claim: this row,
+ * this scene.
+ */
+.scene-pane-showing {
+  margin: 0;
+  padding: 4px var(--space-2);
+  border-left: 2px solid var(--accent);
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.scene-pane-showing strong {
+  font-weight: 600;
+}

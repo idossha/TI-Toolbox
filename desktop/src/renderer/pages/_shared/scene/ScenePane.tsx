@@ -97,6 +97,13 @@ export interface ScenePaneProps {
   onRegionsChange?: (regions: SceneRegionRef[]) => void;
   /** A page-supplied sentence for a target the pane cannot draw (subcortical, a saved ROI CSV). */
   note?: string;
+  /**
+   * What the pane is drawing, when the page can name it: the montage row the user picked in the
+   * Simulator's table. Rendered as an accent chip above the stage in exactly the tokens that tint
+   * that row (`--accent-soft` / `--accent`), so "the highlighted row" and "what the viewer shows"
+   * are visibly the same claim rather than two things a user has to correlate.
+   */
+  showing?: { montage: string; net: string } | null;
   className?: string;
 }
 
@@ -171,6 +178,7 @@ export function ScenePane({
   regions,
   onRegionsChange,
   note,
+  showing = null,
   className,
 }: ScenePaneProps) {
   const pageActive = usePageActive();
@@ -606,6 +614,11 @@ export function ScenePane({
 
   return (
     <div className={hostClassName} data-testid="scene-pane-host" data-mode={mode} data-gesture={gesture} data-state={state} data-renderer="tetravox" data-active-channel={activeChannel ?? ""}>
+      {showing ? (
+        <p className="scene-pane-showing" data-testid="scene-pane-showing">
+          Showing: <strong>{showing.montage}</strong> · {showing.net}
+        </p>
+      ) : null}
       {gesture === "electrode" ? (
         <ChannelLegend pairs={activePairs} activeChannel={activeChannel} onActivate={activateChannel} />
       ) : null}

@@ -118,7 +118,7 @@ function SimulatorPage() {
   // Click-to-visualise: the montage row the user clicked, drawn on the guide pane as its net's
   // electrodes plus its own pairs — read-only (no `onPairsChange`), so looking at a chosen montage
   // can never edit it. The draft, when one is open, is what the pane is FOR and wins.
-  const [montagePreview, setMontagePreview] = useState<{ net: string; pairs: [string, string][] } | null>(null);
+  const [montagePreview, setMontagePreview] = useState<{ net: string; name: string; pairs: [string, string][] } | null>(null);
   const scenePane = usePaneController({ pageId: "simulator", name: "run" });
 
   const subjectsWithModel = useMemo(() => subjects.filter((s) => s.has_m2m).map((s) => s.id), [subjects]);
@@ -223,6 +223,7 @@ function SimulatorPage() {
                 mode="montage"
                 net={(montageDraft ? montageNet : (montagePreview?.net ?? montageNet)) ?? null}
                 pairs={montageDraft?.pairs ?? (tab === "montage" ? montagePreview?.pairs : undefined)}
+                showing={tab === "montage" && !montageDraft && montagePreview ? { montage: montagePreview.name, net: montagePreview.net } : null}
                 onPairsChange={tab === "montage" ? setDraftPairs : undefined}
                 onRequestPairs={tab === "montage" ? startDraftFromScene : undefined}
                 note={tab === "montage" ? undefined : "Flex and free-hand sources carry their own electrode positions — the preview shows the net, not the run."}
