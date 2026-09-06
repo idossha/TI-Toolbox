@@ -114,17 +114,14 @@ test("the shell's own numbers are within their limits at both sizes", async () =
     expect(subjects!.panes.nav).toBe(width >= 1440 ? 216 : 56);
     // §8: no page header outside Settings and Help.
     expect(subjects!.pageHeaderHeight).toBe(0);
-    // U8: the shell contributes exactly the connection and version cells; everything else on the
-    // left was registered by the page on screen.
-    expect(subjects!.statusCells).toEqual(expect.arrayContaining(["connection", "version"]));
-    expect(subjects!.statusCells).not.toContain("ras");
-    expect(subjects!.statusCells).not.toContain("space");
-    expect(subjects!.statusCells).not.toContain("renderer");
   }
+
+  // §11: the bottom status bar is gone, so no page contributes cells to one.
+  await expect(page.locator("[data-status-cell]")).toHaveCount(0);
+  await expect(page.locator(".status-bar")).toHaveCount(0);
 
   const jobs = at("jobs", "light", 1280);
   expect(jobs, "no capture for jobs at 1280").toBeDefined();
-  expect(jobs!.statusCells).not.toContain("ras");
   expect(jobs!.pageHeaderHeight).toBe(0);
 
   console.log(`screens: ${rows.length} captures in ${artifactDir(RUN_ID)}`);

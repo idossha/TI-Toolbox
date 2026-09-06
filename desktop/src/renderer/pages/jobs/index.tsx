@@ -36,7 +36,6 @@ import { SegmentedControl } from "../../ui/SegmentedControl";
 import { notify } from "../../ui/Toast";
 import { ApiError } from "../../api/client";
 import type { PageDef } from "../../app/registry";
-import { useStatusCells } from "../../app/statusCells";
 import { GroupsView } from "../../app/jobs-rail/GroupsView";
 import { JobDetailPane } from "../../app/jobs-rail/JobDetailPane";
 import { JobsSelectionTable } from "./JobsSelectionTable";
@@ -109,16 +108,6 @@ function JobsPage() {
   const pane = // `minWidth: 320` — the detail column is DESIGN.md §2.1's fixed 360/400 px column, not the run
   // shape's 45 vw document pane, so it keeps the narrower floor while gaining the 70 vw ceiling.
   usePaneController({ pageId: "jobs", name: "job detail", minWidth: 320, enabled: !!selected });
-
-  // The status bar's cell (DESIGN.md §11.1: "1 running · 3 queued · 1 failed") — against every
-  // job the server has, not the toolbar's filtered subset, so it agrees with the rail's own count.
-  const jobCounts = useMemo(() => {
-    const running = model.all.filter((j) => j.state === "running").length;
-    const queued = model.all.filter((j) => j.state === "queued").length;
-    const failed = model.all.filter((j) => j.state === "failed").length;
-    return `${running} running · ${queued} queued · ${failed} failed`;
-  }, [model.all]);
-  useStatusCells([{ id: "jobCounts", value: jobCounts, priority: 10 }]);
 
   // Empty state (fix round, lane FIX-D, defect 4). It used to be DESIGN.md §4.4's *whole-page*
   // row: one centred `EmptyState` and no filter strip. Measured at 1280x800 that page was **99.1 %

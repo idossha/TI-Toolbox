@@ -54,7 +54,7 @@ Shape A — run page (U2)                          Shape B — browser (U4)     
 │      │                     │ │ TERMINAL   │ │  │      │       │         │          │  │      │ at 1280×800          │
 │      ├─────────────────────┤ │ (fills)    │ │  └──────┴───────┴─────────┴──────────┘  └──────┴──────────────────────┘
 │      │ action bar       44 │ └────────────┘ │
-├──────┴─────────────────────┴────────────────┤   jobs rail 32 (⌘J → 260) · status bar 24 (contextual cells, §11)
+├──────┴─────────────────────┴────────────────┤   jobs rail 32 (⌘J → 260)
 ```
 
 | shape | pages | work pane | right pane |
@@ -148,7 +148,12 @@ current `screens.spec.ts` capture rather than this table before relying on eithe
 - **The jobs rail owns running work.** One component at three heights: rail 32 / panel 260 (`⌘J`,
   tabs Jobs / Console / Host / Report) / full page (`jobs` route). It is the app's signature and it
   stays on every screen.
-- **The status bar owns whatever the page registered** (§11) plus connection and versions.
+- **There is no status bar.** The 24 px bottom rail and its per-page cell registry were removed
+  wholesale: it printed a job/plan digest and a viewer read-out that nobody navigated by, and it
+  cost every page a registration hook to fill. The one fact that had to survive is **whether the
+  server is reachable**, and that now lives only in the context bar, as the connection dot next to
+  the running-jobs count (`AppContextBar`, with `connection.reason` as its tooltip). The version
+  string it also carried was already stated at Settings ▸ About the server.
 - **No page header.** The nav rail already says which page this is. Settings and Help are the two
   exceptions (`showHeader`). *Today Subjects, Simulator and Results still print one — that is a
   v2 regression each lane removes.*
@@ -201,7 +206,7 @@ monospace`. All numbers `font-variant-numeric: tabular-nums`.
 
 | step | class | use |
 |---|---|---|
-| 11/14 | `.text-micro`, `.text-eyebrow` (.07em, 600, uppercase) | chips, eyebrows, section titles, table headers, status bar. **Chips and eyebrows only.** |
+| 11/14 | `.text-micro`, `.text-eyebrow` (.07em, 600, uppercase) | chips, eyebrows, section titles, table headers. **Chips and eyebrows only.** |
 | 12/16 | `.text-caption` | field labels, help, value summaries, plan digest |
 | **13/18** | `.text-body`, `.text-dense` — **the base**, set on `<body>` | every control, every table cell, everything else |
 | 14/20 | `.text-prose` | running prose only: Help, About, a Callout's paragraph |
@@ -223,7 +228,7 @@ with `--ink-3`. `tests/unit/cssRules.test.ts` scans the stylesheets for that pai
 | `--section-header-h` | 28 | flush section headers |
 | `--field-label-w` | 160 | the label column of a label-left field row |
 | `--pane-pad` | 12 | pane and section body padding |
-| `--context-bar-h` / `--action-bar-h` / `--status-bar-h` | 40 / 44 / 24 | shell strips |
+| `--context-bar-h` / `--action-bar-h` | 40 / 44 | shell strips |
 | `--nav-w` / `--nav-w-icons` | 216 / 56 | the rail, labelled and icon-only |
 | `--right-pane-w` / `--right-pane-w-lg` | 360 / 400 | the run panel and every other right pane (§2.1); `--right-pane-w-lg` applies at ≥ 1440 |
 | `--inspector-w` | 300 | **legacy alias**, kept so a v2 page renders unchanged; no v3 page sets it |
@@ -733,9 +738,6 @@ header), and the pure `PlanModel` mapper `planModelFrom(result, subjects, stages
 `planDigest(plan)`. **`PlanSummary` is deprecated** — it stays exported and working for any page not
 yet migrated, and every run page moves to `PlanGrid`; the last migration deletes it.
 
-**Status.** `useStatusCells(cells)` (`app/statusCells.ts`) is how a page puts anything in the status
-bar (§11); `StatusCell` renders one. No page imports `AppStatusBar`.
-
 ## 6. Interaction rules
 
 1. Anything longer than a request is a job: the button shows loading only until the job is
@@ -952,9 +954,6 @@ owns the data") is retired with the inspector.
   a preference: a light viewport changes what a greyscale T1 and a heat overlay look like. No theme
   block may override it. The app calls `Engine.setTheme` in the same tick as its own `data-theme`
   flip so the embed's chrome matches.
-- **The status bar is where the viewer's data goes now** (§11). The page registers `ras`, `space`
-  and `renderer`; the cursor read-out that used to need three number inputs in an inspector is one
-  cell of tabular text, and it is gone the moment you leave the page.
 - **Layer names are the server's.** `tit/viewspec.py` decides what a layer is called; no
   display-name mapping lives in the client.
 - **Loading.** Per-dataset progress with the byte count, over `--canvas`. A scene whose only
@@ -962,17 +961,14 @@ owns the data") is retired with the inspector.
 - **Three designed states, not errors.** There is no "Open externally" anywhere — Freeview and Gmsh
   are gone, the viewer is TI-Toolbox's only way to look at a subject or a result, and each state
   names what happened rather than offering a fallback that does not exist. With the inspector gone,
-  each one is a centred block over the full content box, `max-width: 480px`, and the status bar's
-  `renderer` cell carries the short form:
+  each one is a centred block over the full content box, `max-width: 480px`:
   - **No WebGL2** (`TetravoxFrame`, `status === "no-webgl2"`) — names the detected renderer when the
     embed reported one and explains that Chromium M137 removed the automatic software fallback, so
-    there is nothing to switch on. No buttons. Status cell: `renderer = "no WebGL2"` in
-    `--warning`.
+    there is nothing to switch on. No buttons.
   - **No embed answered** (`status === "no-embed"`) — the iframe mounted at `/tetravox/` but nothing
     replied to the handshake inside 8 s. Leads with the *timeout* and names the seconds, because a
     bundle that is present but failed to start looks exactly like this and the first thing to try is
-    a reload. One `Reload viewer` button. Status cell: `renderer` is **not registered** — nothing
-    answered, so there is nothing to report, and §11 forbids a placeholder.
+    a reload. One `Reload viewer` button.
   - **Not bundled** (the page itself, before it mounts a frame) — `GET /api/capabilities` reported
     `tetravox_embed.available === false`. Leads with the *capability answer* ("This server has no
     viewer bundle") and says nothing timed out, because nothing was mounted. The source bar is not
@@ -981,49 +977,12 @@ owns the data") is retired with the inspector.
 - **Keyboard.** The canvas owns unmodified keys while focused; the shell keeps only ⌘-prefixed ones.
   `⌘⇧V` focuses the canvas; `?` lists both key sets in one sheet.
 
-## 11. Status bar
+## 11. Status bar — removed
 
-24 px, cells, 11 px, tabular numbers — and **contextual** (program U8). The v2 bar printed
-"RAS — Space — Renderer —" on the Jobs page, three cells about a canvas that was not mounted. In v3
-the shell renders nothing of its own on the left: **each page registers the cells it can actually
-fill, and a cell with no value is not rendered at all.** There is no "—" in the status bar.
-
-```tsx
-useStatusCells([
-  { id: "lastJob", label: "Job", value: "pre · running 4m12s", priority: 10 },
-  { id: "planCost", label: "Plan", value: "2 jobs · 8 CPU · 16 GB", priority: 20 },
-]);
-```
-
-### 11.1 Cell registry
-
-Left cluster, ascending `priority`, dropped when `value` is `null` / `undefined` / `""`:
-
-| id | priority | pages | example value |
-|---|---|---|---|
-| `lastJob` | 10 | preprocess, simulator, optimizer, analyzer | `pre · running 4m12s` · `sim · succeeded 12m` |
-| `planCost` | 20 | the same four | `2 jobs · 8 CPU · 16 GB` |
-| `counts` | 10 | subjects | `3 subjects · 3 m2m · 1 leadfield` |
-| `counts` | 10 | results | `ernie · 3 simulations · 2 analyses · 1 report` |
-| `jobCounts` | 10 | jobs | `1 running · 3 queued · 0 failed` |
-| `ras` | 10 | viewer | `12.0  −18.0  9.0` (mono, tabular) |
-| `space` | 20 | viewer | `subject` · `MNI` |
-| `renderer` | 30 | viewer | `Apple M2 Pro` · `no WebGL2` (`--warning`) |
-
-Right cluster, shell-owned, always present in this order: **connection** (`StatusDot` + label, the
-same object the context bar reads) and **`tit x.y · api vN`**. They are the two facts that are true
-regardless of which page is on, which is why they are the two the shell keeps.
-
-### 11.2 Rules
-
-1. A page registers while active and unregisters when hidden or unmounted — `useStatusCells` owns
-   that, so a retained tab cannot leave its cells on the current page.
-2. Nothing else writes the status bar. `AppStatusBar` has no page knowledge and no viewer import.
-3. A value is a string or a node the page has already formatted; the bar does not format, so it
-   cannot invent a unit.
-4. `label` is optional. A cell that reads `subject` needs no label; `RAS 12.0 −18.0 9.0` does.
-5. The bar never scrolls and never wraps: past the available width, lowest-priority cells drop out
-   with their content available from the page itself.
+There is no bottom rail. The 24 px status bar, its `--status-bar-h` token, `AppStatusBar`, the
+`useStatusCells` cell registry and every page's registration were deleted; §2.3 records where the
+one fact worth keeping went (the connection dot in the context bar). The section number is kept
+empty so §12 and §13 still mean what the lane notes say they mean.
 
 ## 12. The dev loop
 
@@ -1098,7 +1057,7 @@ numbers are captured at 1440 × 900 and in dark, where they may only improve.
 
 | page | dead space | panes at 1280 | first-screen Tier 1 |
 |---|---|---|---|
-| `subjects` | ≤ 25 % populated · ≤ 30 % with no row selected | nav 216 · work ≥ 704 · right 360 or **0** | n/a |
+| `subjects` | ≤ 44 % populated · ≤ 45 % with no row selected | nav 216 · work ≥ 704 · right 360 or **0** | n/a |
 | `preprocess` | ≤ 22 % | work ≥ 560 · right 576 | `hidden` empty |
 | `simulator` | ≤ 22 % | work ≥ 560 · right 576 | `hidden` empty |
 | `optimizer` | ≤ 22 % | work ≥ 560 · right 576 | `hidden` empty |
@@ -1106,6 +1065,12 @@ numbers are captured at 1440 × 900 and in dark, where they may only improve.
 | `results` | ≤ 20 % | list 200 · tree ≥ 400 · preview 426 ± 8 | n/a |
 | `viewer` | ≤ 12 % | nav **56** · embed ≥ 1200 × ≥ 640 | n/a |
 | `jobs` | ≤ 25 % with history · ≤ 30 % empty | work ≥ 704 · right 360 or **0** | n/a |
+
+`subjects` was ≤ 25 % / ≤ 30 % while four cards of readiness chips covered the lower half of the
+page. Those cards were removed on 2026-09-06 and the presence matrix's columns were spread out for
+readability, so eight of a row's eleven columns now hold one 10 px dot each and the sampler counts
+more of the page as empty: the measured floor of the page as it now is, held by
+`tests/e2e/overview.spec.ts` so a regression that empties it further still fails.
 
 For reference, the same measurement on the v2 build this program replaces (cell-occupancy pixel
 proxy, `dev/notes/v3-ui-program/u0-design-notes.md` §1): subjects 88 %, preprocess 74 %,
@@ -1120,7 +1085,7 @@ Every lane runs this every round; the critic panel uses the same list and report
 3. Every chip and badge is from the shared vocabulary (§4.5, §5); no ad-hoc colours.
 4. Every number is tabular; units are suffixes; paths are mono and truncate from the left.
 5. Both themes: text contrast ≥ 4.5:1 by the token test; no hard-coded colours.
-6. The status bar shows only registered cells; no placeholder dashes (U8).
+6. No status bar: the shell has no bottom rail, and no page registers cells for one.
 7. `firstScreenControls(page).hidden` is empty on every run page at 1280 × 800.
 8. Keyboard: `⌘K`, `⌘P`, `⌘J`, `⌘⇧I`, `⌘⏎`, `Esc` scoped to the innermost overlay; focus visible.
 9. Copy: sentence case, verbs on buttons, no exclamation marks, no "Freeview / Gmsh / X11".

@@ -56,6 +56,12 @@ interface Fingerprint {
   texts: Record<string, string>;
   /** Real (non-ground) table rows in the work pane — the maintainer's "row count changed 1 to 2". */
   rows: number;
+  /**
+   * Checkbox (by id, or by its accessible name) → ticked?. Pre-processing's whole form is
+   * checkboxes and it has no collapsible section, no segmented control and no text field, so
+   * without this its fingerprint was constant and remembering it proved nothing.
+   */
+  checks: Record<string, boolean>;
 }
 
 let app: ElectronApplication;
@@ -167,8 +173,16 @@ async function fingerprint(target: Page): Promise<Fingerprint> {
     const rows = scroller
       ? scroller.querySelectorAll("table tbody tr:not([aria-hidden='true'])").length
       : 0;
+    const checks: Record<string, boolean> = {};
+    root.querySelectorAll<HTMLElement>('[role="checkbox"], input[type="checkbox"]').forEach((box) => {
+      const key = box.id || box.getAttribute("aria-label") || box.closest("label")?.textContent?.trim() || "";
+      if (!key || key in checks) return;
+      checks[key] =
+        box instanceof HTMLInputElement ? box.checked : box.getAttribute("aria-checked") === "true";
+    });
     return {
       sections,
+      checks,
       tab: host?.dataset.tab ?? null,
       scrollTop: Math.round(scroller?.scrollTop ?? 0),
       segments,
@@ -192,7 +206,11 @@ async function toggleSection(target: Page, id: string, want: boolean): Promise<v
  */
 async function useThePage(target: Page): Promise<Fingerprint> {
   const start = await fingerprint(target);
-  expect(Object.keys(start.sections).length, "a run page with no collapsible section proves nothing").toBeGreaterThan(0);
+  // Collapsible sections are the richest thing to remember, but they are not universal: Pre-processing
+  // lost its only collapsible section when the Existing-outputs disclosure was removed (2026-09-06),
+  // and its two FormSections are plain. So the guard is that this pass changed SOMETHING — sections,
+  // or the tab, or a typed value, or the scroll offset — rather than that sections exist. A page
+  // where nothing at all is changeable would still prove nothing, and is still caught.
 
   // Close one and open a DIFFERENT one, so both directions are on the page at once: the fill
   // controller's natural drift is to open, so a section left closed is the harder half, and a
@@ -219,6 +237,13 @@ async function useThePage(target: Page): Promise<Fingerprint> {
     await expect(activePage(target).getByTestId("run-pane-tabs")).toHaveAttribute("data-tab", "terminal");
   }
 
+  // A checkbox, where the page has one — Pre-processing's only changeable state.
+  const firstCheck = activePage(target).locator('[role="checkbox"], input[type="checkbox"]').first();
+  if ((await firstCheck.count()) > 0 && (await firstCheck.isEnabled())) {
+    await firstCheck.click();
+    await settle(target);
+  }
+
   // Something typed, where the page has a free-text field of its own.
   const runName = activePage(target).locator("#optimizer-run-name");
   if ((await runName.count()) > 0) await runName.fill("n2-probe");
@@ -230,7 +255,13 @@ async function useThePage(target: Page): Promise<Fingerprint> {
   });
 
   await settle(target);
-  return fingerprint(target);
+  const end = await fingerprint(target);
+  expect(
+    JSON.stringify({ s: end.sections, t: end.tab, x: end.texts, o: end.scrollTop, c: end.checks }) !==
+      JSON.stringify({ s: start.sections, t: start.tab, x: start.texts, o: start.scrollTop, c: start.checks }),
+    "this page offered nothing to change, so remembering it proves nothing",
+  ).toBe(true);
+  return end;
 }
 
 for (const id of RUN_PAGES) {
@@ -258,6 +289,7 @@ for (const id of RUN_PAGES) {
     expect(after.texts, `${id}: typed values`).toEqual(before.texts);
     expect(after.rows, `${id}: table row count`).toBe(before.rows);
     expect(after.scrollTop, `${id}: work pane scroll offset`).toBe(before.scrollTop);
+    expect(after.checks, `${id}: checkbox state`).toEqual(before.checks);
   });
 }
 
@@ -325,8 +357,8 @@ test("settings, results, jobs and viewer keep session-only page state beyond the
 
   await gotoPage(page, "viewer");
   await expectPage(page, "viewer");
-  // R5: selectors draft, Load commands. The status bar's `space` cell reports the LOADED space,
-  // so MNI has to be drafted and then loaded before it can read "mni".
+  // R5: selectors draft, Load commands — so MNI has to be drafted and then loaded before the
+  // page can be said to be showing MNI at all.
   await page.getByTestId("viewer-select-kind").getByRole("combobox").click();
   await page.getByRole("option", { name: "Simulation", exact: true }).click();
   await page.getByTestId("viewer-select-simulation").getByRole("combobox").click();
@@ -334,9 +366,8 @@ test("settings, results, jobs and viewer keep session-only page state beyond the
   await page.getByRole("radiogroup", { name: "Space" }).getByRole("radio", { name: "MNI", exact: true }).click();
   await page.getByTestId("viewer-load").click();
   await expect(page.getByTestId("tetravox-host")).toHaveAttribute("data-viewer-status", "ready", { timeout: 15_000 });
-  await expect(page.getByTestId("status-space")).toHaveText("mni", { timeout: 10_000 });
   await awayAndBack("viewer");
-  await expect(page.getByTestId("status-space")).toHaveText("mni", { timeout: 10_000 });
+  await expect(page.getByRole("radiogroup", { name: "Space" }).getByRole("radio", { name: "MNI", exact: true })).toBeChecked();
   await expect(page.getByTestId("viewer-select-simulation").getByRole("combobox")).toContainText("Thalamus");
 });
 
@@ -438,7 +469,6 @@ test("changing another tab's subject preserves preprocessing and the live viewer
   const embed = await frameNode!.contentFrame();
   expect(embed).not.toBeNull();
   await embed!.locator("body").click();
-  await expect(page.getByTestId("status-ras")).toHaveText("12.0  -18.0  9.0");
   const messages = await embed!.evaluateHandle(() => {
     const counts = { load: 0, reset: 0, hello: 0 };
     window.addEventListener("message", (event) => {
@@ -451,7 +481,6 @@ test("changing another tab's subject preserves preprocessing and the live viewer
   await gotoPage(page, "simulator");
   await expect(viewer).toBeHidden();
   await expect(viewer).toHaveAttribute("inert", "");
-  await expect(page.getByTestId("status-ras")).toHaveCount(0);
   await openPalette(page);
   await page.getByTestId("palette-input").fill("101");
   await page.getByRole("dialog").getByRole("option", { name: /^101/ }).first().click();
@@ -467,7 +496,6 @@ test("changing another tab's subject preserves preprocessing and the live viewer
   await expect(page.getByTestId("shell-content")).toHaveAttribute("data-subject", "ernie");
   expect(await page.getByTestId("tetravox-frame").evaluate((current, previous) => current === previous, frameNode)).toBe(true);
   expect(await page.getByTestId("viewer-source-bar").getByRole("combobox").allTextContents()).toEqual(viewerSource);
-  await expect(page.getByTestId("status-ras")).toHaveText("12.0  -18.0  9.0");
   await settle(page);
   expect(await messages.jsonValue()).toEqual({ load: 0, reset: 0, hello: 0 });
   expect(errors).toEqual([]);

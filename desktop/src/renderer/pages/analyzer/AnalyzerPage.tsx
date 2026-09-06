@@ -31,7 +31,7 @@ import { notify } from "../../ui/Toast";
 import { useSubject } from "../../app/subjectContext";
 import { usePageSession } from "../../app/pageSession";
 import { SubjectsField, blockedSubjects, subjectsBlockedReason, type SubjectColumn } from "../_shared/subjects";
-import { ExistingOutputsDialog, planCounts, RunPanel, RunWork, planDigest, planModelFrom, stepsFor, useRunShortcut, useRunStatusCells, type PlanModel, type PlanResult as SharedPlanResult } from "../_shared/run";
+import { ExistingOutputsDialog, planCounts, RunPanel, RunWork, planDigest, planModelFrom, stepsFor, useRunShortcut, type PlanModel, type PlanResult as SharedPlanResult } from "../_shared/run";
 import {
   RoiPicker,
   emptyRoi,
@@ -343,7 +343,6 @@ export function AnalyzerPage() {
   const counts = planCounts(planModel);
 
   useRunShortcut(handleRunClick);
-  useRunStatusCells("analyzer", effectiveSubjectIds, planModel);
 
   const digest = planModel ? planDigest(planModel) : (blockedReason ?? "Resolving the plan…");
 

@@ -57,7 +57,7 @@ export function AppContextBar({
     <ContextBar
       end={
         <>
-          <span className="context-bar-connection" data-testid="connection-state">
+          <span className="context-bar-connection" data-testid="connection-state" title={connection.reason ?? undefined}>
             <StatusDot kind={dotKind} pulse={dotKind === "warning"} />
             {connection.label}
           </span>

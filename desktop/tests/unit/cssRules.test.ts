@@ -113,7 +113,6 @@ describe("v2 density — tokens", () => {
   it("defines the shell chrome geometry", () => {
     expect(root).toMatch(/--context-bar-h:\s*40px/);
     expect(root).toMatch(/--action-bar-h:\s*44px/);
-    expect(root).toMatch(/--status-bar-h:\s*24px/);
     expect(root).toMatch(/--nav-w:\s*216px/);
     expect(root).toMatch(/--nav-w-icons:\s*56px/);
     expect(root).toMatch(/--inspector-w:\s*300px/);

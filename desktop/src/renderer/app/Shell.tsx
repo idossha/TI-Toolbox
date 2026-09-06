@@ -5,7 +5,6 @@ import { getProject, onUnauthorized } from "../api/client";
 import { isElectron } from "../env";
 import { NavRail } from "./NavRail";
 import { AppContextBar } from "./AppContextBar";
-import { AppStatusBar } from "./AppStatusBar";
 import { CommandPalette } from "./CommandPalette";
 import { KeyboardSheet } from "./KeyboardSheet";
 import { QuickNotesHost } from "./QuickNotesHost";
@@ -167,7 +166,6 @@ export function Shell({ pages }: { pages: readonly ResolvedPage[] }) {
           <Outlet />
         </div>
         <JobsRail expanded={jobsRailExpanded} onExpandedChange={setJobsRailExpanded} />
-        <AppStatusBar connection={connection} unauthenticated={unauthenticated} />
       </div>
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} actions={paletteActions} />
       <KeyboardSheet open={keyboardSheetOpen} onOpenChange={setKeyboardSheetOpen} />

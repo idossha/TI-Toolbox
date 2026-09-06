@@ -43,7 +43,6 @@ import { usePageSession } from "../../app/pageSession";
 import { usePageActive } from "../../app/pageActivity";
 import { SUBJECT_SYNC_STATE } from "../../app/subjectSpine";
 import { useSubjectContext } from "../../app/subjectContext";
-import { useStatusCells } from "../../app/statusCells";
 import { Button, IconButton } from "../../ui/Button";
 import { PageLayout } from "../../ui/Layout";
 import { SegmentedControl } from "../../ui/SegmentedControl";
@@ -53,7 +52,6 @@ import { getAnalyses, getAtlases, getSimulationsFor, getView, type Space, type V
 import {
   controlLabel,
   controlsFor,
-  formatRas,
   hasViewerDeepLink,
   hidden3DLayer,
   layerName,
@@ -61,7 +59,6 @@ import {
   readDocumentTheme,
   selectionFromDeepLink,
   selectionKey,
-  shortRenderer,
   validateSelection,
   viewQuery,
   type ViewerControl,
@@ -157,10 +154,6 @@ function ViewerPage() {
   const fields = selectedSimulation?.fields ?? [];
 
   const layers = useViewerStore((s) => s.layers);
-  const cursor = useViewerStore((s) => s.cursor);
-  const storeSpace = useViewerStore((s) => s.space);
-  const viewerStatus = useViewerStore((s) => s.status);
-  const renderer = useViewerStore((s) => s.renderer);
   const embedReady = useViewerStore((s) => s.embedReady);
   const loadScene = useViewerStore((s) => s.loadScene);
   const setStoreSpace = useViewerStore((s) => s.setSpace);
@@ -261,20 +254,6 @@ function ViewerPage() {
 
   const embedAvailable = capabilities.data?.tetravox_embed.available !== false;
   const embedVersion = capabilities.data?.tetravox_embed.version ?? null;
-
-  // ---------------------------------------------------------------------------------------------
-  // Status bar (DESIGN.md §11): exactly `ras`, `space`, `renderer`, registered only while this page
-  // is mounted and only while there is something to say. None of the three exist when the server
-  // has no viewer bundle at all — nothing was asked, so there is nothing to report. `space` is the
-  // LOADED selection's, never the draft's: it labels the coordinates on screen.
-  // ---------------------------------------------------------------------------------------------
-  const noWebgl = viewerStatus === "no-webgl2";
-  const rendererValue = !embedAvailable || viewerStatus === "no-embed" ? undefined : noWebgl ? "no WebGL2" : renderer ? shortRenderer(renderer) : undefined;
-  useStatusCells([
-    { id: "ras", label: "RAS", value: embedAvailable ? formatRas(cursor) : undefined, priority: 10, mono: true },
-    { id: "space", label: "Space", value: embedAvailable && loaded !== null ? storeSpace : undefined, priority: 20 },
-    { id: "renderer", label: "Renderer", value: rendererValue, priority: 30, tone: noWebgl ? "warning" : "default" },
-  ]);
 
   const subjectOptions: SelectOption[] = (subjects.data ?? []).map((s) => ({ value: s.id, label: s.id }));
   const simulationOptions: SelectOption[] = (simulations.data ?? []).map((s) => ({ value: s.name, label: s.name }));

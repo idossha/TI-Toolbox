@@ -39,7 +39,6 @@ import type { PageDef } from "../../app/registry";
 import { usePageSession } from "../../app/pageSession";
 import { usePageActive } from "../../app/pageActivity";
 import { SUBJECT_PARAM, SUBJECT_SYNC_STATE } from "../../app/subjectSpine";
-import { useStatusCells } from "../../app/statusCells";
 import { useSubjectContext } from "../../app/subjectContext";
 import { isElectron } from "../../env";
 import { Button, IconButton } from "../../ui/Button";
@@ -83,7 +82,6 @@ import {
   analysisArtifacts,
   filterOutputs,
   GROUP_SUBJECT,
-  outputsStatusValue,
   treeRows,
   truncatePathLeft,
   type OutputFilter,
@@ -686,10 +684,6 @@ function ResultsPage() {
   // `useEffect` that assigns it would render the empty pane once on every subject change.
   const selected = nodes.find((n) => n.id === pickedId) ?? nodes[0];
   const selectedId = selected?.id;
-
-  useStatusCells([
-    { id: "counts", value: outputsStatusValue(current), priority: 10 },
-  ]);
 
   const visibleSubjects = useMemo(() => {
     const q = subjectQuery.trim().toLowerCase();

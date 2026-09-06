@@ -2237,41 +2237,6 @@ kbd.kbd {
   flex: none;
 }
 
-.status-bar {
-  display: flex;
-  align-items: center;
-  height: var(--status-bar-h);
-  flex: none;
-  padding: 0 var(--space-3);
-  background: var(--gutter);
-  border-top: 1px solid var(--line);
-  font-size: 11px;
-  line-height: 14px;
-  color: var(--ink-2);
-}
-.status-bar-cell {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 var(--space-2);
-  border-right: 1px solid var(--line);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-.status-bar-cell:first-child {
-  padding-left: 0;
-}
-.status-bar-cell:last-child {
-  border-right: none;
-}
-.status-bar-cell-end {
-  margin-left: auto;
-  border-right: none;
-}
-.status-bar-cell-label {
-  color: var(--ink-3);
-}
-
 /* ---------- SegmentedControl ---------- */
 /*
  * One-of-N where a RadioGroup would cost a whole block: Method ⟨Flex │ Ex │ mEx⟩, Scope

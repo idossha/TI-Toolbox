@@ -17,8 +17,6 @@ import type { PageDef } from "../../app/registry";
 import { useSubject } from "../../app/subjectContext";
 import { useExecutionPrefs } from "../../app/executionPrefs";
 import { usePageSession } from "../../app/pageSession";
-import { useStatusCells } from "../../app/statusCells";
-import { useJobsStream } from "../../app/jobs/useJobsStream";
 import { PageLayout, FormSection, PaneHeaderControls, usePaneController } from "../../ui/Layout";
 import { ActionBar } from "../../ui/Chrome";
 import { Button } from "../../ui/Button";
@@ -148,7 +146,6 @@ function OptimizerPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { id: shellSubject, selection, subjects: projectSubjects } = useSubject();
-  const stream = useJobsStream();
 
   // `usePageSession` for everything the user decided, `useState` for what is transient (lane N2):
   // the page unmounts on every navigation, so a plain `useState` threw away the method, the ROI
@@ -390,17 +387,6 @@ function OptimizerPage() {
   const costLine = method === "flex" ? flexCost(flexForm).line : method === "ex" ? exCost(exForm).line : mexCost(mexForm).line;
   const counts = planCounts(plan);
   const digest = plan ? `${planDigest(plan)}${plan.blockedReason ? "" : ` · ${costLine}`}` : (blockedReason ?? "Resolving the plan…");
-
-  const lastJob = useMemo(() => {
-    const kinds = ["flex", "flex_adaptive", "flex_pareto", "ex", "mex"];
-    const mine = Object.values(stream.jobs).filter((j) => kinds.includes(j.kind));
-    return mine.sort((a, b) => Date.parse(b.created_at ?? "") - Date.parse(a.created_at ?? ""))[0];
-  }, [stream.jobs]);
-
-  useStatusCells([
-    { id: "lastJob", label: "Job", value: lastJob ? `${lastJob.kind} · ${lastJob.state}` : null, priority: 10 },
-    { id: "planCost", label: "Plan", value: plan && !plan.blockedReason ? planDigest(plan) : null, priority: 20 },
-  ]);
 
   /**
    * One `POST /api/jobs/groups` for a whole batch of runs, whatever the method (R3). `runs` is

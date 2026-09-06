@@ -233,29 +233,6 @@ test("the source bar's reload button remounts the frame", async () => {
   await expectViewerStatus("ready");
 });
 
-test("a click in the embed reaches the RAS status cell; space tracks the source bar", async () => {
-  await connect();
-  await chooseSubject("ernie");
-  await openViewer();
-  await selectSimulation("Thalamus");
-  await expectViewerStatus("ready");
-
-  // No status cells before the embed has anything to say.
-  await expect(page.getByTestId("status-space")).toHaveText("subject");
-
-  // The cursor read-out is fed only by the embed's own `cursor` events now (the host's Cursor
-  // block is gone) — a click on the fake stands in for a real crosshair drag.
-  await embed().locator("body").click();
-  await expect(page.getByTestId("status-ras")).toHaveText("12.0  -18.0  9.0", { timeout: 10_000 });
-
-  // Space is the LOADED selection's, not the draft's: switching the segment alone must not
-  // relabel coordinates that are still the subject-space ones on screen.
-  await page.getByTestId("viewer-source-bar").getByRole("radio", { name: "MNI" }).click();
-  await expect(page.getByTestId("status-space")).toHaveText("subject");
-  await pressLoad();
-  await expect(page.getByTestId("status-space")).toHaveText("mni", { timeout: 10_000 });
-});
-
 test("hands the embed the app's resolved theme, on connect and on every change", async () => {
   await connect();
   await chooseSubject("ernie");
@@ -339,11 +316,11 @@ test("names a server with no viewer bundle, and draws no source bar for it", asy
   await expect(page.getByTestId("viewer-source-bar")).toHaveCount(0);
   await expect(page.getByTestId("tetravox-host")).toHaveCount(0);
 
-  // Nothing was ever asked, so nothing is reported (§11: no placeholder cells).
-  for (const id of ["status-ras", "status-space", "status-renderer"]) await expect(page.getByTestId(id)).toHaveCount(0);
+  // §11: there is no status bar for the viewer to report into any more.
+  await expect(page.locator("[data-status-cell]")).toHaveCount(0);
 });
 
-test("names a machine with no WebGL2, with the renderer cell in warning tone", async () => {
+test("names a machine with no WebGL2", async () => {
   await page.route("**/tetravox/index.html**", (route) =>
     route.fulfill({
       contentType: "text/html",
@@ -363,9 +340,6 @@ test("names a machine with no WebGL2, with the renderer cell in warning tone", a
   await expect(page.getByTestId("viewer-no-webgl2")).toContainText("cannot run the 3D viewer");
   await expect(page.getByTestId("viewer-no-webgl2")).toContainText("SwiftShader");
   await expect(page.getByTestId("viewer-no-webgl2").getByRole("button")).toHaveCount(0);
-  await expect(page.getByTestId("status-renderer")).toHaveText("no WebGL2");
-  await expect(page.getByTestId("status-renderer")).toHaveClass(/status-bar-warning/);
-  await expect(page.getByTestId("status-ras")).toHaveCount(0);
 });
 
 test("names a frame that never answers, and its own Reload viewer button remounts it", async () => {
@@ -382,24 +356,10 @@ test("names a frame that never answers, and its own Reload viewer button remount
   await expectViewerStatus("no-embed");
 
   await expect(page.getByTestId("viewer-no-embed")).toContainText("did not answer");
-  await expect(page.getByTestId("status-renderer")).toHaveCount(0);
   expect(requests).toBe(1);
 
   await page.getByTestId("viewer-no-embed").getByRole("button", { name: "Reload viewer" }).click();
   await expect.poll(() => requests, { timeout: 5_000 }).toBe(2);
-});
-
-test("registers its status cells only while it is the page on screen", async () => {
-  await connect();
-  await chooseSubject("ernie");
-  await openViewer();
-  await selectSimulation("Thalamus");
-  await expectViewerStatus("ready");
-  await expect(page.getByTestId("status-space")).toBeVisible();
-
-  await gotoPage(page, "overview", "Overview");
-  await expectPage(page, "overview");
-  for (const id of ["status-ras", "status-space", "status-renderer"]) await expect(page.getByTestId(id)).toHaveCount(0);
 });
 
 test("takes the light and dark screenshots of the viewer page", async () => {

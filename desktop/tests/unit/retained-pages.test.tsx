@@ -11,7 +11,6 @@ import { clearPageSession, usePageId, usePageSession } from "../../src/renderer/
 import { clearSubjectPages, useSubjectContext } from "../../src/renderer/app/subjectContext";
 import { useSubjectSpine } from "../../src/renderer/app/subjectSpine";
 import { usePageCommands, usePageCommandStore } from "../../src/renderer/app/commands";
-import { useStatusCells, useStatusCellStore } from "../../src/renderer/app/statusCells";
 import { useRunShortcut } from "../../src/renderer/pages/_shared/run/useRunShortcut";
 import type { ResolvedPage } from "../../src/renderer/app/registry";
 
@@ -25,7 +24,6 @@ vi.mock("../../src/renderer/api/client", () => ({
 // telemetry and websocket widgets are outside this page-navigation boundary.
 vi.mock("../../src/renderer/app/NavRail", () => ({ NavRail: () => null }));
 vi.mock("../../src/renderer/app/AppContextBar", () => ({ AppContextBar: () => null }));
-vi.mock("../../src/renderer/app/AppStatusBar", () => ({ AppStatusBar: () => null }));
 vi.mock("../../src/renderer/app/CommandPalette", () => ({ CommandPalette: () => null }));
 vi.mock("../../src/renderer/app/KeyboardSheet", () => ({ KeyboardSheet: () => null }));
 vi.mock("../../src/renderer/app/QuickNotesHost", () => ({ QuickNotesHost: () => null }));
@@ -51,7 +49,6 @@ function PageProbe() {
     return () => { disposals.push(id); };
   }, [id]);
   useRunShortcut(() => runs.push(id));
-  useStatusCells([{ id, value: count, priority: 10 }]);
   usePageCommands(useMemo(() => [{ id, label: `Run ${id}`, section: "Page" as const, run: () => runs.push(id) }], [id]));
   if (count < 0) throw new Error(`Invalid ${id} draft`);
   return <>
@@ -92,7 +89,6 @@ describe("retained workflow tabs", () => {
     clearPageSession();
     clearSubjectPages();
     usePageCommandStore.setState({ byOwner: {} });
-    useStatusCellStore.setState({ byOwner: {} });
     queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
     queryClient.setQueryData(["project"], { name: "retained", container_path: "/mnt/retained", host_path: null });
     container = document.createElement("div");
@@ -146,7 +142,7 @@ describe("retained workflow tabs", () => {
     expect(disposals).toEqual([]);
   });
 
-  it("gives only the active page keyboard, command and status ownership", async () => {
+  it("gives only the active page keyboard and command ownership", async () => {
     render();
     await go("/simulator");
     await go("/viewer");
@@ -154,7 +150,6 @@ describe("retained workflow tabs", () => {
     expect(runs).toEqual(["viewer"]);
     const commands = Object.values(usePageCommandStore.getState().byOwner).flat();
     expect(commands.map((command) => command.id)).toEqual(["viewer"]);
-    expect(Object.values(useStatusCellStore.getState().byOwner).flat().map((cell) => cell.id)).toEqual(["viewer"]);
     commands[0]!.run();
     expect(runs).toEqual(["viewer", "viewer"]);
     await go("/preprocess");

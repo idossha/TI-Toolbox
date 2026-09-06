@@ -27,7 +27,6 @@ import {
   planCounts,
   ExistingOutputsDialog,
   useRunShortcut,
-  useRunStatusCells,
   type PlanModel,
   type PlanStage,
 } from "../_shared/run";
@@ -311,7 +310,6 @@ function PreprocessPage() {
   }
 
   useRunShortcut(handleRunClick);
-  useRunStatusCells("pre", selected, plan);
 
   const counts = planCounts(plan);
   const digest = plan ? planDigest(plan) : (blockedReason ?? "Resolving the plan…");

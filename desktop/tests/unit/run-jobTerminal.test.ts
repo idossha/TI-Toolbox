@@ -5,7 +5,6 @@
  */
 import { describe, expect, it } from "vitest";
 import { kindsLabel, resolveFollowedJob, type FollowableJob } from "../../src/renderer/pages/_shared/run/JobTerminal";
-import { lastJobLabel } from "../../src/renderer/pages/_shared/run/useRunStatusCells";
 
 function j(over: Partial<FollowableJob> & { id: string; kind: string; state: FollowableJob["state"] }): FollowableJob {
   return {
@@ -69,11 +68,5 @@ describe("copy", () => {
   it("kindsLabel names the page's kinds for the empty state's hint", () => {
     expect(kindsLabel(["pre"])).toBe("Pre-processing");
     expect(kindsLabel(["flex", "ex", "mex"])).toBe("Flex-search, Ex-search and mEx-search");
-  });
-
-  it("lastJobLabel is the status bar's `lastJob` cell, or nothing at all", () => {
-    expect(lastJobLabel({ kind: "pre", state: "running", elapsed: "4m 12s" })).toBe("pre · running 4m 12s");
-    // §11.2: a cell with no value is not rendered — there is no "—" in the status bar.
-    expect(lastJobLabel(null)).toBeNull();
   });
 });

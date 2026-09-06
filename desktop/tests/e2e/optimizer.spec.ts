@@ -294,7 +294,6 @@ test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.
     // ceiling binds, not the 45 %, so 610.
     expect(row.panes.right).toBe(row.width >= 1440 ? 610 : 576);
     expect(row.panes.work).toBeGreaterThanOrEqual(560);
-    expect(row.statusCells).toContain("lastJob");
   }
 
   // The half this lane owns: the work pane. The right pane is B2's `RunPanel`, and its terminal

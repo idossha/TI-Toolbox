@@ -82,10 +82,10 @@ test.describe("viewer against the real Tetravox embed", () => {
 
     // A real engine takes real time: 13 MB of T1 plus a field volume, decompressed in a worker.
     await expect(page.getByTestId("tetravox-host")).toHaveAttribute("data-viewer-status", "ready", { timeout: 120_000 });
-    // The status bar's renderer cell is filled from `ready.caps.renderer` — proof of a real GL
-    // context, and the one thing a fake embed cannot report honestly.
-    await expect(page.getByTestId("status-renderer")).toBeVisible();
-    await expect(page.getByTestId("status-renderer")).not.toHaveText("");
+    // `data-renderer` is `ready.caps.renderer` — proof of a real GL context, and the one thing a
+    // fake embed cannot report honestly. It used to be the status bar's `renderer` cell; §11
+    // removed the bar, so the fact lives on the host element instead of disappearing with it.
+    await expect(page.getByTestId("tetravox-host")).not.toHaveAttribute("data-renderer", "");
 
     await page.screenshot({ path: join(ARTIFACTS, "viewer-real.png") });
   });

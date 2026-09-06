@@ -8,7 +8,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { Button } from "../../ui/Button";
-import { ActionBar, ContextBar, Crumb, CrumbSeparator, RefetchBar, StatusBar, StatusCell } from "../../ui/Chrome";
+import { ActionBar, ContextBar, Crumb, CrumbSeparator, RefetchBar } from "../../ui/Chrome";
 import { DataTable, type DataTableColumn } from "../../ui/DataTable";
 import { Field, TextInput, useChangedFields } from "../../ui/Field";
 import { EmptyState, InlineError, Skeleton } from "../../ui/Feedback";
@@ -18,7 +18,6 @@ import { PathInput } from "../../ui/PathInput";
 import { SegmentedControl } from "../../ui/SegmentedControl";
 import { Select } from "../../ui/Select";
 import { Chip, StatusDot } from "../../ui/Status";
-import { useStatusCells } from "../../app/statusCells";
 
 function Block({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
   return (
@@ -91,7 +90,6 @@ export function DensityGallery() {
   const tableRef = useRef<HTMLDivElement>(null);
   const [ruler, setRuler] = useState<RulerRow[]>([]);
   const [shell, setShell] = useState<RulerRow[]>([]);
-  const [railMode, setRailMode] = useState("—");
 
   const [method, setMethod] = useState("flex");
   const [scope, setScope] = useState("subject");
@@ -122,25 +120,14 @@ export function DensityGallery() {
         return el ? round(el.getBoundingClientRect().width) : 0;
       };
       const wide = window.innerWidth >= 1440;
-      setRailMode(document.querySelector("[data-rail-mode]")?.getAttribute("data-rail-mode") ?? "—");
       setShell([
         { what: "Nav rail", measured: w('[data-testid="nav-rail"]'), target: wide ? 216 : 56 },
         { what: "Content box", measured: w('[data-testid="shell-content"]'), target: window.innerWidth - (wide ? 216 : 56) },
-        { what: "Status bar", measured: round(document.querySelector(".status-bar")?.getBoundingClientRect().height ?? 0), target: 24 },
         { what: "Page header", measured: round(document.querySelector(".page-header")?.getBoundingClientRect().height ?? 0), target: 0 },
       ]);
     });
     return () => cancelAnimationFrame(frame);
   }, []);
-
-  // v3 U8: this page registers its own status cells, and they leave the bar with it. The gallery
-  // registering them is the demonstration — open the page and the bar gains three cells; leave and
-  // it loses them, with nothing left behind and no dash where a value used to be.
-  useStatusCells([
-    { id: "galleryShape", label: "Shape", value: "run · browse · bleed", priority: 10 },
-    { id: "galleryRail", label: "Rail", value: railMode, priority: 20 },
-    { id: "galleryNothing", label: "Dropped", value: null, priority: 30 },
-  ]);
 
   return (
     <div style={{ maxWidth: 1100 }}>
@@ -332,14 +319,6 @@ export function DensityGallery() {
                 primary={<Button variant="primary">Run 2 simulations</Button>}
               />
             </div>
-            <StatusBar>
-              <StatusCell label="RAS">-28.4 12.1 54.0</StatusCell>
-              <StatusCell label="space">subject</StatusCell>
-              <StatusCell label="renderer">WebGL2</StatusCell>
-              <StatusCell end label="tit">
-                3.0.0-dev · api v1
-              </StatusCell>
-            </StatusBar>
           </div>
         </Pane>
         <div style={{ marginTop: "var(--space-3)", width: 520, maxWidth: "100%" }}>

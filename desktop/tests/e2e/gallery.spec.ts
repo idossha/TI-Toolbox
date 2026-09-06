@@ -149,23 +149,16 @@ test("the shell's chrome, the palette and a full-bleed page screenshot in both t
   await setTheme(page, "light");
   await page.screenshot({ path: join(ARTIFACTS, "viewer-light.png") });
 
-  // U8: the Viewer *registers* its own status cells, and they leave with it. The v2 assertion
-  // here was that `status-space` read "—" once you navigated away — three cells about a canvas
-  // that was not mounted, which is the exact defect DESIGN.md §11 exists to remove. The cell is
-  // now absent, and "absent" is the assertion: a dash would pass a text check and still be the bug.
-  // R5: the `space` cell labels the coordinates that are ON SCREEN, so it exists once a selection
-  // has actually been loaded — not merely drafted.
+  // §11: the bottom status bar is gone entirely, so the Viewer registers nothing into one and
+  // leaving the page cannot leave a stale cell behind — there is no bar to leave it in. What the
+  // shell still states on every page is the connection, in the context bar.
   await page.getByTestId("viewer-select-subject").getByRole("combobox").click();
   await page.getByRole("option", { name: "ernie", exact: true }).click();
   await page.getByTestId("viewer-load").click();
   await expect(page.getByTestId("tetravox-host")).toHaveAttribute("data-viewer-status", "ready", { timeout: 15_000 });
-  await expect(page.getByTestId("status-space")).toHaveText("subject");
   await gotoPage(page, "overview", "Overview");
   await expectPage(page, "overview");
-  await expect(page.getByTestId("status-space")).toHaveCount(0);
-  await expect(page.getByTestId("status-ras")).toHaveCount(0);
-  await expect(page.getByTestId("status-renderer")).toHaveCount(0);
-  // The right cluster is the shell's and is there on every page.
-  await expect(page.getByTestId("status-connection")).toHaveCount(1);
-  await expect(page.getByTestId("server-version")).toHaveCount(1);
+  await expect(page.locator(".status-bar")).toHaveCount(0);
+  await expect(page.locator("[data-status-cell]")).toHaveCount(0);
+  await expect(page.getByTestId("connection-state")).toHaveCount(1);
 });

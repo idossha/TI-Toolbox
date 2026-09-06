@@ -120,8 +120,8 @@ test("is the coverage strip and the presence matrix — no readiness board, no p
     expect(legend, `the legend names ${word}`).toContain(word);
   }
 
-  // U8: the page's own counts cell.
-  await expect(page.locator('[data-status-cell="counts"]')).toHaveText("3 subjects · 3 m2m · 1 leadfield");
+  // §11: no bottom status bar — the counts are the table's own.
+  await expect(page.locator("[data-status-cell]")).toHaveCount(0);
 });
 
 test("GATE: one overview request renders every subject and every column — at 3 subjects and at 30", async () => {
@@ -163,7 +163,6 @@ test("GATE: one overview request renders every subject and every column — at 3
   }
   // …with their counts, past where the 25-subject cap used to blank them.
   await expect(page.getByTestId("overview-row-S030").getByRole("img")).toHaveCount(PRESENCE_COLUMNS.length);
-  await expect(page.locator('[data-status-cell="counts"]')).toContainText("30 subjects");
 
   // All five presence states are reachable in one project, and read differently.
   for (const name of ["fastsurfer present", "fastsurfer missing", "fastsurfer partial", "fastsurfer running now", "fastsurfer last run failed"]) {
@@ -318,8 +317,12 @@ test("hits its §12.3 numbers at 1280x800 and 1440x900, light and dark", async (
   // the sampler counts more of the row as empty than it did when four cards of chips covered the
   // lower half of the page. The numbers below are the measured floor of the page as it now is,
   // held so a regression that empties it further still fails.
+  //
+  // The detail ceiling moved 0.50 -> 0.53 when DESIGN.md §11's 24 px status bar was deleted: the
+  // pane grew 24 px taller against the same content, so the same page measures ~1.8 points emptier
+  // without anything about it having changed.
   expect(parts.table, "presence matrix").toBeLessThanOrEqual(0.36);
-  expect(parts.detail, "detail pane").toBeLessThanOrEqual(0.5);
+  expect(parts.detail, "detail pane").toBeLessThanOrEqual(0.53);
 
   const populated = rows.filter((r) => r.page === "populated");
   const unselected = rows.filter((r) => r.page === "unselected");

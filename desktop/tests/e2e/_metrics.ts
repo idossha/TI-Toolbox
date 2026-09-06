@@ -178,8 +178,6 @@ export interface PageMetrics {
   dead: number;
   panes: PaneWidths;
   firstScreenControls: FirstScreen;
-  /** The shell's registered status cells, by id — §11's "only registered cells" made measurable. */
-  statusCells: string[];
   /** Height of any page header on screen. §8: 0 px everywhere but Settings and Help. */
   pageHeaderHeight: number;
   screenshot: string;
@@ -232,11 +230,6 @@ export async function captureScreen(
   const dead = await deadSpaceRatio(page);
   const panes = await paneWidths(page);
   const first = await firstScreenControls(page);
-  const statusCells = await page.evaluate(() =>
-    Array.from(document.querySelectorAll<HTMLElement>("[data-status-cell]")).map(
-      (el) => el.dataset.statusCell ?? "",
-    ),
-  );
   const pageHeaderHeight = await page.evaluate(() => {
     const el = document.querySelector('[data-page-active="true"] .page-header');
     return el ? Math.round(el.getBoundingClientRect().height) : 0;
@@ -252,7 +245,6 @@ export async function captureScreen(
     dead: dead.dead,
     panes,
     firstScreenControls: first,
-    statusCells,
     pageHeaderHeight,
     screenshot,
   };

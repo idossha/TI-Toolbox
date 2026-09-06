@@ -81,13 +81,8 @@ test("is a subject list, an outputs tree and a preview — no header, no subject
   await expect(page.getByTestId("results-node-simulation:ernie:docs_example")).toContainText("mTI");
   await expect(page.getByTestId("results-node-flex:ernie:flex_Thalamus_20260810_101500")).toContainText("flex");
 
-  // U8: the page registered its own counts cell and nothing else on the left.
-  const cells = await page.evaluate(() =>
-    Array.from(document.querySelectorAll<HTMLElement>("[data-status-cell]")).map((el) => el.dataset.statusCell ?? ""),
-  );
-  expect(cells).toContain("counts");
-  expect(cells).not.toContain("ras");
-  await expect(page.locator('[data-status-cell="counts"]')).toContainText("ernie · 3 simulations");
+  // §11: no bottom status bar, so nothing on this page registers a cell for one.
+  await expect(page.locator("[data-status-cell]")).toHaveCount(0);
 });
 
 /**

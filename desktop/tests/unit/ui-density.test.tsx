@@ -12,7 +12,7 @@
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ActionBar, StatusBar, StatusCell, RefetchBar } from "../../src/renderer/ui/Chrome";
+import { ActionBar, RefetchBar } from "../../src/renderer/ui/Chrome";
 import { changedFields, Field, TextInput, useChangedFields } from "../../src/renderer/ui/Field";
 import { EmptyState, InlineError, Skeleton } from "../../src/renderer/ui/Feedback";
 import { FormSection, PageLayout } from "../../src/renderer/ui/Layout";
@@ -317,7 +317,7 @@ describe("SegmentedControl", () => {
   });
 });
 
-describe("ActionBar / StatusBar / RefetchBar", () => {
+describe("ActionBar / RefetchBar", () => {
   it("carries the digest, a problem count and one primary with the ⌘⏎ hint", () => {
     const onWarningsClick = vi.fn();
     render(
@@ -344,21 +344,6 @@ describe("ActionBar / StatusBar / RefetchBar", () => {
     expect(container.querySelector(".action-bar-warnings")).toBeNull();
     render(<ActionBar digest="ok" warningCount={1} onWarningsClick={() => {}} />);
     expect(container.querySelector(".action-bar-warnings")!.textContent).toBe("1 problem");
-  });
-
-  it("StatusCell renders label + value; `end` pushes the cell right", () => {
-    render(
-      <StatusBar>
-        <StatusCell label="RAS">-28.4 12.1 54.0</StatusCell>
-        <StatusCell end label="tit">
-          3.0.0-dev
-        </StatusCell>
-      </StatusBar>,
-    );
-    const cells = container.querySelectorAll(".status-bar-cell");
-    expect(cells).toHaveLength(2);
-    expect(cells[0]!.textContent).toBe("RAS-28.4 12.1 54.0");
-    expect(cells[1]!.className).toContain("status-bar-cell-end");
   });
 
   it("RefetchBar reserves no space when inactive", () => {

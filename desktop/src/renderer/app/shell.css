@@ -276,11 +276,6 @@
   min-height: 0;
 }
 
-/* ---------- Status bar ---------- */
-.status-bar-warning {
-  color: var(--warning);
-}
-
 /* ---------- Command palette (cmdk) ---------- */
 .palette-dialog-content {
   position: fixed;

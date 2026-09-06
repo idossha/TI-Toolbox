@@ -62,7 +62,7 @@ export function TetravoxFrame({
   const loading = status === "loading" && progress.length > 0;
 
   return (
-    <div className={className ? `tvx-host ${className}` : "tvx-host"} data-testid="tetravox-host" data-viewer-status={status}>
+    <div className={className ? `tvx-host ${className}` : "tvx-host"} data-testid="tetravox-host" data-viewer-status={status} data-renderer={renderer ?? ""}>
       <EmbedFrame
         origin={origin}
         connect={connect}

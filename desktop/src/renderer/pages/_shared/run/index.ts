@@ -4,7 +4,6 @@ export * from "./JobTerminal";
 export { RunPanel, type RunPanelProps } from "./RunPanel";
 export { RunPaneTabs, hasActiveJob, resolveTab, type RunPaneTab, type RunPaneTabsProps } from "./RunPaneTabs";
 export { useRunShortcut } from "./useRunShortcut";
-export { useRunStatusCells, lastJobLabel } from "./useRunStatusCells";
 export * from "./terminalSources";
 export { RunWork, type RunWorkProps } from "./RunWork";
 export { SubjectsInParallel, parallelSummary, type SubjectsInParallelProps } from "./SubjectsInParallel";

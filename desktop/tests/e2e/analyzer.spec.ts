@@ -104,9 +104,8 @@ test("scope, space and target are segments, and the plan resolves once the targe
   await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job · \d+ CPU · \d+ GB/);
   await expect(page.getByTestId("run-button")).toHaveText("Run analysis");
 
-  // §11.1: the page registers `planCost`; the viewer's cells are nowhere near this bar.
-  await expect(page.locator('[data-status-cell="planCost"]')).toBeVisible();
-  await expect(page.locator('[data-status-cell="ras"]')).toHaveCount(0);
+  // §11: no bottom status bar — the plan digest is the action bar's, on the page.
+  await expect(page.locator("[data-status-cell]")).toHaveCount(0);
 });
 
 test("J4: the scope decides the grammar — Group ticks two subjects, Subject narrows back to one", async () => {

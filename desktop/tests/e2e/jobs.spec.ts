@@ -334,12 +334,10 @@ test("uses the width: no pane exists without content, and the detail column hold
   await expect(page.getByTestId("job-detail-console")).toBeVisible();
   await page.screenshot({ path: join(ARTIFACTS, "jobs-density-selected-light.png") });
 
-  // The status bar carries the running/queued/failed summary this page registered (DESIGN.md §11.1)
-  // — not a placeholder dash, and not the Viewer's RAS/space/renderer cells.
-  const jobCountsCell = page.getByTestId("status-jobCounts");
-  await expect(jobCountsCell).toBeVisible();
-  await expect(jobCountsCell).toHaveText(/^\d+ running · \d+ queued · \d+ failed$/);
-  await expect(page.getByTestId("status-ras")).toHaveCount(0);
+  // §11: no bottom status bar, so no running/queued/failed cell either — the rail and this page's
+  // own table are where the job counts are read.
+  await expect(page.locator(".status-bar")).toHaveCount(0);
+  await expect(page.locator("[data-status-cell]")).toHaveCount(0);
 });
 
 test("at 1440 wide the detail column widens to 400px, per the design's numbers", async () => {

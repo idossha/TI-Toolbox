@@ -168,11 +168,10 @@ test("queues the group, and the terminal then follows the job it started", async
   await expect(page.getByTestId("job-terminal")).toHaveAttribute("data-source", "live", { timeout: 60_000 });
   await expect(page.getByTestId("job-terminal").getByRole("button", { name: "Clear terminal" })).toBeVisible({ timeout: 15_000 });
 
-  // §11.1: the page registers `lastJob` and `planCost`, and nothing else writes the bar.
-  await expect(page.locator('[data-status-cell="lastJob"]')).toBeVisible({ timeout: 15_000 });
-  await expect(page.locator('[data-status-cell="planCost"]')).toBeVisible();
-  await expect(page.locator('[data-status-cell="ras"]')).toHaveCount(0);
-  await expect(page.locator(".status-bar")).not.toContainText("—");
+  // §11: there is no status bar any more — the job/plan digest it used to print is on the page
+  // itself (the terminal header and the action bar's digest), not in a rail along the bottom.
+  await expect(page.locator(".status-bar")).toHaveCount(0);
+  await expect(page.locator("[data-status-cell]")).toHaveCount(0);
 });
 
 test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.3)", async () => {
@@ -240,7 +239,6 @@ test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.
     // ceiling binds, not the 45 %, so 610.
     expect(row.panes.right).toBe(row.width >= 1440 ? 610 : 576);
     expect(row.panes.work).toBeGreaterThanOrEqual(560);
-    expect(row.statusCells).toContain("lastJob");
   }
 
   // §12.4 item 7: every Tier-1 control is on the first screen at 1280x800, unscrolled.

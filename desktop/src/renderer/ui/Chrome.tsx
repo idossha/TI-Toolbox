@@ -122,43 +122,6 @@ export function ActionBar({
   );
 }
 
-/** 24px strip along the bottom of the window: cursor RAS, renderer, versions. */
-export function StatusBar({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <div className={cn("status-bar", className)} role="status">
-      {children}
-    </div>
-  );
-}
-
-/**
- * One cell of the status bar. `end` pushes this and everything after it to the right.
- *
- * `id` is the registry id (`app/statusCells.ts`) and is written out as `data-status-cell`, which is
- * how a spec asserts *which* cells a page put in the bar (DESIGN.md §11.2, §12.1) — "no placeholder
- * dashes" is a claim about the set of cells, and the set has to be readable to be checked.
- */
-export function StatusCell({
-  id,
-  label,
-  children,
-  end,
-  title,
-}: {
-  id?: string;
-  label?: string;
-  children: ReactNode;
-  end?: boolean;
-  title?: string;
-}) {
-  return (
-    <span className={cn("status-bar-cell", end && "status-bar-cell-end")} title={title} data-status-cell={id}>
-      {label && <span className="status-bar-cell-label">{label}</span>}
-      {children}
-    </span>
-  );
-}
-
 /**
  * Refetch is a 2px indeterminate bar under the context bar — never a re-skeleton. A populated
  * surface that re-skeletons on refresh makes the page jump between two identical states.

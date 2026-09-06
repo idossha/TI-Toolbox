@@ -29,7 +29,6 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Eye, LayoutGrid, Search } from "lucide-react";
 import type { PageDef } from "../../app/registry";
-import { useStatusCells } from "../../app/statusCells";
 import { useSubjectContext } from "../../app/subjectContext";
 import { Button } from "../../ui/Button";
 import { Callout, EmptyState, Skeleton } from "../../ui/Feedback";
@@ -46,7 +45,6 @@ import {
   blockedReason,
   isReady,
   notConverted,
-  overviewStatusValue,
   presenceCells,
   readyFor,
 } from "./model";
@@ -80,8 +78,6 @@ function OverviewPage() {
   });
 
   const selectedRow = rows.find((r) => r.id === selected);
-
-  useStatusCells([{ id: "counts", value: overviewStatusValue(data), priority: 10 }]);
 
   // Clicking the selected row again clears the selection, and so does Esc on the table — the only
   // ways back to the full-width table, which is what U1 asks the page to fall back to.

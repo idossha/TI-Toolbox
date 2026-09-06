@@ -68,9 +68,10 @@ test("launcher connects and the shell renders its chrome around the landing page
   // and Help, so the table — the thing the page is for — is what proves the screen is up.
   await expect(page.getByTestId("overview-table")).toBeVisible();
   await expect(page.getByTestId("overview-table")).toContainText("ernie");
-  // The version moved off the top bar into the status bar's right-hand cell (plan §1).
-  await expect(page.getByTestId("server-version")).toContainText("api v0");
-  await expect(page.locator(".status-bar").getByTestId("server-version")).toBeVisible();
+  // §11: the bottom status bar is gone. The connection dot is the shell's only always-on server
+  // fact now; the version string is stated at Settings ▸ About the server.
+  await expect(page.locator(".status-bar")).toHaveCount(0);
+  await expect(page.getByTestId("connection-state")).toBeVisible();
 
   // Context bar (U11): no project crumb, no subject switcher — the search field took the space
   // they used to occupy, on the left, wide, with the ⌘K hint; the running-jobs chip and the
