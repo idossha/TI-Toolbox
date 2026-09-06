@@ -1,0 +1,196 @@
+/*
+ * The scene pane's chrome. The canvas is painted by WebGL; everything here is the DOM around it —
+ * legend, camera presets, opacity, and the two states that can replace the canvas entirely.
+ *
+ * The ground is `--canvas`, which `ui/tokens.css` defines identically in both themes: a 3D pane
+ * that inverts with the theme changes what the anatomy looks like, and "is the grey matter light
+ * or dark today" is not a theme decision. The chrome ON the canvas is therefore always the
+ * light-on-dark pair (`--on-canvas`), whatever the app theme is, which is also why it does not use
+ * `--ink`.
+ */
+
+.scene-pane {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 220px;
+  overflow: hidden;
+  border-radius: var(--radius-card);
+  background: var(--canvas);
+  color: var(--on-canvas);
+}
+
+.scene-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* The canvas element must not be scaled by CSS relative to its backing store, or a click at CSS
+     (x, y) lands on a different device pixel than the pick pass reads. `resize()` sets width/height
+     from the measured box; this only stops the intrinsic 300x150 default from leaking through. */
+  outline: none;
+  touch-action: none;
+  cursor: grab;
+}
+
+.scene-canvas:active {
+  cursor: grabbing;
+}
+
+.scene-canvas:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.scene-chrome {
+  position: absolute;
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-end;
+  pointer-events: none;
+}
+
+/* Only the controls take pointer events; the rest of the overlay must let a drag through to the
+   canvas underneath, or the bottom third of the pane silently stops orbiting. */
+.scene-chrome > * {
+  pointer-events: auto;
+}
+
+.scene-chrome-top {
+  top: var(--space-2);
+  right: var(--space-2);
+  align-items: center;
+}
+
+.scene-chrome-bottom {
+  left: var(--space-2);
+  right: var(--space-2);
+  bottom: var(--space-2);
+  justify-content: space-between;
+}
+
+/* The laterality statement, top-left, opposite the preset buttons. `pointer-events: none` because
+   it is a label, not a control: a drag that starts on it must still orbit the head. */
+.scene-orientation {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  margin: 0;
+  padding: 2px var(--space-2);
+  font-size: 11px;
+  line-height: 16px;
+  border-radius: var(--radius-control);
+  background: rgba(11, 13, 16, 0.72);
+  border: 1px solid rgba(230, 235, 241, 0.14);
+  color: rgba(230, 235, 241, 0.78);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.scene-legend {
+  margin: 0;
+  padding: var(--space-2);
+  list-style: none;
+  display: grid;
+  gap: 2px;
+  font-size: 11px;
+  line-height: 16px;
+  border-radius: var(--radius-control);
+  background: rgba(11, 13, 16, 0.72);
+  border: 1px solid rgba(230, 235, 241, 0.14);
+  backdrop-filter: blur(2px);
+}
+
+.scene-legend li {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
+.scene-legend-static li {
+  grid-template-columns: 1fr auto;
+}
+
+.scene-legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.scene-legend-label {
+  color: var(--on-canvas);
+}
+
+.scene-legend-detail {
+  color: rgba(230, 235, 241, 0.62);
+  font-variant-numeric: tabular-nums;
+}
+
+.scene-opacity {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-2);
+  border-radius: var(--radius-control);
+  background: rgba(11, 13, 16, 0.72);
+  border: 1px solid rgba(230, 235, 241, 0.14);
+  min-width: 168px;
+}
+
+.scene-opacity-row {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 11px;
+}
+
+.scene-opacity-label {
+  color: rgba(230, 235, 241, 0.72);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scene-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-6);
+  text-align: center;
+  font-size: 12px;
+  background: rgba(11, 13, 16, 0.82);
+}
+
+/* The no-WebGL2 state (S6). It is a normal panel in the page's own theme, not a dark canvas with a
+   message on it: there is no scene here, and dressing an error as a viewport suggests one is
+   loading. */
+.scene-pane-fallback {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  border: 1px dashed var(--line-strong);
+}
+
+.scene-fallback-line {
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+  max-width: 60ch;
+}
+
+.scene-pane-fallback .scene-legend {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--ink-2);
+}
+
+.scene-pane-fallback .scene-legend-label,
+.scene-pane-fallback .scene-legend-detail {
+  color: var(--ink-2);
+}
