@@ -24,7 +24,6 @@ import {
   planDigest,
   planModelFrom,
   stepsFor,
-  Receipt,
   receiptFrom,
   ExistingOutputsDialog,
   useRunShortcut,
@@ -339,13 +338,19 @@ function PreprocessPage() {
           parallel={parallelSubjects}
         />
       }
-      receipt={<Receipt plan={plan} policy={policy} blockedReason={blockedReason} />}
       actionBar={
         <ActionBar
           digest={digest}
           blocked={!!blockedReason}
           primary={
-            <Button variant="primary" loading={submit.isPending} onClick={handleRunClick} data-testid="run-button" title={blockedReason ?? undefined}>
+            <Button
+              variant="primary"
+              loading={submit.isPending}
+              disabled={!!blockedReason}
+              onClick={handleRunClick}
+              data-testid="run-button"
+              title={blockedReason ?? undefined}
+            >
               {runLabelFor(selected.length, jobCount)}
             </Button>
           }
@@ -364,19 +369,8 @@ function PreprocessPage() {
             columns={PRE_COLUMNS}
             mode="per-subject"
             defaultOpen
-            /* Five rows is the FLOOR, not the answer: `fill` adds however many more fit in the
-               room this page has left after its own sections. On a run page the two mechanisms
-               share the same pixels — `RunWork`'s fill controller opens sections while ≥96px are
-               free — so at 1440x900 the measured room is exactly the floor, and the table grows
-               only in a window taller than the sections need. Measured both ways below. */
-            minRows={5}
             fill
             loading={subjectsQuery.isPending}
-            help={
-              <Tooltip label="Every ticked subject runs the same steps as its own job. Batch selection lives here because running many subjects at once is what this page is for.">
-                <IconButton icon={<Info size={13} />} aria-label="About subject selection" variant="ghost" size="sm" />
-              </Tooltip>
-            }
           />
           {subjectsQuery.error && (
             <InlineError message="Could not load the subject list." onAction={() => void subjectsQuery.refetch()} />

@@ -7,8 +7,9 @@
  *   1. every subject-taking page renders the same control, with the same testids and the same two
  *      bulk buttons — so a page that grows a second idiom fails here and nowhere else;
  *   2. ⇧-click selects a range, ⌘-click toggles, and a plain click selects exactly one;
- *   3. the receipt sits above Run on all four run pages, its count equals the plan's rows, and it
- *      updates live as the selection changes;
+ *   3. the receipt sits above Run on the run pages that carry one, its count equals the plan's
+ *      rows, and it updates live as the selection changes (Pre-processing deliberately has no
+ *      receipt: its plan grid and action-bar digest already state the batch);
  *   4. the shared existing-outputs dialog opens from all four run pages with the same three
  *      buttons;
  *   5. the Jobs page's rows are selectable and its bulk cancel sends exactly the selected ids.
@@ -16,9 +17,9 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
+import { expect, test, type ElectronApplication, type Locator, type Page } from "@playwright/test";
 import { expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
-import { openSubjects, subjectRow, subjectRows, subjectsField } from "./_subjects";
+import { openSubjects, selectSubjects, subjectRow, subjectRows, subjectsField } from "./_subjects";
 
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
 const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
@@ -50,12 +51,26 @@ test.afterAll(async () => {
   await app?.close();
 });
 
+/** The header checkbox — the control's ONE bulk act now that `All · None` are gone. */
+function subjectsHeaderBox(): Locator {
+  return subjectsField(page).locator("thead .checkbox-root");
+}
+
+/** Clears the selection: the header box, pressed until nothing is ticked (indeterminate fills in
+ *  first, so at most two presses). */
+async function clearSubjects(): Promise<void> {
+  for (let i = 0; i < 2; i += 1) {
+    if ((await subjectsField(page).getAttribute("data-selected")) === "0") return;
+    await subjectsHeaderBox().click();
+  }
+  await expect(subjectsField(page)).toHaveAttribute("data-selected", "0");
+}
+
 /** Leaves exactly `ernie` chosen, whatever the previous test left behind. */
 async function selectOnlyErnie(): Promise<void> {
-  const none = subjectsField(page).getByTestId("subject-select-none");
-  if (await none.isEnabled()) await none.click();
+  await clearSubjects();
   await subjectsField(page).getByTestId("subjects-filter").fill("ernie");
-  await subjectsField(page).getByTestId("subject-select-all").click();
+  await subjectsHeaderBox().click();
   await expect(subjectsField(page)).toHaveAttribute("data-selected", "1");
 }
 
@@ -72,18 +87,17 @@ for (const [id, title] of SUBJECT_PAGES) {
     await expectPage(page, id);
     await openSubjects(page);
     const field = subjectsField(page);
-    // The same parts, on every page: filter, the badge, the rows — and `All · None` wherever more
+    // The same parts, on every page: the filter, the rows, and the header checkbox wherever more
     // than one thing can be chosen (the Analyzer's Subject scope is `single`: one job, one
-    // subject, so there is nothing to select all of and neither button is drawn).
+    // subject, so there is nothing to select all of and no header box is drawn). No `All · None`
+    // pair and no count badge — the header box is the bulk act and the summary line states the
+    // count.
     await expect(field.getByTestId("subjects-filter")).toBeVisible();
     const single = (await field.getAttribute("data-mode")) === "single";
-    await expect(field.getByTestId("subject-select-all")).toHaveCount(single ? 0 : 1);
-    await expect(field.getByTestId("subject-select-none")).toHaveCount(single ? 0 : 1);
-    if (!single) {
-      await expect(field.getByTestId("subject-select-all")).toHaveText("All");
-      await expect(field.getByTestId("subject-select-none")).toHaveText("None");
-    }
-    await expect(field.getByTestId("subject-count")).toHaveText(/^(None|\d+) of \d+ selected$/);
+    await expect(field.getByTestId("subject-select-all")).toHaveCount(0);
+    await expect(field.getByTestId("subject-select-none")).toHaveCount(0);
+    await expect(field.getByTestId("subject-count")).toHaveCount(0);
+    await expect(subjectsHeaderBox()).toHaveCount(single ? 0 : 1);
     // ARIA: one multi-selectable listbox whose rows are options (the Analyzer's `single` mode is
     // the one exception — it is a listbox that takes one).
     const box = field.getByTestId("subjects-field-table");
@@ -106,8 +120,7 @@ test("a plain click selects one row, ⇧-click takes a range, ⌘-click toggles"
   const last = subjectRow(page, ids[2] as string);
   const middle = subjectRow(page, ids[1] as string);
   // Start from nothing chosen, so the first click is unambiguously "select this one".
-  await subjectsField(page).getByTestId("subject-select-none").click();
-  await expect(subjectsField(page)).toHaveAttribute("data-selected", "0");
+  await clearSubjects();
 
   await first.locator("td").nth(1).click();
   await expect(subjectsField(page)).toHaveAttribute("data-selected", "1");
@@ -120,32 +133,40 @@ test("a plain click selects one row, ⇧-click takes a range, ⌘-click toggles"
   await expect(subjectsField(page)).toHaveAttribute("data-selected", "2");
   await expect(middle).toHaveAttribute("data-selected", "false");
 
-  // None clears what is visible; the badge is the one status line and follows.
-  await subjectsField(page).getByTestId("subject-select-none").click();
-  await expect(subjectsField(page)).toHaveAttribute("data-selected", "0");
-  await subjectsField(page).getByTestId("subject-select-all").click();
+  // The header box clears what is visible, then takes all of it.
+  await clearSubjects();
+  await subjectsHeaderBox().click();
   await expect(subjectsField(page)).toHaveAttribute("data-selected", String(ids.length));
 });
 
-test("the filter narrows the rows, and All only takes what is visible", async () => {
+test("the filter narrows the rows, and the header box only takes what is visible", async () => {
   await gotoPage(page, "preprocess", "Pre-processing");
   await openSubjects(page);
-  const none0 = subjectsField(page).getByTestId("subject-select-none");
-  if (await none0.isEnabled()) await none0.click();
-  await expect(subjectsField(page)).toHaveAttribute("data-selected", "0");
+  await clearSubjects();
   await subjectsField(page).getByTestId("subjects-filter").fill("ernie");
   await expect(subjectRows(page)).toHaveCount(1);
-  await subjectsField(page).getByTestId("subject-select-all").click();
+  await subjectsHeaderBox().click();
   await expect(subjectsField(page)).toHaveAttribute("data-selected", "1");
-  // Clearing the filter does not add the rows it was hiding — a bulk button acts on what you see.
+  // Clearing the filter does not add the rows it was hiding — a bulk act works on what you see.
   await subjectsField(page).getByTestId("subjects-filter").fill("");
   await expect(subjectsField(page)).toHaveAttribute("data-selected", "1");
 });
 
 test("the receipt sits above Run, counts the plan's jobs, and updates live", async () => {
-  await gotoPage(page, "preprocess", "Pre-processing");
+  // On the Simulator, not Pre-processing: Pre-processing has no receipt (its plan grid and the
+  // action-bar digest already state the batch), so the shared component is checked where it is
+  // actually rendered.
+  await gotoPage(page, "simulator", "Simulator");
   await openSubjects(page);
-  await selectOnlyErnie();
+  await selectSubjects(page, ["ernie"]);
+  // Exactly one montage, so the plan is one job: with none ticked the page is blocked on the
+  // montage, and the mock plans every montage into the same output directory, so several would
+  // collapse into one plan column and the count comparison below would compare unlike things.
+  const montageBoxes = page.locator('[data-page-active="true"] .data-table tbody tr').getByRole("checkbox");
+  for (const box of await montageBoxes.all()) {
+    if (await box.isChecked()) await box.click();
+  }
+  await montageBoxes.first().click();
 
   const receipt = page.locator('[data-page-active="true"]').getByTestId("run-receipt");
   await expect(receipt).toBeVisible();
@@ -154,7 +175,9 @@ test("the receipt sits above Run, counts the plan's jobs, and updates live", asy
   // The count IS the plan's rows: both are `planModelFrom` output, so they cannot disagree.
   const jobs = Number(await receipt.getAttribute("data-jobs"));
   expect(jobs).toBeGreaterThan(0);
-  const cells = await page.getByTestId("plan-grid").locator(".plan-cell-button").count();
+  // Scoped to the active page: other pages stay mounted, so an unscoped `plan-grid` would count
+  // another page's cells.
+  const cells = await page.locator('[data-page-active="true"]').getByTestId("plan-grid").locator(".plan-cell-button").count();
   expect(jobs).toBe(cells);
 
   // It is above the action bar, not in the other pane.
@@ -164,9 +187,22 @@ test("the receipt sits above Run, counts the plan's jobs, and updates live", asy
   expect(barBox).not.toBeNull();
   expect((receiptBox as { y: number }).y).toBeLessThan((barBox as { y: number }).y);
 
-  // Live: deselecting empties it and it says why, in the page's own words.
-  await subjectsField(page).getByTestId("subject-select-none").click();
-  await expect(receipt.getByTestId("run-receipt-headline")).toHaveText("Select at least one subject.");
+  // Live: deselecting removes the receipt entirely — the disabled primary carries the reason.
+  await selectSubjects(page, []);
+  await expect(receipt).toHaveCount(0);
+  const run = page.locator('[data-page-active="true"]').getByTestId("run-button");
+  await expect(run).toBeDisabled();
+  await expect(run).toHaveAttribute("title", "Select at least one subject.");
+});
+
+test("Pre-processing states its batch in the plan and the digest, without a receipt", async () => {
+  await gotoPage(page, "preprocess", "Pre-processing");
+  await openSubjects(page);
+  await selectSubjects(page, ["ernie"]);
+  const active = page.locator('[data-page-active="true"]');
+  await expect(active.getByTestId("run-receipt")).toHaveCount(0);
+  await expect(active.getByTestId("plan-grid")).toBeVisible({ timeout: 20_000 });
+  await expect(active.locator(".action-bar-digest")).toHaveText(/job/, { timeout: 20_000 });
 });
 
 test("Jobs rows are selectable, and the bulk cancel sends exactly the selected ids", async () => {
@@ -212,10 +248,12 @@ test("the shared existing-outputs dialog is one question with three answers", as
   await openSubjects(page);
   await selectOnlyErnie();
 
-  const receipt = page.locator('[data-page-active="true"]').getByTestId("run-receipt");
-  await expect(receipt).toHaveAttribute("data-existing", /^[1-9]/, { timeout: 20_000 });
-  // The receipt says the question is coming; pressing Run asks it.
-  await expect(receipt.getByTestId("run-receipt-existing")).toBeVisible();
+  // Pre-processing carries no receipt: the plan grid is what states the batch here. Wait for it
+  // to resolve — these subjects have output already, so pressing Run then asks the shared
+  // question rather than submitting silently.
+  await expect(
+    page.locator('[data-page-active="true"]').getByTestId("plan-grid").locator(".plan-cell-button").first(),
+  ).toBeVisible({ timeout: 20_000 });
 
   await page.locator('[data-page-active="true"]').getByTestId("run-button").click();
   const dialog = page.getByRole("dialog");
