@@ -22,6 +22,7 @@ import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Locator, type Page } from "@playwright/test";
 import { expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
 import { expectRunPaneTab } from "./_runPane";
+import { closeOptEditor, openOptEditor, optRows } from "./_jobs";
 import { cameraPosition, type OrbitCamera } from "../../src/renderer/scene/camera";
 
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
@@ -183,11 +184,17 @@ test("clicking the electrode the projection aims at is the electrode the montage
 test("a region picked in the scene is the region the ROI picker lists", async () => {
   await gotoPage(page, "optimizer", "Optimizer");
   await expectPage(page, "optimizer");
-  await page.getByRole("radiogroup", { name: "Method" }).getByRole("radio", { name: "Flex", exact: true }).click();
-  await page.getByTestId("page-work").getByRole("radio", { name: "Cortical", exact: true }).click();
-  await field("Atlas").getByRole("button").click();
+  // The jobs table (2026-09-06): the target belongs to a job ROW, and the pane draws the ACTIVE
+  // row's atlas. So the atlas is chosen in that row's editor, and the row stays active after it
+  // closes — which is what makes the pane's regions and the row's regions the same list.
+  const row = optRows(page).first();
+  const editor = await openOptEditor(page, row, "pencil");
+  await editor.getByRole("radio", { name: "Cortical", exact: true }).click();
+  await field("Atlas", editor).getByRole("button").click();
   await page.getByPlaceholder("Search atlases…").fill("DK40");
   await page.getByRole("option", { name: /DK40/i }).first().click();
+  await closeOptEditor(page);
+  await expect(row).toHaveAttribute("data-active", "true");
 
   const host = page.locator('[data-page-panel="optimizer"]').getByTestId("scene-pane-host");
   await expectRunPaneTab(page, "scene");
@@ -206,7 +213,10 @@ test("a region picked in the scene is the region the ROI picker lists", async ()
   expect(picked, "a click in the middle of the framed head hit no region").toBeTruthy();
 
   const hemi = picked!.hemi === "rh" ? "R" : "L";
-  await expect(field("Region(s)").getByRole("combobox")).toHaveText(`${hemi} · ${picked!.name}`);
+  // The FORM holds what the pane picked — read where the form now lives, in the row's editor.
+  const check = await openOptEditor(page, row, "pencil");
+  await expect(field("Region(s)", check).getByRole("combobox")).toHaveText(`${hemi} · ${picked!.name}`);
+  await closeOptEditor(page);
 });
 
 test("a region chosen in the ROI picker is highlighted by the pane", async () => {
@@ -222,7 +232,8 @@ test("a region chosen in the ROI picker is highlighted by the pane", async () =>
     return { before: handle.selection.regions, next: { key: `${row.hemi}:${row.id}`, label: row.label } };
   });
 
-  await field("Region(s)").getByRole("combobox").click();
+  const picker = await openOptEditor(page, optRows(page).first(), "pencil");
+  await field("Region(s)", picker).getByRole("combobox").click();
   // Cleared first, so this measures the FORM -> PANE direction on its own: the previous test left
   // a scene-picked region in the list, and starting from empty means the assertion below is about
   // this selection and not about the sum of two.
@@ -231,6 +242,7 @@ test("a region chosen in the ROI picker is highlighted by the pane", async () =>
   // rows, which are `role="option"` too and sit behind the open dialog's overlay.
   await page.getByTestId(`roi-region-row-${next.key}`).click();
   await page.getByTestId("roi-region-done").click();
+  await closeOptEditor(page);
   void before;
 
   await expect

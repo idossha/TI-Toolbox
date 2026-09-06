@@ -21,6 +21,7 @@ import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
 import { expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
 import { expectRunPaneTab } from "./_runPane";
+import { closeOptEditor, openOptEditor, optRows } from "./_jobs";
 
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
 const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
@@ -202,8 +203,15 @@ test("an electrode pick writes a NAME into the montage form", async () => {
 test("a guide click can never update a subject-RAS coordinate", async () => {
   await gotoPage(page, "optimizer", "Optimizer");
   await expectPage(page, "optimizer");
-  const picker = page.getByTestId("page-work").locator(".roi-picker");
-  await picker.locator(".segmented").first().getByRole("radio", { name: "Spherical", exact: true }).click();
+  // The jobs table (2026-09-06): the target is a job ROW's, edited in that row's dialog, and the
+  // pane draws the ACTIVE row. The sphere's coordinate inputs live in the dialog, so it stays OPEN
+  // for this test — the click under assertion is on the pane behind it, which is the whole point:
+  // a guide click must not reach a subject-RAS field wherever that field is.
+  const row = optRows(page).first();
+  const editor = await openOptEditor(page, row, "pencil");
+  await editor.locator(".roi-picker .segmented").first().getByRole("radio", { name: "Spherical", exact: true }).click();
+  await closeOptEditor(page);
+  await expect(row).toHaveAttribute("data-active", "true");
   await expectRunPaneTab(page, "scene");
   const panel = page.locator('[data-page-panel="optimizer"]');
   await expect(panel.getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready", { timeout: 20_000 });
@@ -213,17 +221,25 @@ test("a guide click can never update a subject-RAS coordinate", async () => {
   // gesture does not exist — not "exists and is approximately transformed". `SceneGesture` no
   // longer contains the word at all, which is what makes this checkable by attribute.
   await expect(panel.getByTestId("scene-pane-host")).not.toHaveAttribute("data-gesture", "sphere");
-  const before = await panel
-    .locator("input[type=number]")
-    .evaluateAll((nodes) => nodes.map((n) => (n as HTMLInputElement).value));
+  // The sphere's own X/Y/Z inputs, read where they live: inside the row's editor. Reading only the
+  // pane's own numbers would assert nothing — the pane has none — so the dialog is opened, its
+  // values recorded, and closed again around the click.
+  const sphereValues = async (): Promise<string[]> => {
+    const dialog = await openOptEditor(page, row, "pencil");
+    const values = await dialog
+      .locator("input[type=number]")
+      .evaluateAll((nodes) => nodes.map((n) => (n as HTMLInputElement).value));
+    await closeOptEditor(page);
+    return values;
+  };
+  const before = await sphereValues();
+  expect(before.length, "the spherical panel has coordinate inputs to protect").toBeGreaterThan(0);
 
   const box = await panel.getByTestId("scene-canvas").boundingBox();
   if (!box) throw new Error("the scene canvas has no bounding box");
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await page.waitForTimeout(500);
 
-  const after = await panel
-    .locator("input[type=number]")
-    .evaluateAll((nodes) => nodes.map((n) => (n as HTMLInputElement).value));
+  const after = await sphereValues();
   expect(after).toEqual(before);
 });

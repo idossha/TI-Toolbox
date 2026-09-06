@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Locator, type Page } from "@playwright/test";
 import { expectPage, gotoPage, launchElectronApp, openPalette, setSectionOpen } from "./_helpers";
+import { closeOptEditor, openOptEditor, optRows, setOptCell } from "./_jobs";
 
 /**
  * DESIGN.md §4.2 rule 9 — **a small exclusive choice is a `SegmentedControl`** — on the pages
@@ -47,8 +48,13 @@ async function noRadioGroup(root: Locator = page.getByTestId("page-work")): Prom
   await expect(root.locator(".radio-group, .radio-group-cards")).toHaveCount(0);
 }
 
-async function pickMethod(name: "Flex" | "Ex" | "mEx"): Promise<void> {
-  await page.getByRole("radiogroup", { name: "Method" }).getByRole("radio", { name, exact: true }).click();
+/**
+ * The Optimizer's method is a cell of a job ROW since the 2026-09-06 jobs table, and every form it
+ * used to carry globally lives in that row's editor — so the segments this spec is about are found
+ * by opening the row, not by walking the page.
+ */
+async function pickMethod(name: "Flex" | "Ex"): Promise<void> {
+  await setOptCell(page, optRows(page).first(), "method", name);
 }
 
 test.beforeAll(async () => {
@@ -100,34 +106,45 @@ test("the Optimizer's shape, threshold mode and search space are segments — an
   await expectPage(page, "optimizer");
   await pickMethod("Flex");
 
-  const electrodes = await openSection("Electrodes");
+  // Every one of these lives in the row's editor now (the jobs table pass): same controls, same
+  // idiom claim, reached through the row rather than through the page.
+  const editor = await openOptEditor(page, optRows(page).first(), "pencil");
+  const electrodes = editor.locator(".form-section", { hasText: "Electrodes" }).first();
   expect(await field("Shape", electrodes).locator(".segmented").getByRole("radio").allTextContents()).toEqual([
     "Ellipse",
     "Rectangle",
   ]);
 
   // Threshold mode appears only for the threshold form of the focality goal.
-  await field("Goal").getByRole("combobox").click();
+  await field("Goal", editor).getByRole("combobox").click();
   await page.getByRole("option", { name: "Focality", exact: true }).click();
-  const thresholdMode = field("Threshold mode").locator(".segmented");
+  const thresholdMode = field("Threshold mode", editor).locator(".segmented");
   await expect(thresholdMode).toHaveCount(1);
   expect(await thresholdMode.getByRole("radio").allTextContents()).toEqual([
     "Manual thresholds",
     "Adaptive (single run)",
     "Pareto sweep",
   ]);
-  await noRadioGroup();
+  await noRadioGroup(editor);
+  await closeOptEditor(page);
 
   await pickMethod("Ex");
-  const searchSpace = field("Search space").locator(".segmented");
+  const exEditor = await openOptEditor(page, optRows(page).first(), "pencil");
+  const searchSpace = field("Search space", exEditor).locator(".segmented");
   expect(await searchSpace.getByRole("radio").allTextContents()).toEqual(["Bucketed", "All combinations"]);
-  await noRadioGroup();
+  // The electrode count that decides ex from mEx is the same idiom too.
+  expect(await field("Electrodes", exEditor).locator(".segmented").getByRole("radio").allTextContents()).toEqual([
+    "4 electrodes (TI)",
+    "8 electrodes (mTI)",
+  ]);
+  await noRadioGroup(exEditor);
 
   // `ui/CoordinateInput` — the request FIX-D called the one that matters most. It is reached from
   // the ROI picker's own "Add ROI" dialog, so before this the dialog's space radios and the
-  // picker's space segment were two idioms one click apart.
-  await page.getByTestId("page-work").getByRole("button", { name: /Add ROI/i }).first().click();
-  const dialog = page.getByRole("dialog");
+  // picker's space segment were two idioms one click apart. The picker is inside the row editor
+  // now, so this is a dialog opened from a dialog.
+  await exEditor.getByRole("button", { name: /Add ROI/i }).first().click();
+  const dialog = page.getByRole("dialog").filter({ hasText: "Add new ROI" });
   await expect(dialog).toBeVisible();
   const space = dialog.locator(".segmented");
   await expect(space).toHaveCount(1);
@@ -137,6 +154,9 @@ test("the Optimizer's shape, threshold mode and search space are segments — an
   await expect(space.getByRole("radio", { name: "MNI", exact: true })).toBeChecked();
   await noRadioGroup(dialog);
   await dialog.getByRole("button", { name: "Cancel" }).click();
+  await closeOptEditor(page);
+  // …and the page itself, with every dialog closed, still shows no other idiom.
+  await noRadioGroup();
 });
 
 test("Settings' existing-output policy and theme are segments", async () => {
