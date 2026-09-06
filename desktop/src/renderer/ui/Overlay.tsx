@@ -36,7 +36,13 @@ export function Dialog({
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   title: string;
-  description?: string;
+  /**
+   * The line under the title. A string is the usual case; a node is allowed so a dialog can put a
+   * small control there (the Optimizer's row editor states its subject and its run name on this
+   * line). A node is rendered through `asChild` into a `<div>`, because Radix's `Description` is a
+   * `<p>` by default and a control nested in a paragraph is invalid markup.
+   */
+  description?: ReactNode;
   children?: ReactNode;
   footer?: ReactNode;
   trigger?: ReactNode;
@@ -49,7 +55,14 @@ export function Dialog({
         <DialogPrimitive.Overlay className="overlay" />
         <DialogPrimitive.Content className="dialog-content" onCloseAutoFocus={overlay.onCloseAutoFocus}>
           <DialogPrimitive.Title className="dialog-title">{title}</DialogPrimitive.Title>
-          {description && <DialogPrimitive.Description className="dialog-description">{description}</DialogPrimitive.Description>}
+          {description &&
+            (typeof description === "string" ? (
+              <DialogPrimitive.Description className="dialog-description">{description}</DialogPrimitive.Description>
+            ) : (
+              <DialogPrimitive.Description asChild>
+                <div className="dialog-description">{description}</div>
+              </DialogPrimitive.Description>
+            ))}
           {children}
           {footer && <div className="dialog-footer">{footer}</div>}
           <DialogPrimitive.Close asChild>

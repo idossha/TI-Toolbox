@@ -255,6 +255,17 @@ test("Flex: the row's editor holds the target and the form, and one flex job rea
   for (const section of ["Objective", "Electrodes", "Solver", "After the search"]) {
     await expect(dialog.locator(".form-section-title", { hasText: section }).first()).toHaveCount(1);
   }
+  // The header line is the same structure as the Ex editor's — the two dialogs match: the subject
+  // and the run name on one line under the title, and no Run name row in the body.
+  const meta = dialog.locator(".optimizer-dialog-meta");
+  await expect(meta.locator(".optimizer-dialog-subject")).toHaveText("ernie");
+  await expect(meta.getByRole("textbox")).toHaveAttribute("placeholder", "auto (timestamp)");
+  await expect(dialog.getByTestId("opt-row-editor").locator(".field", { hasText: "Run name" })).toHaveCount(0);
+  const subjectBox = (await meta.locator(".optimizer-dialog-subject").boundingBox())!;
+  const runBox = (await meta.getByRole("textbox").boundingBox())!;
+  expect(Math.abs(runBox.y + runBox.height / 2 - (subjectBox.y + subjectBox.height / 2))).toBeLessThan(6);
+  expect(runBox.x).toBeGreaterThan(subjectBox.x + subjectBox.width);
+
   await pickCorticalTarget(dialog);
   await closeOptEditor(page);
 
@@ -467,6 +478,59 @@ test("mEx is Ex with eight electrodes: the count decides the kind", async () => 
   await field("Electrodes", dialog).getByRole("radio", { name: "4 electrodes (TI)", exact: true }).click();
   await closeOptEditor(page);
   await expect(row).toHaveAttribute("data-kind", "ex");
+});
+
+test("the row editor's header carries the run name, and Current is one line", async () => {
+  // Coordinator, 2026-09-06, on two screenshots of the Ex editor: the run name is one short string
+  // naming the whole run, so it belongs on the header line beside the subject rather than as the
+  // first row of a body that is otherwise all search parameters; and `Total current · Step ·
+  // Channel limit` are three numbers about one thing, so they are one line.
+  const row = optRows(page).first();
+  await expect(row).toHaveAttribute("data-kind", "ex");
+  const dialog = await openOptEditor(page, row);
+
+  // The header: the subject and the run-name input on ONE line, under the title, and the body has
+  // no Run name field left.
+  const meta = dialog.locator(".optimizer-dialog-meta");
+  const subject = meta.locator(".optimizer-dialog-subject");
+  const runName = meta.getByRole("textbox");
+  await expect(subject).toHaveText("ernie");
+  await expect(runName).toHaveAttribute("placeholder", "auto (timestamp)");
+  await expect(dialog.getByTestId("opt-row-editor").locator(".field", { hasText: "Run name" })).toHaveCount(0);
+  const subjectBox = (await subject.boundingBox())!;
+  const runBox = (await runName.boundingBox())!;
+  const titleBox = (await dialog.locator(".dialog-title").boundingBox())!;
+  // Same line as the subject, to its right; below the title.
+  expect(Math.abs(runBox.y + runBox.height / 2 - (subjectBox.y + subjectBox.height / 2))).toBeLessThan(6);
+  expect(runBox.x).toBeGreaterThan(subjectBox.x + subjectBox.width);
+  expect(runBox.y).toBeGreaterThan(titleBox.y + titleBox.height - 4);
+  // …and clear of the dialog's own close button.
+  const closeBox = (await dialog.getByRole("button", { name: "Close dialog" }).boundingBox())!;
+  expect(runBox.x + runBox.width).toBeLessThanOrEqual(closeBox.x);
+  // It is the row's run name, and it reaches the config.
+  await runName.fill("header-run");
+  await closeOptEditor(page);
+  await expect(dialog).toHaveCount(0);
+
+  // CURRENT: three fields, one line, content-sized inputs.
+  const again = await openOptEditor(page, row);
+  const current = again.locator(".optimizer-current-row");
+  const boxes = await current.locator(".field").evaluateAll((els) => els.map((el) => el.getBoundingClientRect()).map((r) => ({ x: r.x, y: r.y, w: r.width })));
+  expect(boxes).toHaveLength(3);
+  console.log(`OJ-CURRENT ${JSON.stringify(boxes)}`);
+  // One line: every field shares the first one's top, and each starts right of the last.
+  for (const b of boxes) expect(Math.abs(b.y - boxes[0]!.y), "Current is one line").toBeLessThan(4);
+  expect(boxes[1]!.x).toBeGreaterThan(boxes[0]!.x);
+  expect(boxes[2]!.x).toBeGreaterThan(boxes[1]!.x);
+  // Content-sized controls, not one filling half the dialog — and wide enough to PRINT their
+  // value: an 88px wrapper that also squeezed the inner input left 37px for the number, which
+  // rendered 0.2 as "0" and 1.6 as "1".
+  const inputs = await current.locator(".number-input").evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().width)));
+  console.log(`OJ-CURRENT-INPUTS ${JSON.stringify(inputs)}`);
+  for (const w of inputs) expect(w, "a current control is content-sized").toBeLessThanOrEqual(120);
+  await expect(current.getByRole("spinbutton").nth(1)).toHaveValue("0.2");
+  await expect(current.getByRole("spinbutton").nth(2)).toHaveValue("1.6");
+  await closeOptEditor(page);
 });
 
 test("a mixed table submits one group per kind, and says so", async () => {

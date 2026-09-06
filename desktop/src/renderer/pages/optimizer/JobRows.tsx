@@ -33,7 +33,7 @@ import { ElectrodesSection, ObjectiveSection, PostRunSection, SolverSection } fr
 import { ExCurrentSection, ExElectrodesSection, LeadfieldStrip, MExCarrierSection, MExElectrodesSection } from "./ExSections";
 import { formatBytes } from "./exConfig";
 import { electrodesForNet, leadfieldPathFor, netKey, netOptions } from "./nets";
-import { isFlexMethod, GOAL_LABEL, OPT_METHODS, optimizerAvoidLabel, optimizerMethodSummary, optimizerTargetLabel, roiModesFor, rowGoal, rowJobKind, withMethod, emptyOptimizerRow, newOptimizerRowId, readStoredOptColumns, resolveOptColumnWidths, writeStoredOptColumns, type OptColumnKey, type OptColumnWidths, type OptimizerRow, type OptMethod, type StoredOptColumns } from "./rows";
+import { isFlexMethod, OPT_METHODS, optimizerAvoidLabel, optimizerMethodSummary, optimizerTargetLabel, roiModesFor, rowGoal, rowJobKind, withMethod, emptyOptimizerRow, newOptimizerRowId, readStoredOptColumns, resolveOptColumnWidths, writeStoredOptColumns, type OptColumnKey, type OptColumnWidths, type OptimizerRow, type OptMethod, type StoredOptColumns } from "./rows";
 import type { OptGoal } from "./flexConfig";
 import "./optimizer.css";
 
@@ -490,7 +490,26 @@ function RowEditor({
         if (!open) onClose();
       }}
       title={`${method?.label ?? row.method} search`}
-      description={`${row.subjectId || "no subject"}${rowGoal(row) ? ` · ${GOAL_LABEL[rowGoal(row) as OptGoal]}` : ""}`}
+      /*
+        The header line states WHOSE search this is and what it will be called (coordinator,
+        2026-09-06): the run name is one short string that names the whole run, so it belongs
+        beside the subject rather than as the first row of a body that is otherwise all search
+        parameters. `.field-row-inline` gives it the same label-left shape as any other field.
+      */
+      description={
+        <span className="optimizer-dialog-meta field-row-inline">
+          <span className="optimizer-dialog-subject">{row.subjectId || "no subject"}</span>
+          <span aria-hidden>·</span>
+          <Field label="Run name" htmlFor={`opt-run-name-${row.id}`} help="Defaults to a timestamp.">
+            <TextInput
+              id={`opt-run-name-${row.id}`}
+              value={row.runName}
+              onChange={(e) => onChange({ ...row, runName: e.target.value })}
+              placeholder="auto (timestamp)"
+            />
+          </Field>
+        </span>
+      }
       footer={
         <Button variant="primary" onClick={onClose} data-testid="opt-row-done">
           Done
@@ -512,15 +531,6 @@ function RowEditor({
             generating={generatingLeadfield}
           />
         )}
-
-        <Field label="Run name" htmlFor={`opt-run-name-${row.id}`} help="Defaults to a timestamp.">
-          <TextInput
-            id={`opt-run-name-${row.id}`}
-            value={row.runName}
-            onChange={(e) => onChange({ ...row, runName: e.target.value })}
-            placeholder="auto (timestamp)"
-          />
-        </Field>
 
         <section className="optimizer-row-target" data-testid="opt-row-target">
           <h4 className="text-eyebrow">Target</h4>

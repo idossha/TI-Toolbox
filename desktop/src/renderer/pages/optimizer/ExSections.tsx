@@ -199,7 +199,11 @@ export function ExCurrentSection({ form, onChange }: { form: ExFormState; onChan
   const cost = exCost(form);
   return (
     <FormSection title="Current" collapsible summary={`${form.totalCurrent} mA total · ${form.currentStep} mA step · ${cost.splits} splits`}>
-      <>
+      {/* Three numbers about one thing, on one line (coordinator, 2026-09-06 — the two-up form grid
+          put Total and Step side by side and wrapped Channel limit onto a third row of its own).
+          `.field-row-inline` is the shared idiom the Simulator's Electrodes row uses: label-left
+          fields sized to their content, 24px apart. */}
+      <div className="field-row-inline optimizer-current-row">
         <Field label="Total current" help="Distributed between the two channels.">
           <NumberInput value={form.totalCurrent} onValueChange={(v) => onChange({ totalCurrent: v ?? 2.0 })} unit="mA" min={0.1} max={10} step={0.1} />
         </Field>
@@ -209,7 +213,7 @@ export function ExCurrentSection({ form, onChange }: { form: ExFormState; onChan
         <Field label="Channel limit" help="Maximum current per channel (must be ≤ total current).">
           <NumberInput value={form.channelLimit ?? undefined} onValueChange={(v) => onChange({ channelLimit: v ?? null })} unit="mA" min={0.1} max={10} step={0.1} />
         </Field>
-      </>
+      </div>
     </FormSection>
   );
 }

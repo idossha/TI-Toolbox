@@ -335,3 +335,35 @@
   grid-auto-columns: 1fr;
   width: 100%;
 }
+
+/* ---------- The row editor's header line ---------- */
+
+/* `Ex search` on the title line, then `<subject> · Run name [ … ]` under it (coordinator,
+   2026-09-06). It is `.field-row-inline`, so the label sits left of a content-sized control, the
+   same shape every other field on the page has; only the width and the muted subject are this
+   dialog's own. */
+.optimizer-dialog-meta {
+  flex-wrap: nowrap;
+  gap: var(--space-2);
+  color: var(--ink-3);
+}
+.optimizer-dialog-subject {
+  white-space: nowrap;
+}
+.optimizer-dialog-meta .control,
+.optimizer-dialog-meta input {
+  width: 200px;
+  min-width: 0;
+}
+/* The header sits above the dialog's own close button; the input must not run under it. */
+.dialog-content:has(.optimizer-row-editor) .dialog-description {
+  padding-right: 32px;
+}
+
+/* Three numbers about one thing on one line, each control content-sized like the Simulator's
+   Electrodes row. `--control-w` is `.field-row-inline`'s own documented escape for "a value with a
+   unit suffix"; the row's default 72px paid for the `mA` chip and its padding first and left 37px
+   for the number, which printed `0.2` as `0` and `1.6` as `1` — a value the user could not read. */
+.optimizer-current-row {
+  --control-w: 96px;
+}
