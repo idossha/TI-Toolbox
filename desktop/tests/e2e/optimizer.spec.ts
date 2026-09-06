@@ -301,6 +301,21 @@ test("duplicate, then re-point the copy: two subjects, two rows, each with its O
   await expect(page.locator('[data-testid^="plan-cell-ernie-"]')).toHaveCount(3); // Flex · Ex · mEx columns
   await expect(page.getByTestId("plan-cell-ernie-flex")).toBeVisible();
   await expect(page.getByTestId("plan-cell-101-flex")).toBeVisible();
+
+  // The three count columns are evenly spaced and the first does not hug the subject id — the same
+  // rule and the same measurement as the Simulator's, because it is the same grid (maintainer,
+  // 2026-09-06). Measured geometry, not the stylesheet.
+  const geometry = await page.locator('[data-page-active="true"] .plan-matrix').evaluate((table) => {
+    const head = [...table.querySelectorAll("thead th")];
+    const xs = head.slice(1).map((th) => th.getBoundingClientRect().x);
+    const subjectText = table.querySelector("tbody th .mono")?.getBoundingClientRect();
+    const firstCount = head[1]?.getBoundingClientRect();
+    const pad = head[1] ? parseFloat(getComputedStyle(head[1]).paddingLeft) : 0;
+    return { xs, gap: (firstCount?.x ?? 0) + pad - (subjectText?.right ?? 0) };
+  });
+  const [ax, bx, cx] = geometry.xs as [number, number, number];
+  expect(Math.abs(bx - ax - (cx - bx)), `column steps ${bx - ax} vs ${cx - bx}`).toBeLessThanOrEqual(2);
+  expect(geometry.gap, "subject id sits against the first count").toBeGreaterThanOrEqual(24);
   await expect(page.getByTestId("run-button")).toHaveText("Run 2 searches");
 
   // Both rows reach the wire in ONE request (R3, one kind), and each job carries ITS OWN subject's

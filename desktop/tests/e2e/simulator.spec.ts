@@ -209,6 +209,23 @@ test("a cell counts its subject's jobs per source, and lists them for pinning", 
   await expect(page.getByTestId("plan-legend")).toContainText("new — 4 jobs in this plan");
   await expect(page.locator('[data-testid="plan-stat-jobs"]')).toContainText("4");
 
+  // The three count columns are evenly spaced, and the first does not hug the subject id
+  // (maintainer, 2026-09-06). Measured, not asserted from the CSS: `table-layout: fixed` with only
+  // the subject column sized is what divides the rest equally, and this is the proof.
+  const geometry = await page.locator('[data-testid="plan-grid"] .plan-matrix').evaluate((table) => {
+    const head = [...table.querySelectorAll("thead th")];
+    const xs = head.slice(1).map((th) => th.getBoundingClientRect().x);
+    const subjectText = table.querySelector("tbody th .mono")?.getBoundingClientRect();
+    const firstCount = head[1]?.getBoundingClientRect();
+    const pad = head[1] ? parseFloat(getComputedStyle(head[1]).paddingLeft) : 0;
+    return { xs, gap: (firstCount?.x ?? 0) + pad - (subjectText?.right ?? 0) };
+  });
+  expect(geometry.xs).toHaveLength(3);
+  // Equidistant to within 2px: the two steps between the three columns are the same.
+  const [a, b, c] = geometry.xs as [number, number, number];
+  expect(Math.abs(b - a - (c - b)), `column steps ${b - a} vs ${c - b}`).toBeLessThanOrEqual(2);
+  expect(geometry.gap, "subject id sits against the first count").toBeGreaterThanOrEqual(24);
+
   // Evidence (§8.1): two subjects, mixed sources.
   await page.locator('[data-testid="plan-grid"]').screenshot({ path: "tests/e2e/artifacts/sim-plan-summary.png" });
 
