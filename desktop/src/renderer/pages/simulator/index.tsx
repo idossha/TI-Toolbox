@@ -26,7 +26,7 @@ import { ConductivityDialog, type CustomConductivities } from "./ConductivityDia
 import "./simulator-page.css";
 import { useSimPlan, RunButton } from "./RunControls";
 import { CONDUCTIVITY_OPTIONS, OUTPUT_FIELDS, OUTPUT_FIELDS_HELP, type SelectedRow } from "./types";
-import { RunPanel, RunWork, planDigest, stepsFor, useRunStatusCells } from "../_shared/run";
+import { RunPanel, RunWork, planDigest, stepsFor } from "../_shared/run";
 import { ScenePane, withSlot } from "../_shared/scene";
 import type { GlobalParams } from "./buildConfig";
 
@@ -171,7 +171,6 @@ function SimulatorPage() {
 
   const plan = useSimPlan(visibleRows, params, selectedSubjects, subjectsBlocked);
   const overrides = Object.keys(customConductivities).length;
-  useRunStatusCells("sim", eligible, plan.model);
 
   const digest = plan.model ? planDigest(plan.model) : (plan.blockedReason ?? "Resolving the plan…");
 
