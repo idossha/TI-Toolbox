@@ -149,3 +149,30 @@ def _string_list(value: Any) -> list[str]:
     if value:
         raise KindError(f"config.args must be a list of strings, got {value!r}")
     return []
+
+
+# -- Docker sibling containers -----------------------------------------------------------------
+
+#: ``tit.pre`` stage flags whose stages spawn sibling containers via Docker-outside-of-Docker:
+#: QSIPrep, QSIRecon and the DTI tensor extraction that runs inside a QSIRecon-family image
+#: (``tit/pre/qsi/*``). Nothing else in the toolbox runs ``docker`` at all -- every other kind
+#: (sim, flex, ex, analyzer, stats, tools, ...) is a plain in-container process.
+DOCKER_SIBLING_STAGE_FLAGS = ("run_qsiprep", "run_qsirecon", "extract_dti")
+
+
+def may_spawn_docker_siblings(kind: str | None, config: Any = None) -> bool:
+    """Could a job of this *kind*/*config* have started a sibling Docker container?
+
+    Used to keep cancellation from touching Docker for the overwhelming majority of jobs that
+    never could have spawned one -- an unresponsive daemon then cannot delay their cancel.
+    Conservative on purpose: a ``pre`` job whose config does not mention any DWI stage flag at
+    all (an unrecognised or future shape) is treated as if it might have spawned one.
+    """
+    if kind != "pre":
+        return False
+    if not isinstance(config, dict):
+        return True
+    present = [f for f in DOCKER_SIBLING_STAGE_FLAGS if f in config]
+    if not present:
+        return True
+    return any(bool(config[f]) for f in present)

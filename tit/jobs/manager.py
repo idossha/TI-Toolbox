@@ -26,6 +26,7 @@ from typing import Any
 import psutil
 
 from tit.jobs import kinds, locks, scheduler
+from tit.jobs.kinds import may_spawn_docker_siblings
 from tit.jobs.bindings import merge_pipeline_bindings
 from tit.jobs.costs import default_cost
 from tit.jobs.registry import (
@@ -67,6 +68,11 @@ STALL_CPU_PERCENT = 2.0
 LOG_TAIL_ON_FAILURE = 20
 SUBSCRIBER_QUEUE_MAXSIZE = 10_000
 #: The single line a cancelled job's log ends with (see ``JobManager._append_cancel_note``).
+#: Upper bound on the whole "stop this job's sibling containers" step during a cancel. Kept well
+#: under ``cancel()``'s own 20 s future timeout so a wedged Docker daemon can never be what makes
+#: a cancel fail: the job still lands in ``cancelled``, with a warning in the log.
+DOCKER_CANCEL_TIMEOUT_S = 3.0
+
 CANCEL_NOTE = "cancelled by user"
 
 
@@ -453,8 +459,10 @@ class JobManager:
     async def _cancel_running(
         self, job_id: str, pid: int, create_time: float | None
     ) -> None:
+        # The runner process is signalled first and unconditionally: whatever Docker is doing
+        # (including nothing at all, on a wedged daemon), a cancel must always end the job.
         await terminate_tree(pid, create_time)
-        await stop_docker_siblings(job_id)
+        await self._stop_docker_siblings_if_any(job_id)
         self._append_cancel_note(job_id)
         with self._lock:
             status = self._status.get(job_id)
@@ -464,6 +472,41 @@ class JobManager:
                 self._finalize_locked(
                     status, state="cancelled", exit_code=None, error=None
                 )
+
+    async def _stop_docker_siblings_if_any(self, job_id: str) -> None:
+        """``docker stop`` this job's sibling containers -- only when it could have any.
+
+        Two guards, both learned from a wedged Docker daemon on a developer machine: a `docker
+        ps` against an unresponsive socket blocks forever, which used to hang *every* cancel,
+        including a ``tools`` job that never went near Docker. So (1) only job kinds that spawn
+        siblings (the DWI stages of ``pre`` -- QSIPrep/QSIRecon/DTI, the only code paths that
+        ``docker run`` anything) ask Docker at all, and (2) that ask is bounded, degrading to a
+        logged warning rather than a stuck job.
+        """
+        with self._lock:
+            status = self._status.get(job_id)
+            spec = self._specs.get(job_id)
+        kind = spec.kind if spec is not None else (status.kind if status else None)
+        config = spec.config if spec is not None else None
+        if not may_spawn_docker_siblings(kind, config):
+            return
+        try:
+            await asyncio.wait_for(
+                stop_docker_siblings(job_id), timeout=DOCKER_CANCEL_TIMEOUT_S
+            )
+        except (asyncio.TimeoutError, TimeoutError):
+            logger.warning(
+                "job %s: could not reach Docker to stop sibling containers within %.1fs; "
+                "cancelling anyway",
+                job_id,
+                DOCKER_CANCEL_TIMEOUT_S,
+            )
+        except Exception:
+            logger.warning(
+                "job %s: could not reach Docker to stop sibling containers",
+                job_id,
+                exc_info=True,
+            )
 
     def _append_cancel_note(self, job_id: str) -> None:
         """Close a cancelled job's log with one line saying what happened.

@@ -39,6 +39,7 @@ from tit.jobs.docker_engine import (  # noqa: E402
     DockerEngineClient,
     DockerEngineError,
     LogFrameDecoder,
+    SHORT_TIMEOUT_S,
     NdjsonDecoder,
     discover,
     run_job_container,
@@ -553,3 +554,41 @@ class TestConnectionErrorClassification:
             server.shutdown()
             server.server_close()
             thread.join(timeout=2)
+
+
+class TestHungDaemonIsBounded:
+    """A wedged daemon — a socket that accepts the connection and then never answers a byte —
+    is the state that hung every job cancellation on a developer machine. Every call on a
+    latency-sensitive path must give up quickly rather than block."""
+
+    @staticmethod
+    def _black_hole_socket():
+        socket_dir = tempfile.mkdtemp(prefix="tit-fake-engine-hung-")
+        socket_path = os.path.join(socket_dir, "engine.sock")
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.bind(socket_path)
+        sock.listen(8)  # accepts (well, backlogs) connections, but never reads or replies
+        return sock, socket_path
+
+    def test_ping_gives_up_within_the_short_timeout(self):
+        sock, socket_path = self._black_hole_socket()
+        try:
+            client = DockerEngineClient(DockerConnection(socket_path=socket_path))
+            started = time.monotonic()
+            assert client.ping() is False
+            assert time.monotonic() - started <= SHORT_TIMEOUT_S + 1.0
+        finally:
+            sock.close()
+
+    def test_short_timeout_call_raises_rather_than_hanging(self):
+        sock, socket_path = self._black_hole_socket()
+        try:
+            client = DockerEngineClient(
+                DockerConnection(socket_path=socket_path), timeout_s=SHORT_TIMEOUT_S
+            )
+            started = time.monotonic()
+            with pytest.raises((DockerEngineError, OSError)):
+                client.version()
+            assert time.monotonic() - started <= SHORT_TIMEOUT_S + 1.0
+        finally:
+            sock.close()

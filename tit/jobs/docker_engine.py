@@ -65,6 +65,11 @@ DEFAULT_TIMEOUT_S = 10.0
 # ``None`` disables the socket timeout entirely — used for long-lived calls (logs follow, events,
 # wait), which can legitimately block for hours (a real SimNIBS/QSIPrep job's duration).
 NO_TIMEOUT = None
+# Short bound for calls made on a *latency-sensitive* path -- liveness probes, and anything a job
+# cancellation waits on. A Docker daemon can be wedged (socket accepts the connection and then
+# never answers); ten seconds of that per call is enough to make a cancel look hung, so these
+# calls give up quickly and let the caller degrade to a warning.
+SHORT_TIMEOUT_S = 3.0
 
 
 class DockerEngineError(Exception):
@@ -374,9 +379,12 @@ class DockerEngineClient:
         self._ensure_negotiated()
         return self._json_request("GET", self._vpath("/info"))
 
-    def ping(self) -> bool:
+    def ping(self, timeout_s: float | None = SHORT_TIMEOUT_S) -> bool:
+        """Liveness probe. Bounded by *timeout_s* (not the client's default): a wedged daemon
+        that accepts connections and never answers must report "not reachable" promptly rather
+        than block the caller."""
         try:
-            status, resp, conn = self._request("GET", "/_ping")
+            status, resp, conn = self._request("GET", "/_ping", timeout_s=timeout_s)
             try:
                 resp.read()
             finally:

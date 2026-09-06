@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
+import time
 from unittest.mock import MagicMock
 
 import psutil
@@ -191,3 +192,40 @@ def test_terminate_tree_windows_branch_calls_terminate_then_kill_not_send_signal
     root.terminate.assert_called_once_with()
     root.kill.assert_called_once_with()
     root.send_signal.assert_not_called()
+
+
+class TestStopDockerSiblingsIsBounded:
+    """A wedged Docker daemon makes `docker ps` hang forever; a cancel must not inherit that."""
+
+    @staticmethod
+    def _fake_docker(tmp_path, body: str) -> str:
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        script = bin_dir / "docker"
+        script.write_text("#!/bin/sh\n" + body + "\n")
+        script.chmod(0o755)
+        return str(bin_dir)
+
+    def test_hanging_docker_ps_times_out_and_returns(self, tmp_path, monkeypatch):
+        bin_dir = self._fake_docker(tmp_path, "sleep 300")
+        monkeypatch.setenv("PATH", bin_dir + os.pathsep + os.environ["PATH"])
+        started = time.monotonic()
+        asyncio.run(jobs_runner.stop_docker_siblings("job-1", timeout_s=0.5))
+        assert time.monotonic() - started < 5.0
+
+    def test_missing_docker_cli_is_a_silent_no_op(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("PATH", str(tmp_path / "empty"))
+        asyncio.run(jobs_runner.stop_docker_siblings("job-1", timeout_s=0.5))
+
+    def test_listed_containers_are_stopped(self, tmp_path, monkeypatch):
+        log = tmp_path / "calls.log"
+        bin_dir = self._fake_docker(
+            tmp_path,
+            f'echo "$@" >> {log}\n'
+            'case "$1" in ps) echo abc123;; esac',
+        )
+        monkeypatch.setenv("PATH", bin_dir + os.pathsep + os.environ["PATH"])
+        asyncio.run(jobs_runner.stop_docker_siblings("job-1", timeout_s=5.0))
+        calls = log.read_text().splitlines()
+        assert any(c.startswith("ps ") for c in calls)
+        assert "stop abc123" in calls

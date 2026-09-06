@@ -8,6 +8,7 @@ lock directory, without needing any of the nine science runners to exist.
 
 from __future__ import annotations
 
+import asyncio
 import os
 import sys
 import time
@@ -16,6 +17,7 @@ import psutil
 import pytest
 
 from tit.jobs import locks
+from tit.jobs.kinds import may_spawn_docker_siblings
 from tit.jobs.manager import JobManager
 from tit.jobs.registry import events_path
 from tit.jobs.spec import Cost
@@ -823,3 +825,86 @@ def test_module_kinds_get_a_config_file_with_project_dir(tmp_path):
         assert spec["kind"] == "analyzer"
     finally:
         manager.shutdown()
+
+
+# ---------------------------------------------------------------------------------------------
+# Cancellation must never depend on Docker being reachable.
+#
+# Regression: with the Docker daemon wedged (a socket that accepts and never answers), every
+# cancel -- including a ``tools`` job that cannot possibly have spawned a sibling container --
+# blocked in ``stop_docker_siblings``'s `docker ps` until cancel()'s 20 s future timeout, so the
+# job never reached "cancelled". Two independent fixes, one test each: the call is skipped for
+# kinds that cannot spawn siblings, and it is time-bounded when it is made.
+# ---------------------------------------------------------------------------------------------
+
+
+def _hang_forever_stop(recorder):
+    async def _stop(job_id):
+        recorder.append(job_id)
+        await asyncio.sleep(3600)
+
+    return _stop
+
+
+def test_cancel_of_a_tools_job_never_asks_docker(tmp_path, monkeypatch):
+    called: list[str] = []
+    monkeypatch.setattr(
+        "tit.jobs.manager.stop_docker_siblings", _hang_forever_stop(called)
+    )
+    manager = make_manager(tmp_path)
+    try:
+        status = manager.submit("tools", {"__fake": {"duration_s": 30.0}}, [])
+        wait_until(lambda: manager.get(status["id"])["state"] == "running" or None)
+        started = time.monotonic()
+        result = manager.cancel(status["id"])
+        assert result["state"] == "cancelled"
+        assert time.monotonic() - started < 5.0
+        assert called == []  # a tools job cannot have spawned a sibling container
+    finally:
+        manager.shutdown()
+
+
+def test_cancel_of_a_dwi_job_still_stops_siblings_but_is_bounded(tmp_path, monkeypatch):
+    called: list[str] = []
+    monkeypatch.setattr(
+        "tit.jobs.manager.stop_docker_siblings", _hang_forever_stop(called)
+    )
+    manager = make_manager(tmp_path)
+    try:
+        status = manager.submit(
+            "pre",
+            {"run_qsiprep": True, "__fake": {"duration_s": 30.0}},
+            ["001"],
+        )
+        wait_until(lambda: manager.get(status["id"])["state"] == "running" or None)
+        started = time.monotonic()
+        result = manager.cancel(status["id"])
+        assert result["state"] == "cancelled"
+        # It did ask Docker (this kind can spawn siblings) but did not wait on the hung call.
+        assert called == [status["id"]]
+        assert time.monotonic() - started < 10.0
+    finally:
+        manager.shutdown()
+
+
+class TestMaySpawnDockerSiblings:
+    def test_tools_and_science_kinds_never_do(self):
+        for kind in ("tools", "sim", "flex", "ex", "analyzer", "stats", None):
+            assert may_spawn_docker_siblings(kind, {}) is False
+
+    def test_pre_dwi_stages_do(self):
+        assert may_spawn_docker_siblings("pre", {"run_qsiprep": True}) is True
+        assert may_spawn_docker_siblings("pre", {"run_qsirecon": True}) is True
+        assert may_spawn_docker_siblings("pre", {"extract_dti": True}) is True
+
+    def test_pre_structural_only_does_not(self):
+        assert (
+            may_spawn_docker_siblings(
+                "pre", {"run_charm": True, "run_qsiprep": False, "extract_dti": False}
+            )
+            is False
+        )
+
+    def test_unrecognised_pre_config_is_treated_conservatively(self):
+        assert may_spawn_docker_siblings("pre", {"something_new": True}) is True
+        assert may_spawn_docker_siblings("pre", None) is True

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import abc
 import asyncio
+import contextlib
 import logging
 import os
 from dataclasses import dataclass, field
@@ -254,39 +255,59 @@ def _still_running(proc: psutil.Process) -> bool:
         return False
 
 
-async def stop_docker_siblings(job_id: str) -> None:
-    """Best-effort ``docker stop`` for any container labelled ``tit.job_id=<id>``.
+#: Every ``docker`` CLI call made while cancelling a job is bounded by this many seconds. A
+#: wedged Docker daemon (``docker ps`` hanging forever on an unresponsive socket) must never
+#: keep a cancel from finishing: the runner process is already dead by the time we get here, so
+#: the worst case of giving up is an orphaned sibling container, not a job stuck in "running".
+DOCKER_CLI_TIMEOUT_S = 3.0
 
-    QSIPrep/QSIRecon's DooD builders add this label (TODO.md §2.3); a job that never spawned a
-    sibling container, or a host without a docker CLI, makes this a silent no-op.
-    """
+
+async def _run_docker(argv: list[str], timeout_s: float) -> bytes | None:
+    """Run ``docker <argv>`` with a hard timeout; ``None`` if it could not be run or timed out."""
     try:
-        list_proc = await asyncio.create_subprocess_exec(
+        proc = await asyncio.create_subprocess_exec(
             "docker",
-            "ps",
-            "-q",
-            "--filter",
-            f"label=tit.job_id={job_id}",
+            *argv,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.DEVNULL,
         )
-        out, _ = await list_proc.communicate()
     except (FileNotFoundError, OSError):
+        return None
+    try:
+        out, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout_s)
+        return out
+    except (asyncio.TimeoutError, TimeoutError):
+        logger.warning(
+            "could not reach Docker to stop sibling containers: `docker %s` did not answer "
+            "within %.1fs (is the Docker daemon responsive?)",
+            " ".join(argv),
+            timeout_s,
+        )
+        with contextlib.suppress(ProcessLookupError, OSError):
+            proc.kill()
+        return None
+    except OSError:
+        return None
+
+
+async def stop_docker_siblings(
+    job_id: str, timeout_s: float = DOCKER_CLI_TIMEOUT_S
+) -> None:
+    """Best-effort ``docker stop`` for any container labelled ``tit.job_id=<id>``.
+
+    QSIPrep/QSIRecon's DooD builders add this label (TODO.md §2.3); a job that never spawned a
+    sibling container, or a host without a docker CLI, makes this a silent no-op. Every call is
+    bounded by *timeout_s* so an unresponsive daemon degrades to a logged warning.
+    """
+    out = await _run_docker(
+        ["ps", "-q", "--filter", f"label=tit.job_id={job_id}"], timeout_s
+    )
+    if not out:
         return
     ids = out.decode().split()
     if not ids:
         return
-    try:
-        stop_proc = await asyncio.create_subprocess_exec(
-            "docker",
-            "stop",
-            *ids,
-            stdout=asyncio.subprocess.DEVNULL,
-            stderr=asyncio.subprocess.DEVNULL,
-        )
-        await stop_proc.wait()
-    except (FileNotFoundError, OSError):
-        pass
+    await _run_docker(["stop", *ids], timeout_s)
 
 
 class _ignore_gone:
