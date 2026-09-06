@@ -243,6 +243,12 @@ export interface SelectionListProps {
   toolbar?: ReactNode;
   /** Hide the toolbar row entirely (a `single`-mode picker has nothing to select all of). */
   hideBulk?: boolean;
+  /**
+   * Hide the `N of M selected` badge. For a control that already states its selection somewhere the
+   * user is looking — `SubjectsField`'s summary line names the chosen subjects in the header band —
+   * a second count in the toolbar is the same fact printed twice.
+   */
+  hideBadge?: boolean;
   hideFilter?: boolean;
   loading?: boolean;
   emptyMessage?: string;
@@ -255,10 +261,16 @@ export interface SelectionListProps {
   scrollTestId?: string;
   /**
    * Lifts the 176px cap and lets the box take the room its layout gives it — and draws ground rows
-   * to the bottom of that room, which is what makes an empty or short list show the SHAPE of the
-   * list rather than ending in a hard edge halfway up the pane (DESIGN.md §4.4).
+   * to the bottom of that room, which is what makes a short list on the Jobs page show the SHAPE of
+   * the list rather than ending in a hard edge halfway up the pane (DESIGN.md §4.4).
    */
   scrollFill?: boolean;
+  /**
+   * Never pad the list: no `minRows` floor and no measured ground rows, whatever `scrollFill` says.
+   * The subject list asks for this — the maintainer's "just a simple list of subjects": with the
+   * ground rows in it, a 3-subject project read as a table of empty lines rather than a short list.
+   */
+  hideGround?: boolean;
   /**
    * Esc clears the visible selection. Off inside a dialog (`SelectionPicker`), where Esc means
    * "close this" — a key that both closes the dialog and throws away what was chosen in it is a
@@ -299,6 +311,7 @@ export function SelectionList({
   bulkExclude,
   toolbar,
   hideBulk = false,
+  hideBadge = false,
   hideFilter = false,
   loading = false,
   emptyMessage = "Nothing to choose from.",
@@ -307,6 +320,7 @@ export function SelectionList({
   scrollRef,
   scrollTestId,
   scrollFill,
+  hideGround = false,
   escClears = true,
   windowFrom = WINDOW_FROM,
   className,
@@ -408,7 +422,7 @@ export function SelectionList({
   const [fitRows, setFitRows] = useState(0);
   useEffect(() => {
     const el = boxRef.current;
-    if (!scrollFill || !el || typeof ResizeObserver === "undefined") return;
+    if (!scrollFill || hideGround || !el || typeof ResizeObserver === "undefined") return;
     const measure = () => {
       const head = el.querySelector("thead");
       const headH = head ? head.getBoundingClientRect().height : 0;
@@ -421,12 +435,12 @@ export function SelectionList({
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [scrollFill, visible.length]);
+  }, [scrollFill, hideGround, visible.length]);
 
   const anyReason = visible.some((i) => i.reason);
   const extra = columns ?? [];
   const columnCount = 1 + (extra.length > 0 ? extra.length : headers?.detail !== undefined ? 1 : 0) + (anyReason ? 1 : 0);
-  const groundRows = Math.max(0, Math.max(minRows, scrollFill ? fitRows : 0) - visible.length);
+  const groundRows = hideGround ? 0 : Math.max(0, Math.max(minRows, scrollFill ? fitRows : 0) - visible.length);
 
   return (
     <div
@@ -436,7 +450,7 @@ export function SelectionList({
       data-selected={value.length}
       data-visible={visible.length}
     >
-      {(!hideFilter || !hideBulk || toolbar) && (
+      {(!hideFilter || (!hideBulk && mode !== "single") || !hideBadge || toolbar) && (
         <div className="selection-tools">
           {!hideFilter && (
             <TextInput
@@ -473,9 +487,11 @@ export function SelectionList({
               </Button>
             </div>
           )}
-          <span className="selection-badge text-caption tabular-nums" data-testid={`${idPrefix}-count`}>
-            {selectionBadge(value.length, items.length)}
-          </span>
+          {!hideBadge && (
+            <span className="selection-badge text-caption tabular-nums" data-testid={`${idPrefix}-count`}>
+              {selectionBadge(value.length, items.length)}
+            </span>
+          )}
           {toolbar}
         </div>
       )}

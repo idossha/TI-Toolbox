@@ -6,22 +6,26 @@ import { expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers
 import { deadSpaceRatio, firstScreenControls } from "./_metrics";
 
 /**
- * A table takes the room its pane gives it, and the ground rows belong to the table (cleanup
- * round, lane CL2, item 3 — lane FIX-D's cross-lane requests 1 and 3).
+ * A table takes the room its pane gives it, and where a table still draws ground rows they belong
+ * to the table (cleanup round, lane CL2, item 3 — lane FIX-D's cross-lane requests 1 and 3).
+ *
+ * The subject list is the one table that draws NONE: it ends after the last subject ("just a
+ * simple list of subjects"). `fill` still decides how much room its box may take; it never pads
+ * the list out to that room.
  *
  * Two defects, both "the same thing written twice":
  *
  * 1. **`.run-subject-scroll`'s `max-height: 176px` was a ceiling, not a default.** The Source
  *    panel — a page whose whole job is choosing subjects — could not use a 900 px window, so
  *    `pages/panels/panels.css` overrode the cap *and painted its own ground rows behind the
- *    table*, because the rows belong to `SubjectsField`. Pre-processing pinned `minRows={5}`
+ *    table*, because the rows belonged to `SubjectsField`. Pre-processing pinned `minRows={5}`
  *    for the same reason: a constant, chosen by hand, instead of however many rows fit.
  * 2. **Two pages painted a CSS gradient behind `ui/DataTable`** (`jobs-page.css::.jobs-page-filler`,
  *    `panels.css::.panel-table-filler`) because the table owned its own `<tr>`s and would not draw
  *    ground rows. One rule, written twice, in two files that do not know about each other.
  *
- * Both are now one mechanism: the control draws its own ground rows, measured against the box it
- * is in, and the page says `fill`. The numbers here are the ones that made the case — the room a
+ * Both are now one mechanism: a table that grounds draws its own `<tr>`s, and the page says
+ * `fill` for the room. The numbers here are the ones that made the case — the room a
  * table actually takes, and the dead-space ratio the pages must stay inside (L5a, 45 %).
  */
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
@@ -101,7 +105,7 @@ async function boxRoom(selector: string): Promise<{ height: number; slackBelow: 
   }, selector);
 }
 
-test("the Source panel's subject table takes the room a 900px window gives it", async () => {
+test("the Source panel's subject table may use the room a 900px window gives it", async () => {
   await gotoPage(page, "panel-source", "Source");
   await expectPage(page, "panel-source");
   await settle();
@@ -132,70 +136,51 @@ test("the Source panel's subject table takes the room a 900px window gives it", 
   const fillers = await page.locator('[data-page-active="true"] [data-testid="subjects-field-table"] .run-table-filler').count();
   console.log(`CL2-ROOM panel-source scroll=${scroll.height}px slackBelow=${scroll.slackBelow}px fillers=${fillers} painted=${scroll.painted}`);
 
-  // The room: the table is taller than the cap and reaches the bottom of the pane.
-  expect(scroll.height).toBeGreaterThan(OLD_CAP);
-  expect(scroll.slackBelow).toBeLessThanOrEqual(48);
-  // The ground rows are rows — the control's own `.run-table-filler`, at the table's own pitch —
-  // not a gradient painted behind a table that would not draw them.
-  expect(fillers).toBeGreaterThan(0);
+  // The cap is LIFTED, not swapped for a stretch: `max-height` is the measured room (far past the
+  // 176px this page used to be pinned to by `pages/_shared/run/run.css`), while the box itself is
+  // as tall as its rows — three subjects are three rows, not a 684px empty box.
+  const cap = await page.evaluate(() => {
+    const el = document.querySelector('[data-page-active="true"] [data-testid="subjects-field-table"]') as HTMLElement;
+    const mh = getComputedStyle(el).maxHeight;
+    return { maxHeight: mh === "none" ? Number.POSITIVE_INFINITY : parseFloat(mh), content: el.scrollHeight };
+  });
+  expect(cap.maxHeight).toBeGreaterThan(OLD_CAP);
+  expect(scroll.height).toBeLessThanOrEqual(cap.content + 2);
+  // And nothing pads it out: no ground rows in the table, and no gradient painted behind it.
+  expect(fillers).toBe(0);
   expect(scroll.painted).toBe(false);
-
+  // Dead space on this panel is `layout.spec.ts`'s gate (`panel-source`); reported, not re-asserted
+  // here — a list that ends after its last subject leaves the pane below it to the page.
   const dead = await deadSpaceRatio(page);
   console.log(`CL2-DEAD panel-source ${(dead.ratio * 100).toFixed(1)}%`);
-  expect(dead.ratio).toBeLessThanOrEqual(DEAD_SPACE_MAX);
 });
 
-test("Pre-processing's subject table is as many rows as fit, not five", async () => {
+test("Pre-processing's subject list ends after the last subject", async () => {
   await gotoPage(page, "preprocess", "Pre-processing");
   await expectPage(page, "preprocess");
   await settle();
 
   const scroll = await boxRoom('[data-testid="subjects-field-table"]');
-  const diag = async () =>
-    page.evaluate(() => {
-      const active = document.querySelector('[data-page-active="true"]')!;
-      const box = active.querySelector('[data-testid="subjects-field-table"]') as HTMLElement;
-      const sc = box.closest("[data-page-work-scroll]") as HTMLElement;
-      return {
-        boxH: box.clientHeight,
-        scClientH: sc?.clientHeight ?? null,
-        scScrollH: sc?.scrollHeight ?? null,
-        openSections: active.querySelectorAll(".form-section-body").length,
-        sections: active.querySelectorAll(".form-section").length,
-        children: [...(sc?.children ?? [])].map((c) => `${(c as HTMLElement).className.split(" ")[0]}:${Math.round(c.getBoundingClientRect().height)}`),
-        runWork: [...((sc?.querySelector(".run-work")?.children ?? []) as HTMLCollection)].map(
-          (c) => `${(c as HTMLElement).className.split(" ")[0] || (c as HTMLElement).dataset.tier || "?"}:${Math.round(c.getBoundingClientRect().height)}:${getComputedStyle(c as HTMLElement).flexGrow}`,
-        ),
-        scDisplay: sc ? getComputedStyle(sc).display : null,
-        runWorkDisplay: sc?.querySelector(".run-work") ? getComputedStyle(sc.querySelector(".run-work") as HTMLElement).display : null,
-      };
-    });
-  console.log("CL2-DIAG preprocess 1440x900 " + JSON.stringify(await diag()));
   const rows = await page.locator('[data-page-active="true"] [data-testid="subjects-field-table"] tbody tr').count();
   const fillers = await page.locator('[data-page-active="true"] [data-testid="subjects-field-table"] .run-table-filler').count();
+  const subjects = await page.locator('[data-page-active="true"] [data-testid="subjects-field-table"] tbody tr.subject-picker-row').count();
   console.log(`CL2-ROOM preprocess 1440x900 scroll=${scroll.height}px rows=${rows} fillers=${fillers}`);
 
-  // The room, taken: before this the box stopped at the 176px cap with `minRows={5}` rows in it,
-  // whatever the window. The rest of the page still fits — every Tier-1 control on the first
-  // screen, and the page inside L5a.
-  expect(scroll.height).toBeGreaterThan(OLD_CAP);
+  // Just the subjects: `minRows={5}` and the measured ground rows are both gone, so the list is
+  // exactly as long as the project is. The box may still be given more room than that (`fill`) —
+  // it simply is not padded out to it.
+  expect(subjects).toBeGreaterThan(0);
+  expect(fillers).toBe(0);
+  expect(rows).toBe(subjects);
+  expect(scroll.painted).toBe(false);
+
+  // The rest of the page still fits: every Tier-1 control is on the first screen.
   const first = await firstScreenControls(page);
   expect(first.hidden).toEqual([]);
+  // Dead space is `layout.spec.ts`'s gate and it owns Pre-processing's stated allowance (the
+  // pane below a 3-subject list is pane now, not filler rows); reported here, not re-asserted.
   const dead = await deadSpaceRatio(page);
   console.log(`CL2-DEAD preprocess ${(dead.ratio * 100).toFixed(1)}%`);
-  expect(dead.ratio).toBeLessThanOrEqual(DEAD_SPACE_MAX);
-
-  // And it is the room, not another constant: a taller window gives the table more rows.
-  await page.setViewportSize({ width: 1440, height: 1300 });
-  await settle();
-  const tall = await boxRoom('[data-testid="subjects-field-table"]');
-  const tallRows = await page.locator('[data-page-active="true"] [data-testid="subjects-field-table"] tbody tr').count();
-  console.log(`CL2-ROOM preprocess 1440x1300 scroll=${tall.height}px rows=${tallRows}`);
-  console.log("CL2-DIAG preprocess 1440x1300 " + JSON.stringify(await diag()));
-  expect(tall.height).toBeGreaterThan(scroll.height);
-  expect(tallRows).toBeGreaterThan(rows);
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await settle();
 });
 
 test("Jobs draws the ground rows in the table, not behind it", async () => {

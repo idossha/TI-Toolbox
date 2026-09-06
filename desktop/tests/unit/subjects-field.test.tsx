@@ -225,17 +225,19 @@ describe("SubjectsField — the rendered grammar", () => {
     expect(field.getAttribute("data-mode")).toBe("per-subject");
     expect(field.getAttribute("data-open")).toBe("false");
     expect(container.querySelector('[data-testid="subjects-summary"]')!.textContent).toBe("ernie · one job per subject");
-    expect(container.querySelector('[data-testid="subjects-change"]')!.textContent).toBe("Change subjects…");
+    expect(container.querySelector(".subjects-field-disclosure")!.textContent).toBe("Change subjects…");
     expect(container.querySelectorAll(".subject-picker-row")).toHaveLength(0);
   });
 
-  it("open: a filter, All · None, one row per subject, and the reason on the row that cannot run", () => {
+  it("open: a filter, one row per subject, and the reason on the row that cannot run", () => {
     render(<Harness defaultOpen />);
     expect(container.querySelector('[data-testid="subjects-field"]')!.getAttribute("data-open")).toBe("true");
     expect(container.querySelector('[data-testid="subjects-filter"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="subject-select-all"]')!.textContent).toBe("All");
-    expect(container.querySelector('[data-testid="subject-select-none"]')!.textContent).toBe("None");
-    expect(container.querySelector('[data-testid="subject-count"]')!.textContent).toBe("1 of 3 selected");
+    // No `All · None` pair and no count badge: the header checkbox is the bulk act and the summary
+    // line above states the selection, so neither was a second way to learn anything.
+    expect(container.querySelector('[data-testid="subject-select-all"]')).toBeNull();
+    expect(container.querySelector('[data-testid="subject-select-none"]')).toBeNull();
+    expect(container.querySelector('[data-testid="subject-count"]')).toBeNull();
     expect(container.querySelector('[data-testid="subjects-field-table"]')).not.toBeNull();
     expect(container.querySelectorAll("tbody .subject-picker-row")).toHaveLength(3);
     for (const id of ["ernie", "101", "MNI152"]) {
@@ -245,8 +247,10 @@ describe("SubjectsField — the rendered grammar", () => {
     expect(blocked.getAttribute("data-eligible")).toBe("false");
     expect(container.querySelector('[data-testid="subject-reason-MNI152"]')!.textContent).toBe("no head model (m2m)");
     expect(container.querySelector('[data-testid="subject-reason-ernie"]')).toBeNull();
-    // The disclosure closes with the same button, now reading Done.
-    expect(container.querySelector('[data-testid="subjects-change"]')!.textContent).toBe("Done");
+    // The header band itself closes it again — there is no separate Done button.
+    expect(container.querySelector(".subjects-field-disclosure")!.textContent).toBe("Hide");
+    click(container.querySelector('[data-testid="subjects-change"]'));
+    expect(container.querySelector('[data-testid="subjects-field"]')!.getAttribute("data-open")).toBe("false");
   });
 
   /* The 2.5.0 grammar, restored (plan C1): a PLAIN click selects exactly one row — that is what
@@ -283,14 +287,17 @@ describe("SubjectsField — the rendered grammar", () => {
     );
   });
 
-  it("select-all still takes only the eligible ones — a bulk convenience must not create a blocked run", () => {
+  it("the header checkbox still takes only the eligible ones — a bulk convenience must not create a blocked run", () => {
     render(<Harness defaultOpen />);
-    click(container.querySelector('[data-testid="subject-select-none"]')!);
-    expect(container.querySelector('[data-testid="subjects-field"]')!.getAttribute("data-selected")).toBe("0");
-    click(container.querySelector('[data-testid="subject-select-all"]')!);
+    // Partly selected, so the header box first fills in the rest — the ineligible one excepted.
+    const headerBox = () => container.querySelector("thead .checkbox-root")!;
+    click(headerBox());
     expect(container.querySelector('[data-testid="subjects-summary"]')!.textContent).toBe(
       "2 subjects · ernie, 101 · one job per subject",
     );
+    // Now everything selectable is ticked, so the same box clears it.
+    click(headerBox());
+    expect(container.querySelector('[data-testid="subjects-field"]')!.getAttribute("data-selected")).toBe("0");
   });
 
   it("the filter narrows the rows without touching the selection", () => {
@@ -324,9 +331,9 @@ describe("SubjectsField — the rendered grammar", () => {
     expect(container.querySelectorAll("tbody .subject-picker-row")).toHaveLength(1);
   });
 
-  it("single mode: no select-all, and ticking a second subject replaces the first", () => {
+  it("single mode: no header select-all, and ticking a second subject replaces the first", () => {
     render(<Harness mode="single" defaultOpen />);
-    expect(container.querySelector('[data-testid="subject-select-all"]')).toBeNull();
+    expect(container.querySelector("thead .checkbox-root")).toBeNull();
     click(container.querySelector('[data-testid="subject-row-101"] td:nth-child(3)'));
     expect(container.querySelector('[data-testid="subjects-summary"]')!.textContent).toBe("101 · one job");
     expect(container.querySelector('[data-testid="subjects-field"]')!.getAttribute("data-selected")).toBe("1");

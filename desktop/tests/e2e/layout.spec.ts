@@ -51,6 +51,18 @@ const PANEL_PAGES = ["panel-source"] as const;
 
 /** L5a. */
 const DEAD_SPACE_MAX = 0.45;
+/**
+ * Pre-processing's allowance, and the reason for it, stated rather than hidden in a lower global
+ * limit: the subject list no longer pads itself out with ground rows (the maintainer's "just a
+ * simple list of subjects" — they are the same horizontal lines a user read as a broken pane), so
+ * on a 3-subject fixture the work column ends after the last subject and the room below it is
+ * pane, not filler. This page also drops the run receipt (2026-09-06): its plan grid and the
+ * action-bar digest already state the batch, so the ~80px strip the receipt held at the bottom of
+ * the work column is now empty too. Measured 53.8 % at 1280x800 and 59.8 % at 1440x900 with three
+ * subjects; both fall back towards the global limit as a real project's list grows. Every other
+ * page is held to L5a exactly.
+ */
+const DEAD_SPACE_BY_PAGE: Record<string, number> = { preprocess: 0.62 };
 
 const SUBJECT = "ernie";
 
@@ -215,7 +227,7 @@ for (const size of SIZES) {
             dead.ratio,
             `${id} ${theme} ${size.width}x${size.height}: dead space ${(dead.ratio * 100).toFixed(1)} % of ${dead.samples} samples`,
           )
-          .toBeLessThanOrEqual(DEAD_SPACE_MAX);
+          .toBeLessThanOrEqual(DEAD_SPACE_BY_PAGE[id] ?? DEAD_SPACE_MAX);
       }
     });
   }

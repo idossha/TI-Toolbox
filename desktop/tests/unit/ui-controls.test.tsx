@@ -112,7 +112,7 @@ describe("shared control accessibility", () => {
     const disclosure = container.querySelector('[data-testid="subjects-change"]')!;
     expect(disclosure.getAttribute("aria-expanded")).toBe("true");
     expect(document.getElementById(disclosure.getAttribute("aria-controls")!)).not.toBeNull();
-    await click(container.querySelector('[data-testid="subject-select-none"]')!);
+    await click(container.querySelector('[data-testid="subject-row-101"] .checkbox-root')!);
     expect(container.querySelector('[data-testid="subjects-summary"]')!.textContent).toBe("No subjects selected");
     await click(disclosure);
     expect(disclosure.getAttribute("aria-expanded")).toBe("false");

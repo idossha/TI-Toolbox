@@ -202,7 +202,13 @@ describe("participants.css declares the same grammar as subjects.css", () => {
       .sort();
 
   it("the header band is the same 28px --surface-2 strip", () => {
-    expect(decls(participants, ".participants-field-head")).toEqual(decls(subjects, ".subjects-field-head"));
+    // The band's own geometry, not every declaration in the block: `SubjectsField`'s header is a
+    // <button> (the band IS its disclosure — there is no Done button any more), so it also carries
+    // the button reset. Everything that makes it a BAND must still match.
+    const BAND = ["display", "align-items", "gap", "padding", "min-height", "background", "min-width"];
+    const band = (css: string, selector: string) =>
+      decls(css, selector).filter((d) => BAND.includes(d.split(":")[0]!.trim()));
+    expect(band(participants, ".participants-field-head")).toEqual(band(subjects, ".subjects-field-head"));
   });
 
   it("the summary line is the same 12px ellipsised --ink-2 line", () => {

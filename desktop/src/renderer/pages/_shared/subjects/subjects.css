@@ -16,6 +16,14 @@
  * only one that did not look like one — a bare row of text above a stack of banded headers. Same
  * geometry, same token, so the page reads as one stack. */
 .subjects-field-head {
+  /* A <button>: the whole band is the disclosure, so it carries no button chrome of its own. */
+  appearance: none;
+  border: 0;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -27,8 +35,16 @@
 .subjects-field-title {
   flex: none;
 }
-.subjects-field-head > .btn {
+.subjects-field-head:hover .subjects-field-disclosure {
+  color: var(--accent);
+}
+.subjects-field-head:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.subjects-field-disclosure {
   flex: none;
+  color: var(--ink-2);
 }
 .subjects-field-summary {
   flex: 1;
@@ -99,13 +115,13 @@ tr.subject-picker-row[data-eligible="false"] .subjects-field-id {
    attribute rather than to a page, so the one page whose job is choosing subjects gets the room
    and every other page keeps the 176px default (`pages/_shared/run/run.css`). */
 .subjects-field[data-fill="true"] {
-  flex: 1;
+  flex: 0 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
 .subjects-field[data-fill="true"] .subjects-field-body {
-  flex: 1;
+  flex: 0 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -113,9 +129,17 @@ tr.subject-picker-row[data-eligible="false"] .subjects-field-id {
 
 /* `fill` reaches the scroll box through the shared list now (`ui/SelectionList`): the control, its
    body, the list and the list's scroll box are one flex column, so the room the page measured is
-   the height the rows get. Without this the list box kept its own 176px default and the Source
-   panel's table stopped at 113px of an 800px column (measured, `tests/e2e/table-room.spec.ts`). */
+   the room the rows MAY use. Without this the list box kept its own 176px default and the Source
+   panel's table stopped at 113px of an 800px column (measured, `tests/e2e/table-room.spec.ts`).
+   Nothing here stretches: a list shorter than the room stops after its last row. */
 .subjects-field[data-fill="true"] .selection {
-  flex: 1;
+  flex: 0 1 auto;
   min-height: 0;
+}
+/* The subject list is the one list that is never stretched: it draws no ground rows, so a `flex: 1`
+   box (which is right for the Jobs table, and is what `ui/selection.css` still gives it) would be
+   an empty box the height of the pane — measured 684px around three subjects on the Source panel.
+   The cap stays lifted; only the stretch goes. */
+.subjects-field[data-fill="true"] .selection-scroll[data-fill="true"] {
+  flex: 0 1 auto;
 }

@@ -121,9 +121,12 @@ describe("SubjectsField says which shape it is", () => {
     expect(container.querySelector(".run-subject-scroll")!.getAttribute("data-fill")).toBeNull();
   });
 
-  it("still pads to `minRows` — the floor a page can set under the measured room", () => {
-    render(<SubjectsField subjects={subjects} value={[]} onChange={() => {}} defaultOpen minRows={5} />);
-    expect(container.querySelectorAll("tbody tr.run-table-filler")).toHaveLength(2);
+  // The subject list ends after the last subject: the maintainer's "just a simple list of
+  // subjects". `fill` still decides how much ROOM the box may take; it never pads the list out.
+  it("draws no ground rows, in either shape", () => {
+    render(<SubjectsField subjects={subjects} value={[]} onChange={() => {}} defaultOpen fill />);
+    expect(container.querySelectorAll("tbody tr.run-table-filler")).toHaveLength(0);
+    expect(container.querySelectorAll("tbody tr.selection-row")).toHaveLength(3);
   });
 });
 

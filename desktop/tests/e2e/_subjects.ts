@@ -46,7 +46,7 @@ export async function openSubjects(page: Page): Promise<void> {
   await expect(subjectsField(page).getByTestId("subjects-field-table")).toBeVisible();
 }
 
-/** Closes it again — the same control, which reads "Done" while open. */
+/** Closes it again — the same header band, which is the whole disclosure. */
 export async function closeSubjects(page: Page): Promise<void> {
   if ((await subjectsField(page).getAttribute("data-open")) === "true") {
     await subjectsField(page).getByTestId("subjects-change").click();
@@ -75,11 +75,6 @@ export async function selectSubjects(page: Page, ids: string[]): Promise<void> {
   await expect(subjectsField(page)).toHaveAttribute("data-selected", String(ids.length));
 }
 
-/** The `N of M selected` badge. */
-export function subjectsCount(page: Page): Locator {
-  return subjectsField(page).getByTestId("subject-count");
-}
-
 /** Types into the control's own filter box. */
 export async function filterSubjects(page: Page, query: string): Promise<void> {
   await openSubjects(page);
@@ -89,8 +84,8 @@ export async function filterSubjects(page: Page, query: string): Promise<void> {
 /**
  * The shared shape, asserted identically on every page that takes subjects: the field with its
  * mode and selection count, the summary line, the disclosure — and, once open, the filter, the
- * select-all (except in `single` mode, where there is nothing to select all of) and one row per
- * subject carrying its own eligibility.
+ * header select-all checkbox (except in `single` mode, where there is nothing to select all of)
+ * and one row per subject carrying its own eligibility.
  */
 export async function expectSubjectsGrammar(
   page: Page,
@@ -112,11 +107,13 @@ export async function expectSubjectsGrammar(
   const wasOpen = (await field.getAttribute("data-open")) === "true";
   await openSubjects(page);
   await expect(field.getByTestId("subjects-filter")).toBeVisible();
-  // `All · None` — the only two bulk buttons, and the same pair every other list in the app draws
-  // (plan C1). `single` mode has nothing to select all of, so it draws neither.
-  await expect(field.getByTestId("subject-select-all")).toHaveCount(opts.mode === "single" ? 0 : 1);
-  await expect(field.getByTestId("subject-select-none")).toHaveCount(opts.mode === "single" ? 0 : 1);
-  await expect(field.getByTestId("subject-count")).toHaveCount(1);
+  // The header checkbox is the ONLY bulk act: no `All · None` pair and no count badge, both of
+  // which said what the header box and the summary line already say. `single` mode has nothing to
+  // select all of, so it draws no header box either.
+  await expect(field.getByTestId("subject-select-all")).toHaveCount(0);
+  await expect(field.getByTestId("subject-select-none")).toHaveCount(0);
+  await expect(field.getByTestId("subject-count")).toHaveCount(0);
+  await expect(field.locator("thead .checkbox-root")).toHaveCount(opts.mode === "single" ? 0 : 1);
   await expect(subjectRows(page)).toHaveCount(opts.rows);
   for (const id of opts.selected) {
     await expect(subjectRow(page, id)).toHaveAttribute("data-selected", "true");

@@ -9,9 +9,9 @@
  *
  * The grammar, identical on every page:
  *
- *   Subjects   ernie · one job per subject                      [ Change subjects… ]
+ *   Subjects   ernie · one job per subject                        Change subjects… ▸
  *   ─ when open ─────────────────────────────────────────────────────────────────────
- *   [filter…]                                                            [ Done ]
+ *   [filter…]
  *   ☑ | Subject | Present                        | Why not
  *   ☑ | ernie   | raw fastsurfer m2m dwi         |
  *   ☐ | 101     | raw ·m2m·                      | no GSN-HydroCel-185 leadfield
@@ -20,6 +20,11 @@
  * (`eligibility`). Everything else — the summary line, the disclosure, the filter, select-all,
  * the row shape, the reason — belongs to this file, so it cannot drift between pages.
  *
+ * The header band IS the disclosure: pressing it anywhere opens and closes the list. There is no
+ * `Done` button and no `(i)`, and the list carries no `All · None` pair and no count badge — the
+ * header checkbox is select-all/none, the summary line and the run receipt state the count, so
+ * every one of them was the same fact or the same act offered twice.
+ *
  * Deliberately NOT a `FormSection`: `ui/Layout.tsx`'s section registers with `RunWork`'s fill
  * controller, which was measured to oscillate a subject table open/closed once later page content
  * grew after mount (Simulator and Analyzer both carry that note). A page still wraps this in its
@@ -27,7 +32,6 @@
  */
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useState } from "react";
 import { usePageSession } from "../../../app/pageSession";
-import { Button } from "../../../ui/Button";
 import { SelectionList, type SelectionItem } from "../../../ui/SelectionList";
 import { Chip } from "../../../ui/Status";
 import { subjectsSummary } from "./model";
@@ -67,9 +71,7 @@ export function SubjectsField<T extends SubjectLike>({
   eligibility,
   mode = "per-subject",
   defaultOpen = false,
-  minRows = 0,
   fill = false,
-  help,
   emptyMessage = "No subjects in this project yet.",
   loading = false,
 }: SubjectsFieldProps<T>) {
@@ -77,8 +79,8 @@ export function SubjectsField<T extends SubjectLike>({
   const [open, setOpen] = usePageSession("subjectsField.open", defaultOpen);
   const [query, setQuery] = usePageSession("subjectsField.query", "");
 
-  // `fill`: the box's height is decided by the ROOM the page has, not by a constant, and ground
-  // rows are drawn to the bottom of it. See `types.ts` for the two shapes; the formula is the same
+  // `fill`: the box's height is decided by the ROOM the page has, not by a constant. The rows still
+  // stop after the last subject. See `types.ts` for the two shapes; the formula is the same
   // in both and it is not circular — `others` is the height of everything in the column EXCEPT
   // this box, so the room it leaves does not depend on how tall this box currently is:
   //
@@ -91,7 +93,7 @@ export function SubjectsField<T extends SubjectLike>({
   // cap existed so a 40-subject project could not push a page's steps off the first screen, and
   // the measured room keeps that promise without pinning every window to five rows.
   const [box, setBox] = useState<HTMLDivElement | null>(null);
-  const [fitted, setFitted] = useState<{ rows: number; cap: number }>({ rows: 0, cap: 0 });
+  const [fitted, setFitted] = useState<{ cap: number }>({ cap: 0 });
   const measure = useCallback(
     (el: HTMLDivElement | null) => {
       if (!el) return;
@@ -125,16 +127,15 @@ export function SubjectsField<T extends SubjectLike>({
       }
       // Never smaller than three rows: a page with no room to give must still show a table, not a
       // sliver. Everything above that is the page's own arithmetic.
-      room = Math.max(room, headH + rowH * Math.max(3, minRows));
-      const rows = Math.max(0, Math.floor((room - headH) / rowH));
+      room = Math.max(room, headH + rowH * 3);
       // The cap is written back only on the shape whose height is its own content (a run page). On
       // a stretched box the layout already owns the height, and writing a `max-height` from a
       // measurement OF that height is a ratchet: one short measurement during load would pin the
       // box to it for ever (measured: the Source panel's table stuck at 631px of a 684px column).
       const cap = stretched ? 0 : room;
-      setFitted((prev) => (prev.rows === rows && prev.cap === cap ? prev : { rows, cap }));
+      setFitted((prev) => (prev.cap === cap ? prev : { cap }));
     },
-    [minRows],
+    [],
   );
   // `observe()` delivers the first callback with the box's current size, so this needs no
   // synchronous measurement of its own — and must not have one: a `setState` called synchronously
@@ -170,19 +171,18 @@ export function SubjectsField<T extends SubjectLike>({
   }, [fill, box, measure, subjectCount, query, open]);
 
   const summary = subjectsSummary(value, mode);
-  const targetRows = Math.max(minRows, fill ? fitted.rows : 0);
 
   /* The page's vocabulary, mapped onto the one selection grammar (plan C1). Everything a subject
      row *is* — its presence chips and its "why not" — is data on a `SelectionItem`; everything a
-     selection *does* — click, ⇧-range, ⌘-toggle, ⌘A, Esc, the checkbox column, the filter, All ·
-     None, the badge — belongs to `ui/SelectionList` and is therefore identical here, on the ex
+     selection *does* — click, ⇧-range, ⌘-toggle, ⌘A, Esc, the checkbox column, the filter —
+     belongs to `ui/SelectionList` and is therefore identical here, on the ex
      buckets, in the ROI picker and on the Jobs page. This control keeps only what is genuinely
      about subjects: the collapsed summary line with J4's semantics, the disclosure, and the
      measured room its table grows into.
 
      An ineligible subject stays SELECTABLE on purpose (J3) — `reason`, never `disabled`: its
      reason is the sentence the action bar and the Run button then print, so a user who ticks it is
-     told exactly what is wrong with it. `All` still takes only the eligible ones, which is why
+     told exactly what is wrong with it. The header checkbox still takes only the eligible ones, which is why
      they are separated here rather than by disabling the row. */
   const items = useMemo<SelectionItem[]>(
     () =>
@@ -199,8 +199,9 @@ export function SubjectsField<T extends SubjectLike>({
     [subjects, columns, eligibility],
   );
 
-  /* `All` must never create a blocked run, so the ineligible subjects are handed to the list as
-     `bulkExclude`: still tickable one at a time (J3), never swept in by All / ⌘A / the header box. */
+  /* Selecting them all must never create a blocked run, so the ineligible subjects are handed to
+     the list as `bulkExclude`: still tickable one at a time (J3), never swept in by ⌘A or the
+     header checkbox. */
   const ineligible = useMemo(
     () => (eligibility ? subjects.filter((s) => !eligibility(s).ok).map((s) => s.id) : []),
     [eligibility, subjects],
@@ -215,7 +216,16 @@ export function SubjectsField<T extends SubjectLike>({
       data-fill={fill ? "true" : undefined}
       data-selected={value.length}
     >
-      <div className="subjects-field-head">
+      {/* The band itself is the disclosure — one interactive element, so there is no second
+          control (a `Done` button) whose only job is to undo the first. */}
+      <button
+        type="button"
+        className="subjects-field-head"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls={open ? bodyId : undefined}
+        data-testid="subjects-change"
+      >
         <span className="text-eyebrow subjects-field-title">Subjects</span>
         <span className="subjects-field-summary" data-testid="subjects-summary" title={summary.text}>
           {summary.count === 0 ? (
@@ -228,18 +238,10 @@ export function SubjectsField<T extends SubjectLike>({
             </>
           )}
         </span>
-        {help}
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => setOpen((o) => !o)}
-          aria-expanded={open}
-          aria-controls={open ? bodyId : undefined}
-          data-testid="subjects-change"
-        >
-          {open ? "Done" : "Change subjects…"}
-        </Button>
-      </div>
+        <span className="subjects-field-disclosure text-caption" aria-hidden>
+          {open ? "Hide" : "Change subjects…"}
+        </span>
+      </button>
 
       {open && (
         <div className="subjects-field-body" id={bodyId}>
@@ -261,7 +263,9 @@ export function SubjectsField<T extends SubjectLike>({
             scrollRef={setBox}
             scrollFill={fill}
             maxHeight={fill && fitted.cap > 0 ? fitted.cap : undefined}
-            minRows={targetRows}
+            hideGround
+            hideBulk
+            hideBadge
             loading={loading}
             emptyMessage={emptyMessage}
           />

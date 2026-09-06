@@ -6,8 +6,6 @@
  * (`eligibility`); the control owns the summary line, the disclosure, the filter, select-all, the
  * rows and the per-row reason. A page never re-implements any of that.
  */
-import type { ReactNode } from "react";
-
 /** The least a row needs. Pages pass their own richer objects (`Subject`, `SubjectDetail`, …). */
 export interface SubjectLike {
   id: string;
@@ -60,18 +58,8 @@ export interface SubjectsFieldProps<T extends SubjectLike> {
   /** Open on mount — true where batch selection *is* the page's job (Pre-processing, Source). */
   defaultOpen?: boolean;
   /**
-   * Keep the table at least this many rows tall, drawing the surplus as ground rows — the same
-   * device `MontageManager` uses (`.run-table-filler`, `pages/_shared/run/run.css`).
-   * Pre-processing opts in because it opens the table by default and batch selection is what the
-   * page is for: with three subjects the table otherwise ends in a hard edge halfway up a 900px
-   * pane (measured: the last band of the work pane was 100 % empty at 1440x900). 0 — the default,
-   * and what every other page uses — renders exactly the rows there are.
-   */
-  minRows?: number;
-  /**
-   * Draw ground rows to the bottom of the room the page actually has — `minRows` measured rather
-   * than chosen by hand — and lift `.run-subject-scroll`'s 176 px cap, which is a sensible
-   * default and was never meant to be a ceiling.
+   * Let the table take the room the page actually has, lifting `.run-subject-scroll`'s 176 px cap
+   * — a sensible default that was never meant to be a ceiling.
    *
    * The room is measured in the two shapes a subject table lives in, and both are convergent,
    * which is the thing to check after lane UC's oscillating fill controller:
@@ -83,13 +71,10 @@ export interface SubjectsFieldProps<T extends SubjectLike> {
    *     measurement report zero slack. A fixed point, reached in one step, and it can only shrink
    *     when the pane does.
    *
-   * Pre-processing is why this exists: with `minRows={5}` its table stopped at 169 px in a 900 px
-   * window whose page had ~90 px going spare, and the Source panel needed the cap lifted from
-   * `pages/panels/panels.css` — one control's geometry decided in another page's stylesheet.
+   * The list itself still ends after the last subject: a taller box is room the rows may use, not
+   * a shape to pad out with empty lines.
    */
   fill?: boolean;
-  /** The (i) affordance the page supplies; rendered next to the title, never inside the table. */
-  help?: ReactNode;
   /** Shown in place of the table when the project has no subjects. */
   emptyMessage?: string;
   /** The subject list is still loading. */
