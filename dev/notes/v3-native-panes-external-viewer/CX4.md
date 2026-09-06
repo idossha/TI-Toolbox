@@ -224,7 +224,51 @@ pipeline's `sim` node not yet being the Simulator's jobs table.
 
 ## 3. Gate
 
-GATE_TABLE_PLACEHOLDER
+
+Run from `desktop/` unless stated. Every Playwright invocation of *this* lane was offscreen, and
+both full runs confirmed `e2e-quiet-check: no new Electron/Chromium window reached the screen`.
+
+| Command | Where | Result |
+| --- | --- | --- |
+| `pnpm run typecheck` | `desktop/` | **clean**, both projects — confirms seam (f)'s `AnalyzerPage`/`JobRows` red is fixed at HEAD |
+| `npx eslint src tests` | `desktop/` | **0 errors**, 3 warnings, all pre-existing `react-hooks/incompatible-library` (`ui/DataTable.tsx`, `ui/VirtualList.tsx`, `pages/preprocess/index.tsx`) |
+| `npx vitest run` | `desktop/` | **1110 passed, 2 skipped, 92 files** — including `pipeline-graph.test.ts` and `viewer-page.test.ts`, both green (seam f) |
+| `npx vitest run` *after* regenerating the contract types | `desktop/` | **1110 passed** — the regenerated `schema.d.ts` typechecks and changes no behaviour |
+| `npx vitest run tests/mock-server` | `desktop/` | **33 passed** — including the `exercised == declared` assertion over all 77 declared operations (seam c) |
+| `npx playwright test layout page-memory` | `desktop/` | **20 passed** — the three reds of seams (a) and (b). Prints `PANE-MEMORY scroll=131->131 canvas=same opacity=17/60 guide-requests=0` |
+| `npx playwright test controls-consistency` | `desktop/` | **4 passed** — seam (i) |
+| `python3 -m pytest tests/ -q` | root | **3740 passed, 47 skipped, 21 deselected**, 1 failure: `test_scene_guide.py::test_the_legend_colour_is_read_from_the_colour_table_and_not_invented`. **Passes standalone** (`14 passed, 1 skipped`) — the documented `sys.modules`-mocking order hazard `tests/test_stats_config.py` names in its own skip reason; the target test *skips* on the host because conftest mocks `nibabel`. Not this round's |
+| `python3 -m pytest tests/test_viewspec_overrides.py -q` | root | **38 passed** — seam (e); the plumbing is kept |
+| `python3 dev/route_import_guard.py` | root | **20 route module(s) clean** |
+| `python3 dev/contracts_check.py` | root | **exactly 5 problems**, the known `fastsurfer`/`has_fastsurfer` set — as expected |
+| `python3 dev/build_contract.py` ×3 | root | **byte-identical** output (`md5 47f4e159…`), deep-equal to the committed JSON (77 paths, 145 schemas, no adds, no drops) — seam (d) |
+| `/api/jobs` on the live container | real | **IDLE** before and after; 202 jobs, none running or queued |
+| the pipeline's real `sim → analyzer` leg | real | **Ran to completion** (seam g). `985616e0` sim **succeeded** 22:00:52; `8048c8c9` analyzer released **22:00:53**, **failed** on a missing mesh. The `after` edge is proved; the failure is the bind-mount phantom write (open item 2) |
+| `pnpm run e2e:quiet` (full, offscreen) | `desktop/` | **BLOCKED, twice — not claimed as a result.** Run 1 died at spec ~251 of 251, run 2 at spec 50, both on `ENOSPC … mkdir '…/.playwright-artifacts-N'`. See below |
+| `pnpm run build` (plain, LAST) | `desktop/` | **not run.** It must follow a green full e2e so the container serves a gallery-free bundle, and there was no green full e2e. `out/` is currently a `pree2e` build — **whoever finishes this gate must run the plain `pnpm run build` last** |
+| real specs `scene-electrodes, montage-shape, flex-result-selection, analyzer-targets, preprocess, sim, flex, ex, page-memory` + the viewer-open check | real | **not run** — the worktree could not be given a serial Playwright slot, and the disk had none left |
+
+### Why the full e2e is not a number
+
+Two environment failures, neither a defect in this afternoon's code, and both more important than
+any spec on the list:
+
+1. **The disk is full** (open item 0): 893 GiB used of 926, and by the end this session's own
+   tooling could not open a file. The two runs' tails — `terminal.spec.ts`, `viewer.spec.ts:247`,
+   `jobs.spec.ts:558`, `launcher.spec.ts:156` — are collateral of a filesystem refusing writes and
+   say nothing about those files. `test-results/` is 360 K; it is not the cause.
+2. **A second lane ran Playwright concurrently in this worktree** (open item 5), doing its own
+   `pnpm run pree2e` and so rebuilding `out/` underneath a suite already executing. Run 1's quiet
+   check additionally failed because a neighbouring lane's real install test put a **Tetravox**
+   window on screen — the offscreen guarantee held for this lane's own windows in both runs.
+
+What is established: every suite this lane changed is green in isolation (`layout`, `page-memory`,
+`controls-consistency`, `mock-server`); the unit suite is green twice, before and after the contract
+regeneration; both guards report exactly their expected numbers; and the pipeline's real leg
+finished and told us something true. What is **not** established: the full-suite number, the plain
+build, and the real specs. They need one serial re-run on a machine with disk before this branch is
+called done.
+
 
 ---
 
@@ -233,7 +277,28 @@ GATE_TABLE_PLACEHOLDER
 **Closed by this lane** — (a) the dead-space allowance and its reason, (b) the two Optimizer
 specs, (d) the contract generator's non-determinism, (h) and (i) the leftovers.
 
-**New, and the one that matters**
+**New, and the one that stops everything**
+
+0. **This Mac is out of disk: 359 MiB free of 926 GiB.** The first full `e2e:quiet` run of this
+   gate died two specs from the end with
+   `ENOSPC: no space left on device, mkdir '…/test-results/25587/.playwright-artifacts-9'`, and the
+   two failures immediately before it (`terminal.spec.ts`, `viewer.spec.ts:247`) are the same cause
+   wearing a different hat — a suite cannot be believed once the filesystem starts refusing writes.
+   Clearing this worktree's `test-results/` bought 36 MiB, which is not the problem. The problem is
+   Docker:
+
+   | | total | reclaimable |
+   |---|---|---|
+   | Images (22, 1 active) | 280.2 GB | **53.8 GB** |
+   | Build cache (94) | 50.1 GB | **21.4 GB** |
+   | Local volumes (12, 0 in use) | 26.8 GB | **26.8 GB** |
+
+   That is ~100 GB recoverable by `docker system prune` / `docker volume prune`, and it is **the
+   maintainer's call, not an agent's** — some of those images and every one of those volumes may be
+   holding work. Flagged, not pruned. Until it is dealt with, every Playwright run on this machine
+   is one artifact directory away from a red that means nothing.
+
+**New**
 
 1. **A `sim` job reported `succeeded` with an artifact that is not on disk** (§1g). `emit_artifact`'s
    documented contract is "an output file exists now" and nothing checks it, so a dependant is
@@ -258,7 +323,18 @@ specs, (d) the contract generator's non-determinism, (h) and (i) the leftovers.
    "Design gallery" heading — a failure that says nothing about the gallery. Asserting the hook in a
    `beforeAll` would name the cause immediately. Re-running `pree2e` immediately before Playwright is
    today's workaround and it is not one a person should have to remember.
-5. **One lane per worktree, or disjoint `git add` paths** (CX3 item 9, re-observed). Four commits
+5. **Two Playwright runs at once, in one worktree — measured, not theorised.** Mid-gate,
+   `ps` showed a second lane's
+   `e2e-quiet-check.sh npx playwright test viewer-launch settings smoke viewer` running alongside
+   this lane's full `e2e:quiet`. They share one `out/`, and that lane's run does its own
+   `pnpm run pree2e`, so it **rebuilt the bundle underneath a suite that was already executing**;
+   the focus check on either run then also sees the other's windows (this round's first run
+   reported `Tetravox` on screen, from a neighbouring lane's real install test, and failed its own
+   quiet check for it). Serial-per-lane is not enough: the rule has to be serial *per worktree*,
+   enforced by a lock file that `e2e-quiet-check.sh` takes, or the two runs silently invalidate
+   each other and the reds land on whoever reads them first. That is, verbatim, the confusion this
+   lane was created to resolve.
+6. **One lane per worktree, or disjoint `git add` paths** (CX3 item 9, re-observed). Four commits
    landed in this worktree while this lane's gate was running, one of them after the full e2e run
    had started. Content is correct; the gate had to be re-derived around them.
 

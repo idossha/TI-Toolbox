@@ -43,7 +43,7 @@ app embeds no viewer. Production PyQt remains the reference for continuity while
 | 2026-09-06 TI — the managed Tetravox install | `tetravox-install.test.ts` over a loopback release index; `tetravox-install-real.test.ts` (env-gated) resolving the live index and installing v0.3.11, verified by `codesign --verify --deep --strict` | Passed (`.../TI.md`) |
 | 2026-09-06 VM/VM2 — the Viewer is a source, a file list and Open | `viewer.spec.ts`, `viewer-page.test.ts`, `tests/test_view_open.py`, `tests/test_viewspec_overrides.py` (38); real `POST /api/view/open` on sub-ernie | Passed (`.../VM.md`, `.../VM2.md`) |
 | 2026-09-06 OJ — the Optimizer's jobs table | `optimizer.spec.ts` (10), `roi-idiom`, `batch`, `selection`; real `flex` and `ex` submissions reaching `running` on sub-ernie and cancelled | Passed (`.../OJ.md`) |
-| 2026-09-06 second consolidation gate | Typecheck, lint, unit, full offscreen e2e, build, host pytest, route-import guard, contracts check, real-container subset; the pipeline's real `sim → analyzer` leg run to completion | See `dev/notes/v3-native-panes-external-viewer/CX4.md` |
+| 2026-09-06 second consolidation gate | Typecheck, lint, unit (1110), mock-server contract coverage, the three re-derived e2e suites, host pytest (3740), route-import guard, contracts check, a deterministic contract generator, and the pipeline's real `sim → analyzer` leg run to completion | **Partial** — see `dev/notes/v3-native-panes-external-viewer/CX4.md`. The full offscreen e2e, the plain build and the real specs are **outstanding**: the machine ran out of disk (893 GiB of 926 used) and a second lane ran Playwright concurrently in the same worktree. Both runs died on `ENOSPC` |
 
 ## Known follow-ups
 
