@@ -295,6 +295,29 @@ test("adding a row does not open the target dialog, and neither does clicking on
   await expect(second).not.toHaveAttribute("data-active", "true");
   await expect(page.getByTestId("analysis-target-editor")).toHaveCount(0);
 
+  // Line 2 is inert except for the target TEXT: 40px right of where the sentence ends is still
+  // line 2, and clicking there focuses the row and opens nothing (coordinator, 2026-09-06 — the
+  // full-width button made every empty pixel of the line an edit gesture).
+  await second.locator('td[data-cell="space"]').click({ position: { x: 2, y: 2 } });
+  await expect(second).toHaveAttribute("data-active", "true");
+  const text = analysisTargetText(first);
+  const textBox = (await text.boundingBox())!;
+  const line2 = (await analysisLine2(first).boundingBox())!;
+  // The click point has to still be inside the row, which is what makes this a real test of the
+  // button's width rather than of the table's.
+  const rightOfText = textBox.x + textBox.width + 40;
+  expect(rightOfText, "40px right of the text is still on line 2").toBeLessThan(line2.x + line2.width);
+  await page.mouse.click(rightOfText, line2.y + line2.height / 2);
+  await expect(page.getByTestId("analysis-target-editor")).toHaveCount(0);
+  await expect(first).toHaveAttribute("data-active", "true");
+  // …and the caption is not the button either.
+  await first.locator(".analysis-target-caption").click();
+  await expect(page.getByTestId("analysis-target-editor")).toHaveCount(0);
+  // Clicking the text itself DOES open it.
+  await text.click();
+  await expect(page.getByTestId("analysis-target-editor")).toBeVisible();
+  await closeAnalysisTarget(page);
+
   // The three deliberate ways in.
   await first.getByRole("button", { name: "Edit row 1" }).click();
   await expect(page.getByTestId("analysis-target-editor")).toBeVisible();

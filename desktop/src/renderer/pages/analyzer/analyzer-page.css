@@ -55,13 +55,23 @@
   background-color: var(--accent-soft);
 }
 
-/* The target line. Full width, wrapping to a second visual line when it must, with the caption
-   ("Target") ahead of it — the header row has no Target column, because line 2 is not a column. */
-.analysis-target-button {
+/* Line 2: the caption, then the target as a button that is only as wide as its own text.
+   `inline-flex` and no `width`, deliberately (coordinator, 2026-09-06): a full-width button made
+   the whole line — the caption, and every pixel of empty space to the right of the sentence — open
+   the dialog, so a row could not be clicked without being edited. The cell is the flex row now;
+   the button is the target. */
+.analysis-target-line {
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
-  width: 100%;
+  min-width: 0;
+}
+
+.analysis-target-button {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  max-width: 100%;
   min-width: 0;
   padding: 2px var(--space-2) 2px 0;
   border: none;
@@ -95,9 +105,11 @@
 }
 
 /* Wraps rather than truncates: the line has the whole table's width, and a target the user cannot
-   read is the defect this pass was opened for. Two lines is the ceiling. */
+   read is the defect this pass was opened for. Two lines is the ceiling. `flex: 0 1 auto`, not
+   `1`: the text is as wide as it needs and no wider, which is what keeps the button off the empty
+   half of the line. */
 .analysis-target-text {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   display: -webkit-box;
   -webkit-box-orient: vertical;

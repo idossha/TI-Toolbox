@@ -412,7 +412,20 @@ export function AnalyzerJobRows({
                   {/* Line 2: the whole target, across the whole table. It STATES the target and
                       opens the shared picker scoped to this row; "Target" is a caption here rather
                       than a column header, because the line is not a column. */}
+                  {/*
+                    The caption is OUTSIDE the button (coordinator, 2026-09-06, on a screenshot of
+                    `TARGET ◎ Choose a target…` spanning the whole row): the dialog opens when the
+                    user clicks the target *text*, not when they click anywhere on line 2. So the
+                    button is a tight `inline-flex` around the icon and the sentence, and the rest
+                    of the line — the caption and the space to the right of the text — is inert and
+                    only focuses the row, like any other empty part of it.
+                  */}
                   <td data-cell="target" colSpan={5}>
+                    {/* The flex row is an inner <div>, not the <td>: `display: flex` on a cell
+                        makes the browser drop its `colSpan`, so the cell stopped spanning the
+                        table and the inert half of line 2 was not part of the row at all. */}
+                    <div className="analysis-target-line">
+                    <span className="analysis-target-caption text-eyebrow">Target</span>
                     <button
                       type="button"
                       className="analysis-target-button"
@@ -422,10 +435,10 @@ export function AnalyzerJobRows({
                       aria-label={`Target for row ${i + 1}: ${label}`}
                       onClick={() => openTarget(row)}
                     >
-                      <span className="analysis-target-caption text-eyebrow">Target</span>
                       <TargetIcon size={12} aria-hidden />
                       <span className="analysis-target-text">{label}</span>
                     </button>
+                    </div>
                   </td>
                 </tr>
               </tbody>
