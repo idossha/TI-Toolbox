@@ -10,6 +10,7 @@ from __future__ import annotations
 import pytest
 
 from tit.pipeline.document import (
+    JOB_NODE_KINDS,
     NODE_KINDS,
     PORT_TYPES,
     PORTS,
@@ -91,10 +92,15 @@ def test_every_node_kind_has_ports_and_every_port_is_a_known_type() -> None:
 
 
 def test_every_node_kind_is_a_real_job_kind() -> None:
-    """A pipeline introduces **no new job kind** (plan D1) -- it wires existing ones."""
+    """A pipeline introduces **no new job kind** (plan D1) -- it wires existing ones.
+
+    `subjects` is the one node that is not a job: it names the cohort and runs nothing, which is
+    why `JOB_NODE_KINDS` exists and why the planner skips it.
+    """
     from tit.jobs.spec import JOB_KINDS
 
-    assert set(NODE_KINDS) <= set(JOB_KINDS)
+    assert set(JOB_NODE_KINDS) <= set(JOB_KINDS)
+    assert set(NODE_KINDS) - set(JOB_NODE_KINDS) == {"subjects"}
 
 
 # -- validation --------------------------------------------------------------------------------
@@ -121,9 +127,16 @@ def test_cycle_is_reported_not_raised() -> None:
 
 
 def test_unbound_required_input_names_the_node_and_the_port() -> None:
-    result = validate(doc([("an1", "analyzer", {"subject_ids": ["e"]})]))
+    """A processing node with no cohort wired to it names the port it is missing.
+
+    `analyzer` no longer requires the *simulation port*: whether it can run is a question about
+    the subjects reaching it (do they have a simulation?), which the readiness table answers with
+    their names. Requiring the port too would refuse a good `Subjects -> Analyzer` graph twice,
+    once for the wrong reason.
+    """
+    result = validate(doc([("an1", "analyzer", {})]))
     messages = [i.message for i in result.errors]
-    assert any("Simulation name" in m and "an1" in m for m in messages)
+    assert any("Subjects" in m and "an1" in m for m in messages)
 
 
 def test_config_can_satisfy_an_input_with_no_wire() -> None:
@@ -168,7 +181,7 @@ def test_port_wired_twice_is_an_error() -> None:
 REFUSALS = [
     ("an1", "sim1", "montages", "does not produce"),
     ("pre1", "an1", "montages", "does not produce"),
-    ("flex1", "pre1", "subjects", "does not take"),
+    ("an1", "flex1", "montages", "does not produce"),
     ("sim1", "sim1", "subjects", "cannot feed itself"),
     ("pre1", "sim1", "subjects", "already wired"),
 ]
@@ -236,7 +249,7 @@ def test_every_issue_carries_a_code_from_the_published_set() -> None:
 def test_a_missing_required_input_names_its_port_in_the_finding() -> None:
     graph = doc([("a1", "analyzer", {})])
     missing = [i for i in validate(graph).issues if i.code == "missing_input"]
-    assert {i.port for i in missing} == {"subjects", "simulation"}
+    assert {i.port for i in missing} == {"subjects"}
     assert all(i.node_id == "a1" and i.level == "error" for i in missing)
 
 

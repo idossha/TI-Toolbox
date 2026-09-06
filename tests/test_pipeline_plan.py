@@ -188,7 +188,8 @@ def test_pipeline_and_node_tags_trace_a_job_back_to_its_node() -> None:
 
 
 def test_an_invalid_graph_refuses_to_plan() -> None:
-    doc = build([("an1", "analyzer", {"subject_ids": ["e"]})])
+    # No cohort wired to it, and none in its own config: the Analyzer has no subjects at all.
+    doc = build([("an1", "analyzer", {})])
     with pytest.raises(PipelinePlanError) as excinfo:
         plan_pipeline(doc)
     assert "does not validate" in str(excinfo.value)

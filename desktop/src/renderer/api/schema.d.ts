@@ -4379,12 +4379,12 @@ export interface components {
             status: components["schemas"]["JobStatus"];
             artifacts: components["schemas"]["Artifact"][];
         };
-        /** @description One node = exactly one existing job kind carrying exactly the config that page builds. */
+        /** @description One node. `subjects` names the cohort and runs nothing; every other kind is exactly one existing job kind carrying exactly the config that page builds — **its own**, never inherited from the node upstream of it. */
         PipelineNode: {
             /** @description canvas-scoped node id */
             id: string;
             /** @enum {string} */
-            kind: "pre" | "leadfield" | "flex" | "ex" | "mex" | "sim" | "analyzer" | "source" | "stats";
+            kind: "subjects" | "pre" | "leadfield" | "flex" | "ex" | "mex" | "sim" | "analyzer" | "source" | "stats";
             /** @description user-visible name; defaults to the kind */
             label?: string;
             config?: components["schemas"]["PipelineConfig"];
@@ -4439,7 +4439,7 @@ export interface components {
              * @description stable machine-readable name of the finding (`tit.pipeline.validate.ISSUE_CODES`)
              * @enum {string}
              */
-            code?: "empty" | "duplicate_id" | "edge_unknown_node" | "self_edge" | "bad_output" | "bad_input" | "double_bound" | "cycle" | "missing_input" | "unconfigured" | "unconnected";
+            code?: "empty" | "duplicate_id" | "edge_unknown_node" | "self_edge" | "bad_output" | "bad_input" | "double_bound" | "cycle" | "missing_input" | "unconfigured" | "unconnected" | "not_ready";
             /**
              * @description the port a `missing_input`/`bad_input`/`bad_output`/`double_bound` is about
              * @enum {string}
@@ -4481,14 +4481,26 @@ export interface components {
             /** @description How many wires the saved document has. Absent when it could not be parsed. */
             edges?: number;
         };
+        /** @description The palette, and both tables that decide whether a wire may be drawn: the typed ports, and what each kind needs of a subject before it can run on it. The canvas gates a *drag* with these (there is no graph to ask the server about yet) and `POST /api/pipelines/validate` gates the graph with the same ones, so the refusal a user sees while dragging and the one in the receipt are the same sentence. */
         PipelineKinds: {
             port_types: string[];
+            /** @description What a subject can already have, in the order a reason lists them. Each is a fact `GET /api/catalog/overview` reports for every subject. */
+            capabilities?: {
+                /** @enum {string} */
+                capability: "raw" | "m2m" | "leadfield" | "simulation";
+                /** @description the wording a refusal uses, e.g. "head model" */
+                label: string;
+            }[];
             kinds: {
                 kind: string;
                 inputs: string[];
                 outputs: string[];
                 /** @description inputs that must be wired or satisfied by the node's own config */
                 required: string[];
+                /** @description Capabilities **every** subject reaching this node must already have. A cohort whose subjects only have raw data may be wired to `pre` and to nothing else. */
+                requires?: ("raw" | "m2m" | "leadfield" | "simulation")[];
+                /** @description What running this node leaves its subjects with, for the nodes downstream of it — which is why `Subjects(raw) -> Pre -> Simulator` is legal and `Subjects(raw) -> Simulator` is not. */
+                produces?: ("raw" | "m2m" | "leadfield" | "simulation")[];
             }[];
         };
         JobGroupRequest: {

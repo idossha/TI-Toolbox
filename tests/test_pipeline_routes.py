@@ -42,8 +42,30 @@ def _reset_job_manager():
     bootstrap.reset_manager()
 
 
+def scaffold_subject(root: Path, sid: str, *, m2m: bool = True, simulation: bool = True) -> None:
+    """The least on disk that makes *sid* read as ready in `GET /api/catalog/overview`.
+
+    The readiness gate is real in these tests rather than stubbed: `POST /api/pipelines/validate`
+    now refuses a graph whose subjects lack what its nodes need, so a route test running against
+    an *empty* project would be refused for a reason that has nothing to do with the route.
+    """
+    (root / f"sub-{sid}" / "anat").mkdir(parents=True, exist_ok=True)
+    (root / f"sub-{sid}" / "anat" / f"sub-{sid}_T1w.nii.gz").touch()
+    if m2m:
+        head = root / "derivatives" / "SimNIBS" / f"sub-{sid}" / f"m2m_{sid}"
+        head.mkdir(parents=True, exist_ok=True)
+        (head / f"{sid}.msh").touch()
+    if simulation:
+        mesh = (
+            root / "derivatives" / "SimNIBS" / f"sub-{sid}" / "Simulations" / "M1" / "TI" / "mesh"
+        )
+        mesh.mkdir(parents=True, exist_ok=True)
+        (mesh / f"{sid}_TI.msh").touch()
+
+
 @pytest.fixture()
 def client(tmp_path: Path) -> TestClient:
+    scaffold_subject(tmp_path, "ernie")
     get_path_manager(str(tmp_path))
     manager = JobManager(
         str(tmp_path),
@@ -78,10 +100,18 @@ def four_node() -> dict:
         "version": 1,
         "name": "gate",
         "nodes": [
+            # The cohort is stated once, on a node of its own, and reaches the rest of the graph
+            # over the `subjects` wire -- no node is configured from the node upstream of it.
+            {
+                "id": "sub1",
+                "kind": "subjects",
+                "config": {"subject_ids": ["ernie"]},
+                "position": {"x": 0, "y": 0},
+            },
             {
                 "id": "pre1",
                 "kind": "pre",
-                "config": {"subject_ids": ["ernie"], "create_m2m": True},
+                "config": {"create_m2m": True},
                 "position": {"x": 0, "y": 0},
             },
             {"id": "flex1", "kind": "flex", "config": flex_config()},
@@ -98,6 +128,7 @@ def four_node() -> dict:
             },
         ],
         "edges": [
+            {"from": "sub1", "to": "pre1", "port": "subjects"},
             {"from": "pre1", "to": "flex1", "port": "subjects"},
             {"from": "pre1", "to": "sim1", "port": "subjects"},
             {"from": "flex1", "to": "sim1", "port": "montages"},
@@ -124,7 +155,7 @@ def test_validate_accepts_the_four_node_pipeline_and_previews_its_jobs(
 ) -> None:
     body = client.post("/api/pipelines/validate", headers=BEARER, json=four_node()).json()
     assert body["ok"], body["issues"]
-    assert body["order"] == ["pre1", "flex1", "sim1", "an1"]
+    assert body["order"] == ["sub1", "pre1", "flex1", "sim1", "an1"]
     labels = [job["label"] for job in body["jobs"]]
     assert labels[0] == "pre1:0"
     assert "sim1:resolve:montages" in labels
@@ -200,12 +231,61 @@ def test_run_submits_the_whole_pipeline_as_one_group(client: TestClient) -> None
 
 
 def test_run_refuses_an_invalid_graph_with_its_reasons(client: TestClient) -> None:
+    """Cutting the cohort loose leaves three nodes with no subjects at all."""
     doc = four_node()
-    doc["edges"] = [e for e in doc["edges"] if e["port"] != "simulation"]
+    doc["edges"] = [e for e in doc["edges"] if e["from"] != "sub1"]
     response = client.post("/api/pipelines/run", headers=BEARER, json={"pipeline": doc})
     assert response.status_code == 422
     detail = response.json()["detail"]
-    assert any("Simulation name" in issue["message"] for issue in detail["issues"])
+    assert any("needs Subjects" in issue["message"] for issue in detail["issues"])
+
+
+def test_run_refuses_a_graph_whose_subjects_are_not_ready(
+    client: TestClient, tmp_path: Path
+) -> None:
+    """The readiness gate is enforced server-side, not only at drag time on the canvas."""
+    scaffold_subject(tmp_path, "102", m2m=False, simulation=False)
+    doc = {
+        "version": 1,
+        "name": "not ready",
+        "nodes": [
+            {"id": "sub1", "kind": "subjects", "config": {"subject_ids": ["102"]}},
+            {"id": "sim1", "kind": "sim", "config": {"conductivity": "scalar"}},
+        ],
+        "edges": [{"from": "sub1", "to": "sim1", "port": "subjects"}],
+    }
+    response = client.post("/api/pipelines/run", headers=BEARER, json={"pipeline": doc})
+    assert response.status_code == 422
+    issues = response.json()["detail"]["issues"]
+    assert any(i["code"] == "not_ready" for i in issues)
+    assert any("102 has no head model" in i["message"] for i in issues)
+
+
+def test_the_kinds_route_carries_both_tables_the_canvas_gates_a_drag_with(
+    client: TestClient,
+) -> None:
+    body = client.get("/api/pipelines/kinds", headers=BEARER).json()
+    by_kind = {k["kind"]: k for k in body["kinds"]}
+    assert by_kind["subjects"] == {
+        "kind": "subjects",
+        "inputs": [],
+        "outputs": ["subjects"],
+        "required": [],
+        "requires": [],
+        "produces": [],
+    }
+    assert by_kind["pre"]["requires"] == ["raw"]
+    assert by_kind["pre"]["produces"] == ["m2m"]
+    assert by_kind["sim"]["requires"] == ["m2m"]
+    assert by_kind["sim"]["produces"] == ["simulation"]
+    assert by_kind["analyzer"]["requires"] == ["simulation"]
+    assert by_kind["ex"]["requires"] == ["m2m", "leadfield"]
+    assert [c["capability"] for c in body["capabilities"]] == [
+        "raw",
+        "m2m",
+        "leadfield",
+        "simulation",
+    ]
 
 
 # -- save / load / list / delete -------------------------------------------------------------------
@@ -220,12 +300,12 @@ def test_save_load_list_and_delete_round_trip(client: TestClient, tmp_path: Path
     assert [entry["name"] for entry in listed] == ["my run"]
     # The list states a pipeline's *size*, so the palette's Saved list can say "4 steps" without
     # loading every document to count them.
-    assert listed[0]["nodes"] == 4
-    assert listed[0]["edges"] == 5
+    assert listed[0]["nodes"] == 5
+    assert listed[0]["edges"] == 6
 
     loaded = client.get("/api/pipelines/my run", headers=BEARER).json()
     assert loaded["name"] == "my run"
-    assert [n["id"] for n in loaded["nodes"]] == ["pre1", "flex1", "sim1", "an1"]
+    assert [n["id"] for n in loaded["nodes"]] == ["sub1", "pre1", "flex1", "sim1", "an1"]
 
     assert client.delete("/api/pipelines/my run", headers=BEARER).status_code == 204
     assert client.get("/api/pipelines/my run", headers=BEARER).status_code == 404
@@ -242,7 +322,7 @@ def test_an_unreadable_saved_file_still_lists_but_without_counts(
     listed = client.get("/api/pipelines", headers=BEARER).json()
     by_name = {entry["name"]: entry for entry in listed}
     assert set(by_name) == {"good", "broken"}
-    assert by_name["good"]["nodes"] == 4
+    assert by_name["good"]["nodes"] == 5
     assert "nodes" not in by_name["broken"]
 
 

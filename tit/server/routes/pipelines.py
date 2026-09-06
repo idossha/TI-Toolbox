@@ -34,6 +34,13 @@ from tit.pipeline import (
     node_outputs,
     validate,
 )
+from tit.pipeline.validate import (
+    CAPABILITIES,
+    CAPABILITY_LABELS,
+    KIND_READINESS,
+    Readiness,
+    readiness_from_overview,
+)
 
 router = APIRouter()
 
@@ -58,6 +65,22 @@ def _safe_path(name: str) -> str:
     return os.path.join(_pipelines_dir(), f"{name}.json")
 
 
+def _readiness() -> Readiness | None:
+    """What every subject in the bound project already has, for the readiness gate.
+
+    Read from the same aggregate the Overview page shows, so the canvas's refusal and the board a
+    user just looked at cannot disagree. Returns ``None`` -- "check shape only" -- if the project
+    cannot be read at all, because refusing every wire on a transient catalog error would be a
+    worse failure than not checking.
+    """
+    try:
+        from tit.server.routes.overview import build_overview
+
+        return readiness_from_overview(build_overview(get_path_manager()))
+    except Exception:  # pragma: no cover - a broken project must not block the canvas
+        return None
+
+
 def _document(body: Any) -> PipelineDocument:
     payload = (
         body.get("pipeline") if isinstance(body, dict) and "pipeline" in body else body
@@ -68,21 +91,36 @@ def _document(body: Any) -> PipelineDocument:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
-@router.get("/api/pipelines/kinds", summary="Node kinds and their typed ports")
+@router.get(
+    "/api/pipelines/kinds",
+    summary="Node kinds, their typed ports and what they need of a subject",
+)
 def list_kinds() -> dict[str, Any]:
-    """The palette: which node kinds exist and which ports each has.
+    """The palette, and both tables that decide whether a wire may be drawn.
 
     The canvas draws its handles from this rather than from a hand-kept copy, so a port added on
-    the server appears in the UI without a renderer change.
+    the server appears in the UI without a renderer change. It also needs to refuse a drag *at
+    drag time* -- which is before there is a graph to ask the server about -- so it gets the
+    readiness table (`requires`/`produces`) and applies it itself, while
+    `POST /api/pipelines/validate` applies the same one server-side. One definition, in
+    :mod:`tit.pipeline.validate`; two readers; no way for the drag and the receipt to disagree.
+
+    Served here rather than from a second `/ports` route: it is the same table, and two endpoints
+    for one fact is how they drift.
     """
     return {
         "port_types": list(PORT_TYPES),
+        "capabilities": [
+            {"capability": c, "label": CAPABILITY_LABELS[c]} for c in CAPABILITIES
+        ],
         "kinds": [
             {
                 "kind": kind,
                 "inputs": list(node_inputs(kind)),
                 "outputs": list(node_outputs(kind)),
                 "required": list(PORTS[kind].required),
+                "requires": list(KIND_READINESS[kind].requires),
+                "produces": list(KIND_READINESS[kind].produces),
             }
             for kind in NODE_KINDS
         ],
@@ -169,7 +207,7 @@ def delete_pipeline(name: str) -> None:
 )
 def validate_pipeline(body: dict[str, Any] = Body(...)) -> dict[str, Any]:
     doc = _document(body)
-    result = validate(doc).to_dict()
+    result = validate(doc, _readiness()).to_dict()
     result["jobs"] = _job_preview(doc) if result["ok"] else []
     return result
 
@@ -212,7 +250,7 @@ def run_pipeline_route(
     from tit.pipeline.plan import PipelinePlanError, plan_pipeline
 
     doc = _document(body)
-    result = validate(doc)
+    result = validate(doc, _readiness())
     if not result.ok:
         raise HTTPException(
             status_code=422,

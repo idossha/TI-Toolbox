@@ -6820,7 +6820,7 @@
       },
       "PipelineNode": {
         "type": "object",
-        "description": "One node = exactly one existing job kind carrying exactly the config that page builds.",
+        "description": "One node. `subjects` names the cohort and runs nothing; every other kind is exactly one existing job kind carrying exactly the config that page builds \u2014 **its own**, never inherited from the node upstream of it.",
         "required": [
           "id",
           "kind"
@@ -6834,6 +6834,7 @@
           "kind": {
             "type": "string",
             "enum": [
+              "subjects",
               "pre",
               "leadfield",
               "flex",
@@ -7014,7 +7015,8 @@
               "cycle",
               "missing_input",
               "unconfigured",
-              "unconnected"
+              "unconnected",
+              "not_ready"
             ]
           },
           "port": {
@@ -7158,6 +7160,7 @@
       },
       "PipelineKinds": {
         "type": "object",
+        "description": "The palette, and both tables that decide whether a wire may be drawn: the typed ports, and what each kind needs of a subject before it can run on it. The canvas gates a *drag* with these (there is no graph to ask the server about yet) and `POST /api/pipelines/validate` gates the graph with the same ones, so the refusal a user sees while dragging and the one in the receipt are the same sentence.",
         "required": [
           "port_types",
           "kinds"
@@ -7167,6 +7170,32 @@
             "type": "array",
             "items": {
               "type": "string"
+            }
+          },
+          "capabilities": {
+            "type": "array",
+            "description": "What a subject can already have, in the order a reason lists them. Each is a fact `GET /api/catalog/overview` reports for every subject.",
+            "items": {
+              "type": "object",
+              "required": [
+                "capability",
+                "label"
+              ],
+              "properties": {
+                "capability": {
+                  "type": "string",
+                  "enum": [
+                    "raw",
+                    "m2m",
+                    "leadfield",
+                    "simulation"
+                  ]
+                },
+                "label": {
+                  "type": "string",
+                  "description": "the wording a refusal uses, e.g. \"head model\""
+                }
+              }
             }
           },
           "kinds": {
@@ -7200,6 +7229,32 @@
                   "description": "inputs that must be wired or satisfied by the node's own config",
                   "items": {
                     "type": "string"
+                  }
+                },
+                "requires": {
+                  "type": "array",
+                  "description": "Capabilities **every** subject reaching this node must already have. A cohort whose subjects only have raw data may be wired to `pre` and to nothing else.",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "raw",
+                      "m2m",
+                      "leadfield",
+                      "simulation"
+                    ]
+                  }
+                },
+                "produces": {
+                  "type": "array",
+                  "description": "What running this node leaves its subjects with, for the nodes downstream of it \u2014 which is why `Subjects(raw) -> Pre -> Simulator` is legal and `Subjects(raw) -> Simulator` is not.",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "raw",
+                      "m2m",
+                      "leadfield",
+                      "simulation"
+                    ]
                   }
                 }
               }

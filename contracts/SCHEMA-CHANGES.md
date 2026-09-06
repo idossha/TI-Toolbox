@@ -1267,3 +1267,35 @@ existed.
 
 `contracts/tetravox-viewspec-v2.schema.json` is **unchanged** — nothing here
 emits a field it did not already allow.
+
+## 2026-09-06 — feat:pipeline-subjects-source — the cohort is a node, and a wire is gated on readiness
+
+No dataclass changes, so `contracts/schema.json` is untouched. Three additions to
+`contracts/openapi.v1.yaml` / `.json` (and `desktop/src/renderer/api/schema.d.ts`), plus
+`contracts/pipeline.schema.json`.
+
+1. **`PipelineNode.kind` gains `subjects`**, and it leads the enum. A `subjects` node names the
+   cohort in `config.subject_ids`, runs nothing, and is the graph's only source. What it replaces:
+   every processing node used to carry its own copy of the subject list *and* be auto-configured
+   from the node upstream of it — so one cohort was typed once per node, two nodes in one graph
+   could silently disagree about who was in the study, and an edge meant "and also copy that
+   node's settings" rather than one named binding. An edge now carries the named port and nothing
+   else.
+2. **`PipelineKinds` gains `capabilities` and, per kind, `requires`/`produces`** — the readiness
+   table from `tit.pipeline.validate.KIND_READINESS`. A wire is legal when the port types match
+   **and** every subject reaching the target already has what that kind requires
+   (`raw · m2m · leadfield · simulation`). `produces` is what makes a chain work:
+   `pre` produces `m2m`, so `Subjects(raw) → Pre → Simulator` is legal while
+   `Subjects(raw) → Simulator` is refused with "102, test have no head model".
+   Served from the existing `GET /api/pipelines/kinds` rather than a second `/ports` route,
+   because it is the same table and two endpoints for one fact is how they drift. The canvas needs
+   it client-side to refuse a *drag* — there is no graph to ask the server about yet — while
+   `POST /api/pipelines/validate` applies the same table server-side, so the drag-time refusal and
+   the receipt are the same sentence.
+3. **`PipelineIssue.code` gains `not_ready`** — the subjects reaching a node lack something it
+   requires. Its `message` names them.
+
+`POST /api/pipelines/validate` and `/run` now read subject readiness from the same aggregate the
+Overview page shows (`GET /api/catalog/overview`), so the canvas and the board a user just looked
+at cannot disagree. A project that cannot be read at all falls back to shape-only checking rather
+than refusing every wire.
