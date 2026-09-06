@@ -1,11 +1,18 @@
-/* The Analyzer's Jobs table (2026-09-06, maintainer: "we can modify our analysis input per job").
-   Two things this file exists for: the row a click makes ACTIVE — the row the 3-D pane is drawing,
-   marked exactly as the Simulator's table marks its own — and a Target cell that states a target
-   of any length in one fixed-width line. */
+/* The Analyzer's Jobs table and its target dialog (2026-09-06, maintainer: "we can modify our
+   analysis input per job", then "the job table should use thicker entries so there's place for
+   everything, and the pop-ups should be better organised").
 
-/* The colgroup percentages are the whole layout: `table-layout: fixed` is what makes them
-   authoritative, so a long target truncates inside its cell instead of widening the table past the
-   work pane (measured: without it the actions column hit-tested to the run panel at 1280). */
+   Two things this file owns: a **two-line job row** — `Subject · Simulation · Space · Field` on
+   line 1 at widths that print full names, the target as one readable sentence on line 2 — and the
+   **organisation of the target dialog**, which consumes the shared `RoiPicker` (whose internals
+   belong to another lane) and lays it out from the outside. */
+
+/* ---------- The jobs table ---------- */
+
+/* The colgroup widths are the whole layout: `table-layout: fixed` is what makes them
+   authoritative, so a long simulation name or target truncates inside its cell instead of widening
+   the table past the work pane (measured: without it the actions column hit-tested to the run
+   panel at 1280). */
 .analysis-jobs-table {
   table-layout: fixed;
 }
@@ -14,49 +21,61 @@
   max-width: 100%;
 }
 
-/* Thicker rows: a row now carries five controls plus a sentence, and the Target button needs a
-   click target that is not a hairline. */
-.analysis-jobs-table tbody td {
-  padding-block: var(--space-2);
+/* One job is one `<tbody>` of two `<tr>`s. Line 1 carries the controls and the actions; line 2
+   carries the target and closes the entry with the row's only bottom rule, so the two lines read
+   as one ~60px block rather than as two rows that happen to be adjacent. */
+.analysis-jobs-table tbody.analysis-job-group td {
+  border-bottom: none;
 }
 
-.analysis-jobs-table tbody tr[data-active="true"] > td {
+.analysis-jobs-table tr.analysis-job-line1 > td {
+  padding-block: 5px 1px;
+  vertical-align: middle;
+}
+
+.analysis-jobs-table tr.analysis-job-line2 > td {
+  padding-block: 0 5px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* The active row's wash covers both lines — one job, one highlight (the Simulator's idiom). */
+.analysis-jobs-table tbody[data-active="true"] > tr > td {
   background-color: var(--accent-soft);
 }
 
-.analysis-jobs-table tbody tr[data-active="true"] > td:first-child {
+.analysis-jobs-table tbody[data-active="true"] > tr > td:first-child {
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
-.analysis-jobs-table tbody tr:hover > td {
+.analysis-jobs-table tbody.analysis-job-group:hover > tr > td {
   background-color: color-mix(in srgb, var(--accent-soft) 40%, var(--surface));
 }
 
-.analysis-jobs-table tbody tr[data-active="true"]:hover > td {
+.analysis-jobs-table tbody[data-active="true"]:hover > tr > td {
   background-color: var(--accent-soft);
 }
 
-/* The Target cell. `min-width: 0` on the flex child plus `overflow: hidden` is what actually
-   truncates inside a table cell — without it the text sets the column's intrinsic width and every
-   other row shifts when one target grows. */
+/* The target line. Full width, wrapping to a second visual line when it must, with the caption
+   ("Target") ahead of it — the header row has no Target column, because line 2 is not a column. */
 .analysis-target-button {
   display: flex;
-  align-items: center;
-  gap: var(--space-1);
+  align-items: baseline;
+  gap: var(--space-2);
   width: 100%;
   min-width: 0;
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: var(--surface);
+  padding: 2px var(--space-2) 2px 0;
+  border: none;
+  background: none;
   color: var(--ink);
   font: inherit;
   text-align: left;
   cursor: pointer;
+  border-radius: var(--radius-control);
 }
 
-.analysis-target-button:hover {
-  border-color: var(--accent);
+.analysis-target-button:hover .analysis-target-text {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .analysis-target-button:focus-visible {
@@ -64,15 +83,107 @@
   outline-offset: 1px;
 }
 
-.analysis-target-button[data-empty="true"] {
+.analysis-target-caption {
+  flex: none;
+  width: 44px;
   color: var(--ink-3);
-  border-style: dashed;
 }
 
+.analysis-target-button[data-empty="true"] .analysis-target-text {
+  color: var(--ink-3);
+  font-style: italic;
+}
+
+/* Wraps rather than truncates: the line has the whole table's width, and a target the user cannot
+   read is the defect this pass was opened for. Two lines is the ceiling. */
 .analysis-target-text {
   flex: 1;
   min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+/* ---------- The target dialog ---------- */
+
+/* A fixed 560px — wider than the shared 480px default, because this dialog holds a label-left form
+   whose labels are 160px. `:has` scopes it to this dialog without a className prop on the shared
+   `Dialog`. */
+.dialog-content:has(.analysis-target-editor) {
+  width: min(560px, calc(100vw - 32px));
+}
+
+/* One rhythm for every mode: 12px between the segmented control, the form and the combine line. */
+.analysis-target-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.analysis-target-editor .roi-picker {
+  gap: var(--space-3);
+}
+
+/* The mode control spans the dialog, so the three modes are one full-width row rather than three
+   buttons floating at the left. */
+.analysis-target-editor .roi-picker > .segmented {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  width: 100%;
+}
+
+/* The picker's panels are flex columns of `.field` rows; `.field` is already the site's label-left
+   grid, so this only fixes the rhythm between them. */
+.analysis-target-editor .roi-picker > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* The region trigger states the selection in words and can be long; it truncates on one line and
+   keeps the full list in its `title` (SelectionPicker already sets it). */
+.analysis-target-editor .selection-trigger {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.analysis-target-editor .selection-trigger-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Spherical: "Add sphere" is a small button under the table at the left, not a full-width block. */
+.analysis-target-editor .roi-picker > div > .btn {
+  align-self: flex-start;
+}
+
+/* The sentence under the sphere table ("Each row is a sphere. Multiple rows union…") is dropped
+   here: the row's own target line already says how many spheres there are, and in this dialog it
+   was a third paragraph competing with the two controls under it. */
+.analysis-target-editor .roi-picker > div > p.field-help {
+  display: none;
+}
+
+/* "Volumetric" and its tissue select are one line, the checkbox label kept to a single row. */
+.analysis-target-editor .roi-picker > div > div:last-child {
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.analysis-target-editor .checkbox-label-row,
+.analysis-target-editor .checkbox-label-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The row's own combine line: checkbox and its (i), one line, same shape as the table footer's. */
+.analysis-target-combine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--row-h);
 }

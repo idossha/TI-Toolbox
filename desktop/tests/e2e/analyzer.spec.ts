@@ -6,6 +6,8 @@ import { expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers
 import { expectRunPaneTab, showRunPaneTab } from "./_runPane";
 import { captureScreen, type PageMetrics } from "./_metrics";
 import {
+  analysisLine1,
+  analysisLine2,
   analysisRows,
   analysisTargetText,
   closeAnalysisTarget,
@@ -66,12 +68,12 @@ test("shape A, no page header, and one Jobs table instead of a global subject se
   await expect(page.getByTestId("subjects-field")).toHaveCount(0);
   await expect(page.locator(".card")).toHaveCount(0);
   await expect(page.getByTestId("analysis-jobs-table")).toBeVisible();
+  // Line 1's four columns; "Target" is a caption on line 2, not a column (maintainer, 2026-09-06).
   await expect(page.locator("table.analysis-jobs-table thead th")).toHaveText([
     "Subject",
     "Simulation",
     "Space",
     "Field",
-    "Target",
     "",
   ]);
   /*
@@ -86,6 +88,7 @@ test("shape A, no page header, and one Jobs table instead of a global subject se
   await expect(page.locator('[data-page-active="true"]').locator(".roi-picker")).toHaveCount(0);
   // Every row states its own target, and says so when it has none.
   await expect(analysisTargetText(analysisRows(page).first())).toHaveText("Choose a target…");
+  await expect(analysisRows(page).first().locator(".analysis-target-caption")).toHaveText("Target");
   // Seeded with one row on the context bar's primary subject ("ernie", from beforeAll).
   await expect(analysisRows(page)).toHaveCount(1);
   await expect(analysisRows(page).first()).toHaveAttribute("data-subject", "ernie");
@@ -123,7 +126,7 @@ test("a row names its own simulation, space and field, and the plan resolves onc
   // then states the target in words.
   await expect(page.getByTestId("run-button")).toHaveAttribute("title", "Complete the target before running.");
   await setAnalysisSphere(page, row, { x: -10, y: -18, z: 9, radius: 10 });
-  await expect(analysisTargetText(row)).toHaveText("Sphere -10,-18,9 r10 subject");
+  await expect(analysisTargetText(row)).toHaveText("Sphere -10,-18,9 r10 mm · Subject");
 
   const cell = page.locator('[data-testid^="plan-cell-ernie-"]').first();
   await expect(cell).toBeVisible({ timeout: 15_000 });
@@ -235,7 +238,7 @@ test("each row owns its target, the pane follows the active row, and a target ch
   await closeAnalysisTarget(page);
 
   await expect(analysisTargetText(second)).toHaveText("Cortical · DK40 · lh.bankssts");
-  // The full text is the cell's `title`, so a truncated target is still readable.
+  // The full text is the line's `title` too, so a target long enough to clamp is still readable.
   await expect(second.locator('td[data-cell="target"]').getByRole("button")).toHaveAttribute(
     "title",
     "Cortical · DK40 · lh.bankssts",
@@ -246,11 +249,11 @@ test("each row owns its target, the pane follows the active row, and a target ch
   expect(after).toEqual(before);
   expect(afterCell).toEqual(beforeCell);
   // Row 1's own target is untouched — the targets are per row, not shared.
-  await expect(analysisTargetText(first)).toHaveText("Sphere -10,-18,9 r10 subject");
+  await expect(analysisTargetText(first)).toHaveText("Sphere -10,-18,9 r10 mm · Subject");
 
   // The active row is the one the 3-D pane draws (the Simulator's idiom): clicking a row
   // highlights it, and the cortical row is the one whose atlas the pane picks up.
-  await second.locator('td[data-cell="target"]').click();
+  await second.locator('td[data-cell="target"]').getByRole("button").click();
   await closeAnalysisTarget(page);
   await expect(second).toHaveAttribute("data-active", "true");
   await expect(first).not.toHaveAttribute("data-active", "true");
@@ -262,9 +265,148 @@ test("each row owns its target, the pane follows the active row, and a target ch
   await page.getByTestId("analysis-jobs-table-container").screenshot({
     path: "tests/e2e/artifacts/analyzer-jobs-target.png",
   });
+  await page.getByTestId("analysis-jobs-table-container").screenshot({
+    path: "tests/e2e/artifacts/analyzer-jobs-v2.png",
+  });
 
   await second.getByRole("button", { name: "Remove row 2" }).click();
   await expect(analysisRows(page)).toHaveCount(1);
+});
+
+/**
+ * The geometry the maintainer asked for after seeing the first pass: *"the job table should use
+ * thicker entries so there's place for everything, and the pop-ups should be better organised."*
+ * Measured at 1280, where the cramping was ("Choose a sim…", "M…", a truncated atlas name).
+ */
+test("a job entry is two lines ~56-64px tall, and every cell prints its full value", async () => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const row = analysisRows(page).first();
+  await setAnalysisCell(page, row, "simulation", "Thalamus");
+  await setAnalysisSphere(page, row, { x: -10, y: -18, z: 9, radius: 10 });
+
+  const entry = (await row.boundingBox())!;
+  const line1 = (await analysisLine1(row).boundingBox())!;
+  const line2 = (await analysisLine2(row).boundingBox())!;
+  console.log(`JOBS-GEOM entry=${entry.height} line1=${line1.height} line2=${line2.height}`);
+  // A thicker two-line entry, not two rows that happen to be adjacent: line 2 starts where line 1
+  // ends, and the whole entry is the ~56-64px block the maintainer asked for.
+  // The maintainer's band: ~56-64px for the whole entry.
+  expect(entry.height).toBeGreaterThanOrEqual(56);
+  expect(entry.height).toBeLessThanOrEqual(64);
+  expect(Math.abs(line2.y - (line1.y + line1.height))).toBeLessThan(2);
+  // Line 2 spans the whole table — it is the target's own line, not a column.
+  const table = (await page.getByTestId("analysis-jobs-table").boundingBox())!;
+  expect(Math.abs(line2.width - table.width)).toBeLessThan(2);
+
+  // The widths that fix the cramping: Space prints "Voxel" whole, Field prints a whole field name,
+  // and Simulation takes what is left.
+  const cellBox = async (name: string) => (await row.locator(`td[data-cell="${name}"]`).boundingBox())!;
+  const [subject, simulation, space, field] = await Promise.all([
+    cellBox("subject"),
+    cellBox("simulation"),
+    cellBox("space"),
+    cellBox("field"),
+  ]);
+  console.log(
+    `JOBS-COLS subject=${subject.width} simulation=${simulation.width} space=${space.width} field=${field.width}`,
+  );
+  expect(space.width).toBeGreaterThanOrEqual(96);
+  expect(field.width).toBeGreaterThanOrEqual(100);
+  expect(simulation.width).toBeGreaterThan(field.width);
+  // Nothing is clipped: each control fits inside its own cell.
+  for (const [name, box] of [["space", space], ["field", field], ["simulation", simulation]] as const) {
+    const control = (await row.locator(`td[data-cell="${name}"] [role="combobox"]`).boundingBox())!;
+    expect(control.width, name).toBeLessThanOrEqual(box.width + 1);
+  }
+  await expect(row.locator('td[data-cell="space"]')).toHaveText("Mesh");
+  // Printed whole, not ellipsised: the defect was a Space cell reading "M…". Every cell's own text
+  // node fits the box it is drawn in.
+  for (const name of ["subject", "simulation", "space", "field"] as const) {
+    const clipped = await row
+      .locator(`td[data-cell="${name}"] [role="combobox"] span`)
+      .first()
+      .evaluate((el) => el.scrollWidth - el.clientWidth);
+    expect(clipped, `${name} is ellipsised`).toBeLessThanOrEqual(1);
+  }
+
+  // No horizontal scroll, and switching Space moves nothing.
+  const container = page.getByTestId("analysis-jobs-table-container");
+  const before = await row.boundingBox();
+  await setAnalysisCell(page, row, "space", "Voxel");
+  await expect(row.locator('td[data-cell="space"]')).toHaveText("Voxel");
+  expect(await row.boundingBox()).toEqual(before);
+  expect(
+    await container.evaluate((el) => el.scrollWidth - el.clientWidth),
+    "the jobs table scrolls sideways",
+  ).toBeLessThanOrEqual(1);
+  await setAnalysisCell(page, row, "space", "Mesh");
+});
+
+/**
+ * The dialog's organisation — one structure whatever the mode, at a fixed 560px.
+ */
+test("the target dialog is one 560px structure in every mode", async () => {
+  test.setTimeout(120_000);
+  const row = analysisRows(page).first();
+  const dialog = await openAnalysisTarget(page, row);
+  const box = (await dialog.boundingBox())!;
+  console.log(`TARGET-DIALOG width=${box.width}`);
+  expect(box.width).toBe(560);
+
+  // Title + subtitle name the job this target belongs to.
+  await expect(dialog.getByText("Analysis target", { exact: true })).toBeVisible();
+  await expect(dialog.locator(".dialog-description")).toHaveText("ernie · Thalamus");
+  // The mode control is full-width across the top.
+  const modes = dialog.locator(".roi-picker > .segmented").first();
+  const modesBox = (await modes.boundingBox())!;
+  expect(modesBox.width).toBeGreaterThan(box.width - 60);
+  expect(modesBox.y).toBeLessThan((await dialog.locator(".field").first().boundingBox())!.y);
+
+  // Spherical: Space and "Open T1 in viewer" share one row, left and right.
+  await modes.getByRole("radio", { name: "Spherical", exact: true }).click();
+  const spaceRow = (await dialog.locator(".field", { hasText: "Space" }).first().boundingBox())!;
+  const viewer = (await dialog.getByRole("button", { name: /Open T1 in viewer/ }).boundingBox())!;
+  expect(Math.abs(spaceRow.y + spaceRow.height / 2 - (viewer.y + viewer.height / 2))).toBeLessThan(6);
+  expect(viewer.x).toBeGreaterThan(spaceRow.x + spaceRow.width / 2);
+  // "Add sphere" is a small left-aligned button under the table, not a centred block.
+  const add = (await dialog.getByRole("button", { name: "Add sphere", exact: true }).boundingBox())!;
+  const sphereTable = (await dialog.locator("table").first().boundingBox())!;
+  expect(add.y).toBeGreaterThan(sphereTable.y + sphereTable.height - 2);
+  expect(Math.abs(add.x - sphereTable.x)).toBeLessThan(8);
+  expect(add.width).toBeLessThan(140);
+  // The explanatory paragraph is gone from the dialog — the row's target line states the sphere
+  // count instead. (Hidden by this page's own stylesheet: the sentence belongs to the shared
+  // picker, which other pages still show it on.)
+  await expect(dialog.getByText(/Each row is a sphere/)).not.toBeVisible();
+  // "Volumetric" is one line with its tissue select beside it, not a three-line label.
+  const volumetric = dialog.getByRole("checkbox", { name: /Volumetric/ });
+  const volumetricRow = (await volumetric.locator("xpath=ancestor::label[1]").boundingBox())!;
+  expect(volumetricRow.height).toBeLessThanOrEqual(28);
+  await page.screenshot({ path: "tests/e2e/artifacts/analyzer-target-spherical.png" });
+
+  // Cortical: Atlas and Region(s) are label-left rows, and the combine checkbox is ONE line with
+  // its (i) beside it — not a checkbox plus a paragraph.
+  await modes.getByRole("radio", { name: "Cortical", exact: true }).click();
+  const atlas = (await dialog.locator(".field", { hasText: "Atlas" }).first().boundingBox())!;
+  const regions = (await dialog.locator(".field", { hasText: "Region(s)" }).first().boundingBox())!;
+  expect(regions.y).toBeGreaterThan(atlas.y);
+  expect(Math.abs(regions.x - atlas.x)).toBeLessThan(2);
+  const combine = page.getByTestId("analysis-target-combine");
+  const combineBox = (await combine.boundingBox())!;
+  expect(combineBox.height).toBeLessThanOrEqual(32);
+  await expect(combine.getByRole("button", { name: "Help" })).toBeVisible();
+  await expect(combine.locator("p")).toHaveCount(0);
+  await page.screenshot({ path: "tests/e2e/artifacts/analyzer-target-cortical.png" });
+
+  // Footer: Cancel then Done, right-aligned — and Cancel really restores the target.
+  const footer = dialog.locator(".dialog-footer");
+  await expect(footer.getByRole("button")).toHaveText(["Cancel", "Done"]);
+  const cancel = (await page.getByTestId("analysis-target-cancel").boundingBox())!;
+  expect(cancel.x).toBeGreaterThan(box.x + box.width / 2);
+  await page.getByTestId("analysis-target-cancel").click();
+  await expect(page.getByTestId("analysis-target-editor")).toHaveCount(0);
+  await expect(analysisTargetText(row)).toHaveText("Sphere -10,-18,9 r10 mm · Subject");
 });
 
 test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.3)", async () => {

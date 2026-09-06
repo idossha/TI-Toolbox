@@ -37,12 +37,23 @@ export async function setJobNet(page: Page, row: Locator, option: string): Promi
 
 /** A flex row's placement: the optimiser's own coordinates, or an EEG net's labels. */
 export async function setJobPlacement(page: Page, row: Locator, mode: "Optimised" | "Map to net"): Promise<void> {
-  await jobDetail(row).getByRole("radio", { name: mode, exact: true }).click();
+  const item = jobDetail(row).getByRole("radio", { name: mode, exact: true });
+  await expect(item).toBeVisible();
+  // A real mouse click at the segment's centre. `locator.click()`'s hit-target check reports the
+  // Radix toggle item's own parent as the hit on this control (the item is what
+  // `document.elementFromPoint` returns at exactly this point — asserted by the state change
+  // below), so the pointer is driven directly rather than the assertion being forced off.
+  const box = (await item.boundingBox())!;
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(item).toHaveAttribute("data-state", "on");
 }
 
 /** The net a flex row is mapped onto — only present once "Map to net" is chosen. */
 export async function setJobMappedNet(page: Page, row: Locator, net: string): Promise<void> {
-  await jobDetail(row).getByRole("combobox").click();
+  const trigger = jobDetail(row).getByRole("combobox");
+  await expect(trigger).toBeVisible();
+  const box = (await trigger.boundingBox())!;
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await page.getByRole("option", { name: net, exact: true }).click();
 }
 
@@ -105,9 +116,23 @@ export async function configureMontageJob(
 
 /* ----------------------------------------------------------------- Analyzer */
 
-/** The Analyzer's Jobs table rows. */
+/**
+ * The Analyzer's Jobs table rows. One job is one `<tbody>` of two `<tr>`s since the 2026-09-06
+ * two-line pass (line 1 `Subject · Simulation · Space · Field`, line 2 the target), so the row a
+ * spec addresses is the group, and `td[data-cell=…]` reaches either line from it.
+ */
 export function analysisRows(page: Page): Locator {
-  return page.locator("tr[data-analysis-row]");
+  return page.locator("tbody[data-analysis-row]");
+}
+
+/** Line 1 of a row — the controls line, for geometry assertions. */
+export function analysisLine1(row: Locator): Locator {
+  return row.locator("tr.analysis-job-line1");
+}
+
+/** Line 2 of a row — the target line. */
+export function analysisLine2(row: Locator): Locator {
+  return row.locator("tr.analysis-job-line2");
 }
 
 export async function setAnalysisSubject(page: Page, row: Locator, subject: string): Promise<void> {

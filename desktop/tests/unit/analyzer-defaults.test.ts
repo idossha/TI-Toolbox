@@ -298,26 +298,38 @@ describe("a row's own target", () => {
 
   it("the Target cell states the target in words, and says so when there is none", () => {
     expect(analyzerTargetLabel(emptyAnalyzerRow().roi)).toBe("Choose a target…");
-    expect(analyzerTargetLabel(sphereRoi())).toBe("Sphere 10,10,10 r30 MNI");
-    expect(analyzerTargetLabel(sphereRoi({ space: "subject" }))).toBe("Sphere 10,10,10 r30 subject");
+    expect(analyzerTargetLabel(sphereRoi())).toBe("Sphere 10,10,10 r30 mm · MNI");
+    expect(analyzerTargetLabel(sphereRoi({ space: "subject" }))).toBe("Sphere 10,10,10 r30 mm · Subject");
+    // The line has room for the whole answer now, so a volumetric sphere names its compartment.
+    expect(analyzerTargetLabel(sphereRoi({ volumetric: true, tissues: "GM" }))).toBe(
+      "Sphere 10,10,10 r30 mm · MNI · volumetric GM",
+    );
     expect(analyzerTargetLabel(corticalRoi)).toBe("Cortical · DK40 · lh.insula");
-    expect(analyzerTargetLabel(subcorticalRoi)).toBe("Subcortical · CIT168_Pu_Putamen");
+    expect(analyzerTargetLabel(subcorticalRoi)).toBe("Subcortical · CIT168 · CIT168_Pu_Putamen");
   });
 
-  it("more than one region or sphere is stated as a count, so the cell is one line", () => {
+  it("two names are printed, more than two become a count, and combine is stated in a word", () => {
+    const two: RoiValue = {
+      mode: "cortical",
+      atlas: "DK40",
+      regions: [
+        { id: 28, name: "superiorfrontal", hemi: "lh" },
+        { id: 27, name: "rostralmiddlefrontal", hemi: "lh" },
+      ],
+    };
+    expect(analyzerTargetLabel(two, true)).toBe(
+      "Cortical · DK40 · lh.superiorfrontal + lh.rostralmiddlefrontal (combined)",
+    );
+    // The checkbox's decision, where the decision is visible — one ROI, or one job per region.
+    expect(analyzerTargetLabel(two, false)).toBe(
+      "Cortical · DK40 · lh.superiorfrontal + lh.rostralmiddlefrontal (separate jobs)",
+    );
     expect(
-      analyzerTargetLabel({
-        mode: "cortical",
-        atlas: "DK40",
-        regions: [
-          { id: 29, name: "insula", hemi: "lh" },
-          { id: 29, name: "insula", hemi: "rh" },
-        ],
-      }),
-    ).toBe("Cortical · DK40 · lh.insula +1");
+      analyzerTargetLabel({ ...two, regions: [...two.regions, { id: 29, name: "insula", hemi: "rh" }] } as RoiValue),
+    ).toBe("Cortical · DK40 · lh.superiorfrontal + lh.rostralmiddlefrontal + 1 more (combined)");
     expect(
       analyzerTargetLabel(sphereRoi({ spheres: [{ x: 10, y: 10, z: 10, radius: 30 }, { x: 1, y: 2, z: 3, radius: 5 }] })),
-    ).toBe("Sphere 10,10,10 r30 MNI +1");
+    ).toBe("Sphere 10,10,10 r30 mm + 1,2,3 r5 mm · MNI");
   });
 
   it("a row is plannable only once its own target is complete", () => {

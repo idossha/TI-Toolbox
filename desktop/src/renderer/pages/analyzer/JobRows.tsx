@@ -96,26 +96,37 @@ function num(v: number | undefined): string {
   return v === undefined ? "?" : String(v);
 }
 
+/** Up to two names, then a count — the target line has room for two, never for nine. */
+function joinNames(names: string[]): string {
+  if (names.length <= 2) return names.join(" + ");
+  return `${names.slice(0, 2).join(" + ")} + ${names.length - 2} more`;
+}
+
 /**
- * The row's target **in words** — what the Target cell prints and what its `title` carries in
- * full. An incomplete target says so rather than printing a half-typed coordinate.
+ * The row's target **in words** — the whole second line of the row, and its `title`.
+ *
+ * It gets a full line of its own (maintainer, 2026-09-06: *"line 2 = the Target as a full-width
+ * readable line"*), so it states everything that changes what is measured: the atlas, the regions
+ * and whether they are one ROI or one job each; the sphere's radius, its coordinate space and its
+ * volumetric compartment. An incomplete target says so rather than printing half a coordinate.
  */
-export function analyzerTargetLabel(roi: RoiValue): string {
+export function analyzerTargetLabel(roi: RoiValue, combine = true): string {
   if (!isRoiComplete(roi)) return "Choose a target…";
   if (roi.mode === "spherical") {
-    const first = roi.spheres[0];
-    if (!first) return "Choose a target…";
-    const head = `Sphere ${num(first.x)},${num(first.y)},${num(first.z)} r${num(first.radius)} ${
-      roi.space === "mni" ? "MNI" : "subject"
-    }`;
-    return roi.spheres.length > 1 ? `${head} +${roi.spheres.length - 1}` : head;
+    const spheres = roi.spheres.map((s) => `${num(s.x)},${num(s.y)},${num(s.z)} r${num(s.radius)} mm`);
+    const parts = [`Sphere ${joinNames(spheres)}`, roi.space === "mni" ? "MNI" : "Subject"];
+    if (roi.volumetric) parts.push(`volumetric ${roi.tissues}`);
+    return parts.join(" · ");
   }
   if (roi.mode === "saved") return "Choose a target…";
   const names = roi.regions.map(regionLabel);
-  const head = names.length > 1 ? `${names[0]} +${names.length - 1}` : (names[0] ?? "");
-  // Cortical names its atlas (a region name means little without one); subcortical atlases are
-  // one-per-space and the region name is already unique, so it reads as the maintainer wrote it.
-  return roi.mode === "cortical" ? `Cortical · ${roi.atlas} · ${head}` : `Subcortical · ${head}`;
+  // Cortical and subcortical both name their atlas: a region name means little without the
+  // parcellation it came from, and both panels choose one.
+  const head = `${roi.mode === "cortical" ? "Cortical" : "Subcortical"} · ${roi.atlas} · ${joinNames(names)}`;
+  if (names.length < 2) return head;
+  // What the combine checkbox actually decides, stated where the decision is visible: one ROI, or
+  // one analysis per region.
+  return `${head} (${combine ? "combined" : "separate jobs"})`;
 }
 
 /** Two rows agree about their target when the picker's whole value agrees. */
@@ -174,8 +185,9 @@ export function AnalyzerJobRows({
   /** Spherical targets offer "Open T1 in viewer"; omitted, the button is not drawn. */
   onOpenViewer?: () => void;
 }) {
-  /** Which row's target dialog is open, if any. */
+  /** Which row's target dialog is open, if any, and the target it had when it opened. */
   const [targetRowId, setTargetRowId] = useState<string | null>(null);
+  const [targetDraft, setTargetDraft] = useState<{ roi: RoiValue; combine: boolean } | null>(null);
 
   const subjectItems = useMemo(
     () =>
@@ -228,19 +240,29 @@ export function AnalyzerJobRows({
 
   const targetRow = rows.find((r) => r.id === targetRowId) ?? null;
 
+  /** Cancel puts back the target the row had when the dialog opened. */
+  function cancelTarget() {
+    if (targetRow && targetDraft) patch(targetRow.id, targetDraft);
+    setTargetRowId(null);
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
       <div className="data-table-container" data-testid="analysis-jobs-table-container">
         <table className="data-table analysis-jobs-table" data-testid="analysis-jobs-table">
-          {/* Fixed widths, so a row whose target grows from "Choose a target…" to a five-region
-              cortical union changes what one CELL prints and moves nothing. */}
+          {/*
+            Fixed widths in pixels, not percentages (maintainer, 2026-09-06: the cells were
+            printing "Choose a sim…", "M…" and a truncated atlas name). Space needs 80px to print
+            "Voxel", Field 110px for "mTI_normal", Subject 150px for the longest id a project has;
+            Simulation takes whatever is left, because a montage name is the one cell whose length
+            nobody controls. `table-layout: fixed` (analyzer-page.css) makes them authoritative.
+          */}
           <colgroup>
-            <col style={{ width: "15%" }} />
-            <col style={{ width: "19%" }} />
-            <col style={{ width: "10%" }} />
-            <col style={{ width: "13%" }} />
-            <col style={{ width: "30%" }} />
-            <col style={{ width: "13%" }} />
+            <col style={{ width: "150px" }} />
+            <col />
+            <col style={{ width: "104px" }} />
+            <col style={{ width: "110px" }} />
+            <col style={{ width: "72px" }} />
           </colgroup>
           <thead>
             <tr>
@@ -248,31 +270,37 @@ export function AnalyzerJobRows({
               <th>Simulation</th>
               <th>Space</th>
               <th>Field</th>
-              <th>Target</th>
               <th />
             </tr>
           </thead>
-          <tbody>
-            {rows.map((row, i) => {
-              const label = analyzerTargetLabel(row.roi);
-              return (
-                <tr
-                  key={row.id}
-                  data-analysis-row={row.id}
-                  data-subject={row.subjectId || undefined}
-                  data-simulation={row.simulation || undefined}
-                  data-runnable={isRunnableAnalyzerRow(row) ? "true" : "false"}
-                  data-target-ready={isRoiComplete(row.roi) ? "true" : "false"}
-                  data-active={activeRowId === row.id ? "true" : undefined}
-                  aria-selected={activeRowId === row.id}
-                  tabIndex={0}
-                  onClick={(e) => {
-                    // A click on a control in the row is that control's, not the row's.
-                    if ((e.target as HTMLElement).closest("button, input, [role='combobox'], [role='dialog']")) return;
-                    onActiveRowChange(row.id);
-                  }}
-                  onFocus={() => onActiveRowChange(row.id)}
-                >
+          {rows.map((row, i) => {
+            const label = analyzerTargetLabel(row.roi, row.combine);
+            return (
+              /*
+                One job is one `<tbody>` of TWO rows (maintainer: "a thicker two-line row"): line 1
+                is `Subject · Simulation · Space · Field` at full width, line 2 is the target as a
+                readable sentence across the whole table. A `<tbody>` per job — rather than a
+                `rowspan` or a second `<table>` — is what lets the two lines share one hover, one
+                active wash and one set of row attributes while each line keeps its own cells.
+              */
+              <tbody
+                key={row.id}
+                className="analysis-job-group"
+                data-analysis-row={row.id}
+                data-subject={row.subjectId || undefined}
+                data-simulation={row.simulation || undefined}
+                data-runnable={isRunnableAnalyzerRow(row) ? "true" : "false"}
+                data-target-ready={isRoiComplete(row.roi) ? "true" : "false"}
+                data-active={activeRowId === row.id ? "true" : undefined}
+                aria-selected={activeRowId === row.id}
+                onClick={(e) => {
+                  // A click on a control in the row is that control's, not the row's.
+                  if ((e.target as HTMLElement).closest("button, input, [role='combobox'], [role='dialog']")) return;
+                  onActiveRowChange(row.id);
+                }}
+                onFocus={() => onActiveRowChange(row.id)}
+              >
+                <tr className="analysis-job-line1" tabIndex={0}>
                   <td data-cell="subject">
                     <SelectionPicker
                       mode="single"
@@ -327,26 +355,6 @@ export function AnalyzerJobRows({
                       aria-label="Field"
                     />
                   </td>
-                  <td data-cell="target">
-                    {/* The whole target in one cell: it STATES the target, and opens the shared
-                        picker scoped to this row. Truncated to one line with the full text in
-                        `title`, so the column width is independent of what is in it. */}
-                    <button
-                      type="button"
-                      className="analysis-target-button"
-                      data-testid={`analysis-target-${row.id}`}
-                      data-empty={isRoiComplete(row.roi) ? undefined : "true"}
-                      title={label}
-                      aria-label={`Target for row ${i + 1}: ${label}`}
-                      onClick={() => {
-                        onActiveRowChange(row.id);
-                        setTargetRowId(row.id);
-                      }}
-                    >
-                      <TargetIcon size={12} aria-hidden />
-                      <span className="analysis-target-text">{label}</span>
-                    </button>
-                  </td>
                   <td data-cell="actions" className="montage-actions">
                     <IconButton aria-label={`Duplicate row ${i + 1}`} icon={<Copy size={14} />} onClick={() => duplicate(row)} />
                     <IconButton
@@ -356,9 +364,33 @@ export function AnalyzerJobRows({
                     />
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
+                <tr className="analysis-job-line2">
+                  {/* Line 2: the whole target, across the whole table. It STATES the target and
+                      opens the shared picker scoped to this row; "Target" is a caption here rather
+                      than a column header, because the line is not a column. */}
+                  <td data-cell="target" colSpan={5}>
+                    <button
+                      type="button"
+                      className="analysis-target-button"
+                      data-testid={`analysis-target-${row.id}`}
+                      data-empty={isRoiComplete(row.roi) ? undefined : "true"}
+                      title={label}
+                      aria-label={`Target for row ${i + 1}: ${label}`}
+                      onClick={() => {
+                        onActiveRowChange(row.id);
+                        setTargetDraft({ roi: row.roi, combine: row.combine });
+                        setTargetRowId(row.id);
+                      }}
+                    >
+                      <span className="analysis-target-caption text-eyebrow">Target</span>
+                      <TargetIcon size={12} aria-hidden />
+                      <span className="analysis-target-text">{label}</span>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            );
+          })}
         </table>
       </div>
 
@@ -395,11 +427,21 @@ export function AnalyzerJobRows({
         </div>
       </div>
 
-      {/* The row's target editor. A dialog rather than a popover because the picker itself opens
-          an atlas combobox and a region dialog — overlays a popover would have to survive. */}
+      {/*
+        The row's target editor. A dialog rather than a popover because the picker itself opens an
+        atlas combobox and a region dialog — overlays a popover would have to survive.
+
+        Organised as one structure whatever the mode (maintainer, 2026-09-06): a fixed 560px width,
+        the mode segmented control full-width across the top, the picker's own label-left form
+        under it, and the row's own "Combine regions into one ROI" as the last line with its help
+        inline. `Cancel` restores the target the row had when the dialog opened, which is the only
+        thing that makes a Cancel button honest here — the picker edits the row live.
+      */}
       <Dialog
         open={targetRow !== null}
-        onOpenChange={(open) => !open && setTargetRowId(null)}
+        onOpenChange={(open) => {
+          if (!open) setTargetRowId(null);
+        }}
         title="Analysis target"
         description={
           targetRow
@@ -407,13 +449,18 @@ export function AnalyzerJobRows({
             : undefined
         }
         footer={
-          <Button variant="primary" onClick={() => setTargetRowId(null)} data-testid="analysis-target-done">
-            Done
-          </Button>
+          <>
+            <Button variant="secondary" onClick={cancelTarget} data-testid="analysis-target-cancel">
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={() => setTargetRowId(null)} data-testid="analysis-target-done">
+              Done
+            </Button>
+          </>
         }
       >
         {targetRow && (
-          <div data-testid="analysis-target-editor" data-row={targetRow.id}>
+          <div className="analysis-target-editor" data-testid="analysis-target-editor" data-row={targetRow.id}>
             <RoiPicker
               value={targetRow.roi}
               onChange={(roi) => patch(targetRow.id, { roi })}
@@ -423,17 +470,28 @@ export function AnalyzerJobRows({
               onOpenViewer={onOpenViewer}
             />
             {targetRow.roi.mode !== "spherical" && (
-              <div style={{ marginTop: "var(--space-3)" }}>
+              /* One line, not two: the checkbox and the (i) that explains it, the same shape as
+                 the Combine switch on the table's footer. The paragraph this replaces said in two
+                 sentences what the target line now says in one word ("combined"). */
+              <div className="analysis-target-combine" data-testid="analysis-target-combine">
                 <Checkbox
                   checked={targetRow.combine}
                   onCheckedChange={(on) => patch(targetRow.id, { combine: on })}
                   label="Combine regions into one ROI"
                 />
-                <p className="field-help">
-                  {targetRow.combine
-                    ? "The selected regions are measured together as one ROI."
-                    : "Each selected region is analyzed separately — one job per region."}
-                </p>
+                <Popover
+                  trigger={
+                    <button type="button" className="field-help-trigger" aria-label="Help">
+                      <Info size={12} aria-hidden />
+                    </button>
+                  }
+                >
+                  <div className="field-help-popover">
+                    <div className="field-help-popover-title">Combine regions into one ROI</div>
+                    On, the selected regions are measured together as one ROI. Off, each region is its own
+                    analysis — one job per region.
+                  </div>
+                </Popover>
               </div>
             )}
           </div>
