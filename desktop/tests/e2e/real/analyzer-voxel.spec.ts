@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
 import { connectReal, expectPage, gotoPage, launchElectronApp, PROJECT_HOST_ROOT, recordPayload, selectSubject, waitForJobTerminal, waitForJobTrace } from "../_helpers";
 import { removeNewEntriesSince, snapshotDir } from "./_dirDiff";
-import { analysisRows, setAnalysisCell } from "../_jobs";
+import { analysisRows, setAnalysisCell, setAnalysisSphere } from "../_jobs";
 
 /**
  * Analyzer, voxel space — see `analyzer-mesh.spec.ts`'s file header for the shared rationale
@@ -51,10 +51,9 @@ test("spherical target, voxel space: accepted, started, and completed", async ()
 
   await setAnalysisCell(page, row, "space", "Voxel");
 
-  await page.getByLabel("Sphere 1 X").fill("-10");
-  await page.getByLabel("Sphere 1 Y").fill("-18");
-  await page.getByLabel("Sphere 1 Z").fill("9");
-  await page.getByLabel("Sphere 1 radius").fill("10");
+  // Since 2026-09-06 the target is the ROW's: its Target cell opens the shared picker
+  // scoped to that row (maintainer: "we can modify our analysis input per job").
+  await setAnalysisSphere(page, row, { x: -10, y: -18, z: 9, radius: 10 });
 
   const cell = page.locator('[data-testid^="plan-cell-ernie-"]').first();
   await expect(cell).toBeVisible({ timeout: 15_000 });
