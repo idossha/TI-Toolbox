@@ -1,157 +1,481 @@
 /**
- * Viewer page chrome — the 40 px source bar over the embed (DESIGN.md §10, program U5).
+ * Viewer page — the centred composition panel (DESIGN.md §10, VM).
  *
- * Not in `ui/components.css` because none of it is a primitive: it is the frame around one iframe.
- * There is no inspector any more — the stage is the source bar plus whatever fills
- * `.viewer-canvas-wrap` (the embed, or one of the page-level designed states below it). The stage
- * keeps the canvas ground (`--canvas`, dark in both themes by imaging convention, DESIGN.md §10) so
- * a slow first frame is dark rather than white.
+ * There is no canvas on this page and there never will be: the picture is drawn by another
+ * application, in its own window. What replaced the canvas is a **panel** — a single centred
+ * column, max 880 px, with the app's own surface under it rather than the imaging `--canvas`
+ * ground. The dark ground was there so a slow first frame was dark instead of white; with no
+ * frame to be slow, a black rectangle behind a form is just a black rectangle.
+ *
+ * The rhythm is 12 px (`--space-3`) between rows and 24 px between sections, which is the
+ * app's form density with one step more air — this page is met once and used deliberately,
+ * unlike a run page's sidebar.
  */
 
-.viewer-stage {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
+.viewer-scroll {
   height: 100%;
-  background: var(--canvas);
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--bg);
 }
 
-/* 40 px, the plan's number. Flush against the canvas: no card, no shadow, no rounded corners. */
-.viewer-sourcebar {
+.viewer-panel {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-5) var(--space-8);
   display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* ------------------------------------------------- head */
+
+.viewer-panel-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--line);
+}
+
+.viewer-panel-title {
+  margin: 0;
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+.viewer-panel-lede {
+  margin: 0;
+  max-width: 62ch;
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--ink-2);
+}
+
+.viewer-panel-lede strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* ------------------------------------------------- sections */
+
+.viewer-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.viewer-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.viewer-section-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.viewer-section-title {
+  margin: 0;
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.viewer-section-desc {
+  margin: 0;
+  max-width: 68ch;
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--ink-2);
+}
+
+/* A label-left row at the app's own gutter, so the panel reads as one column of controls and not
+   as four differently-aligned groups. */
+.viewer-row {
+  display: grid;
+  grid-template-columns: var(--field-label-w, 132px) minmax(0, 1fr);
   align-items: center;
   gap: var(--space-3);
-  flex: 0 0 40px;
-  height: 40px;
-  padding: 0 var(--space-3);
-  border-bottom: 1px solid var(--line);
-  background: var(--surface);
+  min-height: 28px;
+}
+
+.viewer-row-label {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.viewer-row-control {
+  min-width: 0;
+}
+
+/* Two columns of source selectors at panel width, one when the panel is narrow: the source is
+   six short fields at most, and a single 880 px-wide column of them is a lot of white space
+   between a label and its control. */
+.viewer-source-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3) var(--space-5);
 }
 
 .viewer-source-item {
+  min-width: 0;
+}
+
+.viewer-source-item .select-trigger,
+.viewer-source-path {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .viewer-source-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ------------------------------------------------- layers */
+
+.viewer-layers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.viewer-layer {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-controls);
+  background: var(--surface);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* A hidden layer is dimmed rather than removed: it is still in the scene, and a person who
+   toggled the eye needs to see that the row is still there to toggle back. */
+.viewer-layer[data-visible="false"] .viewer-layer-name,
+.viewer-layer[data-visible="false"] .viewer-layer-controls {
+  opacity: 0.55;
+}
+
+.viewer-layer-head {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
 }
 
-/* A source select is a fixed 160 px, not `1fr`: three of them plus the space segment have to fit
-   in 40 px of height at 1024 px wide, and a select that grows with its content makes the bar
-   reflow every time the picked simulation's name changes length. */
-.viewer-source-item .select-trigger {
-  width: 160px;
-  min-width: 0;
+.viewer-layer-eye {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-controls);
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
 }
 
-.viewer-source-label {
-  font-size: 11px;
-  line-height: 16px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--ink-2);
+.viewer-layer-eye:hover {
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.viewer-layer-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.viewer-source-spacer {
-  flex: 1 1 auto;
-}
-
-/* ------------------------------------------------- the empty-3D hint */
-
-.viewer-canvas-wrap {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-}
-
-/* An inline note over the canvas, not a blocking overlay: the slices behind it are perfectly
-   usable, and the one thing missing is a 3D pane the user has not asked to populate yet. */
-.viewer-hint {
-  position: absolute;
-  left: 50%;
-  bottom: var(--space-3);
-  transform: translateX(-50%);
-  margin: 0;
-  max-width: min(560px, calc(100% - var(--space-6)));
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid rgba(230, 235, 241, 0.18);
-  border-radius: var(--radius-controls);
-  background: rgba(11, 13, 16, 0.82);
-  font-size: 12px;
-  line-height: 16px;
-  color: rgba(230, 235, 241, 0.82);
-  text-align: center;
-  pointer-events: none;
-}
-
-/* ------------------------------------------------- designed states: not-bundled, view-error */
-
-.viewer-unbundled {
-  flex: 1 1 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-6);
-  background: var(--canvas);
-}
-
-.viewer-unbundled-body {
-  max-width: 480px;
-}
-
-.viewer-unbundled-title {
-  margin: 0 0 var(--space-2);
-  font-size: 14px;
-  line-height: 20px;
-  font-weight: 600;
-  color: var(--on-canvas);
-}
-
-.viewer-unbundled-text {
-  margin: 0;
-  font-size: 13px;
-  line-height: 18px;
-  color: rgba(230, 235, 241, 0.68);
-}
-
-.viewer-canvas-error-actions {
-  display: flex;
-  gap: var(--space-2);
-  margin-top: var(--space-4);
-}
-
-/* ------------------------------------------------- R5: the wider source bar and the load strip */
-
-/* The bar grew a Type selector and up to four conditional ones, so it scrolls sideways rather than
-   wrapping to a second row: the stage's vertical budget belongs to the canvas, and a bar whose
-   height changes with the chosen view type would move the picture every time someone switched. */
-.viewer-sourcebar {
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: thin;
-}
-
-.viewer-source-item {
+.viewer-layer-kind {
   flex: 0 0 auto;
+  padding: 1px var(--space-2);
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--ink-2);
 }
 
-.viewer-source-path {
-  width: 320px;
+.viewer-layer-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.viewer-threshold {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+/* ------------------------------------------------- extras */
+
+.viewer-extras {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3) var(--space-5);
+}
+
+.viewer-extra {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   min-width: 0;
 }
 
-/* The failed-Load strip: above the canvas, never instead of it. R5 corrects DESIGN.md §4.4's
-   "error text over --canvas" for this page — the last successfully loaded scene keeps the
-   viewport, because that scene is what the reader still has and it is expensive to get back. */
+.viewer-extra-help {
+  margin: 0 0 0 22px;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--ink-2);
+}
+
+@media (max-width: 900px) {
+  .viewer-extras {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ------------------------------------------------- the preview card */
+
+.viewer-preview {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-controls);
+  background: var(--surface);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.viewer-preview-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.viewer-preview-title {
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.viewer-preview-count {
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--ink-2);
+}
+
+.viewer-preview-files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.viewer-preview-file {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 56px 72px;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 3px 0;
+  font-size: 12px;
+  line-height: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.viewer-preview-file:first-child {
+  border-top: 0;
+}
+
+.viewer-preview-file-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.viewer-preview-file-kind,
+.viewer-preview-file-size {
+  color: var(--ink-2);
+}
+
+.viewer-preview-file-size {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.viewer-preview-opened {
+  margin: 0;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--ink-2);
+  word-break: break-all;
+}
+
+.viewer-empty {
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--ink-2);
+}
+
+/* ------------------------------------------------- footer, callouts, popovers */
+
+.viewer-panel-foot {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.viewer-foot-spacer {
+  flex: 1 1 auto;
+}
+
+.viewer-callout {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-controls);
+  background: var(--surface);
+}
+
+.viewer-callout-title {
+  margin: 0;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.viewer-callout-text {
+  margin: 0;
+  max-width: 62ch;
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--ink-2);
+}
+
+.viewer-popover {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 240px;
+}
+
+.viewer-popover-title {
+  margin: 0;
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.viewer-preset-list,
+.viewer-recent-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.viewer-preset {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.viewer-preset-restore,
+.viewer-preset-forget,
+.viewer-recent-item {
+  border: 0;
+  background: transparent;
+  padding: 4px var(--space-2);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-controls);
+}
+
+.viewer-preset-restore,
+.viewer-recent-item {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.viewer-preset-restore:hover,
+.viewer-recent-item:hover {
+  background: var(--surface-2, var(--surface));
+}
+
+.viewer-preset-forget {
+  flex: 0 0 auto;
+  color: var(--ink-2);
+}
+
+/* ------------------------------------------------- the failed-Open strip */
+
 .viewer-load-error {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  flex: 0 0 auto;
   padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-controls);
   background: var(--danger-bg, var(--surface));
   font-size: 12px;
   line-height: 16px;

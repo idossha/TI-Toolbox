@@ -28,6 +28,7 @@ from typing import Any
 
 __all__ = [
     "DOCUMENT_VERSION",
+    "JOB_NODE_KINDS",
     "NODE_KINDS",
     "PORT_TYPES",
     "PORTS",
@@ -74,36 +75,62 @@ class _KindPorts:
     required: tuple[str, ...] = ()
 
 
-#: kind -> its typed ports. Every kind here is an existing :data:`tit.jobs.spec.JOB_KINDS` entry.
+#: kind -> its typed ports.
+#:
+#: **``subjects`` is the source and the only source.** Every other kind is a *processing* node: it
+#: requires a ``subjects`` edge, owns its own config, and is never configured from the node
+#: upstream of it. An edge carries the named port and nothing else -- binding
+#: ``Optimizer -> Simulator`` on ``montages`` says *this simulator's montage list is that flex
+#: result*, and says nothing at all about the simulator's other settings.
+#:
+#: What changed, and why: ``pre`` used to be a source (``inputs=()``) and each node carried its
+#: own copy of the subject list, so the same cohort was typed once per node and two nodes in one
+#: graph could silently disagree about who was in the study. The cohort is now stated once, on a
+#: node of its own, and reaches the rest of the graph over a wire that can be *refused* when those
+#: subjects are not ready for what the target does (:mod:`tit.pipeline.validate`).
 PORTS: dict[str, _KindPorts] = {
-    # Preprocessing produces the subject set every downstream node runs over.
-    "pre": _KindPorts(inputs=(), outputs=("subjects",)),
-    "leadfield": _KindPorts(inputs=("subjects",), outputs=("subjects", "leadfield")),
-    "flex": _KindPorts(inputs=("subjects", "roi"), outputs=("subjects", "montages", "roi")),
+    # The cohort. Not a job -- it runs nothing and plans nothing; it names who the graph is about.
+    "subjects": _KindPorts(inputs=(), outputs=("subjects",)),
+    "pre": _KindPorts(inputs=("subjects",), outputs=("subjects",), required=("subjects",)),
+    "leadfield": _KindPorts(
+        inputs=("subjects",), outputs=("subjects", "leadfield"), required=("subjects",)
+    ),
+    "flex": _KindPorts(
+        inputs=("subjects", "roi"),
+        outputs=("subjects", "montages", "roi"),
+        required=("subjects",),
+    ),
     "ex": _KindPorts(
         inputs=("subjects", "roi", "leadfield"),
         outputs=("subjects", "montages", "roi"),
+        required=("subjects",),
     ),
     "mex": _KindPorts(
         inputs=("subjects", "roi", "leadfield"),
         outputs=("subjects", "montages", "roi"),
+        required=("subjects",),
     ),
     "sim": _KindPorts(
         inputs=("subjects", "montages"),
         outputs=("subjects", "simulation"),
         required=("subjects",),
     ),
+    # `simulation` is no longer a *required port*: whether an Analyzer can run is a question about
+    # the subjects reaching it (do they have a simulation?), which the readiness table answers with
+    # the subjects' names in the reason. Requiring the port as well would refuse a perfectly good
+    # `Subjects(with simulations) -> Analyzer` graph for a second, wronger reason.
     "analyzer": _KindPorts(
         inputs=("subjects", "simulation", "roi"),
         outputs=("subjects",),
-        required=("subjects", "simulation"),
+        required=("subjects",),
     ),
     "source": _KindPorts(inputs=("subjects",), outputs=("subjects",), required=("subjects",)),
     "stats": _KindPorts(inputs=("subjects",), outputs=(), required=("subjects",)),
 }
 
-#: Node kinds the canvas offers, in palette order.
+#: Node kinds the canvas offers, in palette order -- the cohort first, then the workflow.
 NODE_KINDS: tuple[str, ...] = (
+    "subjects",
     "pre",
     "leadfield",
     "flex",
@@ -114,6 +141,9 @@ NODE_KINDS: tuple[str, ...] = (
     "source",
     "stats",
 )
+
+#: The kinds that become jobs. ``subjects`` is a source of *facts*, not of work.
+JOB_NODE_KINDS: tuple[str, ...] = tuple(k for k in NODE_KINDS if k != "subjects")
 
 
 def node_inputs(kind: str) -> tuple[str, ...]:

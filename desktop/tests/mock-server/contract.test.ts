@@ -308,6 +308,13 @@ describe("contract coverage: every openapi.v1.yaml path+method", () => {
     // V2 (dev/notes/v3-native-panes-external-viewer-plan.md): the scene file the host-installed
     // Tetravox app opens.
     await call("/api/view/open", "POST", "/api/view/open", { body: { kind: "subject", subject: "ernie" } });
+    // VM: saved compositions. The path is /api/viewer/presets, not /api/view/presets, because the
+    // latter is shadowed by GET /api/view/{kind}.
+    await call("/api/viewer/presets/{name}", "PUT", "/api/viewer/presets/contract", {
+      body: { name: "contract", selection: { kind: "subject", subject: "ernie" }, extras: [], overrides: {} },
+    });
+    await call("/api/viewer/presets", "GET", "/api/viewer/presets");
+    await call("/api/viewer/presets/{name}", "DELETE", "/api/viewer/presets/contract");
 
     // files (v1)
     await call("/api/files/report/{id}", "GET", "/api/files/report/ernie-thalamus-2026-08-01");

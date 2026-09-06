@@ -12,6 +12,12 @@
  * 1. **The draft → Open grammar** (R5, kept verbatim): editing a selector changes the draft and
  *    nothing else — no request, no launch — and one Open is exactly one `POST /api/view/open` and
  *    exactly one call to the launch bridge, carrying the file that call answered with.
+ * 2a. **VM: every knob the composition panel shows lands in the scene the server writes.** The
+ *    page is a centred composition panel now — layers with opacity, colormap and threshold, a
+ *    layout, a camera, a background, a convention flag, "Also open" extras, a preview strip, a
+ *    preset store and a recents list. The assertion that matters is not that a slider moves, it
+ *    is that moving it changes the document Open produces: a control whose value never reaches
+ *    the file is a lie told to the person using it, and nothing on screen would say so.
  * 2. **There is no iframe anywhere in the app.** Asserted over the whole document, on every page
  *    the nav rail offers, because "the embed is retired" is a claim about the app, not about this
  *    screen.
@@ -111,17 +117,38 @@ async function pressOpen(): Promise<void> {
   await page.getByTestId("viewer-open").click();
 }
 
+interface ViewRequest {
+  url: string;
+  method: string;
+  /** VM: the preview strip resolves through the same route with `dry_run`, which writes nothing. */
+  dryRun: boolean;
+}
+
 /** Every `/api/view/...` request the renderer issues, in order, from now on. */
-function recordViewRequests(): { url: string; method: string }[] {
-  const seen: { url: string; method: string }[] = [];
+function recordViewRequests(): ViewRequest[] {
+  const seen: ViewRequest[] = [];
   page.on("request", (request) => {
     const url = request.url();
-    if (url.includes("/api/view/")) seen.push({ url, method: request.method() });
+    if (!url.includes("/api/view/")) return;
+    let dryRun: boolean;
+    try {
+      dryRun = (JSON.parse(request.postData() ?? "{}") as { dry_run?: boolean }).dry_run === true;
+    } catch {
+      dryRun = false;
+    }
+    seen.push({ url, method: request.method(), dryRun });
   });
   return seen;
 }
 
-const opens = (seen: { url: string; method: string }[]) => seen.filter((r) => r.method === "POST" && r.url.includes("/api/view/open"));
+/**
+ * The Opens that would actually write a file and start an application.
+ *
+ * VM routes the preview through the same endpoint with `dry_run: true`, so "how many requests did
+ * drafting cost" and "how many scenes did drafting write" stopped being the same question. This
+ * helper answers the second one, which is the one every one of these assertions was about.
+ */
+const opens = (seen: ViewRequest[]) => seen.filter((r) => r.method === "POST" && r.url.includes("/api/view/open") && !r.dryRun);
 
 test.beforeAll(() => {
   mkdirSync(ARTIFACTS, { recursive: true });
@@ -144,7 +171,7 @@ test("one Open writes one scene file and calls the launch bridge once, with that
 
   await chooseOption("kind", "Simulation");
   await chooseOption("simulation", "Thalamus");
-  expect(opens(seen), "drafting a selection opens nothing").toHaveLength(0);
+  expect(opens(seen), "drafting a selection writes no scene").toHaveLength(0);
   expect(await launchedScenes()).toEqual([]);
 
   await pressOpen();
@@ -227,7 +254,7 @@ test("navigating to the Viewer and editing the draft launches nothing", async ()
   expect(opens(seen)).toHaveLength(0);
   await chooseOption("kind", "Simulation");
   await chooseOption("simulation", "Thalamus");
-  await chooseOption("kind", "Subject");
+  await chooseOption("kind", "Subject anatomy");
   await page.getByRole("radiogroup", { name: "Space" }).getByRole("radio", { name: "MNI", exact: true }).click();
   expect(opens(seen)).toHaveLength(0);
   expect(await launchedScenes()).toEqual([]);
@@ -240,9 +267,9 @@ test("the Open request carries the values the bar is showing", async () => {
 
   const bodies: Record<string, unknown>[] = [];
   page.on("request", (request) => {
-    if (request.method() === "POST" && request.url().includes("/api/view/open")) {
-      bodies.push(JSON.parse(request.postData() ?? "{}") as Record<string, unknown>);
-    }
+    if (request.method() !== "POST" || !request.url().includes("/api/view/open")) return;
+    const body = JSON.parse(request.postData() ?? "{}") as Record<string, unknown>;
+    if (body.dry_run !== true) bodies.push(body);
   });
 
   await chooseOption("kind", "Simulation");
@@ -261,7 +288,7 @@ test("an incomplete selection is refused before the wire, and launches nothing",
   const seen = recordViewRequests();
 
   // `custom` needs a path; leaving it empty is a mistake to name, not a request to make.
-  await chooseOption("kind", "Custom file");
+  await chooseOption("kind", "Custom files");
   await pressOpen();
   await expect(page.getByTestId("viewer-view-error")).toBeVisible();
   expect(opens(seen)).toHaveLength(0);
@@ -335,4 +362,175 @@ test("takes the light and dark screenshots of the viewer page", async () => {
   await chooseOption("simulation", "Thalamus");
   await expect(page.getByTestId("viewer-plan")).toBeVisible();
   await page.screenshot({ path: join(ARTIFACTS, "viewer-light.png"), fullPage: false });
+  // VM's own record: the whole panel at the width the maintainer's screenshot was taken at.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(page.getByTestId("viewer-layers")).toBeVisible({ timeout: 15_000 });
+  await page.screenshot({ path: join(ARTIFACTS, "viewer-menu.png"), fullPage: true });
+});
+
+// ── VM: the composition panel ────────────────────────────────────────────────────────────────
+
+/** The `overrides` document of the last Open, or `undefined` if it carried none. */
+function recordOpenBodies(): Record<string, unknown>[] {
+  const bodies: Record<string, unknown>[] = [];
+  page.on("request", (request) => {
+    if (request.method() !== "POST" || !request.url().includes("/api/view/open")) return;
+    const body = JSON.parse(request.postData() ?? "{}") as Record<string, unknown>;
+    if (body.dry_run !== true) bodies.push(body);
+  });
+  return bodies;
+}
+
+async function draftSimulation(): Promise<void> {
+  await chooseOption("kind", "Simulation");
+  await chooseOption("simulation", "Thalamus");
+  await expect(page.getByTestId("viewer-layers")).toBeVisible({ timeout: 15_000 });
+}
+
+test("the panel shows every section, and the preview strip names the files with their sizes", async () => {
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  await draftSimulation();
+
+  for (const section of ["source", "layers", "layout", "extras"]) {
+    await expect(page.getByTestId(`viewer-section-${section}`)).toBeVisible();
+  }
+  // No canvas, no ghost text: the panel is the page.
+  await expect(page.locator("canvas")).toHaveCount(0);
+  const rows = page.getByTestId("viewer-preview-files").locator("li");
+  expect(await rows.count()).toBeGreaterThan(0);
+  // A size, not a blank: the strip's whole reason to exist is saying how much is about to open.
+  await expect(rows.first()).toContainText(/\d/);
+});
+
+test("drafting the composition still opens nothing, and Open carries it", async () => {
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  const seen = recordViewRequests();
+  const bodies = recordOpenBodies();
+  await draftSimulation();
+  // The preview is a dry run; it is allowed to ask, and it must never write or launch.
+  expect(seen.filter((r) => r.dryRun).length).toBeGreaterThan(0);
+  expect(opens(seen)).toHaveLength(0);
+  expect(bodies).toHaveLength(0);
+  expect(await launchedScenes()).toEqual([]);
+
+  const layer = page.getByTestId("viewer-layers").locator("li").first();
+  const layerId = (await layer.getAttribute("data-testid"))!.replace("viewer-layer-", "");
+  await page.getByTestId(`viewer-layer-opacity-${layerId}`).getByRole("spinbutton").fill("40");
+  await page.getByTestId(`viewer-layer-opacity-${layerId}`).getByRole("spinbutton").blur();
+  await page.getByTestId("viewer-layout").getByRole("radio", { name: "3D", exact: true }).click();
+  await page.getByTestId("viewer-camera").getByRole("radio", { name: "L", exact: true }).click();
+  expect(await launchedScenes()).toEqual([]);
+
+  await pressOpen();
+  await expect(page.getByTestId("viewer-opened")).toBeVisible({ timeout: 15_000 });
+  expect(bodies).toHaveLength(1);
+  const overrides = bodies[0]!.overrides as { layers: Record<string, { opacity: number }>; layout: string; camera: string };
+  expect(overrides.layers[layerId]!.opacity).toBeCloseTo(0.4, 5);
+  expect(overrides.layout).toBe("3d-only");
+  expect(overrides.camera).toBe("L");
+  expect(await launchedScenes()).toHaveLength(1);
+});
+
+test("a layer opacity change reaches the scene the server writes", async () => {
+  // The claim the panel rests on. The response body of the Open is the document that went to disk
+  // (tit/server/routes/viewers.py returns exactly what it wrote), so reading it back is reading
+  // the file.
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  await draftSimulation();
+
+  const layer = page.getByTestId("viewer-layers").locator("li").first();
+  const layerId = (await layer.getAttribute("data-testid"))!.replace("viewer-layer-", "");
+  const scenes: Record<string, unknown>[] = [];
+  page.on("response", async (response) => {
+    if (response.request().method() !== "POST" || !response.url().includes("/api/view/open")) return;
+    const body = JSON.parse(response.request().postData() ?? "{}") as Record<string, unknown>;
+    if (body.dry_run === true) return;
+    scenes.push((await response.json()) as Record<string, unknown>);
+  });
+
+  await page.getByTestId(`viewer-layer-opacity-${layerId}`).getByRole("spinbutton").fill("25");
+  await page.getByTestId(`viewer-layer-opacity-${layerId}`).getByRole("spinbutton").blur();
+  await pressOpen();
+  await expect(page.getByTestId("viewer-opened")).toBeVisible({ timeout: 15_000 });
+  await expect.poll(() => scenes.length).toBe(1);
+  const written = scenes[0]!.scene as { layers: { id: string; opacity: number }[] };
+  expect(written.layers.find((l) => l.id === layerId)!.opacity).toBeCloseTo(0.25, 5);
+});
+
+test("hiding a layer is written as a hidden layer, not as a missing one", async () => {
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  await draftSimulation();
+
+  const layer = page.getByTestId("viewer-layers").locator("li").first();
+  const layerId = (await layer.getAttribute("data-testid"))!.replace("viewer-layer-", "");
+  const bodies = recordOpenBodies();
+  await page.getByTestId(`viewer-layer-visible-${layerId}`).click();
+  await expect(layer).toHaveAttribute("data-visible", "false");
+  await pressOpen();
+  await expect(page.getByTestId("viewer-opened")).toBeVisible({ timeout: 15_000 });
+  expect((bodies[0]!.overrides as { layers: Record<string, { visible: boolean }> }).layers[layerId]!.visible).toBe(false);
+});
+
+test("an 'Also open' tick rides on the Open as an extra", async () => {
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  await draftSimulation();
+  const bodies = recordOpenBodies();
+
+  await page.getByTestId("viewer-extra-t1").getByRole("checkbox").click();
+  await pressOpen();
+  await expect(page.getByTestId("viewer-opened")).toBeVisible({ timeout: 15_000 });
+  expect(bodies[0]!.extras).toEqual(["t1"]);
+});
+
+test("a preset saves the whole composition and restores it without opening anything", async () => {
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  await draftSimulation();
+  await page.getByTestId("viewer-layout").getByRole("radio", { name: "1×1", exact: true }).click();
+
+  await page.getByTestId("viewer-save-preset").click();
+  await page.getByTestId("viewer-preset-name").fill("Deep target");
+  await page.getByTestId("viewer-preset-save").click();
+  await expect(page.getByTestId("viewer-preset-name")).toHaveCount(0);
+
+  // Change the composition, then put it back from the preset.
+  await page.getByTestId("viewer-layout").getByRole("radio", { name: "2×2", exact: true }).click();
+  const seen = recordViewRequests();
+  const bodies = recordOpenBodies();
+  await page.getByTestId("viewer-save-preset").click();
+  await page.getByTestId("viewer-preset-Deep target").click();
+  await expect(page.getByTestId("viewer-layout").getByRole("radio", { name: "1×1", exact: true })).toBeChecked();
+  // Restoring is not opening.
+  expect(bodies).toHaveLength(0);
+  expect(await launchedScenes()).toEqual([]);
+  expect(opens(seen)).toHaveLength(0);
+});
+
+test("the Recent list remembers what was opened and restores it", async () => {
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  // Empty until something is actually opened — a footprint, not a draft.
+  await expect(page.getByTestId("viewer-recent")).toBeDisabled();
+
+  await draftSimulation();
+  await pressOpen();
+  await expect(page.getByTestId("viewer-opened")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("viewer-recent")).toBeEnabled();
+
+  await chooseOption("kind", "Subject anatomy");
+  await page.getByTestId("viewer-recent").click();
+  await page.getByTestId("viewer-recent-0").click();
+  await expect(page.getByTestId("viewer-select-simulation").getByRole("combobox")).toContainText("Thalamus");
 });

@@ -2704,6 +2704,150 @@
         }
       }
     },
+    "/api/viewer/presets": {
+      "get": {
+        "tags": [
+          "viewers"
+        ],
+        "summary": "Saved Viewer selections",
+        "description": "VM. Plain JSON documents under <project>/code/ti-toolbox/viewer/presets/. They live in the project, not in browser storage, because the project is the unit people copy, archive and share -- a preset kept in a browser would be lost exactly when the work it describes was passed on. The path is /api/viewer/presets and not /api/view/presets because the latter is shadowed by GET /api/view/{kind}. A preset that cannot be parsed is skipped, not fatal.",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "presets"
+                  ],
+                  "properties": {
+                    "presets": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ViewerPreset"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/viewer/presets/{name}": {
+      "put": {
+        "tags": [
+          "viewers"
+        ],
+        "summary": "Save one Viewer selection",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ViewerPreset"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewerPreset"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "422": {
+            "description": "a name that cannot become a file (refused rather than silently renamed)"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "viewers"
+        ],
+        "summary": "Forget one saved selection",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "deleted": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
     "/api/files/report/{id}": {
       "get": {
         "tags": [
@@ -4971,6 +5115,33 @@
           "dry_run": {
             "type": "boolean",
             "description": "true when the request asked to resolve only; nothing was written"
+          }
+        }
+      },
+      "ViewerPreset": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "description": "VM. One saved Viewer composition -- the selection, the \"Also open\" extras and the scene overrides, exactly as POST /api/view/open takes them, so restoring a preset is replaying a request rather than reconstructing one.",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "selection": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "kind, subject, simulation, analysis, field, atlas, roi, path, space"
+          },
+          "extras": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "overrides": {
+            "type": "object",
+            "additionalProperties": true
           }
         }
       },
@@ -9485,30 +9656,15 @@
         "title": "MontageMode",
         "type": "string"
       },
-      "ElectrodeConfig": {
-        "description": "Electrode geometry for flex-search.\n\nOnly *gel_thickness* is needed here -- the optimization leadfield\nuses point electrodes; *gel_thickness* is recorded in the manifest\nfor downstream simulation.\n\nAttributes\n----------\nshape : str\n    Electrode shape (``\"ellipse\"`` or ``\"rect\"``).\ndimensions : list of float\n    Electrode dimensions in mm (``[width, height]``).\ngel_thickness : float\n    Conductive gel thickness in mm.",
-        "properties": {
-          "shape": {
-            "default": "ellipse",
-            "title": "Shape",
-            "type": "string"
-          },
-          "dimensions": {
-            "items": {
-              "type": "number"
-            },
-            "title": "Dimensions",
-            "type": "array"
-          },
-          "gel_thickness": {
-            "default": 4.0,
-            "title": "Gel Thickness",
-            "type": "number"
-          }
-        },
-        "title": "ElectrodeConfig",
-        "type": "object",
-        "additionalProperties": false
+      "FieldPostproc": {
+        "description": "Field post-processing method applied to the TI envelope.\n\nAttributes\n----------\nMAX_TI : str\n    Maximum TI amplitude (direction-independent).\nDIR_TI_NORMAL : str\n    TI component normal to the cortical surface.\nDIR_TI_TANGENTIAL : str\n    TI component tangential to the cortical surface.",
+        "enum": [
+          "max_TI",
+          "dir_TI_normal",
+          "dir_TI_tangential"
+        ],
+        "title": "FieldPostproc",
+        "type": "string"
       },
       "OptGoal": {
         "description": "Optimization goal.\n\nAttributes\n----------\nMEAN : str\n    Maximize mean field intensity in the ROI.\nMAX : str\n    Maximize peak field intensity in the ROI.\nFOCALITY : str\n    Maximize ROI-to-non-ROI focality via SimNIBS's threshold-based\n    ROC measure (``measures.ROC``).\nFOCALITY_TF : str\n    Maximize a threshold-free focality contrast,\n    ``mean(E_ROI) ** (1 + w) / p95(E_nonROI)``.  Because it needs no\n    thresholds it avoids the threshold-selection failure mode of the\n    ROC goal, whose landscape flattens when the requested ROI and\n    non-ROI thresholds are jointly infeasible (as happens at deep\n    targets).  The weight ``w`` is\n    :attr:`FlexConfig.intensity_weight`.",
@@ -9520,111 +9676,6 @@
         ],
         "title": "OptGoal",
         "type": "string"
-      },
-      "Mode": {
-        "description": "Which flex-search driver runs this config (``tit.jobs.kinds.MODULE_FOR_KIND``\nmaps ``flex``/``flex_adaptive``/``flex_pareto`` job kinds to this same module;\n``tit.opt.flex.__main__`` dispatches on this field to pick the driver).\n\nAttributes\n----------\nFLEX : str\n    A single :func:`~tit.opt.flex.flex.run_flex_search` run (any goal).\nFLEX_ADAPTIVE : str\n    Two-step adaptive focality: a ``\"mean\"`` run to find the achievable ROI\n    intensity, then a ``\"focality\"`` run with thresholds derived from\n    :attr:`FlexConfig.adaptive`. Requires ``goal=\"focality\"``.\nFLEX_PARETO : str\n    A ``\"mean\"`` calibration run followed by a grid of ``\"focality\"`` runs\n    over :attr:`FlexConfig.pareto`'s threshold percentages. Requires\n    ``goal=\"focality\"``.",
-        "enum": [
-          "flex",
-          "flex_adaptive",
-          "flex_pareto"
-        ],
-        "title": "Mode",
-        "type": "string"
-      },
-      "NonROIMethod": {
-        "description": "Non-ROI specification method for focality optimization.\n\nAttributes\n----------\nEVERYTHING_ELSE : str\n    Use all mesh elements outside the ROI.\nSPECIFIC : str\n    Use an explicitly defined non-ROI region.",
-        "enum": [
-          "everything_else",
-          "specific"
-        ],
-        "title": "NonROIMethod",
-        "type": "string"
-      },
-      "FieldPostproc": {
-        "description": "Field post-processing method applied to the TI envelope.\n\nAttributes\n----------\nMAX_TI : str\n    Maximum TI amplitude (direction-independent).\nDIR_TI_NORMAL : str\n    TI component normal to the cortical surface.\nDIR_TI_TANGENTIAL : str\n    TI component tangential to the cortical surface.",
-        "enum": [
-          "max_TI",
-          "dir_TI_normal",
-          "dir_TI_tangential"
-        ],
-        "title": "FieldPostproc",
-        "type": "string"
-      },
-      "SubcorticalROI": {
-        "description": "Subcortical volume ROI from a volumetric atlas.\n\n*label* accepts either a single value (one region) or a list (a union\nof several regions -- e.g. both hippocampi from one ``aseg`` atlas --\nevaluated as one combined target).  *atlas_path* may be a scalar\n(shared by every label) or a list matching the number of labels; a\nsingle shared *tissues* and *atlas_space* apply to the whole union.\n\nAttributes\n----------\natlas_path : str or list of str\n    Path(s) to the volumetric atlas NIfTI file(s).\nlabel : int or list of int\n    Integer label index/indices within the volumetric atlas.\ntissues : str\n    Tissue compartments to include.  One of ``\"GM\"``, ``\"WM\"``,\n    or ``\"both\"``.\natlas_space : str\n    Space of the atlas NIfTI.  One of ``\"subject\"`` or ``\"mni\"``.\n    MNI-space masks are transformed by SimNIBS during ROI setup.\n\nRaises\n------\nValueError\n    If *label* is empty, or *atlas_path* is a list whose length\n    neither equals 1 nor the number of labels.",
-        "properties": {
-          "atlas_path": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              }
-            ],
-            "title": "Atlas Path"
-          },
-          "label": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "items": {
-                  "type": "integer"
-                },
-                "type": "array"
-              }
-            ],
-            "title": "Label"
-          },
-          "tissues": {
-            "default": "GM",
-            "title": "Tissues",
-            "type": "string"
-          },
-          "atlas_space": {
-            "default": "subject",
-            "enum": [
-              "subject",
-              "mni"
-            ],
-            "title": "Atlas Space",
-            "type": "string"
-          },
-          "_type": {
-            "const": "SubcorticalROI"
-          }
-        },
-        "required": [
-          "atlas_path",
-          "label",
-          "_type"
-        ],
-        "title": "SubcorticalROI",
-        "type": "object",
-        "additionalProperties": false
-      },
-      "AdaptiveFocalityConfig": {
-        "description": "Thresholds for :func:`tit.opt.flex.drivers.run_adaptive_focality`.\n\nBoth percentages are applied to the achievable mean ROI intensity found by\nthe driver's own step-1 ``\"mean\"`` optimization run -- never to a value the\ncaller supplies directly, since that intensity is subject- and ROI-specific\nand cannot be known ahead of time.\n\nAttributes\n----------\nroi_percentage : float\n    ROI focality threshold, as a percentage (0-100 exclusive) of the\n    achievable mean ROI intensity.\nnonroi_percentage : float\n    Non-ROI focality threshold, as a percentage (0-100 exclusive) of the\n    same achievable intensity. Must be strictly less than\n    *roi_percentage*.\n\nRaises\n------\nValueError\n    If either percentage is outside ``(0, 100)``, or if\n    *nonroi_percentage* is not strictly less than *roi_percentage*.",
-        "properties": {
-          "roi_percentage": {
-            "default": 80.0,
-            "title": "Roi Percentage",
-            "type": "number"
-          },
-          "nonroi_percentage": {
-            "default": 20.0,
-            "title": "Nonroi Percentage",
-            "type": "number"
-          }
-        },
-        "title": "AdaptiveFocalityConfig",
-        "type": "object",
-        "additionalProperties": false
       },
       "SphericalROI": {
         "description": "Spherical region of interest defined by center and radius.\n\nBy default the sphere is evaluated on the cortical surface\n(``volumetric=False``).  Set ``volumetric=True`` to evaluate on\nvolume tetrahedra instead -- useful for deep/subcortical targets\nlike the amygdala or hippocampus where surface-only evaluation\nwould capture overlying cortex rather than the target structure.\n\nWhen ``volumetric=True``, the *tissues* field controls which\ntissue compartments are included (same semantics as\n:class:`SubcorticalROI.tissues`).\n\nEach of *x*, *y*, *z*, *radius* accepts either a single value (one\nsphere) or a list of values (a union of several spheres evaluated as\none combined target).  The coordinate lists must be non-empty and of\nequal length; *radius* may be a scalar (shared by every sphere) or a\nlist matching the number of centers.\n\nAttributes\n----------\nx : float or list of float\n    Center x-coordinate(s) (mm).\ny : float or list of float\n    Center y-coordinate(s) (mm).\nz : float or list of float\n    Center z-coordinate(s) (mm).\nradius : float or list of float\n    Sphere radius/radii in mm.  A scalar is shared by all spheres.\nuse_mni : bool\n    If True, coordinates are in MNI space and SimNIBS will transform\n    them to subject space during ROI setup.\nvolumetric : bool\n    If True, evaluate on volume tetrahedra instead of the cortical\n    surface.\ntissues : str\n    Tissue compartments to include when *volumetric* is True.\n    One of ``\"GM\"``, ``\"WM\"``, or ``\"both\"``.\n\nRaises\n------\nValueError\n    If *x*/*y*/*z* are empty or unequal length, or *radius* is a list\n    whose length neither equals 1 nor the number of centers.",
@@ -9715,6 +9766,101 @@
         "type": "object",
         "additionalProperties": false
       },
+      "Mode": {
+        "description": "Which flex-search driver runs this config (``tit.jobs.kinds.MODULE_FOR_KIND``\nmaps ``flex``/``flex_adaptive``/``flex_pareto`` job kinds to this same module;\n``tit.opt.flex.__main__`` dispatches on this field to pick the driver).\n\nAttributes\n----------\nFLEX : str\n    A single :func:`~tit.opt.flex.flex.run_flex_search` run (any goal).\nFLEX_ADAPTIVE : str\n    Two-step adaptive focality: a ``\"mean\"`` run to find the achievable ROI\n    intensity, then a ``\"focality\"`` run with thresholds derived from\n    :attr:`FlexConfig.adaptive`. Requires ``goal=\"focality\"``.\nFLEX_PARETO : str\n    A ``\"mean\"`` calibration run followed by a grid of ``\"focality\"`` runs\n    over :attr:`FlexConfig.pareto`'s threshold percentages. Requires\n    ``goal=\"focality\"``.",
+        "enum": [
+          "flex",
+          "flex_adaptive",
+          "flex_pareto"
+        ],
+        "title": "Mode",
+        "type": "string"
+      },
+      "SubcorticalROI": {
+        "description": "Subcortical volume ROI from a volumetric atlas.\n\n*label* accepts either a single value (one region) or a list (a union\nof several regions -- e.g. both hippocampi from one ``aseg`` atlas --\nevaluated as one combined target).  *atlas_path* may be a scalar\n(shared by every label) or a list matching the number of labels; a\nsingle shared *tissues* and *atlas_space* apply to the whole union.\n\nAttributes\n----------\natlas_path : str or list of str\n    Path(s) to the volumetric atlas NIfTI file(s).\nlabel : int or list of int\n    Integer label index/indices within the volumetric atlas.\ntissues : str\n    Tissue compartments to include.  One of ``\"GM\"``, ``\"WM\"``,\n    or ``\"both\"``.\natlas_space : str\n    Space of the atlas NIfTI.  One of ``\"subject\"`` or ``\"mni\"``.\n    MNI-space masks are transformed by SimNIBS during ROI setup.\n\nRaises\n------\nValueError\n    If *label* is empty, or *atlas_path* is a list whose length\n    neither equals 1 nor the number of labels.",
+        "properties": {
+          "atlas_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "title": "Atlas Path"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            ],
+            "title": "Label"
+          },
+          "tissues": {
+            "default": "GM",
+            "title": "Tissues",
+            "type": "string"
+          },
+          "atlas_space": {
+            "default": "subject",
+            "enum": [
+              "subject",
+              "mni"
+            ],
+            "title": "Atlas Space",
+            "type": "string"
+          },
+          "_type": {
+            "const": "SubcorticalROI"
+          }
+        },
+        "required": [
+          "atlas_path",
+          "label",
+          "_type"
+        ],
+        "title": "SubcorticalROI",
+        "type": "object",
+        "additionalProperties": false
+      },
+      "AdaptiveFocalityConfig": {
+        "description": "Thresholds for :func:`tit.opt.flex.drivers.run_adaptive_focality`.\n\nBoth percentages are applied to the achievable mean ROI intensity found by\nthe driver's own step-1 ``\"mean\"`` optimization run -- never to a value the\ncaller supplies directly, since that intensity is subject- and ROI-specific\nand cannot be known ahead of time.\n\nAttributes\n----------\nroi_percentage : float\n    ROI focality threshold, as a percentage (0-100 exclusive) of the\n    achievable mean ROI intensity.\nnonroi_percentage : float\n    Non-ROI focality threshold, as a percentage (0-100 exclusive) of the\n    same achievable intensity. Must be strictly less than\n    *roi_percentage*.\n\nRaises\n------\nValueError\n    If either percentage is outside ``(0, 100)``, or if\n    *nonroi_percentage* is not strictly less than *roi_percentage*.",
+        "properties": {
+          "roi_percentage": {
+            "default": 80.0,
+            "title": "Roi Percentage",
+            "type": "number"
+          },
+          "nonroi_percentage": {
+            "default": 20.0,
+            "title": "Nonroi Percentage",
+            "type": "number"
+          }
+        },
+        "title": "AdaptiveFocalityConfig",
+        "type": "object",
+        "additionalProperties": false
+      },
+      "NonROIMethod": {
+        "description": "Non-ROI specification method for focality optimization.\n\nAttributes\n----------\nEVERYTHING_ELSE : str\n    Use all mesh elements outside the ROI.\nSPECIFIC : str\n    Use an explicitly defined non-ROI region.",
+        "enum": [
+          "everything_else",
+          "specific"
+        ],
+        "title": "NonROIMethod",
+        "type": "string"
+      },
       "FlexConfigAtlasROI": {
         "description": "Cortical surface ROI from a FreeSurfer annotation atlas.\n\nEach of *atlas_path*, *label*, *hemisphere* accepts either a single\nvalue (one region) or a list (a union of several regions evaluated as\none combined target).  Because ``.annot`` files are per-hemisphere,\ncarrying a per-region *hemisphere* (and matching *atlas_path*) allows a\ntarget that spans **both** hemispheres, or even different atlases.\nScalars broadcast to the number of labels; lists must match its length.\n\nAttributes\n----------\natlas_path : str or list of str\n    Path(s) to the FreeSurfer ``.annot`` annotation file(s).\nlabel : int or list of int\n    Integer label index/indices within the annotation atlas.\nhemisphere : str or list of str\n    Hemisphere(s) to use (``\"lh\"`` or ``\"rh\"``), one per label.\n\nRaises\n------\nValueError\n    If *label* is empty, or *atlas_path*/*hemisphere* is a list whose\n    length neither equals 1 nor the number of labels.",
         "properties": {
@@ -9774,6 +9920,31 @@
         "type": "object",
         "additionalProperties": false
       },
+      "ElectrodeConfig": {
+        "description": "Electrode geometry for flex-search.\n\nOnly *gel_thickness* is needed here -- the optimization leadfield\nuses point electrodes; *gel_thickness* is recorded in the manifest\nfor downstream simulation.\n\nAttributes\n----------\nshape : str\n    Electrode shape (``\"ellipse\"`` or ``\"rect\"``).\ndimensions : list of float\n    Electrode dimensions in mm (``[width, height]``).\ngel_thickness : float\n    Conductive gel thickness in mm.",
+        "properties": {
+          "shape": {
+            "default": "ellipse",
+            "title": "Shape",
+            "type": "string"
+          },
+          "dimensions": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Dimensions",
+            "type": "array"
+          },
+          "gel_thickness": {
+            "default": 4.0,
+            "title": "Gel Thickness",
+            "type": "number"
+          }
+        },
+        "title": "ElectrodeConfig",
+        "type": "object",
+        "additionalProperties": false
+      },
       "ParetoSweepConfig": {
         "description": "Threshold grid for :func:`tit.opt.flex.drivers.run_pareto_sweep`.\n\nThe driver runs one ``\"focality\"`` optimization per (roi_pct, nonroi_pct)\ncombination in the Cartesian product of *roi_pcts* and *nonroi_pcts| --\n``len(roi_pcts) * len(nonroi_pcts)`` runs total, in addition to the single\nstep-1 ``\"mean\"`` calibration run. See\n:func:`tit.opt.flex.pareto.compute_sweep_grid`.\n\nAttributes\n----------\nroi_pcts : list of float\n    ROI threshold percentages to sweep (each in ``(0, 100)``).\nnonroi_pcts : list of float\n    Non-ROI threshold percentages to sweep (each in ``(0, 100)``).\n\nRaises\n------\nValueError\n    If either list is empty, if any value falls outside ``(0, 100)``,\n    or if any ``(roi_pct, nonroi_pct)`` combination has\n    ``nonroi_pct >= roi_pct``.",
         "properties": {
@@ -9793,55 +9964,6 @@
           }
         },
         "title": "ParetoSweepConfig",
-        "type": "object",
-        "additionalProperties": false
-      },
-      "ExConfigPoolElectrodes": {
-        "description": "Single electrode pool -- all positions draw from the same set.\n\nAttributes\n----------\nelectrodes : list of str\n    List of electrode names available for any channel position.",
-        "properties": {
-          "electrodes": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Electrodes",
-            "type": "array"
-          },
-          "_type": {
-            "const": "PoolElectrodes"
-          }
-        },
-        "required": [
-          "electrodes",
-          "_type"
-        ],
-        "title": "PoolElectrodes",
-        "type": "object",
-        "additionalProperties": false
-      },
-      "ExConfigAtlasROI": {
-        "description": "Volumetric atlas or mask ROI, unioned with the spherical center(s).\n\nAttributes\n----------\natlas_path : str\n    Path to a volumetric atlas or mask file -- NIfTI (``.nii``,\n    ``.nii.gz``) or FreeSurfer (``.mgz``), e.g. one discovered by\n    :class:`tit.atlas.voxel.VoxelAtlasManager`.\nlabel : int or None\n    Integer label to select within the atlas (elements are\n    included where the voxel value equals *label*).  ``None``\n    treats the whole file as a binary mask (voxel value ``> 0``).",
-        "properties": {
-          "atlas_path": {
-            "title": "Atlas Path",
-            "type": "string"
-          },
-          "label": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Label"
-          }
-        },
-        "required": [
-          "atlas_path"
-        ],
-        "title": "AtlasROI",
         "type": "object",
         "additionalProperties": false
       },
@@ -9891,8 +10013,8 @@
         "type": "object",
         "additionalProperties": false
       },
-      "MExConfigAtlasROI": {
-        "description": "Volumetric atlas or mask ROI, unioned with the spherical center.\n\nAttributes\n----------\natlas_path : str\n    Path to a volumetric atlas or mask file -- NIfTI (``.nii``,\n    ``.nii.gz``) or FreeSurfer (``.mgz``), e.g. one discovered by\n    :class:`tit.atlas.voxel.VoxelAtlasManager`.\nlabel : int or None\n    Integer label to select within the atlas (elements are\n    included where the voxel value equals *label*).  ``None``\n    treats the whole file as a binary mask (voxel value ``> 0``).",
+      "ExConfigAtlasROI": {
+        "description": "Volumetric atlas or mask ROI, unioned with the spherical center(s).\n\nAttributes\n----------\natlas_path : str\n    Path to a volumetric atlas or mask file -- NIfTI (``.nii``,\n    ``.nii.gz``) or FreeSurfer (``.mgz``), e.g. one discovered by\n    :class:`tit.atlas.voxel.VoxelAtlasManager`.\nlabel : int or None\n    Integer label to select within the atlas (elements are\n    included where the voxel value equals *label*).  ``None``\n    treats the whole file as a binary mask (voxel value ``> 0``).",
         "properties": {
           "atlas_path": {
             "title": "Atlas Path",
@@ -9918,8 +10040,8 @@
         "type": "object",
         "additionalProperties": false
       },
-      "MExConfigPoolElectrodes": {
-        "description": "Single electrode pool -- all eight positions draw from the same set.\n\nAttributes\n----------\nelectrodes : list of str\n    List of electrode names available for any pair position.",
+      "ExConfigPoolElectrodes": {
+        "description": "Single electrode pool -- all positions draw from the same set.\n\nAttributes\n----------\nelectrodes : list of str\n    List of electrode names available for any channel position.",
         "properties": {
           "electrodes": {
             "items": {
@@ -10018,6 +10140,55 @@
         "type": "object",
         "additionalProperties": false
       },
+      "MExConfigPoolElectrodes": {
+        "description": "Single electrode pool -- all eight positions draw from the same set.\n\nAttributes\n----------\nelectrodes : list of str\n    List of electrode names available for any pair position.",
+        "properties": {
+          "electrodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Electrodes",
+            "type": "array"
+          },
+          "_type": {
+            "const": "PoolElectrodes"
+          }
+        },
+        "required": [
+          "electrodes",
+          "_type"
+        ],
+        "title": "PoolElectrodes",
+        "type": "object",
+        "additionalProperties": false
+      },
+      "MExConfigAtlasROI": {
+        "description": "Volumetric atlas or mask ROI, unioned with the spherical center.\n\nAttributes\n----------\natlas_path : str\n    Path to a volumetric atlas or mask file -- NIfTI (``.nii``,\n    ``.nii.gz``) or FreeSurfer (``.mgz``), e.g. one discovered by\n    :class:`tit.atlas.voxel.VoxelAtlasManager`.\nlabel : int or None\n    Integer label to select within the atlas (elements are\n    included where the voxel value equals *label*).  ``None``\n    treats the whole file as a binary mask (voxel value ``> 0``).",
+        "properties": {
+          "atlas_path": {
+            "title": "Atlas Path",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Label"
+          }
+        },
+        "required": [
+          "atlas_path"
+        ],
+        "title": "AtlasROI",
+        "type": "object",
+        "additionalProperties": false
+      },
       "AnalyzerCoordinateSpace": {
         "description": "Space of *center* for a spherical ROI.\n\nAttributes\n----------\nSUBJECT : str\n    Native subject-space coordinates (mm).\nMNI : str\n    MNI coordinates, transformed to subject space before analysis.",
         "enum": [
@@ -10054,6 +10225,68 @@
         ],
         "title": "AnalysisType",
         "type": "string"
+      },
+      "QSIPrepSettings": {
+        "description": "Subject-independent QSIPrep resource and pipeline settings.\n\nFlat by design: mirrors exactly the keyword arguments\n:func:`tit.pre.qsi.qsiprep.run_qsiprep` reads off ``qsiprep_cfg.get(...)``\ninside :func:`tit.pre.structural.run_pipeline` (which loops over\n``subject_ids`` itself and supplies ``subject_id`` per call) -- there is\nno ``subject_id`` field here, and resource knobs are top-level rather\nthan nested under a ``resources`` object. This is deliberately a\n*different* shape from :class:`tit.pre.qsi.config.QSIPrepConfig` (which\nhas ``subject_id`` and a nested ``resources: ResourceConfig``, and is\nused internally by ``run_qsiprep``/``docker_builder`` to build the\nDocker invocation) -- serializing *that* class here previously wrote\n``qsiprep_config.resources.cpus``, which the flat ``.get(\"cpus\")`` read\nnever found.\n\nAttributes\n----------\noutput_resolution : float\n    Target output resolution in mm.\ncpus : int or None\n    Number of CPUs to allocate. ``None`` inherits from the current\n    container.\nmemory_gb : int or None\n    Memory limit in GB. ``None`` inherits from the current container.\nomp_threads : int\n    Threads per process (ANTs, MRtrix, ...).\nimage_tag : str\n    Docker image tag for QSIPrep.\nskip_bids_validation : bool\n    Skip BIDS validation.\ndenoise_method : str\n    ``\"dwidenoise\"``, ``\"patch2self\"``, or ``\"none\"``.\nunringing_method : str\n    ``\"mrdegibbs\"``, ``\"rpg\"``, or ``\"none\"``.\n\nRaises\n------\nValueError\n    If *output_resolution* is not positive, or *denoise_method* /\n    *unringing_method* is not one of its valid values.\n\nSee Also\n--------\ntit.pre.qsi.qsiprep.run_qsiprep : Consumes these values as keyword\n    arguments (not this dataclass).",
+        "properties": {
+          "output_resolution": {
+            "default": 2.0,
+            "title": "Output Resolution",
+            "type": "number"
+          },
+          "cpus": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Cpus"
+          },
+          "memory_gb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Gb"
+          },
+          "omp_threads": {
+            "default": 8,
+            "title": "Omp Threads",
+            "type": "integer"
+          },
+          "image_tag": {
+            "default": "26.0.0",
+            "title": "Image Tag",
+            "type": "string"
+          },
+          "skip_bids_validation": {
+            "default": true,
+            "title": "Skip Bids Validation",
+            "type": "boolean"
+          },
+          "denoise_method": {
+            "default": "dwidenoise",
+            "title": "Denoise Method",
+            "type": "string"
+          },
+          "unringing_method": {
+            "default": "mrdegibbs",
+            "title": "Unringing Method",
+            "type": "string"
+          }
+        },
+        "title": "QSIPrepSettings",
+        "type": "object",
+        "additionalProperties": false
       },
       "QSIReconSettings": {
         "description": "Subject-independent QSIRecon resource and pipeline settings.\n\nFlat by design: mirrors exactly the keyword arguments\n:func:`tit.pre.qsi.qsirecon.run_qsirecon` reads off ``recon_cfg.get(...)``\ninside :func:`tit.pre.structural.run_pipeline`. See\n:class:`QSIPrepSettings` for why this is a distinct, subject-less,\nflat-resource shape from :class:`tit.pre.qsi.config.QSIReconConfig`.\n\nAttributes\n----------\nrecon_specs : list of str\n    Reconstruction specs to run.\natlases : list of str or None\n    Atlases for connectivity analysis. ``None`` = no connectivity.\nuse_gpu : bool\n    Enable GPU acceleration (requires NVIDIA Docker runtime).\ncpus : int or None\n    Number of CPUs to allocate. ``None`` inherits from the current\n    container.\nmemory_gb : int or None\n    Memory limit in GB. ``None`` inherits from the current container.\nomp_threads : int\n    Threads per process.\nimage_tag : str\n    Docker image tag for QSIRecon.\nskip_odf_reports : bool\n    Skip ODF report generation.\n\nRaises\n------\nValueError\n    If *recon_specs* is empty or contains an unknown spec, or *atlases*\n    contains an unknown atlas.\n\nSee Also\n--------\ntit.pre.qsi.qsirecon.run_qsirecon : Consumes these values as keyword\n    arguments (not this dataclass).",
@@ -10129,68 +10362,6 @@
         "type": "object",
         "additionalProperties": false
       },
-      "QSIPrepSettings": {
-        "description": "Subject-independent QSIPrep resource and pipeline settings.\n\nFlat by design: mirrors exactly the keyword arguments\n:func:`tit.pre.qsi.qsiprep.run_qsiprep` reads off ``qsiprep_cfg.get(...)``\ninside :func:`tit.pre.structural.run_pipeline` (which loops over\n``subject_ids`` itself and supplies ``subject_id`` per call) -- there is\nno ``subject_id`` field here, and resource knobs are top-level rather\nthan nested under a ``resources`` object. This is deliberately a\n*different* shape from :class:`tit.pre.qsi.config.QSIPrepConfig` (which\nhas ``subject_id`` and a nested ``resources: ResourceConfig``, and is\nused internally by ``run_qsiprep``/``docker_builder`` to build the\nDocker invocation) -- serializing *that* class here previously wrote\n``qsiprep_config.resources.cpus``, which the flat ``.get(\"cpus\")`` read\nnever found.\n\nAttributes\n----------\noutput_resolution : float\n    Target output resolution in mm.\ncpus : int or None\n    Number of CPUs to allocate. ``None`` inherits from the current\n    container.\nmemory_gb : int or None\n    Memory limit in GB. ``None`` inherits from the current container.\nomp_threads : int\n    Threads per process (ANTs, MRtrix, ...).\nimage_tag : str\n    Docker image tag for QSIPrep.\nskip_bids_validation : bool\n    Skip BIDS validation.\ndenoise_method : str\n    ``\"dwidenoise\"``, ``\"patch2self\"``, or ``\"none\"``.\nunringing_method : str\n    ``\"mrdegibbs\"``, ``\"rpg\"``, or ``\"none\"``.\n\nRaises\n------\nValueError\n    If *output_resolution* is not positive, or *denoise_method* /\n    *unringing_method* is not one of its valid values.\n\nSee Also\n--------\ntit.pre.qsi.qsiprep.run_qsiprep : Consumes these values as keyword\n    arguments (not this dataclass).",
-        "properties": {
-          "output_resolution": {
-            "default": 2.0,
-            "title": "Output Resolution",
-            "type": "number"
-          },
-          "cpus": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Cpus"
-          },
-          "memory_gb": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Memory Gb"
-          },
-          "omp_threads": {
-            "default": 8,
-            "title": "Omp Threads",
-            "type": "integer"
-          },
-          "image_tag": {
-            "default": "26.0.0",
-            "title": "Image Tag",
-            "type": "string"
-          },
-          "skip_bids_validation": {
-            "default": true,
-            "title": "Skip Bids Validation",
-            "type": "boolean"
-          },
-          "denoise_method": {
-            "default": "dwidenoise",
-            "title": "Denoise Method",
-            "type": "string"
-          },
-          "unringing_method": {
-            "default": "mrdegibbs",
-            "title": "Unringing Method",
-            "type": "string"
-          }
-        },
-        "title": "QSIPrepSettings",
-        "type": "object",
-        "additionalProperties": false
-      },
       "ResourceConfig": {
         "description": "Resource allocation configuration for QSI containers.\n\nAttributes\n----------\ncpus : int\n    Number of CPUs to allocate to the container.\nmemory_gb : int\n    Memory limit in gigabytes.\nomp_threads : int\n    Number of OpenMP threads (affects ANTS, MRtrix, etc.).",
         "properties": {
@@ -10228,6 +10399,51 @@
         "type": "object",
         "additionalProperties": false
       },
+      "TestType": {
+        "description": "Type of statistical test for group comparison.",
+        "enum": [
+          "unpaired",
+          "paired"
+        ],
+        "title": "TestType",
+        "type": "string"
+      },
+      "_TissueType": {
+        "enum": [
+          "grey",
+          "white",
+          "all"
+        ],
+        "title": "_TissueType",
+        "type": "string"
+      },
+      "Alternative": {
+        "description": "Sidedness of the test hypothesis.",
+        "enum": [
+          "two-sided",
+          "greater",
+          "less"
+        ],
+        "title": "Alternative",
+        "type": "string"
+      },
+      "_ClusterStat": {
+        "enum": [
+          "mass",
+          "size"
+        ],
+        "title": "_ClusterStat",
+        "type": "string"
+      },
+      "_AnalysisSpace": {
+        "description": "Where the group statistics run: MNI volume or fsaverage surface.",
+        "enum": [
+          "mni",
+          "fsaverage"
+        ],
+        "title": "_AnalysisSpace",
+        "type": "string"
+      },
       "GroupComparisonConfigSubject": {
         "description": "A single subject in a group comparison analysis.\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier (without ``sub-`` prefix).\nsimulation_name : str\n    Name of the simulation to load for this subject.\nresponse : int\n    Group label -- 1 for responder, 0 for non-responder.",
         "properties": {
@@ -10252,60 +10468,6 @@
         "title": "Subject",
         "type": "object",
         "additionalProperties": false
-      },
-      "Alternative": {
-        "description": "Sidedness of the test hypothesis.",
-        "enum": [
-          "two-sided",
-          "greater",
-          "less"
-        ],
-        "title": "Alternative",
-        "type": "string"
-      },
-      "TestType": {
-        "description": "Type of statistical test for group comparison.",
-        "enum": [
-          "unpaired",
-          "paired"
-        ],
-        "title": "TestType",
-        "type": "string"
-      },
-      "_ClusterStat": {
-        "enum": [
-          "mass",
-          "size"
-        ],
-        "title": "_ClusterStat",
-        "type": "string"
-      },
-      "_AnalysisSpace": {
-        "description": "Where the group statistics run: MNI volume or fsaverage surface.",
-        "enum": [
-          "mni",
-          "fsaverage"
-        ],
-        "title": "_AnalysisSpace",
-        "type": "string"
-      },
-      "_TissueType": {
-        "enum": [
-          "grey",
-          "white",
-          "all"
-        ],
-        "title": "_TissueType",
-        "type": "string"
-      },
-      "CorrelationType": {
-        "description": "Type of correlation coefficient to compute.",
-        "enum": [
-          "pearson",
-          "spearman"
-        ],
-        "title": "CorrelationType",
-        "type": "string"
       },
       "CorrelationConfigSubject": {
         "description": "A single subject in a correlation analysis.\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier (without ``sub-`` prefix).\nsimulation_name : str\n    Name of the simulation to load for this subject.\neffect_size : float\n    Continuous behavioral or clinical measure to correlate with\n    field intensity.\nweight : float\n    Per-subject weight (default 1.0).",
@@ -10337,6 +10499,15 @@
         "type": "object",
         "additionalProperties": false
       },
+      "CorrelationType": {
+        "description": "Type of correlation coefficient to compute.",
+        "enum": [
+          "pearson",
+          "spearman"
+        ],
+        "title": "CorrelationType",
+        "type": "string"
+      },
       "FsavgMapConfig": {
         "description": "Parameters for projecting simulation field outputs onto fsaverage.\n\nAttributes\n----------\nfields : tuple of str\n    Which field quantities to project.  Any of\n    :data:`VALID_FSAVG_FIELDS` (``\"TI_max\"``, ``\"TI_normal\"``,\n    ``\"hf_peak\"``, ``\"hf_sar\"``).\nfsaverage_spacing : int\n    fsaverage subdivision factor (5, 6, or 7) to morph onto.\nworkers : int\n    Number of subjects projected in parallel (1 = serial).\noverwrite : bool\n    Re-project even when a cached ``.npz`` already exists.",
         "properties": {
@@ -10364,6 +10535,26 @@
           }
         },
         "title": "FsavgMapConfig",
+        "type": "object",
+        "additionalProperties": false
+      },
+      "SourcePair": {
+        "description": "One (subject, simulation) pair for the ``fsavg_map`` pipeline.\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier (without ``sub-`` prefix).\nsimulation : str\n    Simulation (montage) folder name.",
+        "properties": {
+          "subject_id": {
+            "title": "Subject Id",
+            "type": "string"
+          },
+          "simulation": {
+            "title": "Simulation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject_id",
+          "simulation"
+        ],
+        "title": "SourcePair",
         "type": "object",
         "additionalProperties": false
       },
@@ -10404,33 +10595,13 @@
         "type": "object",
         "additionalProperties": false
       },
-      "SourcePair": {
-        "description": "One (subject, simulation) pair for the ``fsavg_map`` pipeline.\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier (without ``sub-`` prefix).\nsimulation : str\n    Simulation (montage) folder name.",
-        "properties": {
-          "subject_id": {
-            "title": "Subject Id",
-            "type": "string"
-          },
-          "simulation": {
-            "title": "Simulation",
-            "type": "string"
-          }
-        },
-        "required": [
-          "subject_id",
-          "simulation"
-        ],
-        "title": "SourcePair",
-        "type": "object",
-        "additionalProperties": false
-      },
-      "Color": {
-        "description": "Color mapping strategy for vector-field arrows.",
+      "Anchor": {
+        "description": "Which end of the arrow touches the surface barycenter.",
         "enum": [
-          "rgb",
-          "magscale"
+          "tail",
+          "head"
         ],
-        "title": "Color",
+        "title": "Anchor",
         "type": "string"
       },
       "Length": {
@@ -10442,13 +10613,13 @@
         "title": "Length",
         "type": "string"
       },
-      "Anchor": {
-        "description": "Which end of the arrow touches the surface barycenter.",
+      "Color": {
+        "description": "Color mapping strategy for vector-field arrows.",
         "enum": [
-          "tail",
-          "head"
+          "rgb",
+          "magscale"
         ],
-        "title": "Anchor",
+        "title": "Color",
         "type": "string"
       },
       "Surface": {

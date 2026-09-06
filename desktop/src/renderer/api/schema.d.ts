@@ -2303,6 +2303,122 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/viewer/presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Saved Viewer selections
+         * @description VM. Plain JSON documents under <project>/code/ti-toolbox/viewer/presets/. They live in the project, not in browser storage, because the project is the unit people copy, archive and share -- a preset kept in a browser would be lost exactly when the work it describes was passed on. The path is /api/viewer/presets and not /api/view/presets because the latter is shadowed by GET /api/view/{kind}. A preset that cannot be parsed is skipped, not fatal.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            presets: components["schemas"]["ViewerPreset"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/viewer/presets/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save one Viewer selection */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ViewerPreset"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ViewerPreset"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description a name that cannot become a file (refused rather than silently renamed) */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        /** Forget one saved selection */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            name?: string;
+                            deleted?: boolean;
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/files/report/{id}": {
         parameters: {
             query?: never;
@@ -3827,6 +3943,18 @@ export interface components {
             files?: components["schemas"]["ViewerSceneFile"][];
             /** @description true when the request asked to resolve only; nothing was written */
             dry_run?: boolean;
+        };
+        /** @description VM. One saved Viewer composition -- the selection, the "Also open" extras and the scene overrides, exactly as POST /api/view/open takes them, so restoring a preset is replaying a request rather than reconstructing one. */
+        ViewerPreset: {
+            name: string;
+            /** @description kind, subject, simulation, analysis, field, atlas, roi, path, space */
+            selection?: {
+                [key: string]: unknown;
+            };
+            extras?: string[];
+            overrides?: {
+                [key: string]: unknown;
+            };
         };
         ViewerSceneFile: {
             id?: string | null;
@@ -6532,36 +6660,20 @@ export interface components {
          */
         MontageMode: "net" | "flex_mapped" | "flex_free" | "freehand";
         /**
-         * ElectrodeConfig
-         * @description Electrode geometry for flex-search.
-         *
-         *     Only *gel_thickness* is needed here -- the optimization leadfield
-         *     uses point electrodes; *gel_thickness* is recorded in the manifest
-         *     for downstream simulation.
+         * FieldPostproc
+         * @description Field post-processing method applied to the TI envelope.
          *
          *     Attributes
          *     ----------
-         *     shape : str
-         *         Electrode shape (``"ellipse"`` or ``"rect"``).
-         *     dimensions : list of float
-         *         Electrode dimensions in mm (``[width, height]``).
-         *     gel_thickness : float
-         *         Conductive gel thickness in mm.
+         *     MAX_TI : str
+         *         Maximum TI amplitude (direction-independent).
+         *     DIR_TI_NORMAL : str
+         *         TI component normal to the cortical surface.
+         *     DIR_TI_TANGENTIAL : str
+         *         TI component tangential to the cortical surface.
+         * @enum {string}
          */
-        ElectrodeConfig: {
-            /**
-             * Shape
-             * @default ellipse
-             */
-            shape: string;
-            /** Dimensions */
-            dimensions?: number[];
-            /**
-             * Gel Thickness
-             * @default 4
-             */
-            gel_thickness: number;
-        };
+        FieldPostproc: "max_TI" | "dir_TI_normal" | "dir_TI_tangential";
         /**
          * OptGoal
          * @description Optimization goal.
@@ -6587,6 +6699,85 @@ export interface components {
          */
         OptGoal: "mean" | "max" | "focality" | "focality_tf";
         /**
+         * SphericalROI
+         * @description Spherical region of interest defined by center and radius.
+         *
+         *     By default the sphere is evaluated on the cortical surface
+         *     (``volumetric=False``).  Set ``volumetric=True`` to evaluate on
+         *     volume tetrahedra instead -- useful for deep/subcortical targets
+         *     like the amygdala or hippocampus where surface-only evaluation
+         *     would capture overlying cortex rather than the target structure.
+         *
+         *     When ``volumetric=True``, the *tissues* field controls which
+         *     tissue compartments are included (same semantics as
+         *     :class:`SubcorticalROI.tissues`).
+         *
+         *     Each of *x*, *y*, *z*, *radius* accepts either a single value (one
+         *     sphere) or a list of values (a union of several spheres evaluated as
+         *     one combined target).  The coordinate lists must be non-empty and of
+         *     equal length; *radius* may be a scalar (shared by every sphere) or a
+         *     list matching the number of centers.
+         *
+         *     Attributes
+         *     ----------
+         *     x : float or list of float
+         *         Center x-coordinate(s) (mm).
+         *     y : float or list of float
+         *         Center y-coordinate(s) (mm).
+         *     z : float or list of float
+         *         Center z-coordinate(s) (mm).
+         *     radius : float or list of float
+         *         Sphere radius/radii in mm.  A scalar is shared by all spheres.
+         *     use_mni : bool
+         *         If True, coordinates are in MNI space and SimNIBS will transform
+         *         them to subject space during ROI setup.
+         *     volumetric : bool
+         *         If True, evaluate on volume tetrahedra instead of the cortical
+         *         surface.
+         *     tissues : str
+         *         Tissue compartments to include when *volumetric* is True.
+         *         One of ``"GM"``, ``"WM"``, or ``"both"``.
+         *
+         *     Raises
+         *     ------
+         *     ValueError
+         *         If *x*\/*y*\/*z* are empty or unequal length, or *radius* is a list
+         *         whose length neither equals 1 nor the number of centers.
+         */
+        SphericalROI: {
+            /** X */
+            x: number | number[];
+            /** Y */
+            y: number | number[];
+            /** Z */
+            z: number | number[];
+            /**
+             * Radius
+             * @default 10
+             */
+            radius: number | number[];
+            /**
+             * Use Mni
+             * @default false
+             */
+            use_mni: boolean;
+            /**
+             * Volumetric
+             * @default false
+             */
+            volumetric: boolean;
+            /**
+             * Tissues
+             * @default GM
+             */
+            tissues: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            _type: "SphericalROI";
+        };
+        /**
          * Mode
          * @description Which flex-search driver runs this config (``tit.jobs.kinds.MODULE_FOR_KIND``
          *     maps ``flex``/``flex_adaptive``/``flex_pareto`` job kinds to this same module;
@@ -6607,34 +6798,6 @@ export interface components {
          * @enum {string}
          */
         Mode: "flex" | "flex_adaptive" | "flex_pareto";
-        /**
-         * NonROIMethod
-         * @description Non-ROI specification method for focality optimization.
-         *
-         *     Attributes
-         *     ----------
-         *     EVERYTHING_ELSE : str
-         *         Use all mesh elements outside the ROI.
-         *     SPECIFIC : str
-         *         Use an explicitly defined non-ROI region.
-         * @enum {string}
-         */
-        NonROIMethod: "everything_else" | "specific";
-        /**
-         * FieldPostproc
-         * @description Field post-processing method applied to the TI envelope.
-         *
-         *     Attributes
-         *     ----------
-         *     MAX_TI : str
-         *         Maximum TI amplitude (direction-independent).
-         *     DIR_TI_NORMAL : str
-         *         TI component normal to the cortical surface.
-         *     DIR_TI_TANGENTIAL : str
-         *         TI component tangential to the cortical surface.
-         * @enum {string}
-         */
-        FieldPostproc: "max_TI" | "dir_TI_normal" | "dir_TI_tangential";
         /**
          * SubcorticalROI
          * @description Subcortical volume ROI from a volumetric atlas.
@@ -6724,84 +6887,18 @@ export interface components {
             nonroi_percentage: number;
         };
         /**
-         * SphericalROI
-         * @description Spherical region of interest defined by center and radius.
-         *
-         *     By default the sphere is evaluated on the cortical surface
-         *     (``volumetric=False``).  Set ``volumetric=True`` to evaluate on
-         *     volume tetrahedra instead -- useful for deep/subcortical targets
-         *     like the amygdala or hippocampus where surface-only evaluation
-         *     would capture overlying cortex rather than the target structure.
-         *
-         *     When ``volumetric=True``, the *tissues* field controls which
-         *     tissue compartments are included (same semantics as
-         *     :class:`SubcorticalROI.tissues`).
-         *
-         *     Each of *x*, *y*, *z*, *radius* accepts either a single value (one
-         *     sphere) or a list of values (a union of several spheres evaluated as
-         *     one combined target).  The coordinate lists must be non-empty and of
-         *     equal length; *radius* may be a scalar (shared by every sphere) or a
-         *     list matching the number of centers.
+         * NonROIMethod
+         * @description Non-ROI specification method for focality optimization.
          *
          *     Attributes
          *     ----------
-         *     x : float or list of float
-         *         Center x-coordinate(s) (mm).
-         *     y : float or list of float
-         *         Center y-coordinate(s) (mm).
-         *     z : float or list of float
-         *         Center z-coordinate(s) (mm).
-         *     radius : float or list of float
-         *         Sphere radius/radii in mm.  A scalar is shared by all spheres.
-         *     use_mni : bool
-         *         If True, coordinates are in MNI space and SimNIBS will transform
-         *         them to subject space during ROI setup.
-         *     volumetric : bool
-         *         If True, evaluate on volume tetrahedra instead of the cortical
-         *         surface.
-         *     tissues : str
-         *         Tissue compartments to include when *volumetric* is True.
-         *         One of ``"GM"``, ``"WM"``, or ``"both"``.
-         *
-         *     Raises
-         *     ------
-         *     ValueError
-         *         If *x*\/*y*\/*z* are empty or unequal length, or *radius* is a list
-         *         whose length neither equals 1 nor the number of centers.
+         *     EVERYTHING_ELSE : str
+         *         Use all mesh elements outside the ROI.
+         *     SPECIFIC : str
+         *         Use an explicitly defined non-ROI region.
+         * @enum {string}
          */
-        SphericalROI: {
-            /** X */
-            x: number | number[];
-            /** Y */
-            y: number | number[];
-            /** Z */
-            z: number | number[];
-            /**
-             * Radius
-             * @default 10
-             */
-            radius: number | number[];
-            /**
-             * Use Mni
-             * @default false
-             */
-            use_mni: boolean;
-            /**
-             * Volumetric
-             * @default false
-             */
-            volumetric: boolean;
-            /**
-             * Tissues
-             * @default GM
-             */
-            tissues: string;
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            _type: "SphericalROI";
-        };
+        NonROIMethod: "everything_else" | "specific";
         /**
          * AtlasROI
          * @description Cortical surface ROI from a FreeSurfer annotation atlas.
@@ -6845,6 +6942,37 @@ export interface components {
             _type: "AtlasROI";
         };
         /**
+         * ElectrodeConfig
+         * @description Electrode geometry for flex-search.
+         *
+         *     Only *gel_thickness* is needed here -- the optimization leadfield
+         *     uses point electrodes; *gel_thickness* is recorded in the manifest
+         *     for downstream simulation.
+         *
+         *     Attributes
+         *     ----------
+         *     shape : str
+         *         Electrode shape (``"ellipse"`` or ``"rect"``).
+         *     dimensions : list of float
+         *         Electrode dimensions in mm (``[width, height]``).
+         *     gel_thickness : float
+         *         Conductive gel thickness in mm.
+         */
+        ElectrodeConfig: {
+            /**
+             * Shape
+             * @default ellipse
+             */
+            shape: string;
+            /** Dimensions */
+            dimensions?: number[];
+            /**
+             * Gel Thickness
+             * @default 4
+             */
+            gel_thickness: number;
+        };
+        /**
          * ParetoSweepConfig
          * @description Threshold grid for :func:`tit.opt.flex.drivers.run_pareto_sweep`.
          *
@@ -6873,48 +7001,6 @@ export interface components {
             roi_pcts?: number[];
             /** Nonroi Pcts */
             nonroi_pcts?: number[];
-        };
-        /**
-         * PoolElectrodes
-         * @description Single electrode pool -- all positions draw from the same set.
-         *
-         *     Attributes
-         *     ----------
-         *     electrodes : list of str
-         *         List of electrode names available for any channel position.
-         */
-        ExConfigPoolElectrodes: {
-            /** Electrodes */
-            electrodes: string[];
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            _type: "PoolElectrodes";
-        };
-        /**
-         * AtlasROI
-         * @description Volumetric atlas or mask ROI, unioned with the spherical center(s).
-         *
-         *     Attributes
-         *     ----------
-         *     atlas_path : str
-         *         Path to a volumetric atlas or mask file -- NIfTI (``.nii``,
-         *         ``.nii.gz``) or FreeSurfer (``.mgz``), e.g. one discovered by
-         *         :class:`tit.atlas.voxel.VoxelAtlasManager`.
-         *     label : int or None
-         *         Integer label to select within the atlas (elements are
-         *         included where the voxel value equals *label*).  ``None``
-         *         treats the whole file as a binary mask (voxel value ``> 0``).
-         */
-        ExConfigAtlasROI: {
-            /** Atlas Path */
-            atlas_path: string;
-            /**
-             * Label
-             * @default null
-             */
-            label: number | null;
         };
         /**
          * BucketElectrodes
@@ -6948,7 +7034,7 @@ export interface components {
         };
         /**
          * AtlasROI
-         * @description Volumetric atlas or mask ROI, unioned with the spherical center.
+         * @description Volumetric atlas or mask ROI, unioned with the spherical center(s).
          *
          *     Attributes
          *     ----------
@@ -6961,7 +7047,7 @@ export interface components {
          *         included where the voxel value equals *label*).  ``None``
          *         treats the whole file as a binary mask (voxel value ``> 0``).
          */
-        MExConfigAtlasROI: {
+        ExConfigAtlasROI: {
             /** Atlas Path */
             atlas_path: string;
             /**
@@ -6972,14 +7058,14 @@ export interface components {
         };
         /**
          * PoolElectrodes
-         * @description Single electrode pool -- all eight positions draw from the same set.
+         * @description Single electrode pool -- all positions draw from the same set.
          *
          *     Attributes
          *     ----------
          *     electrodes : list of str
-         *         List of electrode names available for any pair position.
+         *         List of electrode names available for any channel position.
          */
-        MExConfigPoolElectrodes: {
+        ExConfigPoolElectrodes: {
             /** Electrodes */
             electrodes: string[];
             /**
@@ -7019,6 +7105,48 @@ export interface components {
              * @enum {string}
              */
             _type: "BucketElectrodes";
+        };
+        /**
+         * PoolElectrodes
+         * @description Single electrode pool -- all eight positions draw from the same set.
+         *
+         *     Attributes
+         *     ----------
+         *     electrodes : list of str
+         *         List of electrode names available for any pair position.
+         */
+        MExConfigPoolElectrodes: {
+            /** Electrodes */
+            electrodes: string[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            _type: "PoolElectrodes";
+        };
+        /**
+         * AtlasROI
+         * @description Volumetric atlas or mask ROI, unioned with the spherical center.
+         *
+         *     Attributes
+         *     ----------
+         *     atlas_path : str
+         *         Path to a volumetric atlas or mask file -- NIfTI (``.nii``,
+         *         ``.nii.gz``) or FreeSurfer (``.mgz``), e.g. one discovered by
+         *         :class:`tit.atlas.voxel.VoxelAtlasManager`.
+         *     label : int or None
+         *         Integer label to select within the atlas (elements are
+         *         included where the voxel value equals *label*).  ``None``
+         *         treats the whole file as a binary mask (voxel value ``> 0``).
+         */
+        MExConfigAtlasROI: {
+            /** Atlas Path */
+            atlas_path: string;
+            /**
+             * Label
+             * @default null
+             */
+            label: number | null;
         };
         /**
          * AnalyzerCoordinateSpace
@@ -7075,86 +7203,6 @@ export interface components {
          * @enum {string}
          */
         AnalysisType: "spherical" | "cortical" | "subcortical";
-        /**
-         * QSIReconSettings
-         * @description Subject-independent QSIRecon resource and pipeline settings.
-         *
-         *     Flat by design: mirrors exactly the keyword arguments
-         *     :func:`tit.pre.qsi.qsirecon.run_qsirecon` reads off ``recon_cfg.get(...)``
-         *     inside :func:`tit.pre.structural.run_pipeline`. See
-         *     :class:`QSIPrepSettings` for why this is a distinct, subject-less,
-         *     flat-resource shape from :class:`tit.pre.qsi.config.QSIReconConfig`.
-         *
-         *     Attributes
-         *     ----------
-         *     recon_specs : list of str
-         *         Reconstruction specs to run.
-         *     atlases : list of str or None
-         *         Atlases for connectivity analysis. ``None`` = no connectivity.
-         *     use_gpu : bool
-         *         Enable GPU acceleration (requires NVIDIA Docker runtime).
-         *     cpus : int or None
-         *         Number of CPUs to allocate. ``None`` inherits from the current
-         *         container.
-         *     memory_gb : int or None
-         *         Memory limit in GB. ``None`` inherits from the current container.
-         *     omp_threads : int
-         *         Threads per process.
-         *     image_tag : str
-         *         Docker image tag for QSIRecon.
-         *     skip_odf_reports : bool
-         *         Skip ODF report generation.
-         *
-         *     Raises
-         *     ------
-         *     ValueError
-         *         If *recon_specs* is empty or contains an unknown spec, or *atlases*
-         *         contains an unknown atlas.
-         *
-         *     See Also
-         *     --------
-         *     tit.pre.qsi.qsirecon.run_qsirecon : Consumes these values as keyword
-         *         arguments (not this dataclass).
-         */
-        QSIReconSettings: {
-            /** Recon Specs */
-            recon_specs?: string[];
-            /**
-             * Atlases
-             * @default null
-             */
-            atlases: string[] | null;
-            /**
-             * Use Gpu
-             * @default false
-             */
-            use_gpu: boolean;
-            /**
-             * Cpus
-             * @default null
-             */
-            cpus: number | null;
-            /**
-             * Memory Gb
-             * @default null
-             */
-            memory_gb: number | null;
-            /**
-             * Omp Threads
-             * @default 8
-             */
-            omp_threads: number;
-            /**
-             * Image Tag
-             * @default 26.0.0
-             */
-            image_tag: string;
-            /**
-             * Skip Odf Reports
-             * @default true
-             */
-            skip_odf_reports: boolean;
-        };
         /**
          * QSIPrepSettings
          * @description Subject-independent QSIPrep resource and pipeline settings.
@@ -7246,6 +7294,86 @@ export interface components {
             unringing_method: string;
         };
         /**
+         * QSIReconSettings
+         * @description Subject-independent QSIRecon resource and pipeline settings.
+         *
+         *     Flat by design: mirrors exactly the keyword arguments
+         *     :func:`tit.pre.qsi.qsirecon.run_qsirecon` reads off ``recon_cfg.get(...)``
+         *     inside :func:`tit.pre.structural.run_pipeline`. See
+         *     :class:`QSIPrepSettings` for why this is a distinct, subject-less,
+         *     flat-resource shape from :class:`tit.pre.qsi.config.QSIReconConfig`.
+         *
+         *     Attributes
+         *     ----------
+         *     recon_specs : list of str
+         *         Reconstruction specs to run.
+         *     atlases : list of str or None
+         *         Atlases for connectivity analysis. ``None`` = no connectivity.
+         *     use_gpu : bool
+         *         Enable GPU acceleration (requires NVIDIA Docker runtime).
+         *     cpus : int or None
+         *         Number of CPUs to allocate. ``None`` inherits from the current
+         *         container.
+         *     memory_gb : int or None
+         *         Memory limit in GB. ``None`` inherits from the current container.
+         *     omp_threads : int
+         *         Threads per process.
+         *     image_tag : str
+         *         Docker image tag for QSIRecon.
+         *     skip_odf_reports : bool
+         *         Skip ODF report generation.
+         *
+         *     Raises
+         *     ------
+         *     ValueError
+         *         If *recon_specs* is empty or contains an unknown spec, or *atlases*
+         *         contains an unknown atlas.
+         *
+         *     See Also
+         *     --------
+         *     tit.pre.qsi.qsirecon.run_qsirecon : Consumes these values as keyword
+         *         arguments (not this dataclass).
+         */
+        QSIReconSettings: {
+            /** Recon Specs */
+            recon_specs?: string[];
+            /**
+             * Atlases
+             * @default null
+             */
+            atlases: string[] | null;
+            /**
+             * Use Gpu
+             * @default false
+             */
+            use_gpu: boolean;
+            /**
+             * Cpus
+             * @default null
+             */
+            cpus: number | null;
+            /**
+             * Memory Gb
+             * @default null
+             */
+            memory_gb: number | null;
+            /**
+             * Omp Threads
+             * @default 8
+             */
+            omp_threads: number;
+            /**
+             * Image Tag
+             * @default 26.0.0
+             */
+            image_tag: string;
+            /**
+             * Skip Odf Reports
+             * @default true
+             */
+            skip_odf_reports: boolean;
+        };
+        /**
          * ResourceConfig
          * @description Resource allocation configuration for QSI containers.
          *
@@ -7276,6 +7404,34 @@ export interface components {
             omp_threads: number;
         };
         /**
+         * TestType
+         * @description Type of statistical test for group comparison.
+         * @enum {string}
+         */
+        TestType: "unpaired" | "paired";
+        /**
+         * _TissueType
+         * @enum {string}
+         */
+        _TissueType: "grey" | "white" | "all";
+        /**
+         * Alternative
+         * @description Sidedness of the test hypothesis.
+         * @enum {string}
+         */
+        Alternative: "two-sided" | "greater" | "less";
+        /**
+         * _ClusterStat
+         * @enum {string}
+         */
+        _ClusterStat: "mass" | "size";
+        /**
+         * _AnalysisSpace
+         * @description Where the group statistics run: MNI volume or fsaverage surface.
+         * @enum {string}
+         */
+        _AnalysisSpace: "mni" | "fsaverage";
+        /**
          * Subject
          * @description A single subject in a group comparison analysis.
          *
@@ -7296,40 +7452,6 @@ export interface components {
             /** Response */
             response: number;
         };
-        /**
-         * Alternative
-         * @description Sidedness of the test hypothesis.
-         * @enum {string}
-         */
-        Alternative: "two-sided" | "greater" | "less";
-        /**
-         * TestType
-         * @description Type of statistical test for group comparison.
-         * @enum {string}
-         */
-        TestType: "unpaired" | "paired";
-        /**
-         * _ClusterStat
-         * @enum {string}
-         */
-        _ClusterStat: "mass" | "size";
-        /**
-         * _AnalysisSpace
-         * @description Where the group statistics run: MNI volume or fsaverage surface.
-         * @enum {string}
-         */
-        _AnalysisSpace: "mni" | "fsaverage";
-        /**
-         * _TissueType
-         * @enum {string}
-         */
-        _TissueType: "grey" | "white" | "all";
-        /**
-         * CorrelationType
-         * @description Type of correlation coefficient to compute.
-         * @enum {string}
-         */
-        CorrelationType: "pearson" | "spearman";
         /**
          * Subject
          * @description A single subject in a correlation analysis.
@@ -7359,6 +7481,12 @@ export interface components {
              */
             weight: number;
         };
+        /**
+         * CorrelationType
+         * @description Type of correlation coefficient to compute.
+         * @enum {string}
+         */
+        CorrelationType: "pearson" | "spearman";
         /**
          * FsavgMapConfig
          * @description Parameters for projecting simulation field outputs onto fsaverage.
@@ -7394,6 +7522,23 @@ export interface components {
              * @default false
              */
             overwrite: boolean;
+        };
+        /**
+         * SourcePair
+         * @description One (subject, simulation) pair for the ``fsavg_map`` pipeline.
+         *
+         *     Attributes
+         *     ----------
+         *     subject_id : str
+         *         Subject identifier (without ``sub-`` prefix).
+         *     simulation : str
+         *         Simulation (montage) folder name.
+         */
+        SourcePair: {
+            /** Subject Id */
+            subject_id: string;
+            /** Simulation */
+            simulation: string;
         };
         /**
          * SourceMode
@@ -7449,28 +7594,11 @@ export interface components {
             overwrite: boolean;
         };
         /**
-         * SourcePair
-         * @description One (subject, simulation) pair for the ``fsavg_map`` pipeline.
-         *
-         *     Attributes
-         *     ----------
-         *     subject_id : str
-         *         Subject identifier (without ``sub-`` prefix).
-         *     simulation : str
-         *         Simulation (montage) folder name.
-         */
-        SourcePair: {
-            /** Subject Id */
-            subject_id: string;
-            /** Simulation */
-            simulation: string;
-        };
-        /**
-         * Color
-         * @description Color mapping strategy for vector-field arrows.
+         * Anchor
+         * @description Which end of the arrow touches the surface barycenter.
          * @enum {string}
          */
-        Color: "rgb" | "magscale";
+        Anchor: "tail" | "head";
         /**
          * Length
          * @description Arrow length mapping mode.
@@ -7478,11 +7606,11 @@ export interface components {
          */
         Length: "linear" | "visual";
         /**
-         * Anchor
-         * @description Which end of the arrow touches the surface barycenter.
+         * Color
+         * @description Color mapping strategy for vector-field arrows.
          * @enum {string}
          */
-        Anchor: "tail" | "head";
+        Color: "rgb" | "magscale";
         /**
          * Surface
          * @description Cortical surface type for msh2cortex extraction.

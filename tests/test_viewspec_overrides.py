@@ -245,3 +245,53 @@ def test_the_route_passes_overrides_through_to_the_file_it_writes(
     assert on_disk["view3d"]["camera"]["rotation"] == viewspec.CAMERA_PRESETS["L"]
     assert on_disk["radiological"] is True
     _VALIDATOR.validate(on_disk)
+
+
+# ── presets ──────────────────────────────────────────────────────────────────
+
+
+def test_a_preset_round_trips_through_the_project(pm: PathManager) -> None:
+    """A composition is only worth its keystrokes if it comes back."""
+    document = {
+        "selection": {"kind": "simulation", "subject": "ernie"},
+        "extras": ["t1"],
+        "overrides": {"layout": "2x2"},
+    }
+    saved = viewers.save_viewer_preset("Deep target", document)
+    assert saved["name"] == "Deep target"
+    on_disk = Path(viewers.viewer_preset_dir()) / "Deep_target.json"
+    assert on_disk.is_file()
+    assert viewers.viewer_presets()["presets"] == [saved]
+    assert viewers.delete_viewer_preset("Deep target")["deleted"] is True
+    assert viewers.viewer_presets()["presets"] == []
+
+
+def test_a_preset_name_that_cannot_become_a_file_is_refused_not_renamed(
+    pm: PathManager,
+) -> None:
+    from fastapi import HTTPException
+
+    for name in ("", "   ", "x" * 200):
+        with pytest.raises(HTTPException) as excinfo:
+            viewers.save_viewer_preset(name, {})
+        assert excinfo.value.status_code == 422
+
+
+def test_the_preset_directory_cannot_be_escaped(pm: PathManager) -> None:
+    """Separators and dots become dashes, so the file lands in the presets
+    directory whatever the name tried to say."""
+    viewers.save_viewer_preset("../../escape", {})
+    written = sorted(os.listdir(viewers.viewer_preset_dir()))
+    assert written == ["------escape.json"]
+
+
+def test_an_unparseable_preset_is_skipped_rather_than_emptying_the_menu(
+    pm: PathManager,
+) -> None:
+    viewers.save_viewer_preset("good", {})
+    Path(viewers.viewer_preset_dir(), "broken.json").write_text("{not json")
+    assert [p["name"] for p in viewers.viewer_presets()["presets"]] == ["good"]
+
+
+def test_listing_presets_before_any_are_saved_is_an_empty_list(pm: PathManager) -> None:
+    assert viewers.viewer_presets() == {"presets": []}

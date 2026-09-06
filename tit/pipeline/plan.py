@@ -266,6 +266,13 @@ def plan_pipeline(
     for node_id in result.order:
         node = doc.node(node_id)
         assert node is not None
+        # The cohort node runs nothing. It names who the graph is about, and its subjects reach
+        # the rest of the graph over the `subjects` wire (`resolve_subjects` follows it), so it
+        # contributes no job and no label -- a node downstream of it waits for whatever *it*
+        # waits for, not for a set of names.
+        if node.kind == "subjects":
+            node_labels[node_id] = []
+            continue
         incoming = doc.incoming(node_id)
         upstream_labels: list[str] = []
         for edge in incoming:

@@ -202,9 +202,15 @@ test("settings, results, jobs and viewer keep session-only page state beyond the
   await page.getByTestId("viewer-select-simulation").getByRole("combobox").click();
   await page.getByRole("option", { name: "Thalamus", exact: true }).click();
   await page.getByRole("radiogroup", { name: "Space" }).getByRole("radio", { name: "MNI", exact: true }).click();
+  // VM: the composition is part of the draft too — a camera preset and an "Also open" tick are
+  // choices someone made, and losing them on a tab switch is the same defect as losing the subject.
+  await page.getByTestId("viewer-camera").getByRole("radio", { name: "L", exact: true }).click();
+  await page.getByTestId("viewer-extra-t1").getByRole("checkbox").click();
   await awayAndBack("viewer");
   await expect(page.getByRole("radiogroup", { name: "Space" }).getByRole("radio", { name: "MNI", exact: true })).toBeChecked();
   await expect(page.getByTestId("viewer-select-simulation").getByRole("combobox")).toContainText("Thalamus");
+  await expect(page.getByTestId("viewer-camera").getByRole("radio", { name: "L", exact: true })).toBeChecked();
+  await expect(page.getByTestId("viewer-extra-t1").getByRole("checkbox")).toBeChecked();
 });
 
 test("optional panel pages keep their drafts and selections while navigating", async () => {
@@ -296,7 +302,7 @@ test("changing another tab's subject preserves preprocessing and the live viewer
   // Pin the bar's shape rather than inheriting whatever type the draft happened to hold: R5 makes
   // the number of selectors a function of the view type (`subject` → type, subject, atlas).
   await page.getByTestId("viewer-select-kind").getByRole("combobox").click();
-  await page.getByRole("option", { name: "Subject", exact: true }).click();
+  await page.getByRole("option", { name: "Subject anatomy", exact: true }).click();
   await expect(page.getByTestId("viewer-source-bar").getByRole("combobox")).toHaveCount(3);
   const viewerSource = await page.getByTestId("viewer-source-bar").getByRole("combobox").allTextContents();
   const viewerNode = await viewer.elementHandle();

@@ -11,9 +11,16 @@
  * WebGL renderer string). None of the three has a referent any more: the picture is in another
  * application's window, which reports its own cursor and its own renderer in its own status bar.
  */
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
+  RECENTS_LIMIT,
   controlsFor,
+  formatBytes,
+  layerKindLabel,
+  overridesPayload,
+  pushRecent,
+  readRecents,
+  selectionLabel,
   hasViewerDeepLink,
   readDeepLink,
   requiredControls,
@@ -147,5 +154,100 @@ describe("selectionFromDeepLink", () => {
   it("distinguishes a viewer link from the shell's bare ?subject=", () => {
     expect(hasViewerDeepLink({ subject: "ernie" })).toBe(false);
     expect(hasViewerDeepLink({ subject: "ernie", atlas: "DK40" })).toBe(true);
+  });
+});
+
+// ── VM: the composition panel's pure parts ──────────────────────────────────────────────────────
+
+describe("overridesPayload", () => {
+  it("answers undefined for an untouched composition", () => {
+    // Load-bearing, not tidiness: the server guarantees byte-identical output for an *absent*
+    // overrides document, and `{layers:{}}` is not absent.
+    expect(overridesPayload({ layers: {} })).toBeUndefined();
+    expect(overridesPayload({ layers: { L0: {} } })).toBeUndefined();
+  });
+
+  it("carries only the layers that were actually edited", () => {
+    const payload = overridesPayload({ layers: { L0: {}, L1: { opacity: 0.5 } }, camera: "L" });
+    expect(payload).toEqual({ layers: { L1: { opacity: 0.5 } }, camera: "L" });
+  });
+
+  it("counts a scene-wide knob on its own as a touch", () => {
+    expect(overridesPayload({ layers: {}, radiological: true })).toEqual({ layers: {}, radiological: true });
+    expect(overridesPayload({ layers: {}, layout: "3d-only" })).toEqual({ layers: {}, layout: "3d-only" });
+  });
+});
+
+describe("layerKindLabel", () => {
+  const base = { id: "L0", name: "x", visible: true, opacity: 1 };
+  it("names what the row is looking at", () => {
+    expect(layerKindLabel({ ...base, kind: "volume", colormap: "gray" })).toBe("grayscale");
+    expect(layerKindLabel({ ...base, kind: "volume", colormap: "lut" })).toBe("lut");
+    expect(layerKindLabel({ ...base, kind: "volume", colormap: "turbo" })).toBe("colormap");
+    expect(layerKindLabel({ ...base, kind: "mesh", colormap: "jet" })).toBe("mesh");
+  });
+});
+
+describe("formatBytes", () => {
+  it("says '—' for a size the server could not read", () => {
+    // Distinct from 0: "unknown" and "empty" are different answers and only one is a problem.
+    expect(formatBytes(null)).toBe("—");
+    expect(formatBytes(undefined)).toBe("—");
+    expect(formatBytes(0)).toBe("0 B");
+  });
+
+  it("scales to binary units with one decimal", () => {
+    expect(formatBytes(512)).toBe("512 B");
+    expect(formatBytes(1536)).toBe("1.5 KB");
+    expect(formatBytes(4 * 1024 * 1024)).toBe("4.0 MB");
+    expect(formatBytes(420 * 1024 * 1024)).toBe("420 MB");
+  });
+});
+
+describe("selectionLabel", () => {
+  it("reads as the type and what it names", () => {
+    expect(selectionLabel({ kind: "simulation", subject: "ernie", simulation: "Thalamus", space: "subject" })).toBe("Simulation · ernie · Thalamus");
+    expect(selectionLabel({ kind: "custom", path: "/data/x.nii.gz", space: "subject" })).toBe("Custom · x.nii.gz");
+  });
+});
+
+describe("recents", () => {
+  const entry = (key: string) => ({
+    key,
+    label: key,
+    selection: { kind: "subject" as const, space: "subject" as const },
+    extras: [],
+    overrides: { layers: {} },
+  });
+
+  // A tiny in-memory localStorage: this suite's jsdom environment provides the object but not a
+  // working `clear()`, and a recents test that shares storage with its neighbours is a flake.
+  beforeEach(() => {
+    const store = new Map<string, string>();
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: {
+        getItem: (k: string) => store.get(k) ?? null,
+        setItem: (k: string, v: string) => void store.set(k, v),
+        removeItem: (k: string) => void store.delete(k),
+        clear: () => store.clear(),
+      },
+    });
+  });
+
+  it("keeps the newest eight, most recent first, with no duplicate key", () => {
+    for (let i = 0; i < 10; i += 1) pushRecent(entry(`k${i}`));
+    const kept = readRecents();
+    expect(kept).toHaveLength(RECENTS_LIMIT);
+    expect(kept[0]!.key).toBe("k9");
+    pushRecent(entry("k5"));
+    const after = readRecents();
+    expect(after[0]!.key).toBe("k5");
+    expect(after.filter((r) => r.key === "k5")).toHaveLength(1);
+  });
+
+  it("survives unreadable storage rather than throwing", () => {
+    window.localStorage.setItem("tit.viewer.recents", "{not json");
+    expect(readRecents()).toEqual([]);
   });
 });

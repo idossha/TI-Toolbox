@@ -1400,6 +1400,77 @@ paths:
       # contracts/SCHEMA-CHANGES.md) -- /api/view/args's request/response shape is exercised by
       # tests/test_catalog_v1.py and desktop/tests/mock-server/server.mjs instead.
 
+  /api/viewer/presets:
+    get:
+      tags: [viewers]
+      summary: Saved Viewer selections
+      description: >-
+        VM. Plain JSON documents under <project>/code/ti-toolbox/viewer/presets/. They live in the
+        project, not in browser storage, because the project is the unit people copy, archive and
+        share -- a preset kept in a browser would be lost exactly when the work it describes was
+        passed on. The path is /api/viewer/presets and not /api/view/presets because the latter is
+        shadowed by GET /api/view/{kind}. A preset that cannot be parsed is skipped, not fatal.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [presets]
+                properties:
+                  presets:
+                    type: array
+                    items: { $ref: "#/components/schemas/ViewerPreset" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/viewer/presets/{name}:
+    put:
+      tags: [viewers]
+      summary: Save one Viewer selection
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ViewerPreset" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ViewerPreset" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          description: a name that cannot become a file (refused rather than silently renamed)
+    delete:
+      tags: [viewers]
+      summary: Forget one saved selection
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name: { type: string }
+                  deleted: { type: boolean }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   # ------------------------------------------------------------------------------------- files (v1)
   /api/files/report/{id}:
     get:
@@ -2553,6 +2624,25 @@ components:
         dry_run:
           type: boolean
           description: true when the request asked to resolve only; nothing was written
+    ViewerPreset:
+      type: object
+      required: [name]
+      description: >-
+        VM. One saved Viewer composition -- the selection, the "Also open" extras and the scene
+        overrides, exactly as POST /api/view/open takes them, so restoring a preset is replaying
+        a request rather than reconstructing one.
+      properties:
+        name: { type: string }
+        selection:
+          type: object
+          additionalProperties: true
+          description: kind, subject, simulation, analysis, field, atlas, roi, path, space
+        extras:
+          type: array
+          items: { type: string }
+        overrides:
+          type: object
+          additionalProperties: true
     ViewerSceneFile:
       type: object
       required: [name, path]

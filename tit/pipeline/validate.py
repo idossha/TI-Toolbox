@@ -23,14 +23,113 @@ from tit.pipeline.document import (
 )
 
 __all__ = [
+    "CAPABILITIES",
+    "CAPABILITY_LABELS",
     "ISSUE_CODES",
     "Issue",
+    "KIND_READINESS",
+    "Readiness",
     "ValidationResult",
     "can_connect",
+    "capabilities_at",
+    "readiness_from_overview",
     "satisfied_by_config",
     "topological_order",
     "validate",
 ]
+
+
+# -- the readiness table -------------------------------------------------------------------------
+#
+# One table, in one place, answering one question: **may these subjects be wired into this node?**
+#
+# Before it existed the canvas would let any wire be drawn between compatible port *types*, so
+# `Subjects(raw data only) -> Analyzer` was a graph you could build, submit, and watch fail one job
+# at a time twenty minutes later. A port type says what a wire *carries*; it says nothing about
+# whether the subjects on it have what the target needs. This says the second thing, and it says it
+# at drag time, in the receipt and on the server, from the same data.
+
+#: What a subject can *have*. Each is a fact `GET /api/catalog/overview` already reports.
+CAPABILITIES: tuple[str, ...] = ("raw", "m2m", "leadfield", "simulation")
+
+CAPABILITY_LABELS: dict[str, str] = {
+    "raw": "raw MRI",
+    "m2m": "head model",
+    "leadfield": "leadfield",
+    "simulation": "simulations",
+}
+
+
+@dataclass(frozen=True)
+class _KindReadiness:
+    #: Every capability each subject reaching this node must already have.
+    requires: tuple[str, ...] = ()
+    #: What running this node gives its subjects, for the nodes downstream of it.
+    produces: tuple[str, ...] = ()
+
+
+#: kind -> what it needs of a subject, and what it leaves behind.
+#:
+#: This is what makes `Subjects(raw) -> Pre -> Simulator -> Analyzer` validate while
+#: `Subjects(raw) -> Simulator` does not: `pre` *produces* `m2m`, so by the time the wire reaches
+#: the Simulator its subjects have a head model even though they did not when the graph started.
+KIND_READINESS: dict[str, _KindReadiness] = {
+    # The cohort itself needs nothing and produces nothing: what its subjects have is a fact about
+    # the project, read from the overview, not something the graph confers.
+    "subjects": _KindReadiness(),
+    "pre": _KindReadiness(requires=("raw",), produces=("m2m",)),
+    "leadfield": _KindReadiness(requires=("m2m",), produces=("leadfield",)),
+    "flex": _KindReadiness(requires=("m2m",)),
+    "ex": _KindReadiness(requires=("m2m", "leadfield")),
+    "mex": _KindReadiness(requires=("m2m", "leadfield")),
+    "sim": _KindReadiness(requires=("m2m",), produces=("simulation",)),
+    "analyzer": _KindReadiness(requires=("simulation",)),
+    "source": _KindReadiness(requires=("m2m",)),
+    "stats": _KindReadiness(requires=("simulation",)),
+}
+
+#: subject id -> the capabilities that subject already has in the project.
+Readiness = dict[str, set[str]]
+
+
+def readiness_from_overview(overview: Any) -> Readiness:
+    """Turn ``GET /api/catalog/overview``'s rows into the capability sets this module reads.
+
+    Deliberately tolerant of both the dataclass and its ``to_dict``/JSON form, because the route
+    hands it whichever is cheaper and a test hands it a literal.
+    """
+
+    def get(row: Any, key: str, default: Any = None) -> Any:
+        if isinstance(row, dict):
+            return row.get(key, default)
+        return getattr(row, key, default)
+
+    def present(value: Any) -> bool:
+        # The overview reports a five-state presence, not a boolean: only `present` counts as
+        # "this subject has it". `partial` deliberately does not -- a subject with a leadfield for
+        # one net out of three is not ready for a search over the net it lacks, and telling them so
+        # now is cheaper than a job that fails on a missing file.
+        if isinstance(value, str):
+            return value == "present"
+        return bool(value)
+
+    out: Readiness = {}
+    for row in get(overview, "subjects", None) or []:
+        sid = str(get(row, "id", "") or "")
+        if not sid:
+            continue
+        caps: set[str] = set()
+        if present(get(row, "raw")):
+            caps.add("raw")
+        if present(get(row, "m2m")):
+            caps.add("m2m")
+        if present(get(row, "leadfield")) or get(row, "leadfield") == "partial":
+            caps.add("leadfield")
+        counts = get(row, "counts") or {}
+        if int(get(counts, "simulations", 0) or 0) > 0:
+            caps.add("simulation")
+        out[sid] = caps
+    return out
 
 
 #: Every ``Issue.code`` this module can emit.  The code is what a *client* keys on; the message
@@ -49,6 +148,7 @@ ISSUE_CODES = (
     "missing_input",  # a required input is neither wired nor set in the node's config
     "unconfigured",  # the node carries an empty config
     "unconnected",  # the node has no edges; it runs on its own
+    "not_ready",  # the subjects reaching this node lack something it requires
 )
 
 
@@ -130,8 +230,101 @@ def satisfied_by_config(kind: str, port: str, config: dict[str, Any]) -> bool:
     return False  # pragma: no cover - PORT_TYPES is closed
 
 
+def subjects_at(doc: PipelineDocument, node_id: str, _seen: set[str] | None = None) -> list[str]:
+    """The subject ids reaching *node_id*: its bound upstream cohort, else its own config.
+
+    Under the ``subjects``-source model the second half is only ever true of a ``subjects`` node
+    itself; it is kept for a hand-written document that still names subjects on a processing node.
+    """
+    seen = _seen if _seen is not None else set()
+    if node_id in seen:
+        return []
+    seen.add(node_id)
+    for edge in doc.incoming(node_id):
+        if edge.port == "subjects":
+            return subjects_at(doc, edge.source, seen)
+    node = doc.node(node_id)
+    return _config_subjects(node.config) if node else []
+
+
+def _config_subjects(config: dict[str, Any]) -> list[str]:
+    raw = (config or {}).get("subject_ids")
+    if isinstance(raw, list):
+        out = [str(s).strip() for s in raw if str(s).strip()]
+        if out:
+            return out
+    one = str((config or {}).get("subject_id") or "").strip()
+    return [one] if one else []
+
+
+def capabilities_at(
+    doc: PipelineDocument,
+    node_id: str,
+    readiness: Readiness,
+    _seen: set[str] | None = None,
+) -> dict[str, set[str]]:
+    """What each subject reaching *node_id* has **by the time the graph gets there**.
+
+    The project's own facts at a ``subjects`` node, plus whatever every node on the way produces.
+    A cycle resolves to the project's facts rather than recursing.
+    """
+    seen = _seen if _seen is not None else set()
+    node = doc.node(node_id)
+    if node is None or node_id in seen:
+        return {}
+    seen.add(node_id)
+
+    upstream: str | None = None
+    for edge in doc.incoming(node_id):
+        if edge.port == "subjects":
+            upstream = edge.source
+            break
+
+    if upstream is None:
+        # A source: the subjects are this node's own, and what they have is what the project says.
+        return {s: set(readiness.get(s, set())) for s in _config_subjects(node.config)}
+
+    inherited = capabilities_at(doc, upstream, readiness, seen)
+    produced = KIND_READINESS.get(doc.node(upstream).kind if doc.node(upstream) else "", _KindReadiness()).produces
+    return {sid: caps | set(produced) for sid, caps in inherited.items()}
+
+
+def unmet(
+    kind: str, caps_by_subject: dict[str, set[str]]
+) -> list[tuple[str, list[str]]]:
+    """``[(capability, [subjects missing it])]`` for *kind*, in table order. Empty when ready."""
+    needed = KIND_READINESS.get(kind, _KindReadiness()).requires
+    out: list[tuple[str, list[str]]] = []
+    for capability in needed:
+        missing = sorted(s for s, caps in caps_by_subject.items() if capability not in caps)
+        if missing:
+            out.append((capability, missing))
+    return out
+
+
+def readiness_reason(kind: str, caps_by_subject: dict[str, set[str]]) -> str | None:
+    """One sentence naming the subjects that are not ready, or ``None`` when they all are.
+
+    Names the subjects rather than counting them: "102, test have no head model" tells you which
+    two rows to go and look at, and "2 subjects are not ready" does not.
+    """
+    problems = unmet(kind, caps_by_subject)
+    if not problems:
+        return None
+    parts = []
+    for capability, missing in problems:
+        who = ", ".join(missing)
+        verb = "has" if len(missing) == 1 else "have"
+        parts.append(f"{who} {verb} no {CAPABILITY_LABELS.get(capability, capability)}")
+    return "; ".join(parts)
+
+
 def can_connect(
-    doc: PipelineDocument, source: str, target: str, port: str
+    doc: PipelineDocument,
+    source: str,
+    target: str,
+    port: str,
+    readiness: Readiness | None = None,
 ) -> tuple[bool, str | None]:
     """May this wire be drawn? ``(True, None)`` or ``(False, reason)``.
 
@@ -162,6 +355,18 @@ def can_connect(
             )
     if _reaches(doc, target, source):
         return False, "that would make a cycle"
+    if port == "subjects" and readiness is not None:
+        # The wire is type-legal; the question left is whether these particular subjects have what
+        # the target needs. Asked here so the canvas can refuse the *drag* with the reason, rather
+        # than accepting it and failing one job per subject after the run starts.
+        hypothetical = PipelineDocument(
+            nodes=list(doc.nodes),
+            edges=[*doc.edges, Edge(source=source, target=target, port=port)],
+            name=doc.name,
+        )
+        reason = readiness_reason(dst.kind, capabilities_at(hypothetical, target, readiness))
+        if reason:
+            return False, reason
     return True, None
 
 
@@ -203,8 +408,13 @@ def topological_order(doc: PipelineDocument) -> list[str] | None:
     return order if len(order) == len(ids) else None
 
 
-def validate(doc: PipelineDocument) -> ValidationResult:
-    """Every reason this pipeline cannot run, plus a topological order when it can."""
+def validate(doc: PipelineDocument, readiness: Readiness | None = None) -> ValidationResult:
+    """Every reason this pipeline cannot run, plus a topological order when it can.
+
+    Pass *readiness* (subject -> capabilities, from :func:`readiness_from_overview`) to also check
+    that the subjects reaching each node have what that node needs. Without it the graph is checked
+    for shape only, which is what a caller with no project bound can answer.
+    """
     issues: list[Issue] = []
     ids = [n.id for n in doc.nodes]
 
@@ -306,6 +516,26 @@ def validate(doc: PipelineDocument) -> ValidationResult:
                     code="unconfigured",
                 )
             )
+
+    # -- readiness: do the subjects reaching each node have what it needs? ----------------------
+    if readiness is not None:
+        for node in doc.nodes:
+            caps = capabilities_at(doc, node.id, readiness)
+            if not caps:
+                continue
+            for capability, missing in unmet(node.kind, caps):
+                who = ", ".join(missing)
+                verb = "has" if len(missing) == 1 else "have"
+                issues.append(
+                    Issue(
+                        "error",
+                        f"{node.display_name}: {who} {verb} no "
+                        f"{CAPABILITY_LABELS.get(capability, capability)}",
+                        node_id=node.id,
+                        code="not_ready",
+                        port="subjects",
+                    )
+                )
 
     # -- isolated nodes -------------------------------------------------------------------------
     if len(doc.nodes) > 1:

@@ -414,3 +414,90 @@ def view_open(body: dict[str, Any] | None = None) -> dict[str, Any]:
         "files": _scene_files(spec, localised),
         "dry_run": dry_run,
     }
+
+
+# ---------------------------------------------------------------------------
+# VM -- saved viewer selections.
+#
+# A composition panel is only worth its keystrokes if a person can get the
+# same composition back.  These live beside the scene files, in the project,
+# as plain JSON: ``<project>/code/ti-toolbox/viewer/presets/<slug>.json``.
+# The project is the unit people copy, archive and share, so a preset that
+# lived in browser storage would be lost exactly when the work it describes
+# was passed on.
+#
+# The path is ``/api/viewer/presets``, not ``/api/view/presets``: the latter
+# is shadowed by ``GET /api/view/{kind}``, which would answer "presets" with a
+# 404 from ``build_view`` rather than a list -- a routing accident that would
+# have looked like an empty preset list.
+# ---------------------------------------------------------------------------
+
+_PRESET_SUFFIX = ".json"
+
+
+def viewer_preset_dir() -> str:
+    return os.path.join(viewer_scene_dir(), "presets")
+
+
+def _preset_slug(name: str) -> str:
+    """A file name from a display name, or a 422.
+
+    Deliberately strict rather than sanitising: a name that quietly becomes a
+    different file is worse than a refusal, and every character kept here is
+    one a person typed on purpose.
+    """
+    slug = "".join(c if (c.isalnum() or c in "-_ ") else "-" for c in name).strip()
+    slug = slug.replace(" ", "_")
+    if not slug or slug in (".", "..") or len(slug) > 80:
+        raise HTTPException(status_code=422, detail=f"Unusable preset name: {name!r}")
+    return slug
+
+
+@router.get("/api/viewer/presets", summary="Saved Viewer selections")
+def viewer_presets() -> dict[str, Any]:
+    directory = viewer_preset_dir()
+    out: list[dict[str, Any]] = []
+    try:
+        names = sorted(os.listdir(directory))
+    except OSError:
+        names = []
+    for entry in names:
+        if not entry.endswith(_PRESET_SUFFIX):
+            continue
+        try:
+            with open(os.path.join(directory, entry), encoding="utf-8") as handle:
+                body = json.load(handle)
+        except (OSError, ValueError):
+            # A hand-edited or half-written preset is skipped, not fatal: one
+            # bad file must not empty the menu.
+            continue
+        if not isinstance(body, dict):
+            continue
+        body.setdefault("name", entry[: -len(_PRESET_SUFFIX)])
+        out.append(body)
+    return {"presets": out}
+
+
+@router.put("/api/viewer/presets/{name}", summary="Save one Viewer selection")
+def save_viewer_preset(name: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+    slug = _preset_slug(name)
+    directory = viewer_preset_dir()
+    os.makedirs(directory, exist_ok=True)
+    document = dict(body or {})
+    document["name"] = name
+    target = os.path.join(directory, f"{slug}{_PRESET_SUFFIX}")
+    tmp = f"{target}.partial"
+    with open(tmp, "w", encoding="utf-8") as handle:
+        json.dump(document, handle, indent=1)
+    os.replace(tmp, target)
+    return document
+
+
+@router.delete("/api/viewer/presets/{name}", summary="Forget one saved selection")
+def delete_viewer_preset(name: str) -> dict[str, Any]:
+    target = os.path.join(viewer_preset_dir(), f"{_preset_slug(name)}{_PRESET_SUFFIX}")
+    try:
+        os.remove(target)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"No preset named {name!r}")
+    return {"name": name, "deleted": True}
