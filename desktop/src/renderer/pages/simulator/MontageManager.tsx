@@ -25,7 +25,7 @@
  * to the page so the 3-D pane and the pairs form edit one draft) and the delete confirmation.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Pencil, Trash2, X, Copy, Users } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Copy } from "lucide-react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, IconButton } from "../../ui/Button";
 import { AlertDialog } from "../../ui/Overlay";
@@ -593,35 +593,6 @@ export function JobsTable({
     onRowsChange(rows.filter((r) => r.id !== id));
   }
 
-  /**
-   * 2.5.0's fan-out, as one button: the active (or last) configured row, repeated once per subject
-   * that can run it and does not already have it. The cross-product is now something the user asks
-   * for, rather than the only thing the page could express.
-   */
-  function fanOutActive() {
-    const template = rows.find((r) => r.id === activeId) ?? [...rows].reverse().find(isRunnableRow);
-    if (!template || !isRunnableRow(template)) {
-      notify.error("Configure one job first — this repeats it for every ready subject.");
-      return;
-    }
-    const eligible = usable.filter((id) => template.source !== "montage" || !template.eegNet || (subjectNets[id]?.includes(template.eegNet) ?? false));
-    const added: SelectedRow[] = [];
-    for (const id of eligible) {
-      const already = rows.some(
-        (r) => r.subjectId === id && r.source === template.source && r.name === template.name && r.eegNet === template.eegNet,
-      );
-      // A flex run / free-hand config belongs to one subject's derivatives; only a catalog montage
-      // is genuinely shared, so only that fans out.
-      if (already || (template.source !== "montage" && id !== template.subjectId)) continue;
-      added.push({ ...template, id: newRowId(), subjectId: id });
-    }
-    if (added.length === 0) {
-      notify.info("Every ready subject already has this job.");
-      return;
-    }
-    onRowsChange([...rows, ...added]);
-  }
-
   /** A brand-new montage always starts as a 2-pair draft; adding pairs makes it multi-polar. */
   function startNewMontage() {
     setEditing(emptyDraft());
@@ -935,15 +906,6 @@ export function JobsTable({
       <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
         <Button variant="secondary" icon={<Plus size={14} />} disabled={availableNets.length === 0} onClick={addRow}>
           Add job
-        </Button>
-        <Button
-          variant="secondary"
-          icon={<Users size={14} />}
-          disabled={usable.length === 0 || rows.length === 0}
-          onClick={fanOutActive}
-          title="Repeats the selected job for every subject that can run it (2.5.0's fan-out)."
-        >
-          Add job for each ready subject
         </Button>
         <Button variant="secondary" icon={<Plus size={14} />} disabled={!editorNet} onClick={startNewMontage}>
           New montage

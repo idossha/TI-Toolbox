@@ -713,10 +713,9 @@ row is one job**, and the row owns every input that differs between jobs. The Si
 3. **Incomplete is allowed.** A half-filled row is shown and is not planned. One predicate
    (`isRunnableRow`) is the gate, and the disabled Run states the *table* being empty before it
    states anything about subjects.
-4. **Duplicate, not fan-out.** Repeating a job for another subject is one click on the row. The
-   cross-product is still available as an explicit button ("Add job for each ready subject",
-   "Quick add: every subject with X") — it is something the user asks for, never the only thing the
-   page can express.
+4. **Duplicate, not fan-out.** Repeating a job for another subject is one click on the row —
+   duplicate it and change the subject. There is no cross-product button: the table never expands
+   itself on the user's behalf.
 5. **What is global stays global.** Properties of the *run* rather than of a job — electrode
    geometry, conductivity, output fields, the analysis ROI — remain page-level sections.
 6. **A group is a switch over the rows,** not a separate mode with its own selection: the rows name
