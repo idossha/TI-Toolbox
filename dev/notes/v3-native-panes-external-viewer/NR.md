@@ -109,6 +109,7 @@ $ npx vitest run tests/unit/scene-*            → 11 files, 152 passed
 $ npx vitest run                               → 89 files / 1064 passed; 3 files / 12 failed, ALL in lane VX's
                                                  in-flight files (viewer-page, embed-protocol, tetravox-card,
                                                  tetravox-updated-event, mock-server contract)
+$ pnpm run build                               → clean (plain build, no gallery/hook flags), 1 882 kB index chunk
 ```
 
 ### Mock e2e (offscreen, no window on screen)
