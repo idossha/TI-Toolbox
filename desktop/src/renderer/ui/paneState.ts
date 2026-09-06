@@ -79,9 +79,17 @@ export function paneReducer(state: PaneState, action: PaneAction, limits: PaneLi
   }
 }
 
-/** One key per page id — Jobs' 360 px column and Results' 490 px preview are different decisions. */
+/**
+ * One key per page id — Jobs' 360 px column and Results' 490 px preview are different decisions.
+ *
+ * The `v2` segment is a one-time reset, not decoration: the run pane's default grew from a fixed
+ * 360/400 px column to `clamp(320px, 36vw, …)` (DESIGN.md §2.1), and every machine that had ever
+ * touched the old divider held a stored width sized against the old default. Reading those back
+ * would pin exactly the users who use the pane most to the narrow pane the maintainer asked us to
+ * widen. A new key means the new default applies once; the very next drag persists as before.
+ */
 export function paneStorageKey(pageId: string): string {
-  return `tit-pane-${pageId}`;
+  return `tit-pane-v2-${pageId}`;
 }
 
 /** The subset of `Storage` this module needs, so a unit test passes a `Map` instead of a jsdom. */

@@ -429,8 +429,8 @@ test("the preview pane stretches, collapses, expands and remembers its width", a
   await expect(page.getByTestId("overview-table")).toBeVisible({ timeout: 20_000 });
   await openResults();
   expect((await paneWidths(page)).right).toBe(dragged.right);
-  expect(await page.evaluate(() => localStorage.getItem("tit-pane-results"))).toContain(`"width":${dragged.right}`);
-  expect(await page.evaluate(() => localStorage.getItem("tit-pane-jobs"))).toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem("tit-pane-v2-results"))).toContain(`"width":${dragged.right}`);
+  expect(await page.evaluate(() => localStorage.getItem("tit-pane-v2-jobs"))).toBeNull();
 });
 
 test("⌘⇧I collapses the preview, and a subject with no outputs does not swallow it", async () => {

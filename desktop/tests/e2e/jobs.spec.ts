@@ -434,7 +434,7 @@ test("the detail pane stretches, collapses, expands and remembers its width", as
   await page.getByTestId("jobs-table").getByRole("row", { name: /ernie/ }).first().click();
   await expect(page.getByTestId("page-right-pane")).toBeVisible();
   expect((await paneWidths(page)).right, "the width is persisted per page id").toBe(dragged.right);
-  expect(await page.evaluate(() => localStorage.getItem("tit-pane-jobs"))).toContain(`"width":${dragged.right}`);
+  expect(await page.evaluate(() => localStorage.getItem("tit-pane-v2-jobs"))).toContain(`"width":${dragged.right}`);
 });
 
 test("⌘⇧I collapses the detail pane and restores it", async () => {

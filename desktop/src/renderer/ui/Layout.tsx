@@ -445,6 +445,7 @@ export interface PaneControllerOptions {
   pageId: string;
   name: string;
   minWidth?: number;
+  /** Stretch ceiling. Defaults to `max(880px, 68vw)` — see `PANE_MAX_VW`. */
   maxWidth?: number;
   /**
    * `false` while the page has nothing to put in the pane. The keyboard chords go quiet (a page
@@ -458,14 +459,23 @@ export function usePaneController({
   pageId,
   name,
   minWidth = 320,
-  // Wider than DESIGN.md §2.1's 560 px ceiling on purpose: 560 is the *default* pane's ceiling,
-  // and "stretch" is not a gesture if the pane stops 70 px past where it started. 880 still leaves
-  // 338 px of work pane inside the 1224 px content box, and the user has to drag there by hand.
-  maxWidth = 880,
+  maxWidth,
   enabled = true,
 }: PaneControllerOptions): PaneController {
   const active = usePageActive();
-  const limits = useMemo<PaneLimits>(() => ({ min: minWidth, max: maxWidth }), [minWidth, maxWidth]);
+  // The ceiling is a fraction of the WINDOW, not a constant: the old flat 880 px was a stretch of
+  // only ~150 px past a 730 px default on a 2000 px screen, which is not a gesture. 68 vw leaves
+  // the work pane a third of the window at full stretch, and the user has to drag there by hand.
+  const [viewport, setViewport] = useState<number>(() => (typeof window === "undefined" ? 1280 : window.innerWidth));
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onResize = () => setViewport(window.innerWidth);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  const resolvedMax = maxWidth ?? Math.max(880, Math.round(viewport * PANE_MAX_VW));
+  const limits = useMemo<PaneLimits>(() => ({ min: minWidth, max: resolvedMax }), [minWidth, resolvedMax]);
   const [state, dispatch] = useReducer(
     (current: PaneState, action: PaneAction) => paneReducer(current, action, limits),
     undefined,
@@ -567,6 +577,12 @@ export function usePaneController({
     restore: useCallback(() => dispatch({ type: "restore" }), [dispatch]),
   };
 }
+
+/**
+ * The pane's stretch ceiling as a fraction of the window (DESIGN.md §2.1). Floored at the old flat
+ * 880 px so no window ever gets a *smaller* range than it had before.
+ */
+const PANE_MAX_VW = 0.68;
 
 /** Arrow-key step, and the coarse step with Shift held. */
 const PANE_STEP = 16;

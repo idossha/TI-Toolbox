@@ -235,8 +235,11 @@ test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.
     // U1 in its enforceable form: the right pane exists and has a width; the work pane takes the
     // rest. Q1: the rail is icons below 1440 and labelled at or above it.
     expect(row.panes.nav).toBe(row.width >= 1440 ? 216 : 56);
-    expect(row.panes.right).toBe(row.width >= 1440 ? 400 : 360);
-    expect(row.panes.work).toBeGreaterThanOrEqual(row.width >= 1440 ? 760 : 660);
+    // DESIGN.md §2.1: the run panel is `clamp(320px, 36vw, calc(100% - 672px))` — 36 % of the
+    // window, ceilinged so the work pane keeps its >=660 px floor. 461 at 1280, 504 at 1440
+    // (where the ceiling, not the 36 %, is what binds).
+    expect(row.panes.right).toBe(row.width >= 1440 ? 504 : 461);
+    expect(row.panes.work).toBeGreaterThanOrEqual(660);
     expect(row.statusCells).toContain("lastJob");
   }
 
