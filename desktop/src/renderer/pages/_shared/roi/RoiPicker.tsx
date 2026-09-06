@@ -28,6 +28,7 @@ import { Combobox } from "../../../ui/Combobox";
 import { SelectionPicker, type SelectionItem } from "../../../ui/SelectionList";
 import { Checkbox } from "../../../ui/Toggle";
 import { SegmentedControl } from "../../../ui/SegmentedControl";
+import { regionKey } from "../scene/model";
 import { Button, IconButton } from "../../../ui/Button";
 import { Skeleton, Callout } from "../../../ui/Feedback";
 import { Dialog, AlertDialog } from "../../../ui/Overlay";
@@ -67,9 +68,14 @@ const MODE_LABEL: Record<RoiMode, string> = {
   spherical: "Spherical",
 };
 
-function regionKey(r: { hemi?: "lh" | "rh"; id: number }): string {
-  return r.hemi ? `${r.hemi}:${r.id}` : String(r.id);
-}
+/**
+ * The region key comes from the **scene model**, not from a second copy here (N3).
+ *
+ * `<ScenePane>` and this picker edit the SAME list — a 3D click and a chip in the form are one
+ * selection, in both directions — and they compare regions with one function to make that true
+ * rather than merely intended. Two identical-looking key functions is how a region ends up
+ * selected in the pane and absent from the config that runs.
+ */
 
 export interface RoiPickerProps {
   value: RoiValue;

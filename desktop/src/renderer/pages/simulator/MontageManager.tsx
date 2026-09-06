@@ -1,23 +1,58 @@
+/**
+ * The Simulator's **Jobs table** — one row per job, and the row owns its inputs.
+ *
+ * Maintainer, 2026-09-06, against a 2.5.0 screenshot of the "Simulation Jobs" cards: *"it's hard
+ * to separate users, montages, modes in different jobs. In 2.5.0, within a job users could
+ * manipulate the subject, the mode, the montage, the current intensities, and so on. We need that
+ * capability."* The v3 page had replaced those cards with a **global** subject set plus a montage
+ * list fanned out across it, so a run was a cross-product the user had to hold in their head and
+ * could not break: three subjects × two montages was six jobs, and there was no way to say "ernie
+ * on F3_F4, 101 on the flex result".
+ *
+ * So the row is the job again. Its cells are, left to right:
+ *
+ *   Subject · Source · EEG net · Montage · Pairs · Currents (mA) · actions
+ *
+ * and the cells that mean different things under different sources change *inside their column*:
+ * the widths come from `resolveColumnWidths` and a `<colgroup>`, so switching a row from Montage
+ * to Flex result moves nothing anywhere else in the table (the same reservation rule the currents
+ * column already used for the TI ↔ mTI switch).
+ *
+ * What is still global lives on the page: electrodes, conductivity and output fields are
+ * properties of the *run*, not of a job, and 2.5.0 had them global too.
+ *
+ * This file also keeps the montage **editor** (the "New montage" draft card, whose state is lifted
+ * to the page so the 3-D pane and the pairs form edit one draft) and the delete confirmation.
+ */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Pencil, Trash2, X } from "lucide-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, Pencil, Trash2, X, Copy, Users } from "lucide-react";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, IconButton } from "../../ui/Button";
 import { AlertDialog } from "../../ui/Overlay";
 import { Field, TextInput } from "../../ui/Field";
 import { Select } from "../../ui/Select";
+import { SelectionPicker } from "../../ui/SelectionList";
 import { Callout, EmptyState, Skeleton } from "../../ui/Feedback";
 import { Card, CardHeader, CardBody } from "../../ui/Layout";
 import { ElectrodePairsEditor, type ElectrodePair } from "../../ui/ElectrodePairsEditor";
 import { notify } from "../../ui/Toast";
 import { NumberInput } from "../../ui/NumberInput";
-import { deleteMontage, getEegNets, getMontages, putMontage } from "./api";
+import { deleteMontage, getEegNets, getFlexRuns, getFreehand, getMontages, putMontage, type FlexRun, type FreehandConfig } from "./api";
+import { OPTIMIZED, placementsFor, type FlexPlacement } from "./FlexTab";
 import "./simulator-page.css";
 import {
+  SOURCE_OPTIONS,
   currentsCount,
+  defaultCurrents,
   defaultCurrentsFor,
+  emptyRow,
   inferMontageKind,
+  isRunnableRow,
+  newRowId,
   polarityLabel,
+  rowPairCount,
   type MontageKind,
+  type MontageSource,
   type SelectedRow,
 } from "./types";
 
@@ -42,19 +77,35 @@ export function parseMontageOptionValue(value: string): { kind: MontageKind; nam
   return { kind: value.slice(0, cut) as MontageKind, name: value.slice(cut + 1) };
 }
 
-/** `E1–E2 · E3–E4` — the read-only pairs cell. */
+/** `E1–E2 · E3–E4` — the read-only pairs cell for a label-based montage. */
 export function formatPairs(pairs: [string, string][]): string {
   return pairs.map(([a, b]) => `${a}–${b}`).join(" · ");
 }
 
+/** The Pairs cell for any row, whichever form its electrodes came in. */
+export function rowPairsText(row: SelectedRow): string {
+  if (row.pairs && row.pairs.length > 0) return formatPairs(row.pairs);
+  const n = row.xyzPairs?.length ?? 0;
+  return n > 0 ? `${n * 2} XYZ coordinates` : "—";
+}
+
 /** The row's currents, normalised to the count its polarity requires (extra values dropped, a
- *  short list padded with 1.0) so the number of inputs always follows the montage. */
+ *  short list padded with 1.0). */
 export function currentValues(currents: string, count: number): number[] {
-  const parsed = currents.split(",").map((v) => (v.trim() === "" ? Number.NaN : Number(v.trim())));
+  const parsed = currents.split(",").map((v) => Number(v.trim()));
   return Array.from({ length: count }, (_, i) => {
     const v = parsed[i];
     return v === undefined || Number.isNaN(v) ? 1.0 : v;
   });
+}
+
+/**
+ * How many current inputs a row shows: a catalog montage's polarity is the bucket it lives in; a
+ * flex or free-hand row has none, so it follows the pair count (`inferMontageKind`).
+ */
+export function rowCurrentsCount(row: SelectedRow): number {
+  const pairs = rowPairCount(row);
+  return currentsCount(row.kind ?? inferMontageKind(pairs), pairs);
 }
 
 /**
@@ -70,22 +121,24 @@ export function currentSlotsReserved(counts: number[]): number {
  * Column widths.
  *
  * The table must never scroll sideways (its container's scrollWidth == clientWidth is asserted),
- * which rules out the pixel colgroup it started with; percentages fixed that but spent the width
- * badly — "BioSemi-128" and "mTI_F3F4_P3P4 · mTI" were truncated in their selects while a band of
- * nothing sat in front of three 28px icons. So: the actions column is a fixed 96px (three icons
- * plus their gaps and the cell's padding, and not one pixel of slack), and the other four share
- * what is left, resolved to exact pixels that sum to the container. The user can drag any of the
- * first three boundaries; `currents` absorbs the remainder, and if it cannot the shrink walks back
- * up the row. The final proportional pass is what makes "sums to the container" true even when
- * every column is already at its minimum.
+ * which rules out a pixel colgroup: the actions column is fixed and the other five share what is
+ * left, resolved to exact pixels that sum to the container. The user can drag the first four
+ * boundaries; `currents` absorbs the remainder, and if it cannot the shrink walks back up the row.
+ * The final proportional pass is what makes "sums to the container" true even when every column is
+ * already at its minimum.
+ *
+ * The reservation is also what makes a **source switch** free of layout movement: a Flex row's
+ * placement select and a Montage row's net select are two contents of one fixed-width column.
  * --------------------------------------------------------------------------------------------- */
 
-export type ColumnKey = "net" | "montage" | "pairs";
+export type ColumnKey = "subject" | "source" | "net" | "montage" | "pairs";
 
-/** The three widths a user can set. `null` = never dragged, so the fractional default applies. */
+/** The four widths a user can set (`pairs` absorbs nothing; `currents` does). */
 export type StoredColumns = Partial<Record<ColumnKey, number>>;
 
 export interface ColumnWidths {
+  subject: number;
+  source: number;
   net: number;
   montage: number;
   pairs: number;
@@ -93,22 +146,25 @@ export interface ColumnWidths {
   actions: number;
 }
 
-/** Three 28px icon buttons, 2px apart, inside a cell with --space-1 of padding. No slack column. */
-export const ACTIONS_W = 96;
+/** Four 28px icon buttons, 2px apart, inside a cell with --space-1 of padding. No slack column. */
+export const ACTIONS_W = 124;
 
 /** Below these a column stops being a control and becomes a sliver. */
 export const COLUMN_MIN: Record<keyof Omit<ColumnWidths, "actions">, number> = {
-  net: 90,
-  montage: 110,
-  pairs: 48,
+  subject: 72,
+  source: 84,
+  net: 80,
+  montage: 100,
+  pairs: 40,
   currents: 96,
 };
 
-/** Shares of the resizable area when nothing is stored — sized so a net name and a montage name
- *  both fit at the 608px work column the run shape gives the Simulator at 1280. */
-const COLUMN_DEFAULT_FRACTION = { net: 0.29, montage: 0.32, pairs: 0.08 } as const;
+/** Shares of the resizable area when nothing is stored — sized so a subject id, a source label, a
+ *  net name and a montage name all fit at the 608px work column the run shape gives at 1280. */
+const COLUMN_DEFAULT_FRACTION = { subject: 0.15, source: 0.16, net: 0.18, montage: 0.22, pairs: 0.07 } as const;
 
-export const COLUMNS_STORAGE_KEY = "tit-montage-columns-v1";
+/** New key: the columns are not the ones `tit-montage-columns-v1` stored. */
+export const COLUMNS_STORAGE_KEY = "tit-sim-jobs-columns-v1";
 
 /**
  * Exact pixel widths for a table `container` px wide. Total is always `container`, so a colgroup
@@ -118,31 +174,39 @@ export function resolveColumnWidths(container: number, stored: StoredColumns): C
   const avail = Math.max(0, Math.round(container) - ACTIONS_W);
   const pick = (k: ColumnKey) =>
     Math.max(COLUMN_MIN[k], Math.round(stored[k] ?? avail * COLUMN_DEFAULT_FRACTION[k]));
-  const w = { net: pick("net"), montage: pick("montage"), pairs: pick("pairs"), currents: 0 };
-  w.currents = avail - w.net - w.montage - w.pairs;
+  const w = {
+    subject: pick("subject"),
+    source: pick("source"),
+    net: pick("net"),
+    montage: pick("montage"),
+    pairs: pick("pairs"),
+    currents: 0,
+  };
+  const rest = () => avail - w.subject - w.source - w.net - w.montage - w.pairs;
+  w.currents = rest();
 
-  // Not enough left for the currents inputs: take it back from the widest-first, never below a min.
+  // Not enough left for the currents inputs: take it back widest-first, never below a min.
   if (w.currents < COLUMN_MIN.currents) {
     let need = COLUMN_MIN.currents - w.currents;
-    for (const k of ["pairs", "montage", "net"] as const) {
+    for (const k of ["pairs", "montage", "net", "source", "subject"] as const) {
       const give = Math.min(w[k] - COLUMN_MIN[k], need);
       w[k] -= give;
       need -= give;
       if (need <= 0) break;
     }
-    w.currents = avail - w.net - w.montage - w.pairs;
+    w.currents = rest();
   }
 
   // Even the minimums may not fit a very narrow pane. Scale, then put the rounding residue on
-  // `currents` so the four still add up to `avail` exactly.
-  const total = w.net + w.montage + w.pairs + Math.max(0, w.currents);
+  // `currents` so the five still add up to `avail` exactly.
+  const total = w.subject + w.source + w.net + w.montage + w.pairs + Math.max(0, w.currents);
   if (total > 0 && total !== avail) {
     const scale = avail / total;
-    w.net = Math.max(1, Math.floor(w.net * scale));
-    w.montage = Math.max(1, Math.floor(w.montage * scale));
-    w.pairs = Math.max(1, Math.floor(w.pairs * scale));
+    for (const k of ["subject", "source", "net", "montage", "pairs"] as const) {
+      w[k] = Math.max(1, Math.floor(w[k] * scale));
+    }
   }
-  w.currents = Math.max(0, avail - w.net - w.montage - w.pairs);
+  w.currents = Math.max(0, rest());
   return { ...w, actions: ACTIONS_W };
 }
 
@@ -156,7 +220,7 @@ export function readStoredColumns(storage: Pick<Storage, "getItem"> | undefined)
     if (!parsed || typeof parsed !== "object") return {};
     const rec = parsed as Record<string, unknown>;
     const out: StoredColumns = {};
-    for (const k of ["net", "montage", "pairs"] as const) {
+    for (const k of ["subject", "source", "net", "montage", "pairs"] as const) {
       const v = rec[k];
       if (typeof v === "number" && Number.isFinite(v)) out[k] = Math.max(COLUMN_MIN[k], Math.round(v));
     }
@@ -210,22 +274,18 @@ function ColumnHandle({ label, width, onResize }: { label: string; width: number
 
 /** One `NumberInput` per required current (mA); `row.currents` stays the comma-joined wire string. */
 function CurrentsCell({
-  rows,
-  count,
+  row,
   slots,
-  label,
   onChange,
 }: {
-  rows: SelectedRow[];
-  count: number;
+  row: SelectedRow;
   /** Slots the column reserves — see `currentSlotsReserved`. */
   slots: number;
-  label: string;
   onChange: (currents: string) => void;
 }) {
-  const first = rows[0];
-  if (!first) return <span className="field-help">—</span>;
-  const values = currentValues(first.currents, count);
+  const count = rowCurrentsCount(row);
+  if (count === 0 || !row.name) return <span className="field-help">—</span>;
+  const values = currentValues(row.currents, count);
   return (
     <div className="montage-currents" style={{ "--slots": slots } as React.CSSProperties}>
       {values.map((v, i) => (
@@ -235,7 +295,7 @@ function CurrentsCell({
           onValueChange={(next) => onChange(values.map((old, idx) => (idx === i ? (next ?? old) : old)).join(","))}
           step={0.1}
           min={0}
-          aria-label={`${label} pair ${i + 1} current (mA)`}
+          aria-label={`${row.name || "row"} pair ${i + 1} current (mA)`}
         />
       ))}
     </div>
@@ -245,10 +305,9 @@ function CurrentsCell({
 /**
  * The montage being written — the editor's whole state, lifted to the page (SCC).
  *
- * It used to be `MontageManager`'s own `editing` state. The scene pane places electrodes into
- * exactly these pairs, and a pane that had to reach into a child component's private state could
- * only do it by duplicating them — which is the two-copies-of-the-truth failure decision S6 is
- * about. The page owns one draft; the table and the pane are two editors of it.
+ * The scene pane places electrodes into exactly these pairs, and a pane that had to reach into a
+ * child component's private state could only do it by duplicating them. The page owns one draft;
+ * the table and the pane are two editors of it.
  */
 export interface MontageDraft {
   name: string;
@@ -268,52 +327,77 @@ function isValidPairCount(n: number): boolean {
   return n === 2 || n >= 4;
 }
 
-/** A row of the montage table that has no montage picked yet. */
-interface PendingRow {
-  key: string;
-  net?: string;
+/** A subject as the Subject cell addresses it: its id and whether a simulation can run on it. */
+export interface JobSubject {
+  id: string;
+  /** `undefined` when the subject is usable; otherwise the reason it is not (J3 wording). */
+  blockedReason?: string;
 }
 
-let pendingSeq = 0;
-
-export function MontageManager({
-  selectedSubjects,
-  subjectNets,
-  selectedRows,
-  onAddRow,
-  onRemoveRow,
-  onCurrentsChange,
-  draft,
-  onDraftChange,
-  onNetChange,
-  onPreviewChange,
-}: {
-  selectedSubjects: string[];
+export interface JobsTableProps {
+  /** Every subject in the project, with this page's own readiness verdict. */
+  subjects: JobSubject[];
   /** subjectId -> eeg net names it has (from SubjectDetail.eeg_nets). */
   subjectNets: Record<string, string[]>;
-  selectedRows: SelectedRow[];
-  onAddRow: (row: SelectedRow) => void;
-  onRemoveRow: (id: string) => void;
+  rows: SelectedRow[];
+  onRowsChange: (next: SelectedRow[]) => void;
   /** The montage being written, owned by the page and shared with the scene pane. */
   draft: MontageDraft | null;
   onDraftChange: (draft: MontageDraft | null) => void;
   /** The resolved net, reported upward so the scene pane draws the same one's electrodes. */
   onNetChange?: (net: string | undefined) => void;
   /**
-   * The row the user clicked, reported upward so the 3-D pane draws THAT montage (its net's
-   * electrodes as idle dots, its own pairs coloured by channel) — visual confirmation of a row
-   * that is already chosen, not an editor. `null` when no row is active.
+   * The row the user clicked, reported upward so the 3-D pane draws THAT job (its net's electrodes
+   * as idle dots, its own pairs coloured by channel) — visual confirmation of a job that is
+   * already configured, not an editor. `null` when no row is active or the row has no net.
    */
   onPreviewChange?: (preview: { net: string; name: string; pairs: [string, string][] } | null) => void;
-  /**
-   * Per-pair currents, edited in this table's own row (v3): the v2 page carried a second
-   * "Selected jobs" card below the montage list that repeated every ticked row purely to hold
-   * this control, which DESIGN.md v3 §6.2 removes. One row per montage, currents in it.
-   */
-  onCurrentsChange?: (id: string, currents: string) => void;
-}) {
+  /** The source of the active row, so the page can note that flex/free-hand carry their own
+   *  coordinates rather than the previewed net's. */
+  onActiveSourceChange?: (source: MontageSource | null) => void;
+}
+
+export function JobsTable({
+  subjects,
+  subjectNets,
+  rows,
+  onRowsChange,
+  draft,
+  onDraftChange,
+  onNetChange,
+  onPreviewChange,
+  onActiveSourceChange,
+}: JobsTableProps) {
   const queryClient = useQueryClient();
   const montages = useQuery({ queryKey: ["montages"], queryFn: getMontages });
+
+  const usable = useMemo(() => subjects.filter((s) => !s.blockedReason).map((s) => s.id), [subjects]);
+  const usableKey = usable.join(",");
+
+  // Flex runs and free-hand configs, per usable subject: a row's Montage cell needs the catalog for
+  // *its own* subject, so this is one query each rather than one for the page's "current" subject.
+  const flexQueries = useQueries({
+    queries: usable.map((id) => ({ queryKey: ["flex-runs", id], queryFn: () => getFlexRuns(id), staleTime: 60_000 })),
+  });
+  const freehandQueries = useQueries({
+    queries: usable.map((id) => ({ queryKey: ["freehand", id], queryFn: () => getFreehand(id), staleTime: 60_000 })),
+  });
+  const flexBySubject = useMemo(() => {
+    const map: Record<string, FlexRun[]> = {};
+    usableKey.split(",").filter(Boolean).forEach((id, i) => {
+      map[id] = flexQueries[i]?.data ?? [];
+    });
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `useQueries` returns a fresh array each render.
+  }, [usableKey, flexQueries.map((q) => q.dataUpdatedAt).join(",")]);
+  const freehandBySubject = useMemo(() => {
+    const map: Record<string, FreehandConfig[]> = {};
+    usableKey.split(",").filter(Boolean).forEach((id, i) => {
+      map[id] = freehandQueries[i]?.data ?? [];
+    });
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- as above.
+  }, [usableKey, freehandQueries.map((q) => q.dataUpdatedAt).join(",")]);
 
   const availableNets = useMemo(() => {
     const nets = new Set<string>();
@@ -323,22 +407,18 @@ export function MontageManager({
   }, [subjectNets, montages.data]);
 
   /*
-   * The net is a column of the table now, not a control above it (maintainer call): every row
-   * carries its own, so one run can mix nets. `editorNet` is only the net a *new* row and the
-   * montage editor start on — the last net the user touched, falling back to the first available.
+   * The net is a cell of the row, not a control above the table. `editorNet` is only the net a
+   * *new* row and the montage editor start on — the last net the user touched, falling back to the
+   * first available.
    */
   const [netChoice, setNetChoice] = useState<string | undefined>(undefined);
   const editorNet = netChoice && availableNets.includes(netChoice) ? netChoice : availableNets[0];
 
-  const [pendingRows, setPendingRows] = useState<PendingRow[]>([]);
-  // An inline panel (Card), not a Dialog: a `Select` popover's z-index (60) sits below a Dialog's
-  // own overlay/content (80/90) in ui/components.css, which makes the electrode-pair pickers
-  // inside a modal montage editor unclickable (reported to F2 — see PARITY.md).
   const editing = draft;
   const setEditing = onDraftChange;
   const [deleteTarget, setDeleteTarget] = useState<CatalogMontage | null>(null);
   /** The row the 3-D pane is drawing. Click a row (not a control in it) to change it. */
-  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   // The scene pane draws the net the editor is on. Reported in an effect, not during render: it
   // is the parent's state.
@@ -347,17 +427,17 @@ export function MontageManager({
   }, [editorNet, onNetChange]);
 
   const netElectrodes = useQuery({
-    queryKey: ["eeg-net-electrodes", editorNet, selectedSubjects[0]],
+    queryKey: ["eeg-net-electrodes", editorNet, usable[0]],
     queryFn: async () => {
-      const subject = selectedSubjects.find((s) => subjectNets[s]?.includes(editorNet!)) ?? selectedSubjects[0];
+      const subject = usable.find((s) => subjectNets[s]?.includes(editorNet!)) ?? usable[0];
       if (!subject || !editorNet) return [] as string[];
       const nets = await getEegNets(subject);
       return nets.find((n) => n.name === editorNet)?.electrodes ?? [];
     },
-    enabled: !!editorNet && selectedSubjects.length > 0,
+    enabled: !!editorNet && usable.length > 0,
   });
 
-  /** Every montage of one net, both buckets, in one list — the montage column's options. */
+  /** Every montage of one net, both buckets, in one list — the Montage cell's options. */
   const montagesOf = useMemo(() => {
     return (net: string | undefined): CatalogMontage[] => {
       if (!net) return [];
@@ -390,107 +470,153 @@ export function MontageManager({
     onSuccess: (_data, m) => {
       notify.success(`Deleted montage "${m.name}".`);
       setDeleteTarget(null);
-      dropSelection(m);
+      // Every row that pointed at it goes back to "pick a montage" rather than silently planning a
+      // montage that no longer exists.
+      onRowsChange(
+        rows.map((r) =>
+          r.source === "montage" && r.eegNet === m.net && r.kind === m.kind && r.name === m.name
+            ? { ...r, name: "", kind: undefined, pairs: undefined }
+            : r,
+        ),
+      );
       void queryClient.invalidateQueries({ queryKey: ["montages"] });
     },
     onError: (err: unknown) => notify.error("Could not delete the montage.", err instanceof Error ? err.message : undefined),
   });
 
-  const eligibleSubjects = selectedSubjects.filter((s) => !editorNet || (subjectNets[s]?.includes(editorNet) ?? false));
+  const patch = useCallback(
+    (id: string, next: Partial<SelectedRow>) => onRowsChange(rows.map((r) => (r.id === id ? { ...r, ...next } : r))),
+    [rows, onRowsChange],
+  );
 
-  function eligibleFor(net: string): string[] {
-    return selectedSubjects.filter((s) => subjectNets[s]?.includes(net) ?? false);
+  /* ------------------------------------------------------------------ Row edits */
+
+  function setRowSubject(row: SelectedRow, subjectId: string) {
+    // A montage/net the new subject does not have is not a job — clear back to "pick one" rather
+    // than carrying an unrunnable row forward.
+    const keepsNet = row.source !== "montage" || !row.eegNet || (subjectNets[subjectId]?.includes(row.eegNet) ?? false);
+    patch(row.id, keepsNet && row.source === "montage" ? { subjectId } : { subjectId, name: "", kind: undefined, pairs: undefined, xyzPairs: undefined, eegNet: row.source === "montage" ? row.eegNet : undefined });
   }
 
-  function rowId(m: { net: string; kind: MontageKind; name: string }) {
-    return `montage:${m.net}:${m.kind}:${m.name}`;
+  function setRowSource(row: SelectedRow, source: MontageSource) {
+    setActiveId(row.id);
+    patch(row.id, {
+      source,
+      name: "",
+      kind: undefined,
+      pairs: undefined,
+      xyzPairs: undefined,
+      eegNet: source === "montage" ? (row.eegNet ?? editorNet) : undefined,
+      currents: "1.0,1.0",
+    });
   }
 
-  /** The table's rows: one per montage the user has chosen, in the order they chose it. Rows and
-   *  the plan are the same list — a row exists exactly when its (subject, montage) jobs do. */
-  const chosen = useMemo(() => {
-    const out: { key: string; montage: CatalogMontage; rows: SelectedRow[] }[] = [];
-    const seen = new Map<string, number>();
-    for (const r of selectedRows) {
-      if (r.source !== "montage" || !r.eegNet || !r.kind) continue;
-      const key = rowId({ net: r.eegNet, kind: r.kind, name: r.name });
-      const at = seen.get(key);
-      if (at === undefined) {
-        seen.set(key, out.length);
-        out.push({
-          key,
-          montage: { net: r.eegNet, kind: r.kind, name: r.name, pairs: r.pairs ?? [] },
-          rows: [r],
-        });
-      } else {
-        out[at]!.rows.push(r);
-      }
-    }
-    return out;
-  }, [selectedRows]);
-
-  const activeRow = chosen.find((c) => c.key === activeKey) ?? null;
-  const activeNet = activeRow?.montage.net;
-  const activeName = activeRow?.montage.name;
-  const activePairs = activeRow?.montage.pairs;
-  // Reported in an effect, not during render: it is the page's state (which then hands it to the
-  // shared scene pane exactly the way the montage draft is handed over).
-  useEffect(() => {
-    onPreviewChange?.(activeNet && activeName && activePairs ? { net: activeNet, name: activeName, pairs: activePairs } : null);
-  }, [activeNet, activeName, activePairs, onPreviewChange]);
-
-  function dropSelection(m: { net: string; kind: MontageKind; name: string }) {
-    const id = rowId(m);
-    if (activeKey === id) setActiveKey(null);
-    for (const subject of selectedSubjects) onRemoveRow(`${id}:${subject}`);
-    // Belt and braces: a subject that has since left the selection still owns rows with this id.
-    for (const r of selectedRows) if (r.id.startsWith(`${id}:`)) onRemoveRow(r.id);
+  function setRowNet(row: SelectedRow, net: string) {
+    setNetChoice(net);
+    // The montage belonged to the old net.
+    patch(row.id, { eegNet: net, name: "", kind: undefined, pairs: undefined });
   }
 
-  /** Fans one montage out to one job row per eligible subject (multi-subject fan-out). */
-  function addSelection(m: CatalogMontage) {
-    const id = rowId(m);
-    const currents = defaultCurrentsFor(m.kind, m.pairs.length);
-    for (const subject of eligibleFor(m.net)) {
-      onAddRow({
-        id: `${id}:${subject}`,
-        subjectId: subject,
-        source: "montage",
-        kind: m.kind,
-        eegNet: m.net,
-        name: m.name,
-        pairs: m.pairs,
-        currents,
-      });
-    }
-  }
-
-  function pickMontage(rowKey: string | null, net: string, value: string) {
+  function setRowMontage(row: SelectedRow, value: string) {
     const { kind, name } = parseMontageOptionValue(value);
-    const montage = montagesOf(net).find((m) => m.kind === kind && m.name === name);
+    const montage = montagesOf(row.eegNet).find((m) => m.kind === kind && m.name === name);
     if (!montage) return;
-    // Replacing the montage of a filled row drops the old one's jobs first.
-    const previous = chosen.find((c) => c.key === rowKey);
-    if (previous) dropSelection(previous.montage);
-    addSelection(montage);
-    setPendingRows((prev) => prev.filter((p) => p.key !== rowKey));
-    setNetChoice(net);
+    setNetChoice(montage.net);
+    patch(row.id, {
+      kind: montage.kind,
+      name: montage.name,
+      pairs: montage.pairs,
+      xyzPairs: undefined,
+      currents: defaultCurrentsFor(montage.kind, montage.pairs.length),
+    });
   }
 
-  function changeNet(rowKey: string, net: string) {
-    setNetChoice(net);
-    const filled = chosen.find((c) => c.key === rowKey);
-    if (filled) {
-      // The montage belonged to the old net — the row goes back to "pick a montage", on the new one.
-      dropSelection(filled.montage);
-      setPendingRows((prev) => [...prev, { key: `pending-${pendingSeq++}`, net }]);
-      return;
+  /** The placements a flex row can be simulated in, for the row's own subject and run. */
+  function placementsForRow(row: SelectedRow): FlexPlacement[] {
+    const run = (flexBySubject[row.subjectId] ?? []).find((r) => r.name === row.name);
+    return run ? placementsFor(run) : [];
+  }
+
+  function applyFlexPlacement(row: SelectedRow, placement: FlexPlacement) {
+    const numPairs = placement.pairs?.length ?? placement.xyzPairs?.length ?? 0;
+    patch(row.id, {
+      eegNet: placement.value === OPTIMIZED ? undefined : placement.value,
+      pairs: placement.pairs,
+      xyzPairs: placement.xyzPairs,
+      currents: defaultCurrents(numPairs),
+    });
+  }
+
+  function setRowFlexRun(row: SelectedRow, name: string) {
+    const run = (flexBySubject[row.subjectId] ?? []).find((r) => r.name === name);
+    const first = run ? placementsFor(run)[0] : undefined;
+    const numPairs = first?.pairs?.length ?? first?.xyzPairs?.length ?? 0;
+    patch(row.id, {
+      name,
+      kind: undefined,
+      eegNet: first && first.value !== OPTIMIZED ? first.value : undefined,
+      pairs: first?.pairs,
+      xyzPairs: first?.xyzPairs,
+      currents: defaultCurrents(numPairs),
+    });
+  }
+
+  function setRowFreehand(row: SelectedRow, name: string) {
+    const config = (freehandBySubject[row.subjectId] ?? []).find((c) => c.name === name);
+    const pairs: [[number, number, number], [number, number, number]][] = [];
+    for (let i = 0; config && i + 1 < config.electrode_positions.length; i += 2) {
+      const a = config.electrode_positions[i]!;
+      const b = config.electrode_positions[i + 1]!;
+      pairs.push([[a.x, a.y, a.z], [b.x, b.y, b.z]]);
     }
-    setPendingRows((prev) => prev.map((p) => (p.key === rowKey ? { ...p, net } : p)));
+    patch(row.id, { name, kind: undefined, eegNet: undefined, pairs: undefined, xyzPairs: pairs, currents: defaultCurrents(pairs.length) });
   }
 
   function addRow() {
-    setPendingRows((prev) => [...prev, { key: `pending-${pendingSeq++}`, net: editorNet }]);
+    const last = rows[rows.length - 1];
+    const seedSubject = last?.subjectId || usable[0] || "";
+    onRowsChange([...rows, emptyRow(seedSubject, "montage", editorNet)]);
+  }
+
+  function duplicateRow(row: SelectedRow) {
+    const at = rows.findIndex((r) => r.id === row.id);
+    const copy = { ...row, id: newRowId() };
+    onRowsChange([...rows.slice(0, at + 1), copy, ...rows.slice(at + 1)]);
+    setActiveId(copy.id);
+  }
+
+  function removeRow(id: string) {
+    if (activeId === id) setActiveId(null);
+    onRowsChange(rows.filter((r) => r.id !== id));
+  }
+
+  /**
+   * 2.5.0's fan-out, as one button: the active (or last) configured row, repeated once per subject
+   * that can run it and does not already have it. The cross-product is now something the user asks
+   * for, rather than the only thing the page could express.
+   */
+  function fanOutActive() {
+    const template = rows.find((r) => r.id === activeId) ?? [...rows].reverse().find(isRunnableRow);
+    if (!template || !isRunnableRow(template)) {
+      notify.error("Configure one job first — this repeats it for every ready subject.");
+      return;
+    }
+    const eligible = usable.filter((id) => template.source !== "montage" || !template.eegNet || (subjectNets[id]?.includes(template.eegNet) ?? false));
+    const added: SelectedRow[] = [];
+    for (const id of eligible) {
+      const already = rows.some(
+        (r) => r.subjectId === id && r.source === template.source && r.name === template.name && r.eegNet === template.eegNet,
+      );
+      // A flex run / free-hand config belongs to one subject's derivatives; only a catalog montage
+      // is genuinely shared, so only that fans out.
+      if (already || (template.source !== "montage" && id !== template.subjectId)) continue;
+      added.push({ ...template, id: newRowId(), subjectId: id });
+    }
+    if (added.length === 0) {
+      notify.info("Every ready subject already has this job.");
+      return;
+    }
+    onRowsChange([...rows, ...added]);
   }
 
   /** A brand-new montage always starts as a 2-pair draft; adding pairs makes it multi-polar. */
@@ -500,18 +626,26 @@ export function MontageManager({
 
   const draftKind = editing ? inferMontageKind(editing.pairs.length) : "uni_polar";
 
-  // The table always offers at least one row to fill in, without holding a pending row in state
-  // for the empty case (nothing to clean up when it is used).
-  const emptyRow: PendingRow[] = chosen.length === 0 && pendingRows.length === 0 ? [{ key: "row-1", net: editorNet }] : [];
+  /* ------------------------------------------------------------------ Preview */
 
-  /** Reserved so a row switching TI <-> mTI never resizes the inputs already in the column: the
-   *  cell is a grid of this many equal slots, whether or not every slot holds an input. */
-  /* The table's own width, and the widths the user has set inside it. */
+  const activeRow = rows.find((r) => r.id === activeId) ?? null;
+  const activeNet = activeRow?.eegNet;
+  const activeName = activeRow?.name;
+  const activePairs = activeRow?.pairs;
+  const activeSource = activeRow?.source ?? null;
+  useEffect(() => {
+    onPreviewChange?.(activeNet && activeName && activePairs?.length ? { net: activeNet, name: activeName, pairs: activePairs } : null);
+  }, [activeNet, activeName, activePairs, onPreviewChange]);
+  useEffect(() => {
+    onActiveSourceChange?.(activeSource);
+  }, [activeSource, onActiveSourceChange]);
+
+  /* ------------------------------------------------------------------ Geometry */
+
   const [tableWidth, setTableWidth] = useState(0);
   const [storedColumns, setStoredColumns] = useState<StoredColumns>(() =>
     readStoredColumns(typeof window === "undefined" ? undefined : window.localStorage),
   );
-  // React 18: a ref callback cannot return a cleanup, so the observer lives in an effect.
   const tableBox = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const node = tableBox.current;
@@ -530,37 +664,35 @@ export function MontageManager({
     });
   }, []);
 
-  /** Rows whose net not every selected subject has — reported under the table, not in it. */
-  const skipped = chosen
-    .map(({ montage }) => ({ name: montage.name, net: montage.net, missing: selectedSubjects.length - eligibleFor(montage.net).length }))
-    .filter((s) => s.missing > 0);
-
-  const currentSlots = currentSlotsReserved(chosen.map((c) => currentsCount(c.montage.kind, c.montage.pairs.length)));
+  const currentSlots = currentSlotsReserved(rows.map(rowCurrentsCount));
 
   /** Up/Down moves the active row — the one the 3-D pane is drawing. */
   function onTableKeyDown(e: React.KeyboardEvent<HTMLTableElement>) {
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
-    if (chosen.length === 0) return;
+    if (rows.length === 0) return;
     e.preventDefault();
-    const at = chosen.findIndex((c) => c.key === activeKey);
-    const next = e.key === "ArrowDown" ? Math.min(chosen.length - 1, at + 1) : Math.max(0, (at === -1 ? 0 : at) - 1);
-    const key = chosen[next]?.key ?? null;
-    setActiveKey(key);
+    const at = rows.findIndex((r) => r.id === activeId);
+    const next = e.key === "ArrowDown" ? Math.min(rows.length - 1, at + 1) : Math.max(0, (at === -1 ? 0 : at) - 1);
+    setActiveId(rows[next]?.id ?? null);
     const row = e.currentTarget.querySelector<HTMLElement>(`tbody tr:nth-of-type(${next + 1})`);
     row?.focus();
   }
 
-  function renderNetCell(rowKey: string, net: string | undefined, label: string) {
-    return (
-      <Select
-        value={net}
-        onValueChange={(v) => changeNet(rowKey, v)}
-        options={availableNets.map((n) => ({ value: n, label: n }))}
-        placeholder="EEG net"
-        aria-label={`${label} EEG net`}
-      />
-    );
-  }
+  /* ------------------------------------------------------------------ Cells */
+
+  const subjectItems = useMemo(
+    () =>
+      subjects.map((s) => ({
+        id: s.id,
+        label: s.id,
+        reason: s.blockedReason,
+        // Blocked subjects are LISTED with their reason and cannot be picked — the row's own
+        // version of the subject grammar's J3 rule, which is why this is a `SelectionPicker` and
+        // not a `Select` whose options carry no explanation.
+        disabled: !!s.blockedReason,
+      })),
+    [subjects],
+  );
 
   function montageOptions(net: string | undefined) {
     return montagesOf(net).map((m) => ({
@@ -569,33 +701,136 @@ export function MontageManager({
     }));
   }
 
+  function netsForSubject(subjectId: string): string[] {
+    const own = subjectNets[subjectId] ?? [];
+    return own.length > 0 ? own : availableNets;
+  }
+
+  /** The EEG net column: a net for a montage row, the placement for a flex row, nothing else. */
+  function renderNetCell(row: SelectedRow) {
+    if (row.source === "montage") {
+      const nets = netsForSubject(row.subjectId);
+      return (
+        <Select
+          value={row.eegNet && nets.includes(row.eegNet) ? row.eegNet : undefined}
+          onValueChange={(v) => setRowNet(row, v)}
+          options={nets.map((n) => ({ value: n, label: n }))}
+          placeholder="EEG net"
+          aria-label="EEG net"
+        />
+      );
+    }
+    if (row.source === "flex") {
+      const options = placementsForRow(row);
+      if (options.length === 0) return <span className="field-help">—</span>;
+      const current = row.eegNet ?? OPTIMIZED;
+      return (
+        <Select
+          value={options.some((o) => o.value === current) ? current : options[0]!.value}
+          onValueChange={(v) => {
+            const next = options.find((o) => o.value === v);
+            if (next) applyFlexPlacement(row, next);
+          }}
+          options={options.map((o) => ({ value: o.value, label: o.label }))}
+          aria-label="Placement"
+        />
+      );
+    }
+    return <span className="field-help">own XYZ</span>;
+  }
+
+  /** The Montage column: catalog montage, flex run, or saved free-hand configuration. */
+  function renderMontageCell(row: SelectedRow) {
+    if (row.source === "montage") {
+      return (
+        <div className="montage-cell">
+          <Select
+            value={row.name && row.kind ? montageOptionValue(row.kind, row.name) : undefined}
+            onValueChange={(v) => setRowMontage(row, v)}
+            options={montageOptions(row.eegNet)}
+            placeholder="Choose a montage"
+            aria-label="Montage"
+          />
+          <span className="montage-chip-slot" style={{ "--slot": "40px" } as React.CSSProperties}>
+            {row.kind && (
+              <span className="chip chip-neutral" title={row.kind === "uni_polar" ? "Uni-polar (2 pairs)" : "Multi-polar (4+ pairs)"}>
+                {polarityLabel(row.kind)}
+              </span>
+            )}
+          </span>
+        </div>
+      );
+    }
+    if (row.source === "flex") {
+      const runs = flexBySubject[row.subjectId] ?? [];
+      return (
+        <Select
+          value={runs.some((r) => r.name === row.name) ? row.name : undefined}
+          onValueChange={(v) => setRowFlexRun(row, v)}
+          options={runs.map((r) => ({ value: r.name, label: r.name }))}
+          placeholder={runs.length === 0 ? "No flex runs" : "Choose a run"}
+          disabled={runs.length === 0}
+          aria-label="Flex run"
+        />
+      );
+    }
+    const configs = freehandBySubject[row.subjectId] ?? [];
+    return (
+      <Select
+        value={configs.some((c) => c.name === row.name) ? row.name : undefined}
+        onValueChange={(v) => setRowFreehand(row, v)}
+        options={configs.map((c) => ({ value: c.name, label: c.name }))}
+        placeholder={configs.length === 0 ? "No free-hand sets" : "Choose a set"}
+        disabled={configs.length === 0}
+        aria-label="Free-hand configuration"
+      />
+    );
+  }
+
+  const catalogMontageOf = (row: SelectedRow): CatalogMontage | null =>
+    row.source === "montage" && row.eegNet && row.kind && row.name
+      ? { net: row.eegNet, kind: row.kind, name: row.name, pairs: row.pairs ?? [] }
+      : null;
+
+  const loading = montages.isPending;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-      {selectedSubjects.length === 0 && <Callout kind="info">Pick at least one subject above to add montages to the run.</Callout>}
-
-      {montages.isPending && <Skeleton height={160} />}
+      {usable.length === 0 && subjects.length > 0 && (
+        <Callout kind="warning">No subject in this project has a head model — a simulation cannot run yet.</Callout>
+      )}
+      {loading && <Skeleton height={160} />}
       {montages.error && <Callout kind="danger">Could not load montages.</Callout>}
       {montages.data && availableNets.length === 0 && (
-        <EmptyState icon={<Plus size={24} />} message="No EEG nets available for the selected subjects." />
+        <EmptyState icon={<Plus size={24} />} message="No EEG nets available in this project." />
       )}
       {montages.data && availableNets.length > 0 && (
-        <div className="data-table-container" ref={tableBox} data-testid="montage-table-container">
+        <div className="data-table-container" ref={tableBox} data-testid="jobs-table-container">
           {/* Fixed geometry: an explicit `<colgroup>` plus `table-layout: fixed` (simulator-page.css).
-              Nothing a user does to one ROW — net, montage, polarity — may move a cell in another;
-              only a deliberate drag of a header boundary changes a COLUMN. The widths come from
-              `resolveColumnWidths`, which always sums to the container, so the table cannot scroll
-              sideways at any pane width (asserted in simulator.spec.ts). Before the first measure
-              they are percentages of the same shape, so the first paint is not a 0px table. */}
-          <table className="data-table montage-table" onKeyDown={onTableKeyDown}>
+              Nothing a user does to one ROW — its subject, its source, its montage, its polarity —
+              may move a cell in another; only a deliberate drag of a header boundary changes a
+              COLUMN. The widths come from `resolveColumnWidths`, which always sums to the
+              container, so the table cannot scroll sideways at any pane width. */}
+          <table className="data-table montage-table jobs-table" onKeyDown={onTableKeyDown} data-testid="jobs-table">
             <colgroup>
-              <col style={{ width: tableWidth ? cols.net : "24%" }} />
-              <col style={{ width: tableWidth ? cols.montage : "32%" }} />
-              <col style={{ width: tableWidth ? cols.pairs : "14%" }} />
-              <col style={{ width: tableWidth ? cols.currents : "20%" }} />
+              <col style={{ width: tableWidth ? cols.subject : "14%" }} />
+              <col style={{ width: tableWidth ? cols.source : "15%" }} />
+              <col style={{ width: tableWidth ? cols.net : "17%" }} />
+              <col style={{ width: tableWidth ? cols.montage : "21%" }} />
+              <col style={{ width: tableWidth ? cols.pairs : "7%" }} />
+              <col style={{ width: tableWidth ? cols.currents : "16%" }} />
               <col style={{ width: tableWidth ? cols.actions : "10%" }} />
             </colgroup>
             <thead>
               <tr>
+                <th data-column="subject">
+                  Subject
+                  <ColumnHandle label="Subject" width={cols.subject} onResize={(w) => setColumn("subject", w)} />
+                </th>
+                <th data-column="source">
+                  Source
+                  <ColumnHandle label="Source" width={cols.source} onResize={(w) => setColumn("source", w)} />
+                </th>
                 <th data-column="net">
                   EEG net
                   <ColumnHandle label="EEG net" width={cols.net} onResize={(w) => setColumn("net", w)} />
@@ -615,103 +850,79 @@ export function MontageManager({
               </tr>
             </thead>
             <tbody>
-              {chosen.map(({ key, montage, rows }) => {
-                const count = currentsCount(montage.kind, montage.pairs.length);
-                const missing = selectedSubjects.length - eligibleFor(montage.net).length;
+              {rows.map((row) => {
+                const montage = catalogMontageOf(row);
                 return (
                   <tr
-                    key={key}
-                    data-montage-row={montage.name}
-                    data-polarity={montage.kind}
-                    data-active={activeKey === key ? "true" : undefined}
-                    aria-selected={activeKey === key}
+                    key={row.id}
+                    data-job-row={row.id}
+                    data-subject={row.subjectId || undefined}
+                    data-source={row.source}
+                    data-montage-row={row.name || ""}
+                    data-polarity={row.kind ?? ""}
+                    data-runnable={isRunnableRow(row) ? "true" : "false"}
+                    data-active={activeId === row.id ? "true" : undefined}
+                    aria-selected={activeId === row.id}
                     tabIndex={0}
                     onClick={(e) => {
                       // A click on a control in the row is that control's, not the row's.
                       if ((e.target as HTMLElement).closest("button, input, [role='combobox'], [role='dialog']")) return;
-                      setActiveKey(key);
+                      setActiveId(row.id);
                     }}
-                    onFocus={() => setActiveKey(key)}
+                    onFocus={() => setActiveId(row.id)}
                   >
-                    <td>{renderNetCell(key, montage.net, montage.name)}</td>
-                    <td>
-                      <div
-                        className="montage-cell"
-                        title={missing > 0 ? `${missing} selected subject(s) do not have the "${montage.net}" net` : undefined}
-                      >
-                        <Select
-                          value={montageOptionValue(montage.kind, montage.name)}
-                          onValueChange={(v) => pickMontage(key, montage.net, v)}
-                          options={montageOptions(montage.net)}
-                          placeholder="Choose a montage"
-                          aria-label={`Montage for ${montage.net}`}
-                        />
-                        {/* One fixed-width slot, drawn even when empty: the polarity chip changing
-                            must not push the select beside it. The "N skipped" chip that used to
-                            sit in a second reserved 76px slot is a footnote under the table now —
-                            76px of permanently reserved width in a 608px table for a warning that
-                            is usually absent is what made the row unable to fit. */}
-                        <span className="montage-chip-slot" style={{ "--slot": "40px" } as React.CSSProperties}>
-                          <span className="chip chip-neutral" title={montage.kind === "uni_polar" ? "Uni-polar (2 pairs)" : "Multi-polar (4+ pairs)"}>
-                            {polarityLabel(montage.kind)}
-                          </span>
-                        </span>
-                      </div>
+                    <td data-cell="subject">
+                      <SelectionPicker
+                        mode="single"
+                        label="Subject"
+                        items={subjectItems}
+                        value={row.subjectId ? [row.subjectId] : []}
+                        onChange={(v) => v[0] && setRowSubject(row, v[0])}
+                        placeholder="Subject"
+                        headers={{ label: "Subject", reason: "Why not" }}
+                        hideBulk
+                        idPrefix={`job-subject-${row.id}`}
+                        triggerTestId={`job-subject-${row.id}`}
+                      />
                     </td>
-                    <td className="mono text-dense">
-                      <span className="montage-pairs" title={formatPairs(montage.pairs)}>
-                        {formatPairs(montage.pairs)}
+                    <td data-cell="source">
+                      <Select
+                        value={row.source}
+                        onValueChange={(v) => setRowSource(row, v as MontageSource)}
+                        options={SOURCE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                        aria-label="Source"
+                      />
+                    </td>
+                    <td data-cell="net">{renderNetCell(row)}</td>
+                    <td data-cell="montage">{renderMontageCell(row)}</td>
+                    <td data-cell="pairs" className="mono text-dense">
+                      <span className="montage-pairs" title={rowPairsText(row)}>
+                        {rowPairsText(row)}
                       </span>
                     </td>
-                    <td>
-                      <CurrentsCell
-                        rows={rows}
-                        count={count}
-                        slots={currentSlots}
-                        label={montage.name}
-                        onChange={(currents) => rows.forEach((r) => onCurrentsChange?.(r.id, currents))}
-                      />
+                    <td data-cell="currents">
+                      <CurrentsCell row={row} slots={currentSlots} onChange={(currents) => patch(row.id, { currents })} />
                     </td>
-                    <td className="montage-actions">
+                    <td data-cell="actions" className="montage-actions">
                       <IconButton
-                        aria-label={`Edit ${montage.name}`}
-                        icon={<Pencil size={14} />}
-                        onClick={() => {
-                          setNetChoice(montage.net);
-                          setEditing({ name: montage.name, pairs: montage.pairs.map((p) => [p[0], p[1]] as ElectrodePair), savedAs: montage.kind });
-                        }}
+                        aria-label={`Duplicate job ${rows.indexOf(row) + 1}`}
+                        icon={<Copy size={14} />}
+                        onClick={() => duplicateRow(row)}
                       />
-                      <IconButton aria-label={`Delete ${montage.name}`} icon={<Trash2 size={14} />} onClick={() => setDeleteTarget(montage)} />
-                      <IconButton aria-label={`Remove row ${montage.name}`} icon={<X size={14} />} onClick={() => dropSelection(montage)} />
-                    </td>
-                  </tr>
-                );
-              })}
-              {[...pendingRows, ...emptyRow].map((p, i) => {
-                const net = p.net && availableNets.includes(p.net) ? p.net : editorNet;
-                const label = `row ${chosen.length + i + 1}`;
-                return (
-                  <tr key={p.key} data-montage-row="" data-polarity="">
-                    <td>{renderNetCell(p.key, net, label)}</td>
-                    <td>
-                      <Select
-                        value={undefined}
-                        onValueChange={(v) => net && pickMontage(p.key, net, v)}
-                        options={montageOptions(net)}
-                        placeholder="Choose a montage"
-                        aria-label={`Montage for ${label}`}
-                      />
-                    </td>
-                    <td className="field-help">—</td>
-                    <td className="field-help">—</td>
-                    <td className="montage-actions">
-                      {pendingRows.some((r) => r.key === p.key) && (
+                      {montage && (
                         <IconButton
-                          aria-label={`Remove ${label}`}
-                          icon={<X size={14} />}
-                          onClick={() => setPendingRows((prev) => prev.filter((r) => r.key !== p.key))}
+                          aria-label={`Edit ${montage.name}`}
+                          icon={<Pencil size={14} />}
+                          onClick={() => {
+                            setNetChoice(montage.net);
+                            setEditing({ name: montage.name, pairs: montage.pairs.map((p) => [p[0], p[1]] as ElectrodePair), savedAs: montage.kind });
+                          }}
                         />
                       )}
+                      {montage && (
+                        <IconButton aria-label={`Delete ${montage.name}`} icon={<Trash2 size={14} />} onClick={() => setDeleteTarget(montage)} />
+                      )}
+                      <IconButton aria-label={`Remove job ${rows.indexOf(row) + 1}`} icon={<X size={14} />} onClick={() => removeRow(row.id)} />
                     </td>
                   </tr>
                 );
@@ -721,35 +932,29 @@ export function MontageManager({
         </div>
       )}
 
-      {/* The "N skipped" warning, out of the table: it is rare, it is per row, and reserving a
-          fixed slot for it in every row cost more width than the table had. */}
-      {skipped.length > 0 && (
-        <p className="field-help">
-          {skipped.map((s) => `${s.name}: ${s.missing} selected subject(s) have no "${s.net}" net`).join(" · ")}
-        </p>
-      )}
-
-      <div style={{ display: "flex", gap: "var(--space-2)" }}>
+      <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
         <Button variant="secondary" icon={<Plus size={14} />} disabled={availableNets.length === 0} onClick={addRow}>
-          Add row
+          Add job
+        </Button>
+        <Button
+          variant="secondary"
+          icon={<Users size={14} />}
+          disabled={usable.length === 0 || rows.length === 0}
+          onClick={fanOutActive}
+          title="Repeats the selected job for every subject that can run it (2.5.0's fan-out)."
+        >
+          Add job for each ready subject
         </Button>
         <Button variant="secondary" icon={<Plus size={14} />} disabled={!editorNet} onClick={startNewMontage}>
           New montage
         </Button>
       </div>
 
-      {eligibleSubjects.length === 0 && selectedSubjects.length > 0 && editorNet && (
-        <Callout kind="warning">None of the selected subjects have the "{editorNet}" net.</Callout>
-      )}
-
       {editing && (
         <Card>
           <CardHeader title={editing.name ? `Edit montage "${editing.name}"` : "New montage"} />
           <CardBody>
             <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-              {/* One label column: net, name and the polarity readout stack under each other in
-                  the standard label-left `Field` grid, so their labels align with each other and
-                  with the pair rows below. */}
               <Field label="EEG net">
                 <Select
                   value={editorNet}
@@ -761,8 +966,7 @@ export function MontageManager({
               <Field label="Montage name" required>
                 <TextInput value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} placeholder="e.g. F3_F4" />
               </Field>
-              {/* Polarity is a readout, not a choice: it follows from the pairs picked. One line —
-                  a chip and a short sentence, no storage detail and no (i). */}
+              {/* Polarity is a readout, not a choice: it follows from the pairs picked. */}
               <Field label="Polarity">
                 <div data-testid="montage-draft-polarity" className="montage-cell" style={{ minHeight: 28 }}>
                   <span className="montage-chip-slot" style={{ "--slot": "40px" } as React.CSSProperties}>
@@ -781,9 +985,6 @@ export function MontageManager({
                     electrodes={netElectrodes.data ?? []}
                     pairs={editing.pairs}
                     onPairsChange={(pairs) => setEditing({ ...editing, pairs })}
-                    // A montage is built in channels: two pairs (four electrodes) at a time, so
-                    // "Add 2 pairs" / a remove that takes the whole group. 2 pairs is TI, 4+ mTI —
-                    // an odd pair count is not reachable from the form at all.
                     pairStep={2}
                     freehandPairs={[]}
                     onFreehandPairsChange={() => {}}
@@ -812,7 +1013,6 @@ export function MontageManager({
                     // entry so the same name cannot exist in both.
                     if (editing.savedAs && editing.savedAs !== draftKind) {
                       void deleteMontage(editorNet, editing.savedAs, editing.name.trim()).catch(() => undefined);
-                      dropSelection({ net: editorNet, kind: editing.savedAs, name: editing.name.trim() });
                     }
                     saveMontage.mutate({ net: editorNet, kind: draftKind, name: editing.name.trim(), pairs: editing.pairs });
                   }}

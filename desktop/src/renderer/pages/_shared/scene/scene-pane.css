@@ -174,3 +174,24 @@
 .scene-pane-showing strong {
   font-weight: 600;
 }
+
+/* The atlas selector and the hovered region's name, above the stage: N3's "hover names the
+   region". A highlight with no name leaves the user guessing which of 70 atlas rows lit up. */
+.scene-pane-atlas {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px 6px;
+  min-width: 0;
+}
+
+.scene-pane-hovered {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}

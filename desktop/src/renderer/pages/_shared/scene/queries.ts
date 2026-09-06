@@ -3,11 +3,16 @@
  * opening the Simulator and then the Optimizer for the same subject re-uses the manifest, the
  * atlas legend and the electrode net rather than re-requesting them.
  *
- * The embedded Tetravox renderer reads the mesh bytes itself from the GIfTI URLs in the ViewSpec,
- * so this module deliberately does not fetch or decode surface payloads in the desktop renderer.
+ * Surface and label payloads are `TVSC1` binaries fetched and decoded here, then handed to
+ * `renderer/scene/` as typed arrays. The guide's are immutable, so they are cached for ever.
  */
-import { useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { useQueries, useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { useMemo } from "react";
 import {
+  getGuideTvsc,
+  guideLabelsUrl,
+  guideSurfaceUrl,
+  type Tvsc1,
   getGuideElectrodes,
   getGuideManifest,
   getGuideRegions,
@@ -101,4 +106,47 @@ export function useGuideRegions(atlas: string | null): UseQueryResult<GuideRegio
     enabled: !!atlas,
     ...GUIDE_QUERY,
   });
+}
+
+/**
+ * Both guide surfaces, in the manifest's own order, decoded.
+ *
+ * The URLs come from `parts[].url` when the manifest carries one, so adding a part is a server
+ * change rather than a renderer change. `staleTime`/`gcTime` are `Infinity`: these bytes ship with
+ * the installation and are served `Cache-Control: immutable`, so a refetch could only re-fetch
+ * what cannot have changed — and re-uploading 145 k triangles is not free.
+ */
+export function useGuideSurfaces(parts: { id: string; url: string }[]): UseQueryResult<Tvsc1 | null>[] {
+  return useQueries({
+    queries: parts.map((part) => ({
+      queryKey: ["guide", "surface", part.id],
+      queryFn: () => getGuideTvsc(part.url),
+      ...GUIDE_QUERY,
+    })),
+  });
+}
+
+/** The per-vertex atlas labels aligned to `gm`, as TVSC1. Enabled only once the legend is in hand:
+ *  labels with no legend can highlight a region the pane cannot name. */
+export function useGuideLabels(atlas: string | null, ready: boolean): UseQueryResult<Tvsc1 | null> {
+  return useQuery({
+    queryKey: ["guide", "labels", atlas],
+    queryFn: () => getGuideTvsc(guideLabelsUrl(atlas as string)),
+    enabled: !!atlas && ready,
+    ...GUIDE_QUERY,
+  });
+}
+
+/** `parts[]` reduced to what `useGuideSurfaces` needs, memoised so the query list is stable —
+ *  a fresh array every render would re-key every surface query on every render. */
+export function useGuideSurfaceRequests(manifest: GuideManifest | undefined): { id: string; url: string }[] {
+  return useMemo(
+    () =>
+      (manifest?.parts ?? []).map((part) => ({
+        id: String(part.id),
+        // The packaged manifest's `url` has no `format`, and TVSC1 is what this renderer reads.
+        url: guideSurfaceUrl(String(part.id)),
+      })),
+    [manifest],
+  );
 }

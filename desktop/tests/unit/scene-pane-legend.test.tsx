@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * The channel legend (plan `v3-tetravox-selection-pipeline-plan.md` §1-B, B4).
+ * The channel legend (N2).
  *
  * What is worth pinning here is not that a button renders, but that the legend and the scene agree
  * on the *same* channel colour: if `channelCss` and the point colours ever drift apart, "pair 2 is
@@ -10,8 +10,8 @@ import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ChannelLegend, channelLabel } from "../../src/renderer/ui/ChannelLegend";
-import { channelColor } from "../../src/renderer/pages/_shared/scene/embedScene";
 import { channelCss } from "../../src/renderer/pages/_shared/scene/model";
+import { SCENE_PALETTE } from "../../src/renderer/scene/palette";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -68,7 +68,9 @@ describe("ChannelLegend", () => {
     act(() => root.render(<ChannelLegend pairs={[["Fp1", "Fp2"], ["C3", "C4"], ["P3", "P4"], ["O1", "O2"]]} activeChannel={0} />));
     const chips = [...host.querySelectorAll<HTMLButtonElement>(".channel-chip")];
     chips.forEach((chip, channel) => {
-      const rgb = channelColor(channel).slice(0, 3).map((v) => Math.round(v * 255));
+      // The RENDERER's palette is the one source: the chip, the dot shader and this assertion all
+      // read `SCENE_PALETTE.channels`, so a colour change cannot land in one of the three only.
+      const rgb = (SCENE_PALETTE.channels[channel] as number[]).map((v: number) => Math.round(v * 255));
       expect(chip.dataset.color).toBe(`rgb(${rgb.join(",")})`);
       expect(chip.dataset.color).toBe(channelCss(channel));
     });

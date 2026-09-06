@@ -8,55 +8,24 @@
  * React, `fetch` or WebGL.
  */
 import type { SceneElectrode, SceneLegendRow } from "./api";
+import type { Rgb, SceneMarker } from "../../../scene/types";
+import { SCENE_PALETTE } from "../../../scene/palette";
 
-/** World-RAS millimetres in the subject's own coordinate system. */
-export type Vec3 = [number, number, number];
+/** World millimetres. The renderer's `Rgb` and this are the same three-number tuple; naming both
+ *  is what keeps a colour out of a coordinate slot at the type level. */
+type Vec3 = Rgb;
 
-/** One marker the run pane owns and forwards to the Tetravox points layer. */
-export interface SceneMarker {
-  id: string;
-  label: string;
-  world: Vec3;
-  /** Montage pair/channel index, when the marker is already placed. */
-  channel?: number;
-}
-
-/** The form-controlled selection mirrored into the embedded scene. */
-export interface SceneSelection {
-  markers: number[];
-  regions: number[];
-}
-
-/** Palette shared by the pane model, the Tetravox point layer and form chips.
+/**
+ * The renderer's own vocabulary, re-exported rather than re-declared.
  *
- * `channels` is the **Okabe-Ito** qualitative set (Okabe & Ito 2008, "Color Universal Design"),
- * in its published order minus yellow. Six hues, all separable under deuteranopia, protanopia and
- * tritanopia, which is what an mTI montage with four or more pairs needs: the old set had a green
- * and an orange next to each other, and a deuteranope reading a 4-pair montage could not say which
- * dot belonged to which channel. Yellow is dropped because it is the one Okabe-Ito hue that does
- * not hold up against the guide's skin colour.
- *
- * `idle` and `disabled` are the two non-channel point colours (plan §1-B, B2). They are greys, so
- * "this dot is in a channel" is a hue and "this dot is not" is the absence of one.
+ * There is exactly ONE palette and ONE marker/selection shape in the app (`renderer/scene/`), and
+ * this module is the seam the pages import it through. When these were two declarations that
+ * happened to agree, the pane and the form chips drifted the day one of them changed — a "pair 2"
+ * that was orange in the editor and green in the scene.
  */
-export const SCENE_PALETTE = {
-  skin: [0.92, 0.74, 0.63] as Vec3,
-  gm: [0.72, 0.72, 0.76] as Vec3,
-  marker: [0.2, 0.6, 1.0] as Vec3,
-  dim: [0.56, 0.6, 0.68] as Vec3,
-  /** An electrode in no channel. Neutral grey, not a hue. */
-  idle: [0.62, 0.65, 0.7] as Vec3,
-  /** 35 % grey — an electrode the montage cannot use. */
-  disabled: [0.35, 0.35, 0.35] as Vec3,
-  channels: [
-    [0.0, 0.447, 0.698], // #0072B2 blue
-    [0.902, 0.624, 0.0], // #E69F00 orange
-    [0.0, 0.62, 0.451], // #009E73 bluish green
-    [0.8, 0.475, 0.655], // #CC79A7 reddish purple
-    [0.835, 0.369, 0.0], // #D55E00 vermillion
-    [0.337, 0.706, 0.914], // #56B4E9 sky blue
-  ] as Vec3[],
-};
+export type { Rgb as Vec3, SceneMarker } from "../../../scene/types";
+export type { SceneSelection } from "../../../scene/selection";
+export { SCENE_PALETTE, DEFAULT_OPACITY, type ScenePalette } from "../../../scene/palette";
 
 /** A region as the ROI picker holds it (`pages/_shared/roi/types.ts`'s `RoiRegion`). */
 export interface SceneRegionRef {
@@ -85,6 +54,19 @@ export function wireLabelsFor(legend: SceneLegendRow[], regions: { id: number; h
     if (label !== undefined && !out.includes(label)) out.push(label);
   }
   return out;
+}
+
+/**
+ * **The one region-selection operation**, shared by `<ScenePane>` and `<RoiPicker>` (N3).
+ *
+ * A click in the 3D pane and a click on a chip in the form are the same edit of the same list, so
+ * they run the same function: a region already in the list is removed, one that is not is
+ * appended. Two toggles that merely looked alike is how a region ends up selected in the pane and
+ * absent from the config that runs — the pane is a view of the form's list, never a second one.
+ */
+export function toggleRegion<T extends { id: number; hemi?: "lh" | "rh" }>(regions: T[], picked: T): T[] {
+  const key = regionKey(picked);
+  return regions.some((r) => regionKey(r) === key) ? regions.filter((r) => regionKey(r) !== key) : [...regions, picked];
 }
 
 /** The inverse: the form-shaped regions for a set of payload labels, in the order given. */

@@ -392,6 +392,16 @@ export function AnalyzerPage() {
               mode="inspect"
               atlas={sceneCortical && roiValue.mode === "cortical" ? (roiValue.atlas ?? null) : null}
               regions={sceneCortical && roiValue.mode === "cortical" ? roiValue.regions : undefined}
+              onAtlasChange={
+                sceneCortical
+                  ? (atlas) => setRoiValue({ ...(roiValue as Extract<RoiValue, { mode: "cortical" }>), atlas })
+                  : undefined
+              }
+              onRegionsChange={
+                sceneCortical
+                  ? (regions) => setRoiValue({ ...(roiValue as Extract<RoiValue, { mode: "cortical" }>), regions })
+                  : undefined
+              }
               note={sceneNote}
             />
           }

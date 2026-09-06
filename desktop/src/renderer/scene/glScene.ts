@@ -176,13 +176,19 @@ uniform vec3 uChannel0;
 uniform vec3 uChannel1;
 uniform vec3 uChannel2;
 uniform vec3 uChannel3;
+uniform vec3 uChannel4;
+uniform vec3 uChannel5;
 out vec2 vCorner;
 out vec3 vColor;
 flat out highp uint vIndex;
 flat out highp uint vState;
 void main() {
   vec4 clip = uViewProj * vec4(aCenter, 1.0);
-  float scale = ((aState & 3u) != 0u) ? 1.5 : 1.0;
+  // Hover grows the dot; SELECTION does not. Selection is said in hue alone (the pane's whole
+  // electrode contract): a selected marker keeps
+  // the idle one's footprint exactly, which is what makes "no ring, no second glyph" a pixel test
+  // — the changed pixels are one solid disc with the same bounding box, not a disc plus a band.
+  float scale = ((aState & 2u) != 0u) ? 1.25 : 1.0;
   // Screen-constant size without gl_PointSize: offsetting clip.xy by (ndc offset * w) survives the
   // perspective divide exactly, and an instanced quad has none of the driver-dependent point-sprite
   // behaviour (clamped sizes, missing gl_PointCoord) that would make a marker unpickable on one GPU.
@@ -194,7 +200,9 @@ void main() {
   if (ch == 1u) c = uChannel0;
   else if (ch == 2u) c = uChannel1;
   else if (ch == 3u) c = uChannel2;
-  else if (ch >= 4u) c = uChannel3;
+  else if (ch == 4u) c = uChannel3;
+  else if (ch == 5u) c = uChannel4;
+  else if (ch >= 6u) c = uChannel5;
   if ((aState & 1u) != 0u && ch == 0u) c = uSelectedColor;
   if ((aState & 2u) != 0u) c = uHoverColor;
   vColor = c;
@@ -207,13 +215,11 @@ precision highp float;
 precision highp int;
 in vec2 vCorner;
 in vec3 vColor;
-flat in highp uint vState;
 out vec4 outColor;
 void main() {
   float r = length(vCorner);
   if (r > 1.0) discard;
   vec3 c = vColor * (0.78 + 0.22 * (1.0 - r));
-  if ((vState & 3u) != 0u && r > 0.66) c = vec3(1.0);
   outColor = vec4(c, smoothstep(1.0, 0.80, r));
 }`;
 
@@ -428,6 +434,8 @@ const MARKER_UNIFORMS = [
   "uChannel1",
   "uChannel2",
   "uChannel3",
+  "uChannel4",
+  "uChannel5",
 ];
 
 /**
@@ -887,13 +895,16 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       //    scalp is hidden by it, the way a person expects a head to work.
       gl.disable(gl.CULL_FACE);
       bindMarkerCommon(markerProgram, vp);
-      setUniform3f(markerProgram, "uMarkerColor", palette.marker);
+      // Channel 0 means "in no channel": neutral grey, never the accent — see `palette.idle`.
+      setUniform3f(markerProgram, "uMarkerColor", palette.idle);
       setUniform3f(markerProgram, "uSelectedColor", palette.selected);
       setUniform3f(markerProgram, "uHoverColor", palette.hover);
       setUniform3f(markerProgram, "uChannel0", palette.channels[0]);
       setUniform3f(markerProgram, "uChannel1", palette.channels[1]);
       setUniform3f(markerProgram, "uChannel2", palette.channels[2]);
       setUniform3f(markerProgram, "uChannel3", palette.channels[3]);
+      setUniform3f(markerProgram, "uChannel4", palette.channels[4]);
+      setUniform3f(markerProgram, "uChannel5", palette.channels[5]);
       drawMarkers();
 
       gl.bindVertexArray(null);

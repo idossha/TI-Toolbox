@@ -28,6 +28,11 @@ export interface ScenePalette {
   gm: Rgb;
   /** An unassigned marker. */
   marker: Rgb;
+  /** An electrode in no channel. A neutral grey, so "in a channel" is a hue and "not" is the
+   *  absence of one — colour is the whole state signal, and there is no selection ring. */
+  idle: Rgb;
+  /** 35 % grey — an electrode the montage cannot use. */
+  disabled: Rgb;
   /** A selected marker or region — `--accent` in the dark theme (#7fa6ff), which keeps the pane's
    *  "this is chosen" colour the same blue as the rest of the app's. */
   selected: Rgb;
@@ -35,8 +40,16 @@ export interface ScenePalette {
   hover: Rgb;
   /** Non-ROI regions when a region set is highlighted (plan §2.4, `target` mode). */
   dim: Rgb;
-  /** Per-channel marker colours; index wraps. Channel 1 and 2 are the two TI pairs. */
-  channels: [Rgb, Rgb, Rgb, Rgb];
+  /**
+   * Per-channel marker colours; index wraps.
+   *
+   * The **Okabe-Ito** qualitative set (Okabe & Ito 2008, "Color Universal Design") in its
+   * published order minus yellow: six hues that stay separable under deuteranopia, protanopia and
+   * tritanopia. The previous four had a green next to an orange, which a deuteranope reading a
+   * four-pair mTI montage could not tell apart — the exact case this palette exists for. Yellow is
+   * dropped because it is the one Okabe-Ito hue that does not hold up against the skin colour.
+   */
+  channels: [Rgb, Rgb, Rgb, Rgb, Rgb, Rgb];
 }
 
 export const SCENE_PALETTE: ScenePalette = {
@@ -47,7 +60,16 @@ export const SCENE_PALETTE: ScenePalette = {
   selected: rgb("#7fa6ff"), // --accent, dark theme
   hover: rgb("#ffffff"),
   dim: rgb("#4b5865"), // --ink-2, light theme
-  channels: [rgb("#7fa6ff"), rgb("#f0a35e"), rgb("#5fc9a0"), rgb("#d98cd0")],
+  idle: rgb("#9ea6b3"),
+  disabled: rgb("#595959"),
+  channels: [
+    rgb("#0072B2"), // blue
+    rgb("#E69F00"), // orange
+    rgb("#009E73"), // bluish green
+    rgb("#CC79A7"), // reddish purple
+    rgb("#D55E00"), // vermillion
+    rgb("#56B4E9"), // sky blue
+  ],
 };
 
 /** Default surface opacities. The skin is faint because its job is to give the electrodes a

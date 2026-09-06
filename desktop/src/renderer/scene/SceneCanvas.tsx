@@ -165,6 +165,16 @@ export interface SceneCanvasProps {
    * because a second `readPixels` stall per mouse move buys feedback nobody acts on.
    */
   onPickAt?: (pick: ScenePick) => void;
+  /**
+   * What the cursor is over, every time it changes — `null` when it is over nothing.
+   *
+   * The pane turns this into a **word** ("Hovering: superiorfrontal · lh"). A 3D region highlight
+   * with no name is the failure it prevents: the user sees a patch light up and still has to guess
+   * which of 70 atlas rows it is, which is exactly the guessing the interactive atlas exists to
+   * end. Hover never reads depth back (no `readPixels` stall per mouse move), so it names what was
+   * hit and not where.
+   */
+  onHoverChange?: (target: PickTarget | null) => void;
   /** Scene bounds; computed from the parts when omitted. */
   bounds?: Bounds;
   /**
@@ -209,6 +219,7 @@ export function SceneCanvas({
   onSelectionChange,
   onPick,
   onPickAt,
+  onHoverChange,
   bounds,
   focus,
   legend,
@@ -229,6 +240,10 @@ export function SceneCanvas({
   const fpsRef = useRef({ fps: 0, windowStart: 0, windowFrames: 0 });
   const sizeRef = useRef({ widthCss: 1, heightCss: 1, dpr: 1 });
   const hoverRef = useRef<PickTarget | null>(null);
+  /** In a ref so a caller may pass an inline callback without tearing down the pointer handlers
+   *  (which would drop a drag in progress). */
+  const onHoverChangeRef = useRef(onHoverChange);
+  onHoverChangeRef.current = onHoverChange;
   const lastPickRef = useRef<ScenePick | null>(null);
   const dragRef = useRef<{ mode: "orbit" | "pan"; startX: number; startY: number; x: number; y: number } | null>(null);
   /** What the current camera should be framed on, mirrored into a ref so the ResizeObserver can
@@ -649,6 +664,7 @@ export function SceneCanvas({
       if (!samePickTarget(target, hoverRef.current)) {
         hoverRef.current = target;
         setHover(target);
+        onHoverChangeRef.current?.(target);
       }
     },
     [canvasPoint, pickAt, setGoal],
@@ -702,6 +718,7 @@ export function SceneCanvas({
     if (hoverRef.current !== null) {
       hoverRef.current = null;
       setHover(null);
+      onHoverChangeRef.current?.(null);
     }
   }, []);
 

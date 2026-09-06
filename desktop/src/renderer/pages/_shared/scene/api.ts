@@ -27,6 +27,7 @@
  *    subject does not have, answers 404 with a sentence naming what is missing. That sentence is
  *    what the pane shows, so the user is told which file is absent instead of "failed to load".
  */
+import { parseTvsc1, type Tvsc1 } from "../../../scene/tvsc";
 import type { paths } from "../../../api/schema";
 
 /** The JSON body one scene operation answers 200 with, as the contract declares it. */
@@ -175,3 +176,27 @@ export async function getGuideElectrodes(net: string): Promise<GuideElectrodes> 
   const { body } = await getJson<GuideElectrodes>(`/api/guide/electrodes?net=${q(net)}`);
   return body;
 }
+
+/**
+ * A `TVSC1` payload — a guide surface, or the per-vertex labels aligned to `gm`.
+ *
+ * Binary, not JSON: 145 402 triangles as JSON numbers is ~9 MB of text to parse on the main
+ * thread. `parseTvsc1` is the independent reader the Python encoder is tested against
+ * (`tests/test_scene_tvsc.py` writes the fixture `scene-tvsc.test.ts` reads), so a change to
+ * either end fails a test rather than drawing a scrambled head.
+ */
+export async function getGuideTvsc(url: string): Promise<Tvsc1 | null> {
+  const res = await fetch(url, { credentials: "same-origin" });
+  if (!res.ok) throw new SceneError(res.status, await detailOf(res));
+  return parseTvsc1(await res.arrayBuffer());
+}
+
+export function guideSurfaceUrl(part: string): string {
+  return `/api/guide/surface?part=${q(part)}&format=tvsc`;
+}
+
+export function guideLabelsUrl(atlas: string): string {
+  return `/api/guide/labels?atlas=${q(atlas)}&format=tvsc`;
+}
+
+export type { Tvsc1 };

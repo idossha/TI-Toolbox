@@ -1,98 +1,100 @@
 /**
- * `<ScenePane mode="montage" | "target" | "inspect">` — a Tetravox-backed scene as a **form
- * control** on the three run pages.
+ * `<ScenePane mode="montage" | "target" | "inspect">` — the scene as a **form control** on the
+ * three run pages (`dev/notes/v3-native-panes-external-viewer-plan.md`, N1–N4).
  *
- * The page owns the selection: picks write back to the Simulator/Optimizer/Analyzer form, and form
- * edits are mirrored into the embedded scene. Surfaces are GIfTI mesh datasets loaded by the
- * Tetravox iframe, electrodes are protocol-2 inline points, and clicks are protocol-2 `pick`
- * events.
+ * `renderer/scene/` draws — our own WebGL2, no runtime dependency, no iframe, no protocol. This
+ * file is everything between that renderer and a page's form: it fetches the packaged guide over
+ * `/api/guide/*`, decodes TVSC1, and keeps the selection synchronised **in both directions**:
  *
- * **What it draws is the fixed guide, never the selected research subject**
- * (`desktop/IMPLEMENTATION_PLAN.md` R4). Three failures that change prevents:
+ * | mode      | page      | a pick means                                      | the form writes back |
+ * |-----------|-----------|---------------------------------------------------|----------------------|
+ * | `montage` | Simulator | toggle that electrode into the active pair slot   | editing a pair re-colours its dots |
+ * | `target`  | Optimizer | add/remove that atlas region from the ROI         | the ROI picker's region list IS the pane's selection |
+ * | `inspect` | Analyzer  | add/remove that atlas region from the analysis ROI | the analysis ROI is drawn where it will be measured |
  *
- *  - a project whose subjects have no head model yet showed a "run charm first" sentence where the
- *    anatomy should be — on exactly the pages a user is configuring *before* charm has run;
- *  - every change of the selected subject re-keyed three queries and reloaded the embed, so
- *    ticking a second subject cost a cache-cold 184 MB mesh extraction and a remount;
- *  - and a click could turn one subject's anatomy into a subject-RAS coordinate written into a
- *    configuration that runs on a *different* subject.
+ * Four rules, each with the failure it prevents:
  *
- * The last one is why the sphere gesture is gone from this pane: the guide's coordinates are
- * `guide-ras` and are never written into a configuration. Typed coordinates remain the way a
- * sphere centre is set; a picking mode for them needs an explicit space/transform contract first.
- *
- * `subject` and `unavailable` are still accepted so the pages keep compiling unchanged, and are
- * deliberately **ignored**: no request is keyed on them, so changing the selected subjects issues
- * no guide request and remounts no iframe. They are the props to delete once the pages are updated.
+ *  - **The pane never holds the selection.** `pairs` and `regions` are the page's state; a pick
+ *    calls the page's writer and the new value comes back down through the same `toggleRegion` the
+ *    form's own chips call. A pane with its own copy is a pane that can disagree with the form.
+ *  - **What it draws is the fixed guide, never the selected subject.** No query is keyed on a
+ *    subject, so ticking a second subject costs zero requests and zero remounts, and a pane on a
+ *    project whose head models do not exist yet still shows anatomy. Its space is `guide-ras`: the
+ *    pane names electrodes, nets and regions, and **never produces a coordinate**.
+ *  - **An electrode's colour is its whole state** — neutral grey in no channel, its channel's
+ *    Okabe-Ito hue when placed. No ring, no outline, no second glyph.
+ *  - **Every failure is a sentence, not an error box** — the server's own `detail` verbatim, and a
+ *    page that still works without the pane.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { getCapabilities } from "../../../api/client";
-import { usePageSession } from "../../../app/pageSession";
-import { usePageActive } from "../../../app/pageActivity";
-import { Button } from "../../../ui/Button";
+import {
+  SCENE_DEBUG,
+  SceneCanvas,
+  type Bounds,
+  type LegendEntry,
+  type PickTarget,
+  type ScenePart,
+  type SceneSelection,
+} from "../../../scene";
 import { Skeleton } from "../../../ui/Feedback";
-import { Slider } from "../../../ui/Toggle";
+import { Button } from "../../../ui/Button";
+import { Select } from "../../../ui/Select";
 import { ChannelLegend } from "../../../ui/ChannelLegend";
-import { EmbedFrame } from "../../../viewer/EmbedFrame";
-import { HANDSHAKE_TIMEOUT_MS, createChannel, type EmbedChannel } from "../../../viewer/channel";
-import { embedCan, embedShortfall, type EmbedCapability, type EmbedFeature } from "../../../viewer/embedProtocol";
-import { normalizeLayers, type CameraMessage, type EmbedLayer, type EmbedMessage, type PickMessage } from "../../../viewer/protocol";
 import { SceneError, type SceneLegendRow } from "./api";
 import {
-  POINTS_LAYER_NAME,
-  buildPaneViewSpec,
-  cameraPatchForScene,
-  labelLayerPredicate,
-  labelsForRegions,
-  liveLayerId,
-  pointLayerPredicate,
-  pointsFromMarkers,
-  regionFromPick,
-} from "./embedScene";
-import {
+  DEFAULT_OPACITY,
+  SCENE_PALETTE,
   applyElectrodePick,
   channelByElectrode,
   firstEmptySlot,
   markerIndicesFor,
   markersFromElectrodes,
   placedElectrodes,
-  regionKey,
+  regionsFromWireLabels,
   slotLabel,
+  toggleRegion,
   wireLabelsFor,
   type Pair,
   type SceneMarker,
   type SceneRegionRef,
-  type SceneSelection,
 } from "./model";
-import { useGuideElectrodes, useGuideManifest, useGuideRegions } from "./queries";
+import {
+  useGuideElectrodes,
+  useGuideLabels,
+  useGuideManifest,
+  useGuideRegions,
+  useGuideSurfaceRequests,
+  useGuideSurfaces,
+} from "./queries";
 import "./scene-pane.css";
 
 export type ScenePaneMode = "montage" | "target" | "inspect";
 
-/** What a click does. Derived from the mode and from which writer the page supplied.
- *
- * `"sphere"` is retained in the union only because the ViewSpec builder and its unit tests still
- * name it; the guide pane never produces it (R4). */
-export type SceneGesture = "electrode" | "region" | "sphere" | "none";
+/** What a click does. Derived from the mode and from which writer the page supplied — one gesture
+ *  is live at a time, so the pane can always say in one phrase what a click will do. */
+export type SceneGesture = "electrode" | "region" | "none";
 
 export interface ScenePaneProps {
   mode: ScenePaneMode;
   /*
-   * There is deliberately no `subject`, `unavailable`, `sphere` or `onSphereChange` prop. The pane
-   * draws the fixed guide (R4), so it is keyed on nothing a subject switch can change; and a
-   * sphere centre is a subject-RAS coordinate that the guide is in no position to produce.
+   * There is deliberately no `subject`, `unavailable`, `sphere` or `onSphereChange` prop: the pane
+   * draws the fixed guide, so nothing here is keyed on a subject, and a sphere centre is a
+   * subject-RAS coordinate that `guide-ras` millimetres are in no position to produce.
    */
   /** `montage`: the EEG net file name the manifest lists (`"EEG10-10_UI_Jurak_2007.csv"`). */
   net?: string | null;
-  /** `target`/`inspect`: the cortical atlas id (`"DK40"`). */
+  /** `target`/`inspect`: the cortical atlas id (`"DK40"`). Omitted, the pane picks the guide's
+   *  first packaged atlas and its own selector chooses from there. */
   atlas?: string | null;
+  /** Called when the user changes the atlas in the pane's own selector, so the form follows. When
+   *  it is absent the selector still works and the choice stays local to the pane. */
+  onAtlasChange?: (atlas: string) => void;
   /** `montage`: the pairs being edited. */
   pairs?: Pair[];
   onPairsChange?: (pairs: Pair[]) => void;
   /** Called when a pick arrives and the page has no montage draft open yet; the page opens one. */
   onRequestPairs?: (firstElectrode: string) => void;
-  /** `target`/`inspect`: the form's region list. */
+  /** `target`/`inspect`: the form's region list. The same array `<RoiPicker>` holds. */
   regions?: SceneRegionRef[];
   onRegionsChange?: (regions: SceneRegionRef[]) => void;
   /** A page-supplied sentence for a target the pane cannot draw (subcortical, a saved ROI CSV). */
@@ -100,8 +102,7 @@ export interface ScenePaneProps {
   /**
    * What the pane is drawing, when the page can name it: the montage row the user picked in the
    * Simulator's table. Rendered as an accent chip above the stage in exactly the tokens that tint
-   * that row (`--accent-soft` / `--accent`), so "the highlighted row" and "what the viewer shows"
-   * are visibly the same claim rather than two things a user has to correlate.
+   * that row, so "the highlighted row" and "what the pane shows" are visibly one claim.
    */
   showing?: { montage: string; net: string } | null;
   className?: string;
@@ -111,10 +112,11 @@ export interface ScenePaneProps {
 export interface ScenePaneDebug {
   mode: ScenePaneMode;
   gesture: SceneGesture;
+  /** Always `null`: the pane draws no research subject. Kept so the specs' shape does not churn. */
   subject: string | null;
   net: string | null;
   atlas: string | null;
-  state: "no-subject" | "unavailable" | "building" | "loading" | "ready" | "error";
+  state: "loading" | "ready" | "error";
   /** The guide the pane drew, e.g. `"ernie"` — never a research subject id. */
   guide: string | null;
   /** The guide manifest's own coordinate space. Always `"guide-ras"`; never `"subject-ras"`. */
@@ -124,7 +126,11 @@ export interface ScenePaneDebug {
   markers: number;
   regions: number;
   selection: SceneSelection;
-  /** Milliseconds from the pane first having a subject to Tetravox reporting `loaded`. */
+  /** The form-shaped regions currently selected — what a spec compares against `RoiPicker`'s chips. */
+  selectedRegions: SceneRegionRef[];
+  /** The region under the cursor, by name, or `null`. */
+  hovered: string | null;
+  /** Milliseconds from the pane having a guide to the first frame the renderer drew. */
   firstPaintMs: number | null;
   /** The whole legend, so a spec can map a wire label back to its region without a second fetch. */
   legend: SceneLegendRow[];
@@ -136,42 +142,27 @@ declare global {
   }
 }
 
-const SCENE_DEBUG = import.meta.env.DEV || import.meta.env.VITE_SCENE_HOOKS === "1";
+const NO_PARTS: ScenePart[] = [];
 const NO_MARKERS: SceneMarker[] = [];
-const NO_LAYERS: EmbedLayer[] = [];
-const EMPTY_SELECTION: SceneSelection = { markers: [], regions: [] };
 
-interface EmbedPaneState {
-  phase: "idle" | "loading" | "ready" | "error" | "no-webgl2" | "no-embed";
-  message: string | null;
-  renderer: string | null;
-  layers: EmbedLayer[];
-  pointsLayerId: string | null;
-  labelsLayerId: string | null;
-}
-
-const EMPTY_EMBED_STATE: EmbedPaneState = {
-  phase: "idle",
-  message: null,
-  renderer: null,
-  layers: NO_LAYERS,
-  pointsLayerId: null,
-  labelsLayerId: null,
+/**
+ * The renderer's rule set for a gesture (`scene/selection.ts::MODE_RULES`).
+ *
+ * Deliberately not the pane's own `mode`: the pane's mode says which page it is on, the canvas's
+ * says what is pickable. The Analyzer is `inspect` and still picks regions, so it maps to
+ * `target`.
+ */
+const CANVAS_MODE: Record<SceneGesture, "montage" | "target" | "inspect"> = {
+  electrode: "montage",
+  region: "target",
+  none: "inspect",
 };
-
-function firstMissingFeature(embed: EmbedCapability | null | undefined, required: EmbedFeature[]): EmbedFeature | null {
-  for (const feature of required) if (!embedCan(embed, feature)) return feature;
-  return null;
-}
-
-function samePoints(a: unknown, b: unknown): boolean {
-  return JSON.stringify(a) === JSON.stringify(b);
-}
 
 export function ScenePane({
   mode,
   net = null,
   atlas = null,
+  onAtlasChange,
   pairs,
   onPairsChange,
   onRequestPairs,
@@ -181,33 +172,34 @@ export function ScenePane({
   showing = null,
   className,
 }: ScenePaneProps) {
-  const pageActive = usePageActive();
-  const [reloadToken, setReloadToken] = useState(0);
-  /**
-   * A pick can name an electrode or a region — never a coordinate. `"sphere"` used to be a third
-   * gesture here; on the fixed guide it would write guide millimetres into a research subject's
-   * configuration, so it is gone rather than approximately transformed (R4).
-   */
-  const gesture: SceneGesture =
-    mode === "montage" ? "electrode" : onRegionsChange && atlas ? "region" : "none";
+  const gesture: SceneGesture = mode === "montage" ? "electrode" : onRegionsChange ? "region" : "none";
 
-  const capabilities = useQuery({ queryKey: ["capabilities"], queryFn: () => getCapabilities(), staleTime: 60_000 });
   const manifest = useGuideManifest();
   const manifestData = manifest.data;
   const guideId = manifestData?.guide?.id ?? null;
 
   /**
-   * The atlas the pane actually draws. A page with no atlas control of its own falls back to the
-   * guide's first packaged atlas, so the cortex still has regions to read.
+   * The atlas the pane draws. Always one in `target`/`inspect`, even when the form has no atlas of
+   * its own: the guide's atlas payloads are packaged and immutable, so cortical context costs one
+   * cached request, and a pane showing plain grey cortex until the user picks an atlas was the
+   * state most of these pages open in.
    */
-  // Always in `target`/`inspect`, even when the form has no atlas of its own: the guide's atlas
-  // payloads are packaged and immutable, so cortical context costs one cached request rather than
-  // a per-subject build, and a pane that showed plain grey cortex until the user picked an atlas
-  // was the state most of these pages open in.
   const wantsRegions = mode !== "montage";
-  const effectiveAtlas = wantsRegions ? (atlas ?? manifestData?.atlases[0]?.id ?? null) : null;
+  const [localAtlas, setLocalAtlas] = useState<string | null>(null);
+  const effectiveAtlas = wantsRegions ? (atlas ?? localAtlas ?? manifestData?.atlases[0]?.id ?? null) : null;
+  const chooseAtlas = useCallback(
+    (next: string) => {
+      setLocalAtlas(next);
+      onAtlasChange?.(next);
+    },
+    [onAtlasChange],
+  );
 
-  /** Only a net the MANIFEST lists is fetched; a catalog net absent from this subject is a note. */
+  const surfaceRequests = useGuideSurfaceRequests(manifestData);
+  const surfaces = useGuideSurfaces(surfaceRequests);
+
+  /** Only a net the MANIFEST lists is fetched; a catalog net the guide does not have is a note,
+   *  not an error — the montage still works perfectly well from the form. */
   const netListed = mode === "montage" && !!net && (manifestData?.nets.some((entry) => entry.name === net) ?? false);
   const netMissing = mode === "montage" && !!net && !!manifestData && !netListed;
   const electrodes = useGuideElectrodes(netListed ? net : null);
@@ -216,6 +208,82 @@ export function ScenePane({
     () => (regionsQuery.data ? (regionsQuery.data.legend as SceneLegendRow[]) : []),
     [regionsQuery.data],
   );
+  const labels = useGuideLabels(effectiveAtlas, legend.length > 0);
+
+  // ---- geometry ------------------------------------------------------------------------------
+  /**
+   * The decoded payloads, pulled out of the query array by hand.
+   *
+   * `useQueries` returns a NEW array every render, so a `useMemo` listing it as a dependency
+   * recomputes every render — and `parts` is `SceneCanvas`'s upload trigger. Measured once
+   * already: that pair is an infinite render loop that re-uploads 145 k triangles per frame and
+   * starves every `setTimeout` on the page. React Query hands back the same `data` object while it
+   * is cached, so these three references are the honest dependencies.
+   */
+  const skinData = surfaces[surfaceRequests.findIndex((part) => part.id === "skin")]?.data ?? null;
+  const gmData = surfaces[surfaceRequests.findIndex((part) => part.id === "gm")]?.data ?? null;
+  const labelData = labels.data ?? null;
+
+  /**
+   * The labels are applied only when their vertex count AND their first and last positions match
+   * the `gm` surface's. Both come from the same packaged build, so this can only fail on a
+   * half-regenerated guide — and checking it here makes that show as "labels not applied" rather
+   * than as a region highlighted centimetres from the one that was clicked, which no test in the
+   * browser would see.
+   */
+  const alignment = useMemo(() => {
+    if (!gmData || !labelData?.labels) return { aligned: false, reason: null as string | null };
+    if (labelData.vertexCount !== gmData.vertexCount) {
+      return {
+        aligned: false,
+        reason: `labels are for ${labelData.vertexCount} vertices, the surface has ${gmData.vertexCount}`,
+      };
+    }
+    const last = (gmData.vertexCount - 1) * 3;
+    const same = [0, 1, 2, last, last + 1, last + 2].every((i) => gmData.positions[i] === labelData.positions[i]);
+    return { aligned: same, reason: same ? null : "the labels payload's vertices are not the surface's" };
+  }, [gmData, labelData]);
+
+  const parts = useMemo<ScenePart[]>(() => {
+    const out: ScenePart[] = [];
+    // Grey matter first: it is inside the skin, so it is drawn first with depth writes off — the
+    // other way round the skin's translucent fragments reject the brain behind them and the brain
+    // disappears inside the head.
+    if (gmData?.indices) {
+      out.push({
+        id: "gm",
+        label: "Grey matter",
+        positions: gmData.positions,
+        indices: gmData.indices,
+        labels: alignment.aligned ? (labelData?.labels ?? null) : null,
+        color: SCENE_PALETTE.gm,
+        opacity: effectiveAtlas ? 0.92 : (DEFAULT_OPACITY.gm ?? 0.55),
+        order: 0,
+      });
+    }
+    if (skinData?.indices) {
+      out.push({
+        id: "skin",
+        label: "Skin",
+        positions: skinData.positions,
+        indices: skinData.indices,
+        labels: null,
+        color: SCENE_PALETTE.skin,
+        // Opaque under the electrodes (they sit ON it and one round the back must be hidden by
+        // it); faint when the cortex is what the user is aiming at.
+        opacity: gesture === "electrode" ? 1 : (DEFAULT_OPACITY.skin ?? 0.22),
+        order: 1,
+      });
+    }
+    return out.length > 0 ? out : NO_PARTS;
+  }, [gmData, skinData, labelData, alignment.aligned, effectiveAtlas, gesture]);
+
+  const box6 = (box: number[] | null | undefined): Bounds | undefined =>
+    box && box.length === 6 ? (box as Bounds) : undefined;
+  const bounds = useMemo<Bounds | undefined>(() => box6(manifestData?.bbox), [manifestData]);
+  /** What to FRAME when it is smaller than what to draw: the head with the neck cut off at the
+   *  lowest grey-matter vertex. The server decides which millimetre that is — it has the mesh. */
+  const focus = useMemo<Bounds | undefined>(() => box6(manifestData?.focus_bbox), [manifestData]);
 
   // ---- montage -------------------------------------------------------------------------------
   const activePairs = useMemo<Pair[]>(() => pairs ?? [], [pairs]);
@@ -225,9 +293,12 @@ export function ScenePane({
     [electrodes.data, channels],
   );
 
-  /** The slot the next electrode click fills. */
+  /**
+   * The slot the next electrode click fills. Re-seeded to the first EMPTY slot whenever the montage
+   * gains or loses a pair — not to 0: a first click with no draft open creates one with that
+   * electrode already in pair 1 A, and a reset to 0 would send the very next click back over it.
+   */
   const [cursor, setCursor] = useState(0);
-  /** The pair the next click fills — what the legend highlights and what B1's larger dot means. */
   const activeChannel = activePairs.length === 0 ? null : Math.floor((cursor % (activePairs.length * 2)) / 2);
   /** A legend chip click parks the cursor on that pair's first empty slot, or on its A slot when
    *  the pair is full — "make this the pair I am editing", not "clear it". */
@@ -238,7 +309,6 @@ export function ScenePane({
     },
     [activePairs],
   );
-
   const pairCount = activePairs.length;
   const [lastPairCount, setLastPairCount] = useState(pairCount);
   if (pairCount !== lastPairCount) {
@@ -246,210 +316,24 @@ export function ScenePane({
     setCursor(firstEmptySlot(activePairs));
   }
 
-  // ---- regions -------------------------------------------------------------------------------
-  // No sphere-centre marker: the centre is a subject-RAS coordinate and this is not that subject's
-  // head, so drawing it here would put it somewhere it is not (R4).
   const markers = gesture === "electrode" ? electrodeMarkers : NO_MARKERS;
 
+  // ---- selection -----------------------------------------------------------------------------
+  const formRegions = useMemo<SceneRegionRef[]>(() => regions ?? [], [regions]);
   const selection = useMemo<SceneSelection>(() => {
     if (gesture === "electrode") {
       return { markers: markerIndicesFor(electrodeMarkers, placedElectrodes(activePairs)), regions: [] };
     }
-    return { markers: [], regions: wireLabelsFor(legend, regions ?? []) };
-  }, [gesture, electrodeMarkers, activePairs, legend, regions]);
+    return { markers: [], regions: wireLabelsFor(legend, formRegions) };
+  }, [gesture, electrodeMarkers, activePairs, legend, formRegions]);
 
-  // The scene highlights the analysis/target ROI even when the pane is read-only.
-  const shownSelection = useMemo<SceneSelection>(
-    () =>
-      gesture === "none" && legend.length > 0 && regions && regions.length > 0
-        ? { markers: [], regions: wireLabelsFor(legend, regions) }
-        : selection,
-    [gesture, legend, regions, selection],
-  );
-
-  const requiredFeatures = useMemo<EmbedFeature[]>(() => {
-    const out: EmbedFeature[] = ["meshes", "camera"];
-    if (markers.length > 0 || gesture === "electrode") out.push("markers");
-    if (gesture !== "none") out.push("pick");
-    return out;
-  }, [gesture, markers.length]);
-  const embedCapability = capabilities.data?.tetravox_embed as EmbedCapability | undefined;
-  const missingFeature = capabilities.data ? firstMissingFeature(embedCapability, requiredFeatures) : null;
-  const capabilityShortfall = missingFeature ? embedShortfall(embedCapability, missingFeature) : null;
-
-  // ---- embedded Tetravox channel -------------------------------------------------------------
-  const [embedState, setEmbedState] = useState<EmbedPaneState>(EMPTY_EMBED_STATE);
-  const [skinOpacity, setSkinOpacity] = usePageSession<number | null>("sceneSkinOpacity", null);
-  const [gmOpacity, setGmOpacity] = usePageSession<number | null>("sceneGmOpacity", null);
-  const opacityRef = useRef({ skin: skinOpacity, gm: gmOpacity });
-  const channelRef = useRef<EmbedChannel | null>(null);
-  const embedReadyRef = useRef(false);
-  const pendingSceneRef = useRef<ReturnType<typeof buildPaneViewSpec> | null>(null);
-  const liveLayersRef = useRef<EmbedLayer[]>(NO_LAYERS);
-  const pickHandlerRef = useRef<(pick: PickMessage) => void>(() => undefined);
-  const pointsRef = useRef<ReturnType<typeof pointsFromMarkers>>([]);
-  const selectedLabelsRef = useRef<number[]>([]);
-  const labelsLayerIdRef = useRef<string | null>(null);
-  const cameraPatchRef = useRef<ReturnType<typeof cameraPatchForScene>>(null);
-  const firstPaintRef = useRef<number | null>(null);
-  const startedAt = useRef<number | null>(null);
-
-  const syncOpacity = useCallback(() => {
-    for (const layer of liveLayersRef.current) {
-      if (layer.kind !== "mesh") continue;
-      const part = layer.name === "Skin" ? "skin" : layer.name === "Grey matter" || layer.name?.startsWith("TI pane atlas · ") ? "gm" : null;
-      const opacity = part ? opacityRef.current[part] : null;
-      if (opacity !== null && opacity !== undefined && opacity !== layer.opacity) {
-        channelRef.current?.post({ type: "setLayerOpacity", layerId: layer.id, opacity });
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    opacityRef.current = { skin: skinOpacity, gm: gmOpacity };
-    syncOpacity();
-  }, [skinOpacity, gmOpacity, syncOpacity]);
-
-  /**
-   * The one write that draws the electrodes: a whole replacement of the layer's points (plan B3).
-   *
-   * Two messages this deliberately never sends, and the reasons are not stylistic:
-   *
-   *  - `setPointSelection` — the embed's selection is drawn as a **ring** around the point, and a
-   *    ring around a dot is exactly the visual the maintainer asked to be rid of. Colour is the
-   *    whole signal here, and the colour arrives in `points`.
-   *  - `setPointTool` — a tool would let the embed mutate the layer itself; the form is the source
-   *    of truth, so the embed is never given a way to write.
-   *
-   * Fire-and-forget: embed 0.4.0 answers `setPoints` with a `layers` **event** that carries no
-   * correlation id, so a host that awaits a reply waits for ever (measured in
-   * `tests/e2e/real/embed-occlusion.spec.ts`'s `sendAndSettle`). The upstream fix is in the TX
-   * lane; until it ships, not awaiting is the correct behaviour, not a shortcut.
-   */
-  const syncPoints = useCallback((layerId: string | null) => {
-    const channel = channelRef.current;
-    if (!channel || !layerId) return;
-    channel.post({ type: "setPoints", layerId, points: pointsRef.current });
-  }, []);
-
-  const syncLabels = useCallback((layerId: string | null) => {
-    const channel = channelRef.current;
-    if (!channel || !layerId) return;
-    const layer = liveLayersRef.current.find((candidate) => candidate.id === layerId);
-    const current = (layer?.label ?? null) as Record<string, unknown> | null;
-    if (!current || typeof current !== "object") return;
-    const rest = { ...current };
-    delete rest.visibleLabels;
-    channel.post({
-      type: "updateLayer",
-      layerId,
-      patch: { label: selectedLabelsRef.current.length > 0 ? { ...rest, visibleLabels: selectedLabelsRef.current } : rest },
-    });
-  }, []);
-
-  const sendCamera = useCallback(() => {
-    const channel = channelRef.current;
-    const patch = cameraPatchRef.current;
-    if (!channel || !patch) return;
-    void channel.request<CameraMessage>({ type: "setCamera", patch }, "camera").catch(() => undefined);
-  }, []);
-  const handleEmbedMessage = useCallback(
-    (message: EmbedMessage) => {
-      switch (message.type) {
-        case "ready": {
-          embedReadyRef.current = true;
-          if (!message.caps.webgl2) {
-            setEmbedState((s) => ({ ...s, phase: "no-webgl2", message: "This machine cannot run the 3D viewer: WebGL2 is unavailable.", renderer: message.caps.renderer ?? null }));
-            return;
-          }
-          setEmbedState((s) => ({ ...s, renderer: message.caps.renderer ?? null, message: null, phase: pendingSceneRef.current ? "loading" : "idle" }));
-          if (pendingSceneRef.current) channelRef.current?.post({ type: "load", scene: pendingSceneRef.current });
-          return;
-        }
-        case "status": {
-          if (message.phase === "error") setEmbedState((s) => ({ ...s, phase: "error", message: message.message ?? "The viewer reported an error." }));
-          else if (message.phase === "no-webgl2") setEmbedState((s) => ({ ...s, phase: "no-webgl2", message: "This machine cannot run the 3D viewer: WebGL2 is unavailable." }));
-          else setEmbedState((s) => ({ ...s, phase: message.phase === "ready" ? "ready" : message.phase, message: null }));
-          return;
-        }
-        case "loaded": {
-          const layers = normalizeLayers(message.layers);
-          liveLayersRef.current = layers;
-          const pointsLayerId = liveLayerId(layers, pointLayerPredicate);
-          const labelsLayerId = liveLayerId(layers, labelLayerPredicate(effectiveAtlas));
-          labelsLayerIdRef.current = labelsLayerId;
-          setEmbedState((s) => ({ ...s, phase: "ready", message: null, layers, pointsLayerId, labelsLayerId }));
-          if (startedAt.current !== null && firstPaintRef.current === null) firstPaintRef.current = Math.round(performance.now() - startedAt.current);
-          channelRef.current?.post({ type: "setPickEvents", enabled: gesture !== "none" });
-          syncPoints(pointsLayerId);
-          syncLabels(labelsLayerId);
-          syncOpacity();
-          sendCamera();
-          return;
-        }
-        case "layers": {
-          const layers = normalizeLayers(message.layers);
-          liveLayersRef.current = layers;
-          const pointsLayerId = liveLayerId(layers, pointLayerPredicate);
-          const labelsLayerId = liveLayerId(layers, labelLayerPredicate(effectiveAtlas));
-          labelsLayerIdRef.current = labelsLayerId;
-          setEmbedState((s) => ({ ...s, layers, pointsLayerId, labelsLayerId }));
-          return;
-        }
-        case "pick":
-          pickHandlerRef.current(message);
-          return;
-        case "camera":
-          return;
-        case "error":
-          setEmbedState((s) => ({ ...s, phase: "error", message: message.message }));
-          return;
-        default:
-          return;
-      }
-    },
-    [effectiveAtlas, gesture, sendCamera, syncLabels, syncPoints, syncOpacity],
-  );
-
-  // A form edit can change the pick handler without changing the iframe. Reconnecting on callback
-  // identity resets the renderer and camera even while the user stays on this tab.
-  const messageHandlerRef = useRef(handleEmbedMessage);
-  useEffect(() => {
-    messageHandlerRef.current = handleEmbedMessage;
-  }, [handleEmbedMessage]);
-
-  const connect = useCallback(
-    (frame: HTMLIFrameElement, embedOrigin: string, timeoutMs = HANDSHAKE_TIMEOUT_MS) => {
-      channelRef.current?.dispose();
-      embedReadyRef.current = false;
-      setEmbedState((s) => ({ ...s, phase: pendingSceneRef.current ? "loading" : "idle", message: null }));
-      channelRef.current = createChannel(frame, embedOrigin, (message) => messageHandlerRef.current(message), timeoutMs, () => {
-        if (!embedReadyRef.current) setEmbedState((s) => ({ ...s, phase: "no-embed", message: "The viewer bundle mounted but did not answer." }));
-      });
-      channelRef.current.post({ type: "hello" });
-    },
-    [],
-  );
-
-  const disconnect = useCallback(() => {
-    const channel = channelRef.current;
-    if (channel) {
-      channel.post({ type: "reset" });
-      channel.dispose();
-    }
-    channelRef.current = null;
-    embedReadyRef.current = false;
-    liveLayersRef.current = NO_LAYERS;
-    labelsLayerIdRef.current = null;
-    setEmbedState(EMPTY_EMBED_STATE);
-  }, []);
-
-  // ---- pick handling -------------------------------------------------------------------------
-  useEffect(() => {
-    pickHandlerRef.current = (pick: PickMessage): void => {
-      if (gesture === "electrode" && pick.kind === "point" && pick.pointId) {
-        const name = pick.pointId;
-        if (!electrodeMarkers.some((marker) => marker.id === name)) return;
+  // ---- picking -------------------------------------------------------------------------------
+  const onPick = useCallback(
+    (target: PickTarget | null) => {
+      if (!target) return;
+      if (gesture === "electrode" && target.kind === "marker") {
+        const name = electrodeMarkers[target.index]?.id;
+        if (!name) return;
         if (!onPairsChange || activePairs.length === 0) {
           onRequestPairs?.(name);
           return;
@@ -459,124 +343,108 @@ export function ScenePane({
         onPairsChange(next.pairs);
         return;
       }
-      if (gesture === "region") {
-        const picked = regionFromPick(pick, legend, labelsLayerIdRef.current);
-        if (!picked) return;
-        const current = regions ?? [];
-        const key = regionKey(picked);
-        const next = current.some((r) => regionKey(r) === key)
-          ? current.filter((r) => regionKey(r) !== key)
-          : [...current, picked];
-        onRegionsChange?.(next);
-        return;
+      if (gesture === "region" && target.kind === "region") {
+        const picked = regionsFromWireLabels(legend, [target.index])[0];
+        // The same toggle the form's own chips run — one selection model, not two that agree.
+        if (picked) onRegionsChange?.(toggleRegion(formRegions, picked));
       }
-      // Deliberately nothing else. A pick on the guide can name an electrode or a region; it can
-      // never produce a coordinate, because these millimetres are `guide-ras` (R4).
-    };
-  }, [gesture, electrodeMarkers, onPairsChange, onRequestPairs, activePairs, cursor, legend, regions, onRegionsChange]);
-
-  // ---- ViewSpec and live point/label sync ----------------------------------------------------
-  const includePointsLayer = gesture === "electrode";
-  // A required atlas is part of the first scene, not a second asynchronous load over temporary
-  // anatomy. Overlapping loads can leave duplicate skin/cortex layers in the same embed engine.
-  const sceneSpec = useMemo(
-    () =>
-      manifestData && (!effectiveAtlas || regionsQuery.data) && !capabilityShortfall
-        ? buildPaneViewSpec({
-            manifest: manifestData,
-            mode,
-            gesture,
-            atlas: effectiveAtlas,
-            regions: effectiveAtlas && regionsQuery.data ? regionsQuery.data : null,
-            selection: EMPTY_SELECTION,
-            includePointsLayer,
-          })
-        : null,
-    [manifestData, regionsQuery.data, capabilityShortfall, mode, gesture, effectiveAtlas, includePointsLayer],
+      // Deliberately nothing else. A pick on the guide names an electrode or a region; it can never
+      // produce a coordinate, because these millimetres are `guide-ras`.
+    },
+    [gesture, electrodeMarkers, onPairsChange, onRequestPairs, activePairs, cursor, legend, formRegions, onRegionsChange],
   );
 
-  // Keyed on the GUIDE, not on a subject: this is what makes "changing subjects remounts nothing"
-  // true rather than merely intended — a subject change reaches no dependency here.
-  useEffect(() => {
-    startedAt.current = guideId ? performance.now() : null;
-    firstPaintRef.current = null;
-  }, [guideId, effectiveAtlas]);
-
-  useEffect(() => {
-    pendingSceneRef.current = sceneSpec;
-    cameraPatchRef.current = sceneSpec ? cameraPatchForScene(sceneSpec) : null;
-    if (!sceneSpec || capabilityShortfall) return;
-    setEmbedState((s) => ({ ...s, phase: embedReadyRef.current ? "loading" : s.phase, message: null, pointsLayerId: null, labelsLayerId: null }));
-    if (embedReadyRef.current) channelRef.current?.post({ type: "load", scene: sceneSpec });
-  }, [sceneSpec, capabilityShortfall]);
-
-  useEffect(() => {
-    channelRef.current?.post({ type: "setPickEvents", enabled: gesture !== "none" });
-  }, [gesture, embedState.pointsLayerId]);
-
-  const points = useMemo(
-    () => pointsFromMarkers(markers, shownSelection, gesture === "electrode" ? activeChannel : null),
-    [markers, shownSelection, gesture, activeChannel],
+  const [hovered, setHovered] = useState<string | null>(null);
+  const onHoverChange = useCallback(
+    (target: PickTarget | null) => {
+      if (!target) return setHovered(null);
+      if (target.kind === "marker") return setHovered(electrodeMarkers[target.index]?.label ?? null);
+      const row = legend.find((entry) => entry.label === target.index);
+      setHovered(row ? `${row.name}${row.hemi ? ` · ${row.hemi}` : ""}` : null);
+    },
+    [electrodeMarkers, legend],
   );
-  useEffect(() => {
-    if (!samePoints(pointsRef.current, points)) pointsRef.current = points;
-    syncPoints(embedState.pointsLayerId);
-  }, [points, embedState.pointsLayerId, syncPoints]);
-
-  const selectedLabels = useMemo(() => labelsForRegions(legend, regions), [legend, regions]);
-  useEffect(() => {
-    selectedLabelsRef.current = selectedLabels;
-    syncLabels(embedState.labelsLayerId);
-  }, [selectedLabels, embedState.labelsLayerId, syncLabels]);
 
   // ---- states --------------------------------------------------------------------------------
-  const error = (manifest.error ?? regionsQuery.error) as Error | null | undefined;
+  // An atlas or a net the guide does not have is a NOTE, not an error state: the anatomy is still
+  // worth drawing and the form is still usable. Only the manifest or a surface payload empties it.
+  const error = (manifest.error ?? surfaces.find((s) => s.error)?.error) as Error | null | undefined;
   const sideError = (regionsQuery.error ?? electrodes.error) as Error | null | undefined;
-  // The guide ships built; nothing here can be "building". The state is kept in the union so the
-  // debug shape and its specs do not churn while the pages still pass their old props.
-  const building = false;
-  const embedMessage = embedState.message;
-  const embedFailed = embedState.phase === "error" || embedState.phase === "no-webgl2" || embedState.phase === "no-embed";
-
-  const state: ScenePaneDebug["state"] = ((): ScenePaneDebug["state"] => {
-    if (error || capabilityShortfall || embedFailed) return "error";
-    if (building) return "building";
-    return sceneSpec && embedState.phase === "ready" ? "ready" : "loading";
-  })();
+  const state: ScenePaneDebug["state"] = error ? "error" : parts.length === 0 ? "loading" : "ready";
 
   const message = ((): string | null => {
-    if (capabilityShortfall) return capabilityShortfall;
-    if (embedFailed) return embedMessage ?? "The embedded viewer could not render this scene.";
-    switch (state) {
-      case "no-subject":
-      case "unavailable":
-        return null;
-      case "error":
-        return error instanceof SceneError ? error.message : (error?.message ?? "The scene could not be loaded.");
-      case "building":
-        return "Building the guide scene…";
-      case "loading":
-        return capabilities.isPending ? "Checking the viewer bundle…" : sceneSpec ? "Loading the embedded 3D scene…" : "Loading the guide head model…";
-      default:
-        return null;
+    if (state === "error") {
+      // The server's own `detail` verbatim: it names the missing file, which a sentence written
+      // here could not.
+      return error instanceof SceneError ? error.message : (error?.message ?? "The scene could not be loaded.");
     }
+    if (state === "loading") return "Loading the guide head model…";
+    return null;
   })();
 
-  // ---- legend / hint -------------------------------------------------------------------------
+  // ---- first paint ---------------------------------------------------------------------------
+  // Refs, not state: this number is read through the debug handle and by nothing that renders, and
+  // putting it in state would re-render the pane purely to record a measurement.
+  const startedAt = useRef<number | null>(null);
+  const firstPaintRef = useRef<number | null>(null);
+  useEffect(() => {
+    startedAt.current = performance.now();
+    firstPaintRef.current = null;
+  }, []);
+  useEffect(() => {
+    if (parts.length === 0 || startedAt.current === null || firstPaintRef.current !== null) return;
+    // Two frames: the first is the render React just scheduled, the second is after the canvas has
+    // drawn in it — a single rAF fires before the renderer's own loop has run.
+    let raf = requestAnimationFrame(() => {
+      raf = requestAnimationFrame(() => {
+        const started = startedAt.current;
+        if (started !== null && firstPaintRef.current === null) {
+          firstPaintRef.current = Math.round(performance.now() - started);
+        }
+      });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [parts.length]);
+
+  // ---- legend --------------------------------------------------------------------------------
+  const selectedRegionRows = useMemo(
+    () => formRegions.filter((region) => legend.some((row) => row.id === region.id && row.hemi === region.hemi)),
+    [formRegions, legend],
+  );
+
+  const paneLegend = useMemo<LegendEntry[]>(() => {
+    const rows: LegendEntry[] = [];
+    if (gesture !== "electrode" && effectiveAtlas && legend.length > 0) {
+      rows.push({ key: "atlas", label: effectiveAtlas, color: SCENE_PALETTE.dim, detail: `${legend.length} regions` });
+      for (const region of selectedRegionRows) {
+        rows.push({
+          key: `roi-${region.hemi ?? ""}-${region.id}`,
+          label: region.name,
+          color: SCENE_PALETTE.selected,
+          detail: region.hemi ?? undefined,
+        });
+      }
+    }
+    return rows;
+  }, [gesture, effectiveAtlas, legend.length, selectedRegionRows]);
+
+  /** One phrase saying what a click does — the pane's own instruction, never a tooltip. */
   const hint = ((): string => {
     if (note) return note;
     if (netMissing) return `The guide has no ${net} electrode positions — the montage still works from the form.`;
     if (sideError) return sideError instanceof SceneError ? sideError.message : "Some of this scene could not be loaded.";
     if (gesture === "electrode") {
-      return activePairs.length === 0 ? "Click an electrode to start a montage." : `Click an electrode to fill ${slotLabel(activePairs, cursor)}.`;
+      return activePairs.length === 0
+        ? "Click an electrode to start a montage."
+        : `Click an electrode to fill ${slotLabel(activePairs, cursor)}.`;
     }
     if (gesture === "region") return "Click a region to add or remove it from the ROI.";
     return "Reference anatomy — a guide for choosing names, not this subject's head.";
   })();
 
-  // ---- debug handle --------------------------------------------------------------------------
+  // ---- the debug handle ----------------------------------------------------------------------
   useEffect(() => {
-    if (!SCENE_DEBUG || !pageActive) return;
+    if (!SCENE_DEBUG) return;
     const handle: ScenePaneDebug = {
       mode,
       gesture,
@@ -587,15 +455,17 @@ export function ScenePane({
       atlas: effectiveAtlas,
       state,
       message,
-      parts: (manifestData?.parts ?? []).map((part) => ({
+      parts: parts.map((part) => ({
         id: part.id,
-        triangles: part.triangles ?? 0,
-        vertices: part.vertices ?? 0,
-        labelled: part.id === "gm" && !!effectiveAtlas && legend.length > 0,
+        triangles: part.indices.length / 3,
+        vertices: part.positions.length / 3,
+        labelled: !!part.labels,
       })),
       markers: markers.length,
       regions: legend.length,
-      selection: shownSelection,
+      selection,
+      selectedRegions: selectedRegionRows,
+      hovered,
       get firstPaintMs() {
         return firstPaintRef.current;
       },
@@ -605,15 +475,23 @@ export function ScenePane({
     return () => {
       if (window.__scenePane === handle) delete window.__scenePane;
     };
-  }, [pageActive, mode, gesture, guideId, net, effectiveAtlas, state, message, manifestData, markers.length, legend, shownSelection]);
+  }, [mode, gesture, guideId, manifestData, net, effectiveAtlas, state, message, parts, markers.length, legend, selection, selectedRegionRows, hovered]);
 
-  // Keep failures visible until an explicit retry. Unmounting here calls disconnect(), which
-  // clears the failure and otherwise creates an endless mount/timeout/reset loop.
-  const showEmbed = !!sceneSpec && !capabilityShortfall;
-  const hostClassName = `scene-pane-host ${className ?? ""}`.trim();
+  const atlasOptions = useMemo(
+    () => (manifestData?.atlases ?? []).map((entry) => ({ value: String(entry.id), label: String(entry.id) })),
+    [manifestData],
+  );
 
   return (
-    <div className={hostClassName} data-testid="scene-pane-host" data-mode={mode} data-gesture={gesture} data-state={state} data-renderer="tetravox" data-active-channel={activeChannel ?? ""}>
+    <div
+      className={`scene-pane-host ${className ?? ""}`.trim()}
+      data-testid="scene-pane-host"
+      data-mode={mode}
+      data-gesture={gesture}
+      data-state={state}
+      data-renderer="native"
+      data-active-channel={activeChannel ?? ""}
+    >
       {showing ? (
         <p className="scene-pane-showing" data-testid="scene-pane-showing">
           Showing: <strong>{showing.montage}</strong> · {showing.net}
@@ -622,65 +500,59 @@ export function ScenePane({
       {gesture === "electrode" ? (
         <ChannelLegend pairs={activePairs} activeChannel={activeChannel} onActivate={activateChannel} />
       ) : null}
-      <div className="scene-pane-stage">
-        {showEmbed ? (
-          <EmbedFrame
-            connect={connect}
-            disconnect={disconnect}
-            className="scene-pane-embed"
-            testId="scene-pane-tetravox-frame"
-            title={`${guideId ?? "guide"} 3D scene`}
-            presentation="viewport"
-            reloadToken={reloadToken}
+      {wantsRegions && atlasOptions.length > 0 ? (
+        <div className="scene-pane-atlas" data-testid="scene-pane-atlas">
+          <Select
+            aria-label="Atlas"
+            value={effectiveAtlas ?? ""}
+            onValueChange={chooseAtlas}
+            options={atlasOptions}
           />
-        ) : null}
-        {(!showEmbed || state !== "ready") && (
-          <div className={showEmbed ? "scene-pane-placeholder scene-pane-overlay" : "scene-pane-placeholder"} data-testid="scene-pane-placeholder">
-            {state === "loading" && !capabilityShortfall && !embedFailed ? <Skeleton height={120} /> : null}
+          <span className="scene-pane-hovered" data-testid="scene-pane-hovered">
+            {hovered ?? ""}
+          </span>
+        </div>
+      ) : null}
+      <div className="scene-pane-stage">
+        {state === "ready" ? (
+          <SceneCanvas
+            mode={CANVAS_MODE[gesture]}
+            parts={parts}
+            markers={markers}
+            /* Electrodes lie on the scalp, so the scalp hides the ones round the back. */
+            markersOccluded
+            selection={selection}
+            onPick={onPick}
+            onHoverChange={onHoverChange}
+            bounds={bounds}
+            focus={focus}
+            legend={paneLegend}
+            label={`${guideId ?? "guide"} head model`}
+          />
+        ) : (
+          <div className="scene-pane-placeholder" data-testid="scene-pane-placeholder">
+            {state === "loading" ? <Skeleton height={120} /> : null}
             <p className="scene-pane-message" data-testid="scene-pane-message">
               {message ?? ""}
             </p>
-            {embedFailed || error ? (
+            {state === "error" ? (
               <Button
                 className="scene-pane-retry"
-                disabled={manifest.isFetching || regionsQuery.isFetching}
+                disabled={manifest.isFetching}
                 onClick={() => {
                   if (manifest.error) void manifest.refetch();
-                  if (regionsQuery.error) void regionsQuery.refetch();
-                  if (embedFailed) setReloadToken((token) => token + 1);
+                  for (const surface of surfaces) if (surface.error) void surface.refetch();
                 }}
-              >Retry 3D preview</Button>
+              >
+                Retry 3D preview
+              </Button>
             ) : null}
           </div>
         )}
       </div>
-      <div className="scene-pane-opacity" role="group" aria-label="Surface opacity" data-testid="scene-pane-opacity">
-        <div className="scene-pane-opacity-row" data-testid="scene-skin-opacity">
-          <span>Skin</span>
-          <Slider
-            aria-label="Skin opacity"
-            value={Math.round((skinOpacity ?? (gesture === "electrode" ? 1 : 0.22)) * 100)}
-            onValueChange={(value) => setSkinOpacity(value / 100)}
-            unit="%"
-            disabled={state !== "ready" || !manifestData?.parts.some((part) => part.id === "skin")}
-          />
-        </div>
-        <div className="scene-pane-opacity-row" data-testid="scene-gm-opacity">
-          <span>Grey matter</span>
-          <Slider
-            aria-label="Grey matter opacity"
-            value={Math.round((gmOpacity ?? (effectiveAtlas ? 0.92 : 0.55)) * 100)}
-            onValueChange={(value) => setGmOpacity(value / 100)}
-            unit="%"
-            disabled={state !== "ready" || !manifestData?.parts.some((part) => part.id === "gm")}
-          />
-        </div>
-      </div>
       <p className="scene-pane-hint" data-testid="scene-pane-hint">
-        {state === "ready" || state === "building" ? hint : ""}
+        {state === "ready" ? hint : ""}
       </p>
-      {SCENE_DEBUG && embedState.renderer ? <span hidden data-testid="scene-pane-renderer">{embedState.renderer}</span> : null}
-      {SCENE_DEBUG && embedState.pointsLayerId ? <span hidden data-testid="scene-pane-points-layer">{POINTS_LAYER_NAME}</span> : null}
     </div>
   );
 }

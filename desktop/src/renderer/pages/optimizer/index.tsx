@@ -545,6 +545,11 @@ function OptimizerPage() {
               mode="target"
               atlas={sceneCortical && flexRoi.mode === "cortical" ? (flexRoi.atlas ?? null) : null}
               regions={sceneCortical && flexRoi.mode === "cortical" ? flexRoi.regions : undefined}
+              onAtlasChange={
+                sceneCortical
+                  ? (atlas) => setFlexRoi({ ...(flexRoi as Extract<RoiValue, { mode: "cortical" }>), atlas })
+                  : undefined
+              }
               onRegionsChange={
                 sceneCortical
                   ? (regions) => setFlexRoi({ ...(flexRoi as Extract<RoiValue, { mode: "cortical" }>), regions })
