@@ -119,19 +119,16 @@ function SimulatorPage() {
 
   const jobSubjects = useMemo(() => jobSubjectsFrom(subjects), [subjects]);
   const usable = useMemo(() => jobSubjects.filter((s) => !s.blockedReason).map((s) => s.id), [jobSubjects]);
-  const usableKey = usable.join(",");
 
   const subjectDetailQueries = useQueries({
     queries: usable.map((id) => ({ queryKey: ["subject-detail", id], queryFn: () => getSubjectDetail(id), staleTime: 60_000 })),
   });
-  const subjectNets = useMemo(() => {
-    const map: Record<string, string[]> = {};
-    usableKey.split(",").filter(Boolean).forEach((id, i) => {
-      map[id] = subjectDetailQueries[i]?.data?.eeg_nets ?? [];
-    });
-    return map;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `useQueries` hands back a fresh array each render.
-  }, [usableKey, subjectDetailQueries.map((q) => q.dataUpdatedAt).join(",")]);
+  // Derived every render, not memoized: `useQueries` hands back a fresh array each render, so a
+  // `useMemo` over it could only be keyed on a serialisation (see `RunControls.tsx`'s `useSimPlan`).
+  const subjectNets: Record<string, string[]> = {};
+  usable.forEach((id, i) => {
+    subjectNets[id] = subjectDetailQueries[i]?.data?.eeg_nets ?? [];
+  });
 
   // The page starts with one empty job row seeded on the shell's primary subject: a table whose
   // first act is "press Add job" would make the page's own subject a thing to discover.

@@ -1,12 +1,10 @@
 /**
- * The Viewer page's pure parts: deep-link parsing, the 3D-hint derivation, and the status bar's
- * formatting.
+ * The Viewer page's pure parts: the selection model, deep-link parsing and theme reading.
  *
  * Separate from `index.tsx` only so the unit test can import them without dragging in
  * `app/registry`'s eager page glob through `app/keyboard`. Nothing here touches the store, the API
  * or the DOM beyond `<html data-theme>`.
  */
-import type { EmbedLayer } from "../../viewer";
 import type { Space, ViewKind } from "./api";
 
 export interface ViewerDeepLink {
@@ -52,79 +50,14 @@ export function readDeepLink(routerSearch: string, documentSearch: string): View
   };
 }
 
-/**
- * A layer's display name — the embed's `name` when it has one, its live id otherwise.
- *
- * The name is the SERVER's to curate: `tit/viewspec.py` decides what a layer is called and this
- * page renders whatever it decided, plus the file's own basename underneath when the two differ
- * (see {@link layerFile}). A display-name glossary in the client would be a second, drifting copy
- * of the pipeline's naming grammar.
- */
-export function layerName(layer: EmbedLayer): string {
-  return typeof layer.name === "string" && layer.name !== "" ? layer.name : layer.id;
-}
-
-/**
- * The mesh whose absence leaves the 3D pane looking empty, or `null` when there is nothing to say.
- *
- * MESH layers only, deliberately — not every layer the engine will draw into the 3D pane. A label
- * volume carries `showIn3D: true` (the electrode overlay in a real simulation scene does) and is
- * technically 3D content, but what fills that pane for a researcher is the surface, and the surface
- * is the layer the server hides by default: `tit/viewspec.py::_grey_mesh_layer` sets
- * `visible=False` because these files run 24-420 MB. So the hint fires exactly when the scene has a
- * mesh and every mesh is switched off, and the sentence it produces ("enable a mesh layer") is
- * something the reader can actually act on.
- *
- * `kind` survives the load's id re-issue via the store's `withPreservedLayerFields`.
- */
-export function hidden3DLayer(layers: EmbedLayer[]): EmbedLayer | null {
-  const meshes = layers.filter((l) => l.kind === "mesh");
-  if (meshes.length === 0 || meshes.some((l) => l.visible !== false)) return null;
-  return meshes[0] ?? null;
-}
 
 // ------------------------------------------------------------------------------------------------
 // Status bar formatting (DESIGN.md §10, §11) — the RAS and renderer cells' own small derivations,
 // pulled out here so the unit test can assert them without a store or a DOM.
 // ------------------------------------------------------------------------------------------------
 
-/**
- * The `ras` status cell's value, or `undefined` when there is no cursor to report — the cell is
- * then not rendered at all (`useStatusCells` drops nullish values; §11 forbids a placeholder "—").
- */
-export function formatRas(cursor: readonly [number, number, number] | null): string | undefined {
-  if (cursor === null) return undefined;
-  return cursor.map((v) => v.toFixed(1)).join("  ");
-}
 
-/**
- * A GL renderer string is long (`"ANGLE (Apple, Apple M2 Pro, OpenGL 4.1)"`); the status cell shows
- * the useful middle rather than the whole ANGLE wrapper.
- */
-export function shortRenderer(name: string): string {
-  const inner = /\(([^)]*)\)/.exec(name);
-  const parts = (inner?.[1] ?? name).split(",").map((p) => p.trim());
-  return parts[1] ?? parts[0] ?? name;
-}
 
-/**
- * The palette the app is actually painted in, as `light` | `dark` — the only two the embed knows.
- *
- * Read off `<html data-theme>`, which is what `app/theme/store.ts`'s `stamp()` writes on every
- * change and `initTheme()` writes before the first paint. Going through the attribute rather than
- * the store's `theme` field is deliberate and is not indirection: the store's third setting is
- * `system`, which resolves through `prefers-color-scheme`, and the attribute is the one place the
- * resolved answer already exists. Anything that repaints the app has to stamp it, so anything that
- * repaints the app also re-themes the embed.
- */
-export function readDocumentTheme(): "light" | "dark" {
-  if (typeof document !== "undefined") {
-    const stamped = document.documentElement.getAttribute("data-theme");
-    if (stamped === "light" || stamped === "dark") return stamped;
-  }
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return "light";
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
 
 
 // ------------------------------------------------------------------------------------------------

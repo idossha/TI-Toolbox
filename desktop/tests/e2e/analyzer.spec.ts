@@ -5,7 +5,7 @@ import { expect, test, type ElectronApplication, type Page } from "@playwright/t
 import { expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
 import { expectRunPaneTab, showRunPaneTab } from "./_runPane";
 import { captureScreen, type PageMetrics } from "./_metrics";
-import { closeSubjects, expectSubjectsGrammar, setSubjectChecked, subjectsField, subjectsSummary } from "./_subjects";
+import { analysisRows, setAnalysisCell } from "./_jobs";
 
 /**
  * Analyzer (DESIGN.md v3 §2 shape A, wireframes §5), against the mock server. Configures a
@@ -19,10 +19,6 @@ let app: ElectronApplication;
 let page: Page;
 
 test.describe.configure({ mode: "serial" });
-
-function field(label: string) {
-  return page.locator(".field", { hasText: label }).first();
-}
 
 test.beforeAll(async () => {
   const userDataDir = mkdtempSync(join(tmpdir(), "tit-e2e-"));
@@ -49,24 +45,29 @@ test.afterAll(async () => {
   await app?.close();
 });
 
-test("shape A, no page header, no subject Select — the shared subject control instead (J1)", async () => {
+test("shape A, no page header, and one Jobs table instead of a global subject set", async () => {
   await expect(page.locator(".page-header")).toHaveCount(0);
-  // Never a `<Select id="analyzer-subject">` dropdown — U6's actual claim, still true. U16 gave
-  // the page its own multi-select Subjects *table* instead (below), which is a different control
-  // shape entirely: U11 deleted the context bar's own switcher, the only writer
-  // `useSubject().batch` had, so Group mode needs a control this page owns. It is OPEN on first
-  // visit (R3) and page-session memory after that, so it can still be closed to give
-  // `ResultsPanel` its room once a simulation is picked (see `AnalyzerPage.tsx`). Seeded with the
-  // context bar's primary ("ernie", from beforeAll).
+  /*
+   * 2026-09-06 rework (maintainer): "we need a list of jobs in a table that allows users
+   * flexibility in what they input to the job". The page-level Subjects table, the Scope segment
+   * and the single Simulation combobox are gone — a ROW is a (subject, simulation, space, field)
+   * job, which is 2.5.0's Subject × Simulation pair table with the two per-job choices folded in.
+   */
   await expect(page.locator("#analyzer-subject")).toHaveCount(0);
+  await expect(page.locator("#analyzer-simulation")).toHaveCount(0);
+  await expect(page.getByTestId("subjects-field")).toHaveCount(0);
   await expect(page.locator(".card")).toHaveCount(0);
-  await expect(subjectsField(page)).toHaveAttribute("data-open", "true");
-  await expect(page.getByTestId("subjects-summary").locator(".mono", { hasText: "ernie" })).toBeVisible();
-  // The one grammar, driven by the one helper. Subject scope is `single` — one job for one
-  // subject (`AnalyzerConfig.subject_id`), which the summary line states outright (J4) and the
-  // control enforces, rather than the page silently analysing the first of several ticked ids.
-  await expectSubjectsGrammar(page, { mode: "single", selected: ["ernie"], rows: 3 });
-  await closeSubjects(page);
+  await expect(page.getByTestId("analysis-jobs-table")).toBeVisible();
+  await expect(page.locator("table.analysis-jobs-table thead th")).toHaveText([
+    "Subject",
+    "Simulation",
+    "Space",
+    "Field",
+    "",
+  ]);
+  // Seeded with one row on the context bar's primary subject ("ernie", from beforeAll).
+  await expect(analysisRows(page)).toHaveCount(1);
+  await expect(analysisRows(page).first()).toHaveAttribute("data-subject", "ernie");
 
   const pane = page.getByTestId("page-right-pane");
   await expect(pane.getByTestId("run-panel")).toBeVisible();
@@ -78,21 +79,26 @@ test("shape A, no page header, no subject Select — the shared subject control 
   await expect(pane.getByTestId("job-terminal")).toBeVisible();
   await expect(page.getByTestId("page-work").locator(".action-bar")).toBeVisible();
 
-  // The disabled primary is the only signal that the run cannot start; the reason is its tooltip.
+  // The disabled primary is the only signal that the run cannot start; the reason is its tooltip,
+  // and it names what is actually missing — the row's simulation.
   await expect(page.locator(".action-bar-digest")).toHaveCount(0);
   await expect(page.getByTestId("run-button")).toBeDisabled();
-  await expect(page.getByTestId("run-button")).toHaveAttribute("title", "Pick a simulation to analyze.");
+  await expect(page.getByTestId("run-button")).toHaveAttribute("title", "Add a row with a subject and a simulation.");
 });
 
-test("scope, space and target are segments, and the plan resolves once the target is complete", async () => {
-  // Scope: Subject / Group as a segmented control, not a radio pair.
-  await expect(field("Scope").getByRole("radiogroup")).toBeVisible();
-
-  await page.locator("#analyzer-simulation").click();
-  await page.getByRole("option", { name: "Thalamus" }).first().click();
+test("a row names its own simulation, space and field, and the plan resolves once the target is complete", async () => {
+  const row = analysisRows(page).first();
+  await setAnalysisCell(page, row, "simulation", "Thalamus");
+  await expect(row).toHaveAttribute("data-runnable", "true");
   await expect(page.getByTestId("run-button")).toHaveAttribute("title", "Complete the target before running.");
 
-  // Spherical target: the fixture's Thalamus coordinates.
+  // Space and Field are the row's, not the page's — a second row can measure a different field of
+  // a different simulation, which is what the maintainer's "flexibility in what they input to the
+  // job" asks for.
+  await expect(row.locator('td[data-cell="space"]')).toContainText("Mesh");
+  await setAnalysisCell(page, row, "field", "TI_max");
+
+  // Spherical target: the fixture's Thalamus coordinates. The ROI stays global (2.5.0's shape).
   await page.getByLabel("Sphere 1 X").fill("-10");
   await page.getByLabel("Sphere 1 Y").fill("-18");
   await page.getByLabel("Sphere 1 Z").fill("9");
@@ -108,35 +114,48 @@ test("scope, space and target are segments, and the plan resolves once the targe
   await expect(page.locator("[data-status-cell]")).toHaveCount(0);
 });
 
-test("J4: the scope decides the grammar — Group ticks two subjects, Subject narrows back to one", async () => {
-  // Subject scope is single-select, so the second subject is reachable only in Group scope —
-  // which is the truth about what this page submits, and the reason the mode is stated in the
-  // summary line rather than left for a user to infer from a plan row count.
-  await field("Scope").getByRole("radio", { name: "Group" }).click();
-  await setSubjectChecked(page, "101", true);
-  await expect(subjectsSummary(page)).toHaveText("2 subjects · ernie, 101 · one job over all subjects");
-  await closeSubjects(page);
+/**
+ * 2.5.0's **Quick Add** — "every subject that has run this simulation" in one press — and the
+ * group switch that folds the same rows into one cohort job.
+ */
+test("Quick add fills the table, and the group switch folds the rows into one cohort job", async () => {
+  await page.getByRole("button", { name: /^Quick add: every subject with "Thalamus"$/ }).click();
+  // The mock's fixture: ernie and 101 have run Thalamus; MNI152 has not, so it is not added.
+  await expect(analysisRows(page)).toHaveCount(2);
+  await expect(analysisRows(page).nth(1)).toHaveAttribute("data-subject", "101");
+  await expect(analysisRows(page).nth(1)).toHaveAttribute("data-simulation", "Thalamus");
 
   const ernieCell = page.locator('[data-testid^="plan-cell-ernie-"]').first();
   const cell101 = page.locator('[data-testid^="plan-cell-101-"]').first();
   await expect(ernieCell).toBeVisible({ timeout: 15_000 });
   await expect(cell101).toBeVisible({ timeout: 15_000 });
-
   await expect(page.locator(".plan-matrix tbody tr")).toHaveCount(2);
+  // Two rows, two single-subject jobs — the plan and the button agree.
   await expect(page.locator('[data-testid="plan-stat-jobs"]')).toContainText("2");
-  await expect(page.locator(".action-bar-digest")).toHaveText(/^2 jobs · \d+ CPU · \d+ GB/);
-  // The run button's own label counts *configs* (one per sphere row — `AnalyzerPage.tsx`'s
-  // `runLabel`), not subjects: Group mode submits one job carrying both subject ids
-  // (`run_group_analysis over subject_ids`, the page's own comment), which is exactly what
-  // "the submitted payload carries all ids" means here — the two-*job* count above is the Plan
-  // preview's, not the submission's.
-  await expect(page.getByTestId("run-button")).toHaveText("Run analysis");
+  await expect(page.getByTestId("run-button")).toHaveText("Queue 2 jobs");
 
-  // Back to Subject scope: the control narrows the set to one, visibly, instead of the payload
-  // builder dropping the rest on the way to the wire.
-  await field("Scope").getByRole("radio", { name: "Subject" }).click();
-  await expect(subjectsSummary(page)).toHaveText("ernie · one job");
-  await expect(page.locator(".plan-matrix tbody tr")).toHaveCount(1);
+  // The switch: ONE job over both subjects (`run_group_analysis` over `subject_ids`), which is why
+  // the button's label drops back to one.
+  await page.getByRole("switch", { name: "Combine into one group analysis" }).click();
+  await expect(page.getByTestId("run-button")).toHaveText("Run analysis", { timeout: 15_000 });
+  await expect(page.locator(".plan-matrix tbody tr")).toHaveCount(2);
+
+  // A cohort runs ONE simulation: rows that disagree are refused outright, with the reason on the
+  // button, rather than silently resolved to the first row's answer.
+  // (`L_Insula` is ernie's alone in the fixture, which is exactly the disagreement.)
+  await setAnalysisCell(page, analysisRows(page).first(), "simulation", "L_Insula");
+  await expect(page.getByTestId("run-button")).toBeDisabled();
+  await expect(page.getByTestId("run-button")).toHaveAttribute("title", /A group analysis runs one simulation/);
+  await setAnalysisCell(page, analysisRows(page).first(), "simulation", "Thalamus");
+  await page.getByRole("switch", { name: "Combine into one group analysis" }).click();
+  await expect(page.getByTestId("run-button")).toHaveText("Queue 2 jobs", { timeout: 15_000 });
+
+  // Evidence (§8.1).
+  await page.getByTestId("analysis-jobs-container").screenshot({ path: "tests/e2e/artifacts/jobs-table-analyzer.png" });
+
+  // Leave one row for the acceptance measurement below.
+  await analysisRows(page).nth(1).getByRole("button", { name: "Remove row 2" }).click();
+  await expect(analysisRows(page)).toHaveCount(1);
 });
 
 test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.3)", async () => {

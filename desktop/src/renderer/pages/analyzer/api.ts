@@ -123,18 +123,26 @@ export async function planAnalyzer(
   );
 }
 
+/** One planned/submitted analysis: a config and the subjects it runs over. */
+export interface AnalyzerJobSpec {
+  config: AnalyzerConfig;
+  subjectIds: string[];
+}
+
 /**
- * Plans every config in one call and merges the results — used for a multi-sphere batch (one
- * `AnalyzerConfig` per sphere row), which submits as N separate jobs on Run.
+ * Plans every job in one call and merges the results — used for the Jobs table's batch (one
+ * `AnalyzerConfig` per row × sphere), which submits as N separate jobs on Run.
+ *
+ * Each item carries **its own** subject ids: since the 2026-09-06 jobs rework a row names its own
+ * subject, so a single page-level `subject_ids` would plan every config against every subject.
  */
 export async function planAnalyzerBatch(
-  configs: AnalyzerConfig[],
-  subjectIds: string[],
+  items: AnalyzerJobSpec[],
   overwrite: boolean,
   client = api,
 ): Promise<PlanResult> {
   const results = await Promise.all(
-    configs.map((c) => planAnalyzer(c, subjectIds, overwrite, client)),
+    items.map((i) => planAnalyzer(i.config, i.subjectIds, overwrite, client)),
   );
   const merged: PlanResult = {
     jobs: results.flatMap((r) => r.jobs),
@@ -150,6 +158,18 @@ export async function planAnalyzerBatch(
     resolved: results[0]?.resolved ?? null,
   };
   return merged;
+}
+
+/**
+ * The tag every job of one Run press shares, so the Results panel can group them.
+ *
+ * A module function rather than an inline `Date.now()` in the page: since the jobs rework the
+ * page's submit closure is render-scope (its inputs are derived from the rows each render), and
+ * React Compiler rejects an impure call there — correctly, since a value read during render is a
+ * value that can differ between renders.
+ */
+export function newAnalysisTag(): string {
+  return `analysis:${Date.now()}`;
 }
 
 export async function submitAnalyzerJob(

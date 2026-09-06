@@ -19,6 +19,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Locator, type Page } from "@playwright/test";
 import { expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
+import { configureMontageJob } from "./_jobs";
 import { openSubjects, selectSubjects, subjectRow, subjectRows, subjectsField } from "./_subjects";
 
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
@@ -74,11 +75,15 @@ async function selectOnlyErnie(): Promise<void> {
   await expect(subjectsField(page)).toHaveAttribute("data-selected", "1");
 }
 
+/*
+ * 2026-09-06 jobs rework: the Simulator and the Analyzer have no page-level subject control — the
+ * subject is a cell of a job row, picked with the same `SelectionPicker` grammar (asserted in
+ * `batch.spec.ts` and in each page's own spec). What is left here is the pages whose whole job IS
+ * a batch over subjects.
+ */
 const SUBJECT_PAGES = [
   ["preprocess", "Pre-processing"],
-  ["simulator", "Simulator"],
   ["optimizer", "Optimizer"],
-  ["analyzer", "Analyzer"],
 ] as const;
 
 for (const [id, title] of SUBJECT_PAGES) {
@@ -156,19 +161,14 @@ test("the plan grid and the digest state the batch, with no receipt, and update 
   // On the Simulator, where the receipt used to sit above Run: the confirmation is now the plan
   // grid in the run pane plus the action-bar digest, and neither overlays the form it confirms.
   await gotoPage(page, "simulator", "Simulator");
-  await openSubjects(page);
-  await selectSubjects(page, ["ernie"]);
-  // Exactly one montage, so the plan is one job: with none ticked the page is blocked on the
-  // montage, and the mock plans every montage into the same output directory, so several would
-  // collapse into one plan column and the count comparison below would compare unlike things.
+  // Exactly one job, so the plan is one job: the mock plans every montage into the same output
+  // directory, so several would collapse into one plan column and the count comparison below
+  // would compare unlike things.
   const active = page.locator('[data-page-active="true"]');
-  const removeRow = active.getByRole("button", { name: /^Remove row / });
-  for (let guard = 0; (await removeRow.count()) > 0 && guard < 20; guard++) await removeRow.first().click();
-  await expect(removeRow).toHaveCount(0);
-  // The montage table's second column: pick the net's first montage (the polarity comes with it).
-  const montageRow = active.locator("tr[data-montage-row]").first();
-  await montageRow.getByRole("combobox").nth(1).click();
-  await page.getByRole("option", { name: "F3_F4 · TI", exact: true }).click();
+  const removeRow = active.getByRole("button", { name: /^Remove job / });
+  for (let guard = 0; (await removeRow.count()) > 1 && guard < 20; guard++) await removeRow.last().click();
+  const jobRow = active.locator("tr[data-job-row]").first();
+  await configureMontageJob(page, jobRow, { subject: "ernie", net: "GSN-HydroCel-185", montage: "F3_F4 · TI" });
 
   await expect(active.getByTestId("run-receipt")).toHaveCount(0);
   // Scoped to the active page: other pages stay mounted, so an unscoped `plan-grid` would count
@@ -183,12 +183,13 @@ test("the plan grid and the digest state the batch, with no receipt, and update 
     { timeout: 20_000 },
   );
 
-  // Live: deselecting empties the plan, and the disabled primary carries the reason.
-  await selectSubjects(page, []);
+  // Live: emptying the table empties the plan, and the disabled primary carries the reason.
+  await jobRow.getByRole("button", { name: "Remove job 1" }).click();
+  await expect(active.locator("tr[data-job-row]")).toHaveCount(0);
   await expect(active.locator(".action-bar-digest")).toHaveCount(0);
   const run = active.getByTestId("run-button");
   await expect(run).toBeDisabled();
-  await expect(run).toHaveAttribute("title", "Select at least one subject.");
+  await expect(run).toHaveAttribute("title", "Add a job with a subject and a montage.");
 });
 
 test("Pre-processing states its batch in the plan and the digest", async () => {

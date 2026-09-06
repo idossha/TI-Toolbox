@@ -18,6 +18,7 @@ import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
 import { expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
 import { expectRunPaneTab, showRunPaneTab } from "./_runPane";
+import { configureMontageJob, jobRows, setJobMontage } from "./_jobs";
 
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
 const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
@@ -54,15 +55,12 @@ test("Scene while configuring; Terminal the moment a job of this kind runs", asy
   // The terminal is mounted the whole time — a tab switch must not drop a live log tail.
   await expect(page.getByTestId("job-terminal")).toHaveCount(1);
 
-  // A montage in the table's one default row is what makes this page runnable. (It used to tick a
-  // checkbox in `.data-table`; the Simulator's montage table has no checkbox column any more —
-  // 2026-09-06 rework — and the only `.data-table` with checkboxes is the Flex-result table, which
-  // is on a source tab this test never opens.)
-  const row = page.locator("tr[data-montage-row]").first();
-  await row.getByRole("combobox").nth(0).click();
-  await page.getByRole("option", { name: "GSN-HydroCel-185", exact: true }).click();
-  await row.getByRole("combobox").nth(1).click();
-  await page.getByRole("option", { name: "F3_F4 · TI", exact: true }).click();
+  // A complete job in the Jobs table's one seeded row is what makes this page runnable.
+  await configureMontageJob(page, jobRows(page).first(), {
+    subject: "ernie",
+    net: "GSN-HydroCel-185",
+    montage: "F3_F4 · TI",
+  });
   await expect(page.getByTestId("run-button")).toHaveText("Run simulation");
   await page.getByTestId("run-button").click();
 
@@ -76,11 +74,14 @@ test("a tab the user chose is not taken away by the next job", async () => {
   await showRunPaneTab(page, "scene");
   await expect(page.getByTestId("run-pane-tabs")).toHaveAttribute("data-chosen", "scene");
 
-  // A different montage in the same row, so Run submits a genuinely new job (same reason as the
-  // test above: the montage table has no checkbox column any more).
-  const row = page.locator("tr[data-montage-row]").first();
-  await row.getByRole("combobox").nth(1).click();
-  await page.getByRole("option", { name: "Thalamus_target · TI", exact: true }).click();
+  // A different montage in the same row, so Run submits a genuinely new job. (Run empties the
+  // table on submit, so the row is re-seeded first.)
+  await configureMontageJob(page, jobRows(page).first(), {
+    subject: "ernie",
+    net: "GSN-HydroCel-185",
+    montage: "F3_F4 · TI",
+  });
+  await setJobMontage(page, jobRows(page).first(), "Thalamus_target · TI");
   await page.getByTestId("run-button").click();
   await expect(page.getByTestId("run-pane-tabs")).toHaveAttribute("data-active-job", "1", { timeout: 20_000 });
   // ...and the pane stays where the user put it.

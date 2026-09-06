@@ -3,14 +3,18 @@
  * `api/client.ts` (owned across many pages; every lane needing catalog v1/viewer/jobs endpoints
  * would otherwise collide editing the same file) — mirrors `pages/simulator/api.ts`.
  *
- * v3 (D3, `dev/notes/v3-docker-streamline-plan.md`): there is no launch route here any more.
- * `POST /api/viewers/{freeview,gmsh}` are gone from the server along with X11 itself; the page
- * fetches a scene and hands it to the embed over `postMessage`. The only thing this module does is
- * ask the server what to show.
+ * v3 (D3, `dev/notes/v3-docker-streamline-plan.md`): `POST /api/viewers/{freeview,gmsh}` are gone
+ * from the server along with X11 itself.
+ *
+ * V1/V2 (`dev/notes/v3-native-panes-external-viewer-plan.md`): nor is there an embed to post a
+ * scene to. There are two calls here now — `getView` (what would be shown, for the page's own
+ * summary) and `openView` (write the scene file the host-installed Tetravox app opens). The
+ * launch itself is not an HTTP call at all: it is `window.tit.viewer.open`, through the Electron
+ * main process, because starting an application on the host is not something a page can do and
+ * not something a container can do either.
  */
 import { api, unwrap } from "../../api/client";
 import type { components } from "../../api/schema";
-import type { EmbedViewSpec } from "../../viewer";
 
 export type Subject = components["schemas"]["Subject"];
 export type SubjectDetail = components["schemas"]["SubjectDetail"];
@@ -20,6 +24,7 @@ export type Atlas = components["schemas"]["Atlas"];
 export type ViewSpec = components["schemas"]["ViewSpec"];
 export type ViewLayer = components["schemas"]["ViewLayer"];
 export type Capabilities = components["schemas"]["Capabilities"];
+export type ViewerOpen = components["schemas"]["ViewerOpen"];
 
 export type ViewKind = "subject" | "simulation" | "analysis" | "group" | "custom";
 export type Space = "subject" | "mni";
@@ -39,22 +44,20 @@ export interface ViewQuery {
   path?: string;
 }
 
-/**
- * The server's answer, with `scene` typed as what it actually is.
- *
- * `openapi-typescript` renders the contract's untyped `scene` object as `Record<string, never>`
- * (its rendering of "an object with no declared properties"), which is unusable — the cast is at
- * this one boundary rather than smeared through the page. The shape is real and validated
- * server-side against `contracts/tetravox-viewspec-v2.schema.json`; see
- * `dev/notes/v3-docker-streamline/w3a-server-notes.md` for the emitted document.
- */
-export interface ViewResult extends Omit<ViewSpec, "scene"> {
-  scene: EmbedViewSpec | null;
+export async function getView(kind: ViewKind, query: ViewQuery): Promise<ViewSpec> {
+  return unwrap(await api.GET("/api/view/{kind}", { params: { path: { kind }, query } }), `/api/view/${kind}`);
 }
 
-export async function getView(kind: ViewKind, query: ViewQuery): Promise<ViewResult> {
-  const result = unwrap(await api.GET("/api/view/{kind}", { params: { path: { kind }, query } }), `/api/view/${kind}`);
-  return { ...result, scene: (result.scene as EmbedViewSpec | null | undefined) ?? null };
+/**
+ * Write the scene file for this selection and answer where it went.
+ *
+ * The container path in `path` is what `window.tit.viewer.open` takes: the renderer never handles
+ * a host path, and main maps this one through the known project mount exactly as `openPath` does.
+ * `host_path` is for the sentence the page shows a person, and for browser mode, where there is
+ * no main process to map anything and the file is offered as a download instead.
+ */
+export async function openView(kind: ViewKind, query: ViewQuery): Promise<ViewerOpen> {
+  return unwrap(await api.POST("/api/view/open", { body: { kind, ...query } }), "/api/view/open");
 }
 
 export async function getSimulationsFor(subject: string): Promise<SimulationDetail[]> {

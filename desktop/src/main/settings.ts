@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { app } from "electron";
 import type { TitSettings } from "../shared/tit-bridge";
 
-const ALLOWED_KEYS = ["lastServerUrl", "lastProjectDir"] as const;
+const ALLOWED_KEYS = ["lastServerUrl", "lastProjectDir", "tetravoxPath"] as const;
 
 function settingsPath(): string {
   return join(app.getPath("userData"), "settings.json");
@@ -15,6 +15,7 @@ export function readSettings(): TitSettings {
     const out: TitSettings = {};
     if (typeof raw.lastServerUrl === "string") out.lastServerUrl = raw.lastServerUrl;
     if (typeof raw.lastProjectDir === "string") out.lastProjectDir = raw.lastProjectDir;
+    if (typeof raw.tetravoxPath === "string") out.tetravoxPath = raw.tetravoxPath;
     return out;
   } catch {
     return {};

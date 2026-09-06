@@ -85,11 +85,21 @@ function fastSimConfig(subject: string) {
 // 1. The shared selector, open, on first visit of every subject-taking workflow
 // -------------------------------------------------------------------------------------------
 
+/*
+ * 2026-09-06 jobs rework: the Simulator and the Analyzer no longer take a page-level subject SET —
+ * a row of their Jobs table owns its own subject (maintainer: "within a job users could manipulate
+ * the subject, the mode, the montage"). They are asserted below as jobs tables instead; what is
+ * left here is the pages whose whole job IS a batch over subjects.
+ */
 const SUBJECT_TAKING: { id: string; nav: string }[] = [
   { id: "preprocess", nav: "Pre-processing" },
-  { id: "simulator", nav: "Simulator" },
   { id: "optimizer", nav: "Optimizer" },
-  { id: "analyzer", nav: "Analyzer" },
+];
+
+/** The two pages where the subject is a cell of a job row, not a page-level tick list. */
+const JOB_TABLE_PAGES: { id: string; nav: string; table: string; row: string }[] = [
+  { id: "simulator", nav: "Simulator", table: "jobs-table", row: "tr[data-job-row]" },
+  { id: "analyzer", nav: "Analyzer", table: "analysis-jobs-table", row: "tr[data-analysis-row]" },
 ];
 
 for (const workflow of SUBJECT_TAKING) {
@@ -103,6 +113,21 @@ for (const workflow of SUBJECT_TAKING) {
     await expect(field).toHaveCount(1);
     await expect(field).toHaveAttribute("data-open", "true");
     await expect(field.getByTestId("subjects-field-table")).toBeVisible();
+  });
+}
+
+for (const workflow of JOB_TABLE_PAGES) {
+  test(`${workflow.id}: the subject is a cell of a job row, not a page-level selector`, async () => {
+    await gotoPage(page, workflow.id, workflow.nav);
+    await expectPage(page, workflow.id);
+    await expect(subjectsField(page)).toHaveCount(0);
+    await expect(page.getByTestId(workflow.table)).toBeVisible();
+    // One row on first visit, already on the shell's primary subject — so the page's first act is
+    // choosing what to run, not discovering a control.
+    const rows = page.locator(workflow.row);
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first()).toHaveAttribute("data-subject", "ernie");
+    await expect(rows.first().locator('td[data-cell="subject"]').getByRole("combobox")).toBeVisible();
   });
 }
 

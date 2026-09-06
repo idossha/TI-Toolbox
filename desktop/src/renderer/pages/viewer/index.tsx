@@ -1,62 +1,52 @@
 /**
- * Viewer screen — the embed, and nothing else (DESIGN.md §10, program U5).
+ * Viewer screen — **a data selector, not a viewer** (V1,
+ * `dev/notes/v3-native-panes-external-viewer-plan.md`).
  *
- * The whole page is three things: pick what to look at (the source bar), ask the server to build a
- * scene for it (`GET /api/view/{kind}` → a Tetravox ViewSpec v2 whose datasets are origin-relative
- * `/api/files/raw/...` URLs), hand that scene to the embed. Nothing here renders anything: the
- * pixels are the embed's, in its own iframe, on its own CSP (D1/D3,
- * `dev/notes/v3-docker-streamline-plan.md`).
+ * The maintainer's brief, verbatim: *"for the viewer, instead of embedding the web version of
+ * Tetravox … the viewer tab only acts as the data selection and it actually opens up everything in
+ * [an external window] like we have in 2.5.0."*
  *
- * R5 (`desktop/IMPLEMENTATION_PLAN.md`) — **selection is explicit and loading is a command.**
+ * So this page picks what to look at, says what would open, and opens it — in the **host-installed
+ * Tetravox desktop app**, which is signed, notarised, auto-updating and not our problem. Nothing
+ * here draws pixels and nothing here is an `<iframe>`. That is the whole point: the app that draws
+ * the picture is a real application with its own window, its own file menu, its own release
+ * cadence and its own bug tracker, and the coupling this page used to carry — an embed bundle
+ * baked into the image, a protocol version, a runtime installer, an update channel and a toast —
+ * is gone with it.
  *
- * There are two selections, not one. `draft` is what the source bar shows; `loaded` is what the
- * embed is currently drawing. Editing any selector edits the draft and nothing else: no view
- * request, no `load` message, no change on screen. **Load** validates the draft, snapshots it,
- * issues exactly one `GET /api/view/{kind}`, and posts exactly one scene to the retained iframe.
+ * **R5's draft → Load grammar survives unchanged**, because it was never about the embed. There
+ * are two selections: `draft` (what the source bar shows) and `opened` (what was last handed to
+ * Tetravox). Editing any selector edits the draft and nothing else — no request, no launch. The
+ * command is now **Open in Tetravox**: it validates the draft, asks the server to write the scene
+ * file for it (`POST /api/view/open`), and hands that one file to the Electron shell, which
+ * spawns the app. A second Open is a second spawn; Tetravox's own single-instance handling
+ * (verified in its repo at 0.3.11) routes it into the window already on screen rather than
+ * opening a second one.
  *
- * Why that is worth the extra state: the v2 page derived its view query from the controls and let
- * react-query fetch whenever the key changed, so touching the subject switcher tore down a 400 MB
- * scene someone was reading and started fetching another one — and a failed fetch replaced the
- * picture with an error card, losing the thing they had. Here a failure keeps the last good scene
- * on screen and attaches the error to the *attempted* selection, which is the only selection the
- * error is about. Deep links prefill the draft and stop there (R5's fixed decision); Reload is
- * iframe/runtime recovery for the scene already loaded, not a way to load a new one.
- *
- * Catalog queries (subjects, simulations, analyses, atlases) still run on their own — they fill
- * menus. Populating a menu is not building a scene, and the gate counts `/api/view` requests.
- *
- * v2 drew a Layers / Cursor / Scene inspector down the right-hand side; v3 deletes it entirely.
- * Every one of those controls exists in the embed's own panels, drawn in the engine's theme
- * against the engine's state, and two copies of one control give two answers to "what is the
- * window" (DESIGN.md §10's ownership rule). What used to be an inspector block is now, at most, one
- * status-bar cell (`ras`, `space`, `renderer`, §11) or a hint drawn over the canvas itself.
- *
- * There is no Freeview, no Gmsh and no "Open externally" any more.
+ * **Browser mode** (the same bundle in a normal browser, no `window.tit`) cannot start an
+ * application, so Open downloads the scene file and says to open it in Tetravox. That is a
+ * complete answer, not a degraded one: the file is the interface.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
-import { Eye, RotateCw } from "lucide-react";
-import { ApiError, getCapabilities, getSubjects } from "../../api/client";
+import { Download, ExternalLink, Eye } from "lucide-react";
+import { ApiError, getSubjects } from "../../api/client";
 import type { PageDef } from "../../app/registry";
 import { usePageSession } from "../../app/pageSession";
 import { usePageActive } from "../../app/pageActivity";
 import { SUBJECT_SYNC_STATE } from "../../app/subjectSpine";
 import { useSubjectContext } from "../../app/subjectContext";
-import { Button, IconButton } from "../../ui/Button";
+import { Button } from "../../ui/Button";
 import { PageLayout } from "../../ui/Layout";
 import { SegmentedControl } from "../../ui/SegmentedControl";
 import { Select, type SelectOption } from "../../ui/Select";
-import { TetravoxFrame, useViewerStore, type EmbedViewSpec } from "../../viewer";
-import { getAnalyses, getAtlases, getSimulationsFor, getView, type Space, type ViewKind, type ViewQuery } from "./api";
+import { getAnalyses, getAtlases, getSimulationsFor, getView, openView, type Space, type ViewKind, type ViewQuery } from "./api";
 import {
   controlLabel,
   controlsFor,
   hasViewerDeepLink,
-  hidden3DLayer,
-  layerName,
   readDeepLink,
-  readDocumentTheme,
   selectionFromDeepLink,
   selectionKey,
   validateSelection,
@@ -64,10 +54,11 @@ import {
   type ViewerControl,
   type ViewerSelection,
 } from "./lib";
+import { useTetravox } from "../_shared/viewer/useTetravox";
 import { usePageScrollMemory } from "../_shared/session/usePageScrollMemory";
 import "./viewer-page.css";
 
-export { readDeepLink, hidden3DLayer } from "./lib";
+export { readDeepLink } from "./lib";
 export type { ViewerDeepLink, ViewerSelection } from "./lib";
 
 const VIEW_KIND_OPTIONS: SelectOption[] = [
@@ -78,7 +69,7 @@ const VIEW_KIND_OPTIONS: SelectOption[] = [
   { value: "custom", label: "Custom file" },
 ];
 
-/** What a failed (or refused) Load left behind, tied to the selection that was attempted. */
+/** What a failed (or refused) Open left behind, tied to the selection that was attempted. */
 interface ViewerFailure {
   key: string;
   title: string;
@@ -109,17 +100,15 @@ function ViewerPage() {
     [setDraft],
   );
 
-  // A later deep link (Results → "Open in Viewer") re-prefills the draft. It still does not load:
-  // the controls change, the picture does not, and the person presses Load when they mean it.
+  // A later deep link (Results → "Open in viewer") re-prefills the draft. It still does not open:
+  // the controls change, nothing launches, and the person presses Open when they mean it.
   const linkCarriesControls = hasViewerDeepLink(deepLink);
   useEffect(() => {
     if (!active || !linkCarriesControls || location.state?.[SUBJECT_SYNC_STATE]) return;
     setDraft((current) => selectionFromDeepLink(deepLink, current));
   }, [active, location.key, location.state, deepLink, linkCarriesControls, setDraft]);
 
-  // The shell's subject switcher edits the draft's subject — a draft edit like any other, so it
-  // does not fetch and does not disturb the scene on screen. Tracked through a ref rather than a
-  // `draft.subject` dependency so a subject chosen *here* is not immediately overwritten.
+  // The shell's subject switcher edits the draft's subject — a draft edit like any other.
   const lastShellSubject = useRef(subjectId);
   useEffect(() => {
     if (subjectId === lastShellSubject.current) return;
@@ -128,9 +117,8 @@ function ViewerPage() {
   }, [subjectId, editDraft]);
 
   // ---------------------------------------------------------------------------------------------
-  // Menus. These are catalog reads: they populate options and never build a scene.
+  // Menus. These are catalog reads: they populate options and never open anything.
   // ---------------------------------------------------------------------------------------------
-  const capabilities = useQuery({ queryKey: ["capabilities"], queryFn: () => getCapabilities() });
   const subjects = useQuery({ queryKey: ["subjects"], queryFn: () => getSubjects() });
   const controls = controlsFor(draft.kind);
   const shows = (control: ViewerControl): boolean => controls.includes(control);
@@ -153,107 +141,76 @@ function ViewerPage() {
   const selectedSimulation = (simulations.data ?? []).find((s) => s.name === draft.simulation);
   const fields = selectedSimulation?.fields ?? [];
 
-  const layers = useViewerStore((s) => s.layers);
-  const embedReady = useViewerStore((s) => s.embedReady);
-  const loadScene = useViewerStore((s) => s.loadScene);
-  const setStoreSpace = useViewerStore((s) => s.setSpace);
-  const setEmbedTheme = useViewerStore((s) => s.setTheme);
+  const tetravox = useTetravox();
 
   // ---------------------------------------------------------------------------------------------
-  // Reload: the source bar's own IconButton and the `no-embed` state's own button both bump this,
-  // which remounts the iframe (TetravoxFrame's `key`) and re-runs the handshake. It re-sends the
-  // scene that is already loaded — it never loads the draft. Recovering a runtime and adopting a
-  // new selection are two different acts and R5 keeps them two different buttons.
+  // "What will open": the layer list the server would build for this draft. A read, not a launch —
+  // it is the one thing a selector page owes a person before they commit to a window opening on
+  // top of their work. Debounced by react-query's own key, and a failure here is silent: it is a
+  // preview, and an empty preview is not an error to shout about.
   // ---------------------------------------------------------------------------------------------
-  const [reloadToken, setReloadToken] = useState(0);
-  const handleReload = useCallback(() => setReloadToken((t) => t + 1), []);
-
-  // ---------------------------------------------------------------------------------------------
-  // Load: the one place a view request is issued and the one place a scene reaches the embed.
-  // ---------------------------------------------------------------------------------------------
-  const [loaded, setLoaded] = useState<{ selection: ViewerSelection; key: string } | null>(null);
-  const [failure, setFailure] = useState<ViewerFailure | null>(null);
-  const [loading, setLoading] = useState(false);
-  const loadedScene = useRef<EmbedViewSpec | null>(null);
   const draftKey = selectionKey(draft);
-  const dirty = loaded === null || loaded.key !== draftKey;
+  const complete = validateSelection(draft) === null;
+  const summary = useQuery({
+    queryKey: ["viewer-summary", draftKey],
+    queryFn: () => getView(draft.kind, viewQuery(draft) as ViewQuery),
+    enabled: complete,
+    retry: false,
+  });
 
-  const load = useCallback(async () => {
+  // ---------------------------------------------------------------------------------------------
+  // Open: the one place a scene file is written and the one place the app is launched.
+  // ---------------------------------------------------------------------------------------------
+  const [opened, setOpened] = useState<{ key: string; hostPath: string | null; name: string } | null>(null);
+  const [failure, setFailure] = useState<ViewerFailure | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const open = useCallback(async () => {
     const attempt = draft;
     const key = selectionKey(attempt);
     const incomplete = validateSelection(attempt);
     if (incomplete !== null) {
       // Refused before the wire: an incomplete draft is not a server error and must not cost a
-      // request. The previous scene stays exactly as it is.
+      // request, let alone a window.
       setFailure({ key, title: "This selection is incomplete", text: incomplete });
       return;
     }
     setFailure(null);
-    setLoading(true);
+    setBusy(true);
     try {
-      const result = await getView(attempt.kind, viewQuery(attempt) as ViewQuery);
-      if (result.scene === null) throw new ApiError(404, `/api/view/${attempt.kind}`, "The server built no scene for this selection.");
-      loadedScene.current = result.scene;
-      setLoaded({ selection: attempt, key });
-      setStoreSpace(result.space === "mni" ? "mni" : "subject");
-      loadScene(result.scene);
+      const written = await openView(attempt.kind, viewQuery(attempt) as ViewQuery);
+      if (tetravox.mode === "browser") {
+        // No main process to spawn anything: hand the person the file. `written.scene` is the
+        // exact bytes the server put on disk, so the download and the file are the same document.
+        const blob = new Blob([JSON.stringify(written.scene, null, 1)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = written.name;
+        anchor.click();
+        URL.revokeObjectURL(url);
+        setOpened({ key, hostPath: written.host_path, name: written.name });
+        return;
+      }
+      const launched = await tetravox.open(written.path);
+      if (!launched.ok) {
+        setFailure({ key, title: "Could not open Tetravox", text: launched.reason });
+        return;
+      }
+      setOpened({ key, hostPath: written.host_path, name: written.name });
     } catch (error) {
       const notFound = error instanceof ApiError && error.status === 404;
       setFailure({
         key,
-        title: notFound ? "Nothing found for this selection" : "Could not build the view",
+        title: notFound ? "Nothing found for this selection" : "Could not build the scene",
         text: notFound
-          ? "The server has nothing to show for this selection. The scene on screen is the last one that loaded."
-          : "GET /api/view could not build a scene for this selection. Check the server logs, or try again. The scene on screen is the last one that loaded.",
+          ? "The server has nothing to show for this selection."
+          : "POST /api/view/open could not build a scene for this selection. Check the server logs, or try again.",
       });
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
-  }, [draft, loadScene, setStoreSpace]);
-
-  // A reload disconnects the old channel (clearing the store's `scene`) and the new frame has no
-  // scene of its own to ask for, so the loaded scene is re-sent here. Guarded by the token's own
-  // previous value so this is a reload handler, not a second load path.
-  const lastReloadToken = useRef(reloadToken);
-  useEffect(() => {
-    if (reloadToken === lastReloadToken.current) return;
-    lastReloadToken.current = reloadToken;
-    if (loadedScene.current !== null) loadScene(loadedScene.current);
-  }, [reloadToken, loadScene]);
-
-  // ---------------------------------------------------------------------------------------------
-  // Theme: the embed draws its own chrome, so it has to be told which palette to draw it in.
-  //
-  // DESIGN.md §10 says engine-drawn chrome is "in the engine's own theme, synchronised from the app
-  // theme store". Sent on every `ready` — a reloaded frame boots back at its own default — and on
-  // every repaint of the app, whether that came from the theme setting or from the OS changing
-  // under `system`.
-  // ---------------------------------------------------------------------------------------------
-  const [embedTheme, setEmbedThemeValue] = useState(readDocumentTheme);
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof document === "undefined") return;
-    const update = (): void => setEmbedThemeValue(readDocumentTheme());
-    const observer = new MutationObserver(update);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-    const query = typeof window.matchMedia === "function" ? window.matchMedia("(prefers-color-scheme: dark)") : null;
-    query?.addEventListener("change", update);
-    update();
-    return () => {
-      observer.disconnect();
-      query?.removeEventListener("change", update);
-    };
-  }, []);
-  useEffect(() => {
-    if (embedReady) setEmbedTheme(embedTheme);
-  }, [embedReady, embedTheme, setEmbedTheme]);
-
-  // The 3D pane is empty until something that can draw into it is visible. That is a deliberate
-  // default — `_grey_mesh_layer` hides 24-420 MB meshes so they are never fetched unasked — but the
-  // pane itself says nothing, so a hint drawn over the canvas does.
-  const hiddenMesh = hidden3DLayer(layers);
-
-  const embedAvailable = capabilities.data?.tetravox_embed.available !== false;
-  const embedVersion = capabilities.data?.tetravox_embed.version ?? null;
+  }, [draft, tetravox]);
 
   const subjectOptions: SelectOption[] = (subjects.data ?? []).map((s) => ({ value: s.id, label: s.id }));
   const simulationOptions: SelectOption[] = (simulations.data ?? []).map((s) => ({ value: s.name, label: s.name }));
@@ -269,13 +226,15 @@ function ViewerPage() {
     </label>
   );
 
+  const canOpen = tetravox.mode === "browser" || tetravox.info?.available === true;
+
   const sourceBar = (
     <div
       className="viewer-sourcebar"
       data-testid="viewer-source-bar"
-      data-dirty={dirty ? "true" : "false"}
+      data-dirty={opened === null || opened.key !== draftKey ? "true" : "false"}
       data-draft-key={draftKey}
-      data-loaded-key={loaded?.key ?? ""}
+      data-opened-key={opened?.key ?? ""}
     >
       <label className="viewer-source-item" data-testid="viewer-select-kind">
         <span className="viewer-source-label">Type</span>
@@ -378,60 +337,82 @@ function ViewerPage() {
           ]}
         />
       )}
-      <Button size="sm" variant={dirty ? "primary" : "secondary"} onClick={() => void load()} disabled={loading} data-testid="viewer-load">
-        {loading ? "Loading…" : "Load"}
+      <Button
+        size="sm"
+        variant="primary"
+        onClick={() => void open()}
+        disabled={busy || !canOpen}
+        data-testid="viewer-open"
+        icon={tetravox.mode === "browser" ? <Download size={14} /> : <ExternalLink size={14} />}
+      >
+        {busy ? "Opening…" : tetravox.mode === "browser" ? "Download scene" : "Open in Tetravox"}
       </Button>
-      <IconButton icon={<RotateCw size={14} />} aria-label="Reload viewer" title="Reload viewer" size="sm" onClick={handleReload} data-testid="viewer-reload" />
     </div>
   );
 
-  // The failure belongs to the selection that was attempted, and it is a strip above the canvas —
-  // not a card instead of it. DESIGN.md §4.4's "failed load" row, corrected by R5: the last good
-  // scene keeps the viewport, because throwing it away is the expensive mistake.
   const showFailure = failure !== null && failure.key === draftKey;
-  const nothingLoaded = loaded === null;
+  const layers = summary.data?.layers ?? [];
 
   return (
     <PageLayout variant="bleed" className="viewer-page">
       <div className="viewer-stage">
-        {embedAvailable && sourceBar}
-        {embedAvailable && showFailure && (
+        {sourceBar}
+        {showFailure && (
           <div className="viewer-load-error" role="alert" data-testid="viewer-view-error">
             <span className="viewer-load-error-title">{failure.title}</span>
             <span className="viewer-load-error-text">{failure.text}</span>
-            <Button variant="secondary" size="sm" onClick={() => void load()} disabled={loading}>
+            <Button variant="secondary" size="sm" onClick={() => void open()} disabled={busy}>
               Retry
             </Button>
           </div>
         )}
-        {!embedAvailable ? (
-          <div className="viewer-unbundled" data-testid="viewer-not-bundled">
-            <div className="viewer-unbundled-body">
-              <p className="viewer-unbundled-title">This server has no viewer bundle</p>
-              <p className="viewer-unbundled-text">
-                {embedVersion
-                  ? `GET /api/capabilities reports Tetravox embed ${embedVersion} but no bundle at /tetravox/.`
-                  : "GET /api/capabilities reports no Tetravox embed at all."}{" "}
-                The image was built without the Tetravox embed; pull or rebuild the image to get the viewer back. Everything else on this server
-                works normally.
+
+        {/* "What will open" — the page's whole body. No canvas, no iframe: the picture is in
+            another application's window, and pretending otherwise here is what V1 removes. */}
+        <div className="viewer-plan" data-testid="viewer-plan">
+          {!canOpen ? (
+            <div className="viewer-plan-empty" data-testid="viewer-not-installed">
+              <p className="viewer-plan-title">Tetravox is not installed on this computer</p>
+              <p className="viewer-plan-text">
+                The viewer is a separate desktop application. Install it once and this button opens every scene you build here; it updates
+                itself from then on.
               </p>
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<Download size={14} />}
+                onClick={() => void window.tit?.openExternal(tetravox.info?.downloadUrl ?? "https://github.com/idossha/tetravox/releases/latest")}
+                data-testid="viewer-download-tetravox"
+              >
+                Download Tetravox
+              </Button>
             </div>
-          </div>
-        ) : (
-          <div className="viewer-canvas-wrap">
-            <TetravoxFrame embedVersion={embedVersion} reloadToken={reloadToken} onReload={handleReload} />
-            {nothingLoaded && !showFailure && (
-              <p className="viewer-hint" data-testid="viewer-nothing-loaded">
-                Choose what to look at above, then press Load.
-              </p>
-            )}
-            {!nothingLoaded && hiddenMesh !== null && (
-              <p className="viewer-hint" data-testid="viewer-3d-hint">
-                Enable a mesh layer to populate the 3D pane — {layerName(hiddenMesh)} is hidden.
-              </p>
-            )}
-          </div>
-        )}
+          ) : !complete ? (
+            <p className="viewer-plan-hint" data-testid="viewer-nothing-selected">
+              Choose what to look at above, then press {tetravox.mode === "browser" ? "Download scene" : "Open in Tetravox"}.
+            </p>
+          ) : (
+            <div className="viewer-plan-body">
+              <p className="viewer-plan-title">What will open</p>
+              <ul className="viewer-plan-layers" data-testid="viewer-plan-layers">
+                {layers.map((layer) => (
+                  <li key={layer.path} className="viewer-plan-layer" title={layer.path}>
+                    <span className="viewer-plan-layer-name">{layer.path.split("/").pop()}</span>
+                    <span className="viewer-plan-layer-meta">{layer.colormap ?? "grayscale"}</span>
+                  </li>
+                ))}
+                {layers.length === 0 && <li className="viewer-plan-layer-meta">Nothing yet — the server found no files for this selection.</li>}
+              </ul>
+              {opened !== null && (
+                <p className="viewer-plan-text" data-testid="viewer-opened">
+                  {tetravox.mode === "browser"
+                    ? `Downloaded ${opened.name}. Open it in Tetravox (File ▸ Open Scene…).`
+                    : `Opened ${opened.name}${opened.hostPath ? ` — ${opened.hostPath}` : ""}`}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </PageLayout>
   );
@@ -440,7 +421,7 @@ function ViewerPage() {
 const page: PageDef = {
   id: "viewer",
   title: "Viewer",
-  purpose: "Look at a subject, a simulation or an analysis in the embedded Tetravox viewer.",
+  purpose: "Pick a subject, a simulation or an analysis and open it in the Tetravox desktop app.",
   navGroup: "explore",
   order: 60,
   icon: Eye,
@@ -448,7 +429,6 @@ const page: PageDef = {
   Component: ViewerPage,
   enabled: true,
   layout: "full-bleed",
-  viewer: true,
 };
 
 export default page;

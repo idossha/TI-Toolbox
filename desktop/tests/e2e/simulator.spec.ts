@@ -5,7 +5,7 @@ import { expect, test, type ElectronApplication, type Page } from "@playwright/t
 import { expectPage, gotoPage, launchElectronApp, openPalette, setSectionOpen } from "./_helpers";
 import { expectRunPaneTab, showRunPaneTab } from "./_runPane";
 import { captureScreen, type PageMetrics } from "./_metrics";
-import { closeSubjects, expectSubjectsGrammar, setSubjectChecked, subjectRow, subjectsField, subjectsSummary } from "./_subjects";
+import { addJobRow, clearJobRows, configureMontageJob, jobCurrents, jobRows, setJobMontage, setJobNet, setJobSource, setJobSubject } from "./_jobs";
 
 /**
  * Simulator (DESIGN.md v3 §2 shape A, wireframes §3), against the mock server. DOM state and
@@ -18,30 +18,15 @@ const RUN_ID = process.env.TIT_E2E_RUN_ID ?? "simulator";
 let app: ElectronApplication;
 let page: Page;
 
-/** The montage table's real rows (the `run-table-filler` ground rows carry no attribute). */
+/** The Jobs table's rows — one row is one job (2026-09-06 rework). */
 function montageRows() {
-  return page.locator("tr[data-montage-row]");
+  return jobRows(page);
 }
 
-/** Picks a montage in one row of the table — column 2, listing both polarities of the row's net. */
-async function pickMontage(row: ReturnType<typeof montageRows>, option: string) {
-  await row.getByRole("combobox").nth(1).click();
-  await page.getByRole("option", { name: option, exact: true }).click();
-}
-
-/** Sets one row's EEG net — column 1. */
-async function pickNet(row: ReturnType<typeof montageRows>, net: string) {
-  await row.getByRole("combobox").nth(0).click();
-  await page.getByRole("option", { name: net, exact: true }).click();
-}
-
-/** Empties the table, so a test's job counts are exact rather than additive. */
+/** Empties the table, then leaves one blank row for the test to fill in. */
 async function clearMontageRows() {
-  const remove = page.getByRole("button", { name: /^Remove row / });
-  // Re-resolved each pass: removing a row re-renders the table, so a list captured up front goes
-  // stale after the first click.
-  for (let guard = 0; (await remove.count()) > 0 && guard < 20; guard++) await remove.first().click();
-  await expect(remove).toHaveCount(0);
+  await clearJobRows(page);
+  await addJobRow(page);
 }
 
 test.describe.configure({ mode: "serial" });
@@ -71,21 +56,29 @@ test.afterAll(async () => {
   await app?.close();
 });
 
-test("shape A, no page header, and the shared subject control (J1)", async () => {
+test("shape A, no page header, and one Jobs table instead of a global subject set", async () => {
   await expect(page.locator(".page-header")).toHaveCount(0);
-  // §6.2's removal list: the Selected-jobs table, the Global-parameters card and the tab
-  // container are still gone. The Subjects section came back under U16 — U11 deleted the context
-  // bar's own switcher, the only writer `useSubject().batch` had, so a multi-subject run needs a
-  // control this page owns. It is OPEN on first visit (R3: every subject-taking workflow shows
-  // the selector without the user discovering a disclosure first) and page-session memory from
-  // there on — so closing it below sticks, which is the headroom a real 4-pair mTI montage editor
-  // needs at 1280x800. Seeded with the context bar's primary ("ernie", from beforeAll).
-  await expect(subjectsField(page)).toHaveAttribute("data-open", "true");
-  await expect(page.getByTestId("subjects-summary").locator(".mono", { hasText: "ernie" })).toBeVisible();
-  // The one grammar, driven by the one helper — the mock's fixture is ernie, 101, MNI152.
-  await expectSubjectsGrammar(page, { mode: "per-subject", selected: ["ernie"], rows: 3 });
-  await closeSubjects(page);
-  await expect(page.locator(".card")).toHaveCount(0);
+  /*
+   * 2026-09-06 rework (maintainer): the page-level Subjects table and the Montage / Flex / Free-hand
+   * source tabs are gone. A ROW is a job and owns its subject, its source, its montage and its
+   * currents — 2.5.0's job cards — so there is nothing left for a page-wide subject set to decide.
+   */
+  await expect(page.getByTestId("subjects-field")).toHaveCount(0);
+  await expect(page.getByRole("radiogroup", { name: "Montage source" })).toHaveCount(0);
+  await expect(page.getByTestId("jobs-table")).toBeVisible();
+  await expect(page.locator("table.jobs-table thead th")).toHaveText([
+    "Subject",
+    "Source",
+    "EEG net",
+    "Montage",
+    "Pairs",
+    "Currents mA",
+    "",
+  ]);
+  // Seeded with one blank row on the context bar's primary subject ("ernie", from beforeAll), so
+  // the page's first act is picking a montage rather than discovering an "Add job" button.
+  await expect(montageRows()).toHaveCount(1);
+  await expect(montageRows().first()).toHaveAttribute("data-subject", "ernie");
   await expect(page.getByRole("heading", { name: /^Selected jobs/ })).toHaveCount(0);
 
   const pane = page.getByTestId("page-right-pane");
@@ -99,30 +92,30 @@ test("shape A, no page header, and the shared subject control (J1)", async () =>
   await expect(page.getByTestId("page-work").locator(".action-bar")).toBeVisible();
 });
 
-test("with nothing ticked the primary is disabled, with the reason as its tooltip and no banner", async () => {
-  // The disabled button is the ONLY signal: no digest line, no banner (maintainer call).
+test("with no complete row the primary is disabled, with the reason as its tooltip and no banner", async () => {
+  // The disabled button is the ONLY signal: no digest line, no banner (maintainer call). The
+  // reason names what is actually empty — the table — rather than the subject set the page no
+  // longer has.
   await expect(page.locator(".action-bar-digest")).toHaveCount(0);
   await expect(page.getByTestId("run-receipt")).toHaveCount(0);
   const run = page.getByTestId("run-button");
   await expect(run).toBeDisabled();
-  await expect(run).toHaveAttribute("title", "Select at least one montage.");
+  await expect(run).toHaveAttribute("title", "Add a job with a subject and a montage.");
 });
 
-test("choosing a montage in a row builds a subject x montage matrix and a derived digest", async () => {
-  // The table's first column is the net and the second is that net's montages — uni-polar and
-  // multi-polar in one list, the polarity read off the montage itself and shown as a chip. There
-  // are no standalone "EEG net" / "Polarity" selectors above the table any more.
+test("a row that names a subject and a montage becomes exactly one planned job", async () => {
+  // The row's first column is its subject, the second its source, the third the net and the
+  // fourth that net's montages — uni-polar and multi-polar in one list, the polarity read off the
+  // montage itself and shown as a chip. There are no standalone selectors above the table.
   await expect(page.locator(".field", { hasText: "Polarity" })).toHaveCount(0);
   const row = montageRows().first();
-  await pickNet(row, "GSN-HydroCel-185");
-  await pickMontage(row, "F3_F4 · TI");
+  await configureMontageJob(page, row, { subject: "ernie", net: "GSN-HydroCel-185", montage: "F3_F4 · TI" });
   await expect(row).toHaveAttribute("data-polarity", "uni_polar");
   await expect(row.locator(".chip", { hasText: /^TI$/ })).toBeVisible();
 
   /*
    * §4.5, as the maintainer redrew it on 2026-09-06: for `kind="sim"` the columns are the three
-   * *sources* — Montage · Flex · Free-hand — and a cell is a count with its state breakdown, not
-   * one column per selected simulation. One montage row here, so: "1 new".
+   * *sources* — Montage · Flex · Free-hand — and a cell is a count with its state breakdown.
    */
   const cell = page.getByTestId("plan-cell-ernie-montage");
   await expect(cell).toBeVisible({ timeout: 15_000 });
@@ -132,49 +125,47 @@ test("choosing a montage in a row builds a subject x montage matrix and a derive
   await expect(page.getByTestId("plan-cell-ernie-flex")).toHaveText("—");
   await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job · \d+ CPU · \d+ GB/);
   await expect(page.getByTestId("run-button")).toHaveText("Run simulation");
-  // The currents editor lives in the montage row itself now, not in a second "Selected jobs" card,
-  // and the number of fields follows the polarity: a uni-polar (TI) montage takes exactly 2.
-  await expect(row.getByRole("spinbutton")).toHaveCount(2);
+  // The currents editor lives in the row itself, and the number of fields follows the polarity: a
+  // uni-polar (TI) montage takes exactly 2.
+  await expect(jobCurrents(row)).toHaveCount(2);
 });
 
 test("a multi-polar montage row takes one current per pair", async () => {
   await clearMontageRows();
   const row = montageRows().first();
-  await pickNet(row, "GSN-HydroCel-185");
-  await pickMontage(row, "mTI_F3F4_P3P4 · mTI");
+  await configureMontageJob(page, row, { subject: "ernie", net: "GSN-HydroCel-185", montage: "mTI_F3F4_P3P4 · mTI" });
   await expect(row).toHaveAttribute("data-polarity", "multi_polar");
   await expect(row.locator(".chip", { hasText: /^mTI$/ })).toBeVisible();
   // 4 pairs -> 4 currents, derived from the montage, not from a control the user has to set.
-  await expect(row.getByRole("spinbutton")).toHaveCount(4);
-  await expect(row.locator("td.mono")).toHaveText("E24–E124 · E67–E77 · E36–E104 · E12–E62");
+  await expect(jobCurrents(row)).toHaveCount(4);
+  await expect(row.locator('td[data-cell="pairs"]')).toHaveText("E24–E124 · E67–E77 · E36–E104 · E12–E62");
 
   // One uni-polar and one multi-polar row side by side.
-  await page.getByRole("button", { name: "Add row", exact: true }).click();
-  const second = montageRows().nth(1);
-  await pickNet(second, "GSN-HydroCel-185");
-  await pickMontage(second, "F3_F4 · TI");
+  await configureMontageJob(page, await addJobRow(page), {
+    subject: "ernie",
+    net: "GSN-HydroCel-185",
+    montage: "F3_F4 · TI",
+  });
   await expect(montageRows()).toHaveCount(2);
 });
 
-test("U16: choosing two subjects yields a plan with two jobs and two matrix rows", async () => {
-  // Undo the previous test's rows first, so this test's job/row counts are exact rather than
-  // additive on top of whatever state the suite left behind.
+/**
+ * The defect the rework closes, in the maintainer's words: *"it's hard to separate users, montages,
+ * modes in different jobs."* Two rows, two subjects, and the SAME montage — reached by duplicating
+ * one row and re-pointing its subject, which is the gesture 2.5.0's job cards had.
+ */
+test("two rows can name two different subjects, and the plan grows a row for each", async () => {
   await clearMontageRows();
   await expect(page.getByTestId("run-button")).toBeDisabled();
 
-  // Tick a second subject in this page's own Subjects table (U16) — ernie is already ticked
-  // (seeded from the context bar's primary subject in `beforeAll`); the previous test left the
-  // table collapsed again, so open it first.
-  await setSubjectChecked(page, "101", true);
-  await expect(subjectRow(page, "ernie")).toHaveAttribute("data-selected", "true");
-  await expect(subjectsSummary(page)).toHaveText("2 subjects · ernie, 101 · one job per subject");
-
-  // Both subjects carry `GSN-HydroCel-185` (the mock's fixture); ernie also has `EGI_template`,
-  // which 101 does not, so the shared net is picked explicitly in the row itself rather than
-  // relying on whichever one the table defaults to.
-  const montageRow = montageRows().first();
-  await pickNet(montageRow, "GSN-HydroCel-185");
-  await pickMontage(montageRow, "F3_F4 · TI");
+  const first = montageRows().first();
+  await configureMontageJob(page, first, { subject: "ernie", net: "GSN-HydroCel-185", montage: "F3_F4 · TI" });
+  // Duplicate, then point the copy at 101 — one click each, no page-level subject set involved.
+  await first.getByRole("button", { name: "Duplicate job 1" }).click();
+  await expect(montageRows()).toHaveCount(2);
+  const second = montageRows().nth(1);
+  await setJobSubject(page, second, "101");
+  await expect(second).toHaveAttribute("data-runnable", "true");
 
   const ernieCell = page.getByTestId("plan-cell-ernie-montage");
   const cell101 = page.getByTestId("plan-cell-101-montage");
@@ -185,6 +176,10 @@ test("U16: choosing two subjects yields a plan with two jobs and two matrix rows
   await expect(page.locator('[data-testid="plan-stat-jobs"]')).toContainText("2");
   await expect(page.locator(".action-bar-digest")).toHaveText(/^2 jobs · \d+ CPU · \d+ GB/);
   await expect(page.getByTestId("run-button")).toHaveText("Run 2 simulations");
+  // The section's own summary says the same thing without opening the plan.
+  await expect(page.locator(".form-section", { hasText: "Jobs" }).first().locator(".form-section-summary").first()).toHaveText(
+    "2 jobs · 2 subjects",
+  );
 });
 
 /**
@@ -193,31 +188,31 @@ test("U16: choosing two subjects yields a plan with two jobs and two matrix rows
  * several jobs — a list behind the cell from which one job can be pinned.
  */
 test("a cell counts its subject's jobs per source, and lists them for pinning", async () => {
-  // Two subjects are still ticked from the test above; add a second montage row, so ernie's
-  // Montage cell holds two jobs rather than one.
-  await page.getByRole("button", { name: "Add row", exact: true }).click();
-  const second = montageRows().nth(1);
-  await pickNet(second, "GSN-HydroCel-185");
-  await pickMontage(second, "Thalamus_target · TI");
-  await expect(montageRows()).toHaveCount(2);
+  // Two subjects are still in the table from the test above; add a second montage row for ernie,
+  // so ernie's Montage cell holds two jobs rather than one.
+  await configureMontageJob(page, await addJobRow(page), {
+    subject: "ernie",
+    net: "GSN-HydroCel-185",
+    montage: "Thalamus_target · TI",
+  });
 
-  // And a flex source, so the plan is genuinely mixed: 2 montage jobs per subject + 1 flex job.
-  const sourceTabs = page.getByRole("radiogroup", { name: "Montage source" });
-  await sourceTabs.getByRole("radio", { name: "Flex result", exact: true }).click();
-  const flexRow = page.locator('tr[data-run="flex_Thalamus_20260810_101500"]');
-  await flexRow.getByRole("checkbox").click();
-  await expect(flexRow.getByRole("checkbox")).toBeChecked();
+  // And a flex source, so the plan is genuinely mixed: 2 montage jobs for ernie + 1 flex job.
+  const flexRow = await addJobRow(page);
+  await setJobSubject(page, flexRow, "ernie");
+  await setJobSource(page, flexRow, "Flex result");
+  await setJobMontage(page, flexRow, "flex_Thalamus_20260810_101500");
+  await expect(flexRow).toHaveAttribute("data-runnable", "true");
 
   const montageCell = page.getByTestId("plan-cell-ernie-montage");
   await expect(montageCell).toHaveText("2 new", { timeout: 15_000 });
   await expect(page.getByTestId("plan-cell-ernie-flex")).toHaveText("1 new");
   await expect(page.getByTestId("plan-cell-ernie-freehand")).toHaveText("—");
-  // Still three columns and one row per subject, however many simulations are selected.
+  // Still three columns and one row per subject, however many jobs are in the table.
   await expect(page.locator(".plan-matrix thead th")).toHaveText(["Subject", "Montage", "Flex", "Free-hand"]);
   await expect(page.locator(".plan-matrix tbody tr")).toHaveCount(2);
   // The footer keeps counting jobs, and it counts the folded ones.
-  await expect(page.getByTestId("plan-legend")).toContainText("new — 5 jobs in this plan");
-  await expect(page.locator('[data-testid="plan-stat-jobs"]')).toContainText("5");
+  await expect(page.getByTestId("plan-legend")).toContainText("new — 4 jobs in this plan");
+  await expect(page.locator('[data-testid="plan-stat-jobs"]')).toContainText("4");
 
   // Evidence (§8.1): two subjects, mixed sources.
   await page.locator('[data-testid="plan-grid"]').screenshot({ path: "tests/e2e/artifacts/sim-plan-summary.png" });
@@ -228,29 +223,20 @@ test("a cell counts its subject's jobs per source, and lists them for pinning", 
   await expect(jobs.locator("li")).toHaveCount(2);
   await jobs.locator("li button").first().click();
   await expect(jobs).toHaveCount(0);
-
-  // Leave the page as this serial file's next test expects it: montage source, no flex row.
-  await sourceTabs.getByRole("radio", { name: "Flex result", exact: true }).click();
-  await flexRow.getByRole("checkbox").click();
-  await expect(flexRow.getByRole("checkbox")).not.toBeChecked();
-  await sourceTabs.getByRole("radio", { name: "Montage", exact: true }).click();
 });
 
-test("nothing moves while a row is edited: fixed columns and fixed row heights", async () => {
+test("nothing moves while a row is edited — including a change of SOURCE", async () => {
   await clearMontageRows();
   const first = montageRows().first();
-  await pickNet(first, "GSN-HydroCel-185");
-  await pickMontage(first, "F3_F4 · TI");
-  await page.getByRole("button", { name: "Add row", exact: true }).click();
-  const second = montageRows().nth(1);
-  await pickNet(second, "GSN-HydroCel-185");
-  await pickMontage(second, "Thalamus_target · TI");
+  await configureMontageJob(page, first, { subject: "ernie", net: "GSN-HydroCel-185", montage: "F3_F4 · TI" });
+  const second = await addJobRow(page);
+  await configureMontageJob(page, second, { subject: "ernie", net: "GSN-HydroCel-185", montage: "Thalamus_target · TI" });
   await expect(montageRows()).toHaveCount(2);
 
   // Every cell of the table, by row and column — the geometry the maintainer's "no layout
   // movement" rule is about.
   const boxes = async () =>
-    page.locator("tr[data-montage-row] td").evaluateAll((cells) =>
+    page.locator("tr[data-job-row] td").evaluateAll((cells) =>
       cells.map((cell) => {
         const r = cell.getBoundingClientRect();
         return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) };
@@ -259,45 +245,58 @@ test("nothing moves while a row is edited: fixed columns and fixed row heights",
 
   const before = await boxes();
   // 1. Change the SECOND row's montage, and with it its polarity (TI -> mTI, 2 -> 4 currents).
-  await pickMontage(second, "mTI_F3F4_P3P4 · mTI");
+  await setJobMontage(page, second, "mTI_F3F4_P3P4 · mTI");
   await expect(second).toHaveAttribute("data-polarity", "multi_polar");
-  await expect(second.getByRole("spinbutton")).toHaveCount(4);
+  await expect(jobCurrents(second)).toHaveCount(4);
   expect(await boxes(), "polarity switch moved a cell").toEqual(before);
 
-  // 2. Change the second row's NET (which empties its montage back to a pending row).
-  await pickNet(second, "EGI_template");
+  // 2. Change the second row's NET (which empties its montage back to "choose one").
+  await setJobNet(page, second, "EGI_template");
   expect(await boxes(), "net change moved a cell").toEqual(before);
 
   // 3. And back to a montage on the new net.
-  await pickMontage(second, "mTI_Cz_Oz_F3_F4 · mTI");
+  await setJobMontage(page, second, "mTI_Cz_Oz_F3_F4 · mTI");
   // Wait for the row to finish becoming multi-polar before measuring, exactly as step 1 does:
   // without it the cells are read mid-render and come back as 0x0 rects, which is a race in the
   // test, not movement in the table.
   await expect(second).toHaveAttribute("data-polarity", "multi_polar");
-  await expect(second.getByRole("spinbutton")).toHaveCount(4);
+  await expect(jobCurrents(second)).toHaveCount(4);
   expect(await boxes(), "montage change moved a cell").toEqual(before);
+
+  // 4. And the case the rework adds: the row's SOURCE. Its EEG-net cell becomes a placement
+  //    picker and its Montage cell a flex-run picker, inside the columns they already had.
+  await setJobSource(page, second, "Flex result");
+  await expect(second).toHaveAttribute("data-source", "flex");
+  expect(await boxes(), "source switch moved a cell").toEqual(before);
+  await setJobSource(page, second, "Free-hand");
+  await expect(second).toHaveAttribute("data-source", "freehand");
+  expect(await boxes(), "free-hand switch moved a cell").toEqual(before);
 });
 
-test("the montage table never scrolls sideways in the work column", async () => {
-  // The columns are percentages of the table, so the sum is the table's width by construction —
-  // this asserts that construction rather than a set of pixel widths that happen to add up. The
-  // table holds a 4-current mTI row from the test above, which is its widest content.
+test("the jobs table never scrolls sideways in the work column", async () => {
+  // The columns always sum to the container by construction — this asserts that construction
+  // rather than a set of pixel widths that happen to add up.
   for (const width of [1280, 1024]) {
     await page.setViewportSize({ width, height: 800 });
-    await expect(page.locator("table.montage-table")).toBeVisible();
-    const box = await page.locator(".data-table-container").first().evaluate((el) => ({
+    await expect(page.locator("table.jobs-table")).toBeVisible();
+    const box = await page.getByTestId("jobs-table-container").evaluate((el) => ({
       scrollWidth: el.scrollWidth,
       clientWidth: el.clientWidth,
     }));
     expect(box.clientWidth, `table container collapsed at ${width}`).toBeGreaterThan(300);
-    expect(box.scrollWidth, `montage table scrolls sideways at ${width}`).toBeLessThanOrEqual(box.clientWidth);
+    expect(box.scrollWidth, `jobs table scrolls sideways at ${width}`).toBeLessThanOrEqual(box.clientWidth);
   }
   await page.setViewportSize({ width: 1280, height: 800 });
 });
 
 test("clicking a row makes it the one the 3-D pane draws, and up/down moves it", async () => {
+  // The previous test left row 2 on the Free-hand source; put it back on a montage so both rows
+  // are drawable.
   const rows = montageRows();
-  await rows.nth(1).locator("td.mono").click();
+  await setJobSource(page, rows.nth(1), "Montage");
+  await configureMontageJob(page, rows.nth(1), { subject: "ernie", net: "GSN-HydroCel-185", montage: "F3_F4 · TI" });
+
+  await rows.nth(1).locator('td[data-cell="pairs"]').click();
   await expect(rows.nth(1)).toHaveAttribute("data-active", "true");
   await expect(rows.first()).not.toHaveAttribute("data-active", "true");
 
@@ -309,25 +308,19 @@ test("clicking a row makes it the one the 3-D pane draws, and up/down moves it",
 });
 
 /**
- * The reported defect: "the Flex result mode opens up the table selection very nicely, but it does
- * not allow me to click or select any of the options." Every row's checkbox was disabled because
- * the tab looked for the electrodes in `flex_meta.json`, which never records any. This walks the
- * whole path the user did: switch mode, tick a row, see it become a planned job.
+ * The reported defect the flex source once had: every row's checkbox was disabled because the tab
+ * looked for the electrodes in `flex_meta.json`, which never records any. Since the jobs rework
+ * there is no checkbox at all — a row picks `Flex result` in its own Source cell — so this walks
+ * that path instead, all the way to a planned job.
  */
-test("a flex result row can be ticked and becomes a planned job", async () => {
+test("a row on the Flex result source becomes a planned job, in either placement", async () => {
   await clearMontageRows();
-  const sourceTabs = page.getByRole("radiogroup", { name: "Montage source" });
-  await sourceTabs.getByRole("radio", { name: "Flex result", exact: true }).click();
-
-  const flexRows = page.getByTestId("flex-run-row");
-  await expect(flexRows).toHaveCount(1);
-  const row = page.locator('tr[data-run="flex_Thalamus_20260810_101500"]');
-
-  const box = row.getByRole("checkbox");
-  await expect(box).toBeEnabled();
-  await box.click();
-  await expect(box).toBeChecked();
-  await expect(row).toContainText("E020→E074, E101→E133");
+  const row = montageRows().first();
+  await setJobSubject(page, row, "ernie");
+  await setJobSource(page, row, "Flex result");
+  await setJobMontage(page, row, "flex_Thalamus_20260810_101500");
+  await expect(row).toHaveAttribute("data-runnable", "true");
+  await expect(row.locator('td[data-cell="pairs"]')).toHaveText("E020–E074 · E101–E133");
 
   // A flex source lands in the Flex column, and the montage column empties — which is the whole
   // point of summarising by source rather than by simulation name.
@@ -340,16 +333,11 @@ test("a flex result row can be ticked and becomes a planned job", async () => {
   await expect(page.getByTestId("run-button")).toBeEnabled();
 
   // The optimiser's own coordinates are the other placement a run can be simulated in — and the
-  // only one a run that was never mapped onto a net has.
-  await row.getByRole("combobox").click();
-  await page.getByRole("option", { name: "Optimised positions (XYZ)", exact: true }).click();
-  await expect(row).toContainText("4 optimised coordinates");
-  await expect(box).toBeChecked();
+  // only one a run that was never mapped onto a net has. It is the row's EEG-net cell.
+  await setJobNet(page, row, "Optimised positions (XYZ)");
+  await expect(row.locator('td[data-cell="pairs"]')).toHaveText("4 XYZ coordinates");
+  await expect(row).toHaveAttribute("data-runnable", "true");
   await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job · /, { timeout: 15_000 });
-
-  await box.click();
-  await expect(box).not.toBeChecked();
-  await sourceTabs.getByRole("radio", { name: "Montage", exact: true }).click();
 });
 
 test("collapsed sections state their own values (§4.2 rule 5)", async () => {
@@ -419,21 +407,25 @@ test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.
  * collapses the run pane and widens the window so the currents column is not clipped by the
  * table's own horizontal scroll, which would move the geometry the acceptance test above measures.
  */
-test("records the montage table (uni-polar + multi-polar rows) as an artifact", async () => {
+test("records the jobs table (two subjects, mixed sources) as an artifact", async () => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await clearMontageRows();
-  const first = montageRows().first();
-  await pickNet(first, "GSN-HydroCel-185");
-  await pickMontage(first, "mTI_F3F4_P3P4 · mTI");
-  await page.getByRole("button", { name: "Add row", exact: true }).click();
-  const second = montageRows().nth(1);
-  await pickNet(second, "GSN-HydroCel-185");
-  await pickMontage(second, "F3_F4 · TI");
-  await expect(montageRows()).toHaveCount(2);
+  await configureMontageJob(page, montageRows().first(), {
+    subject: "ernie",
+    net: "GSN-HydroCel-185",
+    montage: "mTI_F3F4_P3P4 · mTI",
+  });
+  const second = await addJobRow(page);
+  await configureMontageJob(page, second, { subject: "101", net: "GSN-HydroCel-185", montage: "F3_F4 · TI" });
+  const third = await addJobRow(page);
+  await setJobSubject(page, third, "ernie");
+  await setJobSource(page, third, "Flex result");
+  await setJobMontage(page, third, "flex_Thalamus_20260810_101500");
+  await expect(montageRows()).toHaveCount(3);
 
   const chord = process.platform === "darwin" ? "Meta+Shift+i" : "Control+Shift+i";
   await page.setViewportSize({ width: 1800, height: 900 });
   await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
   await page.keyboard.press(chord);
-  await page.locator("table.data-table").first().screenshot({ path: "tests/e2e/artifacts/montage-table-v2.png" });
+  await page.getByTestId("jobs-table-container").screenshot({ path: "tests/e2e/artifacts/jobs-table-sim.png" });
 });

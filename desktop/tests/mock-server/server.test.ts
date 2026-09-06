@@ -214,36 +214,56 @@ describe("mock server: GET/HEAD /api/files/raw/{path}", () => {
   });
 });
 
-// D1/D3 (dev/notes/v3-docker-streamline-plan.md): /tetravox/ serves the embed bundle -- the
-// deterministic fake-embed fixture by default (TIT_MOCK_EMBED_DIR unset) -- unauthenticated,
-// with its own CSP, never falling back to the renderer's index.html.
-describe("GET /tetravox/*", () => {
-  it("serves the fake embed's index.html at /tetravox and /tetravox/, unauthenticated", async () => {
-    for (const path of ["/tetravox", "/tetravox/", "/tetravox/index.html"]) {
-      const res = await fetch(`${BASE}${path}`);
-      expect(res.status).toBe(200);
-      expect(await res.text()).toContain("tetravox-embed (fake)");
-      expect(res.headers.get("content-security-policy")).toContain("wasm-unsafe-eval");
+// V4 (dev/notes/v3-native-panes-external-viewer-plan.md): there is no /tetravox/ any more. The
+// embed it served is retired; the viewer is a separate desktop app on the host. What replaces it
+// on the wire is POST /api/view/open, whose whole job is the *file* that app opens.
+describe("POST /api/view/open", () => {
+  it("names a file the Tetravox app will treat as a scene, in both path languages", async () => {
+    const res = await fetch(`${BASE}/api/view/open`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${TOKEN}` },
+      body: JSON.stringify({ kind: "subject", subject: "ernie" }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // `.tetravox.json`, not `.tvx.json`: the app classifies anything else as data.
+    expect(body.name.endsWith(".tetravox.json")).toBe(true);
+    expect(body.path).toContain("/code/ti-toolbox/viewer/");
+    expect(body.host_path).toContain("/code/ti-toolbox/viewer/");
+    expect(body.path).not.toBe(body.host_path);
+  });
+
+  it("gives the scene filesystem paths, never /api/files/raw URLs — the app reads files", async () => {
+    const res = await fetch(`${BASE}/api/view/open`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${TOKEN}` },
+      body: JSON.stringify({ kind: "subject", subject: "ernie" }),
+    });
+    const body = await res.json();
+    expect(body.scene.datasets.length).toBeGreaterThan(0);
+    for (const dataset of body.scene.datasets) {
+      expect(dataset.path.startsWith("/api/")).toBe(false);
+      expect(dataset.absPath.startsWith("/api/")).toBe(false);
     }
   });
 
-  it("serves manifest.json with the embed's own CSP", async () => {
+  it("refuses an unknown kind", async () => {
+    const res = await fetch(`${BASE}/api/view/open`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${TOKEN}` },
+      body: JSON.stringify({ kind: "nonsense" }),
+    });
+    expect(res.status).toBe(422);
+  });
+});
+
+// /tetravox/ is gone, so the path must fall through to the renderer's own SPA handling like any
+// other unknown path — never keep answering as if a bundle were still mounted there.
+describe("GET /tetravox/*", () => {
+  it("is no longer a route of its own", async () => {
     const res = await fetch(`${BASE}/tetravox/manifest.json`);
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body).toMatchObject({ name: "tetravox-embed-fake", protocol: 2 });
-    expect(res.headers.get("content-security-policy")).toContain("wasm-unsafe-eval");
-  });
-
-  it("404s an unknown asset rather than falling back to index.html", async () => {
-    const res = await fetch(`${BASE}/tetravox/does-not-exist.js`);
-    expect(res.status).toBe(404);
+    expect(res.headers.get("content-security-policy") ?? "").not.toContain("wasm-unsafe-eval");
     expect(await res.text()).not.toContain("tetravox-embed (fake)");
-  });
-
-  it("never falls through to the renderer bundle's SPA route", async () => {
-    const res = await fetch(`${BASE}/tetravox/`);
-    expect(await res.text()).not.toContain("Renderer not built");
   });
 });
 

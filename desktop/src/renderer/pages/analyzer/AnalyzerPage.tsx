@@ -26,7 +26,7 @@ import { Field } from "../../ui/Field";
 import { Select } from "../../ui/Select";
 import { Switch } from "../../ui/Toggle";
 import { Button } from "../../ui/Button";
-import { Callout, EmptyState, Skeleton } from "../../ui/Feedback";
+import { Callout, EmptyState } from "../../ui/Feedback";
 import { notify } from "../../ui/Toast";
 import { useSubject } from "../../app/subjectContext";
 import { usePageSession } from "../../app/pageSession";
@@ -53,18 +53,18 @@ import { EMPTY_SPHERE, SphereRows, type Sphere } from "./SphereRows";
 import { ResultsPanel } from "./ResultsPanel";
 import { viewerSearch } from "../results";
 import {
-  AUTO_FIELD,
   buildConfig,
   sphereComplete,
-  type Mode,
   type Space,
   type AnalysisType,
 } from "./buildConfig";
 import {
   getSimulationDetails,
+  newAnalysisTag,
   planAnalyzerBatch,
   submitAnalyzerJob,
   type AnalyzerConfig,
+  type AnalyzerJobSpec,
 } from "./api";
 
 /** Same small local hook every other Run screen defines for its debounced Plan query
@@ -112,33 +112,21 @@ export function groupMismatchReason(rows: AnalyzerRow[]): string | null {
 
 export function AnalyzerPage() {
   const navigate = useNavigate();
-  // U16: U11 deleted the context bar's own subject switcher, which was the only writer for
-  // `useSubject().batch` — Subject mode used to read the shell's primary, Group mode its whole
-  // (primary + batch) selection. Both now come from this page's own Subjects table instead,
-  // seeded from the shell's primary subject.
   const { id: shellSubject, subjects } = useSubject();
-  // `usePageSession` for what the user chose, `useState` for what is transient (lane N2): this
-  // page unmounts on every navigation, so a plain `useState` reset the scope, the space, the ROI
-  // and the sphere table each time they stepped away — the maintainer's "jumping between tabs
-  // resets them". A confirm dialog and the in-flight `running` flag stay local.
-  const [selected, setSelected] = usePageSession<string[]>("subjects", () => (shellSubject ? [shellSubject] : []));
-  const [lastShellSubject, setLastShellSubject] = useState(shellSubject);
-  if (shellSubject !== lastShellSubject) {
-    setLastShellSubject(shellSubject);
-    setSelected((prev) => seedWithShellSubject(prev, shellSubject));
-  }
-  const [mode, setModeState] = usePageSession<Mode>("mode", "single");
-  const subjectIds = selected;
-  const [simulation, setSimulation] = usePageSession<string>("simulation", "");
-  const [space, setSpaceState] = usePageSession<Space>("space", "mesh");
+  /*
+   * 2026-09-06 jobs rework (maintainer): "we need a list of jobs in a table that allows users
+   * flexibility in what they input to the job". The page-level Subjects table and the single
+   * Simulation combobox are gone — a ROW names its subject, its simulation, its space and its
+   * field, which is 2.5.0's Subject × Simulation pair table with the two per-job choices that had
+   * no business being global folded in.
+   *
+   * `usePageSession` for what the user chose (lane N2): this page unmounts on every navigation.
+   */
+  const [rows, setRows] = usePageSession<AnalyzerRow[]>("jobRows", []);
+  const [group, setGroup] = usePageSession("group", false);
   const [tissueType, setTissueType] = usePageSession("tissue", "GM");
-  const [field, setField] = usePageSession<string>("field", AUTO_FIELD);
-  const [analysisType, setAnalysisTypeState] =
-    usePageSession<AnalysisType>("analysisType", "spherical");
-  const [coordinateSpace, setCoordinateSpace] = usePageSession<"subject" | "mni">(
-    "coordinateSpace",
-    "subject",
-  );
+  const [analysisType, setAnalysisTypeState] = usePageSession<AnalysisType>("analysisType", "spherical");
+  const [coordinateSpace, setCoordinateSpace] = usePageSession<"subject" | "mni">("coordinateSpace", "subject");
   const [spheres, setSpheres] = usePageSession<Sphere[]>("spheres", () => [{ ...EMPTY_SPHERE }]);
   const [roiValue, setRoiValue] = usePageSession<RoiValue>("roi", () => emptyRoi("cortical"));
   const [overwrite, setOverwrite] = usePageSession("overwrite", false);
@@ -146,49 +134,8 @@ export function AnalyzerPage() {
   const [running, setRunning] = useState(false);
   const [pinnedJobId, setPinnedJobId] = usePageSession<string | null>("pinnedJob", null);
 
-  const primarySubjectId = selected[0] ?? null;
-  const effectiveSubjectIds = effectiveSubjectIdsFor(mode, subjectIds);
-  const roiSpace: "subject" | "mni" = space === "mesh" ? "subject" : "mni";
-
-  // Derived-field resets happen inside the setter that changes the driving field (matching
-  // `optimizer-flex/index.tsx`'s `setRoi` pattern), not a `useEffect` watching it — one render,
-  // no `react-hooks/set-state-in-effect` violation. Mirrors `update_atlas_visibility`'s
-  // forced-GM-in-mesh (handled in `buildConfig` instead, since the Tissue control is simply
-  // disabled rather than needing its value cleared) and cortical/spherical target reset.
-  function setMode(next: Mode) {
-    setModeState(next);
-    if (next === "group" && spheres.length > 1)
-      setSpheres((s) => [s[0] as Sphere]);
-    // J4: Subject scope submits ONE job for ONE subject (`AnalyzerConfig.subject_id`). Narrowing
-    // the ticked set here, visibly, is the honest form of what `effectiveSubjectIdsFor` used to do
-    // silently on the way to the payload — a user could tick three subjects in Subject scope and
-    // watch one analysis run.
-    if (next === "single") setSelected((prev) => (prev.length > 1 ? [prev[0] as string] : prev));
-  }
-  function setSpace(next: Space) {
-    setSpaceState(next);
-    if (analysisType !== "spherical")
-      setRoiValue(
-        emptyRoi(analysisType as RoiMode, next === "mesh" ? "subject" : "mni"),
-      );
-  }
-  function setAnalysisType(next: AnalysisType) {
-    setAnalysisTypeState(next);
-    if (next !== "spherical") setRoiValue(emptyRoi(next as RoiMode, roiSpace));
-  }
-
-  const simulations = useQuery({
-    queryKey: ["simulations", primarySubjectId],
-    queryFn: () => getSimulationDetails(primarySubjectId as string),
-    enabled: primarySubjectId !== null,
-  });
-  const selectedSimulation = simulations.data?.find(
-    (s) => s.name === simulation,
-  );
-
-  // Readiness for the Subjects table (U16): "has run the chosen simulation" — one query per
-  // project subject, keyed the same as `simulations` above so the primary subject's row reuses
-  // that same cache entry rather than fetching it twice.
+  // One simulation query per project subject — the Simulation cell's options, and the readiness
+  // the row's Subject cell states.
   const subjectSimQueries = useQueries({
     queries: subjects.map((s) => ({
       queryKey: ["simulations", s.id],
@@ -196,103 +143,131 @@ export function AnalyzerPage() {
       staleTime: 60_000,
     })),
   });
-  // Derived on every render rather than memoized, matching `RunControls.tsx`'s own
-  // `useSimPlan`: `useQueries` hands back a fresh array each render, so a `useMemo` keyed on it
-  // cannot preserve identity anyway — this is a map over at most a project's few dozen subjects.
-  const ranSimulation = (id: string): boolean => {
-    const i = subjects.findIndex((s) => s.id === id);
-    const names = subjectSimQueries[i]?.data?.map((d) => d.name) ?? [];
-    // Before a simulation is picked, "ready" means "has run something to analyze"; once one is
-    // picked, it means "has run *this* one" — the exact rule Group mode's own note states.
-    return simulation ? names.includes(simulation) : names.length > 0;
+  // Derived every render rather than memoized: `useQueries` hands back a fresh array each render,
+  // so a `useMemo` over it cannot preserve identity — this is a map over a project's few subjects.
+  const detailsFor = (subjectId: string) => {
+    const i = subjects.findIndex((s) => s.id === subjectId);
+    return subjectSimQueries[i]?.data ?? [];
   };
-  const subjectColumns: SubjectColumn<{ id: string }>[] = [{ id: "sim", label: "sim", present: (s) => ranSimulation(s.id) }];
-  const eligibility = (s: { id: string }) =>
-    ranSimulation(s.id) ? { ok: true } : { ok: false, reason: simulation ? `has not run ${simulation}` : "no simulations" };
+  const jobSubjects: AnalyzerSubject[] = subjects.map((s) => {
+    const sims = detailsFor(s.id).map((d) => d.name);
+    return { id: s.id, simulations: sims, blockedReason: sims.length > 0 ? undefined : "no simulations" };
+  });
+  const fieldsFor = (subjectId: string, simulation: string): string[] =>
+    detailsFor(subjectId).find((d) => d.name === simulation)?.fields ?? [];
 
-  const fieldOptions = useMemo(() => {
-    const available =
-      selectedSimulation?.fields ?? FIELD_REGISTRY.map((f) => f.name);
-    return [
-      // Radix Select reserves value="" to mean "no selection shown" (it renders the placeholder
-      // instead of the item), so "Auto" needs a real sentinel string here.
-      { value: AUTO_FIELD, label: "Auto (TI_max / mTI_max)" },
-      ...available.map((name) => ({
-        value: name,
-        label: name,
-        disabled: space === "voxel" && name === "TI_normal",
-      })),
-    ];
-  }, [selectedSimulation, space]);
+  // The table starts with one row on the shell's primary subject, so the page's first act is
+  // choosing a simulation rather than discovering an "Add row" button.
+  const [seeded, setSeeded] = useState(false);
+  if (!seeded && rows.length === 0 && subjects.length > 0) {
+    setSeeded(true);
+    setRows([emptyAnalyzerRow({ subjectId: shellSubject ?? subjects[0]?.id ?? "" })]);
+  }
+
+  const runnableRows = rows.filter(isRunnableAnalyzerRow);
+  const cohort = cohortSubjects(rows);
+  const firstRow = runnableRows[0];
+  const primarySubjectId = firstRow?.subjectId ?? rows[0]?.subjectId ?? null;
+  // In group mode every row shares one space (`groupMismatchReason` refuses otherwise), so the ROI
+  // space is the first runnable row's; with no rows yet it is mesh's subject space.
+  const space: Space = firstRow?.space ?? "mesh";
+  const roiSpace: "subject" | "mni" = space === "mesh" ? "subject" : "mni";
+  const effectiveSubjectIds = group ? cohort : runnableRows.map((r) => r.subjectId);
+
+  // Derived-field resets happen inside the setter that changes the driving field, not a
+  // `useEffect` watching it — one render, no `react-hooks/set-state-in-effect` violation.
+  function setAnalysisType(next: AnalysisType) {
+    setAnalysisTypeState(next);
+    if (next !== "spherical") setRoiValue(emptyRoi(next as RoiMode, roiSpace));
+  }
+  function setRows2(next: AnalyzerRow[]) {
+    setRows(next);
+    // A row switching to voxel moves the ROI into MNI space and back — the same reset the old
+    // page-level Space segment did, driven by the rows that now own the choice.
+    const nextSpace = next.filter(isRunnableAnalyzerRow)[0]?.space ?? "mesh";
+    if (nextSpace !== space && analysisType !== "spherical") {
+      setRoiValue(emptyRoi(analysisType as RoiMode, nextSpace === "mesh" ? "subject" : "mni"));
+    }
+  }
+  // Group mode analyses one cohort with one sphere: N sphere rows are N separate single-subject
+  // analyses in 2.5.0 and cannot be folded into a cohort job.
+  function setGroupMode(next: boolean) {
+    setGroup(next);
+    if (next && spheres.length > 1) setSpheres((s) => [s[0] as Sphere]);
+  }
 
   const targetReady =
     analysisType === "spherical"
       ? spheres.length > 0 && spheres.every(sphereComplete)
       : isRoiComplete(roiValue);
-  const configsValid =
-    !!simulation && effectiveSubjectIds.length > 0 && targetReady;
+  const groupMismatch = group ? groupMismatchReason(rows) : null;
+  const configsValid = runnableRows.length > 0 && targetReady && !groupMismatch;
 
-  const configs: AnalyzerConfig[] = useMemo(() => {
-    if (!configsValid) return [];
-    const base = {
-      mode,
-      subjectId: primarySubjectId,
-      subjectIds,
-      simulation,
-      space,
-      tissueType,
-      field,
-      analysisType,
-      coordinateSpace,
-      roiValue,
-    };
-    if (analysisType === "spherical") {
-      return spheres.map((sphere) => buildConfig({ ...base, sphere }));
-    }
-    return [buildConfig({ ...base, sphere: EMPTY_SPHERE })];
-  }, [
-    configsValid,
-    mode,
-    primarySubjectId,
-    subjectIds,
-    simulation,
-    space,
-    tissueType,
-    field,
-    analysisType,
-    coordinateSpace,
-    spheres,
-    roiValue,
-  ]);
+  /**
+   * One `AnalyzerConfig` per (row × sphere) — 2.5.0's `build_single_analysis_commands`, where N
+   * sphere rows are N *separate* analyses and never a union. In group mode the rows are the cohort
+   * instead: one config per sphere, carrying every row's subject in `subject_ids`.
+   *
+   * Derived on every render rather than memoized (the precedent `RunControls.tsx`'s `useSimPlan`
+   * set): the rows are derived arrays, so a `useMemo` over them could only be keyed on a
+   * serialisation — which React Compiler correctly refuses to treat as preserved memoization. The
+   * debounce below is keyed on that serialisation instead, which is where identity actually
+   * matters.
+   */
+  const configs: AnalyzerConfig[] = !configsValid
+    ? []
+    : (() => {
+        const targets = analysisType === "spherical" ? spheres : [EMPTY_SPHERE];
+        const make = (row: AnalyzerRow, sphere: Sphere) =>
+          buildConfig({
+            mode: group ? "group" : "single",
+            subjectId: group ? null : row.subjectId,
+            subjectIds: group ? cohort : [],
+            simulation: row.simulation,
+            space: row.space,
+            tissueType,
+            field: row.field,
+            analysisType,
+            coordinateSpace,
+            roiValue,
+            sphere,
+          });
+        if (group) {
+          const lead = runnableRows[0];
+          return lead ? targets.map((sphere) => make(lead, sphere)) : [];
+        }
+        return runnableRows.flatMap((row) => targets.map((sphere) => make(row, sphere)));
+      })();
 
-  // Debounced plan, per DESIGN.md's Plan panel ("POST /api/plan/{kind} on debounce").
-  const debouncedConfigs = useDebounced(configs, 400);
-  const debouncedSubjectIds = useDebounced(effectiveSubjectIds, 400);
+  /**
+   * Every config with the subjects IT runs over: one row's own subject per job, or the whole
+   * cohort on each of a group run's configs.
+   */
+  const jobSpecs: AnalyzerJobSpec[] = configs.map((config) => ({
+    config,
+    subjectIds: group ? cohort : [config.subject_id as string],
+  }));
+
+  /*
+   * Debounced plan, per DESIGN.md's Plan panel ("POST /api/plan/{kind} on debounce") — debounced on
+   * the SERIALISATION, not on the array. `configs` is rebuilt every render, so debouncing its
+   * identity would re-arm the timer on the render its own resolution caused and never settle.
+   */
+  const specsKey = useDebounced(JSON.stringify(jobSpecs), 400);
+  const debouncedSpecs = useMemo(() => JSON.parse(specsKey) as AnalyzerJobSpec[], [specsKey]);
   const debouncedOverwrite = useDebounced(overwrite, 400);
   const plan = useQuery({
-    queryKey: [
-      "analyzer-plan",
-      debouncedConfigs,
-      debouncedSubjectIds,
-      debouncedOverwrite,
-    ],
-    queryFn: () =>
-      planAnalyzerBatch(
-        debouncedConfigs,
-        debouncedSubjectIds,
-        debouncedOverwrite,
-      ),
-    enabled: debouncedConfigs.length > 0 && debouncedSubjectIds.length > 0,
+    queryKey: ["analyzer-plan", specsKey, debouncedOverwrite],
+    queryFn: () => planAnalyzerBatch(debouncedSpecs, debouncedOverwrite),
+    enabled: debouncedSpecs.length > 0,
   });
 
   async function runNow(replace = overwrite) {
     setRunning(true);
     try {
-      const tag = `analysis:${Date.now()}`;
+      const tag = newAnalysisTag();
       await Promise.all(
-        configs.map((cfg) =>
-          submitAnalyzerJob(cfg, effectiveSubjectIds, replace, [tag]),
-        ),
+        jobSpecs.map((spec) => submitAnalyzerJob(spec.config, spec.subjectIds, replace, [tag])),
       );
       notify.success(
         configs.length === 1
@@ -308,9 +283,7 @@ export function AnalyzerPage() {
 
   function handleRunClick() {
     if (!configsValid) {
-      notify.error(
-        "Complete the subject, simulation, and target before running.",
-      );
+      notify.error(blockedReason ?? "Complete the rows and the target before running.");
       return;
     }
     // The one existing-outputs question (C3) — this page used to have none of its own wording at
@@ -338,16 +311,26 @@ export function AnalyzerPage() {
   const runLabel = configs.length > 1 ? `Queue ${configs.length} jobs` : "Run analysis";
 
   const blockedReason = blockedReasonFor({
-    subjectsBlocked: subjectsBlockedReason(effectiveSubjectIds, blockedSubjects(subjects, effectiveSubjectIds, eligibility)),
-    simulation,
+    // The subject clause is still the shared grammar's, but it is now about the subjects the ROWS
+    // name rather than a page-level tick list (J3 wording, unchanged).
+    subjectsBlocked: subjectsBlockedReason(
+      effectiveSubjectIds,
+      effectiveSubjectIds
+        .map((id) => ({ id, reason: jobSubjects.find((s) => s.id === id)?.blockedReason }))
+        .filter((b): b is { id: string; reason: string } => !!b.reason),
+    ),
+    rowCount: runnableRows.length,
+    groupMismatch,
     targetReady,
   });
 
-  const subjectsKey = effectiveSubjectIds.join(",");
-  const planModel: PlanModel | null = useMemo(() => {
-    if (blockedReason || !plan.data) return null;
-    return planModelFrom("analyzer", plan.data as unknown as SharedPlanResult, subjectsKey ? subjectsKey.split(",") : []);
-  }, [blockedReason, plan.data, subjectsKey]);
+  // Derived on every render rather than memoized: `effectiveSubjectIds` is itself derived from the
+  // rows, so a `useMemo` here could only be keyed on a serialisation. `planModelFrom` is a fold
+  // over at most a few dozen plan jobs.
+  const planModel: PlanModel | null =
+    blockedReason || !plan.data
+      ? null
+      : planModelFrom("analyzer", plan.data as unknown as SharedPlanResult, effectiveSubjectIds);
 
   const counts = planCounts(planModel);
 
@@ -437,122 +420,76 @@ export function AnalyzerPage() {
     >
       <RunWork>
         {/*
-         * Subjects (J1/J2): the one shared control, first on the page, `data-tier="1"` (§8 — never
-         * closed by `RunWork`'s fill controller, matching the contract `firstScreenControls`
-         * reads). Not a `FormSection`: that primitive registers with the fill controller, which
-         * was measured to oscillate this table open/closed once `ResultsPanel`'s content grew
-         * after a simulation was picked.
+         * JOBS (2026-09-06 rework): the one table where the analysis is described, first on the
+         * page and `data-tier="1"` (§8 — never closed by `RunWork`'s fill controller). It replaces
+         * the page-level Subjects table, the Scope segment and the single Simulation combobox: a
+         * row names its own subject, simulation, space and field, which is 2.5.0's Subject ×
+         * Simulation pair table with "+ Add Pair" and "Quick Add".
          *
-         * The mode is the page's scope: Subject = one job for one subject, Group = one job over
-         * all of them (J4), and the control enforces whichever is current.
+         * It is deliberately not wrapped in a plain `FormSection` alone for the fill controller's
+         * sake — the `data-tier="1"` box is what keeps it out of the oscillation lane UC measured.
          */}
         <div data-tier="1">
-          <SubjectsField
-            subjects={subjects}
-            value={selected}
-            onChange={setSelected}
-            columns={subjectColumns}
-            eligibility={eligibility}
-            mode={mode === "group" ? "grouped" : "single"}
-            /* Open on first visit (R3), like every other subject-taking workflow — and unlike
-               them, deliberately with NO `Subjects in parallel` control: a group analysis is one
-               job over the whole cohort and a single-subject analysis is one job, so there is
-               nothing to run N-at-a-time. */
-            defaultOpen
-          />
+          <FormSection title="Jobs" summary={analyzerJobsSummary(rows, group)}>
+            <div style={{ gridColumn: "1 / -1" }}>
+              {subjects.length === 0 ? (
+                <EmptyState
+                  message="No subjects in this project yet."
+                  actionLabel="Go to Simulator"
+                  onAction={() => navigate("/simulator")}
+                />
+              ) : (
+                <AnalyzerJobRows subjects={jobSubjects} rows={rows} onRowsChange={setRows2} fieldsFor={fieldsFor} />
+              )}
+            </div>
+            <Field
+              label="Combine"
+              help="One cohort analysis over every row's subject (run_group_analysis), instead of one job per row."
+            >
+              <label className="checkbox-label-row">
+                <Switch checked={group} onCheckedChange={setGroupMode} aria-label="Combine into one group analysis" />
+                Combine into one group analysis
+              </label>
+            </Field>
+            {groupMismatch && (
+              <div style={{ gridColumn: "1 / -1" }}>
+                <Callout kind="warning">{groupMismatch}</Callout>
+              </div>
+            )}
+          </FormSection>
         </div>
 
-        {selected.length === 0 ? (
-          <EmptyState
-            message={subjects.length === 0 ? "No subjects in this project yet." : "Select a subject above to analyze a simulation."}
-            actionLabel={subjects.length === 0 ? "Go to Simulator" : undefined}
-            onAction={subjects.length === 0 ? () => navigate("/simulator") : undefined}
-          />
-        ) : (
+        {subjects.length > 0 && (
           <>
-            <div data-tier="1">
-              <FormSection title="Scope" summary={`${effectiveSubjectIds.join(", ") || "no subject"} · ${simulation || "no simulation"}`}>
-                <Field label="Scope">
-                  <SegmentedControl
-                    value={mode}
-                    onValueChange={(v) => setMode(v as Mode)}
-                    options={[
-                      { value: "single", label: "Subject" },
-                      { value: "group", label: "Group" },
-                    ]}
-                    aria-label="Analysis scope"
-                  />
-                </Field>
-                <Field
-                  label="Simulation"
-                  htmlFor="analyzer-simulation"
-                  required
-                  note={mode === "group" ? "Every selected subject must have run this simulation name." : undefined}
-                >
-                  <Combobox
-                    id="analyzer-simulation"
-                    value={simulation || undefined}
-                    onValueChange={setSimulation}
-                    options={(simulations.data ?? []).map((s) => ({ value: s.name, label: s.name }))}
-                    placeholder={
-                      primarySubjectId === null
-                        ? "Choose a subject first"
-                        : simulations.isPending
-                          ? "Loading…"
-                          : "Select a simulation…"
-                    }
-                    disabled={primarySubjectId === null}
-                  />
-                </Field>
-                {simulations.isPending && primarySubjectId !== null && (
-                  <div style={{ gridColumn: "1 / -1" }}>
-                    <Skeleton rows={1} />
-                  </div>
-                )}
-              </FormSection>
-            </div>
+            <FormSection
+              title="Space options"
+              collapsible
+              defaultOpen={false}
+              summary={space === "voxel" ? `voxel · ${tissueType}` : "mesh · GM"}
+            >
+              <Field
+                label="Tissue"
+                htmlFor="analyzer-tissue"
+                help="Voxel space only — mesh analyses are gray matter."
+                // Voxel space is why TI_normal is unavailable in a row's Field cell — a reason for
+                // a disabled option, so it is stated on the form rather than behind an (i).
+                note={space === "voxel" ? TI_NORMAL_VOXEL_HELP : undefined}
+              >
+                <Select
+                  id="analyzer-tissue"
+                  value={tissueType}
+                  onValueChange={setTissueType}
+                  disabled={space === "mesh"}
+                  options={[
+                    { value: "GM", label: "Gray matter (GM)" },
+                    { value: "WM", label: "White matter (WM)" },
+                    { value: "both", label: "GM + WM (both)" },
+                  ]}
+                />
+              </Field>
+            </FormSection>
 
-            <div data-tier="1">
-              <FormSection title="Space" summary={`${space} · ${space === "voxel" ? tissueType : "GM"} · ${field === AUTO_FIELD ? "auto" : field}`}>
-                <Field label="Space">
-                  <SegmentedControl
-                    value={space}
-                    onValueChange={(v) => setSpace(v as Space)}
-                    options={[
-                      { value: "mesh", label: "Mesh" },
-                      { value: "voxel", label: "Voxel" },
-                    ]}
-                    aria-label="Analysis space"
-                  />
-                </Field>
-                <Field label="Tissue" htmlFor="analyzer-tissue" help="Voxel space only.">
-                  <Select
-                    id="analyzer-tissue"
-                    value={tissueType}
-                    onValueChange={setTissueType}
-                    disabled={space === "mesh"}
-                    options={[
-                      { value: "GM", label: "Gray matter (GM)" },
-                      { value: "WM", label: "White matter (WM)" },
-                      { value: "both", label: "GM + WM (both)" },
-                    ]}
-                  />
-                </Field>
-                <Field
-                  label="Field"
-                  htmlFor="analyzer-field"
-                  help={fieldSpecForName(field)?.description ?? "Resolves to TI_max (TI) or mTI_max (mTI)."}
-                  // Voxel space is why TI_normal is unavailable — a reason for a disabled option,
-                  // so it is stated on the form rather than behind the (i) trigger.
-                  note={space === "voxel" ? TI_NORMAL_VOXEL_HELP : undefined}
-                >
-                  <Select id="analyzer-field" value={field} onValueChange={setField} options={fieldOptions} />
-                </Field>
-              </FormSection>
-            </div>
-
-            <div data-tier="1">
-              <FormSection title="Target" summary={analysisType}>
+            <FormSection title="Target" summary={analysisType}>
                 <Field label="Region">
                   <SegmentedControl
                     value={analysisType}
@@ -579,7 +516,7 @@ export function AnalyzerPage() {
                       onSpheresChange={setSpheres}
                       coordinateSpace={coordinateSpace}
                       onCoordinateSpaceChange={setCoordinateSpace}
-                      allowMultiple={mode === "single"}
+                      allowMultiple={!group}
                       onOpenViewer={primarySubjectId ? openInViewer : undefined}
                     />
                   ) : (
@@ -592,12 +529,11 @@ export function AnalyzerPage() {
                     />
                   )}
                 </div>
-              </FormSection>
-            </div>
+            </FormSection>
 
             <FormSection title="Output" collapsible defaultOpen={false} summary="CSV + PDF report">
               <div style={{ gridColumn: "1 / -1" }}>
-                <ResultsPanel subjectId={primarySubjectId} simulation={simulation || undefined} />
+                <ResultsPanel subjectId={primarySubjectId} simulation={firstRow?.simulation || undefined} />
               </div>
             </FormSection>
           </>
@@ -626,11 +562,21 @@ export function AnalyzerPage() {
  * verbatim and the primary carries it as a tooltip — never a silently disabled button
  * (DESIGN.md §4.2 rule 8).
  */
-export function blockedReasonFor(state: { subjectsBlocked: string | null; simulation: string; targetReady: boolean }): string | null {
+export function blockedReasonFor(state: {
+  subjectsBlocked: string | null;
+  /** Rows that name both a subject and a simulation. */
+  rowCount: number;
+  /** Group mode over rows that disagree about simulation, space or field. */
+  groupMismatch?: string | null;
+  targetReady: boolean;
+}): string | null {
+  // The table is what is empty, so that is what the button says — before the subject grammar's
+  // "select at least one subject", which is not the truth about a page with no rows.
+  if (state.rowCount === 0) return "Add a row with a subject and a simulation.";
   // The subject clause is the grammar's own (`pages/_shared/subjects`), so "no subject" and "this
   // subject cannot run" read identically here and on the other three run pages (J3).
   if (state.subjectsBlocked) return state.subjectsBlocked;
-  if (!state.simulation) return "Pick a simulation to analyze.";
+  if (state.groupMismatch) return state.groupMismatch;
   if (!state.targetReady) return "Complete the target before running.";
   return null;
 }

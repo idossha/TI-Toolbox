@@ -3,9 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
 import { expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
+import { addJobRow, configureMontageJob, jobRows } from "./_jobs";
 
 /**
- * The Simulator's montage table as a *table*: how wide its columns are, that the user can change
+ * The Simulator's **Jobs table** as a *table*: how wide its columns are, that the user can change
  * that, and that the row the 3-D pane is drawing is visibly the one the 3-D pane is drawing.
  *
  * Its own file, not `simulator.spec.ts`: that one is a serial narrative about the plan a run
@@ -18,22 +19,12 @@ const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
 let app: ElectronApplication;
 let page: Page;
 
-const container = () => page.getByTestId("montage-table-container");
-const montageRows = () => page.locator("tr[data-montage-row]");
-
-async function pickNet(row: ReturnType<typeof montageRows>, net: string) {
-  await row.getByRole("combobox").nth(0).click();
-  await page.getByRole("option", { name: net, exact: true }).click();
-}
-
-async function pickMontage(row: ReturnType<typeof montageRows>, option: string) {
-  await row.getByRole("combobox").nth(1).click();
-  await page.getByRole("option", { name: option, exact: true }).click();
-}
+const container = () => page.getByTestId("jobs-table-container");
+const montageRows = () => jobRows(page);
 
 /** The rendered width of every column, read off the header cells. */
 async function columnWidths(): Promise<number[]> {
-  return page.locator("table.montage-table thead th").evaluateAll((cells) =>
+  return page.locator("table.jobs-table thead th").evaluateAll((cells) =>
     cells.map((c) => Math.round(c.getBoundingClientRect().width)),
   );
 }
@@ -59,14 +50,17 @@ test.beforeAll(async () => {
   await gotoPage(page, "simulator", "Simulator");
   await expectPage(page, "simulator");
 
-  // Two real rows, one of them multi-polar — the table's widest content.
-  const first = montageRows().first();
-  await pickNet(first, "GSN-HydroCel-185");
-  await pickMontage(first, "mTI_F3F4_P3P4 · mTI");
-  await page.getByRole("button", { name: "Add row", exact: true }).click();
-  const second = montageRows().nth(1);
-  await pickNet(second, "GSN-HydroCel-185");
-  await pickMontage(second, "F3_F4 · TI");
+  // Two real jobs, one of them multi-polar — the table's widest content.
+  await configureMontageJob(page, montageRows().first(), {
+    subject: "ernie",
+    net: "GSN-HydroCel-185",
+    montage: "mTI_F3F4_P3P4 · mTI",
+  });
+  await configureMontageJob(page, await addJobRow(page), {
+    subject: "ernie",
+    net: "GSN-HydroCel-185",
+    montage: "F3_F4 · TI",
+  });
   await expect(montageRows()).toHaveCount(2);
 });
 
@@ -74,18 +68,19 @@ test.afterAll(async () => {
   await app?.close();
 });
 
-test("the columns fill the container exactly, with a fixed 96px actions column and no slack", async () => {
+test("the columns fill the container exactly, with a fixed 124px actions column and no slack", async () => {
   const box = await container().evaluate((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }));
   expect(box.scrollWidth, "the montage table scrolls sideways").toBeLessThanOrEqual(box.clientWidth);
 
   const widths = await columnWidths();
   console.log("MONTAGE-COLS 1280", JSON.stringify(widths), "container", box.clientWidth);
-  expect(widths).toHaveLength(5);
-  // Actions is the only fixed column, and it is exactly the three icon buttons wide.
-  expect(widths[4]).toBe(96);
+  // Subject · Source · EEG net · Montage · Pairs · Currents · actions.
+  expect(widths).toHaveLength(7);
+  // Actions is the only fixed column, and it is exactly the four icon buttons wide.
+  expect(widths[6]).toBe(124);
   // Every other column got room for its content — no 40px sliver, and nothing left over.
-  expect(widths[0]).toBeGreaterThanOrEqual(90);
-  expect(widths[1]).toBeGreaterThanOrEqual(110);
+  expect(widths[0]).toBeGreaterThanOrEqual(72);
+  expect(widths[3]).toBeGreaterThanOrEqual(100);
   expect(widths.reduce((a, b) => a + b, 0)).toBe(box.clientWidth);
 });
 
@@ -100,27 +95,27 @@ test("a header boundary can be dragged, and the width is remembered", async () =
   await page.mouse.up();
 
   const after = await columnWidths();
-  expect(after[0], "the dragged column did not grow").toBeGreaterThan(before[0]! + 20);
+  expect(after[2], "the dragged column did not grow").toBeGreaterThan(before[2]! + 20);
   // The table still fits: what the net column took came out of the columns beside it.
   const box2 = await container().evaluate((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }));
   expect(box2.scrollWidth).toBeLessThanOrEqual(box2.clientWidth);
   expect(after.reduce((a, b) => a + b, 0)).toBe(box2.clientWidth);
-  expect(after[4]).toBe(96);
+  expect(after[6]).toBe(124);
 
-  const stored = await page.evaluate(() => window.localStorage.getItem("tit-montage-columns-v1"));
+  const stored = await page.evaluate(() => window.localStorage.getItem("tit-sim-jobs-columns-v1"));
   expect(stored, "the drag was not persisted").toBeTruthy();
-  expect(JSON.parse(stored!).net).toBeGreaterThan(before[0]! + 20);
+  expect(JSON.parse(stored!).net).toBeGreaterThan(before[2]! + 20);
 
   // The keyboard moves the same boundary.
   await handle.focus();
   await handle.press("ArrowLeft");
   const narrower = await columnWidths();
-  expect(narrower[0]).toBeLessThan(after[0]!);
+  expect(narrower[2]).toBeLessThan(after[2]!);
 });
 
 test("the row the 3-D pane is drawing is tinted, and up/down moves it", async () => {
   const rows = montageRows();
-  await rows.nth(1).locator("td.mono").click();
+  await rows.nth(1).locator('td[data-cell="pairs"]').click();
   await expect(rows.nth(1)).toHaveAttribute("data-active", "true");
   await expect(rows.nth(1)).toHaveAttribute("aria-selected", "true");
 
@@ -153,7 +148,7 @@ test("the 3-D pane names the row it is drawing, in the row's own accent", async 
 
   // Row 2 is the uni-polar one; row 1 the multi-polar. Both name themselves in the pane.
   for (const index of [1, 0]) {
-    await rows.nth(index).locator("td.mono").click();
+    await rows.nth(index).locator('td[data-cell="pairs"]').click();
     await expect(rows.nth(index)).toHaveAttribute("data-active", "true");
     const montage = await rows.nth(index).getAttribute("data-montage-row");
     await expect(chip).toHaveText(`Showing: ${montage} · GSN-HydroCel-185`);
@@ -182,6 +177,6 @@ test("the 3-D pane names the row it is drawing, in the row's own accent", async 
 });
 
 /* Evidence (§8.1), never the assertion. */
-test("records the montage table", async () => {
-  await container().screenshot({ path: "tests/e2e/artifacts/montage-table-v3.png" });
+test("records the jobs table", async () => {
+  await container().screenshot({ path: "tests/e2e/artifacts/jobs-table-sim.png" });
 });

@@ -92,7 +92,9 @@ export function rowPairsText(row: SelectedRow): string {
 /** The row's currents, normalised to the count its polarity requires (extra values dropped, a
  *  short list padded with 1.0). */
 export function currentValues(currents: string, count: number): number[] {
-  const parsed = currents.split(",").map((v) => Number(v.trim()));
+  // A blank cell is an *unset* current, not zero — `Number("")` is 0, which is why the empty wire
+  // string used to normalise to `[0, 1]` rather than the documented `[1, 1]`.
+  const parsed = currents.split(",").map((v) => (v.trim() === "" ? Number.NaN : Number(v.trim())));
   return Array.from({ length: count }, (_, i) => {
     const v = parsed[i];
     return v === undefined || Number.isNaN(v) ? 1.0 : v;
@@ -372,7 +374,6 @@ export function JobsTable({
   const montages = useQuery({ queryKey: ["montages"], queryFn: getMontages });
 
   const usable = useMemo(() => subjects.filter((s) => !s.blockedReason).map((s) => s.id), [subjects]);
-  const usableKey = usable.join(",");
 
   // Flex runs and free-hand configs, per usable subject: a row's Montage cell needs the catalog for
   // *its own* subject, so this is one query each rather than one for the page's "current" subject.
@@ -382,22 +383,16 @@ export function JobsTable({
   const freehandQueries = useQueries({
     queries: usable.map((id) => ({ queryKey: ["freehand", id], queryFn: () => getFreehand(id), staleTime: 60_000 })),
   });
-  const flexBySubject = useMemo(() => {
-    const map: Record<string, FlexRun[]> = {};
-    usableKey.split(",").filter(Boolean).forEach((id, i) => {
-      map[id] = flexQueries[i]?.data ?? [];
-    });
-    return map;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `useQueries` returns a fresh array each render.
-  }, [usableKey, flexQueries.map((q) => q.dataUpdatedAt).join(",")]);
-  const freehandBySubject = useMemo(() => {
-    const map: Record<string, FreehandConfig[]> = {};
-    usableKey.split(",").filter(Boolean).forEach((id, i) => {
-      map[id] = freehandQueries[i]?.data ?? [];
-    });
-    return map;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- as above.
-  }, [usableKey, freehandQueries.map((q) => q.dataUpdatedAt).join(",")]);
+  /* Derived on every render rather than memoized, the precedent `RunControls.tsx`'s `useSimPlan`
+     set: `useQueries` hands back a fresh array each render, so a `useMemo` over it can only be
+     keyed on a serialisation — which React Compiler correctly refuses to treat as preserved
+     memoization. Both are maps over a project's few subjects. */
+  const flexBySubject: Record<string, FlexRun[]> = {};
+  const freehandBySubject: Record<string, FreehandConfig[]> = {};
+  usable.forEach((id, i) => {
+    flexBySubject[id] = flexQueries[i]?.data ?? [];
+    freehandBySubject[id] = freehandQueries[i]?.data ?? [];
+  });
 
   const availableNets = useMemo(() => {
     const nets = new Set<string>();

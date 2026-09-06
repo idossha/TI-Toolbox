@@ -10,6 +10,8 @@ import type {
   TitStackStartResult,
   TitStackStatus,
   TitStackStopResult,
+  TitViewerInfo,
+  TitViewerOpenResult,
 } from "../shared/tit-bridge";
 
 const tit: TitBridge = {
@@ -34,6 +36,12 @@ const tit: TitBridge = {
       ipcRenderer.on("tit:stack:event", listener);
       return () => ipcRenderer.removeListener("tit:stack:event", listener);
     },
+  },
+  viewer: {
+    probe: (): Promise<TitViewerInfo> => ipcRenderer.invoke("tit:viewer:probe"),
+    open: (containerScenePath: string): Promise<TitViewerOpenResult> =>
+      ipcRenderer.invoke("tit:viewer:open", String(containerScenePath)),
+    setPath: (path: string): Promise<TitViewerInfo> => ipcRenderer.invoke("tit:viewer:setPath", String(path)),
   },
 };
 

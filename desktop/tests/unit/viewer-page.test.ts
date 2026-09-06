@@ -2,86 +2,27 @@
 /**
  * The Viewer page's pure derivations.
  *
- * These are the facts the page states on screen that no e2e against the mock server can reach: the
- * mock's simulation scene carries no mesh at all, so the "enable a mesh layer" hint has no true
- * positive there (the e2e asserts the true negative; the real-container run in
- * `dev/notes/v3-docker-streamline/fx2-viewer-pages-notes.md` covers the positive), the deep-link
- * reader has more branches than a spec can usefully click through, and the status bar's own
- * formatting (`formatRas`, `shortRenderer`) is easiest to prove without a store or a DOM.
+ * The selection model and the deep-link reader: more branches than a spec can usefully click
+ * through, and none of them need a DOM.
+ *
+ * V1 (`dev/notes/v3-native-panes-external-viewer-plan.md`) removed the embed, and with it the
+ * three derivations this file also used to cover — `hidden3DLayer` (a hint about the *embed's*
+ * 3D pane), `formatRas` and `shortRenderer` (status-bar cells fed by the embed's cursor and its
+ * WebGL renderer string). None of the three has a referent any more: the picture is in another
+ * application's window, which reports its own cursor and its own renderer in its own status bar.
  */
 import { describe, expect, it } from "vitest";
 import {
   controlsFor,
-  formatRas,
   hasViewerDeepLink,
-  hidden3DLayer,
   readDeepLink,
   requiredControls,
   selectionFromDeepLink,
   selectionKey,
-  shortRenderer,
   validateSelection,
   viewQuery,
   type ViewerSelection,
 } from "../../src/renderer/pages/viewer/lib";
-import type { EmbedLayer } from "../../src/renderer/viewer";
-
-const volume = (id: string, visible: boolean): EmbedLayer => ({ id, name: id, kind: "volume", visible });
-const mesh = (id: string, visible: boolean): EmbedLayer => ({ id, name: id, kind: "mesh", visible });
-const label = (id: string, visible: boolean): EmbedLayer => ({ id, name: id, kind: "volume", showIn3D: true, visible });
-
-describe("hidden3DLayer", () => {
-  it("names the hidden mesh when nothing else can draw into the 3D pane", () => {
-    const hidden = hidden3DLayer([volume("T1", true), mesh("grey_Thalamus_TI", false)]);
-    expect(hidden?.id).toBe("grey_Thalamus_TI");
-  });
-
-  it("says nothing when a mesh is already visible", () => {
-    expect(hidden3DLayer([volume("T1", true), mesh("grey_Thalamus_TI", true)])).toBeNull();
-  });
-
-  it("says nothing for a scene of plain volumes — there would be nothing to enable", () => {
-    expect(hidden3DLayer([volume("T1", true), volume("TI_max", true)])).toBeNull();
-    expect(hidden3DLayer([volume("T1", false)])).toBeNull();
-    expect(hidden3DLayer([])).toBeNull();
-  });
-
-  it("ignores a label volume the server marked showIn3D — the mesh is what fills that pane", () => {
-    // A real simulation scene's electrode overlay is `showIn3D: true` and visible, and the 3D pane
-    // still reads as empty to a researcher until the surface is on. Counting it would suppress the
-    // one hint that matters.
-    expect(hidden3DLayer([volume("T1", true), label("electrodes", true), mesh("grey", false)])?.id).toBe("grey");
-    expect(hidden3DLayer([label("electrodes", false)])).toBeNull();
-  });
-
-  it("names the first hidden mesh when a scene carries more than one", () => {
-    expect(hidden3DLayer([mesh("grey", false), mesh("white", false)])?.id).toBe("grey");
-  });
-
-  it("treats an absent `visible` as visible, matching the inspector's own switch", () => {
-    expect(hidden3DLayer([{ id: "m", kind: "mesh" }])).toBeNull();
-  });
-});
-
-describe("formatRas", () => {
-  it("is undefined with no cursor, so the status cell is not rendered at all", () => {
-    expect(formatRas(null)).toBeUndefined();
-  });
-
-  it("formats each axis to one decimal, two-space separated", () => {
-    expect(formatRas([12, -18, 9])).toBe("12.0  -18.0  9.0");
-  });
-});
-
-describe("shortRenderer", () => {
-  it("pulls the useful middle out of an ANGLE wrapper", () => {
-    expect(shortRenderer("ANGLE (Apple, Apple M2 Pro, OpenGL 4.1)")).toBe("Apple M2 Pro");
-  });
-
-  it("falls back to the whole string when there is no parenthesised form", () => {
-    expect(shortRenderer("SwiftShader")).toBe("SwiftShader");
-  });
-});
 
 describe("readDeepLink", () => {
   it("prefers the router's query and falls back to the document's", () => {

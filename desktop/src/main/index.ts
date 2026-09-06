@@ -8,6 +8,7 @@ import { checkToken, waitForHealth } from "./health";
 import { nativeRuntime, resolveRuntime } from "./nativeRuntime";
 import { stack } from "./stackHost";
 import { notifyJobCompletions, stopNotifyingJobCompletions } from "./jobsNotifier";
+import { SCENE_EXTENSION, TETRAVOX_RELEASES_URL, launchTetravox, probeTetravox } from "./viewer";
 import {
   containerToHostPath,
   hasDotSegment,
@@ -27,6 +28,8 @@ import type {
   TitStackStartResult,
   TitStackStatus,
   TitStackStopResult,
+  TitViewerInfo,
+  TitViewerOpenResult,
 } from "../shared/tit-bridge";
 
 const EXTERNAL_SCHEMES = new Set(["http:", "https:", "mailto:"]);
@@ -589,6 +592,49 @@ function registerIpc(): void {
     shell.showItemInFolder(resolved.path);
     return { ok: true };
   });
+  // ── the external viewer (V2/V3, dev/notes/v3-native-panes-external-viewer-plan.md) ──────────
+  //
+  // Callable from a server-served page, like `openPath` and for the same reason: the renderer
+  // names a *container* path the server just wrote, and main is what turns it into a host path.
+  // The renderer cannot name a host path here, and cannot name an arbitrary program to run — the
+  // only executable this can start is whatever discovery (or the user's own Settings override)
+  // says Tetravox is, and the only argument it takes is a `*.tetravox.json` inside the project.
+  const viewerInfo = (): TitViewerInfo => {
+    const override = readSettings().tetravoxPath?.trim() || null;
+    const found = probeTetravox(toHostPlatform(process.platform), override);
+    return {
+      available: found !== null,
+      path: found?.path ?? null,
+      version: found?.version ?? null,
+      source: found?.source ?? null,
+      override,
+      downloadUrl: TETRAVOX_RELEASES_URL,
+    };
+  };
+  // Re-probed on every call rather than cached: the user may install Tetravox while this app is
+  // open, and a remembered "not installed" would outlive the fact.
+  ipcMain.handle("tit:viewer:probe", (e): TitViewerInfo => {
+    if (!fromMainWindow(e)) return { available: false, path: null, version: null, source: null, override: null, downloadUrl: TETRAVOX_RELEASES_URL };
+    return viewerInfo();
+  });
+  ipcMain.handle("tit:viewer:setPath", (e, path: unknown): TitViewerInfo => {
+    if (!fromMainWindow(e)) return { available: false, path: null, version: null, source: null, override: null, downloadUrl: TETRAVOX_RELEASES_URL };
+    updateSettings({ tetravoxPath: String(path ?? "").trim() });
+    return viewerInfo();
+  });
+  ipcMain.handle("tit:viewer:open", async (e, path: unknown): Promise<TitViewerOpenResult> => {
+    if (!fromMainWindow(e)) return { ok: false, reason: "unknown sender" };
+    const scene = String(path ?? "");
+    if (!scene.endsWith(SCENE_EXTENSION)) return { ok: false, reason: `not a Tetravox scene (${SCENE_EXTENSION})` };
+    const resolved = await resolveHostPathStrict(scene);
+    if (!resolved.ok) return { ok: false, reason: resolved.reason };
+    const info = viewerInfo();
+    if (!info.available || info.path === null) return { ok: false, reason: "Tetravox is not installed on this computer" };
+    const result = launchTetravox(toHostPlatform(process.platform), info.path, resolved.path);
+    log(result.ok ? "info" : "warn", result.ok ? `viewer: ${result.command} ${result.args.join(" ")}` : `viewer: ${result.reason}`);
+    return result;
+  });
+
   ipcMain.handle("tit:notify", (e, title: unknown, body: unknown) => {
     if (!fromMainWindow(e)) return;
     if (!Notification.isSupported()) return;
