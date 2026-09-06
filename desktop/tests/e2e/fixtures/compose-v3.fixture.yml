@@ -37,7 +37,6 @@ services:
       TIT_SERVER_TOKEN: ${TIT_SERVER_TOKEN}
       TIT_SERVER_PORT: ${TIT_SERVER_PORT}
       TIT_STATIC_DIR: ${TIT_STATIC_DIR:-/opt/ti-toolbox/ui}
-      TIT_TETRAVOX_EMBED_DIR: /opt/tetravox/embed
     ports:
       - "127.0.0.1:${TIT_SERVER_PORT}:${TIT_SERVER_PORT}"
     labels:

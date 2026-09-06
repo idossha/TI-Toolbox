@@ -45,7 +45,7 @@ of a form).
 | Console (file list, sizes, status) | — | Per-dataset load rows over the canvas with the byte count the loader reports (the embed's own toolbar; the host's is gone with the rest of the inspector) | Done |
 | Freeview launch (`subprocess.Popen`) | — | **Deleted** (D3) | n/a |
 | Gmsh launch | — | **Deleted** (D3) | n/a |
-| Capability gating (X11) | n/a | `capabilities.tetravox_embed.available === false` → a designed "no viewer bundle" state naming the image's reported embed version (no source bar either — there is nothing to source); `ready.caps.webgl2 === false` → the no-WebGL2 state, `renderer` status cell in warning tone; a frame that never handshakes → `no-embed`, with its own "Reload viewer" button | Done |
+| Capability gating (X11) | n/a | Gone with the embed. Nothing on the server answers whether a viewer is available — `window.tit.viewer.probe` asks the *host* filesystem (V2/V3). Tetravox not found → the button says so and Settings ▸ Viewer offers the download link; no Electron shell → the scene file is offered as a download instead | Done |
 
 ## Known gaps (report to orchestrator)
 

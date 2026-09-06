@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 import secrets
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields
 
 from tit import constants as const
 
@@ -63,7 +63,19 @@ class ServerSettings:
 
     @classmethod
     def from_json(cls, text: str) -> "ServerSettings":
+        """Rebuild settings from :meth:`to_json`, ignoring fields this build no longer has.
+
+        The file this reads is written once at startup and re-read by every ``--reload``
+        child (``tit/server/__main__.py``).  A settings-schema change mid-session therefore
+        leaves the *old* keys on disk in front of the *new* dataclass, and ``cls(**data)``
+        would raise ``TypeError: unexpected keyword argument`` on every reload — the server
+        stays down, with a message that names a field nobody edited.  That happened on
+        2026-09-06 when ``tetravox_embed_dir`` was removed.  Dropping keys this class does
+        not declare turns a dead dev container into a default for one setting.
+        """
         data = json.loads(text)
+        known = {field.name for field in fields(cls)}
+        data = {key: value for key, value in data.items() if key in known}
         data["dev_origins"] = tuple(data.get("dev_origins", ()))
         data["allow_hosts"] = tuple(data.get("allow_hosts", ()))
         return cls(**data)

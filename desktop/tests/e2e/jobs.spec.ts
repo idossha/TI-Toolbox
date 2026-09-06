@@ -53,6 +53,54 @@ async function panelTab(name: "Jobs" | "Console" | "Host" | "Report"): Promise<v
   await page.getByRole("radiogroup", { name: "Jobs panel" }).getByRole("radio", { name, exact: true }).click();
 }
 
+/**
+ * A minimally valid config for a seeded job of *kind*.
+ *
+ * `POST /api/jobs` gates a submitted config against the `contracts/schema.json` `required` list
+ * for the kinds whose runner calls `deserialize_config` with no fallback (`tit/jobs/config_check.py`,
+ * and the mock's `schemaRequiredErrors`). These seeds exist to populate the jobs list, never to
+ * run anything real, but a 422 at submit time is still a 422 — so they carry the fields the gate
+ * asks for and nothing more. Kinds with no entry here (`pre`, `analyzer`) are ungated.
+ */
+function seedConfig(kind: string, subject: string): Record<string, unknown> {
+  switch (kind) {
+    case "sim":
+      return {
+        subject_id: subject,
+        montages: [
+          {
+            _type: "Montage",
+            name: "seed_montage",
+            mode: "net",
+            electrode_pairs: [
+              ["E010", "E011"],
+              ["E012", "E013"],
+            ],
+            eeg_net: "GSN-HydroCel-185.csv",
+          },
+        ],
+      };
+    case "flex":
+      return {
+        subject_id: subject,
+        goal: "mean",
+        postproc: "max_TI",
+        current_mA: 1,
+        electrode: { _type: "ElectrodeSpec", shape: "ellipse", dimensions: [8, 8], thickness: 4 },
+        roi: { _type: "SphereROI", center: [0, 0, 0], radius: 5 },
+      };
+    case "ex":
+      return {
+        subject_id: subject,
+        leadfield_hdf: "leadfield.hdf5",
+        roi_name: "seed_roi",
+        electrodes: [["E010", "E011"], ["E012", "E013"]],
+      };
+    default:
+      return {};
+  }
+}
+
 /** Seed a job straight through the mock's REST API — see the file header. */
 async function submitJob(body: Record<string, unknown>): Promise<{ id: string }> {
   const res = await page.request.post(`${SERVER_URL}/api/jobs`, {
@@ -112,7 +160,7 @@ test("with no job ever submitted, the page is the table it is waiting for", asyn
 });
 
 test("the full page lists a running job, opens its detail pane, and stops it", async () => {
-  const job = await submitJob({ kind: "sim", config: {}, subject_ids: ["ernie"], tags: ["e2e"] });
+  const job = await submitJob({ kind: "sim", config: seedConfig("sim", "ernie"), subject_ids: ["ernie"], tags: ["e2e"] });
 
   await connect();
   await openJobs();
@@ -237,7 +285,7 @@ test("the toolbar filters the table and toggles the group trees", async () => {
 });
 
 test("the panel opens at 260px with Jobs, Console, Host and Report tabs", async () => {
-  const job = await submitJob({ kind: "sim", config: {}, subject_ids: ["ernie"], tags: ["e2e-panel"] });
+  const job = await submitJob({ kind: "sim", config: seedConfig("sim", "ernie"), subject_ids: ["ernie"], tags: ["e2e-panel"] });
 
   await connect();
   await openJobsPanel();
@@ -307,7 +355,7 @@ test("the Host tab shows live CPU, memory and disk and terminates a process", as
 test("the collapsed rail overflows queued jobs into one +N chip", async () => {
   // Nine queued jobs: six get a trace, the rest collapse rather than being clipped mid-word.
   for (let i = 0; i < 9; i += 1) {
-    await submitJob({ kind: "sim", config: {}, subject_ids: [`overflow-${i}`], tags: ["e2e-overflow"] });
+    await submitJob({ kind: "sim", config: seedConfig("sim", `overflow-${i}`), subject_ids: [`overflow-${i}`], tags: ["e2e-overflow"] });
   }
 
   await connect();
@@ -336,7 +384,9 @@ test("uses the width: no pane exists without content, and the detail column hold
   // visible table without scrolling on a 900px-tall window, mixed across kinds and subjects.
   const kinds = ["sim", "pre", "analyzer", "flex", "ex"];
   for (let i = 0; i < 30; i += 1) {
-    await submitJob({ kind: kinds[i % kinds.length], config: {}, subject_ids: [i % 3 === 0 ? "101" : "ernie"], tags: ["e2e-density"] });
+    const densitySubject = i % 3 === 0 ? "101" : "ernie";
+    const densityKind = kinds[i % kinds.length]!;
+    await submitJob({ kind: densityKind, config: seedConfig(densityKind, densitySubject), subject_ids: [densitySubject], tags: ["e2e-density"] });
   }
 
   await connect();
@@ -387,7 +437,7 @@ test("uses the width: no pane exists without content, and the detail column hold
 });
 
 test("at 1440 wide the detail column widens to 400px, per the design's numbers", async () => {
-  await submitJob({ kind: "sim", config: {}, subject_ids: ["ernie"], tags: ["e2e-1440"] });
+  await submitJob({ kind: "sim", config: seedConfig("sim", "ernie"), subject_ids: ["ernie"], tags: ["e2e-1440"] });
   await connect();
   await page.setViewportSize({ width: 1440, height: 900 });
   await openJobs();
@@ -409,7 +459,7 @@ test("at 1440 wide the detail column widens to 400px, per the design's numbers",
  * expanded over it.
  */
 test("the detail pane stretches, collapses, expands and remembers its width", async () => {
-  await submitJob({ kind: "sim", config: {}, subject_ids: ["ernie"], tags: ["e2e-pane"] });
+  await submitJob({ kind: "sim", config: seedConfig("sim", "ernie"), subject_ids: ["ernie"], tags: ["e2e-pane"] });
   await connect();
   await page.setViewportSize({ width: 1280, height: 800 });
   await openJobs();
@@ -482,7 +532,7 @@ test("the detail pane stretches, collapses, expands and remembers its width", as
 });
 
 test("⌘⇧I collapses the detail pane and restores it", async () => {
-  await submitJob({ kind: "sim", config: {}, subject_ids: ["ernie"], tags: ["e2e-chord"] });
+  await submitJob({ kind: "sim", config: seedConfig("sim", "ernie"), subject_ids: ["ernie"], tags: ["e2e-chord"] });
   await connect();
   await openJobs();
   const chord = process.platform === "darwin" ? "Meta+Shift+i" : "Control+Shift+i";
@@ -509,7 +559,9 @@ test("hits its density numbers with the detail pane open, at 1280x800 and 1440x9
   test.setTimeout(180_000);
   const kinds = ["sim", "pre", "analyzer", "flex", "ex"];
   for (let i = 0; i < 30; i += 1) {
-    await submitJob({ kind: kinds[i % kinds.length], config: {}, subject_ids: [i % 3 === 0 ? "101" : "ernie"], tags: ["e2e-ua"] });
+    const uaSubject = i % 3 === 0 ? "101" : "ernie";
+    const uaKind = kinds[i % kinds.length]!;
+    await submitJob({ kind: uaKind, config: seedConfig(uaKind, uaSubject), subject_ids: [uaSubject], tags: ["e2e-ua"] });
   }
   await connect();
   await openJobs();

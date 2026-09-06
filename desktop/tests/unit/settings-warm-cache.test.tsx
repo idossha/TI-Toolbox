@@ -36,53 +36,12 @@ vi.mock("../../src/renderer/pages/settings/api", () => ({
     docker_socket: false,
     bpy: true,
     jupyter: false,
-    tetravox_embed: {
-      available: true,
-      version: "0.3.4",
-      protocol: 1,
-      source: "baked" as const,
-      features: ["cursor", "layers", "meshes", "probe", "screenshot", "volumes"],
-      compatible: true,
-      supported: { min: 1, max: 2 },
-    },
     fastsurfer: false,
   })),
   getVersion: vi.fn(async () => ({ tit_version: "3.0.0-test", server_api: "v0", schema_hash: "", python: "3.11", simnibs: null })),
-  // The Viewer engine card (E1-E4) reads the same module. Mocking the whole module means every
-  // export the page uses has to exist here, or the page throws "getTetravox is not a function"
-  // and this test fails on something that has nothing to do with what it is testing.
-  getTetravox: vi.fn(async () => TETRAVOX_FIXTURE),
-  getTetravoxUpdates: vi.fn(async () => ({ available: false, message: "Could not reach the release index", index_url: "https://example/releases.json", releases: [], auto_update: true, checked_at: null, from_cache: true })),
-  installTetravox: vi.fn(async () => TETRAVOX_FIXTURE),
-  activateTetravox: vi.fn(async () => TETRAVOX_FIXTURE),
-  removeTetravox: vi.fn(async () => TETRAVOX_FIXTURE),
-  setTetravoxPolicy: vi.fn(async () => TETRAVOX_FIXTURE),
 }));
 
 vi.mock("../../src/renderer/env", () => ({ isElectron: false }));
-
-/** Matches components["schemas"]["TetravoxState"] — the baked floor, nothing installed. */
-const TETRAVOX_BAKED = {
-  version: "0.3.4",
-  protocol: 1,
-  source: "baked" as const,
-  path: "/opt/tetravox/embed",
-  name: "@tetravox/embed",
-  sha: "c56c3c8",
-  features: ["cursor", "layers", "meshes", "probe", "screenshot", "volumes"],
-  compatible: true,
-  active: true,
-};
-const TETRAVOX_FIXTURE = {
-  active: TETRAVOX_BAKED,
-  reason: "the version baked into the image",
-  installed: [],
-  baked: TETRAVOX_BAKED,
-  supported: { min: 1, max: 2 },
-  install_root: "/root/.config/ti-toolbox/tetravox/embed",
-  index_url: "https://example/releases.json",
-  auto_update: true,
-};
 
 function mount(ui: React.ReactElement): { root: Root; container: HTMLDivElement } {
   const container = document.createElement("div");

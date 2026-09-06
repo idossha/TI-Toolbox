@@ -391,9 +391,9 @@ test("hidden tabs cannot take focus or respond to the active pane's shortcut", a
   expect(focusStates).not.toContain("false");
 });
 
-test("pane collapse and expansion retain the live iframe, work DOM and a scrolled draft", async () => {
-  test.setTimeout(90_000); // The first Simulator scene includes its API build and iframe handshake.
-  test.skip(TOKEN !== "mock-token", "the message counters inspect the deterministic fake embed");
+test("pane collapse and expansion retain the live canvas, work DOM and a scrolled draft", async () => {
+  test.setTimeout(90_000); // The first Simulator scene includes the guide fetch and the first GL frame.
+  test.skip(TOKEN !== "mock-token", "the guide payloads come from the deterministic mock server");
   await gotoPage(page, "simulator");
   await expectPage(page, "simulator");
   const current = activePage();
@@ -410,17 +410,14 @@ test("pane collapse and expansion retain the live iframe, work DOM and a scrolle
   await settle(page);
 
   const pane = current.getByTestId("page-right-pane");
-  const frameLocator = current.getByTestId("scene-pane-tetravox-frame");
+  // The native renderer's own canvas. Retaining it across a collapse is the whole claim: a
+  // remounted canvas is a new WebGL2 context, a re-uploaded guide and a camera back at its
+  // default — none of which the user asked for by hiding a pane.
+  const frameLocator = current.getByTestId("scene-canvas");
   const frameNode = await frameLocator.elementHandle();
-  const embed = await frameNode!.contentFrame();
-  expect(embed).not.toBeNull();
-  const messages = await embed!.evaluateHandle(() => {
-    const counts = { load: 0, reset: 0, hello: 0 };
-    window.addEventListener("message", (event) => {
-      const type = event.data?.type as keyof typeof counts;
-      if (event.source === window.parent && event.data?.tvx === 1 && type in counts) counts[type]++;
-    });
-    return counts;
+  const guideRequests: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/api/guide/")) guideRequests.push(request.url());
   });
   const work = current.getByTestId("page-work");
   const workNode = await work.elementHandle();
@@ -462,8 +459,11 @@ test("pane collapse and expansion retain the live iframe, work DOM and a scrolle
   await expect(current.getByRole("spinbutton", { name: "Grey matter opacity value" })).toHaveValue("46");
   await settle(page);
   expect(await frameLocator.evaluate((currentFrame, previous) => currentFrame === previous, frameNode)).toBe(true);
-  expect(await messages.jsonValue()).toEqual({ load: 0, reset: 0, hello: 0 });
-  console.log(`PANE-MEMORY scroll=${scrollBefore}->${await scroller.evaluate((el) => el.scrollTop)} iframe=same loads=0 resets=0 hellos=0`);
+  // The context is live, not lost-and-restored, and nothing was re-fetched to redraw it.
+  await expect(current.getByTestId("scene-context-lost")).toHaveCount(0);
+  await expect(current.getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready");
+  expect(guideRequests, `the retained canvas re-fetched the guide: ${guideRequests.join(", ")}`).toEqual([]);
+  console.log(`PANE-MEMORY scroll=${scrollBefore}->${await scroller.evaluate((el) => el.scrollTop)} canvas=same guide-requests=0`);
 });
 
 test("the free-hand draft survives a navigation away and back", async () => {

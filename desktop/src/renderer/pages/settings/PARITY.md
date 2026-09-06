@@ -52,13 +52,13 @@ telemetry toggle, so this checklist tracks the v3 spec instead of a Qt diff.
       `PageDef.enabled` per `app/registry.ts` — picks up the new panel set. See
       `pages/panels/_shared.ts` for why a reload is needed and the gap this leaves for F2.
 
-- [x] **Viewer engine card** (`TetravoxCard.tsx`, `dev/notes/v3-embed-convergence-plan.md` E1-E4,
-      no Qt ancestor at all): the active embed bundle's version, protocol, source (baked into the
-      image / installed / developer override) and named features; the protocol range the app
-      supports; "Check for updates" against the release index (on demand only — never on mount);
-      install with the sha256 shown; and a per-version list with "Use this" (rollback pins, never
-      deletes) and "Remove". A bundle whose protocol is outside the supported range is listed but
-      not installable, and no network is a plain sentence rather than an error state.
+- [x] **Viewer card** (`ViewerCard.tsx`, `dev/notes/v3-native-panes-external-viewer-plan.md` V3,
+      no Qt ancestor at all): whether the host's **Tetravox** desktop app was found, the resolved
+      path and its bundle version, a path override for a non-standard install, and a link to the
+      GitHub release page when it is absent. It reaches no network and knows no protocol: viewing
+      is another application now, so the only question this card can answer is where it is
+      installed. (It replaces the retired embed's engine card — version, protocol range, release
+      index, install/rollback list — deleted with the embed on 2026-09-06.)
 
 ## Known gaps (reported, not hacked around)
 

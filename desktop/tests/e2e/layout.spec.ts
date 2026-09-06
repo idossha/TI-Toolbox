@@ -120,7 +120,7 @@ for (const size of SIZES) {
         if (id !== "preprocess") {
           const active = page.locator('[data-page-active="true"]');
           await expect(active.getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready", { timeout: 20_000 });
-          await expect(active.getByTestId("scene-pane-tetravox-frame")).toBeVisible();
+          await expect(active.getByTestId("scene-canvas")).toBeVisible();
         }
 
         // Soft, all four of them: one round of this spec should report every number that is out

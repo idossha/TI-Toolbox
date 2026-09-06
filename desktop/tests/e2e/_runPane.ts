@@ -29,10 +29,10 @@ export async function scenePaneState(page: Page): Promise<string | null> {
   return page.locator('[data-page-active="true"]').getByTestId("scene-pane-host").getAttribute("data-state");
 }
 
-/** Waits for the embedded scene pane to report its first loaded frame. */
+/** Waits for the native scene pane to report its first loaded frame. */
 export async function waitForScene(page: Page, timeout = 30_000): Promise<void> {
   await showRunPaneTab(page, "scene");
   const active = page.locator('[data-page-active="true"]');
   await expect(active.getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready", { timeout });
-  await expect(active.getByTestId("scene-pane-tetravox-frame")).toBeVisible({ timeout });
+  await expect(active.getByTestId("scene-canvas")).toBeVisible({ timeout });
 }

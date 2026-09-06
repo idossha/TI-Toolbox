@@ -1055,3 +1055,33 @@ def test_settings_resolution(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.delenv("TIT_SERVER_TOKEN")
     token, generated = resolve_token(None)
     assert generated and len(token) >= 32
+
+
+def test_reload_settings_file_survives_a_removed_field(tmp_path, monkeypatch) -> None:
+    """A settings file written by an older build must not take the reload child down.
+
+    ``--reload`` writes the settings once and every reloaded worker re-reads that same file.
+    When a field is removed from :class:`ServerSettings` mid-session (``tetravox_embed_dir``,
+    2026-09-06) the file on disk still carries it, and a strict ``cls(**data)`` raised
+    ``TypeError`` on every reload -- the dev server stayed down naming a field nobody had
+    edited.  Unknown keys are dropped instead; the fields this build does declare are kept.
+    """
+    import json
+
+    from tit.server.__main__ import settings_from_file
+    from tit.server.settings import ENV_SETTINGS_FILE
+
+    stale = json.loads(
+        ServerSettings(project_dir="/p", token="t", port=9001, allow_hosts=("node01",)).to_json()
+    )
+    stale["tetravox_embed_dir"] = "/opt/tetravox/embed"
+    stale["tetravox_install_root"] = "/var/lib/tetravox"
+    path = tmp_path / "tit-server-stale.json"
+    path.write_text(json.dumps(stale))
+
+    monkeypatch.setenv(ENV_SETTINGS_FILE, str(path))
+    loaded = settings_from_file()
+    assert loaded.project_dir == "/p"
+    assert loaded.port == 9001
+    assert loaded.allow_hosts == ("node01",)
+    assert not hasattr(loaded, "tetravox_embed_dir")

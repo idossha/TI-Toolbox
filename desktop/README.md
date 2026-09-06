@@ -84,8 +84,10 @@ If `node_modules/electron/dist` is missing after `npm install` (postinstall skip
 
 `pnpm run dev` is the development entry point too: it runs the same script as `npm run dev`
 below. Run it from this `desktop/` directory; no separate frontend or renderer command is needed.
-The September 4 polishing checks and the required viewport-capable Tetravox build are recorded in
-[`../docs/ROADMAP.md`](../docs/ROADMAP.md).
+The run-page 3-D panes are this app's own WebGL2 renderer (`src/renderer/scene/`) and need nothing
+installed. Full 3-D *viewing* is the separate **Tetravox** desktop app on your host: the Viewer page
+writes a `*.tetravox.json` scene and hands it to that app (Settings ▸ Viewer shows where it was
+found, or links to the download).
 
 One command brings up the whole system — the container for your project, Vite with HMR, and
 Electron already connected to that container. There is no token to read, paste or export.
