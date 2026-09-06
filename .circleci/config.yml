@@ -107,10 +107,16 @@ jobs:
 
             # V4 (dev/notes/v3-native-panes-external-viewer-plan.md): /tetravox/ is gone with the
             # embed. The image bakes no viewer; viewing is the host-installed Tetravox desktop app.
-            # This smokes that the route really is gone, so a resurrected bake fails here.
+            #
+            # Not a 404 check: `tetravox` is no longer a reserved prefix, so the path now falls
+            # through to the SPA catch-all like any other unknown path and answers 200 with
+            # index.html. What must be gone is the *bundle* -- so this asserts the response is not
+            # a manifest and does not carry the embed route's own wasm-unsafe-eval CSP.
             echo "-- /tetravox/ is retired --"
-            code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18765/tetravox/manifest.json)"
-            [ "$code" != "200" ] || { echo "the embed route is still served"; exit 1; }
+            body="$(curl -sD /tmp/tvx.h http://127.0.0.1:18765/tetravox/manifest.json)"
+            case "$body" in *'"protocol"'*) echo "the embed bundle is still served"; exit 1 ;; esac
+            grep -qi 'wasm-unsafe-eval' /tmp/tvx.h && { echo "the embed CSP is still served"; exit 1; }
+            rm -f /tmp/tvx.h
 
             echo "-- FastSurfer --help --"
             docker exec tit-ci-smoke bash -lc \

@@ -19,7 +19,7 @@ export const LABEL_RAIL_QUERY = "(min-width: 1440px)";
  * a label that is already on screen is noise on every hover of every row.
  *
  * Two independent listeners, not one (found by B5 while wiring the Viewer, DESIGN.md §9 Q1): a
- * resize while the Viewer holds a live postMessage channel open can leave `matchMedia`'s own
+ * resize under load (the flake was first seen while the Viewer streamed a scene) can leave `matchMedia`'s own
  * `"change"` event un-fired — or fired but not landing as a state update — often enough to matter,
  * apparently a scheduling interaction between Electron's window resize and a busy
  * `window.addEventListener("message", …)` stream rather than anything wrong with the query itself.

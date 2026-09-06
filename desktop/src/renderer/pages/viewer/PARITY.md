@@ -7,7 +7,10 @@ subject's directories, built a `freeview` argv and `subprocess.Popen`'d it.
 out of the server, and the launch buttons, the argv preview, the `viewer` job and the X-server
 capability callout are out of this page (D3, `dev/notes/v3-docker-streamline-plan.md`; W3a's server
 notes for the routes that went with them). What replaced it: `GET /api/view/{kind}` returns a
-Tetravox **ViewSpec v2** document and this page hands it to the embedded viewer over `postMessage`.
+Tetravox **ViewSpec v2** document, which `POST /api/view/open` writes to disk for the host-installed
+Tetravox desktop app to open (V1/V2, `dev/notes/v3-native-panes-external-viewer-plan.md`). The rest
+of this checklist still speaks of the retired embed and wants a pass from whoever owns the parity
+question — see `dev/notes/v3-native-panes-external-viewer/VX.md` §8.3.
 So the Qt tab's *outputs* are all still reachable — the difference is that they are rendered in the
 window instead of shelled out to another process.
 
