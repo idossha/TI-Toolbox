@@ -238,123 +238,56 @@ export function hasViewerDeepLink(link: ViewerDeepLink): boolean {
 }
 
 // =================================================================================================
-// VM — the composition panel.
+// VM2 — the file list is the scene.
 //
-// The Viewer opens in another application's window, so this page has room to be a real menu rather
-// than a bar over a black rectangle. What it may offer is decided by one rule: **every knob has to
-// land in the scene file**. So the vocabulary below is the server's
-// (`tit/viewspec.py::apply_scene_overrides`, `EXTRA_LAYERS`), which is in turn the engine's own
-// ViewSpec v2 type. There is no electrode-*points* checkbox because ViewSpec v2 has no points
-// layer; the electrode overlay *volume* exists, and that is what is offered.
+// VM built a composition panel: per-layer cards, a layout, a camera, a background, extras. The
+// maintainer's verdict on the screenshots was "too much", and the correction is the honest shape
+// of what this page is for. There are two things now: **Source** (what to build from) and one
+// editable **"what will open"** list — remove a row, add a file, drag to reorder. The list is the
+// scene, and Open writes exactly those files, in that order.
+//
+// What the page deliberately does *not* offer is how each file should look. That is a judgement
+// about the data — a percentile window on a TI field, a LUT and `nearest` on a label volume, a
+// mesh hidden because the file is 64 MB — and it stays in `tit/viewspec.py`, where the rest of
+// the scene's defaults already live. A client that mirrored those rules would drift from them,
+// and every drift would show up as a picture that is subtly wrong with nothing on screen saying
+// so. The server's overrides plumbing still exists and is still tested; nothing on this page
+// sends it.
 // =================================================================================================
 
-/** One layer of the scene the server resolved — the fields this page reads or edits. */
-export interface SceneLayer {
-  id: string;
+/** One row of the list: a file that will open, with both path languages (VM2). */
+export interface ViewerFile {
   name: string;
-  kind: "volume" | "mesh";
-  visible: boolean;
-  opacity: number;
-  colormap: string;
-  showIn3D?: boolean;
-  colorMode?: string;
-  threshold?: { lo: number | null; hi: number | null };
-  clip?: { planes?: { enabled?: boolean }[] };
+  /** The path written into the scene — host-facing, what a person can check. */
+  path: string;
+  /** The same file as the server sees it — what goes back in `files`. */
+  container_path?: string | null;
+  kind?: string | null;
+  bytes?: number | null;
 }
 
-export interface LayerOverride {
-  visible?: boolean;
-  opacity?: number;
-  colormap?: string;
-  showIn3D?: boolean;
-  colorMode?: string;
-  clip?: boolean;
-  threshold?: { lo?: number | null; hi?: number | null };
+/** One offer in the "+ Add…" picker. */
+export interface ViewerCandidate {
+  name: string;
+  path: string;
+  kind: string;
+  group: string;
+  bytes?: number | null;
 }
 
-export type SceneLayout = "1x1" | "1+3" | "2x2" | "3d-only";
-export type CameraPreset = "A" | "P" | "L" | "R" | "S" | "I";
-export type SceneBackground = "dark" | "black" | "light";
-export type ViewerExtra = "t1" | "atlas" | "electrodes" | "gm_mesh";
-
-/** Exactly the `overrides` document `POST /api/view/open` accepts. */
-export interface Composition {
-  layers: Record<string, LayerOverride>;
-  layout?: SceneLayout;
-  camera?: CameraPreset;
-  radiological?: boolean;
-  background?: SceneBackground;
+/** The container paths of a resolved list, in order — the `files` a request carries. */
+export function containerPaths(files: ViewerFile[]): string[] {
+  return files.map((file) => file.container_path ?? file.path);
 }
 
-export const EMPTY_COMPOSITION: Composition = { layers: {} };
-
-/**
- * The composition as the wire wants it, or `undefined` when nothing was touched.
- *
- * `undefined` is load-bearing, not tidiness: the server's guarantee is that an *absent* overrides
- * document produces byte-identical output, and sending `{layers:{}}` on every Open would quietly
- * step outside the guarantee this page's tests rest on.
- */
-export function overridesPayload(composition: Composition): Composition | undefined {
-  const layers = Object.fromEntries(Object.entries(composition.layers).filter(([, patch]) => Object.keys(patch).length > 0));
-  const touched =
-    Object.keys(layers).length > 0 ||
-    composition.layout !== undefined ||
-    composition.camera !== undefined ||
-    composition.radiological !== undefined ||
-    composition.background !== undefined;
-  if (!touched) return undefined;
-  return { ...composition, layers };
+/** *list* with the item at *from* moved to *to*. Out-of-range indices leave it alone. */
+export function reorder<T>(list: T[], from: number, to: number): T[] {
+  if (from === to || from < 0 || to < 0 || from >= list.length || to >= list.length) return list;
+  const next = [...list];
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved as T);
+  return next;
 }
-
-/** What a layer *is*, in the words the person reading the row uses. */
-export function layerKindLabel(layer: SceneLayer): string {
-  if (layer.kind === "mesh") return "mesh";
-  if (layer.colormap === "lut") return "lut";
-  if (layer.colormap === "gray" || layer.colormap === "grayscale") return "grayscale";
-  return "colormap";
-}
-
-export const LAYOUT_OPTIONS: { value: SceneLayout; label: string; title: string }[] = [
-  { value: "1x1", label: "1×1", title: "One axial slice, full pane" },
-  { value: "1+3", label: "1+3", title: "3D beside the three slice planes" },
-  { value: "2x2", label: "2×2", title: "Three slice planes and 3D" },
-  { value: "3d-only", label: "3D", title: "The 3D view alone" },
-];
-
-export const CAMERA_OPTIONS: { value: CameraPreset; label: string; title: string }[] = [
-  { value: "A", label: "A", title: "Anterior — the engine's own default framing" },
-  { value: "P", label: "P", title: "Posterior" },
-  { value: "L", label: "L", title: "Left" },
-  { value: "R", label: "R", title: "Right" },
-  { value: "S", label: "S", title: "Superior" },
-  { value: "I", label: "I", title: "Inferior" },
-];
-
-export const BACKGROUND_OPTIONS: { value: SceneBackground; label: string }[] = [
-  { value: "dark", label: "Dark" },
-  { value: "black", label: "Black" },
-  { value: "light", label: "Light" },
-];
-
-/**
- * The colormaps offered for a volume layer. A short list on purpose: these are the ones the
- * engine ships and the ones this server already emits, and a select of forty names is a worse
- * control than a select of seven.
- */
-export const COLORMAP_OPTIONS = ["gray", "turbo", "jet", "hot", "viridis", "plasma", "lut"];
-
-/**
- * "Also open". Each entry is a file the server already knows how to build a layer for; an extra
- * the chosen view type already opens is a no-op rather than a duplicate, so leaving one ticked is
- * safe across a change of type.
- */
-export const EXTRA_OPTIONS: { value: ViewerExtra; label: string; help: string; needs?: "simulation" }[] = [
-  { value: "t1", label: "Subject T1", help: "The head model's own T1, as the anatomical ground." },
-  { value: "atlas", label: "Atlas labels", help: "The chosen atlas as a labelled volume with its LUT." },
-  { value: "electrodes", label: "Electrode overlay", help: "The simulation's electrode overlay volume, where one has been generated.", needs: "simulation" },
-  { value: "gm_mesh", label: "Grey-matter surface", help: "The grey-matter TI surface mesh (subject space only; large).", needs: "simulation" },
-];
 
 /** `4.2 MB` — one decimal, binary units, and "—" for a size the server could not read. */
 export function formatBytes(bytes: number | null | undefined): string {
@@ -373,7 +306,7 @@ export function formatBytes(bytes: number | null | undefined): string {
 // ── Recents ─────────────────────────────────────────────────────────────────────────────────────
 //
 // The last eight things actually opened. Local to this machine and this person, unlike a preset:
-// a preset is a composition someone chose to keep and put in the project; a recent is a footprint.
+// a preset is a selection someone chose to keep and put in the project; a recent is a footprint.
 // Browser storage is therefore the right home for it, and losing it costs nothing.
 
 const RECENTS_KEY = "tit.viewer.recents";
@@ -383,8 +316,8 @@ export interface ViewerRecent {
   key: string;
   label: string;
   selection: ViewerSelection;
-  extras: ViewerExtra[];
-  overrides: Composition;
+  /** The edited list, or null when the view type's own set was opened. */
+  files: string[] | null;
 }
 
 export function readRecents(): ViewerRecent[] {

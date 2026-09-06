@@ -35,12 +35,14 @@ function doc(
 
 const FOUR_NODE = doc(
   [
-    ["pre1", "pre", { subject_ids: ["ernie"], create_m2m: true }],
+    ["sub1", "subjects", { subject_ids: ["ernie"] }],
+    ["pre1", "pre", { create_m2m: true }],
     ["flex1", "flex", { goal: "mean" }],
     ["sim1", "sim", { montages: [{ name: "M1" }] }],
     ["an1", "analyzer", { space: "mesh", analysis_type: "spherical", radius: 5 }],
   ],
   [
+    ["sub1", "pre1", "subjects"],
     ["pre1", "flex1", "subjects"],
     ["pre1", "sim1", "subjects"],
     ["flex1", "sim1", "montages"],
@@ -63,7 +65,7 @@ describe("canConnect refuses with the same reason the server gives", () => {
   const cases: [string, string, PortType, string][] = [
     ["an1", "sim1", "montages", "does not produce"],
     ["pre1", "an1", "montages", "does not produce"],
-    ["flex1", "pre1", "subjects", "does not take"],
+    ["an1", "flex1", "montages", "does not produce"],
     ["sim1", "sim1", "subjects", "cannot feed itself"],
     ["pre1", "sim1", "subjects", "already wired"],
   ];
@@ -96,7 +98,7 @@ describe("canConnect refuses with the same reason the server gives", () => {
 
 describe("topologicalOrder", () => {
   it("orders the four-node pipeline dependency-first", () => {
-    expect(topologicalOrder(FOUR_NODE)).toEqual(["pre1", "flex1", "sim1", "an1"]);
+    expect(topologicalOrder(FOUR_NODE)).toEqual(["sub1", "pre1", "flex1", "sim1", "an1"]);
   });
 
   it("returns null for a cycle", () => {
@@ -142,8 +144,9 @@ describe("subjects flow down the graph", () => {
 
 describe("node cards", () => {
   it("say where a bound value comes from rather than showing an empty field", () => {
-    expect(nodeSummary(FOUR_NODE, FOUR_NODE.nodes[2]!)).toContain("montages from optimizer");
-    expect(nodeSummary(FOUR_NODE, FOUR_NODE.nodes[3]!)).toContain("simulation from Simulator");
+    // Indices shift by one now that the cohort node leads the document.
+    expect(nodeSummary(FOUR_NODE, FOUR_NODE.nodes[3]!)).toContain("montages from optimizer");
+    expect(nodeSummary(FOUR_NODE, FOUR_NODE.nodes[4]!)).toContain("simulation from Simulator");
   });
 
   it("names an unconfigured node honestly", () => {
@@ -169,5 +172,116 @@ describe("nextNodeId", () => {
       ["sim2", "sim", {}],
     ]);
     expect(nextNodeId(graph, "sim")).toBe("sim3");
+  });
+});
+
+
+describe("the readiness table gates a subjects wire, with the same sentence as the server", () => {
+  // The same project `tests/test_pipeline_readiness.py` uses: ernie is finished, 102 and test have
+  // been converted and nothing else.
+  const PROJECT = {
+    ernie: ["raw", "m2m", "simulation"],
+    "102": ["raw"],
+    test: ["raw"],
+  } as const;
+
+  const cohort = (...ids: string[]): [string, NodeKind, Record<string, unknown>] => [
+    "s1",
+    "subjects",
+    { subject_ids: ids },
+  ];
+
+  it("lets raw-only subjects reach Pre-processing and nothing else", () => {
+    for (const [kind, accepted] of [
+      ["pre", true],
+      ["sim", false],
+      ["flex", false],
+      ["analyzer", false],
+      ["leadfield", false],
+    ] as [NodeKind, boolean][]) {
+      const graph = doc([cohort("102", "test"), ["n1", kind, {}]]);
+      expect(canConnect(graph, "s1", "n1", "subjects", PROJECT as never).ok).toBe(accepted);
+    }
+  });
+
+  it("names the subjects that are not ready, and only those", () => {
+    const graph = doc([cohort("ernie", "102", "test"), ["a1", "analyzer", {}]]);
+    const verdict = canConnect(graph, "s1", "a1", "subjects", PROJECT as never);
+    expect(verdict.ok).toBe(false);
+    if (!verdict.ok) {
+      expect(verdict.reason).toBe("102, test have no simulations");
+      expect(verdict.reason).not.toContain("ernie");
+    }
+  });
+
+  it("says 'has' for one subject and 'have' for several", () => {
+    const one = doc([cohort("ernie", "102"), ["m1", "sim", {}]]);
+    const verdict = canConnect(one, "s1", "m1", "subjects", PROJECT as never);
+    expect(verdict.ok).toBe(false);
+    if (!verdict.ok) expect(verdict.reason).toBe("102 has no head model");
+  });
+
+  it("accepts a wire whose missing capability is produced upstream", () => {
+    // Subjects(raw) -> Pre -> Simulator: `pre` makes the head model the Simulator needs, so by the
+    // time the wire reaches it those subjects have one. This is the whole point of `produces`.
+    const graph = doc(
+      [cohort("102"), ["p1", "pre", {}], ["m1", "sim", {}]],
+      [["s1", "p1", "subjects"]],
+    );
+    expect(canConnect(graph, "p1", "m1", "subjects", PROJECT as never).ok).toBe(true);
+    // ...and the same Simulator wired straight to the cohort is still refused.
+    expect(canConnect(graph, "s1", "m1", "subjects", PROJECT as never).ok).toBe(false);
+  });
+
+  it("checks shape only when the project's readiness is not known yet", () => {
+    const graph = doc([cohort("102"), ["m1", "sim", {}]]);
+    expect(canConnect(graph, "s1", "m1", "subjects").ok).toBe(true);
+    expect(canConnect(graph, "s1", "m1", "subjects", PROJECT as never).ok).toBe(false);
+  });
+
+  it("gives a subject the project has never heard of nothing", () => {
+    const graph = doc([cohort("ghost"), ["m1", "sim", {}]]);
+    const verdict = canConnect(graph, "s1", "m1", "subjects", PROJECT as never);
+    expect(verdict.ok).toBe(false);
+    if (!verdict.ok) expect(verdict.reason).toBe("ghost has no head model");
+  });
+});
+
+describe("a node card states what it has, never what the node upstream configured", () => {
+  it("prints the cohort's own subjects on the cohort node", () => {
+    const graph = doc([["s1", "subjects", { subject_ids: ["ernie", "102"] }]]);
+    expect(nodeSummary(graph, graph.nodes[0]!)).toBe("ernie, 102");
+  });
+
+  it("counts the subjects that reach a processing node", () => {
+    const graph = doc(
+      [
+        ["s1", "subjects", { subject_ids: ["ernie", "102"] }],
+        ["m1", "sim", { montages: [{ name: "L_Insula" }] }],
+      ],
+      [["s1", "m1", "subjects"]],
+    );
+    expect(nodeSummary(graph, graph.nodes[1]!)).toBe("2 subjects · L_Insula");
+  });
+
+  it("says 'montages from optimizer' only when that port is actually wired", () => {
+    const unwired = doc([
+      ["s1", "subjects", { subject_ids: ["ernie"] }],
+      ["m1", "sim", {}],
+    ]);
+    expect(nodeSummary(unwired, unwired.nodes[1]!)).not.toContain("from optimizer");
+
+    const wired = doc(
+      [
+        ["s1", "subjects", { subject_ids: ["ernie"] }],
+        ["f1", "flex", { goal: "mean" }],
+        ["m1", "sim", {}],
+      ],
+      [
+        ["s1", "m1", "subjects"],
+        ["f1", "m1", "montages"],
+      ],
+    );
+    expect(nodeSummary(wired, wired.nodes[2]!)).toContain("montages from optimizer");
   });
 });

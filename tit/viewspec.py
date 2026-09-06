@@ -71,6 +71,7 @@ tit.catalog : Discovery routines this module's helpers are shared with
 
 from __future__ import annotations
 
+import copy
 import glob
 import os
 from pathlib import Path
@@ -610,6 +611,123 @@ def _apply(
     return spec
 
 
+# ---------------------------------------------------------------------------
+# VM2 -- the file list is the scene.
+#
+# The Viewer page is one "what will open" list a person edits directly: remove
+# a row, add a file, drag to reorder.  When the client sends that list, it is
+# **authoritative** -- these are the datasets, in this order, and nothing the
+# view type would otherwise have contributed is added back.
+#
+# What the client does *not* send is how each file should look.  That stays
+# here, because it is a judgement about the data (a percentile window on a TI
+# field, `nearest` interpolation and a LUT on a label volume, a hidden mesh
+# because the file is 64 MB) and a client that mirrored it would drift from it.
+# So a path that the view type already produced keeps **exactly** the layer
+# settings that view type gave it, and only a path that was *added* is
+# described from scratch by :func:`_layer_for_path`.
+# ---------------------------------------------------------------------------
+
+#: Basenames that read as anatomy rather than as a field: grayscale, opaque.
+_ANATOMY_HINTS = ("t1", "t2", "mni152", "template", "brain", "orig", "conform")
+
+#: Basenames that read as a labelled volume: a LUT, `nearest`, half-opaque.
+_LABEL_HINTS = (
+    "labeling",
+    "aseg",
+    "aparc",
+    "atlas",
+    "label",
+    "seg",
+    "dk40",
+    "hcp_mmp1",
+    "a2009s",
+    "schaefer",
+    "final_tissues",
+)
+
+
+def _lut_for(path: str) -> str | None:
+    """The colour table beside *path*, if this server can name one.
+
+    Three chances, in the order they are likely to be right: a
+    ``<stem>_LUT.txt`` sibling (SimNIBS writes ``labeling_LUT.txt`` and
+    ``final_tissues_LUT.txt`` exactly like this), the segmentation
+    directory's own answer, then FreeSurfer's global table.  ``None`` is a
+    perfectly good result -- the engine renders a label volume without one,
+    it just picks its own colours.
+    """
+    directory = os.path.dirname(path)
+    stem = os.path.basename(path)
+    for suffix in _STRIPPED_SUFFIXES:
+        if stem.endswith(suffix):
+            stem = stem[: -len(suffix)]
+            break
+    sibling = os.path.join(directory, f"{stem}_LUT.txt")
+    if os.path.isfile(sibling):
+        return sibling
+    if os.path.basename(directory) == "segmentation":
+        found = VoxelAtlasManager(seg_dir=directory).find_labeling_lut()
+        if found:
+            return found
+    return _freesurfer_color_lut()
+
+
+def _layer_for_path(path: str) -> dict[str, Any]:
+    """The default layer for a file that no view type produced.
+
+    Only reached for a file the *user* added, so the rules are the same ones
+    the view builders apply, re-derived from the name alone: a mesh is a
+    hidden ``jet`` surface (they run 24-420 MB), a labelled volume gets a LUT
+    at 0.7, anything anatomical is opaque grayscale, and everything else is
+    treated as a field -- ``heat`` at 0.85 with the same percentile window
+    ``_ti_max_layers`` uses, because a field rendered on its raw min/max is a
+    picture of its outliers.
+    """
+    name = os.path.basename(path).lower()
+    if _scene_is_mesh(path):
+        return _layer(path, kind="label", colormap="jet", opacity=1.0, visible=False)
+    if any(hint in name for hint in _LABEL_HINTS):
+        return _layer(path, colormap="lut", opacity=0.7, lut=_lut_for(path))
+    if any(hint in name for hint in _ANATOMY_HINTS):
+        return _layer(path)
+    return _layer(
+        path, colormap="heat", opacity=0.85, percentile=dict(_DEFAULT_PERCENTILE)
+    )
+
+
+def _layers_from_files(
+    files: list[str], defaults: dict[str, Any] | None
+) -> list[dict[str, Any]]:
+    """*files*, in order, as layers -- default settings kept where they exist.
+
+    Every path is re-resolved through :func:`resolve_jailed` before it is
+    used, exactly like ``kind=custom``'s own path: this list arrives from a
+    client and is not trustworthy just because the client got most of it from
+    us.  A path that does not resolve is dropped rather than refused, so one
+    stale row in a restored preset does not cost a person the whole scene.
+    """
+    by_path = {
+        layer["path"]: layer for layer in (defaults or {}).get("layers", [])
+    }
+    layers: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for raw in files:
+        if not isinstance(raw, str):
+            continue
+        resolved = resolve_jailed(raw)
+        if resolved is None:
+            continue
+        path = str(resolved)
+        if path in seen or not os.path.exists(path):
+            continue
+        seen.add(path)
+        layers.append(
+            copy.deepcopy(by_path[path]) if path in by_path else _layer_for_path(path)
+        )
+    return layers
+
+
 def build_view(
     kind: str,
     *,
@@ -623,6 +741,7 @@ def build_view(
     path: str | None = None,
     extras: list[str] | None = None,
     overrides: dict[str, Any] | None = None,
+    files: list[str] | None = None,
 ) -> dict[str, Any] | None:
     """Build a ``ViewSpec`` dict, or ``None`` when the request cannot resolve.
 
@@ -645,6 +764,35 @@ def build_view(
     # own, which is also what every layer helper falls back to.
     space = "mni" if (space or "").lower() == "mni" else "subject"
     pm = get_path_manager()
+
+    if files is not None:
+        # VM2: the client edited the list, so the list *is* the scene. The view
+        # type is still built once -- not to contribute layers, but to be the
+        # source of each kept file's settings and of the scene's cursor.
+        defaults = build_view(
+            kind,
+            subject=subject,
+            simulation=simulation,
+            space=space,
+            field=field,
+            analysis=analysis,
+            atlas=atlas,
+            roi=roi,
+            path=path,
+            extras=extras,
+        )
+        layers = _layers_from_files(files, defaults)
+        if not layers:
+            return None
+        return _apply(
+            _finish(
+                space,
+                layers,
+                title=_scene_title(subject, simulation, analysis or field),
+                cursor=(defaults or {}).get("cursor"),
+            ),
+            overrides,
+        )
 
     if kind == "custom":
         if not path:
@@ -798,6 +946,104 @@ def build_view(
         )
 
     return None  # pragma: no cover - _VIEW_KINDS guards this
+
+
+def _candidate(path: str, group: str) -> dict[str, Any]:
+    try:
+        size: int | None = os.path.getsize(path)
+    except OSError:
+        size = None
+    return {
+        "name": os.path.basename(path),
+        "path": path,
+        "kind": "mesh" if _scene_is_mesh(path) else "volume",
+        "group": group,
+        "bytes": size,
+    }
+
+
+def viewer_candidates(
+    subject: str | None = None,
+    simulation: str | None = None,
+    space: str | None = None,
+) -> list[dict[str, Any]]:
+    """Everything this subject (and simulation) offers the Viewer's "+ Add…".
+
+    Grouped the way a person looks for a file -- the head model, the atlases,
+    the simulation's own outputs, its analyses -- and every entry is a real
+    file that exists right now, with its size, because the point of the list
+    is to choose without guessing.  Files that a scene *cannot* use are not
+    listed at all: FreeSurfer ``.annot`` parcellations, ``.mat`` matrices,
+    logs and reports are not volumes or meshes.
+
+    This is a read: it opens nothing and writes nothing.
+    """
+    pm = get_path_manager()
+    space = "mni" if (space or "").lower() == "mni" else "subject"
+    out: list[dict[str, Any]] = []
+    if not subject or subject not in pm.list_simnibs_subjects():
+        return out
+
+    m2m = pm.m2m(subject)
+    for name in sorted(os.listdir(m2m)) if os.path.isdir(m2m) else []:
+        candidate = os.path.join(m2m, name)
+        if os.path.isfile(candidate) and (
+            name.endswith((".nii", ".nii.gz", ".mgz")) or name.endswith(".msh")
+        ):
+            out.append(_candidate(candidate, "Head model"))
+
+    surfaces = os.path.join(m2m, "surfaces")
+    for path in sorted(glob.glob(os.path.join(surfaces, "*.gii"))):
+        # The reconstruction surfaces: central/pial/white per hemisphere. The
+        # sphere and sphere.reg files are registration targets, not anatomy --
+        # offering them would be offering a ball.
+        if os.path.basename(path).split(".")[1] in ("central", "pial", "white"):
+            out.append(_candidate(path, "Surfaces"))
+
+    seg_dir = os.path.join(m2m, "segmentation")
+    manager = VoxelAtlasManager(
+        fastsurfer_mri_dir=pm.fastsurfer_mri(subject),
+        freesurfer_mri_dir=pm.freesurfer_mri(subject),
+        seg_dir=seg_dir,
+        masks_dir=pm.masks(subject),
+    )
+    for _display, path in manager.list_atlases():
+        if os.path.isfile(path):
+            out.append(_candidate(path, "Atlases"))
+    if space == "mni":
+        for path in VoxelAtlasManager.detect_mni_atlases(mni_resources_dir()):
+            out.append(_candidate(path, "Atlases (MNI)"))
+        template = os.path.join(mni_resources_dir(), MNI_TEMPLATE)
+        if os.path.isfile(template):
+            out.append(_candidate(template, "Head model"))
+
+    if simulation and simulation in pm.list_simulations(subject):
+        sim_dir = pm.simulation(subject, simulation)
+        for mode in _MODE_DIRS + ("high_Frequency",):
+            for sub, group in (
+                ("niftis", "Simulation volumes"),
+                ("mesh", "Simulation meshes"),
+                ("montage_imgs", "Electrodes"),
+            ):
+                directory = os.path.join(sim_dir, mode, sub)
+                for path in sorted(glob.glob(os.path.join(directory, "*"))):
+                    if os.path.isfile(path) and path.endswith(
+                        (".nii", ".nii.gz", ".mgz", ".msh", ".gii")
+                    ):
+                        out.append(_candidate(path, group))
+        for space_dir in ("Voxel", "Mesh"):
+            root = os.path.join(sim_dir, "Analyses", space_dir)
+            for path in sorted(glob.glob(os.path.join(root, "*", "*.nii*"))):
+                out.append(_candidate(path, "Analyses"))
+
+    seen: set[str] = set()
+    unique = []
+    for entry in out:
+        if entry["path"] in seen:
+            continue
+        seen.add(entry["path"])
+        unique.append(entry)
+    return unique
 
 
 def _percentiles_from_array(

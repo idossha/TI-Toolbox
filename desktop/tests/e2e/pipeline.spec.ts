@@ -28,7 +28,9 @@ const FOUR_NODE = {
   version: 1,
   name: "gate",
   nodes: [
-    { id: "pre1", kind: "pre", config: { subject_ids: ["ernie"], create_m2m: true }, position: { x: 0, y: 0 } },
+    // The cohort is stated once, on its own node, and reaches the rest of the graph over the wire.
+    { id: "sub1", kind: "subjects", config: { subject_ids: ["ernie"] }, position: { x: 0, y: 0 } },
+    { id: "pre1", kind: "pre", config: { create_m2m: true }, position: { x: 0, y: 0 } },
     { id: "flex1", kind: "flex", config: { goal: "mean", postproc: "max_TI" }, position: { x: 300, y: 140 } },
     { id: "sim1", kind: "sim", config: { conductivity: "scalar" }, position: { x: 600, y: 0 } },
     {
@@ -39,6 +41,7 @@ const FOUR_NODE = {
     },
   ],
   edges: [
+    { from: "sub1", to: "pre1", port: "subjects" },
     { from: "pre1", to: "flex1", port: "subjects" },
     { from: "pre1", to: "sim1", port: "subjects" },
     { from: "flex1", to: "sim1", port: "montages" },
@@ -98,7 +101,7 @@ test("the four-node pipeline validates and its receipt is the DAG", async () => 
   expect(status).toBe(200);
   const validation = body as { ok: boolean; order: string[]; jobs: { label: string; after: string[] }[] };
   expect(validation.ok).toBe(true);
-  expect(validation.order).toEqual(["pre1", "flex1", "sim1", "an1"]);
+  expect(validation.order).toEqual(["sub1", "pre1", "flex1", "sim1", "an1"]);
 
   const byLabel = Object.fromEntries(validation.jobs.map((j) => [j.label, j]));
   expect(byLabel["pre1:0"]!.after).toEqual([]);
@@ -149,7 +152,7 @@ test("export returns a notebook that carries the pipeline back in its metadata",
     metadata: { ti_toolbox: { pipeline: typeof FOUR_NODE } };
   };
   expect(notebook.nbformat).toBe(4);
-  expect(notebook.metadata.ti_toolbox.pipeline.nodes.map((n) => n.id)).toEqual(["pre1", "flex1", "sim1", "an1"]);
+  expect(notebook.metadata.ti_toolbox.pipeline.nodes.map((n) => n.id)).toEqual(["sub1", "pre1", "flex1", "sim1", "an1"]);
   expect(notebook.cells[0]!.source).toContain("```mermaid");
   expect(notebook.cells[0]!.source).toContain("flex1 -->|montages| sim1");
 });
@@ -180,7 +183,7 @@ test("the canvas renders the four-node graph (screenshot evidence)", async () =>
   await page.reload();
   await page.getByRole("link", { name: "Pipeline", exact: true }).click();
   await page.getByRole("button", { name: "screenshot" }).click();
-  for (const id of ["pre1", "flex1", "sim1", "an1"]) {
+  for (const id of ["sub1", "pre1", "flex1", "sim1", "an1"]) {
     await expect(page.getByTestId(`pipeline-node-${id}`)).toBeVisible();
   }
   await expect(page.getByTestId("pipeline-receipt")).toContainText("6 jobs in one group");
@@ -202,5 +205,5 @@ test("save and load round-trip a document", async () => {
   expect(saved.putStatus).toBe(200);
   expect(saved.names).toContain("e2e saved");
   expect(saved.loaded.name).toBe("e2e saved");
-  expect(saved.loaded.nodes.map((n) => n.id)).toEqual(["pre1", "flex1", "sim1", "an1"]);
+  expect(saved.loaded.nodes.map((n) => n.id)).toEqual(["sub1", "pre1", "flex1", "sim1", "an1"]);
 });

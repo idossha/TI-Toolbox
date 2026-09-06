@@ -1,36 +1,37 @@
 /**
- * Viewer screen — **a composition panel, not a viewer** (V1 + VM,
- * `dev/notes/v3-native-panes-external-viewer/{VX,VM}.md`).
+ * Viewer screen — **a source, a file list, and Open** (V1 · VM · VM2,
+ * `dev/notes/v3-native-panes-external-viewer/{VX,VM,VM2}.md`).
  *
- * V1's brief, verbatim: *"the viewer tab only acts as the data selection and it actually opens up
- * everything in [an external window] like we have in 2.5.0."* VM's, on seeing what that produced —
- * a 40 px bar over a black rectangle with a ghost list in it: *"make the menu for the visualizer
- * much more extensive and centred — since the viewer opens in its own window, the page can be
- * graceful and let users enjoy an extensive menu experience."*
+ * V1's brief: *"the viewer tab only acts as the data selection and it actually opens up everything
+ * in [an external window] like we have in 2.5.0."* VM read that as room for a composition panel —
+ * per-layer cards, a layout, a camera, a background, extras — and the maintainer's verdict on the
+ * screenshots was **"too much"**. VM2 is the correction, and it is a better page than either:
  *
- * Both are the same fact read twice. The picture belongs to the **Tetravox desktop app**, which is
- * signed, notarised, self-updating and not our problem; what is left here is the *composition* —
- * and a composition deserves a centred panel with room to think in, not a strip of selects over a
- * canvas that will never draw anything.
+ *   **The list of files that will open is the whole scene, and it is editable.**
  *
- * **The rule that decides what this page may offer: every knob has to land in the scene file.**
- * A control whose value the server cannot write is a lie told to the person using it. So the
- * vocabulary is the server's (`tit/viewspec.py::apply_scene_overrides`, `EXTRA_LAYERS`), which is
- * in turn the engine's own ViewSpec v2 type — and the reason there is no electrode-*points*
- * checkbox is that ViewSpec v2 has no points layer. The electrode overlay *volume* exists, so
- * that is what "Also open" offers.
+ * Remove a row and that dataset is not in the scene. Add one — from everything the subject and
+ * simulation offer, or any path in the project — and it is, at the end. Drag to reorder and that
+ * is the layer order. Reset puts the view type's own set back. Open writes exactly those files,
+ * in that order.
  *
- * **R5's draft → command grammar survives, and now covers the composition too.** Editing anything
- * — a selector, an opacity, a layout — edits the draft. The only request drafting costs is the
- * preview's own `dry_run`, which writes no file and launches nothing. **Open** is the one place a
- * scene file is written and the one place the app is launched: one `POST /api/view/open`, one
- * file, one spawn. Tetravox's single-instance lock routes a second Open into the window already
- * on screen.
+ * **What this page deliberately does not offer is how each file should look.** Opacity, colormap,
+ * threshold, layout, camera: all of that is a judgement about the data — a percentile window on a
+ * TI field, a LUT and `nearest` on a label volume, a mesh hidden because the file is 64 MB — and
+ * it lives in `tit/viewspec.py` with the rest of the scene's defaults. A file this page adds
+ * arrives with the server's default for a file of that shape; a file the view type produced keeps
+ * exactly the settings that view type gave it. Tetravox has an inspector, its own window and a
+ * person's full attention; this page has a list.
+ *
+ * **R5's draft → command grammar is unchanged.** Editing anything — a selector, a row — edits the
+ * draft. The only request drafting costs is the list's own `dry_run`, which writes no file and
+ * launches nothing. Open is the one place a scene is written and the one place the app is
+ * launched: one `POST /api/view/open`, one file, one spawn. Tetravox's single-instance lock routes
+ * a second Open into the window already on screen.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
-import { Clock, Download, ExternalLink, Eye, EyeOff, Save } from "lucide-react";
+import { Clock, Download, ExternalLink, Eye, GripVertical, Plus, Save, X } from "lucide-react";
 import { ApiError, getSubjects } from "../../api/client";
 import type { PageDef } from "../../app/registry";
 import { usePageSession } from "../../app/pageSession";
@@ -42,13 +43,12 @@ import { PageLayout } from "../../ui/Layout";
 import { Popover } from "../../ui/Overlay";
 import { SegmentedControl } from "../../ui/SegmentedControl";
 import { Select, type SelectOption } from "../../ui/Select";
-import { Checkbox, Slider } from "../../ui/Toggle";
-import { NumberInput } from "../../ui/NumberInput";
 import { TextInput } from "../../ui/Field";
 import {
   deletePreset,
   getAnalyses,
   getAtlases,
+  getCandidates,
   getPresets,
   getSimulationsFor,
   previewView,
@@ -59,34 +59,23 @@ import {
   type ViewQuery,
 } from "./api";
 import {
-  BACKGROUND_OPTIONS,
-  CAMERA_OPTIONS,
-  COLORMAP_OPTIONS,
-  EMPTY_COMPOSITION,
-  EXTRA_OPTIONS,
-  LAYOUT_OPTIONS,
+  containerPaths,
   controlLabel,
   controlsFor,
   formatBytes,
   hasViewerDeepLink,
-  layerKindLabel,
-  overridesPayload,
   pushRecent,
   readDeepLink,
   readRecents,
+  reorder,
   selectionFromDeepLink,
   selectionKey,
   selectionLabel,
   validateSelection,
   viewQuery,
-  type CameraPreset,
-  type Composition,
-  type LayerOverride,
-  type SceneBackground,
-  type SceneLayer,
-  type SceneLayout,
+  type ViewerCandidate,
   type ViewerControl,
-  type ViewerExtra,
+  type ViewerFile,
   type ViewerRecent,
   type ViewerSelection,
 } from "./lib";
@@ -105,59 +94,11 @@ const VIEW_KIND_OPTIONS: SelectOption[] = [
   { value: "custom", label: "Custom files" },
 ];
 
-const COLORMAP_SELECT: SelectOption[] = COLORMAP_OPTIONS.map((c) => ({ value: c, label: c }));
-
 /** What a failed (or refused) Open left behind, tied to the selection that was attempted. */
 interface ViewerFailure {
   key: string;
   title: string;
   text: string;
-}
-
-/**
- * One section of the panel: an eyebrow title, one line saying what the section decides, a body.
- *
- * The one line is not decoration. This page is a menu a person meets once and then uses fast, and
- * a section whose heading is a noun with no verb ("Layers") makes them open it to find out what it
- * does. Saying it costs 16 px and is read once.
- */
-function Section({
-  id,
-  title,
-  description,
-  actions,
-  children,
-}: {
-  id: string;
-  title: string;
-  description: string;
-  actions?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="viewer-section" data-testid={`viewer-section-${id}`}>
-      <div className="viewer-section-head">
-        <div className="viewer-section-heading">
-          <h2 className="viewer-section-title text-eyebrow">{title}</h2>
-          <p className="viewer-section-desc">{description}</p>
-        </div>
-        {actions}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-/** A label-left row, the density the rest of the app is tuned to (DESIGN.md §3). */
-function Row({ label, htmlFor, testId, children }: { label: string; htmlFor?: string; testId?: string; children: React.ReactNode }) {
-  return (
-    <div className="viewer-row" data-testid={testId}>
-      <label className="viewer-row-label" htmlFor={htmlFor}>
-        {label}
-      </label>
-      <div className="viewer-row-control">{children}</div>
-    </div>
-  );
 }
 
 function ViewerPage() {
@@ -174,35 +115,32 @@ function ViewerPage() {
   const queryClient = useQueryClient();
 
   // ---------------------------------------------------------------------------------------------
-  // The draft: the selection, the extras and the composition. Every control below writes here and
-  // does nothing else.
+  // The draft: the source, and the edited file list. `files === null` means "the view type's own
+  // set" — not an empty list, and not a copy of it either: a copy would go stale the moment the
+  // source changed, and the page would be showing yesterday's answer with today's selector values.
   // ---------------------------------------------------------------------------------------------
   const [draft, setDraft] = usePageSession<ViewerSelection>("selection", () =>
     selectionFromDeepLink(deepLink, { kind: "subject", subject: subjectId ?? undefined, space: "subject" }),
   );
-  const [extras, setExtras] = usePageSession<ViewerExtra[]>("extras", () => []);
-  const [composition, setComposition] = usePageSession<Composition>("composition", () => EMPTY_COMPOSITION);
+  const [files, setFiles] = usePageSession<string[] | null>("files", () => null);
 
   const editDraft = useCallback(
-    (patch: Partial<ViewerSelection>) => setDraft((current) => ({ ...current, ...patch })),
-    [setDraft],
-  );
-  const editComposition = useCallback(
-    (patch: Partial<Composition>) => setComposition((current) => ({ ...current, ...patch })),
-    [setComposition],
-  );
-  const editLayer = useCallback(
-    (id: string, patch: LayerOverride) =>
-      setComposition((current) => ({ ...current, layers: { ...current.layers, [id]: { ...current.layers[id], ...patch } } })),
-    [setComposition],
+    (patch: Partial<ViewerSelection>) => {
+      // A different source resolves to a different set of files, so an edit to the source is an
+      // edit to the list: keeping the old rows would silently open the previous subject's data.
+      setFiles(null);
+      setDraft((current) => ({ ...current, ...patch }));
+    },
+    [setDraft, setFiles],
   );
 
   // A later deep link (Results → "Open in viewer") re-prefills the draft. It still does not open.
   const linkCarriesControls = hasViewerDeepLink(deepLink);
   useEffect(() => {
     if (!active || !linkCarriesControls || location.state?.[SUBJECT_SYNC_STATE]) return;
+    setFiles(null);
     setDraft((current) => selectionFromDeepLink(deepLink, current));
-  }, [active, location.key, location.state, deepLink, linkCarriesControls, setDraft]);
+  }, [active, location.key, location.state, deepLink, linkCarriesControls, setDraft, setFiles]);
 
   // The shell's subject switcher edits the draft's subject — a draft edit like any other.
   const lastShellSubject = useRef(subjectId);
@@ -235,53 +173,57 @@ function ViewerPage() {
   });
 
   const selectedSimulation = (simulations.data ?? []).find((s) => s.name === draft.simulation);
-  const fields = selectedSimulation?.fields ?? [];
+  const fieldsAvailable = selectedSimulation?.fields ?? [];
   const tetravox = useTetravox();
 
   // ---------------------------------------------------------------------------------------------
-  // The resolution: what this selection *is*, from the endpoint that would open it, in dry-run.
+  // The list: what this selection resolves to, from the endpoint that would open it, in dry run.
   //
-  // Deliberately the same route Open uses. A preview built by different code from the thing it
-  // previews is a preview that can be wrong, and the one moment this page must not be wrong is the
-  // moment before another application's window covers someone's work.
-  //
-  // The overrides are **not** sent here: the layer rows are built from the *unedited* scene and
-  // the edits are held locally, so dragging an opacity slider costs no request and cannot make the
-  // list it is editing re-resolve underneath the hand doing the dragging.
+  // The same route Open uses, and with the same `files`, so what the list shows and what Open
+  // writes cannot disagree. Editing a row therefore re-resolves — which is the point: the server
+  // is the one that knows a path is jailed out, missing, or a duplicate, and the row disappearing
+  // is a truer answer than a row the client kept and the scene did not.
   // ---------------------------------------------------------------------------------------------
   const draftKey = selectionKey(draft);
-  const extrasKey = [...extras].sort().join(",");
   const complete = validateSelection(draft) === null;
   const resolution = useQuery({
-    queryKey: ["viewer-resolution", draftKey, extrasKey],
-    queryFn: () => previewView(draft.kind, viewQuery(draft) as ViewQuery, extras),
+    queryKey: ["viewer-resolution", draftKey, files],
+    queryFn: () => previewView(draft.kind, viewQuery(draft) as ViewQuery, files ?? undefined),
     enabled: complete,
     retry: false,
   });
+  const rows: ViewerFile[] = useMemo(() => resolution.data?.files ?? [], [resolution.data]);
 
-  const scene = resolution.data?.scene as { layers?: SceneLayer[] } | undefined;
-  const sceneLayers = useMemo<SceneLayer[]>(() => scene?.layers ?? [], [scene]);
-  const files = resolution.data?.files ?? [];
+  const candidates = useQuery({
+    queryKey: ["viewer-candidates", draft.subject, draft.simulation, draft.space],
+    queryFn: () => getCandidates(draft.subject, draft.simulation, draft.space),
+    enabled: !!draft.subject,
+  });
 
-  // A different resolution is a different set of layer ids, so the edits held against the old ones
-  // are meaningless — kept, they would silently apply to whatever layer inherited the id.
-  const resolutionKey = `${draftKey}|${extrasKey}`;
-  const lastResolution = useRef(resolutionKey);
-  useEffect(() => {
-    if (lastResolution.current === resolutionKey) return;
-    lastResolution.current = resolutionKey;
-    setComposition((current) => ({ ...current, layers: {} }));
-  }, [resolutionKey, setComposition]);
-
-  /** A layer's value as the scene will carry it: the local edit if there is one, else the server's. */
-  const layerValue = useCallback(
-    <K extends keyof SceneLayer & keyof LayerOverride>(layer: SceneLayer, key: K): SceneLayer[K] => {
-      const patch = composition.layers[layer.id];
-      const edited = patch?.[key as keyof LayerOverride];
-      return (edited === undefined ? layer[key] : edited) as SceneLayer[K];
-    },
-    [composition.layers],
+  /** Edit the list. Always through the *resolved* rows, so an edit never invents a path. */
+  const editFiles = useCallback((next: string[]) => setFiles(next), [setFiles]);
+  const removeRow = useCallback(
+    (index: number) => editFiles(containerPaths(rows).filter((_, i) => i !== index)),
+    [editFiles, rows],
   );
+  const addFile = useCallback((path: string) => editFiles([...containerPaths(rows), path]), [editFiles, rows]);
+  const moveRow = useCallback((from: number, to: number) => editFiles(reorder(containerPaths(rows), from, to)), [editFiles, rows]);
+
+  const [dragging, setDragging] = useState<number | null>(null);
+
+  // The picker: everything on offer, minus what is already in the list, grouped as the server
+  // grouped it. A picker that offered a file already in the scene would be offering a no-op.
+  const [addQuery, setAddQuery] = useState("");
+  const [addPath, setAddPath] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+  const inList = new Set(containerPaths(rows));
+  const offered = (candidates.data ?? []).filter(
+    (c) => !inList.has(c.path) && (addQuery.trim() === "" || c.name.toLowerCase().includes(addQuery.trim().toLowerCase())),
+  );
+  const grouped = offered.reduce<Record<string, ViewerCandidate[]>>((acc, c) => {
+    (acc[c.group] ??= []).push(c);
+    return acc;
+  }, {});
 
   // ---------------------------------------------------------------------------------------------
   // Open: the one place a scene file is written and the one place the app is launched.
@@ -304,11 +246,8 @@ function ViewerPage() {
     setFailure(null);
     setBusy(true);
     try {
-      const written = await openView(attempt.kind, viewQuery(attempt) as ViewQuery, {
-        extras,
-        overrides: overridesPayload(composition) as Record<string, unknown> | undefined,
-      });
-      setRecents(pushRecent({ key: `${key}|${extrasKey}`, label: selectionLabel(attempt), selection: attempt, extras, overrides: composition }));
+      const written = await openView(attempt.kind, viewQuery(attempt) as ViewQuery, { files: files ?? undefined });
+      setRecents(pushRecent({ key: `${key}|${(files ?? []).join(",")}`, label: selectionLabel(attempt), selection: attempt, files }));
       if (tetravox.mode === "browser") {
         // No main process to spawn anything: hand the person the file. `written.scene` is the
         // exact bytes the server put on disk, so the download and the file are the same document.
@@ -340,25 +279,18 @@ function ViewerPage() {
     } finally {
       setBusy(false);
     }
-  }, [composition, draft, extras, extrasKey, tetravox]);
+  }, [draft, files, tetravox]);
 
   // ---------------------------------------------------------------------------------------------
-  // Presets and recents. A preset is a composition someone chose to keep, and it lives in the
+  // Presets and recents. A preset is a selection someone chose to keep, and it lives in the
   // project (`code/ti-toolbox/viewer/presets/`) because the project is the unit people copy and
-  // share. A recent is a footprint, and lives in this machine's browser storage, where losing it
-  // costs nothing.
+  // share. A recent is a footprint, and lives in this machine's browser storage.
   // ---------------------------------------------------------------------------------------------
   const presets = useQuery({ queryKey: ["viewer-presets"], queryFn: () => getPresets(), retry: false });
   const [presetName, setPresetName] = useState("");
   const [presetOpen, setPresetOpen] = useState(false);
   const saving = useMutation({
-    mutationFn: (name: string) =>
-      savePreset({
-        name,
-        selection: draft as unknown as Record<string, never>,
-        extras,
-        overrides: composition as unknown as Record<string, never>,
-      }),
+    mutationFn: (name: string) => savePreset({ name, selection: draft as unknown as Record<string, never>, files }),
     onSuccess: () => {
       setPresetOpen(false);
       setPresetName("");
@@ -371,15 +303,12 @@ function ViewerPage() {
   });
 
   const restore = useCallback(
-    (entry: { selection?: unknown; extras?: unknown; overrides?: unknown }) => {
+    (entry: { selection?: unknown; files?: unknown }) => {
+      // Restoring is not opening. The page fills in; the person presses Open when they mean it.
       if (entry.selection) setDraft(entry.selection as ViewerSelection);
-      setExtras(Array.isArray(entry.extras) ? (entry.extras as ViewerExtra[]) : []);
-      const overrides = (entry.overrides as Composition | undefined) ?? EMPTY_COMPOSITION;
-      setComposition({ ...EMPTY_COMPOSITION, ...overrides, layers: overrides.layers ?? {} });
-      // Restoring is not opening. The panel fills in; the person presses Open when they mean it.
-      lastResolution.current = `${selectionKey(entry.selection as ViewerSelection)}|${[...((entry.extras as string[]) ?? [])].sort().join(",")}`;
+      setFiles(Array.isArray(entry.files) ? (entry.files as string[]) : null);
     },
-    [setComposition, setDraft, setExtras],
+    [setDraft, setFiles],
   );
 
   // ---------------------------------------------------------------------------------------------
@@ -389,11 +318,11 @@ function ViewerPage() {
   const simulationOptions: SelectOption[] = (simulations.data ?? []).map((s) => ({ value: s.name, label: s.name }));
   const analysisOptions: SelectOption[] = (analyses.data ?? []).map((a) => ({ value: a.name, label: a.name }));
   const atlasOptions: SelectOption[] = (atlases.data ?? []).map((a) => ({ value: a.id, label: a.name || a.id }));
-  const fieldOptions: SelectOption[] = fields.map((f) => ({ value: f, label: f }));
+  const fieldOptions: SelectOption[] = fieldsAvailable.map((f) => ({ value: f, label: f }));
 
   const selector = (control: ViewerControl, node: React.ReactNode) => (
-    <label className="viewer-source-item viewer-row" data-testid={`viewer-select-${control}`} key={control}>
-      <span className="viewer-row-label viewer-source-label">{controlLabel(control)}</span>
+    <label className="viewer-row viewer-source-item" data-testid={`viewer-select-${control}`} key={control}>
+      <span className="viewer-row-label">{controlLabel(control)}</span>
       <span className="viewer-row-control">{node}</span>
     </label>
   );
@@ -405,20 +334,19 @@ function ViewerPage() {
     ? "Tetravox is not installed on this computer"
     : !complete
       ? (validateSelection(draft) ?? undefined)
-      : undefined;
+      : rows.length === 0
+        ? "Nothing to open — add a file first"
+        : undefined;
 
-  // ---------------------------------------------------------------------------------------------
-  // The panel
-  // ---------------------------------------------------------------------------------------------
   return (
     <PageLayout variant="bleed" className="viewer-page">
       <div className="viewer-scroll">
         <div className="viewer-panel" data-testid="viewer-panel">
           <header className="viewer-panel-head">
-            <h1 className="viewer-panel-title">Compose a scene</h1>
+            <h1 className="viewer-panel-title">Open in Tetravox</h1>
             <p className="viewer-panel-lede">
-              Pick what to look at and how it should look; <strong>Open</strong> writes the scene and hands it to the Tetravox desktop app,
-              which draws it in its own window.
+              Pick a source, edit the list of files it resolves to, and <strong>Open</strong> — the scene is written and handed to the
+              Tetravox desktop app, which draws it in its own window.
             </p>
           </header>
 
@@ -436,7 +364,7 @@ function ViewerPage() {
             <div className="viewer-callout" data-testid="viewer-not-installed">
               <p className="viewer-callout-title">Tetravox is not installed on this computer</p>
               <p className="viewer-callout-text">
-                The viewer is a separate desktop application. Install it once and this panel opens every scene you compose here; it updates
+                The viewer is a separate desktop application. Install it once and this button opens every scene you build here; it updates
                 itself from then on.
               </p>
               <Button
@@ -452,7 +380,11 @@ function ViewerPage() {
           )}
 
           {/* ── Source ─────────────────────────────────────────────────────────────────────── */}
-          <Section id="source" title="Source" description="What the scene is built from. The type decides which of the fields below it needs.">
+          <section className="viewer-card" data-testid="viewer-section-source">
+            <div className="viewer-card-head">
+              <span className="viewer-card-title text-eyebrow">Source</span>
+              <span className="viewer-card-note">The type decides which of the fields it needs.</span>
+            </div>
             <div
               className="viewer-source-grid"
               data-testid="viewer-source-bar"
@@ -460,8 +392,8 @@ function ViewerPage() {
               data-draft-key={draftKey}
               data-opened-key={opened?.key ?? ""}
             >
-              <label className="viewer-source-item viewer-row" data-testid="viewer-select-kind">
-                <span className="viewer-row-label viewer-source-label">Type</span>
+              <label className="viewer-row viewer-source-item" data-testid="viewer-select-kind">
+                <span className="viewer-row-label">Type</span>
                 <span className="viewer-row-control">
                   <Select value={draft.kind} onValueChange={(v) => editDraft({ kind: v as ViewKind })} options={VIEW_KIND_OPTIONS} aria-label="Type" />
                 </span>
@@ -551,242 +483,183 @@ function ViewerPage() {
                   />,
                 )}
               {shows("space") && (
-                <Row label="Space">
-                  <SegmentedControl<Space>
-                    aria-label="Space"
-                    size="sm"
-                    value={draft.space}
-                    onValueChange={(v) => editDraft({ space: v, atlas: undefined })}
-                    options={[
-                      { value: "subject", label: "Subject" },
-                      { value: "mni", label: "MNI", title: "The scene the server builds in MNI space" },
-                    ]}
-                  />
-                </Row>
+                <label className="viewer-row viewer-source-item">
+                  <span className="viewer-row-label">Space</span>
+                  <span className="viewer-row-control">
+                    <SegmentedControl<Space>
+                      aria-label="Space"
+                      size="sm"
+                      value={draft.space}
+                      onValueChange={(v) => editDraft({ space: v, atlas: undefined })}
+                      options={[
+                        { value: "subject", label: "Subject" },
+                        { value: "mni", label: "MNI", title: "The scene the server builds in MNI space" },
+                      ]}
+                    />
+                  </span>
+                </label>
               )}
             </div>
-          </Section>
+          </section>
 
-          {/* ── Layers ─────────────────────────────────────────────────────────────────────── */}
-          <Section
-            id="layers"
-            title="Layers"
-            description="The layers this selection resolves to, with the server's own defaults. Anything changed here is written into the scene."
-            actions={
-              Object.keys(composition.layers).length > 0 ? (
-                <Button variant="ghost" size="sm" onClick={() => editComposition({ layers: {} })} data-testid="viewer-layers-reset">
-                  Reset
-                </Button>
-              ) : undefined
-            }
-          >
+          {/* ── What will open ─────────────────────────────────────────────────────────────── */}
+          <section className="viewer-card" data-testid="viewer-plan">
+            <div className="viewer-card-head">
+              <span className="viewer-card-title text-eyebrow">What will open</span>
+              <span className="viewer-card-note">{rows.length === 0 ? "nothing yet" : `${rows.length} file${rows.length === 1 ? "" : "s"}, in this order`}</span>
+              <div className="viewer-card-actions">
+                {files !== null && (
+                  <button type="button" className="viewer-link" onClick={() => setFiles(null)} data-testid="viewer-files-reset">
+                    Reset
+                  </button>
+                )}
+                <Popover
+                  open={addOpen}
+                  onOpenChange={setAddOpen}
+                  trigger={
+                    <Button variant="secondary" size="sm" icon={<Plus size={14} />} disabled={!draft.subject} data-testid="viewer-add">
+                      Add…
+                    </Button>
+                  }
+                >
+                  <div className="viewer-popover viewer-add">
+                    <p className="viewer-popover-title">Add a file to the scene</p>
+                    <TextInput value={addQuery} onChange={(e) => setAddQuery(e.target.value)} placeholder="Filter…" aria-label="Filter files" data-testid="viewer-add-filter" />
+                    <div className="viewer-add-list" data-testid="viewer-add-list">
+                      {Object.keys(grouped).length === 0 && <p className="viewer-empty">Nothing left to add for this subject.</p>}
+                      {Object.entries(grouped).map(([group, entries]) => (
+                        <div className="viewer-add-group" key={group}>
+                          <p className="viewer-add-group-title">{group}</p>
+                          {entries.map((candidate) => (
+                            <button
+                              type="button"
+                              className="viewer-add-item"
+                              key={candidate.path}
+                              title={candidate.path}
+                              data-testid={`viewer-add-${candidate.name}`}
+                              onClick={() => {
+                                addFile(candidate.path);
+                                setAddOpen(false);
+                                setAddQuery("");
+                              }}
+                            >
+                              <span className="viewer-add-item-name">{candidate.name}</span>
+                              <span className="viewer-add-item-meta">
+                                {candidate.kind} · {formatBytes(candidate.bytes)}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                    {/* Anything else in the project. No host picker is wired in this app yet, so
+                        this is the container path a person types or pastes — the same field
+                        `kind: custom` uses, and the same jail check on the far end. */}
+                    <div className="viewer-add-path">
+                      <TextInput
+                        value={addPath}
+                        onChange={(e) => setAddPath(e.target.value)}
+                        placeholder="/path/inside/the/project.nii.gz"
+                        aria-label="Add by path"
+                        data-testid="viewer-add-path"
+                      />
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={addPath.trim() === ""}
+                        data-testid="viewer-add-path-go"
+                        onClick={() => {
+                          addFile(addPath.trim());
+                          setAddPath("");
+                          setAddOpen(false);
+                        }}
+                      >
+                        Add
+                      </Button>
+                    </div>
+                  </div>
+                </Popover>
+              </div>
+            </div>
+
             {!complete ? (
               <p className="viewer-empty" data-testid="viewer-nothing-selected">
-                Choose a source above and the layers it resolves to appear here.
+                Choose a source above and the files it resolves to appear here.
               </p>
             ) : resolution.isPending ? (
               <p className="viewer-empty">Resolving…</p>
-            ) : sceneLayers.length === 0 ? (
-              <p className="viewer-empty">The server found no files for this selection.</p>
+            ) : rows.length === 0 ? (
+              <p className="viewer-empty">Nothing yet — the server found no files for this selection. Add one, or reset the list.</p>
             ) : (
-              <ul className="viewer-layers" data-testid="viewer-layers">
-                {sceneLayers.map((layer) => {
-                  const visible = layerValue(layer, "visible") as boolean;
-                  const opacity = layerValue(layer, "opacity") as number;
-                  const isMesh = layer.kind === "mesh";
-                  const threshold = composition.layers[layer.id]?.threshold ?? layer.threshold ?? { lo: null, hi: null };
-                  const clipEnabled = composition.layers[layer.id]?.clip ?? layer.clip?.planes?.[0]?.enabled ?? false;
-                  return (
-                    <li className="viewer-layer" key={layer.id} data-testid={`viewer-layer-${layer.id}`} data-visible={visible ? "true" : "false"}>
-                      <div className="viewer-layer-head">
-                        <button
-                          type="button"
-                          className="viewer-layer-eye"
-                          aria-label={`${visible ? "Hide" : "Show"} ${layer.name}`}
-                          aria-pressed={visible}
-                          data-testid={`viewer-layer-visible-${layer.id}`}
-                          onClick={() => editLayer(layer.id, { visible: !visible })}
-                        >
-                          {visible ? <Eye size={14} /> : <EyeOff size={14} />}
-                        </button>
-                        <span className="viewer-layer-name" title={layer.name}>
-                          {layer.name}
-                        </span>
-                        <span className="viewer-layer-kind">{layerKindLabel(layer)}</span>
-                      </div>
-                      <div className="viewer-layer-controls">
-                        <Row label="Opacity">
-                          <Slider
-                            value={Math.round(opacity * 100)}
-                            onValueChange={(v) => editLayer(layer.id, { opacity: v / 100 })}
-                            min={0}
-                            max={100}
-                            step={1}
-                            unit="%"
-                            aria-label={`${layer.name} opacity`}
-                            data-testid={`viewer-layer-opacity-${layer.id}`}
-                          />
-                        </Row>
-                        {!isMesh && (
-                          <Row label="Colormap">
-                            <Select
-                              value={layerValue(layer, "colormap") as string}
-                              onValueChange={(v) => editLayer(layer.id, { colormap: v })}
-                              options={COLORMAP_SELECT}
-                              aria-label={`${layer.name} colormap`}
-                            />
-                          </Row>
-                        )}
-                        <Row label="Threshold" testId={`viewer-layer-threshold-${layer.id}`}>
-                          <div className="viewer-threshold">
-                            <NumberInput
-                              value={threshold.lo ?? undefined}
-                              onValueChange={(v) => editLayer(layer.id, { threshold: { ...threshold, lo: v ?? null } })}
-                              placeholder="lo"
-                              aria-label={`${layer.name} threshold low`}
-                            />
-                            <NumberInput
-                              value={threshold.hi ?? undefined}
-                              onValueChange={(v) => editLayer(layer.id, { threshold: { ...threshold, hi: v ?? null } })}
-                              placeholder="hi"
-                              aria-label={`${layer.name} threshold high`}
-                            />
-                          </div>
-                        </Row>
-                        {isMesh ? (
-                          <>
-                            <Row label="Colour by">
-                              <Select
-                                value={(layerValue(layer, "colorMode") as string) ?? "solid"}
-                                onValueChange={(v) => editLayer(layer.id, { colorMode: v })}
-                                options={[
-                                  { value: "field", label: "Field on the surface" },
-                                  { value: "tag", label: "Tissue tag" },
-                                  { value: "solid", label: "One colour" },
-                                ]}
-                                aria-label={`${layer.name} colour mode`}
-                              />
-                            </Row>
-                            <Row label="Clip plane">
-                              <Checkbox
-                                checked={clipEnabled}
-                                onCheckedChange={(v) => editLayer(layer.id, { clip: v })}
-                                label="Cut the surface at the cursor"
-                                aria-label={`${layer.name} clip plane`}
-                              />
-                            </Row>
-                          </>
-                        ) : (
-                          <Row label="In 3D">
-                            <Checkbox
-                              checked={(layerValue(layer, "showIn3D") as boolean) ?? false}
-                              onCheckedChange={(v) => editLayer(layer.id, { showIn3D: v })}
-                              label="Render this volume in the 3D pane"
-                              aria-label={`${layer.name} in 3D`}
-                            />
-                          </Row>
-                        )}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </Section>
-
-          {/* ── Layout & camera ────────────────────────────────────────────────────────────── */}
-          <Section id="layout" title="Layout &amp; camera" description="How the window is divided, where the 3D camera starts, and which way is left.">
-            <Row label="Panes" testId="viewer-layout">
-              <SegmentedControl<SceneLayout>
-                aria-label="Panes"
-                size="sm"
-                value={composition.layout ?? ((scene as { layout?: { kind?: SceneLayout } } | undefined)?.layout?.kind ?? "2x2")}
-                onValueChange={(v) => editComposition({ layout: v })}
-                options={LAYOUT_OPTIONS}
-              />
-            </Row>
-            <Row label="Camera" testId="viewer-camera">
-              <SegmentedControl<CameraPreset>
-                aria-label="Camera"
-                size="sm"
-                value={composition.camera ?? "A"}
-                onValueChange={(v) => editComposition({ camera: v })}
-                options={CAMERA_OPTIONS}
-              />
-            </Row>
-            <Row label="Background" testId="viewer-background">
-              <SegmentedControl<SceneBackground>
-                aria-label="Background"
-                size="sm"
-                value={composition.background ?? "dark"}
-                onValueChange={(v) => editComposition({ background: v })}
-                options={BACKGROUND_OPTIONS}
-              />
-            </Row>
-            <Row label="Convention" testId="viewer-radiological">
-              <Checkbox
-                checked={composition.radiological ?? false}
-                onCheckedChange={(v) => editComposition({ radiological: v })}
-                label="Radiological (the subject's left on screen right)"
-                aria-label="Radiological convention"
-              />
-            </Row>
-          </Section>
-
-          {/* ── Also open ──────────────────────────────────────────────────────────────────── */}
-          <Section
-            id="extras"
-            title="Also open"
-            description="Extra files to add to the scene. One this source already opens is a no-op, so a tick is safe to leave on."
-          >
-            <div className="viewer-extras">
-              {EXTRA_OPTIONS.map((extra) => {
-                const unavailable = extra.needs === "simulation" && !draft.simulation;
-                return (
-                  <div className="viewer-extra" key={extra.value} data-testid={`viewer-extra-${extra.value}`}>
-                    <Checkbox
-                      checked={extras.includes(extra.value)}
-                      disabled={unavailable}
-                      onCheckedChange={(v) => setExtras((current) => (v ? [...current, extra.value] : current.filter((e) => e !== extra.value)))}
-                      label={extra.label}
-                      aria-label={extra.label}
-                    />
-                    <p className="viewer-extra-help">{unavailable ? "Needs a simulation." : extra.help}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </Section>
-
-          {/* ── The preview card ───────────────────────────────────────────────────────────── */}
-          <div className="viewer-preview" data-testid="viewer-plan">
-            <div className="viewer-preview-head">
-              <span className="viewer-preview-title text-eyebrow">What will open</span>
-              <span className="viewer-preview-count">{files.length === 0 ? "nothing yet" : `${files.length} file${files.length === 1 ? "" : "s"}`}</span>
-            </div>
-            {files.length === 0 ? (
-              <p className="viewer-empty">
-                {complete ? "The server found no files for this selection." : `Choose a source, then press ${openLabel}.`}
-              </p>
-            ) : (
-              <ul className="viewer-preview-files" data-testid="viewer-preview-files">
-                {files.map((file) => (
-                  <li className="viewer-preview-file" key={file.path} title={file.path}>
-                    <span className="viewer-preview-file-name">{file.name}</span>
-                    <span className="viewer-preview-file-kind">{file.kind}</span>
-                    <span className="viewer-preview-file-size">{formatBytes(file.bytes)}</span>
+              <ul className="viewer-files" data-testid="viewer-preview-files">
+                {rows.map((file, index) => (
+                  <li
+                    className="viewer-file"
+                    key={file.container_path ?? file.path}
+                    data-testid={`viewer-file-${file.name}`}
+                    data-index={index}
+                    data-dragging={dragging === index ? "true" : undefined}
+                    draggable
+                    onDragStart={() => setDragging(index)}
+                    onDragEnd={() => setDragging(null)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => {
+                      if (dragging !== null) moveRow(dragging, index);
+                      setDragging(null);
+                    }}
+                  >
+                    <span className="viewer-file-grip" aria-hidden>
+                      <GripVertical size={13} />
+                    </span>
+                    <span className="viewer-file-name" title={file.path}>
+                      {file.name}
+                    </span>
+                    <span className="viewer-file-kind">{file.kind}</span>
+                    <span className="viewer-file-size">{formatBytes(file.bytes)}</span>
+                    {/* Keyboard reordering: drag is a mouse gesture, and a list you can only
+                        reorder with a mouse is a list some people cannot reorder. */}
+                    <button
+                      type="button"
+                      className="viewer-file-move"
+                      aria-label={`Move ${file.name} up`}
+                      disabled={index === 0}
+                      onClick={() => moveRow(index, index - 1)}
+                      data-testid={`viewer-file-up-${file.name}`}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className="viewer-file-move"
+                      aria-label={`Move ${file.name} down`}
+                      disabled={index === rows.length - 1}
+                      onClick={() => moveRow(index, index + 1)}
+                      data-testid={`viewer-file-down-${file.name}`}
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      className="viewer-file-remove"
+                      aria-label={`Remove ${file.name}`}
+                      onClick={() => removeRow(index)}
+                      data-testid={`viewer-file-remove-${file.name}`}
+                    >
+                      <X size={13} />
+                    </button>
                   </li>
                 ))}
               </ul>
             )}
+
             {opened !== null && (
-              <p className="viewer-preview-opened" data-testid="viewer-opened">
+              <p className="viewer-opened" data-testid="viewer-opened">
                 {tetravox.mode === "browser"
                   ? `Downloaded ${opened.name}. Open it in Tetravox (File ▸ Open Scene…).`
                   : `Opened ${opened.name}${opened.hostPath ? ` — ${opened.hostPath}` : ""}`}
               </p>
             )}
-          </div>
+          </section>
 
           {/* ── Footer ─────────────────────────────────────────────────────────────────────── */}
           <footer className="viewer-panel-foot">
@@ -800,7 +673,7 @@ function ViewerPage() {
               }
             >
               <div className="viewer-popover">
-                <p className="viewer-popover-title">Save this composition</p>
+                <p className="viewer-popover-title">Save this selection</p>
                 <TextInput
                   value={presetName}
                   onChange={(e) => setPresetName(e.target.value)}
@@ -891,7 +764,7 @@ function ViewerPage() {
 const page: PageDef = {
   id: "viewer",
   title: "Viewer",
-  purpose: "Compose a scene from a subject, a simulation or an analysis and open it in the Tetravox desktop app.",
+  purpose: "Pick a source, edit the list of files, and open it in the Tetravox desktop app.",
   navGroup: "explore",
   order: 60,
   icon: Eye,

@@ -314,6 +314,7 @@ describe("contract coverage: every openapi.v1.yaml path+method", () => {
       body: { name: "contract", selection: { kind: "subject", subject: "ernie" }, extras: [], overrides: {} },
     });
     await call("/api/viewer/presets", "GET", "/api/viewer/presets");
+    await call("/api/viewer/candidates", "GET", "/api/viewer/candidates?subject=ernie&simulation=Thalamus");
     await call("/api/viewer/presets/{name}", "DELETE", "/api/viewer/presets/contract");
 
     // files (v1)

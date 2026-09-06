@@ -32,22 +32,25 @@ export const PRE_STAGES: { key: string; label: string }[] = [
   { key: "extract_dti", label: "Extract DTI tensors" },
 ];
 
+/** The cohort. The one node that *owns* a subject list; every other node is handed one. */
+export interface SubjectsEditor {
+  kind: "subjects";
+  subjects: string[];
+}
+
 export interface PreEditor {
   kind: "pre";
-  subjects: string;
   stages: Record<string, boolean>;
 }
 
 export interface FlexEditor {
   kind: "flex";
-  subjects: string;
   form: FlexFormState;
   roi: RoiValue;
 }
 
 export interface SimEditor {
   kind: "sim";
-  subjects: string;
   montages: string;
   eegNet: string;
   currents: string;
@@ -56,7 +59,6 @@ export interface SimEditor {
 
 export interface AnalyzerEditor {
   kind: "analyzer";
-  subjects: string;
   simulation: string;
   space: Space;
   analysisType: AnalysisType;
@@ -79,7 +81,7 @@ export interface JsonEditor {
   text: string;
 }
 
-export type NodeEditor = PreEditor | FlexEditor | SimEditor | AnalyzerEditor | JsonEditor;
+export type NodeEditor = SubjectsEditor | PreEditor | FlexEditor | SimEditor | AnalyzerEditor | JsonEditor;
 
 const SIM_PARAMS: GlobalParams = {
   conductivity: "scalar",
@@ -92,16 +94,17 @@ const SIM_PARAMS: GlobalParams = {
 
 export function defaultEditor(kind: NodeKind): NodeEditor {
   switch (kind) {
+    case "subjects":
+      return { kind: "subjects", subjects: [] };
     case "pre":
-      return { kind: "pre", subjects: "", stages: { create_m2m: true } };
+      return { kind: "pre", stages: { create_m2m: true } };
     case "flex":
-      return { kind: "flex", subjects: "", form: defaultFlexFormState(), roi: emptyRoi("subcortical") };
+      return { kind: "flex", form: defaultFlexFormState(), roi: emptyRoi("subcortical") };
     case "sim":
-      return { kind: "sim", subjects: "", montages: "", eegNet: "", currents: "1.0, 1.0", params: { ...SIM_PARAMS } };
+      return { kind: "sim", montages: "", eegNet: "", currents: "1.0, 1.0", params: { ...SIM_PARAMS } };
     case "analyzer":
       return {
         kind: "analyzer",
-        subjects: "",
         simulation: "",
         space: "mesh",
         analysisType: "spherical",
@@ -122,7 +125,7 @@ export function defaultEditor(kind: NodeKind): NodeEditor {
  * The document stores each node's **built** config, which is what validates, runs and exports; the
  * form state that produced it is page session state and is not saved. No v3 page has a full
  * `config -> form state` reader (PC.md open item 2), so this is deliberately partial: it recovers
- * the fields a user is most likely to want to see and change again — the subjects, the montage
+ * the fields a user is most likely to want to see and change again — the cohort, the montage
  * names, the simulation, the pre stages, the analyzer's space and target — and leaves the rest at
  * that kind's defaults.
  *
@@ -135,28 +138,28 @@ export function defaultEditor(kind: NodeKind): NodeEditor {
 export function editorFromNode(node: { kind: NodeKind; config?: Record<string, unknown> }): NodeEditor {
   const config = node.config ?? {};
   const base = defaultEditor(node.kind);
-  const subjects = (() => {
-    const list = config.subject_ids;
-    if (Array.isArray(list)) return list.map((s) => String(s).trim()).filter(Boolean).join(", ");
-    const one = String(config.subject_id ?? "").trim();
-    return one;
-  })();
 
   switch (base.kind) {
+    case "subjects": {
+      const list = config.subject_ids;
+      return {
+        ...base,
+        subjects: Array.isArray(list) ? list.map((s) => String(s).trim()).filter(Boolean) : [],
+      };
+    }
     case "pre": {
       const stages: Record<string, boolean> = {};
       for (const stage of PRE_STAGES) if (config[stage.key] === true) stages[stage.key] = true;
-      return { ...base, subjects, stages: Object.keys(stages).length ? stages : base.stages };
+      return { ...base, stages: Object.keys(stages).length ? stages : base.stages };
     }
     case "flex":
-      return { ...base, subjects };
+      return base;
     case "sim": {
       const montages = Array.isArray(config.montages)
         ? config.montages.map((m) => String((m as { name?: unknown })?.name ?? "")).filter(Boolean).join(", ")
         : "";
       return {
         ...base,
-        subjects,
         montages,
         eegNet: String(config.eeg_net ?? "") || base.eegNet,
         params: { ...base.params, conductivity: String(config.conductivity ?? base.params.conductivity) },
@@ -165,7 +168,6 @@ export function editorFromNode(node: { kind: NodeKind; config?: Record<string, u
     case "analyzer":
       return {
         ...base,
-        subjects,
         simulation: String(config.simulation ?? ""),
         space: config.space === "voxel" ? "voxel" : base.space,
         analysisType: ["spherical", "cortical", "subcortical"].includes(String(config.analysis_type))
@@ -199,28 +201,38 @@ function simRow(subjectId: string, name: string, editor: SimEditor): SelectedRow
 /**
  * The node's config, built by the same function its page uses.
  *
- * The `subject_id` it embeds is a *representative* subject: a pipeline node fans out to one job
- * per subject on the server (`tit.pipeline.plan`), which forces each generated config's
- * `subject_id` to its own subject, so the id here never decides which anatomy a job reads.
+ * **A node's config is its own.** Nothing here is copied from the node upstream of it: an edge
+ * carries one named port and nothing else. The cohort is the exception that proves it — it is not
+ * copied into the config at all, it stays on the `subjects` node and reaches this one over the
+ * wire, so a document has exactly one place that says who takes part.
  */
 export function configFor(
   editor: NodeEditor,
   atlasLookup: (atlas: string) => AtlasLookup | undefined,
   previous?: Record<string, unknown>,
+  /**
+   * The subjects that reach this node over the graph's `subjects` wire. Only a *representative*
+   * is used, and only where a page's builder insists on one: the server fans a node out to one
+   * job per subject and forces each generated config's `subject_id` to its own subject
+   * (`tit.pipeline.plan`), so the id embedded here never decides which anatomy a job reads.
+   */
+  cohort: string[] = [],
 ): Record<string, unknown> {
-  const subjects = "subjects" in editor ? parseSubjects(editor.subjects) : [];
-  const representative = subjects[0] ?? "";
+  const representative = cohort[0] ?? "";
 
   switch (editor.kind) {
+    case "subjects":
+      // The one node that owns a subject list. Nothing else about it is configurable.
+      return { subject_ids: [...editor.subjects] };
     case "pre": {
       const flags: Record<string, unknown> = {};
       for (const stage of PRE_STAGES) flags[stage.key] = editor.stages[stage.key] === true;
-      return { ...flags, subject_ids: subjects };
+      return flags;
     }
     case "flex": {
       const roi = roiToConfig(editor.roi, atlasLookup);
       const config = buildFlexConfig(representative, editor.form, roi ?? ({} as never), undefined) as unknown as Record<string, unknown>;
-      return { ...config, subject_ids: subjects };
+      return config;
     }
     case "sim": {
       const names = editor.montages.split(",").map((s) => s.trim()).filter(Boolean);
@@ -231,13 +243,13 @@ export function configFor(
         return (buildSimulationConfig(row, editor.params).montages as unknown[])[0];
       });
       const base = buildSimulationConfig(simRow(representative, names[0] ?? "", editor), editor.params);
-      return { ...base, montages, subject_ids: subjects };
+      return { ...base, montages };
     }
     case "analyzer": {
       const config = buildAnalyzerConfig({
         mode: "single",
         subjectId: representative,
-        subjectIds: subjects,
+        subjectIds: cohort,
         simulation: editor.simulation,
         space: editor.space,
         tissueType: editor.tissueType,
@@ -247,7 +259,10 @@ export function configFor(
         sphere: editor.sphere,
         roiValue: editor.roi,
       }) as unknown as Record<string, unknown>;
-      return { ...config, subject_ids: subjects };
+      // The cohort is the graph's, not this node's: `subject_ids` is deliberately not written
+      // back into the config, so the document has exactly one place that says who takes part.
+      delete config.subject_ids;
+      return config;
     }
     case "json": {
       // `previous` is the config the node already carries. Mid-edit the textarea is *always*

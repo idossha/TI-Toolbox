@@ -56,7 +56,8 @@ import { NodeInspector, useAtlasLookup } from "./NodeInspector";
 import { NodeCard, type CardData } from "./NodeCard";
 import { Palette, NODE_DRAG_TYPE } from "./Palette";
 import { Receipt } from "./Receipt";
-import { configFor, defaultEditor, editorFromNode, parseSubjects, type NodeEditor } from "./editors";
+import { configFor, defaultEditor, editorFromNode, type NodeEditor } from "./editors";
+import { useOverviewReadiness } from "./SubjectsEditor";
 import {
   NODE_KINDS,
   PORT_LABEL,
@@ -67,6 +68,7 @@ import {
   nodeById,
   nodeSummary,
   samplePipeline,
+  subjectsOf,
   type NodeKind,
   type PipelineDoc,
   type PortType,
@@ -179,25 +181,23 @@ function PipelineCanvas() {
     [doc, patch],
   );
 
+  // Read from state and write plainly — never from inside another setter's updater. An updater
+  // function must be pure: React may call it more than once, and calling `patch`/`setFuture` from
+  // inside `setPast` is an update to a different component mid-render, which React is free to
+  // drop. It did: ⌘Z left the graph exactly as it was.
   const undo = useCallback(() => {
-    setPast((p) => {
-      if (!p.length) return p;
-      const previous = p[p.length - 1]!;
-      setFuture((f) => [doc, ...f]);
-      patch({ doc: previous });
-      return p.slice(0, -1);
-    });
-  }, [doc, patch]);
+    if (!past.length) return;
+    setPast(past.slice(0, -1));
+    setFuture([doc, ...future]);
+    patch({ doc: past[past.length - 1]! });
+  }, [past, future, doc, patch]);
 
   const redo = useCallback(() => {
-    setFuture((f) => {
-      if (!f.length) return f;
-      const next = f[0]!;
-      setPast((p) => [...p, doc]);
-      patch({ doc: next });
-      return f.slice(1);
-    });
-  }, [doc, patch]);
+    if (!future.length) return;
+    setFuture(future.slice(1));
+    setPast([...past, doc]);
+    patch({ doc: future[0]! });
+  }, [past, future, doc, patch]);
 
   // ---- validation is the receipt: the server is the authority on what Run will submit ---------
   const validation = useQuery<PipelineValidation>({
@@ -208,6 +208,14 @@ function PipelineCanvas() {
   const issues = useMemo(() => validation.data?.issues ?? [], [validation.data]);
 
   const saved = useQuery({ queryKey: ["pipelines"], queryFn: () => listPipelines() });
+
+  /**
+   * What every subject in this project already has. The drag gate needs it *locally*: a refusal
+   * has to land while the wire is still following the pointer, which is before there is a graph
+   * to ask the server about. `POST /api/pipelines/validate` applies the same table server-side, so
+   * the sentence a user sees mid-drag is the sentence the receipt shows once the wire is there.
+   */
+  const { readiness } = useOverviewReadiness();
 
   // ---- live status per node, from the group this canvas last submitted ------------------------
   const jobs = useJobsModel();
@@ -249,7 +257,8 @@ function PipelineCanvas() {
   // ---- editing -------------------------------------------------------------------------------
   const inspectedNode = inspecting ? nodeById(doc, inspecting) : undefined;
   const inspectedEditor = inspecting ? editors[inspecting] : undefined;
-  const inspectedSubjects = inspectedEditor && "subjects" in inspectedEditor ? parseSubjects(inspectedEditor.subjects) : [];
+  // Which subjects reach the node being edited — from the graph, not from the node.
+  const inspectedSubjects = inspecting ? subjectsOf(doc, inspecting) : [];
   const atlasLookup = useAtlasLookup(
     inspectedSubjects[0],
     inspectedEditor && "roi" in inspectedEditor ? inspectedEditor.roi : undefined,
@@ -273,7 +282,7 @@ function PipelineCanvas() {
           return { x: centre.x - 104 + step * 24, y: centre.y - 40 + step * 24 };
         })();
       commit(
-        { ...doc, nodes: [...doc.nodes, { id, kind, config: configFor(editor, atlasLookup), position }] },
+        { ...doc, nodes: [...doc.nodes, { id, kind, config: configFor(editor, atlasLookup, undefined, []), position }] },
         { ...editors, [id]: editor },
       );
       // Selected by the effect below, once the node the document just gained is in `flowNodes`.
@@ -316,7 +325,12 @@ function PipelineCanvas() {
   const updateEditor = (id: string, next: NodeEditor) => {
     patch({
       editors: { ...editors, [id]: next },
-      doc: { ...doc, nodes: doc.nodes.map((n) => (n.id === id ? { ...n, config: configFor(next, atlasLookup, n.config) } : n)) },
+      doc: {
+        ...doc,
+        nodes: doc.nodes.map((n) =>
+          n.id === id ? { ...n, config: configFor(next, atlasLookup, n.config, subjectsOf(doc, id)) } : n,
+        ),
+      },
     });
   };
 
@@ -338,9 +352,9 @@ function PipelineCanvas() {
         const to = PORT_LABEL[c.targetHandle as PortType] ?? "that input";
         return { ok: false, reason: `${from} cannot feed ${to}` };
       }
-      return canConnect(doc, c.source, c.target, c.sourceHandle as PortType);
+      return canConnect(doc, c.source, c.target, c.sourceHandle as PortType, readiness);
     },
-    [doc],
+    [doc, readiness],
   );
 
   /**

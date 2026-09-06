@@ -464,8 +464,12 @@ function validateConfig(kind, config) {
   } else if (PER_SUBJECT_KINDS.has(kind) && !cfg.subject_id) {
     errors.push({ path: "subject_id", message: "subject_id is required" });
   }
-  if ((kind === "ex" || kind === "mex") && !cfg.eeg_net) {
-    errors.push({ path: "eeg_net", message: "eeg_net is required" });
+  // `leadfield_hdf`, not `eeg_net`: neither `ExConfig` nor `MExConfig` HAS an `eeg_net` field
+  // (that is a `FlexConfig` mapping option — tit/opt/config.py), so the rule this replaces refused
+  // every valid ex/mEx config. It went unnoticed while the Optimizer only validated flex configs
+  // before submitting; the jobs table validates one config per kind, which is what found it.
+  if ((kind === "ex" || kind === "mex") && !cfg.leadfield_hdf) {
+    errors.push({ path: "leadfield_hdf", message: "leadfield_hdf is required" });
   }
   if ((kind === "flex" || kind === "flex_adaptive" || kind === "flex_pareto") && !cfg.roi) {
     errors.push({ path: "roi", message: "roi is required" });
@@ -2362,17 +2366,34 @@ route("POST", "/api/jobs/groups", async (ctx) => {
 // this planner builds the same DAG the server does. `desktop/tests/unit/pipeline-graph.test.ts`
 // and `tests/test_pipeline_graph.py` assert the same refusal table on both sides.
 const PIPE_PORTS = {
-  pre: { inputs: [], outputs: ["subjects"], required: [] },
-  leadfield: { inputs: ["subjects"], outputs: ["subjects", "leadfield"], required: [] },
-  flex: { inputs: ["subjects", "roi"], outputs: ["subjects", "montages", "roi"], required: [] },
-  ex: { inputs: ["subjects", "roi", "leadfield"], outputs: ["subjects", "montages", "roi"], required: [] },
-  mex: { inputs: ["subjects", "roi", "leadfield"], outputs: ["subjects", "montages", "roi"], required: [] },
+  subjects: { inputs: [], outputs: ["subjects"], required: [] },
+  pre: { inputs: ["subjects"], outputs: ["subjects"], required: ["subjects"] },
+  leadfield: { inputs: ["subjects"], outputs: ["subjects", "leadfield"], required: ["subjects"] },
+  flex: { inputs: ["subjects", "roi"], outputs: ["subjects", "montages", "roi"], required: ["subjects"] },
+  ex: { inputs: ["subjects", "roi", "leadfield"], outputs: ["subjects", "montages", "roi"], required: ["subjects"] },
+  mex: { inputs: ["subjects", "roi", "leadfield"], outputs: ["subjects", "montages", "roi"], required: ["subjects"] },
   sim: { inputs: ["subjects", "montages"], outputs: ["subjects", "simulation"], required: ["subjects"] },
-  analyzer: { inputs: ["subjects", "simulation", "roi"], outputs: ["subjects"], required: ["subjects", "simulation"] },
+  analyzer: { inputs: ["subjects", "simulation", "roi"], outputs: ["subjects"], required: ["subjects"] },
   source: { inputs: ["subjects"], outputs: ["subjects"], required: ["subjects"] },
   stats: { inputs: ["subjects"], outputs: [], required: ["subjects"] },
 };
-const PIPE_KINDS = ["pre", "leadfield", "flex", "ex", "mex", "sim", "analyzer", "source", "stats"];
+const PIPE_KINDS = ["subjects", "pre", "leadfield", "flex", "ex", "mex", "sim", "analyzer", "source", "stats"];
+// Mirrors `tit.pipeline.validate.KIND_READINESS`: what each kind needs of a subject, and what it
+// leaves behind for the nodes after it.
+const PIPE_CAPABILITIES = ["raw", "m2m", "leadfield", "simulation"];
+const PIPE_CAP_LABEL = { raw: "raw MRI", m2m: "head model", leadfield: "leadfield", simulation: "simulations" };
+const PIPE_READINESS = {
+  subjects: { requires: [], produces: [] },
+  pre: { requires: ["raw"], produces: ["m2m"] },
+  leadfield: { requires: ["m2m"], produces: ["leadfield"] },
+  flex: { requires: ["m2m"], produces: [] },
+  ex: { requires: ["m2m", "leadfield"], produces: [] },
+  mex: { requires: ["m2m", "leadfield"], produces: [] },
+  sim: { requires: ["m2m"], produces: ["simulation"] },
+  analyzer: { requires: ["simulation"], produces: [] },
+  source: { requires: ["m2m"], produces: [] },
+  stats: { requires: ["simulation"], produces: [] },
+};
 const PIPE_PORT_TYPES = ["subjects", "montages", "simulation", "roi", "leadfield"];
 const PIPE_PORT_LABEL = { subjects: "Subjects", montages: "Montage names", simulation: "Simulation name", roi: "ROI", leadfield: "Leadfield" };
 const PIPE_DYNAMIC = new Set(["montages", "leadfield", "simulation"]);
@@ -2414,6 +2435,52 @@ function pipeSatisfied(port, config) {
   if (port === "roi") return ["roi", "roi_name", "roi_names", "region", "atlas", "center"].some((k) => config?.[k] !== undefined && config[k] !== null && config[k] !== "" && !(Array.isArray(config[k]) && !config[k].length));
   return false;
 }
+/** Mirrors `tit.pipeline.validate.readiness_from_overview` — read from the live mock overview. */
+function pipeReadiness() {
+  const out = {};
+  for (const row of overview.subjects ?? []) {
+    const caps = new Set();
+    if (row.raw === "present") caps.add("raw");
+    if (row.m2m === "present") caps.add("m2m");
+    if (row.leadfield === "present" || row.leadfield === "partial") caps.add("leadfield");
+    if ((row.counts?.simulations ?? 0) > 0) caps.add("simulation");
+    out[row.id] = caps;
+  }
+  return out;
+}
+
+/** Mirrors `capabilities_at`: the project's facts at a cohort, plus what each node on the way makes. */
+function pipeCapabilities(doc, id, readiness, seen = new Set()) {
+  const node = doc.nodes.find((n) => n.id === id);
+  if (!node || seen.has(id)) return {};
+  seen.add(id);
+  const upstream = pipeIn(doc, id).find((e) => e.port === "subjects")?.from;
+  if (upstream === undefined) {
+    const out = {};
+    for (const sid of pipeSubjectsOf(node.config)) out[sid] = new Set(readiness[sid] ?? []);
+    return out;
+  }
+  const inherited = pipeCapabilities(doc, upstream, readiness, seen);
+  const from = doc.nodes.find((n) => n.id === upstream);
+  const produced = PIPE_READINESS[from?.kind]?.produces ?? [];
+  const out = {};
+  for (const [sid, caps] of Object.entries(inherited)) out[sid] = new Set([...caps, ...produced]);
+  return out;
+}
+
+/** `[[capability, [subjects missing it]]]` for a kind, in table order. */
+function pipeUnmet(kind, caps) {
+  const out = [];
+  for (const capability of PIPE_READINESS[kind]?.requires ?? []) {
+    const missing = Object.entries(caps)
+      .filter(([, have]) => !have.has(capability))
+      .map(([sid]) => sid)
+      .sort();
+    if (missing.length) out.push([capability, missing]);
+  }
+  return out;
+}
+
 function pipeTopo(doc) {
   const ids = doc.nodes.map((n) => n.id);
   const indeg = Object.fromEntries(ids.map((i) => [i, 0]));
@@ -2460,6 +2527,21 @@ function pipeValidate(doc) {
     }
     if (!node.config || !Object.keys(node.config).length) issues.push({ level: "warning", message: `${pipeName(node)} has no configuration yet`, node_id: node.id, code: "unconfigured" });
   }
+  const readiness = pipeReadiness();
+  for (const node of doc.nodes) {
+    const caps = pipeCapabilities(doc, node.id, readiness);
+    if (!Object.keys(caps).length) continue;
+    for (const [capability, missing] of pipeUnmet(node.kind, caps)) {
+      issues.push({
+        level: "error",
+        message: `${pipeName(node)}: ${missing.join(", ")} ${missing.length === 1 ? "has" : "have"} no ${PIPE_CAP_LABEL[capability]}`,
+        node_id: node.id,
+        code: "not_ready",
+        port: "subjects",
+      });
+    }
+  }
+
   if (doc.nodes.length > 1) {
     const wired = new Set(doc.edges.flatMap((e) => [e.from, e.to]));
     for (const node of doc.nodes) if (!wired.has(node.id)) issues.push({ level: "warning", message: `${pipeName(node)} is not connected to anything; it will run on its own`, node_id: node.id, code: "unconnected" });
@@ -2491,6 +2573,11 @@ function pipePlan(doc) {
   const planned = [];
   for (const id of order) {
     const node = doc.nodes.find((n) => n.id === id);
+    // The cohort runs nothing: it names who the graph is about and hands them on over the wire.
+    if (node.kind === "subjects") {
+      labels.set(id, []);
+      continue;
+    }
     const incoming = pipeIn(doc, id);
     const upstream = [];
     for (const e of incoming) if (!pipeIsDynamic(doc, e)) upstream.push(...(labels.get(e.from) ?? []));
@@ -2530,7 +2617,15 @@ function pipePlan(doc) {
 route("GET", "/api/pipelines/kinds", (ctx) =>
   json(ctx.res, 200, {
     port_types: PIPE_PORT_TYPES,
-    kinds: PIPE_KINDS.map((kind) => ({ kind, inputs: PIPE_PORTS[kind].inputs, outputs: PIPE_PORTS[kind].outputs, required: PIPE_PORTS[kind].required })),
+    capabilities: PIPE_CAPABILITIES.map((capability) => ({ capability, label: PIPE_CAP_LABEL[capability] })),
+    kinds: PIPE_KINDS.map((kind) => ({
+      kind,
+      inputs: PIPE_PORTS[kind].inputs,
+      outputs: PIPE_PORTS[kind].outputs,
+      required: PIPE_PORTS[kind].required,
+      requires: PIPE_READINESS[kind].requires,
+      produces: PIPE_READINESS[kind].produces,
+    })),
   }),
 );
 route("GET", "/api/pipelines", (ctx) => json(ctx.res, 200, [...pipelineStore.entries()].map(([name, entry]) => ({ name, modified_at: entry.modified_at, size: JSON.stringify(entry.doc).length, nodes: (entry.doc.nodes ?? []).length, edges: (entry.doc.edges ?? []).length })).sort((a, b) => a.name.localeCompare(b.name))));
@@ -2675,60 +2770,33 @@ route("POST", "/api/view/open", async (ctx) => {
       for (const key of ["path", "absPath"]) if (sidecar[key]) sidecar[key] = localise(sidecar[key]);
     }
   }
-  // VM: extras add layers, overrides edit the finished scene, dry_run writes nothing. A deliberate
-  // mirror of tit/viewspec.py::apply_scene_overrides -- the page's controls have to be provably
-  // reaching the document, and the spec asserts that against this response.
-  const overrides = body.overrides && typeof body.overrides === "object" ? body.overrides : null;
-  if (overrides) {
-    const byId = new Map((scene.layers ?? []).map((l) => [l.id, l]));
-    for (const [id, patch] of Object.entries(overrides.layers ?? {})) {
-      const layer = byId.get(id);
-      if (!layer || !patch || typeof patch !== "object") continue;
-      for (const key of ["visible", "showIn3D", "showColorbar", "contoursIn2D"]) {
-        if (key in patch && key in layer) layer[key] = Boolean(patch[key]);
-      }
-      if ("opacity" in patch) layer.opacity = Math.min(1, Math.max(0, Number(patch.opacity) || 0));
-      if (typeof patch.colormap === "string" && patch.colormap) layer.colormap = patch.colormap;
-      if (patch.threshold && typeof patch.threshold === "object" && layer.threshold) {
-        for (const bound of ["lo", "hi"]) {
-          if (!(bound in patch.threshold)) continue;
-          layer.threshold[bound] = patch.threshold[bound] === null ? null : Number(patch.threshold[bound]);
-        }
-      }
-      if (layer.kind === "mesh" && "clip" in patch) {
-        for (const plane of layer.clip?.planes ?? []) plane.enabled = Boolean(patch.clip);
+  // VM2: when the client sends `files`, that list *is* the scene -- these datasets, this order.
+  // A deliberate mirror of tit/viewspec.py::_layers_from_files: a path the view type already
+  // produced keeps that view type's layer settings, and only an added path is described from
+  // scratch. `dry_run` writes nothing (the mock writes nothing either way; the flag is echoed so
+  // the client and the spec can tell the two calls apart).
+  if (Array.isArray(body.files)) {
+    const byPath = new Map((spec.layers ?? []).map((l) => [l.path, l]));
+    const chosen = [];
+    const seen = new Set();
+    for (const raw of body.files) {
+      if (typeof raw !== "string" || seen.has(raw) || raw.startsWith("/etc/")) continue;
+      seen.add(raw);
+      chosen.push(byPath.get(raw) ?? defaultLayerForPath(raw));
+    }
+    if (chosen.length === 0) return json(ctx.res, 404, { detail: "The server built no scene for this selection" });
+    const rebuilt = sceneFor(spec.space, chosen, null);
+    for (const dataset of rebuilt.datasets ?? []) {
+      for (const key of ["path", "absPath"]) if (dataset[key]) dataset[key] = localise(dataset[key]);
+      for (const sidecar of Object.values(dataset.sidecars ?? {})) {
+        for (const key of ["path", "absPath"]) if (sidecar[key]) sidecar[key] = localise(sidecar[key]);
       }
     }
-    const LAYOUTS = {
-      "1x1": ["axial"],
-      "1+3": ["view3d", "axial", "coronal", "sagittal"],
-      "2x2": ["axial", "coronal", "sagittal", "view3d"],
-      "3d-only": ["view3d"],
-    };
-    if (typeof overrides.layout === "string" && LAYOUTS[overrides.layout]) {
-      scene.layout = { kind: overrides.layout, cells: [...LAYOUTS[overrides.layout]] };
-    }
-    const CAMERAS = {
-      A: [0, 0, 0, 1],
-      P: [0, 1, 0, 0],
-      L: [0, -0.7071067811865476, 0, 0.7071067811865476],
-      R: [0, 0.7071067811865476, 0, 0.7071067811865476],
-      S: [-0.7071067811865476, 0, 0, 0.7071067811865476],
-      I: [0.7071067811865476, 0, 0, 0.7071067811865476],
-    };
-    const preset = typeof overrides.camera === "string" ? overrides.camera.toUpperCase() : null;
-    if (preset && CAMERAS[preset] && scene.view3d?.camera) scene.view3d.camera.rotation = [...CAMERAS[preset]];
-    if ("radiological" in overrides) scene.radiological = Boolean(overrides.radiological);
-    const BACKGROUNDS = {
-      dark: [0.058823529411764705, 0.06666666666666667, 0.08627450980392157, 1],
-      black: [0, 0, 0, 1],
-      light: [0.94, 0.95, 0.96, 1],
-    };
-    if (typeof overrides.background === "string" && BACKGROUNDS[overrides.background]) {
-      scene.background = [...BACKGROUNDS[overrides.background]];
-    }
-    const visible = (scene.layers ?? []).filter((l) => l.visible).map((l) => l.id);
-    if (visible.length && !visible.includes(scene.activeLayerId)) scene.activeLayerId = visible[0];
+    scene.datasets = rebuilt.datasets;
+    scene.layers = rebuilt.layers;
+    scene.activeLayerId = rebuilt.activeLayerId;
+    scene.layout = rebuilt.layout;
+    spec.layers = chosen;
   }
   const name = `${kind}.tetravox.json`;
   json(ctx.res, 200, {
@@ -2741,13 +2809,62 @@ route("POST", "/api/view/open", async (ctx) => {
       kind: d.kind,
       name: d.name ?? String(d.path ?? "").split("/").pop(),
       path: d.path,
-      // Deterministic stand-in sizes: the mock has no files on disk, and a preview strip that
-      // showed nothing here would make "the strip lists what will open" untestable.
+      // Both path languages: the row is handed back in `files` when it is kept, moved or joined
+      // by another, and the server jails container paths (VM2).
+      container_path: spec.layers?.[index]?.path ?? d.path,
+      // Deterministic stand-in sizes: the mock has no files on disk, and a list that showed no
+      // size would make "the list says how much is about to open" untestable.
       bytes: d.kind === "mesh" ? 24_117_248 + index : 4_194_304 + index,
     })),
     dry_run: Boolean(body.dry_run),
   });
 });
+// VM2: the default layer for a file the *user* added -- a mirror of tit/viewspec.py's
+// _layer_for_path, derived from the name alone (a mesh is a hidden jet surface, a labelled volume
+// gets a LUT at 0.7, anything anatomical is opaque grayscale, everything else is a heat field).
+function defaultLayerForPath(path) {
+  const name = path.split("/").pop().toLowerCase();
+  const base = { path, cal_min: null, cal_max: null, percentile: null };
+  if (name.endsWith(".msh") || name.endsWith(".gii")) {
+    return { ...base, kind: "label", colormap: "jet", opacity: 1, visible: false, lut: null };
+  }
+  if (/labeling|aseg|aparc|atlas|label|seg|dk40|hcp_mmp1|a2009s|schaefer|final_tissues/.test(name)) {
+    return { ...base, kind: "volume", colormap: "lut", opacity: 0.7, visible: true, lut: null };
+  }
+  if (/t1|t2|mni152|template|brain|orig|conform/.test(name)) {
+    return { ...base, kind: "volume", colormap: "grayscale", opacity: 1, visible: true, lut: null };
+  }
+  return { ...base, kind: "volume", colormap: "heat", opacity: 0.85, visible: true, lut: null };
+}
+
+// VM2: everything the "+ Add…" picker offers. Only files a scene can use, grouped and sized.
+route("GET", "/api/viewer/candidates", (ctx) => {
+  const subject = ctx.url.searchParams.get("subject");
+  if (!subject) return json(ctx.res, 200, { candidates: [] });
+  const simulation = ctx.url.searchParams.get("simulation");
+  const base = `${PROJECT_ROOT}/derivatives/SimNIBS/sub-${subject}`;
+  const m2m = `${base}/m2m_${subject}`;
+  const entry = (path, group, kind = "volume", bytes = 4_194_304) => ({ name: path.split("/").pop(), path, kind, group, bytes });
+  const candidates = [
+    entry(`${m2m}/T1.nii.gz`, "Head model"),
+    entry(`${m2m}/T1_${subject}_MNI.nii.gz`, "Head model"),
+    entry(`${m2m}/final_tissues.nii.gz`, "Head model"),
+    entry(`${m2m}/${subject}.msh`, "Head model", "mesh", 64_000_000),
+    entry(`${m2m}/surfaces/lh.central.gii`, "Surfaces", "mesh", 8_000_000),
+    entry(`${m2m}/surfaces/rh.central.gii`, "Surfaces", "mesh", 8_000_000),
+    entry(`${m2m}/segmentation/labeling.nii.gz`, "Atlases"),
+  ];
+  if (simulation) {
+    const sim = `${base}/Simulations/${simulation}`;
+    candidates.push(
+      entry(`${sim}/TI/niftis/${simulation}_TI_subject_TI_max.nii.gz`, "Simulation volumes"),
+      entry(`${sim}/TI/mesh/grey_${simulation}_TI.msh`, "Simulation meshes", "mesh", 63_926_663),
+      entry(`${sim}/TI/montage_imgs/electrode_overlay_subject.nii.gz`, "Electrodes"),
+    );
+  }
+  json(ctx.res, 200, { candidates });
+});
+
 // VM: saved Viewer compositions. In-memory here (the mock has no project on disk); the real
 // server writes <project>/code/ti-toolbox/viewer/presets/<slug>.json.
 const VIEWER_PRESETS = new Map();

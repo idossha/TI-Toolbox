@@ -237,3 +237,127 @@ Three other lanes were editing this worktree throughout. Two things worth record
    full rebuild of `openapi.v1.json` from the current YAML produces ~560 lines of unrelated drift,
    because the committed JSON is stale against the committed YAML + `schema.json`. Both of this
    lane's schema additions were spliced in by hand instead.
+
+---
+
+# PL/2 — "the visualisation is much better, but the logic is faulty"
+
+The second pass replaces the model, not the look. What was wrong with the logic, in the
+maintainer's words and in mine:
+
+- **Every node carried its own copy of the subject list.** The same cohort was typed once per node,
+  and two nodes in one graph could silently disagree about who was in the study.
+- **A node was auto-configured from the node upstream of it.** An edge meant "and also copy that
+  node's settings", which is not something a typed port can honestly promise, and it produced card
+  subtitles that claimed a binding no edge had made.
+- **A wire was judged only on its port type.** So `Subjects(raw data only) → Analyzer` was a graph
+  you could build, submit, and watch fail one job per subject twenty minutes later.
+
+## 1. The cohort is a node
+
+`subjects` is a new node kind and the graph's **only** source: it names who the graph is about in
+`config.subject_ids`, runs nothing, and plans nothing (`JOB_NODE_KINDS` is every kind but this one;
+both planners skip it). `pre` stops being a source and takes a `subjects` input like every other
+processing node.
+
+Every processing node now `required`s the `subjects` port and **owns its own config**. `configFor`
+no longer writes `subject_ids` into any node but the cohort — the document has exactly one place
+that says who takes part, and `tests/e2e/pipeline-ux.spec.ts` asserts precisely that by saving a
+graph and checking which nodes carry the key.
+
+`analyzer` stopped *requiring the `simulation` port*: whether an Analyzer can run is a question
+about the subjects reaching it, which the readiness table answers with their names. Requiring the
+port as well refused a perfectly good `Subjects(with simulations) → Analyzer` for a second, wronger
+reason.
+
+Its editor is the project's subject list with the **Overview's own presence columns**, through the
+Overview page's own client (`pages/overview/api.ts`) — not a second copy of either. Each row also
+states what it is ready for, so the reason arrives before the refusal does.
+
+## 2. The requirement / production table
+
+One table, `tit.pipeline.validate.KIND_READINESS`, over a closed set of capabilities read from
+`GET /api/catalog/overview`:
+
+| Step | Requires of **every** subject | Leaves behind |
+| --- | --- | --- |
+| **Subjects** | — | — |
+| Pre-processing | raw MRI | **head model** |
+| Leadfield | head model | **leadfield** |
+| Flex-search | head model | — |
+| Ex-search / mEx-search | head model + leadfield | — |
+| Simulator | head model | **simulations** |
+| Analyzer | simulations | — |
+| Source model | head model | — |
+| Group statistics | simulations | — |
+
+`produces` is what makes a chain work rather than a lookup: capabilities propagate along the
+`subjects` wire (`capabilities_at`), so a requirement a cohort does not satisfy can be satisfied by
+a node in between.
+
+```
+Subjects(raw only) ─▶ Simulator                    refused — "102, test have no head model"
+Subjects(raw only) ─▶ Pre-processing ─▶ Simulator  fine — `pre` produces the head model
+Subjects(with simulations) ─▶ Analyzer             fine — no Simulator needed
+```
+
+A multi-subject cohort connects only if **every** subject qualifies, and the refusal **names the
+ones that do not and never blames the ones that do** — `"102, test have no simulations"`, with
+`has`/`have` agreeing with the count. Naming them rather than counting them is the point: "2
+subjects are not ready" does not tell you which two rows to go and look at.
+
+**One definition, two readers.** The canvas has to refuse a *drag*, which is before there is a graph
+to ask the server about, so it gets the table from `GET /api/pipelines/kinds` (extended, rather than
+a second `/ports` route serving the same fact — that is how two tables drift) and applies it in
+`graph.ts`. `POST /api/pipelines/validate` and `/run` apply the Python one. A dedicated test asserts
+the drag-time reason and the receipt's are the same sentence. A project that cannot be read at all
+falls back to shape-only checking rather than refusing every wire.
+
+## 3. Per-subject fan-out is unchanged
+
+The server still fans each processing node out to one job per subject; the receipt still lists them.
+What changed is only where the subject list comes from.
+
+## 4. Files
+
+`tit/pipeline/document.py` (the `subjects` kind, `JOB_NODE_KINDS`, rewired ports) ·
+`tit/pipeline/validate.py` (`CAPABILITIES`, `KIND_READINESS`, `capabilities_at`, `unmet`,
+`readiness_reason`, `readiness_from_overview`, the gate in `can_connect`/`validate`, code
+`not_ready`) · `tit/pipeline/plan.py` (skip the cohort) · `tit/server/routes/pipelines.py`
+(`_readiness()` from the overview; both tables on `/kinds`) · `contracts/pipeline.schema.json`,
+`openapi.v1.{yaml,json}`, `SCHEMA-CHANGES.md`, regenerated `schema.d.ts` + fixture ·
+`pages/pipeline/{graph.ts,editors.ts,NodeInspector.tsx,PipelinePage.tsx}` ·
+`pages/pipeline/SubjectsEditor.tsx` **(new)** · `tests/mock-server/server.mjs` ·
+`tests/test_pipeline_readiness.py` **(new, 28 tests)** · `tests/test_pipeline_{graph,plan,routes}.py` ·
+`tests/unit/pipeline-graph.test.ts` · `tests/e2e/pipeline{,-ux}.spec.ts` ·
+`docs/wiki/pipelines.md`, `docs/ARCHITECTURE.md` §7.3 (new rules 1a and 3a).
+
+## 5. Gate (PL/2)
+
+| Command | Where | Result |
+| --- | --- | --- |
+| `pnpm run typecheck` | `desktop/` | clean |
+| `npx eslint src tests` | `desktop/` | **0 errors**, 3 pre-existing warnings |
+| `npx vitest run` | `desktop/` | **1090 passed, 2 skipped** |
+| `npx vitest run tests/mock-server` | `desktop/` | 33 passed *(one contract-coverage failure appeared mid-run and is the Viewer lane's: `/api/viewer/candidates` is declared in their uncommitted `openapi.v1.yaml` edit and their mock route is not written yet — nothing in this lane touches it)* |
+| `pnpm run pree2e && npx playwright test pipeline-ux pipeline pipeline-shots smoke` | `desktop/` | **45 passed, 0 failed** (1.0 min), offscreen |
+| `python3 -m pytest tests/test_pipeline*.py -q` | root | **97 passed** (+28 new in `test_pipeline_readiness.py`) |
+| `python3 -m pytest tests/ -q --ignore=tests/smoke` | root | **3658 passed, 47 skipped**; `test_scene_guide.py` deselected — the scene lane's own red (`c0fa0cc1`) |
+| `python3 dev/route_import_guard.py` | root | `20 route module(s) clean` |
+| `pnpm run build` | `desktop/` | `✓ built in 2.49s` |
+| **real, Dataset 000** | container | `simnibs_python` against `/mnt/000` through the real modules: readiness reads `ernie/101 = raw+m2m+leadfield+simulation`, `MNI152 = raw+m2m+simulation`, `102/test = nothing`. **`Subjects(ernie) → Analyzer` validates `ok=True`**; **`Subjects(102) → Simulator` is refused — `"102 has no head model"`**; and `Subjects(102) → Pre → Simulator` is accepted, so `produces` works on real data too |
+
+Run in-process rather than over HTTP because the shared container's server had loaded
+`tit.pipeline` before this change and restarting it would have disturbed the other lanes; the code
+under test is the same module the route calls, on the same project.
+
+### One test that is not a canvas gesture, and why
+
+"raw-only subjects are refused by everything but Pre-processing" is asserted against the server
+rather than by dragging. The mock's default project has no raw-only subject — its three are
+`ernie`, `101` and `MNI152`, and other lanes' specs assert that list exactly, so a fourth cannot be
+added — which leaves the 30-subject project, and choreographing a cohort plus two steps plus three
+wires there turned into a test about mouse gestures rather than about the rule (two HTML5 palette
+drops in a row onto a canvas that already has a card: the first silently did not register). The
+rule is asserted on the real canvas by the three cases the fixture *can* express, and twice more
+over the same table in `tests/unit/pipeline-graph.test.ts` and `tests/test_pipeline_readiness.py`.

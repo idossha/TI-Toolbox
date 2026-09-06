@@ -1,10 +1,21 @@
-"""Scene overrides and extras — the Viewer page's composition panel, on the wire (VM).
+"""Everything ``POST /api/view/open`` gained after VX, and the guarantee it kept.
 
-``dev/notes/v3-native-panes-external-viewer/VM.md``.  Every control the page
-shows has to land in the scene file, or the control is a lie; these tests are
-that claim, knob by knob.  The load-bearing one is the last section: **absent
-overrides means byte-identical output**, because that is what makes the whole
-addition safe for every caller that predates it.
+Two lanes, in one file because they are one endpoint's optional inputs and one
+compatibility claim:
+
+* **VM** (``dev/notes/v3-native-panes-external-viewer/VM.md``) -- scene
+  ``overrides`` and ``extras``.  Every control a page shows has to land in the
+  scene file or the control is a lie; these tests are that claim, knob by knob.
+  The UI that exposed them was withdrawn as "too much" (VM2), and the server
+  half stays: it is tested, additive, and the next caller that wants a camera
+  preset does not have to re-derive it.
+* **VM2** (``dev/notes/v3-native-panes-external-viewer/VM2.md``) -- the
+  explicit ``files`` list, which *is* the scene when it is given, and the
+  ``/api/viewer/candidates`` catalogue behind the page's "+ Add…".
+
+The load-bearing test in both halves is the same one: **absent means
+byte-identical output**, because that is what makes either addition safe for
+every caller that predates it.
 """
 
 from __future__ import annotations
@@ -295,3 +306,158 @@ def test_an_unparseable_preset_is_skipped_rather_than_emptying_the_menu(
 
 def test_listing_presets_before_any_are_saved_is_an_empty_list(pm: PathManager) -> None:
     assert viewers.viewer_presets() == {"presets": []}
+
+
+# ── VM2: the file list is the scene ──────────────────────────────────────────
+
+
+@pytest.fixture()
+def sim(pm: PathManager) -> PathManager:
+    """`ernie` with one simulation: a TI volume, a grey one and a mesh."""
+    sim_dir = pm.simulation("ernie", "Thalamus")
+    niftis = os.path.join(sim_dir, "TI", "niftis")
+    mesh_dir = os.path.join(sim_dir, "TI", "mesh")
+    os.makedirs(niftis)
+    os.makedirs(mesh_dir)
+    Path(niftis, "Thalamus_TI_subject_TI_max.nii.gz").write_bytes(b"f" * 40)
+    Path(niftis, "grey_Thalamus_TI_subject_TI_max.nii.gz").write_bytes(b"g" * 30)
+    Path(mesh_dir, "grey_Thalamus_TI.msh").write_bytes(b"m" * 50)
+    return pm
+
+
+def _paths(spec: dict) -> list[str]:
+    return [layer["path"] for layer in spec["layers"]]
+
+
+def test_the_default_view_is_unchanged_when_no_file_list_is_sent(sim: PathManager) -> None:
+    a = viewspec.build_view("simulation", subject="ernie", simulation="Thalamus")
+    b = viewspec.build_view(
+        "simulation", subject="ernie", simulation="Thalamus", files=None
+    )
+    assert json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
+
+
+def test_the_file_list_is_authoritative_and_ordered(sim: PathManager) -> None:
+    """The whole VM2 claim: these files, this order, nothing added back."""
+    default = viewspec.build_view("simulation", subject="ernie", simulation="Thalamus")
+    assert default is not None
+    chosen = list(reversed(_paths(default)))[:2]
+    spec = viewspec.build_view(
+        "simulation", subject="ernie", simulation="Thalamus", files=chosen
+    )
+    assert spec is not None
+    assert _paths(spec) == chosen
+    assert [d["path"] for d in spec["scene"]["datasets"]] == [
+        viewspec._scene_raw_url(p) for p in chosen
+    ]
+
+
+def test_removing_a_file_removes_its_dataset_and_nothing_else(sim: PathManager) -> None:
+    default = viewspec.build_view("simulation", subject="ernie", simulation="Thalamus")
+    assert default is not None
+    kept = [p for p in _paths(default) if "grey_" not in os.path.basename(p)]
+    dropped = [p for p in _paths(default) if "grey_" in os.path.basename(p)]
+    assert dropped, "fixture must have something to drop"
+    spec = viewspec.build_view(
+        "simulation", subject="ernie", simulation="Thalamus", files=kept
+    )
+    assert spec is not None
+    assert _paths(spec) == kept
+    for path in dropped:
+        assert viewspec._scene_raw_url(path) not in [
+            d["path"] for d in spec["scene"]["datasets"]
+        ]
+
+
+def test_a_kept_file_keeps_the_view_type_s_own_settings(sim: PathManager) -> None:
+    """Not re-derived: the *same* opacity, colormap and visibility the view gave it.
+
+    This is why the client sends paths and not layer settings — how a file
+    should look is a judgement about the data, and a client that mirrored it
+    would drift from it."""
+    default = viewspec.build_view("simulation", subject="ernie", simulation="Thalamus")
+    assert default is not None
+    by_path = {layer["path"]: layer for layer in default["layers"]}
+    spec = viewspec.build_view(
+        "simulation", subject="ernie", simulation="Thalamus", files=list(by_path)
+    )
+    assert spec is not None
+    for layer in spec["layers"]:
+        assert layer == by_path[layer["path"]]
+
+
+def test_an_added_file_is_described_from_scratch_by_its_name(sim: PathManager) -> None:
+    m2m = pm_m2m = os.path.join(sim.m2m("ernie"))
+    t1 = os.path.join(m2m, "T1.nii.gz")
+    atlas = os.path.join(m2m, "segmentation", "labeling.nii.gz")
+    mesh = os.path.join(sim.simulation("ernie", "Thalamus"), "TI", "mesh", "grey_Thalamus_TI.msh")
+    spec = viewspec.build_view("subject", subject="ernie", files=[t1, atlas, mesh])
+    assert spec is not None
+    layers = {os.path.basename(layer["path"]): layer for layer in spec["layers"]}
+    assert layers["T1.nii.gz"]["colormap"] == "grayscale"
+    assert layers["labeling.nii.gz"]["colormap"] == "lut"
+    assert layers["labeling.nii.gz"]["lut"].endswith("labeling_LUT.txt")
+    # A mesh is 24-420 MB; it is added hidden, and the person makes it visible.
+    assert layers["grey_Thalamus_TI.msh"]["visible"] is False
+    assert layers["grey_Thalamus_TI.msh"]["colormap"] == "jet"
+    _VALIDATOR.validate(spec["scene"])
+
+
+def test_an_unresolvable_or_missing_row_is_dropped_not_fatal(sim: PathManager) -> None:
+    """One stale row in a restored preset must not cost a person the scene."""
+    t1 = os.path.join(sim.m2m("ernie"), "T1.nii.gz")
+    spec = viewspec.build_view(
+        "subject",
+        subject="ernie",
+        files=["/etc/passwd", os.path.join(sim.m2m("ernie"), "gone.nii.gz"), t1, t1],
+    )
+    assert spec is not None
+    assert _paths(spec) == [t1]  # jailed out, missing out, and de-duplicated
+
+
+def test_a_list_with_nothing_usable_in_it_is_a_404_not_an_empty_scene(
+    sim: PathManager,
+) -> None:
+    assert viewspec.build_view("subject", subject="ernie", files=["/etc/passwd"]) is None
+
+
+def test_the_route_writes_exactly_the_files_it_was_given(
+    sim: PathManager, monkeypatch
+) -> None:
+    monkeypatch.setattr("tit.server.host_path.host_project_dir", lambda _c: None)
+    t1 = os.path.join(sim.m2m("ernie"), "T1.nii.gz")
+    result = viewers.view_open(
+        {"kind": "simulation", "subject": "ernie", "simulation": "Thalamus", "files": [t1]}
+    )
+    on_disk = json.loads(Path(result["path"]).read_text())
+    assert [d["path"] for d in on_disk["datasets"]] == [t1]
+    assert [row["path"] for row in result["files"]] == [t1]
+    _VALIDATOR.validate(on_disk)
+
+
+# ── VM2: the "+ Add…" catalogue ──────────────────────────────────────────────
+
+
+def test_the_candidates_are_real_files_with_sizes_grouped(sim: PathManager) -> None:
+    found = viewspec.viewer_candidates("ernie", "Thalamus")
+    by_name = {c["name"]: c for c in found}
+    assert "T1.nii.gz" in by_name
+    assert by_name["T1.nii.gz"]["bytes"] == 200
+    assert by_name["T1.nii.gz"]["kind"] == "volume"
+    assert by_name["grey_Thalamus_TI.msh"]["kind"] == "mesh"
+    assert by_name["grey_Thalamus_TI.msh"]["group"] == "Simulation meshes"
+    assert all(os.path.isfile(c["path"]) for c in found)
+    assert len({c["path"] for c in found}) == len(found)
+
+
+def test_candidates_never_offer_a_file_a_scene_cannot_read(sim: PathManager) -> None:
+    """`.annot` parcellations, `.mat` matrices, logs and reports are not layers."""
+    Path(sim.m2m("ernie"), "charm_log.html").write_text("<html>")
+    Path(sim.m2m("ernie"), "segmentation", "lh.ernie_DK40.annot").write_bytes(b"x")
+    names = [c["name"] for c in viewspec.viewer_candidates("ernie", "Thalamus")]
+    assert not [n for n in names if n.endswith((".html", ".annot", ".mat", ".txt"))]
+
+
+def test_an_unknown_subject_offers_nothing_rather_than_erroring(pm: PathManager) -> None:
+    assert viewspec.viewer_candidates("nobody") == []
+    assert viewspec.viewer_candidates(None) == []

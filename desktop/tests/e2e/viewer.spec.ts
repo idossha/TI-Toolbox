@@ -12,12 +12,11 @@
  * 1. **The draft → Open grammar** (R5, kept verbatim): editing a selector changes the draft and
  *    nothing else — no request, no launch — and one Open is exactly one `POST /api/view/open` and
  *    exactly one call to the launch bridge, carrying the file that call answered with.
- * 2a. **VM: every knob the composition panel shows lands in the scene the server writes.** The
- *    page is a centred composition panel now — layers with opacity, colormap and threshold, a
- *    layout, a camera, a background, a convention flag, "Also open" extras, a preview strip, a
- *    preset store and a recents list. The assertion that matters is not that a slider moves, it
- *    is that moving it changes the document Open produces: a control whose value never reaches
- *    the file is a lie told to the person using it, and nothing on screen would say so.
+ * 2a. **VM2: the editable "what will open" list *is* the scene.** VM's composition panel was
+ *    "too much"; what is left is a source and one list of files a person edits directly. So the
+ *    assertions are about the document: remove a row and that dataset is gone from the scene the
+ *    server writes, add the atlas and it is there, drag and the layer order follows. A list that
+ *    said one thing and wrote another would be wrong with nothing on screen saying so.
  * 2. **There is no iframe anywhere in the app.** Asserted over the whole document, on every page
  *    the nav rail offers, because "the embed is retired" is a claim about the app, not about this
  *    screen.
@@ -362,15 +361,15 @@ test("takes the light and dark screenshots of the viewer page", async () => {
   await chooseOption("simulation", "Thalamus");
   await expect(page.getByTestId("viewer-plan")).toBeVisible();
   await page.screenshot({ path: join(ARTIFACTS, "viewer-light.png"), fullPage: false });
-  // VM's own record: the whole panel at the width the maintainer's screenshot was taken at.
+  // VM2's own record: the page at the width the maintainer's screenshots were taken at.
   await page.setViewportSize({ width: 1440, height: 900 });
-  await expect(page.getByTestId("viewer-layers")).toBeVisible({ timeout: 15_000 });
-  await page.screenshot({ path: join(ARTIFACTS, "viewer-menu.png"), fullPage: true });
+  await expect(page.getByTestId("viewer-preview-files")).toBeVisible({ timeout: 15_000 });
+  await page.screenshot({ path: join(ARTIFACTS, "viewer-menu-v2.png"), fullPage: true });
 });
 
-// ── VM: the composition panel ────────────────────────────────────────────────────────────────
+// ── VM2: the file list is the scene ──────────────────────────────────────────────────────────
 
-/** The `overrides` document of the last Open, or `undefined` if it carried none. */
+/** The bodies of the Opens that would actually write a file (dry runs excluded). */
 function recordOpenBodies(): Record<string, unknown>[] {
   const bodies: Record<string, unknown>[] = [];
   page.on("request", (request) => {
@@ -381,140 +380,195 @@ function recordOpenBodies(): Record<string, unknown>[] {
   return bodies;
 }
 
+/** The scenes those Opens produced — the response body is byte-for-byte what went to disk. */
+function recordWrittenScenes(): { scene: { datasets: { path: string }[]; layers: { name: string }[] } }[] {
+  const scenes: { scene: { datasets: { path: string }[]; layers: { name: string }[] } }[] = [];
+  page.on("response", (response) => {
+    if (response.request().method() !== "POST" || !response.url().includes("/api/view/open")) return;
+    const body = JSON.parse(response.request().postData() ?? "{}") as Record<string, unknown>;
+    if (body.dry_run === true) return;
+    void response
+      .json()
+      .then((json) => scenes.push(json as { scene: { datasets: { path: string }[]; layers: { name: string }[] } }))
+      .catch(() => undefined);
+  });
+  return scenes;
+}
+
 async function draftSimulation(): Promise<void> {
   await chooseOption("kind", "Simulation");
   await chooseOption("simulation", "Thalamus");
-  await expect(page.getByTestId("viewer-layers")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("viewer-preview-files")).toBeVisible({ timeout: 15_000 });
 }
 
-test("the panel shows every section, and the preview strip names the files with their sizes", async () => {
+const rowNames = () => page.getByTestId("viewer-preview-files").locator("li .viewer-file-name").allTextContents();
+const datasetNames = (written: { scene: { datasets: { path: string }[] } }) =>
+  written.scene.datasets.map((d) => d.path.split("/").pop());
+
+test("the page is a source card and one file list — nothing else", async () => {
+  // The maintainer's correction, as an assertion. VM's sections are gone, not merely collapsed.
   await connect();
   await chooseSubject("ernie");
   await openViewer();
   await draftSimulation();
 
-  for (const section of ["source", "layers", "layout", "extras"]) {
-    await expect(page.getByTestId(`viewer-section-${section}`)).toBeVisible();
+  await expect(page.getByTestId("viewer-section-source")).toBeVisible();
+  await expect(page.getByTestId("viewer-plan")).toBeVisible();
+  for (const gone of ["viewer-section-layers", "viewer-section-layout", "viewer-section-extras", "viewer-layers"]) {
+    await expect(page.getByTestId(gone), `${gone} should not exist any more`).toHaveCount(0);
   }
-  // No canvas, no ghost text: the panel is the page.
   await expect(page.locator("canvas")).toHaveCount(0);
-  const rows = page.getByTestId("viewer-preview-files").locator("li");
-  expect(await rows.count()).toBeGreaterThan(0);
-  // A size, not a blank: the strip's whole reason to exist is saying how much is about to open.
-  await expect(rows.first()).toContainText(/\d/);
+  // Each row names a file, says what it is and how big it is.
+  const first = page.getByTestId("viewer-preview-files").locator("li").first();
+  await expect(first).toContainText(/volume|mesh/);
+  await expect(first).toContainText(/\d/);
 });
 
-test("drafting the composition still opens nothing, and Open carries it", async () => {
+test("removing a row removes that dataset from the scene the server writes", async () => {
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  await draftSimulation();
+  const before = await rowNames();
+  expect(before.length).toBeGreaterThan(1);
+
+  const scenes = recordWrittenScenes();
+  await page.getByTestId(`viewer-file-remove-${before[0]!}`).click();
+  await expect.poll(rowNames).toEqual(before.slice(1));
+
+  await pressOpen();
+  await expect(page.getByTestId("viewer-opened")).toBeVisible({ timeout: 15_000 });
+  await expect.poll(() => scenes.length).toBe(1);
+  expect(datasetNames(scenes[0]!)).toEqual(before.slice(1));
+  expect(datasetNames(scenes[0]!)).not.toContain(before[0]);
+});
+
+test("adding the atlas puts it in the list and in the written scene", async () => {
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  await draftSimulation();
+  const before = await rowNames();
+
+  const scenes = recordWrittenScenes();
+  await page.getByTestId("viewer-add").click();
+  await page.getByTestId("viewer-add-labeling.nii.gz").click();
+  await expect.poll(rowNames).toEqual([...before, "labeling.nii.gz"]);
+
+  await pressOpen();
+  await expect(page.getByTestId("viewer-opened")).toBeVisible({ timeout: 15_000 });
+  await expect.poll(() => scenes.length).toBe(1);
+  expect(datasetNames(scenes[0]!)).toEqual([...before, "labeling.nii.gz"]);
+});
+
+test("reordering the list reorders the scene's layers", async () => {
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  await draftSimulation();
+  const before = await rowNames();
+  expect(before.length).toBeGreaterThan(1);
+
+  const scenes = recordWrittenScenes();
+  // The keyboard affordance, not the drag: a list you can only reorder with a mouse is a list
+  // some people cannot reorder, and Playwright's drag is the flakiest thing in this suite.
+  await page.getByTestId(`viewer-file-down-${before[0]!}`).click();
+  const expected = [before[1]!, before[0]!, ...before.slice(2)];
+  await expect.poll(rowNames).toEqual(expected);
+
+  await pressOpen();
+  await expect(page.getByTestId("viewer-opened")).toBeVisible({ timeout: 15_000 });
+  await expect.poll(() => scenes.length).toBe(1);
+  expect(datasetNames(scenes[0]!)).toEqual(expected);
+});
+
+test("Reset puts the view type's own list back", async () => {
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  await draftSimulation();
+  const before = await rowNames();
+
+  await page.getByTestId(`viewer-file-remove-${before[0]!}`).click();
+  await expect.poll(rowNames).toEqual(before.slice(1));
+  await page.getByTestId("viewer-files-reset").click();
+  await expect.poll(rowNames).toEqual(before);
+  // Reset is "let the source decide again", not "remember what I had": the link goes away with it.
+  await expect(page.getByTestId("viewer-files-reset")).toHaveCount(0);
+});
+
+test("editing the list costs no scene and no launch until Open", async () => {
   await connect();
   await chooseSubject("ernie");
   await openViewer();
   const seen = recordViewRequests();
   const bodies = recordOpenBodies();
   await draftSimulation();
-  // The preview is a dry run; it is allowed to ask, and it must never write or launch.
+
+  const before = await rowNames();
+  await page.getByTestId(`viewer-file-remove-${before[0]!}`).click();
+  await expect.poll(rowNames).toEqual(before.slice(1));
+  await page.getByTestId("viewer-add").click();
+  await page.getByTestId("viewer-add-labeling.nii.gz").click();
+  await expect.poll(rowNames).toEqual([...before.slice(1), "labeling.nii.gz"]);
+
+  // The list resolves through the same endpoint with dry_run — it is allowed to ask, and it must
+  // never write or launch.
   expect(seen.filter((r) => r.dryRun).length).toBeGreaterThan(0);
-  expect(opens(seen)).toHaveLength(0);
+  expect(opens(seen), "editing the list writes no scene").toHaveLength(0);
   expect(bodies).toHaveLength(0);
   expect(await launchedScenes()).toEqual([]);
 
-  const layer = page.getByTestId("viewer-layers").locator("li").first();
-  const layerId = (await layer.getAttribute("data-testid"))!.replace("viewer-layer-", "");
-  await page.getByTestId(`viewer-layer-opacity-${layerId}`).getByRole("spinbutton").fill("40");
-  await page.getByTestId(`viewer-layer-opacity-${layerId}`).getByRole("spinbutton").blur();
-  await page.getByTestId("viewer-layout").getByRole("radio", { name: "3D", exact: true }).click();
-  await page.getByTestId("viewer-camera").getByRole("radio", { name: "L", exact: true }).click();
-  expect(await launchedScenes()).toEqual([]);
-
   await pressOpen();
   await expect(page.getByTestId("viewer-opened")).toBeVisible({ timeout: 15_000 });
-  expect(bodies).toHaveLength(1);
-  const overrides = bodies[0]!.overrides as { layers: Record<string, { opacity: number }>; layout: string; camera: string };
-  expect(overrides.layers[layerId]!.opacity).toBeCloseTo(0.4, 5);
-  expect(overrides.layout).toBe("3d-only");
-  expect(overrides.camera).toBe("L");
+  expect(opens(seen)).toHaveLength(1);
+  // The list travels as container paths, in the list's order; the names are what the rows show.
+  const sent = bodies[0]!.files as string[];
+  expect(sent.map((p) => p.split("/").pop())).toEqual([...before.slice(1), "labeling.nii.gz"]);
   expect(await launchedScenes()).toHaveLength(1);
 });
 
-test("a layer opacity change reaches the scene the server writes", async () => {
-  // The claim the panel rests on. The response body of the Open is the document that went to disk
-  // (tit/server/routes/viewers.py returns exactly what it wrote), so reading it back is reading
-  // the file.
+test("changing the source resets the list to that source's own files", async () => {
+  // Keeping the old rows would silently open the previous selection's data under a new heading.
   await connect();
   await chooseSubject("ernie");
   await openViewer();
   await draftSimulation();
+  const simulationRows = await rowNames();
+  await page.getByTestId(`viewer-file-remove-${simulationRows[0]!}`).click();
+  await expect.poll(rowNames).toEqual(simulationRows.slice(1));
 
-  const layer = page.getByTestId("viewer-layers").locator("li").first();
-  const layerId = (await layer.getAttribute("data-testid"))!.replace("viewer-layer-", "");
-  const scenes: Record<string, unknown>[] = [];
-  page.on("response", async (response) => {
-    if (response.request().method() !== "POST" || !response.url().includes("/api/view/open")) return;
-    const body = JSON.parse(response.request().postData() ?? "{}") as Record<string, unknown>;
-    if (body.dry_run === true) return;
-    scenes.push((await response.json()) as Record<string, unknown>);
-  });
-
-  await page.getByTestId(`viewer-layer-opacity-${layerId}`).getByRole("spinbutton").fill("25");
-  await page.getByTestId(`viewer-layer-opacity-${layerId}`).getByRole("spinbutton").blur();
-  await pressOpen();
-  await expect(page.getByTestId("viewer-opened")).toBeVisible({ timeout: 15_000 });
-  await expect.poll(() => scenes.length).toBe(1);
-  const written = scenes[0]!.scene as { layers: { id: string; opacity: number }[] };
-  expect(written.layers.find((l) => l.id === layerId)!.opacity).toBeCloseTo(0.25, 5);
+  await chooseOption("kind", "Subject anatomy");
+  await expect(page.getByTestId("viewer-files-reset")).toHaveCount(0);
+  await expect.poll(rowNames).not.toEqual(simulationRows.slice(1));
 });
 
-test("hiding a layer is written as a hidden layer, not as a missing one", async () => {
+test("a preset saves the edited list and restores it without opening anything", async () => {
   await connect();
   await chooseSubject("ernie");
   await openViewer();
   await draftSimulation();
-
-  const layer = page.getByTestId("viewer-layers").locator("li").first();
-  const layerId = (await layer.getAttribute("data-testid"))!.replace("viewer-layer-", "");
-  const bodies = recordOpenBodies();
-  await page.getByTestId(`viewer-layer-visible-${layerId}`).click();
-  await expect(layer).toHaveAttribute("data-visible", "false");
-  await pressOpen();
-  await expect(page.getByTestId("viewer-opened")).toBeVisible({ timeout: 15_000 });
-  expect((bodies[0]!.overrides as { layers: Record<string, { visible: boolean }> }).layers[layerId]!.visible).toBe(false);
-});
-
-test("an 'Also open' tick rides on the Open as an extra", async () => {
-  await connect();
-  await chooseSubject("ernie");
-  await openViewer();
-  await draftSimulation();
-  const bodies = recordOpenBodies();
-
-  await page.getByTestId("viewer-extra-t1").getByRole("checkbox").click();
-  await pressOpen();
-  await expect(page.getByTestId("viewer-opened")).toBeVisible({ timeout: 15_000 });
-  expect(bodies[0]!.extras).toEqual(["t1"]);
-});
-
-test("a preset saves the whole composition and restores it without opening anything", async () => {
-  await connect();
-  await chooseSubject("ernie");
-  await openViewer();
-  await draftSimulation();
-  await page.getByTestId("viewer-layout").getByRole("radio", { name: "1×1", exact: true }).click();
+  const before = await rowNames();
+  await page.getByTestId(`viewer-file-remove-${before[0]!}`).click();
+  await expect.poll(rowNames).toEqual(before.slice(1));
 
   await page.getByTestId("viewer-save-preset").click();
   await page.getByTestId("viewer-preset-name").fill("Deep target");
   await page.getByTestId("viewer-preset-save").click();
   await expect(page.getByTestId("viewer-preset-name")).toHaveCount(0);
 
-  // Change the composition, then put it back from the preset.
-  await page.getByTestId("viewer-layout").getByRole("radio", { name: "2×2", exact: true }).click();
+  await page.getByTestId("viewer-files-reset").click();
+  await expect.poll(rowNames).toEqual(before);
+
   const seen = recordViewRequests();
   const bodies = recordOpenBodies();
   await page.getByTestId("viewer-save-preset").click();
   await page.getByTestId("viewer-preset-Deep target").click();
-  await expect(page.getByTestId("viewer-layout").getByRole("radio", { name: "1×1", exact: true })).toBeChecked();
+  await expect.poll(rowNames).toEqual(before.slice(1));
   // Restoring is not opening.
+  expect(opens(seen)).toHaveLength(0);
   expect(bodies).toHaveLength(0);
   expect(await launchedScenes()).toEqual([]);
-  expect(opens(seen)).toHaveLength(0);
 });
 
 test("the Recent list remembers what was opened and restores it", async () => {

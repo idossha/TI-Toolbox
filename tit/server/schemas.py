@@ -92,6 +92,13 @@ class ViewerSceneFile(BaseModel):
     kind: str | None = Field(default=None, description='"volume" or "mesh"')
     name: str
     path: str = Field(description="the path written into the scene (host-facing)")
+    container_path: str | None = Field(
+        default=None,
+        description=(
+            "the same file as this server sees it -- what the client sends back in "
+            "`files` when the row is kept, moved or joined by another (VM2)"
+        ),
+    )
     bytes: int | None = Field(
         default=None,
         description="size on disk, or null when the file could not be stat'ed",

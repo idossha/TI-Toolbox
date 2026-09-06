@@ -2269,6 +2269,8 @@ export interface paths {
                          * @default false
                          */
                         dry_run?: boolean;
+                        /** @description VM2. The scene's datasets, in order, as absolute container paths -- the Viewer page's editable "what will open" list. **Authoritative when given**: these files, this order, and nothing the view type would otherwise have contributed. What the client does not send is how each file should look; a path the view type already produced keeps exactly that view type's layer settings, and only an added path is described from scratch (tit/viewspec.py::_layer_for_path). Every entry is re-resolved through the project jail, and one that does not resolve is dropped rather than refused, so a stale row in a restored preset does not cost the whole scene. Absent means the view type decides, exactly as before. */
+                        files?: string[];
                         /** @description VM. Extra layers to add to whatever this view type already builds ("Also open"). Each reuses the layer builder the server already trusted for that file, and one this view already opens is a no-op rather than a second copy. Absent adds nothing, which is what every caller before VM did. */
                         extras?: ("t1" | "atlas" | "electrodes" | "gm_mesh")[];
                         /** @description VM. Additive, optional edits to the finished ViewSpec -- per-layer `{visible, opacity, colormap, showIn3D, showColorbar, contoursIn2D, threshold:{lo,hi}, colorMode, clip}` keyed by layer id, plus `layout` (1x1 | 1+3 | 2x2 | 3d-only), `camera` (A|P|L|R|S|I), `radiological` and `background` (dark|black|light, or an [r,g,b,a] vec4). Values the engine's own type would not accept are dropped rather than written. Absent means the document is byte-identical to what this endpoint returned before overrides existed (tit/viewspec.py::apply_scene_overrides, tests/test_viewspec_overrides.py). */
@@ -2297,6 +2299,51 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/viewer/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every file this subject/simulation offers the Viewer's "+ Add…"
+         * @description VM2. Only files a scene can use (volumes and meshes), grouped the way a person looks for one, each with its size -- one of them is routinely 64 MB, and the point of the picker is to choose without guessing. A read: it opens nothing and writes nothing.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    subject?: string;
+                    simulation?: string;
+                    space?: "subject" | "mni";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            candidates: components["schemas"]["ViewerCandidate"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3944,13 +3991,25 @@ export interface components {
             /** @description true when the request asked to resolve only; nothing was written */
             dry_run?: boolean;
         };
-        /** @description VM. One saved Viewer composition -- the selection, the "Also open" extras and the scene overrides, exactly as POST /api/view/open takes them, so restoring a preset is replaying a request rather than reconstructing one. */
+        ViewerCandidate: {
+            name: string;
+            /** @description absolute container path */
+            path: string;
+            /** @enum {string} */
+            kind: "volume" | "mesh";
+            /** @description the heading it is listed under */
+            group: string;
+            bytes?: number | null;
+        };
+        /** @description VM/VM2. One saved Viewer selection -- the source and, when the person edited it, the file list, exactly as POST /api/view/open takes them, so restoring a preset is replaying a request rather than reconstructing one. `extras`/`overrides` are still accepted for a preset saved by the VM panel that briefly exposed them. */
         ViewerPreset: {
             name: string;
             /** @description kind, subject, simulation, analysis, field, atlas, roi, path, space */
             selection?: {
                 [key: string]: unknown;
             };
+            /** @description the edited list, or null when the view type's own set was saved */
+            files?: string[] | null;
             extras?: string[];
             overrides?: {
                 [key: string]: unknown;
@@ -3963,6 +4022,8 @@ export interface components {
             name: string;
             /** @description the path written into the scene (host-facing) */
             path: string;
+            /** @description VM2. The same file as the server sees it -- what the client sends back in `files` when the row is kept, moved or joined by another. A row that reported only the host path could not be handed back to a server that jails container paths. */
+            container_path?: string | null;
             /** @description size on disk, or null when the file could not be stat'ed */
             bytes?: number | null;
         };
@@ -6672,20 +6733,36 @@ export interface components {
          */
         MontageMode: "net" | "flex_mapped" | "flex_free" | "freehand";
         /**
-         * FieldPostproc
-         * @description Field post-processing method applied to the TI envelope.
+         * ElectrodeConfig
+         * @description Electrode geometry for flex-search.
+         *
+         *     Only *gel_thickness* is needed here -- the optimization leadfield
+         *     uses point electrodes; *gel_thickness* is recorded in the manifest
+         *     for downstream simulation.
          *
          *     Attributes
          *     ----------
-         *     MAX_TI : str
-         *         Maximum TI amplitude (direction-independent).
-         *     DIR_TI_NORMAL : str
-         *         TI component normal to the cortical surface.
-         *     DIR_TI_TANGENTIAL : str
-         *         TI component tangential to the cortical surface.
-         * @enum {string}
+         *     shape : str
+         *         Electrode shape (``"ellipse"`` or ``"rect"``).
+         *     dimensions : list of float
+         *         Electrode dimensions in mm (``[width, height]``).
+         *     gel_thickness : float
+         *         Conductive gel thickness in mm.
          */
-        FieldPostproc: "max_TI" | "dir_TI_normal" | "dir_TI_tangential";
+        ElectrodeConfig: {
+            /**
+             * Shape
+             * @default ellipse
+             */
+            shape: string;
+            /** Dimensions */
+            dimensions?: number[];
+            /**
+             * Gel Thickness
+             * @default 4
+             */
+            gel_thickness: number;
+        };
         /**
          * OptGoal
          * @description Optimization goal.
@@ -6790,26 +6867,47 @@ export interface components {
             _type: "SphericalROI";
         };
         /**
-         * Mode
-         * @description Which flex-search driver runs this config (``tit.jobs.kinds.MODULE_FOR_KIND``
-         *     maps ``flex``/``flex_adaptive``/``flex_pareto`` job kinds to this same module;
-         *     ``tit.opt.flex.__main__`` dispatches on this field to pick the driver).
+         * AtlasROI
+         * @description Cortical surface ROI from a FreeSurfer annotation atlas.
+         *
+         *     Each of *atlas_path*, *label*, *hemisphere* accepts either a single
+         *     value (one region) or a list (a union of several regions evaluated as
+         *     one combined target).  Because ``.annot`` files are per-hemisphere,
+         *     carrying a per-region *hemisphere* (and matching *atlas_path*) allows a
+         *     target that spans **both** hemispheres, or even different atlases.
+         *     Scalars broadcast to the number of labels; lists must match its length.
          *
          *     Attributes
          *     ----------
-         *     FLEX : str
-         *         A single :func:`~tit.opt.flex.flex.run_flex_search` run (any goal).
-         *     FLEX_ADAPTIVE : str
-         *         Two-step adaptive focality: a ``"mean"`` run to find the achievable ROI
-         *         intensity, then a ``"focality"`` run with thresholds derived from
-         *         :attr:`FlexConfig.adaptive`. Requires ``goal="focality"``.
-         *     FLEX_PARETO : str
-         *         A ``"mean"`` calibration run followed by a grid of ``"focality"`` runs
-         *         over :attr:`FlexConfig.pareto`'s threshold percentages. Requires
-         *         ``goal="focality"``.
-         * @enum {string}
+         *     atlas_path : str or list of str
+         *         Path(s) to the FreeSurfer ``.annot`` annotation file(s).
+         *     label : int or list of int
+         *         Integer label index/indices within the annotation atlas.
+         *     hemisphere : str or list of str
+         *         Hemisphere(s) to use (``"lh"`` or ``"rh"``), one per label.
+         *
+         *     Raises
+         *     ------
+         *     ValueError
+         *         If *label* is empty, or *atlas_path*\/*hemisphere* is a list whose
+         *         length neither equals 1 nor the number of labels.
          */
-        Mode: "flex" | "flex_adaptive" | "flex_pareto";
+        FlexConfigAtlasROI: {
+            /** Atlas Path */
+            atlas_path: string | string[];
+            /** Label */
+            label: number | number[];
+            /**
+             * Hemisphere
+             * @default lh
+             */
+            hemisphere: string | string[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            _type: "AtlasROI";
+        };
         /**
          * SubcorticalROI
          * @description Subcortical volume ROI from a volumetric atlas.
@@ -6862,6 +6960,85 @@ export interface components {
             _type: "SubcorticalROI";
         };
         /**
+         * FieldPostproc
+         * @description Field post-processing method applied to the TI envelope.
+         *
+         *     Attributes
+         *     ----------
+         *     MAX_TI : str
+         *         Maximum TI amplitude (direction-independent).
+         *     DIR_TI_NORMAL : str
+         *         TI component normal to the cortical surface.
+         *     DIR_TI_TANGENTIAL : str
+         *         TI component tangential to the cortical surface.
+         * @enum {string}
+         */
+        FieldPostproc: "max_TI" | "dir_TI_normal" | "dir_TI_tangential";
+        /**
+         * Mode
+         * @description Which flex-search driver runs this config (``tit.jobs.kinds.MODULE_FOR_KIND``
+         *     maps ``flex``/``flex_adaptive``/``flex_pareto`` job kinds to this same module;
+         *     ``tit.opt.flex.__main__`` dispatches on this field to pick the driver).
+         *
+         *     Attributes
+         *     ----------
+         *     FLEX : str
+         *         A single :func:`~tit.opt.flex.flex.run_flex_search` run (any goal).
+         *     FLEX_ADAPTIVE : str
+         *         Two-step adaptive focality: a ``"mean"`` run to find the achievable ROI
+         *         intensity, then a ``"focality"`` run with thresholds derived from
+         *         :attr:`FlexConfig.adaptive`. Requires ``goal="focality"``.
+         *     FLEX_PARETO : str
+         *         A ``"mean"`` calibration run followed by a grid of ``"focality"`` runs
+         *         over :attr:`FlexConfig.pareto`'s threshold percentages. Requires
+         *         ``goal="focality"``.
+         * @enum {string}
+         */
+        Mode: "flex" | "flex_adaptive" | "flex_pareto";
+        /**
+         * NonROIMethod
+         * @description Non-ROI specification method for focality optimization.
+         *
+         *     Attributes
+         *     ----------
+         *     EVERYTHING_ELSE : str
+         *         Use all mesh elements outside the ROI.
+         *     SPECIFIC : str
+         *         Use an explicitly defined non-ROI region.
+         * @enum {string}
+         */
+        NonROIMethod: "everything_else" | "specific";
+        /**
+         * ParetoSweepConfig
+         * @description Threshold grid for :func:`tit.opt.flex.drivers.run_pareto_sweep`.
+         *
+         *     The driver runs one ``"focality"`` optimization per (roi_pct, nonroi_pct)
+         *     combination in the Cartesian product of *roi_pcts* and *nonroi_pcts| --
+         *     ``len(roi_pcts) * len(nonroi_pcts)`` runs total, in addition to the single
+         *     step-1 ``"mean"`` calibration run. See
+         *     :func:`tit.opt.flex.pareto.compute_sweep_grid`.
+         *
+         *     Attributes
+         *     ----------
+         *     roi_pcts : list of float
+         *         ROI threshold percentages to sweep (each in ``(0, 100)``).
+         *     nonroi_pcts : list of float
+         *         Non-ROI threshold percentages to sweep (each in ``(0, 100)``).
+         *
+         *     Raises
+         *     ------
+         *     ValueError
+         *         If either list is empty, if any value falls outside ``(0, 100)``,
+         *         or if any ``(roi_pct, nonroi_pct)`` combination has
+         *         ``nonroi_pct >= roi_pct``.
+         */
+        ParetoSweepConfig: {
+            /** Roi Pcts */
+            roi_pcts?: number[];
+            /** Nonroi Pcts */
+            nonroi_pcts?: number[];
+        };
+        /**
          * AdaptiveFocalityConfig
          * @description Thresholds for :func:`tit.opt.flex.drivers.run_adaptive_focality`.
          *
@@ -6897,152 +7074,6 @@ export interface components {
              * @default 20
              */
             nonroi_percentage: number;
-        };
-        /**
-         * NonROIMethod
-         * @description Non-ROI specification method for focality optimization.
-         *
-         *     Attributes
-         *     ----------
-         *     EVERYTHING_ELSE : str
-         *         Use all mesh elements outside the ROI.
-         *     SPECIFIC : str
-         *         Use an explicitly defined non-ROI region.
-         * @enum {string}
-         */
-        NonROIMethod: "everything_else" | "specific";
-        /**
-         * AtlasROI
-         * @description Cortical surface ROI from a FreeSurfer annotation atlas.
-         *
-         *     Each of *atlas_path*, *label*, *hemisphere* accepts either a single
-         *     value (one region) or a list (a union of several regions evaluated as
-         *     one combined target).  Because ``.annot`` files are per-hemisphere,
-         *     carrying a per-region *hemisphere* (and matching *atlas_path*) allows a
-         *     target that spans **both** hemispheres, or even different atlases.
-         *     Scalars broadcast to the number of labels; lists must match its length.
-         *
-         *     Attributes
-         *     ----------
-         *     atlas_path : str or list of str
-         *         Path(s) to the FreeSurfer ``.annot`` annotation file(s).
-         *     label : int or list of int
-         *         Integer label index/indices within the annotation atlas.
-         *     hemisphere : str or list of str
-         *         Hemisphere(s) to use (``"lh"`` or ``"rh"``), one per label.
-         *
-         *     Raises
-         *     ------
-         *     ValueError
-         *         If *label* is empty, or *atlas_path*\/*hemisphere* is a list whose
-         *         length neither equals 1 nor the number of labels.
-         */
-        FlexConfigAtlasROI: {
-            /** Atlas Path */
-            atlas_path: string | string[];
-            /** Label */
-            label: number | number[];
-            /**
-             * Hemisphere
-             * @default lh
-             */
-            hemisphere: string | string[];
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            _type: "AtlasROI";
-        };
-        /**
-         * ElectrodeConfig
-         * @description Electrode geometry for flex-search.
-         *
-         *     Only *gel_thickness* is needed here -- the optimization leadfield
-         *     uses point electrodes; *gel_thickness* is recorded in the manifest
-         *     for downstream simulation.
-         *
-         *     Attributes
-         *     ----------
-         *     shape : str
-         *         Electrode shape (``"ellipse"`` or ``"rect"``).
-         *     dimensions : list of float
-         *         Electrode dimensions in mm (``[width, height]``).
-         *     gel_thickness : float
-         *         Conductive gel thickness in mm.
-         */
-        ElectrodeConfig: {
-            /**
-             * Shape
-             * @default ellipse
-             */
-            shape: string;
-            /** Dimensions */
-            dimensions?: number[];
-            /**
-             * Gel Thickness
-             * @default 4
-             */
-            gel_thickness: number;
-        };
-        /**
-         * ParetoSweepConfig
-         * @description Threshold grid for :func:`tit.opt.flex.drivers.run_pareto_sweep`.
-         *
-         *     The driver runs one ``"focality"`` optimization per (roi_pct, nonroi_pct)
-         *     combination in the Cartesian product of *roi_pcts* and *nonroi_pcts| --
-         *     ``len(roi_pcts) * len(nonroi_pcts)`` runs total, in addition to the single
-         *     step-1 ``"mean"`` calibration run. See
-         *     :func:`tit.opt.flex.pareto.compute_sweep_grid`.
-         *
-         *     Attributes
-         *     ----------
-         *     roi_pcts : list of float
-         *         ROI threshold percentages to sweep (each in ``(0, 100)``).
-         *     nonroi_pcts : list of float
-         *         Non-ROI threshold percentages to sweep (each in ``(0, 100)``).
-         *
-         *     Raises
-         *     ------
-         *     ValueError
-         *         If either list is empty, if any value falls outside ``(0, 100)``,
-         *         or if any ``(roi_pct, nonroi_pct)`` combination has
-         *         ``nonroi_pct >= roi_pct``.
-         */
-        ParetoSweepConfig: {
-            /** Roi Pcts */
-            roi_pcts?: number[];
-            /** Nonroi Pcts */
-            nonroi_pcts?: number[];
-        };
-        /**
-         * BucketElectrodes
-         * @description Separate electrode lists for each bipolar channel position.
-         *
-         *     Attributes
-         *     ----------
-         *     e1_plus : list of str
-         *         Candidate electrodes for channel 1 anode.
-         *     e1_minus : list of str
-         *         Candidate electrodes for channel 1 cathode.
-         *     e2_plus : list of str
-         *         Candidate electrodes for channel 2 anode.
-         *     e2_minus : list of str
-         *         Candidate electrodes for channel 2 cathode.
-         */
-        ExConfigBucketElectrodes: {
-            /** E1 Plus */
-            e1_plus: string[];
-            /** E1 Minus */
-            e1_minus: string[];
-            /** E2 Plus */
-            e2_plus: string[];
-            /** E2 Minus */
-            e2_minus: string[];
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            _type: "BucketElectrodes";
         };
         /**
          * AtlasROI
@@ -7088,6 +7119,36 @@ export interface components {
         };
         /**
          * BucketElectrodes
+         * @description Separate electrode lists for each bipolar channel position.
+         *
+         *     Attributes
+         *     ----------
+         *     e1_plus : list of str
+         *         Candidate electrodes for channel 1 anode.
+         *     e1_minus : list of str
+         *         Candidate electrodes for channel 1 cathode.
+         *     e2_plus : list of str
+         *         Candidate electrodes for channel 2 anode.
+         *     e2_minus : list of str
+         *         Candidate electrodes for channel 2 cathode.
+         */
+        ExConfigBucketElectrodes: {
+            /** E1 Plus */
+            e1_plus: string[];
+            /** E1 Minus */
+            e1_minus: string[];
+            /** E2 Plus */
+            e2_plus: string[];
+            /** E2 Minus */
+            e2_minus: string[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            _type: "BucketElectrodes";
+        };
+        /**
+         * BucketElectrodes
          * @description Separate electrode lists for each of the four bipolar pairs.
          *
          *     Attributes
@@ -7119,24 +7180,6 @@ export interface components {
             _type: "BucketElectrodes";
         };
         /**
-         * PoolElectrodes
-         * @description Single electrode pool -- all eight positions draw from the same set.
-         *
-         *     Attributes
-         *     ----------
-         *     electrodes : list of str
-         *         List of electrode names available for any pair position.
-         */
-        MExConfigPoolElectrodes: {
-            /** Electrodes */
-            electrodes: string[];
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            _type: "PoolElectrodes";
-        };
-        /**
          * AtlasROI
          * @description Volumetric atlas or mask ROI, unioned with the spherical center.
          *
@@ -7160,6 +7203,37 @@ export interface components {
              */
             label: number | null;
         };
+        /**
+         * PoolElectrodes
+         * @description Single electrode pool -- all eight positions draw from the same set.
+         *
+         *     Attributes
+         *     ----------
+         *     electrodes : list of str
+         *         List of electrode names available for any pair position.
+         */
+        MExConfigPoolElectrodes: {
+            /** Electrodes */
+            electrodes: string[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            _type: "PoolElectrodes";
+        };
+        /**
+         * AnalyzerSpace
+         * @description Where the field is read from.
+         *
+         *     Attributes
+         *     ----------
+         *     MESH : str
+         *         SimNIBS surface/volume mesh.
+         *     VOXEL : str
+         *         MNI-space NIfTI volume.
+         * @enum {string}
+         */
+        AnalyzerSpace: "mesh" | "voxel";
         /**
          * AnalyzerCoordinateSpace
          * @description Space of *center* for a spherical ROI.
@@ -7186,19 +7260,6 @@ export interface components {
          * @enum {string}
          */
         AnalysisMode: "single" | "group";
-        /**
-         * AnalyzerSpace
-         * @description Where the field is read from.
-         *
-         *     Attributes
-         *     ----------
-         *     MESH : str
-         *         SimNIBS surface/volume mesh.
-         *     VOXEL : str
-         *         MNI-space NIfTI volume.
-         * @enum {string}
-         */
-        AnalyzerSpace: "mesh" | "voxel";
         /**
          * AnalysisType
          * @description Region-of-interest shape.
@@ -7422,27 +7483,27 @@ export interface components {
          */
         TestType: "unpaired" | "paired";
         /**
+         * _AnalysisSpace
+         * @description Where the group statistics run: MNI volume or fsaverage surface.
+         * @enum {string}
+         */
+        _AnalysisSpace: "mni" | "fsaverage";
+        /**
          * _TissueType
          * @enum {string}
          */
         _TissueType: "grey" | "white" | "all";
-        /**
-         * Alternative
-         * @description Sidedness of the test hypothesis.
-         * @enum {string}
-         */
-        Alternative: "two-sided" | "greater" | "less";
         /**
          * _ClusterStat
          * @enum {string}
          */
         _ClusterStat: "mass" | "size";
         /**
-         * _AnalysisSpace
-         * @description Where the group statistics run: MNI volume or fsaverage surface.
+         * Alternative
+         * @description Sidedness of the test hypothesis.
          * @enum {string}
          */
-        _AnalysisSpace: "mni" | "fsaverage";
+        Alternative: "two-sided" | "greater" | "less";
         /**
          * Subject
          * @description A single subject in a group comparison analysis.
@@ -7464,6 +7525,12 @@ export interface components {
             /** Response */
             response: number;
         };
+        /**
+         * CorrelationType
+         * @description Type of correlation coefficient to compute.
+         * @enum {string}
+         */
+        CorrelationType: "pearson" | "spearman";
         /**
          * Subject
          * @description A single subject in a correlation analysis.
@@ -7493,12 +7560,6 @@ export interface components {
              */
             weight: number;
         };
-        /**
-         * CorrelationType
-         * @description Type of correlation coefficient to compute.
-         * @enum {string}
-         */
-        CorrelationType: "pearson" | "spearman";
         /**
          * FsavgMapConfig
          * @description Parameters for projecting simulation field outputs onto fsaverage.
@@ -7536,6 +7597,20 @@ export interface components {
             overwrite: boolean;
         };
         /**
+         * SourceMode
+         * @description Which :mod:`tit.source` pipeline a :class:`SourceConfig` drives.
+         *
+         *     Attributes
+         *     ----------
+         *     FORWARD : str
+         *         Rebuild an EEG forward solution per subject (:class:`ForwardConfig`).
+         *     FSAVG_MAP : str
+         *         Project existing simulation fields onto fsaverage for
+         *         (subject, simulation) pairs (:class:`FsavgMapConfig`).
+         * @enum {string}
+         */
+        SourceMode: "forward" | "fsavg_map";
+        /**
          * SourcePair
          * @description One (subject, simulation) pair for the ``fsavg_map`` pipeline.
          *
@@ -7552,20 +7627,6 @@ export interface components {
             /** Simulation */
             simulation: string;
         };
-        /**
-         * SourceMode
-         * @description Which :mod:`tit.source` pipeline a :class:`SourceConfig` drives.
-         *
-         *     Attributes
-         *     ----------
-         *     FORWARD : str
-         *         Rebuild an EEG forward solution per subject (:class:`ForwardConfig`).
-         *     FSAVG_MAP : str
-         *         Project existing simulation fields onto fsaverage for
-         *         (subject, simulation) pairs (:class:`FsavgMapConfig`).
-         * @enum {string}
-         */
-        SourceMode: "forward" | "fsavg_map";
         /**
          * ForwardConfig
          * @description Parameters for rebuilding a SimNIBS/MNE EEG forward solution.
@@ -7624,23 +7685,17 @@ export interface components {
          */
         Color: "rgb" | "magscale";
         /**
-         * Surface
-         * @description Cortical surface type for msh2cortex extraction.
-         * @enum {string}
-         */
-        Surface: "central" | "pial" | "white";
-        /**
          * Format
          * @description Output mesh format for region export.
          * @enum {string}
          */
         Format: "stl" | "ply";
         /**
-         * NiftiAverageSpace
-         * @description Which per-subject NIfTI space the group average is computed in.
+         * Surface
+         * @description Cortical surface type for msh2cortex extraction.
          * @enum {string}
          */
-        NiftiAverageSpace: "subject" | "mni";
+        Surface: "central" | "pial" | "white";
         /**
          * NiftiAverageSubject
          * @description One subject/simulation/group assignment row.
@@ -7665,6 +7720,12 @@ export interface components {
              */
             group: string;
         };
+        /**
+         * NiftiAverageSpace
+         * @description Which per-subject NIfTI space the group average is computed in.
+         * @enum {string}
+         */
+        NiftiAverageSpace: "subject" | "mni";
         /**
          * NilearnSubjectSimulation
          * @description One subject/simulation pair to group-average before visualising.

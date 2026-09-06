@@ -15,11 +15,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   RECENTS_LIMIT,
   controlsFor,
+  containerPaths,
   formatBytes,
-  layerKindLabel,
-  overridesPayload,
   pushRecent,
   readRecents,
+  reorder,
   selectionLabel,
   hasViewerDeepLink,
   readDeepLink,
@@ -159,32 +159,30 @@ describe("selectionFromDeepLink", () => {
 
 // ── VM: the composition panel's pure parts ──────────────────────────────────────────────────────
 
-describe("overridesPayload", () => {
-  it("answers undefined for an untouched composition", () => {
-    // Load-bearing, not tidiness: the server guarantees byte-identical output for an *absent*
-    // overrides document, and `{layers:{}}` is not absent.
-    expect(overridesPayload({ layers: {} })).toBeUndefined();
-    expect(overridesPayload({ layers: { L0: {} } })).toBeUndefined();
-  });
-
-  it("carries only the layers that were actually edited", () => {
-    const payload = overridesPayload({ layers: { L0: {}, L1: { opacity: 0.5 } }, camera: "L" });
-    expect(payload).toEqual({ layers: { L1: { opacity: 0.5 } }, camera: "L" });
-  });
-
-  it("counts a scene-wide knob on its own as a touch", () => {
-    expect(overridesPayload({ layers: {}, radiological: true })).toEqual({ layers: {}, radiological: true });
-    expect(overridesPayload({ layers: {}, layout: "3d-only" })).toEqual({ layers: {}, layout: "3d-only" });
+describe("containerPaths", () => {
+  it("prefers the container path, because that is the one the server jails", () => {
+    // A row that handed back only its host path could not be re-resolved by a server that
+    // resolves container paths — the whole list would come back empty, with no error anywhere.
+    expect(
+      containerPaths([
+        { name: "a", path: "/Users/me/p/a.nii.gz", container_path: "/mnt/p/a.nii.gz" },
+        { name: "b", path: "/mnt/p/b.nii.gz" },
+      ]),
+    ).toEqual(["/mnt/p/a.nii.gz", "/mnt/p/b.nii.gz"]);
   });
 });
 
-describe("layerKindLabel", () => {
-  const base = { id: "L0", name: "x", visible: true, opacity: 1 };
-  it("names what the row is looking at", () => {
-    expect(layerKindLabel({ ...base, kind: "volume", colormap: "gray" })).toBe("grayscale");
-    expect(layerKindLabel({ ...base, kind: "volume", colormap: "lut" })).toBe("lut");
-    expect(layerKindLabel({ ...base, kind: "volume", colormap: "turbo" })).toBe("colormap");
-    expect(layerKindLabel({ ...base, kind: "mesh", colormap: "jet" })).toBe("mesh");
+describe("reorder", () => {
+  it("moves one item and leaves the rest in order", () => {
+    expect(reorder(["a", "b", "c"], 2, 0)).toEqual(["c", "a", "b"]);
+    expect(reorder(["a", "b", "c"], 0, 2)).toEqual(["b", "c", "a"]);
+  });
+
+  it("returns the list itself for a no-op or an impossible move", () => {
+    const list = ["a", "b"];
+    expect(reorder(list, 1, 1)).toBe(list);
+    expect(reorder(list, 0, 5)).toBe(list);
+    expect(reorder(list, -1, 0)).toBe(list);
   });
 });
 
@@ -216,8 +214,7 @@ describe("recents", () => {
     key,
     label: key,
     selection: { kind: "subject" as const, space: "subject" as const },
-    extras: [],
-    overrides: { layers: {} },
+    files: null,
   });
 
   // A tiny in-memory localStorage: this suite's jsdom environment provides the object but not a

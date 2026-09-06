@@ -1362,6 +1362,20 @@ paths:
                     write nothing -- the Viewer page's preview strip, which must be able to show
                     what a selection resolves to without leaving a file behind or launching
                     anything.
+                files:
+                  type: array
+                  items: { type: string }
+                  description: >-
+                    VM2. The scene's datasets, in order, as absolute container paths -- the
+                    Viewer page's editable "what will open" list. **Authoritative when given**:
+                    these files, this order, and nothing the view type would otherwise have
+                    contributed. What the client does not send is how each file should look;
+                    a path the view type already produced keeps exactly that view type's layer
+                    settings, and only an added path is described from scratch
+                    (tit/viewspec.py::_layer_for_path). Every entry is re-resolved through the
+                    project jail, and one that does not resolve is dropped rather than refused,
+                    so a stale row in a restored preset does not cost the whole scene. Absent
+                    means the view type decides, exactly as before.
                 extras:
                   type: array
                   items: { type: string, enum: [t1, atlas, electrodes, gm_mesh] }
@@ -1399,6 +1413,33 @@ paths:
       # this contract's existing practice of documenting only a subset of the live API (see
       # contracts/SCHEMA-CHANGES.md) -- /api/view/args's request/response shape is exercised by
       # tests/test_catalog_v1.py and desktop/tests/mock-server/server.mjs instead.
+
+  /api/viewer/candidates:
+    get:
+      tags: [viewers]
+      summary: Every file this subject/simulation offers the Viewer's "+ Add…"
+      description: >-
+        VM2. Only files a scene can use (volumes and meshes), grouped the way a person looks for
+        one, each with its size -- one of them is routinely 64 MB, and the point of the picker is
+        to choose without guessing. A read: it opens nothing and writes nothing.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - { in: query, name: subject, schema: { type: string } }
+        - { in: query, name: simulation, schema: { type: string } }
+        - { in: query, name: space, schema: { type: string, enum: [subject, mni] } }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [candidates]
+                properties:
+                  candidates:
+                    type: array
+                    items: { $ref: "#/components/schemas/ViewerCandidate" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /api/viewer/presets:
     get:
@@ -2624,19 +2665,33 @@ components:
         dry_run:
           type: boolean
           description: true when the request asked to resolve only; nothing was written
+    ViewerCandidate:
+      type: object
+      required: [name, path, kind, group]
+      properties:
+        name: { type: string }
+        path: { type: string, description: absolute container path }
+        kind: { type: string, enum: [volume, mesh] }
+        group: { type: string, description: the heading it is listed under }
+        bytes: { type: [integer, "null"] }
     ViewerPreset:
       type: object
       required: [name]
       description: >-
-        VM. One saved Viewer composition -- the selection, the "Also open" extras and the scene
-        overrides, exactly as POST /api/view/open takes them, so restoring a preset is replaying
-        a request rather than reconstructing one.
+        VM/VM2. One saved Viewer selection -- the source and, when the person edited it, the file
+        list, exactly as POST /api/view/open takes them, so restoring a preset is replaying a
+        request rather than reconstructing one. `extras`/`overrides` are still accepted for a
+        preset saved by the VM panel that briefly exposed them.
       properties:
         name: { type: string }
         selection:
           type: object
           additionalProperties: true
           description: kind, subject, simulation, analysis, field, atlas, roi, path, space
+        files:
+          type: [array, "null"]
+          items: { type: string }
+          description: the edited list, or null when the view type's own set was saved
         extras:
           type: array
           items: { type: string }
@@ -2651,6 +2706,12 @@ components:
         kind: { type: [string, "null"], description: '"volume" or "mesh"' }
         name: { type: string }
         path: { type: string, description: the path written into the scene (host-facing) }
+        container_path:
+          type: [string, "null"]
+          description: >-
+            VM2. The same file as the server sees it -- what the client sends back in `files`
+            when the row is kept, moved or joined by another. A row that reported only the host
+            path could not be handed back to a server that jails container paths.
         bytes:
           type: [integer, "null"]
           description: size on disk, or null when the file could not be stat'ed

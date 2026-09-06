@@ -57,20 +57,20 @@ export async function getView(kind: ViewKind, query: ViewQuery): Promise<ViewSpe
  * no main process to map anything and the file is offered as a download instead.
  */
 export interface OpenOptions {
-  /** "Also open" — extra layers to add to whatever this view type already builds. */
-  extras?: string[];
-  /** The composition panel's edits to the finished scene (`apply_scene_overrides`). */
-  overrides?: Record<string, unknown>;
-  /** Resolve and answer; write nothing. The preview strip's whole mechanism. */
+  /**
+   * VM2 — the scene's datasets, in order, as container paths. **Authoritative when given.**
+   * Absent means the view type decides, exactly as it did before this parameter existed.
+   */
+  files?: string[];
+  /** Resolve and answer; write nothing. The list's whole mechanism. */
   dry_run?: boolean;
 }
 
 export async function openView(kind: ViewKind, query: ViewQuery, options: OpenOptions = {}): Promise<ViewerOpen> {
   const body: Record<string, unknown> = { kind, ...query };
-  // Absent, not empty: the server's compatibility guarantee is stated about an *absent* overrides
-  // document, and sending `{}` on every Open would step outside the guarantee for no gain.
-  if (options.extras?.length) body.extras = options.extras;
-  if (options.overrides) body.overrides = options.overrides;
+  // Absent, not empty: the server's compatibility guarantee is stated about an *absent* file
+  // list, and sending one on every Open would step outside the guarantee for no gain.
+  if (options.files) body.files = options.files;
   if (options.dry_run) body.dry_run = true;
   return unwrap(await api.POST("/api/view/open", { body: body as never }), "/api/view/open");
 }
@@ -78,12 +78,20 @@ export async function openView(kind: ViewKind, query: ViewQuery, options: OpenOp
 /**
  * What this selection resolves to — the same endpoint an Open uses, with `dry_run`.
  *
- * Deliberately the *same* route rather than a second read-only one: a preview built by different
- * code from the thing it previews is a preview that can be wrong, and the one moment this page
- * must not be wrong is the moment before another application's window covers someone's work.
+ * Deliberately the *same* route rather than a second read-only one: a list built by different
+ * code from the thing it opens is a list that can be wrong, and the one moment this page must not
+ * be wrong is the moment before another application's window covers someone's work.
  */
-export async function previewView(kind: ViewKind, query: ViewQuery, extras: string[]): Promise<ViewerOpen> {
-  return openView(kind, query, { extras, dry_run: true });
+export async function previewView(kind: ViewKind, query: ViewQuery, files?: string[]): Promise<ViewerOpen> {
+  return openView(kind, query, { files, dry_run: true });
+}
+
+export type ViewerCandidate = components["schemas"]["ViewerCandidate"];
+
+/** Everything the subject (and simulation) offers the "+ Add…" picker. A read. */
+export async function getCandidates(subject?: string, simulation?: string, space?: Space): Promise<ViewerCandidate[]> {
+  return unwrap(await api.GET("/api/viewer/candidates", { params: { query: { subject, simulation, space } } }), "/api/viewer/candidates")
+    .candidates;
 }
 
 export type ViewerPreset = components["schemas"]["ViewerPreset"];

@@ -202,15 +202,20 @@ test("settings, results, jobs and viewer keep session-only page state beyond the
   await page.getByTestId("viewer-select-simulation").getByRole("combobox").click();
   await page.getByRole("option", { name: "Thalamus", exact: true }).click();
   await page.getByRole("radiogroup", { name: "Space" }).getByRole("radio", { name: "MNI", exact: true }).click();
-  // VM: the composition is part of the draft too — a camera preset and an "Also open" tick are
-  // choices someone made, and losing them on a tab switch is the same defect as losing the subject.
-  await page.getByTestId("viewer-camera").getByRole("radio", { name: "L", exact: true }).click();
-  await page.getByTestId("viewer-extra-t1").getByRole("checkbox").click();
+  // VM2: the edited file list is part of the draft too — removing a row is a choice someone made,
+  // and losing it on a tab switch is the same defect as losing the subject.
+  await expect(page.getByTestId("viewer-preview-files")).toBeVisible({ timeout: 15_000 });
+  const rows = await page.getByTestId("viewer-preview-files").locator("li .viewer-file-name").allTextContents();
+  await page.getByTestId(`viewer-file-remove-${rows[0]!}`).click();
+  await expect
+    .poll(() => page.getByTestId("viewer-preview-files").locator("li .viewer-file-name").allTextContents())
+    .toEqual(rows.slice(1));
   await awayAndBack("viewer");
   await expect(page.getByRole("radiogroup", { name: "Space" }).getByRole("radio", { name: "MNI", exact: true })).toBeChecked();
   await expect(page.getByTestId("viewer-select-simulation").getByRole("combobox")).toContainText("Thalamus");
-  await expect(page.getByTestId("viewer-camera").getByRole("radio", { name: "L", exact: true })).toBeChecked();
-  await expect(page.getByTestId("viewer-extra-t1").getByRole("checkbox")).toBeChecked();
+  await expect
+    .poll(() => page.getByTestId("viewer-preview-files").locator("li .viewer-file-name").allTextContents())
+    .toEqual(rows.slice(1));
 });
 
 test("optional panel pages keep their drafts and selections while navigating", async () => {

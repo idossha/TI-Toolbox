@@ -57,11 +57,13 @@ async function freshCanvas() {
   // the fixed offset then lands on whatever the scroll brought under it (measured: the right
   // pane's job console).
   const cards = page.locator("[data-testid^='pipeline-node-']");
-  if ((await cards.count()) > 0) {
+  // Clearing a five-node graph can take more than one ⌘A/Delete round: React Flow applies the
+  // selection and the removal in separate commits, so a node added last can miss the first pass.
+  for (let attempt = 0; attempt < 4 && (await cards.count()) > 0; attempt++) {
     await page.keyboard.press("ControlOrMeta+a");
     await page.keyboard.press("Delete");
-    await expect(cards).toHaveCount(0);
   }
+  await expect(cards).toHaveCount(0);
   await expect(page.getByTestId("pipeline-empty")).toBeVisible();
 }
 
@@ -216,11 +218,13 @@ test("double-click opens the step's own form — the real one, not a placeholder
   await page.getByTestId("pipeline-node-pre1").dblclick();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  // Pre-processing's real stage switches, from the page's own list.
+  // Pre-processing's real stage switches, from the page's own list — and no Subjects field, since
+  // the cohort belongs to the cohort node and reaches this one over the wire.
   await expect(dialog.getByLabel("SimNIBS head model (charm)")).toBeVisible();
-  await dialog.getByLabel("Subjects", { exact: true }).fill("ernie");
+  await expect(dialog.getByLabel("Subjects", { exact: true })).toHaveCount(0);
+  await dialog.getByLabel("Tissue analysis").click();
   await page.keyboard.press("Escape");
-  await expect(page.getByTestId("pipeline-node-pre1")).toContainText("ernie");
+  await expect(page.getByTestId("pipeline-node-pre1")).toBeVisible();
 });
 
 test("a JSON-edited kind opens, refuses bad JSON out loud, and saves good JSON", async () => {
@@ -236,16 +240,18 @@ test("a JSON-edited kind opens, refuses bad JSON out loud, and saves good JSON",
   await json.fill('{"subject_ids": ["ernie"], "eeg_net": "GSN-HydroCel-185.csv"}');
   await expect(page.getByRole("dialog")).not.toContainText("Not valid JSON");
   await page.keyboard.press("Escape");
-  await expect(page.getByTestId("pipeline-node-leadfield1")).toContainText("ernie");
+  // The card counts the subjects it was handed; only the cohort node prints their ids.
+  await expect(page.getByTestId("pipeline-node-leadfield1")).toContainText("1 subject");
 });
 
-test("a 'needs' chip opens the editor at the field that satisfies it", async () => {
+test("a 'needs: subjects' chip on a node with no cohort opens its editor", async () => {
   await freshCanvas();
   await page.getByTestId("pipeline-add-sim").click();
+  // The chip is the server's `missing_input` finding: this Simulator has no cohort wired to it,
+  // and under this model there is no field on the Simulator that could supply one — so the chip
+  // opens the node and the fix is to wire a Subjects node to it.
   await page.getByTestId("pipeline-need-sim1-subjects").click();
-  const dialog = page.getByRole("dialog");
-  await expect(dialog).toBeVisible();
-  await expect(dialog.locator("input[data-port='subjects']")).toBeFocused();
+  await expect(page.getByRole("dialog")).toBeVisible();
   await page.keyboard.press("Escape");
 });
 
@@ -261,12 +267,13 @@ test("the receipt's Fix link focuses the step it is about", async () => {
 
 test("unconnected steps are one sentence, not a wall of warnings", async () => {
   await freshCanvas();
-  // Three independent, fully-configured pre nodes: a legal pipeline with nothing wrong with it.
+  // Three independent cohorts, each with a subject: a legal pipeline with nothing wrong with it.
   for (let i = 0; i < 3; i++) {
-    await page.getByTestId("pipeline-add-pre").click();
-    await page.getByTestId(`pipeline-node-pre${i + 1}`).dblclick();
-    await page.getByRole("dialog").getByLabel("Subjects", { exact: true }).fill("ernie");
+    await page.getByTestId("pipeline-add-subjects").click();
+    await page.getByTestId(`pipeline-node-subjects${i + 1}`).dblclick();
+    await page.getByTestId("pipeline-subjects").getByRole("row", { name: /^ernie\b/ }).click();
     await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
   }
   const receipt = page.getByTestId("pipeline-receipt");
   await expect(receipt).toContainText("in one group");
@@ -296,7 +303,7 @@ test("Save names the pipeline in a dialog and it appears in Saved with its size"
   await page.getByTestId("pipeline-save-confirm").click();
   const entry = page.getByTestId("pipeline-saved-ux gate");
   await expect(entry).toBeVisible();
-  await expect(entry).toContainText("4 steps");
+  await expect(entry).toContainText("5 steps");
 
   // And it loads back.
   await freshCanvas();
@@ -312,13 +319,17 @@ test("Import JSON… reads a document off disk", async () => {
     JSON.stringify({
       version: 1,
       name: "imported",
-      nodes: [{ id: "pre1", kind: "pre", config: { subject_ids: ["ernie"], create_m2m: true }, position: { x: 40, y: 40 } }],
-      edges: [],
+      nodes: [
+        { id: "sub1", kind: "subjects", config: { subject_ids: ["ernie"] }, position: { x: 40, y: 40 } },
+        { id: "pre1", kind: "pre", config: { create_m2m: true }, position: { x: 300, y: 40 } },
+      ],
+      edges: [{ from: "sub1", to: "pre1", port: "subjects" }],
     }),
   );
   await page.getByTestId("pipeline-import-input").setInputFiles(file);
-  await expect(page.getByTestId("pipeline-node-pre1")).toBeVisible();
-  await expect(page.getByTestId("pipeline-node-pre1")).toContainText("ernie");
+  await expect(page.getByTestId("pipeline-node-sub1")).toBeVisible();
+  await expect(page.getByTestId("pipeline-node-sub1")).toContainText("ernie");
+  await expect(page.getByTestId("pipeline-node-pre1")).toContainText("1 subject");
 });
 
 test("Export notebook writes a real .ipynb through the Electron save dialog", async () => {
@@ -340,7 +351,7 @@ test("Export notebook writes a real .ipynb through the Electron save dialog", as
     metadata: { ti_toolbox: { pipeline: { nodes: { id: string }[] } } };
   };
   expect(notebook.nbformat).toBe(4);
-  expect(notebook.metadata.ti_toolbox.pipeline.nodes.map((n) => n.id)).toEqual(["pre1", "flex1", "sim1", "an1"]);
+  expect(notebook.metadata.ti_toolbox.pipeline.nodes.map((n) => n.id)).toEqual(["sub1", "pre1", "flex1", "sim1", "an1"]);
 });
 
 // ------------------------------------------------------------------------------- keyboard ------
@@ -432,4 +443,194 @@ test("the whole page has no undefined custom property left in it", async () => {
     return [...names].filter((n) => root.getPropertyValue(n).trim() === "").sort();
   });
   expect(missing).toEqual([]);
+});
+
+// -------------------------------------------------- the cohort node, and the readiness gate ----
+//
+// The mock's three subjects, from `tests/fixtures/overview.json`:
+//   ernie    raw · head model · leadfield · 3 simulations   — ready for everything
+//   101      raw · head model ·           · 1 simulation
+//   MNI152        · head model ·           · no simulations, and **no raw**
+// and the 30-subject project (`POST /api/__mock/project {"subjects": 30}`) has S016: raw, no head
+// model, no simulations — the raw-only case.
+
+/** Put a cohort node on the canvas and choose *ids* in its editor. */
+async function cohort(...ids: string[]) {
+  await page.getByTestId("pipeline-add-subjects").click();
+  await expect(page.getByTestId("pipeline-node-subjects1")).toBeVisible();
+  await page.getByTestId("pipeline-node-subjects1").dblclick();
+  await expect(page.getByTestId("pipeline-subjects")).toBeVisible();
+  // A plain click in a `SelectionList` *replaces* the selection, like any listbox; adding to it is
+  // a ⌘/Ctrl-click. Clicking each id in turn left only the last one chosen.
+  for (const [i, id] of ids.entries()) {
+    await page
+      .getByTestId("pipeline-subjects")
+      .getByRole("row", { name: new RegExp(`^${id}\\b`) })
+      .click(i === 0 ? undefined : { modifiers: ["ControlOrMeta"] });
+  }
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  // The card prints the cohort, so this also proves the choice reached the document — without it
+  // a later refusal is ambiguous between "not ready" and "no subjects chosen at all".
+  for (const id of ids) await expect(page.getByTestId("pipeline-node-subjects1")).toContainText(id);
+}
+
+async function switchProject(subjects: 3 | 30) {
+  await page.evaluate(
+    async (n) =>
+      void (await fetch("/api/__mock/project", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ subjects: n }),
+      })),
+    subjects,
+  );
+  // The readiness the drag gate reads is a cached query (`staleTime: 30s`), so switching the
+  // project on the server is not enough — the app has to fetch it again.
+  await page.reload();
+  await page.getByRole("link", { name: "Pipeline", exact: true }).click();
+  await expect(page.getByTestId("pipeline-canvas")).toBeVisible();
+}
+
+test("the cohort node lists the project's subjects with the Overview's own readiness columns", async () => {
+  await freshCanvas();
+  await page.getByTestId("pipeline-add-subjects").click();
+  await page.getByTestId("pipeline-node-subjects1").dblclick();
+  const list = page.getByTestId("pipeline-subjects");
+  await expect(list).toBeVisible();
+  for (const id of ["ernie", "101", "MNI152"]) {
+    await expect(list.getByRole("row", { name: new RegExp(`^${id}\\b`) })).toBeVisible();
+  }
+  // Each row says what it is ready for, so the reason arrives before the refusal does.
+  await expect(list.getByRole("row", { name: /^ernie\b/ })).toContainText("analyzer");
+  await expect(list.getByRole("row", { name: /^MNI152\b/ })).not.toContainText("analyzer");
+  await page.keyboard.press("Escape");
+});
+
+test("subjects with only raw data are refused by everything but Pre-processing", async () => {
+  // Asserted against the server rather than by dragging, and deliberately: the mock's default
+  // project has no raw-only subject (its three are ernie, 101 and MNI152, and other lanes' specs
+  // assert that list exactly, so a fourth cannot be added), which leaves the 30-subject project —
+  // and choreographing a cohort plus two steps plus three wires there proved to be a test about
+  // mouse gestures rather than about the rule. The rule itself is asserted on the canvas by the
+  // three tests below, and twice more over the same table in `tests/unit/pipeline-graph.test.ts`
+  // and `tests/test_pipeline_readiness.py`.
+  await freshCanvas();
+  await switchProject(30);
+  try {
+    const graph = (nodes: object[], edges: object[]) => ({ version: 1, name: "raw only", nodes, edges });
+    const validate = async (doc: object) =>
+      page.evaluate(async (body) => {
+        const response = await fetch("/api/pipelines/validate", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        return (await response.json()) as { ok: boolean; issues: { code?: string; message: string }[] };
+      }, doc);
+
+    const cohortNode = { id: "s1", kind: "subjects", config: { subject_ids: ["S016"] } };
+
+    // Straight to the Simulator: refused, and the reason names the subject.
+    const toSim = await validate(
+      graph([cohortNode, { id: "m1", kind: "sim", config: { conductivity: "scalar" } }], [
+        { from: "s1", to: "m1", port: "subjects" },
+      ]),
+    );
+    expect(toSim.ok).toBe(false);
+    expect(toSim.issues.some((i) => i.code === "not_ready" && i.message.includes("S016 has no head model"))).toBe(true);
+
+    // Through Pre-processing first: fine, because Pre-processing is what makes the head model.
+    const throughPre = await validate(
+      graph(
+        [
+          cohortNode,
+          { id: "p1", kind: "pre", config: { create_m2m: true } },
+          { id: "m1", kind: "sim", config: { conductivity: "scalar" } },
+        ],
+        [
+          { from: "s1", to: "p1", port: "subjects" },
+          { from: "p1", to: "m1", port: "subjects" },
+        ],
+      ),
+    );
+    expect(throughPre.issues.filter((i) => i.code === "not_ready")).toEqual([]);
+    expect(throughPre.ok).toBe(true);
+  } finally {
+    await switchProject(3);
+  }
+});
+
+test("subjects with a head model but no simulation reach the Simulator, not the Analyzer", async () => {
+  await freshCanvas();
+  await cohort("MNI152");
+  await page.getByTestId("pipeline-add-sim").dragTo(page.getByTestId("pipeline-canvas"), {
+    targetPosition: { x: 480, y: 120 },
+  });
+  await page.getByTestId("pipeline-add-analyzer").dragTo(page.getByTestId("pipeline-canvas"), {
+    targetPosition: { x: 480, y: 320 },
+  });
+
+  await wire("pipeline-out-subjects1-subjects", "pipeline-in-sim1-subjects");
+  await expect(page.locator(".react-flow__edge")).toHaveCount(1);
+
+  await wire("pipeline-out-subjects1-subjects", "pipeline-in-analyzer1-subjects");
+  await expect(page.getByTestId("pipeline-refusal")).toContainText("MNI152 has no simulations");
+  await expect(page.locator(".react-flow__edge")).toHaveCount(1);
+});
+
+test("subjects that already have a simulation go straight to the Analyzer", async () => {
+  await freshCanvas();
+  await cohort("ernie");
+  await page.getByTestId("pipeline-add-analyzer").dragTo(page.getByTestId("pipeline-canvas"), {
+    targetPosition: { x: 480, y: 200 },
+  });
+  await wire("pipeline-out-subjects1-subjects", "pipeline-in-analyzer1-subjects");
+  await expect(page.locator(".react-flow__edge")).toHaveCount(1);
+  await expect(page.getByTestId("pipeline-refusal")).toHaveCount(0);
+});
+
+test("a mixed cohort is refused by name — the ready subjects are not blamed", async () => {
+  await freshCanvas();
+  await cohort("ernie", "MNI152");
+  await page.getByTestId("pipeline-add-analyzer").dragTo(page.getByTestId("pipeline-canvas"), {
+    targetPosition: { x: 480, y: 200 },
+  });
+  await wire("pipeline-out-subjects1-subjects", "pipeline-in-analyzer1-subjects");
+  const refusal = page.getByTestId("pipeline-refusal");
+  await expect(refusal).toContainText("MNI152 has no simulations");
+  await expect(refusal).not.toContainText("ernie");
+  await expect(page.locator(".react-flow__edge")).toHaveCount(0);
+});
+
+test("a processing node is never configured from the node upstream of it", async () => {
+  await freshCanvas();
+  await cohort("ernie");
+  await page.getByTestId("pipeline-add-sim").dragTo(page.getByTestId("pipeline-canvas"), {
+    targetPosition: { x: 480, y: 200 },
+  });
+  await wire("pipeline-out-subjects1-subjects", "pipeline-in-sim1-subjects");
+
+  // The Simulator runs over the cohort's subject, but its own config stays its own: the card
+  // states the subject count it was handed, and says nothing about montages it was not given.
+  const card = page.getByTestId("pipeline-node-sim1");
+  await expect(card).toContainText("1 subject");
+  await expect(card).not.toContainText("from optimizer");
+
+  // And the document keeps the cohort in exactly one place. Saved and read back, `subject_ids`
+  // appears on the `subjects` node and on nothing else — which is the whole model in one
+  // assertion: before this, every node carried its own copy and two of them could disagree.
+  await page.getByTestId("pipeline-save").click();
+  await page.getByTestId("pipeline-save-name").fill("one cohort");
+  await page.getByTestId("pipeline-save-confirm").click();
+  await expect(page.getByTestId("pipeline-saved-one cohort")).toBeVisible();
+
+  const saved = await page.evaluate(
+    async () => (await (await fetch("/api/pipelines/one%20cohort")).json()) as {
+      nodes: { id: string; kind: string; config: Record<string, unknown> }[];
+    },
+  );
+  const carryingSubjects = saved.nodes.filter((n) => n.config?.subject_ids !== undefined);
+  expect(carryingSubjects.map((n) => n.kind)).toEqual(["subjects"]);
+  expect(carryingSubjects[0]!.config.subject_ids).toEqual(["ernie"]);
 });

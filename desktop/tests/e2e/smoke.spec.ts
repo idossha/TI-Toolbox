@@ -195,12 +195,9 @@ test("the rail's icon/label breakpoint updates on resize even while the Viewer s
   await page.getByTestId("viewer-select-simulation").getByRole("combobox").click();
   await page.getByRole("option", { name: "Thalamus", exact: true }).click();
   await expect(page.getByTestId("viewer-plan")).toBeVisible({ timeout: 15_000 });
-  // VM: the page is a centred composition panel, not a bar over a canvas. Its four sections and
-  // its preview strip are what "the Viewer page rendered" means now.
+  // VM2: the page is a centred source card and one editable file list, not a bar over a canvas.
   await expect(page.getByTestId("viewer-panel")).toBeVisible();
-  for (const section of ["source", "layers", "layout", "extras"]) {
-    await expect(page.getByTestId(`viewer-section-${section}`)).toBeVisible();
-  }
+  await expect(page.getByTestId("viewer-section-source")).toBeVisible();
 
   const rail = page.getByRole("navigation", { name: "Main" });
   await expect(rail).toHaveAttribute("data-rail-mode", "icons");

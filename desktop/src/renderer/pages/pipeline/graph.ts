@@ -16,6 +16,7 @@ import {
   Sigma,
   SquareStack,
   Target,
+  Users,
   Waypoints,
   Zap,
   type LucideIcon,
@@ -24,6 +25,7 @@ import {
 export type PortType = "subjects" | "montages" | "simulation" | "roi" | "leadfield";
 
 export type NodeKind =
+  | "subjects"
   | "pre"
   | "leadfield"
   | "flex"
@@ -44,19 +46,60 @@ export interface KindPorts {
 /** Mirrors `tit.pipeline.document.PORTS`. Fetched at runtime too (`GET /api/pipelines/kinds`);
  *  this copy is the offline default so the palette renders before the first response. */
 export const PORTS: Record<NodeKind, KindPorts> = {
-  pre: { inputs: [], outputs: ["subjects"], required: [] },
-  leadfield: { inputs: ["subjects"], outputs: ["subjects", "leadfield"], required: [] },
-  flex: { inputs: ["subjects", "roi"], outputs: ["subjects", "montages", "roi"], required: [] },
-  ex: { inputs: ["subjects", "roi", "leadfield"], outputs: ["subjects", "montages", "roi"], required: [] },
-  mex: { inputs: ["subjects", "roi", "leadfield"], outputs: ["subjects", "montages", "roi"], required: [] },
+  subjects: { inputs: [], outputs: ["subjects"], required: [] },
+  pre: { inputs: ["subjects"], outputs: ["subjects"], required: ["subjects"] },
+  leadfield: { inputs: ["subjects"], outputs: ["subjects", "leadfield"], required: ["subjects"] },
+  flex: { inputs: ["subjects", "roi"], outputs: ["subjects", "montages", "roi"], required: ["subjects"] },
+  ex: { inputs: ["subjects", "roi", "leadfield"], outputs: ["subjects", "montages", "roi"], required: ["subjects"] },
+  mex: { inputs: ["subjects", "roi", "leadfield"], outputs: ["subjects", "montages", "roi"], required: ["subjects"] },
   sim: { inputs: ["subjects", "montages"], outputs: ["subjects", "simulation"], required: ["subjects"] },
-  analyzer: { inputs: ["subjects", "simulation", "roi"], outputs: ["subjects"], required: ["subjects", "simulation"] },
+  analyzer: { inputs: ["subjects", "simulation", "roi"], outputs: ["subjects"], required: ["subjects"] },
   source: { inputs: ["subjects"], outputs: ["subjects"], required: ["subjects"] },
   stats: { inputs: ["subjects"], outputs: [], required: ["subjects"] },
 };
 
-/** Palette order — the workflow order, not alphabetical. */
-export const NODE_KINDS: NodeKind[] = ["pre", "leadfield", "flex", "ex", "mex", "sim", "analyzer", "source", "stats"];
+/**
+ * What a subject can already have, and what each kind needs of one. Mirrors
+ * `tit.pipeline.validate.KIND_READINESS`, and fetched at runtime from `GET /api/pipelines/kinds`;
+ * this copy is the offline default so a drag can be judged before the first response.
+ *
+ * This is the second half of "may this wire be drawn?". The first half is the port *type*, which
+ * says what the wire carries and nothing about whether the subjects on it are ready for the
+ * target — which is how `Subjects(raw data only) → Analyzer` used to be a graph you could build,
+ * submit, and watch fail one job per subject twenty minutes later.
+ */
+export type Capability = "raw" | "m2m" | "leadfield" | "simulation";
+
+export const CAPABILITY_LABEL: Record<Capability, string> = {
+  raw: "raw MRI",
+  m2m: "head model",
+  leadfield: "leadfield",
+  simulation: "simulations",
+};
+
+export interface KindReadiness {
+  requires: Capability[];
+  produces: Capability[];
+}
+
+export const READINESS: Record<NodeKind, KindReadiness> = {
+  subjects: { requires: [], produces: [] },
+  pre: { requires: ["raw"], produces: ["m2m"] },
+  leadfield: { requires: ["m2m"], produces: ["leadfield"] },
+  flex: { requires: ["m2m"], produces: [] },
+  ex: { requires: ["m2m", "leadfield"], produces: [] },
+  mex: { requires: ["m2m", "leadfield"], produces: [] },
+  sim: { requires: ["m2m"], produces: ["simulation"] },
+  analyzer: { requires: ["simulation"], produces: [] },
+  source: { requires: ["m2m"], produces: [] },
+  stats: { requires: ["simulation"], produces: [] },
+};
+
+/** subject id -> what the project says it already has. */
+export type Readiness = Record<string, Capability[]>;
+
+/** Palette order — the cohort first, then the workflow. */
+export const NODE_KINDS: NodeKind[] = ["subjects", "pre", "leadfield", "flex", "ex", "mex", "sim", "analyzer", "source", "stats"];
 
 export const PORT_LABEL: Record<PortType, string> = {
   subjects: "Subjects",
@@ -67,6 +110,7 @@ export const PORT_LABEL: Record<PortType, string> = {
 };
 
 export const KIND_TITLE: Record<NodeKind, string> = {
+  subjects: "Subjects",
   pre: "Pre-processing",
   leadfield: "Leadfield",
   flex: "Flex-search",
@@ -80,6 +124,7 @@ export const KIND_TITLE: Record<NodeKind, string> = {
 
 /** The rail icon of the page each kind belongs to, so a card is recognisable before it is read. */
 export const KIND_ICON: Record<NodeKind, LucideIcon> = {
+  subjects: Users,
   pre: SquareStack,
   leadfield: Grid3x3,
   flex: Target,
@@ -144,12 +189,66 @@ function reaches(doc: PipelineDoc, start: string, goal: string): boolean {
   return false;
 }
 
-/** May this wire be drawn? Mirrors `tit.pipeline.validate.can_connect` reason for reason. */
+/**
+ * What each subject reaching *id* has by the time the graph gets there: the project's own facts at
+ * the cohort node, plus whatever every node on the way produces. Mirrors
+ * `tit.pipeline.validate.capabilities_at`.
+ */
+export function capabilitiesAt(
+  doc: PipelineDoc,
+  id: string,
+  readiness: Readiness,
+  seen = new Set<string>(),
+): Record<string, Set<Capability>> {
+  const node = nodeById(doc, id);
+  if (!node || seen.has(id)) return {};
+  seen.add(id);
+
+  const upstream = incoming(doc, id).find((e) => e.port === "subjects")?.from;
+  if (upstream === undefined) {
+    const out: Record<string, Set<Capability>> = {};
+    for (const subject of configSubjects(node.config)) out[subject] = new Set(readiness[subject] ?? []);
+    return out;
+  }
+
+  const inherited = capabilitiesAt(doc, upstream, readiness, seen);
+  const produced = READINESS[nodeById(doc, upstream)?.kind ?? "subjects"]?.produces ?? [];
+  const out: Record<string, Set<Capability>> = {};
+  for (const [subject, caps] of Object.entries(inherited)) out[subject] = new Set([...caps, ...produced]);
+  return out;
+}
+
+/**
+ * The subjects that are not ready for *kind*, and what each is missing. Mirrors
+ * `tit.pipeline.validate.readiness_reason` — including the wording, because the sentence a user
+ * sees while dragging has to be the sentence the receipt shows once the wire is there.
+ */
+export function readinessReason(kind: NodeKind, caps: Record<string, Set<Capability>>): string | null {
+  const parts: string[] = [];
+  for (const capability of READINESS[kind]?.requires ?? []) {
+    const missing = Object.entries(caps)
+      .filter(([, have]) => !have.has(capability))
+      .map(([subject]) => subject)
+      .sort();
+    if (!missing.length) continue;
+    parts.push(`${missing.join(", ")} ${missing.length === 1 ? "has" : "have"} no ${CAPABILITY_LABEL[capability]}`);
+  }
+  return parts.length ? parts.join("; ") : null;
+}
+
+/**
+ * May this wire be drawn? Mirrors `tit.pipeline.validate.can_connect` reason for reason.
+ *
+ * `readiness` is optional and is what turns the *type* check into the real one: without it a wire
+ * is judged only on what it carries, which is the check that let `Subjects(raw) → Analyzer` be
+ * drawn at all.
+ */
 export function canConnect(
   doc: PipelineDoc,
   source: string,
   target: string,
   port: PortType,
+  readiness?: Readiness,
 ): { ok: true } | { ok: false; reason: string } {
   const src = nodeById(doc, source);
   const dst = nodeById(doc, target);
@@ -165,6 +264,14 @@ export function canConnect(
     return { ok: false, reason: `${PORT_LABEL[port]} is already wired from ${from ? displayName(from) : edge.from}` };
   }
   if (reaches(doc, target, source)) return { ok: false, reason: "that would make a cycle" };
+  if (port === "subjects" && readiness) {
+    // Type-legal; the question left is whether these particular subjects have what the target
+    // needs. Judged on the graph the drop *would* make, so a chain that produces the missing
+    // capability upstream is accepted.
+    const hypothetical: PipelineDoc = { ...doc, edges: [...doc.edges, { from: source, to: target, port }] };
+    const reason = readinessReason(dst.kind, capabilitiesAt(hypothetical, target, readiness));
+    if (reason) return { ok: false, reason };
+  }
   return { ok: true };
 }
 
@@ -214,63 +321,62 @@ export function configSubjects(config: Record<string, unknown> | undefined): str
 
 /** The one line a node card prints under its title. */
 export function nodeSummary(doc: PipelineDoc, node: PipelineNode): string {
+  if (node.kind === "subjects") {
+    const ids = configSubjects(node.config);
+    if (!ids.length) return "no subjects chosen";
+    return ids.length <= 3 ? ids.join(", ") : `${ids.slice(0, 3).join(", ")} +${ids.length - 3}`;
+  }
+
   const parts: string[] = [];
   const subjects = subjectsOf(doc, node.id);
-  const wiredSubjects = incoming(doc, node.id).some((e) => e.port === "subjects");
-  if (subjects.length) {
-    parts.push(
-      subjects.length === 1 ? String(subjects[0]) : `${subjects.length} subjects${wiredSubjects ? " (wired)" : ""}`,
-    );
-  }
-  const montages = node.config.montages;
+  if (subjects.length) parts.push(`${subjects.length} ${subjects.length === 1 ? "subject" : "subjects"}`);
+
+  // Only a real edge earns the phrase. A node is never configured from the node upstream of it,
+  // so "montages from optimizer" is printed when — and only when — that port is actually wired.
+  const bound = new Set(incoming(doc, node.id).map((e) => e.port));
+
   if (node.kind === "sim") {
-    if (incoming(doc, node.id).some((e) => e.port === "montages")) parts.push("montages from optimizer");
-    else if (Array.isArray(montages) && montages.length) {
-      const names = montages.map((m) => String((m as { name?: unknown })?.name ?? "")).filter(Boolean);
-      parts.push(names.length ? names.join(", ") : `${montages.length} montages`);
+    if (bound.has("montages")) parts.push("montages from optimizer");
+    else {
+      const montages = node.config.montages;
+      if (Array.isArray(montages) && montages.length) {
+        const names = montages.map((m) => String((m as { name?: unknown })?.name ?? "")).filter(Boolean);
+        parts.push(names.length ? names.join(", ") : `${montages.length} montages`);
+      }
     }
   }
   if (node.kind === "analyzer") {
-    if (incoming(doc, node.id).some((e) => e.port === "simulation")) parts.push("simulation from Simulator");
+    if (bound.has("simulation")) parts.push("simulation from Simulator");
     else if (node.config.simulation) parts.push(String(node.config.simulation));
-    const analysisType = node.config.analysis_type;
-    if (analysisType) parts.push(String(analysisType));
+    if (node.config.analysis_type) parts.push(String(node.config.analysis_type));
   }
   if (node.kind === "flex" || node.kind === "ex" || node.kind === "mex") {
-    const goal = node.config.goal;
-    if (goal) parts.push(String(goal));
+    if (node.config.goal) parts.push(String(node.config.goal));
   }
   return parts.join(" · ") || "not configured yet";
 }
 
-/**
- * A worked example the empty canvas can offer: pre → flex → sim → analyzer, wired the way the
- * four steps actually depend on each other, on whichever subject the project has.
- *
- * It is the same graph the D6 gate submits, which is deliberate: the button hands a first-time
- * user a pipeline that is known to validate and run, rather than four unconfigured cards.
- */
 export function samplePipeline(subject: string): PipelineDoc {
   return {
     version: 1,
     name: "sample",
     nodes: [
-      // Two columns, two rows: a 208 px card four-across is ~1000 px, which `fitView` would have to
-      // shrink to about half size to fit the canvas beside the receipt. Folded, the sample opens at
-      // full size and still reads left-to-right, top-to-bottom.
-      { id: "pre1", kind: "pre", label: "Head model", config: { subject_ids: [subject], create_m2m: true }, position: { x: 0, y: 0 } },
-      { id: "flex1", kind: "flex", label: "Find a montage", config: { goal: "mean", postproc: "max_TI" }, position: { x: 260, y: 0 } },
-      { id: "sim1", kind: "sim", label: "Simulate it", config: { conductivity: "scalar" }, position: { x: 0, y: 190 } },
+      // The cohort, once. Every step after it is configured on its own and handed these subjects.
+      { id: "sub1", kind: "subjects", label: "Subjects", config: { subject_ids: [subject] }, position: { x: 0, y: 95 } },
+      { id: "pre1", kind: "pre", label: "Head model", config: { create_m2m: true }, position: { x: 260, y: 0 } },
+      { id: "flex1", kind: "flex", label: "Find a montage", config: { goal: "mean", postproc: "max_TI" }, position: { x: 260, y: 190 } },
+      { id: "sim1", kind: "sim", label: "Simulate it", config: { conductivity: "scalar" }, position: { x: 520, y: 95 } },
       {
         id: "an1",
         kind: "analyzer",
         label: "Measure the ROI",
         config: { space: "mesh", analysis_type: "spherical", center: [0, 0, 0], radius: 5 },
-        position: { x: 260, y: 190 },
+        position: { x: 780, y: 95 },
       },
     ],
     edges: [
-      { from: "pre1", to: "flex1", port: "subjects" },
+      { from: "sub1", to: "pre1", port: "subjects" },
+      { from: "sub1", to: "flex1", port: "subjects" },
       { from: "pre1", to: "sim1", port: "subjects" },
       { from: "flex1", to: "sim1", port: "montages" },
       { from: "sim1", to: "an1", port: "subjects" },

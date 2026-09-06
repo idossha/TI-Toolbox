@@ -301,39 +301,43 @@ def localise_scene_paths(
 
 
 def _scene_files(spec: dict[str, Any], localised: dict[str, Any]) -> list[dict[str, Any]]:
-    """One row per dataset the scene references: its host-facing path and its size.
+    """One row per dataset the scene references -- the Viewer's editable list.
 
-    The Viewer page's preview strip.  Sizes are read from the *container's*
-    own paths (``spec["layers"]``), because that is where the bytes are;
-    the path reported back is the localised one, because that is the name a
-    person can check on their own machine.  A file that cannot be stat'ed
-    reports ``bytes: null`` rather than 0 -- "unknown" and "empty" are
-    different answers and only one of them is a problem.
+    Both path languages, because the row does two jobs: ``path`` is what the
+    scene carries and what a person can check on their own machine, and
+    ``container_path`` is what the client sends back in ``files`` when the row
+    is kept, moved or joined by another (VM2).  A row that reported only the
+    host path could not be handed back to a server that jails container paths.
+
+    Layers and datasets are the same list in the same order
+    (``to_tetravox_viewspec`` builds one dataset per layer, in order), so they
+    are zipped rather than matched by basename -- two files with the same
+    basename in different directories are ordinary here.
+
+    Sizes come from the container's own paths, because that is where the bytes
+    are.  A file that cannot be stat'ed reports ``bytes: null`` rather than 0:
+    "unknown" and "empty" are different answers and only one is a problem.
     """
-    sizes: dict[str, int | None] = {}
-    for layer in spec.get("layers", []):
-        raw = layer.get("path")
-        if not isinstance(raw, str):
-            continue
-        try:
-            sizes[os.path.basename(raw)] = os.path.getsize(raw)
-        except OSError:
-            sizes[os.path.basename(raw)] = None
     rows: list[dict[str, Any]] = []
-    for dataset in localised.get("datasets", []):
+    for layer, dataset in zip(spec.get("layers", []), localised.get("datasets", [])):
         if not isinstance(dataset, dict):
             continue
+        container = layer.get("path")
         path = dataset.get("path")
-        if not isinstance(path, str):
+        if not isinstance(container, str) or not isinstance(path, str):
             continue
-        base = path.replace("\\", "/").rsplit("/", 1)[-1]
+        try:
+            size: int | None = os.path.getsize(container)
+        except OSError:
+            size = None
         rows.append(
             {
                 "id": dataset.get("id"),
                 "kind": dataset.get("kind"),
-                "name": dataset.get("name") or base,
+                "name": dataset.get("name") or os.path.basename(container),
                 "path": path,
-                "bytes": sizes.get(base),
+                "container_path": container,
+                "bytes": size,
             }
         )
     return rows
@@ -363,6 +367,11 @@ def view_open(body: dict[str, Any] | None = None) -> dict[str, Any]:
         )
     extras = payload.get("extras")
     overrides = payload.get("overrides")
+    # VM2: the Viewer page is one editable "what will open" list. When the
+    # client sends that list it is *authoritative* -- these datasets, this
+    # order -- and the view type contributes only each kept file's default
+    # layer settings. Absent, nothing changes for any caller.
+    files = payload.get("files")
     spec = viewspec.build_view(
         kind,
         subject=payload.get("subject"),
@@ -375,6 +384,7 @@ def view_open(body: dict[str, Any] | None = None) -> dict[str, Any]:
         path=payload.get("path"),
         extras=list(extras) if isinstance(extras, list) else None,
         overrides=overrides if isinstance(overrides, dict) else None,
+        files=list(files) if isinstance(files, list) else None,
     )
     if spec is None:
         raise HTTPException(
@@ -414,6 +424,24 @@ def view_open(body: dict[str, Any] | None = None) -> dict[str, Any]:
         "files": _scene_files(spec, localised),
         "dry_run": dry_run,
     }
+
+
+@router.get(
+    "/api/viewer/candidates",
+    summary="Every file this subject/simulation offers the Viewer's \"+ Add…\"",
+)
+def viewer_candidates(
+    subject: str | None = Query(None),
+    simulation: str | None = Query(None),
+    space: str | None = Query(None),
+) -> dict[str, Any]:
+    """A read: it opens nothing and writes nothing.
+
+    Only files a scene can actually use are listed (volumes and meshes), each
+    with its size, because the point of the picker is to choose without
+    guessing -- and one of these files is routinely 64 MB.
+    """
+    return {"candidates": viewspec.viewer_candidates(subject, simulation, space)}
 
 
 # ---------------------------------------------------------------------------

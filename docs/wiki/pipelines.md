@@ -12,12 +12,19 @@ Run once. The whole graph is submitted as **one job group**, so it appears in Jo
 can watch and cancel as one thing. The same graph exports to a Jupyter notebook that runs the same
 work from Python.
 
-Two rules explain everything else on the page:
+Four rules explain everything else on the page:
 
-1. **A node is one existing job kind carrying exactly the config that page already builds.** There is
-   no new kind of run, no new runner, and nothing a pipeline can do that the Simulator or Analyzer
-   page cannot. A `sim` node *is* a Simulator run.
-2. **A pipeline run is one job group.** The edges you draw become the `after` dependencies the job
+1. **The cohort is a node.** A **Subjects** node names who the graph is about, once. It runs
+   nothing. Every other node is handed those subjects over a wire — no node carries its own copy of
+   the subject list, so two steps in one graph can never disagree about who is in the study.
+2. **A node is one existing job kind carrying exactly the config that page already builds — its
+   own.** There is no new kind of run, no new runner, and nothing a pipeline can do that the
+   Simulator or Analyzer page cannot. A `sim` node *is* a Simulator run. **A node is never
+   configured from the node upstream of it**: an edge carries one named value and nothing else.
+3. **A wire is refused when the subjects on it are not ready for what it feeds.** Port types say
+   what a wire carries; readiness says whether these particular subjects can be run through the
+   target. Both are checked, and the second one names the subjects that fail.
+4. **A pipeline run is one job group.** The edges you draw become the `after` dependencies the job
    scheduler already understands. The scheduler stays the only thing that decides what runs when;
    the canvas never sequences jobs itself.
 
@@ -30,7 +37,8 @@ two ports of the same type — the canvas refuses anything else while you are dr
 
 | Node | Takes | Produces |
 |---|---|---|
-| Pre-processing (`pre`) | — | subjects |
+| **Subjects** (`subjects`) | — | subjects |
+| Pre-processing (`pre`) | subjects | subjects |
 | Leadfield (`leadfield`) | subjects | subjects, leadfield |
 | Flex-search (`flex`) | subjects, ROI | subjects, montage names, ROI |
 | Ex-search (`ex`) / mEx-search (`mex`) | subjects, ROI, leadfield | subjects, montage names, ROI |
@@ -52,18 +60,67 @@ The five port types:
 - **Leadfield** — the `.hdf5` an ex/mEx search needs.
 
 An input that is not wired is not an error: it just has to be filled in on the node's own form. A
-Simulator whose montages you picked by hand is a perfectly good one-node pipeline. A step that is
-wired to nothing at all is not an error either — it simply runs on its own, and the receipt says so
-once, at the bottom ("3 steps run independently"), rather than warning you about each one.
+Simulator whose montages you picked by hand is fine. A step that is wired to nothing at all is not
+an error either — it simply runs on its own, and the receipt says so once, at the bottom
+("3 steps run independently"), rather than warning you about each one.
 
-A **required** input that is neither wired nor filled in *is* an error, and the card says which:
-a red **needs: subjects** chip on the card itself. Click the chip and the node's form opens with
-that field focused; wire the port and the chip goes away.
+A step with **no cohort wired to it** *is* an error, and the card says so with a red
+**needs: subjects** chip. Wire a Subjects node to it and the chip goes away.
+
+## What a subject has, and what that lets you wire
+
+Drawing a wire asks two questions. The first is the port type — a Simulator produces a *simulation
+name*, so it can feed an Analyzer. The second is about the **subjects on the wire**: an Analyzer
+runs on a simulation that already exists, so a cohort with no simulations has nothing for it to
+analyse, and the wire is refused while you are still dragging it:
+
+> `102, test have no simulations`
+
+Four facts are tracked, all of them read from the same **Overview** you already look at:
+
+| Capability | What it means |
+|---|---|
+| raw MRI | the subject has converted structural data |
+| head model | `m2m_<subject>` exists (`charm` has run) |
+| leadfield | at least one EEG net has a leadfield |
+| simulations | the subject has at least one finished simulation |
+
+| Step | Needs of every subject | Leaves behind |
+|---|---|---|
+| **Subjects** | — | — |
+| Pre-processing | raw MRI | **head model** |
+| Leadfield | head model | **leadfield** |
+| Flex-search | head model | — |
+| Ex-search / mEx-search | head model + leadfield | — |
+| Simulator | head model | **simulations** |
+| Analyzer | simulations | — |
+| Source model | head model | — |
+| Group statistics | simulations | — |
+
+The "leaves behind" column is what makes a chain work. Subjects with nothing but raw data cannot be
+wired to the Simulator — but wire them through **Pre-processing** first and they can, because
+Pre-processing is what makes the head model the Simulator needs:
+
+```
+Subjects(raw only) ─▶ Simulator                      refused: "102, test have no head model"
+Subjects(raw only) ─▶ Pre-processing ─▶ Simulator    fine
+Subjects(with simulations) ─▶ Analyzer               fine — no Simulator needed
+```
+
+A **multi-subject** cohort is wired only if **every** subject satisfies the requirement; the refusal
+names the ones that do not, and never blames the ones that do. If part of a cohort is ready and
+part is not, split it into two Subjects nodes.
+
+The cohort node's own editor shows each subject's presence columns and what it is ready for, so the
+reason arrives before the refusal does. The same table is served at `GET /api/pipelines/kinds` and
+applied again by `POST /api/pipelines/validate`, so the refusal you see mid-drag and the one in the
+receipt are the same sentence.
 
 ## Working on the canvas
 
 | To… | Do |
 |---|---|
+| start a graph | add a **Subjects** node and choose who takes part |
 | add a step | click it in the palette (it lands in the middle of the view), or drag it onto the canvas |
 | wire two steps | drag from an output handle on the right of one card to the same-coloured input handle on the left of another |
 | see what a handle is | hover the card — every port prints its name |
@@ -80,7 +137,8 @@ Nothing is ever dropped silently.
 
 ## Editing a node
 
-Double-click a card. The form that opens is the *same form* its page uses — the Optimizer's
+Double-click a card. A **Subjects** node opens the project's subject list with the Overview's own
+readiness columns. Every other node opens the *same form* its page uses — the Optimizer's
 objective and electrode sections, the shared ROI picker, the Analyzer's target fields. A field whose
 value arrives over a wire is shown disabled, with a line saying where it comes from.
 

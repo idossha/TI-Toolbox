@@ -234,13 +234,20 @@ guide's `guide-ras` is still no research subject's space.
 
 ### 7.3 Pipelines
 
-A **pipeline** is a directed acyclic graph whose nodes are existing job kinds and whose edges are
-typed bindings between one node's named output and another node's same-named input. Its wire form is
-`contracts/pipeline.schema.json` (`version: 1`); it is stored in the project at
-`code/ti-toolbox/pipelines/<name>.json`.
+A **pipeline** is a directed acyclic graph whose source is a `subjects` node naming the cohort, whose
+other nodes are existing job kinds, and whose edges are typed bindings between one node's named
+output and another node's same-named input. Its wire form is `contracts/pipeline.schema.json`
+(`version: 1`); it is stored in the project at `code/ti-toolbox/pipelines/<name>.json`.
 
-1. *A pipeline introduces no job kind.* Every `PipelineNode.kind` is a member of
+1. *A pipeline introduces no job kind.* Every `PipelineNode.kind` but `subjects` is a member of
    `tit.jobs.spec.JOB_KINDS`, and its `config` is the same shape the matching page already builds.
+   `subjects` is the one node that is not a job: it names who the graph is about and plans nothing.
+1a. *The cohort is stated once, and a node is never configured from the node upstream of it.* The
+   subject list lives on the `subjects` node and reaches the rest of the graph over the `subjects`
+   port; no processing node carries a copy, so two nodes in one graph cannot disagree about who is
+   in the study. An edge carries **one named value and nothing else** — `Optimizer -> Simulator` on
+   `montages` means "this Simulator's montage list is that flex result" and says nothing about any
+   other setting of either node.
 2. *A pipeline run is one job group.* `POST /api/pipelines/run` performs exactly one
    `JobManager.submit_plan`; every job carries the one returned `group_id`, and every job's `after`
    is the document's edges resolved to real job ids. There is no second executor and no client-side
@@ -248,6 +255,18 @@ typed bindings between one node's named output and another node's same-named inp
    tail work on a pipeline for free.
 3. *Port types are a closed set*: `subjects | montages | simulation | roi | leadfield`. An edge joins
    two ports of the same type or it is refused with a reason.
+3a. *A `subjects` edge is additionally gated on readiness.* `tit.pipeline.validate.KIND_READINESS` is
+   the single table of what each kind **requires** of a subject and what it **produces** for the
+   nodes after it, over a closed set of capabilities — `raw | m2m | leadfield | simulation` — read
+   from the same aggregate the Overview page shows (`GET /api/catalog/overview`). A wire is legal
+   only when **every** subject on it has what the target requires; the refusal names the subjects
+   that do not ("102, test have no head model"), never a count. `produces` is what lets a chain
+   satisfy a requirement its cohort does not: `Subjects(raw) -> Pre -> Simulator` is legal because
+   `pre` produces `m2m`, while `Subjects(raw) -> Simulator` is not. The table is served to the
+   canvas at `GET /api/pipelines/kinds` so a **drag** can be refused before any graph exists, and
+   applied again inside `POST /api/pipelines/validate` and `/run`, so the drag-time refusal and the
+   receipt are the same sentence from the same definition. A project that cannot be read falls back
+   to checking shape only rather than refusing every wire.
 4. *Validation answers, it does not throw.* `POST /api/pipelines/validate` returns 200 with
    `ok: false` and one issue per problem; 422 means the body is not a pipeline document.
 5. *Bindings are static where possible and a `resolve` job where not.* `subjects`, `roi` and a

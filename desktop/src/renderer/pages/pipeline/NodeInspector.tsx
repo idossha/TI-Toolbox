@@ -23,8 +23,17 @@ import { Callout } from "../../ui/Feedback";
 import { ObjectiveSection, ElectrodesSection } from "../optimizer/FlexSections";
 import { RoiPicker, getAtlases, type Atlas, type AtlasLookup, type RoiValue } from "../_shared/roi";
 import type { FlexFormState } from "../optimizer/flexConfig";
-import { PRE_STAGES, parseSubjects, type NodeEditor } from "./editors";
-import { KIND_TITLE, PORT_LABEL, incoming, type PipelineDoc, type PipelineNode, type PortType } from "./graph";
+import { PRE_STAGES, type NodeEditor } from "./editors";
+import { SubjectsEditor } from "./SubjectsEditor";
+import {
+  KIND_TITLE,
+  PORT_LABEL,
+  incoming,
+  subjectsOf,
+  type PipelineDoc,
+  type PipelineNode,
+  type PortType,
+} from "./graph";
 
 /** Same per-subject atlas resolution the Optimizer page does, for one subject. */
 export function useAtlasLookup(subject: string | undefined, value: RoiValue | undefined): (atlas: string) => AtlasLookup | undefined {
@@ -57,8 +66,10 @@ export function NodeInspector({
   onClose: () => void;
 }) {
   const wired = incoming(doc, node.id);
-  const subjectsWired = wired.some((e) => e.port === "subjects");
-  const subjects = "subjects" in editor ? parseSubjects(editor.subjects) : [];
+  // The cohort a node runs over comes from the graph, never from the node: it is stated once, on
+  // the `subjects` node, and reaches this one over the wire. `subjects[0]` is only ever used to
+  // ask the catalog which atlases *a* subject has, so a form can list regions.
+  const subjects = subjectsOf(doc, node.id);
   const body = useRef<HTMLDivElement>(null);
 
   const jsonError = useMemo(() => {
@@ -124,29 +135,19 @@ export function NodeInspector({
                 </ul>
               </Field>
             )}
-            {"subjects" in editor && (
-              <Field
-                label="Subjects"
-                help={
-                  subjectsWired
-                    ? "Wired from an upstream node — this field is ignored while the wire is there."
-                    : "Comma- or space-separated subject ids."
-                }
-                className="pipeline-span"
-              >
-                <input
-                  className="input"
-                  value={editor.subjects}
-                  data-port="subjects"
-                  disabled={subjectsWired}
-                  placeholder="ernie, 101"
-                  onChange={(e) => onEditorChange({ ...editor, subjects: e.target.value } as NodeEditor)}
-                  aria-label="Subjects"
-                />
-              </Field>
-            )}
           </>
         </FormSection>
+
+        {editor.kind === "subjects" && (
+          <FormSection title="Cohort">
+            <div className="pipeline-span">
+              <SubjectsEditor
+                value={editor.subjects}
+                onChange={(next) => onEditorChange({ ...editor, subjects: next })}
+              />
+            </div>
+          </FormSection>
+        )}
 
         {editor.kind === "pre" && (
           <FormSection title="Stages">
