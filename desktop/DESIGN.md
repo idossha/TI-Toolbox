@@ -1020,57 +1020,89 @@ the app updates itself and its releases are not this project's to pin.
 
 ## 10. Viewer
 
-**The Viewer page is a data selector, not a viewer** (V1,
-`dev/notes/v3-native-panes-external-viewer-plan.md`). The maintainer's words: *"the viewer tab only
-acts as the data selection and it actually opens up everything in [an external window] like we have
-in 2.5.0."*
+**The Viewer page is a composition panel, not a viewer** (V1 + VM,
+`dev/notes/v3-native-panes-external-viewer/{VX,VM}.md`). V1's brief: *"the viewer tab only acts as
+the data selection and it actually opens up everything in [an external window] like we have in
+2.5.0."* VM's, on seeing what that produced — a 40 px bar over a black rectangle with a ghost list
+in it: *"make the menu for the visualizer much more extensive and centred — since the viewer opens
+in its own window, the page can be graceful and let users enjoy an extensive menu experience."*
 
 The embed is retired. Nothing on this page draws pixels and nothing on this page is an `<iframe>`:
 the picture belongs to the **Tetravox desktop app**, a signed, notarised, self-updating application
 on the host, with its own window, its own theme, its own panels and its own release cadence. What
-this page owes a person is the selection, one sentence about what will open, and a button.
+this page owes a person is the whole composition — and a composition deserves a centred column with
+room to think in, not a strip of selects over a canvas that will never draw anything.
 
 ```
 ┌──────┬────────────────────────────────────────────────────────────┐
-│ rail │ TYPE ⟨Simulation ▾⟩ SUBJECT ⟨ernie ▾⟩ SIMULATION ⟨… ▾⟩     │ 40  source bar
-│  56  │ FIELD ⟨TI_max ▾⟩       SPACE ⟨Subject│MNI⟩ [Open in Tetravox]│
-│      ├────────────────────────────────────────────────────────────┤
-│      │  What will open                                            │
-│      │  · T1.nii.gz                                    grayscale  │
-│      │  · Thalamus_TI_max.nii.gz                            heat  │
-│      │  Opened simulation.tetravox.json — /Users/…/viewer/…       │
+│ rail │            Compose a scene                                 │  centred, max 880
+│  56  │            Pick what to look at and how it should look…    │
+│      │            ── SOURCE ────────────────────────────────      │
+│      │            Type ⟨Simulation⟩   Subject ⟨ernie⟩             │  label-left, 2 cols
+│      │            Simulation ⟨…⟩      Field ⟨…⟩                   │
+│      │            Space ⟨Subject│MNI⟩                             │
+│      │            ── LAYERS ────────────────────────────────      │
+│      │            [👁 T1                          grayscale]      │  one card per layer
+│      │             Opacity ▬▬▬▬ 100%   Colormap ⟨gray⟩            │
+│      │             Threshold ⟨lo⟩⟨hi⟩  In 3D ☐                    │
+│      │            ── LAYOUT & CAMERA ───────────────────────      │
+│      │            Panes ⟨1×1│1+3│2×2│3D⟩  Camera ⟨A P L R S I⟩    │
+│      │            Background ⟨Dark│Black│Light⟩  Convention ☐     │
+│      │            ── ALSO OPEN ─────────────────────────────      │
+│      │            ☐ Subject T1   ☐ Atlas labels …                 │
+│      │            ┌ What will open ──────────── 5 files ┐         │  preview card
+│      │            │ T1.nii.gz            volume   12.5 MB│        │
+│      │            └───────────────────────────────────────┘       │
+│      │  [Save as preset…] [Recent]              [Open in Tetravox] │  sticky footer
 └──────┴────────────────────────────────────────────────────────────┘
 ```
 
-- **The source bar owns the *draft* selection; Open owns the command.** A view Type selector plus
-  the selectors that type takes (subject, simulation, analysis, field, atlas, space, ROI, custom
-  path), then **Open in Tetravox**. Editing a selector changes nothing but the draft: no request,
-  no window. Open performs exactly one `POST /api/view/open` and hands the shell exactly one file.
-  The bar scrolls horizontally rather than growing a second row.
+- **The rule that decides what the panel may offer: every knob has to land in the scene file.** A
+  control whose value the server cannot write is a lie told to the person using it, and nothing on
+  screen would say so. The vocabulary is therefore the server's
+  (`tit/viewspec.py::apply_scene_overrides`, `EXTRA_LAYERS`), which is in turn the engine's own
+  ViewSpec v2 type. This is also why there is **no electrode-*points* checkbox**: ViewSpec v2 has
+  no points layer. The electrode overlay *volume* exists, so that is what "Also open" offers.
+- **Four sections, each with a one-line description.** Source (what the scene is built from — the
+  type decides which fields follow), Layers (what the selection resolved to, with the server's own
+  defaults), Layout & camera (how the window is divided and where the camera starts), Also open
+  (extra files). A heading that is a noun with no verb makes a reader open the section to find out
+  what it does; the line costs 16 px and is read once.
+- **The draft → command grammar covers the composition too.** Editing anything — a selector, an
+  opacity, a layout — edits the draft. Drafting costs one `dry_run` request, which writes no file
+  and launches nothing. **Open** is the one place a scene is written and the one place the app is
+  launched: one `POST /api/view/open`, one file, one spawn.
+- **The preview strip is the same endpoint, in dry run.** A preview built by different code from
+  the thing it previews is a preview that can be wrong, and the one moment this page must not be
+  wrong is the moment before another application's window covers someone's work. It lists the
+  resolved files with their sizes, because "this is a 64 MB mesh" is the fact a person wants before
+  the window opens, not after.
+- **A preset is kept; a recent is a footprint.** Presets are JSON under
+  `<project>/code/ti-toolbox/viewer/presets/` — the project is the unit people copy, archive and
+  share, and a preset in browser storage would be lost exactly when the work it describes was
+  passed on. Recents are the last eight *opened*, in this machine's browser storage, where losing
+  them costs nothing. Restoring either fills the panel and opens nothing.
 - **A second Open reuses the window that is already open.** Tetravox holds a single-instance lock
   and routes a second launch's file into the running window (verified in its repo at 0.3.11), so
   this page never has to track whether the app is running.
-- **The summary is a list of files, not a picture of one.** "What will open" names each layer the
-  server would build, with its colormap. It is the honest thing a selector can say, and it is
-  deliberately not a thumbnail: a small wrong preview is worse than none.
-- **The page is allowed to be mostly empty.** It is a form and a summary; padding it out to fill a
-  1440 px window would be filling space, not designing it. This is the one page whose dead-space
-  budget (§9) does not apply.
+- **Layer names, defaults and colormaps are the server's.** `tit/viewspec.py` decides what a layer
+  is called and how it starts; no display-name mapping and no default table lives in the client.
 - **Three states, each naming what happened.**
-  - **Nothing selected** — "Choose what to look at above, then press Open in Tetravox."
-  - **Tetravox not installed** — the shell looked in the platform's usual places and in the
-    Settings override and found nothing. Leads with that fact and offers **Download Tetravox**;
-    Open is disabled rather than failing on click. Everything else on the page still works.
+  - **Nothing selected** — the Layers section says "Choose a source above and the layers it
+    resolves to appear here"; Open's disabled title says what is missing.
+  - **Tetravox not installed** — a callout at the top of the panel leads with that fact and offers
+    **Download Tetravox**; Open is disabled rather than failing on click. Everything else still
+    works, because composing a scene does not need the app.
   - **Browser mode** — there is no main process to start an application, so the button reads
     **Download scene** and the sentence afterwards says to open it with File ▸ Open Scene…. This is
     a complete answer, not a degraded one: the file is the interface.
-- **Settings ▸ Viewer is the other half.** The resolved path and version, a path override for an
-  AppImage outside `PATH`, and the same download link. It reaches no network — it looks at the
-  local filesystem through `window.tit.viewer.probe`.
-- **Layer names are the server's.** `tit/viewspec.py` decides what a layer is called; no
-  display-name mapping lives in the client.
-- **Keyboard.** `⌘⇧V` is gone with the canvas it focused. There is nothing on this page that owns
-  unmodified keys, so the shell keeps all of its shortcuts here as on every other page.
+- **Settings ▸ Viewer is the other half.** The resolved path and version, a path override, and the
+  same download link. It reaches no network.
+- **The panel is centred and may be shorter than the window.** A composition panel is a column of
+  controls; padding it to fill 1440 px would be filling space, not designing it. This remains the
+  one page whose dead-space budget (§9) does not apply.
+- **Keyboard.** `⌘⇧V` is gone with the canvas it focused. Nothing here owns unmodified keys, so the
+  shell keeps all of its shortcuts on this page as on every other.
 
 ## 11. Status bar — removed
 
