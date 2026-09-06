@@ -34,7 +34,8 @@
   padding: 0 var(--space-1);
 }
 
-/* Icon-only, 28px, right-aligned — three of them fit the 13% actions column. */
+/* Icon-only, 28px, right-aligned — three of them plus their gaps are exactly the 96px the
+   actions column reserves (ACTIONS_W in MontageManager). There is no slack column after it. */
 .montage-table td.montage-actions {
   display: flex;
   gap: 2px;
@@ -95,21 +96,84 @@
 
 .montage-currents .number-input {
   min-width: 0;
-  max-width: 64px;
+  max-width: none;
   width: 100%;
 }
 
-/* The "mA" suffix stays (DESIGN.md §4.2 rule 2); the digits give up their left padding for it. */
+/* The unit is in the column header, not in every cell (DESIGN.md §4.3: a table states its unit
+   once). Four suffixes at 24px each is a quarter of the column, and the column is what the net and
+   montage names were being starved by. */
 .montage-currents .number-input input {
   min-width: 0;
   padding-left: 2px;
 }
 
-/* The active row: what the 3-D pane is drawing. A quiet tint plus an accent edge — never a colour
-   that competes with a job state. */
-.montage-table tbody tr[data-active="true"] {
-  background: var(--surface-2, rgb(0 0 0 / 4%));
+/*
+ * The active row: what the 3-D pane is drawing.
+ *
+ * The tint has to be set on the CELLS, not on the <tr>. `.data-table tbody td` paints every cell
+ * `--surface` on purpose (a cell is a surface, not a hole in the page), which painted straight over
+ * the row's own background — the reason the row the viewer was showing looked exactly like every
+ * other row. `--accent-soft` plus a 2px `--accent` bar on the first cell; both are theme tokens, so
+ * dark gets the dark pair, and neither is a job-state colour.
+ */
+.montage-table tbody tr[data-active="true"] > td {
+  background-color: var(--accent-soft);
+}
+.montage-table tbody tr[data-active="true"] > td:first-child {
   box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* Hover is the usual quiet wash, and loses to the active row. Mixed against --surface rather than
+   left transparent, for the same reason: the cell under it is opaque. */
+.montage-table tbody tr:hover > td {
+  background-color: color-mix(in srgb, var(--accent-soft) 40%, var(--surface));
+}
+.montage-table tbody tr[data-active="true"]:hover > td {
+  background-color: var(--accent-soft);
+}
+
+/* ---------- Resizable columns ---------- */
+
+.montage-table thead th {
+  position: relative;
+}
+
+/* The boundary between two header cells. The same gesture as the pane divider (pointer capture +
+   arrow keys); 7px of target on a 1px rule, which is what makes it grabbable without drawing a
+   second line down the header. */
+.montage-col-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 8px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: col-resize;
+  z-index: 2;
+  touch-action: none;
+}
+.montage-col-handle::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  right: 0;
+  width: 1px;
+  background: var(--line);
+}
+.montage-col-handle:hover::after,
+.montage-col-handle:focus-visible::after {
+  background: var(--accent);
+  top: 0;
+  bottom: 0;
+  width: 2px;
+}
+
+.montage-col-handle:focus-visible {
+  outline: none;
 }
 
 .montage-table tbody tr[data-montage-row]:focus-visible {
@@ -121,4 +185,11 @@
    72px the bare w/h boxes take (`--control-w`, ui/components.css `.field-row-inline`). */
 .sim-gel-field {
   --control-w: 88px;
+}
+
+/* The unit in a header that is otherwise uppercased: "CURRENTS (MA)" is not a unit, "mA" is. */
+.montage-unit {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
 }

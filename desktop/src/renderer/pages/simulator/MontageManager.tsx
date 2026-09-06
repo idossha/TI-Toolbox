@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Pencil, Trash2, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, IconButton } from "../../ui/Button";
@@ -66,6 +66,148 @@ export function currentSlotsReserved(counts: number[]): number {
   return Math.max(4, ...counts, 0);
 }
 
+/* ------------------------------------------------------------------------------------------------
+ * Column widths.
+ *
+ * The table must never scroll sideways (its container's scrollWidth == clientWidth is asserted),
+ * which rules out the pixel colgroup it started with; percentages fixed that but spent the width
+ * badly — "BioSemi-128" and "mTI_F3F4_P3P4 · mTI" were truncated in their selects while a band of
+ * nothing sat in front of three 28px icons. So: the actions column is a fixed 96px (three icons
+ * plus their gaps and the cell's padding, and not one pixel of slack), and the other four share
+ * what is left, resolved to exact pixels that sum to the container. The user can drag any of the
+ * first three boundaries; `currents` absorbs the remainder, and if it cannot the shrink walks back
+ * up the row. The final proportional pass is what makes "sums to the container" true even when
+ * every column is already at its minimum.
+ * --------------------------------------------------------------------------------------------- */
+
+export type ColumnKey = "net" | "montage" | "pairs";
+
+/** The three widths a user can set. `null` = never dragged, so the fractional default applies. */
+export type StoredColumns = Partial<Record<ColumnKey, number>>;
+
+export interface ColumnWidths {
+  net: number;
+  montage: number;
+  pairs: number;
+  currents: number;
+  actions: number;
+}
+
+/** Three 28px icon buttons, 2px apart, inside a cell with --space-1 of padding. No slack column. */
+export const ACTIONS_W = 96;
+
+/** Below these a column stops being a control and becomes a sliver. */
+export const COLUMN_MIN: Record<keyof Omit<ColumnWidths, "actions">, number> = {
+  net: 90,
+  montage: 110,
+  pairs: 48,
+  currents: 96,
+};
+
+/** Shares of the resizable area when nothing is stored — sized so a net name and a montage name
+ *  both fit at the 608px work column the run shape gives the Simulator at 1280. */
+const COLUMN_DEFAULT_FRACTION = { net: 0.29, montage: 0.32, pairs: 0.08 } as const;
+
+export const COLUMNS_STORAGE_KEY = "tit-montage-columns-v1";
+
+/**
+ * Exact pixel widths for a table `container` px wide. Total is always `container`, so a colgroup
+ * built from it cannot overflow — that is the invariant, not an arithmetic coincidence.
+ */
+export function resolveColumnWidths(container: number, stored: StoredColumns): ColumnWidths {
+  const avail = Math.max(0, Math.round(container) - ACTIONS_W);
+  const pick = (k: ColumnKey) =>
+    Math.max(COLUMN_MIN[k], Math.round(stored[k] ?? avail * COLUMN_DEFAULT_FRACTION[k]));
+  const w = { net: pick("net"), montage: pick("montage"), pairs: pick("pairs"), currents: 0 };
+  w.currents = avail - w.net - w.montage - w.pairs;
+
+  // Not enough left for the currents inputs: take it back from the widest-first, never below a min.
+  if (w.currents < COLUMN_MIN.currents) {
+    let need = COLUMN_MIN.currents - w.currents;
+    for (const k of ["pairs", "montage", "net"] as const) {
+      const give = Math.min(w[k] - COLUMN_MIN[k], need);
+      w[k] -= give;
+      need -= give;
+      if (need <= 0) break;
+    }
+    w.currents = avail - w.net - w.montage - w.pairs;
+  }
+
+  // Even the minimums may not fit a very narrow pane. Scale, then put the rounding residue on
+  // `currents` so the four still add up to `avail` exactly.
+  const total = w.net + w.montage + w.pairs + Math.max(0, w.currents);
+  if (total > 0 && total !== avail) {
+    const scale = avail / total;
+    w.net = Math.max(1, Math.floor(w.net * scale));
+    w.montage = Math.max(1, Math.floor(w.montage * scale));
+    w.pairs = Math.max(1, Math.floor(w.pairs * scale));
+  }
+  w.currents = Math.max(0, avail - w.net - w.montage - w.pairs);
+  return { ...w, actions: ACTIONS_W };
+}
+
+/** Reads the persisted widths; never throws (storage can be disabled or corrupt). */
+export function readStoredColumns(storage: Pick<Storage, "getItem"> | undefined): StoredColumns {
+  if (!storage) return {};
+  try {
+    const raw = storage.getItem(COLUMNS_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return {};
+    const rec = parsed as Record<string, unknown>;
+    const out: StoredColumns = {};
+    for (const k of ["net", "montage", "pairs"] as const) {
+      const v = rec[k];
+      if (typeof v === "number" && Number.isFinite(v)) out[k] = Math.max(COLUMN_MIN[k], Math.round(v));
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+export function writeStoredColumns(storage: Pick<Storage, "setItem"> | undefined, cols: StoredColumns): void {
+  if (!storage) return;
+  try {
+    storage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify(cols));
+  } catch {
+    /* storage disabled or full — the table still resizes, it just forgets. */
+  }
+}
+
+/** One header boundary. Pointer capture and arrow keys, the same gesture as the pane divider. */
+function ColumnHandle({ label, width, onResize }: { label: string; width: number; onResize: (next: number) => void }) {
+  return (
+    <button
+      type="button"
+      className="montage-col-handle"
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={`Resize ${label} column`}
+      tabIndex={0}
+      onPointerDown={(e) => {
+        e.preventDefault();
+        const startX = e.clientX;
+        const startWidth = width;
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        const onMove = (ev: PointerEvent) => onResize(startWidth + (ev.clientX - startX));
+        const onUp = () => {
+          window.removeEventListener("pointermove", onMove);
+          window.removeEventListener("pointerup", onUp);
+        };
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", onUp);
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        e.preventDefault();
+        e.stopPropagation();
+        onResize(width + (e.key === "ArrowRight" ? 16 : -16));
+      }}
+    />
+  );
+}
+
 /** One `NumberInput` per required current (mA); `row.currents` stays the comma-joined wire string. */
 function CurrentsCell({
   rows,
@@ -93,8 +235,7 @@ function CurrentsCell({
           onValueChange={(next) => onChange(values.map((old, idx) => (idx === i ? (next ?? old) : old)).join(","))}
           step={0.1}
           min={0}
-          unit="mA"
-          aria-label={`${label} pair ${i + 1} current`}
+          aria-label={`${label} pair ${i + 1} current (mA)`}
         />
       ))}
     </div>
@@ -364,6 +505,30 @@ export function MontageManager({
 
   /** Reserved so a row switching TI <-> mTI never resizes the inputs already in the column: the
    *  cell is a grid of this many equal slots, whether or not every slot holds an input. */
+  /* The table's own width, and the widths the user has set inside it. */
+  const [tableWidth, setTableWidth] = useState(0);
+  const [storedColumns, setStoredColumns] = useState<StoredColumns>(() =>
+    readStoredColumns(typeof window === "undefined" ? undefined : window.localStorage),
+  );
+  // React 18: a ref callback cannot return a cleanup, so the observer lives in an effect.
+  const tableBox = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const node = tableBox.current;
+    if (!node) return;
+    setTableWidth(node.clientWidth);
+    const ro = new ResizeObserver(() => setTableWidth(node.clientWidth));
+    ro.observe(node);
+    return () => ro.disconnect();
+  }, [montages.data, availableNets.length]);
+  const cols = useMemo(() => resolveColumnWidths(tableWidth, storedColumns), [tableWidth, storedColumns]);
+  const setColumn = useCallback((key: ColumnKey, next: number) => {
+    setStoredColumns((prev) => {
+      const merged = { ...prev, [key]: Math.max(COLUMN_MIN[key], Math.round(next)) };
+      writeStoredColumns(typeof window === "undefined" ? undefined : window.localStorage, merged);
+      return merged;
+    });
+  }, []);
+
   /** Rows whose net not every selected subject has — reported under the table, not in it. */
   const skipped = chosen
     .map(({ montage }) => ({ name: montage.name, net: montage.net, missing: selectedSubjects.length - eligibleFor(montage.net).length }))
@@ -413,30 +578,39 @@ export function MontageManager({
         <EmptyState icon={<Plus size={24} />} message="No EEG nets available for the selected subjects." />
       )}
       {montages.data && availableNets.length > 0 && (
-        <div className="data-table-container">
+        <div className="data-table-container" ref={tableBox} data-testid="montage-table-container">
           {/* Fixed geometry: an explicit `<colgroup>` plus `table-layout: fixed` (simulator-page.css).
-              Nothing a user does to one row — net, montage, polarity — may move a cell in another.
-              The widths are PERCENTAGES, not pixels: the five px columns summed to ~1500px and the
-              work column is 608px at 1280, so the table scrolled sideways at every real pane width.
-              Percentages always sum to the table's own width, which is what makes the container's
-              scrollWidth == clientWidth an invariant rather than a width the columns happen to fit
-              in; the pairs column is the narrow one and is the one that clips (title carries the
-              full text). Constant per pane width, so "nothing moves while editing" still holds. */}
+              Nothing a user does to one ROW — net, montage, polarity — may move a cell in another;
+              only a deliberate drag of a header boundary changes a COLUMN. The widths come from
+              `resolveColumnWidths`, which always sums to the container, so the table cannot scroll
+              sideways at any pane width (asserted in simulator.spec.ts). Before the first measure
+              they are percentages of the same shape, so the first paint is not a 0px table. */}
           <table className="data-table montage-table" onKeyDown={onTableKeyDown}>
             <colgroup>
-              <col style={{ width: "17%" }} />
-              <col style={{ width: "23%" }} />
-              <col style={{ width: "11%" }} />
-              <col style={{ width: "36%" }} />
-              <col style={{ width: "13%" }} />
+              <col style={{ width: tableWidth ? cols.net : "24%" }} />
+              <col style={{ width: tableWidth ? cols.montage : "32%" }} />
+              <col style={{ width: tableWidth ? cols.pairs : "14%" }} />
+              <col style={{ width: tableWidth ? cols.currents : "20%" }} />
+              <col style={{ width: tableWidth ? cols.actions : "10%" }} />
             </colgroup>
             <thead>
               <tr>
-                <th>EEG net</th>
-                <th>Montage</th>
-                <th>Pairs</th>
-                <th>Currents</th>
-                <th />
+                <th data-column="net">
+                  EEG net
+                  <ColumnHandle label="EEG net" width={cols.net} onResize={(w) => setColumn("net", w)} />
+                </th>
+                <th data-column="montage">
+                  Montage
+                  <ColumnHandle label="Montage" width={cols.montage} onResize={(w) => setColumn("montage", w)} />
+                </th>
+                <th data-column="pairs">
+                  Pairs
+                  <ColumnHandle label="Pairs" width={cols.pairs} onResize={(w) => setColumn("pairs", w)} />
+                </th>
+                <th data-column="currents">
+                  Currents <span className="montage-unit">mA</span>
+                </th>
+                <th data-column="actions" />
               </tr>
             </thead>
             <tbody>
