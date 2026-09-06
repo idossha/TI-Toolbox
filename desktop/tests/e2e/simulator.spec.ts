@@ -65,8 +65,8 @@ test("shape A, no page header, and one Jobs table instead of a global subject se
    */
   await expect(page.getByTestId("subjects-field")).toHaveCount(0);
   await expect(page.getByRole("radiogroup", { name: "Montage source" })).toHaveCount(0);
-  await expect(page.getByTestId("jobs-table")).toBeVisible();
-  await expect(page.locator("table.jobs-table thead th")).toHaveText([
+  await expect(page.getByTestId("sim-jobs-table")).toBeVisible();
+  await expect(page.locator("table.sim-jobs-table thead th")).toHaveText([
     "Subject",
     "Source",
     "EEG net",
@@ -274,8 +274,8 @@ test("the jobs table never scrolls sideways in the work column", async () => {
   // rather than a set of pixel widths that happen to add up.
   for (const width of [1280, 1024]) {
     await page.setViewportSize({ width, height: 800 });
-    await expect(page.locator("table.jobs-table")).toBeVisible();
-    const box = await page.getByTestId("jobs-table-container").evaluate((el) => ({
+    await expect(page.locator("table.sim-jobs-table")).toBeVisible();
+    const box = await page.getByTestId("sim-jobs-table-container").evaluate((el) => ({
       scrollWidth: el.scrollWidth,
       clientWidth: el.clientWidth,
     }));
@@ -423,5 +423,5 @@ test("records the jobs table (two subjects, mixed sources) as an artifact", asyn
   await page.setViewportSize({ width: 1800, height: 900 });
   await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
   await page.keyboard.press(chord);
-  await page.getByTestId("jobs-table-container").screenshot({ path: "tests/e2e/artifacts/jobs-table-sim.png" });
+  await page.getByTestId("sim-jobs-table-container").screenshot({ path: "tests/e2e/artifacts/jobs-table-sim.png" });
 });

@@ -19,12 +19,12 @@ const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
 let app: ElectronApplication;
 let page: Page;
 
-const container = () => page.getByTestId("jobs-table-container");
+const container = () => page.getByTestId("sim-jobs-table-container");
 const montageRows = () => jobRows(page);
 
 /** The rendered width of every column, read off the header cells. */
 async function columnWidths(): Promise<number[]> {
-  return page.locator("table.jobs-table thead th").evaluateAll((cells) =>
+  return page.locator("table.sim-jobs-table thead th").evaluateAll((cells) =>
     cells.map((c) => Math.round(c.getBoundingClientRect().width)),
   );
 }
