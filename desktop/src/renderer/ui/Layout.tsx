@@ -746,17 +746,6 @@ export interface PageLayoutProps {
   /** Sticky 44px bar at the bottom of the work pane. Build it with `ActionBar`. */
   actionBar?: ReactNode;
   /**
-   * The run receipt (`pages/_shared/run/Receipt`), rendered **between** the work scroller and the
-   * action bar — outside the scroller, so it sits immediately above Run without ever overlaying
-   * the form it confirms.
-   *
-   * It was a last child *inside* `RunWork` first, and `tests/e2e/layout.spec.ts`'s hit-test caught
-   * the sticky version answering clicks meant for 12 of the Optimizer's controls. A confirmation
-   * must not sit on top of what it confirms, and the only place that is true for a scrolling work
-   * pane is here, as a sibling of the bar (lane SG, follow-up 1).
-   */
-  receipt?: ReactNode;
-  /**
    * A page header is off by default — the nav rail already says which page this is, and a title
    * plus a purpose sentence costs 86px of every screen. Settings and Help opt back in.
    */
@@ -804,7 +793,6 @@ export function PageLayout({
   rightPaneDefaultCollapsed = false,
   paneController,
   actionBar,
-  receipt,
   showHeader,
   title,
   purpose,
@@ -891,7 +879,6 @@ export function PageLayout({
         <div className="page-layout-main-scroll" data-page-work-scroll>
           {children}
         </div>
-        {receipt}
         {actionBar}
       </PageActivityContext.Provider>
     </div>

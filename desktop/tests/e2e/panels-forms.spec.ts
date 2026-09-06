@@ -117,16 +117,42 @@ test("Source panel: selecting a subject produces a Plan for both pipelines", asy
   await page.screenshot({ path: join(ARTIFACTS, "panel-source-dark.png") });
 });
 
+/**
+ * Fills the first row of a panel's participants table — subject, then the first simulation offered
+ * for it — so the panel's remaining blocker is its own field rather than "no subject chosen".
+ */
+async function fillParticipants(count: number) {
+  const control = page.locator('[data-page-active="true"]').getByTestId("participants-field");
+  const rows = control.locator("[data-testid^='participant-row-']");
+  expect(await rows.count(), "not enough participant rows to fill").toBeGreaterThanOrEqual(count);
+  for (let i = 0; i < count; i++) {
+    const row = rows.nth(i);
+    await row.getByRole("combobox").nth(0).click();
+    // A distinct subject per row: the panels count *subjects*, not rows.
+    await page.getByRole("option").nth(i).click();
+    await row.getByRole("combobox").nth(1).click();
+    await page.getByRole("option").first().click();
+    await expect(row).toHaveAttribute("data-eligible", "true");
+  }
+}
+
 test("NIfTI Group Averaging panel renders its form", async () => {
   await connect();
   await page.getByRole("link", { name: "NIfTI group averaging", exact: true }).click();
   await expectPage(page, "panel-nifti-group-average");
   await expect(page.getByLabel("Analysis name")).toBeVisible();
 
-  // Real assertion (not just visibility): entering a name actually clears its validation error.
-  await expect(page.getByText("Enter an analysis name.")).toBeVisible();
+  // Real assertion (not just visibility): entering a name actually unblocks the run. A blocking
+  // reason is no longer printed as a callout beside the plan — since 2026-09-06 it drives the Run
+  // button alone (DESIGN.md §6.3), disabled with the reason as its title — so that is what is read.
+  // The button reports the FIRST problem, so the participants rows are filled in first (this panel
+  // needs two subjects) and the missing name is left as the only one standing.
+  const run = page.getByTestId("run-button");
+  await fillParticipants(2);
+  await expect(run).toBeDisabled();
+  await expect(run).toHaveAttribute("title", "Enter an analysis name.");
   await page.getByLabel("Analysis name").fill("E2E_Group_Average");
-  await expect(page.getByText("Enter an analysis name.")).toHaveCount(0);
+  await expect(run).toBeEnabled();
 
   await page.screenshot({ path: join(ARTIFACTS, "panel-nifti-group-average-light.png") });
 
@@ -142,10 +168,14 @@ test("Nilearn Visuals panel renders its form", async () => {
   await expectPage(page, "panel-nilearn-visuals");
   await expect(page.getByLabel("Sub-directory name")).toBeVisible();
 
-  // Real assertion (not just visibility): entering a name actually clears its validation error.
-  await expect(page.getByText("Enter a sub-directory name for the output files.")).toBeVisible();
+  // Real assertion (not just visibility): entering a name actually unblocks the run — read off the
+  // Run button, which is where a blocking reason lives now (see the NIfTI test above).
+  const run = page.getByTestId("run-button");
+  await fillParticipants(1);
+  await expect(run).toBeDisabled();
+  await expect(run).toHaveAttribute("title", "Enter a sub-directory name for the output files.");
   await page.getByLabel("Sub-directory name").fill("e2e_visuals");
-  await expect(page.getByText("Enter a sub-directory name for the output files.")).toHaveCount(0);
+  await expect(run).toBeEnabled();
 
   await page.screenshot({ path: join(ARTIFACTS, "panel-nilearn-visuals-light.png") });
 

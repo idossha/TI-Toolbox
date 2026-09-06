@@ -270,6 +270,11 @@ test("nothing moves while a row is edited: fixed columns and fixed row heights",
 
   // 3. And back to a montage on the new net.
   await pickMontage(second, "mTI_Cz_Oz_F3_F4 · mTI");
+  // Wait for the row to finish becoming multi-polar before measuring, exactly as step 1 does:
+  // without it the cells are read mid-render and come back as 0x0 rects, which is a race in the
+  // test, not movement in the table.
+  await expect(second).toHaveAttribute("data-polarity", "multi_polar");
+  await expect(second.getByRole("spinbutton")).toHaveCount(4);
   expect(await boxes(), "montage change moved a cell").toEqual(before);
 });
 

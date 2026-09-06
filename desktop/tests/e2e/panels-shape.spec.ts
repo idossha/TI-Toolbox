@@ -39,7 +39,20 @@ const DEAD_SPACE_MAX = 0.45;
  * them and the room below is pane. Measured 78.0 % at 1280x800 on the 3-subject fixture; it falls
  * back towards the global limit as a real project's list grows. Every other panel is held to L5a.
  */
-const DEAD_SPACE_BY_PAGE: Record<string, number> = { "panel-source": 0.82 };
+/**
+ * The two output-file panels' allowance, and the reason for it. Both sat just under 45 % while the
+ * plan column carried a "problems" Callout listing what the run still needed; that callout was
+ * removed on 2026-09-06 (a blocking reason now drives the disabled Run button alone, DESIGN.md
+ * §6.3) and the ~2 % of the pane it filled became ground. Measured after the removal: NIfTI 45.8 %
+ * at 1280x800 and 47.0 % at 1440x900, Nilearn 45.8 % / 46.9 %, identical in both themes. 48 % is
+ * that worst case plus a point; neither panel's form changed, so this is the callout's footprint
+ * and nothing else.
+ */
+const DEAD_SPACE_BY_PAGE: Record<string, number> = {
+  "panel-source": 0.82,
+  "panel-nifti-group-average": 0.48,
+  "panel-nilearn-visuals": 0.48,
+};
 
 const SIZES = [
   { width: 1280, height: 800 },
