@@ -1083,6 +1083,36 @@ def test_settings_accepts_every_known_panel(client: TestClient) -> None:
     assert sorted(r.json()["panels"]) == sorted(known)
 
 
+def test_settings_get_drops_a_retired_panel_id_so_put_accepts_its_own_output(
+    client: TestClient,
+) -> None:
+    """`GET` must never return a document `PUT` would refuse.
+
+    `subject-info` was a panel until it was deleted on 2026-09-05. A project whose
+    `settings.json` still names it got it back from `GET`, and the Settings page -- which is a
+    read-modify-write of exactly that document -- then failed its `PUT` with 422 and could not
+    save anything at all. Reproduced on the real dev container before the fix.
+    """
+    from tit.server.routes import settings as settings_route
+
+    settings_route._save_project_settings(
+        {
+            "panels": ["source", "subject-info", "quick-notes"],
+            "image_tag": None,
+            "allow_unsafe_overrides": False,
+            "theme": "system",
+        }
+    )
+
+    body = client.get("/api/settings", headers=BEARER).json()
+    assert body["panels"] == ["source", "quick-notes"], body["panels"]
+
+    # The round trip the Settings page performs: read, change one thing, write it back.
+    r = client.put("/api/settings", json={**body, "theme": "light"}, headers=BEARER)
+    assert r.status_code == 200, r.json()
+    assert r.json()["panels"] == ["source", "quick-notes"]
+
+
 def test_system_terminate_refuses_pid_1(client: TestClient) -> None:
     r = client.post("/api/system/terminate", json={"pid": 1}, headers=BEARER)
     assert r.status_code == 403

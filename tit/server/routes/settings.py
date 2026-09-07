@@ -85,7 +85,12 @@ def _read_settings() -> dict[str, Any]:
     project = _load_project_settings()
     return {
         "telemetry": {"consented": tconf.consent_shown, "enabled": tconf.enabled},
-        "panels": list(project.get("panels", [])),
+        # Panel ids no longer known are dropped rather than handed out. `subject-info` was a
+        # panel until it was deleted on 2026-09-05, and any project whose settings.json still
+        # names it got a document back that `PUT` then refused with 422 -- so the Settings page,
+        # which is a read-modify-write of exactly this document, could not save at all. `GET`
+        # must never return something `PUT` would reject.
+        "panels": [p for p in project.get("panels", []) if p in _VALID_PANELS],
         "image_tag": project.get("image_tag"),
         "allow_unsafe_overrides": bool(project.get("allow_unsafe_overrides", False)),
         "theme": project.get("theme", "system"),
