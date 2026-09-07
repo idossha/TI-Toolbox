@@ -43,6 +43,17 @@ export interface SceneMarker {
   world: Vec3;
   /** Channel/pair index, coloured from `palette.channels`. Undefined = unassigned. */
   channel?: number;
+  /**
+   * This marker's own colour, overriding `channel`.
+   *
+   * `channel` says "these two electrodes are one stimulation pair", which is the Simulator's
+   * montage question and is answered by six hues that wrap. Free-hand placement asks a different
+   * one — *which row of the table is this dot?* — and an answer that wraps is an answer that lies
+   * once a montage has more than six positions. A page that needs per-item identity supplies the
+   * colour itself (`SCENE_CATEGORICAL`) and shows the same swatch beside its row, so dot and row
+   * are one claim rather than two that can disagree.
+   */
+  color?: Rgb;
 }
 
 /** One row of the legend. The legend is DOM, not painted into the canvas: a painted legend cannot

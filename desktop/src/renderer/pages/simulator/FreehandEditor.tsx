@@ -9,6 +9,27 @@
  *
  * The draft is page-session state, so closing the editor — or leaving the page — never discards an
  * unfinished placement.
+ *
+ * Since 2026-09-06 it is also the **placement** UI: the 3-D pane draws the subject's scalp and a
+ * click on it writes a coordinate into this table. Maintainer: *"the user experience should be very
+ * clear how a user can add an electrode, remove an electrode and it should not be ambiguous which
+ * electrode is being manipulated."* Four rules answer that, each with the failure it prevents:
+ *
+ *  - **Selection comes first, always.** Nothing is placed until a row is selected, and the
+ *    selection never moves on its own: click a row, click the scalp, and that row — and only that
+ *    row — takes the coordinate. Clicking again moves it. Without this a click always did
+ *    *something* and the user had to read the table afterwards to find out what.
+ *  - **The selection is shown, not explained.** An accent row with a ringed swatch here, a ringed
+ *    and enlarged dot on the scalp there, and no instructional sentence anywhere — maintainer,
+ *    2026-09-06: *"remove that 'E1 is selected place blah blah blah' — these instructions are
+ *    unnecessary"*, and *"there should be a clear visual indication of what electrode is selected"*.
+ *  - **Every row has its own colour**, shown as a swatch here and as that dot's colour on the
+ *    scalp. Pair colour would put the same hue on two dots, which is the question the user is
+ *    trying to answer.
+ *  - **Hover joins the two**: a row lights its dot and a dot lights its row, so "which is which"
+ *    never needs counting.
+ *  - **Add and remove are buttons, not side effects.** Rows come in pairs because an odd count is
+ *    never a valid montage, and a click on the scalp never grows the table.
  */
 import { Plus, Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -20,6 +41,8 @@ import { Card, CardHeader, CardBody } from "../../ui/Layout";
 import { notify } from "../../ui/Toast";
 import { putFreehand, type FreehandConfig } from "./api";
 import { useFreehandDraft } from "./freehandDraft";
+import { POSITIONS_PER_STEP, isPlaced, positionSwatch } from "./freehandPlacement";
+import "./freehand-editor.css";
 
 
 /** Matches `Montage.simulation_mode`: 2 or 4+ pairs, i.e. 4 or 8+ positions (an even count). */
@@ -39,8 +62,13 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
     setName,
     positions,
     setPositions,
+    active,
+    setActive,
+    add,
     remove,
     reset,
+    hovered,
+    setHovered,
   } = useFreehandDraft();
 
   const activeEditSubject = editSubject ?? selectedSubjects[0];
@@ -85,7 +113,7 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
           </Field>
         </div>
         <div className="data-table-container scroll-x" style={{ marginTop: "var(--space-3)" }}>
-          <table className="data-table">
+          <table className="data-table freehand-table">
             <thead>
               <tr>
                 <th>#</th>
@@ -98,8 +126,32 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
             </thead>
             <tbody>
               {positions.map((pos, i) => (
-                <tr key={i}>
-                  <td className="mono">{i + 1}</td>
+                <tr
+                  key={i}
+                  data-testid={`freehand-row-${i}`}
+                  data-active={i === active ? "true" : undefined}
+                  aria-selected={i === active}
+                  data-placed={isPlaced(pos) ? "true" : undefined}
+                  /* Clicking the row makes it the one a scalp click writes — the whole answer to
+                     "which electrode am I manipulating". Clicking the selected row again clears the
+                     selection, so "place nothing" is reachable without a second control. Not
+                     `onFocus`: tabbing through the X of row 3 to reach row 4 would silently re-aim
+                     the gesture. */
+                  onClick={() => setActive(i === active ? null : i)}
+                  onMouseEnter={() => setHovered(i)}
+                  onMouseLeave={() => setHovered(hovered === i ? null : hovered)}
+                >
+                  <td className="mono">
+                    <span className="freehand-index">
+                      <span
+                        className="freehand-swatch"
+                        data-testid={`freehand-swatch-${i}`}
+                        style={{ background: positionSwatch(i) }}
+                        aria-hidden
+                      />
+                      {i + 1}
+                    </span>
+                  </td>
                   <td>
                     <TextInput
                       value={pos.label ?? ""}
@@ -125,7 +177,10 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
                       disabled={positions.length <= 2}
                       /* Removing a row renumbers the rest (2.5.0's `deleteChecked`) and drops its
                          dot from the pane, because the dots are derived from these rows. */
-                      onClick={() => remove(i)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        remove(i);
+                      }}
                     />
                   </td>
                 </tr>
@@ -133,10 +188,18 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
             </tbody>
           </table>
         </div>
-        {!validCount && <span className="field-error">Use 4 positions (2 pairs, standard TI) or 8 or more (4+ pairs, multi-channel mTI).</span>}
+        {/* Muted guidance, not a red error line. The count is wrong for as long as the user is
+            still building the table, and colouring that "broken" from the first click says they
+            have made a mistake when they have simply not finished; the blocking reason is carried
+            by the disabled Save button directly above it (DESIGN.md §6.3). */}
+        <span className="field-help">
+          Use 4 positions (2 pairs, standard TI) or 8 or more (4+ pairs, multi-channel mTI).
+        </span>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "var(--space-3)" }}>
-          <Button variant="ghost" size="sm" icon={<Plus size={14} />} onClick={() => setPositions((p) => [...p, { label: "", x: 0, y: 0, z: 0 }])}>
-            Add position
+          {/* A pair at a time: `isValidPositionCount` accepts 4 or 8+, so an odd count is never a
+              configuration anyone can save and offering it is offering a dead end. */}
+          <Button variant="ghost" size="sm" icon={<Plus size={14} />} onClick={add}>
+            Add electrode{POSITIONS_PER_STEP > 1 ? " pair" : ""}
           </Button>
           <div style={{ display: "flex", gap: "var(--space-2)" }}>
             <Button variant="secondary" onClick={onClose}>

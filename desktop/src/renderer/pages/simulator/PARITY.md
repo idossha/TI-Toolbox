@@ -65,8 +65,8 @@ tab when the free hand is selected and by that they can insert the electrode coo
 |---|---|---|
 | Its own window with a subject combo, an OpenGL widget and a marker table | The Simulator's own 3-D pane and the free-hand editor's table, which are now two views of one array (`freehandDraft.tsx`) | done |
 | `loadSurfaces()` reads `m2m_<id>/<id>.msh` and draws skin + GM | `<ScenePane subject={…}>` → `/api/scene/*` (the server extracts; 1.4 MB of skin crosses the wire, not a 184 MB mesh) | done |
-| Double-click ray-casts the skin and appends a marker | Single click; the world point is the depth the renderer's own pick pass rasterised (`ScenePick.world`), in the head mesh's own millimetres — the frame `stim_configs/*.json` stores | done |
-| `E<n>+ / E<n>-` naming by row index, per-pair marker colours | `freehandPlacement.ts::autoLabel` + `placementMarkers`, coloured by `channel` (the pane's Okabe-Ito pair hues) | done |
+| Double-click ray-casts the skin and appends a marker | **Select a row, then click the scalp** — the row takes the point, and a further click moves it (maintainer, 2026-09-06: *"enforce a selection of the electrode from the table"*). The world point is the depth the renderer's own pick pass rasterised (`ScenePick.world`), read against **every** surface so a faint scalp is still what the click lands on, in the head mesh's own millimetres — the frame `stim_configs/*.json` stores | done |
+| `E<n>+ / E<n>-` naming by row index, per-pair marker colours | `freehandPlacement.ts::autoLabel` + `placementMarkers`. The colour is **per electrode**, not per pair (`SCENE_CATEGORICAL`, 12 hues): the question a dot answers here is "which row am I", which a six-hue pair ramp cannot. The same colour is the row's swatch | done |
 | `deleteChecked` renumbers the remaining markers | `removeAt` = filter + `renumber`; the dot goes with the row | done |
 | Editable X/Y/Z cells | The editor's `NumberInput`s, unchanged — a click and a typed millimetre write the same rows | done |
 | "Export Configuration" → name + `U`/`M` prompt → `stim_configs/<name>.json` | "Save placement" → `PUT /api/catalog/freehand/{name}`, `type` derived from the pair count | done |
@@ -76,6 +76,28 @@ tab when the free hand is selected and by that they can insert the electrode coo
 Not carried over: the extension's per-marker **checkbox column** (v3 removes one row at a time from
 a table that is four rows long) and its standalone subject combo (the placement's subject is the
 editor's own field, and it is what the pane draws).
+
+### Three rules the 2.5.0 widget did not need, and the failures behind them
+
+Each was reported by the maintainer against a screenshot on 2026-09-06.
+
+1. **The dot is never buried in the scalp.** A placement sits exactly on the surface it was picked
+   off, so it loses the depth test against that surface — the first build drew a crescent above the
+   skin and, with the skin turned down, nothing at all. Placement markers are therefore drawn with
+   the depth test off (`markersOccluded={false}`, `depthFunc(ALWAYS)`), one and a half times the
+   EEG-net dot's size, with a thin dark contour so a light hue still has an edge.
+2. **The click reads the skin, however faint it is.** With a translucent scalp the depth pass
+   skipped it and the point landed on the grey matter behind — an electrode inside the head.
+   `PickOptions.allSurfaces` (the pane's `pickAnySurface`, on only in `place`) makes every surface
+   count and the nearest win. The Optimizer keeps the default, because *its* click is aimed
+   **through** the scalp at the cortex.
+3. **The selection is shown, not explained.** No instructional copy anywhere: an accent row with a
+   ringed swatch in the table, and a white ring plus a size step on that electrode's dot on the
+   scalp. Exactly one row at a time; clicking the selected row again clears it.
+
+Known deviation: a placement dot on the **far side** of the head is not hidden. Doing it properly
+needs the surface normal at the picked point, which the pick pass does not report; four to eight
+dots that never disappear is a better failure than one the user placed and cannot find.
 
 ## Reported gaps (not fixable inside `pages/simulator/**`)
 

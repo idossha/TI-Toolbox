@@ -122,7 +122,15 @@ export {
   type SelectionAction,
   type SelectionRules,
 } from "./selection";
-export { DEFAULT_OPACITY, MARKER_SIZE_PX, SCENE_PALETTE, type ScenePalette } from "./palette";
+export {
+  DEFAULT_OPACITY,
+  MARKER_SIZE_PX,
+  SCENE_CATEGORICAL,
+  SCENE_PALETTE,
+  categoricalColor,
+  rgbToHex,
+  type ScenePalette,
+} from "./palette";
 export {
   buildLabelStates,
   buildLabelColors,

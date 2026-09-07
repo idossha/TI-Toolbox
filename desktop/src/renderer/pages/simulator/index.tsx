@@ -31,7 +31,7 @@ import { RunPanel, RunWork, planDigest, stepsFor } from "../_shared/run";
 import { ScenePane, withSlot } from "../_shared/scene";
 import type { GlobalParams } from "./buildConfig";
 import { FreehandDraftProvider, useFreehandDraft } from "./freehandDraft";
-import { placementMarkers, savedMarkers } from "./freehandPlacement";
+import { markerIndexOfRow, placementMarkers, rowOfMarkerIndex, savedMarkers } from "./freehandPlacement";
 
 /** The primary's label, from the plan. */
 export function runLabelFor(rowCount: number): string {
@@ -176,6 +176,18 @@ function SimulatorPage() {
     [freehand.open, freehand.positions, montagePreview],
   );
 
+  /**
+   * The two ends of "which electrode is this". A row index is NOT a dot index — a blank row draws
+   * no dot — so both directions go through `freehandPlacement`'s pair of converters.
+   */
+  const hoveredDot = freehand.open && freehand.hovered !== null ? markerIndexOfRow(freehand.positions, freehand.hovered) : -1;
+  // Hover lights a dot; SELECTION rings and enlarges one. Two different signals, because they
+  // answer two different questions ("which row is my cursor on" and "which electrode does the next
+  // click move"), and they are frequently both true of different rows at once.
+  const selectedDot = freehand.open && freehand.active !== null ? markerIndexOfRow(freehand.positions, freehand.active) : -1;
+  const highlightMarkers = useMemo(() => (hoveredDot >= 0 ? [hoveredDot] : undefined), [hoveredDot]);
+  const selectedMarkers = useMemo(() => (selectedDot >= 0 ? [selectedDot] : undefined), [selectedDot]);
+
   const runButton = (
     <RunButton
       rows={runnableRows}
@@ -222,6 +234,12 @@ function SimulatorPage() {
                    what the Optimizer and the Analyzer draw. */
                 subject={sceneSubject}
                 onPlace={freehand.open ? freehand.place : undefined}
+                onPlacedPick={freehand.open ? (index) => freehand.setActive(rowOfMarkerIndex(freehand.positions, index)) : undefined}
+                onPlacedHover={
+                  freehand.open ? (index) => freehand.setHovered(index === null ? null : rowOfMarkerIndex(freehand.positions, index)) : undefined
+                }
+                highlightMarkers={highlightMarkers}
+                selectedMarkers={selectedMarkers}
                 placedMarkers={placedDots}
                 net={(montageDraft ? montageNet : (montagePreview?.net ?? montageNet)) ?? null}
                 pairs={montageDraft?.pairs ?? (previewIsMontage ? montagePreview?.pairs : undefined)}

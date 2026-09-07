@@ -39,7 +39,6 @@ import {
   type ScenePart,
   type SceneSelection,
   type Vec3,
-  EMPTY_SELECTION,
 } from "../../../scene";
 import { usePageActive } from "../../../app/pageActivity";
 import { Skeleton } from "../../../ui/Feedback";
@@ -111,6 +110,20 @@ export interface ScenePaneProps {
   onPlace?: (world: Vec3) => void;
   /** Page-supplied markers, drawn instead of an EEG net's — the free-hand positions being placed. */
   placedMarkers?: SceneMarker[];
+  /**
+   * A click on one of `placedMarkers` reports its index instead of placing a new point.
+   *
+   * The failure it prevents: a user who clicks a dot to move it gets a *second* dot on top of the
+   * first, and the table now claims an electrode nobody meant to add.
+   */
+  onPlacedPick?: (index: number) => void;
+  /** Marker indices to draw as if hovered — how a hovered table row lights its own dot. */
+  highlightMarkers?: number[];
+  /** The placement marker the page has selected: ringed and enlarged, so "which electrode does the
+   *  next click move" is answered on the scalp as well as in the table. */
+  selectedMarkers?: number[];
+  /** The dot the cursor is over, by index, or `null` — the other direction of the same link. */
+  onPlacedHover?: (index: number | null) => void;
   /*
    * There is deliberately still no `unavailable`, `sphere` or `onSphereChange` prop.
    */
@@ -206,6 +219,10 @@ export function ScenePane({
   subject = null,
   onPlace,
   placedMarkers,
+  onPlacedPick,
+  onPlacedHover,
+  highlightMarkers,
+  selectedMarkers,
   net = null,
   atlas = null,
   onAtlasChange,
@@ -418,16 +435,20 @@ export function ScenePane({
     if (gesture === "electrode") {
       return { markers: markerIndicesFor(electrodeMarkers, placedElectrodes(activePairs)), regions: [] };
     }
-    // A placed position is not "selected" — every one of them is equally real, and colouring one
-    // of them differently would say a pair had been chosen when none has.
-    if (gesture === "place") return EMPTY_SELECTION;
+    // In `place` the selection IS the answer to "which electrode does the next click move", so it
+    // is exactly the page's selected marker — the renderer rings and enlarges it.
+    if (gesture === "place") return { markers: selectedMarkers ?? [], regions: [] };
     return { markers: [], regions: wireLabelsFor(legend, formRegions) };
-  }, [gesture, electrodeMarkers, activePairs, legend, formRegions]);
+  }, [gesture, electrodeMarkers, activePairs, legend, formRegions, selectedMarkers]);
 
   // ---- picking -------------------------------------------------------------------------------
   const onPick = useCallback(
     (target: PickTarget | null) => {
       if (!target) return;
+      if (gesture === "place" && target.kind === "marker") {
+        onPlacedPick?.(target.index);
+        return;
+      }
       if (gesture === "electrode" && target.kind === "marker") {
         const name = electrodeMarkers[target.index]?.id;
         if (!name) return;
@@ -448,7 +469,7 @@ export function ScenePane({
       // Deliberately nothing else. A pick on the guide names an electrode or a region; it can never
       // produce a coordinate, because these millimetres are `guide-ras`.
     },
-    [gesture, electrodeMarkers, onPairsChange, onRequestPairs, activePairs, cursor, legend, formRegions, onRegionsChange],
+    [gesture, electrodeMarkers, onPairsChange, onRequestPairs, activePairs, cursor, legend, formRegions, onRegionsChange, onPlacedPick],
   );
 
   /**
@@ -463,6 +484,9 @@ export function ScenePane({
   const onPickAt = useCallback(
     (pick: ScenePick) => {
       if (gesture !== "place" || !drawnSubject || !pick.world) return;
+      // A click that landed on an existing dot SELECTS it (`onPick` above); it must not also place
+      // one, or every attempt to pick a dot up would drop a second one on top of it.
+      if (pick.target?.kind === "marker") return;
       onPlace?.(pick.world);
     },
     [gesture, drawnSubject, onPlace],
@@ -471,12 +495,16 @@ export function ScenePane({
   const [hovered, setHovered] = useState<string | null>(null);
   const onHoverChange = useCallback(
     (target: PickTarget | null) => {
+      if (gesture === "place") {
+        onPlacedHover?.(target?.kind === "marker" ? target.index : null);
+        return setHovered(target?.kind === "marker" ? (placedMarkers?.[target.index]?.label ?? null) : null);
+      }
       if (!target) return setHovered(null);
       if (target.kind === "marker") return setHovered(electrodeMarkers[target.index]?.label ?? null);
       const row = legend.find((entry) => entry.label === target.index);
       setHovered(row ? `${row.name}${row.hemi ? ` · ${row.hemi}` : ""}` : null);
     },
-    [electrodeMarkers, legend],
+    [gesture, onPlacedHover, placedMarkers, electrodeMarkers, legend],
   );
 
   // ---- states --------------------------------------------------------------------------------
@@ -565,7 +593,11 @@ export function ScenePane({
         : `Click an electrode to fill ${slotLabel(activePairs, cursor)}.`;
     }
     if (gesture === "region") return "Click a region to add or remove it from the ROI.";
-    if (gesture === "place") return `Click the scalp to place the next electrode on ${drawnSubject}.`;
+    // Deliberately nothing (maintainer, 2026-09-06: *"remove that 'E1 is selected place blah blah
+    // blah' — these instructions are unnecessary"*). The selected row and its ringed dot say which
+    // electrode a click moves; a sentence repeating it is copy the user reads once and then reads
+    // past for ever.
+    if (gesture === "place") return "";
     if (showingPlacements) return `${placedMarkers.length} placed positions${drawnSubject ? ` on ${drawnSubject}` : ""}.`;
     if (subject && !drawnSubject) {
       return subjectManifest.error
@@ -657,8 +689,28 @@ export function ScenePane({
             mode={CANVAS_MODE[gesture]}
             parts={parts}
             markers={markers}
-            /* Electrodes lie on the scalp, so the scalp hides the ones round the back. */
-            markersOccluded
+            /*
+             * Electrodes lie on the scalp, so the scalp hides the ones round the back — except the
+             * page's own placements, which are never hidden.
+             *
+             * Measured 2026-09-06: a free-hand dot sits EXACTLY on the surface it was picked off,
+             * and the occlusion pre-pass's 4 mm bias is not enough to keep it in front of an opaque
+             * one — every dot the user placed was invisible. "The electrode I just put down is not
+             * there" is a worse failure than "an electrode round the back shows through", and the
+             * dots are four to eight, not 185.
+             */
+            markersOccluded={!placedMarkers}
+            /* A placement dot is one of four to eight, carries a name and has to be aimed at; an
+               EEG net's is one of 185. */
+            markerScale={placedMarkers ? 1.5 : undefined}
+            /* An electrode goes ON the skin — including a skin the user has turned down to 0.22 to
+               see the cortex through. Without this the click reads through it and the electrode
+               lands on the grey matter behind. */
+            pickAnySurface={gesture === "place"}
+            highlight={highlightMarkers}
+            /* Four to eight dots the user has to tell apart by name — the fog a 185-electrode net's
+               names would be is not this pane's state. */
+            namesOn={gesture === "place" ? true : undefined}
             publishDebugHandle={pageActive}
             selection={selection}
             onPick={onPick}

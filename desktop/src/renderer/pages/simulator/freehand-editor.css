@@ -1,0 +1,62 @@
+/* The free-hand editor's placement affordances. Geometry and state only — every colour is a token
+ * except the per-row swatch, whose value comes from `scene/palette.ts` so it is the same number the
+ * shader paints that row's dot with.
+ *
+ * The one thing these rules have to make unmistakable, and the failure they answer (maintainer,
+ * 2026-09-06, with a screenshot): *"there is currently no indication of what electrode is selected.
+ * There should be a clear visual indication of what electrode is selected so the user understands:
+ * this one is selected, place it."* The selected row is therefore an accent BAND, not a tint — and
+ * the same electrode is ringed and enlarged on the scalp by the renderer.
+ */
+
+.freehand-table tbody tr[data-active="true"] {
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface));
+  box-shadow: inset 4px 0 0 0 var(--accent);
+}
+.freehand-table tbody tr[data-active="true"] td {
+  /* Keeps the band unbroken under cells that paint their own background. */
+  background: transparent;
+}
+
+/* Hovering a row is a different, weaker signal from selection: here a wash, and on the scalp the
+   dot grows. Neither changes the row's own swatch, which is the electrode's identity. */
+.freehand-table tbody tr:hover {
+  background: color-mix(in srgb, var(--ink-1) 6%, transparent);
+}
+.freehand-table tbody tr[data-active="true"]:hover {
+  background: color-mix(in srgb, var(--accent) 30%, var(--surface));
+}
+
+.freehand-index {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* The dot, in the table. Square rather than round so it cannot be mistaken for the scalp marker
+ * itself, and outlined so a light hue (the ramp's yellow) still has an edge on a light surface. */
+.freehand-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex: none;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink-1) 35%, transparent);
+}
+
+/* The selected row's swatch is bigger and wears a WHITE ring — the same signal its dot gets on the
+ * scalp, so the two are read as one thing, and the swatch's own colour is untouched. The electrode's
+ * colour is its identity; recolouring it to say "chosen" throws that identity away exactly when the
+ * user is working with it (maintainer, 2026-09-06). */
+.freehand-table tbody tr[data-active="true"] .freehand-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  box-shadow:
+    0 0 0 2px #fff,
+    0 0 0 3px color-mix(in srgb, var(--ink-1) 55%, transparent);
+}
+
+/* A row nothing has been placed into yet reads as a plan, not as data. */
+.freehand-table tbody tr:not([data-placed="true"]) .freehand-swatch {
+  opacity: 0.35;
+}

@@ -66,10 +66,12 @@ describe("Free-hand source draft", () => {
     fill('[aria-label="Position 1 label"]', "custom-A");
     fill('[aria-label="Position 1 X"]', "12.5");
     fill('[aria-label="Position 1 Y"]', "-23.5");
-    const add = Array.from(container.querySelectorAll("button")).find((button) => button.textContent === "Add position")!;
+    // "Add electrode pair" adds TWO rows: an odd position count is never a valid montage
+    // (`isValidPositionCount`), so six is still invalid and the error line still shows.
+    const add = Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.startsWith("Add electrode"))!;
     act(() => add.click());
-    expect(container.querySelectorAll("tbody tr")).toHaveLength(5);
-    expect(container.querySelector(".field-error")?.textContent).toContain("Use 4 positions");
+    expect(container.querySelectorAll("tbody tr")).toHaveLength(6);
+    expect(container.textContent).toContain("Use 4 positions");
 
     render(false);
     render();
@@ -77,8 +79,8 @@ describe("Free-hand source draft", () => {
     expect(input('[aria-label="Position 1 label"]').value).toBe("custom-A");
     expect(input('[aria-label="Position 1 X"]').value).toBe("12.5");
     expect(input('[aria-label="Position 1 Y"]').value).toBe("-23.5");
-    expect(container.querySelectorAll("tbody tr")).toHaveLength(5);
-    expect(container.querySelector(".field-error")?.textContent).toContain("Use 4 positions");
+    expect(container.querySelectorAll("tbody tr")).toHaveLength(6);
+    expect(container.textContent).toContain("Use 4 positions");
   });
 
   it("starts clean after the project session is cleared", () => {

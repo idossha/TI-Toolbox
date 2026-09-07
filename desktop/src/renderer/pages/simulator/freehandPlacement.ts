@@ -18,7 +18,7 @@
  * clicks would leave four empty rows above the four they wrote, and the Save button would stay
  * disabled with no visible reason.
  */
-import type { SceneMarker } from "../../scene";
+import { categoricalColor, rgbToHex, type Rgb, type SceneMarker } from "../../scene";
 import type { ElectrodePosition } from "./api";
 
 /** Millimetres, to the same 0.1 mm step the editor's `NumberInput`s use. A pick carries float
@@ -65,23 +65,54 @@ export function renumber(positions: ElectrodePosition[]): ElectrodePosition[] {
 }
 
 /**
- * One click on the scalp. Returns the new rows and the index that was written, so a caller can
- * scroll to it or say which electrode it just placed.
+ * The colour that identifies one row — its dot on the scalp and its swatch in the table.
+ *
+ * Keyed on the row's **index**, not on its name: the name can be edited, and a colour that moved
+ * when a user renamed an electrode would break the one thing this colour is for.
+ */
+export function positionColor(index: number): Rgb {
+  return categoricalColor(index);
+}
+
+/** The same colour as the `#rrggbb` the table's swatch needs. One source, two renderings. */
+export function positionSwatch(index: number): string {
+  return rgbToHex(positionColor(index));
+}
+
+/**
+ * One click on the scalp — **into the selected row, and only into the selected row**.
+ *
+ * Maintainer, 2026-09-06: *"in order to place an electrode let us enforce a selection of the
+ * electrode from the table. And once that electrode is selected, the user can click on the scalp.
+ * Once a different electrode is selected, then the user can select another position on the scalp —
+ * that should streamline the user experience such that there is no confusion."*
+ *
+ * Four rules, each with the failure it prevents:
+ *
+ *  - **No selection, no placement.** An earlier version advanced to "the next empty row" by itself,
+ *    which meant a click always did *something* and the user had to read the table afterwards to
+ *    find out what. Now the pane says "Select an electrode in the table first" and nothing moves.
+ *  - **The selected row is written whether it is empty or full**, so a re-click moves an electrode
+ *    that is in the wrong place instead of needing it deleted and everything after it re-placed.
+ *  - **The selection does not move afterwards.** Placing and then adjusting is one row's worth of
+ *    work; a selection that jumped on would make the second click land on a different electrode.
+ *  - **Nothing is appended.** Rows come from "Add electrode pair", because a montage's position
+ *    count is 4 or 8+ (`isValidPositionCount`) and a click that grew the table past a valid count
+ *    would leave Save disabled with nothing saying why.
  */
 export function placeAt(
   positions: ElectrodePosition[],
   world: readonly [number, number, number],
+  selected: number | null,
 ): { positions: ElectrodePosition[]; index: number } {
-  const blank = positions.findIndex(isBlankPosition);
-  const index = blank >= 0 ? blank : positions.length;
+  if (selected === null || selected < 0 || selected >= positions.length) return { positions, index: -1 };
   const placed: ElectrodePosition = {
-    label: autoLabel(index),
+    label: positions[selected]?.label || autoLabel(selected),
     x: roundMm(world[0]),
     y: roundMm(world[1]),
     z: roundMm(world[2]),
   };
-  const next = blank >= 0 ? positions.map((p, i) => (i === index ? placed : p)) : [...positions, placed];
-  return { positions: renumber(next), index };
+  return { positions: renumber(positions.map((p, i) => (i === selected ? placed : p))), index: selected };
 }
 
 /** Remove one row, then renumber — the two halves of Qt's delete, which were never separate. */
@@ -105,13 +136,45 @@ export function placementMarkers(positions: ElectrodePosition[]): SceneMarker[] 
       id: p.label || autoLabel(i),
       label: p.label || autoLabel(i),
       world: [p.x, p.y, p.z],
-      channel: Math.floor(i / 2),
+      // The row's own colour, not its pair's: the question a dot answers here is "which row am I",
+      // and the pair is already said by the name (`E1+`/`E1-`). See `SceneMarker.color`.
+      color: positionColor(i),
     });
   });
   return markers;
+}
+
+/**
+ * The marker index a row maps to, and back.
+ *
+ * They are NOT the same number: a blank row draws no dot, so row 3 can be dot 1. Every "hover this
+ * row, light that dot" and "click that dot, select this row" goes through these two, because a
+ * component that assumed they matched would highlight the wrong electrode exactly when some rows
+ * were still empty — the state the editor spends most of its life in.
+ */
+export function markerIndexOfRow(positions: ElectrodePosition[], row: number): number {
+  if (row < 0 || row >= positions.length || !isPlaced(positions[row] as ElectrodePosition)) return -1;
+  return positions.slice(0, row).filter(isPlaced).length;
+}
+
+export function rowOfMarkerIndex(positions: ElectrodePosition[], marker: number): number {
+  let seen = 0;
+  for (let i = 0; i < positions.length; i += 1) {
+    if (!isPlaced(positions[i] as ElectrodePosition)) continue;
+    if (seen === marker) return i;
+    seen += 1;
+  }
+  return -1;
 }
 
 /** The same dots for a SAVED configuration, so picking one in a job row shows it on the scalp. */
 export function savedMarkers(positions: ElectrodePosition[]): SceneMarker[] {
   return placementMarkers(positions.map((p, i) => ({ ...p, label: p.label || autoLabel(i) })));
 }
+
+/**
+ * Positions come in pairs, and the pair count is 2 or 4+ — `Montage.simulation_mode`, which is what
+ * `FreehandEditor`'s own Save gate checks. "Add electrode" adds **two** rows for the same reason:
+ * an odd row count is never a valid configuration, so offering it is offering a dead end.
+ */
+export const POSITIONS_PER_STEP = 2;

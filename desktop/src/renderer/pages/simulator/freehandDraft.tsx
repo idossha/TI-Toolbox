@@ -11,10 +11,10 @@
  * Hence one provider at the page root and one hook. The slots keep their old keys, so a draft left
  * open before this change comes back exactly as it was.
  */
-import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { usePageSession } from "../../app/pageSession";
 import type { ElectrodePosition } from "./api";
-import { placeAt, removeAt, renumber } from "./freehandPlacement";
+import { POSITIONS_PER_STEP, placeAt, removeAt, renumber } from "./freehandPlacement";
 
 /**
  * Four blank rows — the editor's own "4 positions = 2 pairs, standard TI" starting point — already
@@ -34,10 +34,23 @@ export interface FreehandDraft {
   setName: (name: string) => void;
   positions: ElectrodePosition[];
   setPositions: (next: ElectrodePosition[] | ((prev: ElectrodePosition[]) => ElectrodePosition[])) => void;
-  /** One click on the scalp, in the drawn subject's own millimetres. */
+  /**
+   * The one row a click on the scalp writes into, or `null` for "none selected, so a click does
+   * nothing". Selection comes first and never moves by itself (maintainer, 2026-09-06) — "which
+   * electrode am I manipulating" is the question the whole gesture turns on, and a mode where the
+   * answer is "whichever row was empty" makes the user read the table to find out what happened.
+   */
+  active: number | null;
+  setActive: (index: number | null) => void;
+  /** One click on the scalp, in the drawn subject's own millimetres: writes the active row. */
   place: (world: readonly [number, number, number]) => void;
+  /** Adds one pair of rows and makes the first of them active. */
+  add: () => void;
   remove: (index: number) => void;
   reset: () => void;
+  /** The row the cursor is over — in the table or on the scalp; the other end highlights. */
+  hovered: number | null;
+  setHovered: (index: number | null) => void;
 }
 
 const Ctx = createContext<FreehandDraft | null>(null);
@@ -47,20 +60,54 @@ export function FreehandDraftProvider({ children }: { children: ReactNode }) {
   const [subject, setSubject] = usePageSession<string | undefined>("freehand.subject", undefined);
   const [name, setName] = usePageSession("freehand.name", "");
   const [positions, setPositions] = usePageSession<ElectrodePosition[]>("freehand.positions", initialPositions);
+  const [active, setActive] = usePageSession<number | null>("freehand.active", null);
+  // Not page-session state: a hover is where the cursor is right now, and restoring one on the next
+  // visit would light up a row nobody is pointing at.
+  const [hovered, setHovered] = useState<number | null>(null);
 
   const place = useCallback(
-    (world: readonly [number, number, number]) => setPositions((prev) => placeAt(prev, world).positions),
-    [setPositions],
+    (world: readonly [number, number, number]) => {
+      const result = placeAt(positions, world, active);
+      // Nothing selected: the click is refused, and the pane's hint is what says so.
+      if (result.index < 0) return;
+      setPositions(result.positions);
+      // The selection deliberately stays put, so a second click MOVES this electrode.
+    },
+    [positions, active, setPositions],
   );
-  const remove = useCallback((index: number) => setPositions((prev) => removeAt(prev, index)), [setPositions]);
+  const add = useCallback(() => {
+    setPositions((prev) => renumber([...prev, ...Array.from({ length: POSITIONS_PER_STEP }, () => ({ ...EMPTY_POSITION }))]));
+    setActive(positions.length);
+  }, [positions.length, setPositions, setActive]);
+  const remove = useCallback(
+    (index: number) => {
+      setPositions((prev) => removeAt(prev, index));
+      // Back to nothing selected: the row the user was pointing at is gone, and silently moving the
+      // aim to its neighbour would place the next click on an electrode nobody chose.
+      setActive(null);
+    },
+    [setPositions, setActive],
+  );
   const reset = useCallback(() => {
     setName("");
     setPositions(initialPositions());
-  }, [setName, setPositions]);
+    setActive(null);
+  }, [setName, setPositions, setActive]);
+
+  // A selection can be left pointing past the end (a row removed elsewhere). Corrected during
+  // render rather than in an effect: an effect paints one frame naming a row that is not there.
+  const [lastCount, setLastCount] = useState(positions.length);
+  if (positions.length !== lastCount) {
+    setLastCount(positions.length);
+    if (active !== null && active >= positions.length) setActive(null);
+  }
 
   const value = useMemo<FreehandDraft>(
-    () => ({ open, setOpen, subject, setSubject, name, setName, positions, setPositions, place, remove, reset }),
-    [open, setOpen, subject, setSubject, name, setName, positions, setPositions, place, remove, reset],
+    () => ({
+      open, setOpen, subject, setSubject, name, setName, positions, setPositions,
+      active, setActive, place, add, remove, reset, hovered, setHovered,
+    }),
+    [open, setOpen, subject, setSubject, name, setName, positions, setPositions, active, setActive, place, add, remove, reset, hovered],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

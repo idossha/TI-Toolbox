@@ -160,6 +160,34 @@ export interface SceneCanvasProps {
    * construction): occluding that would hide the only thing telling the user where they put it.
    */
   markersOccluded?: boolean;
+  /** Multiplies the marker dot's diameter. 1 is the EEG-net dot. */
+  markerScale?: number;
+  /**
+   * A click's world point may land on ANY surface, not only the ones the eye treats as solid.
+   *
+   * For a page that puts something ON THE HEAD (the Simulator's free-hand electrodes): with a
+   * translucent scalp the default read goes through it to the cortex, and the electrode ends up
+   * inside the head. For a page aiming *through* the scalp at the cortex (the Optimizer's sphere
+   * centre) the default is the right answer, which is why this is opt-in.
+   */
+  pickAnySurface?: boolean;
+  /**
+   * Marker indices to draw as if the cursor were over them — bigger, in the hover colour.
+   *
+   * The failure it prevents: a table of coordinates beside a head full of dots, where hovering a
+   * row tells the user nothing about which dot it is. The hover *state* already means exactly
+   * "this is the one you are pointing at", so pointing from the DOM reuses it rather than
+   * inventing a second highlight the shader would have to learn.
+   */
+  highlight?: number[];
+  /**
+   * Force the "Electrode names" switch on (or off) rather than letting it start off.
+   *
+   * A 185-electrode net's names are a grey fog, which is why the default is off; a free-hand
+   * placement is four to eight dots the user has to tell apart by name, which is why the Simulator
+   * turns them on. The switch still works afterwards — this seeds it, it does not lock it.
+   */
+  namesOn?: boolean;
   /** Controlled selection. Omit for an uncontrolled pane. */
   selection?: SceneSelection;
   onSelectionChange?: (next: SceneSelection) => void;
@@ -241,6 +269,10 @@ export function SceneCanvas({
   parts,
   markers: markersProp,
   markersOccluded = true,
+  markerScale,
+  pickAnySurface,
+  highlight,
+  namesOn,
   selection,
   onSelectionChange,
   onPick,
@@ -295,7 +327,15 @@ export function SceneCanvas({
    * component's own state, which is the page-session: the pane is retained across a collapse, so
    * the switch survives one exactly as the opacity sliders do.
    */
-  const [showNames, setShowNames] = useState(false);
+  const [showNames, setShowNames] = useState(namesOn ?? false);
+  // Adjusted during render rather than in an effect (the `react-hooks/set-state-in-effect` pattern
+  // `pages/panels/source` uses): the pane asks for names the moment the free-hand editor opens, and
+  // an effect would paint one frame of the wrong answer.
+  const [lastNamesOn, setLastNamesOn] = useState(namesOn);
+  if (namesOn !== lastNamesOn) {
+    setLastNamesOn(namesOn);
+    if (namesOn !== undefined) setShowNames(namesOn);
+  }
   const [preset, setPreset] = useState<CameraPreset | "">("reset");
   const rules = MODE_RULES[mode];
   const activeSelection = selection ?? internalSelection;
@@ -612,9 +652,16 @@ export function SceneCanvas({
   }, [parts, requestFrame, webgl2]);
 
   useEffect(() => {
-    sceneRef.current?.setMarkers(markers);
+    const scene = sceneRef.current;
+    if (!scene) return;
+    // Size before markers, in ONE effect: the scale is a uniform read at draw time, and setting it
+    // in an effect of its own only works if the renderer already exists when that effect first
+    // runs. Measured 2026-09-06: the placement dots drew at the EEG net's size, and the spec that
+    // samples 70 % of their radius read the anatomy instead of the dot.
+    scene.setMarkerScale(markerScale ?? 1);
+    scene.setMarkers(markers);
     requestFrame();
-  }, [markers, requestFrame, webgl2]);
+  }, [markers, markerScale, requestFrame, webgl2]);
 
   useEffect(() => {
     sceneRef.current?.setMarkerOcclusion(markersOccluded);
@@ -665,12 +712,12 @@ export function SceneCanvas({
     markers.forEach((marker, i) => {
       let state = markerStateChannel(marker.channel);
       if (activeSelection.markers.includes(i)) state |= MARKER_SELECTED;
-      if (hover?.kind === "marker" && hover.index === i) state |= MARKER_HOVER;
+      if ((hover?.kind === "marker" && hover.index === i) || highlight?.includes(i)) state |= MARKER_HOVER;
       states[i] = state;
     });
     scene.setMarkerStates(states);
     requestFrame();
-  }, [markers, activeSelection, hover, requestFrame]);
+  }, [markers, activeSelection, hover, highlight, requestFrame]);
 
   useEffect(() => {
     const scene = sceneRef.current;
@@ -715,9 +762,10 @@ export function SceneCanvas({
         markers: isPickable(rules, "marker"),
         regions: isPickable(rules, "region"),
         depth,
+        allSurfaces: pickAnySurface,
       });
     },
-    [rules],
+    [rules, pickAnySurface],
   );
 
   const applyPick = useCallback(

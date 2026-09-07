@@ -365,6 +365,9 @@ layout(location=0) in vec2 aCorner;
 layout(location=1) in vec3 aCenter;
 layout(location=2) in uint aState;
 layout(location=3) in uint aIndex;
+// Per-marker colour, or (-1,-1,-1) for "use the channel". A negative sentinel rather than a second
+// attribute: one buffer, one branch, and a marker that supplies no colour costs the same as before.
+layout(location=4) in vec3 aColor;
 uniform mat4 uViewProj;
 uniform vec2 uViewportPx;
 uniform float uSizePx;
@@ -381,13 +384,21 @@ out vec2 vCorner;
 out vec3 vColor;
 flat out highp uint vIndex;
 flat out highp uint vState;
+/** 1 when the marker carries a colour of its own — the only markers that get a contour. */
+flat out highp uint vTinted;
 void main() {
   vec4 clip = uViewProj * vec4(aCenter, 1.0);
   // Hover grows the dot; SELECTION does not. Selection is said in hue alone (the pane's whole
   // electrode contract): a selected marker keeps
   // the idle one's footprint exactly, which is what makes "no ring, no second glyph" a pixel test
   // — the changed pixels are one solid disc with the same bounding box, not a disc plus a band.
-  float scale = ((aState & 2u) != 0u) ? 1.25 : 1.0;
+  // Hover grows every marker. SELECTION grows only a marker that carries its own colour: an EEG
+  // net's selection is said in hue alone (the pane's electrode contract, and a pixel test that
+  // measures the disc's bounding box), while a free-hand placement's has to be unmistakable at a
+  // glance — it is the one the next click will move.
+  bool tinted = aColor.r >= 0.0;
+  bool selected = (aState & 1u) != 0u;
+  float scale = ((aState & 2u) != 0u) ? 1.25 : ((tinted && selected) ? 1.2 : 1.0);
   // Screen-constant size without gl_PointSize: offsetting clip.xy by (ndc offset * w) survives the
   // perspective divide exactly, and an instanced quad has none of the driver-dependent point-sprite
   // behaviour (clamped sizes, missing gl_PointCoord) that would make a marker unpickable on one GPU.
@@ -402,9 +413,17 @@ void main() {
   else if (ch == 4u) c = uChannel3;
   else if (ch == 5u) c = uChannel4;
   else if (ch >= 6u) c = uChannel5;
-  if ((aState & 1u) != 0u && ch == 0u) c = uSelectedColor;
-  if ((aState & 2u) != 0u) c = uHoverColor;
+  // A marker that carries its own colour KEEPS it, selected or hovered. Its colour is its identity
+  // — which row of the free-hand table this dot is — and repainting it to say "chosen" throws that
+  // identity away exactly when the user is working with it (maintainer, 2026-09-06: the selected
+  // electrode came out a pale lavender, the hovered one nearly white). Selection is said with a
+  // white outline in the fragment shader instead, and hover with the size step above.
+  if (tinted) c = aColor;
+  else if (selected && ch == 0u) c = uSelectedColor;
+  if (!tinted && (aState & 2u) != 0u) c = uHoverColor;
   vColor = c;
+  // 1 = its own colour, 2 = its own colour AND selected: the ring the fragment shader draws.
+  vTinted = tinted ? (selected ? 2u : 1u) : 0u;
   vIndex = aIndex;
   vState = aState;
 }`;
@@ -414,12 +433,24 @@ precision highp float;
 precision highp int;
 in vec2 vCorner;
 in vec3 vColor;
+flat in highp uint vTinted;
 out vec4 outColor;
 void main() {
   float r = length(vCorner);
   if (r > 1.0) discard;
   vec3 c = vColor * (0.78 + 0.22 * (1.0 - r));
-  outColor = vec4(c, smoothstep(1.0, 0.80, r));
+  // A thin dark contour, on the markers that carry their own colour and on no others. It exists so
+  // a light hue (the ramp's yellow) still has an edge against a light scalp; an EEG net's dots are
+  // one hue on one surface and never needed it, and adding one there would change every pixel test
+  // that measures them.
+  // The contour, on the markers that carry their own colour and on no others.
+  //
+  //   - always: a thin dark rim, so a light hue still has an edge against a light scalp;
+  //   - selected: a crisp WHITE band just inside that rim, with the fill untouched — the user can
+  //     still read the electrode's colour while seeing which one is selected.
+  if (vTinted == 2u && r > 0.72) c = r > 0.90 ? c * 0.28 : vec3(1.0);
+  else if (vTinted == 1u && r > 0.80) c *= 0.28;
+  outColor = vec4(c, smoothstep(1.0, 0.94, r));
 }`;
 
 const MARKER_PICK_FS = `#version 300 es
@@ -484,6 +515,18 @@ export interface PickOptions {
    *  surface the click landed. Off for hover (it doubles the readback stall for feedback nobody
    *  acts on); on for a click. */
   depth?: boolean;
+  /**
+   * The depth read may land on ANY surface, not only the ones the eye currently treats as solid.
+   *
+   * Off (the default), the depth pass rasterises the labelled surfaces and the opaque ones, which
+   * is what "where the user is looking" means when a translucent shell is being seen through — the
+   * Optimizer's sphere centre must land on the cortex the user is aiming at, not on the faint scalp
+   * in front of it. On, it rasterises every surface and the nearest wins, which is what "where on
+   * the head did I click" means: the Simulator's free-hand placement puts an electrode ON THE SKIN,
+   * and with a translucent skin the un-flagged read put it on the grey matter behind it — the
+   * electrode "placed under the skin" the maintainer reported on 2026-09-06.
+   */
+  allSurfaces?: boolean;
 }
 
 export interface PickResult {
@@ -505,6 +548,9 @@ export interface GlScene {
   /** Uploads (or re-uploads) the surfaces. Normals are computed here when the part has none. */
   setParts(parts: ScenePart[]): void;
   setMarkers(markers: SceneMarker[]): void;
+  /** Multiplies `MARKER_SIZE_PX` for this scene. 1 is the EEG-net dot; the Simulator's free-hand
+   *  placements ask for a little more, because there are eight of them and they carry a name. */
+  setMarkerScale(scale: number): void;
   /** One byte per marker: `MARKER_SELECTED | MARKER_HOVER | channelBits`. */
   setMarkerStates(states: Uint32Array): void;
   /** 65 536 bytes, indexed by label id: `LABEL_SELECTED | LABEL_HOVER | LABEL_DIMMED`. */
@@ -726,6 +772,8 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
   /** Set only for the duration of one `samplePixels({ markers: false })` call. */
   let suppressMarkers = false;
   let markerOcclusion = true;
+  /** `MARKER_SIZE_PX` multiplier; see `setMarkerScale`. */
+  let markerScale = 1;
 
   function createLabelTexture(context: WebGL2RenderingContext): WebGLTexture {
     const tex = context.createTexture();
@@ -860,11 +908,16 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
     if (markers.length === 0) return;
     const centres = new Float32Array(markers.length * 3);
     const indices = new Uint32Array(markers.length);
+    const colors = new Float32Array(markers.length * 3);
     markers.forEach((marker, i) => {
       centres[i * 3] = marker.world[0];
       centres[i * 3 + 1] = marker.world[1];
       centres[i * 3 + 2] = marker.world[2];
       indices[i] = i;
+      // -1 is the "no colour of my own" sentinel the vertex shader tests; see `SceneMarker.color`.
+      colors[i * 3] = marker.color ? marker.color[0] : -1;
+      colors[i * 3 + 1] = marker.color ? marker.color[1] : -1;
+      colors[i * 3 + 2] = marker.color ? marker.color[2] : -1;
     });
     const vao = gl.createVertexArray();
     if (!vao) throw new Error("scene: gl.createVertexArray returned null");
@@ -888,6 +941,12 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
     gl.enableVertexAttribArray(3);
     gl.vertexAttribIPointer(3, 1, gl.UNSIGNED_INT, 0, 0);
     gl.vertexAttribDivisor(3, 1);
+    // Appended LAST on purpose: `setMarkerStates` writes `markerBuffers[1]` by index, so a buffer
+    // inserted before it would silently make every hover repaint the colours instead.
+    markerBuffers.push(buffer(colors, gl.ARRAY_BUFFER));
+    gl.enableVertexAttribArray(4);
+    gl.vertexAttribPointer(4, 3, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribDivisor(4, 1);
     gl.bindVertexArray(null);
     markerVao = vao;
   }
@@ -1026,7 +1085,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
     setUniformMatrix(program, "uViewProj", vp);
     const viewport = program.uniforms.uViewportPx;
     if (viewport) gl.uniform2f(viewport, drawWidth, drawHeight);
-    setUniform1f(program, "uSizePx", MARKER_SIZE_PX * devicePixelRatioValue);
+    setUniform1f(program, "uSizePx", MARKER_SIZE_PX * markerScale * devicePixelRatioValue);
   }
 
   /** The caller has already bound the program and its uniforms through `bindMarkerCommon`; this is
@@ -1092,7 +1151,8 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
         // label 0 and resolve as a region nobody clicked. Depth run: every surface the user can
         // see through no veil, i.e. every labelled one plus every opaque one.
         const opaque = (opacity.get(uploaded.part.id) ?? uploaded.part.opacity) >= 1;
-        if (uploaded.hasLabels || (depthPass && opaque)) drawSurface(uploaded, surface, null);
+        const wanted = options.allSurfaces || opaque;
+        if (uploaded.hasLabels || (depthPass && wanted)) drawSurface(uploaded, surface, null);
       }
     }
     if (options.markers) {
@@ -1134,6 +1194,10 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       stats.triangles = parts.reduce((sum, p) => sum + p.indexCount / 3, 0);
       stats.vertices = parts.reduce((sum, p) => sum + p.part.positions.length / 3, 0);
       for (const part of next) if (!opacity.has(part.id)) opacity.set(part.id, part.opacity);
+    },
+
+    setMarkerScale(scale) {
+      markerScale = Math.max(0.1, scale);
     },
 
     setMarkers(next) {
@@ -1317,6 +1381,11 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       // 4. markers, over the head and depth-tested against it: an electrode on the far side of the
       //    scalp is hidden by it, the way a person expects a head to work.
       gl.disable(gl.CULL_FACE);
+      // With occlusion off the depth buffer above is empty, so `LESS` already passes everywhere —
+      // except where a caller has left something in it. `ALWAYS` states the rule instead of
+      // relying on that: a marker the caller asked not to occlude is drawn, full stop. The failure
+      // it prevents: a placement dot half-buried in the scalp it sits on (maintainer, 2026-09-06).
+      if (!markerOcclusion) gl.depthFunc(gl.ALWAYS);
       bindMarkerCommon(markerProgram, vp);
       // Channel 0 means "in no channel": neutral grey, never the accent — see `palette.idle`.
       setUniform3f(markerProgram, "uMarkerColor", palette.idle);
@@ -1329,6 +1398,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       setUniform3f(markerProgram, "uChannel4", palette.channels[4]);
       setUniform3f(markerProgram, "uChannel5", palette.channels[5]);
       drawMarkers();
+      if (!markerOcclusion) gl.depthFunc(gl.LESS);
 
       gl.bindVertexArray(null);
       gl.depthMask(true);

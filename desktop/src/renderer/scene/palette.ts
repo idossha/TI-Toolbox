@@ -72,6 +72,47 @@ export const SCENE_PALETTE: ScenePalette = {
   ],
 };
 
+/**
+ * A qualitative ramp for **per-item identity**, indexed by position and wrapping only past 12.
+ *
+ * `channels` above answers "which stimulation pair", and six hues is the honest size of that
+ * question. This answers "which electrode", which a free-hand placement asks once per row: the dot
+ * on the scalp and the swatch in the table have to name the same one, and a six-hue ramp reused for
+ * an eight-position mTI montage would put the same colour on two different electrodes.
+ *
+ * Seven Okabe-Ito hues (Okabe & Ito 2008, including the yellow this file's `channels` drops — a
+ * name label sits next to every dot here, so a hue that is weak against the skin is still
+ * identified; its eighth, black, is invisible on a `#0b0d10` canvas and is left out) followed by
+ * five from Paul Tol's bright and muted qualitative sets, chosen to stay separable from the seven
+ * before them under deuteranopia and protanopia.
+ */
+export const SCENE_CATEGORICAL: readonly Rgb[] = [
+  rgb("#0072B2"), // blue
+  rgb("#E69F00"), // orange
+  rgb("#009E73"), // bluish green
+  rgb("#CC79A7"), // reddish purple
+  rgb("#D55E00"), // vermillion
+  rgb("#56B4E9"), // sky blue
+  rgb("#F0E442"), // yellow
+  rgb("#EE6677"), // Tol bright red — Okabe-Ito's eighth is black, which is invisible on this canvas
+  rgb("#882255"), // Tol wine
+  rgb("#44AA99"), // Tol teal
+  rgb("#999933"), // Tol olive
+  rgb("#AA4499"), // Tol purple
+];
+
+/** `[r, g, b]` in 0..1 back to the `#rrggbb` a DOM swatch needs — the same numbers the shader gets,
+ *  so a swatch can never drift from its dot. */
+export function rgbToHex(color: Rgb): string {
+  const byte = (v: number) => Math.round(Math.min(1, Math.max(0, v)) * 255);
+  return `#${[byte(color[0]), byte(color[1]), byte(color[2])].map((n) => n.toString(16).padStart(2, "0")).join("")}`;
+}
+
+/** The ramp's *n*-th colour, wrapping. */
+export function categoricalColor(index: number): Rgb {
+  return SCENE_CATEGORICAL[((index % SCENE_CATEGORICAL.length) + SCENE_CATEGORICAL.length) % SCENE_CATEGORICAL.length] as Rgb;
+}
+
 /** Default surface opacities, for the surfaces that have an opacity control. The skin is faint
  *  because its job is to give the electrodes a surface to sit on, not to be looked at. The grey
  *  matter is deliberately absent: it is the anatomy the user is aiming at and is always opaque. */
