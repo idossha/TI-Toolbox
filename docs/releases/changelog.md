@@ -7,14 +7,35 @@ permalink: /releases/changelog/
 Complete changelog for all versions of the Temporal Interference Toolbox.
 
 ---
-### Unreleased
+### Unreleased — v3.0.0
 
-Docker-centric streamlining for the v3 Electron desktop app: one image instead of two, no
-X11 anywhere, FastSurfer replaces `recon-all`, and the built-in viewer moves from
-Freeview/Gmsh to an embedded Tetravox pane. See the [Architecture]({{ site.baseurl }}/wiki/desktop-app/)
-and [Pre-Processing]({{ site.baseurl }}/wiki/pre-processing/) pages for the full detail.
+TI-Toolbox v3 replaces the PyQt5 GUI with an **Electron desktop application**, and the two-image
+Docker stack with a single streamlined image. There is no X11 anywhere, FastSurfer replaces
+`recon-all`, and viewing is [Tetravox]({{ site.baseurl }}/wiki/visualizers/) inside the app window
+instead of Freeview and Gmsh as separate X11 programs.
 
-#### Additions
+The science is the same code it always was — `tit` runs every job, in the desktop app and from a
+script alike — but **six defects in the shared statistics and analyzer core were found and fixed
+in this release**. If you have 2.x results, read the record before you reuse them:
+[Scientific corrections from v2.x to v3.0.0](https://github.com/idossha/TI-Toolbox/blob/main/docs/dev/SCIENTIFIC-CORRECTIONS.md).
+
+See [Desktop Application]({{ site.baseurl }}/wiki/desktop-app/) for how the pieces fit together,
+and the [Wiki]({{ site.baseurl }}/wiki/) for a page per workflow.
+
+#### The application
+
+- **[Overview]({{ site.baseurl }}/wiki/overview/)** — a new landing page: one row per subject, one dot per artefact, and a per-stage readiness verdict, aggregated server-side across the whole project.
+- **[Jobs]({{ site.baseurl }}/wiki/jobs/)** — every long-running thing is now a job with a record: state, stage, elapsed time, CPU and memory, live console, artifacts, and a named failure category. There was no job registry in 2.x.
+- **[Notebooks]({{ site.baseurl }}/wiki/notebooks/)** — Jupyter inside the app, on the container's SimNIBS Python, with a seeded worked example that resolves *your* project.
+- **[Pipeline]({{ site.baseurl }}/wiki/pipelines/)** — a canvas: wire pre-processing, an optimizer, the simulator and the analyzer into one graph, run it as one job group, or export it as a notebook.
+- **[Results]({{ site.baseurl }}/wiki/results/)** — one subject-first outputs browser, with simulation reports rendered inline instead of in your OS browser.
+- **Per-job tables on Simulator, Optimizer and Analyzer** — one row is one job, with its own subject, montage/method and target; **Duplicate** is the gesture for "same job, another subject". A run page submits its whole table as one request, and says how many groups it made.
+- **Free-hand electrode placement, folded into the [Simulator]({{ site.baseurl }}/wiki/simulator/)** — select a row, click the subject's own scalp in the 3-D pane, and the row takes that point in subject millimetres. This is the only pane that draws the selected subject; the others draw a packaged guide head.
+- **Optimizer is one page** — Flex and Ex are two *methods* in a column, not two screens; `flex_adaptive`, `flex_pareto` and `mex` are derived from the focality mode and the electrode count. New: a search-cost read-out, and a leadfield precondition strip with an ETA on **Generate**.
+- **Settings ▸ Optional tools** — Source, Cluster permutation, NIfTI group averaging, Nilearn visuals and Quick Notes are switched on per project; each then appears in the rail and runs as a real job rather than on the UI thread.
+- **Settings ▸ Viewer engine** — the viewer can be updated without updating the toolbox: version, protocol, source, sha256-verified installs, and one-click rollback to the bundle the image shipped.
+
+#### Additions (container and platform)
 
 - **Single image, `idossha/ti-toolbox:<ver>`** — SimNIBS 4.6, FastSurfer (`--seg_only`, checkpoints pre-downloaded), the desktop UI, and the Tetravox Embed viewer are all baked into one ~6.7 GB image; no `pip install` at container start.
 - **FastSurfer segmentation** — a new, much faster pre-processing stage (`run_fastsurfer`) producing a DKT-atlas parcellation in `derivatives/fastsurfer/`, replacing FreeSurfer `recon-all` for the segmentation this toolbox needs.
@@ -28,6 +49,9 @@ and [Pre-Processing]({{ site.baseurl }}/wiki/pre-processing/) pages for the full
 - **The separate FreeSurfer image** — `recon-all`, the thalamic-nuclei and hippocampal-subfield segmentation stages, the `freesurfer` compose service, the `freesurfer_data` volume, and the FreeSurfer license plumbing for the core workflow are all removed. Existing `derivatives/freesurfer/` outputs on disk keep working — readers accept both FastSurfer and legacy FreeSurfer outputs.
 - **Freeview and Gmsh launchers** — including the `/api/viewers/{freeview,gmsh}` server routes and their `_require_x11` capability gate.
 - **`dockerode` and CLI-driven Docker orchestration** in the desktop app, replaced by the dependency-free Engine API client above.
+- **The PyQt5 GUI (`tit/gui/`)** — deleted, along with its extension framework, its Qt dialogs and the `GUI` shell command. The container ships no Qt at all: PyQt5, `simnibs_gui` and gmsh are stripped from the image. The [historical page]({{ site.baseurl }}/wiki/gui/) is kept for reference.
+- **The Subject Info panel** — its facts are the [Overview]({{ site.baseurl }}/wiki/overview/) page's; an existing project `settings.json` that still names it still loads.
+- **The standalone Electrode Placement extension** — folded into the Simulator (see above).
 
 #### Changes
 
@@ -39,7 +63,7 @@ and [Pre-Processing]({{ site.baseurl }}/wiki/pre-processing/) pages for the full
 
 #### Fixed
 
-- **Scientific corrections to the statistics engine and analyzer** — six defects found by an external audit of the shared scientific core are fixed: cluster-based permutation testing no longer merges touching opposite-sign clusters and now builds its two-sided/left-tailed null from the *most* extreme cluster (v2.2.3–v2.5.0 two-sided and `less` results should be re-run); group NIfTI stacking now requires a common affine, not just a common shape; voxel focality volumes are cm^3 rather than 10x-too-large "cm^2"; sampled permutation p-values use the Phipson & Smyth `(b+1)/(m+1)` estimator so `p = 0` is no longer reachable; voxel volume and spherical-ROI distance come from the image affine rather than the header zooms (sheared affines only); and a zero-variance contrast is no longer reported as `t = 0, p = 1`. Full detail, affected version ranges, and per-finding "re-run or rescale" guidance in `docs/dev/SCIENTIFIC-CORRECTIONS.md`.
+- **Scientific corrections to the statistics engine and analyzer** — six defects found by an external audit of the shared scientific core are fixed: cluster-based permutation testing no longer merges touching opposite-sign clusters and now builds its two-sided/left-tailed null from the *most* extreme cluster (v2.2.3–v2.5.0 two-sided and `less` results should be re-run); group NIfTI stacking now requires a common affine, not just a common shape; voxel focality volumes are cm^3 rather than 10x-too-large "cm^2"; sampled permutation p-values use the Phipson & Smyth `(b+1)/(m+1)` estimator so `p = 0` is no longer reachable; voxel volume and spherical-ROI distance come from the image affine rather than the header zooms (sheared affines only); and a zero-variance contrast is no longer reported as `t = 0, p = 1`. Full detail, affected version ranges, and per-finding "re-run or rescale" guidance in the [scientific-corrections record](https://github.com/idossha/TI-Toolbox/blob/main/docs/dev/SCIENTIFIC-CORRECTIONS.md).
 
 - **Tabs preserve your work** — switching between Pre-processing, Simulator, Optimizer, Analyzer and Viewer retains each tab's draft, subject selection, section state, scroll and live 3D view for the open project session. Returning to a tab no longer rebuilds its viewer or resets its camera. Project switching starts a fresh session.
 - **Preview failures stay readable** — a missing or failed 3D renderer no longer loops through silent reloads; retry is explicit and retains your surface-opacity settings.
@@ -205,7 +229,7 @@ A major release with new analysis capabilities, broader simulation support, diff
 
 #### Breaking Changes (for scripters)
 
-- The Python API has been significantly simplified. If you have scripts that import from `tit`, please refer to the updated [API documentation]({{ site.baseurl }}/scripting/) for the new import paths and configuration classes. Key changes:
+- The Python API has been significantly simplified. If you have scripts that import from `tit`, please refer to the updated [API documentation]({{ site.baseurl }}/wiki/scripting/) for the new import paths and configuration classes. Key changes:
 
 #### Download Links
 
