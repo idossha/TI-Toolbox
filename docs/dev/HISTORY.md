@@ -429,6 +429,45 @@ name of the test; the pattern is the finding.
 
 ---
 
+### Addendum — the v2.5.0 merge, the contracts restructure, and CX8
+
+`origin/main`'s v2.5.0 merged into the branch (`03156b69`), followed by the optimizer's
+carrier-wiring removal, the release notes, the plugin refresh, the launcher structure and the
+contracts restructure. CX8 gated all of it (`BENCHMARKS.md` § CX8 consolidation gate).
+
+**A merge's damage is in what still calls the old thing, not in the diff.** Every real defect this
+lane found was a caller the merge did not touch and therefore did not flag:
+
+- **The packaged notebook example was broken for every user** (`2a276bb8`). v2.5.0 consolidated
+  `tit.calc` to three list-argument functions; `examples/getting-started.ipynb` cell 3 still called
+  `calc.get_TI_vectors(E1, E2)` and raised `ValueError: mTI requires an even number of fields >= 2,
+  got 3` — on the toolbox's own headline computation, in the file a new user opens first. The real
+  spec had been red for this since the merge and was read as flake. Its sting: `seed_example()`
+  writes the file only when absent, so **fixing the source does not fix an existing project**
+  (`RELEASE.md` §B).
+- **The MCP plugin's version tool was renamed and its test was not** (`6325eb57`), and the plugin
+  still offered `desktop/docker/`, deleted in `f8b8f4b6` (`5cbee155`).
+- **`tit/source/fsaverage.py` said fsaverage projection is "standard TI only … exactly two
+  carriers"** while three resolvers in the same file handle mTI and N carriers (`5cbee155`). The
+  wiki was right and the code's own docstring was wrong — the opposite of the usual direction.
+- **The container leg failed on `loader.sh` behaving correctly** (`1febfb15`): the container's
+  `python3` is 3.10 and its 3.11 is `simnibs_python`, a name the host launcher does not probe.
+
+**The twelve contract findings were not a budget; they were three bugs** (`f9f32745`,
+`contracts/CHANGES.md` 2026-09-07). Opened that morning as `_KNOWN_FINDINGS`, each group turned out
+to be wrong on a different side, and the most interesting was inert rather than merely stale:
+`Overview*.reason` spelled nullability as OpenAPI **3.0**'s `nullable: true` inside a document whose
+first line is `openapi: 3.1.0`, where the keyword does not exist. The contract was not disagreeing
+with the server — **it was saying nothing, in valid-looking YAML.** `_KNOWN_FINDINGS` is now empty
+and warnings are down 232 → 222.
+
+The gate's own finding overturns CX7's: **the "1 test in 325, a different one each run" flake is
+machine load.** See `BENCHMARKS.md` for the numbers — ten simultaneous failures at load average
+63–74, zero on the same build at rest, and a density measurement that moved ten points between the
+two. Do not chase the test name, and do not run anything beside a Playwright suite.
+
+---
+
 ## Pre-v3 backend defect reports (2026-08), rechecked 2026-09-07
 
 A code-reading pass filed three defects against the PyQt build. The Qt tabs are gone; these are what

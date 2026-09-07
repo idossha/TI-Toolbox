@@ -185,6 +185,7 @@ limit for run pages is 45%.
 | 2026-09-06/07 (native panes, CX5) | 3970 passed / 36 skipped | 105 files / 1275 tests | 285 passed, quiet-check PASS |
 | 2026-09-07 (external audit, CX6) | 4069 passed / 37 skipped | 109 files / 1304 tests | 317 passed / 2 skipped |
 | 2026-09-07 (docs/launch consolidation, CX7) | 4141 passed / 37 skipped | 109 files / 1304 tests | 322 passed / 2 skipped |
+| 2026-09-07 (v2.5.0 merge + contracts, CX8) | 4165 passed / 45 skipped | 109 files / 1304 tests | 323 passed / 2 skipped |
 
 The 2026-09-06/07 row is the whole-program gate: typecheck clean, lint 0 errors (3
 pre-existing React-Compiler warnings), route-import guard 23 modules, `dev/contracts_check.py`
@@ -313,4 +314,47 @@ fix is a per-assertion wait, not a longer global timeout; it is not attempted he
 it writes them at roughly 2.5× the committed byte size (70 kB vs 28 kB for `overview.png`) — a
 device-scale difference, not a UI change. They were reverted, not committed: the website lane's
 images are the ones of record.
+
+### CX8 consolidation gate
+
+Run after the `origin/main` v2.5.0 merge, the contracts restructure, the launcher structure and the
+plugin refresh had all landed on the branch.
+
+| Gate | Command | Result |
+|---|---|---|
+| Typecheck (node + web) | `npm run typecheck` | clean |
+| Lint | `npm run lint` | **0 errors**, the same 3 React-Compiler `incompatible-library` warnings |
+| Desktop unit | `npx vitest run` | **1,304 passed** across **109 files**, 6.6 s |
+| Host Python | `python3 -m pytest tests -q` | **4,165 passed**, 45 skipped, 21 deselected, 90.7 s |
+| Container numerical | `docker exec … simnibs_python -m pytest tests/numerical -q` | **94 passed**, 68.9 s |
+| Container jobs/kernels/server/launch | `… -m pytest tests/test_jobs*.py tests/test_kernel*.py tests/test_server*.py tests/test_launch*.py -q` | **399 passed**, 1 skipped, 36.9 s |
+| Contract | `dev/contracts_check.py` | OK — **104 operations, 115 schemas, 0 known findings**, 222 warnings |
+| Generated files | `npm run gen` | byte-identical on re-run |
+| Route imports | `dev/route_import_guard.py` | 23 modules clean |
+| Workflows | `actionlint` | clean |
+| Plugin | `python3 agent-plugin/mcp/server.py --selftest` | PASSED |
+| Launchers | `python3 loader.py --help`, `bash loader.sh --help` | both exit 0 |
+| Site build | `bundle exec jekyll build` (Homebrew Ruby 3.3.10) | done in 1.89 s |
+| Site links | internal-link scan over `docs/_site` | **195 pages, 0 dead links** outside the vendored `docs/api/` mkdocs tree (123 pre-existing `_`-prefixed asset refs) |
+| Mock e2e | `TIT_E2E_OFFSCREEN=1 npm run e2e:quiet` | **323 passed**, 2 skipped, twice — 4.4 min and 4.7 min, quiet-check PASS both |
+| Real e2e — UI subset | the same 9 real specs CX7 ran | **23 passed**, 1.6 min, quiet-check PASS |
+| Real e2e — docs shots | `npx playwright test --project=real tests/e2e/real/docs-shots.spec.ts` | **7 passed**, 1.0 min, quiet-check PASS; PNGs reverted |
+| Build of record | `pnpm run build` | see below |
+
+**The "1 in 325 flake" CX7 recorded is machine load, not the product, and this gate has the
+counter-example.** A middle run of the mock suite failed **ten** tests at once — four
+`controls-consistency`, three `jobs` (including its density numbers at 0.3446 against a 0.33
+ceiling), one `layout`, two `launcher` — and took **25 minutes** instead of 4.4. `uptime` during it
+read **load average 63–74**: Spotlight was indexing the build output while the maintainer used the
+machine. Re-run on a quiet machine, the identical build passed 323/323 in 4.7 min. The same effect
+explains the two reds this lane was sent to fix: `overview.spec.ts`'s detail pane measured **61.4 %**
+once and **51.8 %** on five consecutive clean runs of the same commit (ceiling 0.53), and
+`scene-pane.spec.ts`'s `markers: 0` did not reproduce at all after a `pnpm run pree2e`.
+
+**The rule this yields: a density or layout assertion is only evidence on an unloaded machine.**
+Check `uptime` before believing one, and never run a second Playwright suite, a docs build or a
+container test batch beside one. The quiet-check's focus leg is likewise unreliable on a shared
+desktop — it reported `FAIL — a test binary held the focus` twice while its own window leg said
+*no new Electron/Chromium window reached the screen*, because the maintainer's `npm run dev`
+Electron app was on screen and being clicked by a human.
 
