@@ -27,32 +27,34 @@ contracts/      the wire contract; see contracts/README.md for what is generated
 tests/          host pytest (heavy libs mocked); tests/numerical/ runs the real ones
 dev/            scripts only: build_schema, build_contract, contracts_check, route_import_guard, smoke.sh
 container/      image blueprints and build.sh
-docs/dev/       how this software is built and why — the source of truth
+docs/dev/       how this software is built and why — nine files, the source of truth
 docs/wiki/      the user-facing site (published); docs/wiki/gui.md is deprecated
 agent-plugin/   installable skills + a read-only MCP server for AI clients
 ```
 
 ## Where things are written down
 
-`docs/dev/` is the source of truth. [`docs/dev/README.md`](docs/dev/README.md) is its map and
-reading order. The ones you will need:
+`docs/dev/` is the source of truth, and it is **nine files** —
+[`docs/dev/README.md`](docs/dev/README.md) is its map and reading order. Do not add a tenth.
 
 | Question | File |
 |---|---|
-| How is it built? What must I not break? | `docs/dev/ARCHITECTURE.md` |
-| How do I run and verify it? | `docs/dev/CONTRIBUTING.md`, `docs/dev/RUNBOOK.md` |
-| Why is it like this? | `docs/dev/DECISIONS.md`, `docs/dev/ADR.md` ("ADR row N") |
+| How is it built? What must I not break? | `docs/dev/ARCHITECTURE.md` (§8 the pipelines, §9 DWI) |
+| How do I run and verify it? | `docs/dev/CONTRIBUTING.md` (§2 the gate, §2.6 the smoke harness) |
+| Why is it like this? | `docs/dev/DECISIONS.md` — its ADR index is what "ADR row N" means |
 | What happened, and what bit us? | `docs/dev/HISTORY.md` |
 | What is the UI contract? | `docs/dev/DESIGN.md` |
-| What is open? | `docs/dev/ROADMAP.md` |
+| Every measured number | `docs/dev/BENCHMARKS.md` |
+| How does it ship, and what is still open? | `docs/dev/RELEASE.md` (§A ship, §B open) |
 | What did v2.x get numerically wrong? | `docs/dev/SCIENTIFIC-CORRECTIONS.md` |
 
 **Where a new fact goes.** A measurement → `BENCHMARKS.md`. A decision → `DECISIONS.md` as
 **Decision / Why / Cost / Revisit if**, plus the `ARCHITECTURE.md` edit in the same commit. A gate
-result → the `ROADMAP.md` table with the command that produced it. What happened in a program →
+result → the gate table in `BENCHMARKS.md` with the command that produced it. Something not done,
+and why → `RELEASE.md` §B. What happened in a program →
 a dated section of `HISTORY.md`. A contract change → `contracts/SCHEMA-CHANGES.md`.
 
-**Never write a per-lane note file.** About 120 accumulated in eleven days, each citing the others,
+**Never write a per-lane note file, and never add a file to `docs/dev/`.** About 120 accumulated in eleven days, each citing the others,
 and no reader could tell which were still true. Record numbers and decisions; delete your scratch.
 
 ## The gate
