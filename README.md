@@ -19,7 +19,7 @@
 
 Releases, guides, and wiki please see: [https://idossha.github.io/TI-Toolbox/](https://idossha.github.io/TI-Toolbox/)
 
-> **Note**: Latest macOS versions (26/Tahoe+) may have GUI compatibility issues with Gmsh and FreeView. See [installation docs](https://idossha.github.io/TI-Toolbox/installation/) for details.
+> **Note**: v3 needs no X11 server — Gmsh and FreeView are gone, so the GUI compatibility issues on the latest macOS versions (26/Tahoe+) no longer apply. See [installation docs](https://idossha.github.io/TI-Toolbox/installation/) for details.
 
 ## How to Cite
 

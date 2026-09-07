@@ -7,7 +7,7 @@ permalink: /releases/changelog/
 Complete changelog for all versions of the Temporal Interference Toolbox.
 
 ---
-### Unreleased — v3.0.0
+### v3.0.0 (Unreleased)
 
 TI-Toolbox v3 replaces the PyQt5 GUI with an **Electron desktop application**, and the two-image
 Docker stack with a single streamlined image. There is no X11 anywhere, FastSurfer replaces
@@ -15,9 +15,14 @@ Docker stack with a single streamlined image. There is no X11 anywhere, FastSurf
 instead of Freeview and Gmsh as separate X11 programs.
 
 The science is the same code it always was — `tit` runs every job, in the desktop app and from a
-script alike — but **six defects in the shared statistics and analyzer core were found and fixed
-in this release**. If you have 2.x results, read the record before you reuse them:
-[Scientific corrections from v2.x to v3.0.0](https://github.com/idossha/TI-Toolbox/blob/main/docs/dev/SCIENTIFIC-CORRECTIONS.md).
+script alike — but **eight defects in the shared scientific core were found and fixed in this
+release**. If you have 2.x results: **re-run** cluster-based permutation analyses run with
+`two-sided` (the default) or `less`; **rescale** voxel `focality_*_area` by 1/10 and any reported
+`p = 0`; **recompute** `hf_peak`/`hf_sar` for montages that declared `channels`; everything else,
+`TI_max`/`TI_avg`/`TI_normal` included, stands. Read the record before you reuse them:
+[Scientific corrections from v2.x to v3.0.0](https://github.com/idossha/TI-Toolbox/blob/main/docs/dev/SCIENTIFIC-CORRECTIONS.md),
+and the [Upgrading]({{ site.baseurl }}/releases/v3.0.0/#upgrading-from-2x) section of the
+[full release notes]({{ site.baseurl }}/releases/v3.0.0/).
 
 See [Desktop Application]({{ site.baseurl }}/wiki/desktop-app/) for how the pieces fit together,
 and the [Wiki]({{ site.baseurl }}/wiki/) for a page per workflow.
@@ -37,38 +42,42 @@ and the [Wiki]({{ site.baseurl }}/wiki/) for a page per workflow.
 
 #### Additions (container and platform)
 
-- **Single image, `idossha/ti-toolbox:<ver>`** — SimNIBS 4.6, FastSurfer (`--seg_only`, checkpoints pre-downloaded), the desktop UI, and the Tetravox Embed viewer are all baked into one image — ≈ 2.3 GB to download, ≈ 9 GB unpacked on disk — with no `pip install` at container start.
+- **Single image, `idossha/ti-toolbox:<ver>`** — SimNIBS 4.6, FastSurfer (`--seg_only`, checkpoints pre-downloaded), the desktop UI, and the Tetravox Embed viewer are all baked into one image, with no `pip install` at container start.
+- **Image slimming** — gmsh, PyQt5, the TMS coil models, neovim and the build compilers are out of the image: **≈ 2.3 GB to download, ≈ 9 GB unpacked on disk** (2.32 GB content / 8.93 GB disk, measured 2026-09-07), down from 6.66 GB content / 21.3 GB before the pass, and from a 2.5.0 stack of `idossha/simnibs` (6.15 GB) plus `ti-toolbox_freesurfer` (21.9 GB).
 - **FastSurfer segmentation** — a new, much faster pre-processing stage (`run_fastsurfer`) producing a DKT-atlas parcellation in `derivatives/fastsurfer/`, replacing FreeSurfer `recon-all` for the segmentation this toolbox needs.
 - **Tetravox Embed viewer** — the 3D/volume viewer now renders inside the app's own window (WebGL2 + WASM on the host GPU, driven by a `postMessage` protocol), instead of launching Freeview/Gmsh as separate X11 applications.
 - **Docker Engine API stack** — the desktop app now drives Docker entirely through its Engine API (image pull with progress, container create/start, health check, log streaming, stop) instead of shelling out to the `docker compose` CLI; `docker context inspect` is the only remaining CLI use, for engine discovery.
-- **Offscreen end-to-end test harness** — Electron e2e tests run headless/offscreen by default, with a quiet-check wrapper that asserts no window reaches the screen.
+- **Three documented ways to run v3**, all landing on the same container-served UI: the **desktop app**; **`tit launch --project <dir>`** from a `pip install tit`, or `./loader.sh` in a clone, for servers and SSH sessions with no Electron; and **`npm run dev`** in `desktop/` to run unreleased code from source. See the [Installation Guide]({{ site.baseurl }}/installation/).
+- **A v3 release workflow** — `.github/workflows/release-v3.yml` builds and smokes the image, builds and verifies **unsigned** installers for macOS arm64/x64, Windows x64 and Linux x64, creates the GitHub Release only after that validation is green, and then publishes signed and notarised artifacts. A `plan` job hard-fails when `tit/__init__.py`, `version.py`, `desktop/package.json` and the compose image-tag default disagree with the pushed tag; a `dry_run` dispatch exercises the path without pushing an image or signing anything.
+- **Offscreen end-to-end test harness** — Electron e2e tests run headless/offscreen by default, with a quiet-check wrapper that asserts no window reaches the screen, plus a browser-mode leg that drives the UI with no Electron bridge.
 
 #### Removals
 
 - **X11 everywhere** — no `/tmp/.X11-unix`/`.Xauthority` mounts, no `DISPLAY`, no `xhost`, no XQuartz/VcXsrv setup on any platform.
 - **The separate FreeSurfer image** — `recon-all`, the thalamic-nuclei and hippocampal-subfield segmentation stages, the `freesurfer` compose service, the `freesurfer_data` volume, and the FreeSurfer license plumbing for the core workflow are all removed. Existing `derivatives/freesurfer/` outputs on disk keep working — readers accept both FastSurfer and legacy FreeSurfer outputs.
-- **Freeview and Gmsh launchers** — including the `/api/viewers/{freeview,gmsh}` server routes and their `_require_x11` capability gate.
+- **Freeview and Gmsh launchers** — including the `/api/viewers/{freeview,gmsh}` server routes and their `_require_x11` capability gate. **gmsh is no longer in the image.**
 - **`dockerode` and CLI-driven Docker orchestration** in the desktop app, replaced by the dependency-free Engine API client above.
 - **The PyQt5 GUI (`tit/gui/`)** — deleted, along with its extension framework, its Qt dialogs and the `GUI` shell command. The container ships no Qt at all: PyQt5, `simnibs_gui` and gmsh are stripped from the image. The [historical page]({{ site.baseurl }}/wiki/gui/) is kept for reference.
+- **The legacy 2.x launcher** — replaced by the desktop app and by `tit launch`.
 - **The Subject Info panel** — its facts are the [Overview]({{ site.baseurl }}/wiki/overview/) page's; an existing project `settings.json` that still names it still loads.
 - **The standalone Electrode Placement extension** — folded into the Simulator (see above).
 
 #### Changes
 
+- **Exposure metrics follow Cassarà et al. 2025 for shared carriers** — `hf_peak` and `hf_sar` now respect `montage.channels`, summing same-carrier fields **coherently as vectors** and combining across carriers incoherently (SAR addition), which is the rule the envelope path already used. `hf_sar` rises where a declared group's fields reinforce (up to × the group size) and `hf_peak` falls, so the 2.5.0 `hf_sar` was a **lower** bound on exposure. A montage with `channels = None` — every montage built by the 2.x default independent-dyad path — is bit-identical. The formulas, the Cassarà definitions they implement, their limits, and what the toolbox deliberately does *not* compute are set out in the [scientific-corrections record](https://github.com/idossha/TI-Toolbox/blob/main/docs/dev/SCIENTIFIC-CORRECTIONS.md).
 - **Focused 3D previews** — **Simulator / Optimizer / Analyzer ▸ Scene** use only the visualization viewport and restore separate Skin and Grey matter opacity sliders. The dedicated Viewer keeps its full controls; saved scientific configurations are unchanged.
 - **Consistent workflow controls** — subject checkboxes and sliders have keyboard-readable names, long dropdown choices stay inside their pane, and primary actions and blocked-action reasons use the shared layout in both themes.
-
 - **Config field rename:** `PreprocessConfig.run_recon` → `run_fastsurfer` (an incoming `run_recon` is still accepted as a deprecated alias, with a warning); `parallel_recon`, `parallel_cores`, and `run_subcortical_segmentations` are dropped with no replacement (thalamic-nuclei/hippocampal-subfield segmentation has no FastSurfer equivalent — see the Pre-Processing page).
 - **Capabilities:** `x11_display`, `freeview`, `gmsh`, and `freesurfer` (as a capability flag; `has_freesurfer` on a subject's info is unaffected) are removed from `GET /api/capabilities`; `tetravox_embed {available, version, protocol}` and `fastsurfer` are added.
 
 #### Fixed
 
-- **Scientific corrections to the statistics engine and analyzer** — six defects found by an external audit of the shared scientific core are fixed: cluster-based permutation testing no longer merges touching opposite-sign clusters and now builds its two-sided/left-tailed null from the *most* extreme cluster (v2.2.3–v2.5.0 two-sided and `less` results should be re-run); group NIfTI stacking now requires a common affine, not just a common shape; voxel focality volumes are cm^3 rather than 10x-too-large "cm^2"; sampled permutation p-values use the Phipson & Smyth `(b+1)/(m+1)` estimator so `p = 0` is no longer reachable; voxel volume and spherical-ROI distance come from the image affine rather than the header zooms (sheared affines only); and a zero-variance contrast is no longer reported as `t = 0, p = 1`. Full detail, affected version ranges, and per-finding "re-run or rescale" guidance in the [scientific-corrections record](https://github.com/idossha/TI-Toolbox/blob/main/docs/dev/SCIENTIFIC-CORRECTIONS.md).
-
+- **Scientific corrections to the statistics engine and analyzer** — six defects found by an external audit of the shared scientific core are fixed: cluster-based permutation testing no longer merges touching opposite-sign clusters and now builds its two-sided/left-tailed null from the *most* extreme cluster (v2.2.3–v2.5.0 two-sided and `less` results should be re-run); group NIfTI stacking now requires a common affine, not just a common shape; voxel focality volumes are cm^3 rather than 10x-too-large "cm^2"; sampled permutation p-values use the Phipson & Smyth `(b+1)/(m+1)` estimator so `p = 0` is no longer reachable; voxel volume and spherical-ROI distance come from the image affine rather than the header zooms (sheared affines only); and a zero-variance contrast is no longer reported as `t = 0, p = 1`. Two further items were found in the same pass: the shared-carrier exposure grouping above (SCI-07) and a conditioning rewrite of the K ≥ 2 envelope, which had been evaluated as a difference of two near-equal square roots and lost precision at `Q ≪ P`, below the FEM noise floor (SCI-08, no action needed). Full detail, affected version ranges, and per-finding "re-run or rescale" guidance in the [scientific-corrections record](https://github.com/idossha/TI-Toolbox/blob/main/docs/dev/SCIENTIFIC-CORRECTIONS.md).
+- **`channels` must partition `fields`** (`tit.calc`) — a field index that no channel referenced was silently dropped, so the envelope described a different montage from the one passed. It now raises, naming the unused indices.
+- **`hf_peak` exactness is queryable** (`tit.fields.hf_peak_is_exact`) — above 8 carriers the direction sweep returns a lower bound on the true worst-case peak, which was documented in the docstring but not exposed to callers that record or display it.
 - **Tabs preserve your work** — switching between Pre-processing, Simulator, Optimizer, Analyzer and Viewer retains each tab's draft, subject selection, section state, scroll and live 3D view for the open project session. Returning to a tab no longer rebuilds its viewer or resets its camera. Project switching starts a fresh session.
 - **Preview failures stay readable** — a missing or failed 3D renderer no longer loops through silent reloads; retry is explicit and retains your surface-opacity settings.
 - **Cortical atlas previews load again** — fixed a mesh-index lookup that prevented the atlas surface from building. Server build errors now remain readable until you explicitly retry, instead of appearing to build indefinitely.
-
 ---
 ### v2.5.0 (Latest Release)
 
