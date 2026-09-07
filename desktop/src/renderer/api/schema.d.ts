@@ -5251,9 +5251,18 @@ export interface components {
             exists: boolean;
             will_overwrite: boolean;
         };
+        /** @description The machine PlanCost.eta_minutes was computed for (tit.jobs.eta.detect_system): the container's core count, whether the image is running under CPU emulation (an amd64 image under Rosetta/QEMU, ~3x slower), and the resulting multiplier applied to every calibrated constant. Lets the UI say "on this machine" rather than quoting a universal duration. */
+        PlanSystem: {
+            cpus: number;
+            emulated: boolean;
+            factor: number;
+        };
         PlanCost: {
             cpus: number;
             mem_gb: number;
+            /** @description Estimated wall-clock minutes for the WHOLE plan on this machine (unlike cpus/mem_gb, which are one representative job's). Modelled in tit.jobs.eta from what actually drives the run -- electrodes in the EEG cap for a leadfield, electrode pairs for a simulation, evaluated combinations for ex/mEx, the DE budget for flex, the stage list for pre-processing -- scaled by the subject's head-mesh size and by PlanSystem.factor, and divided by the concurrency. null when the kind has no model, or when the inputs it needs cannot be read (a leadfield whose cap CSV is missing). Always an estimate: the UI must label it as one. */
+            eta_minutes?: number | null;
+            system?: components["schemas"]["PlanSystem"] | null;
         };
         /** @description Subject-scoped montage sources (flex-search run picks, saved freehand stim-configs) to merge into config.montages -- kind=sim only. tit.server.routes.plan resolves these via tit.sim.montage_sources and returns the merged set as PlanResolved.montages, one entry per (subject, source) pair. Kept out of the SimulationConfig dataclass itself: unlike a plain montage_list.json entry these two sources are inherently per-subject (a flex-search run directory or a stim_configs/*.json file only exists under one subject's m2m), so they cannot be part of the montage list every subject in a batch shares. */
         MontageSources: {

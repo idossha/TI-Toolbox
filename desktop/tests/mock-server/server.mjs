@@ -654,10 +654,38 @@ const COST_TABLE = {
   nifti_average: { cpus: 2, mem_gb: 6 },
   nilearn: { cpus: 2, mem_gb: 6 },
 };
-function costFor(kind, n) {
+/** The machine the mock claims to be: 12 emulated cores, like the maintainer's dev container. */
+const MOCK_SYSTEM = { cpus: 12, emulated: true, factor: 3.0 };
+/** A small mirror of `tit/jobs/eta.py`'s model — enough that the numbers MOVE with the inputs the
+ *  real one reads (electrodes in the cap, pairs, subjects), which is what the specs assert. */
+function etaFor(kind, n, cfg) {
+  const count = Math.max(1, n);
+  const config = cfg && typeof cfg === "object" ? cfg : {};
+  if (kind === "leadfield") {
+    const net = String(config.eeg_net ?? "").replace(/\.csv$/, "");
+    const electrodes = NET_SIZES[net];
+    if (!electrodes) return null;
+    return Math.round((2.0 + 0.276 * electrodes) * 10) / 10;
+  }
+  if (kind === "sim") {
+    const montages = Array.isArray(config.montages) ? config.montages : [];
+    const pairs = montages.reduce((t, m) => t + (Array.isArray(m?.electrode_pairs) ? m.electrode_pairs.length : 2), 0) || 2;
+    return Math.round((2.2 + 1.7 * pairs) * count * 10) / 10;
+  }
+  if (kind === "ex" || kind === "mex") return 14.0 * count;
+  if (kind === "flex" || kind === "flex_adaptive" || kind === "flex_pareto") return 25.0 * count;
+  if (kind === "pre") return 50.0 * count;
+  return null;
+}
+function costFor(kind, n, cfg) {
   const base = COST_TABLE[kind] ?? { cpus: 2, mem_gb: 4 };
   const count = Math.max(1, n);
-  return { cpus: base.cpus * count, mem_gb: base.mem_gb * Math.max(1, Math.ceil(count / 2)) };
+  return {
+    cpus: base.cpus * count,
+    mem_gb: base.mem_gb * Math.max(1, Math.ceil(count / 2)),
+    eta_minutes: etaFor(kind, count, cfg),
+    system: MOCK_SYSTEM,
+  };
 }
 /** Resolve one MontageSources entry (flex run pick or freehand stim-config) against the fixtures,
  * one output row per (subject, source) pair -- matches PlanResolved.montages's contract note. */
@@ -787,7 +815,7 @@ function planFor(kind, config, subjectIds, overwrite, montageSources) {
     if (jobsPre.some((j) => j.exists && !j.will_overwrite))
       warningsPre.push("Output already exists. Choose “Replace and rerun” to overwrite it.");
     if (jobsPre.some((j) => j.will_overwrite)) warningsPre.push("Existing output will be replaced.");
-    return { jobs: jobsPre, lock_conflicts: conflictsPre, cost: costFor(kind, ids.length), warnings: warningsPre, resolved: { stages: tags } };
+    return { jobs: jobsPre, lock_conflicts: conflictsPre, cost: costFor(kind, ids.length, cfg), warnings: warningsPre, resolved: { stages: tags } };
   }
   const jobsPlan = ids.map((subject) => {
     const output_dir = outputDirFor(kind, subject, cfg);
@@ -810,7 +838,7 @@ function planFor(kind, config, subjectIds, overwrite, montageSources) {
   // all of them.
   if (jobsPlan.some((j) => j.exists && !j.will_overwrite)) warnings.push("Output already exists. Running will ask you to confirm the overwrite.");
   if (jobsPlan.some((j) => j.will_overwrite)) warnings.push("Existing output will be replaced.");
-  return { jobs: jobsPlan, lock_conflicts, cost: costFor(kind, ids.length), warnings, resolved: resolvedFor(kind, cfg, montageSources, ids) };
+  return { jobs: jobsPlan, lock_conflicts, cost: costFor(kind, ids.length, cfg), warnings, resolved: resolvedFor(kind, cfg, montageSources, ids) };
 }
 
 // ---------------------------------------------------------------------------------- ViewSpec
@@ -2480,14 +2508,14 @@ route("POST", "/api/notebooks", async (ctx) => {
   json(ctx.res, 200, { name, content });
 });
 
-route("GET", "/api/notebooks/:name", (ctx) => {
+route("GET", "/api/notebooks/*name", (ctx) => {
   const name = notebookName(ctx.params.name);
   const entry = name === null ? undefined : notebookStore.get(name);
   if (!entry) return json(ctx.res, 404, { detail: "no such notebook" });
   json(ctx.res, 200, { name, content: entry.content });
 });
 
-route("PUT", "/api/notebooks/:name", async (ctx) => {
+route("PUT", "/api/notebooks/*name", async (ctx) => {
   const name = notebookName(ctx.params.name);
   if (name === null) return json(ctx.res, 422, { detail: "unusable notebook name" });
   const body = await ctx.body();
@@ -2501,7 +2529,7 @@ route("PUT", "/api/notebooks/:name", async (ctx) => {
   json(ctx.res, 200, { name, size, modified, example: name.startsWith("examples/") });
 });
 
-route("DELETE", "/api/notebooks/:name", (ctx) => {
+route("DELETE", "/api/notebooks/*name", (ctx) => {
   const name = notebookName(ctx.params.name);
   if (name === null || !notebookStore.has(name)) {
     return json(ctx.res, 404, { detail: "no such notebook" });

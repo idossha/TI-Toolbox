@@ -80,7 +80,8 @@ pane is the shared `RunPanel` (lane B2) with `kind` following the segment and
 ### Ex-search
 
 - [x] Leadfield list + "Create New" → the **precondition strip** under the Method segment: net
-      select, a size chip when the leadfield exists, and `⚠ required` + `Generate (≈40 min)` when
+      select, a size chip when the leadfield exists, and "No leadfield for this net yet." +
+      `Generate (≈ <eta>)` — the server's `PlanCost.eta_minutes` for that net — when
       it does not (wireframes §4: "a hard prerequisite is a gate, not a form field").
 - [~] "Refresh List" / "Clear" / "Refresh" leadfields buttons — still not built; react-query keeps
       both lists live, as in the predecessor.

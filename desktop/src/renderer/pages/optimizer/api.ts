@@ -84,4 +84,21 @@ export async function submitLeadfieldJob(subjectId: string, net: string): Promis
   );
 }
 
+/**
+ * How long generating this net's leadfield would take, in minutes — `PlanCost.eta_minutes` from
+ * `POST /api/plan/leadfield` (no new endpoint: the leadfield kind already plans).
+ *
+ * The strip needs this per NET, not per page: one FEM solve per electrode means a 19-electrode cap
+ * and a 256-electrode one differ by more than an order of magnitude, which is exactly what the
+ * button's old hardcoded "≈40 min" hid. `null` when the server has no estimate (an unreadable cap).
+ */
+export async function planLeadfieldEta(
+  subjectId: string,
+  net: string,
+): Promise<{ minutes: number | null; system: components["schemas"]["PlanSystem"] | null }> {
+  const config: LeadfieldConfigBody = { subject_id: subjectId, eeg_net: net, tissues: [1, 2], interpolation: null, overwrite: false };
+  const result = await planFor("leadfield", config, [subjectId]);
+  return { minutes: result.cost?.eta_minutes ?? null, system: result.cost?.system ?? null };
+}
+
 export { ApiError };

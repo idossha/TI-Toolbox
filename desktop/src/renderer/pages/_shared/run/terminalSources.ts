@@ -81,15 +81,27 @@ export interface RunStep {
 /**
  * Estimated wall-clock for the whole plan.
  *
- * `PlanResult.cost` carries only `cpus` and `mem_gb` — there is no server-side ETA field yet (a
- * `PlanCost.eta_minutes` is the follow-up this lane reports) — so the estimate is the steps' own
- * per-subject minutes times the number of subject rows the plan has, divided by how many of those
- * rows can run at once. It is labelled "estimate" in the UI for exactly that reason.
+ * **The server's number wins.** `PlanCost.eta_minutes` (`tit/jobs/eta.py`) is computed from what
+ * actually drives the run — electrodes in the cap, electrode pairs, evaluated combinations, the
+ * stage list — scaled by the subject's mesh and by the machine this container is on (emulated or
+ * native, core count), which is knowledge no table in the renderer can have. The step table below
+ * is the fallback for a kind the server has no model for, or a plan that has not loaded yet: the
+ * steps' per-subject minutes times the subject rows, divided by the rows that run at once.
+ *
+ * Either way it is an estimate and the UI labels it as one.
  */
 export function estimateMinutes(steps: RunStep[], plan: PlanModel | null, parallel = 1): number {
+  const server = plan?.stats.etaMinutes;
+  if (typeof server === "number" && server > 0) return Math.round(server);
   const perSubject = steps.reduce((n, s) => n + s.minutes, 0);
   const rows = Math.max(1, plan?.subjects.length ?? 1);
   return Math.round((perSubject * rows) / Math.max(1, parallel));
+}
+
+/** "≈ 48 m on this machine" — the estimate with the caveat the number cannot carry alone. */
+export function estimateLabel(minutes: number, system?: { emulated?: boolean } | null): string {
+  const where = system ? " on this machine" : "";
+  return `≈ ${durationLabel(minutes)}${where}`;
 }
 
 /** "1 h 25 m", "48 m", "< 1 m" — never a bare number of minutes. */

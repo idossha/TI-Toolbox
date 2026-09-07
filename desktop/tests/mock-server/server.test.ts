@@ -614,3 +614,42 @@ describe("POST /api/jobs/groups beyond preprocessing", () => {
     expect(stray.status).toBe(422);
   });
 });
+
+describe("mock server: PlanCost.eta_minutes (parity with tit/jobs/eta.py)", () => {
+  const auth = { authorization: `Bearer ${TOKEN}`, "content-type": "application/json" };
+
+  async function planCost(kind: string, config: Record<string, unknown>, subject_ids = ["ernie"]) {
+    const res = await fetch(`${BASE}/api/plan/${kind}`, {
+      method: "POST",
+      headers: auth,
+      body: JSON.stringify({ config, subject_ids }),
+    });
+    expect(res.status).toBe(200);
+    return ((await res.json()) as { cost: { eta_minutes: number | null; system: { emulated: boolean } | null } }).cost;
+  }
+
+  it("scales a leadfield estimate with the electrode count of the net", async () => {
+    // The number the Optimizer's Generate button shows. One FEM solve per electrode, so the
+    // 256-electrode cap must cost more than the 185-electrode one — the property the old
+    // hardcoded "≈40 min" could not have.
+    const small = await planCost("leadfield", { subject_id: "ernie", eeg_net: "GSN-HydroCel-185" });
+    const big = await planCost("leadfield", { subject_id: "ernie", eeg_net: "EGI_template" });
+    expect(big.eta_minutes!).toBeGreaterThan(small.eta_minutes!);
+    expect(small.system?.emulated).toBe(true);
+  });
+
+  it("has no leadfield estimate for a net it cannot size", async () => {
+    const cost = await planCost("leadfield", { subject_id: "ernie", eeg_net: "no-such-net" });
+    expect(cost.eta_minutes).toBeNull();
+  });
+
+  it("scales a simulation estimate with the electrode pairs and the subjects", async () => {
+    const ti = { _type: "Montage", name: "m1", mode: "net", electrode_pairs: [["E1", "E2"], ["E3", "E4"]] };
+    const mti = { ...ti, electrode_pairs: [...ti.electrode_pairs, ["E5", "E6"], ["E7", "E8"]] };
+    const one = await planCost("sim", { subject_id: "ernie", montages: [ti] });
+    const four = await planCost("sim", { subject_id: "ernie", montages: [mti] });
+    const two = await planCost("sim", { subject_id: "ernie", montages: [ti] }, ["ernie", "101"]);
+    expect(four.eta_minutes!).toBeGreaterThan(one.eta_minutes!);
+    expect(two.eta_minutes!).toBeGreaterThan(one.eta_minutes!);
+  });
+});

@@ -16,6 +16,7 @@ export type PlanChip = "new" | "skip" | "overwrite" | "blocked" | "wait";
  *  wire model does not yet declare (same widening `pages/preprocess/api.ts` does). */
 export type PlanJob = components["schemas"]["PlanJob"] & { stage?: string; label?: string };
 export type LockConflict = components["schemas"]["LockConflict"];
+export type PlanSystem = components["schemas"]["PlanSystem"];
 
 /** One entry of the `resolved.stages` array the real server's `_plan_pre` appends to in the same
  *  loop as `jobs` (plan.py ≈ 590–606). Not in `openapi.v1.yaml` yet, so it is widened here and
@@ -36,6 +37,13 @@ export interface PlanStats {
   cpus: number;
   /** `PlanResult.cost.mem_gb` — PER JOB, same reason. */
   memoryGb: number;
+  /** `PlanResult.cost.eta_minutes` — the WHOLE plan's wall clock, unlike the two above, because
+   *  that is the number a user reads before pressing Run (`tit/jobs/eta.py`). `null` when the
+   *  server has no model for the kind, or could not read what the model needs. */
+  etaMinutes: number | null;
+  /** `PlanResult.cost.system` — the machine the estimate was computed for, so the UI can say
+   *  "on this machine" instead of quoting a universal duration. */
+  system: PlanSystem | null;
   waits: number;
 }
 export interface PlanStage {
@@ -248,6 +256,8 @@ export function planModelFrom(
       jobs: result.jobs.length,
       cpus: result.cost?.cpus ?? 0,
       memoryGb: result.cost?.mem_gb ?? 0,
+      etaMinutes: result.cost?.eta_minutes ?? null,
+      system: result.cost?.system ?? null,
       waits: conflicts.length,
     },
     stages: stageIds.map((id) => ({ id, label: labelById.get(id) ?? stageLabelOf(kind, id) })),
@@ -302,14 +312,26 @@ export function mergePlanResults(results: PlanResult[]): PlanResult {
   const warnings: string[] = [];
   let cpus = 0;
   let memGb = 0;
+  //  ... and `eta_minutes` IS summed, for the opposite reason: it is already the whole of each
+  //  response's plan, and a page that plans one row per job runs those rows one after another.
+  let eta: number | null = null;
+  let system: PlanResult["cost"]["system"] = null;
   for (const r of results) {
     jobs.push(...r.jobs);
     for (const c of r.lock_conflicts ?? []) conflicts.set(`${c.key}:${c.held_by}:${c.subject}`, c);
     for (const w of r.warnings ?? []) if (!warnings.includes(w)) warnings.push(w);
     cpus = Math.max(cpus, r.cost?.cpus ?? 0);
     memGb = Math.max(memGb, r.cost?.mem_gb ?? 0);
+    if (typeof r.cost?.eta_minutes === "number") eta = (eta ?? 0) + r.cost.eta_minutes;
+    system = system ?? r.cost?.system ?? null;
   }
-  return { jobs, lock_conflicts: [...conflicts.values()], cost: { cpus, mem_gb: memGb }, warnings, resolved: null };
+  return {
+    jobs,
+    lock_conflicts: [...conflicts.values()],
+    cost: { cpus, mem_gb: memGb, eta_minutes: eta, system },
+    warnings,
+    resolved: null,
+  };
 }
 
 /** The counts every run page needs to decide whether the existing-outputs dialog has anything to

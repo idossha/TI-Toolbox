@@ -826,3 +826,69 @@ def test_plan_bad_config_is_422(client: TestClient) -> None:
         headers=BEARER,
     )
     assert resp.status_code == 422
+
+
+# --------------------------------------------------------------------------
+# plan: PlanCost.eta_minutes (tit.jobs.eta)
+# --------------------------------------------------------------------------
+
+
+def _write_cap(project: Path, sid: str, net: str, n: int) -> None:
+    from tit.paths import get_path_manager
+
+    positions = Path(get_path_manager().eeg_positions(sid))
+    positions.mkdir(parents=True, exist_ok=True)
+    (positions / f"{net}.csv").write_text(
+        "\n".join(f"Electrode,0,0,0,E{i}" for i in range(n)) + "\n"
+    )
+
+
+def test_plan_cost_reports_the_machine_it_estimated_for(client: TestClient) -> None:
+    resp = client.post(
+        "/api/plan/sim", json={"config": _sim_config()}, headers=BEARER
+    )
+    cost = resp.json()["cost"]
+    assert cost["eta_minutes"] > 0
+    assert cost["system"]["cpus"] >= 1
+    assert isinstance(cost["system"]["emulated"], bool)
+    assert cost["system"]["factor"] > 0
+
+
+def test_plan_leadfield_eta_scales_with_the_caps_electrode_count(
+    client: TestClient, project: Path
+) -> None:
+    """The number the Generate button shows: a 19-electrode cap is not a 256-electrode cap."""
+    _write_cap(project, "001", "tiny-net", 19)
+    _write_cap(project, "001", "huge-net", 256)
+
+    def eta(net: str) -> float:
+        resp = client.post(
+            "/api/plan/leadfield",
+            json={"config": {"subject_id": "001", "eeg_net": net}},
+            headers=BEARER,
+        )
+        assert resp.status_code == 200
+        return resp.json()["cost"]["eta_minutes"]
+
+    assert eta("huge-net") > 5 * eta("tiny-net")
+
+
+def test_plan_leadfield_eta_is_null_when_the_cap_is_unknown(
+    client: TestClient, project: Path
+) -> None:
+    resp = client.post(
+        "/api/plan/leadfield",
+        json={"config": {"subject_id": "001", "eeg_net": "no-such-net"}},
+        headers=BEARER,
+    )
+    assert resp.json()["cost"]["eta_minutes"] is None
+
+
+def test_plan_sim_eta_grows_with_the_batch(client: TestClient, project: Path) -> None:
+    one = client.post("/api/plan/sim", json={"config": _sim_config()}, headers=BEARER)
+    two = client.post(
+        "/api/plan/sim",
+        json={"config": _sim_config(), "subject_ids": ["001", "002"]},
+        headers=BEARER,
+    )
+    assert two.json()["cost"]["eta_minutes"] > one.json()["cost"]["eta_minutes"]

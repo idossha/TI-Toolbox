@@ -3923,12 +3923,41 @@ components:
         output_dir: { type: string }
         exists: { type: boolean }
         will_overwrite: { type: boolean }
+    PlanSystem:
+      type: object
+      description: >-
+        The machine PlanCost.eta_minutes was computed for (tit.jobs.eta.detect_system): the
+        container's core count, whether the image is running under CPU emulation (an amd64 image
+        under Rosetta/QEMU, ~3x slower), and the resulting multiplier applied to every calibrated
+        constant. Lets the UI say "on this machine" rather than quoting a universal duration.
+      required: [cpus, emulated, factor]
+      properties:
+        cpus: { type: integer }
+        emulated: { type: boolean }
+        factor: { type: number }
     PlanCost:
       type: object
       required: [cpus, mem_gb]
       properties:
         cpus: { type: number }
         mem_gb: { type: number }
+        eta_minutes:
+          description: >-
+            Estimated wall-clock minutes for the WHOLE plan on this machine (unlike cpus/mem_gb,
+            which are one representative job's). Modelled in tit.jobs.eta from what actually
+            drives the run -- electrodes in the EEG cap for a leadfield, electrode pairs for a
+            simulation, evaluated combinations for ex/mEx, the DE budget for flex, the stage list
+            for pre-processing -- scaled by the subject's head-mesh size and by PlanSystem.factor,
+            and divided by the concurrency. null when the kind has no model, or when the inputs it
+            needs cannot be read (a leadfield whose cap CSV is missing). Always an estimate: the
+            UI must label it as one.
+          oneOf:
+            - type: number
+            - type: "null"
+        system:
+          oneOf:
+            - $ref: "#/components/schemas/PlanSystem"
+            - type: "null"
     MontageSources:
       type: object
       description: >-

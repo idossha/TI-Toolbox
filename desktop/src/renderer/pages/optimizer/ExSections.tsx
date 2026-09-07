@@ -7,6 +7,7 @@
  * segment that states the fact and offers the one action that fixes it, rather than a card with a
  * radio list the user must interpret.
  */
+import { useQuery } from "@tanstack/react-query";
 import { CircleHelp, Zap } from "lucide-react";
 import { Button } from "../../ui/Button";
 import { Chip } from "../../ui/Status";
@@ -20,6 +21,8 @@ import { Popover } from "../../ui/Overlay";
 import { Skeleton } from "../../ui/Feedback";
 import { FormSection } from "../../ui/Layout";
 import type { EegNet, Leadfield } from "./api";
+import { planLeadfieldEta } from "./api";
+import { durationLabel, estimateLabel } from "../_shared/run";
 import {
   BUCKET_LABELS,
   BUCKET_TOOLTIPS,
@@ -46,11 +49,28 @@ function HelpButton({ label, text }: { label: string; text: string }) {
   );
 }
 
+/**
+ * How long generating THIS net's leadfield would take here, from the server's plan.
+ *
+ * Per (subject, net) because that is what the number depends on — one FEM solve per electrode,
+ * on this machine's cores, emulated or not (`tit/jobs/eta.py`). Undefined while it loads, so the
+ * button says nothing rather than a wrong thing; `null` when the server cannot model it.
+ */
+function useLeadfieldEta(subjectId: string | undefined, net: string | null) {
+  return useQuery({
+    queryKey: ["leadfield-eta", subjectId, net],
+    queryFn: () => planLeadfieldEta(subjectId as string, net as string),
+    enabled: Boolean(subjectId && net),
+    staleTime: 5 * 60_000,
+  });
+}
+
 export function LeadfieldStrip({
   leadfields,
   loading,
   nets,
   selectedNet,
+  subjectId,
   onSelectNet,
   onGenerate,
   generating,
@@ -59,16 +79,22 @@ export function LeadfieldStrip({
   loading: boolean;
   nets: EegNet[] | undefined;
   selectedNet: string | null;
+  /** Whose leadfield — the estimate is per subject (their head mesh) as well as per net. */
+  subjectId?: string;
   onSelectNet: (net: string) => void;
   onGenerate: (net: string) => void;
   generating: boolean;
 }) {
+  // Hooks before the early return: the strip renders a skeleton while the catalog loads, and a
+  // conditional hook would break on the transition out of it.
+  const eta = useLeadfieldEta(subjectId, selectedNet);
   if (loading) return <Skeleton height={28} />;
   // Both catalogs spell a net differently (`nets.ts`): every value here is the bare name, which is
   // also what `LeadfieldGenerator` wants for `eeg_net` (it appends the `.csv` itself).
   const current = leadfieldFor(leadfields, selectedNet);
   const options = netOptions(leadfields, nets);
   const ready = current?.exists ?? false;
+  const etaMinutes = eta.data?.minutes ?? null;
 
   return (
     <div className="optimizer-precondition" data-testid="leadfield-strip">
@@ -78,10 +104,10 @@ export function LeadfieldStrip({
         <Chip kind="success">{formatBytes(current?.size_bytes ?? 0)}</Chip>
       ) : (
         <>
-          <Chip kind="danger" missing>
-            required
-          </Chip>
-          <span className="field-help">No leadfield for this net — the search cannot run without one.</span>
+          {/* No "required" chip (maintainer, 2026-09-06): the sentence beside it already says the
+              leadfield is not there, and a red missing-chip made a normal next step read as an
+              error. One plain sentence, one button. */}
+          <span className="field-help">No leadfield for this net yet.</span>
           <Button
             variant="secondary"
             size="sm"
@@ -89,8 +115,17 @@ export function LeadfieldStrip({
             loading={generating}
             disabled={!selectedNet}
             onClick={() => selectedNet && onGenerate(selectedNet)}
+            /* The estimate is for THIS net on THIS machine: one FEM solve per electrode, so a
+               19-electrode cap is minutes and a 256-electrode one is over an hour under
+               emulation. Hidden while it loads rather than guessed. */
+            title={
+              typeof etaMinutes === "number"
+                ? `${estimateLabel(etaMinutes, eta.data?.system)} — one FEM solve per electrode in this net`
+                : undefined
+            }
+            data-eta-minutes={typeof etaMinutes === "number" ? etaMinutes : undefined}
           >
-            Generate (≈40 min)
+            {typeof etaMinutes === "number" ? `Generate (≈ ${durationLabel(etaMinutes)})` : "Generate"}
           </Button>
         </>
       )}

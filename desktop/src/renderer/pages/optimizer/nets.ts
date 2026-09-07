@@ -49,7 +49,7 @@ export function electrodesForNet(nets: EegNet[] | undefined, net: string | null)
  * The strip's options: every net this subject has, bare, with the ones that already have a
  * leadfield first. Both sources are unioned (de-duplicated by `netKey`) so a net with a leadfield
  * is offered even when the cap CSV is gone, and a net without one is still selectable — that is
- * how "Generate (≈40 min)" is reachable at all.
+ * how the strip's "Generate" button is reachable at all.
  */
 export function netOptions(leadfields: Leadfield[] | undefined, nets: EegNet[] | undefined): { value: string; label: string }[] {
   const seen = new Set<string>();

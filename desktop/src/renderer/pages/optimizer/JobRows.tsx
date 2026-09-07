@@ -530,6 +530,7 @@ function RowEditor({
             loading={leadfields === undefined}
             nets={nets}
             selectedNet={row.net}
+            subjectId={row.subjectId || undefined}
             onSelectNet={(n) => onChange({ ...row, net: n })}
             onGenerate={(n) => row.subjectId && onGenerateLeadfield(row.subjectId, n)}
             generating={generatingLeadfield}

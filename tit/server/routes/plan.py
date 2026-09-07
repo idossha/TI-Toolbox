@@ -132,9 +132,22 @@ class LockConflict(BaseModel):
     started_at: str
 
 
+class PlanSystem(BaseModel):
+    """The machine an ``eta_minutes`` was computed for (:mod:`tit.jobs.eta`)."""
+
+    cpus: int
+    emulated: bool
+    factor: float
+
+
 class PlanCost(BaseModel):
     cpus: float
     mem_gb: float
+    #: Estimated wall-clock minutes for the whole plan on THIS machine, or ``None`` when the
+    #: kind has no model (or a leadfield whose cap CSV cannot be read). An estimate: the UI
+    #: must label it as one. See :func:`tit.jobs.eta.eta_minutes`.
+    eta_minutes: float | None = None
+    system: PlanSystem | None = None
 
 
 class PlanResult(BaseModel):
@@ -150,14 +163,62 @@ class PlanResult(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def _plan_cost(kind: str, raw_config: dict[str, Any]) -> PlanCost:
-    """One representative job's cost for *kind* (not summed across a multi-job plan)."""
+def _plan_cost(
+    kind: str,
+    raw_config: dict[str, Any],
+    *,
+    resolved: dict[str, Any] | None = None,
+    jobs: list[PlanJob] | None = None,
+    parallel: int = 1,
+) -> PlanCost:
+    """One representative job's resource cost for *kind* plus the plan's ETA.
+
+    ``cpus``/``mem_gb`` are per job (not summed across a multi-job plan -- see this module's
+    docstring); ``eta_minutes`` is the opposite, the wall clock of the WHOLE plan, because that
+    is the number a user reads before pressing Run.
+    """
     try:
         from tit.jobs.costs import default_cost
     except ImportError:
         return PlanCost(cpus=1.0, mem_gb=2.0)
     cost = default_cost(kind, raw_config)
-    return PlanCost(cpus=cost.cpus, mem_gb=cost.mem_gb)
+    eta, system = _plan_eta(kind, raw_config, resolved=resolved, jobs=jobs, parallel=parallel)
+    return PlanCost(cpus=cost.cpus, mem_gb=cost.mem_gb, eta_minutes=eta, system=system)
+
+
+def _plan_eta(
+    kind: str,
+    raw_config: dict[str, Any],
+    *,
+    resolved: dict[str, Any] | None,
+    jobs: list[PlanJob] | None,
+    parallel: int,
+) -> tuple[float | None, PlanSystem | None]:
+    """``(eta_minutes, system)`` for the plan; ``(None, system)`` when the kind has no model."""
+    try:
+        from tit.jobs import eta as eta_model
+    except ImportError:  # pragma: no cover - tit.jobs is always importable in-tree
+        return None, None
+    profile = eta_model.detect_system()
+    system = PlanSystem(cpus=profile.cpus, emulated=profile.emulated, factor=profile.factor)
+    job_list = jobs or []
+    if kind == "pre":
+        # `_plan_pre`'s `resolved["stages"]` already has one entry per (subject, stage), so the
+        # stage sum IS the whole plan; only the subject concurrency divides it.
+        n_jobs, lanes = 1, max(1, parallel)
+    else:
+        n_jobs, lanes = max(1, len(job_list)), max(1, parallel)
+    subject = job_list[0].subject if job_list else None
+    minutes = eta_model.eta_minutes(
+        kind,
+        raw_config,
+        resolved=resolved,
+        subject_id=subject,
+        n_jobs=n_jobs,
+        parallel=lanes,
+        system=profile,
+    )
+    return minutes, system
 
 
 def _plan_lock_conflicts(
@@ -766,7 +827,7 @@ def plan(kind: str, body: PlanRequest) -> PlanResult:
         return PlanResult(
             jobs=[],
             lock_conflicts=[],
-            cost=PlanCost(cpus=0.0, mem_gb=0.0),
+            cost=PlanCost(cpus=0.0, mem_gb=0.0, eta_minutes=None),
             warnings=warnings,
             resolved=None,
         )
@@ -822,14 +883,24 @@ def plan(kind: str, body: PlanRequest) -> PlanResult:
     else:  # pragma: no cover - ALL_KINDS/NO_SCHEMA_KINDS covers everything else
         jobs, resolved = [], None
 
-    cost = _plan_cost(kind, body.config)
+    parallel = 1
+    if kind == "pre" and resolved is not None:
+        parallel = resolved.get("parallel_subjects", 1)
+    cost = _plan_cost(
+        kind, body.config, resolved=resolved, jobs=jobs, parallel=parallel
+    )
     if kind == "pre" and resolved is not None:
         # A `pre` plan is N per-subject DAGs; resolved["parallel_subjects"] (see _plan_pre)
         # is how many of them the matching `POST /api/jobs/groups` call would run at once,
         # so the previewed cost -- one representative stage's cost times that concurrency --
         # matches what the group would actually consume, not just one lone stage's footprint.
         concurrency = resolved.get("parallel_subjects", 1)
-        cost = PlanCost(cpus=cost.cpus * concurrency, mem_gb=cost.mem_gb * concurrency)
+        cost = PlanCost(
+            cpus=cost.cpus * concurrency,
+            mem_gb=cost.mem_gb * concurrency,
+            eta_minutes=cost.eta_minutes,
+            system=cost.system,
+        )
     lock_conflicts = _plan_lock_conflicts(
         kind, subject_ids or [j.subject for j in jobs if j.subject], body.config
     )

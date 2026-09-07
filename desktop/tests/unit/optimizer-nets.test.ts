@@ -87,7 +87,7 @@ describe("the leadfield gate", () => {
     expect(defaultNet(REAL_LEADFIELDS, REAL_NETS)).toBe("EEG10-10_UI_Jurak_2007");
     expect(defaultNet(MOCK_LEADFIELDS, MOCK_NETS)).toBe("GSN-HydroCel-185");
     // No leadfields at all: the first net of the subject's own cap list, still bare — the value
-    // "Generate (≈40 min)" submits as `eeg_net`, which LeadfieldGenerator suffixes with ".csv".
+    // The strip's "Generate" button submits as `eeg_net`, which LeadfieldGenerator suffixes with ".csv".
     expect(defaultNet([], REAL_NETS)).toBe("EEG10-10_Cutini_2011");
     expect(defaultNet([], [])).toBeNull();
   });

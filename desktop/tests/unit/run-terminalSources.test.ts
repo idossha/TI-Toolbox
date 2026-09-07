@@ -9,6 +9,7 @@
 import { describe, expect, it } from "vitest";
 import {
   durationLabel,
+  estimateLabel,
   estimateMinutes,
   RUN_STEPS,
   stepsFor,
@@ -30,6 +31,33 @@ describe("the estimate", () => {
 
   it("never divides by zero and treats a null plan as one subject", () => {
     expect(estimateMinutes(stepsFor("sim"), null, 0)).toBe(13);
+  });
+
+  it("prefers the server's eta over the step table", () => {
+    // `PlanCost.eta_minutes` knows the electrode count, the mesh and the machine; the table does
+    // not. Whenever the server gives a number, the table is not consulted at all.
+    const plan = planModelFrom(
+      "pre",
+      { jobs: [], lock_conflicts: [], cost: { cpus: 4, mem_gb: 16, eta_minutes: 92.4, system: { cpus: 12, emulated: true, factor: 3 } }, warnings: [] } as PlanResult,
+      ["ernie", "101"],
+    );
+    expect(estimateMinutes(stepsFor("pre", ["G1", "G3"]), plan, 1)).toBe(92);
+    expect(plan.stats.system?.emulated).toBe(true);
+  });
+
+  it("falls back to the step table when the server has no estimate", () => {
+    const plan = planModelFrom(
+      "pre",
+      { jobs: [], lock_conflicts: [], cost: { cpus: 4, mem_gb: 16, eta_minutes: null }, warnings: [] } as PlanResult,
+      ["ernie", "101"],
+    );
+    expect(estimateMinutes(stepsFor("pre", ["G1", "G3"]), plan, 1)).toBe(10);
+    expect(plan.stats.etaMinutes).toBeNull();
+  });
+
+  it("names the machine an estimate was made for", () => {
+    expect(estimateLabel(85, { emulated: true })).toBe("≈ 1 h 25 m on this machine");
+    expect(estimateLabel(6, null)).toBe("≈ 6 m");
   });
 
   it("labels hours and minutes, never a bare number", () => {

@@ -625,6 +625,37 @@ test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.
   expect(first.hidden, "Tier-1 below the fold").toEqual([]);
 });
 
+test("the leadfield strip states the fact and estimates THIS net, with no 'required' chip", async () => {
+  // Maintainer, 2026-09-06, on a screenshot of the strip: *"Remove that required icon. Just say
+  // that the leadfield is not there... for the time prediction, make sure we have a rough estimate
+  // based on the number of electrodes in the net."* So: one plain sentence, and a duration read
+  // from `PlanCost.eta_minutes` for the SELECTED net (one FEM solve per electrode, on this
+  // machine) instead of the "≈40 min" that used to be typed into the label.
+  await clearOptRows(page);
+  const row = await addOptRow(page);
+  await setOptSubject(page, row, "ernie");
+  await setOptCell(page, row, "method", "Ex");
+  const dialog = await openOptEditor(page, row);
+  const strip = dialog.getByTestId("leadfield-strip");
+
+  // `EGI_template` is the net ernie has no leadfield for (tests/fixtures/leadfields.json).
+  await strip.getByRole("combobox", { name: "EEG net" }).click();
+  await page.getByRole("option", { name: "EGI_template", exact: true }).click();
+
+  await expect(strip).toContainText("No leadfield for this net yet.");
+  await expect(strip.getByText("required")).toHaveCount(0);
+
+  const generate = strip.getByRole("button", { name: /^Generate/ });
+  await expect(generate).toHaveAttribute("data-eta-minutes", /\d/);
+  // 256 electrodes on the mock's emulated machine: over an hour, not the old flat 40 minutes.
+  const minutes = Number(await generate.getAttribute("data-eta-minutes"));
+  expect(minutes).toBeGreaterThan(60);
+  await expect(generate).toHaveText(/^Generate \(≈ 1 h/);
+  await expect(generate).toHaveAttribute("title", /on this machine/);
+
+  await closeOptEditor(page);
+});
+
 /**
  * Evidence for a reviewer, not an assertion: the table, and one row editor per family. Written to
  * `tests/e2e/artifacts/` like the other lanes' jobs-table shots.

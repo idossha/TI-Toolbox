@@ -121,7 +121,9 @@ describe("stats and digest", () => {
       job({ subject: "101", output_dir: "/p/m2m_101" }),
     ]);
     const model = planModelFrom("pre", r, ["ernie", "101"]);
-    expect(model.stats).toEqual({ jobs: 2, cpus: 8, memoryGb: 16, waits: 0 });
+    // ... unlike `etaMinutes`, which IS the whole plan's (tit/jobs/eta.py) and is null when the
+    // response carries no estimate.
+    expect(model.stats).toEqual({ jobs: 2, cpus: 8, memoryGb: 16, etaMinutes: null, system: null, waits: 0 });
   });
 
   it("counts waits from lock_conflicts and marks every conflicted subject's cells", () => {
@@ -172,7 +174,9 @@ describe("mergePlanResults — the per-row plans the Simulator issues", () => {
     expect(merged.warnings).toEqual(["output already exists"]);
     expect(merged.lock_conflicts).toHaveLength(1);
     // Not 12 CPU / 48 GB: `_plan_cost` measures one representative job, so the tiles read per job.
-    expect(merged.cost).toEqual({ cpus: 8, mem_gb: 32 });
+    // The ETA is the exception: each response's is already its whole plan's, and the rows run one
+    // after another, so they add up (null here — neither fixture carries one).
+    expect(merged.cost).toEqual({ cpus: 8, mem_gb: 32, eta_minutes: null, system: null });
   });
 });
 
