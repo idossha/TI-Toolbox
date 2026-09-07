@@ -456,3 +456,39 @@ export async function answerExistingOutputs(page: Page, decision: "skip" | "repl
   }
   await button.click();
 }
+
+/**
+ * Enables a feature panel in the **real** server's settings and returns the panel list as it was,
+ * so a spec can put it back. `PUT /api/settings` replaces the whole document, so the current one is
+ * read first and only `panels` is changed.
+ *
+ * Why a real spec needs this. A panel's nav entry is gated on the *server's* `settings.panels`
+ * (`app/registry.ts::isPanelPageEnabled`; the localStorage list in `pages/panels/_shared.ts` is
+ * only a mirror), and both panels these specs cover are off in this project's settings. The mock
+ * specs route `GET /api/settings` to enable everything (`panels-forms.spec.ts`), which a real spec
+ * must not do — but neither should it drive the Settings form: that path saves, reloads the window
+ * and lands on whichever page the app last had open, which is not something a fixture should have
+ * to steer. Call this **before** launching the app, so the first boot already sees the panel.
+ *
+ * `getByRole("link", ...)` on a disabled panel does not time out because of slowness; the link is
+ * simply never rendered.
+ */
+export async function setServerPanels(url: string, token: string, panels: string[]): Promise<void> {
+  const current = await fetch(new URL("/api/settings", url), { headers: { Authorization: `Bearer ${token}` } });
+  if (!current.ok) throw new Error(`GET /api/settings: ${current.status}`);
+  const body = (await current.json()) as Record<string, unknown>;
+  const put = await fetch(new URL("/api/settings", url), {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+    body: JSON.stringify({ ...body, panels }),
+  });
+  if (!put.ok) throw new Error(`PUT /api/settings: ${put.status}`);
+}
+
+/** The panel ids the real server currently has enabled — the value to restore in `afterAll`. */
+export async function getServerPanels(url: string, token: string): Promise<string[]> {
+  const res = await fetch(new URL("/api/settings", url), { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`GET /api/settings: ${res.status}`);
+  const body = (await res.json()) as { panels?: unknown };
+  return Array.isArray(body.panels) ? body.panels.filter((p): p is string => typeof p === "string") : [];
+}

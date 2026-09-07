@@ -12,6 +12,8 @@ import {
   smokeDirFromArtifactPath,
   waitForJobTerminal,
   waitForJobTrace,
+  getServerPanels,
+  setServerPanels,
 } from "../_helpers";
 
 /**
@@ -27,9 +29,16 @@ let app: ElectronApplication;
 let page: Page;
 let cleanupPath: string | null = null;
 
+let panelsAsFound: string[] = [];
+
 test.describe.configure({ mode: "serial" });
 
 test.beforeAll(async () => {
+  // This panel is off in this project's `settings.panels`, and the nav entry is gated on the
+  // server's list, not the localStorage mirror — so the link is never rendered until the server
+  // says the panel is on. Set it before the app boots, and put the list back in `afterAll`.
+  panelsAsFound = await getServerPanels(SERVER_URL, TOKEN);
+  if (!panelsAsFound.includes("nilearn-visuals")) await setServerPanels(SERVER_URL, TOKEN, [...panelsAsFound, "nilearn-visuals"]);
   const userDataDir = mkdtempSync(join(tmpdir(), "tit-e2e-real-"));
   app = await launchElectronApp({ userDataDir });
   page = await app.firstWindow();
@@ -40,6 +49,7 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
+  await setServerPanels(SERVER_URL, TOKEN, panelsAsFound);
   if (cleanupPath) cleanupSmokeOutputs([cleanupPath]);
   await app?.close();
 });
