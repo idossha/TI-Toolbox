@@ -321,6 +321,23 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     await call("/api/viewer/candidates", "GET", "/api/viewer/candidates?subject=ernie&simulation=Thalamus");
     await call("/api/viewer/presets/{name}", "DELETE", "/api/viewer/presets/contract");
 
+    // The composition tree, and the two things a person can keep: what they chose (a composition)
+    // and what they were looking at (a scene, in Tetravox's own format).
+    await call("/api/viewer/tree", "GET", "/api/viewer/tree?subject=ernie&space=subject&simulations=Thalamus");
+    await call("/api/viewer/compositions/{name}", "PUT", "/api/viewer/compositions/contract", {
+      body: { subject: "ernie", space: "subject", inputs: ["/mnt/example/T1.nii.gz"], simulations: ["Thalamus"] },
+    });
+    await call("/api/viewer/compositions", "GET", "/api/viewer/compositions");
+    await call("/api/viewer/compositions/{name}", "DELETE", "/api/viewer/compositions/contract");
+
+    await call("/api/viewer/scenes/suggest/name", "GET", "/api/viewer/scenes/suggest/name?subject=ernie&simulation=Thalamus&field=TI_max");
+    await call("/api/viewer/scenes/{name}", "PUT", "/api/viewer/scenes/contract", {
+      body: { scene: { version: 2, datasets: [], layers: [{ id: "L0", kind: "volume" }] }, subject: "ernie" },
+    });
+    await call("/api/viewer/scenes", "GET", "/api/viewer/scenes");
+    await call("/api/viewer/scenes/{name}", "GET", "/api/viewer/scenes/contract");
+    await call("/api/viewer/scenes/{name}", "DELETE", "/api/viewer/scenes/contract");
+
     // files (v1)
     await call("/api/files/report/{id}", "GET", "/api/files/report/ernie-thalamus-2026-08-01");
     const artifactPath = encodeURIComponent("/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/Analyses/Thalamus_DK40_TI_max/summary.csv");

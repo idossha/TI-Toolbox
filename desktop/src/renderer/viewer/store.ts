@@ -117,6 +117,18 @@ interface ViewerState {
   setTheme: (theme: "light" | "dark") => void;
   focusCanvas: () => void;
   probe: (world: vec3) => Promise<ProbeResult | null>;
+  /**
+   * The **live** scene as a `ViewSpec` — camera, layout, per-layer window/threshold/colormap and
+   * cursor, as the person left them.
+   *
+   * Restored for "Save scene" (2026-09-07). This module's own note said `serializeScene()` was
+   * removed because "nothing on the v3 page has anywhere to put a Save scene affordance"; the
+   * Tetravox sub-page now does. It has to be the embed's answer rather than the document the
+   * server built, because everything worth saving about a scene is what changed after it loaded.
+   */
+  serializeScene: () => Promise<EmbedViewSpec | null>;
+  /** A PNG of the whole view grid, as a `data:` URL — the saved scene's thumbnail. */
+  screenshot: (size?: { width: number; height: number }) => Promise<string | null>;
 }
 
 // The channel: a non-reactive companion to the store, exactly as the engine handle used to be.
@@ -310,6 +322,33 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
       const reply = await channel.request<Extract<EmbedMessage, { type: "probe" }>>({ type: "probe", world }, "probe");
       return reply.result;
     } catch {
+      return null;
+    }
+  },
+
+  serializeScene: async () => {
+    if (channel === null) return null;
+    try {
+      const reply = await channel.request<Extract<EmbedMessage, { type: "scene" }>>({ type: "serialize" }, "scene");
+      return reply.spec;
+    } catch {
+      // `null`, not a throw: the caller's job is to tell someone the scene could not be saved,
+      // and it can do that better than a rejected promise crossing three components can.
+      return null;
+    }
+  },
+
+  screenshot: async (size) => {
+    if (channel === null) return null;
+    try {
+      const reply = await channel.request<Extract<EmbedMessage, { type: "screenshot" }>>(
+        { type: "screenshot", target: "grid", ...(size ?? {}) },
+        "screenshot",
+      );
+      return reply.dataUrl;
+    } catch {
+      // A scene worth keeping is still worth keeping without its picture, so a failed screenshot
+      // must not fail the save — the server drops a missing thumbnail for the same reason.
       return null;
     }
   },

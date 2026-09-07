@@ -1067,3 +1067,73 @@ test("the card names the window the overlay will open at, before anything opens"
   await expect(summary).toContainText("p95–p99.9");
   await expect(summary).toContainText("V/m");
 });
+
+// ── saving a scene (2026-09-07) ──────────────────────────────────────────────────────────────
+//
+// Maintainer: *"we should be integrating scene saving where users can essentially save scenes —
+// not only the input selection but also the scene for the user — and we should be very opinionated
+// about that and save it in the Tetravox [scene format]."*
+//
+// What makes this a *scene* rather than a second copy of the selection is that the document comes
+// from the embed's own `serialize` — the camera someone flew to and the window they widened, not
+// the document the server built. The fake embed echoes the scene it was loaded with, so the
+// round-trip is observable here; the real engine's version is the same message.
+
+test("Save scene writes a .tetravox.json, and it comes back in the list", async () => {
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  await draftSimulation();
+  await pressOpen();
+  await expectOpened();
+
+  // Only once the embed has something to serialize.
+  const save = page.getByTestId("viewer-scene-save-open");
+  await expect(save).toBeEnabled({ timeout: 15_000 });
+  await save.click();
+
+  // The name is pre-filled by the server, so the common case is press-and-done.
+  const nameField = page.getByTestId("viewer-scene-name");
+  await expect(nameField).toHaveValue(/ernie/, { timeout: 10_000 });
+  const name = await nameField.inputValue();
+  expect(name, "the default name says what the scene is of").toContain("Thalamus");
+
+  await page.getByTestId("viewer-scene-save").click();
+  await expect(page.getByTestId("viewer-scene-saved")).toContainText(".tetravox.json", { timeout: 15_000 });
+
+  // And it is listed back in the Menu, ready to reopen.
+  await gotoSub("menu");
+  const list = page.getByTestId("viewer-saved-scenes-open");
+  await expect(list).toBeEnabled({ timeout: 10_000 });
+  await list.click();
+  await expect(page.getByTestId("viewer-saved-scenes").getByRole("button")).toHaveCount(1);
+  await expect(page.getByTestId("viewer-saved-scenes")).toContainText(name);
+});
+
+test("reopening a saved scene puts it back in the same frame", async () => {
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  await draftSimulation();
+  await pressOpen();
+  await expectOpened();
+  await page.getByTestId("viewer-scene-save-open").click();
+  await expect(page.getByTestId("viewer-scene-name")).toHaveValue(/ernie/, { timeout: 10_000 });
+  const name = await page.getByTestId("viewer-scene-name").inputValue();
+  await page.getByTestId("viewer-scene-save").click();
+  await expect(page.getByTestId("viewer-scene-saved")).toBeVisible({ timeout: 15_000 });
+
+  await gotoSub("menu");
+  await page.getByTestId("viewer-saved-scenes-open").click();
+  const slug = name.replace(/ /g, "_");
+  const seen = recordViewRequests();
+  await page.getByTestId(`viewer-saved-scene-${slug}`).click();
+
+  // Reopening a saved scene is a read of a document that already exists — it must not re-resolve
+  // the selection, because the whole point of having saved it is that it is not derived any more.
+  await expectSub("viewer");
+  await expect(page.getByTestId("viewer-strip-name")).toHaveText(`${slug}.tetravox.json`);
+  await expect(page.getByTestId("tetravox-host")).toBeVisible();
+  expect(opens(seen), "reopening a saved scene must write no new scene").toHaveLength(0);
+  expect(seen.filter((r) => r.dryRun), "reopening a saved scene must not re-resolve").toHaveLength(0);
+});

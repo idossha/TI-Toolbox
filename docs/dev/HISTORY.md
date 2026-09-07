@@ -325,6 +325,47 @@ Viewer decisions dated one day apart.
   GIfTI copies nothing reads; job re-adoption does not survive a `--reload`; and
   `FlexConfig.output_folder` is the run name while ex/mEx use `run_name`.
 
+## 2026-09-07 — the Viewer keeps what you chose and what you saw
+
+Maintainer, on the Menu's `Type / Subject / Simulation / Field / Space` card: *"please change the
+menu such that there is subject and then it kind of like shows two little branches with the anatomy
+and then there is a simulation section where they can choose the different simulations — they can
+potentially choose multiple — and then they choose analysis output; and in each one the user should
+be able to choose what input they want for each stage ... At the end they could choose to save it as
+a JSON for future reproducibility. Also we should be integrating scene saving where users can
+essentially save scenes — not only the input selection but also the scene for the user — and we
+should be very opinionated about that and save it in the Tetravox [scene format]."*
+
+**Two artefacts, not one.** The sentence asks for both a saved *selection* and a saved *scene*, and
+the temptation is to make the second a superset of the first. They are kept apart because they age
+differently. A **composition** (`compositions/<name>.json`) records ids — subject, space, the inputs
+ticked — so reloading it re-resolves against a project that has since been re-run, and reports what
+is missing rather than failing: *"show me the same thing, from the current data"*. A **scene**
+(`scenes/<name>.tetravox.json`) is the embed's own `serialize` reply written verbatim, camera and
+per-layer window included: *"show me exactly this picture again"*. Collapsing them would make one of
+those two questions unanswerable.
+
+Saving a scene is the embed's answer and never a re-derivation, because everything worth saving
+about a scene is what changed *after* it loaded. `store.ts` had removed `serializeScene()` with the
+note that "nothing on the v3 page has anywhere to put a Save scene affordance"; the Tetravox
+sub-page now does, and `screenshot` comes with it — a list of names all shaped
+`<subject>_<sim>_<field>_<date>` is a list nobody can choose from, so the thumbnail leads the row.
+A screenshot that fails does not fail the save, and a "PNG" that decodes but lacks the signature is
+dropped rather than written: this route puts bytes in someone's project.
+
+**The tree.** `GET /api/viewer/tree` answers anatomy / simulations / analyses for one subject, from
+the catalog and from what is on disk right now. Every node carries its size and an
+`available`/`reason` pair, because a tree that offers a file which is not there moves the failure to
+Open. The id is the container path — a composition saved today has to resolve against a project that
+has gained and lost files, and the only thing that survives that is what the file is called. It
+reads no voxels (`listdir` and `stat`), because it is redrawn as a person clicks. Space is honoured
+in both directions: a subject-space scene is not offered the MNI copies, since two spaces in one
+scene is a misregistration nobody asked for; meshes are offered in both, because there is no MNI
+mesh and hiding them would hide a real option.
+
+Server, contract, mock and tests landed together; the Menu still draws the old source card, and
+replacing it with the tree is the remaining half.
+
 ## 2026-09-07 — viewer defaults and resolve latency
 
 Three screenshots from the maintainer, of the Viewer Menu and of the scene it handed to Tetravox:

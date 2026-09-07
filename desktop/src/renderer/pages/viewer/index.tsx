@@ -53,7 +53,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Clock, Eye, GripVertical, Plus, RefreshCw, Save, X } from "lucide-react";
+import { Camera, Clock, Eye, GripVertical, Plus, RefreshCw, Save, X } from "lucide-react";
 import { ApiError, getSubjects } from "../../api/client";
 import type { PageDef } from "../../app/registry";
 import { usePageSession } from "../../app/pageSession";
@@ -76,6 +76,11 @@ import {
   previewView,
   openView,
   savePreset,
+  saveScene,
+  suggestSceneName,
+  getSavedScenes,
+  readSavedScene,
+  type SavedScene,
   type Space,
   type ViewKind,
   type ViewQuery,
@@ -243,6 +248,9 @@ function ViewerPage() {
   // *after* the embed rewrote its layer ids on load.
   const [loaded, setLoaded] = useState<LoadedScene | null>(null);
   const loadScene = useViewerStore((s) => s.loadScene);
+  const serializeScene = useViewerStore((s) => s.serializeScene);
+  const screenshot = useViewerStore((s) => s.screenshot);
+  const embedStatus = useViewerStore((s) => s.status);
   const [reloadToken, setReloadToken] = useState(0);
   // The bundle's version, for the `no-embed` state's sentence only. A read; never gates Open.
   const caps = useQuery({ queryKey: ["capabilities"], queryFn: getCapabilities, retry: false });
@@ -434,6 +442,77 @@ function ViewerPage() {
     if (loaded === null) return;
     loadScene(loaded.view as never);
   }, [loadScene, loaded]);
+
+  // ---------------------------------------------------------------------------------------------
+  // Save scene (2026-09-07). The maintainer: *"we should be integrating scene saving where users
+  // can essentially save scenes — not only the input selection but also the scene for the user —
+  // and we should be very opinionated about that and save it in the Tetravox [scene format]."*
+  //
+  // Opinionated is the operative word, and it decides three things:
+  //
+  //  * **What is saved is what the embed has**, not the document the server built. Everything
+  //    worth saving about a scene is what changed after it loaded — the camera someone flew to,
+  //    the window they widened. So this asks the embed to `serialize` and stores that verbatim.
+  //  * **A picture comes with it.** A list of scene names is a list a person cannot choose from;
+  //    the embed's `screenshot` is one message and makes the list browsable. If it fails the save
+  //    still happens, because a scene is worth keeping without its thumbnail.
+  //  * **No dialog beyond a name.** The name is pre-filled by the server
+  //    (`<subject>_<sim>_<field>_<date>`) so the common case is press-and-done.
+  // ---------------------------------------------------------------------------------------------
+  const savedScenes = useQuery({ queryKey: ["viewer-saved-scenes"], queryFn: getSavedScenes, retry: false });
+  const [sceneName, setSceneName] = useState("");
+  const [sceneSaveOpen, setSceneSaveOpen] = useState(false);
+  const [sceneSaved, setSceneSaved] = useState<string | null>(null);
+
+  // Pre-fill from the server when the popover opens, so the date is the project's clock rather
+  // than this browser's and two machines saving the same view agree on what to call it.
+  useEffect(() => {
+    if (!sceneSaveOpen || sceneName !== "") return;
+    let cancelled = false;
+    void suggestSceneName(draft.subject, draft.simulation, draft.field).then((name) => {
+      if (!cancelled) setSceneName(name);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [sceneSaveOpen, sceneName, draft.subject, draft.simulation, draft.field]);
+
+  const saveSceneMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const scene = await serializeScene();
+      if (scene === null) {
+        // A plain Error, not an ApiError: nothing failed over HTTP. The embed did not answer, and
+        // saying so is more use to the person than a status code that would have to be invented.
+        throw new Error("The viewer did not answer with its scene, so there is nothing to save.");
+      }
+      const thumbnail = await screenshot({ width: 480, height: 320 });
+      return saveScene(name, {
+        scene: scene as unknown as Record<string, unknown>,
+        thumbnail,
+        subject: draft.subject ?? null,
+        simulation: draft.simulation ?? null,
+        field: draft.field ?? null,
+        space: draft.space ?? null,
+      });
+    },
+    onSuccess: (saved) => {
+      setSceneSaveOpen(false);
+      setSceneName("");
+      setSceneSaved(saved.name);
+      void queryClient.invalidateQueries({ queryKey: ["viewer-saved-scenes"] });
+    },
+  });
+
+  /** Re-open a scene someone saved: the document, straight into the embed. */
+  const openSavedScene = useCallback(
+    async (row: SavedScene) => {
+      const scene = await readSavedScene(row.name);
+      setLoaded({ key: `saved:${row.slug}`, name: `${row.slug}.tetravox.json`, hostPath: row.host_path ?? null, view: scene });
+      loadScene(scene as never);
+      setSub("tetravox");
+    },
+    [loadScene, setSub],
+  );
 
   // ---------------------------------------------------------------------------------------------
   // Presets and recents. A preset is a selection someone chose to keep, and it lives in the
@@ -899,6 +978,57 @@ function ViewerPage() {
               </div>
             </Popover>
 
+            {/* Saved scenes — a picture someone kept, reopened in one click. Distinct from
+                Recent (a footprint of what was opened) and from a preset (a selection): this is
+                the scene as it looked, camera and windows included. */}
+            <Popover
+              trigger={
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<Camera size={14} />}
+                  disabled={(savedScenes.data ?? []).length === 0}
+                  data-testid="viewer-saved-scenes-open"
+                >
+                  Saved scenes
+                </Button>
+              }
+            >
+              <div className="viewer-popover">
+                <p className="viewer-popover-title">Saved scenes</p>
+                <ul className="viewer-scene-list" data-testid="viewer-saved-scenes">
+                  {(savedScenes.data ?? []).map((row) => (
+                    <li key={row.slug}>
+                      <button
+                        type="button"
+                        className="viewer-scene-item"
+                        data-testid={`viewer-saved-scene-${row.slug}`}
+                        onClick={() => void openSavedScene(row)}
+                        title={row.path}
+                      >
+                        {row.has_thumbnail ? (
+                          <img
+                            className="viewer-scene-thumb"
+                            /* Served by the same jailed file route every dataset comes through. */
+                            src={`/api/files/raw${row.path.replace(/\.tetravox\.json$/, ".png")}`}
+                            alt=""
+                          />
+                        ) : (
+                          <span className="viewer-scene-thumb viewer-scene-thumb-empty" aria-hidden />
+                        )}
+                        <span className="viewer-scene-text">
+                          <span className="viewer-scene-name">{row.name}</span>
+                          <span className="viewer-scene-meta">
+                            {[row.subject, row.simulation, row.field].filter(Boolean).join(" · ") || "scene"}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </Popover>
+
             <div className="viewer-foot-spacer" />
 
             <Button
@@ -928,6 +1058,63 @@ function ViewerPage() {
             {loaded === null ? "No scene open" : loaded.name}
           </span>
           <div className="viewer-strip-spacer" />
+          {sceneSaved !== null && (
+            <span className="viewer-strip-saved" data-testid="viewer-scene-saved">
+              Saved {sceneSaved}.tetravox.json
+            </span>
+          )}
+          <Popover
+            open={sceneSaveOpen}
+            onOpenChange={(open) => {
+              setSceneSaveOpen(open);
+              if (open) setSceneSaved(null);
+            }}
+            trigger={
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<Camera size={14} />}
+                /* The embed has to be showing something before there is a scene to serialize. */
+                disabled={loaded === null || embedStatus !== "ready"}
+                data-testid="viewer-scene-save-open"
+                title="Save the camera, layout and windows exactly as they are now"
+              >
+                Save scene
+              </Button>
+            }
+          >
+            <div className="viewer-popover">
+              <p className="viewer-popover-title">Save this scene</p>
+              <p className="viewer-popover-text">
+                Keeps the picture as it is now — camera, layout, and every layer’s window — as a Tetravox scene in the project, with a
+                thumbnail. The standalone Tetravox app opens it directly.
+              </p>
+              <TextInput
+                value={sceneName}
+                onChange={(e) => setSceneName(e.target.value)}
+                placeholder="Scene name"
+                aria-label="Scene name"
+                data-testid="viewer-scene-name"
+              />
+              {saveSceneMutation.isError && (
+                <p className="viewer-popover-error" data-testid="viewer-scene-save-error">
+                  {(saveSceneMutation.error as Error).message}
+                </p>
+              )}
+              <div className="viewer-popover-actions">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<Save size={14} />}
+                  disabled={sceneName.trim() === "" || saveSceneMutation.isPending}
+                  onClick={() => saveSceneMutation.mutate(sceneName.trim())}
+                  data-testid="viewer-scene-save"
+                >
+                  {saveSceneMutation.isPending ? "Saving…" : "Save"}
+                </Button>
+              </div>
+            </div>
+          </Popover>
           <Button
             variant="secondary"
             size="sm"

@@ -150,3 +150,77 @@ export async function getAtlases(subject: string, space?: Space): Promise<Atlas[
 export async function getSubjectDetail(id: string): Promise<SubjectDetail> {
   return unwrap(await api.GET("/api/catalog/subjects/{id}", { params: { path: { id } } }), `/api/catalog/subjects/${id}`);
 }
+
+// ── the composition tree, saved compositions and saved scenes (2026-09-07) ─────────────────────
+//
+// Maintainer: the Menu should be "a continuous integrated thing" — subject, then branches for
+// anatomy, simulations and analyses — and a person should be able to keep both *what they chose*
+// (a composition, for reproducibility) and *what they were looking at* (a scene, in Tetravox's own
+// format). `tit/server/routes/viewer_library.py` explains why those are two artefacts and not one.
+
+export type ViewerTree = components["schemas"]["ViewerTree"];
+export type ViewerTreeNode = components["schemas"]["ViewerTreeNode"];
+export type ViewerComposition = components["schemas"]["ViewerComposition"];
+export type SavedScene = components["schemas"]["SavedScene"];
+
+/** What this subject offers the tree. `simulations` narrows which analyses are listed. */
+export async function getTree(subject?: string, space?: Space, simulations?: string[]): Promise<ViewerTree> {
+  return unwrap(
+    await api.GET("/api/viewer/tree", { params: { query: { subject, space, simulations } } }),
+    "/api/viewer/tree",
+  );
+}
+
+export async function getCompositions(): Promise<ViewerComposition[]> {
+  return unwrap(await api.GET("/api/viewer/compositions", {}), "/api/viewer/compositions").compositions;
+}
+
+export async function saveComposition(name: string, body: ViewerComposition): Promise<ViewerComposition> {
+  return unwrap(
+    await api.PUT("/api/viewer/compositions/{name}", { params: { path: { name } }, body }),
+    `/api/viewer/compositions/${name}`,
+  );
+}
+
+export async function deleteComposition(name: string): Promise<void> {
+  await api.DELETE("/api/viewer/compositions/{name}", { params: { path: { name } } });
+}
+
+export async function getSavedScenes(): Promise<SavedScene[]> {
+  return unwrap(await api.GET("/api/viewer/scenes", {}), "/api/viewer/scenes").scenes;
+}
+
+export async function readSavedScene(name: string): Promise<Record<string, unknown>> {
+  const body = unwrap(await api.GET("/api/viewer/scenes/{name}", { params: { path: { name } } }), `/api/viewer/scenes/${name}`);
+  return body.scene as Record<string, unknown>;
+}
+
+export interface SaveSceneBody {
+  /** The embed's own `serialize` reply — written verbatim, because it is a record of a picture. */
+  scene: Record<string, unknown>;
+  /** The embed's `screenshot` reply. Dropped server-side if it is not a real PNG. */
+  thumbnail?: string | null;
+  subject?: string | null;
+  simulation?: string | null;
+  field?: string | null;
+  space?: string | null;
+}
+
+export async function saveScene(name: string, body: SaveSceneBody): Promise<SavedScene> {
+  return unwrap(
+    await api.PUT("/api/viewer/scenes/{name}", { params: { path: { name } }, body: body as never }),
+    `/api/viewer/scenes/${name}`,
+  );
+}
+
+export async function deleteSavedScene(name: string): Promise<void> {
+  await api.DELETE("/api/viewer/scenes/{name}", { params: { path: { name } } });
+}
+
+/** `<subject>_<sim>_<field>_<date>` — what the Save field is pre-filled with. */
+export async function suggestSceneName(subject?: string, simulation?: string, field?: string): Promise<string> {
+  return unwrap(
+    await api.GET("/api/viewer/scenes/suggest/name", { params: { query: { subject, simulation, field } } }),
+    "/api/viewer/scenes/suggest/name",
+  ).name;
+}

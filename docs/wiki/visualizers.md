@@ -51,6 +51,29 @@ of its own. Keep it, archive it with the results it describes, or hand it to a T
 application if you have one installed (**File ▸ Open Scene…**). Nothing in TI-Toolbox requires you
 to.
 
+## Saving what you chose, and saving what you saw
+
+Two different things are worth keeping, and the Viewer keeps them separately because they answer
+different questions.
+
+**Save selection…** writes a *composition* to
+`code/ti-toolbox/viewer/compositions/<name>.json`: the subject, the space, and the inputs you
+ticked, recorded by file name. It is small and readable, and it does not freeze the data — loading
+it next month re-resolves those same choices against whatever is in the project then, and tells you
+what has since gone missing rather than failing. Use it when the question is *"show me the same
+thing, from the current data"* — the reproducibility artefact you would put next to a manuscript.
+
+**Save scene** (in the **Tetravox** sub-page, once something is open) writes what you are actually
+looking at to `code/ti-toolbox/viewer/scenes/<name>.tetravox.json`: the camera, the layout, and
+every layer's window, threshold, colormap and opacity, exactly as you left them after adjusting
+them in the viewer. A PNG thumbnail is written beside it, which is what the **Saved scenes** list
+in the Menu shows, so you can pick a picture out of a list rather than a filename. Use it when the
+question is *"show me exactly this picture again"* — a figure you have finished composing.
+
+Scene names default to `<subject>_<simulation>_<field>_<date>`, and both kinds of file live inside
+the project, so they travel with it when you copy or archive it. A saved scene is an ordinary
+Tetravox scene: a standalone Tetravox desktop application opens it directly.
+
 ## Keeping the viewer current
 
 The viewer can be updated without updating the toolbox. **Settings ▸ Viewer** shows which bundle is

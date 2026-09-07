@@ -576,3 +576,97 @@
   min-width: 0;
   color: var(--ink-2);
 }
+
+/* ── saved scenes (2026-09-07) ──────────────────────────────────────────────────────────────
+ *
+ * A list of scene *names* is a list nobody can choose from — every one of them is
+ * `<subject>_<sim>_<field>_<date>` and they differ in the middle. The thumbnail is what makes the
+ * row identifiable at a glance, so it leads, and the text is secondary to it.
+ */
+.viewer-scene-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.viewer-scene-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.viewer-scene-item:hover,
+.viewer-scene-item:focus-visible {
+  border-color: var(--line);
+  background: var(--surface-2);
+}
+
+.viewer-scene-thumb {
+  flex: 0 0 auto;
+  width: 64px;
+  height: 42px;
+  border-radius: var(--radius-sm);
+  /* The scenes are dark; a light letterbox around one reads as a rendering fault rather than a
+   * thumbnail that does not fill its box. */
+  background: #0f1116;
+  object-fit: cover;
+}
+
+.viewer-scene-thumb-empty {
+  border: 1px dashed var(--line);
+  background: none;
+}
+
+.viewer-scene-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.viewer-scene-name,
+.viewer-scene-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-scene-name {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.viewer-scene-meta {
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--ink-2);
+}
+
+/* The confirmation after a save. Sits in the strip rather than as a toast: the person is looking
+ * at the strip (they just pressed the button in it), and it names the file so they can find it. */
+.viewer-strip-saved {
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--ink-2);
+  margin-right: var(--space-2);
+  white-space: nowrap;
+}
+
+.viewer-popover-error {
+  margin: var(--space-1) 0 0;
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--danger);
+}

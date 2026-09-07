@@ -76,6 +76,7 @@ const exRuns = loadJson("ex_runs.json");
 const analyses = loadJson("analyses.json");
 const reports = loadJson("reports.json");
 const groupCatalog = loadJson("group_catalog.json");
+const groupStatsDetail = loadJson("group_stats_detail.json");
 const subjectInfo = loadJson("subject_info.json");
 const overviewSmall = loadJson("overview.json");
 const roisSeed = loadJson("rois_seed.json");
@@ -368,6 +369,11 @@ const EXT_FALLBACK = {
 const artifactRegistry = new Map();
 function registerArtifact(virtualPath, file, contentType) {
   if (virtualPath) artifactRegistry.set(virtualPath, { file, contentType });
+}
+for (const a of groupStatsDetail.artifacts) {
+  if (a.kind === "pdf") registerArtifact(a.path, fixturePath("artifacts", "sample.pdf"), "application/pdf");
+  if (a.kind === "text") registerArtifact(a.path, fixturePath("artifacts", "sample.txt"), "text/plain; charset=utf-8");
+  if (a.kind === "log") registerArtifact(a.path, fixturePath("artifacts", "sample.log"), "text/plain; charset=utf-8");
 }
 for (const subject of Object.keys(analyses)) {
   for (const sim of Object.keys(analyses[subject])) {
@@ -1898,6 +1904,27 @@ route("PUT", "/api/catalog/freehand/:name", async (ctx) => {
   json(ctx.res, 200, cfg);
 });
 route("GET", "/api/catalog/group", (ctx) => json(ctx.res, 200, groupCatalog));
+// One group-statistics run's detail (`tit/catalog.py::group_stats_detail`). The `?empty=1` variant
+// is the failed-run state the Results pane must be able to explain: a directory holding nothing
+// but a log, and the reason from that log.
+route("GET", "/api/catalog/group/stats/:name", (ctx) => {
+  const type = ctx.url.searchParams.get("type");
+  if (!groupCatalog.stats.some((s) => s.name === ctx.params.name && s.type === type))
+    return json(ctx.res, 404, { detail: "unknown group-statistics run" });
+  if (ctx.url.searchParams.get("empty") === "1") {
+    const log = groupStatsDetail.artifacts.find((a) => a.kind === "log");
+    return json(ctx.res, 200, {
+      ...groupStatsDetail,
+      status: "empty",
+      reason:
+        "Analysis failed: No voxel could be tested. Every voxel with data has zero within-group variance.",
+      results: [],
+      clusters: null,
+      artifacts: [log],
+    });
+  }
+  json(ctx.res, 200, groupStatsDetail);
+});
 route("GET", "/api/catalog/notes", (ctx) => json(ctx.res, 200, notes));
 route("PUT", "/api/catalog/notes", async (ctx) => {
   const body = await ctx.body();
@@ -3507,6 +3534,155 @@ route("DELETE", "/api/viewer/presets/:name", (ctx) => {
   if (!VIEWER_PRESETS.delete(name)) return json(ctx.res, 404, { detail: `No preset named ${name}` });
   json(ctx.res, 200, { name, deleted: true });
 });
+// ── the composition tree, saved compositions and saved scenes (2026-09-07) ────────────────────
+//
+// The tree is what the Menu draws instead of a row of dropdowns. Ported closely enough that a spec
+// asserting on tree shape reads the same against either server: the same three branches, the same
+// per-node fields, the same "exactly one anatomy input and the grey-matter field start ticked".
+//
+// The one thing this cannot mirror is `available: false` for a file that has gone missing -- the
+// mock has no project on disk, so every node it invents exists by construction. That case is the
+// real server's to prove (`tests/test_viewer_library.py`).
+const treeNode = (path, { label, kind = "volume", bytes = 4_194_304, defaultOn = false } = {}) => {
+  const name = path.split("/").pop();
+  return {
+    id: path,
+    name,
+    label: label ?? name.replace(/\.(nii\.gz|nii|mgz|msh|gii)$/i, ""),
+    path,
+    kind,
+    bytes,
+    default_on: defaultOn,
+    available: true,
+    reason: null,
+  };
+};
+
+route("GET", "/api/viewer/tree", (ctx) => {
+  const subject = ctx.url.searchParams.get("subject");
+  const space = ctx.url.searchParams.get("space") === "mni" ? "mni" : "subject";
+  const chosen = ctx.url.searchParams.getAll("simulations");
+  const empty = { subject, space, anatomy: [], simulations: [], analyses: [], available: false, reason: null };
+  if (!subject) return json(ctx.res, 200, { ...empty, reason: "no subject chosen" });
+
+  const base = `${PROJECT_ROOT}/derivatives/SimNIBS/sub-${subject}`;
+  const m2m = `${base}/m2m_${subject}`;
+  const anatomy = [
+    treeNode(`${m2m}/T1.nii.gz`, { defaultOn: space === "subject" }),
+    treeNode(`${m2m}/T2_reg.nii.gz`),
+    treeNode(`${m2m}/${subject}.msh`, { kind: "mesh", bytes: 64_000_000 }),
+    treeNode(`${m2m}/surfaces/lh.central.gii`, { kind: "mesh", bytes: 8_000_000 }),
+    treeNode(`${m2m}/segmentation/labeling.nii.gz`, { label: "labeling" }),
+  ];
+  if (space === "mni") anatomy.push(treeNode("/ti-toolbox/resources/atlas/MNI152_T1_1mm.nii.gz", { label: "MNI152 template", defaultOn: true }));
+
+  const simNames = ["Thalamus", "L_Insula"];
+  const simulations = simNames.map((name) => {
+    const sim = `${base}/Simulations/${name}`;
+    const suffix = space === "mni" ? "MNI_MNI" : "subject";
+    return {
+      name,
+      fields: [
+        treeNode(`${sim}/TI/niftis/${name}_TI_${suffix}_TI_max.nii.gz`, { label: "TI_max (volume)" }),
+        treeNode(`${sim}/TI/niftis/grey_${name}_TI_${suffix}_TI_max.nii.gz`, { label: "GM · TI_max (volume)", defaultOn: true }),
+        treeNode(`${sim}/TI/niftis/white_${name}_TI_${suffix}_TI_max.nii.gz`, { label: "WM · TI_max (volume)" }),
+      ],
+      meshes: [treeNode(`${sim}/TI/mesh/grey_${name}_TI.msh`, { label: "GM mesh · TI_max", kind: "mesh", bytes: 63_926_663 })],
+      electrodes: [treeNode(`${sim}/TI/montage_imgs/electrode_overlay_subject.nii.gz`, { label: "Electrodes" })],
+    };
+  });
+
+  const analyses = simNames
+    .filter((name) => chosen.length === 0 || chosen.includes(name))
+    .map((name) => ({
+      name: `${name}_DK40_TI_max`,
+      simulation: name,
+      space: "voxel",
+      outputs: [treeNode(`${base}/Simulations/${name}/Analyses/Voxel/${name}_DK40_TI_max/roi_mask.nii.gz`, { label: "ROI mask" })],
+    }));
+
+  json(ctx.res, 200, { subject, space, anatomy, simulations, analyses, available: true, reason: null });
+});
+
+const VIEWER_COMPOSITIONS = new Map();
+route("GET", "/api/viewer/compositions", (ctx) => json(ctx.res, 200, { compositions: [...VIEWER_COMPOSITIONS.values()] }));
+route("PUT", "/api/viewer/compositions/:name", async (ctx) => {
+  const name = decodeURIComponent(ctx.params.name);
+  if (!name.trim() || name.includes("/")) return json(ctx.res, 422, { detail: `Unusable name: ${name}` });
+  const document = { version: 1, ...((await ctx.body()) ?? {}), name, saved_at: new Date().toISOString() };
+  VIEWER_COMPOSITIONS.set(name, document);
+  json(ctx.res, 200, document);
+});
+route("DELETE", "/api/viewer/compositions/:name", (ctx) => {
+  const name = decodeURIComponent(ctx.params.name);
+  if (!VIEWER_COMPOSITIONS.delete(name)) return json(ctx.res, 404, { detail: `No composition named ${name}` });
+  json(ctx.res, 200, { name, deleted: true });
+});
+
+// Saved scenes. The suffix is asserted here as well as on the server, because it is the one
+// property that fails *silently* at the far end: the Tetravox app routes anything else as a
+// dataset and reads the JSON as a volume.
+const SAVED_SCENES = new Map();
+const sceneSlug = (name) => name.replace(/[^A-Za-z0-9._ -]/g, "-").trim().replace(/ /g, "_");
+/** A listing row: everything but the scene document, which is megabytes and is fetched by name. */
+const sceneRow = (row) => {
+  const listed = { ...row };
+  delete listed.scene;
+  return listed;
+};
+route("GET", "/api/viewer/scenes", (ctx) =>
+  json(ctx.res, 200, {
+    scenes: [...SAVED_SCENES.values()]
+      .map(sceneRow)
+      .sort((a, b) => String(b.saved_at ?? "").localeCompare(String(a.saved_at ?? ""))),
+  }),
+);
+route("GET", "/api/viewer/scenes/suggest/name", (ctx) => {
+  const parts = ["subject", "simulation", "field"].map((k) => ctx.url.searchParams.get(k)).filter(Boolean);
+  const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  json(ctx.res, 200, { name: [...parts, date].join("_").replace(/[^A-Za-z0-9._-]+/g, "-") || "scene" });
+});
+route("GET", "/api/viewer/scenes/:name", (ctx) => {
+  const name = decodeURIComponent(ctx.params.name);
+  const row = SAVED_SCENES.get(name);
+  if (!row) return json(ctx.res, 404, { detail: `No saved scene named ${name}` });
+  json(ctx.res, 200, { name, path: row.path, scene: row.scene });
+});
+route("PUT", "/api/viewer/scenes/:name", async (ctx) => {
+  const name = decodeURIComponent(ctx.params.name);
+  if (!name.trim() || name.includes("/") || name.startsWith(".")) return json(ctx.res, 422, { detail: `Unusable name: ${name}` });
+  const body = (await ctx.body()) ?? {};
+  const scene = body.scene;
+  if (!scene || typeof scene !== "object" || !Array.isArray(scene.layers) || scene.layers.length === 0) {
+    return json(ctx.res, 422, { detail: "A scene must be the embed's serialized ViewSpec, with at least one layer" });
+  }
+  const slug = sceneSlug(name);
+  // A thumbnail is kept only when it is a real PNG data URL, matching the server's own check --
+  // "it decoded" is not the same as "it is an image", and this route writes into a project.
+  const thumbnail = typeof body.thumbnail === "string" && body.thumbnail.startsWith("data:image/png;base64,");
+  const row = {
+    name,
+    slug,
+    path: `${PROJECT_ROOT}/code/ti-toolbox/viewer/scenes/${slug}.tetravox.json`,
+    host_path: `${PROJECT_ROOT}/code/ti-toolbox/viewer/scenes/${slug}.tetravox.json`,
+    bytes: JSON.stringify(scene).length,
+    saved_at: new Date().toISOString(),
+    subject: body.subject ?? null,
+    simulation: body.simulation ?? null,
+    field: body.field ?? null,
+    space: body.space ?? null,
+    has_thumbnail: thumbnail,
+    scene,
+  };
+  SAVED_SCENES.set(name, row);
+  json(ctx.res, 200, sceneRow(row));
+});
+route("DELETE", "/api/viewer/scenes/:name", (ctx) => {
+  const name = decodeURIComponent(ctx.params.name);
+  if (!SAVED_SCENES.delete(name)) return json(ctx.res, 404, { detail: `No saved scene named ${name}` });
+  json(ctx.res, 200, { name, deleted: true });
+});
+
 route("POST", "/api/view/args", async (ctx) => {
   const body = await ctx.body();
   const spec = body.viewspec ?? {};

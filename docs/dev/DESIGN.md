@@ -960,6 +960,24 @@ group heading told the user a page belonged to a subject when it did not.
   rows (`Viewer · Menu`, `Viewer · Tetravox`); that makes the palette a real accessibility route
   there, not a convenience.
 
+- **The Viewer keeps two artefacts, and they are deliberately not one** (2026-09-07). A
+  **composition** (`code/ti-toolbox/viewer/compositions/<name>.json`) is *what a person chose* —
+  subject, space and input ids — and a **scene**
+  (`code/ti-toolbox/viewer/scenes/<name>.tetravox.json`) is *what they were looking at*: the
+  embed's own `serialize` reply, camera and per-layer window included, written verbatim with a PNG
+  thumbnail beside it.
+
+  They age differently, which is the whole reason for two: a composition re-resolves against a
+  project that has since been re-run and reports what is missing ("show me the same thing, from
+  the current data"); a scene names concrete files and reproduces a picture exactly ("show me this
+  again"). Collapsing them would have made one of those two questions unanswerable.
+
+  A scene is written in Tetravox's own format, suffix included, because the app routes any other
+  suffix as a *dataset* and reads the JSON as a volume — silently, at the far end. The server
+  refuses to write one under another suffix rather than trust a caller to remember that. Saving is
+  the embed's answer, never a re-derivation: everything worth saving about a scene is what changed
+  after it loaded. Routes: `tit/server/routes/viewer_library.py`.
+
 - Settings and Help are pinned to the bottom below a spacer; they are the only two pages with a
   header.
 - Nav rows carry **no shortcut badges** — shortcuts live in the palette and the `?` sheet, assigned
