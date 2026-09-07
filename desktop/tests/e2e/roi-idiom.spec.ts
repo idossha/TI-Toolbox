@@ -155,7 +155,7 @@ test("defect 2b: every region option can be found by its accessible name", async
   const editor = await openOptEditor(page, optRows(page).first());
   await editor.getByRole("radio", { name: "Cortical", exact: true }).click();
 
-  await field("Atlas", editor).getByRole("button").click();
+  await field("Atlas", editor).locator(".combobox-trigger").click();
   await page.getByPlaceholder("Search atlases…").fill("DK40");
   // The mock names it "Desikan-Killiany (DK40)", the real server just "DK40".
   await page.getByRole("option", { name: /DK40/i }).first().click();

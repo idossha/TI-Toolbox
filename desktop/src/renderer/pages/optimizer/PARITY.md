@@ -67,7 +67,11 @@ pane is the shared `RunPanel` (lane B2) with `kind` following the segment and
       value summary in the header). Electrode parameters stay in an electrode section, not the
       solver box (memory `feedback_gui_param_placement.md`).
 - [x] Optimization runs, max iterations, population size, tolerance, mutation (min, max),
-      recombination, CPUs → **Solver** (collapsible).
+      recombination → **Solver** (collapsible).
+- [x] CPUs — DELIBERATELY DROPPED (maintainer, 2026-09-07). `FlexConfig.cpus` reaches
+      `opt.run(cpus=...)`, but SimNIBS's differential-evolution search does not parallelise across
+      cores (ARCHITECTURE.md §8), so the field bought nothing. The renderer sends no `cpus` key;
+      the Python default `None` stays for scripting users.
 - [~] Anisotropy type / max ratio / max conductivity, skin-region margin, landmark exclusion, skin
       visualization + its net → **Solver ▸ Advanced**. (Was "Basic parameters ▸ Advanced" and
       "Hyper parameters ▸ Advanced"; two Advanced disclosures for one solver was one too many.)

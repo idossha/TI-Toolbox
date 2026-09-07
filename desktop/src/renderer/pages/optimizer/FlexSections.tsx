@@ -273,9 +273,6 @@ export function SolverSection({ form, onChange, eegNets }: { form: FlexFormState
         <Field label="Recombination" help="Recombination probability for differential evolution.">
           <NumberInput value={form.recombination} onValueChange={(v) => onChange({ recombination: v ?? 0.7 })} min={0} max={1} step={0.05} />
         </Field>
-        <Field label="CPUs" help="Leave blank to auto-detect.">
-          <NumberInput value={form.cpus} onValueChange={(v) => onChange({ cpus: v })} min={1} step={1} />
-        </Field>
       </>
       <p className="optimizer-cost optimizer-span" data-testid="optimizer-cost-flex">
         {cost.line}

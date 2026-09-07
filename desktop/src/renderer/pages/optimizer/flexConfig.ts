@@ -52,7 +52,6 @@ export interface FlexFormState {
   mutationMin: number;
   mutationMax: number;
   recombination: number;
-  cpus: number | undefined;
   skinRegionMarginMm: number;
   avoidLandmarkRegions: boolean;
   visualizeSkinElectrodes: boolean;
@@ -99,7 +98,6 @@ export function defaultFlexFormState(): FlexFormState {
     mutationMin: 0.01,
     mutationMax: 0.5,
     recombination: 0.7,
-    cpus: undefined,
     skinRegionMarginMm: 0.0,
     avoidLandmarkRegions: true,
     visualizeSkinElectrodes: false,
@@ -176,7 +174,6 @@ export function buildFlexConfig(subjectId: string, form: FlexFormState, roi: Roi
     tolerance: form.tolerance,
     mutation: `${form.mutationMin},${form.mutationMax}`,
     recombination: form.recombination,
-    cpus: form.cpus ?? null,
     min_electrode_distance: form.minElectrodeDistance,
     detailed_results: false,
     visualize_valid_skin_region: true,

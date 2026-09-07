@@ -233,7 +233,7 @@ test("each row owns its target, the pane follows the active row, and a target ch
   // thing the page could not express at all while TARGET was global.
   const dialog = await openAnalysisTarget(page, second);
   await dialog.getByRole("radio", { name: "Cortical", exact: true }).click();
-  await dialog.locator(".field", { hasText: "Atlas" }).first().getByRole("button").click();
+  await dialog.locator(".field", { hasText: "Atlas" }).first().locator(".combobox-trigger").click();
   await page.getByRole("option", { name: /DK40/i }).first().click();
   await dialog.locator(".field", { hasText: "Region(s)" }).first().getByRole("combobox").click();
   await page.locator('[role="option"][data-option-value="lh:1"]').click();

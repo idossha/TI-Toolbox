@@ -321,7 +321,7 @@ function SphericalPanel({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-2)" }}>
-        <Field label="Space">
+        <Field label="Space" help="Space the coordinates below are given in. MNI coordinates are transformed into this subject's anatomy before the search runs.">
           <SegmentedControl
             aria-label="Coordinate space"
             value={value.space}
@@ -477,7 +477,7 @@ function CorticalPanel({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-      <Field label="Atlas" required>
+      <Field label="Atlas" required help="FreeSurfer surface atlas (.annot) whose parcellation the regions below come from.">
         {atlases.isFetching ? (
           <Skeleton height={32} />
         ) : (
@@ -544,7 +544,7 @@ function SubcorticalPanel({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-      <Field label="Space">
+      <Field label="Space" help="Space the volume atlas is defined in. An MNI atlas is transformed into this subject's anatomy before the search runs.">
         <SegmentedControl
           aria-label="Atlas space"
           value={value.atlasSpace}
@@ -555,7 +555,7 @@ function SubcorticalPanel({
       <Field label="Tissue type" help="Tissue compartment(s) to include when evaluating the volume ROI.">
         <Select value={value.tissues} onValueChange={(v) => onChange({ ...value, tissues: v as TissueKind })} options={TISSUE_OPTIONS} disabled={disabled} />
       </Field>
-      <Field label="Volume atlas" required>
+      <Field label="Volume atlas" required help="Volumetric atlas whose labels the regions below come from.">
         {atlases.isFetching ? (
           <Skeleton height={32} />
         ) : (

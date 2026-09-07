@@ -236,7 +236,7 @@ test("a region picked in the scene is the region the ROI picker lists", async ()
   const row = optRows(page).first();
   const editor = await openOptEditor(page, row, "settings");
   await editor.getByRole("radio", { name: "Cortical", exact: true }).click();
-  await field("Atlas", editor).getByRole("button").click();
+  await field("Atlas", editor).locator(".combobox-trigger").click();
   await page.getByPlaceholder("Search atlases…").fill("DK40");
   await page.getByRole("option", { name: /DK40/i }).first().click();
   await closeOptEditor(page);

@@ -48,7 +48,7 @@ function field(label: string, root: Page | Locator = page): Locator {
 
 /** Picks a cortical DK40 region inside an open row editor — the flex target gesture. */
 async function pickCorticalTarget(dialog: Locator, region = "L · bankssts"): Promise<void> {
-  await field("Atlas", dialog).getByRole("button").click();
+  await field("Atlas", dialog).locator(".combobox-trigger").click();
   await page.getByPlaceholder("Search atlases…").fill("DK40");
   await page.getByRole("option", { name: /Desikan-Killiany/i }).click();
   await field("Region(s)", dialog).getByRole("combobox").click();

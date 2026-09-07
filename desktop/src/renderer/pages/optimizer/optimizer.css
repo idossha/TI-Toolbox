@@ -71,6 +71,7 @@
 /* Round-1 measurement fixed two ways: a 160 px label plus a 240 px control does not fit a 400 px
    grid column (the pane is ~830 px at 1280 with the icon rail, so `.form-grid` is two-up), and a
    field holding two controls needs the whole row. Scoped to this page, not the shared token. */
+.page-optimizer,
 .page-optimizer .form-grid {
   --field-label-w: 128px;
 }
@@ -322,8 +323,16 @@
 
 /* The sections inside the dialog keep their own two-up grid: the dialog is 760px, which is past
    the 700px threshold `.page-optimizer` sets for honest two-up columns. */
-.optimizer-row-editor .form-grid {
+/* The narrower label gutter is set on the dialog itself, not only on `.form-grid`: the TARGET
+   section's `RoiPicker` rows are NOT inside a form grid, so with the token set on the grid alone
+   they kept the shared 160px gutter and their labels sat ~32px right of every other row's
+   ("please left adjust the atlas and region name inputs" — maintainer, 2026-09-07). Inheriting it
+   from the dialog puts Atlas/Region(s) on the same label column, and their controls at the same x
+   as Goal's select. */
+.optimizer-row-editor {
   --field-label-w: 128px;
+}
+.optimizer-row-editor .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
