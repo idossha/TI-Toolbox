@@ -64,6 +64,7 @@ first when you are inside that directory:
 | `../../dev/{telemetry,update,security}/**` | operational references for those subsystems |
 | `../../.circleci/README_CIRCLECI.md` | the CI image and job shape |
 | `../../docs/releases/changelog.md` | the user-facing changelog |
+| `../../TODO.md` | historical: the v3.0.0 plan of record, cited by section number from `desktop/src` and the `PARITY.md` files |
 
 ## Where a new fact goes
 
@@ -100,6 +101,6 @@ now holds scripts only. Older documents and source comments may still cite the o
 | `desktop/IMPLEMENTATION_PLAN.md` | `v3-implementation-plan.md` |
 | `tracks/active/v3-electron-gui.md` (gitignored, so never in the repository) | `ADR.md` |
 | `docs/PIPELINE_FLOW.md` (was published to the site by accident) | `docs/dev/PIPELINE_FLOW.md` |
-| `TODO.md` (the v3.0.0 plan and its open items) | `HISTORY.md` for what shipped, `ROADMAP.md` for what is open |
+| `TODO.md` as a to-do list (it is now the historical v3.0.0 plan, kept for its section-number citations) | `ROADMAP.md` for what is open, `HISTORY.md` for what shipped |
 | `tit/gui/**` (the PyQt5 GUI, deleted in v3.0.0) | `desktop/`, with per-page `PARITY.md` checklists |
 | `package/` (the v2 Electron launcher) | `desktop/` |
