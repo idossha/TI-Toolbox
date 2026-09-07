@@ -19,12 +19,14 @@
 
 Releases, guides, and wiki please see: [https://idossha.github.io/TI-Toolbox/](https://idossha.github.io/TI-Toolbox/)
 
-> **v3**: TI-Toolbox now ships as a single Docker image (`idossha/ti-toolbox`) with no X11
-> dependency — SimNIBS, FastSurfer, the toolbox UI, and the built-in 3D/volume viewer
-> (Tetravox Embed) are all served by the container and rendered in the Electron window. No
-> XQuartz/VcXsrv, no separate FreeSurfer image or license for the core workflow. See
-> [installation docs](https://idossha.github.io/TI-Toolbox/installation/) and the
-> [architecture page](https://idossha.github.io/TI-Toolbox/wiki/desktop-app/) for details.
+> **v3**: TI-Toolbox is now a **desktop application**. The PyQt5 GUI is gone — it ran inside the
+> container and was displayed over X11 — and is replaced by a native Electron app on your machine
+> talking to a job server in a single Docker image (`idossha/ti-toolbox`). SimNIBS, FastSurfer, the
+> toolbox UI and the built-in 3D/volume viewer are all served by that one container and rendered in
+> the app window: no XQuartz/VcXsrv, no separate FreeSurfer image or license for the core workflow.
+> The Python package `tit` is unchanged and still drives everything from Jupyter or a script. See
+> the [installation docs](https://idossha.github.io/TI-Toolbox/installation/) and the
+> [desktop app page](https://idossha.github.io/TI-Toolbox/wiki/desktop-app/).
 
 ## How to Cite
 
@@ -41,6 +43,16 @@ version-specific DOI, listed on that page.
 
 Machine-readable metadata is in [`CITATION.cff`](CITATION.cff); GitHub renders it
 under "Cite this repository" in the sidebar.
+
+## Contributing
+
+Process — issues, branches, pull requests — is in [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+Working on the code: [`docs/dev/`](docs/dev/README.md) is the development source of truth, with a
+reading order that gets you to a first change in about an hour —
+[architecture](docs/dev/ARCHITECTURE.md), the [UI contract](docs/dev/DESIGN.md), the
+[development manual](docs/dev/CONTRIBUTING.md) (`npm run dev` and the full verification gate), and
+the [decision log](docs/dev/DECISIONS.md).
 
 ## AI coding agents
 
