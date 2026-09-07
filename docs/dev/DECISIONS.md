@@ -6,6 +6,46 @@ Chronological, oldest first.
 Every entry has the same four parts, and a new one must too:
 
 ```
+
+## The numbered ADR index
+
+The codebase and the entries below cite decisions as **"ADR row N"**. This is that table, moved here
+on 2026-09-07 from `ADR.md` (itself moved from a gitignored track file). A row's full rationale is
+the dated entry below it, or `HISTORY.md`'s section for the program that produced it.
+
+| # | Date | Decision | Status |
+|---|---|---|---|
+| 1 | 2026-08-27 | Bridge is a Python job server (`tit.server`, FastAPI) in the container; Electron is a thin shell | live |
+| 2 | 2026-08-27 | UI served by `tit.server`; Electron `loadURL`s `127.0.0.1:<port>`; `?token=` exchanged once for a cookie | live |
+| 3 | 2026-08-27 | Freeview and Gmsh stay in the container on X11 for 3.0 | superseded by 15, then 21 |
+| 4 | 2026-08-27 | An internal viewer is a separate later track over the same ViewSpec | superseded by 15 |
+| 5 | 2026-08-27 | New `desktop/` for v3; legacy `package/` untouched until Phase 6 | Phase 6 done 2026-09-07 |
+| 6 | 2026-08-27 | React 18 + Vite + TypeScript strict + Tailwind + react-hook-form/ajv; TanStack Query; Zustand | live |
+| 7 | 2026-08-27 | Contract-first: hand-authored OpenAPI, server dump must diff clean, TS types generated | live |
+| 8 | 2026-08-27 | Optional panels in 3.0; 3D Visual Exporter and Electrode Placement to 3.1 | Electrode Placement landed in the Simulator instead |
+| 9 | 2026-08-27 | `loader.py` shrinks to a wrapper sharing Electron's env computation | live |
+| 10 | 2026-08-27 | Windows: unsigned NSIS, no `electron-updater` in 3.0 | live |
+| 11 | 2026-08-27 | Per-project compose stacks; docker socket stays mounted; per-subject QSIPrep `-w` | live |
+| 12 | 2026-08-27 | X11 hygiene: `xhost` scoped and reverted on exit | moot — X11 removed (21) |
+| 13 | 2026-08-27 | Decide PEP 562 lazy imports from the import-timing spike | done: the server imports SimNIBS lazily |
+| 14 | 2026-08-27 | Preload bridge budget, **13** top-level entries, no growth without an ADR line | live |
+| 15 | 2026-09-02 | Tetravox as a service: a released embed bundle in an iframe, no Tetravox source in this repo | supersedes 3–4; viewer half re-decided by 27 then 29 |
+| 16 | 2026-09-02 | Freeview/Gmsh/X11 kept only as the no-WebGL2 fallback | superseded by 21 |
+| 17 | 2026-09-02 | Workflow-first IA and the density rules; one subject switcher; Panels group dissolved | live |
+| 18 | 2026-09-03 | Native bundled Python runtime as the deployment target | parked by 22 |
+| 19 | 2026-09-03 | FreeSurfer not required by default (charm + `subject_atlas` + FastSurfer `--seg_only`) | live |
+| 20 | 2026-09-03 | Dependency-free typed Docker Engine API client; no dockerode; CLI only for `docker context inspect` | live |
+| 21 | 2026-09-03 | X11 removed from the product with the viewers | live |
+| 22 | 2026-09-03 | **Docker stays the single runtime**: one image `idossha/ti-toolbox:<ver>`; native runtime parked, not deleted | live |
+| 23 | 2026-09-03 | The embed ships inside the image and is drawn on the host GPU; no X11 anywhere | superseded by 27, restored by 29 |
+| 24 | 2026-09-03 | Compose remains the stack definition; the app realises it through the Engine API client | live |
+| 25 | 2026-09-05 | Landing page = Overview; batch = a scheduler cap; one shared terminal; run-page panes draw a packaged guide; the Viewer loads on command | live |
+| 26 | 2026-09-05 | Tetravox updates itself against a protocol range; electrode dots; one selection grammar; a pipeline is a job group | live, except the electrode/embed halves (27) |
+| 27 | 2026-09-06 | Native run-page panes; the viewer is a separate desktop application; jobs tables | pane half live; viewer half superseded by 29 |
+| 28 | 2026-09-06 | Managed host install of Tetravox; the pipeline's Subjects node and readiness gating; jobs tables on all three run pages | install half superseded by 29; the rest live |
+| 29 | 2026-09-06 | **The embed is restored, baked in the image, on the Viewer's own two sub-pages.** Nothing installs Tetravox on the host | live |
+| 30 | 2026-09-07 | External audit response: the six scientific corrections, the server hardening, one release workflow | live |
+
 ### <date> — <title>
 
 **Decision.** What is now true.
@@ -35,18 +75,12 @@ continuity. Project changes still dispose frames; this decision does not retain 
 
 ### 2026-09-04 — Preview controls belong to the workflow
 
-**Decision.** Architecture §3 uses optional `presentation=viewport` for embedded run-page scenes,
-and exposes skin/grey-matter opacity through the existing layer protocol. The full Viewer is the
-default when the parameter is absent.
+> **Superseded by *2026-09-06 — The run-page panes render themselves; the embed was never a pane*.**
 
-**Why.** Full Tetravox application controls consume the small scene pane and duplicate workflow
-decisions. The missing opacity controls made the skin and cortex harder to inspect (R3).
-
-**Cost.** Reintroducing a second rendering engine duplicates graphics logic.
-Host-injected CSS would couple TI to private viewer DOM. A default-changing embed option would also
-strip controls from the dedicated Viewer. The additive presentation option avoids that coupling.
-
-**Revisit if.** A pane needs a control the layer protocol cannot express, or the pane stops being a preview of a full Viewer scene.
+**Decision.** Run-page scenes were an embed mounted with `presentation=viewport`, with skin and
+grey-matter opacity driven over the layer protocol. **Why.** Full Tetravox chrome consumed a small
+pane and duplicated workflow decisions. **Cost.** Host-injected CSS would have coupled us to private
+viewer DOM. **Revisit if.** Never — the panes became our own renderer.
 
 ### 2026-09-04 — Existing primitives govern control consistency
 
@@ -236,31 +270,27 @@ bundle, and a new mount gets the new one.
 
 **Revisit if.** An automatic update ever breaks a working project — the rollback pin is the escape hatch that would then have to prove itself.
 
-### 2026-09-05 — Electrodes are dots whose colour is their whole state, and the host writes every colour
+### 2026-09-05 — Electrodes are dots whose colour is their whole state
 
-**Decision.** Architecture §7.2: the montage scene pane draws a `shape: "dot"` points layer and says
-everything with colour — neutral grey idle, 35 % grey disabled, the channel's hue when placed. No
-ring, no outline, no second glyph: the pane never sends `setPointTool` or `setPointSelection`, which
-are the messages that draw one, and a real-embed test asserts that the changed pixels form one solid
-disc rather than assuming it. Names are shown for placed electrodes only. Every point carries an
-explicit `color`, idle ones included. The channel palette is **Okabe-Ito**, and the pair editor, the
-channel legend and the 3-D pane all read it from the one `channelCss()` function.
+> The embed-specific half (never sending `setPointTool`/`setPointSelection`, the explicit idle
+> colour that worked around the shipped normaliser) is superseded by *2026-09-06 — The run-page
+> panes render themselves*: the pane is our own renderer, so "no ring" is structural. The rule
+> itself stands.
 
-**Why.** The embed's selection ring is unreadable on a 185-electrode net and cannot say *which*
-channel a marker belongs to — the maintainer asked for colour instead of circles. The explicit idle
-colour is not redundancy: the shipped normaliser returns an `idle` point untouched and never consults
-`stateColors.idle`, so an idle point with no colour of its own falls through to the layer colour,
-and one layer colour cannot also be the disabled colour. The old four-hue palette put green next to
-orange, which is exactly the pair a deuteranope cannot separate — and a four-pair mTI montage uses
-all four.
+**Decision.** An electrode says everything with colour — neutral grey idle, 35 % grey disabled, the
+channel's hue when placed. No ring, no outline, no second glyph. Names are shown for placed
+electrodes only. The channel palette is **Okabe-Ito**, read by the pair editor, the channel legend
+and the 3-D pane from the one `channelCss()`.
 
-**Cost.** A layer-level `selected` colour (it cannot encode the channel).
-Radius-as-state for the active channel (the shipped bundle reads the dot radius from the layer, not
-the point, so it is inert; the field is still sent, and asserted, so it cannot drift). Waiting for the
-upstream 3-D dot pass before shipping: the payload is correct today, the layer keeps `radiusMm: 4`
-so nothing regresses, and the defect is pinned by a test that fails when the fix lands.
+**Why.** A selection ring is unreadable on a 185-electrode net and cannot say *which* channel a
+marker belongs to — the maintainer asked for colour instead of circles. The old four-hue palette put
+green next to orange, exactly the pair a deuteranope cannot separate, and a four-pair mTI montage
+uses all four.
 
-**Revisit if.** Tetravox ships per-point radius and a marker API, or a net grows dense enough that dots overlap at usable zoom.
+**Cost.** A layer-level `selected` colour cannot encode the channel. Radius-as-state was inert in
+the shipped embed.
+
+**Revisit if.** A net grows dense enough that dots overlap at usable zoom.
 
 ### 2026-09-05 — One selection grammar, with the receipt as the confirmation
 
@@ -343,71 +373,34 @@ code cell against a stub `tit` that defines only the documented names — a call
 teach fails the build. The metadata makes the round trip a lookup rather than a parse: reconstructing
 a graph from edited Python is guesswork that would be wrong quietly.
 
-**Cost.** No new dependency, no contract change; the cost is that this rule is now one more thing a change must respect.
-
 **Revisit if.** Import lands — it reads `metadata.ti_toolbox.pipeline`, never the Python.
 
 ### 2026-09-05 — Settings' ⌘-number is derived, not hard-coded
 
 > **Superseded by *2026-09-06 (CX5) — The rail counts from ⌘0*.**
 
-**Decision.** `shortcutForSlot` gives each rail row its index and gives Settings the first digit the
-rail does not use — `⌘0` since the Pipeline row landed, `⌘,` still its alias. The `?` sheet and the
-Help page's Keyboard tab both build their rows from `NAV_ORDER` rather than restating it.
-
-**Why.** Settings was hard-coded to `⌘9` because the rail was exactly eight rows; a ninth row put two
-pages on one key, and the two places that had typed the list out by hand became wrong the same day.
-A rail row must not need an edit in four files.
-
-**Cost.** No new dependency, no contract change; the cost is that this rule is now one more thing a change must respect.
-
-**Revisit if.** Never — the rail's counting is now settled by the 2026-09-06 (CX5) entry.
+**Decision.** `shortcutForSlot` gave each rail row its index and Settings the first digit the rail
+did not use. **Why.** Settings was hard-coded to ⌘9 while the rail was eight rows; a ninth row put
+two pages on one key. The derivation survives; only where the count starts changed.
 
 ### 2026-09-06 — The in-app Tetravox embed is retired; viewing is the host-installed desktop app
 
 > **Superseded by *2026-09-06 (later the same day) — The embed is restored, ships in the image, and is the Viewer's own sub-page*.**
 
-**Decision.** Architecture §7.1 is replaced. TI-Toolbox ships no viewer. The Viewer page is a data
-selector whose Open writes `<project>/code/ti-toolbox/viewer/<kind>.tetravox.json` with host paths
-and hands it to the host's Tetravox application. The embed, `/tetravox/`, `tit/tetravox/**`, the
-protocol range, the release index, the install store, `/ws/tetravox`, the Settings engine card and
-the image bake are all deleted. Reverses the embed halves of 2026-09-02, 2026-09-03 and the E1–E4
-delivery decisions of 2026-09-04.
-
-**Why.** The maintainer, verbatim: *"for the viewer, instead of embedding the web version of
-Tetravox … the viewer tab only acts as the data selection and it actually opens up everything in
-[an external window] like we have in 2.5.0"*, and *"I want the complexity to be as simple as
-possible and the implementation to require minimal maintenance."* The engineering reasoning is the
-fact D3 already established: the container has no display. An embed was the only way to draw
-*inside* the app without one, and paying for it meant an image bake, a protocol range, an installer,
-an update channel and a WebSocket — roughly 3,000 lines and 130 tests — to manage a coupling that
-existed only because we shipped a viewer at all. The desktop app is the one Tetravox build that is
-signed, notarised and self-updating; removing the bake removes the coupling, and the machinery
-with it. The removal took ~130 tests of delivery machinery out of the suite and added 10 of the
-feature that does the same job.
-
-**Cost.** Keeping the embed only for the Viewer page would have kept every piece of
-the delivery stack for one page. Shipping a GUI Tetravox *inside* the container needs X11, which v3
-removed. Copying Tetravox's engine into this repo is the vendoring the service boundary exists to
-prevent — the run-page panes are our own renderer over our own guide format (§7.2), not a copy of
-another product.
-
-**Revisit if.** Never — reversed the same day.
+**Decision.** TI-Toolbox would ship no viewer: the Viewer page a data selector handing a
+`*.tetravox.json` to the host's Tetravox app, with the embed, `/tetravox/`, `tit/tetravox/**`, the
+protocol range, the install store and `/ws/tetravox` all deleted. **Why.** The maintainer asked for
+"minimal maintenance", and D3 says the container has no display. **Reversed the same afternoon**:
+the container having no display is exactly why the *embed* is the only Tetravox that can draw
+inside this app.
 
 ### 2026-09-06 — `Capabilities` says nothing about the viewer (breaking)
 
-> **Superseded by *2026-09-06 (later the same day) — The embed is restored, ships in the image, and is the Viewer's own sub-page*, which restores `Capabilities.tetravox_embed`.**
+> **Superseded by *2026-09-06 (later the same day) — The embed is restored…*, which restores `Capabilities.tetravox_embed`.**
 
-**Decision.** `tetravox_embed` is removed from `GET /api/capabilities`.
-
-**Why.** A capability is what *this runtime* can do. Whether an application is installed on the
-user's machine is a fact about the host, answered by the Electron shell's `window.tit.viewer.probe`,
-which reads the filesystem. Reported over HTTP it would have been a container answering a question
-about a computer it cannot see.
-
-**Cost.** A breaking removal from a published contract, for a field with no correct answer.
-
-**Revisit if.** Never — reversed the same day.
+**Decision.** `tetravox_embed` removed from `GET /api/capabilities`, on the reasoning that whether
+an app is installed on the user's machine is a fact about the host, not about this runtime.
+Reversed with the embed the same day.
 
 ### 2026-09-06 — The run-page panes render themselves; the embed was never a pane
 
@@ -485,40 +478,19 @@ two pages with two selection idioms, against §7.4.
 
 > **Superseded by *2026-09-06 (later the same day) — The bridge budget is 13, and `viewer` is not one of them*.**
 
-**Decision.** ADR row 14's preload bridge budget moves from 12 entries to 13. The new entry is
-`viewer` (`probe`/`open`/`setPath`).
-
-**Why.** Opening a scene in another application is a host action, and a host action is only
-reachable through main. It replaces capability the app previously had with *no* bridge entry at all
-— an `<iframe src="/tetravox/">` — so the budget moves rather than the feature being squeezed into
-an entry it does not belong to. `smoke.spec.ts` asserts the exact key list, which is what holds a
-fourteenth to an ADR line.
-
-**Cost.** No new dependency, no contract change; the cost is that this rule is now one more thing a change must respect.
-
-**Revisit if.** Never — reversed the same day.
+**Decision.** ADR row 14's preload budget moved 12 → 13 for a `viewer` entry
+(`probe`/`open`/`setPath`), because opening a scene in another application is a host action.
+Reversed with the host-launch design; the budget is 13 for a different reason (`saveFile`).
 
 ### 2026-09-06 — The viewer is installed on the host, not baked into the image
 
-> **Superseded by *2026-09-06 (later the same day) — The embed is restored, ships in the image, and is the Viewer's own sub-page*.**
+> **Superseded by *2026-09-06 (later the same day) — The embed is restored…*.**
 
-**Decision.** The desktop app downloads, verifies and maintains its own copy of Tetravox on the
-user's machine (Settings ▸ Viewer states where it is and which version), keyed to the publisher's
-own release digest. It is not added to the container image, and it is never pinned by us.
-
-**Why.** Tetravox is a windowed application on the *user's* desktop; the container has no display
-server and never will. Baking it in would also chain a Tetravox release to a TI-Toolbox image
-release, which is the coupling this whole program exists to remove — the point of an external
-viewer is that it ships on its own clock. The publisher's `latest*.yml` digest is the only
-authority on what a given version is; substituting a pin of our own means a hash we have to update
-by hand and a "corrupt download" the day they re-cut a release.
-
-**Cost.** A bundled copy inside the app bundle doubles our download for every
-user who already has one and makes the version un-upgradable without a TI-Toolbox release. A
-"please install it yourself" dialog is the state this replaced. Activating a newly downloaded copy
-under a running window is refused outright: the new version takes effect on the next launch.
-
-**Revisit if.** Never — reversed the same day.
+**Decision.** The desktop app would download, verify and maintain its own copy of Tetravox on the
+user's machine, keyed to the publisher's own release digest and never pinned by us. **Why.**
+Tetravox is a windowed application and the container has no display; baking it in chains a Tetravox
+release to a TI-Toolbox image release. **Reversed the same day**: nothing installs Tetravox on the
+host, and the protocol range is what breaks the release coupling instead.
 
 ### 2026-09-06 — A cohort is a node, and a wire is refused on what its subjects have
 
@@ -598,90 +570,73 @@ did it print", and it is not the run page's terminal deciding for the user.
 
 ### 2026-09-06 — The Viewer page is a file list, and Open is the only verb
 
-**Decision.** The Viewer page is an editable list of the files that will open, plus **Open in
-Tetravox**. Layer appearance — opacity, colormap, threshold, layout, camera — is not duplicated on
-this page; it belongs to Tetravox's own inspector.
+> Partly superseded by *2026-09-06 (later the same day) — The embed is restored…*: the page is the
+> **Menu** sub-page and its button is *Open in viewer*. The rule below is why the Menu looks the way
+> it does, and it stands.
 
-**Why.** Two applications offering the same appearance controls over the same file is two sources
-of truth, and the one the user tuned is not the one that opened. What this app knows and Tetravox
-does not is *which files belong together*, so that is the whole job of the page: derive the list,
-let the user edit it, hand it over. The written scene is a real file in the user's own project
-(`code/ti-toolbox/viewer/…`) — it opens later by double-clicking, with no app in the middle.
+**Decision.** The Viewer page is an editable list of the files that will open, plus one Open. Layer
+appearance — opacity, colormap, threshold, layout, camera — is not duplicated here; it belongs to
+the viewer's own inspector.
 
-**Cost.** A composition panel with layers, layout, camera and presets was built
-first and is the version this replaced; it was a better *panel* and a worse *page*, because every
-knob on it was a knob Tetravox already had and would win.
+**Why.** Two applications offering the same appearance controls over the same file is two sources of
+truth, and the one the user tuned is not the one that opened. What this app knows and the viewer does
+not is *which files belong together*, so that is the whole job of the page. The written scene is a
+real file in the user's own project and opens later by double-clicking, with no app in the middle.
 
-**Revisit if.** Layer appearance turns out to be something this app knows better than Tetravox does.
+**Cost.** A composition panel with layers, layout, camera and presets was built first and is the
+version this replaced; it was a better *panel* and a worse *page*, because every knob on it was a
+knob the viewer already had and would win.
+
+**Revisit if.** Layer appearance turns out to be something this app knows better than the viewer does.
 
 ### 2026-09-06 (later the same day) — The embed is restored, ships in the image, and is the Viewer's own sub-page
 
-**Decision.** Architecture §7.1 is replaced again, reversing this morning's two entries — *"The
-in-app Tetravox embed is retired; viewing is the host-installed desktop app"* and *"`Capabilities`
-says nothing about the viewer"* — and the *"The viewer is installed on the host, not baked into the
-image"* entry with them. The Tetravox **embed** is the viewer again: baked into the image at
-`/opt/tetravox/embed`, served by `tit.server` at `/tetravox/` with its own CSP, delivered and
-updated at runtime by `tit/tetravox/{protocol,store,install,updates}.py` behind `GET/POST
-/api/tetravox*` and `/ws/tetravox`, and reported by `Capabilities.tetravox_embed`. **Nothing
-installs Tetravox on the host, and there is still no X11 anywhere.** The Viewer page becomes two
-sub-pages, shown in the rail as indented rows under the Viewer row — **Menu** (the composition page,
-VM2's design, its button renamed *Open in viewer*) and **Tetravox** (full-bleed, the embed iframe,
-a slim strip with the scene name and `Reload`). ADR row 14's preload budget loses the `viewer` entry
-again; the morning's amendment is reversed.
+**Decision.** Architecture §7.1 is replaced again, reversing this morning's three entries above. The
+Tetravox **embed** is the viewer: baked into the image at `/opt/tetravox/embed`, served by
+`tit.server` at `/tetravox/` with its own CSP, delivered and updated at runtime by
+`tit/tetravox/{protocol,store,install,updates}.py` behind `GET/POST /api/tetravox*` and
+`/ws/tetravox`, and reported by `Capabilities.tetravox_embed`. **Nothing installs Tetravox on the
+host, and there is still no X11 anywhere.** The Viewer page becomes two sub-pages shown as indented
+rail rows — **Menu** (composition, its button *Open in viewer*) and **Tetravox** (full-bleed iframe,
+a slim strip with the scene name and `Reload`). ADR row 14's budget loses the `viewer` entry again.
 
 **Why.** The maintainer, verbatim: *"The Dockerfile should contain Tetravox. We should not install
-Tetravox on the host machine — forbidden. Tetravox should not be visually embedded in the
-TI-Toolbox tab; it should open in its own [view]. In the Viewer, the left menu has two subsections:
-the Menu, and below it the actual Viewer. The user configures in the Menu, hits Open, is moved to
-the Viewer where the Tetravox embed is; they can go back to the Menu, tinker, and reload a
-different setup."*
+Tetravox on the host machine — forbidden. Tetravox should not be visually embedded in the TI-Toolbox
+tab; it should open in its own [view]. In the Viewer, the left menu has two subsections: the Menu,
+and below it the actual Viewer."* The engineering reading of D3 was half right: the container having
+no display is exactly why the *embed* is the only Tetravox that can draw inside this app — a windowed
+app baked into the image has nothing to draw on, and one installed on the host is an acquisition the
+user has to make and a per-platform install path this project would then own. What the morning got
+right — that the Viewer should not be a picture squeezed beside a form — is kept, and answered by the
+sub-page split rather than by deleting the renderer.
 
-The engineering reading of D3 was half right and drew the wrong conclusion. The container having no
-display is exactly why the *embed* is the only Tetravox that can draw inside this app: a windowed
-application baked into the image has nothing to draw on, and one installed on the host is an
-acquisition the user has to make, a second window to manage, and a per-platform install path this
-project then owns. The embed runs on the host GPU in the app's own renderer, and the user installs
-nothing. What the morning got right — that the Viewer should not be a picture squeezed beside a
-form — is kept, and answered by the sub-page split rather than by deleting the renderer: the embed
-is full-bleed on its own sub-page, and the composition lives on the Menu.
+**What the restored machinery buys.** Roughly 3,000 lines and ~130 tests, and it is not free. It
+buys the one property this program was asked for and cannot get any other way: *a Tetravox release
+does not imply a TI-Toolbox release.* The protocol range is what keeps the coupling from becoming a
+version pin — a pane asks for a named feature, the range lives in two files a cross-language test
+keeps in step, an additive Tetravox release needs no change here, and a breaking one costs one
+constant. The rest is delivery honesty: a digest verified before the archive is opened, an extraction
+that refuses `..`, absolute paths and links (Python 3.11's unfiltered `extractall` writes outside the
+destination in this image), an atomic activation, a pin so rollback is not a re-download.
 
-**What the restored machinery buys, stated plainly.** It is roughly 3,000 lines and ~130 tests, and
-it is not free. It buys the one property this program was asked for and cannot get any other way:
-*a Tetravox release does not imply a TI-Toolbox release.* The coupling is real the moment a viewer
-ships inside an image, and the protocol range is what keeps it from becoming a version pin — a pane
-asks for a named feature (`markers`, `pick`, `camera`), the supported range lives in two files a
-cross-language test keeps in step, an additive Tetravox release needs no change here at all, and a
-breaking one costs one constant. The rest of the cost is the delivery honesty the maintainer's own
-threat model demands: a digest verified before the archive is opened, an extraction that refuses
-`..`, absolute paths and links (Python 3.11's unfiltered `extractall` writes outside the destination
-in this image), an atomic activation, a pin so rollback is not a re-download, and a policy stored on
-disk rather than a habit compiled in.
+**Cost.** An in-page segmented control was built first and rejected — the maintainer specified the
+rail precisely. Making the sub-items *pages* was rejected too: separate mounts are exactly what
+destroys the iframe. What landed is one narrow concept, `PageDef.subNav` plus `pagePath()`, over the
+existing flat model, with `RetainedPages` keying retention on the first path segment so
+`/viewer/menu` and `/viewer/tetravox` are one mounted component. Two calls — one for the file, one
+for the iframe — were rejected: a job finishing between them is enough to make the list, the file and
+the picture disagree, so `POST /api/view/open` resolves once and returns both addressings.
 
-**Cost.** An in-page segmented control was built first and rejected: the maintainer
-specified the rail, precisely — two indented rows under Viewer, always visible, the active one
-highlighted like a page, and clicking Viewer itself opens Menu. Making the sub-items *pages* was
-rejected too: a `PageDef` each would give them ⌘-numbers, `pages/<id>/` directories and separate
-mounts, and separate mounts are exactly what destroys the iframe. What landed instead is one narrow,
-page-declared concept — `PageDef.subNav` plus `pagePath()` — over the existing flat model:
-`NAV_ORDER` still defines the rail and the ⌘-numbers, sub-items carry none, no other page directory
-changed, and `RetainedPages` keys retention on the first path segment, so `/viewer/menu` and
-`/viewer/tetravox` remain one mounted component and iframe retention is true by construction. Two calls — one for the file, one for the iframe — were
-rejected: a job finishing between them is enough to make the list, the file and the picture
-disagree, so `POST /api/view/open` resolves once and returns both addressings.
+**Known limit.** Sub-items are not drawn in the icon rail below 1440 px; the command palette carries
+both as rows, which makes it a real accessibility path there rather than a convenience.
 
-**Known limit.** Sub-items are not drawn in the icon rail (below 1440 px): at 56 px there is no
-room for an indent and a label, and two unlabelled dots under one icon say nothing. The command
-palette carries both as rows (`Viewer · Menu`, `Viewer · Tetravox`), which makes it a real
-accessibility path at those widths rather than a convenience.
+**Known consequence.** Two renderers: the embed on the Viewer sub-page, the app's own WebGL2
+renderer on the run pages (§7.2, untouched). Deliberate — the panes draw packaged reference anatomy
+and need picking behaviour this project controls; the Viewer draws the user's data and wants the
+whole engine.
 
-**Known consequence.** The app now has two renderers: the embed on the Viewer sub-page, and the
-app's own WebGL2 renderer on the run pages (§7.2, unchanged and untouched by this reversal). That
-is a deliberate split — the panes draw packaged reference anatomy and need picking and marker
-behaviour this project controls, while the Viewer draws the user's data and wants the whole engine.
-Converging them (`docs/dev/HISTORY.md § 2026-09-04 (embed convergence)`) is a future question again, not a settled
-one.
-
-**Revisit if.** Tetravox ships a protocol past the supported range (one constant), or the two renderers converge.
+**Revisit if.** Tetravox ships a protocol past the supported range (one constant), or the two
+renderers converge.
 
 ### 2026-09-06 (later the same day) — The bridge budget is 13, and `viewer` is not one of them
 
@@ -708,139 +663,86 @@ at all — it is an `<iframe src="/tetravox/">` on the same origin.
 (`tit/server/kernels.py`, kernelspec `simnibs`, cwd the project), driven over
 `WS /ws/kernels/{kernel_id}`, with the files under `<project>/code/ti-toolbox/notebooks/` behind
 `/api/notebooks`. At most **2** kernels run at once and one idle for **30 minutes** is shut down.
-The renderer is ported from SUNA (github.com/idossha/SUNA), GPL-3.0, same author, attributed in
-each file's header. ARCHITECTURE §7.6.
+The renderer is ported from SUNA (github.com/idossha/SUNA), GPL-3.0, same author, attributed in each
+file's header. ARCHITECTURE §7.6.
 
 **Why.** The ask was that "the TI-Toolbox environment is automatically loaded". The environment is
 not something to load — it is the container's SimNIBS Python with `tit` on the path, and it is
-already where the server runs. Putting the kernel there means the answer to "which interpreter?" is
-never asked: no picker, no `ipykernel` install prompt, no per-project selection. SUNA needs all
-three because its kernel is the user's own machine's; §16.2 there is largely the machinery for
-degrading honestly when that interpreter has no `jupyter_client`. **That entire branch disappears
-here**, which is why this port is shorter than its source rather than longer.
+already where the server runs. Putting the kernel there means "which interpreter?" is never asked:
+no picker, no `ipykernel` install prompt, no per-project selection. SUNA needs all three because its
+kernel is on the user's own machine, and most of its §16.2 is the machinery for degrading honestly
+when that interpreter has no `jupyter_client`. **That entire branch disappears here**, which is why
+this port is shorter than its source. Everything hard about a notebook front end is already solved
+there for reasons that hold identically here: an iopub content *is* an nbformat output; a plot beats
+its own text repr but a DataFrame table beats both; output with no attributable parent is dropped
+rather than mispinned; ANSI is parsed because an uncoloured traceback is unreadable.
 
-**Why SUNA's code rather than a fresh UI.** Everything hard about a notebook front end is already
-solved there and solved for reasons that hold identically here: an iopub content *is* an nbformat
-output so nothing translates; a plot beats its own text repr but a DataFrame table beats both;
-output with no attributable parent is dropped rather than mispinned; ANSI is parsed because an
-uncoloured IPython traceback is unreadable; modal editing is the only way `dd` can be a bare
-keystroke. Rewriting that would have reproduced the bugs it already fixed.
-
-**Cost.** *Publishing the image's JupyterLab and linking to it* — one HTTP port and
-no code, and it is a different application in a different window with its own auth, its own file
-tree and no idea what a TI-Toolbox project is; the ask was for notebooks *within* TI-Toolbox.
-*Running the kernel on the host under the user's own Python* — SUNA's topology, and it would put
-the user back in the business of installing SimNIBS. *Framing the bridge as a child process anyway,
-for symmetry with SUNA* — a process and a pipe to reach a library already importable in this
-process.
+**Cost.** *Publishing the image's JupyterLab and linking to it* — one HTTP port and no code, and a
+different application in a different window with its own auth and no idea what a TI-Toolbox project
+is. *Running the kernel on the host under the user's own Python* — SUNA's topology, and it puts the
+user back in the business of installing SimNIBS. *Framing the bridge as a child process for symmetry
+with SUNA* — a process and a pipe to reach a library already importable in this process.
 
 **Known consequence — Jobs loses ⌘9.** Notebooks sits after Pipeline (the maintainer's placement),
-making ten workflow rows. There are nine digits and ⌘0 is Settings, so the tenth row has no number:
-Jobs is now ⌘K and its route only. `shortcutForSlot` was returning `"10"` for a tenth row — a chord
-no keyboard can send, printed in the rail and the `?` sheet as though it worked — and now returns
-nothing past the ninth. If ⌘9 Jobs matters more than the rail's workflow order, the fix is to move
-Notebooks to the end of `NAV_ORDER`, not to reinstate an untypeable shortcut.
+making ten workflow rows against nine digits. Resolved by the CX5 entry below (the rail counts from
+⌘0), after `shortcutForSlot` was found returning `"10"` — a chord no keyboard can send.
 
-**Known limit — interactive plots fall back to a picture.** SUNA renders plotly/vega by loading the
-library from a CDN into an iframe on its own privileged `suna-output:` scheme, because the renderer
-CSP rightly forbids kernel-supplied scripts and a `srcdoc` iframe inherits that CSP. TI-Toolbox has
-no such scheme, so a live plot here would silently draw nothing. `pickRepresentation` still
-*recognises* the interactive mime — that is what lets `Outputs.tsx` fall back to the static PNG the
-kernel sends beside it — and matplotlib, the dominant case in this domain, was never affected.
+**Known limit — interactive plots fall back to a picture.** SUNA renders plotly/vega through a
+privileged `suna-output:` scheme because the renderer CSP forbids kernel-supplied scripts and a
+`srcdoc` iframe inherits it. TI-Toolbox has no such scheme. `pickRepresentation` still *recognises*
+the interactive mime, which is what lets `Outputs.tsx` fall back to the static PNG beside it;
+matplotlib, the dominant case here, was never affected.
 
-**Known limit — a cell is a textarea.** SUNA puts a CodeMirror in every cell because the rest of
-that app already ships one. Five CodeMirror packages for cell text is a dependency nothing else in
-this app would use, so cells are auto-sizing textareas in the mono token face and syntax
-highlighting is on the ROADMAP. **No new dependency was added for this feature.**
-
-**Proved live, and one defect it caught.** Driving the dev container's `/api/kernels` and
-`/ws/kernels/{id}` directly ran a real cell in SimNIBS Python and got a real IPython traceback
-back — which is how the starter cell was found to say `pm.project_root` when `PathManager`'s
-attribute is `pm.project_dir`. Static reading had it wrong in both the server and the mock; a
-driven run said so.
-
-**Revisit if.** A user needs a kernel outside the container. That is SUNA's topology, and its whole honest-degradation branch comes back with it.
+**Revisit if.** A user needs a kernel outside the container. That is SUNA's topology, and its whole
+honest-degradation branch comes back with it.
 
 ### 2026-09-06 (NB lane, later) — the cell is a CodeMirror, and the kernel is the completer
 
-**Decision.** A code cell is **CodeMirror 6** with `@codemirror/lang-python`, whose highlight
-palette is built from the app's own CSS variables rather than a colour list. Completion is answered
-by the **running kernel** over the existing `/ws/kernels/{id}` socket (`complete_request`,
+**Decision.** A code cell is **CodeMirror 6** with `@codemirror/lang-python`, whose highlight palette
+is built from the app's own CSS variables rather than a colour list. Completion is answered by the
+**running kernel** over the existing `/ws/kernels/{id}` socket (`complete_request`,
 `inspect_request`), surfaced through CodeMirror's autocompletion on ⇥ and ⌃Space. A sliders popover
-carries autocompletion, signature help, auto-close brackets, line numbers, indent size, font size
-and word wrap, persisted in `localStorage` like `app/executionPrefs.ts`. New dependencies: `katex`
-(which SUNA also depends on) and six `@codemirror/*` packages. ARCHITECTURE §7.6 rules 4–5.
+carries autocompletion, signature help, auto-close brackets, line numbers, indent size, font size and
+word wrap, persisted in `localStorage`. New dependencies: `katex` (which SUNA also depends on) and
+six `@codemirror/*` packages. ARCHITECTURE §7.6 rules 4–5.
 
-**Why the editor changed.** The first version shipped a `<textarea>` to avoid the dependency, and
+**Why the editor changed.** The first version shipped a `<textarea>` to avoid the dependency and
 recorded that as a known limit. The maintainer's answer was that the cost was worth paying: a
 textarea cannot colour Python, cannot indent a block and has nowhere to put a completion popup, and
-"easier for users to develop" is the entire point of the page. A markdown cell is still a textarea
-— there is nothing to highlight in prose, and its rendered form is where the reading happens.
+"easier for users to develop" is the entire point of the page. A markdown cell is still a textarea —
+there is nothing to highlight in prose.
 
 **Why the kernel and not `pylsp`.** The image already has `python-lsp-server` and `jupyterlab-lsp`,
-and using them was the obvious move. It is the wrong one. A language server reads *files*; a
-notebook's meaning lives in an interpreter that has already run `from tit import catalog`, and only
-that interpreter can say what `catalog.` holds — it is the thing holding it. IPython answers
-`complete_request` from that live namespace using `jedi`, which is already inside `ipykernel`.
-So the choice was between a second process to install, configure and keep in sync with a namespace
-it cannot see, and one message on a socket that is already open. Verified in the container:
-`jedi 0.19.2`, and `from tit import get_pa` completes to `get_path_manager` against the real kernel.
+and using them is the wrong move. A language server reads *files*; a notebook's meaning lives in an
+interpreter that has already run `from tit import catalog`, and only that interpreter can say what
+`catalog.` holds — it is the thing holding it. IPython answers `complete_request` from that live
+namespace using `jedi`, already inside `ipykernel`. So the choice was between a second process to
+install, configure and keep in sync with a namespace it cannot see, and one message on a socket that
+is already open. Verified in the container: `jedi 0.19.2`, and `from tit import get_pa` completes to
+`get_path_manager` against the real kernel.
 
 **Why the palette is variables.** `EditorView.theme` is compiled once, so a theme built from hex
-values would need a second palette and a rebuilt editor on every theme switch. Every rule resolves
-to `var(--…)` instead, so the editor follows light/dark with the rest of the app for free.
-
-**Markdown is KaTeX, bundled.** SUNA depends on `katex` and so does this. It is a real npm package
-compiled into the bundle, **not** a CDN script: the renderer's CSP forbids remote scripts and a
-`srcdoc` frame inherits that CSP, so a CDN would have drawn nothing and said nothing about it.
-
-**Four defects the driven runs found, none of which static reading would have.**
-
-- *A command-mode guard that tested for a textarea.* `onKeyDown` skipped the notebook's single-letter
-  keys when `target.tagName === "TEXTAREA"`. True for a textarea, false for CodeMirror's
-  contenteditable — so typing `print(` delivered `r` to command mode, which re-typed the cell as
-  **raw** and destroyed the editor under the author's cursor. The test is now "did this come from
-  inside an editor", which is what was always meant.
-- *Tab closing the popup it should accept.* Typing already opens the completion, so by the time ⇥
-  arrives there is one on screen; `startCompletion` returns false when one is open, and ⇥ then fell
-  through to `indentWithTab`, which indented **and** dismissed it. ⇥ now accepts, then swallows a
-  pending query, then starts one, and only then indents.
-- *A completion range that filtered every option away.* The kernel replaces the whole dotted
-  expression, so `catalog.subject_ids` replaced `catalog.subj`. CodeMirror filters options by
-  matching the label against the replaced text, so a label of `subject_ids` matched nothing and the
-  popup never appeared — while keeping the full label fixed the filter and made every option read
-  `catalog.…`. The **range** moves instead, past the prefix every match shares.
-- *A restart that aborted the server.* See below; it is the sharpest of the four.
+values would need a second palette and a rebuilt editor on every theme switch. Every rule resolves to
+`var(--…)` instead. KaTeX is likewise a real npm package compiled into the bundle, **not** a CDN
+script: the renderer's CSP forbids remote scripts, and a CDN would have drawn nothing and said
+nothing about it.
 
 **Known consequence — a notebook restart could take the API down, and did.** Restart closed the ZMQ
-channels while the iopub and shell pumps were still polling them. ZMQ sockets are not thread-safe;
-libzmq's answer was `Assertion failed: pfd.revents & POLLIN (src/signaler.cpp:238)`, aborting the
-`tit.server` process — every running job's API, killed by a notebook button. The pumps are now
-stopped and joined before anything touches a socket, and the client is rebuilt because
-`restart_kernel` makes the old session key stale (which is where the preceding `Invalid Signature`
-came from). Three tests pin the ordering. **This was invisible to every unit test and to the mock
-e2e**, and only appeared when a real kernel was restarted in the container — D13's argument, again.
+channels while the iopub and shell pumps were still polling them; libzmq's answer was an assertion
+failure that aborted the `tit.server` process — every running job's API, killed by a notebook button.
+The pumps are now stopped and joined before anything touches a socket, and the client is rebuilt
+because `restart_kernel` makes the old session key stale. Three tests pin the ordering. This was
+invisible to every unit test and to the mock e2e. (The other three defects the driven runs found —
+a command-mode guard testing for a textarea, ⇥ dismissing the popup it should accept, and a
+completion range that filtered every option away — are in `HISTORY.md`.)
 
-**The example notebook, and why it is generated rather than shipped.** `examples/getting-started.ipynb`
-is written by the server on a project's first listing, because its cells resolve *this* project's
-subjects and plot the first TI field it actually has; a fixture in the image would name a project
-that does not exist yet, and a fixture in the repo would drift from the API it calls. Two things it
-taught: without `%matplotlib inline` this kernel's formatter offers a Figure only as `text/plain`
-(the cell printed `<Figure size 900x340>` and no picture), and *with* the magic a trailing bare
-`figure` puts the same picture in the notebook twice — once as `display_data`, once as the
-execute_result.
+**Cost.** *A CDN for KaTeX and CodeMirror* — blocked by the CSP, silently. *Client-side static
+completion from a Python grammar* — it cannot see the namespace, which is the only thing that makes
+`tit.` completion worth having. *Settings on the server, per project* — these follow the person, not
+the project, so they are `localStorage` and not in the `.ipynb`.
 
-**`GET /api/notebooks/examples/getting-started.ipynb` 404'd.** A plain path parameter stops at a
-separator, so the seeded example could not be opened at all. The routes take `{name:path}`. What
-keeps it safe is unchanged and was never the router's pattern: `normalise_name` accepts exactly one
-known prefix and refuses everything else.
-
-**Cost.** *A CDN for KaTeX and for CodeMirror* — blocked by the CSP, silently.
-*Client-side static completion from a Python grammar* — it cannot see the namespace, which is the
-only thing that makes `tit.` completion worth having. *Settings on the server, per project* — these
-follow the person, not the project, so they are `localStorage` and not in the `.ipynb`.
-
-**Revisit if.** The six `@codemirror/*` packages plus `katex` become a maintenance cost out of proportion to one page.
+**Revisit if.** The six `@codemirror/*` packages plus `katex` become a maintenance cost out of
+proportion to one page.
 
 ### 2026-09-06 (CX5) — Grey matter is opaque, and only the skin has an opacity slider
 
@@ -890,8 +792,6 @@ electrode and a shape the solver agrees with, and getting either subtly wrong wo
 that is not the one submitted. A dot at a picked skin vertex is exactly as true as the position it
 came from.
 
-**Cost.** No new dependency, no contract change; the cost is that this rule is now one more thing a change must respect.
-
 **Revisit if.** Real 3-D electrode geometry is modelled — it needs a surface-tangent frame per electrode and a shape the solver agrees with.
 
 ### 2026-09-06 (CX5) — Subject Info is deleted rather than migrated
@@ -918,8 +818,6 @@ per-kind constant.
 that wrongly in both directions: it makes a flex search on a computed leadfield look like the same
 half hour as one that must build it first. The drivers are already in the config the plan validates,
 so the estimate reads the same object the run will.
-
-**Cost.** No new dependency, no contract change; the cost is that this rule is now one more thing a change must respect.
 
 **Revisit if.** The estimates are measured against real runs and found systematically wrong in one direction.
 
@@ -1014,245 +912,78 @@ rather than only on the ones carrying a channel colour is the obvious candidate,
 colour as the whole state signal because the contour is constant — so it is left open rather than
 decided here.
 
-**Cost.** No new dependency, no contract change; the cost is that this rule is now one more thing a change must respect.
-
 **Revisit if.** The maintainer makes the design call — a thin contour on *every* marker is the obvious candidate, and it keeps colour as the whole state signal because the contour is constant.
 
 ### 2026-09-07 (NB lane) — signature help from the kernel, and nothing left half-built
 
-**Decision.** Signature help is finished and is a kernel round trip like completion:
-`inspect_request` on `(` and on ⇧⇥, showing IPython's own signature line and the docstring's first
-paragraph in a CodeMirror tooltip, honouring the existing `signatureHelp` preference. Escape
-dismisses the tooltip **before** it leaves edit mode. The kernel status pill is now the recovery
-too — clicking it restarts, or starts one when none is running. ⌘S saves from anywhere on the page,
-leaving the page flushes rather than prompting, and closing the window hands every kernel back.
-ARCHITECTURE §7.6 rules 5 and 9.
+**Decision.** Signature help is a kernel round trip like completion: `inspect_request` on `(` and on
+⇧⇥, showing IPython's own signature line and the docstring's first paragraph in a CodeMirror
+tooltip, honouring the existing `signatureHelp` preference. Escape dismisses the tooltip **before**
+it leaves edit mode. The kernel status pill is also the recovery — clicking it restarts, or starts
+one when none is running. ⌘S saves from anywhere on the page, leaving the page flushes rather than
+prompting, and closing the window hands every kernel back. ARCHITECTURE §7.6 rules 5 and 9.
 
 **Why the tooltip is a summary and not the reply.** `inspect_reply`'s `text/plain` is the whole of
-`get_path_manager?` — signature, full numpydoc body, `File:`, `Type:`. Rendered verbatim that is
-forty lines hanging over the code it describes. So `parseInspect` reads IPython's *field* format
-(labels at line starts, each field ending at the next label — not at the next newline, because
-signatures wrap and docstrings certainly do) and `firstParagraph` stops at a blank line **or at a
-numpydoc section underline**, which otherwise drags in a `Parameters` heading with no body.
+`get_path_manager?` — signature, full numpydoc body, `File:`, `Type:` — forty lines hanging over the
+code it describes. `parseInspect` reads IPython's *field* format (each field ending at the next
+label, not at the next newline, because signatures wrap) and `firstParagraph` stops at a blank line
+**or at a numpydoc section underline**.
 
-**Why Escape needed the highest precedence.** The notebook's own Escape leaves edit mode. Bound at
-equal precedence, one Escape would have done both — dismissed the tooltip *and* thrown the author
-out of the cell they were typing in. `Prec.highest` puts the dismissal first, and it returns false
-when there is nothing to dismiss, so the second Escape behaves exactly as it always did.
+**Why Escape needed the highest precedence.** The notebook's own Escape leaves edit mode; bound at
+equal precedence one keystroke would have done both, throwing the author out of the cell they were
+typing in. `Prec.highest` puts the dismissal first and returns false when there is nothing to
+dismiss.
 
-**Why leaving the page flushes instead of prompting.** The brief said "unsaved-changes guard".
-A modal would be the literal reading and the wrong product: autosave already writes 1.5 s after the
-last keystroke, so the only thing a prompt could ask is whether to do the save the app was about to
-do anyway. The guard writes. What was actually broken — navigating inside that 1.5 s window losing
-the edit — is fixed, and that is what the e2e asserts.
-
-**Two defects this round found, both from the defaults.**
-
-- *Signature help never fired for anyone with default settings.* The trigger tested whether the
-  inserted text *ended* with `(`. Auto-close brackets is on by default, so typing `(` inserts `()`
-  in one change — the test saw `)` and the feature did nothing at all. It now tests for a `(`
-  anywhere in the insertion.
-- *Restart did nothing on a dead kernel.* `restart()` returned early when `kernelId` was null, which
-  is precisely the state a user is in when they press it — a kernel reaped for idling, or lost with
-  its socket. It now starts a fresh one, and also recovers when the server answers `no-such-kernel`.
-
-**Dead code removed rather than left to look finished.** `makeCompartments`/`EditorCompartments`
-(the component builds its own) and `completion.ts`'s `inspectTooltipText`, which `signature.ts`
-superseded and whose only remaining caller was its own test — a green test over dead code is worse
-than no test. `signatureShown` stopped being exported; it has one caller, in its own file.
-
-**Verified against the real container, not only the mock.** The 30-minute idle cap was checked with
-a `KernelRegistry(idle_timeout=3.0)` driving a **real** SimNIBS kernel: not reaped at 1 s, reaped
-past the cap, and `manager.is_alive()` false afterwards — a dead interpreter, not a forgotten
-registry entry. Closing the app is asserted by the real e2e, which closes the window and polls
-`/api/kernels` to zero from Node.
-
-**Cost.** No new dependency, no contract change; the cost is that this rule is now one more thing a change must respect.
+**Why leaving the page flushes instead of prompting.** Autosave already writes 1.5 s after the last
+keystroke, so the only thing a modal could ask is whether to do the save the app was about to do
+anyway. The guard writes. What was actually broken — navigating inside that 1.5 s window losing the
+edit — is fixed, and that is what the e2e asserts.
 
 **Revisit if.** The kernel round trip becomes too slow on a loaded container to answer a keystroke.
 
-### 2026-09-07 (CX6) — SCI-01: a cluster statistic must be monotone in extremeness
+### 2026-09-07 (CX6) — the six numerical corrections, and the two modelling calls with them
 
-**Decision.** Two-sided and left-tailed cluster inference labels positive and negative
-supra-threshold voxels as **separate** components (`engine.label_signed`), and maps a cluster to a
-statistic that grows with extremeness (`engine.tail_statistic`: mass for `tail=+1`, −mass for
-`tail=−1`, |mass| for `tail=0`) so observed and permuted values live on one scale and the
-comparison is always right-tailed. `surface._label_graph_signed` / `_max_cluster_stat` do the same
-on the fsaverage graph.
+*One entry for SCI-01 … SCI-08. The user-facing record — what was wrong, which versions, which
+outputs move and by how much, how a user spots an affected result, and whether to re-run or rescale
+— is [`SCIENTIFIC-CORRECTIONS.md`](SCIENTIFIC-CORRECTIONS.md), which is the page to read first and
+the page a change to any of these must update. The numbers are in
+[`BENCHMARKS.md`](BENCHMARKS.md) § External audit response. What is recorded here is only the
+decision each one settles.*
 
-**Why.** A bare `scipy.ndimage.label` fused a touching positive and negative blob into one cluster
-whose signed mass is their *difference*, and `max()` over signed masses under a left or two-sided
-tail selects the cluster **closest to zero**. On the exhaustive 3-vs-3 / 8-voxel design in the test,
-2/20 relabellings differed under `less` and 3/20 under `two-sided`, and the largest discrepancy was
-a null value of **−64.06 where the correct oriented value is +64.06** — the wrong sign, so nearly
-any observed cluster cleared it.
+**Decisions.**
 
-**Cost.** Every `two-sided` (the default) or `less` group analysis produced by v2.2.3–v2.5.0 must be
-**re-run**; there is no rescaling, because the null distribution itself was wrong. `greater` is
-untouched (0/20 relabellings changed).
-
-**Revisit if.** A tail is added whose oriented statistic is not one of these three, or the surface
-and volume backends stop agreeing on a chain graph — `tests/numerical/test_sci01_cluster_sign.py`
-asserts they do.
-
-### 2026-09-07 (CX6) — SCI-02: a group is a common voxel grid, not a common shape
-
-**Decision.** `tit/stats/nifti.py::_check_same_grid` compares shape, direction block and origin
-against the first subject and **raises**, naming the subject id, its file and the reference file.
-
-**Why.** `load_group_data_ti_toolbox` kept the first affine and never looked at the others, so any
-images sharing an array shape were stacked and compared voxel-by-voxel — including subjects
-translated, rotated, differently scaled or left/right flipped relative to each other. A handedness
-difference (`det(affine[:3,:3])` sign flip) is the worst case and is now named in the error.
-
-**Cost.** None for the normal case: subjects normalised by the toolbox share a grid exactly and
-their results are bit-identical. A group that previously ran now fails loudly, which is the point.
-Same commit swaps the `list` + `np.stack` + `astype` accumulation for a preallocated array — peak
-memory falls from ~3× the final array to 1× plus one volume.
-
-**Revisit if.** A resampling step is added upstream, at which point the check becomes an assertion
-on its output rather than a gate on user input.
-
-### 2026-09-07 (CX6) — SCI-03: the divisor tracks the unit of the weights
-
-**Decision.** `Analyzer._compute_focality_metrics` takes an explicit `weight_to_cm` parameter. The
-voxel path passes `1000.0` (mm³ → cm³), the mesh path keeps `100.0` (mm² → cm²). The field
-**names** (`focality_*_area`) are deliberately unchanged.
-
-**Why.** The unified `Analyzer` divided by 100 for both paths with the comment `mm^2 -> cm^2`,
-correct only for the mesh. The v2.2.x `voxel_analyzer.py` it replaced divided by 1000 correctly, so
-this was a regression, not an original error. A single hard-coded constant serving two unit systems
-is the defect; making the caller state the unit is the fix.
-
-**Cost.** Voxel-space `focality_50/75/90/95_area` from v2.3.0–v2.5.0 are **10× too large** and are
-**rescalable** — divide by 10, no re-run. Keeping `..._area` as the name of a volume is a knowing
-wart, paid so scripts and the group aggregator keep working; the documented unit is cm³.
-
-**Revisit if.** A third weighting (per-element volume on a tetrahedral mesh, say) is added — it
-needs its own factor, and the parameter is already the place to put it.
-
-### 2026-09-07 (CX6) — SCI-04: a sampled null gets the Phipson & Smyth estimator
-
-**Decision.** `pval_from_histogram(..., sampled=True)` (the default) returns `(b + 1) / (m + 1)`.
-`sampled=False` restores the exact `b/m`, documented as correct **only** when the null is the
-exhaustive enumeration of the permutation group.
-
-**Why.** `b/m` over a Monte-Carlo null can return **0**, and is anti-conservative exactly in the
-tail where cluster inference operates. `p = 0` from 1000 draws is not a measurement.
-
-**Cost.** Every permutation p-value moves up by at most `1/(m+1)`; at the default 1000 permutations
-the floor becomes 9.99e-4 instead of 0. **Rescalable**: `p_new = (p_old·m + 1)/(m + 1)`. No cluster
-crosses `alpha = 0.05` unless it already sat within 0.001 of it.
-
-**Revisit if.** An exhaustive-enumeration path is wired into `correct_groups` — it must pass
-`sampled=False`, and nothing does today.
-
-### 2026-09-07 (CX6) — SCI-05: voxel geometry comes from the affine, not the header zooms
-
-**Decision.** `voxel_volume_mm3(affine)` returns `|det A|`; `_world_distance_grid(affine, centre,
-shape)` returns `‖A(v − c)‖`. `_analyze_voxel_roi` takes the affine and derives the volume itself,
-so there is no second, disagreeing source of geometry.
-
-**Why.** `header.get_zooms()` are the affine's **column norms**. `prod(zooms)` as a voxel volume and
-`sqrt(Σ (zoom_k·Δv_k)²)` as a world distance both assume orthogonal voxel axes, which is false for
-any sheared affine.
-
-**Cost.** Nothing for orthogonal grids — every MNI-normalised output the toolbox writes — where
-`prod(zooms) == |det A|` and the two distance formulas coincide exactly, so results are
-bit-identical. On the test's representative shear `prod(zooms)` overestimates the voxel volume by
-**11.3 %**; such analyses must be **re-run**.
-
-**Revisit if.** A caller needs per-axis spacing rather than volume — `get_zooms` is still the right
-answer for that, and the deleted usage should not be reintroduced for it by accident.
-
-### 2026-09-07 (CX6) — SCI-06: perfect separation is evidence, not a null result
-
-**Decision.** `engine._safe_t` divides under `np.errstate` so the IEEE result reaches `t.sf`
-unchanged: `0/0` gives `nan`, `±x/0` gives `±inf` with the tail-consistent p, matching
-`scipy.stats.ttest_ind`/`ttest_rel` exactly. Because `nan`/`inf` cluster mass would corrupt the
-permutation machinery, `ttest_voxelwise` **excludes** degenerate voxels from `valid_mask` and logs
-the count, and the permutation workers neutralise any degenerate voxel a relabelling creates.
-
-**Why.** `t = 0, p = 1` for every zero-standard-error voxel conflates a genuinely undefined `0/0`
-with a nonzero contrast over zero within-group variance — the strongest evidence the data can
-carry, reported as the weakest.
-
-**Cost.** Re-run: the change can only add evidence where none was carried, but it moves
-`valid_mask` and therefore cluster geometry. Neutralising permutation-created degeneracies is
-slightly conservative, which is preferable to an infinite null.
-
-**Revisit if.** The exclusion turns out to remove voxels users expect to see — the count is logged
-as a `WARNING` precisely so that shows up as a number rather than a silence.
-
-### 2026-09-07 (CX6) — `channels` must partition `fields`
-
-**Decision.** `tit/calc.py::_resolve_channels` raises when a field index is referenced by no
-channel, naming the unused indices. A carrier that does not beat is spelled as its own channel with
-an empty `group_b`, which was already supported.
-
-**Why.** A dropped index meant the envelope described a **different montage** from the one passed —
-and from the one `hf_peak`/`hf_sar` described, since those always sum every field. Two functions
-over one montage disagreeing about which fields exist is not a configuration a caller can have
-meant.
-
-**Cost.** A montage that silently dropped a field now fails. That is the intended breakage; nothing
-in the toolbox produced such a montage.
-
-**Revisit if.** A use case appears for deliberately excluding a field from the envelope — it should
-be an explicit exclusion, not an omission.
-
-### 2026-09-07 — SCI-07 resolved: a declared channel is one carrier, for every metric
-
-**Supersedes** the "SCI-07 left open" entry that stood here.
-
-**Decision.** `montage.channels` is the physical truth about which electrode pairs share a carrier,
-and *every* metric honours it. Fields inside one declared group are summed **as vectors** first;
-distinct carriers then combine incoherently — in power for `hf_sar`, and by worst-case sign
-enumeration for `hf_peak`. `tit/fields.py` gains a `channels=` argument on both metrics,
-`tit/sim/mTI.py` passes `self.montage.channels`, and the grouping rule itself lives in one place
-(`tit.fields.channel_index_groups`) that `tit.calc._resolve_channels` also consumes, so the
-modulation-depth search and the exposure metrics can never see different channel vectors. The
-`channels=None` path is bit-identical, pinned with `==`.
+| | Decision | Why, in one line |
+|---|---|---|
+| **SCI-01** | Two-sided and left-tailed cluster inference labels positive and negative supra-threshold voxels as **separate** components (`engine.label_signed`) and maps a cluster to a statistic monotone in extremeness (`engine.tail_statistic`), so observed and permuted values live on one scale and the comparison is always right-tailed. `surface._label_graph_signed` does the same on fsaverage. | A bare `scipy.ndimage.label` fused touching opposite-sign blobs into one cluster whose signed mass is their *difference*, and `max()` over signed masses under a left or two-sided tail selects the cluster **closest to zero**. The largest discrepancy measured was a null of **−64.06 where the correct oriented value is +64.06** — the wrong sign, so nearly any observed cluster cleared it. |
+| **SCI-02** | `tit/stats/nifti.py::_check_same_grid` compares shape, direction block and origin against the first subject and **raises**, naming the subject, its file and the reference. | The loader kept the first affine and never looked at the others, so any images sharing an array shape were compared voxel-by-voxel — translated, rotated, rescaled or left/right flipped alike. A handedness flip is the worst case and is named in the error. |
+| **SCI-03** | `Analyzer._compute_focality_metrics` takes an explicit `weight_to_cm`: `1000.0` on the voxel path (mm³ → cm³), `100.0` on the mesh path (mm² → cm²). The field **names** (`focality_*_area`) are deliberately unchanged. | One hard-coded constant served two unit systems. Making the caller state the unit is the fix; keeping `..._area` as the name of a volume is a knowing wart, paid so scripts and the group aggregator keep working. |
+| **SCI-04** | `pval_from_histogram(..., sampled=True)` (the default) returns `(b+1)/(m+1)`; `sampled=False` restores the exact `b/m`, documented as correct **only** for an exhaustive enumeration. | `b/m` over a Monte-Carlo null can return **0**, and is anti-conservative exactly in the tail where cluster inference operates. `p = 0` from 1000 draws is not a measurement. |
+| **SCI-05** | `voxel_volume_mm3(affine)` is `|det A|` and `_world_distance_grid` is `‖A(v − c)‖`; `_analyze_voxel_roi` takes the affine and derives the volume itself, so there is no second, disagreeing source of geometry. | `header.get_zooms()` are the affine's **column norms**; `prod(zooms)` and the zoom-scaled distance both assume orthogonal voxel axes, false for any sheared affine. |
+| **SCI-06** | `engine._safe_t` divides under `np.errstate` so the IEEE result reaches `t.sf` unchanged (`0/0` → `nan`, `±x/0` → `±inf` with the tail-consistent p, matching scipy exactly); `ttest_voxelwise` **excludes** degenerate voxels from `valid_mask` and logs the count, and the permutation workers neutralise any degeneracy a relabelling creates. | `t = 0, p = 1` for every zero-standard-error voxel reported the strongest evidence the data can carry as the weakest. `nan`/`inf` cluster mass would corrupt the permutation machinery, hence the exclusion. |
+| **`channels` partitions `fields`** | `tit/calc.py::_resolve_channels` raises when a field index is referenced by no channel, naming the unused indices. A carrier that does not beat is spelled as its own channel with an empty `group_b`. | A dropped index meant the envelope described a **different montage** from the one passed, and from the one `hf_peak`/`hf_sar` described, since those always sum every field. |
+| **SCI-07** | `montage.channels` is the physical truth about which pairs share a carrier, and *every* metric honours it: fields inside one declared group sum **as vectors** first, distinct carriers then combine incoherently — in power for `hf_sar`, by worst-case sign enumeration for `hf_peak`. The grouping rule lives once, in `tit.fields.channel_index_groups`, which `tit.calc._resolve_channels` also consumes. The `channels=None` path is bit-identical, pinned with `==`. | Cassarà et al. 2025 Part II p. 8: *"coherent field superposition was used for identical frequencies, and incoherent superposition (i.e., SAR addition) was used when the frequencies differed."* The envelope path already assumed coherence within a group; letting the *safety* metric assume the opposite for the same montage was the inconsistency — and in the direction that matters, the old `hf_sar` was a **lower** bound. |
+| **SCI-08** | `_envelope_from_PQ` computes `2√2·Q / (√(P+Q) + √(P−Q))` rather than `√(2(P+Q)) − √(2(P−Q))`. | Algebraically identical, but the subtraction form cancels catastrophically at `Q ≪ P` — weak modulation, i.e. every off-target voxel, which is the denominator of a focality ratio. Below `Q/P ≈ 1e-16` it returns exactly `0`. |
 
 **The engine's modelling convention, stated once.** The simulation is **quasi-static**: every FEM
-field is a phasor amplitude vector and there is no time axis. Exposure quantities are therefore
-worst cases over the unknown relative phases — the same convention that already derives the
-modulation depth. Cassarà states the peak in the time domain; for carriers at incommensurate
-frequencies the supremum over time of `|Σ_c E_c cos(θ_c)|` is attained at a vertex of the phase box
-(a convex function on a box maxes at a vertex), so our sign enumeration **equals** the time-domain
-peak rather than merely bounding it. This is checked in `tests/numerical/` against a synthesised
-`E(t)`, which is the only place a time axis appears anywhere in the repository.
+field is a phasor amplitude vector and there is no time axis. Exposure quantities are therefore worst
+cases over the unknown relative phases — the same convention that already derives the modulation
+depth. For carriers at incommensurate frequencies the supremum over time of `|Σ_c E_c cos(θ_c)|` is
+attained at a vertex of the phase box (a convex function on a box maxes at a vertex), so the sign
+enumeration **equals** the time-domain peak rather than merely bounding it. That is checked in
+`tests/numerical/` against a synthesised `E(t)`, which is the only place a time axis appears anywhere
+in the repository.
 
-**Why.** Cassarà et al. 2025 Part II, p. 8: *"coherent field superposition was used for identical
-frequencies, and incoherent superposition (i.e., SAR addition) was used when the frequencies
-differed."* Part I, p. 11 says the same for two channels, and Part II, p. 16 repeats it for a shared
-return electrode. The envelope path already assumed coherence within a group; letting the *safety*
-metric assume the opposite for the same montage was the inconsistency. The direction that matters
-is that the old `hf_sar` was a **lower** bound — a safety metric understating exposure.
+**Cost.** SCI-01, -02, -05 and -06 require a **re-run** (the null distribution, the stacking gate or
+`valid_mask` itself moved); SCI-03 and -04 are **rescalable**; SCI-07 is recomputable from the stored
+per-pair fields without re-running the FEM; SCI-08 changes nothing the old form got right. `greater`
+is untouched by SCI-01 (0 of 20 relabellings changed). A group that previously ran may now fail
+loudly, and a montage that silently dropped a field now fails — both intended.
 
-**Cost.** A 2.5.0 montage that declared `channels` gets different `hf_peak`/`hf_sar` numbers; both
-are recomputable from the stored per-pair fields without re-running the FEM. `hf_peak` *falls* under
-grouping (the old value allowed anti-phase between pairs the hardware drives phase-locked), which
-reads as a regression until one sees that the old number was unrealisable. Recorded as
-[SCI-07](SCIENTIFIC-CORRECTIONS.md#sci-07).
-
-**Revisit if.** A montage architecture appears where two pairs in one group are *not* phase-locked —
-then the grouping means something else, and `channels` needs a phase field rather than a set.
-
-### 2026-09-07 — the envelope's rationalised form
-
-**Decision.** `_envelope_from_PQ` computes `2√2·Q / (√(P+Q) + √(P−Q))` rather than
-`√(2(P+Q)) − √(2(P−Q))`.
-
-**Why.** Algebraically identical, but the subtraction form cancels catastrophically at `Q ≪ P` —
-weak modulation, i.e. every off-target voxel, which is the denominator of a focality ratio. Below
-`Q/P ≈ 1e-16` it returns exactly `0`. (The audit named `Q → P` as the bad regime; it is the benign
-one.) Recorded as [SCI-08](SCIENTIFIC-CORRECTIONS.md#sci-08).
-
-**Cost.** One divide instead of one subtract; no measurable difference in runtime. Values are
-unchanged to 1e-14 wherever the old form was accurate at all.
-
-**Revisit if.** Never — the two forms are the same expression.
+**Revisit if.** A tail is added whose oriented statistic is none of the three; a resampling step is
+added upstream, at which point SCI-02's check becomes an assertion on its output rather than a gate
+on user input; an exhaustive-enumeration path is wired into `correct_groups` (it must pass
+`sampled=False`, and nothing does today); or a montage architecture appears where two pairs in one
+group are *not* phase-locked — then `channels` needs a phase field rather than a set.
 
 ### 2026-09-07 — allowed electrode-pair counts stated once
 
@@ -1292,26 +1023,24 @@ not this timeout.
 
 ### 2026-09-07 (CX6) — a capped resource is reserved before it is acquired, not after
 
-**Decision.** Two places now reserve under the lock rather than trusting an out-of-date snapshot.
+**Decision.** Two places reserve under the lock rather than trusting an out-of-date snapshot.
 `KernelRegistry` reserves a `max_kernels` slot before startup and releases it in a `finally`.
 `JobScheduler._tick` treats every running job's recorded lock keys as held (`_reserved_holders`) and
 adds a just-admitted job's keys to the snapshot before evaluating the next candidate. `locks.hold`
-raises `LockConflictError` on write-against-live-write (other conflicts keep the advisory
-warn-and-continue default) and never claims a directory owned by a different, still-live job.
+raises `LockConflictError` on write-against-live-write and never claims a directory owned by a
+different, still-live job.
 
-**Why.** Both were the same shape of bug: a check and an acquisition in two critical sections with
-a multi-second gap between them. N concurrent kernel starts all passed a cap none of them had yet
-answered; two queued jobs needing the same exclusive write lock were both admitted, in the same
-tick and in the next, because a runner writes its lock descriptors only after it has started. A
-write lock's directory is named for the resource alone, so the second job overwrote the first's
-descriptor, `holders` then named the wrong owner, and the second job's release freed the first
-job's lock.
+**Why.** Both were the same bug: a check and an acquisition in two critical sections with a
+multi-second gap. N concurrent kernel starts all passed a cap none had yet answered; two queued jobs
+needing the same exclusive write lock were both admitted, because a runner writes its lock
+descriptors only after it has started — and a write lock's directory is named for the resource alone,
+so the second job overwrote the first's descriptor and its release freed the first job's lock.
 
 **Cost.** The scheduler admits slightly less aggressively; a spawn that fails leaves the job
-terminal, so its reservation is never taken and nothing has to be released by hand.
+terminal, so its reservation is never taken.
 
-**Revisit if.** Lock state moves out of the filesystem — the reservation exists to cover the window
-in which the filesystem does not yet know.
+**Revisit if.** Lock state moves out of the filesystem — the reservation covers the window in which
+the filesystem does not yet know.
 
 ### 2026-09-07 (CX6) — an unknown `after` dependency is not a satisfied one
 
@@ -1332,35 +1061,32 @@ dependency is the unusual act; `POST /api/jobs/{id}/force` remains the escape ha
 
 ### 2026-09-07 (CX6) — one subject-id grammar, enforced before an id becomes a path
 
-**Decision.** `tit.paths.SUBJECT_ID_RE` is the grammar: letters, digits, `_` and `-`, first
-character alphanumeric, at most 64 — BIDS labels plus the `_`/`-` existing projects use, and the
-same shape as `tit.catalog.is_safe_name`. Every `PathManager` accessor that puts an id in a path
-validates it. The job routes check before persisting (422), `JobManager.submit` re-checks,
+**Decision.** `tit.paths.SUBJECT_ID_RE` is the grammar: letters, digits, `_` and `-`, first character
+alphanumeric, at most 64 — BIDS labels plus the separators existing projects use, matching
+`tit.catalog.is_safe_name`. Every `PathManager` accessor that puts an id in a path validates it; the
+job routes check before persisting (422), `JobManager.submit` re-checks,
 `tit.pre.structural.run_pipeline` checks at the entrypoint, and `ensure_subject_dirs` additionally
 refuses any path that does not resolve inside the project root.
 
-**Why.** Ids carrying separators or `..` were accepted by `POST /api/jobs` and `/api/jobs/groups`
-and persisted, and `ensure_subject_dirs(project, "../../../outside")` then created directories
-outside the project entirely — reproduced before the fix. Validating at the API only would leave
-the config-file and script-argument routes open, which is why the check sits where the id becomes a
-path.
+**Why.** Ids carrying separators or `..` were accepted and persisted, and
+`ensure_subject_dirs(project, "../../../outside")` then created directories outside the project —
+reproduced before the fix. Validating at the API alone would leave the config-file and
+script-argument routes open, which is why the check sits where the id becomes a path.
 
-**Cost.** A project with a subject directory outside this grammar cannot be driven by the toolbox
-until it is renamed. The grammar was chosen to be a superset of what the toolbox itself writes.
+**Cost.** A project with a subject directory outside this grammar cannot be driven until it is
+renamed; the grammar is a superset of what the toolbox itself writes.
 
 **Revisit if.** A real dataset appears with a legitimate id this rejects — widen the regex in one
 place, not the call sites.
 
 ### 2026-09-07 (CX6) — a `tools` job's arguments are confined to the project directory
 
-**Decision.** `kinds.command_for` takes the manager's project root (bound in
-`JobManager.__init__`) and checks **every** argument before the argv is built, so a job is refused
-before it is spawned and before any file is created. `TOOL_ARG_POLICY` declares which options a
-tool treats as identifiers (`--pipeline`, `--node`), as subject ids, or as the project root itself;
-every other argument falls under the default rule — if it looks like a path it must resolve inside
-the project. An argument that looks like a path with no project root bound is refused rather than
-trusted. `tit.tools.pipeline_resolve` re-checks its own arguments for a direct
-`simnibs_python -m` invocation.
+**Decision.** `kinds.command_for` takes the manager's project root and checks **every** argument
+before the argv is built, so a job is refused before it is spawned and before any file is created.
+`TOOL_ARG_POLICY` declares which options a tool treats as identifiers (`--pipeline`, `--node`), as
+subject ids, or as the project root; every other argument falls under the default rule — if it looks
+like a path it must resolve inside the project, and a path-shaped argument with no project root bound
+is refused rather than trusted.
 
 **Why.** The `tools` allowlist closed *which module runs* but not *what it could be told to touch*:
 `config.args` was forwarded verbatim, so an allowlisted tool handed an absolute output path would
@@ -1369,8 +1095,8 @@ write anywhere the container's user can write.
 **Cost.** A new tool needs a `TOOL_ARG_POLICY` row if any of its arguments are identifiers rather
 than paths; without one it gets the default containment rule, which is the safe direction.
 
-**Revisit if.** A tool legitimately needs to read outside the project (a system atlas, say) — that
-is an explicit policy entry, not a relaxation of the default.
+**Revisit if.** A tool legitimately needs to read outside the project — that is an explicit policy
+entry, not a relaxation of the default.
 
 ### 2026-09-07 (CX6) — a notebook save carries the revision it wrote
 
@@ -1444,27 +1170,24 @@ having moved it there.
 
 ### 2026-09-07 (CX6) — one release workflow, for one application
 
-**Decision.** `.github/workflows/release-v3.yml` is the release pipeline;
-`release-build.yml` and its companion are deleted, and the legacy 2.x launcher under `package/` is
-**retired** (ADR decision 5's Phase 6). The pipeline puts everything checkable without credentials
-first: **plan** (refuse to build when the tag and the version sites disagree) → **image** (failing
-loudly when no compatible Tetravox embed release resolves, rather than baking a placeholder) →
-**desktop-validate** (unsigned builds for macOS arm64+x64, Windows, Linux, each inspected and
-uploaded, published nowhere) → **create-release** → **desktop-publish** (signed and notarised,
-failing closed when a signing secret is absent). `workflow_dispatch` defaults to `dry_run=true`.
+**Decision.** `.github/workflows/release-v3.yml` is the release pipeline; `release-build.yml` and its
+companion are deleted, and the legacy 2.x launcher under `package/` is **retired** (ADR row 5's
+Phase 6). The pipeline puts everything checkable without credentials first: **plan** (refuse to build
+when the tag and the version sites disagree) → **image** (failing loudly when no compatible Tetravox
+embed release resolves, rather than baking a placeholder) → **desktop-validate** (unsigned builds for
+macOS arm64+x64, Windows and Linux, each inspected and uploaded, published nowhere) →
+**create-release** → **desktop-publish** (signed and notarised, failing closed when a signing secret
+is absent). `workflow_dispatch` defaults to `dry_run=true`.
 
 **Why.** Pushing a v3.0.0 tag ran `release-build.yml`, which built the **legacy** launcher (its
-`package.json` says 2.4.0) with Node 20, while the v3 app is under `desktop/` and needs Node
-≥ 22.12 — a v3 tag would have published v2 artifacts under a v3 release title. And while `package/`
-exists the repository has two apps, two version numbers and two compose files, and every future
-automation has to remember which one is real.
+`package.json` says 2.4.0) with Node 20, while the v3 app is under `desktop/` and needs Node ≥ 22.12
+— a v3 tag would have published v2 artifacts under a v3 release title. And while `package/` exists
+the repository has two apps, two version numbers and two compose files, and every future automation
+has to remember which one is real.
 
-**Cost.** `package/` is gone from history's reach only by `git`; the ported behaviour it documented
-is cited from `desktop/` and `dev/loader/` comments. `update_version.py` drops its four entries and
-gains `desktop/package.json` (the number electron-builder stamps into every artifact) and
-`dev/loader/docker-compose.dev.yml`, whose old `dev/bash_dev/...` path had been silently skipped on
-every bump; it also gains `--dry-run`/`--version`. `.gitignore`'s `!package/build/` exception moved
-to `!desktop/build/`.
+**Cost.** `update_version.py` drops its four `package/` entries and gains `desktop/package.json` and
+`dev/loader/docker-compose.dev.yml`, whose old `dev/bash_dev/…` path had been silently skipped on
+every bump. `.gitignore`'s `!package/build/` exception moved to `!desktop/build/`.
 
 **Revisit if.** A 2.x point release is ever needed — it would come from the v2 tags, not from a
 directory kept alive on `main`.
@@ -1472,32 +1195,23 @@ directory kept alive on `main`.
 ### 2026-09-07 (CX6) — the packaging check is what makes the validation job worth having
 
 **Decision.** `desktop/scripts/verify-package.mjs` reads the built app's asar directly — no
-dependencies, so it runs against a downloaded artifact — and checks the version, the main entry,
-the files the app reads at runtime, the absence of dev-only and deleted content, and the
-per-platform staged runtime.
+dependencies, so it runs against a downloaded artifact — and checks the version, the main entry, the
+files the app reads at runtime, the absence of dev-only and deleted content, and the per-platform
+staged runtime.
 
 **Why, and what it found.** Run against a scratch `--dir` build it found two configurations that
-could not have produced a shippable artifact, both invisible on a maintainer's machine:
-
-- **`docker/**` was not in `files:`.** electron-builder shipped `out/**` and `package.json` only,
-  while `src/main/stack.ts#resolveComposeFile` reads `docker/docker-compose.v3.yml` from
-  `app.getAppPath()` at every stack start. **Every** packaged build would have died on first launch
-  with `compose-invalid: docker-compose.v3.yml not found`.
-- **`desktop/build/` was never committed.** `.gitignore`'s global `build/` rule swallowed it, so
-  `icon.icns`, `icon.ico`, `icon.png` and `entitlements.mac.plist` — all four named in
-  `electron-builder.yml` — existed only as untracked files in the maintainer's worktree. A release
-  job packaging a fresh checkout would have failed on the first artifact. The old `!package/build/`
-  exception existed for exactly this reason; moving it to `!desktop/build/` is what surfaced them.
-
-Two more entries were removed rather than fixed: `mac.identity: null` was a hard "never sign" the
-workflow cannot lift (signing is controlled by the environment instead), and the `.runtime-staging`
-`extraResources` entry made the config unbuildable without a multi-GB python-build-standalone tree,
-for a runtime the shipping Docker-backed app does not use. `stage-runtime.sh` is kept for the parked
-native path and `verify-package.mjs` grows `--expect-runtime` for it.
+could not have produced a shippable artifact, both invisible on a maintainer's machine.
+**`docker/**` was not in electron-builder's `files:`** while `src/main/stack.ts#resolveComposeFile`
+reads `docker/docker-compose.v3.yml` from `app.getAppPath()` at every stack start, so every packaged
+build would have died on first launch with `compose-invalid`. And **`desktop/build/` was never
+committed** — `.gitignore`'s global `build/` rule swallowed the four icon and entitlement files
+`electron-builder.yml` names by path, so a release job packaging a fresh checkout would have failed
+on the first artifact. Two config entries were removed rather than fixed: `mac.identity: null` was a
+hard "never sign" the workflow cannot lift, and the `.runtime-staging` `extraResources` entry made
+the config unbuildable without a multi-GB python-build-standalone tree the shipping app does not use.
 
 **Cost.** The target list is now exactly what CI builds and verifies, nothing more; adding a target
 means adding its verification.
 
-**Revisit if.** The native runtime is unparked — `--expect-runtime` is the check that would then
-have to pass, and it has never run against a real staged tree.
-
+**Revisit if.** The native runtime is unparked — `--expect-runtime` is the check that would then have
+to pass, and it has never run against a real staged tree.
