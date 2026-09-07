@@ -28,6 +28,12 @@ Releases, guides, and wiki please see: [https://idossha.github.io/TI-Toolbox/](h
 > the [installation docs](https://idossha.github.io/TI-Toolbox/installation/) and the
 > [desktop app page](https://idossha.github.io/TI-Toolbox/wiki/desktop-app/).
 
+> **If you have results from v2.x**: v3.0.0 corrects six numerical defects in the statistics
+> engine and the field analyzer that an external audit found in v2.2.3–v2.5.0. Some outputs move.
+> [`docs/dev/SCIENTIFIC-CORRECTIONS.md`](docs/dev/SCIENTIFIC-CORRECTIONS.md) says, per correction,
+> which versions are affected, how to tell whether yours is one of them, and whether you need to
+> re-run the analysis or can simply rescale the number.
+
 ## How to Cite
 
 If you use TI-Toolbox in your research, please cite the journal article:
