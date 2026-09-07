@@ -1125,7 +1125,16 @@ cells in one scroller.
 - **The editor settings are a sliders popover**, the same gesture as the per-job dialogs (§5), and
   every control writes straight through — no Save, because nothing here belongs to the document.
   Font size is one variable on the notebook root, so a cell and the traceback it produced are never
-  two different sizes.
+  two different sizes. Every switch in it does something; a preference with no effect is a lie the
+  page tells about itself.
+- **Signature help is a tooltip, so it is one line and one sentence.** It sits above the call's open
+  paren, and it shows the signature plus the docstring's first paragraph — never the whole reply,
+  which would cover the code it describes. Escape dismisses it and, only then, leaves edit mode.
+- **The kernel pill is the status and the recovery.** `neutral · warning · success · accent ·
+  danger` for `off · starting · idle · busy · dead`, pulsing only while starting, and clickable:
+  restart when there is a kernel, start when there is not. A dead kernel is the one state that asks
+  something of the user, and making them find a separate control for it is a step with no decision
+  in it.
 - **The selected cell is marked by a 2 px accent rule on its left edge and the raised surface**,
   never by an outline: the scroller holds focus in command mode, and a focus ring on it would say
   the wrong thing.
@@ -1415,11 +1424,20 @@ a centre is set. Subject-specific anatomy lives in the Viewer and in Results.
 
 **Those panes are this app's own WebGL2 renderer** (`src/renderer/scene/`, restored 2026-09-06,
 `docs/ARCHITECTURE.md` §7.2) — no iframe, no message protocol, no second engine to install. They
-draw one 3-D viewport, the orientation cues, a pair of labelled Skin / Grey matter opacity controls
-and the interaction hint. There is no application chrome to hide, because the renderer only ever
-drew the pane. Opacity is shown as a percent and changing it updates the corresponding surface
-without reloading geometry or resetting the camera; grey matter also carries the cortical atlas
-surface, whose regions the pane names on hover and selects on click (§4.9, §4.10).
+draw one 3-D viewport, the orientation cues, **one** labelled Skin opacity control and the
+interaction hint. There is no application chrome to hide, because the renderer only ever drew the
+pane. Opacity is shown as a percent and changing it updates the skin without reloading geometry or
+resetting the camera.
+
+Grey matter has no slider: it is always opaque (2026-09-06). A translucent cortex read under a
+translucent scalp composes to a colour that is neither surface's, and the fresnel silhouette term
+pushes both towards white by an amount that depends on where on the head you look — so a region
+arrived on screen in a diluted version of its own atlas hue. It carries the cortical atlas surface,
+whose regions the pane names on hover and selects on click (§4.9, §4.10), and whose borders follow
+the mesh edges because each triangle's label is transferred to its provoking corner before upload.
+
+The camera is the user's: changing net, montage or subject reframes nothing. Framing happens on the
+pane's first payload and on an explicit reset.
 
 Shared dropdowns contain long values and use the available viewport height. Interactive elements
 carry their accessible names. The action bar has the shared primary action on the right and grows

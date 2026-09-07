@@ -29,7 +29,7 @@ const TOKEN = process.env.TIT_E2E_TOKEN as string;
 /** A full SimNIBS interpreter takes seconds to come up; a FEM-busy box, more. */
 const KERNEL_TIMEOUT = 180_000;
 
-let app: ElectronApplication;
+let app: ElectronApplication | null = null;
 let page: Page;
 
 // Serial, and generously timed: these tests start a real SimNIBS Python, import
@@ -49,8 +49,20 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
+  // `app` is nulled by the closing test below; closing an already-closed
+  // Electron app hangs the runner rather than resolving.
   await app?.close();
+  app = null;
 });
+
+/** Ask the server directly, from Node — used after the window is gone. */
+async function kernelCount(): Promise<number> {
+  const res = await fetch(new URL("/api/kernels", SERVER_URL).href, {
+    headers: { Authorization: `Bearer ${TOKEN}` },
+  });
+  const body = (await res.json()) as { kernels: unknown[] };
+  return body.kernels.length;
+}
 
 function codeCells() {
   return page.locator('[data-testid="nb-cell"][data-cell-type="code"]');
@@ -196,6 +208,15 @@ test("the real kernel completes `from tit import get_pa`", async () => {
   await expect(popup).toBeVisible({ timeout: KERNEL_TIMEOUT });
   await expect(popup).toContainText("get_path_manager");
 
+  // Let the round trip the LAST keystroke started settle before ⇥.
+  //
+  // `activateOnTyping` fires a query per character, so the popup can be showing
+  // the answer to an earlier one while a newer is still in flight. ⇥ swallows
+  // the key while a query is pending — deliberately, so it cannot indent into
+  // the middle of a word the kernel is completing — and the accept would then
+  // need a second press. A person presses again; a test has to wait.
+  await page.waitForTimeout(500);
+
   // ⇥ accepts, as it does in Jupyter.
   await page.keyboard.press("Tab");
   await expect(codeCell(0)).toContainText("from tit import get_path_manager");
@@ -203,6 +224,24 @@ test("the real kernel completes `from tit import get_pa`", async () => {
   // And it runs, which is the only proof the completion was a real name.
   await page.keyboard.press("ControlOrMeta+Enter");
   await expect(page.getByTestId("nb-output-error")).toHaveCount(0, { timeout: KERNEL_TIMEOUT });
+});
+
+test("the real kernel answers signature help for a tit function", async () => {
+  // The claim: the tooltip is IPython's own `?` output for a name that only
+  // exists because `tit` is importable in this interpreter — a real signature
+  // and a real docstring, not a parser's guess.
+  await typeInCell(0, "get_path_manager(");
+
+  const tip = page.getByTestId("nb-signature");
+  await expect(tip).toBeVisible({ timeout: KERNEL_TIMEOUT });
+  await expect(tip.locator(".nb-signature__sig")).toContainText("get_path_manager(");
+  await expect(tip.locator(".nb-signature__doc")).not.toHaveText("");
+  // IPython's trailing fields are not prose and never reach the tooltip.
+  await expect(tip).not.toContainText("File:");
+  await expect(tip).not.toContainText("Type:");
+
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("nb-signature")).toHaveCount(0);
 });
 
 test("the real kernel highlights Python in the cell", async () => {
@@ -239,4 +278,34 @@ test("deleting a notebook takes its own kernel with it", async () => {
   // cap is two per container, so a page that leaked one would make the next
   // notebook of the session unopenable — that is what this counts.
   await expect.poll(count, { timeout: 30_000 }).toBe(before - 1);
+});
+
+test("closing the app hands its kernels back", async () => {
+  // A kernel is a full SimNIBS interpreter and the container allows two, so one
+  // leaked by a closed window is half the budget gone until the 30-minute
+  // reaper notices. This is the last test in the file because it closes the app.
+  // Its own notebook: the test before this one deleted the open one, and the
+  // seeded example is reference material no test should leave edited.
+  await page.getByTestId("nb-new").click();
+  await expect(page.getByTestId("nb-notebook")).toBeVisible({ timeout: 30_000 });
+  const closingName = (await page
+    .getByTestId("nb-notebook")
+    .getAttribute("data-notebook")) as string;
+
+  await typeInCell(0, "print('still here')");
+  await page.keyboard.press("ControlOrMeta+Enter");
+  await expect(cellOutput(0)).toContainText("still here", { timeout: KERNEL_TIMEOUT });
+  expect(await kernelCount()).toBeGreaterThan(0);
+
+  const closing = app as ElectronApplication;
+  app = null;
+  await closing.close();
+
+  await expect.poll(kernelCount, { timeout: 30_000 }).toBe(0);
+
+  // Tidy up after ourselves: this spec writes into a real project.
+  await fetch(new URL(`/api/notebooks/${closingName}`, SERVER_URL).href, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${TOKEN}` },
+  });
 });

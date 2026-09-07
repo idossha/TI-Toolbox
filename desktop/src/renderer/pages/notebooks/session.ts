@@ -122,7 +122,8 @@ export class Session {
   readonly name: string;
   nb: Notebook | null = null;
   refs = 0;
-  private kernelId: string | null = null;
+  /** Readable so the unload path can name it; written only in here. */
+  kernelId: string | null = null;
   private socket: WebSocket | null = null;
   private starting: Promise<boolean> | null = null;
   /** reqId → the cell that asked for it. */
@@ -189,6 +190,27 @@ export class Session {
     cell.source = source;
     this.markDirty();
     bump(this.name);
+  }
+
+  /** A save is queued or in flight — what a navigation guard has to wait on. */
+  get pendingSave(): boolean {
+    return this.autosave !== null || this.saving !== null;
+  }
+
+  /**
+   * Write now if anything is outstanding, and wait for it.
+   *
+   * Called when the page is left. Autosave already runs 1.5 s after the last
+   * keystroke, so the window where a notebook is unsaved is small — but
+   * "small" is not "none", and navigating away inside it used to lose the
+   * edit. Flushing beats prompting: there is nothing for the author to decide,
+   * and a modal asking them to confirm a save the app was going to do anyway
+   * is a question with one answer.
+   */
+  async flush(): Promise<boolean> {
+    const meta = useMetaStore.getState().byName[this.name] ?? EMPTY_META;
+    if (!meta.dirty && !this.pendingSave) return true;
+    return this.save();
   }
 
   markDirty(): void {
@@ -532,12 +554,40 @@ export class Session {
     if (this.kernelId !== null) await interruptKernel(this.kernelId);
   }
 
+  /**
+   * Restart the kernel, or start one when there is none.
+   *
+   * The fallback is the point. A kernel that died — reaped for idling, or lost
+   * with the socket — leaves `kernelId` null, and the first version returned
+   * silently: the button was enabled, said Restart, and did nothing at all. The
+   * state the user is in when they press it is exactly the state with no kernel
+   * to restart.
+   */
   async restart(): Promise<void> {
-    if (this.kernelId === null) return;
     this.inflight.clear();
-    patch(this.name, { running: [], kernelStatus: "starting" });
-    const kernel = await restartKernel(this.kernelId);
-    patch(this.name, { kernelStatus: "idle", kernelName: kernel.displayName });
+    patch(this.name, { running: [], kernelStatus: "starting", kernelError: null });
+    if (this.kernelId === null || !this.connected) {
+      await this.shutdown();
+      await this.ensureKernel();
+      return;
+    }
+    try {
+      const kernel = await restartKernel(this.kernelId);
+      patch(this.name, { kernelStatus: "idle", kernelName: kernel.displayName });
+    } catch (error) {
+      // The kernel is gone on the server's side too; start a fresh one rather
+      // than leaving the pill spinning on "starting…" forever.
+      const detail = (error as { body?: { detail?: KernelFault } }).body?.detail;
+      if (detail?.code === "no-such-kernel") {
+        await this.shutdown();
+        await this.ensureKernel();
+        return;
+      }
+      patch(this.name, {
+        kernelStatus: "dead",
+        kernelError: detail ?? { code: "op-failed", message: message(error) },
+      });
+    }
   }
 
   /** Shut the kernel down but keep the document and its outputs. */
@@ -615,4 +665,40 @@ export async function importNotebook(name: string, content: Notebook): Promise<s
   sessions.set(created.name, session);
   patch(created.name, { loading: false, loadError: null, dirty: false, version: 1 });
   return created.name;
+}
+
+/** Every session that currently holds a notebook. */
+export function openSessions(): Session[] {
+  return [...sessions.values()];
+}
+
+/** Flush every unsaved notebook. Resolves false when one could not be written. */
+export async function flushAllNotebooks(): Promise<boolean> {
+  const results = await Promise.all(openSessions().map((session) => session.flush()));
+  return results.every(Boolean);
+}
+
+/**
+ * Shut every kernel down. Called when the window is going away.
+ *
+ * A kernel is a full SimNIBS Python interpreter and the container allows two,
+ * so one leaked by a closed window is half the budget gone until the 30-minute
+ * reaper notices. `keepalive` is what makes this work at all during `unload`:
+ * an ordinary fetch is cancelled with the document, and `Session.shutdown`'s
+ * awaited DELETE never leaves the machine.
+ */
+export function shutdownAllKernelsOnUnload(): void {
+  for (const session of openSessions()) {
+    const id = session.kernelId;
+    if (id === null) continue;
+    try {
+      void fetch(`/api/kernels/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        credentials: "same-origin",
+        keepalive: true,
+      });
+    } catch {
+      // Nothing to do on the way out; the server's idle reaper is the backstop.
+    }
+  }
 }

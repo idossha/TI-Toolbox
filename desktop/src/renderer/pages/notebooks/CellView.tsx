@@ -20,6 +20,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, type JSX, type KeyboardEvent } from "react";
 import { ChevronDown, ChevronUp, Play, X } from "lucide-react";
 import { Compartment, EditorState, EditorView, baseExtensions, completionExtensions, keymap, prefExtensions, type CompletionSource } from "./editor";
+import { Prec } from "@codemirror/state";
+import { dismissSignature, requestSignature, signatureExtensions } from "./signature";
 import { renderMarkdown } from "./markdown";
 import { cellText, type Cell, type CodeCell } from "./notebook";
 import { OutputList } from "./Outputs";
@@ -193,7 +195,11 @@ function CodeEditor({
 }): JSX.Element {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
-  const compartments = useRef({ prefs: new Compartment(), completion: new Compartment() });
+  const compartments = useRef({
+    prefs: new Compartment(),
+    completion: new Compartment(),
+    signature: new Compartment(),
+  });
   const prefs = useNotebookPrefs((state) => state.prefs);
 
   // Read at keystroke time: the keymap is installed once, and would otherwise
@@ -213,18 +219,43 @@ function CodeEditor({
     }),
     [],
   );
+  const signatureSource = useCallback(
+    () => ({
+      connected: latest.current.session.connected,
+      inspect: (code: string, pos: number) => latest.current.session.inspect(code, pos),
+    }),
+    [],
+  );
 
   useEffect(() => {
     const parent = host.current;
     if (parent === null) return;
-    const { prefs: prefsSlot, completion: completionSlot } = compartments.current;
+    const {
+      prefs: prefsSlot,
+      completion: completionSlot,
+      signature: signatureSlot,
+    } = compartments.current;
 
     const editor = new EditorView({
       parent,
       state: EditorState.create({
         doc: cellText(latest.current.cell),
         extensions: [
-          // The notebook's own keys come FIRST, at the highest precedence:
+          // Escape is bound ABOVE the notebook's own Escape, and it is the one
+          // key here that has to be: a visible signature tooltip is dismissed
+          // first, and only an Escape with nothing to dismiss leaves edit mode.
+          // Otherwise the first Escape would do both at once, and the author
+          // would lose the cell they were typing in to close a tooltip.
+          Prec.highest(
+            keymap.of([
+              { key: "Escape", run: dismissSignature },
+              {
+                key: "Shift-Tab",
+                run: (view) => requestSignature(view, signatureSource),
+              },
+            ]),
+          ),
+          // The notebook's own keys come next, at the highest precedence
           // CodeMirror binds ⇧↵ and ⌘↵ itself, and a cell that inserts a
           // newline instead of running is the whole gesture broken.
           keymap.of([
@@ -238,6 +269,7 @@ function CodeEditor({
           ]),
           prefsSlot.of(prefExtensions(prefs)),
           completionSlot.of(completionExtensions(prefs.autocomplete, completionSource)),
+          signatureSlot.of(signatureExtensions(prefs.signatureHelp, signatureSource)),
           baseExtensions(),
           // THE defect this exists for. Edit mode is notebook state, and the
           // editor is what actually holds focus — so the editor is what must
@@ -283,9 +315,12 @@ function CodeEditor({
         compartments.current.completion.reconfigure(
           completionExtensions(prefs.autocomplete, completionSource),
         ),
+        compartments.current.signature.reconfigure(
+          signatureExtensions(prefs.signatureHelp, signatureSource),
+        ),
       ],
     });
-  }, [prefs, completionSource]);
+  }, [prefs, completionSource, signatureSource]);
 
   // The document can change from outside the editor — a notebook reload, or a
   // cell restored by `z`. Only push when it actually differs, or every

@@ -288,6 +288,15 @@ test("completion comes from the kernel, on ⇥ and on typing", async () => {
   await expect(popup).toContainText("get_path_manager");
   await expect(popup).toContainText("get_project");
 
+  // Let the round trip the LAST keystroke started settle before ⇥.
+  //
+  // `activateOnTyping` fires a query per character, so the popup can be showing
+  // the answer to an earlier one while a newer is still in flight. ⇥ swallows
+  // the key while a query is pending — deliberately, so it cannot indent into
+  // the middle of a word the kernel is completing — and the accept would then
+  // need a second press. A person presses again; a test has to wait.
+  await page.waitForTimeout(500);
+
   // ⇥ accepts the selected option — Jupyter's gesture — and inserts what the
   // KERNEL said, over the range the kernel chose.
   await page.keyboard.press("Tab");
@@ -314,6 +323,15 @@ test("a dotted completion shows the member, and inserts the whole path", async (
   await expect(popup).toContainText("subject_detail");
   // …and not one of them reads "catalog.…", which is the readability half.
   await expect(popup).not.toContainText("catalog.");
+  // Let the round trip the LAST keystroke started settle before ⇥.
+  //
+  // `activateOnTyping` fires a query per character, so the popup can be showing
+  // the answer to an earlier one while a newer is still in flight. ⇥ swallows
+  // the key while a query is pending — deliberately, so it cannot indent into
+  // the middle of a word the kernel is completing — and the accept would then
+  // need a second press. A person presses again; a test has to wait.
+  await page.waitForTimeout(500);
+
   // Accepting leaves the whole path in the cell: the range the option replaces
   // starts after `catalog.`, so the prefix the author typed stays put. Which of
   // the two is selected is CodeMirror's fuzzy ranking and not this app's
@@ -373,4 +391,124 @@ test("turning autocompletion off stops the round trip", async () => {
 
   await page.getByTestId("nb-settings-open").click();
   await page.getByTestId("nb-pref-reset").click();
+});
+
+test("signature help opens on `(`, on ⇧⇥, and dismisses on Esc and past the `)`", async () => {
+  await newNotebook();
+  await typeInCell(0, "print('ready')");
+  await page.keyboard.press("ControlOrMeta+Enter");
+  await expect(page.getByTestId("nb-output").first()).toContainText("ready", { timeout: 20_000 });
+  await page.getByRole("button", { name: "+ Code" }).click();
+  await expect(page.locator('[data-testid="nb-cell"][data-cell-type="code"]')).toHaveCount(2);
+
+  // Typing the open paren asks the kernel. Nothing else does — a round trip per
+  // keystroke is what the `(`-only trigger exists to avoid.
+  await typeInCell(1, "get_path_manager(");
+  const tip = page.getByTestId("nb-signature");
+  await expect(tip).toBeVisible({ timeout: 15_000 });
+  await expect(tip.locator(".nb-signature__sig")).toContainText("get_path_manager(");
+  await expect(tip.locator(".nb-signature__doc")).toHaveText(
+    "The mock kernel's answer for this name.",
+  );
+  // The docstring's SECOND paragraph is not in the tooltip: a summary, not a
+  // document, or it covers the code it describes.
+  await expect(tip).not.toContainText("second paragraph");
+  // Nor are IPython's trailing fields.
+  await expect(tip).not.toContainText("Type:");
+
+  // It survives typing arguments — the call has not changed.
+  await codeCell(1).pressSequentially("pm");
+  await expect(tip).toBeVisible();
+
+  // Esc dismisses the tooltip and does NOT leave edit mode: one Escape, one
+  // meaning, and the cell keeps focus.
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("nb-signature")).toHaveCount(0);
+  await expect(page.locator(".cm-editor.cm-focused")).toHaveCount(1);
+
+  // ⇧⇥ asks again explicitly, from inside the same call.
+  await page.keyboard.press("Shift+Tab");
+  await expect(page.getByTestId("nb-signature")).toBeVisible({ timeout: 15_000 });
+
+  // Typing past the closing paren dismisses it, because there is no longer a
+  // call around the cursor.
+  await codeCell(1).pressSequentially(")");
+  await page.keyboard.press("End");
+  await expect(page.getByTestId("nb-signature")).toHaveCount(0);
+
+  // A second Escape, with nothing to dismiss, leaves edit mode as it always did.
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".cm-editor.cm-focused")).toHaveCount(0);
+});
+
+test("signature help off means no tooltip and no round trip", async () => {
+  await newNotebook();
+  await typeInCell(0, "print('ready')");
+  await page.keyboard.press("ControlOrMeta+Enter");
+  await expect(page.getByTestId("nb-output").first()).toContainText("ready", { timeout: 20_000 });
+
+  await page.getByTestId("nb-settings-open").click();
+  await page.getByTestId("nb-settings").getByTestId("nb-pref-signatureHelp").click();
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: "+ Code" }).click();
+  await typeInCell(1, "get_path_manager(");
+  await expect(page.getByTestId("nb-signature")).toHaveCount(0);
+
+  await page.getByTestId("nb-settings-open").click();
+  await page.getByTestId("nb-pref-reset").click();
+});
+
+test("the kernel pill is the status and the recovery", async () => {
+  await newNotebook();
+  const pill = page.getByTestId("nb-kernel-status");
+  await expect(pill).toHaveAttribute("data-state", "off");
+
+  // Clicking it with no kernel starts one — the state a user is actually in
+  // when they press a button labelled with a restart icon.
+  await pill.click();
+  await expect(pill).toHaveAttribute("data-state", "idle", { timeout: 20_000 });
+  await expect(pill).toContainText("SimNIBS + TI-Toolbox");
+
+  await typeInCell(0, "print('alive')");
+  await page.keyboard.press("ControlOrMeta+Enter");
+  await expect(page.getByTestId("nb-output").first()).toContainText("alive", { timeout: 20_000 });
+});
+
+test("the empty state offers the example, and opens it", async () => {
+  // Nothing is open on arrival; the page says what a notebook here runs on and
+  // gives the one action worth taking first.
+  const empty = page.getByTestId("nb-notebook");
+  await expect(empty).toHaveCount(0);
+  const action = page.getByRole("button", { name: "Open the example" });
+  await expect(action).toBeVisible({ timeout: 15_000 });
+  await action.click();
+  await expect(page.getByTestId("nb-notebook")).toHaveAttribute(
+    "data-notebook",
+    "examples/getting-started.ipynb",
+    { timeout: 15_000 },
+  );
+});
+
+test("⌘S saves from outside a cell, and leaving the page flushes", async () => {
+  const name = await newNotebook();
+  await typeInCell(0, "print('saved by cmd-s')");
+  await expect(page.getByTestId("nb-save")).toHaveText("Save");
+
+  // Focus is deliberately NOT in the editor: the editor has its own ⌘S, and
+  // this is the page-level one that used to be missing.
+  await page.getByTestId("nb-list").click();
+  await page.keyboard.press("ControlOrMeta+s");
+  await expect(page.getByTestId("nb-save")).toHaveText("Saved", { timeout: 15_000 });
+
+  // Now the leave-flush: edit, navigate away before autosave fires, come back.
+  await typeInCell(0, "print('flushed on leave')");
+  await expect(page.getByTestId("nb-save")).toHaveText("Save");
+  await gotoPage(page, "jobs", "Jobs");
+  await expectPage(page, "jobs");
+  await gotoPage(page, "notebooks", "Notebooks");
+  await page.reload();
+  await gotoPage(page, "notebooks", "Notebooks");
+  await page.getByTestId("nb-list-item").filter({ hasText: name }).click();
+  await expect(codeCell(0)).toContainText("print('flushed on leave')", { timeout: 15_000 });
 });

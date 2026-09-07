@@ -729,3 +729,164 @@ known prefix and refuses everything else.
 *Client-side static completion from a Python grammar* — it cannot see the namespace, which is the
 only thing that makes `tit.` completion worth having. *Settings on the server, per project* — these
 follow the person, not the project, so they are `localStorage` and not in the `.ipynb`.
+
+## 2026-09-06 (CX5) — Grey matter is opaque, and only the skin has an opacity slider
+
+**Decision.** The pane's grey-matter surface is drawn fully opaque and its opacity control is gone;
+the skin keeps its slider. Translucency remains a property of the outer surface only.
+
+**Why.** A translucent cortex under a translucent scalp was not readable as anatomy. Two sheets of
+alpha compose to a colour that belongs to neither, and the fresnel silhouette boost every surface
+carries pushes both towards white at the rim — so a region's own atlas hue arrived at the screen
+diluted by a factor that depended on where on the head the fragment was, which is precisely what the
+atlas-border work then had to measure around (`#4b327d` reaching the buffer as `[150,137,169]`). One
+translucent sheet over an opaque one has a single, predictable composition.
+
+**Alternatives rejected.** *Order-independent transparency for both sheets* — real cost for a view
+whose depth reading was never the complaint. *Keeping the slider at a fixed default of 1.0* — a
+control that exists but must not be moved is worse than no control.
+
+## 2026-09-06 (CX5) — The camera is the user's, not the data's
+
+**Decision.** A pane keeps its camera across a payload change: switching net, montage or subject
+reframes nothing. The framing pass runs on the pane's *first* payload and on an explicit reset.
+
+**Why.** Changing a montage to compare two placements threw away the view the comparison was being
+made from — the one interaction where the camera matters most was the one that destroyed it. A
+camera is a statement about what the user is looking at; a new net is not a statement about that.
+
+## 2026-09-06 (CX5) — Free-hand placement lives in the Simulator, not in a panel
+
+**Decision.** Free-hand electrode placement is reached from the Simulator's montage footer, beside
+*New montage*, and edits the montage in place by clicking the subject's skin in the pane. It is not
+a Settings-gated panel page and has no rail row.
+
+**Why.** A montage is what free-hand placement produces, so it belongs where montages are made. As a
+panel it would have been a second place to build the same object, reachable only by someone who had
+already found the Settings toggle — the PyQt tab-strip mistake in a new costume.
+
+**Known consequence — 3-D electrode geometry is not modelled, for now.** A placed electrode is a
+dot with a colour, not a disc with a radius and a thickness lying on the scalp. The rejected
+alternative was to draw real electrode geometry in the pane: it needs a surface-tangent frame per
+electrode and a shape the solver agrees with, and getting either subtly wrong would draw a montage
+that is not the one submitted. A dot at a picked skin vertex is exactly as true as the position it
+came from.
+
+## 2026-09-06 (CX5) — Subject Info is deleted rather than migrated
+
+**Decision.** The Subject Info Viewer panel, its page and `GET /api/subjects/{id}/info` with the
+`SubjectInfo`, `SubjectSimulationInfo` and `FileRef` schemas are removed from the contract.
+
+**Why.** Overview already answers "what does this subject have" for every subject at once, in one
+bounded request. Two surfaces for one question means two answers whenever one of them lags — and the
+panel's per-subject request was the one that would have had to grow a column each time a data stage
+was added.
+
+## 2026-09-06 (CX5) — A plan's ETA is modelled from what drives the job, not from a constant
+
+**Decision.** `POST /api/plan` returns an estimated wall clock derived from the job's own drivers —
+the leadfield's presence and size, the electrode count, the search's iteration budget — rather than a
+per-kind constant.
+
+**Why.** The number exists to answer "do I start this now or after lunch", and a constant answers
+that wrongly in both directions: it makes a flex search on a computed leadfield look like the same
+half hour as one that must build it first. The drivers are already in the config the plan validates,
+so the estimate reads the same object the run will.
+
+## 2026-09-06 (CX5) — The image carries what the v3 server needs, and nothing the GUI used to
+
+**Decision.** `Dockerfile.ti-toolbox` drops gmsh, PyQt5 and the SimNIBS TMS coil model set.
+
+**Why.** v3 has no Qt GUI and no external mesh viewer to launch: Gmsh and Freeview were the v2
+flow, and the run pages now draw their own panes (§7.2). PyQt5 was a dependency of a GUI that no
+longer ships. The coil models are for TMS, which this toolbox does not simulate. Each was carried
+only because it had always been carried.
+
+**Known consequence.** Anything still importing `tit.gui` fails in the image rather than starting a
+window nobody can see, which is the honest failure. The v2 loader path is unaffected — it runs its
+own image.
+
+## 2026-09-06 (CX5) — A triangle's region label is transferred, not left to the provoking vertex
+
+**Decision.** Before upload, each grey-matter triangle is rotated so its **last** corner carries the
+majority region label, and label shading is `flat`. Winding is preserved: `[a,b,c] -> [c,a,b]` is a
+rotation, so normals, culling and the outward orientation the service guarantees are untouched.
+
+**Why.** The shader reads the region id from a `flat` varying, and WebGL 2 fixes the provoking vertex
+to the triangle's last index — an arbitrary corner as far as the anatomy is concerned. On the
+packaged ernie guide with DK40, 15 289 of 145 402 triangles (10.5 %) straddle a border; 14 965 have a
+clear two-to-one majority, and with the last corner deciding, roughly a third of those took the
+*minority* label. Each is a triangle-sized spike of the neighbour's colour across the border — the
+saw-tooth the maintainer reported. Rotated, the border follows the mesh edges between the regions.
+
+**Alternatives rejected.** *Interpolating labels* — a label is not a quantity and the midpoint of two
+region ids is a third region. *Splitting border triangles* — changes the mesh the solver and the
+service agree on to fix a shading artefact. A triangle whose three corners are three different
+regions is a genuine triple junction (324, 0.22 %): there is no majority to rotate to, and it is
+left exactly as it came.
+
+## 2026-09-06 (CX5) — The rail counts from ⌘0
+
+**Decision.** `shortcutForSlot` is the row's index in `NAV_ORDER`, starting at zero: ⌘0 Overview
+through ⌘9 Jobs. Settings takes no digit and keeps ⌘, as its only chord; Help stays the `?` sheet.
+This supersedes the 2026-09-05 entry above, which gave Settings the first digit the rail did not use.
+
+**Why.** Maintainer, 2026-09-06: *"start from 0 the rail digit and finish at 9."* A keyboard has ten
+digits and the rail has ten workflow rows — they match exactly, but only when the count starts at
+zero. Counting from one spent ⌘0 on Settings, which is not a rail row at all, and left the tenth row
+with no key: the Notebooks insertion had just taken ⌘9 away from Jobs, the row opened by keyboard
+many times an hour.
+
+**Alternatives rejected.** *Moving Notebooks to the end of `NAV_ORDER`* — implemented first, and it
+buys Jobs its key back by taking one from Notebooks and by putting the rail out of workflow order.
+*Printing ⌘10* — a chord no keyboard can send. An eleventh row would again have no number, which is
+a limit of ten digits rather than of this function, and `NAV_ORDER`'s job to stay within.
+
+## 2026-09-07 (NB lane) — signature help from the kernel, and nothing left half-built
+
+**Decision.** Signature help is finished and is a kernel round trip like completion:
+`inspect_request` on `(` and on ⇧⇥, showing IPython's own signature line and the docstring's first
+paragraph in a CodeMirror tooltip, honouring the existing `signatureHelp` preference. Escape
+dismisses the tooltip **before** it leaves edit mode. The kernel status pill is now the recovery
+too — clicking it restarts, or starts one when none is running. ⌘S saves from anywhere on the page,
+leaving the page flushes rather than prompting, and closing the window hands every kernel back.
+ARCHITECTURE §7.6 rules 5 and 9.
+
+**Why the tooltip is a summary and not the reply.** `inspect_reply`'s `text/plain` is the whole of
+`get_path_manager?` — signature, full numpydoc body, `File:`, `Type:`. Rendered verbatim that is
+forty lines hanging over the code it describes. So `parseInspect` reads IPython's *field* format
+(labels at line starts, each field ending at the next label — not at the next newline, because
+signatures wrap and docstrings certainly do) and `firstParagraph` stops at a blank line **or at a
+numpydoc section underline**, which otherwise drags in a `Parameters` heading with no body.
+
+**Why Escape needed the highest precedence.** The notebook's own Escape leaves edit mode. Bound at
+equal precedence, one Escape would have done both — dismissed the tooltip *and* thrown the author
+out of the cell they were typing in. `Prec.highest` puts the dismissal first, and it returns false
+when there is nothing to dismiss, so the second Escape behaves exactly as it always did.
+
+**Why leaving the page flushes instead of prompting.** The brief said "unsaved-changes guard".
+A modal would be the literal reading and the wrong product: autosave already writes 1.5 s after the
+last keystroke, so the only thing a prompt could ask is whether to do the save the app was about to
+do anyway. The guard writes. What was actually broken — navigating inside that 1.5 s window losing
+the edit — is fixed, and that is what the e2e asserts.
+
+**Two defects this round found, both from the defaults.**
+
+- *Signature help never fired for anyone with default settings.* The trigger tested whether the
+  inserted text *ended* with `(`. Auto-close brackets is on by default, so typing `(` inserts `()`
+  in one change — the test saw `)` and the feature did nothing at all. It now tests for a `(`
+  anywhere in the insertion.
+- *Restart did nothing on a dead kernel.* `restart()` returned early when `kernelId` was null, which
+  is precisely the state a user is in when they press it — a kernel reaped for idling, or lost with
+  its socket. It now starts a fresh one, and also recovers when the server answers `no-such-kernel`.
+
+**Dead code removed rather than left to look finished.** `makeCompartments`/`EditorCompartments`
+(the component builds its own) and `completion.ts`'s `inspectTooltipText`, which `signature.ts`
+superseded and whose only remaining caller was its own test — a green test over dead code is worse
+than no test. `signatureShown` stopped being exported; it has one caller, in its own file.
+
+**Verified against the real container, not only the mock.** The 30-minute idle cap was checked with
+a `KernelRegistry(idle_timeout=3.0)` driving a **real** SimNIBS kernel: not reaped at 1 s, reaped
+past the cap, and `manager.is_alive()` false afterwards — a dead interpreter, not a forgotten
+registry entry. Closing the app is asserted by the real e2e, which closes the window and polls
+`/api/kernels` to zero from Node.

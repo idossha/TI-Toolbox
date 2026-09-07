@@ -82,9 +82,8 @@ mock-server pass.
    round trip over `/ws/kernels`, because the interpreter holding the objects is the only thing
    that can complete them. `python-lsp-server` stays in the image and stays unused.
 2. ~~Syntax highlighting in cells.~~ **Done** (2026-09-06): CodeMirror 6 with `lang-python`.
-3. **Signature help on ⇧⇥.** The preference and the server round trip (`inspect_request`,
-   `Session.inspect`) both exist and are tested; what is missing is the CodeMirror tooltip that
-   shows the reply while typing arguments.
+3. ~~Signature help on ⇧⇥.~~ **Done** (2026-09-07): the tooltip shows the kernel's signature and
+   the docstring's first paragraph, on `(` and on ⇧⇥, dismissed by Escape or by leaving the call.
 4. **A variable explorer.** The kernel is already driven from the server, so a `%whos`-shaped
    inspector is a route and a pane rather than new machinery.
 5. **Interactive plots.** Would need a privileged scheme for output frames, the way SUNA's

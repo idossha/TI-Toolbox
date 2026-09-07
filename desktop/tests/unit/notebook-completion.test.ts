@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  inspectTooltipText,
   labelFor,
   sharedPrefix,
   toCompletionResult,
@@ -134,20 +133,6 @@ describe("labelFor and sharedPrefix", () => {
     expect(labelFor("get_path_manager", "")).toBe("get_path_manager");
     expect(labelFor("other.thing", "catalog.")).toBe("other.thing");
     expect(labelFor("catalog.subject_ids", "catalog.")).toBe("subject_ids");
-  });
-});
-
-describe("inspectTooltipText", () => {
-  it("strips the kernel's ANSI colouring", () => {
-    const coloured = `${String.fromCharCode(27)}[0;31mSignature:${String.fromCharCode(27)}[0m f(x)`;
-    expect(inspectTooltipText(coloured)).toBe("Signature: f(x)");
-  });
-
-  it("truncates a long docstring rather than filling the screen with it", () => {
-    const long = Array.from({ length: 60 }, (_, i) => `line ${i}`).join("\n");
-    const text = inspectTooltipText(long, 5);
-    expect(text.split("\n")).toHaveLength(6);
-    expect(text.endsWith("…")).toBe(true);
   });
 });
 

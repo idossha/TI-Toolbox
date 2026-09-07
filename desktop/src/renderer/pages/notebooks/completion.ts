@@ -163,20 +163,3 @@ export function toCompletionResult(reply: CompleteReply, doc: string): Completio
     validFor: /^[\w]*$/,
   };
 }
-
-/**
- * IPython colours an inspect reply and a tooltip is plain text, so the SGR
- * escapes are stripped here rather than parsed. The pattern is BUILT rather
- * than written as a literal: a raw ESC byte is invisible in a diff and trivial
- * to delete by accident -- which is how this first shipped matching a bare
- * `[0m` and leaving every real escape in place.
- */
-const SGR = new RegExp(String.fromCharCode(27) + "\\[[0-9;]*m", "g");
-
-/** The `text/plain` of an `inspect_reply`, trimmed for a tooltip. */
-export function inspectTooltipText(text: string, maxLines = 24): string {
-  const lines = text.replace(SGR, "").split("\n");
-  const kept = lines.slice(0, maxLines);
-  if (lines.length > maxLines) kept.push("\u2026");
-  return kept.join("\n").trimEnd();
-}

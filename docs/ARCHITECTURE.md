@@ -50,10 +50,22 @@ WebGL2 renderer, not an embedded copy of another application. The rule the retir
 `presentation=viewport` embed existed to satisfy is now structural — the pane draws only what the
 workflow needs, so there is no application chrome to hide and no foreign DOM to reach into.
 
-**Skin and grey-matter opacity are two explicit controls below each preview.** Percent values map
-directly to the protocol's normalized opacity, including fully transparent and opaque endpoints.
-Grey matter controls the cortical atlas surface when present. Changing opacity must not reload
-geometry, reset the camera, or alter the form's electrodes and ROI.
+**The skin has one opacity control; grey matter is always opaque** (revised 2026-09-06). Percent
+values map directly to normalized opacity, including both endpoints. Translucency is a property of
+the outer surface only: two translucent sheets compose to a colour that belongs to neither, and the
+fresnel silhouette term every surface carries then dilutes a region's own atlas hue by an amount
+that depends on where on the head the fragment sits. Changing opacity must not reload geometry,
+reset the camera, or alter the form's electrodes and ROI.
+
+**A payload change keeps the camera.** Framing runs on a pane's first payload and on an explicit
+reset — never on a new net, montage or subject. Comparing two montages is the interaction where the
+view matters most, so it must not be the one that discards it.
+
+**A labelled surface's per-triangle region is transferred, not left to the provoking vertex.** Each
+triangle is rotated so its last corner carries the majority label before upload, preserving winding;
+region shading and picking are `flat`. Without this, WebGL 2's fixed provoking vertex paints roughly
+a third of the two-to-one border triangles with the minority region's colour. Triple junctions have
+no majority and are left as they came.
 
 Manifest/atlas build failures stop polling and remain visible until explicit retry. A stale HTTP 202
 must not hide a later error or trigger endless rebuilds. Transport failures retain bounded retries.
@@ -462,12 +474,17 @@ Notebooks page and executed by a Jupyter kernel the *server* owns. Five rules.
    than reused (`restart_kernel` gives the interpreter a new session key). Getting this wrong is
    not a notebook bug: libzmq aborts the process, and the process is `tit.server`.
 
-5. *Completion is a kernel round trip, not a language server.* `complete_request` /
-   `inspect_request` ride the same socket. An interpreter that has run the notebook's imports is
-   *holding* the objects, so it completes `tit.` better than any static analyser could, and `jedi`
-   already ships inside `ipykernel` — there is nothing to install and nothing to keep in sync.
-   The kernel owns the replacement range, and the client narrows it past a shared dotted prefix so
-   an option reads `subject_ids` rather than `catalog.subject_ids`.
+5. *Completion and signature help are kernel round trips, not a language server.*
+   `complete_request` / `inspect_request` ride the same socket. An interpreter that has run the
+   notebook's imports is *holding* the objects, so it answers for `tit.` better than any static
+   analyser could, and `jedi` already ships inside `ipykernel` — there is nothing to install and
+   nothing to keep in sync. The kernel owns the completion's replacement range, and the client
+   narrows it past a shared dotted prefix so an option reads `subject_ids` rather than
+   `catalog.subject_ids`. Signature help shows the reply's signature and the docstring's **first
+   paragraph** only; the call it describes is found by scanning back to the unclosed `(`, which is
+   also how it dismisses itself when the cursor leaves that call. **A keystroke never starts a
+   kernel** — both are refused when none is running, because several seconds and a container
+   resource are not something to spend on a bracket.
 
 6. *Kernels are capped and reaped.* At most `MAX_KERNELS` (2) run at once, and one idle for
    `IDLE_TIMEOUT_SECONDS` (30 min) is shut down; `GET /api/kernels` reports both numbers so no
@@ -490,6 +507,13 @@ call it a sandbox.
    listing does not undo. It is the only name that may carry a directory, and `examples/` is the
    only directory — a flat list is what the UI shows, and a general subdirectory grammar buys
    nothing but a wider jail to defend.
+
+9. *A kernel outlives the page, not the window.* Leaving the Notebooks page keeps the session and
+   its kernel — a researcher's loaded leadfield is not something a tab change may discard — but
+   closing the window hands every kernel back with a `keepalive` DELETE, and the 30-minute reaper
+   is the backstop for the paths that never fire one. Leaving the page **flushes** unsaved work
+   rather than prompting about it: autosave was going to write it anyway, so a confirmation would
+   be a question with one answer.
 
 **Non-goals.** A hosted JupyterLab (the image still has one, unpublished — this is not it); live
 plotting front ends (plotly/vega/ipywidgets fall back to the static image the kernel sends beside

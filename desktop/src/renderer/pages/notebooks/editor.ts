@@ -139,16 +139,6 @@ export function kernelCompletions(source: () => CompletionSource) {
   };
 }
 
-/** Compartments so a preference change reconfigures rather than rebuilds. */
-export interface EditorCompartments {
-  prefs: Compartment;
-  completion: Compartment;
-}
-
-export function makeCompartments(): EditorCompartments {
-  return { prefs: new Compartment(), completion: new Compartment() };
-}
-
 /** The extensions that depend on a preference, as one reconfigurable bundle. */
 export function prefExtensions(prefs: NotebookPrefs): Extension {
   const extensions: Extension[] = [

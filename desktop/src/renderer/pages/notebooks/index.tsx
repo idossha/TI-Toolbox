@@ -24,8 +24,9 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, FilePlus, Trash2, Upload } from "lucide-react";
+import { BookOpen, FilePlus, RotateCw, Trash2, Upload } from "lucide-react";
 import type { PageDef } from "../../app/registry";
+import { usePageActive } from "../../app/pageActivity";
 import { Button, Cluster, EmptyState, PageLayout, Stack, StatusDot, type SemanticKind } from "../../ui";
 import { deleteNotebook, listNotebooks, type NotebookEntry } from "./api";
 import { CellView, type CellCommands } from "./CellView";
@@ -34,9 +35,11 @@ import { useNotebookPrefs } from "./settings";
 import { cellKey, isCodeCell, type CellType, type Notebook } from "./notebook";
 import {
   acquireNotebook,
+  flushAllNotebooks,
   importNotebook,
   newNotebook,
   releaseNotebook,
+  shutdownAllKernelsOnUnload,
   useNotebookMeta,
   type KernelStatus,
   type Session,
@@ -202,14 +205,27 @@ function Toolbar({ session, name }: { session: Session; name: string }) {
       >
         {meta.dirty ? "Save" : "Saved"}
       </Button>
-      <span
+      <button
         className={`nb-toolbar__kernel nb-toolbar__kernel--${meta.kernelStatus}`}
         data-testid="nb-kernel-status"
         data-state={meta.kernelStatus}
+        // The pill is the status AND the recovery. A dead kernel is the one
+        // state where a user needs to do something, and making them find a
+        // separate button for it is a step with no decision in it.
+        title={
+          meta.kernelStatus === "dead" || meta.kernelStatus === "off"
+            ? "Start a kernel"
+            : "Restart the kernel — every variable is lost"
+        }
+        onClick={() => void session.restart()}
+        disabled={meta.kernelStatus === "starting"}
       >
         <StatusDot kind={STATUS_KIND[meta.kernelStatus]} pulse={meta.kernelStatus === "starting"} />
         {meta.kernelName ?? "Kernel"} · {STATUS_LABEL[meta.kernelStatus]}
-      </span>
+        {(meta.kernelStatus === "dead" || meta.kernelStatus === "off") && (
+          <RotateCw size={11} aria-hidden />
+        )}
+      </button>
     </div>
   );
 }
@@ -492,9 +508,52 @@ function NotebookView({ name }: { name: string }) {
 
 function NotebooksPage() {
   const queryClient = useQueryClient();
+  const active = usePageActive();
   const [open, setOpen] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const notebooks = useQuery({ queryKey: ["notebooks"], queryFn: listNotebooks });
+  const example = (notebooks.data?.notebooks ?? []).find((entry) => entry.example);
+
+  // ⌘S at the page level, not only inside a cell. The editor binds it too, but
+  // focus is often on the toolbar or the notebook list when an author reaches
+  // for it, and a save shortcut that depends on where the caret happens to be
+  // is a save shortcut nobody trusts.
+  useEffect(() => {
+    if (!active) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "s") return;
+      if ((event.target as HTMLElement | null)?.closest(".cm-editor")) return; // the cell has it
+      event.preventDefault();
+      void flushAllNotebooks();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [active]);
+
+  // Leaving the page writes what is outstanding rather than asking about it.
+  // Autosave runs 1.5 s after the last keystroke, so the unsaved window is
+  // short — but navigating inside it used to lose the edit, and there is
+  // nothing here for the author to decide.
+  useEffect(() => {
+    if (active) return;
+    void flushAllNotebooks();
+  }, [active]);
+
+  // Closing the window: flush, then hand every kernel back. A kernel is a full
+  // SimNIBS interpreter and the container allows two, so one leaked by a closed
+  // window is half the budget gone until the 30-minute reaper notices.
+  useEffect(() => {
+    function onUnload() {
+      void flushAllNotebooks();
+      shutdownAllKernelsOnUnload();
+    }
+    window.addEventListener("pagehide", onUnload);
+    window.addEventListener("beforeunload", onUnload);
+    return () => {
+      window.removeEventListener("pagehide", onUnload);
+      window.removeEventListener("beforeunload", onUnload);
+    };
+  }, []);
 
   const refresh = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ["notebooks"] });
@@ -576,7 +635,9 @@ function NotebooksPage() {
             <Stack gap={3} align="center" className="nb-page__blank">
               <EmptyState
                 icon={<BookOpen size={20} />}
-                message="No notebook open. Open examples/getting-started for a worked example, pick one on the left, or make a new one — cells run on the container's SimNIBS Python, so tit, simnibs, numpy, nibabel, pandas and matplotlib are importable with nothing to install."
+                message="No notebook open. Cells run on the container's SimNIBS Python, so tit, simnibs, numpy, nibabel, pandas and matplotlib are importable with nothing to install. For a worked example — a real field summarised, plotted and tabulated — open examples/getting-started."
+                actionLabel={example === undefined ? "New notebook" : "Open the example"}
+                onAction={() => (example === undefined ? create.mutate() : setOpen(example.name))}
               />
             </Stack>
           ) : (

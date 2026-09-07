@@ -2636,12 +2636,23 @@ function kernelInspect(kernel, reqId, code, cursorPos) {
   const before = code.slice(0, cursorPos);
   const token = (/[\w.]*$/.exec(before) ?? [""])[0];
   const found = MOCK_NAMES.includes(token);
-  kernelBroadcast(kernel, {
-    type: "inspect",
-    reqId,
-    found,
-    text: found ? `Signature: ${token}(*args)\nDocstring: the mock kernel's answer.` : "",
-  });
+  // IPython's own `?` format: ANSI-coloured field labels, a signature that may
+  // wrap, and a docstring that runs to the next label. The renderer parses
+  // exactly this, so the mock emits exactly this rather than a tidier shape it
+  // would never see in the container.
+  const label = (name) => `\u001b[31m${name}:\u001b[39m`;
+  const text = found
+    ? [
+        `${label("Signature")} ${token}(pm: 'PathManager') -> 'list[str]'`,
+        `${label("Docstring")}`,
+        "The mock kernel's answer for this name.",
+        "",
+        "A second paragraph the tooltip must not show.",
+        `${label("File")}      /ti-toolbox/tit/mock.py`,
+        `${label("Type")}      function`,
+      ].join("\n")
+    : "";
+  kernelBroadcast(kernel, { type: "inspect", reqId, found, text });
 }
 
 function kernelBroadcast(kernel, event) {

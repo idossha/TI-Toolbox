@@ -685,3 +685,55 @@
   padding-top: var(--space-2);
   border-top: 1px solid var(--line);
 }
+
+/* ---- signature help (signature.ts) ---------------------------------------
+   The kernel's own `?` output, cut to a signature and one paragraph. It sits
+   above the open paren, so it must not be tall: a tooltip that covers the code
+   it describes is worse than no tooltip. */
+
+.nb-signature {
+  max-width: 46em;
+  padding: var(--space-1) var(--space-2);
+}
+
+.nb-signature__sig {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.nb-signature__doc {
+  margin-top: 3px;
+  padding-top: 3px;
+  border-top: 1px solid var(--line);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+/* The kernel pill is a button: status, and the one action a dead kernel needs. */
+.nb-toolbar__kernel {
+  border: 1px solid transparent;
+  border-radius: var(--radius-chip);
+  padding: 2px var(--space-2);
+  background: none;
+  cursor: pointer;
+}
+
+.nb-toolbar__kernel:hover:not(:disabled) {
+  border-color: var(--line);
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+
+.nb-toolbar__kernel:disabled {
+  cursor: default;
+}
+
+.nb-toolbar__kernel--dead {
+  color: var(--danger);
+}
