@@ -922,19 +922,21 @@ group heading told the user a page belonged to a subject when it did not.
 | 4 | `optimizer` | Optimizer | `Target` | ⌘4 | run |
 | 5 | `analyzer` | Analyzer | `BarChart3` | ⌘5 | run |
 | 6 | `pipeline` | Pipeline | `Workflow` | ⌘6 | run |
-| 7 | `notebooks` | Notebooks | `BookOpen` | ⌘7 | browse |
-| 8 | `results` | Results | `FolderOpen` | ⌘8 | browse |
-| 9 | `viewer` | Viewer | `Eye` | ⌘9 | bleed |
-| 10 | `jobs` | Jobs | `ListChecks` | — (⌘K) | browse |
+| 7 | `results` | Results | `FolderOpen` | ⌘7 | browse |
+| 8 | `viewer` | Viewer | `Eye` | ⌘8 | bleed |
+| 9 | `jobs` | Jobs | `ListChecks` | ⌘9 | browse |
+| 10 | `notebooks` | Notebooks | `BookOpen` | — (⌘K) | browse |
 | — | *(spacer)* | | | | |
 | 0 | `settings` | Settings | `Settings` | ⌘0 (⌘, alias) | run + header |
 | 10 | `help` | Help | `CircleHelp` | — (`?` sheet) | run + header |
 
-- **Ten rows, nine digits.** Notebooks (2026-09-06) sits after Pipeline, in workflow order — the
-  pipeline canvas exports a notebook and this is where it lands. That makes ten workflow rows, and
-  since ⌘0 is Settings there are only nine numbers to give out: Jobs, the tenth, has none and is
-  reached by ⌘K and its route. `shortcutForSlot` returns nothing past the ninth row rather than the
-  `"10"` it used to print, which no keyboard can send. See DECISIONS 2026-09-06 (NB lane).
+- **Ten rows, nine digits.** Notebooks (2026-09-06) made the rail ten workflow rows, and since ⌘0 is
+  Settings there are only nine numbers to give out. Notebooks is the row that goes without: it is
+  last in `NAV_ORDER`, reached by ⌘K and its route, so ⌘9 stays on Jobs — the page opened by keyboard
+  many times an hour, where Notebooks is opened deliberately and rarely. The workflow reading is
+  unchanged (the pipeline canvas exports a notebook and this is where it lands and runs); only the
+  digit moved. `shortcutForSlot` returns nothing past the ninth row rather than the `"10"` it used to
+  print, which no keyboard can send. See DECISIONS 2026-09-06 (NB lane, revised by CX5).
 - **Optimizer is one page.** `optimizer-flex` and `optimizer-ex` merge into `pages/optimizer`, with
   a `SegmentedControl` **Method ⟨Flex │ Ex │ mEx⟩** as the first row of the work pane and one shared
   `RoiPicker`. Two nav entries were a copy of the PyQt tab strip, not a workflow.

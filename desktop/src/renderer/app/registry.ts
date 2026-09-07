@@ -102,12 +102,15 @@ export const NAV_ORDER = [
   "optimizer",
   "analyzer",
   "pipeline",
-  // NB lane: notebooks sit after the pipeline because that is the workflow order
-  // — the canvas exports a notebook, and this is where it lands and runs.
-  "notebooks",
   "results",
   "viewer",
   "jobs",
+  // Notebooks is last, and so is the one workflow row without a ⌘-number: the rail grew to ten
+  // rows, and of them Jobs is the one reached by keyboard many times an hour, so it keeps ⌘9.
+  // The workflow reading of the row is still "after the pipeline" — the canvas exports a
+  // notebook, and this is where it lands and runs — but the rail's tenth slot has no digit to
+  // give, and spending ⌘9 on it would have cost the more-used page its key.
+  "notebooks",
 ] as const;
 
 /** Pinned to the bottom below a spacer. Settings takes ⌘0 (⌘, alias); Help is the `?` sheet only. */

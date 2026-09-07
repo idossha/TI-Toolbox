@@ -114,13 +114,14 @@ describe("the shortcut map (DESIGN.md §9: ⌘1 Overview … ⌘9 Jobs, ⌘0 Set
     expect(shortcutOf("optimizer") ?? shortcutOf("optimizer-flex")).toBe("4");
     expect(shortcutOf("analyzer")).toBe("5");
     expect(shortcutOf("pipeline")).toBe("6");
-    expect(shortcutOf("notebooks")).toBe("7");
-    expect(shortcutOf("results")).toBe("8");
-    expect(shortcutOf("viewer")).toBe("9");
-    // The tenth workflow row. Nine digits, and ⌘0 is Settings — so Jobs is
+    expect(shortcutOf("results")).toBe("7");
+    expect(shortcutOf("viewer")).toBe("8");
+    expect(shortcutOf("jobs")).toBe("9");
+    // The tenth workflow row. Nine digits, and ⌘0 is Settings — so Notebooks is
     // reached by ⌘K and by its route, and the rail says no number rather than
-    // printing one that cannot be typed.
-    expect(shortcutOf("jobs")).toBeUndefined();
+    // printing one that cannot be typed. Jobs, not Notebooks, holds ⌘9: it is the
+    // page reached by keyboard many times an hour.
+    expect(shortcutOf("notebooks")).toBeUndefined();
     expect(shortcutOf("settings")).toBe("0");
   });
 
