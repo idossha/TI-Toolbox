@@ -224,3 +224,37 @@ Gate progression across the program's three consolidation passes: host pytest
 **1,275 passed** across 88 → 105 files; offscreen mock e2e 208 → **285 passed**
 (blocked twice at CX4 by `ENOSPC`); real subset **22 passed**. The final CX5 row
 with its full detail is in `docs/dev/ROADMAP.md`.
+
+## External audit response (2026-09-07, CX6)
+
+### Scientific corrections — the numbers behind the claims
+
+| What | Value | Where it comes from |
+|---|---|---|
+| SCI-01, permutations that change value under `alternative="less"` | **2 of 20** | exhaustive relabelling of the 3-vs-3 / 8-voxel design in `tests/numerical/test_sci01_cluster_sign.py` |
+| SCI-01, same under `"two-sided"` | **3 of 20** | as above |
+| SCI-01, same under `"greater"` | **0 of 20** — the right tail is unaffected | as above |
+| SCI-01, largest single discrepancy | null value **−64.06** where the correct oriented value is **+64.06** | the wrong sign, not merely a small null |
+| SCI-03, voxel focality overstatement | **10×** (divided by 100 instead of 1000) | `focality_*_area`, voxel path, v2.3.0–v2.5.0; rescalable |
+| SCI-04, p-value floor at 1000 permutations | **0 → 1/1001 ≈ 9.99e-4**; every p moves by at most 0.001 | Phipson & Smyth `(b+1)/(m+1)` |
+| SCI-05, voxel-volume error on the test's representative shear | **11.3 %** overestimate | `prod(header.get_zooms())` vs `abs(det(affine[:3,:3]))`; 0 % on any orthogonal grid |
+| SCI-07 (open), `hf_sar` for two aligned unit fields in one channel | **2 → 4**; RMS 1 → 2; `hf_peak` unchanged at 2 | Model A vs Model B, `SCIENTIFIC-CORRECTIONS.md § Open decisions` |
+
+### CX6 consolidation gate
+
+| Gate | Command | Result |
+|---|---|---|
+| Typecheck (node + web) | `npm run typecheck` | clean |
+| Lint | `npm run lint` | **0 errors**, 3 warnings (React Compiler `incompatible-library`: react-hook-form `watch()`, TanStack Table, TanStack Virtual) |
+| Desktop unit | `vitest run` | **1,304 passed** across **109 files** |
+| Host Python | `python3 -m pytest tests -q` | **4,069 passed**, 37 skipped, 21 deselected, 92 s |
+| Container Python (real libraries) | `docker run --rm --platform linux/amd64 … idossha/ti-toolbox:dev simnibs_python -m pytest tests/numerical/ tests/test_jobs_* tests/test_kernels* tests/test_server_*` | **410 passed**, 33.5 s |
+| Contract | `dev/contracts_check.py` | OK — 10 operations, 9 schemas |
+| Route imports | `dev/route_import_guard.py` | 23 modules clean, 9.5–62.8 ms each |
+| Workflows | `actionlint .github/workflows/*.yml` | clean (was 17 findings in `python-security.yml`) |
+| Mock e2e | `TIT_E2E_OFFSCREEN=1 npm run e2e:quiet -- --workers=1` | **317 passed**, 2 skipped, 4.4 min, no window reached the screen |
+| Viewer Open, mock | `viewer.spec.ts` | click → response 23 ms, response → scene on screen 16 ms |
+
+Gate progression across the program's four consolidation passes: host pytest 3,662 → 3,970 →
+**4,069 passed**; desktop vitest 1,039 → 1,275 → **1,304** across 88 → 105 → **109** files;
+offscreen mock e2e 208 → 285 → **317 passed**.

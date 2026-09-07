@@ -922,3 +922,384 @@ number. The fix is a design call the maintainer should make — a thin contour o
 rather than only on the ones carrying a channel colour is the obvious candidate, and it would keep
 colour as the whole state signal because the contour is constant — so it is left open rather than
 decided here.
+
+## 2026-09-07 (CX6) — SCI-01: a cluster statistic must be monotone in extremeness
+
+**Decision.** Two-sided and left-tailed cluster inference labels positive and negative
+supra-threshold voxels as **separate** components (`engine.label_signed`), and maps a cluster to a
+statistic that grows with extremeness (`engine.tail_statistic`: mass for `tail=+1`, −mass for
+`tail=−1`, |mass| for `tail=0`) so observed and permuted values live on one scale and the
+comparison is always right-tailed. `surface._label_graph_signed` / `_max_cluster_stat` do the same
+on the fsaverage graph.
+
+**Why.** A bare `scipy.ndimage.label` fused a touching positive and negative blob into one cluster
+whose signed mass is their *difference*, and `max()` over signed masses under a left or two-sided
+tail selects the cluster **closest to zero**. On the exhaustive 3-vs-3 / 8-voxel design in the test,
+2/20 relabellings differed under `less` and 3/20 under `two-sided`, and the largest discrepancy was
+a null value of **−64.06 where the correct oriented value is +64.06** — the wrong sign, so nearly
+any observed cluster cleared it.
+
+**Cost.** Every `two-sided` (the default) or `less` group analysis produced by v2.2.3–v2.5.0 must be
+**re-run**; there is no rescaling, because the null distribution itself was wrong. `greater` is
+untouched (0/20 relabellings changed).
+
+**Revisit if.** A tail is added whose oriented statistic is not one of these three, or the surface
+and volume backends stop agreeing on a chain graph — `tests/numerical/test_sci01_cluster_sign.py`
+asserts they do.
+
+## 2026-09-07 (CX6) — SCI-02: a group is a common voxel grid, not a common shape
+
+**Decision.** `tit/stats/nifti.py::_check_same_grid` compares shape, direction block and origin
+against the first subject and **raises**, naming the subject id, its file and the reference file.
+
+**Why.** `load_group_data_ti_toolbox` kept the first affine and never looked at the others, so any
+images sharing an array shape were stacked and compared voxel-by-voxel — including subjects
+translated, rotated, differently scaled or left/right flipped relative to each other. A handedness
+difference (`det(affine[:3,:3])` sign flip) is the worst case and is now named in the error.
+
+**Cost.** None for the normal case: subjects normalised by the toolbox share a grid exactly and
+their results are bit-identical. A group that previously ran now fails loudly, which is the point.
+Same commit swaps the `list` + `np.stack` + `astype` accumulation for a preallocated array — peak
+memory falls from ~3× the final array to 1× plus one volume.
+
+**Revisit if.** A resampling step is added upstream, at which point the check becomes an assertion
+on its output rather than a gate on user input.
+
+## 2026-09-07 (CX6) — SCI-03: the divisor tracks the unit of the weights
+
+**Decision.** `Analyzer._compute_focality_metrics` takes an explicit `weight_to_cm` parameter. The
+voxel path passes `1000.0` (mm³ → cm³), the mesh path keeps `100.0` (mm² → cm²). The field
+**names** (`focality_*_area`) are deliberately unchanged.
+
+**Why.** The unified `Analyzer` divided by 100 for both paths with the comment `mm^2 -> cm^2`,
+correct only for the mesh. The v2.2.x `voxel_analyzer.py` it replaced divided by 1000 correctly, so
+this was a regression, not an original error. A single hard-coded constant serving two unit systems
+is the defect; making the caller state the unit is the fix.
+
+**Cost.** Voxel-space `focality_50/75/90/95_area` from v2.3.0–v2.5.0 are **10× too large** and are
+**rescalable** — divide by 10, no re-run. Keeping `..._area` as the name of a volume is a knowing
+wart, paid so scripts and the group aggregator keep working; the documented unit is cm³.
+
+**Revisit if.** A third weighting (per-element volume on a tetrahedral mesh, say) is added — it
+needs its own factor, and the parameter is already the place to put it.
+
+## 2026-09-07 (CX6) — SCI-04: a sampled null gets the Phipson & Smyth estimator
+
+**Decision.** `pval_from_histogram(..., sampled=True)` (the default) returns `(b + 1) / (m + 1)`.
+`sampled=False` restores the exact `b/m`, documented as correct **only** when the null is the
+exhaustive enumeration of the permutation group.
+
+**Why.** `b/m` over a Monte-Carlo null can return **0**, and is anti-conservative exactly in the
+tail where cluster inference operates. `p = 0` from 1000 draws is not a measurement.
+
+**Cost.** Every permutation p-value moves up by at most `1/(m+1)`; at the default 1000 permutations
+the floor becomes 9.99e-4 instead of 0. **Rescalable**: `p_new = (p_old·m + 1)/(m + 1)`. No cluster
+crosses `alpha = 0.05` unless it already sat within 0.001 of it.
+
+**Revisit if.** An exhaustive-enumeration path is wired into `correct_groups` — it must pass
+`sampled=False`, and nothing does today.
+
+## 2026-09-07 (CX6) — SCI-05: voxel geometry comes from the affine, not the header zooms
+
+**Decision.** `voxel_volume_mm3(affine)` returns `|det A|`; `_world_distance_grid(affine, centre,
+shape)` returns `‖A(v − c)‖`. `_analyze_voxel_roi` takes the affine and derives the volume itself,
+so there is no second, disagreeing source of geometry.
+
+**Why.** `header.get_zooms()` are the affine's **column norms**. `prod(zooms)` as a voxel volume and
+`sqrt(Σ (zoom_k·Δv_k)²)` as a world distance both assume orthogonal voxel axes, which is false for
+any sheared affine.
+
+**Cost.** Nothing for orthogonal grids — every MNI-normalised output the toolbox writes — where
+`prod(zooms) == |det A|` and the two distance formulas coincide exactly, so results are
+bit-identical. On the test's representative shear `prod(zooms)` overestimates the voxel volume by
+**11.3 %**; such analyses must be **re-run**.
+
+**Revisit if.** A caller needs per-axis spacing rather than volume — `get_zooms` is still the right
+answer for that, and the deleted usage should not be reintroduced for it by accident.
+
+## 2026-09-07 (CX6) — SCI-06: perfect separation is evidence, not a null result
+
+**Decision.** `engine._safe_t` divides under `np.errstate` so the IEEE result reaches `t.sf`
+unchanged: `0/0` gives `nan`, `±x/0` gives `±inf` with the tail-consistent p, matching
+`scipy.stats.ttest_ind`/`ttest_rel` exactly. Because `nan`/`inf` cluster mass would corrupt the
+permutation machinery, `ttest_voxelwise` **excludes** degenerate voxels from `valid_mask` and logs
+the count, and the permutation workers neutralise any degenerate voxel a relabelling creates.
+
+**Why.** `t = 0, p = 1` for every zero-standard-error voxel conflates a genuinely undefined `0/0`
+with a nonzero contrast over zero within-group variance — the strongest evidence the data can
+carry, reported as the weakest.
+
+**Cost.** Re-run: the change can only add evidence where none was carried, but it moves
+`valid_mask` and therefore cluster geometry. Neutralising permutation-created degeneracies is
+slightly conservative, which is preferable to an infinite null.
+
+**Revisit if.** The exclusion turns out to remove voxels users expect to see — the count is logged
+as a `WARNING` precisely so that shows up as a number rather than a silence.
+
+## 2026-09-07 (CX6) — `channels` must partition `fields`
+
+**Decision.** `tit/calc.py::_resolve_channels` raises when a field index is referenced by no
+channel, naming the unused indices. A carrier that does not beat is spelled as its own channel with
+an empty `group_b`, which was already supported.
+
+**Why.** A dropped index meant the envelope described a **different montage** from the one passed —
+and from the one `hf_peak`/`hf_sar` described, since those always sum every field. Two functions
+over one montage disagreeing about which fields exist is not a configuration a caller can have
+meant.
+
+**Cost.** A montage that silently dropped a field now fails. That is the intended breakage; nothing
+in the toolbox produced such a montage.
+
+**Revisit if.** A use case appears for deliberately excluding a field from the envelope — it should
+be an explicit exclusion, not an omission.
+
+## 2026-09-07 (CX6) — SCI-07 left open: what a shared carrier means for the exposure metrics
+
+**Not a decision.** `hf_peak`/`hf_sar` still ignore `channels` and treat every raw field as its own
+incoherent carrier. This is the maintainer's modelling call and the full argument is in
+[`SCIENTIFIC-CORRECTIONS.md § Open decisions`](SCIENTIFIC-CORRECTIONS.md#open-decisions).
+
+**The recommendation is Model B**, gated on the montage actually declaring `channels`: sum
+same-carrier fields before computing any exposure metric, `hf_sar = Σ_channels |Σ_{i∈ch} Eᵢ|²`, and
+enumerate `hf_peak` over channel sums. The envelope path already asserts grouped fields are
+coherent; letting the safety metric assume the opposite for the same montage is the inconsistency,
+and Model B is the conservative direction — it can only raise reported exposure, which is the right
+default for a safety metric. `hf_peak` is unchanged by it, because its sign enumeration already
+reaches the coherent sum. For two aligned unit fields in one channel, `hf_sar` goes 2 → 4 and RMS
+1 → 2.
+
+**Cost of leaving it open.** A montage that groups fields reports the same SAR whether or not the
+grouping is declared, and that SAR is a **lower bound** if the fields really do share a frequency.
+
+**Revisit if.** Nothing else — this is waiting on a decision, not on evidence. Deciding it also
+settles whether the `_envelope_from_PQ` cancellation rationalisation is worth doing in the same
+pass.
+
+## 2026-09-07 (CX6) — a kernel's idle clock starts when a request concludes
+
+**Decision.** `KernelRegistry` stamps `last_used` again on **completion**, not only on submission,
+keeps an `in_flight` counter under the same lock the reaper holds, and the reaper skips busy or
+starting sessions. Submission joined the critical section that selection and removal were already
+in, so a kernel cannot be reaped between `get` and `execute`. The registry takes an injectable
+`clock` so the reaper is tested without sleeping.
+
+**Why.** `last_used` stamped at submission means a cell that runs longer than the idle timeout has
+its own interpreter shut down mid-execution — the reaper killing the only thing keeping it alive.
+
+**Cost.** A wedged cell now holds a kernel indefinitely; the cap and an explicit restart are the
+answer, not a timer. Verified against a **real** SimNIBS kernel with `idle_timeout=3.0`: not reaped
+at 1 s, reaped past the cap, `manager.is_alive()` false afterwards.
+
+**Revisit if.** A hung-cell watchdog is wanted — that is a separate, longer, execution-time budget,
+not this timeout.
+
+## 2026-09-07 (CX6) — a capped resource is reserved before it is acquired, not after
+
+**Decision.** Two places now reserve under the lock rather than trusting an out-of-date snapshot.
+`KernelRegistry` reserves a `max_kernels` slot before startup and releases it in a `finally`.
+`JobScheduler._tick` treats every running job's recorded lock keys as held (`_reserved_holders`) and
+adds a just-admitted job's keys to the snapshot before evaluating the next candidate. `locks.hold`
+raises `LockConflictError` on write-against-live-write (other conflicts keep the advisory
+warn-and-continue default) and never claims a directory owned by a different, still-live job.
+
+**Why.** Both were the same shape of bug: a check and an acquisition in two critical sections with
+a multi-second gap between them. N concurrent kernel starts all passed a cap none of them had yet
+answered; two queued jobs needing the same exclusive write lock were both admitted, in the same
+tick and in the next, because a runner writes its lock descriptors only after it has started. A
+write lock's directory is named for the resource alone, so the second job overwrote the first's
+descriptor, `holders` then named the wrong owner, and the second job's release freed the first
+job's lock.
+
+**Cost.** The scheduler admits slightly less aggressively; a spawn that fails leaves the job
+terminal, so its reservation is never taken and nothing has to be released by hand.
+
+**Revisit if.** Lock state moves out of the filesystem — the reservation exists to cover the window
+in which the filesystem does not yet know.
+
+## 2026-09-07 (CX6) — an unknown `after` dependency is not a satisfied one
+
+**Decision.** `_dependency_state` skips a job whose `after` names an id it does not know, with its
+own distinct reason (`dependency <id> is unknown`), separate from a dependency that failed.
+`POST /api/jobs` additionally rejects an unknown `after` at submission with 422, before anything is
+persisted.
+
+**Why.** It logged "not found; treating as satisfied" and ran the dependant immediately, unordered,
+against a precondition nobody had established — a typo in an id silently discarded the ordering the
+user asked for. It is also the right answer during recovery from the job store, where the record
+may have been deleted after submission.
+
+**Cost.** A job whose dependency was deliberately deleted now waits rather than running. Deleting a
+dependency is the unusual act; `POST /api/jobs/{id}/force` remains the escape hatch.
+
+**Revisit if.** Dependencies become expressible across server restarts by name rather than id.
+
+## 2026-09-07 (CX6) — one subject-id grammar, enforced before an id becomes a path
+
+**Decision.** `tit.paths.SUBJECT_ID_RE` is the grammar: letters, digits, `_` and `-`, first
+character alphanumeric, at most 64 — BIDS labels plus the `_`/`-` existing projects use, and the
+same shape as `tit.catalog.is_safe_name`. Every `PathManager` accessor that puts an id in a path
+validates it. The job routes check before persisting (422), `JobManager.submit` re-checks,
+`tit.pre.structural.run_pipeline` checks at the entrypoint, and `ensure_subject_dirs` additionally
+refuses any path that does not resolve inside the project root.
+
+**Why.** Ids carrying separators or `..` were accepted by `POST /api/jobs` and `/api/jobs/groups`
+and persisted, and `ensure_subject_dirs(project, "../../../outside")` then created directories
+outside the project entirely — reproduced before the fix. Validating at the API only would leave
+the config-file and script-argument routes open, which is why the check sits where the id becomes a
+path.
+
+**Cost.** A project with a subject directory outside this grammar cannot be driven by the toolbox
+until it is renamed. The grammar was chosen to be a superset of what the toolbox itself writes.
+
+**Revisit if.** A real dataset appears with a legitimate id this rejects — widen the regex in one
+place, not the call sites.
+
+## 2026-09-07 (CX6) — a `tools` job's arguments are confined to the project directory
+
+**Decision.** `kinds.command_for` takes the manager's project root (bound in
+`JobManager.__init__`) and checks **every** argument before the argv is built, so a job is refused
+before it is spawned and before any file is created. `TOOL_ARG_POLICY` declares which options a
+tool treats as identifiers (`--pipeline`, `--node`), as subject ids, or as the project root itself;
+every other argument falls under the default rule — if it looks like a path it must resolve inside
+the project. An argument that looks like a path with no project root bound is refused rather than
+trusted. `tit.tools.pipeline_resolve` re-checks its own arguments for a direct
+`simnibs_python -m` invocation.
+
+**Why.** The `tools` allowlist closed *which module runs* but not *what it could be told to touch*:
+`config.args` was forwarded verbatim, so an allowlisted tool handed an absolute output path would
+write anywhere the container's user can write.
+
+**Cost.** A new tool needs a `TOOL_ARG_POLICY` row if any of its arguments are identifiers rather
+than paths; without one it gets the default containment rule, which is the safe direction.
+
+**Revisit if.** A tool legitimately needs to read outside the project (a system atlas, say) — that
+is an explicit policy entry, not a relaxation of the default.
+
+## 2026-09-07 (CX6) — a notebook save carries the revision it wrote
+
+**Decision.** Every save carries an edit revision. Only the revision **actually written** clears
+`dirty`; edits arriving mid-flight queue a follow-up `PUT` that `flush()` waits on.
+
+**Why.** A save already in flight was joined by the next one, so `dirty` was cleared when the *old*
+request resolved and `flush()` returned true without ever sending the text typed while it was in
+flight — silent data loss on exactly the slow connection where saving matters.
+
+**Cost.** A burst of edits during a slow save costs one extra round trip. Leaving the page flushes
+rather than prompting: autosave already writes 1.5 s after the last keystroke, so a modal could
+only ask whether to do the save the app was about to do anyway.
+
+**Revisit if.** The document grows large enough that a per-revision full-text `PUT` is the wrong
+unit and a diff is wanted.
+
+## 2026-09-07 (CX6) — the reconnect snapshot is authoritative
+
+**Decision.** The REST job snapshot taken on every (re)connect **replaces** what the store knows:
+known jobs are overwritten, missing ones removed, and only jobs the live stream touched while the
+request was in flight survive it.
+
+**Why.** The seed only *added* ids the store had not seen, so a job that finished while the socket
+was down stayed `running` for ever and a job deleted in the meantime stayed on screen — no WS
+message for either was ever coming. A reconciliation that can only add is not a reconciliation.
+
+**Cost.** A job created and completed entirely within the window of an in-flight snapshot request
+would be dropped; the live-stream exemption is what prevents that.
+
+**Revisit if.** The snapshot endpoint gains paging — a partial snapshot must not be treated as
+authoritative over the whole store.
+
+## 2026-09-07 (CX6) — rich notebook output is sanitised, not sandboxed
+
+**Decision.** `text/html` outputs pass an allowlist that drops `style`, `script`, `link`, `base` and
+`iframe`, every `on*` handler and every `javascript:` URL, while keeping DataFrame tables and their
+per-cell styling. `image/svg+xml` renders through `<img src="data:image/svg+xml,...">`, where
+scripting is off.
+
+**Why.** Both went in through `innerHTML`, so a `<style>` block inside a stored output restyled (or
+hid) the app chrome and an `<img onerror>` ran in the app's origin — from a `.ipynb` a user opened,
+which is not a trusted document.
+
+**Alternative rejected: a sandboxed `srcdoc` frame.** Documented in `sanitize.ts`. `srcdoc`
+inherits the app's `script-src 'self'` CSP, so the frame's own sizing script — and any plotting
+library's — would not run. The frame would be safe and useless.
+
+**Cost.** An output that genuinely needs a `<style>` block loses it, and interactive plots stay
+unavailable.
+
+**Revisit if.** Interactive plots are wanted: that needs a privileged scheme for output frames (the
+way SUNA's `suna-output:` works), which is a shell change, not a notebook change — ROADMAP,
+Notebooks open work item 5.
+
+## 2026-09-07 (CX6) — the quit plan belongs to the app, not to the Docker branch
+
+**Decision.** The running-jobs question lives in `shared/quitPlan.ts` and runs for **every** backend
+this app owns. Its "stop" answer cancels the jobs and waits — bounded — for the server to
+acknowledge before the runtime is torn down.
+
+**Why.** The question was asked on the Docker branch only, so ⌘Q with the bundled native runtime
+fell straight through to a `SIGTERM` of the process group (`SIGKILL` 1.5 s later) and ended a
+running FEM job without a word. Which backend is running is not something the user's data loss
+should depend on.
+
+**Cost.** Quit is slower by the bounded acknowledgement wait when jobs are running.
+
+**Revisit if.** A third backend is added — it must go through `quitPlan`, which is the point of
+having moved it there.
+
+## 2026-09-07 (CX6) — one release workflow, for one application
+
+**Decision.** `.github/workflows/release-v3.yml` is the release pipeline;
+`release-build.yml` and its companion are deleted, and the legacy 2.x launcher under `package/` is
+**retired** (ADR decision 5's Phase 6). The pipeline puts everything checkable without credentials
+first: **plan** (refuse to build when the tag and the version sites disagree) → **image** (failing
+loudly when no compatible Tetravox embed release resolves, rather than baking a placeholder) →
+**desktop-validate** (unsigned builds for macOS arm64+x64, Windows, Linux, each inspected and
+uploaded, published nowhere) → **create-release** → **desktop-publish** (signed and notarised,
+failing closed when a signing secret is absent). `workflow_dispatch` defaults to `dry_run=true`.
+
+**Why.** Pushing a v3.0.0 tag ran `release-build.yml`, which built the **legacy** launcher (its
+`package.json` says 2.4.0) with Node 20, while the v3 app is under `desktop/` and needs Node
+≥ 22.12 — a v3 tag would have published v2 artifacts under a v3 release title. And while `package/`
+exists the repository has two apps, two version numbers and two compose files, and every future
+automation has to remember which one is real.
+
+**Cost.** `package/` is gone from history's reach only by `git`; the ported behaviour it documented
+is cited from `desktop/` and `dev/loader/` comments. `update_version.py` drops its four entries and
+gains `desktop/package.json` (the number electron-builder stamps into every artifact) and
+`dev/loader/docker-compose.dev.yml`, whose old `dev/bash_dev/...` path had been silently skipped on
+every bump; it also gains `--dry-run`/`--version`. `.gitignore`'s `!package/build/` exception moved
+to `!desktop/build/`.
+
+**Revisit if.** A 2.x point release is ever needed — it would come from the v2 tags, not from a
+directory kept alive on `main`.
+
+## 2026-09-07 (CX6) — the packaging check is what makes the validation job worth having
+
+**Decision.** `desktop/scripts/verify-package.mjs` reads the built app's asar directly — no
+dependencies, so it runs against a downloaded artifact — and checks the version, the main entry,
+the files the app reads at runtime, the absence of dev-only and deleted content, and the
+per-platform staged runtime.
+
+**Why, and what it found.** Run against a scratch `--dir` build it found two configurations that
+could not have produced a shippable artifact, both invisible on a maintainer's machine:
+
+- **`docker/**` was not in `files:`.** electron-builder shipped `out/**` and `package.json` only,
+  while `src/main/stack.ts#resolveComposeFile` reads `docker/docker-compose.v3.yml` from
+  `app.getAppPath()` at every stack start. **Every** packaged build would have died on first launch
+  with `compose-invalid: docker-compose.v3.yml not found`.
+- **`desktop/build/` was never committed.** `.gitignore`'s global `build/` rule swallowed it, so
+  `icon.icns`, `icon.ico`, `icon.png` and `entitlements.mac.plist` — all four named in
+  `electron-builder.yml` — existed only as untracked files in the maintainer's worktree. A release
+  job packaging a fresh checkout would have failed on the first artifact. The old `!package/build/`
+  exception existed for exactly this reason; moving it to `!desktop/build/` is what surfaced them.
+
+Two more entries were removed rather than fixed: `mac.identity: null` was a hard "never sign" the
+workflow cannot lift (signing is controlled by the environment instead), and the `.runtime-staging`
+`extraResources` entry made the config unbuildable without a multi-GB python-build-standalone tree,
+for a runtime the shipping Docker-backed app does not use. `stage-runtime.sh` is kept for the parked
+native path and `verify-package.mjs` grows `--expect-runtime` for it.
+
+**Cost.** The target list is now exactly what CI builds and verifies, nothing more; adding a target
+means adding its verification.
+
+**Revisit if.** The native runtime is unparked — `--expect-runtime` is the check that would then
+have to pass, and it has never run against a real staged tree.

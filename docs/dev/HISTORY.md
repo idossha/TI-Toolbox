@@ -6,7 +6,7 @@
 > Where this file and those disagree, they win.
 
 One chronological record of the v3 (Electron desktop) development programs on
-`feature/v3-electron-gui`, 2026-08-27 → 2026-09-06. It replaces ~120 per-program
+`feature/v3-electron-gui`, 2026-08-27 → 2026-09-07. It replaces ~120 per-program
 plan files and per-lane evidence notes that used to live under `dev/notes/`.
 
 **This file is not a contract.** The durable records are:
@@ -909,3 +909,85 @@ supersede rows 15 and 23 and the Tetravox/electrode halves of row 26.
   `--reload` (the pid is held in memory, though `status.json` already persists
   it); and `FlexConfig.output_folder` is the run name while ex/mEx use
   `run_name` — two names for one user-facing idea.
+
+## 2026-09-07 — External audit response
+
+**The ask.** An external audit of the shared scientific core and of the v3 server, delivered as a
+findings list. Every finding was to be **reproduced in this repository first** and then fixed at its
+cause, or, where it was a modelling question rather than a defect, written up and left to the
+maintainer. Four lanes ran it — science, backend, frontend, release — and this section is their
+joint record. CX6 consolidated them.
+
+### What shipped
+
+**Science (`682cbfcf`, `35a833ec`, `5b3bc6cb`, `4abf5181`, `e6a6eb15`).** Six numerical defects in
+`tit/stats/**` and `tit/analyzer/**`, SCI-01 to SCI-06. The user-facing record — what was wrong,
+which versions, which outputs move and by how much, how to spot an affected result, and whether to
+re-run or rescale — is [`SCIENTIFIC-CORRECTIONS.md`](SCIENTIFIC-CORRECTIONS.md); the reasoning is in
+`DECISIONS.md § 2026-09-07 (CX6)`; the numbers are in `BENCHMARKS.md`. Two lower-priority items were
+cheap enough to take here (`channels` must partition `fields`; `hf_peak_is_exact` exposes the
+>8-carrier lower bound) and two were deliberately left (`_envelope_from_PQ` cancellation, which
+belongs with the SCI-07 decision; preallocation outside the group-stacking loop, which is small).
+
+**SCI-07 is open on purpose.** Whether `channels` should govern `hf_peak`/`hf_sar` the way it
+governs the envelope is a modelling call, not a bug. The recommendation, written out with both
+models and their numbers, is **Model B**: sum same-carrier fields before any exposure metric, gated
+on the montage actually declaring `channels`, leaving the `channels=None` path bit-identical.
+
+**Backend (`ada4f3d7`, `0b58b89a`, `2d35120b`, `aef163c7`, `2414fbeb`, `cefd8310`).** RUN-01 to
+RUN-06. Two of them were the same shape — a check and an acquisition in two critical sections with
+a multi-second gap between them — and got the same answer, reserve under the lock: the kernel cap,
+and the scheduler's exclusive write locks. The rest: a kernel's idle clock now starts at
+*completion* rather than submission (the reaper was killing cells that ran longer than the timeout);
+an `after` naming an unknown job is no longer treated as satisfied; one subject-id grammar
+(`SUBJECT_ID_RE`) is enforced wherever an id becomes a path rather than only at the API; and a
+`tools` job's arguments are jailed to the project root before the argv is built.
+
+**Frontend (`aefcbbc3`, `04cc09bd`, `48cfbe0d`, `6e0bfe2a`, `3c7574a7`, `1da333b1`).** A notebook
+save carries the revision it wrote (a save in flight was joined by the next, so `dirty` cleared
+without the text ever being sent); the reconnect job snapshot is authoritative rather than
+additive; rich notebook output passes an allowlist sanitiser; the quit plan moved out of the Docker
+branch so ⌘Q asks about running jobs on every backend; the Analyzer's batch submit settles all
+specs and names both halves instead of rejecting on the first failure; and the contract test parses
+YAML in memory instead of rewriting a tracked fixture on every run.
+
+**Release (`6f12c39c`, `f7b2787d`, `2d48dd0b`, `86711e7a`).** The single largest finding was that
+pushing a `v3.0.0` tag would have built and published the **legacy 2.x launcher**.
+`.github/workflows/release-v3.yml` replaces the two workflows that would have done it, `package/`
+is retired (ADR decision 5's Phase 6), `RELEASE.md` is the written procedure that did not exist, and
+`desktop/scripts/verify-package.mjs` — run against a scratch `--dir` build — found two
+configurations that could not have shipped at all.
+
+### Gate
+
+The full CX6 gate table is in [`BENCHMARKS.md § External audit response`](BENCHMARKS.md) and the
+ROADMAP row cites it. Headline: typecheck clean, lint 0 errors, vitest 1,304, host pytest 4,069,
+container subset 410, contracts and route-import guards clean, actionlint clean, mock e2e 317.
+
+### Gotchas
+
+- **A test that writes `sys.modules` without `monkeypatch` is a time bomb for every later test in
+  the process.** `tests/test_atlas_coverage.py` assigned `sys.modules["nibabel.freesurfer.io"] =
+  MagicMock()` in four tests. The assignment was never undone, so `test_scene_guide`'s
+  `pytest.importorskip("nibabel.freesurfer.io")` later *succeeded*, handed the test a mock instead
+  of the real reader, and failed — but only in that file order, which is why it was carried for two
+  gates as "a known order-dependent flake". Reproduced deterministically with a one-function pytest
+  plugin that plants the leak, then fixed with `monkeypatch.setitem`/`setattr` (`c799e7e2`).
+  `tests/test_catalog_v1.py:829` had already got this right and says why in a comment.
+- **A numerical test leg must run against the real libraries.** The host conftest mocks numpy's
+  neighbours; `tests/numerical/` is therefore run in the container under `simnibs_python`, where
+  `scipy` and `nibabel` are real, and its SCI assertions are compared against independent
+  reference implementations rather than against retyped expected values.
+- **Lint errors get attributed to whichever file the reporter printed last.** 17 `no-undef` errors
+  reported as "pre-existing in `pages/preprocess/index.tsx`, `ui/DataTable.tsx`,
+  `ui/VirtualList.tsx`" were all in `scripts/verify-package.mjs`: the flat config gave Node globals
+  to `tests/mock-server/**` only, so a new script under `scripts/` linted as browser code. Those
+  three renderer files only ever emitted React Compiler warnings (`f1ea7fcf`).
+- **A global `.gitignore` rule can hide a required build input indefinitely.** `build/` swallowed
+  `desktop/build/`, so the four icon and entitlement files `electron-builder.yml` names by path had
+  never been committed — invisible on the maintainer's machine, fatal on a fresh checkout. The old
+  `!package/build/` exception had been covering the same hazard for the legacy launcher, and
+  retiring `package/` is what surfaced it.
+- **`electron-builder`'s `files:` is not "what the repository contains".** `docker/**` was outside
+  it while `src/main/stack.ts` reads `docker/docker-compose.v3.yml` from `app.getAppPath()` at every
+  stack start. Every packaged build would have failed on first launch.
