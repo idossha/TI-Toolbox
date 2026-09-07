@@ -1,38 +1,49 @@
 # Dockerfile.ti-toolbox
 #
-# The from-scratch CI recipe for idossha/ti-toolbox:<ver> (D1). Multi-stage: a Node stage
-# builds the Electron renderer bundle, a small stage vendors FastSurfer + checkpoints, and
-# the final stage is Dockerfile.simnibs's own SimNIBS-install recipe (Ubuntu 22.04 → the
-# SimNIBS 4.6 Linux installer tarball → /root/SimNIBS-4.6) plus this program's v3
-# additions: baked API deps, FastSurfer, the built UI, the Tetravox embed, no X11/Qt/GTK,
-# the new entrypoint, and a healthcheck. See Dockerfile.ti-toolbox.layered for a much
-# faster local-iteration build FROM idossha/simnibs:v2.5.0 instead of building SimNIBS
-# from scratch — this file is what CI actually publishes.
+# The one recipe for idossha/ti-toolbox:<ver> (D1). Multi-stage: a `source` stage supplies
+# the TI-Toolbox tree, a Node stage builds the Electron renderer bundle from it, a small
+# stage vendors FastSurfer + checkpoints, and the final stage is Dockerfile.simnibs's own
+# SimNIBS-install recipe (Ubuntu 22.04 -> the SimNIBS 4.6 Linux installer tarball ->
+# /root/SimNIBS-4.6) plus this program's v3 additions: baked API deps, FastSurfer, the built
+# UI, the Tetravox embed, no X11/Qt/GTK, the new entrypoint, a build record at
+# /etc/ti-toolbox-build.json, and a healthcheck.
 #
-# NOT built in the Phase-A W2 session (dev/notes/v3-docker-streamline/w2-image-notes.md
-# says so explicitly) — a from-scratch SimNIBS install takes 30-60+ minutes even natively,
-# let alone under this machine's amd64 emulation. Every layer here mirrors a step already
-# proven to work in Dockerfile.simnibs (same base image, same installer URL, same patches)
-# or in Dockerfile.ti-toolbox.layered (FastSurfer, UI, Tetravox, entrypoint — copied
-# verbatim, keep the two files' v3-addition sections in sync by hand when one changes).
+# Where the source comes from (TI_TOOLBOX_SOURCE):
+#   local  (default) the build CONTEXT is the repository root, filtered by the repo-root
+#                    .dockerignore (an allow-list: tit/, resources/, contracts/, container/,
+#                    desktop/ minus node_modules/out/tests, pyproject.toml, README.md,
+#                    LICENSE). This is what lets an unpushed branch -- or a dirty tree --
+#                    be built and tried before it is pushed.
+#   clone            `git clone --branch TI_TOOLBOX_REF` from GitHub (the CI/release path;
+#                    the context then only needs to exist).
+# build.sh picks the stage from --ref: no --ref means local, --ref <git-ref> means clone.
 #
-# Build (repo root as context — see docker-compose CI job / build.sh for the exact
-# invocation, which mirrors Dockerfile.simnibs's existing CACHE_BUST pattern):
-#   docker build --platform linux/amd64 \
-#     --build-arg TI_TOOLBOX_REF=main \
-#     --build-arg CACHE_BUST=$(date +%s) \
-#     -f container/blueprint/Dockerfile.ti-toolbox \
-#     -t idossha/ti-toolbox:<ver> .
+# A from-scratch SimNIBS install takes 30-60+ minutes even natively, and considerably longer
+# under this machine's amd64 emulation. Every layer here mirrors a step already proven to
+# work in Dockerfile.simnibs (same base image, same installer URL, same patches).
+#
+# Build (via build.sh, which fills in every --build-arg below):
+#   ./container/blueprint/build.sh --tag idossha/ti-toolbox:<ver> [--ref <git-ref>] \
+#       [--tetravox-tgz <url> --tetravox-sha256 <hex>]
 
 # =========================================================================================
-# Stage: source — one clone shared by the ui-builder and final stages, so both build from
-# the exact same commit (rather than two independent `git clone`s that could race a push).
+# Stage: source -- one tree shared by the ui-builder and final stages, so both build from
+# the exact same commit. Two variants, selected by TI_TOOLBOX_SOURCE (a global ARG, so it
+# can be used in a FROM); the one not selected is never built.
 # =========================================================================================
-FROM alpine/git:2.45.2 AS source
+ARG TI_TOOLBOX_SOURCE=local
+
+FROM --platform=$BUILDPLATFORM alpine/git:2.45.2 AS source-clone
 ARG TI_TOOLBOX_REF=main
 ARG CACHE_BUST
 RUN git clone --branch "${TI_TOOLBOX_REF}" --single-branch --depth 1 \
-        https://github.com/idossha/TI-Toolbox.git /ti-toolbox
+        https://github.com/idossha/TI-Toolbox.git /ti-toolbox \
+    && rm -rf /ti-toolbox/.git
+
+FROM --platform=$BUILDPLATFORM alpine:3.20 AS source-local
+COPY . /ti-toolbox
+
+FROM source-${TI_TOOLBOX_SOURCE} AS source
 
 # =========================================================================================
 # Stage: ui-builder — the Electron renderer bundle (desktop/out/renderer), discarded after
@@ -40,14 +51,16 @@ RUN git clone --branch "${TI_TOOLBOX_REF}" --single-branch --depth 1 \
 # `engines.node: ">=22.12.0"` (checked against the current worktree while writing this —
 # bump both together if that field changes).
 # =========================================================================================
-FROM node:22-bookworm-slim AS ui-builder
+# --platform=$BUILDPLATFORM: the bundle is plain JS/CSS, so build it natively rather than
+# under amd64 emulation on an Apple-silicon host (the image itself stays linux/amd64).
+FROM --platform=$BUILDPLATFORM node:22-bookworm-slim AS ui-builder
 COPY --from=source /ti-toolbox/desktop /build/desktop
 WORKDIR /build/desktop
 RUN npm ci && npm run build
 
 # =========================================================================================
-# Stage: fastsurfer — vendor FastSurfer + checkpoints in isolation so this ~160 MB
-# clone-and-download layer caches independently of the SimNIBS install below it.
+# Stage: fastsurfer — vendor the FastSurfer clone in isolation so it caches independently
+# of the SimNIBS install below it (the checkpoints are downloaded in the final stage).
 # =========================================================================================
 FROM ubuntu:22.04 AS fastsurfer
 ENV DEBIAN_FRONTEND=noninteractive
@@ -59,21 +72,10 @@ ENV FASTSURFER_HOME=/opt/fastsurfer
 RUN git clone --depth 1 --branch "${FASTSURFER_REF}" \
         https://github.com/Deep-MI/FastSurfer.git "${FASTSURFER_HOME}" \
     && rm -rf "${FASTSURFER_HOME}/.git"
-# `download_checkpoints.py` does `from FastSurferCNN.utils.checkpoint import ...` — it
-# needs FASTSURFER_HOME on PYTHONPATH to resolve that as a package (the .layered recipe
-# gets this for free because it runs the same script *after* `pip install -e
-# $FASTSURFER_HOME` in the final stage; this isolated stage never installs the package, by
-# design, so the parent directory has to go on PYTHONPATH explicitly instead). `requests`
-# is the one non-stdlib import the script itself needs — NOT verified against the real
-# script's full import chain this session (this stage was not built; see
-# dev/notes/v3-docker-streamline/w2-image-notes.md's "not attempted" list) — if a real CI
-# build hits a further ImportError here, that is the first place to look.
-ENV PYTHONPATH="${FASTSURFER_HOME}"
-RUN python3 -m pip install --no-cache-dir requests
-# --vinn only: the asegdkt (cortical/subcortical DKT) checkpoints, 67 MB. Not
-# CerebNet/HypVINN — the production invocation passes --no_cereb --no_hypothal --no_cc
-# (dev/spikes/native/fastsurfer/REPORT.md SS4/SS9), so those weights are never used.
-RUN python3 "${FASTSURFER_HOME}/FastSurferCNN/download_checkpoints.py" --vinn
+# The checkpoints are NOT downloaded here: `download_checkpoints.py` imports
+# `FastSurferCNN.utils.checkpoint`, which imports torch at module level (measured 2026-09-06,
+# dev/notes/v3-native-panes-external-viewer/IB.md), so it can only run where torch is
+# installed -- the final stage, after `pip install -e $FASTSURFER_HOME`, below.
 
 # =========================================================================================
 # Stage: final
@@ -288,6 +290,13 @@ RUN simnibs_python -m pip install --no-cache-dir \
     simnibs_python -c "import simnibs.segmentation, brainnet" && \
     echo "torch bump OK: $(simnibs_python -c 'import torch; print(torch.__version__)')"
 
+# --vinn only: the asegdkt (cortical/subcortical DKT) checkpoints, 67 MB. Not
+# CerebNet/HypVINN — the production invocation passes --no_cereb --no_hypothal --no_cc
+# (dev/spikes/native/fastsurfer/REPORT.md SS4/SS9), so those weights are never used. Runs
+# here, not in the `fastsurfer` stage, because the script imports torch (see that stage).
+RUN simnibs_python "${FASTSURFER_HOME}/FastSurferCNN/download_checkpoints.py" --vinn \
+    && ls -la "${FASTSURFER_HOME}/checkpoints"
+
 # ---------------------------------------------------------------------------------------
 # Desktop UI bundle, from the ui-builder stage.
 # ---------------------------------------------------------------------------------------
@@ -349,18 +358,35 @@ RUN mkdir -p /opt/tetravox/embed && \
 
 
 # ---------------------------------------------------------------------------------------
-# Entrypoint — execs `tit.server` directly (D1); no X11, no interactive-shell setup (D3).
-# Context here is the real repo root (a full `git`/CI checkout, not build.sh's curated
-# staging dir — see Dockerfile.ti-toolbox.layered for that), so this is the real path.
+# Entrypoint -- execs `tit.server` directly (D1); no X11, no interactive-shell setup (D3).
+# Taken from the `source` stage, not the context, so a --ref build runs the ref's
+# entrypoint and a local build runs the checkout's.
 # ---------------------------------------------------------------------------------------
-COPY container/blueprint/entrypoint.ti-toolbox.sh /usr/local/bin/entrypoint.ti-toolbox.sh
+COPY --from=source /ti-toolbox/container/blueprint/entrypoint.ti-toolbox.sh /usr/local/bin/entrypoint.ti-toolbox.sh
 RUN chmod +x /usr/local/bin/entrypoint.ti-toolbox.sh
 
+# ---------------------------------------------------------------------------------------
+# Build record. `docker inspect` labels answer "which image is this" from outside; the JSON
+# answers it from inside the container (the server can read it, a bug report can quote it).
+# VCS_SHA/VCS_DIRTY/BUILD_DATE are computed by build.sh: for a local build from the
+# checkout's own git state (dirty = uncommitted changes in the tree that was COPYd), for a
+# --ref build from `git ls-remote` (never dirty, by construction).
+# ---------------------------------------------------------------------------------------
 ARG TI_TOOLBOX_VERSION=dev
 ARG VCS_REF=unknown
+ARG VCS_SHA=unknown
+ARG VCS_DIRTY=false
+ARG BUILD_DATE=unknown
+ARG TI_TOOLBOX_SOURCE
+ARG TI_TOOLBOX_REF=""
+RUN printf '{"version":"%s","sha":"%s","short":"%s","dirty":%s,"source":"%s","ref":"%s","date":"%s"}\n' \
+        "${TI_TOOLBOX_VERSION}" "${VCS_SHA}" "${VCS_REF}" "${VCS_DIRTY}" \
+        "${TI_TOOLBOX_SOURCE}" "${TI_TOOLBOX_REF}" "${BUILD_DATE}" \
+        > /etc/ti-toolbox-build.json \
+    && cat /etc/ti-toolbox-build.json
 LABEL org.opencontainers.image.title="TI-Toolbox" \
       org.opencontainers.image.version="${TI_TOOLBOX_VERSION}" \
-      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.revision="${VCS_SHA}" \
       org.opencontainers.image.source="https://github.com/idossha/TI-Toolbox"
 
 HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=6 \

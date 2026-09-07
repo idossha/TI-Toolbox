@@ -64,7 +64,14 @@ jobs:
             # stage. See this job's header for why that makes this step over-long here.
             # The embed release is resolved by build.sh from the GitHub Releases API; no
             # version is pinned in this file.
-            ./container/blueprint/build.sh --tag idossha/ti-toolbox:ci
+            #
+            # --ref: the clone path (the ref is pushed by definition here). It builds the
+            # branch/tag TIP, which is this commit unless a later push raced the job; the
+            # smoke steps below bind-mount the checkout over /ti-toolbox, so they test this
+            # commit either way. Dropping --ref would build from the checkout itself
+            # (build.sh's default, ~140 MB context) and record the exact sha instead.
+            ./container/blueprint/build.sh --tag idossha/ti-toolbox:ci \
+                --ref "${CIRCLE_TAG:-$CIRCLE_BRANCH}"
 
       - run:
           name: Start the container
@@ -121,6 +128,11 @@ jobs:
             grep -qi 'wasm-unsafe-eval' /tmp/tvx.h \
                 || { echo "the embed CSP is missing from /tetravox/"; exit 1; }
             rm -f /tmp/tvx.h
+
+            echo "-- /etc/ti-toolbox-build.json (which source the image was built from) --"
+            docker exec tit-ci-smoke cat /etc/ti-toolbox-build.json
+            docker exec tit-ci-smoke sh -c 'grep -q "\"sha\":\"[0-9a-f]\{40\}\"" /etc/ti-toolbox-build.json' \
+                || { echo "the build record has no full sha"; exit 1; }
 
             echo "-- FastSurfer --help --"
             docker exec tit-ci-smoke bash -lc \

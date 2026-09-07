@@ -1,7 +1,8 @@
 # Container blueprints
 
-Always build images from within the `blueprint` directory (or, for `Dockerfile.ti-toolbox*`,
-via `./build.sh` — see below; it manages its own build context).
+Build the v2 images from within the `blueprint` directory; build `Dockerfile.ti-toolbox` via
+`./build.sh` (see below — it chooses the context: the repository root, or an empty directory
+for a `--ref` clone).
 
 ## v3: `idossha/ti-toolbox:<ver>`
 
@@ -30,20 +31,56 @@ now accepts and ignores with one line on stderr so an old command line still bui
 |---|---|
 | `Dockerfile.ti-toolbox` | From-scratch: installs SimNIBS 4.6 itself (Ubuntu 22.04 -> the SimNIBS installer tarball), builds the UI in a Node stage, vendors FastSurfer in its own stage, bakes the embed. Multi-stage. This is what CI and releases publish. **30-60+ minutes even on native hardware**, far longer emulated. |
 
-Build args: `TI_TOOLBOX_VERSION` (image label), `VCS_REF` (image label), `TI_TOOLBOX_REF`
-(git ref to clone, default `main`), `CACHE_BUST` (force a fresh clone while keeping earlier
-layers cached — the same pattern `Dockerfile.simnibs` uses) and `TETRAVOX_EMBED_TGZ` (an
-http(s) URL to a released `tetravox-embed-<ver>.tgz`; empty writes a placeholder
-`manifest.json`/`index.html` instead — see "Which Tetravox gets baked", since `build.sh` fills
-this in on its own).
+Build args (all filled in by `build.sh`): `TI_TOOLBOX_SOURCE` (`local` | `clone`),
+`TI_TOOLBOX_REF` (the git ref the `clone` variant checks out), `CACHE_BUST` (force a fresh
+clone while keeping earlier layers cached), `TI_TOOLBOX_VERSION` / `VCS_REF` / `VCS_SHA` /
+`VCS_DIRTY` / `BUILD_DATE` (image labels and `/etc/ti-toolbox-build.json`), and
+`TETRAVOX_EMBED_TGZ` + `TETRAVOX_EMBED_SHA256` (the embed tarball and its digest; empty writes a
+placeholder `manifest.json`/`index.html` instead).
 
 ### Build
 
 ```bash
-./build.sh                          # tag idossha/ti-toolbox:<version>-dev
-./build.sh --tag idossha/ti-toolbox:dev --tetravox-tgz https://.../tetravox-embed-1.0.0.tgz
-./build.sh --no-tetravox            # bake the placeholder deliberately (air-gapped build)
+./build.sh                                   # this checkout -> idossha/ti-toolbox:<version>-dev
+./build.sh --tag idossha/ti-toolbox:dev      # same, tagged :dev
+./build.sh --ref v3.0.0                      # a pushed ref, cloned from GitHub (CI/release)
+./build.sh --tetravox-tgz http://host.docker.internal:8798/tetravox-embed-0.3.11.tgz \
+           --tetravox-sha256 <hex>           # bake a tarball you built yourself (see below)
+./build.sh --no-tetravox                     # bake the placeholder deliberately (air-gapped)
 ```
+
+### Where the source comes from
+
+**Default: the local checkout.** The repository root is the build context and the Dockerfile's
+`source-local` stage `COPY`s it. The repo-root `.dockerignore` is an allow-list — `tit/`,
+`resources/`, `contracts/`, `container/`, `desktop/` (minus `node_modules`, `out`, `tests`,
+dot-directories), `pyproject.toml`, `README.md`, `LICENSE` — which keeps the context at
+~140 MB (measured 2026-09-06: 137.5 MB unpacked in the `source` stage) instead of the raw
+tree's ~2 GB. The v2 recipes (`Dockerfile.simnibs`, …) use `container/blueprint` itself as
+their context and are unaffected. This is what lets an unpushed branch, or a dirty tree, be
+built and tried before it is pushed — which is how the v3 image was first built at all
+(`../../dev/notes/v3-native-panes-external-viewer/IB.md`).
+
+**`--ref <git-ref>`: a pushed ref.** The `source-clone` stage `git clone --branch`es it from
+GitHub (a branch or tag; `git clone --branch` does not take a raw sha) and the context is an
+empty staging directory. `build.sh` refuses a ref `git ls-remote` cannot see, with the
+reason. This is the CI/release path (`.circleci/config.yml` passes
+`--ref "${CIRCLE_TAG:-$CIRCLE_BRANCH}"`).
+
+Either way the image records what it was built from in **`/etc/ti-toolbox-build.json`**:
+
+```json
+{"version":"2.4.0","sha":"<40 hex>","short":"<8 hex>","dirty":true,"source":"local","ref":"","date":"2026-09-07T01:08:58Z"}
+```
+
+`dirty` is whether tracked files had uncommitted changes in the tree that was copied (a
+`--ref` build is never dirty). The same sha is the `org.opencontainers.image.revision` label.
+`/api/version` does not report it yet — that route's `Version` model is part of the frozen
+contract (`contracts/openapi.v1.yaml`) and adding a field there is a contract change, so the
+record stays a file for now.
+
+The UI's Node stage and both `source` stages run on `$BUILDPLATFORM` (natively on Apple
+silicon); only the final SimNIBS stage is emulated.
 
 ### Which Tetravox gets baked
 
@@ -69,66 +106,67 @@ unauthenticated), or no release carrying the assets prints one line and falls th
 placeholder. The image is still usable — the app can install a bundle at runtime through
 Settings -> Viewer engine, and `/tetravox/` simply 404s until it does.
 
-**Today this resolves to nothing**, and says so: no `idossha/tetravox` release carries an embed
-asset yet (the first will be 0.3.12 or later — Tetravox PR #35). Verified 2026-09-05:
-`resolve_tetravox_tgz` exits 1 against the real API, and returns the right URL against a release
-payload that does carry the assets.
+**Until a Tetravox release carries the embed assets (the first will be 0.3.12 or later —
+Tetravox PR #35), the resolver finds nothing and says so.** To bake a real embed today, build
+the tarball from a Tetravox checkout of that PR's branch and hand it to `build.sh`:
 
-`build.sh` stages a small, purpose-built build **context** under `mktemp -d` rather than using
-the repo root directly — `desktop/node_modules` alone is ~700 MB, there is no repo-root
-`.dockerignore` this lane owns (and adding one would affect every other Dockerfile under
-`container/blueprint/`, not just this one), and BuildKit still walks the whole context directory
-before any per-Dockerfile ignore rule can help on a plain `COPY`. See `build.sh`'s own header
-comment for exactly what gets staged. The staged directory is removed on exit, success or
-failure.
+```bash
+# in the Tetravox checkout (feat/embed-release)
+pnpm install --frozen-lockfile
+pnpm --filter @tetravox/embed build && pnpm --filter @tetravox/embed pack:embed
+#   -> packages/embed/dist-pkg/tetravox-embed-<v>.tgz
+(cd packages/embed/dist-pkg && python3 -m http.server 8798 --bind 0.0.0.0 &)
+shasum -a 256 packages/embed/dist-pkg/tetravox-embed-<v>.tgz
 
-Or invoke `docker build` directly against an already-staged or hand-built context — see the
-Dockerfile's own header comment for the exact `COPY` sources it expects.
+# in this repository
+./container/blueprint/build.sh --tag idossha/ti-toolbox:dev \
+    --tetravox-tgz http://host.docker.internal:8798/tetravox-embed-<v>.tgz \
+    --tetravox-sha256 <the digest>
+```
+
+`--tetravox-sha256` is **required** with `--tetravox-tgz`: a hand-given URL has no `.sha256`
+sidecar for the image to read, and the Dockerfile will not unpack an unverified archive into a
+directory it serves to every page. `host.docker.internal` is how a build stage on Docker
+Desktop reaches a server on this machine. Check the tarball's `manifest.json` `protocol`
+against `tit/tetravox/protocol.py`'s range yourself — the resolver does that only for
+release assets.
 
 ### Open items in this directory (2026-09-06)
 
-1. **`build.sh` and `Dockerfile.ti-toolbox` do not yet match this section.** As checked out
-   today, `build.sh`'s header documents `--tetravox-version` / `--tetravox-url` for a *headless
-   Tetravox CLI* at `/opt/tetravox/current` and treats `--tetravox-tgz` / `--no-tetravox` as
-   obsolete-and-ignored, and `Dockerfile.ti-toolbox` mentions the embed only in comments — the
-   bake stage that 4ddd3926 removed has not been restored. Until it is, a built image ships no
-   bundle and `/tetravox/` 404s until something is installed at runtime.
-2. **CI now builds the from-scratch recipe.** `.circleci/config.yml`'s `build-and-smoke-image`
-   job passed `--layered --skip-ui-build`; with the layered recipe deleted that reference goes,
-   which leaves the job on the from-scratch recipe: 30-60+ minutes on the `vm-docker`
-   (`machine: ubuntu-2204:current`) executor at best, and nothing in this repo provisions a
-   large or self-hosted executor, nor a nightly/release-gated variant of the job. Its smoke step
-   also still asserts that `/tetravox/` is *retired*; with the embed restored that assertion is
-   backwards and should check the manifest and the route's own `wasm-unsafe-eval` CSP again.
+1. **CI's image job is over its time budget.** `.circleci/config.yml`'s `build-and-smoke-image`
+   job builds the from-scratch recipe with `--ref`: 30-60+ minutes on the `vm-docker`
+   (`machine: ubuntu-2204:current`) executor at best, against a 15 m `no_output_timeout`, and
+   nothing in this repo provisions a large or self-hosted executor or a nightly/release-gated
+   variant of the job. It is left declared so the gap is visible in CI rather than only here.
    Full reasoning on what a from-scratch-gated job would need is in
    `../../dev/notes/v3-docker-streamline/w6-docs-ci-notes.md`.
 
-### Local build+smoke (2026-09-03, on the since-deleted layered recipe)
+### Local build+smoke (2026-09-06, this recipe)
 
-`idossha/ti-toolbox:dev` was built with `./build.sh --layered --tag idossha/ti-toolbox:dev`
-and smoke-tested (health, UI, Tetravox placeholder, FastSurfer `--help`, `import simnibs,
-fastapi, torch`). Numbers, exact commands, and what was **not** attempted (a from-scratch
-build; `--from-scratch`'s Node/FastSurfer stages; a real FastSurfer run inside the
-container) are in `../../dev/notes/v3-docker-streamline/w2-image-notes.md`.
+Attempted from this checkout (unpushed `feature/v3-electron-gui`) with a real
+`tetravox-embed-0.3.11.tgz` (protocol 2). The recipe's stages up to the SimNIBS install built
+(source, UI, FastSurfer clone); the build then died on a full disk (`Docker.raw` at 296 GB,
+host free 160 MiB) and Docker Desktop went down with it, so **no image from this recipe has
+been verified yet**. What was proved, what was not, and the two real defects found on the way
+(a stale `desktop/package-lock.json`, and the FastSurfer stage's checkpoint download needing
+torch) are in `../../dev/notes/v3-native-panes-external-viewer/IB.md`. The earlier layered
+build's numbers are in `../../dev/notes/v3-docker-streamline/w2-image-notes.md`.
 
 ### CI (`.circleci/config.yml`, `build-and-smoke-image` job)
 
 CircleCI's `vm-docker` executor (`machine: ubuntu-2204:current`, x86_64 — this build and its
-smoke run *natively* there, unlike on Apple Silicon) builds and smoke-tests the image. It passed
-`--layered --skip-ui-build`; with the layered recipe deleted, `--layered` and `--skip-ui-build`
-are ignored and the job builds the from-scratch recipe. **That is a real runtime change, and it
-is an open item, not a solved one** — see "Open items in this directory" above. The job otherwise:
+smoke run *natively* there, unlike on Apple Silicon) builds the image with
+`--ref "${CIRCLE_TAG:-$CIRCLE_BRANCH}"` and smoke-tests it. **Its time budget is an open item**
+(see above). The job otherwise:
 
 1. starts the container with the checked-out repo bind-mounted over `/ti-toolbox`
    (`PYTHONPATH=/ti-toolbox`) — the same dev-mount shape `docker-compose.v3.yml`'s optional
    `${TIT_REPO_DIR}:/ti-toolbox` documents, so the smoke test and pytest subset run against the
    commit under test, not whatever was baked in at image-build time
 2. waits for the Dockerfile's own `HEALTHCHECK` to report `healthy`
-3. smokes `/api/health`, `/`, `/tetravox/manifest.json`, `run_fastsurfer.sh --help`, and
-   `import simnibs, fastapi, torch` / `import simnibs.segmentation, brainnet` — the same checks
-   `dev/notes/v3-docker-streamline/w2-image-notes.md` ran locally. As checked out today the
-   `/tetravox/` step still asserts the route is *retired*; with the embed restored it should
-   assert the manifest and the route's own `wasm-unsafe-eval` CSP instead
+3. smokes `/api/health`, `/`, `/tetravox/` (200 + the `wasm-unsafe-eval` CSP) and its
+   `manifest.json`, `/etc/ti-toolbox-build.json` (a 40-hex sha), `run_fastsurfer.sh --help`, and
+   `import simnibs, fastapi, torch` / `import simnibs.segmentation, brainnet`
 4. runs a small, stable pytest subset inside the container (server skeleton, viewspec, catalog,
    files routes, the FastSurfer integration test — which only runs here, since `tit-v3-spike`,
    the Phase-A dev container, has no `/opt/fastsurfer`)
