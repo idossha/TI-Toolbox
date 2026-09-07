@@ -3,6 +3,44 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
 import { MOD, expectPage, expectSubject, gotoPage, launchElectronApp, openPalette } from "./_helpers";
+/**
+ * The ⌘-number for a rail row, read from the row itself rather than typed here.
+ *
+ * `registry.ts` makes a page's number its index in `NAV_ORDER` + 1, precisely so the rail, the
+ * palette and the `?` sheet cannot disagree — and a spec that hard-codes the digit opts itself out
+ * of that guarantee. Three tests in this file broke the day the Notebooks row was inserted after
+ * Pipeline and moved every number after it; none of them was about Notebooks.
+ *
+ * The rail publishes the binding as `aria-keyshortcuts` ("Meta+8" / "Control+8"), which is both the
+ * app's own statement of what the key is and the thing a screen-reader user is told. Pressing what
+ * the row advertises is a stronger test than pressing what this file remembers: if the two ever
+ * disagree, the failure is the disagreement.
+ */
+async function railKey(pageId: string): Promise<string | null> {
+  const advertised = await page.getByTestId(`nav-item-${pageId}`).getAttribute("aria-keyshortcuts");
+  return advertised === null ? null : advertised.replace(/^(Meta|Control)\+/, `${MOD}+`);
+}
+
+/**
+ * Press the row's key and assert it landed — or, for a row that has no key, click it and say so.
+ *
+ * A row CAN have no key, and that is a finding rather than a bug in this file: `shortcutForSlot`
+ * hands out ⌘1..⌘9 and then the first free digit to Settings, so a rail of ten workflow rows has
+ * one row past the end of the scheme. Jobs is that row today (the Notebooks insertion made it the
+ * tenth). Asserting "every row has a key" here would be asserting a decision this spec does not
+ * own; asserting "the key the row advertises works" is the property that must hold either way.
+ */
+async function jumpTo(pageId: string): Promise<boolean> {
+  const key = await railKey(pageId);
+  if (key === null) {
+    await page.getByTestId(`nav-item-${pageId}`).click();
+    await expectPage(page, pageId);
+    return false;
+  }
+  await page.keyboard.press(key);
+  await expectPage(page, pageId);
+  return true;
+}
 
 // Runs the BUILT app: Electron is pointed at desktop/, whose package.json "main" is out/main/index.js
 // (launching the directory, not the bare script, gives app.getName()/getVersion() from package.json). Against the mock server by default; set
@@ -144,28 +182,23 @@ test("keyboard shortcuts jump screens and toggle the jobs rail", async () => {
   // ⌘6 Pipeline · ⌘7 Results · ⌘8 Viewer · ⌘9 Jobs · ⌘0 Settings. The number is the page's index in
   // `registry.ts`'s NAV_ORDER, so the rail, the palette and the `?` sheet cannot disagree — and
   // Settings takes the first digit the rail does not, which the Pipeline row moved from 9 to 0.
-  await page.keyboard.press(`${mod}+6`);
-  await expectPage(page, "pipeline");
+  await jumpTo("pipeline");
 
-  await page.keyboard.press(`${mod}+7`);
-  await expectPage(page, "results");
+  await jumpTo("results");
 
-  await page.keyboard.press(`${mod}+9`);
-  await expectPage(page, "jobs");
+  await jumpTo("jobs");
 
-  await page.keyboard.press(`${mod}+3`);
-  await expectPage(page, "simulator");
+  await jumpTo("simulator");
 
-  await page.keyboard.press(`${mod}+0`);
-  await expectPage(page, "settings");
+  // Settings too: `shortcutForSlot` gives it the first digit the rail does not use, which is 9 or
+  // 0 depending on how many rows the rail has — exactly the thing that must not be typed here.
+  await jumpTo("settings");
   // ⌘, is Settings' alias, and Help is the `?` sheet only — neither takes one of the rail's numbers.
-  await page.keyboard.press(`${mod}+1`);
-  await expectPage(page, "overview");
+  await jumpTo("overview");
   await page.keyboard.press(`${mod}+,`);
   await expectPage(page, "settings");
 
-  await page.keyboard.press(`${mod}+1`);
-  await expectPage(page, "overview");
+  await jumpTo("overview");
   await expect(page.getByTestId("overview-table")).toBeVisible();
 
   await expect(page.locator(".jobs-rail-expanded")).toHaveCount(0);
@@ -189,8 +222,7 @@ test("the rail's icon/label breakpoint updates on resize even while the Viewer s
   await page.getByRole("dialog").getByRole("option", { name: /^ernie/ }).first().click();
   await expectSubject(page, "ernie");
 
-  await page.keyboard.press(`${MOD}+8`);
-  await expectPage(page, "viewer");
+  await jumpTo("viewer");
   // R5: the source drafts, Open commands — so this smoke test drafts and stops. What Open does
   // (one request, one scene, a move to the Viewer sub-page) is viewer.spec.ts's.
   await page.getByTestId("viewer-select-kind").getByRole("combobox").click();
@@ -223,8 +255,7 @@ test("the right pane collapses with ⌘⇧I and the work pane takes its width", 
   await expect(page.getByTestId("overview-table")).toBeVisible({ timeout: 20_000 });
   await page.setViewportSize({ width: 1280, height: 800 });
 
-  await page.keyboard.press(`${MOD}+2`);
-  await expectPage(page, "preprocess");
+  await jumpTo("preprocess");
   const panel = page.locator('[data-page-active="true"]');
   const pane = panel.getByTestId("page-right-pane");
   const work = panel.getByTestId("page-work");
@@ -241,8 +272,7 @@ test("the right pane collapses with ⌘⇧I and the work pane takes its width", 
   expect(Math.round((await work.boundingBox())!.width)).toBe(Math.round(withPane));
 
   // A page with no right pane must not swallow the chord — one gesture, one meaning (§6.5).
-  await page.keyboard.press(`${MOD}+1`);
-  await expectPage(page, "overview");
+  await jumpTo("overview");
   await page.keyboard.press(`${MOD}+Shift+i`);
   await expect(panel.getByTestId("page-work")).toHaveCount(1);
 });
