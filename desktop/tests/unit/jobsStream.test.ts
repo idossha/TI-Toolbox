@@ -91,3 +91,69 @@ describe("JobsStream — REST seed on connect (ra_12 #4)", () => {
     stream.stop();
   });
 });
+
+describe("JobsStream — the seed is an authoritative snapshot, not a gap-filler (UI-02)", () => {
+  beforeEach(() => {
+    FakeSocket.instances = [];
+  });
+  afterEach(() => vi.useRealTimers());
+
+  /** Drop the socket and let the backoff timer open the next one. */
+  async function reconnect(): Promise<void> {
+    FakeSocket.instances[FakeSocket.instances.length - 1]!.drop();
+    await vi.runOnlyPendingTimersAsync();
+    FakeSocket.instances[FakeSocket.instances.length - 1]!.open();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+  }
+
+  it("a job that finished while the socket was down comes back terminal, not stuck running", async () => {
+    vi.useFakeTimers();
+    let current: JobStatus[] = [job("j1", "running")];
+    const seed = vi.fn(() => Promise.resolve(current));
+    const stream = new JobsStream({ url: "ws://x/ws/jobs", WebSocketImpl: FakeSocket, seed, baseDelayMs: 1 });
+    stream.start();
+    FakeSocket.instances[0]!.open();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(stream.getState().jobs["j1"]!.state).toBe("running");
+
+    current = [job("j1", "succeeded")];
+    await reconnect();
+    expect(stream.getState().jobs["j1"]!.state).toBe("succeeded");
+    stream.stop();
+  });
+
+  it("a job deleted while the socket was down disappears from the store", async () => {
+    vi.useFakeTimers();
+    let current: JobStatus[] = [job("j1"), job("j2")];
+    const seed = vi.fn(() => Promise.resolve(current));
+    const stream = new JobsStream({ url: "ws://x/ws/jobs", WebSocketImpl: FakeSocket, seed, baseDelayMs: 1 });
+    stream.start();
+    FakeSocket.instances[0]!.open();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(Object.keys(stream.getState().jobs).sort()).toEqual(["j1", "j2"]);
+
+    current = [job("j1")];
+    await reconnect();
+    expect(Object.keys(stream.getState().jobs)).toEqual(["j1"]);
+    stream.stop();
+  });
+
+  it("a job submitted during the seed request survives the snapshot that predates it", async () => {
+    let resolveSeed!: (jobs: JobStatus[]) => void;
+    const seed = vi.fn(() => new Promise<JobStatus[]>((resolve) => (resolveSeed = resolve)));
+    const stream = new JobsStream({ url: "ws://x/ws/jobs", WebSocketImpl: FakeSocket, seed });
+    stream.start();
+    const ws = FakeSocket.instances[0]!;
+    ws.open();
+    ws.message({ type: "job", job: job("brand-new", "queued") });
+    resolveSeed([job("old", "running")]);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(Object.keys(stream.getState().jobs).sort()).toEqual(["brand-new", "old"]);
+    stream.stop();
+  });
+});

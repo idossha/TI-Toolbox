@@ -35,13 +35,26 @@ export interface JobsStreamOptions {
    * `GET /api/jobs` (or an equivalent), called once per successful connect so jobs that existed
    * before this socket opened (and so never earned a `job` WS message this session) still show
    * up — otherwise the rail and any other consumer of this store start empty even when the
-   * server already has running jobs (ra_12 #4). REST never overwrites a job id the store already
-   * has from a live WS message; it only fills in ids the store doesn't know about yet.
+   * server already has running jobs (ra_12 #4).
+   *
+   * The response is treated as the AUTHORITATIVE snapshot, not as a set of gap-fillers: known
+   * ids are replaced and ids missing from it are dropped. Only adding unknown ids left a job
+   * that finished while the socket was down stuck on "running" forever, and a job deleted in
+   * the meantime visible forever, because no WS message for either was ever going to arrive.
+   * The one thing the snapshot does not overwrite is a job the live stream touched while the
+   * request was in flight — that message is strictly newer than the snapshot.
    */
   seed?: () => Promise<JobStatus[]>;
 }
 
 const OPEN = 1;
+
+/** Reference-equal per id, so an unchanged snapshot does not wake every subscriber. */
+function sameJobs(a: Record<string, JobStatus>, b: Record<string, JobStatus>): boolean {
+  const keys = Object.keys(a);
+  if (keys.length !== Object.keys(b).length) return false;
+  return keys.every((k) => a[k] === b[k]);
+}
 
 export class JobsStream {
   private readonly url: string;
@@ -57,6 +70,9 @@ export class JobsStream {
    * `subscribe` message on every (re)connect, since the server does not remember subscriptions
    * across a dropped socket. */
   private readonly wanted = new Map<string, number>();
+  /** Job ids the WS stream touched since the in-flight seed request was issued; null when no
+   * seed is in flight. These are newer than the snapshot and survive reconciliation. */
+  private liveSinceSeed: Set<string> | null = null;
   private state: JobsStreamState = { status: "idle", jobs: {}, eventsByJob: {}, attempt: 0 };
   private readonly listeners = new Set<() => void>();
 
@@ -154,6 +170,7 @@ export class JobsStream {
         return;
       }
       if (msg.type === "job") {
+        this.liveSinceSeed?.add(msg.job.id);
         this.set({ jobs: { ...this.state.jobs, [msg.job.id]: msg.job } });
       } else if (msg.type === "event") {
         const existing = this.state.eventsByJob[msg.job_id] ?? [];
@@ -175,21 +192,25 @@ export class JobsStream {
    * source of truth once messages arrive), so errors are swallowed rather than surfaced. */
   private async seedFromRest(): Promise<void> {
     if (!this.seed) return;
+    const live = new Set<string>();
+    this.liveSinceSeed = live;
     let fetched: JobStatus[];
     try {
       fetched = await this.seed();
     } catch {
       return;
+    } finally {
+      if (this.liveSinceSeed === live) this.liveSinceSeed = null;
     }
-    const jobs = { ...this.state.jobs };
-    let changed = false;
-    for (const job of fetched) {
-      if (!(job.id in jobs)) {
-        jobs[job.id] = job;
-        changed = true;
-      }
+    const jobs: Record<string, JobStatus> = {};
+    for (const job of fetched) jobs[job.id] = job;
+    // A job the stream reported while the request was in flight is newer than the snapshot,
+    // whether or not the snapshot mentions it (it may have been submitted after the query ran).
+    for (const id of live) {
+      const known = this.state.jobs[id];
+      if (known) jobs[id] = known;
     }
-    if (changed) this.set({ jobs });
+    if (!sameJobs(this.state.jobs, jobs)) this.set({ jobs });
   }
 
   private scheduleReconnect(reason: string): void {
