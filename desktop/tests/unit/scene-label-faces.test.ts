@@ -19,9 +19,9 @@ import { countMinorityFaces, orientFacesToMajorityLabel } from "../../src/render
 
 const winding = (indices: Uint32Array, face: number): string => {
   // A rotation of [a,b,c] and nothing else: canonicalise by rotating the smallest index to front.
-  const t = [indices[face * 3], indices[face * 3 + 1], indices[face * 3 + 2]];
+  const t = [indices[face * 3]!, indices[face * 3 + 1]!, indices[face * 3 + 2]!];
   const at = t.indexOf(Math.min(...t));
-  return [t[at], t[(at + 1) % 3], t[(at + 2) % 3]].join(",");
+  return [t[at]!, t[(at + 1) % 3]!, t[(at + 2) % 3]!].join(",");
 };
 
 describe("orientFacesToMajorityLabel", () => {
@@ -30,7 +30,7 @@ describe("orientFacesToMajorityLabel", () => {
     // and pick the whole triangle as 9 — a spike of the neighbour across the border.
     const labels = new Uint16Array([7, 7, 9]);
     const out = orientFacesToMajorityLabel(new Uint32Array([0, 1, 2]), labels);
-    expect(labels[out[2]]).toBe(7);
+    expect(labels[out[2]!]).toBe(7);
   });
 
   it("preserves winding, so normals and culling are untouched", () => {

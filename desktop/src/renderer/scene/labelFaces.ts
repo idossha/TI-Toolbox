@@ -41,9 +41,13 @@ export function orientFacesToMajorityLabel(
     const a = indices[i];
     const b = indices[i + 1];
     const c = indices[i + 2];
+    if (a === undefined || b === undefined || c === undefined) continue;
     const la = labels[a];
     const lb = labels[b];
     const lc = labels[c];
+    // A corner pointing past the end of `labels` has no region to reason about; leave the
+    // triangle as it came rather than inventing a majority out of two `undefined`s.
+    if (la === undefined || lb === undefined || lc === undefined) continue;
     if (lc === la || lc === lb) continue; // the last corner is already a majority one
     // `lc` is the odd one out, so a majority exists only if the other two agree.
     if (la !== lb) continue; // genuine triple junction — nothing to rotate to
@@ -66,9 +70,14 @@ export function countMinorityFaces(indices: Uint32Array, labels: Uint16Array): n
   let n = 0;
   for (let f = 0; f < faces; f += 1) {
     const i = f * 3;
-    const la = labels[indices[i]];
-    const lb = labels[indices[i + 1]];
-    const lc = labels[indices[i + 2]];
+    const a = indices[i];
+    const b = indices[i + 1];
+    const c = indices[i + 2];
+    if (a === undefined || b === undefined || c === undefined) continue;
+    const la = labels[a];
+    const lb = labels[b];
+    const lc = labels[c];
+    if (la === undefined || lb === undefined || lc === undefined) continue;
     if (lc !== la && lc !== lb && la === lb) n += 1;
   }
   return n;

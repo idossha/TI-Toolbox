@@ -167,10 +167,12 @@ test("DK40 borders are crossed once, with no third region and no triangle-wide s
       const r = runs(scan.ids);
       borders += r.length - 1;
       for (let i = 1; i < r.length - 1; i += 1) {
-        if (r[i - 1].id !== r[i + 1].id) continue;
+        if (r[i - 1]!.id !== r[i + 1]!.id) continue;
         excursions += 1;
-        if (r[i].length <= SPIKE_MAX_PX) {
-          spikes.push(`y=${scan.y}: ${r[i - 1].id} | ${r[i].id} x${r[i].length}px | ${r[i + 1].id}`);
+        if (r[i]!.length <= SPIKE_MAX_PX) {
+          spikes.push(
+            `y=${scan.y}: ${r[i - 1]!.id} | ${r[i]!.id} x${r[i]!.length}px | ${r[i + 1]!.id}`,
+          );
         }
       }
     }
