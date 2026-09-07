@@ -86,6 +86,13 @@
 }
 .plan-matrix {
   width: 100%;
+  /* One geometry for every mode (maintainer, 2026-09-06): the subject is a fixed narrow column and
+     the remaining columns split the rest EQUALLY — the stage columns of Pre-processing and the
+     Analyzer just as much as the Simulator's and the Optimizer's counts. `table-layout: fixed` is
+     what makes them equal: with only the first column's width given, the remainder is divided
+     evenly between the columns that have none, instead of the first hugging the subject while the
+     last floats at the far right. */
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 12px;
   line-height: 16px;
@@ -112,33 +119,22 @@
   font-weight: 500;
   border-bottom: 1px solid var(--line);
 }
-.plan-matrix-subject-head {
-  width: 1%;
-}
 .plan-matrix tbody th {
   font-weight: 400;
   color: var(--ink);
   padding-right: var(--space-2);
 }
-/* Counts mode (the Simulator's Montage · Flex · Free-hand, the Optimizer's Flex · Ex · mEx): the
-   subject is a fixed narrow column and the count columns split the rest EQUALLY, so the first one
-   does not hug the subject while the last floats at the far right. `table-layout: fixed` is what
-   makes the three equal: with only the first column's width given, the remainder is divided evenly
-   between the columns that have none. */
-.plan-matrix-counts {
-  table-layout: fixed;
-}
-.plan-matrix-counts .plan-matrix-subject-head,
-.plan-matrix-counts .plan-matrix-subject {
+.plan-matrix-subject-head,
+.plan-matrix-subject {
   width: 96px;
   max-width: 96px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* The gap the subject column owes the first count: the subject text ends well inside its 96px and
-   every count cell is indented, so no count ever sits against a subject id. */
-.plan-matrix-counts thead th:not(.plan-matrix-subject-head),
-.plan-matrix-counts tbody td {
+/* The gap the subject column owes the first stage: the subject text ends well inside its 96px and
+   every other cell is indented, so no chip or count ever sits against a subject id. */
+.plan-matrix thead th:not(.plan-matrix-subject-head),
+.plan-matrix tbody td {
   padding-left: var(--space-3);
   max-width: none;
 }

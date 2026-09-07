@@ -93,6 +93,30 @@ test("the plan is a subject x stage matrix of chips, with one legend and no free
   await expect(page.getByTestId("plan-cell-ernie-G2b")).toHaveText("skip");
   await expect(page.getByTestId("plan-cell-101-G2b")).toHaveText("new");
 
+  // One geometry in every mode (maintainer, 2026-09-06): the stage columns are evenly spaced and
+  // the first does not hug the subject id. Measured, not read off the stylesheet — `table-layout:
+  // fixed` with only the subject column sized is what divides the rest equally, and this is the
+  // proof. Asserted on the header row, which is where a column's x position is decided.
+  const geometry = await grid.locator(".plan-matrix").evaluate((table) => {
+    const head = [...table.querySelectorAll("thead th")];
+    const xs = head.slice(1).map((th) => th.getBoundingClientRect().x);
+    // The subject *text*, not its cell: the cell is the fixed 96px column, and the gap the rule is
+    // about is the one the reader sees between the id and the first chip.
+    const subjectCell = table.querySelector("tbody th");
+    const range = subjectCell ? document.createRange() : null;
+    if (range && subjectCell) range.selectNodeContents(subjectCell);
+    const subjectText = range?.getBoundingClientRect();
+    const firstStage = head[1]?.getBoundingClientRect();
+    const pad = head[1] ? parseFloat(getComputedStyle(head[1]).paddingLeft) : 0;
+    return { xs, gap: (firstStage?.x ?? 0) + pad - (subjectText?.right ?? 0) };
+  });
+  expect(geometry.xs.length).toBeGreaterThanOrEqual(3);
+  // Every step between neighbouring stage columns is the same, to within 2px.
+  const steps = geometry.xs.slice(1).map((x, i) => x - (geometry.xs[i] ?? 0));
+  const first = steps[0] ?? 0;
+  for (const [i, step] of steps.entries()) expect(Math.abs(step - first), `step ${i} = ${step}, first = ${first}`).toBeLessThanOrEqual(2);
+  expect(geometry.gap, "the subject id sits against the first stage").toBeGreaterThanOrEqual(24);
+
   // §4.5 + FXU1: exactly one legend, and it names ONLY the chips the matrix contains — a row of
   // all five chips read as data rather than as a key.
   const legend = grid.getByTestId("plan-legend");

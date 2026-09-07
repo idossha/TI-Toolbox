@@ -199,7 +199,7 @@ export function PlanGrid({
 
           {plan.subjects.length > 0 && plan.stages.length > 0 ? (
             <div className="plan-matrix-scroll">
-              <table className={cellDetail === "counts" ? "plan-matrix plan-matrix-counts" : "plan-matrix"}>
+              <table className="plan-matrix">
                 <thead>
                   <tr>
                     <th scope="col" className="plan-matrix-subject-head">
