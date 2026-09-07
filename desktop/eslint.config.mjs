@@ -17,7 +17,10 @@ export default tseslint.config(
     rules: { ...reactHooks.configs.recommended.rules },
   },
   {
-    files: ["tests/mock-server/**/*.mjs"],
+    // Repository scripts (`scripts/verify-package.mjs`, `scripts/dev.ts`) and the mock server run
+    // under Node, not in the renderer -- without this they lint as browser code and every
+    // `console`/`process` reference is a no-undef error.
+    files: ["scripts/**/*.{mjs,js,ts}", "tests/mock-server/**/*.mjs"],
     languageOptions: { globals: globals.node },
   },
   {
