@@ -676,3 +676,36 @@ No dataclass changes, so `contracts/schema.json` is untouched by this entry.
    kernel-bridge protocol verbatim, and an `output` payload is an nbformat output
    verbatim — which is precisely why nothing translates between the live kernel
    and the file the `notebooks` paths above read and write.
+
+## 2026-09-07 — merge of `origin/main` @ `b5eb63c3` (v2.5.0) — `channels` leaves two configs, four fields arrive
+
+Generated-schema change only: `contracts/openapi.v1.yaml` is untouched, and every affected
+property is under an `x-tit-config` placeholder, so `schema.json` / `openapi.v1.json` /
+`schema.d.ts` were regenerated from the dataclasses (`dev/build_schema.py`,
+`dev/build_contract.py`, `npm run gen:api`) rather than hand-edited.
+
+**Removed**
+
+1. **`Montage.channels`** and **`MExConfig.channels`** (`list[tuple[list[int], list[int]]] | None`)
+   — the Lee-2022 shared-carrier grouping. `main` removed it from the science core in `7a5ee2dd`
+   ("Remove Lee-2022 carrier wiring: mTI is always positional (channels->carriers)"), `d4706e5a`
+   and `b19a1c26`: mTI is always positional, `electrode_pairs` two at a time, so one FEM field is
+   one carrier and the grouping could only ever be the identity. Both were optional and defaulted
+   to `null`, so an old config that still carries the key is now rejected by
+   `deserialize_config` as an unknown field rather than silently ignored — deliberate, because a
+   config that *set* it meant a montage the toolbox will not simulate. The desktop app's
+   "Carrier wiring" select is removed in the same series (`f03f9363`).
+
+**Added** (all with server-side defaults, from main's ex/mex work)
+
+2. **`ExConfig.n_jobs`**, **`MExConfig.n_jobs`** (`int`, default `-1`) — worker processes
+   evaluating candidates in parallel (`b66a5389`). Results and CSV ordering do not depend on it.
+3. **`ExConfig.symmetric_bucket`** (`bool`, default `false`),
+   **`ExConfig.symmetry_eeg_csv`** (`str | null`, default `null`),
+   **`ExConfig.symmetry_pairing`** (`str`, default `"within_pairs"`) — left/right mirrored bucket
+   search for the two-pair Ex path (`230aa10a`); `MExConfig` already declared its equivalents.
+   The Optimizer page has no control for the Ex ones yet and sends the defaults —
+   `docs/dev/RELEASE.md` §B.
+
+`dev/contracts_check.py`: OK — 10 operations and 9 schemas of `openapi.v0.yaml` present in the
+server dump.

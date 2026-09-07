@@ -346,7 +346,7 @@
       "additionalProperties": false
     },
     "ExConfig": {
-      "description": "Full configuration for exhaustive search optimization.\n\nExhaustive search evaluates every valid electrode combination from\na user-defined pool or bucket set, sweeping current amplitudes at\ndiscrete steps.\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier matching the m2m directory name.\nleadfield_hdf : str\n    Path to the precomputed leadfield HDF5 file.\nroi_name : str\n    ROI CSV filename (e.g. ``\"target.csv\"``).  The ``\".csv\"`` suffix\n    is appended automatically if missing.  Used as the metric-key\n    prefix and (with the net name) the output-directory label.\nroi_names : list of str or None\n    Optional list of ROI CSV filenames to **union** into a single\n    target.  When provided (combined mode), the spherical masks of\n    every listed ROI are OR-folded into one region.  ``None``\n    (default) keeps single-ROI behavior driven by *roi_name*.  An\n    explicit empty list means \"no spherical centers at all\" -- useful\n    for a purely atlas-driven ROI (*roi_atlas* only).  Each entry gets\n    the ``\".csv\"`` suffix appended if missing.\nroi_atlas : list of AtlasROI or None\n    Volumetric atlas or mask ROI(s) to union with the spherical\n    centers from *roi_name*/*roi_names*.  ``None`` (default) keeps\n    the existing spherical-only behavior.\nroi_coordinate_space : str\n    Space of the *roi_name*/*roi_names* CSV centers -- ``\"subject\"``\n    (default) or ``\"mni\"``.  MNI centers are transformed to subject\n    space with ``simnibs.mni2subject_coords`` before the search runs.\n    Does not affect *roi_atlas*, which is always subject space.\nelectrodes : BucketElectrodes or PoolElectrodes\n    Electrode specification, either a single shared pool\n    (:class:`PoolElectrodes`) or separate per-channel buckets\n    (:class:`BucketElectrodes`).  A plain dict is auto-converted\n    in ``__post_init__``.\ntotal_current : float\n    Total injected current in mA, split across channels.\ncurrent_step : float\n    Current amplitude step size in mA for the sweep.\nchannel_limit : float or None\n    Maximum current per channel in mA.  ``None`` for no per-channel\n    limit.\nroi_radius : float\n    Spherical ROI radius in mm for the target region.\nrun_name : str or None\n    Optional name for this run.  Defaults to a datetime stamp.\n\nRaises\n------\nValueError\n    If *current_step*, *total_current*, or *channel_limit* are\n    non-positive, or if *roi_coordinate_space* is not ``\"subject\"``\n    or ``\"mni\"``.\n\nSee Also\n--------\nExResult : Result container returned by :func:`~tit.opt.ex.ex.run_ex_search`.\ntit.opt.ex.ex.run_ex_search : Consumes this config.",
+      "description": "Full configuration for exhaustive search optimization.\n\nExhaustive search evaluates every valid electrode combination from\na user-defined pool or bucket set, sweeping current amplitudes at\ndiscrete steps.\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier matching the m2m directory name.\nleadfield_hdf : str\n    Path to the precomputed leadfield HDF5 file.\nroi_name : str\n    ROI CSV filename (e.g. ``\"target.csv\"``).  The ``\".csv\"`` suffix\n    is appended automatically if missing.  Used as the metric-key\n    prefix and (with the net name) the output-directory label.\nroi_names : list of str or None\n    Optional list of ROI CSV filenames to **union** into a single\n    target.  When provided (combined mode), the spherical masks of\n    every listed ROI are OR-folded into one region.  ``None``\n    (default) keeps single-ROI behavior driven by *roi_name*.  An\n    explicit empty list means \"no spherical centers at all\" -- useful\n    for a purely atlas-driven ROI (*roi_atlas* only).  Each entry gets\n    the ``\".csv\"`` suffix appended if missing.\nroi_atlas : list of AtlasROI or None\n    Volumetric atlas or mask ROI(s) to union with the spherical\n    centers from *roi_name*/*roi_names*.  ``None`` (default) keeps\n    the existing spherical-only behavior.\nroi_coordinate_space : str\n    Space of the *roi_name*/*roi_names* CSV centers -- ``\"subject\"``\n    (default) or ``\"mni\"``.  MNI centers are transformed to subject\n    space with ``simnibs.mni2subject_coords`` before the search runs.\n    Does not affect *roi_atlas*, which is always subject space.\nelectrodes : BucketElectrodes or PoolElectrodes\n    Electrode specification, either a single shared pool\n    (:class:`PoolElectrodes`) or separate per-channel buckets\n    (:class:`BucketElectrodes`).  A plain dict is auto-converted\n    in ``__post_init__``.\ntotal_current : float\n    Total injected current in mA, split across channels.\ncurrent_step : float\n    Current amplitude step size in mA for the sweep.\nchannel_limit : float or None\n    Maximum current per channel in mA.  ``None`` for no per-channel\n    limit.\nroi_radius : float\n    Spherical ROI radius in mm for the target region.\nrun_name : str or None\n    Optional name for this run.  Defaults to a datetime stamp.\nn_jobs : int\n    Worker processes evaluating candidates in parallel.  ``-1``\n    (default) uses all cores minus one; ``1`` evaluates in-process.\n    Results and CSV ordering do not depend on it.\nsymmetric_bucket : bool\n    When True in bucket mode, evaluate only left/right mirrored\n    montages (see :func:`tit.opt.ex.buckets.build_electrode_mirror_map`).\nsymmetry_eeg_csv : str or None\n    EEG-position CSV used to derive mirrored electrode pairs.  If\n    unset, it is inferred from the leadfield's net name.\nsymmetry_pairing : str\n    Symmetry interpretation when *symmetric_bucket* is True.\n    ``\"within_pairs\"``: each pair's minus electrode is the mirror of\n    its plus electrode (e.g. F7-F8).  ``\"cross_pairs\"``: pair 2 is the\n    mirror image of pair 1 (``e2+ = mirror(e1+)``, ``e2- = mirror(e1-)``).\n\nRaises\n------\nValueError\n    If *current_step*, *total_current*, or *channel_limit* are\n    non-positive, if *symmetric_bucket* is set with pool electrodes,\n    if *symmetry_pairing* is not ``\"within_pairs\"``/``\"cross_pairs\"``,\n    or if *roi_coordinate_space* is not ``\"subject\"`` or ``\"mni\"``.\n\nSee Also\n--------\nExResult : Result container returned by :func:`~tit.opt.ex.ex.run_ex_search`.\ntit.opt.ex.ex.run_ex_search : Consumes this config.",
       "properties": {
         "subject_id": {
           "title": "Subject Id",
@@ -451,6 +451,33 @@
           ],
           "default": null,
           "title": "Run Name"
+        },
+        "n_jobs": {
+          "default": -1,
+          "title": "N Jobs",
+          "type": "integer"
+        },
+        "symmetric_bucket": {
+          "default": false,
+          "title": "Symmetric Bucket",
+          "type": "boolean"
+        },
+        "symmetry_eeg_csv": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Symmetry Eeg Csv"
+        },
+        "symmetry_pairing": {
+          "default": "within_pairs",
+          "title": "Symmetry Pairing",
+          "type": "string"
         }
       },
       "required": [
@@ -1380,7 +1407,7 @@
       "additionalProperties": false
     },
     "MExConfig": {
-      "description": "Full configuration for multipolar (4-pair, 8-electrode) exhaustive search.\n\nEvaluates every valid combination of four bipolar electrode pairs from\na user-defined pool or bucket set, at one fixed current per pair, and\nscores each candidate with the verified N>2 mTI envelope\n(:func:`tit.calc.get_mTI_vectors`).\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier matching the m2m directory name.\nleadfield_hdf : str\n    Path to the precomputed leadfield HDF5 file.\nroi_name : str\n    ROI CSV filename (e.g. ``\"target.csv\"``).  The ``\".csv\"`` suffix\n    is appended automatically if missing.\nelectrodes : BucketElectrodes or PoolElectrodes\n    Electrode specification, either a single shared pool\n    (:class:`PoolElectrodes`) or four separate per-pair buckets\n    (:class:`BucketElectrodes`).  A plain dict is auto-converted in\n    ``__post_init__``.\ncurrent_mA : float\n    Current in mA delivered by each of the four pairs.\nchannels : list of (list of int, list of int), or None\n    Carrier grouping passed to :func:`tit.calc.get_mTI_vectors`.\n    ``None`` treats the four pairs as two independent TI channels\n    (equivalent to ``[([0], [1]), ([2], [3])]``); an explicit grouping\n    such as ``[([0, 2], [1, 3])]`` instead treats all four pairs as\n    one channel sharing two carriers (Lee et al. 2022).  These give\n    materially different fields, so the grouping must be chosen\n    deliberately -- the quasi-static field solve has no frequency\n    term, so this grouping is the only place carrier assignment is\n    expressed.\nroi_radius : float\n    Spherical ROI radius in mm for the target region.\nroi_names : list of str or None\n    Optional list of ROI CSV filenames to **union** into a single\n    target.  ``None`` (default) keeps single-ROI behavior driven by\n    *roi_name*.  An explicit empty list means \"no spherical centers at\n    all\" -- required for a purely atlas-driven ROI (*roi_atlas* only),\n    in which case *roi_name* is only a naming label and no CSV is read.\n    Each entry gets the ``\".csv\"`` suffix appended if missing.\nroi_atlas : list of AtlasROI or None\n    Volumetric atlas or mask ROI(s) to union with the spherical center\n    from *roi_name*.  ``None`` (default) keeps the existing\n    spherical-only behavior.\nroi_coordinate_space : str\n    Space of the *roi_name* CSV center -- ``\"subject\"`` (default) or\n    ``\"mni\"``.  An MNI center is transformed to subject space with\n    ``simnibs.mni2subject_coords`` before the search runs.  Does not\n    affect *roi_atlas*, which is always subject space.\nrun_name : str or None\n    Optional name for this run.  Defaults to a datetime stamp.\nsymmetric_bucket : bool\n    When True in bucket mode, evaluate only left/right mirrored\n    electrode pairs (see :func:`tit.opt.ex.buckets.build_electrode_mirror_map`).\nsymmetry_eeg_csv : str or None\n    EEG-position CSV used to derive mirrored electrode pairs.  If\n    unset, it is inferred from the leadfield's net name.\nsymmetry_pairing : str\n    Symmetry interpretation for bucket mode when *symmetric_bucket*\n    is True.  ``\"within_pairs\"`` mirrors each pair's plus/minus\n    electrodes independently; ``\"cross_pairs\"`` additionally mirrors\n    pair 1<->3 and pair 2<->4.\n\nRaises\n------\nValueError\n    If *current_mA* is non-positive, if *symmetric_bucket* is set\n    with pool electrodes, if *symmetry_pairing* is not one of\n    ``\"within_pairs\"``/``\"cross_pairs\"``, or if *roi_coordinate_space*\n    is not ``\"subject\"`` or ``\"mni\"``.\n\nSee Also\n--------\nMExResult : Result container returned by :func:`~tit.opt.mex.mex.run_m_ex_search`.\ntit.opt.mex.mex.run_m_ex_search : Consumes this config.\ntit.calc.get_mTI_vectors : Modulation-amplitude envelope; consumes *channels*.",
+      "description": "Full configuration for multipolar (4-pair, 8-electrode) exhaustive search.\n\nEvaluates every valid combination of four bipolar electrode pairs from\na user-defined pool or bucket set, at one fixed current per pair, and\nscores each candidate with the verified N>2 mTI envelope\n(:func:`tit.calc.get_TI_vectors`).\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier matching the m2m directory name.\nleadfield_hdf : str\n    Path to the precomputed leadfield HDF5 file.\nroi_name : str\n    ROI CSV filename (e.g. ``\"target.csv\"``).  The ``\".csv\"`` suffix\n    is appended automatically if missing.\nelectrodes : BucketElectrodes or PoolElectrodes\n    Electrode specification, either a single shared pool\n    (:class:`PoolElectrodes`) or four separate per-pair buckets\n    (:class:`BucketElectrodes`).  A plain dict is auto-converted in\n    ``__post_init__``.\ncurrent_mA : float\n    Current in mA delivered by each of the four pairs.\nroi_radius : float\n    Spherical ROI radius in mm for the target region.\nroi_names : list of str or None\n    Optional list of ROI CSV filenames to **union** into a single\n    target.  ``None`` (default) keeps single-ROI behavior driven by\n    *roi_name*.  An explicit empty list means \"no spherical centers at\n    all\" -- required for a purely atlas-driven ROI (*roi_atlas* only),\n    in which case *roi_name* is only a naming label and no CSV is read.\n    Each entry gets the ``\".csv\"`` suffix appended if missing.\nroi_atlas : list of AtlasROI or None\n    Volumetric atlas or mask ROI(s) to union with the spherical center\n    from *roi_name*.  ``None`` (default) keeps the existing\n    spherical-only behavior.\nroi_coordinate_space : str\n    Space of the *roi_name* CSV center -- ``\"subject\"`` (default) or\n    ``\"mni\"``.  An MNI center is transformed to subject space with\n    ``simnibs.mni2subject_coords`` before the search runs.  Does not\n    affect *roi_atlas*, which is always subject space.\nrun_name : str or None\n    Optional name for this run.  Defaults to a datetime stamp.\nn_jobs : int\n    Worker processes evaluating candidates in parallel.  ``-1``\n    (default) uses all cores minus one; ``1`` evaluates in-process.\n    Results and CSV ordering do not depend on it.\nsymmetric_bucket : bool\n    When True in bucket mode, evaluate only left/right mirrored\n    electrode pairs (see :func:`tit.opt.ex.buckets.build_electrode_mirror_map`).\nsymmetry_eeg_csv : str or None\n    EEG-position CSV used to derive mirrored electrode pairs.  If\n    unset, it is inferred from the leadfield's net name.\nsymmetry_pairing : str\n    Symmetry interpretation for bucket mode when *symmetric_bucket*\n    is True.  ``\"within_pairs\"`` mirrors each pair's plus/minus\n    electrodes independently; ``\"cross_pairs\"`` additionally mirrors\n    pair 1<->3 and pair 2<->4.\n\nRaises\n------\nValueError\n    If *current_mA* is non-positive, if *symmetric_bucket* is set\n    with pool electrodes, if *symmetry_pairing* is not one of\n    ``\"within_pairs\"``/``\"cross_pairs\"``, or if *roi_coordinate_space*\n    is not ``\"subject\"`` or ``\"mni\"``.\n\nSee Also\n--------\nMExResult : Result container returned by :func:`~tit.opt.mex.mex.run_m_ex_search`.\ntit.opt.mex.mex.run_m_ex_search : Consumes this config.\ntit.calc.get_TI_vectors : Modulation-amplitude envelope.",
       "properties": {
         "subject_id": {
           "title": "Subject Id",
@@ -1412,37 +1439,6 @@
           "default": 2.0,
           "title": "Current Ma",
           "type": "number"
-        },
-        "channels": {
-          "anyOf": [
-            {
-              "items": {
-                "maxItems": 2,
-                "minItems": 2,
-                "prefixItems": [
-                  {
-                    "items": {
-                      "type": "integer"
-                    },
-                    "type": "array"
-                  },
-                  {
-                    "items": {
-                      "type": "integer"
-                    },
-                    "type": "array"
-                  }
-                ],
-                "type": "array"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Channels"
         },
         "roi_radius": {
           "default": 3.0,
@@ -1499,6 +1495,11 @@
           ],
           "default": null,
           "title": "Run Name"
+        },
+        "n_jobs": {
+          "default": -1,
+          "title": "N Jobs",
+          "type": "integer"
         },
         "symmetric_bucket": {
           "default": false,
@@ -1661,7 +1662,7 @@
       "additionalProperties": false
     },
     "Montage": {
-      "description": "A named electrode montage used in a TI/mTI simulation.\n\nWraps the electrode pair definitions for a single montage.  Electrodes\nmay be referenced by EEG-cap label names (``NET`` / ``FLEX_MAPPED``\nmodes) or by 3-D XYZ coordinates (``FLEX_FREE`` / ``FREEHAND`` modes).\n\nThe simulation type is auto-detected from the number of electrode\npairs: 2 pairs = standard TI, 4+ pairs = multi-channel mTI.\n\nAttributes\n----------\nname : str\n    Human-readable montage name (e.g. ``\"M1_left\"``).\nmode : MontageMode\n    How electrode positions are specified.  See :class:`MontageMode`.\nelectrode_pairs : list[tuple]\n    List of electrode pairs.  Each element is a tuple of two electrode\n    identifiers (label strings or XYZ coordinate lists).\neeg_net : str or None\n    Filename of the EEG-net CSV (e.g. ``\"GSN-HydroCel-185.csv\"``).\n    Required for ``NET`` and ``FLEX_MAPPED`` modes, ignored otherwise.\ndisplay_name : str or None\n    Optional user-facing label.  ``name`` remains the storage and lookup key.\nchannels : list[tuple[list[int], list[int]]] or None\n    Optional carrier grouping passed through to\n    :func:`tit.calc.get_mTI_vectors` / :func:`tit.calc.get_TI_avg`.\n    Each element is ``(group_a, group_b)``, indices into\n    ``electrode_pairs``' HF fields; ``None`` (default) is consecutive\n    pairing, i.e. one carrier per pair, today's behaviour.\n\nSee Also\n--------\nSimulationConfig : Holds one or more ``Montage`` instances.\nload_montages : Build ``Montage`` objects from ``montage_list.json``.",
+      "description": "A named electrode montage used in a TI/mTI simulation.\n\nWraps the electrode pair definitions for a single montage.  Electrodes\nmay be referenced by EEG-cap label names (``NET`` / ``FLEX_MAPPED``\nmodes) or by 3-D XYZ coordinates (``FLEX_FREE`` / ``FREEHAND`` modes).\n\nThe simulation type is auto-detected from the number of electrode\npairs: 2 pairs = standard TI, 4+ pairs = multi-channel mTI.\n\nAttributes\n----------\nname : str\n    Human-readable montage name (e.g. ``\"M1_left\"``).\nmode : MontageMode\n    How electrode positions are specified.  See :class:`MontageMode`.\nelectrode_pairs : list[tuple]\n    List of electrode pairs.  Each element is a tuple of two electrode\n    identifiers (label strings or XYZ coordinate lists).\neeg_net : str or None\n    Filename of the EEG-net CSV (e.g. ``\"GSN-HydroCel-185.csv\"``).\n    Required for ``NET`` and ``FLEX_MAPPED`` modes, ignored otherwise.\ndisplay_name : str or None\n    Optional user-facing label.  ``name`` remains the storage and lookup key.\n\nSee Also\n--------\nSimulationConfig : Holds one or more ``Montage`` instances.\nload_montages : Build ``Montage`` objects from ``montage_list.json``.",
       "properties": {
         "name": {
           "title": "Name",
@@ -1730,37 +1731,6 @@
           ],
           "default": null,
           "title": "Display Name"
-        },
-        "channels": {
-          "anyOf": [
-            {
-              "items": {
-                "maxItems": 2,
-                "minItems": 2,
-                "prefixItems": [
-                  {
-                    "items": {
-                      "type": "integer"
-                    },
-                    "type": "array"
-                  },
-                  {
-                    "items": {
-                      "type": "integer"
-                    },
-                    "type": "array"
-                  }
-                ],
-                "type": "array"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Channels"
         },
         "_type": {
           "const": "Montage"
