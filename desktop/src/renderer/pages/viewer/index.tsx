@@ -51,7 +51,7 @@
  * request, one message.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Clock, Eye, GripVertical, Plus, RefreshCw, Save, X } from "lucide-react";
 import { ApiError, getSubjects } from "../../api/client";
@@ -95,11 +95,13 @@ import {
   selectionLabel,
   validateSelection,
   viewQuery,
+  windowSummary,
   type ViewerCandidate,
   type ViewerControl,
   type ViewerFile,
   type ViewerRecent,
   type ViewerSelection,
+  type ViewSceneLayer,
 } from "./lib";
 import { TetravoxFrame, useViewerStore } from "../../viewer";
 import { getCapabilities } from "../settings/api";
@@ -139,6 +141,21 @@ interface ViewerFailure {
   key: string;
   title: string;
   text: string;
+}
+
+/**
+ * *value*, but no more often than once per *delayMs* of quiet.
+ *
+ * Page-local, like the copies in `pages/optimizer` and `pages/panels/*`: the convention in this
+ * renderer is that a page owns its own small hooks rather than a shared module every lane edits.
+ */
+function useDebounced<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(t);
+  }, [value, delayMs]);
+  return debounced;
 }
 
 function ViewerPage() {
@@ -261,13 +278,42 @@ function ViewerPage() {
   // ---------------------------------------------------------------------------------------------
   const draftKey = selectionKey(draft);
   const complete = validateSelection(draft) === null;
+  // Three things, all of them about the same complaint (maintainer, 2026-09-07: "there is still a
+  // lot of loading time once the user starts manipulating the input data"):
+  //
+  // 1. **Debounced.** Every keystroke and every step through a `<select>`'s values used to start
+  //    its own resolve. 150 ms is long enough to swallow the intermediate values of a selection
+  //    someone is still making and short enough that a finished one feels immediate.
+  // 2. **Abortable.** React Query hands `queryFn` a signal it aborts when the query is superseded
+  //    or unmounted, and it now reaches `fetch` — so a resolve for an abandoned selection stops
+  //    at the server rather than racing the current one to repaint the card.
+  // 3. **`keepPreviousData`.** While the next selection resolves, the card keeps showing the
+  //    previous list (greyed, see `data-stale`) instead of blanking to "Resolving…". Changing
+  //    Field is a small edit to a list that is mostly the same afterwards; emptying the card for
+  //    it made a fast resolve look like a reload.
+  const debouncedKey = useDebounced(draftKey, 150);
+  const debounceSettled = debouncedKey === draftKey;
   const baseline = useQuery({
     queryKey: ["viewer-resolution", draftKey],
-    queryFn: () => previewView(draft.kind, viewQuery(draft) as ViewQuery),
-    enabled: complete,
+    queryFn: ({ signal }) => previewView(draft.kind, viewQuery(draft) as ViewQuery, undefined, signal),
+    enabled: complete && debounceSettled,
     retry: false,
     staleTime: Infinity,
+    placeholderData: keepPreviousData,
   });
+  /**
+   * True while the rows on screen do not (yet) belong to the current selection.
+   *
+   * Four ways that can be so, and all four are needed. `isFetching` alone leaves a gap: in the
+   * render where the debounce catches up but React Query has not started the request yet, nothing
+   * is in flight and the data is still the previous key's — a spec that waited on `isFetching`
+   * proceeded there and then attributed the resolve to whatever it did next.
+   * `isPlaceholderData` is React Query's own answer to "is this the previous key's data", and
+   * `isPending` covers the first resolve of a sitting, which has no previous key to show.
+   */
+  const resolving =
+    complete && (!debounceSettled || baseline.isFetching || baseline.isPlaceholderData || baseline.isPending);
+  const stale = resolving && baseline.data !== undefined;
 
   const candidates = useQuery({
     queryKey: ["viewer-candidates", draft.subject, draft.simulation, draft.space],
@@ -306,6 +352,12 @@ function ViewerPage() {
         },
     );
   }, [files, baseline.data, known]);
+
+  /** The window the overlay will open at, shown on the card. See `lib.ts::windowSummary`. */
+  const summary = useMemo(
+    () => windowSummary(baseline.data?.view?.layers as ViewSceneLayer[] | undefined),
+    [baseline.data],
+  );
 
   /** Edit the list. Always through the *resolved* rows, so an edit never invents a path. */
   const editFiles = useCallback((next: string[]) => setFiles(next), [setFiles]);
@@ -590,10 +642,25 @@ function ViewerPage() {
           </section>
 
           {/* ── What will open ─────────────────────────────────────────────────────────────── */}
-          <section className="viewer-card" data-testid="viewer-plan">
+          <section
+            className="viewer-card"
+            data-testid="viewer-plan"
+            /* The list on screen belongs to an earlier selection (kept, greyed) — drives the CSS. */
+            data-stale={stale ? "true" : undefined}
+            /* A resolve is pending or in flight, whether or not there are rows to keep. What a
+               test must wait on before it can attribute a request to what it does next. */
+            data-resolving={resolving ? "true" : undefined}
+          >
             <div className="viewer-card-head">
               <span className="viewer-card-title text-eyebrow">What will open</span>
-              <span className="viewer-card-note">{rows.length === 0 ? "nothing yet" : `${rows.length} file${rows.length === 1 ? "" : "s"}, in this order`}</span>
+              <span className="viewer-card-note" data-testid="viewer-plan-note">
+                {rows.length === 0 ? "nothing yet" : `${rows.length} file${rows.length === 1 ? "" : "s"}, in this order`}
+              </span>
+              {summary !== null && (
+                <span className="viewer-card-window" data-testid="viewer-window-summary" title="The window the field overlay opens at">
+                  {summary}
+                </span>
+              )}
               <div className="viewer-card-actions">
                 {files !== null && (
                   <button type="button" className="viewer-link" onClick={() => setFiles(null)} data-testid="viewer-files-reset">
@@ -673,10 +740,14 @@ function ViewerPage() {
               <p className="viewer-empty" data-testid="viewer-nothing-selected">
                 Choose a source above and the files it resolves to appear here.
               </p>
-            ) : baseline.isPending && files === null ? (
-              // Only the first read of a source can be pending. An edited list is local, so it
-              // never shows this — which is the point.
-              <p className="viewer-empty">Resolving…</p>
+            ) : rows.length === 0 && resolving ? (
+              // Only the **first** resolve of a sitting can reach this: with `keepPreviousData`
+              // every later one still has the previous selection's rows to show, greyed, so
+              // changing Field no longer blanks the card and then refills it. An edited list is
+              // local and never resolves at all.
+              <p className="viewer-empty" data-testid="viewer-resolving">
+                Resolving…
+              </p>
             ) : rows.length === 0 ? (
               <p className="viewer-empty">Nothing yet — the server found no files for this selection. Add one, or reset the list.</p>
             ) : (

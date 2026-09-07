@@ -221,16 +221,28 @@ def test_scene_field_scale_falls_back_when_the_volume_cannot_be_read(
     }
 
 
-def test_scene_mesh_visibility_matches_viewspec(pm: PathManager) -> None:
-    """The grey-matter TI mesh is hidden by default (24-420 MB files) -- a
-    real ViewSpec has no separate "lazy" flag; the embed's own host decides
-    whether/when to fetch a dataset from the layer's own `visible`."""
+def test_scene_mesh_is_visible_because_the_layout_gives_it_a_pane(
+    pm: PathManager,
+) -> None:
+    """The mesh layer and the 3D pane are one decision, and they have to agree.
+
+    The mesh used to be hidden by default, to avoid fetching a 24-420 MB file nobody had asked
+    for. But the layout below switches to ``3d+1`` *because* the scene has a mesh -- so hiding it
+    reserved a whole pane for nothing, and the maintainer opened a scene whose 3D view was blank
+    (2026-09-07: "the 3-D pane empty"). Either the mesh is worth a pane and is visible, or it is
+    not and gets no pane; the one thing it cannot be is both.
+
+    The volumes' own defaults are unchanged: the GM-masked field is the one a reader wants first,
+    and the whole-head and WM copies are there to switch to.
+    """
     scene = scene_for("simulation", subject="ernie", simulation="L_Insula")
     visible = {layer["name"]: layer["visible"] for layer in scene["layers"]}
     assert visible["GM · TI_max (volume)"] is True
     assert visible["TI_max (volume)"] is False
     assert visible["WM · TI_max (volume)"] is False
-    assert visible["GM mesh · TI_max"] is False  # the mesh layer
+    assert visible["GM mesh · TI_max"] is True
+    assert scene["layout"]["kind"] == "3d+1"
+    assert "view3d" in scene["layout"]["cells"]
 
 
 def test_scene_datasets_carry_no_bytes_field(pm: PathManager) -> None:

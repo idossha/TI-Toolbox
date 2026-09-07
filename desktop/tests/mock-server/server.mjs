@@ -986,16 +986,27 @@ const DEFAULT_ANNOTATIONS = { orientationLabels: true, cornerInfo: true, convent
 const DEFAULT_BACKGROUND = [0.058823529411764705, 0.06666666666666667, 0.08627450980392157, 1];
 const ZERO_THRESHOLD = { lo: null, hi: null, symmetric: false, mode: "clamp", softEdge: 0 };
 
-function volumeScale(role, calMin, calMax) {
+/**
+ * A field layer's `[Scale, Threshold]`, mirroring `tit/viewspec.py::_volume_window`.
+ *
+ * `cal_min`/`cal_max` reach here already resolved to the p95/p99.9 window, so the heat scale spans
+ * exactly them and the threshold floors at `cal_min` with `mode: "hide"` — everything below the
+ * 95th percentile transparent, rather than a wash of low colour over the whole head (maintainer,
+ * 2026-09-07). `mid` is the midpoint of the visible window so the ramp spans it.
+ */
+function volumeScaleAndThreshold(role, calMin, calMax) {
   if (role === "field") {
     const min = calMin ?? 0, max = calMax ?? 1;
-    return { kind: "heat", min, mid: min + (max - min) * 0.8, max, truncate: false, inverse: false, negative: "hide" };
+    return [
+      { kind: "heat", min, mid: (min + max) / 2, max, truncate: false, inverse: false, negative: "hide" },
+      { lo: min, hi: null, symmetric: false, mode: "hide", softEdge: 0 },
+    ];
   }
-  return { kind: "linear", lo: calMin ?? 0, hi: calMax ?? 1 };
+  return [{ kind: "linear", lo: calMin ?? 0, hi: calMax ?? 1 }, { ...ZERO_THRESHOLD }];
 }
 function meshScaleAndThreshold(fieldBounds) {
   const [lo, hi] = fieldBounds ?? [0, 1];
-  return [{ kind: "linear", lo, hi }, { lo: 0, hi: hi * 1.5, symmetric: false, mode: "clamp", softEdge: 0 }];
+  return [{ kind: "linear", lo, hi }, { lo, hi: null, symmetric: false, mode: "clamp", softEdge: 0 }];
 }
 
 function sceneFor(space, layers, cursorIn) {
@@ -1063,8 +1074,10 @@ function sceneFor(space, layers, cursorIn) {
         kind: "volume",
         volumeIndex: 0,
         colormap: role === "field" ? "turbo" : "gray",
-        scale: volumeScale(role, layer.cal_min, layer.cal_max),
-        threshold: { ...ZERO_THRESHOLD },
+        ...(() => {
+          const [scale, threshold] = volumeScaleAndThreshold(role, layer.cal_min, layer.cal_max);
+          return { scale, threshold };
+        })(),
         interpolation: isLabel ? "nearest" : "linear",
         labelMode: "fill",
         outlineWidthPx: isLabel ? 2 : 1,
@@ -1073,6 +1086,12 @@ function sceneFor(space, layers, cursorIn) {
       });
     }
   });
+
+  // A layout that reserves a 3D pane and a mesh nobody can see is an empty 3D pane. The layout
+  // below gives the mesh a pane precisely *because* the scene has one, so the two must agree
+  // (`tit/viewspec.py`, same comment).
+  const meshLayers = sceneLayers.filter((l) => l.kind === "mesh");
+  if (meshLayers.length > 0 && !meshLayers.some((l) => l.visible)) meshLayers[0].visible = true;
 
   const visibleIds = sceneLayers.filter((l) => l.visible).map((l) => l.id);
   const activeLayerId = visibleIds[0] ?? sceneLayers[0]?.id ?? null;
@@ -1083,6 +1102,10 @@ function sceneFor(space, layers, cursorIn) {
     datasets,
     layers: sceneLayers,
     activeLayerId,
+    // NOT a 1:1 port: the real server fits every pane and the 3D camera to the scene's world
+    // bounding box, read from each NIfTI's affine (`tit/viewspec.py::_fit_mm_per_px`). This mock
+    // serves no NIfTI headers, so there is nothing here to measure and the engine defaults stand.
+    // The fit is therefore asserted against the real server only (`tests/e2e/real/viewer-open`).
     slices: DEFAULT_SLICES.map((s) => ({ ...s, camera: { ...s.camera } })),
     view3d: { ...DEFAULT_VIEW3D, camera: { ...DEFAULT_VIEW3D.camera } },
     layout: hasMesh ? { kind: "3d+1", cells: ["view3d", "axial"] } : { kind: "2x2", cells: ["axial", "coronal", "sagittal", "view3d"] },

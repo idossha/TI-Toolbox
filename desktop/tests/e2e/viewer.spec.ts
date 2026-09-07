@@ -554,6 +554,26 @@ async function draftSimulation(): Promise<void> {
   await chooseOption("kind", "Simulation");
   await chooseOption("simulation", "Thalamus");
   await expect(page.getByTestId("viewer-preview-files")).toBeVisible({ timeout: 15_000 });
+  await settledOn(/TI_max/);
+}
+
+/**
+ * Wait until the rows on screen are **this** selection's, identified by one of them.
+ *
+ * Since the card keeps the previous selection's rows while the next one resolves (2026-09-07), a
+ * visible `viewer-preview-files` no longer means "this selection has resolved" — it can be the
+ * previous one, greyed. Three specs in this file failed exactly that way: they captured the
+ * *subject* view's rows as their baseline and then attributed the simulation's own resolve to the
+ * list edit they made next.
+ *
+ * Matching a row is deliberate rather than polling the page's `data-resolving` flag. That flag is
+ * correct, but reading it straight after a click races React's flush — Playwright can observe the
+ * pre-click DOM, where nothing is resolving yet, and proceed. A row that only the new selection
+ * produces cannot be true of the old one, whenever it is read.
+ */
+async function settledOn(row: RegExp): Promise<void> {
+  await expect.poll(rowNames, { timeout: 15_000 }).toEqual(expect.arrayContaining([expect.stringMatching(row)]));
+  await expect(page.getByTestId("viewer-plan")).not.toHaveAttribute("data-resolving", "true", { timeout: 15_000 });
 }
 
 const rowNames = () => page.getByTestId("viewer-preview-files").locator("li .viewer-file-name").allTextContents();
@@ -964,4 +984,86 @@ test("the group collapses, remembers it, and its label still opens Menu", async 
 
   await page.getByTestId("nav-chevron-viewer").click();
   await expect(page.getByTestId("nav-subitem-viewer-menu")).toBeVisible();
+});
+
+// ── the menu's own latency (2026-09-07) ──────────────────────────────────────────────────────
+//
+// Maintainer, on the live Menu: *"there is still a lot of loading time once the user starts
+// manipulating the input data"* — with a screenshot of the "what will open" card sitting on
+// "Resolving…" after changing Field to TI_max.
+//
+// Two causes, both fixed, both asserted here. The server read every volume in the scene twice per
+// resolve and cached the answer only in memory (`tests/test_viewspec_defaults.py`). The client
+// asked on every keystroke, with no debounce and nothing to cancel a superseded request, and
+// blanked the card to "Resolving…" while it waited — so a resolve that now takes ~10 ms still
+// looked like a reload, because the list disappeared and came back.
+
+test("changing Field keeps the previous list on screen instead of blanking to Resolving…", async () => {
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  await draftSimulation();
+
+  const before = await rowNames();
+  expect(before.length, "need a resolved list to keep").toBeGreaterThan(0);
+
+  // Watch the card for the whole field change. The defect was a *flash*: a poll after the fact
+  // would miss it, so the observer records every state the card passes through.
+  await page.evaluate(() => {
+    const w = window as unknown as { __veBlanked: boolean };
+    w.__veBlanked = false;
+    const card = document.querySelector('[data-testid="viewer-plan"]');
+    if (card === null) return;
+    new MutationObserver(() => {
+      const list = card.querySelector('[data-testid="viewer-preview-files"]');
+      const rows = list?.querySelectorAll("li").length ?? 0;
+      // "Resolving…" on screen, or a list that momentarily has no rows: both are the blank.
+      if (card.querySelector('[data-testid="viewer-resolving"]') !== null || (list !== null && rows === 0)) {
+        w.__veBlanked = true;
+      }
+    }).observe(card, { childList: true, subtree: true });
+  });
+
+  await chooseOption("field", "TI_normal");
+  await expect.poll(rowNames).not.toEqual([]);
+  // Give a superseded resolve room to land late and repaint, if one could.
+  await page.waitForTimeout(500);
+
+  const blanked = await page.evaluate(() => (window as unknown as { __veBlanked: boolean }).__veBlanked);
+  expect(blanked, 'the card blanked to "Resolving…" while re-resolving a selection it already had rows for').toBe(false);
+  expect((await rowNames()).length).toBeGreaterThan(0);
+});
+
+test("stepping through Field debounces into far fewer resolves than steps", async () => {
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  await draftSimulation();
+
+  const seen = recordViewRequests();
+  // Four changes in quick succession — what walking a `<select>` with the arrow keys looks like.
+  for (const field of ["TI_normal", "TI_max", "TI_normal", "TI_max"]) {
+    await chooseOption("field", field);
+  }
+  await expect.poll(rowNames).not.toEqual([]);
+  await page.waitForTimeout(600);
+
+  const resolves = seen.filter((r) => r.dryRun);
+  // Not "exactly one": the steps are real user interactions and some will outlast the 150 ms
+  // window. The claim is that a debounce exists at all — without one this is four, every time.
+  expect(resolves.length, `four field changes cost ${resolves.length} resolves`).toBeLessThan(4);
+  expect(opens(seen), "drafting must still write nothing").toHaveLength(0);
+});
+
+test("the card names the window the overlay will open at, before anything opens", async () => {
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  await draftSimulation();
+
+  // The defaults were previously invisible until Tetravox had the scene, in another window.
+  const summary = page.getByTestId("viewer-window-summary");
+  await expect(summary).toBeVisible();
+  await expect(summary).toContainText("p95–p99.9");
+  await expect(summary).toContainText("V/m");
 });

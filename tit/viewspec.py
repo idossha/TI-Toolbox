@@ -73,6 +73,9 @@ from __future__ import annotations
 
 import copy
 import glob
+import hashlib
+import json
+import math
 import os
 import threading
 from collections import OrderedDict
@@ -1099,9 +1102,63 @@ def _percentile_cache_key(
 
 
 def clear_percentile_cache() -> None:
-    """Forget every memoised window. For tests; nothing in the server calls it."""
+    """Forget every memoised window. For tests; nothing in the server calls it.
+
+    Both in-process caches, because since the two percentile paths were joined
+    (:func:`_resolve_layer_percentile`) a window can be memoised in either: clearing only one
+    would leave a test asserting "this file is read again" passing for the wrong reason. The
+    on-disk sidecars are *not* removed -- they live in the project under test's own tmp directory
+    and are keyed by ``(size, mtime_ns)``, so they cannot leak between tests.
+    """
     with _PERCENTILE_LOCK:
         _PERCENTILE_CACHE.clear()
+    _stats_cache.clear()
+    _bounds_cache.clear()
+
+
+#: Which :func:`_volume_stats` key answers which percentile, for the windows this module actually
+#: asks for. A window outside this table falls back to reading the volume -- correctness first: a
+#: p90 answered with p95 would be wrong, and wrong is worse than slow.
+_STATS_PERCENTILE_KEYS: dict[float, str] = {
+    0.0: "nz_lo",
+    2.0: "p2",
+    50.0: "p50",
+    95.0: "p95",
+    98.0: "p98",
+    99.0: "p99",
+    99.9: "p999",
+    100.0: "nz_hi",
+}
+
+
+def _stats_can_answer(lo: float, hi: float) -> bool:
+    """Whether :func:`_volume_stats` computes both ends of this window."""
+    return (
+        float(lo) in _STATS_PERCENTILE_KEYS and float(hi) in _STATS_PERCENTILE_KEYS
+    )
+
+
+def _percentiles_from_stats(
+    path: str, lo: float, hi: float
+) -> tuple[float, float] | None:
+    """``(lo, hi)`` from the cached/sidecar statistics, or ``None`` if they cannot answer.
+
+    ``None`` means either the file has no statistics (unreadable, all-zero) or the window asked
+    for is not one :func:`_volume_stats` computes -- the caller then reads the volume itself.
+    """
+    lo_key = _STATS_PERCENTILE_KEYS.get(float(lo))
+    hi_key = _STATS_PERCENTILE_KEYS.get(float(hi))
+    if lo_key is None or hi_key is None:
+        return None
+    stats = _volume_stats(path)
+    if stats is None or lo_key not in stats or hi_key not in stats:
+        return None
+    if not stats.get("has_nonzero", 1.0):
+        # Matches `_percentiles_from_array`, which answers `None` for a volume with no non-zero
+        # voxels rather than the degenerate window [0, 0]. A layer with no window still renders;
+        # one windowed [0, 0] shows nothing at all.
+        return None
+    return float(stats[lo_key]), float(stats[hi_key])
 
 
 def _resolve_layer_percentile(layer: dict[str, Any]) -> None:
@@ -1114,6 +1171,14 @@ def _resolve_layer_percentile(layer: dict[str, Any]) -> None:
 
     Memoised on the file's identity (see :data:`_PERCENTILE_CACHE`). A miss reads the volume
     exactly as before; a hit costs one ``os.stat``.
+
+    **It usually does not read anything at all.** :func:`_volume_stats` computes a fixed set of
+    percentiles over the same non-zero voxels of the same file, and persists them to a sidecar --
+    so whenever the window asked for here is one of those (and 95/99.9, the Viewer's default, is),
+    the answer is already on disk and this function is a lookup. That matters because the two used
+    to be *independent* full reads of the same volumes: one resolve of a simulation scene inflated
+    every field volume twice, once with ``get_fdata`` (float64) here and once with ``dataobj``
+    there, which is most of what "a lot of loading time" was (maintainer, 2026-09-07).
     """
     pct = layer.get("percentile")
     if not pct or (
@@ -1130,6 +1195,25 @@ def _resolve_layer_percentile(layer: dict[str, Any]) -> None:
                 if cached is not None:
                     layer["cal_min"], layer["cal_max"] = cached
                 return
+
+    # `key is not None` means the file could be stat'ed, which is also what `_volume_stats`
+    # needs before it will read anything: a path it cannot stat is one it answers `None` for
+    # without trying, so treating that as the authoritative answer would window nothing at all.
+    if key is not None and _stats_can_answer(pct["lo"], pct["hi"]):
+        # `_volume_stats` computes these exact percentiles over these exact voxels, so it is not a
+        # first attempt to be retried on failure -- it is *the* answer. Falling through to a second
+        # read here would read the same file twice to fail the same way, which is what the
+        # unreadable-volume case would otherwise do.
+        from_stats = _percentiles_from_stats(layer["path"], pct["lo"], pct["hi"])
+        if from_stats is not None:
+            layer["cal_min"], layer["cal_max"] = from_stats
+            if key is not None:
+                with _PERCENTILE_LOCK:
+                    _PERCENTILE_CACHE[key] = from_stats
+                    _PERCENTILE_CACHE.move_to_end(key)
+                    while len(_PERCENTILE_CACHE) > _PERCENTILE_CACHE_MAX:
+                        _PERCENTILE_CACHE.popitem(last=False)
+        return
 
     try:
         import nibabel as nib
@@ -1418,15 +1502,138 @@ def _scene_display_name(name: str, *, role: str, field_name: str | None) -> str:
 # simulation in a row (subject -> simulation -> analysis) costs one read.
 _stats_cache: dict[str, tuple[float, int, dict[str, float]]] = {}
 
+#: Version of the :func:`_volume_stats` payload. Bump when a key is added or its meaning changes:
+#: an on-disk sidecar written by an older toolbox is then ignored and recomputed rather than
+#: silently answering a question it was never asked (e.g. a sidecar from before ``p2``/``p98``
+#: existed would otherwise window every T1 at ``None``).
+_STATS_VERSION = 2
+
+#: Statistics keys every current sidecar must carry to be usable.
+_STATS_KEYS = (
+    "min",
+    "max",
+    "nz_lo",
+    "p2",
+    "p50",
+    "p95",
+    "p98",
+    "p99",
+    "p999",
+    "nz_hi",
+    "abs_p99",
+    "has_nonzero",
+)
+
+
+def stats_cache_dir() -> str | None:
+    """Where the on-disk statistics sidecars live, or ``None`` with no project open.
+
+    ``<project>/code/ti-toolbox/viewer/cache``. Beside the scene documents the Viewer already
+    writes, for the same reason they live there: the project is the unit people copy and archive,
+    and a window computed from a file belongs with that file's project rather than in a home
+    directory that does not travel with it.
+    """
+    try:
+        project = get_path_manager().project_dir
+    except Exception:  # noqa: BLE001 - a statistics cache must never break a view
+        return None
+    if not project:
+        return None
+    return os.path.join(str(project), "code", "ti-toolbox", "viewer", "cache")
+
+
+def _stats_sidecar_path(path: str) -> str | None:
+    """The sidecar file for *path*, or ``None`` with no project open.
+
+    Named by a hash of the absolute path rather than mirroring the tree: two projects can mount
+    the same derivatives directory at different absolute paths, and the sidecar has to be keyed by
+    the path the reader actually opened.
+    """
+    directory = stats_cache_dir()
+    if directory is None:
+        return None
+    digest = hashlib.sha256(os.path.abspath(path).encode("utf-8")).hexdigest()[:32]
+    return os.path.join(directory, f"{digest}.stats.json")
+
+
+def _read_stats_sidecar(path: str, st: os.stat_result) -> dict[str, float] | None:
+    """The sidecar's statistics for *path* if it describes *this* version of the file.
+
+    Invalidated by ``(size, mtime_ns)`` -- ``mtime_ns`` rather than ``mtime`` because a simulation
+    can rewrite a volume inside one filesystem-clock tick -- and by ``_STATS_VERSION``. Any
+    unreadable, truncated or hand-edited sidecar is a miss, never an error: the cost of a miss is
+    one volume read, and the cost of trusting a bad one is a wrong window on screen.
+    """
+    target = _stats_sidecar_path(path)
+    if target is None:
+        return None
+    try:
+        with open(target, encoding="utf-8") as handle:
+            body = json.load(handle)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(body, dict):
+        return None
+    if body.get("version") != _STATS_VERSION:
+        return None
+    if body.get("size") != st.st_size or body.get("mtime_ns") != st.st_mtime_ns:
+        return None
+    stats = body.get("stats")
+    if not isinstance(stats, dict) or not all(k in stats for k in _STATS_KEYS):
+        return None
+    try:
+        return {k: float(v) for k, v in stats.items()}
+    except (TypeError, ValueError):
+        return None
+
+
+def _write_stats_sidecar(path: str, st: os.stat_result, stats: dict[str, float]) -> None:
+    """Persist *stats* beside the project, best-effort.
+
+    Best-effort on purpose: a read-only project, a full disk or a race with another process are
+    all reasons to have no sidecar, and none of them is a reason to fail a view. Written whole and
+    renamed so a concurrent reader never parses half a document.
+    """
+    target = _stats_sidecar_path(path)
+    if target is None:
+        return
+    document = {
+        "version": _STATS_VERSION,
+        "path": os.path.abspath(path),
+        "size": st.st_size,
+        "mtime_ns": st.st_mtime_ns,
+        "stats": stats,
+    }
+    try:
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        tmp = f"{target}.{os.getpid()}.partial"
+        with open(tmp, "w", encoding="utf-8") as handle:
+            json.dump(document, handle)
+        os.replace(tmp, target)
+    except OSError:
+        return
+
 
 def _volume_stats(path: str) -> dict[str, float] | None:
     """min/max and a few percentiles of *path*'s non-zero voxels, or ``None``.
 
     The one place this module reads voxel data -- deliberately: a real
-    ``Scale`` needs concrete numbers (see the module note above), and reading
-    one NIfTI is cheap. Any failure (missing file, unreadable, no numpy/
-    nibabel in this environment, an all-zero/all-NaN volume) yields ``None``
+    ``Scale`` needs concrete numbers (see the module note above). Any failure (missing file,
+    unreadable, no numpy/nibabel in this environment, an all-zero/all-NaN volume) yields ``None``
     rather than raising; callers fall back to a documented generic range.
+
+    **Two caches, because one was not enough** (maintainer, 2026-09-07: "there is still a lot of
+    loading time once the user starts manipulating the input data"). Reading a simulation's five
+    volumes costs ~16 s -- ``nibabel`` inflates the whole gzip stream and ``numpy`` sorts it for
+    each percentile -- and the in-process ``_stats_cache`` made that cost *once per server
+    process*. Under ``--reload``, and on every app start, that is once per sitting: exactly the
+    wait a person notices. So the same answer is also written to an on-disk sidecar
+    (:func:`stats_cache_dir`), which survives the process. A file that has not changed has the
+    same statistics, so the sidecar is keyed by ``(size, mtime_ns)`` and needs no invalidation
+    hook.
+
+    Nothing here is sampled. A percentile taken from a subsample is a different number, and the
+    window it produces is what the reader actually sees.
     """
     try:
         st = os.stat(path)
@@ -1435,11 +1642,19 @@ def _volume_stats(path: str) -> dict[str, float] | None:
     cached = _stats_cache.get(path)
     if cached is not None and cached[0] == st.st_mtime and cached[1] == st.st_size:
         return cached[2]
+
+    from_disk = _read_stats_sidecar(path, st)
+    if from_disk is not None:
+        _stats_cache[path] = (st.st_mtime, st.st_size, from_disk)
+        return from_disk
+
     try:
         import nibabel as nib
         import numpy as np
 
-        data = np.asarray(nib.load(path).dataobj)
+        image = nib.load(path)
+        data = np.asarray(image.dataobj)
+        affine = np.asarray(image.affine, dtype=float)
     except Exception:  # noqa: BLE001 - never let an unreadable volume break the scene
         return None
     finite = data[np.isfinite(data)]
@@ -1447,61 +1662,385 @@ def _volume_stats(path: str) -> dict[str, float] | None:
         return None
     nonzero = finite[finite != 0]
     sample = nonzero if nonzero.size else finite
-    p0, p50, p95, p999, p100 = np.percentile(sample, [0, 50, 95, 99.9, 100])
+    p0, p2, p50, p95, p98, p99, p999, p100 = np.percentile(
+        sample, [0, 2, 50, 95, 98, 99, 99.9, 100]
+    )
     stats = {
         "min": float(finite.min()),
         "max": float(finite.max()),
         "nz_lo": float(p0),
+        "p2": float(p2),
         "p50": float(p50),
         "p95": float(p95),
+        "p98": float(p98),
+        "p99": float(p99),
         "p999": float(p999),
         "nz_hi": float(p100),
+        # Whether the percentiles above describe *non-zero* voxels or a volume that has none.
+        # An all-zero volume is a real, stable answer about a file -- a simulation that produced
+        # nothing in this tissue, say -- but its window is [0, 0], which is not a window. Callers
+        # need to tell that apart from a genuinely constant non-zero volume, and only this read
+        # knows which it was.
+        "has_nonzero": 1.0 if nonzero.size else 0.0,
     }
+    # A signed statistic map is windowed symmetrically about zero, so its window needs the 99th
+    # percentile of |value| -- not of the signed values, whose 99th percentile says nothing about
+    # how far the negative tail runs.
+    stats["abs_p99"] = float(np.percentile(np.abs(sample), 99))
+    # Where the volume peaks, in world RAS mm. Free here (the array is already in memory and the
+    # affine is the header's) and it is what puts the crosshair on the hotspot instead of on the
+    # scanner origin, which for a subject-space head volume is a corner of the field of view.
+    # Computed on a NaN-safe copy: `argmax` on an array with a NaN answers the NaN.
+    try:
+        safe = np.nan_to_num(data, nan=-np.inf, posinf=-np.inf, neginf=-np.inf)
+        ijk = np.unravel_index(int(np.argmax(safe)), safe.shape[:3])
+        world = affine @ np.array(
+            [float(ijk[0]), float(ijk[1]), float(ijk[2]), 1.0], dtype=float
+        )
+        if np.all(np.isfinite(world[:3])):
+            stats["max_x"] = float(world[0])
+            stats["max_y"] = float(world[1])
+            stats["max_z"] = float(world[2])
+    except Exception:  # noqa: BLE001 - a missing hotspot is a default cursor, not a failure
+        pass
     _stats_cache[path] = (st.st_mtime, st.st_size, stats)
+    _write_stats_sidecar(path, st, stats)
     return stats
 
 
-def _volume_scale(path: str, *, role: str) -> dict[str, Any]:
-    """A concrete engine ``Scale`` for one volume layer.
+# path -> (mtime, size, bounds). Same shape and lifetime as `_stats_cache`, and cleared with it.
+# A header read is milliseconds rather than seconds, but it is milliseconds on *every* resolve of
+# *every* layer, and the warm resolve this whole change exists to produce is ~14 ms in total.
+_bounds_cache: dict[str, tuple[float, int, tuple[list[float], list[float]] | None]] = {}
 
-    ``role == "field"`` (a heat overlay, e.g. TI_max/magnE) gets the engine's
-    own ``{kind:'heat', min, mid, max, ...}``, windowed at the 0th/95th/99.9th
-    percentile of the file's non-zero voxels -- the same 95/99.9 window
-    ``to_freeview_args``'s ``heatscale`` resolves to
-    (``_DEFAULT_PERCENTILE``), expressed the way ``VolumeLayer.scale``
-    requires it (an absolute triple, not a percentile pair the client
-    resolves). Everything else (base T1, an atlas/label volume, the
-    electrode overlay) gets a plain ``{kind:'linear', lo, hi}`` over the
-    file's own min/max, which is what every real base-layer scene in the
-    tetravox app's own fixtures carries. A file :func:`_volume_stats` could
-    not read falls back to a generic, documented placeholder range rather
-    than failing the whole scene.
+
+def _volume_bounds(path: str) -> tuple[list[float], list[float]] | None:
+    """*path*'s world-RAS bounding box as ``(min_xyz, max_xyz)``, from the **header alone**.
+
+    No voxel is read: the eight corners of the voxel grid are pushed through the affine and the
+    extremes taken. That matters because this is on the resolve path -- inflating a 240x512x512
+    float volume to learn how big it is would cost about a second per file for an answer the
+    header already gives exactly.
+    """
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    cached = _bounds_cache.get(path)
+    if cached is not None and cached[0] == st.st_mtime and cached[1] == st.st_size:
+        return cached[2]
+    bounds = _read_volume_bounds(path)
+    _bounds_cache[path] = (st.st_mtime, st.st_size, bounds)
+    return bounds
+
+
+def _read_volume_bounds(path: str) -> tuple[list[float], list[float]] | None:
+    """:func:`_volume_bounds` without the cache."""
+    try:
+        import nibabel as nib
+        import numpy as np
+
+        image = nib.load(path)
+        shape = tuple(int(n) for n in image.shape[:3])
+        affine = np.asarray(image.affine, dtype=float)
+    except Exception:  # noqa: BLE001 - an unmeasurable volume just does not vote on the fit
+        return None
+    if len(shape) < 3 or any(n <= 0 for n in shape):
+        return None
+    # Voxel *centres* run 0..n-1; the grid's outer face is half a voxel beyond each end.
+    lo = [-0.5, -0.5, -0.5]
+    hi = [shape[0] - 0.5, shape[1] - 0.5, shape[2] - 0.5]
+    corners = []
+    for i in (lo[0], hi[0]):
+        for j in (lo[1], hi[1]):
+            for k in (lo[2], hi[2]):
+                corners.append([i, j, k, 1.0])
+    world = (affine @ np.asarray(corners, dtype=float).T).T[:, :3]
+    if not bool(np.all(np.isfinite(world))):
+        return None
+    return ([float(v) for v in world.min(axis=0)], [float(v) for v in world.max(axis=0)])
+
+
+def _scene_bounds(paths: list[str]) -> tuple[list[float], list[float]] | None:
+    """The union of every readable volume's world bounding box, or ``None``."""
+    lo: list[float] | None = None
+    hi: list[float] | None = None
+    for path in paths:
+        if _scene_is_mesh(path):
+            # A .msh's extent lives in its 24-420 MB body; the sibling volumes cover the same head.
+            continue
+        box = _volume_bounds(path)
+        if box is None:
+            continue
+        if lo is None or hi is None:
+            lo, hi = list(box[0]), list(box[1])
+        else:
+            lo = [min(a, b) for a, b in zip(lo, box[0])]
+            hi = [max(a, b) for a, b in zip(hi, box[1])]
+    if lo is None or hi is None:
+        return None
+    return lo, hi
+
+
+#: The 2D pane size the server fits for, in pixels (the short edge).
+#:
+#: The server cannot know the real pane size -- the window has not been laid out when the scene is
+#: written, and the same scene file is opened later at whatever size the app happens to be. 512 is
+#: the engine's *own* fallback for exactly this situation (``engine.ts#onFirstDataset``, when no
+#: rect has been measured yet), so fitting for it puts the scene at the zoom the engine would have
+#: chosen itself, and the reader's first wheel notch moves from there rather than from a default
+#: that ignores the data entirely.
+_FIT_PANE_PX = 512
+
+
+def _fit_mm_per_px(bounds: tuple[list[float], list[float]], px: int) -> float:
+    """The engine's own 2D fit, recomputed server-side.
+
+    Deliberately identical to ``@tetravox/engine``'s ``fitMmPerPx``
+    (``packages/engine/src/view/geometry.ts``): ``max(0.05, diag * 0.62 / px)``. It is duplicated
+    rather than approximated because the number this returns is the one the engine treats as the
+    pane's *fit reference* -- the zero point its corner ``ZOOM`` readout and its ``r`` reset both
+    measure from (``engine.ts::setView``). A close-but-different number would make a freshly
+    opened scene read as already zoomed.
+
+    **Why the server has to send this at all.** The engine fits a pane only in
+    ``#onFirstDataset``, and only when ``datasets.size === 1``. Every scene this module writes
+    carries four or five datasets, so that branch never runs and every pane kept the default
+    0.5 mm/px -- which is what "the head is a small square in each pane" was (maintainer,
+    2026-09-07).
+    """
+    lo, hi = bounds
+    diag = math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2])
+    return max(0.05, (diag * 0.62) / max(1, px))
+
+
+def _fit_camera(
+    camera: dict[str, Any], bounds: tuple[list[float], list[float]]
+) -> dict[str, Any]:
+    """The engine's ``fitCamera`` for the 3D pane: target the box, back off to contain it.
+
+    Mirrors ``packages/engine/src/view/geometry.ts::fitCamera`` --
+    ``distance = radius / sin(fovY/2)``, ``near = max(1, fitRadius/1000)``, ``far = radius * 8``.
+    """
+    lo, hi = bounds
+    center = [(lo[i] + hi[i]) / 2.0 for i in range(3)]
+    radius = max(1.0, 0.5 * math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]))
+    fov = float(camera.get("fovYDeg", 35.0))
+    distance = radius / max(1e-3, math.sin(math.radians(fov) * 0.5))
+    return {
+        **camera,
+        "target": center,
+        "distance": distance,
+        "near": max(1.0, radius / 1000.0),
+        "far": radius * 8.0,
+    }
+
+
+def prefetch_volume_stats(paths: list[str]) -> None:
+    """Warm :func:`_volume_stats` for *paths* concurrently.
+
+    Reading a NIfTI and computing a percentile both release the GIL for nearly all of their time,
+    so the four volumes of a typical simulation scene cost about as long as the slowest one rather
+    than the sum of all four. This is the *cold* half of the fix; the sidecar is the warm half.
+    """
+    import concurrent.futures
+
+    pending = [p for p in dict.fromkeys(paths) if not _scene_is_mesh(p)]
+    if len(pending) < 2:
+        for path in pending:
+            _volume_stats(path)
+        return
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(4, len(pending))) as ex:
+        list(ex.map(_volume_stats, pending))
+
+
+#: Basename markers of a **signed statistic** map -- a t-map, a z-map, a Cohen's d, a paired
+#: difference. Such a volume is not a field magnitude: its sign carries the finding, so a heat
+#: window anchored at a positive percentile with ``negative: 'hide'`` would delete exactly half
+#: the result. These get a symmetric window about zero instead (see :func:`_volume_window`).
+_STAT_MAP_MARKERS = (
+    "_tstat",
+    "_tmap",
+    "_t_map",
+    "tstat_",
+    "_zstat",
+    "_zmap",
+    "_z_map",
+    "cohens_d",
+    "cohen_d",
+    "_diff",
+    "_difference",
+)
+
+
+def _is_stat_map(path: str) -> bool:
+    """Whether *path*'s basename marks it a signed statistic map."""
+    name = os.path.basename(path).lower()
+    return any(marker in name for marker in _STAT_MAP_MARKERS)
+
+
+def _volume_window(path: str, *, role: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    """A concrete engine ``(Scale, Threshold)`` pair for one volume layer.
+
+    The defaults a scene opens at, and the reason this function exists at all (maintainer,
+    2026-09-07: "for some reason it provides it with some very strange defaults ... it would be
+    much more reasonable to set more logical thresholds, for example 95 to 99.9 of the electric
+    field"). One rule per kind of thing a layer can be:
+
+    **field** -- TI_max, TI_normal, mTI_max, an E-field magnitude. ``{kind:'heat'}`` windowed
+    ``[p95, p99.9]`` of the non-zero voxels, with ``threshold.lo = p95`` and ``mode: 'hide'`` so
+    everything below the 95th percentile is transparent rather than a wash of low colour over the
+    whole head. This is the change: the window used to open at ``min = nz_lo``, the smallest
+    non-zero voxel in the file -- ``5.08e-09`` V/m for ``sub-101/L_Insula`` -- which is not a
+    threshold at all, it is "show every voxel that is not exactly zero", and it is why the
+    overlay covered the brain uniformly. ``mid`` sits at the midpoint of the visible window, which
+    is what makes the colour ramp span it rather than saturate at one end.
+
+    **stat** -- a signed t/z/d map (:func:`_is_stat_map`). Symmetric ``[-|v|p99, +|v|p99]``, linear,
+    ``negative`` kept: the sign is the finding.
+
+    **base** -- the T1. ``[p2, p98]`` rather than the file's own ``[min, max]``. A T1's max is a
+    handful of bright scalp-fat or artefact voxels (3238 for ``sub-101``, against a p98 near 900),
+    so windowing to the full range makes the brain read as uniform dark grey -- the "very strange
+    defaults" complaint applies to the anatomy as much as to the overlay.
+
+    **atlas / electrodes** -- a label volume, windowed at its exact ``[min, max]``. Deliberately
+    *not* percentile-windowed: these are integer region indices addressed through a LUT, and a
+    window that clips them makes two different regions the same colour.
+
+    A file :func:`_volume_stats` could not read falls back to a generic, documented placeholder
+    range rather than failing the whole scene.
     """
     stats = _volume_stats(path)
+    if stats is not None and not stats.get("has_nonzero", 1.0):
+        # Every voxel is zero, so every percentile is zero and every window derived from them has
+        # zero width -- which renders nothing at all. Treat it exactly like a file that could not
+        # be read: fall back to the documented generic range, so the layer is still there to be
+        # windowed by hand.
+        stats = None
+
+    if role == "field" and _is_stat_map(path):
+        role = "stat"
+
     if role == "field":
         if stats is None:
-            return {
+            return (
+                {
+                    "kind": "heat",
+                    "min": 0.0,
+                    "mid": 0.5,
+                    "max": 1.0,
+                    "truncate": False,
+                    "inverse": False,
+                    "negative": "hide",
+                },
+                dict(_ZERO_THRESHOLD),
+            )
+        lo = stats["p95"]
+        hi = stats["p999"] if stats["p999"] > lo else stats["max"]
+        if not hi > lo:
+            # A near-constant field (or a mask): fall back to the file's own range so the layer
+            # still renders instead of collapsing to a zero-width window that shows nothing.
+            lo, hi = stats["nz_lo"], stats["max"]
+        return (
+            {
                 "kind": "heat",
-                "min": 0.0,
-                "mid": 0.5,
-                "max": 1.0,
+                "min": lo,
+                "mid": (lo + hi) / 2.0,
+                "max": hi,
                 "truncate": False,
                 "inverse": False,
                 "negative": "hide",
-            }
-        top = stats["p999"] if stats["p999"] > stats["p95"] else stats["max"]
-        return {
-            "kind": "heat",
-            "min": stats["nz_lo"],
-            "mid": stats["p95"],
-            "max": top,
-            "truncate": False,
-            "inverse": False,
-            "negative": "hide",
-        }
+            },
+            {
+                "lo": lo,
+                "hi": None,
+                "symmetric": False,
+                # `hide`, not `clamp`: clamping paints every sub-threshold voxel at the bottom
+                # colour, which is the wash. `hide` makes them transparent. EMBED.md §(a) uses
+                # exactly this pair for a heat field layer.
+                "mode": "hide",
+                "softEdge": 0.0,
+            },
+        )
+
+    if role == "stat":
+        extent = 1.0
+        if stats is not None:
+            extent = stats.get("abs_p99") or max(abs(stats["min"]), abs(stats["max"]))
+        if not extent > 0:
+            extent = 1.0
+        return (
+            {"kind": "linear", "lo": -extent, "hi": extent},
+            dict(_ZERO_THRESHOLD),
+        )
+
     if stats is None:
-        return {"kind": "linear", "lo": 0.0, "hi": 1.0}
-    return {"kind": "linear", "lo": stats["min"], "hi": stats["max"]}
+        return ({"kind": "linear", "lo": 0.0, "hi": 1.0}, dict(_ZERO_THRESHOLD))
+
+    if role == "base":
+        lo, hi = stats["p2"], stats["p98"]
+        if not hi > lo:
+            lo, hi = stats["min"], stats["max"]
+        return ({"kind": "linear", "lo": lo, "hi": hi}, dict(_ZERO_THRESHOLD))
+
+    return (
+        {"kind": "linear", "lo": stats["min"], "hi": stats["max"]},
+        dict(_ZERO_THRESHOLD),
+    )
+
+
+#: Tissue prefixes SimNIBS puts on both a masked field volume and the matching surface mesh.
+_TISSUE_PREFIXES = ("grey_", "gray_", "white_")
+
+
+def _tissue_prefix(name: str) -> str | None:
+    """``grey_`` for ``grey_L_Insula_TI.msh``, ``None`` for a whole-head file."""
+    lowered = name.lower()
+    for prefix in _TISSUE_PREFIXES:
+        if lowered.startswith(prefix):
+            # `gray_`/`grey_` are the same tissue spelled two ways; normalise so a `gray_` mesh
+            # still finds its `grey_` volume.
+            return "grey_" if prefix in ("grey_", "gray_") else prefix
+    return None
+
+
+def _bounds_for_mesh(
+    mesh_name: str, field_volumes: list[dict[str, Any]]
+) -> tuple[float, float] | None:
+    """The window for a mesh layer: **its own tissue's** volume, not just the first field found.
+
+    A field ``.msh`` is 24-420 MB, so its element values are never read (see
+    :func:`_mesh_scale_and_threshold`) and the window is borrowed from the sibling NIfTI carrying
+    the same physical field. *Which* sibling matters more than it looks. A simulation scene holds
+    the whole-head field **and** its grey- and white-matter masked copies, whose ranges differ by
+    an order of magnitude -- ``sub-101/L_Insula`` is ``[0.254, 3.34]`` whole-head against
+    ``[0.087, 0.139]`` in grey matter. Borrowing the first one found put the GM surface's entire
+    value range below the bottom of its own colour ramp, and the mesh rendered a uniform blue with
+    every element under its threshold (screenshot, 2026-09-07).
+
+    So: match the tissue prefix first (``grey_L_Insula_TI.msh`` -> ``grey_..._TI_max.nii.gz``),
+    fall back to the visible field layer, then to any field layer at all.
+    """
+    if not field_volumes:
+        return None
+
+    def window(layer: dict[str, Any]) -> tuple[float, float]:
+        scale, _ = _volume_window(layer["path"], role="field")
+        if scale["kind"] == "heat":
+            return float(scale["min"]), float(scale["max"])
+        return float(scale["lo"]), float(scale["hi"])
+
+    prefix = _tissue_prefix(mesh_name)
+    if prefix is not None:
+        for layer in field_volumes:
+            if _tissue_prefix(os.path.basename(layer["path"])) == prefix:
+                return window(layer)
+
+    for layer in field_volumes:
+        if layer.get("visible", True):
+            return window(layer)
+    return window(field_volumes[0])
 
 
 def _mesh_scale_and_threshold(
@@ -1526,8 +2065,12 @@ def _mesh_scale_and_threshold(
     return (
         {"kind": "linear", "lo": lo, "hi": hi},
         {
-            "lo": 0.0,
-            "hi": hi * 1.5,
+            # The same p95 floor the sibling volume layer gets, for the same reason: the mesh
+            # carries the same field, and a surface coloured from zero is a surface where the
+            # hotspot is one shade among many. `hi` stays open (`null` reads back as +Infinity)
+            # so nothing above the window is deleted, only compressed to the top colour.
+            "lo": lo,
+            "hi": None,
             "symmetric": False,
             "mode": "clamp",
             "softEdge": 0.0,
@@ -1570,19 +2113,27 @@ def to_tetravox_viewspec(spec: dict[str, Any]) -> dict[str, Any]:
     """
     layer_specs = spec.get("layers", [])
 
+    # Read every volume's statistics **at once** rather than one at a time down the layer loop.
+    # Each read is an inflate-plus-sort that releases the GIL, so four of them cost about as long
+    # as the slowest rather than the sum -- and after the first time they cost a sidecar read.
+    prefetch_volume_stats([layer["path"] for layer in layer_specs])
+
     # A sibling NIfTI field layer's resolved window, reused as the mesh's own
-    # approximate scale/threshold (see _mesh_scale_and_threshold).
-    field_bounds: tuple[float, float] | None = None
-    for layer in layer_specs:
-        path = layer["path"]
-        if _scene_is_mesh(path):
-            continue
-        if _scene_role(path, layer.get("colormap", "grayscale")) != "field":
-            continue
-        stats = _volume_stats(path)
-        if stats is not None:
-            top = stats["p999"] if stats["p999"] > stats["p95"] else stats["max"]
-            field_bounds = (stats["nz_lo"], top)
+    # approximate scale/threshold (see _mesh_scale_and_threshold), and the volume whose peak the
+    # crosshair is placed on.
+    field_volumes: list[dict[str, Any]] = [
+        layer
+        for layer in layer_specs
+        if not _scene_is_mesh(layer["path"])
+        and _scene_role(layer["path"], layer.get("colormap", "grayscale")) == "field"
+        and _volume_stats(layer["path"]) is not None
+    ]
+
+    field_peak: list[float] | None = None
+    for layer in field_volumes:
+        stats = _volume_stats(layer["path"])
+        if stats is not None and all(k in stats for k in ("max_x", "max_y", "max_z")):
+            field_peak = [stats["max_x"], stats["max_y"], stats["max_z"]]
             break
 
     datasets: list[dict[str, Any]] = []
@@ -1625,7 +2176,9 @@ def to_tetravox_viewspec(spec: dict[str, Any]) -> dict[str, Any]:
         }
 
         if is_mesh:
-            scale, threshold = _mesh_scale_and_threshold(field_bounds)
+            scale, threshold = _mesh_scale_and_threshold(
+                _bounds_for_mesh(name, field_volumes)
+            )
             layers.append(
                 {
                     **base_fields,
@@ -1669,14 +2222,22 @@ def to_tetravox_viewspec(spec: dict[str, Any]) -> dict[str, Any]:
                 }
             )
         else:
+            volume_scale, volume_threshold = _volume_window(path, role=role)
+            if role == "field":
+                # A signed statistic map is windowed symmetrically about zero, so it needs a
+                # diverging ramp: `turbo` would give its most saturated colour to the most
+                # negative voxel and read as a strong positive finding.
+                volume_colormap = "coolwarm" if _is_stat_map(path) else "turbo"
+            else:
+                volume_colormap = "gray"
             layers.append(
                 {
                     **base_fields,
                     "kind": "volume",
                     "volumeIndex": 0,
-                    "colormap": "turbo" if role == "field" else "gray",
-                    "scale": _volume_scale(path, role=role),
-                    "threshold": dict(_ZERO_THRESHOLD),
+                    "colormap": volume_colormap,
+                    "scale": volume_scale,
+                    "threshold": volume_threshold,
                     "interpolation": "nearest" if is_label else "linear",
                     "labelMode": "fill",
                     "outlineWidthPx": 2.0 if is_label else 1.0,
@@ -1684,6 +2245,14 @@ def to_tetravox_viewspec(spec: dict[str, Any]) -> dict[str, Any]:
                     "precision": "auto",
                 }
             )
+
+    # A layout that reserves a 3D pane and a mesh nobody can see is an empty 3D pane -- which is
+    # what the maintainer got (2026-09-07: "the 3-D pane empty"). The layout below gives the mesh
+    # a pane precisely *because* the scene has one, so the two decisions have to agree: if a mesh
+    # is the reason for the 3D pane, the mesh is visible.
+    mesh_layers = [la for la in layers if la["kind"] == "mesh"]
+    if mesh_layers and not any(la["visible"] for la in mesh_layers):
+        mesh_layers[0]["visible"] = True
 
     visible_ids = [la["id"] for la in layers if la["visible"]]
     active_layer_id = (
@@ -1696,8 +2265,26 @@ def to_tetravox_viewspec(spec: dict[str, Any]) -> dict[str, Any]:
         ["view3d", "axial"] if has_mesh else ["axial", "coronal", "sagittal", "view3d"]
     )
 
+    # Where the crosshair lands, in order of how much it knows about what the reader came to see:
+    #
+    # 1. the spec's own cursor -- an analysis or an optimisation carries its ROI centre, and that
+    #    is the exact place the result is *about*;
+    # 2. the field's peak voxel -- for a plain simulation there is no ROI, and the hotspot is the
+    #    one place a reader always wants first;
+    # 3. the scene's bounding-box centre -- no field, so at least land in the middle of the head.
+    #
+    # What it must not be is the old unconditional `[0, 0, 0]`: world RAS zero is the scanner
+    # origin, which for a subject-space head volume is off in a corner of the field of view.
     cursor_raw = spec.get("cursor")
-    cursor = [float(c) for c in cursor_raw] if cursor_raw else [0.0, 0.0, 0.0]
+    bounds = _scene_bounds([layer["path"] for layer in layer_specs])
+    if cursor_raw:
+        cursor = [float(c) for c in cursor_raw]
+    elif field_peak is not None:
+        cursor = [float(c) for c in field_peak]
+    elif bounds is not None:
+        cursor = [(bounds[0][i] + bounds[1][i]) / 2.0 for i in range(3)]
+    else:
+        cursor = [0.0, 0.0, 0.0]
     # The mesh clip plane's offset tracks the scene cursor at load time (the
     # engine keeps it in sync afterwards via followCursor); a scene with no
     # cursor clips through the origin, matching cursor's own [0,0,0] default.
@@ -1710,8 +2297,27 @@ def to_tetravox_viewspec(spec: dict[str, Any]) -> dict[str, Any]:
         "datasets": datasets,
         "layers": layers,
         "activeLayerId": active_layer_id,
-        "slices": [dict(s, camera=dict(s["camera"])) for s in _DEFAULT_SLICES],
-        "view3d": {**_DEFAULT_VIEW3D, "camera": dict(_DEFAULT_VIEW3D["camera"])},
+        # Fitted to the data, not left at the engine's 0.5 mm/px default -- see _fit_mm_per_px for
+        # why the engine's own fit never runs for a scene this module writes.
+        "slices": [
+            dict(
+                s,
+                camera=(
+                    {"center": [0.0, 0.0], "mmPerPx": _fit_mm_per_px(bounds, _FIT_PANE_PX)}
+                    if bounds is not None
+                    else dict(s["camera"])
+                ),
+            )
+            for s in _DEFAULT_SLICES
+        ],
+        "view3d": {
+            **_DEFAULT_VIEW3D,
+            "camera": (
+                _fit_camera(dict(_DEFAULT_VIEW3D["camera"]), bounds)
+                if bounds is not None
+                else dict(_DEFAULT_VIEW3D["camera"])
+            ),
+        },
         "layout": {"kind": layout_kind, "cells": layout_cells},
         "cursor": cursor,
         "radiological": False,

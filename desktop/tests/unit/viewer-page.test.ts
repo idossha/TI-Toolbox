@@ -17,6 +17,7 @@ import {
   controlsFor,
   containerPaths,
   formatBytes,
+  formatFieldValue,
   pushRecent,
   readRecents,
   reorder,
@@ -28,6 +29,7 @@ import {
   selectionKey,
   validateSelection,
   viewQuery,
+  windowSummary,
   type ViewerSelection,
 } from "../../src/renderer/pages/viewer/lib";
 
@@ -246,5 +248,56 @@ describe("recents", () => {
   it("survives unreadable storage rather than throwing", () => {
     window.localStorage.setItem("tit.viewer.recents", "{not json");
     expect(readRecents()).toEqual([]);
+  });
+});
+
+describe("formatFieldValue", () => {
+  it("keeps three significant figures across the range a TI field actually spans", () => {
+    // Fixed decimals are wrong at one end or the other: 2 turns 0.0042 into "0.00", and 4 turns
+    // 3.34 into "3.3401", which reads as a measurement far more precise than the percentile it
+    // came from.
+    expect(formatFieldValue(3.3401404163837958)).toBe("3.34");
+    expect(formatFieldValue(0.25388869643211365)).toBe("0.254");
+    expect(formatFieldValue(0.0042)).toBe("0.0042");
+    expect(formatFieldValue(0)).toBe("0");
+  });
+
+  it("says so rather than printing NaN", () => {
+    expect(formatFieldValue(Number.NaN)).toBe("—");
+    expect(formatFieldValue(Number.POSITIVE_INFINITY)).toBe("—");
+  });
+});
+
+describe("windowSummary", () => {
+  const heat = (min: number, max: number, visible = true) => ({
+    kind: "volume",
+    visible,
+    scale: { kind: "heat", min, max },
+  });
+
+  it("names the window the overlay will open at, before anything is opened", () => {
+    // The maintainer could only see the defaults after the viewer had opened, in another
+    // application's window. This is the card saying them first.
+    expect(windowSummary([heat(0.25388869643211365, 3.3401404163837958)])).toBe("p95–p99.9 · 0.254–3.34 V/m");
+  });
+
+  it("describes the layer a person is actually looking at, not a hidden one", () => {
+    // A simulation scene carries the whole-head and WM copies of the field as hidden layers.
+    // Summarising one of those would describe a window nobody can see.
+    const layers = [heat(9.9, 99.9, false), heat(0.1, 1.5, true)];
+    expect(windowSummary(layers)).toBe("p95–p99.9 · 0.1–1.5 V/m");
+  });
+
+  it("says nothing when the scene has no field overlay to describe", () => {
+    // Subject anatomy: a grey T1 and a label volume. A "window" line here would be noise.
+    expect(windowSummary([{ kind: "volume", visible: true, scale: { kind: "linear", lo: 1, hi: 715 } }])).toBeNull();
+    expect(windowSummary([])).toBeNull();
+    expect(windowSummary(undefined)).toBeNull();
+  });
+
+  it("degrades to no summary on a scene shape it does not recognise", () => {
+    // `ViewerOpen.view` is the embed's document, whose layer union is wider than this reads.
+    expect(windowSummary([{ kind: "mesh", visible: true }])).toBeNull();
+    expect(windowSummary([{ kind: "volume", visible: true, scale: { kind: "heat" } }])).toBeNull();
   });
 });

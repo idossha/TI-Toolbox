@@ -613,9 +613,20 @@ def _fake_volume(monkeypatch, tmp_path):
     path.write_bytes(b"not really a nifti, but it has a size and an mtime")
     reads: list[str] = []
 
+    # `dataobj`/`affine` as well as `get_fdata`, because the two percentile paths were joined:
+    # a window `_volume_stats` computes is answered from *its* read (`dataobj`), and only a window
+    # outside its fixed set falls through to the older `get_fdata` one. A fake carrying just
+    # `get_fdata` would make `_volume_stats` fail and quietly measure the fallback in every test.
+    voxels = np.array([0, 1, 2, 3, 4, 100], dtype=float)
+
     def _load(p):
         reads.append(str(p))
-        return types.SimpleNamespace(get_fdata=lambda: np.array([0, 1, 2, 3, 4, 100]))
+        return types.SimpleNamespace(
+            get_fdata=lambda: voxels,
+            dataobj=voxels,
+            affine=np.eye(4),
+            shape=voxels.shape,
+        )
 
     monkeypatch.setitem(sys.modules, "nibabel", types.SimpleNamespace(load=_load))
     viewspec.clear_percentile_cache()
@@ -696,7 +707,10 @@ def test_an_unreadable_volume_is_not_cached(monkeypatch, tmp_path) -> None:
         attempts.append(str(p))
         if not ok:
             raise OSError("truncated file")
-        return types.SimpleNamespace(get_fdata=lambda: np.array([0, 1, 2, 3, 4, 100]))
+        voxels = np.array([0, 1, 2, 3, 4, 100], dtype=float)
+        return types.SimpleNamespace(
+            get_fdata=lambda: voxels, dataobj=voxels, affine=np.eye(4), shape=voxels.shape
+        )
 
     monkeypatch.setitem(sys.modules, "nibabel", types.SimpleNamespace(load=_load))
     viewspec.clear_percentile_cache()
@@ -729,7 +743,10 @@ def test_an_all_zero_volume_caches_its_none(monkeypatch, tmp_path) -> None:
 
     def _load(p):
         reads.append(str(p))
-        return types.SimpleNamespace(get_fdata=lambda: np.zeros((4, 4)))
+        zeros = np.zeros((4, 4, 4))
+        return types.SimpleNamespace(
+            get_fdata=lambda: zeros, dataobj=zeros, affine=np.eye(4), shape=zeros.shape
+        )
 
     monkeypatch.setitem(sys.modules, "nibabel", types.SimpleNamespace(load=_load))
     viewspec.clear_percentile_cache()

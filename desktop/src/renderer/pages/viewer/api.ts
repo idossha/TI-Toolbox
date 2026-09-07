@@ -62,6 +62,15 @@ export interface OpenOptions {
   files?: string[];
   /** Resolve and answer; write nothing. The list's whole mechanism. */
   dry_run?: boolean;
+  /**
+   * Abort this resolve when it is superseded.
+   *
+   * A person changing Field walks through the intermediate values of a `<select>`, and each one
+   * used to start a resolve that nobody could stop. The last one to *answer* won, which is not
+   * the same as the last one asked — a slow earlier request could land after a fast later one and
+   * repaint the card with a list for a selection no longer on screen.
+   */
+  signal?: AbortSignal;
 }
 
 export async function openView(kind: ViewKind, query: ViewQuery, options: OpenOptions = {}): Promise<ViewerOpen> {
@@ -70,7 +79,7 @@ export async function openView(kind: ViewKind, query: ViewQuery, options: OpenOp
   // list, and sending one on every Open would step outside the guarantee for no gain.
   if (options.files) body.files = options.files;
   if (options.dry_run) body.dry_run = true;
-  return unwrap(await api.POST("/api/view/open", { body: body as never }), "/api/view/open");
+  return unwrap(await api.POST("/api/view/open", { body: body as never, signal: options.signal }), "/api/view/open");
 }
 
 /**
@@ -80,8 +89,13 @@ export async function openView(kind: ViewKind, query: ViewQuery, options: OpenOp
  * code from the thing it opens is a list that can be wrong, and the one moment this page must not
  * be wrong is the moment before another application's window covers someone's work.
  */
-export async function previewView(kind: ViewKind, query: ViewQuery, files?: string[]): Promise<ViewerOpen> {
-  return openView(kind, query, { files, dry_run: true });
+export async function previewView(
+  kind: ViewKind,
+  query: ViewQuery,
+  files?: string[],
+  signal?: AbortSignal,
+): Promise<ViewerOpen> {
+  return openView(kind, query, { files, dry_run: true, signal });
 }
 
 export type ViewerCandidate = components["schemas"]["ViewerCandidate"];

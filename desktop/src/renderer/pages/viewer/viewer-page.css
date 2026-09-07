@@ -180,6 +180,37 @@
   color: var(--ink-2);
 }
 
+/**
+ * The window the field overlay will open at — `p95–p99.9 · 0.25–3.34 V/m`.
+ *
+ * Tabular figures because the two numbers change as the reader steps through Field, and digits
+ * that shift width make a changing value read as a moving one.
+ */
+.viewer-card-window {
+  flex: 0 0 auto;
+  font-size: 11px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  padding: 1px var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/**
+ * The card is showing the *previous* selection's list while the current one resolves.
+ *
+ * Dimmed rather than replaced: the rows are still true of something, and a person who has just
+ * changed Field is looking at a list that is about to change by one or two entries. Blanking it
+ * made a 10 ms resolve look like a reload. `transition` on the way in only — coming back to full
+ * opacity should be instant, because that is the moment the list became correct again.
+ */
+.viewer-card[data-stale="true"] .viewer-files {
+  opacity: 0.45;
+  transition: opacity 120ms ease-out;
+}
+
 .viewer-card-actions {
   display: flex;
   align-items: center;

@@ -347,3 +347,59 @@ export function selectionLabel(selection: ViewerSelection): string {
   const parts = [selection.subject, selection.simulation, selection.analysis, selection.field, selection.path?.split("/").pop()].filter(Boolean);
   return [type, ...parts].join(" · ");
 }
+
+/**
+ * The shape of one resolved scene layer, as far as the "what will open" summary needs it.
+ *
+ * A hand-written subset, not the generated `ViewSpec` type: `ViewerOpen.view` is the embed's own
+ * document (`contracts/tetravox-viewspec-v2.schema.json`), whose layer union is wider than
+ * anything this page reads. Narrowing it here keeps the summary honest about how little it
+ * inspects, and every field is optional because the summary must degrade to "no summary" rather
+ * than throw on a scene shape it does not recognise.
+ */
+export interface ViewSceneLayer {
+  kind?: string;
+  visible?: boolean;
+  scale?: { kind?: string; min?: number; max?: number; lo?: number; hi?: number };
+}
+
+/**
+ * One field value, at a precision a person can read back off the screen.
+ *
+ * Electric fields in this toolbox span roughly 1e-3 to 1e1 V/m, so a fixed number of decimals is
+ * wrong at one end or the other: 2 decimals turns 0.0042 into "0.00", and 4 decimals turns 3.34
+ * into "3.3401", which reads as a measurement far more precise than the percentile it came from.
+ * Three significant figures says the same thing at both ends.
+ */
+export function formatFieldValue(value: number): string {
+  if (!Number.isFinite(value)) return "—";
+  if (value === 0) return "0";
+  const magnitude = Math.abs(value);
+  if (magnitude >= 100 || magnitude < 0.001) return value.toPrecision(3);
+  return String(Number(value.toPrecision(3)));
+}
+
+/**
+ * The window the field overlay will open at, in words — `p95–p99.9 · 0.25–3.34 V/m`, or `null`
+ * when the scene has no field layer to describe (subject anatomy, a label-only view).
+ *
+ * The maintainer's complaint about the defaults (2026-09-07) was only visible *after* opening the
+ * viewer, in another application's window. The numbers are decided at resolve time, so the "what
+ * will open" card can say them before anyone opens anything — and a default a person can read is
+ * one they can disagree with.
+ *
+ * Read off the **resolved scene** rather than recomputed from the selection: a summary derived by
+ * different code from the thing it describes is a summary that can be wrong, which is the same
+ * argument that made the file list share the Open endpoint.
+ *
+ * Only a *visible* heat layer counts. A scene carries the whole-head and WM copies of a field as
+ * hidden layers, and describing a window nobody is looking at would be worse than saying nothing.
+ */
+export function windowSummary(layers: ViewSceneLayer[] | undefined): string | null {
+  if (!layers) return null;
+  const field = layers.find((l) => l.kind === "volume" && l.visible === true && l.scale?.kind === "heat");
+  const min = field?.scale?.min;
+  const max = field?.scale?.max;
+  if (typeof min !== "number" || typeof max !== "number") return null;
+  return `p95–p99.9 · ${formatFieldValue(min)}–${formatFieldValue(max)} V/m`;
+}

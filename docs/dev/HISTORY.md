@@ -325,6 +325,54 @@ Viewer decisions dated one day apart.
   GIfTI copies nothing reads; job re-adoption does not survive a `--reload`; and
   `FlexConfig.output_folder` is the run name while ex/mEx use `run_name`.
 
+## 2026-09-07 — viewer defaults and resolve latency
+
+Three screenshots from the maintainer, of the Viewer Menu and of the scene it handed to Tetravox:
+*"there is still a lot of loading time once the user starts manipulating the input data ... it
+launches the selected input, but for some reason it provides it with some very strange defaults ...
+it would be much more reasonable to set more logical thresholds, for example 95 to 99.9 of the
+electric field and so on, plus the sizing and the location of the scans can be improved."*
+
+**Latency.** A resolve of `sub-101/L_Insula/TI_max` cost **16.4 s** cold and 4 ms warm. Two causes,
+both in `tit/viewspec.py`. The module read every volume in the scene **twice** — once through
+`_volume_stats` for the scene's concrete `Scale`, once through `_resolve_layer_percentile`'s
+independent `get_fdata()` — and it cached the answer only in memory, so the whole cost was paid
+again on every server process, which under `--reload` and on every app start is once per sitting.
+The two paths are now one (`_percentiles_from_stats`; the old array read survives only for a window
+outside the fixed percentile set, because a p90 answered with p95 would be wrong), the reads for one
+scene run concurrently (`prefetch_volume_stats`), and the result is written to a sidecar under
+`<project>/code/ti-toolbox/viewer/cache`, keyed by `(size, mtime_ns)`. First-ever resolve of a
+simulation **16.4 s → 10.2 s**; every resolve after that, in this process or any later one,
+**16.4 s → ~14 ms**. Nothing is sampled: a percentile from a subsample is a different number, and
+the window it produces is what the reader sees.
+
+Client-side the Menu asked on every keystroke with no debounce and nothing to cancel a superseded
+request, and blanked the "what will open" card to *Resolving…* while it waited — so a resolve that
+now takes 10 ms still looked like a reload. Now: 150 ms debounce, `AbortController` through React
+Query's signal, and `keepPreviousData`, so the card keeps the previous list greyed instead of
+emptying. The card also names the window before anything opens (`p95–p99.9 · 0.25–3.34 V/m`).
+
+**Defaults.** Every number in the emitted scene was either a constant or the wrong statistic:
+
+| | was | is |
+|---|---|---|
+| field overlay window | `[nz_lo, p99.9]` — `5.08e-09` V/m, i.e. every non-zero voxel | `[p95, p99.9]` |
+| field threshold | none (`clamp`, `lo: null`) | `lo: p95`, `mode: "hide"` |
+| T1 window | `[min, max]` = `0–3238` | `[p2, p98]` = `1–715` |
+| 2D pane zoom | fixed `0.6` mm/px | fitted to the scene's bounding box |
+| 3D camera | fixed 350 mm from world origin | fitted to the bounding box |
+| crosshair | world `(0, 0, 0)` — a corner of the FOV | the field's peak voxel, or the ROI centre |
+| GM mesh | hidden, under a layout that reserved it a 3D pane | visible |
+
+The panes were never fitted because the engine fits only in `#onFirstDataset` and only when
+`datasets.size === 1`; every scene this module writes carries four or five. `_fit_mm_per_px` and
+`_fit_camera` are deliberate duplicates of the engine's own `fitMmPerPx`/`fitCamera`, because the
+number the server sends becomes the pane's *fit reference* — the zero point the corner `ZOOM`
+readout and `r` measure from. Bounding boxes come from each NIfTI's affine, never from its voxels.
+
+Also added: a signed statistic map (`_tstat`, `_zmap`, `cohens_d`, `_diff`) is recognised and gets a
+symmetric `±|v|p99` window on `coolwarm` rather than a heat ramp that would delete its negative half.
+
 ## 2026-09-07 — external audit response
 
 An external audit of the shared scientific core and of the v3 server. Every finding was reproduced in
