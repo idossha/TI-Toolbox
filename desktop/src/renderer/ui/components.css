@@ -435,9 +435,17 @@
 .help-list li {
   margin-bottom: 2px;
 }
-/* A step flow is three or four columns of boxes; a prose-width popover cannot hold it. */
+/* A step flow is three to five columns of boxes; a prose-width popover cannot hold it. */
 .help-popover:has(.step-flow) {
   max-width: min(640px, var(--radix-popover-content-available-width));
+}
+/*
+ * ...and it is taller than the shared 340px too: charm's four output boxes alone are 220px before
+ * the description and the footer. Raised only for a popover carrying a flow, and still ceilinged
+ * by what Radix says actually fits on screen, so it can never run off the viewport.
+ */
+.popover-content:has(.step-flow) {
+  max-height: min(560px, var(--radix-popover-content-available-height, 560px));
 }
 .help-code {
   font-family: var(--font-mono);

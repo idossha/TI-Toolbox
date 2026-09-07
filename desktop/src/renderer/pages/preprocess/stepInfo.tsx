@@ -24,7 +24,7 @@
  * the emulated wall clocks divided by `EMULATION_FACTOR` (3.0). Both numbers are shown, because a
  * reader on Apple Silicon gets the emulated one.
  */
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { Cog, ExternalLink, FileInput, FileOutput } from "lucide-react";
 import { isElectron } from "../../env";
 import { HelpIcon } from "../../ui/HelpPopover";
@@ -115,9 +115,11 @@ export const STEP_INFO: Record<string, StepInfo> = {
       "use instead of the isotropic default.\n\n" +
       "Both QSIPrep and QSIRecon run in **their own containers** and need Docker socket access. " +
       "QSIRecon needs QSIPrep output; the tensor extraction needs QSIRecon output and `charm`.",
-    inputs: [{ label: "Raw diffusion series", path: "sub-<id>/dwi/" }],
-    process: [{ label: "QSIPrep" }, { label: "QSIRecon" }, { label: "extract tensor" }],
-    outputs: [{ label: "DTI conductivity tensor", path: "m2m_<id>/DTI_coregT1_tensor.nii.gz" }],
+    // Five columns at 640px leave ~100px each, so this row's labels are deliberately the short
+    // forms — the long names live on the individual stage rows below.
+    inputs: [{ label: "Raw DWI", path: "sub-<id>/dwi/" }],
+    process: [{ label: "QSIPrep" }, { label: "QSIRecon" }, { label: "extract" }],
+    outputs: [{ label: "DTI tensor", path: "m2m_<id>/DTI_coregT1_tensor.nii.gz" }],
     docsHref: DWI_DOCS,
   },
 
@@ -301,7 +303,7 @@ function FlowArrow() {
   return (
     <div className="flow-arrow" aria-hidden>
       <svg viewBox="0 0 24 10" preserveAspectRatio="none" focusable="false">
-        <path d="M0 5 H18" />
+        <path d="M0 5 H17" />
         <path d="M24 5 l-7 -4 v8 z" className="flow-arrow-head" />
       </svg>
     </div>
@@ -312,45 +314,73 @@ function FlowArrow() {
  * `inputs → [process] → outputs` as connected boxes.
  *
  * CSS grid rather than SVG: the labels and paths stay real, selectable text (so they are also what
- * a test and a screen reader see), they wrap and ellipsise on their own, and the colours come from
- * `preprocess.css`'s tokens in both themes.
+ * a test and a screen reader see), and the colours come from `preprocess.css`'s tokens in both
+ * themes.
+ *
+ * The grid is what makes it line up, and every part of that is deliberate:
+ *
+ *  - columns are `minmax(0, 1fr)` with fixed-width arrow gutters between them, so every box in
+ *    the picture is the same width no matter how many boxes its column holds;
+ *  - captions are their own cells on a shared first row, so each one starts at its column's left
+ *    edge and all of them sit on one baseline;
+ *  - every box is the same fixed height (label line + path line, the path line simply empty on a
+ *    process box), so the row reads as one rhythm rather than as tall files and short tools;
+ *  - each column's boxes are centred as a stack and the arrows are centred in the body row, which
+ *    puts every arrow on the same line through the middle of every stack. With fan-in and fan-out
+ *    that is one arrow per gutter landing at the target column's centre rather than one per pair
+ *    — the accepted simplification, and the only one that stays legible at this size.
  */
 export function StepFlow({ info }: { info: StepInfo }) {
   const { columns } = stepGraph(info);
+  // "process" is captioned once, over the first process column; the rest of a chain gets a blank
+  // cell so the grid keeps its shape without repeating the word.
+  const firstProcess = columns.findIndex((c) => c[0]!.kind === "process");
+
   return (
     <div
       className="step-flow"
+      data-cols={columns.length}
       data-testid="step-diagram"
       role="group"
       aria-label={`${info.inputs.map((n) => n.label).join(", ")} to ${info.process
         .map((n) => n.label)
         .join(" then ")} to ${info.outputs.map((n) => n.label).join(", ")}`}
     >
+      {/* Row 1: captions, one cell per column, blanks over the gutters. */}
+      {columns.map((column, ci) => {
+        const kind = column[0]!.kind;
+        const captioned = kind === "input" || kind === "output" || ci === firstProcess;
+        return (
+          <Fragment key={`cap-${ci}`}>
+            {ci > 0 && <div className="flow-gutter" aria-hidden />}
+            {captioned ? <div className="flow-caption">{COLUMN_CAPTION[kind]}</div> : <div aria-hidden />}
+          </Fragment>
+        );
+      })}
+
+      {/* Row 2: the stacks, with an arrow in each gutter. */}
       {columns.map((column, ci) => (
-        <div className="step-flow-group" key={ci}>
+        <Fragment key={`col-${ci}`}>
           {ci > 0 && <FlowArrow />}
           <div className={`flow-col flow-col-${column[0]!.kind}`}>
-            {/* One caption per role, not per column — a chained process is still "process". */}
-            {(ci === 0 || ci === columns.length - 1 || ci === 1) && (
-              <div className="flow-caption">{COLUMN_CAPTION[column[0]!.kind]}</div>
-            )}
             {column.map((node) => (
               <div className={`flow-node flow-node-${node.kind}`} key={node.id} data-node-id={node.id}>
                 <div className="flow-node-head">
                   <NodeGlyph kind={node.kind} />
-                  <span className="flow-node-label">{node.label}</span>
-                </div>
-                {node.path && (
-                  // Full path in `title`: the box is sized to the popover, and a BIDS derivative
-                  // path is longer than any box that fits next to two others.
-                  <span className="flow-node-path" title={node.path}>
-                    {node.path}
+                  <span className="flow-node-label" title={node.label}>
+                    {node.label}
                   </span>
-                )}
+                </div>
+                {/* The path line is always present, empty on a process box, so every box in the
+                    picture is exactly as tall as every other. Full path in `title`: the box is
+                    sized to the popover, and a BIDS derivative path is longer than that. */}
+                <span className="flow-node-path" title={node.path}>
+                  {node.path ?? ""}
+                </span>
               </div>
             ))}
           </div>
-        </div>
+        </Fragment>
       ))}
     </div>
   );

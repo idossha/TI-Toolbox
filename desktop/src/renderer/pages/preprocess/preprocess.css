@@ -18,51 +18,43 @@
 /* ---------------------------------------------------------------------------------------------
  * The step flow: inputs → [process] → outputs as connected boxes (see stepInfo.tsx).
  *
- * CSS grid + flex arrows rather than SVG, so every label and path stays selectable text that
- * wraps and ellipsises on its own. Colours are tokens only, so both themes come out right.
+ * A grid, so the picture actually lines up: equal-width columns separated by fixed arrow gutters,
+ * captions on a shared first row starting at their column's left edge, every box the same height,
+ * and every arrow on one horizontal line through the centre of every stack.
  * ------------------------------------------------------------------------------------------- */
 .step-flow {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
-  margin: 10px 0 4px;
-  /* A four-column flow on a narrow window scrolls sideways inside the popover rather than
-     squeezing every box below legibility. */
-  overflow-x: auto;
-  padding-bottom: 2px;
-}
-.step-flow-group {
-  display: flex;
-  align-items: stretch;
-  min-width: 0;
-  flex: 1 1 0;
-}
-.flow-col {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 6px;
-  min-width: 0;
-  flex: 1 1 0;
-  /* Room for the caption, which is lifted out of the flow (see `.flow-caption`). */
-  padding-top: 15px;
-}
-/* A process column is one box, and it must not eat the width its inputs and outputs need. */
-.flow-col-process {
-  flex: 0 1 auto;
-  min-width: 108px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-items: center;
+  row-gap: 6px;
+  margin: 12px 0 4px;
 }
 /*
- * Pinned to the top of the column rather than stacked above its boxes: the columns are different
- * heights (one input, four outputs), so an in-flow caption rides up and down with its own stack
- * and the three captions never line up. Absolute keeps them on one line while the boxes stay
- * vertically centred on the arrows.
+ * One rule per shape: N columns and N-1 gutters. Three (input → process → output) through five
+ * (the DWI section's QSIPrep → QSIRecon → extract tensor). The gutter is a single fixed width
+ * everywhere, so no arrow is longer than another; 24px rather than the 16 of a normal column gap
+ * because the gutter has to hold a shaft and an arrowhead and still read at 11px type.
  */
+.step-flow[data-cols="3"] {
+  grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr) 24px minmax(0, 1fr);
+}
+.step-flow[data-cols="4"] {
+  grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr) 24px minmax(0, 1fr) 24px minmax(0, 1fr);
+}
+.step-flow[data-cols="5"] {
+  grid-template-columns:
+    minmax(0, 1fr) 24px minmax(0, 1fr) 24px minmax(0, 1fr)
+    24px minmax(0, 1fr) 24px minmax(0, 1fr);
+}
+.flow-col {
+  display: flex;
+  flex-direction: column;
+  /* Centred as a stack, which is what puts every column's middle on the arrows' line. */
+  justify-content: center;
+  gap: 12px;
+  min-width: 0;
+}
 .flow-caption {
-  position: absolute;
-  top: 0;
-  left: 0;
   font-size: 9px;
   line-height: 12px;
   text-transform: uppercase;
@@ -72,8 +64,13 @@
 .flow-node {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 2px;
   min-width: 0;
+  /* Fixed, so a file box and a tool box are the same object at a glance. Both lines are always
+     rendered (the path line is empty on a process box), and both are single-line and ellipsised,
+     so nothing can push a box taller than its neighbours. */
+  height: 46px;
   padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: var(--radius-control);
@@ -102,14 +99,18 @@
   font-weight: 600;
   color: var(--ink);
   min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .flow-node-path {
   display: block;
   font-family: var(--font-mono);
   font-size: 9px;
   line-height: 12px;
+  /* Held open even when empty, so a process box is exactly as tall as a file box. */
+  min-height: 12px;
   color: var(--ink-2);
-  /* One line, ellipsised — the full path is in the box's `title`. */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -117,12 +118,11 @@
 .flow-arrow {
   display: flex;
   align-items: center;
-  flex: none;
-  width: 22px;
-  padding: 0 3px;
+  justify-content: center;
+  height: 100%;
 }
 .flow-arrow svg {
-  width: 100%;
+  width: 24px;
   height: 10px;
   overflow: visible;
 }

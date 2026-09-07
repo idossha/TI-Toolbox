@@ -2,7 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import { answerExistingOutputs, expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
+import { answerExistingOutputs, expectPage, gotoPage, launchElectronApp, openPalette, setTheme } from "./_helpers";
 import { expectSubjectsGrammar, setSubjectChecked } from "./_subjects";
 import { captureScreen, deadSpaceRatio, type PageMetrics } from "./_metrics";
 
@@ -374,4 +374,109 @@ test("a stage's (i) opens a click popover with the step's inputs → outputs dia
   await expect(page.getByTestId("step-help-create_m2m-content")).toBeVisible();
   await page.screenshot({ path: join(ARTIFACTS_DIR, "preprocess-step-popover.png") });
   await page.keyboard.press("Escape");
+});
+
+/** Every box, caption and arrow in one step's flow, measured. */
+async function flowGeometry(page: Page, id: string) {
+  return page.evaluate((stepId) => {
+    const flow = document.querySelector(`[data-testid="step-help-${stepId}-content"] .step-flow`);
+    if (!flow) return null;
+    const box = (el: Element) => {
+      const r = el.getBoundingClientRect();
+      return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) };
+    };
+    const cols = Array.from(flow.querySelectorAll(".flow-col"));
+    return {
+      width: Math.round(flow.getBoundingClientRect().width),
+      nodes: Array.from(flow.querySelectorAll(".flow-node")).map(box),
+      captions: Array.from(flow.querySelectorAll(".flow-caption")).map(box),
+      arrows: Array.from(flow.querySelectorAll(".flow-arrow")).map(box),
+      columns: cols.map((c) => ({ ...box(c), nodes: Array.from(c.querySelectorAll(".flow-node")).map(box) })),
+    };
+  }, id);
+}
+
+/**
+ * The maintainer's second note was that the flow was *right* but not *aligned*. That is geometry,
+ * so it is measured rather than eyeballed: one box width, one box height, captions on one
+ * baseline at their column's left edge, arrows on one horizontal line through every stack's
+ * centre, and consistent gaps.
+ *
+ * Checked on every stage and both section headers, so a new step cannot quietly break the rhythm.
+ */
+const FLOW_IDS = [
+  "structural",
+  "dwi",
+  "convert_dicom",
+  "create_m2m",
+  "run_fastsurfer",
+  "run_tissue_analysis",
+  "run_qsiprep",
+  "run_qsirecon",
+  "extract_dti",
+];
+
+test("every step's flow is aligned: one box size, one caption baseline, one arrow line", async () => {
+  for (const id of FLOW_IDS) {
+    await page.getByTestId(`step-help-${id}`).click();
+    await expect(page.getByTestId(`step-help-${id}-content`)).toBeVisible();
+    const g = (await flowGeometry(page, id))!;
+    expect(g, id).not.toBeNull();
+
+    // The popover sizes the flow: wide enough for three-to-five columns of boxes.
+    expect(g.width, `${id}: flow width`).toBeGreaterThanOrEqual(480);
+
+    // One box width and one box height across the whole picture — inputs, process and outputs.
+    const widths = new Set(g.nodes.map((n) => n.w));
+    expect([...widths], `${id}: box widths differ`).toHaveLength(1);
+    const heights = new Set(g.nodes.map((n) => n.h));
+    expect([...heights], `${id}: box heights differ`).toEqual([46]);
+
+    // Captions share one baseline, and each sits at its own column's left edge.
+    const capTops = new Set(g.captions.map((c) => c.y));
+    expect([...capTops], `${id}: caption baselines differ`).toHaveLength(1);
+    for (const cap of g.captions) {
+      const column = g.columns.find((c) => Math.abs(c.x - cap.x) <= 1);
+      expect(column, `${id}: caption at x=${cap.x} is not over a column`).toBeTruthy();
+    }
+
+    // Every arrow is the same length and every one is centred on the same horizontal line — which
+    // is also the vertical centre of every column's stack.
+    const arrowWidths = new Set(g.arrows.map((a) => a.w));
+    expect([...arrowWidths], `${id}: arrow lengths differ`).toHaveLength(1);
+    const arrowMids = g.arrows.map((a) => Math.round(a.y + a.h / 2));
+    for (const mid of arrowMids) expect(Math.abs(mid - arrowMids[0]!), `${id}: arrow off the line`).toBeLessThanOrEqual(1);
+    for (const column of g.columns) {
+      const stackTop = Math.min(...column.nodes.map((n) => n.y));
+      const stackBottom = Math.max(...column.nodes.map((n) => n.y + n.h));
+      const stackMid = Math.round((stackTop + stackBottom) / 2);
+      expect(Math.abs(stackMid - arrowMids[0]!), `${id}: stack not centred on the arrow line`).toBeLessThanOrEqual(2);
+    }
+
+    // 12 px between boxes in a stack, everywhere.
+    for (const column of g.columns) {
+      const sorted = [...column.nodes].sort((a, b) => a.y - b.y);
+      for (let i = 1; i < sorted.length; i++) {
+        expect(sorted[i]!.y - (sorted[i - 1]!.y + sorted[i - 1]!.h), `${id}: box gap`).toBe(12);
+      }
+    }
+
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId(`step-help-${id}-content`)).toHaveCount(0);
+  }
+});
+
+test("records the charm and the DWI flows in both themes", async () => {
+  for (const theme of ["light", "dark"] as const) {
+    await setTheme(page, theme);
+    for (const id of ["create_m2m", "dwi"]) {
+      await page.getByTestId(`step-help-${id}`).click();
+      const popover = page.getByTestId(`step-help-${id}-content`);
+      await expect(popover).toBeVisible();
+      await popover.screenshot({ path: join(ARTIFACTS_DIR, `preprocess-flow-${id}-${theme}.png`) });
+      await page.keyboard.press("Escape");
+      await expect(popover).toHaveCount(0);
+    }
+  }
+  await setTheme(page, "light");
 });

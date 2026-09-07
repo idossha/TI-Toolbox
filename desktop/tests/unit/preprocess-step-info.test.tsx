@@ -125,9 +125,9 @@ describe("stepGraph", () => {
 
   it("a multi-stage step gets one column per process box", () => {
     const { columns } = stepGraph(STEP_INFO.dwi!);
-    // QSIPrep → QSIRecon → extract tensor, between the input and the output columns.
+    // QSIPrep → QSIRecon → extract, between the input and the output columns.
     expect(columns).toHaveLength(5);
-    expect(columns.slice(1, 4).map((c) => c[0]!.label)).toEqual(["QSIPrep", "QSIRecon", "extract tensor"]);
+    expect(columns.slice(1, 4).map((c) => c[0]!.label)).toEqual(["QSIPrep", "QSIRecon", "extract"]);
   });
 
   it("every input fans into the first process box, and the last fans out to every output", () => {
