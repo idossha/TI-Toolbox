@@ -1,88 +1,247 @@
 ---
 layout: installation
-title: Python Loader / CLI Entrypoint
+title: Command-line launcher
 permalink: /installation/bash-cli/
 ---
 
-The Python loader is the command-line way to start the TI-Toolbox containers. It is the same
-Docker stack the [desktop application]({{ site.baseurl }}/wiki/desktop-app/) launches, without the
-launcher window.
+`tit launch` runs TI-Toolbox **without the desktop application**. It starts the same container
+the app starts and gives you the same interface — in a browser tab instead of a window.
 
-> This page documents the classic two-image (`idossha/simnibs` + FreeSurfer) bash/CLI
-> workflow with an X-forwarded PyQt5 GUI, which this stack predates the single-image
-> `idossha/ti-toolbox:<version>` streamlining described on the main [Installation]({{ site.baseurl }}/installation/)
-> and [Architecture]({{ site.baseurl }}/wiki/desktop-app/) pages. Use the desktop app for the
-> streamlined, no-X11 workflow; this CLI entrypoint is unaffected by that change for now.
+Use it when the desktop app is not the right shape: a machine you reach over SSH, a shared lab
+server, a container host, a scripted setup, or simply a preference for the terminal.
 
-## Installation Steps
+> Everything the interface does goes over HTTP to the server in the container, so browser mode
+> is not a reduced version of the app. The only differences are the few things that need the
+> operating system directly — see [What is different in a browser](#what-is-different-in-a-browser).
 
-### Step 1: Download Required Files
+## Requirements
 
-Download both files into the **same folder**:
+- **Docker Desktop** (macOS/Windows) or **Docker Engine** (Linux), running.
+- **CPython 3.11 or newer**.
 
-- **[loader.py](https://github.com/idossha/TI-toolbox/blob/main/loader.py)** — launch script (Python 3, standard library only)
-- **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)** — Docker service definitions (`idossha/simnibs:v2.4.0` and `idossha/ti-toolbox_freesurfer:v7.4.1`)
+That is the whole list. The launcher uses the Python standard library and the `docker` CLI —
+it does **not** need SimNIBS, numpy, or Node on your machine. Everything the toolbox actually
+computes with lives inside the image.
 
-`loader.py` refuses to start if `docker-compose.yml` is not next to it.
-
-## Usage
-
-### Basic Launch
+## Install
 
 ```bash
-python3 loader.py
-# or skip the project-directory prompt:
-python3 loader.py --project-dir /path/to/my_project
+pip install tit          # or, to keep it out of your environment:
+pipx install tit
 ```
 
-`--project-dir` is the only command-line option. The script then:
-
-1. **Checks the host** — Docker is installed, the daemon is running, and Docker Compose v2 is available. On macOS it also checks XQuartz/`xhost`; on Windows it reminds you to start an X server (VcXsrv) with "Disable access control" checked.
-2. **Asks for the project directory** — the folder that will be mounted into the container as `/mnt/<project_name>`. The answer is remembered in `.default_paths.user` next to `loader.py`, so the next launch only asks you to confirm it. An empty folder is initialised as a new BIDS project.
-3. **Pulls the Docker images** on first run (several GB) and starts the services with `docker compose up -d`. Older FreeSurfer data volumes from previous image versions are pruned automatically.
-4. **Initialises the project inside the container** (creates `code/ti-toolbox/config/`, `sourcedata/`, `derivatives/SimNIBS/` and `derivatives/freesurfer/`).
-5. **Attaches you to a shell** inside `simnibs_container`. When you `exit` that shell, the loader runs `docker compose down` and stops both containers.
-
-### Inside the container
-
-You land in `bash` as root. Your project is at `/mnt/<project_name>` and SimNIBS 4.6 (`simnibs_python`, gmsh), FreeSurfer 7.4.1, dcm2niix, Blender (as the `bpy` Python module) and the `tit` package are available.
-
-Two shell aliases are defined:
+Or run it straight from a checkout, with no install at all:
 
 ```bash
-GUI        # simnibs_python -m tit.gui.main   → the main TI-Toolbox window (needs an X server)
-NOTEBOOK   # JupyterLab on http://localhost:8888 (no token; served from /mnt)
+git clone https://github.com/idossha/TI-Toolbox.git
+cd TI-Toolbox
+./ti-toolbox.sh --project ~/datasets/000
 ```
 
-There are no other toolbox-specific shell commands. Every pipeline is a Python module that takes a JSON config as its only argument, exactly what the GUI writes before launching a job:
+`ti-toolbox.sh` is a bootstrap, not a second launcher: it finds a Python that can import
+`tit` — one you installed, the checkout it is sitting in, or a virtualenv it creates in
+`~/.cache/ti-toolbox/venv` — and hands your arguments to `tit launch`. There is one
+implementation of the container's run specification, so the container you get here is exactly
+the container the desktop app creates.
+
+## Launch
 
 ```bash
-simnibs_python -m tit.pre       config.json   # pre-processing (dcm2niix, CHARM, recon-all)
-simnibs_python -m tit.sim       config.json   # TI / mTI simulation
-simnibs_python -m tit.opt.flex  config.json   # flex-search
-simnibs_python -m tit.opt.ex    config.json   # ex-search
-simnibs_python -m tit.opt.mex   config.json   # multipolar ex-search
-simnibs_python -m tit.analyzer  config.json   # ROI / field analysis
-simnibs_python -m tit.stats     config.json   # group statistics
-simnibs_python -m tit.source    config.json   # EEG forward model / fsaverage mapping
-simnibs_python -m tit.blender   config.json   # Blender renders
+tit launch --project ~/datasets/000
 ```
 
-See the [Scripting]({{ site.baseurl }}/wiki/scripting/) page for the config formats and for calling the same functions from Python directly.
+What it does, in order:
 
-### Quick check
+1. **Checks Docker** — installed, running, and reachable. Each failure prints its own remedy
+   (including the `docker` group fix on Linux).
+2. **Attaches** to this project's container if one is already running — the desktop app's, or
+   an earlier `tit launch`'s. It is the same container either way.
+3. **Pulls the image** if it is not already on the machine (≈ 2.3 GB; the first run takes a
+   while).
+4. **Starts the container**, publishing the server on `127.0.0.1` only.
+5. **Waits for `/api/health`** to answer, up to `--timeout` seconds (180 by default; a cold
+   start under emulation on Apple Silicon is slow).
+6. **Prints a URL and opens your browser.**
+
+```text
+image idossha/ti-toolbox:3.0.0 is already present
+starting ti-toolbox-e37166cb-tit-1 on port 8765…
+waiting for the server to answer…
+
+TI-Toolbox is running at http://127.0.0.1:8765
+Open this URL to sign in (it is single-use per session):
+  http://127.0.0.1:8765/auth/session?token=8k-cp8kIpJGbLaGRGAWSQFRuUgMNNtVuFWPTZU_0IPg
+
+The container keeps running after this command exits.
+```
+
+Opening that URL trades the token for an `HttpOnly` session cookie and redirects to the app,
+so the token does not stay in your address bar or your browser history's query strings.
+
+**The container keeps running after the command exits.** Close the tab, come back tomorrow,
+run `tit launch` again — it attaches in a second. `--stop` is what ends it.
+
+## Options
+
+| Flag | Meaning |
+|---|---|
+| `--project DIR` | The BIDS project directory to open. Required (or set `TIT_PROJECT_DIR`). |
+| `--port N` | First host port to try. Default 8765; the next free port is used if it is taken, and the launcher says so. |
+| `--image IMAGE:TAG` | Run a specific image instead of the one matching this package's version. |
+| `--no-open` | Print the URL instead of opening a browser. What you want over SSH. |
+| `--timeout SECONDS` | How long to wait for the server. Default 180. |
+| `--status` | Name, state, health, image and URL of this project's container. |
+| `--logs` / `--logs --follow` | The container's log, once or streaming. |
+| `--stop` | Stop and remove this project's container. |
 
 ```bash
-simnibs_python -c "import tit; print(tit.__version__)"
-GUI
+tit launch --project ~/datasets/000 --status
+tit launch --project ~/datasets/000 --logs --follow
+tit launch --project ~/datasets/000 --stop
 ```
 
-If the version prints and the GUI window appears, you are good to go.
+### Over SSH
 
-### Attaching a second terminal
-
-The loader keeps the containers running only while its shell is open. To open another shell in parallel (for example to run a script while the GUI is up):
+The server binds to `127.0.0.1` inside the remote machine on purpose. Forward the port rather
+than exposing it:
 
 ```bash
-docker exec -it simnibs_container bash
+# on the remote host
+tit launch --project ~/datasets/000 --no-open
+
+# on your laptop
+ssh -N -L 8765:127.0.0.1:8765 you@remote-host
 ```
+
+Then open the printed `/auth/session?token=…` URL locally, substituting `127.0.0.1:8765`.
+
+### One project per container
+
+Each project directory gets its own container, named `ti-toolbox-<hash of the directory>-tit-1`
+and labelled `tit.project` / `tit.host_project_dir`. That is how `--status` and `--stop` find
+the right one, and it is why the desktop app and `tit launch` can hand a session back and forth:
+both derive the same name from the same directory. Two projects at once means two containers,
+so give the second one a different `--port`.
+
+## What is different in a browser
+
+Everything that talks to the server is identical — jobs, the terminal, notebooks, the pipeline
+canvas, results, and the 3D/volume viewer (which is served by the container at `/tetravox/`,
+not by Electron). What needs the operating system directly is not there:
+
+| | In a browser |
+|---|---|
+| **Reveal a file in your file manager** | Not available; the interface says so when you use it. |
+| **Open a result in an external application** | Opens in a new browser tab instead. |
+| **Save a file** (e.g. exporting a notebook) | A normal browser download. |
+| **Native desktop notifications** for finished jobs | In-app notifications only. |
+| **Docker controls in Settings** | Not shown — the container belongs to whoever ran `tit launch`. Use `--status` / `--stop`. |
+| **Choosing a project folder from the interface** | Not shown — `--project` chose it. |
+
+There is nothing that fails or throws; these are absences with a message or a fallback, and
+there is an automated test that loads every main page with no Electron bridge present and
+asserts exactly that (`desktop/tests/e2e/browser-mode.spec.ts`).
+
+## Run the latest unreleased version
+
+To try code that has not been released yet, run the app from a checkout. `npm run dev` brings
+up the **whole system** — container, renderer dev server, and the app window already connected
+to it. You never see or type a token.
+
+**Requirements:** Docker, **Node 22.12+**, and git.
+
+```bash
+git clone https://github.com/idossha/TI-Toolbox.git
+cd TI-Toolbox/desktop
+cp .env.dev.example .env.dev     # then edit TIT_DEV_PROJECT_DIR
+npm ci
+npm run dev
+```
+
+`.env.dev` has four settings and one of them is required:
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `TIT_DEV_PROJECT_DIR` | *(none — you must set it)* | The project directory to open. |
+| `TIT_DEV_IMAGE_TAG` | `dev` | Which `idossha/ti-toolbox:<tag>` to run. |
+| `TIT_DEV_PORT` | `8765` | Host port. A second checkout needs a second port. |
+| `TIT_DEV_MOUNT_REPO` | `1` | Mount the checkout at `/ti-toolbox`, so your Python edits are what the container runs, and restart the server on change. Set `0` to test the image's own `tit`. |
+
+Any of them can be overridden for a single run: `TIT_DEV_PORT=8766 npm run dev`.
+
+Other commands:
+
+```bash
+npm run dev:web    # the same, without the Electron window — open http://127.0.0.1:5173/
+npm run dev:down   # stop and remove this project's dev container
+```
+
+Ctrl-C stops the renderer and the app but **leaves the container running**, so the next
+`npm run dev` attaches in a second or two.
+
+### First run: the image
+
+`npm run dev` runs `idossha/ti-toolbox:dev`, which is a **locally built** tag — it is not
+published on Docker Hub. On a machine that has never built it, the launcher says so and gives
+you the command:
+
+```bash
+container/blueprint/build.sh --tag idossha/ti-toolbox:dev
+```
+
+Expect **30–60+ minutes** on native x86_64 hardware and considerably longer under amd64
+emulation on Apple Silicon: the recipe installs SimNIBS 4.6 from scratch, builds the UI in its
+own Node stage, and vendors FastSurfer with its checkpoints. It is a once-per-major-change
+cost, not a per-run one.
+
+If you only want the newest *interface* and not the newest Python, point the dev tag at a
+released image instead — `TIT_DEV_IMAGE_TAG=3.0.0 npm run dev` — and the renderer you build
+locally is served from your checkout while the container stays the released one.
+
+## Advanced: native, without Docker
+
+If you already have SimNIBS 4.6 installed on the host and `tit` installed into *its*
+interpreter, you can run the server directly:
+
+```bash
+simnibs_python -m tit.server --project ~/datasets/000 --port 8765
+```
+
+It prints a `TIT_SERVER_TOKEN=` line; open `http://127.0.0.1:8765/auth/session?token=<that>`.
+
+This is genuinely advanced and deliberately unsupported as a first install. What you lose,
+because it comes from the image rather than from `tit`:
+
+- **FastSurfer** segmentation — not installed by SimNIBS, and the pre-processing pipeline will
+  say so rather than run it.
+- **Blender / `bpy`** rendering for the montage visualiser.
+- **The UI bundle and the viewer** — pass `--static-dir` at a renderer build you produced
+  yourself (`desktop/out/renderer`), or the server serves a "no UI bundle" page.
+- **QSIPrep/QSIRecon** for diffusion, which are spawned as sibling containers and therefore
+  need Docker anyway.
+
+Use it for server development and for hosts where Docker is not available at all; for
+everything else the container is the supported path.
+
+## Troubleshooting
+
+**"Docker was not found on this machine."** Install Docker Desktop or Docker Engine; the
+launcher looks for the `docker` executable on your `PATH`.
+
+**"Docker is installed but not running."** Start Docker Desktop, or `sudo systemctl start docker`.
+
+**"Permission denied talking to the Docker socket."** On Linux, `sudo usermod -aG docker $USER`,
+then log out and back in. On macOS, restart Docker Desktop.
+
+**"The TI-Toolbox image could not be downloaded."** Either you are offline, or you asked for a
+tag that is not published. Check `docker images idossha/ti-toolbox` for what you already have
+and pass it with `--image`, or build one (see
+[above](#first-run-the-image)).
+
+**"The container started but its server never answered."** Usually a cold start under emulation
+that outran `--timeout`. Raise it (`--timeout 300`) and look at `tit launch --logs`.
+
+**Port already in use.** The launcher moves to the next free port on its own and prints which
+one it used; pass `--port` to steer it.
+
+More on the [Troubleshooting]({{ site.baseurl }}/installation/troubleshooting/) page.

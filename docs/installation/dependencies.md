@@ -27,7 +27,7 @@ Post-Installation Configuration:
 
 ### Minimum Requirements
 - **RAM**: 16GB minimum, 32GB+ recommended
-- **Storage**: the `idossha/ti-toolbox` image is **~6.7GB** to download, plus your project outputs — plan for 30GB+ free for a comfortable working set
+- **Storage**: the `idossha/ti-toolbox` image is **≈ 2.3 GB to download, ≈ 9 GB unpacked on disk**, plus your project outputs — plan for 30GB+ free for a comfortable working set
 - **Docker Desktop** 4.0+ (or Docker Engine with a daemon exposing the standard Engine API on Linux); port 8888 free if you use JupyterLab
 - **Administrative privileges**: Required for initial setup
 

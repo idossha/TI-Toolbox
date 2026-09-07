@@ -29,26 +29,35 @@ Simply download, mount the DMG, and drag TI-Toolbox to your Applications folder 
 
 ## Option 2: Command Line
 
-### Setup Steps
+The same interface, in your browser, with no Electron app. Needs Docker and CPython 3.11+
+(macOS ships 3.9, so install a newer one first — `brew install python@3.12`, or python.org).
 
-### Step 1: Download Required Files
+```bash
+pip install tit
+tit launch --project ~/datasets/000
+```
 
-Download these files to your preferred location (e.g., `~/TI-Toolbox/`):
-- **[loader.py](https://github.com/idossha/TI-toolbox/blob/main/loader.py)**
-- **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)**
+It starts the container, waits for the server and opens your browser. Add `--status`, `--logs`,
+`--stop`, `--port` or `--no-open` as needed. Full reference:
+**[Command-line launcher]({{ site.baseurl }}/installation/bash-cli/)**.
 
-### Step 2: Launch TI-Toolbox
+The first run downloads `idossha/ti-toolbox` (**≈ 2.3 GB to download, ≈ 9 GB unpacked on
+disk**) — a few minutes on a typical connection.
 
-1. **Open Terminal** (Applications > Utilities > Terminal)
-2. **Navigate to your download location**:
-   ```bash
-   cd ~/TI-Toolbox/
-   ```
-3. **Launch TI-Toolbox**:
-   ```bash
-   python3 loader.py
-   ```
-4. **First run will download the single Docker image (`idossha/ti-toolbox`, ~6.7GB)** — a few minutes on a typical connection
+<br>
+
+## Option 3: Run the latest unreleased version
+
+```bash
+git clone https://github.com/idossha/TI-Toolbox.git
+cd TI-Toolbox/desktop
+cp .env.dev.example .env.dev     # edit TIT_DEV_PROJECT_DIR
+npm ci && npm run dev
+```
+
+Needs Node 22.12+ (`brew install node`). See
+**[Run the latest unreleased version]({{ site.baseurl }}/installation/bash-cli/#run-the-latest-unreleased-version)**
+for what the first run builds and how long it takes.
 
 ## macOS-Specific Features
 

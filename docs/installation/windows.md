@@ -45,30 +45,39 @@ Simply download and run the installer — the app handles Docker management and 
 
 ## Option 2: Command Line
 
-## Setup Steps
+The same interface, in your browser, with no Electron app. Run it **from inside Ubuntu/WSL2**,
+where the `docker` CLI reaches Docker Desktop through WSL integration:
 
-### Step 1: Download Required Files
+```bash
+pip install tit
+tit launch --project /mnt/c/Users/YourName/datasets/000
+```
 
-Download these files to your **Windows filesystem**:
-- **[loader.py](https://github.com/idossha/TI-toolbox/blob/main/loader.py)**
-- **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)**
+Use the WSL path (`/mnt/c/...`), not the Windows one — that is the path Docker will bind-mount.
+The launcher opens your browser at `http://127.0.0.1:<port>/auth/session?token=…`; WSL2
+forwards localhost to Windows, so the tab opens in your normal Windows browser.
 
-**Recommended**: Create a dedicated folder like `C:\TI-Toolbox\` for these files.
+Add `--status`, `--logs`, `--stop`, `--port` or `--no-open` as needed. Full reference:
+**[Command-line launcher]({{ site.baseurl }}/installation/bash-cli/)**.
 
-### Step 2: Launch from Ubuntu
+The first run downloads `idossha/ti-toolbox` (**≈ 2.3 GB to download, ≈ 9 GB unpacked on
+disk**) — a few minutes on a typical connection.
 
-1. **Open Ubuntu** (search for "Ubuntu" in Windows Start menu)
-2. **Navigate to your files** using WSL path format:
-   ```bash
-   cd /mnt/c/TI-Toolbox/
-   ```
-   *(Note: Windows `C:\TI-Toolbox\` becomes `/mnt/c/TI-Toolbox/` in WSL)*
-3. **Ensure Docker Desktop is running** on Windows
-4. **Launch TI-Toolbox**:
-   ```bash
-   python3 loader.py
-   ```
-5. **First run will download the single Docker image (`idossha/ti-toolbox`, ~6.7GB)** — a few minutes on a typical connection
+<br>
+
+## Option 3: Run the latest unreleased version
+
+From inside Ubuntu/WSL2, with Node 22.12+ installed there:
+
+```bash
+git clone https://github.com/idossha/TI-Toolbox.git
+cd TI-Toolbox/desktop
+cp .env.dev.example .env.dev     # edit TIT_DEV_PROJECT_DIR (a /mnt/c/... path)
+npm ci && npm run dev
+```
+
+See **[Run the latest unreleased version]({{ site.baseurl }}/installation/bash-cli/#run-the-latest-unreleased-version)**
+for what the first run builds and how long it takes.
 
 ## File Mounting Considerations
 

@@ -34,6 +34,40 @@ Releases, guides, and wiki please see: [https://idossha.github.io/TI-Toolbox/](h
 > which versions are affected, how to tell whether yours is one of them, and whether you need to
 > re-run the analysis or can simply rescale the number.
 
+## Run it
+
+Three ways in, all landing on the same UI — it is served by the container
+(`idossha/ti-toolbox:<version>`), and the desktop app is a shell around it. Docker Desktop
+(macOS/Windows) or Docker Engine (Linux) is the only thing you install yourself; the first
+launch downloads the image (**≈2.3 GB compressed, ≈9 GB on disk**).
+
+**1. Desktop app** — download the installer for your platform from the
+[latest release](https://github.com/idossha/TI-toolbox/releases/latest), open it, pick a
+project folder, press Start. It pulls the image and starts the container for you: no Docker
+CLI, no Python, no Node.
+
+**2. Command line, no Electron** — for servers, SSH sessions and anyone who would rather have
+a browser tab. Needs Python 3.11+ and the `docker` CLI, nothing else:
+
+```bash
+pip install tit                      # or: pipx install tit
+tit launch --project ~/datasets/000  # starts the container, opens the UI in your browser
+tit launch --project ~/datasets/000 --status   # …--logs, --stop, --port, --image, --no-open
+```
+
+From a clone, `./ti-toolbox.sh --project ~/datasets/000` does the same with no install step.
+
+**3. Build from source** — run the latest unreleased code. Needs Docker and Node 22.12+:
+
+```bash
+git clone https://github.com/idossha/TI-Toolbox.git && cd TI-Toolbox/desktop
+cp .env.dev.example .env.dev         # point TIT_DEV_PROJECT_DIR at a project folder
+npm ci && npm run dev                # container + renderer + app, already connected
+```
+
+Full instructions, per-OS steps and the prerequisites are in the
+[installation docs](https://idossha.github.io/TI-Toolbox/installation/).
+
 ## How to Cite
 
 If you use TI-Toolbox in your research, please cite the journal article:

@@ -47,7 +47,7 @@ right volumes/env, wait for it to answer a health check, then point a `BrowserWi
 | **UI** | PyQt5, rendered by the container over X11 forwarding to a host X server | HTML/JS served by the container, rendered by Electron (a normal browser-engine renderer process) — no X server anywhere |
 | **Viewer** | Freeview and Gmsh, launched as separate X11 processes inside the container | Tetravox Embed: WebGL2 + WASM, running on the **host** GPU inside an `<iframe>` in the same window, driven by a `postMessage` protocol. The run pages' own small 3-D panes are drawn separately by the app's own WebGL2 renderer |
 | **Docker orchestration** | `dockerode` for health checks/log streaming + the `docker compose` CLI shelled out to for starting/stopping services | A dependency-free Docker Engine API client only — no CLI subprocess at all, except `docker context inspect` to discover the active context |
-| **Images** | Two: `idossha/simnibs` (~19 GB) + a separate FreeSurfer image (~67 GB) | One: `idossha/ti-toolbox:<ver>` (~6.7 GB), SimNIBS + FastSurfer + the UI + the viewer baked in |
+| **Images** | Two: `idossha/simnibs` (~19 GB) + a separate FreeSurfer image (~67 GB) | One: `idossha/ti-toolbox:<ver>` (≈ 2.3 GB to download, ≈ 9 GB unpacked on disk), SimNIBS + FastSurfer + the UI + the viewer baked in |
 | **X11 host setup** | XQuartz (macOS) / VcXsrv (Windows) / native X11 (Linux), `xhost` permission juggling on every launch | None |
 | **Compose's role** | Read by both the app (for its own bookkeeping) and shelled out to via the `docker compose` CLI | Still the stack *definition* (one `tit` service, `desktop/docker/docker-compose.v3.yml`), but the app parses the YAML itself and realizes it purely through Engine API calls — `docker compose` is never invoked |
 
@@ -176,6 +176,29 @@ Tetravox's own `docs/EMBED.md` for the full protocol.
 8. **Active session** — the user interacts with the UI; full 3-D viewing, when needed, is the Viewer page's own Viewer sub-page, drawn by the embed on the host GPU
 9. **Cleanup** — on quit, the container is stopped and removed (named volumes are kept)
 
+## Running the same stack without the app
+
+The application is a shell around the container, so it is not the only way in. Two others reach
+the identical container — same image, same mounts, same environment, same `tit.*` labels, same
+`ti-toolbox-<hash of the project directory>-tit-1` name — and can hand a session back and forth
+with it:
+
+| | Command | What it gives you |
+|---|---|---|
+| **Python/bash launcher** | `tit launch --project <dir>` | The UI in a browser. Needs only Python 3.11+ and the `docker` CLI. `--status`, `--logs`, `--stop`. |
+| **From source** | `npm run dev` in `desktop/` | The whole system from a checkout, for unreleased code. |
+
+There is one run specification, `desktop/docker/docker-compose.v3.yml`, and all three read it:
+the app and `npm run dev` through `shared/composeFile.ts` and the Engine API, `tit launch`
+through `tit/launch.py`, whose built-in fallback for an installed wheel is pinned to that file
+by a test. That is why `tit launch --status` can report on a container the app started, and why
+the app can attach to one `tit launch` created.
+
+In a browser there is no Electron bridge (`window.tit`), so reveal-in-file-manager, native
+notifications, the Settings → Docker card and the project picker are absent — each with a
+message or a fallback rather than a failure. See
+[the command-line launcher]({{ site.baseurl }}/installation/bash-cli/#what-is-different-in-a-browser).
+
 ## Job Model
 
 Every long-running operation — pre-processing, a simulation, flex/ex/mex-search, the
@@ -236,11 +259,11 @@ npm run dev
 ## Performance
 
 - **Startup Time:** a few seconds once the image is pulled; the first launch downloads the
-  one image (~6.7 GB)
+  one image (≈ 2.3 GB to download, ≈ 9 GB unpacked on disk)
 - **Memory Usage:** small for the app itself; the container needs whatever RAM the workload
   needs (16GB+ Docker allocation recommended, 32GB+ for large leadfields/FastSurfer — see
   [Dependencies]({{ site.baseurl }}/installation/dependencies/))
-- **Disk Space:** ~6.7 GB for the image plus your project outputs
+- **Disk Space:** ≈ 2.3 GB to download, ≈ 9 GB unpacked on disk, plus your project outputs
 
 ## Troubleshooting
 

@@ -4,28 +4,46 @@ title: Scripting
 permalink: /wiki/scripting/
 ---
 
-The TI-Toolbox exposes the same functionality available in the GUI as a **Python scripting API**. Import `tit` modules directly to build custom, reproducible pipelines.
+TI-Toolbox exposes the same functionality the interface offers as a **Python scripting API**. Import `tit` modules directly to build custom, reproducible pipelines.
 
 ## Why Script?
 
-| GUI | Scripting |
+| The interface | Scripting |
 |-----|-----------|
 | Interactive, visual feedback | Reproducible, version-controlled |
 | One subject at a time | Batch processing across subjects |
 | Fixed parameter sets | Programmatic parameter sweeps |
 | Point-and-click | Integrates with your own analysis code |
 
-Both approaches call the same underlying code. Everything you do in the GUI can be done in a script.
+Both call the same underlying code. Everything you can do in the interface can be done in a script — the interface itself writes a JSON config and runs the same module you would.
 
 ## Getting Started
 
-All scripting happens **inside the SimNIBS container**. Open a terminal into the running container:
+All scripting happens **inside the container** — that is where SimNIBS and `tit` live. Your
+project is mounted at `/mnt/<project_name>/`, and everything is pre-installed; just import and go.
+
+Three ways in, in order of convenience:
+
+**1. The Notebooks page, in the app.** Open it and start typing. The kernel is already in the
+container, with the project mounted, `tit` importable and completions working. This is the
+normal way in v3, and it works the same whether you launched from the desktop app or from
+`tit launch` in a browser.
+
+**2. The terminal pane**, on any run page — a shell in the container without leaving the app.
+
+**3. `docker exec`**, from your own terminal:
 
 ```bash
-docker exec -it simnibs_container bash
+tit launch --project ~/datasets/000 --status   # prints the container's name
+docker exec -it ti-toolbox-<hash>-tit-1 bash
 ```
 
-Your project data is mounted at `/mnt/<project_name>/`. The `tit` package and all SimNIBS dependencies are pre-installed — just import and go.
+> The container is named after the project directory (`ti-toolbox-<hash>-tit-1`), so a machine
+> with two projects open has two containers. The v2 name `simnibs_container` is gone.
+
+> Installing `tit` on your **host** (`pip install tit`) gives you the
+> [`tit launch` launcher]({{ site.baseurl }}/installation/bash-cli/) and nothing else usable —
+> the scripting API needs SimNIBS, which is in the image.
 
 ### Quick import check
 
@@ -37,18 +55,15 @@ simnibs_python -c "from tit.sim import SimulationConfig; print('OK')"
 
 Three ways to write and run scripts inside the container:
 
-### JupyterLab
+### Notebooks (in the app)
 
-Best for interactive exploration, demos, and prototyping.
+Best for interactive exploration, demos, and prototyping — and the shortest path in v3: the
+**Notebooks** page runs notebooks against a kernel inside the container, with your project
+mounted. Nothing to start, no port to open, no token to paste. Notebooks are saved into the
+project, so they travel with the data.
 
-```bash
-# Inside the container shell:
-NOTEBOOK
-```
-
-Then open [http://localhost:8888](http://localhost:8888) in your browser. No token or password required.
-
-Select the **"SimNIBS + TI-Toolbox"** kernel (top-right of the notebook) for full autocompletion and signature help.
+The kernel is **"SimNIBS + TI-Toolbox"**, which gives full autocompletion and signature help
+for `tit` and `simnibs`.
 
 A fully executed example, with outputs and a downloadable `.ipynb`, is on the [Example Notebook]({{ site.baseurl }}/wiki/example-notebook/) page.
 
@@ -418,7 +433,7 @@ See also: `scripts/pipeline.py`
 
 ## JSON Config Interface
 
-Each module can also be invoked as a subprocess accepting a JSON config file. This is how the GUI drives computation:
+Each module can also be invoked as a subprocess accepting a JSON config file. This is how the interface drives computation — every run page builds a config and the server runs exactly this:
 
 ```bash
 simnibs_python -m tit.sim        config.json

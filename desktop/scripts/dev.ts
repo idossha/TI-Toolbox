@@ -85,7 +85,24 @@ async function main(argv: string[]): Promise<number> {
     console.log(`[dev] static    ${process.env.TIT_STATIC_DIR} (this worktree's npm run build output)`);
   }
 
-  const stack = await ensureDevStack(config, { forceRecreate: force });
+  // A clean clone has no image. `idossha/ti-toolbox:dev` is not a published tag — it is what
+  // `container/blueprint/build.sh` writes locally — so the pull inside `ensureDevStack` fails with
+  // a registry error that reads like a network problem. Saying what to build here is the
+  // difference between a five-minute detour and an afternoon.
+  const stack = await ensureDevStack(config, { forceRecreate: force }).catch((err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err);
+    if (/could not be downloaded|not found|manifest unknown|pull access denied/i.test(message)) {
+      throw new Error(
+        `${message}\n` +
+          `[dev] idossha/ti-toolbox:${config.imageTag} is not on this machine, and no v3 image is\n` +
+          `[dev] published on Docker Hub yet. Build it once from this checkout (30-60+ minutes,\n` +
+          "[dev] longer under amd64 emulation on Apple silicon):\n" +
+          `[dev]   ../container/blueprint/build.sh --tag idossha/ti-toolbox:${config.imageTag}\n` +
+          "[dev] Or point TIT_DEV_IMAGE_TAG at a tag you already have (docker images idossha/ti-toolbox).",
+      );
+    }
+    throw err;
+  });
   console.log(`[dev] ${stack.attached ? "attached to" : "started"} ${stack.origin}`);
 
   // The token reaches Vite and Electron here and nowhere else: not on the command line (where `ps`
