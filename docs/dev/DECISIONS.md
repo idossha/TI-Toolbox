@@ -1201,27 +1201,76 @@ in the toolbox produced such a montage.
 **Revisit if.** A use case appears for deliberately excluding a field from the envelope — it should
 be an explicit exclusion, not an omission.
 
-### 2026-09-07 (CX6) — SCI-07 left open: what a shared carrier means for the exposure metrics
+### 2026-09-07 — SCI-07 resolved: a declared channel is one carrier, for every metric
 
-**Not a decision.** `hf_peak`/`hf_sar` still ignore `channels` and treat every raw field as its own
-incoherent carrier. This is the maintainer's modelling call and the full argument is in
-[`SCIENTIFIC-CORRECTIONS.md § Open decisions`](SCIENTIFIC-CORRECTIONS.md#open-decisions).
+**Supersedes** the "SCI-07 left open" entry that stood here.
 
-**The recommendation is Model B**, gated on the montage actually declaring `channels`: sum
-same-carrier fields before computing any exposure metric, `hf_sar = Σ_channels |Σ_{i∈ch} Eᵢ|²`, and
-enumerate `hf_peak` over channel sums. The envelope path already asserts grouped fields are
-coherent; letting the safety metric assume the opposite for the same montage is the inconsistency,
-and Model B is the conservative direction — it can only raise reported exposure, which is the right
-default for a safety metric. `hf_peak` is unchanged by it, because its sign enumeration already
-reaches the coherent sum. For two aligned unit fields in one channel, `hf_sar` goes 2 → 4 and RMS
-1 → 2.
+**Decision.** `montage.channels` is the physical truth about which electrode pairs share a carrier,
+and *every* metric honours it. Fields inside one declared group are summed **as vectors** first;
+distinct carriers then combine incoherently — in power for `hf_sar`, and by worst-case sign
+enumeration for `hf_peak`. `tit/fields.py` gains a `channels=` argument on both metrics,
+`tit/sim/mTI.py` passes `self.montage.channels`, and the grouping rule itself lives in one place
+(`tit.fields.channel_index_groups`) that `tit.calc._resolve_channels` also consumes, so the
+modulation-depth search and the exposure metrics can never see different channel vectors. The
+`channels=None` path is bit-identical, pinned with `==`.
 
-**Cost of leaving it open.** A montage that groups fields reports the same SAR whether or not the
-grouping is declared, and that SAR is a **lower bound** if the fields really do share a frequency.
+**The engine's modelling convention, stated once.** The simulation is **quasi-static**: every FEM
+field is a phasor amplitude vector and there is no time axis. Exposure quantities are therefore
+worst cases over the unknown relative phases — the same convention that already derives the
+modulation depth. Cassarà states the peak in the time domain; for carriers at incommensurate
+frequencies the supremum over time of `|Σ_c E_c cos(θ_c)|` is attained at a vertex of the phase box
+(a convex function on a box maxes at a vertex), so our sign enumeration **equals** the time-domain
+peak rather than merely bounding it. This is checked in `tests/numerical/` against a synthesised
+`E(t)`, which is the only place a time axis appears anywhere in the repository.
 
-**Revisit if.** Nothing else — this is waiting on a decision, not on evidence. Deciding it also
-settles whether the `_envelope_from_PQ` cancellation rationalisation is worth doing in the same
-pass.
+**Why.** Cassarà et al. 2025 Part II, p. 8: *"coherent field superposition was used for identical
+frequencies, and incoherent superposition (i.e., SAR addition) was used when the frequencies
+differed."* Part I, p. 11 says the same for two channels, and Part II, p. 16 repeats it for a shared
+return electrode. The envelope path already assumed coherence within a group; letting the *safety*
+metric assume the opposite for the same montage was the inconsistency. The direction that matters
+is that the old `hf_sar` was a **lower** bound — a safety metric understating exposure.
+
+**Cost.** A 2.5.0 montage that declared `channels` gets different `hf_peak`/`hf_sar` numbers; both
+are recomputable from the stored per-pair fields without re-running the FEM. `hf_peak` *falls* under
+grouping (the old value allowed anti-phase between pairs the hardware drives phase-locked), which
+reads as a regression until one sees that the old number was unrealisable. Recorded as
+[SCI-07](SCIENTIFIC-CORRECTIONS.md#sci-07).
+
+**Revisit if.** A montage architecture appears where two pairs in one group are *not* phase-locked —
+then the grouping means something else, and `channels` needs a phase field rather than a set.
+
+### 2026-09-07 — the envelope's rationalised form
+
+**Decision.** `_envelope_from_PQ` computes `2√2·Q / (√(P+Q) + √(P−Q))` rather than
+`√(2(P+Q)) − √(2(P−Q))`.
+
+**Why.** Algebraically identical, but the subtraction form cancels catastrophically at `Q ≪ P` —
+weak modulation, i.e. every off-target voxel, which is the denominator of a focality ratio. Below
+`Q/P ≈ 1e-16` it returns exactly `0`. (The audit named `Q → P` as the bad regime; it is the benign
+one.) Recorded as [SCI-08](SCIENTIFIC-CORRECTIONS.md#sci-08).
+
+**Cost.** One divide instead of one subtract; no measurable difference in runtime. Values are
+unchanged to 1e-14 wherever the old form was accurate at all.
+
+**Revisit if.** Never — the two forms are the same expression.
+
+### 2026-09-07 — allowed electrode-pair counts stated once
+
+**Decision.** One electrode pair is one current channel, and every channel needs a partner to beat
+against, so the allowed pair counts are **even and ≥ 2**: 2 (standard TI), then 4, 6, 8, 12, 16 …
+(mTI). `tit.constants.is_valid_pair_count` is the single statement of the rule;
+`Montage.simulation_mode` and `tit.calc._validate_field_list` both defer to it.
+
+**Why.** The rule was stated three times and two of them disagreed: `tit.calc` required an even
+count ≥ 2, while `Montage.simulation_mode` accepted `2 or >= 4` — so a 5-pair montage passed config
+validation and then failed deep inside the field maths.
+
+**Cost.** A 5- or 7-pair montage that previously reached the solver now fails at config time. No
+such montage can have produced a valid mTI result, so nothing usable is lost.
+
+**Revisit if.** The maintainer wants the tighter rule they also described — pair counts of 2, 4, 8,
+12, 16 (multiples of four beyond the first), excluding 6. That is a one-line change to
+`is_valid_pair_count`.
 
 ### 2026-09-07 (CX6) — a kernel's idle clock starts when a request concludes
 

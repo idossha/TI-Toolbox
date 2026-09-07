@@ -238,7 +238,11 @@ with its full detail is in `docs/dev/ROADMAP.md`.
 | SCI-03, voxel focality overstatement | **10×** (divided by 100 instead of 1000) | `focality_*_area`, voxel path, v2.3.0–v2.5.0; rescalable |
 | SCI-04, p-value floor at 1000 permutations | **0 → 1/1001 ≈ 9.99e-4**; every p moves by at most 0.001 | Phipson & Smyth `(b+1)/(m+1)` |
 | SCI-05, voxel-volume error on the test's representative shear | **11.3 %** overestimate | `prod(header.get_zooms())` vs `abs(det(affine[:3,:3]))`; 0 % on any orthogonal grid |
-| SCI-07 (open), `hf_sar` for two aligned unit fields in one channel | **2 → 4**; RMS 1 → 2; `hf_peak` unchanged at 2 | Model A vs Model B, `SCIENTIFIC-CORRECTIONS.md § Open decisions` |
+| SCI-07, `hf_sar` for two aligned unit fields in one declared channel | **2 → 4**; RMS 1 → 2; `hf_peak` unchanged at 2 (the aligned case) | resolved — carriers grouped per Cassarà 2025 Part II p. 8, `SCIENTIFIC-CORRECTIONS.md § SCI-07` |
+| SCI-07, an *opposing* group: `E₀=(1,0,0)`, `E₁=(−0.9,0,0)` on one carrier, `E₂=(0,0.4,0)` on another | `hf_peak` **1.942 → 0.412**, `hf_sar` **1.97 → 0.17** | grouping removes sign patterns the hardware cannot realise |
+| SCI-07, `hf_sar / 2` vs an independent time-domain `mean|E(t)|²`, 1–3 carriers, 2 fields each | agreement to **1e-9 relative** | `tests/numerical/test_sci07_exposure_channels.py`; commensurate carriers, exact common period |
+| SCI-07, `hf_peak` vs the measured `max_t |E(t)|`, 3 fields on 2 carriers | agreement to **2e-4 relative** (time-grid resolution) | the phasor worst case is *attained*, not merely a bound |
+| SCI-08, `_envelope_from_PQ` relative error vs 60-digit `decimal`, `Q/P` from 1e-8 to 1e-20 | rationalised **< 1e-14**; naive **> 0.1** | the naive form returns exactly 0 below `Q/P ≈ 1e-16` |
 
 ### CX6 consolidation gate
 

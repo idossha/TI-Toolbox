@@ -106,7 +106,7 @@ For a 4-pair montage, `MTI_CHANNEL_ARCHITECTURES` (`tit/opt/config.py`) exposes 
 
 **Important:** `Montage.channels` can only be set from a `tit.sim` JSON config or directly in Python (`tit/sim/__main__.py:_build_channels`). `load_montages` never reads a `channels` value from `montage_list.json`, and the Simulator UI never sets `Montage.channels` at all -- so **every mTI simulation launched from the desktop app runs with `channels=None` (positional/independent-dyad pairing)**.
 
-`hf_peak`/`hf_sar` (safety metrics, below) are unaffected by `channels`: they always sum over every carrier field regardless of how carriers are grouped for the envelope.
+`hf_peak`/`hf_sar` (safety metrics, below) honour the **same** `channels` grouping as the envelope: fields sharing a carrier are summed as vectors before any exposure metric is formed. With `channels=None` -- every simulation launched from the desktop app -- each field is its own carrier, which is the same arithmetic as before.
 
 ## Simulator Behavior for mTI
 
@@ -120,7 +120,7 @@ On disk, the mTI mesh spells the modulation-depth field `mTI_max` -- the same qu
 
 **fsaverage projection is skipped for mTI.** `SimulationConfig.map_to_fsavg` defaults to `True`, but the projection step returns early for any montage whose `simulation_mode != TI`, logging "fsaverage projection: skipping %s (mTI not yet supported)".
 
-mTI supports an arbitrary even number of pairs, **capped at 26** (A-Z pair labelling); more than 26 pairs raises `ValueError`. Post-processing:
+mTI supports any even number of pairs (`tit.constants.is_valid_pair_count`: 2 is standard TI, then 4, 6, 8, 12, 16 …; an odd count leaves a channel with nothing to beat against), **capped at 26** (A-Z pair labelling); more than 26 pairs raises `ValueError`. Post-processing:
 
 1. Loads and crops all N high-frequency meshes to brain tissue (`BRAIN_TISSUE_TAG_RANGES = ((1, 100), (1001, 1100))`).
 2. Computes intermediate 2-pair TI vector fields for adjacent pairs (`{montage}_TI_AB.msh`, `{montage}_TI_CD.msh`, ...) via the plain $$K = 1$$ `get_TI_vectors` -- these are saved for inspection only and are **not** recombined into the final result (that would be the deprecated recursive path).
@@ -142,26 +142,37 @@ Per-pair high-frequency meshes are renamed `TDCS_1..N` -> `TDCS_A..Z` when moved
 
 ## Safety Metrics
 
-Two carrier-exposure safety metrics (`tit/fields.py`, Cassarà et al. 2025) are computed directly from the N per-pair carrier E-fields, independent of the modulation-depth envelope:
+Two carrier-exposure safety metrics (`tit/fields.py`) are computed from the per-pair carrier E-fields, independent of the modulation-depth envelope. Both follow Cassarà et al. 2025, *Recommendations for the Safe Application of Temporal Interference Stimulation in the Human Brain*, [Part I](https://doi.org/10.1002/bem.22542) and [Part II](https://doi.org/10.1002/bem.22536).
+
+**Carriers, not fields.** Part II (p. 8) sets the rule: *"In the presence of multiple currents (e.g., TIS channels), coherent field superposition was used for identical frequencies, and incoherent superposition (i.e., SAR addition) was used when the frequencies differed."* So the fields in one declared `channels` group -- electrode pairs driven phase-locked from the same carrier -- are summed **as vectors** first, and it is those carrier sums $$\mathbf{E}_c = \sum_{i \in c} \mathbf{E}_i$$ that the metrics below combine. With `channels=None` each field is its own carrier and $$\mathbf{E}_c = \mathbf{E}_i$$.
+
+The simulation is quasi-static: a field is a phasor amplitude vector, with no time axis. Both metrics are worst cases over the unknown relative phases between carriers -- the same convention the modulation depth uses.
+
+
 
 **`hf_peak`** (Eq. 3) is the worst-case instantaneous peak carrier field: carriers run at mutually incommensurate frequencies, so every relative phase combination occurs over time, and the true worst case is the max over sign choices,
 
 $$
-\mathrm{hf\_peak} = \max_{\mathbf{s}} \left\lVert \sum_i s_i \mathbf{E}_i \right\rVert,
-\qquad s_i \in \{ +1, -1 \}
+\mathrm{hf\_peak} = \max_{\mathbf{s}} \left\lVert \sum_c s_c \mathbf{E}_c \right\rVert,
+\qquad s_c \in \{ +1, -1 \}
 $$
 
-At $$N = 2$$ this is exactly $$\max\!\left( \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \; \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert \right)$$. Up to `EXACT_SIGN_ENUM_MAX_FIELDS = 8` fields, this is solved by exact sign enumeration ($$2^{N-1}$$ combinations -- 128 at $$N = 8$$). Above 8 fields the combinatorics blow up (measured ~44.6s for $$N = 12$$'s 2048 combinations at 200k elements vs. ~2.0s at $$N = 8$$), so a `4000`-direction Fibonacci-sphere sweep picks the best-sampled support direction and evaluates the exact, realizable vector sum for the sign pattern it implies. This sweep fallback is still a lower bound on the true max over all $$2^{N-1}$$ sign combinations -- since only the sampled directions' implied patterns are tried -- and is therefore **slightly non-conservative**.
+At two carriers this is exactly Part I's Eq. 3 (p. 11), $$\max\!\left( \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \; \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert \right)$$ -- the worst case occurring "for in-phase, spatially aligned fields". The sign is enumerated over *carriers*: two pairs fed from one phase-locked source cannot be in anti-phase, so declaring `channels` removes sign patterns the hardware cannot realise and can only lower `hf_peak`. Up to `EXACT_SIGN_ENUM_MAX_FIELDS = 8` fields, this is solved by exact sign enumeration ($$2^{N-1}$$ combinations -- 128 at $$N = 8$$). Above 8 fields the combinatorics blow up (measured ~44.6s for $$N = 12$$'s 2048 combinations at 200k elements vs. ~2.0s at $$N = 8$$), so a `4000`-direction Fibonacci-sphere sweep picks the best-sampled support direction and evaluates the exact, realizable vector sum for the sign pattern it implies. This sweep fallback is still a lower bound on the true max over all $$2^{N-1}$$ sign combinations -- since only the sampled directions' implied patterns are tried -- and is therefore **slightly non-conservative**.
 
-**`hf_sar`** is the incoherent sum of carrier powers, in $$(\mathrm{V/m})^2$$ -- carriers are incoherent, so their power adds rather than their amplitudes:
+**`hf_sar`** is the incoherent sum of carrier powers, in $$(\mathrm{V/m})^2$$ -- *distinct* carriers are incoherent, so their power adds rather than their amplitudes (Part I, p. 11: "the SAR distributions from the two channels, rather than the E-fields themselves, must be summed"):
 
 $$
-\mathrm{hf\_sar} = \sum_i \lVert \mathbf{E}_i \rVert^2
+\mathrm{hf\_sar} = \sum_c \lVert \mathbf{E}_c \rVert^2
+= \sum_c \left\lVert \sum_{i \in c} \mathbf{E}_i \right\rVert^2
 $$
 
-This is a field-domain heating proxy, **not** calibrated SAR: the actual calibration is $$\tfrac{\sigma}{2\rho} \cdot \mathrm{hf\_sar}$$, requiring the per-tissue conductivity $$\sigma$$ and density $$\rho$$ that the toolbox does not apply.
+This is a field-domain heating proxy, **not** calibrated SAR: the actual calibration is $$\tfrac{\sigma}{2\rho} \cdot \mathrm{hf\_sar}$$ (Part II Eq. 1, p. 4), requiring the per-tissue conductivity $$\sigma$$ and density $$\rho$$ that the toolbox does not apply. The $$\tfrac{1}{2}$$ is the sinusoid's time average -- Part II (p. 6): "For sinusoidal currents, root mean square (RMS) peak E-field and current density differ by a factor of $$\sqrt{2}$$" -- and it appears exactly once, in that calibration. The RMS carrier field is $$\sqrt{\mathrm{hf\_sar}/2}$$.
 
-Both metrics always sum over **every** carrier field regardless of `channels` -- carrier exposure does not depend on how pairs are grouped into TI channels for the envelope -- and both are **opt-in**: neither is in `SimulationConfig.output_fields`'s default (`["TI_max"]`), so a run must explicitly request `hf_peak`/`hf_sar` to get them written.
+**Reference limits.** Cassarà Part II, Table 3 (p. 15) states its thresholds as **peak** values, not RMS, for 3 cm² electrodes: 16 mA / 30 V/m for the peak brain E-field below 2.5 kHz (scaling as $$f/2.5\,\mathrm{kHz}$$ above it), 7 mA / 200 V/m for skin, 18 mA total current, and 14 mA for the FDA's 0.1 °C brain temperature limit. The toolbox computes the field maps; it does **not** evaluate current density, temperature rise, charge per phase or exposure duration -- see `docs/dev/SCIENTIFIC-CORRECTIONS.md § Exposure metrics — definitions` for why each is left out.
+
+Both metrics are **opt-in**: neither is in `SimulationConfig.output_fields`'s default (`["TI_max"]`), so a run must explicitly request `hf_peak`/`hf_sar` to get them written.
+
+> **Changed in v3.0.0.** In v2.5.0 both metrics ignored `channels` and treated every raw field as an independent carrier, so a montage declaring a shared carrier had its `hf_sar` computed as $$\sum_i \lVert \mathbf{E}_i \rVert^2$$ -- a **lower bound**, understating exposure by up to the size of the group. Montages with `channels=None` are unaffected. See `SCIENTIFIC-CORRECTIONS.md § SCI-07`.
 
 ## Multipolar Exhaustive Search (mex-search)
 
