@@ -162,7 +162,9 @@ const REQUIRED_IN_ASAR = [
 
 function main() {
   const args = process.argv.slice(2);
-  const positional = args.filter((a) => !a.startsWith("--"));
+  // --expect-version takes a value; everything else is a flag. Without skipping the value, an
+  // invocation like `verify-package.mjs app --expect-version 3.0.0` looks like two positionals.
+  const positional = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--expect-version");
   if (positional.length !== 1) {
     console.error("usage: node scripts/verify-package.mjs <app-path> [--expect-version X.Y.Z] [--expect-runtime]");
     process.exit(2);
