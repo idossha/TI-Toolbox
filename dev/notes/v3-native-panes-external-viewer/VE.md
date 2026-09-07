@@ -254,6 +254,83 @@ rather than an explicit `--tetravox-dir`. That is `active_embed_dir`'s job and i
 (`tests/test_tetravox_store.py`), but it has not been seen live in this image. It goes in the same
 basket as §4.2: it needs the full image, which needs the branch pushed.
 
+### 4.5 Performance — the Menu, measured then fixed
+
+Maintainer, on the live Menu: *"the menu acts way too slow — it looks like it does computation when
+I add or remove things; and sending it and launching into Tetravox is also very, very slow."*
+
+He was right about the mechanism. Measured first, on sub-ernie / `L_Insula` (5 datasets, 100 MB),
+before anything was changed:
+
+| | ms |
+|---|---|
+| `POST /api/view/open` (dry run), warm page cache | **152.8** |
+| the same, cold | **831** |
+| ├ `tit.viewspec.build_view` | **156.6** ← all of it |
+| ├ `localise_scene_paths` | 0.1 |
+| └ `_scene_files` (the size column) | 0.0 |
+| `GET /api/viewer/candidates` | 0.4 |
+
+`cProfile` put the whole 157 ms inside `resolve_percentiles` → `_resolve_layer_percentile` →
+`gzip.read`. One line: `nib.load(path).get_fdata()`, which decompresses the entire stream and
+materialises it as float64. The Viewer's file list re-resolved through that route on **every** add,
+remove and reorder — so changing the order of two array elements re-read 100 MB of volumes.
+
+**Server.** Memoise the resolved window on `(path, size, mtime_ns, lo, hi)`. The correct fix is not
+to read *less* of the file — a percentile taken from a subsample is a different number, and the
+window it produces is what the reader actually sees — it is to notice that a file which has not
+changed has the same percentiles.
+
+```
+POST /api/view/open   cold                831.1 ms
+POST /api/view/open   warm, median of 9     0.4 ms      (target was <= 200)
+POST /api/view/open   warm, real write      1.0 ms
+build_view            cold -> warm        864 -> 0.3 ms   (2723x)
+document byte-identical warm vs cold      True
+```
+
+Three deliberate asymmetries, each a test: an **unreadable** volume is not cached (usually a file
+still being written — remembering "no window" would outlive the cause, and the retry would never
+happen); an **all-zero** volume *is* cached, because that is a stable fact about the file and
+re-reading 17 MB to learn it again is the defect; and the map is bounded at 256 so a long-lived
+server does not grow one entry per volume it has ever seen. Two of the six tests fail red with the
+cache key forced to `None`.
+
+**Client.** List edits no longer ask the server anything at all. Two source-keyed queries with
+`staleTime: Infinity` — the view type's own list, and the `+ Add…` catalogue — carry every row's
+name, kind and size, and an edited list is those rows looked up locally.
+
+What that gives up is worth stating, because VM2 argued the opposite and was right at the time: it
+had the server drop a row it could not resolve, and called a disappearing row truer than one the
+client kept. That still holds for the one path a client can invent — a hand-typed container path in
+`+ Add…`. It now appears optimistically and is dropped by the server at Open, which is a worse
+moment to learn it. Every other row comes from the server's own catalogue and resolves by
+construction. A stalling menu on every click is the worse defect.
+
+Measured in the mock e2e, offscreen:
+
+```
+twenty list edits            0 requests, long tasks < 50 ms      (was 1 dry run per click)
+Open                         1 request, click -> response 22 ms
+                             response -> scene on screen 16 ms   (no remount, no bundle re-fetch)
+```
+
+The old spec asserted `dryRun > 0` on an edit and passed; it now asserts `0` requests. That
+inversion is the fail-first evidence for the client half.
+
+
+### 4.6 Where this lane's commits actually are
+
+`e7004efe` (the restore), `1b4e7f0a` + `d057d448` (records), `d82db13d` (the rail sub-items),
+`50c1f9a4`-ish (the registry tests), `fix(viewer)` × 2 (the copy, and the collapsed pane).
+
+**The performance work in §4.5 is on the branch under `0dfe868c`**, whose message is the notebook-
+kernels lane's: that lane ran a repository-wide `git add` while this lane's files were staged and
+swept `tit/viewspec.py`, `tests/test_viewspec.py`, `pages/viewer/index.tsx` and both e2e specs into
+its commit. The diff is correct and complete; only the attribution moved. VX §3 and VM2 §4 recorded
+the same hazard in this worktree on the same day, which makes it three times in one day and an
+argument for `git add -A` being banned in a shared worktree rather than discouraged.
+
 ## 5. Findings
 
 **5.1 `tests/test_scene_guide.py::test_the_legend_colour_is_read_from_the_colour_table_and_not_invented`
@@ -284,7 +361,13 @@ what is left is a 30–60+ minute SimNIBS install on a 2 vCPU / 8 GB `machine` e
 deleted — an invisible gap is worse than a red one. It needs a larger executor, a nightly trigger,
 or a published base image to build from.
 
-**5.5 The app now has two renderers, and that is not yet a decision.** The Viewer sub-page draws
+**5.5 The `+ Add…` picker cannot restore a row it did not offer.** It lists the catalogue; a file
+the *view type* produced but the catalogue does not carry (a simulation output) can be removed and
+then only brought back with **Reset**. Pre-existing (VM2's picker, unchanged here) and found by the
+perf test, which had to switch its target to a catalogue file to be able to re-add it. Worth
+closing by having the picker also offer the baseline rows that are currently out of the list.
+
+**5.6 The app now has two renderers, and that is not yet a decision.** The Viewer sub-page draws
 with the Tetravox embed; the run-page 3-D panes draw with lane NR's native WebGL2 renderer
 (`pages/_shared/scene/`), untouched here as instructed. `dev/notes/v3-embed-convergence-plan.md`
 existed to converge them, and its conclusion was reached under this morning's assumption that the
