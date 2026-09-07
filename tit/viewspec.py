@@ -74,6 +74,8 @@ from __future__ import annotations
 import copy
 import glob
 import os
+import threading
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 
@@ -1060,6 +1062,48 @@ def _percentiles_from_array(
     return float(lo_val), float(hi_val)
 
 
+#: Resolved percentile windows, keyed by the file's identity and the window asked for.
+#:
+#: Reading a volume to find its percentiles is by far the most expensive thing this module does:
+#: ``nibabel`` decompresses the whole gzip stream and ``get_fdata`` materialises it as float64, so
+#: one 17 MB ``.nii.gz`` costs ~100 ms and a five-layer scene ~150 ms. That was paid **on every
+#: call**, and the Viewer's file list re-resolves through this code on every edit -- so adding a row
+#: re-read every volume already in the scene, which is what "the menu acts way too slow" was
+#: (maintainer, 2026-09-06).
+#:
+#: The answer is not to read less of the file -- a percentile taken from a subsample is a different
+#: number, and the window it produces is what the reader actually sees. It is to notice that **a
+#: file that has not changed has the same percentiles**. The key is (path, size, mtime_ns, lo, hi),
+#: so a rewritten or replaced volume misses and is re-read; `mtime_ns` rather than `mtime` because
+#: a simulation can rewrite a file inside one filesystem-clock tick.
+#:
+#: Bounded and process-local on purpose. It is a memoisation of a pure function of file bytes, not
+#: a cache of anything a user can see, so it needs no invalidation hook and no persistence; a
+#: restart simply pays the first read again.
+_PERCENTILE_CACHE: "OrderedDict[tuple[str, int, int, float, float], tuple[float, float] | None]" = (
+    OrderedDict()
+)
+_PERCENTILE_CACHE_MAX = 256
+_PERCENTILE_LOCK = threading.Lock()
+
+
+def _percentile_cache_key(
+    path: str, lo: float, hi: float
+) -> tuple[str, int, int, float, float] | None:
+    """The file's identity plus the window, or ``None`` if it cannot be stat'ed."""
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    return (path, st.st_size, st.st_mtime_ns, float(lo), float(hi))
+
+
+def clear_percentile_cache() -> None:
+    """Forget every memoised window. For tests; nothing in the server calls it."""
+    with _PERCENTILE_LOCK:
+        _PERCENTILE_CACHE.clear()
+
+
 def _resolve_layer_percentile(layer: dict[str, Any]) -> None:
     """Fill *layer*'s ``cal_min``/``cal_max`` from its ``percentile`` window, in place.
 
@@ -1067,19 +1111,45 @@ def _resolve_layer_percentile(layer: dict[str, Any]) -> None:
     in this environment) leaves ``cal_min``/``cal_max`` exactly as they were
     -- a layer with an unresolved threshold still renders, just without a
     ``heatscale`` arg (see :func:`to_freeview_args`).
+
+    Memoised on the file's identity (see :data:`_PERCENTILE_CACHE`). A miss reads the volume
+    exactly as before; a hit costs one ``os.stat``.
     """
     pct = layer.get("percentile")
     if not pct or (
         layer.get("cal_min") is not None and layer.get("cal_max") is not None
     ):
         return
+
+    key = _percentile_cache_key(layer["path"], pct["lo"], pct["hi"])
+    if key is not None:
+        with _PERCENTILE_LOCK:
+            if key in _PERCENTILE_CACHE:
+                _PERCENTILE_CACHE.move_to_end(key)
+                cached = _PERCENTILE_CACHE[key]
+                if cached is not None:
+                    layer["cal_min"], layer["cal_max"] = cached
+                return
+
     try:
         import nibabel as nib
 
         data = nib.load(layer["path"]).get_fdata()
         resolved = _percentiles_from_array(data, pct["lo"], pct["hi"])
     except Exception:  # noqa: BLE001 - never let a bad volume break the viewer
+        # Deliberately NOT cached: an unreadable file is usually a transient state (a simulation
+        # still writing it), and remembering "this one has no window" would outlive the cause.
         return
+
+    if key is not None:
+        with _PERCENTILE_LOCK:
+            # An all-zero volume caches as `None`: it is a real, stable answer about the file, and
+            # re-reading 17 MB to learn it again on every list edit is the whole defect.
+            _PERCENTILE_CACHE[key] = resolved
+            _PERCENTILE_CACHE.move_to_end(key)
+            while len(_PERCENTILE_CACHE) > _PERCENTILE_CACHE_MAX:
+                _PERCENTILE_CACHE.popitem(last=False)
+
     if resolved is not None:
         layer["cal_min"], layer["cal_max"] = resolved
 

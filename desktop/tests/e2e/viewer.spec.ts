@@ -1,30 +1,36 @@
 /**
- * Viewer screen, against the mock server — **a data selector, not a viewer** (V1,
- * `dev/notes/v3-native-panes-external-viewer-plan.md`).
+ * Viewer screen, against the mock server — **a menu and a viewer, in one tab**
+ * (V1 · VM2 · VE, `dev/notes/v3-native-panes-external-viewer/{VX,VM,VM2}.md`).
  *
- * What this spec used to be: an iframe, a postMessage handshake, a fake embed fixture, a theme
- * hand-off, a `no-webgl2` state and a reload button. All of it is gone. The picture is drawn by
- * the **Tetravox desktop app** on the host, which has its own window, its own theme and its own
- * renderer, and which this app's only job is to hand a file to.
+ * What this spec was for one day: a host-installed **Tetravox desktop app**, launched over an
+ * Electron IPC bridge, with a spy sitting on `tit:viewer:open` and an assertion that no iframe
+ * survived anywhere in the app. The maintainer reversed that. The picture is drawn **here**, in
+ * this window, by the Tetravox **embed** served from the image at `/tetravox/` — so there is no
+ * host install, no launch bridge, and no `window.tit.viewer`. An Open costs exactly one thing:
+ * `POST /api/view/open`.
  *
- * So the assertions moved down to the two facts that are actually this page's:
+ * The page is two sub-pages — `/viewer/menu` and `/viewer/tetravox`, two indented rows in the nav
+ * rail — served by one always-mounted component, and the assertions follow that shape:
  *
- * 1. **The draft → Open grammar** (R5, kept verbatim): editing a selector changes the draft and
- *    nothing else — no request, no launch — and one Open is exactly one `POST /api/view/open` and
- *    exactly one call to the launch bridge, carrying the file that call answered with.
- * 2a. **VM2: the editable "what will open" list *is* the scene.** VM's composition panel was
- *    "too much"; what is left is a source and one list of files a person edits directly. So the
- *    assertions are about the document: remove a row and that dataset is gone from the scene the
- *    server writes, add the atlas and it is there, drag and the layer order follows. A list that
- *    said one thing and wrote another would be wrong with nothing on screen saying so.
- * 2. **There is no iframe anywhere in the app.** Asserted over the whole document, on every page
- *    the nav rail offers, because "the embed is retired" is a claim about the app, not about this
- *    screen.
+ * 1. **The draft → Open grammar** (R5, kept): editing a selector edits the draft and nothing else
+ *    — no write — and one Open is exactly one non-dry-run `POST /api/view/open`, after which the
+ *    page is on the **Viewer** sub-page with that scene in the frame.
+ * 2. **VM2: the editable "what will open" list *is* the scene.** Remove a row and that dataset is
+ *    gone from the scene the server writes; add the atlas and it is there; reorder and the layer
+ *    order follows. Read off the Open's response body, which is byte-for-byte what went to disk.
+ * 3. **Tab retention.** Navigating to the Menu sub-item and back to Tetravox must keep the *same
+ *    iframe element* — same document, same wasm heap, same camera — and must cost no new request.
+ *    That is the single most valuable assertion in this file: it is the whole reason both panes
+ *    stay mounted and the inactive one is merely `display:none`.
+ * 4. **Exactly one embed frame, and only on the Tetravox sub-page.** The run pages' 3-D panes are
+ *    lane NR's own native WebGL2 renderer (`pages/_shared/scene/ScenePane`) and frame nothing;
+ *    Help ▸ Docs legitimately frames the published documentation site. Asserted by walking every
+ *    page the rail offers, because "one renderer" is a claim about the app, not about this screen.
  *
- * **Nothing is ever launched.** The `tit:viewer:open` IPC handler is replaced in the main process
- * with a recorder, so the spy sits exactly on the bridge boundary the gate names and a GUI app
- * never appears in front of whoever is running the suite. (This machine has Tetravox 0.3.11 in
- * /Applications; a spec that really spawned it would steal focus on every run.)
+ * **Counting, stated plainly, because it is the gate.** VM routes the file list's preview through
+ * the *same* endpoint with `dry_run: true`, so "how many requests" and "how many scenes were
+ * written" are different questions. Every count here reads the request's post body and keeps only
+ * the ones with `dry_run !== true`.
  */
 import { mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -44,40 +50,6 @@ async function launchApp(): Promise<void> {
   app = await launchElectronApp({ userDataDir: mkdtempSync(join(tmpdir(), "tit-e2e-")) });
   page = await app.firstWindow();
   await page.setViewportSize({ width: 1280, height: 900 });
-}
-
-/**
- * Replace `tit:viewer:open` (and `tit:viewer:probe`) in the **main process** with recorders.
- *
- * This is the spy the gate asks for, on the honest side of the bridge: the renderer calls the real
- * `window.tit.viewer.open`, the real IPC channel carries it, and what is stubbed is only the last
- * step — the one that would put another application's window on screen. `probe` is stubbed too so
- * the page reports "installed" on any machine, including CI, rather than the suite passing or
- * failing on whether the developer happens to have Tetravox.
- */
-async function stubLaunchBridge(): Promise<void> {
-  await app.evaluate(({ ipcMain }) => {
-    const g = globalThis as unknown as { __viewerOpens?: string[] };
-    g.__viewerOpens = [];
-    ipcMain.removeHandler("tit:viewer:probe");
-    ipcMain.handle("tit:viewer:probe", () => ({
-      available: true,
-      path: "/Applications/Tetravox.app",
-      version: "0.3.11",
-      source: "discovered",
-      override: null,
-      downloadUrl: "https://github.com/idossha/tetravox/releases/latest",
-    }));
-    ipcMain.removeHandler("tit:viewer:open");
-    ipcMain.handle("tit:viewer:open", (_event, path: string) => {
-      g.__viewerOpens?.push(String(path));
-      return { ok: true, command: "/usr/bin/open", args: ["-a", "/Applications/Tetravox.app", String(path)] };
-    });
-  });
-}
-
-async function launchedScenes(): Promise<string[]> {
-  return app.evaluate(() => (globalThis as unknown as { __viewerOpens?: string[] }).__viewerOpens ?? []);
 }
 
 async function connect(): Promise<void> {
@@ -116,6 +88,50 @@ async function pressOpen(): Promise<void> {
   await page.getByTestId("viewer-open").click();
 }
 
+/** Which sub-page is on screen — the attribute both panes carry, never a visibility guess. */
+async function expectSub(which: "menu" | "viewer"): Promise<void> {
+  await expect(page.getByTestId(`viewer-sub-${which}`)).toHaveAttribute("data-active", "true", { timeout: 15_000 });
+}
+
+/**
+ * Wait out an Open.
+ *
+ * Open switches to the Viewer sub-page, so the Menu — and `viewer-opened` with it — is
+ * `display:none` from that moment: still in the document (it is the same component, never
+ * unmounted), never *visible*. So the settled state is "the Viewer pane is active", and the
+ * receipt is asserted by presence.
+ */
+async function expectOpened(): Promise<void> {
+  await expectSub("viewer");
+  await expect(page.getByTestId("viewer-opened")).toHaveCount(1);
+}
+
+/**
+ * Move between the Viewer's two sub-pages the way a person does it.
+ *
+ * They are real routes (`/viewer/menu`, `/viewer/tetravox`) reached from real rail rows, indented
+ * under Viewer — not an in-page control — so this is ordinary navigation, and the retention rule
+ * below is a claim about navigating away and back, not about a local state toggle.
+ *
+ * **Below 1440 the rail is icons and draws no sub-items at all** (`NavRail.tsx`: there is no room
+ * to indent a labelled row under a 56px icon), and the palette is then the only place they can be
+ * reached by name. This suite runs at 1280, so the fallback is the path most of these tests take —
+ * and taking it is itself the assertion that the narrow rail did not simply strand the sub-page.
+ */
+async function gotoSub(which: "menu" | "tetravox"): Promise<void> {
+  const railItem = page.getByTestId(`nav-subitem-viewer-${which}`);
+  if ((await railItem.count()) > 0) {
+    await railItem.click();
+  } else {
+    const label = which === "menu" ? "Viewer · Menu" : "Viewer · Tetravox";
+    await openPalette(page);
+    await page.getByTestId("palette-input").fill(label);
+    await page.getByRole("dialog").getByRole("option", { name: label }).first().click();
+    await expect(page.getByTestId("palette-input")).toHaveCount(0);
+  }
+  await expectSub(which === "menu" ? "menu" : "viewer");
+}
+
 interface ViewRequest {
   url: string;
   method: string;
@@ -141,28 +157,25 @@ function recordViewRequests(): ViewRequest[] {
 }
 
 /**
- * The Opens that would actually write a file and start an application.
+ * The Opens that would actually write a scene file and put a picture on screen.
  *
  * VM routes the preview through the same endpoint with `dry_run: true`, so "how many requests did
  * drafting cost" and "how many scenes did drafting write" stopped being the same question. This
- * helper answers the second one, which is the one every one of these assertions was about.
+ * helper answers the second one, which is the one every assertion below is about.
  */
 const opens = (seen: ViewRequest[]) => seen.filter((r) => r.method === "POST" && r.url.includes("/api/view/open") && !r.dryRun);
 
 test.beforeAll(() => {
   mkdirSync(ARTIFACTS, { recursive: true });
 });
-test.beforeEach(async () => {
-  await launchApp();
-  await stubLaunchBridge();
-});
+test.beforeEach(launchApp);
 test.afterEach(async () => {
   await app?.close();
 });
 
-// ── V1's own gate ────────────────────────────────────────────────────────────────────────────
+// ── V1's own gate, as VE left it ─────────────────────────────────────────────────────────────
 
-test("one Open writes one scene file and calls the launch bridge once, with that file", async () => {
+test("one Open is one request, and it writes one scene file", async () => {
   await connect();
   await chooseSubject("ernie");
   await openViewer();
@@ -171,80 +184,202 @@ test("one Open writes one scene file and calls the launch bridge once, with that
   await chooseOption("kind", "Simulation");
   await chooseOption("simulation", "Thalamus");
   expect(opens(seen), "drafting a selection writes no scene").toHaveLength(0);
-  expect(await launchedScenes()).toEqual([]);
 
   await pressOpen();
-  await expect(page.getByTestId("viewer-opened")).toBeVisible({ timeout: 15_000 });
+  await expectOpened();
 
   expect(opens(seen)).toHaveLength(1);
-  const launched = await launchedScenes();
-  expect(launched).toHaveLength(1);
-  // The file the server said it wrote, and a name the Tetravox app will read as a scene rather
-  // than as a volume (`isScenePath` is /\.tetravox\.json$/i).
-  expect(launched[0]).toContain("/code/ti-toolbox/viewer/");
-  expect(launched[0]!.endsWith(".tetravox.json")).toBe(true);
+  // The receipt names the file the server said it wrote, under the project's own viewer directory
+  // and with a name Tetravox reads as a scene rather than as a volume (`/\.tetravox\.json$/i`).
+  await expect(page.getByTestId("viewer-opened")).toContainText("/code/ti-toolbox/viewer/");
+  await expect(page.getByTestId("viewer-opened")).toContainText(".tetravox.json");
 });
 
-test("no page in the app frames anything but the published documentation site", async () => {
-  // The claim V4 makes is about the whole app, not about the Viewer: the embed was hosted here
-  // *and* in the run pages' scene panes, and "we removed the iframe" is only true if none is left.
-  //
-  // Two iframes legitimately survive, and neither is a renderer: Help ▸ Docs frames
-  // https://idossha.github.io (the only `frame-src` the app's CSP still grants), and Results
-  // frames a generated HTML report at /api/files/report/<id>. Both are *documents*, which is what
-  // an iframe is for. What must be gone is any frame that draws a scene — the embed at
-  // /tetravox/ — together with the host component that mounted it. Retained pages keep every
-  // visited page's DOM alive, so this walks the whole app and reads srcs, not counts.
+test("Open moves to the Viewer sub-page and shows the scene", async () => {
+  // VE's brief, verbatim: "the user configures in the Menu, hits Open, is moved to the Viewer
+  // where the Tetravox embed is". The frame is only proof if it actually answered — an iframe
+  // that mounted and stayed silent sits at `idle` forever — so this waits on the store's own
+  // status attribute leaving "idle" rather than on a timeout.
   await connect();
   await chooseSubject("ernie");
+  await openViewer();
+  const seen = recordViewRequests();
+
+  // Before any Open the Viewer sub-page is honest about being empty, and frames nothing.
+  await gotoSub("tetravox");
+  await expect(page.getByTestId("viewer-empty")).toBeVisible();
+  await expect(page.getByTestId("viewer-empty-menu")).toBeVisible();
+  await expect(page.getByTestId("tetravox-frame")).toHaveCount(0);
+  await page.getByTestId("viewer-empty-menu").click();
+  await expectSub("menu");
+
+  await chooseOption("kind", "Simulation");
+  await chooseOption("simulation", "Thalamus");
+  await pressOpen();
+  await expectOpened();
+
+  expect(opens(seen)).toHaveLength(1);
+  await expect(page.getByTestId("viewer-strip")).toBeVisible();
+  await expect(page.getByTestId("viewer-strip-name")).toHaveText("simulation.tetravox.json");
+
+  const host = page.getByTestId("tetravox-host");
+  // Visible, not merely mounted: an embed the layout has collapsed to zero height is an embed
+  // nobody can see, and every other assertion in this file would still pass with it.
+  await expect(host).toBeVisible();
+  // "ready" is the embed having taken the scene; "no-webgl2" would be this machine having no
+  // context. Either is an answer; `idle` is silence, and silence is the failure this catches.
+  await expect(host).not.toHaveAttribute("data-viewer-status", "idle", { timeout: 20_000 });
+  await expect(host).toHaveAttribute("data-viewer-status", "ready", { timeout: 20_000 });
+  await expect(page.getByTestId("tetravox-frame")).toHaveAttribute("src", /\/tetravox\//);
+});
+
+test("going back to the Menu keeps the scene, and costs nothing", async () => {
+  // The retention contract, and the reason the two sub-pages are one always-mounted component.
+  // Unmounting the frame would silently reload the engine and drop the camera and the wasm heap,
+  // and nothing on screen would say so — so this asserts on the *identity of the element*, by a
+  // marker stamped on it before the round trip, not on "an iframe is present afterwards".
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  const seen = recordViewRequests();
+
+  await chooseOption("kind", "Simulation");
+  await chooseOption("simulation", "Thalamus");
+  await pressOpen();
+  await expectOpened();
+  await expect(page.getByTestId("tetravox-host")).toHaveAttribute("data-viewer-status", "ready", { timeout: 20_000 });
+  const nameBefore = await page.getByTestId("viewer-strip-name").textContent();
+  expect(opens(seen)).toHaveLength(1);
+
+  await page.getByTestId("tetravox-frame").evaluate((node) => {
+    (node as HTMLIFrameElement).dataset.e2eIdentity = "the-one-and-only";
+  });
+
+  await gotoSub("menu");
+  // The frame is hidden, not gone: it is still in the document with its marker intact.
+  await expect(page.getByTestId("tetravox-frame")).toHaveCount(1);
+  await expect(page.getByTestId("tetravox-frame")).toHaveAttribute("data-e2e-identity", "the-one-and-only");
+  // The Menu is fully usable again, with the selection the person left there.
+  await expect(page.getByTestId("viewer-select-simulation").getByRole("combobox")).toContainText("Thalamus");
+
+  await gotoSub("tetravox");
+  // Same element, same document, same scene — and the round trip asked the server for nothing.
+  await expect(page.getByTestId("tetravox-frame")).toHaveCount(1);
+  await expect(page.getByTestId("tetravox-frame")).toHaveAttribute("data-e2e-identity", "the-one-and-only");
+  await expect(page.getByTestId("tetravox-host")).toHaveAttribute("data-viewer-status", "ready");
+  await expect(page.getByTestId("viewer-strip-name")).toHaveText(nameBefore ?? "");
+  expect(opens(seen), "switching sub-pages must not re-open anything").toHaveLength(1);
+});
+
+test("Reload re-posts the scene without a new request", async () => {
+  // The strip's Reload is the cheap one: the scene the page already has, posted to the frame
+  // again. It is not a new resolution, so it must not touch the server.
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  const seen = recordViewRequests();
+
+  await chooseOption("kind", "Simulation");
+  await chooseOption("simulation", "Thalamus");
+  await pressOpen();
+  await expectOpened();
+  await expect(page.getByTestId("tetravox-host")).toHaveAttribute("data-viewer-status", "ready", { timeout: 20_000 });
+  const before = opens(seen).length;
+  expect(before).toBe(1);
+
+  await page.getByTestId("viewer-reload").click();
+  await expect(page.getByTestId("tetravox-host")).toHaveAttribute("data-viewer-status", "ready", { timeout: 20_000 });
+  await expect(page.getByTestId("viewer-strip-name")).toHaveText("simulation.tetravox.json");
+  expect(opens(seen), "Reload re-sends the scene it already has").toHaveLength(before);
+});
+
+test("opening again replaces the scene in the same frame", async () => {
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  const seen = recordViewRequests();
+
+  await chooseOption("kind", "Simulation");
+  await chooseOption("simulation", "Thalamus");
+  await pressOpen();
+  await expectOpened();
+  await expect(page.getByTestId("viewer-strip-name")).toHaveText("simulation.tetravox.json");
+  expect(opens(seen)).toHaveLength(1);
+
+  await gotoSub("menu");
+  await chooseOption("kind", "Subject anatomy");
+  await pressOpen();
+  await expectOpened();
+
+  expect(opens(seen), "a second Open is exactly one more request").toHaveLength(2);
+  await expect(page.getByTestId("viewer-strip-name")).toHaveText("subject.tetravox.json");
+  await expect(page.getByTestId("tetravox-host")).toHaveAttribute("data-viewer-status", "ready", { timeout: 20_000 });
+  // One frame, still — a second Open is a new scene in the same engine, not a second viewer.
+  await expect(page.getByTestId("tetravox-frame")).toHaveCount(1);
+});
+
+test("exactly one page frames a scene, and it is the Viewer", async () => {
+  // The inverse of what VX asserted for a day. The embed is back, so "no iframe anywhere" is
+  // wrong; what is true, and worth holding, is that there is exactly *one* of it. The run pages'
+  // 3-D panes are lane NR's own native WebGL2 renderer (`pages/_shared/scene/ScenePane`): they
+  // mount `scene-pane-host` and frame nothing. Two other iframes are legitimate and neither is a
+  // renderer — Help ▸ Docs frames https://idossha.github.io (the only other `frame-src` the app's
+  // CSP grants) and Results frames a generated HTML report at /api/files/report/<id>. Both are
+  // *documents*, which is what an iframe is for.
+  //
+  // Retained pages keep every visited page's DOM alive, so each page is read through its own
+  // `[data-page-panel]` rather than off the whole document.
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  await chooseOption("kind", "Simulation");
+  await chooseOption("simulation", "Thalamus");
+  await pressOpen();
+  await expectOpened();
+
+  // The Viewer sub-page hosts exactly one embed frame, and it is served from this app's own
+  // /tetravox/ — not from anywhere else.
+  const embeds = page.locator('[data-page-panel="viewer"] iframe');
+  await expect(embeds).toHaveCount(1);
+  await expect(embeds.first()).toHaveAttribute("src", /^https?:\/\/[^/]+\/tetravox\//);
+
   // The rail's own hrefs are the page list: `/viewer`, `/results`, … (NavRail renders one
   // `<NavLink to={"/" + page.id}>` per enabled page).
-  const ids = await page.getByTestId("nav-rail").getByRole("link").evaluateAll((links) =>
-    links.map((l) => new URL((l as HTMLAnchorElement).href).pathname.replace(/^\//, "")).filter(Boolean),
+  const hrefs = await page.getByTestId("nav-rail").getByRole("link").evaluateAll((links) =>
+    links.map((l) => new URL((l as HTMLAnchorElement).href).pathname.split("/").filter(Boolean)[0] ?? ""),
   );
+  // The Viewer contributes three rows — itself and its two sub-items — and they are all one
+  // retained page, so the walk is over distinct pages, not over rail rows.
+  const ids = [...new Set(hrefs.filter(Boolean))];
   expect(ids.length).toBeGreaterThan(3);
   const framed: string[] = [];
   for (const id of ids) {
     await gotoPage(page, id);
-    const srcs = await page.locator("iframe").evaluateAll((nodes) => nodes.map((n) => (n as HTMLIFrameElement).src));
+    const panel = page.locator(`[data-page-panel="${id}"]`);
+    await expect(panel).toHaveCount(1);
+    const srcs = await panel.locator("iframe").evaluateAll((nodes) => nodes.map((n) => (n as HTMLIFrameElement).src));
     for (const src of srcs) {
       const document_ = src.startsWith("https://idossha.github.io") || src.includes("/api/files/report/");
-      if (!document_) framed.push(`${id}: ${src}`);
+      if (document_) continue;
+      if (id === "viewer" && /\/tetravox\//.test(src)) continue;
+      framed.push(`${id}: ${src}`);
     }
-    // The embed's own host elements, by the ids every spec used to reach it through.
-    for (const testid of ["tetravox-frame", "tetravox-host", "scene-pane-tetravox-frame"]) {
-      await expect(page.getByTestId(testid), `${id} still mounts ${testid}`).toHaveCount(0);
+    // Lane NR's panes draw in this window with their own WebGL2 context; wherever one is mounted,
+    // there must be no frame inside it.
+    const panes = panel.getByTestId("scene-pane-host");
+    for (let index = 0; index < (await panes.count()); index += 1) {
+      await expect(panes.nth(index).locator("iframe"), `${id}: a scene pane is framing something`).toHaveCount(0);
+    }
+    if (id !== "viewer") {
+      await expect(panel.getByTestId("tetravox-frame"), `${id} mounts an embed frame of its own`).toHaveCount(0);
     }
   }
-  expect(framed, "a scene is still being drawn in an iframe").toEqual([]);
-});
-
-test("says so, and offers the download, when Tetravox is not installed", async () => {
-  await connect();
-  await app.evaluate(({ ipcMain }) => {
-    ipcMain.removeHandler("tit:viewer:probe");
-    ipcMain.handle("tit:viewer:probe", () => ({
-      available: false,
-      path: null,
-      version: null,
-      source: null,
-      override: null,
-      downloadUrl: "https://github.com/idossha/tetravox/releases/latest",
-    }));
-  });
-  await chooseSubject("ernie");
-  await openViewer();
-  await expect(page.getByTestId("viewer-not-installed")).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByTestId("viewer-download-tetravox")).toBeVisible();
-  // Not installed is a sentence, not a broken page: the selectors still work, and Open is refused
-  // rather than silently doing nothing.
-  await expect(page.getByTestId("viewer-source-bar")).toBeVisible();
-  await expect(page.getByTestId("viewer-open")).toBeDisabled();
+  expect(framed, "a scene is being drawn in an iframe outside the Viewer").toEqual([]);
 });
 
 // ── R5's grammar, unchanged in substance ─────────────────────────────────────────────────────
 
-test("navigating to the Viewer and editing the draft launches nothing", async () => {
+test("navigating to the Viewer and editing the draft opens nothing", async () => {
   await connect();
   await chooseSubject("ernie");
   const seen = recordViewRequests();
@@ -256,7 +391,7 @@ test("navigating to the Viewer and editing the draft launches nothing", async ()
   await chooseOption("kind", "Subject anatomy");
   await page.getByRole("radiogroup", { name: "Space" }).getByRole("radio", { name: "MNI", exact: true }).click();
   expect(opens(seen)).toHaveLength(0);
-  expect(await launchedScenes()).toEqual([]);
+  await expectSub("menu");
 });
 
 test("the Open request carries the values the bar is showing", async () => {
@@ -274,27 +409,33 @@ test("the Open request carries the values the bar is showing", async () => {
   await chooseOption("kind", "Simulation");
   await chooseOption("simulation", "Thalamus");
   await pressOpen();
-  await expect(page.getByTestId("viewer-opened")).toBeVisible({ timeout: 15_000 });
+  await expectOpened();
 
   expect(bodies).toHaveLength(1);
   expect(bodies[0]).toMatchObject({ kind: "simulation", subject: "ernie", simulation: "Thalamus" });
 });
 
-test("an incomplete selection is refused before the wire, and launches nothing", async () => {
+test("an incomplete selection is refused before the wire, and opens nothing", async () => {
   await connect();
   await chooseSubject("ernie");
   await openViewer();
   const seen = recordViewRequests();
 
-  // `custom` needs a path; leaving it empty is a mistake to name, not a request to make.
+  // `custom` needs a path; leaving it empty is a mistake to *name*, not a request to make — and
+  // the page names it on the button itself rather than waiting for a click to punish. Refusing in
+  // the control is stronger than refusing after it: there is no moment at which a request could
+  // have escaped.
   await chooseOption("kind", "Custom files");
-  await pressOpen();
-  await expect(page.getByTestId("viewer-view-error")).toBeVisible();
+  const openButton = page.getByTestId("viewer-open");
+  await expect(openButton).toBeDisabled();
+  await expect(openButton).toHaveAttribute("title", /Choose .*[Pp]ath/);
   expect(opens(seen)).toHaveLength(0);
-  expect(await launchedScenes()).toEqual([]);
+  // Refused means the person is left where they were, with the mistake named in front of them.
+  await expectSub("menu");
+  await expect(page.getByTestId("tetravox-frame")).toHaveCount(0);
 });
 
-test("a deep link fills the controls and still launches nothing", async () => {
+test("a deep link fills the controls and still opens nothing", async () => {
   await connect();
   await chooseSubject("ernie");
   await gotoPage(page, "results");
@@ -309,20 +450,29 @@ test("a deep link fills the controls and still launches nothing", async () => {
   await expectPage(page, "viewer");
   await expect(page.getByTestId("viewer-select-simulation").getByRole("combobox")).toContainText("docs_example");
   expect(opens(seen)).toHaveLength(0);
-  expect(await launchedScenes()).toEqual([]);
+  // A link prefills the Menu; it never jumps someone into a picture they did not ask for.
+  await expectSub("menu");
 });
 
-test("a failed Open names the failure and still launches nothing", async () => {
+test("a failed Open names the failure and shows no scene", async () => {
   await connect();
   await chooseSubject("ernie");
   await openViewer();
-  await page.route("**/api/view/open", (route) => route.fulfill({ status: 500, json: { detail: "boom" } }));
+  // Only the *real* Open fails. The list resolves through the same route with `dry_run: true`,
+  // and Open is disabled until it has rows — so failing both would test a disabled button rather
+  // than a failed request.
+  await page.route("**/api/view/open", (route) => {
+    const body = JSON.parse(route.request().postData() ?? "{}") as { dry_run?: boolean };
+    if (body.dry_run === true) return route.continue();
+    return route.fulfill({ status: 500, json: { detail: "boom" } });
+  });
 
   await chooseOption("kind", "Simulation");
   await chooseOption("simulation", "Thalamus");
   await pressOpen();
   await expect(page.getByTestId("viewer-view-error")).toBeVisible({ timeout: 15_000 });
-  expect(await launchedScenes()).toEqual([]);
+  await expectSub("menu");
+  await expect(page.getByTestId("tetravox-frame")).toHaveCount(0);
 });
 
 // ── layout ───────────────────────────────────────────────────────────────────────────────────
@@ -345,7 +495,7 @@ test("the page fills the content box at both sizes — no right pane, low dead s
   console.log("viewer panes:", JSON.stringify(measured));
 
   // U5/U1: the Viewer has no right pane at any width. The dead-space budget is deliberately looser
-  // than the embed's 0.12: this page is a selector and a short summary, so most of it is *meant*
+  // than the embed's 0.12: the Menu is a selector and a short summary, so most of it is *meant*
   // to be empty — a page that filled the screen to satisfy a metric would be padding.
   expect(measured[1280]!.right).toBe(0);
   expect(measured[1440]!.right).toBe(0);
@@ -361,10 +511,15 @@ test("takes the light and dark screenshots of the viewer page", async () => {
   await chooseOption("simulation", "Thalamus");
   await expect(page.getByTestId("viewer-plan")).toBeVisible();
   await page.screenshot({ path: join(ARTIFACTS, "viewer-light.png"), fullPage: false });
-  // VM2's own record: the page at the width the maintainer's screenshots were taken at.
+  // VM2's own record: the Menu at the width the maintainer's screenshots were taken at.
   await page.setViewportSize({ width: 1440, height: 900 });
   await expect(page.getByTestId("viewer-preview-files")).toBeVisible({ timeout: 15_000 });
   await page.screenshot({ path: join(ARTIFACTS, "viewer-menu-v2.png"), fullPage: true });
+  // …and the Viewer sub-page with a scene actually in the frame.
+  await pressOpen();
+  await expectOpened();
+  await expect(page.getByTestId("tetravox-host")).toHaveAttribute("data-viewer-status", "ready", { timeout: 20_000 });
+  await page.screenshot({ path: join(ARTIFACTS, "viewer-embed-v2.png"), fullPage: false });
 });
 
 // ── VM2: the file list is the scene ──────────────────────────────────────────────────────────
@@ -417,7 +572,9 @@ test("the page is a source card and one file list — nothing else", async () =>
   for (const gone of ["viewer-section-layers", "viewer-section-layout", "viewer-section-extras", "viewer-layers"]) {
     await expect(page.getByTestId(gone), `${gone} should not exist any more`).toHaveCount(0);
   }
-  await expect(page.locator("canvas")).toHaveCount(0);
+  // No canvas *here*: appearance, camera and crosshair are the embed's, and the embed is the
+  // other sub-page. The Menu is a list.
+  await expect(page.getByTestId("viewer-sub-menu").locator("canvas")).toHaveCount(0);
   // Each row names a file, says what it is and how big it is.
   const first = page.getByTestId("viewer-preview-files").locator("li").first();
   await expect(first).toContainText(/volume|mesh/);
@@ -437,7 +594,7 @@ test("removing a row removes that dataset from the scene the server writes", asy
   await expect.poll(rowNames).toEqual(before.slice(1));
 
   await pressOpen();
-  await expect(page.getByTestId("viewer-opened")).toBeVisible({ timeout: 15_000 });
+  await expectOpened();
   await expect.poll(() => scenes.length).toBe(1);
   expect(datasetNames(scenes[0]!)).toEqual(before.slice(1));
   expect(datasetNames(scenes[0]!)).not.toContain(before[0]);
@@ -456,7 +613,7 @@ test("adding the atlas puts it in the list and in the written scene", async () =
   await expect.poll(rowNames).toEqual([...before, "labeling.nii.gz"]);
 
   await pressOpen();
-  await expect(page.getByTestId("viewer-opened")).toBeVisible({ timeout: 15_000 });
+  await expectOpened();
   await expect.poll(() => scenes.length).toBe(1);
   expect(datasetNames(scenes[0]!)).toEqual([...before, "labeling.nii.gz"]);
 });
@@ -477,7 +634,7 @@ test("reordering the list reorders the scene's layers", async () => {
   await expect.poll(rowNames).toEqual(expected);
 
   await pressOpen();
-  await expect(page.getByTestId("viewer-opened")).toBeVisible({ timeout: 15_000 });
+  await expectOpened();
   await expect.poll(() => scenes.length).toBe(1);
   expect(datasetNames(scenes[0]!)).toEqual(expected);
 });
@@ -497,35 +654,39 @@ test("Reset puts the view type's own list back", async () => {
   await expect(page.getByTestId("viewer-files-reset")).toHaveCount(0);
 });
 
-test("editing the list costs no scene and no launch until Open", async () => {
+test("editing the list costs no write until Open", async () => {
   await connect();
   await chooseSubject("ernie");
   await openViewer();
+  await draftSimulation();
+  // Recording starts AFTER the source has resolved: choosing a source is allowed exactly one
+  // request (the view type's own file list). What must cost nothing is every edit after it.
+  const before = await rowNames();
   const seen = recordViewRequests();
   const bodies = recordOpenBodies();
-  await draftSimulation();
 
-  const before = await rowNames();
   await page.getByTestId(`viewer-file-remove-${before[0]!}`).click();
   await expect.poll(rowNames).toEqual(before.slice(1));
   await page.getByTestId("viewer-add").click();
   await page.getByTestId("viewer-add-labeling.nii.gz").click();
   await expect.poll(rowNames).toEqual([...before.slice(1), "labeling.nii.gz"]);
 
-  // The list resolves through the same endpoint with dry_run — it is allowed to ask, and it must
-  // never write or launch.
-  expect(seen.filter((r) => r.dryRun).length).toBeGreaterThan(0);
+  // VE: editing the list costs the server NOTHING at all — not a write, and not a dry run either.
+  // It used to cost one `POST /api/view/open?dry_run` per click, and that route reads every volume
+  // in the scene to compute its percentile window (~150 ms warm, ~860 ms cold), which is what the
+  // maintainer saw as "the menu acts way too slow … it does computation when I add or remove
+  // things". The rows now come from two source-keyed queries and the edit is local.
+  expect(seen.filter((r) => r.dryRun).length, "an edit re-resolved on the server").toBe(0);
   expect(opens(seen), "editing the list writes no scene").toHaveLength(0);
   expect(bodies).toHaveLength(0);
-  expect(await launchedScenes()).toEqual([]);
+  await expectSub("menu");
 
   await pressOpen();
-  await expect(page.getByTestId("viewer-opened")).toBeVisible({ timeout: 15_000 });
+  await expectOpened();
   expect(opens(seen)).toHaveLength(1);
   // The list travels as container paths, in the list's order; the names are what the rows show.
   const sent = bodies[0]!.files as string[];
   expect(sent.map((p) => p.split("/").pop())).toEqual([...before.slice(1), "labeling.nii.gz"]);
-  expect(await launchedScenes()).toHaveLength(1);
 });
 
 test("changing the source resets the list to that source's own files", async () => {
@@ -568,7 +729,8 @@ test("a preset saves the edited list and restores it without opening anything", 
   // Restoring is not opening.
   expect(opens(seen)).toHaveLength(0);
   expect(bodies).toHaveLength(0);
-  expect(await launchedScenes()).toEqual([]);
+  await expectSub("menu");
+  await expect(page.getByTestId("tetravox-frame")).toHaveCount(0);
 });
 
 test("the Recent list remembers what was opened and restores it", async () => {
@@ -580,11 +742,97 @@ test("the Recent list remembers what was opened and restores it", async () => {
 
   await draftSimulation();
   await pressOpen();
-  await expect(page.getByTestId("viewer-opened")).toBeVisible({ timeout: 15_000 });
+  await expectOpened();
+  await gotoSub("menu");
   await expect(page.getByTestId("viewer-recent")).toBeEnabled();
 
   await chooseOption("kind", "Subject anatomy");
   await page.getByTestId("viewer-recent").click();
   await page.getByTestId("viewer-recent-0").click();
   await expect(page.getByTestId("viewer-select-simulation").getByRole("combobox")).toContainText("Thalamus");
+});
+
+// ── performance (VE, 2026-09-06) ─────────────────────────────────────────────────────────────
+//
+// Maintainer, on the live Menu: *"the menu acts way too slow — it looks like it does computation
+// when I add or remove things; and sending it and launching into Tetravox is also very, very
+// slow."* It did both, and the two causes were different:
+//
+//   * every list edit re-resolved through `POST /api/view/open?dry_run`, and that route reads
+//     every volume in the scene to compute a percentile window (`tit/viewspec.py`);
+//   * so did every Open, paying the same ~150 ms warm / ~860 ms cold before it could answer.
+//
+// Server-side that is a cache keyed on each file's identity (`tests/test_viewspec.py`). Client-side
+// the edit no longer asks. These are the assertions that keep both true — budgets deliberately
+// well above the measured numbers, so they catch a *reintroduced request*, not a slow CI box.
+
+test("twenty list edits cost the server nothing and never block a frame", async () => {
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  await draftSimulation();
+  const before = await rowNames();
+  expect(before.length, "need at least two rows to add and remove").toBeGreaterThan(1);
+
+  // After the source has resolved. Choosing a source may ask once; editing may not ask at all.
+  const seen = recordViewRequests();
+
+  // Long tasks are the honest measure of "does it compute when I add or remove things": a handler
+  // that only mutates an array yields inside a frame, one that resolves a scene does not.
+  await page.evaluate(() => {
+    const w = window as unknown as { __veLongTasks: number };
+    w.__veLongTasks = 0;
+    new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) w.__veLongTasks += entry.duration;
+    }).observe({ entryTypes: ["longtask"] });
+  });
+
+  // A file from the "+ Add…" catalogue, so it can be put back. (A row the view type produced but
+  // the catalogue does not offer — a simulation output — can be removed and only restored with
+  // Reset; that is VM2's picker, unchanged here.)
+  const target = "labeling.nii.gz";
+  for (let i = 0; i < 10; i += 1) {
+    await page.getByTestId("viewer-add").click();
+    await page.getByTestId(`viewer-add-${target}`).click();
+    await expect.poll(rowNames).toContain(target);
+    await page.getByTestId(`viewer-file-remove-${target}`).click();
+    await expect.poll(rowNames).not.toContain(target);
+  }
+
+  const longTasks = await page.evaluate(() => (window as unknown as { __veLongTasks: number }).__veLongTasks);
+  // Zero requests is the assertion that matters — the long-task budget is the backstop for a
+  // future edit path that does the work in the renderer instead of on the server.
+  expect(seen, "a list edit went to the server").toHaveLength(0);
+  expect(longTasks, `20 edits blocked the main thread for ${longTasks} ms`).toBeLessThan(50);
+});
+
+test("Open is one fast request, and the scene reaches the frame straight after it", async () => {
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  await draftSimulation();
+
+  const seen = recordViewRequests();
+  const responsePromise = page.waitForResponse(
+    (r) => r.url().includes("/api/view/open") && r.request().method() === "POST",
+  );
+  const t0 = Date.now();
+  await pressOpen();
+  await responsePromise;
+  const responded = Date.now();
+
+  await expectSub("viewer");
+  await expect(page.getByTestId("tetravox-host")).toBeVisible();
+  const shown = Date.now();
+
+  const serverMs = responded - t0;
+  const postMs = shown - responded;
+  console.log(`viewer open timings: click->response ${serverMs} ms, response->scene on screen ${postMs} ms`);
+
+  expect(opens(seen), "Open must be exactly one request").toHaveLength(1);
+  expect(seen.filter((r) => r.dryRun), "Open must not re-resolve first").toHaveLength(0);
+  expect(serverMs, `POST /api/view/open took ${serverMs} ms`).toBeLessThan(200);
+  // Navigating to the Tetravox sub-page and posting the ViewSpec into the already-mounted iframe
+  // is state and one postMessage. It must not wait on a re-fetch of the bundle or a remount.
+  expect(postMs, `the scene took ${postMs} ms to reach the frame after the response`).toBeLessThan(1000);
 });

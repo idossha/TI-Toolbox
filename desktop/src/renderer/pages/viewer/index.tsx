@@ -232,28 +232,80 @@ function ViewerPage() {
   const embedVersion = caps.data?.tetravox_embed?.version ?? null;
 
   // ---------------------------------------------------------------------------------------------
-  // The list: what this selection resolves to, from the endpoint that would open it, in dry run.
+  // The list.
   //
-  // The same route Open uses, and with the same `files`, so what the list shows and what Open
-  // writes cannot disagree. Editing a row therefore re-resolves — which is the point: the server
-  // is the one that knows a path is jailed out, missing, or a duplicate, and the row disappearing
-  // is a truer answer than a row the client kept and the scene did not.
+  // **One request per source, and none per edit** (VE, 2026-09-06; maintainer: *"the menu acts way
+  // too slow — it looks like it does computation when I add or remove things"*). It did: the list
+  // re-resolved through `POST /api/view/open?dry_run` on every add, remove and reorder, and that
+  // route reads every volume in the scene to compute its percentile window — ~150 ms warm, 860 ms
+  // cold, for a click that changes the order of two array elements.
+  //
+  // So the server is asked exactly two questions, both keyed on the *source* and cached forever
+  // (`staleTime: Infinity` — a file's name, kind and size do not change under a fixed selection,
+  // and a job that writes new files changes the selection or the catalog query that feeds it):
+  //
+  //   `baseline`   what this view type resolves to on its own — the list when nothing is edited,
+  //                and the metadata for every row that came from the view type.
+  //   `candidates` everything the subject and simulation offer "+ Add…", with the same
+  //                name/kind/bytes on every row.
+  //
+  // An edited list is then those rows, in the order the person put them, looked up locally. No
+  // request, no thread, no volume read: an add or a remove is one array operation.
+  //
+  // What that gives up, stated honestly: VM2 had the server drop a row it could not resolve, and
+  // called a disappearing row a truer answer than one the client kept. That is still true for the
+  // *one* path the client can invent — a hand-typed container path in "+ Add…". Every other row
+  // came from the server's own catalogue, so it resolves by construction. The invented one now
+  // appears in the list and is dropped by the server at Open, which is a worse moment to learn it
+  // and a fair trade for a menu that does not stall on every click.
   // ---------------------------------------------------------------------------------------------
   const draftKey = selectionKey(draft);
   const complete = validateSelection(draft) === null;
-  const resolution = useQuery({
-    queryKey: ["viewer-resolution", draftKey, files],
-    queryFn: () => previewView(draft.kind, viewQuery(draft) as ViewQuery, files ?? undefined),
+  const baseline = useQuery({
+    queryKey: ["viewer-resolution", draftKey],
+    queryFn: () => previewView(draft.kind, viewQuery(draft) as ViewQuery),
     enabled: complete,
     retry: false,
+    staleTime: Infinity,
   });
-  const rows: ViewerFile[] = useMemo(() => resolution.data?.files ?? [], [resolution.data]);
 
   const candidates = useQuery({
     queryKey: ["viewer-candidates", draft.subject, draft.simulation, draft.space],
     queryFn: () => getCandidates(draft.subject, draft.simulation, draft.space),
     enabled: !!draft.subject,
+    staleTime: Infinity,
   });
+
+  /** Every file this source knows about, by container path. Both queries, one index. */
+  const known = useMemo(() => {
+    const index = new Map<string, ViewerFile>();
+    for (const c of candidates.data ?? []) {
+      index.set(c.path, { kind: c.kind, name: c.name, path: c.path, container_path: c.path, bytes: c.bytes });
+    }
+    // Baseline rows win: they carry the host-facing `path` the row's tooltip shows, and a file can
+    // be both a candidate and part of the view type's own set.
+    for (const f of baseline.data?.files ?? []) {
+      const key = f.container_path ?? f.path;
+      index.set(key, f);
+    }
+    return index;
+  }, [candidates.data, baseline.data]);
+
+  const rows: ViewerFile[] = useMemo(() => {
+    if (files === null) return baseline.data?.files ?? [];
+    return files.map(
+      (path) =>
+        known.get(path) ?? {
+          // A path nothing has described — only reachable by typing one into "+ Add…". Shown with
+          // what can be known from the string itself, so the row is never blank.
+          kind: /\.(msh|gii)$/i.test(path) ? "mesh" : "volume",
+          name: path.split("/").pop() ?? path,
+          path,
+          container_path: path,
+          bytes: null,
+        },
+    );
+  }, [files, baseline.data, known]);
 
   /** Edit the list. Always through the *resolved* rows, so an edit never invents a path. */
   const editFiles = useCallback((next: string[]) => setFiles(next), [setFiles]);
@@ -621,7 +673,9 @@ function ViewerPage() {
               <p className="viewer-empty" data-testid="viewer-nothing-selected">
                 Choose a source above and the files it resolves to appear here.
               </p>
-            ) : resolution.isPending ? (
+            ) : baseline.isPending && files === null ? (
+              // Only the first read of a source can be pending. An edited list is local, so it
+              // never shows this — which is the point.
               <p className="viewer-empty">Resolving…</p>
             ) : rows.length === 0 ? (
               <p className="viewer-empty">Nothing yet — the server found no files for this selection. Add one, or reset the list.</p>

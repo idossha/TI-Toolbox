@@ -164,6 +164,13 @@ def _custom_openapi(app: FastAPI) -> dict[str, Any]:
             "responses": {"101": {"description": "switching protocols"}},
         }
     }
+    schema["paths"]["/ws/kernels/{kernel_id}"] = {
+        "get": {
+            "summary": "WebSocket; one notebook kernel's traffic — execute/interrupt/restart "
+            "down, status/input/output/clear/reply/fatal up (auth via cookie or ?token=)",
+            "responses": {"101": {"description": "switching protocols"}},
+        }
+    }
     schema["paths"]["/ws/system"] = {
         "get": {
             "summary": "WebSocket; one SystemSnapshot JSON message every 2 s "
@@ -239,6 +246,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError, Exception):
             await task
+        # Every kernel this process started is this process's to end. A
+        # notebook kernel is a full SimNIBS Python interpreter; leaking one
+        # per server restart is how a container ends up out of memory.
+        with contextlib.suppress(Exception):
+            from tit.server.kernels import get_kernel_registry
+
+            get_kernel_registry().shutdown_all()
 
 
 def create_app(settings: ServerSettings) -> FastAPI:

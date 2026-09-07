@@ -590,3 +590,164 @@ def test_group_view_honors_the_requested_mni_atlas(pm: PathManager) -> None:
     assert any(
         layer["path"].endswith("MorelMNI152_labeling_1mm.nii.gz") for layer in chosen["layers"]
     )
+
+
+# ── the percentile cache (VE, 2026-09-06) ────────────────────────────────────
+#
+# Reading a volume to find its percentile window is the most expensive thing `build_view` does --
+# ~150 ms warm and ~860 ms cold for one five-layer simulation scene, because `get_fdata()`
+# decompresses the whole gzip stream and materialises it as float64. The Viewer's file list used to
+# re-resolve through that code on every add, remove and reorder. These pin the memoisation that
+# makes the second call free, and the two ways it must NOT be free.
+
+
+@pytest.fixture
+def _fake_volume(monkeypatch, tmp_path):
+    """A real file on disk plus a counting `nibabel`, so "did it read?" is observable."""
+    import sys
+    import types
+
+    import numpy as np
+
+    path = tmp_path / "vol.nii.gz"
+    path.write_bytes(b"not really a nifti, but it has a size and an mtime")
+    reads: list[str] = []
+
+    def _load(p):
+        reads.append(str(p))
+        return types.SimpleNamespace(get_fdata=lambda: np.array([0, 1, 2, 3, 4, 100]))
+
+    monkeypatch.setitem(sys.modules, "nibabel", types.SimpleNamespace(load=_load))
+    viewspec.clear_percentile_cache()
+    yield path, reads
+    viewspec.clear_percentile_cache()
+
+
+def _pct_spec(path) -> dict:
+    return {
+        "layers": [
+            {
+                "path": str(path),
+                "cal_min": None,
+                "cal_max": None,
+                "percentile": {"lo": 0, "hi": 100},
+            }
+        ]
+    }
+
+
+def test_a_second_resolve_of_an_unchanged_file_reads_nothing(_fake_volume) -> None:
+    path, reads = _fake_volume
+
+    first = _pct_spec(path)
+    viewspec.resolve_percentiles(first)
+    assert reads == [str(path)]
+
+    second = _pct_spec(path)
+    viewspec.resolve_percentiles(second)
+
+    # The whole point: one read, two answers, and the same answer.
+    assert reads == [str(path)], "the volume was read again for a file that had not changed"
+    assert second["layers"][0]["cal_min"] == first["layers"][0]["cal_min"]
+    assert second["layers"][0]["cal_max"] == first["layers"][0]["cal_max"]
+    assert first["layers"][0]["cal_max"] == pytest.approx(100.0)
+
+
+def test_a_rewritten_file_is_read_again(_fake_volume) -> None:
+    """The key is (path, size, mtime_ns, lo, hi) -- a simulation that overwrites a volume must not
+    keep yesterday's window on screen."""
+    import os
+
+    path, reads = _fake_volume
+    viewspec.resolve_percentiles(_pct_spec(path))
+    assert len(reads) == 1
+
+    path.write_bytes(b"different bytes entirely, so both the size and the mtime move")
+    os.utime(path, ns=(0, 0))  # a mtime the first stat cannot have seen
+
+    viewspec.resolve_percentiles(_pct_spec(path))
+    assert len(reads) == 2, "a changed file kept its cached window"
+
+
+def test_a_different_window_on_the_same_file_is_read_again(_fake_volume) -> None:
+    """`lo`/`hi` are part of the key: two layers of one volume can ask for different windows."""
+    path, reads = _fake_volume
+    viewspec.resolve_percentiles(_pct_spec(path))
+    other = _pct_spec(path)
+    other["layers"][0]["percentile"] = {"lo": 5, "hi": 95}
+    viewspec.resolve_percentiles(other)
+    assert len(reads) == 2
+
+
+def test_an_unreadable_volume_is_not_cached(monkeypatch, tmp_path) -> None:
+    """A file that fails to load is usually mid-write. Remembering "this one has no window" would
+    outlive the cause, and the layer would stay unthresholded until the process restarted."""
+    import sys
+    import types
+
+    import numpy as np
+
+    path = tmp_path / "half-written.nii.gz"
+    path.write_bytes(b"truncated")
+    attempts: list[str] = []
+    ok = False
+
+    def _load(p):
+        attempts.append(str(p))
+        if not ok:
+            raise OSError("truncated file")
+        return types.SimpleNamespace(get_fdata=lambda: np.array([0, 1, 2, 3, 4, 100]))
+
+    monkeypatch.setitem(sys.modules, "nibabel", types.SimpleNamespace(load=_load))
+    viewspec.clear_percentile_cache()
+    try:
+        first = _pct_spec(path)
+        viewspec.resolve_percentiles(first)
+        assert first["layers"][0]["cal_min"] is None
+        assert len(attempts) == 1
+
+        ok = True
+        second = _pct_spec(path)
+        viewspec.resolve_percentiles(second)
+        assert len(attempts) == 2, "the failure was cached, so the retry never happened"
+        assert second["layers"][0]["cal_max"] == pytest.approx(100.0)
+    finally:
+        viewspec.clear_percentile_cache()
+
+
+def test_an_all_zero_volume_caches_its_none(monkeypatch, tmp_path) -> None:
+    """The opposite case: "this volume is all zeros" IS a stable fact about the file, and re-reading
+    17 MB to learn it again on every list edit is the defect this cache exists for."""
+    import sys
+    import types
+
+    import numpy as np
+
+    path = tmp_path / "zeros.nii.gz"
+    path.write_bytes(b"zeros")
+    reads: list[str] = []
+
+    def _load(p):
+        reads.append(str(p))
+        return types.SimpleNamespace(get_fdata=lambda: np.zeros((4, 4)))
+
+    monkeypatch.setitem(sys.modules, "nibabel", types.SimpleNamespace(load=_load))
+    viewspec.clear_percentile_cache()
+    try:
+        for _ in range(3):
+            spec = _pct_spec(path)
+            viewspec.resolve_percentiles(spec)
+            assert spec["layers"][0]["cal_min"] is None
+        assert reads == [str(path)]
+    finally:
+        viewspec.clear_percentile_cache()
+
+
+def test_the_cache_is_bounded(_fake_volume, tmp_path) -> None:
+    """A long-lived server must not grow one entry per volume it has ever seen."""
+    path, _reads = _fake_volume
+    for i in range(viewspec._PERCENTILE_CACHE_MAX + 20):
+        other = tmp_path / f"v{i}.nii.gz"
+        other.write_bytes(b"x" * (i + 1))
+        viewspec.resolve_percentiles(_pct_spec(other))
+    assert len(viewspec._PERCENTILE_CACHE) <= viewspec._PERCENTILE_CACHE_MAX
