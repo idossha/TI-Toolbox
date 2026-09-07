@@ -300,7 +300,8 @@ def subject_detail(pm: PathManager, sid: str) -> dict | None:
     if sid not in subject_ids(pm) and sid not in sourcedata_only_subject_ids(pm):
         return None
     has_m2m = os.path.isdir(pm.m2m(sid))
-    eeg_nets_list = pm.list_eeg_caps(sid) if has_m2m else []
+    # Only caps that carry electrodes: see :func:`_eeg_caps_with_electrodes`.
+    eeg_nets_list = [n for n, _ in _eeg_caps_with_electrodes(pm, sid)] if has_m2m else []
     has_leadfields: list[str] = []
     if has_m2m:
         try:
@@ -538,17 +539,35 @@ def _read_cap_electrode_labels(path: str) -> list[str]:
     return labels
 
 
-def eeg_nets(pm: PathManager, sid: str) -> list[dict] | None:
-    """EEG nets available to *sid*, with electrode labels; ``None`` if unknown."""
-    if sid not in subject_ids(pm):
-        return None
-    out = []
+def _eeg_caps_with_electrodes(pm: PathManager, sid: str) -> list[tuple[str, list[str]]]:
+    """Cap files under the subject's ``eeg_positions`` that carry at least one electrode.
+
+    ``m2m_<sid>/eeg_positions`` also holds ``Fiducials.csv``, whose rows are all
+    ``Fiducial`` (Nz/Iz/LPA/RPA) and never ``Electrode``. It is a registration
+    landmark file, not an EEG net: nothing can be placed from it, no leadfield
+    can be built on it, and a flex run mapped onto it resolves to no labels. It
+    was nevertheless offered everywhere a net is chosen, where picking it left
+    the row permanently unrunnable with nothing said. A cap with no electrodes
+    is not a net, so it is not listed as one.
+    """
+    out: list[tuple[str, list[str]]] = []
     for cap_name in pm.list_eeg_caps(sid):
         electrodes = _read_cap_electrode_labels(
             os.path.join(pm.eeg_positions(sid), cap_name)
         )
-        out.append({"name": cap_name, "electrodes": electrodes, "n": len(electrodes)})
+        if electrodes:
+            out.append((cap_name, electrodes))
     return out
+
+
+def eeg_nets(pm: PathManager, sid: str) -> list[dict] | None:
+    """EEG nets available to *sid*, with electrode labels; ``None`` if unknown."""
+    if sid not in subject_ids(pm):
+        return None
+    return [
+        {"name": name, "electrodes": electrodes, "n": len(electrodes)}
+        for name, electrodes in _eeg_caps_with_electrodes(pm, sid)
+    ]
 
 
 # ── atlases / regions ────────────────────────────────────────────────────────
@@ -1339,8 +1358,8 @@ def _read_freehand_file(path: str) -> dict | None:
 def freehand_configs(pm: PathManager, sid: str) -> list[dict] | None:
     """Saved free-hand electrode configs for *sid*; ``None`` if unknown.
 
-    Reads ``m2m_<id>/stim_configs/*.json``, the format
-    ``tit/gui/extensions/electrode_placement.py:1010-1036`` writes today:
+    Reads ``m2m_<id>/stim_configs/*.json``. The on-disk format, written by the
+    free-hand electrode placement UI, is
     ``{"name", "type": "U"|"M", "electrode_positions": {label: [x, y, z]}}``.
     The contract's ``FreehandConfig.type`` enum is ``[U, M]`` (unipolar/
     multipolar), matching this on-disk value exactly (fixed from an earlier

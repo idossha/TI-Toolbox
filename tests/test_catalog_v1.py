@@ -40,6 +40,10 @@ def project(tmp_path: Path) -> Path:
     Path(eeg_dir, "GSN-HydroCel-185.csv").write_text(
         "Electrode,1.0,2.0,3.0,E001\nElectrode,4.0,5.0,6.0,E002\n"
     )
+    # SimNIBS writes this beside every cap. Its rows are landmarks, not electrodes.
+    Path(eeg_dir, "Fiducials.csv").write_text(
+        "Fiducial,0.0,90.0,0.0,Nz\nFiducial,0.0,-90.0,0.0,Iz\n"
+    )
 
     montage_config_dir = pm.config_dir()
     os.makedirs(montage_config_dir)
@@ -249,6 +253,13 @@ def test_put_montage_rejects_unsafe_characters(client: TestClient) -> None:
 
 
 def test_eeg_nets(client: TestClient) -> None:
+    """A cap with no electrodes is not a net, and is not listed as one.
+
+    ``Fiducials.csv`` sits in every subject's ``eeg_positions`` and holds only
+    registration landmarks. Listed as a net it could be picked in the Simulator
+    and mapped a flex run onto, and the row then stayed unrunnable forever with
+    nothing said, because there is no electrode in it to place.
+    """
     body = client.get(
         "/api/catalog/eeg-nets", params={"subject": "ernie"}, headers=BEARER
     ).json()

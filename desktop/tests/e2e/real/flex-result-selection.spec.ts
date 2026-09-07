@@ -35,8 +35,10 @@ test("every real flex-search run is selectable, and a ticked one plans a job", a
     await setJobSubject(page, row, process.env.TIT_E2E_SUBJECT ?? "ernie");
     await setJobSource(page, row, "Flex result");
 
-    // Every run the catalog knows is offered in the row's Montage cell.
-    await row.locator('td[data-cell="montage"]').getByRole("combobox").click();
+    // Every run the catalog knows is offered in the row's own run control. Addressed by what it
+    // is, not by which column it sits in: since the v5 reorder a flex row's run select is the
+    // third column and the fourth holds its placement, and that column can move again.
+    await row.getByRole("combobox", { name: "Flex run", exact: true }).click();
     const options = page.getByRole("option");
     await expect(options.first()).toBeVisible({ timeout: 30_000 });
     const runs = await options.allTextContents();
@@ -55,8 +57,7 @@ test("every real flex-search run is selectable, and a ticked one plans a job", a
     // server maps on demand (`GET /api/catalog/flex-runs/{run}/mapping`). Nothing is submitted.
     await setJobPlacement(page, row, "Optimised (XYZ)");
     await expect(jobPairs(row).first()).toHaveText(/^XYZ/);
-    const netCell = row.locator('td[data-cell="net"]');
-    await netCell.getByRole("combobox").click();
+    await row.getByRole("combobox", { name: "Placement", exact: true }).click();
     const nets = (await page.getByRole("option").allTextContents()).filter((n) => !n.startsWith("Optimised"));
     expect(nets.length, "the subject has EEG nets to map onto").toBeGreaterThan(0);
     await page.keyboard.press("Escape");
