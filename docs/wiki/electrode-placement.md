@@ -51,7 +51,7 @@ position you already know — from a paper, from a previous study, or from a neu
 | Positions | Mode |
 |---|---|
 | 4 (2 pairs) | Standard TI |
-| 8 or more, in steps of 2 | [Multipolar TI (mTI)]({{ site.baseurl }}/wiki/mti/) |
+| 8 or more, in steps of 2 | [Multipolar TI (mTI)]({{ site.baseurl }}/wiki/simulator/#multipolar-mode-mti) |
 
 The mode is **derived from the number of pairs** — there is no separate switch to forget.
 
