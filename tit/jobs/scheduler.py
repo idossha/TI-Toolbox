@@ -50,10 +50,14 @@ def _dependency_state(job: JobSpec, jobs: dict[str, JobStatus]) -> Decision | No
     for dep_id in job.after:
         dep = jobs.get(dep_id)
         if dep is None:
-            logger.warning(
-                "job %s: dependency %s not found; treating as satisfied", job.id, dep_id
-            )
-            continue
+            # Never "satisfied": an `after` naming a job that does not exist is either a
+            # typo or a dependency that was deleted, and admitting the dependant runs it
+            # against a precondition nobody established. Submission rejects unknown ids
+            # (JobManager.submit), so reaching here means the record went away after the
+            # fact -- recovery from the store included, which is why this is a skip with
+            # its own reason rather than a wait for something that will never arrive.
+            logger.warning("job %s: dependency %s not found; refusing to run", job.id, dep_id)
+            return Decision(skip_reason=f"dependency {dep_id} is unknown")
         if dep.state in FAILED_LIKE_STATES:
             return Decision(skip_reason=f"dependency {dep_id} {dep.state}")
         if dep.state != "succeeded":

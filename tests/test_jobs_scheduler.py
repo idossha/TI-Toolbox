@@ -55,10 +55,39 @@ def test_skips_when_dependency_failed():
     assert decision.skip_reason == "dependency j1 failed"
 
 
-def test_missing_dependency_treated_as_satisfied():
+def test_unknown_dependency_is_never_admitted():
+    """RUN-04: an `after` id nobody knows is a typo or a deleted job, not a green light."""
     job = _spec("j2", after=["ghost"])
     decision = scheduler.evaluate(job, {}, [], running_cost=Cost(0, 0), budget=BUDGET)
-    assert decision.admit
+    assert not decision.admit
+    assert decision.skip_reason == "dependency ghost is unknown"
+
+
+def test_unknown_dependency_is_distinct_from_a_failed_one():
+    unknown = scheduler.evaluate(
+        _spec("j2", after=["ghost"]), {}, [], running_cost=Cost(0, 0), budget=BUDGET
+    )
+    failed = scheduler.evaluate(
+        _spec("j3", after=["j1"]),
+        {"j1": _status("j1", "failed")},
+        [],
+        running_cost=Cost(0, 0),
+        budget=BUDGET,
+    )
+    assert unknown.skip_reason != failed.skip_reason
+
+
+def test_one_unknown_dependency_blocks_even_with_a_succeeded_sibling():
+    job = _spec("j3", after=["j1", "ghost"])
+    decision = scheduler.evaluate(
+        job,
+        {"j1": _status("j1", "succeeded")},
+        [],
+        running_cost=Cost(0, 0),
+        budget=BUDGET,
+    )
+    assert not decision.admit
+    assert decision.skip_reason == "dependency ghost is unknown"
 
 
 def test_lock_conflict_produces_waiting_on():
