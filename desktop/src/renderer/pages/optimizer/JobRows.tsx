@@ -20,7 +20,7 @@
  * row can hand them.
  */
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Copy, Pencil, Plus, Target as TargetIcon, X } from "lucide-react";
+import { Copy, Plus, SlidersHorizontal, X } from "lucide-react";
 import { Button, IconButton } from "../../ui/Button";
 import { Dialog } from "../../ui/Overlay";
 import { Field, TextInput } from "../../ui/Field";
@@ -33,7 +33,7 @@ import { ElectrodesSection, ObjectiveSection, PostRunSection, SolverSection } fr
 import { ExCurrentSection, ExElectrodesSection, LeadfieldStrip, MExCarrierSection, MExElectrodesSection } from "./ExSections";
 import { formatBytes } from "./exConfig";
 import { electrodesForNet, leadfieldPathFor, netKey, netOptions } from "./nets";
-import { isFlexMethod, OPT_METHODS, optimizerAvoidLabel, optimizerMethodSummary, optimizerTargetLabel, roiModesFor, rowGoal, rowJobKind, withMethod, emptyOptimizerRow, newOptimizerRowId, readStoredOptColumns, resolveOptColumnWidths, writeStoredOptColumns, type OptColumnKey, type OptColumnWidths, type OptimizerRow, type OptMethod, type StoredOptColumns } from "./rows";
+import { isFlexMethod, OPT_METHODS, optimizerMethodSummary, optimizerTargetLabel, roiModesFor, rowGoal, rowJobKind, withMethod, emptyOptimizerRow, newOptimizerRowId, readStoredOptColumns, resolveOptColumnWidths, writeStoredOptColumns, type OptColumnKey, type OptColumnWidths, type OptimizerRow, type OptMethod, type StoredOptColumns } from "./rows";
 import type { OptGoal } from "./flexConfig";
 import "./optimizer.css";
 
@@ -274,8 +274,8 @@ export function OptimizerJobRows({
           {rows.map((row, i) => {
             const goal = rowGoal(row);
             const target = optimizerTargetLabel(row.roi);
-            const avoid = optimizerAvoidLabel(row);
-            const line2 = [target, avoid, optimizerMethodSummary(row)].filter(Boolean).join(" · ");
+            const detail = optimizerMethodSummary(row);
+            const line2 = `${target} · ${detail}`;
             const active = activeRowId === row.id;
             const claim = (e: React.MouseEvent) => {
               if ((e.target as HTMLElement).closest("button, input, [role='combobox'], [role='dialog']")) return;
@@ -375,9 +375,12 @@ export function OptimizerJobRows({
                   <td data-cell="actions" className="opt-actions" rowSpan={2}>
                     <div className="opt-actions-row">
                     <IconButton aria-label={`Duplicate job ${i + 1}`} icon={<Copy size={14} />} onClick={() => duplicate(row)} />
+                    {/* The Simulator's own per-job affordance (0ba23ca8), same icon, same
+                        position and size: a row's parameters are "job settings" on both pages. */}
                     <IconButton
-                      aria-label={`Edit job ${i + 1}`}
-                      icon={<Pencil size={14} />}
+                      aria-label={`Job settings ${i + 1}`}
+                      title="Target, electrodes and search parameters for this job"
+                      icon={<SlidersHorizontal size={14} />}
                       onClick={() => {
                         onActiveRowChange(row.id);
                         setEditingId(row.id);
@@ -409,9 +412,10 @@ export function OptimizerJobRows({
                         setEditingId(row.id);
                       }}
                     >
-                      <span className="opt-target-caption text-eyebrow">Target</span>
-                      <TargetIcon size={12} aria-hidden />
-                      <span className="opt-target-text">{line2}</span>
+                      {/* Two spans, and the order is the point: the target holds its width and the
+                          essentials ellipse, so no truncation can ever hide what is being aimed at. */}
+                      <span className="opt-target-text">{target}</span>
+                      <span className="opt-row-detail">{detail}</span>
                     </button>
                   </td>
                 </tr>

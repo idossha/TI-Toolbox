@@ -31,7 +31,7 @@ search.
 | **Method** | `Flex` | `Ex` |
 | **Net / leadfield** | the EEG net optimised positions are mapped onto, or `Optimised positions` | the subject's leadfields, each with its size; a net *without* one is listed as `<net> — no leadfield` and is unselectable |
 | **Goal** | `mean` / `max` / `focality` / `focality_tf`; fixed to `focality` (disabled) for the two orchestrated methods | `—`, with the reason in its `title`: an exhaustive search ranks every montage by the ROI field and has no goal to choose |
-| **line 2** | `Cortical · DK40 · lh.bankssts · avoid everything else · 2 pairs · 1 mA · ratio 1:1 · population 13 × 500 generations ≈ 6,500 solves` | `Saved · Thalamus_target · r3 mm · Subject · buckets: 4 · 2 mA total · 4 electrodes · 7 splits · 7 combinations` |
+| **line 2** | `lh.bankssts · DK40` then `goal mean · 2 pairs · 1 mA · ratio 1:1` | `Thalamus_target` then `4 electrodes (TI) · 2 mA · 7 splits · 7 combinations` |
 
 * **Two methods; five kinds, all derived.** A method is the kind of *search* — free electrode
   positions, or an exhaustive sweep over a leadfield. The five job kinds this page submits are not
@@ -62,6 +62,17 @@ search.
   `tit-opt-jobs-columns-v1`, and an active-row wash over both lines. Asserted: switching a row
   Flex→mEx moves no column, and the container never scrolls sideways.
 * **The entry is 63.5 px** (34.5 + 29), inside the Analyzer's own asserted 56–64 band.
+* **Line 2 is an efficient summary, not a sentence** (coordinator, on a row reading `TARGET ◎
+  Choose a target… · Ex · 4 electrodes (TI) · buckets: 4 · 2 mA total · 0 electrodes · 7 splits ·
+  0 combin…`): no `TARGET` caption, no repetition of the method line 1 already prints, no bucket
+  bookkeeping, no solve estimate. The **target comes first and never truncates** — it is a
+  `flex: none` span and the essentials beside it are what ellipses — so no width can hide the thing
+  being aimed at. An unset target reads `Choose a target…` in italic muted. The electrode count is
+  the montage's (`pairs × 2`), not the distinct pool, which printed `0 electrodes` on a row whose
+  buckets were empty and said nothing about the search.
+* **The row's editor opens from the `SlidersHorizontal` "Job settings" icon** — the Simulator's own
+  per-job affordance (`0ba23ca8`), same icon, position and size, because a row's parameters are
+  "job settings" on both pages.
 * **The 3-D pane follows the active row** — its atlas and regions via `onAtlasChange` /
   `onRegionsChange`, exactly as the Analyzer's does.
 

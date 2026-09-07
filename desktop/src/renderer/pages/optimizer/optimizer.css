@@ -247,11 +247,13 @@
 
 /* ---------- Line 2: the target and the search, in words ---------- */
 
+/* Tight, not full-width: clicking the empty space right of the summary is part of the ROW, and a
+   row click only moves the active-row focus (the same rule the Analyzer's target line follows). */
 .opt-target-button {
-  display: flex;
+  display: inline-flex;
   align-items: baseline;
   gap: var(--space-2);
-  width: 100%;
+  max-width: 100%;
   min-width: 0;
   padding: 2px var(--space-2) 2px 0;
   border: none;
@@ -270,25 +272,37 @@
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
-.opt-target-caption {
-  flex: none;
-  width: 44px;
-  color: var(--ink-3);
-}
+/* An unset target says so in italic muted — the one part of line 2 that is a prompt, not a fact. */
 .opt-target-button[data-empty="true"] .opt-target-text {
   color: var(--ink-3);
   font-style: italic;
 }
-/* One line, ellipsed, with the whole sentence in the button's `title` — and the row editor one
-   click away. The Analyzer clamps its target line to two, but this line carries the target AND the
-   search summary, and a line that can grow would break the entry's fixed 63px: a table where a
-   longer target makes a row taller is the movement the fixed-geometry rule exists to forbid. */
+
+/* The target holds its own width (`flex: none`) and the essentials take what is left and ellipse.
+   Truncation can therefore only ever eat the search parameters, never the thing being aimed at
+   (coordinator, 2026-09-06, on a row whose target had been cut to `Choose a target…` while three
+   redundant clauses survived). One line either way: a line that can grow would break the entry's
+   fixed 63px, which is the movement the fixed-geometry rule exists to forbid. */
 .opt-target-text {
-  flex: 1;
+  flex: none;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.opt-row-detail {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--ink-2);
+}
+/* The separator between the two, drawn rather than typed, so neither span has to carry it. */
+.opt-row-detail::before {
+  content: "·";
+  margin-right: var(--space-2);
+  color: var(--ink-3);
 }
 
 /* ---------- The row editor ---------- */

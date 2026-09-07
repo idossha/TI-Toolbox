@@ -188,7 +188,7 @@ test("a region picked in the scene is the region the ROI picker lists", async ()
   // row's atlas. So the atlas is chosen in that row's editor, and the row stays active after it
   // closes — which is what makes the pane's regions and the row's regions the same list.
   const row = optRows(page).first();
-  const editor = await openOptEditor(page, row, "pencil");
+  const editor = await openOptEditor(page, row, "settings");
   await editor.getByRole("radio", { name: "Cortical", exact: true }).click();
   await field("Atlas", editor).getByRole("button").click();
   await page.getByPlaceholder("Search atlases…").fill("DK40");
@@ -214,7 +214,7 @@ test("a region picked in the scene is the region the ROI picker lists", async ()
 
   const hemi = picked!.hemi === "rh" ? "R" : "L";
   // The FORM holds what the pane picked — read where the form now lives, in the row's editor.
-  const check = await openOptEditor(page, row, "pencil");
+  const check = await openOptEditor(page, row, "settings");
   await expect(field("Region(s)", check).getByRole("combobox")).toHaveText(`${hemi} · ${picked!.name}`);
   await closeOptEditor(page);
 });
@@ -232,7 +232,7 @@ test("a region chosen in the ROI picker is highlighted by the pane", async () =>
     return { before: handle.selection.regions, next: { key: `${row.hemi}:${row.id}`, label: row.label } };
   });
 
-  const picker = await openOptEditor(page, optRows(page).first(), "pencil");
+  const picker = await openOptEditor(page, optRows(page).first(), "settings");
   await field("Region(s)", picker).getByRole("combobox").click();
   // Cleared first, so this measures the FORM -> PANE direction on its own: the previous test left
   // a scene-picked region in the list, and starting from empty means the assertion below is about

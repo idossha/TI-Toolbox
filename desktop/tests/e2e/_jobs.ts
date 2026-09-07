@@ -243,8 +243,8 @@ export async function setOptCell(page: Page, row: Locator, name: "method" | "net
 
 /** Opens the row's editor — the per-method dialog holding the target picker and the form
  *  sections, scoped to that row. Returns the dialog. */
-export async function openOptEditor(page: Page, row: Locator, via: "target" | "pencil" = "target"): Promise<Locator> {
-  if (via === "pencil") await cell(row, "actions").getByRole("button", { name: /^Edit job / }).click();
+export async function openOptEditor(page: Page, row: Locator, via: "target" | "settings" = "target"): Promise<Locator> {
+  if (via === "settings") await cell(row, "actions").getByRole("button", { name: /^Job settings / }).click();
   else await cell(row, "target").getByRole("button").click();
   const dialog = page.getByRole("dialog").filter({ has: page.getByTestId("opt-row-editor") });
   await expect(dialog).toBeVisible();
@@ -256,9 +256,14 @@ export async function closeOptEditor(page: Page): Promise<void> {
   await expect(page.getByTestId("opt-row-editor")).toHaveCount(0);
 }
 
-/** The row's line 2, as it reads with the editor closed. */
+/** The row's TARGET, the first half of line 2 — the half that never truncates. */
 export function optRowSummary(row: Locator): Locator {
   return cell(row, "target").locator(".opt-target-text");
+}
+
+/** The rest of line 2: the search essentials, which is the half that ellipses. */
+export function optRowDetail(row: Locator): Locator {
+  return cell(row, "target").locator(".opt-row-detail");
 }
 
 /** Adds a fresh row. Adding does NOT open the editor — the row is appended and made active, and

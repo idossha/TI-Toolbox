@@ -208,7 +208,7 @@ test("a guide click can never update a subject-RAS coordinate", async () => {
   // for this test — the click under assertion is on the pane behind it, which is the whole point:
   // a guide click must not reach a subject-RAS field wherever that field is.
   const row = optRows(page).first();
-  const editor = await openOptEditor(page, row, "pencil");
+  const editor = await openOptEditor(page, row, "settings");
   await editor.locator(".roi-picker .segmented").first().getByRole("radio", { name: "Spherical", exact: true }).click();
   await closeOptEditor(page);
   await expect(row).toHaveAttribute("data-active", "true");
@@ -225,7 +225,7 @@ test("a guide click can never update a subject-RAS coordinate", async () => {
   // pane's own numbers would assert nothing — the pane has none — so the dialog is opened, its
   // values recorded, and closed again around the click.
   const sphereValues = async (): Promise<string[]> => {
-    const dialog = await openOptEditor(page, row, "pencil");
+    const dialog = await openOptEditor(page, row, "settings");
     const values = await dialog
       .locator("input[type=number]")
       .evaluateAll((nodes) => nodes.map((n) => (n as HTMLInputElement).value));

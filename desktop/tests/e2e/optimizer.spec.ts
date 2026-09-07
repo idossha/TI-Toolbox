@@ -7,6 +7,7 @@ import { expectRunPaneTab, showRunPaneTab } from "./_runPane";
 import { captureScreen, deadSpaceRatio, firstScreenControls, type PageMetrics } from "./_metrics";
 import {
   addOptRow,
+  optRowDetail,
   clearOptRows,
   closeOptEditor,
   openOptEditor,
@@ -191,7 +192,7 @@ test("adding a row does not open the editor, and neither does clicking one", asy
   await expect(page.getByTestId("opt-row-editor")).toHaveCount(0);
 
   // The three ways IN: the pencil, the target line, and a double-click on the row.
-  await openOptEditor(page, first, "pencil");
+  await openOptEditor(page, first, "settings");
   await closeOptEditor(page);
   await openOptEditor(page, first);
   await closeOptEditor(page);
@@ -244,7 +245,7 @@ test("the entry is two lines of a fixed 63px, and the table never scrolls sidewa
 test("Flex: the row's editor holds the target and the form, and one flex job reaches the wire", async () => {
   const row = optRows(page).first();
   await expect(row).toHaveAttribute("data-target-ready", "false");
-  await expect(optRowSummary(row)).toHaveText(/^Choose a target…/);
+  await expect(optRowSummary(row)).toHaveText("Choose a target…");
 
   const dialog = await openOptEditor(page, row);
   // The one shared picker, in the flex family's three modes — the same control the Analyzer's
@@ -272,7 +273,10 @@ test("Flex: the row's editor holds the target and the form, and one flex job rea
   // Line 2 states the target AND what the search will cost, from the same `cost.ts` the digest
   // reads — the two cannot disagree.
   await expect(row).toHaveAttribute("data-target-ready", "true");
-  await expect(optRowSummary(row)).toHaveText(/^Cortical · DK40 · lh\.bankssts · Flex · 2 pairs · 1 mA · ratio 1:1 · population 13 × 500 generations ≈ 6,500 solves$/);
+  // Line 2 is an efficient summary: the target first, then only the essentials — no repetition of
+  // the method (line 1 says it), no bucket bookkeeping, no solve estimate.
+  await expect(optRowSummary(row)).toHaveText("lh.bankssts · DK40");
+  await expect(optRowDetail(row)).toHaveText("goal mean · 2 pairs · 1 mA · ratio 1:1");
 
   await expect(page.getByTestId("plan-grid").getByTestId("plan-stat-jobs")).toBeVisible({ timeout: 15_000 });
   await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job · \d+ CPU · \d+ GB/);
@@ -305,7 +309,7 @@ test("duplicate, then re-point the copy: two subjects, two rows, each with its O
   await expect(optRows(page)).toHaveCount(2);
   const second = optRows(page).nth(1);
   // The copy is the same search, so it needs nothing but a new subject.
-  await expect(optRowSummary(second)).toHaveText(/^Cortical · DK40 · lh\.bankssts/);
+  await expect(optRowSummary(second)).toHaveText("lh.bankssts · DK40");
   await setOptSubject(page, second, "101");
 
   await expect(page.getByTestId("plan-stat-jobs").locator(".plan-stat-value")).toHaveText("2", { timeout: 15_000 });
@@ -368,7 +372,7 @@ test("the flex variants are DERIVED from the focality mode, not chosen as method
   await closeOptEditor(page);
   await expect(row).toHaveAttribute("data-kind", "flex_adaptive");
   // Line 2 states the variant, so the kind is readable without opening the editor.
-  await expect(optRowSummary(row)).toHaveText(/^Cortical · DK40 · lh\.bankssts · avoid everything else · Flex · adaptive · /);
+  await expect(optRowDetail(row)).toHaveText("goal focality (adaptive) · 2 pairs · 1 mA · ratio 1:1");
 
   const groups = collectGroups();
   await expect(page.getByTestId("plan-stat-jobs").locator(".plan-stat-value")).toHaveText("1", { timeout: 15_000 });
@@ -381,7 +385,7 @@ test("the flex variants are DERIVED from the focality mode, not chosen as method
   await field("Threshold mode", again).getByRole("radio", { name: "Pareto sweep", exact: true }).click();
   await closeOptEditor(page);
   await expect(row).toHaveAttribute("data-kind", "flex_pareto");
-  await expect(optRowSummary(row)).toHaveText(/Flex · Pareto · .*sweep 1×3 = 3/);
+  await expect(optRowDetail(row)).toHaveText(/^goal focality \(Pareto\) · /);
 
   await setOptCell(page, row, "goal", "mean");
   await expect(row).toHaveAttribute("data-kind", "flex");
@@ -419,7 +423,8 @@ test("Ex: the Leadfield cell lists what a subject has, and names the refusal whe
   // The cost is stated beside the buckets that change it — the same function line 2 reads.
   await expect(dialog.getByTestId("optimizer-cost-ex")).toHaveText("4 electrodes · 7 splits · 7 combinations");
   await closeOptEditor(page);
-  await expect(optRowSummary(row)).toHaveText(/^Saved · Thalamus_target \+ L_Insula_target · r3 mm · Subject · Ex · 4 electrodes \(TI\) · buckets: 4 · 2 mA total · 4 electrodes · 7 splits · 7 combinations$/);
+  await expect(optRowSummary(row)).toHaveText("Thalamus_target + L_Insula_target");
+  await expect(optRowDetail(row)).toHaveText("4 electrodes (TI) · 2 mA · 7 splits · 7 combinations");
 
   await expect(page.getByTestId("plan-cell-ernie-ex")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId("run-button")).toHaveText("Run 2 searches");
@@ -456,7 +461,7 @@ test("mEx is Ex with eight electrodes: the count decides the kind", async () => 
   await field("Electrodes", dialog).getByRole("radio", { name: "8 electrodes (mTI)", exact: true }).click();
   await closeOptEditor(page);
   await expect(row).toHaveAttribute("data-kind", "mex");
-  await expect(optRowSummary(row)).toHaveText(/Ex · 8 electrodes \(mTI\) · buckets: 8/);
+  await expect(optRowDetail(row)).toHaveText(/^8 electrodes \(mTI\) · 2 mA · /);
 
   dialog = await openOptEditor(page, row);
   // The mTI run path has no combined mode, so the control does not exist rather than existing dead.

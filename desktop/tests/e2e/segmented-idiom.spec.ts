@@ -108,7 +108,7 @@ test("the Optimizer's shape, threshold mode and search space are segments — an
 
   // Every one of these lives in the row's editor now (the jobs table pass): same controls, same
   // idiom claim, reached through the row rather than through the page.
-  const editor = await openOptEditor(page, optRows(page).first(), "pencil");
+  const editor = await openOptEditor(page, optRows(page).first(), "settings");
   const electrodes = editor.locator(".form-section", { hasText: "Electrodes" }).first();
   expect(await field("Shape", electrodes).locator(".segmented").getByRole("radio").allTextContents()).toEqual([
     "Ellipse",
@@ -129,7 +129,7 @@ test("the Optimizer's shape, threshold mode and search space are segments — an
   await closeOptEditor(page);
 
   await pickMethod("Ex");
-  const exEditor = await openOptEditor(page, optRows(page).first(), "pencil");
+  const exEditor = await openOptEditor(page, optRows(page).first(), "settings");
   const searchSpace = field("Search space", exEditor).locator(".segmented");
   expect(await searchSpace.getByRole("radio").allTextContents()).toEqual(["Bucketed", "All combinations"]);
   // The electrode count that decides ex from mEx is the same idiom too.

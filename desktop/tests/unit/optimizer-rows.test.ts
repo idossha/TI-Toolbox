@@ -5,7 +5,6 @@ import {
   isRunnableOptimizerRow,
   OPT_COLUMN_MIN,
   OPT_METHODS,
-  optimizerAvoidLabel,
   optimizerJobsSummary,
   optimizerMethodSummary,
   optimizerTargetLabel,
@@ -117,41 +116,48 @@ describe("isRunnableOptimizerRow", () => {
 });
 
 describe("what the row says about itself", () => {
-  it("states a target in words, and says so when there is none", () => {
+  it("states a target as a short chip, region first, and says so when there is none", () => {
     expect(optimizerTargetLabel(emptyOptimizerRow().roi)).toBe("Choose a target…");
-    expect(optimizerTargetLabel(cortical)).toBe("Cortical · DK40 · lh.insula");
+    // The region is what the user chose; the atlas is where it came from.
+    expect(optimizerTargetLabel(cortical)).toBe("lh.insula · DK40");
     expect(optimizerTargetLabel({ mode: "saved", selected: ["A.csv", "B.csv"], combine: true, radius: 3, space: "mni" })).toBe(
-      "Saved · A.csv + B.csv (combined) · r3 mm · MNI",
+      "A.csv + B.csv MNI",
     );
     expect(
       optimizerTargetLabel({ mode: "spherical", spheres: [{ x: -45, y: 12, z: 6, radius: 10 }], space: "subject", volumetric: false, tissues: "GM" }),
-    ).toBe("Sphere -45,12,6 r10 mm · Subject");
-  });
-
-  it("names the avoid ROI only for a focality goal", () => {
-    const row: OptimizerRow = { ...emptyOptimizerRow(), roi: cortical };
-    expect(optimizerAvoidLabel(row)).toBeNull();
-    const focal = { ...row, flex: { ...row.flex, goal: "focality" as const, focalityMode: "adaptive" as const } };
-    expect(optimizerAvoidLabel(focal)).toBe("avoid everything else");
+    ).toBe("Sphere r10 @ -45,12,6");
+    // A union of spheres is counted, not listed — the sentence this replaced.
     expect(
-      optimizerAvoidLabel({ ...focal, flex: { ...focal.flex, nonRoiMethod: "specific" }, nonRoi: cortical }),
-    ).toBe("avoid Cortical · DK40 · lh.insula");
-    // Ex/mEx have no non-ROI at all.
-    expect(optimizerAvoidLabel({ ...row, method: "ex" })).toBeNull();
+      optimizerTargetLabel({
+        mode: "spherical",
+        spheres: [{ x: 1, y: 2, z: 3, radius: 5 }, { x: 4, y: 5, z: 6, radius: 5 }],
+        space: "mni",
+        volumetric: false,
+        tissues: "GM",
+      }),
+    ).toBe("Sphere ×2 MNI");
   });
 
-  it("summarises the search in its own method's vocabulary, from the shared cost functions", () => {
+  it("summarises only the essentials — never what line 1 already says", () => {
     const flexRow = { ...emptyOptimizerRow(), roi: cortical };
-    const flex = optimizerMethodSummary(flexRow);
-    expect(flex).toContain("Flex · 2 pairs · 1 mA · ratio 1:1");
-    expect(flex).toContain("≈ 6,500 solves");
-    // The derived variant is stated, so a reader sees the kind without opening the editor.
-    expect(optimizerMethodSummary({ ...flexRow, flex: { ...flexRow.flex, goal: "focality", focalityMode: "adaptive" } })).toContain("Flex · adaptive");
-    expect(optimizerMethodSummary({ ...flexRow, flex: { ...flexRow.flex, goal: "focality", focalityMode: "pareto" } })).toContain("Flex · Pareto");
+    expect(optimizerMethodSummary(flexRow)).toBe("goal mean · 2 pairs · 1 mA · ratio 1:1");
+    // The derived variant qualifies the goal — the only place it is stated.
+    expect(optimizerMethodSummary({ ...flexRow, flex: { ...flexRow.flex, goal: "focality", focalityMode: "adaptive" } })).toBe(
+      "goal focality (adaptive) · 2 pairs · 1 mA · ratio 1:1",
+    );
+    expect(optimizerMethodSummary({ ...flexRow, flex: { ...flexRow.flex, goal: "focality", focalityMode: "pareto" } })).toBe(
+      "goal focality (Pareto) · 2 pairs · 1 mA · ratio 1:1",
+    );
+    expect(optimizerMethodSummary({ ...flexRow, flex: { ...flexRow.flex, optimizeCurrentRatio: true } })).toContain("ratio sweep 21");
+
     const row = emptyOptimizerRow({ method: "ex" });
-    const ex = optimizerMethodSummary({ ...row, ex: { ...row.ex, buckets: { e1_plus: ["E1"], e1_minus: ["E2"], e2_plus: ["E3"], e2_minus: ["E4"] } } });
-    expect(ex).toBe("Ex · 4 electrodes (TI) · buckets: 4 · 2 mA total · 4 electrodes · 7 splits · 7 combinations");
-    expect(optimizerMethodSummary(emptyOptimizerRow({ method: "ex", exPairs: 4 }))).toContain("Ex · 8 electrodes (mTI) · buckets: 8");
+    const filled = { ...row, ex: { ...row.ex, buckets: { e1_plus: ["E1"], e1_minus: ["E2"], e2_plus: ["E3"], e2_minus: ["E4"] } } };
+    expect(optimizerMethodSummary(filled)).toBe("4 electrodes (TI) · 2 mA · 7 splits · 7 combinations");
+    // The electrode count is the MONTAGE's, fixed by the pairs — an unfilled row used to report
+    // the distinct pool ("0 electrodes"), which said nothing about the search.
+    expect(optimizerMethodSummary(row)).toBe("4 electrodes (TI) · 2 mA · 7 splits · 0 combinations");
+    // mEx sweeps no amplitudes, so it reports no splits.
+    expect(optimizerMethodSummary(emptyOptimizerRow({ method: "ex", exPairs: 4 }))).toBe("8 electrodes (mTI) · 2 mA · 0 combinations");
   });
 
   it("summarises the table the way the disabled Run and the plan grid count it", () => {

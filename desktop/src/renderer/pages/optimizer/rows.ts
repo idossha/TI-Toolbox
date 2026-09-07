@@ -26,8 +26,7 @@ import { emptyRoi, isRoiComplete, type RoiRegion, type RoiValue } from "../_shar
 import type { PlanKind } from "../_shared/run";
 import { defaultFlexFormState, jobKindFor, type FlexFormState, type OptGoal } from "./flexConfig";
 import { defaultExFormState, defaultMExFormState, type ExFormState, type MExFormState } from "./exConfig";
-import { exCost, flexCost, mexCost } from "./cost";
-import { parsePctList, sweepCombinationCount } from "./flexConfig";
+import { exCost, mexCost } from "./cost";
 
 /**
  * The **two** things a row can be. A method is the kind of *search* — free electrode positions, or
@@ -200,6 +199,10 @@ function regionLabel(r: RoiRegion): string {
   return r.hemi ? `${r.hemi}.${r.name}` : r.name;
 }
 
+function count(value: number): string {
+  return value.toLocaleString("en-US");
+}
+
 function num(v: number | undefined): string {
   return v === undefined ? "?" : String(v);
 }
@@ -211,77 +214,59 @@ function joinNames(names: string[]): string {
 }
 
 /**
- * A target **in words**: `Cortical · DK40 · lh.insula`, `Sphere -45,12,6 r10 mm · Subject`,
- * `Saved · L_Insula_target`.
+ * A target as a **short chip**, not a sentence: `lh.insula · DK40`, `Sphere r10 @ 10,10,10 MNI`,
+ * `Thalamus_target`.
  *
- * Deliberately this page's own function rather than an import of the Analyzer's
- * `analyzerTargetLabel`: the Analyzer has no `saved` mode (an ex/mEx CSV is not an analysis
- * target) and no "combined vs separate jobs" clause of the same meaning. The three shared modes
- * are worded identically on purpose — a target reads the same on both pages — and the duplication
- * is noted in `dev/notes/v3-native-panes-external-viewer/OJ.md` as the first candidate for a
- * shared `roiLabel()` in `pages/_shared/roi` if a third page ever needs it.
+ * Coordinator, 2026-09-06, on a row reading `TARGET ◎ Choose a target… · Ex · 4 electrodes (TI) ·
+ * buckets: 4 · 2 mA total · 0 electrodes · 7 splits · 0 combin…`: line 2 is an *efficient summary
+ * of the optimisation*, so it states what matters and nothing line 1 already says. The target comes
+ * first and never truncates (the row's CSS gives it its width and lets the rest ellipse), because a
+ * search whose target the reader cannot see is not summarised at all.
+ *
+ * Region first, atlas after: the region is what the user chose, the atlas is where it came from.
  */
 export function optimizerTargetLabel(roi: RoiValue): string {
   if (!isRoiComplete(roi)) return "Choose a target…";
-  if (roi.mode === "saved") {
-    const head = `Saved · ${joinNames(roi.selected)}`;
-    const tail = `r${roi.radius} mm · ${roi.space === "mni" ? "MNI" : "Subject"}`;
-    return roi.selected.length > 1 && roi.combine ? `${head} (combined) · ${tail}` : `${head} · ${tail}`;
-  }
+  if (roi.mode === "saved") return `${joinNames(roi.selected)}${roi.space === "mni" ? " MNI" : ""}`;
   if (roi.mode === "spherical") {
-    const spheres = roi.spheres.map((s) => `${num(s.x)},${num(s.y)},${num(s.z)} r${num(s.radius)} mm`);
-    const parts = [`Sphere ${joinNames(spheres)}`, roi.space === "mni" ? "MNI" : "Subject"];
-    if (roi.volumetric) parts.push(`volumetric ${roi.tissues}`);
-    return parts.join(" · ");
+    const space = roi.space === "mni" ? " MNI" : "";
+    // More than one sphere is a union; naming them all would be the sentence this replaced.
+    if (roi.spheres.length > 1) return `Sphere ×${roi.spheres.length}${space}`;
+    const [first] = roi.spheres;
+    return `Sphere r${num(first?.radius)} @ ${num(first?.x)},${num(first?.y)},${num(first?.z)}${space}`;
   }
-  const names = roi.regions.map(regionLabel);
-  return `${roi.mode === "cortical" ? "Cortical" : "Subcortical"} · ${roi.atlas} · ${joinNames(names)}`;
-}
-
-/** The avoid-ROI clause of line 2, or `null` when the row is not avoiding anything. */
-export function optimizerAvoidLabel(row: OptimizerRow): string | null {
-  if (row.method !== "flex") return null;
-  const goal = rowGoal(row);
-  if (goal !== "focality" && goal !== "focality_tf") return null;
-  if (row.flex.nonRoiMethod !== "specific") return "avoid everything else";
-  return `avoid ${isRoiComplete(row.nonRoi) ? optimizerTargetLabel(row.nonRoi) : "…"}`;
+  return `${joinNames(roi.regions.map(regionLabel))} · ${roi.atlas}`;
 }
 
 /**
- * The method-specific half of line 2 — what this row will actually *do*, in the vocabulary of its
- * own method: `2 pairs · 1 mA · population 13 × 500 generations ≈ 6,500 solves` for Flex,
- * `4 electrodes · 7 splits · 7 combinations` for Ex, the bucket product for mEx.
+ * The **essentials** of the search, for the rest of line 2 — never what line 1 already says.
  *
- * It is the same `cost.ts` the action-bar digest reads, so the row and the digest cannot disagree
- * about how expensive a search is (the whole point of that module).
+ *  * Flex: `goal mean · 2 pairs · 1 mA · ratio 1:1`. The derived variant qualifies the goal, since
+ *    that is the only place it is stated.
+ *  * Ex: `4 electrodes (TI) · 2 mA · 7 splits · 5,040 combinations`. mEx fixes one current per pair
+ *    and sweeps no amplitudes, so it has no splits to report.
+ *
+ * The electrode count is the montage's — `pairs × 2`, fixed — not the distinct pool, which read
+ * `0 electrodes` on a row whose buckets were not filled in yet and said nothing about the search.
+ * The combination count still comes from `cost.ts`, so this line and the action-bar digest cannot
+ * disagree about how expensive a search is (the whole point of that module).
  */
 export function optimizerMethodSummary(row: OptimizerRow): string {
-  // Line 2 opens with the method and the variant its options DERIVED — "Flex · adaptive",
-  // "Ex · 8 electrodes (mTI)" — so the kind that will be submitted is readable without opening the
-  // editor, even though it is nowhere chosen as a "method".
-  const variant = rowVariantLabel(row);
-  const head = variant ? `${OPT_METHOD_LABEL[row.method]} · ${variant}` : OPT_METHOD_LABEL[row.method];
   if (row.method === "flex") {
     const form = row.flex;
-    const kind = rowJobKind(row);
-    const parts = [
-      head,
+    const variant = rowVariantLabel(row);
+    return [
+      `goal ${form.goal}${variant ? ` (${variant})` : ""}`,
       "2 pairs",
       `${form.currentMA} mA`,
-      form.optimizeCurrentRatio ? `ratio sweep ${form.ratioLevels} levels` : "ratio 1:1",
-      flexCost(form).line,
-    ];
-    if (kind === "flex_adaptive") parts.push(`${form.adaptiveRoiPct}/${form.adaptiveNonRoiPct}%`);
-    if (kind === "flex_pareto") {
-      parts.push(`sweep ${parsePctList(form.paretoRoiPcts).length}×${parsePctList(form.paretoNonRoiPcts).length} = ${sweepCombinationCount(form)}`);
-    }
-    return parts.join(" · ");
+      `ratio ${form.optimizeCurrentRatio ? `sweep ${form.ratioLevels}` : "1:1"}`,
+    ].join(" · ");
   }
   if (row.exPairs === 2) {
-    const buckets = row.ex.electrodeMode === "bucketed" ? "buckets: 4" : `pool: ${row.ex.pool.length}`;
-    return `${head} · ${buckets} · ${row.ex.totalCurrent} mA total · ${exCost(row.ex).line}`;
+    const cost = exCost(row.ex);
+    return `${rowVariantLabel(row)} · ${row.ex.totalCurrent} mA · ${cost.splits} splits · ${count(cost.combinations)} combinations`;
   }
-  return `${head} · buckets: 8 · ${row.mex.currentMa} mA per pair · ${mexCost(row.mex).line}`;
+  return `${rowVariantLabel(row)} · ${row.mex.currentMa} mA · ${count(mexCost(row.mex).combinations)} combinations`;
 }
 
 /**
