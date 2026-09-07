@@ -15,9 +15,9 @@ do not renumber them. [ROADMAP.md](ROADMAP.md) records verification and remainin
 | Verification | Vitest and hidden Playwright/Electron runs | State, geometry and drawing-buffer assertions detect failures that a screenshot impression cannot establish. |
 
 Versions and the dependency roster are authoritative in `desktop/package.json` and its lockfile.
-The detailed visual contract is [docs/dev/DESIGN.md](../docs/dev/DESIGN.md); this document owns the
+The detailed visual contract is [DESIGN.md](DESIGN.md); this document owns the
 lifetime and integration guarantees that cross its sections. Native runtime and container procedures
-remain in [the desktop manual](wiki/desktop-app.md) and [desktop/README.md](../desktop/README.md).
+remain in [the desktop manual](../wiki/desktop-app.md) and [desktop/README.md](../../desktop/README.md).
 
 Non-goals of this polishing change are numerical algorithm changes, a replacement rendering engine,
 restoring yesterday's unfinished jobs into forms, and publishing a release. Preserving tabs within an
@@ -522,3 +522,95 @@ a variable explorer (ROADMAP); notebooks outside the one directory; more than on
 notebook.
 
 ---
+
+## 8. The science pipelines, end to end
+
+*Absorbed 2026-09-07 from `PIPELINE_FLOW.md`. This is the data flow the run pages, the CLI
+(`simnibs_python -m tit.<sim|opt.flex|opt.ex>`) and a notebook all drive — one implementation, three
+entry points (§1). Paths are relative to `derivatives/SimNIBS/sub-<ID>/`.*
+
+**Simulator** (`tit.sim`, `tit/sim/TI.py`). Input: subject ids, conductivity type
+(`scalar|vn|dir|mc`), simulation mode, a montage list (`montage_list.json`, a flex result, or a
+free-hand placement), electrode geometry, per-channel currents, an EEG net. It loads the montage,
+locates `m2m_<ID>`, reads the head mesh and cap positions, then per montage configures a SimNIBS
+`SESSION`, places two electrode pairs (four, six or eight for mTI — even and ≥ 2,
+`tit.constants.is_valid_pair_count`), solves the FEM once per channel, and derives the TI metrics
+(`tit/calc.py`, `tit/fields.py`). Output: `Simulations/<montage>/high_Frequency/*_TDCS_<n>_*.msh`
+and `Simulations/<montage>/TI/mesh/<montage>_TI.msh` (plus `_normal.msh` where a central surface
+exists).
+
+**Flex-search** (`tit.opt.flex`, `tit/opt/flex/flex.py`). Input: a `FlexConfig` — an ROI (spherical
+in subject or MNI space, or an atlas region set), a goal (`mean|max|focality|focality_tf`), a
+post-processing method, electrode constraints and a solver budget. It builds the SimNIBS
+optimisation object (`tit/opt/flex/builder.py`), runs `scipy.differential_evolution` over electrode
+positions with a fast per-candidate FEM, repeats for each multi-start restart and keeps the best,
+then optionally maps the result onto the nearest EEG-net electrodes and runs a full-resolution
+simulation. Output: `flex-search/<output_folder>/` with `optimization_summary.txt`,
+`electrode_mapping.json`, `leadfield/` and an optional `final_simulation/`.
+
+> **`cpus` does not accelerate the search** (measured 2026-04-23, still true). `workers=` is never
+> passed to `differential_evolution`, and it could not be: `goal_fun` is a bound method holding an
+> unpicklable `OnlineFEM` with a pre-factored matrix. `cpus` only reaches the numba thread count,
+> the geodesic transform and the FEM solver's own threads. The one realistic win is parallelising
+> the **multi-start restarts** in `flex.py` — they are fully independent objects — not the DE loop.
+
+**Ex-search** (`tit.opt.ex`, `tit/opt/ex/engine.py`; `tit.opt.mex` for the mTI variant). Input:
+electrode buckets (E1+, E1−, E2+, E2−), a spherical ROI, a leadfield, and current total/step/limit.
+It generates the admissible current ratios, loads the leadfield and mesh, and evaluates every
+electrode combination × ratio, computing `TI_max` and extracting ROI and grey-matter values. Output:
+`ex-search/<run_name>/` (`m-ex-search/` for mEx) with `analysis_results.json`, `final_output.csv`,
+`montage_distributions.png` and `logs/`. **The run name is the directory**: a second run under the
+same name overwrites the first in place, and `run_name` must carry the ROI where more than one ROI
+is queued against one net.
+
+**The integration point** is flex → simulator: `electrode_mapping.json` converts to a montage that
+the Simulator takes as `FLEX_MONTAGES_FILE`, which is how an optimised placement is validated at
+full resolution. On the pipeline canvas that is the `montages` edge (§7.3).
+
+Optimality differs and the pages say so: the Simulator is not an optimiser, flex-search finds a
+local optimum by differential evolution, and ex-search is exhaustive over its buckets — a global
+optimum *within the discretisation it was given*.
+
+## 9. DWI preprocessing runs as sibling containers
+
+*Absorbed 2026-09-07 from `qsi-integration.md`, trimmed to the architecture. Version-specific CLI
+flags, atlas names and recon-spec tables are upstream's to publish and change — read them at
+<https://qsiprep.readthedocs.io> and <https://qsirecon.readthedocs.io> rather than from a copy here.*
+
+TI-Toolbox runs inside the SimNIBS/`ti-toolbox` container. QSIPrep and QSIRecon run as **sibling**
+containers spawned over the mounted Docker socket (docker-out-of-docker), never as children:
+
+```
+Host
+ └─ Docker
+     ├─ ti-toolbox        /mnt/<project> -> host project dir, /var/run/docker.sock, LOCAL_PROJECT_DIR
+     ├─ qsiprep           /data (project, ro)            /out (derivatives/qsiprep)   /work
+     └─ qsirecon          /data (derivatives/qsiprep ro) /out (derivatives/qsirecon)  /work
+```
+
+Four constraints follow from that shape, and each has cost someone a day:
+
+1. **Every `-v` source must be a *host* path**, not a path inside this container. `LOCAL_PROJECT_DIR`
+   is what makes that resolvable (`tit/pre/qsi/utils.py`).
+2. **The FreeSurfer licence has to travel through the shared filesystem.** It lives at
+   `/usr/local/freesurfer/license.txt` in this container, which a sibling cannot read, so it is
+   staged into the project, mounted from the host copy, and passed **both** as `FS_LICENSE` and as
+   `--fs-license-file` — QSIRecon validates the environment variable independently of the flag.
+3. **The two images have independent version lines** (`pennlinc/qsiprep`, `pennlinc/qsirecon`), and
+   `tit/constants.py` keeps a separate tag constant for each. They must never share one.
+4. **The images are `linux/amd64` only.** On Apple Silicon they run under emulation: 2–5× slower,
+   occasional segfaults in eddy correction, and 32 GB+ of Docker memory needed.
+
+We ship one custom recon spec, `resources/qsirecon_pipelines/dsi_studio_gqi_scalar.yaml` — upstream's
+`dsi_studio_gqi` with the connectivity node removed, which drops both the mandatory `--atlases`
+requirement and a `plot_reports` defect in QSIRecon ≥ 1.2.0 while keeping GQI reconstruction and the
+scalar export. `dsi_studio_gqi` is the default because it directly produces the six tensor-component
+NIfTIs SimNIBS needs, works with single- and multi-shell data, and needs neither FreeSurfer surfaces
+nor atlases. Other specs may produce usable tensors; none is validated by `tit/pre/qsi/dti_extractor.py`.
+
+The chain (QSIRecon → cross-correlation registration → FSL-convention pre-compensation → SimNIBS
+tensor) is functional and stable but has not been reviewed by a diffusion-MRI expert; registration
+accuracy and tensor reorientation are the two places to look first.
+
+Code: `tit/pre/qsi/{config,docker_builder,utils,qsiprep,qsirecon,dti_extractor}.py`, orchestrated by
+`tit/pre/structural.py`.
