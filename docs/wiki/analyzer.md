@@ -156,7 +156,8 @@ All analysis calls return an `AnalysisResult` dataclass with the following field
 
 **Focality Area Metrics:**
 
-- `focality_50_area`, `focality_75_area`, `focality_90_area`, `focality_95_area`: Area/volume above $$X\%$$ of the 99.9th percentile value (in $$\mathrm{cm}^2$$)
+- `focality_50_area`, `focality_75_area`, `focality_90_area`, `focality_95_area`: Area/volume above $$X\%$$ of the 99.9th percentile value — area in $$\mathrm{cm}^2$$ for mesh-space analyses, volume in $$\mathrm{cm}^3$$ for voxel-space analyses (the field names keep the `_area` suffix in both cases)
+  - Voxel-space values written by v2.3.0–v2.5.0 are 10x too large; see `docs/dev/SCIENTIFIC-CORRECTIONS.md` (SCI-03)
 
 **Size Information:**
 

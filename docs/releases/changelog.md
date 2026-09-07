@@ -39,6 +39,8 @@ and [Pre-Processing]({{ site.baseurl }}/wiki/pre-processing/) pages for the full
 
 #### Fixed
 
+- **Scientific corrections to the statistics engine and analyzer** — six defects found by an external audit of the shared scientific core are fixed: cluster-based permutation testing no longer merges touching opposite-sign clusters and now builds its two-sided/left-tailed null from the *most* extreme cluster (v2.2.3–v2.5.0 two-sided and `less` results should be re-run); group NIfTI stacking now requires a common affine, not just a common shape; voxel focality volumes are cm^3 rather than 10x-too-large "cm^2"; sampled permutation p-values use the Phipson & Smyth `(b+1)/(m+1)` estimator so `p = 0` is no longer reachable; voxel volume and spherical-ROI distance come from the image affine rather than the header zooms (sheared affines only); and a zero-variance contrast is no longer reported as `t = 0, p = 1`. Full detail, affected version ranges, and per-finding "re-run or rescale" guidance in `docs/dev/SCIENTIFIC-CORRECTIONS.md`.
+
 - **Tabs preserve your work** — switching between Pre-processing, Simulator, Optimizer, Analyzer and Viewer retains each tab's draft, subject selection, section state, scroll and live 3D view for the open project session. Returning to a tab no longer rebuilds its viewer or resets its camera. Project switching starts a fresh session.
 - **Preview failures stay readable** — a missing or failed 3D renderer no longer loops through silent reloads; retry is explicit and retains your surface-opacity settings.
 - **Cortical atlas previews load again** — fixed a mesh-index lookup that prevented the atlas surface from building. Server build errors now remain readable until you explicitly retry, instead of appearing to build indefinitely.

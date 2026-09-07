@@ -16,6 +16,14 @@ The Cluster-Based Permutation Testing extension performs non-parametric statisti
 - **Parallel Processing**: Multi-core support for fast computation
 - **Comprehensive Output**: Statistical maps, cluster analysis, and detailed reports
 
+> **Results produced with v2.2.3 – v2.5.0 should be re-run.** Three defects in the cluster
+> machinery were fixed in v3.0.0: opposite-sign clusters that touch were merged into one, the
+> permutation null for two-sided and left-tailed tests was built with the *least* extreme
+> cluster instead of the most extreme one, and the sampled p-value could return exactly 0.
+> Right-tailed (`alternative="greater"`) analyses are unaffected. See the maintainer note
+> `docs/dev/SCIENTIFIC-CORRECTIONS.md` (SCI-01, SCI-04, SCI-06) for how to tell whether a
+> given result is affected and what changes.
+
 ## Theoretical Background
 
 ### Why Cluster-Based Permutation Testing?
@@ -24,7 +32,7 @@ Traditional voxelwise statistical tests performed at each brain voxel create a m
 
 Cluster-based permutation testing addresses this by:
 1. Performing voxelwise statistics (t-values or correlations)
-2. Forming clusters of adjacent significant voxels
+2. Forming clusters of adjacent significant voxels **of the same sign**
 3. Using cluster statistics (mass or size) instead of individual voxels
 4. Building null distributions through data permutations
 5. Controlling family-wise error at the cluster level
@@ -54,7 +62,7 @@ Both methods follow the Maris & Oostenveld (2007) framework with method-specific
 #### Group Comparison Workflow:
 1. **Voxelwise Testing**: Compute t-statistics comparing group means
 2. **Cluster Formation**: Threshold at p < cluster_threshold to form clusters
-3. **Cluster Statistics**: Calculate mass (sum of t-values) or size (voxel count)
+3. **Cluster Statistics**: Calculate mass (signed sum of t-values within a sign-homogeneous cluster) or size (voxel count)
 4. **Permutation Testing**: Randomly reassign subjects to groups 1,000+ times
 5. **Null Distribution**: Build distribution of maximum cluster statistics under null
 6. **Significance Testing**: Compare observed clusters to null distribution
@@ -62,7 +70,7 @@ Both methods follow the Maris & Oostenveld (2007) framework with method-specific
 #### Correlation Analysis Workflow:
 1. **Voxelwise Testing**: Compute correlation coefficients between E-field and outcome
 2. **Cluster Formation**: Threshold at p < cluster_threshold to form clusters
-3. **Cluster Statistics**: Calculate mass (sum of t-values) or size (voxel count)
+3. **Cluster Statistics**: Calculate mass (signed sum of t-values within a sign-homogeneous cluster) or size (voxel count)
 4. **Permutation Testing**: Randomly shuffle outcome measures across subjects 1,000+ times
 5. **Null Distribution**: Build distribution of maximum cluster statistics under null
 6. **Significance Testing**: Compare observed clusters to null distribution
