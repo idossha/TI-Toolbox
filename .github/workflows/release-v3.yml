@@ -1,0 +1,391 @@
+# v3 release pipeline. Full write-up: docs/dev/RELEASE.md.
+#
+# This replaces release-build.yml, which built the LEGACY launcher under `package/` (its
+# package.json said 2.4.0) with Node 20 while the v3 app lives in `desktop/` and needs Node
+# >= 22.12. Pushing a v3.0.0 tag with that workflow would have published v2 artifacts under a
+# v3 release title (audit finding REL-01).
+#
+# Shape, and the reason for it:
+#
+#   plan             derive the version and refuse to go further if the tag and the version sites
+#                    in the tree disagree. A release whose artifacts carry a different number from
+#                    its tag is the exact defect REL-01 describes; it is cheaper to catch here.
+#   image            build and push idossha/ti-toolbox:<ver>. Nothing else can be validated until
+#                    the image exists, because the desktop app is only a shell around it.
+#   desktop-validate UNSIGNED builds for every platform, each inspected by
+#                    desktop/scripts/verify-package.mjs, uploaded as workflow artifacts and
+#                    published nowhere. This is the gate: signing and notarisation are slow,
+#                    credential-dependent and irreversible once published, so everything that can
+#                    be checked without them is checked before them.
+#   create-release   the GitHub Release, created only once validation is green.
+#   desktop-publish  signed + notarised builds, uploaded to that release. Fails closed if any
+#                    signing secret is missing rather than quietly shipping unsigned artifacts.
+#
+# `workflow_dispatch` with dry_run=true (the default) runs plan + image (build, no push) +
+# desktop-validate and stops. That is the way to exercise this file without cutting a release.
+
+name: Release v3
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Build and validate only — do not push the image, create a release, sign or publish.'
+        type: boolean
+        default: true
+      tetravox_tgz:
+        description: 'Optional: pin the Tetravox embed tarball URL instead of resolving the newest compatible release.'
+        type: string
+        default: ''
+      tetravox_sha256:
+        description: 'sha256 of tetravox_tgz (required when it is set).'
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-v3-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '22.12.0'
+  IMAGE_REPO: idossha/ti-toolbox
+
+jobs:
+  # ---------------------------------------------------------------------------------------------
+  plan:
+    name: Plan and version consistency
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      dry_run: ${{ steps.v.outputs.dry_run }}
+      release_notes: ${{ steps.notes.outputs.release_notes }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version and mode
+        id: v
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "push" ]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+            DRY_RUN=false
+          else
+            # A dispatch has no tag: take the number the tree claims and never publish it unless
+            # the operator explicitly asked for a real run.
+            VERSION="$(node -p "require('./desktop/package.json').version")"
+            DRY_RUN="${{ inputs.dry_run }}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "dry_run=$DRY_RUN" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION dry_run=$DRY_RUN"
+
+      - name: Every version site agrees with the tag
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.v.outputs.version }}"
+          FAIL=0
+          check() {
+            if [ "$2" != "$VERSION" ]; then
+              echo "::error file=$1::$1 says '$2', the release is '$VERSION' — run 'python dev/update/update_version.py' and commit before tagging"
+              FAIL=1
+            else
+              echo "ok  $1 = $2"
+            fi
+          }
+          check desktop/package.json "$(node -p "require('./desktop/package.json').version")"
+          check tit/__init__.py "$(sed -nE 's/^__version__[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' tit/__init__.py | head -1)"
+          check version.py "$(sed -nE 's/^__version__[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' version.py | head -1)"
+          # The compose default the packaged app falls back to when nothing sets TIT_IMAGE_TAG.
+          # If this drifts, a shipped v3.0.0 app pulls last release's image.
+          check desktop/docker/docker-compose.v3.yml \
+            "$(sed -nE 's|.*image: idossha/ti-toolbox:\$\{TIT_IMAGE_TAG:-([^}]*)\}.*|\1|p' desktop/docker/docker-compose.v3.yml | head -1)"
+          exit "$FAIL"
+
+      - name: Extract release notes
+        id: notes
+        run: |
+          set -euo pipefail
+          FILE="docs/releases/v${{ steps.v.outputs.version }}.md"
+          if [ -f "$FILE" ]; then
+            NOTES=$(awk '
+              NR == 1 && $0 == "---" { fm = 1; next }
+              fm && $0 == "---" { fm = 0; next }
+              !fm { print }
+            ' "$FILE")
+          else
+            echo "::warning::$FILE not found; falling back to the tagged commit message"
+            NOTES=$(git log -1 --pretty=%B)
+          fi
+          {
+            echo "release_notes<<RELEASE_NOTES_EOF"
+            echo "$NOTES"
+            echo "RELEASE_NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+  # ---------------------------------------------------------------------------------------------
+  # The container image is the product; the desktop app is a shell that pulls it. It is built first
+  # so a failure here (most likely: no Tetravox embed release to resolve) stops the release before
+  # anything is signed or published.
+  #
+  # RUNTIME WARNING: container/blueprint/build.sh has one recipe and it installs SimNIBS from
+  # scratch — 30-60+ minutes on a native x86_64 runner, more on a small one (see
+  # .circleci/config.yml's build-and-smoke-image header, which times out for exactly this reason).
+  # The timeout below is generous on purpose; if this becomes the release's long pole the fix is a
+  # larger runner or a published base image, not a shorter timeout.
+  image:
+    name: Build ${{ needs.plan.outputs.version }} image
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate the Tetravox pin
+        run: |
+          set -euo pipefail
+          TGZ="${{ inputs.tetravox_tgz }}"
+          SHA="${{ inputs.tetravox_sha256 }}"
+          if [ -n "$TGZ" ] && [ -z "$SHA" ]; then
+            echo "::error::tetravox_tgz was given without tetravox_sha256; the image verifies the digest before unpacking"
+            exit 1
+          fi
+          if [ -z "$TGZ" ]; then
+            echo "No pin given — build.sh will resolve the newest Tetravox release whose embed"
+            echo "manifest protocol is inside the range tit/tetravox/protocol.py supports."
+            echo "This FAILS the build if no such release exists (Tetravox PR #35 must be released"
+            echo "first). That is deliberate: the baked embed is the offline floor the app falls"
+            echo "back to, and an image with a placeholder viewer is worse than no image."
+          fi
+
+      - name: Log in to Docker Hub
+        if: needs.plan.outputs.dry_run != 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build the image
+        env:
+          TETRAVOX_TGZ: ${{ inputs.tetravox_tgz }}
+          TETRAVOX_SHA256: ${{ inputs.tetravox_sha256 }}
+        run: |
+          set -euo pipefail
+          TAG="${IMAGE_REPO}:${{ needs.plan.outputs.version }}"
+          ARGS=(--tag "$TAG" --ref "${{ github.ref_name }}")
+          if [ -n "${TETRAVOX_TGZ}" ]; then
+            ARGS+=(--tetravox-tgz "${TETRAVOX_TGZ}" --tetravox-sha256 "${TETRAVOX_SHA256}")
+          fi
+          ./container/blueprint/build.sh "${ARGS[@]}"
+
+      - name: Smoke the image
+        run: |
+          set -euo pipefail
+          TAG="${IMAGE_REPO}:${{ needs.plan.outputs.version }}"
+          # The image records what it was built from; a release image built from a dirty tree or an
+          # unexpected sha is not the release.
+          docker run --rm --entrypoint cat "$TAG" /etc/ti-toolbox-build.json
+          docker run --rm --entrypoint python3 "$TAG" -c 'import tit; print("tit", tit.__version__)'
+          docker run --rm --entrypoint test "$TAG" -f /opt/tetravox/embed/index.html
+          VER=$(docker run --rm --entrypoint python3 "$TAG" -c 'import tit; print(tit.__version__)')
+          if [ "$VER" != "${{ needs.plan.outputs.version }}" ]; then
+            echo "::error::image ships tit ${VER}, release is ${{ needs.plan.outputs.version }}"
+            exit 1
+          fi
+
+      - name: Push
+        if: needs.plan.outputs.dry_run != 'true'
+        run: |
+          set -euo pipefail
+          TAG="${IMAGE_REPO}:${{ needs.plan.outputs.version }}"
+          docker push "$TAG"
+          # `latest` moves only for a real release, never for a dry run.
+          docker tag "$TAG" "${IMAGE_REPO}:latest"
+          docker push "${IMAGE_REPO}:latest"
+
+  # ---------------------------------------------------------------------------------------------
+  # Unsigned builds, one per platform, each inspected before anything is signed or published.
+  # CSC_IDENTITY_AUTO_DISCOVERY=false guarantees these are unsigned even on a runner that somehow
+  # has a certificate: the point of this job is to check the CONTENTS of the artifact.
+  desktop-validate:
+    name: Validate unsigned ${{ matrix.name }}
+    needs: plan
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            name: macOS
+            builder_args: --mac --arm64 --x64
+          - os: windows-latest
+            name: Windows
+            builder_args: --win --x64
+          - os: ubuntu-latest
+            name: Linux
+            builder_args: --linux --x64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build renderer/main/preload
+        working-directory: desktop
+        run: npm run build
+
+      - name: Package (unsigned)
+        working-directory: desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder ${{ matrix.builder_args }} --config electron-builder.yml --publish never
+
+      - name: Verify the packaged app (macOS, both arches)
+        if: runner.os == 'macOS'
+        working-directory: desktop
+        run: |
+          set -euo pipefail
+          node scripts/verify-package.mjs "release/mac-arm64/TI-Toolbox.app" --expect-version "${{ needs.plan.outputs.version }}"
+          node scripts/verify-package.mjs "release/mac/TI-Toolbox.app" --expect-version "${{ needs.plan.outputs.version }}"
+
+      - name: Verify the packaged app
+        if: runner.os != 'macOS'
+        working-directory: desktop
+        shell: bash
+        run: |
+          set -euo pipefail
+          DIR=$([ "${{ runner.os }}" = "Windows" ] && echo release/win-unpacked || echo release/linux-unpacked)
+          node scripts/verify-package.mjs "$DIR" --expect-version "${{ needs.plan.outputs.version }}"
+
+      - name: Upload unsigned artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-${{ matrix.name }}
+          path: |
+            desktop/release/*.dmg
+            desktop/release/*.zip
+            desktop/release/*.exe
+            desktop/release/*.AppImage
+            desktop/release/*.deb
+          if-no-files-found: error
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------------------------
+  create-release:
+    name: Create GitHub Release
+    needs: [plan, image, desktop-validate]
+    if: needs.plan.outputs.dry_run != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: v${{ needs.plan.outputs.version }}
+          body: ${{ needs.plan.outputs.release_notes }}
+          draft: false
+          prerelease: false
+
+  # ---------------------------------------------------------------------------------------------
+  # Signed + notarised, uploaded to the release. Everything that could be checked unsigned already
+  # was, so a failure here is a credential or notarisation failure, not a packaging one.
+  desktop-publish:
+    name: Publish signed ${{ matrix.name }}
+    needs: [plan, image, desktop-validate, create-release]
+    if: needs.plan.outputs.dry_run != 'true'
+    runs-on: ${{ matrix.os }}
+    # Notarisation is a round trip to Apple and can take 30+ minutes on a first submission.
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            name: macOS
+            builder_args: --mac --arm64 --x64
+          - os: windows-latest
+            name: Windows
+            builder_args: --win --x64
+          - os: ubuntu-latest
+            name: Linux
+            builder_args: --linux --x64
+    steps:
+      - uses: actions/checkout@v4
+
+      # Fail closed. Without this, a missing CSC_LINK makes electron-builder produce an UNSIGNED
+      # artifact and publish it happily — the worst outcome, because it looks like a success.
+      # The Developer ID certificate in CSC_LINK expires 2027-02-01; a release after that date
+      # fails here (or at signing) until it is renewed and the secret replaced.
+      - name: Signing secrets must be present
+        if: runner.os == 'macOS'
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          MISSING=""
+          for name in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            if [ -z "${!name:-}" ]; then MISSING="$MISSING $name"; fi
+          done
+          if [ -n "$MISSING" ]; then
+            echo "::error::macOS publish refuses to run unsigned; missing secrets:$MISSING"
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build renderer/main/preload
+        working-directory: desktop
+        run: npm run build
+
+      - name: Package, sign and publish
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: npx electron-builder ${{ matrix.builder_args }} --config electron-builder.yml --publish always
+
+      - name: Verify signature, Gatekeeper and staple
+        if: runner.os == 'macOS'
+        working-directory: desktop
+        run: |
+          set -euo pipefail
+          for APP in release/mac-arm64/TI-Toolbox.app release/mac/TI-Toolbox.app; do
+            echo "=== $APP ==="
+            codesign -dv --verbose=4 "$APP"
+            codesign --verify --deep --strict --verbose=2 "$APP"
+            spctl -a -vvv -t exec "$APP"
+            xcrun stapler validate "$APP"
+          done

@@ -1,14 +1,42 @@
 #!/usr/bin/env python3
 """
 Version Update Script for Temporal Interference Toolbox
-This script updates version information across all project files.
+
+Updates every place a version number is written, so a tag and the artifacts built from it agree.
+`release-v3.yml`'s `plan` job re-checks a subset of these and refuses to release when they drift,
+so a site missed here becomes a red release rather than a mislabelled artifact.
+
+Usage:
+    python dev/update/update_version.py                     # interactive, writes
+    python dev/update/update_version.py --version 3.0.0     # non-interactive, writes
+    python dev/update/update_version.py --version 3.0.0 --dry-run
+    python dev/update/update_version.py --dry-run           # asks for the version, writes nothing
+
+--dry-run prints every file that WOULD change (and the substitutions it would make) and touches
+nothing on disk. It is the way to answer "did this script get taught about the new file?" without
+dirtying the tree.
 """
 
+import argparse
 import os
 import re
 import sys
 from datetime import datetime
 from pathlib import Path
+
+# Set by main(). Every writer in this module checks it before opening a file for writing.
+DRY_RUN = False
+
+
+def _write(file_path, content):
+    """Write unless --dry-run. Returns True if the file was (or would be) changed."""
+    if DRY_RUN:
+        print(f"Would update: {file_path}")
+        return True
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(content)
+    print(f"Updated: {file_path}")
+    return True
 
 
 def update_file_content(file_path, patterns):
@@ -27,13 +55,9 @@ def update_file_content(file_path, patterns):
         content = re.sub(pattern, replacement, content)
 
     if content != original_content:
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(content)
-        print(f"Updated: {file_path}")
-        return True
-    else:
-        print(f"No changes needed: {file_path}")
-        return False
+        return _write(file_path, content)
+    print(f"No changes needed: {file_path}")
+    return False
 
 
 def update_version(new_version):
@@ -61,7 +85,10 @@ def update_version(new_version):
             (r"image: idossha/simnibs:[\S]+", f"image: idossha/simnibs:v{new_version}"),
             (r'TI_TOOLBOX_VERSION: "[\S]+"', f'TI_TOOLBOX_VERSION: "v{new_version}"'),
         ],
-        "dev/bash_dev/docker-compose.dev.yml": [
+        # Was "dev/bash_dev/docker-compose.dev.yml", a path that has not existed for some time:
+        # update_file_content printed "Skipped (not found)" and nobody noticed, so the dev loader's
+        # compose file kept last release's image on every bump.
+        "dev/loader/docker-compose.dev.yml": [
             (r"image: idossha/simnibs:[\S]+", f"image: idossha/simnibs:v{new_version}")
         ],
         # v3 streamlined stack (docs/dev/ARCHITECTURE.md; docs/dev/HISTORY.md 2026-09-03): one image,
@@ -77,7 +104,15 @@ def update_version(new_version):
                 f"image: idossha/ti-toolbox:${{TIT_IMAGE_TAG:-{new_version}}}",
             ),
         ],
-        # Electron Desktop App files
+        # v3 desktop app (desktop/). This is the number electron-builder writes into the app
+        # bundle, the DMG/EXE/AppImage file names, and `app.getVersion()`; the release workflow
+        # refuses to build when it disagrees with the tag. `-dev`/`-rc` suffixes are matched too so
+        # a pre-release version can be promoted.
+        "desktop/package.json": [
+            (r'"version": "\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?"', f'"version": "{new_version}"'),
+        ],
+        # Legacy Electron launcher (package/). Retired on the v3 branch; the entries are kept
+        # harmless — update_file_content prints "Skipped (not found)" when the tree has no package/.
         "package/package.json": [
             (r'"version": "\d+\.\d+\.\d+"', f'"version": "{new_version}"'),
         ],
@@ -176,9 +211,11 @@ def update_dataset_descriptions(new_version):
         for pattern, replacement in patterns:
             content = re.sub(pattern, replacement, content)
 
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(content)
-        print(f"Updated: {file_path}")
+        # Previously this rewrote (and reported) every file whether or not the substitution
+        # changed anything, while `updated_count` was never incremented and always printed 0.
+        if content != original_content:
+            _write(file_path, content)
+            updated_count += 1
 
     print(f"Updated {updated_count} dataset description JSON files")
 
@@ -227,9 +264,7 @@ For installation instructions, see the [Installation Guide]({{{{ site.baseurl }}
 
     new_content = re.sub(pattern, new_release_section, content, flags=re.DOTALL)
 
-    with open(releases_file, "w", encoding="utf-8") as f:
-        f.write(new_content)
-
+    _write(releases_file, new_content)
     print(f"Updated latest release in {releases_file}")
 
 
@@ -285,9 +320,7 @@ def update_changelog_file(version, release_notes, release_date):
         for new_line in reversed(new_lines):
             lines.insert(insert_index, new_line)
 
-        new_content = "\n".join(lines)
-        with open(changelog_file, "w", encoding="utf-8") as f:
-            f.write(new_content)
+        _write(changelog_file, "\n".join(lines))
         print(f"Updated changelog in {changelog_file}")
     else:
         print(f"Could not find insertion point in changelog")
@@ -339,8 +372,7 @@ If you encounter issues with this release:
 4. Ask in [GitHub Discussions](https://github.com/idossha/TI-Toolbox/discussions)
 """
 
-    with open(version_file, "w", encoding="utf-8") as f:
-        f.write(version_content)
+    _write(version_file, version_content)
     print(f"Created individual version file: {version_file}")
 
 
@@ -371,10 +403,7 @@ def update_navigation(version):
             lines.insert(i + 1, version_link)
             break
 
-    new_content = "\n".join(lines)
-    with open(layout_file, "w", encoding="utf-8") as f:
-        f.write(new_content)
-
+    _write(layout_file, "\n".join(lines))
     print(f"Updated releases sidebar navigation in {layout_file}")
 
 
@@ -422,9 +451,7 @@ def update_previous_release_titles(version):
                 )
 
             if updated_content != content:
-                with open(file_path, "w", encoding="utf-8") as f:
-                    f.write(updated_content)
-                print(f"Updated {version_file}")
+                _write(file_path, updated_content)
 
         except Exception as e:
             print(f"Could not update {version_file}: {e}")
@@ -481,31 +508,55 @@ def get_release_info():
 
 def main():
     """Main function"""
-    if len(sys.argv) > 1 and sys.argv[1] in ["--help", "-h", "help"]:
-        print("Usage: python update_version_new.py")
-        print("\nThis script will guide you through the version update process:")
-        print("  1. Enter the new version number")
-        print("  2. List additions (one per line)")
-        print("  3. List fixes (one per line)")
-        print("\nThe script will then update all necessary files and create release notes.")
-        sys.exit(0)
+    global DRY_RUN
 
-    new_version, release_notes = get_release_info()
+    parser = argparse.ArgumentParser(
+        description="Update the version number everywhere it is written.",
+        epilog=(
+            "With no --version the script prompts for the version and the release notes. "
+            "--dry-run writes nothing and prints every file it would touch."
+        ),
+    )
+    parser.add_argument("--version", help="new version, X.Y.Z (skips the interactive prompt)")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="print what would change; do not write any file",
+    )
+    args = parser.parse_args()
+    DRY_RUN = args.dry_run
 
-    script_dir = Path(__file__).parent.parent.parent  # Go up to project root (dev/update/ -> dev/ -> root)
-    os.chdir(script_dir)
+    # chdir first: every path in this module is relative to the repository root.
+    os.chdir(Path(__file__).parent.parent.parent)  # dev/update/ -> dev/ -> root
+
+    if args.version:
+        if not re.match(r"^\d+\.\d+\.\d+$", args.version):
+            parser.error(f"invalid version {args.version!r}; expected X.Y.Z")
+        new_version = args.version
+        # Non-interactive: the release-notes prompt would hang in CI. A dry run only needs to show
+        # which files move, and a real non-interactive run gets its notes from docs/releases/.
+        release_notes = "#### Additions\n\n- N/A\n\n#### Fixes\n\n- N/A"
+    else:
+        new_version, release_notes = get_release_info()
+
+    if DRY_RUN:
+        print("\n*** DRY RUN — no file will be written ***\n")
 
     update_version(new_version)
 
     add_release_to_changelog(new_version, release_notes)
 
-    print("\nNext steps:")
+    if DRY_RUN:
+        print("\nDry run complete. Nothing was written.")
+        return
+
+    print("\nNext steps (the full procedure is docs/dev/RELEASE.md):")
     print(f"   1. Review all changes: git diff")
-    print(f"   2. Commit the changes: git add . && git commit -m 'Release v{new_version}'")
+    print(f"   2. Commit the changes: git commit -m 'chore: release v{new_version}'")
     print(f"   3. Create a release tag: git tag v{new_version}")
     print(f"   4. Push changes: git push && git push --tags")
-    print(f"   5. Build and push Docker image to Docker Hub")
-    print(f"   6. Create GitHub release at: https://github.com/idossha/TI-Toolbox/releases/new")
+    print(f"   5. Watch .github/workflows/release-v3.yml — it builds and pushes the Docker image,")
+    print(f"      validates unsigned desktop artifacts, then signs, notarises and publishes them.")
     print(f"\nRelease documentation automatically updated:")
     print(f"   • Main releases page shows v{new_version} as latest")
     print(f"   • Changelog includes full release history")
@@ -513,7 +564,7 @@ def main():
     print(f"   • Individual release page created with proper links")
     print(f"   • Dataset description JSON files updated with new SimNIBS Docker image version")
     print(f"   • Docker Compose files updated with new image tags")
-    print(f"   • Electron Desktop App files updated (package.json, index.html, docker-compose.yml)")
+    print(f"   • v3 desktop app version updated (desktop/package.json)")
 
 
 if __name__ == "__main__":

@@ -23,8 +23,9 @@
     "mock-server": "node tests/mock-server/server.mjs",
     "gen:api": "openapi-typescript ../contracts/openapi.v1.json -o src/renderer/api/schema.d.ts",
     "e2e:quiet": "bash scripts/e2e-quiet-check.sh npm run e2e",
-    "package": "bash scripts/stage-runtime.sh && npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --config electron-builder.yml",
-    "package:dir": "bash scripts/stage-runtime.sh && npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir --config electron-builder.yml"
+    "package": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --config electron-builder.yml --publish never",
+    "package:dir": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir --config electron-builder.yml --publish never",
+    "verify:package": "node scripts/verify-package.mjs release"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
