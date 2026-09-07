@@ -22,21 +22,25 @@
  * exactly the settings that view type gave it. Tetravox has an inspector, its own window and a
  * person's full attention; this page has a list.
  *
- * **The page is two sub-pages behind one rail entry** (VE, 2026-09-06). The maintainer: *"In the
- * Viewer, the left menu has two subsections: the Menu, and below it the actual Viewer. The user
- * configures in the Menu, hits Open, is moved to the Viewer where the Tetravox embed is; they can
- * go back to the Menu, tinker, and reload a different setup."*
+ * **The page is two rail sub-items** (VE, 2026-09-06). The maintainer: *"In the Viewer, the left
+ * menu has two subsections: the Menu, and below it the actual Viewer. The user configures in the
+ * Menu, hits Open, is moved to the Viewer where the Tetravox embed is; they can go back to the
+ * Menu, tinker, and reload a different setup."*
  *
- *   **Menu** — everything above: the source, the file list, presets and Recent. `Open in viewer`.
- *   **Viewer** — a full-bleed `<iframe src="/tetravox/">` (`renderer/viewer/TetravoxFrame`) with a
- *   slim strip above it: which scene is loaded, `Reload`, `Back to menu`.
+ *   **Menu** (`/viewer/menu`) — the source, the file list, presets and Recent. `Open in viewer`.
+ *   **Tetravox** (`/viewer/tetravox`) — a full-bleed `<iframe src="/tetravox/">`
+ *   (`renderer/viewer/TetravoxFrame`) with a slim strip above it: which scene is loaded, `Reload`.
  *
- * They are a segmented control inside one page, not two rail rows, for two reasons. `app/registry.
- * ts`'s nav model is flat — one `PageDef` per `pages/<name>/`, the rail is `NAV_ORDER`, and the
- * retired Panels group was a flat `panel-<id>` slot rather than a nested one — so a rail group
- * would mean reshaping a file every other page reads. And one mounted component is what makes the
- * retention rule true by construction: switching sub-pages is a state change, so the iframe is
- * never unmounted, never reloads, and never drops the scene, its camera or its wasm heap.
+ * They are rows in the nav rail (`PageDef.subNav`, `app/NavRail.tsx`) and **one page**: two routes
+ * under one `PageDef`, one mounted component, both panes always in the DOM with the inactive one
+ * `display: none`. That is what makes the retention rule true by construction — moving between
+ * them never unmounts the iframe, so the scene, the camera and the engine's wasm heap survive a
+ * trip back to the Menu. Two `PageDef`s would have been two components and two iframes, and
+ * "go back to the Menu, tinker, and reload a different setup" would have meant reloading the
+ * engine every time.
+ *
+ * Going back is therefore just pressing **Menu** in the rail; the strip carries no Back button,
+ * because a second control for a thing the rail already does is a second thing to keep in step.
  *
  * **R5's draft → command grammar is unchanged.** Editing anything — a selector, a row — edits the
  * draft. The only request drafting costs is the list's own `dry_run`, which writes no file and
@@ -48,8 +52,8 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "react-router-dom";
-import { ArrowLeft, Clock, Eye, GripVertical, Plus, RefreshCw, Save, X } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Clock, Eye, GripVertical, Plus, RefreshCw, Save, X } from "lucide-react";
 import { ApiError, getSubjects } from "../../api/client";
 import type { PageDef } from "../../app/registry";
 import { usePageSession } from "../../app/pageSession";
@@ -113,8 +117,14 @@ const VIEW_KIND_OPTIONS: SelectOption[] = [
   { value: "custom", label: "Custom files" },
 ];
 
-/** The two sub-pages behind the one rail entry. */
-type SubPage = "menu" | "viewer";
+/** The two rail sub-items. The id is the last path segment: `/viewer/menu`, `/viewer/tetravox`. */
+type SubPage = "menu" | "tetravox";
+
+/** What the rail draws under "Viewer". The first is where the page's own row and ⌘8 land. */
+const SUB_NAV = [
+  { id: "menu", title: "Menu" },
+  { id: "tetravox", title: "Tetravox" },
+] as const;
 
 /** The scene the embed is showing, kept so the strip can name it and `Reload` can re-post it. */
 interface LoadedScene {
@@ -205,9 +215,12 @@ function ViewerPage() {
   const selectedSimulation = (simulations.data ?? []).find((s) => s.name === draft.simulation);
   const fieldsAvailable = selectedSimulation?.fields ?? [];
 
-  // Which sub-page is on screen. Page session, not component state, so a tab switch and a return
-  // land back where the person was — the same rule the selection and the file list already follow.
-  const [sub, setSub] = usePageSession<SubPage>("sub", () => "menu");
+  // Which sub-page is on screen is the *route*, not state: the rail rows are real links, so the
+  // rail's highlight and what is on screen are the same fact rather than two that can drift. A
+  // path that names neither sub-item (a bare `/viewer`, or a `/viewer?...` deep link) is the Menu.
+  const navigate = useNavigate();
+  const sub: SubPage = location.pathname.endsWith("/tetravox") ? "tetravox" : "menu";
+  const setSub = useCallback((next: SubPage) => navigate(`/viewer/${next}`), [navigate]);
   // What the embed is actually showing, so the Viewer strip can name it and `Reload` can re-post
   // it. Held here rather than read back off the store because the store's `scene` is the document
   // *after* the embed rewrote its layer ids on load.
@@ -297,7 +310,7 @@ function ViewerPage() {
       loadScene(written.view as never);
       setLoaded({ key, name: written.name, hostPath: written.host_path, view: written.view });
       setOpened({ key, hostPath: written.host_path, name: written.name });
-      setSub("viewer");
+      setSub("tetravox");
     } catch (error) {
       const notFound = error instanceof ApiError && error.status === 404;
       setFailure({
@@ -376,22 +389,10 @@ function ViewerPage() {
 
   return (
     <PageLayout variant="bleed" className="viewer-page" data-sub={sub}>
-      {/* One rail entry, two sub-pages. Both are always mounted: hiding the Viewer with
+      {/* Two routes, one page. Both panes are always mounted: hiding the inactive one with
           `display:none` (viewer-page.css) keeps the iframe's document, its wasm heap and its
           camera exactly as the person left them, which is what "go back to the Menu, tinker, and
-          reload a different setup" requires. Unmounting it would silently reload the engine. */}
-      <nav className="viewer-subnav" data-testid="viewer-subnav" aria-label="Viewer sections">
-        <SegmentedControl
-          value={sub}
-          onValueChange={(v) => setSub(v as SubPage)}
-          options={[
-            { value: "menu", label: "Menu" },
-            { value: "viewer", label: "Viewer" },
-          ]}
-          aria-label="Viewer sections"
-        />
-      </nav>
-
+          reload a different setup" requires. Unmounting would silently reload the engine. */}
       <div className="viewer-sub" data-testid="viewer-sub-menu" data-active={sub === "menu" ? "true" : "false"}>
       <div className="viewer-scroll">
         <div className="viewer-panel" data-testid="viewer-panel">
@@ -796,11 +797,8 @@ function ViewerPage() {
           the crosshair belong to the embed's own inspector, which has the whole surface and the
           reader's attention. What is left here is the three things the embed cannot answer —
           which scene this is, put it back the way it was, and go edit it. */}
-      <div className="viewer-sub viewer-sub-frame" data-testid="viewer-sub-viewer" data-active={sub === "viewer" ? "true" : "false"}>
+      <div className="viewer-sub viewer-sub-frame" data-testid="viewer-sub-viewer" data-active={sub === "tetravox" ? "true" : "false"}>
         <div className="viewer-strip" data-testid="viewer-strip">
-          <Button variant="ghost" size="sm" icon={<ArrowLeft size={14} />} onClick={() => setSub("menu")} data-testid="viewer-back">
-            Back to menu
-          </Button>
           <span className="viewer-strip-name" data-testid="viewer-strip-name" title={loaded?.hostPath ?? undefined}>
             {loaded === null ? "No scene open" : loaded.name}
           </span>
@@ -859,6 +857,7 @@ const page: PageDef = {
   Component: ViewerPage,
   enabled: true,
   layout: "full-bleed",
+  subNav: SUB_NAV,
 };
 
 export default page;

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactElement } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { pageById, useNavSections } from "./registry";
+import { pageById, pagePath, useNavSections } from "./registry";
 import { isMac } from "./keyboard";
 import { Tooltip } from "../ui/Overlay";
 
@@ -99,7 +99,11 @@ export function NavRail() {
               const Icon = page.icon;
               const row: ReactElement = (
                 <NavLink
-                  to={`/${page.id}`}
+                  to={pagePath(page)}
+                  // `end={false}`: with sub-items the page's own row stays lit while one of them
+                  // is open, so the rail says which *area* of the app you are in as well as which
+                  // row you pressed. NavLink's default would un-light it the moment you moved to
+                  // the second sub-item, and the Viewer would look closed while it was on screen.
                   className="nav-item"
                   aria-label={page.title}
                   aria-keyshortcuts={ariaShortcut(page.shortcut)}
@@ -109,6 +113,29 @@ export function NavRail() {
                   <span className="nav-label">{page.title}</span>
                 </NavLink>
               );
+              // Indented rows under the page's own (maintainer, 2026-09-06: "the left menu has two
+              // subsections: the Menu, and below it the actual Viewer"). They are always in the
+              // rail, not only while the page is open, because a rail whose rows appear and
+              // disappear as you navigate is a rail you cannot learn.
+              //
+              // Not rendered in the icon rail: at 56px there is no room for an indent and a label,
+              // and two unlabelled dots under one icon say nothing. Below 1440 the sub-items are
+              // reached from the page itself and from the palette, which both still list them.
+              const subs =
+                !icons && page.subNav && page.subNav.length > 0 ? (
+                  <div className="nav-subitems" key={`${page.id}-subs`}>
+                    {page.subNav.map((sub) => (
+                      <NavLink
+                        key={sub.id}
+                        to={`/${page.id}/${sub.id}`}
+                        className="nav-subitem"
+                        data-testid={`nav-subitem-${page.id}-${sub.id}`}
+                      >
+                        <span className="nav-label">{sub.title}</span>
+                      </NavLink>
+                    ))}
+                  </div>
+                ) : null;
               return icons ? (
                 <Tooltip key={page.id} label={page.title}>
                   {row}
@@ -116,6 +143,7 @@ export function NavRail() {
               ) : (
                 <div key={page.id} className="nav-row">
                   {row}
+                  {subs}
                 </div>
               );
             })}

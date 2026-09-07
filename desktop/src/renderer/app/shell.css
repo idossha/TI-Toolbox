@@ -134,6 +134,39 @@
   color: var(--accent);
 }
 
+/* ---------- Rail sub-items (the Viewer's Menu / Tetravox) ----------
+   Indented under their page's row, same height so the rail keeps one rhythm, one step quieter so
+   the page rows still read as the workflow and these read as being inside one of them. The active
+   one is highlighted exactly like a page, because it is what is on screen. */
+.nav-subitems {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 1px;
+}
+.nav-subitem {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  /* 16px icon + 8px gap = the page label's own left edge, so a sub-item reads as hanging off the
+     row above rather than as a shorter page row. */
+  padding: var(--space-2) var(--space-2) var(--space-2) calc(var(--space-2) + 24px);
+  border-radius: var(--radius-control);
+  color: var(--ink-3, var(--ink-2));
+  font-size: 12px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.nav-subitem:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.nav-subitem[aria-current="page"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 /* ---------- Context bar (the 40px strip; U11 — global chrome, not scope) ---------- */
 .context-bar-connection {
   display: flex;

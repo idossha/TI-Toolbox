@@ -23,6 +23,10 @@ vi.mock("../../src/renderer/app/registry", () => ({
   // v3: the rail asks the registry whether the page on screen forces the icon rail
   // (`PageDef.railMode`), on top of the >=1440px label breakpoint.
   pageById: () => undefined,
+  // A page's row links to `pagePath(page)` -- its first rail sub-item where it has any, its own
+  // id otherwise -- so the mock has to answer it (VE, 2026-09-06).
+  pagePath: (page: { id: string; subNav?: { id: string }[] }) =>
+    page.subNav?.[0] ? `/${page.id}/${page.subNav[0].id}` : `/${page.id}`,
 }));
 
 // jsdom has no `matchMedia`; the rail asks it whether it is the icon rail.

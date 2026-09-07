@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { SHORTCUT_ALIASES, enabledPages } from "./registry";
+import { SHORTCUT_ALIASES, enabledPages, pagePath } from "./registry";
 
 /**
  * "Unmodified keys belong to whatever has focus" (plan §3, DESIGN.md §6.5). That is the rule the
@@ -122,7 +122,9 @@ export function useGlobalShortcuts(handlers: ShellShortcuts): void {
           : enabledPages.find((p) => p.shortcut === e.key);
         if (page) {
           e.preventDefault();
-          navigate(`/${page.id}`);
+          // `pagePath`, not `/${page.id}`: a page with sub-items has no route of its own, and its
+          // ⌘-number lands on the first one (⌘8 -> the Viewer's Menu).
+          navigate(pagePath(page));
         }
       }
     }

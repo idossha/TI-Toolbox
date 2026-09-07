@@ -29,8 +29,11 @@ export function App() {
         <Route element={<Shell pages={pages} />}>
           {pages.map((page) => (
             <Route
+              // `/*`: a page may own routes beneath its own id (the Viewer's `menu`/`tetravox`
+              // sub-items). They are one page and one mounted component -- which is what keeps
+              // the embed's iframe, its wasm heap and its camera alive across the two.
               key={page.id}
-              path={`/${page.id}`}
+              path={`/${page.id}/*`}
               element={null}
             />
           ))}

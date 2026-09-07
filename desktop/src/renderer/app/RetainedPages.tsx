@@ -37,7 +37,9 @@ export function RetainedPages({ pages }: { pages: readonly PageDef[] }) {
           <PageActivityContext.Provider value={active}>
             <Routes location={route}>
               <Route
-                path={`/${page.id}`}
+                // `/*`: sub-item routes (`/viewer/menu`, `/viewer/tetravox`) belong to this one
+                // page and must not fall through to the catch-all.
+                path={`/${page.id}/*`}
                 element={<PageErrorBoundary pageId={page.id}><page.Component /></PageErrorBoundary>}
               />
             </Routes>

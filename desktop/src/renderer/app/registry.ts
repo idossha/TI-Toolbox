@@ -18,6 +18,24 @@ import { getSettings } from "../pages/settings/api";
 /** The two sections the v3 rail draws: the workflow rows, and the pinned pair below the spacer. */
 export type NavSectionId = "workflow" | "pinned";
 
+/**
+ * One indented row beneath a page's own row in the rail.
+ *
+ * The rail is otherwise flat (see `NAV_ORDER`), and this is the one exception, added for the
+ * Viewer: *"In the Viewer, the left menu has two subsections: the Menu, and below it the actual
+ * Viewer"* (maintainer, 2026-09-06). It is a page's own statement about itself, so a page that
+ * wants sub-items declares them and nothing here changes.
+ *
+ * A sub-item is **not a page**. It has no `PageDef`, no ⌘-number and no `pages/<id>/` directory:
+ * it is a route *inside* one page's component, which is what keeps the page mounted — and its
+ * iframe alive — when the user moves between them.
+ */
+export interface SubNavItem {
+  /** Last path segment: `/viewer/menu`. */
+  id: string;
+  title: string;
+}
+
 export interface PageDef {
   /** Route id, also the nav rail's stable key. Convention: the pages/<id> directory name. */
   id: string;
@@ -47,6 +65,11 @@ export interface PageDef {
   hidden?: boolean;
   /** This page mounts the Tetravox canvas. */
   viewer?: boolean;
+  /**
+   * Indented rows under this page's own row in the rail, each routing to `/<page id>/<sub id>`.
+   * The first is what the page's own row, its ⌘-number and a bare `/<page id>` all resolve to.
+   */
+  subNav?: readonly SubNavItem[];
   /**
    * Forces the 56px icon rail at every width. Below 1440 every page gets it anyway (§9); this is
    * for a page whose content needs the 160px even where labels would otherwise fit.
@@ -178,7 +201,19 @@ export function resolvePage(page: PageDef, known: ReadonlySet<string> = DISCOVER
     subjectScoped: page.subjectScoped ?? (slot !== null && SUBJECT_SCOPED.has(slot)),
     viewer: page.viewer ?? (page.id === "viewer" || page.id === "viewer-dev"),
     railMode: page.railMode,
+    subNav: page.subNav,
   };
+}
+
+/**
+ * The route a page's rail row, its ⌘-number and its palette entry all go to.
+ *
+ * A page with sub-items lands on the first one, so "click Viewer" and "press ⌘8" have one answer
+ * and it is a real route rather than a redirect the user can see happen.
+ */
+export function pagePath(page: Pick<PageDef, "id" | "subNav">): string {
+  const first = page.subNav?.[0];
+  return first ? `/${page.id}/${first.id}` : `/${page.id}`;
 }
 
 /** Every discovered page, enabled or not, v3 defaults resolved, sorted into rail order. */
