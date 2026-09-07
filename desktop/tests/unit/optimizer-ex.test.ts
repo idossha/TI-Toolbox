@@ -95,13 +95,12 @@ describe("Optimizer Ex/mEx defaults validate against contracts/schema.json", () 
     const target = savedTargets(["Thalamus_target"], false)[0]!;
     const form = {
       ...defaultMExFormState(),
-      channelsArchitecture: "shared",
       symmetricBucket: true,
       symmetryPairing: "cross_pairs" as const,
       buckets: { e1_plus: ["E24"], e1_minus: ["E124"], e2_plus: ["E67"], e2_minus: ["E77"], e3_plus: ["E1"], e3_minus: ["E2"], e4_plus: ["E3"], e4_minus: ["E4"] },
     };
     const config: MExConfigBody = buildMExConfig("ernie", "/mnt/example/leadfields/GSN-HydroCel-185/leadfield.hdf5", form, target, "");
-    expect(config.channels).toEqual([[[0, 2], [1, 3]]]);
+    expect(config.symmetry_pairing).toBe("cross_pairs");
     expect(validate("MExConfig", config as unknown as Record<string, unknown>)).toEqual([]);
   });
 

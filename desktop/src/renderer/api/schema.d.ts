@@ -5783,12 +5783,6 @@ export interface components {
          *         Required for ``NET`` and ``FLEX_MAPPED`` modes, ignored otherwise.
          *     display_name : str or None
          *         Optional user-facing label.  ``name`` remains the storage and lookup key.
-         *     channels : list[tuple[list[int], list[int]]] or None
-         *         Optional carrier grouping passed through to
-         *         :func:`tit.calc.get_mTI_vectors` / :func:`tit.calc.get_TI_avg`.
-         *         Each element is ``(group_a, group_b)``, indices into
-         *         ``electrode_pairs``' HF fields; ``None`` (default) is consecutive
-         *         pairing, i.e. one carrier per pair, today's behaviour.
          *
          *     See Also
          *     --------
@@ -5814,14 +5808,6 @@ export interface components {
              * @default null
              */
             display_name: string | null;
-            /**
-             * Channels
-             * @default null
-             */
-            channels: [
-                number[],
-                number[]
-            ][] | null;
             /** @constant */
             _type: "Montage";
         };
@@ -6177,13 +6163,29 @@ export interface components {
          *         Spherical ROI radius in mm for the target region.
          *     run_name : str or None
          *         Optional name for this run.  Defaults to a datetime stamp.
+         *     n_jobs : int
+         *         Worker processes evaluating candidates in parallel.  ``-1``
+         *         (default) uses all cores minus one; ``1`` evaluates in-process.
+         *         Results and CSV ordering do not depend on it.
+         *     symmetric_bucket : bool
+         *         When True in bucket mode, evaluate only left/right mirrored
+         *         montages (see :func:`tit.opt.ex.buckets.build_electrode_mirror_map`).
+         *     symmetry_eeg_csv : str or None
+         *         EEG-position CSV used to derive mirrored electrode pairs.  If
+         *         unset, it is inferred from the leadfield's net name.
+         *     symmetry_pairing : str
+         *         Symmetry interpretation when *symmetric_bucket* is True.
+         *         ``"within_pairs"``: each pair's minus electrode is the mirror of
+         *         its plus electrode (e.g. F7-F8).  ``"cross_pairs"``: pair 2 is the
+         *         mirror image of pair 1 (``e2+ = mirror(e1+)``, ``e2- = mirror(e1-)``).
          *
          *     Raises
          *     ------
          *     ValueError
          *         If *current_step*, *total_current*, or *channel_limit* are
-         *         non-positive, or if *roi_coordinate_space* is not ``"subject"``
-         *         or ``"mni"``.
+         *         non-positive, if *symmetric_bucket* is set with pool electrodes,
+         *         if *symmetry_pairing* is not ``"within_pairs"``/``"cross_pairs"``,
+         *         or if *roi_coordinate_space* is not ``"subject"`` or ``"mni"``.
          *
          *     See Also
          *     --------
@@ -6240,6 +6242,26 @@ export interface components {
              * @default null
              */
             run_name: string | null;
+            /**
+             * N Jobs
+             * @default -1
+             */
+            n_jobs: number;
+            /**
+             * Symmetric Bucket
+             * @default false
+             */
+            symmetric_bucket: boolean;
+            /**
+             * Symmetry Eeg Csv
+             * @default null
+             */
+            symmetry_eeg_csv: string | null;
+            /**
+             * Symmetry Pairing
+             * @default within_pairs
+             */
+            symmetry_pairing: string;
         };
         /**
          * MExConfig
@@ -6248,7 +6270,7 @@ export interface components {
          *     Evaluates every valid combination of four bipolar electrode pairs from
          *     a user-defined pool or bucket set, at one fixed current per pair, and
          *     scores each candidate with the verified N>2 mTI envelope
-         *     (:func:`tit.calc.get_mTI_vectors`).
+         *     (:func:`tit.calc.get_TI_vectors`).
          *
          *     Attributes
          *     ----------
@@ -6266,16 +6288,6 @@ export interface components {
          *         ``__post_init__``.
          *     current_mA : float
          *         Current in mA delivered by each of the four pairs.
-         *     channels : list of (list of int, list of int), or None
-         *         Carrier grouping passed to :func:`tit.calc.get_mTI_vectors`.
-         *         ``None`` treats the four pairs as two independent TI channels
-         *         (equivalent to ``[([0], [1]), ([2], [3])]``); an explicit grouping
-         *         such as ``[([0, 2], [1, 3])]`` instead treats all four pairs as
-         *         one channel sharing two carriers (Lee et al. 2022).  These give
-         *         materially different fields, so the grouping must be chosen
-         *         deliberately -- the quasi-static field solve has no frequency
-         *         term, so this grouping is the only place carrier assignment is
-         *         expressed.
          *     roi_radius : float
          *         Spherical ROI radius in mm for the target region.
          *     roi_names : list of str or None
@@ -6296,6 +6308,10 @@ export interface components {
          *         affect *roi_atlas*, which is always subject space.
          *     run_name : str or None
          *         Optional name for this run.  Defaults to a datetime stamp.
+         *     n_jobs : int
+         *         Worker processes evaluating candidates in parallel.  ``-1``
+         *         (default) uses all cores minus one; ``1`` evaluates in-process.
+         *         Results and CSV ordering do not depend on it.
          *     symmetric_bucket : bool
          *         When True in bucket mode, evaluate only left/right mirrored
          *         electrode pairs (see :func:`tit.opt.ex.buckets.build_electrode_mirror_map`).
@@ -6320,7 +6336,7 @@ export interface components {
          *     --------
          *     MExResult : Result container returned by :func:`~tit.opt.mex.mex.run_m_ex_search`.
          *     tit.opt.mex.mex.run_m_ex_search : Consumes this config.
-         *     tit.calc.get_mTI_vectors : Modulation-amplitude envelope; consumes *channels*.
+         *     tit.calc.get_TI_vectors : Modulation-amplitude envelope.
          */
         MExConfig: {
             /** Subject Id */
@@ -6336,14 +6352,6 @@ export interface components {
              * @default 2
              */
             current_mA: number;
-            /**
-             * Channels
-             * @default null
-             */
-            channels: [
-                number[],
-                number[]
-            ][] | null;
             /**
              * Roi Radius
              * @default 3
@@ -6370,6 +6378,11 @@ export interface components {
              * @default null
              */
             run_name: string | null;
+            /**
+             * N Jobs
+             * @default -1
+             */
+            n_jobs: number;
             /**
              * Symmetric Bucket
              * @default false

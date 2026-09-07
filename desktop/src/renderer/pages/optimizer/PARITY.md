@@ -102,7 +102,7 @@ pane is the shared `RunPanel` (lane B2) with `kind` following the segment and
 ### mEx-search
 
 - [x] Eight buckets E1±…E4± → **Electrode pairs**.
-- [x] Pair current, carrier wiring (`MTI_CHANNEL_ARCHITECTURES` + its help), force left/right
+- [x] Pair current, force left/right
       symmetry (+ help), symmetry pairing → **Carriers** (collapsible).
 - [x] "Combine ROIs" is hidden on mEx (`allowCombine={false}`), exactly as the Qt tab unchecked
       and disabled it — now expressed as the control not existing rather than existing dead.

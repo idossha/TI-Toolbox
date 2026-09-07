@@ -45,25 +45,6 @@ export const BUCKET_TOOLTIPS: Record<string, string> = {
   e4_minus: "Electrodes for pair 4 negative pole (cathodes)",
 };
 
-/**
- * `MExConfig.channels` named choices — mirrors `tit.opt.config.MTI_CHANNEL_ARCHITECTURES`, typed
- * as the exact tuple-of-pairs shape `MExConfig.channels` carries so no cast is needed.
- */
-export const MTI_CHANNEL_ARCHITECTURES: { value: string; label: string; channels: [number[], number[]][] | null }[] = [
-  { value: "independent", label: "Two independent channels", channels: null },
-  { value: "shared", label: "Four pairs, two carriers", channels: [[[0, 2], [1, 3]]] },
-];
-
-export const MTI_CHANNELS_HELP =
-  "How the four current pairs are grouped into TI carriers:\n\n" +
-  "Two independent channels (default): pairs 1&2 form one TI channel and pairs 3&4 form a " +
-  "second, independent TI channel -- equivalent to running two ordinary 2-pair TI searches " +
-  "together.\n\n" +
-  "Four pairs, two carriers: all four pairs share two carriers, e.g. pairs 1&3 vs 2&4 (Lee et " +
-  "al. 2022).\n\n" +
-  "These two wirings produce materially different fields, differing in about 92% of mesh " +
-  "elements and up to 6x in places. Pick deliberately.";
-
 export const MTI_SYMMETRY_HELP =
   "When checked, only left/right mirrored electrode-pair candidates are evaluated (mirroring " +
   "derived from the selected leadfield's EEG net), instead of the full combination of all eight " +
@@ -83,7 +64,6 @@ export interface ExFormState {
 export interface MExFormState {
   buckets: Record<string, string[]>;
   currentMa: number;
-  channelsArchitecture: string;
   symmetricBucket: boolean;
   symmetryPairing: "within_pairs" | "cross_pairs";
 }
@@ -103,7 +83,6 @@ export function defaultMExFormState(): MExFormState {
   return {
     buckets: Object.fromEntries(MEX_BUCKET_KEYS.map((k) => [k, []])),
     currentMa: 2.0,
-    channelsArchitecture: "independent",
     symmetricBucket: false,
     symmetryPairing: "within_pairs",
   };
@@ -192,6 +171,13 @@ export function buildExConfig(
     roi_atlas: target.roiAtlas,
     roi_coordinate_space: target.space,
     run_name: runName.trim() || null,
+    n_jobs: -1,
+    // Ex-search symmetric buckets (added on main in v2.5.0) have no control on
+    // the Optimizer page yet; these are the server-side defaults. See
+    // docs/dev/RELEASE.md §B.
+    symmetric_bucket: false,
+    symmetry_eeg_csv: null,
+    symmetry_pairing: "within_pairs",
   };
 }
 
@@ -202,7 +188,6 @@ export function buildMExConfig(
   target: ExTarget,
   runName: string,
 ): MExConfigBody {
-  const architecture = MTI_CHANNEL_ARCHITECTURES.find((a) => a.value === form.channelsArchitecture);
   return {
     subject_id: subjectId,
     leadfield_hdf: leadfieldHdf,
@@ -219,7 +204,6 @@ export function buildMExConfig(
       _type: "BucketElectrodes",
     },
     current_mA: form.currentMa,
-    channels: architecture?.channels ?? null,
     roi_radius: target.radius,
     roi_names: target.roiNames,
     roi_atlas: target.roiAtlas,
@@ -228,6 +212,7 @@ export function buildMExConfig(
     symmetric_bucket: form.symmetricBucket,
     symmetry_eeg_csv: null,
     symmetry_pairing: form.symmetryPairing,
+    n_jobs: -1,
   };
 }
 

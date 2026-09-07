@@ -28,8 +28,6 @@ import {
   BUCKET_TOOLTIPS,
   EX_BUCKET_KEYS,
   MEX_BUCKET_KEYS,
-  MTI_CHANNELS_HELP,
-  MTI_CHANNEL_ARCHITECTURES,
   MTI_SYMMETRY_HELP,
   formatBytes,
   type ExFormState,
@@ -276,25 +274,17 @@ export function MExElectrodesSection({
   );
 }
 
-/** mTI carrier wiring, per-pair current and the symmetry search. */
+/** Per-pair current and the symmetry search. */
 export function MExCarrierSection({ form, onChange }: { form: MExFormState; onChange: (patch: Partial<MExFormState>) => void }) {
-  const architecture = MTI_CHANNEL_ARCHITECTURES.find((a) => a.value === form.channelsArchitecture);
   return (
     <FormSection
       title="Carriers"
       collapsible
-      summary={`${form.currentMa} mA per pair · ${architecture?.label ?? form.channelsArchitecture}${form.symmetricBucket ? " · symmetric" : ""}`}
+      summary={`${form.currentMa} mA per pair${form.symmetricBucket ? " · symmetric" : ""}`}
     >
       <>
         <Field label="Pair current" help="Current delivered by each of the four bipolar pairs.">
           <NumberInput value={form.currentMa} onValueChange={(v) => onChange({ currentMa: v ?? 2.0 })} unit="mA" min={0.1} max={10} step={0.1} />
-        </Field>
-        <Field label="Carrier wiring" helpSlot={<HelpButton label="carrier wiring" text={MTI_CHANNELS_HELP} />}>
-          <Select
-            value={form.channelsArchitecture}
-            onValueChange={(v) => onChange({ channelsArchitecture: v })}
-            options={MTI_CHANNEL_ARCHITECTURES.map((a) => ({ value: a.value, label: a.label }))}
-          />
         </Field>
         <Field label="Symmetry" helpSlot={<HelpButton label="symmetric bucket search" text={MTI_SYMMETRY_HELP} />}>
           <Checkbox checked={form.symmetricBucket} onCheckedChange={(on) => onChange({ symmetricBucket: on })} label="Force left/right symmetry" />
