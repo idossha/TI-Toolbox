@@ -2758,6 +2758,235 @@ paths:
         "404":
           description: no such packaged net, or the guide is not installed
 
+  # ---------------------------------------------------------------- notebooks (NB lane, §7.6)
+  /api/notebooks:
+    get:
+      tags: [notebooks]
+      summary: List the project's notebooks, newest first
+      description: >-
+        Everything under `<project>/code/ti-toolbox/notebooks`, which is also where the pipeline
+        canvas's exported notebooks land.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotebookList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [notebooks]
+      summary: Create a notebook, or store one that was uploaded
+      description: >-
+        With no `content` the notebook is the starter: a first code cell that already imports
+        `tit` and prints this project's root, so the TI-Toolbox environment is loaded rather
+        than described. With `content`, this is the import path -- "Import .ipynb" and the
+        pipeline canvas saving its export are the same call.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                content: { type: object, additionalProperties: true, description: nbformat v4 document }
+                overwrite: { type: boolean, default: false }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notebook"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: a notebook of that name already exists
+        "422":
+          description: unusable name, or the document is not a valid notebook
+
+  /api/notebooks/{name}:
+    parameters:
+      - name: name
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [notebooks]
+      summary: Read one notebook
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notebook"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [notebooks]
+      summary: Write one notebook
+      description: >-
+        Validated with `nbformat.validate` before it lands: a document that fails is one every
+        other tool in the project would then refuse to open, so the save is rejected rather than
+        the file broken.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content: { type: object, additionalProperties: true }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotebookEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          description: unusable name, or the document is not a valid notebook
+    delete:
+      tags: [notebooks]
+      summary: Delete one notebook
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted]
+                properties:
+                  deleted: { type: string }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ---------------------------------------------------------------- kernels (NB lane, §7.6)
+  /api/kernels:
+    get:
+      tags: [kernels]
+      summary: List the kernels this server is running
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KernelList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [kernels]
+      summary: Start a kernel for a notebook session
+      description: >-
+        The kernelspec defaults to `simnibs` -- the container's SimNIBS Python with `tit` on the
+        path -- and the working directory is the project root, so a relative path in a cell means
+        what it means everywhere else in TI-Toolbox.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                kernelName: { type: string, default: simnibs }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Kernel"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          description: the concurrent-kernel limit is already reached
+        "501":
+          description: no jupyter_client, or no such kernelspec, in this container
+
+  /api/kernels/{kernel_id}:
+    parameters:
+      - name: kernel_id
+        in: path
+        required: true
+        schema: { type: string }
+    delete:
+      tags: [kernels]
+      summary: Shut a kernel down
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, state]
+                properties:
+                  id: { type: string }
+                  state: { type: string }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/kernels/{kernel_id}/interrupt:
+    parameters:
+      - name: kernel_id
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      tags: [kernels]
+      summary: Interrupt the running cell
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, interrupted]
+                properties:
+                  id: { type: string }
+                  interrupted: { type: boolean }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/kernels/{kernel_id}/restart:
+    parameters:
+      - name: kernel_id
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      tags: [kernels]
+      summary: Restart a kernel; every variable is lost
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Kernel"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   securitySchemes:
     cookieAuth:
@@ -2777,6 +3006,52 @@ components:
   parameters: {}
 
   schemas:
+    # ------------------------------------------------------------------ notebooks and kernels
+    NotebookEntry:
+      type: object
+      required: [name, size, modified]
+      properties:
+        name: { type: string }
+        size: { type: integer }
+        modified: { type: number, description: mtime, seconds since the epoch }
+    NotebookList:
+      type: object
+      required: [dir, notebooks]
+      properties:
+        dir: { type: string, description: container path of code/ti-toolbox/notebooks }
+        notebooks:
+          type: array
+          items: { $ref: "#/components/schemas/NotebookEntry" }
+    Notebook:
+      type: object
+      required: [name, content]
+      properties:
+        name: { type: string }
+        content:
+          type: object
+          additionalProperties: true
+          description: an nbformat v4 document, verbatim
+    Kernel:
+      type: object
+      required: [id, name, displayName, language, cwd, state, startedAt, lastUsed]
+      properties:
+        id: { type: string }
+        name: { type: string, description: the kernelspec name, e.g. "simnibs" }
+        displayName: { type: string }
+        language: { type: string }
+        cwd: { type: string }
+        state: { type: string, enum: [starting, idle, busy, dead] }
+        startedAt: { type: number }
+        lastUsed: { type: number }
+    KernelList:
+      type: object
+      required: [kernels, max, idleTimeoutSeconds]
+      properties:
+        kernels:
+          type: array
+          items: { $ref: "#/components/schemas/Kernel" }
+        max: { type: integer, description: concurrent kernels this container allows }
+        idleTimeoutSeconds: { type: number }
     # ------------------------------------------------------------------------------- v0, unchanged
     Health:
       type: object

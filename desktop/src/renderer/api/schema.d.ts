@@ -4266,10 +4266,449 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/notebooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the project's notebooks, newest first
+         * @description Everything under `<project>/code/ti-toolbox/notebooks`, which is also where the pipeline canvas's exported notebooks land.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["NotebookList"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        /**
+         * Create a notebook, or store one that was uploaded
+         * @description With no `content` the notebook is the starter: a first code cell that already imports `tit` and prints this project's root, so the TI-Toolbox environment is loaded rather than described. With `content`, this is the import path -- "Import .ipynb" and the pipeline canvas saving its export are the same call.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        name: string;
+                        /** @description nbformat v4 document */
+                        content?: {
+                            [key: string]: unknown;
+                        };
+                        /** @default false */
+                        overwrite?: boolean;
+                    };
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Notebook"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description a notebook of that name already exists */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description unusable name, or the document is not a valid notebook */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notebooks/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        /** Read one notebook */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Notebook"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        /**
+         * Write one notebook
+         * @description Validated with `nbformat.validate` before it lands: a document that fails is one every other tool in the project would then refuse to open, so the save is rejected rather than the file broken.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        content: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["NotebookEntry"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description unusable name, or the document is not a valid notebook */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        /** Delete one notebook */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted: string;
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/kernels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the kernels this server is running */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["KernelList"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        /**
+         * Start a kernel for a notebook session
+         * @description The kernelspec defaults to `simnibs` -- the container's SimNIBS Python with `tit` on the path -- and the working directory is the project root, so a relative path in a cell means what it means everywhere else in TI-Toolbox.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** @default simnibs */
+                        kernelName?: string;
+                    };
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Kernel"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description the concurrent-kernel limit is already reached */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description no jupyter_client, or no such kernelspec, in this container */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/kernels/{kernel_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kernel_id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Shut a kernel down */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    kernel_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            state: string;
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/kernels/{kernel_id}/interrupt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kernel_id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Interrupt the running cell */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    kernel_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            interrupted: boolean;
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/kernels/{kernel_id}/restart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kernel_id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restart a kernel; every variable is lost */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    kernel_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Kernel"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        NotebookEntry: {
+            name: string;
+            size: number;
+            /** @description mtime */
+            modified: number;
+        };
+        NotebookList: {
+            /** @description container path of code/ti-toolbox/notebooks */
+            dir: string;
+            notebooks: components["schemas"]["NotebookEntry"][];
+        };
+        Notebook: {
+            name: string;
+            /** @description an nbformat v4 document, verbatim */
+            content: {
+                [key: string]: unknown;
+            };
+        };
+        Kernel: {
+            id: string;
+            /** @description the kernelspec name */
+            name: string;
+            displayName: string;
+            language: string;
+            cwd: string;
+            /** @enum {string} */
+            state: "starting" | "idle" | "busy" | "dead";
+            startedAt: number;
+            lastUsed: number;
+        };
+        KernelList: {
+            kernels: components["schemas"]["Kernel"][];
+            /** @description concurrent kernels this container allows */
+            max: number;
+            idleTimeoutSeconds: number;
+        };
         Health: {
             /** @enum {string} */
             status: "ok";

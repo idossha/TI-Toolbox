@@ -26,6 +26,7 @@ from fastapi import APIRouter, Body, HTTPException, Request, WebSocket, WebSocke
 
 from tit.server.auth import origin_allowed, websocket_authorized
 from tit.server.kernels import DEFAULT_KERNEL_NAME, KernelError, get_kernel_registry
+from tit.server.schemas import Kernel, KernelInterrupted, KernelList, KernelStopped
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,11 @@ def _project_root(request: Request) -> str:
     return str(root)
 
 
-@router.get("/api/kernels", summary="List the kernels this server is running")
+@router.get(
+    "/api/kernels",
+    response_model=KernelList,
+    summary="List the kernels this server is running",
+)
 def list_kernels(request: Request) -> dict[str, Any]:
     registry = get_kernel_registry()
     registry.reap_idle()
@@ -79,7 +84,15 @@ def list_kernels(request: Request) -> dict[str, Any]:
     }
 
 
-@router.post("/api/kernels", summary="Start a kernel for a notebook session")
+@router.post(
+    "/api/kernels",
+    response_model=Kernel,
+    responses={
+        429: {"description": "the concurrent-kernel limit is already reached"},
+        501: {"description": "no jupyter_client, or no such kernelspec, in this container"},
+    },
+    summary="Start a kernel for a notebook session",
+)
 def start_kernel(request: Request, body: dict[str, Any] = Body(default={})) -> dict[str, Any]:
     """Start a kernel whose working directory is the project.
 
@@ -98,7 +111,9 @@ def start_kernel(request: Request, body: dict[str, Any] = Body(default={})) -> d
     return session.describe()
 
 
-@router.delete("/api/kernels/{kernel_id}", summary="Shut a kernel down")
+@router.delete(
+    "/api/kernels/{kernel_id}", response_model=KernelStopped, summary="Shut a kernel down"
+)
 def stop_kernel(kernel_id: str) -> dict[str, Any]:
     try:
         get_kernel_registry().shutdown(kernel_id)
@@ -107,7 +122,11 @@ def stop_kernel(kernel_id: str) -> dict[str, Any]:
     return {"id": kernel_id, "state": "dead"}
 
 
-@router.post("/api/kernels/{kernel_id}/interrupt", summary="Interrupt the running cell")
+@router.post(
+    "/api/kernels/{kernel_id}/interrupt",
+    response_model=KernelInterrupted,
+    summary="Interrupt the running cell",
+)
 def interrupt_kernel(kernel_id: str) -> dict[str, Any]:
     try:
         get_kernel_registry().interrupt(kernel_id)
@@ -116,7 +135,11 @@ def interrupt_kernel(kernel_id: str) -> dict[str, Any]:
     return {"id": kernel_id, "interrupted": True}
 
 
-@router.post("/api/kernels/{kernel_id}/restart", summary="Restart a kernel; every variable is lost")
+@router.post(
+    "/api/kernels/{kernel_id}/restart",
+    response_model=Kernel,
+    summary="Restart a kernel; every variable is lost",
+)
 def restart_kernel(kernel_id: str) -> dict[str, Any]:
     registry = get_kernel_registry()
     try:

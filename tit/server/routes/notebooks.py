@@ -17,6 +17,7 @@ from typing import Any
 from fastapi import APIRouter, Body, HTTPException, Request
 
 from tit.server import notebooks as nb
+from tit.server.schemas import Notebook, NotebookDeleted, NotebookEntry, NotebookList
 
 router = APIRouter()
 
@@ -37,7 +38,11 @@ def _fail(error: nb.NotebookError) -> HTTPException:
     return HTTPException(status_code=_STATUS.get(error.code, 422), detail=error.message)
 
 
-@router.get("/api/notebooks", summary="List the project's notebooks, newest first")
+@router.get(
+    "/api/notebooks",
+    response_model=NotebookList,
+    summary="List the project's notebooks, newest first",
+)
 def list_notebooks(request: Request) -> dict[str, Any]:
     root = _project_root(request)
     return {
@@ -46,7 +51,12 @@ def list_notebooks(request: Request) -> dict[str, Any]:
     }
 
 
-@router.post("/api/notebooks", summary="Create a notebook, or store one that was uploaded")
+@router.post(
+    "/api/notebooks",
+    response_model=Notebook,
+    responses={409: {"description": "a notebook of that name already exists"}},
+    summary="Create a notebook, or store one that was uploaded",
+)
 def create_notebook(request: Request, body: dict[str, Any] = Body(...)) -> dict[str, Any]:
     """Create ``name``.
 
@@ -79,7 +89,7 @@ def create_notebook(request: Request, body: dict[str, Any] = Body(...)) -> dict[
         raise _fail(error) from error
 
 
-@router.get("/api/notebooks/{name}", summary="Read one notebook")
+@router.get("/api/notebooks/{name}", response_model=Notebook, summary="Read one notebook")
 def read_notebook(request: Request, name: str) -> dict[str, Any]:
     root = _project_root(request)
     try:
@@ -88,7 +98,7 @@ def read_notebook(request: Request, name: str) -> dict[str, Any]:
         raise _fail(error) from error
 
 
-@router.put("/api/notebooks/{name}", summary="Write one notebook")
+@router.put("/api/notebooks/{name}", response_model=NotebookEntry, summary="Write one notebook")
 def write_notebook(request: Request, name: str, body: dict[str, Any] = Body(...)) -> dict[str, Any]:
     root = _project_root(request)
     content = body.get("content")
@@ -102,7 +112,9 @@ def write_notebook(request: Request, name: str, body: dict[str, Any] = Body(...)
         raise _fail(error) from error
 
 
-@router.delete("/api/notebooks/{name}", summary="Delete one notebook")
+@router.delete(
+    "/api/notebooks/{name}", response_model=NotebookDeleted, summary="Delete one notebook"
+)
 def delete_notebook(request: Request, name: str) -> dict[str, Any]:
     root = _project_root(request)
     try:

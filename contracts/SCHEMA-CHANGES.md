@@ -1299,3 +1299,35 @@ No dataclass changes, so `contracts/schema.json` is untouched. Three additions t
 Overview page shows (`GET /api/catalog/overview`), so the canvas and the board a user just looked
 at cannot disagree. A project that cannot be read at all falls back to shape-only checking rather
 than refusing every wire.
+
+## 2026-09-06 — NB lane — notebooks and kernels: eleven paths, five schemas, one socket
+
+No dataclass changes, so `contracts/schema.json` is untouched by this entry.
+`contracts/openapi.v1.yaml` was hand-edited and `contracts/openapi.v1.json` /
+`desktop/src/renderer/api/schema.d.ts` regenerated from it.
+
+1. **`/api/notebooks` (GET, POST) and `/api/notebooks/{name}` (GET, PUT, DELETE)** —
+   the `.ipynb` files under `<project>/code/ti-toolbox/notebooks`. New schemas
+   `NotebookEntry`, `NotebookList`, `Notebook`. `Notebook.content` is a bare
+   `object` with `additionalProperties: true` and stays that way: the `.ipynb`
+   *is* the document, and typing its keys here would be this server deciding
+   which parts of a format it does not own may survive a save. `POST` doubles as
+   the import path — "Import .ipynb" in the UI and the pipeline canvas saving its
+   export are the same call, a name and a document — so it declares a `409` for a
+   name already taken.
+2. **`/api/kernels` (GET, POST), `/api/kernels/{kernel_id}` (DELETE) and
+   `/api/kernels/{kernel_id}/{interrupt,restart}` (POST)** — notebook execution
+   lifecycle. New schemas `Kernel`, `KernelList`. `KernelList` carries `max` and
+   `idleTimeoutSeconds` rather than leaving the client to hard-code them: the
+   limits are the server's, and a page that renders "1 of 2 kernels" must be
+   reading the server's number. `POST /api/kernels` declares `429`
+   (`too-many-kernels`) and `501` (`no-jupyter-client` / `no-kernelspec`) because
+   both are states a correctly-built container can be in.
+3. **`WS /ws/kernels/{kernel_id}`** — one kernel's traffic; `execute` /
+   `interrupt` / `restart` down, `ready` / `status` / `input` / `output` /
+   `clear` / `reply` / `fatal` up. Declared in `app.py`'s `_custom_openapi`
+   alongside `/ws/system` and `/ws/jobs` (FastAPI cannot describe a WS route) and
+   exempt from `contracts_check` like the others. The message shape is SUNA's
+   kernel-bridge protocol verbatim, and an `output` payload is an nbformat output
+   verbatim — which is precisely why nothing translates between the live kernel
+   and the file the `notebooks` paths above read and write.

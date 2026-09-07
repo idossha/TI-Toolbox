@@ -450,3 +450,68 @@ class Overview(BaseModel):
 
     subjects: list[OverviewSubject]
     totals: OverviewTotals
+
+
+# --------------------------------------------------------------------------- notebooks & kernels
+
+
+class NotebookEntry(BaseModel):
+    """One notebook as the list shows it."""
+
+    name: str
+    size: int
+    modified: float
+
+
+class NotebookList(BaseModel):
+    """``GET /api/notebooks``."""
+
+    dir: str
+    notebooks: list[NotebookEntry]
+
+
+class Notebook(BaseModel):
+    """One notebook and its nbformat v4 document, verbatim.
+
+    ``content`` is deliberately an untyped object: the ``.ipynb`` IS the
+    document (ARCHITECTURE §7.6), and narrowing it here would be this server
+    deciding which keys of a format it does not own are allowed to survive.
+    """
+
+    name: str
+    content: dict[str, Any]
+
+
+class NotebookDeleted(BaseModel):
+    deleted: str
+
+
+class Kernel(BaseModel):
+    """One running notebook kernel."""
+
+    id: str
+    name: str
+    displayName: str
+    language: str
+    cwd: str
+    state: Literal["starting", "idle", "busy", "dead"]
+    startedAt: float
+    lastUsed: float
+
+
+class KernelList(BaseModel):
+    """``GET /api/kernels`` -- what is running, and the limits it runs under."""
+
+    kernels: list[Kernel]
+    max: int
+    idleTimeoutSeconds: float
+
+
+class KernelStopped(BaseModel):
+    id: str
+    state: str
+
+
+class KernelInterrupted(BaseModel):
+    id: str
+    interrupted: bool
