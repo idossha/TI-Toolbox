@@ -84,10 +84,15 @@ test("the plan is a subject x stage matrix of chips, with one legend and no free
   // order, whether or not the plan returned a job for one — so the grid is a matrix, not a strip.
   // Both selected subjects get a row; a diagonal would be the bug.
   for (const subject of ["ernie", "101"]) {
-    for (const stage of ["G1", "G2a", "G2b", "report"]) {
+    for (const stage of ["G1", "G2a", "G2b"]) {
       await expect(page.getByTestId(`plan-cell-${subject}-${stage}`)).toHaveText(/^(new|skip|overwrite|blocked|wait|·)$/);
     }
   }
+  // A report is an attachment of the job that produced it, so there is no REPORT column and
+  // nothing in the counts for it (maintainer, 2026-09-07).
+  await expect(page.getByTestId("plan-cell-ernie-report")).toHaveCount(0);
+  await expect(grid.locator(".plan-matrix thead th", { hasText: /^report$/ })).toHaveCount(0);
+
   // A mixed plan: ernie has raw + m2m + fastsurfer on disk, 101 has no fastsurfer, so the matrix
   // carries both `skip` and `new` rather than one repeated chip.
   await expect(page.getByTestId("plan-cell-ernie-G2b")).toHaveText("skip");
@@ -127,10 +132,13 @@ test("the plan is a subject x stage matrix of chips, with one legend and no free
   await expect(legend).not.toContainText("wait");
   // The legend is one muted line, not a chip row.
   await expect(legend.locator(".chip")).toHaveCount(0);
+  // ...and its job count is the stage count, with nothing added for a report.
+  await expect(legend).toContainText("6 jobs in this plan");
 
   // The digest is derived from the same model as the strip, so the two cannot disagree.
-  await expect(page.locator(".action-bar-digest")).toHaveText(/^8 jobs · \d+ CPU · \d+ GB/);
-  await expect(page.getByTestId("run-button")).toHaveText(/^Queue 8 jobs$/);
+  // 2 subjects x 3 stages = 6. It was 8 while each subject also got a report job.
+  await expect(page.locator(".action-bar-digest")).toHaveText(/^6 jobs · \d+ CPU · \d+ GB/);
+  await expect(page.getByTestId("run-button")).toHaveText(/^Queue 6 jobs$/);
 });
 
 test("opening the page starts nothing, and the terminal pins nothing (FXU2)", async () => {

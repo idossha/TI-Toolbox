@@ -1,9 +1,14 @@
 """Entry point: ``simnibs_python -m tit.pre.report config.json``
 
-Runner for the ``report`` job kind (:mod:`tit.jobs.kinds`'s ``MODULE_FOR_KIND``):
-one consolidated per-subject preprocessing report, submitted as the trailing job
-of a :func:`tit.jobs.plans.plan_preprocessing` group, after every stage job that
-ran for that subject.
+Builds one consolidated per-subject preprocessing report.
+
+A report is an **attachment of the job that produced it, never a job of its own**
+(maintainer, 2026-09-07). :func:`tit.jobs.plans.plan_preprocessing` therefore plans
+no trailing ``report`` job: :meth:`tit.jobs.manager.JobManager._attach_pre_report`
+calls :func:`build_report` in-process once the last preprocessing job for a subject
+succeeds, and records the result as an artifact on that job. The ``report`` job kind
+stays in the frozen wire contract (and in ``MODULE_FOR_KIND``, so this module remains
+runnable by hand) but nothing plans or submits one.
 
 Why this exists alongside ``tit.pre``'s own per-stage report
 --------------------------------------------------------------
@@ -90,6 +95,50 @@ def _hold_locks(kind: str, subject_ids: list[str], config_dict: dict):
     return locks.hold(get_path_manager().project_dir, job_id, requests)
 
 
+def build_report(
+    config: PreprocessConfig,
+    subject_id: str,
+    *,
+    logger: logging.Logger | None = None,
+) -> str:
+    """Write one consolidated preprocessing report for *subject_id*; return its path.
+
+    In-process and side-effect-free apart from the HTML it writes, so the job manager can
+    call it as a post-success attachment of the subject's last preprocessing job
+    (:meth:`tit.jobs.manager.JobManager._attach_pre_report`) instead of scheduling a
+    separate ``report`` job. *config*'s step flags decide which steps the report lists --
+    pass the union of the flags the group's stage jobs actually ran.
+    """
+    log = logger or logging.getLogger("tit.pre.report")
+
+    from tit.reporting import PreprocessingReportGenerator
+
+    report_gen = PreprocessingReportGenerator(
+        project_dir=get_path_manager().project_dir,
+        subject_id=subject_id,
+    )
+
+    steps_added = 0
+    for flag_name, step_name, description in _STEPS:
+        if not getattr(config, flag_name):
+            continue
+        report_gen.add_processing_step(
+            step_name=step_name,
+            description=description,
+            status="completed",
+        )
+        steps_added += 1
+
+    if steps_added == 0:
+        log.warning(
+            f"No preprocessing steps were requested for subject "
+            f"{subject_id}; writing an empty report."
+        )
+
+    report_gen.scan_for_data()
+    return str(report_gen.generate())
+
+
 def main() -> None:
     """Build one consolidated preprocessing report from a JSON config."""
     if len(sys.argv) < 2:
@@ -135,32 +184,7 @@ def main() -> None:
         with lock_cm:
             events.emit_stage("report")
 
-            from tit.reporting import PreprocessingReportGenerator
-
-            report_gen = PreprocessingReportGenerator(
-                project_dir=get_path_manager().project_dir,
-                subject_id=subject_id,
-            )
-
-            steps_added = 0
-            for flag_name, step_name, description in _STEPS:
-                if not getattr(config, flag_name):
-                    continue
-                report_gen.add_processing_step(
-                    step_name=step_name,
-                    description=description,
-                    status="completed",
-                )
-                steps_added += 1
-
-            if steps_added == 0:
-                logger.warning(
-                    f"No preprocessing steps were requested for subject "
-                    f"{subject_id}; writing an empty report."
-                )
-
-            report_gen.scan_for_data()
-            report_path = report_gen.generate()
+            report_path = build_report(config, subject_id, logger=logger)
             logger.info(f"Report generated: {report_path}")
             events.emit_artifact(str(report_path), kind="report")
 

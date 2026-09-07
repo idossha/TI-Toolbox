@@ -207,10 +207,13 @@ PRE_STAGE_MIN: dict[str, float] = {
     "G4": 120.0 / EMULATION_FACTOR,
     "G5": 60.0 / EMULATION_FACTOR,
     "G6": 6.0 / EMULATION_FACTOR,
-    "report": 1.0 / EMULATION_FACTOR,
 }
+#: Writing the consolidated per-subject report. NOT a stage and never a job: the job manager
+#: attaches it after the subject's last stage job succeeds, so it is folded once per subject
+#: into the plan's estimate rather than carried as its own line (see tit.jobs.plans).
+PRE_REPORT_MIN = 1.0 / EMULATION_FACTOR
 #: A pre-processing plan whose stages could not be resolved.
-PRE_DEFAULT_MIN = sum(PRE_STAGE_MIN[k] for k in ("G2a", "G2b", "G3", "report"))
+PRE_DEFAULT_MIN = sum(PRE_STAGE_MIN[k] for k in ("G2a", "G2b", "G3")) + PRE_REPORT_MIN
 
 
 # --------------------------------------------------------------------------- unit counts
@@ -279,10 +282,18 @@ def _search_combinations(resolved: dict[str, Any] | None) -> int | None:
 def _pre_minutes(resolved: dict[str, Any] | None) -> float:
     stages = (resolved or {}).get("stages") if isinstance(resolved, dict) else None
     total = 0.0
+    subjects: set[str] = set()
     for stage in _as_list(stages):
-        tags = _as_list(stage.get("tags")) if isinstance(stage, dict) else []
+        if not isinstance(stage, dict):
+            continue
+        tags = _as_list(stage.get("tags"))
         total += sum(PRE_STAGE_MIN.get(str(t), 0.0) for t in tags)
-    return total or PRE_DEFAULT_MIN
+        subjects.add(str(stage.get("subject") or ""))
+    if not total:
+        return PRE_DEFAULT_MIN
+    # The report is an attachment of the last stage job of each subject, not a stage of its
+    # own -- fold its minute into the plan once per subject rather than as a separate line.
+    return total + PRE_REPORT_MIN * max(len(subjects), 1)
 
 
 # --------------------------------------------------------------------------- the estimate

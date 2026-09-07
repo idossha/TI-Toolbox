@@ -77,6 +77,10 @@ describe("stepsFor", () => {
     expect(stepsFor("analyzer")).toHaveLength(RUN_STEPS.analyzer.length);
   });
 
+  it("has no report step for pre — a report is an attachment of its job, not a step", () => {
+    expect(RUN_STEPS.pre.map((s) => s.id)).not.toContain("report");
+  });
+
   it("gives every kind a non-empty, described step list — the pane is never blank", () => {
     for (const kind of ["pre", "sim", "flex", "ex", "mex", "analyzer"] as const) {
       const steps = RUN_STEPS[kind];
@@ -115,10 +119,10 @@ describe("the legend names only the chips the matrix contains", () => {
       stages: [
         { id: "G1", label: "dicom" },
         { id: "G2a", label: "charm" },
-        { id: "report", label: "report" },
+        { id: "G2b", label: "fastsurfer" },
       ],
     });
-    expect(plan.stages.map((s) => s.id)).toEqual(["G1", "G2a", "report"]);
+    expect(plan.stages.map((s) => s.id)).toEqual(["G1", "G2a", "G2b"]);
     expect(plan.subjects[0]?.cells.map((c) => c.chip)).toEqual(["skip", null, null]);
   });
 

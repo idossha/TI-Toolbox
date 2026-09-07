@@ -108,7 +108,8 @@ export function plannedStageIds(v: PreprocessConfig): string[] {
   if (v.run_qsiprep) ids.push("G4");
   if (v.run_qsirecon) ids.push("G5");
   if (v.extract_dti) ids.push("G6");
-  if (ids.length > 0) ids.push("report");
+  // No "report" id: the subject report is an attachment of the job that produced it, so it is
+  // neither a stage column nor a job (maintainer, 2026-09-07).
   return ids;
 }
 
@@ -121,7 +122,6 @@ const PRE_STAGE_HEADING: Record<string, string> = {
   G4: "qsiprep",
   G5: "qsirecon",
   G6: "dti",
-  report: "report",
 };
 
 export function plannedSteps(v: PreprocessConfig): string[] {
@@ -138,7 +138,7 @@ export function plannedSteps(v: PreprocessConfig): string[] {
 
 /**
  * Best-effort label for one preprocessing stage's `PlanJob.output_dir`, for kind=pre plans that
- * carry one `PlanJob` per stage (`tit.jobs.plans.plan_preprocessing`'s G1-G6/report DAG, wired up
+ * carry one `PlanJob` per stage (`tit.jobs.plans.plan_preprocessing`'s G1-G6 DAG, wired up
  * server-side in `tit/server/routes/plan.py`) rather than one per subject. Matches the directory
  * conventions `_pre_stage_output_dir` maps each stage flag to; falls back to a generic label for
  * a shared/coarser directory (several stages can touch the same `m2m_<subject>/`) or for a plan
@@ -277,8 +277,9 @@ function PreprocessPage() {
       submitPreGroup(toSubmitConfig(values, selected, decision), selected, parallelSubjects),
     onSuccess: (result) => {
       // `result.jobs.length` is not one-per-subject: the mock (and the real `plan_preprocessing`
-      // DAG it mirrors) expands each subject into one job per configured stage plus a report job,
-      // so it is reported as a job *count* alongside the subject count the user actually chose.
+      // DAG it mirrors) expands each subject into one job per configured stage (the subject
+      // report is an attachment of the last of those, never a job), so it is reported as a job
+      // *count* alongside the subject count the user actually chose.
       notify.success(
         selected.length > 1
           ? `Queued preprocessing for ${selected.length} subjects (${result.jobs.length} jobs).`

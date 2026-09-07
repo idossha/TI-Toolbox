@@ -10,6 +10,7 @@ import {
   launchElectronApp,
   PROJECT_HOST_ROOT,
   recordPayload,
+  getJobStatus,
   waitForJobTerminal,
   waitForJobTrace,
   type JobStatusLite,
@@ -218,9 +219,9 @@ test("sub-102 DICOM onboarding: not converted -> plan -> run -> converted (lane 
     // second as this timestamp is never mistaken for a pre-existing one.
     submittedAtMs = Date.now() - 2000;
     await page.getByTestId("run-button").click();
-    // sub-102 already carries a pre-existing report (see SUB102_REPORTS_DIR), so the group's own
-    // trailing `report` job trips the shared existing-outputs question even though the DICOM stage
-    // itself is new. Skip: the DICOM job runs either way, and nothing pre-existing is overwritten.
+    // A report is an attachment of its job, not a job, so nothing pre-existing is planned any
+    // more and the shared existing-outputs question may not appear at all. The helper tolerates
+    // its absence; skip if it does appear, so nothing pre-existing is ever overwritten.
     await answerExistingOutputs(page, "skip");
 
     const reqBody = (await groupRequest).postDataJSON() as { kind: string; subject_ids: string[]; config: Record<string, unknown> };
@@ -256,18 +257,20 @@ test("sub-102 DICOM onboarding: not converted -> plan -> run -> converted (lane 
       `real/preprocess: job ${jobId} kind=pre subject=102 stage=dicom state=${finalJob.state} artifacts=${finalJob.artifacts?.length ?? 0} run=${RUN_ID}`,
     );
 
-    // Also wait out the group's trailing `report` job (F0's consolidated report) before `finally`
-    // reads the reports directory below — the DICOM stage's own job report and this one both land
-    // there, and reading the directory while the second is still mid-write is exactly how a run's
-    // own report file escaped the mtime cleanup once (found and fixed on the very first real run
-    // of this test; left the stray file exactly where its own log line said, on host).
-    const reportJob = respBody.jobs.find((j) => j.kind === "report");
-    if (reportJob) {
-      const finalReportJob = await waitForJobTerminal(page, { url: SERVER_URL, token: TOKEN, jobId: reportJob.id, timeoutMs: 30_000 });
-      // "skipped" is the right answer when the dialog above was answered "skip" — the point is
-      // only that the report job reached a terminal state before `finally` reads the directory.
-      expect(["succeeded", "skipped"], JSON.stringify(finalReportJob.error)).toContain(finalReportJob.state);
-    }
+    // No trailing `report` job exists to wait for any more: the consolidated report is attached
+    // by the server after the job succeeded (JobManager._attach_pre_report), so it is written
+    // *after* the job reached its terminal state. Wait for it to land on the job's own artifact
+    // list before `finally` reads the reports directory — reading it mid-write is exactly how a
+    // run's own report file escaped the mtime cleanup once (found on this test's first real run).
+    await expect
+      .poll(
+        async () => {
+          const j = await getJobStatus(SERVER_URL, TOKEN, jobId);
+          return (j?.artifacts ?? []).some((a) => a.kind === "report" || a.kind === "report_failed");
+        },
+        { timeout: 30_000 },
+      )
+      .toBe(true);
   } finally {
     // The two whole-directory claims: the pre-flight check already proved neither pre-existed, so
     // removing them here (whether the run above succeeded or threw) cannot destroy real data

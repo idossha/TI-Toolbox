@@ -374,7 +374,7 @@ const JOB_TERMINAL_STATES = new Set(["succeeded", "failed", "cancelled", "skippe
  * state within Xms" failures on jobs that had, per the server's own job list, already succeeded —
  * unwrapped here once, for every caller.
  */
-async function getJobStatus(url: string, token: string, jobId: string): Promise<JobStatusLite | null> {
+export async function getJobStatus(url: string, token: string, jobId: string): Promise<JobStatusLite | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10_000);
   try {

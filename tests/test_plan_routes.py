@@ -480,7 +480,8 @@ def test_plan_pre_builds_full_dag_for_two_subjects(
 
     for sid in ("001", "002"):
         stages = by_subject[sid]
-        assert set(stages) == {"G1", "G2a", "G2b", "G3", "G4", "G5", "G6", "report"}
+        # No "report": a report is an attachment of the job that produced it, never a stage.
+        assert set(stages) == {"G1", "G2a", "G2b", "G3", "G4", "G5", "G6"}
         assert stages["G1"]["after"] == []
         assert stages["G2a"]["after"] == [f"{sid}:G1"]
         assert stages["G2b"]["after"] == [f"{sid}:G1"]
@@ -488,15 +489,6 @@ def test_plan_pre_builds_full_dag_for_two_subjects(
         assert stages["G4"]["after"] == [f"{sid}:G1"]
         assert stages["G5"]["after"] == [f"{sid}:G4"]
         assert set(stages["G6"]["after"]) == {f"{sid}:G5", f"{sid}:G2a"}
-        assert set(stages["report"]["after"]) == {
-            f"{sid}:G1",
-            f"{sid}:G2a",
-            f"{sid}:G2b",
-            f"{sid}:G3",
-            f"{sid}:G4",
-            f"{sid}:G5",
-            f"{sid}:G6",
-        }
 
     # top-level subject_ids overrides config.subject_ids (the config's own list is a
     # required-non-empty placeholder here, not what gets planned)
@@ -581,9 +573,21 @@ def test_plan_pre_only_plans_requested_stages(
         },
         headers=BEARER,
     )
-    stages = resp.json()["resolved"]["stages"]
+    body = resp.json()
+    stages = body["resolved"]["stages"]
     labels = {s["label"].split(":")[1] for s in stages}
-    assert labels == {"G1", "report"}
+    assert labels == {"G1"}
+    # The maintainer's case: only "Convert DICOM to NIfTI" ticked is ONE job, not two. A
+    # report is an attachment of the job that produced it, so it is never a plan row, never a
+    # JOBS count and never a CPU/MEM contribution of its own.
+    assert len(body["jobs"]) == 1
+    assert [j["kind"] for j in body["jobs"]] == ["pre"]
+    # ...and the cost is one pre job's, with nothing added for the report.
+    from tit.jobs.costs import default_cost
+
+    one = default_cost("pre", {})
+    assert body["cost"]["cpus"] == pytest.approx(one.cpus)
+    assert body["cost"]["mem_gb"] == pytest.approx(one.mem_gb)
 
 
 def test_plan_pre_falls_back_to_config_subject_ids_when_none_given(

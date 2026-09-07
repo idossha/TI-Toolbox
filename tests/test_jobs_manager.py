@@ -1175,3 +1175,91 @@ class TestMaySpawnDockerSiblings:
     def test_unrecognised_pre_config_is_treated_conservatively(self):
         assert may_spawn_docker_siblings("pre", {"something_new": True}) is True
         assert may_spawn_docker_siblings("pre", None) is True
+
+
+# ---------------------------------------------------------------------------------------------
+# the report is an attachment of its job, never a job of its own (maintainer, 2026-09-07)
+# ---------------------------------------------------------------------------------------------
+
+
+def _pre_group_plan(subject="001", **flags):
+    """A submittable ``pre`` group plan, exactly as ``POST /api/jobs/groups`` builds one."""
+    from tit.jobs.plans import plan_preprocessing
+    from tit.pre.config import PreprocessConfig
+
+    return plan_preprocessing(
+        PreprocessConfig(subject_ids=[subject], **flags), [subject]
+    )
+
+
+def test_pre_group_submits_no_report_job(manager):
+    """The DICOM-only case from the maintainer's screenshot: one job, not two."""
+    result = manager.submit_plan(_pre_group_plan(convert_dicom=True))
+    assert len(result["jobs"]) == 1
+    assert [j["kind"] for j in result["jobs"]] == ["pre"]
+
+
+def test_succeeded_pre_job_attaches_the_report_as_an_artifact(manager, monkeypatch):
+    """The consolidated report is built in-process once the subject's last stage job
+    succeeds, and lands on that job's artifact list -- with no job record of its own."""
+    built: list[tuple[str, dict]] = []
+
+    def _fake_build_report(config, subject_id, **_kw):
+        built.append((subject_id, config))
+        return f"/reports/sub-{subject_id}.html"
+
+    monkeypatch.setattr("tit.pre.report.build_report", _fake_build_report)
+
+    result = manager.submit_plan(
+        _pre_group_plan(convert_dicom=True, create_m2m=True, run_tissue_analysis=True)
+    )
+    ids = [j["id"] for j in result["jobs"]]
+    assert len(ids) == 3
+
+    wait_until(
+        lambda: all(
+            manager.get(i)["state"] in ("succeeded", "failed", "skipped") for i in ids
+        )
+    )
+    reports = wait_until(
+        lambda: [
+            a
+            for i in ids
+            for a in manager.get(i)["artifacts"]
+            if a["kind"] == "report"
+        ]
+        or None
+    )
+    # Exactly one report, for one subject, listing every flag the *group* ran -- not the
+    # one-flag-narrowed config of whichever stage job happened to finish last.
+    assert len(reports) == 1
+    assert reports[0]["path"] == "/reports/sub-001.html"
+    assert len(built) == 1
+    subject_id, config = built[0]
+    assert subject_id == "001"
+    assert config.convert_dicom and config.create_m2m and config.run_tissue_analysis
+    assert config.run_fastsurfer is False
+    # ...and every job in the group is still just a `pre` job.
+    assert {manager.get(i)["kind"] for i in ids} == {"pre"}
+
+
+def test_report_failure_never_fails_its_parent_job(manager, monkeypatch):
+    """A report that cannot be built is a warning and a `report_failed` marker on the job's
+    detail pane -- never a failed job."""
+
+    def _boom(config, subject_id, **_kw):
+        raise RuntimeError("no figures on disk")
+
+    monkeypatch.setattr("tit.pre.report.build_report", _boom)
+
+    result = manager.submit_plan(_pre_group_plan(convert_dicom=True))
+    job_id = result["jobs"][0]["id"]
+    wait_until(
+        lambda: manager.get(job_id)["state"] == "succeeded"
+        and [a for a in manager.get(job_id)["artifacts"] if "report" in a["kind"]]
+    )
+    status = manager.get(job_id)
+    assert status["state"] == "succeeded"
+    failed = [a for a in status["artifacts"] if a["kind"] == "report_failed"]
+    assert len(failed) == 1
+    assert "no figures on disk" in failed[0]["label"]

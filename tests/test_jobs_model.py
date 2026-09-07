@@ -579,20 +579,25 @@ def test_keys_for_report_holds_read_locks_for_what_it_scans():
 
 
 def test_keys_for_report_of_a_planned_group_locks_that_subject_only():
-    """The real shape: whatever ``plan_preprocessing`` hands the report job must produce locks
-    scoped to its own subject, so two subjects' reports still run concurrently."""
-    from tit.jobs.plans import plan_preprocessing
+    """A hand-submitted ``report`` job (nothing plans one any more -- a report is an attachment
+    of the job that produced it) must still lock only its own subject, so two subjects' reports
+    can run concurrently."""
+    from tit.config_io import serialize_config
     from tit.pre.config import PreprocessConfig
 
-    config = PreprocessConfig(
-        subject_ids=["001", "002"], convert_dicom=True, create_m2m=True
-    )
-    planned = plan_preprocessing(config, ["001", "002"])
-    reports = [j for j in planned if j.kind == "report"]
-    assert len(reports) == 2
     keys = {
-        j.subject_ids[0]: _resources(locks.keys_for(j.kind, j.subject_ids, j.config))
-        for j in reports
+        sid: _resources(
+            locks.keys_for(
+                "report",
+                [sid],
+                serialize_config(
+                    PreprocessConfig(
+                        subject_ids=[sid], convert_dicom=True, create_m2m=True
+                    )
+                ),
+            )
+        )
+        for sid in ("001", "002")
     }
     assert keys["001"] and keys["002"]
     assert not {r for r, _m in keys["001"]} & {r for r, _m in keys["002"]}
@@ -600,11 +605,10 @@ def test_keys_for_report_of_a_planned_group_locks_that_subject_only():
         assert all(r.startswith(f"subject:{sid}:") for r, _m in resources)
 
 
-def test_plan_preprocessing_report_job_carries_every_requested_flag():
-    """F0: the trailing report job's config used to be just {"subject_id": ...} --
-    tit.pre.report needs the group's actual stage flags (not stage-narrowed like each
-    G1..G6 job's own config) to know which steps to report on, so plan_preprocessing
-    now serializes the *un-narrowed* PreprocessConfig, one subject at a time."""
+def test_plan_preprocessing_never_plans_a_report_job():
+    """A report is an attachment of the job that produced it, never a job of its own
+    (maintainer, 2026-09-07): the DAG is G1..G6 and nothing else, so ticking only "Convert
+    DICOM to NIfTI" is ONE job, not two."""
     from tit.jobs.plans import plan_preprocessing
     from tit.pre.config import PreprocessConfig
 
@@ -614,20 +618,17 @@ def test_plan_preprocessing_report_job_carries_every_requested_flag():
         create_m2m=True,
         run_tissue_analysis=True,
     )
-    planned = plan_preprocessing(config, ["001"])
-    report_jobs = [j for j in planned if j.kind == "report"]
-    assert len(report_jobs) == 1
-    report = report_jobs[0]
-    assert report.subject_ids == ["001"]
-    assert report.config["subject_ids"] == ["001"]
-    assert report.config["convert_dicom"] is True
-    assert report.config["create_m2m"] is True
-    assert report.config["run_tissue_analysis"] is True
-    # A flag the caller never requested must not be reported as having run.
-    assert report.config["run_fastsurfer"] is False
-    # After every stage job planned for this subject, by label.
-    stage_labels = {j.label for j in planned if j.kind == "pre"}
-    assert set(report.after_labels) == stage_labels
+    planned = plan_preprocessing(config, ["001", "002"])
+    assert {j.kind for j in planned} == {"pre"}
+    assert not [j for j in planned if "report" in j.tags]
+    assert len(planned) == 6  # 2 subjects x (G1, G2a, G3)
+
+    dicom_only = plan_preprocessing(
+        PreprocessConfig(subject_ids=["001"], convert_dicom=True), ["001"]
+    )
+    assert len(dicom_only) == 1
+    assert dicom_only[0].kind == "pre"
+    assert dicom_only[0].tags[0] == "G1"
 
 
 def test_plan_preprocessing_no_jobs_no_report():

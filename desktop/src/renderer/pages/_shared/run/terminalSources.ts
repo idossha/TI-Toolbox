@@ -128,7 +128,9 @@ export const RUN_STEPS: Record<PlanKind, RunStep[]> = {
     { id: "G4", label: "QSIPrep", detail: "Dockerised diffusion preprocessing: denoise, distortion and motion correction.", minutes: 120 },
     { id: "G5", label: "QSIRecon", detail: "Dockerised reconstruction of the preprocessed DWI into scalar maps.", minutes: 60 },
     { id: "G6", label: "Extract DTI tensor", detail: "Writes the anisotropic conductivity tensor SimNIBS reads at simulation time.", minutes: 6 },
-    { id: "report", label: "Subject report", detail: "Collects the QC figures of every step above into one HTML report.", minutes: 1 },
+    // No report step: each preprocessing job writes its own HTML report as its final stage and
+    // the server folds the subject report's minute into the plan's estimate, so a report is
+    // never a step, a plan row or a job of its own (maintainer, 2026-09-07).
   ],
   sim: [
     { id: "mesh", label: "Load the head model", detail: "Reads m2m_<subject>/<subject>.msh and applies the conductivity model.", minutes: 1 },

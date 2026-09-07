@@ -285,7 +285,8 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     const groupJobs = (grouped as any).jobs as { id: string; kind: string }[];
     // create_m2m (G2a) -> run_tissue_analysis (G3, after G2a) -> report (after G3): the per-stage
     // DAG tit.jobs.plans.plan_preprocessing builds, not one job per subject.
-    expect(groupJobs.map((j) => j.kind)).toEqual(["pre", "pre", "report"]);
+    // A report is an attachment of the job that produced it, never a job of its own.
+    expect(groupJobs.map((j) => j.kind)).toEqual(["pre", "pre"]);
     const firstGroupJob = groupJobs[0];
     if (!firstGroupJob) throw new Error("expected at least one grouped job");
     const groupJobId = firstGroupJob.id;

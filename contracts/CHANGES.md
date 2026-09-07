@@ -815,3 +815,40 @@ groups the entry above opened turned out to be wrong on a different side:
 the desktop calls — now return named Pydantic models (`Settings`, `Telemetry`, `Terminated`)
 instead of bare `dict[str, Any]`, so the contract's shape for them is checked rather than assumed.
 The rest remain warnings: they are routes whose response is genuinely a pass-through document.
+
+## 2026-09-07 — fix(jobs) — a report is an attachment of its job, never a job of its own
+
+No schema changed. This is a **behaviour change plus one description**, recorded here because it
+changes what `POST /api/plan/pre` and `POST /api/jobs/groups` return for the same request.
+
+Maintainer, on a Pre-processing plan with only "Convert DICOM to NIfTI" ticked for one subject
+(the card read `JOBS 2 · CPUS 2 · MEM 6 GB`, the grid `DICOM | REPORT`, the footer
+"2 jobs in this plan"): *"the report itself should not be counted as a job. A report is attached
+to a job, it's not itself a job."*
+
+**Root cause: the server.** `tit.jobs.plans.plan_preprocessing` appended a trailing
+`kind="report"` `PlannedJob` per subject, so `POST /api/plan/pre` returned it as a real `PlanJob`
+row **and** as a `resolved.stages` entry, and `POST /api/jobs/groups` submitted it as a real job
+with its own cost, locks, ETA line and plan column. No other kind ever did this.
+
+### Changed
+
+| Was | Is |
+| --- | --- |
+| `plan_preprocessing` plans `G1..G6` + one `report` job per subject | plans `G1..G6` only |
+| `PlanResult.jobs` for a DICOM-only config: 2 rows (`pre`, `report`) | 1 row (`pre`) |
+| `PlanCost` for that config: `cpus 2 · mem_gb 6` (two jobs) | one `pre` job's cost |
+| `eta.PRE_STAGE_MIN["report"]`, a per-stage ETA line | `eta.PRE_REPORT_MIN`, folded once per subject into the plan's estimate |
+| the consolidated report ran as a scheduled `report` job | `JobManager._attach_pre_report` builds it in-process after the subject's last `pre` job succeeds, and records it as a `report` artifact on that job |
+| a report-build failure failed a job | logged as a warning; a `report_failed` artifact on the parent job, which stays `succeeded` |
+
+### Also
+
+- `JobGroupRequest.kind`'s description no longer says "G1-G6/report DAG" (`contracts/openapi.yaml`).
+- **`JobKind` still carries `report`.** It is in the frozen v1 enum, so it stays, and
+  `tit.jobs.kinds.MODULE_FOR_KIND` still maps it to `tit.pre.report` — nothing *plans or submits*
+  one any more. A client may still submit one by hand.
+- `tit.pre.report.build_report(config, subject_id)` is the extracted, in-process report builder
+  `main()` and the manager hook both call.
+- The mock server mirrors all of the above (`desktop/tests/mock-server/server.mjs`): no report
+  plan row, no report job, and a `pre` job's artifacts now carry its `report.html`.

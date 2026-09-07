@@ -996,6 +996,108 @@ class JobManager:
         self._cancelled.discard(status.id)
         self._persist_status(status)
         self._publish_status(status)
+        if state == "succeeded":
+            self._attach_pre_report(status.id)
+
+    # -- report attachment ------------------------------------------------------------------
+
+    def _attach_pre_report(self, job_id: str) -> None:
+        """Kick off the consolidated preprocessing report for *job_id*'s subject, if it is due.
+
+        A report is an attachment of the job that produced it, never a job of its own: nothing
+        is planned, submitted, costed or ETA'd for it (see :func:`tit.jobs.plans.plan_preprocessing`).
+        This fires when the *last* ``pre`` job of a subject's group reaches a terminal state, and
+        builds one report covering the union of the step flags the group's succeeded jobs ran.
+
+        Caller must hold ``self._lock``. The build itself runs on a short-lived daemon thread --
+        it reads the subject's outputs off disk and writes HTML, which must not block the event
+        loop or be done under the lock.
+        """
+        spec = self._specs.get(job_id)
+        if spec is None or spec.kind != "pre":
+            return
+
+        siblings = [
+            other
+            for other in self._specs.values()
+            if other.kind == "pre"
+            and other.group_id == spec.group_id
+            and list(other.subject_ids) == list(spec.subject_ids)
+        ]
+        if spec.group_id is None:
+            siblings = [spec]
+        # Not the last one home: whoever finishes after us will attach the report.
+        for other in siblings:
+            other_status = self._status.get(other.id)
+            if other_status is None or other_status.state not in TERMINAL_STATES:
+                return
+
+        flags: dict[str, bool] = {}
+        for other in siblings:
+            if (st := self._status.get(other.id)) is None or st.state != "succeeded":
+                continue
+            for key, value in other.config.items():
+                if isinstance(value, bool) and value:
+                    flags[key] = True
+        if not flags or not spec.subject_ids:
+            return
+
+        subject_id = spec.subject_ids[0]
+        config = dict(spec.config)
+        config.update(flags)
+        threading.Thread(
+            target=self._build_pre_report,
+            args=(job_id, subject_id, config),
+            name=f"pre-report-{job_id}",
+            daemon=True,
+        ).start()
+
+    def _build_pre_report(
+        self, job_id: str, subject_id: str, config: dict[str, Any]
+    ) -> None:
+        """Build the report off the event loop and record it on *job_id*.
+
+        A report that cannot be built must never turn a successful job into a failed one: the
+        failure is logged and recorded as a ``report_failed`` artifact the job's detail pane
+        renders as "report failed", and the job stays ``succeeded``.
+        """
+        try:
+            from tit.config_io import deserialize_config
+            from tit.pre.config import PreprocessConfig, migrate_legacy_keys
+            from tit.pre.report import build_report
+
+            payload = migrate_legacy_keys(dict(config))
+            payload.pop("project_dir", None)
+            payload["subject_ids"] = [subject_id]
+            report_path = build_report(
+                deserialize_config(PreprocessConfig, payload), subject_id
+            )
+        except Exception as exc:  # noqa: BLE001 - a report never fails its parent job
+            logger.warning(
+                "job %s: preprocessing report for subject %s failed: %s",
+                job_id,
+                subject_id,
+                exc,
+            )
+            self._record_report_artifact(
+                job_id, path="", kind="report_failed", label=f"report failed: {exc}"
+            )
+            return
+
+        self._record_report_artifact(
+            job_id, path=report_path, kind="report", label="Preprocessing report"
+        )
+
+    def _record_report_artifact(
+        self, job_id: str, *, path: str, kind: str, label: str
+    ) -> None:
+        with self._lock:
+            status = self._status.get(job_id)
+            if status is None:
+                return
+            status.artifacts.append(Artifact(path=path, kind=kind, label=label))
+            self._persist_status(status)
+            self._publish_status(status)
 
     def _drain_events(self, status: JobStatus) -> None:
         tailer = self._tailers.get(status.id)

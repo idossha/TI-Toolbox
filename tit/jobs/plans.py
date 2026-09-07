@@ -162,15 +162,12 @@ def plan_preprocessing(
     - ``G4`` = QSIPrep (``run_qsiprep``), after ``G1``
     - ``G5`` = QSIRecon (``run_qsirecon``), after ``G4``
     - ``G6`` = DTI tensor extraction (``extract_dti``), after ``G5`` and ``G2a``
-    - ``report`` = one consolidated per-subject preprocessing report, after every stage
-      job that ran for that subject (kind ``"report"``, run by :mod:`tit.pre.report`).
-      Each stage job above *also* writes its own report as a side effect of
-      :func:`tit.pre.structural.run_pipeline` (see ``tit/pre/__main__.py``), but that
-      report is scoped to only the one flag that stage's narrowed config set --
-      ``G1``'s covers DICOM conversion alone, ``G2a``'s covers charm alone, and so on.
-      This trailing job is the only one that reports on every stage the *group*
-      actually ran, which is what the UI's job-report pane resolves to for a
-      ``report``-kind job (``desktop/src/renderer/app/jobs-rail/ReportPane.tsx``).
+    A report is **not** a stage and never a job of its own. Every stage job writes its
+    own HTML report as a side effect of :func:`tit.pre.structural.run_pipeline`, and the
+    job manager folds the group's stages into one consolidated per-subject report as a
+    post-success attachment of the last stage job to finish for that subject (see
+    :meth:`tit.jobs.manager.JobManager._attach_pre_report`) -- with no job record, no
+    plan row, no cost and no ETA line of its own.
 
     Each stage job's config is *config* with every step flag except its own forced to
     ``False`` and ``subject_ids`` narrowed to the one subject -- consistent with
@@ -289,25 +286,9 @@ def plan_preprocessing(
             )
             subject_jobs.append(g6)
 
-        if subject_jobs:
-            # The trailing report job's config is *config* narrowed to this one
-            # subject with every stage flag left as the caller set it (unlike
-            # _stage_config, which forces all-but-one False) -- tit.pre.report
-            # reads these same flags to build one report covering every stage
-            # that ran in this group, mirroring exactly the checks above that
-            # decided which of G1..G6 got planned.
-            report_config = replace(config, subject_ids=[subject_id])
-            subject_jobs.append(
-                PlannedJob(
-                    label=f"{subject_id}:report",
-                    kind="report",
-                    config=serialize_config(report_config),
-                    subject_ids=[subject_id],
-                    after_labels=[j.label for j in subject_jobs],
-                    tags=["report"],
-                )
-            )
-
+        # No trailing report job: the consolidated per-subject report is an attachment
+        # the job manager produces after the last stage job for this subject succeeds
+        # (JobManager._attach_pre_report), not a job of its own.
         jobs.extend(subject_jobs)
 
     return jobs

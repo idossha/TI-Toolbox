@@ -5477,7 +5477,7 @@ export interface components {
         };
         JobGroupRequest: {
             /**
-             * @description Every kind that runs one independent job per subject. `pre` expands into the per-subject G1-G6/report DAG (tit.jobs.plans.plan_preprocessing); the others expand into one job per (subject, config) entry (tit.jobs.plans.plan_per_subject). Cohort kinds (a grouped `analyzer` run, `stats`) are one job over the whole selection and are submitted through POST /api/jobs instead.
+             * @description Every kind that runs one independent job per subject. `pre` expands into the per-subject G1-G6 stage DAG (tit.jobs.plans.plan_preprocessing) -- the subject report is an attachment of the last stage job, never a job of its own; the others expand into one job per (subject, config) entry (tit.jobs.plans.plan_per_subject). Cohort kinds (a grouped `analyzer` run, `stats`) are one job over the whole selection and are submitted through POST /api/jobs instead.
              * @enum {string}
              */
             kind: "pre" | "sim" | "flex" | "flex_adaptive" | "flex_pareto" | "ex" | "mex";

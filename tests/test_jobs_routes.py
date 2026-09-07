@@ -465,8 +465,9 @@ def test_groups_submits_a_preprocessing_dag(client: TestClient) -> None:
     body = r.json()
     assert body["group_id"]
     kinds = {j["kind"] for j in body["jobs"]}
-    assert kinds == {"pre", "report"}
-    assert len(body["jobs"]) == 3  # G1 (dicom) + G2a (charm) + the per-subject report
+    # A report is an attachment of the job that produced it, never a job of its own.
+    assert kinds == {"pre"}
+    assert len(body["jobs"]) == 2  # G1 (dicom) + G2a (charm)
 
     def _all_done():
         listed = client.get(
@@ -475,7 +476,7 @@ def test_groups_submits_a_preprocessing_dag(client: TestClient) -> None:
         ours = [j for j in listed if j["group_id"] == body["group_id"]]
         return (
             ours
-            if len(ours) == 3 and all(j["state"] != "queued" for j in ours)
+            if len(ours) == 2 and all(j["state"] != "queued" for j in ours)
             else None
         )
 

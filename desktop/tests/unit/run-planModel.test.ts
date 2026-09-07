@@ -241,3 +241,29 @@ describe("stageFor — a column that is a category, not a stage", () => {
     expect(planDigest(plan)).toBe("4 jobs · 8 CPU · 16 GB · 1 overwrite");
   });
 });
+
+describe("a report is an attachment of its job, never a plan row", () => {
+  /** The maintainer's screenshot: Pre-processing with only "Convert DICOM to NIfTI" ticked
+   *  for one subject. The server now plans one job, so every count the card shows is 1 and
+   *  there is no REPORT column to render. */
+  const dicomOnly: PlanResult = {
+    jobs: [
+      { kind: "pre", subject: "101", output_dir: "/p/sub-101/anat", exists: true, will_overwrite: false, stage: "G1" },
+    ],
+    lock_conflicts: [],
+    cost: { cpus: 1, mem_gb: 3, eta_minutes: 1 },
+    warnings: [],
+    resolved: { stages: [{ label: "101:G1", kind: "pre", subject: "101", after: [], tags: ["G1"] }] },
+  } as unknown as PlanResult;
+
+  it("counts one job, one CPU row and no report column", () => {
+    const plan = planModelFrom("pre", dicomOnly, ["101"], {
+      stages: [{ id: "G1", label: "dicom" }],
+    });
+    expect(plan.stats.jobs).toBe(1);
+    expect(plan.stages.map((s) => s.id)).toEqual(["G1"]);
+    expect(plan.stages.map((s) => s.id)).not.toContain("report");
+    expect(planDigest(plan)).toBe("1 job · 1 CPU · 3 GB");
+    expect(planCounts(plan).jobs).toBe(1);
+  });
+});

@@ -746,10 +746,8 @@ function planFor(kind, config, subjectIds, overwrite, montageSources) {
         jobsPre.push({ kind, subject, output_dir, exists, will_overwrite: exists && !!overwrite });
         tags.push({ tags: [stage.tag], label: `sub-${subject}:${stage.tag}` });
       }
-      if (stages.length) {
-        jobsPre.push({ kind: "report", subject, output_dir: preStageOutputDir("report", subject), exists: false, will_overwrite: false });
-        tags.push({ tags: ["report"], label: `sub-${subject}:report` });
-      }
+      // No report row: a report is an attachment of the job that produced it, never a plan
+      // row, a job, or a CPU/MEM/ETA contribution (mirrors tit.jobs.plans.plan_preprocessing).
     }
     const conflictsPre = [];
     for (const subject of ids) {
@@ -1189,7 +1187,12 @@ function buildArtifacts(job) {
     case "analyzer":
       return [{ path: `${base}/Simulations/mock/Analyses/mock_${id}/summary.csv`, kind: "table", label: "Summary" }];
     case "pre":
-      return [{ path: `${base}/m2m_${subject}/m2m_${subject}.log`, kind: "log", label: "Preprocessing log" }];
+      // The report is an attachment of the job that produced it, not a job of its own -- the
+      // real server records it here too (JobManager._attach_pre_report).
+      return [
+        { path: `${base}/m2m_${subject}/m2m_${subject}.log`, kind: "log", label: "Preprocessing log" },
+        { path: `${base}/m2m_${subject}/report/report.html`, kind: "report", label: "Preprocessing report" },
+      ];
     case "report":
       return [{ path: `${base}/m2m_${subject}/report/report.html`, kind: "report", label: "Preprocessing report" }];
     case "project_init":
@@ -2861,7 +2864,7 @@ route("POST", "/api/jobs", async (ctx) => {
 // Mirrors tit.jobs.plans.plan_preprocessing's G1..G6 stage DAG (own dependency comments there):
 // each stage is only planned when its PreprocessConfig flag is set, every stage job's config is
 // the group's config with every step flag but its own forced False, and a subject with any stage
-// job gets a final "report"-kind job after all of that subject's stages.
+// job gets its consolidated report as an attachment of its last stage job, never as a job.
 const PRE_STAGE_FLAGS = ["convert_dicom", "create_m2m", "run_fastsurfer", "run_tissue_analysis", "run_qsiprep", "run_qsirecon", "extract_dti"];
 function planPreprocessingStages(config) {
   const cfg = config && typeof config === "object" ? config : {};
@@ -2944,17 +2947,8 @@ route("POST", "/api/jobs/groups", async (ctx) => {
       subjectJobs.push(job);
       created.push(job);
     }
-    if (subjectJobs.length) {
-      const reportJob = createJob({
-        kind: "report",
-        config: { subject_id: subject },
-        subject_ids: [subject],
-        after: subjectJobs.map((j) => j.status.id),
-        tags: [`group:${groupId}`, "report"],
-        group_id: groupId,
-      });
-      created.push(reportJob);
-    }
+    // No trailing report job: the real server attaches the consolidated subject report to the
+    // last stage job of the subject (JobManager._attach_pre_report) instead of scheduling one.
   }
   json(ctx.res, 201, { group_id: groupId, jobs: created.map((j) => j.status) });
 });

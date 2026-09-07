@@ -21,7 +21,10 @@ export function resolveReportId(job: JobStatus | undefined, reports: Report[] | 
   const artifactPaths = new Set(job.artifacts.map((a) => a.path));
   const matched = reports.find((r) => artifactPaths.has(r.path));
   if (matched) return matched.id;
-  if (job.kind !== "report") return null;
+  // A report is an attachment of the job that produced it, not a job of its own -- a
+  // preprocessing job records its HTML report as an artifact, and this fallback covers the
+  // one it wrote before the artifact list caught up. Other kinds show "no report yet".
+  if (job.kind !== "pre") return null;
   const newest = [...reports].sort((a, b) => Date.parse(b.created) - Date.parse(a.created))[0];
   return newest?.id ?? null;
 }
