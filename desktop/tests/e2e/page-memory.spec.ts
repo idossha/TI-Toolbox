@@ -318,6 +318,10 @@ test("changing another tab's subject preserves preprocessing and the live viewer
   await page.getByTestId("viewer-select-kind").getByRole("combobox").click();
   await page.getByRole("option", { name: "Subject anatomy", exact: true }).click();
   await expect(page.getByTestId("viewer-source-bar").getByRole("combobox")).toHaveCount(3);
+  // The atlas selector shows "Server default" and is disabled only while its query is in flight;
+  // once the list arrives it becomes an enabled "Atlas…". Snapshotting before that lands compares a
+  // loading placeholder against the settled bar and fails on a difference the user never sees.
+  await expect(page.getByTestId("viewer-source-bar").getByRole("combobox").last()).toBeEnabled();
   const viewerSource = await page.getByTestId("viewer-source-bar").getByRole("combobox").allTextContents();
   const viewerNode = await viewer.elementHandle();
 
