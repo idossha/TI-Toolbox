@@ -417,8 +417,14 @@ pd.DataFrame(
 )
 """
 
-EXAMPLE_PLOT = """# 4 — a real field on disk, summarised and drawn. matplotlib figures render
-# inline as PNG, exactly as they do in Jupyter.
+EXAMPLE_PLOT = """# 4 — a real field on disk, summarised and drawn.
+#
+# `%matplotlib inline` is not decoration. Without it this kernel's display
+# formatter offers a Figure only as `text/plain` — the cell prints
+# `<Figure size 900x340>` and no picture is ever produced. The magic registers
+# matplotlib_inline, which is what makes `image/png` part of the bundle.
+%matplotlib inline
+
 import glob
 
 import matplotlib.pyplot as plt
@@ -443,5 +449,8 @@ right.imshow(np.rot90(field[:, :, slice_index]), cmap="magma")
 right.set(title=f"axial slice z={slice_index}")
 right.axis("off")
 figure.tight_layout()
-figure
+# No trailing `figure` here: the inline backend already draws it at the end of
+# the cell, and returning it as well puts the SAME picture in the notebook
+# twice — once as display_data, once as the execute_result.
+plt.show()
 """

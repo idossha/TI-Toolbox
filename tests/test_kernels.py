@@ -58,9 +58,11 @@ class FakeClient:
 
     def start_channels(self) -> None:
         self.channels_started = True
+        self.manager.log.append("start_channels")
 
     def stop_channels(self) -> None:
         self.channels_started = False
+        self.manager.log.append("stop_channels")
 
     def wait_for_ready(self, timeout: float | None = None) -> None:
         self.ready_waits += 1
@@ -167,6 +169,10 @@ class FakeManager:
         self.interrupts = 0
         self.restarts = 0
         self.shutdowns = 0
+        #: Every lifecycle call, in order. The restart race is an ORDERING bug,
+        #: so ordering is what has to be asserted.
+        self.log: list[str] = []
+        self.clients: list[FakeClient] = []
         self._client = FakeClient(self)
 
     def start_kernel(self, cwd: str | None = None) -> None:
@@ -177,6 +183,11 @@ class FakeManager:
         FakeManager.started.append((self.kernel_name, cwd))
 
     def client(self) -> FakeClient:
+        # A real `KernelManager.client()` hands back a NEW client each call, and
+        # after a restart the old one's session key is stale.
+        self._client = FakeClient(self)
+        self.clients.append(self._client)
+        self.log.append("client")
         return self._client
 
     def interrupt_kernel(self) -> None:
@@ -185,9 +196,11 @@ class FakeManager:
     def restart_kernel(self, now: bool = False) -> None:
         self.restarts += 1
         self.execution_count = 0
+        self.log.append("restart_kernel")
 
     def shutdown_kernel(self, now: bool = False) -> None:
         self.shutdowns += 1
+        self.log.append("shutdown_kernel")
 
 
 @pytest.fixture(autouse=True)
@@ -416,6 +429,61 @@ def test_completion_and_execution_do_not_confuse_each_other(
     completion = drain(events, lambda e: e["type"] == "complete")
     assert reply["reqId"] == "r1"
     assert completion["reqId"] == "c1"
+
+
+def test_restart_stops_the_pumps_before_touching_the_sockets(
+    registry: kernels_mod.KernelRegistry,
+) -> None:
+    """The regression this exists for, and it took the whole server down.
+
+    ZMQ sockets are not thread-safe. Restarting while the iopub/shell pumps were
+    still polling produced ``Invalid Signature`` and then
+    ``Assertion failed: pfd.revents & POLLIN (src/signaler.cpp:238)`` -- libzmq
+    aborting the process, taking every running job's API with it. Observed in
+    the dev container, 2026-09-06.
+    """
+    session = registry.start(cwd="/mnt/000")
+    manager = session.manager
+    before = list(manager.log)
+    assert session.pumps and all(pump.is_alive() for pump in session.pumps)
+
+    registry.restart(session.id)
+
+    steps = manager.log[len(before) :]
+    # Channels are closed before the kernel is restarted, and only then is a new
+    # client built. Any other order is the abort.
+    assert steps.index("stop_channels") < steps.index("restart_kernel")
+    assert steps.index("restart_kernel") < steps.index("client")
+    # And the client is REPLACED: the old one's session key is stale after a
+    # restart, which is where "Invalid Signature" came from.
+    assert session.client is manager.clients[-1]
+    assert session.client is not manager.clients[0]
+    # New pumps, alive, polling the new channels.
+    assert session.pumps and all(pump.is_alive() for pump in session.pumps)
+    assert not session.stopping.is_set()
+
+
+def test_a_kernel_still_runs_cells_after_a_restart(
+    registry: kernels_mod.KernelRegistry,
+) -> None:
+    session = registry.start(cwd="/mnt/000")
+    registry.restart(session.id)
+    events: list[dict[str, Any]] = []
+    registry.subscribe(session.id, events.append)
+    registry.execute(session.id, "r1", "print('after restart')")
+    output = drain(events, lambda e: e["type"] == "output")
+    assert output["output"]["text"] == "after restart\n"
+    # Execution counts start again from 1: a new interpreter, not the old one.
+    assert drain(events, lambda e: e["type"] == "reply")["executionCount"] == 1
+
+
+def test_shutdown_joins_the_pumps(registry: kernels_mod.KernelRegistry) -> None:
+    session = registry.start(cwd="/mnt/000")
+    pumps = list(session.pumps)
+    registry.shutdown(session.id)
+    assert not any(pump.is_alive() for pump in pumps)
+    steps = session.manager.log
+    assert steps.index("stop_channels") < steps.index("shutdown_kernel")
 
 
 def test_unsubscribe_stops_delivery(registry: kernels_mod.KernelRegistry) -> None:

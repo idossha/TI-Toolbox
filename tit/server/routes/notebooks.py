@@ -26,6 +26,17 @@ router = APIRouter()
 # validation is a 422 as well: in every case the client can act on it.
 _STATUS = {"bad-name": 422, "not-found": 404, "invalid": 422, "bad-notebook": 422}
 
+# The path parameter is `{name:path}`, not `{name}`, because a name may carry the
+# one `examples/` prefix (:data:`tit.server.notebooks.EXAMPLES_DIR`) and a plain
+# path parameter stops at a separator -- so `GET
+# /api/notebooks/examples/getting-started.ipynb` 404'd and the seeded worked
+# example could not be opened at all. What keeps this safe is unchanged and was
+# never the router's pattern: every name goes through
+# :func:`tit.server.notebooks.normalise_name`, which accepts exactly one known
+# prefix and refuses everything else, and `notebook_path` re-checks the jail.
+# FastAPI still documents the path as `/api/notebooks/{name}`, so the contract
+# is unaffected.
+
 
 def _project_root(request: Request) -> str:
     root = request.app.state.settings.project_dir
@@ -97,7 +108,7 @@ def create_notebook(request: Request, body: dict[str, Any] = Body(...)) -> dict[
         raise _fail(error) from error
 
 
-@router.get("/api/notebooks/{name}", response_model=Notebook, summary="Read one notebook")
+@router.get("/api/notebooks/{name:path}", response_model=Notebook, summary="Read one notebook")
 def read_notebook(request: Request, name: str) -> dict[str, Any]:
     root = _project_root(request)
     try:
@@ -106,7 +117,7 @@ def read_notebook(request: Request, name: str) -> dict[str, Any]:
         raise _fail(error) from error
 
 
-@router.put("/api/notebooks/{name}", response_model=NotebookEntry, summary="Write one notebook")
+@router.put("/api/notebooks/{name:path}", response_model=NotebookEntry, summary="Write one notebook")
 def write_notebook(request: Request, name: str, body: dict[str, Any] = Body(...)) -> dict[str, Any]:
     root = _project_root(request)
     content = body.get("content")
@@ -121,7 +132,7 @@ def write_notebook(request: Request, name: str, body: dict[str, Any] = Body(...)
 
 
 @router.delete(
-    "/api/notebooks/{name}", response_model=NotebookDeleted, summary="Delete one notebook"
+    "/api/notebooks/{name:path}", response_model=NotebookDeleted, summary="Delete one notebook"
 )
 def delete_notebook(request: Request, name: str) -> dict[str, Any]:
     root = _project_root(request)

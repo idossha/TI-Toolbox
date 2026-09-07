@@ -32,7 +32,11 @@ const KERNEL_TIMEOUT = 180_000;
 let app: ElectronApplication;
 let page: Page;
 
-test.describe.configure({ mode: "serial" });
+// Serial, and generously timed: these tests start a real SimNIBS Python, import
+// `tit` and `simnibs` in it, and read a real field off disk. The suite default
+// of 60 s is sized for the mock server and caps this run long before the work
+// is done — the per-assertion timeouts below are the real deadlines.
+test.describe.configure({ mode: "serial", timeout: 6 * 60_000 });
 
 test.beforeAll(async () => {
   const userDataDir = mkdtempSync(join(tmpdir(), "tit-e2e-real-nb-"));
@@ -158,6 +162,13 @@ test("the worked example runs every cell green, with a plot and tables", async (
 });
 
 test("restart clears the kernel's state, and a cell runs again after it", async () => {
+  // Back to this spec's own notebook: the seeded example is reference material
+  // and a test that types into it leaves the next reader a modified copy.
+  await page.getByTestId("nb-list-item").filter({ hasText: notebookName }).click();
+  await expect(page.getByTestId("nb-notebook")).toHaveAttribute("data-notebook", notebookName, {
+    timeout: 30_000,
+  });
+
   await page.getByTestId("nb-restart").click();
   await expect(page.getByTestId("nb-kernel-status")).toHaveAttribute("data-state", "idle", {
     timeout: KERNEL_TIMEOUT,
@@ -168,7 +179,9 @@ test("restart clears the kernel's state, and a cell runs again after it", async 
   await expect(cellOutput(0)).toContainText("tit ok", { timeout: KERNEL_TIMEOUT });
   // Execution counts restart at 1 — the visible proof that the interpreter is a
   // new one rather than the old one with its variables intact.
-  await expect(page.locator(".nb-cell__count").first()).toHaveText("[1]");
+  // Waited for, not sampled: the output arrives on iopub and the count is
+  // settled by the shell reply, so the two are not the same instant.
+  await expect(page.locator(".nb-cell__count").first()).toHaveText("[1]", { timeout: 30_000 });
 });
 
 test("the real kernel completes `from tit import get_pa`", async () => {
@@ -176,13 +189,15 @@ test("the real kernel completes `from tit import get_pa`", async () => {
   // own namespace through IPython/jedi — no language server, nothing installed
   // — so it knows names that only exist because `tit` is importable there.
   await typeInCell(0, "from tit import get_pa");
-  await page.keyboard.press("Tab");
 
+  // Typing opens it; the matches came back over /ws/kernels from IPython's
+  // completer, against the namespace of an interpreter where `tit` is real.
   const popup = page.locator(".cm-tooltip-autocomplete");
   await expect(popup).toBeVisible({ timeout: KERNEL_TIMEOUT });
   await expect(popup).toContainText("get_path_manager");
 
-  await page.keyboard.press("Enter");
+  // ⇥ accepts, as it does in Jupyter.
+  await page.keyboard.press("Tab");
   await expect(codeCell(0)).toContainText("from tit import get_path_manager");
 
   // And it runs, which is the only proof the completion was a real name.
@@ -200,7 +215,17 @@ test("the real kernel highlights Python in the cell", async () => {
   expect(colours.length).toBeGreaterThan(2);
 });
 
-test("deleting a notebook takes its kernel with it", async () => {
+test("deleting a notebook takes its own kernel with it", async () => {
+  const count = async (): Promise<number> => {
+    const body = await page.evaluate(async (base) => {
+      const res = await fetch(new URL("/api/kernels", base).href);
+      return (await res.json()) as { kernels: unknown[] };
+    }, SERVER_URL);
+    return body.kernels.length;
+  };
+  const before = await count();
+  expect(before).toBeGreaterThan(0);
+
   await page
     .locator("li", { has: page.getByTestId("nb-list-item").filter({ hasText: notebookName }) })
     .getByRole("button", { name: `Delete ${notebookName}` })
@@ -209,18 +234,9 @@ test("deleting a notebook takes its kernel with it", async () => {
     timeout: 30_000,
   });
 
-  // No kernel is left running: the cap is two per container, so a page that
-  // leaked one would make a later notebook unopenable.
-  await expect
-    .poll(
-      async () => {
-        const kernels = await page.evaluate(async (base) => {
-          const res = await fetch(new URL("/api/kernels", base).href);
-          return (await res.json()) as { kernels: unknown[] };
-        }, SERVER_URL);
-        return kernels.kernels.length;
-      },
-      { timeout: 30_000 },
-    )
-    .toBe(0);
+  // ITS kernel, not every kernel: the worked example was opened in this run too
+  // and is still holding one, which is the point of a per-notebook session. The
+  // cap is two per container, so a page that leaked one would make the next
+  // notebook of the session unopenable — that is what this counts.
+  await expect.poll(count, { timeout: 30_000 }).toBe(before - 1);
 });

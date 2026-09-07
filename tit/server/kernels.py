@@ -75,6 +75,11 @@ IDLE_TIMEOUT_SECONDS = 30 * 60
 #: How long to wait for a kernel to come up before calling it failed.
 STARTUP_TIMEOUT_SECONDS = 120
 
+#: How long to wait for a channel pump to notice it has been stopped. Comfortably
+#: more than its own 0.2 s poll, and bounded so a wedged channel cannot hang a
+#: restart or a shutdown.
+PUMP_JOIN_TIMEOUT_S = 5.0
+
 #: iopub message types that ARE nbformat outputs once ``output_type`` is added.
 #: This is why the live kernel and the .ipynb need no translation layer.
 OUTPUT_MSG_TYPES = frozenset(
@@ -189,6 +194,9 @@ class KernelSession:
     listeners: list[Listener] = field(default_factory=list)
     lock: threading.Lock = field(default_factory=threading.Lock)
     stopping: threading.Event = field(default_factory=threading.Event)
+    #: The two channel pumps. Held so they can be STOPPED AND JOINED before
+    #: anything touches the sockets they poll -- see ``_stop_pumps``.
+    pumps: list[threading.Thread] = field(default_factory=list)
 
     def describe(self) -> dict[str, Any]:
         return {
@@ -281,14 +289,50 @@ class KernelRegistry:
         with self._lock:
             self._sessions[session.id] = session
 
-        threading.Thread(
-            target=self._pump_iopub, args=(session,), daemon=True, name=f"kernel-iopub-{session.id}"
-        ).start()
-        threading.Thread(
-            target=self._pump_shell, args=(session,), daemon=True, name=f"kernel-shell-{session.id}"
-        ).start()
+        self._start_pumps(session)
         logger.info("kernel %s started (%s) in %s", session.id, kernel_name, cwd_str)
         return session
+
+    def _start_pumps(self, session: KernelSession) -> None:
+        session.stopping.clear()
+        session.pumps = [
+            threading.Thread(
+                target=self._pump_iopub,
+                args=(session,),
+                daemon=True,
+                name=f"kernel-iopub-{session.id}",
+            ),
+            threading.Thread(
+                target=self._pump_shell,
+                args=(session,),
+                daemon=True,
+                name=f"kernel-shell-{session.id}",
+            ),
+        ]
+        for pump in session.pumps:
+            pump.start()
+
+    def _stop_pumps(self, session: KernelSession) -> None:
+        """Stop the channel pumps and WAIT for them to actually be gone.
+
+        ZMQ sockets are not thread-safe, and ``jupyter_client``'s channels are
+        ZMQ sockets. Tearing one down while a pump thread is still polling it is
+        undefined behaviour, and the behaviour it chose here was
+        ``Assertion failed: pfd.revents & POLLIN (src/signaler.cpp:238)`` --
+        libzmq aborting the process. That is the whole SERVER, not one notebook:
+        a restart taking every running job's API down with it.
+
+        So the order is always stop, join, THEN touch the sockets. The join is
+        bounded because a wedged pump must not make shutdown hang either; a
+        thread that misses the deadline is a daemon and dies with the process.
+        """
+        session.stopping.set()
+        for pump in session.pumps:
+            if pump.is_alive():
+                pump.join(timeout=PUMP_JOIN_TIMEOUT_S)
+                if pump.is_alive():  # pragma: no cover - a wedged channel
+                    logger.warning("kernel %s: %s did not stop", session.id, pump.name)
+        session.pumps = []
 
     def get(self, kernel_id: str) -> KernelSession:
         with self._lock:
@@ -317,8 +361,9 @@ class KernelRegistry:
             self._shutdown_session(session)
 
     def _shutdown_session(self, session: KernelSession) -> None:
-        session.stopping.set()
         self._emit(session, {"type": "status", "state": "dead"})
+        # Stop and join BEFORE closing the sockets, for `_stop_pumps`' reason.
+        self._stop_pumps(session)
         try:
             session.client.stop_channels()
         except Exception as error:  # pragma: no cover - shutdown races
@@ -392,6 +437,14 @@ class KernelRegistry:
             raise KernelError("op-failed", f"interrupt: {error}") from error
 
     def restart(self, kernel_id: str) -> None:
+        """Restart the interpreter, rebuilding the client around it.
+
+        The pumps are stopped and joined first (:meth:`_stop_pumps` says why),
+        and the client is REPLACED rather than reused: ``restart_kernel`` gives
+        the new interpreter a new session key, and the old client's channels
+        then reject every message with ``Invalid Signature`` -- which is what
+        they did, until the socket teardown underneath aborted the process.
+        """
         session = self.get(kernel_id)
         session.last_used = time.time()
         with session.lock:
@@ -399,11 +452,27 @@ class KernelRegistry:
             session.finishing.clear()
             session.queries.clear()
         self._emit(session, {"type": "status", "state": "starting"})
+
+        self._stop_pumps(session)
+        try:
+            session.client.stop_channels()
+        except Exception as error:  # pragma: no cover - already-closed channels
+            logger.debug("kernel %s stop_channels before restart: %s", session.id, error)
+
         try:
             session.manager.restart_kernel(now=False)
-            session.client.wait_for_ready(timeout=STARTUP_TIMEOUT_SECONDS)
+            client = session.manager.client()
+            client.start_channels()
+            client.wait_for_ready(timeout=STARTUP_TIMEOUT_SECONDS)
         except Exception as error:
+            # The pumps stay down: there is no live channel for them to poll,
+            # and starting them on a dead kernel is how the abort happened.
+            self._emit(session, {"type": "status", "state": "dead"})
             raise KernelError("op-failed", f"restart: {error}") from error
+
+        session.client = client
+        session.execution_state = "idle"
+        self._start_pumps(session)
         self._emit(session, {"type": "ready", "kernel": session.describe()})
 
     # ---- events ---------------------------------------------------------

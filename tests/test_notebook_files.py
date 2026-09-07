@@ -136,8 +136,15 @@ def test_the_example_notebook_is_a_worked_example(tmp_path: Path) -> None:
     assert "pd.DataFrame" in code[1]
     assert "calc.get_TI_vectors" in code[2]
     assert "matplotlib" in code[3]
-    for source in code:
-        compile(source, "<example>", "exec")
+    # Without the inline magic this kernel's formatter offers a Figure only as
+    # text/plain, and the example's headline output is the words
+    # "<Figure size 900x340>" rather than a picture.
+    assert "%matplotlib inline" in code[3]
+    for index, source in enumerate(code):
+        # IPython magics are not Python, so the plot cell is checked without
+        # its magic lines rather than skipped.
+        program = "\n".join(line for line in source.splitlines() if not line.startswith("%"))
+        compile(program, f"<example {index}>", "exec")
 
 
 def test_the_example_is_seeded_once_and_stays_deleted(tmp_path: Path) -> None:
