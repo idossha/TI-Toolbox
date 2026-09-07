@@ -18,6 +18,7 @@
  */
 import { expect, test, type Page } from "@playwright/test";
 import { connectReal, gotoPage, launchElectronApp, selectSubject } from "../_helpers";
+import { closeOptEditor, openOptEditor, optRows } from "../_jobs";
 import { SCENE_PALETTE } from "../../../src/renderer/scene/palette";
 
 // The option label is the net's real filename, as everywhere else in the app.
@@ -214,8 +215,15 @@ test("a selected atlas region is painted in its own .annot colour, and the pane 
     await selectSubject(page, process.env.TIT_E2E_SUBJECT ?? "ernie");
     await gotoPage(page, "optimizer");
     const panel = page.locator('[data-page-panel="optimizer"]');
-    await page.getByRole("radiogroup", { name: "Method" }).getByRole("radio", { name: "Flex", exact: true }).click();
-    await panel.getByRole("radio", { name: "Cortical", exact: true }).click();
+    // The jobs table (2026-09-06) retired the page-level Method segment: a row IS the method, the
+    // first row is already Flex, and the target is chosen inside that row's editor. The pane draws
+    // the ACTIVE row, and the row stays active after the editor closes.
+    const row = optRows(page).first();
+    await expect(row).toHaveAttribute("data-method", "flex");
+    const editor = await openOptEditor(page, row, "settings");
+    await editor.getByRole("radio", { name: "Cortical", exact: true }).click();
+    await closeOptEditor(page);
+    await expect(row).toHaveAttribute("data-active", "true");
     await expect(panel.getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready", { timeout: 60_000 });
     await expect(panel.getByTestId("scene-pane-host")).toHaveAttribute("data-gesture", "region");
     await settled(page);
