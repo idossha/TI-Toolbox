@@ -19,10 +19,14 @@
  *    selection never moves on its own: click a row, click the scalp, and that row — and only that
  *    row — takes the coordinate. Clicking again moves it. Without this a click always did
  *    *something* and the user had to read the table afterwards to find out what.
- *  - **The selection is shown, not explained.** An accent row with a ringed swatch here, a ringed
- *    and enlarged dot on the scalp there, and no instructional sentence anywhere — maintainer,
- *    2026-09-06: *"remove that 'E1 is selected place blah blah blah' — these instructions are
- *    unnecessary"*, and *"there should be a clear visual indication of what electrode is selected"*.
+ *  - **The selection is shown, not explained.** The row's own colour swatch IS the selector: a
+ *    radio target in the first column that fills with the electrode's colour and takes a white
+ *    inner dot when it is the one a scalp click writes, with the label in the accent colour and
+ *    the number in bold beside it — and the same electrode ringed and enlarged on the scalp.
+ *    No sentence anywhere (maintainer, 2026-09-06: *"remove that 'E1 is selected place blah
+ *    blah blah'"*), and no row background wash: the cells carry their own surface, so a tint on
+ *    the `<tr>` showed only in the gaps between the inputs — maintainer, 2026-09-06: *"this
+ *    broken shading is awful ... maybe have a switch to switch between the electrodes"*.
  *  - **Every row has its own colour**, shown as a swatch here and as that dot's colour on the
  *    scalp. Pair colour would put the same hue on two dots, which is the question the user is
  *    trying to answer.
@@ -31,6 +35,7 @@
  *  - **Add and remove are buttons, not side effects.** Rows come in pairs because an odd count is
  *    never a valid montage, and a click on the scalp never grows the table.
  */
+import { useRef } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button, IconButton } from "../../ui/Button";
@@ -72,6 +77,9 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
   } = useFreehandDraft();
 
   const activeEditSubject = editSubject ?? selectedSubjects[0];
+
+  // The radio targets, so ↑/↓ can move focus with the selection.
+  const targets = useRef<Array<HTMLButtonElement | null>>([]);
 
   const save = useMutation({
     mutationFn: () => {
@@ -116,6 +124,7 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
           <table className="data-table freehand-table">
             <thead>
               <tr>
+                <th className="freehand-target-col"><span className="visually-hidden">Selected</span></th>
                 <th>#</th>
                 <th>Label</th>
                 <th data-align="right">X (mm)</th>
@@ -124,7 +133,7 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
                 <th />
               </tr>
             </thead>
-            <tbody>
+            <tbody role="radiogroup" aria-label="Selected electrode">
               {positions.map((pos, i) => (
                 <tr
                   key={i}
@@ -141,18 +150,43 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
                   onMouseEnter={() => setHovered(i)}
                   onMouseLeave={() => setHovered(hovered === i ? null : hovered)}
                 >
-                  <td className="mono">
-                    <span className="freehand-index">
+                  <td className="freehand-target-col">
+                    {/* The swatch is the selector. A radio, not a checkbox: exactly one electrode
+                        is ever the target, and ↑/↓ moves it without the mouse. */}
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={i === active}
+                      aria-label={`Target position ${i + 1}`}
+                      data-testid={`freehand-target-${i}`}
+                      className="freehand-target"
+                      ref={(el) => {
+                        targets.current[i] = el;
+                      }}
+                      /* Roving tabstop: one Tab reaches the group, ↑/↓ walks it. */
+                      tabIndex={i === (active ?? 0) ? 0 : -1}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActive(i === active ? null : i);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+                        e.preventDefault();
+                        const next = (i + (e.key === "ArrowDown" ? 1 : positions.length - 1)) % positions.length;
+                        setActive(next);
+                        targets.current[next]?.focus();
+                      }}
+                    >
                       <span
                         className="freehand-swatch"
                         data-testid={`freehand-swatch-${i}`}
                         style={{ background: positionSwatch(i) }}
                         aria-hidden
                       />
-                      {i + 1}
-                    </span>
+                    </button>
                   </td>
-                  <td>
+                  <td className="mono freehand-number">{i + 1}</td>
+                  <td className="freehand-label-cell">
                     <TextInput
                       value={pos.label ?? ""}
                       aria-label={`Position ${i + 1} label`}

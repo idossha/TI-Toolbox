@@ -2,61 +2,99 @@
  * except the per-row swatch, whose value comes from `scene/palette.ts` so it is the same number the
  * shader paints that row's dot with.
  *
- * The one thing these rules have to make unmistakable, and the failure they answer (maintainer,
- * 2026-09-06, with a screenshot): *"there is currently no indication of what electrode is selected.
- * There should be a clear visual indication of what electrode is selected so the user understands:
- * this one is selected, place it."* The selected row is therefore an accent BAND, not a tint — and
- * the same electrode is ringed and enlarged on the scalp by the renderer.
+ * The selection is carried by a RADIO TARGET in the first column — the electrode's own swatch,
+ * which fills with its colour and takes a white inner dot when it is the row a scalp click writes.
+ * Not a row background: `.data-table tbody td` paints every cell with `--surface`, so a tint on the
+ * `<tr>` only ever showed through the gaps between the inputs. Maintainer, 2026-09-06, with a
+ * screenshot: *"we have this weird shading … maybe have a switch to switch between the electrodes
+ * or something better UI/UX wise because this broken shading is awful."* So: no wash anywhere, and
+ * the selected row says so three ways that each sit inside one cell — the filled target, the label
+ * in the accent colour, the number in bold.
  */
 
-.freehand-table tbody tr[data-active="true"] {
-  background: color-mix(in srgb, var(--accent) 22%, var(--surface));
-  box-shadow: inset 4px 0 0 0 var(--accent);
-}
-.freehand-table tbody tr[data-active="true"] td {
-  /* Keeps the band unbroken under cells that paint their own background. */
-  background: transparent;
+/* ---------- the target (the swatch IS the selector) ---------- */
+
+.freehand-table .freehand-target-col {
+  width: 28px;
+  padding-right: 0;
 }
 
-/* Hovering a row is a different, weaker signal from selection: here a wash, and on the scalp the
-   dot grows. Neither changes the row's own swatch, which is the electrode's identity. */
-.freehand-table tbody tr:hover {
-  background: color-mix(in srgb, var(--ink-1) 6%, transparent);
-}
-.freehand-table tbody tr[data-active="true"]:hover {
-  background: color-mix(in srgb, var(--accent) 30%, var(--surface));
-}
-
-.freehand-index {
+.freehand-target {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  vertical-align: middle;
+}
+.freehand-target:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
-/* The dot, in the table. Square rather than round so it cannot be mistaken for the scalp marker
- * itself, and outlined so a light hue (the ramp's yellow) still has an edge on a light surface. */
+/* The dot, in the table: round, because it is a radio and because it is the same mark the renderer
+ * paints on the scalp. Outlined so a light hue (the ramp's yellow) still has an edge. */
 .freehand-swatch {
+  display: block;
   width: 10px;
   height: 10px;
-  border-radius: 2px;
+  border-radius: 50%;
   flex: none;
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink-1) 35%, transparent);
+  transition: width 90ms ease, height 90ms ease;
+}
+.freehand-target:hover .freehand-swatch {
+  box-shadow: 0 0 0 1px var(--ink-2);
 }
 
-/* The selected row's swatch is bigger and wears a WHITE ring — the same signal its dot gets on the
- * scalp, so the two are read as one thing, and the swatch's own colour is untouched. The electrode's
- * colour is its identity; recolouring it to say "chosen" throws that identity away exactly when the
- * user is working with it (maintainer, 2026-09-06). */
-.freehand-table tbody tr[data-active="true"] .freehand-swatch {
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
+/* Checked: the target grows, keeps the ELECTRODE's colour — its identity, which is exactly what a
+ * user is reading when they work with it — and takes a white inner dot plus the same white ring the
+ * renderer draws round the selected dot on the scalp, so the two read as one thing. */
+.freehand-target[aria-checked="true"] .freehand-swatch {
+  width: 16px;
+  height: 16px;
   box-shadow:
-    0 0 0 2px #fff,
-    0 0 0 3px color-mix(in srgb, var(--ink-1) 55%, transparent);
+    inset 0 0 0 3px #fff,
+    0 0 0 1.5px color-mix(in srgb, var(--ink-1) 55%, transparent);
 }
 
 /* A row nothing has been placed into yet reads as a plan, not as data. */
 .freehand-table tbody tr:not([data-placed="true"]) .freehand-swatch {
-  opacity: 0.35;
+  opacity: 0.4;
+}
+
+/* ---------- the rest of the selected row: inside cells, never across them ---------- */
+
+.freehand-table tbody td.freehand-number {
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.freehand-table tbody tr[data-active="true"] td.freehand-number {
+  color: var(--ink);
+  font-weight: 700;
+}
+.freehand-table tbody tr[data-active="true"] .freehand-label-cell input {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Hover is a weaker, different signal from selection (on the scalp the dot grows). Painted on the
+ * CELLS, because `.data-table tbody td` declares its own background and a `<tr>` rule would show
+ * only in the gaps — the very defect the wash was removed for. The shared rule in
+ * `ui/components.css` paints the row, so it is switched off here rather than left to leak. */
+.freehand-table tbody tr:hover {
+  background: transparent;
+}
+.freehand-table tbody tr:hover > td {
+  background: color-mix(in srgb, var(--accent-soft) 40%, var(--surface));
+}
+
+/* Inputs fill their cell edge to edge, so the row has no bare ground in it at any state. */
+.freehand-table tbody td input {
+  width: 100%;
 }

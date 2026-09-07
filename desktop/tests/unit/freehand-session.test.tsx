@@ -83,6 +83,33 @@ describe("Free-hand source draft", () => {
     expect(container.textContent).toContain("Use 4 positions");
   });
 
+  it("carries the selection on a radio target, not on a row background", () => {
+    // Maintainer, 2026-09-06, with a screenshot of the old accent band: *"we have this weird
+    // shading … maybe have a switch to switch between the electrodes … this broken shading is
+    // awful."* The swatch IS the switch: one checked radio, no style on the <tr> at all.
+    render();
+    const targets = () => Array.from(container.querySelectorAll<HTMLButtonElement>('[data-testid^="freehand-target-"]'));
+    expect(targets()).toHaveLength(4);
+    expect(targets().every((t) => t.getAttribute("role") === "radio")).toBe(true);
+    expect(targets().filter((t) => t.getAttribute("aria-checked") === "true")).toHaveLength(0);
+
+    act(() => targets()[1]!.click());
+    expect(targets().map((t) => t.getAttribute("aria-checked"))).toEqual(["false", "true", "false", "false"]);
+    // The row carries no inline background of its own — the cells paint themselves, so a wash on
+    // the row could only ever show in the gaps between the inputs.
+    const row = container.querySelector<HTMLTableRowElement>('[data-testid="freehand-row-1"]')!;
+    expect(row.style.background).toBe("");
+    expect(row.getAttribute("aria-selected")).toBe("true");
+
+    // ArrowDown moves the target to the next electrode; clicking the checked one clears it.
+    act(() => {
+      targets()[1]!.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    });
+    expect(targets().map((t) => t.getAttribute("aria-checked"))).toEqual(["false", "false", "true", "false"]);
+    act(() => targets()[2]!.click());
+    expect(targets().filter((t) => t.getAttribute("aria-checked") === "true")).toHaveLength(0);
+  });
+
   it("starts clean after the project session is cleared", () => {
     render();
     fill("#sim-freehand-name", "previous_project");

@@ -115,10 +115,18 @@ test("a click with nothing selected places nothing, and says why", async () => {
 test("selecting a row and clicking the scalp fills THAT row with the point that was clicked", async () => {
   await page.getByTestId("freehand-row-0").click();
   await expect(page.getByTestId("freehand-row-0")).toHaveAttribute("data-active", "true");
-  // The selection is a STYLE, not a sentence: the row's own background differs from its neighbour's.
+  // The selection is a CONTROL, not a wash: the row's colour swatch is a radio target, and it is
+  // the checked one. Maintainer, 2026-09-06, with a screenshot of the old accent band: *"we have
+  // this weird shading … this broken shading is awful"* — the cells paint their own surface, so a
+  // tint on the <tr> only ever showed through the gaps between the inputs.
+  await expect(page.getByTestId("freehand-target-0")).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByTestId("freehand-target-1")).toHaveAttribute("aria-checked", "false");
   const rowBackground = (row: number) =>
     page.getByTestId(`freehand-row-${row}`).evaluate((el) => getComputedStyle(el).backgroundColor);
-  expect(await rowBackground(0)).not.toBe(await rowBackground(1));
+  // Read with the pointer off the table: hover is a separate, weaker signal and it is painted on
+  // the CELLS, so it cannot leave the same gaps.
+  await page.mouse.move(4, 4);
+  expect(await rowBackground(0), "the selected row is NOT painted differently").toBe(await rowBackground(1));
   await expect(page.getByTestId("freehand-row-0")).toHaveAttribute("aria-selected", "true");
   await expect(page.getByTestId("freehand-row-1")).toHaveAttribute("aria-selected", "false");
 
@@ -368,11 +376,22 @@ test("the dot is on top of the scalp at every skin opacity", async () => {
   await page.keyboard.press("End");
 });
 
-test("selection is a style on exactly one row, and hovering a row lights its dot", async () => {
+test("selection is one checked target, movable by keyboard, and hovering a row lights its dot", async () => {
   // Clicking a row aims the gesture at it, and at most one row is ever selected.
   await page.getByTestId("freehand-row-0").click();
   await expect(page.locator('[data-testid^="freehand-row-"][data-active="true"]')).toHaveCount(1);
   await expect(page.getByTestId("freehand-row-0")).toHaveAttribute("data-active", "true");
+  await expect(page.locator('[data-testid^="freehand-target-"][aria-checked="true"]')).toHaveCount(1);
+
+  // ↑/↓ walk the targets like the radio group they are, so the selection is reachable without the
+  // mouse — the "switch between the electrodes" the maintainer asked for.
+  await page.getByTestId("freehand-target-0").focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByTestId("freehand-target-1")).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByTestId("freehand-row-1")).toHaveAttribute("data-active", "true");
+  await page.keyboard.press("ArrowUp");
+  await expect(page.getByTestId("freehand-target-0")).toHaveAttribute("aria-checked", "true");
+  await expect(page.locator('[data-testid^="freehand-target-"][aria-checked="true"]')).toHaveCount(1);
 
   // Hovering a row draws its dot as hovered — the renderer's existing hover state, which means
   // exactly "this is the one you are pointing at": bigger, and in the hover colour (white). Read as
