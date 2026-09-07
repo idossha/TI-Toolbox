@@ -25,7 +25,7 @@
  * to the page so the 3-D pane and the pairs form edit one draft) and the delete confirmation.
  */
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Pencil, Trash2, X, Copy } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Copy, SlidersHorizontal } from "lucide-react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, IconButton } from "../../ui/Button";
 import { AlertDialog } from "../../ui/Overlay";
@@ -49,9 +49,12 @@ import {
   emptyRow,
   inferMontageKind,
   isRunnableRow,
+  isCustomised,
   newRowId,
   polarityLabel,
   rowPairCount,
+  settingsSummary,
+  type JobSettings,
   type MontageKind,
   type MontageSource,
   type SelectedRow,
@@ -145,23 +148,25 @@ export interface ColumnWidths {
 }
 
 /**
- * Three 28px icon buttons (duplicate · edit · remove), 2px apart, inside a cell with --space-1 of
- * padding. No slack column: the cell spans both lines of the job and its buttons sit on line 1.
+ * Four 28px icon buttons (settings · duplicate · edit · remove), 2px apart, inside a cell with 4px
+ * of padding. No slack column: the cell spans both lines of the job and its buttons sit on line 1.
+ * (The montage-editor pencil is only on a catalog-montage row, so most rows show three.)
  */
-export const ACTIONS_W = 96;
+export const ACTIONS_W = 124;
 
-/** Below these a column stops being a control and becomes a sliver. */
+/** Below these a column stops being a control and becomes a sliver. They are *drag* floors, not
+ *  the default widths: the defaults below are what keeps real names untruncated. */
 export const COLUMN_MIN: Record<ColumnKey, number> = {
-  subject: 64,
-  source: 88,
-  net: 140,
-  montage: 176,
+  subject: 56,
+  source: 84,
+  net: 120,
+  montage: 156,
 };
 
 /** Shares of the resizable area when nothing is stored — the measured widths above, in order:
  *  a subject id, a source label, a net name and a montage or flex-run name, none truncated at the
  *  608px the default 1280 pane gives. */
-const COLUMN_DEFAULT_FRACTION = { subject: 0.14, source: 0.19, net: 0.28, montage: 0.39 } as const;
+const COLUMN_DEFAULT_FRACTION = { subject: 0.13, source: 0.2, net: 0.31, montage: 0.36 } as const;
 
 /** New key: the columns are not the ones `tit-sim-jobs-columns-v1` stored. */
 export const COLUMNS_STORAGE_KEY = "tit-sim-jobs-columns-v2";
@@ -386,6 +391,10 @@ export interface JobsTableProps {
   /** The source of the active row, so the page can note that flex/free-hand carry their own
    *  coordinates rather than the previewed net's. */
   onActiveSourceChange?: (source: MontageSource | null) => void;
+  /** The page's defaults for new jobs — what a row that never disagreed with them runs with. */
+  defaults: JobSettings;
+  /** Open this row's own settings editor (electrodes · conductivity · output fields). */
+  onEditSettings?: (row: SelectedRow) => void;
 }
 
 export function JobsTable({
@@ -398,6 +407,8 @@ export function JobsTable({
   onNetChange,
   onPreviewChange,
   onActiveSourceChange,
+  defaults,
+  onEditSettings,
 }: JobsTableProps) {
   const queryClient = useQueryClient();
   const montages = useQuery({ queryKey: ["montages"], queryFn: getMontages });
@@ -943,6 +954,7 @@ export function JobsTable({
                       aria-selected={active}
                       tabIndex={0}
                       onClick={claim}
+                      onDoubleClick={() => onEditSettings?.(row)}
                       onFocus={() => setActiveId(row.id)}
                     >
                       <td data-cell="subject">
@@ -972,6 +984,13 @@ export function JobsTable({
                       {/* One actions cell for the whole two-line job, its buttons on line 1. */}
                       <td data-cell="actions" className="montage-actions" rowSpan={2}>
                         <div className="montage-actions-row">
+                        <IconButton
+                          aria-label={`Job settings ${rows.indexOf(row) + 1}`}
+                          title="Electrodes, conductivity and output fields for this job"
+                          icon={<SlidersHorizontal size={14} />}
+                          data-customised={isCustomised(row) ? "true" : undefined}
+                          onClick={() => onEditSettings?.(row)}
+                        />
                         <IconButton
                           aria-label={`Duplicate job ${rows.indexOf(row) + 1}`}
                           icon={<Copy size={14} />}
@@ -1009,6 +1028,11 @@ export function JobsTable({
                           </td>
                           <td colSpan={2} data-cell="detail">
                             <div className="job-line2" data-cell="pairs">
+                              {row.settings && settingsSummary(row.settings, defaults) && (
+                                <span className="job-custom-chip" data-cell="custom" title="This job does not use the page's defaults">
+                                  custom: {settingsSummary(row.settings, defaults)}
+                                </span>
+                              )}
                               <ChannelList row={row} onChange={(currents) => patch(row.id, { currents })} />
                             </div>
                           </td>

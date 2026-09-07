@@ -33,6 +33,65 @@ export interface SelectedRow {
   xyzPairs?: [[number, number, number], [number, number, number]][];
   /** Per-row currents (mA), comma-separated — seeded from the row's polarity, editable. */
   currents: string;
+  /**
+   * This job's own electrodes / conductivity / output fields.
+   *
+   * Maintainer, 2026-09-06: *"the three global sections should be the **default** of the
+   * simulator; however each job should have its own settings configuration."* `undefined` means
+   * the row still follows the page's defaults — read live, so changing a default updates exactly
+   * the rows that never disagreed with it and leaves a customised row alone. Duplicating a row
+   * copies whatever it had.
+   */
+  settings?: JobSettings;
+}
+
+/** Everything about a job that is not its subject, its electrodes' *positions* or its currents. */
+export interface JobSettings {
+  conductivity: string;
+  electrodeShape: "ellipse" | "rect";
+  dimensions: [number, number];
+  gelThickness: number;
+  outputFields: string[];
+  customConductivities: Record<string, number>;
+}
+
+/** The page's own defaults, as they start: SimNIBS's own, and the one field 2.5.0 wrote. */
+export const DEFAULT_JOB_SETTINGS: JobSettings = {
+  conductivity: "scalar",
+  electrodeShape: "ellipse",
+  dimensions: [8, 8],
+  gelThickness: 4,
+  outputFields: ["TI_max"],
+  customConductivities: {},
+};
+
+/** What this row will actually run with: its own settings, or the page's defaults. */
+export function settingsFor(row: SelectedRow, defaults: JobSettings): JobSettings {
+  return row.settings ?? defaults;
+}
+
+/** Has the user given this row settings of its own? */
+export function isCustomised(row: SelectedRow): boolean {
+  return !!row.settings;
+}
+
+/**
+ * The muted chip line 2 shows for a customised row: only what *differs* from the defaults, in the
+ * order the sections are in. Empty when the row's own settings happen to equal the defaults.
+ */
+export function settingsSummary(settings: JobSettings, defaults: JobSettings): string {
+  const parts: string[] = [];
+  if (settings.electrodeShape !== defaults.electrodeShape || settings.dimensions[0] !== defaults.dimensions[0] || settings.dimensions[1] !== defaults.dimensions[1]) {
+    parts.push(`${settings.electrodeShape === "rect" ? "rect" : "ellipse"} ${settings.dimensions[0]}×${settings.dimensions[1]}`);
+  }
+  if (settings.gelThickness !== defaults.gelThickness) parts.push(`gel ${settings.gelThickness}`);
+  if (settings.conductivity !== defaults.conductivity) parts.push(settings.conductivity);
+  const overrides = Object.keys(settings.customConductivities).length;
+  if (overrides !== Object.keys(defaults.customConductivities).length) {
+    parts.push(`${overrides} tissue override${overrides === 1 ? "" : "s"}`);
+  }
+  if (settings.outputFields.join(",") !== defaults.outputFields.join(",")) parts.push(settings.outputFields.join(", ") || "no fields");
+  return parts.join(" · ");
 }
 
 /** The Source cell's options, in table order. */

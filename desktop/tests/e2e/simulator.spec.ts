@@ -1,8 +1,8 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import { expectPage, gotoPage, launchElectronApp, openPalette, setSectionOpen } from "./_helpers";
+import { expect, test, type ElectronApplication, type Page, type Request } from "@playwright/test";
+import { answerExistingOutputs, expectPage, gotoPage, launchElectronApp, openPalette, setSectionOpen } from "./_helpers";
 import { expectRunPaneTab, showRunPaneTab } from "./_runPane";
 import { captureScreen, type PageMetrics } from "./_metrics";
 import { addJobRow, clearJobRows, configureMontageJob, jobBlank, jobCurrents, jobDetail, jobPairs, jobRows, setJobMappedNet, setJobMontage, setJobNet, setJobPlacement, setJobSource, setJobSubject } from "./_jobs";
@@ -374,6 +374,79 @@ test("a row on the Flex result source becomes a planned job, in either placement
   await expect(jobPairs(row).first()).toHaveText(/–/, { timeout: 15_000 });
   await expect(row).toHaveAttribute("data-runnable", "true");
   await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job · /, { timeout: 15_000 });
+});
+
+/**
+ * Per-job settings (maintainer, 2026-09-06): *"the three sections should be the **default** of the
+ * simulator; however each job should have its own settings configuration."* The claim is about the
+ * configs that reach the server — one customised job differs from its neighbour, and a changed
+ * default reaches only the job that never disagreed with it.
+ */
+test("a job's own electrodes reach its config, and a changed default reaches only the other job", async () => {
+  await clearMontageRows();
+  const first = montageRows().first();
+  await configureMontageJob(page, first, { subject: "ernie", net: "GSN-HydroCel-185", montage: "F3_F4 · TI" });
+  const second = await addJobRow(page);
+  await configureMontageJob(page, second, { subject: "ernie", net: "GSN-HydroCel-185", montage: "Thalamus_target · TI" });
+
+  // Customise the FIRST job: rectangle, 10x10, and TI_avg instead of TI_max.
+  await first.locator('td[data-cell="actions"]').getByRole("button", { name: /^Job settings/ }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByTestId("job-settings-form")).toBeVisible();
+  await expect(dialog).toContainText("ernie");
+  await dialog.getByRole("radio", { name: "Rectangle", exact: true }).click();
+  await dialog.getByRole("spinbutton", { name: "Electrode width" }).fill("10");
+  await dialog.getByRole("spinbutton", { name: "Electrode height" }).fill("10");
+  await dialog.getByRole("checkbox", { name: "TI_avg" }).click();
+  await dialog.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+
+  // Line 2 says so, on that row only.
+  await expect(jobDetail(first).locator('[data-cell="custom"]')).toHaveText(/^custom: rect 10×10/);
+  await expect(jobDetail(second).locator('[data-cell="custom"]')).toHaveCount(0);
+
+  // Change a DEFAULT: gel thickness 4 -> 6. The customised row keeps its own 4.
+  const electrodes = await setSectionOpen(page, "Electrodes", true);
+  await electrodes.getByRole("spinbutton").last().fill("6");
+  await electrodes.getByRole("spinbutton").last().blur();
+
+  const bodies: Record<string, unknown>[] = [];
+  const collect = (r: Request) => {
+    if (r.method() === "POST" && /\/api\/jobs(\/groups)?$/.test(new URL(r.url()).pathname)) bodies.push(r.postDataJSON() as Record<string, unknown>);
+  };
+  page.on("request", collect);
+  await page.getByTestId("run-button").click();
+  await answerExistingOutputs(page);
+  await expect.poll(() => bodies.length, { timeout: 20_000 }).toBeGreaterThan(0);
+  page.off("request", collect);
+
+  const group = bodies[0] as { subject_configs?: { config: Record<string, unknown> }[]; config?: Record<string, unknown> };
+  const configs = (group.subject_configs ?? []).map((e) => e.config);
+  const byMontage = (name: string) =>
+    configs.find((c) => ((c.montages as { name: string }[]) ?? []).some((m) => m.name === name))!;
+  const custom = byMontage("F3_F4");
+  const plain = byMontage("Thalamus_target");
+
+  // The customised job carries its own electrodes and fields...
+  expect(custom.electrode_shape).toBe("rect");
+  expect(custom.electrode_dimensions).toEqual([10, 10]);
+  expect(custom.output_fields).toEqual(["TI_max", "TI_avg"]);
+  expect(custom.gel_thickness).toBe(4);
+  // ...and the untouched job followed the default that changed after it was created.
+  expect(plain.electrode_shape).toBe("ellipse");
+  expect(plain.gel_thickness).toBe(6);
+  expect(plain.output_fields).toEqual(["TI_max"]);
+
+  // Reset puts the row back on the defaults — including the one that changed meanwhile.
+  await first.locator('td[data-cell="actions"]').getByRole("button", { name: /^Job settings/ }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Reset to defaults", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Done", exact: true }).click();
+  await expect(jobDetail(first).locator('[data-cell="custom"]')).toHaveCount(0);
+
+  // Put the default back: this file is serial, and the next test reads the section's summary.
+  const gel = (await setSectionOpen(page, "Electrodes", true)).getByRole("spinbutton").last();
+  await gel.fill("4");
+  await gel.blur();
 });
 
 test("collapsed sections state their own values (§4.2 rule 5)", async () => {

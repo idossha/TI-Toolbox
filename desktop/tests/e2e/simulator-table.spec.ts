@@ -68,7 +68,7 @@ test.afterAll(async () => {
   await app?.close();
 });
 
-test("the columns fill the container exactly, with a fixed 96px actions column and no slack", async () => {
+test("the columns fill the container exactly, with a fixed actions column and no slack", async () => {
   const box = await container().evaluate((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }));
   expect(box.scrollWidth, "the montage table scrolls sideways").toBeLessThanOrEqual(box.clientWidth);
 
@@ -76,14 +76,50 @@ test("the columns fill the container exactly, with a fixed 96px actions column a
   console.log("MONTAGE-COLS 1280", JSON.stringify(widths), "container", box.clientWidth);
   // Line 1 is Subject · Source · EEG net · Montage, plus the actions cell that spans both lines.
   expect(widths).toHaveLength(5);
-  // Actions is the only fixed column, and it is exactly the three icon buttons wide.
-  expect(widths[4]).toBe(96);
+  // Actions is the only fixed column, and it is exactly its icon buttons wide.
+  expect(widths[4]).toBe(124);
   // Room for the real names measured in the app: `GSN-HydroCel-185` (113px) and
   // `VAL_lhipp_flex_focality` (137px), each inside ~36px of select chrome.
-  expect(widths[0]).toBeGreaterThanOrEqual(64);
-  expect(widths[2]).toBeGreaterThanOrEqual(140);
-  expect(widths[3]).toBeGreaterThanOrEqual(176);
+  expect(widths[0]).toBeGreaterThanOrEqual(56);
+  expect(widths[2]).toBeGreaterThanOrEqual(148);
+  expect(widths[3]).toBeGreaterThanOrEqual(168);
   expect(widths.reduce((a, b) => a + b, 0)).toBe(box.clientWidth);
+});
+
+/**
+ * The defect this guards, from the maintainer's screenshot of the six-column table: *"Montage
+ * select truncated to 'Ch…', nets 'BioSemi-128-A1…', Pairs 'E09…'"*. No control on a job row may
+ * render narrower than the text it is showing.
+ */
+test("no select or pairs text is truncated at 1280 or 1600", async () => {
+  // Runs before the drag test below, so these are the DEFAULT widths — the claim is about what
+  // the table looks like when the user has never touched a boundary.
+  for (const width of [1280, 1600]) {
+    await page.setViewportSize({ width, height: 900 });
+    console.log("JOBS-COLS", width, JSON.stringify(await columnWidths()));
+    // Compares the text's own measured width with the box it is drawn in — `scrollWidth` alone
+    // rounds a one-character ellipsis away on some of these nested spans.
+    const overflowing = await page
+      .locator("table.sim-jobs-table .picker-value, table.sim-jobs-table .selection-trigger-text, table.sim-jobs-table [data-cell='pair']")
+      .evaluateAll((els) =>
+        els
+          .filter((el) => {
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            return range.getBoundingClientRect().width > el.getBoundingClientRect().width + 1;
+          })
+          .map((el) => `${el.textContent} (${Math.round(el.getBoundingClientRect().width)}px box)`),
+      );
+    expect(overflowing, `truncated at ${width}`).toEqual([]);
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+
+  // ...and the per-job settings editor the actions cell opens.
+  await montageRows().first().locator('td[data-cell="actions"]').getByRole("button", { name: /^Job settings/ }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByTestId("job-settings-form")).toBeVisible();
+  await dialog.screenshot({ path: "tests/e2e/artifacts/sim-row-editor.png" });
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
 });
 
 test("a header boundary can be dragged, and the width is remembered", async () => {
@@ -102,7 +138,7 @@ test("a header boundary can be dragged, and the width is remembered", async () =
   const box2 = await container().evaluate((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }));
   expect(box2.scrollWidth).toBeLessThanOrEqual(box2.clientWidth);
   expect(after.reduce((a, b) => a + b, 0)).toBe(box2.clientWidth);
-  expect(after[4]).toBe(96);
+  expect(after[4]).toBe(124);
 
   const stored = await page.evaluate(() => window.localStorage.getItem("tit-sim-jobs-columns-v2"));
   expect(stored, "the drag was not persisted").toBeTruthy();
@@ -176,33 +212,6 @@ test("the 3-D pane names the row it is drawing, in the row's own accent", async 
   expect(darkChip.background).toBe(darkRow);
   expect(darkChip.bar).toBe("rgb(127, 166, 255)"); // --accent, dark
   await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
-});
-
-/**
- * The defect this guards, from the maintainer's screenshot of the six-column table: *"Montage
- * select truncated to 'Ch…', nets 'BioSemi-128-A1…', Pairs 'E09…'"*. No control on a job row may
- * render narrower than the text it is showing.
- */
-test("no select or pairs text is truncated at 1280 or 1600", async () => {
-  for (const width of [1280, 1600]) {
-    await page.setViewportSize({ width, height: 900 });
-    console.log("JOBS-COLS", width, JSON.stringify(await columnWidths()));
-    // Compares the text's own measured width with the box it is drawn in — `scrollWidth` alone
-    // rounds a one-character ellipsis away on some of these nested spans.
-    const overflowing = await page
-      .locator("table.sim-jobs-table .picker-value, table.sim-jobs-table .selection-trigger-text, table.sim-jobs-table [data-cell='pair']")
-      .evaluateAll((els) =>
-        els
-          .filter((el) => {
-            const range = document.createRange();
-            range.selectNodeContents(el);
-            return range.getBoundingClientRect().width > el.getBoundingClientRect().width + 1;
-          })
-          .map((el) => `${el.textContent} (${Math.round(el.getBoundingClientRect().width)}px box)`),
-      );
-    expect(overflowing, `truncated at ${width}`).toEqual([]);
-  }
-  await page.setViewportSize({ width: 1280, height: 800 });
 });
 
 /** "Nothing moves on interaction": the rects of every job cell, before and after a row is made
@@ -386,7 +395,7 @@ test("records the jobs table", async () => {
   await container().screenshot({ path: "tests/e2e/artifacts/jobs-table-sim.png" });
   for (const width of [1280, 1600] as const) {
     await page.setViewportSize({ width, height: 900 });
-    await container().screenshot({ path: `tests/e2e/artifacts/jobs-table-sim-v5-${width}.png` });
+    await container().screenshot({ path: `tests/e2e/artifacts/jobs-table-sim-v6-${width}.png` });
   }
   await page.setViewportSize({ width: 1280, height: 800 });
 });

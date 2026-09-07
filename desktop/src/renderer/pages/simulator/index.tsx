@@ -22,6 +22,7 @@ import { getSubjectDetail } from "./api";
 import { JobsTable, emptyDraft, type JobSubject, type MontageDraft } from "./MontageManager";
 import { FreehandTab } from "./FreehandTab";
 import { ConductivityDialog, type CustomConductivities } from "./ConductivityDialog";
+import { JobSettingsDialog } from "./JobSettingsDialog";
 import "./simulator-page.css";
 import { useSimPlan, RunButton } from "./RunControls";
 import {
@@ -30,6 +31,7 @@ import {
   OUTPUT_FIELDS_HELP,
   emptyRow,
   isRunnableRow,
+  type JobSettings,
   type MontageSource,
   type SelectedRow,
 } from "./types";
@@ -115,6 +117,8 @@ function SimulatorPage() {
   // can never edit it. The draft, when one is open, is what the pane is FOR and wins.
   const [montagePreview, setMontagePreview] = useState<{ net: string; name: string; pairs: [string, string][] } | null>(null);
   const [activeSource, setActiveSource] = useState<MontageSource | null>(null);
+  /** The row whose own settings are being edited (`null` = the dialog is closed). */
+  const [settingsRowId, setSettingsRowId] = useState<string | null>(null);
   const scenePane = usePaneController({ pageId: "simulator", name: "run" });
 
   const jobSubjects = useMemo(() => jobSubjectsFrom(subjects), [subjects]);
@@ -142,6 +146,11 @@ function SimulatorPage() {
   const runnableRows = useMemo(() => rows.filter(isRunnableRow), [rows]);
   const planSubjects = useMemo(() => [...new Set(runnableRows.map((r) => r.subjectId))], [runnableRows]);
 
+  /**
+   * The page's **defaults for new jobs**, not a global applied to every job (maintainer,
+   * 2026-09-06). A row that has never been opened in its own editor follows these live; a row that
+   * has carries its own copy and ignores them.
+   */
   const params: GlobalParams = useMemo(
     () => ({ conductivity, electrodeShape, dimensions, gelThickness, outputFields, customConductivities }),
     [conductivity, electrodeShape, dimensions, gelThickness, outputFields, customConductivities],
@@ -263,6 +272,8 @@ function SimulatorPage() {
                   />
                 ) : (
                   <JobsTable
+                    defaults={params}
+                    onEditSettings={(row) => setSettingsRowId(row.id)}
                     subjects={jobSubjects}
                     subjectNets={subjectNets}
                     rows={rows}
@@ -281,7 +292,7 @@ function SimulatorPage() {
           {subjects.length > 0 && (
             <>
               <FormSection
-                title="Electrodes"
+                title="Electrodes · default for new jobs"
                 collapsible
                 defaultOpen={false}
                 changed={electrodeShape !== "ellipse" || dimensions[0] !== 8 || dimensions[1] !== 8 || gelThickness !== 4}
@@ -314,7 +325,7 @@ function SimulatorPage() {
               </FormSection>
 
               <FormSection
-                title="Conductivity"
+                title="Conductivity · default for new jobs"
                 collapsible
                 defaultOpen={false}
                 changed={conductivity !== "scalar" || overrides > 0}
@@ -333,7 +344,7 @@ function SimulatorPage() {
               </FormSection>
 
               <FormSection
-                title="Output fields"
+                title="Output fields · default for new jobs"
                 collapsible
                 defaultOpen={false}
                 changed={outputFields.length !== 1 || outputFields[0] !== "TI_max"}
@@ -379,6 +390,15 @@ function SimulatorPage() {
           )}
         </RunWork>
       </PageLayout>
+      <JobSettingsDialog
+        row={rows.find((r) => r.id === settingsRowId) ?? null}
+        defaults={params}
+        onClose={() => setSettingsRowId(null)}
+        onSave={(settings: JobSettings | undefined) => {
+          setRows((prev) => prev.map((r) => (r.id === settingsRowId ? { ...r, settings } : r)));
+          setSettingsRowId(null);
+        }}
+      />
       <ConductivityDialog open={conductivityDialogOpen} onOpenChange={setConductivityDialogOpen} value={customConductivities} onSave={setCustomConductivities} />
     </>
   );

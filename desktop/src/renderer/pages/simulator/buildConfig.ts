@@ -1,15 +1,12 @@
-import type { SelectedRow } from "./types";
+import { settingsFor, type JobSettings, type SelectedRow } from "./types";
 import type { CustomConductivities } from "./ConductivityDialog";
 import type { MontageSources } from "./api";
 
-export interface GlobalParams {
-  conductivity: string;
-  electrodeShape: "ellipse" | "rect";
-  dimensions: [number, number];
-  gelThickness: number;
-  outputFields: string[];
-  customConductivities: CustomConductivities;
-}
+/**
+ * The page's **defaults**. A row that never disagreed with them is built from them; a row the user
+ * customised carries its own `settings` and is built from those (`settingsFor`).
+ */
+export type GlobalParams = JobSettings & { customConductivities: CustomConductivities };
 
 function parseIntensities(s: string): number[] {
   const values = s
@@ -32,7 +29,8 @@ function parseIntensities(s: string): number[] {
  * `deserialize_config(strict=False)` would have silently dropped it — see PARITY.md's updated
  * note on the plan-only `name` field this function used to add.
  */
-export function buildSimulationConfig(row: SelectedRow, params: GlobalParams): Record<string, unknown> {
+export function buildSimulationConfig(row: SelectedRow, defaults: GlobalParams): Record<string, unknown> {
+  const params = settingsFor(row, defaults) as GlobalParams;
   // A flex row is `flex_mapped` when it carries an EEG net (its electrodes are that cap's labels)
   // and `flex_free` when it does not (the optimiser's own XYZ coordinates) — the same distinction
   // `Montage.Mode` makes, and the reason a run with no mapping file is still simulable.

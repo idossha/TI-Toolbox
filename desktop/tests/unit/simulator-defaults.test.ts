@@ -13,6 +13,7 @@ import {
   polarityLabel,
   type SelectedRow,
 } from "../../src/renderer/pages/simulator/types";
+import { DEFAULT_JOB_SETTINGS, isCustomised, settingsFor, settingsSummary, type JobSettings } from "../../src/renderer/pages/simulator/types";
 import { removeGroup } from "../../src/renderer/ui/ElectrodePairsEditor";
 import {
   currentValues,
@@ -21,6 +22,7 @@ import {
   parseMontageOptionValue,
   resolveColumnWidths,
   rowPairsText,
+  ACTIONS_W,
 } from "../../src/renderer/pages/simulator/MontageManager";
 import { jobSubjectsFrom, jobsSummary, runLabelFor } from "../../src/renderer/pages/simulator/index";
 import { OPTIMIZED, placementSummary, placementsFor } from "../../src/renderer/pages/simulator/FlexTab";
@@ -306,22 +308,22 @@ describe("montage pairs come in groups of two", () => {
     // shape actually produces and at one narrower than every minimum put together.
     for (const container of [608, 560, 900, 300]) {
       const w = resolveColumnWidths(container, {});
-      expect(w.actions).toBe(96);
-      expect(w.subject + w.source + w.net + w.montage).toBe(container - 96);
+      expect(w.actions).toBe(ACTIONS_W);
+      expect(w.subject + w.source + w.net + w.montage).toBe(container - ACTIONS_W);
     }
-    // A stored drag is honoured as far as the other columns' minimums allow: 512 of content minus
-    // the 334px the other three cannot go below leaves 178 for the net, so a 220px drag stops
-    // there rather than pushing the table into a sideways scroll.
+    // A stored drag is honoured as far as the other columns' minimums allow: the content area
+    // minus what the other three cannot go below is the widest the net can get, so a 220px drag
+    // stops there rather than pushing the table into a sideways scroll.
     const dragged = resolveColumnWidths(608, { net: 220 });
-    expect(dragged.net).toBe(512 - 64 - 88 - 176);
-    expect(resolveColumnWidths(608, { net: 170 }).net).toBe(170);
-    expect(dragged.subject + dragged.source + dragged.net + dragged.montage).toBe(608 - 96);
+    expect(dragged.net).toBe(608 - ACTIONS_W - 56 - 84 - 156);
+    expect(resolveColumnWidths(608, { net: 150 }).net).toBe(150);
+    expect(dragged.subject + dragged.source + dragged.net + dragged.montage).toBe(608 - ACTIONS_W);
     // At 1280's default pane no column is below what its longest real value needs: a net name
     // (`GSN-HydroCel-185`, 113px) and a montage or flex-run name (`VAL_lhipp_flex_focality`,
     // 137px), each plus ~36px of select chrome.
     const defaults = resolveColumnWidths(608, {});
-    expect(defaults.net).toBeGreaterThanOrEqual(140);
-    expect(defaults.montage).toBeGreaterThanOrEqual(176);
+    expect(defaults.net).toBeGreaterThanOrEqual(148);
+    expect(defaults.montage).toBeGreaterThanOrEqual(168);
   });
 
   it("a row with nothing configured shows no pairs text at all", () => {
@@ -407,5 +409,67 @@ describe("the Simulator's plan columns", () => {
 
   it("falls back to the montage column rather than dropping a job it cannot place", () => {
     expect(sourceOfJob([], 0)).toBe("montage");
+  });
+});
+
+
+/**
+ * Per-job settings (maintainer, 2026-09-06): the page's three sections are the **defaults for new
+ * jobs**, and a row may disagree with them. The rule that matters is which rows a changed default
+ * reaches — the ones that never disagreed, and only those.
+ */
+describe("per-job settings", () => {
+  const defaults: JobSettings = DEFAULT_JOB_SETTINGS;
+  const row = (over: Partial<SelectedRow> = {}): SelectedRow => ({
+    ...emptyRow("ernie"),
+    name: "F3_F4",
+    kind: "uni_polar",
+    eegNet: "GSN-HydroCel-185.csv",
+    pairs: [["E1", "E2"], ["E3", "E4"]],
+    ...over,
+  });
+  const params = (s: JobSettings): GlobalParams => s as GlobalParams;
+
+  it("a new row follows the defaults, and is not customised", () => {
+    const r = row();
+    expect(isCustomised(r)).toBe(false);
+    expect(settingsFor(r, defaults)).toEqual(defaults);
+  });
+
+  it("a changed default reaches a row that follows it, and not one that does not", () => {
+    const following = row();
+    const custom = row({ settings: { ...defaults, electrodeShape: "rect", dimensions: [10, 10] } });
+    const changed: JobSettings = { ...defaults, gelThickness: 6 };
+
+    expect(settingsFor(following, changed).gelThickness).toBe(6);
+    expect(settingsFor(custom, changed).gelThickness).toBe(4);
+    // ...and the customised row's config carries ITS values, not the defaults'.
+    const built = buildSimulationConfig(custom, params(changed));
+    expect(built.electrode_shape).toBe("rect");
+    expect(built.electrode_dimensions).toEqual([10, 10]);
+    expect(built.gel_thickness).toBe(4);
+    expect(buildSimulationConfig(following, params(changed)).gel_thickness).toBe(6);
+  });
+
+  it("a row's own output fields and conductivity reach its config", () => {
+    const custom = row({ settings: { ...defaults, conductivity: "dir", outputFields: ["TI_avg"], customConductivities: { 2: 0.4 } } });
+    const built = buildSimulationConfig(custom, params(defaults));
+    expect(built.conductivity).toBe("dir");
+    expect(built.output_fields).toEqual(["TI_avg"]);
+    expect(built.tissue_conductivities).toEqual({ 2: 0.4 });
+  });
+
+  it("reset drops the row's own settings, so it follows the defaults again", () => {
+    const custom = row({ settings: { ...defaults, gelThickness: 9 } });
+    const reset: SelectedRow = { ...custom, settings: undefined };
+    expect(isCustomised(reset)).toBe(false);
+    expect(buildSimulationConfig(reset, params({ ...defaults, gelThickness: 7 })).gel_thickness).toBe(7);
+  });
+
+  it("the chip names only what differs from the defaults", () => {
+    expect(settingsSummary({ ...defaults, electrodeShape: "rect", dimensions: [10, 10], outputFields: ["TI_avg"] }, defaults)).toBe(
+      "rect 10×10 · TI_avg",
+    );
+    expect(settingsSummary(defaults, defaults)).toBe("");
   });
 });

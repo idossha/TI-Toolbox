@@ -183,6 +183,37 @@
   max-width: none;
 }
 
+/* A job that does not use the page's defaults says so, quietly, at the start of line 2. */
+.job-custom-chip {
+  color: var(--text-secondary);
+  font-size: 11px;
+  padding: 0 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  white-space: nowrap;
+}
+
+/* The per-job settings dialog: the page's three sections, one under the other. */
+.job-settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: min(460px, 70vw);
+}
+
+.job-settings-form .field-row-inline {
+  flex-wrap: wrap;
+}
+
+.job-settings-form h4 {
+  margin: 0 0 var(--space-2);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
 .job-polarity {
   color: var(--text-secondary);
   font-size: 11px;
