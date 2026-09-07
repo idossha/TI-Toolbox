@@ -18,6 +18,8 @@ export type PreviewRef =
   | { type: "report"; reportId: string }
   | { type: "analysis"; subject: string; simulation: string; name: string }
   | { type: "exRun"; subject: string; run: string; kind: "ex" | "mex" }
+  /** One `derivatives/ti-toolbox/stats/<statsType>/<name>/` run, read by `getGroupStats`. */
+  | { type: "groupStats"; statsType: string; name: string }
   | { type: "artifacts"; artifacts: Artifact[] };
 
 export interface OutputNode {
@@ -194,14 +196,21 @@ export function groupOutputsFor(catalog: GroupCatalog): SubjectOutputs {
       const name = typeof row.name === "string" ? row.name : `${label} ${i + 1}`;
       const path = typeof row.path === "string" ? row.path : "";
       const created = typeof row.created === "string" ? row.created : undefined;
+      // A `stats` row carries its analysis type (`group_comparison` / `correlation`), which is the
+      // other half of the key `GET /api/catalog/group/stats/{name}?type=` needs. Without it the
+      // pane could only show the directory path — which is what it did show, as the single row
+      // "Kind analysis" in the maintainer's screenshot.
+      const statsType = typeof row.type === "string" ? row.type : undefined;
       return {
         id: `analysis:${GROUP_SUBJECT}:${label}/${name}`,
         kind: "analysis" as const,
         label: name,
-        badges: ["analysis"],
+        badges: [statsType ? statsType.replace(/_/g, " ") : "analysis"],
         path,
         created,
-        preview: { type: "artifacts" as const, artifacts: path ? [{ path, kind: "group", label: name }] : [] },
+        preview: statsType
+          ? { type: "groupStats" as const, statsType, name }
+          : { type: "artifacts" as const, artifacts: path ? [{ path, kind: "group", label: name }] : [] },
       };
     });
 

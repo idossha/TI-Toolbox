@@ -2,14 +2,16 @@
  * The pieces the Results preview is built from (program U14). Presentation only — every number and
  * every string comes from the parsers beside this file, which are the unit-tested part.
  */
-import { useMemo, type ReactNode } from "react";
-import { Copy, FolderOpen } from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Copy } from "lucide-react";
 import { IconButton } from "../../../ui/Button";
 import { DataTable, type DataTableColumn } from "../../../ui/DataTable";
 import { DefinitionList } from "../../../ui/Feedback";
 import { Chip } from "../../../ui/Status";
 import { notify } from "../../../ui/Toast";
-import { artifactUrl, type Artifact } from "../api";
+import { artifactUrl, getTextFile, type Artifact } from "../api";
+import { isPdf, PdfCanvas } from "./PdfCanvas";
 import type { SummaryRow } from "./simulation";
 import type { ExTable } from "./ex";
 import type { FlexElectrode } from "./flex";
@@ -76,22 +78,41 @@ export function BucketList({ buckets }: { buckets: { label: string; electrodes: 
 }
 
 /**
- * The run's PNGs as thumbnails through the files route. `loading="lazy"` because a flex run can
+ * The run's figures as thumbnails through the files route. `loading="lazy"` because a flex run can
  * carry a 2.7 MB skin-region render and the pane must not block on it to show its numbers.
+ *
+ * PDF figures — the analyzer writes its histogram as one, and a stats run writes its null
+ * distribution and its size/mass scatter as two more — are rasterised into the same tile as the
+ * PNGs by `PdfCanvas`, not handed to Chromium's PDF viewer. They are plots; they get a picture.
  */
-export function FigureGrid({ figures, onOpen }: { figures: Artifact[]; onOpen: (path: string) => void }) {
+export function FigureGrid({
+  figures,
+  onOpen,
+  testid = "results-figures",
+}: {
+  figures: Artifact[];
+  onOpen: (figure: Artifact) => void;
+  /** The simulation pane draws one grid twice — beside the channel chips and in Figures — so the
+   * two need different ids for a test to address either without a strict-mode collision. */
+  testid?: string;
+}) {
   if (figures.length === 0) return null;
   return (
-    <div className="results-figures" data-testid="results-figures">
+    <div className="results-figures" data-testid={testid}>
       {figures.map((f) => (
         <button
           key={f.path}
           type="button"
           className="results-figure"
+          data-testid={`results-figure-${f.path.split("/").pop()}`}
           title={f.label ?? f.path}
-          onClick={() => onOpen(f.path)}
+          onClick={() => onOpen(f)}
         >
-          <img src={artifactUrl(f.path)} alt="" loading="lazy" />
+          {isPdf(f.path) ? (
+            <PdfCanvas className="results-figure-doc" url={artifactUrl(f.path)} label={f.label ?? f.path} />
+          ) : (
+            <img src={artifactUrl(f.path)} alt="" loading="lazy" />
+          )}
           <span className="results-figure-label">{f.label ?? f.path.split("/").pop()}</span>
         </button>
       ))}
@@ -99,40 +120,142 @@ export function FigureGrid({ figures, onOpen }: { figures: Artifact[]; onOpen: (
   );
 }
 
-const FIELD_KINDS: Record<string, string> = { nifti: "NIfTI", mesh: "mesh", csv: "CSV", json: "JSON", pdf: "PDF" };
+const FIELD_KINDS: Record<string, string> = {
+  nifti: "NIfTI",
+  mesh: "mesh",
+  csv: "CSV",
+  json: "JSON",
+  pdf: "PDF",
+  html: "HTML",
+  image: "PNG",
+  png: "PNG",
+  log: "log",
+  text: "TXT",
+  npz: "NPZ",
+};
 
-/** The field files of a simulation: a kind badge, the catalog's own label, then the file name. The
- * row opens the file; the trailing icon reveals it in the host's file manager, so the two actions
- * `ArtifactList` offers survive at a third of its row height. */
-export function FieldFileList({
+/**
+ * File kinds the pane can show without leaving the app. The maintainer removed the `View` and
+ * `Open` buttons — *"Only have the folder icon"* — so this capability now hangs off the file's
+ * NAME, the way the figure thumbnails already work: click the name of a previewable file and it
+ * opens inline; a NIfTI or a mesh has no name button, because there is nothing to open it with in
+ * this pane and a dead-looking button is worse than plain text.
+ */
+const TEXT_PREVIEW_KINDS = new Set(["csv", "json", "text", "log", "manifest"]);
+const DOC_PREVIEW_KINDS = new Set(["pdf", "html"]);
+const IMAGE_PREVIEW_KINDS = new Set(["png", "image", "jpg", "jpeg"]);
+
+export function isPreviewable(kind: string): boolean {
+  return TEXT_PREVIEW_KINDS.has(kind) || DOC_PREVIEW_KINDS.has(kind) || IMAGE_PREVIEW_KINDS.has(kind);
+}
+
+/** The inline body under an expanded file row. Text is fetched; documents and images are framed. */
+function FilePreview({ file }: { file: Artifact }) {
+  const isText = TEXT_PREVIEW_KINDS.has(file.kind);
+  const text = useQuery({
+    queryKey: ["results-file-text", file.path],
+    queryFn: () => getTextFile(file.path),
+    enabled: isText,
+    retry: false,
+    staleTime: Infinity,
+  });
+  if (IMAGE_PREVIEW_KINDS.has(file.kind)) {
+    return (
+      <div className="results-file-preview" data-testid="results-file-preview">
+        <img src={artifactUrl(file.path)} alt={file.label ?? file.path} loading="lazy" />
+      </div>
+    );
+  }
+  if (isPdf(file.path)) {
+    return (
+      <div className="results-file-preview" data-testid="results-file-preview">
+        <PdfCanvas className="results-file-pdf" url={artifactUrl(file.path)} label={file.label ?? file.path} />
+      </div>
+    );
+  }
+  if (DOC_PREVIEW_KINDS.has(file.kind)) {
+    return (
+      <div className="results-file-preview" data-testid="results-file-preview">
+        <iframe title={file.label ?? file.path} src={artifactUrl(file.path)} sandbox="allow-scripts" />
+      </div>
+    );
+  }
+  return (
+    <div className="results-file-preview" data-testid="results-file-preview">
+      {text.isPending && <p className="field-help">Reading…</p>}
+      {text.error && <p className="field-help">Could not read this file.</p>}
+      {text.data !== undefined && <pre className="results-file-text mono">{text.data}</pre>}
+    </div>
+  );
+}
+
+/**
+ * The artifact rows of every result kind: a kind badge, the file's label, and its name. No trailing
+ * control at all.
+ *
+ * The maintainer, on the version that had one folder icon per row: *"instead of having multiple
+ * icons of the folder to open the same folder, let us just have a centralized folder icon in this
+ * rail right on top of it"*. Every file of an output lives in that output's own directory, so a
+ * column of eleven identical buttons all opened the same folder. The pane header's folder icon is
+ * the one that does it; a row that happens to live somewhere else says so in its name column
+ * (see `rootDir`) rather than earning an icon back.
+ *
+ * The preview capability hangs off the file's NAME — click a CSV, JSON, PNG, PDF or HTML name and
+ * it opens inline. A NIfTI or a mesh has no name button, because there is nothing in this pane to
+ * open it with and a dead-looking button is worse than plain text.
+ */
+export function FileList({
   files,
-  onOpen,
-  onReveal,
+  rootDir,
+  emptyMessage = "This output has no files yet.",
 }: {
   files: Artifact[];
-  onOpen: (path: string) => void;
-  onReveal?: (path: string) => void;
+  /** The pane's own directory — the one its header's folder icon opens. A file outside it shows
+   * its path relative to it, so "the folder icon opens the folder these files are in" stays true. */
+  rootDir?: string;
+  emptyMessage?: string;
 }) {
-  if (files.length === 0) return <p className="field-help">This simulation has no field files yet.</p>;
+  const [openPath, setOpenPath] = useState<string | undefined>(undefined);
+  if (files.length === 0) return <p className="field-help">{emptyMessage}</p>;
+  const base = rootDir ? rootDir.replace(/\/+$/, "") + "/" : undefined;
   return (
-    <ul className="results-file-list" data-testid="results-field-files">
-      {files.map((f) => (
-        <li key={f.path}>
-          <button type="button" className="results-file" onClick={() => onOpen(f.path)} title={f.path}>
+    <ul className="results-file-list" data-testid="results-files">
+      {files.map((f) => {
+        const name =
+          base && f.path.startsWith(base) ? f.path.slice(base.length) : (f.path.split("/").pop() ?? f.path);
+        const previewable = isPreviewable(f.kind);
+        const open = openPath === f.path;
+        const body = (
+          <>
             <Chip kind="neutral">{FIELD_KINDS[f.kind] ?? f.kind}</Chip>
-            <span className="results-file-label">{f.label ?? f.path.split("/").pop()}</span>
-            <span className="results-file-name mono">{f.path.split("/").pop()}</span>
-          </button>
-          {onReveal && (
-            <IconButton
-              size="sm"
-              aria-label={`Reveal ${f.label ?? f.path}`}
-              icon={<FolderOpen size={13} />}
-              onClick={() => onReveal(f.path)}
-            />
-          )}
-        </li>
-      ))}
+            <span className="results-file-label">{f.label ?? name}</span>
+            <span className="results-file-name mono">{name}</span>
+          </>
+        );
+        return (
+          <li key={f.path} className="results-file-row">
+            <div className="results-file-line">
+              {previewable ? (
+                <button
+                  type="button"
+                  className="results-file"
+                  aria-expanded={open}
+                  data-testid={`results-file-${name}`}
+                  onClick={() => setOpenPath(open ? undefined : f.path)}
+                  title={f.path}
+                >
+                  {body}
+                </button>
+              ) : (
+                <span className="results-file results-file-static" title={f.path}>
+                  {body}
+                </span>
+              )}
+            </div>
+            {open && <FilePreview file={f} />}
+          </li>
+        );
+      })}
     </ul>
   );
 }

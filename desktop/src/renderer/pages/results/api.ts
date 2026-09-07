@@ -91,3 +91,58 @@ export async function getTextFile(path: string): Promise<string> {
   if (!res.ok) throw new Error(`GET /api/files/text (${path}) failed with HTTP ${res.status}`);
   return res.text();
 }
+
+/** One group-statistics run's detail — its inputs, its outcome, its cluster table and its files. */
+export interface GroupStatsDetail {
+  type: string;
+  name: string;
+  path: string;
+  created: string;
+  /** `"ok"` once the run wrote something besides its log; `"empty"` when it did not. */
+  status: "ok" | "empty";
+  /** Why an `empty` run produced nothing — the log's own ERROR line where there is one. */
+  reason: string | null;
+  config: { label: string; value: string }[];
+  results: { label: string; value: string }[];
+  groups: { name: string; n: number; subjects: string[] }[];
+  image_shape: string | null;
+  clusters: TableData | null;
+  log: string | null;
+  artifacts: Artifact[];
+}
+
+/**
+ * `GET /api/catalog/group/stats/{name}?type=` (`tit/catalog.py::group_stats_detail`).
+ *
+ * Read with `fetch` rather than the typed client for the reason `getTextFile` below is: the route
+ * is newer than the checked-in `contracts/generated/openapi.json`, and regenerating that file —
+ * and `api/schema.d.ts` with it — touches contracts another lane owns. The response shape is
+ * pinned by `GroupStatsDetail` above and by the catalog's own pytest.
+ */
+export async function getGroupStats(type: string, name: string): Promise<GroupStatsDetail> {
+  const res = await fetch(
+    `/api/catalog/group/stats/${encodeURIComponent(name)}?type=${encodeURIComponent(type)}`,
+    { credentials: "same-origin", headers: { accept: "application/json" } },
+  );
+  if (!res.ok) throw new Error(`GET /api/catalog/group/stats/${name} failed with HTTP ${res.status}`);
+  return (await res.json()) as GroupStatsDetail;
+}
+
+/**
+ * The pictures a simulation run saved of itself — today the montage visualisation
+ * `tit.tools.montage_visualizer` writes as
+ * `<sim>/<TI|mTI>/montage_imgs/<name>_highlighted_visualization.png`.
+ *
+ * A separate read rather than a field on `SimulationDetail`, and read with `fetch` rather than the
+ * typed client, for the reason `getGroupStats` above is: `/api/catalog/simulations` has a Pydantic
+ * `response_model` generated from the frozen v1 contract, so a new field there is a contract
+ * change owned by another lane.
+ */
+export async function getSimulationFigures(subject: string, name: string): Promise<Artifact[]> {
+  const res = await fetch(
+    `/api/catalog/simulations/${encodeURIComponent(name)}/figures?subject=${encodeURIComponent(subject)}`,
+    { credentials: "same-origin", headers: { accept: "application/json" } },
+  );
+  if (!res.ok) throw new Error(`GET /api/catalog/simulations/${name}/figures failed with HTTP ${res.status}`);
+  return (await res.json()) as Artifact[];
+}

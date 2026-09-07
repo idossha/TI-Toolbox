@@ -11,7 +11,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink, FolderOpen, RotateCw, Square, Trash2, Zap } from "lucide-react";
 import { ApiError } from "../../api/client";
-import { Button } from "../../ui/Button";
+import { Button, IconButton } from "../../ui/Button";
 import { Callout, DefinitionList, EmptyState, InlineError, Skeleton } from "../../ui/Feedback";
 import { ArtifactList, type ArtifactItem } from "../../ui/Jobs";
 import { Cluster, Stack, Tabs } from "../../ui/Layout";
@@ -180,6 +180,17 @@ export function JobDetailPane({ job, allowUnsafeOverrides, onOpenJob, density = 
         </span>
         {job.liveness && <LivenessBadge state={job.liveness} />}
         <span className="job-detail-id mono text-caption">id {job.id}</span>
+        {/* ONE folder for the whole pane, in its header — the job's own directory. Every artifact
+            a job writes lives there, so the per-row folder icons the artifact list used to carry
+            were N buttons that all opened the same place (maintainer review). */}
+        {logPath && (
+          <IconButton
+            aria-label="Show the job folder"
+            data-testid="job-detail-reveal"
+            icon={<FolderOpen size={14} />}
+            onClick={() => reveal(logPath)}
+          />
+        )}
         {headerControls}
       </div>
 
@@ -197,11 +208,6 @@ export function JobDetailPane({ job, allowUnsafeOverrides, onOpenJob, density = 
         {canForce && (
           <Button variant="destructive" size="sm" icon={<Zap size={14} />} onClick={() => setConfirm("force")}>
             Force
-          </Button>
-        )}
-        {logPath && (
-          <Button variant="ghost" size="sm" icon={<FolderOpen size={14} />} onClick={() => reveal(logPath)}>
-            Reveal
           </Button>
         )}
         {isTerminal && (
@@ -233,7 +239,6 @@ export function JobDetailPane({ job, allowUnsafeOverrides, onOpenJob, density = 
                         artifacts={artifacts}
                         onView={(a) => window.open(artifactUrl(a.path), "_blank", "noopener")}
                         onOpen={(a) => openNative(a.path)}
-                        onReveal={(a) => reveal(a.path)}
                       />
                     </div>
                   ),

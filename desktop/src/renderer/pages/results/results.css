@@ -258,6 +258,11 @@
   flex-direction: column;
   height: 100%;
   min-height: 0;
+  /* The containing block for `.results-lightbox`, which covers this pane and nothing else. */
+  position: relative;
+  /* The key-number tables lay out against the PANE's width, not the window's: this pane is
+   * user-resizable and collapsible, so a media query would answer the wrong question. */
+  container: results-preview / inline-size;
 }
 
 /* The pane's own 28px bar, on `--surface-2` like the tree's group rows — one visual rule across
@@ -311,36 +316,6 @@
   border: 0;
   background: #fff;
   color-scheme: light;
-}
-
-.results-preview-artifacts {
-  flex: none;
-  border-top: 1px solid var(--line);
-  max-height: 34%;
-  overflow: auto;
-  padding: var(--space-1);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-/* The "Files" heading is the same 20px bar as a section head. */
-.results-preview-artifacts > .results-eyebrow {
-  display: flex;
-  align-items: center;
-  height: 20px;
-  margin: 0;
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-control);
-  background: var(--surface-2);
-}
-
-/* Same rule as the tree: a row you can act on is a card on the ground. Scoped to this pane so the
- * shared `.artifact-row` used by the jobs panel is untouched. */
-.results-preview-artifacts .artifact-row {
-  background: var(--surface);
-  border-radius: var(--radius-control);
-  padding-left: var(--space-2);
-  padding-right: var(--space-2);
 }
 
 .results-preview-header-actions {
@@ -420,8 +395,23 @@
 }
 .results-file-list li {
   display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+/* The row itself: name (or static label) + the ONE folder icon. The maintainer removed `View` and
+ * `Open`, so the trailing actions column is a single 20px control and the name reclaims its width. */
+.results-file-line {
+  display: flex;
   align-items: center;
   gap: var(--space-1);
+}
+/* A file with nothing to preview — a NIfTI, a mesh, an .npz — is not a button. Same box, same
+ * height, no hover, no pointer: the affordance tells the truth about what will happen. */
+.results-file-static {
+  cursor: default;
+}
+.results-file-static:hover {
+  background: var(--surface);
 }
 .results-file {
   flex: 1;
@@ -609,4 +599,213 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--ink-2);
+}
+
+
+/* ── key numbers ─────────────────────────────────────────────────────────────────────────────
+ *
+ * A two-column table per group, not a grid of tiles. Labels left, values right, `tabular-nums` so
+ * the digits of one column line up down the pane and a reader can compare two magnitudes without
+ * reading either. The group heading is a row of the same table, so its left edge is the labels'
+ * left edge by construction — the earlier version had it as a caption beside the grid and it hung
+ * off the left of everything under it. */
+.results-keynumber-columns {
+  display: grid;
+  /* Stacked in the pane's normal width; two columns once there is genuinely room for two label
+   * columns and two number columns without either wrapping (the maintainer's 960px). The pane is
+   * resizable, so this is a container query on the pane, not a media query on the window. */
+  grid-template-columns: 1fr;
+  gap: var(--space-1) var(--space-4);
+  align-items: start;
+}
+@container results-preview (min-width: 480px) {
+  .results-keynumber-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container results-preview (min-width: 720px) {
+  .results-keynumber-columns {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.results-keynumbers {
+  width: 100%;
+  border-collapse: collapse;
+  /* `auto`, not `fixed`: the label column should take what its longest label needs and leave the
+   * rest to the numbers, which differ in width by group (a 4-digit ratio vs an 8-char exponent). */
+  table-layout: auto;
+  font-size: 12px;
+}
+/* The group name, inside the table so it shares the label column's left edge. */
+.results-keynumber-head th {
+  padding: var(--space-1) var(--space-2) 2px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.results-keynumbers tbody tr:not(.results-keynumber-head) {
+  background: var(--surface);
+}
+/* A 1px gap between rows, drawn by the ground rather than by a border, so the rows read as the
+ * same cards every other list in this pane uses. */
+.results-keynumbers tbody tr:not(.results-keynumber-head) + tr:not(.results-keynumber-head) {
+  box-shadow: inset 0 1px 0 var(--bg);
+}
+/* Labels wrap rather than ellipsize: "Smallest uncorrected p" truncated to "Smallest uncorr…" is
+ * a label that has stopped naming its number, and a second line costs 15px once. The value column
+ * still never wraps — a number split across two lines is unreadable. */
+.results-keynumbers th[scope="row"] {
+  padding: 3px var(--space-2);
+  text-align: left;
+  font-weight: 400;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.results-keynumbers td {
+  padding: 3px var(--space-2);
+  text-align: right;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The unit is context, not magnitude: muted, and never the thing the eye lands on. */
+.results-keynumber-unit {
+  color: var(--ink-3);
+}
+/* Only the two headline values (ROI mean and max) are bold. Weight, not size — a second type size
+ * in a table row reads as a second kind of row. */
+.results-keynumbers tr[data-lead] td,
+.results-keynumbers tr[data-lead] th[scope="row"] {
+  font-weight: 600;
+  color: var(--ink);
+}
+.results-keynumber-hint {
+  color: var(--ink-3);
+}
+
+/* ── inline file preview ─────────────────────────────────────────────────────────────────────
+ *
+ * What the removed `View` button used to do, moved onto the file's own name. Capped in height so
+ * an expanded 2 400-row CSV does not push the rest of the pane out of reach. */
+.results-file-preview {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  overflow: hidden;
+}
+.results-file-preview img,
+.results-file-preview iframe {
+  display: block;
+  width: 100%;
+  height: 280px;
+  border: 0;
+  object-fit: contain;
+  background: var(--surface-2);
+}
+.results-file-text {
+  margin: 0;
+  padding: var(--space-2);
+  max-height: 280px;
+  overflow: auto;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre;
+  color: var(--ink-2);
+}
+
+/* A PDF figure's page, rasterised by `PdfCanvas` into the same tile a PNG gets — same height, same
+ * `contain` behaviour, no viewer chrome. */
+.results-figure-doc,
+.results-file-pdf {
+  display: block;
+  width: 100%;
+  background: var(--surface-2);
+}
+.results-figure-doc {
+  height: 108px;
+}
+/* The canvas is sized by pdf.js to the page's own aspect; letting it fill the tile would stretch
+ * a portrait plot into a landscape box (`object-fit` does nothing to a canvas's own drawing). It
+ * is centred at its natural aspect instead, like the `contain` a PNG tile gets. */
+.results-figure-doc,
+.results-file-pdf {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.results-figure-doc canvas,
+.results-file-pdf canvas {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+}
+.results-file-pdf {
+  height: 280px;
+}
+/* The lightbox page: as large as the pane allows, still one bitmap. */
+.results-lightbox-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.results-lightbox-page canvas {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.results-lightbox-pager {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* ── lightbox ────────────────────────────────────────────────────────────────────────────────
+ *
+ * Over the pane, not over the window: the tree stays visible, so the user can see which output the
+ * figure belongs to while it is open. */
+.results-lightbox {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  background: var(--surface);
+}
+.results-lightbox-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 20px;
+}
+.results-lightbox-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.results-lightbox img {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  object-fit: contain;
+}
+.results-lightbox-doc {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  border: 0;
 }

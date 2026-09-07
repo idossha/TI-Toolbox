@@ -10,13 +10,34 @@ reports those tabs open externally, into one browsable, per-subject tree (task s
 |---|---|---|
 | Simulator/report generation opens the HTML report in the OS browser | "Simulations" tab: report shown inline in a sandboxed `<iframe sandbox="allow-scripts">` served by `GET /api/files/report/{id}`, with a picker when a simulation has more than one report | Done |
 | (implicit — montage images live inside the generated report) | Not browsed separately; the report iframe already contains them (the reports are self-contained HTML with inline/base64 images, consistent with the report's own CSP: `img-src data: blob:`) | Done via the report, see gap below |
-| Simulation output files (mesh/NIfTI), opened manually via Finder/Explorer | "Artifacts" card: `ArtifactList` over `SimulationDetail.niftis`/`.meshes`, each row "Open" (**opens this simulation in the embedded viewer** — an in-app deep link to `/viewer?kind=simulation&subject=&simulation=`, not a launch) + "Reveal" | Done — changed in v3, see the note below |
+| Simulation output files (mesh/NIfTI), opened manually via Finder/Explorer | "Files" section: `FileList` over `SimulationDetail.niftis`/`.meshes`, each row a kind badge, the file's name, and **one** action — the folder icon (`TitBridge.showItemInFolder`; outside Electron it copies the path and says so) | Done — changed again after review, see the note below |
 | `flex_search_tab.py` results: manifest.json fields shown after a run finishes | "Flex runs" tab: run list + a `DefinitionList` of the manifest's fields (goal, ROI, created, and every `manifest` key) + an "Artifacts" card | Done |
-| Flex-search plot PNGs (Pareto front, convergence) referenced in the run folder | `FlexRun.artifacts` → the same "Artifacts" card (`ArtifactList`, "Open" via `GET /api/files/artifact?path=`) | Done |
+| Flex-search plot PNGs (Pareto front, convergence) referenced in the run folder | `FlexRun.artifacts` → the "Figures" grid, thumbnails through `GET /api/files/artifact?path=`, opening in the pane's lightbox | Done |
 | `ex_search_tab.py` / mEx results table (`final_output.csv`) | "Ex / mEx runs" tab: run list (best montage/score) → full results `DataTable` from `GET /api/catalog/ex-runs/{run}/results` + an "Artifacts" card from `ExRun.artifacts` | Done |
-| `analyzer_tab.py` results: summary stats + PDF report per analysis | "Analyses" tab: simulation picker → analysis list → summary `DataTable` (`GET /api/catalog/analyses/{name}/summary`) + PDF `<embed>` (`GET /api/files/artifact?path=`) + "Open in viewer" (`?kind=analysis`) | Done — changed in v3, see the note below |
-| Group comparison / nilearn visuals / group analyses (spread across several tabs + the Nilearn Visuals panel) | "Group" tab: three generic tables from `GET /api/catalog/group` (`stats`, `nilearn`, `group_analyses`) | Simplified — see gap below |
-| "Reveal in Finder/Explorer" (implicit OS behaviour) | `Reveal` button wired to `TitBridge.showItemInFolder` | Done |
+| `analyzer_tab.py` results: summary stats + PDF report per analysis | The analyzer pane, in the Ex-search shape: a header block (subject · simulation · field · space · analysis type · region), a **Key numbers** table of `results.csv` at four significant digits with units (`preview/analysis.ts` + `preview/metrics.ts`), the histogram PDF rasterised into the **Figures** grid, then **Files**, then the path and "Open in viewer" (`?kind=analysis`) | Done — reshaped after review |
+| Group comparison / nilearn visuals / group analyses (spread across several tabs + the Nilearn Visuals panel) | The `Group` pseudo-subject's tree from `GET /api/catalog/group`; a stats run's pane reads `GET /api/catalog/group/stats/{name}?type=` for its groups and their subjects, its settings and outcome numbers, its cluster table, its maps and plots — and, for a run that failed before writing anything, the reason from its own log | Done |
+| "Reveal in Finder/Explorer" (implicit OS behaviour) | The folder icon, wired to `TitBridge.showItemInFolder` — the only per-file action, and the only icon in the pane header beside the pane's own controls | Done |
+
+## Review: one action per file, one shape per kind
+
+Maintainer review of the first v3 pane, on three screenshots:
+
+1. *"In the results please remove the View and Open. Only have the folder icon for the users to be
+   able to open the containing folder of the results."* — `ui/Jobs`' `ArtifactList` (three controls
+   per row) is no longer used here; `preview/views.tsx::FileList` is, with one folder icon per row.
+   The preview capability moved onto the file's **name**: clicking a CSV, JSON, PNG, PDF or HTML
+   name opens it inline under the row. A NIfTI or a mesh name is not a button.
+2. *"if there is a possibility to streamline that section like we do for the Ex search … the main
+   numerical things on top, then render the images, then a synthesis of the artifacts at the
+   bottom."* — `preview/ResultLayout.tsx` owns the order (header · key numbers · tables · figures ·
+   files) for every kind, so no pane can drift from it.
+3. *"It looks like there are two icons that do the same, both the folder and that diagonal arrow."*
+   — the header's `ExternalLink` is gone; `openArtifact`/`viewArtifact` with it.
+
+Follow-up review: PDFs are rasterised by `preview/PdfCanvas.tsx` and shown as pictures rather than
+handed to Chromium's PDF viewer (*"It needs to be cleaner and simpler"*), and the key numbers are a
+right-aligned `tabular-nums` table per group rather than a grid of tiles (*"should not be scattered
+like that … should be clean and organized"*).
 
 ## v3: no external viewers (D3)
 
