@@ -95,7 +95,10 @@ describe("the shortcut map (DESIGN.md §9: ⌘1 Overview … ⌘9 Jobs, ⌘0 Set
   const shortcutOf = (id: string) => pageById(id)?.shortcut;
 
   it("the ⌘-number IS the index in NAV_ORDER, so nav/palette/sheet cannot disagree", () => {
-    NAV_ORDER.forEach((slot, i) => expect(shortcutForSlot(slot)).toBe(String(i + 1)));
+    // Only the first nine: there are nine digits, and ⌘0 is Settings.
+    NAV_ORDER.forEach((slot, i) =>
+      expect(shortcutForSlot(slot)).toBe(i < 9 ? String(i + 1) : undefined),
+    );
     // Settings takes the first digit the rail does not: ⌘9 while the rail was eight rows, ⌘0 now
     // that Pipeline made it nine. Two pages on one number would be a shortcut that opens
     // whichever the lookup found first.
@@ -111,9 +114,13 @@ describe("the shortcut map (DESIGN.md §9: ⌘1 Overview … ⌘9 Jobs, ⌘0 Set
     expect(shortcutOf("optimizer") ?? shortcutOf("optimizer-flex")).toBe("4");
     expect(shortcutOf("analyzer")).toBe("5");
     expect(shortcutOf("pipeline")).toBe("6");
-    expect(shortcutOf("results")).toBe("7");
-    expect(shortcutOf("viewer")).toBe("8");
-    expect(shortcutOf("jobs")).toBe("9");
+    expect(shortcutOf("notebooks")).toBe("7");
+    expect(shortcutOf("results")).toBe("8");
+    expect(shortcutOf("viewer")).toBe("9");
+    // The tenth workflow row. Nine digits, and ⌘0 is Settings — so Jobs is
+    // reached by ⌘K and by its route, and the rail says no number rather than
+    // printing one that cannot be typed.
+    expect(shortcutOf("jobs")).toBeUndefined();
     expect(shortcutOf("settings")).toBe("0");
   });
 
@@ -213,8 +220,8 @@ describe("rail sub-items (PageDef.subNav)", () => {
     expect(navSlotOf("menu")).toBeNull();
     expect(navSlotOf("tetravox")).toBeNull();
     expect(shortcutForSlot(navSlotOf("tetravox"))).toBeUndefined();
-    expect(pageById("viewer")?.shortcut).toBe("8");
-    expect(pageById("jobs")?.shortcut).toBe("9");
+    expect(pageById("viewer")?.shortcut).toBe("9");
+    expect(pageById("jobs")?.shortcut).toBeUndefined();
   });
 
   it("the real Viewer page declares Menu then Tetravox, in that order", () => {

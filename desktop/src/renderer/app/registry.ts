@@ -102,6 +102,9 @@ export const NAV_ORDER = [
   "optimizer",
   "analyzer",
   "pipeline",
+  // NB lane: notebooks sit after the pipeline because that is the workflow order
+  // — the canvas exports a notebook, and this is where it lands and runs.
+  "notebooks",
   "results",
   "viewer",
   "jobs",
@@ -168,7 +171,11 @@ export function navSlotOf(id: string, known: ReadonlySet<string> = DISCOVERED): 
 export function shortcutForSlot(slot: string | null): string | undefined {
   if (slot === null) return undefined;
   const i = (NAV_ORDER as readonly string[]).indexOf(slot);
-  if (i >= 0) return String(i + 1);
+  // There are nine digits and ⌘0 is Settings, so a rail longer than nine rows
+  // has rows with no number. `String(i + 1)` used to return "10" for a tenth
+  // row — a chord no keyboard can send, printed in the rail and the `?` sheet
+  // as though it worked. The rows past the ninth get none, and say none.
+  if (i >= 0) return i < 9 ? String(i + 1) : undefined;
   if (slot === "settings") return NAV_ORDER.length < 9 ? "9" : "0";
   return undefined;
 }
