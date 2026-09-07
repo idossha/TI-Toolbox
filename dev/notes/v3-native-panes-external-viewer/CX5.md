@@ -98,7 +98,7 @@ DECISIONS rather than taken here.
 | `npm run typecheck` | clean (was 18 errors) |
 | `npm run lint` | 0 errors, 3 pre-existing React-Compiler warnings (`VirtualList`, TanStack Virtual) |
 | `npx vitest run` | **1275 passed, 105 files** (was 1 file failing to load) |
-| host `pytest tests/` | **3964 passed, 47 skipped, 21 deselected**, 85 s — plus the known order-dependent `test_scene_guide` flake, green in isolation (14 passed) |
+| host `pytest tests/` | **3970 passed, 36 skipped, 21 deselected**, 90 s, re-run after the PyQt deletion (`0daa748e`) landed — plus the known order-dependent `test_scene_guide` flake, green in isolation (14 passed, 1 skipped) |
 | `dev/route_import_guard.py` | 23 route modules clean |
 | `dev/contracts_check.py` | OK — 10 operations, 9 schemas |
 | mock e2e (`e2e:quiet`, offscreen, serial) | **285 tests, all green** after (d); quiet-check: no Electron window reached the screen, focus unchanged |

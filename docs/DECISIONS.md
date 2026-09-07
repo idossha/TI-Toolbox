@@ -890,3 +890,35 @@ a `KernelRegistry(idle_timeout=3.0)` driving a **real** SimNIBS kernel: not reap
 past the cap, and `manager.is_alive()` false afterwards — a dead interpreter, not a forgotten
 registry entry. Closing the app is asserted by the real e2e, which closes the window and polls
 `/api/kernels` to zero from Node.
+
+## 2026-09-06 (CX5) — A cap with no electrodes is not an EEG net
+
+**Decision.** `GET /api/catalog/eeg-nets` and the subject detail's `eeg_nets` list only cap files
+that carry at least one `Electrode` row. `Fiducials.csv` therefore disappears from every net picker.
+
+**Why.** Every subject's `m2m_<sid>/eeg_positions` holds `Fiducials.csv`, whose rows are all
+`Fiducial` (Nz/Iz/LPA/RPA). It was offered wherever a net is chosen — the Simulator's net cell, a
+flex row's mapping target, the leadfield pickers — and choosing it left the row unrunnable forever
+with nothing said, because there is no electrode in it to place. The endpoint already reported it as
+`n: 0`; the listings now filter on that rather than on the file existing.
+
+**How it was found.** The real `flex-result-selection` spec maps a run onto *every* net the subject
+has and asserts each resolves to labels. Mapping onto Fiducials resolved to none. The spec was right
+and the app was wrong — which is the argument for real-data specs that enumerate rather than pick
+one known-good value.
+
+## 2026-09-06 (CX5) — Open: an idle electrode can be invisible against the opaque-GM scalp
+
+**Not a decision — a measurement, recorded so it is not lost.** With the grey matter opaque, the
+composed scalp over part of the head lightens to within a few units of the palette's idle marker
+grey. Measured on ernie / GSN-HydroCel-185 at 1280 px, over the 24 front-most electrodes: the
+**worst** separation between an idle marker and the anatomy behind it is **2/255**, the median 35.
+An electrode at the worst pixel is invisible, and the difference is a property of where on the head
+it sits, not of the marker.
+
+The real `scene-electrodes` spec now measures its colour claims on a marker whose background is
+actually separated, and logs the worst and median so a regression in either direction shows up as a
+number. The fix is a design call the maintainer should make — a thin contour on *every* marker
+rather than only on the ones carrying a channel colour is the obvious candidate, and it would keep
+colour as the whole state signal because the contour is constant — so it is left open rather than
+decided here.
