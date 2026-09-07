@@ -6,7 +6,7 @@
     "subject_ids": [],
     "simulation": "Thalamus",
     "space": "voxel",
-    "tissue_type": "GM",
+    "tissue_type": "both",
     "analysis_type": "spherical",
     "field": null,
     "center": [
@@ -25,7 +25,7 @@
     "ernie"
   ],
   "tags": [
-    "analysis:1788730195919"
+    "analysis:1788741482162"
   ],
   "overwrite": true
 }
