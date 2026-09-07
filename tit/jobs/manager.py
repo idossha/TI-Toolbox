@@ -354,6 +354,16 @@ class JobManager:
             raise ValueError(
                 f"unknown job kind: {kind!r} (expected one of {JOB_KINDS})"
             )
+        with self._lock:
+            unknown = [dep for dep in (after or []) if dep not in self._specs]
+        if unknown:
+            # RUN-04: an `after` naming a job that does not exist used to be treated as
+            # satisfied, so a typo'd dependency ran immediately and unordered. Caught here,
+            # before anything is persisted, so the caller gets a 422 rather than a job that
+            # quietly ignores its own precondition.
+            raise ValueError(
+                f"unknown job id in 'after': {', '.join(sorted(unknown))}"
+            )
         job_id = new_job_id()
         cost = default_cost(kind, config)
         lock_requests = locks.keys_for(kind, subject_ids, config)
@@ -745,6 +755,15 @@ class JobManager:
             status_view = dict(self._status)
 
         current_holders = locks.holders(self.project_dir)
+        # RUN-03: an admitted job holds its locks from the instant it is admitted, not from
+        # whenever its runner process gets around to `locks.hold`. Without these reservations
+        # a second job needing the same exclusive resource was admitted in the very same tick
+        # (the on-disk snapshot is taken once) or in the next one (the runner had not started
+        # yet), and two writers then shared one subject.
+        for other_id, other in specs.items():
+            other_status = self._status.get(other_id)
+            if other_status is not None and other_status.state == "running":
+                current_holders.extend(self._reserved_holders(other))
         edges = scheduler.build_after_edges(specs)
         queued_ids = sorted(
             (jid for jid, st in status_view.items() if st.state == "queued"),
@@ -771,9 +790,35 @@ class JobManager:
             status.budget_wait = decision.budget_wait
             if decision.admit:
                 await self._admit(spec, status)
+                if status.state == "running":
+                    # Same tick, next candidate: it must see this job's locks. A spawn that
+                    # failed leaves the status terminal, so its reservation is never taken.
+                    current_holders.extend(self._reserved_holders(spec))
                 running_cost = running_cost + spec.cost
             else:
                 self._persist_status(status)
+
+    def _reserved_holders(self, spec: JobSpec) -> list[dict[str, Any]]:
+        """*spec*'s locks as holder descriptors, for a job that is running but whose runner
+        may not have written its own descriptors yet (see the RUN-03 note in ``_tick``).
+
+        Built from ``spec.locks`` — the keys recorded at submission — so this and the runner's
+        own ``locks.hold`` always request the same set. Duplicates against the on-disk holders
+        are harmless: ``match_conflicts`` de-duplicates by job id and skips the candidate's own.
+        """
+        descriptors: list[dict[str, Any]] = []
+        for key in spec.locks:
+            request = locks.parse_key(key)
+            descriptors.append(
+                {
+                    "key": request.key,
+                    "resource": request.resource,
+                    "mode": request.mode,
+                    "job_id": spec.id,
+                    "reserved": True,
+                }
+            )
+        return descriptors
 
     def _mark_skipped(self, job_id: str, reason: str) -> None:
         with self._lock:

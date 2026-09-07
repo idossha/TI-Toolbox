@@ -293,6 +293,122 @@ def test_lock_conflict_shows_waiting_on_then_admits(tmp_path):
         manager.shutdown()
 
 
+def test_two_jobs_needing_one_exclusive_lock_never_both_start(tmp_path):
+    """RUN-03: admission reserves the exclusive resources, in the same tick too.
+
+    Both jobs want ``subject:001:m2m:write``. The holder snapshot is taken once per tick and
+    the runner writes its lock descriptors only after it has started, so before the fix both
+    were admitted — two writers on one head model.
+    """
+    manager = make_manager(tmp_path)
+    try:
+        first = manager.submit(
+            "leadfield",
+            {"__fake": {"duration_s": 0.6, "hold_locks": True, "project_dir": str(tmp_path)}},
+            ["001"],
+        )
+        second = manager.submit(
+            "leadfield",
+            {"__fake": {"duration_s": 0.05, "hold_locks": True, "project_dir": str(tmp_path)}},
+            ["001"],
+        )
+        wait_until(
+            lambda: (lambda s: s if s["state"] == "running" else None)(
+                manager.get(first["id"])
+            )
+        )
+        # For as long as the first job runs, the second may not be running.
+        deadline = time.monotonic() + 0.5
+        while time.monotonic() < deadline:
+            if manager.get(first["id"])["state"] != "running":
+                break
+            assert manager.get(second["id"])["state"] == "queued"
+            time.sleep(0.02)
+
+        waiting = manager.get(second["id"])
+        assert [w["job_id"] for w in waiting["waiting_on"]] == [first["id"]]
+
+        for job in (first, second):
+            wait_until(
+                lambda job=job: (lambda s: s if s["state"] == "succeeded" else None)(
+                    manager.get(job["id"])
+                )
+            )
+    finally:
+        manager.shutdown()
+
+
+def test_shared_read_locks_still_run_in_parallel(tmp_path):
+    """The reservation must not serialize readers: two `flex` jobs both take m2m:read."""
+    manager = make_manager(tmp_path)
+    try:
+        jobs = [
+            manager.submit(
+                "flex",
+                {"__fake": {"duration_s": 0.5, "hold_locks": True, "project_dir": str(tmp_path)}},
+                ["001"],
+            )
+            for _ in range(2)
+        ]
+        wait_until(
+            lambda: all(manager.get(j["id"])["state"] == "running" for j in jobs) or None
+        )
+        for job in jobs:
+            wait_until(
+                lambda job=job: (lambda s: s if s["state"] == "succeeded" else None)(
+                    manager.get(job["id"])
+                )
+            )
+    finally:
+        manager.shutdown()
+
+
+def test_a_failed_spawn_releases_the_resource_it_reserved(tmp_path):
+    """RUN-03: a reservation belongs to a job that is running — a spawn that never
+    happened must not leave the subject locked for the rest of the server's life."""
+
+    def _command_for(kind, config, spec_path):
+        if config.get("__explode"):
+            return [os.path.join(str(tmp_path), "nothing-here"), spec_path]
+        return _fake_command_for(kind, config, spec_path)
+
+    manager = JobManager(
+        str(tmp_path),
+        runner_cwd=str(tmp_path),
+        poll_interval=0.05,
+        budget=Cost(cpus=8, mem_gb=64),
+        command_for=_command_for,
+    )
+    manager.start()
+    try:
+        doomed = manager.submit("leadfield", {"__explode": True}, ["001"])
+        wait_until(
+            lambda: (lambda s: s if s["state"] == "failed" else None)(
+                manager.get(doomed["id"])
+            )
+        )
+        ok = manager.submit(
+            "leadfield",
+            {"__fake": {"duration_s": 0.05, "hold_locks": True, "project_dir": str(tmp_path)}},
+            ["001"],
+        )
+        final = wait_until(
+            lambda: (lambda s: s if s["state"] == "succeeded" else None)(
+                manager.get(ok["id"])
+            )
+        )
+        assert final["state"] == "succeeded"
+    finally:
+        manager.shutdown()
+
+
+def test_submit_rejects_an_after_naming_a_job_that_does_not_exist(manager):
+    """RUN-04: caught before anything is persisted, so the route answers 422."""
+    with pytest.raises(ValueError, match="unknown job id in 'after'"):
+        manager.submit("tools", {"__fake": {"duration_s": 0.01}}, ["001"], after=["ghost"])
+    assert manager.list_jobs() == []
+
+
 def test_lock_conflicts_query_for_plan_endpoint(tmp_path):
     manager = make_manager(tmp_path)
     try:

@@ -37,11 +37,12 @@ logger = logging.getLogger(__name__)
 
 LOCKS_SUBDIR = ".locks"
 DESCRIPTOR_FILE = "lock.json"
-ENV_STRICT = "TIT_LOCKS"  # "strict" refuses on conflict; default warn-and-continue
+ENV_STRICT = "TIT_LOCKS"  # "strict" refuses on ANY conflict; write-vs-write always refuses
 
 
 class LockConflictError(RuntimeError):
-    """Raised by :func:`hold` in strict mode (``TIT_LOCKS=strict``) on a real conflict."""
+    """Raised by :func:`hold` on a write-against-write conflict (always), and on any other
+    conflict in strict mode (``TIT_LOCKS=strict``)."""
 
 
 @dataclass(frozen=True)
@@ -213,10 +214,17 @@ def hold(
 ) -> Iterator[None]:
     """Acquire *requests* for the duration of the context (called by the runner process).
 
-    Default policy is warn-and-continue: a conflict is logged but the lock is still taken (the
-    directories are per-holder, so this never raises ``FileExistsError`` — it just means more
-    than one process now believes it holds an exclusive resource). Pass ``strict=True`` or set
-    ``TIT_LOCKS=strict`` to raise :class:`LockConflictError` instead of proceeding.
+    Policy has two tiers. A **write against a live write** always raises
+    :class:`LockConflictError`, whatever the mode: two processes writing one subject's head
+    model is the corruption this whole module exists to prevent, and "warn and proceed" is not
+    a policy for it. Every other conflict (a reader against a writer, a writer against readers)
+    keeps the historical warn-and-continue default, and ``strict=True`` / ``TIT_LOCKS=strict``
+    raises on those too.
+
+    A write lock's directory is named after the resource alone, so two jobs wanting the same
+    exclusive resource want the same directory. It is never taken from a live owner: the
+    descriptor of a *different, still-running* job is left exactly as it was, so `holders`
+    keeps naming the real owner and that owner's own release does not free someone else's lock.
     """
     if strict is None:
         strict = os.environ.get(ENV_STRICT, "").strip().lower() == "strict"
@@ -235,7 +243,8 @@ def hold(
                 f"{sorted({b.get('key', b.get('resource', '?')) for b in blocking})} "
                 f"held by {sorted({b['job_id'] for b in blocking})}"
             )
-            if strict:
+            write_write = _write_against_write(requests, blocking)
+            if strict or write_write:
                 raise LockConflictError(msg)
             logger.warning(msg)
         os.makedirs(locks_dir(project_dir), exist_ok=True)
@@ -244,8 +253,15 @@ def hold(
             try:
                 os.mkdir(path)
             except FileExistsError:
-                # Same (resource, mode, job) re-entered (e.g. a rerun reusing the id) — fine.
-                pass
+                if _owned_by_another_live_job(path, job_id):
+                    # Someone else's exclusive lock. Do not overwrite the descriptor: that
+                    # made `holders` report the wrong owner, and made this job's release
+                    # remove the other job's lock directory.
+                    raise LockConflictError(
+                        f"job {job_id}: {request.key} is held by another live job"
+                    ) from None
+                # Same (resource, mode, job) re-entered (e.g. a rerun reusing the id), or a
+                # dead holder's leftovers — fine to claim.
             descriptor = {
                 "key": request.key,
                 "resource": request.resource,
@@ -262,6 +278,32 @@ def hold(
     finally:
         for path in held_dirs:
             _remove_dir(path)
+
+
+def _write_against_write(
+    requests: list[LockRequest], blocking: list[dict[str, Any]]
+) -> bool:
+    """True when an exclusive request collides with an exclusive holder of the same resource."""
+    wanted = {r.resource for r in requests if r.mode == "write"}
+    return any(
+        holder.get("mode", "write") == "write" and holder.get("resource") in wanted
+        for holder in blocking
+    )
+
+
+def _owned_by_another_live_job(path: str, job_id: str) -> bool:
+    """True when *path* already holds a descriptor of a different job whose process is alive."""
+    try:
+        with open(os.path.join(path, DESCRIPTOR_FILE), encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, json.JSONDecodeError):
+        return False
+    if data.get("job_id") in (None, job_id):
+        return False
+    pid, create_time = data.get("pid"), data.get("create_time")
+    if pid is None or create_time is None:
+        return True
+    return _is_alive(int(pid), float(create_time))
 
 
 # ---------------------------------------------------------------------------------------------

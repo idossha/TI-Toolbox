@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
+import subprocess
 import sys
 from unittest.mock import MagicMock
 
@@ -680,6 +682,91 @@ def test_keys_for_stats_uses_analysis_name_and_the_main_entrypoints_mode_key():
     reqs = locks.keys_for("stats", [], correlation_data)
     resources = _resources(reqs)
     assert ("project:stats:correlation/run2", "write") in resources
+
+
+@pytest.fixture()
+def live_pid():
+    """A pid `locks.holders` will believe in.
+
+    A lock whose descriptor names *this* process is deliberately never reported as held
+    (`tit.jobs.runner._is_untouchable_pid`: the server's own pid is untouchable), so a
+    lock-policy test has to speak for a real other process — which is what a runner is.
+    """
+    proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+    try:
+        yield proc.pid
+    finally:
+        proc.kill()
+        proc.wait()
+
+
+def test_two_writers_of_one_resource_fail_closed(tmp_path, live_pid):
+    """RUN-03: warn-and-continue is not a policy for two processes writing one head model."""
+    requests = [locks.LockRequest("subject:001:m2m", "write")]
+    with locks.hold(str(tmp_path), "job-a", requests, pid=live_pid):
+        with pytest.raises(locks.LockConflictError):
+            with locks.hold(str(tmp_path), "job-b", requests, pid=live_pid):
+                pass
+        # job-a still owns the descriptor, and job-b left nothing behind.
+        assert [h["job_id"] for h in locks.holders(str(tmp_path))] == ["job-a"]
+
+
+def test_a_reader_against_a_writer_still_only_warns(tmp_path, live_pid):
+    """The fail-closed rule is write-vs-write; the advisory default survives elsewhere."""
+    with locks.hold(
+        str(tmp_path), "job-a", [locks.LockRequest("subject:001:m2m", "write")], pid=live_pid
+    ):
+        with locks.hold(
+            str(tmp_path), "job-b", [locks.LockRequest("subject:001:m2m", "read")], pid=live_pid
+        ):
+            assert {h["job_id"] for h in locks.holders(str(tmp_path))} == {"job-a", "job-b"}
+
+
+def test_a_write_descriptor_is_never_taken_from_its_live_owner(tmp_path, live_pid):
+    """RUN-03: a write lock's directory is the resource's, so a second job used to overwrite
+    the descriptor — after which `holders` named the wrong owner and the second job's release
+    freed the first job's lock."""
+    request = locks.LockRequest("subject:001:m2m", "write")
+    with locks.hold(str(tmp_path), "job-a", [request], pid=live_pid):
+        with pytest.raises(locks.LockConflictError):
+            with locks.hold(str(tmp_path), "job-b", [request], pid=live_pid, strict=False):
+                pass
+        assert locks.holders(str(tmp_path))[0]["job_id"] == "job-a"
+    assert locks.holders(str(tmp_path)) == []
+
+
+def test_release_job_after_a_cancel_only_drops_its_own_locks(tmp_path, live_pid):
+    """RUN-03: `force`/cancel releases by job id — it must never free another job's lock."""
+    with locks.hold(
+        str(tmp_path), "job-a", [locks.LockRequest("subject:001:m2m", "write")], pid=live_pid
+    ):
+        with locks.hold(
+            str(tmp_path), "job-b", [locks.LockRequest("subject:002:m2m", "write")], pid=live_pid
+        ):
+            assert locks.release_job(str(tmp_path), "job-b") == 1
+            assert [h["job_id"] for h in locks.holders(str(tmp_path))] == ["job-a"]
+
+
+def test_a_dead_holders_write_lock_can_be_claimed(tmp_path, live_pid):
+    """Not fail-closed against a corpse: a crashed runner's descriptor is claimable."""
+    request = locks.LockRequest("subject:001:m2m", "write")
+    path = locks._dir_for(str(tmp_path), request, "dead-job")
+    os.makedirs(path, exist_ok=True)
+    with open(os.path.join(path, locks.DESCRIPTOR_FILE), "w", encoding="utf-8") as fh:
+        json.dump(
+            {
+                "key": request.key,
+                "resource": request.resource,
+                "mode": "write",
+                "job_id": "dead-job",
+                "pid": 999999,
+                "create_time": 1.0,
+                "ts": 1.0,
+            },
+            fh,
+        )
+    with locks.hold(str(tmp_path), "job-a", [request], pid=live_pid):
+        assert [h["job_id"] for h in locks.holders(str(tmp_path))] == ["job-a"]
 
 
 def test_lock_request_key_property():
