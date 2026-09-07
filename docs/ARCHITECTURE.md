@@ -456,13 +456,26 @@ Notebooks page and executed by a Jupyter kernel the *server* owns. Five rules.
    poll those, so a reply emitted from the shell thread alone can overtake the output it concludes
    — and did, in the first run of `tests/test_kernels.py`. `KernelRegistry._finish_half` joins them.
 
-4. *Kernels are capped and reaped.* At most `MAX_KERNELS` (2) run at once, and one idle for
+4. *A restart stops the pumps before it touches a socket.* ZMQ sockets are not thread-safe and
+   `jupyter_client`'s channels are ZMQ sockets, so the iopub and shell pump threads are stopped
+   **and joined** before a restart or a shutdown closes anything, and the client is rebuilt rather
+   than reused (`restart_kernel` gives the interpreter a new session key). Getting this wrong is
+   not a notebook bug: libzmq aborts the process, and the process is `tit.server`.
+
+5. *Completion is a kernel round trip, not a language server.* `complete_request` /
+   `inspect_request` ride the same socket. An interpreter that has run the notebook's imports is
+   *holding* the objects, so it completes `tit.` better than any static analyser could, and `jedi`
+   already ships inside `ipykernel` — there is nothing to install and nothing to keep in sync.
+   The kernel owns the replacement range, and the client narrows it past a shared dotted prefix so
+   an option reads `subject_ids` rather than `catalog.subject_ids`.
+
+6. *Kernels are capped and reaped.* At most `MAX_KERNELS` (2) run at once, and one idle for
    `IDLE_TIMEOUT_SECONDS` (30 min) is shut down; `GET /api/kernels` reports both numbers so no
    client hard-codes them. A kernel is a full SimNIBS Python interpreter sharing a container with
    FEM runs, which is why the limit exists and why "2" is a budget rather than a magic number.
    Every kernel is shut down with the server's lifespan.
 
-5. *The `.ipynb` on disk is the document.* `nbformat` reads and writes it (`tit/server/notebooks.py`),
+7. *The `.ipynb` on disk is the document.* `nbformat` reads and writes it (`tit/server/notebooks.py`),
    a save is validated before it lands, and unknown keys survive the round trip untouched — a
    notebook this app opens and saves must produce an empty git diff, or every notebook in a project
    becomes a merge conflict. Cell ids are minted only where the format version has them.
@@ -471,9 +484,17 @@ Notebooks page and executed by a Jupyter kernel the *server* owns. Five rules.
 project mounted — the same trust boundary the job runners already have. Nothing in the product may
 call it a sandbox.
 
+8. *A project gets one worked example, once.* `examples/getting-started.ipynb` is seeded on a
+   project's **first** listing, not shipped in the image: its cells resolve *this* project's
+   subjects and plot the first TI field it actually has. Deleting it is a decision the next
+   listing does not undo. It is the only name that may carry a directory, and `examples/` is the
+   only directory — a flat list is what the UI shows, and a general subdirectory grammar buys
+   nothing but a wider jail to defend.
+
 **Non-goals.** A hosted JupyterLab (the image still has one, unpublished — this is not it); live
 plotting front ends (plotly/vega/ipywidgets fall back to the static image the kernel sends beside
-them); completions, hovers or a variable explorer (`pylsp` is in the image and unused — ROADMAP);
-notebooks outside the one directory; more than one kernel per notebook.
+them); a language server (`pylsp` is in the image and stays unused — the kernel is the completer);
+a variable explorer (ROADMAP); notebooks outside the one directory; more than one kernel per
+notebook.
 
 ---

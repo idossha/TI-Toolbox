@@ -44,7 +44,9 @@ Ported, GPL-3.0, same author, attributed in each file header:
 | `notebook/NotebookTab.tsx` | `index.tsx` | Modal editing and the command-mode keymap are SUNA's, verbatim in behaviour; the notebook list pane is new (SUNA opens notebooks from a file explorer this app does not have). |
 | `@suna/notebook` (the model) | `notebook.ts` | Only the model half. SUNA reimplements nbformat's serializer in TypeScript because its renderer writes the file; here `nbformat` does it server-side, so the rule that survives is "unknown keys are never dropped". |
 
-## Two defects this work found
+## Defects this work found
+
+Round one:
 
 1. **A reply could overtake the output it concludes.** A request ends on two channels — the shell
    `execute_reply` and the iopub `status: idle` — polled by two threads. Emitting the reply from the
@@ -56,6 +58,58 @@ Ported, GPL-3.0, same author, attributed in each file header:
    is `pm.project_dir`. Static reading had it wrong in the server *and* in the mock; running the real
    cell against the container returned the `AttributeError` that said so.
 
+Round two — none of these were visible to a unit test, and two were invisible to the mock e2e as
+well:
+
+3. **A notebook restart aborted the whole server.** Restart closed the ZMQ channels while the iopub
+   and shell pumps were still polling them. ZMQ sockets are not thread-safe, and libzmq's answer was
+   `Assertion failed: pfd.revents & POLLIN (src/signaler.cpp:238)` — the `tit.server` process gone,
+   every running job's API with it, because someone pressed Restart in a notebook. Pumps are now
+   stopped **and joined** before any socket is touched, and the client is rebuilt (the old session
+   key is stale after `restart_kernel`, which is where the preceding `Invalid Signature` came from).
+   Three tests pin the ordering. **Only a real kernel could produce this.**
+4. **The command-mode guard tested for a textarea.** `target.tagName === "TEXTAREA"` was true while a
+   cell was a textarea and false the moment it became a CodeMirror — so typing `print(` delivered
+   `r` to command mode, which re-typed the cell as **raw** and destroyed the editor mid-word.
+5. **⇥ closed the completion popup it should accept.** Typing already opens it; `startCompletion`
+   returns false when one is open, so ⇥ fell through to `indentWithTab` and dismissed it.
+6. **A completion range that filtered every option away.** The kernel replaces the whole dotted
+   expression, and CodeMirror filters options by matching the label against the replaced text — so
+   a label of `subject_ids` against `catalog.subj` matched nothing and the popup never appeared.
+   The range moves past the shared prefix instead.
+7. **`GET /api/notebooks/examples/getting-started.ipynb` 404'd.** A plain path parameter stops at a
+   separator, so the seeded example could not be opened at all. `{name:path}` now; the jail is
+   `normalise_name`, and always was.
+8. **The example produced no plot, and then produced two.** Without `%matplotlib inline` this
+   kernel's formatter offers a Figure only as `text/plain`; with it, a trailing bare `figure` puts
+   the same picture in the notebook twice.
+
+## Round two — the maintainer ran it (2026-09-06, later)
+
+Three reports, all reproduced and all fixed:
+
+1. **The starter cell raised.** It called `pm.project_root`; `PathManager` has `project_dir`. It now
+   imports `simnibs`, `tit.sim` and `tit.analyzer` and prints the project's real subjects, and
+   `test_every_name_the_starter_cell_uses_exists` checks every name it touches against the live API
+   so it cannot drift again.
+2. **Markdown rendered as one flat paragraph.** The renderer now does headings, lists, emphasis,
+   links, blockquotes, rules, fenced code in the mono face, GFM tables with alignment, and TeX
+   through **KaTeX** — the dependency SUNA already has, bundled rather than fetched from a CDN
+   (which the renderer CSP would have blocked silently).
+3. **"Prove simnibs and TI-Toolbox methods are usable."** `examples/getting-started.ipynb`, seeded
+   on a project's first listing: the environment, the project catalogue as a DataFrame,
+   `tit.calc.get_TI_vectors`, and a real TI field off disk summarised and plotted. Run end to end
+   against the container by `tests/e2e/real/notebooks.spec.ts`.
+
+Then a fourth report — *"add python highlighting or lsp like behavior plus... autocompletion"*:
+
+4. **Code cells are CodeMirror 6** with `lang-python`, palette from the app's own tokens.
+5. **Completion is answered by the running kernel** (`complete_request` over `/ws/kernels`), not by
+   a language server. `jedi 0.19.2` is already inside the container's `ipykernel`; nothing was
+   added to the image.
+6. **An editor settings popover** — autocompletion, signature help, brackets, line numbers, indent,
+   font size, wrap — persisted per machine.
+
 ## Commits
 
 | | |
@@ -65,46 +119,62 @@ Ported, GPL-3.0, same author, attributed in each file header:
 | `5e0e94cd` | `test(mock): notebook files and a fake kernel that echoes print() over /ws/kernels` |
 | `8a67eb76` | `feat(desktop): a Notebooks page — SUNA's notebook UI over the container's kernel` |
 | `20f84e3c` | `test(notebooks): mock e2e for the whole loop, real e2e for the tit import; starter cell uses pm.project_dir` |
-| (this note) | `docs(notebooks): ARCHITECTURE §7.6, DECISIONS, DESIGN §9.3, ROADMAP` |
+| `8f09d153` | `docs(notebooks): ARCHITECTURE 7.6, DECISIONS, DESIGN 9.3, ROADMAP, lane note` |
+| `544a3c9c` | `feat(notebooks): a real editor, kernel completion, settings, a worked example and proper markdown` |
+| `a4fafab8` | `fix(notebooks): restarting a kernel aborted the server; the example produced no plot` |
+| (this note) | `docs(notebooks): the editor, the kernel completer and the restart abort` |
 
 ## Gate
 
 | Check | Result |
 |---|---|
-| `python3 -m pytest tests/ -q -k "kernel or notebook"` | **54 passed** — 46 new (19 kernel + 27 notebook file/route) plus the 8 pre-existing pipeline-notebook-export tests the selector also matches |
-| `python3 dev/route_import_guard.py` | **23 route module(s) clean** — `kernels` 25 ms, `notebooks` 14 ms |
-| `python3 dev/build_contract.py` + `dev/contracts_check.py` (v1 vs `--dump-openapi`) | **0 findings on the new paths and schemas** |
-| `npm run gen:api` | regenerated; `schema.d.ts` carries the new paths |
-| `npx vitest run` | **1170 passed**; `tests/unit/retained-pages.test.tsx` fails to import (`matchMedia is not a function`, uplot at module scope) — **pre-existing, another lane's**: it fails identically with `pages/notebooks/` moved out of the tree |
+| `python3 -m pytest tests/ -q -k "kernel or notebook"` | **67 passed** |
+| `python3 dev/route_import_guard.py` | **24 route module(s) clean** |
+| `dev/build_contract.py` + `dev/contracts_check.py` (v1 vs `--dump-openapi`) | **0 findings** on the notebook and kernel paths |
+| `npm run gen:api` | regenerated |
+| `npx vitest run` | **1236 passed**; `tests/unit/retained-pages.test.tsx` fails to import (`matchMedia is not a function`, uplot at module scope) — **pre-existing, another lane's**: it fails identically with `pages/notebooks/` moved out of the tree |
 | `npx eslint src tests` | **0 errors** (3 pre-existing warnings) |
-| `npm run typecheck` | clean for this lane; `scene/SceneCanvas.tsx(403): Cannot find name 'positionNames'` is another lane's uncommitted WIP |
+| `npm run typecheck` | clean |
 | `npm run pree2e` (build) | succeeded |
-| `npx playwright test notebooks.spec.ts` (offscreen, mock) | **7 passed** — create → `print(1+1)` → `2`; markdown render + double-click edit; error traceback; interrupt; save/reload round trip; list/open/delete; `b` / `dd` / `z` / `m` |
-| `tests/e2e/real/notebooks.spec.ts` | **written, unrun** — see below |
+| `npx playwright test notebooks.spec.ts` (offscreen, mock) | **13 passed** |
+| `npx playwright test --project=real notebooks` (offscreen, dev container) | **6 passed** |
 
-`/tmp/tit-e2e.lock` was taken for the Playwright run and removed after.
+The mock suite covers: create → `print(1+1)` → `2`; markdown rendered (h1, bold, code) and edited on
+double-click; the example's headings, `<h2>`, ordered list, link, KaTeX display **and** inline maths
+(asserting the laid-out height, not just the class), a mono-face fenced block and a right-aligned
+table cell; an error traceback; interrupt; save/reload round trip; list/open/delete with the example
+sorted last; `b` / `dd` / `z` / `m`; **Python highlighting** (more than two computed colours in one
+cell, and no textarea left); **completion from the kernel** on typing and ⇥; a **dotted** completion
+showing the member and inserting the path; **settings** applied live and surviving a reload; and
+autocompletion **off** stopping the round trip.
+
+The real suite covers: the starter cell running green and printing the real project, SimNIBS version
+and subjects; the worked example running all four cells with a **matplotlib PNG** (asserted decoded,
+`naturalWidth > 200`) and **two DataFrame tables**; restart resetting the execution count to `[1]`;
+`from tit import get_pa` **completed by the real kernel** to `get_path_manager` and then running
+without error; Python highlighted; and deleting a notebook taking its own kernel with it.
+
+`/tmp/tit-e2e.lock` was taken for every Playwright run and removed after.
 
 ## Proved live against the dev container
 
-Before Docker Desktop stopped, `ti-toolbox-fad740e5-tit-1` was driven directly:
+`ti-toolbox-fad740e5-tit-1`, project `/mnt/000` (subjects `101`, `ernie`, `MNI152`):
 
-* `GET /api/notebooks` → `{"dir":"/mnt/000/code/ti-toolbox/notebooks","notebooks":[]}`
-* `POST /api/notebooks {"name":"lane-nb-check"}` → the starter notebook, written to the project
-* `POST /api/kernels` → a **real** kernel: `{"name":"simnibs","displayName":"SimNIBS + TI-Toolbox","cwd":"/mnt/000","state":"idle"}`
-* `WS /ws/kernels/{id}` with `from tit import get_path_manager` → the import **succeeded** and the
-  cell came back with a real IPython traceback, ANSI and all, for the wrong attribute on the next
-  line. That is the load-bearing proof: `tit` is importable on that kernel with nothing installed.
-* `POST /api/kernels/{id}/restart` → 200
-* The server's `--reload` restart shut its kernels down, which is the lifespan hook working.
+* The starter cell, run under the container's `simnibs_python`:
+  `project  /mnt/000` · `simnibs  4.6.0` · `subjects ['101', 'ernie', 'MNI152']` and each subject's
+  simulations (`ernie: ['BU_eg1', 'L_Insula', 'Thalamus', 'pc-real-99628']`).
+* The worked example, through the page: a `pandas` DataFrame as a real HTML table, the
+  `tit.calc.get_TI_vectors` envelope table, `3,668,232 non-zero voxels   mean 0.1019   p99 1.1612 V/m`
+  off `L_Insula_TI_MNI_MNI_TI_max.nii.gz`, and a 900×340 matplotlib figure inline as PNG.
+* Completion: `from tit import get_pa` + ⇥ → `get_path_manager`, answered by the kernel
+  (`jedi 0.19.2` inside the image's `ipykernel`; nothing added to the Dockerfile).
+* Restart, interrupt, delete, and the kernel cap — all through `/api/kernels`.
 
 ## Open
 
-1. **The real Playwright spec has not been run.** Docker Desktop stopped on the host at 20:15
-   (`~/.docker/run/docker.sock` gone, no `Docker Desktop` process) and `open -a Docker` did not bring
-   it back from this session. With the container up:
-   `TIT_E2E_SERVER_URL=http://127.0.0.1:8765 TIT_E2E_TOKEN=<token> npx playwright test --project real notebooks.spec.ts`.
-   The claim it adds over the direct driving above is that the *page* — not curl — runs the starter
-   cell and shows `project: /mnt/…`.
+1. **Signature help is half-built.** The preference, the server round trip (`inspect_request`,
+   `Session.inspect`) and its unit tests all exist; the CodeMirror tooltip that shows the reply
+   while typing arguments does not. ROADMAP item 3.
 2. **Jobs lost ⌘9** (DECISIONS, "Known consequence"). Ten workflow rows, nine digits. If that is the
    wrong trade, move `notebooks` to the end of `NAV_ORDER` — one line — rather than reinstating a
    `"10"` shortcut that no keyboard can send.
@@ -113,5 +183,9 @@ Before Docker Desktop stopped, `ti-toolbox-fad740e5-tit-1` was driven directly:
    `simnibs_python`, which is also the interpreter the server runs on. Making `jupyter_client`
    explicit in that `pip install` block would remove a transitive assumption; it was left alone
    because the Dockerfile is shared with another lane this session.
-4. **ROADMAP items 1–5** (LSP completions, cell highlighting, variable explorer, interactive plots,
-   the pipeline canvas's "save export here" button).
+4. **New dependencies, named as the brief asked.** `katex` (SUNA depends on it too) and six
+   `@codemirror/*` packages: `state`, `view`, `language`, `commands`, `autocomplete`,
+   `lang-python`. Nothing was added to the container image — `jedi` and `nbformat` were already
+   there, verified in the running container rather than assumed.
+5. **ROADMAP items 3–6** (signature-help tooltip, variable explorer, interactive plots, the
+   pipeline canvas's "save export here" button).

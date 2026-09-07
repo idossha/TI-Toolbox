@@ -650,3 +650,82 @@ highlighting is on the ROADMAP. **No new dependency was added for this feature.*
 back — which is how the starter cell was found to say `pm.project_root` when `PathManager`'s
 attribute is `pm.project_dir`. Static reading had it wrong in both the server and the mock; a
 driven run said so.
+
+## 2026-09-06 (NB lane, later) — the cell is a CodeMirror, and the kernel is the completer
+
+**Decision.** A code cell is **CodeMirror 6** with `@codemirror/lang-python`, whose highlight
+palette is built from the app's own CSS variables rather than a colour list. Completion is answered
+by the **running kernel** over the existing `/ws/kernels/{id}` socket (`complete_request`,
+`inspect_request`), surfaced through CodeMirror's autocompletion on ⇥ and ⌃Space. A sliders popover
+carries autocompletion, signature help, auto-close brackets, line numbers, indent size, font size
+and word wrap, persisted in `localStorage` like `app/executionPrefs.ts`. New dependencies: `katex`
+(which SUNA also depends on) and six `@codemirror/*` packages. ARCHITECTURE §7.6 rules 4–5.
+
+**Why the editor changed.** The first version shipped a `<textarea>` to avoid the dependency, and
+recorded that as a known limit. The maintainer's answer was that the cost was worth paying: a
+textarea cannot colour Python, cannot indent a block and has nowhere to put a completion popup, and
+"easier for users to develop" is the entire point of the page. A markdown cell is still a textarea
+— there is nothing to highlight in prose, and its rendered form is where the reading happens.
+
+**Why the kernel and not `pylsp`.** The image already has `python-lsp-server` and `jupyterlab-lsp`,
+and using them was the obvious move. It is the wrong one. A language server reads *files*; a
+notebook's meaning lives in an interpreter that has already run `from tit import catalog`, and only
+that interpreter can say what `catalog.` holds — it is the thing holding it. IPython answers
+`complete_request` from that live namespace using `jedi`, which is already inside `ipykernel`.
+So the choice was between a second process to install, configure and keep in sync with a namespace
+it cannot see, and one message on a socket that is already open. Verified in the container:
+`jedi 0.19.2`, and `from tit import get_pa` completes to `get_path_manager` against the real kernel.
+
+**Why the palette is variables.** `EditorView.theme` is compiled once, so a theme built from hex
+values would need a second palette and a rebuilt editor on every theme switch. Every rule resolves
+to `var(--…)` instead, so the editor follows light/dark with the rest of the app for free.
+
+**Markdown is KaTeX, bundled.** SUNA depends on `katex` and so does this. It is a real npm package
+compiled into the bundle, **not** a CDN script: the renderer's CSP forbids remote scripts and a
+`srcdoc` frame inherits that CSP, so a CDN would have drawn nothing and said nothing about it.
+
+**Four defects the driven runs found, none of which static reading would have.**
+
+- *A command-mode guard that tested for a textarea.* `onKeyDown` skipped the notebook's single-letter
+  keys when `target.tagName === "TEXTAREA"`. True for a textarea, false for CodeMirror's
+  contenteditable — so typing `print(` delivered `r` to command mode, which re-typed the cell as
+  **raw** and destroyed the editor under the author's cursor. The test is now "did this come from
+  inside an editor", which is what was always meant.
+- *Tab closing the popup it should accept.* Typing already opens the completion, so by the time ⇥
+  arrives there is one on screen; `startCompletion` returns false when one is open, and ⇥ then fell
+  through to `indentWithTab`, which indented **and** dismissed it. ⇥ now accepts, then swallows a
+  pending query, then starts one, and only then indents.
+- *A completion range that filtered every option away.* The kernel replaces the whole dotted
+  expression, so `catalog.subject_ids` replaced `catalog.subj`. CodeMirror filters options by
+  matching the label against the replaced text, so a label of `subject_ids` matched nothing and the
+  popup never appeared — while keeping the full label fixed the filter and made every option read
+  `catalog.…`. The **range** moves instead, past the prefix every match shares.
+- *A restart that aborted the server.* See below; it is the sharpest of the four.
+
+**Known consequence — a notebook restart could take the API down, and did.** Restart closed the ZMQ
+channels while the iopub and shell pumps were still polling them. ZMQ sockets are not thread-safe;
+libzmq's answer was `Assertion failed: pfd.revents & POLLIN (src/signaler.cpp:238)`, aborting the
+`tit.server` process — every running job's API, killed by a notebook button. The pumps are now
+stopped and joined before anything touches a socket, and the client is rebuilt because
+`restart_kernel` makes the old session key stale (which is where the preceding `Invalid Signature`
+came from). Three tests pin the ordering. **This was invisible to every unit test and to the mock
+e2e**, and only appeared when a real kernel was restarted in the container — D13's argument, again.
+
+**The example notebook, and why it is generated rather than shipped.** `examples/getting-started.ipynb`
+is written by the server on a project's first listing, because its cells resolve *this* project's
+subjects and plot the first TI field it actually has; a fixture in the image would name a project
+that does not exist yet, and a fixture in the repo would drift from the API it calls. Two things it
+taught: without `%matplotlib inline` this kernel's formatter offers a Figure only as `text/plain`
+(the cell printed `<Figure size 900x340>` and no picture), and *with* the magic a trailing bare
+`figure` puts the same picture in the notebook twice — once as `display_data`, once as the
+execute_result.
+
+**`GET /api/notebooks/examples/getting-started.ipynb` 404'd.** A plain path parameter stops at a
+separator, so the seeded example could not be opened at all. The routes take `{name:path}`. What
+keeps it safe is unchanged and was never the router's pattern: `normalise_name` accepts exactly one
+known prefix and refuses everything else.
+
+**Alternatives rejected.** *A CDN for KaTeX and for CodeMirror* — blocked by the CSP, silently.
+*Client-side static completion from a Python grammar* — it cannot see the namespace, which is the
+only thing that makes `tit.` completion worth having. *Settings on the server, per project* — these
+follow the person, not the project, so they are `localStorage` and not in the `.ipynb`.

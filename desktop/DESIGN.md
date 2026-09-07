@@ -987,6 +987,14 @@ group heading told the user a page belonged to a subject when it did not.
   other page — `pageHeaderHeight: 0`), and each page's one-line purpose moved into an info tooltip
   on its first section header rather than being lost. Panels remain standalone pages until folded.
 
+  **The Electrode Placement extension is not a panel at all.** Maintainer, 2026-09-06: *"just
+  enhance the simulator instead of actually embedding a complete extension for it."* The Simulator's
+  3-D pane draws the **selected subject's own head** (R4's guide rule holds everywhere else, and
+  holds here *because* of what it protects: a free-hand placement IS a subject-RAS millimetre, so
+  the page that collects one must draw the subject it belongs to), and a click on the scalp while
+  the free-hand editor is open fills the next position row — `pages/simulator/PARITY.md` has the
+  clause-by-clause table.
+
   **`panel-subject-info` is back** (maintainer, 2026-09-06: *"make sure that all of our extensions
   are migrated"*). It was deleted in the U7 round on the grounds that "its facts are Overview's",
   and for the project-wide presence grid that was true — but the Qt extension's other half,
@@ -1108,8 +1116,18 @@ cells in one scroller.
   · success · accent · danger` for `off · starting · idle · busy · dead`, and pulsing only while
   starting — the one state the author is waiting on.
 - **A cell is a gutter and a body.** The gutter is 52 px: a run button that appears on hover and the
-  execution count, `[ ]` / `[*]` / `[7]`. The body is an auto-sizing textarea (no cell scrolls
-  inside itself) and, beneath it, the outputs.
+  execution count, `[ ]` / `[*]` / `[7]`. The body is the editor and, beneath it, the outputs.
+- **A code cell is a CodeMirror; a markdown cell is a textarea.** Prose has nothing to highlight,
+  and its rendered form is where the reading happens. The Python palette is six token roles and no
+  more — keyword, string, number, comment, definition, class — each mapped to a §3 token, because a
+  cell is read next to prose and output and a nine-colour theme in that context is noise.
+- **Completion is the kernel's answer, and the popup says so by what it lists.** ⇥ accepts, then
+  starts; ⌃Space asks explicitly. An option shows the member (`subject_ids`), never the path that
+  reached it (`catalog.subject_ids`), or every option in a dotted completion reads alike.
+- **The editor settings are a sliders popover**, the same gesture as the per-job dialogs (§5), and
+  every control writes straight through — no Save, because nothing here belongs to the document.
+  Font size is one variable on the notebook root, so a cell and the traceback it produced are never
+  two different sizes.
 - **The selected cell is marked by a 2 px accent rule on its left edge and the raised surface**,
   never by an outline: the scroller holds focus in command mode, and a focus ring on it would say
   the wrong thing.
@@ -1117,8 +1135,13 @@ cells in one scroller.
   invert it into something the paper will never look like.
 - **stderr is `--warning`, not `--danger`.** Every `logging` call lands there, and painting them as
   failures would cry wolf. Only an `error` output gets the danger rule.
-- Every colour in `notebooks.css` is a §3 token, including the sixteen ANSI classes the traceback
-  parser emits — a traceback belongs to this app's palette rather than importing a terminal's.
+- **Rendered markdown is the sans face at 13px/1.6**, with headings stepping down by ratio rather
+  than by browser default (a cell's `h1` must not shout over the page), fenced code and maths in
+  the mono face, and tables ruled in `--line`.
+- Every colour in `notebooks.css` and in the editor's theme is a §3 token — including the sixteen
+  ANSI classes the traceback parser emits, and CodeMirror's own chrome. A traceback belongs to this
+  app's palette rather than importing a terminal's, and the editor follows the light/dark switch
+  with everything else because its rules resolve to `var(--…)` rather than to compiled colours.
 
 
 ## 10. Viewer
