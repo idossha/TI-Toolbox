@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PageIdContext, clearPageSession } from "../../src/renderer/app/pageSession";
 import { FreehandEditor } from "../../src/renderer/pages/simulator/FreehandEditor";
+import { FreehandDraftProvider } from "../../src/renderer/pages/simulator/freehandDraft";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -36,7 +37,13 @@ describe("Free-hand source draft", () => {
     act(() => root.render(
       <QueryClientProvider client={queryClient}>
         <PageIdContext.Provider value="simulator">
-          {show && <FreehandEditor subjects={["ernie"]} onClose={() => {}} />}
+          {/* The provider is at the SimulatorPage root and unmounts with it, so it goes inside the
+              toggle: this is the page leaving and coming back, not a child re-rendering. */}
+          {show && (
+            <FreehandDraftProvider>
+              <FreehandEditor subjects={["ernie"]} onClose={() => {}} />
+            </FreehandDraftProvider>
+          )}
         </PageIdContext.Provider>
       </QueryClientProvider>,
     ));

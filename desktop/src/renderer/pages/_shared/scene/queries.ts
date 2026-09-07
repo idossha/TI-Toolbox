@@ -19,6 +19,8 @@ import {
   getSceneElectrodes,
   getSceneManifest,
   getSceneRegions,
+  labelsUrl,
+  surfaceUrl,
   type SceneElectrodes,
   type SceneManifest,
   type SceneRegions,
@@ -70,6 +72,52 @@ export function useSceneRegions(subject: string | null, atlas: string | null): U
     retry: retryScene,
     refetchInterval: (query) => (query.state.status !== "error" && query.state.data?.building ? POLL_MS : false),
     staleTime: 5 * 60_000,
+  });
+}
+
+/**
+ * Both surfaces of one **subject**, decoded — the subject counterpart of `useGuideSurfaces`.
+ *
+ * Why the Simulator wants this and R4's guide-only rule still stands elsewhere: a free-hand
+ * placement is a coordinate *in the subject's own head mesh* (`m2m_<id>/stim_configs/*.json`, the
+ * format `tit/gui/extensions/electrode_placement.py` wrote and `tit/catalog.py::_read_freehand_file`
+ * reads). A millimetre picked off the packaged guide is a millimetre in a different head, and
+ * nothing downstream can detect the substitution — which is exactly why `<ScenePane>` refuses to
+ * emit a coordinate while it is drawing the guide. Drawing the subject is what makes the gesture
+ * *possible*, so the pane may only place electrodes when these hooks are the ones feeding it.
+ *
+ * Unlike the guide's, these bytes are not immutable — a re-run of `charm` changes them — so they
+ * carry a finite `staleTime` rather than `Infinity`.
+ */
+const SUBJECT_SURFACE_QUERY = { staleTime: 30 * 60_000, gcTime: 60 * 60_000, retry: retryScene } as const;
+
+export function useSceneSurfaces(subject: string | null, parts: { id: string; url: string }[]): UseQueryResult<Tvsc1 | null>[] {
+  return useQueries({
+    queries: parts.map((part) => ({
+      queryKey: ["scene", "surface", subject, part.id],
+      queryFn: () => getGuideTvsc(part.url),
+      enabled: !!subject,
+      ...SUBJECT_SURFACE_QUERY,
+    })),
+  });
+}
+
+/** `parts[]` of a SUBJECT manifest reduced to what `useSceneSurfaces` needs, memoised for the same
+ *  reason `useGuideSurfaceRequests` is: a fresh array every render re-keys every surface query. */
+export function useSceneSurfaceRequests(subject: string | null, manifest: SceneManifest | undefined): { id: string; url: string }[] {
+  return useMemo(
+    () => (!subject || !manifest ? [] : (manifest.parts ?? []).map((part) => ({ id: String(part.id), url: surfaceUrl(subject, String(part.id)) }))),
+    [subject, manifest],
+  );
+}
+
+/** The subject's per-vertex atlas labels aligned to its `gm`, as TVSC1. */
+export function useSceneLabels(subject: string | null, atlas: string | null, ready: boolean): UseQueryResult<Tvsc1 | null> {
+  return useQuery({
+    queryKey: ["scene", "labels", subject, atlas],
+    queryFn: () => getGuideTvsc(labelsUrl(subject as string, atlas as string)),
+    enabled: !!subject && !!atlas && ready,
+    ...SUBJECT_SURFACE_QUERY,
   });
 }
 

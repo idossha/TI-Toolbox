@@ -35,15 +35,18 @@ import {
   type Bounds,
   type LegendEntry,
   type PickTarget,
+  type ScenePick,
   type ScenePart,
   type SceneSelection,
+  type Vec3,
+  EMPTY_SELECTION,
 } from "../../../scene";
 import { usePageActive } from "../../../app/pageActivity";
 import { Skeleton } from "../../../ui/Feedback";
 import { Button } from "../../../ui/Button";
 import { Select } from "../../../ui/Select";
 import { ChannelLegend } from "../../../ui/ChannelLegend";
-import { SceneError, type SceneLegendRow } from "./api";
+import { SceneError, type GuideManifest, type SceneLegendRow, type SceneManifest } from "./api";
 import {
   DEFAULT_OPACITY,
   SCENE_PALETTE,
@@ -68,6 +71,12 @@ import {
   useGuideRegions,
   useGuideSurfaceRequests,
   useGuideSurfaces,
+  useSceneElectrodes,
+  useSceneLabels,
+  useSceneManifest,
+  useSceneRegions,
+  useSceneSurfaceRequests,
+  useSceneSurfaces,
 } from "./queries";
 import "./scene-pane.css";
 
@@ -75,14 +84,35 @@ export type ScenePaneMode = "montage" | "target" | "inspect";
 
 /** What a click does. Derived from the mode and from which writer the page supplied — one gesture
  *  is live at a time, so the pane can always say in one phrase what a click will do. */
-export type SceneGesture = "electrode" | "region" | "none";
+export type SceneGesture = "electrode" | "region" | "place" | "none";
 
 export interface ScenePaneProps {
   mode: ScenePaneMode;
+  /**
+   * Draw **this subject's own head** instead of the packaged guide.
+   *
+   * The guide is still the default and still the right answer for a page that only ever names
+   * things (R4: a fresh project has no head model, ticking a second subject would start a
+   * cache-cold extraction of a 184 MB mesh, and a coordinate picked off one subject's anatomy
+   * could otherwise be written into a run on another). It stops being the right answer the moment
+   * a page needs a **coordinate**: a free-hand placement is a millimetre in the subject's own head
+   * mesh (`m2m_<id>/stim_configs/*.json`), and there is no way to produce one from `guide-ras`.
+   *
+   * So this prop and `onPlace` travel together: passing a subject is what makes placement possible,
+   * and the pane refuses to emit a coordinate while it is drawing the guide. A subject with no
+   * scene (no head model, or a build that failed) falls back to the guide and the pane says so in
+   * its own hint rather than showing an error.
+   */
+  subject?: string | null;
+  /**
+   * A click on the anatomy reports the world point under the cursor, in the drawn subject's own
+   * millimetres. Honoured **only** while a subject is being drawn (see `subject`).
+   */
+  onPlace?: (world: Vec3) => void;
+  /** Page-supplied markers, drawn instead of an EEG net's — the free-hand positions being placed. */
+  placedMarkers?: SceneMarker[];
   /*
-   * There is deliberately no `subject`, `unavailable`, `sphere` or `onSphereChange` prop: the pane
-   * draws the fixed guide, so nothing here is keyed on a subject, and a sphere centre is a
-   * subject-RAS coordinate that `guide-ras` millimetres are in no position to produce.
+   * There is deliberately still no `unavailable`, `sphere` or `onSphereChange` prop.
    */
   /** `montage`: the EEG net file name the manifest lists (`"EEG10-10_UI_Jurak_2007.csv"`). */
   net?: string | null;
@@ -115,14 +145,14 @@ export interface ScenePaneProps {
 export interface ScenePaneDebug {
   mode: ScenePaneMode;
   gesture: SceneGesture;
-  /** Always `null`: the pane draws no research subject. Kept so the specs' shape does not churn. */
+  /** The research subject being drawn, or `null` when the pane is on the guide. */
   subject: string | null;
   net: string | null;
   atlas: string | null;
   state: "loading" | "ready" | "error";
-  /** The guide the pane drew, e.g. `"ernie"` — never a research subject id. */
+  /** The guide the pane drew, e.g. `"ernie"`, or `null` when it drew a research subject. */
   guide: string | null;
-  /** The guide manifest's own coordinate space. Always `"guide-ras"`; never `"subject-ras"`. */
+  /** The drawn manifest's own coordinate space: `"guide-ras"`, or `"subject-ras"` for a subject. */
   space: string | null;
   message: string | null;
   parts: { id: string; triangles: number; vertices: number; labelled: boolean }[];
@@ -164,12 +194,18 @@ const NO_MARKERS: SceneMarker[] = [];
  */
 const CANVAS_MODE: Record<SceneGesture, "montage" | "target" | "inspect"> = {
   electrode: "montage",
+  // `place` picks nothing selectable — the point of the click is WHERE it landed, which
+  // `onPickAt` reports whatever the mode's rules say is pickable.
+  place: "inspect",
   region: "target",
   none: "inspect",
 };
 
 export function ScenePane({
   mode,
+  subject = null,
+  onPlace,
+  placedMarkers,
   net = null,
   atlas = null,
   onAtlasChange,
@@ -185,11 +221,37 @@ export function ScenePane({
   // Three panes are mounted at once (one per retained run page). Only the visible one publishes the
   // `window.__scene` / `window.__scenePane` handles, so a spec never reads a hidden pane's state.
   const pageActive = usePageActive();
-  const gesture: SceneGesture = mode === "montage" ? "electrode" : onRegionsChange ? "region" : "none";
 
-  const manifest = useGuideManifest();
-  const manifestData = manifest.data;
-  const guideId = manifestData?.guide?.id ?? null;
+  /**
+   * Which head is on screen. A subject is drawn only once its own manifest has arrived and is not
+   * still building — until then, and for ever if the subject has no head model, the guide is what
+   * the pane shows, so a page that asks for a subject is never left with an empty stage.
+   */
+  const subjectManifest = useSceneManifest(subject);
+  const guideManifest = useGuideManifest();
+  const drawnSubject = subject && subjectManifest.data && !subjectManifest.data.building ? subject : null;
+  const manifest = drawnSubject ? subjectManifest : guideManifest;
+  const manifestData = manifest.data as GuideManifest | SceneManifest | undefined;
+  const guideId = drawnSubject ? null : (guideManifest.data?.guide?.id ?? null);
+
+  /**
+   * A placement gesture needs a real head to pick a millimetre off; on the guide it is refused.
+   *
+   * `placedMarkers` without `onPlace` is the read-only case — a saved free-hand set shown where it
+   * will stimulate. It picks nothing: the dots are coordinates, not electrode names, so an
+   * electrode gesture over them would write a millimetre's label into a montage pair.
+   */
+  const showingPlacements = !!placedMarkers;
+  const gesture: SceneGesture =
+    onPlace && drawnSubject
+      ? "place"
+      : showingPlacements
+        ? "none"
+        : mode === "montage"
+          ? "electrode"
+          : onRegionsChange
+            ? "region"
+            : "none";
 
   /**
    * The atlas the pane draws. Always one in `target`/`inspect`, even when the form has no atlas of
@@ -208,20 +270,32 @@ export function ScenePane({
     [onAtlasChange],
   );
 
-  const surfaceRequests = useGuideSurfaceRequests(manifestData);
-  const surfaces = useGuideSurfaces(surfaceRequests);
+  // Both hook sets always run (a `useQueries` with an empty list issues nothing), so switching
+  // between the guide and a subject never changes the hook order.
+  const guideRequests = useGuideSurfaceRequests(drawnSubject ? undefined : guideManifest.data);
+  const guideSurfaces = useGuideSurfaces(guideRequests);
+  const subjectRequests = useSceneSurfaceRequests(drawnSubject, subjectManifest.data);
+  const subjectSurfaces = useSceneSurfaces(drawnSubject, subjectRequests);
+  const surfaceRequests = drawnSubject ? subjectRequests : guideRequests;
+  const surfaces = drawnSubject ? subjectSurfaces : guideSurfaces;
 
   /** Only a net the MANIFEST lists is fetched; a catalog net the guide does not have is a note,
    *  not an error — the montage still works perfectly well from the form. */
   const netListed = mode === "montage" && !!net && (manifestData?.nets.some((entry) => entry.name === net) ?? false);
   const netMissing = mode === "montage" && !!net && !!manifestData && !netListed;
-  const electrodes = useGuideElectrodes(netListed ? net : null);
-  const regionsQuery = useGuideRegions(effectiveAtlas);
+  const guideElectrodes = useGuideElectrodes(!drawnSubject && netListed ? net : null);
+  const subjectElectrodes = useSceneElectrodes(drawnSubject, netListed ? net : null);
+  const electrodes = drawnSubject ? subjectElectrodes : guideElectrodes;
+  const guideRegionsQuery = useGuideRegions(drawnSubject ? null : effectiveAtlas);
+  const subjectRegionsQuery = useSceneRegions(drawnSubject, effectiveAtlas);
+  const regionsQuery = drawnSubject ? subjectRegionsQuery : guideRegionsQuery;
   const legend = useMemo<SceneLegendRow[]>(
     () => (regionsQuery.data ? (regionsQuery.data.legend as SceneLegendRow[]) : []),
     [regionsQuery.data],
   );
-  const labels = useGuideLabels(effectiveAtlas, legend.length > 0);
+  const guideLabels = useGuideLabels(drawnSubject ? null : effectiveAtlas, legend.length > 0);
+  const subjectLabels = useSceneLabels(drawnSubject, effectiveAtlas, legend.length > 0);
+  const labels = drawnSubject ? subjectLabels : guideLabels;
 
   // ---- geometry ------------------------------------------------------------------------------
   /**
@@ -287,12 +361,14 @@ export function ScenePane({
         color: SCENE_PALETTE.skin,
         // Opaque under the electrodes (they sit ON it and one round the back must be hidden by
         // it); faint when the cortex is what the user is aiming at.
-        opacity: gesture === "electrode" ? 1 : (DEFAULT_OPACITY.skin ?? 0.22),
+        // Opaque while electrodes are being read off it OR placed on it: a translucent scalp
+        // hides the markers round the back, and a click has to land on the surface the user sees.
+        opacity: gesture === "electrode" || gesture === "place" || showingPlacements ? 1 : (DEFAULT_OPACITY.skin ?? 0.22),
         order: 1,
       });
     }
     return out.length > 0 ? out : NO_PARTS;
-  }, [gmData, skinData, labelData, alignment.aligned, gesture]);
+  }, [gmData, skinData, labelData, alignment.aligned, gesture, showingPlacements]);
 
   const box6 = (box: number[] | null | undefined): Bounds | undefined =>
     box && box.length === 6 ? (box as Bounds) : undefined;
@@ -332,7 +408,9 @@ export function ScenePane({
     setCursor(firstEmptySlot(activePairs));
   }
 
-  const markers = gesture === "electrode" ? electrodeMarkers : NO_MARKERS;
+  /** When the page supplies markers they ARE the markers — the positions it is collecting, or the
+   *  saved set it is showing — and the net's electrodes stand down. */
+  const markers = placedMarkers ?? (gesture === "electrode" ? electrodeMarkers : NO_MARKERS);
 
   // ---- selection -----------------------------------------------------------------------------
   const formRegions = useMemo<SceneRegionRef[]>(() => regions ?? [], [regions]);
@@ -340,6 +418,9 @@ export function ScenePane({
     if (gesture === "electrode") {
       return { markers: markerIndicesFor(electrodeMarkers, placedElectrodes(activePairs)), regions: [] };
     }
+    // A placed position is not "selected" — every one of them is equally real, and colouring one
+    // of them differently would say a pair had been chosen when none has.
+    if (gesture === "place") return EMPTY_SELECTION;
     return { markers: [], regions: wireLabelsFor(legend, formRegions) };
   }, [gesture, electrodeMarkers, activePairs, legend, formRegions]);
 
@@ -368,6 +449,23 @@ export function ScenePane({
       // produce a coordinate, because these millimetres are `guide-ras`.
     },
     [gesture, electrodeMarkers, onPairsChange, onRequestPairs, activePairs, cursor, legend, formRegions, onRegionsChange],
+  );
+
+  /**
+   * Where the click landed, not what it hit (`ScenePick.world`). The renderer reads the depth its
+   * own pick pass rasterised, so this is a point ON the drawn anatomy — the skin, in practice,
+   * because in `place` the skin is opaque and drawn in front of everything else.
+   *
+   * Guarded on `drawnSubject` a second time, deliberately: `gesture` already encodes it, and a
+   * coordinate written into a run on the wrong head is wrong in a way nothing downstream can
+   * detect, so the guard that prevents it is stated where the number is emitted.
+   */
+  const onPickAt = useCallback(
+    (pick: ScenePick) => {
+      if (gesture !== "place" || !drawnSubject || !pick.world) return;
+      onPlace?.(pick.world);
+    },
+    [gesture, drawnSubject, onPlace],
   );
 
   const [hovered, setHovered] = useState<string | null>(null);
@@ -467,6 +565,14 @@ export function ScenePane({
         : `Click an electrode to fill ${slotLabel(activePairs, cursor)}.`;
     }
     if (gesture === "region") return "Click a region to add or remove it from the ROI.";
+    if (gesture === "place") return `Click the scalp to place the next electrode on ${drawnSubject}.`;
+    if (showingPlacements) return `${placedMarkers.length} placed positions${drawnSubject ? ` on ${drawnSubject}` : ""}.`;
+    if (subject && !drawnSubject) {
+      return subjectManifest.error
+        ? `${subject} has no head model to draw yet — showing the reference head instead.`
+        : `Building ${subject}'s head model for the preview — showing the reference head meanwhile.`;
+    }
+    if (drawnSubject) return `${drawnSubject}'s own head model.`;
     return "Reference anatomy — a guide for choosing names, not this subject's head.";
   })();
 
@@ -476,7 +582,7 @@ export function ScenePane({
     const handle: ScenePaneDebug = {
       mode,
       gesture,
-      subject: null,
+      subject: drawnSubject,
       guide: guideId,
       space: manifestData?.space ?? null,
       net: mode === "montage" ? net : null,
@@ -503,7 +609,7 @@ export function ScenePane({
     return () => {
       if (window.__scenePane === handle) delete window.__scenePane;
     };
-  }, [pageActive, mode, gesture, guideId, manifestData, net, effectiveAtlas, state, message, parts, markers.length, legend, selection, selectedRegionRows, hovered]);
+  }, [pageActive, mode, gesture, drawnSubject, guideId, manifestData, net, effectiveAtlas, state, message, parts, markers.length, legend, selection, selectedRegionRows, hovered]);
 
   const atlasOptions = useMemo(
     () => (manifestData?.atlases ?? []).map((entry) => ({ value: String(entry.id), label: String(entry.id) })),
@@ -556,12 +662,13 @@ export function ScenePane({
             publishDebugHandle={pageActive}
             selection={selection}
             onPick={onPick}
+            onPickAt={onPickAt}
             onHoverChange={onHoverChange}
             bounds={bounds}
             focus={focus}
             legend={paneLegend}
             labelColors={labelColors}
-            label={`${guideId ?? "guide"} head model`}
+            label={`${drawnSubject ?? guideId ?? "guide"} head model`}
           />
         ) : (
           <div className="scene-pane-placeholder" data-testid="scene-pane-placeholder">

@@ -212,3 +212,21 @@ export const CONDUCTIVITY_OPTIONS = [
   { value: "dir", label: "Anisotropic (direct)" },
   { value: "mc", label: "Anisotropic (mean conductivity)" },
 ];
+
+
+/**
+ * What the 3-D pane is showing for the job row the user clicked.
+ *
+ * Two shapes in one type because the pane takes both: a *named montage* is `net` + `pairs`
+ * (electrode names on that net), a *free-hand set* is `positions` (millimetres in `subject`'s own
+ * head mesh). `subject` is on both, because since 2026-09-06 the pane draws the row's own subject
+ * rather than the packaged guide, and a coordinate is only meaningful against the head it came
+ * from.
+ */
+export interface MontagePreview {
+  name: string;
+  subject?: string;
+  net?: string;
+  pairs?: [string, string][];
+  positions?: { label?: string; x: number; y: number; z: number }[];
+}

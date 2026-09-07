@@ -53,6 +53,30 @@ fix:pages-a 2026-08-27 after the contract lane's reconciliation narrowed `Freeha
 `"xyz"|"label"` to the real on-disk `"U"|"M"` values (`tit/catalog.py::_read_freehand_file`); the
 previous `xyz`/`label` guess (keyed off whether any position had a label) no longer type-checks.
 
+## Electrode Placement extension (`tit/gui/extensions/electrode_placement.py`, 1091 lines)
+
+Migrated **into this page**, not as a panel of its own — maintainer, 2026-09-06: *"For the
+electrode placement extension, please just enhance the simulator instead of actually embedding a
+complete extension for it. Instead of having our default subject in the simulator, we should just
+load the selected subject such that the user can click on the surface of the skin in the simulator
+tab when the free hand is selected and by that they can insert the electrode coordinates."*
+
+| PyQt (2.5.0) | v3 | Status |
+|---|---|---|
+| Its own window with a subject combo, an OpenGL widget and a marker table | The Simulator's own 3-D pane and the free-hand editor's table, which are now two views of one array (`freehandDraft.tsx`) | done |
+| `loadSurfaces()` reads `m2m_<id>/<id>.msh` and draws skin + GM | `<ScenePane subject={…}>` → `/api/scene/*` (the server extracts; 1.4 MB of skin crosses the wire, not a 184 MB mesh) | done |
+| Double-click ray-casts the skin and appends a marker | Single click; the world point is the depth the renderer's own pick pass rasterised (`ScenePick.world`), in the head mesh's own millimetres — the frame `stim_configs/*.json` stores | done |
+| `E<n>+ / E<n>-` naming by row index, per-pair marker colours | `freehandPlacement.ts::autoLabel` + `placementMarkers`, coloured by `channel` (the pane's Okabe-Ito pair hues) | done |
+| `deleteChecked` renumbers the remaining markers | `removeAt` = filter + `renumber`; the dot goes with the row | done |
+| Editable X/Y/Z cells | The editor's `NumberInput`s, unchanged — a click and a typed millimetre write the same rows | done |
+| "Export Configuration" → name + `U`/`M` prompt → `stim_configs/<name>.json` | "Save placement" → `PUT /api/catalog/freehand/{name}`, `type` derived from the pair count | done |
+| EEG-cap overlay (`loadEEGCap`) | The pane's own net electrodes, from the row's EEG net | done |
+| Its own trackball camera, mesh loader and normals | `renderer/scene/` | done |
+
+Not carried over: the extension's per-marker **checkbox column** (v3 removes one row at a time from
+a table that is four rows long) and its standalone subject combo (the placement's subject is the
+editor's own field, and it is what the pane draws).
+
 ## Reported gaps (not fixable inside `pages/simulator/**`)
 
 1. **RESOLVED, verified fix:pages-a 2026-08-27.** A `Select`/`Popover`/`Combobox` popover used to

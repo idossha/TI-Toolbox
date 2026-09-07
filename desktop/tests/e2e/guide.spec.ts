@@ -14,6 +14,14 @@
  *    back out of the TVSC1 header rather than off the manifest;
  *  - a click on one subject's anatomy could write a subject-RAS millimetre into another subject's
  *    configuration → **a guide click updates names, never coordinates**.
+ *
+ * **The Simulator is the deliberate exception** (maintainer, 2026-09-06: *"instead of having our
+ * default subject in the simulator, we should just load the selected subject such that the user
+ * can click on the surface of the skin"*). A free-hand placement IS a subject-RAS millimetre, so
+ * the page that collects one has to draw the subject it belongs to — which is exactly the
+ * condition R4's last clause states, read the other way round. Everything below is therefore
+ * asserted on the **Optimizer**, whose target is a name or a sphere and which still draws the
+ * guide; the Simulator's own behaviour is `simulator-placement.spec.ts`.
  */
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -70,6 +78,12 @@ test.afterAll(async () => {
 });
 
 test("the pane draws the guide, and says so rather than naming the subject", async () => {
+  await gotoPage(page, "optimizer", "Optimizer");
+  await expectPage(page, "optimizer");
+  await expectRunPaneTab(page, "scene");
+  await expect(page.locator('[data-page-panel="optimizer"]').getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready", {
+    timeout: 20_000,
+  });
   const debug = await page.evaluate(() => {
     const handle = window.__scenePane;
     if (!handle) throw new Error("window.__scenePane is absent — build out/ with VITE_SCENE_HOOKS=1");
@@ -83,9 +97,9 @@ test("the pane draws the guide, and says so rather than naming the subject", asy
 });
 
 test("changing the selected subjects costs zero guide requests and zero remounts", async () => {
-  const simulator = page.locator('[data-page-panel="simulator"]');
-  const original = await simulator.getByTestId("scene-canvas").elementHandle();
-  if (!original) throw new Error("the Simulator scene canvas is missing");
+  const optimizer = page.locator('[data-page-panel="optimizer"]');
+  const original = await optimizer.getByTestId("scene-canvas").elementHandle();
+  if (!original) throw new Error("the Optimizer scene canvas is missing");
 
   guideRequests = [];
   // Every way a page changes its subject set: the palette's global subject, and the page's own
@@ -105,10 +119,10 @@ test("changing the selected subjects costs zero guide requests and zero remounts
   expect(await original.evaluate((node) => node.isConnected)).toBe(true);
   expect(
     await original.evaluate(
-      (node) => node === document.querySelector('[data-page-panel="simulator"] [data-testid="scene-canvas"]'),
+      (node) => node === document.querySelector('[data-page-panel="optimizer"] [data-testid="scene-canvas"]'),
     ),
   ).toBe(true);
-  await expect(simulator.getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready");
+  await expect(optimizer.getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready");
   await original.dispose();
 });
 
@@ -191,7 +205,9 @@ test("an electrode pick writes a NAME into the montage form", async () => {
     if (!best) throw new Error("no marker in front of the camera");
     return { id: best.id, x: best.projection.x, y: best.projection.y };
   });
-  const box = await page.getByTestId("scene-canvas").boundingBox();
+  // Scoped to the Simulator's own pane: the Optimizer's is retained and mounted by the tests
+  // above, and both canvases carry the same testid.
+  const box = await page.locator('[data-page-panel="simulator"]').getByTestId("scene-canvas").boundingBox();
   if (!box) throw new Error("the scene canvas has no bounding box");
   await page.mouse.click(box.x + aim.x, box.y + aim.y);
 

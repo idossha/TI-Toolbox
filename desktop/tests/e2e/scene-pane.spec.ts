@@ -129,7 +129,7 @@ test.afterAll(async () => {
   await app?.close();
 });
 
-test("the pane draws the packaged guide with our own renderer — no iframe anywhere", async () => {
+test("the pane draws the subject's own head with our own renderer — no iframe anywhere", async () => {
   await expectRunPaneTab(page, "scene");
   const host = page.locator('[data-page-panel="simulator"]').getByTestId("scene-pane-host");
   await expect(host).toHaveAttribute("data-renderer", "native");
@@ -152,11 +152,14 @@ test("the pane draws the packaged guide with our own renderer — no iframe anyw
       firstPaintMs: number | null;
     };
   });
-  expect(debug).toMatchObject({ mode: "montage", gesture: "electrode", markers: 185, subject: null });
-  // The guide, named — and its space said out loud, because a consumer that mistakes `guide-ras`
-  // for a research subject's RAS writes a silently wrong coordinate.
-  expect(debug.guide).toBe("ernie");
-  expect(debug.space).toBe("guide-ras");
+  expect(debug).toMatchObject({ mode: "montage", gesture: "electrode", markers: 185, subject: "ernie" });
+  // Since 2026-09-06 the Simulator draws the SUBJECT (maintainer: "instead of having our default
+  // subject in the simulator, we should just load the selected subject") — a free-hand placement
+  // is a millimetre in this head and in no other. `guide` is therefore null here, and the space is
+  // said out loud either way, because a consumer that mixes the two writes a silently wrong
+  // coordinate. The guide's own gate is `guide.spec.ts`, on the Optimizer.
+  expect(debug.guide).toBeNull();
+  expect(debug.space).toBe("subject-ras");
   expect(debug.parts.map((part) => part.id).sort()).toEqual(["gm", "skin"]);
   expect(debug.firstPaintMs).not.toBeNull();
 });

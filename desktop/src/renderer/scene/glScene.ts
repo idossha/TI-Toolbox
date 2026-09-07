@@ -1046,6 +1046,24 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
     options: PickOptions,
     surface: Program,
     marker: Program,
+    /**
+     * This is the **depth** run of the sequence, not the id run.
+     *
+     * The two runs answer different questions and therefore need different geometry. The id run may
+     * only rasterise a surface that can name a region. The depth run answers "where did I click",
+     * and the honest answer is the frontmost surface the user can actually SEE — so it adds every
+     * surface that is **opaque**, and still skips the translucent ones, which are veils being
+     * looked through rather than things being aimed at.
+     *
+     * Both halves are a measured defect. Gating the depth run on `hasLabels` made `pick.world`
+     * null for every click on the scalp, which is the whole of the Simulator's free-hand placement
+     * (2026-09-06: every scalp click left the position row at 0). Including the translucent skin
+     * put the sphere centre 35 mm in front of the cortex the user was aiming at
+     * (`scene.spec.ts`'s "reports where the click landed"), because the pane draws the scalp at
+     * 0.22 exactly so the cortex can be aimed at through it. Opacity is the signal that separates
+     * them, and it is the same signal the eye uses.
+     */
+    depthPass = false,
   ): void {
     const { vp, view, vpPushed, viewPushed } = matrices;
     // The surfaces are drawn when a region is selectable **or** when a depth is being read, and the
@@ -1060,7 +1078,11 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       const kind = surface.uniforms.uKind;
       if (kind) gl.uniform1ui(kind, PICK_KIND_REGION);
       for (const uploaded of ordered()) {
-        if (uploaded.hasLabels) drawSurface(uploaded, surface, null);
+        // Id run: only a labelled surface can produce a region id — an unlabelled one would write
+        // label 0 and resolve as a region nobody clicked. Depth run: every surface the user can
+        // see through no veil, i.e. every labelled one plus every opaque one.
+        const opaque = (opacity.get(uploaded.part.id) ?? uploaded.part.opacity) >= 1;
+        if (uploaded.hasLabels || (depthPass && opaque)) drawSurface(uploaded, surface, null);
       }
     }
     if (options.markers) {
@@ -1347,7 +1369,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
         gl.clearColor(1, 1, 1, 1);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         gl.clearColor(0, 0, 0, 0);
-        drawPickSequence(matrices, options, surfaceDepthProgram, markerDepthProgram);
+        drawPickSequence(matrices, options, surfaceDepthProgram, markerDepthProgram, true);
         gl.readPixels(devX, readY, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
         const packed = decodePackedDepth(pixel);
         ndcDepth = packed >= 1 - 1e-6 ? null : packed * 2 - 1;

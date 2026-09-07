@@ -23,12 +23,15 @@ import {
   emptyRow,
   isRunnableRow,
   type JobSettings,
+  type MontagePreview,
   type MontageSource,
   type SelectedRow,
 } from "./types";
 import { RunPanel, RunWork, planDigest, stepsFor } from "../_shared/run";
 import { ScenePane, withSlot } from "../_shared/scene";
 import type { GlobalParams } from "./buildConfig";
+import { FreehandDraftProvider, useFreehandDraft } from "./freehandDraft";
+import { placementMarkers, savedMarkers } from "./freehandPlacement";
 
 /** The primary's label, from the plan. */
 export function runLabelFor(rowCount: number): string {
@@ -97,11 +100,12 @@ function SimulatorPage() {
   // Click-to-visualise: the job row the user clicked, drawn on the guide pane as its net's
   // electrodes plus its own pairs — read-only (no `onPairsChange`), so looking at a chosen montage
   // can never edit it. The draft, when one is open, is what the pane is FOR and wins.
-  const [montagePreview, setMontagePreview] = useState<{ net: string; name: string; pairs: [string, string][] } | null>(null);
+  const [montagePreview, setMontagePreview] = useState<MontagePreview | null>(null);
   const [activeSource, setActiveSource] = useState<MontageSource | null>(null);
   /** The row whose own settings are being edited (`null` = the dialog is closed). */
   const [settingsRowId, setSettingsRowId] = useState<string | null>(null);
   const scenePane = usePaneController({ pageId: "simulator", name: "run" });
+  const freehand = useFreehandDraft();
 
   const jobSubjects = useMemo(() => jobSubjectsFrom(subjects), [subjects]);
   const usable = useMemo(() => jobSubjects.filter((s) => !s.blockedReason).map((s) => s.id), [jobSubjects]);
@@ -157,6 +161,21 @@ function SimulatorPage() {
     const fresh = emptyDraft();
     setMontageDraft({ ...fresh, pairs: withSlot(fresh.pairs, 0, electrode) });
   }
+  /**
+   * **Which head the pane draws.** The free-hand editor's subject while it is open — a placement is
+   * a coordinate in that subject's own mesh and in no other — then the previewed row's subject,
+   * then the shell's. `null` falls the pane back to the packaged guide, which is still the right
+   * answer for a project whose head models do not exist yet.
+   */
+  const sceneSubject =
+    (freehand.open ? (freehand.subject ?? usable[0]) : null) ?? montagePreview?.subject ?? shellSubject ?? usable[0] ?? null;
+
+  /** The dots: the rows being placed, or the saved set the previewed job row runs. */
+  const placedDots = useMemo(
+    () => (freehand.open ? placementMarkers(freehand.positions) : montagePreview?.positions ? savedMarkers(montagePreview.positions) : undefined),
+    [freehand.open, freehand.positions, montagePreview],
+  );
+
   const runButton = (
     <RunButton
       rows={runnableRows}
@@ -198,15 +217,31 @@ function SimulatorPage() {
             scene={
               <ScenePane
                 mode="montage"
+                /* The subject's own scalp, so a click on it is a millimetre in the head the job
+                   runs on (maintainer, 2026-09-06). The guide remains the fallback and remains
+                   what the Optimizer and the Analyzer draw. */
+                subject={sceneSubject}
+                onPlace={freehand.open ? freehand.place : undefined}
+                placedMarkers={placedDots}
                 net={(montageDraft ? montageNet : (montagePreview?.net ?? montageNet)) ?? null}
                 pairs={montageDraft?.pairs ?? (previewIsMontage ? montagePreview?.pairs : undefined)}
-                showing={previewIsMontage && !montageDraft && montagePreview ? { montage: montagePreview.name, net: montagePreview.net } : null}
+                showing={
+                  !montageDraft && montagePreview
+                    ? montagePreview.positions
+                      ? /* A free-hand set has no net; say what it IS, so the chip never reads
+                           "Showing: my_set · undefined". */
+                        { montage: montagePreview.name, net: `${montagePreview.positions.length} placed positions` }
+                      : previewIsMontage && montagePreview.net
+                        ? { montage: montagePreview.name, net: montagePreview.net }
+                        : null
+                    : null
+                }
                 onPairsChange={montageDraft ? setDraftPairs : undefined}
                 onRequestPairs={startDraftFromScene}
                 note={
-                  previewIsMontage
+                  freehand.open || previewIsMontage || montagePreview?.positions
                     ? undefined
-                    : "Flex and free-hand jobs carry their own electrode positions — the preview shows the net, not the run."
+                    : "Flex jobs carry their own electrode positions — the preview shows the net, not the run."
                 }
               />
             }
@@ -284,6 +319,19 @@ function SimulatorPage() {
   );
 }
 
+/**
+ * The free-hand draft is provided ABOVE the page so the 3-D pane (rendered from
+ * `PageLayout`'s `rightPane`) and the editor's table are two views of one array — a click on the
+ * scalp and a typed millimetre are the same act. See `freehandDraft.tsx`.
+ */
+function SimulatorPageWithFreehandDraft() {
+  return (
+    <FreehandDraftProvider>
+      <SimulatorPage />
+    </FreehandDraftProvider>
+  );
+}
+
 const page: PageDef = {
   id: "simulator",
   title: "Simulator",
@@ -293,7 +341,7 @@ const page: PageDef = {
   icon: Zap,
   // DESIGN.md §9 binding shortcut map: Simulator is Cmd/Ctrl+3.
   shortcut: "3",
-  Component: SimulatorPage,
+  Component: SimulatorPageWithFreehandDraft,
   enabled: true,
 };
 

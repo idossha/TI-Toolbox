@@ -18,8 +18,8 @@ import { NumberInput } from "../../ui/NumberInput";
 import { Select } from "../../ui/Select";
 import { Card, CardHeader, CardBody } from "../../ui/Layout";
 import { notify } from "../../ui/Toast";
-import { usePageSession } from "../../app/pageSession";
-import { putFreehand, type ElectrodePosition, type FreehandConfig } from "./api";
+import { putFreehand, type FreehandConfig } from "./api";
+import { useFreehandDraft } from "./freehandDraft";
 
 
 /** Matches `Montage.simulation_mode`: 2 or 4+ pairs, i.e. 4 or 8+ positions (an even count). */
@@ -27,16 +27,21 @@ function isValidPositionCount(n: number): boolean {
   return n % 2 === 0 && (n / 2 === 2 || n / 2 >= 4);
 }
 
-const EMPTY_POSITION: ElectrodePosition = { label: "", x: 0, y: 0, z: 0 };
-
 export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjects: string[]; onClose: () => void }) {
   const queryClient = useQueryClient();
 
-  const [editSubject, setEditSubject] = usePageSession<string | undefined>("freehand.subject", undefined);
-  const [name, setName] = usePageSession("freehand.name", "");
-  const [positions, setPositions] = usePageSession<ElectrodePosition[]>("freehand.positions", () => [
-    { ...EMPTY_POSITION }, { ...EMPTY_POSITION }, { ...EMPTY_POSITION }, { ...EMPTY_POSITION },
-  ]);
+  // One draft for the page (see `freehandDraft.tsx`): the 3-D pane writes into the same rows this
+  // table edits, so a click on the scalp and a typed number are the same act.
+  const {
+    subject: editSubject,
+    setSubject: setEditSubject,
+    name,
+    setName,
+    positions,
+    setPositions,
+    remove,
+    reset,
+  } = useFreehandDraft();
 
   const activeEditSubject = editSubject ?? selectedSubjects[0];
 
@@ -50,7 +55,7 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
     },
     onSuccess: () => {
       notify.success(`Saved free-hand configuration "${name.trim()}" for ${activeEditSubject}.`);
-      setName("");
+      reset();
       // The job row's Montage cell reads this key, so it picks the new set up straight away.
       void queryClient.invalidateQueries({ queryKey: ["freehand", activeEditSubject] });
       onClose();
@@ -118,7 +123,9 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
                       aria-label={`Remove position ${i + 1}`}
                       icon={<Trash2 size={14} />}
                       disabled={positions.length <= 2}
-                      onClick={() => setPositions((p) => p.filter((_, idx) => idx !== i))}
+                      /* Removing a row renumbers the rest (2.5.0's `deleteChecked`) and drops its
+                         dot from the pane, because the dots are derived from these rows. */
+                      onClick={() => remove(i)}
                     />
                   </td>
                 </tr>
@@ -128,7 +135,7 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
         </div>
         {!validCount && <span className="field-error">Use 4 positions (2 pairs, standard TI) or 8 or more (4+ pairs, multi-channel mTI).</span>}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "var(--space-3)" }}>
-          <Button variant="ghost" size="sm" icon={<Plus size={14} />} onClick={() => setPositions((p) => [...p, { ...EMPTY_POSITION }])}>
+          <Button variant="ghost" size="sm" icon={<Plus size={14} />} onClick={() => setPositions((p) => [...p, { label: "", x: 0, y: 0, z: 0 }])}>
             Add position
           </Button>
           <div style={{ display: "flex", gap: "var(--space-2)" }}>

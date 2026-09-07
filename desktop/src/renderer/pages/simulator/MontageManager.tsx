@@ -38,10 +38,10 @@ import { ElectrodePairsEditor, type ElectrodePair } from "../../ui/ElectrodePair
 import { notify } from "../../ui/Toast";
 import { NumberInput } from "../../ui/NumberInput";
 import { channelCss } from "../_shared/scene/model";
-import { usePageSession } from "../../app/pageSession";
 import { deleteMontage, getEegNets, getFlexMapping, getFlexRuns, getFreehand, getMontages, putMontage, type FlexRun, type FreehandConfig } from "./api";
 import { OPTIMIZED, placementsFor, type FlexPlacement } from "./FlexTab";
 import { FreehandEditor } from "./FreehandEditor";
+import { useFreehandDraft } from "./freehandDraft";
 import "./simulator-page.css";
 import {
   SOURCE_OPTIONS,
@@ -58,6 +58,7 @@ import {
   settingsSummary,
   type JobSettings,
   type MontageKind,
+  type MontagePreview,
   type MontageSource,
   type SelectedRow,
 } from "./types";
@@ -403,7 +404,7 @@ export interface JobsTableProps {
    * as idle dots, its own pairs coloured by channel) — visual confirmation of a job that is
    * already configured, not an editor. `null` when no row is active or the row has no net.
    */
-  onPreviewChange?: (preview: { net: string; name: string; pairs: [string, string][] } | null) => void;
+  onPreviewChange?: (preview: MontagePreview | null) => void;
   /** The source of the active row, so the page can note that flex/free-hand carry their own
    *  coordinates rather than the previewed net's. */
   onActiveSourceChange?: (source: MontageSource | null) => void;
@@ -476,7 +477,9 @@ export function JobsTable({
    * of their own (maintainer, 2026-09-06). Only one editor is open at a time; the fact one is open
    * is page-session state so the page comes back as the user left it.
    */
-  const [freehandOpen, setFreehandOpen] = usePageSession("freehand.open", false);
+  // The draft itself (open, subject, name, rows) is the page's, not this table's: the 3-D pane
+  // writes into the same rows. See `freehandDraft.tsx`.
+  const { open: freehandOpen, setOpen: setFreehandOpen } = useFreehandDraft();
   /** The row the 3-D pane is drawing. Click a row (not a control in it) to change it. */
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -738,9 +741,25 @@ export function JobsTable({
   const activeName = activeRow?.name;
   const activePairs = activeRow?.pairs;
   const activeSource = activeRow?.source ?? null;
+  const activeSubject = activeRow?.subjectId;
+  // A free-hand row's positions are already resolved on the row (`xyzPairs`), so a saved set can be
+  // drawn on the subject's scalp without a second request — "what will this job actually stimulate"
+  // answered by the same click that selects it. Serialised as the dependency because `xyzPairs` is
+  // a fresh nested array on every patch.
+  const activeXyz = activeSource === "freehand" ? JSON.stringify(activeRow?.xyzPairs ?? []) : "";
   useEffect(() => {
-    onPreviewChange?.(activeNet && activeName && activePairs?.length ? { net: activeNet, name: activeName, pairs: activePairs } : null);
-  }, [activeNet, activeName, activePairs, onPreviewChange]);
+    if (activeXyz && activeName && activeSubject) {
+      const pairs = JSON.parse(activeXyz) as [[number, number, number], [number, number, number]][];
+      return onPreviewChange?.({
+        name: activeName,
+        subject: activeSubject,
+        positions: pairs.flat().map(([x, y, z]) => ({ x, y, z })),
+      });
+    }
+    onPreviewChange?.(
+      activeNet && activeName && activePairs?.length ? { net: activeNet, name: activeName, subject: activeSubject, pairs: activePairs } : null,
+    );
+  }, [activeNet, activeName, activePairs, activeSubject, activeXyz, onPreviewChange]);
   useEffect(() => {
     onActiveSourceChange?.(activeSource);
   }, [activeSource, onActiveSourceChange]);
