@@ -184,6 +184,7 @@ limit for run pages is 45%.
 | 2026-09-05 (tetravox/pipeline) | 3741 passed | 84 files / 949 tests | 195 passed / 3 skipped |
 | 2026-09-06/07 (native panes, CX5) | 3970 passed / 36 skipped | 105 files / 1275 tests | 285 passed, quiet-check PASS |
 | 2026-09-07 (external audit, CX6) | 4069 passed / 37 skipped | 109 files / 1304 tests | 317 passed / 2 skipped |
+| 2026-09-07 (docs/launch consolidation, CX7) | 4141 passed / 37 skipped | 109 files / 1304 tests | 322 passed / 2 skipped |
 
 The 2026-09-06/07 row is the whole-program gate: typecheck clean, lint 0 errors (3
 pre-existing React-Compiler warnings), route-import guard 23 modules, `dev/contracts_check.py`
@@ -276,3 +277,40 @@ overflowing onto the next card so its Add button was unclickable (`d9773780`), a
 Gate progression across the program's four consolidation passes: host pytest 3,662 → 3,970 →
 **4,069 passed**; desktop vitest 1,039 → 1,275 → **1,304** across 88 → 105 → **109** files;
 offscreen mock e2e 208 → 285 → **317 passed**.
+
+### CX7 consolidation gate
+
+Run after the docs/dev fold (24 → 9 files), the website pass and the launch-path work landed.
+
+| Gate | Command | Result |
+|---|---|---|
+| Typecheck (node + web) | `npm run typecheck` | clean |
+| Lint | `npm run lint` | **0 errors**, the same 3 React-Compiler `incompatible-library` warnings |
+| Desktop unit | `npx vitest run` | **1,304 passed** across **109 files**, 6.1 s |
+| Host Python | `python3 -m pytest tests -q` | **4,141 passed**, 37 skipped, 21 deselected, 87.5 s |
+| Container numerical | `docker exec … simnibs_python -m pytest tests/numerical -q` | **94 passed**, 1.6 s |
+| Container jobs/kernels/server/launch | `… -m pytest tests/test_jobs_* tests/test_kernels* tests/test_server* tests/test_launch* -q` | **387 passed**, 32.1 s |
+| Contract | `dev/contracts_check.py` | OK — 10 operations, 9 schemas |
+| Route imports | `dev/route_import_guard.py` | 23 modules clean, 8.9–67.1 ms each |
+| Workflows | `actionlint` | clean |
+| Site build | `bundle exec jekyll build` (Homebrew Ruby 3.3.10) | done in 1.67 s |
+| Site links | internal-link scan over `docs/_site` | **195 pages, 0 dead links** outside the vendored `docs/api/` mkdocs tree, whose 123 are its `_`-prefixed assets Jekyll excludes — pre-existing since `574f0a55` |
+| Mock e2e | `TIT_E2E_OFFSCREEN=1 npm run e2e:quiet` | **322 passed**, 2 skipped, 4.3–4.4 min, quiet-check PASS |
+| Real e2e — docs shots | `npx playwright test --project=real tests/e2e/real/docs-shots.spec.ts` | **7 passed**, 1.1 min, quiet-check PASS |
+| Real e2e — UI subset | 9 real specs (tetravox, viewer-open, notebooks, montage-shape, page-memory, scene-atlas-border, scene-electrodes, analyzer-targets, flex-result-selection) | **23 passed**, 1.6 min, quiet-check PASS |
+| Build of record | `pnpm run build` | `index-rKWxRs7Q.js` (3,351.54 kB), served by `ti-toolbox-fad740e5-tit-1` |
+
+**The mock suite is flaky at roughly 1 test in 325, and it is a different test each run.** Two full
+runs: the first failed `pipeline-ux.spec.ts` "⌘Z steps through the history" (2 nodes where 1 was
+expected), the second `page-memory.spec.ts` "changing another tab's subject" (the Viewer's atlas
+select still reading its `Atlas…` placeholder instead of `Server default`). Each passes standalone
+and in its own file — `pipeline-ux.spec.ts` 26 passed, three times in a row; `page-memory.spec.ts`
+12 passed, 1 skipped. Both are queries not yet settled at the 5 s expect timeout in a four-minute
+serial run, not product defects, and neither test's code path was touched by this lane. The real
+fix is a per-assertion wait, not a longer global timeout; it is not attempted here.
+
+`docs-shots.spec.ts` rewrites all 16 `docs/assets/imgs/v3/*.png` on every run, and on this machine
+it writes them at roughly 2.5× the committed byte size (70 kB vs 28 kB for `overview.png`) — a
+device-scale difference, not a UI change. They were reverted, not committed: the website lane's
+images are the ones of record.
+

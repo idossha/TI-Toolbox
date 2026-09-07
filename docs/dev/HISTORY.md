@@ -357,6 +357,41 @@ Six of the reds were not in the audit at all; the gate found them because it ran
   the row has produced. They looked like environment trouble because they only ever ran in the real
   leg, which no lane ran on every change.
 
+### Addendum — what landed after the audit, and the consolidation gate (CX7)
+
+Four more programs closed on the same day, and CX7 gated all of them together
+(`BENCHMARKS.md` § CX7 consolidation gate).
+
+- **The exposure science** (`1694c69f`, `4483df4b`) — SCI-07 and SCI-08, written up in
+  `SCIENTIFIC-CORRECTIONS.md` and measured in `BENCHMARKS.md`. `tests/numerical` carries the
+  independent-reader checks: 94 passed.
+- **`docs/dev/` folded from 24 files to 9** (7 commits) and `dev/notes/` and `dev/spikes/` deleted.
+  The fold left ~60 citations in `tit/`, `tests/`, `desktop/`, `contracts/` and `TODO.md` naming
+  paths that no longer existed — **a documentation consolidation is not finished when the documents
+  are merged; it is finished when nothing still cites the merged-away name.** CX7 repointed them
+  from the retired-paths table in `docs/dev/README.md`, and `git grep "docs/dev/"` now resolves to
+  the nine live files everywhere outside that table.
+- **The website pass** (6 commits) — every v3 tool has a wiki page, and the 16 screenshots come from
+  `desktop/tests/e2e/real/docs-shots.spec.ts` against the real container, so they are reproducible.
+  Gotcha: **`docs-shots.spec.ts` rewrites all 16 PNGs on every run, at this machine's device scale**
+  (~2.5× the committed byte size). Running the spec to check it passes dirties the tree; revert the
+  images unless you meant to re-shoot the site.
+- **Three documented ways to run v3** (`f22115e5`, `a5141503`, `a30546b2`) — `tit/launch.py`,
+  `tit/cli.py`, `ti-toolbox.sh` and the `scripts/dev.ts` messages, with `browser-mode.spec.ts`
+  driving the UI with no Electron bridge. 387 container tests cover jobs, kernels, server and launch.
+
+Two contract-level staleness fixes fell out of the gate rather than out of a program.
+`ARCHITECTURE.md` §7.4 still specified `pages/_shared/run/Receipt` in a `PageLayout` `receipt`
+slot — removed 2026-09-06, recorded in `DESIGN.md` §4.8, and never propagated to the contract or to
+`DECISIONS.md`. **A reversal recorded in one document is not recorded.** §7.4 now describes the two
+renderings that ship and `DECISIONS.md` carries the tombstone. And `docs/_data/nav.yml` still called
+the rewritten launcher page "Bash/CLI Usage".
+
+The gate's own finding: **the mock e2e suite is flaky at about 1 test in 325, and it is a different
+test each run** — `pipeline-ux` once, `page-memory` the next — each passing standalone and in its own
+file. Both are 5 s expect timeouts in a four-minute serial run, not product defects. Do not chase the
+name of the test; the pattern is the finding.
+
 ---
 
 ## Pre-v3 backend defect reports (2026-08), rechecked 2026-09-07
