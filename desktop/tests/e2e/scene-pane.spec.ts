@@ -181,6 +181,49 @@ test("clicking the electrode the projection aims at is the electrode the montage
   await expect(page.getByTestId("scene-pane-host")).toHaveAttribute("data-active-channel", /^\d$/);
 });
 
+test("changing the EEG net leaves the camera exactly where the user put it", async () => {
+  // The reported defect: "when placing a new net or selecting a new net in the simulator, it
+  // should not change the orientation of the 3D visualization. Right now it snaps it to a
+  // different orientation." The pane re-framed on its fit points, and those are rebuilt whenever
+  // the marker set changes.
+  await page.waitForFunction(() => window.__scene?.camera.settled === true, null, { timeout: 20_000 });
+  const box = await canvasBox();
+  const centre = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  await page.mouse.move(centre.x, centre.y);
+  await page.mouse.down();
+  await page.mouse.move(centre.x + 140, centre.y + 50, { steps: 10 });
+  await page.mouse.up();
+  await page.waitForFunction(() => window.__scene?.camera.settled === true, null, { timeout: 20_000 });
+
+  const before = (await readScene()).camera;
+  const netCell = page.locator("tr[data-montage-row]").first().locator('td[data-cell="net"]').getByRole("combobox");
+  await netCell.click();
+  const options = page.getByRole("option");
+  const names = await options.allInnerTexts();
+  const other = names.map((name) => name.trim()).find((name) => name && name !== NET);
+  expect(other, "the guide catalog offers only one net — this spec needs two").toBeTruthy();
+  const markersBefore = await page.evaluate(() => window.__scenePane?.markers ?? 0);
+  await page.getByRole("option", { name: other!, exact: true }).click();
+  // Wait for the pane to have actually redrawn the OTHER net, so the assertion below is about a
+  // net change that happened rather than about one that never arrived.
+  await expect.poll(() => page.evaluate(() => window.__scenePane?.net ?? null), { timeout: 20_000 }).toBe(other);
+  await expect
+    .poll(() => page.evaluate(() => window.__scenePane?.markers ?? 0), { timeout: 20_000 })
+    .not.toBe(markersBefore);
+
+  const after = (await readScene()).camera;
+  expect({ yaw: after.yaw, pitch: after.pitch, distance: after.distance, target: after.target }).toEqual({
+    yaw: before.yaw,
+    pitch: before.pitch,
+    distance: before.distance,
+    target: before.target,
+  });
+
+  // Put the montage back on the net the rest of the file is written against.
+  await netCell.click();
+  await page.getByRole("option", { name: NET, exact: true }).click();
+});
+
 test("a region picked in the scene is the region the ROI picker lists", async () => {
   await gotoPage(page, "optimizer", "Optimizer");
   await expectPage(page, "optimizer");
@@ -256,4 +299,29 @@ test("a region chosen in the ROI picker is highlighted by the pane", async () =>
   ]);
   expect(regions).toContain(next.label);
   expect(selected.map((r) => `${r.hemi}:${r.id}`)).toContain(next.key);
+});
+
+test("the grey matter is opaque everywhere, with the skin the only surface that has a slider", async () => {
+  // The maintainer's call (2026-09-06): the cortex is what the user is aiming at, so it is never a
+  // veil over something behind it, and there is no control that could make it one again. Checked on
+  // all three run pages because each mounts its own pane.
+  for (const [pageId, title] of [
+    ["simulator", "Simulator"],
+    ["optimizer", "Optimizer"],
+    ["analyzer", "Analyzer"],
+  ] as const) {
+    await gotoPage(page, pageId, title);
+    const panel = page.locator(`[data-page-panel="${pageId}"]`);
+    await expect(panel.getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready", { timeout: 20_000 });
+    const gm = await page.evaluate(() => {
+      const scene = window.__scene;
+      if (!scene) throw new Error("window.__scene is absent — was out/ built with VITE_SCENE_HOOKS=1?");
+      return scene.parts.find((part) => part.id === "gm") ?? null;
+    });
+    expect(gm, `${pageId} draws no grey matter`).not.toBeNull();
+    expect(gm!.opacity, `${pageId} draws translucent grey matter`).toBe(1);
+    await expect(panel.getByRole("slider", { name: "GM opacity", exact: true })).toHaveCount(0);
+    await expect(panel.getByRole("slider", { name: "Skin opacity", exact: true })).toHaveCount(1);
+  }
+  await gotoPage(page, "simulator", "Simulator");
 });

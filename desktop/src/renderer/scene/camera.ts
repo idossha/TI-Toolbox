@@ -603,3 +603,39 @@ export function dampCamera(current: OrbitCamera, goal: OrbitCamera, dtMs: number
   if (done) return { camera: { ...goal }, settled: true };
   return { camera: { target, distance, yaw, pitch, fovY: goal.fovY }, settled: false };
 }
+
+// ---------------------------------------------------------------------------------------------
+// When a re-frame is honest
+// ---------------------------------------------------------------------------------------------
+
+/** The subset of a scene part this signature reads. */
+export interface FramingPart {
+  id: string;
+  positions: ArrayLike<number>;
+}
+
+/**
+ * A string that changes only when the framing GEOMETRY changes — a different guide or subject, a
+ * surface appearing or disappearing — and stays identical across everything else a pane does while
+ * a user is working in it: a new EEG net, a montage pair being edited, an electrode toggled, an
+ * atlas swapped onto the same cortex, an opacity slider.
+ *
+ * Framing is re-run on this key rather than on the point arrays themselves because those arrays are
+ * rebuilt (new identities, same silhouette) whenever the marker set changes, and re-framing there
+ * is the pane snapping back to the default view under a user who had just orbited it
+ * (`tests/unit/scene-framing-stability.test.ts`).
+ *
+ * Markers are deliberately absent: they are framed on at first load, and moving them never re-frames.
+ */
+export function framingSignature(bounds: Bounds, parts: ReadonlyArray<FramingPart>): string {
+  const box = bounds.map((v) => (Number.isFinite(v) ? v.toFixed(3) : "x")).join(",");
+  const geometry = parts.map((part) => {
+    const n = part.positions.length;
+    // Length plus the two extreme vertices: two different heads with identical vertex counts still
+    // differ here, and no in-place recolouring of the same surface does.
+    const head = n >= 3 ? `${part.positions[0]},${part.positions[1]},${part.positions[2]}` : "";
+    const tail = n >= 3 ? `${part.positions[n - 3]},${part.positions[n - 2]},${part.positions[n - 1]}` : "";
+    return `${part.id}:${n}:${head}:${tail}`;
+  });
+  return `${box}|${geometry.join("|")}`;
+}

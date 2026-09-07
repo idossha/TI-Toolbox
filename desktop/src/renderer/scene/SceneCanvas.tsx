@@ -28,6 +28,7 @@ import {
   boundsRadius,
   dampCamera,
   frameDistance,
+  framingSignature,
   orbitBy,
   panBy,
   presetCamera,
@@ -587,7 +588,11 @@ export function SceneCanvas({
     setOpacities((previous) => {
       const next: Record<string, number> = {};
       for (const part of parts) {
-        const value = previous[part.id] ?? DEFAULT_OPACITY[part.id] ?? part.opacity;
+        // A locked part ignores anything the page-session remembered: a stale value from before it
+        // was locked must never make it translucent again.
+        const value = part.opacityLocked
+          ? part.opacity
+          : (previous[part.id] ?? DEFAULT_OPACITY[part.id] ?? part.opacity);
         next[part.id] = value;
         scene.setOpacity(part.id, value);
       }
@@ -606,24 +611,42 @@ export function SceneCanvas({
     requestFrame();
   }, [markersOccluded, requestFrame, webgl2]);
 
-  // Frame the scene when the geometry changes — i.e. a different subject, or a first load. Not on
-  // selection changes: re-framing under the user's hand is how a 3D pane becomes unusable.
+  /**
+   * What the resize handler refits against, kept current every render. Assigned here rather than in
+   * the framing effect below because that effect deliberately does NOT run on every geometry
+   * change, and a resize must still refit against the points actually on screen.
+   */
   useEffect(() => {
     framingRef.current = { bounds: framingBounds, points: fitPoints };
+  }, [framingBounds, fitPoints]);
+
+  /**
+   * Frame the scene when the geometry changes — a different guide or subject, or a first load.
+   * Never on a marker, selection, atlas or opacity change: `fitPoints` is a fresh array whenever
+   * the montage's markers change, so keying the effect on it re-framed the pane every time the user
+   * picked an EEG net or toggled an electrode, throwing away the view they had orbited to.
+   */
+  const framingKey = useMemo(() => framingSignature(framingBounds, parts), [framingBounds, parts]);
+  useEffect(() => {
+    const framing = framingRef.current;
+    if (!framing) return;
     const size = sizeRef.current;
     const camera = presetCamera(
       "reset",
-      framingBounds,
+      framing.bounds,
       size.widthCss / Math.max(1, size.heightCss),
       DEFAULT_FOV_Y,
-      fitPoints,
+      framing.points,
     );
     goalRef.current = camera;
     cameraRef.current = camera;
     settledRef.current = true;
     framedRef.current = true;
+    setPreset("reset");
     requestFrame();
-  }, [fitPoints, framingBounds, requestFrame]);
+    // `framingKey` is the honest dependency: it changes exactly when the geometry does, and the
+    // points themselves are read from `framingRef` so a marker change cannot drag a re-frame in.
+  }, [framingKey, requestFrame]);
 
   useEffect(() => {
     const scene = sceneRef.current;
@@ -847,6 +870,9 @@ export function SceneCanvas({
     [applyPreset, onSelectionChange, radius, rules, setGoal],
   );
 
+  /** The surfaces that get a slider. The grey matter is locked opaque and has none. */
+  const adjustableParts = useMemo(() => parts.filter((part) => !part.opacityLocked), [parts]);
+
   const setOpacity = useCallback((partId: string, value: number) => {
     setOpacities((previous) => ({ ...previous, [partId]: value }));
     sceneRef.current?.setOpacity(partId, value);
@@ -873,7 +899,7 @@ export function SceneCanvas({
           id: part.id,
           triangles: part.indices.length / 3,
           vertices: part.positions.length / 3,
-          opacity: opacities[part.id] ?? part.opacity,
+          opacity: part.opacityLocked ? part.opacity : (opacities[part.id] ?? part.opacity),
         }));
       },
       get markers() {
@@ -1075,7 +1101,7 @@ export function SceneCanvas({
           )}
         </div>
         <div className="scene-opacity" data-testid="scene-opacity">
-          {parts.map((part) => (
+          {adjustableParts.map((part) => (
             <div key={part.id} className="scene-opacity-row">
               <span className="scene-opacity-label">{part.label}</span>
               <Slider
