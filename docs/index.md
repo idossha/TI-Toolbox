@@ -11,25 +11,16 @@ layout: home
 <p class="home-section__title">Quick start</p>
 <ol class="quickstart" markdown="1">
 <li markdown="1">
-**Install Dependencies** Docker required for running the toolbox environment and optional X11 server.
+**Install Docker Desktop.** It is the only prerequisite. No X11 server, no XQuartz, no VcXsrv — v3 removed all of it.
 </li>
 <li markdown="1">
-**Install TI-Toolbox:**<br>
-A. Desktop Executable:
-Download and run the executable version of the latest release [here](https://github.com/idossha/TI-toolbox/releases/latest).<br>
-B. CLI Entry:
-Download the two files below to a designated directory.
-- **[loader.py](https://github.com/idossha/TI-toolbox/blob/main/loader.py)** - Main launch script
-- **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)** - Docker configuration
-
-```bash
-python3 loader.py            # or: python3 loader.py --project-dir /path/to/project
-```
-The loader starts the containers and drops you into a shell inside `simnibs_container`; type `GUI` to open the graphical interface (see [Bash/CLI Usage]({{ site.baseurl }}/installation/bash-cli/)).
+**Install the TI-Toolbox desktop app.**<br>
+Download the installer for your platform from the [latest release](https://github.com/idossha/TI-toolbox/releases/latest) — `.dmg` (macOS), `.exe` (Windows), `.AppImage` or `.deb` (Linux). On first launch it pulls the toolbox image and starts the container for you.<br>
+Prefer the command line? `loader.py` + `docker-compose.yml` still start the same stack — see [Bash/CLI Usage]({{ site.baseurl }}/installation/bash-cli/).
 </li>
 <li markdown="1">
-**Set up your project directory**
-- Point the toolbox at a project folder. Example data ships with the toolbox, so you can get familiar with the software right away.
+**Point it at a project folder.**
+Any [BIDS](https://bids.neuroimaging.io/) directory. The [Overview]({{ site.baseurl }}/wiki/overview/) page then tells you what each subject already has and what it is ready for. Example data ships with the toolbox, so you can get familiar with the software right away.
 </li>
 <li markdown="1">
 **Optional: connect your AI assistant** — install the [TI-Toolbox plugin]({{ site.baseurl }}/wiki/ai-assistant/) so Claude Code, Codex or Cursor can answer questions from the wiki, write scripts, and troubleshoot your project.
@@ -43,28 +34,36 @@ The loader starts the containers and drops you into a shell inside `simnibs_cont
   <div class="carousel-wrapper">
     <div class="carousel-images">
       <div class="carousel-slide active">
+        <img src="{{ site.baseurl }}/assets/imgs/v3/overview.png" alt="The Overview page">
+        <p>Overview: what every subject in the project has, and what it is ready for</p>
+      </div>
+      <div class="carousel-slide">
+        <img src="{{ site.baseurl }}/assets/imgs/v3/simulator.png" alt="The Simulator page">
+        <p>Simulator: one row per job, with the montage drawn on the head beside it</p>
+      </div>
+      <div class="carousel-slide">
+        <img src="{{ site.baseurl }}/assets/imgs/v3/viewer.png" alt="The Viewer showing a TI field in Tetravox">
+        <p>The viewer is Tetravox, shipped in the image and drawn in the app window — no install, no X11</p>
+      </div>
+      <div class="carousel-slide">
+        <img src="{{ site.baseurl }}/assets/imgs/v3/optimizer.png" alt="The Optimizer page with an interactive atlas">
+        <p>Optimizer: flex and exhaustive electrode search, with the atlas you are targeting in front of you</p>
+      </div>
+      <div class="carousel-slide">
+        <img src="{{ site.baseurl }}/assets/imgs/v3/pipeline.png" alt="The Pipeline canvas">
+        <p>Pipeline: wire the steps into a graph, run it as one job group, or export it as a notebook</p>
+      </div>
+      <div class="carousel-slide">
+        <img src="{{ site.baseurl }}/assets/imgs/v3/notebooks.png" alt="A notebook with a plotted field and tables">
+        <p>Notebooks: Jupyter on the container&#39;s SimNIBS Python, with your project already resolved</p>
+      </div>
+      <div class="carousel-slide">
+        <img src="{{ site.baseurl }}/assets/imgs/v3/jobs.png" alt="The Jobs page">
+        <p>Jobs: every run recorded — state, stage, logs, artifacts, cancel and rerun</p>
+      </div>
+      <div class="carousel-slide">
         <img src="{{ site.baseurl }}/assets/imgs/blender/visual_exporter_vectors_close.png" alt="Vector Field Visualization">
         <p>High-resolution electric field vector visualization showing direction and magnitude</p>
-      </div>
-      <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/blender/blender_closeup.png" alt="3D Blender Visualization">
-        <p>Advanced 3D visualization of temporal interference fields using Blender integration</p>
-      </div>
-      <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/development/testing_graphical_abstract_revised.png" alt="TI-Toolbox Tech Stack">
-        <p>Complete TI-Toolbox technology stack: BIDS-compatible, Docker-based, end-to-end pipeline</p>
-      </div>
-      <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/ex-search/ex-search_ex-search_selection.png" alt="Electrode Selection">
-        <p>Exhaustive search for optimal electrode placement across standard EEG montages</p>
-      </div>
-      <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_mapping.png" alt="Flex-Search Mapping">
-        <p>Flexible search extension mapping genetic algorithm output to registered EEG positions</p>
-      </div>
-      <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/UI/UI_sim.png" alt="Simulation GUI">
-        <p>User-friendly GUI for configuring and running temporal interference simulations</p>
       </div>
       <div class="carousel-slide">
         <img src="{{ site.baseurl }}/assets/imgs/stats/stats_permutation_null_dist.png" alt="Cluster-Based Permutation Testing">
@@ -81,6 +80,8 @@ The loader starts the containers and drops you into a shell inside `simnibs_cont
       <span class="dot" onclick="currentSlide(this, 4)"></span>
       <span class="dot" onclick="currentSlide(this, 5)"></span>
       <span class="dot" onclick="currentSlide(this, 6)"></span>
+      <span class="dot" onclick="currentSlide(this, 7)"></span>
+      <span class="dot" onclick="currentSlide(this, 8)"></span>
     </div>
   </div>
 </div>

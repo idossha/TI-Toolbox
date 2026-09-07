@@ -15,8 +15,44 @@ The toolbox covers the full modeling pipeline in one place:
 - **Optimization** — evolutionary (flex) and exhaustive electrode searches that target cortical, subcortical, spherical, or custom regions of interest.
 - **Analysis and statistics** — ROI extraction, focality and safety metrics, group-level comparisons, and permutation testing.
 - **Reporting and visualization** — HTML reports, 3D renders, and fsaverage/MNI projections for cross-subject comparison.
+- **Pipelines and notebooks** — wire the steps into a graph and run it as one job, or drive the same API from a Jupyter notebook running on the container's own Python.
 
-Everything ships inside Docker containers, with a desktop launcher and a GUI, so a full research stack runs identically on macOS, Linux, and Windows without manual environment setup.
+Everything ships inside one Docker image, driven by a desktop application, so a full research stack
+runs identically on macOS, Linux, and Windows without manual environment setup.
+
+### Requirements & what's inside
+
+The only thing you install is the desktop app and **Docker Desktop** (or a Docker Engine). Everything
+scientific lives in one image, `idossha/ti-toolbox:<version>`, which the app pulls and runs for you.
+Step-by-step instructions per platform are in the
+[Installation guide]({{ site.baseurl }}/installation/) and
+[Dependencies]({{ site.baseurl }}/installation/dependencies/).
+
+**On your machine**
+
+| | |
+|---|---|
+| **Docker** | Docker Desktop (macOS, Windows) or Docker Engine (Linux). The app talks to it over its API — you never type a `docker` command. |
+| **The app** | `.dmg` (macOS, Apple Silicon and Intel), `.exe` (Windows x64), `.AppImage` or `.deb` (Linux x64) |
+| **Graphics** | A GPU/driver combination with **WebGL2**, for the viewer and the 3-D panes. If it is missing, the app says so explicitly and every choice a pane offers is still available from the form beside it. |
+| **Disk** | Roughly 7 GB for the image, plus your project |
+| **A GPU** | **Not required.** Everything ships CPU-only; the sole GPU switch anywhere is an optional QSIRecon setting, off by default. |
+| **X11** | **Not required, and not used.** No XQuartz, no VcXsrv, no `DISPLAY`. |
+
+**Inside the image** (≈6.7 GB content size — the fresh-pull cost; `docker images` reports a larger,
+non-deduplicated figure)
+
+| | |
+|---|---|
+| **SimNIBS** | 4.6, with the toolbox's patches applied at build time |
+| **Python** | 3.11 — SimNIBS's own environment, which is also the Notebooks kernel |
+| **FastSurfer** | 2.5.4, CPU-only, `--seg_only`, with its checkpoints pre-downloaded |
+| **Tetravox Embed** | The viewer, served by the container and drawn on your machine's GPU |
+| **`tit` + `tit.server`** | The scientific package and the API the app talks to |
+| **Not included** | Gmsh, Qt/PyQt5, any X server, FreeSurfer `recon-all`, the MATLAB Runtime |
+
+The image is **amd64**; on Apple Silicon it runs under emulation, which is correct but slower.
+The server listens on `127.0.0.1` only, and the app authenticates to it with a per-container token.
 
 ### Philosophy
 
@@ -83,15 +119,17 @@ TI-Toolbox stands on the shoulders of many open-source projects. We extend our g
 
 - [**Docker**](https://www.docker.com): A containerization platform for developing, shipping, and running distributed applications.
 - [**Electron**](https://electronjs.org): A framework for building cross-platform desktop applications using web technologies.
+- [**FastSurfer**](https://github.com/Deep-MI/FastSurfer): A fast, deep-learning based neuroimaging pipeline for whole-brain segmentation, used in place of FreeSurfer `recon-all`.
+- [**Tetravox**](https://github.com/idossha/tetravox): The WebGL2 viewer that draws meshes and volumes inside the application window.
 - [**SimNIBS**:](https://simnibs.github.io/simnibs/build/html/index.html) A simulation environment for transcranial brain stimulation, enabling electric field modeling.
 - [**FreeSurfer**:](https://surfer.nmr.mgh.harvard.edu/) A software suite for the analysis and visualization of structural and functional neuroimaging data.
-- [**Gmsh**:](http://gmsh.info/) A three-dimensional finite element mesh generator with a built-in CAD engine and post-processor.  
+- [**Gmsh**:](http://gmsh.info/) A three-dimensional finite element mesh generator. The `.msh` format TI-Toolbox writes is Gmsh's; the program itself is no longer bundled (v3 views results with Tetravox).
 - [**FSL**:](https://fsl.fmrib.ox.ac.uk/fsl/) A comprehensive library of tools for analysis of functional and structural brain imaging data.
 - [**dcm2niix**](https://github.com/rordenlab/dcm2niix): A tool for converting DICOM images to NIfTI format
 - [**BIDS**](https://bids.neuroimaging.io/): A standardized way to organize and describe neuroimaging data.
 - [**QSIPrep**](https://qsiprep.readthedocs.io/) / [**QSIRecon**](https://qsirecon.readthedocs.io/): Preprocessing and reconstruction pipelines for diffusion MRI, used to derive anisotropic conductivity tensors.
 - [**Blender**](https://www.blender.org/): An open-source 3D creation suite, used for rendering head models, electrodes, and field distributions.
-- **Python ecosystem**: [NumPy](https://numpy.org/), [SciPy](https://scipy.org/), [nibabel](https://nipy.org/nibabel/), [matplotlib](https://matplotlib.org/), [pandas](https://pandas.pydata.org/), [nilearn](https://nilearn.github.io/), [MNE-Python](https://mne.tools/), [PyQt5](https://www.riverbankcomputing.com/software/pyqt/), and [Jupyter](https://jupyter.org/).
+- **Python ecosystem**: [NumPy](https://numpy.org/), [SciPy](https://scipy.org/), [nibabel](https://nipy.org/nibabel/), [matplotlib](https://matplotlib.org/), [pandas](https://pandas.pydata.org/), [nilearn](https://nilearn.github.io/), [MNE-Python](https://mne.tools/), and [Jupyter](https://jupyter.org/).
 
 
 
