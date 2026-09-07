@@ -6,7 +6,7 @@ object per line (``contracts/events.schema.json``) to that file; otherwise they 
 from a normal log line. The job manager (B1) only ever *reads* that file.
 
 Event shapes (the reconciled contract, ``contracts/events.schema.json`` / the ``Event`` component
-in ``contracts/openapi.v1.yaml`` -- see ``contracts/SCHEMA-CHANGES.md``'s 2026-08-27 entry, item 8):
+in ``contracts/openapi.yaml`` -- see ``contracts/CHANGES.md``'s 2026-08-27 entry, item 8):
 ``{"seq", "ts", "type": "log|stage|progress|marker|artifact|result|exit", "level"?, "logger"?,
 "msg"?, "stage"?, "i"?, "n"?, "pct"?, "path"?, "kind"?, "label"?, "outputs"?, "artifacts"?,
 "code"?}``.

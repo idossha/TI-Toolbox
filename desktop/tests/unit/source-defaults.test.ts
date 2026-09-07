@@ -4,8 +4,8 @@ import { describe, expect, it } from "vitest";
 import Ajv2020 from "ajv/dist/2020";
 import { buildForwardConfig, buildFsavgConfig } from "../../src/renderer/pages/panels/source/config";
 
-// contracts/schema.json is repo-root; desktop/tests/unit -> ../../.. reaches the repo root.
-const schemaPath = join(__dirname, "..", "..", "..", "contracts", "schema.json");
+// contracts/generated/config.schema.json is repo-root; desktop/tests/unit -> ../../.. reaches the repo root.
+const schemaPath = join(__dirname, "..", "..", "..", "contracts", "generated", "config.schema.json");
 const schemaDoc = JSON.parse(readFileSync(schemaPath, "utf8")) as { $schema: string; $defs: Record<string, unknown> };
 
 // Same whole-document compile as tests/unit/simulator-defaults.test.ts, for the same reason
@@ -17,7 +17,7 @@ function validate(defName: string, values: Record<string, unknown>): { valid: bo
   return { valid, errors: validateFn.errors ?? [] };
 }
 
-describe("Source panel configs validate against contracts/schema.json", () => {
+describe("Source panel configs validate against contracts/generated/config.schema.json", () => {
   it("a default forward-solution config is a valid SourceConfig", () => {
     const config = buildForwardConfig({ subjectIds: ["ernie"], eegNet: "GSN-HydroCel-185", fsaverageSpacing: 5, cpus: 1, overwrite: false });
     expect(validate("SourceConfig", config)).toMatchObject({ valid: true, errors: [] });

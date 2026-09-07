@@ -3,7 +3,7 @@
 ``build_view(kind, ...)`` reproduces the layer-building logic of the former
 PyQt NIfTI viewer tab (single-subject, group and overlay layer stacks) as a
 pure function returning a JSON-able
-``ViewSpec`` (``contracts/openapi.v1.yaml`` ``#/components/schemas/ViewSpec``)
+``ViewSpec`` (``contracts/openapi.yaml`` ``#/components/schemas/ViewSpec``)
 instead of driving Qt widgets and a subprocess directly. ``to_freeview_args``
 reproduces the argv grammar of ``launch_freeview_with_files``
 (``nifti_viewer_tab.py:1124-1140``).

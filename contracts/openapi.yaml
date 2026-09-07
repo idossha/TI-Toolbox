@@ -3,11 +3,11 @@ info:
   title: TI-Toolbox job server (tit.server)
   version: "1.0.0"
   description: >-
-    v1 contract for the v3 Electron GUI. Every path and schema from
-    `contracts/openapi.v0.yaml` is carried unchanged (the real server's `--dump-openapi` output
-    must be a superset of both; CI gate `dev/contracts_check.py`); v1 adds the job engine, catalog
-    CRUD, ViewSpec viewers, jailed file access, validate/plan preflight, settings, and the
-    `/ws/jobs` live-job stream. Auth is unchanged from v0: the launcher passes
+    The contract of record for the v3 Electron GUI -- the only hand-written API contract in the
+    repository (the real server's own OpenAPI document must be a superset of it; CI gate
+    `dev/contracts_check.py`). It covers the job engine, catalog CRUD, ViewSpec viewers, jailed
+    file access, validate/plan preflight, settings, the `/ws/jobs` live-job stream, and the
+    Phase-0 skeleton routes it grew out of. Auth: the launcher passes
     `?token=<TIT_SERVER_TOKEN>` exactly once; the server mints a random session id (never the
     token), keeps it in memory, sets it as an HttpOnly, SameSite=Strict `tit_session` cookie and
     redirects to `/`. A server restart forgets every session (401 -> back to the launcher). API
@@ -16,7 +16,7 @@ info:
     `POST /auth/logout` forgets the session and clears the cookie.
 
     Config request bodies (`config` fields below) are `dict[str, Any]`, validated server-side with
-    `tit.config_io.deserialize_config`. Their real shapes are the `contracts/schema.json` `$defs`
+    `tit.config_io.deserialize_config`. Their real shapes are the `contracts/generated/config.schema.json` `$defs`
     (`SimulationConfig`, `Montage`, `FlexConfig`, `ExConfig`, `MExConfig`, `AnalyzerConfig`,
     `PreprocessConfig`, `QSIPrepConfig`, `QSIReconConfig`, `GroupComparisonConfig`,
     `CorrelationConfig`, `SourceConfig`, `LeadfieldConfig`, `MontageConfig`,
@@ -1466,7 +1466,7 @@ paths:
       # POST /api/view/args (freeview_args/freeview_command preview + scene) and the removed D3
       # /api/viewers/{freeview,gmsh} launch routes are deliberately not declared here, matching
       # this contract's existing practice of documenting only a subset of the live API (see
-      # contracts/SCHEMA-CHANGES.md) -- /api/view/args's request/response shape is exercised by
+      # contracts/CHANGES.md) -- /api/view/args's request/response shape is exercised by
       # tests/test_catalog_v1.py and desktop/tests/mock-server/server.mjs instead.
 
   /api/viewer/candidates:
@@ -3104,7 +3104,7 @@ components:
             The installed `tit` package version at build time (e.g. "2.4.0"). This is expected to
             differ from this document's own `info.version` -- see the top-level description.
         server_api: { type: string, enum: [v0] }
-        schema_hash: { type: string, description: sha256 of contracts/schema.json (empty until Phase 1) }
+        schema_hash: { type: string, description: sha256 of contracts/generated/config.schema.json (empty until Phase 1) }
         python: { type: string }
         simnibs: { type: [string, "null"] }
     Capabilities:
@@ -4553,97 +4553,97 @@ components:
       type: object
       additionalProperties: true
       x-tit-config: SimulationConfig
-      description: "injected from contracts/schema.json by dev/build_contract.py"
+      description: "injected from contracts/generated/config.schema.json by dev/build_contract.py"
     Montage:
       type: object
       additionalProperties: true
       x-tit-config: Montage
-      description: "injected from contracts/schema.json by dev/build_contract.py"
+      description: "injected from contracts/generated/config.schema.json by dev/build_contract.py"
     FlexConfig:
       type: object
       additionalProperties: true
       x-tit-config: FlexConfig
-      description: "injected from contracts/schema.json by dev/build_contract.py"
+      description: "injected from contracts/generated/config.schema.json by dev/build_contract.py"
     ExConfig:
       type: object
       additionalProperties: true
       x-tit-config: ExConfig
-      description: "injected from contracts/schema.json by dev/build_contract.py"
+      description: "injected from contracts/generated/config.schema.json by dev/build_contract.py"
     MExConfig:
       type: object
       additionalProperties: true
       x-tit-config: MExConfig
-      description: "injected from contracts/schema.json by dev/build_contract.py"
+      description: "injected from contracts/generated/config.schema.json by dev/build_contract.py"
     AnalyzerConfig:
       type: object
       additionalProperties: true
       x-tit-config: AnalyzerConfig
-      description: "injected from contracts/schema.json by dev/build_contract.py"
+      description: "injected from contracts/generated/config.schema.json by dev/build_contract.py"
     PreprocessConfig:
       type: object
       additionalProperties: true
       x-tit-config: PreprocessConfig
-      description: "injected from contracts/schema.json by dev/build_contract.py"
+      description: "injected from contracts/generated/config.schema.json by dev/build_contract.py"
     QSIPrepConfig:
       type: object
       additionalProperties: true
       x-tit-config: QSIPrepConfig
-      description: "injected from contracts/schema.json by dev/build_contract.py"
+      description: "injected from contracts/generated/config.schema.json by dev/build_contract.py"
     QSIReconConfig:
       type: object
       additionalProperties: true
       x-tit-config: QSIReconConfig
-      description: "injected from contracts/schema.json by dev/build_contract.py"
+      description: "injected from contracts/generated/config.schema.json by dev/build_contract.py"
     GroupComparisonConfig:
       type: object
       additionalProperties: true
       x-tit-config: GroupComparisonConfig
-      description: "injected from contracts/schema.json by dev/build_contract.py"
+      description: "injected from contracts/generated/config.schema.json by dev/build_contract.py"
     CorrelationConfig:
       type: object
       additionalProperties: true
       x-tit-config: CorrelationConfig
-      description: "injected from contracts/schema.json by dev/build_contract.py"
+      description: "injected from contracts/generated/config.schema.json by dev/build_contract.py"
     SourceConfig:
       type: object
       additionalProperties: true
       x-tit-config: SourceConfig
-      description: "injected from contracts/schema.json by dev/build_contract.py"
+      description: "injected from contracts/generated/config.schema.json by dev/build_contract.py"
     LeadfieldConfig:
       type: object
       additionalProperties: true
       x-tit-config: LeadfieldConfig
-      description: "injected from contracts/schema.json by dev/build_contract.py"
+      description: "injected from contracts/generated/config.schema.json by dev/build_contract.py"
     MontageConfig:
       type: object
       additionalProperties: true
       x-tit-config: MontageConfig
-      description: "injected from contracts/schema.json by dev/build_contract.py"
+      description: "injected from contracts/generated/config.schema.json by dev/build_contract.py"
     VectorConfig:
       type: object
       additionalProperties: true
       x-tit-config: VectorConfig
-      description: "injected from contracts/schema.json by dev/build_contract.py"
+      description: "injected from contracts/generated/config.schema.json by dev/build_contract.py"
     RegionConfig:
       type: object
       additionalProperties: true
       x-tit-config: RegionConfig
-      description: "injected from contracts/schema.json by dev/build_contract.py"
+      description: "injected from contracts/generated/config.schema.json by dev/build_contract.py"
     SubcorticalConfig:
       type: object
       additionalProperties: true
       x-tit-config: SubcorticalConfig
-      description: "injected from contracts/schema.json by dev/build_contract.py"
+      description: "injected from contracts/generated/config.schema.json by dev/build_contract.py"
     NiftiAverageConfig:
       type: object
       additionalProperties: true
       x-tit-config: NiftiAverageConfig
-      description: "injected from contracts/schema.json by dev/build_contract.py"
+      description: "injected from contracts/generated/config.schema.json by dev/build_contract.py"
     NilearnConfig:
       type: object
       additionalProperties: true
       x-tit-config: NilearnConfig
-      description: "injected from contracts/schema.json by dev/build_contract.py"
+      description: "injected from contracts/generated/config.schema.json by dev/build_contract.py"
     PipelineConfig:
       description: >-
         Union of every config dataclass a job/validate/plan "config" body can carry. The real

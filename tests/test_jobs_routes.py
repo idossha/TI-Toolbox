@@ -91,7 +91,7 @@ def test_job_detail_top_level_shape_is_exactly_the_contract(
 ) -> None:
     """FX2 / s2-notes item 3: ``GET /api/jobs/{id}`` is the one job route whose body is *not* a
     bare ``JobStatus`` -- it wraps it (``{spec, status, artifacts}``, ``JobDetail`` in
-    ``contracts/openapi.v1.yaml``), while the list route and every submit/cancel/rerun/force
+    ``contracts/openapi.yaml``), while the list route and every submit/cancel/rerun/force
     response are flat. A client that reads ``state`` off the top level here gets ``undefined``
     and a 200, i.e. a poll that never resolves (the exact bug in Level B's own helper). Pinned
     against the contract itself, so flattening the route would fail here rather than in a UI
@@ -100,7 +100,7 @@ def test_job_detail_top_level_shape_is_exactly_the_contract(
 
     contract = yaml.safe_load(
         (
-            Path(__file__).resolve().parents[1] / "contracts" / "openapi.v1.yaml"
+            Path(__file__).resolve().parents[1] / "contracts" / "openapi.yaml"
         ).read_text()
     )
     required = contract["components"]["schemas"]["JobDetail"]["required"]

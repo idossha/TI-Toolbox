@@ -7,7 +7,7 @@ The Electron main process only does host things: a local launcher page, a health
 navigation guard and a settings file. Science and path rules stay in Python (`tit`).
 
 Plan of record: `../docs/dev/HISTORY.md`, design contract: `DESIGN.md`, API contract:
-`../contracts/openapi.v1.yaml` (see `../contracts/README.md`).
+`../contracts/openapi.yaml` (see `../contracts/README.md`).
 
 ## Layout
 
@@ -65,7 +65,7 @@ by using Vite's separate `VITE_`-prefixed env-var inlining instead of the mode/N
 
 ```bash
 npm install                 # Electron 44.0.0 (pinned) is downloaded from GitHub on install
-npm run gen:api             # contracts/openapi.v1.json -> src/renderer/api/schema.d.ts
+npm run gen:api             # contracts/generated/openapi.json -> src/renderer/api/schema.d.ts
 npm run typecheck
 npm run lint
 npm test                    # vitest

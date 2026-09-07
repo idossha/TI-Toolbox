@@ -29,7 +29,7 @@ Three pieces, and only three:
 image ships **no X11 and no FreeSurfer**. Never cite `tit/gui/**`; if a user's
 question assumes it, say it is gone and point at the desktop app or the Python API.
 
-The wire contract between (1) and (2) is `contracts/openapi.v1.yaml` — a frozen
+The wire contract between (1) and (2) is `contracts/openapi.yaml` — a frozen
 interface. Origin is `http://127.0.0.1:8765`; WebSockets are `/ws/system`,
 `/ws/jobs`, `/ws/tetravox` and `/ws/kernels/{id}`. The bearer token lives only in
 the container's own environment (`TIT_SERVER_TOKEN`) and is never written to the

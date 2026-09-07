@@ -21,7 +21,7 @@ window froze for the duration and the export left no trace in any job list. Adde
 mirroring that branch step for step:
 
 - `tit/blender/config.py::SubcorticalConfig` (registered in `tit.config_io`'s
-  `CONFIG_CLASS_REGISTRY` and `_TYPE_DISCRIMINATED_BY_NAME`, hence a `contracts/schema.json` `$def`
+  `CONFIG_CLASS_REGISTRY` and `_TYPE_DISCRIMINATED_BY_NAME`, hence a `contracts/generated/config.schema.json` `$def`
   and a `PipelineConfig` union member);
 - `tit/blender/subcortical_exporter.py::run_subcortical`;
 - the `"SubcorticalConfig"` entry in `tit/blender/__main__.py`'s dispatch and in

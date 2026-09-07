@@ -22,14 +22,14 @@ import {
   defaultQsiReconConfig,
 } from "../../src/renderer/pages/preprocess/qsi";
 
-// contracts/schema.json is repo-root; desktop/tests/unit -> ../../.. reaches the repo root.
+// contracts/generated/config.schema.json is repo-root; desktop/tests/unit -> ../../.. reaches the repo root.
 const schemaPath = join(
   __dirname,
   "..",
   "..",
   "..",
   "contracts",
-  "schema.json",
+  "generated", "config.schema.json",
 );
 const schemaDoc = JSON.parse(readFileSync(schemaPath, "utf8")) as JSONSchema;
 
@@ -66,7 +66,7 @@ async function validatePreprocessConfig(values: Record<string, unknown>) {
   return resolver(values, undefined, noopOptions);
 }
 
-describe("preprocess page defaults validate against contracts/schema.json", () => {
+describe("preprocess page defaults validate against contracts/generated/config.schema.json", () => {
   it("defaultConfig() (the form's Qt-parity default values) validates as a PreprocessConfig", async () => {
     const values = { ...defaultConfig(), subject_ids: ["ernie"] };
     const result = await validatePreprocessConfig(

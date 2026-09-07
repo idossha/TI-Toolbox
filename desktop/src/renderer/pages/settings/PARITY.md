@@ -16,7 +16,7 @@ telemetry toggle, so this checklist tracks the v3 spec instead of a Qt diff.
 - [x] Extensions button / `ExtensionsTab` card list (`tit/gui/extensions.py`) — "Add Tab" per
       extension → Settings **Feature panels** checklist (`settings.panels`, `PUT /api/settings`).
 
-## New surface (TODO.md §2.2, §2.9, §2.8; `Settings` schema in `contracts/openapi.v1.yaml`)
+## New surface (TODO.md §2.2, §2.9, §2.8; `Settings` schema in `contracts/openapi.yaml`)
 
 - [x] Project card: container path, host path (Electron-only, read-only), name (read-only —
       no `PUT /api/project` in the v1 contract to rename a project; reported as a gap).

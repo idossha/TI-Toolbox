@@ -2,7 +2,7 @@
 
 Qt source: `tit/gui/extensions/cbp.py` (1272 lines, `EXTENSION_NAME = "Permutation Analysis"`).
 Unlike NIfTI Group Averaging / Nilearn Visuals, both modes here already have real schema entries
-(`GroupComparisonConfig`, `CorrelationConfig` in `contracts/schema.json`) — `kind: "stats"`
+(`GroupComparisonConfig`, `CorrelationConfig` in `contracts/generated/config.schema.json`) — `kind: "stats"`
 accepts either, distinguished structurally (no `_type` discriminator needed: `test_type` only
 exists on `GroupComparisonConfig`, `correlation_type` only on `CorrelationConfig`).
 

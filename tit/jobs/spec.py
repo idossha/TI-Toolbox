@@ -1,6 +1,6 @@
 """Job data model: ``JobSpec``/``JobStatus`` and the small value types they're built from.
 
-Shapes mirror ``contracts/openapi.v1.yaml`` (``JobKind``, ``JobState``, ``JobProgress``,
+Shapes mirror ``contracts/openapi.yaml`` (``JobKind``, ``JobState``, ``JobProgress``,
 ``JobError``, ``Artifact``, ``WaitingOn``, ``JobStatus``, ``JobSpec``, ``JobDetail``,
 ``LockConflict``).  A few fields exist only on the Python side (persisted to
 ``spec.json``/``status.json`` for the scheduler's own bookkeeping — ``locks``, ``cost``,
@@ -10,7 +10,7 @@ shape stays exactly what the contract describes plus one harmless additive field
 (``budget_wait``, not ``additionalProperties: false`` in the schema).
 
 ``JobKind``'s frozen v1 contract enum (``CONTRACT_JOB_KINDS``) now includes ``tools`` and
-``report`` alongside ``project_init`` (``contracts/SCHEMA-CHANGES.md``, 2026-08-27 entry, item 1).
+``report`` alongside ``project_init`` (``contracts/CHANGES.md``, 2026-08-27 entry, item 1).
 ``project_init`` maps to ``-m tit.project_init`` and ``report`` to ``-m tit.pre.report`` in
 :mod:`tit.jobs.kinds` (ra_14 finding #2; F0, 2026-09-03).
 """
@@ -43,7 +43,7 @@ JOB_KINDS: tuple[str, ...] = (
     "report",
 )
 
-# Kinds present in the frozen wire contract's JobKind enum (contracts/openapi.v1.yaml).
+# Kinds present in the frozen wire contract's JobKind enum (contracts/openapi.yaml).
 # "project_init" is in the contract but has no runner mapping in tit.jobs.kinds yet.
 CONTRACT_JOB_KINDS: frozenset[str] = frozenset(
     {

@@ -75,7 +75,7 @@ Either way the image records what it was built from in **`/etc/ti-toolbox-build.
 `dirty` is whether tracked files had uncommitted changes in the tree that was copied (a
 `--ref` build is never dirty). The same sha is the `org.opencontainers.image.revision` label.
 `/api/version` does not report it yet — that route's `Version` model is part of the frozen
-contract (`contracts/openapi.v1.yaml`) and adding a field there is a contract change, so the
+contract (`contracts/openapi.yaml`) and adding a field there is a contract change, so the
 record stays a file for now.
 
 The UI's Node stage and both `source` stages run on `$BUILDPLATFORM` (natively on Apple

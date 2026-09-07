@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate ``contracts/schema.json`` from the ``tit`` config dataclasses.
+"""Regenerate ``contracts/generated/config.schema.json`` from the ``tit`` config dataclasses.
 
 Every class in ``tit.config_io.CONFIG_CLASS_REGISTRY`` contributes one
 ``$defs`` entry (its own name) plus whatever nested types its own
@@ -33,11 +33,11 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-OUTPUT_PATH = REPO_ROOT / "contracts" / "schema.json"
+OUTPUT_PATH = REPO_ROOT / "contracts" / "generated" / "config.schema.json"
 
 
 def build_schema() -> dict:
-    """Assemble the combined ``contracts/schema.json`` document.
+    """Assemble the combined ``contracts/generated/config.schema.json`` document.
 
     Returns
     -------
@@ -96,7 +96,7 @@ def main(argv: list[str] | None = None) -> int:
         current = OUTPUT_PATH.read_text() if OUTPUT_PATH.is_file() else None
         if current != rendered:
             print(
-                f"{OUTPUT_PATH} is stale; run `python3 dev/build_schema.py` "
+                f"{OUTPUT_PATH} is stale; run `npm run gen` "
                 "and commit the result.",
                 file=sys.stderr,
             )
@@ -104,6 +104,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{OUTPUT_PATH} is up to date ({len(doc['$defs'])} $defs).")
         return 0
 
+    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT_PATH.write_text(rendered)
     print(f"Wrote {OUTPUT_PATH} ({len(doc['$defs'])} $defs).")
     return 0

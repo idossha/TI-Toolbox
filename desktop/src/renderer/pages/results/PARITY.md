@@ -35,7 +35,7 @@ its own is gap 5 below.
 ## Known gaps (report to orchestrator)
 
 1. ~~**No catalog listing for a simulation's montage/plot PNGs.**~~ **Partially resolved** —
-   `FlexRun`/`ExRun` now carry `artifacts` (SCHEMA-CHANGES.md fix:contract item 6, populated
+   `FlexRun`/`ExRun` now carry `artifacts` (CHANGES.md fix:contract item 6, populated
    server-side by fix:backend-catalog item 2's `tit.catalog._dir_artifacts`), so the "Flex runs" /
    "Ex / mEx runs" tabs now browse each run's PNGs/CSVs/manifests via their own "Artifacts" card.
    `SimulationDetail` still has no separate `images: [{path, label}]` field for a simulation's own

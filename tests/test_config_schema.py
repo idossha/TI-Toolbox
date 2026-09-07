@@ -701,35 +701,45 @@ class TestBuildContractScript:
         missing = tmp_path / "does-not-exist.yaml"
         rc = build_contract.main(["--openapi", str(missing)])
         assert rc == 1
-        assert "does not exist yet" in capsys.readouterr().err
+        assert "does not exist" in capsys.readouterr().err
 
     def test_main_reports_a_clear_error_when_schema_is_missing(
         self, build_contract, tmp_path, capsys
     ):
-        openapi_path = tmp_path / "openapi.v1.yaml"
+        openapi_path = tmp_path / "openapi.yaml"
         openapi_path.write_text("openapi: 3.1.0\ncomponents:\n  schemas: {}\n")
         missing_schema = tmp_path / "schema.json"
         rc = build_contract.main(
             ["--openapi", str(openapi_path), "--schema", str(missing_schema)]
         )
         assert rc == 1
-        assert "does not exist yet" in capsys.readouterr().err
+        assert "does not exist" in capsys.readouterr().err
 
-    def test_main_writes_a_json_sibling_end_to_end(
+    def test_main_writes_the_merged_document_end_to_end(
         self, build_contract, tmp_path, tiny_openapi, tiny_schema_doc
     ):
+        """``--out`` names the output; the default is contracts/generated/openapi.json.
+
+        It used to be the input path with its suffix swapped to ``.json``, which after the
+        2026-09-07 restructure would have written ``contracts/openapi.json`` -- a path that
+        is no longer part of the layout (contracts/CHANGES.md).
+        """
         import yaml
 
-        openapi_path = tmp_path / "openapi.v1.yaml"
+        openapi_path = tmp_path / "openapi.yaml"
         openapi_path.write_text(yaml.safe_dump(tiny_openapi))
         schema_path = tmp_path / "schema.json"
         schema_path.write_text(json.dumps(tiny_schema_doc))
 
+        out_path = tmp_path / "generated" / "openapi.json"
         rc = build_contract.main(
-            ["--openapi", str(openapi_path), "--schema", str(schema_path)]
+            [
+                "--openapi", str(openapi_path),
+                "--schema", str(schema_path),
+                "--out", str(out_path),
+            ]
         )
         assert rc == 0
-        out_path = openapi_path.with_suffix(".json")
         assert out_path.is_file()
         written = json.loads(out_path.read_text())
         assert written["components"]["schemas"]["Size"] == {"type": "integer"}

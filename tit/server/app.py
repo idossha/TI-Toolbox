@@ -144,8 +144,8 @@ def _custom_openapi(app: FastAPI) -> dict[str, Any]:
         description=app.description,
         routes=app.routes,
     )
-    # Publish the config dataclass schemas so the dump is a superset of contracts/openapi.v1.json
-    # (routes accept config bodies as dicts; the schemas come from contracts/schema.json).
+    # Publish the config dataclass schemas so the dump is a superset of contracts/generated/openapi.json
+    # (routes accept config bodies as dicts; the schemas come from contracts/generated/config.schema.json).
     try:
         from tit.server.routes.schema import _load_schema as load_schema_document
 

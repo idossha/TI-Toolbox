@@ -1,6 +1,6 @@
 /**
  * Value model for `<RoiPicker>` — mirrors `FlexConfig`'s ROI union
- * (`SphericalROI | AtlasROI | SubcorticalROI`, `contracts/schema.json`) but keeps every field
+ * (`SphericalROI | AtlasROI | SubcorticalROI`, `contracts/generated/config.schema.json`) but keeps every field
  * editable independently (undefined coordinates while a row is half-typed, empty region lists)
  * rather than forcing a config-shaped value on every keystroke. Build the wire-shaped object with
  * `roiToConfig()` only at submit/plan time.
@@ -25,7 +25,7 @@ export type TissueKind = "GM" | "WM" | "both";
 /**
  * One row of a cortical or subcortical region selection. `hemi` is only meaningful for cortical.
  * `id` is the FreeSurfer `.annot` label index (cortical) or the volumetric atlas's voxel label
- * value (subcortical) — `Region.id: integer` per the reconciled `contracts/openapi.v1.yaml`
+ * value (subcortical) — `Region.id: integer` per the reconciled `contracts/openapi.yaml`
  * (`AtlasROI.label`/`SubcorticalROI.label` need exactly this integer, not a display string).
  */
 export interface RoiRegion {

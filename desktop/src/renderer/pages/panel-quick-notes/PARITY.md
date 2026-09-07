@@ -24,5 +24,5 @@ not an append-only list.
 ## Known gaps
 
 - No per-entry timestamps or history — the contract is a single text blob. If per-entry notes are
-  wanted back, that is a schema change for whoever owns `contracts/schema.json`/`Notes`, not a
+  wanted back, that is a schema change for whoever owns `contracts/generated/config.schema.json`/`Notes`, not a
   workaround here.

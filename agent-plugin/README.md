@@ -25,7 +25,7 @@ these are the facts that changed:
   (`desktop/`) that starts the container and loads the UI from it; a FastAPI job
   server (`tit.server`) *inside* the Docker image `idossha/ti-toolbox`, which owns
   the job model and serves the UI; and the shared `tit` science core.
-  `contracts/openapi.v1.yaml` is the wire contract between the first two.
+  `contracts/openapi.yaml` is the wire contract between the first two.
 - **`tit/gui/` was deleted.** `tit` imports no Qt, and the core image ships no X11
   and no FreeSurfer. Any answer that cites `tit/gui/**` is wrong.
 - **New subsystems the skills now cover**: `tit/jobs` (kinds, the pure scheduler,

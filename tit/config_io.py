@@ -207,13 +207,13 @@ def _discriminator_for(cls: type) -> str | None:
 
 #: ``name -> "package.module.ClassName"`` for every config dataclass that
 #: participates in :func:`json_schema` / :func:`deserialize_config` and the
-#: generated ``contracts/schema.json`` (see ``dev/build_schema.py``). Kept as
+#: generated ``contracts/generated/config.schema.json`` (see ``dev/build_schema.py``). Kept as
 #: strings, not imported class objects, so importing ``tit.config_io`` never
 #: pulls in a per-module heavy dependency (SimNIBS, bpy, trimesh) that some
 #: registered class's *package* needs merely to import -- callers resolve
 #: only the classes they actually need via :func:`resolve_config_class`. The
 #: dotted paths double as the ``"x-tit-classes"`` index in
-#: ``contracts/schema.json``.
+#: ``contracts/generated/config.schema.json``.
 CONFIG_CLASS_REGISTRY: dict[str, str] = {
     "SimulationConfig": "tit.sim.config.SimulationConfig",
     "Montage": "tit.sim.config.Montage",
@@ -278,7 +278,7 @@ def deserialize_config(cls: type, data: dict[str, Any], *, strict: bool = False)
     whatever ``serialize_config`` produced it from: nested dataclasses
     (a single required type, or a union disambiguated by ``_type``), lists
     of dataclasses, ``Enum`` members, tuples (including tuples nested
-    inside lists, e.g. ``Montage.channels``), dict values whose declared
+    inside lists, e.g. ``Montage.electrode_pairs``), dict values whose declared
     key type isn't ``str`` (JSON object keys are always strings, so e.g.
     ``SimulationConfig.tissue_conductivities: dict[int, float]`` round-trips
     as ``{"1": 2.5}`` and is coerced back to ``{1: 2.5}``), and ``Optional``
@@ -425,8 +425,7 @@ def _deserialize_union(value: Any, branches: list, *, strict: bool = False) -> A
 
     A single remaining branch (an ``Optional[X]`` with ``value is not
     None``) recurses into it directly -- covering generics like
-    ``list[tuple[list[int], list[int]]] | None`` (``Montage.channels`` /
-    ``MExConfig.channels``), not just dataclasses. Multiple dataclass
+    ``list[str] | None`` (``ExConfig.roi_names``), not just dataclasses. Multiple dataclass
     branches (e.g. ``BucketElectrodes | PoolElectrodes``) are disambiguated
     by *value*'s ``"_type"`` key, exactly as ``serialize_config`` wrote it.
     Multiple non-dataclass branches (e.g. ``float | list[float]``) are

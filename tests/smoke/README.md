@@ -93,6 +93,6 @@ artifacts/               per-run manifests (git-ignored output of a run)
 Not invented. Every row mirrors either one of the maintainer's own succeeded job specs
 (`code/ti-toolbox/jobs/<id>/spec.json`), a run config the pipeline itself wrote
 (`ex-search/*/run_config.json`, `Simulations/*/documentation/config.json`), or the field list of
-the matching dataclass in `contracts/schema.json`. Where lane S2 has recorded the UI's exact
+the matching dataclass in `contracts/generated/config.schema.json`. Where lane S2 has recorded the UI's exact
 `POST` body under `payloads/`, that wins — the `source` column of the results table says which
 one ran.

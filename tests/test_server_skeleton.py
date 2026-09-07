@@ -387,7 +387,7 @@ def test_version_shape(client: TestClient) -> None:
     body = client.get("/api/version", headers=BEARER).json()
     assert body["tit_version"] == tit.__version__
     assert body["server_api"] == "v0"
-    # ra_13 finding #3h: sha256 of contracts/schema.json's bytes (empty only if the file is
+    # ra_13 finding #3h: sha256 of contracts/generated/config.schema.json's bytes (empty only if the file is
     # missing, e.g. a fresh checkout before dev/build_schema.py has ever run).
     assert body["schema_hash"] == hashlib.sha256(SCHEMA_PATH.read_bytes()).hexdigest()
     assert len(body["schema_hash"]) == 64
@@ -736,7 +736,12 @@ def test_token_never_in_response_bodies(settings: ServerSettings) -> None:
         assert TOKEN not in ws.receive_text()
 
 
-def test_openapi_covers_v0_contract(settings: ServerSettings) -> None:
+def test_openapi_covers_the_contract(settings: ServerSettings) -> None:
+    """The live app covers `contracts/openapi.yaml`, bar the recorded open findings.
+
+    Was `test_openapi_covers_v0_contract`, gated on the Phase-0 subset until the
+    2026-09-07 restructure retired `openapi.v0.yaml` (contracts/CHANGES.md).
+    """
     yaml = pytest.importorskip("yaml")
     import importlib.util
 
@@ -744,10 +749,16 @@ def test_openapi_covers_v0_contract(settings: ServerSettings) -> None:
     spec = importlib.util.spec_from_file_location("contracts_check", spec_path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    contract = yaml.safe_load(module.DEFAULT_CONTRACT.read_text())
+    contract = yaml.safe_load(module.CONTRACT_PATH.read_text())
     dump = create_app(settings).openapi()
     missing, _warnings = module.check(contract, dump)
-    assert missing == []
+    unexpected = [
+        m
+        for m in missing
+        if m not in module._KNOWN_FINDINGS
+        and m.split(":")[0] not in module._KNOWN_FINDINGS
+    ]
+    assert unexpected == []
     assert TOKEN not in json.dumps(dump)
 
 

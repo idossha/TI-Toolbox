@@ -2,9 +2,11 @@
 
 Dated log of changes to the config dataclasses registered in
 `tit.config_io.CONFIG_CLASS_REGISTRY`, and the resulting regeneration of
-`contracts/schema.json` / `contracts/openapi.v1.json` /
+`contracts/generated/config.schema.json` / `contracts/generated/openapi.json` /
 `desktop/src/renderer/api/schema.d.ts`. Append one entry per change; do not
-edit past entries.
+edit past entries — earlier entries name files by the paths they had at the
+time (`schema.json`, `openapi.v1.yaml`, `openapi.v0.yaml`), which the
+2026-09-07 restructure below renamed.
 
 What each contract file is, which command generates it and the freeze rule:
 [`contracts/README.md`](README.md).
@@ -709,3 +711,78 @@ property is under an `x-tit-config` placeholder, so `schema.json` / `openapi.v1.
 
 `dev/contracts_check.py`: OK — 10 operations and 9 schemas of `openapi.v0.yaml` present in the
 server dump.
+
+## 2026-09-07 — chore:contracts — one hand-written contract, `generated/` outputs, live drift check
+
+No schema changed. This is a **file-layout and gate change**; every path, method and property is
+byte-identical to the previous entry's state apart from the `openapi.yaml` `info.description`
+rewrite noted below.
+
+### Renamed
+
+| Was | Is |
+|---|---|
+| `contracts/openapi.v1.yaml` | `contracts/openapi.yaml` |
+| `contracts/schema.json` | `contracts/generated/config.schema.json` |
+| `contracts/openapi.v1.json` | `contracts/generated/openapi.json` |
+| `contracts/SCHEMA-CHANGES.md` | `contracts/CHANGES.md` |
+
+### Deleted
+
+- **`contracts/openapi.json`** — the committed dump of the running server. `dev/contracts_check.py`
+  now builds the FastAPI app in-process and takes its OpenAPI document directly, so there is no
+  checked-in copy to go stale. Nothing referenced the file except the checker's own default.
+- **`contracts/openapi.v0.yaml`** — the Phase-0 walking-skeleton contract, every path of which was
+  already carried unchanged into the v1 document. It was the checker's default first argument, so
+  the gate had been verifying only the 10-operation skeleton subset; it now verifies the whole
+  contract (see below). Its three references were repointed:
+  `desktop/src/renderer/api/client.ts`, `dev/contracts_check.py`, `tit/server/schemas.py`.
+
+`contracts/tetravox-viewspec-v2.schema.json` **keeps its name**: it is host-facing and its filename
+is its public `$id`.
+
+### The contract's own `info.description`
+
+Rewritten to drop the "every path from `openapi.v0.yaml` is carried unchanged" framing, which no
+longer names a file that exists. No behavioural claim changed. Contract `info.version` stays
+`1.0.0` — the shape did not change, and the version now lives only there, never in a filename.
+
+### One regeneration command
+
+`npm run gen` (in `desktop/`) = `python3 dev/build_contracts.py` + `openapi-typescript`. The new
+`dev/build_contracts.py` runs `build_schema.py` then `build_contract.py` in order, and installs the
+test suite's own dependency mocks when SimNIBS/`bpy`/`trimesh` are absent, so it works on a plain
+host as well as in the container. `dev/build_contract.py` gained `--check`; its default output is
+now `contracts/generated/openapi.json` rather than the input's suffix swapped to `.json`.
+
+### The gate now checks more
+
+`dev/contracts_check.py` regenerates into a temp dir and diffs `contracts/generated/*` and
+`desktop/src/renderer/api/schema.d.ts` before it checks anything else, then checks live coverage.
+
+Pointing it at the full contract raised coverage from **10 operations / 9 schemas** to
+**104 operations / 115 schemas**, which surfaced pre-existing contract-vs-code differences that
+the v0 subset never reached. They are recorded in `_KNOWN_FINDINGS` in `dev/contracts_check.py`,
+printed on every run, and the gate fails if one of them stops occurring (so the list cannot rot):
+
+1. **`Overview*.reason`** — the contract declares `string` required; the server returns
+   `str | None`. A client trusting the contract can be handed `null`. (4 findings)
+2. **`PlanJob.kind`, `LockConflict.kind`** — the contract declares the 17-value `JobKind` enum;
+   the server types the field as a bare `str`, so the live document carries no enum there.
+   (6 findings)
+3. **`POST /api/system/terminate` 204** and **`POST /api/pipelines/export` 501** — declared in the
+   contract, not described by the route. (2 findings)
+
+Separately, 232 warnings (not failures) record routes the server types as bare `dict`/`list`, for
+which FastAPI registers no model and there is nothing to compare the contract's shape against.
+This was already tolerated for inline response schemas; the same tolerance now applies to the
+by-name component check, so the 56 named models in that category are warnings rather than
+unfixable failures.
+
+### Also
+
+- `tests/conftest.py` gained `scipy.ndimage` and `scipy.stats` to `_MOCK_PACKAGES`. Three test
+  modules each carried a private `sys.modules.setdefault` fallback for exactly these two; the
+  shared list is now sufficient on its own (the local fallbacks are harmless no-ops).
+- `tit/config_io.py` docstrings cited `Montage.channels` and `MExConfig.channels`, both removed in
+  the v2.5.0 merge; they now cite `Montage.electrode_pairs` and `ExConfig.roi_names`.

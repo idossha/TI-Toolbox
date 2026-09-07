@@ -1,6 +1,6 @@
 /**
  * `/api/schema` loader — fetched once and cached in memory for the life of the renderer. The
- * response is `contracts/schema.json`: a JSON-Schema document whose `$defs` hold one entry per
+ * response is `contracts/generated/config.schema.json`: a JSON-Schema document whose `$defs` hold one entry per
  * config dataclass (`SimulationConfig`, `FlexConfig`, ... — see plan §3). Config-shaped forms
  * resolve their schema by name from this single cached document instead of hitting the network
  * once per config kind.

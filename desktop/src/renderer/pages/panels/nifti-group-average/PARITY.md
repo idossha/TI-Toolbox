@@ -2,7 +2,7 @@
 
 Qt source: `tit/gui/extensions/nifti_group_average.py` (822 lines, `EXTENSION_NAME = "NIfTI Group
 Averaging"`). `JobKind` includes `"nifti_average"` (contract §3), and `NiftiAverageConfig` is now
-a real `contracts/schema.json` `$def` in the `PipelineConfig` union (ra_13 finding #10) — the
+a real `contracts/generated/config.schema.json` `$def` in the `PipelineConfig` union (ra_13 finding #10) — the
 "no config dataclass exists yet" note below was stale by the time this round started. The panel's
 `config.ts`/`api.ts` are typed against `NiftiAverageConfig` directly and call
 `POST /api/validate/nifti_average` before submit, same as `pages/panels/cluster-permutation`.

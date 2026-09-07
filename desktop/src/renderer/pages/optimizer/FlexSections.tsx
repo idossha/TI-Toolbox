@@ -45,7 +45,7 @@ export const POSTPROC_OPTIONS = [
 
 const POSTPROC_HELP = "max_TI: the maximum TI field. dir_TI_normal / dir_TI_tangential: its component normal or tangential to the surface.";
 
-// `FlexConfig.anisotropy_type` per contracts/schema.json documents "scalar"/"vn" only; the Qt tab
+// `FlexConfig.anisotropy_type` per contracts/generated/config.schema.json documents "scalar"/"vn" only; the Qt tab
 // also offered "dir"/"mc" (PARITY.md), left out pending confirmation `run_flex_search` takes them.
 const ANISOTROPY_OPTIONS = [
   { value: "scalar", label: "Isotropic (scalar)" },

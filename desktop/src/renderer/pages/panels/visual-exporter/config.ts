@@ -1,6 +1,6 @@
 /**
  * Pure config builders for the 3D Visual Exporter panel, split out of `index.tsx` so a defaults
- * test can validate every mode against `contracts/schema.json` without rendering React — the same
+ * test can validate every mode against `contracts/generated/config.schema.json` without rendering React — the same
  * split as `pages/panels/nilearn-visuals/config.ts`.
  *
  * Byte-identity rule (the reason this file is so literal): every field below is set to exactly

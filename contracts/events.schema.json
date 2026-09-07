@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ti-toolbox.dev/contracts/events.schema.json",
   "title": "Event",
-  "description": "One line of a job's events.jsonl file (tit.jobs.events emit_* helpers). Mirrors the Event component in contracts/openapi.v1.yaml.",
+  "description": "One line of a job's events.jsonl file (tit.jobs.events emit_* helpers). Mirrors the Event component in contracts/openapi.yaml.",
   "type": "object",
   "required": ["seq", "ts", "type"],
   "additionalProperties": false,

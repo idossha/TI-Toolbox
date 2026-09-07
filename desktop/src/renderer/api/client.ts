@@ -1,5 +1,5 @@
 /**
- * Origin-relative typed client for the v0 contract (contracts/openapi.v0.yaml, generated into
+ * Origin-relative typed client for the wire contract (contracts/openapi.yaml, generated into
  * ./schema.d.ts by `npm run gen:api`). Same code runs in Electron, in the Vite dev server (proxied)
  * and in browser mode, because every URL is relative to the page origin.
  */

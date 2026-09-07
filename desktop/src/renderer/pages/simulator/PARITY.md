@@ -122,7 +122,7 @@ dots that never disappear is a better failure than one the user placed and canno
    `output_dir`/`exists` the way they do for other kinds — noted at the time as harmless because
    the real `_plan_sim` never read it (it resolves one `PlanJob` per `(subject, montage)` from
    `SimulationConfig.montages[i].name` directly) and the schema had no `additionalProperties`
-   restriction to violate. Once `contracts/schema.json`'s `SimulationConfig` gained
+   restriction to violate. Once `contracts/generated/config.schema.json`'s `SimulationConfig` gained
    `additionalProperties: false` (ra_11 finding 3, landed mid-build by another lane), that extra
    key started failing schema validation (`tests/unit/simulator-defaults.test.ts` caught it), so
    `buildSimulationConfig` (`buildConfig.ts`) no longer adds it — `config` is now a real,

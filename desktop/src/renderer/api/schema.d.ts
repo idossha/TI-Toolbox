@@ -4771,7 +4771,7 @@ export interface components {
             tit_version: string;
             /** @enum {string} */
             server_api: "v0";
-            /** @description sha256 of contracts/schema.json (empty until Phase 1) */
+            /** @description sha256 of contracts/generated/config.schema.json (empty until Phase 1) */
             schema_hash: string;
             python: string;
             simnibs: string | null;

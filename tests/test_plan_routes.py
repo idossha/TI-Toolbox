@@ -364,7 +364,7 @@ def test_plan_sim_resolves_freehand_montage_source(
 def test_plan_sim_resolves_freehand_montage_source_via_top_level_field(
     client: TestClient, project: Path
 ) -> None:
-    # contracts/openapi.v1.yaml's MontageSources is a top-level PlanRequest field, keyed
+    # contracts/openapi.yaml's MontageSources is a top-level PlanRequest field, keyed
     # "subject"/"name" (not the pre-contract config["montage_sources"] convention above,
     # which used "subject_id"). Both must resolve to the same montage.
     pm = get_path_manager()

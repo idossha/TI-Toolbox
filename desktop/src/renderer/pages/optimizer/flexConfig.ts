@@ -137,7 +137,7 @@ export function sweepCombinationCount(form: FlexFormState): number {
 /**
  * Build the `FlexConfig`-shaped request body. `flex_adaptive`/`flex_pareto` jobs additionally
  * carry an `adaptive`/`pareto` block — a provisional shape (no `AdaptiveFocalityConfig`/
- * `ParetoSweepConfig` exists in `contracts/schema.json` yet; see PARITY.md and the final report)
+ * `ParetoSweepConfig` exists in `contracts/generated/config.schema.json` yet; see PARITY.md and the final report)
  * proposed for B4/F1b to formalise once those runners exist.
  */
 export function buildFlexConfig(subjectId: string, form: FlexFormState, roi: RoiConfig, nonRoi: RoiConfig | undefined): FlexConfigWire {

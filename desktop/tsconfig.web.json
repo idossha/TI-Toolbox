@@ -15,7 +15,7 @@
     "isolatedModules": true,
     "noEmit": true,
     // "node" is needed for tests/unit/*.test.ts, which use node:fs/node:path/__dirname to read
-    // contracts/schema.json from disk (see e.g. tests/unit/simulator-defaults.test.ts) — src/
+    // contracts/generated/config.schema.json from disk (see e.g. tests/unit/simulator-defaults.test.ts) — src/
     // itself never imports a node builtin, so this does not weaken strictness there, only adds
     // ambient node globals/module declarations to the compilation unit as a whole. Kept in this
     // one config (rather than a separate tests/tsconfig.test.json) because `npm run typecheck`

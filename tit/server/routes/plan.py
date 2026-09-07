@@ -18,7 +18,7 @@ Per-kind output-dir resolution
 ``sim``
     One :class:`PlanJob` per ``(subject, montage)``. ``config.montages`` applies to every
     subject in the plan; the request body's top-level ``montage_sources`` field
-    (``contracts/openapi.v1.yaml``'s ``MontageSources`` -- ``{"flex": [{"subject"?, "run",
+    (``contracts/openapi.yaml``'s ``MontageSources`` -- ``{"flex": [{"subject"?, "run",
     "electrode_type"?, "eeg_net"?}], "freehand": [{"subject"?, "name"} | "name"]}``) is
     resolved via :mod:`tit.sim.montage_sources` into extra montages attached **only** to
     their own subject (flex-search runs and freehand stim-configs are inherently
@@ -94,7 +94,7 @@ router = APIRouter()
 
 
 # ---------------------------------------------------------------------------
-# Wire shapes (contracts/openapi.v1.yaml: PlanJob, LockConflict, PlanCost, PlanResolved, PlanResult)
+# Wire shapes (contracts/openapi.yaml: PlanJob, LockConflict, PlanCost, PlanResolved, PlanResult)
 # ---------------------------------------------------------------------------
 
 
@@ -102,14 +102,14 @@ class PlanRequest(BaseModel):
     config: dict[str, Any]
     subject_ids: list[str] | None = None
     overwrite: bool = False
-    #: contracts/openapi.v1.yaml's MontageSources -- kind=sim only. Top-level field, per the
+    #: contracts/openapi.yaml's MontageSources -- kind=sim only. Top-level field, per the
     #: frozen contract (``{flex: [{subject?, run, electrode_type?, eeg_net?}], freehand:
     #: [{subject?, name}]}``). ``_plan_sim`` also accepts the pre-contract convention of the
     #: same data nested under ``config["montage_sources"]`` (with ``run_name``/``subject_id``
     #: field names) for one release, preferring this field when both are present -- see
     #: _montage_sources_for_request.
     montage_sources: dict[str, Any] | None = None
-    #: kind=pre only, mirrors JobGroupRequest.parallel_subjects (contracts/openapi.v1.yaml) so
+    #: kind=pre only, mirrors JobGroupRequest.parallel_subjects (contracts/openapi.yaml) so
     #: a plan preview can reflect the same concurrency the matching ``POST /api/jobs/groups``
     #: call would use -- not yet part of the frozen PlanRequest schema (flagged for F1a to add
     #: alongside montage_sources); ``_plan_pre`` folds it into ``resolved.parallel_subjects``
@@ -264,7 +264,7 @@ def _montage_sources_for_request(
 ) -> dict[str, Any]:
     """Resolve the ``MontageSources`` body for kind=sim, new field first.
 
-    ``PlanRequest.montage_sources`` (contracts/openapi.v1.yaml) is the frozen wire shape;
+    ``PlanRequest.montage_sources`` (contracts/openapi.yaml) is the frozen wire shape;
     ``raw_config["montage_sources"]`` was this route's own pre-contract convention (see the
     module docstring's ``sim`` section) and is read as a fallback for one release so existing
     callers keep working while they move to the top-level field. The top-level field wins

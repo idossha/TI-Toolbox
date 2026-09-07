@@ -67,7 +67,7 @@ row 29) and **J** (jobs tables). Contract ARCHITECTURE §7.2, §7.5.
 ## 2026-08-27 — build program and spikes
 
 Build every screen in parallel against a frozen contract, backed by real `tit.server` endpoints,
-ending in a real run on Dataset 000. Shipped `tit/server/routes/`, `contracts/openapi.v1.yaml`, one
+ending in a real run on Dataset 000. Shipped `tit/server/routes/`, `contracts/openapi.yaml`, one
 directory per screen, and the job model — queue/group/progress/liveness/cancel/rerun/force,
 `events.jsonl`, `WS /ws/jobs`. Every later redesign judged the job model the strongest part of v3 and
 left it untouched. Contract-first development survived; the flat per-page IA it produced (19 nav

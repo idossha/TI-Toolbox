@@ -19,14 +19,14 @@ import {
   type AnalyzerRow,
 } from "../../src/renderer/pages/analyzer/JobRows";
 
-// contracts/schema.json is repo-root; desktop/tests/unit -> ../../.. reaches the repo root.
+// contracts/generated/config.schema.json is repo-root; desktop/tests/unit -> ../../.. reaches the repo root.
 const schemaPath = join(
   __dirname,
   "..",
   "..",
   "..",
   "contracts",
-  "schema.json",
+  "generated", "config.schema.json",
 );
 const schemaDoc = JSON.parse(readFileSync(schemaPath, "utf8")) as {
   $schema: string;
@@ -66,7 +66,7 @@ const subcorticalRoi: RoiValue = {
   tissues: "GM",
 };
 
-describe("Analyzer page configs validate against contracts/schema.json", () => {
+describe("Analyzer page configs validate against contracts/generated/config.schema.json", () => {
   it("a single-mode spherical config is a valid AnalyzerConfig", () => {
     const config = buildConfig({
       mode: "single",

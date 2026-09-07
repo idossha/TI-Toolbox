@@ -2,7 +2,7 @@
 
 Source: `tit/gui/pre_process_tab.py` + `tit/gui/components/qsi_config_dialogs.py`.
 Config: `PreprocessConfig` (+ `QSIPrepSettings`/`QSIReconSettings`, the settings-only shapes B4
-landed mid-build — see the schema note below) in `contracts/schema.json`.
+landed mid-build — see the schema note below) in `contracts/generated/config.schema.json`.
 
 Legend: [x] built · [~] built, adapted for the v3 job-per-subject model (see note) · [ ] not built.
 
@@ -136,7 +136,7 @@ Legend: [x] built · [~] built, adapted for the v3 job-per-subject model (see no
 
 1. **Resolved mid-build:** B4 landed `QSIPrepSettings`/`QSIReconSettings` (flat, no `subject_id`)
    partway through this lane; the dialogs and `qsi.ts` were updated to the final shape once
-   `contracts/schema.json`/`schema.d.ts` were regenerated — nothing outstanding here.
+   `contracts/generated/config.schema.json`/`schema.d.ts` were regenerated — nothing outstanding here.
 2. No endpoint exposes `get_inherited_dood_resources()` (container CPU/RAM limits) to the
    renderer — CPU/Memory default to "auto" (`null`) instead of the Qt dialog's inherited numbers.
 3. **Per-stage grouping RESOLVED** (see the Plan panel item above) — **remaining piece**:

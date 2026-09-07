@@ -12,7 +12,7 @@ What this pins
     subject-level answer, and it names what is missing and what to run rather
     than "unknown subject" (which was what a subject staged under
     ``sourcedata/`` -- and listed by the app's own picker -- used to get); and
-    every JSON body is validated against ``contracts/openapi.v1.yaml``, from
+    every JSON body is validated against ``contracts/openapi.yaml``, from
     which ``desktop/src/renderer/api/schema.d.ts`` is generated.
 
 Where the numbers come from
@@ -327,7 +327,7 @@ def test_a_subject_id_that_is_a_path_is_refused_before_any_stat(
 def test_every_scene_json_response_matches_the_contract_schema(
     client: TestClient, project: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The four JSON scene bodies, validated against ``contracts/openapi.v1.yaml``.
+    """The four JSON scene bodies, validated against ``contracts/openapi.yaml``.
 
     Why this exists: ``desktop/src/renderer/api/schema.d.ts`` is generated from
     that contract, and since this round
@@ -349,7 +349,7 @@ def test_every_scene_json_response_matches_the_contract_schema(
     yaml = pytest.importorskip("yaml", reason="PyYAML reads the contract")
 
     contract = yaml.safe_load(
-        (Path(__file__).resolve().parents[1] / "contracts/openapi.v1.yaml").read_text()
+        (Path(__file__).resolve().parents[1] / "contracts/openapi.yaml").read_text()
     )
     _publish_fake_surfaces(project)
     _publish_fake_labels(project)
@@ -385,7 +385,7 @@ def test_the_contract_schema_check_can_actually_fail(
     yaml = pytest.importorskip("yaml")
 
     contract = yaml.safe_load(
-        (Path(__file__).resolve().parents[1] / "contracts/openapi.v1.yaml").read_text()
+        (Path(__file__).resolve().parents[1] / "contracts/openapi.yaml").read_text()
     )
     schema = contract["paths"]["/api/scene/electrodes"]["get"]["responses"]["200"][
         "content"

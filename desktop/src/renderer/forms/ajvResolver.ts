@@ -1,6 +1,6 @@
 /**
  * react-hook-form resolver backed by Ajv's draft 2020-12 build (`ajv/dist/2020`), matching the
- * `$schema` dialect `dev/build_contract.py` writes into `contracts/schema.json`. We do not use
+ * `$schema` dialect `dev/build_contract.py` writes into `contracts/generated/config.schema.json`. We do not use
  * `@hookform/resolvers/ajv` because it hardcodes the draft-07 `Ajv` class — see
  * `desktop/src/renderer/forms/README.md`.
  */

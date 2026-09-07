@@ -94,7 +94,7 @@ export async function getSimulationsFor(subject: string): Promise<Simulation[]> 
 /**
  * `config` is `Record<string, unknown>` at the call boundary only (typed-client friction, not a
  * widened wire shape) — `buildSimulationConfig`'s output is a real, schema-conformant
- * `SimulationConfig` with no extra keys (`contracts/schema.json` sets `additionalProperties:
+ * `SimulationConfig` with no extra keys (`contracts/generated/config.schema.json` sets `additionalProperties:
  * false` on it, ra_11 finding 3). A previous revision of this page added a plan-only top-level
  * `name` field so the mock's `planFor("sim", ...)` could resolve a nicer `output_dir` than its
  * "NewRun" fallback; that stopped validating once `additionalProperties: false` landed, so it was
@@ -104,10 +104,10 @@ export async function getSimulationsFor(subject: string): Promise<Simulation[]> 
  */
 /**
  * `montageSources` is the request's own `PlanRequest.montage_sources` field (a sibling of
- * `config`, per `contracts/openapi.v1.yaml`) for flex/freehand rows — not a key inside `config`.
+ * `config`, per `contracts/openapi.yaml`) for flex/freehand rows — not a key inside `config`.
  * `tit/server/routes/plan.py`'s current implementation still reads an equivalent, differently-
  * shaped value from `config["montage_sources"]` (`subject_id`/`run_name`, not this schema's
- * `subject`/`run`) — a known B3-side gap (`contracts/SCHEMA-CHANGES.md`'s fix:contract entry,
+ * `subject`/`run`) — a known B3-side gap (`contracts/CHANGES.md`'s fix:contract entry,
  * item 7); this call follows the frozen contract, which is what the mock implements today and
  * what the real route needs to converge on. Harmless either way: the mock ignores
  * `montage_sources` entirely, and a real server that doesn't read it yet just plans the

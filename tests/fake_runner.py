@@ -4,7 +4,7 @@ Stands in for a real ``simnibs_python -m tit.<module> spec.json`` runner: reads 
 ``spec.json``, emits ``stage``/``progress``/``log``/``artifact``/``result``/``exit`` events to
 ``TIT_EVENTS_FILE`` in the shape ``tit.jobs.events`` itself writes (``contracts/events.schema.json``
 -- flat ``artifact`` fields, ``result.outputs``/``result.artifacts``, ``exit.code``; see
-``contracts/SCHEMA-CHANGES.md``'s 2026-08-27 entry, item 8) -- this script writes the file
+``contracts/CHANGES.md``'s 2026-08-27 entry, item 8) -- this script writes the file
 directly rather than depending on :mod:`tit.jobs.events`, so B1's scheduler/manager tests never
 block on B4's own module import chain. Honours ``SIGTERM`` promptly (checked every ~20ms during
 its paced sleep, not just between stages/steps -- a job cancelled mid-``duration_s`` exits in

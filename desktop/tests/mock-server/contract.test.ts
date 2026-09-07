@@ -1,4 +1,4 @@
-// Gate 0 for the mock server: drives every path+method declared in contracts/openapi.v1.yaml
+// Gate 0 for the mock server: drives every path+method declared in contracts/openapi.yaml
 // against a live instance of server.mjs and checks (a) the response status is one the contract
 // declares for that operation and (b) for 200 JSON responses, the required properties of the
 // declared schema (resolving local $refs; allOf merged; oneOf tried leniently; x-tit-config
@@ -8,7 +8,7 @@
 // The contract is parsed in memory: with the `yaml` package (a real desktop/ dependency since W4)
 // directly, and otherwise by shelling out to python3 (pyyaml) and reading its STDOUT. A test run
 // writes nothing into the source tree — this used to overwrite the tracked
-// `tests/fixtures/openapi.v1.json`, so running the suite dirtied the worktree and a read-only
+// `tests/fixtures/generated/openapi.json`, so running the suite dirtied the worktree and a read-only
 // checkout failed in the fixture write rather than on anything about the contract (audit TEST-01).
 // The tracked JSON copy is owned by `dev/build_contract.py` / `npm run gen:api`, not by a test.
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
@@ -29,7 +29,7 @@ let spec: any;
 const exercised = new Set<string>();
 
 beforeAll(async () => {
-  const yamlPath = join(__dirname, "..", "..", "..", "contracts", "openapi.v1.yaml");
+  const yamlPath = join(__dirname, "..", "..", "..", "contracts", "openapi.yaml");
   try {
     // `yaml` is a real desktop/ dependency now (W4 added it for stack.ts's own compose parsing),
     // so this import type-checks on its own -- no suppression comment needed. The python3
@@ -172,7 +172,7 @@ async function waitForState(id: string, states: string[], timeoutMs = 5000): Pro
 }
 
 // ------------------------------------------------------------------------ full-contract coverage
-describe("contract coverage: every openapi.v1.yaml path+method", () => {
+describe("contract coverage: every openapi.yaml path+method", () => {
   it("exercises every declared HTTP operation with a contract-valid response", async () => {
     // system / auth (v0, unchanged)
     await call("/api/health", "GET", "/api/health", { auth: false });

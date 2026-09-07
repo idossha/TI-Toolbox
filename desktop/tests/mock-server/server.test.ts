@@ -543,7 +543,7 @@ describe("POST /api/jobs/groups beyond preprocessing", () => {
   it("rejects a sim config missing a schema-required field, the way the real backend does", async () => {
     // Regression: the app POSTed a sim config with no `subject_id`/`montages`, this mock accepted
     // it, and the real runner died on `deserialize_config(SimulationConfig, ...)`. Required fields
-    // now come from contracts/schema.json, so e2e fails where the real backend would.
+    // now come from contracts/generated/config.schema.json, so e2e fails where the real backend would.
     const bad = await fetch(`${BASE}/api/jobs`, {
       method: "POST",
       headers: auth,

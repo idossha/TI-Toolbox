@@ -6,7 +6,7 @@ import { resetSchemaCache, type JSONSchema } from "../../src/renderer/forms/sche
 import { roiToConfig, isRoiComplete, emptyRoi, emptySphereRow, type AtlasLookup } from "../../src/renderer/pages/_shared/roi/types";
 import { buildFlexConfig, defaultFlexFormState, jobKindFor, parsePctList, sweepCombinationCount } from "../../src/renderer/pages/optimizer/flexConfig";
 
-const schema: JSONSchema = JSON.parse(readFileSync(join(__dirname, "..", "..", "..", "contracts", "schema.json"), "utf8"));
+const schema: JSONSchema = JSON.parse(readFileSync(join(__dirname, "..", "..", "..", "contracts", "generated", "config.schema.json"), "utf8"));
 
 // `createAjvResolver(name)` fetches `/api/schema` via `loadSchema()` (forms/schema.ts) — stub
 // `fetch` to serve the document already read from disk above, and reset its cache so the stub
@@ -51,7 +51,7 @@ describe("roiToConfig", () => {
     const value = emptyRoi("cortical");
     if (value.mode !== "cortical") throw new Error("unreachable");
     value.atlas = "DK40";
-    // 1 is the real DK40 `.annot` label index for "bankssts" (contracts/schema.json's
+    // 1 is the real DK40 `.annot` label index for "bankssts" (contracts/generated/config.schema.json's
     // `Region.id: integer` — see desktop/tests/fixtures/atlas_regions.json).
     value.regions = [
       { id: 1, name: "bankssts", hemi: "lh" },
@@ -103,7 +103,7 @@ describe("flex-search config building", () => {
     expect(sweepCombinationCount(form)).toBe(6);
   });
 
-  it("builds a well-formed FlexConfig request body that validates against contracts/schema.json", () => {
+  it("builds a well-formed FlexConfig request body that validates against contracts/generated/config.schema.json", () => {
     const form = defaultFlexFormState();
     const roi = roiToConfig(
       { mode: "spherical", spheres: [{ x: -28, y: -12, z: 58, radius: 10 }], space: "subject", volumetric: false, tissues: "GM" },

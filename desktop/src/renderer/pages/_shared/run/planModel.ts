@@ -19,7 +19,7 @@ export type LockConflict = components["schemas"]["LockConflict"];
 export type PlanSystem = components["schemas"]["PlanSystem"];
 
 /** One entry of the `resolved.stages` array the real server's `_plan_pre` appends to in the same
- *  loop as `jobs` (plan.py ≈ 590–606). Not in `openapi.v1.yaml` yet, so it is widened here and
+ *  loop as `jobs` (plan.py ≈ 590–606). Not in `openapi.yaml` yet, so it is widened here and
  *  every read of it is guarded by a length check (see `stageIdOf`). */
 export interface PlanResolvedStage {
   tags?: string[];

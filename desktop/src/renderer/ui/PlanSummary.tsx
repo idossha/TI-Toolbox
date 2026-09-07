@@ -14,7 +14,7 @@ import { cn } from "./utils";
  *
  * Pages own translating their own plan response into these props (`jobs.length`, `cost.cpus`,
  * `cost.mem_gb`, `PlanJob[]`, `LockConflict[]`, `warnings: string[]` — see
- * `contracts/openapi.v1.yaml`'s `PlanResult`) — this component intentionally does not import
+ * `contracts/openapi.yaml`'s `PlanResult`) — this component intentionally does not import
  * `components["schemas"]` itself, matching `ui/Jobs.tsx`'s own `JobSummary` pattern, so the design
  * system does not need to change shape every time the generated schema does.
  */

@@ -1,4 +1,4 @@
-// Mock tit.server implementing contracts/openapi.v1.yaml completely, from fixtures under
+// Mock tit.server implementing contracts/openapi.yaml completely, from fixtures under
 // desktop/tests/fixtures/. Plain Node http + the `ws` package; ES modules; no new dependencies.
 //
 // Auth (same as the real server, v0 rules carried unchanged into v1):
@@ -794,7 +794,7 @@ function planFor(kind, config, subjectIds, overwrite, montageSources) {
 
 // ---------------------------------------------------------------------------------- ViewSpec
 /** Parse an undeclared `?percentile=lo,hi` convenience param (e.g. "95,99.9"); `null` if absent
- * or malformed. Not part of openapi.v1.yaml's declared query parameters for this route -- a
+ * or malformed. Not part of openapi.yaml's declared query parameters for this route -- a
  * mock-only hook so ViewLayer.percentile has a real, exercisable path end to end (the actual
  * voxel-intensity math this would need against a real NIfTI is server-side work per
  * pages/viewer/PARITY.md; this mock resolves it with a fixed, deterministic formula instead). */
@@ -1432,7 +1432,7 @@ function createJob({ kind, config, subject_ids, after = [], tags = [], overwrite
   const job = {
     // Raw ms, sibling to (never inside) `status` -- `status` is sent verbatim over the wire
     // (`GET /api/jobs`, `jobToDetail`) and the contract test (`contract.test.ts`) checks its shape
-    // against `contracts/openapi.v1.yaml`; a field the schema does not declare would fail it.
+    // against `contracts/openapi.yaml`; a field the schema does not declare would fail it.
     // `status.created_at` is the ISO string clients see; this is the same instant, kept as a number
     // so the watchdog in `tick()` can compare it every 400ms without re-parsing a string.
     _createdAtMs: Date.now(),
@@ -1455,7 +1455,7 @@ function createJob({ kind, config, subject_ids, after = [], tags = [], overwrite
       cpu_percent: null,
       rss: null,
       // The real server records where the runner's log file is written (`JobStatus.log_path` in
-      // contracts/openapi.v1.yaml), and the UI's "Reveal log file" actions exist only when it is
+      // contracts/openapi.yaml), and the UI's "Reveal log file" actions exist only when it is
       // set -- so the mock sets it too, at the path `tit.jobs` uses.
       log_path: `${PROJECT_ROOT}/derivatives/ti-toolbox/logs/${(subject_ids ?? []).length === 1 ? `sub-${subject_ids[0]}` : "group"}/${kind}_${id}.log`,
     },
@@ -1513,7 +1513,7 @@ function jobToDetail(job) {
 
 // ------------------------------------------------------------------------------------- schema
 function loadSchemaJson() {
-  const real = join(repoRoot, "contracts", "schema.json");
+  const real = join(repoRoot, "contracts", "generated", "config.schema.json");
   if (existsSync(real)) {
     try {
       return JSON.parse(readFileSync(real, "utf8"));
@@ -1522,12 +1522,12 @@ function loadSchemaJson() {
     }
   }
   const $defs = {};
-  for (const name of CONFIG_NAMES) $defs[name] = { type: "object", additionalProperties: true, description: `placeholder for ${name} (contracts/schema.json not yet generated)` };
+  for (const name of CONFIG_NAMES) $defs[name] = { type: "object", additionalProperties: true, description: `placeholder for ${name} (contracts/generated/config.schema.json not yet generated)` };
   return { $defs };
 }
 
 /**
- * kind -> the `contracts/schema.json` `$defs` name whose `required` list a submitted config must
+ * kind -> the `contracts/generated/config.schema.json` `$defs` name whose `required` list a submitted config must
  * satisfy. Only the kinds whose real runner calls `deserialize_config(<Class>, data)` with no
  * fallback are listed -- for those, a missing required field is not a warning, it is a
  * `TypeError: <Class>.__init__() missing N required positional arguments` minutes into the run
@@ -2314,7 +2314,7 @@ route("POST", "/api/plan/:kind", async (ctx) => {
 
 // --- jobs (v1) ---
 // Test-only, mock-only: cancels and forgets every non-terminal job (and the group parallel-limit
-// bookkeeping that goes with them). NOT in contracts/openapi.v1.yaml — deliberately, since this
+// bookkeeping that goes with them). NOT in contracts/openapi.yaml — deliberately, since this
 // endpoint exists only to give the e2e harness a way to say "a spec file's session is starting or
 // ending, forget whatever an earlier one left running" and has no counterpart on tit.server; a
 // widened contract or a `declared`/`exercised` mismatch in contract.test.ts would be the sign this
@@ -2878,7 +2878,7 @@ function planPreprocessingStages(config) {
   if (cfg.extract_dti) stages.push({ tag: "G6", flags: { extract_dti: true }, after: [...(has("G5") ? ["G5"] : []), ...(has("G2a") ? ["G2a"] : [])] });
   return stages;
 }
-// Every kind `JobGroupRequest.kind` accepts (contracts/openapi.v1.yaml, R3). `pre` expands into
+// Every kind `JobGroupRequest.kind` accepts (contracts/openapi.yaml, R3). `pre` expands into
 // the per-subject stage DAG above; the rest are one job per (subject, config) entry.
 const GROUP_KINDS = ["pre", "sim", "flex", "flex_adaptive", "flex_pareto", "ex", "mex"];
 

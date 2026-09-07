@@ -1,6 +1,6 @@
 /**
  * Pure `SourceConfig` builders, split out of `index.tsx` so `tests/unit/source-defaults.test.ts`
- * can validate them against `contracts/schema.json` without rendering React — same split as
+ * can validate them against `contracts/generated/config.schema.json` without rendering React — same split as
  * `pages/simulator/buildConfig.ts`. Typed against the real `SourceConfig` `$def` (ra_13 finding
  * #10) instead of `Record<string, unknown>`.
  */

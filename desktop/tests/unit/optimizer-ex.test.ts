@@ -14,8 +14,8 @@ import {
 } from "../../src/renderer/pages/optimizer/exConfig";
 import type { ExConfigBody, LeadfieldConfigBody, MExConfigBody } from "../../src/renderer/pages/optimizer/api";
 
-// contracts/schema.json is repo-root; desktop/tests/unit -> ../../.. reaches the repo root.
-const schemaPath = join(__dirname, "..", "..", "..", "contracts", "schema.json");
+// contracts/generated/config.schema.json is repo-root; desktop/tests/unit -> ../../.. reaches the repo root.
+const schemaPath = join(__dirname, "..", "..", "..", "contracts", "generated", "config.schema.json");
 const schemaDoc = JSON.parse(readFileSync(schemaPath, "utf8")) as JSONSchema;
 
 /**
@@ -38,12 +38,12 @@ ajv.addSchema(schemaDoc, "schema.json");
 
 function validate(defName: string, values: Record<string, unknown>): ErrorObject[] {
   const fn = ajv.getSchema(`schema.json#/$defs/${defName}`);
-  if (!fn) throw new Error(`No $defs/${defName} in contracts/schema.json`);
+  if (!fn) throw new Error(`No $defs/${defName} in contracts/generated/config.schema.json`);
   fn(values);
   return (fn.errors ?? []) as ErrorObject[];
 }
 
-describe("Optimizer Ex/mEx defaults validate against contracts/schema.json", () => {
+describe("Optimizer Ex/mEx defaults validate against contracts/generated/config.schema.json", () => {
   it("ExForm's default (bucketed, single ROI) validates as an ExConfig", () => {
     const target = savedTargets(["Thalamus_target"], false)[0]!;
     const form = { ...defaultExFormState(), buckets: { e1_plus: ["F7"], e1_minus: ["P7"], e2_plus: ["F3"], e2_minus: ["P3"] } };

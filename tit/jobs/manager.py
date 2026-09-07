@@ -332,7 +332,7 @@ class JobManager:
                 # `lost` is the existing taxonomy value for "the server restarted mid-run"
                 # (`desktop/.../jobs-rail/format.ts::ERROR_LABEL`); the state is `failed`
                 # because the job is over and will not resume -- see JobState in
-                # contracts/openapi.v1.yaml, which has no `interrupted` member.
+                # contracts/openapi.yaml, which has no `interrupted` member.
                 error = JobError(
                     type="lost", message=note, last_lines=self._log_tail(job_id)
                 )
@@ -1071,7 +1071,7 @@ class JobManager:
                 # reading only this one event -- every entry in it already arrived (in order)
                 # as its own "artifact" event above, so applying it here too would double the
                 # job's artifact list. `result.outputs` (the runner's free-form metrics/paths
-                # payload) has no home on JobStatus (contracts/openapi.v1.yaml's JobStatus
+                # payload) has no home on JobStatus (contracts/openapi.yaml's JobStatus
                 # carries no such field) -- parsed above via the generic event dict, otherwise
                 # unused here.
                 pass

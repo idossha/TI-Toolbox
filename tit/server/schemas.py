@@ -1,4 +1,4 @@
-"""Response models for the v0 contract (``contracts/openapi.v0.yaml``).
+"""Response models for the wire contract (``contracts/openapi.yaml``).
 
 Names match the contract's ``components/schemas`` so ``--dump-openapi`` can
 be diffed against it by ``dev/contracts_check.py``.
@@ -20,7 +20,7 @@ class Version(BaseModel):
     tit_version: str
     server_api: Literal["v0"]
     schema_hash: str = Field(
-        description="sha256 of contracts/schema.json (empty until Phase 1)"
+        description="sha256 of contracts/generated/config.schema.json (empty until Phase 1)"
     )
     python: str
     simnibs: str | None
@@ -166,7 +166,7 @@ class Capabilities(BaseModel):
     docker_socket: bool
     bpy: bool
     jupyter: bool = Field(
-        description="jupyter importable in this interpreter (contracts/SCHEMA-CHANGES.md, ra_13 3e)"
+        description="jupyter importable in this interpreter (contracts/CHANGES.md, ra_13 3e)"
     )
     tetravox_embed: TetravoxEmbedCapability = Field(
         description="the embedded viewer bundle at /tetravox/, from <embed dir>/manifest.json"

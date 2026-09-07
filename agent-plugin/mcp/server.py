@@ -850,7 +850,7 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
             "and notebooks.",
             "no_pyqt": "The PyQt5 GUI (tit/gui/) was DELETED in v3.0.0. `tit` imports no Qt. "
             "The core image ships no X11 and no FreeSurfer. Never cite tit/gui/**.",
-            "wire_contract": "contracts/openapi.v1.yaml (frozen interface — a change needs "
+            "wire_contract": "contracts/openapi.yaml (frozen interface — a change needs "
             "the contract edit and a DECISIONS.md entry in the same commit)",
             "origin": "http://127.0.0.1:8765 — HTTP + WebSockets (/ws/system, /ws/jobs, "
             "/ws/tetravox, /ws/kernels/{id}). Bearer token lives only in the container's env.",

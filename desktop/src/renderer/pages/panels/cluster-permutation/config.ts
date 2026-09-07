@@ -1,7 +1,7 @@
 /**
  * Pure `GroupComparisonConfig`/`CorrelationConfig` builders, split out of `index.tsx` so
  * `tests/unit/cluster-permutation-defaults.test.ts` can validate them against
- * `contracts/schema.json` without rendering React — same split as
+ * `contracts/generated/config.schema.json` without rendering React — same split as
  * `pages/simulator/buildConfig.ts`.
  */
 import type { CorrelationConfig, GroupComparisonConfig } from "./api";

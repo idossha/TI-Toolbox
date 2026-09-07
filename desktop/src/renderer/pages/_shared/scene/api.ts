@@ -3,7 +3,7 @@
  * by lane SCA) and the polling rule a cold cache needs.
  *
  * The **shapes below are the contract's**, read out of the generated `api/schema.d.ts` (`npm run
- * gen:api` ← `contracts/openapi.v1.json` ← `contracts/openapi.v1.yaml`) rather than hand-written
+ * gen:api` ← `contracts/generated/openapi.json` ← `contracts/openapi.yaml`) rather than hand-written
  * a second time. Lane SCC typed them by hand because the six paths were not in the generated
  * `paths` map yet and regenerating a file several lanes share was not its change to make
  * (`docs/dev/HISTORY.md § 2026-09-04 (scene service)` §6.7); they are generated now. *Failure it prevents:* a

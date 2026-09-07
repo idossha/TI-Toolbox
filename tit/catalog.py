@@ -801,7 +801,7 @@ def _read_segstats_sum(labels_file: str) -> list[dict] | None:
 # free-hand config names, montage names) -- traversal segments (``..``),
 # path separators, and NUL are the concrete attack this blocks (a name of
 # ``../../../../outside/escaped`` previously escaped the project entirely;
-# see ``contracts/SCHEMA-CHANGES.md``). Deliberately conservative: callers
+# see ``contracts/CHANGES.md``). Deliberately conservative: callers
 # needing a friendlier display name should map it to one of these first.
 _SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
@@ -1364,7 +1364,7 @@ def freehand_configs(pm: PathManager, sid: str) -> list[dict] | None:
     The contract's ``FreehandConfig.type`` enum is ``[U, M]`` (unipolar/
     multipolar), matching this on-disk value exactly (fixed from an earlier
     ``xyz``/``label`` enum that matched nothing real -- see
-    ``contracts/SCHEMA-CHANGES.md``); ``type`` is passed through verbatim.
+    ``contracts/CHANGES.md``); ``type`` is passed through verbatim.
     """
     if sid not in subject_ids(pm):
         return None

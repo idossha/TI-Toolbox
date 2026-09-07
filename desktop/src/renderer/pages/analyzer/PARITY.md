@@ -2,7 +2,7 @@
 
 Harvested from `tit/gui/analyzer_tab.py` (2731 lines) and `tit/constants.py`
 (`FIELD_REGISTRY`), `tit/analyzer/field_selector.py`. Schema source of truth:
-`AnalyzerConfig` in `contracts/schema.json`.
+`AnalyzerConfig` in `contracts/generated/config.schema.json`.
 
 Legend: [x] built · [~] built with a deliberate simplification (noted) · [ ] not built (gap, noted)
 
@@ -75,7 +75,7 @@ and field — refused on the Run button, never silently resolved to the first ro
 - [x] Type: Spherical / Cortical radio (`type_spherical`/`type_cortical`,
       default Spherical) drives which target group shows, **plus a third
       Subcortical option** per the task brief and `AnalysisType` in
-      `contracts/schema.json` (`spherical | cortical | subcortical`). The Qt tab
+      `contracts/generated/config.schema.json` (`spherical | cortical | subcortical`). The Qt tab
       has no third radio — voxel-space cortical just relabels its button
       "Sub/Cortical" (`update_cortical_button_text`) while still sending
       `analysis_type="cortical"`.
@@ -83,7 +83,7 @@ and field — refused on the Run button, never silently resolved to the first ro
       is accepted by the schema/dataclass but
       `tit.analyzer.__main__._run_single` only branches on `"spherical"` /
       `"cortical"` — a submitted `subcortical` job is a silent no-op today (see
-      `AnalyzerConfig`'s docstring Notes in `contracts/schema.json`). Built
+      `AnalyzerConfig`'s docstring Notes in `contracts/generated/config.schema.json`). Built
       anyway per the task brief, with an inline warning instead of hiding it.
 
 ### Spherical target

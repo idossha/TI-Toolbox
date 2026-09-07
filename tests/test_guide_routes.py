@@ -3,7 +3,7 @@
 What this pins
     That the guide answers **with no project bound at all** (the thing that
     separates it from ``/api/scene/*``), that every JSON body validates against
-    ``contracts/openapi.v1.yaml`` — from which the desktop's
+    ``contracts/openapi.yaml`` — from which the desktop's
     ``api/schema.d.ts`` is generated — that the bytes routes revalidate by
     SHA-256 ETag, that auth is required like every other ``/api/*`` route, and
     that an unknown part/atlas/net is a readable 404 rather than a traceback.
@@ -154,7 +154,7 @@ def test_every_guide_json_response_matches_the_contract_schema(client: TestClien
     yaml = pytest.importorskip("yaml")
 
     contract = yaml.safe_load(
-        (Path(__file__).resolve().parents[1] / "contracts/openapi.v1.yaml").read_text()
+        (Path(__file__).resolve().parents[1] / "contracts/openapi.yaml").read_text()
     )
     body = client.get("/api/guide/manifest", headers=BEARER).json()
     cases = {
@@ -178,7 +178,7 @@ def test_the_contract_schema_check_can_actually_fail(client: TestClient) -> None
     yaml = pytest.importorskip("yaml")
 
     contract = yaml.safe_load(
-        (Path(__file__).resolve().parents[1] / "contracts/openapi.v1.yaml").read_text()
+        (Path(__file__).resolve().parents[1] / "contracts/openapi.yaml").read_text()
     )
     schema = contract["paths"]["/api/guide/manifest"]["get"]["responses"]["200"][
         "content"

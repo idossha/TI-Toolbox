@@ -2,7 +2,7 @@
 
 Config-schema-driven form infrastructure shared by every page. Owned by F2 (design system).
 
-- `schema.ts` — fetches and caches `/api/schema` (`contracts/schema.json`) once per renderer
+- `schema.ts` — fetches and caches `/api/schema` (`contracts/generated/config.schema.json`) once per renderer
   session; `loadConfigSchema(name)` resolves one `$defs` entry (`SimulationConfig`, `FlexConfig`,
   ...).
 - `ajvResolver.ts` — `createAjvResolver(name | schema)` returns a react-hook-form `resolver`. Uses

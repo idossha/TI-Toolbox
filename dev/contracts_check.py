@@ -1,9 +1,24 @@
 #!/usr/bin/env python3
-"""CI superset gate: the server's dumped OpenAPI must cover the contract.
+"""CI gate for ``contracts/``: no generated drift, and the live server covers the contract.
 
 Usage::
 
-    python dev/contracts_check.py [contracts/openapi.v0.yaml] [contracts/openapi.json]
+    python3 dev/contracts_check.py
+
+Two checks, in order.
+
+**1. Drift.** Regenerate ``contracts/generated/config.schema.json`` and
+``contracts/generated/openapi.json`` in memory and compare byte for byte
+against what is committed (``dev/build_schema.py --check`` /
+``dev/build_contract.py --check``).  ``desktop/src/renderer/api/schema.d.ts``
+is checked the same way when ``openapi-typescript`` is available.  Any
+difference fails with "run ``npm run gen``" -- nothing under
+``contracts/generated/`` is ever hand-edited.
+
+**2. Coverage.** Build the FastAPI app in-process and take its own OpenAPI
+document (the same object ``--dump-openapi`` writes and ``GET
+/api/openapi.json`` serves), then check that it covers
+``contracts/openapi.yaml``.  There is no committed dump to go stale.
 
 Every ``path + method`` (with its response codes and parameters) of the
 contract must exist in the dump, and every ``required`` property of each
@@ -20,7 +35,7 @@ handled specially (ra_13 finding 3, worked out with F1a):
   contract always spells a resource id ``{id}``; some server route functions
   use ``{job_id}`` / ``{report_id}`` for readability) -- see
   ``_PATH_PARAM_ALIASES`` and the top-level description in
-  ``contracts/openapi.v1.yaml``.
+  ``contracts/openapi.yaml``.
 - ``/ws/*`` paths are required in the contract but exempt from the dump
   check: FastAPI does not describe WebSocket routes in its generated
   OpenAPI document at all, so a dump can never "contain" them.
@@ -42,15 +57,19 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
 import yaml
 
 REPO = Path(__file__).resolve().parents[1]
-DEFAULT_CONTRACT = REPO / "contracts" / "openapi.v0.yaml"
-DEFAULT_DUMP = REPO / "contracts" / "openapi.json"
+CONTRACT_PATH = REPO / "contracts" / "openapi.yaml"
+SCHEMA_D_TS = REPO / "desktop" / "src" / "renderer" / "api" / "schema.d.ts"
+GENERATED_OPENAPI = REPO / "contracts" / "generated" / "openapi.json"
 
 METHODS = ("get", "post", "put", "patch", "delete")
 
@@ -69,6 +88,35 @@ _DUMP_EXEMPT_STATUS = {"401", "403", "404"}
 _DUMP_EXEMPT_SCHEMAS = {"PipelineConfig"}
 
 _PATH_PARAM_RE = re.compile(r"\{([^}]+)\}")
+
+# Contract-vs-code differences that are real and open, recorded here (2026-09-07,
+# when the gate was first pointed at the full contract instead of the retired
+# openapi.v0.yaml subset) so that *new* drift still fails red while these stay
+# visible in every run's output.  Remove an entry when the underlying issue is
+# fixed -- the gate fails if a listed finding stops occurring, so this list
+# cannot rot silently.
+#
+# - Overview*.reason: the contract says `string` required; the server returns
+#   `str | None`.  A client trusting the contract can read null.  Fix belongs in
+#   whichever is wrong -- the server's Optional, or the contract's requiredness.
+# - Plan*/LockConflict `kind`: the contract declares the 17-value JobKind enum;
+#   the server types the field as a bare `str`, so the dump carries no enum.
+# - POST /api/system/terminate 204 / POST /api/pipelines/export 501: declared in
+#   the contract, not described by the route.
+_KNOWN_FINDINGS = frozenset({
+    "GET /api/catalog/overview 200.subjects[].readiness[].reason",
+    "schema OverviewReadiness.reason",
+    "schema OverviewSubject.readiness[].reason",
+    "schema Overview.subjects[].readiness[].reason",
+    "POST /api/plan/{kind} 200.jobs[].kind",
+    "POST /api/plan/{kind} 200.lock_conflicts[].kind",
+    "schema LockConflict.kind",
+    "schema PlanJob.kind",
+    "schema PlanResult.jobs[].kind",
+    "schema PlanResult.lock_conflicts[].kind",
+    "POST /api/system/terminate: response 204 missing",
+    "POST /api/pipelines/export: response 501 missing",
+})
 
 
 def _canonical_param_name(name: str, location: str | None) -> str:
@@ -285,7 +333,14 @@ def check(
             continue
         d_schema = d_components.get(name)
         if d_schema is None:
-            missing.append(f"schema {name} missing from dump components")
+            # Same root cause as finding 3d below: the router returns bare
+            # ``dict``/``list``, so FastAPI never registers a named model for it.
+            # The contract documents the shape anyway (the UI is written against
+            # it); there is simply nothing on the server side to compare it to.
+            # Counted and printed as a warning so the unverified surface stays
+            # visible, rather than failing a gate it can never pass until those
+            # routers grow response models.
+            warnings.append(f"schema {name} has no named model on the server")
             continue
         compare_schema(
             contract, c_schema, dump, d_schema, f"schema {name}", missing, warnings
@@ -293,12 +348,94 @@ def check(
     return missing, warnings
 
 
+def check_drift() -> list[str]:
+    """Regenerate every ``contracts/generated/`` output in memory; report what would change."""
+    sys.path.insert(0, str(REPO / "dev"))
+    import build_contract
+    import build_contracts
+    import build_schema
+
+    # Same host/container import bootstrap `npm run gen` uses.
+    build_contracts._ensure_importable()
+
+    problems: list[str] = []
+    if build_schema.main(["--check"]) != 0:
+        problems.append(f"{build_schema.OUTPUT_PATH.relative_to(REPO)} is stale")
+    if build_contract.main(["--check"]) != 0:
+        problems.append(f"{GENERATED_OPENAPI.relative_to(REPO)} is stale")
+
+    # schema.d.ts is generated by openapi-typescript, which needs desktop/node_modules.
+    # Where it is not installed, say so rather than pretending the file was checked.
+    npx = shutil.which("npx")
+    if npx is None or not (REPO / "desktop" / "node_modules").is_dir():
+        print(
+            "contracts_check: skipping schema.d.ts (desktop/node_modules not installed); "
+            "`npm run gen` in desktop/ checks it"
+        )
+    else:
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "schema.d.ts"
+            result = subprocess.run(
+                [npx, "openapi-typescript", str(GENERATED_OPENAPI), "-o", str(out)],
+                cwd=REPO / "desktop",
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                problems.append(
+                    f"openapi-typescript failed: {result.stderr.strip()[:400]}"
+                )
+            elif out.read_text(encoding="utf-8") != SCHEMA_D_TS.read_text(
+                encoding="utf-8"
+            ):
+                problems.append(f"{SCHEMA_D_TS.relative_to(REPO)} is stale")
+    return problems
+
+
+def live_openapi() -> dict[str, Any]:
+    """This server's own OpenAPI document, built in-process.
+
+    The same object ``tit.server.__main__ --dump-openapi`` writes and
+    ``GET /api/openapi.json`` serves, so there is no committed copy to go stale.
+    """
+    sys.path.insert(0, str(REPO))
+    from tit.server.app import create_app
+    from tit.server.settings import ServerSettings
+
+    with tempfile.TemporaryDirectory() as project_dir:
+        return create_app(
+            ServerSettings(project_dir=project_dir, token="contracts-check")
+        ).openapi()
+
+
 def main(argv: list[str]) -> int:
-    contract_path = Path(argv[1]) if len(argv) > 1 else DEFAULT_CONTRACT
-    dump_path = Path(argv[2]) if len(argv) > 2 else DEFAULT_DUMP
-    contract = yaml.safe_load(contract_path.read_text(encoding="utf-8"))
-    dump = json.loads(dump_path.read_text(encoding="utf-8"))
+    if len(argv) > 1:
+        print(
+            "contracts_check: takes no arguments -- it checks contracts/openapi.yaml "
+            "against the live app and against contracts/generated/.",
+            file=sys.stderr,
+        )
+        return 2
+
+    drift = check_drift()
+    if drift:
+        print(f"contracts_check: {len(drift)} generated file(s) out of date:")
+        for line in drift:
+            print(f"  - {line}")
+        print("\nRun `npm run gen` (in desktop/) and commit the result.")
+        return 1
+    print("contracts_check: contracts/generated/ is up to date")
+
+    contract = yaml.safe_load(CONTRACT_PATH.read_text(encoding="utf-8"))
+    dump = live_openapi()
     missing, warnings = check(contract, dump)
+    def _key(line: str) -> str:
+        """The ``_KNOWN_FINDINGS`` entry a finding matches: full line, else its subject."""
+        return line if line in _KNOWN_FINDINGS else line.split(":")[0]
+
+    known = [m for m in missing if _key(m) in _KNOWN_FINDINGS]
+    missing = [m for m in missing if _key(m) not in _KNOWN_FINDINGS]
+    stale_known = _KNOWN_FINDINGS - {_key(m) for m in known}
     n_paths = sum(
         1 for item in contract["paths"].values() for m in METHODS if m in item
     )
@@ -307,14 +444,26 @@ def main(argv: list[str]) -> int:
         print(f"contracts_check: {len(warnings)} warning(s) (not gate failures):")
         for line in warnings:
             print(f"  - {line}")
+    if known:
+        print(f"contracts_check: {len(known)} known open finding(s) (_KNOWN_FINDINGS):")
+        for line in known:
+            print(f"  - {line}")
+    if stale_known:
+        print(
+            f"contracts_check: {len(stale_known)} _KNOWN_FINDINGS entr(y/ies) no longer "
+            "occur -- delete them from dev/contracts_check.py:"
+        )
+        for line in sorted(stale_known):
+            print(f"  - {line}")
+        return 1
     if missing:
         print(f"contracts_check: {len(missing)} problem(s):")
         for line in missing:
             print(f"  - {line}")
         return 1
     print(
-        f"contracts_check: OK — {n_paths} operation(s) and {n_schemas} schema(s) "
-        f"from {contract_path.name} are present in {dump_path.name}"
+        f"contracts_check: OK -- {n_paths} operation(s) and {n_schemas} schema(s) "
+        f"from {CONTRACT_PATH.name} are served by the live app"
         + (f" ({len(warnings)} warning(s) above)" if warnings else "")
     )
     return 0

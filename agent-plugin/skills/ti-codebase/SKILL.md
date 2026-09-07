@@ -22,7 +22,7 @@ when it and `docs/dev/` disagree, `docs/dev/` wins.
 | FastAPI job server | `tit/server/` inside `idossha/ti-toolbox` | The job model — queue, dependencies, locks, budget, live events, cancellation. Serves the React bundle at `/`. |
 | Science core | `tit/` | Every scientific decision. Imports no Qt, no FastAPI-only types. |
 
-Wire contract: `contracts/openapi.v1.yaml`. **The PyQt5 package `tit/gui/` was
+Wire contract: `contracts/openapi.yaml`. **The PyQt5 package `tit/gui/` was
 deleted in v3.0.0** — do not cite it, do not restore patterns from it.
 
 Frozen interface paths (a change requires the contract edit **and** the

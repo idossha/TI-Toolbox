@@ -17,7 +17,7 @@ import {
   parseLabels,
 } from "../../src/renderer/pages/panels/visual-exporter/config";
 
-const schemaPath = join(__dirname, "..", "..", "..", "contracts", "schema.json");
+const schemaPath = join(__dirname, "..", "..", "..", "contracts", "generated", "config.schema.json");
 const schemaDoc = JSON.parse(readFileSync(schemaPath, "utf8")) as { $schema: string; $defs: Record<string, unknown> };
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });

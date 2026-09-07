@@ -14,7 +14,7 @@ Not invented: every row mirrors either one of the maintainer's own succeeded job
 ``d0036f3c…`` for pre, ``02a18de1…`` for analyzer), a saved run config the pipeline itself wrote
 (``ex-search/docs_ex_symmetric/run_config.json``, ``m-ex-search/docs_mex_symmetric/
 run_config.json``, ``Simulations/L_Insula/documentation/config.json``) or the field list of the
-matching dataclass in ``contracts/schema.json`` (generated from
+matching dataclass in ``contracts/generated/config.schema.json`` (generated from
 ``tit.config_io.CONFIG_CLASS_REGISTRY``). A hand-invented config would test the harness's idea
 of the contract, not the product's.
 

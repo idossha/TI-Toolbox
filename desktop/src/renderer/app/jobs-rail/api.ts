@@ -24,7 +24,7 @@ export type Subject = components["schemas"]["Subject"];
 
 /**
  * Every `JobKind` in the v1 contract, for the kind filter's option list. `tools`/`report` were
- * added by the fix:contract reconciliation (SCHEMA-CHANGES.md item 1 — `tit/jobs/spec.py::JOB_KINDS`
+ * added by the fix:contract reconciliation (CHANGES.md item 1 — `tit/jobs/spec.py::JOB_KINDS`
  * already had them; only the frozen contract's enum was missing them) — kept in sync with
  * `components["schemas"]["JobKind"]`'s enum by hand since this is a plain string-literal array,
  * not a place a generated type can be spread into.

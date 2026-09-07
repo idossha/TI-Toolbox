@@ -2,7 +2,7 @@
  * Page-scoped API calls for the NIfTI Group Averaging panel. Kept local — see
  * pages/simulator/api.ts.
  *
- * `NiftiAverageConfig` is a real `contracts/schema.json` `$def` now (ra_13 finding #10 — the
+ * `NiftiAverageConfig` is a real `contracts/generated/config.schema.json` `$def` now (ra_13 finding #10 — the
  * PARITY.md "no schema entry, cast through PipelineConfig" note was stale); typed directly here
  * instead of the `Record<string, unknown>` escape hatch, with `/api/validate/nifti_average`
  * called before submit.

@@ -11,7 +11,7 @@ import { defaultConfig as defaultPreprocessConfig } from "../../src/renderer/pag
 
 /**
  * `forms/ajvResolver.ts::createAjvResolver(name)` used to compile one `$defs/<Name>` entry
- * extracted from `contracts/schema.json` in isolation — stripped of every sibling `$defs` its own
+ * extracted from `contracts/generated/config.schema.json` in isolation — stripped of every sibling `$defs` its own
  * `$ref`s point to — so it threw `can't resolve reference #/$defs/<Other> from id #` at *compile*
  * time (before any value was even checked) for every config that isn't a flat leaf. `ExConfig`,
  * `PreprocessConfig` and `SimulationConfig` all hit this (electrodes' `oneOf` branches, the
@@ -24,8 +24,8 @@ import { defaultConfig as defaultPreprocessConfig } from "../../src/renderer/pag
  * `ConfigX`-shaped synthetic case.
  */
 
-// contracts/schema.json is repo-root; desktop/tests/unit -> ../../.. reaches the repo root.
-const schemaPath = join(__dirname, "..", "..", "..", "contracts", "schema.json");
+// contracts/generated/config.schema.json is repo-root; desktop/tests/unit -> ../../.. reaches the repo root.
+const schemaPath = join(__dirname, "..", "..", "..", "contracts", "generated", "config.schema.json");
 const schemaDoc = JSON.parse(readFileSync(schemaPath, "utf8")) as JSONSchema;
 
 const noopOptions = { shouldUseNativeValidation: false } as unknown as ResolverOptions<Record<string, unknown>>;

@@ -188,7 +188,7 @@ B wins on both hard requirements and on scripting parity. Cost: ~2–3k LOC of P
   flex/freehand source, ex-search search-space counts, the job's `cost`, **and `lock_conflicts:
   [{key, held_by, kind, subject, started_at}]`** so the Run button can say "will queue behind #12
   (charm sub-101, running 1h42m) — Queue anyway / Cancel" *before* submission.
-- **Contract-first, from Phase 1:** `contracts/openapi.v0.yaml` + `contracts/events.schema.json`
+- **Contract-first, from Phase 1:** `contracts/openapi.yaml` + `contracts/events.schema.json`
   + sub-ernie fixtures (`tests/fixtures/api/`: subjects, montages, atlases, one job's
   `events.jsonl`) are hand-authored in Phase 1 so the frontend can start in Phase 4 against a mock;
   the real server's generated OpenAPI must diff clean against v0 (CI gate). TS types via
@@ -500,7 +500,7 @@ montage dir of the run, `simulator_tab.py:1905-1925`); (7) `tit/pre/utils.py:461
   `tit/blender/electrode_placement.py`, `stim_configs` reader/writer), `tit/notes.py`.
 - `tit/config_io.py`: `deserialize_config`, `json_schema()`; new dataclasses `AnalyzerConfig`,
   `PreprocessConfig`, `SourceConfig`, `LeadfieldConfig`; `PathManager.jobs_dir()`.
-- `contracts/` (`openapi.v0.yaml`, `events.schema.json`, generated `openapi.json`,
+- `contracts/` (`openapi.yaml`, `events.schema.json`, generated `generated/openapi.json`,
   `schema.json`) + `tests/fixtures/api/`.
 
 **B. Small behavioural changes inside existing code (each a few lines, each tested)**
@@ -651,7 +651,7 @@ extracted function so the legacy GUI exercises the new code until cutover).
 - `deserialize_config` + `json_schema()` post-processor + the four new dataclasses; the five
   hand-rolled runners switched (flex/ex/mex verified unchanged); round-trip test per config class
   (instance → `serialize_config` → validate against `json_schema()` with `jsonschema` 2020-12 →
-  `deserialize_config` → equality); `contracts/schema.json` snapshot; `contracts/openapi.v0.yaml`,
+  `deserialize_config` → equality); `contracts/generated/config.schema.json` snapshot; `contracts/openapi.yaml`,
   `contracts/events.schema.json`, `tests/fixtures/api/` (sub-ernie).
 - `setup_logging` JSON sink; `stage`/`progress` in all nine runners; `exit` event; exit-code fixes
   (analyzer, stats, pre); SIGTERM handler via `run_pipeline(runner=)`; grace 10 s in ex/mex;
@@ -687,7 +687,7 @@ extracted function so the legacy GUI exercises the new code until cutover).
 - Registry/DAG scheduler/locks/costs/runner/events/tailer (§2.3–2.4), `plan_preprocessing`, REST
   + WS routes (`seq`/`since`), static UI + `/docs`, auth (env token → cookie), `TrustedHost`, WS
   origin check, file jail, CSP headers, `/api/capabilities`, `--dump-openapi` (must diff clean
-  against `openapi.v0.yaml`). FastAPI `TestClient` + `pytest-asyncio` tests; `tests/fake_runner.py`
+  against `openapi.yaml`). FastAPI `TestClient` + `pytest-asyncio` tests; `tests/fake_runner.py`
   (emits events, honours SIGTERM) for scheduler tests; lock table tested as data; path-traversal
   and CSP-header tests for file/report routes.
 - `container/blueprint/Dockerfile.simnibs`: multi-stage (Node builder → `/opt/ti-toolbox/ui`),

@@ -1,7 +1,7 @@
 /**
  * Page-scoped API calls for the Nilearn Visuals panel. Kept local — see pages/simulator/api.ts.
  *
- * `NilearnConfig` is a real `contracts/schema.json` `$def` now (ra_13 finding #10 — the PARITY.md
+ * `NilearnConfig` is a real `contracts/generated/config.schema.json` `$def` now (ra_13 finding #10 — the PARITY.md
  * "no schema entry" note was stale); typed directly here with `/api/validate/nilearn` called
  * before submit.
  */

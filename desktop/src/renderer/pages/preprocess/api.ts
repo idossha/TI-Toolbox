@@ -16,7 +16,7 @@ export type ValidateResult = components["schemas"]["ValidateResult"];
 export type JobGroupResult = components["schemas"]["JobGroupResult"];
 
 /**
- * `PlanJob` widened with `stage`/`label`, not yet in `contracts/openapi.v1.yaml` (ra_13 finding
+ * `PlanJob` widened with `stage`/`label`, not yet in `contracts/openapi.yaml` (ra_13 finding
  * 12) — `tit/jobs/plans.py`'s `PlannedJob.label` (e.g. `"sub-01:G2a"`) already exists server-side,
  * but `tit/server/routes/plan.py`'s wire-shape `PlanJob` pydantic model doesn't carry it yet. Both
  * fields are optional so this page reads them when a future contract adds them and falls back to

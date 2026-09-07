@@ -1,6 +1,6 @@
 /**
  * Pure `NiftiAverageConfig` builder, split out of `index.tsx` so a defaults test can validate it
- * against `contracts/schema.json` without rendering React — same split as
+ * against `contracts/generated/config.schema.json` without rendering React — same split as
  * `pages/panels/cluster-permutation/config.ts`.
  */
 import type { NiftiAverageConfig } from "./api";

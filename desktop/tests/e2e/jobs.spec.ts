@@ -56,7 +56,7 @@ async function panelTab(name: "Jobs" | "Console" | "Host" | "Report"): Promise<v
 /**
  * A minimally valid config for a seeded job of *kind*.
  *
- * `POST /api/jobs` gates a submitted config against the `contracts/schema.json` `required` list
+ * `POST /api/jobs` gates a submitted config against the `contracts/generated/config.schema.json` `required` list
  * for the kinds whose runner calls `deserialize_config` with no fallback (`tit/jobs/config_check.py`,
  * and the mock's `schemaRequiredErrors`). These seeds exist to populate the jobs list, never to
  * run anything real, but a 422 at submit time is still a 422 — so they carry the fields the gate

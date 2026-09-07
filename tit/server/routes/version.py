@@ -21,7 +21,7 @@ _schema_hash_cache: tuple[float, str] | None = None
 
 
 def schema_hash() -> str:
-    """sha256 (hex) of ``contracts/schema.json``'s raw bytes; ``""`` if the file doesn't exist
+    """sha256 (hex) of ``contracts/generated/config.schema.json``'s raw bytes; ``""`` if the file doesn't exist
     yet (a fresh checkout before ``dev/build_schema.py`` has ever run)."""
     global _schema_hash_cache
     try:

@@ -11,7 +11,7 @@ Kind -> config-class resolution
 Most kinds map to exactly one dataclass in :data:`tit.config_io.CONFIG_CLASS_REGISTRY`
 (:data:`SIMPLE_KIND_CLASS`). Two kinds do not: ``stats`` (``GroupComparisonConfig`` or
 ``CorrelationConfig``) and ``blender`` (``MontageConfig``/``VectorConfig``/``RegionConfig``/``SubcorticalConfig``) --
-the frozen ``PipelineConfig`` union in ``contracts/openapi.v1.yaml`` lists all of them under the
+the frozen ``PipelineConfig`` union in ``contracts/openapi.yaml`` lists all of them under the
 same ``kind``/path parameter with no other discriminant on the object itself. This module resolves
 the ambiguity with a ``config["_type"]`` key (see :data:`AMBIGUOUS_KIND_CLASSES`), the same
 discriminator convention :mod:`tit.config_io` already uses for union-typed *fields* (ROIs,
@@ -21,12 +21,12 @@ it (documented behavior: "keys in *data* that are not fields of *cls* ... are ig
 this additive rather than a contract change. ``NO_SCHEMA_KINDS`` is empty as of the runners
 lane registering ``NiftiAverageConfig``/``NilearnConfig`` in
 :data:`~tit.config_io.CONFIG_CLASS_REGISTRY` -- kept as a (currently-empty) frozenset rather
-than removed outright since ``contracts/schema.json`` has not been regenerated with these two
+than removed outright since ``contracts/generated/config.schema.json`` has not been regenerated with these two
 ``$defs`` yet (a B4/F1b follow-up: ``docker exec tit-v3-spike simnibs_python
 dev/build_schema.py``), so the desktop's generated types don't know about them even though
 this route already validates/plans them for real.
 
-This is a documented design decision by this track (B3), not something ``contracts/openapi.v1.yaml``
+This is a documented design decision by this track (B3), not something ``contracts/openapi.yaml``
 specifies -- flagged in the B3 report for F1a/the orchestrator in case a future contract revision
 wants an explicit discriminant instead.
 """
@@ -108,7 +108,7 @@ ENVELOPE_KEYS: frozenset[str] = frozenset({"project_dir"})
 #: dataclass yet.
 NO_SCHEMA_KINDS: frozenset[str] = frozenset()
 
-#: Every kind ``PipelineKind`` (``contracts/openapi.v1.yaml``) accepts.
+#: Every kind ``PipelineKind`` (``contracts/openapi.yaml``) accepts.
 ALL_KINDS: frozenset[str] = frozenset(
     {*SIMPLE_KIND_CLASS, *AMBIGUOUS_KIND_CLASSES, *NO_SCHEMA_KINDS}
 )

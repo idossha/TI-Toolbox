@@ -150,7 +150,7 @@ export function containerToHostPath(containerPath: string, mount: ProjectMount):
  * outside the compose stack): maps a container path to its host equivalent given an explicit
  * `(containerRoot, hostRoot)` pair instead of assuming the `/mnt/<name>` convention `stack.start`
  * always uses. `GET /api/project`'s `container_path`/`host_path` is exactly such a pair (`Project`
- * schema, `contracts/openapi.v1.yaml`). Returns `null` if `hostRoot` is unknown (`host_path` was
+ * schema, `contracts/openapi.yaml`). Returns `null` if `hostRoot` is unknown (`host_path` was
  * `null` — the server itself doesn't know it either, e.g. JupyterHub-hosted) or `containerPath`
  * is not under `containerRoot`.
  */

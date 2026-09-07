@@ -85,7 +85,7 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
     mutationFn: () => {
       // FreehandConfig.type is on-disk stim_configs semantics (unipolar/multipolar), not
       // xyz/label — U for a 2-pair (4-position) montage, M for 4+ pairs (8+ positions). See
-      // contracts/openapi.v1.yaml's FreehandConfig doc comment / tit/catalog.py::_read_freehand_file.
+      // contracts/openapi.yaml's FreehandConfig doc comment / tit/catalog.py::_read_freehand_file.
       const type: FreehandConfig["type"] = positions.length / 2 >= 4 ? "M" : "U";
       return putFreehand(activeEditSubject!, name.trim(), { name: name.trim(), type, electrode_positions: positions });
     },

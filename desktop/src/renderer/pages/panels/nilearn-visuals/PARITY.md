@@ -1,7 +1,7 @@
 # Nilearn Visuals — parity checklist
 
 Qt source: `tit/gui/extensions/nilearn_viz.py` (1063 lines, `EXTENSION_NAME = "Nilearn
-Visuals"`). `JobKind` has `"nilearn"` and `NilearnConfig` is now a real `contracts/schema.json`
+Visuals"`). `JobKind` has `"nilearn"` and `NilearnConfig` is now a real `contracts/generated/config.schema.json`
 `$def` in the `PipelineConfig` union (ra_13 finding #10) — the "no config dataclass exists yet"
 note below was stale by the time this round started. The panel's `config.ts`/`api.ts` are typed
 against `NilearnConfig` directly and call `POST /api/validate/nilearn` before submit. Fixed in the

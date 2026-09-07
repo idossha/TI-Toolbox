@@ -29,8 +29,8 @@ import { OPTIMIZED, placementSummary, placementsFor } from "../../src/renderer/p
 import type { FlexRun } from "../../src/renderer/pages/simulator/api";
 import { SIM_PLAN_STAGES, sourceOfJob } from "../../src/renderer/pages/simulator/RunControls";
 
-// contracts/schema.json is repo-root; desktop/tests/unit -> ../../.. reaches the repo root.
-const schemaPath = join(__dirname, "..", "..", "..", "contracts", "schema.json");
+// contracts/generated/config.schema.json is repo-root; desktop/tests/unit -> ../../.. reaches the repo root.
+const schemaPath = join(__dirname, "..", "..", "..", "contracts", "generated", "config.schema.json");
 const schemaDoc = JSON.parse(readFileSync(schemaPath, "utf8")) as JSONSchema;
 
 // `createAjvResolver(name)` (forms/ajvResolver.ts) fetches `/api/schema` via `loadSchema()` and
@@ -62,7 +62,7 @@ const baseParams: GlobalParams = {
   customConductivities: {},
 };
 
-describe("Simulator page configs validate against contracts/schema.json", () => {
+describe("Simulator page configs validate against contracts/generated/config.schema.json", () => {
   it("a montage-source (net mode, uni-polar) row builds a valid SimulationConfig", async () => {
     const row: SelectedRow = {
       id: "montage:GSN-HydroCel-185:uni_polar:F3_F4:ernie",

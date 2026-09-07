@@ -23,7 +23,7 @@ function parseIntensities(s: string): number[] {
 /**
  * Builds the JSON body for one (subject, montage) job — one `SimulationConfig` with exactly one
  * `Montage`, mirroring `tit.sim.utils.build_simulation_config_for_job`. Every key here is a real
- * `SimulationConfig` field: `contracts/schema.json`'s `SimulationConfig` now sets
+ * `SimulationConfig` field: `contracts/generated/config.schema.json`'s `SimulationConfig` now sets
  * `additionalProperties: false` (ra_11 finding 3's contract tightening), so an extra convenience
  * key here would fail schema validation even though the real server's default lenient
  * `deserialize_config(strict=False)` would have silently dropped it — see PARITY.md's updated
@@ -42,7 +42,7 @@ export function buildSimulationConfig(row: SelectedRow, defaults: GlobalParams):
       : (row.pairs ?? []).map(([a, b]) => [a, b]);
 
   const montage: Record<string, unknown> = {
-    // `_type` is required by contracts/schema.json's `Montage` def — `Montage` is itself a member
+    // `_type` is required by contracts/generated/config.schema.json's `Montage` def — `Montage` is itself a member
     // of the top-level `PipelineConfig` union, so `dev/build_schema.py` marks it with the same
     // `_type` discriminator (config_io.py's CONFIG_CLASS_REGISTRY) even when nested, and
     // `deserialize_config` checks it whenever present.

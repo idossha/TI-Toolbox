@@ -1,7 +1,7 @@
 """Stable interface between the job manager (owner: B1) and the rest of ``tit.server``.
 
 Other modules (viewers, plan routes) call ONLY these functions; B1 replaces the bodies with the
-real implementation without changing the signatures. Shapes follow ``contracts/openapi.v1.yaml``
+real implementation without changing the signatures. Shapes follow ``contracts/openapi.yaml``
 (``JobStatus``, ``LockConflict``).
 """
 

@@ -94,7 +94,16 @@ required leg for any change to the science core (§4).
 
 ```bash
 python3 dev/route_import_guard.py     # no server route may import a heavy science module at import time
-python3 dev/contracts_check.py        # the server's dump is a superset of the contract (contracts/README.md)
+python3 dev/contracts_check.py        # contracts/generated/ is not stale, and the live app covers
+                                      # contracts/openapi.yaml (contracts/README.md)
+```
+
+`contracts_check` regenerates every `contracts/generated/` output plus
+`desktop/src/renderer/api/schema.d.ts` into a temp dir and fails on any byte of drift. If it does,
+the fix is always the one regeneration command — never a hand-edit of a generated file:
+
+```bash
+cd desktop && npm run gen             # -> contracts/generated/*, src/renderer/api/schema.d.ts
 ```
 
 ### 2.5 End-to-end, offscreen, under the lock
@@ -230,7 +239,7 @@ than the activity:
 
 ```
 fix(analyzer): voxel focality volumes in cm^3, geometry from the affine
-docs(contracts): add contracts/README.md, mark openapi.v0.yaml historical
+docs(contracts): add contracts/README.md, describe the generated/ outputs
 ```
 
 Prefix with the area (`fix`, `feat`, `docs`, `test`, `ci`, `refactor`) and the module in
@@ -248,7 +257,7 @@ Never write "various fixes".
 | A **gate result** | the gate table in `BENCHMARKS.md`, with the command that produced it | prose |
 | **What happened** in a program | a dated section of `HISTORY.md` | a new file |
 | A **trap that cost an hour** | that program's `HISTORY.md` gotchas, or `AGENTS.md` if every agent must know it before starting | nowhere |
-| A **contract change** | `contracts/SCHEMA-CHANGES.md` (append; never edit a past entry) | only the diff |
+| A **contract change** | `contracts/CHANGES.md` (append; never edit a past entry) | only the diff |
 | **A number that moved for users** | `SCIENTIFIC-CORRECTIONS.md` and `docs/releases/changelog.md` | only the test |
 
 **Never write a per-lane note file.** About 120 of them accumulated in eleven days, each citing the

@@ -1,6 +1,6 @@
 /**
  * Pure `AnalyzerConfig` construction, split out of `AnalyzerPage.tsx` (mirrors
- * `simulator/buildConfig.ts`) so it is unit-testable against `contracts/schema.json` without
+ * `simulator/buildConfig.ts`) so it is unit-testable against `contracts/generated/config.schema.json` without
  * mounting the page component.
  */
 import type { RoiValue } from "../_shared/roi";

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Merge ``contracts/schema.json`` into an OpenAPI contract YAML.
+"""Merge ``contracts/generated/config.schema.json`` into an OpenAPI contract YAML.
 
 Every ``components.schemas.<Name>`` entry in the OpenAPI document that
 carries an ``x-tit-config: <ConfigName>`` marker is replaced by the
@@ -12,14 +12,15 @@ Usage::
 
     python3 dev/build_contract.py [--openapi PATH] [--schema PATH] [--out PATH]
 
-Defaults: ``contracts/openapi.v1.yaml``, ``contracts/schema.json``, and
-``<openapi>`` with its suffix changed to ``.json`` (so the default input
-writes ``contracts/openapi.v1.json``).
+Defaults: ``contracts/openapi.yaml``, ``contracts/generated/config.schema.json``
+and ``contracts/generated/openapi.json``.
 
-Fails with a clear, non-traceback error (exit 1) if either input file does
-not exist yet -- the v1 contract and the generated schema are written by
-different agents in parallel (see ``docs/dev/HISTORY.md`` (2026-08-27)),
-so either one may not exist yet when this runs.
+Fails with a clear, non-traceback error (exit 1) if either input file is
+missing. ``--check`` renders in memory and exits 1 if the output would
+change, without writing -- the drift half of ``dev/contracts_check.py``.
+
+Prefer ``npm run gen`` (or ``python3 dev/build_contracts.py``), which runs
+this and ``dev/build_schema.py`` in the right order.
 """
 
 from __future__ import annotations
@@ -34,8 +35,9 @@ from typing import Any
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_OPENAPI = REPO_ROOT / "contracts" / "openapi.v1.yaml"
-DEFAULT_SCHEMA = REPO_ROOT / "contracts" / "schema.json"
+DEFAULT_OPENAPI = REPO_ROOT / "contracts" / "openapi.yaml"
+DEFAULT_SCHEMA = REPO_ROOT / "contracts" / "generated" / "config.schema.json"
+DEFAULT_OUT = REPO_ROOT / "contracts" / "generated" / "openapi.json"
 
 _DEFS_REF_PREFIX = "#/$defs/"
 
@@ -117,9 +119,9 @@ def merge(openapi: dict, schema_doc: dict) -> dict:
     Parameters
     ----------
     openapi : dict
-        Parsed ``contracts/openapi.v1.yaml``. Mutated in place and returned.
+        Parsed ``contracts/openapi.yaml``. Mutated in place and returned.
     schema_doc : dict
-        Parsed ``contracts/schema.json`` (``{"$defs": ..., ...}``).
+        Parsed ``contracts/generated/config.schema.json`` (``{"$defs": ..., ...}``).
 
     Returns
     -------
@@ -153,7 +155,7 @@ def merge(openapi: dict, schema_doc: dict) -> dict:
     def copy_in(defs_name: str, target_key: str) -> None:
         if defs_name not in defs:
             raise KeyError(
-                f"contracts/schema.json has no $defs entry {defs_name!r} "
+                f"contracts/generated/config.schema.json has no $defs entry {defs_name!r} "
                 f"(known: {sorted(defs)})"
             )
         body = copy.deepcopy(defs[defs_name])
@@ -186,19 +188,24 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--openapi", type=Path, default=DEFAULT_OPENAPI)
     parser.add_argument("--schema", type=Path, default=DEFAULT_SCHEMA)
     parser.add_argument("--out", type=Path, default=None)
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="exit 1 if the output would change; write nothing",
+    )
     args = parser.parse_args(argv)
 
     if not args.openapi.is_file():
         print(
-            f"error: {args.openapi} does not exist yet -- this runs after the "
-            "v1 contract has been authored (docs/dev/HISTORY.md, 2026-08-27).",
+            f"error: {args.openapi} does not exist -- it is the hand-written "
+            "contract of record (contracts/README.md).",
             file=sys.stderr,
         )
         return 1
     if not args.schema.is_file():
         print(
-            f"error: {args.schema} does not exist yet -- run "
-            "`python3 dev/build_schema.py` first.",
+            f"error: {args.schema} does not exist -- run "
+            "`python3 dev/build_schema.py` first (or `npm run gen`).",
             file=sys.stderr,
         )
         return 1
@@ -207,8 +214,22 @@ def main(argv: list[str] | None = None) -> int:
     schema_doc = json.loads(args.schema.read_text())
     merged = merge(openapi, schema_doc)
 
-    out_path = args.out or args.openapi.with_suffix(".json")
-    out_path.write_text(json.dumps(merged, indent=2, sort_keys=False) + "\n")
+    out_path = args.out or DEFAULT_OUT
+    rendered = json.dumps(merged, indent=2, sort_keys=False) + "\n"
+
+    if args.check:
+        current = out_path.read_text() if out_path.is_file() else None
+        if current != rendered:
+            print(
+                f"{out_path} is stale; run `npm run gen` and commit the result.",
+                file=sys.stderr,
+            )
+            return 1
+        print(f"{out_path} is up to date.")
+        return 0
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(rendered)
     print(f"Wrote {out_path}")
     return 0
 
