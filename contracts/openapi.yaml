@@ -292,8 +292,16 @@ paths:
               properties:
                 pid: { type: integer }
       responses:
-        "204":
-          description: terminated
+        "200":
+          description: the pid, and whether it is gone
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [pid, terminated]
+                properties:
+                  pid: { type: integer }
+                  terminated: { type: boolean }
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -3765,8 +3773,7 @@ components:
           enum: [preprocess, simulator, optimizer, analyzer]
         ready: { type: boolean }
         reason:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: the missing requirement, never a sentence
     OverviewSubject:
       type: object

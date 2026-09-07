@@ -83,6 +83,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from tit.jobs.spec import JobKind
 from tit.paths import PathManager, get_path_manager
 from tit.server.routes.validate import ALL_KINDS, KindNotConfigurable, cls_for
 
@@ -118,7 +119,7 @@ class PlanRequest(BaseModel):
 
 
 class PlanJob(BaseModel):
-    kind: str
+    kind: JobKind
     subject: str
     output_dir: str
     exists: bool
@@ -128,7 +129,7 @@ class PlanJob(BaseModel):
 class LockConflict(BaseModel):
     key: str
     held_by: str
-    kind: str
+    kind: JobKind
     subject: str
     started_at: str
 

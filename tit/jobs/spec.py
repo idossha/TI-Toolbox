@@ -20,7 +20,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Literal, get_args
 
 # All kinds the internal job model understands (TODO.md §2.3).
 JOB_KINDS: tuple[str, ...] = (
@@ -65,6 +65,36 @@ CONTRACT_JOB_KINDS: frozenset[str] = frozenset(
         "tools",
         "report",
     }
+)
+
+# The same set as a type, so a Pydantic model carrying a job kind on the wire declares the
+# contract's ``JobKind`` enum instead of a bare ``str`` (a bare ``str`` dumps no enum, and
+# `dev/contracts_check.py` then reports the route as untyped against `contracts/openapi.yaml`).
+JobKind = Literal[
+    "pre",
+    "sim",
+    "flex",
+    "flex_adaptive",
+    "flex_pareto",
+    "ex",
+    "mex",
+    "leadfield",
+    "analyzer",
+    "stats",
+    "source",
+    "blender",
+    "nifti_average",
+    "nilearn",
+    "project_init",
+    "tools",
+    "report",
+]
+
+# The Literal above and the frozenset are two spellings of one contract enum; drift between them
+# would let a model advertise a kind the rest of the server rejects.
+assert set(get_args(JobKind)) == CONTRACT_JOB_KINDS, (
+    "JobKind and CONTRACT_JOB_KINDS disagree: "
+    f"{set(get_args(JobKind)) ^ CONTRACT_JOB_KINDS}"
 )
 
 JOB_STATES: tuple[str, ...] = (

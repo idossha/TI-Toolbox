@@ -89,34 +89,23 @@ _DUMP_EXEMPT_SCHEMAS = {"PipelineConfig"}
 
 _PATH_PARAM_RE = re.compile(r"\{([^}]+)\}")
 
-# Contract-vs-code differences that are real and open, recorded here (2026-09-07,
-# when the gate was first pointed at the full contract instead of the retired
-# openapi.v0.yaml subset) so that *new* drift still fails red while these stay
-# visible in every run's output.  Remove an entry when the underlying issue is
-# fixed -- the gate fails if a listed finding stops occurring, so this list
-# cannot rot silently.
+# Contract-vs-code differences that are real and open, recorded here so that *new*
+# drift still fails red while these stay visible in every run's output.  Remove an
+# entry when the underlying issue is fixed -- the gate fails if a listed finding
+# stops occurring, so this list cannot rot silently.
 #
-# - Overview*.reason: the contract says `string` required; the server returns
-#   `str | None`.  A client trusting the contract can read null.  Fix belongs in
-#   whichever is wrong -- the server's Optional, or the contract's requiredness.
-# - Plan*/LockConflict `kind`: the contract declares the 17-value JobKind enum;
-#   the server types the field as a bare `str`, so the dump carries no enum.
-# - POST /api/system/terminate 204 / POST /api/pipelines/export 501: declared in
-#   the contract, not described by the route.
-_KNOWN_FINDINGS = frozenset({
-    "GET /api/catalog/overview 200.subjects[].readiness[].reason",
-    "schema OverviewReadiness.reason",
-    "schema OverviewSubject.readiness[].reason",
-    "schema Overview.subjects[].readiness[].reason",
-    "POST /api/plan/{kind} 200.jobs[].kind",
-    "POST /api/plan/{kind} 200.lock_conflicts[].kind",
-    "schema LockConflict.kind",
-    "schema PlanJob.kind",
-    "schema PlanResult.jobs[].kind",
-    "schema PlanResult.lock_conflicts[].kind",
-    "POST /api/system/terminate: response 204 missing",
-    "POST /api/pipelines/export: response 501 missing",
-})
+# Empty since 2026-09-07 (CX8): the twelve findings this list was opened with on the
+# same day were all fixed at the cause rather than carried --
+#   * Overview*.reason spelled nullability with OpenAPI 3.0's `nullable: true`, which
+#     is not a keyword in the 3.1 document it sits in and so said nothing; the server
+#     was right to return `str | None`.  Contract now says `type: [string, "null"]`.
+#   * Plan*/LockConflict `kind` was a bare `str` on the server, which dumps no enum.
+#     Both models now carry `tit.jobs.spec.JobKind`, the contract's enum as a Literal.
+#   * POST /api/system/terminate answers 200 with `{pid, terminated}`; the contract
+#     claimed a bodiless 204.  The contract was wrong and now describes what ships.
+#   * POST /api/pipelines/export raises 501 when nbformat is missing; the route now
+#     declares that response instead of leaving it undocumented.
+_KNOWN_FINDINGS: frozenset[str] = frozenset()
 
 
 def _canonical_param_name(name: str, location: str | None) -> str:

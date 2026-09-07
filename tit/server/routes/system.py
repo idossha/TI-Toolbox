@@ -19,6 +19,7 @@ from typing import Any
 
 import psutil
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from tit.paths import get_path_manager
 from tit.server.schemas import DiskInfo, MemoryInfo, ProcessInfo, SystemSnapshot
@@ -155,11 +156,18 @@ def system() -> SystemSnapshot:
 GRACE_SECONDS = 3.0
 
 
+class Terminated(BaseModel):
+    """``contracts/openapi.yaml``'s ``POST /api/system/terminate`` 200 body."""
+
+    pid: int
+    terminated: bool
+
+
 @router.post(
     "/api/system/terminate",
     summary="Terminate one toolbox-relevant process by pid (System page's Terminate button)",
 )
-def terminate(body: dict[str, Any]) -> dict[str, Any]:
+def terminate(body: dict[str, Any]) -> Terminated:
     """``{pid}`` -> ``{pid, terminated}``.
 
     Deliberately narrow (ra_14 finding 5's own-process/pid-1 guard, applied
@@ -210,4 +218,4 @@ def terminate(body: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(
             status_code=403, detail=f"Access denied terminating pid {pid}"
         ) from exc
-    return {"pid": pid, "terminated": True}
+    return Terminated(pid=pid, terminated=True)

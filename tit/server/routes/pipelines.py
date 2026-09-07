@@ -288,6 +288,9 @@ def run_pipeline_route(
     "/api/pipelines/export",
     response_class=PlainTextResponse,
     summary="Export a pipeline as a Jupyter notebook",
+    responses={
+        501: {"description": "nbformat is not installed in this environment"},
+    },
 )
 def export_pipeline(
     body: dict[str, Any] = Body(...),

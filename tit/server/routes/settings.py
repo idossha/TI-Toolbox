@@ -18,9 +18,10 @@ from __future__ import annotations
 import json
 import os
 import time
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
 from tit import telemetry
 from tit.paths import get_path_manager
@@ -80,6 +81,28 @@ def _save_project_settings(data: dict[str, Any]) -> None:
     os.replace(tmp, path)
 
 
+class Telemetry(BaseModel):
+    """``contracts/openapi.yaml``'s ``Telemetry``."""
+
+    consented: bool = Field(description="has the user been asked, whatever they answered")
+    enabled: bool
+
+
+class Settings(BaseModel):
+    """``contracts/openapi.yaml``'s ``Settings`` -- the whole document GET returns and PUT takes."""
+
+    telemetry: Telemetry
+    panels: list[str] = Field(
+        description=(
+            "enabled optional panels (Source, Cluster Permutation, NIfTI Group Average, "
+            "Nilearn Visuals, Quick Notes)"
+        )
+    )
+    image_tag: str | None = None
+    allow_unsafe_overrides: bool
+    theme: Literal["system", "light", "dark"]
+
+
 def _read_settings() -> dict[str, Any]:
     tconf = telemetry.load_config()
     project = _load_project_settings()
@@ -100,8 +123,8 @@ def _read_settings() -> dict[str, Any]:
 @router.get(
     "/api/settings", summary="Server/project settings and app-level preferences"
 )
-def get_settings() -> dict[str, Any]:
-    return _read_settings()
+def get_settings() -> Settings:
+    return Settings.model_validate(_read_settings())
 
 
 def _validate_theme(theme: Any) -> str:
@@ -126,7 +149,7 @@ def _validate_panels(panels: Any) -> list[str]:
 
 
 @router.put("/api/settings", summary="Replace server/project settings")
-def put_settings(body: dict[str, Any]) -> dict[str, Any]:
+def put_settings(body: dict[str, Any]) -> Settings:
     telemetry_body = body.get("telemetry") or {}
     if "enabled" in telemetry_body:
         # tit.telemetry.set_enabled also marks consent_shown=True, invalidates
@@ -146,4 +169,4 @@ def put_settings(body: dict[str, Any]) -> dict[str, Any]:
             "theme": _validate_theme(body.get("theme", "system")),
         }
     )
-    return _read_settings()
+    return Settings.model_validate(_read_settings())

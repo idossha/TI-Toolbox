@@ -382,12 +382,17 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description terminated */
-                204: {
+                /** @description the pid, and whether it is gone */
+                200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            pid: number;
+                            terminated: boolean;
+                        };
+                    };
                 };
                 401: components["responses"]["Unauthorized"];
                 /** @description no such process */

@@ -786,3 +786,32 @@ unfixable failures.
   shared list is now sufficient on its own (the local fallbacks are harmless no-ops).
 - `tit/config_io.py` docstrings cited `Montage.channels` and `MExConfig.channels`, both removed in
   the v2.5.0 merge; they now cite `Montage.electrode_pairs` and `ExConfig.roi_names`.
+
+## 2026-09-07 — the twelve known findings, fixed at the cause
+
+`_KNOWN_FINDINGS` in `dev/contracts_check.py` is now **empty**, and the gate's
+`contracts_check: 0 known open finding(s)` is a fact rather than a budget. Each of the three
+groups the entry above opened turned out to be wrong on a different side:
+
+1. **`Overview*.reason` — the contract was wrong, in a way that said nothing.** It spelled
+   nullability as OpenAPI **3.0**'s `nullable: true`, inside a document whose first line is
+   `openapi: 3.1.0`. `nullable` is not a keyword in 3.1 — it was replaced by a type union — so the
+   contract was silently claiming a non-null `string` while the server correctly returned
+   `str | None`. Now `type: [string, "null"]`. No server change; nothing on the wire moved.
+   (4 findings)
+
+2. **`PlanJob.kind`, `LockConflict.kind` — the server was wrong.** Both were bare `str`, which
+   dumps no enum. `tit/jobs/spec.py` gained `JobKind`, a `Literal` of the contract's 17 values,
+   asserted at import to equal `CONTRACT_JOB_KINDS` so the two spellings of one enum cannot drift;
+   `tit/server/routes/plan.py` types both fields with it. (6 findings)
+
+3. **`POST /api/system/terminate` — the contract was wrong; `POST /api/pipelines/export` — the
+   route was.** Terminate has always answered `200` with `{pid, terminated}` (the desktop's Host
+   tab reads only `response.ok`); the contract claimed a bodiless `204`, and now describes the
+   body that ships. Export really does raise `501` when `nbformat` is absent, and the route now
+   declares that response instead of leaving it undocumented. (2 findings)
+
+**Warnings: 232 → 222.** `GET`/`PUT /api/settings` and `POST /api/system/terminate` — three routes
+the desktop calls — now return named Pydantic models (`Settings`, `Telemetry`, `Terminated`)
+instead of bare `dict[str, Any]`, so the contract's shape for them is checked rather than assumed.
+The rest remain warnings: they are routes whose response is genuinely a pass-through document.
