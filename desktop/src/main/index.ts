@@ -19,6 +19,7 @@ import {
   type ProjectMount,
 } from "../shared/paths";
 import { createQuitGate } from "../shared/quitGate";
+import { runQuitPlan } from "../shared/quitPlan";
 import { mayShowSystemUi, windowMode } from "./window";
 import type {
   TitConnectArgs,
@@ -309,19 +310,33 @@ async function resolveContainerPathForBrowse(hostPath: string): Promise<string |
   return null;
 }
 
-async function getRunningJobsCount(): Promise<number> {
-  if (!activeSession) return 0;
+async function getRunningJobIds(): Promise<string[]> {
+  if (!activeSession) return [];
   try {
     const res = await net.fetch(`${activeSession.origin}/api/jobs?state=running`, {
       headers: { authorization: `Bearer ${activeSession.token}` },
       signal: AbortSignal.timeout(5000),
     });
-    if (!res.ok) return 0;
-    const jobs = (await res.json()) as unknown[];
-    return Array.isArray(jobs) ? jobs.length : 0;
+    if (!res.ok) return [];
+    const jobs = (await res.json()) as unknown;
+    if (!Array.isArray(jobs)) return [];
+    return jobs.map((job) => (job as { id?: unknown }).id).filter((id): id is string => typeof id === "string");
   } catch (err) {
     log("warn", `could not check running jobs before quit: ${err instanceof Error ? err.message : String(err)}`);
-    return 0;
+    return [];
+  }
+}
+
+async function cancelJobOnQuit(id: string): Promise<void> {
+  if (!activeSession) return;
+  try {
+    await net.fetch(`${activeSession.origin}/api/jobs/${encodeURIComponent(id)}/cancel`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${activeSession.token}` },
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch (err) {
+    log("warn", `could not cancel job ${id} on quit: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 
@@ -370,9 +385,14 @@ function quitWithWatchdog(): void {
 
 /**
  * TODO §2.5/§2.9 "keep containers running in the background?" — asked once, on real app quit,
- * and only when this app itself owns a Docker stack (a manually-typed external server connection
- * is not ours to stop, so quitting never blocks on it — this also keeps every existing E2E test,
- * none of which call `stack.start`, on the fast no-dialog path).
+ * and only when this app itself owns a backend: a Docker stack it started, or the bundled native
+ * runtime it spawned. A manually-typed external server connection is not ours to stop, so
+ * quitting never blocks on it (which also keeps every existing E2E test, none of which start a
+ * backend, on the fast no-dialog path).
+ *
+ * The decision itself lives in `shared/quitPlan.ts` so it can be unit-tested; what stays here is
+ * the Electron wiring. Audit UI-04: this used to ask the question on the Docker branch only, so
+ * quitting with the native runtime killed a running job's process group without a word.
  *
  * `proceed` is how the caller actually ends things once we're done deciding: the window's own
  * "close" handler re-closes just that window (macOS convention: closing the window does not quit
@@ -384,28 +404,29 @@ function quitWithWatchdog(): void {
  */
 async function handleQuitRequest(triggerWindow: BrowserWindow | null, proceed: () => void): Promise<void> {
   const current = stack.getCurrent();
-  if (current) {
-    const count = await getRunningJobsCount();
-    if (count === 0) noteStackLeftRunning(current.containerName);
-    if (count > 0) {
-      const owner = triggerWindow ?? mainWindow ?? undefined;
-      const options: Electron.MessageBoxOptions = {
-        type: "question",
-        buttons: ["Keep running in the background", "Stop containers and quit", "Cancel"],
-        defaultId: 0,
-        cancelId: 2,
-        message: `${count} job${count === 1 ? "" : "s"} still running`,
-        detail: "Keep the Docker containers running in the background and reopen the app later, or stop everything now.",
-      };
-      const choice = owner ? await dialog.showMessageBox(owner, options) : await dialog.showMessageBox(options);
-      if (choice.response === 2) return; // Cancel — do not quit.
-      if (choice.response === 1) await stack.stop().catch((err) => log("error", `stack.stop on quit failed: ${String(err)}`));
-    }
-  }
-  // A native runtime (N0.4 spike) never survives this app quitting — no persisted attach, no
-  // "keep running in the background" concept (unlike the Docker path above, there is nothing a
-  // later launch could reattach to) — so it is always killed here, unconditionally, no prompt.
-  if (nativeRuntime.getCurrent()) await nativeRuntime.stop().catch((err) => log("error", `nativeRuntime.stop on quit failed: ${String(err)}`));
+  const owner = triggerWindow ?? mainWindow ?? undefined;
+  const mayQuit = await runQuitPlan(
+    { docker: current !== null && current !== undefined, native: nativeRuntime.getCurrent() !== null },
+    {
+      listRunningJobs: getRunningJobIds,
+      cancelJob: cancelJobOnQuit,
+      confirm: async (dialogSpec) => {
+        const options: Electron.MessageBoxOptions = { type: "question", ...dialogSpec };
+        const result = owner ? await dialog.showMessageBox(owner, options) : await dialog.showMessageBox(options);
+        return result.response;
+      },
+      stopDocker: async () => {
+        await stack.stop().catch((err) => log("error", `stack.stop on quit failed: ${String(err)}`));
+      },
+      stopNative: () => nativeRuntime.stop().catch((err) => log("error", `nativeRuntime.stop on quit failed: ${String(err)}`)),
+      noteStackLeftRunning: () => {
+        if (current) noteStackLeftRunning(current.containerName);
+      },
+      sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+      now: () => Date.now(),
+    },
+  );
+  if (!mayQuit) return;
   stopNotifyingJobCompletions();
   quitGate.approve();
   proceed();
