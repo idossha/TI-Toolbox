@@ -16,6 +16,7 @@ import type { JSX } from "react";
 import { ansiToSpans } from "./ansi";
 import { renderMarkdown } from "./markdown";
 import { INTERACTIVE_MIMES, dataUri, pickRepresentation } from "./mime";
+import { sanitizeOutputHtml, svgImageSource } from "./sanitize";
 import { joinText, type DisplayOutput, type ErrorOutput, type Output, type StreamOutput } from "./notebook";
 
 /** Text with a kernel's ANSI colours preserved. */
@@ -74,16 +75,21 @@ function DisplayView({ output }: { output: DisplayOutput }): JSX.Element | null 
     case "image":
       return <img className="nb-output__image" src={dataUri(rep.mime, rep.data)} alt="" />;
     case "svg":
-      // An SVG figure is markup the kernel produced; it renders as markup,
-      // which is the only way a vector plot is a vector plot at all.
-      return <div className="nb-output__svg" dangerouslySetInnerHTML={{ __html: rep.svg }} />;
+      // A vector figure stays a vector figure, but as an IMAGE: an inline <svg>
+      // is a document that can carry <style>, <script> and handlers of its own,
+      // and the app's chrome is within their reach. In image context the
+      // browser runs none of it (see `sanitize.ts`).
+      return <img className="nb-output__image" src={svgImageSource(rep.svg)} alt="" />;
     case "script-html":
     case "html":
-      // DataFrame tables, and plotting libraries' static snippets. Scripts do
-      // not run: React sets innerHTML, and innerHTML never executes a <script>
-      // it inserts — which is also why `script-html` lands here rather than in
-      // a frame this app does not have.
-      return <div className="nb-output__html" dangerouslySetInnerHTML={{ __html: rep.html }} />;
+      // DataFrame tables, and plotting libraries' static snippets. Scripts have
+      // never run here (innerHTML does not execute what it inserts), but
+      // everything else did: a <style> rule inside an output restyled the app
+      // around it. Sanitised to an allowlist first — `sanitize.ts` says why an
+      // allowlist and not a sandboxed frame.
+      return (
+        <div className="nb-output__html" dangerouslySetInnerHTML={{ __html: sanitizeOutputHtml(rep.html) }} />
+      );
     case "markdown":
       return (
         <div className="nb-output__html" dangerouslySetInnerHTML={{ __html: renderMarkdown(rep.text) }} />
