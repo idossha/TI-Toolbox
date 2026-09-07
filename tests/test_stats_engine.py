@@ -64,11 +64,16 @@ class TestPvalFromHistogram:
 
     @pytest.mark.unit
     def test_two_tailed_extreme_value(self):
-        """Observed stat larger than all nulls yields p ~ 0."""
+        """Observed stat larger than all nulls yields the floor 1/(m+1).
+
+        SCI-04: a *sampled* permutation null can never justify p = 0; the
+        Phipson & Smyth estimator (b + 1) / (m + 1) bottoms out at 1/(m+1).
+        """
         null = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         observed = np.array([100.0])
         p = pval_from_histogram(observed, null, tail=0)
-        assert p[0] == pytest.approx(0.0, abs=1e-10)
+        assert p[0] == pytest.approx(1 / 6)
+        assert pval_from_histogram(observed, null, tail=0, sampled=False)[0] == 0.0
 
     @pytest.mark.unit
     def test_two_tailed_small_value(self):
@@ -84,8 +89,11 @@ class TestPvalFromHistogram:
         null = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         observed = np.array([3.0])
         p = pval_from_histogram(observed, null, tail=1)
-        # 3, 4, 5 are >= 3 => 3/5 = 0.6
-        assert p[0] == pytest.approx(0.6)
+        # 3, 4, 5 are >= 3 => b = 3, m = 5 => (3+1)/(5+1)
+        assert p[0] == pytest.approx(4 / 6)
+        assert pval_from_histogram(observed, null, tail=1, sampled=False)[
+            0
+        ] == pytest.approx(0.6)
 
     @pytest.mark.unit
     def test_left_tail(self):
@@ -93,8 +101,8 @@ class TestPvalFromHistogram:
         null = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         observed = np.array([2.0])
         p = pval_from_histogram(observed, null, tail=-1)
-        # 1, 2 are <= 2 => 2/5 = 0.4
-        assert p[0] == pytest.approx(0.4)
+        # 1, 2 are <= 2 => b = 2, m = 5 => (2+1)/(5+1)
+        assert p[0] == pytest.approx(3 / 6)
 
     @pytest.mark.unit
     def test_multiple_observed(self):
@@ -102,10 +110,10 @@ class TestPvalFromHistogram:
         null = np.arange(1.0, 11.0)  # 1..10
         observed = np.array([5.0, 10.0])
         p = pval_from_histogram(observed, null, tail=1)
-        # >= 5: {5,6,7,8,9,10} = 6/10
-        # >= 10: {10} = 1/10
-        assert p[0] == pytest.approx(0.6)
-        assert p[1] == pytest.approx(0.1)
+        # >= 5: {5..10} = 6 of m = 10  -> 7/11
+        # >= 10: {10}   = 1 of m = 10  -> 2/11
+        assert p[0] == pytest.approx(7 / 11)
+        assert p[1] == pytest.approx(2 / 11)
 
     @pytest.mark.unit
     def test_scalar_input(self):
@@ -113,7 +121,7 @@ class TestPvalFromHistogram:
         null = np.array([1.0, 2.0, 3.0])
         p = pval_from_histogram(3.0, null, tail=1)
         assert p.shape == (1,)
-        assert p[0] == pytest.approx(1 / 3)
+        assert p[0] == pytest.approx(2 / 4)
 
 
 # ─── correlation ──────────────────────────────────────────────────────────
@@ -246,13 +254,32 @@ class TestTtestInd:
     """Tests for vectorised independent-samples t-test."""
 
     @pytest.mark.unit
-    def test_identical_groups_t_zero(self):
-        """Identical groups produce t=0."""
-        # 2 voxels, 6 subjects total: 3 resp + 3 non-resp, all identical
+    def test_identical_constant_groups_are_undefined(self):
+        """Identical *constant* groups are 0/0 -> nan, as scipy reports.
+
+        SCI-06: v2.x returned t = 0, p = 1 here *and* for perfect separation,
+        conflating "undefined" and "infinitely strong evidence".
+        """
         data = np.ones((2, 6))
         t, p = ttest_ind(data, n_resp=3, n_non_resp=3)
+        assert np.isnan(t).all()
+        assert np.isnan(p).all()
+
+    @pytest.mark.unit
+    def test_identical_non_constant_groups_give_t_zero(self):
+        """Zero contrast with nonzero variance is still an honest t = 0."""
+        data = np.array([[1.0, 2.0, 3.0, 1.0, 2.0, 3.0]])
+        t, p = ttest_ind(data, n_resp=3, n_non_resp=3)
         assert t[0] == pytest.approx(0.0, abs=1e-10)
-        assert t[1] == pytest.approx(0.0, abs=1e-10)
+        assert p[0] == pytest.approx(1.0)
+
+    @pytest.mark.unit
+    def test_perfect_separation_is_infinite(self):
+        """Nonzero contrast over zero variance -> +inf, p -> 0 (SCI-06)."""
+        data = np.array([[2.0, 2.0, 2.0, 1.0, 1.0, 1.0]])
+        t, p = ttest_ind(data, n_resp=3, n_non_resp=3)
+        assert np.isposinf(t[0])
+        assert p[0] == pytest.approx(0.0)
 
     @pytest.mark.unit
     def test_separated_groups(self):
@@ -295,8 +322,14 @@ class TestTtestRel:
 
     @pytest.mark.unit
     def test_no_difference(self):
-        """Identical paired samples produce t=0."""
+        """A constant zero paired difference is 0/0 -> nan (SCI-06)."""
         data = np.array([[5.0, 5.0, 5.0, 5.0, 5.0, 5.0]])
+        t, p = ttest_rel(data, n_resp=3)
+        assert np.isnan(t[0])
+
+    @pytest.mark.unit
+    def test_zero_mean_difference_with_spread_is_t_zero(self):
+        data = np.array([[6.0, 5.0, 4.0, 5.0, 5.0, 5.0]])
         t, p = ttest_rel(data, n_resp=3)
         assert t[0] == pytest.approx(0.0, abs=1e-10)
 
@@ -541,8 +574,10 @@ class TestIdentifySignificantClusters:
         t_stats[1, 1, 1] = 3.0
         t_stats[1, 1, 2] = 2.5
         t_stats[1, 2, 1] = 2.0
-        # Null distribution with small values so cluster is significant
-        null = np.array([0.0, 1.0, 0.0, 0.0, 1.0])
+        # Null distribution with small values so cluster is significant.
+        # SCI-04: the p-value floor is 1/(m+1), so m must exceed 1/alpha - 1
+        # for anything to be able to reach p < 0.05 at all.
+        null = np.tile([0.0, 1.0], 100)
 
         sig_mask, sig_clusters, observed = _identify_significant_clusters(
             labeled,
@@ -567,8 +602,8 @@ class TestIdentifySignificantClusters:
         t_stats = np.zeros((5, 5, 5))
         t_stats[1, 1, 1] = 5.0
         t_stats[1, 1, 2] = 3.0
-        # Mass = 5 + 3 = 8; null has small masses
-        null = np.array([0.0, 1.0, 2.0, 0.0, 1.0])
+        # Mass = 5 + 3 = 8; null has small masses (m = 200; see SCI-04)
+        null = np.tile([0.0, 1.0, 2.0, 0.0], 50)
 
         sig_mask, sig_clusters, observed = _identify_significant_clusters(
             labeled,
@@ -595,7 +630,7 @@ class TestIdentifySignificantClusters:
         r_values = np.zeros((5, 5, 5))
         r_values[1, 1, 1] = 0.8
         r_values[1, 1, 2] = 0.6
-        null = np.array([0.0, 0.0, 0.0])
+        null = np.zeros(200)
 
         sig_mask, sig_clusters, observed = _identify_significant_clusters(
             labeled,

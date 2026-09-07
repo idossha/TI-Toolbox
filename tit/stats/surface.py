@@ -35,7 +35,14 @@ from tit.source.config import VALID_FSAVG_FIELDS
 from tit.source.fsaverage import _output_path
 
 from .config import CorrelationResult, GroupComparisonResult
-from .engine import correlation, pval_from_histogram, ttest_ind, ttest_rel
+from .engine import (
+    correlation,
+    pval_from_histogram,
+    tail_from_alternative,
+    tail_statistic,
+    ttest_ind,
+    ttest_rel,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -222,25 +229,45 @@ def _label_graph(mask: np.ndarray, adjacency):
     return labels, n_comp
 
 
+def _label_graph_signed(mask, t_full, adjacency, alternative):
+    """Surface twin of :func:`tit.stats.engine.label_signed`.
+
+    Two touching supra-threshold patches of opposite ``t`` sign are two
+    clusters, not one: fusing them makes the signed mass their difference.
+    """
+    if alternative == "greater":
+        return _label_graph(mask & (t_full > 0), adjacency)
+    if alternative == "less":
+        return _label_graph(mask & (t_full < 0), adjacency)
+    pos, n_pos = _label_graph(mask & (t_full > 0), adjacency)
+    neg, n_neg = _label_graph(mask & (t_full < 0), adjacency)
+    if n_neg:
+        sel = neg > 0
+        pos[sel] = neg[sel] + n_pos
+    return pos, n_pos + n_neg
+
+
 def _cluster_sizes_masses(labels, n, t_full):
     sizes = np.bincount(labels, minlength=n + 1)[1:]
     masses = np.bincount(labels, weights=t_full, minlength=n + 1)[1:]
     return sizes, masses
 
 
-def _max_cluster_stat(labels, n, t_full, cluster_stat):
-    """Max stat over multi-vertex clusters (singletons ignored, like the engine)."""
+def _max_cluster_stat(labels, n, t_full, cluster_stat, tail=0):
+    """Max *oriented* stat over multi-vertex clusters (singletons ignored).
+
+    Mirrors the engine: the null is a distribution of maxima, so the statistic
+    must be monotone in extremeness (see
+    :func:`tit.stats.engine.tail_statistic`).
+    """
     if n == 0:
         return 0.0
     sizes, masses = _cluster_sizes_masses(labels, n, t_full)
     multi = sizes > 1
     if not np.any(multi):
         return 0.0
-    return (
-        float(sizes[multi].max())
-        if cluster_stat == "size"
-        else float(masses[multi].max())
-    )
+    stats = tail_statistic(sizes, masses, cluster_stat, tail)
+    return float(stats[multi].max())
 
 
 def _null_threshold(null, alpha, n_permutations):
@@ -250,15 +277,6 @@ def _null_threshold(null, alpha, n_permutations):
     sorted_null = np.sort(null)[::-1]
     ti = max(1, min(int(alpha * n_permutations), len(sorted_null)))
     return float(sorted_null[ti - 1])
-
-
-def _forming_mask(t_full, p_full, valid_mask, threshold, alternative):
-    mask = (p_full < threshold) & valid_mask
-    if alternative == "greater":
-        mask &= t_full > 0
-    elif alternative == "less":
-        mask &= t_full < 0
-    return mask
 
 
 def _identify_surface_clusters(
@@ -274,8 +292,8 @@ def _identify_surface_clusters(
     r_full=None,
 ):
     """Surface twin of engine._identify_significant_clusters."""
-    mask = _forming_mask(t_full, p_full, valid_mask, threshold, alternative)
-    labels, n = _label_graph(mask, adjacency)
+    mask = (p_full < threshold) & valid_mask
+    labels, n = _label_graph_signed(mask, t_full, adjacency, alternative)
     sig_mask = np.zeros(t_full.shape[0], dtype=int)
     if n == 0:
         return sig_mask, [], []
@@ -293,9 +311,17 @@ def _identify_surface_clusters(
     if not info:
         return sig_mask, [], []
 
-    stat_values = np.array([sv for _, _, sv in info])
-    tail = {"greater": 1, "less": -1}.get(alternative, 0)
-    pvals = pval_from_histogram(stat_values, null_stats, tail=tail)
+    tail = tail_from_alternative(alternative)
+    tail_stats = np.array(
+        [
+            float(tail_statistic([size], [sv], "mass", tail)[0])
+            if cluster_stat != "size"
+            else float(size)
+            for _, size, sv in info
+        ]
+    )
+    # ``null_stats`` already holds oriented maxima -> always right-tailed.
+    pvals = pval_from_histogram(tail_stats, null_stats, tail=1)
 
     all_observed = [
         {"id": cid, "size": size, "stat_value": sv, "p_value": float(p)}
@@ -430,11 +456,10 @@ def run_surface_correlation(
             raise KeyboardInterrupt("stopped")
         order = rng.permutation(len(ids))
         _, pt, pp = _maps(effect[order], None if weights is None else weights[order])
-        labels, n = _label_graph(
-            _forming_mask(pt, pp, valid_mask, config.cluster_threshold, "two-sided"),
-            adjacency,
+        labels, n = _label_graph_signed(
+            (pp < config.cluster_threshold) & valid_mask, pt, adjacency, "two-sided"
         )
-        null[i] = _max_cluster_stat(labels, n, pt, config.cluster_stat.value)
+        null[i] = _max_cluster_stat(labels, n, pt, config.cluster_stat.value, tail=0)
 
     sig_mask, sig_clusters, observed = _identify_surface_clusters(
         t_full,
@@ -548,11 +573,12 @@ def run_surface_group_comparison(
         else:
             perm = data_valid[:, rng.permutation(n_total)]
         pt, pp = _maps(perm)
-        labels, n = _label_graph(
-            _forming_mask(pt, pp, valid_mask, config.cluster_threshold, alt),
-            adjacency,
+        labels, n = _label_graph_signed(
+            (pp < config.cluster_threshold) & valid_mask, pt, adjacency, alt
         )
-        null[i] = _max_cluster_stat(labels, n, pt, config.cluster_stat.value)
+        null[i] = _max_cluster_stat(
+            labels, n, pt, config.cluster_stat.value, tail=tail_from_alternative(alt)
+        )
 
     sig_mask, sig_clusters, observed = _identify_surface_clusters(
         t_full,

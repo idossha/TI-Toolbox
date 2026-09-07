@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 # ─── p-value computation (MNE-style) ─────────────────────────────────────
 
 
-def pval_from_histogram(observed_stats, null_distribution, tail=0):
+def pval_from_histogram(observed_stats, null_distribution, tail=0, sampled=True):
     """Compute per-cluster p-values from a permutation null distribution.
 
     Implements the MNE-Python approach based on Maris & Oostenveld (2007).
@@ -42,31 +42,138 @@ def pval_from_histogram(observed_stats, null_distribution, tail=0):
         Max-cluster statistics from each permutation.
     tail : {0, 1, -1}, optional
         Tail of the test: 0 for two-sided, 1 for greater, -1 for less.
+    sampled : bool, optional
+        ``True`` (default) when *null_distribution* is a **random sample** of
+        ``m`` permutations rather than the exhaustive enumeration of the
+        permutation group.  The p-value is then the unbiased, valid estimator
+        ``(b + 1) / (m + 1)`` of Phipson & Smyth (2010), where ``b`` counts the
+        permutations at least as extreme as the observation.  Adding the
+        observed statistic to its own null is what makes the test exact: the
+        naive ``b / m`` can return ``p = 0``, which is not a valid p-value and
+        makes the test anti-conservative at the very tail where cluster
+        inference lives.  Pass ``sampled=False`` only when *null_distribution*
+        really is the complete enumeration of every possible relabelling, in
+        which case ``b / m`` is exact.
 
     Returns
     -------
     numpy.ndarray
-        P-values, one per observed cluster.
+        P-values, one per observed cluster.  With ``sampled=True`` the smallest
+        attainable p-value is ``1 / (m + 1)``, never zero.
+
+    References
+    ----------
+    Maris, E. & Oostenveld, R. (2007). J. Neurosci. Methods 164(1), 177-190.
+    Phipson, B. & Smyth, G. K. (2010). Stat. Appl. Genet. Mol. Biol. 9(1), 39.
     """
     observed_stats = np.atleast_1d(observed_stats)
     null_distribution = np.asarray(null_distribution)
+    m = null_distribution.size
 
     if tail == -1:
-        p_values = np.array(
-            [np.mean(null_distribution <= obs) for obs in observed_stats]
+        counts = np.array(
+            [np.sum(null_distribution <= obs) for obs in observed_stats], dtype=float
         )
     elif tail == 1:
-        p_values = np.array(
-            [np.mean(null_distribution >= obs) for obs in observed_stats]
+        counts = np.array(
+            [np.sum(null_distribution >= obs) for obs in observed_stats], dtype=float
         )
     else:
-        p_values = np.array(
+        counts = np.array(
             [
-                np.mean(np.abs(null_distribution) >= np.abs(obs))
+                np.sum(np.abs(null_distribution) >= np.abs(obs))
                 for obs in observed_stats
-            ]
+            ],
+            dtype=float,
         )
-    return p_values
+
+    if sampled:
+        return (counts + 1.0) / (m + 1.0)
+    if m == 0:
+        return np.ones_like(counts)
+    return counts / m
+
+
+# ─── cluster geometry: sign-separated components, oriented statistic ──────
+
+
+def tail_from_alternative(alternative):
+    """MNE-style tail code for an ``alternative`` string."""
+    return {"greater": 1, "less": -1}.get(alternative, 0)
+
+
+def label_signed(mask, t_stats, alternative):
+    """Connected components that never merge voxels of opposite ``t`` sign.
+
+    ``scipy.ndimage.label`` on a bare significance mask happily fuses a
+    positive and a negative supra-threshold blob that happen to touch; the
+    signed cluster mass of the fused object is then the *difference* of two
+    real effects and can be ~0.  Cluster inference requires clusters to be
+    sign-homogeneous, so positive and negative voxels are labelled separately
+    and the negative labels offset past the positive ones.
+
+    One-sided alternatives keep only the relevant sign, matching the
+    correlation path and MNE's ``tail=+/-1`` behaviour.
+
+    Returns ``(labelled_array, n_clusters)``.
+    """
+    if alternative == "greater":
+        return label(mask & (t_stats > 0))
+    if alternative == "less":
+        return label(mask & (t_stats < 0))
+    pos, n_pos = label(mask & (t_stats > 0))
+    neg, n_neg = label(mask & (t_stats < 0))
+    if n_neg:
+        neg_sel = neg > 0
+        pos[neg_sel] = neg[neg_sel] + n_pos
+    return pos, n_pos + n_neg
+
+
+def tail_statistic(sizes, masses, cluster_stat, tail):
+    """Orient the cluster statistic so that *larger is more extreme*.
+
+    The null distribution is a distribution of maxima, so observed and permuted
+    statistics must be measured on the same, monotone "extremeness" scale:
+
+    ``size``   -- always non-negative; clusters are already sign-restricted, so
+                  the raw size is the extremeness.
+    ``mass``   -- signed.  ``tail=+1`` uses the mass, ``tail=-1`` its negation,
+                  ``tail=0`` its absolute value.
+
+    Taking a plain ``max()`` of signed masses under a left or two-sided tail
+    (the v2.x behaviour) selects the mass *closest to zero* among negative
+    clusters, i.e. the least extreme one, and so produces a null that is far
+    too small.
+    """
+    if cluster_stat == "size":
+        return np.abs(np.asarray(sizes, dtype=float))
+    masses = np.asarray(masses, dtype=float)
+    if tail == 1:
+        return masses
+    if tail == -1:
+        return -masses
+    return np.abs(masses)
+
+
+def _max_cluster_stats(labeled, n_clusters, t_vol, cluster_stat, tail):
+    """Max oriented cluster statistic over multi-voxel clusters.
+
+    Returns ``(max_stat, size, signed_mass)`` of the winning cluster;
+    ``(0, 0, 0.0)`` when there is no multi-voxel cluster.
+    """
+    if n_clusters == 0:
+        return 0.0, 0, 0.0
+    sizes = np.bincount(labeled.ravel(), minlength=n_clusters + 1)[1:]
+    masses = np.asarray(
+        ndimage_sum(t_vol, labeled, index=np.arange(1, n_clusters + 1)), dtype=float
+    )
+    multi = sizes > 1
+    if not np.any(multi):
+        return 0.0, 0, 0.0
+    stats = tail_statistic(sizes, masses, cluster_stat, tail)
+    stats = np.where(multi, stats, -np.inf)
+    win = int(np.argmax(stats))
+    return float(stats[win]), int(sizes[win]), float(masses[win])
 
 
 # ─── correlation (vectorised) ─────────────────────────────────────────────
@@ -203,6 +310,26 @@ def correlation_voxelwise(
 # ─── t-tests (vectorised) ────────────────────────────────────────────────
 
 
+def _safe_t(numerator, se):
+    """t = numerator / se with the degenerate zero-SE cases handled like scipy.
+
+    v2.x collapsed *every* zero-SE voxel to ``t = 0`` (hence ``p = 1``), which
+    silently discards the strongest possible evidence: a contrast with zero
+    within-group variance and a **nonzero** mean difference is perfect
+    separation, and scipy reports ``t = +/-inf`` with ``p -> 0``.  Only the
+    genuinely undefined ``0 / 0`` case (identical constant groups) is ``nan``,
+    again matching :func:`scipy.stats.ttest_ind` / ``ttest_rel``.
+
+    * numerator != 0, se == 0  ->  ``+/-inf``  (``t.sf`` then gives p = 0 or 1)
+    * numerator == 0, se == 0  ->  ``nan``     (p = nan; caller masks it out)
+    * se > 0                   ->  the ordinary ratio
+    """
+    numerator = np.asarray(numerator, dtype=np.float64)
+    se = np.asarray(se, dtype=np.float64)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return numerator / se
+
+
 def ttest_ind(test_data, n_resp, n_non_resp, alternative="two-sided"):
     """Vectorised independent-samples t-test. Returns (t_stats, p_values)."""
     resp_data = test_data[:, :n_resp]
@@ -218,9 +345,7 @@ def ttest_ind(test_data, n_resp, n_non_resp, alternative="two-sided"):
     pooled_vars = numerator / denominator
 
     se_diff = np.sqrt(pooled_vars * (1 / n_resp + 1 / n_non_resp))
-    valid = se_diff > 0
-    t_stats = np.zeros(test_data.shape[0])
-    t_stats[valid] = (resp_means[valid] - non_resp_means[valid]) / se_diff[valid]
+    t_stats = _safe_t(resp_means - non_resp_means, se_diff)
 
     df = n_resp + n_non_resp - 2
     match alternative:
@@ -245,10 +370,8 @@ def ttest_rel(test_data, n_resp, alternative="two-sided"):
     diff_means = np.mean(diff, axis=1)
     diff_stds = np.std(diff, axis=1, ddof=1)
 
-    valid = diff_stds > 0
-    t_stats = np.zeros(test_data.shape[0])
     se = diff_stds / np.sqrt(n_resp)
-    t_stats[valid] = diff_means[valid] / se[valid]
+    t_stats = _safe_t(diff_means, se)
 
     df = n_resp - 1
     match alternative:
@@ -262,6 +385,14 @@ def ttest_rel(test_data, n_resp, alternative="two-sided"):
             raise ValueError("alternative must be 'two-sided', 'greater', or 'less'")
 
     return t_stats, p_values
+
+
+def _neutralise_degenerate(t_values, p_values):
+    """Replace non-finite t (and its p) with the null-effect pair (0, 1)."""
+    bad = ~np.isfinite(t_values)
+    if not np.any(bad):
+        return t_values, p_values
+    return np.where(bad, 0.0, t_values), np.where(bad, 1.0, p_values)
 
 
 def ttest_voxelwise(
@@ -306,6 +437,26 @@ def ttest_voxelwise(
         t_1d, p_1d = ttest_rel(voxel_data, n_resp, alternative=alternative)
     else:
         t_1d, p_1d = ttest_ind(voxel_data, n_resp, n_non_resp, alternative=alternative)
+
+    # Voxels whose t is not finite are degenerate (zero within-group variance:
+    # ``nan`` for identical constant groups, ``+/-inf`` for perfect separation).
+    # They carry no usable cluster mass, so they are dropped from valid_mask
+    # rather than being allowed to poison a cluster with inf/nan.
+    degenerate = ~np.isfinite(t_1d)
+    if np.any(degenerate):
+        _log.warning(
+            "Excluding %d voxel(s) with zero within-group variance "
+            "(degenerate t: %d perfectly separated, %d constant)",
+            int(degenerate.sum()),
+            int(np.isinf(t_1d).sum()),
+            int(np.isnan(t_1d).sum()),
+        )
+        valid_mask = valid_mask.copy()
+        valid_mask[
+            idx_i[degenerate], idx_j[degenerate], idx_k[degenerate]
+        ] = False
+        t_1d = np.where(degenerate, 0.0, t_1d)
+        p_1d = np.where(degenerate, 1.0, p_1d)
 
     t_statistics[idx_i, idx_j, idx_k] = t_1d
     p_values[idx_i, idx_j, idx_k] = p_1d
@@ -364,24 +515,22 @@ def _run_single_permutation(
             perm_test_data, n_resp, n_total - n_resp, alternative=alternative
         )
 
+    # Degenerate (zero-variance) voxels can appear under a relabelling even
+    # when the observed data had none; an inf mass would swamp the whole null,
+    # so they are neutralised (slightly conservative, and logged upstream).
+    t_1d, p_1d = _neutralise_degenerate(t_1d, p_1d)
+
     idx_i, idx_j, idx_k = test_coords[:, 0], test_coords[:, 1], test_coords[:, 2]
     perm_t[idx_i, idx_j, idx_k] = t_1d
     perm_p[idx_i, idx_j, idx_k] = p_1d
 
+    tail = tail_from_alternative(alternative)
     perm_mask = (perm_p < cluster_threshold) & valid_mask
-    perm_labeled, perm_n = label(perm_mask)
+    perm_labeled, perm_n = label_signed(perm_mask, perm_t, alternative)
 
-    max_cluster_stat = max_cluster_size = max_cluster_mass = 0
-    if perm_n > 0:
-        sizes = np.bincount(perm_labeled.ravel(), minlength=perm_n + 1)[1:]
-        masses = ndimage_sum(perm_t, perm_labeled, index=np.arange(1, perm_n + 1))
-        multi = sizes > 1
-        if np.any(multi):
-            max_cluster_size = int(sizes[multi].max())
-            max_cluster_mass = float(np.asarray(masses)[multi].max())
-            max_cluster_stat = (
-                max_cluster_size if cluster_stat == "size" else max_cluster_mass
-            )
+    max_cluster_stat, max_cluster_size, max_cluster_mass = _max_cluster_stats(
+        perm_labeled, perm_n, perm_t, cluster_stat, tail
+    )
 
     if return_indices:
         return max_cluster_stat, perm_idx, max_cluster_size, max_cluster_mass
@@ -419,33 +568,21 @@ def _run_single_correlation_permutation(
         voxel_data_preranked=voxel_data_preranked,
     )
 
+    perm_t, perm_p = _neutralise_degenerate(perm_t, perm_p)
+
     perm_p_vol = np.ones(shape)
     perm_t_vol = np.zeros(shape)
     idx_i, idx_j, idx_k = valid_coords[:, 0], valid_coords[:, 1], valid_coords[:, 2]
     perm_p_vol[idx_i, idx_j, idx_k] = perm_p
     perm_t_vol[idx_i, idx_j, idx_k] = perm_t
 
-    match alternative:
-        case "greater":
-            perm_mask = (perm_p_vol < cluster_threshold) & valid_mask & (perm_t_vol > 0)
-        case "less":
-            perm_mask = (perm_p_vol < cluster_threshold) & valid_mask & (perm_t_vol < 0)
-        case _:
-            perm_mask = (perm_p_vol < cluster_threshold) & valid_mask
+    tail = tail_from_alternative(alternative)
+    perm_mask = (perm_p_vol < cluster_threshold) & valid_mask
+    perm_labeled, perm_n = label_signed(perm_mask, perm_t_vol, alternative)
 
-    perm_labeled, perm_n = label(perm_mask)
-
-    max_cluster_stat = max_cluster_size = max_cluster_mass = 0
-    if perm_n > 0:
-        sizes = np.bincount(perm_labeled.ravel(), minlength=perm_n + 1)[1:]
-        masses = ndimage_sum(perm_t_vol, perm_labeled, index=np.arange(1, perm_n + 1))
-        multi = sizes > 1
-        if np.any(multi):
-            max_cluster_size = int(sizes[multi].max())
-            max_cluster_mass = float(np.asarray(masses)[multi].max())
-            max_cluster_stat = (
-                max_cluster_size if cluster_stat == "size" else max_cluster_mass
-            )
+    max_cluster_stat, max_cluster_size, max_cluster_mass = _max_cluster_stats(
+        perm_labeled, perm_n, perm_t_vol, cluster_stat, tail
+    )
 
     if return_indices:
         return max_cluster_stat, perm_idx, max_cluster_size, max_cluster_mass
@@ -510,9 +647,11 @@ class PermutationEngine:
         )
 
         initial_mask = (p_values < self.cluster_threshold) & valid_mask
-        labeled_array, n_clusters = label(initial_mask)
+        labeled_array, n_clusters = label_signed(
+            initial_mask, t_statistics, self.alternative
+        )
         self._log.info(
-            "Clusters at p<%.3f (uncorrected): %d",
+            "Clusters at p<%.3f (uncorrected, sign-separated): %d",
             self.cluster_threshold,
             n_clusters,
         )
@@ -710,23 +849,10 @@ class PermutationEngine:
         )
 
         # Form initial clusters based on alternative
-        match self.alternative:
-            case "greater":
-                initial_mask = (
-                    (p_values < self.cluster_threshold)
-                    & valid_mask
-                    & (t_statistics > 0)
-                )
-            case "less":
-                initial_mask = (
-                    (p_values < self.cluster_threshold)
-                    & valid_mask
-                    & (t_statistics < 0)
-                )
-            case _:
-                initial_mask = (p_values < self.cluster_threshold) & valid_mask
-
-        labeled_array, n_clusters = label(initial_mask)
+        initial_mask = (p_values < self.cluster_threshold) & valid_mask
+        labeled_array, n_clusters = label_signed(
+            initial_mask, t_statistics, self.alternative
+        )
         self._log.info("Clusters at p<%.3f: %d", self.cluster_threshold, n_clusters)
 
         empty = {"sizes": np.array([]), "masses": np.array([])}
@@ -890,19 +1016,24 @@ def _identify_significant_clusters(
             t_statistics, labeled_array, index=np.arange(1, n_clusters + 1)
         )
 
+    tail = tail_from_alternative(alternative)
+
     cluster_info = []
     stat_values = []
+    tail_stats = []
 
     for cid in range(1, max_check + 1):
         size = int(sizes_all[cid])
         if size <= 1:
             continue
-        if cluster_stat == "size":
-            sv = float(size)
-        else:
-            sv = float(masses_all[cid - 1])
+        mass = 0.0 if cluster_stat == "size" else float(masses_all[cid - 1])
+        # Reported value keeps its natural units (signed mass, positive size);
+        # the comparison against the null is made on the oriented statistic.
+        sv = float(size) if cluster_stat == "size" else mass
+        tv = float(tail_statistic([size], [mass], cluster_stat, tail)[0])
         cluster_info.append({"id": cid, "size": size, "stat_value": sv})
         stat_values.append(sv)
+        tail_stats.append(tv)
 
     sig_mask = np.zeros(labeled_array.shape, dtype=int)
     sig_clusters = []
@@ -910,8 +1041,9 @@ def _identify_significant_clusters(
 
     if stat_values:
         stat_values = np.array(stat_values)
-        tail = {"greater": 1, "less": -1}.get(alternative, 0)
-        pvals = pval_from_histogram(stat_values, null_stats, tail=tail)
+        # ``null_stats`` is already a distribution of *oriented* maxima
+        # (see tail_statistic), so the comparison is always right-tailed.
+        pvals = pval_from_histogram(np.array(tail_stats), null_stats, tail=1)
 
         for i, info in enumerate(cluster_info[:10]):
             all_observed.append(
