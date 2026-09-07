@@ -5,11 +5,14 @@
 // placeholders accepted as opaque objects) are present. Also exercises the job lifecycle end to
 // end (submit -> events -> succeeded) and cancel, and the two WebSocket upgrades.
 //
-// The `yaml` package is not a project dependency, so the contract is parsed by shelling out to
-// python3 (pyyaml, already used elsewhere in this repo) into a cached JSON copy; if a `yaml`
-// package ever becomes available it is preferred instead.
+// The contract is parsed in memory: with the `yaml` package (a real desktop/ dependency since W4)
+// directly, and otherwise by shelling out to python3 (pyyaml) and reading its STDOUT. A test run
+// writes nothing into the source tree — this used to overwrite the tracked
+// `tests/fixtures/openapi.v1.json`, so running the suite dirtied the worktree and a read-only
+// checkout failed in the fixture write rather than on anything about the contract (audit TEST-01).
+// The tracked JSON copy is owned by `dev/build_contract.py` / `npm run gen:api`, not by a test.
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -27,20 +30,19 @@ const exercised = new Set<string>();
 
 beforeAll(async () => {
   const yamlPath = join(__dirname, "..", "..", "..", "contracts", "openapi.v1.yaml");
-  const jsonPath = join(__dirname, "..", "fixtures", "openapi.v1.json");
   try {
     // `yaml` is a real desktop/ dependency now (W4 added it for stack.ts's own compose parsing),
     // so this import type-checks on its own -- no suppression comment needed. The python3
     // fallback below still exists for environments where `node_modules` isn't installed at all.
     const { parse } = await import("yaml");
     spec = parse(readFileSync(yamlPath, "utf8"));
-    writeFileSync(jsonPath, JSON.stringify(spec));
   } catch {
-    execFileSync("python3", [
-      "-c",
-      `import yaml, json\njson.dump(yaml.safe_load(open(${JSON.stringify(yamlPath)})), open(${JSON.stringify(jsonPath)}, "w"))`,
-    ]);
-    spec = JSON.parse(readFileSync(jsonPath, "utf8"));
+    const json = execFileSync(
+      "python3",
+      ["-c", `import yaml, json, sys\njson.dump(yaml.safe_load(open(${JSON.stringify(yamlPath)})), sys.stdout)`],
+      { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
+    );
+    spec = JSON.parse(json);
   }
 
   child = spawn(process.execPath, [join(__dirname, "server.mjs")], {
