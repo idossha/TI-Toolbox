@@ -35,7 +35,7 @@ jobs:
         persist-credentials: false
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.9'
 
@@ -80,27 +80,29 @@ jobs:
     - name: Display Bandit JSON Results
       if: always()
       run: |
-        echo "## Bandit Security Scan Results" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
+        {
+          echo "## Bandit Security Scan Results"
+          echo ""
 
-        if [ -f bandit-results.json ]; then
-          echo "### File Info:" >> $GITHUB_STEP_SUMMARY
-          ls -la bandit-results.json >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f bandit-results.json ]; then
+            echo "### File Info:"
+            ls -la bandit-results.json
+            echo ""
 
-          echo "### Full JSON Results:" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`json" >> $GITHUB_STEP_SUMMARY
-          cat bandit-results.json >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Full JSON Results:"
+            echo "\`\`\`json"
+            cat bandit-results.json
+            echo "\`\`\`"
+            echo ""
 
-          echo "### Summary Report:" >> $GITHUB_STEP_SUMMARY
-          # Generate summary statistics using external script
-          if python3 .github/scripts/generate_bandit_report.py >> $GITHUB_STEP_SUMMARY 2>&1; then
-            echo "Report generated successfully" >> $GITHUB_STEP_SUMMARY
+            echo "### Summary Report:"
+            # Generate summary statistics using external script
+            if python3 .github/scripts/generate_bandit_report.py 2>&1; then
+              echo "Report generated successfully"
+            else
+              echo "❌ Report generation failed"
+            fi
           else
-            echo "❌ Report generation failed" >> $GITHUB_STEP_SUMMARY
+            echo "❌ Bandit scan failed - no results file generated"
           fi
-        else
-          echo "❌ Bandit scan failed - no results file generated" >> $GITHUB_STEP_SUMMARY
-        fi
+        } >> "$GITHUB_STEP_SUMMARY"
