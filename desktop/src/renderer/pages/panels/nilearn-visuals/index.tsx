@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { Image as ImageIcon, Play, Info } from "lucide-react";
+import { Image as ImageIcon, Play } from "lucide-react";
 import type { PageDef } from "../../../app/registry";
 import { usePageSession } from "../../../app/pageSession";
 import { getSubjects } from "../../../api/client";
@@ -11,8 +11,8 @@ import { Field, TextInput } from "../../../ui/Field";
 import { Select } from "../../../ui/Select";
 import { NumberInput } from "../../../ui/NumberInput";
 import { Checkbox } from "../../../ui/Toggle";
-import { Button, IconButton } from "../../../ui/Button";
-import { Tooltip } from "../../../ui/Overlay";
+import { Button } from "../../../ui/Button";
+import { HelpIcon } from "../../../ui/HelpPopover";
 import { notify } from "../../../ui/Toast";
 import { ActionBar } from "../../../ui/Chrome";
 import { isPanelEnabled, panelDigest } from "../_shared";
@@ -190,9 +190,7 @@ function NilearnVisualsPanel() {
               loading={subjectsQuery.isPending}
               help={
                 <>
-                  <Tooltip label="Create Nilearn high-resolution publication visualizations.">
-                    <IconButton icon={<Info size={13} />} aria-label="About this page" variant="ghost" size="sm" />
-                  </Tooltip>
+                  <HelpIcon title="Nilearn visuals" label="About this page" text="Create Nilearn high-resolution publication visualizations." />
                   <Button variant="ghost" size="sm" onClick={clearAll}>
                     Clear all
                   </Button>

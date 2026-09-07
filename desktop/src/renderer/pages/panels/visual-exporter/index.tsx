@@ -17,7 +17,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Boxes, Play, Info } from "lucide-react";
+import { Boxes, Play } from "lucide-react";
 import type { PageDef } from "../../../app/registry";
 import { usePageSession } from "../../../app/pageSession";
 import { getSubjects } from "../../../api/client";
@@ -29,8 +29,8 @@ import { NumberInput } from "../../../ui/NumberInput";
 import { Checkbox } from "../../../ui/Toggle";
 import { SegmentedControl } from "../../../ui/SegmentedControl";
 import { SelectionPicker, type SelectionItem } from "../../../ui/SelectionList";
-import { Button, IconButton } from "../../../ui/Button";
-import { Tooltip } from "../../../ui/Overlay";
+import { Button } from "../../../ui/Button";
+import { HelpIcon } from "../../../ui/HelpPopover";
 import { notify } from "../../../ui/Toast";
 import { ActionBar } from "../../../ui/Chrome";
 import { isPanelEnabled, panelDigest } from "../_shared";
@@ -325,9 +325,7 @@ function VisualExporterPanel() {
               <CardHeader
                 title="Selection"
                 actions={
-                  <Tooltip label="Export STL/PLY cortical regions, vector clouds, and montage visualizations for 3D rendering.">
-                    <IconButton icon={<Info size={13} />} aria-label="About this page" variant="ghost" size="sm" />
-                  </Tooltip>
+                  <HelpIcon title="Visual exporter" label="About this page" text="Export STL/PLY cortical regions, vector clouds, and montage visualizations for 3D rendering." />
                 }
               />
               <CardBody>

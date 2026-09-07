@@ -1,6 +1,5 @@
-import { Info } from "lucide-react";
 import { type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes, useId } from "react";
-import { Popover } from "./Overlay";
+import { HelpIcon } from "./HelpPopover";
 import { cn } from "./utils";
 
 /**
@@ -95,22 +94,11 @@ export function Field({
           )}
         </label>
         {help && (
-          <Popover
-            trigger={
-              // The accessible name is deliberately just "Help" and does NOT repeat the field
-              // label: an accessible name containing the label would make `getByLabel("<label>")`
-              // — how every form is driven, in tests and by assistive tech alike — resolve to two
-              // elements. The field context is carried by the popover's own heading instead.
-              <button type="button" className="field-help-trigger" aria-label="Help">
-                <Info size={12} aria-hidden />
-              </button>
-            }
-          >
-            <div className="field-help-popover">
-              <div className="field-help-popover-title">{label}</div>
-              {help}
-            </div>
-          </Popover>
+          // The accessible name is deliberately just "Help" and does NOT repeat the field label:
+          // an accessible name containing the label would make `getByLabel("<label>")` — how every
+          // form is driven, in tests and by assistive tech alike — resolve to two elements. The
+          // field context is carried by the popover's own heading instead.
+          <HelpIcon variant="plain" size={12} title={label} text={help} />
         )}
         {helpSlot}
       </div>

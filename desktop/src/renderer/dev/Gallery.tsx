@@ -22,6 +22,7 @@ import { ElectrodePairsEditor, type ElectrodePair } from "../ui/ElectrodePairsEd
 import { Card, CardBody, CardHeader, Cluster, FormSection, KeyValue, PageHeader, ResizablePanels, Stack, Tabs } from "../ui/Layout";
 import { PlanSummary } from "../ui/PlanSummary";
 import { AlertDialog, Dialog, Drawer, Popover, Tooltip } from "../ui/Overlay";
+import { HelpIcon } from "../ui/HelpPopover";
 import { notify } from "../ui/Toast";
 import { Callout, DefinitionList, EmptyState, Kbd, Skeleton } from "../ui/Feedback";
 import { VirtualList } from "../ui/VirtualList";
@@ -500,12 +501,18 @@ export function Gallery() {
             </Field>
           </Popover>
         </Swatch>
-        <Swatch label="Tooltip">
+        <Swatch label="Tooltip (nav/overflow labels only — never help; help is HelpIcon)">
           <Tooltip label="Runs a two-pair TI simulation">
             <span>
-              <IconButton aria-label="Help" icon={<Users size={16} />} />
+              <IconButton aria-label="Participants" icon={<Users size={16} />} />
             </span>
           </Tooltip>
+        </Swatch>
+        <Swatch label="HelpIcon (click, never hover)">
+          <HelpIcon
+            title="Goal"
+            text={"What the optimizer **maximises** inside the ROI.\n\n- `mean` — average field\n- `max` — peak field\n- `focality` — on-target share"}
+          />
         </Swatch>
         <Swatch label="Select inside a Dialog (z-index layering: overlay 80 < dialog 90 < popover/select 100 < tooltip 110 < toast 120, tokens.css)">
           <Dialog

@@ -16,6 +16,7 @@ import { captureScreen, deadSpaceRatio, type PageMetrics } from "./_metrics";
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
 const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
 const RUN_ID = process.env.TIT_E2E_RUN_ID ?? "preprocess";
+const ARTIFACTS_DIR = process.env.TIT_E2E_ARTIFACTS ?? join(__dirname, "artifacts");
 
 let app: ElectronApplication;
 let page: Page;
@@ -300,4 +301,77 @@ test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.
   // §12.4 item 7: every Tier-1 control is on the first screen at 1280x800, unscrolled.
   const first = rows.find((r) => r.width === 1280 && r.theme === "light");
   expect(first?.firstScreenControls.hidden).toEqual([]);
+});
+
+/**
+ * The maintainer's ask (Sep 2026): the (i) on a stage row looks clickable, so it must BE
+ * clickable, and on this page it must say what the step does and what it turns into what.
+ *
+ * `stepInfo.tsx` owns the content and is unit-tested against the real project paths; this asserts
+ * the wiring — the icon opens on click and not on hover, and the popover carries the prose, the
+ * inputs → [step] → outputs diagram, and the estimate.
+ */
+test("a stage's (i) opens a click popover with the step's inputs → outputs diagram", async () => {
+  const icon = page.getByTestId("step-help-create_m2m");
+  await expect(icon).toBeVisible();
+  await expect(icon).toHaveAttribute("aria-expanded", "false");
+
+  // Hover must do nothing: the old behaviour was a Tooltip, which is what made the glyph lie.
+  await icon.hover();
+  await page.waitForTimeout(700); // longer than the Tooltip delay it used to have (400 ms)
+  await expect(page.locator("[role=tooltip]")).toHaveCount(0);
+  await expect(page.getByTestId("step-help-create_m2m-content")).toHaveCount(0);
+
+  await icon.click();
+  const popover = page.getByTestId("step-help-create_m2m-content");
+  await expect(popover).toBeVisible();
+  await expect(icon).toHaveAttribute("aria-expanded", "true");
+
+  // The prose: what the step does, in the popover's own heading plus a sentence.
+  await expect(popover).toContainText("SimNIBS charm");
+  await expect(popover).toContainText("tetrahedral head model");
+
+  // The flow: input boxes on the left, the accented process box(es) in the middle, output boxes
+  // on the right — every one a labelled node with its concrete path under it.
+  const diagram = popover.getByTestId("step-diagram");
+  await expect(diagram).toBeVisible();
+  await expect(diagram).toHaveAttribute("aria-label", /T1w image.* to charm then subject_atlas to Head mesh/);
+  await expect(diagram.locator(".flow-node")).toHaveCount(8); // 2 inputs + 2 process + 4 outputs
+  await expect(diagram.locator(".flow-node-process")).toHaveCount(2);
+  await expect(diagram.locator(".flow-arrow")).toHaveCount(3);
+  await expect(diagram.locator(".flow-node-label").first()).toHaveText("T1w image");
+  await expect(diagram).toContainText("charm");
+  await expect(diagram).toContainText("Head mesh");
+  await expect(diagram).toContainText("m2m_<id>/<id>.msh");
+  await expect(diagram).toContainText("sub-<id>/anat/sub-<id>_T1w.nii.gz");
+  await expect(diagram.locator(".flow-caption")).toHaveText(["inputs", "process", "outputs"]);
+
+  // The estimate, from tit/jobs/eta.py's PRE_STAGE_MIN, labelled as an estimate.
+  await expect(popover.getByTestId("step-duration")).toContainText("min");
+
+  // Esc closes it and hands focus back to the trigger.
+  await page.keyboard.press("Escape");
+  await expect(popover).toHaveCount(0);
+  await expect(icon).toHaveAttribute("aria-expanded", "false");
+
+  // Every stage row and both section headers carry one.
+  for (const id of [
+    "structural",
+    "dwi",
+    "convert_dicom",
+    "create_m2m",
+    "run_fastsurfer",
+    "run_tissue_analysis",
+    "run_qsiprep",
+    "run_qsirecon",
+    "extract_dti",
+  ]) {
+    await expect(page.getByTestId(`step-help-${id}`), id).toBeVisible();
+  }
+
+  // Evidence for the report.
+  await page.getByTestId("step-help-create_m2m").click();
+  await expect(page.getByTestId("step-help-create_m2m-content")).toBeVisible();
+  await page.screenshot({ path: join(ARTIFACTS_DIR, "preprocess-step-popover.png") });
+  await page.keyboard.press("Escape");
 });

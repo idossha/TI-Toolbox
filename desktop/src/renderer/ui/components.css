@@ -407,6 +407,76 @@
 }
 
 /*
+ * The shared help popover (ui/HelpPopover.tsx). `.field-help-popover` above is kept as the
+ * historical class name; everything help-shaped now renders `.help-popover` instead, and the two
+ * are styled together so a mixed tree cannot look like two different components.
+ */
+.help-popover {
+  padding: var(--space-2);
+  max-width: 46ch;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ink);
+}
+.help-popover-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.help-body p {
+  margin: 0 0 6px;
+}
+.help-body p:last-child {
+  margin-bottom: 0;
+}
+.help-list {
+  margin: 0 0 6px;
+  padding-left: 16px;
+}
+.help-list li {
+  margin-bottom: 2px;
+}
+/* A step flow is three or four columns of boxes; a prose-width popover cannot hold it. */
+.help-popover:has(.step-flow) {
+  max-width: min(640px, var(--radix-popover-content-available-width));
+}
+.help-code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 0 3px;
+  border-radius: var(--radius-chip);
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.help-footer {
+  margin-top: 6px;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  color: var(--ink-2);
+}
+.help-duration {
+  font-size: 11px;
+}
+.help-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 11px;
+  color: var(--accent);
+  text-decoration: none;
+  cursor: pointer;
+}
+.help-more:hover {
+  text-decoration: underline;
+}
+
+
+/*
  * Escape hatches from the label-left row.
  *
  *  - `layout="stacked"` (`.field-stacked`) puts the label back above the control, for the rare row

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { Layers, Play, Info } from "lucide-react";
+import { Layers, Play } from "lucide-react";
 import type { PageDef } from "../../../app/registry";
 import { usePageSession } from "../../../app/pageSession";
 import { getSubjects } from "../../../api/client";
@@ -9,8 +9,9 @@ import { ParticipantsField, blockedParticipants, participantsBlockedReason } fro
 import { usePageScrollMemory } from "../../_shared/session/usePageScrollMemory";
 import { Field, TextInput } from "../../../ui/Field";
 import { Select } from "../../../ui/Select";
-import { Button, IconButton } from "../../../ui/Button";
-import { AlertDialog, Tooltip } from "../../../ui/Overlay";
+import { Button } from "../../../ui/Button";
+import { HelpIcon } from "../../../ui/HelpPopover";
+import { AlertDialog } from "../../../ui/Overlay";
 import { notify } from "../../../ui/Toast";
 import { ActionBar } from "../../../ui/Chrome";
 import { isPanelEnabled, panelDigest } from "../_shared";
@@ -188,9 +189,7 @@ function NiftiGroupAveragePanel() {
               fill
               loading={subjectsQuery.isPending}
               help={
-                <Tooltip label="Compute group averages and differences of NIfTI files.">
-                  <IconButton icon={<Info size={13} />} aria-label="About this page" variant="ghost" size="sm" />
-                </Tooltip>
+                <HelpIcon title="NIfTI group average" label="About this page" text="Compute group averages and differences of NIfTI files." />
               }
               subjectCell={(row) => (
                 <Select

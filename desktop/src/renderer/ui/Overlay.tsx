@@ -182,7 +182,15 @@ export function Popover({
   );
 }
 
-/** 400 ms delay, per DESIGN.md. */
+/**
+ * 400 ms delay, per DESIGN.md.
+ *
+ * **Not for help.** A tooltip here repeats a *name* the UI has had to shorten — the nav rail's
+ * icon labels, the jobs rail's overflow count. Anything that explains rather than names goes
+ * through `HelpIcon` in `ui/HelpPopover.tsx`, which opens on click: an (i) glyph looks clickable,
+ * so it must be clickable (maintainer, Sep 2026), and `tests/e2e/help-icons.spec.ts` sweeps every
+ * page to keep it that way.
+ */
 export function Tooltip({ label, children }: { label: string; children: ReactNode }) {
   const overlay = usePageOverlay();
   return (

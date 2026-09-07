@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { GitCompare, Play, Info } from "lucide-react";
+import { GitCompare, Play } from "lucide-react";
 import type { PageDef } from "../../../app/registry";
 import { usePageSession } from "../../../app/pageSession";
 import { getSubjects } from "../../../api/client";
@@ -12,8 +12,8 @@ import { Select } from "../../../ui/Select";
 import { NumberInput } from "../../../ui/NumberInput";
 import { Checkbox } from "../../../ui/Toggle";
 import { SegmentedControl } from "../../../ui/SegmentedControl";
-import { Button, IconButton } from "../../../ui/Button";
-import { Tooltip } from "../../../ui/Overlay";
+import { Button } from "../../../ui/Button";
+import { HelpIcon } from "../../../ui/HelpPopover";
 import { notify } from "../../../ui/Toast";
 import { ActionBar } from "../../../ui/Chrome";
 import { isPanelEnabled, panelDigest } from "../_shared";
@@ -279,9 +279,7 @@ function ClusterPermutationPanel() {
               fill
               loading={subjectsQuery.isPending}
               help={
-                <Tooltip label="Compare or correlate field intensities across subjects with permutation testing.">
-                  <IconButton icon={<Info size={13} />} aria-label="About this page" variant="ghost" size="sm" />
-                </Tooltip>
+                <HelpIcon title="Cluster permutation" label="About this page" text="Compare or correlate field intensities across subjects with permutation testing." />
               }
               subjectCell={(row) => (
                 <Select

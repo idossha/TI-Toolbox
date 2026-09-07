@@ -1,0 +1,137 @@
+/*
+ * Pre-processing's own rules. One thing lives here: the stage rows that carry a help (i).
+ *
+ * `.run-work .run-checkbox-row > .checkbox-label-row` is `flex: 1` with no background of its own,
+ * so on a row whose only other child is a 24px icon button the label stretches across the whole
+ * row and the tail — most of the row — is covered by a transparent element. That reads as dead
+ * ground to `tests/e2e/_metrics.ts`'s probe (which resolves each sample to its innermost element),
+ * and it measured: preprocess went from 66 % to 67.4 % at 1440x900 the moment the icons landed.
+ *
+ * Letting the label size to its text fixes both halves at once: the tinted `.run-checkbox-row`
+ * itself is then the topmost element over the tail, and the (i) sits next to the step name it
+ * explains rather than marooned at the far right of the row.
+ */
+.run-work .run-checkbox-row.preprocess-step-row > .checkbox-label-row {
+  flex: none;
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * The step flow: inputs → [process] → outputs as connected boxes (see stepInfo.tsx).
+ *
+ * CSS grid + flex arrows rather than SVG, so every label and path stays selectable text that
+ * wraps and ellipsises on its own. Colours are tokens only, so both themes come out right.
+ * ------------------------------------------------------------------------------------------- */
+.step-flow {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin: 10px 0 4px;
+  /* A four-column flow on a narrow window scrolls sideways inside the popover rather than
+     squeezing every box below legibility. */
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.step-flow-group {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  flex: 1 1 0;
+}
+.flow-col {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1 1 0;
+  /* Room for the caption, which is lifted out of the flow (see `.flow-caption`). */
+  padding-top: 15px;
+}
+/* A process column is one box, and it must not eat the width its inputs and outputs need. */
+.flow-col-process {
+  flex: 0 1 auto;
+  min-width: 108px;
+}
+/*
+ * Pinned to the top of the column rather than stacked above its boxes: the columns are different
+ * heights (one input, four outputs), so an in-flow caption rides up and down with its own stack
+ * and the three captions never line up. Absolute keeps them on one line while the boxes stay
+ * vertically centred on the arrows.
+ */
+.flow-caption {
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-size: 9px;
+  line-height: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-2);
+}
+.flow-node {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+}
+.flow-node-process {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.flow-node-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.flow-node-glyph {
+  flex: none;
+  color: var(--ink-2);
+}
+.flow-node-process .flow-node-glyph {
+  color: var(--accent);
+}
+.flow-node-label {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  min-width: 0;
+}
+.flow-node-path {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 12px;
+  color: var(--ink-2);
+  /* One line, ellipsised — the full path is in the box's `title`. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.flow-arrow {
+  display: flex;
+  align-items: center;
+  flex: none;
+  width: 22px;
+  padding: 0 3px;
+}
+.flow-arrow svg {
+  width: 100%;
+  height: 10px;
+  overflow: visible;
+}
+.flow-arrow path {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+  fill: none;
+}
+.flow-arrow .flow-arrow-head {
+  fill: var(--line-strong);
+  stroke: none;
+}

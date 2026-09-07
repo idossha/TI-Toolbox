@@ -6,6 +6,7 @@
 export * from "./utils";
 export * from "./Button";
 export * from "./Status";
+export * from "./HelpPopover";
 export * from "./Field";
 export * from "./NumberInput";
 export * from "./Select";

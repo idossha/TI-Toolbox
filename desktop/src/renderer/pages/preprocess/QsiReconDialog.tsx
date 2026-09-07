@@ -3,7 +3,7 @@ import { Button } from "../../ui/Button";
 import { Field, TextInput } from "../../ui/Field";
 import { NumberInput } from "../../ui/NumberInput";
 import { Checkbox } from "../../ui/Toggle";
-import { Dialog, Tooltip } from "../../ui/Overlay";
+import { Dialog } from "../../ui/Overlay";
 import type { QsiReconSettings } from "./api";
 import {
   ATLAS_CATEGORIES,
@@ -45,15 +45,15 @@ function CategoryChecklist({
           )}
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {cat.items.map((item) => (
-              <Tooltip key={item.value} label={item.tooltip}>
-                <span>
-                  <Checkbox
-                    checked={selected.includes(item.value)}
-                    onCheckedChange={(on) => onToggle(item.value, on)}
-                    label={item.label}
-                  />
-                </span>
-              </Tooltip>
+              // The reconstruction pipelines are a long list of one-liners, so each row keeps its
+              // description as the native `title` (no custom hover overlay — see ui/HelpPopover).
+              <span key={item.value} title={item.tooltip}>
+                <Checkbox
+                  checked={selected.includes(item.value)}
+                  onCheckedChange={(on) => onToggle(item.value, on)}
+                  label={item.label}
+                />
+              </span>
             ))}
           </div>
         </div>

@@ -1,19 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
-import { Info, Workflow } from "lucide-react";
+import { Workflow } from "lucide-react";
 import { getSubjects, type Subject } from "../../api/client";
 import type { PageDef } from "../../app/registry";
 import { useSubject } from "../../app/subjectContext";
 import { useExecutionPrefs } from "../../app/executionPrefs";
 import { usePageSession, usePageSessionRef } from "../../app/pageSession";
 import { createAjvResolver } from "../../forms/ajvResolver";
-import { Button, IconButton } from "../../ui/Button";
+import { Button } from "../../ui/Button";
 import { ActionBar } from "../../ui/Chrome";
 import { Field } from "../../ui/Field";
 import { NumberInput } from "../../ui/NumberInput";
 import { Checkbox } from "../../ui/Toggle";
-import { Tooltip } from "../../ui/Overlay";
 import { InlineError } from "../../ui/Feedback";
 import { FormSection, PageLayout } from "../../ui/Layout";
 import { notify } from "../../ui/Toast";
@@ -42,6 +41,8 @@ import {
 import { defaultQsiPrepConfig, defaultQsiReconConfig } from "./qsi";
 import { QsiPrepDialog } from "./QsiPrepDialog";
 import { QsiReconDialog } from "./QsiReconDialog";
+import { StepHelpIcon } from "./stepInfo";
+import "./preprocess.css";
 
 export type ExistingOutputPolicy = "skip" | "replace";
 
@@ -379,27 +380,32 @@ function PreprocessPage() {
         <div data-tier="1">
           <FormSection
             title="Structural"
-            helpSlot={
-              <Tooltip label="Steps run in this order; charm and FastSurfer run in parallel. An HTML report is generated at the end of each subject's run.">
-                <IconButton icon={<Info size={13} />} aria-label="About the structural steps" variant="ghost" size="sm" />
-              </Tooltip>
-            }
+            helpSlot={<StepHelpIcon id="structural" />}
           >
-            <Checkbox
-              checked={values.convert_dicom}
-              onCheckedChange={(v) => form.setValue("convert_dicom", v)}
-              label="Convert DICOM to NIfTI"
-            />
-            <Checkbox
-              checked={values.create_m2m}
-              onCheckedChange={(v) => form.setValue("create_m2m", v)}
-              label="SimNIBS charm (m2m + subject atlas)"
-            />
-            <Checkbox
-              checked={values.run_fastsurfer}
-              onCheckedChange={(v) => form.setValue("run_fastsurfer", v)}
-              label="FastSurfer segmentation"
-            />
+            <div className="run-checkbox-row preprocess-step-row">
+              <Checkbox
+                checked={values.convert_dicom}
+                onCheckedChange={(v) => form.setValue("convert_dicom", v)}
+                label="Convert DICOM to NIfTI"
+              />
+              <StepHelpIcon id="convert_dicom" />
+            </div>
+            <div className="run-checkbox-row preprocess-step-row">
+              <Checkbox
+                checked={values.create_m2m}
+                onCheckedChange={(v) => form.setValue("create_m2m", v)}
+                label="SimNIBS charm (m2m + subject atlas)"
+              />
+              <StepHelpIcon id="create_m2m" />
+            </div>
+            <div className="run-checkbox-row preprocess-step-row">
+              <Checkbox
+                checked={values.run_fastsurfer}
+                onCheckedChange={(v) => form.setValue("run_fastsurfer", v)}
+                label="FastSurfer segmentation"
+              />
+              <StepHelpIcon id="run_fastsurfer" />
+            </div>
             <Field label="FastSurfer threads" help="Leave blank to use the server's default thread count.">
               <NumberInput
                 value={values.fastsurfer_threads ?? undefined}
@@ -409,40 +415,44 @@ function PreprocessPage() {
                 disabled={!values.run_fastsurfer}
               />
             </Field>
-            <Checkbox
-              checked={values.run_tissue_analysis}
-              onCheckedChange={(v) => form.setValue("run_tissue_analysis", v)}
-              label="Tissue analyzer"
-            />
+            <div className="run-checkbox-row preprocess-step-row">
+              <Checkbox
+                checked={values.run_tissue_analysis}
+                onCheckedChange={(v) => form.setValue("run_tissue_analysis", v)}
+                label="Tissue analyzer"
+              />
+              <StepHelpIcon id="run_tissue_analysis" />
+            </div>
           </FormSection>
         </div>
 
         <div data-tier="1">
           <FormSection
             title="DWI (docker)"
-            helpSlot={
-              <Tooltip label="DWI preprocessing and reconstruction run in their own containers and need Docker socket access. QSIRecon needs QSIPrep output; the tensor extraction needs QSIRecon output.">
-                <IconButton icon={<Info size={13} />} aria-label="About DWI processing" variant="ghost" size="sm" />
-              </Tooltip>
-            }
+            helpSlot={<StepHelpIcon id="dwi" />}
           >
-            <div className="run-checkbox-row">
+            <div className="run-checkbox-row preprocess-step-row">
               <Checkbox checked={values.run_qsiprep} onCheckedChange={(v) => form.setValue("run_qsiprep", v)} label="QSIPrep" />
               <Button size="sm" variant="secondary" onClick={() => setQsiPrepOpen(true)} data-testid="open-qsiprep-config">
                 Configure…
               </Button>
+              <StepHelpIcon id="run_qsiprep" />
             </div>
-            <div className="run-checkbox-row">
+            <div className="run-checkbox-row preprocess-step-row">
               <Checkbox checked={values.run_qsirecon} onCheckedChange={(v) => form.setValue("run_qsirecon", v)} label="QSIRecon" />
               <Button size="sm" variant="secondary" onClick={() => setQsiReconOpen(true)} data-testid="open-qsirecon-config">
                 Configure…
               </Button>
+              <StepHelpIcon id="run_qsirecon" />
             </div>
-            <Checkbox
-              checked={values.extract_dti}
-              onCheckedChange={(v) => form.setValue("extract_dti", v)}
-              label="Extract DTI tensor"
-            />
+            <div className="run-checkbox-row preprocess-step-row">
+              <Checkbox
+                checked={values.extract_dti}
+                onCheckedChange={(v) => form.setValue("extract_dti", v)}
+                label="Extract DTI tensor"
+              />
+              <StepHelpIcon id="extract_dti" />
+            </div>
           </FormSection>
         </div>
 
