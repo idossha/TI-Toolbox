@@ -22,6 +22,12 @@ dependencies = []
 [project.optional-dependencies]
 pipeline = ["nbformat>=5.1.4"]
 
+[project.scripts]
+# `tit launch` — the no-Electron launcher (tit/launch.py). Deliberately the only console
+# script: everything else in this package needs SimNIBS's interpreter, while this one is
+# stdlib-plus-docker-CLI and is meant to work on a bare host.
+tit = "tit.cli:main"
+
 [project.urls]
 Repository = "https://github.com/idossha/TI-toolbox"
 
