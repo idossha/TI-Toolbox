@@ -1,5 +1,11 @@
 # Known Issues — 2026-08
 
+> **Historical.** This pass predates v3.0.0 and cites `tit/gui/**`, the PyQt5 GUI that was
+> deleted in v3.0.0. Items about the *backend* (`tit/analyzer`, `tit/opt`, `tit/stats`) may still
+> be live; items about the Qt tabs describe code that no longer exists, and their v3 equivalents
+> are the per-page `PARITY.md` files under `desktop/src/renderer/pages/`. Numerical defects
+> confirmed and fixed since are in `SCIENTIFIC-CORRECTIONS.md`.
+
 Drafted defect reports from a code-reading pass. Not filed as GitHub issues.
 Each item was verified by reading the cited code, not inferred from
 description alone.

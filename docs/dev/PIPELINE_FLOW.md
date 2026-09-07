@@ -14,7 +14,7 @@ Run temporal interference (TI) simulations with predefined electrode montages.
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      ENTRYPOINT                              │
-│  python -m tit.sim (or GUI SimulatorTab)               │
+│  python -m tit.sim  (or the Simulator page)             │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -97,7 +97,7 @@ Optimize electrode positions to maximize/target stimulation in specific brain re
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      ENTRYPOINT                              │
-│  python -m tit.opt.flex (or GUI FlexSearchTab)         │
+│  python -m tit.opt.flex  (or the Optimizer page)        │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -197,7 +197,7 @@ Perform exhaustive search optimization across all electrode combinations and cur
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      ENTRYPOINT                              │
-│  python -m tit.opt.ex (or GUI ExSearchTab)             │
+│  python -m tit.opt.ex  (or the Optimizer page)          │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐

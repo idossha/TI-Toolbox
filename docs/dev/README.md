@@ -42,6 +42,7 @@ A new contributor can get through the first five in about an hour.
 | `SPIKES.md` | Verdicts of investigations whose code was never shipped. |
 | `requirements/` | **Dated asks**, verbatim from the maintainer. Where two conflict, the later one wins. |
 | `v3-implementation-plan.md` | The 2026-09-05 overview/batch/terminal/viewer plan, kept because `HISTORY.md` cites its lettered requirements. |
+| `PIPELINE_FLOW.md` | The end-to-end data flow of the Simulator and Flex-Search pipelines, entry point to output. |
 | `known-issues-2026-08.md`, `qsi-integration.md`, `qsirecon-internal-reference.md`, `flex-search-multicore-analysis.md` | Backend/pipeline references that predate the v3 program. |
 
 ## Documentation that stays where it is
@@ -98,6 +99,7 @@ now holds scripts only. Older documents and source comments may still cite the o
 | `desktop/DESIGN.md` | `DESIGN.md` |
 | `desktop/IMPLEMENTATION_PLAN.md` | `v3-implementation-plan.md` |
 | `tracks/active/v3-electron-gui.md` (gitignored, so never in the repository) | `ADR.md` |
+| `docs/PIPELINE_FLOW.md` (was published to the site by accident) | `docs/dev/PIPELINE_FLOW.md` |
 | `TODO.md` (the v3.0.0 plan and its open items) | `HISTORY.md` for what shipped, `ROADMAP.md` for what is open |
 | `tit/gui/**` (the PyQt5 GUI, deleted in v3.0.0) | `desktop/`, with per-page `PARITY.md` checklists |
 | `package/` (the v2 Electron launcher) | `desktop/` |
