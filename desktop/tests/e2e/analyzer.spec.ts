@@ -15,6 +15,7 @@ import {
   setAnalysisCell,
   setAnalysisSphere,
   setAnalysisSubject,
+  setAnalysisTissue,
 } from "./_jobs";
 
 /**
@@ -93,7 +94,6 @@ test("shape A, no page header, and one Jobs table instead of a global subject se
   // Every row states its own target, and says so when it has none.
   await expect(analysisTargetText(analysisRows(page).first())).toHaveText("Choose a target…");
   await expect(analysisRows(page).first().locator(".analysis-target-caption")).toHaveText("Target");
-  await expect(analysisRows(page).first().locator(".analysis-tissue-caption")).toHaveText("Tissue");
   // Seeded with one row on the context bar's primary subject ("ernie", from beforeAll).
   await expect(analysisRows(page)).toHaveCount(1);
   await expect(analysisRows(page).first()).toHaveAttribute("data-subject", "ernie");
@@ -324,7 +324,7 @@ test("adding a row does not open the target dialog, and neither does clicking on
   await closeAnalysisTarget(page);
 
   // The three deliberate ways in.
-  await first.getByRole("button", { name: "Edit row 1" }).click();
+  await first.getByRole("button", { name: "Job settings 1" }).click();
   await expect(page.getByTestId("analysis-target-editor")).toBeVisible();
   await closeAnalysisTarget(page);
   await openAnalysisTarget(page, first);
@@ -400,6 +400,12 @@ test("a job entry is two lines ~56-64px tall, and every cell prints its full val
     expect(clipped, `${name} is ellipsised`).toBeLessThanOrEqual(1);
   }
 
+  // The row's explicit way into its settings is the shared `Job settings N` control — same icon,
+  // same position and name as the Simulator's and the Optimizer's (a pencil here was a third word
+  // for one idea).
+  await expect(row.getByRole("button", { name: "Job settings 1" })).toBeVisible();
+  await expect(row.getByRole("button", { name: /^Edit row/ })).toHaveCount(0);
+
   // No horizontal scroll, and switching Space moves nothing.
   const container = page.getByTestId("analysis-jobs-table-container");
   const before = await row.boundingBox();
@@ -418,21 +424,29 @@ test("a job entry is two lines ~56-64px tall, and every cell prints its full val
  * "voxel space only"; `analyzer.py` overwrites it with GM in mesh). Maintainer, 2026-09-06: the
  * global "Space options" section that held it is gone.
  */
-test("tissue is a cell of the row, disabled in mesh, and a cohort needs the rows to agree", async () => {
+test("tissue is a job setting, read-only in mesh, and a cohort needs the rows to agree", async () => {
   test.setTimeout(120_000);
   const row = analysisRows(page).first();
-  // On line 2, right of the target: a fifth 150px column on line 1 left Simulation 74px at 1280.
-  const tissue = row.locator('[data-cell-part="tissue"]');
-  // Mesh: disabled, showing GM, with the reason on the cell rather than a silently dead control.
+  // Tissue is a SETTING, so it is in the row's Job settings dialog under "Space options" — off
+  // the row itself (maintainer, 2026-09-06). Mesh: read-only GM, with the reason stated.
   await expect(row.locator('td[data-cell="space"]')).toHaveText("Mesh");
-  await expect(tissue.getByRole("combobox")).toHaveText("Gray matter (GM)");
-  await expect(tissue.getByRole("combobox")).toBeDisabled();
-  await expect(tissue).toHaveAttribute("title", /voxel space/);
+  await expect(row.locator('[data-cell-part="tissue"]')).toHaveCount(0);
+  let dialog = await openAnalysisTarget(page, row);
+  let spaceOptions = dialog.getByTestId("analysis-space-options");
+  await expect(spaceOptions.locator("h4")).toHaveText("Space options");
+  await expect(spaceOptions.getByRole("combobox")).toHaveText("Gray matter (GM)");
+  await expect(spaceOptions.getByRole("combobox")).toBeDisabled();
+  await expect(spaceOptions).toContainText("tissue applies to voxel space");
+  await closeAnalysisTarget(page);
 
   await setAnalysisCell(page, row, "space", "Voxel");
-  await expect(tissue.getByRole("combobox")).toBeEnabled();
-  await setAnalysisCell(page, row, "tissue", "GM + WM (both)");
-  await expect(tissue.getByRole("combobox")).toHaveText("GM + WM (both)");
+  dialog = await openAnalysisTarget(page, row);
+  spaceOptions = dialog.getByTestId("analysis-space-options");
+  await expect(spaceOptions.getByRole("combobox")).toBeEnabled();
+  await closeAnalysisTarget(page);
+  await setAnalysisTissue(page, row, "GM + WM (both)");
+  // Line 2 names it only because it is no longer the default GM.
+  await expect(analysisTargetText(row)).toContainText("· GM+WM");
   // Voxel is also why TI_normal cannot be measured, and the option now says so where it is read.
   await row.locator('td[data-cell="field"]').getByRole("combobox").click();
   await expect(page.getByRole("option", { name: "TI_normal (mesh only)" })).toBeDisabled();
@@ -443,14 +457,15 @@ test("tissue is a cell of the row, disabled in mesh, and a cohort needs the rows
   const second = analysisRows(page).nth(1);
   await setAnalysisSubject(page, second, "101");
   await setAnalysisCell(page, second, "simulation", "Thalamus");
-  await setAnalysisCell(page, second, "tissue", "White matter (WM)");
+  await setAnalysisTissue(page, second, "White matter (WM)");
+  await expect(analysisTargetText(second)).toContainText("· tissue WM");
   await expect(page.getByTestId("run-button")).toHaveText("Queue 2 jobs", { timeout: 15_000 });
 
   const combine = page.getByRole("switch", { name: "Combine into one group analysis" });
   await combine.click();
   await expect(page.getByTestId("run-button")).toBeDisabled();
   await expect(page.getByTestId("run-button")).toHaveAttribute("title", /A group analysis measures one tissue/);
-  await setAnalysisCell(page, second, "tissue", "GM + WM (both)");
+  await setAnalysisTissue(page, second, "GM + WM (both)");
   await expect(page.getByTestId("run-button")).toHaveText("Run analysis", { timeout: 15_000 });
 
   await combine.click();
@@ -462,7 +477,7 @@ test("tissue is a cell of the row, disabled in mesh, and a cohort needs the rows
 /**
  * The dialog's organisation — one structure whatever the mode, at a fixed 560px.
  */
-test("the target dialog is one 560px structure in every mode", async () => {
+test("the job settings dialog is one 560px structure in every mode", async () => {
   test.setTimeout(120_000);
   const row = analysisRows(page).first();
   const dialog = await openAnalysisTarget(page, row);
@@ -471,7 +486,7 @@ test("the target dialog is one 560px structure in every mode", async () => {
   expect(box.width).toBe(560);
 
   // Title + subtitle name the job this target belongs to.
-  await expect(dialog.getByText("Analysis target", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Job settings", { exact: true })).toBeVisible();
   await expect(dialog.locator(".dialog-description")).toHaveText("ernie · Thalamus");
   // The mode control is full-width across the top.
   const modes = dialog.locator(".roi-picker > .segmented").first();

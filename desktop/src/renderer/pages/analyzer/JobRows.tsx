@@ -25,11 +25,12 @@
  * are refused with the reason on the Run button.
  */
 import { useMemo, useState } from "react";
-import { Copy, Info, Pencil, Plus, Target as TargetIcon, X } from "lucide-react";
+import { Copy, Info, Plus, SlidersHorizontal, Target as TargetIcon, X } from "lucide-react";
 import { Button, IconButton } from "../../ui/Button";
 import { Dialog, Popover } from "../../ui/Overlay";
 import { Switch, Checkbox } from "../../ui/Toggle";
 import { Select } from "../../ui/Select";
+import { Field } from "../../ui/Field";
 import { SelectionPicker } from "../../ui/SelectionList";
 import { RoiPicker, emptyRoi, isRoiComplete, type RoiRegion, type RoiValue, type TissueKind } from "../_shared/roi";
 import { AUTO_FIELD, type Space } from "./buildConfig";
@@ -55,8 +56,9 @@ export interface AnalyzerRow {
    * (maintainer, 2026-09-06) and, of the two per-job axes it could sit on, to the row's *space*
    * rather than to its target: `tit/analyzer/analyzer.py` overwrites it with "GM" whenever
    * `space == "mesh"` (`AnalyzerConfig.tissue_type`, "voxel space only"), and it says nothing about
-   * the ROI's shape. So it is a cell on line 1 beside Space and Field, disabled — with the reason
-   * on it — while the row is in mesh.
+   * the ROI's shape. It lives in the row's **Job settings** dialog under "Space options" (it is a
+   * setting, not something a user retypes per run), and line 2 names it only when it is not the
+   * default GM — a default that is stated on every row is noise, a departure from it is not.
    */
   tissue: TissueKind;
   roi: RoiValue;
@@ -127,6 +129,14 @@ function joinNames(names: string[]): string {
  * and whether they are one ROI or one job each; the sphere's radius, its coordinate space and its
  * volumetric compartment. An incomplete target says so rather than printing half a coordinate.
  */
+/** `WM` / `GM+WM`, or nothing at all for the default. */
+export function tissueSuffix(row: Pick<AnalyzerRow, "space" | "tissue">): string {
+  // Mesh runs as GM whatever the row says (`tit/analyzer/analyzer.py`), so a mesh row never
+  // carries a tissue suffix — printing one would state something the run will not do.
+  if (row.space !== "voxel" || row.tissue === "GM") return "";
+  return row.tissue === "both" ? " · GM+WM" : ` · tissue ${row.tissue}`;
+}
+
 export function analyzerTargetLabel(roi: RoiValue, combine = true): string {
   if (!isRoiComplete(roi)) return "Choose a target…";
   if (roi.mode === "spherical") {
@@ -326,7 +336,9 @@ export function AnalyzerJobRows({
             </tr>
           </thead>
           {rows.map((row, i) => {
-            const label = analyzerTargetLabel(row.roi, row.combine);
+            // No suffix on "Choose a target…": a row with no target yet has nothing to qualify.
+            const target = analyzerTargetLabel(row.roi, row.combine);
+            const label = isRoiComplete(row.roi) ? `${target}${tissueSuffix(row)}` : target;
             return (
               /*
                 One job is one `<tbody>` of TWO rows (maintainer: "a thicker two-line row"): line 1
@@ -416,9 +428,16 @@ export function AnalyzerJobRows({
                   <td data-cell="actions" className="montage-actions">
                     <IconButton aria-label={`Duplicate row ${i + 1}`} icon={<Copy size={14} />} onClick={() => duplicate(row)} />
                     {/* The explicit way in, beside the implicit ones (the target line, a
-                        double-click, Enter): the Simulator's and Optimizer's rows both carry a
-                        pencil, and a row whose only editor was a text link was the odd one out. */}
-                    <IconButton aria-label={`Edit row ${i + 1}`} icon={<Pencil size={14} />} onClick={() => openTarget(row)} />
+                        double-click, Enter). The Simulator's and Optimizer's rows carry exactly
+                        this button — same icon, same position, same `Job settings N` name — and a
+                        row's parameters are "job settings" on all three pages, so a pencil here
+                        was a third word for one idea. */}
+                    <IconButton
+                      aria-label={`Job settings ${i + 1}`}
+                      title="Target and space options for this job"
+                      icon={<SlidersHorizontal size={14} />}
+                      onClick={() => openTarget(row)}
+                    />
                     <IconButton
                       aria-label={`Remove row ${i + 1}`}
                       icon={<X size={14} />}
@@ -456,29 +475,6 @@ export function AnalyzerJobRows({
                       <TargetIcon size={12} aria-hidden />
                       <span className="analysis-target-text">{label}</span>
                     </button>
-                    {/* The row's tissue, on the right of the same line. It is a property of the
-                        row's SPACE (`AnalyzerConfig.tissue_type`, "voxel space only"; the runner
-                        overwrites it with GM in mesh), so it is not in the target dialog and not a
-                        page section — and it is on line 2 rather than line 1 because a fifth 150px
-                        column left Simulation 74px wide at 1280 (measured). Disabled in mesh, with
-                        the reason on the cell, rather than a control that quietly does nothing. */}
-                    <span
-                      className="analysis-tissue-cell"
-                      data-cell-part="tissue"
-                      title={row.space === "mesh" ? "Mesh analyses are gray matter — tissue applies to voxel space." : undefined}
-                    >
-                      {/* Its OWN class, not the target caption's: the target caption is the inert
-                          half of a line whose other half opens a dialog, and a spec that clicks
-                          "the caption" must not resolve to two of them. */}
-                      <span className="analysis-tissue-caption text-eyebrow">Tissue</span>
-                      <Select
-                        value={row.space === "voxel" ? row.tissue : "GM"}
-                        onValueChange={(v) => patch(row.id, { tissue: v as TissueKind })}
-                        options={TISSUE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
-                        disabled={row.space === "mesh"}
-                        aria-label="Tissue"
-                      />
-                    </span>
                     </div>
                   </td>
                 </tr>
@@ -536,7 +532,7 @@ export function AnalyzerJobRows({
         onOpenChange={(open) => {
           if (!open) setTargetRowId(null);
         }}
-        title="Analysis target"
+        title="Job settings"
         description={
           targetRow
             ? `${targetRow.subjectId || "no subject"} · ${targetRow.simulation || "no simulation"}`
@@ -588,6 +584,33 @@ export function AnalyzerJobRows({
                 </Popover>
               </div>
             )}
+
+            {/* Space options — the last page-level section the Analyzer had, now the row's.
+                `AnalyzerConfig.tissue_type` is "voxel space only" (`tit/analyzer/config.py`) and
+                the runner overwrites it with GM in mesh (`analyzer.py`), so a mesh row states the
+                value it will actually run with and says why it cannot be changed. */}
+            <section className="analysis-settings-group" data-testid="analysis-space-options">
+              <h4 className="text-eyebrow">Space options</h4>
+              <Field
+                label="Tissue"
+                help="The compartment a voxel analysis measures in."
+                /* A disabled control's reason is stated ON the form, not behind an (i) the user
+                   would have to think to open (DESIGN.md §4.2 rule 8's shape). */
+                note={
+                  targetRow.space === "mesh"
+                    ? "Mesh analyses are gray matter — tissue applies to voxel space."
+                    : undefined
+                }
+              >
+                <Select
+                  value={targetRow.space === "voxel" ? targetRow.tissue : "GM"}
+                  onValueChange={(v) => patch(targetRow.id, { tissue: v as TissueKind })}
+                  options={TISSUE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                  disabled={targetRow.space === "mesh"}
+                  aria-label="Tissue"
+                />
+              </Field>
+            </section>
           </div>
         )}
       </Dialog>

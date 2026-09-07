@@ -15,6 +15,7 @@ import {
   emptyAnalyzerRow,
   isPlannableAnalyzerRow,
   isRunnableAnalyzerRow,
+  tissueSuffix,
   type AnalyzerRow,
 } from "../../src/renderer/pages/analyzer/JobRows";
 
@@ -376,5 +377,23 @@ describe("a row's own target", () => {
     const b = rowWith(sphereRoi(), { subjectId: "101" });
     expect(groupMismatchReason([a, b])).toBeNull();
     expect(groupMismatchReason([a, rowWith(corticalRoi, { subjectId: "101" })])).toMatch(/one target/);
+  });
+});
+
+/*
+ * Tissue is a job SETTING (maintainer, 2026-09-06): it lives in the row's Job settings dialog, and
+ * the row's target line names it only when it departs from the default.
+ */
+describe("the tissue suffix on a row's target line", () => {
+  it("says nothing about the default, and nothing at all in mesh", () => {
+    expect(tissueSuffix({ space: "voxel", tissue: "GM" })).toBe("");
+    // Mesh runs as GM whatever the row says (`tit/analyzer/analyzer.py`), so a mesh row that still
+    // carries WM from an earlier voxel state must not claim it.
+    expect(tissueSuffix({ space: "mesh", tissue: "WM" })).toBe("");
+  });
+
+  it("names a departure from the default", () => {
+    expect(tissueSuffix({ space: "voxel", tissue: "WM" })).toBe(" · tissue WM");
+    expect(tissueSuffix({ space: "voxel", tissue: "both" })).toBe(" · GM+WM");
   });
 });

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
 import { connectReal, expectPage, gotoPage, launchElectronApp, PROJECT_HOST_ROOT, recordPayload, selectSubject, waitForJobTerminal, waitForJobTrace } from "../_helpers";
 import { removeNewEntriesSince, snapshotDir } from "./_dirDiff";
-import { analysisRows, setAnalysisCell, setAnalysisSphere } from "../_jobs";
+import { analysisRows, setAnalysisCell, setAnalysisSphere, setAnalysisTissue } from "../_jobs";
 
 /**
  * Analyzer, voxel space — see `analyzer-mesh.spec.ts`'s file header for the shared rationale
@@ -50,9 +50,10 @@ test("spherical target, voxel space: accepted, started, and completed", async ()
   await setAnalysisCell(page, row, "simulation", "Thalamus");
 
   await setAnalysisCell(page, row, "space", "Voxel");
-  // Tissue is the ROW's since 2026-09-06 (the global "Space options" section is gone), and it only
-  // reaches the config in voxel space — this asserts the row's own value is what is submitted.
-  await setAnalysisCell(page, row, "tissue", "GM + WM (both)");
+  // Tissue is the ROW's since 2026-09-06 (the global "Space options" section is gone) and lives in
+  // the row's Job settings dialog; it only reaches the config in voxel space, so this asserts the
+  // row's own value is what is submitted.
+  await setAnalysisTissue(page, row, "GM + WM (both)");
 
   // Since 2026-09-06 the target is the ROW's: its Target cell opens the shared picker
   // scoped to that row (maintainer: "we can modify our analysis input per job").

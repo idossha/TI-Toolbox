@@ -168,14 +168,23 @@ export async function setAnalysisSubject(page: Page, row: Locator, subject: stri
 export async function setAnalysisCell(
   page: Page,
   row: Locator,
-  name: "simulation" | "space" | "field" | "tissue",
+  name: "simulation" | "space" | "field",
   option: string,
 ): Promise<void> {
-  // Tissue lives on line 2 beside the target (a fifth column on line 1 left Simulation 74px at
-  // 1280), so it is addressed by its own part attribute rather than by a `<td>`.
-  const target = name === "tissue" ? row.locator('[data-cell-part="tissue"]') : cell(row, name);
-  await target.getByRole("combobox").click();
+  await cell(row, name).getByRole("combobox").click();
   await page.getByRole("option", { name: option, exact: true }).click();
+}
+
+/**
+ * The row's tissue — a *setting*, so it lives in the row's Job settings dialog under "Space
+ * options" rather than on the row itself (maintainer, 2026-09-06). Opens the dialog, sets it and
+ * closes again.
+ */
+export async function setAnalysisTissue(page: Page, row: Locator, option: string): Promise<void> {
+  const dialog = await openAnalysisTarget(page, row);
+  await dialog.getByTestId("analysis-space-options").getByRole("combobox").click();
+  await page.getByRole("option", { name: option, exact: true }).click();
+  await closeAnalysisTarget(page);
 }
 
 /**
