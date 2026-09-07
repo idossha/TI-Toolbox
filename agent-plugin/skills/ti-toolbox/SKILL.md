@@ -7,9 +7,9 @@ user-invocable: false
 # TI-Toolbox — Agent Orientation
 
 **TI-Toolbox** simulates, optimizes and analyzes temporal-interference (TI) brain
-stimulation on subject-specific head models. It wraps SimNIBS, FreeSurfer and
-(optionally) QSIPrep/QSIRecon behind a PyQt GUI, a Python API (`tit`) and JSON
-config runners. Docs: https://idossha.github.io/TI-Toolbox/ · Repo:
+stimulation on subject-specific head models. It wraps SimNIBS, FastSurfer/FreeSurfer
+and (optionally) QSIPrep/QSIRecon behind an Electron desktop app (v3; the PyQt GUI was
+deleted in v3.0.0), a Python API (`tit`) and JSON config runners. Docs: https://idossha.github.io/TI-Toolbox/ · Repo:
 https://github.com/idossha/TI-Toolbox · Cite: Haber et al. 2025, *Brain Stimulation*,
 doi:10.1016/j.brs.2025.103016.
 
