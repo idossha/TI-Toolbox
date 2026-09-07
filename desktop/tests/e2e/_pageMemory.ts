@@ -119,10 +119,18 @@ export async function useThePage(target: Page, settleOpts: { skeletonMs?: number
     await settle(target, settleOpts);
   }
 
-  // The right pane's tab: Scene is the default while nothing runs, so Terminal is always a change.
+  // The right pane's tab. This used to click "Terminal" unconditionally, on the premise that Scene
+  // is the default while nothing runs — which stopped holding once the tab became remembered state
+  // that outlives the page: an earlier subtest in this serial file leaves it on Terminal, the click
+  // is then a no-op, and on a page whose only other changeable state is the segmented control
+  // (the Simulator and the Analyzer: no sections, no checkbox, no free-text field inside
+  // `[data-page-work-scroll]` since the run name moved into the jobs table's row editor, and a work
+  // pane that does not scroll) *nothing* changed and the guard below fired. Flip to whichever tab
+  // is not the current one, so this is a change whatever the page came in as.
   if (start.tab !== null) {
-    await target.getByRole("radiogroup", { name: "Run pane" }).getByRole("radio", { name: "Terminal", exact: true }).click();
-    await expect(activePage(target).getByTestId("run-pane-tabs")).toHaveAttribute("data-tab", "terminal");
+    const want = start.tab === "terminal" ? "Scene" : "Terminal";
+    await target.getByRole("radiogroup", { name: "Run pane" }).getByRole("radio", { name: want, exact: true }).click();
+    await expect(activePage(target).getByTestId("run-pane-tabs")).toHaveAttribute("data-tab", want.toLowerCase());
   }
 
   // A checkbox, where the page has one — Pre-processing's only changeable state.
