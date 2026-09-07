@@ -245,6 +245,20 @@ describe("the Analyzer's job rows", () => {
     expect(cohortSubjects([row("ernie", "Thalamus"), row("101", "")])).toEqual(["ernie"]);
   });
 
+  it("a cohort needs one tissue too — but only where tissue reaches the config", () => {
+    const voxel = (tissue: "GM" | "WM"): AnalyzerRow =>
+      emptyAnalyzerRow({ subjectId: tissue === "GM" ? "ernie" : "101", simulation: "Thalamus", space: "voxel", tissue });
+    expect(groupMismatchReason([voxel("GM"), voxel("WM")])).toMatch(/one tissue/);
+    // Mesh rows that "disagree" build identical configs — `tit/analyzer/analyzer.py` overwrites
+    // tissue with GM in mesh — so refusing them would be a refusal about nothing.
+    expect(
+      groupMismatchReason([
+        emptyAnalyzerRow({ subjectId: "ernie", simulation: "Thalamus", tissue: "GM" }),
+        emptyAnalyzerRow({ subjectId: "101", simulation: "Thalamus", tissue: "WM" }),
+      ]),
+    ).toBeNull();
+  });
+
   it("group mode refuses rows that disagree about the one thing a cohort job runs", () => {
     expect(groupMismatchReason([row("ernie", "Thalamus"), row("101", "Thalamus")])).toBeNull();
     expect(groupMismatchReason([row("ernie", "Thalamus"), row("101", "Motor")])).toMatch(/one simulation/);

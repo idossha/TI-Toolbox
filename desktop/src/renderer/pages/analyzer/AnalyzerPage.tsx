@@ -16,16 +16,16 @@
  *    row (`JobRows.tsx`), editable in a dialog holding the shared `RoiPicker` scoped to that row.
  *    The 3-D pane draws the **active** row's target, and its region clicks edit that row.
  *
- * What stays global is what is a property of the *run* rather than of one job: the voxel tissue
- * compartment (Space options).
+ * Nothing is global any more. The last page-level section, "Space options", held the voxel tissue
+ * compartment — and `AnalyzerConfig.tissue_type` is "voxel space only" (`tit/analyzer/config.py`;
+ * `analyzer.py` overwrites it with GM in mesh), so it is a property of the ROW's space and is now a
+ * control on the row's second line. The work column is the Jobs table and nothing else.
  */
 import { useEffect, useMemo, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { FormSection, PageLayout, PaneHeaderControls, usePaneController } from "../../ui/Layout";
 import { ActionBar } from "../../ui/Chrome";
-import { Field } from "../../ui/Field";
-import { Select } from "../../ui/Select";
 import { Button } from "../../ui/Button";
 import { Callout, EmptyState } from "../../ui/Feedback";
 import { notify } from "../../ui/Toast";
@@ -35,7 +35,6 @@ import { subjectsBlockedReason } from "../_shared/subjects";
 import { ExistingOutputsDialog, planCounts, RunPanel, RunWork, planDigest, planModelFrom, stepsFor, useRunShortcut, type PlanModel, type PlanResult as SharedPlanResult } from "../_shared/run";
 import { isRoiComplete, type RoiValue } from "../_shared/roi";
 import { ScenePane } from "../_shared/scene";
-import { TI_NORMAL_VOXEL_HELP } from "./fields";
 import {
   AnalyzerJobRows,
   analyzerJobsSummary,
@@ -50,7 +49,6 @@ import { EMPTY_SPHERE } from "./SphereRows";
 import { viewerSearch } from "../results";
 import {
   buildConfig,
-  type Space,
   type AnalysisType,
 } from "./buildConfig";
 import {
@@ -102,6 +100,13 @@ export function groupMismatchReason(rows: AnalyzerRow[]): string | null {
   if (spaces.length > 1) return "A group analysis runs in one space — these rows mix mesh and voxel.";
   const fields = [...new Set(runnable.map((r) => r.field))];
   if (fields.length > 1) return "A group analysis measures one field — these rows name more than one.";
+  // Tissue only reaches the config in voxel space — the runner overwrites it with GM in mesh
+  // (`tit/analyzer/analyzer.py`), so mesh rows that "disagree" build identical configs and refusing
+  // them would be a refusal about nothing.
+  if (spaces[0] === "voxel") {
+    const tissues = [...new Set(runnable.map((r) => r.tissue))];
+    if (tissues.length > 1) return "A group analysis measures one tissue — these rows name more than one.";
+  }
   // Since the target became a row's own (maintainer, 2026-09-06), a cohort needs the rows to agree
   // about it too — the one ROI the group job is given.
   const lead = runnable[0] as AnalyzerRow;
@@ -141,7 +146,6 @@ export function AnalyzerPage() {
    */
   const [rows, setRows] = usePageSession<AnalyzerRow[]>("jobRows", []);
   const [group, setGroup] = usePageSession("group", false);
-  const [tissueType, setTissueType] = usePageSession("tissue", "GM");
   const [activeRowId, setActiveRowId] = usePageSession<string | null>("activeRow", null);
   const [overwrite, setOverwrite] = usePageSession("overwrite", false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -187,7 +191,6 @@ export function AnalyzerPage() {
   // The row the 3-D pane draws and the pane's clicks edit — the Simulator's idiom, here for the
   // target. Falls back to the first row so a pane is never showing nothing while rows exist.
   const activeRow = rows.find((r) => r.id === activeRowId) ?? rows[0] ?? null;
-  const space: Space = firstRow?.space ?? "mesh";
   const effectiveSubjectIds = group ? cohort : runnableRows.map((r) => r.subjectId);
 
   function setRows2(next: AnalyzerRow[]) {
@@ -228,7 +231,7 @@ export function AnalyzerPage() {
             subjectIds: group ? cohort : [],
             simulation: row.simulation,
             space: row.space,
-            tissueType,
+            tissueType: row.tissue,
             field: row.field,
             analysisType: roi.mode as AnalysisType,
             coordinateSpace:
@@ -465,35 +468,6 @@ export function AnalyzerPage() {
           </FormSection>
         </div>
 
-        {subjects.length > 0 && (
-          <FormSection
-            title="Space options"
-            collapsible
-            defaultOpen={false}
-            summary={space === "voxel" ? `voxel · ${tissueType}` : "mesh · GM"}
-          >
-            <Field
-              label="Tissue"
-              htmlFor="analyzer-tissue"
-              help="Voxel space only — mesh analyses are gray matter."
-              // Voxel space is why TI_normal is unavailable in a row's Field cell — a reason for
-              // a disabled option, so it is stated on the form rather than behind an (i).
-              note={space === "voxel" ? TI_NORMAL_VOXEL_HELP : undefined}
-            >
-              <Select
-                id="analyzer-tissue"
-                value={tissueType}
-                onValueChange={setTissueType}
-                disabled={space === "mesh"}
-                options={[
-                  { value: "GM", label: "Gray matter (GM)" },
-                  { value: "WM", label: "White matter (WM)" },
-                  { value: "both", label: "GM + WM (both)" },
-                ]}
-              />
-            </Field>
-          </FormSection>
-        )}
       </RunWork>
 
       <ExistingOutputsDialog

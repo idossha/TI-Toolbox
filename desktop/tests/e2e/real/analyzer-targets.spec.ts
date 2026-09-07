@@ -64,7 +64,7 @@ test("two rows, two different targets, two jobs from one Run", async () => {
   await expect(first).toHaveAttribute("data-subject", "ernie");
   await setAnalysisCell(page, first, "simulation", "Thalamus");
   await setAnalysisSphere(page, first, { x: -10, y: -18, z: 9, radius: 10 });
-  await expect(analysisTargetText(first)).toHaveText("Sphere -10,-18,9 r10 subject");
+  await expect(analysisTargetText(first)).toHaveText("Sphere -10,-18,9 r10 mm · Subject");
 
   // Row 2 — same subject, same simulation, a CORTICAL target. The row seeds from the last row, so
   // everything but the target is already right; the target is what this spec changes.

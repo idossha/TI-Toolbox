@@ -34,7 +34,7 @@
 }
 
 .analysis-jobs-table tr.analysis-job-line2 > td {
-  padding-block: 0 5px;
+  padding-block: 0 4px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -115,6 +115,31 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
+}
+
+/* Line 2's right half: the row's tissue, captioned like the target beside it. Here rather than on
+   line 1 because five controls do not fit a 560px work pane — measured, a 150px Tissue column left
+   Simulation 74px wide. */
+.analysis-tissue-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-left: auto;
+  flex: none;
+  min-width: 0;
+}
+
+.analysis-tissue-caption {
+  color: var(--ink-3);
+}
+
+/* The small control height: line 2 carries a select as well as a sentence, and at the standard
+   28px the whole entry grew to 69px — past the band the entry is meant to sit in. */
+.analysis-tissue-cell .select-trigger {
+  width: 150px;
+  height: var(--control-h-sm);
+  min-height: var(--control-h-sm);
 }
 
 /* ---------- The target dialog ---------- */

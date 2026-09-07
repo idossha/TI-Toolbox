@@ -9,7 +9,7 @@ import { analysisRows, setAnalysisCell, setAnalysisSphere } from "../_jobs";
 /**
  * Analyzer, voxel space — see `analyzer-mesh.spec.ts`'s file header for the shared rationale
  * (fixture matrix "sub-ernie · Thalamus · sphere", verified before/after cleanup since the page
- * has no output-naming field). Voxel space's default tissue type (GM) needs no extra field either.
+ * has no output-naming field). The row now carries its own tissue, so this spec sets it and checks it on the wire.
  */
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL as string;
 const TOKEN = process.env.TIT_E2E_TOKEN as string;
@@ -50,6 +50,9 @@ test("spherical target, voxel space: accepted, started, and completed", async ()
   await setAnalysisCell(page, row, "simulation", "Thalamus");
 
   await setAnalysisCell(page, row, "space", "Voxel");
+  // Tissue is the ROW's since 2026-09-06 (the global "Space options" section is gone), and it only
+  // reaches the config in voxel space — this asserts the row's own value is what is submitted.
+  await setAnalysisCell(page, row, "tissue", "GM + WM (both)");
 
   // Since 2026-09-06 the target is the ROW's: its Target cell opens the shared picker
   // scoped to that row (maintainer: "we can modify our analysis input per job").
@@ -72,7 +75,7 @@ test("spherical target, voxel space: accepted, started, and completed", async ()
   expect(body.kind).toBe("analyzer");
   expect(body.subject_ids).toEqual(["ernie"]);
   expect(body.config.space).toBe("voxel");
-  expect(body.config.tissue_type).toBe("GM");
+  expect(body.config.tissue_type).toBe("both");
   recordPayload("analyzer-voxel", body);
 
   const created = (await (await jobResponse).json()) as { id: string };

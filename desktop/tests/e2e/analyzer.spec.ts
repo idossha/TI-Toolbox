@@ -83,12 +83,17 @@ test("shape A, no page header, and one Jobs table instead of a global subject se
    * a simulation's existing analyses.
    */
   const sectionTitles = page.getByTestId("page-work").locator("[data-fill-section] .form-section-title");
-  await expect(sectionTitles).toHaveText(["Jobs", "Space options"]);
+  // The global "Space options · Tissue" section is gone too (maintainer, 2026-09-06): tissue is
+  // voxel-only in `tit/analyzer/config.py` and the runner forces GM in mesh, so it is a property of
+  // the ROW's space and is a cell on line 1.
+  await expect(sectionTitles).toHaveText(["Jobs"]);
+  await expect(page.locator("#analyzer-tissue")).toHaveCount(0);
   await expect(page.getByTestId("analyses-table")).toHaveCount(0);
   await expect(page.locator('[data-page-active="true"]').locator(".roi-picker")).toHaveCount(0);
   // Every row states its own target, and says so when it has none.
   await expect(analysisTargetText(analysisRows(page).first())).toHaveText("Choose a target…");
   await expect(analysisRows(page).first().locator(".analysis-target-caption")).toHaveText("Target");
+  await expect(analysisRows(page).first().locator(".analysis-tissue-caption")).toHaveText("Tissue");
   // Seeded with one row on the context bar's primary subject ("ernie", from beforeAll).
   await expect(analysisRows(page)).toHaveCount(1);
   await expect(analysisRows(page).first()).toHaveAttribute("data-subject", "ernie");
@@ -355,7 +360,8 @@ test("a job entry is two lines ~56-64px tall, and every cell prints its full val
   console.log(`JOBS-GEOM entry=${entry.height} line1=${line1.height} line2=${line2.height}`);
   // A thicker two-line entry, not two rows that happen to be adjacent: line 2 starts where line 1
   // ends, and the whole entry is the ~56-64px block the maintainer asked for.
-  // The maintainer's band: ~56-64px for the whole entry.
+  // The maintainer's band: ~56-64px for the whole entry. Line 2 carries a control (the row's
+  // tissue) as well as the target sentence, so its select is the small 24px height.
   expect(entry.height).toBeGreaterThanOrEqual(56);
   expect(entry.height).toBeLessThanOrEqual(64);
   expect(Math.abs(line2.y - (line1.y + line1.height))).toBeLessThan(2);
@@ -404,6 +410,52 @@ test("a job entry is two lines ~56-64px tall, and every cell prints its full val
     await container.evaluate((el) => el.scrollWidth - el.clientWidth),
     "the jobs table scrolls sideways",
   ).toBeLessThanOrEqual(1);
+  await setAnalysisCell(page, row, "space", "Mesh");
+});
+
+/**
+ * Tissue is the row's, and only means anything in voxel space (`tit/analyzer/config.py`:
+ * "voxel space only"; `analyzer.py` overwrites it with GM in mesh). Maintainer, 2026-09-06: the
+ * global "Space options" section that held it is gone.
+ */
+test("tissue is a cell of the row, disabled in mesh, and a cohort needs the rows to agree", async () => {
+  test.setTimeout(120_000);
+  const row = analysisRows(page).first();
+  // On line 2, right of the target: a fifth 150px column on line 1 left Simulation 74px at 1280.
+  const tissue = row.locator('[data-cell-part="tissue"]');
+  // Mesh: disabled, showing GM, with the reason on the cell rather than a silently dead control.
+  await expect(row.locator('td[data-cell="space"]')).toHaveText("Mesh");
+  await expect(tissue.getByRole("combobox")).toHaveText("Gray matter (GM)");
+  await expect(tissue.getByRole("combobox")).toBeDisabled();
+  await expect(tissue).toHaveAttribute("title", /voxel space/);
+
+  await setAnalysisCell(page, row, "space", "Voxel");
+  await expect(tissue.getByRole("combobox")).toBeEnabled();
+  await setAnalysisCell(page, row, "tissue", "GM + WM (both)");
+  await expect(tissue.getByRole("combobox")).toHaveText("GM + WM (both)");
+  // Voxel is also why TI_normal cannot be measured, and the option now says so where it is read.
+  await row.locator('td[data-cell="field"]').getByRole("combobox").click();
+  await expect(page.getByRole("option", { name: "TI_normal (mesh only)" })).toBeDisabled();
+  await page.keyboard.press("Escape");
+
+  // A second voxel row on another tissue: two jobs apart, refused as a cohort.
+  await page.getByTestId("analysis-jobs-footer").getByRole("button", { name: "Add row", exact: true }).click();
+  const second = analysisRows(page).nth(1);
+  await setAnalysisSubject(page, second, "101");
+  await setAnalysisCell(page, second, "simulation", "Thalamus");
+  await setAnalysisCell(page, second, "tissue", "White matter (WM)");
+  await expect(page.getByTestId("run-button")).toHaveText("Queue 2 jobs", { timeout: 15_000 });
+
+  const combine = page.getByRole("switch", { name: "Combine into one group analysis" });
+  await combine.click();
+  await expect(page.getByTestId("run-button")).toBeDisabled();
+  await expect(page.getByTestId("run-button")).toHaveAttribute("title", /A group analysis measures one tissue/);
+  await setAnalysisCell(page, second, "tissue", "GM + WM (both)");
+  await expect(page.getByTestId("run-button")).toHaveText("Run analysis", { timeout: 15_000 });
+
+  await combine.click();
+  await second.getByRole("button", { name: "Remove row 2" }).click();
+  await expect(analysisRows(page)).toHaveCount(1);
   await setAnalysisCell(page, row, "space", "Mesh");
 });
 
@@ -506,9 +558,11 @@ test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.
     // state, and the state is the one the maintainer asked for (a tab you open ran nothing).
     // Raised again to 0.80 by the 2026-09-06 target-per-job pass, and for the same kind of reason:
     // the page lost two whole sections — OUTPUT (Results owns a simulation's analyses) and TARGET
-    // (a cell of the row now) — so the work pane genuinely holds less. Measured 0.8213 at 1280 and
-    // 0.8103 at 1440; `layout.spec.ts` carries the same allowance for the same reason.
-    expect(row.deadSpaceRatio, `${row.theme} @${row.width}`).toBeLessThanOrEqual(0.83);
+    // (a cell of the row now) — so the work pane genuinely holds less. Raised again to 0.86 when
+    // SPACE OPTIONS went the same way (tissue is a cell of the row): the work column is now the
+    // Jobs table and nothing else, so every row a user adds takes the number back down.
+    // `layout.spec.ts` carries the same allowance for the same reason.
+    expect(row.deadSpaceRatio, `${row.theme} @${row.width}`).toBeLessThanOrEqual(0.86);
     expect(row.pageHeaderHeight).toBe(0);
     expect(row.panes.nav).toBe(row.width >= 1440 ? 216 : 56);
     // DESIGN.md §2.1: the run panel is `clamp(320px, 45vw, calc(100% - 566px))` — 45 % of the

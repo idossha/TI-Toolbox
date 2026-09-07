@@ -165,8 +165,16 @@ export async function setAnalysisSubject(page: Page, row: Locator, subject: stri
   await expect(row).toHaveAttribute("data-subject", subject);
 }
 
-export async function setAnalysisCell(page: Page, row: Locator, name: "simulation" | "space" | "field", option: string): Promise<void> {
-  await cell(row, name).getByRole("combobox").click();
+export async function setAnalysisCell(
+  page: Page,
+  row: Locator,
+  name: "simulation" | "space" | "field" | "tissue",
+  option: string,
+): Promise<void> {
+  // Tissue lives on line 2 beside the target (a fifth column on line 1 left Simulation 74px at
+  // 1280), so it is addressed by its own part attribute rather than by a `<td>`.
+  const target = name === "tissue" ? row.locator('[data-cell-part="tissue"]') : cell(row, name);
+  await target.getByRole("combobox").click();
   await page.getByRole("option", { name: option, exact: true }).click();
 }
 

@@ -31,7 +31,7 @@ import { Dialog, Popover } from "../../ui/Overlay";
 import { Switch, Checkbox } from "../../ui/Toggle";
 import { Select } from "../../ui/Select";
 import { SelectionPicker } from "../../ui/SelectionList";
-import { RoiPicker, emptyRoi, isRoiComplete, type RoiRegion, type RoiValue } from "../_shared/roi";
+import { RoiPicker, emptyRoi, isRoiComplete, type RoiRegion, type RoiValue, type TissueKind } from "../_shared/roi";
 import { AUTO_FIELD, type Space } from "./buildConfig";
 import { FIELD_REGISTRY } from "./fields";
 import "./analyzer-page.css";
@@ -50,9 +50,25 @@ export interface AnalyzerRow {
   simulation: string;
   space: Space;
   field: string;
+  /**
+   * The compartment a **voxel** analysis measures in. It belongs to the row rather than to the page
+   * (maintainer, 2026-09-06) and, of the two per-job axes it could sit on, to the row's *space*
+   * rather than to its target: `tit/analyzer/analyzer.py` overwrites it with "GM" whenever
+   * `space == "mesh"` (`AnalyzerConfig.tissue_type`, "voxel space only"), and it says nothing about
+   * the ROI's shape. So it is a cell on line 1 beside Space and Field, disabled — with the reason
+   * on it — while the row is in mesh.
+   */
+  tissue: TissueKind;
   roi: RoiValue;
   combine: boolean;
 }
+
+/** What the runner accepts for `tissue_type` (`tit/analyzer/config.py`). */
+export const TISSUE_OPTIONS = [
+  { value: "GM", label: "Gray matter (GM)" },
+  { value: "WM", label: "White matter (WM)" },
+  { value: "both", label: "GM + WM (both)" },
+] as const;
 
 /** The three target modes the analyzer runner understands (`saved` is an ex/mEx target). */
 export const ANALYZER_ROI_MODES = ["cortical", "subcortical", "spherical"] as const;
@@ -72,6 +88,7 @@ export function emptyAnalyzerRow(seed?: Partial<AnalyzerRow>): AnalyzerRow {
     simulation: seed?.simulation ?? "",
     space: seed?.space ?? "mesh",
     field: seed?.field ?? AUTO_FIELD,
+    tissue: seed?.tissue ?? "GM",
     roi: seed?.roi ?? emptyRoi("spherical"),
     combine: seed?.combine ?? true,
   };
@@ -216,8 +233,9 @@ export function AnalyzerJobRows({
       { value: AUTO_FIELD, label: "Auto" },
       ...names.map((name) => ({
         value: name,
-        label: name,
-        // TI_normal is a surface field and is not exported to NIfTI.
+        // TI_normal is a surface field and is not exported to NIfTI. The reason travels with the
+        // option now that the page-level note under the global Tissue field is gone.
+        label: row.space === "voxel" && name === "TI_normal" ? `${name} (mesh only)` : name,
         disabled: row.space === "voxel" && name === "TI_normal",
       })),
     ];
@@ -438,6 +456,29 @@ export function AnalyzerJobRows({
                       <TargetIcon size={12} aria-hidden />
                       <span className="analysis-target-text">{label}</span>
                     </button>
+                    {/* The row's tissue, on the right of the same line. It is a property of the
+                        row's SPACE (`AnalyzerConfig.tissue_type`, "voxel space only"; the runner
+                        overwrites it with GM in mesh), so it is not in the target dialog and not a
+                        page section — and it is on line 2 rather than line 1 because a fifth 150px
+                        column left Simulation 74px wide at 1280 (measured). Disabled in mesh, with
+                        the reason on the cell, rather than a control that quietly does nothing. */}
+                    <span
+                      className="analysis-tissue-cell"
+                      data-cell-part="tissue"
+                      title={row.space === "mesh" ? "Mesh analyses are gray matter — tissue applies to voxel space." : undefined}
+                    >
+                      {/* Its OWN class, not the target caption's: the target caption is the inert
+                          half of a line whose other half opens a dialog, and a spec that clicks
+                          "the caption" must not resolve to two of them. */}
+                      <span className="analysis-tissue-caption text-eyebrow">Tissue</span>
+                      <Select
+                        value={row.space === "voxel" ? row.tissue : "GM"}
+                        onValueChange={(v) => patch(row.id, { tissue: v as TissueKind })}
+                        options={TISSUE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                        disabled={row.space === "mesh"}
+                        aria-label="Tissue"
+                      />
+                    </span>
                     </div>
                   </td>
                 </tr>
