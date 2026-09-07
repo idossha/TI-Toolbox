@@ -522,9 +522,9 @@ image"* entry with them. The Tetravox **embed** is the viewer again: baked into 
 updated at runtime by `tit/tetravox/{protocol,store,install,updates}.py` behind `GET/POST
 /api/tetravox*` and `/ws/tetravox`, and reported by `Capabilities.tetravox_embed`. **Nothing
 installs Tetravox on the host, and there is still no X11 anywhere.** The Viewer page becomes two
-sub-pages behind its one rail entry — a **Menu** (the composition page, VM2's design, its button
-renamed *Open in viewer*) and a **Viewer** (full-bleed, the embed iframe, a slim strip with the
-scene name, `Reload` and `Back to menu`). ADR row 14's preload budget loses the `viewer` entry
+sub-pages, shown in the rail as indented rows under the Viewer row — **Menu** (the composition page,
+VM2's design, its button renamed *Open in viewer*) and **Tetravox** (full-bleed, the embed iframe,
+a slim strip with the scene name and `Reload`). ADR row 14's preload budget loses the `viewer` entry
 again; the morning's amendment is reversed.
 
 **Why.** The maintainer, verbatim: *"The Dockerfile should contain Tetravox. We should not install
@@ -555,12 +555,22 @@ threat model demands: a digest verified before the archive is opened, an extract
 in this image), an atomic activation, a pin so rollback is not a re-download, and a policy stored on
 disk rather than a habit compiled in.
 
-**Alternatives rejected.** Making the two sub-pages a nested rail group would mean reshaping
-`app/registry.ts`'s flat `NAV_ORDER`/`PageDef` model, which several lanes read; a page-level
-segmented sub-nav needs no such change and makes iframe retention automatic, because the two
-sub-pages are one mounted component. Two calls — one for the file, one for the iframe — were
+**Alternatives rejected.** An in-page segmented control was built first and rejected: the maintainer
+specified the rail, precisely — two indented rows under Viewer, always visible, the active one
+highlighted like a page, and clicking Viewer itself opens Menu. Making the sub-items *pages* was
+rejected too: a `PageDef` each would give them ⌘-numbers, `pages/<id>/` directories and separate
+mounts, and separate mounts are exactly what destroys the iframe. What landed instead is one narrow,
+page-declared concept — `PageDef.subNav` plus `pagePath()` — over the existing flat model:
+`NAV_ORDER` still defines the rail and the ⌘-numbers, sub-items carry none, no other page directory
+changed, and `RetainedPages` keys retention on the first path segment, so `/viewer/menu` and
+`/viewer/tetravox` remain one mounted component and iframe retention is true by construction. Two calls — one for the file, one for the iframe — were
 rejected: a job finishing between them is enough to make the list, the file and the picture
 disagree, so `POST /api/view/open` resolves once and returns both addressings.
+
+**Known limit.** Sub-items are not drawn in the icon rail (below 1440 px): at 56 px there is no
+room for an indent and a label, and two unlabelled dots under one icon say nothing. The command
+palette carries both as rows (`Viewer · Menu`, `Viewer · Tetravox`), which makes it a real
+accessibility path at those widths rather than a convenience.
 
 **Known consequence.** The app now has two renderers: the embed on the Viewer sub-page, and the
 app's own WebGL2 renderer on the run pages (§7.2, unchanged and untouched by this reversal). That

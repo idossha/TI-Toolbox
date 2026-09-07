@@ -160,7 +160,7 @@ changes which layer is built and adds nothing to the ViewSpec, so
 **The Viewer selects on command** (revised 2026-09-06, §7.1). It keeps the draft → command grammar:
 editing a selector changes only the draft, and the Menu's **Open in viewer** validates it, snapshots
 it and issues exactly one `POST /api/view/open`. That one call resolves the scene once and returns
-both addressings of it: the URL form is posted into the embed and the page moves to the Viewer
+both addressings of it: the URL form is posted into the embed and the page moves to the Tetravox
 sub-page, and the host form is written to `<project>/code/ti-toolbox/viewer/<kind>.tetravox.json`. A
 failed Open leaves the Menu's summary on screen with the error attached to the attempted selection.
 Deep links prefill the draft and never auto-open.
@@ -234,17 +234,30 @@ publishes exactly one event, `tetravox.updated`, on `/ws/tetravox`. A pin (`acti
 resolved features and whether it is compatible — a fact about *this runtime*, which is what a
 capability is.
 
-**The Viewer page is two sub-pages behind one rail entry** (Viewer, ⌘8):
+**The Viewer page is two sub-pages, and the rail shows both** (Viewer, ⌘8):
 
-- **Menu** — the composition page: a Source card and an editable "What will open" list, plus
-  presets and Recents. Its primary button is **Open in viewer**.
-- **Viewer** — full-bleed, hosting the embed iframe, with a slim top strip: the scene name,
-  `Reload` (re-posts the current scene) and `Back to menu`.
+- **Menu** (`/viewer/menu`) — the composition page: a Source card and an editable "What will open"
+  list, plus presets and Recents. Its primary button is **Open in viewer**.
+- **Tetravox** (`/viewer/tetravox`) — full-bleed, hosting the embed iframe, with a slim top strip
+  carrying the scene name and `Reload` (re-posts the current scene). Going back is the rail's
+  **Menu** row; a second control for what the rail already does is a second thing to keep in step.
 
-They are a page-level segmented sub-nav, not a rail group: `desktop/src/renderer/app/registry.ts`
-derives a **flat** rail from `NAV_ORDER` with one `PageDef` per `pages/<name>/index.tsx` and has
-no nested-group model. It also makes §2's retention rule trivially true — the two sub-pages are
-one mounted component, so switching between them never unmounts the iframe.
+They are indented rows under the Viewer row, always visible, not only while the Viewer is open.
+`PageDef.subNav` (`desktop/src/renderer/app/registry.ts`) is the one narrow concept added for
+this: a sub-item is **not a page** — no `PageDef`, no ⌘-number, no `pages/<id>/` directory — it is
+a route inside one page's component. `NAV_ORDER` still defines the rail and the ⌘-numbers, and no
+other page directory changed. `pagePath(page)` sends a page's rail row, its ⌘-number and its
+palette row to its first sub-item where it has any, so **⌘8 and the Viewer row both land on
+`/viewer/menu`**; a bare `/viewer` renders Menu.
+
+This is also what makes §2's retention rule true by construction: `RetainedPages` keys retention on
+the **first path segment**, so `/viewer/menu` and `/viewer/tetravox` are one retained panel and one
+mounted component, and moving between them never unmounts the iframe.
+
+**Sub-items are not drawn in the icon rail** (below 1440 px, or a `railMode: "icons"` page): at
+56 px there is no room for an indent and a label, and two unlabelled dots under one icon say
+nothing. There the command palette carries them as rows — `Viewer · Menu`, `Viewer · Tetravox` —
+which makes the palette the real path to the Tetravox sub-page at those widths, not a convenience.
 
 **One request, one message.** Open calls `POST /api/view/open` once. That route resolves the
 scene **once** (`tit.viewspec.build_view`) and returns both addressings of it: `view`, with every
@@ -253,9 +266,10 @@ document with every path re-rooted onto the host, which is also written to
 `<project>/code/ti-toolbox/viewer/<kind>.tetravox.json` so it can be exported or opened by a
 desktop Tetravox. They come from one resolution on purpose: two calls could resolve differently
 — a job finishing between them is enough — and then the list the page shows, the file on disk and
-the scene on screen would disagree, with nothing to say which was right. Returning to the Menu
-without pressing Open shows the same scene on the way back; Open again replaces it. Deep links
-`/viewer?…` prefill the Menu only.
+the scene on screen would disagree, with nothing to say which was right. Returning to Menu without
+pressing Open shows the same scene on the way back; Open again replaces it. Which sub-page is on
+screen is read from the route, never from page-session state, so the rail's highlight and the
+picture are one fact rather than two that can drift. Deep links `/viewer?…` prefill the Menu only.
 
 **What this replaces.** The morning's §7.1 said "the viewer is a separate application, and the
 only interface is a file", and deleted the bake, `/tetravox/`, `tit/tetravox/**`, the protocol

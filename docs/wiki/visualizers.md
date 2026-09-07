@@ -17,18 +17,23 @@ subject's.
 
 ## How to open a result
 
-The Viewer page has two sub-pages, switched by the segmented control at the top.
+The **Viewer** entry in the left rail has two rows indented under it, **Menu** and **Tetravox**.
+Clicking Viewer itself opens Menu.
 
 1. On **Menu**, choose what to look at: the type (simulation, analysis, atlas overlay, a custom
    path), then the subject, simulation, field and space it takes.
 2. Nothing loads while you are choosing — the page shows a **"What will open"** list of the files
    it would open, in order, with each one's size. Edit it: remove a file, add another from
    everything the subject offers or from any path in the project, reorder it.
-3. Press **Open in viewer**. The page moves to **Viewer**, and the scene is drawn there full-bleed.
+3. Press **Open in viewer**. You are moved to **Tetravox**, and the scene is drawn there
+   full-bleed.
 
-The Viewer sub-page's strip carries the scene's name, **Reload** (re-sends the scene it is showing)
-and **Back to menu**. Going back keeps the picture: change the list, press Open again, and the new
-scene replaces the old one.
+The Tetravox row's strip carries the scene's name and **Reload**, which re-sends the scene it is
+showing. To go back, click **Menu** in the rail — the picture is kept, so you can change the list,
+press Open again, and the new scene replaces the old one.
+
+If the window is narrow (below 1440 px) the rail shows icons only and the two sub-rows are hidden;
+open the command palette and pick `Viewer · Menu` or `Viewer · Tetravox` instead.
 
 Layer visibility and opacity, the shared 3-D cursor, the slice/3-D layouts, screenshots and saving a
 modified scene are all the viewer's own controls, in its own panels. TI-Toolbox's side of the

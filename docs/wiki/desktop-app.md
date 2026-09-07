@@ -98,16 +98,20 @@ detected and refused by name).
 
 ### Opening a result in the viewer
 
-The **Viewer** page has two sub-pages, and you move between them with the segmented control at the
-top:
+The **Viewer** entry in the left rail has two indented rows under it, **Menu** and **Tetravox**,
+and you move between them by clicking those rows. Clicking Viewer itself opens Menu.
 
 - **Menu** — choose a source (a subject, a simulation, an analysis, a group result or an arbitrary
   file), then edit the **What will open** list: remove a file, add one, reorder it. The list is the
   scene; nothing loads while you are choosing.
-- **Viewer** — press **Open in viewer** and you are moved here, where the scene is drawn full-bleed
-  by the embed. A slim strip carries the scene's name, **Reload** (re-sends the scene it is showing)
-  and **Back to menu**. Going back does not throw the picture away: tinker with the list, press
-  Open again, and the new scene replaces the old one in the same frame.
+- **Tetravox** — press **Open in viewer** and you are moved here, where the scene is drawn
+  full-bleed by the embed. A slim strip carries the scene's name and **Reload**, which re-sends the
+  scene it is showing. To go back, click **Menu** in the rail; the picture is not thrown away —
+  tinker with the list, press Open again, and the new scene replaces the old one in the same frame.
+
+In a narrow window (below 1440 px) the rail shows icons only and the two sub-rows are not drawn.
+Reach them from the command palette instead, which lists both by name (`Viewer · Menu`,
+`Viewer · Tetravox`).
 
 **One press, one request.** `POST /api/view/open` resolves the scene once and gives back two
 addressings of it. One has every dataset as an `/api/files/raw/…` URL and is what goes into the

@@ -944,14 +944,25 @@ group heading told the user a page belonged to a subject when it did not.
   (`present · absent · partial · pending · failed`). It links into a workflow or into Results; it
   never lists outputs itself, and it is not subject-scoped — a subject is chosen in the context bar
   or on a page's own batch table.
-- **The Viewer is one rail row with two sub-pages inside it** (2026-09-06, §10). Its Menu and its
-  Viewer are a **page-level segmented sub-nav at the top of the page, not a rail group**, for two
-  reasons. `app/registry.ts` derives a flat rail from `NAV_ORDER` with one `PageDef` per
-  `pages/<name>/index.tsx` and has no nested-group model — the retired Panels group appended a flat
-  `panel-<id>` slot at the end rather than nesting — so a rail group means reshaping a file several
-  other lanes read. And a sub-nav makes §4.4.2's retention rule automatic: the two sub-pages are one
-  mounted component, so moving between them cannot unmount the embed's iframe. ⌘8 lands on whichever
-  sub-page the page was last on.
+- **A page may declare rail sub-items, and the Viewer is the one that does** (2026-09-06, §10).
+  Under the Viewer row sit two indented rows, **Menu** and **Tetravox** — same row height as a page
+  row, a smaller muted style, the active one highlighted like a page, and **always visible**, not
+  only while the Viewer is open. They come from `PageDef.subNav`, and `pagePath(page)` sends the
+  page's rail row, its ⌘-number and its palette row to the first of them: **⌘8 and a click on
+  Viewer both land on `/viewer/menu`**.
+
+  **A sub-item is not a page.** No `PageDef`, no ⌘-number, no `pages/<id>/` directory — it is a
+  route *inside* one page's component. That is the whole design: `NAV_ORDER` still defines the rail
+  and the ⌘-numbers, sub-items carry none, no other page directory changed, and `RetainedPages`
+  keys retention on the **first path segment**, so `/viewer/menu` and `/viewer/tetravox` are one
+  retained panel and one mounted component. §4.4.2's retention rule is therefore true by
+  construction rather than by care: moving between the two cannot unmount the embed's iframe.
+
+  **Sub-items are not drawn in the icon rail** — below 1440, or on a `railMode: "icons"` page. At
+  56 px there is no room for an indent and a label, and two unlabelled dots under one icon say
+  nothing. At those widths the command palette is the path to them, and it lists both as their own
+  rows (`Viewer · Menu`, `Viewer · Tetravox`); that makes the palette a real accessibility route
+  there, not a convenience.
 
 - Settings and Help are pinned to the bottom below a spacer; they are the only two pages with a
   header.
@@ -1075,39 +1086,40 @@ trusted rather than checked.
 
 ## 10. Viewer
 
-**The Viewer page is a Menu and a Viewer, in that order** (2026-09-06, ADR row 29,
+**The Viewer page is a Menu and a Tetravox, and the rail shows both** (2026-09-06, ADR row 29,
 `docs/ARCHITECTURE.md` §7.1). Maintainer: *"Tetravox should not be visually embedded in the
 TI-Toolbox tab; it should open in its own [view]. In the Viewer, the left menu has two subsections:
 the Menu, and below it the actual Viewer. The user configures in the Menu, hits Open, is moved to
 the Viewer where the Tetravox embed is; they can go back to the Menu, tinker, and reload a different
 setup."*
 
-One rail row (Viewer, ⌘8, `bleed`), one mounted component, a two-item segmented sub-nav at the top
-of the page: **Menu** and **Viewer**. §9's bullet says why it is a sub-nav and not a rail group.
+One rail row (Viewer, ⌘8, `bleed`) with two indented sub-items under it — **Menu** (`/viewer/menu`)
+and **Tetravox** (`/viewer/tetravox`) — and one mounted component behind both. §9's bullet says how
+that works and where the sub-items are not drawn. The page reads which sub-page is on screen from
+the **route**, never from page-session state, so the rail's highlight and what is on screen are one
+fact instead of two that can drift; a bare `/viewer`, and every `/viewer?…` deep link, renders Menu.
 
 ```
-┌──────┬────────────────────────────────────────────────────────────┐
-│ rail │  ⟨ Menu │ Viewer ⟩                                          │  28  sub-nav
-│  56  ├────────────────────────────────────────────────────────────┤
-│      │  ┌ SOURCE  The type decides which of the fields it needs ┐ │
-│      │  │ Type ⟨Simulation⟩      Subject ⟨ernie⟩                │ │
-│      │  │ Simulation ⟨Thalamus⟩  Field ⟨…⟩                      │ │
-│      │  │ Space ⟨Subject│MNI⟩                                   │ │
-│      │  └───────────────────────────────────────────────────────┘ │
-│      │  ┌ WHAT WILL OPEN  2 files, in this order      [+ Add…]  ┐ │
-│      │  │ ⠿ T1.nii.gz           volume  12.5 MB  ↑ ↓ ×         │ │
-│      │  │ ⠿ ernie_TI_max.nii.gz volume  16.6 MB  ↑ ↓ ×         │ │
-│      │  └───────────────────────────────────────────────────────┘ │
-│      │  [Save as preset…] [Recent]            [Open in viewer]    │
-└──────┴────────────────────────────────────────────────────────────┘
-                              ↓ Open
-┌──────┬────────────────────────────────────────────────────────────┐
-│ rail │  ⟨ Menu │ Viewer ⟩   simulation · ernie · L_Insula          │  28  sub-nav
-│  56  │                                        [⟳ Reload] [← Menu] │
-│      ├────────────────────────────────────────────────────────────┤
-│      │  <iframe src="/tetravox/">   1224 × 636 at 1280 × 800      │
-│      │                              1224 × 736 at 1440 × 900      │
-└──────┴────────────────────────────────────────────────────────────┘
+┌──────────┬────────────────────────────────────────────────────────┐
+│ Viewer   │  ┌ SOURCE  The type decides which of the fields it    ┐ │
+│  › Menu ◀│  │ Type ⟨Simulation⟩      Subject ⟨ernie⟩            │ │  centred, max 880
+│  › Tetra…│  │ Simulation ⟨Thalamus⟩  Field ⟨…⟩                  │ │
+│ Jobs     │  │ Space ⟨Subject│MNI⟩                               │ │
+│          │  └───────────────────────────────────────────────────┘ │
+│          │  ┌ WHAT WILL OPEN  2 files, in this order  [+ Add…]  ┐ │
+│          │  │ ⠿ T1.nii.gz           volume  12.5 MB  ↑ ↓ ×     │ │
+│          │  │ ⠿ ernie_TI_max.nii.gz volume  16.6 MB  ↑ ↓ ×     │ │
+│          │  └───────────────────────────────────────────────────┘ │
+│          │  [Save as preset…] [Recent]         [Open in viewer]   │
+└──────────┴────────────────────────────────────────────────────────┘
+                              ↓ Open  → /viewer/tetravox
+┌──────────┬────────────────────────────────────────────────────────┐
+│ Viewer   │  simulation · ernie · L_Insula              [⟳ Reload] │  28  strip
+│  › Menu  ├────────────────────────────────────────────────────────┤
+│  › Tetra◀│                                                        │
+│ Jobs     │  <iframe src="/tetravox/">   1224 × 664 at 1280 × 800  │
+│          │                              1224 × 764 at 1440 × 900  │
+└──────────┴────────────────────────────────────────────────────────┘
 ```
 
 ### 10.1 The Menu
@@ -1145,20 +1157,22 @@ section and its "Also open" checkboxes are gone, and stay gone.
 - **The primary button is `Open in viewer`**, 32 px, in the footer's primary position. Disabled
   with a title that names what is missing when nothing is selected.
 - **Deep links prefill, and never open.** `/viewer?…` (Results' "Open in viewer") fills the Menu
-  and leaves the sub-nav on Menu.
+  and leaves the rail on Menu.
 - **The Menu is allowed to be mostly empty.** Two cards and a footer; padding them out to fill
   1440 px would be filling space, not designing it. It remains the one page whose dead-space budget
   (§12.3) does not apply.
 
-### 10.2 The Viewer
+### 10.2 Tetravox
 
 Full-bleed: no page header, no shell padding, no max width, no right pane, no inspector of our own.
 Everything a layer, a cursor or a camera can do belongs to the embed, drawn in the engine's own
 panels; two copies of one control give two answers to "what is the window".
 
-- **A slim top strip, and only three things on it.** The scene's name (type · subject · what it
-  resolved from), **Reload** (re-posts the *current* scene, not the Menu's draft) and **Back to
-  menu**. The strip shares the 28 px sub-nav row; the rest of the box is canvas.
+- **A slim top strip, and only two things on it.** The scene's name (type · subject · what it
+  resolved from) and **Reload**, which re-posts the *current* scene, not the Menu's draft. There is
+  no "Back to menu" button: going back is pressing **Menu** in the rail, and a second control for
+  what the rail already does is a second thing to keep in step. The strip is 28 px; the rest of the
+  box is canvas.
 - **The canvas is dark in both themes** (`--canvas`, `#0B0D10`). An imaging convention, not a
   preference: a light viewport changes what a greyscale T1 and a heat overlay look like. No theme
   block may override it. The app calls `Engine.setTheme` in the same tick as its own `data-theme`
@@ -1192,9 +1206,9 @@ block over the full content box, `max-width: 480px`):
 
 ### 10.3 Retention, and the one request
 
-- **Switching sub-pages never unmounts the frame.** Going back to the Menu leaves the embed
-  mounted, so returning without pressing Open shows the same scene. Open again replaces it. This is
-  §4.4.2's rule, and the sub-nav is what makes it free.
+- **Switching sub-pages never unmounts the frame.** Going back to Menu leaves the embed mounted, so
+  returning without pressing Open shows the same scene. Open again replaces it. This is §4.4.2's
+  rule, and `RetainedPages` keying on the first path segment is what makes it free.
 - **Open is exactly one `POST /api/view/open`.** That call resolves the scene once and returns both
   addressings: `view` (every dataset an `/api/files/raw/…` URL) is posted into the iframe, and
   `scene` (the same document re-rooted onto the host) is written to
@@ -1202,7 +1216,7 @@ block over the full content box, `max-width: 480px`):
   opened later by a desktop Tetravox with no app in the middle. Two calls could resolve differently
   — a job finishing between them is enough — and then the list, the file and the picture would
   disagree with nothing to say which was right.
-- **Keyboard.** The canvas owns unmodified keys while the Viewer sub-page is focused; the shell
+- **Keyboard.** The canvas owns unmodified keys while the Tetravox sub-page is focused; the shell
   keeps only ⌘-prefixed ones. The Menu owns none.
 
 ## 11. Status bar — removed
