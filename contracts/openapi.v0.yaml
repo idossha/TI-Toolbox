@@ -1,3 +1,7 @@
+# HISTORICAL — the Phase-0 walking-skeleton contract (see contracts/README.md).
+# Superseded by contracts/openapi.v1.yaml, which carries every path and schema below unchanged.
+# Do not add to this file. It is kept only because it is the default first argument of
+# dev/contracts_check.py, which keeps the skeleton subset gated against the server's dump.
 openapi: 3.1.0
 info:
   title: TI-Toolbox job server (tit.server)
