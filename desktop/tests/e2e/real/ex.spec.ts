@@ -12,7 +12,7 @@ import {
   selectSubject,
   waitForJobRunningOrTerminal,
 } from "../_helpers";
-import { closeOptEditor, openOptEditor, optRowSummary, optRows, setOptCell } from "../_jobs";
+import { closeOptEditor, openOptEditor, optRowDetail, optRowSummary, optRows, setOptCell } from "../_jobs";
 
 /**
  * Optimizer / Ex, against the shared dev container. Fixture matrix row: `sub-ernie`, its existing
@@ -109,9 +109,16 @@ test("subcortical ROI, bucketed electrodes: accepted, started, cancelled", async
   }
   await closeOptEditor(page);
 
-  // What the row promises, before anything is queued.
-  console.log(`real/ex: row summary = ${await optRowSummary(row).textContent()}`);
-  await expect(optRowSummary(row)).toHaveText(/buckets: 4 · 2 mA total/);
+  // What the row promises, before anything is queued. Line 2 is two spans, not one: the TARGET
+  // (`optRowSummary`, which never truncates) and the search ESSENTIALS (`optRowDetail`, the half
+  // that ellipses). This used to assert the essentials against the target locator, which no row
+  // has ever satisfied since the two were split.
+  console.log(`real/ex: row line 2 = ${await optRowSummary(row).textContent()} | ${await optRowDetail(row).textContent()}`);
+  await expect(optRowSummary(row)).toHaveText(/Left-Hippocampus/);
+  // `buckets: 4 · 2 mA total` was the pre-redesign wording (still quoted in rows.ts's own doc
+  // comment). The essentials now lead with the electrode count and the kind it derives —
+  // `(TI)` is `ex`, `(mTI)` would be `mex` — which is the more useful thing to pin.
+  await expect(optRowDetail(row)).toHaveText(/^4 electrodes \(TI\) · 2 mA/);
 
   const cell = page.locator('[data-testid^="plan-cell-ernie-"]').first();
   await expect(cell).toBeVisible({ timeout: 20_000 });

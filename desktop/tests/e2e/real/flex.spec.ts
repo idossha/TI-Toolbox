@@ -12,7 +12,7 @@ import {
   selectSubject,
   waitForJobRunningOrTerminal,
 } from "../_helpers";
-import { closeOptEditor, openOptEditor, optRowSummary, optRows } from "../_jobs";
+import { closeOptEditor, openOptEditor, optRowDetail, optRowSummary, optRows } from "../_jobs";
 
 /**
  * Optimizer / Flex, against the shared dev container. Fixture matrix row: `sub-ernie`, atlas ROI
@@ -81,8 +81,12 @@ test("cortical ROI (DK40 · bankssts, list form): accepted, started, cancelled",
 
   // The row says what it will do, in words, before anything is queued.
   await expect(row).toHaveAttribute("data-target-ready", "true");
-  await expect(optRowSummary(row)).toHaveText(/^Cortical · DK40 · lh\.bankssts · 2 pairs/);
-  console.log(`real/flex: row summary = ${await optRowSummary(row).textContent()}`);
+  // Line 2 is two spans: the TARGET (`optRowSummary`) and the search ESSENTIALS
+  // (`optRowDetail`). The single `Cortical · DK40 · lh.bankssts · 2 pairs` string this asserted
+  // predates that split and matched neither half.
+  await expect(optRowSummary(row)).toHaveText("lh.bankssts · DK40");
+  await expect(optRowDetail(row)).toHaveText(/2 pairs/);
+  console.log(`real/flex: row line 2 = ${await optRowSummary(row).textContent()} | ${await optRowDetail(row).textContent()}`);
 
   await expect(page.getByTestId("plan-grid").getByTestId("plan-stat-jobs")).toBeVisible({ timeout: 15_000 });
 
