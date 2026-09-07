@@ -39,6 +39,8 @@ here, and every "Open" from here is an in-app navigation to the
 > One caveat to know: an artifact row's **Open** is scoped to the whole simulation or analysis it
 > belongs to, not to that single file. Use the Viewer's **Menu** to trim the list before opening if
 > you want exactly one layer.
+>
+> Full list: [the v3.0.0 release notes]({{ site.baseurl }}/releases/v3.0.0/).
 
 ## On disk
 

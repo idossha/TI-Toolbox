@@ -14,6 +14,8 @@ configuration like any other montage.
 > opened from the Extensions menu. It is now part of the [Simulator]({{ site.baseurl }}/wiki/simulator/):
 > the same 3-D pane the page already draws is the one you click on, and a saved placement is
 > immediately a **Source** you can pick in a job row.
+>
+> Full list: [the v3.0.0 release notes]({{ site.baseurl }}/releases/v3.0.0/).
 
 <img src="{{ site.baseurl }}/assets/imgs/v3/simulator-placement.png" alt="The free-hand placement editor with two electrodes on the head" style="width: 100%; max-width: 1000px;">
 <em>Two positions placed. The selected row is named in the pane, and its dot carries a ring.</em>

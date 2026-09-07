@@ -132,7 +132,7 @@ need a local checkout are reported as `SKIP` (not a failure) when there is none.
 All tools are read-only. `inspect_project` and `read_project_config` only look at
 the path you pass them; source tools are restricted to `tit/`, `scripts/`, `docs/`,
 `tests/`, `container/`, `dev/`, `contracts/`, `desktop/src/`, `desktop/tests/`,
-`desktop/docker/`, `agent-plugin/` and a short list of top-level manifests.
+`agent-plugin/` and a short list of top-level manifests.
 `node_modules` and build output are never listed, read or searched.
 
 ## Keeping it current

@@ -54,3 +54,5 @@ open [Results]({{ site.baseurl }}/wiki/results/); to watch or cancel work, open
 > "Subject Info" tab, which v3 deletes. Overview replaces it with one server-side aggregate
 > (`GET /api/catalog/overview`) so the count it prints is the whole project's, not the first
 > 25 subjects'.
+>
+> Full list: [the v3.0.0 release notes]({{ site.baseurl }}/releases/v3.0.0/).

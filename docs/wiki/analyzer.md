@@ -324,5 +324,7 @@ application window. Both mesh-based analysis types are supported:
 > one submission can analyse different ROIs across subjects; and a **group** run is refused unless
 > every row agrees on simulation, space, field and target, with the disagreement named — it is
 > never silently resolved to the first row.
+>
+> Full list: [the v3.0.0 release notes]({{ site.baseurl }}/releases/v3.0.0/).
 
 There is no separate "whole head" analysis type — the Analyzer supports only `analysis_type` `spherical` and `cortical`. A whole-head field-distribution histogram is generated as a by-product of every analysis (mesh or voxel), alongside the ROI-specific outputs.

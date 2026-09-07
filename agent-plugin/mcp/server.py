@@ -473,7 +473,6 @@ _SOURCE_PREFIXES = (
     "contracts/",
     "desktop/src/",
     "desktop/tests/",
-    "desktop/docker/",
     "agent-plugin/",
 )
 _TEXT_EXT = {
@@ -1173,7 +1172,7 @@ TOOLS: List[Dict[str, Any]] = [
         "name": "list_source_dir",
         "description": "List a directory of the TI-Toolbox repo (default 'tit'). Readable "
         "roots: tit/, scripts/, docs/, tests/, container/, dev/, contracts/, desktop/src/, "
-        "desktop/tests/, desktop/docker/, agent-plugin/. node_modules and build output are "
+        "desktop/tests/, agent-plugin/. node_modules and build output are "
         "never listed.",
         "inputSchema": {
             "type": "object",

@@ -72,3 +72,5 @@ in Python.
 > **What's new in v3.** 2.x shipped a Jupyter server in the container that you reached through a
 > browser on port 8888, separately from the GUI. v3 puts the notebook in the application, on the
 > same connection, with the same authentication, and with the project already resolved.
+>
+> Full list: [the v3.0.0 release notes]({{ site.baseurl }}/releases/v3.0.0/).
