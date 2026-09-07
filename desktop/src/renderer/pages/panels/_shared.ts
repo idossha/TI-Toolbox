@@ -26,7 +26,9 @@ export type PanelId =
   | "cluster-permutation"
   | "nifti-group-average"
   | "nilearn-visuals"
-  | "quick-notes";
+  | "visual-exporter"
+  | "quick-notes"
+  | "subject-info";
 
 export function readEnabledPanels(): string[] {
   try {

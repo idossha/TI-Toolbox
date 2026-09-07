@@ -975,8 +975,7 @@ group heading told the user a page belonged to a subject when it did not.
 - Nav rows carry **no shortcut badges** — shortcuts live in the palette and the `?` sheet, assigned
   in the registry so nav, palette and sheet cannot disagree.
 - There is no "Panels" group and no "Tools" group: every optional panel is a *mode* inside a page,
-  toggled by Settings ▸ Optional tools. `panel-subject-info` is **deleted** (its facts are Overview's; `/panel-subject-info` falls through to
-  `/overview` and a stale saved panel id is ignored), `panel-source`
+  toggled by Settings ▸ Optional tools. `panel-source`
   into Pre-processing, the three analysis panels into Analyzer, `system` into the jobs panel's Host
   tab, `panel-quick-notes` into the `⌘⇧N` drawer, and `dev` stays palette-only behind
   `VITE_INCLUDE_GALLERY`. **Not yet done** (critic round 1, finding 1; Stage-2 scope, deliberately
@@ -987,6 +986,13 @@ group heading told the user a page belonged to a subject when it did not.
   no `PageHeader` (§2.3's "no page header outside Settings and Help" rule applies to them like any
   other page — `pageHeaderHeight: 0`), and each page's one-line purpose moved into an info tooltip
   on its first section header rather than being lost. Panels remain standalone pages until folded.
+
+  **`panel-subject-info` is back** (maintainer, 2026-09-06: *"make sure that all of our extensions
+  are migrated"*). It was deleted in the U7 round on the grounds that "its facts are Overview's",
+  and for the project-wide presence grid that was true — but the Qt extension's other half,
+  `get_detailed_subject_info()`'s per-subject inventory (anatomical files, `m2m_*` directories,
+  every simulation with its analyses, optimisation runs, free-hand sets, reports), had no home in
+  v3 at all. The panel now shows only that half; the grid stays Overview's.
 
 ## 9.1 Pipeline
 

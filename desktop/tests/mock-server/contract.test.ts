@@ -192,6 +192,7 @@ describe("contract coverage: every openapi.v1.yaml path+method", () => {
 
     // catalog (v1)
     await call("/api/catalog/subjects/{id}", "GET", "/api/catalog/subjects/ernie");
+    await call("/api/subjects/{id}/info", "GET", "/api/subjects/ernie/info");
     await call("/api/catalog/electrode-overlays", "GET", "/api/catalog/electrode-overlays?subject=ernie&simulation=Thalamus");
     await call("/api/catalog/montages", "GET", "/api/catalog/montages");
     await call("/api/catalog/montages/{net}/{kind}/{name}", "PUT", "/api/catalog/montages/GSN-HydroCel-185/uni_polar/contract_test", {

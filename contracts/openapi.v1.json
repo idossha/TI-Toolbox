@@ -554,6 +554,50 @@
         }
       }
     },
+    "/api/subjects/{id}/info": {
+      "get": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "Everything known about one subject -- anatomy, head model, runs, derivatives",
+        "description": "The Subject Info Viewer panel's one request. `SubjectDetail` plus the files and run directories the Qt extension `tit/gui/extensions/subject_info_viewer.py` used to scan for itself inside the GUI process: raw/anat/dwi files, the `m2m_*` directories, every simulation with its analyses, flex/ex/mEx run names, saved free-hand configs and report ids. Assembling the same picture from the per-kind `/api/catalog/*` routes is a dozen requests whose partial failures a user would have to interpret.",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubjectInfo"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
     "/api/catalog/electrode-overlays": {
       "get": {
         "tags": [
@@ -6788,6 +6832,153 @@
           }
         ]
       },
+      "FileRef": {
+        "description": "One file on disk, named and sized -- never a path the browser could open.",
+        "type": "object",
+        "required": [
+          "name",
+          "size_bytes"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "integer"
+          }
+        }
+      },
+      "SubjectSimulationInfo": {
+        "type": "object",
+        "required": [
+          "name",
+          "has_ti",
+          "has_mti",
+          "n_meshes",
+          "analyses",
+          "created"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "has_ti": {
+            "type": "boolean"
+          },
+          "has_mti": {
+            "type": "boolean"
+          },
+          "n_meshes": {
+            "type": "integer"
+          },
+          "analyses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created": {
+            "type": "string"
+          }
+        }
+      },
+      "SubjectInfo": {
+        "description": "SubjectDetail plus everything on disk for that subject (Subject Info Viewer)",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/SubjectDetail"
+          },
+          {
+            "type": "object",
+            "required": [
+              "sourcedata_files",
+              "anat_files",
+              "anat_modalities",
+              "dwi_files",
+              "m2m_dirs",
+              "simulations",
+              "n_analyses",
+              "flex_search",
+              "ex_search",
+              "mex_search",
+              "freehand_configs",
+              "reports"
+            ],
+            "properties": {
+              "sourcedata_files": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/FileRef"
+                }
+              },
+              "anat_files": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/FileRef"
+                }
+              },
+              "anat_modalities": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "which of T1w/T2w/CT the anat directory actually holds"
+              },
+              "dwi_files": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/FileRef"
+                }
+              },
+              "m2m_dirs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "simulations": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SubjectSimulationInfo"
+                }
+              },
+              "n_analyses": {
+                "type": "integer"
+              },
+              "flex_search": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "ex_search": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "mex_search": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "freehand_configs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "reports": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ]
+      },
       "NiftiRef": {
         "type": "object",
         "required": [
@@ -9014,7 +9205,7 @@
             "items": {
               "type": "string"
             },
-            "description": "enabled optional panels (Source, Cluster Permutation, NIfTI Group Average, Nilearn Visuals, Quick Notes, Subject Info)"
+            "description": "enabled optional panels (Source, Cluster Permutation, NIfTI Group Average, Nilearn Visuals, Quick Notes, Subject Info), Electrode Placement"
           },
           "image_tag": {
             "type": [

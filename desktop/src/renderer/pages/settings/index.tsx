@@ -43,7 +43,9 @@ const PANEL_INFO: { id: PanelId; label: string; description: string }[] = [
   { id: "cluster-permutation", label: "Cluster permutation", description: "Compare or correlate field intensities across subjects with permutation testing." },
   { id: "nifti-group-average", label: "NIfTI group averaging", description: "Compute group averages and differences of NIfTI files." },
   { id: "nilearn-visuals", label: "Nilearn visuals", description: "Create Nilearn high-resolution publication visualizations." },
+  { id: "visual-exporter", label: "3D visual exporter", description: "Export STL/PLY cortical regions, vector clouds, and montage visualizations for 3D rendering." },
   { id: "quick-notes", label: "Quick notes", description: "Keep a running project notepad." },
+  { id: "subject-info", label: "Subject info", description: "Everything one subject has on disk: anatomy, head model, runs and derivatives." },
 ];
 
 const THEME_OPTIONS: { value: ThemeSetting; label: string }[] = [
