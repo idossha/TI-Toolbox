@@ -59,6 +59,7 @@ import {
   type AnalyzerConfig,
   type AnalyzerJobSpec,
 } from "./api";
+import { batchReceipt, submitBatch } from "./submitBatch";
 
 /** Same small local hook every other Run screen defines for its debounced Plan query
  *  (`optimizer-flex/index.tsx`, `optimizer-ex/queries.ts`, `simulator/PlanPanel.tsx`) — not
@@ -150,6 +151,12 @@ export function AnalyzerPage() {
   const [overwrite, setOverwrite] = usePageSession("overwrite", false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [running, setRunning] = useState(false);
+  /**
+   * Specs the server refused on the last Run press — what the next press retries (UI-05). Tagged
+   * with the specs serialisation it belongs to, so editing the rows retires it without an effect
+   * that sets state during render.
+   */
+  const [retry, setRetry] = useState<{ key: string; specs: AnalyzerJobSpec[] }>({ key: "", specs: [] });
   const [pinnedJobId, setPinnedJobId] = usePageSession<string | null>("pinnedJob", null);
 
   // One simulation query per project subject — the Simulation cell's options, and the readiness
@@ -273,14 +280,17 @@ export function AnalyzerPage() {
     setRunning(true);
     try {
       const tag = newAnalysisTag();
-      await Promise.all(
-        jobSpecs.map((spec) => submitAnalyzerJob(spec.config, spec.subjectIds, replace, [tag])),
+      // Retry only what was refused last time: re-submitting the accepted ones would run them
+      // twice (audit UI-05). `allSettled`, not `all`, so one rejection cannot hide the jobs that
+      // WERE accepted — the receipt names both halves.
+      const specs = retry.key === specsKey && retry.specs.length > 0 ? retry.specs : jobSpecs;
+      const outcome = await submitBatch(specs, (spec) =>
+        submitAnalyzerJob(spec.config, spec.subjectIds, replace, [tag]),
       );
-      notify.success(
-        configs.length === 1
-          ? "Queued: analysis"
-          : `Queued: ${configs.length} analyses`,
-      );
+      setRetry({ key: specsKey, specs: outcome.rejected.map((entry) => entry.spec) });
+      const receipt = batchReceipt(outcome);
+      if (outcome.rejected.length === 0) notify.success(receipt);
+      else notify.error(receipt);
     } catch {
       notify.error("Could not queue the analysis job(s).");
     } finally {
