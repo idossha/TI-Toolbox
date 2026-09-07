@@ -440,10 +440,26 @@ test("the pane's chrome sits in its corners and every opacity row is one line", 
 
   // (1) The view cluster is flush in the TOP-RIGHT corner: 8 px in from both edges, not floating
   // a gap in from the corner. Measured on the cluster's own box, not its CSS.
-  const cluster = pane.locator(".scene-chrome-top");
-  const clusterBox = (await cluster.boundingBox())!;
-  expect(Math.abs(paneBox.x + paneBox.width - (clusterBox.x + clusterBox.width))).toBeLessThanOrEqual(8);
-  expect(Math.abs(clusterBox.y - paneBox.y)).toBeLessThanOrEqual(8);
+  // It is the PRESET BOX that has to reach the corner: `Reset` used to hold that slot and pushed
+  // the box ~110 px inboard, so the measurement is on the box, in both camera states.
+  const box = pane.getByRole("radiogroup", { name: "Camera preset" });
+  const atPreset = (await box.boundingBox())!;
+  expect(paneBox.x + paneBox.width - (atPreset.x + atPreset.width)).toBeLessThanOrEqual(8);
+  expect(Math.abs(atPreset.y - paneBox.y)).toBeLessThanOrEqual(8);
+  // At a preset there is nothing to reset, so the button is not rendered at all (not rendered faint).
+  await expect(pane.getByTestId("scene-reset")).toHaveCount(0);
+
+  // Orbited: Reset appears, to the LEFT, and the box has not moved off the corner.
+  const canvas = await canvasBox(page);
+  await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(canvas.x + canvas.width / 2 + 80, canvas.y + canvas.height / 2, { steps: 8 });
+  await page.mouse.up();
+  await expect(pane.getByTestId("scene-reset")).toHaveCount(1);
+  const orbited = (await box.boundingBox())!;
+  expect(paneBox.x + paneBox.width - (orbited.x + orbited.width)).toBeLessThanOrEqual(8);
+  const resetBox = (await pane.getByTestId("scene-reset").boundingBox())!;
+  expect(resetBox.x + resetBox.width).toBeLessThanOrEqual(orbited.x + 1);
 
   // (2) "GM", not "Grey matter": on a 2-row card the long name wrapped and made its slider row two
   // lines tall. Each row is one line — its height is under one and a half line boxes.

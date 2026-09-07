@@ -1017,7 +1017,22 @@ export function SceneCanvas({
         onContextMenu={(event) => event.preventDefault()}
       />
 
+      {/* One group, flush in the corner. `Reset` sits to the LEFT of the preset box and only while
+          the camera is off its presets: parked in the corner slot on the right it pushed the box
+          ~110 px inboard, and at a preset there is nothing for it to undo anyway. The keyboard's
+          "0" resets in either state. */}
       <div className="scene-chrome scene-chrome-top">
+        {preset === "" && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => applyPreset("reset")}
+            title="Reset view — 0"
+            data-testid="scene-reset"
+          >
+            Reset
+          </Button>
+        )}
         <SegmentedControl
           aria-label="Camera preset"
           size="sm"
@@ -1025,9 +1040,6 @@ export function SceneCanvas({
           onValueChange={(value) => applyPreset(value as CameraPreset)}
           options={PRESET_OPTIONS}
         />
-        <Button size="sm" variant="ghost" onClick={() => applyPreset("reset")} title="Reset view — 0">
-          Reset
-        </Button>
       </div>
 
       {showNames && markers.length > 0 && (
