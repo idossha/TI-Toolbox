@@ -1,6 +1,13 @@
 # Contributing to TI-Toolbox
 
-Thank you for your interest in contributing to TI-Toolbox! This document provides guidelines and instructions for contributing to the project.
+Thank you for your interest in contributing to TI-Toolbox! This document covers the **process**:
+what to discuss first, how to branch, and what a pull request needs.
+
+**Working on the code itself?** The development manual is
+[`docs/dev/CONTRIBUTING.md`](docs/dev/CONTRIBUTING.md) — the `npm run dev` loop, the full gate with
+exact commands, and the rule that any change to the scientific core needs a `tests/numerical/` test.
+The map of all development documentation is [`docs/dev/README.md`](docs/dev/README.md), and AI
+coding agents start at [`AGENTS.md`](AGENTS.md).
 
 ## Table of Contents
 
@@ -110,14 +117,14 @@ git checkout -b docs/what-you-are-documenting  # For documentation
 **All tests must pass before submitting a PR.**
 
 ```bash
-# Run quick unit tests during development
-./tests/test.sh --unit-only
-
-# Run full test suite before creating PR
-./tests/test.sh --verbose
+./tests/test.sh --unit-only      # quick, during development
+./tests/test.sh --verbose        # full suite, before opening the PR
 ```
 
-See the [Testing Guide](tests/README_TESTING.md) for detailed information.
+See the [Testing Guide](tests/README_TESTING.md). If your change touches the desktop app, the job
+server or the scientific core, run the full gate in
+[`docs/dev/CONTRIBUTING.md` §2](docs/dev/CONTRIBUTING.md) instead — typecheck, lint, vitest,
+`tests/numerical` in the container, the contract check and the offscreen e2e suite.
 
 ### 4. Commit Your Changes
 
@@ -253,6 +260,10 @@ def calculate_field_intensity(mesh_data, electrode_positions):
 ## Documentation
 
 Documentation updates are highly valued! When contributing:
+
+> Changes to `tit/stats`, `tit/analyzer`, `tit/calc`, `tit/fields` or `tit/sim` additionally need
+> a real-library test in `tests/numerical/` and, if any published number moves, an entry in
+> [`docs/dev/SCIENTIFIC-CORRECTIONS.md`](docs/dev/SCIENTIFIC-CORRECTIONS.md).
 
 ### Code Documentation
 

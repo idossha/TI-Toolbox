@@ -1,43 +1,85 @@
-# Development source of truth
+# Development documentation
 
 Everything a maintainer or an agent needs to know about *how this software is built and why* lives
 in this directory. Nothing here is published to the documentation site (`docs/_config.yml` excludes
 it) — the user-facing site is `docs/wiki/`, `docs/installation/`, `docs/gallery/` and friends.
 
-There are no per-lane note files anywhere in the repository. A lane records its **numbers** in
-`BENCHMARKS.md` and its **decisions** in `DECISIONS.md`, and deletes its scratch notes. That rule
-exists because about 120 lane files accumulated in `dev/notes/` in eleven days, every one of them
-citing the others, and no reader could tell which of them was still true.
+Agents start at [`AGENTS.md`](../../AGENTS.md) in the repository root, which is the short version of
+this page plus the rules that must be known before touching anything.
 
-## The map
+## Read in this order
+
+A new contributor can get through the first five in about an hour.
+
+| # | Read | Why |
+|---|---|---|
+| 1 | **this page** | the map, and where a new fact goes |
+| 2 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | how it is built — boundaries, lifetimes, the rules a change must not break |
+| 3 | [`DESIGN.md`](DESIGN.md) | the desktop UI contract: pages, rail, layout shapes, tokens |
+| 4 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | the dev loop, the gate with exact commands, lane coordination, commit conventions |
+| 5 | [`RUNBOOK.md`](RUNBOOK.md) | how to run the smoke harness and the real-server e2e legs |
+| 6 | [`DECISIONS.md`](DECISIONS.md) / [`ADR.md`](ADR.md) | why it is like this; the numbered table the code cites as "ADR row N" |
+| 7 | [`HISTORY.md`](HISTORY.md) / [`BENCHMARKS.md`](BENCHMARKS.md) | what happened per program and its gotchas; every measured number, once |
+| 8 | [`SCIENTIFIC-CORRECTIONS.md`](SCIENTIFIC-CORRECTIONS.md) | what v2.x got numerically wrong, and the rule that keeps it from recurring |
+| 9 | [`RELEASE.md`](RELEASE.md) | how a version is cut, tagged and published |
+
+## Every file, one line each
 
 | File | What belongs in it |
 |---|---|
-| `ARCHITECTURE.md` | **How it is built** — the contract. Boundaries, lifetimes, the rules a change must not break. Changing a rule here requires a `DECISIONS.md` entry in the same commit. |
-| `DECISIONS.md` | **Why** — append-only. One entry per decision, newest last. |
-| `ROADMAP.md` | **What is next**, and the gate table: what was verified, by which command, with what result. |
-| `BENCHMARKS.md` | **Every measured number, once.** Sizes, timings, frame rates, test counts. A number quoted anywhere else should be a pointer to here. |
-| `HISTORY.md` | **What happened**, one section per program, in date order: the ask, what shipped, which decisions survived and where they are recorded, what was reversed, and the gotchas that exist nowhere else. |
-| `DESIGN.md` | The **UI contract** for the desktop app: pages, the rail, layout shapes, tokens, per-page behaviour. |
+| `ARCHITECTURE.md` | **How it is built** — the contract. Changing a rule here requires a `DECISIONS.md` entry in the same commit. |
+| `DECISIONS.md` | **Why** — append-only, chronological. One entry per decision as **Decision / Why / Cost / Revisit if**. |
 | `ADR.md` | The numbered architecture decision table the codebase cites as "ADR row N". |
-| `RUNBOOK.md` | **How to run things** — the two-level smoke harness, cited by the e2e specs. |
-| `RELEASE.md` | **How a version is released** — the version sites, the tag-to-publish pipeline, the dry run, and what only a real CI run can prove. `.github/workflows/release-v3.yml` is its executable form. |
-| `requirements/` | **Dated asks**, verbatim from the maintainer. Where two conflict, the later one wins. |
-| `SCIENTIFIC-CORRECTIONS.md` | **What v2.x got numerically wrong**, one section per correction: the defect, the affected version range, which outputs move and by how much, how to spot affected results, whether to re-run or rescale, and the test that pins it. Also the open modelling decisions. |
-| `SPIKES.md` | Verdicts of investigations whose code was never shipped. |
+| `CONTRIBUTING.md` | **How to develop and verify**: dev environment, the gate checklist, lane coordination, the science-integrity rule, commit conventions. |
+| `RUNBOOK.md` | **How to run things** — the two-level smoke harness and the real e2e legs, cited by the specs themselves. |
+| `ROADMAP.md` | **What is next**, and the gate table: what was verified, by which command, with what result. |
+| `BENCHMARKS.md` | **Every measured number, once.** A number quoted anywhere else should be a pointer to here. |
+| `HISTORY.md` | **What happened**, one section per program, in date order: the ask, what shipped, what was reversed, and the gotchas that exist nowhere else. |
+| `SCIENTIFIC-CORRECTIONS.md` | **What v2.x got numerically wrong**, one section per correction, plus the open modelling decisions. |
+| `RELEASE.md` | The version sites, the tag-to-publish pipeline, the dry run, and what only a real CI run can prove. `.github/workflows/release-v3.yml` is its executable form. |
+| `DESIGN.md` | The **UI contract** for the desktop app. |
 | `design-notes.md`, `wireframes.md` | The verbatim contract signatures and per-page ASCII layouts `DESIGN.md` defers to instead of restating. |
+| `SPIKES.md` | Verdicts of investigations whose code was never shipped. |
+| `requirements/` | **Dated asks**, verbatim from the maintainer. Where two conflict, the later one wins. |
 | `v3-implementation-plan.md` | The 2026-09-05 overview/batch/terminal/viewer plan, kept because `HISTORY.md` cites its lettered requirements. |
 | `known-issues-2026-08.md`, `qsi-integration.md`, `qsirecon-internal-reference.md`, `flex-search-multicore-analysis.md` | Backend/pipeline references that predate the v3 program. |
+
+## Documentation that stays where it is
+
+Not everything belongs here. These are module-local on purpose, and are the right place to look
+first when you are inside that directory:
+
+| Path | What it is |
+|---|---|
+| [`../../AGENTS.md`](../../AGENTS.md) | the agent entry point: repo map, the gate, the rules, the gotchas |
+| [`../../CONTRIBUTING.md`](../../CONTRIBUTING.md) | outside-contributor process: issues, branches, pull requests |
+| [`../../contracts/README.md`](../../contracts/README.md) | which contract file is generated by which command, and the freeze rule |
+| [`../../contracts/SCHEMA-CHANGES.md`](../../contracts/SCHEMA-CHANGES.md) | the append-only contract change log |
+| `../../desktop/README.md` | the desktop app's own layout, commands and build-flag gotchas |
+| `../../desktop/src/renderer/**/PARITY.md` | per-page: what the retired Qt tab did and what v3 does instead |
+| `../../container/blueprint/README.md` | how the images are built |
+| `../../agent-plugin/README.md` | the installable skills + MCP server for AI clients |
+| `../../tit/{analyzer,reporting,project_init}/README.md` | module-local science notes |
+| `../../dev/{telemetry,update,security}/**` | operational references for those subsystems |
+| `../../.circleci/README_CIRCLECI.md` | the CI image and job shape |
+| `../../docs/releases/changelog.md` | the user-facing changelog |
 
 ## Where a new fact goes
 
 - A **measurement** → `BENCHMARKS.md`. Not into a commit message, not into a code comment.
-- A **decision** → `DECISIONS.md`, in the shape **Decision / Why / Cost / Revisit if**, plus the
+- A **decision** → `DECISIONS.md`, as **Decision / Why / Cost / Revisit if**, plus the
   `ARCHITECTURE.md` edit if it changes a rule, in the same commit.
 - A **gate result** → the `ROADMAP.md` table, with the command that produced it.
-- **What happened in a program** → a section in `HISTORY.md`.
-- A **trap that cost someone an hour** → the gotchas of that program's `HISTORY.md` section, or
-  `AGENTS.md` if every agent must know it before starting.
+- **What happened in a program** → a dated section in `HISTORY.md`.
+- A **contract change** → an appended entry in `contracts/SCHEMA-CHANGES.md`.
+- A **number that moved for users** → `SCIENTIFIC-CORRECTIONS.md` *and* `docs/releases/changelog.md`.
+- A **trap that cost someone an hour** → that program's `HISTORY.md` gotchas, or `AGENTS.md` if
+  every agent must know it before starting.
+
+**There are no per-lane note files anywhere in the repository**, and none may be added. About 120
+of them accumulated in `dev/notes/` in eleven days, every one citing the others, and no reader
+could tell which of them was still true. A lane records its numbers in `BENCHMARKS.md`, its
+decisions in `DECISIONS.md`, its story in `HISTORY.md`, and deletes its scratch notes.
 
 ## Retired paths
 
@@ -47,7 +89,7 @@ now holds scripts only. Older documents and source comments may still cite the o
 | Retired path | Now |
 |---|---|
 | `dev/notes/v3-program-history.md` | `HISTORY.md` |
-| `dev/notes/v3-*-plan.md`, `dev/notes/v3-*/​*.md` (every program plan and lane note) | the matching dated section of `HISTORY.md` |
+| `dev/notes/v3-*-plan.md`, `dev/notes/v3-*/*.md` (every program plan and lane note) | the matching dated section of `HISTORY.md` |
 | `dev/notes/v3-pipelines/RUNBOOK.md` | `RUNBOOK.md` |
 | `dev/notes/v3-ui-program/u0-design-notes.md`, `.../wireframes.md` | `design-notes.md`, `wireframes.md` |
 | `dev/spikes/README.md` and all spike code | `SPIKES.md` |
@@ -56,3 +98,6 @@ now holds scripts only. Older documents and source comments may still cite the o
 | `desktop/DESIGN.md` | `DESIGN.md` |
 | `desktop/IMPLEMENTATION_PLAN.md` | `v3-implementation-plan.md` |
 | `tracks/active/v3-electron-gui.md` (gitignored, so never in the repository) | `ADR.md` |
+| `TODO.md` (the v3.0.0 plan and its open items) | `HISTORY.md` for what shipped, `ROADMAP.md` for what is open |
+| `tit/gui/**` (the PyQt5 GUI, deleted in v3.0.0) | `desktop/`, with per-page `PARITY.md` checklists |
+| `package/` (the v2 Electron launcher) | `desktop/` |
