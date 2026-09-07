@@ -171,3 +171,61 @@ docker rm -f tit-ib-smoke
 - The watcher pattern `pgrep -f container/blueprint/build.sh` matches the watcher itself.
   Both of mine hung on it after the build died and had to be stopped by hand; match on
   `docker build` or a pidfile next time.
+
+---
+
+## Slimming the Dockerfile (2026-09-06, later)
+
+395 lines -> 162. Maintainer: "the dockerfile.ti-toolbox looks way too long and complicated";
+follow-up: "make sure we do not have gmsh or anything unnecessary installed in the container."
+
+Rationale that is worth keeping lives in `container/blueprint/README.md` ("What the image
+deliberately does not contain"), not in the Dockerfile. This file records only the measurements.
+
+### Method
+
+Every removal was justified by a grep over `tit/` (and, for gmsh, over the installed `simnibs`
+package inside the image) and then proved by a full rebuild plus a live smoke test. Three builds:
+one to prove the pip set resolves with no compilers, one to add the gmsh prune, one to restore
+the five `libX*`/`libICE`/`libSM`/`libxkbcommon` packages that `bpy`'s `.so` links (dropping the
+whole X11 set had broken `import bpy` — the only regression the pass produced, caught by the
+import smoke).
+
+### gmsh
+
+- `simnibs_env/lib/libgmsh.so.4.14` = 92 MB. `grep -rl libgmsh` over the whole env matches only
+  `gmsh.py`, its `.pyc`, the dist-info RECORD, a cmake target file and two doc CMakeLists — no
+  `.so` and no binary under `simnibs/external/bin/linux` links it (`ldd` on each: clean).
+- `grep -rn "^import gmsh"` over `simnibs/`: exactly one hit, `simnibs/cli/gmsh_cli.py` — the
+  Gmsh GUI launcher `/api/viewers/gmsh` used to drive, removed by D3.
+- `simnibs/mesh_tools/gmsh_view.py` is imported at module load by `sim_struct.py`,
+  `tes_flex_optimization.py`, `tdcs_optimization.py` and `tms_coil.py`, so it stays — but it
+  only writes `.opt` files and never imports the `gmsh` module. Proved after the prune:
+  `import simnibs.mesh_tools.mesh_io, simnibs.simulation.sim_struct,
+  simnibs.optimization.tes_flex_optimization.tes_flex_optimization` succeeds while
+  `import gmsh` raises ModuleNotFoundError and `which gmsh` finds nothing.
+
+### Size (docker images, before / after)
+
+| | Disk usage | Content size |
+|---|---|---|
+| before | 19.5 GB | 5.88 GB |
+| after | 9.27 GB | 2.41 GB |
+
+Biggest remaining entries, all justified: `bpy` 821 MB (the `blender` job kind),
+`torch` 697 MB + FastSurfer checkpoints 67 MB (`--seg_only`), `simnibs` 393 MB (221 MB of it
+segmentation atlases charm needs), `SimpleITK` 265 MB, `PyQt5` 202 MB, `llvmlite` 162 MB — the
+last three are SimNIBS's own vendored environment, not ours to prune from a pip line.
+
+### Verified against `idossha/ti-toolbox:dev` (d981927f6cca)
+
+- `import tit, simnibs, simnibs.segmentation, brainnet, torch, mne, h5io, nbformat,
+  jupyter_client, ipykernel, bpy, nilearn, trimesh, meshio` — all OK (torch 2.7.1+cpu).
+- `import tit.sim, tit.opt, tit.analyzer, tit.stats, tit.pre, tit.blender,
+  tit.tools.nifti_to_mesh` — OK.
+- `simnibs_python -m tit.server --help`, `dcm2niix -h`, `docker --version` — OK.
+- `jupyter kernelspec list` shows `simnibs`; `POST /api/kernels` starts it and one
+  `{"op":"execute"}` over `/ws/kernels/{id}` returns stdout + `execute_result` 42, then idle.
+- Container healthy in ~20 s; `/api/health`, `/api/version`, `/api/capabilities`
+  (`tetravox_embed`: baked, 0.3.11, protocol 2, compatible), `/tetravox/` 200 with its CSP,
+  `/tetravox/nope.js` 404. Build record and OCI labels present.

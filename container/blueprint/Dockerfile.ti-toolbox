@@ -1,36 +1,8 @@
-# Dockerfile.ti-toolbox
-#
-# The one recipe for idossha/ti-toolbox:<ver> (D1). Multi-stage: a `source` stage supplies
-# the TI-Toolbox tree, a Node stage builds the Electron renderer bundle from it, a small
-# stage vendors FastSurfer + checkpoints, and the final stage is Dockerfile.simnibs's own
-# SimNIBS-install recipe (Ubuntu 22.04 -> the SimNIBS 4.6 Linux installer tarball ->
-# /root/SimNIBS-4.6) plus this program's v3 additions: baked API deps, FastSurfer, the built
-# UI, the Tetravox embed, no X11/Qt/GTK, the new entrypoint, a build record at
-# /etc/ti-toolbox-build.json, and a healthcheck.
-#
-# Where the source comes from (TI_TOOLBOX_SOURCE):
-#   local  (default) the build CONTEXT is the repository root, filtered by the repo-root
-#                    .dockerignore (an allow-list: tit/, resources/, contracts/, container/,
-#                    desktop/ minus node_modules/out/tests, pyproject.toml, README.md,
-#                    LICENSE). This is what lets an unpushed branch -- or a dirty tree --
-#                    be built and tried before it is pushed.
-#   clone            `git clone --branch TI_TOOLBOX_REF` from GitHub (the CI/release path;
-#                    the context then only needs to exist).
-# build.sh picks the stage from --ref: no --ref means local, --ref <git-ref> means clone.
-#
-# A from-scratch SimNIBS install takes 30-60+ minutes even natively, and considerably longer
-# under this machine's amd64 emulation. Every layer here mirrors a step already proven to
-# work in Dockerfile.simnibs (same base image, same installer URL, same patches).
-#
-# Build (via build.sh, which fills in every --build-arg below):
-#   ./container/blueprint/build.sh --tag idossha/ti-toolbox:<ver> [--ref <git-ref>] \
-#       [--tetravox-tgz <url> --tetravox-sha256 <hex>]
+# Dockerfile.ti-toolbox — the one recipe for idossha/ti-toolbox:<ver>.
+# SimNIBS 4.6 + tit + tit.server + FastSurfer + the built UI + the Tetravox embed.
+# Built by container/blueprint/build.sh; see container/blueprint/README.md for the why.
 
-# =========================================================================================
-# Stage: source -- one tree shared by the ui-builder and final stages, so both build from
-# the exact same commit. Two variants, selected by TI_TOOLBOX_SOURCE (a global ARG, so it
-# can be used in a FROM); the one not selected is never built.
-# =========================================================================================
+# --- source: the tree both the UI build and the final stage use, so both get one commit ---
 ARG TI_TOOLBOX_SOURCE=local
 
 FROM --platform=$BUILDPLATFORM alpine/git:2.45.2 AS source-clone
@@ -45,333 +17,129 @@ COPY . /ti-toolbox
 
 FROM source-${TI_TOOLBOX_SOURCE} AS source
 
-# =========================================================================================
-# Stage: ui-builder — the Electron renderer bundle (desktop/out/renderer), discarded after
-# COPY --from into the final stage. Node 22, matching desktop/package.json's
-# `engines.node: ">=22.12.0"` (checked against the current worktree while writing this —
-# bump both together if that field changes).
-# =========================================================================================
-# --platform=$BUILDPLATFORM: the bundle is plain JS/CSS, so build it natively rather than
-# under amd64 emulation on an Apple-silicon host (the image itself stays linux/amd64).
+# --- ui: the Electron renderer bundle. Native $BUILDPLATFORM (plain JS/CSS), not emulated. ---
 FROM --platform=$BUILDPLATFORM node:22-bookworm-slim AS ui-builder
 COPY --from=source /ti-toolbox/desktop /build/desktop
 WORKDIR /build/desktop
 RUN npm ci && npm run build
 
-# =========================================================================================
-# Stage: fastsurfer — vendor the FastSurfer clone in isolation so it caches independently
-# of the SimNIBS install below it (the checkpoints are downloaded in the final stage).
-# =========================================================================================
+# --- fastsurfer: vendored here so it caches independently of the SimNIBS install below ---
 FROM ubuntu:22.04 AS fastsurfer
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        git ca-certificates python3 python3-pip \
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 ARG FASTSURFER_REF=v2.5.4
-ENV FASTSURFER_HOME=/opt/fastsurfer
 RUN git clone --depth 1 --branch "${FASTSURFER_REF}" \
-        https://github.com/Deep-MI/FastSurfer.git "${FASTSURFER_HOME}" \
-    && rm -rf "${FASTSURFER_HOME}/.git"
-# The checkpoints are NOT downloaded here: `download_checkpoints.py` imports
-# `FastSurferCNN.utils.checkpoint`, which imports torch at module level (measured 2026-09-06,
-# dev/notes/v3-native-panes-external-viewer/IB.md), so it can only run where torch is
-# installed -- the final stage, after `pip install -e $FASTSURFER_HOME`, below.
+        https://github.com/Deep-MI/FastSurfer.git /opt/fastsurfer \
+    && rm -rf /opt/fastsurfer/.git
 
 # =========================================================================================
 # Stage: final
 # =========================================================================================
 FROM ubuntu:22.04
-
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Packages grouped by context and purpose. Compared to Dockerfile.simnibs: the X11 client
-# libraries, Qt5/PyQt5 GUI libraries, and GTK2 are DROPPED (D3 — no X11 anywhere; verified
-# `rg PyQt5 tit/` shows PyQt5 imported only inside tit.gui, which v3 does not ship, and
-# `import simnibs` itself never touches PyQt5 at package-init time). Mesa/EGL/OSMesa are
-# KEPT — bpy's headless montage-publication renders and SimNIBS's own gmsh bindings link
-# against libGL/EGL regardless of X11 being present, and neither opens a window here.
-RUN apt-get update && apt-get install -y \
-    # Core system utilities
-    wget \
-    git \
-    unzip \
-    tar \
-    bzip2 \
-    curl \
-    gettext \
-    locales \
-    fontconfig \
-    tzdata \
-    \
-    # Build tools and compilers
-    build-essential \
-    gcc \
-    g++ \
-    gcc-10 \
-    g++-10 \
-    cmake \
-    ninja-build \
-    libtool \
-    libtool-bin \
-    autoconf \
-    automake \
-    pkg-config \
-    \
-    # System libraries
-    libglib2.0-0 \
-    libopenblas-dev \
-    \
-    # OpenGL / Mesa (headless rendering: bpy montage-publication, gmsh's libGL linkage —
-    # NOT for X11 display; nothing here opens a window)
-    libgl1-mesa-glx \
-    libglu1-mesa \
-    mesa-utils \
-    libgl1-mesa-dri \
-    libglapi-mesa \
-    libosmesa6 \
-    mesa-va-drivers \
-    libegl1-mesa \
-    libgbm1 \
-    \
-    # Command-line tools and utilities
-    bc \
-    jq \
-    vim \
-    tmux \
-    tree \
-    execstack \
-    parallel \
-    dos2unix \
-    \
-    # Testing tools
-    bats \
-    \
-    # Image processing tools
-    imagemagick \
-    \
-    # Neuroimaging specific tools
-    dcm2niix \
-    \
-    # Docker CLI prerequisites for DooD (Docker-out-of-Docker: QSIPrep/QSIRecon).
-    # tit/pre/qsi/docker_builder.py still shells out to the `docker` CLI as of this
-    # writing (dev/notes/v3-docker-streamline/w2-image-notes.md flags the migration to
-    # tit/jobs/docker_engine.py, D4's Engine-API client, as owed to lane W3b) — kept until
-    # that migration lands, at which point this block can go too.
-    ca-certificates \
-    gnupg \
-    lsb-release \
-    \
+# No X11 server, no Qt/GTK. Mesa/EGL stay because bpy renders headlessly through them; the
+# libX*/libICE/libSM/libxkbcommon shared objects are `ldd` dependencies of bpy's own .so — not
+# a display. gnupg/lsb-release are for the docker-ce-cli repo below.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates wget curl git tzdata fontconfig \
+        libglib2.0-0 \
+        libgl1-mesa-glx libglu1-mesa libgl1-mesa-dri libglapi-mesa libosmesa6 libegl1-mesa libgbm1 \
+        libxrender1 libxi6 libsm6 libice6 libxkbcommon0 \
+        dcm2niix \
+        gnupg lsb-release \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
+# docker CLI for Docker-out-of-Docker (QSIPrep/QSIRecon still shell out — tit/pre/qsi/utils.py).
 RUN install -m 0755 -d /etc/apt/keyrings \
     && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
     && chmod a+r /etc/apt/keyrings/docker.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu jammy stable" > /etc/apt/sources.list.d/docker.list \
-    && apt-get update \
-    && apt-get install -y docker-ce-cli \
+    && apt-get update && apt-get install -y --no-install-recommends docker-ce-cli \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Avoid OpenMP affinity crash during postinstall
+# Avoid the OpenMP affinity crash SimNIBS/numpy hit during postinstall and under emulation.
 ENV OMP_NUM_THREADS=1
 ENV KMP_AFFINITY=disabled
 
-######## Install SimNIBS ################
-RUN mkdir -p /simnibs && chmod -R 755 /simnibs
-
-RUN wget https://github.com/simnibs/simnibs/releases/download/v4.6.0/simnibs_installer_linux.tar.gz -P /simnibs \
+# --- SimNIBS 4.6, from the official Linux installer tarball ---
+RUN mkdir -p /simnibs \
+    && wget -q https://github.com/simnibs/simnibs/releases/download/v4.6.0/simnibs_installer_linux.tar.gz -P /simnibs \
     && tar -xzf /simnibs/simnibs_installer_linux.tar.gz -C /simnibs \
-    && /simnibs/simnibs_installer/install -s
+    && /simnibs/simnibs_installer/install -s \
+    && rm -rf /simnibs \
+    # gmsh (92 MB) is reachable only from simnibs/cli/gmsh_cli.py, the GUI launcher v3 dropped
+    # (no X11); nothing else in the env links libgmsh. Its HTML docs are dead weight too.
+    && rm -rf /root/SimNIBS-4.6/documentation \
+        /root/SimNIBS-4.6/bin/gmsh /root/SimNIBS-4.6/simnibs_env/bin/gmsh \
+        /root/SimNIBS-4.6/simnibs_env/lib/libgmsh.so* \
+        /root/SimNIBS-4.6/simnibs_env/lib/gmsh.jl \
+        /root/SimNIBS-4.6/simnibs_env/lib/python3.11/site-packages/gmsh.py \
+        /root/SimNIBS-4.6/simnibs_env/lib/python3.11/site-packages/__pycache__/gmsh.* \
+        /root/SimNIBS-4.6/simnibs_env/lib/python3.11/site-packages/gmsh-*.dist-info \
+        /root/SimNIBS-4.6/simnibs_env/share/gmsh /root/SimNIBS-4.6/simnibs_env/share/doc/gmsh \
+        /root/SimNIBS-4.6/simnibs_env/lib/python3.11/site-packages/simnibs_master/share/doc/gmsh
 
 ENV PATH="/root/SimNIBS-4.6/bin:$PATH"
 ENV SIMNIBSDIR="/root/SimNIBS-4.6"
 
-# Scientific / visualization stack used by tit modules. The mne range is >=1.5,<2 — the
-# spelling matters: the old `mne~=1.5` was *read* as "mne 1.5.x" but means "any 1.x >= 1.5",
-# and it resolved to mne 1.12.1 in the shipped image (measured in the running container
-# 2026-09-04, alongside numpy 1.26.4 — mne 1.12 asks for numpy<3,>=1.26, so SimNIBS's numpy
-# and the nan_to_num patch below are unaffected). tit/source/_simnibs_compat.py makes
-# SimNIBS 4.6's EEG-to-MNE bridge work across that whole range, so do not narrow this to
-# 1.5.x to "fix" a forward-solution failure — fix the shim. h5io is mne's optional
-# HDF5 backend and is NOT pulled in by `pip install mne`: without it
-# `mne.SourceMorph.save(...h5)` raises at the very end of an EEG forward run, after the
-# FEM leadfield has been paid for (measured 2026-09-04), so it is a hard dependency of
-# the `source` pipeline, not an extra. fastapi/uvicorn/pyyaml/psutil
-# are the tit.server API deps — baked in (D1), where the v2 compose stack used to
-# pip-install them at container start. `nbformat` is what
-# `tit.pipeline.notebook.export_notebook` writes and validates with, so the pipeline
-# canvas's "Export notebook" works in the container without a pip install.
-RUN simnibs_python -m pip install \
-    meshio \
-    nilearn \
-    PyOpenGL-accelerate \
-    trimesh \
-    seaborn \
-    scikit-image \
-    numpy-stl \
-    click \
-    bpy \
-    psutil \
-    python-lsp-server \
-    jupyterlab-lsp \
-    "mne>=1.5,<2" \
-    h5io \
-    nbformat \
-    fastapi \
-    "uvicorn[standard]" \
-    pyyaml
+# Python deps tit/ imports. `mne>=1.5,<2` is a range on purpose (tit/source/_simnibs_compat.py
+# spans it); h5io is mne's HDF5 backend and is not pulled in by mne itself.
+RUN simnibs_python -m pip install --no-cache-dir \
+        meshio nilearn trimesh seaborn scikit-image numpy-stl click bpy psutil \
+        "mne>=1.5,<2" h5io nbformat jupyter_client ipykernel \
+        fastapi "uvicorn[standard]" pyyaml
 
-# Install Neovim v0.11.0 from prebuilt binary
-RUN wget https://github.com/neovim/neovim/releases/download/v0.11.0/nvim-linux-x86_64.tar.gz \
-    && tar xzf nvim-linux-x86_64.tar.gz -C /usr/local --strip-components=1 \
-    && rm nvim-linux-x86_64.tar.gz
-
-########### TI-Toolbox ########################
+# --- TI-Toolbox: SimNIBS patches, extra EEG caps, the flex-optimisation replacement, tit ---
 COPY --from=source /ti-toolbox /ti-toolbox
-RUN find /ti-toolbox -name "*.sh" -exec dos2unix {} \; && \
-    # Extra EEG nets \
-    mkdir -p $SIMNIBSDIR/resources/ElectrodeCaps_MNI/ && \
-    cp /ti-toolbox/resources/ElectrodeCaps_MNI/* $SIMNIBSDIR/resources/ElectrodeCaps_MNI/ && \
-    # Flex extension by TI-Toolbox team \
-    rm -f $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py && \
-    cp /ti-toolbox/resources/map-electrodes/tes_flex_optimization.py $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py && \
-    # Fix SimNIBS 4.6 atlas2subject split_labels bug (name-label misalignment for DK40) \
-    simnibs_python /ti-toolbox/resources/atlas2subject/patch_atlas2subject.py && \
-    # Fix SimNIBS 4.6 nan_to_num(copy=None) bug (numpy 1.x incompatibility) \
-    simnibs_python /ti-toolbox/resources/patches/patch_nan_to_num.py && \
-    # Install TIT package (non-editable). CLI entrypoints are defined in pyproject.toml. \
-    cd /ti-toolbox && simnibs_python -m pip install --no-cache-dir .
+RUN mkdir -p $SIMNIBSDIR/resources/ElectrodeCaps_MNI/ \
+    && cp /ti-toolbox/resources/ElectrodeCaps_MNI/* $SIMNIBSDIR/resources/ElectrodeCaps_MNI/ \
+    && cp /ti-toolbox/resources/map-electrodes/tes_flex_optimization.py \
+          $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py \
+    && simnibs_python /ti-toolbox/resources/atlas2subject/patch_atlas2subject.py \
+    && simnibs_python /ti-toolbox/resources/patches/patch_nan_to_num.py \
+    && simnibs_python -m pip install --no-cache-dir /ti-toolbox
 
-# Register SimNIBS Python as the Jupyter kernel (autocompletion / intellisense; Jupyter
-# itself is kept but not published by the entrypoint below — see docker-compose.v3.yml).
+# The kernel the in-app notebooks run on (tit/server/kernels.py starts it by name).
 RUN simnibs_python -m ipykernel install --name simnibs --display-name "SimNIBS + TI-Toolbox"
 
-# Create symlinks for config files
-RUN ln -sf /ti-toolbox/container/config/.tmux.conf /root/.tmux.conf && \
-ln -sf /ti-toolbox/container/config/nvim /root/.config/
-
-RUN tmux source-file /root/.tmux.conf || true
-RUN nvim --headless "+LAZY! sync" +qa
-
-RUN SETTINGS_DIR=$(simnibs_python -c "import sysconfig; print(sysconfig.get_path('data'))")/share/jupyter/lab/settings && \
-    mkdir -p "$SETTINGS_DIR" && \
-    echo '{ \
-      "@jupyter-lsp/jupyterlab-lsp:plugin": { \
-        "continuousHinting": true \
-      }, \
-      "@jupyterlab/completer-extension:manager": { \
-        "autoCompletion": true \
-      } \
-    }' > "$SETTINGS_DIR/overrides.json"
-
-# ---------------------------------------------------------------------------------------
-# FastSurfer --seg_only (D1) — vendored from the isolated `fastsurfer` stage above rather
-# than re-cloning here, so its own layer caches independently of everything above.
-# ---------------------------------------------------------------------------------------
+# --- FastSurfer --seg_only. CPU torch pinned FIRST: a bare install of FastSurfer's
+# `torch==2.7.*` pulls the CUDA wheels (~2 GB) this GPU-less container cannot use, and PEP 440
+# prefix-matching accepts the already-installed 2.7.1+cpu. ---
 ENV FASTSURFER_HOME=/opt/fastsurfer
 COPY --from=fastsurfer /opt/fastsurfer /opt/fastsurfer
-
-# FastSurfer's pyproject.toml pins torch==2.7.* — above the stock torch this stage's own
-# `pip install` above resolves for SimNIBS's BrainNet (torch>=2.1, a floor only; spike
-# dev/spikes/native/fastsurfer/REPORT.md SS3 verified no conflict for a shared runtime
-# either direction). `pip install -e .` lets pip upgrade torch to satisfy FastSurfer's
-# pin; re-verify charm's own torch-consuming imports immediately after, per the brief.
-#
-# CPU-only torch pinned FIRST (verified this session against the .layered recipe, see
-# w2-image-notes.md): a bare `pip install -e .` resolves FastSurfer's `torch==2.7.*`
-# against plain PyPI, which serves the CUDA build by default on Linux — ~2 GB of unused
-# `nvidia-{cublas,cudnn,cusparse,...}` wheels for a container with no GPU access. PEP 440's
-# `==2.7.*` prefix-match ignores the local-version segment, so an already-installed
-# `2.7.1+cpu` satisfies the pin and pip's resolver leaves it alone.
 RUN simnibs_python -m pip install --no-cache-dir \
-        --index-url https://download.pytorch.org/whl/cpu \
-        "torch==2.7.1" "torchvision==0.22.1" && \
-    simnibs_python -m pip install --no-cache-dir -e "${FASTSURFER_HOME}" && \
-    simnibs_python -c "import torch; assert '+cpu' in torch.__version__, torch.__version__" && \
-    simnibs_python -c "import simnibs.segmentation, brainnet" && \
-    echo "torch bump OK: $(simnibs_python -c 'import torch; print(torch.__version__)')"
+        --index-url https://download.pytorch.org/whl/cpu "torch==2.7.1" "torchvision==0.22.1" \
+    && simnibs_python -m pip install --no-cache-dir -e "${FASTSURFER_HOME}" \
+    && simnibs_python -c "import torch; assert '+cpu' in torch.__version__, torch.__version__" \
+    && simnibs_python -c "import simnibs.segmentation, brainnet"
 
-# --vinn only: the asegdkt (cortical/subcortical DKT) checkpoints, 67 MB. Not
-# CerebNet/HypVINN — the production invocation passes --no_cereb --no_hypothal --no_cc
-# (dev/spikes/native/fastsurfer/REPORT.md SS4/SS9), so those weights are never used. Runs
-# here, not in the `fastsurfer` stage, because the script imports torch (see that stage).
-RUN simnibs_python "${FASTSURFER_HOME}/FastSurferCNN/download_checkpoints.py" --vinn \
-    && ls -la "${FASTSURFER_HOME}/checkpoints"
+# --vinn only: the asegdkt checkpoints (67 MB). Production runs pass --no_cereb --no_hypothal
+# --no_cc, so CerebNet/HypVINN weights are never used. Needs torch, hence not in that stage.
+RUN simnibs_python "${FASTSURFER_HOME}/FastSurferCNN/download_checkpoints.py" --vinn
 
-# ---------------------------------------------------------------------------------------
-# Desktop UI bundle, from the ui-builder stage.
-# ---------------------------------------------------------------------------------------
 COPY --from=ui-builder /build/desktop/out/renderer /opt/ti-toolbox/ui
 
+# --- Tetravox embed: the offline floor tit.server serves at /tetravox/. build.sh resolves the
+# tarball and its published digest; the digest is checked before the archive is opened. ---
+ARG TETRAVOX_EMBED_TGZ
+ARG TETRAVOX_EMBED_SHA256
+RUN test -n "$TETRAVOX_EMBED_TGZ" && test -n "$TETRAVOX_EMBED_SHA256" \
+    && curl -fsSL "$TETRAVOX_EMBED_TGZ" -o /tmp/embed.tgz \
+    && echo "$TETRAVOX_EMBED_SHA256  /tmp/embed.tgz" | sha256sum -c - \
+    && mkdir -p /tmp/tvx /opt/tetravox/embed \
+    && tar -xzf /tmp/embed.tgz -C /tmp/tvx --strip-components=1 \
+    && cp -r /tmp/tvx/dist/. /opt/tetravox/embed/ \
+    && cp /tmp/tvx/manifest.json /opt/tetravox/embed/manifest.json \
+    && cp /tmp/tvx/LICENSE /tmp/tvx/EMBED.md /tmp/tvx/*.schema.json /opt/tetravox/ \
+    && test -f /opt/tetravox/embed/index.html \
+    && rm -rf /tmp/tvx /tmp/embed.tgz
 
-# ---------------------------------------------------------------------------------------
-# Tetravox embed — the viewer, baked in.
-#
-# TETRAVOX_EMBED_TGZ is an http(s) URL to a released `tetravox-embed-<ver>.tgz`, and
-# TETRAVOX_EMBED_SHA256 its published digest. `build.sh` resolves both from the GitHub
-# Releases API using the same rule the runtime updater uses -- the newest non-draft,
-# non-prerelease release whose embed manifest declares a protocol inside
-# tit/tetravox/protocol.py's supported range. Neither is a version pin: this project names
-# no Tetravox version anywhere, which is what keeps a Tetravox release from implying a
-# TI-Toolbox release.
-#
-# What is baked here is the *floor* (E2). tit.server serves it at /tetravox/ when nothing
-# newer has been installed into the writable user-config root, so an offline or air-gapped
-# install has a working viewer with no network at all. Left empty, a placeholder manifest
-# and landing page are written instead: a build that cannot reach GitHub is still a build,
-# and the app can install a bundle at runtime.
-#
-# The digest is verified before the archive is opened. An unverified tarball extracted into
-# a path this server then serves to every page in the app is the one thing this stage must
-# not do.
-# ---------------------------------------------------------------------------------------
-ARG TETRAVOX_EMBED_TGZ=""
-ARG TETRAVOX_EMBED_SHA256=""
-RUN mkdir -p /opt/tetravox/embed && \
-    if [ -n "$TETRAVOX_EMBED_TGZ" ]; then \
-        echo "Fetching Tetravox embed: $TETRAVOX_EMBED_TGZ" && \
-        curl -fsSL "$TETRAVOX_EMBED_TGZ" -o /tmp/tetravox-embed.tgz && \
-        if [ -n "$TETRAVOX_EMBED_SHA256" ]; then \
-            echo "$TETRAVOX_EMBED_SHA256  /tmp/tetravox-embed.tgz" | sha256sum -c - ; \
-        else \
-            echo "WARNING: no TETRAVOX_EMBED_SHA256 given; the download is not verified" >&2 ; \
-        fi && \
-        # The release tarball is <name>-<ver>/{dist/, manifest.json, LICENSE, EMBED.md,
-        # *.schema.json} (Tetravox docs/EMBED.md). What tit.server serves at /tetravox/ is
-        # dist/ plus manifest.json; the documents and schemas sit one level up, outside the
-        # served jail.
-        mkdir -p /tmp/tvx && \
-        tar -xzf /tmp/tetravox-embed.tgz -C /tmp/tvx --strip-components=1 && \
-        cp -r /tmp/tvx/dist/. /opt/tetravox/embed/ && \
-        cp /tmp/tvx/manifest.json /opt/tetravox/embed/manifest.json && \
-        cp /tmp/tvx/LICENSE /tmp/tvx/EMBED.md /tmp/tvx/*.schema.json /opt/tetravox/ && \
-        test -f /opt/tetravox/embed/index.html && test -f /opt/tetravox/embed/manifest.json && \
-        rm -rf /tmp/tvx /tmp/tetravox-embed.tgz; \
-    else \
-        echo "TETRAVOX_EMBED_TGZ not set; writing placeholder embed" && \
-        printf '{"name":"tetravox-embed","version":"0.0.0-placeholder","protocol":1}\n' \
-            > /opt/tetravox/embed/manifest.json && \
-        printf '%s\n' \
-            '<!doctype html><html><head><meta charset="utf-8"><title>Tetravox Embed</title></head>' \
-            '<body><p>The Tetravox embed bundle is not packaged in this build.</p></body></html>' \
-            > /opt/tetravox/embed/index.html; \
-    fi
-
-
-# ---------------------------------------------------------------------------------------
-# Entrypoint -- execs `tit.server` directly (D1); no X11, no interactive-shell setup (D3).
-# Taken from the `source` stage, not the context, so a --ref build runs the ref's
-# entrypoint and a local build runs the checkout's.
-# ---------------------------------------------------------------------------------------
 COPY --from=source /ti-toolbox/container/blueprint/entrypoint.ti-toolbox.sh /usr/local/bin/entrypoint.ti-toolbox.sh
 RUN chmod +x /usr/local/bin/entrypoint.ti-toolbox.sh
 
-# ---------------------------------------------------------------------------------------
-# Build record. `docker inspect` labels answer "which image is this" from outside; the JSON
-# answers it from inside the container (the server can read it, a bug report can quote it).
-# VCS_SHA/VCS_DIRTY/BUILD_DATE are computed by build.sh: for a local build from the
-# checkout's own git state (dirty = uncommitted changes in the tree that was COPYd), for a
-# --ref build from `git ls-remote` (never dirty, by construction).
-# ---------------------------------------------------------------------------------------
+# Build record: `docker inspect` answers "which image is this" from outside, the JSON inside.
 ARG TI_TOOLBOX_VERSION=dev
 ARG VCS_REF=unknown
 ARG VCS_SHA=unknown
@@ -382,8 +150,7 @@ ARG TI_TOOLBOX_REF=""
 RUN printf '{"version":"%s","sha":"%s","short":"%s","dirty":%s,"source":"%s","ref":"%s","date":"%s"}\n' \
         "${TI_TOOLBOX_VERSION}" "${VCS_SHA}" "${VCS_REF}" "${VCS_DIRTY}" \
         "${TI_TOOLBOX_SOURCE}" "${TI_TOOLBOX_REF}" "${BUILD_DATE}" \
-        > /etc/ti-toolbox-build.json \
-    && cat /etc/ti-toolbox-build.json
+        > /etc/ti-toolbox-build.json
 LABEL org.opencontainers.image.title="TI-Toolbox" \
       org.opencontainers.image.version="${TI_TOOLBOX_VERSION}" \
       org.opencontainers.image.revision="${VCS_SHA}" \

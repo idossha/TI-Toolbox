@@ -3,7 +3,7 @@
 #
 # Usage:
 #   ./build.sh [--tag IMAGE:TAG] [--ref GIT-REF]
-#              [--tetravox-tgz URL [--tetravox-sha256 HEX]] [--no-tetravox] [--no-cache]
+#              [--tetravox-tgz URL --tetravox-sha256 HEX] [--no-cache]
 #
 #   --tag                image:tag to build (default idossha/ti-toolbox:<version>-dev)
 #   --ref                build from `git clone <REF>` of github.com/idossha/TI-Toolbox instead
@@ -20,7 +20,6 @@
 #                        Required with --tetravox-tgz: the resolver reads the digest from the
 #                        release's own .tgz.sha256 asset, but a hand-given URL has no sidecar
 #                        to read, so the digest has to be given by hand too.
-#   --no-tetravox        bake the placeholder deliberately (an air-gapped build).
 #   --no-cache           pass --no-cache to docker build
 #
 # There is one recipe. Dockerfile.ti-toolbox.layered (a fast local build FROM
@@ -70,7 +69,6 @@ TAG=""
 TI_TOOLBOX_REF=""
 TETRAVOX_TGZ=""
 TETRAVOX_SHA256=""
-NO_TETRAVOX=""
 NO_CACHE=""
 OBSOLETE=""
 
@@ -80,7 +78,6 @@ while [ $# -gt 0 ]; do
         --ref|--ti-toolbox-ref) TI_TOOLBOX_REF="$2"; shift 2 ;;
         --tetravox-tgz) TETRAVOX_TGZ="$2"; shift 2 ;;
         --tetravox-sha256) TETRAVOX_SHA256="$2"; shift 2 ;;
-        --no-tetravox) NO_TETRAVOX=1; shift ;;
         --no-cache) NO_CACHE="--no-cache"; shift ;;
         # Retired flags, accepted so an old command line still builds.
         --layered|--from-scratch|--skip-ui-build) OBSOLETE="$OBSOLETE $1"; shift ;;
@@ -168,8 +165,8 @@ fi
 echo "build.sh: tag=$TAG version=$VERSION source=$SOURCE ref=${TI_TOOLBOX_REF:-<local>} sha=$VCS_SHA dirty=$VCS_DIRTY"
 
 # --- the same rule as the runtime updater, in bash + python3 stdlib -------------------------
-# The baked bundle is the *floor* the runtime can always fall back to (E2), so baking a
-# placeholder means a fresh, offline install has no viewer until someone installs one.
+# The baked bundle is the *floor* the runtime can always fall back to (E2), so a build that
+# cannot resolve one fails rather than shipping an image with no viewer.
 # Resolving it here uses exactly the rule tit/tetravox/updates.py uses at runtime: the newest
 # non-draft, non-prerelease release of idossha/tetravox carrying tetravox-embed-<ver>.tgz plus
 # its .tgz.sha256 and .manifest.json sidecars, whose manifest `protocol` is inside the range
@@ -180,9 +177,8 @@ echo "build.sh: tag=$TAG version=$VERSION source=$SOURCE ref=${TI_TOOLBOX_REF:-<
 # It prints "<url> <sha256>": the digest is the release's own .tgz.sha256 asset, and the
 # Dockerfile verifies it before opening the archive.
 #
-# Failure is never fatal: an unreachable API, a rate limit, or no release carrying the assets
-# all print one line and fall through to the placeholder, because a build that cannot reach
-# GitHub is still a build.
+# Failure here is fatal: the caller either passes --tetravox-tgz/--tetravox-sha256 or the
+# resolver finds a release.
 resolve_tetravox_tgz() {
     local min max
     min="$(grep -m1 '^SUPPORTED_PROTOCOL_MIN' "$REPO_ROOT/tit/tetravox/protocol.py" | sed -E 's/[^0-9]*([0-9]+).*/\1/')"
@@ -233,25 +229,17 @@ sys.exit(1)
 ' "$min" "$max"
 }
 
-if [ -z "$TETRAVOX_TGZ" ] && [ -z "$NO_TETRAVOX" ]; then
+if [ -z "$TETRAVOX_TGZ" ]; then
     echo "build.sh: resolving the newest compatible Tetravox embed release..."
     if resolved="$(resolve_tetravox_tgz)" && [ -n "$resolved" ]; then
         TETRAVOX_TGZ="${resolved%% *}"
         TETRAVOX_SHA256="${resolved##* }"
     else
-        TETRAVOX_TGZ=""
-        echo "build.sh: no compatible Tetravox embed release found (or GitHub unreachable);" \
-             "baking the placeholder. The app can still install a bundle at runtime." >&2
+        echo "build.sh: no compatible Tetravox embed release found (or GitHub unreachable); pass --tetravox-tgz with --tetravox-sha256 to bake a tarball you built yourself." >&2
+        exit 1
     fi
 fi
-if [ -n "$NO_TETRAVOX" ]; then
-    TETRAVOX_TGZ=""
-    TETRAVOX_SHA256=""
-    echo "build.sh: --no-tetravox: baking the placeholder embed."
-fi
-if [ -n "$TETRAVOX_TGZ" ]; then
-    echo "build.sh: baking $TETRAVOX_TGZ (sha256 ${TETRAVOX_SHA256:0:12}...)"
-fi
+echo "build.sh: baking $TETRAVOX_TGZ (sha256 ${TETRAVOX_SHA256:0:12}...)"
 
 build_args=(
     --platform linux/amd64

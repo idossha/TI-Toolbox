@@ -35,8 +35,8 @@ Build args (all filled in by `build.sh`): `TI_TOOLBOX_SOURCE` (`local` | `clone`
 `TI_TOOLBOX_REF` (the git ref the `clone` variant checks out), `CACHE_BUST` (force a fresh
 clone while keeping earlier layers cached), `TI_TOOLBOX_VERSION` / `VCS_REF` / `VCS_SHA` /
 `VCS_DIRTY` / `BUILD_DATE` (image labels and `/etc/ti-toolbox-build.json`), and
-`TETRAVOX_EMBED_TGZ` + `TETRAVOX_EMBED_SHA256` (the embed tarball and its digest; empty writes a
-placeholder `manifest.json`/`index.html` instead).
+`TETRAVOX_EMBED_TGZ` + `TETRAVOX_EMBED_SHA256` (the embed tarball and its digest; both are
+required — the build fails rather than shipping an image with no viewer).
 
 ### Build
 
@@ -46,7 +46,6 @@ placeholder `manifest.json`/`index.html` instead).
 ./build.sh --ref v3.0.0                      # a pushed ref, cloned from GitHub (CI/release)
 ./build.sh --tetravox-tgz http://host.docker.internal:8798/tetravox-embed-0.3.11.tgz \
            --tetravox-sha256 <hex>           # bake a tarball you built yourself (see below)
-./build.sh --no-tetravox                     # bake the placeholder deliberately (air-gapped)
 ```
 
 ### Where the source comes from
@@ -101,10 +100,10 @@ This is deliberately the same rule the running server applies at runtime
 (`tit/tetravox/updates.py`), so "what a fresh image ships" and "what a running install would
 update itself to" can never disagree about which release is incorporable.
 
-Failure is never fatal: an unreachable API, a GitHub rate limit (60 requests/hour/IP
-unauthenticated), or no release carrying the assets prints one line and falls through to the
-placeholder. The image is still usable — the app can install a bundle at runtime through
-Settings -> Viewer engine, and `/tetravox/` simply 404s until it does.
+Failure is fatal: an unreachable API, a GitHub rate limit (60 requests/hour/IP
+unauthenticated), or no release carrying the assets makes `build.sh` exit with one sentence
+telling you to pass `--tetravox-tgz` with `--tetravox-sha256`. The baked embed is the offline
+floor the runtime falls back to, so an image without one is not worth publishing.
 
 **Until a Tetravox release carries the embed assets (the first will be 0.3.12 or later —
 Tetravox PR #35), the resolver finds nothing and says so.** To bake a real embed today, build
@@ -267,3 +266,50 @@ apptainer build ti-toolbox.sif docker://idossha/simnibs:v2.3.1
 See `./apptainer_run.sh --help` for all options.
 
 Full documentation: [HPC Deployment Guide](../../docs/wiki/installation/hpc-apptainer.md)
+
+
+## What the image deliberately does not contain
+
+`Dockerfile.ti-toolbox` is a server image, so nothing in it exists for a human at a terminal
+and nothing in it draws on a screen. Removed on 2026-09-06 and the reasons, so they are not
+re-added by habit:
+
+- **Interactive tooling** — neovim (plus its `~/.config` symlink and `+LAZY! sync` step), tmux
+  and its config symlink, vim, tree, bats, GNU parallel, jq, bc, execstack, imagemagick. Nothing
+  under `tit/` invokes any of them; a server image has no interactive session to serve them.
+- **`python-lsp-server` / `jupyterlab-lsp` and the JupyterLab `overrides.json`** — completion in
+  the app's notebooks comes from the live kernel over `/ws/kernels/{id}` (`op: "complete"`,
+  `tit/server/routes/kernels.py`), not from a language server, and this image publishes no
+  JupyterLab to apply settings to.
+- **Compilers and autotools** — `build-essential`, `gcc`/`g++`(`-10`), `cmake`, `ninja-build`,
+  `libtool`, `autoconf`, `automake`, `pkg-config`, `libopenblas-dev`. Verified by building: every
+  pip requirement here resolves to a manylinux wheel, and SimNIBS ships its own interpreter and
+  BLAS.
+- **`gmsh`** — the 92 MB `libgmsh.so.4.14`, the `gmsh.py` ctypes wrapper, the `bin/gmsh`
+  launcher and the gmsh share/doc trees are deleted right after the SimNIBS install. The only
+  importer of the `gmsh` module in the whole environment is `simnibs/cli/gmsh_cli.py`, the GUI
+  launcher D3 retired; nothing else in `simnibs_env` links `libgmsh`. `simnibs/mesh_tools/
+  gmsh_view.py` — which `simnibs/simulation/sim_struct.py` and `tes_flex_optimization.py` *do*
+  import at module load — only writes `.opt` files and never imports the module, so simulation
+  and flex optimisation import and run without it.
+- **SimNIBS's HTML documentation** (38 MB) — read on the web, not in a container.
+- **`mesa-utils` / `mesa-va-drivers`, `gettext`, `locales`, `dos2unix`, `unzip`, `bzip2`** — no
+  caller. The remaining Mesa/EGL packages and the `libX*`/`libICE`/`libSM`/`libxkbcommon`
+  shared objects stay because they are `ldd` dependencies of `bpy`'s own `.so`; `import bpy`
+  fails without them. That is a linkage, not a display — there is still no X11 server here.
+
+Kept, with the reason, so these are not "cleaned up" next time:
+
+- **`bpy`** (821 MB) — `blender` is a live job kind (`tit/jobs/kinds.py`), and the montage,
+  region, vector and subcortical exporters under `tit/blender/` are the v3 visual pipeline.
+- **`docker-ce-cli`** — `tit/pre/qsi/utils.py` and `docker_builder.py` still shell out to the
+  `docker` CLI for QSIPrep/QSIRecon (Docker-out-of-Docker). It goes when that migrates onto
+  `tit/jobs/docker_engine.py`'s Engine-API client.
+- **`torchvision`** (8.9 MB) — FastSurfer's own pin; small enough not to be worth the fight.
+
+### Size, measured 2026-09-06
+
+| | Disk usage | Content size |
+|---|---|---|
+| before this pass | 19.5 GB | 5.88 GB |
+| after | 9.27 GB | 2.41 GB |
