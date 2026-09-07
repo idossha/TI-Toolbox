@@ -335,6 +335,24 @@ def group() -> dict:
     return catalog.group_catalog(_pm())
 
 
+@router.get(
+    "/api/catalog/group/stats/{name}",
+    summary="One group-statistics run: its inputs, its outcome and its files",
+)
+def group_stats(name: str, type: str = Query(...)) -> dict:
+    """Detail for one ``derivatives/ti-toolbox/stats/<type>/<name>/`` run.
+
+    ``group()`` above lists these by name and path only, which is all the Results tree
+    needs; the preview pane needs the run's inputs (groups, test, permutations,
+    threshold), its cluster table and its files, and -- for a run that failed before it
+    wrote anything -- the reason, so the pane can say why instead of showing one ``.log``.
+    """
+    return _or_404(
+        catalog.group_stats_detail(_pm(), type, name),
+        f"Unknown group-statistics run: {type}/{name}",
+    )
+
+
 @router.get("/api/catalog/notes", summary="Quick Notes content")
 def get_notes() -> dict:
     return catalog.read_notes(_pm())

@@ -1468,6 +1468,270 @@ def group_catalog(pm: PathManager) -> dict:
     return {"stats": stats, "nilearn": nilearn, "group_analyses": group_analyses}
 
 
+# ── group statistics detail ──────────────────────────────────────────────────
+
+#: Files a ``tit.stats`` run writes, in the order the Results pane shows them, with the
+#: label it shows them under. ``tit/stats/permutation.py`` names every one of these
+#: literally; there is no manifest, so this table IS the contract between the two.
+_STATS_FILE_LABELS = {
+    "average_responders.nii.gz": "Group 1 average field",
+    "average_non_responders.nii.gz": "Group 2 average field",
+    "difference_map.nii.gz": "Difference map (group 1 − group 2)",
+    "pvalues_map.nii.gz": "p-value map (−log10 p)",
+    "t_statistics_map.nii.gz": "t-statistic map",
+    "correlation_map.nii.gz": "Correlation map",
+    "correlation_map_thresholded.nii.gz": "Correlation map (thresholded)",
+    "average_efield.nii.gz": "Average field",
+    "significant_voxels_mask.nii.gz": "Significant-voxel mask",
+    "permutation_null_distribution.pdf": "Permutation null distribution",
+    "cluster_size_mass_correlation.pdf": "Cluster size vs mass",
+    "analysis_summary.txt": "Analysis summary",
+    "permutation_details.txt": "Permutation details",
+    "significant_clusters.csv": "Significant clusters",
+    "surface_maps.npz": "Surface maps",
+}
+
+_STATS_KIND_BY_EXT = {
+    ".pdf": "pdf",
+    ".png": "image",
+    ".csv": "csv",
+    ".txt": "text",
+    ".log": "log",
+    ".npz": "npz",
+    ".json": "json",
+}
+
+#: ``Config:   test=unpaired  alt=two-sided  stat=mass  threshold=0.050  perms=1000 ...``
+_STATS_CONFIG_LINE = re.compile(r"Config:\s+(.*)$")
+_STATS_CONFIG_FIELD = re.compile(r"(\w+)=(\S+)")
+#: ``Loaded 2 Responders: ['101', 'MNI152']``
+_STATS_LOADED_LINE = re.compile(r"Loaded (\d+) (.+?): \[(.*)\]$")
+_STATS_SHAPE_LINE = re.compile(r"Image shape: (\(.*?\))")
+#: ``  Cluster 3: mass=41.20, size=118, p=0.0230 (SIGNIFICANT)``
+_STATS_CLUSTER_LINE = re.compile(
+    r"Cluster (\d+): (\w+)=([-\d.eE+]+), size=(\d+), p=([\d.eE+-]+)\s*\((\w+)\)"
+)
+
+#: The outcome lines the engine logs, as (regex, [labels]) -- the run writes no machine-readable
+#: result file, so these are where the pane's "Key numbers" come from.
+_STATS_RESULT_LINES = [
+    (
+        re.compile(r"Min p=([\d.eE+-]+) over (\d+) testable voxel"),
+        ["Smallest uncorrected p", "Testable voxels"],
+    ),
+    (
+        re.compile(r"p<0\.05: (\d+)\s*\("),
+        ["Voxels at p < 0.05"],
+    ),
+    (
+        re.compile(r"Clusters at p<[\d.]+ \(uncorrected, sign-separated\): (\d+)"),
+        ["Candidate clusters"],
+    ),
+    (
+        re.compile(r"Threshold \(p<[\d.]+\): ([\d.eE+-]+) (\w+) units"),
+        ["Cluster threshold", None],
+    ),
+    (
+        re.compile(r"Significant: (\d+) clusters?, (\d+) voxels?"),
+        ["Significant clusters", "Significant voxels"],
+    ),
+]
+
+_STATS_CONFIG_LABELS = {
+    "test": "Test",
+    "alt": "Alternative",
+    "stat": "Cluster statistic",
+    "threshold": "Cluster-forming p",
+    "perms": "Permutations",
+    "alpha": "Cluster alpha",
+    "jobs": "Parallel jobs",
+}
+
+
+def _stats_log_path(run_dir: str) -> str | None:
+    """The newest ``*_analysis_<ts>.log`` in *run_dir*."""
+    try:
+        logs = sorted(n for n in os.listdir(run_dir) if n.endswith(".log"))
+    except OSError:
+        return None
+    return os.path.join(run_dir, logs[-1]) if logs else None
+
+
+def _parse_stats_log(text: str) -> dict:
+    """The run's inputs and its outcome, read from its own log.
+
+    ``tit.stats`` writes no machine-readable config into the output directory -- the job's
+    ``config.json`` lives under ``jobs/<job_id>/`` and is not reachable from the run
+    directory. The run log's own header lines carry every input the pane shows (the config
+    line, one ``Loaded N <group>: [ids]`` line per group, the image shape), and the cluster
+    lines carry the outcome, so they are the source here. Every field is optional: a log
+    truncated by a crash yields fewer rows, never a wrong one.
+    """
+    config: list[dict] = []
+    results: list[dict] = []
+    groups: list[dict] = []
+    clusters: list[list] = []
+    shape: str | None = None
+    error: str | None = None
+    for raw in text.splitlines():
+        line = raw.split(" | ")[-1].strip() if " | " in raw else raw.strip()
+        m = _STATS_CONFIG_LINE.search(line)
+        if m and not config:
+            for key, value in _STATS_CONFIG_FIELD.findall(m.group(1)):
+                config.append(
+                    {"label": _STATS_CONFIG_LABELS.get(key, key), "value": value}
+                )
+            continue
+        m = _STATS_LOADED_LINE.search(line)
+        if m:
+            ids = [s.strip().strip("'\"") for s in m.group(3).split(",") if s.strip()]
+            groups.append({"name": m.group(2), "n": int(m.group(1)), "subjects": ids})
+            continue
+        m = _STATS_SHAPE_LINE.search(line)
+        if m:
+            shape = m.group(1)
+            continue
+        m = _STATS_CLUSTER_LINE.search(line)
+        if m:
+            clusters.append(
+                [
+                    int(m.group(1)),
+                    float(m.group(3)),
+                    int(m.group(4)),
+                    float(m.group(5)),
+                    m.group(6),
+                ]
+            )
+            continue
+        for pattern, labels in _STATS_RESULT_LINES:
+            m = pattern.search(line)
+            if not m:
+                continue
+            for label, value in zip(labels, m.groups()):
+                if label and not any(r["label"] == label for r in results):
+                    results.append({"label": label, "value": value})
+        if "| ERROR |" in raw or raw.startswith("ERROR"):
+            error = line
+    stat_name = next(
+        (c["value"] for c in config if c["label"] == "Cluster statistic"), "mass"
+    )
+    return {
+        "config": config,
+        "results": results,
+        "groups": groups,
+        "image_shape": shape,
+        "clusters": (
+            {
+                "columns": ["Cluster", stat_name, "Size (voxels)", "p", "Verdict"],
+                "rows": clusters,
+            }
+            if clusters
+            else None
+        ),
+        "error": error,
+    }
+
+
+def group_stats_detail(pm: PathManager, analysis_type: str, name: str) -> dict | None:
+    """One ``derivatives/ti-toolbox/stats/<type>/<name>/`` run, read for the Results pane.
+
+    ``None`` when the run directory does not exist. ``status`` is ``"ok"`` once the run has
+    written something besides its log, and ``"empty"`` when it has not -- the state the
+    maintainer hit, where a failed 2-vs-1 group comparison left a bare ``.log`` and the pane
+    could say nothing about it. ``reason`` is then the log's own ERROR line, so the UI
+    reports why instead of showing an empty file list.
+    """
+    if "/" in analysis_type or "/" in name or ".." in (analysis_type, name):
+        return None
+    run_dir = os.path.join(pm.ti_toolbox(), "stats", analysis_type, name)
+    if not os.path.isdir(run_dir):
+        return None
+
+    try:
+        names = sorted(os.listdir(run_dir))
+    except OSError:
+        names = []
+
+    artifacts: list[dict] = []
+    for filename in names:
+        path = os.path.join(run_dir, filename)
+        if not os.path.isfile(path):
+            continue
+        if filename.endswith(".nii.gz") or filename.endswith(".nii"):
+            kind = "nifti"
+        else:
+            kind = _STATS_KIND_BY_EXT.get(os.path.splitext(filename)[1], "file")
+        artifacts.append(
+            {
+                "path": path,
+                "kind": kind,
+                "label": _STATS_FILE_LABELS.get(
+                    filename, os.path.splitext(filename)[0].replace("_", " ")
+                ),
+            }
+        )
+    # The run's own files first, in the order the labels table lists them; anything else after.
+    order = list(_STATS_FILE_LABELS)
+    artifacts.sort(
+        key=lambda a: (
+            order.index(os.path.basename(a["path"]))
+            if os.path.basename(a["path"]) in order
+            else len(order)
+        ,
+            a["path"],
+        )
+    )
+
+    log_path = _stats_log_path(run_dir)
+    parsed = {
+        "config": [],
+        "results": [],
+        "groups": [],
+        "image_shape": None,
+        "clusters": None,
+        "error": None,
+    }
+    if log_path:
+        try:
+            with open(log_path, encoding="utf-8", errors="replace") as f:
+                parsed = _parse_stats_log(f.read())
+        except OSError:
+            pass
+
+    clusters = parsed["clusters"]
+    csv_path = os.path.join(run_dir, "significant_clusters.csv")
+    if clusters is None and os.path.isfile(csv_path):
+        try:
+            clusters = _read_csv_table(csv_path)
+        except OSError:
+            clusters = None
+
+    produced = [a for a in artifacts if a["kind"] != "log"]
+    status = "ok" if produced else "empty"
+    reason = parsed["error"]
+    if status == "empty" and not reason:
+        reason = (
+            "This run wrote no output files. Its log is the only record; open it for the "
+            "last step it reached."
+        )
+
+    return {
+        "type": analysis_type,
+        "name": name,
+        "path": run_dir,
+        "created": _mtime_iso(run_dir),
+        "status": status,
+        "reason": reason,
+        "config": parsed["config"],
+        "results": parsed["results"],
+        "groups": parsed["groups"],
+        "image_shape": parsed["image_shape"],
+        "clusters": clusters,
+        "log": log_path,
+        "artifacts": artifacts,
+    }
+
+
 def read_notes(pm: PathManager) -> dict:
     """Quick Notes content (``derivatives/ti-toolbox/notes.txt``)."""
     path = os.path.join(pm.ti_toolbox(), "notes.txt")
