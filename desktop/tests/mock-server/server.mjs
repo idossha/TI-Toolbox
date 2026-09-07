@@ -77,7 +77,6 @@ const analyses = loadJson("analyses.json");
 const reports = loadJson("reports.json");
 const groupCatalog = loadJson("group_catalog.json");
 const subjectInfo = loadJson("subject_info.json");
-const subjectInfoFiles = loadJson("subject_info_files.json");
 const overviewSmall = loadJson("overview.json");
 const roisSeed = loadJson("rois_seed.json");
 const freehandSeed = loadJson("freehand_seed.json");
@@ -458,54 +457,6 @@ function subjectDetail(id) {
   const extra = subjectDetails[id];
   if (!base || !extra) return null;
   return { ...base, ...extra };
-}
-/**
- * `GET /api/subjects/{id}/info` (`tit/catalog.py::subject_info`), composed rather than seeded:
- * only the file lists come from a fixture of their own; the simulations, analyses, optimisation
- * runs, free-hand sets and reports are read out of the SAME fixtures the per-kind catalog routes
- * serve. The failure that prevents: a panel that says "2 simulations" while `/api/catalog/...`
- * says three, because two fixtures drifted apart.
- */
-function subjectInfoBody(id) {
-  const detail = subjectDetail(id);
-  if (!detail) return null;
-  const files = subjectInfoFiles[id] ?? {
-    sourcedata_files: [],
-    anat_files: [],
-    anat_modalities: [],
-    dwi_files: [],
-    m2m_dirs: [],
-  };
-  const sims = simulations[id] ?? [];
-  const byName = analyses[id] ?? {};
-  let nAnalyses = 0;
-  const simEntries = sims.map((sim) => {
-    const runs = (byName[sim.name] ?? []).map((a) => a.name);
-    nAnalyses += runs.length;
-    return {
-      name: sim.name,
-      has_ti: !!sim.has_ti,
-      has_mti: !!sim.has_mti,
-      n_meshes: (sim.meshes ?? []).length,
-      analyses: runs,
-      created: sim.created ?? "2026-08-01T10:00:00Z",
-    };
-  });
-  return {
-    ...detail,
-    sourcedata_files: files.sourcedata_files ?? [],
-    anat_files: files.anat_files ?? [],
-    anat_modalities: files.anat_modalities ?? [],
-    dwi_files: files.dwi_files ?? [],
-    m2m_dirs: files.m2m_dirs ?? [],
-    simulations: simEntries,
-    n_analyses: nAnalyses,
-    flex_search: (flexRuns[id] ?? []).map((r) => r.name),
-    ex_search: ((exRuns[id] ?? {}).ex ?? []).map((r) => r.run_name),
-    mex_search: ((exRuns[id] ?? {}).mex ?? []).map((r) => r.run_name),
-    freehand_configs: (freehand[id] ?? []).map((f) => f.name),
-    reports: (reports[id] ?? []).map((r) => r.id),
-  };
 }
 function montagesResponse() {
   const nets = {};
@@ -1907,11 +1858,6 @@ route("PUT", "/api/catalog/notes", async (ctx) => {
   json(ctx.res, 200, notes);
 });
 route("GET", "/api/catalog/subject-info", (ctx) => json(ctx.res, 200, subjectInfo));
-route("GET", "/api/subjects/:id/info", (ctx) => {
-  const body = subjectInfoBody(ctx.params.id);
-  if (!body) return json(ctx.res, 404, { detail: `Unknown subject: ${ctx.params.id}` });
-  json(ctx.res, 200, body);
-});
 // R1: the Overview page's one aggregate read. Deliberately the ONLY route this page needs -- a
 // spec counting requests here is counting the whole page.
 route("GET", "/api/catalog/overview", (ctx) => json(ctx.res, 200, overview));

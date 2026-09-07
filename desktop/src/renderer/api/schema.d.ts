@@ -594,48 +594,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/subjects/{id}/info": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Everything known about one subject -- anatomy, head model, runs, derivatives
-         * @description The Subject Info Viewer panel's one request. `SubjectDetail` plus the files and run directories the Qt extension `tit/gui/extensions/subject_info_viewer.py` used to scan for itself inside the GUI process: raw/anat/dwi files, the `m2m_*` directories, every simulation with its analyses, flex/ex/mEx run names, saved free-hand configs and report ids. Assembling the same picture from the per-kind `/api/catalog/*` routes is a dozen requests whose partial failures a user would have to interpret.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["SubjectInfo"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                404: components["responses"]["NotFound"];
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/catalog/electrode-overlays": {
         parameters: {
             query?: never;
@@ -4977,35 +4935,6 @@ export interface components {
             has_dwi: boolean;
             has_ct: boolean;
         };
-        /** @description One file on disk, named and sized -- never a path the browser could open. */
-        FileRef: {
-            name: string;
-            size_bytes: number;
-        };
-        SubjectSimulationInfo: {
-            name: string;
-            has_ti: boolean;
-            has_mti: boolean;
-            n_meshes: number;
-            analyses: string[];
-            created: string;
-        };
-        /** @description SubjectDetail plus everything on disk for that subject (Subject Info Viewer) */
-        SubjectInfo: components["schemas"]["SubjectDetail"] & {
-            sourcedata_files: components["schemas"]["FileRef"][];
-            anat_files: components["schemas"]["FileRef"][];
-            /** @description which of T1w/T2w/CT the anat directory actually holds */
-            anat_modalities: string[];
-            dwi_files: components["schemas"]["FileRef"][];
-            m2m_dirs: string[];
-            simulations: components["schemas"]["SubjectSimulationInfo"][];
-            n_analyses: number;
-            flex_search: string[];
-            ex_search: string[];
-            mex_search: string[];
-            freehand_configs: string[];
-            reports: string[];
-        };
         NiftiRef: {
             path: string;
             field: string;
@@ -5592,7 +5521,7 @@ export interface components {
         };
         Settings: {
             telemetry: components["schemas"]["Telemetry"];
-            /** @description enabled optional panels (Source, Cluster Permutation, NIfTI Group Average, Nilearn Visuals, Quick Notes, Subject Info, Electrode Placement) */
+            /** @description enabled optional panels (Source, Cluster Permutation, NIfTI Group Average, Nilearn Visuals, Quick Notes) */
             panels: string[];
             image_tag?: string | null;
             allow_unsafe_overrides: boolean;

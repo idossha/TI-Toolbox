@@ -992,7 +992,6 @@ def test_settings_accepts_every_known_panel(client: TestClient) -> None:
         "nifti-group-average",
         "nilearn-visuals",
         "quick-notes",
-        "subject-info",
         "visual-exporter",
     ]
     r = client.put(

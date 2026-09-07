@@ -48,7 +48,6 @@ _VALID_PANELS: frozenset[str] = frozenset(
         "nifti-group-average",
         "nilearn-visuals",
         "quick-notes",
-        "subject-info",
         "visual-exporter",
     }
 )

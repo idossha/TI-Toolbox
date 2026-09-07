@@ -203,6 +203,9 @@ test("GATE: first launch, Cmd+1, the rail and the palette all resolve to Overvie
   // 5. no Subject Info anywhere: not in the rail, not in the palette, not in Settings' panel list.
   // (`/panel-subject-info` itself falls through App's catch-all to the landing page, which is this
   // one — no page claims that id any more; `tests/unit/shell-registry.test.ts` holds that rule.)
+  //
+  // Briefly reinstated on 2026-09-06 and removed again the same day — maintainer: *"Remove the
+  // subject info extension. We absolutely do not need that, this is redundant."*
   expect(railIds).not.toContain("panel-subject-info");
   await openPalette(page);
   await page.getByTestId("palette-input").fill("subject info");
