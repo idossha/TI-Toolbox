@@ -964,6 +964,33 @@ The full CX6 gate table is in [`BENCHMARKS.md § External audit response`](BENCH
 ROADMAP row cites it. Headline: typecheck clean, lint 0 errors, vitest 1,304, host pytest 4,069,
 container subset 410, contracts and route-import guards clean, actionlint clean, mock e2e 317.
 
+### What the consolidation gate itself found
+
+Six of the reds were not in the audit at all; the gate found them because it ran the *whole*
+system, and each was fixed at its cause.
+
+- **`GET /api/settings` returned a document `PUT` refused.** `subject-info` stopped being a panel
+  on 2026-09-05, but any project whose `settings.json` still named it got it back verbatim and the
+  strict `PUT` validator answered 422 — so the Settings page, which is a read-modify-write of
+  exactly that document, could not save *anything*: not a theme, not a panel, not the image tag.
+  `6b26239d`.
+- **The participants header overflowed onto the next card.** `.participants-field-head`'s widest
+  state does not fit the split layout's left column and had no `flex-wrap`, so on the NIfTI panel
+  at 1280 px the Add button rendered at x=1048 against a column ending near 750 — on top of the
+  right column's card, where `elementFromPoint` at its own centre returned that card's header.
+  Visible, enabled, and unclickable. `d9773780`.
+- **An empty `valid_mask` crashed in a numpy reduction.** SCI-06's degenerate exclusion made an
+  all-empty mask reachable, and the caller's `np.min(p_values[valid_mask])` then raised
+  "zero-size array to reduction operation minimum" — a traceback that says nothing about the data.
+  It now names which of the two causes happened. `22129a34`.
+- Plus the `test_scene_guide` order dependency (`c799e7e2`), 17 `no-undef` errors from an unlinted
+  `scripts/` directory (`f1ea7fcf`), and 17 `actionlint` findings (`a8422ca1`).
+
+Three real specs were stale rather than wrong about the app: the NIfTI and Nilearn panel specs
+never enabled their own panel (`4aeca028`), and both the `ex` and `flex` specs asserted line 2's
+*essentials* against line 2's *target* locator (`50b54000`). `mex.spec.ts` is left red on purpose
+— it is written against the pre-jobs-table Optimizer throughout, and repairing it is a rewrite.
+
 ### Gotchas
 
 - **A test that writes `sys.modules` without `monkeypatch` is a time bomb for every later test in
@@ -991,3 +1018,10 @@ container subset 410, contracts and route-import guards clean, actionlint clean,
 - **`electron-builder`'s `files:` is not "what the repository contains".** `docker/**` was outside
   it while `src/main/stack.ts` reads `docker/docker-compose.v3.yml` from `app.getAppPath()` at every
   stack start. Every packaged build would have failed on first launch.
+- **A whole-system gate finds a different class of defect from a test suite.** Three of the six
+  reds above — a Settings page that could not save, a button covered by another card, a
+  statistics job dying in a numpy reduction — were invisible to 4,073 unit tests and 317 mock e2e
+  tests, and each took a real server, a real window at a real size, or real data to surface.
+- **A `toHaveText` that never matched is not a flake.** Two real specs asserted a string that no
+  version of the row has ever produced in that span. They looked like environment trouble because
+  they only ever ran in the real leg, which no lane ran on every change.

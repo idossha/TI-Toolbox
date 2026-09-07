@@ -253,7 +253,16 @@ with its full detail is in `docs/dev/ROADMAP.md`.
 | Route imports | `dev/route_import_guard.py` | 23 modules clean, 9.5–62.8 ms each |
 | Workflows | `actionlint .github/workflows/*.yml` | clean (was 17 findings in `python-security.yml`) |
 | Mock e2e | `TIT_E2E_OFFSCREEN=1 npm run e2e:quiet -- --workers=1` | **317 passed**, 2 skipped, 4.4 min, no window reached the screen |
+| Real e2e | `npx playwright test --project=real` against the dev container | **39 of 40 passed**, 28 min; the one red is `mex.spec.ts`, written against the pre-jobs-table Optimizer (ROADMAP) |
 | Viewer Open, mock | `viewer.spec.ts` | click → response 23 ms, response → scene on screen 16 ms |
+
+Six reds the gate found and fixed, each at its cause: the `test_scene_guide` order dependency
+(`c799e7e2`), 17 `no-undef` lint errors from an unlinted `scripts/` directory (`f1ea7fcf`), 17
+`actionlint` findings in `python-security.yml` (`a8422ca1`), `GET /api/settings` returning a
+document `PUT` refused so Settings could not save at all (`6b26239d`), the participants header
+overflowing onto the next card so its Add button was unclickable (`d9773780`), and an empty
+`valid_mask` crashing in a numpy reduction (`22129a34`). Three test-side fixes:
+`379c7f6f`, `4aeca028`, `50b54000`.
 
 Gate progression across the program's four consolidation passes: host pytest 3,662 → 3,970 →
 **4,069 passed**; desktop vitest 1,039 → 1,275 → **1,304** across 88 → 105 → **109** files;
