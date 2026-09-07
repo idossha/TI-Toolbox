@@ -399,8 +399,8 @@ function ViewerPage() {
           <header className="viewer-panel-head">
             <h1 className="viewer-panel-title">Open in viewer</h1>
             <p className="viewer-panel-lede">
-              Pick a source, edit the list of files it resolves to, and <strong>Open in viewer</strong> — the scene is drawn in the{" "}
-              <strong>Viewer</strong> tab above, by the Tetravox engine that ships inside the toolbox image. Nothing to install.
+              Pick a source, edit the list of files it resolves to, and <strong>Open in viewer</strong> — the scene is drawn under{" "}
+              <strong>Tetravox</strong> in the rail, by the engine that ships inside the toolbox image. Nothing to install.
             </p>
           </header>
 
@@ -820,8 +820,8 @@ function ViewerPage() {
           <div className="viewer-empty" data-testid="viewer-empty">
             <p className="viewer-empty-title">Nothing is open yet</p>
             <p className="viewer-empty-text">
-              Build a scene in the <strong>Menu</strong> and press <strong>Open in viewer</strong>. It appears here, in this window — there is
-              nothing to install.
+              Build a scene under <strong>Menu</strong> and press <strong>Open in viewer</strong>. It appears here, in this window — there
+              is nothing to install.
             </p>
             <Button variant="primary" size="sm" onClick={() => setSub("menu")} data-testid="viewer-empty-menu">
               Go to the menu
