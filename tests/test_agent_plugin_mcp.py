@@ -116,11 +116,14 @@ class TestWikiTools:
 
     def test_changelog_and_version(self, srv):
         err, v = _call(srv, "get_toolbox_version")
-        assert not err and v["version"].count(".") == 2
-        err, out = _call(srv, "read_changelog", version=v["version"])
-        assert not err and out["version"] == f"v{v['version']}"
+        assert not err and v["tit_version"].count(".") == 2
+        assert v["desktop_version"] and v["in_lockstep"] is (
+            v["tit_version"].split("-")[0] == v["desktop_version"].split("-")[0]
+        )
+        err, out = _call(srv, "read_changelog", version=v["tit_version"])
+        assert not err and out["version"] == f"v{v['tit_version']}"
         err, out = _call(srv, "read_changelog", max_versions=2)
-        assert not err and out["versions_available"][0] == f"v{v['version']}"
+        assert not err and f"v{v['tit_version']}" in out["versions_available"]
 
 
 class TestSourceTools:
