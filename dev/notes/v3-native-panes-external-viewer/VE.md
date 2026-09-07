@@ -319,6 +319,39 @@ The old spec asserted `dryRun > 0` on an edit and passed; it now asserts `0` req
 inversion is the fail-first evidence for the client half.
 
 
+### 4.7 Three follow-ups, and the one that was a real bug
+
+**The first Open drew nothing until Reload — root cause `disconnect()` nulling `pendingScene`.**
+The frame is mounted only once there is something to show, so the *first* Open of a session calls
+`loadScene` while `channel` is still null: nothing is posted, and the scene can only arrive through
+the `ready` handler. React then runs the mount effect's cleanup, `disconnect()` set
+`pendingScene = null`, and `ready` had nothing left to post. Reload "fixed" it because Reload calls
+`loadScene` again, this time with a channel already open — which is exactly why the symptom looked
+like a rendering problem and was a state-ownership one. `pendingScene` is the host's *intent*, not
+a property of the channel.
+
+**It is dev-only, and that is why the suite never saw it.** React StrictMode double-invokes effects
+— mount, clean up, mount — in a development build and not in a production one, and Playwright runs
+the production bundle. Reintroducing the null and re-running `viewer.spec.ts` leaves it **green**
+(measured, not assumed); the same null makes the store unit test fail red. So the test that pins
+this defect is the unit one, which drives mount/cleanup/mount directly, and the e2e keeps the
+property instead: a fresh app, one Open, exactly one `load` message, a scene on screen, no Reload.
+The maintainer runs `npm run dev`, which is the whole difference between "every time" and "never".
+
+This is the second time today a Viewer defect was invisible to a passing suite (the first was the
+1224×0 pane, §5.7). Both had the same shape: everything reported success and nothing was on screen.
+
+**The rail group no longer takes the page highlight.** A group row is a plain `Link`, not a
+`NavLink` — deliberately, because `NavLink` would set `aria-current="page"` on "Viewer" while
+"Menu" already has it, and two lit rows for one screen is a rail that cannot be read at a glance.
+The group gets `data-contains-active`, drawn as a semibold label and nothing else.
+
+**The group collapses**, with a chevron beside the label rather than inside it: a `<button>` nested
+in an `<a>` is invalid, and "go to this page" and "show me what is under it" are different intents.
+`aria-expanded` on the chevron, `aria-controls` naming the sub-item list, state persisted per
+browser in `localStorage` (a per-viewer convenience, so a throw just means every group starts
+expanded). Clicking the label still opens Menu — collapsing is not disabling.
+
 ### 4.6 Where this lane's commits actually are
 
 `e7004efe` (the restore), `1b4e7f0a` + `d057d448` (records), `d82db13d` (the rail sub-items),
@@ -360,6 +393,18 @@ what is left is a 30–60+ minute SimNIBS install on a 2 vCPU / 8 GB `machine` e
 `no_output_timeout`. The job is left declared, with the gap stated in its own header, rather than
 deleted — an invisible gap is worse than a red one. It needs a larger executor, a nightly trigger,
 or a published base image to build from.
+
+**5.7 The suite is blind to "reported success, nothing on screen."** Twice today (§4.7): a pane
+with zero height, and a scene that was never posted. Both passed every assertion that was not a
+visibility check. The pattern is worth a rule — a viewer test that does not assert something is
+*visible* is asserting that the plumbing ran, which is not what anyone wants to know.
+
+**5.8 Disk filled during the gate.** Docker's VM image is **296 GB**
+(`~/Library/Containers/com.docker.docker/Data/vms`) and the daemon went down with the disk at
+0 bytes free, which is also why the second image-build attempt and the final offscreen e2e run
+could not complete. This lane's own footprint was ~5 MB. Reclaiming it is the maintainer's call:
+`docker builder prune -af` / `docker system prune` once the daemon restarts, since the dev
+container and its images are in there.
 
 **5.5 The `+ Add…` picker cannot restore a row it did not offer.** It lists the catalogue; a file
 the *view type* produced but the catalogue does not carry (a simulation output) can be removed and
