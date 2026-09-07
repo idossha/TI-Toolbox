@@ -6,7 +6,7 @@
 > `dev/notes/v3-program-history.md` § 2026-09-03 — UI program.
 
 Companion to `desktop/DESIGN.md` v3 (§2 layouts, §4.5 run panel, §4.6 terminal, §9 nav, §10 viewer,
-§11 status bar, §12 dev loop) and to the decisions U1–U10 in `dev/notes/v3-ui-program.md`. Every
+§11 status bar, §12 dev loop) and to the decisions U1-U10 summarised in `dev/notes/v3-program-history.md` (2026-09-03). Every
 frame below is what a build lane implements; every number under a frame is what its round measures.
 
 **Scale.** Horizontally **1 character = 10 px**, so a 1280 window is 128 characters and a 1440
