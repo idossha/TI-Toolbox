@@ -90,3 +90,68 @@ test("the shared console overflows in both axes, scrolls, and clears without tou
   await expect(follow).toHaveAttribute("aria-checked", "false");
   await expect(console_.getByLabel("Filter log lines")).toHaveValue("");
 });
+
+/**
+ * The overlap bug, measured rather than eyeballed (maintainer's screenshot of a live `sim · 101`:
+ * "Placing Electrode:", "Using isotropic conductivities" and "Assembling FEM Matrix" drawn on top
+ * of one another in blocks).
+ *
+ * Cause: one server event can carry a whole multi-line block, and the virtual list positions every
+ * item absolutely at `index * 18px` — so an item holding nine lines of text painted over the eight
+ * rows beneath it. The gallery's console is built through the same `jobEventsToLogLines` transform
+ * from the same event shapes, including a real "Placing Electrode:" chunk, a `\r` progress counter
+ * and a 500-character path.
+ *
+ * The assertion is geometric and pairwise: no two rendered lines may share any vertical space, and
+ * no line may be taller than its 18 px row. Both are things only a real layout can answer.
+ */
+test("no two rendered log lines overlap, with follow on and after scrolling", async () => {
+  await gotoPage(page, "dev", "Gallery");
+  const console_ = page.getByTestId("gallery-job-console");
+  await console_.scrollIntoViewIfNeeded();
+  const lines = console_.locator(".job-console-lines");
+  await expect(lines).toBeVisible();
+
+  async function assertNoOverlap(where: string): Promise<number> {
+    const boxes = await console_.locator(".job-console-line").evaluateAll((els) =>
+      els.map((el) => {
+        const r = el.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom, text: (el.textContent ?? "").slice(0, 60) };
+      }),
+    );
+    expect(boxes.length, `${where}: rows are rendered`).toBeGreaterThan(3);
+    for (const box of boxes) {
+      // A row taller than its slot is the overlap waiting to happen.
+      expect(box.bottom - box.top, `${where}: "${box.text}" fits its 18px row`).toBeLessThanOrEqual(18.5);
+    }
+    const sorted = [...boxes].sort((a, b) => a.top - b.top);
+    for (let i = 1; i < sorted.length; i++) {
+      const prev = sorted[i - 1]!;
+      const next = sorted[i]!;
+      // Half a pixel of tolerance for sub-pixel layout; anything more is text over text.
+      expect(next.top, `${where}: "${next.text}" starts below "${prev.text}"`).toBeGreaterThanOrEqual(prev.bottom - 0.5);
+    }
+    return boxes.length;
+  }
+
+  // Follow is on by default, so this is the state the maintainer was looking at: parked at the
+  // tail of a stream. Scrolling back through the history must be just as clean.
+  await assertNoOverlap("at the tail");
+  await lines.evaluate((el) => {
+    el.scrollTop = Math.round(el.scrollHeight / 2);
+    el.dispatchEvent(new Event("scroll"));
+  });
+  await assertNoOverlap("mid-history");
+  await lines.evaluate((el) => {
+    el.scrollTop = 0;
+    el.dispatchEvent(new Event("scroll"));
+  });
+  await assertNoOverlap("at the top");
+
+  // The head of the transcript is where the multi-line event is, and it really did become one row
+  // per line — while the `\r` progress counter collapsed to what a terminal would have left on
+  // screen instead of becoming three rows.
+  await expect(console_.getByText("definition: plane", { exact: true })).toHaveCount(1);
+  await expect(console_.getByText("meshing 100 %", { exact: true })).toHaveCount(1);
+  await expect(console_.getByText("meshing 1 %", { exact: true })).toHaveCount(0);
+});

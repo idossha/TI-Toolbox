@@ -19,15 +19,15 @@
 import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { JobConsole } from "../../ui/Jobs";
-import { jobEventsToLogLines, mergeJobEvents, type JobLogLine } from "../jobs/logLines";
+import { jobEventsToLogLines, mergeJobEvents, splitLogText, type JobLogLine } from "../jobs/logLines";
 import { subscribeJob, unsubscribeJob, useJobsStream } from "../jobs/useJobsStream";
 import { getJobEvents, getJobLog, TERMINAL_STATES, type JobStatus } from "./api";
 import { reveal } from "./reveal";
 
 function fileToLogLines(text: string): JobLogLine[] {
-  const lines = text.split(/\r?\n/);
-  while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
-  return lines.map((text, i) => ({ seq: i, text }));
+  // One row per VISUAL line, `\r` progress counters collapsed — the console's rows are a fixed
+  // 18 px, so a "line" holding an embedded newline paints over the rows below it.
+  return splitLogText(text).map((text, i) => ({ seq: i, key: `f${i}`, text }));
 }
 
 export function JobRawLog({ job }: { job: JobStatus }) {

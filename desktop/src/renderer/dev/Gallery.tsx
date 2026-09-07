@@ -28,6 +28,8 @@ import { VirtualList } from "../ui/VirtualList";
 import { DataTable, type DataTableColumn } from "../ui/DataTable";
 import { LineChart, Sparkline } from "../ui/Chart";
 import { ArtifactList, JobConsole, JobTrace, JobsTable, type JobLogLine, type JobSummary } from "../ui/Jobs";
+import { jobEventsToLogLines } from "../app/jobs/logLines";
+import type { JobEvent } from "../app/jobs/types";
 import { SceneGallery } from "./SceneGallery";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -96,19 +98,41 @@ const DEMO_CHART_BASE_TS = Date.now() / 1000;
 const DEMO_CHART_TIMESTAMPS = Array.from({ length: 30 }, (_, i) => DEMO_CHART_BASE_TS - (30 - i) * 2);
 const DEMO_CHART_VALUES = Array.from({ length: 30 }, () => 20 + Math.random() * 60);
 
-const DEMO_LOG_LINES: JobLogLine[] = [
-  { seq: 1, level: "info", text: "[stage] head modelling started" },
-  { seq: 2, level: "debug", text: "charm --forceqform sub-101" },
-  { seq: 3, level: "warning", text: "low contrast in T1 near vertex" },
-  { seq: 4, level: "error", text: "charm exited 1: see log for details" },
-  ...Array.from({ length: 96 }, (_, index): JobLogLine => ({
-    seq: index + 5,
+/*
+ * Built through the real transform (`jobEventsToLogLines`) from the shapes a real server sends,
+ * because that is where the console's one hard invariant lives: ONE ITEM PER VISUAL LINE. A single
+ * SimNIBS event carries a whole multi-line block ("Placing Electrode:" and its eight fields), and
+ * the virtual list gives every item exactly 18 px — so an unsplit block used to paint over the
+ * lines below it (`tests/e2e/terminal.spec.ts` measures that no two rows overlap).
+ */
+const DEMO_LOG_EVENTS: JobEvent[] = [
+  { seq: 1, ts: 1, type: "log", level: "info", msg: "[stage] head modelling started" },
+  { seq: 2, ts: 2, type: "log", level: "debug", msg: "charm --forceqform sub-101" },
+  { seq: 3, ts: 3, type: "log", level: "warning", msg: "low contrast in T1 near vertex" },
+  { seq: 4, ts: 4, type: "log", level: "error", msg: "charm exited 1: see log for details" },
+  {
+    seq: 5,
+    ts: 5,
+    type: "log",
     level: "info",
-    text: index === 95
-      ? `long command ${"--electrode-position 123.456,789.012,-345.678 ".repeat(12)}`
-      : `worker output ${index + 5}`,
+    msg: "Placing Electrode:\ndefinition: plane\nshape: ellipse\ncentre: E034\npos_ydir: []\ndimensions: [8, 8]\nthickness:[4, 2.0]\nchannelnr: 1\nnumber of holes: 0\n",
+  },
+  { seq: 6, ts: 6, type: "log", level: "info", msg: "meshing 1 %\rmeshing 47 %\rmeshing 100 %" },
+  ...Array.from({ length: 120 }, (_, index): JobEvent => ({
+    seq: index + 7,
+    ts: index + 7,
+    type: "log",
+    level: "info",
+    msg:
+      index === 119 || index % 20 === 19
+        ? `long command ${"--electrode-position 123.456,789.012,-345.678 ".repeat(12)}`
+        : index % 7 === 6
+          ? `[ simnibs ] INFO: Running Simulation ${index} of 75\n[ simnibs ] INFO: Time to set up KSP:   2.5794 s\n[ simnibs ] INFO: Time to solve:   5.8715 s`
+          : `worker output ${index + 7}`,
   })),
 ];
+
+const DEMO_LOG_LINES: JobLogLine[] = jobEventsToLogLines(DEMO_LOG_EVENTS);
 
 export function Gallery() {
   const { theme, setTheme } = useThemeStore();

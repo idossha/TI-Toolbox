@@ -1811,9 +1811,12 @@ kbd.kbd {
 .job-console-line {
   display: flex;
   gap: var(--space-2);
-  white-space: pre; /* virtual rows have a fixed height: never wrap, scroll sideways instead */
-  word-break: break-word;
+  /* Virtual rows are a fixed 18 px, so a line must occupy exactly one of them: never wrap (the
+     list scrolls sideways instead), and never grow past one line's height. `word-break` was here
+     and contradicted `pre`; a row is kept to one visual line upstream, by `splitLogText`. */
+  white-space: pre;
   line-height: 18px;
+  height: 18px;
 }
 .job-console-line-error {
   color: var(--danger);

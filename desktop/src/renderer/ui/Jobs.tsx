@@ -142,6 +142,7 @@ function JobConsoleSource({
           items={filtered}
           rowHeight={18}
           followTail={follow}
+          getRowKey={(line, i) => line.key ?? `i${i}`}
           renderRow={(line) => (
             <div className={cn("job-console-line", line.level === "error" && "job-console-line-error", line.level === "warning" && "job-console-line-warning", line.level === "debug" && "job-console-line-debug")}>
               {line.text}
