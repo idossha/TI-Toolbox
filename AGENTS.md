@@ -11,8 +11,7 @@ optimization and analysis, built on SimNIBS. As of **v3.0.0** it is three pieces
 - an **Electron desktop app** on the host (`desktop/`, React + TypeScript strict + Vite),
 - a **FastAPI job server** (`tit/server`) inside one Docker image (`idossha/ti-toolbox`), owning the
   job model — queue, dependencies, locks, budget, live events, cancellation,
-- the **`tit` Python package** — the only place scientific logic lives, and still usable from
-  Jupyter and scripts exactly as before.
+- the **`tit` Python package** — the only place scientific logic lives, still usable from scripts.
 
 The PyQt5 GUI (`tit/gui/`) was **deleted** in v3.0.0. `tit` imports no Qt; the core image ships no
 X11 and no FreeSurfer. Wire contract: `contracts/openapi.v1.yaml`.
@@ -48,11 +47,10 @@ agent-plugin/   installable skills + a read-only MCP server for AI clients
 | How does it ship, and what is still open? | `docs/dev/RELEASE.md` (§A ship, §B open) |
 | What did v2.x get numerically wrong? | `docs/dev/SCIENTIFIC-CORRECTIONS.md` |
 
-**Where a new fact goes.** A measurement → `BENCHMARKS.md`. A decision → `DECISIONS.md` as
-**Decision / Why / Cost / Revisit if**, plus the `ARCHITECTURE.md` edit in the same commit. A gate
-result → the gate table in `BENCHMARKS.md` with the command that produced it. Something not done,
-and why → `RELEASE.md` §B. What happened in a program →
-a dated section of `HISTORY.md`. A contract change → `contracts/SCHEMA-CHANGES.md`.
+**Where a new fact goes.** A measurement or a gate result → `BENCHMARKS.md`, with the command. A
+decision → `DECISIONS.md` as **Decision / Why / Cost / Revisit if**, plus the `ARCHITECTURE.md` edit
+in the same commit. Something not done, and why → `RELEASE.md` §B. What happened in a program → a
+dated section of `HISTORY.md`. A contract change → `contracts/SCHEMA-CHANGES.md`.
 
 **Never write a per-lane note file, and never add a file to `docs/dev/`.** About 120 accumulated in eleven days, each citing the others,
 and no reader could tell which were still true. Record numbers and decisions; delete your scratch.
