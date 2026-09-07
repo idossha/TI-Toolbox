@@ -174,7 +174,15 @@ class KernelSession:
     display_name: str = ""
     language: str = ""
     started_at: float = field(default_factory=time.time)
+    #: When this kernel last FINISHED work — stamped on submission and again
+    #: on completion, so the idle clock measures time since a cell ended
+    #: rather than time since it began. A cell longer than the idle timeout
+    #: used to have its own interpreter reaped underneath it.
     last_used: float = field(default_factory=time.time)
+    #: Requests submitted and not yet concluded. Incremented under the
+    #: REGISTRY lock, which is also what the reaper holds, so a kernel cannot
+    #: be selected for reaping between `get` and the submission that follows.
+    in_flight: int = 0
     execution_state: str = "idle"
     #: shell msg_id -> the renderer's request id, so an output can be pinned
     #: to the cell that asked for it even while several cells are queued.
@@ -226,11 +234,18 @@ class KernelRegistry:
         *,
         max_kernels: int = MAX_KERNELS,
         idle_timeout: float = IDLE_TIMEOUT_SECONDS,
+        clock: Callable[[], float] = time.time,
     ) -> None:
         self._sessions: dict[str, KernelSession] = {}
         self._lock = threading.Lock()
         self.max_kernels = max_kernels
         self.idle_timeout = idle_timeout
+        #: Injectable so a test can age a kernel without sleeping.
+        self._clock = clock
+        #: Slots reserved by a start that has not registered its session yet.
+        #: Counted against the cap: startup takes seconds, and without this N
+        #: concurrent starts all passed a check none of them had yet answered.
+        self._starting = 0
 
     # ---- lifecycle ------------------------------------------------------
 
@@ -238,13 +253,23 @@ class KernelRegistry:
         """Start a kernel, or raise :class:`KernelError` saying why not."""
         self.reap_idle()
         with self._lock:
-            if len(self._sessions) >= self.max_kernels:
+            if len(self._sessions) + self._starting >= self.max_kernels:
                 raise KernelError(
                     "too-many-kernels",
                     f"{self.max_kernels} kernels are already running, which is the limit "
                     f"for one TI-Toolbox container. Shut one down and try again.",
                 )
+            self._starting += 1
+        try:
+            return self._start_reserved(cwd, kernel_name)
+        finally:
+            # Released whether the start succeeded, raised, or the session is
+            # already registered: the reservation only has to cover the gap.
+            with self._lock:
+                self._starting -= 1
 
+    def _start_reserved(self, cwd: str | Path, kernel_name: str) -> KernelSession:
+        """Start a kernel for a slot already reserved against the cap."""
         try:
             from jupyter_client.manager import KernelManager
         except ImportError:  # pragma: no cover - the image installs it
@@ -285,6 +310,8 @@ class KernelRegistry:
             client=client,
             display_name=getattr(spec, "display_name", "") or kernel_name,
             language=getattr(spec, "language", "") or "",
+            started_at=self._clock(),
+            last_used=self._clock(),
         )
         with self._lock:
             self._sessions[session.id] = session
@@ -375,12 +402,25 @@ class KernelRegistry:
         logger.info("kernel %s shut down", session.id)
 
     def reap_idle(self) -> list[str]:
-        """Shut down kernels nobody has used lately. Returns their ids."""
+        """Shut down kernels nobody has used lately. Returns their ids.
+
+        *Idle* means no request in flight and not executing — a cell that runs
+        for longer than the timeout is work, not neglect, and reaping it kills
+        the interpreter that is doing it. Selection and removal happen in the
+        same critical section as :meth:`_begin_request`, so a kernel cannot be
+        chosen here and handed a cell in the same instant.
+        """
         if self.idle_timeout <= 0:
             return []
-        cutoff = time.time() - self.idle_timeout
+        cutoff = self._clock() - self.idle_timeout
         with self._lock:
-            stale = [s for s in self._sessions.values() if s.last_used < cutoff]
+            stale = [
+                s
+                for s in self._sessions.values()
+                if s.in_flight == 0
+                and s.execution_state not in ("busy", "starting")
+                and s.last_used < cutoff
+            ]
             for session in stale:
                 self._sessions.pop(session.id, None)
         for session in stale:
@@ -390,12 +430,33 @@ class KernelRegistry:
 
     # ---- operations -----------------------------------------------------
 
+    def _begin_request(self, session: KernelSession) -> None:
+        """Claim the kernel for one request, or say it is gone.
+
+        Taken under the registry lock so it cannot interleave with
+        :meth:`reap_idle`: either the reaper has already removed the session,
+        and this raises, or the request is counted and the reaper skips it.
+        """
+        with self._lock:
+            if self._sessions.get(session.id) is not session:
+                raise KernelError("no-such-kernel", f"No kernel {session.id!r} is running.")
+            session.in_flight += 1
+            session.last_used = self._clock()
+
+    def _end_request(self, session: KernelSession) -> None:
+        """One request concluded: the idle clock starts HERE."""
+        with self._lock:
+            if session.in_flight > 0:
+                session.in_flight -= 1
+            session.last_used = self._clock()
+
     def execute(self, kernel_id: str, req_id: str, code: str) -> None:
         session = self.get(kernel_id)
-        session.last_used = time.time()
+        self._begin_request(session)
         try:
             msg_id = session.client.execute(code, store_history=True, allow_stdin=False)
         except Exception as error:
+            self._end_request(session)
             raise KernelError("op-failed", f"execute: {error}") from error
         with session.lock:
             session.pending[msg_id] = req_id
@@ -409,10 +470,11 @@ class KernelRegistry:
         ``tit.<Tab>`` lists what `tit` actually holds in that interpreter.
         """
         session = self.get(kernel_id)
-        session.last_used = time.time()
+        self._begin_request(session)
         try:
             msg_id = session.client.complete(code, cursor_pos)
         except Exception as error:
+            self._end_request(session)
             raise KernelError("op-failed", f"complete: {error}") from error
         with session.lock:
             session.queries[msg_id] = (req_id, "complete")
@@ -420,17 +482,18 @@ class KernelRegistry:
     def inspect(self, kernel_id: str, req_id: str, code: str, cursor_pos: int, detail: int = 0) -> None:
         """Ask the kernel about the name under the cursor (Jupyter's ⇧⇥)."""
         session = self.get(kernel_id)
-        session.last_used = time.time()
+        self._begin_request(session)
         try:
             msg_id = session.client.inspect(code, cursor_pos, detail_level=detail)
         except Exception as error:
+            self._end_request(session)
             raise KernelError("op-failed", f"inspect: {error}") from error
         with session.lock:
             session.queries[msg_id] = (req_id, "inspect")
 
     def interrupt(self, kernel_id: str) -> None:
         session = self.get(kernel_id)
-        session.last_used = time.time()
+        session.last_used = self._clock()
         try:
             session.manager.interrupt_kernel()
         except Exception as error:
@@ -446,7 +509,10 @@ class KernelRegistry:
         they did, until the socket teardown underneath aborted the process.
         """
         session = self.get(kernel_id)
-        session.last_used = time.time()
+        session.last_used = self._clock()
+        with self._lock:
+            # Nothing survives a restart, so nothing is in flight afterwards.
+            session.in_flight = 0
         with session.lock:
             session.pending.clear()
             session.finishing.clear()
@@ -520,6 +586,7 @@ class KernelRegistry:
             session.finishing.pop(parent_id, None)
         if req_id is None:  # pragma: no cover - popped by a restart
             return None
+        self._end_request(session)
         reply = state.get("content", {})
         return {
             "type": "reply",
@@ -604,6 +671,7 @@ class KernelRegistry:
                     query = session.queries.pop(parent_id, None)
                 if query is None:
                     continue
+                self._end_request(session)
                 self._emit(session, _query_event(query[0], msg_type, msg.get("content", {})))
                 continue
             if msg_type != "execute_reply":

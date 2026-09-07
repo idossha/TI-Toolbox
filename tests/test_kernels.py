@@ -55,6 +55,15 @@ class FakeClient:
         self.channels_started = False
         self.ready_waits = 0
         self._seq = 0
+        #: (msg_id, execution_count) of cells started with the code "block".
+        self.blocked: list[tuple[str, int]] = []
+
+    def finish(self, msg_id: str, count: int) -> None:
+        """End a cell started with the code "block"."""
+        self.iopub.put(self._msg("status", {"execution_state": "idle"}, msg_id))
+        self.shell.put(
+            self._msg("execute_reply", {"status": "ok", "execution_count": count}, msg_id)
+        )
 
     def start_channels(self) -> None:
         self.channels_started = True
@@ -81,6 +90,12 @@ class FakeClient:
         count = self.manager.execution_count
         self.iopub.put(self._msg("status", {"execution_state": "busy"}, msg_id))
         self.iopub.put(self._msg("execute_input", {"execution_count": count}, msg_id))
+        if code == "block":
+            # A cell that is still running: busy, with no idle and no reply
+            # until `finish` is called. This is the long FEM cell the idle
+            # reaper used to shut down underneath the user.
+            self.blocked.append((msg_id, count))
+            return msg_id
         if code.startswith("print("):
             text = code[len("print(") : -1].strip().strip("'\"")
             self.iopub.put(self._msg("stream", {"name": "stdout", "text": text + "\n"}, msg_id))
@@ -348,6 +363,93 @@ def test_a_used_kernel_is_not_reaped() -> None:
     session = registry.start(cwd="/mnt/000")
     registry.execute(session.id, "r1", "print('x')")
     assert registry.reap_idle() == []
+    assert [s.id for s in registry.list()] == [session.id]
+
+
+def test_a_running_cell_is_never_reaped_and_restarts_the_idle_clock() -> None:
+    """RUN-01: the idle clock is time since a cell FINISHED, not since it began.
+
+    The reaper used to compare ``last_used`` — stamped when the cell was
+    submitted — against the timeout, so a cell that runs longer than the
+    timeout had its own interpreter shut down mid-execution.
+    """
+    now = [1000.0]
+    registry = kernels_mod.KernelRegistry(idle_timeout=60.0, clock=lambda: now[0])
+    session = registry.start(cwd="/mnt/000")
+    events: list[dict[str, Any]] = []
+    registry.subscribe(session.id, events.append)
+
+    registry.execute(session.id, "r1", "block")
+    drain(events, lambda e: e.get("type") == "status" and e.get("state") == "busy")
+
+    # 30 minutes into a 60 s idle timeout, still executing.
+    now[0] += 1801
+    assert registry.reap_idle() == []
+    assert [s.id for s in registry.list()] == [session.id]
+    assert session.manager.shutdowns == 0
+
+    msg_id, count = session.client.blocked[0]
+    session.client.finish(msg_id, count)
+    drain(events, lambda e: e.get("type") == "reply" and e.get("reqId") == "r1")
+
+    # The cell finished at t=2801, so the idle clock starts there.
+    assert registry.reap_idle() == []
+    now[0] += 61
+    assert registry.reap_idle() == [session.id]
+    assert session.manager.shutdowns == 1
+
+
+def test_concurrent_starts_do_not_exceed_the_cap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """RUN-02: the cap counts kernels that are STARTING, not only live ones.
+
+    The check and the registration used to be two separate critical sections,
+    so N threads could all pass a cap of 2 and then all register.
+    """
+    ready = threading.Barrier(3)
+    original = FakeClient.wait_for_ready
+
+    def slow_ready(self: FakeClient, timeout: float | None = None) -> None:
+        # Widen the window between the cap check and the registration.
+        time.sleep(0.05)
+        original(self, timeout)
+
+    monkeypatch.setattr(FakeClient, "wait_for_ready", slow_ready)
+    registry = kernels_mod.KernelRegistry(max_kernels=2)
+    started: list[Any] = []
+    refused: list[kernels_mod.KernelError] = []
+    lock = threading.Lock()
+
+    def attempt() -> None:
+        ready.wait(timeout=5)
+        try:
+            session = registry.start(cwd="/mnt/000")
+        except kernels_mod.KernelError as error:
+            with lock:
+                refused.append(error)
+        else:
+            with lock:
+                started.append(session)
+
+    threads = [threading.Thread(target=attempt) for _ in range(3)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=10)
+
+    assert len(started) == 2, [e.code for e in refused]
+    assert [e.code for e in refused] == ["too-many-kernels"]
+    assert len(registry.list()) == 2
+    registry.shutdown_all()
+
+
+def test_a_failed_start_releases_its_slot(registry: kernels_mod.KernelRegistry) -> None:
+    """RUN-02: a reserved slot must not leak when startup raises."""
+    registry.max_kernels = 1
+    with pytest.raises(kernels_mod.KernelError):
+        registry.start(cwd="/mnt/000", kernel_name="broken")
+    session = registry.start(cwd="/mnt/000")
     assert [s.id for s in registry.list()] == [session.id]
 
 
