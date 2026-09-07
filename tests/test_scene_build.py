@@ -273,7 +273,14 @@ def test_build_labels_keeps_the_cached_gm_geometry(
     # serialization must preserve every value, so no numeric tolerance applies.
     np.testing.assert_array_equal(arrays["NIFTI_INTENT_POINTSET"], positions)
     np.testing.assert_array_equal(arrays["NIFTI_INTENT_TRIANGLE"], surface["triangles"])
-    np.testing.assert_array_equal(arrays["NIFTI_INTENT_LABEL"], labels)
+    # The payload carries the *filtered* labels (`one_ring_mode_filter`), which
+    # is what makes an atlas border a border and not a saw-tooth; the alignment
+    # this test is for is unchanged by that, so the expectation is the filter's
+    # own output on the same triangles rather than the raw lookup.
+    expected_labels = build.one_ring_mode_filter(labels, surface["triangles"])
+    np.testing.assert_array_equal(arrays["NIFTI_INTENT_LABEL"], expected_labels)
+    assert meta["smooth_passes"] == build.LABEL_SMOOTH_PASSES
+    assert meta["smoothed_vertices"] == int((expected_labels != labels).sum())
     assert meta["triangles"] == len(surface["triangles"])
     assert meta["aligned_to_fingerprint"] == surface_fp
 
@@ -374,3 +381,144 @@ def test_the_lut_parse_matches_the_roi_pickers() -> None:
         "   ",
     ]
     assert [ours(line) for line in lines] == [theirs(line) for line in lines]
+
+
+# ── one-ring mode filter (2026-09-06) ────────────────────────────────────────
+#
+# Why these exist
+#     The maintainer reported ragged, saw-toothed atlas borders in the run-page
+#     pane. The cause is upstream of any shader: ``labels_from_nearest`` decides
+#     each simplified GM vertex from the single nearest central-surface vertex,
+#     and near a border that lookup crosses it for isolated vertices. Measured
+#     on the packaged ernie guide with DK40: 115 vertices had no neighbour at
+#     all sharing their label and 3 259 were in a minority of their own
+#     one-ring; after :func:`tit.scene.build.one_ring_mode_filter` those are 20
+#     and 936, and the mixed-triangle count falls 22 506 -> 15 289.
+#
+# Where the numbers come from
+#     Hand-authored meshes small enough to state the right answer in the test.
+#     The grid fixture's expected output is what a majority vote must give by
+#     inspection, and the reference implementation the vectorised filter is
+#     checked against is a plain Python loop written here, independently.
+
+
+def _grid_mesh(n: int):
+    """An ``n`` x ``n`` vertex grid triangulated into 2*(n-1)^2 faces."""
+    import numpy as np
+
+    tris = []
+    for r in range(n - 1):
+        for c in range(n - 1):
+            a, b = r * n + c, r * n + c + 1
+            d, e = (r + 1) * n + c, (r + 1) * n + c + 1
+            tris.append([a, b, d])
+            tris.append([b, e, d])
+    return np.asarray(tris, dtype=np.int64)
+
+
+def test_mode_filter_erases_a_single_wrong_vertex():
+    """One vertex of region 2 dropped into the middle of region 1 is a stray
+    triangle fan of the wrong colour; every one of its neighbours says 1."""
+    import numpy as np
+
+    tris = _grid_mesh(5)
+    labels = np.ones(25, dtype=np.uint16)
+    labels[12] = 2  # the centre vertex, fully surrounded
+    out = build.one_ring_mode_filter(labels, tris, passes=1)
+    assert out[12] == 1
+    assert (out == 1).all()
+
+
+def test_mode_filter_keeps_a_real_half_and_half_border():
+    """A straight border between two regions is anatomy, not noise: a vertex
+    that ties its one-ring keeps its own label, so the filter cannot walk the
+    border across the mesh pass after pass."""
+    import numpy as np
+
+    tris = _grid_mesh(6)
+    labels = np.array(
+        [1 if (i % 6) < 3 else 2 for i in range(36)], dtype=np.uint16
+    )
+    once = build.one_ring_mode_filter(labels, tris, passes=1)
+    many = build.one_ring_mode_filter(labels, tris, passes=8)
+    assert np.array_equal(once, many), "the filter must reach a fixed point"
+    assert set(np.unique(many).tolist()) == {1, 2}, "neither region may be eaten"
+
+
+def test_mode_filter_leaves_no_isolated_vertex_on_a_noisy_border():
+    """The property the fix is for: after filtering, no vertex is left with a
+    label not one of its mesh neighbours shares -- an island of one vertex is
+    exactly the stray triangle the maintainer saw."""
+    import numpy as np
+
+    tris = _grid_mesh(12)
+    rng = np.random.default_rng(20260906)
+    base = np.array([1 if (i % 12) < 6 else 2 for i in range(144)], dtype=np.uint16)
+    noisy = base.copy()
+    flip = rng.choice(144, size=20, replace=False)
+    noisy[flip] = np.where(noisy[flip] == 1, 2, 1).astype(np.uint16)
+
+    out = build.one_ring_mode_filter(noisy, tris, passes=4)
+
+    neighbours: dict[int, set[int]] = {i: set() for i in range(144)}
+    for a, b, c in tris.tolist():
+        for x, y in ((a, b), (b, c), (c, a)):
+            neighbours[x].add(y)
+            neighbours[y].add(x)
+    islands = [i for i, nb in neighbours.items() if all(out[j] != out[i] for j in nb)]
+    assert islands == [], f"isolated label islands remain at {islands}"
+    before = [i for i, nb in neighbours.items() if all(noisy[j] != noisy[i] for j in nb)]
+    assert before, "the fixture must actually contain islands to remove"
+
+
+def test_mode_filter_matches_a_plain_loop():
+    """The vectorised run-length tally is checked against the obvious
+    implementation, on a mesh with many regions and many ties."""
+    import numpy as np
+
+    tris = _grid_mesh(10)
+    rng = np.random.default_rng(7)
+    labels = rng.integers(0, 5, size=100).astype(np.uint16)
+
+    neighbours: list[list[int]] = [[] for _ in range(100)]
+    seen: set[tuple[int, int]] = set()
+    for a, b, c in tris.tolist():
+        for x, y in ((a, b), (b, c), (c, a)):
+            if (x, y) in seen:
+                continue
+            seen.add((x, y))
+            seen.add((y, x))
+            neighbours[x].append(y)
+            neighbours[y].append(x)
+
+    ref = labels.astype(np.int64).copy()
+    for _ in range(3):
+        nxt = ref.copy()
+        for i in range(100):
+            if not neighbours[i]:
+                continue
+            vals, counts = np.unique(ref[neighbours[i]], return_counts=True)
+            top = counts.max()
+            own = counts[vals == ref[i]]
+            if own.size and own[0] >= top:
+                continue
+            nxt[i] = vals[counts == top].min()
+        if np.array_equal(nxt, ref):
+            break
+        ref = nxt
+
+    got = build.one_ring_mode_filter(labels, tris, passes=3)
+    assert np.array_equal(got.astype(np.int64), ref)
+    assert got.dtype == np.uint16
+
+
+def test_mode_filter_handles_degenerate_input():
+    import numpy as np
+
+    empty = np.zeros(0, dtype=np.uint16)
+    assert build.one_ring_mode_filter(empty, np.zeros((0, 3), np.int64)).shape == (0,)
+    labels = np.array([1, 2, 3], dtype=np.uint16)
+    # passes=0 is the identity, so a caller can turn the filter off.
+    assert np.array_equal(
+        build.one_ring_mode_filter(labels, _grid_mesh(2)[:0], passes=0), labels
+    )

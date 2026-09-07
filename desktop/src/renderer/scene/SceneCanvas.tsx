@@ -115,6 +115,16 @@ export interface SceneDebugHandle {
    */
   samplePixels(points: Array<[number, number]>, withMarkers?: boolean): number[][] | null;
   /**
+   * The region id under each canvas CSS point, `null` where no labelled surface was hit.
+   *
+   * The id pass and the visible pass read the SAME `flat`-qualified `vLabel` from the SAME index
+   * buffer, so this is a per-pixel readback of the region each pixel is *painted* as — with none of
+   * the lighting, fresnel and translucency that make the visible frame's RGB an unreliable way to
+   * ask which region a pixel belongs to. It is how the border-scan spec says "no third region, and
+   * no spike" about the rendered image rather than about the geometry (`scene/labelFaces.ts`).
+   */
+  sampleRegions(points: Array<[number, number]>): Array<number | null>;
+  /**
    * Overrides `markersOccluded` on the live renderer until the next render that changes the prop.
    *
    * It is what lets a spec show the **defect** and the fix on the same build: with occlusion off,
@@ -947,6 +957,12 @@ export function SceneCanvas({
         // `Uint8Array` into `{"0":…}` and makes every assertion read like a puzzle.
         return read ? read.map((rgba) => Array.from(rgba)) : null;
       },
+      sampleRegions(points) {
+        return points.map(([x, y]) => {
+          const target = pickAt(x, y)?.target ?? null;
+          return target && target.kind === "region" ? target.index : null;
+        });
+      },
       setMarkerOcclusion(occluded) {
         const scene = sceneRef.current;
         if (!scene) return false;
@@ -973,7 +989,7 @@ export function SceneCanvas({
     return () => {
       if (window.__scene === handle) delete window.__scene;
     };
-  }, [markers, mode, opacities, parts, sceneBounds, publishDebugHandle]);
+  }, [markers, mode, opacities, parts, pickAt, sceneBounds, publishDebugHandle]);
 
   // --- render ---------------------------------------------------------------------------------
   const legendRows = useMemo<LegendEntry[]>(() => {

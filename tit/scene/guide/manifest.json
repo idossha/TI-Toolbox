@@ -4,7 +4,7 @@
   "label": "Ernie (SimNIBS example head)"
  },
  "guide_version": 1,
- "builder_version": "3",
+ "builder_version": "4",
  "space": "guide-ras",
  "bbox": [
   -84.437,
@@ -183,18 +183,18 @@
     "tvsc": "labels/DK40.tvsc",
     "tvsc_meta": {
      "bytes": 988236,
-     "sha256": "8985a1fb5b28ca432138729e626ada76f3459c50e9d7492b7b655d5c1ea3adc3"
+     "sha256": "be3ff6169f54309d5874b71d40d6504893f7e4ad26feb357ea14bb8e4bcb7cb2"
     },
     "gii": "labels/DK40.gii",
     "gii_meta": {
-     "bytes": 2496149,
-     "sha256": "adf5132dfd81e4aaaccbe26fe93a2076e018cd030f3a87bd8d08caf5f0ceca06"
+     "bytes": 2495397,
+     "sha256": "815687f19b52ed374dc70e01cbffb12ed8f9fee7da5f68e7cd3cb166a60128d7"
     }
    },
    "legend_file": "legends/DK40.json",
    "legend_meta": {
-    "bytes": 7591,
-    "sha256": "d1c7724d9d503e030d867c0473f95ef95e1f20f2f1244fdc96e5675438ea8c7b"
+    "bytes": 7590,
+    "sha256": "75df233c105c574dc84cedcd6c56133d8155b4072da4fd00f902b3445ff8d095"
    }
   },
   {
@@ -209,18 +209,18 @@
     "tvsc": "labels/HCP_MMP1.tvsc",
     "tvsc_meta": {
      "bytes": 988236,
-     "sha256": "f11c606e5cc68e662e3b4571b3a2ee718586dfa107726d3bb5c2b437f0eb3621"
+     "sha256": "dadaf83d8902298bd6865486af0623e01fda7a46c24a56d3f129dff43f06449c"
     },
     "gii": "labels/HCP_MMP1.gii",
     "gii_meta": {
-     "bytes": 2554824,
-     "sha256": "7b03dafdd9cabe901a1c309b6b65848141f29fa26a4258c222c863badc75657a"
+     "bytes": 2552792,
+     "sha256": "7c4f16659126d068c8a822d80296b3158bf236a16074f77aa503c5b17db43ba5"
     }
    },
    "legend_file": "legends/HCP_MMP1.json",
    "legend_meta": {
     "bytes": 35074,
-    "sha256": "39371e17aa90e89f01c09c5cd0aa2c84545e743504afc465a8d0688587626f4f"
+    "sha256": "34d45657aaea871f50397f5d0ec5d9aaa824e4982a654fec8541ab1161e89307"
    }
   },
   {
@@ -235,18 +235,18 @@
     "tvsc": "labels/a2009s.tvsc",
     "tvsc_meta": {
      "bytes": 988236,
-     "sha256": "d2e475c703c4553652bb312595cc175f7752160f42680e7b6cf6a6c21931f482"
+     "sha256": "dc9de50a2e6b487fd74860e38bd0b1456f7a594ef62dce036a41fe1a6516fc7c"
     },
     "gii": "labels/a2009s.gii",
     "gii_meta": {
-     "bytes": 2518062,
-     "sha256": "fb323d4778800835df38da2615def062ba678be915b5318e92d4fc6a5eaa7f16"
+     "bytes": 2517102,
+     "sha256": "012a56b1d15f122f9072755f3ae19d2d188fd1d846de77731986a73c9be5e25a"
     }
    },
    "legend_file": "legends/a2009s.json",
    "legend_meta": {
     "bytes": 16806,
-    "sha256": "98d1df7c6fa236b19d3815851a5df580c67e7308ac4223d1c2c02bb95c1bc50f"
+    "sha256": "43731b6857c234aaa5bab609fbe675683a7fc5633fa4417324b5b840df3d938f"
    }
   }
  ],
@@ -264,6 +264,6 @@
  "generated": {
   "subject": "ernie",
   "generator": "tit.scene.guide_build",
-  "seconds": 7.7
+  "seconds": 21.1
  }
 }

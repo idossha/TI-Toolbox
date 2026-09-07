@@ -96,6 +96,7 @@
  * `unprojectDepth` turns that one number into the world point under the cursor.
  */
 import { multiply, perspective, viewMatrix, type Mat4, type OrbitCamera } from "./camera";
+import { orientFacesToMajorityLabel } from "./labelFaces";
 import { computeVertexNormals } from "./normals";
 import { decodePickPixel, PICK_KIND_MARKER, PICK_KIND_REGION, type PickTarget } from "./pickId";
 import { MARKER_SIZE_PX, SCENE_PALETTE, type ScenePalette } from "./palette";
@@ -823,7 +824,16 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
     const vao = gl.createVertexArray();
     if (!vao) throw new Error("scene: gl.createVertexArray returned null");
     gl.bindVertexArray(vao);
-    const normals = part.normals ?? computeVertexNormals(part.positions, part.indices);
+    // `vLabel` is flat, so the LAST corner of a triangle decides the whole triangle's region — for
+    // its colour and for what a click on it picks. Rotating each border triangle onto a majority
+    // corner first is what keeps a region border on the mesh edges between the two regions instead
+    // of a triangle-wide saw-tooth either side of it (`labelFaces.ts`). Winding is preserved, so
+    // the normals below and the outward orientation are unaffected.
+    const indices =
+      part.labels != null
+        ? orientFacesToMajorityLabel(part.indices, part.labels)
+        : part.indices;
+    const normals = part.normals ?? computeVertexNormals(part.positions, indices);
     const buffers: WebGLBuffer[] = [];
     buffers.push(buffer(part.positions, gl.ARRAY_BUFFER));
     gl.enableVertexAttribArray(0);
@@ -837,9 +847,9 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
     buffers.push(buffer(labels ?? new Uint16Array(part.positions.length / 3), gl.ARRAY_BUFFER));
     gl.enableVertexAttribArray(2);
     gl.vertexAttribIPointer(2, 1, gl.UNSIGNED_SHORT, 0, 0);
-    buffers.push(buffer(part.indices, gl.ELEMENT_ARRAY_BUFFER));
+    buffers.push(buffer(indices, gl.ELEMENT_ARRAY_BUFFER));
     gl.bindVertexArray(null);
-    return { part, vao, buffers, indexCount: part.indices.length, hasLabels: labels !== null };
+    return { part, vao, buffers, indexCount: indices.length, hasLabels: labels !== null };
   }
 
   function uploadMarkers(): void {
