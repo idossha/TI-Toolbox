@@ -1046,17 +1046,19 @@ class TestMeshListRegions:
 class TestMeshListAnnotRegions:
     """Tests for MeshAtlasManager.list_annot_regions (lines 99-112)."""
 
-    def test_bytes_names(self, tmp_path):
+    def test_bytes_names(self, tmp_path, monkeypatch):
         """Bytes region names are decoded to str."""
         import sys
 
         from tit.atlas.mesh import MeshAtlasManager
 
-        # Ensure nibabel.freesurfer.io is in sys.modules
         nfs_mock = sys.modules["nibabel.freesurfer"]
         fsio_mock = MagicMock()
-        sys.modules["nibabel.freesurfer.io"] = fsio_mock
-        setattr(nfs_mock, "io", fsio_mock)
+        # monkeypatch (not a bare assignment) so the shared conftest mock is
+        # restored after the test -- a direct assignment leaked into every
+        # later test in the process and made test ordering matter.
+        monkeypatch.setitem(sys.modules, "nibabel.freesurfer.io", fsio_mock)
+        monkeypatch.setattr(nfs_mock, "io", fsio_mock, raising=False)
 
         fsio_mock.read_annot.return_value = (
             None,  # labels
@@ -1074,7 +1076,7 @@ class TestMeshListAnnotRegions:
         ]
         fsio_mock.read_annot.assert_called_once_with("/fake/path/lh.aparc.annot")
 
-    def test_str_names(self, tmp_path):
+    def test_str_names(self, tmp_path, monkeypatch):
         """String region names are passed through via str()."""
         import sys
 
@@ -1082,8 +1084,11 @@ class TestMeshListAnnotRegions:
 
         nfs_mock = sys.modules["nibabel.freesurfer"]
         fsio_mock = MagicMock()
-        sys.modules["nibabel.freesurfer.io"] = fsio_mock
-        setattr(nfs_mock, "io", fsio_mock)
+        # monkeypatch (not a bare assignment) so the shared conftest mock is
+        # restored after the test -- a direct assignment leaked into every
+        # later test in the process and made test ordering matter.
+        monkeypatch.setitem(sys.modules, "nibabel.freesurfer.io", fsio_mock)
+        monkeypatch.setattr(nfs_mock, "io", fsio_mock, raising=False)
 
         fsio_mock.read_annot.return_value = (
             None,
@@ -1096,7 +1101,7 @@ class TestMeshListAnnotRegions:
 
         assert result == [(0, "regionA"), (1, "regionB")]
 
-    def test_returns_correct_index_tuples(self, tmp_path):
+    def test_returns_correct_index_tuples(self, tmp_path, monkeypatch):
         """Indices match enumeration order of names list."""
         import sys
 
@@ -1104,8 +1109,11 @@ class TestMeshListAnnotRegions:
 
         nfs_mock = sys.modules["nibabel.freesurfer"]
         fsio_mock = MagicMock()
-        sys.modules["nibabel.freesurfer.io"] = fsio_mock
-        setattr(nfs_mock, "io", fsio_mock)
+        # monkeypatch (not a bare assignment) so the shared conftest mock is
+        # restored after the test -- a direct assignment leaked into every
+        # later test in the process and made test ordering matter.
+        monkeypatch.setitem(sys.modules, "nibabel.freesurfer.io", fsio_mock)
+        monkeypatch.setattr(nfs_mock, "io", fsio_mock, raising=False)
 
         names = [b"alpha", b"beta", b"gamma", b"delta"]
         fsio_mock.read_annot.return_value = (None, None, names)
@@ -1118,7 +1126,7 @@ class TestMeshListAnnotRegions:
             assert idx == i
             assert name == names[i].decode("utf-8")
 
-    def test_empty_names_list(self, tmp_path):
+    def test_empty_names_list(self, tmp_path, monkeypatch):
         """Empty names list returns empty result."""
         import sys
 
@@ -1126,8 +1134,11 @@ class TestMeshListAnnotRegions:
 
         nfs_mock = sys.modules["nibabel.freesurfer"]
         fsio_mock = MagicMock()
-        sys.modules["nibabel.freesurfer.io"] = fsio_mock
-        setattr(nfs_mock, "io", fsio_mock)
+        # monkeypatch (not a bare assignment) so the shared conftest mock is
+        # restored after the test -- a direct assignment leaked into every
+        # later test in the process and made test ordering matter.
+        monkeypatch.setitem(sys.modules, "nibabel.freesurfer.io", fsio_mock)
+        monkeypatch.setattr(nfs_mock, "io", fsio_mock, raising=False)
 
         fsio_mock.read_annot.return_value = (None, None, [])
 
