@@ -43,7 +43,8 @@ All electrodes are pooled together and can be assigned to any channel position, 
 
 ## User Interface
 
-<img src="{{ site.baseurl }}/assets/imgs/UI/UI_ex.png" alt="Flex Search Interface" style="width: 80%; max-width: 700px;">
+<img src="{{ site.baseurl }}/assets/imgs/v3/optimizer.png" alt="The Optimizer page, where Ex is a method" style="width: 100%; max-width: 1000px;">
+<em>Ex-search is the <strong>Ex</strong> method on the Optimizer page (⌘3), not a page of its own.</em>
 
 The interface provides controls for:
 - **Subject Selection**: Choose from available subjects with automatic leadfield scanning

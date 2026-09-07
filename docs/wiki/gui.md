@@ -86,4 +86,4 @@ To launch the GUI:
 GUI
 ```
 
-The GUI and [scripting workflows](scripting) share the same underlying TI-Toolbox APIs.
+The GUI and [scripting workflows]({{ site.baseurl }}/wiki/scripting/) share the same underlying TI-Toolbox APIs.

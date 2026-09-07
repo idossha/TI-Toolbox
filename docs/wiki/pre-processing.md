@@ -6,6 +6,9 @@ permalink: /wiki/pre-processing/
 
 The TI-Toolbox pre-processing pipeline prepares anatomical MRI data for TI simulations by converting DICOM files to BIDS-compliant NIfTI format and creating SimNIBS head models. FastSurfer segmentation, diffusion processing, tissue analysis are optional add-on stages for workflows that need those outputs.
 
+<img src="{{ site.baseurl }}/assets/imgs/v3/preprocess.png" alt="The Pre-processing page" style="width: 100%; max-width: 1000px;">
+<em>Pre-processing (&#8984;1): pick the subjects, tick the stages, and the plan on the right says what will run for each one.</em>
+
 ## Overview
 
 The pre-processing pipeline consists of several stages (each individually toggleable):

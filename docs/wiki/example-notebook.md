@@ -8,13 +8,13 @@ permalink: /wiki/example-notebook/
 <a href="{{ site.baseurl }}/assets/notebooks/example_workflow.ipynb" download>&#11015; Download example_workflow.ipynb</a>
 &nbsp;&nbsp;
 <a href="https://github.com/idossha/TI-Toolbox/blob/main/docs/assets/notebooks/example_workflow.ipynb">View on GitHub</a>
-{% if site.jupyterhub_url %}
+{% if site.jupyterhub_url != "" %}
 &nbsp;&nbsp;
 <a href="{{ site.jupyterhub_url }}/hub/user-redirect/lab/tree/notebooks/example_workflow.ipynb"><strong>&#9654; Run it in your browser</strong></a> (hosted TI-Toolbox, GitHub login)
 {% endif %}
 </p>
 
-This page is a Jupyter notebook that was executed inside the TI-Toolbox container against Dataset 000 and exported as-is. Every output, table and figure below is real. Download the `.ipynb`, drop it into the container's JupyterLab (`NOTEBOOK`, then <http://localhost:8888>) and run it against your own project.
+This page is a Jupyter notebook that was executed inside the TI-Toolbox container against Dataset 000 and exported as-is. Every output, table and figure below is real. Download the `.ipynb` and import it on the app's [Notebooks]({{ site.baseurl }}/wiki/notebooks/) page (**Import .ipynb**) to run it against your own project — the kernel there is the container's SimNIBS Python, so nothing needs installing.
 
 An end-to-end example of the `tit` Python API, run against the public **Dataset 000** (`sub-ernie`)
 inside the TI-Toolbox container. Every cell below was executed for real; the outputs are the
@@ -89,7 +89,7 @@ print(montage.name, montage.simulation_mode, montage.electrode_pairs)
 
 ## 3. Run a TI simulation
 
-`SimulationConfig` holds everything the GUI's Simulator tab asks for. Two electrode pairs
+`SimulationConfig` holds everything the Simulator page asks for. Two electrode pairs
 → standard TI; four or more → mTI, detected automatically. `map_to_mni=True` also writes
 MNI-space NIfTIs so we can overlay the result on a template later.
 

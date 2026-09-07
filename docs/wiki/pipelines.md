@@ -6,11 +6,14 @@ permalink: /wiki/pipelines/
 
 # Pipelines
 
-The **Pipeline** page (⌘6) is a canvas: you place the steps you already run — pre-processing, an
+The **Pipeline** page (⌘5) is a canvas: you place the steps you already run — pre-processing, an
 optimizer, the simulator, the analyzer — wire one step's output into the next step's input, and press
 Run once. The whole graph is submitted as **one job group**, so it appears in Jobs as one thing you
 can watch and cancel as one thing. The same graph exports to a Jupyter notebook that runs the same
 work from Python.
+
+<img src="{{ site.baseurl }}/assets/imgs/v3/pipeline.png" alt="The Pipeline canvas with a small graph" style="width: 100%; max-width: 1000px;">
+<em>A graph on the canvas: a Subjects node feeding pre-processing, an optimizer, the simulator and the analyzer.</em>
 
 Four rules explain everything else on the page:
 

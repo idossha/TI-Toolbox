@@ -4,8 +4,35 @@ title: Extension System
 permalink: /wiki/extension/
 ---
 
-The TI-Toolbox Extension System provides a modular framework for adding new tools and features without modifying the core application codebase. Extensions are self-contained Python scripts that can be easily installed, updated, or removed.
+Optional tools extend TI-Toolbox without changing the core. In v3 they are panels in the desktop application, each backed by a `tit` job runner; in v2 they were self-contained PyQt5 scripts discovered at start-up. Both are described below.
 
+## Optional tools in v3
+
+Every optional tool is a **panel** you switch on per project in **Settings &#9656; Optional tools**.
+An enabled panel gets its own row in the nav rail; a disabled one is not loaded at all.
+
+<img src="{{ site.baseurl }}/assets/imgs/v3/settings.png" alt="Settings, with the Optional tools card" style="width: 100%; max-width: 1000px;">
+<em>Settings (&#8984;,). Optional tools is a checkbox per panel; the Viewer engine card below it updates Tetravox without updating the toolbox.</em>
+
+The panels are [Source]({{ site.baseurl }}/wiki/extension/), [Cluster
+permutation]({{ site.baseurl }}/wiki/cluster-permutation-testing/), [NIfTI group
+averaging]({{ site.baseurl }}/wiki/nifti-group-averaging/), [Nilearn
+visuals]({{ site.baseurl }}/wiki/nilearn-visuals/), [Quick
+notes]({{ site.baseurl }}/wiki/quick-notes/) and the [3D visual
+exporter]({{ site.baseurl }}/wiki/blender/).
+
+Two things changed for all of them in v3. **Each runs as a real job** — it appears in
+[Jobs]({{ site.baseurl }}/wiki/jobs/), streams its log there, and can be cancelled; in 2.x several
+of them ran on the Qt main thread and froze the window. And each has a **plan card** stating what
+it will produce before you press Run, instead of a modal dialog after the fact.
+
+Two former extensions no longer exist as panels: **Electrode Placement** is now the Simulator's
+[free-hand mode]({{ site.baseurl }}/wiki/electrode-placement/), and **Subject Info** is the
+[Overview]({{ site.baseurl }}/wiki/overview/) page.
+
+---
+
+## Architecture (historical)
 ## Architecture
 
 > **Historical.** The Qt extension system below was removed with the PyQt GUI in

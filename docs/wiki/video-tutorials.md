@@ -14,7 +14,7 @@ Welcome to our collection of video tutorials for the TI-Toolbox. These videos pr
     <iframe src="https://www.youtube.com/embed/jEhk5wpIAuA?vq=highres" title="Installation and Updates" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
   </div>
   <p class="video-description">
-    Learn how to install and get started with TI-Toolbox through both desktop app and command line approaches. This tutorial covers prerequisites (Docker and X11 server), project setup using BIDS data structure, and step-by-step launch procedures. You'll see how to organize your neuroimaging data (minimum requirement: T1-weighted scans) and perform initial DICOM-to-NIfTI conversion. The video demonstrates Docker image management, and both GUI and CLI workflows for remote machines or advanced users. Prerequisites: Docker installation and X11 server setup.
+    Learn how to install and get started with TI-Toolbox through both desktop app and command line approaches. This tutorial covers prerequisites, project setup using BIDS data structure, and step-by-step launch procedures. You'll see how to organize your neuroimaging data (minimum requirement: T1-weighted scans) and perform initial DICOM-to-NIfTI conversion. The video demonstrates Docker image management, and both GUI and CLI workflows for remote machines or advanced users. Prerequisites: Docker installation. (Recorded on v2 — v3 needs no X11 server, and the interface shown has been replaced by the desktop application.)
   </p>
 </div>
 

@@ -22,7 +22,8 @@ The Analyzer module provides a single unified `Analyzer` class that handles both
 - **Analyzer**: Unified class that dispatches spherical and cortical ROI analyses to the appropriate mesh- or voxel-based implementation, returning a typed `AnalysisResult` dataclass
 - **Group Analysis**: Batch processing for multiple subjects via `run_group_analysis()`
 
-<img src="{{ site.baseurl }}/assets/imgs/UI/UI_ana.png" alt="Analyzer User Interface" style="width: 100%; max-width: 600px;">
+<img src="{{ site.baseurl }}/assets/imgs/v3/analyzer.png" alt="The Analyzer page: one row per analysis job" style="width: 100%; max-width: 1000px;">
+<em>The Analyzer (⌘4). One row is one analysis, and each row owns its own target.</em>
 
 ## Key Features
 
@@ -198,21 +199,22 @@ Group analysis supports **arbitrary combinations** of subjects and montages:
 
 ---
 
-## Mesh Analysis Quick Inspection with Gmsh Integration
+## Looking at a mesh analysis
 
-The analyzer now includes **direct Gmsh integration** for easy visualization and inspection of mesh analysis results.
-
-### Features
-
-- **One-Click Launch**: Directly launch Gmsh from the GUI to inspect mesh analysis results
-- **Automatic Mesh Detection**: Automatically finds and loads mesh files (.msh) from completed analyses
-- **Subject/Simulation Selection**: Dropdown selectors for choosing specific subjects, simulations, and analysis types
-
-### Supported Analysis Types
-
-The Gmsh integration works with the analyzer's two mesh-based analysis types:
+When an analysis finishes, open it from [Results]({{ site.baseurl }}/wiki/results/) — the mesh and
+the NIfTI outputs both open in the [Viewer]({{ site.baseurl }}/wiki/visualizers/), in the
+application window. Both mesh-based analysis types are supported:
 
 - Spherical ROI analyses with generated mesh overlays
 - Cortical region analyses with atlas-based parcellations
+
+> **What's new in v3.** 2.x launched **Gmsh** as a separate X11 program to inspect a mesh result,
+> and **Freeview** for a NIfTI one. Both are gone — the container ships neither, and there is no
+> X11 anywhere. Viewing is Tetravox, in the app.
+>
+> Two more changes to the Analyzer itself: **each row of the jobs table owns its own target**, so
+> one submission can analyse different ROIs across subjects; and a **group** run is refused unless
+> every row agrees on simulation, space, field and target, with the disagreement named — it is
+> never silently resolved to the first row.
 
 There is no separate "whole head" analysis type — the Analyzer supports only `analysis_type` `spherical` and `cortical`. A whole-head field-distribution histogram is generated as a by-product of every analysis (mesh or voxel), alongside the ROI-specific outputs.

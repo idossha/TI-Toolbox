@@ -15,6 +15,9 @@ and picking atlas regions. That pane is part of the toolbox, is drawn by the too
 rather than by Tetravox, and is not a viewer — it draws packaged reference anatomy, never your
 subject's.
 
+<img src="{{ site.baseurl }}/assets/imgs/v3/viewer.png" alt="A TI field open in the Tetravox viewer inside the app" style="width: 100%; max-width: 1000px;">
+<em>A simulation open on the <strong>Tetravox</strong> sub-page: layers and appearance on the left, the cursor read-out on the right, all inside the app window.</em>
+
 ## How to open a result
 
 The **Viewer** entry in the left rail has two rows indented under it, **Menu** and **Tetravox**.

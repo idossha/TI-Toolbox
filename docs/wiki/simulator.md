@@ -6,9 +6,10 @@ permalink: /wiki/simulator/
 
 The Simulator module provides temporal interference (TI) simulation capabilities, supporting multiple montage sources, electrode configurations, and simulation parameters. It can be invoked programmatically via `run_simulation()` or through a JSON config entrypoint.
 
-## User Interface
+## In the application
 
-<img src="{{ site.baseurl }}/assets/imgs/UI/UI_sim.png" alt="Simulator User Interface" style="width: 100%; max-width: 600px;">
+<img src="{{ site.baseurl }}/assets/imgs/v3/simulator.png" alt="The Simulator page: one row per simulation job" style="width: 100%; max-width: 1000px;">
+<em>The Simulator (⌘2). One row is one job; the pane beside it draws that montage on the selected subject.</em>
 
 The simulator GUI provides intuitive controls for all simulation parameters:
 
@@ -148,7 +149,7 @@ For complete DTI processing instructions, see the [Diffusion Processing]({{ site
 <img src="{{ site.baseurl }}/assets/imgs/simulator/dti_CC.png" alt="DTI Eigen Vectors - Corpus Callosum" style="width: 80%; max-width: 500px;">
 <img src="{{ site.baseurl }}/assets/imgs/simulator/dti_spinal.png" alt="DTI Eigen Vectors - Spinal Cord" style="width: 80%; max-width: 500px;">
 
-<em>Gmsh visualizations showing white and gray matter with overlaid eigen vectors that scale conductivity in anisotropic simulations. Top: Corpus callosum region showing organized fiber directions. Bottom: Spinal cord region with longitudinal fiber orientation.</em>
+<em>White and gray matter with overlaid eigen vectors that scale conductivity in anisotropic simulations. Top: Corpus callosum region showing organized fiber directions. Bottom: Spinal cord region with longitudinal fiber orientation.</em>
 
 These visualizations display the principal diffusion directions (eigen vectors) derived from diffusion tensor imaging (DTI) data, which are used to create direction-dependent conductivity tensors in anisotropic tissue modeling.
 
