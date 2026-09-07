@@ -246,7 +246,7 @@ function main() {
   // --- 6. per-platform staged runtime -----------------------------------------------------------
   // The shipping app is Docker-backed: `tit.server` runs in idossha/ti-toolbox:<ver>, so a bundled
   // Python runtime is NOT expected. `--expect-runtime` is for a future native build (the parked
-  // N0.4 spike, docs/dev/SPIKES.md), which stages resources/runtime/<platform>-<arch>.
+  // N0.4 spike, docs/dev/HISTORY.md § 2026-09-03), which stages resources/runtime/<platform>-<arch>.
   const archName = { darwin: "darwin-arm64", linux: "linux-x64", win32: "win32-x64" }[app.kind];
   const runtimeDir = join(app.resourcesDir, "runtime");
   const stagedRuntime = existsSync(runtimeDir) ? readdirSync(runtimeDir) : [];

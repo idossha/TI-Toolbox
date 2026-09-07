@@ -1,7 +1,7 @@
 """Unit tests for :mod:`tit.pre.fastsurfer`.
 
 The runner is always mocked -- FastSurfer itself takes ~5 minutes and 4.8 GiB
-per subject (``docs/dev/SPIKES.md``). One integration test
+per subject (``docs/dev/HISTORY.md § 2026-09-03``). One integration test
 at the bottom runs the real thing, and skips unless ``$FASTSURFER_HOME`` points
 at a checkout (it will run inside the TI-Toolbox image, per plan D1).
 """

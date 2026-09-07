@@ -7,7 +7,7 @@
 # 26.15.3 resolves an extraResources `from:` path with `path.resolve(projectDir, pattern.from)`
 # BEFORE expanding `${env.X}` macros, so a still-relative macro TOKEN gets resolved against the
 # project directory first and only THEN has the real (absolute) value substituted into the middle of
-# that already-wrong string. Reproduced once during this spike (docs/dev/SPIKES.md):
+# that already-wrong string. Reproduced once during this spike (docs/dev/HISTORY.md § 2026-09-03):
 #   file source doesn't exist  from=.../desktop//private/tmp/.../packaging/runtime
 # Staging to a real, fixed, relative path sidesteps the bug entirely and is also just an accurate
 # preview of what a real CI runtime-build pipeline will hand this same electron-builder.yml in Stage
@@ -25,7 +25,7 @@ DEST="$ROOT/.runtime-staging/$TARGET_ARCH"
 
 if [ -z "${TIT_RUNTIME_DIR:-}" ]; then
   echo "stage-runtime.sh: TIT_RUNTIME_DIR is not set (point it at a python-build-standalone" >&2
-  echo "  runtime tree, e.g. the output of docs/dev/SPIKES.md)" >&2
+  echo "  runtime tree, e.g. the output of docs/dev/HISTORY.md § 2026-09-03)" >&2
   exit 1
 fi
 if [ ! -d "$TIT_RUNTIME_DIR" ]; then

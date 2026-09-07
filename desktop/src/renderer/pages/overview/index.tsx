@@ -1,6 +1,6 @@
 /**
  * Overview — the project's eagle-eye page and the app's front door (R1,
- * `docs/dev/v3-implementation-plan.md`; DESIGN.md §2 shape B, wireframes §1).
+ * `docs/dev/HISTORY.md § 2026-09-05`; DESIGN.md §2 shape B).
  *
  * It began as the Subjects page and keeps everything that page answered well — the coverage strip,
  * the presence matrix, the filters, the per-subject workflow verbs — but it asks the question at

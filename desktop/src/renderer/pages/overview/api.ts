@@ -1,7 +1,7 @@
 /**
  * The Overview page's one catalog read.
  *
- * R1 (`docs/dev/v3-implementation-plan.md`): a single `GET /api/catalog/overview` owns every display
+ * R1 (`docs/dev/HISTORY.md § 2026-09-05`): a single `GET /api/catalog/overview` owns every display
  * fact this page renders — presence per subject, EEG nets and leadfields, output counts, and
  * workflow readiness — so the page's request count does not grow with the project. What it
  * replaced was one `/api/catalog/subjects/{id}` per subject plus five output lists per subject

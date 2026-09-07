@@ -2180,7 +2180,7 @@ route("GET", "/api/scene/volume-legend", (ctx) => {
 });
 
 // ---------------------------------------------------------------------------------- guide (v1)
-// The five `GET /api/guide/*` routes (docs/dev/v3-implementation-plan.md R4). The fixed guide scene is
+// The five `GET /api/guide/*` routes (docs/dev/HISTORY.md § 2026-09-05 R4). The fixed guide scene is
 // the same shapes as `/api/scene/*` with every project-dependent part removed: no `subject`, no
 // cache state, no 202. It reuses the SAME TVSC1 fixtures the scene routes serve, for the reason
 // the scene block gives — a second hand-written encoding could disagree with the format — and it

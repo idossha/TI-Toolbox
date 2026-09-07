@@ -61,7 +61,7 @@
     },
     {
       "name": "guide",
-      "description": "the fixed guide scene: prebuilt, immutable surfaces, atlas label payloads, legends and EEG-net channel positions packaged with the installation and derived from one reference head (docs/dev/v3-implementation-plan.md R4). It answers with no project bound and no subject selected, and its coordinates are `guide-ras` -- an anatomical legend for choosing *names*, never a source of coordinates for a research subject's configuration."
+      "description": "the fixed guide scene: prebuilt, immutable surfaces, atlas label payloads, legends and EEG-net channel positions packaged with the installation and derived from one reference head (docs/dev/HISTORY.md \u00a7 2026-09-05 R4). It answers with no project bound and no subject selected, and its coordinates are `guide-ras` -- an anatomical legend for choosing *names*, never a source of coordinates for a research subject's configuration."
     }
   ],
   "paths": {
@@ -1819,7 +1819,7 @@
           "catalog"
         ],
         "summary": "Every project Overview fact in one bounded request",
-        "description": "The Overview page's single read (docs/dev/v3-implementation-plan.md R1). One response carries every subject's presence columns, EEG nets/leadfields, output counts and workflow readiness, so the page's request count does not grow with the number of subjects, simulations or outputs. Detailed output discovery stays lazy and stays in Results.\n",
+        "description": "The Overview page's single read (docs/dev/HISTORY.md \u00a7 2026-09-05 R1). One response carries every subject's presence columns, EEG nets/leadfields, output counts and workflow readiness, so the page's request count does not grow with the number of subjects, simulations or outputs. Detailed output discovery stays lazy and stays in Results.\n",
         "security": [
           {
             "cookieAuth": []

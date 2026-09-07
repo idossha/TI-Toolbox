@@ -1,8 +1,8 @@
 > **Historical — the v3.0.0 plan of record.** Written 2026-08-26; the plan shipped as v3.0.0.
 > This file is **not** the to-do list any more: live work is
-> [`docs/dev/ROADMAP.md`](docs/dev/ROADMAP.md), what happened is
+> [`docs/dev/RELEASE.md`](docs/dev/RELEASE.md) §B, what happened is
 > [`docs/dev/HISTORY.md`](docs/dev/HISTORY.md), and why is
-> [`docs/dev/DECISIONS.md`](docs/dev/DECISIONS.md) / [`docs/dev/ADR.md`](docs/dev/ADR.md).
+> [`docs/dev/DECISIONS.md`](docs/dev/DECISIONS.md) / [`docs/dev/DECISIONS.md`](docs/dev/DECISIONS.md).
 > It is kept, unedited below this banner, because roughly twenty source comments and per-page
 > `PARITY.md` files cite its section numbers (`TODO §2.3`, `TODO §2.8`, …) as the parity source for
 > what they implement. Do not add items here; nothing reads it for planning.
@@ -28,7 +28,7 @@ To-Do List:
 ## v3.0.0 — Electron/TypeScript GUI over an (almost) unchanged Python backend
 
 **Status:** IN PROGRESS — Phase 0 started 2026-08-27. §9 answers are recorded as an ADR in
-`docs/dev/ADR.md`. **Decision 2026-08-27:** the GUI moves to Electron now; Freeview and
+`docs/dev/DECISIONS.md`. **Decision 2026-08-27:** the GUI moves to Electron now; Freeview and
 Gmsh stay *in the container on X11* for 3.0 and are launched by `tit.server` from a ViewSpec; an internal
 web renderer (spike (c) in `docs/dev/HISTORY.md`) is a separate later track that retires them step by
 step. Everything below that said "X11 goes away" is amended accordingly (§0, §1, §2.6, §2.7, §2.8, §3.C,
@@ -621,7 +621,7 @@ extracted function so the legacy GUI exercises the new code until cutover).
 
 **Phase 0 — Decisions & spikes (≈1–2 wks)**
 - Create `feature/v3-electron-gui` from `main`; record §9 answers as an ADR in
-  `docs/dev/ADR.md` (this section moves there when work starts).
+  `docs/dev/DECISIONS.md` (this section moves there when work starts).
 - In-flight work: `alba/ex-search-extension` is 45 files, +4,822/−147 — its backend files
   (`tit/plotting/ti_metrics.py` +487, `tit/opt/flex/simulation_export.py` +211,
   `tit/tools/thalamus_rois.py` +353, `tit/pre/structural.py` +68, `tit/sim/utils.py`,
@@ -819,7 +819,7 @@ start once Phase 1's v0 contract exists. **One developer ≈ 8–10 months; two 
 user-visible milestone = end of Phase 4 (Jobs panel driving real container jobs); first
 daily-driver milestone = Phase 5 step 4.
 
-### 9. Decisions (recorded 2026-08-27; ADR in `docs/dev/ADR.md`)
+### 9. Decisions (recorded 2026-08-27; ADR in `docs/dev/DECISIONS.md`)
 
 1. **Origin model:** UI served by `tit.server`, Electron `loadURL` after `/api/health` (same origin,
    no CORS, one bundle).

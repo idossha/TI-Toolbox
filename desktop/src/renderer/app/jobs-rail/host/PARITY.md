@@ -2,7 +2,7 @@
 
 Source: `tit/gui/system_monitor_tab.py` (`SystemMonitorTab` + `ProcessMonitorThread`). F2's Phase-0
 skeleton already shipped the live `/ws/system` connection, the CPU/Memory charts and the process
-table (see `docs/dev/ADR.md` running state, 2026-08-27); this pass finishes the
+table (see `docs/dev/DECISIONS.md` running state, 2026-08-27); this pass finishes the
 DESIGN.md §"System screen" list: a disk chart, running jobs, a DooD-siblings placeholder, and
 Terminate.
 

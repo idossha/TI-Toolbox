@@ -9,7 +9,7 @@ tit/analyzer/analyzer.py:
 
 Voxel-for-voxel validation against real ``mri_convert``/``mri_segstats``
 output on sub-ernie's actual recon-all data lives in
-docs/dev/SPIKES.md; this suite covers the pure-function
+docs/dev/HISTORY.md § 2026-09-03; this suite covers the pure-function
 contract with the repo's established nibabel-mocking pattern (nibabel is
 mocked module-wide in tests/conftest.py; numpy is real).
 """

@@ -128,7 +128,7 @@ tags:
     description: >-
       the fixed guide scene: prebuilt, immutable surfaces, atlas label payloads, legends and EEG-net
       channel positions packaged with the installation and derived from one reference head
-      (docs/dev/v3-implementation-plan.md R4). It answers with no project bound and no subject selected,
+      (docs/dev/HISTORY.md § 2026-09-05 R4). It answers with no project bound and no subject selected,
       and its coordinates are `guide-ras` -- an anatomical legend for choosing *names*, never a
       source of coordinates for a research subject's configuration.
 paths:
@@ -958,7 +958,7 @@ paths:
       tags: [catalog]
       summary: Every project Overview fact in one bounded request
       description: >
-        The Overview page's single read (docs/dev/v3-implementation-plan.md R1). One response
+        The Overview page's single read (docs/dev/HISTORY.md § 2026-09-05 R1). One response
         carries every subject's presence columns, EEG nets/leadfields, output counts and
         workflow readiness, so the page's request count does not grow with the number of
         subjects, simulations or outputs. Detailed output discovery stays lazy and stays
@@ -2533,7 +2533,7 @@ paths:
             Also: a volume id with no `labeling_LUT.txt` beside it.
 
   # -------------------------------------------------------------------------------------- guide (v1)
-  # docs/dev/v3-implementation-plan.md R4. The fixed guide scene: the same shapes /api/scene/* answers
+  # docs/dev/HISTORY.md § 2026-09-05 R4. The fixed guide scene: the same shapes /api/scene/* answers
   # with, minus every project-dependent part of them. No `subject` parameter, no cache state worth
   # polling, no build -- each response is a read of a file packaged with the installation.
   /api/guide/manifest:

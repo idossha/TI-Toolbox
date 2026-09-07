@@ -378,7 +378,7 @@ class SystemSnapshot(BaseModel):
 
 # ── overview (v1): the project Overview page's single aggregate read ─────────
 #
-# R1 of docs/dev/v3-implementation-plan.md: the Overview page must answer "what is
+# R1 of docs/dev/HISTORY.md § 2026-09-05: the Overview page must answer "what is
 # on disk for every subject, and what can run next" in ONE request whose count
 # does not grow with the number of subjects, simulations or outputs. The
 # per-subject fan-out it replaces silently omitted counts past the renderer's

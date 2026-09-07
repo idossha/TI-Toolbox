@@ -115,7 +115,7 @@ dots that never disappear is a better failure than one the user placed and canno
    `deserialize_config` today, since unknown keys are dropped). **Needs**: a real
    `tissue_conductivities: dict[str, float] | None` field on `SimulationConfig`, consumed by
    `tit/sim/base.py` instead of (or in addition to) the env-var path. Filed against F1b/B4 per
-   `docs/dev/ADR.md`'s own note on this exact legacy pattern.
+   `docs/dev/DECISIONS.md`'s own note on this exact legacy pattern.
 3. **Plan naming convention for `kind=sim` — SUPERSEDED, fix:pages-a 2026-08-27.** This page used
    to send the montage name as a plan-only top-level `name` field alongside the real
    `SimulationConfig` fields so `outputDirFor`/`existsForFixture` in the mock could compute

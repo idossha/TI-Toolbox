@@ -96,7 +96,7 @@ describe("discover()", () => {
       // findDockerCli() itself must still report the (failing) stub as "found" — this is the
       // deterministic, hermetic half of the claim; whether a *specific* well-known socket exists
       // on the machine running this test is host-state-dependent and is instead exercised by the
-      // live verification in docs/dev/SPIKES.md, not asserted here.
+      // live verification in docs/dev/HISTORY.md § 2026-09-03, not asserted here.
       expect(await findDockerCli({ TIT_DOCKER_BIN_FOR_DISCOVERY: stub })).toBe(stub);
       const result = await discover({ TIT_DOCKER_BIN_FOR_DISCOVERY: stub }, "darwin");
       // Either a real well-known socket was found (available:true) or none was (kind:"not-running",

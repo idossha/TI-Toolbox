@@ -1,5 +1,5 @@
 /**
- * The Help page's own keyboard reference (Q5, `docs/dev/design-notes.md` §4;
+ * The Help page's own keyboard reference (Q5, `docs/dev/DESIGN.md` §9;
  * confirmed by the orchestrator: "Cmd+<n> = the workflow pages in nav order, then Settings,
  * '?' = Help"). This is a page you can browse to, unlike the `?` overlay
  * (`app/KeyboardSheet.tsx`) which needs you to already know the gesture — the two are deliberately

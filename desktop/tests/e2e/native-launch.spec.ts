@@ -6,7 +6,7 @@
  * Prerequisite, run once before this spec (not part of `npm run e2e`'s own build step):
  *   TIT_RUNTIME_DIR=<a python-build-standalone tree with tit.server's deps + tit installed>
  *   npm run package:dir
- * (docs/dev/SPIKES.md builds a runtime tree that satisfies this.) Without
+ * (docs/dev/HISTORY.md § 2026-09-03 builds a runtime tree that satisfies this.) Without
  * that prior `--dir` build this spec SKIPS itself with a clear message — it deliberately never
  * builds the package inline, to keep `npm run e2e`'s normal ~15-spec run fast and to keep this spec
  * runnable standalone (`npx playwright test tests/e2e/native-launch.spec.ts`) once the app exists.

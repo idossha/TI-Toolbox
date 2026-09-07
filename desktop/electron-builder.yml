@@ -2,7 +2,7 @@
 # .github/workflows/release-v3.yml and by `npm run package` / `package:dir` locally.
 # The release path this file serves is written up in docs/dev/RELEASE.md.
 #
-# It replaces the N0.4 native-packaging spike config that used to live here (docs/dev/SPIKES.md;
+# It replaces the N0.4 native-packaging spike config that used to live here (docs/dev/HISTORY.md § 2026-09-03;
 # docs/dev/HISTORY.md § 2026-09-03 (native desktop research)). Three things changed, each because
 # the spike config could not have produced a shippable artifact:
 #

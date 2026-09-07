@@ -310,7 +310,7 @@ Additive only: one new path and seven new schemas. Every existing path, schema a
 unchanged, so a client that ignores all of it behaves exactly as before.
 
 1. **New path `GET /api/catalog/overview`** (tag `catalog`), answering `Overview`. It is the
-   project Overview page's *single* read (`docs/dev/v3-implementation-plan.md` R1): the page it serves
+   project Overview page's *single* read (`docs/dev/HISTORY.md § 2026-09-05` R1): the page it serves
    replaced Subjects, and with it a request fan-out of one `/api/catalog/subjects/{id}` per subject
    plus five output lists per subject plus one `/api/catalog/analyses` per simulation. That
    fan-out was capped in the renderer at 25 subjects, so a larger project silently rendered **no**
@@ -342,7 +342,7 @@ client that keeps sending exactly what it sent before (`kind: "pre"`, `config`, 
 
 1. **`JobGroupRequest.kind`** widens from `enum: [pre]` to
    `[pre, sim, flex, flex_adaptive, flex_pareto, ex, mex]` — every kind that runs one independent
-   job per subject (`docs/dev/v3-implementation-plan.md` R3). `pre` still expands into
+   job per subject (`docs/dev/HISTORY.md § 2026-09-05` R3). `pre` still expands into
    `tit.jobs.plans.plan_preprocessing`'s per-subject G1–G6/report DAG; the new kinds expand into
    one job per `(subject, config)` entry via the new `tit.jobs.plans.plan_per_subject`. Cohort
    kinds are deliberately *not* in the enum: a grouped `analyzer` run is one job over the whole

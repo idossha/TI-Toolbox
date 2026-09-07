@@ -63,7 +63,7 @@ export function readDeepLink(routerSearch: string, documentSearch: string): View
 // ------------------------------------------------------------------------------------------------
 // R5 — explicit selection: the draft/loaded model's pure half.
 //
-// `docs/dev/v3-implementation-plan.md` R5: the Viewer separates what the source bar SHOWS
+// `docs/dev/HISTORY.md § 2026-09-05` R5: the Viewer separates what the source bar SHOWS
 // (`draftSelection`) from what the embed is CURRENTLY DRAWING (`loadedSelection`). Everything in
 // this block is the part of that model with no store, no query client and no DOM: which selectors
 // a view type needs, whether a draft is complete enough to ask the server for, the exact query

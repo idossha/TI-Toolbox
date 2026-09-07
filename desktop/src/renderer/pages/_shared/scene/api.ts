@@ -134,7 +134,7 @@ export function labelsUrl(subject: string, atlas: string): string {
 // ------------------------------------------------------------------------------------- the guide
 
 /**
- * The **fixed guide scene** (`docs/dev/v3-implementation-plan.md` R4): one immutable head, packaged
+ * The **fixed guide scene** (`docs/dev/HISTORY.md § 2026-09-05` R4): one immutable head, packaged
  * with the installation, that the three run panes draw instead of the first selected research
  * subject.
  *

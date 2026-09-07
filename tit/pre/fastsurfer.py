@@ -20,7 +20,7 @@ run_fastsurfer
 
 Notes
 -----
-Measured on this project's own spike (``docs/dev/SPIKES.md``,
+Measured on this project's own spike (``docs/dev/HISTORY.md § 2026-09-03``,
 sub-ernie, Apple M2, 8 threads, CPU only): ~5 min for the segmentation
 itself, 4.84 GiB peak RSS, mean Dice 0.922 (14 subcortical) / 0.914
 (20 cortical DKT) against real ``recon-all`` output on the same subject.

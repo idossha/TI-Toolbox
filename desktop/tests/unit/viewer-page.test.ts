@@ -62,7 +62,7 @@ describe("readDeepLink", () => {
 });
 
 // -------------------------------------------------------------------------------------------------
-// R5 — the draft/loaded model's pure half (docs/dev/v3-implementation-plan.md).
+// R5 — the draft/loaded model's pure half (docs/dev/HISTORY.md § 2026-09-05).
 //
 // The e2e proves the *counts* (zero requests on an edit, exactly one on Load). What it cannot show
 // cheaply is that the request a given draft WOULD produce carries the draft's own values and only

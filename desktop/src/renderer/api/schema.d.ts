@@ -1640,7 +1640,7 @@ export interface paths {
         };
         /**
          * Every project Overview fact in one bounded request
-         * @description The Overview page's single read (docs/dev/v3-implementation-plan.md R1). One response carries every subject's presence columns, EEG nets/leadfields, output counts and workflow readiness, so the page's request count does not grow with the number of subjects, simulations or outputs. Detailed output discovery stays lazy and stays in Results.
+         * @description The Overview page's single read (docs/dev/HISTORY.md § 2026-09-05 R1). One response carries every subject's presence columns, EEG nets/leadfields, output counts and workflow readiness, so the page's request count does not grow with the number of subjects, simulations or outputs. Detailed output discovery stays lazy and stays in Results.
          */
         get: {
             parameters: {

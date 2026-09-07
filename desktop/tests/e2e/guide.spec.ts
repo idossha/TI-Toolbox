@@ -1,7 +1,7 @@
 /**
  * R4's gate: the workflow 3D panes draw a **fixed guide**, not the selected research subject.
  *
- * Each assertion below is one clause of the gate in `docs/dev/v3-implementation-plan.md` R4, and each
+ * Each assertion below is one clause of the gate in `docs/dev/HISTORY.md § 2026-09-05` R4, and each
  * exists because of a failure the subject-coupled pane actually had:
  *
  *  - changing the selected subjects re-keyed the pane's queries and reloaded the embed, so ticking

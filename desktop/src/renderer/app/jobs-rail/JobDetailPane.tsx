@@ -76,7 +76,7 @@ export function JobDetailPane({ job, allowUnsafeOverrides, onOpenJob, density = 
 
   // The Summary tab's own console excerpt (§3.2 finding, B6 → this lane): at `page` density the
   // Summary tab was just the definition list, leaving ~30% of a 736px pane blank — the wireframe's
-  // own Jobs design (docs/dev/wireframes.md §8) fills that with the tail of the same
+  // own Jobs design (docs/dev/DESIGN.md §4.10) fills that with the tail of the same
   // log, not a second empty pane the user has to click "Raw log" to see anything in. Fixed at 40
   // lines and always on at `page` density (unlike the Raw log tab's `logTail`, which grows on
   // demand): a live-refetching excerpt for a running job so the pane keeps painting content, not a

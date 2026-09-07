@@ -244,7 +244,7 @@
 }
 
 /* Summary tab's console excerpt (`page` density only) — fills the space a definition list alone
- * left blank (docs/dev/wireframes.md §8). No `max-height` cap here, unlike
+ * left blank (docs/dev/DESIGN.md §4.10). No `max-height` cap here, unlike
  * `.job-detail-log-inline`'s 160px: forty lines of mono text is meant to occupy the pane, and
  * `.job-detail-body`'s own `overflow: auto` (above) takes over if the pane itself is short. */
 .job-detail-console {

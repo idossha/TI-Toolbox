@@ -113,7 +113,7 @@ def _default_mni_atlas_path(requested: str | None = None) -> str | None:
     """The bundled MNI atlas file to overlay.
 
     *requested* is the optional ``atlas`` query parameter (R5,
-    ``docs/dev/v3-implementation-plan.md``): the **basename** of one of the
+    ``docs/dev/HISTORY.md § 2026-09-05``): the **basename** of one of the
     bundled files, as ``GET /api/catalog/atlases?space=mni`` reports it. An
     id that matches nothing bundled falls through to the default rather
     than failing the whole view -- a stale bookmark or a project moved
