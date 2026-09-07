@@ -2307,7 +2307,7 @@ function starterNotebook() {
         execution_count: null,
         outputs: [],
         source:
-          "# TI-Toolbox is already on this kernel's path.\nfrom tit import get_path_manager\n\npm = get_path_manager()\nprint('project:', pm.project_root)\nprint('subjects:', pm.list_all_subjects())\n",
+          "# TI-Toolbox is already on this kernel's path.\nfrom tit import get_path_manager\n\npm = get_path_manager()\nprint('project:', pm.project_dir)\nprint('subjects:', pm.list_all_subjects())\n",
       },
     ],
   };

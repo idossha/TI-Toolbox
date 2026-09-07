@@ -126,7 +126,7 @@ def starter_source(project_root: str | Path) -> str:
         "from tit import get_path_manager\n"
         "\n"
         "pm = get_path_manager()\n"
-        f"print('project:', pm.project_root)  # {project_root}\n"
+        f"print('project:', pm.project_dir)  # {project_root}\n"
         "print('subjects:', pm.list_all_subjects())\n"
     )
 
