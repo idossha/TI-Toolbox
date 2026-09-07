@@ -1,5 +1,10 @@
 # U0 design notes — measurements, contracts, open questions
 
+> Historical, except §3. Kept only because `desktop/DESIGN.md` §5 defers to §3
+> for the verbatim TypeScript contract signatures instead of restating them.
+> Everything else here is superseded by `desktop/DESIGN.md` and by
+> `dev/notes/v3-program-history.md` § 2026-09-03 — UI program.
+
 Companion to `desktop/DESIGN.md` v3 and `dev/notes/v3-ui-program/wireframes.md`. §3 is the part the
 build lanes code against **verbatim**.
 

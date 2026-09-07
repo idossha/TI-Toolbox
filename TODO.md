@@ -21,7 +21,7 @@ To-Do List:
 **Status:** IN PROGRESS — Phase 0 started 2026-08-27. §9 answers are recorded as an ADR in
 `tracks/active/v3-electron-gui.md`. **Decision 2026-08-27:** the GUI moves to Electron now; Freeview and
 Gmsh stay *in the container on X11* for 3.0 and are launched by `tit.server` from a ViewSpec; an internal
-web renderer (spike (c) in `dev/notes/v3-spikes.md`) is a separate later track that retires them step by
+web renderer (spike (c) in `dev/notes/v3-program-history.md`) is a separate later track that retires them step by
 step. Everything below that said "X11 goes away" is amended accordingly (§0, §1, §2.6, §2.7, §2.8, §3.C,
 §4, §5, §9, §10).
 **Branch:** `feature/v3-electron-gui` (long-lived integration branch; phase PRs target *it*, never
@@ -46,7 +46,7 @@ Non-goals for 3.0: two projects open in one app instance, a third-party UI plugi
 HPC job submission through SLURM (architecture leaves the door open, §2.7), and any change to
 numerical code (SimNIBS calls, envelope math, optimizers, stats). **Also out of 3.0 (decision
 2026-08-27):** replacing Freeview/Gmsh with an embedded renderer and removing X11 — tracked separately
-as the "internal viewer" track (`dev/notes/v3-spikes.md` holds the evidence).
+as the "internal viewer" track (`dev/notes/v3-program-history.md` holds the evidence).
 
 ### 1. Why (what the current setup costs)
 
@@ -348,7 +348,7 @@ montage dir of the run, `simulator_tab.py:1905-1925`); (7) `tit/pre/utils.py:461
 |---|---|
 | `freeview` from the NIfTI Viewer tab (`nifti_viewer_tab.py:1101-1180`), ROI picker, ex AddROIDialog, analyzer | **Freeview, unchanged binary, launched by `tit.server`** (`POST /api/viewers/freeview` with a ViewSpec). The layer-spec builder (`nifti_viewer_tab.py:1272-1290`, `:961-1087`, `:832-959`) moves to `tit/viewspec.py` — `build_view(kind, ...)` + `to_freeview_args(spec)` (same grammar as `launch_freeview_with_files`, with the six audit bugs fixed: HF glob never matching `_scalar_subject_magnE`, `labeling_LUT.txt` ignored, `*_LUT.txt` not found in group mode, MNI template paths outside `resources/atlas`, thresholds dropped when percentile mode is off, single-subject MNI unreachable). The process inherits the container's `DISPLAY` (X11 mounts stay in compose) and is tracked as a job of kind `viewer` (no locks, no budget) so it shows in the Jobs panel and Stop works; the previous instance is terminated first, as today. The Viewer screen is the layer/threshold form + "Open in Freeview". Coordinate lookup for spherical ROIs stays manual (read Freeview's status bar, type it) until the internal viewer lands. |
 | `gmsh` for `.msh` results (`analyzer_tab.py:2758-2782`; the SimNIBS-standard way to inspect field-on-mesh) | **Gmsh, unchanged, launched by `tit.server`** (`POST /api/viewers/gmsh {path}`), `.opt` sidecars written as today (`tit/tools/gmsh_opt.py`, `tit/analyzer/visualizer.py`, `tit/sim/TI.py`). Results screen: "Open in Gmsh" per mesh artifact. |
-| *(later track: internal viewer)* | NiiVue was verified on sub-ernie for volumes + server-exported surfaces (`dev/notes/v3-spikes.md`, spike (c)); a three.js tet/surface renderer is the candidate for the Gmsh side. Both consume the same ViewSpec; nothing in 3.0 depends on them, and they retire Freeview → Gmsh → X11 in that order when they are good enough. |
+| *(later track: internal viewer)* | NiiVue was verified on sub-ernie for volumes + server-exported surfaces (`dev/notes/v3-program-history.md`, spike (c)); a three.js tet/surface renderer is the candidate for the Gmsh side. Both consume the same ViewSpec; nothing in 3.0 depends on them, and they retire Freeview → Gmsh → X11 in that order when they are good enough. |
 | PyOpenGL electrode placement (`extensions/electrode_placement.py`, 358 LOC GL + ray casting) | three.js + Raycaster; skin surface exported by the server (`tit/blender/electrode_placement.py` already extracts the scalp from `.msh`); `stim_configs` writer moves to `tit/electrodes/placement.py`. **Default 3.1.** Because that extension is the *only* writer of `m2m/stim_configs/*.json` (`electrode_placement.py:1010-1036`) and the Simulator's Free-hand source reads them, the Simulator screen ships a **free-hand table editor** (label, x, y, z, type → same JSON via `tit/electrodes/placement.py`, "add from picked NiiVue coordinate") so the source keeps working without the 3D picker. |
 | HTML reports opened with `xdg-open` inside the container | `<iframe sandbox="allow-scripts">` (no `allow-same-origin` → opaque origin, no cookie access) whose `src` is `/api/files/report/<id>` served with its own CSP (`default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:`) — reports embed inline `<script>` (`reporting/core/templates.py:866-868`) and are derived from run data, so they never run in the app's origin. "Open in browser" = `shell.openPath`. |
 | matplotlib/nilearn PDFs & PNGs | produced by jobs as today; shown as artifacts (PDF viewer / img). |
@@ -621,12 +621,12 @@ extracted function so the legacy GUI exercises the new code until cutover).
   / PR #146; abandon `feature/launcher-redesign`; `mp-leadfield-search.md` is backend-only.
   `deploy/jupyterhub/` (untracked WIP with a local `.env`) is committed or dropped before Phase 0
   ends; `.env` never.
-- Spikes (½–1 day each, notes in `dev/notes/v3-spikes.md`): (a) `simnibs_python -m pip install
+- Spikes (½–1 day each, notes in `dev/notes/v3-program-history.md`): (a) `simnibs_python -m pip install
   fastapi "uvicorn[standard]"` inside `idossha/simnibs:v2.4.0`, serve REST + WS on `0.0.0.0`
   behind `127.0.0.1:<port>` publishing and **assert reachability with `curl` from the HOST** on
   macOS, Windows (Docker Desktop/WSL2) and Linux Engine; (b) time `import tit.sim; import tit.opt;
   import tit.analyzer` and record RSS in the container (the server will hold SimNIBS); (c) **done
-  2026-08-27** (`dev/notes/v3-spikes.md`): NiiVue loads ernie T1 + tissue LUT + TI_max + electrode
+  2026-08-27** (`dev/notes/v3-program-history.md`): NiiVue loads ernie T1 + tissue LUT + TI_max + electrode
   overlay and server-exported GIfTI surfaces; kept as the seed of the internal-viewer track;
   (d) electron-vite + `contextIsolation`/`sandbox` skeleton doing `loadURL` against (a) with a
   token→cookie exchange and a WS round-trip, plus the Vite proxy dev loop; (e) **threads**: time

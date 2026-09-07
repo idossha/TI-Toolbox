@@ -64,7 +64,7 @@ def update_version(new_version):
         "dev/bash_dev/docker-compose.dev.yml": [
             (r"image: idossha/simnibs:[\S]+", f"image: idossha/simnibs:v{new_version}")
         ],
-        # v3 streamlined stack (dev/notes/v3-docker-streamline-plan.md D1/D4): one image,
+        # v3 streamlined stack (docs/ARCHITECTURE.md; dev/notes/v3-program-history.md 2026-09-03): one image,
         # idossha/ti-toolbox:<ver>, tagged independently of idossha/simnibs above (the v3
         # image bundles a specific SimNIBS build, it does not share its version number).
         # The `:-dev` default is deliberately for local iteration only — bump it on every

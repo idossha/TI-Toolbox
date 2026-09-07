@@ -1,7 +1,7 @@
 # TI-Toolbox v3 overview, batch, terminal, and viewer plan
 
 Date: 2026-09-05  
-Status: R1-R5 implemented and gated per-lane (`dev/notes/v3-overview-batch-viewer/{OV,TM,BX,GD,VW}.md`);
+Status: R1-R5 implemented and gated per-lane (`dev/notes/v3-program-history.md`, 2026-09-05);
 delivery steps 1 and 7 closed by the consolidation lane (`.../CX.md`) — records landed in
 `docs/{ARCHITECTURE,DECISIONS,ROADMAP}.md`, `docs/requirements/2026-09-05-overview-batch-viewer.md`,
 `tracks/active/v3-electron-gui.md` and `desktop/DESIGN.md`; typecheck, lint, unit, full offscreen
@@ -15,13 +15,13 @@ opens the host-installed Tetravox desktop app with a scene file (the embed, its 
 table instead of a page-level subject set fanned across a montage list. Plan of record
 `dev/notes/v3-native-panes-external-viewer-plan.md`; requirements
 `docs/requirements/2026-09-06-native-panes-external-viewer.md`; contract `docs/ARCHITECTURE.md`
-§§7.1, 7.2, 7.5; gate `dev/notes/v3-native-panes-external-viewer/CX3.md`.
+§§7.1, 7.2, 7.5; gate `docs/ROADMAP.md`.
 
 A **second** 2026-09-05 pass followed this one — Tetravox currency and automatic updates, electrodes
 as coloured dots, one selection grammar with the receipt, and the pipeline canvas. Its plan of record
-is `dev/notes/v3-tetravox-selection-pipeline-plan.md` (A-D), its requirements are
+is `docs/requirements/2026-09-05-tetravox-selection-pipeline.md` (A-D), its requirements are
 `docs/requirements/2026-09-05-tetravox-selection-pipeline.md`, its contract is
-`docs/ARCHITECTURE.md` §7, and its gate is `dev/notes/v3-tetravox-selection-pipeline/CX2.md`. It does
+`docs/ARCHITECTURE.md` §7, and its gate is `docs/ROADMAP.md`. It does
 not reverse anything here; it adds a ninth rail row (Pipeline, ⌘6), which moves Settings to ⌘0.  
 Scope: Electron desktop, catalog/job/scene APIs, tests, and the corresponding architecture records
 

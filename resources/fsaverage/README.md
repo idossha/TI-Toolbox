@@ -34,7 +34,7 @@ Each directory holds `lh.central.gii` / `rh.central.gii` (GIFTI, vertex
 coordinates + triangle faces). Only the triangle topology (`faces`) is used
 by `build_fsaverage_adjacency`; coordinates are read but not otherwise
 consumed. Vertex/face counts and total size verified in
-`dev/spikes/native/fs-binaries/REPORT.md`.
+`dev/spikes/README.md`.
 
 Total size: ~18 MB (0.5 MB + 2.1 MB + 15.7 MB for `5/`, `6/`, `7/`
 respectively).

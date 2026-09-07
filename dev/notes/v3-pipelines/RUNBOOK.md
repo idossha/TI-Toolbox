@@ -1,5 +1,10 @@
 # v3 pipelines runbook
 
+> Live. This is the runbook for the two-level smoke harness, cited by
+> `desktop/tests/e2e/batch.spec.ts` and `real/pipeline.spec.ts`. The program
+> narrative is `dev/notes/v3-program-history.md` § 2026-09-03 — Pipelines
+> program; the numbers are in `docs/BENCHMARKS.md`.
+
 One page, commands only. Every command below was run for real this session (2026-09-04, lane
 HX) against `ti-toolbox-fad740e5-tit-1` / `http://127.0.0.1:8765` unless a line says otherwise
 and names whose run it cites instead. Full detail: `dev/notes/v3-pipelines/hx-notes.md`.
