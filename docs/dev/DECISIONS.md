@@ -1,8 +1,24 @@
-# Desktop architecture decisions
+# Architecture decisions
 
-Current rules live in [ARCHITECTURE.md](ARCHITECTURE.md); this append-only log records why.
+Current rules live in [ARCHITECTURE.md](ARCHITECTURE.md); this append-only log records **why**.
+Chronological, oldest first.
 
-## 2026-09-04 — Tabs retain their live page and renderer
+Every entry has the same four parts, and a new one must too:
+
+```
+### <date> — <title>
+
+**Decision.** What is now true.
+**Why.** What made it necessary — the ask, the defect, the measurement.
+**Cost.** What it costs, what it rules out, what was rejected to get here.
+**Revisit if.** The condition under which this should be reopened.
+```
+
+A decision that was later reversed keeps its entry and gains a **Superseded by …** banner at the
+top; the entry that replaced it says what it reverses. Two entries here are marked as *open*
+rather than decided and carry no **Decision** — that is deliberate, and they say so.
+
+### 2026-09-04 — Tabs retain their live page and renderer
 
 **Decision.** Architecture §2 retains visited pages for the project session and isolates their subject
 and route context. Inactive pages relinquish commands, keyboard actions and status ownership.
@@ -11,11 +27,13 @@ and route context. Inactive pages relinquish commands, keyboard actions and stat
 the page, destroying its iframe and camera even where a session bag restored some form values.
 The maintainer made unchanged state across tab changes a non-negotiable requirement (R1).
 
-**Alternatives rejected.** Serializing a growing list of form fields misses validation and viewer
+**Cost.** Serializing a growing list of form fields misses validation and viewer
 state. The older embed plan's visible-only lifetime released WASM memory but violated navigation
 continuity. Project changes still dispose frames; this decision does not retain past sessions.
 
-## 2026-09-04 — Preview controls belong to the workflow
+**Revisit if.** A retained page's memory becomes a problem on a small machine, or a page appears whose live state is cheap enough to serialise.
+
+### 2026-09-04 — Preview controls belong to the workflow
 
 **Decision.** Architecture §3 uses optional `presentation=viewport` for embedded run-page scenes,
 and exposes skin/grey-matter opacity through the existing layer protocol. The full Viewer is the
@@ -24,11 +42,13 @@ default when the parameter is absent.
 **Why.** Full Tetravox application controls consume the small scene pane and duplicate workflow
 decisions. The missing opacity controls made the skin and cortex harder to inspect (R3).
 
-**Alternatives rejected.** Reintroducing a second rendering engine duplicates graphics logic.
+**Cost.** Reintroducing a second rendering engine duplicates graphics logic.
 Host-injected CSS would couple TI to private viewer DOM. A default-changing embed option would also
 strip controls from the dedicated Viewer. The additive presentation option avoids that coupling.
 
-## 2026-09-04 — Existing primitives govern control consistency
+**Revisit if.** A pane needs a control the layer protocol cannot express, or the pane stops being a preview of a full Viewer scene.
+
+### 2026-09-04 — Existing primitives govern control consistency
 
 **Decision.** Architecture §4 keeps the existing token system and makes shared controls contain long
 values, carry accessible names and reserve a consistent primary-action position (R2).
@@ -41,7 +61,11 @@ dependency or scientific configuration format is introduced by this pass.
 
 Verification results are recorded in [ROADMAP.md](ROADMAP.md) after the commands run.
 
-## 2026-09-04 — Preview build failures require explicit retry
+**Cost.** One more rule the pages must obey, and two sizes to remember; no new dependency and no new configuration format.
+
+**Revisit if.** A page needs a control size the 28/32 px pair cannot express, or the token system is replaced.
+
+### 2026-09-04 — Preview build failures require explicit retry
 
 **Decision.** Architecture §3 stops manifest/atlas polling on HTTP failure and offers an explicit retry.
 Bounded automatic retries remain for transport failures.
@@ -55,7 +79,11 @@ The preview also waits for a required atlas before sending its first scene. Load
 anatomy and then the atlas concurrently left duplicate skin/cortex layers in the live renderer;
 the atlas-ready gate removes that dependency race without changing the scientific data.
 
-## 2026-09-05 — The app opens on a project Overview, and Subject Info is deleted
+**Cost.** One extra click on a real failure, in exchange for never hiding one.
+
+**Revisit if.** The server starts reporting a build error durably, so a retry can tell a new failure from a repeat of the same one.
+
+### 2026-09-05 — The app opens on a project Overview, and Subject Info is deleted
 
 **Decision.** Architecture §6: the first rail item, the ⌘1 target, the initial route, the catch-all
 destination and the palette's first page are `overview`. The Subjects page is its starting
@@ -70,11 +98,13 @@ the renderer, so a larger project silently rendered no counts at all — server-
 correctness, not speed. "Staged but not converted", "running right now" and "the last run failed"
 are three different answers that one boolean swallowed.
 
-**Alternatives rejected.** Keeping the per-subject fan-out behind a higher cap moves the cliff
+**Cost.** Keeping the per-subject fan-out behind a higher cap moves the cliff
 without removing it. Removing `GET /api/catalog/subject-info` from the contract is breaking and
 belongs to the API's next versioned cleanup; it stays, unused.
 
-## 2026-09-05 — Terminal Clear is presentational, not destructive
+**Revisit if.** The aggregate query stops being bounded as projects grow, or a per-subject detail view is asked for again.
+
+### 2026-09-05 — Terminal Clear is presentational, not destructive
 
 **Decision.** Architecture §6: one interactive log renderer (`ui/Jobs.tsx::JobConsole`) over one
 pure transform (`app/jobs/logLines.ts`), with a source-aware Clear implemented as a per-source
@@ -84,11 +114,13 @@ sequence watermark over the caller's array.
 pages. A Clear that spliced the array would destroy the record the console exists to show, and
 would differ from what the log file and the event stream say.
 
-**Alternatives rejected.** Truncating the log file, or dropping server events, makes Clear
+**Cost.** Truncating the log file, or dropping server events, makes Clear
 irreversible and makes the console disagree with `Reveal log file`. Per-page terminal
 implementations were what produced two copies of the event→line conversion in the first place.
 
-## 2026-09-05 — Batch execution is a scheduler cap, not renderer request timing
+**Revisit if.** Someone genuinely needs to truncate a huge log on disk — a different feature, which must say so in its own words.
+
+### 2026-09-05 — Batch execution is a scheduler cap, not renderer request timing
 
 **Decision.** Architecture §6: every workflow that runs one independent job per subject submits one
 `POST /api/jobs/groups` with `parallel_subjects`, and `tit.jobs.scheduler.evaluate` enforces it as
@@ -102,7 +134,7 @@ budget allowed the moment each job landed, so "sequential" described the rendere
 what ran. The maintainer asked for parallel *or* sequential processing over a multi-subject
 selection, which is a scheduler property.
 
-**Alternatives rejected.** A client-side semaphore around `Promise.all` still cannot see the
+**Cost.** A client-side semaphore around `Promise.all` still cannot see the
 scheduler's budget or the directory locks, and dies with the window. Per-subject POSTs with a
 `group_id` tag would leave the cap unenforced on the only side that can enforce it.
 
@@ -111,7 +143,9 @@ three montages is three jobs, so a cap of 2 can run two montages of the same sub
 `tit.jobs.locks` is what keeps that safe, and the control's help says "jobs", not "subjects".
 Subject-count semantics would be a scheduler change plus a contract note.
 
-## 2026-09-05 — The workflow 3D panes draw a fixed guide, not the selected subject
+**Revisit if.** Users read the cap as subjects rather than jobs; subject-count semantics are a scheduler change plus a contract note.
+
+### 2026-09-05 — The workflow 3D panes draw a fixed guide, not the selected subject
 
 **Decision.** Architecture §3 and §6: Simulator, Optimizer and Analyzer panes draw a packaged,
 immutable guide served by `GET /api/guide/*`, derived from the SimNIBS example subject `ernie`
@@ -124,12 +158,14 @@ mesh extraction and a remount for ticking a second subject — and let one subje
 a subject-RAS coordinate written into a *different* subject's configuration. 15.5 MB of derived,
 bounded artifacts replace a per-project 184 MB read.
 
-**Alternatives rejected.** Transforming a guide pick into the target subject's space approximately
+**Cost.** Transforming a guide pick into the target subject's space approximately
 is exactly the silent-wrongness this removes; a real picking mode needs an explicit space/transform
 contract. Rebuilding the guide at runtime, or packaging a whole `m2m` directory, gives up the
 "immutable, no build, no project" property that makes the pane free.
 
-## 2026-09-05 — The Viewer loads on command, not on selection
+**Revisit if.** A pane needs a pick in the selected subject's own space — that requires an explicit space/transform contract first.
+
+### 2026-09-05 — The Viewer loads on command, not on selection
 
 **Decision.** Architecture §6: the Viewer keeps a `draftSelection` separate from a
 `loadedSelection`. Editing a selector changes only the draft; **Load** validates it, snapshots it,
@@ -145,13 +181,14 @@ switch in the shell, a space toggle, a half-finished pick — tore down a scene 
 to load, and a transient server error replaced the picture with an error card. Explicitness costs
 one click and buys back the image you already have and the knowledge of which selection produced it.
 
-**Alternatives rejected.** Debouncing the auto-load keeps every failure mode and adds a race.
+**Cost.** Debouncing the auto-load keeps every failure mode and adds a race.
 404-ing an unknown `atlas` turns a stale bookmark into no picture at all. The atlas menu offers the
 voxel atlases only: FreeSurfer `.annot` cortical parcellations are surface data and would silently
 resolve back to the default.
 
+**Revisit if.** Loading a scene becomes cheap enough that a torn-down picture costs the user nothing.
 
-## 2026-09-05 — The Tetravox release index is the GitHub Releases API, and the pin is a protocol range
+### 2026-09-05 — The Tetravox release index is the GitHub Releases API, and the pin is a protocol range
 
 **Decision.** Architecture §7.1: TI-Toolbox never names a Tetravox version. It pins a protocol
 range plus named features, and asks the GitHub Releases API of `idossha/tetravox` whether a newer
@@ -167,13 +204,15 @@ an index that goes stale silently, and the API is written by the release itself.
 *asset* means "can this build host it?" costs about 2 KB instead of a 6 MB tarball, so the protocol
 check happens **before** the download and the user reads A1's sentence rather than the installer's.
 
-**Alternatives rejected.** Comparing version numbers couples two release trains that have no reason
+**Cost.** Comparing version numbers couples two release trains that have no reason
 to move together. Downloading first and letting the installer refuse spends 6 MB to produce a worse
 message. An authenticated request would put a credential this app must then protect into a config
 file, for a public repo's public releases; unauthenticated 60 req/h is ample for one check per start
 plus one per day, and a 403 is "could not check", not an error dialog.
 
-## 2026-09-05 — Tetravox updates install themselves by default, and "newer" means newer than what we installed
+**Revisit if.** Unauthenticated rate limiting starts refusing the daily check, or Tetravox publishes an index of its own that a release writes.
+
+### 2026-09-05 — Tetravox updates install themselves by default, and "newer" means newer than what we installed
 
 **Decision.** Architecture §7.1: `tetravox.auto_update` defaults **on**. The server checks at
 startup (non-blocking, after `/api/health` is up) and every 24 h, installs a compatible release into
@@ -188,14 +227,16 @@ thing the maintainer asked to remove. The provenance baseline is not fussiness: 
 runs a hand-installed bundle calling itself 0.4.0 and the first real release is 0.3.12, so comparing
 against the active bundle answers "up to date" forever on the one machine where this matters.
 
-**Alternatives rejected.** Image-only delivery (keeps the release coupling, and users pinned to a
+**Cost.** Image-only delivery (keeps the release coupling, and users pinned to a
 tag never get the fix). Default-off (a check that only ever tells you something exists is a chore
 list). A new type on `/ws/jobs` or `/ws/system` — both have consumers that parse exactly one shape,
 and `events.schema.json` describes a job's `events.jsonl`, which no app-level event can be; hence
 `/ws/tetravox`. The toast is deliberately not a reload: a mounted pane keeps its iframe and its
 bundle, and a new mount gets the new one.
 
-## 2026-09-05 — Electrodes are dots whose colour is their whole state, and the host writes every colour
+**Revisit if.** An automatic update ever breaks a working project — the rollback pin is the escape hatch that would then have to prove itself.
+
+### 2026-09-05 — Electrodes are dots whose colour is their whole state, and the host writes every colour
 
 **Decision.** Architecture §7.2: the montage scene pane draws a `shape: "dot"` points layer and says
 everything with colour — neutral grey idle, 35 % grey disabled, the channel's hue when placed. No
@@ -213,13 +254,15 @@ and one layer colour cannot also be the disabled colour. The old four-hue palett
 orange, which is exactly the pair a deuteranope cannot separate — and a four-pair mTI montage uses
 all four.
 
-**Alternatives rejected.** A layer-level `selected` colour (it cannot encode the channel).
+**Cost.** A layer-level `selected` colour (it cannot encode the channel).
 Radius-as-state for the active channel (the shipped bundle reads the dot radius from the layer, not
 the point, so it is inert; the field is still sent, and asserted, so it cannot drift). Waiting for the
 upstream 3-D dot pass before shipping: the payload is correct today, the layer keeps `radiusMm: 4`
 so nothing regresses, and the defect is pinned by a test that fails when the fix lands.
 
-## 2026-09-05 — One selection grammar, with the receipt as the confirmation
+**Revisit if.** Tetravox ships per-point radius and a marker API, or a net grows dense enough that dots overlap at usable zoom.
+
+### 2026-09-05 — One selection grammar, with the receipt as the confirmation
 
 **Decision.** Architecture §7.4: `ui/SelectionList` is the only way anything is chosen out of a set,
 with `SelectionPicker` as its dialog form for fields with no room. 2.5.0's rule is restored — a flat
@@ -235,13 +278,15 @@ and neither says *which* jobs, next to the button that runs them. Making the rec
 the scroller was tried and measured wrong — the layout hit-test caught it answering clicks meant for
 12 of the Optimizer's controls — so the slot is the fix, not a z-index.
 
-**Consequences.** A plain click now selects one row instead of adding one (⌘-click adds).
+**Cost.** A plain click now selects one row instead of adding one (⌘-click adds).
 `MultiSelect` chips and the per-slot `Select` combos are gone from the pages (`MultiSelect` survives
 for schema-driven forms). `PlanGrid` is no longer the primary confirmation. Four different
 existing-output dialogs became one, two of which had offered no Skip at all — finishing a half-done
 batch had meant deselecting its finished rows by hand.
 
-## 2026-09-05 — A pipeline is a job group, not a workflow engine
+**Revisit if.** A page needs a selection idiom `SelectionList` cannot express — the answer is to extend it, never to add a sixth.
+
+### 2026-09-05 — A pipeline is a job group, not a workflow engine
 
 **Decision.** Architecture §7.3: a pipeline is a DAG of existing job kinds whose edges are typed
 bindings, and running it is exactly one `submit_plan` — the same machinery `plan_preprocessing`'s
@@ -258,13 +303,15 @@ whose failure modes nothing else in the app understands. Admission is the right 
 write-back because it is by construction after every `after` job has finished, which is the first
 moment a run-time-named directory exists.
 
-**Alternatives rejected.** A pipeline runtime (a second executor). Resolving dynamic bindings in the
+**Cost.** A pipeline runtime (a second executor). Resolving dynamic bindings in the
 client (the client would have to poll for a directory name and then submit, which is client-side
 sequencing by another name). Failing the consumer when a resolve step found nothing: leaving the
 field as the canvas set it makes it fail exactly as an unfilled form field does, with the same
 message.
 
-## 2026-09-05 — React Flow is the canvas; `nbformat` is an optional extra
+**Revisit if.** A pipeline genuinely needs a conditional, a retry or a loop. That is a second executor, and a decision of its own.
+
+### 2026-09-05 — React Flow is the canvas; `nbformat` is an optional extra
 
 **Decision.** `@xyflow/react` 12.11.6 (MIT), pinned exactly, is the pipeline canvas — the only new
 renderer dependency of the feature. `nbformat>=5.1.4` is a `[project.optional-dependencies] pipeline`
@@ -277,11 +324,13 @@ hook — weeks of pan/zoom, hit-testing and handle geometry for no domain value 
 empty because `tit` is installed into SimNIBS's own interpreter, where an unpinned resolve fights
 SimNIBS's pins; an extra keeps that property while the desktop app always has the module.
 
-**Consequences.** React Flow is used as a *controlled* component, which means the page must apply
+**Cost.** React Flow is used as a *controlled* component, which means the page must apply
 **every** `NodeChange` it emits — applying only position changes throws away its measurements and it
 keeps unmeasured nodes at `visibility: hidden`.
 
-## 2026-09-05 — Notebook export is public-API-only, and carries the document in its metadata
+**Revisit if.** React Flow's licence or maintenance changes, or `nbformat` becomes needed on a path that is not optional.
+
+### 2026-09-05 — Notebook export is public-API-only, and carries the document in its metadata
 
 **Decision.** `POST /api/pipelines/export` emits an `nbformat` v4 notebook whose code cells call only
 what `docs/wiki/scripting.md` documents, in topological order, with bindings expressed as Python
@@ -294,7 +343,13 @@ code cell against a stub `tit` that defines only the documented names — a call
 teach fails the build. The metadata makes the round trip a lookup rather than a parse: reconstructing
 a graph from edited Python is guesswork that would be wrong quietly.
 
-## 2026-09-05 — Settings' ⌘-number is derived, not hard-coded
+**Cost.** No new dependency, no contract change; the cost is that this rule is now one more thing a change must respect.
+
+**Revisit if.** Import lands — it reads `metadata.ti_toolbox.pipeline`, never the Python.
+
+### 2026-09-05 — Settings' ⌘-number is derived, not hard-coded
+
+> **Superseded by *2026-09-06 (CX5) — The rail counts from ⌘0*.**
 
 **Decision.** `shortcutForSlot` gives each rail row its index and gives Settings the first digit the
 rail does not use — `⌘0` since the Pipeline row landed, `⌘,` still its alias. The `?` sheet and the
@@ -304,7 +359,13 @@ Help page's Keyboard tab both build their rows from `NAV_ORDER` rather than rest
 pages on one key, and the two places that had typed the list out by hand became wrong the same day.
 A rail row must not need an edit in four files.
 
-## 2026-09-06 — The in-app Tetravox embed is retired; viewing is the host-installed desktop app
+**Cost.** No new dependency, no contract change; the cost is that this rule is now one more thing a change must respect.
+
+**Revisit if.** Never — the rail's counting is now settled by the 2026-09-06 (CX5) entry.
+
+### 2026-09-06 — The in-app Tetravox embed is retired; viewing is the host-installed desktop app
+
+> **Superseded by *2026-09-06 (later the same day) — The embed is restored, ships in the image, and is the Viewer's own sub-page*.**
 
 **Decision.** Architecture §7.1 is replaced. TI-Toolbox ships no viewer. The Viewer page is a data
 selector whose Open writes `<project>/code/ti-toolbox/viewer/<kind>.tetravox.json` with host paths
@@ -325,13 +386,17 @@ signed, notarised and self-updating; removing the bake removes the coupling, and
 with it. The removal took ~130 tests of delivery machinery out of the suite and added 10 of the
 feature that does the same job.
 
-**Alternatives rejected.** Keeping the embed only for the Viewer page would have kept every piece of
+**Cost.** Keeping the embed only for the Viewer page would have kept every piece of
 the delivery stack for one page. Shipping a GUI Tetravox *inside* the container needs X11, which v3
 removed. Copying Tetravox's engine into this repo is the vendoring the service boundary exists to
 prevent — the run-page panes are our own renderer over our own guide format (§7.2), not a copy of
 another product.
 
-## 2026-09-06 — `Capabilities` says nothing about the viewer (breaking)
+**Revisit if.** Never — reversed the same day.
+
+### 2026-09-06 — `Capabilities` says nothing about the viewer (breaking)
+
+> **Superseded by *2026-09-06 (later the same day) — The embed is restored, ships in the image, and is the Viewer's own sub-page*, which restores `Capabilities.tetravox_embed`.**
 
 **Decision.** `tetravox_embed` is removed from `GET /api/capabilities`.
 
@@ -340,7 +405,11 @@ user's machine is a fact about the host, answered by the Electron shell's `windo
 which reads the filesystem. Reported over HTTP it would have been a container answering a question
 about a computer it cannot see.
 
-## 2026-09-06 — The run-page panes render themselves; the embed was never a pane
+**Cost.** A breaking removal from a published contract, for a field with no correct answer.
+
+**Revisit if.** Never — reversed the same day.
+
+### 2026-09-06 — The run-page panes render themselves; the embed was never a pane
 
 **Decision.** Architecture §7.2 is replaced. `desktop/src/renderer/scene/` — the 2026-09-04 WebGL2
 renderer, restored — is the only renderer on the Simulator, Optimizer and Analyzer. It reads the
@@ -357,12 +426,14 @@ could not read on a dense net, and the atlas was not interactive at all. Two of 
 protocol-2 asks upstream — i.e. a pane feature this project could not ship without another
 project's release.
 
-**Alternatives rejected.** Waiting on Tetravox protocol 2 (`markers`, `pick`, `camera`) makes a pane
+**Cost.** Waiting on Tetravox protocol 2 (`markers`, `pick`, `camera`) makes a pane
 feature depend on another product's release cadence; the parked work is recorded in ROADMAP.md and
 remains useful upstream. Rendering only 2-D slices in the pane loses the electrode geometry that is
 the whole point of the Simulator's pane.
 
-## 2026-09-06 — The guide packages `TVSC1` labels again
+**Revisit if.** The two renderers are converged — an open question, tracked in `ROADMAP.md`.
+
+### 2026-09-06 — The guide packages `TVSC1` labels again
 
 **Decision.** `tit/scene/guide_build.py` packages per-vertex `uint16` label payloads (`LABEL_FORMATS
 = ("tvsc", "gii")`), ~0.99 MB per atlas, 2.96 MB on the installation.
@@ -373,7 +444,11 @@ A test pins them by **alignment to the `gm` surface** — same vertex count, sam
 merely by presence, because a label payload for a different surface is the failure that looks like
 a working feature.
 
-## 2026-09-06 — One region-selection model
+**Cost.** ~0.99 MB per atlas, 2.96 MB on the installation.
+
+**Revisit if.** The native renderer is retired again; it is the payload's only reader.
+
+### 2026-09-06 — One region-selection model
 
 **Decision.** `<ScenePane>` and `<RoiPicker>` edit the same list through the same `regionKey` and
 `toggleRegion`, exported once from the scene model.
@@ -382,7 +457,11 @@ a working feature.
 regions the same way or the pane highlights a region the form does not hold — and that divergence
 is invisible until a user notices the ROI they clicked is not the ROI that ran.
 
-## 2026-09-06 — A jobs table replaces the subject-set × montage fan-out
+**Cost.** One more thing the scene model owns, and two callers that may not fork it.
+
+**Revisit if.** A third editor of the same list appears — it uses the same export, or it is a bug.
+
+### 2026-09-06 — A jobs table replaces the subject-set × montage fan-out
 
 **Decision.** Architecture §7.5. The Simulator and the Analyzer describe a run as a table in which
 one row is one job; the page-level subject control, the Simulator's source tabs and the Analyzer's
@@ -396,11 +475,15 @@ six jobs, and there was no way to say "ernie on F3_F4, 101 on the flex result". 
 and Subject × Simulation pair table could. The cross-product survives as an explicit button, which
 is what it always was — a convenience, not the model.
 
-**Alternatives rejected.** Per-subject overrides layered on the page-level set keeps the fan-out as
+**Cost.** Per-subject overrides layered on the page-level set keeps the fan-out as
 the model and adds an exception mechanism on top of it. A separate "advanced" mode makes the page
 two pages with two selection idioms, against §7.4.
 
-## 2026-09-06 — The bridge budget is 13, not 12
+**Revisit if.** A table grows past what a user can scan; the cross-product button is the pressure valve.
+
+### 2026-09-06 — The bridge budget is 13, not 12
+
+> **Superseded by *2026-09-06 (later the same day) — The bridge budget is 13, and `viewer` is not one of them*.**
 
 **Decision.** ADR row 14's preload bridge budget moves from 12 entries to 13. The new entry is
 `viewer` (`probe`/`open`/`setPath`).
@@ -411,8 +494,13 @@ reachable through main. It replaces capability the app previously had with *no* 
 an entry it does not belong to. `smoke.spec.ts` asserts the exact key list, which is what holds a
 fourteenth to an ADR line.
 
+**Cost.** No new dependency, no contract change; the cost is that this rule is now one more thing a change must respect.
 
-## 2026-09-06 — The viewer is installed on the host, not baked into the image
+**Revisit if.** Never — reversed the same day.
+
+### 2026-09-06 — The viewer is installed on the host, not baked into the image
+
+> **Superseded by *2026-09-06 (later the same day) — The embed is restored, ships in the image, and is the Viewer's own sub-page*.**
 
 **Decision.** The desktop app downloads, verifies and maintains its own copy of Tetravox on the
 user's machine (Settings ▸ Viewer states where it is and which version), keyed to the publisher's
@@ -425,12 +513,14 @@ viewer is that it ships on its own clock. The publisher's `latest*.yml` digest i
 authority on what a given version is; substituting a pin of our own means a hash we have to update
 by hand and a "corrupt download" the day they re-cut a release.
 
-**Alternatives rejected.** A bundled copy inside the app bundle doubles our download for every
+**Cost.** A bundled copy inside the app bundle doubles our download for every
 user who already has one and makes the version un-upgradable without a TI-Toolbox release. A
 "please install it yourself" dialog is the state this replaced. Activating a newly downloaded copy
 under a running window is refused outright: the new version takes effect on the next launch.
 
-## 2026-09-06 — A cohort is a node, and a wire is refused on what its subjects have
+**Revisit if.** Never — reversed the same day.
+
+### 2026-09-06 — A cohort is a node, and a wire is refused on what its subjects have
 
 **Decision.** Architecture §7.6. The pipeline canvas gains a **Subjects** node, which is the only
 source of subjects in a document, and every edge out of it is validated against a readiness table:
@@ -444,12 +534,14 @@ inside a container is not a canvas: `Subjects(102) → Simulator` is knowably wr
 the drag, because 102 has no head model, and `Subjects(102) → Pre → Simulator` is knowably right,
 because Pre-processing produces one.
 
-**Alternatives rejected.** Validating only at Run keeps the canvas honest but moves every mistake
+**Cost.** Validating only at Run keeps the canvas honest but moves every mistake
 past the point where the user still remembers what they meant. A warning rather than a refusal
 makes the edge a fact the user must re-derive; §7.6's issues carry a machine-readable `code` and
 `port` precisely so the refusal can say which end is wrong.
 
-## 2026-09-06 — All three run pages carry a jobs table
+**Revisit if.** `tit.pipeline.validate.KIND_READINESS`'s four artefact types stop covering a new job kind.
+
+### 2026-09-06 — All three run pages carry a jobs table
 
 **Decision.** Architecture §7.5 extends to the Optimizer: the Simulator, the Analyzer and the
 Optimizer each describe a run as a table in which one row is one job, and the row owns everything
@@ -462,12 +554,14 @@ making it the unit on all three pages means one grammar to learn rather than thr
 consequence is stated rather than hidden: where a page's rows submit as more than one job *kind*,
 one Run is one submission per kind, and the page says so.
 
-**Alternatives rejected.** Leaving the Optimizer page-level because a search is "bigger" than a
+**Cost.** Leaving the Optimizer page-level because a search is "bigger" than a
 simulation is the argument that produced the defect. A cell that is meaningless for a row's method
 prints a muted `—` with the reason in its title rather than a disabled control, which would read
 as a choice the user has failed to make.
 
-## 2026-09-06 — Translucent surfaces are resolved as two depth sheets
+**Revisit if.** One Run must be one group across kinds — that needs a mixed-kind group on the server.
+
+### 2026-09-06 — Translucent surfaces are resolved as two depth sheets
 
 **Decision.** The native scene pane resolves the two nearest depth crossings per pixel and blends
 those, rather than depth-sorting geometry or accepting whatever order the draw calls arrive in.
@@ -481,11 +575,13 @@ mis-ordered — and it is the same bound Tetravox ships, which matters because t
 agree about the same subject. The atlas colours are read and not invented because a legend that
 names a region in a colour the file does not give it is a lie the user cannot check.
 
-**Alternatives rejected.** Inventing a palette per atlas makes two views of the same subject
+**Cost.** Inventing a palette per atlas makes two views of the same subject
 disagree. The first outline implementation drew a border and produced "a border of white shards" on
 a folded surface; a thin edge computed in the same pass does not.
 
-## 2026-09-06 — The run terminal never auto-pins a finished job
+**Revisit if.** A third depth crossing is visibly missing, or Tetravox changes its own bound — the two renderers must agree about the same subject.
+
+### 2026-09-06 — The run terminal never auto-pins a finished job
 
 **Decision.** The run page's terminal pins a job only while it is live. A job that has finished is
 never pinned by the page on the user's behalf.
@@ -496,7 +592,11 @@ nothing, since a finished job's log is reachable from the Jobs page whenever it 
 log tab is now the shared console filling the detail pane, so there is one place that answers "what
 did it print", and it is not the run page's terminal deciding for the user.
 
-## 2026-09-06 — The Viewer page is a file list, and Open is the only verb
+**Cost.** A user watching a job finish must click to keep reading it.
+
+**Revisit if.** Users report losing track of the job they were watching.
+
+### 2026-09-06 — The Viewer page is a file list, and Open is the only verb
 
 **Decision.** The Viewer page is an editable list of the files that will open, plus **Open in
 Tetravox**. Layer appearance — opacity, colormap, threshold, layout, camera — is not duplicated on
@@ -508,11 +608,13 @@ does not is *which files belong together*, so that is the whole job of the page:
 let the user edit it, hand it over. The written scene is a real file in the user's own project
 (`code/ti-toolbox/viewer/…`) — it opens later by double-clicking, with no app in the middle.
 
-**Alternatives rejected.** A composition panel with layers, layout, camera and presets was built
+**Cost.** A composition panel with layers, layout, camera and presets was built
 first and is the version this replaced; it was a better *panel* and a worse *page*, because every
 knob on it was a knob Tetravox already had and would win.
 
-## 2026-09-06 (later the same day) — The embed is restored, ships in the image, and is the Viewer's own sub-page
+**Revisit if.** Layer appearance turns out to be something this app knows better than Tetravox does.
+
+### 2026-09-06 (later the same day) — The embed is restored, ships in the image, and is the Viewer's own sub-page
 
 **Decision.** Architecture §7.1 is replaced again, reversing this morning's two entries — *"The
 in-app Tetravox embed is retired; viewing is the host-installed desktop app"* and *"`Capabilities`
@@ -555,7 +657,7 @@ threat model demands: a digest verified before the archive is opened, an extract
 in this image), an atomic activation, a pin so rollback is not a re-download, and a policy stored on
 disk rather than a habit compiled in.
 
-**Alternatives rejected.** An in-page segmented control was built first and rejected: the maintainer
+**Cost.** An in-page segmented control was built first and rejected: the maintainer
 specified the rail, precisely — two indented rows under Viewer, always visible, the active one
 highlighted like a page, and clicking Viewer itself opens Menu. Making the sub-items *pages* was
 rejected too: a `PageDef` each would give them ⌘-numbers, `pages/<id>/` directories and separate
@@ -579,7 +681,9 @@ behaviour this project controls, while the Viewer draws the user's data and want
 Converging them (`docs/dev/HISTORY.md § 2026-09-04 (embed convergence)`) is a future question again, not a settled
 one.
 
-## 2026-09-06 (later the same day) — The bridge budget is 13, and `viewer` is not one of them
+**Revisit if.** Tetravox ships a protocol past the supported range (one constant), or the two renderers converge.
+
+### 2026-09-06 (later the same day) — The bridge budget is 13, and `viewer` is not one of them
 
 **Decision.** ADR row 14's preload budget is **13** entries. `viewer` (`probe`/`open`/`setPath`) is
 removed — opening the viewer is no longer a host action, so it is not main's to expose — and the
@@ -594,7 +698,11 @@ on a `blob:` URL was inert in this shell and reported success anyway). Reversing
 amendment therefore returns one entry, not two. A page that renders the embed needs no bridge entry
 at all — it is an `<iframe src="/tetravox/">` on the same origin.
 
-## 2026-09-06 (NB lane) — notebooks: the kernel is the container's, and the UI is SUNA's
+**Cost.** Thirteen host actions to keep reviewed; `smoke.spec.ts` asserts the exact list.
+
+**Revisit if.** A fourteenth host action is genuinely needed — it moves the ADR line, not the assertion.
+
+### 2026-09-06 (NB lane) — notebooks: the kernel is the container's, and the UI is SUNA's
 
 **Decision.** A Notebooks page runs `.ipynb` files on a Jupyter kernel owned by `tit.server`
 (`tit/server/kernels.py`, kernelspec `simnibs`, cwd the project), driven over
@@ -618,7 +726,7 @@ output with no attributable parent is dropped rather than mispinned; ANSI is par
 uncoloured IPython traceback is unreadable; modal editing is the only way `dd` can be a bare
 keystroke. Rewriting that would have reproduced the bugs it already fixed.
 
-**Alternatives rejected.** *Publishing the image's JupyterLab and linking to it* — one HTTP port and
+**Cost.** *Publishing the image's JupyterLab and linking to it* — one HTTP port and
 no code, and it is a different application in a different window with its own auth, its own file
 tree and no idea what a TI-Toolbox project is; the ask was for notebooks *within* TI-Toolbox.
 *Running the kernel on the host under the user's own Python* — SUNA's topology, and it would put
@@ -651,7 +759,9 @@ back — which is how the starter cell was found to say `pm.project_root` when `
 attribute is `pm.project_dir`. Static reading had it wrong in both the server and the mock; a
 driven run said so.
 
-## 2026-09-06 (NB lane, later) — the cell is a CodeMirror, and the kernel is the completer
+**Revisit if.** A user needs a kernel outside the container. That is SUNA's topology, and its whole honest-degradation branch comes back with it.
+
+### 2026-09-06 (NB lane, later) — the cell is a CodeMirror, and the kernel is the completer
 
 **Decision.** A code cell is **CodeMirror 6** with `@codemirror/lang-python`, whose highlight
 palette is built from the app's own CSS variables rather than a colour list. Completion is answered
@@ -725,12 +835,14 @@ separator, so the seeded example could not be opened at all. The routes take `{n
 keeps it safe is unchanged and was never the router's pattern: `normalise_name` accepts exactly one
 known prefix and refuses everything else.
 
-**Alternatives rejected.** *A CDN for KaTeX and for CodeMirror* — blocked by the CSP, silently.
+**Cost.** *A CDN for KaTeX and for CodeMirror* — blocked by the CSP, silently.
 *Client-side static completion from a Python grammar* — it cannot see the namespace, which is the
 only thing that makes `tit.` completion worth having. *Settings on the server, per project* — these
 follow the person, not the project, so they are `localStorage` and not in the `.ipynb`.
 
-## 2026-09-06 (CX5) — Grey matter is opaque, and only the skin has an opacity slider
+**Revisit if.** The six `@codemirror/*` packages plus `katex` become a maintenance cost out of proportion to one page.
+
+### 2026-09-06 (CX5) — Grey matter is opaque, and only the skin has an opacity slider
 
 **Decision.** The pane's grey-matter surface is drawn fully opaque and its opacity control is gone;
 the skin keeps its slider. Translucency remains a property of the outer surface only.
@@ -742,11 +854,13 @@ diluted by a factor that depended on where on the head the fragment was, which i
 atlas-border work then had to measure around (`#4b327d` reaching the buffer as `[150,137,169]`). One
 translucent sheet over an opaque one has a single, predictable composition.
 
-**Alternatives rejected.** *Order-independent transparency for both sheets* — real cost for a view
+**Cost.** *Order-independent transparency for both sheets* — real cost for a view
 whose depth reading was never the complaint. *Keeping the slider at a fixed default of 1.0* — a
 control that exists but must not be moved is worse than no control.
 
-## 2026-09-06 (CX5) — The camera is the user's, not the data's
+**Revisit if.** Order-independent transparency becomes affordable, or the open idle-marker contrast measurement below forces a design change.
+
+### 2026-09-06 (CX5) — The camera is the user's, not the data's
 
 **Decision.** A pane keeps its camera across a payload change: switching net, montage or subject
 reframes nothing. The framing pass runs on the pane's *first* payload and on an explicit reset.
@@ -755,7 +869,11 @@ reframes nothing. The framing pass runs on the pane's *first* payload and on an 
 made from — the one interaction where the camera matters most was the one that destroyed it. A
 camera is a statement about what the user is looking at; a new net is not a statement about that.
 
-## 2026-09-06 (CX5) — Free-hand placement lives in the Simulator, not in a panel
+**Cost.** A first payload that frames badly stays badly framed until the user resets.
+
+**Revisit if.** A payload change ever moves the anatomy far enough that the kept camera frames nothing.
+
+### 2026-09-06 (CX5) — Free-hand placement lives in the Simulator, not in a panel
 
 **Decision.** Free-hand electrode placement is reached from the Simulator's montage footer, beside
 *New montage*, and edits the montage in place by clicking the subject's skin in the pane. It is not
@@ -772,7 +890,11 @@ electrode and a shape the solver agrees with, and getting either subtly wrong wo
 that is not the one submitted. A dot at a picked skin vertex is exactly as true as the position it
 came from.
 
-## 2026-09-06 (CX5) — Subject Info is deleted rather than migrated
+**Cost.** No new dependency, no contract change; the cost is that this rule is now one more thing a change must respect.
+
+**Revisit if.** Real 3-D electrode geometry is modelled — it needs a surface-tangent frame per electrode and a shape the solver agrees with.
+
+### 2026-09-06 (CX5) — Subject Info is deleted rather than migrated
 
 **Decision.** The Subject Info Viewer panel, its page and `GET /api/subjects/{id}/info` with the
 `SubjectInfo`, `SubjectSimulationInfo` and `FileRef` schemas are removed from the contract.
@@ -782,7 +904,11 @@ bounded request. Two surfaces for one question means two answers whenever one of
 panel's per-subject request was the one that would have had to grow a column each time a data stage
 was added.
 
-## 2026-09-06 (CX5) — A plan's ETA is modelled from what drives the job, not from a constant
+**Cost.** A breaking contract removal, and any client using `GET /api/subjects/{id}/info` loses it.
+
+**Revisit if.** A per-subject question appears that Overview cannot answer inside its bounded request.
+
+### 2026-09-06 (CX5) — A plan's ETA is modelled from what drives the job, not from a constant
 
 **Decision.** `POST /api/plan` returns an estimated wall clock derived from the job's own drivers —
 the leadfield's presence and size, the electrode count, the search's iteration budget — rather than a
@@ -793,7 +919,11 @@ that wrongly in both directions: it makes a flex search on a computed leadfield 
 half hour as one that must build it first. The drivers are already in the config the plan validates,
 so the estimate reads the same object the run will.
 
-## 2026-09-06 (CX5) — The image carries what the v3 server needs, and nothing the GUI used to
+**Cost.** No new dependency, no contract change; the cost is that this rule is now one more thing a change must respect.
+
+**Revisit if.** The estimates are measured against real runs and found systematically wrong in one direction.
+
+### 2026-09-06 (CX5) — The image carries what the v3 server needs, and nothing the GUI used to
 
 **Decision.** `Dockerfile.ti-toolbox` drops gmsh, PyQt5 and the SimNIBS TMS coil model set.
 
@@ -802,11 +932,13 @@ flow, and the run pages now draw their own panes (§7.2). PyQt5 was a dependency
 longer ships. The coil models are for TMS, which this toolbox does not simulate. Each was carried
 only because it had always been carried.
 
-**Known consequence.** Anything still importing `tit.gui` fails in the image rather than starting a
+**Cost.** Anything still importing `tit.gui` fails in the image rather than starting a
 window nobody can see, which is the honest failure. The v2 loader path is unaffected — it runs its
 own image.
 
-## 2026-09-06 (CX5) — A triangle's region label is transferred, not left to the provoking vertex
+**Revisit if.** TMS is ever simulated, or an external mesh viewer returns to the workflow.
+
+### 2026-09-06 (CX5) — A triangle's region label is transferred, not left to the provoking vertex
 
 **Decision.** Before upload, each grey-matter triangle is rotated so its **last** corner carries the
 majority region label, and label shading is `flat`. Winding is preserved: `[a,b,c] -> [c,a,b]` is a
@@ -819,13 +951,15 @@ clear two-to-one majority, and with the last corner deciding, roughly a third of
 *minority* label. Each is a triangle-sized spike of the neighbour's colour across the border — the
 saw-tooth the maintainer reported. Rotated, the border follows the mesh edges between the regions.
 
-**Alternatives rejected.** *Interpolating labels* — a label is not a quantity and the midpoint of two
+**Cost.** *Interpolating labels* — a label is not a quantity and the midpoint of two
 region ids is a third region. *Splitting border triangles* — changes the mesh the solver and the
 service agree on to fix a shading artefact. A triangle whose three corners are three different
 regions is a genuine triple junction (324, 0.22 %): there is no majority to rotate to, and it is
 left exactly as it came.
 
-## 2026-09-06 (CX5) — The rail counts from ⌘0
+**Revisit if.** The guide's mesh changes, or a smooth-shaded label path is added — a rotation is only correct for `flat`.
+
+### 2026-09-06 (CX5) — The rail counts from ⌘0
 
 **Decision.** `shortcutForSlot` is the row's index in `NAV_ORDER`, starting at zero: ⌘0 Overview
 through ⌘9 Jobs. Settings takes no digit and keeps ⌘, as its only chord; Help stays the `?` sheet.
@@ -837,12 +971,54 @@ zero. Counting from one spent ⌘0 on Settings, which is not a rail row at all, 
 with no key: the Notebooks insertion had just taken ⌘9 away from Jobs, the row opened by keyboard
 many times an hour.
 
-**Alternatives rejected.** *Moving Notebooks to the end of `NAV_ORDER`* — implemented first, and it
+**Cost.** *Moving Notebooks to the end of `NAV_ORDER`* — implemented first, and it
 buys Jobs its key back by taking one from Notebooks and by putting the rail out of workflow order.
 *Printing ⌘10* — a chord no keyboard can send. An eleventh row would again have no number, which is
 a limit of ten digits rather than of this function, and `NAV_ORDER`'s job to stay within.
 
-## 2026-09-07 (NB lane) — signature help from the kernel, and nothing left half-built
+**Revisit if.** An eleventh rail row is added. Ten digits is the limit, and staying inside it is `NAV_ORDER`'s job, not `shortcutForSlot`'s.
+
+### 2026-09-06 (CX5) — A cap with no electrodes is not an EEG net
+
+**Decision.** `GET /api/catalog/eeg-nets` and the subject detail's `eeg_nets` list only cap files
+that carry at least one `Electrode` row. `Fiducials.csv` therefore disappears from every net picker.
+
+**Why.** Every subject's `m2m_<sid>/eeg_positions` holds `Fiducials.csv`, whose rows are all
+`Fiducial` (Nz/Iz/LPA/RPA). It was offered wherever a net is chosen — the Simulator's net cell, a
+flex row's mapping target, the leadfield pickers — and choosing it left the row unrunnable forever
+with nothing said, because there is no electrode in it to place. The endpoint already reported it as
+`n: 0`; the listings now filter on that rather than on the file existing.
+
+**How it was found.** The real `flex-result-selection` spec maps a run onto *every* net the subject
+has and asserts each resolves to labels. Mapping onto Fiducials resolved to none. The spec was right
+and the app was wrong — which is the argument for real-data specs that enumerate rather than pick
+one known-good value.
+
+**Cost.** A cap file that legitimately carries no `Electrode` rows would disappear too.
+
+**Revisit if.** A zero-electrode cap file turns out to mean something to a user.
+
+### 2026-09-06 (CX5) — Open: an idle electrode can be invisible against the opaque-GM scalp
+
+**Not a decision — a measurement, recorded so it is not lost.** With the grey matter opaque, the
+composed scalp over part of the head lightens to within a few units of the palette's idle marker
+grey. Measured on ernie / GSN-HydroCel-185 at 1280 px, over the 24 front-most electrodes: the
+**worst** separation between an idle marker and the anatomy behind it is **2/255**, the median 35.
+An electrode at the worst pixel is invisible, and the difference is a property of where on the head
+it sits, not of the marker.
+
+The real `scene-electrodes` spec now measures its colour claims on a marker whose background is
+actually separated, and logs the worst and median so a regression in either direction shows up as a
+number. The fix is a design call the maintainer should make — a thin contour on *every* marker
+rather than only on the ones carrying a channel colour is the obvious candidate, and it would keep
+colour as the whole state signal because the contour is constant — so it is left open rather than
+decided here.
+
+**Cost.** No new dependency, no contract change; the cost is that this rule is now one more thing a change must respect.
+
+**Revisit if.** The maintainer makes the design call — a thin contour on *every* marker is the obvious candidate, and it keeps colour as the whole state signal because the contour is constant.
+
+### 2026-09-07 (NB lane) — signature help from the kernel, and nothing left half-built
 
 **Decision.** Signature help is finished and is a kernel round trip like completion:
 `inspect_request` on `(` and on ⇧⇥, showing IPython's own signature line and the docstring's first
@@ -891,39 +1067,11 @@ past the cap, and `manager.is_alive()` false afterwards — a dead interpreter, 
 registry entry. Closing the app is asserted by the real e2e, which closes the window and polls
 `/api/kernels` to zero from Node.
 
-## 2026-09-06 (CX5) — A cap with no electrodes is not an EEG net
+**Cost.** No new dependency, no contract change; the cost is that this rule is now one more thing a change must respect.
 
-**Decision.** `GET /api/catalog/eeg-nets` and the subject detail's `eeg_nets` list only cap files
-that carry at least one `Electrode` row. `Fiducials.csv` therefore disappears from every net picker.
+**Revisit if.** The kernel round trip becomes too slow on a loaded container to answer a keystroke.
 
-**Why.** Every subject's `m2m_<sid>/eeg_positions` holds `Fiducials.csv`, whose rows are all
-`Fiducial` (Nz/Iz/LPA/RPA). It was offered wherever a net is chosen — the Simulator's net cell, a
-flex row's mapping target, the leadfield pickers — and choosing it left the row unrunnable forever
-with nothing said, because there is no electrode in it to place. The endpoint already reported it as
-`n: 0`; the listings now filter on that rather than on the file existing.
-
-**How it was found.** The real `flex-result-selection` spec maps a run onto *every* net the subject
-has and asserts each resolves to labels. Mapping onto Fiducials resolved to none. The spec was right
-and the app was wrong — which is the argument for real-data specs that enumerate rather than pick
-one known-good value.
-
-## 2026-09-06 (CX5) — Open: an idle electrode can be invisible against the opaque-GM scalp
-
-**Not a decision — a measurement, recorded so it is not lost.** With the grey matter opaque, the
-composed scalp over part of the head lightens to within a few units of the palette's idle marker
-grey. Measured on ernie / GSN-HydroCel-185 at 1280 px, over the 24 front-most electrodes: the
-**worst** separation between an idle marker and the anatomy behind it is **2/255**, the median 35.
-An electrode at the worst pixel is invisible, and the difference is a property of where on the head
-it sits, not of the marker.
-
-The real `scene-electrodes` spec now measures its colour claims on a marker whose background is
-actually separated, and logs the worst and median so a regression in either direction shows up as a
-number. The fix is a design call the maintainer should make — a thin contour on *every* marker
-rather than only on the ones carrying a channel colour is the obvious candidate, and it would keep
-colour as the whole state signal because the contour is constant — so it is left open rather than
-decided here.
-
-## 2026-09-07 (CX6) — SCI-01: a cluster statistic must be monotone in extremeness
+### 2026-09-07 (CX6) — SCI-01: a cluster statistic must be monotone in extremeness
 
 **Decision.** Two-sided and left-tailed cluster inference labels positive and negative
 supra-threshold voxels as **separate** components (`engine.label_signed`), and maps a cluster to a
@@ -947,7 +1095,7 @@ untouched (0/20 relabellings changed).
 and volume backends stop agreeing on a chain graph — `tests/numerical/test_sci01_cluster_sign.py`
 asserts they do.
 
-## 2026-09-07 (CX6) — SCI-02: a group is a common voxel grid, not a common shape
+### 2026-09-07 (CX6) — SCI-02: a group is a common voxel grid, not a common shape
 
 **Decision.** `tit/stats/nifti.py::_check_same_grid` compares shape, direction block and origin
 against the first subject and **raises**, naming the subject id, its file and the reference file.
@@ -965,7 +1113,7 @@ memory falls from ~3× the final array to 1× plus one volume.
 **Revisit if.** A resampling step is added upstream, at which point the check becomes an assertion
 on its output rather than a gate on user input.
 
-## 2026-09-07 (CX6) — SCI-03: the divisor tracks the unit of the weights
+### 2026-09-07 (CX6) — SCI-03: the divisor tracks the unit of the weights
 
 **Decision.** `Analyzer._compute_focality_metrics` takes an explicit `weight_to_cm` parameter. The
 voxel path passes `1000.0` (mm³ → cm³), the mesh path keeps `100.0` (mm² → cm²). The field
@@ -983,7 +1131,7 @@ wart, paid so scripts and the group aggregator keep working; the documented unit
 **Revisit if.** A third weighting (per-element volume on a tetrahedral mesh, say) is added — it
 needs its own factor, and the parameter is already the place to put it.
 
-## 2026-09-07 (CX6) — SCI-04: a sampled null gets the Phipson & Smyth estimator
+### 2026-09-07 (CX6) — SCI-04: a sampled null gets the Phipson & Smyth estimator
 
 **Decision.** `pval_from_histogram(..., sampled=True)` (the default) returns `(b + 1) / (m + 1)`.
 `sampled=False` restores the exact `b/m`, documented as correct **only** when the null is the
@@ -999,7 +1147,7 @@ crosses `alpha = 0.05` unless it already sat within 0.001 of it.
 **Revisit if.** An exhaustive-enumeration path is wired into `correct_groups` — it must pass
 `sampled=False`, and nothing does today.
 
-## 2026-09-07 (CX6) — SCI-05: voxel geometry comes from the affine, not the header zooms
+### 2026-09-07 (CX6) — SCI-05: voxel geometry comes from the affine, not the header zooms
 
 **Decision.** `voxel_volume_mm3(affine)` returns `|det A|`; `_world_distance_grid(affine, centre,
 shape)` returns `‖A(v − c)‖`. `_analyze_voxel_roi` takes the affine and derives the volume itself,
@@ -1017,7 +1165,7 @@ bit-identical. On the test's representative shear `prod(zooms)` overestimates th
 **Revisit if.** A caller needs per-axis spacing rather than volume — `get_zooms` is still the right
 answer for that, and the deleted usage should not be reintroduced for it by accident.
 
-## 2026-09-07 (CX6) — SCI-06: perfect separation is evidence, not a null result
+### 2026-09-07 (CX6) — SCI-06: perfect separation is evidence, not a null result
 
 **Decision.** `engine._safe_t` divides under `np.errstate` so the IEEE result reaches `t.sf`
 unchanged: `0/0` gives `nan`, `±x/0` gives `±inf` with the tail-consistent p, matching
@@ -1036,7 +1184,7 @@ slightly conservative, which is preferable to an infinite null.
 **Revisit if.** The exclusion turns out to remove voxels users expect to see — the count is logged
 as a `WARNING` precisely so that shows up as a number rather than a silence.
 
-## 2026-09-07 (CX6) — `channels` must partition `fields`
+### 2026-09-07 (CX6) — `channels` must partition `fields`
 
 **Decision.** `tit/calc.py::_resolve_channels` raises when a field index is referenced by no
 channel, naming the unused indices. A carrier that does not beat is spelled as its own channel with
@@ -1053,7 +1201,7 @@ in the toolbox produced such a montage.
 **Revisit if.** A use case appears for deliberately excluding a field from the envelope — it should
 be an explicit exclusion, not an omission.
 
-## 2026-09-07 (CX6) — SCI-07 left open: what a shared carrier means for the exposure metrics
+### 2026-09-07 (CX6) — SCI-07 left open: what a shared carrier means for the exposure metrics
 
 **Not a decision.** `hf_peak`/`hf_sar` still ignore `channels` and treat every raw field as its own
 incoherent carrier. This is the maintainer's modelling call and the full argument is in
@@ -1075,7 +1223,7 @@ grouping is declared, and that SAR is a **lower bound** if the fields really do 
 settles whether the `_envelope_from_PQ` cancellation rationalisation is worth doing in the same
 pass.
 
-## 2026-09-07 (CX6) — a kernel's idle clock starts when a request concludes
+### 2026-09-07 (CX6) — a kernel's idle clock starts when a request concludes
 
 **Decision.** `KernelRegistry` stamps `last_used` again on **completion**, not only on submission,
 keeps an `in_flight` counter under the same lock the reaper holds, and the reaper skips busy or
@@ -1093,7 +1241,7 @@ at 1 s, reaped past the cap, `manager.is_alive()` false afterwards.
 **Revisit if.** A hung-cell watchdog is wanted — that is a separate, longer, execution-time budget,
 not this timeout.
 
-## 2026-09-07 (CX6) — a capped resource is reserved before it is acquired, not after
+### 2026-09-07 (CX6) — a capped resource is reserved before it is acquired, not after
 
 **Decision.** Two places now reserve under the lock rather than trusting an out-of-date snapshot.
 `KernelRegistry` reserves a `max_kernels` slot before startup and releases it in a `finally`.
@@ -1116,7 +1264,7 @@ terminal, so its reservation is never taken and nothing has to be released by ha
 **Revisit if.** Lock state moves out of the filesystem — the reservation exists to cover the window
 in which the filesystem does not yet know.
 
-## 2026-09-07 (CX6) — an unknown `after` dependency is not a satisfied one
+### 2026-09-07 (CX6) — an unknown `after` dependency is not a satisfied one
 
 **Decision.** `_dependency_state` skips a job whose `after` names an id it does not know, with its
 own distinct reason (`dependency <id> is unknown`), separate from a dependency that failed.
@@ -1133,7 +1281,7 @@ dependency is the unusual act; `POST /api/jobs/{id}/force` remains the escape ha
 
 **Revisit if.** Dependencies become expressible across server restarts by name rather than id.
 
-## 2026-09-07 (CX6) — one subject-id grammar, enforced before an id becomes a path
+### 2026-09-07 (CX6) — one subject-id grammar, enforced before an id becomes a path
 
 **Decision.** `tit.paths.SUBJECT_ID_RE` is the grammar: letters, digits, `_` and `-`, first
 character alphanumeric, at most 64 — BIDS labels plus the `_`/`-` existing projects use, and the
@@ -1154,7 +1302,7 @@ until it is renamed. The grammar was chosen to be a superset of what the toolbox
 **Revisit if.** A real dataset appears with a legitimate id this rejects — widen the regex in one
 place, not the call sites.
 
-## 2026-09-07 (CX6) — a `tools` job's arguments are confined to the project directory
+### 2026-09-07 (CX6) — a `tools` job's arguments are confined to the project directory
 
 **Decision.** `kinds.command_for` takes the manager's project root (bound in
 `JobManager.__init__`) and checks **every** argument before the argv is built, so a job is refused
@@ -1175,7 +1323,7 @@ than paths; without one it gets the default containment rule, which is the safe 
 **Revisit if.** A tool legitimately needs to read outside the project (a system atlas, say) — that
 is an explicit policy entry, not a relaxation of the default.
 
-## 2026-09-07 (CX6) — a notebook save carries the revision it wrote
+### 2026-09-07 (CX6) — a notebook save carries the revision it wrote
 
 **Decision.** Every save carries an edit revision. Only the revision **actually written** clears
 `dirty`; edits arriving mid-flight queue a follow-up `PUT` that `flush()` waits on.
@@ -1191,7 +1339,7 @@ only ask whether to do the save the app was about to do anyway.
 **Revisit if.** The document grows large enough that a per-revision full-text `PUT` is the wrong
 unit and a diff is wanted.
 
-## 2026-09-07 (CX6) — the reconnect snapshot is authoritative
+### 2026-09-07 (CX6) — the reconnect snapshot is authoritative
 
 **Decision.** The REST job snapshot taken on every (re)connect **replaces** what the store knows:
 known jobs are overwritten, missing ones removed, and only jobs the live stream touched while the
@@ -1207,7 +1355,7 @@ would be dropped; the live-stream exemption is what prevents that.
 **Revisit if.** The snapshot endpoint gains paging — a partial snapshot must not be treated as
 authoritative over the whole store.
 
-## 2026-09-07 (CX6) — rich notebook output is sanitised, not sandboxed
+### 2026-09-07 (CX6) — rich notebook output is sanitised, not sandboxed
 
 **Decision.** `text/html` outputs pass an allowlist that drops `style`, `script`, `link`, `base` and
 `iframe`, every `on*` handler and every `javascript:` URL, while keeping DataFrame tables and their
@@ -1229,7 +1377,7 @@ unavailable.
 way SUNA's `suna-output:` works), which is a shell change, not a notebook change — ROADMAP,
 Notebooks open work item 5.
 
-## 2026-09-07 (CX6) — the quit plan belongs to the app, not to the Docker branch
+### 2026-09-07 (CX6) — the quit plan belongs to the app, not to the Docker branch
 
 **Decision.** The running-jobs question lives in `shared/quitPlan.ts` and runs for **every** backend
 this app owns. Its "stop" answer cancels the jobs and waits — bounded — for the server to
@@ -1245,7 +1393,7 @@ should depend on.
 **Revisit if.** A third backend is added — it must go through `quitPlan`, which is the point of
 having moved it there.
 
-## 2026-09-07 (CX6) — one release workflow, for one application
+### 2026-09-07 (CX6) — one release workflow, for one application
 
 **Decision.** `.github/workflows/release-v3.yml` is the release pipeline;
 `release-build.yml` and its companion are deleted, and the legacy 2.x launcher under `package/` is
@@ -1272,7 +1420,7 @@ to `!desktop/build/`.
 **Revisit if.** A 2.x point release is ever needed — it would come from the v2 tags, not from a
 directory kept alive on `main`.
 
-## 2026-09-07 (CX6) — the packaging check is what makes the validation job worth having
+### 2026-09-07 (CX6) — the packaging check is what makes the validation job worth having
 
 **Decision.** `desktop/scripts/verify-package.mjs` reads the built app's asar directly — no
 dependencies, so it runs against a downloaded artifact — and checks the version, the main entry,
@@ -1303,3 +1451,4 @@ means adding its verification.
 
 **Revisit if.** The native runtime is unparked — `--expect-runtime` is the check that would then
 have to pass, and it has never run against a real staged tree.
+
