@@ -406,8 +406,9 @@ def _resolve_channels(fields, channels):
     ------
     ValueError
         Non-``(N, 3)``/mismatched field shapes, no channels, an empty
-        ``group_a``, an out-of-range index, or an index reused across
-        groups.
+        ``group_a``, an out-of-range index, an index reused across groups,
+        or a field index that no channel uses (``channels`` must be an exact
+        partition of ``fields``).
     """
     if channels is None:
         return _validate_field_list(fields)
@@ -452,6 +453,21 @@ def _resolve_channels(fields, channels):
                 seen.add(idx)
         flat.append(_sum_group(arrs, group_a, ref_shape))
         flat.append(_sum_group(arrs, group_b, ref_shape))
+
+    # ``channels`` must be an exact partition of ``fields``. Silently dropping
+    # an unreferenced field would compute the envelope of a *different*
+    # montage from the one the caller passed -- and, worse, one whose hf_peak
+    # / hf_sar (which always sum every field) describes more carriers than the
+    # envelope saw. A field that genuinely does not beat is expressed as its
+    # own channel with an empty ``group_b``.
+    missing = sorted(set(range(n)) - seen)
+    if missing:
+        raise ValueError(
+            f"channels must use every field exactly once; field index "
+            f"{missing} " + ("is" if len(missing) == 1 else "are") + " unused. "
+            "Add the field to a channel, or give it its own channel with an "
+            "empty group_b (a non-beating carrier)."
+        )
 
     return flat
 

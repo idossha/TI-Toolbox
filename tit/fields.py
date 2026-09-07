@@ -159,6 +159,19 @@ def _hf_peak_sweep(stack: np.ndarray) -> np.ndarray:
     return out
 
 
+def hf_peak_is_exact(n_fields: int) -> bool:
+    """Is :func:`hf_peak` exact for *n_fields* carriers, or a lower bound?
+
+    ``True`` up to `EXACT_SIGN_ENUM_MAX_FIELDS`, where every one of the
+    ``2**(N-1)`` sign patterns is enumerated.  Above that the direction sweep
+    tries only the sign patterns implied by sampled directions, so the result
+    is a **lower bound** on the true worst-case peak and is therefore slightly
+    non-conservative as a safety metric.  Callers that record or display
+    ``hf_peak`` should carry this flag alongside the value.
+    """
+    return int(n_fields) <= EXACT_SIGN_ENUM_MAX_FIELDS
+
+
 def hf_peak(*fields) -> np.ndarray:
     """Peak carrier field: max over sign choices of the vector sum (Cassarà 2025, Eq. 3).
 

@@ -832,3 +832,18 @@ class TestQuadraticFormSweepRegression:
         Q = np.abs(proj[0] * proj[1] + proj[2] * proj[3])
         amp = np.sqrt(2.0 * np.maximum(P + Q, 0.0)) - np.sqrt(2.0 * np.maximum(P - Q, 0.0))
         np.testing.assert_allclose(get_TI_avg(fields), amp.mean(axis=1), rtol=0, atol=1e-9)
+
+
+@pytest.mark.unit
+class TestChannelsMustPartitionFields:
+    """Low-priority audit item: no silent omission of unused field indices."""
+
+    def test_unused_field_index_raises(self):
+        fields = _random_fields(3, n_elements=10)
+        with pytest.raises(ValueError, match="unused"):
+            get_mTI_vectors(fields, channels=[([0], [1])])
+
+    def test_non_beating_carrier_is_the_supported_spelling(self):
+        fields = _random_fields(3, n_elements=10)
+        out = get_mTI_vectors(fields, channels=[([0], [1]), ([2], [])])
+        assert out.shape == fields[0].shape
