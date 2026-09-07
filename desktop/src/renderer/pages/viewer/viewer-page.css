@@ -1,11 +1,13 @@
 /**
- * Viewer page — two sub-pages behind one rail entry (DESIGN.md §10, VM2 + VE).
+ * Viewer page — two rail sub-items, one page (DESIGN.md §10, VM2 + VE).
  *
- *   **Menu**   a source card and an editable file list, in a centred 880 px column on the app's
- *              own surface. VM replaced this with a composition panel and the answer was "too
- *              much"; what is left is the two things the page is for — where the scene comes from,
- *              and which files it contains.
- *   **Viewer** a slim strip and, below it, the Tetravox embed filling every remaining pixel.
+ *   **Menu**     a source card and an editable file list, in a centred 880 px column on the app's
+ *                own surface. VM replaced this with a composition panel and the answer was "too
+ *                much"; what is left is the two things the page is for — where the scene comes
+ *                from, and which files it contains.
+ *   **Tetravox** a slim strip and, below it, the embed filling every remaining pixel.
+ *
+ * The rail draws the two rows (`app/shell.css`'s `.nav-subitem`); this file styles the two panes.
  *
  * **The inactive sub-page is `display: none`, never unmounted.** That is load-bearing rather than
  * an optimisation: the embed carries a wasm heap, its dataset workers and the camera the person
@@ -16,25 +18,18 @@
  * be slow to paint its first picture. Behind a form it was just a black rectangle.
  */
 
-.viewer-page {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-/* ------------------------------------------------- the two sub-pages */
-
-.viewer-subnav {
-  flex: 0 0 auto;
-  display: flex;
-  justify-content: center;
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
-  background: var(--bg);
-}
-
+/* The two sub-pages.
+ *
+ * `height: 100%`, not `flex: 1`. The parent is `.page-layout-main-scroll`
+ * (`ui/components.css`), which is `display: block` with a definite height -- so a flex child rule
+ * here does nothing at all, and the pane shrink-wraps its own content. That is not hypothetical:
+ * the first version of this file used `flex: 1 1 auto` and the Tetravox pane came out **1224x0** --
+ * strip visible, iframe mounted, handshake completed, `data-viewer-status="ready"`, and nothing on
+ * screen. Every assertion but a visibility check passed. `toBeVisible()` on `tetravox-host` in
+ * `viewer.spec.ts` is what caught it and is what keeps it caught.
+ */
 .viewer-sub {
-  flex: 1 1 auto;
+  height: 100%;
   min-height: 0;
 }
 
