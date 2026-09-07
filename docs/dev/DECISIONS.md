@@ -1215,3 +1215,20 @@ means adding its verification.
 
 **Revisit if.** The native runtime is unparked — `--expect-runtime` is the check that would then have
 to pass, and it has never run against a real staged tree.
+
+### 2026-09-06 — the run receipt is removed (tombstone on 2026-09-05's third rendering)
+
+**Decision.** Reverses the receipt half of *One selection grammar, with the receipt as the
+confirmation* (2026-09-05). `pages/_shared/run/Receipt` and `PageLayout`'s `receipt` slot are gone.
+A run page states its batch twice and no more — the plan grid in the run pane, and the action bar's
+digest — both rendered from one `PlanModel`. The selection-grammar half of that decision stands
+unchanged. The Pipeline page keeps its own `Receipt`, which states a canvas plan, not a batch.
+
+**Why.** The maintainer: "we have enough info overlapping on the right planning window". Three
+renderings of the same `PlanModel` in one viewport is redundancy, not confirmation, and the slot
+cost every run page vertical room above Run.
+
+**Cost.** The existing-outputs count is no longer visible before the dialog asks; `planCounts()`
+survives to supply it there.
+
+**Revisit if.** A run page's batch ever becomes something the plan grid cannot show in full.

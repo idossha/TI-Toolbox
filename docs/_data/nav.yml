@@ -11,7 +11,7 @@ installation:
     - { title: macOS, url: /installation/macos/ }
     - { title: Linux, url: /installation/linux/ }
     - group: Additional Guides
-    - { title: Bash/CLI Usage, url: /installation/bash-cli/ }
+    - { title: Command-line launcher, url: /installation/bash-cli/ }
     - { title: HPC (Apptainer), url: /installation/hpc-apptainer/ }
     - { title: Troubleshooting, url: /wiki/troubleshooting/ }
 

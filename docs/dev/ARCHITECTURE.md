@@ -385,13 +385,14 @@ Where a field has no room for a list, `SelectionPicker` puts the same list behin
 states the selection in words. There is no second selection idiom, no drag-to-reorder and no
 per-item options.
 
-Every run page ends its work column with `pages/_shared/run/Receipt`, rendered through
-`PageLayout`'s `receipt` slot — outside the work scroller, between it and the action bar, so a
-confirmation can never overlay the form it confirms. It is derived from the same `PlanModel` as the
-plan grid and the action bar's digest, so the three cannot disagree: the grid is the detail view,
-the receipt is the confirmation, and it is adjacent to the button. Existing outputs are one question
-with three answers on every run page — `ExistingOutputsDialog`: Skip (default) / Replace and rerun /
-Cancel.
+A run page states its batch **twice and no more**: `pages/_shared/run/PlanGrid` in the run pane
+(subject × stage, one cell per job) and the action bar's digest. Both render one `PlanModel`, so
+they cannot disagree. There is no third rendering and `PageLayout` has no `receipt` slot — the run
+receipt was removed 2026-09-06 (DESIGN.md §4.8); what survives it is `planCounts()` in
+`pages/_shared/run/planModel`. The Pipeline page's own `Receipt` is a different thing: it states a
+whole-canvas plan or its blockers, not a run page's batch (DESIGN.md §9.1.3). Existing outputs are
+one question with three answers on every run page — `ExistingOutputsDialog`: Skip (default) / Replace
+and rerun / Cancel.
 
 The rail's ⌘-number is the page's index in `registry.ts`'s `NAV_ORDER`, and Settings takes the first
 digit the rail does not (`⌘0` since the Pipeline row landed; `⌘,` remains its alias). The `?` sheet
