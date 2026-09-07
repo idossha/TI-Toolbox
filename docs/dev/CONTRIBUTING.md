@@ -40,7 +40,7 @@ Four facts about this loop that are not obvious, and each of which has cost some
 - **A recreate mints a new bearer token and kills in-flight jobs; a plain `docker restart` does
   not.** `npm run dev` refuses to recreate a container with jobs in flight and names them. Before
   restarting the server for a `tit/server/**` change, check `GET /api/jobs` is empty first
-  (`docs/dev/RUNBOOK.md`, "Restart rule").
+  (§2.6, "Restart rule").
 
 `Ctrl-C` stops Vite and Electron and leaves the container running, so the next `npm run dev`
 attaches in well under a second.
@@ -113,16 +113,46 @@ TIT_E2E_SERVER_URL=http://127.0.0.1:8765 TIT_E2E_TOKEN=<token> TIT_E2E_OFFSCREEN
 - E2E is **offscreen/headless by default on this machine**. `scripts/e2e-quiet-check.sh` proves no
   window reached the screen; report its PASS.
 
-### 2.6 The smoke harness
+### 2.6 The real-container smoke harness
+
+Two levels over one shared payload, both against a **real** dev container on Dataset 000. Level A
+(`tests/smoke/`, pytest, `smoke` marker, deselected by default) drives HTTP; Level B
+(`desktop/tests/e2e/real/*.spec.ts`, Playwright's `real` project) drives the UI and records the
+payloads Level A replays, so the two cannot disagree about the request body.
 
 ```bash
 dev/smoke.sh --list                  # every dev-stack container and its exact selector; runs nothing
 dev/smoke.sh                         # the whole matrix, sequential, cleaned up
-dev/smoke.sh <row-id-or-kind>...     # one row or kind
+dev/smoke.sh <row-id-or-kind>...     # one row, or a kind -> every row of it
+dev/smoke.sh --keep <row>...         # keep everything created, for inspection
+dev/smoke.sh --full <row>...         # run long kinds to completion instead of cancelling
 ```
 
-Full detail, including the one-FEM-at-a-time rule the harness enforces itself, is
-[`RUNBOOK.md`](RUNBOOK.md).
+- **Discovery needs no `docker inspect`.** `--list` prints each container with its port and project.
+  With more than one and no selector, the harness prints every `TIT_SMOKE_CONTAINER=<name>
+  dev/smoke.sh` line and exits **2** rather than guessing.
+- **A payload is retagged on every load.** A recorded payload's name-bearing field is rewritten to a
+  fresh `smoke-<runid>` tag each time, not only in the session that recorded it, so a row never
+  skips its own second replay with "recorded payload targets existing output(s)".
+- **One FEM-class job at a time, enforced by the harness itself.** Any row with
+  `behaviour == completed` or `heavy == True` (`sim`, `flex`, `leadfield`, `source`, `blender`,
+  charm, FastSurfer) blocks on `GET /api/jobs` until nothing is `running`/`queued` before
+  submitting. This is the rule `desktop/tests/e2e/batch.spec.ts` and `real/pipeline.spec.ts` cite.
+- **The results table is a file, not an impression.** `ls -t tests/smoke/artifacts/results-*.md |
+  head -1` is the newest matrix run's table; the `manifest-*.json` beside it lists every path it
+  created. The run of record for the whole matrix is in [`BENCHMARKS.md`](BENCHMARKS.md).
+
+**Restart rule** (`tit/server/**`, `tit/jobs/**`, `tit/catalog.py`):
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" $URL/api/jobs   # must show nothing running/queued
+docker restart <container>                                # only if the line above is empty
+curl -s $URL/api/health                                   # poll until {"status":"ok"}
+```
+
+A plain `restart` keeps the same token and is healthy again in 2-5 s; only a *recreate* mints a new
+one and kills in-flight jobs. **A 200 from `/api/health` is not evidence the new code loaded** — the
+pre-reload process can still answer. Wait and probe something that reflects the change.
 
 ### 2.7 Workflows and packaging
 
@@ -196,7 +226,7 @@ Never write "various fixes".
 |---|---|---|
 | A **measurement** (a timing, a size, a test count, a frame rate) | `BENCHMARKS.md` | a commit message, a code comment |
 | A **decision** | `DECISIONS.md`, as **Decision / Why / Cost / Revisit if** — plus the `ARCHITECTURE.md` edit if it changes a rule, in the same commit | a lane note |
-| A **gate result** | the `ROADMAP.md` table, with the command that produced it | prose |
+| A **gate result** | the gate table in `BENCHMARKS.md`, with the command that produced it | prose |
 | **What happened** in a program | a dated section of `HISTORY.md` | a new file |
 | A **trap that cost an hour** | that program's `HISTORY.md` gotchas, or `AGENTS.md` if every agent must know it before starting | nowhere |
 | A **contract change** | `contracts/SCHEMA-CHANGES.md` (append; never edit a past entry) | only the diff |

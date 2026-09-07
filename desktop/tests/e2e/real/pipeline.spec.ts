@@ -3,7 +3,7 @@
  * end as one job group.
  *
  * Two nodes, not four, and deliberately so: this row costs a real FEM simulation (~16 min under
- * emulation on this machine), and the rule from `docs/dev/RUNBOOK.md` is that no two
+ * emulation on this machine), and the rule from `docs/dev/CONTRIBUTING.md` §2.6 is that no two
  * FEM simulations run at once on the shared container. The four-node graph, the `after` chain and
  * the notebook export are all asserted against the mock in `tests/e2e/pipeline.spec.ts`; what only
  * a real server can prove is that the jobs the pipeline plans *actually run*, in order, with the
