@@ -337,6 +337,41 @@ confinement, revisioned notebook saves, an authoritative reconnect snapshot, an 
 for rich output, and a backend-independent quit plan. The largest single finding was that pushing a
 `v3.0.0` tag would have built and published the **legacy 2.x launcher**.
 
+**Merged `origin/main` @ `b5eb63c3` (v2.5.0) into the branch** (merge commit `03156b69`), 60 commits
+and the first reconsolidation since `0c0ef614`. What main brought, and what it cost:
+
+- **`tit.calc` is now three envelope functions** — `get_TI_vectors`, `get_TI_avg`, `get_TI_dir` —
+  taking a positional field list. `get_nTI_vectors` and the legacy `channels=` parameter are gone
+  (`b19a1c26`, `ab92267a`, `cb822a17`, `d4706e5a`), and **mTI is always positional**: `electrode_pairs`
+  two at a time, each pair its own carrier (`7a5ee2dd`). `Montage.channels` and `MExConfig.channels`
+  no longer exist.
+- **SCI-07 had to be restated on that model**, not merely re-applied. The physics from `1694c69f`
+  survives — coherent within a carrier, incoherent across, the ½ once — but with the wiring fixed at
+  the identity, the `channels=` argument, `channel_index_groups` and `_carrier_stack` were dead
+  surface and were deleted. `DECISIONS.md` § 2026-09-07 records the amendment; the SCI-07 entry now
+  says plainly that **no released version ever shipped the grouping** (added `ff823ce1`, removed
+  `7a5ee2dd`, both inside the v2.5.0 pre-release window), so no user-visible number moves.
+- **A merged accelerator can carry a defect the merge is silent about.** Main's numba mTI kernel
+  (`65bd2355`) has its own scalar copy of the envelope, and it still had the cancelling
+  `√(2(P+Q)) − √(2(P−Q))` form that SCI-08 fixed in `tit/calc.py`. Nothing conflicted, nothing failed:
+  the two paths would simply have disagreed in the far-field tail. Found by grepping the merged tree
+  for the formula, not by the gate.
+- **`TI_normal` and fsaverage projection for mTI** (`c7cfd940`), **atlas resampling that compares the
+  affine, not just the shape** (`333b4f96`), **multi-sphere ROI unions in the analyzer** (`90cc6ba8`),
+  **symmetric ex/mex buckets with a zero-candidate failure** (`230fa10a`), **forked candidate
+  evaluation with `n_jobs`** (`b66a5389`). The analyzer merges took both sides by hand: main's
+  multi-sphere union with our SCI-05 world-space distance grid, main's affine-keyed resample cache
+  with our cm³ volumes.
+- **Wiki restructure is main's** (`2950830e`, `d6b0734c`, `4afb6099`, `db3e230b`): the mTI page is
+  dissolved into simulator/analyzer/ex-search, the nav reordered, vocabulary unified around
+  electrodes/channels/carriers, Botzanowski attributions corrected (`0f617236`). The v3 rewrite's
+  content and screenshots were carried into that structure page by page. `README.md` is main's
+  verbatim.
+- **A contract change arrived through a merge, not through a design.** Removing `channels` from two
+  config dataclasses and gaining `n_jobs`/`symmetric_bucket`/`symmetry_*` changed the generated
+  schema, which the desktop app types against — the Optimizer still rendered a "Carrier wiring"
+  select that could only send a rejected field.
+
 Six of the reds were not in the audit at all; the gate found them because it ran the *whole* system.
 
 - **A test that writes `sys.modules` without `monkeypatch` is a time bomb for every later test in the

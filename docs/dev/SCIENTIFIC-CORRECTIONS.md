@@ -28,7 +28,7 @@ sources, not inferred.
 | [SCI-04](#sci-04) | Sampled permutation p-value was `b/m`, so `p = 0` was reachable | 2.2.3 – 2.5.0 | Smallest p understated; **rescalable** |
 | [SCI-05](#sci-05) | Voxel geometry read header zooms instead of the affine | 2.3.0 – 2.5.0 | Wrong only for sheared affines; **re-run** those |
 | [SCI-06](#sci-06) | Zero standard error collapsed to `t = 0, p = 1` | 2.2.3 – 2.5.0 | Perfectly separated voxels reported as null; **re-run** |
-| [SCI-07](#sci-07) | `hf_peak` / `hf_sar` ignored `montage.channels`, treating phase-locked same-carrier fields as independent carriers | 2.5.0, montages declaring `channels` only | `hf_sar` was a **lower** bound (up to ×group size low); `hf_peak` an over-estimate; **recompute** from the stored per-pair fields |
+| [SCI-07](#sci-07) | `hf_peak` / `hf_sar` ignored the montage's carrier grouping, treating phase-locked same-carrier fields as independent carriers | none released — the grouping existed only between `ff823ce1` and `7a5ee2dd` on `main` | no user-visible result moves; the metrics are now stated over *carriers*, which under the shipped positional wiring is one carrier per field |
 | [SCI-08](#sci-08) | Envelope evaluated as a difference of two near-equal square roots | 2.4.0 – 2.5.0 | Precision loss at `Q ≪ P` only, below the FEM noise floor; **no action** |
 
 ---
@@ -269,17 +269,21 @@ plus a test that the v2.x `t = 0, p = 1` answer is no longer produced, and one t
 
 Two of the audit's lower-priority items were cheap enough to fix here.
 
-- **`channels` must partition `fields`** (`tit/calc.py::_resolve_channels`). A field index
-  that no channel referenced was silently dropped, so the envelope described a different
-  montage from the one passed — and from the one `hf_peak`/`hf_sar` described, since those
-  always sum every field. It now raises, naming the unused indices; a carrier that does not
-  beat is spelled as its own channel with an empty `group_b`, which was already supported.
-  Fix `4abf5181`; test `tests/test_calc_mti.py::TestChannelsMustPartitionFields`.
+- **The field list must be a legal electrode-pair count** (`tit/calc.py::_validate_field_list`).
+  The allowed counts are now exactly `tit.constants.is_valid_pair_count`'s — even, at least
+  two — the same rule the montage config validates, so an odd field list can no longer reach
+  the envelope through a different door. (The earlier form of this item, "`channels` must
+  partition `fields`", is moot: `main` removed the `channels` grouping, and the positional
+  field list is a partition by construction.) Fix `4abf5181`, restated on `main`'s API in
+  the v2.5.0 merge; tests
+  `tests/numerical/test_sci07_exposure_channels.py::test_allowed_electrode_pair_counts`
+  and `::test_calc_rejects_disallowed_field_counts`.
 - **`hf_peak` exactness is now queryable** (`tit/fields.py::hf_peak_is_exact`). Above
   `EXACT_SIGN_ENUM_MAX_FIELDS` (8) carriers the direction sweep returns a *lower bound* on
   the true worst-case peak, so it is slightly non-conservative as a safety metric. That was
   documented in the docstring but not exposed; callers that record or display `hf_peak` can
-  now carry the flag. Fix `4abf5181`; test `tests/test_fields.py`.
+  now carry the flag. Under positional wiring one field is one carrier, so it is a plain
+  count threshold. Fix `4abf5181`; test `tests/test_fields.py`.
 
 Two were left at the time of the audit; one has since been done:
 
@@ -293,72 +297,71 @@ Two were left at the time of the audit; one has since been done:
 
 ## SCI-07
 
-**What was wrong.** `montage.channels` groups several FEM fields onto **one carrier** — the
-shared-carrier design in which two or more electrode pairs are driven phase-locked from the
-same source. The envelope path (`tit/calc.py::_resolve_channels`) honoured that grouping and
-summed same-carrier fields **as vectors** before forming the beat, which is correct. The
-carrier-exposure metrics in `tit/fields.py` did the opposite: `hf_sar` computed
-`Σᵢ |Eᵢ|²` and `hf_peak` enumerated signs over **every raw field**, ignoring `channels`
-entirely. The same montage therefore had its stimulation metric and its *safety* metric
-built on contradictory physics.
+**What was wrong.** The carrier-exposure metrics in `tit/fields.py` were stated over *raw
+FEM fields* rather than over *carriers*: `hf_sar` computed `Σᵢ |Eᵢ|²` and `hf_peak`
+enumerated signs over every field. That is only correct when each field is its own carrier.
+While a `montage.channels` grouping existed — several electrode pairs driven phase-locked
+from one source, the shared-carrier design — the envelope path in `tit/calc.py` honoured it
+and summed same-carrier fields **as vectors** before forming the beat, while the safety
+metrics did not. The same montage therefore had its stimulation metric and its *safety*
+metric built on contradictory physics.
 
-Cassarà et al. 2025 settle it, Part II p. 8: *"In the presence of multiple currents (e.g.,
-TIS channels), coherent field superposition was used for identical frequencies, and
+Cassarà et al. 2025 settle the rule, Part II p. 8: *"In the presence of multiple currents
+(e.g., TIS channels), coherent field superposition was used for identical frequencies, and
 incoherent superposition (i.e., SAR addition) was used when the frequencies differed."*
-Part I p. 11 states the same rule for the two-channel case: *"the incoherence means that
-the specific absorption rate (SAR) distributions from the two channels, rather than the
+Part I p. 11 states the same for the two-channel case: *"the incoherence means that the
+specific absorption rate (SAR) distributions from the two channels, rather than the
 E-fields themselves, must be summed"* — the incoherence being **between** carriers, not
-within one. Part II p. 16 repeats it for a shared return electrode: total power deposition
-"is equal to the summed combination from all channels (incoherent field superposition)".
+within one. Part II p. 16 repeats it for a shared return electrode.
 
-**Affected.** **2.5.0 only** (and the v3.0.0 pre-release before this fix), and only for
-montages that actually declare `channels`. `hf_peak`/`hf_sar` first shipped in **2.4.0**
-(`c6f5d5cf`, PR #129); the `channels` grouping first shipped in **2.5.0** (`ff823ce1`).
-Before 2.5.0 there was no way to declare a shared carrier, so no montage could be
-mis-grouped. **A montage with `channels = None` — every montage built by the GUI's default
-independent-dyad path — is bit-identical before and after**, pinned by
-`test_channels_none_is_bit_identical`.
+**How this reads on `main`'s API (the statement of record).** `main` removed the
+shared-carrier grouping outright: **mTI is always positional** — `electrode_pairs` are taken
+two at a time, each pair driven at its own carrier frequency, so *one FEM field is exactly
+one carrier* and the coherent pre-sum within a frequency is the identity
+(`7a5ee2dd` "Remove Lee-2022 carrier wiring: mTI is always positional (channels->carriers)",
+`d4706e5a` "drop legacy channels parameter from tit.calc public API", `b19a1c26`
+"consolidate tit.calc to three envelope functions"). The correction is therefore carried
+as a **statement over carriers** with the grouping fixed at the identity:
 
-**What changes and by how much.**
+```
+hf_sar  = Σ_c |E_c|²                   coherent within a carrier, power across carriers
+hf_peak = max_s |Σ_c s_c E_c|          worst-case realisable relative phase
+```
 
-| quantity | before (raw fields) | after (declared carriers) | direction |
+with `E_c = E_c` under positional wiring. The `channels=` argument, `channel_index_groups`
+and `_carrier_stack` are removed as dead surface — there is no montage field with which to
+express a shared carrier, so the parameter could only ever be the identity.
+
+**Affected.** **No released version.** `hf_peak`/`hf_sar` first shipped in **2.4.0**
+(`c6f5d5cf`, PR #129); the `channels` grouping was added in `ff823ce1` and removed again in
+`7a5ee2dd`, both inside the v2.5.0 pre-release window — the released `v2.5.0` tag
+(`57bd88ff`) has no `channels` field on `Montage`. Every montage the toolbox has ever
+shipped is the independent-dyad case, where the two models coincide bit-for-bit. Nothing to
+detect, nothing to re-run, nothing to rescale.
+
+**What would change, if a shared carrier ever returns.** Kept here because it is the
+specification the code must satisfy the day a montage can express one again:
+
+| quantity | fields treated as independent | carriers grouped | direction |
 |---|---|---|---|
 | `hf_sar` | `Σᵢ \|Eᵢ\|²` | `Σ_c \|Σ_{i∈c} Eᵢ\|²` | **rises** where a group's fields reinforce (up to ×group size), falls where they oppose |
 | RMS² (`hf_sar / 2`) | as above / 2 | as above / 2 | rises with it |
 | `hf_peak` | `max_s \|Σᵢ sᵢEᵢ\|` over fields | `max_s \|Σ_c s_c E_c\|` over carriers | **falls** or stays equal |
 
-Two aligned unit fields in one declared channel: `hf_sar` **2 → 4**, RMS **1 → 2** — the
-worst case, and the one that matters for safety, since it is the direction in which the old
-value *understated* exposure. The change is exactly zero when a group's fields are mutually
-orthogonal (no cross term), and negative where they oppose. `hf_peak`
-moves the *other* way, and the earlier note that it is "unchanged" was true only of the
-aligned example: grouping removes sign patterns the hardware cannot realise (two pairs fed
-from one phase-locked source cannot be in anti-phase), so the old value was an over-estimate
-of the peak — safe, but not the physical field. A worked case:
-`E₀ = (1,0,0)`, `E₁ = (−0.9,0,0)` on one carrier and `E₂ = (0,0.4,0)` on another gives
-`hf_peak` **1.942 → 0.412** and `hf_sar` **1.97 → 0.17** (the opposing case; an
-aligned group moves both the other way).
+Two aligned unit fields on one carrier: `hf_sar` **2 → 4**, RMS **1 → 2** — the direction
+that matters for safety, since it is where the ungrouped value *understates* exposure.
+`hf_peak` moves the other way: grouping removes sign patterns the hardware cannot realise
+(two pairs fed from one phase-locked source cannot be in anti-phase), so the ungrouped value
+is a safe over-estimate rather than the physical field.
 
-**How to detect affected results.** Any `mTI` mesh, subject/MNI NIfTI or fsaverage overlay
-carrying `hf_peak` / `hf_sar`, produced at 2.5.0 from a montage whose config JSON has a
-non-null `channels`. If `channels` is absent or `null`, nothing changed. The reported
-`hf_sar` was a **lower** bound, so any safety headroom computed from it was overstated.
-
-**Re-run or rescale.** `hf_peak` and `hf_sar` are cheap post-processing of the per-pair
-carrier fields, which the simulation already writes out — re-running the *FEM* is not
-needed. Recompute the two maps from the stored per-pair `E` fields with
-`tit.fields.hf_peak(*fields, channels=…)` / `hf_sar(*fields, channels=…)`, or re-run the
-simulation, which now does it. Nothing else in a run is affected: `TI_max`, `TI_avg`,
-`TI_normal` and every analyzer/statistics output go through the envelope path, which was
-already correct.
-
-**Fix.** `tit/fields.py` (`channel_index_groups`, `_carrier_stack`, `hf_peak`, `hf_sar`,
-`hf_peak_is_exact`), `tit/calc.py::_resolve_channels` (now consumes the same shared
-grouping helper), `tit/sim/mTI.py` (passes `montage.channels` to both metrics).
-Tests: `tests/numerical/test_sci07_exposure_channels.py` — the exposure metrics checked
-against an independent time-domain simulation for 1, 2 and 3 carriers including a
-three-pairs-on-one-carrier case, plus the `channels = None` bit-identity pin; fast mocked
-coverage in `tests/test_fields.py` and `tests/test_calc_mti.py`.
+**Fix.** `tit/fields.py` (`hf_peak`, `hf_sar`, `hf_peak_is_exact` and the module docstring,
+all now stated over carriers), `tit/sim/mTI.py` (calls them positionally). Tests:
+`tests/numerical/test_sci07_exposure_channels.py` — both metrics checked against an
+independent time-domain simulation for 2–8 carriers (`hf_sar/2` is the measured
+time-average, `hf_peak` the measured peak at two carriers and an upper bound above),
+`hf_peak_is_exact`'s carrier-count threshold, and a test that *measures* the
+shared-frequency regime and pins that the shipped wiring cannot produce one; fast mocked
+coverage in `tests/test_fields.py`.
 
 ---
 
@@ -387,6 +390,12 @@ denominator (`P = Q = 0`, a null field) yields `0`. Test:
 down to 1e-20 against 60-digit `decimal` arithmetic (relative error < 1e-14, where the naive
 form's exceeds 10%), and pins the benign `Q → P` extreme as unchanged.
 
+The accelerated K ≥ 2 sweep has its own scalar copy of the envelope in
+`tit/_mti_kernel.py::_envelope` (numba, arrived from `main` in `65bd2355`). It carried the
+cancelling form, so the numba and NumPy paths would have disagreed in the far-field tail;
+it now uses the same rationalised expression, pinned by
+`test_numba_kernel_envelope_agrees_with_the_numpy_form`.
+
 ---
 
 ## Exposure metrics — definitions
@@ -398,9 +407,11 @@ same convention that derives the modulation depth. Where Cassarà states a defin
 time domain, the phasor worst case below is either equal to it (when the worst phase is
 attained, which it is for incommensurate carriers) or an upper bound on it.
 
-Let `c` index the **carriers** — one per declared `channels` group, or one per field when
-`channels` is `None` — with `E_c = Σ_{i ∈ c} Eᵢ` the coherent vector sum of the fields
-driven at that carrier.
+Let `c` index the **carriers**, with `E_c` the coherent vector sum of the fields driven at
+that carrier. The toolbox's wiring is positional — `electrode_pairs` taken two at a time,
+each pair at its own carrier frequency — so `E_c` is one FEM field and the sum has one term.
+The formulas are written over carriers anyway, because that is the level at which Cassarà
+states them.
 
 | toolbox quantity | formula | Cassarà definition | limit |
 |---|---|---|---|
@@ -464,11 +475,11 @@ re-covered.
 - **The correlation kernel** (`engine.correlation`), including the weighted and Spearman
   (pre-ranked) paths.
 - **`cluster_analysis`** MNI centre-of-mass mapping via `nibabel.affines.apply_affine`.
-- **The `tit.calc` envelope API** — `get_TI_vectors`, `get_TI_avg` and the K ≥ 2
-  modulation-depth search. The `channels` pre-summing is exact, and the exposure metrics now
-  consume the same grouping ([SCI-07](#sci-07)); the only change to the envelope itself was
+- **The `tit.calc` envelope API** — `get_TI_vectors`, `get_TI_avg`, `get_TI_dir` and the
+  K ≥ 2 modulation-depth search. The positional pairing is what both the envelope and the
+  exposure metrics consume ([SCI-07](#sci-07)); the only change to the envelope itself was
   the conditioning rewrite in [SCI-08](#sci-08), which leaves its values unchanged to within
   1e-14 everywhere the old form was accurate at all.
 - **`hf_peak` for N ≤ 8 carriers.** Exact sign enumeration over all `2^(N-1)` combinations.
-  `hf_peak_is_exact` now counts *carriers*, so declaring `channels` can move a montage from
-  the sweep onto the exact path.
+  Under positional wiring one field is one carrier, so `hf_peak_is_exact` is a plain count
+  threshold.

@@ -960,8 +960,8 @@ decision each one settles.*
 | **SCI-04** | `pval_from_histogram(..., sampled=True)` (the default) returns `(b+1)/(m+1)`; `sampled=False` restores the exact `b/m`, documented as correct **only** for an exhaustive enumeration. | `b/m` over a Monte-Carlo null can return **0**, and is anti-conservative exactly in the tail where cluster inference operates. `p = 0` from 1000 draws is not a measurement. |
 | **SCI-05** | `voxel_volume_mm3(affine)` is `|det A|` and `_world_distance_grid` is `‖A(v − c)‖`; `_analyze_voxel_roi` takes the affine and derives the volume itself, so there is no second, disagreeing source of geometry. | `header.get_zooms()` are the affine's **column norms**; `prod(zooms)` and the zoom-scaled distance both assume orthogonal voxel axes, false for any sheared affine. |
 | **SCI-06** | `engine._safe_t` divides under `np.errstate` so the IEEE result reaches `t.sf` unchanged (`0/0` → `nan`, `±x/0` → `±inf` with the tail-consistent p, matching scipy exactly); `ttest_voxelwise` **excludes** degenerate voxels from `valid_mask` and logs the count, and the permutation workers neutralise any degeneracy a relabelling creates. | `t = 0, p = 1` for every zero-standard-error voxel reported the strongest evidence the data can carry as the weakest. `nan`/`inf` cluster mass would corrupt the permutation machinery, hence the exclusion. |
-| **`channels` partitions `fields`** | `tit/calc.py::_resolve_channels` raises when a field index is referenced by no channel, naming the unused indices. A carrier that does not beat is spelled as its own channel with an empty `group_b`. | A dropped index meant the envelope described a **different montage** from the one passed, and from the one `hf_peak`/`hf_sar` described, since those always sum every field. |
-| **SCI-07** | `montage.channels` is the physical truth about which pairs share a carrier, and *every* metric honours it: fields inside one declared group sum **as vectors** first, distinct carriers then combine incoherently — in power for `hf_sar`, by worst-case sign enumeration for `hf_peak`. The grouping rule lives once, in `tit.fields.channel_index_groups`, which `tit.calc._resolve_channels` also consumes. The `channels=None` path is bit-identical, pinned with `==`. | Cassarà et al. 2025 Part II p. 8: *"coherent field superposition was used for identical frequencies, and incoherent superposition (i.e., SAR addition) was used when the frequencies differed."* The envelope path already assumed coherence within a group; letting the *safety* metric assume the opposite for the same montage was the inconsistency — and in the direction that matters, the old `hf_sar` was a **lower** bound. |
+| **The field list is a legal pair count** | `tit/calc.py::_validate_field_list` accepts exactly `tit.constants.is_valid_pair_count`'s counts — even, at least two — the same rule the montage config validates. | One rule, one place. An odd field list otherwise reached the envelope through a door the config had already closed. (Supersedes the earlier "`channels` partitions `fields`" entry: `main` removed the grouping, and the positional field list is a partition by construction.) |
+| **SCI-07** | The exposure metrics are stated over **carriers**, not raw fields: `hf_sar = Σ_c \|E_c\|²`, `hf_peak = max_s \|Σ_c s_c E_c\|`. Which fields share a carrier is the wiring's business, and on `main` the wiring is **positional** — `electrode_pairs` two at a time, each pair at its own frequency — so one field is one carrier and the coherent pre-sum is the identity. No `channels=` argument on either `tit.calc` or `tit.fields`. | Cassarà et al. 2025 Part II p. 8: *"coherent field superposition was used for identical frequencies, and incoherent superposition (i.e., SAR addition) was used when the frequencies differed."* Stating the metric over carriers is what makes it right for *any* wiring; carrying a `channels=` parameter that the shipped `Montage` cannot express is dead surface that can only ever be the identity — see `7a5ee2dd`, `d4706e5a`, `b19a1c26`. |
 | **SCI-08** | `_envelope_from_PQ` computes `2√2·Q / (√(P+Q) + √(P−Q))` rather than `√(2(P+Q)) − √(2(P−Q))`. | Algebraically identical, but the subtraction form cancels catastrophically at `Q ≪ P` — weak modulation, i.e. every off-target voxel, which is the denominator of a focality ratio. Below `Q/P ≈ 1e-16` it returns exactly `0`. |
 
 **The engine's modelling convention, stated once.** The simulation is **quasi-static**: every FEM
@@ -982,8 +982,8 @@ loudly, and a montage that silently dropped a field now fails — both intended.
 **Revisit if.** A tail is added whose oriented statistic is none of the three; a resampling step is
 added upstream, at which point SCI-02's check becomes an assertion on its output rather than a gate
 on user input; an exhaustive-enumeration path is wired into `correct_groups` (it must pass
-`sampled=False`, and nothing does today); or a montage architecture appears where two pairs in one
-group are *not* phase-locked — then `channels` needs a phase field rather than a set.
+`sampled=False`, and nothing does today); or a montage architecture reappears in which several pairs
+share one carrier — see the 2026-09-07 amendment below for what that would take.
 
 ### 2026-09-07 — allowed electrode-pair counts stated once
 
@@ -1232,3 +1232,32 @@ cost every run page vertical room above Run.
 survives to supply it there.
 
 **Revisit if.** A run page's batch ever becomes something the plan grid cannot show in full.
+
+### 2026-09-07 — SCI-07 restated on `main`'s positional carrier model (amends 2026-09-06)
+
+**Decision.** Amends the SCI-07 row of the ADR index. The physics is unchanged — coherent within a
+carrier, incoherent (power for `hf_sar`, worst-case sign for `hf_peak`) across carriers, the ½
+applied once in the SAR calibration — but it is now **driven by the montage's positional structure
+rather than a `channels=` argument**. `main` removed the Lee-2022 shared-carrier wiring outright
+(`7a5ee2dd` "Remove Lee-2022 carrier wiring: mTI is always positional (channels->carriers)",
+`d4706e5a` "drop legacy channels parameter from tit.calc public API", `b19a1c26` "consolidate
+tit.calc to three envelope functions"), so `Montage` has no `channels` field, `MExConfig` has none,
+and `electrode_pairs` taken two at a time *are* the carriers. Accordingly `tit.fields.hf_peak`,
+`hf_sar` and `hf_peak_is_exact` take fields positionally; `channel_index_groups`, `_carrier_stack`
+and `tit.calc._resolve_channels` are deleted.
+
+**Why.** With one wiring, a grouping parameter can only ever be the identity — dead surface that
+invites a caller to express a montage the toolbox cannot simulate, and a second place for the
+carrier definition to drift from `tit.calc`'s. The correction that mattered was *stating the metric
+over carriers instead of over raw FEM fields*; that statement survives the API change intact, and
+under positional wiring it is what the code now computes. No released version ever had `channels`
+(added in `ff823ce1`, removed in `7a5ee2dd`, both inside the v2.5.0 pre-release window), so no
+user-visible number moves.
+
+**Cost.** A shared-carrier montage is currently inexpressible. Reintroducing one means a `Montage`
+field, a coherent pre-sum in `tit.fields`, and the same grouping consumed by `tit.calc` — the table
+in `SCIENTIFIC-CORRECTIONS.md` § SCI-07 and
+`test_shared_frequency_would_need_a_coherent_presum_and_never_occurs` are the specification.
+
+**Revisit if.** A montage architecture returns in which several electrode pairs are driven
+phase-locked from one source.
