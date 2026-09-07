@@ -944,6 +944,15 @@ group heading told the user a page belonged to a subject when it did not.
   (`present · absent · partial · pending · failed`). It links into a workflow or into Results; it
   never lists outputs itself, and it is not subject-scoped — a subject is chosen in the context bar
   or on a page's own batch table.
+- **The Viewer is one rail row with two sub-pages inside it** (2026-09-06, §10). Its Menu and its
+  Viewer are a **page-level segmented sub-nav at the top of the page, not a rail group**, for two
+  reasons. `app/registry.ts` derives a flat rail from `NAV_ORDER` with one `PageDef` per
+  `pages/<name>/index.tsx` and has no nested-group model — the retired Panels group appended a flat
+  `panel-<id>` slot at the end rather than nesting — so a rail group means reshaping a file several
+  other lanes read. And a sub-nav makes §4.4.2's retention rule automatic: the two sub-pages are one
+  mounted component, so moving between them cannot unmount the embed's iframe. ⌘8 lands on whichever
+  sub-page the page was last on.
+
 - Settings and Help are pinned to the bottom below a spacer; they are the only two pages with a
   header.
 - Nav rows carry **no shortcut badges** — shortcuts live in the palette and the `?` sheet, assigned
@@ -1048,38 +1057,38 @@ instead of one: React Flow has to be mounted or a palette drag has nowhere to la
 
 ## 9.2 Settings — the Viewer card
 
-*Rewritten 2026-09-06 with the embed's retirement (§10). The card it replaces described an engine
-this app shipped: a bundle version, a protocol range, a release index, install and rollback.*
+*Rewritten 2026-09-06 (second revision, same day). The card this replaces asked where Tetravox was
+installed on the machine; nothing installs Tetravox on the machine.*
 
-The card answers one question — **where is Tetravox on this machine** — and it answers it by looking
-at the local filesystem through `window.tit.viewer.probe`, never over the network. Found: the
-resolved path and the bundle's version, stated plainly. Not found: that fact first, then
-**Download Tetravox**. A path override exists for an install outside the conventional places (an
-AppImage, a second copy), and it is the only setting here, because there is nothing else to decide:
-the app updates itself and its releases are not this project's to pin.
+`TetravoxCard.tsx` answers one question — **which viewer bundle is this server serving** — from
+`GET /api/tetravox` and `GET /api/capabilities`: the active version, its protocol, and its source
+(`baked` = the copy in the image, `installed` = one fetched at runtime, `override` = a
+`--tetravox-dir` a developer passed). Below that, the automatic-updates switch (the policy the
+server stores, default on), a **Check now** button, and per-release rows with their digest and an
+**Install**.
+
+Two rules it is held to. It **reaches no network until the user asks** — a card that fetched a
+release index on mount would tell a remote host that this install exists every time somebody opened
+Settings, and an air-gapped install is a supported state, not an error to retry. And it **shows what
+was verified**: the sha256 on the row, because an install that hides what it checks asks to be
+trusted rather than checked.
 
 ## 10. Viewer
 
-**The Viewer page is a source, a file list, and Open** (V1 · VM · VM2,
-`dev/notes/v3-native-panes-external-viewer/{VX,VM,VM2}.md`).
+**The Viewer page is a Menu and a Viewer, in that order** (2026-09-06, ADR row 29,
+`docs/ARCHITECTURE.md` §7.1). Maintainer: *"Tetravox should not be visually embedded in the
+TI-Toolbox tab; it should open in its own [view]. In the Viewer, the left menu has two subsections:
+the Menu, and below it the actual Viewer. The user configures in the Menu, hits Open, is moved to
+the Viewer where the Tetravox embed is; they can go back to the Menu, tinker, and reload a different
+setup."*
 
-V1 made it a data selector: *"the viewer tab only acts as the data selection and it actually opens
-up everything in [an external window] like we have in 2.5.0."* VM read the empty space that left as
-room for a composition panel — per-layer cards with opacity, colormap and threshold, a layout, a
-camera, a background, "Also open" extras — and the maintainer's verdict on the screenshots was
-**"too much"**. VM2 is the correction, and it is a better page than either:
-
-> **The list of files that will open is the whole scene, and it is editable.**
-
-Remove a row and that dataset is not in the scene. Add one — from everything the subject and the
-simulation offer, or any path in the project — and it is, at the end. Drag (or ↑/↓) to reorder and
-that is the layer order. Reset lets the source decide again. Open writes exactly those files, in
-that order.
+One rail row (Viewer, ⌘8, `bleed`), one mounted component, a two-item segmented sub-nav at the top
+of the page: **Menu** and **Viewer**. §9's bullet says why it is a sub-nav and not a rail group.
 
 ```
 ┌──────┬────────────────────────────────────────────────────────────┐
-│ rail │   Open in Tetravox                                         │  centred, max 880
-│  56  │   Pick a source, edit the list of files it resolves to…    │
+│ rail │  ⟨ Menu │ Viewer ⟩                                          │  28  sub-nav
+│  56  ├────────────────────────────────────────────────────────────┤
 │      │  ┌ SOURCE  The type decides which of the fields it needs ┐ │
 │      │  │ Type ⟨Simulation⟩      Subject ⟨ernie⟩                │ │
 │      │  │ Simulation ⟨Thalamus⟩  Field ⟨…⟩                      │ │
@@ -1089,54 +1098,112 @@ that order.
 │      │  │ ⠿ T1.nii.gz           volume  12.5 MB  ↑ ↓ ×         │ │
 │      │  │ ⠿ ernie_TI_max.nii.gz volume  16.6 MB  ↑ ↓ ×         │ │
 │      │  └───────────────────────────────────────────────────────┘ │
-│      │  [Save as preset…] [Recent]            [Open in Tetravox]  │
+│      │  [Save as preset…] [Recent]            [Open in viewer]    │
+└──────┴────────────────────────────────────────────────────────────┘
+                              ↓ Open
+┌──────┬────────────────────────────────────────────────────────────┐
+│ rail │  ⟨ Menu │ Viewer ⟩   simulation · ernie · L_Insula          │  28  sub-nav
+│  56  │                                        [⟳ Reload] [← Menu] │
+│      ├────────────────────────────────────────────────────────────┤
+│      │  <iframe src="/tetravox/">   1224 × 636 at 1280 × 800      │
+│      │                              1224 × 736 at 1440 × 900      │
 └──────┴────────────────────────────────────────────────────────────┘
 ```
 
+### 10.1 The Menu
+
+VM2's page, unchanged but for the button's name
+(`dev/notes/v3-native-panes-external-viewer/VM2.md`): a **Source** card and one editable **What
+will open** list, centred, max 880. Nothing else — VM's per-layer cards, its layout and camera
+section and its "Also open" checkboxes are gone, and stay gone.
+
+- **The list of files that will open is the whole scene, and it is editable.** Remove a row and
+  that dataset is not in the scene. Add one — from everything the subject and the simulation offer,
+  or any path in the project — and it is, at the end. Drag (or ↑/↓) to reorder and that is the
+  layer order. Reset lets the source decide again.
 - **The page does not say how a file should look, and that is deliberate.** Opacity, colormap,
-  threshold, layout, camera, convention: all of it is a judgement about the *data* — a percentile
-  window on a TI field, a LUT and `nearest` on a label volume, a mesh added hidden because the file
-  is 64 MB — and it lives in `tit/viewspec.py` with the rest of the scene's defaults. A file the
-  view type produced keeps exactly that view type's settings; a file the person added is described
-  by `_layer_for_path` from its name. Tetravox has an inspector, its own window and the reader's
-  full attention; this page has a list. (The server's `overrides` plumbing from VM still exists and
-  is still tested — nothing on this page sends it.)
+  threshold, layout, camera, convention: a judgement about the *data* — a percentile window on a TI
+  field, a LUT and `nearest` on a label volume, a mesh added hidden because the file is 64 MB — made
+  once in `tit/viewspec.py`. The embed's own panels are where a reader changes them, with the whole
+  window and their full attention. (The server's `overrides` plumbing still exists and is still
+  tested; nothing on this page sends it.)
 - **The list is the same endpoint that opens it.** It resolves through `POST /api/view/open` with
   `dry_run`, and Open is the same call without it. A list built by different code from the thing it
-  opens is a list that can be wrong, and the one moment this page must not be wrong is the moment
-  before another application's window covers someone's work. Editing a row therefore re-resolves:
-  the server is the one that knows a path is jailed out, missing or a duplicate, and the row
-  disappearing is a truer answer than a row the client kept and the scene did not.
+  opens is a list that can be wrong. Editing a row re-resolves: the server is the one that knows a
+  path is jailed out, missing or a duplicate, and the row disappearing is a truer answer than a row
+  the client kept and the scene did not.
 - **Sizes are on every row, and in the picker.** One of these files is routinely 64 MB. "How much
-  is about to open" is the fact a person wants *before* the window, not after thirty seconds of
-  loading.
+  is about to load" is the fact a person wants before the wait, not during it.
 - **Changing the source resets the list.** A different source resolves to different files; keeping
   the edited rows would silently open the previous subject's data under a new heading.
-- **Reordering works without a mouse.** Drag is the natural gesture and ↑/↓ buttons are the one
-  that everybody has.
+- **Reordering works without a mouse.** Drag is the natural gesture and ↑/↓ is the one everybody
+  has.
 - **A preset is kept; a recent is a footprint.** Presets are JSON under
   `<project>/code/ti-toolbox/viewer/presets/` — the project is the unit people copy, archive and
-  share, and a preset in browser storage would be lost exactly when the work it describes was
-  passed on. Recents are the last eight *opened*, in this machine's browser storage. Restoring
-  either fills the page and opens nothing.
-- **A second Open reuses the window that is already open.** Tetravox holds a single-instance lock
-  and routes a second launch's file into the running window (verified in its repo at 0.3.11), so
-  this page never has to track whether the app is running.
-- **Three states, each naming what happened.**
-  - **Nothing selected** — "Choose a source above and the files it resolves to appear here"; Open's
-    disabled title says what is missing.
-  - **Tetravox not installed** — a callout leads with that fact and offers **Download Tetravox**;
-    Open is disabled rather than failing on click. Everything else still works, because building a
-    list does not need the app.
-  - **Browser mode** — no main process to start an application, so the button reads **Download
-    scene** and the sentence afterwards says File ▸ Open Scene…. A complete answer, not a degraded
-    one: the file is the interface.
-- **Settings ▸ Viewer is the other half.** The resolved path and version, a path override, and the
-  same download link. It reaches no network.
-- **The page is allowed to be mostly empty.** Two cards and a footer; padding them out to fill
-  1440 px would be filling space, not designing it. This remains the one page whose dead-space
-  budget (§9) does not apply.
-- **Keyboard.** `⌘⇧V` is gone with the canvas it focused. Nothing here owns unmodified keys.
+  share. Recents are the last eight *opened*, in this machine's browser storage. Restoring either
+  fills the Menu and opens nothing.
+- **The primary button is `Open in viewer`**, 32 px, in the footer's primary position. Disabled
+  with a title that names what is missing when nothing is selected.
+- **Deep links prefill, and never open.** `/viewer?…` (Results' "Open in viewer") fills the Menu
+  and leaves the sub-nav on Menu.
+- **The Menu is allowed to be mostly empty.** Two cards and a footer; padding them out to fill
+  1440 px would be filling space, not designing it. It remains the one page whose dead-space budget
+  (§12.3) does not apply.
+
+### 10.2 The Viewer
+
+Full-bleed: no page header, no shell padding, no max width, no right pane, no inspector of our own.
+Everything a layer, a cursor or a camera can do belongs to the embed, drawn in the engine's own
+panels; two copies of one control give two answers to "what is the window".
+
+- **A slim top strip, and only three things on it.** The scene's name (type · subject · what it
+  resolved from), **Reload** (re-posts the *current* scene, not the Menu's draft) and **Back to
+  menu**. The strip shares the 28 px sub-nav row; the rest of the box is canvas.
+- **The canvas is dark in both themes** (`--canvas`, `#0B0D10`). An imaging convention, not a
+  preference: a light viewport changes what a greyscale T1 and a heat overlay look like. No theme
+  block may override it. The app calls `Engine.setTheme` in the same tick as its own `data-theme`
+  flip so the embed's chrome matches.
+- **Layer names are the server's.** `tit/viewspec.py` decides what a layer is called; no
+  display-name mapping lives in the client.
+- **Loading** is per-dataset progress with the byte count, over `--canvas`. A scene whose only
+  3D-capable layer is hidden says so over the canvas rather than leaving an unexplained black pane.
+- **The embed wants width.** Below ~1000 px of frame width it collapses its own panels and the page
+  becomes a picture with no controls. §9's shared 1440 icon breakpoint already keeps every page's
+  content box at 1224 px at both 1280 and 1440, which clears that floor without a page-specific
+  rule.
+
+**Four states, each naming what happened** (`renderer/viewer/TetravoxFrame.tsx`; each is a centred
+block over the full content box, `max-width: 480px`):
+
+- **No WebGL2** (`status === "no-webgl2"`) — names the detected renderer when the embed reported
+  one, and explains that Chromium M137 removed the automatic software fallback, so there is nothing
+  to switch on. No buttons.
+- **No embed answered** (`status === "no-embed"`) — the iframe mounted at `/tetravox/` but nothing
+  replied to the handshake inside 8 s. Leads with the *timeout* and names the seconds, because a
+  bundle that is present but failed to start looks exactly like this and the first thing to try is a
+  reload. One **Reload viewer** button.
+- **Not bundled** (the page, before it mounts a frame) — `GET /api/capabilities` reported
+  `tetravox_embed.available === false`. Leads with the *capability answer* ("This server has no
+  viewer bundle") and says nothing timed out, because nothing was mounted; it points at
+  Settings ▸ Viewer, where a bundle can be installed. The two states must be tellable apart from one
+  cropped sentence in a support screenshot, which is why neither reuses the other's wording.
+- **Load failed** (`status === "error"`) — the server's own sentence, verbatim. The last
+  successfully loaded scene stays in the viewport; a failed Open does not blank the picture.
+
+### 10.3 Retention, and the one request
+
+- **Switching sub-pages never unmounts the frame.** Going back to the Menu leaves the embed
+  mounted, so returning without pressing Open shows the same scene. Open again replaces it. This is
+  §4.4.2's rule, and the sub-nav is what makes it free.
+- **Open is exactly one `POST /api/view/open`.** That call resolves the scene once and returns both
+  addressings: `view` (every dataset an `/api/files/raw/…` URL) is posted into the iframe, and
+  `scene` (the same document re-rooted onto the host) is written to
+  `<project>/code/ti-toolbox/viewer/<kind>.tetravox.json`, so the scene can be exported, kept, or
+  opened later by a desktop Tetravox with no app in the middle. Two calls could resolve differently
+  — a job finishing between them is enough — and then the list, the file and the picture would
+  disagree with nothing to say which was right.
+- **Keyboard.** The canvas owns unmodified keys while the Viewer sub-page is focused; the shell
+  keeps only ⌘-prefixed ones. The Menu owns none.
 
 ## 11. Status bar — removed
 

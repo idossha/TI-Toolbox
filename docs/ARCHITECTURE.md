@@ -158,68 +158,113 @@ changes which layer is built and adds nothing to the ViewSpec, so
 `contracts/tetravox-viewspec-v2.schema.json` is unchanged.
 
 **The Viewer selects on command** (revised 2026-09-06, §7.1). It keeps the draft → command grammar:
-editing a selector changes only the draft, and **Open in Tetravox** validates it, snapshots it and
-issues exactly one `POST /api/view/open`. What changed is what the command does — it writes a scene
-file and hands it to another application instead of posting a scene into a retained iframe. A failed
-Open leaves the previous summary on screen with the error attached to the attempted selection. Deep
-links prefill the draft and never auto-open.
+editing a selector changes only the draft, and the Menu's **Open in viewer** validates it, snapshots
+it and issues exactly one `POST /api/view/open`. That one call resolves the scene once and returns
+both addressings of it: the URL form is posted into the embed and the page moves to the Viewer
+sub-page, and the host form is written to `<project>/code/ti-toolbox/viewer/<kind>.tetravox.json`. A
+failed Open leaves the Menu's summary on screen with the error attached to the attempted selection.
+Deep links prefill the draft and never auto-open.
 
-## 7. The external viewer, the run-page renderer, pipelines and the selection grammar
+## 7. The viewer, the run-page renderer, pipelines and the selection grammar
 
-*Added 2026-09-05 (second batch); refines §§1–6. §§7.1–7.2 were **replaced on 2026-09-06** — the
-Tetravox embed and its update channel are retired. Requirements:
+*Added 2026-09-05 (second batch); refines §§1–6. §§7.1–7.2 were **replaced on 2026-09-06**: §7.2
+makes the run-page panes this app's own renderer, and §7.1 was replaced twice that day — the embed
+was retired in the morning and restored in the afternoon (ADR row 28). Requirements:
 [2026-09-05 Tetravox/selection/pipeline](requirements/2026-09-05-tetravox-selection-pipeline.md),
 [2026-09-06 native panes / external viewer](requirements/2026-09-06-native-panes-external-viewer.md).
 Rationale in [DECISIONS.md](DECISIONS.md).*
 
-### 7.1 The viewer is a separate application, and the only interface is a file
+### 7.1 The viewer is the Tetravox embed, and it ships in the image
 
-*Replaced 2026-09-06; the previous text described the embed's delivery and update channel.*
+*Replaced 2026-09-06 (second revision, same day). The morning's text made viewing a
+host-installed Tetravox desktop app launched by Electron main; the maintainer reversed it the
+same afternoon. See [DECISIONS.md](DECISIONS.md), ADR row 29.*
 
-TI-Toolbox ships no viewer. 3-D viewing is **Tetravox**, a signed, notarised desktop application
-installed on the host, which auto-updates through electron-updater and whose releases are not
-coupled to this project's. The whole interface between the two is one document.
+TI-Toolbox's viewer is **Tetravox Embed** — a browser build of the Tetravox engine, WebGL2 +
+WASM, drawn by the Electron renderer on the host GPU inside a same-origin `<iframe>`. It is
+part of the image and part of the app; **no Tetravox is installed on the user's machine, and
+there is no X11 anywhere** (D3). The container has no display, which is exactly why the embed
+is the only Tetravox that can draw inside this app: an application baked into the image would
+have nothing to draw on, and one installed on the host would be a second install for the user
+to acquire and a second window for them to manage.
 
-`POST /api/view/open` builds the ViewSpec v2 document `GET /api/view/{kind}` already built — or,
-where the caller sends one, opens the **explicit list of files the user edited** on the Viewer page,
-each resolved by the same layer builders the derived list uses, so an added file and a derived one
-are described identically. Layer *appearance* is not in this app: opacity, colormap, threshold,
-layout and camera belong to Tetravox's inspector, and duplicating them here would be a second source
-of truth that loses. `POST /api/view/open` rewrites
-every dataset and sidecar path from an `/api/files/raw/…` URL to the **host's** own absolute path,
-and writes `<project>/code/ti-toolbox/viewer/<kind>.tetravox.json`. The extension is load-bearing:
-`.tetravox.json` is the compound extension the app registers as its scene document, and any other
-suffix is classified as data and read as a volume — a failure three layers from its cause. The
-response carries the path in both languages, container and host, because the server writes it inside
-a container and the app opens it outside one; `host_path: null` is the honest answer where the host
-root is unknowable, and the client then offers the file as a download.
+**The bake is the floor.** `container/blueprint/Dockerfile.ti-toolbox` writes the bundle to
+`/opt/tetravox/embed` (`ServerSettings.tetravox_embed_dir`'s default). What it bakes is resolved
+at build time from the newest non-draft, non-prerelease `idossha/tetravox` release carrying
+`tetravox-embed-<v>.tgz`, its `.sha256` and its `.manifest.json`, whose manifest `protocol` is
+inside the range this checkout supports; the tarball is sha256-verified before it is unpacked.
+A build that resolves nothing writes a placeholder and says so — an image with no bundle is a
+normal state, not a build failure, because the runtime channel can supply one.
 
-Electron main maps the container path with the same project mount `openPath` uses, refuses anything
-not ending `.tetravox.json`, and spawns the app detached (`open -a Tetravox <scene>` on macOS, the
-resolved binary elsewhere). A second Open is a second spawn: Tetravox holds a single-instance lock
-and routes the file into the window already on screen, so nothing on this side tracks whether the
-app is running. There is no protocol number, because a file is not a protocol.
+**`tit.server` serves it at `/tetravox/`** (`tit/server/static.py`), with its own
+Content-Security-Policy on that route only — `script-src 'self' 'wasm-unsafe-eval'` for the
+engine's Rust→WASM module and `worker-src 'self' blob:` for its dataset workers. The app's own
+top-level page carries neither. `tetravox` is a reserved prefix, so the SPA catch-all never
+answers for it. Resolution is per request: the `--tetravox-dir` override, then the pinned or
+newest compatible installed bundle, then the baked one.
 
-*Amended 2026-09-06 (managed install).* Discovery is the platform's conventional locations plus one
-Settings override **plus a copy the desktop app installs and maintains itself**, so that a user who
-has never heard of Tetravox can press Open and have a scene appear. The install is the Electron
-shell's, on the host, and never the image's: the container has no display server. What version to
-fetch and what bytes are correct are read from the **publisher's own** release index and
-`latest*.yml` digest — this project pins nothing, because a pin of our own is a hash we must update
-by hand and a false "corrupt download" the day they re-cut a release. On macOS the quarantine
-attribute comes off only after `codesign --verify --deep --strict` passes on the unpacked bundle,
-never before. A newly downloaded version activates on the **next** launch and never under a running
-window. **Settings ▸ Viewer** states which of the three sources answered, where it is and which
-version, and offers the release page when none did. The version is never asserted by running the
-application: a test, or an app, must not put another application's window on a user's screen.
+**The protocol range is the only coupling between the two projects, and it is never a version.**
+`tit/tetravox/protocol.py` declares `SUPPORTED_PROTOCOL_MIN`/`MAX` (1–2 today) and a map of
+*named* features (`volumes`, `meshes`, `markers`, `pick`, `camera`, …) to the protocol that
+first carried them; `desktop/src/renderer/viewer/embedProtocol.ts` is its renderer twin, and
+`tests/test_tetravox_protocol.py` reads both files off disk and fails if they disagree. A pane
+asks `embedCan(caps.tetravox_embed, "markers")` — a name, never a number — and a bundle's own
+manifest `features` array wins when it has one. An **additive** Tetravox release therefore needs
+no TI-Toolbox change at all; a breaking one needs `SUPPORTED_PROTOCOL_MAX` edited in two files
+the cross-language test keeps in step.
 
-**What this replaces.** The previous §7.1 described a protocol range, a named-feature map, a release
-index, a two-root install store with a pin, a digest-verified installer, a background update policy
-and a WebSocket event — machinery that existed to stop a Tetravox release implying a TI-Toolbox
-release. The coupling it managed came from baking a viewer into an image. Removing the bake removes
-the coupling, and the machinery with it. `Capabilities` says nothing about the viewer:
-`tetravox_embed` is gone, because whether an application is installed on the user's machine is a
-fact about the host, answered by the Electron shell's `window.tit.viewer.probe`.
+**Two delivery paths, one rule.** The image bakes a floor so an offline or air-gapped install
+works with nothing fetched; bundles installed at runtime live under the user config directory
+(`<install root>/<version>/`, `tit/tetravox/store.py`). The rule is the same on both sides —
+newest release whose manifest protocol is in range — so "what a fresh image ships" and "what a
+running install would update itself to" cannot disagree about which release is incorporable.
+
+**The update channel** is `tit/tetravox/{protocol,store,install,updates}.py` behind
+`GET /api/tetravox`, `GET /api/tetravox/updates`, `POST /api/tetravox/{policy,install,activate}`
+and `DELETE /api/tetravox/{version}`. The index is the GitHub Releases API. A download is
+verified against its sha256 before the archive is opened, extraction refuses absolute paths,
+`..` and links (Python 3.11's unfiltered `extractall` writes outside the destination — measured
+in this image, `dev/notes/v3-embed-convergence/u-notes.md`), the manifest's protocol must be in
+range, and activation is one atomic rename, so a half-extracted bundle is never served. The
+policy (`auto_update`, **default on**) is stored at `<install root>/policy.json`; the lifespan
+task checks at startup and every 24 h (`CHECK_INTERVAL_S`), never on the path to a render, and
+publishes exactly one event, `tetravox.updated`, on `/ws/tetravox`. A pin (`active.json`,
+`"baked"` a legal value) makes rollback a click rather than a re-download.
+`GET /api/capabilities` carries `tetravox_embed`: the active bundle's version, protocol, source,
+resolved features and whether it is compatible — a fact about *this runtime*, which is what a
+capability is.
+
+**The Viewer page is two sub-pages behind one rail entry** (Viewer, ⌘8):
+
+- **Menu** — the composition page: a Source card and an editable "What will open" list, plus
+  presets and Recents. Its primary button is **Open in viewer**.
+- **Viewer** — full-bleed, hosting the embed iframe, with a slim top strip: the scene name,
+  `Reload` (re-posts the current scene) and `Back to menu`.
+
+They are a page-level segmented sub-nav, not a rail group: `desktop/src/renderer/app/registry.ts`
+derives a **flat** rail from `NAV_ORDER` with one `PageDef` per `pages/<name>/index.tsx` and has
+no nested-group model. It also makes §2's retention rule trivially true — the two sub-pages are
+one mounted component, so switching between them never unmounts the iframe.
+
+**One request, one message.** Open calls `POST /api/view/open` once. That route resolves the
+scene **once** (`tit.viewspec.build_view`) and returns both addressings of it: `view`, with every
+dataset an `/api/files/raw/…` URL, which is what is posted into the iframe; and `scene`, the same
+document with every path re-rooted onto the host, which is also written to
+`<project>/code/ti-toolbox/viewer/<kind>.tetravox.json` so it can be exported or opened by a
+desktop Tetravox. They come from one resolution on purpose: two calls could resolve differently
+— a job finishing between them is enough — and then the list the page shows, the file on disk and
+the scene on screen would disagree, with nothing to say which was right. Returning to the Menu
+without pressing Open shows the same scene on the way back; Open again replaces it. Deep links
+`/viewer?…` prefill the Menu only.
+
+**What this replaces.** The morning's §7.1 said "the viewer is a separate application, and the
+only interface is a file", and deleted the bake, `/tetravox/`, `tit/tetravox/**`, the protocol
+range, the release index, the install store, `/ws/tetravox` and `Capabilities.tetravox_embed`.
+The maintainer reversed it, verbatim: *"The Dockerfile should contain Tetravox. We should not
+install Tetravox on the host machine — forbidden."* The scene file stays: it is a real artefact
+in the user's own project, and it is the export path and the desktop-Tetravox path. What is
+restored is the renderer that made this app able to show a result without asking the user to
+install anything.
 
 ### 7.2 The run-page panes are our own WebGL2 renderer
 

@@ -4,65 +4,62 @@ title: Viewer
 permalink: /wiki/visualizers/
 ---
 
-TI-Toolbox does not ship a viewer. Full 3-D viewing of mesh (`.msh`) and volumetric
-(`.nii`/`.nii.gz`) results is **[Tetravox](https://github.com/idossha/tetravox)**, a separate
-desktop application you install on your own machine. TI-Toolbox's **Viewer** page chooses *what*
-to look at and opens it there. There is no Freeview and no Gmsh in TI-Toolbox v3, and no X11.
+TI-Toolbox's viewer is **[Tetravox](https://github.com/idossha/tetravox)**, and it ships with the
+toolbox: a browser build of the Tetravox engine (the "embed") lives inside the Docker image, is
+served by the container, and draws on your own machine's GPU inside the app window. **You install
+nothing.** Full 3-D viewing of mesh (`.msh`) and volumetric (`.nii`/`.nii.gz`) results happens on
+the **Viewer** page. There is no Freeview and no Gmsh in TI-Toolbox v3, and no X11.
 
-The run pages (Simulator, Optimizer, Analyzer) have their own small 3-D pane for placing
-electrodes and picking atlas regions. That pane is part of the toolbox, needs nothing installed,
-and is not a viewer — it draws packaged reference anatomy, never your subject's.
-
-## Installing Tetravox
-
-Download the signed build for your platform from
-[the Tetravox releases page](https://github.com/idossha/tetravox/releases/latest) and install it
-as you would any application. It updates itself; its releases are not tied to TI-Toolbox's.
-
-**Settings ▸ Viewer** shows whether TI-Toolbox found it, where, and which version. It looks in the
-conventional places (`/Applications/Tetravox.app` and `~/Applications` on macOS, `tetravox` on
-`PATH` on Linux, `%LOCALAPPDATA%\Programs\Tetravox\Tetravox.exe` on Windows). If yours is
-somewhere else — an AppImage, a second copy — set the path there. If it is not installed, the
-Viewer page says so and offers the download link instead of failing on click.
+The run pages (Simulator, Optimizer, Analyzer) have their own small 3-D pane for placing electrodes
+and picking atlas regions. That pane is part of the toolbox, is drawn by the toolbox's own renderer
+rather than by Tetravox, and is not a viewer — it draws packaged reference anatomy, never your
+subject's.
 
 ## How to open a result
 
-1. On the **Viewer** page, choose what to look at: the type (simulation, analysis, atlas overlay,
-   a custom path), then the subject, simulation, field and space it takes.
-2. Nothing happens while you are choosing — the page shows a **"What will open"** list of the
-   layers it would build, with each one's colormap.
-3. Press **Open in Tetravox**. TI-Toolbox writes a scene document into your project at
-   `code/ti-toolbox/viewer/<type>.tetravox.json` and hands that file to the app.
+The Viewer page has two sub-pages, switched by the segmented control at the top.
 
-Pressing Open again does not start a second copy: Tetravox loads the new scene into the window
-already on screen. Results pages carry the same button for a single result.
+1. On **Menu**, choose what to look at: the type (simulation, analysis, atlas overlay, a custom
+   path), then the subject, simulation, field and space it takes.
+2. Nothing loads while you are choosing — the page shows a **"What will open"** list of the files
+   it would open, in order, with each one's size. Edit it: remove a file, add another from
+   everything the subject offers or from any path in the project, reorder it.
+3. Press **Open in viewer**. The page moves to **Viewer**, and the scene is drawn there full-bleed.
 
-The scene file is an ordinary file in your project. You can open it later by double-clicking it,
-or from Tetravox's own **File ▸ Open Scene…** — it is `ViewSpec` v2, Tetravox's own format, and
-TI-Toolbox invents no scene format of its own. Every layer refers to a dataset by its path on your
-machine, so nothing is copied and the file stays a few kilobytes.
+The Viewer sub-page's strip carries the scene's name, **Reload** (re-sends the scene it is showing)
+and **Back to menu**. Going back keeps the picture: change the list, press Open again, and the new
+scene replaces the old one.
 
-### Without the desktop app
+Layer visibility and opacity, the shared 3-D cursor, the slice/3-D layouts, screenshots and saving a
+modified scene are all the viewer's own controls, in its own panels. TI-Toolbox's side of the
+boundary ends at deciding which files belong together.
 
-If you are running the toolbox in a browser rather than the desktop shell, there is no way for the
-page to start an application. The button reads **Download scene** instead: save the file, then open
-it in Tetravox with File ▸ Open Scene…. The file is the whole interface, so this is a complete
-answer, not a degraded one.
+## The scene file
 
-## What Tetravox shows
+Opening also writes the scene into your project at `code/ti-toolbox/viewer/<type>.tetravox.json`.
+It is an ordinary file — a few kilobytes, because every layer refers to a dataset by its path
+rather than copying it — in `ViewSpec` v2, Tetravox's own format; TI-Toolbox invents no scene format
+of its own. Keep it, archive it with the results it describes, or hand it to a Tetravox desktop
+application if you have one installed (**File ▸ Open Scene…**). Nothing in TI-Toolbox requires you
+to.
 
-Everything the toolbox used to draw in an inspector belongs to the app now — layer visibility and
-opacity, the shared 3-D cursor and the slice/3-D layouts, screenshots and saving a modified scene.
-See Tetravox's own documentation for those; TI-Toolbox's side of the boundary ends at the scene
-file.
+## Keeping the viewer current
+
+The viewer can be updated without updating the toolbox. **Settings ▸ Viewer** shows which bundle is
+active, its version and protocol, and whether it came from the image or was installed later. Updates
+are checked in the background at most once a day (you can turn that off), every download is verified
+against its published sha256 before it is unpacked, and rolling back to the version baked into the
+image is one click — nothing is deleted to go back. An offline or air-gapped machine keeps the
+bundle the image shipped and needs no network at all.
 
 ## No-WebGL2 state
 
-The run pages' 3-D pane needs WebGL2. On a host GPU/driver combination without it, the pane says
-so explicitly rather than showing a blank canvas — the rest of the page keeps working, and every
-choice the pane offers (electrodes, atlas regions) is also available from the form beside it. This
-is a host capability check, not a container one: it depends on what the Electron renderer's GPU
-process can do on your machine. Tetravox itself makes the same check on its own.
+Both the run pages' pane and the viewer need WebGL2. On a host GPU/driver combination without it,
+each says so explicitly rather than showing a blank canvas — on the run pages the rest of the page
+keeps working, and every choice the pane offers (electrodes, atlas regions) is also available from
+the form beside it. This is a host capability check, not a container one: it depends on what the
+Electron renderer's GPU process can do on your machine. Chromium 137 removed the automatic software
+fallback, so there is nothing to switch on.
 
 ---
 

@@ -511,3 +511,75 @@ let the user edit it, hand it over. The written scene is a real file in the user
 **Alternatives rejected.** A composition panel with layers, layout, camera and presets was built
 first and is the version this replaced; it was a better *panel* and a worse *page*, because every
 knob on it was a knob Tetravox already had and would win.
+
+## 2026-09-06 (later the same day) — The embed is restored, ships in the image, and is the Viewer's own sub-page
+
+**Decision.** Architecture §7.1 is replaced again, reversing this morning's two entries — *"The
+in-app Tetravox embed is retired; viewing is the host-installed desktop app"* and *"`Capabilities`
+says nothing about the viewer"* — and the *"The viewer is installed on the host, not baked into the
+image"* entry with them. The Tetravox **embed** is the viewer again: baked into the image at
+`/opt/tetravox/embed`, served by `tit.server` at `/tetravox/` with its own CSP, delivered and
+updated at runtime by `tit/tetravox/{protocol,store,install,updates}.py` behind `GET/POST
+/api/tetravox*` and `/ws/tetravox`, and reported by `Capabilities.tetravox_embed`. **Nothing
+installs Tetravox on the host, and there is still no X11 anywhere.** The Viewer page becomes two
+sub-pages behind its one rail entry — a **Menu** (the composition page, VM2's design, its button
+renamed *Open in viewer*) and a **Viewer** (full-bleed, the embed iframe, a slim strip with the
+scene name, `Reload` and `Back to menu`). ADR row 14's preload budget loses the `viewer` entry
+again; the morning's amendment is reversed.
+
+**Why.** The maintainer, verbatim: *"The Dockerfile should contain Tetravox. We should not install
+Tetravox on the host machine — forbidden. Tetravox should not be visually embedded in the
+TI-Toolbox tab; it should open in its own [view]. In the Viewer, the left menu has two subsections:
+the Menu, and below it the actual Viewer. The user configures in the Menu, hits Open, is moved to
+the Viewer where the Tetravox embed is; they can go back to the Menu, tinker, and reload a
+different setup."*
+
+The engineering reading of D3 was half right and drew the wrong conclusion. The container having no
+display is exactly why the *embed* is the only Tetravox that can draw inside this app: a windowed
+application baked into the image has nothing to draw on, and one installed on the host is an
+acquisition the user has to make, a second window to manage, and a per-platform install path this
+project then owns. The embed runs on the host GPU in the app's own renderer, and the user installs
+nothing. What the morning got right — that the Viewer should not be a picture squeezed beside a
+form — is kept, and answered by the sub-page split rather than by deleting the renderer: the embed
+is full-bleed on its own sub-page, and the composition lives on the Menu.
+
+**What the restored machinery buys, stated plainly.** It is roughly 3,000 lines and ~130 tests, and
+it is not free. It buys the one property this program was asked for and cannot get any other way:
+*a Tetravox release does not imply a TI-Toolbox release.* The coupling is real the moment a viewer
+ships inside an image, and the protocol range is what keeps it from becoming a version pin — a pane
+asks for a named feature (`markers`, `pick`, `camera`), the supported range lives in two files a
+cross-language test keeps in step, an additive Tetravox release needs no change here at all, and a
+breaking one costs one constant. The rest of the cost is the delivery honesty the maintainer's own
+threat model demands: a digest verified before the archive is opened, an extraction that refuses
+`..`, absolute paths and links (Python 3.11's unfiltered `extractall` writes outside the destination
+in this image), an atomic activation, a pin so rollback is not a re-download, and a policy stored on
+disk rather than a habit compiled in.
+
+**Alternatives rejected.** Making the two sub-pages a nested rail group would mean reshaping
+`app/registry.ts`'s flat `NAV_ORDER`/`PageDef` model, which several lanes read; a page-level
+segmented sub-nav needs no such change and makes iframe retention automatic, because the two
+sub-pages are one mounted component. Two calls — one for the file, one for the iframe — were
+rejected: a job finishing between them is enough to make the list, the file and the picture
+disagree, so `POST /api/view/open` resolves once and returns both addressings.
+
+**Known consequence.** The app now has two renderers: the embed on the Viewer sub-page, and the
+app's own WebGL2 renderer on the run pages (§7.2, unchanged and untouched by this reversal). That
+is a deliberate split — the panes draw packaged reference anatomy and need picking and marker
+behaviour this project controls, while the Viewer draws the user's data and wants the whole engine.
+Converging them (`dev/notes/v3-embed-convergence-plan.md`) is a future question again, not a settled
+one.
+
+## 2026-09-06 (later the same day) — The bridge budget is 13, and `viewer` is not one of them
+
+**Decision.** ADR row 14's preload budget is **13** entries. `viewer` (`probe`/`open`/`setPath`) is
+removed — opening the viewer is no longer a host action, so it is not main's to expose — and the
+morning's 12 → 13 amendment for it is reversed. The 13 are `appVersion`, `connect`, `getSettings`,
+`notify`, `openExternal`, `openPath`, `platform`, `saveFile`, `selectDirectory`, `selectFile`,
+`setSettings`, `showItemInFolder`, `stack`, which is the exact list `smoke.spec.ts` asserts.
+
+**Why.** The budget was 12 before the morning. It is 13 rather than 12 now because `saveFile` landed
+independently between the two decisions (the Pipeline canvas's notebook export: writing
+renderer-produced text to a file the user picks is a host action, and the renderer's `<a download>`
+on a `blob:` URL was inert in this shell and reported success anyway). Reversing the viewer
+amendment therefore returns one entry, not two. A page that renders the embed needs no bridge entry
+at all — it is an `<iframe src="/tetravox/">` on the same origin.
