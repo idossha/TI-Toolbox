@@ -1,15 +1,21 @@
 # ADR — v3.0.0 Electron/TypeScript GUI over `tit.server`
 
-*Moved here on 2026-09-07 from `docs/dev/ADR.md`, which is gitignored and was
+*Moved here on 2026-09-07 from `tracks/active/v3-electron-gui.md`, which is gitignored and was
 therefore not part of the repository at all. Every "ADR row N" citation in the codebase and in
-`DECISIONS.md` means the numbered table below. The copy under `tracks/` is superseded and should
-be deleted.*
+`DECISIONS.md` means the numbered table below.*
 
 **Created:** 2026-08-27
 **Branch:** `feature/v3-electron-gui` (long-lived integration branch; phase PRs target it, never `main`)
 **Status:** IN PROGRESS — Phase 0 (walking skeleton + spikes)
-**Plan of record:** `TODO.md` §"v3.0.0" (architecture, phases, gates). This file holds the decisions
-and the running state; it does not duplicate the plan.
+**Plan of record:** `TODO.md` §"v3.0.0" (architecture, phases, gates) — now historical; see its
+banner. This file holds the decisions and the running state; it does not duplicate the plan.
+
+> **Retired citation paths.** The Evidence column below cites lane note files under `dev/notes/`
+> and `dev/spikes/`. Those directories were folded into `docs/dev/` and deleted on 2026-09-07;
+> `dev/` holds scripts only. The narrative each one carried is the matching dated section of
+> [`HISTORY.md`](HISTORY.md), spike verdicts are in [`SPIKES.md`](SPIKES.md), and the full mapping
+> is the retired-paths table in [`README.md`](README.md). The citations are left as written because
+> they name *which* lane produced the evidence, which `HISTORY.md`'s sections also record.
 
 ## Goal
 

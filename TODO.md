@@ -1,3 +1,12 @@
+> **Historical — the v3.0.0 plan of record.** Written 2026-08-26; the plan shipped as v3.0.0.
+> This file is **not** the to-do list any more: live work is
+> [`docs/dev/ROADMAP.md`](docs/dev/ROADMAP.md), what happened is
+> [`docs/dev/HISTORY.md`](docs/dev/HISTORY.md), and why is
+> [`docs/dev/DECISIONS.md`](docs/dev/DECISIONS.md) / [`docs/dev/ADR.md`](docs/dev/ADR.md).
+> It is kept, unedited below this banner, because roughly twenty source comments and per-page
+> `PARITY.md` files cite its section numbers (`TODO §2.3`, `TODO §2.8`, …) as the parity source for
+> what they implement. Do not add items here; nothing reads it for planning.
+
 To-Do List:
 
 ### Opportunities for Early Contributors

@@ -165,7 +165,7 @@ TIT_E2E_SERVER_URL=http://127.0.0.1:8765 TIT_E2E_TOKEN=<token> npm run e2e
 
 Screenshots land in `tests/e2e/artifacts/` (git-ignored).
 
-## Security settings (TODO §2.8)
+## Security settings (`TODO.md` §2.8 — the historical v3 plan)
 
 `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`, `webSecurity: true`;
 `will-navigate`/`will-redirect` allow only `app://launcher` and the connected server origin;

@@ -99,3 +99,19 @@ mock-server pass.
 6. **The pipeline canvas should be able to save its export here.** `POST /api/notebooks` already
    accepts a document, so this is one button on the canvas: today its export still goes only to a
    host download.
+
+## Carried over from `TODO.md` (2026-09-07)
+
+`TODO.md` was the v3.0.0 plan of record and is now historical — the plan shipped, and what happened
+is in `HISTORY.md`. Its **live** items are these, and this table is where they are tracked from now
+on. The file itself stays at the repository root, unchanged apart from a banner, because about
+twenty source comments and `PARITY.md` files cite its section numbers (`TODO §2.8`, `TODO §2.3`…)
+as the parity source for what they implement.
+
+| Item | State |
+|---|---|
+| **OpenSSF best practices.** Adopt the Best Practices badge criteria. | Open. Nothing has been assessed against the criteria yet; `code-ql-analysis.yml` and `python-security.yml` cover part of the static-analysis rows. |
+| **More unit and integration tests**, and **docs maintenance** (wiki, gallery, MkDocs API) — the two standing invitations to new contributors. | Open, ongoing. The current counts are in `BENCHMARKS.md`. |
+| **Ex-search electrode viewer** — a graphical UI for electrode visualisation and selection. | **Delivered** by the run-page native panes (ADR row 27/29, §7.2): the Optimizer draws the net as pickable dots and the atlas is interactive. |
+| **Convert to a fully Electron front end.** | **Delivered** as v3.0.0. |
+| `TODO.md` §10's definition of done for v3.0.0 — no PyQt in `tit`, one documented entry point, live monitoring, parallel processing, scripting parity, the generated contract, the security posture, the docs. | Each is either proved in the gate table above or is release-facing (published image and apps, screenshots, migration notes) and owned by `RELEASE.md`. Nothing in §10 is tracked from `TODO.md` any more. |
