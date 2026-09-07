@@ -24,21 +24,24 @@ commands:
 
 jobs:
 
-  # v3 image build + smoke (dev/notes/v3-docker-streamline-plan.md D1). Gates on the
-  # *layered* recipe (Dockerfile.ti-toolbox.layered, FROM idossha/simnibs:v2.5.0) rather
-  # than the from-scratch one (Dockerfile.ti-toolbox) that CI is meant to eventually
-  # publish from: a from-scratch SimNIBS install takes 30-60+ minutes even on native
-  # hardware (see container/blueprint/Dockerfile.ti-toolbox's own header and
-  # dev/notes/v3-docker-streamline/w2-image-notes.md's "Not attempted" section, which
-  # ran into the same wall in a Phase-A session) — well past what this job's default
-  # `machine` resource class (2 vCPU / 8 GB) should be asked to absorb on every push, and
-  # nothing in this repo has provisioned a self-hosted or `resource_class: large`/`xlarge`
-  # executor for it yet. The layered recipe adds only the v3-specific layers (FastSurfer,
-  # the API deps, the entrypoint) on top of an already-built, already-published SimNIBS
-  # base image, which is what makes it CI-tractable: pull ~6 GB, build in minutes. See
-  # dev/notes/v3-docker-streamline/w6-docs-ci-notes.md for the reasoning and what would be
-  # needed to gate on the from-scratch recipe instead (a large/self-hosted executor, or a
-  # separate nightly/release-triggered job so it doesn't sit on every push).
+  # v3 image build + smoke (dev/notes/v3-docker-streamline-plan.md D1).
+  #
+  # KNOWN RUNTIME PROBLEM (VE, 2026-09-06, dev/notes/v3-native-panes-external-viewer/VE.md).
+  # This job used to build the *layered* recipe (Dockerfile.ti-toolbox.layered, FROM
+  # idossha/simnibs:v2.5.0) precisely so it would be CI-tractable: pull ~6 GB, build in
+  # minutes. The maintainer deleted that recipe, so `build.sh` now has one recipe and this
+  # job builds SimNIBS from scratch — 30-60+ minutes even on native hardware (see
+  # container/blueprint/Dockerfile.ti-toolbox's own header and
+  # dev/notes/v3-docker-streamline/w2-image-notes.md's "Not attempted" section), well past
+  # this job's 15m `no_output_timeout` and well past what the default `machine` resource
+  # class (2 vCPU / 8 GB) should absorb on every push. Nothing here has provisioned a
+  # `resource_class: large`/`xlarge` or self-hosted executor.
+  #
+  # This job is therefore EXPECTED TO TIME OUT until one of: a larger executor is
+  # provisioned, the job moves to a nightly/release trigger instead of every push, or a
+  # published base image is reintroduced to build from. It is left declared rather than
+  # deleted so the gap is visible in CI rather than only in a note. See
+  # dev/notes/v3-docker-streamline/w6-docs-ci-notes.md for the original reasoning.
   #
   # `ubuntu-2204:current` is an x86_64 machine, so this build and its smoke run natively
   # (no QEMU emulation) — unlike a build on Apple Silicon, this is a legitimate place to
@@ -52,17 +55,16 @@ jobs:
       - common-setup
 
       - run:
-          name: Build idossha/ti-toolbox (layered recipe)
+          name: Build idossha/ti-toolbox
           no_output_timeout: 15m
           command: |
             set -euo pipefail
-            # --skip-ui-build: this job smoke-tests the container mechanics (health,
-            # the /tetravox/ route, FastSurfer, the SimNIBS/torch import) — not the
-            # built desktop UI bundle, which is `desktop`'s own vitest/build/e2e gates'
-            # job. Skipping it avoids an `npm ci` for the whole Electron toolchain here;
-            # the image instead ships tit.server's plain status page at `/`.
-            ./container/blueprint/build.sh --layered --skip-ui-build \
-                --tag idossha/ti-toolbox:ci
+            # One recipe: --layered/--from-scratch/--skip-ui-build are gone with
+            # Dockerfile.ti-toolbox.layered, and the UI is built inside the image's own Node
+            # stage. See this job's header for why that makes this step over-long here.
+            # The embed release is resolved by build.sh from the GitHub Releases API; no
+            # version is pinned in this file.
+            ./container/blueprint/build.sh --tag idossha/ti-toolbox:ci
 
       - run:
           name: Start the container
@@ -105,17 +107,19 @@ jobs:
             code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18765/)"
             [ "$code" = "200" ] || { echo "expected 200, got $code"; exit 1; }
 
-            # V4 (dev/notes/v3-native-panes-external-viewer-plan.md): /tetravox/ is gone with the
-            # embed. The image bakes no viewer; viewing is the host-installed Tetravox desktop app.
-            #
-            # Not a 404 check: `tetravox` is no longer a reserved prefix, so the path now falls
-            # through to the SPA catch-all like any other unknown path and answers 200 with
-            # index.html. What must be gone is the *bundle* -- so this asserts the response is not
-            # a manifest and does not carry the embed route's own wasm-unsafe-eval CSP.
-            echo "-- /tetravox/ is retired --"
+            # The viewer ships in the image and this server serves it (VE). Assert the route,
+            # the manifest and the embed's own CSP -- an index.html answered by the SPA
+            # catch-all would pass a bare status check and mean the bundle is not there.
+            echo "-- /tetravox/ serves the embed --"
+            code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18765/tetravox/)"
+            [ "$code" = "200" ] || { echo "expected 200 at /tetravox/, got $code"; exit 1; }
             body="$(curl -sD /tmp/tvx.h http://127.0.0.1:18765/tetravox/manifest.json)"
-            case "$body" in *'"protocol"'*) echo "the embed bundle is still served"; exit 1 ;; esac
-            grep -qi 'wasm-unsafe-eval' /tmp/tvx.h && { echo "the embed CSP is still served"; exit 1; }
+            case "$body" in
+                *'"protocol"'*) : ;;
+                *) echo "/tetravox/manifest.json is not a manifest: $body"; exit 1 ;;
+            esac
+            grep -qi 'wasm-unsafe-eval' /tmp/tvx.h \
+                || { echo "the embed CSP is missing from /tetravox/"; exit 1; }
             rm -f /tmp/tvx.h
 
             echo "-- FastSurfer --help --"

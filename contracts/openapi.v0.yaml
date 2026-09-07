@@ -130,16 +130,21 @@ components:
         simnibs: { type: [string, "null"] }
     Capabilities:
       # D3 (dev/notes/v3-docker-streamline-plan.md): x11_display/freeview/gmsh/freesurfer removed
-      # from the runtime entirely (no X11 anywhere). V4
-      # (dev/notes/v3-native-panes-external-viewer-plan.md): tetravox_embed removed with the embed
-      # itself -- viewing is the host-installed Tetravox desktop app, which this server neither
-      # ships nor serves. The walking-skeleton contract tracks the live runtime's actual
-      # capability surface rather than freezing a Phase-0 shape the server no longer has.
+      # from the runtime entirely (viewing = the Tetravox embed, no X11 anywhere); tetravox_embed
+      # and fastsurfer take their place. The walking-skeleton contract tracks the live runtime's
+      # actual capability surface rather than freezing a Phase-0 shape the server no longer has.
       type: object
-      required: [docker_socket, bpy, fastsurfer]
+      required: [docker_socket, bpy, tetravox_embed, fastsurfer]
       properties:
         docker_socket: { type: boolean }
         bpy: { type: boolean }
+        tetravox_embed:
+          type: object
+          required: [available, version, protocol]
+          properties:
+            available: { type: boolean }
+            version: { type: [string, "null"] }
+            protocol: { type: [integer, "null"] }
         fastsurfer:
           type: boolean
           description: FASTSURFER_HOME (or /opt/fastsurfer) has run_fastsurfer.sh

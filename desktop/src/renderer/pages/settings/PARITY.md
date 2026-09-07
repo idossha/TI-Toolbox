@@ -52,13 +52,13 @@ telemetry toggle, so this checklist tracks the v3 spec instead of a Qt diff.
       `PageDef.enabled` per `app/registry.ts` — picks up the new panel set. See
       `pages/panels/_shared.ts` for why a reload is needed and the gap this leaves for F2.
 
-- [x] **Viewer card** (`ViewerCard.tsx`, `dev/notes/v3-native-panes-external-viewer-plan.md` V3,
-      no Qt ancestor at all): whether the host's **Tetravox** desktop app was found, the resolved
-      path and its bundle version, a path override for a non-standard install, and a link to the
-      GitHub release page when it is absent. It reaches no network and knows no protocol: viewing
-      is another application now, so the only question this card can answer is where it is
-      installed. (It replaces the retired embed's engine card — version, protocol range, release
-      index, install/rollback list — deleted with the embed on 2026-09-06.)
+- [x] **Viewer engine card** (`TetravoxCard.tsx`, no Qt ancestor at all): the active embed
+      bundle's version, protocol and source, the protocol range this build can host, what the
+      server's own background check last found, an automatic-updates switch and a "Check now"
+      button. It reaches no network itself — it renders what the server already knows, which is
+      what keeps rendering Settings from spending one of GitHub's 60 unauthenticated requests per
+      hour. (V3 briefly replaced this with a `ViewerCard` describing a host-installed desktop app;
+      the maintainer reversed that on 2026-09-06 and the card is this one again.)
 
 ## Known gaps (reported, not hacked around)
 

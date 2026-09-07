@@ -11,10 +11,6 @@ import type {
   TitStackStartResult,
   TitStackStatus,
   TitStackStopResult,
-  TitViewerEvent,
-  TitViewerInfo,
-  TitViewerInstallResult,
-  TitViewerOpenResult,
 } from "../shared/tit-bridge";
 
 const tit: TitBridge = {
@@ -40,20 +36,6 @@ const tit: TitBridge = {
       const listener = (_e: Electron.IpcRendererEvent, event: TitStackEvent) => callback(event);
       ipcRenderer.on("tit:stack:event", listener);
       return () => ipcRenderer.removeListener("tit:stack:event", listener);
-    },
-  },
-  viewer: {
-    probe: (): Promise<TitViewerInfo> => ipcRenderer.invoke("tit:viewer:probe"),
-    open: (containerScenePath: string): Promise<TitViewerOpenResult> =>
-      ipcRenderer.invoke("tit:viewer:open", String(containerScenePath)),
-    setPath: (path: string): Promise<TitViewerInfo> => ipcRenderer.invoke("tit:viewer:setPath", String(path)),
-    install: (): Promise<TitViewerInstallResult> => ipcRenderer.invoke("tit:viewer:install"),
-    checkUpdates: (): Promise<TitViewerInfo> => ipcRenderer.invoke("tit:viewer:checkUpdates"),
-    remove: (): Promise<TitViewerInfo> => ipcRenderer.invoke("tit:viewer:remove"),
-    onEvent: (callback: (event: TitViewerEvent) => void): (() => void) => {
-      const listener = (_e: Electron.IpcRendererEvent, event: TitViewerEvent) => callback(event);
-      ipcRenderer.on("tit:viewer:event", listener);
-      return () => ipcRenderer.removeListener("tit:viewer:event", listener);
     },
   },
 };

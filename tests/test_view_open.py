@@ -183,6 +183,63 @@ def test_the_url_form_of_the_same_scene_is_untouched(
     )
 
 
+# ── the two addressings (VE) ─────────────────────────────────────────────────
+
+
+def test_view_keeps_the_urls_the_embed_fetches_and_scene_does_not(
+    pm: PathManager, monkeypatch
+) -> None:
+    """One response, two languages: ``view`` for the iframe, ``scene`` for the file."""
+    result = _open(monkeypatch, "/Users/me/datasets/000")
+    assert result["view"]["datasets"], "the scene resolved to no datasets at all"
+    for dataset in result["view"]["datasets"]:
+        assert dataset["path"].startswith("/api/files/raw/")
+        assert dataset["absPath"].startswith("/api/files/raw/")
+    for dataset in result["scene"]["datasets"]:
+        assert not dataset["path"].startswith("/api/")
+        assert dataset["path"].startswith("/Users/me/datasets/000/")
+
+
+def test_both_addressings_are_the_same_resolution(pm: PathManager, monkeypatch) -> None:
+    """Same datasets, same order, same layers -- only the paths differ.
+
+    This is the property the single ``build_view`` call exists for.  Resolving twice would let a
+    job finishing between the two calls put a file in one document and not the other, and then the
+    list the page shows, the file on disk and the picture on screen would disagree with nothing to
+    say which was right.
+    """
+    result = _open(monkeypatch, "/Users/me/datasets/000")
+    view, scene = result["view"], result["scene"]
+    assert [d["id"] for d in view["datasets"]] == [d["id"] for d in scene["datasets"]]
+    assert [d["name"] for d in view["datasets"]] == [d["name"] for d in scene["datasets"]]
+    assert view["layers"] == scene["layers"]
+
+
+def test_the_embed_addressing_is_also_a_valid_viewspec_v2(
+    pm: PathManager, monkeypatch
+) -> None:
+    result = _open(monkeypatch, "/Users/me/datasets/000")
+    errors = sorted(
+        _VALIDATOR.iter_errors(result["view"]), key=lambda e: list(e.absolute_path)
+    )
+    assert not errors, "\n".join(
+        f"{'.'.join(str(p) for p in e.absolute_path)}: {e.message}" for e in errors
+    )
+
+
+def test_a_dry_run_still_answers_with_both(pm: PathManager, monkeypatch) -> None:
+    """The Viewer page's file list is a dry run, and Open is the same call without the flag.
+
+    If ``view`` were only built on a real write, the page would resolve one document for the list
+    and the server a different one for the picture.
+    """
+    result = _open(monkeypatch, "/Users/me/datasets/000", dry_run=True)
+    assert result["dry_run"] is True
+    assert not os.path.exists(result["path"])
+    assert result["view"]["datasets"]
+    assert all(d["path"].startswith("/api/files/raw/") for d in result["view"]["datasets"])
+
+
 # ── refusals ─────────────────────────────────────────────────────────────────
 
 

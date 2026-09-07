@@ -1,15 +1,107 @@
 /**
- * Viewer page — a source card, a file list, and Open (DESIGN.md §10, VM2).
+ * Viewer page — two sub-pages behind one rail entry (DESIGN.md §10, VM2 + VE).
  *
- * There is no canvas on this page and there never will be: the picture is drawn by another
- * application, in its own window. VM replaced the canvas with a composition panel and the answer
- * was "too much"; what is left is the two things the page is actually for — where the scene comes
- * from, and which files it contains — in a centred 880 px column on the app's own surface.
+ *   **Menu**   a source card and an editable file list, in a centred 880 px column on the app's
+ *              own surface. VM replaced this with a composition panel and the answer was "too
+ *              much"; what is left is the two things the page is for — where the scene comes from,
+ *              and which files it contains.
+ *   **Viewer** a slim strip and, below it, the Tetravox embed filling every remaining pixel.
  *
- * The dark `--canvas` ground is gone with the canvas it was for. It existed so a slow first frame
- * was dark rather than white; with no frame to be slow, a black rectangle behind a form is just a
- * black rectangle.
+ * **The inactive sub-page is `display: none`, never unmounted.** That is load-bearing rather than
+ * an optimisation: the embed carries a wasm heap, its dataset workers and the camera the person
+ * set, and none of it survives the iframe being taken out of the document. Hiding keeps the frame
+ * in the same DOM node, so returning from the Menu shows exactly the scene that was there.
+ *
+ * The dark `--canvas` ground is back on the Viewer sub-page only, where there is a frame that can
+ * be slow to paint its first picture. Behind a form it was just a black rectangle.
  */
+
+.viewer-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* ------------------------------------------------- the two sub-pages */
+
+.viewer-subnav {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg);
+}
+
+.viewer-sub {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.viewer-sub[data-active="false"] {
+  display: none;
+}
+
+.viewer-sub-frame {
+  display: flex;
+  flex-direction: column;
+  background: var(--canvas, #101114);
+}
+
+.viewer-sub-frame[data-active="false"] {
+  display: none;
+}
+
+/* The strip: what is open, put it back, go edit it. Nothing about how a layer looks — that is the
+   embed's own inspector, which has the whole surface below this line. */
+.viewer-strip {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg);
+}
+
+.viewer-strip-name {
+  font: var(--text-sm);
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.viewer-strip-spacer {
+  flex: 1 1 auto;
+}
+
+.viewer-embed {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.viewer-empty {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--fg-muted);
+}
+
+.viewer-empty-title {
+  font: var(--text-base-medium, var(--text-sm));
+  color: var(--fg);
+}
+
+.viewer-empty-text {
+  max-width: 46ch;
+  font: var(--text-sm);
+}
 
 .viewer-scroll {
   height: 100%;

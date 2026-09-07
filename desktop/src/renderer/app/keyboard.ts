@@ -47,6 +47,8 @@ export interface ShellShortcuts {
   toggleQuickNotes: () => void;
   /** ? — the keyboard sheet. The one shortcut without a modifier, and only when nothing is focused. */
   openKeyboardSheet: () => void;
+  /** ⌘⇧V — move focus to the viewer canvas, so its own keys start working. */
+  focusViewer: () => void;
 }
 
 /**
@@ -86,10 +88,10 @@ export function useGlobalShortcuts(handlers: ShellShortcuts): void {
         if (key === "n") {
           e.preventDefault();
           ref.current.toggleQuickNotes();
+        } else if (key === "v") {
+          e.preventDefault();
+          ref.current.focusViewer();
         }
-        // ⌘⇧V was "focus the viewer canvas". V1 (dev/notes/v3-native-panes-external-viewer-plan.md)
-        // moved the viewer into a separate application with its own window and its own keyboard,
-        // so the shortcut has nothing left to focus and is not re-pointed at something else.
         return;
       }
 

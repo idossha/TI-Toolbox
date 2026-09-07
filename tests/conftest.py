@@ -154,6 +154,30 @@ def _block_real_telemetry():
 
 
 # ============================================================================
+# Tetravox install root — never read the developer's own ~/.config/ti-toolbox
+# ============================================================================
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _isolate_tetravox_install_root(tmp_path_factory):
+    """Point ``TIT_TETRAVOX_INSTALL_ROOT`` at a tmp dir for the whole session.
+
+    ``tit.tetravox.store.install_root()`` otherwise defaults to
+    ``<user config>/tetravox/embed`` -- which on a developer's machine is the
+    very directory the container mounts (``~/.config/ti-toolbox``). A suite that
+    read it would pass or fail depending on which embed bundles that developer
+    happened to have installed, and ``test_capabilities_shape`` (which asserts
+    no embed is available) would break the moment anyone used the feature for
+    real. Individual tests still override this with their own tmp roots.
+    """
+    root = tmp_path_factory.mktemp("tetravox-install-root")
+    mp = pytest.MonkeyPatch()
+    mp.setenv("TIT_TETRAVOX_INSTALL_ROOT", str(root))
+    yield
+    mp.undo()
+
+
+# ============================================================================
 # JobManager — never let its poll thread leak across test modules
 # ============================================================================
 

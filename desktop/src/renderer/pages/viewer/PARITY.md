@@ -45,7 +45,7 @@ of a form).
 | Console (file list, sizes, status) | — | Per-dataset load rows over the canvas with the byte count the loader reports (the embed's own toolbar; the host's is gone with the rest of the inspector) | Done |
 | Freeview launch (`subprocess.Popen`) | — | **Deleted** (D3) | n/a |
 | Gmsh launch | — | **Deleted** (D3) | n/a |
-| Capability gating (X11) | n/a | Gone with the embed. Nothing on the server answers whether a viewer is available — `window.tit.viewer.probe` asks the *host* filesystem (V2/V3). Tetravox not found → the button says so and Settings ▸ Viewer offers the download link; no Electron shell → the scene file is offered as a download instead | Done |
+| Capability gating (X11) | n/a | No X11 anywhere. `GET /api/capabilities`'s `tetravox_embed` says which embed bundle this server has and which protocol it speaks; a host asks for a named feature, never a version. There is nothing for a person to install (VE) | Done |
 
 ## Known gaps (report to orchestrator)
 

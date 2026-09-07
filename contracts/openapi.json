@@ -224,16 +224,9 @@
             "title": "Docker Socket",
             "type": "boolean"
           },
-          "freesurfer": {
-            "title": "Freesurfer",
-            "type": "boolean"
-          },
-          "freeview": {
-            "title": "Freeview",
-            "type": "boolean"
-          },
-          "gmsh": {
-            "title": "Gmsh",
+          "fastsurfer": {
+            "description": "FASTSURFER_HOME (or /opt/fastsurfer) has run_fastsurfer.sh",
+            "title": "Fastsurfer",
             "type": "boolean"
           },
           "jupyter": {
@@ -241,20 +234,17 @@
             "title": "Jupyter",
             "type": "boolean"
           },
-          "x11_display": {
-            "description": "DISPLAY set and X socket present",
-            "title": "X11 Display",
-            "type": "boolean"
+          "tetravox_embed": {
+            "$ref": "#/components/schemas/TetravoxEmbedCapability",
+            "description": "the embedded viewer bundle at /tetravox/, from <embed dir>/manifest.json"
           }
         },
         "required": [
           "docker_socket",
-          "freesurfer",
           "bpy",
-          "x11_display",
-          "gmsh",
-          "freeview",
-          "jupyter"
+          "jupyter",
+          "tetravox_embed",
+          "fastsurfer"
         ],
         "title": "Capabilities",
         "type": "object"
@@ -1286,6 +1276,42 @@
         "title": "Health",
         "type": "object"
       },
+      "JobKind": {
+        "description": "Job kinds this server can run (tit.jobs.spec.JOB_KINDS).",
+        "enum": [
+          "pre",
+          "sim",
+          "flex",
+          "flex_adaptive",
+          "flex_pareto",
+          "ex",
+          "mex",
+          "leadfield",
+          "analyzer",
+          "stats",
+          "source",
+          "blender",
+          "nifti_average",
+          "nilearn",
+          "tools",
+          "project_init",
+          "report"
+        ],
+        "type": "string"
+      },
+      "JobState": {
+        "description": "Job lifecycle states (tit.jobs.spec.JOB_STATES).",
+        "enum": [
+          "queued",
+          "running",
+          "succeeded",
+          "failed",
+          "cancelled",
+          "skipped",
+          "lost"
+        ],
+        "type": "string"
+      },
       "LeadfieldConfig": {
         "additionalProperties": false,
         "description": "Configuration for one leadfield-generation run.\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier matching the m2m directory name.\neeg_net : str\n    EEG cap name without the ``.csv`` suffix (``LeadfieldGenerator``'s\n    ``electrode_cap``).\ntissues : list of int\n    Tissue tags to include (1 = WM, 2 = GM).\ninterpolation : str or None\n    SimNIBS ``TDCSLEADFIELD.interpolation`` mode. ``None`` means no\n    interpolation.\noverwrite : bool\n    Recompute even when a leadfield for this (*subject_id*, *eeg_net*)\n    already exists.\n\nRaises\n------\nValueError\n    If *eeg_net* is empty, or *tissues* is empty or contains a value\n    other than 1 or 2.\n\nNotes\n-----\nTwo fields this dataclass models that\n:meth:`~tit.opt.leadfield.LeadfieldGenerator.generate` does not\nimplement today, reported rather than silently patched into\n``tit/opt/leadfield.py`` (not owned by this track):\n\n- ``generate(tissues=...)`` immediately overwrites its own parameter\n  with a hardcoded ``tissues = [1, 2]`` before building the SimNIBS\n  ``TDCSLEADFIELD`` -- the argument (and, by extension, this dataclass's\n  *tissues* field) has no effect today. This looks like a genuine bug\n  in ``tit/opt/leadfield.py`` rather than intentional behavior.\n- ``interpolation`` is hardcoded to ``None`` in ``generate()``; there is\n  no parameter to set it.\n- There is no ``overwrite`` parameter on ``LeadfieldGenerator`` at all;\n  callers today decide whether to skip generation by checking\n  ``list_leadfields()`` themselves before calling ``generate()``.\n\nSee Also\n--------\ntit.opt.leadfield.LeadfieldGenerator : The class whose parameters this\n    dataclass mirrors.",
@@ -1951,7 +1977,7 @@
       },
       "NilearnConfig": {
         "additionalProperties": false,
-        "description": "Configuration for one Nilearn Visuals run.\n\nAttributes\n----------\nsubject_simulation_pairs : list of NilearnSubjectSimulation\n    Subjects/simulations to group-average before visualising.\nmin_cutoff : float, optional\n    Minimum threshold (V/m, or a percentile when *use_percentiles* is\n    true). Default is ``0.3``.\nmax_cutoff : float or None, optional\n    Maximum threshold; ``None`` (the default) uses the 99.9th\n    percentile of the averaged data.\natlas_name : str, optional\n    Atlas used for region contours on the slice PDF.\nselected_regions : list of int or None, optional\n    0-indexed region indices to include; ``None`` includes all.\nsubdir_name : str, optional\n    Output subdirectory under\n    ``derivatives/ti-toolbox/nilearn_visuals/``.\nuse_percentiles : bool, optional\n    Interpret *min_cutoff*/*max_cutoff* as percentiles (0-100) of the\n    averaged data's non-zero voxels rather than absolute V/m values.\ncreate_glass_brain : bool, optional\n    Also render a glass-brain PDF alongside the multi-slice one.\nglass_brain_cmap : str, optional\n    Colormap for the glass-brain render.\n\nRaises\n------\nValueError\n    If *subject_simulation_pairs* is empty, or *use_percentiles* is set\n    with a cutoff outside ``[0, 100]``.\n\nSee Also\n--------\ntit.plotting.nilearn.__main__.main : Consumes this config.",
+        "description": "Configuration for one Nilearn Visuals run.\n\nAttributes\n----------\nsubject_simulation_pairs : list of NilearnSubjectSimulation\n    Subjects/simulations to group-average before visualising.\nmin_cutoff : float or None, optional\n    Minimum threshold (V/m, or a percentile when *use_percentiles* is\n    true). ``None`` -- the default -- is data-driven: the 95th\n    percentile of the averaged field's non-zero voxels, the same\n    display floor ``tit.reporting`` already uses for its own field\n    figures. A fixed default in V/m cannot work here: a real TI field\n    peaks around 0.1 V/m, so the former ``0.3`` was above every voxel\n    of every run and the job died inside matplotlib.\nmax_cutoff : float or None, optional\n    Maximum threshold; ``None`` (the default) uses the 99.9th\n    percentile of the averaged data.\natlas_name : str, optional\n    Atlas used for region contours on the slice PDF.\nselected_regions : list of int or None, optional\n    0-indexed region indices to include; ``None`` includes all.\nsubdir_name : str, optional\n    Output subdirectory under\n    ``derivatives/ti-toolbox/nilearn_visuals/``.\nuse_percentiles : bool, optional\n    Interpret *min_cutoff*/*max_cutoff* as percentiles (0-100) of the\n    averaged data's non-zero voxels rather than absolute V/m values.\ncreate_glass_brain : bool, optional\n    Also render a glass-brain PDF alongside the multi-slice one.\nglass_brain_cmap : str, optional\n    Colormap for the glass-brain render.\n\nRaises\n------\nValueError\n    If *subject_simulation_pairs* is empty, or *use_percentiles* is set\n    with a cutoff outside ``[0, 100]``.\n\nSee Also\n--------\ntit.plotting.nilearn.__main__.main : Consumes this config.\ntit.plotting.nilearn.cutoffs.resolve_cutoffs : Turns these fields into\n    the two absolute V/m numbers the renderers take, and refuses a\n    cutoff that is above the data with a message naming the range.",
         "properties": {
           "atlas_name": {
             "default": "harvard_oxford_sub",
@@ -1981,9 +2007,16 @@
             "title": "Max Cutoff"
           },
           "min_cutoff": {
-            "default": 0.3,
-            "title": "Min Cutoff",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Min Cutoff"
           },
           "selected_regions": {
             "anyOf": [
@@ -2063,6 +2096,286 @@
         ],
         "title": "OptGoal",
         "type": "string"
+      },
+      "Overview": {
+        "description": "``GET /api/catalog/overview`` -- everything the Overview page renders.",
+        "properties": {
+          "subjects": {
+            "items": {
+              "$ref": "#/components/schemas/OverviewSubject"
+            },
+            "title": "Subjects",
+            "type": "array"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/OverviewTotals"
+          }
+        },
+        "required": [
+          "subjects",
+          "totals"
+        ],
+        "title": "Overview",
+        "type": "object"
+      },
+      "OverviewCounts": {
+        "description": "High-level output totals for one subject. Never a detailed tree (Results owns that).",
+        "properties": {
+          "analyses": {
+            "title": "Analyses",
+            "type": "integer"
+          },
+          "optimizations": {
+            "description": "flex + ex + mEx search runs",
+            "title": "Optimizations",
+            "type": "integer"
+          },
+          "simulations": {
+            "title": "Simulations",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "simulations",
+          "optimizations",
+          "analyses"
+        ],
+        "title": "OverviewCounts",
+        "type": "object"
+      },
+      "OverviewCoverage": {
+        "description": "One project-wide coverage tile: how many subjects have this artefact.",
+        "properties": {
+          "have": {
+            "title": "Have",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "have",
+          "total"
+        ],
+        "title": "OverviewCoverage",
+        "type": "object"
+      },
+      "OverviewReadiness": {
+        "description": "Can this subject run one workflow stage, and if not, the requirement that failed.",
+        "properties": {
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the missing requirement, never a sentence",
+            "title": "Reason"
+          },
+          "stage": {
+            "enum": [
+              "preprocess",
+              "simulator",
+              "optimizer",
+              "analyzer"
+            ],
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage",
+          "ready"
+        ],
+        "title": "OverviewReadiness",
+        "type": "object"
+      },
+      "OverviewSubject": {
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/OverviewCounts"
+          },
+          "ct": {
+            "enum": [
+              "present",
+              "absent",
+              "partial",
+              "pending",
+              "failed"
+            ],
+            "title": "Ct",
+            "type": "string"
+          },
+          "dwi": {
+            "enum": [
+              "present",
+              "absent",
+              "partial",
+              "pending",
+              "failed"
+            ],
+            "title": "Dwi",
+            "type": "string"
+          },
+          "eeg_net": {
+            "enum": [
+              "present",
+              "absent",
+              "partial",
+              "pending",
+              "failed"
+            ],
+            "title": "Eeg Net",
+            "type": "string"
+          },
+          "eeg_nets": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Eeg Nets",
+            "type": "array"
+          },
+          "fastsurfer": {
+            "enum": [
+              "present",
+              "absent",
+              "partial",
+              "pending",
+              "failed"
+            ],
+            "title": "Fastsurfer",
+            "type": "string"
+          },
+          "freesurfer": {
+            "enum": [
+              "present",
+              "absent",
+              "partial",
+              "pending",
+              "failed"
+            ],
+            "title": "Freesurfer",
+            "type": "string"
+          },
+          "id": {
+            "description": "without the sub- prefix",
+            "title": "Id",
+            "type": "string"
+          },
+          "leadfield": {
+            "enum": [
+              "present",
+              "absent",
+              "partial",
+              "pending",
+              "failed"
+            ],
+            "title": "Leadfield",
+            "type": "string"
+          },
+          "leadfields": {
+            "description": "EEG nets with a precomputed leadfield",
+            "items": {
+              "type": "string"
+            },
+            "title": "Leadfields",
+            "type": "array"
+          },
+          "m2m": {
+            "enum": [
+              "present",
+              "absent",
+              "partial",
+              "pending",
+              "failed"
+            ],
+            "title": "M2M",
+            "type": "string"
+          },
+          "raw": {
+            "enum": [
+              "present",
+              "absent",
+              "partial",
+              "pending",
+              "failed"
+            ],
+            "title": "Raw",
+            "type": "string"
+          },
+          "readiness": {
+            "items": {
+              "$ref": "#/components/schemas/OverviewReadiness"
+            },
+            "title": "Readiness",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "raw",
+          "fastsurfer",
+          "freesurfer",
+          "m2m",
+          "dwi",
+          "ct",
+          "leadfield",
+          "eeg_net",
+          "counts",
+          "readiness"
+        ],
+        "title": "OverviewSubject",
+        "type": "object"
+      },
+      "OverviewTotals": {
+        "properties": {
+          "analyses": {
+            "title": "Analyses",
+            "type": "integer"
+          },
+          "coverage": {
+            "items": {
+              "$ref": "#/components/schemas/OverviewCoverage"
+            },
+            "title": "Coverage",
+            "type": "array"
+          },
+          "optimizations": {
+            "title": "Optimizations",
+            "type": "integer"
+          },
+          "simulations": {
+            "title": "Simulations",
+            "type": "integer"
+          },
+          "subjects": {
+            "title": "Subjects",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "subjects",
+          "simulations",
+          "optimizations",
+          "analyses",
+          "coverage"
+        ],
+        "title": "OverviewTotals",
+        "type": "object"
       },
       "ParetoSweepConfig": {
         "additionalProperties": false,
@@ -2243,7 +2556,7 @@
       },
       "PreprocessConfig": {
         "additionalProperties": false,
-        "description": "Configuration for one preprocessing-pipeline run.\n\nEvery step is opt-in via its own boolean flag; disabled steps are\nskipped. Mirrors ``run_pipeline``'s keyword arguments exactly (see\n:func:`tit.pre.structural.run_pipeline`).\n\nAttributes\n----------\nsubject_ids : list of str\n    Subject identifiers (without the ``sub-`` prefix). Must be\n    non-empty.\nconvert_dicom : bool\n    Run DICOM-to-NIfTI conversion.\nrun_recon : bool\n    Run FreeSurfer ``recon-all``.\nparallel_recon : bool\n    Run ``recon-all`` in parallel across subjects.\nparallel_cores : int or None\n    Maximum number of parallel subjects for ``recon-all``.\ncreate_m2m : bool\n    Run SimNIBS ``charm`` (also runs ``subject_atlas``).\nrun_tissue_analysis : bool\n    Run tissue-volume and thickness analysis.\nrun_qsiprep : bool\n    Run QSIPrep DWI preprocessing via Docker.\nrun_qsirecon : bool\n    Run QSIRecon reconstruction via Docker.\nqsiprep_config : QSIPrepSettings or None\n    Extra QSIPrep configuration. Serializes to the same flat shape\n    :func:`tit.pre.structural.run_pipeline` reads via\n    ``qsiprep_cfg.get(...)`` -- see :class:`QSIPrepSettings`.\nqsi_recon_config : QSIReconSettings or None\n    Extra QSIRecon configuration. Same shape guarantee as\n    *qsiprep_config* -- see :class:`QSIReconSettings`.\nextract_dti : bool\n    Extract DTI tensor for SimNIBS anisotropic conductivity.\nrun_subcortical_segmentations : bool\n    Run thalamic-nuclei and hippocampal-subfield segmentations.\nskip_existing_outputs : bool\n    Skip selected steps when their output already exists.\nreplace_existing_outputs : bool\n    Remove selected existing outputs before rerunning their steps.\n\nRaises\n------\nValueError\n    If *subject_ids* is empty.\n\nNotes\n-----\n``qsiprep_config`` / ``qsi_recon_config`` are deliberately **not**\n:class:`tit.pre.qsi.config.QSIPrepConfig` / ``QSIReconConfig`` (those\ndataclasses carry a required ``subject_id`` and nest resource knobs\nunder ``resources: ResourceConfig`` -- shapes built and consumed\ninternally by :func:`tit.pre.qsi.qsiprep.run_qsiprep` /\n:func:`tit.pre.qsi.qsirecon.run_qsirecon` themselves, per call, once\n``run_pipeline`` already knows which subject it is processing).\n:class:`QSIPrepSettings` / :class:`QSIReconSettings` are the flat,\nsubject-independent settings shape ``run_pipeline`` actually reads off\nthese two fields (via ``qsiprep_cfg.get(\"cpus\")`` etc.) for every\nsubject in *subject_ids*; :mod:`tit.pre.__main__` converts each to a\nplain dict before calling ``run_pipeline``.\n\nSee Also\n--------\ntit.pre.structural.run_pipeline : Consumes these values as keyword\n    arguments (not this dataclass).",
+        "description": "Configuration for one preprocessing-pipeline run.\n\nEvery step is opt-in via its own boolean flag; disabled steps are\nskipped. Mirrors ``run_pipeline``'s keyword arguments exactly (see\n:func:`tit.pre.structural.run_pipeline`).\n\nAttributes\n----------\nsubject_ids : list of str\n    Subject identifiers (without the ``sub-`` prefix). Must be\n    non-empty.\nconvert_dicom : bool\n    Run DICOM-to-NIfTI conversion.\nrun_fastsurfer : bool\n    Run FastSurfer ``--seg_only`` deep segmentation. Requires a BIDS\n    T1w image; the UI offers it checked whenever one exists.\nfastsurfer_threads : int or None\n    Thread count for FastSurfer inference. ``None`` uses\n    :data:`tit.pre.fastsurfer.DEFAULT_THREADS` (or\n    ``$TIT_FASTSURFER_THREADS``).\ncreate_m2m : bool\n    Run SimNIBS ``charm`` (also runs ``subject_atlas``).\nrun_tissue_analysis : bool\n    Run tissue-volume and thickness analysis.\nrun_qsiprep : bool\n    Run QSIPrep DWI preprocessing via Docker.\nrun_qsirecon : bool\n    Run QSIRecon reconstruction via Docker.\nqsiprep_config : QSIPrepSettings or None\n    Extra QSIPrep configuration. Serializes to the same flat shape\n    :func:`tit.pre.structural.run_pipeline` reads via\n    ``qsiprep_cfg.get(...)`` -- see :class:`QSIPrepSettings`.\nqsi_recon_config : QSIReconSettings or None\n    Extra QSIRecon configuration. Same shape guarantee as\n    *qsiprep_config* -- see :class:`QSIReconSettings`.\nextract_dti : bool\n    Extract DTI tensor for SimNIBS anisotropic conductivity.\nskip_existing_outputs : bool\n    Skip selected steps when their output already exists.\nreplace_existing_outputs : bool\n    Remove selected existing outputs before rerunning their steps.\n\nRaises\n------\nValueError\n    If *subject_ids* is empty.\n\nNotes\n-----\n**Deprecated keys.** ``run_recon`` (FreeSurfer ``recon-all``),\n``parallel_recon``, ``parallel_cores`` and\n``run_subcortical_segmentations`` (thalamic nuclei / hippocampal\nsubfields, MATLAB-runtime binaries) were removed with the FreeSurfer\ncontainer. :func:`tit.pre.config.migrate_legacy_keys` still reads them\noff an old config JSON: ``run_recon`` maps onto ``run_fastsurfer`` with\na warning, the other three are dropped with a warning. Existing\n``derivatives/freesurfer`` output on disk keeps working -- every atlas\nreader still discovers it.\n\n``qsiprep_config`` / ``qsi_recon_config`` are deliberately **not**\n:class:`tit.pre.qsi.config.QSIPrepConfig` / ``QSIReconConfig`` (those\ndataclasses carry a required ``subject_id`` and nest resource knobs\nunder ``resources: ResourceConfig`` -- shapes built and consumed\ninternally by :func:`tit.pre.qsi.qsiprep.run_qsiprep` /\n:func:`tit.pre.qsi.qsirecon.run_qsirecon` themselves, per call, once\n``run_pipeline`` already knows which subject it is processing).\n:class:`QSIPrepSettings` / :class:`QSIReconSettings` are the flat,\nsubject-independent settings shape ``run_pipeline`` actually reads off\nthese two fields (via ``qsiprep_cfg.get(\"cpus\")`` etc.) for every\nsubject in *subject_ids*; :mod:`tit.pre.__main__` converts each to a\nplain dict before calling ``run_pipeline``.\n\nSee Also\n--------\ntit.pre.structural.run_pipeline : Consumes these values as keyword\n    arguments (not this dataclass).",
         "properties": {
           "convert_dicom": {
             "default": false,
@@ -2260,7 +2573,7 @@
             "title": "Extract Dti",
             "type": "boolean"
           },
-          "parallel_cores": {
+          "fastsurfer_threads": {
             "anyOf": [
               {
                 "type": "integer"
@@ -2270,12 +2583,7 @@
               }
             ],
             "default": null,
-            "title": "Parallel Cores"
-          },
-          "parallel_recon": {
-            "default": false,
-            "title": "Parallel Recon",
-            "type": "boolean"
+            "title": "Fastsurfer Threads"
           },
           "qsi_recon_config": {
             "anyOf": [
@@ -2304,6 +2612,11 @@
             "title": "Replace Existing Outputs",
             "type": "boolean"
           },
+          "run_fastsurfer": {
+            "default": false,
+            "title": "Run Fastsurfer",
+            "type": "boolean"
+          },
           "run_qsiprep": {
             "default": false,
             "title": "Run Qsiprep",
@@ -2312,16 +2625,6 @@
           "run_qsirecon": {
             "default": false,
             "title": "Run Qsirecon",
-            "type": "boolean"
-          },
-          "run_recon": {
-            "default": false,
-            "title": "Run Recon",
-            "type": "boolean"
-          },
-          "run_subcortical_segmentations": {
-            "default": false,
-            "title": "Run Subcortical Segmentations",
             "type": "boolean"
           },
           "run_tissue_analysis": {
@@ -2398,7 +2701,7 @@
                 "type": "null"
               }
             ],
-            "description": "from LOCAL_PROJECT_DIR when known",
+            "description": "the host directory container_path is mounted from, when it can be known: LOCAL_PROJECT_DIR when set, else this server's own container definition (bind mount, then the tit.host_project_dir label) -- see tit/server/host_path.py",
             "title": "Host Path"
           },
           "name": {
@@ -2411,6 +2714,25 @@
           "name"
         ],
         "title": "Project",
+        "type": "object"
+      },
+      "ProtocolRange": {
+        "description": "The inclusive embed-protocol range this build can host (E1).",
+        "properties": {
+          "max": {
+            "title": "Max",
+            "type": "integer"
+          },
+          "min": {
+            "title": "Min",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "min",
+          "max"
+        ],
+        "title": "ProtocolRange",
         "type": "object"
       },
       "QSIPrepConfig": {
@@ -2839,6 +3161,7 @@
         "type": "object"
       },
       "Simulation": {
+        "additionalProperties": true,
         "properties": {
           "has_mti": {
             "title": "Has Mti",
@@ -3212,7 +3535,12 @@
       },
       "Subject": {
         "properties": {
+          "has_fastsurfer": {
+            "title": "Has Fastsurfer",
+            "type": "boolean"
+          },
           "has_freesurfer": {
+            "description": "legacy derivatives/freesurfer, still detected read-only",
             "title": "Has Freesurfer",
             "type": "boolean"
           },
@@ -3222,6 +3550,12 @@
           },
           "has_raw": {
             "title": "Has Raw",
+            "type": "boolean"
+          },
+          "has_sourcedata": {
+            "default": false,
+            "description": "sourcedata/sub-<id>/ has a raw T1w or T2w series staged (DICOM or equivalent), whether or not it has been converted yet -- 'not converted' is has_sourcedata True with has_raw False",
+            "title": "Has Sourcedata",
             "type": "boolean"
           },
           "id": {
@@ -3237,6 +3571,7 @@
         "required": [
           "id",
           "has_raw",
+          "has_fastsurfer",
           "has_freesurfer",
           "has_m2m",
           "n_simulations"
@@ -3319,6 +3654,420 @@
         ],
         "title": "TestType",
         "type": "string"
+      },
+      "TetravoxEmbedCapability": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "compatible": {
+            "default": false,
+            "description": "the active bundle's protocol is inside `supported`",
+            "title": "Compatible",
+            "type": "boolean"
+          },
+          "features": {
+            "description": "named capabilities of the active bundle (E1): derived from its protocol, or taken verbatim from the manifest's own `features` array when it has one, so a host asks for a name and never for a version number",
+            "items": {
+              "type": "string"
+            },
+            "title": "Features",
+            "type": "array"
+          },
+          "protocol": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protocol"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "override",
+                  "installed",
+                  "baked"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "where the active bundle came from: the version baked into the image, one installed through POST /api/tetravox/install, or a --tetravox-dir dev override",
+            "title": "Source"
+          },
+          "supported": {
+            "$ref": "#/components/schemas/ProtocolRange",
+            "description": "the protocol range this build can host (tit.tetravox.protocol). Always present -- it is a property of this build, not of whatever is installed"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "available",
+          "supported"
+        ],
+        "title": "TetravoxEmbedCapability",
+        "type": "object"
+      },
+      "TetravoxRelease": {
+        "description": "One embed bundle on disk (active, installed, or the image's floor).",
+        "properties": {
+          "active": {
+            "default": false,
+            "title": "Active",
+            "type": "boolean"
+          },
+          "compatible": {
+            "default": false,
+            "title": "Compatible",
+            "type": "boolean"
+          },
+          "features": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Features",
+            "type": "array"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "protocol": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protocol"
+          },
+          "sha": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha"
+          },
+          "source": {
+            "enum": [
+              "override",
+              "installed",
+              "baked"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "source",
+          "path"
+        ],
+        "title": "TetravoxRelease",
+        "type": "object"
+      },
+      "TetravoxState": {
+        "description": "``GET /api/tetravox`` \u2014 everything the Settings page needs in one read.",
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TetravoxRelease"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "auto_update": {
+            "default": true,
+            "description": "A3: when true the server checks the release index at startup and every 24 h and installs a newer *compatible* bundle on its own; when false it still checks and only reports. Persisted in <install root>/policy.json",
+            "title": "Auto Update",
+            "type": "boolean"
+          },
+          "baked": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TetravoxRelease"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "index_url": {
+            "description": "where `check for updates` reads from",
+            "title": "Index Url",
+            "type": "string"
+          },
+          "install_root": {
+            "title": "Install Root",
+            "type": "string"
+          },
+          "installed": {
+            "items": {
+              "$ref": "#/components/schemas/TetravoxRelease"
+            },
+            "title": "Installed",
+            "type": "array"
+          },
+          "reason": {
+            "description": "one line saying why that bundle is the active one",
+            "title": "Reason",
+            "type": "string"
+          },
+          "supported": {
+            "$ref": "#/components/schemas/ProtocolRange"
+          }
+        },
+        "required": [
+          "reason",
+          "supported",
+          "install_root",
+          "index_url"
+        ],
+        "title": "TetravoxState",
+        "type": "object"
+      },
+      "TetravoxUpdate": {
+        "description": "One entry of the release index.",
+        "properties": {
+          "compatible": {
+            "description": "protocol inside the supported range: installable by this build",
+            "title": "Compatible",
+            "type": "boolean"
+          },
+          "installed": {
+            "description": "already present in the install root",
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "protocol": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protocol"
+          },
+          "published": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "url",
+          "sha256",
+          "compatible",
+          "installed"
+        ],
+        "title": "TetravoxUpdate",
+        "type": "object"
+      },
+      "TetravoxUpdateOutcome": {
+        "description": "What one pass of the auto-update policy decided (A3).\n\n``action`` is the whole vocabulary: ``installed`` (a newer compatible bundle\nis now active), ``available`` (there is one, automatic updates are off),\n``current``, ``unsupported`` (its protocol is past this build's range -- A1\nsays report, never install) and ``failed`` (offline, rate-limited, bad\ndigest).  Every one of them is a sentence in ``message``.",
+        "properties": {
+          "action": {
+            "enum": [
+              "installed",
+              "available",
+              "current",
+              "unsupported",
+              "failed"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "unix seconds",
+            "title": "At"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "protocol": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protocol"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "action",
+          "message"
+        ],
+        "title": "TetravoxUpdateOutcome",
+        "type": "object"
+      },
+      "TetravoxUpdates": {
+        "description": "``GET /api/tetravox/updates`` \u2014 never an error when the network is down.\n\n``available`` is false with a readable ``message`` instead, because \"you are\noffline\" is a state to render, not a failure to retry.",
+        "properties": {
+          "auto_update": {
+            "default": true,
+            "description": "the persisted policy (A3); see TetravoxState",
+            "title": "Auto Update",
+            "type": "boolean"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "unix seconds of the check this answer comes from (cached or fresh)",
+            "title": "Checked At"
+          },
+          "from_cache": {
+            "default": false,
+            "description": "this answer came from the ETag/age cache rather than a request just made -- GitHub allows 60 unauthenticated requests per hour per IP",
+            "title": "From Cache",
+            "type": "boolean"
+          },
+          "index_url": {
+            "title": "Index Url",
+            "type": "string"
+          },
+          "last_outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TetravoxUpdateOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "what the last automatic pass decided, in the words Settings shows"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "releases": {
+            "items": {
+              "$ref": "#/components/schemas/TetravoxUpdate"
+            },
+            "title": "Releases",
+            "type": "array"
+          }
+        },
+        "required": [
+          "available",
+          "index_url"
+        ],
+        "title": "TetravoxUpdates",
+        "type": "object"
       },
       "ValidateError": {
         "properties": {
@@ -3620,6 +4369,280 @@
           "simnibs"
         ],
         "title": "Version",
+        "type": "object"
+      },
+      "ViewLayer": {
+        "additionalProperties": true,
+        "properties": {
+          "cal_max": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cal Max"
+          },
+          "cal_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cal Min"
+          },
+          "colormap": {
+            "title": "Colormap",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "volume",
+              "label"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "lut": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lut"
+          },
+          "opacity": {
+            "title": "Opacity",
+            "type": "number"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "percentile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ViewPercentile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visible": {
+            "title": "Visible",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "path",
+          "kind",
+          "colormap",
+          "opacity",
+          "visible"
+        ],
+        "title": "ViewLayer",
+        "type": "object"
+      },
+      "ViewPercentile": {
+        "properties": {
+          "hi": {
+            "title": "Hi",
+            "type": "number"
+          },
+          "lo": {
+            "title": "Lo",
+            "type": "number"
+          }
+        },
+        "required": [
+          "lo",
+          "hi"
+        ],
+        "title": "ViewPercentile",
+        "type": "object"
+      },
+      "ViewSpec": {
+        "additionalProperties": true,
+        "properties": {
+          "freeview_args": {
+            "description": "deprecated: exact argv tail for the external Freeview launcher, kept for one release",
+            "items": {
+              "type": "string"
+            },
+            "title": "Freeview Args",
+            "type": "array"
+          },
+          "layers": {
+            "items": {
+              "$ref": "#/components/schemas/ViewLayer"
+            },
+            "title": "Layers",
+            "type": "array"
+          },
+          "scene": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the Tetravox ViewSpec v2 document (tit.viewspec.to_tetravox_viewspec) the embedded viewer's Engine.load() accepts directly; the subset this server emits is hand-schema'd in contracts/tetravox-viewspec-v2.schema.json (host-facing: also documents the Tetravox-owned engine type, not just this server's output). Untyped here (Any) because the full engine scene model is Tetravox-owned and far larger than a Pydantic model is worth mirroring.",
+            "title": "Scene"
+          },
+          "space": {
+            "enum": [
+              "subject",
+              "mni"
+            ],
+            "title": "Space",
+            "type": "string"
+          }
+        },
+        "required": [
+          "space",
+          "layers",
+          "freeview_args"
+        ],
+        "title": "ViewSpec",
+        "type": "object"
+      },
+      "ViewerOpen": {
+        "description": "``POST /api/view/open`` -- where the scene file was written, in both path languages.\n\nV2 (``dev/notes/v3-native-panes-external-viewer-plan.md``).  ``path`` is\ninside this container; ``host_path`` is the same file as the *host* sees\nit, and is what the Electron shell hands to the Tetravox desktop app.\n``host_path`` is ``None`` when this server cannot know its project's host\nroot (:mod:`tit.server.host_path`) -- the app then offers the scene as a\ndownload instead of a launch.",
+        "properties": {
+          "dry_run": {
+            "default": false,
+            "description": "true when the request asked for the resolution only: the response is identical except that nothing was written to disk",
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "files": {
+            "description": "one row per dataset the scene references -- the Viewer page's preview strip, so a person can see what a selection resolves to (and how big it is) before another application's window opens on top of their work",
+            "items": {
+              "$ref": "#/components/schemas/ViewerSceneFile"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "host_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host Path"
+          },
+          "name": {
+            "description": "the file's basename, ending in .tetravox.json",
+            "title": "Name",
+            "type": "string"
+          },
+          "path": {
+            "description": "absolute container path, under <project>/code/ti-toolbox/viewer/",
+            "title": "Path",
+            "type": "string"
+          },
+          "scene": {
+            "additionalProperties": true,
+            "description": "the ViewSpec v2 document that was written, with every dataset/sidecar path rewritten from an /api/files/raw URL to the host's own absolute path -- a desktop Tetravox, or an export, reads files rather than URLs",
+            "title": "Scene",
+            "type": "object"
+          },
+          "view": {
+            "additionalProperties": true,
+            "description": "the same scene addressed for the **embed**: every dataset/sidecar path is an /api/files/raw/... URL fetched back through this origin. One resolution produces both documents (`tit.viewspec.build_view`), so the file the Viewer page lists, the file written to disk and the scene posted into the iframe can never disagree about what is in the scene",
+            "title": "View",
+            "type": "object"
+          }
+        },
+        "required": [
+          "name",
+          "path",
+          "scene",
+          "view"
+        ],
+        "title": "ViewerOpen",
+        "type": "object"
+      },
+      "ViewerSceneFile": {
+        "description": "One dataset a scene references, as the Viewer page's preview strip shows it.",
+        "properties": {
+          "bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "size on disk, or null when the file could not be stat'ed",
+            "title": "Bytes"
+          },
+          "container_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the same file as this server sees it -- what the client sends back in `files` when the row is kept, moved or joined by another (VM2)",
+            "title": "Container Path"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "\"volume\" or \"mesh\"",
+            "title": "Kind"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "path": {
+            "description": "the path written into the scene (host-facing)",
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "path"
+        ],
+        "title": "ViewerSceneFile",
         "type": "object"
       },
       "_AnalysisSpace": {
@@ -4186,6 +5209,66 @@
         "summary": "Flex-search runs for a subject"
       }
     },
+    "/api/catalog/flex-runs/{run}/mapping": {
+      "get": {
+        "description": "Return the run's electrodes as *eeg_net*'s labels, mapping if needed.\n\nA flex run only carries ``electrode_mapping_<net>.json`` for the nets it\nwas already mapped onto, so the Simulator's \"Map to net\" choice would\notherwise be limited to those. :func:`resolve_flex_montage` maps the\noptimiser's XYZ onto *any* net of the subject (Hungarian assignment) and\ncaches the result beside the run, so the first request for a new net\ncomputes the mapping and every later one -- including ``flex_runs``'\n``mappings`` list -- reads the file it wrote.",
+        "operationId": "flex_run_mapping_api_catalog_flex_runs__run__mapping_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run",
+            "required": true,
+            "schema": {
+              "title": "Run",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "title": "Subject",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "eeg_net",
+            "required": true,
+            "schema": {
+              "title": "Eeg Net",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Flex Run Mapping Api Catalog Flex Runs  Run  Mapping Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Map one flex-search run's optimised positions onto an EEG net"
+      }
+    },
     "/api/catalog/freehand": {
       "get": {
         "operationId": "freehand_api_catalog_freehand_get",
@@ -4558,6 +5641,24 @@
           }
         },
         "summary": "Replace Quick Notes content"
+      }
+    },
+    "/api/catalog/overview": {
+      "get": {
+        "operationId": "overview_api_catalog_overview_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Overview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Every Overview fact for the whole project, in one bounded request"
       }
     },
     "/api/catalog/reports": {
@@ -4989,6 +6090,105 @@
         "summary": "A CSV file parsed into a table, jailed to the project"
       }
     },
+    "/api/files/raw/{path}": {
+      "get": {
+        "description": "Stream one project file to the in-app viewer as opaque bytes.\n\nUnlike ``/api/files/artifact`` this is not restricted to the document\nextension allow-list -- the viewer needs ``.nii.gz``, ``.msh``,\n``.msh.opt``, ``.gii``, ``*_LUT.txt``, ``.lut`` and friends, none of\nwhich that route will serve. The trade is the opposite response policy:\nevery response is ``application/octet-stream`` with ``nosniff`` and\n``attachment``, and the handful of extensions a browser could execute as\na document in this origin are refused outright, so nothing served here\ncan ever become a page.\n\nThe URL *is* the file's absolute path minus its leading slash\n(``/api/files/raw/mnt/000/.../T1.nii.gz``) rather than a ``?path=``\nquery, because the engine's loader takes the file name, the gzip\ndecision and its volume-vs-mesh routing from the URL's last segment.\n\nRange/206, ``If-Range`` and ``ETag``/304 are supported so a large mesh\ncan be resumed. No response ever carries a ``Content-Encoding``: a\n``.nii.gz`` must reach the viewer still deflated (it inflates the stream\nitself), and an encoded body would break both ``Content-Length`` and\nranges.\n\nThis route is the whole reason the in-app viewer needs no X11 at all\n(D3, ``dev/notes/v3-docker-streamline-plan.md``): it is served to a\ncanvas inside the Tetravox embed's iframe, never to an external\nFreeview/Gmsh process -- there is no X11 capability left to gate.",
+        "operationId": "raw_api_files_raw__path__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "title": "Path",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Range",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Range"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-None-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-None-Match"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Range",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Range"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {}
+            },
+            "description": "raw file bytes"
+          },
+          "206": {
+            "content": {
+              "*/*": {}
+            },
+            "description": "partial content"
+          },
+          "304": {
+            "description": "not modified (If-None-Match matched the ETag)"
+          },
+          "403": {
+            "description": "outside the jail, or a document-executable extension"
+          },
+          "416": {
+            "description": "requested range not satisfiable"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Raw bytes of one volume/mesh/LUT file for the in-app viewer, jailed to the project"
+      }
+    },
     "/api/files/report/{report_id}": {
       "get": {
         "operationId": "report_api_files_report__report_id__get",
@@ -5078,6 +6278,243 @@
           }
         },
         "summary": "Tail of a text/log file, jailed to the project"
+      }
+    },
+    "/api/guide/electrodes": {
+      "get": {
+        "operationId": "electrodes_api_guide_electrodes_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "net",
+            "required": true,
+            "schema": {
+              "title": "Net",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Electrodes Api Guide Electrodes Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One packaged EEG net's electrode positions in the guide's own space"
+      }
+    },
+    "/api/guide/labels": {
+      "get": {
+        "operationId": "labels_api_guide_labels_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "atlas",
+            "required": true,
+            "schema": {
+              "title": "Atlas",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "gii",
+              "title": "Format",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-None-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-None-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {}
+            },
+            "description": "GIfTI binary with a label array and label table"
+          },
+          "304": {
+            "description": "not modified"
+          },
+          "400": {
+            "description": "unknown ?format"
+          },
+          "404": {
+            "description": "no such packaged atlas, or the guide is not installed"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One packaged atlas' grey-matter surface with per-vertex labels"
+      }
+    },
+    "/api/guide/manifest": {
+      "get": {
+        "description": "The packaged manifest, minus the per-file bookkeeping a client never uses.\n\n``files``/``*_meta``/``sha256`` describe the *package* (the gate test reads\nthem off disk); what crosses the wire is the same shape the scene manifest\nhas, so one pane component can consume either.",
+        "operationId": "manifest_api_guide_manifest_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Manifest Api Guide Manifest Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Everything the fixed guide scene contains (no subject, no build, no cache state)"
+      }
+    },
+    "/api/guide/regions": {
+      "get": {
+        "operationId": "regions_api_guide_regions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "atlas",
+            "required": true,
+            "schema": {
+              "title": "Atlas",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Regions Api Guide Regions Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One packaged atlas' legend plus the URL of its label payload"
+      }
+    },
+    "/api/guide/surface": {
+      "get": {
+        "operationId": "surface_api_guide_surface_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "part",
+            "required": true,
+            "schema": {
+              "title": "Part",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "tvsc",
+              "title": "Format",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-None-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-None-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {}
+            },
+            "description": "TVSC1 or GIfTI binary, per ?format"
+          },
+          "304": {
+            "description": "not modified (If-None-Match matched the ETag)"
+          },
+          "400": {
+            "description": "unknown ?format"
+          },
+          "404": {
+            "description": "no such packaged part, or the guide is not installed"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One packaged guide surface as TVSC1 or GIfTI bytes"
       }
     },
     "/api/health": {
@@ -5240,6 +6677,7 @@
     },
     "/api/jobs/groups": {
       "post": {
+        "description": "Submit a per-subject job group (R3).\n\n``kind=pre`` expands into ``tit.jobs.plans.plan_preprocessing``'s G1-G6/report DAG;\n``sim``/``flex``/``flex_adaptive``/``flex_pareto``/``ex``/``mex`` expand into one independent\njob per ``(subject, config)`` entry via ``tit.jobs.plans.plan_per_subject``.\n\n`parallel_subjects` is required on the wire (JobGroupRequest); it becomes every group job's\nJobSpec.group_cap and is enforced by tit.jobs.scheduler.evaluate() as an admission cap on how\nmany of the group's jobs may be \"running\" at once (see the manager/scheduler docstrings for\nwhy a job-count cap, not a distinct-subject cap). The client never spaces out its POSTs: the\nwhole group is created queued in this one request and released by the scheduler.\n\n`subject_configs` (optional, additive) carries per-subject resolved configs -- a page whose\nconfig depends on the subject (an ROI resolved against that subject's atlas, a leadfield\npath) sends one entry per job instead of one template. Entries are matched to\n`subject_ids` by their `subject_id`; a subject with no entry uses `config`. Whatever the\ncaller sends, each generated config's `subject_id` is forced to its own subject.",
         "operationId": "submit_group_api_jobs_groups_post",
         "requestBody": {
           "content": {
@@ -5277,7 +6715,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Submit one job per subject (preprocessing) with a shared group id"
+        "summary": "Submit one job per subject with a shared group id and a scheduler-enforced cap"
       }
     },
     "/api/jobs/{job_id}": {
@@ -5585,6 +7023,330 @@
         "summary": "Submit a new job with the same spec as a finished one"
       }
     },
+    "/api/openapi.json": {
+      "get": {
+        "operationId": "openapi_document_api_openapi_json_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Openapi Document Api Openapi Json Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "This server's OpenAPI document (identical to --dump-openapi)"
+      }
+    },
+    "/api/pipelines": {
+      "get": {
+        "operationId": "list_pipelines_api_pipelines_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response List Pipelines Api Pipelines Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Saved pipelines in this project"
+      }
+    },
+    "/api/pipelines/export": {
+      "post": {
+        "description": "The notebook, as ``.ipynb`` JSON text (``Content-Type: text/plain`` so it downloads raw).\n\n``export`` is a pure function of the document \u2014 it reads no project state beyond the bound\nproject directory it writes into the setup cell.",
+        "operationId": "export_pipeline_api_pipelines_export_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "ipynb",
+              "title": "Format",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export a pipeline as a Jupyter notebook"
+      }
+    },
+    "/api/pipelines/kinds": {
+      "get": {
+        "description": "The palette, and both tables that decide whether a wire may be drawn.\n\nThe canvas draws its handles from this rather than from a hand-kept copy, so a port added on\nthe server appears in the UI without a renderer change. It also needs to refuse a drag *at\ndrag time* -- which is before there is a graph to ask the server about -- so it gets the\nreadiness table (`requires`/`produces`) and applies it itself, while\n`POST /api/pipelines/validate` applies the same one server-side. One definition, in\n:mod:`tit.pipeline.validate`; two readers; no way for the drag and the receipt to disagree.\n\nServed here rather than from a second `/ports` route: it is the same table, and two endpoints\nfor one fact is how they drift.",
+        "operationId": "list_kinds_api_pipelines_kinds_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Kinds Api Pipelines Kinds Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Node kinds, their typed ports and what they need of a subject"
+      }
+    },
+    "/api/pipelines/run": {
+      "post": {
+        "description": "One ``submit_plan`` call: one ``group_id`` for the whole canvas.\n\n``after`` on every submitted job is the document's edges resolved to real job ids, so the\nscheduler enforces the graph \u2014 there is no client-side sequencing and no second executor.",
+        "operationId": "run_pipeline_route_api_pipelines_run_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Run Pipeline Route Api Pipelines Run Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run a whole pipeline as one job group"
+      }
+    },
+    "/api/pipelines/validate": {
+      "post": {
+        "operationId": "validate_pipeline_api_pipelines_validate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Validate Pipeline Api Pipelines Validate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Validate a pipeline graph, with reasons"
+      }
+    },
+    "/api/pipelines/{name}": {
+      "delete": {
+        "operationId": "delete_pipeline_api_pipelines__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete a saved pipeline"
+      },
+      "get": {
+        "operationId": "load_pipeline_api_pipelines__name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Load Pipeline Api Pipelines  Name  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Load a saved pipeline"
+      },
+      "put": {
+        "operationId": "save_pipeline_api_pipelines__name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Save Pipeline Api Pipelines  Name  Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save a pipeline document"
+      }
+    },
     "/api/plan/{kind}": {
       "post": {
         "operationId": "plan_api_plan__kind__post",
@@ -5636,6 +7398,7 @@
     },
     "/api/project": {
       "get": {
+        "description": "``host_path`` is ``LOCAL_PROJECT_DIR`` when set, else read off this server's own\ncontainer (bind mount, then the ``tit.host_project_dir`` label) -- see\n:mod:`tit.server.host_path` for why the environment variable alone left every v3\ncontainer answering ``null``.",
         "operationId": "project_api_project_get",
         "responses": {
           "200": {
@@ -5699,6 +7462,406 @@
           }
         },
         "summary": "Initialize this project's layout, optionally seeded with example data"
+      }
+    },
+    "/api/scene/electrodes": {
+      "get": {
+        "operationId": "electrodes_api_scene_electrodes_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "title": "Subject",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "net",
+            "required": true,
+            "schema": {
+              "title": "Net",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Electrodes Api Scene Electrodes Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One EEG net's electrode positions in the surfaces' world space"
+      }
+    },
+    "/api/scene/labels": {
+      "get": {
+        "operationId": "labels_api_scene_labels_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "title": "Subject",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "atlas",
+            "required": true,
+            "schema": {
+              "title": "Atlas",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "tvsc",
+              "title": "Format",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "wait",
+            "required": false,
+            "schema": {
+              "default": 0.0,
+              "maximum": 60.0,
+              "minimum": 0.0,
+              "title": "Wait",
+              "type": "number"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-None-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-None-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {}
+            },
+            "description": "TVSC1 labels payload or a renderable GIfTI mesh with label data, per ?format"
+          },
+          "202": {
+            "description": "the cache is building; retry after Retry-After seconds"
+          },
+          "304": {
+            "description": "not modified (If-None-Match matched the ETag)"
+          },
+          "400": {
+            "description": "unknown ?format"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Per-vertex region labels aligned to part 'gm', as TVSC1 or GIfTI bytes"
+      }
+    },
+    "/api/scene/manifest": {
+      "get": {
+        "operationId": "manifest_api_scene_manifest_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "title": "Subject",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "wait",
+            "required": false,
+            "schema": {
+              "default": 0.0,
+              "maximum": 60.0,
+              "minimum": 0.0,
+              "title": "Wait",
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Manifest Api Scene Manifest Get"
+                }
+              }
+            },
+            "description": "the whole manifest; every surface part is cached"
+          },
+          "202": {
+            "description": "surfaces are still building; retry after Retry-After seconds (nets, atlases and volumes are already filled in)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Everything one subject's scene pane can load, with cache state"
+      }
+    },
+    "/api/scene/regions": {
+      "get": {
+        "operationId": "regions_api_scene_regions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "title": "Subject",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "atlas",
+            "required": true,
+            "schema": {
+              "title": "Atlas",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "wait",
+            "required": false,
+            "schema": {
+              "default": 0.0,
+              "maximum": 60.0,
+              "minimum": 0.0,
+              "title": "Wait",
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Regions Api Scene Regions Get"
+                }
+              }
+            },
+            "description": "the legend and the labels URL"
+          },
+          "202": {
+            "description": "the labels payload is still building; retry after Retry-After seconds"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One atlas' legend plus the URL of its label payload for part 'gm'"
+      }
+    },
+    "/api/scene/surface": {
+      "get": {
+        "operationId": "surface_api_scene_surface_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "title": "Subject",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "part",
+            "required": true,
+            "schema": {
+              "title": "Part",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "tvsc",
+              "title": "Format",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "wait",
+            "required": false,
+            "schema": {
+              "default": 0.0,
+              "maximum": 60.0,
+              "minimum": 0.0,
+              "title": "Wait",
+              "type": "number"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-None-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-None-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {}
+            },
+            "description": "TVSC1 or GIfTI binary, per ?format"
+          },
+          "202": {
+            "description": "the cache is building; retry after Retry-After seconds"
+          },
+          "304": {
+            "description": "not modified (If-None-Match matched the ETag)"
+          },
+          "400": {
+            "description": "unknown ?format"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One scene surface as TVSC1 or GIfTI bytes (202 + Retry-After while building)"
+      }
+    },
+    "/api/scene/volume-legend": {
+      "get": {
+        "operationId": "volume_legend_api_scene_volume_legend_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "title": "Subject",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "id",
+            "required": false,
+            "schema": {
+              "default": "labeling",
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Volume Legend Api Scene Volume Legend Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "The label volume's id -> name/colour legend"
       }
     },
     "/api/schema": {
@@ -5883,6 +8046,237 @@
         "summary": "Terminate one toolbox-relevant process by pid (System page's Terminate button)"
       }
     },
+    "/api/tetravox": {
+      "get": {
+        "operationId": "get_tetravox_api_tetravox_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TetravoxState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "The active embed bundle, everything installed, and the supported range"
+      }
+    },
+    "/api/tetravox/activate": {
+      "post": {
+        "operationId": "post_tetravox_activate_api_tetravox_activate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TetravoxState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "no version given"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activate an installed version, or \"baked\" to roll back to the image"
+      }
+    },
+    "/api/tetravox/install": {
+      "post": {
+        "operationId": "post_tetravox_install_api_tetravox_install_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TetravoxState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "bad digest, bad manifest, unsupported protocol, or a host off the allowlist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "502": {
+            "description": "the download or the release index could not be reached"
+          }
+        },
+        "summary": "Download, verify and activate an embed bundle"
+      }
+    },
+    "/api/tetravox/policy": {
+      "post": {
+        "description": "A3's switch.  Off means *check and report*, never *stop knowing*.",
+        "operationId": "post_tetravox_policy_api_tetravox_policy_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TetravoxState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "`auto_update` is not a boolean"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Turn automatic viewer updates on or off"
+      }
+    },
+    "/api/tetravox/updates": {
+      "get": {
+        "description": "The cached answer unless ``?refresh=true`` -- \"Check now\" is the refresh.\n\nA read of this route never costs a GitHub request on its own: the cache is\nwhat the background check (A3) writes, and an unauthenticated IP gets 60\nrequests an hour.  A user pressing \"Check now\" is a request they made, so it\npasses ``refresh=true`` and the ETag makes an unchanged index nearly free.",
+        "operationId": "get_tetravox_updates_api_tetravox_updates_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TetravoxUpdates"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check the release index for installable embed bundles"
+      }
+    },
+    "/api/tetravox/{version}": {
+      "delete": {
+        "operationId": "delete_tetravox_version_api_tetravox__version__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TetravoxState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove an installed embed bundle"
+      }
+    },
     "/api/validate/{kind}": {
       "post": {
         "operationId": "validate_api_validate__kind__post",
@@ -5952,7 +8346,7 @@
     },
     "/api/view/args": {
       "post": {
-        "description": "``{viewspec}`` -> ``{freeview_args, freeview_command}``.\n\nExists so the Viewer page's \"preview command\" panel can show the *real*\ncommand -- generated by the same :func:`viewspec.to_freeview_args` the\nlaunch route recomputes from, on the same jailed/percentile-resolved\nspec -- instead of a hand-rolled TypeScript mirror that can (and did)\ndrift from the server's actual argument grammar (ra_13 finding 9).\nRead-only: unlike ``POST /api/viewers/freeview`` this never submits a\njob, so it does not require X11 and layer paths are jailed but nothing\nis launched.",
+        "description": "``{viewspec}`` -> ``{freeview_args, freeview_command, scene}``.\n\nExists so the Viewer page's \"preview command\" panel can show the *real*\ncommand -- generated by the same :func:`viewspec.to_freeview_args` a\nlaunch would use, on the same jailed/percentile-resolved spec -- instead\nof a hand-rolled TypeScript mirror that can (and did) drift from the\nserver's actual argument grammar (ra_13 finding 9). Read-only: this\nnever submits a job and launches nothing; layer paths are jailed but\nnothing runs.",
         "operationId": "view_args_api_view_args_post",
         "requestBody": {
           "content": {
@@ -5990,7 +8384,54 @@
             "description": "Validation Error"
           }
         },
-        "summary": "The exact Freeview argv/command for a (possibly edited) ViewSpec"
+        "summary": "The exact Freeview argv/command and Tetravox scene for a (possibly edited) ViewSpec"
+      }
+    },
+    "/api/view/open": {
+      "post": {
+        "description": "``{kind, subject, ...}`` -> ``{name, path, host_path, scene, view, files}``.\n\nLaunches nothing, and never could: the server has no display (D3).  One\nresolution produces two addressings of the same scene --\n\n* ``view``  -- every dataset an ``/api/files/raw/...`` URL.  This is what\n  the Viewer sub-page posts into the Tetravox embed's iframe, which fetches\n  its bytes back through this origin.\n* ``scene`` -- the same document with every path re-rooted onto the host,\n  also written to ``<project>/code/ti-toolbox/viewer/<kind>.tetravox.json``\n  so the file can be opened by a desktop Tetravox or kept as a record of\n  what was viewed.\n\nThey come from one ``build_view`` call on purpose.  Two calls could resolve\ndifferently -- a job finishing between them is enough -- and then the list\nthe page shows, the file on disk and the scene on screen would disagree\nabout what is in the scene, with nothing to say which was right.",
+        "operationId": "view_open_api_view_open_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewerOpen"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve a scene once: the embed ViewSpec, and the scene file on disk"
       }
     },
     "/api/view/{kind}": {
@@ -6087,6 +8528,24 @@
             }
           },
           {
+            "description": "Which atlas overlay to build (R5). An id from GET /api/catalog/atlases for the same subject and space, or a bundled MNI atlas basename. Absent keeps the server's own choice, which is what every caller did before this parameter existed; an unknown id falls back to that same choice.",
+            "in": "query",
+            "name": "atlas",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Which atlas overlay to build (R5). An id from GET /api/catalog/atlases for the same subject and space, or a bundled MNI atlas basename. Absent keeps the server's own choice, which is what every caller did before this parameter existed; an unknown id falls back to that same choice.",
+              "title": "Atlas"
+            }
+          },
+          {
             "in": "query",
             "name": "roi",
             "required": false,
@@ -6124,9 +8583,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response View Api View  Kind  Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ViewSpec"
                 }
               }
             },
@@ -6146,28 +8603,67 @@
         "summary": "Build a declarative ViewSpec for something to view"
       }
     },
-    "/api/viewers/freeview": {
-      "post": {
-        "operationId": "launch_freeview_api_viewers_freeview_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "additionalProperties": true,
-                "title": "Body",
-                "type": "object"
-              }
+    "/api/viewer/candidates": {
+      "get": {
+        "description": "A read: it opens nothing and writes nothing.\n\nOnly files a scene can actually use are listed (volumes and meshes), each\nwith its size, because the point of the picker is to choose without\nguessing -- and one of these files is routinely 64 MB.",
+        "operationId": "viewer_candidates_api_viewer_candidates_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "subject",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Subject"
             }
           },
-          "required": true
-        },
+          {
+            "in": "query",
+            "name": "simulation",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Simulation"
+            }
+          },
+          {
+            "in": "query",
+            "name": "space",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Space"
+            }
+          }
+        ],
         "responses": {
-          "201": {
+          "200": {
             "content": {
               "application/json": {
                 "schema": {
                   "additionalProperties": true,
-                  "title": "Response Launch Freeview Api Viewers Freeview Post",
+                  "title": "Response Viewer Candidates Api Viewer Candidates Get",
                   "type": "object"
                 }
               }
@@ -6185,31 +8681,50 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Launch Freeview on X11 from a ViewSpec, tracked as a `viewer` job"
+        "summary": "Every file this subject/simulation offers the Viewer's \"+ Add\u2026\""
       }
     },
-    "/api/viewers/gmsh": {
-      "post": {
-        "operationId": "launch_gmsh_api_viewers_gmsh_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "additionalProperties": true,
-                "title": "Body",
-                "type": "object"
-              }
-            }
-          },
-          "required": true
-        },
+    "/api/viewer/presets": {
+      "get": {
+        "operationId": "viewer_presets_api_viewer_presets_get",
         "responses": {
-          "201": {
+          "200": {
             "content": {
               "application/json": {
                 "schema": {
                   "additionalProperties": true,
-                  "title": "Response Launch Gmsh Api Viewers Gmsh Post",
+                  "title": "Response Viewer Presets Api Viewer Presets Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Saved Viewer selections"
+      }
+    },
+    "/api/viewer/presets/{name}": {
+      "delete": {
+        "operationId": "delete_viewer_preset_api_viewer_presets__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Delete Viewer Preset Api Viewer Presets  Name  Delete",
                   "type": "object"
                 }
               }
@@ -6227,7 +8742,64 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Launch Gmsh on X11 for one mesh file, tracked as a `viewer` job"
+        "summary": "Forget one saved selection"
+      },
+      "put": {
+        "operationId": "save_viewer_preset_api_viewer_presets__name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Save Viewer Preset Api Viewer Presets  Name  Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save one Viewer selection"
       }
     },
     "/auth/logout": {
@@ -6287,6 +8859,16 @@
           }
         },
         "summary": "WebSocket; one SystemSnapshot JSON message every 2 s (auth via cookie or ?token=)"
+      }
+    },
+    "/ws/tetravox": {
+      "get": {
+        "responses": {
+          "101": {
+            "description": "switching protocols"
+          }
+        },
+        "summary": "WebSocket; app-level events (today only tetravox.updated, published by the auto-update policy)"
       }
     }
   }

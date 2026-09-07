@@ -22,16 +22,34 @@
  * exactly the settings that view type gave it. Tetravox has an inspector, its own window and a
  * person's full attention; this page has a list.
  *
+ * **The page is two sub-pages behind one rail entry** (VE, 2026-09-06). The maintainer: *"In the
+ * Viewer, the left menu has two subsections: the Menu, and below it the actual Viewer. The user
+ * configures in the Menu, hits Open, is moved to the Viewer where the Tetravox embed is; they can
+ * go back to the Menu, tinker, and reload a different setup."*
+ *
+ *   **Menu** — everything above: the source, the file list, presets and Recent. `Open in viewer`.
+ *   **Viewer** — a full-bleed `<iframe src="/tetravox/">` (`renderer/viewer/TetravoxFrame`) with a
+ *   slim strip above it: which scene is loaded, `Reload`, `Back to menu`.
+ *
+ * They are a segmented control inside one page, not two rail rows, for two reasons. `app/registry.
+ * ts`'s nav model is flat — one `PageDef` per `pages/<name>/`, the rail is `NAV_ORDER`, and the
+ * retired Panels group was a flat `panel-<id>` slot rather than a nested one — so a rail group
+ * would mean reshaping a file every other page reads. And one mounted component is what makes the
+ * retention rule true by construction: switching sub-pages is a state change, so the iframe is
+ * never unmounted, never reloads, and never drops the scene, its camera or its wasm heap.
+ *
  * **R5's draft → command grammar is unchanged.** Editing anything — a selector, a row — edits the
  * draft. The only request drafting costs is the list's own `dry_run`, which writes no file and
- * launches nothing. Open is the one place a scene is written and the one place the app is
- * launched: one `POST /api/view/open`, one file, one spawn. Tetravox's single-instance lock routes
- * a second Open into the window already on screen.
+ * shows nothing. Open is the one place a scene is committed: **one** `POST /api/view/open`, which
+ * resolves the scene once and answers with both addressings of it — `view` (datasets as
+ * `/api/files/raw/…` URLs) posted to the iframe as **one** `load` message, and `scene` (host
+ * paths) written to `<project>/code/ti-toolbox/viewer/<kind>.tetravox.json` for export. One
+ * request, one message.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
-import { Clock, Download, ExternalLink, Eye, GripVertical, Plus, Save, X } from "lucide-react";
+import { ArrowLeft, Clock, Eye, GripVertical, Plus, RefreshCw, Save, X } from "lucide-react";
 import { ApiError, getSubjects } from "../../api/client";
 import type { PageDef } from "../../app/registry";
 import { usePageSession } from "../../app/pageSession";
@@ -79,7 +97,8 @@ import {
   type ViewerRecent,
   type ViewerSelection,
 } from "./lib";
-import { useTetravox } from "../_shared/viewer/useTetravox";
+import { TetravoxFrame, useViewerStore } from "../../viewer";
+import { getCapabilities } from "../settings/api";
 import { usePageScrollMemory } from "../_shared/session/usePageScrollMemory";
 import "./viewer-page.css";
 
@@ -93,6 +112,17 @@ const VIEW_KIND_OPTIONS: SelectOption[] = [
   { value: "group", label: "Group result" },
   { value: "custom", label: "Custom files" },
 ];
+
+/** The two sub-pages behind the one rail entry. */
+type SubPage = "menu" | "viewer";
+
+/** The scene the embed is showing, kept so the strip can name it and `Reload` can re-post it. */
+interface LoadedScene {
+  key: string;
+  name: string;
+  hostPath: string | null;
+  view: Record<string, unknown>;
+}
 
 /** What a failed (or refused) Open left behind, tied to the selection that was attempted. */
 interface ViewerFailure {
@@ -174,7 +204,19 @@ function ViewerPage() {
 
   const selectedSimulation = (simulations.data ?? []).find((s) => s.name === draft.simulation);
   const fieldsAvailable = selectedSimulation?.fields ?? [];
-  const tetravox = useTetravox();
+
+  // Which sub-page is on screen. Page session, not component state, so a tab switch and a return
+  // land back where the person was — the same rule the selection and the file list already follow.
+  const [sub, setSub] = usePageSession<SubPage>("sub", () => "menu");
+  // What the embed is actually showing, so the Viewer strip can name it and `Reload` can re-post
+  // it. Held here rather than read back off the store because the store's `scene` is the document
+  // *after* the embed rewrote its layer ids on load.
+  const [loaded, setLoaded] = useState<LoadedScene | null>(null);
+  const loadScene = useViewerStore((s) => s.loadScene);
+  const [reloadToken, setReloadToken] = useState(0);
+  // The bundle's version, for the `no-embed` state's sentence only. A read; never gates Open.
+  const caps = useQuery({ queryKey: ["capabilities"], queryFn: getCapabilities, retry: false });
+  const embedVersion = caps.data?.tetravox_embed?.version ?? null;
 
   // ---------------------------------------------------------------------------------------------
   // The list: what this selection resolves to, from the endpoint that would open it, in dry run.
@@ -239,7 +281,7 @@ function ViewerPage() {
     const incomplete = validateSelection(attempt);
     if (incomplete !== null) {
       // Refused before the wire: an incomplete draft is not a server error and must not cost a
-      // request, let alone a window.
+      // request, let alone a scene the person did not ask for.
       setFailure({ key, title: "This selection is incomplete", text: incomplete });
       return;
     }
@@ -248,25 +290,14 @@ function ViewerPage() {
     try {
       const written = await openView(attempt.kind, viewQuery(attempt) as ViewQuery, { files: files ?? undefined });
       setRecents(pushRecent({ key: `${key}|${(files ?? []).join(",")}`, label: selectionLabel(attempt), selection: attempt, files }));
-      if (tetravox.mode === "browser") {
-        // No main process to spawn anything: hand the person the file. `written.scene` is the
-        // exact bytes the server put on disk, so the download and the file are the same document.
-        const blob = new Blob([JSON.stringify(written.scene, null, 1)], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement("a");
-        anchor.href = url;
-        anchor.download = written.name;
-        anchor.click();
-        URL.revokeObjectURL(url);
-        setOpened({ key, hostPath: written.host_path, name: written.name });
-        return;
-      }
-      const launched = await tetravox.open(written.path);
-      if (!launched.ok) {
-        setFailure({ key, title: "Could not open Tetravox", text: launched.reason });
-        return;
-      }
+      // One message. `written.view` is the embed's addressing of the same resolution that produced
+      // the file on disk, so what the iframe draws and what the scene file describes cannot
+      // disagree. The store holds it until the frame says `ready`, which is what lets Open work on
+      // the very first visit, before the iframe has finished its handshake.
+      loadScene(written.view as never);
+      setLoaded({ key, name: written.name, hostPath: written.host_path, view: written.view });
       setOpened({ key, hostPath: written.host_path, name: written.name });
+      setSub("viewer");
     } catch (error) {
       const notFound = error instanceof ApiError && error.status === 404;
       setFailure({
@@ -279,7 +310,13 @@ function ViewerPage() {
     } finally {
       setBusy(false);
     }
-  }, [draft, files, tetravox]);
+  }, [draft, files, loadScene, setSub]);
+
+  /** Re-post the scene that is already loaded. Not a new resolution and not a new request. */
+  const reloadScene = useCallback(() => {
+    if (loaded === null) return;
+    loadScene(loaded.view as never);
+  }, [loadScene, loaded]);
 
   // ---------------------------------------------------------------------------------------------
   // Presets and recents. A preset is a selection someone chose to keep, and it lives in the
@@ -327,26 +364,42 @@ function ViewerPage() {
     </label>
   );
 
-  const canOpen = tetravox.mode === "browser" || tetravox.info?.available === true;
+  // Nothing to install and nothing to find: the viewer is served by the same origin that served
+  // this page. The only thing that can stop an Open is an incomplete selection or an empty list.
   const showFailure = failure !== null && failure.key === draftKey;
-  const openLabel = tetravox.mode === "browser" ? "Download scene" : "Open in Tetravox";
-  const openTitle = !canOpen
-    ? "Tetravox is not installed on this computer"
-    : !complete
-      ? (validateSelection(draft) ?? undefined)
-      : rows.length === 0
-        ? "Nothing to open — add a file first"
-        : undefined;
+  const openTitle = !complete
+    ? (validateSelection(draft) ?? undefined)
+    : rows.length === 0
+      ? "Nothing to open — add a file first"
+      : undefined;
+  const canOpen = complete && rows.length > 0;
 
   return (
-    <PageLayout variant="bleed" className="viewer-page">
+    <PageLayout variant="bleed" className="viewer-page" data-sub={sub}>
+      {/* One rail entry, two sub-pages. Both are always mounted: hiding the Viewer with
+          `display:none` (viewer-page.css) keeps the iframe's document, its wasm heap and its
+          camera exactly as the person left them, which is what "go back to the Menu, tinker, and
+          reload a different setup" requires. Unmounting it would silently reload the engine. */}
+      <nav className="viewer-subnav" data-testid="viewer-subnav" aria-label="Viewer sections">
+        <SegmentedControl
+          value={sub}
+          onValueChange={(v) => setSub(v as SubPage)}
+          options={[
+            { value: "menu", label: "Menu" },
+            { value: "viewer", label: "Viewer" },
+          ]}
+          aria-label="Viewer sections"
+        />
+      </nav>
+
+      <div className="viewer-sub" data-testid="viewer-sub-menu" data-active={sub === "menu" ? "true" : "false"}>
       <div className="viewer-scroll">
         <div className="viewer-panel" data-testid="viewer-panel">
           <header className="viewer-panel-head">
-            <h1 className="viewer-panel-title">Open in Tetravox</h1>
+            <h1 className="viewer-panel-title">Open in viewer</h1>
             <p className="viewer-panel-lede">
-              Pick a source, edit the list of files it resolves to, and <strong>Open</strong> — the scene is written and handed to the
-              Tetravox desktop app, which draws it in its own window.
+              Pick a source, edit the list of files it resolves to, and <strong>Open in viewer</strong> — the scene is drawn in the{" "}
+              <strong>Viewer</strong> tab above, by the Tetravox engine that ships inside the toolbox image. Nothing to install.
             </p>
           </header>
 
@@ -356,25 +409,6 @@ function ViewerPage() {
               <span className="viewer-load-error-text">{failure.text}</span>
               <Button variant="secondary" size="sm" onClick={() => void open()} disabled={busy}>
                 Retry
-              </Button>
-            </div>
-          )}
-
-          {!canOpen && (
-            <div className="viewer-callout" data-testid="viewer-not-installed">
-              <p className="viewer-callout-title">Tetravox is not installed on this computer</p>
-              <p className="viewer-callout-text">
-                The viewer is a separate desktop application. Install it once and this button opens every scene you build here; it updates
-                itself from then on.
-              </p>
-              <Button
-                variant="primary"
-                size="sm"
-                icon={<Download size={14} />}
-                onClick={() => void window.tit?.openExternal(tetravox.info?.downloadUrl ?? "https://github.com/idossha/tetravox/releases/latest")}
-                data-testid="viewer-download-tetravox"
-              >
-                Download Tetravox
               </Button>
             </div>
           )}
@@ -654,9 +688,7 @@ function ViewerPage() {
 
             {opened !== null && (
               <p className="viewer-opened" data-testid="viewer-opened">
-                {tetravox.mode === "browser"
-                  ? `Downloaded ${opened.name}. Open it in Tetravox (File ▸ Open Scene…).`
-                  : `Opened ${opened.name}${opened.hostPath ? ` — ${opened.hostPath}` : ""}`}
+                {`Open in the Viewer tab. The scene was also written to ${opened.hostPath ?? opened.name}.`}
               </p>
             )}
           </section>
@@ -750,12 +782,67 @@ function ViewerPage() {
               disabled={busy || !canOpen}
               title={openTitle}
               data-testid="viewer-open"
-              icon={tetravox.mode === "browser" ? <Download size={14} /> : <ExternalLink size={14} />}
+              icon={<Eye size={14} />}
             >
-              {busy ? "Opening…" : openLabel}
+              {busy ? "Opening…" : "Open in viewer"}
             </Button>
           </footer>
         </div>
+      </div>
+      </div>
+
+      {/* ── Viewer ───────────────────────────────────────────────────────────────────────────
+          Full-bleed, and deliberately almost empty of chrome: layer appearance, the camera and
+          the crosshair belong to the embed's own inspector, which has the whole surface and the
+          reader's attention. What is left here is the three things the embed cannot answer —
+          which scene this is, put it back the way it was, and go edit it. */}
+      <div className="viewer-sub viewer-sub-frame" data-testid="viewer-sub-viewer" data-active={sub === "viewer" ? "true" : "false"}>
+        <div className="viewer-strip" data-testid="viewer-strip">
+          <Button variant="ghost" size="sm" icon={<ArrowLeft size={14} />} onClick={() => setSub("menu")} data-testid="viewer-back">
+            Back to menu
+          </Button>
+          <span className="viewer-strip-name" data-testid="viewer-strip-name" title={loaded?.hostPath ?? undefined}>
+            {loaded === null ? "No scene open" : loaded.name}
+          </span>
+          <div className="viewer-strip-spacer" />
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<RefreshCw size={14} />}
+            onClick={reloadScene}
+            disabled={loaded === null}
+            data-testid="viewer-reload"
+            title="Re-send this scene to the viewer"
+          >
+            Reload
+          </Button>
+        </div>
+
+        {loaded === null ? (
+          <div className="viewer-empty" data-testid="viewer-empty">
+            <p className="viewer-empty-title">Nothing is open yet</p>
+            <p className="viewer-empty-text">
+              Build a scene in the <strong>Menu</strong> and press <strong>Open in viewer</strong>. It appears here, in this window — there is
+              nothing to install.
+            </p>
+            <Button variant="primary" size="sm" onClick={() => setSub("menu")} data-testid="viewer-empty-menu">
+              Go to the menu
+            </Button>
+          </div>
+        ) : (
+          <TetravoxFrame
+            className="viewer-embed"
+            embedVersion={embedVersion}
+            reloadToken={reloadToken}
+            onReload={() => {
+              // A full remount of the iframe, then the scene again — the recovery path for a frame
+              // that mounted and never answered. `Reload` in the strip is the cheap one (re-post
+              // only); this is the expensive one, and only the `no-embed` state offers it.
+              setReloadToken((t) => t + 1);
+              reloadScene();
+            }}
+          />
+        )}
       </div>
     </PageLayout>
   );
@@ -764,7 +851,7 @@ function ViewerPage() {
 const page: PageDef = {
   id: "viewer",
   title: "Viewer",
-  purpose: "Pick a source, edit the list of files, and open it in the Tetravox desktop app.",
+  purpose: "Build a scene from the subject's files, then view it in the app's own Tetravox.",
   navGroup: "explore",
   order: 60,
   icon: Eye,

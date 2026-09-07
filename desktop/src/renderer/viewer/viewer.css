@@ -1,0 +1,109 @@
+/**
+ * Styles for the viewer pane only. Kept beside the component rather than in `ui/components.css`
+ * because none of this is a design-system primitive — it is the chrome around one iframe, and the
+ * canvas ground (`--canvas`) is deliberately dark in both themes (imaging convention).
+ */
+
+.tvx-host {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  background: var(--canvas);
+  color: var(--on-canvas);
+  overflow: hidden;
+}
+
+.tvx-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  border: 0;
+  /* The embed paints its own dark ground; this keeps the gap before its first frame the same
+     colour instead of a white flash. */
+  background: var(--canvas);
+  color-scheme: dark;
+}
+
+/* Every overlay is inert: the embed owns pointer gestures inside the frame underneath. */
+.tvx-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: var(--space-3);
+}
+
+.tvx-loadlist {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-card);
+  background: rgba(11, 13, 16, 0.82);
+  min-width: 220px;
+}
+
+.tvx-loadrow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  height: var(--row-h);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.tvx-loadname {
+  color: var(--on-canvas);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tvx-loadmeta {
+  color: rgba(230, 235, 241, 0.62);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The no-WebGL2 / no-embed / error states replace the pane; they DO take pointer events. */
+.tvx-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  background: var(--canvas);
+}
+
+.tvx-state-body {
+  max-width: 480px;
+}
+
+.tvx-state-title {
+  margin: 0 0 var(--space-2);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--on-canvas);
+}
+
+.tvx-state-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: rgba(230, 235, 241, 0.68);
+}
+
+.tvx-state-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}

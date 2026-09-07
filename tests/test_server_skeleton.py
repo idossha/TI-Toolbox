@@ -430,15 +430,16 @@ def test_version_schema_hash_changes_when_schema_json_changes(
 
 def test_capabilities_shape(client: TestClient) -> None:
     body = client.get("/api/capabilities", headers=BEARER).json()
-    # D3 (dev/notes/v3-docker-streamline-plan.md): x11_display/freeview/gmsh/freesurfer are gone.
-    # V4 (dev/notes/v3-native-panes-external-viewer-plan.md): `tetravox_embed` is gone too --
-    # there is no embedded viewer for this runtime to have a capability about. Viewing is the
-    # host-installed Tetravox desktop app, which this server neither ships nor serves, so its
-    # presence is a fact about the *host*, answered by the Electron shell (`tit:viewer:probe`),
-    # not by an HTTP capability.
-    keys = {"docker_socket", "bpy", "jupyter", "fastsurfer"}
-    assert set(body) == keys
-    assert all(isinstance(body[k], bool) for k in keys)
+    # D3 (dev/notes/v3-docker-streamline-plan.md): x11_display/freeview/gmsh/freesurfer are gone
+    # from this runtime; `tetravox_embed` and `fastsurfer` are what replaced them. VE reversed V4's
+    # brief removal of `tetravox_embed`: the viewer is served by this server, at /tetravox/, from a
+    # bundle in this image -- which makes it exactly the kind of thing a capability describes.
+    booleans = {"docker_socket", "bpy", "jupyter", "fastsurfer"}
+    assert set(body) == booleans | {"tetravox_embed"}
+    assert all(isinstance(body[k], bool) for k in booleans)
+    # An object, not a boolean: a host asks "can this embed do markers", never "is it available".
+    assert set(body["tetravox_embed"]) >= {"available", "supported", "features", "compatible"}
+    assert set(body["tetravox_embed"]["supported"]) == {"min", "max"}
 
 
 def test_project_shape(client: TestClient, project: Path, monkeypatch) -> None:
@@ -1061,10 +1062,15 @@ def test_reload_settings_file_survives_a_removed_field(tmp_path, monkeypatch) ->
     """A settings file written by an older build must not take the reload child down.
 
     ``--reload`` writes the settings once and every reloaded worker re-reads that same file.
-    When a field is removed from :class:`ServerSettings` mid-session (``tetravox_embed_dir``,
-    2026-09-06) the file on disk still carries it, and a strict ``cls(**data)`` raised
-    ``TypeError`` on every reload -- the dev server stayed down naming a field nobody had
-    edited.  Unknown keys are dropped instead; the fields this build does declare are kept.
+    When a field is removed from :class:`ServerSettings` mid-session the file on disk still
+    carries it, and a strict ``cls(**data)`` raised ``TypeError`` on every reload -- the dev server
+    stayed down naming a field nobody had edited.  That happened on 2026-09-06, twice in one day
+    and in both directions, when ``tetravox_embed_dir`` was removed and then restored.  Unknown
+    keys are dropped instead; the fields this build does declare are kept.
+
+    The stale keys below are deliberately names no build has ever had.  Using a real removed field
+    would make this test pass or fail on whether that field happens to be declared today, which is
+    the one thing it is not about.
     """
     import json
 
@@ -1074,8 +1080,8 @@ def test_reload_settings_file_survives_a_removed_field(tmp_path, monkeypatch) ->
     stale = json.loads(
         ServerSettings(project_dir="/p", token="t", port=9001, allow_hosts=("node01",)).to_json()
     )
-    stale["tetravox_embed_dir"] = "/opt/tetravox/embed"
-    stale["tetravox_install_root"] = "/var/lib/tetravox"
+    stale["a_field_this_build_never_had"] = "/opt/somewhere"
+    stale["another_one"] = 17
     path = tmp_path / "tit-server-stale.json"
     path.write_text(json.dumps(stale))
 
@@ -1084,4 +1090,5 @@ def test_reload_settings_file_survives_a_removed_field(tmp_path, monkeypatch) ->
     assert loaded.project_dir == "/p"
     assert loaded.port == 9001
     assert loaded.allow_hosts == ("node01",)
-    assert not hasattr(loaded, "tetravox_embed_dir")
+    assert not hasattr(loaded, "a_field_this_build_never_had")
+    assert not hasattr(loaded, "another_one")

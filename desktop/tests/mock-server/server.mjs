@@ -49,6 +49,13 @@ const WS_INTERVAL_MS = Number(process.env.TIT_MOCK_WS_INTERVAL_MS ?? 2000);
 // keeps contract.test.ts's exact path-coverage assertion meaningful without shipping large
 // binary fixtures.
 const DATA_ROOT = process.env.TIT_MOCK_DATA_ROOT ? resolvePath(process.env.TIT_MOCK_DATA_ROOT) : "";
+// The Tetravox embed bundle served at /tetravox/ (W3a, dev/notes/v3-docker-streamline-plan.md
+// §1): defaults to the deterministic fake embed fixture (desktop/tests/e2e/fixtures/fake-embed/)
+// so the desktop e2e suite exercises the real /tetravox/ route + iframe wiring without the actual
+// WASM/WebGL2 bundle. Point TIT_MOCK_EMBED_DIR at a real build to test against it instead.
+const EMBED_DIR = resolvePath(
+  process.env.TIT_MOCK_EMBED_DIR ?? join(here, "..", "e2e", "fixtures", "fake-embed")
+);
 
 // ------------------------------------------------------------------------------------ fixtures
 const loadJson = (name) => JSON.parse(readFileSync(join(fixturesDir, name), "utf8"));
@@ -282,6 +289,32 @@ function serveStatic(res, pathname) {
 
 // The embed's own CSP -- mirrors tit/server/static.py's TETRAVOX_CSP exactly, so a spec
 // asserting on this header behaves the same against the mock and the real server.
+const TETRAVOX_CSP =
+  "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; " +
+  "worker-src 'self' blob:; connect-src 'self'; img-src 'self' data: blob:; " +
+  "style-src 'self' 'unsafe-inline'";
+/** GET /tetravox, /tetravox/, /tetravox/index.html and every /tetravox/<asset>. Not a SPA
+ * fallback (mirrors tit/server/static.py::resolve_tetravox_file): an unknown asset 404s. */
+function serveTetravox(res, pathname) {
+  if (!existsSync(join(EMBED_DIR, "manifest.json"))) {
+    res.writeHead(404, { "content-type": "text/plain" });
+    res.end("tetravox embed not installed");
+    return;
+  }
+  var rel = pathname === "/tetravox" || pathname === "/tetravox/" ? "/index.html" : pathname.slice("/tetravox".length);
+  rel = normalize(rel === "/" ? "/index.html" : rel).replace(/^(\.\.[/\\])+/, "");
+  var file = join(EMBED_DIR, rel);
+  if (!file.startsWith(EMBED_DIR) || !existsSync(file) || !statSync(file).isFile()) {
+    res.writeHead(404, { "content-type": "text/plain", "content-security-policy": TETRAVOX_CSP });
+    res.end("not found");
+    return;
+  }
+  res.writeHead(200, {
+    "content-type": MIME[extname(file)] ?? "application/octet-stream",
+    "content-security-policy": TETRAVOX_CSP,
+  });
+  createReadStream(file).pipe(res);
+}
 
 // --- system snapshot generator (random walk so charts move) ---
 let cpu = 12;
@@ -1519,7 +1552,24 @@ function params(matcher, pathname) {
 
 // --- system / auth (v0, unchanged) ---
 route("GET", "/api/version", (ctx) => json(ctx.res, 200, version));
-route("GET", "/api/capabilities", (ctx) => json(ctx.res, 200, capabilities));
+route("GET", "/api/capabilities", (ctx) => {
+  // Computed, not the raw fixture: `tetravox_embed` is the *active* bundle, which the tetravox
+  // routes below can change at runtime -- a Settings page that installed a bundle and then read a
+  // frozen fixture would show two different answers on the same screen.
+  const { release } = tvxResolve();
+  return json(ctx.res, 200, {
+    ...capabilities,
+    tetravox_embed: {
+      available: true,
+      version: release.version,
+      protocol: release.protocol,
+      source: release.source,
+      features: release.features,
+      compatible: release.compatible,
+      supported: TVX_SUPPORTED,
+    },
+  });
+});
 route("GET", "/api/project", (ctx) => json(ctx.res, 200, project));
 route("POST", "/api/project/init", async (ctx) => {
   const body = await ctx.body();
@@ -2230,6 +2280,21 @@ route("POST", "/api/__mock/reset", (ctx) => {
   groupParallelLimit.clear();
   json(ctx.res, 200, { jobs_cleared: cleared });
 });
+// Mock-only: publish one `tetravox.updated` event to every /ws/tetravox client, so the e2e
+// suite can assert the toast the real background updater triggers (A3) without waiting 24 h or
+// installing anything.
+route("POST", "/api/__mock/tetravox-updated", async (ctx) => {
+  const body = await ctx.body();
+  const event = {
+    type: "tetravox.updated",
+    version: body?.version ?? "0.4.0",
+    protocol: body?.protocol ?? 2,
+    message: body?.message ?? `Tetravox ${body?.version ?? "0.4.0"} installed and active — reload the viewer to use it`,
+  };
+  tvxLastOutcome = { action: "installed", message: event.message, version: event.version, protocol: event.protocol, at: Date.now() / 1000 };
+  for (const ws of wsTetravoxClients) if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(event));
+  json(ctx.res, 200, { delivered: wsTetravoxClients.size });
+});
 // Mock-only: switch the project the overview routes describe (3 or 30 subjects). See
 // `makeLargeOverview` above for why two sizes exist.
 route("POST", "/api/__mock/project", async (ctx) => {
@@ -2741,9 +2806,9 @@ route("POST", "/api/jobs/:id/force", (ctx) => {
 // --- viewers (v1) ---
 // D3 (dev/notes/v3-docker-streamline-plan.md): the external Freeview/Gmsh launch routes
 // (POST /api/viewers/freeview, POST /api/viewers/gmsh) are removed -- there is no X11 in this
-// runtime. V1/V2 (dev/notes/v3-native-panes-external-viewer-plan.md): nor is there an embed at
-// /tetravox/ -- viewing is the host-installed Tetravox desktop app, and this server's part is to
-// write the scene file it opens.
+// runtime; viewing is the Tetravox embed at /tetravox/ (served above), fed by GET
+// /api/files/raw/{path} and this route's `view` (a real Tetravox ViewSpec v2 document). `scene` is
+// the same document with host paths -- what POST /api/view/open writes to disk for export.
 route("GET", "/api/view/:kind", (ctx) => json(ctx.res, 200, buildViewSpec(ctx.params.kind, ctx.url.searchParams)));
 // POST /api/view/open. The mock writes no file (it has no project on disk) but answers the same
 // shape, including the two path languages and a scene whose dataset paths are *host* paths --
@@ -2763,6 +2828,10 @@ route("POST", "/api/view/open", async (ctx) => {
   const spec = buildViewSpec(kind, params);
   const localise = (u) =>
     typeof u === "string" && u.startsWith("/api/files/raw/") ? "/" + decodeURIComponent(u.slice("/api/files/raw/".length)) : u;
+  // Two addressings of one resolution, as tit/server/routes/viewers.py::view_open answers: `view`
+  // keeps the /api/files/raw URLs the embed fetches through this origin, `scene` re-roots them
+  // onto the host for the file that is written. Cloned from the same `spec.scene`, never rebuilt.
+  const view = JSON.parse(JSON.stringify(spec.scene ?? {}));
   const scene = JSON.parse(JSON.stringify(spec.scene ?? {}));
   for (const dataset of scene.datasets ?? []) {
     for (const key of ["path", "absPath"]) if (dataset[key]) dataset[key] = localise(dataset[key]);
@@ -2792,10 +2861,15 @@ route("POST", "/api/view/open", async (ctx) => {
         for (const key of ["path", "absPath"]) if (sidecar[key]) sidecar[key] = localise(sidecar[key]);
       }
     }
+    const rebuiltUrls = sceneFor(spec.space, chosen, null);
     scene.datasets = rebuilt.datasets;
     scene.layers = rebuilt.layers;
     scene.activeLayerId = rebuilt.activeLayerId;
     scene.layout = rebuilt.layout;
+    view.datasets = rebuiltUrls.datasets;
+    view.layers = rebuiltUrls.layers;
+    view.activeLayerId = rebuiltUrls.activeLayerId;
+    view.layout = rebuiltUrls.layout;
     spec.layers = chosen;
   }
   const name = `${kind}.tetravox.json`;
@@ -2804,6 +2878,7 @@ route("POST", "/api/view/open", async (ctx) => {
     path: `${PROJECT_ROOT}/code/ti-toolbox/viewer/${name}`,
     host_path: `${MOCK_HOST_ROOT}/code/ti-toolbox/viewer/${name}`,
     scene,
+    view,
     files: (scene.datasets ?? []).map((d, index) => ({
       id: d.id,
       kind: d.kind,
@@ -2995,6 +3070,141 @@ route("PUT", "/api/settings", async (ctx) => {
   json(ctx.res, 200, settingsStore);
 });
 
+// --- tetravox (v1): dynamic embed delivery ---
+// A faithful in-memory model of tit/tetravox/{protocol,store,install}.py: a baked floor, an
+// install root, a pin, and a release index. No download happens here -- the mock's job is the
+// state machine the Settings page drives (install -> active, roll back -> baked, and back
+// again), not the digest verification, which is tested in tests/test_tetravox_install.py.
+const TVX_SUPPORTED = { min: 1, max: 2 };
+const TVX_FEATURE_MIN_PROTOCOL = { volumes: 1, meshes: 1, cursor: 1, probe: 1, screenshot: 1, layers: 1, markers: 2, pick: 2, camera: 2 };
+const tvxFeatures = (protocol) =>
+  Object.keys(TVX_FEATURE_MIN_PROTOCOL)
+    .filter((name) => protocol >= TVX_FEATURE_MIN_PROTOCOL[name])
+    .sort();
+const tvxCompatible = (protocol) => Number.isInteger(protocol) && protocol >= TVX_SUPPORTED.min && protocol <= TVX_SUPPORTED.max;
+const tvxVersionKey = (v) => v.split(/[^0-9]+/).filter(Boolean).map(Number);
+const tvxNewerFirst = (a, b) => {
+  const ka = tvxVersionKey(a.version);
+  const kb = tvxVersionKey(b.version);
+  for (let i = 0; i < Math.max(ka.length, kb.length); i += 1) {
+    const d = (kb[i] ?? 0) - (ka[i] ?? 0);
+    if (d !== 0) return d;
+  }
+  return 0;
+};
+const tvxRelease = (version, protocol, source, path) => ({
+  version,
+  protocol,
+  source,
+  path,
+  name: "@tetravox/embed",
+  sha: `${version}-mock`,
+  features: tvxFeatures(protocol),
+  compatible: tvxCompatible(protocol),
+  active: false,
+});
+const TVX_INSTALL_ROOT = "/root/.config/ti-toolbox/tetravox/embed";
+const TVX_INDEX_URL = "https://api.github.com/repos/idossha/tetravox/releases";
+const tvxBaked = tvxRelease("0.3.4", 1, "baked", "/opt/tetravox/embed");
+let tvxInstalled = [];
+let tvxPin = null; // null | "baked" | a version
+// A3: the policy (default on), the last check, and the last automatic outcome. In the server
+// these live in <install root>/{policy.json,updates.json}; here they are three variables with
+// the same meaning, so the Settings card drives the same state machine.
+let tvxAutoUpdate = true;
+let tvxCheckedAt = null;
+let tvxLastOutcome = null;
+const tvxIndex = [
+  // A release past the range this build can host: the index lists it, the UI must show it as not
+  // installable, and POST /api/tetravox/install must refuse it (E1 -- the app pins a *range*).
+  { version: "0.5.0", protocol: 3, url: "https://github.com/idossha/tetravox/releases/download/embed-v0.5.0/tetravox-embed-0.5.0.tgz", sha256: "c".repeat(64), notes: "Protocol 3: needs a newer TI-Toolbox.", published: "2026-09-10" },
+  { version: "0.4.0", protocol: 2, url: "https://github.com/idossha/tetravox/releases/download/embed-v0.4.0/tetravox-embed-0.4.0.tgz", sha256: "b".repeat(64), notes: "Protocol 2: points layer, pick events, camera get/set.", published: "2026-09-04" },
+  { version: "0.3.4", protocol: 1, url: "https://github.com/idossha/tetravox/releases/download/embed-v0.3.4/tetravox-embed-0.3.4.tgz", sha256: "a".repeat(64), notes: "The version baked into this image.", published: "2026-09-03" },
+];
+
+function tvxResolve() {
+  if (tvxPin === "baked") return { release: tvxBaked, reason: "pinned to the version baked into the image" };
+  const pinned = tvxInstalled.find((r) => r.version === tvxPin && r.compatible);
+  if (pinned) return { release: pinned, reason: `pinned to installed ${pinned.version}` };
+  const newest = [...tvxInstalled].sort(tvxNewerFirst).find((r) => r.compatible);
+  if (newest) return { release: newest, reason: `newest compatible installed version (${newest.version})` };
+  return { release: tvxBaked, reason: "the version baked into the image" };
+}
+
+function tvxState() {
+  const { release, reason } = tvxResolve();
+  const mark = (r) => ({ ...r, active: r.path === release.path });
+  return {
+    active: mark(release),
+    reason,
+    installed: [...tvxInstalled].sort(tvxNewerFirst).map(mark),
+    baked: mark(tvxBaked),
+    supported: TVX_SUPPORTED,
+    install_root: TVX_INSTALL_ROOT,
+    index_url: TVX_INDEX_URL,
+    auto_update: tvxAutoUpdate,
+  };
+}
+
+route("GET", "/api/tetravox", (ctx) => json(ctx.res, 200, tvxState()));
+route("GET", "/api/tetravox/updates", (ctx) => {
+  // `?refresh=true` is "Check now"; without it the answer is the cached one (the real server
+  // reads <install root>/updates.json rather than spending one of GitHub's 60 requests/hour).
+  const refresh = ctx.url.searchParams.get("refresh") === "true";
+  const cached = tvxCheckedAt !== null && !refresh;
+  if (!cached) tvxCheckedAt = Date.now() / 1000;
+  json(ctx.res, 200, {
+    available: true,
+    message: null,
+    index_url: TVX_INDEX_URL,
+    auto_update: tvxAutoUpdate,
+    checked_at: tvxCheckedAt,
+    from_cache: cached,
+    last_outcome: tvxLastOutcome,
+    releases: tvxIndex.map((entry) => ({
+      ...entry,
+      compatible: tvxCompatible(entry.protocol),
+      installed: tvxInstalled.some((r) => r.version === entry.version),
+    })),
+  });
+});
+route("POST", "/api/tetravox/policy", async (ctx) => {
+  const body = await ctx.body();
+  if (typeof body.auto_update !== "boolean") return json(ctx.res, 400, { detail: "`auto_update` must be a boolean" });
+  tvxAutoUpdate = body.auto_update;
+  json(ctx.res, 200, tvxState());
+});
+route("POST", "/api/tetravox/install", async (ctx) => {
+  const body = await ctx.body();
+  const entry = body.version ? tvxIndex.find((e) => e.version === body.version) : tvxIndex.find((e) => e.url === body.url);
+  if (!entry) return json(ctx.res, 404, { detail: `The release index has no version ${body.version ?? body.url}` });
+  if (!body.version && body.sha256 !== entry.sha256) {
+    return json(ctx.res, 400, { detail: `sha256 mismatch: the download is ${entry.sha256}, expected ${body.sha256}. Nothing was installed.` });
+  }
+  if (!tvxCompatible(entry.protocol)) {
+    return json(ctx.res, 400, { detail: `That bundle speaks embed protocol ${entry.protocol}; this version of TI-Toolbox supports protocol ${TVX_SUPPORTED.min}-${TVX_SUPPORTED.max}. Update TI-Toolbox to install it.` });
+  }
+  tvxInstalled = tvxInstalled.filter((r) => r.version !== entry.version);
+  tvxInstalled.push(tvxRelease(entry.version, entry.protocol, "installed", `${TVX_INSTALL_ROOT}/${entry.version}`));
+  tvxPin = entry.version;
+  json(ctx.res, 200, tvxState());
+});
+route("POST", "/api/tetravox/activate", async (ctx) => {
+  const body = await ctx.body();
+  if (typeof body.version !== "string" || !body.version) return json(ctx.res, 400, { detail: "`version` is required" });
+  if (body.version !== "baked" && !tvxInstalled.some((r) => r.version === body.version)) {
+    return json(ctx.res, 404, { detail: `Not installed: ${body.version}` });
+  }
+  tvxPin = body.version;
+  json(ctx.res, 200, tvxState());
+});
+route("DELETE", "/api/tetravox/:version", (ctx) => {
+  const { version } = ctx.params;
+  if (!tvxInstalled.some((r) => r.version === version)) return json(ctx.res, 404, { detail: `Not installed: ${version}` });
+  tvxInstalled = tvxInstalled.filter((r) => r.version !== version);
+  if (tvxPin === version) tvxPin = null;
+  json(ctx.res, 200, tvxState());
+});
 
 // --------------------------------------------------------------------------------------- HTTP
 const server = createServer(async (req, res) => {
@@ -3020,6 +3230,14 @@ const server = createServer(async (req, res) => {
     sessions.delete(cookies(req).tit_session);
     res.writeHead(204, { "set-cookie": "tit_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0" });
     return res.end();
+  }
+
+  // /tetravox/* (D1/D3, dev/notes/v3-docker-streamline-plan.md): unauthenticated static asset
+  // delivery, like "/" -- checked before the generic static fallback so it is never shadowed by
+  // (and never falls back to) the renderer bundle's own index.html.
+  if (p === "/tetravox" || p.startsWith("/tetravox/")) {
+    if (req.method !== "GET") return json(res, 405, { detail: "method not allowed" });
+    return serveTetravox(res, p);
   }
 
   if (!p.startsWith("/api/")) {
@@ -3052,9 +3270,13 @@ const server = createServer(async (req, res) => {
 // ----------------------------------------------------------------------------------- WebSocket
 const wssSystem = new WebSocketServer({ noServer: true });
 const wssJobs = new WebSocketServer({ noServer: true });
+// /ws/tetravox (A3): silent until the viewer bundle is replaced under the app. The mock has no
+// background updater, so the only way an event appears here is the test hook below.
+const wssTetravox = new WebSocketServer({ noServer: true });
+const wsTetravoxClients = new Set();
 server.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
-  if (url.pathname !== "/ws/system" && url.pathname !== "/ws/jobs") {
+  if (url.pathname !== "/ws/system" && url.pathname !== "/ws/jobs" && url.pathname !== "/ws/tetravox") {
     socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
     socket.destroy();
     return;
@@ -3075,6 +3297,13 @@ server.on("upgrade", (req, socket, head) => {
       send();
       const timer = setInterval(send, WS_INTERVAL_MS);
       ws.on("close", () => clearInterval(timer));
+    });
+    return;
+  }
+  if (url.pathname === "/ws/tetravox") {
+    wssTetravox.handleUpgrade(req, socket, head, (ws) => {
+      wsTetravoxClients.add(ws);
+      ws.on("close", () => wsTetravoxClients.delete(ws));
     });
     return;
   }

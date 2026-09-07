@@ -6,12 +6,11 @@
  * v3 (D3, `dev/notes/v3-docker-streamline-plan.md`): `POST /api/viewers/{freeview,gmsh}` are gone
  * from the server along with X11 itself.
  *
- * V1/V2 (`dev/notes/v3-native-panes-external-viewer-plan.md`): nor is there an embed to post a
- * scene to. There are two calls here now — `getView` (what would be shown, for the page's own
- * summary) and `openView` (write the scene file the host-installed Tetravox app opens). The
- * launch itself is not an HTTP call at all: it is `window.tit.viewer.open`, through the Electron
- * main process, because starting an application on the host is not something a page can do and
- * not something a container can do either.
+ * VE (`dev/notes/v3-native-panes-external-viewer/VE.md`): `openView` resolves the scene once and
+ * answers with both addressings of it — `view`, whose dataset paths are `/api/files/raw/...` URLs
+ * and which is what the page posts into the embed's iframe, and `scene`, whose paths are the
+ * host's and which is the document written to disk. There is no launch and no bridge: the viewer
+ * is served by the same origin that served this page.
  */
 import { api, unwrap } from "../../api/client";
 import type { components } from "../../api/schema";
@@ -49,12 +48,11 @@ export async function getView(kind: ViewKind, query: ViewQuery): Promise<ViewSpe
 }
 
 /**
- * Write the scene file for this selection and answer where it went.
+ * Resolve this selection into a scene, and write the scene file beside the project.
  *
- * The container path in `path` is what `window.tit.viewer.open` takes: the renderer never handles
- * a host path, and main maps this one through the known project mount exactly as `openPath` does.
- * `host_path` is for the sentence the page shows a person, and for browser mode, where there is
- * no main process to map anything and the file is offered as a download instead.
+ * `view` is posted to the iframe; `scene` and `host_path` describe the file on disk, which is the
+ * export path and the sentence the page shows a person. Both come from one resolution, so the
+ * picture on screen and the file cannot describe different sets of datasets.
  */
 export interface OpenOptions {
   /**

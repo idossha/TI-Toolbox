@@ -9,8 +9,6 @@ import { checkToken, waitForHealth } from "./health";
 import { nativeRuntime, resolveRuntime } from "./nativeRuntime";
 import { stack } from "./stackHost";
 import { notifyJobCompletions, stopNotifyingJobCompletions } from "./jobsNotifier";
-import { SCENE_EXTENSION, TETRAVOX_RELEASES_URL, launchTetravox, probeTetravox } from "./viewer";
-import { createManagedTetravox } from "./tetravoxInstall";
 import {
   containerToHostPath,
   hasDotSegment,
@@ -32,10 +30,6 @@ import type {
   TitStackStartResult,
   TitStackStatus,
   TitStackStopResult,
-  TitViewerEvent,
-  TitViewerInfo,
-  TitViewerInstallResult,
-  TitViewerOpenResult,
 } from "../shared/tit-bridge";
 
 const EXTERNAL_SCHEMES = new Set(["http:", "https:", "mailto:"]);
@@ -624,126 +618,6 @@ function registerIpc(): void {
     shell.showItemInFolder(resolved.path);
     return { ok: true };
   });
-  // ── the external viewer (V2/V3, dev/notes/v3-native-panes-external-viewer-plan.md) ──────────
-  //
-  // Callable from a server-served page, like `openPath` and for the same reason: the renderer
-  // names a *container* path the server just wrote, and main is what turns it into a host path.
-  // The renderer cannot name a host path here, and cannot name an arbitrary program to run — the
-  // only executable this can start is whatever discovery (or the user's own Settings override)
-  // says Tetravox is, and the only argument it takes is a `*.tetravox.json` inside the project.
-  //
-  // The managed install (V6, `dev/notes/v3-native-panes-external-viewer/TI.md`): TI-Toolbox puts
-  // Tetravox on this host itself, so "install Tetravox first" is not a sentence anyone reads. The
-  // orchestrator lives in `./tetravoxInstall.ts`; everything here is the IPC surface over it.
-  const managed = createManagedTetravox({
-    root: join(app.getPath("userData"), "tetravox"),
-    platform: process.platform,
-    arch: process.arch,
-    onProgress: (event) => {
-      // Progress goes to whichever page is open — the Viewer page renders it as a toast, Settings
-      // as a row. Neither is required for the install to finish.
-      mainWindow?.webContents.send("tit:viewer:event", event as TitViewerEvent);
-    },
-  });
-  // Promote a download that landed while the app was last running, then look for a newer one in
-  // the background. Launch never waits on either: `activate` is one JSON read and `maybeCheck`
-  // returns immediately.
-  void managed.activate().then(() => managed.maybeCheck());
-
-  const emptyInfo = (): TitViewerInfo => ({
-    available: false,
-    path: null,
-    version: null,
-    source: null,
-    override: null,
-    downloadUrl: TETRAVOX_RELEASES_URL,
-    managed: { supported: false, version: null, pending: null, lastCheckedAt: null, bytes: 0, root: null, busy: false },
-  });
-
-  const viewerInfo = async (): Promise<TitViewerInfo> => {
-    const override = readSettings().tetravoxPath?.trim() || null;
-    const found = probeTetravox(toHostPlatform(process.platform), override, managed.location());
-    return {
-      available: found !== null,
-      path: found?.path ?? null,
-      version: found?.version ?? null,
-      source: found?.source ?? null,
-      override,
-      downloadUrl: TETRAVOX_RELEASES_URL,
-      managed: await managed.summary(),
-    };
-  };
-  // Re-probed on every call rather than cached: the user may install Tetravox while this app is
-  // open, and a remembered "not installed" would outlive the fact.
-  ipcMain.handle("tit:viewer:probe", async (e): Promise<TitViewerInfo> => {
-    if (!fromMainWindow(e)) return emptyInfo();
-    return viewerInfo();
-  });
-  ipcMain.handle("tit:viewer:setPath", async (e, path: unknown): Promise<TitViewerInfo> => {
-    if (!fromMainWindow(e)) return emptyInfo();
-    updateSettings({ tetravoxPath: String(path ?? "").trim() });
-    return viewerInfo();
-  });
-  ipcMain.handle("tit:viewer:install", async (e): Promise<TitViewerInstallResult> => {
-    if (!fromMainWindow(e)) return { ok: false, reason: "unknown sender" };
-    try {
-      const outcome = await managed.ensureInstalled();
-      return { ok: true, version: outcome.version, pending: outcome.pending };
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      log("warn", `viewer: install failed — ${reason}`);
-      mainWindow?.webContents.send("tit:viewer:event", { phase: "error", message: reason } as TitViewerEvent);
-      return { ok: false, reason };
-    }
-  });
-  ipcMain.handle("tit:viewer:checkUpdates", async (e): Promise<TitViewerInfo> => {
-    if (!fromMainWindow(e)) return emptyInfo();
-    try {
-      await managed.checkNow();
-    } catch (error) {
-      log("warn", `viewer: update check failed — ${error instanceof Error ? error.message : String(error)}`);
-    }
-    return viewerInfo();
-  });
-  ipcMain.handle("tit:viewer:remove", async (e): Promise<TitViewerInfo> => {
-    if (!fromMainWindow(e)) return emptyInfo();
-    await managed.remove();
-    return viewerInfo();
-  });
-  ipcMain.handle("tit:viewer:open", async (e, path: unknown): Promise<TitViewerOpenResult> => {
-    if (!fromMainWindow(e)) return { ok: false, reason: "unknown sender" };
-    const scene = String(path ?? "");
-    if (!scene.endsWith(SCENE_EXTENSION)) return { ok: false, reason: `not a Tetravox scene (${SCENE_EXTENSION})` };
-    const resolved = await resolveHostPathStrict(scene);
-    if (!resolved.ok) return { ok: false, reason: resolved.reason };
-    let info = await viewerInfo();
-    // Nothing installed is not a dialog and not an error: it is one click that downloads the
-    // viewer and then opens the scene. The only thing that can stop it is having no network, and
-    // that is the one case the user is told about.
-    if (!info.available && info.managed.supported) {
-      try {
-        await managed.ensureInstalled();
-      } catch (error) {
-        return { ok: false, reason: error instanceof Error ? error.message : String(error) };
-      }
-      info = await viewerInfo();
-    }
-    if (!info.available || info.path === null) {
-      return { ok: false, reason: "Tetravox is not installed on this computer" };
-    }
-    // Logged before and after, because every field here has been the cause of a silent "nothing
-    // happened": which copy discovery chose, what was spawned, and what it said.
-    log("info", `viewer: opening ${resolved.path} with ${info.path} (${info.source ?? "none"})`);
-    const result = await launchTetravox(toHostPlatform(process.platform), info.path, resolved.path);
-    log(
-      result.ok ? "info" : "warn",
-      result.ok
-        ? `viewer: ${result.command} ${result.args.join(" ")}${result.activated ? " (+activate)" : ""}`
-        : `viewer: launch failed — ${result.reason}`,
-    );
-    return result;
-  });
-
   ipcMain.handle("tit:notify", (e, title: unknown, body: unknown) => {
     if (!fromMainWindow(e)) return;
     if (!Notification.isSupported()) return;

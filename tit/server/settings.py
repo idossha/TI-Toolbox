@@ -17,6 +17,14 @@ ENV_PORT = "TIT_SERVER_PORT"
 ENV_DEV_ORIGINS = "TIT_DEV_ORIGINS"
 ENV_ALLOW_HOSTS = "TIT_ALLOW_HOSTS"
 ENV_SETTINGS_FILE = "TIT_SERVER_SETTINGS_FILE"
+ENV_TETRAVOX_EMBED_DIR = "TIT_TETRAVOX_EMBED_DIR"
+ENV_TETRAVOX_INSTALL_ROOT = "TIT_TETRAVOX_INSTALL_ROOT"
+
+# The image bakes the embed bundle here (D1, dev/notes/v3-docker-streamline-plan.md); a dev
+# checkout with no bundle installed just gets tetravox_embed.available=false and a 404 under
+# /tetravox/ -- never a startup failure, since a host without the bundle is a normal state
+# (Phase-B integration, or W2's image before the real embed tarball lands).
+DEFAULT_TETRAVOX_EMBED_DIR = "/opt/tetravox/embed"
 
 
 class SettingsError(ValueError):
@@ -39,6 +47,21 @@ class ServerSettings:
         Shared secret; never included in a response body.
     static_dir : str or None
         Directory holding the built UI bundle (checked at request time).
+    tetravox_embed_dir : str
+        The **floor**: the Tetravox embed bundle baked into the image (checked
+        at request time; defaults to the image's baked-in path even when
+        nothing is installed there -- see :func:`resolve_tetravox_embed_dir`).
+        It is what ``/tetravox/`` serves when nothing newer is installed, which
+        keeps an offline or air-gapped install working exactly as before (E2).
+    tetravox_embed_override : str or None
+        ``--tetravox-dir`` / ``TIT_TETRAVOX_EMBED_DIR``, when either was given.
+        A dev override wins over every installed bundle
+        (:func:`tit.tetravox.store.resolve_active`).
+    tetravox_install_root : str or None
+        Where installed bundles live (``POST /api/tetravox/install``).  ``None``
+        means ``<user config>/tetravox/embed`` -- the directory the launcher
+        already mounts into the container -- resolved per request by
+        :func:`tit.tetravox.store.install_root`.
     dev_reload : bool
         Run uvicorn with auto-reload (development only).
     dev_origins : tuple of str
@@ -54,6 +77,9 @@ class ServerSettings:
     port: int = 8765
     token: str = ""
     static_dir: str | None = None
+    tetravox_embed_dir: str = DEFAULT_TETRAVOX_EMBED_DIR
+    tetravox_embed_override: str | None = None
+    tetravox_install_root: str | None = None
     dev_reload: bool = False
     dev_origins: tuple[str, ...] = ()
     allow_hosts: tuple[str, ...] = ()
@@ -68,10 +94,11 @@ class ServerSettings:
         The file this reads is written once at startup and re-read by every ``--reload``
         child (``tit/server/__main__.py``).  A settings-schema change mid-session therefore
         leaves the *old* keys on disk in front of the *new* dataclass, and ``cls(**data)``
-        would raise ``TypeError: unexpected keyword argument`` on every reload — the server
+        would raise ``TypeError: unexpected keyword argument`` on every reload -- the server
         stays down, with a message that names a field nobody edited.  That happened on
-        2026-09-06 when ``tetravox_embed_dir`` was removed.  Dropping keys this class does
-        not declare turns a dead dev container into a default for one setting.
+        2026-09-06 when ``tetravox_embed_dir`` was removed (and again when it came back).
+        Dropping keys this class does not declare turns a dead dev container into a default
+        for one setting.
         """
         data = json.loads(text)
         known = {field.name for field in fields(cls)}
@@ -137,6 +164,43 @@ def resolve_token(arg: str | None) -> tuple[str, bool]:
 def resolve_static_dir(arg: str | None) -> str | None:
     """``--static-dir`` argument, else ``TIT_STATIC_DIR``; may not exist yet."""
     return arg or os.environ.get(ENV_STATIC_DIR) or None
+
+
+def resolve_tetravox_embed_dir(arg: str | None) -> str:
+    """``--tetravox-dir`` argument, else ``TIT_TETRAVOX_EMBED_DIR``, else the image default.
+
+    Always returns a string (unlike :func:`resolve_static_dir`): the default
+    is the path the image bakes the bundle to, whether or not anything is
+    installed there in this environment -- callers check ``os.path.isdir``.
+
+    This is the *floor*, not necessarily what is served: an installed bundle
+    (E2) or a dev override takes precedence, and
+    :func:`tit.tetravox.store.resolve_active` decides between them on every
+    request.  An explicit ``--tetravox-dir`` is both the override and the floor,
+    so passing one still serves exactly that directory.
+    """
+    return arg or os.environ.get(ENV_TETRAVOX_EMBED_DIR) or DEFAULT_TETRAVOX_EMBED_DIR
+
+
+def resolve_tetravox_embed_override(arg: str | None) -> str | None:
+    """The dev override, or ``None`` when neither the flag nor the env var was set.
+
+    Distinct from :func:`resolve_tetravox_embed_dir` because "the operator
+    pointed us at a directory" and "nobody said anything, so use the image's"
+    are different facts: only the first may outrank a bundle the user installed
+    through ``POST /api/tetravox/install``.
+    """
+    return arg or os.environ.get(ENV_TETRAVOX_EMBED_DIR) or None
+
+
+def resolve_tetravox_install_root(arg: str | None) -> str | None:
+    """``--tetravox-install-root``, else ``TIT_TETRAVOX_INSTALL_ROOT``, else ``None``.
+
+    ``None`` means "the default under the user config directory"; it is not
+    resolved here because that call creates directories and this function runs
+    while the process is still parsing arguments.
+    """
+    return arg or os.environ.get(ENV_TETRAVOX_INSTALL_ROOT) or None
 
 
 def _csv_env(name: str) -> list[str]:

@@ -2,6 +2,7 @@ import { MemoryRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Shell } from "./Shell";
 import { ToastHost } from "../ui/Toast";
 import { landingPage, useEnabledPages } from "./registry";
+import { useTetravoxUpdated } from "./useTetravoxUpdated";
 
 // Only the very first paint's initial route: MemoryRouter's `initialEntries` is read once, at
 // construction, so it must be a plain value computed before the QueryClient has any data — the
@@ -20,6 +21,7 @@ export function App() {
   // panel would appear in the nav but 404 into the catch-all redirect when clicked.
   const pages = useEnabledPages();
   // One toast when the server installs a newer Tetravox embed under us (A3).
+  useTetravoxUpdated();
   return (
     <MemoryRouter initialEntries={firstPage ? [`/${firstPage.id}`] : ["/"]}>
       <ToastHost />

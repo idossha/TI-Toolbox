@@ -295,6 +295,60 @@ COPY --from=ui-builder /build/desktop/out/renderer /opt/ti-toolbox/ui
 
 
 # ---------------------------------------------------------------------------------------
+# Tetravox embed — the viewer, baked in.
+#
+# TETRAVOX_EMBED_TGZ is an http(s) URL to a released `tetravox-embed-<ver>.tgz`, and
+# TETRAVOX_EMBED_SHA256 its published digest. `build.sh` resolves both from the GitHub
+# Releases API using the same rule the runtime updater uses -- the newest non-draft,
+# non-prerelease release whose embed manifest declares a protocol inside
+# tit/tetravox/protocol.py's supported range. Neither is a version pin: this project names
+# no Tetravox version anywhere, which is what keeps a Tetravox release from implying a
+# TI-Toolbox release.
+#
+# What is baked here is the *floor* (E2). tit.server serves it at /tetravox/ when nothing
+# newer has been installed into the writable user-config root, so an offline or air-gapped
+# install has a working viewer with no network at all. Left empty, a placeholder manifest
+# and landing page are written instead: a build that cannot reach GitHub is still a build,
+# and the app can install a bundle at runtime.
+#
+# The digest is verified before the archive is opened. An unverified tarball extracted into
+# a path this server then serves to every page in the app is the one thing this stage must
+# not do.
+# ---------------------------------------------------------------------------------------
+ARG TETRAVOX_EMBED_TGZ=""
+ARG TETRAVOX_EMBED_SHA256=""
+RUN mkdir -p /opt/tetravox/embed && \
+    if [ -n "$TETRAVOX_EMBED_TGZ" ]; then \
+        echo "Fetching Tetravox embed: $TETRAVOX_EMBED_TGZ" && \
+        curl -fsSL "$TETRAVOX_EMBED_TGZ" -o /tmp/tetravox-embed.tgz && \
+        if [ -n "$TETRAVOX_EMBED_SHA256" ]; then \
+            echo "$TETRAVOX_EMBED_SHA256  /tmp/tetravox-embed.tgz" | sha256sum -c - ; \
+        else \
+            echo "WARNING: no TETRAVOX_EMBED_SHA256 given; the download is not verified" >&2 ; \
+        fi && \
+        # The release tarball is <name>-<ver>/{dist/, manifest.json, LICENSE, EMBED.md,
+        # *.schema.json} (Tetravox docs/EMBED.md). What tit.server serves at /tetravox/ is
+        # dist/ plus manifest.json; the documents and schemas sit one level up, outside the
+        # served jail.
+        mkdir -p /tmp/tvx && \
+        tar -xzf /tmp/tetravox-embed.tgz -C /tmp/tvx --strip-components=1 && \
+        cp -r /tmp/tvx/dist/. /opt/tetravox/embed/ && \
+        cp /tmp/tvx/manifest.json /opt/tetravox/embed/manifest.json && \
+        cp /tmp/tvx/LICENSE /tmp/tvx/EMBED.md /tmp/tvx/*.schema.json /opt/tetravox/ && \
+        test -f /opt/tetravox/embed/index.html && test -f /opt/tetravox/embed/manifest.json && \
+        rm -rf /tmp/tvx /tmp/tetravox-embed.tgz; \
+    else \
+        echo "TETRAVOX_EMBED_TGZ not set; writing placeholder embed" && \
+        printf '{"name":"tetravox-embed","version":"0.0.0-placeholder","protocol":1}\n' \
+            > /opt/tetravox/embed/manifest.json && \
+        printf '%s\n' \
+            '<!doctype html><html><head><meta charset="utf-8"><title>Tetravox Embed</title></head>' \
+            '<body><p>The Tetravox embed bundle is not packaged in this build.</p></body></html>' \
+            > /opt/tetravox/embed/index.html; \
+    fi
+
+
+# ---------------------------------------------------------------------------------------
 # Entrypoint — execs `tit.server` directly (D1); no X11, no interactive-shell setup (D3).
 # Context here is the real repo root (a full `git`/CI checkout, not build.sh's curated
 # staging dir — see Dockerfile.ti-toolbox.layered for that), so this is the real path.

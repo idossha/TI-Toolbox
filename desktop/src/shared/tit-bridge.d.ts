@@ -43,21 +43,15 @@
  *                             `start` is launcher-only (ra_14 finding 4); `status` (read-only) and
  *                             `stop` (ends only the caller's own container) are not.
  *
- * 13. `viewer`               — the external-viewer sub-bridge (`probe`/`open`/`setPath`/`install`/
- *                             `checkUpdates`/`remove`/`onEvent`), counted
- *                             as one entry like `stack`. Added by V2/V3
- *                             (`dev/notes/v3-native-panes-external-viewer-plan.md`) when the
- *                             in-app Tetravox embed was retired: opening a viewer became a host
- *                             action, and a host action is only reachable through main. It
- *                             replaces capability the app used to have without any bridge entry
- *                             at all (an `<iframe src="/tetravox/">`), so the budget moves from
- *                             12 to 13 rather than the feature being fitted into an existing
- *                             entry it does not belong to.
+ * ADR row 14 budgets 12 top-level entries and this is exactly 12. V3 briefly raised it to 13 for
+ * a `viewer` sub-bridge that launched a host-installed Tetravox; the maintainer reversed that on
+ * 2026-09-06 ("We should not install Tetravox on the host machine — forbidden"), the viewer went
+ * back to being an `<iframe src="/tetravox/">` served by this app's own server, and the entry went
+ * with it. Opening a scene is not a host action, so it needs no route through main.
  *
- * ADR row 14 budgeted 12 top-level entries; V3 raises that to 13 and this is exactly 13: the in-app "Stop Docker
- * stack" control (QA engineer finding 6) added no bridge entry at all — `stack.stop()` and
- * `stack.status()` already existed, `stop` widened its sender check in main, and `status` grew
- * three descriptive fields. The preload file is untouched.
+ * The in-app "Stop Docker stack" control (QA engineer finding 6) added no bridge entry either —
+ * `stack.stop()` and `stack.status()` already existed, `stop` widened its sender check in main,
+ * and `status` grew three descriptive fields. The preload file is untouched.
  *
  * Extend this list's numbering when adding or removing a top-level `TitBridge` member.
  */
@@ -66,101 +60,6 @@ export interface TitSettings {
   lastServerUrl?: string;
   /** Last project directory picked, so the launcher/project picker can default to it. */
   lastProjectDir?: string;
-  /**
-   * Where the user says the Tetravox desktop app is, when discovery does not find it (V3,
-   * `dev/notes/v3-native-panes-external-viewer-plan.md`) — a Linux AppImage outside `PATH`, or a
-   * second copy on a machine that has two. Empty string clears it back to discovery.
-   */
-  tetravoxPath?: string;
-}
-
-/** Where the Tetravox desktop app is on this host, and what it is (V3). */
-export interface TitViewerInfo {
-  /** false when nothing was found: the UI offers the download link instead of Open. */
-  available: boolean;
-  /** Absolute path to the found app, or null. */
-  path: string | null;
-  /** macOS `CFBundleShortVersionString`; null where the platform does not say cheaply. */
-  version: string | null;
-  /**
-   * Where the found copy came from: `"managed"` (installed and maintained by TI-Toolbox),
-   * `"override"` (`TitSettings.tetravoxPath`), `"discovered"` (already on this computer).
-   */
-  source: "managed" | "override" | "discovered" | null;
-  /** The user's own override as stored, so Settings can render the field it owns. */
-  override: string | null;
-  /** GitHub releases page — a manual escape hatch, not the normal route any more. */
-  downloadUrl: string;
-  /** The state of the install TI-Toolbox maintains itself (V6). */
-  managed: TitViewerManaged;
-}
-
-/**
- * The managed Tetravox install — what TI-Toolbox put on this computer, and when it last looked
- * for a newer one (V6, `dev/notes/v3-native-panes-external-viewer/TI.md`).
- */
-export interface TitViewerManaged {
-  /** false where Tetravox publishes no build (Linux arm64, 32-bit) — an honest "not here". */
-  supported: boolean;
-  /** The active managed version, or null when nothing is installed yet. */
-  version: string | null;
-  /** A verified download waiting for the next launch of this app to become `version`. */
-  pending: string | null;
-  /** ISO timestamp of the last release-index check, successful or not. */
-  lastCheckedAt: string | null;
-  /** Bytes the managed install occupies, for the Settings card's disk row. */
-  bytes: number;
-  /** `<userData>/tetravox`, shown so a person can find it themselves. */
-  root: string | null;
-  /** true while a download/install is in flight, so the UI disables its own trigger. */
-  busy: boolean;
-}
-
-/** Progress of a managed install, pushed live while one runs. */
-export type TitViewerEvent =
-  | { phase: "checking" }
-  | { phase: "downloading"; version: string; received: number; total: number }
-  | { phase: "verifying"; version: string }
-  | { phase: "installing"; version: string }
-  | { phase: "done"; version: string; pending: boolean }
-  | { phase: "error"; message: string };
-
-export type TitViewerInstallResult = { ok: true; version: string; pending: boolean } | { ok: false; reason: string };
-
-export type TitViewerOpenResult =
-  /**
-   * `activated` records the second macOS LaunchServices call — the plain `open -a <app>` that
-   * follows the one carrying the scene. Without it, a Tetravox left running with **no window**
-   * (the normal state after ⌘W on macOS) stores the scene and never draws anything, while `open`
-   * still exits 0: the launch reported success and nothing appeared. See `src/main/viewer.ts`.
-   */
-  | { ok: true; command: string; args: string[]; activated: boolean }
-  /** `reason` is safe to show a user: it is `open`'s own stderr, or the spawn error. */
-  | { ok: false; reason: string };
-
-export interface TitViewerBridge {
-  /** Where Tetravox is on this host right now (re-probed on every call — the user may install it
-   *  while the app is open, and a cached "not installed" would outlive the truth). */
-  probe(): Promise<TitViewerInfo>;
-  /**
-   * Open one scene file in Tetravox. Takes the **container** path the server returned; main maps
-   * it to the host through the known project mount, exactly like `openPath`, so the renderer
-   * never handles a host path and can never name one of its own.
-   */
-  open(containerScenePath: string): Promise<TitViewerOpenResult>;
-  /** Set (or, with `""`, clear) the Settings path override; answers the re-probed state. */
-  setPath(path: string): Promise<TitViewerInfo>;
-  /**
-   * Install the newest Tetravox into `<userData>/tetravox`, now. Idempotent while one is running
-   * (a second call joins the first rather than starting a second download).
-   */
-  install(): Promise<TitViewerInstallResult>;
-  /** Look for a newer release right now, ignoring the once-a-day rule; answers the new state. */
-  checkUpdates(): Promise<TitViewerInfo>;
-  /** Delete the managed install entirely. A user's own copy, if any, is untouched. */
-  remove(): Promise<TitViewerInfo>;
-  /** Subscribe to install progress; returns an unsubscribe function. */
-  onEvent(callback: (event: TitViewerEvent) => void): () => void;
 }
 
 export interface TitConnectArgs {
@@ -285,7 +184,6 @@ export interface TitBridge {
   /** Fire a native desktop notification. No-ops silently where notifications are unsupported. */
   notify(title: string, body?: string): Promise<void>;
   stack: TitStackBridge;
-  viewer: TitViewerBridge;
 }
 
 declare global {

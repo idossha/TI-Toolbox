@@ -102,14 +102,18 @@ test("launcher connects and the shell renders its chrome around the landing page
   await expect(rail).toHaveAttribute("data-rail-mode", "icons");
   await page.screenshot({ path: join(ARTIFACTS, "subjects.png") });
 
-  // The bridge exists but the token never reaches the renderer. Thirteen entries since V3
-  // (`dev/notes/v3-native-panes-external-viewer-plan.md`) added `viewer` — opening a scene in the
-  // host's Tetravox app is a host action, and a host action is only reachable through main.
-  // Fourteen since the Pipeline canvas added `saveFile` (`dev/notes/v3-native-panes-external-
-  // viewer/PL.md`): saving renderer-produced text to a file the user picks is a host action too,
-  // and the renderer had no way to do it at all — its `<a download>` on a blob: URL was inert in
-  // this shell and reported success anyway. ADR row 14's budget moves 13 → 14 with it; this list
-  // is what holds a fifteenth to an ADR line.
+  // The bridge exists but the token never reaches the renderer. Thirteen entries: twelve, plus
+  // `saveFile`, which the Pipeline canvas added (`dev/notes/v3-native-panes-external-viewer/PL.md`)
+  // because saving renderer-produced text to a file the user picks is a host action and the
+  // renderer had no way to do it at all — its `<a download>` on a blob: URL was inert in this
+  // shell and reported success anyway.
+  //
+  // A fourteenth, `viewer`, existed for a few hours on 2026-09-06: V3 made viewing a
+  // host-installed Tetravox desktop app, which needed a route through main to launch. The
+  // maintainer reversed that ("We should not install Tetravox on the host machine — forbidden");
+  // the viewer is an `<iframe src="/tetravox/">` served by this app's own server again, opening a
+  // scene is not a host action, and the entry went with it. ADR row 14's budget is 13, and this
+  // list is what holds a fourteenth to an ADR line.
   const bridgeKeys = await page.evaluate(() => Object.keys((window as unknown as { tit: object }).tit).sort());
   expect(bridgeKeys).toEqual([
     "appVersion",
@@ -125,7 +129,6 @@ test("launcher connects and the shell renders its chrome around the landing page
     "setSettings",
     "showItemInFolder",
     "stack",
-    "viewer",
   ]);
   const settings = await page.evaluate(() => (window as unknown as { tit: { getSettings(): Promise<unknown> } }).tit.getSettings());
   expect(JSON.stringify(settings)).not.toContain(TOKEN);
@@ -188,8 +191,8 @@ test("the rail's icon/label breakpoint updates on resize even while the Viewer s
 
   await page.keyboard.press(`${MOD}+8`);
   await expectPage(page, "viewer");
-  // R5/V1: the source bar drafts, Open commands — and what Open commands is an application on the
-  // host, so this smoke test drafts and stops. Launching is viewer.spec.ts's, behind a stub.
+  // R5: the source drafts, Open commands — so this smoke test drafts and stops. What Open does
+  // (one request, one scene, a move to the Viewer sub-page) is viewer.spec.ts's.
   await page.getByTestId("viewer-select-kind").getByRole("combobox").click();
   await page.getByRole("option", { name: "Simulation", exact: true }).click();
   await page.getByTestId("viewer-select-simulation").getByRole("combobox").click();

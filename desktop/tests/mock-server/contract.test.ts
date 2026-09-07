@@ -332,6 +332,17 @@ describe("contract coverage: every openapi.v1.yaml path+method", () => {
       "/api/files/raw/mnt/example/derivatives/SimNIBS/sub-ernie/m2m_ernie/T1.nii.gz",
     );
 
+    // tetravox (v1) -- dynamic embed delivery (dev/notes/v3-embed-convergence-plan.md E1-E4).
+    // Ordered so the state machine is exercised in full: read, index, install by version,
+    // roll back to the baked bundle, forward again, remove.
+    await call("/api/tetravox", "GET", "/api/tetravox");
+    await call("/api/tetravox/updates", "GET", "/api/tetravox/updates");
+    await call("/api/tetravox/policy", "POST", "/api/tetravox/policy", { body: { auto_update: true } });
+    await call("/api/tetravox/install", "POST", "/api/tetravox/install", { body: { version: "0.4.0" } });
+    await call("/api/tetravox/activate", "POST", "/api/tetravox/activate", { body: { version: "baked" } });
+    await call("/api/tetravox/activate", "POST", "/api/tetravox/activate", { body: { version: "0.4.0" } });
+    await call("/api/tetravox/{version}", "DELETE", "/api/tetravox/0.4.0");
+
     // pipelines (v1) -- the canvas (dev/notes/v3-tetravox-selection-pipeline-plan.md D1-D6).
     // A pipeline is a DAG of existing job kinds; `run` submits the whole thing as ONE job group,
     // so the interesting contract facts here are the palette, the validation shape, and that the
@@ -377,6 +388,7 @@ describe("contract coverage: every openapi.v1.yaml path+method", () => {
     // Real WebSocket upgrades aren't plain fetch()able; covered by the dedicated tests below.
     declared.delete("GET /ws/system");
     declared.delete("GET /ws/jobs");
+    declared.delete("GET /ws/tetravox");
     expect([...exercised].sort()).toEqual([...declared].sort());
   }, 20_000);
 });
@@ -455,10 +467,12 @@ describe("contract: WebSocket upgrades", () => {
       req.end();
     });
   }
-  it("/ws/system and /ws/jobs both switch protocols for an authenticated request", async () => {
+  it("/ws/system, /ws/jobs and /ws/tetravox all switch protocols for an authenticated request", async () => {
     expect(declaredStatuses("/ws/system", "GET")).toContain(101);
     expect(declaredStatuses("/ws/jobs", "GET")).toContain(101);
+    expect(declaredStatuses("/ws/tetravox", "GET")).toContain(101);
     expect(await upgradeStatus("/ws/system", { authorization: `Bearer ${TOKEN}` })).toBe(101);
     expect(await upgradeStatus("/ws/jobs", { authorization: `Bearer ${TOKEN}` })).toBe(101);
+    expect(await upgradeStatus("/ws/tetravox", { authorization: `Bearer ${TOKEN}` })).toBe(101);
   });
 });

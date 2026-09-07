@@ -15,6 +15,7 @@ const APP_KEYS: [string, string][] = [
   [modKey("P"), "Switch subject"],
   [modKey("J"), "Jobs panel"],
   [modShiftKey("N"), "Quick notes"],
+  [modShiftKey("V"), "Focus the viewer canvas"],
   [modShiftKey("I"), "Collapse or restore the right pane"],
   [modKey("⏎"), "Run the action bar's primary"],
   [modKey(","), "Settings (same as ⌘0)"],

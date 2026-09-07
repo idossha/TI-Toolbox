@@ -345,15 +345,27 @@ def _scene_files(spec: dict[str, Any], localised: dict[str, Any]) -> list[dict[s
 
 @router.post(
     "/api/view/open",
-    summary="Write the scene file the host-installed Tetravox desktop app opens",
+    summary="Resolve a scene once: the embed ViewSpec, and the scene file on disk",
     response_model=ViewerOpen,
 )
 def view_open(body: dict[str, Any] | None = None) -> dict[str, Any]:
-    """``{kind, subject, ...}`` -> ``{name, path, host_path, scene}``.
+    """``{kind, subject, ...}`` -> ``{name, path, host_path, scene, view, files}``.
 
-    Launches nothing.  The server has no display and the app this file is for
-    runs on the host; the Electron shell (or the browser's download) is what
-    turns the returned path into an open window.
+    Launches nothing, and never could: the server has no display (D3).  One
+    resolution produces two addressings of the same scene --
+
+    * ``view``  -- every dataset an ``/api/files/raw/...`` URL.  This is what
+      the Viewer sub-page posts into the Tetravox embed's iframe, which fetches
+      its bytes back through this origin.
+    * ``scene`` -- the same document with every path re-rooted onto the host,
+      also written to ``<project>/code/ti-toolbox/viewer/<kind>.tetravox.json``
+      so the file can be opened by a desktop Tetravox or kept as a record of
+      what was viewed.
+
+    They come from one ``build_view`` call on purpose.  Two calls could resolve
+    differently -- a job finishing between them is enough -- and then the list
+    the page shows, the file on disk and the scene on screen would disagree
+    about what is in the scene, with nothing to say which was right.
     """
     from tit.paths import get_path_manager
     from tit.server.host_path import host_project_dir
@@ -421,6 +433,13 @@ def view_open(body: dict[str, Any] | None = None) -> dict[str, Any]:
             _to_host(target, container_root, host_root) if host_root else None
         ),
         "scene": localised,
+        # The embed's own addressing, from the SAME resolution: `scene` is what
+        # `build_view` produced (every dataset an /api/files/raw URL) and
+        # `localised` is that document re-rooted onto the host. Returning both
+        # is what lets the Viewer sub-page post a scene to the iframe and the
+        # written file describe the same set of datasets, in the same order,
+        # without a second call that could resolve differently in between.
+        "view": scene,
         "files": _scene_files(spec, localised),
         "dry_run": dry_run,
     }

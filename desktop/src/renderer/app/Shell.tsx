@@ -19,6 +19,7 @@ import { useSubjectSpine } from "./subjectSpine";
 import { useSubjectContext } from "./subjectContext";
 import { Button } from "../ui/Button";
 import type { JobState } from "../ui/Status";
+import { useViewerStore } from "../viewer/store";
 import { resetJobsUi } from "./jobs-rail/store";
 
 function Unauthenticated() {
@@ -38,6 +39,21 @@ function Unauthenticated() {
   );
 }
 
+/**
+ * ⌘⇧V: hand the keyboard to the viewer, which owns unmodified keys once it has focus.
+ *
+ * The Viewer has been a postMessage `<iframe>` (`TetravoxFrame`) since the in-process `<canvas>`
+ * engine was replaced — there is no cross-document canvas to `.focus()` any more. `focusCanvas()`
+ * tells the embed's own crosshair/nav to take over via the protocol's `focus` message, and
+ * `frame.focus()` moves the browsing-context focus so the iframe's own unmodified keys start
+ * reaching it at all — the protocol message alone never moves DOM focus.
+ */
+function focusViewerCanvas(): void {
+  const frame = document.querySelector<HTMLIFrameElement>('[data-page-active="true"] [data-testid="tetravox-frame"]');
+  if (!frame) return;
+  useViewerStore.getState().focusCanvas();
+  frame?.focus();
+}
 
 export function Shell({ pages }: { pages: readonly ResolvedPage[] }) {
   const [jobsRailExpanded, setJobsRailExpanded] = useState(false);
@@ -98,6 +114,7 @@ export function Shell({ pages }: { pages: readonly ResolvedPage[] }) {
     openSubjectSwitcher: () => setPaletteOpen(true),
     toggleQuickNotes: () => setNotesOpen((o) => !o),
     openKeyboardSheet: () => setKeyboardSheetOpen(true),
+    focusViewer: focusViewerCanvas,
   });
 
   const runningCount = useMemo(
