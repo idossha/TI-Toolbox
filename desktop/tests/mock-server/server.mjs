@@ -2269,6 +2269,337 @@ route("POST", "/api/plan/:kind", async (ctx) => {
 // lifetime, not stuck by any definition a wait-duration heuristic could catch. Only an explicit
 // per-file boundary can tell "abandoned by a file that has already moved on" apart from
 // "legitimately three seconds into progressing".
+// --- notebooks and kernels (NB lane) ---------------------------------------------------------
+// The fake kernel is deliberately not a Python interpreter: it recognises `print(...)` and a
+// bare arithmetic expression, and everything else is a NameError. That is enough to prove the
+// *wiring* -- a cell's code reaches a kernel, its outputs come back attributed to that cell, and
+// the reply ends the run -- which is the only thing a mock can honestly prove. Anything cleverer
+// would be a Python emulator whose bugs would be mistaken for the product's.
+const notebookStore = new Map();
+const NOTEBOOK_DIR = "/mnt/000/code/ti-toolbox/notebooks";
+
+function notebookName(name) {
+  const trimmed = String(name ?? "").trim().replace(/\.ipynb$/, "");
+  if (!/^[A-Za-z0-9][A-Za-z0-9 ._-]{0,127}$/.test(trimmed)) return null;
+  return `${trimmed}.ipynb`;
+}
+
+function starterNotebook() {
+  return {
+    nbformat: 4,
+    nbformat_minor: 5,
+    metadata: {
+      kernelspec: { name: "simnibs", display_name: "SimNIBS + TI-Toolbox", language: "python" },
+      language_info: { name: "python" },
+    },
+    cells: [
+      {
+        cell_type: "markdown",
+        id: "intro",
+        metadata: {},
+        source:
+          "# New TI-Toolbox notebook\n\nThis kernel is the container's SimNIBS Python, so `tit`, `simnibs`, `numpy` and `nibabel` are all importable with nothing to install.",
+      },
+      {
+        cell_type: "code",
+        id: "starter",
+        metadata: {},
+        execution_count: null,
+        outputs: [],
+        source:
+          "# TI-Toolbox is already on this kernel's path.\nfrom tit import get_path_manager\n\npm = get_path_manager()\nprint('project:', pm.project_root)\nprint('subjects:', pm.list_all_subjects())\n",
+      },
+    ],
+  };
+}
+
+route("GET", "/api/notebooks", (ctx) =>
+  json(ctx.res, 200, {
+    dir: NOTEBOOK_DIR,
+    notebooks: [...notebookStore.entries()]
+      .map(([name, entry]) => ({ name, size: entry.size, modified: entry.modified }))
+      .sort((a, b) => b.modified - a.modified),
+  })
+);
+
+route("POST", "/api/notebooks", async (ctx) => {
+  const body = await ctx.body();
+  const name = notebookName(body?.name);
+  if (name === null) return json(ctx.res, 422, { detail: "unusable notebook name" });
+  if (notebookStore.has(name) && !body?.overwrite) {
+    return json(ctx.res, 409, { detail: `${name} already exists in this project.` });
+  }
+  const content = body?.content ?? starterNotebook();
+  if (!Array.isArray(content.cells)) return json(ctx.res, 422, { detail: "not a notebook" });
+  notebookStore.set(name, {
+    content,
+    size: JSON.stringify(content).length,
+    modified: Date.now() / 1000,
+  });
+  json(ctx.res, 200, { name, content });
+});
+
+route("GET", "/api/notebooks/:name", (ctx) => {
+  const name = notebookName(ctx.params.name);
+  const entry = name === null ? undefined : notebookStore.get(name);
+  if (!entry) return json(ctx.res, 404, { detail: "no such notebook" });
+  json(ctx.res, 200, { name, content: entry.content });
+});
+
+route("PUT", "/api/notebooks/:name", async (ctx) => {
+  const name = notebookName(ctx.params.name);
+  if (name === null) return json(ctx.res, 422, { detail: "unusable notebook name" });
+  const body = await ctx.body();
+  const content = body?.content;
+  if (!content || !Array.isArray(content.cells)) {
+    return json(ctx.res, 422, { detail: "That is not a valid notebook." });
+  }
+  const size = JSON.stringify(content).length;
+  const modified = Date.now() / 1000;
+  notebookStore.set(name, { content, size, modified });
+  json(ctx.res, 200, { name, size, modified });
+});
+
+route("DELETE", "/api/notebooks/:name", (ctx) => {
+  const name = notebookName(ctx.params.name);
+  if (name === null || !notebookStore.has(name)) {
+    return json(ctx.res, 404, { detail: "no such notebook" });
+  }
+  notebookStore.delete(name);
+  json(ctx.res, 200, { deleted: name });
+});
+
+const kernelStore = new Map();
+const MOCK_MAX_KERNELS = 2;
+let kernelSeq = 0;
+
+function kernelDescribe(kernel) {
+  return {
+    id: kernel.id,
+    name: "simnibs",
+    displayName: "SimNIBS + TI-Toolbox",
+    language: "python",
+    cwd: "/mnt/000",
+    state: kernel.state,
+    startedAt: kernel.startedAt,
+    lastUsed: kernel.lastUsed,
+  };
+}
+
+route("GET", "/api/kernels", (ctx) =>
+  json(ctx.res, 200, {
+    kernels: [...kernelStore.values()].map(kernelDescribe),
+    max: MOCK_MAX_KERNELS,
+    idleTimeoutSeconds: 1800,
+  })
+);
+
+route("POST", "/api/kernels", async (ctx) => {
+  const body = await ctx.body();
+  if (body?.kernelName === "missing") {
+    return json(ctx.res, 501, {
+      detail: {
+        code: "no-kernelspec",
+        message: "No kernel named 'missing' is installed in this container.",
+      },
+    });
+  }
+  if (kernelStore.size >= MOCK_MAX_KERNELS) {
+    return json(ctx.res, 429, {
+      detail: {
+        code: "too-many-kernels",
+        message: `${MOCK_MAX_KERNELS} kernels are already running, which is the limit for one TI-Toolbox container.`,
+      },
+    });
+  }
+  kernelSeq += 1;
+  const kernel = {
+    id: `k${kernelSeq}`,
+    state: "idle",
+    startedAt: Date.now() / 1000,
+    lastUsed: Date.now() / 1000,
+    executionCount: 0,
+    sockets: new Set(),
+    running: null,
+  };
+  kernelStore.set(kernel.id, kernel);
+  json(ctx.res, 200, kernelDescribe(kernel));
+});
+
+route("DELETE", "/api/kernels/:id", (ctx) => {
+  const kernel = kernelStore.get(ctx.params.id);
+  if (!kernel) {
+    return json(ctx.res, 404, { detail: { code: "no-such-kernel", message: "no such kernel" } });
+  }
+  kernelStore.delete(kernel.id);
+  kernelBroadcast(kernel, { type: "status", state: "dead" });
+  for (const ws of kernel.sockets) ws.close();
+  json(ctx.res, 200, { id: kernel.id, state: "dead" });
+});
+
+route("POST", "/api/kernels/:id/interrupt", (ctx) => {
+  const kernel = kernelStore.get(ctx.params.id);
+  if (!kernel) {
+    return json(ctx.res, 404, { detail: { code: "no-such-kernel", message: "no such kernel" } });
+  }
+  kernelInterrupt(kernel);
+  json(ctx.res, 200, { id: kernel.id, interrupted: true });
+});
+
+route("POST", "/api/kernels/:id/restart", (ctx) => {
+  const kernel = kernelStore.get(ctx.params.id);
+  if (!kernel) {
+    return json(ctx.res, 404, { detail: { code: "no-such-kernel", message: "no such kernel" } });
+  }
+  kernelInterrupt(kernel);
+  kernel.executionCount = 0;
+  kernel.state = "idle";
+  kernelBroadcast(kernel, { type: "status", state: "starting" });
+  kernelBroadcast(kernel, { type: "ready", kernel: kernelDescribe(kernel) });
+  json(ctx.res, 200, kernelDescribe(kernel));
+});
+
+function kernelBroadcast(kernel, event) {
+  for (const ws of kernel.sockets) {
+    if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(event));
+  }
+}
+
+function kernelInterrupt(kernel) {
+  const run = kernel.running;
+  if (!run) return;
+  clearTimeout(run.timer);
+  kernel.running = null;
+  kernelBroadcast(kernel, {
+    type: "output",
+    reqId: run.reqId,
+    output: {
+      output_type: "error",
+      ename: "KeyboardInterrupt",
+      evalue: "",
+      traceback: ["KeyboardInterrupt"],
+    },
+  });
+  kernel.state = "idle";
+  kernelBroadcast(kernel, { type: "status", state: "idle" });
+  kernelBroadcast(kernel, {
+    type: "reply",
+    reqId: run.reqId,
+    status: "error",
+    executionCount: run.count,
+  });
+}
+
+/** The whole of the fake language: print, an arithmetic expression, or a NameError. */
+function kernelEvaluate(code) {
+  const source = code.trim();
+  const printed = /^print\((.*)\)$/s.exec(source);
+  if (printed) {
+    const argument = printed[1].trim();
+    const literal = /^(['"])(.*)\1$/s.exec(argument);
+    const text = literal ? literal[2] : evalArithmetic(argument);
+    return [{ output_type: "stream", name: "stdout", text: `${text}\n` }];
+  }
+  if (source === "" || source.startsWith("#")) return [];
+  const value = evalArithmetic(source);
+  if (value === null) {
+    const symbol = source.split(/\W/)[0] || source;
+    return [
+      {
+        output_type: "error",
+        ename: "NameError",
+        evalue: `name '${symbol}' is not defined`,
+        // Coloured the way IPython colours it, so the ported ANSI parser is
+        // exercised by the mock as well as by a real kernel.
+        traceback: [`\u001b[0;31mNameError \u001b[0m: name '${symbol}' is not defined`],
+      },
+    ];
+  }
+  return [
+    {
+      output_type: "execute_result",
+      data: { "text/plain": String(value) },
+      metadata: {},
+      execution_count: null,
+    },
+  ];
+}
+
+/** Integer arithmetic only, over digits and + - * / ( ) -- a parser, never eval. */
+function evalArithmetic(expression) {
+  const source = expression.trim();
+  if (!/^[\d+\-*/() .]+$/.test(source) || source === "") return null;
+  let index = 0;
+  const peek = () => source[index];
+  const skip = () => {
+    while (peek() === " ") index += 1;
+  };
+  function primary() {
+    skip();
+    if (peek() === "(") {
+      index += 1;
+      const value = sum();
+      skip();
+      index += 1;
+      return value;
+    }
+    const start = index;
+    while (index < source.length && /[\d.]/.test(source[index])) index += 1;
+    return start === index ? NaN : Number(source.slice(start, index));
+  }
+  function product() {
+    let value = primary();
+    for (;;) {
+      skip();
+      const op = peek();
+      if (op !== "*" && op !== "/") return value;
+      index += 1;
+      const right = primary();
+      value = op === "*" ? value * right : value / right;
+    }
+  }
+  function sum() {
+    let value = product();
+    for (;;) {
+      skip();
+      const op = peek();
+      if (op !== "+" && op !== "-") return value;
+      index += 1;
+      const right = product();
+      value = op === "+" ? value + right : value - right;
+    }
+  }
+  const result = sum();
+  return Number.isFinite(result) ? result : null;
+}
+
+function kernelExecute(kernel, reqId, code) {
+  kernel.lastUsed = Date.now() / 1000;
+  kernel.executionCount += 1;
+  const count = kernel.executionCount;
+  kernel.state = "busy";
+  kernelBroadcast(kernel, { type: "status", state: "busy" });
+  kernelBroadcast(kernel, { type: "input", reqId, executionCount: count });
+  const outputs = kernelEvaluate(code);
+  const errored = outputs.some((o) => o.output_type === "error");
+  // A sleep is the one thing worth simulating: the e2e suite has to be able to
+  // catch a cell mid-run in order to interrupt it.
+  const sleeping = /\bsleep\(|\bwhile True\b/.test(code);
+  const finish = () => {
+    kernel.running = null;
+    for (const output of outputs) kernelBroadcast(kernel, { type: "output", reqId, output });
+    kernel.state = "idle";
+    kernelBroadcast(kernel, { type: "status", state: "idle" });
+    kernelBroadcast(kernel, {
+      type: "reply",
+      reqId,
+      status: errored ? "error" : "ok",
+      executionCount: count,
+    });
+  };
+  kernel.running = { reqId, count, timer: setTimeout(finish, sleeping ? 30_000 : 0) };
+}
+
 route("POST", "/api/__mock/reset", (ctx) => {
   let cleared = 0;
   for (const job of jobRegistry.values()) {
@@ -2278,6 +2609,12 @@ route("POST", "/api/__mock/reset", (ctx) => {
   jobRegistry.clear();
   for (const client of wsJobClients) client.subs.clear();
   groupParallelLimit.clear();
+  notebookStore.clear();
+  for (const kernel of kernelStore.values()) {
+    if (kernel.running) clearTimeout(kernel.running.timer);
+    for (const ws of kernel.sockets) ws.close();
+  }
+  kernelStore.clear();
   json(ctx.res, 200, { jobs_cleared: cleared });
 });
 // Mock-only: publish one `tetravox.updated` event to every /ws/tetravox client, so the e2e
@@ -3273,10 +3610,18 @@ const wssJobs = new WebSocketServer({ noServer: true });
 // /ws/tetravox (A3): silent until the viewer bundle is replaced under the app. The mock has no
 // background updater, so the only way an event appears here is the test hook below.
 const wssTetravox = new WebSocketServer({ noServer: true });
+const wssKernels = new WebSocketServer({ noServer: true });
+const KERNEL_WS = /^\/ws\/kernels\/([^/]+)$/;
 const wsTetravoxClients = new Set();
 server.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
-  if (url.pathname !== "/ws/system" && url.pathname !== "/ws/jobs" && url.pathname !== "/ws/tetravox") {
+  const kernelMatch = KERNEL_WS.exec(url.pathname);
+  if (
+    url.pathname !== "/ws/system" &&
+    url.pathname !== "/ws/jobs" &&
+    url.pathname !== "/ws/tetravox" &&
+    kernelMatch === null
+  ) {
     socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
     socket.destroy();
     return;
@@ -3297,6 +3642,35 @@ server.on("upgrade", (req, socket, head) => {
       send();
       const timer = setInterval(send, WS_INTERVAL_MS);
       ws.on("close", () => clearInterval(timer));
+    });
+    return;
+  }
+  if (kernelMatch !== null) {
+    const kernel = kernelStore.get(kernelMatch[1]);
+    if (!kernel) {
+      // The real server accepts nothing and closes with 4404; before a
+      // handshake there is no close code to send, so the upgrade is refused.
+      socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+    wssKernels.handleUpgrade(req, socket, head, (ws) => {
+      kernel.sockets.add(ws);
+      ws.send(JSON.stringify({ type: "ready", kernel: kernelDescribe(kernel) }));
+      ws.on("message", (raw) => {
+        let msg;
+        try {
+          msg = JSON.parse(raw.toString());
+        } catch {
+          return;
+        }
+        if (msg.op === "execute") {
+          kernelExecute(kernel, String(msg.id ?? ""), String(msg.code ?? ""));
+        } else if (msg.op === "interrupt") {
+          kernelInterrupt(kernel);
+        }
+      });
+      ws.on("close", () => kernel.sockets.delete(ws));
     });
     return;
   }

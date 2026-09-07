@@ -371,6 +371,25 @@ describe("contract coverage: every openapi.v1.yaml path+method", () => {
     await call("/api/pipelines/{name}", "GET", "/api/pipelines/contract");
     await call("/api/pipelines/{name}", "DELETE", "/api/pipelines/contract");
 
+    // notebooks and kernels (v1) -- NB lane, ARCHITECTURE §7.6. The order is the
+    // lifecycle: create a notebook, read it, save it, start a kernel, drive it,
+    // then take both away again.
+    await call("/api/notebooks", "POST", "/api/notebooks", { body: { name: "contract" } });
+    await call("/api/notebooks", "GET", "/api/notebooks");
+    const { json: contractNb } = await call("/api/notebooks/{name}", "GET", "/api/notebooks/contract.ipynb");
+    await call("/api/notebooks/{name}", "PUT", "/api/notebooks/contract.ipynb", {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      body: { content: (contractNb as any).content },
+    });
+    await call("/api/notebooks/{name}", "DELETE", "/api/notebooks/contract.ipynb");
+    const { json: contractKernel } = await call("/api/kernels", "POST", "/api/kernels", { body: {} });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const kernelId = (contractKernel as any).id as string;
+    await call("/api/kernels", "GET", "/api/kernels");
+    await call("/api/kernels/{kernel_id}/interrupt", "POST", `/api/kernels/${kernelId}/interrupt`);
+    await call("/api/kernels/{kernel_id}/restart", "POST", `/api/kernels/${kernelId}/restart`);
+    await call("/api/kernels/{kernel_id}", "DELETE", `/api/kernels/${kernelId}`);
+
     // settings (v1)
     await call("/api/settings", "GET", "/api/settings");
     await call("/api/settings", "PUT", "/api/settings", { body: { theme: "dark", panels: [], allow_unsafe_overrides: false, telemetry: { consented: true, enabled: false } } });
@@ -389,6 +408,7 @@ describe("contract coverage: every openapi.v1.yaml path+method", () => {
     declared.delete("GET /ws/system");
     declared.delete("GET /ws/jobs");
     declared.delete("GET /ws/tetravox");
+    declared.delete("GET /ws/kernels/{kernel_id}");
     expect([...exercised].sort()).toEqual([...declared].sort());
   }, 20_000);
 });
