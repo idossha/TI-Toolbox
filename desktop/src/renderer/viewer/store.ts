@@ -159,7 +159,17 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
     channel?.post({ type: "reset" });
     channel?.dispose();
     channel = null;
-    pendingScene = null;
+    // `pendingScene` deliberately SURVIVES a disconnect.
+    //
+    // It is the host's intent -- "the viewer should be showing this" -- not a property of the
+    // channel, and tearing a channel down does not mean the person stopped wanting to see their
+    // scene. Clearing it here was a real defect (VE, 2026-09-06): the first Open of a session
+    // called `loadScene` while no frame existed yet, so the scene could only be delivered by the
+    // `ready` handler below; the frame then mounted, React invoked the effect's cleanup once
+    // (StrictMode in dev, and any dependency change in either build), `pendingScene` became null,
+    // and `ready` had nothing to post. The user landed on the Tetravox page with an empty viewer
+    // and a Reload button that fixed it -- because Reload calls `loadScene` again, this time with
+    // a channel already open.
     set({
       status: "idle",
       embedReady: false,

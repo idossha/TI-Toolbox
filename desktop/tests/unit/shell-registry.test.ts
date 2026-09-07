@@ -220,8 +220,18 @@ describe("rail sub-items (PageDef.subNav)", () => {
     expect(navSlotOf("menu")).toBeNull();
     expect(navSlotOf("tetravox")).toBeNull();
     expect(shortcutForSlot(navSlotOf("tetravox"))).toBeUndefined();
-    expect(pageById("viewer")?.shortcut).toBe("9");
-    expect(pageById("jobs")?.shortcut).toBeUndefined();
+    // Relational, not a hard-coded digit. The rail grows -- the Notebooks row arrived while this
+    // lane was open and moved every number after Pipeline, and this assertion was edited twice in
+    // one evening to chase it. What must stay true is that the Viewer's number is its own
+    // NAV_ORDER position, and that its two sub-items consumed none: a sub-item with a slot would
+    // have pushed everything after the Viewer along by two.
+    const order = NAV_ORDER as readonly string[];
+    const viewerIndex = order.indexOf("viewer");
+    expect(viewerIndex).toBeGreaterThanOrEqual(0);
+    expect(pageById("viewer")?.shortcut).toBe(shortcutForSlot("viewer"));
+    expect(pageById("viewer")?.shortcut).toBe(String(viewerIndex + 1));
+    // The row after the Viewer is one slot after it, not three.
+    expect(order.indexOf("jobs")).toBe(viewerIndex + 1);
   });
 
   it("the real Viewer page declares Menu then Tetravox, in that order", () => {

@@ -266,3 +266,67 @@ describe("disconnect", () => {
     await expect(pending).resolves.toBeNull();
   });
 });
+
+/**
+ * The first Open of a session (VE, 2026-09-06). The reported defect: *"Open lands on Tetravox but
+ * the scene only appears after Reload."*
+ *
+ * The Viewer page mounts the frame only once there is something to show, so the very first Open
+ * calls `loadScene` while `channel` is still null — the scene can only be delivered by the `ready`
+ * handler. React then invokes the mount effect's cleanup at least once (StrictMode in dev, and any
+ * dependency change in either build), `disconnect()` ran, and it used to null `pendingScene`. So
+ * `ready` had nothing to post, the viewer stayed empty, and Reload "fixed" it only because Reload
+ * calls `loadScene` again — this time with a channel already open.
+ *
+ * The fix is that `pendingScene` is the host's *intent*, not the channel's state.
+ */
+describe("the first Open, before any frame exists", () => {
+  it("delivers the scene once the embed says ready", () => {
+    useViewerStore.getState().loadScene(scene);
+    // Nothing to post to yet — this is the whole shape of the bug.
+    expect(posted).toHaveLength(0);
+
+    useViewerStore.getState().connect(frame, ORIGIN, 50);
+    posted.length = 0;
+    fromEmbed({ tvx: 1, type: "ready", version: 1, caps: { webgl2: true } });
+
+    const loads = posted.filter((p) => p.message.type === "load");
+    expect(loads, "the scene never reached the embed").toHaveLength(1);
+    expect(loads[0]!.message).toMatchObject({ type: "load", scene });
+  });
+
+  it("survives the mount effect's cleanup running before the frame connects", () => {
+    useViewerStore.getState().loadScene(scene);
+
+    // Exactly what React does to an effect on a StrictMode mount: run, clean up, run again.
+    useViewerStore.getState().connect(frame, ORIGIN, 50);
+    useViewerStore.getState().disconnect();
+    useViewerStore.getState().connect(frame, ORIGIN, 50);
+    posted.length = 0;
+    fromEmbed({ tvx: 1, type: "ready", version: 1, caps: { webgl2: true } });
+
+    expect(
+      posted.filter((p) => p.message.type === "load"),
+      "a disconnect forgot what the user asked to see",
+    ).toHaveLength(1);
+  });
+
+  it("sends exactly one load per Open, not one per ready", () => {
+    useViewerStore.getState().loadScene(scene);
+    useViewerStore.getState().connect(frame, ORIGIN, 50);
+    posted.length = 0;
+    fromEmbed({ tvx: 1, type: "ready", version: 1, caps: { webgl2: true } });
+    expect(posted.filter((p) => p.message.type === "load")).toHaveLength(1);
+
+    // The embed confirms it loaded: the intent is satisfied and must not be re-sent on a later
+    // handshake, or a reconnect would silently re-post a scene nobody asked for again.
+    fromEmbed({ tvx: 1, type: "loaded", layers: [], datasets: [] } as unknown as EmbedMessage);
+    posted.length = 0;
+    fromEmbed({ tvx: 1, type: "ready", version: 1, caps: { webgl2: true } });
+    expect(posted.filter((p) => p.message.type === "load")).toHaveLength(0);
+
+    // A second Open is a second scene, and one more message.
+    useViewerStore.getState().loadScene(scene);
+    expect(posted.filter((p) => p.message.type === "load")).toHaveLength(1);
+  });
+});

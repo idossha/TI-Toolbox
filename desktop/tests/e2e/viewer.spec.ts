@@ -836,3 +836,132 @@ test("Open is one fast request, and the scene reaches the frame straight after i
   // is state and one postMessage. It must not wait on a re-fetch of the bundle or a remount.
   expect(postMs, `the scene took ${postMs} ms to reach the frame after the response`).toBeLessThan(1000);
 });
+
+// ── the first Open (VE, 2026-09-06) ──────────────────────────────────────────────────────────
+//
+// Reported: *"Open lands on Tetravox but the scene only appears after Reload."* The cause was in
+// `viewer/store.ts` and is written up there: the frame is mounted only once there is something to
+// show, so the first Open of a session calls `loadScene` while no channel exists and the scene can
+// only be delivered by the `ready` handler — and `disconnect()`, which React runs as the mount
+// effect's cleanup, used to null the pending scene out from under it. Reload "worked" only because
+// it called `loadScene` again with a channel already open.
+//
+// **The defect is dev-only, and this spec cannot catch it.** React's StrictMode (`main.tsx`)
+// double-invokes effects — mount, clean up, mount — in a DEVELOPMENT build and not in a production
+// one, and Playwright runs the production bundle. So `disconnect()` never ran between the Open and
+// the handshake here, and reintroducing the null leaves this test green (measured, not assumed).
+// The maintainer runs `npm run dev`, which is why he hit it on every first Open and the suite
+// never did.
+//
+// `tests/unit/viewer-store.test.ts` is therefore the test that pins the bug: it drives the
+// mount/cleanup/mount sequence directly and fails red with the null restored. What this one is
+// worth keeping for is the property, not the regression — a fresh app, one Open, one load message,
+// a scene on screen, and no Reload clicked anywhere.
+
+test("the first Open of a session draws the scene without a Reload", async () => {
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  await draftSimulation();
+
+  // Every `load` the page posts into the frame, counted at the source. `postMessage` is patched in
+  // the page rather than observed through the embed, so a scene that is never sent is a zero here
+  // instead of a timeout somewhere else.
+  await page.evaluate(() => {
+    const w = window as unknown as { __veLoads: number };
+    w.__veLoads = 0;
+    const proto = window.HTMLIFrameElement.prototype as unknown as { contentWindow: unknown };
+    const original = Object.getOwnPropertyDescriptor(proto, "contentWindow")!.get!;
+    Object.defineProperty(proto, "contentWindow", {
+      get(this: HTMLIFrameElement) {
+        const win = original.call(this) as Window | null;
+        if (win === null || (win as unknown as { __vePatched?: boolean }).__vePatched) return win;
+        const post = win.postMessage.bind(win);
+        (win as unknown as { __vePatched: boolean }).__vePatched = true;
+        win.postMessage = ((message: unknown, ...rest: unknown[]) => {
+          if ((message as { type?: string } | null)?.type === "load") w.__veLoads += 1;
+          return (post as (...a: unknown[]) => unknown)(message, ...rest);
+        }) as typeof win.postMessage;
+        return win;
+      },
+      configurable: true,
+    });
+  });
+
+  await pressOpen();
+  await expectSub("viewer");
+
+  // The scene is on screen: the embed reached a state it can only reach by having been given one,
+  // and the host is showing its layers. 2 s, and no Reload click anywhere in this test.
+  await expect(page.getByTestId("tetravox-host")).toBeVisible({ timeout: 2_000 });
+  await expect
+    .poll(async () => page.getByTestId("tetravox-host").getAttribute("data-viewer-status"), { timeout: 2_000 })
+    .not.toBe("idle");
+
+  const afterFirst = await page.evaluate(() => (window as unknown as { __veLoads: number }).__veLoads);
+  expect(afterFirst, `the first Open sent ${afterFirst} load messages`).toBe(1);
+
+  // A second Open replaces it with exactly one more.
+  await gotoSub("menu");
+  const rows = await rowNames();
+  await page.getByTestId(`viewer-file-remove-${rows[rows.length - 1]!}`).click();
+  await expect.poll(rowNames).toHaveLength(rows.length - 1);
+  await pressOpen();
+  await expectSub("viewer");
+  await expect
+    .poll(async () => page.evaluate(() => (window as unknown as { __veLoads: number }).__veLoads), { timeout: 5_000 })
+    .toBe(2);
+});
+
+// ── the rail group (VE, 2026-09-06) ──────────────────────────────────────────────────────────
+
+test("only the active sub-item is highlighted, never the group row with it", async () => {
+  // The sub-items exist only where the rail carries labels (>= 1440, `NavRail.tsx`).
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  const group = page.getByTestId("nav-item-viewer");
+  const menu = page.getByTestId("nav-subitem-viewer-menu");
+  if ((await menu.count()) === 0) test.skip(true, "the icon rail draws no sub-items below 1440");
+
+  await expect(menu).toHaveAttribute("aria-current", "page");
+  // The group is not the page — it is what the page is inside. Two lit rows for one screen is a
+  // rail that cannot be read at a glance.
+  await expect(group, "the group row is highlighted together with its sub-item").not.toHaveAttribute("aria-current", "page");
+  await expect(group).toHaveAttribute("data-contains-active", "true");
+});
+
+test("the group collapses, remembers it, and its label still opens Menu", async () => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  const chevron = page.getByTestId("nav-chevron-viewer");
+  if ((await chevron.count()) === 0) test.skip(true, "the icon rail draws no sub-items below 1440");
+  const menu = page.getByTestId("nav-subitem-viewer-menu");
+
+  await expect(chevron).toHaveAttribute("aria-expanded", "true");
+  await expect(menu).toBeVisible();
+
+  await chevron.click();
+  await expect(chevron).toHaveAttribute("aria-expanded", "false");
+  await expect(menu, "collapsing hid nothing").toBeHidden();
+  // Collapsed, the chevron is what says the group can be opened again.
+  await expect(chevron).toBeVisible();
+  // The list it controls is named, so the state is announced rather than merely drawn.
+  const controls = await chevron.getAttribute("aria-controls");
+  expect(controls).toBe("nav-subitems-viewer");
+
+  // The label is still a link to the group's first sub-item — collapsing is not disabling.
+  await page.getByTestId("nav-item-viewer").click();
+  await expectSub("menu");
+  await expect(chevron, "navigating re-expanded the group").toHaveAttribute("aria-expanded", "false");
+
+  // Remembered across a reload of the renderer.
+  await page.reload();
+  await expect(page.getByTestId("nav-chevron-viewer")).toHaveAttribute("aria-expanded", "false", { timeout: 20_000 });
+
+  await page.getByTestId("nav-chevron-viewer").click();
+  await expect(page.getByTestId("nav-subitem-viewer-menu")).toBeVisible();
+});

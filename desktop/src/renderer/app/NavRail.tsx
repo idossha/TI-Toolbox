@@ -1,5 +1,6 @@
-import { useEffect, useState, type ReactElement } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { useCallback, useEffect, useState, type ReactElement } from "react";
+import { Link, NavLink, useLocation } from "react-router-dom";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { pageById, pagePath, useNavSections } from "./registry";
 import { isMac } from "./keyboard";
 import { Tooltip } from "../ui/Overlay";
@@ -57,6 +58,32 @@ function useLabelledRail(): boolean {
  * "Subject" heading that printed a subject id above pages the subject did not own.
  */
 
+/**
+ * Which groups the user has collapsed, remembered per browser.
+ *
+ * A per-viewer convenience, so `localStorage` is the right home and a throw is not worth a state:
+ * a private window, cleared site data or a browser that blocks storage just means every group
+ * starts expanded, which is the default anyway.
+ */
+const COLLAPSED_KEY = "tit.nav.collapsed";
+
+function readCollapsed(): string[] {
+  try {
+    const raw = JSON.parse(window.localStorage.getItem(COLLAPSED_KEY) ?? "[]") as unknown;
+    return Array.isArray(raw) ? raw.filter((id): id is string => typeof id === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeCollapsed(ids: string[]): void {
+  try {
+    window.localStorage.setItem(COLLAPSED_KEY, JSON.stringify(ids));
+  } catch {
+    /* storage unavailable — the rail still works, it just forgets */
+  }
+}
+
 /** `aria-keyshortcuts` wants key names, not glyphs. */
 function ariaShortcut(shortcut: string | undefined): string | undefined {
   if (!shortcut) return undefined;
@@ -74,6 +101,16 @@ export function NavRail() {
   // today, and the width rule above is why.
   const forced = pageById(location.pathname.replace(/^\//, "").split("/")[0] ?? "")?.railMode === "icons";
   const icons = forced || !labelled;
+  const activePageId = location.pathname.replace(/^\//, "").split("/")[0] ?? "";
+
+  const [collapsed, setCollapsed] = useState<string[]>(readCollapsed);
+  const toggleCollapsed = useCallback((id: string) => {
+    setCollapsed((current) => {
+      const next = current.includes(id) ? current.filter((x) => x !== id) : [...current, id];
+      writeCollapsed(next);
+      return next;
+    });
+  }, []);
 
   return (
     <nav
@@ -97,13 +134,31 @@ export function NavRail() {
           <div className="nav-section">
             {section.pages.map((page) => {
               const Icon = page.icon;
-              const row: ReactElement = (
+              const hasSubs = !icons && (page.subNav?.length ?? 0) > 0;
+              const containsActive = hasSubs && page.id === activePageId;
+              const isCollapsed = collapsed.includes(page.id);
+              const listId = `nav-subitems-${page.id}`;
+
+              // A group row is a plain `Link`, not a `NavLink`, and that is the point: `NavLink`
+              // would set `aria-current="page"` (and with it the full highlight) on "Viewer" while
+              // the user is on "Menu", so two rows would be lit for one page. The group is not the
+              // page — it is the thing the page is inside. It gets `data-contains-active`, which
+              // `shell.css` renders as a quiet mark, and never the page highlight.
+              const row: ReactElement = hasSubs ? (
+                <Link
+                  to={pagePath(page)}
+                  className="nav-item"
+                  aria-label={page.title}
+                  aria-keyshortcuts={ariaShortcut(page.shortcut)}
+                  data-testid={`nav-item-${page.id}`}
+                  data-contains-active={containsActive ? "true" : undefined}
+                >
+                  <Icon size={16} aria-hidden />
+                  <span className="nav-label">{page.title}</span>
+                </Link>
+              ) : (
                 <NavLink
                   to={pagePath(page)}
-                  // `end={false}`: with sub-items the page's own row stays lit while one of them
-                  // is open, so the rail says which *area* of the app you are in as well as which
-                  // row you pressed. NavLink's default would un-light it the moment you moved to
-                  // the second sub-item, and the Viewer would look closed while it was on screen.
                   className="nav-item"
                   aria-label={page.title}
                   aria-keyshortcuts={ariaShortcut(page.shortcut)}
@@ -121,28 +176,53 @@ export function NavRail() {
               // Not rendered in the icon rail: at 56px there is no room for an indent and a label,
               // and two unlabelled dots under one icon say nothing. Below 1440 the sub-items are
               // reached from the page itself and from the palette, which both still list them.
-              const subs =
-                !icons && page.subNav && page.subNav.length > 0 ? (
-                  <div className="nav-subitems" key={`${page.id}-subs`}>
-                    {page.subNav.map((sub) => (
-                      <NavLink
-                        key={sub.id}
-                        to={`/${page.id}/${sub.id}`}
-                        className="nav-subitem"
-                        data-testid={`nav-subitem-${page.id}-${sub.id}`}
-                      >
-                        <span className="nav-label">{sub.title}</span>
-                      </NavLink>
-                    ))}
-                  </div>
-                ) : null;
+              const subs = hasSubs ? (
+                <div className="nav-subitems" id={listId} key={`${page.id}-subs`} hidden={isCollapsed}>
+                  {page.subNav!.map((sub) => (
+                    <NavLink
+                      key={sub.id}
+                      to={`/${page.id}/${sub.id}`}
+                      className="nav-subitem"
+                      data-testid={`nav-subitem-${page.id}-${sub.id}`}
+                    >
+                      <span className="nav-label">{sub.title}</span>
+                    </NavLink>
+                  ))}
+                </div>
+              ) : null;
+
+              // The chevron is a separate control from the link, not a click target inside it: a
+              // <button> nested in an <a> is invalid, and more to the point "go to this page" and
+              // "show me what is under it" are two different intents. Clicking the label still
+              // opens the group's first sub-item; only the chevron collapses.
+              const chevron = hasSubs ? (
+                <button
+                  type="button"
+                  className="nav-chevron"
+                  aria-expanded={!isCollapsed}
+                  aria-controls={listId}
+                  aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${page.title}`}
+                  data-testid={`nav-chevron-${page.id}`}
+                  onClick={() => toggleCollapsed(page.id)}
+                >
+                  {isCollapsed ? <ChevronRight size={14} aria-hidden /> : <ChevronDown size={14} aria-hidden />}
+                </button>
+              ) : null;
+
               return icons ? (
                 <Tooltip key={page.id} label={page.title}>
                   {row}
                 </Tooltip>
               ) : (
                 <div key={page.id} className="nav-row">
-                  {row}
+                  {chevron === null ? (
+                    row
+                  ) : (
+                    <div className="nav-group-row">
+                      {row}
+                      {chevron}
+                    </div>
+                  )}
                   {subs}
                 </div>
               );
