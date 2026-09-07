@@ -154,6 +154,12 @@ test("the Results pane renders that run's inputs, numbers, clusters and files", 
   test.setTimeout(120_000);
   await gotoPage(page, "results", "Results");
   await expectPage(page, "results");
+  // The subject list re-renders as each subject's catalog lands, so the `Group` row can be
+  // detached mid-click on a real project; wait for the last subject's own count first.
+  await expect(page.getByTestId("results-subject-Group")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("results-subject-MNI152").locator(".results-subject-count")).toBeVisible({
+    timeout: 30_000,
+  });
   await page.getByTestId("results-subject-Group").click();
   const node = page.getByTestId(`results-node-analysis:Group:stats/${ANALYSIS_NAME}`);
   await expect(node).toBeVisible({ timeout: 30_000 });
@@ -189,6 +195,9 @@ test("the Results pane renders that run's inputs, numbers, clusters and files", 
 test("an existing Thalamus analysis reads as key numbers, not a 22-row metric dump", async () => {
   test.setTimeout(120_000);
   await gotoPage(page, "results", "Results");
+  await expect(page.getByTestId("results-subject-ernie").locator(".results-subject-count")).toBeVisible({
+    timeout: 30_000,
+  });
   await page.getByTestId("results-subject-ernie").click();
   const node = page
     .getByTestId("results-tree")
