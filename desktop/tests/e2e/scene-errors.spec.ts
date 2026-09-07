@@ -54,9 +54,10 @@ for (const endpoint of ["manifest", "surface"] as const) {
       await panel.getByRole("button", { name: "Retry 3D preview" }).click();
       await expect(panel.getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready", { timeout: 15_000 });
       expect(requests).toBeGreaterThan(afterFirstRound);
-      // The renderer's own per-surface opacity controls — proof the canvas mounted with both parts.
+      // The renderer's own opacity chrome — proof the canvas mounted. The skin is the only surface
+      // with a slider; the grey matter is always opaque (maintainer, 2026-09-06).
       await expect(panel.getByRole("slider", { name: "Skin opacity", exact: true })).toBeEnabled();
-      await expect(panel.getByRole("slider", { name: "GM opacity", exact: true })).toBeEnabled();
+      await expect(panel.getByRole("slider", { name: "GM opacity", exact: true })).toHaveCount(0);
     } finally {
       await page?.unrouteAll({ behavior: "wait" });
       await app.close();

@@ -8,17 +8,26 @@
  *
  * ## Draw order, and why
  *
- * Two nested translucent shells and a set of markers that sit ON the outer one:
+ * Nested shells and a set of markers that sit ON the outer one:
  *
- *  1. The **second-nearest sheet** of every surface, outermost first, depth test on, write OFF.
- *  2. The **nearest sheet** of every surface, innermost first, depth test on, write OFF.
- *  3. A **depth-only pre-pass** of every surface, both faces, colour writes off and depth writes
+ *  1. Every **opaque** surface (opacity 1), one plain draw each, blending off, depth test and
+ *     depth WRITE on — so it hides its own inner sheets and everything behind it.
+ *  2. The **second-nearest sheet** of every translucent surface, outermost first, depth test on
+ *     (against 1), write OFF.
+ *  3. The **nearest sheet** of every translucent surface, innermost first, depth test on, write OFF.
+ *  4. A **depth-only pre-pass** of every surface, both faces, colour writes off and depth writes
  *     on, pushed `MARKER_OCCLUSION_BIAS_MM` away from the eye.
- *  4. **Markers**, depth-tested against that, depth write on.
+ *  5. **Markers**, depth-tested against that, depth write on.
+ *
+ * Step 1 exists because opacity 1 was not enough on its own: the sheet path weights alpha by a
+ * fresnel term (`alpha * (0.42 + 0.58 * fresnel)`), so a face-on fragment of a surface asked to be
+ * opaque was drawn at alpha 0.42 and the sheets behind it showed through — the grey matter's inner
+ * layers reading through its outer surface (maintainer, 2026-09-06). It is also the cheap path: one
+ * draw instead of five.
  *
  * ## Resolving sheets before blending (2026-09-06)
  *
- * Steps 1 and 2 used to be *"back faces, then front faces"* — `cullFace(FRONT)` then
+ * Steps 2 and 3 used to be *"back faces, then front faces"* — `cullFace(FRONT)` then
  * `cullFace(BACK)`, which is exact only for a closed shell whose triangles are all wound outward.
  * Neither of ours is: SimNIBS' grey matter is a folded, partly inward-wound open surface, so a
  * single culled draw rasterises **every** triangle the ray crosses inside a gyrus and blends them
@@ -280,10 +289,17 @@ ${
   }
   float lambert = max(dot(N, L), 0.0);
   // Silhouette boost: a constant-alpha shell reads as fog, a fresnel-weighted one reads as a
-  // surface with an edge, which is what makes two nested shells legible at 0.22 and 0.55 opacity.
+  // surface with an edge, which is what makes a translucent shell legible at 0.22 opacity.
   float fresnel = pow(1.0 - abs(dot(N, V)), 1.6);
   vec3 shaded = color * (0.30 + 0.70 * lambert) + vec3(0.09) * fresnel;
-  float a = solid ? max(alpha, 0.92) : clamp(alpha * (0.42 + 0.58 * fresnel), 0.0, 1.0);
+  // The "none" variant IS the opaque path: fully opaque, whatever uOpacity says. The fresnel
+  // weighting below multiplies a face-on fragment's alpha by 0.42, so a surface asked to be
+  // opaque still showed the sulcal walls behind it — the bleed-through the grey matter had.
+${
+  sheet === "none"
+    ? "  float a = 1.0;"
+    : "  float a = solid ? max(alpha, 0.92) : clamp(alpha * (0.42 + 0.58 * fresnel), 0.0, 1.0);"
+}
   if (uUseLabels) {
     // The selection outline: the 0.5 contour of vSelect, drawn EDGE_PX wide in screen space.
     //
@@ -1190,17 +1206,13 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       gl.enable(gl.BLEND);
       gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
-      // 1 + 2. surfaces, back faces outermost-first then front faces innermost-first, on an empty
-      //        depth buffer and writing none, so every shell shows through every other one.
       const list = ordered();
-      gl.depthMask(false);
       gl.activeTexture(gl.TEXTURE0 + UNIT_LABEL_STATE);
       gl.bindTexture(gl.TEXTURE_2D, labelTexture);
       gl.activeTexture(gl.TEXTURE0 + UNIT_LABEL_COLOR);
       gl.bindTexture(gl.TEXTURE_2D, labelColorTexture);
-      // Both surface programs read the same units and the same palette; the sheet one is the only
-      // one that draws here, and the plain one is bound so a caller that reads its uniforms (or a
-      // future opaque path) sees the same state.
+      // All three surface programs read the same units and the same palette, so a pass never has
+      // to remember what another one bound.
       for (const program of [surfaceProgram, surfaceNearProgram, surfacePeelProgram]) {
         bindSurfaceCommon(program, vp, view);
         setUniform1i(program, "uLabelState", UNIT_LABEL_STATE);
@@ -1209,12 +1221,40 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
         setUniform3f(program, "uHoverColor", palette.hover);
         setUniform3f(program, "uDimColor", palette.dim);
       }
-      // Phase 1 — the far sheet of every surface, outermost first; phase 2 — the near sheet,
-      // innermost first. Back-to-front for nested shells, with the sheet itself resolved by depth
-      // rather than by winding (§"Resolving sheets").
+      // A surface at full opacity takes the plain opaque path instead of the sheet machinery: one
+      // draw, depth written and depth-tested against itself, no blending. Two things depend on it.
+      // The sheet path's fresnel weighting multiplies a face-on fragment's alpha by 0.42, so a
+      // surface asked for opacity 1 still showed what was behind it — the grey matter's sulcal
+      // walls read through its own outer surface. And the depth this pass writes is what makes a
+      // translucent shell outside it (the skin) disappear where the opaque one covers it.
+      const isOpaque = (uploaded: UploadedPart): boolean =>
+        (opacity.get(uploaded.part.id) ?? uploaded.part.opacity) >= 1;
+      const opaqueParts = list.filter(isOpaque);
+      const translucent = list.filter((uploaded) => !isOpaque(uploaded));
+
+      // 1. the opaque surfaces, innermost first (order is irrelevant here — the depth buffer
+      //    decides), writing depth.
+      gl.depthMask(true);
+      gl.disable(gl.BLEND);
+      gl.useProgram(surfaceProgram.program);
+      for (const uploaded of opaqueParts) {
+        setUniform3f(surfaceProgram, "uBaseColor", uploaded.part.color);
+        setUniform1f(surfaceProgram, "uOpacity", 1);
+        setUniform1i(surfaceProgram, "uUseLabels", uploaded.hasLabels ? 1 : 0);
+        // Both faces: neither of our surfaces is reliably wound, so culling would punch holes in a
+        // folded gyrus. Depth resolves the sheet instead, exactly as in the translucent path.
+        drawSurface(uploaded, surfaceProgram, null);
+      }
+      gl.enable(gl.BLEND);
+      gl.depthMask(false);
+
+      // 2 + 3. the translucent surfaces: phase 1 the far sheet of each, outermost first; phase 2
+      //        the near sheet, innermost first. Back-to-front for nested shells, with the sheet
+      //        itself resolved by depth rather than by winding (§"Resolving sheets"). Depth writes
+      //        are off, but the depth TEST is on, so the opaque pass above occludes them.
       const phases: Array<{ items: UploadedPart[]; level: 0 | 1 }> = [
-        { items: [...list].reverse(), level: 1 },
-        { items: list, level: 0 },
+        { items: [...translucent].reverse(), level: 1 },
+        { items: translucent, level: 0 },
       ];
       for (const phase of phases) {
         for (const uploaded of phase.items) {

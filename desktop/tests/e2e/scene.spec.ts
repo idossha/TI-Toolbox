@@ -32,6 +32,7 @@ import {
   screenRay,
   type OrbitCamera,
 } from "../../src/renderer/scene/camera";
+import { SCENE_PALETTE } from "../../src/renderer/scene/palette";
 
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
 const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
@@ -117,6 +118,10 @@ async function canvasBox(target: Page): Promise<{ x: number; y: number; width: n
 /** The skin fixture's semi-axes (`FIXTURE_SKIN`). The 36 markers sit on 1.03x this ellipsoid, so
  *  this shell is what has to hide the ones on the far side of the head. */
 const SKIN_R = [78, 98, 88] as const;
+
+/** The outer shell of the "folded" fixture (`FIXTURE_FOLDED`); `FIXTURE_FOLDED_INNER` (42x54x46)
+ *  sits inside it, in the same part. */
+const FOLDED_GM_R = [64, 82, 70] as const;
 
 /**
  * How far along a ray the scalp shell is first met, or `null` when the ray misses it.
@@ -988,4 +993,147 @@ test("what the eye can no longer see, the cursor can no longer hit", async () =>
   await expect
     .poll(async () => (await readScene(page)).selection.markers, { timeout: 5000 })
     .toEqual([visible.index]);
+});
+
+/**
+ * The colour the surface shader must produce at a pixel, computed from geometry alone.
+ *
+ * The ray through the pixel meets the ellipsoid at `p`; the outward normal of an ellipsoid there is
+ * `p / r^2`, normalised. The shader's light is a head light fixed in VIEW space, so the normal is
+ * rotated into that basis (x = right, y = up, z = towards the eye) before the Lambert term, while
+ * the fresnel term uses |N.V|, which is basis-free. The whole model is
+ *
+ *   shaded = colour * (0.30 + 0.70 * max(dot(N_view, normalize(0.32, 0.38, 1.0)), 0)) + 0.09 * fresnel
+ *
+ * and an OPAQUE fragment is written to the buffer as exactly that — nothing behind it contributes.
+ * Returns null where the ray misses.
+ */
+function opaqueSurfaceColor(
+  camera: OrbitCamera,
+  radii: readonly [number, number, number],
+  color: readonly [number, number, number],
+  xCss: number,
+  yCss: number,
+  widthCss: number,
+  heightCss: number,
+): [number, number, number] | null {
+  const { origin, direction } = screenRay(camera, xCss, yCss, widthCss, heightCss);
+  const dot3 = (a: readonly number[], b: readonly number[]) =>
+    (a[0] as number) * (b[0] as number) + (a[1] as number) * (b[1] as number) + (a[2] as number) * (b[2] as number);
+  const unit = (v: readonly number[]): [number, number, number] => {
+    const len = Math.hypot(v[0] as number, v[1] as number, v[2] as number);
+    return [(v[0] as number) / len, (v[1] as number) / len, (v[2] as number) / len];
+  };
+  const o = [0, 1, 2].map((i) => (origin[i] as number) / (radii[i] as number));
+  const d = [0, 1, 2].map((i) => (direction[i] as number) / (radii[i] as number));
+  const a = dot3(d, d);
+  const b = 2 * dot3(o, d);
+  const c = dot3(o, o) - 1;
+  const disc = b * b - 4 * a * c;
+  if (disc <= 0) return null;
+  const t = (-b - Math.sqrt(disc)) / (2 * a); // the near root: the eye is outside the shell
+  if (t <= 0) return null;
+  const p = [0, 1, 2].map((i) => ((o[i] as number) + t * (d[i] as number)) * (radii[i] as number));
+  const n = unit([0, 1, 2].map((i) => (p[i] as number) / (radii[i] as number) ** 2));
+  const { right, up, forward, eye } = cameraBasis(camera);
+  const nView = [dot3(n, right), dot3(n, up), -dot3(n, forward)];
+  const light = unit([0.32, 0.38, 1.0]);
+  const lambert = Math.max(dot3(nView, light), 0);
+  const view = unit([0, 1, 2].map((i) => (eye[i] as number) - (p[i] as number)));
+  const fresnel = (1 - Math.abs(dot3(n, view))) ** 1.6;
+  return [0, 1, 2].map((i) => Math.round(255 * ((color[i] as number) * (0.3 + 0.7 * lambert) + 0.09 * fresnel))) as [
+    number,
+    number,
+    number,
+  ];
+}
+
+test("an opaque surface shows only its outer sheet — no inner layer bleeds through", async () => {
+  // The maintainer's report (2026-09-06): *"the surface still looks like it has some transparency…
+  // we can see the different layers of the gray matter"*. Setting the opacity to 1 was not enough:
+  // the sheet path weights every fragment's alpha by a fresnel term (`a = alpha * (0.42 + 0.58 *
+  // fresnel)`), so a face-on fragment of a surface asked for opacity 1 was drawn at alpha 0.42 and
+  // the sheets behind it showed through. The fix is a plain opaque pass — depth written, depth
+  // tested, no blending — for a surface at opacity 1.
+  //
+  // The fixture is "folded": ONE part built from two nested ellipsoid shells (64x82x70 outside,
+  // 42x54x46 inside) with half the triangles wound inward, so a ray through the pane crosses four
+  // sheets. Every pixel sampled below is inside the INNER shell's silhouette — the interior-layer
+  // samples — and each must be the outer shell's own lit colour to the byte.
+  await connect(page);
+  await openGalleryScene(page);
+  await page.getByRole("radiogroup", { name: "Fixture size" }).getByRole("radio", { name: "folded" }).click();
+  await page.getByRole("radiogroup", { name: "Camera preset" }).getByRole("radio", { name: "F", exact: true }).click();
+  await page.waitForFunction(() => window.__scene?.camera.settled === true, null, { timeout: 10_000 });
+
+  // The skin is taken to alpha 0 so this measures the grey matter alone: a translucent shell in
+  // front of it would compose over every sample and no closed form could be written down.
+  const skin = page.getByRole("slider", { name: "Skin opacity", exact: true });
+  await skin.focus();
+  await page.keyboard.press("Home");
+  const gm = page.getByRole("slider", { name: "GM opacity", exact: true });
+  await gm.focus();
+  await page.keyboard.press("Home"); // 0 %: the control frame, where the inner sheets ARE visible.
+  await expect(gm).toHaveAttribute("aria-valuenow", "0");
+
+  const state = await readScene(page);
+  const { widthCss, heightCss } = state.canvas;
+  // Well inside the inner shell's silhouette, and clear of the vertical seam down the middle where
+  // `foldInnerHalf` flips the winding: the two halves' vertex normals genuinely differ there, so a
+  // sample on the seam would be testing the fixture's geometry rather than the renderer's blending.
+  const points: Array<[number, number]> = [
+    [Math.round(widthCss * 0.6), Math.round(heightCss * 0.4)],
+    [Math.round(widthCss * 0.6), Math.round(heightCss * 0.5)],
+    [Math.round(widthCss * 0.6), Math.round(heightCss * 0.6)],
+    [Math.round(widthCss * 0.4), Math.round(heightCss * 0.5)],
+    [Math.round(widthCss * 0.4), Math.round(heightCss * 0.6)],
+  ];
+  const sample = async (): Promise<number[][]> => {
+    const read = await page.evaluate((pts) => window.__scene?.samplePixels(pts, false) ?? null, points);
+    if (!read) throw new Error("samplePixels returned null — no renderer or no camera");
+    return read as number[][];
+  };
+  // Both surfaces translucent: 5 draws each for the two sheet phases, plus the two-surface marker
+  // depth pre-pass and one instanced marker draw.
+  const translucentDrawCalls = (await readScene(page)).stats.drawCalls;
+  const transparent = await sample();
+
+  await gm.focus();
+  await page.keyboard.press("End"); // 100 %
+  await expect(gm).toHaveAttribute("aria-valuenow", "100");
+  // …and the peel machinery is bypassed for the opaque surface: ONE draw call for it instead of
+  // five, so 13 becomes 9. Read before `sample()`, which renders its own frame without the markers.
+  const opaqueDrawCalls = (await readScene(page)).stats.drawCalls;
+  const opaque = await sample();
+
+  const expected = points.map(([x, y]) =>
+    opaqueSurfaceColor(state.camera, FOLDED_GM_R, SCENE_PALETTE.gm, x, y, widthCss, heightCss),
+  );
+
+  points.forEach(([x, y], i) => {
+    console.log(
+      `SCENE-OPAQUE (${x}, ${y}) opaque=${(opaque[i] as number[]).slice(0, 3).join(",")} ` +
+        `expected=${(expected[i] ?? []).join(",")} transparent(control)=${(transparent[i] as number[]).slice(0, 3).join(",")}`,
+    );
+  });
+
+  for (let i = 0; i < points.length; i += 1) {
+    const want = expected[i];
+    expect(want, `the ray through ${points[i]!.join(", ")} must hit the grey matter`).not.toBeNull();
+    for (let c = 0; c < 3; c += 1) {
+      expect(
+        Math.abs((opaque[i]![c] as number) - (want![c] as number)),
+        `sample ${i} channel ${c}: an opaque surface must be its own lit colour, not a blend with the sheets behind it`,
+      ).toBeLessThanOrEqual(2);
+    }
+    // The control: the same pixels with the surface translucent are a different colour entirely —
+    // proof the sampler reads the frame and that the assertion above is not true of any rendering.
+    expect(
+      Math.max(...[0, 1, 2].map((c) => Math.abs((opaque[i]![c] as number) - (transparent[i]![c] as number)))),
+      `sample ${i}: the translucent control frame must differ from the opaque one`,
+    ).toBeGreaterThan(10);
+  }
+
+  expect(translucentDrawCalls).toBe(13);
+  expect(opaqueDrawCalls).toBe(9);
 });

@@ -16,6 +16,7 @@ import {
   markerIndicesFor,
   markersFromElectrodes,
   placedElectrodes,
+  DEFAULT_OPACITY,
   regionCentroids,
   regionKey,
   regionsFromWireLabels,
@@ -245,5 +246,15 @@ describe("the Terminal · Scene tab rule (S7)", () => {
     expect(hasActiveJob(jobs("sim", "succeeded"), ["sim"])).toBe(false);
     expect(hasActiveJob(jobs("flex", "running"), ["sim"])).toBe(false);
     expect(hasActiveJob(jobs("flex", "running"), ["flex", "ex", "mex"])).toBe(true);
+  });
+});
+
+describe("surface opacity defaults", () => {
+  it("offers a default for the skin only — the grey matter is always opaque", () => {
+    // The slider is driven off this map, and a `gm` entry here would both bring the control back
+    // and give a page-session a translucent value to remember (maintainer, 2026-09-06).
+    expect(DEFAULT_OPACITY.skin).toBeGreaterThan(0);
+    expect(DEFAULT_OPACITY.skin).toBeLessThan(1);
+    expect(Object.keys(DEFAULT_OPACITY)).toEqual(["skin"]);
   });
 });

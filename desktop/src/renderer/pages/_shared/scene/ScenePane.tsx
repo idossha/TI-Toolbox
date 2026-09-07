@@ -270,7 +270,10 @@ export function ScenePane({
         indices: gmData.indices,
         labels: alignment.aligned ? (labelData?.labels ?? null) : null,
         color: SCENE_PALETTE.gm,
-        opacity: effectiveAtlas ? 0.92 : (DEFAULT_OPACITY.gm ?? 0.55),
+        // Always fully opaque, with no slider: the cortex is the anatomy being aimed at, not a
+        // veil over something behind it.
+        opacity: 1,
+        opacityLocked: true,
         order: 0,
       });
     }
@@ -289,7 +292,7 @@ export function ScenePane({
       });
     }
     return out.length > 0 ? out : NO_PARTS;
-  }, [gmData, skinData, labelData, alignment.aligned, effectiveAtlas, gesture]);
+  }, [gmData, skinData, labelData, alignment.aligned, gesture]);
 
   const box6 = (box: number[] | null | undefined): Bounds | undefined =>
     box && box.length === 6 ? (box as Bounds) : undefined;

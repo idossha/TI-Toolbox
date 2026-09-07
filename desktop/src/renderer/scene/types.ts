@@ -22,8 +22,11 @@ export interface ScenePart {
   /** Precomputed normals. Omit and the renderer computes them once on upload. */
   normals?: Float32Array | null;
   color: Rgb;
-  /** 0..1. The per-surface opacity control writes this. */
+  /** 0..1. The per-surface opacity control writes this, unless `opacityLocked`. */
   opacity: number;
+  /** Fixed at `opacity`: no slider is offered and no page-session value can override it. The grey
+   *  matter is locked opaque — it is the anatomy being aimed at, not a veil over something else. */
+  opacityLocked?: boolean;
   /**
    * Painter's order, smallest first. Two nested translucent shells are drawn inner-then-outer with
    * depth writes off; drawn the other way round the outer shell's fragments reject the inner one's

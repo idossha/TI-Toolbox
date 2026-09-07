@@ -72,9 +72,10 @@ export const SCENE_PALETTE: ScenePalette = {
   ],
 };
 
-/** Default surface opacities. The skin is faint because its job is to give the electrodes a
- *  surface to sit on, not to be looked at; the grey matter is the anatomy the user is aiming at. */
-export const DEFAULT_OPACITY: Record<string, number> = { skin: 0.22, gm: 0.55 };
+/** Default surface opacities, for the surfaces that have an opacity control. The skin is faint
+ *  because its job is to give the electrodes a surface to sit on, not to be looked at. The grey
+ *  matter is deliberately absent: it is the anatomy the user is aiming at and is always opaque. */
+export const DEFAULT_OPACITY: Record<string, number> = { skin: 0.22 };
 
 /** Marker diameter in CSS pixels. 11 px is comfortably clickable (the WCAG 2.2 target-size floor
  *  is 24 px including spacing, and electrodes on a 10-10 net are ~20 px apart at the default
