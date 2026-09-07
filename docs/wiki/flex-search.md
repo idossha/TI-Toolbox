@@ -39,7 +39,7 @@ The interface provides comprehensive controls for:
 
 ### Defining the ROI
 
-The ROI picker (`ROIPickerWidget`, `tit/gui/components/roi_picker.py`) is shared across flex-search, ex-search, and the analyzer. In flex-search it appears twice -- once for the ROI, once for the optional "Specific Region" non-ROI described [below](#non-roi-definition-methods) -- as a radio row with three modes:
+The ROI picker (`desktop/src/renderer/pages/_shared/roi/`, backed by `tit/opt/roi_spec.py`) is shared across flex-search, ex-search, and the analyzer. In flex-search it appears twice -- once for the ROI, once for the optional "Specific Region" non-ROI described [below](#non-roi-definition-methods) -- as a radio row with three modes:
 
 - **Cortical** (default): pick regions from a FreeSurfer `.annot` atlas. An Atlas combo selects the parcellation, and "List Regions" opens a finder that lists regions from both hemispheres by name. Selected regions become removable chips keyed by hemisphere-prefixed name (e.g. `lh.precentral`) -- there is no separate hemisphere selector, so a single target can span both hemispheres from this one page.
 - **Subcortical**: pick regions from a volumetric atlas. A Subject/MNI "Atlas Space" radio pair (Subject default) selects the coordinate space, a Tissue Type combo (GM / WM / GM+WM) sets the tissue restriction, and a Volume Atlas combo selects the atlas. "List Regions" adds selections as removable chips keyed by integer label id.

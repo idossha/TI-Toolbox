@@ -32,14 +32,11 @@ tit.analyzer
 
 tit.config_io
   +-- depends on: tit.opt.config (ROI/electrode types), tit.sim.config (LabelMontage, XYZMontage)
-  +-- used by: GUI tabs to serialize configs to JSON for subprocess calls
+  +-- used by: tit.server job submission and every module's __main__ runner
 
-tit.gui
-  +-- tit.gui.main       (MainWindow — imports all tabs, paths, logger, style)
-  +-- tit.gui.*_tab      (each tab — depends on paths, config_io, Qt)
-  +-- tit.gui.style      (APP_STYLESHEET, build_stylesheet, WINDOW_WIDTH/HEIGHT)
-  +-- tit.gui.components (reusable widgets)
-  +-- tit.gui.extensions (plugin system — dynamically loaded .py files)
+tit.server
+  +-- FastAPI app the v3 Electron desktop app (desktop/) drives over HTTP
+  +-- replaced the PyQt5 tit.gui package, deleted in v3.0.0
 
 tit.stats
   +-- tit.stats.config       (GroupComparisonConfig)
@@ -57,11 +54,11 @@ tit.reporting
   +-- tit.reporting.reportlets.*      (text, images, metadata, references)
 ```
 
-## Config-to-JSON-to-Subprocess Pattern (GUI Tabs)
+## Config-to-JSON-to-Subprocess Pattern
 
-The GUI uses a consistent pattern for running heavy operations:
+The desktop app (via `tit.server`) uses a consistent pattern for running heavy operations:
 
-1. **Build config dataclass** in the tab (e.g., `FlexConfig`, `ExConfig`, or a plain dict for analyzer)
+1. **Build config dataclass** (e.g., `FlexConfig`, `ExConfig`, or a plain dict for analyzer)
 2. **Serialize to JSON** via `tit.config_io`:
    - `serialize_config(config)` converts dataclass to dict (handles Enums via `.value`, nested dataclasses recursively, union types via `_type` discriminator)
    - `write_config_json(config, prefix="flex")` writes to a temp file and returns the path
@@ -69,7 +66,6 @@ The GUI uses a consistent pattern for running heavy operations:
    - `simnibs_python -m tit.opt.flex config.json`
    - `simnibs_python -m tit.opt.ex config.json`
    - `simnibs_python -m tit.analyzer config.json`
-4. **SimulatorTab is the exception**: it calls `run_simulation()` directly in a QThread (no subprocess)
 
 The `_type` discriminator in `config_io` distinguishes union types during deserialization:
 - ROIs: `SphericalROI`, `AtlasROI`, `SubcorticalROI`
@@ -147,22 +143,14 @@ The `conftest.py` fixture `_reset_path_manager` is `autouse=True` and runs after
 
 **`add_stream_handler(logger_name="tit", level="INFO")`:**
 - Attaches a `StreamHandler(sys.stdout)` with minimal `%(message)s` format
-- Used by scripts and `__main__` entry points so `BaseProcessThread` can capture subprocess stdout for the GUI
+- Used by scripts and `__main__` entry points so the job runner can capture subprocess stdout
 
 **`get_file_only_logger(name, log_file, level="DEBUG")`:**
 - Returns a standalone logger that writes ONLY to a file (no console)
 - Clears any existing handlers, sets `propagate = False`
 - Used for per-ROI or per-run logging
 
-**GUI logging:** `_QtHandler(logging.Handler)` bridges logger signals to Qt console widgets (defined in GUI code, not in `tit/logger.py`).
-
-## GUI Threading Pattern
-
-- **QThread + signals:** Heavy operations run in QThread subclasses. Completion is signaled via Qt signals (e.g., `finished`, `analysis_completed`).
-- **Never `.wait()` on main thread:** All cleanup happens via `finished` signal connections, not blocking waits.
-- **`set_tab_busy()`:** `MainWindow.set_tab_busy(tab, busy, message, stop_btn)` disables all interactive widgets except the stop button and shows a status message. Re-enables on completion.
-- **SimulatorTab** runs `run_simulation()` directly in QThread (best pattern -- no subprocess overhead).
-- **Other tabs** (FlexSearch, ExSearch, Analyzer) serialize config to JSON and launch a subprocess via `BaseProcessThread`.
+**UI logging:** each job writes a log file; the desktop app streams it over `tit.server`'s HTTP API. There is no in-process UI logging handler in `tit/`.
 
 ## How to Add New Components
 
@@ -176,17 +164,11 @@ The `conftest.py` fixture `_reset_path_manager` is `autouse=True` and runs after
 4. Use existing reportlets from `tit/reporting/reportlets/` (text, images, metadata, references)
 5. Call `self.generate(output_path)` to produce HTML
 
-### New GUI Tab
-1. Create `tit/gui/my_tab.py` as a `QWidget` subclass
-2. Import and instantiate it in `tit/gui/main.py` inside `MainWindow.setup_ui()`
-3. Add to `self.tab_widget.addTab(self.my_tab, "My Tab")`
-4. For long operations: use QThread + signals, never block the main thread
-5. For subprocess-based work: use the config_io JSON pattern
-
-### New GUI Extension
-1. Create `tit/gui/extensions/my_extension.py`
-2. Define `EXTENSION_NAME = "My Extension"` at module level
-3. Create a `QWidget` subclass -- it will be auto-discovered and loadable via the Extensions button
+### New UI Page or Panel
+The interface lives in the Electron app (`desktop/`), not in `tit/`. Add the
+Python side as a config dataclass plus a `__main__.py` runner and a job kind in
+`tit.server`; the page or panel itself goes under
+`desktop/src/renderer/pages/`.
 
 ## Import Patterns (What Each __init__.py Exports)
 
@@ -215,11 +197,6 @@ Large files that require targeted line-range reads:
 
 | File | Lines | Notes |
 |------|-------|-------|
-| `tit/gui/analyzer_tab.py` | 2731 | Monolithic tab -- use line-range reads |
-| `tit/gui/ex_search_tab.py` | 2656 | Monolithic tab -- use line-range reads |
-| `tit/gui/simulator_tab.py` | 1907 | Large but more manageable |
-| `tit/gui/flex_search_tab.py` | 1725 | Large but more manageable |
-| `tit/gui/nifti_viewer_tab.py` | 1330 | Medium-large |
 | `tit/paths.py` | 462 | Moderate but dense -- many path methods |
 
 All other modules are under 700 lines.

@@ -1,9 +1,9 @@
 """Sub-cortical mesh export -- STL + MSH geometry, and a field-coloured PLY.
 
-The v2.5.0 GUI ran this inline on the Qt main thread
-(``tit/gui/extensions/visual_exporter.py``'s ``_run`` sub-cortical branch), so a
-long export froze the window and left no trace in any job list.  The code below
-is that branch, unchanged in every step that touches the filesystem -- the same
+The v2.5.0 PyQt GUI (since removed) ran this inline on its main thread, in the
+Visual Exporter extension's sub-cortical branch, so a long export froze the
+window and left no trace in any job list.  The code below is that branch,
+unchanged in every step that touches the filesystem -- the same
 ``extract_labels`` / ``nifti_to_mesh`` / ``nifti_to_field_ply`` calls in the same
 order, the same ``subcortical_<suffix>.{stl,msh,ply,nii.gz}`` names, the same
 ``clean_threshold=0.1`` -- lifted into a function a ``blender`` job can run.

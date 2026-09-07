@@ -62,7 +62,6 @@ tit/reporting/
 | Module | Status | Location |
 |--------|--------|----------|
 | Simulator (CLI) | ✅ Integrated | `tit/sim/simulator.py` |
-| Simulator (GUI) | ✅ Integrated | `tit/gui/simulator_tab.py` |
 | Flex-Search | ✅ Integrated | `tit/opt/flex/flex.py` |
 | Preprocessing | ✅ Integrated | `tit/pre/structural.py` |
 

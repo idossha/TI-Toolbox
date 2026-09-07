@@ -80,8 +80,8 @@ RUN mkdir -p /simnibs \
         /root/SimNIBS-4.6/simnibs_env/lib/python3.11/site-packages/gmsh-*.dist-info \
         /root/SimNIBS-4.6/simnibs_env/share/gmsh /root/SimNIBS-4.6/simnibs_env/share/doc/gmsh \
         /root/SimNIBS-4.6/simnibs_env/lib/python3.11/site-packages/simnibs_master/share/doc/gmsh \
-    # PyQt5 (202 MB) is reached only from simnibs/GUI and cli/postinstall_simnibs.py; tit's own
-    # Qt imports all live under tit.gui, which v3 does not ship. TMS coil models (41 MB) are a
+    # PyQt5 (202 MB) is reached only from simnibs/GUI and cli/postinstall_simnibs.py; tit itself
+    # imports no Qt at all (the PyQt GUI was deleted in v3). TMS coil models (41 MB) are a
     # data directory this TES-only toolbox never opens -- file_finder.coil_models is a path join.
     && rm -rf /root/SimNIBS-4.6/bin/simnibs_gui \
         /root/SimNIBS-4.6/simnibs_env/bin/simnibs_gui \

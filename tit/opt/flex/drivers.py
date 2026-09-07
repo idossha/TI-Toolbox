@@ -1,9 +1,9 @@
 """Multi-step flex-search drivers: adaptive focality and Pareto threshold sweeps.
 
-Extracted from the Qt orchestration logic in ``tit.gui.flex_search_tab``
-(``_start_mean_optimization`` / ``_run_adaptive_focality_step2`` /
-``_run_pareto_sweep_step2`` and friends), with two bugs from that
-implementation fixed along the way:
+Extracted from the orchestration logic of the former PyQt flex-search tab
+(its ``_start_mean_optimization`` / ``_run_adaptive_focality_step2`` /
+``_run_pareto_sweep_step2`` chain), with two bugs from that implementation
+fixed along the way:
 
 1. **Achievable intensity from the run's own result, not a filesystem scan.**
    The Qt version's fallback path

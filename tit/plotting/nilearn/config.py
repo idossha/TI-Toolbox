@@ -1,6 +1,6 @@
-"""Configuration dataclass for the Nilearn Visuals extension (owner: B4).
+"""Configuration dataclass for the Nilearn Visuals panel (owner: B4).
 
-Mirrors the fields ``tit/gui/extensions/nilearn_viz.py`` collects, so
+Mirrors the fields that panel collects, so
 :mod:`tit.config_io` can generate a JSON Schema for it and a future
 ``POST /api/jobs`` (kind ``"nilearn"``) can validate a request body before
 submitting the job. Pure Python -- no numpy/nibabel/nilearn dependency.

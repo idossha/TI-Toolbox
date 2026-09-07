@@ -1,7 +1,7 @@
 """Pure-Python ROI-spec resolution for flex-search targets.
 
-Extracted from :mod:`tit.gui.components.roi_picker` (``RoiPickerWidget``,
-lines 814-1529 as of the v3 audit): the parts of that widget that turn a
+Extracted from the former PyQt ``RoiPickerWidget`` (as of the v3 audit): the
+parts of that widget that turn a
 *selection* (an atlas display name + region names, a volume atlas path +
 integer labels, or explicit sphere centers/radii) into one of
 :class:`tit.opt.config.FlexConfig`'s nested ROI dataclasses
@@ -30,8 +30,6 @@ resolve_volume_label_names
 
 See Also
 --------
-tit.gui.components.roi_picker.RoiPickerWidget : The Qt widget this module's
-    logic was extracted from (still the source of truth for the GUI).
 tit.atlas.mesh.MeshAtlasManager : Cortical (.annot) atlas discovery.
 tit.atlas.voxel.VoxelAtlasManager : Volumetric atlas discovery.
 tit.opt.config.FlexConfig : Owner of the three nested ROI dataclasses this

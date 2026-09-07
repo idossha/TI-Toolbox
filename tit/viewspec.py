@@ -1,8 +1,8 @@
 """Declarative view specifications for the Freeview/Gmsh launchers.
 
-``build_view(kind, ...)`` reproduces the layer-building logic of
-``tit/gui/nifti_viewer_tab.py`` (single-subject: ``:961-1087``; group:
-``:832-959``; overlays: ``:1182-1254``) as a pure function returning a JSON-able
+``build_view(kind, ...)`` reproduces the layer-building logic of the former
+PyQt NIfTI viewer tab (single-subject, group and overlay layer stacks) as a
+pure function returning a JSON-able
 ``ViewSpec`` (``contracts/openapi.v1.yaml`` ``#/components/schemas/ViewSpec``)
 instead of driving Qt widgets and a subprocess directly. ``to_freeview_args``
 reproduces the argv grammar of ``launch_freeview_with_files``

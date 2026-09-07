@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ast
 import json
 import logging
 import os
@@ -539,40 +538,15 @@ def test_system_snapshot_shape(client: TestClient) -> None:
         assert len(proc["cmdline"]) <= 200
 
 
-def _qt_relevant_keywords() -> tuple[str, ...]:
-    """``SystemMonitorThread.relevant_keywords`` read with ``ast`` (no PyQt5 import)."""
-    source = (
-        Path(__file__).resolve().parents[1] / "tit" / "gui" / "system_monitor_tab.py"
-    )
-    tree = ast.parse(source.read_text(encoding="utf-8"))
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Assign) or len(node.targets) != 1:
-            continue
-        target = node.targets[0]
-        if (
-            isinstance(target, ast.Attribute)
-            and target.attr == "relevant_keywords"
-            and isinstance(node.value, ast.List)
-        ):
-            return tuple(ast.literal_eval(node.value))
-    raise AssertionError("relevant_keywords list not found in system_monitor_tab.py")
-
-
-def test_process_filter_matches_qt_list() -> None:
-    import sys
-
-    # tit.server.routes.system must import cleanly without pulling in PyQt5 (it runs inside the
-    # headless server container, which may not have Qt installed at all) -- captured *before* the
-    # import below so this stays meaningful even when an earlier test already loaded the real
-    # PyQt5 in this same process (test_gui_imports.py does, inside a container that has it): the
-    # assertion below only fails if importing tit.server.routes.system itself newly introduces
-    # PyQt5, not merely because some unrelated earlier test already had.
-    pyqt5_already_loaded = "PyQt5" in sys.modules
-
+def test_process_filter_matches_expected_tools() -> None:
+    """The keyword filter recognises the external tools TI-Toolbox actually spawns."""
     from tit.server.routes.system import RELEVANT_KEYWORDS, is_relevant_process
 
-    assert RELEVANT_KEYWORDS == _qt_relevant_keywords()
-    assert pyqt5_already_loaded or "PyQt5" not in sys.modules
+    # Every keyword the filter carries must be matched by is_relevant_process itself --
+    # the constant and the predicate cannot drift apart.
+    for keyword in RELEVANT_KEYWORDS:
+        assert is_relevant_process(keyword, "")
+
     assert is_relevant_process("simnibs_python", "-m tit.sim cfg.json")
     assert is_relevant_process("", "/opt/fastsurfer/run_fastsurfer.sh --sid x")
     assert is_relevant_process("mri_convert", "")

@@ -1,9 +1,8 @@
 #!/usr/bin/env simnibs_python
 """Unit tests for tit.analyzer.spheres -- 'x,y,z,r' sphere parsing.
 
-These live outside the GUI tests deliberately: the parsers are pure, and the
-analyzer tab imports PyQt5, which is absent from this environment. Kept here
-they run everywhere.
+The parsers are pure Python and the analyzer UI lives in the desktop app, so
+these tests run everywhere.
 """
 
 import pytest

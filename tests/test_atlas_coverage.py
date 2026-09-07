@@ -754,8 +754,8 @@ class TestVoxelAtlasManagerListRegions:
     def test_no_cache_writes_mri_segstats_sum_format(self, tmp_path):
         """The freshly written cache uses mri_segstats --sum's own column layout.
 
-        Other modules (tit/opt/roi_spec.py, tit/gui/components/roi_picker.py,
-        tit/viewspec.py) parse this exact sidecar filename/layout, so the
+        Other modules (tit/opt/roi_spec.py, tit/viewspec.py) parse this exact
+        sidecar filename/layout, so the
         pure-Python computation must keep writing it -- not just return the
         right region list.
         """

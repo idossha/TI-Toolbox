@@ -1,7 +1,6 @@
 """Resolve non-``montage_list.json`` montage sources into ``Montage`` objects.
 
-Extracted from :mod:`tit.gui.simulator_tab` (``SimulatorTab``, roughly lines
-802-1289 as of the v3 audit): the pure logic that turns a flex-search run
+Extracted from the former PyQt ``SimulatorTab`` (as of the v3 audit): the pure logic that turns a flex-search run
 selection, or a freehand ``stim_configs/*.json`` file, into a concrete
 :class:`~tit.sim.config.Montage` -- the same shape a plain
 ``montage_list.json`` entry produces via :func:`tit.sim.utils.load_montages`.

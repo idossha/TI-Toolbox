@@ -8,7 +8,6 @@ and example-data setup for TI-Toolbox.
 | Module | Responsibility |
 |--------|----------------|
 | `initializer.py` | BIDS directory scaffolding, metadata files, and **single source of truth** for `project_status.json` |
-| `first_time_user.py` | Thin GUI layer — reads status and shows the welcome dialog (never writes the status file) |
 | `example_data_manager.py` | Copies bundled example subjects (ernie, MNI152) into a new project |
 
 ## Ownership of `project_status.json`
@@ -50,22 +49,15 @@ loader.py
                  └─ update_project_status(…, {example_data_copied: True})
 ```
 
-### 2. GUI startup (inside container)
+### 2. UI startup
 
-```
-gui/main.py
-  └─ QTimer(500ms) → assess_user_status(window)      # first_time_user.py
-       ├─ load_project_status(project_dir)            # read-only
-       ├─ check show_welcome flag
-       │    └─ True  → show_welcome_message()
-       │    └─ False → return (no-op)
-       └─ if user checks "Don't show again":
-            └─ update_project_status(…, {user_preferences: {show_welcome: False}})
-```
+The desktop app reads the status file (never writes it) to decide whether to
+show its welcome screen, and calls `update_project_status()` only to record
+preferences such as `user_preferences.show_welcome`.
 
-Key invariant: the GUI **never creates** `project_status.json`. If the file
+Key invariant: the UI **never creates** `project_status.json`. If the file
 is missing (e.g. manual deletion), the user is treated as new and the
-welcome dialog is shown, but nothing is written to disk.
+welcome screen is shown, but nothing is written to disk.
 
 ## `project_status.json` Schema
 
@@ -131,5 +123,5 @@ Example data is only copied when:
    is missing; callers handle the empty case gracefully.
 3. **Merge-on-write** — `update_project_status()` deep-merges updates so
    nested keys (e.g. `user_preferences.show_welcome`) don't clobber siblings.
-4. **GUI is read-only** — `first_time_user.py` reads status and updates
+4. **UI is read-only** — the desktop app reads status and updates
    preferences but never creates the file from scratch.

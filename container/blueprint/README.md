@@ -295,8 +295,7 @@ re-added by habit:
 - **SimNIBS's HTML documentation** (38 MB) — read on the web, not in a container.
 - **`PyQt5`** (202 MB), `simnibs/GUI/` and the `simnibs_gui` launcher — the only non-GUI
   reference to Qt in the whole SimNIBS package is `cli/postinstall_simnibs.py`, which runs at
-  install time; `tit`'s own Qt imports all sit under `tit.gui` (not shipped) or behind a lazy
-  function import (`tit/telemetry.py`).
+  install time; `tit` itself imports no Qt at all (the PyQt GUI was deleted in v3).
 - **`simnibs/resources/coil_models`** (41 MB) — TMS coil geometry, in a TES-only toolbox.
   `file_finder.coil_models` is an `os.path.join`, evaluated at import but never opened; the TMS
   classes in `sim_struct.py` read a coil file only when one is used. `SESSION` + `TDCSLIST`

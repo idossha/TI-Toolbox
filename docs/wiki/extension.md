@@ -8,8 +8,12 @@ The TI-Toolbox Extension System provides a modular framework for adding new tool
 
 ## Architecture
 
+> **Historical.** The Qt extension system below was removed with the PyQt GUI in
+> v3.0.0. Panels now live in the [Desktop Application]({{ site.baseurl }}/wiki/desktop-app/)
+> (`desktop/src/renderer/pages/panels/`), each backed by a `tit` job runner.
+
 ```
-tit/gui/
+tit/gui/  (removed in v3.0.0)
 ├── extensions.py              # Main extension interface
 ├── settings_menu.py           # Settings menu + top-right Extensions button
 ├── extensions_config.py       # Persists enabled/disabled tab state (extensions.json)

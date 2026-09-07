@@ -105,7 +105,7 @@ The tool generates a JSON file with the following structure:
 
 ## Integration with TI-Toolbox
 
-This module is called by the Simulator tab when a flex-search result is simulated with electrodes mapped onto an EEG net (`tit/gui/simulator_tab.py`). It can also be used standalone for post-hoc analysis or custom workflows.
+This module is called when a flex-search result is simulated with electrodes mapped onto an EEG net (see `tit/sim/montage_sources.py`). It can also be used standalone for post-hoc analysis or custom workflows.
 
 ## EEG Net Density Impact on Optimization Performance
 

@@ -237,8 +237,7 @@ def format_segstats_sum(stats: list[SegStat]) -> str:
 
     Kept byte-compatible with FreeSurfer's historical output columns
     (``Index SegId NVoxels Volume_mm3 StructName``) because other modules in
-    this codebase (:mod:`tit.opt.roi_spec`,
-    ``tit.gui.components.roi_picker``, :mod:`tit.viewspec`) discover and
+    this codebase (:mod:`tit.opt.roi_spec`, :mod:`tit.viewspec`) discover and
     parse this exact sidecar filename pattern (``{atlas_stem}_labels.txt``)
     for cache reuse -- changing the column layout would silently break those
     readers.

@@ -1,9 +1,8 @@
 #!/usr/bin/env simnibs_python
 """Parsing of spherical ROI specifications.
 
-The GUI collects spheres as ``"x,y,z,r"`` rows. Parsing lives here rather than
-in the tab so it is exercised without PyQt5, which is absent from the test
-environment.
+The desktop app collects spheres as ``"x,y,z,r"`` rows. Parsing lives here,
+not in the UI, so it is exercised by the Python test suite.
 
 See Also
 --------

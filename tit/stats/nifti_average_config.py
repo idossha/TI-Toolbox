@@ -1,7 +1,6 @@
 """Configuration dataclass for group NIfTI averaging (owner: B4).
 
-Mirrors the fields the "NIfTI Group Averaging" GUI extension
-(``tit/gui/extensions/nifti_group_average.py``) collects, so
+Mirrors the fields the "NIfTI Group Averaging" panel collects, so
 :mod:`tit.config_io` can generate a JSON Schema for it and a future
 ``POST /api/jobs`` (kind ``"nifti_average"``) can validate a request body
 before submitting the job. Pure Python -- no numpy/nibabel dependency.

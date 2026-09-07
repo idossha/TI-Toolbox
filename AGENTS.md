@@ -28,7 +28,7 @@ TI-Toolbox
 │   ├── opt/          # Optimization (flex-search, exhaustive)
 │   ├── analyzer/     # Field analysis and ROI statistics
 │   ├── stats/        # Permutation testing, group analysis
-│   ├── gui/          # PyQt5 GUI (runs in Docker)
+│   ├── server/       # FastAPI HTTP server the Electron desktop app drives
 │   ├── <module>/__main__.py  # JSON-config runners: simnibs_python -m tit.<module> config.json
 │   ├── reporting/    # HTML report generation
 │   ├── plotting/     # Visualization utilities
@@ -44,7 +44,7 @@ TI-Toolbox
 | `tit/analyzer/analyzer.py` | Primary analysis tool (unified Analyzer class) |
 | `tit/opt/flex/flex.py` | Differential evolution optimization |
 | `tit/opt/ex/ex_search.py` | Exhaustive search optimization |
-| `tit/gui/main.py` | GUI application main window |
+| `tit/server/app.py` | FastAPI app the desktop app drives |
 | `tit/config_io.py` | JSON config (de)serialisation used by all `__main__` runners |
 | `docker-compose.yml` | Multi-container orchestration |
 | `pyproject.toml` | Package configuration |
@@ -124,13 +124,10 @@ project_root/
 - **mTI (4-pair)**: Multi-channel TI with 4 electrode pairs
 - Auto-detection based on montage configuration
 
-## GUI Architecture
+## UI Architecture
 
-The GUI runs inside Docker with X11 forwarding:
-- **Main Window**: `tit/gui/main.py` - Tab container
-- **Large Tabs**: analyzer_tab.py (147KB), flex_search_tab.py (145KB)
-- **Components**: Reusable widgets in `tit/gui/components/`
-- **Extensions**: Plugin system in `tit/gui/extensions/`
+The v3 Electron desktop app (`desktop/`) replaced the PyQt5 GUI, which was
+deleted in v3.0.0; it talks to `tit.server` over HTTP and `tit/` imports no Qt.
 
 ## Docker Containers
 

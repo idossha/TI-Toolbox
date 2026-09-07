@@ -7,8 +7,7 @@ Thin headless runner around this package's ``create_pdf_entry_point_group`` /
 :func:`tit.config_io.deserialize_config`, run, emit stage/artifact/result/exit events, exit
 ``0``/``1``.
 
-Mirrors the "Nilearn Visuals" GUI extension (``tit/gui/extensions/nilearn_viz.py``) without any
-Qt dependency: group-average the requested subject/simulation NIfTIs, then render the multi-slice
+Implements the "Nilearn Visuals" panel of the desktop app: group-average the requested subject/simulation NIfTIs, then render the multi-slice
 PDF (and, optionally, a glass-brain PDF) from that average.
 """
 

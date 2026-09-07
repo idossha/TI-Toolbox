@@ -76,9 +76,9 @@ Fields: timestamp, level, logger name, message.
 
 ## How Each Entry Point Uses Logging
 
-### GUI (`tit/gui/`)
+### Desktop application
 
-The GUI uses `QtLogHandler` (`tit/gui/components/qt_log_handler.py`), a `logging.Handler` that bridges log records to a Qt signal. This feeds log messages into the console widget of each tab.
+The desktop app streams job logs over the HTTP API (`tit.server`) rather than through an in-process logging handler; each job's output is written to its log file and relayed to the run page's terminal.
 
 ### `__main__.py` Subprocess Entry Points
 

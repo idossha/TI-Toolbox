@@ -280,8 +280,9 @@ def get_fields_by_kind(kind: str) -> tuple[FieldSpec, ...]:
 #: Definitions for the output-field help popup, as
 #: ``(name, units, definition, equation, reference)``. Equations match the
 #: implementations in :mod:`tit.calc` and :mod:`tit.fields`; ``E_i`` is the
-#: field from electrode pair *i* and ``n`` a unit direction. Kept here rather
-#: than in the GUI module so it is verifiable without PyQt5.
+#: field from electrode pair *i* and ``n`` a unit direction. Kept in the
+#: package (not in the desktop app) so it is verifiable by the test suite and
+#: served to the UI over the HTTP contract.
 OUTPUT_FIELD_DEFINITIONS: tuple[tuple[str, str, str, str, str], ...] = (
     (
         FIELD_TI_MAX,

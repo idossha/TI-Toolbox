@@ -7,8 +7,7 @@ following the same shape as the other ``tit.<module>.__main__`` entry points
 :func:`tit.config_io.deserialize_config`, run, emit stage/artifact/result/exit events, exit
 ``0``/``1``.
 
-Mirrors the group-averaging logic in the "NIfTI Group Averaging" GUI extension
-(``tit/gui/extensions/nifti_group_average.py``) without any Qt dependency: compute one mean
+Implements the "NIfTI Group Averaging" panel of the desktop app: compute one mean
 NIfTI per group in :class:`~tit.stats.nifti_average_config.NiftiAverageConfig`'s *subjects*,
 then every requested (or, absent an explicit list, every pairwise) group difference.
 """

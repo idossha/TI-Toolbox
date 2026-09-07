@@ -154,7 +154,7 @@ class TestMeshAtlasManager:
 class TestParseRegionLabel:
     """Parsing the label out of ``VoxelAtlasManager.list_regions()`` output.
 
-    Lives here rather than in the GUI tests so it runs without PyQt5; the
+    Lives here rather than with the UI tests; the
     ex-search tab imports it to turn a picked region into an AtlasROI label.
     """
 

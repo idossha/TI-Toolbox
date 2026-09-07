@@ -29,7 +29,7 @@ router = APIRouter()
 
 CMDLINE_MAX = 200
 
-# Same list as tit/gui/system_monitor_tab.py (SystemMonitorThread.relevant_keywords).
+# Process-name/cmdline keywords the system monitor considers TI-Toolbox-relevant.
 RELEVANT_KEYWORDS: tuple[str, ...] = (
     "charm",
     "simnibs",

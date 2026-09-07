@@ -243,7 +243,7 @@ SUBJECT_ATLASES = [
 
 
 # ---------------------------------------------------------------------------
-# LUT parsing -- mirrors tit/gui/components/roi_picker.py::_parse_lut_line
+# LUT parsing -- mirrors tit/opt/roi_spec.py's LUT reader
 # exactly (column-order agnostic: parts[0] is the integer id, every non-
 # integer remaining token is part of the name, the first three integer
 # tokens are RGB), so this script and the GUI agree on every label name.

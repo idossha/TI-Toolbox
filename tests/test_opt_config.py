@@ -927,8 +927,8 @@ class TestExResult:
 class TestSearchModeBackend:
     """The TI/mTI mode -> backend mapping.
 
-    Lives in ``tit.opt.config`` rather than the GUI so the wiring is testable
-    without a display; PyQt5 is absent from the host test environment.
+    Lives in ``tit.opt.config`` rather than in the desktop app so the wiring is
+    testable without a UI.
     """
 
     def test_ti_mode_selects_ex_backend(self):

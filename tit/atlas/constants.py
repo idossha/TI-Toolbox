@@ -59,8 +59,8 @@ DEFAULT_MNI_ATLAS = MNI_ATLAS_FILES[0]
 def mni_resources_dir() -> str:
     """``MNI_ATLAS_DIR`` if it exists, else the repo-relative fallback.
 
-    Same resolution as :meth:`tit.gui.components.roi_picker` and
-    :mod:`tit.opt.roi_spec` use, so the bundled MNI atlases, LUTs and
+    Same resolution as :mod:`tit.opt.roi_spec` uses, so the bundled MNI
+    atlases, LUTs and
     template are found whether the caller runs inside the container
     (``/ti-toolbox/resources/atlas``) or from a host checkout.
     """
