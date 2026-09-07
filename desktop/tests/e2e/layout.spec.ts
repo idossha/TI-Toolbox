@@ -99,16 +99,22 @@ const DEAD_SPACE_MAX = 0.45;
  * THREE global sections from this page — ELECTRODES, CONDUCTIVITY and OUTPUT FIELDS — because each
  * is a property of a *job*, and a job is a row whose editor is a dialog (maintainer: "this should
  * be the default of the simulator; however each job should have its own settings configuration").
- * What is left in the work column is the Jobs table and the collapsed Free-hand placements
- * section.
+ * What is left in the work column is the Jobs table alone (free-hand placements lost their
+ * section too — they are authored from the table's own footer button).
  *
  * Measured with LAY_DIAG=1 rather than assumed, one row, 1280x800: dead=45.4 % as
  * `work=64.1 % right=17.2 %` — the work column is the best-filled of any run page and the right
  * pane is nearly solid 3-D canvas; the 0.4 pt over L5a is the room under a one-row table, which
- * fills as rows are added (the state a user runs in). Set at 0.5, the measurement plus the
- * headroom the Free-hand section takes when opened.
+ * fills as rows are added (the state a user runs in).
+ *
+ * Re-measured 2026-09-06 after the free-hand section left the page too (maintainer: "it should not
+ * have its own section essentially" — the editor is a footer button next to "New montage" now):
+ * dead=54.8 % light at 1280x800 with one job row. The nine points are exactly the collapsed
+ * section's header and its share of the column; they come back the moment a second job row or the
+ * placement editor is on screen, which is the state a user runs in. Budget set at 0.56, the
+ * measurement plus headroom.
  */
-const DEAD_SPACE_BY_PAGE: Record<string, number> = { preprocess: 0.66, analyzer: 0.55, optimizer: 0.58, simulator: 0.5 };
+const DEAD_SPACE_BY_PAGE: Record<string, number> = { preprocess: 0.66, analyzer: 0.55, optimizer: 0.58, simulator: 0.56 };
 
 const SUBJECT = "ernie";
 

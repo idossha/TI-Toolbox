@@ -459,7 +459,38 @@ test("the page is the jobs table — no page-level electrode, conductivity or ou
     await expect(active.locator(".form-section", { hasText: title })).toHaveCount(0);
   }
   await expect(active.locator(".form-section", { hasText: "Jobs" })).toHaveCount(1);
-  await expect(active.locator(".form-section", { hasText: "Free-hand placements" })).toHaveCount(1);
+  // Free-hand placements lost their section too (maintainer, 2026-09-06: "it should not have its
+  // own section essentially") — they are authored from the jobs footer's "New placement" button,
+  // exactly as a montage is from "New montage".
+  await expect(active.locator(".form-section", { hasText: "Free-hand placements" })).toHaveCount(0);
+  await expect(active.getByRole("button", { name: "New placement", exact: true })).toBeVisible();
+});
+
+test("the jobs footer's New placement button opens the free-hand editor, and only one editor at a time", async () => {
+  const active = page.locator('[data-page-active="true"]');
+  const newPlacement = active.getByRole("button", { name: "New placement", exact: true });
+  const newMontage = active.getByRole("button", { name: "New montage", exact: true });
+  const placementName = active.getByPlaceholder("e.g. custom_4electrode", { exact: true });
+  const montageName = active.getByPlaceholder("e.g. F3_F4", { exact: true });
+
+  await newPlacement.click();
+  await expect(placementName).toBeVisible();
+  await expect(active.getByLabel("Position 1 X", { exact: true })).toBeVisible();
+  // Opening the montage editor closes this one, and the other way round.
+  await newMontage.click();
+  await expect(placementName).toHaveCount(0);
+  await expect(montageName).toBeVisible();
+  await newPlacement.click();
+  await expect(montageName).toHaveCount(0);
+  await expect(placementName).toBeVisible();
+  await active.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(placementName).toHaveCount(0);
+  // Leave the montage editor open, which is how this retained page reached the acceptance-numbers
+  // test below before this test existed: that test measures dead space on whatever the page is
+  // showing, and an empty work column below the table is a different measurement than an open
+  // editor. Closing both editors here silently moved it from 0.70 to 0.79.
+  await newMontage.click();
+  await expect(montageName).toBeVisible();
 });
 
 test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.3)", async () => {

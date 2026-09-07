@@ -38,8 +38,10 @@ import { ElectrodePairsEditor, type ElectrodePair } from "../../ui/ElectrodePair
 import { notify } from "../../ui/Toast";
 import { NumberInput } from "../../ui/NumberInput";
 import { channelCss } from "../_shared/scene/model";
+import { usePageSession } from "../../app/pageSession";
 import { deleteMontage, getEegNets, getFlexMapping, getFlexRuns, getFreehand, getMontages, putMontage, type FlexRun, type FreehandConfig } from "./api";
 import { OPTIMIZED, placementsFor, type FlexPlacement } from "./FlexTab";
+import { FreehandEditor } from "./FreehandEditor";
 import "./simulator-page.css";
 import {
   SOURCE_OPTIONS,
@@ -469,6 +471,12 @@ export function JobsTable({
   const editing = draft;
   const setEditing = onDraftChange;
   const [deleteTarget, setDeleteTarget] = useState<CatalogMontage | null>(null);
+  /*
+   * Free-hand placements are authored from this same footer ("New placement"), not from a section
+   * of their own (maintainer, 2026-09-06). Only one editor is open at a time; the fact one is open
+   * is page-session state so the page comes back as the user left it.
+   */
+  const [freehandOpen, setFreehandOpen] = usePageSession("freehand.open", false);
   /** The row the 3-D pane is drawing. Click a row (not a control in it) to change it. */
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -712,7 +720,13 @@ export function JobsTable({
 
   /** A brand-new montage always starts as a 2-pair draft; adding pairs makes it multi-polar. */
   function startNewMontage() {
+    setFreehandOpen(false);
     setEditing(emptyDraft());
+  }
+
+  function startNewFreehand() {
+    setEditing(null);
+    setFreehandOpen(true);
   }
 
   const draftKind = editing ? inferMontageKind(editing.pairs.length) : "uni_polar";
@@ -1021,6 +1035,7 @@ export function JobsTable({
                             icon={<Pencil size={14} />}
                             onClick={() => {
                               setNetChoice(montage.net);
+                              setFreehandOpen(false);
                               setEditing({ name: montage.name, pairs: montage.pairs.map((p) => [p[0], p[1]] as ElectrodePair), savedAs: montage.kind });
                             }}
                           />
@@ -1076,7 +1091,12 @@ export function JobsTable({
         <Button variant="secondary" icon={<Plus size={14} />} disabled={!editorNet} onClick={startNewMontage}>
           New montage
         </Button>
+        <Button variant="secondary" icon={<Plus size={14} />} disabled={usable.length === 0} onClick={startNewFreehand}>
+          New placement
+        </Button>
       </div>
+
+      {freehandOpen && <FreehandEditor subjects={usable} onClose={() => setFreehandOpen(false)} />}
 
       {editing && (
         <Card>

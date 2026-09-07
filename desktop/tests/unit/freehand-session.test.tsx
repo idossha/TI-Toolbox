@@ -4,7 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PageIdContext, clearPageSession } from "../../src/renderer/app/pageSession";
-import { FreehandTab } from "../../src/renderer/pages/simulator/FreehandTab";
+import { FreehandEditor } from "../../src/renderer/pages/simulator/FreehandEditor";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -36,16 +36,10 @@ describe("Free-hand source draft", () => {
     act(() => root.render(
       <QueryClientProvider client={queryClient}>
         <PageIdContext.Provider value="simulator">
-          {show && <FreehandTab subjects={["ernie"]} />}
+          {show && <FreehandEditor subjects={["ernie"]} onClose={() => {}} />}
         </PageIdContext.Provider>
       </QueryClientProvider>,
     ));
-  }
-
-  /** The editor opens on demand now (see `FreehandTab`) — press "New placement" first. */
-  function openEditor() {
-    const button = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("New placement"));
-    if (button) act(() => button.click());
   }
 
   const input = (selector: string) => container.querySelector<HTMLInputElement>(selector)!;
@@ -61,7 +55,6 @@ describe("Free-hand source draft", () => {
 
   it("restores name, coordinates, labels and invalid row count after a source-tab unmount", () => {
     render();
-    openEditor();
     fill("#sim-freehand-name", "unfinished_placement");
     fill('[aria-label="Position 1 label"]', "custom-A");
     fill('[aria-label="Position 1 X"]', "12.5");
@@ -83,16 +76,11 @@ describe("Free-hand source draft", () => {
 
   it("starts clean after the project session is cleared", () => {
     render();
-    openEditor();
     fill("#sim-freehand-name", "previous_project");
     fill('[aria-label="Position 1 X"]', "41");
     render(false);
     clearPageSession();
     render();
-    // A cleared session closes the editor too — the draft AND the fact one was open are both
-    // page-session state.
-    expect(container.querySelector("#sim-freehand-name")).toBeNull();
-    openEditor();
     expect(input("#sim-freehand-name").value).toBe("");
     expect(input('[aria-label="Position 1 X"]').value).toBe("0");
     expect(container.querySelectorAll("tbody tr")).toHaveLength(4);

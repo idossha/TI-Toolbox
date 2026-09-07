@@ -29,7 +29,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import { expectPage, gotoPage, launchElectronApp, openPalette, setSectionOpen } from "./_helpers";
+import { expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
 import { activePage as activePageOf, fingerprint, settle, useThePage } from "./_pageMemory";
 import { waitForScene } from "./_runPane";
 
@@ -266,7 +266,16 @@ test("a deliberate pointer click is not inverted by the fill controller", async 
   test.setTimeout(120_000);
   await gotoPage(page, "simulator");
   await expectPage(page, "simulator");
-  await activePage().locator("[data-fill-section][data-fill-collapsible] button.form-section-header-trigger").first().waitFor({ timeout: 20_000 });
+  /*
+   * The rule under test belongs to the fill controller, but it needs a *collapsible* fill section
+   * to aim at, and as of 2026-09-06 no run page has one on the page any more: the Simulator's last
+   * one went with the free-hand section (the editor is a footer button now), and the Optimizer's
+   * live inside its per-row dialog. Rather than assert against a page that cannot show the
+   * behaviour, the test states its precondition and skips with a reason — it comes back by itself
+   * the day a run page gets a collapsible section again.
+   */
+  const collapsibleCount = await activePage().locator("[data-fill-section][data-fill-collapsible]").count();
+  test.skip(collapsibleCount === 0, "no run page currently renders a page-level collapsible fill section");
   const id = await activePage().evaluate((root) => {
     const sections = Array.from(root.querySelectorAll<HTMLElement>("[data-fill-section][data-fill-collapsible]"));
     const closed = sections.find((section) => section.querySelector("button.form-section-header-trigger")?.getAttribute("aria-expanded") === "false");
@@ -419,25 +428,22 @@ test("pane collapse and expansion retain the live canvas, work DOM and a scrolle
   await gotoPage(page, "simulator");
   await expectPage(page, "simulator");
   const current = activePage();
-  // The free-hand editor is a collapsible section of its own since the 2026-09-06 jobs rework —
-  // authoring a placement and *choosing* one in a job row are two different acts.
-  await setSectionOpen(page, "Free-hand placements", true);
+  // The free-hand editor is opened from the jobs table's footer, next to "New montage" — it has
+  // no section of its own (maintainer, 2026-09-06).
   await current.getByRole("button", { name: "New placement", exact: true }).click();
   await current.getByPlaceholder("e.g. custom_4electrode", { exact: true }).fill("pane_draft");
   await current.getByLabel("Position 1 X", { exact: true }).fill("12.5");
   await current.getByRole("button", { name: "Add position", exact: true }).click();
   await waitForScene(page);
-  // The native canvas carries its own opacity chrome: two sliders, no number input (the embed's
-  // spinbuttons went with the embed). Nudge each off its default with the keyboard and remember
-  // what it became — the point of the test is that collapsing the pane does not reset it.
+  // The native canvas carries its own opacity chrome: the skin slider alone, no number input (the
+  // embed's spinbuttons went with the embed). The grey matter is always opaque and has no control.
+  // Nudge the skin off its default with the keyboard and remember what it became — the point of
+  // the test is that collapsing the pane does not reset it.
   const skin = current.getByRole("slider", { name: "Skin opacity" });
-  const grey = current.getByRole("slider", { name: "GM opacity" });
+  await expect(current.getByRole("slider", { name: "GM opacity" })).toHaveCount(0);
   await skin.focus();
   for (let i = 0; i < 5; i++) await page.keyboard.press("ArrowLeft");
-  await grey.focus();
-  for (let i = 0; i < 5; i++) await page.keyboard.press("ArrowRight");
   const skinValue = await skin.getAttribute("aria-valuenow");
-  const greyValue = await grey.getAttribute("aria-valuenow");
   await settle(page);
 
   const pane = current.getByTestId("page-right-pane");
@@ -464,9 +470,12 @@ test("pane collapse and expansion retain the live canvas, work DOM and a scrolle
   // The Simulator's work column lost its last three page-level sections to per-job settings
   // (2026-09-06), so with one job row it does not scroll at all. Add rows until it does: what this
   // test is about is the offset surviving a pane collapse, not how the range came to exist.
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 10; i++) {
     const range = await scroller.evaluate((el) => el.scrollHeight - el.clientHeight);
-    if (range > 8) break;
+    // Comfortably more than the 8 px this asked for before the free-hand section left the page: a
+    // 26 px range put the half-way offset inside the clamp the collapsed pane applies, and the
+    // test then measured the clamp instead of the retention.
+    if (range > 80) break;
     await current.getByRole("button", { name: "Add job", exact: true }).click();
   }
   const scrollBefore = await scroller.evaluate((el) => {
@@ -501,14 +510,13 @@ test("pane collapse and expansion retain the live canvas, work DOM and a scrolle
   await expect(current.getByLabel("Position 1 X", { exact: true })).toHaveValue("12.5");
   await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBe(scrollBefore);
   await expect(skin).toHaveAttribute("aria-valuenow", skinValue!);
-  await expect(grey).toHaveAttribute("aria-valuenow", greyValue!);
   await settle(page);
   expect(await frameLocator.evaluate((currentFrame, previous) => currentFrame === previous, frameNode)).toBe(true);
   // The context is live, not lost-and-restored, and nothing was re-fetched to redraw it.
   await expect(current.getByTestId("scene-context-lost")).toHaveCount(0);
   await expect(current.getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready");
   expect(guideRequests, `the retained canvas re-fetched the guide: ${guideRequests.join(", ")}`).toEqual([]);
-  console.log(`PANE-MEMORY scroll=${scrollBefore}->${await scroller.evaluate((el) => el.scrollTop)} canvas=same opacity=${skinValue}/${greyValue} guide-requests=0`);
+  console.log(`PANE-MEMORY scroll=${scrollBefore}->${await scroller.evaluate((el) => el.scrollTop)} canvas=same opacity=${skinValue} guide-requests=0`);
 });
 
 test("the free-hand draft survives a navigation away and back", async () => {
@@ -517,16 +525,14 @@ test("the free-hand draft survives a navigation away and back", async () => {
   await expectPage(page, "simulator");
   const current = activePage();
   /*
-   * Since the 2026-09-06 jobs rework the free-hand editor is a section of the Simulator, not a
-   * source *tab* — a job row picks a saved set in its own Montage cell. What the memory rule is
-   * about is unchanged: an unfinished placement belongs to the project session, so stepping to
+   * Since the 2026-09-06 jobs rework the free-hand editor is opened from the jobs table's footer,
+   * not a source *tab* — a job row picks a saved set in its own Montage cell. What the memory rule
+   * is about is unchanged: an unfinished placement belongs to the project session, so stepping to
    * another page and back must not discard it.
    */
-  await setSectionOpen(page, "Free-hand placements", true);
   // The editor may already be open — an earlier test in this file opens it, and the page is
-  // retained for the whole file on purpose. "New placement" only exists while it is closed.
-  const newPlacement = current.getByRole("button", { name: "New placement", exact: true });
-  if (await newPlacement.isVisible()) await newPlacement.click();
+  // retained for the whole file on purpose. Re-pressing the footer button is harmless either way.
+  await current.getByRole("button", { name: "New placement", exact: true }).click();
   const subject = current.locator(".field", { hasText: /^Subject/ }).getByRole("combobox");
   const draftSubject = (await subject.textContent())?.trim() === "101" ? "ernie" : "101";
   await subject.click();
@@ -551,7 +557,7 @@ test("the free-hand draft survives a navigation away and back", async () => {
   await gotoPage(page, "simulator");
   await expectPage(page, "simulator");
   const back = activePage();
-  await setSectionOpen(page, "Free-hand placements", true);
+  // Whether the editor is open is page-session state too, so it comes back open with its draft.
   await expect(back.locator(".field", { hasText: /^Subject/ }).getByRole("combobox")).toContainText(draftSubject);
   await expect(back.getByPlaceholder("e.g. custom_4electrode", { exact: true })).toHaveValue("unfinished_source_draft");
   await expect(back.getByLabel("Position 1 label", { exact: true })).toHaveValue("custom-A");
@@ -559,5 +565,5 @@ test("the free-hand draft survives a navigation away and back", async () => {
   await expect(back.getByLabel("Position 1 Z", { exact: true })).toHaveValue("67.5");
   await expect(back.getByRole("button", { name: /^Remove position / })).toHaveCount(5);
   await expect(back.locator(".field-error", { hasText: "Use 4 positions" })).toBeVisible();
-  await expect(back.getByRole("button", { name: "Save configuration", exact: true })).toBeDisabled();
+  await expect(back.getByRole("button", { name: "Save placement", exact: true })).toBeDisabled();
 });
