@@ -9,13 +9,15 @@ Modules
 -------
 config
     Dataclass configurations: `MontageConfig`, `VectorConfig`,
-    `RegionConfig`.
+    `RegionConfig`, `SubcorticalConfig`.
 montage_publication
     Build scalp + GM + electrode Blender scene for publication.
 vector_field_exporter
     Export TI/mTI vector arrows as coloured PLY geometry.
 region_exporter
     Export atlas-labelled cortical regions as STL or PLY meshes.
+subcortical_exporter
+    Export sub-cortical structures from a labelled NIfTI as STL/MSH/PLY.
 electrode_placement
     Place electrode objects on a scalp surface in Blender.
 io
@@ -35,6 +37,7 @@ from tit.blender.config import (
     MontageConfig,
     VectorConfig,
     RegionConfig,
+    SubcorticalConfig,
 )
 from tit.blender.montage_publication import (
     run_montage,
@@ -42,13 +45,16 @@ from tit.blender.montage_publication import (
 )
 from tit.blender.vector_field_exporter import run_vectors
 from tit.blender.region_exporter import run_regions
+from tit.blender.subcortical_exporter import run_subcortical
 
 __all__ = [
     "MontageConfig",
     "VectorConfig",
     "RegionConfig",
+    "SubcorticalConfig",
     "run_montage",
     "MontageResult",
     "run_vectors",
     "run_regions",
+    "run_subcortical",
 ]

@@ -11055,6 +11055,57 @@
         "type": "object",
         "additionalProperties": false
       },
+      "SubcorticalConfig": {
+        "description": "Configuration for sub-cortical mesh export from a labelled NIfTI.\n\nThe v2.5.0 GUI ran this mode in-process (``VisualExporterWidget._run``'s\nsub-cortical branch); v3 runs it as a ``blender`` job so it appears in the\nJobs rail and terminal like every other computation.  The field order and\nthe values below are exactly what that branch used, so the files written\nare byte-identical to 2.5.0's.\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier (without ``sub-`` prefix).\nsimulation_name : str\n    Simulation directory name.  Empty means \"no simulation\" -- geometry\n    only, no field-coloured PLY (the Qt widget's own rule).\nnifti_path : str\n    Labelled volume to mesh.  Empty resolves to\n    ``<m2m>/segmentation/labeling.nii.gz``.\nlabels : list of int\n    Label values to extract first.  Empty means the whole volume\n    (suffix ``full`` rather than ``labels_<a>_<b>``).\nclean_components : bool\n    Remove small disconnected components (threshold 0.1).\nfield_name : str\n    Field whose subject-space NIfTI colours the PLY export.\noutput_dir : str\n    Resolved by :func:`tit.blender.subcortical_exporter.run_subcortical`\n    to ``derivatives/ti-toolbox/visual_exports/sub-<id>/sub-cortical``.\n\nSee Also\n--------\ntit.blender.subcortical_exporter.run_subcortical : Entry point that\n    consumes this config.",
+        "properties": {
+          "subject_id": {
+            "title": "Subject Id",
+            "type": "string"
+          },
+          "simulation_name": {
+            "default": "",
+            "title": "Simulation Name",
+            "type": "string"
+          },
+          "nifti_path": {
+            "default": "",
+            "title": "Nifti Path",
+            "type": "string"
+          },
+          "labels": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Labels",
+            "type": "array"
+          },
+          "clean_components": {
+            "default": false,
+            "title": "Clean Components",
+            "type": "boolean"
+          },
+          "field_name": {
+            "default": "TI_max",
+            "title": "Field Name",
+            "type": "string"
+          },
+          "output_dir": {
+            "default": "",
+            "title": "Output Dir",
+            "type": "string"
+          },
+          "_type": {
+            "const": "SubcorticalConfig"
+          }
+        },
+        "required": [
+          "subject_id",
+          "_type"
+        ],
+        "title": "SubcorticalConfig",
+        "type": "object",
+        "additionalProperties": false
+      },
       "NiftiAverageConfig": {
         "description": "Configuration for one group NIfTI averaging run.\n\nAttributes\n----------\noutput_name : str\n    Name of the output subdirectory under\n    ``derivatives/ti-toolbox/nifti_average/`` (the GUI's \"Analysis Name\").\nsubjects : list of NiftiAverageSubject\n    Subject/simulation/group rows -- at least 2, spanning at least 1 group.\nspace : NiftiAverageSpace, optional\n    Which per-subject NIfTI space to average in. Selects the default\n    *nifti_file_pattern* when one is not given explicitly. Default is\n    :attr:`NiftiAverageSpace.MNI`.\nnifti_file_pattern : str or None, optional\n    Filename pattern with ``{subject_id}``/``{simulation_name}``\n    placeholders. Defaults to :data:`_DEFAULT_PATTERNS`\\ [*space*] when\n    left ``None``.\ndiff_pairs : list of str, optional\n    ``\"GroupA-GroupB\"`` pairs to difference. Empty (the default) means\n    every pairwise combination of the groups present in *subjects*.\n\nRaises\n------\nValueError\n    If *output_name* is blank, or fewer than 2 *subjects* are given.\n\nSee Also\n--------\ntit.stats.nifti_average.main : Consumes this config.",
         "properties": {
@@ -11233,6 +11284,9 @@
           },
           {
             "$ref": "#/components/schemas/RegionConfig"
+          },
+          {
+            "$ref": "#/components/schemas/SubcorticalConfig"
           },
           {
             "$ref": "#/components/schemas/NiftiAverageConfig"

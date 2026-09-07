@@ -6,7 +6,8 @@ $ simnibs_python -m tit.blender config.json
 
 Reads a JSON configuration file and dispatches to the appropriate
 export function based on the ``_type`` discriminator field
-(``MontageConfig``, ``VectorConfig``, or ``RegionConfig``).
+(``MontageConfig``, ``VectorConfig``, ``RegionConfig`` or
+``SubcorticalConfig``).
 
 Each handler returns the directory it actually wrote into -- montage resolves one when
 ``output_dir`` is ``None``, vectors and regions have ``_resolve_paths`` fill ``config.output_dir``
@@ -74,6 +75,7 @@ def main() -> int:
         "MontageConfig": _run_montage,
         "VectorConfig": _run_vectors,
         "RegionConfig": _run_regions,
+        "SubcorticalConfig": _run_subcortical,
     }
     handler = dispatch.get(mode)
     if handler is None:
@@ -148,6 +150,14 @@ def _run_regions(data: dict, logger: logging.Logger) -> str | None:
     run_regions(config)
     # run_regions() -> int (regions exported); `_resolve_paths` set config.output_dir.
     return config.output_dir or None
+
+
+def _run_subcortical(data: dict, logger: logging.Logger) -> str | None:
+    from tit.blender.config import SubcorticalConfig
+    from tit.blender.subcortical_exporter import run_subcortical
+
+    config = deserialize_config(SubcorticalConfig, data)
+    return run_subcortical(config, logger_override=logger) or None
 
 
 if __name__ == "__main__":

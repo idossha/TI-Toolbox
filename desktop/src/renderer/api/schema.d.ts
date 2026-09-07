@@ -7482,6 +7482,75 @@ export interface components {
             _type: "RegionConfig";
         };
         /**
+         * SubcorticalConfig
+         * @description Configuration for sub-cortical mesh export from a labelled NIfTI.
+         *
+         *     The v2.5.0 GUI ran this mode in-process (``VisualExporterWidget._run``'s
+         *     sub-cortical branch); v3 runs it as a ``blender`` job so it appears in the
+         *     Jobs rail and terminal like every other computation.  The field order and
+         *     the values below are exactly what that branch used, so the files written
+         *     are byte-identical to 2.5.0's.
+         *
+         *     Attributes
+         *     ----------
+         *     subject_id : str
+         *         Subject identifier (without ``sub-`` prefix).
+         *     simulation_name : str
+         *         Simulation directory name.  Empty means "no simulation" -- geometry
+         *         only, no field-coloured PLY (the Qt widget's own rule).
+         *     nifti_path : str
+         *         Labelled volume to mesh.  Empty resolves to
+         *         ``<m2m>/segmentation/labeling.nii.gz``.
+         *     labels : list of int
+         *         Label values to extract first.  Empty means the whole volume
+         *         (suffix ``full`` rather than ``labels_<a>_<b>``).
+         *     clean_components : bool
+         *         Remove small disconnected components (threshold 0.1).
+         *     field_name : str
+         *         Field whose subject-space NIfTI colours the PLY export.
+         *     output_dir : str
+         *         Resolved by :func:`tit.blender.subcortical_exporter.run_subcortical`
+         *         to ``derivatives/ti-toolbox/visual_exports/sub-<id>/sub-cortical``.
+         *
+         *     See Also
+         *     --------
+         *     tit.blender.subcortical_exporter.run_subcortical : Entry point that
+         *         consumes this config.
+         */
+        SubcorticalConfig: {
+            /** Subject Id */
+            subject_id: string;
+            /**
+             * Simulation Name
+             * @default
+             */
+            simulation_name: string;
+            /**
+             * Nifti Path
+             * @default
+             */
+            nifti_path: string;
+            /** Labels */
+            labels?: number[];
+            /**
+             * Clean Components
+             * @default false
+             */
+            clean_components: boolean;
+            /**
+             * Field Name
+             * @default TI_max
+             */
+            field_name: string;
+            /**
+             * Output Dir
+             * @default
+             */
+            output_dir: string;
+            /** @constant */
+            _type: "SubcorticalConfig";
+        };
+        /**
          * NiftiAverageConfig
          * @description Configuration for one group NIfTI averaging run.
          *
@@ -7620,7 +7689,7 @@ export interface components {
             glass_brain_cmap: string;
         };
         /** @description Union of every config dataclass a job/validate/plan "config" body can carry. The real discriminant is the `kind`/path parameter alongside it, not a field on the object itself; this union exists so generated TS types cover every shape before dev/build_contract.py replaces each placeholder member with its generated schema. */
-        PipelineConfig: components["schemas"]["SimulationConfig"] | components["schemas"]["Montage"] | components["schemas"]["FlexConfig"] | components["schemas"]["ExConfig"] | components["schemas"]["MExConfig"] | components["schemas"]["AnalyzerConfig"] | components["schemas"]["PreprocessConfig"] | components["schemas"]["QSIPrepConfig"] | components["schemas"]["QSIReconConfig"] | components["schemas"]["GroupComparisonConfig"] | components["schemas"]["CorrelationConfig"] | components["schemas"]["SourceConfig"] | components["schemas"]["LeadfieldConfig"] | components["schemas"]["MontageConfig"] | components["schemas"]["VectorConfig"] | components["schemas"]["RegionConfig"] | components["schemas"]["NiftiAverageConfig"] | components["schemas"]["NilearnConfig"];
+        PipelineConfig: components["schemas"]["SimulationConfig"] | components["schemas"]["Montage"] | components["schemas"]["FlexConfig"] | components["schemas"]["ExConfig"] | components["schemas"]["MExConfig"] | components["schemas"]["AnalyzerConfig"] | components["schemas"]["PreprocessConfig"] | components["schemas"]["QSIPrepConfig"] | components["schemas"]["QSIReconConfig"] | components["schemas"]["GroupComparisonConfig"] | components["schemas"]["CorrelationConfig"] | components["schemas"]["SourceConfig"] | components["schemas"]["LeadfieldConfig"] | components["schemas"]["MontageConfig"] | components["schemas"]["VectorConfig"] | components["schemas"]["RegionConfig"] | components["schemas"]["SubcorticalConfig"] | components["schemas"]["NiftiAverageConfig"] | components["schemas"]["NilearnConfig"];
         /**
          * MontageMode
          * @description How electrode positions are specified.

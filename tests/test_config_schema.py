@@ -68,7 +68,12 @@ from tit.pre.qsi.config import QSIPrepConfig, QSIReconConfig  # noqa: E402
 from tit.stats.config import CorrelationConfig, GroupComparisonConfig  # noqa: E402
 from tit.source.config import SourceConfig, SourcePair  # noqa: E402
 from tit.opt.leadfield_config import LeadfieldConfig  # noqa: E402
-from tit.blender.config import MontageConfig, RegionConfig, VectorConfig  # noqa: E402
+from tit.blender.config import (  # noqa: E402
+    MontageConfig,
+    RegionConfig,
+    SubcorticalConfig,
+    VectorConfig,
+)
 from tit.stats.nifti_average_config import (  # noqa: E402
     NiftiAverageConfig,
     NiftiAverageSubject,
@@ -215,6 +220,9 @@ def _sample_instances() -> dict[str, object]:
         ),
         "RegionConfig": RegionConfig(
             subject_id="001", simulation_name="sim1", field_range=(0.0, 1.0)
+        ),
+        "SubcorticalConfig": SubcorticalConfig(
+            subject_id="001", simulation_name="sim1", labels=[10, 49]
         ),
         "NiftiAverageConfig": NiftiAverageConfig(
             output_name="responders_vs_non",

@@ -356,10 +356,12 @@ class TestBlenderExports:
             "MontageConfig",
             "VectorConfig",
             "RegionConfig",
+            "SubcorticalConfig",
             "run_montage",
             "MontageResult",
             "run_vectors",
             "run_regions",
+            "run_subcortical",
         }
         assert set(tit.blender.__all__) == expected
 

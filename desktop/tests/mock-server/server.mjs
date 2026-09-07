@@ -607,8 +607,16 @@ function outputDirFor(kind, subject, config) {
       return `${PROJECT_ROOT}/derivatives/group/stats/${name}`;
     case "source":
       return `${base}/forward`;
-    case "blender":
-      return `${base}/blender/${name}`;
+    // The 3D visual exporter's four modes are all kind="blender", discriminated by the config's
+    // own `_type` -- and each writes somewhere different under visual_exports
+    // (tit/blender/*_exporter.py). One "blender/NewRun" for all four would have made the Plan card
+    // say the same wrong path for every mode.
+    case "blender": {
+      const veBase = `${PROJECT_ROOT}/derivatives/ti-toolbox/visual_exports/sub-${subject}`;
+      if (cfg._type === "SubcorticalConfig") return `${veBase}/sub-cortical`;
+      if (cfg._type === "MontageConfig") return `${veBase}/montage_publication`;
+      return `${veBase}/${cfg.simulation_name || name}`;
+    }
     case "nifti_average":
     case "nilearn":
       return `${PROJECT_ROOT}/derivatives/group/${kind}/${name}`;

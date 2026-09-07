@@ -363,3 +363,64 @@ class RegionConfig:
                 raise ValueError("field_range must be a (min, max) pair")
             if self.field_range[0] > self.field_range[1]:
                 raise ValueError("field_range min must be <= max")
+
+
+# ── Sub-cortical config ─────────────────────────────────────────────────────
+
+
+@dataclass
+class SubcorticalConfig:
+    """Configuration for sub-cortical mesh export from a labelled NIfTI.
+
+    The v2.5.0 GUI ran this mode in-process (``VisualExporterWidget._run``'s
+    sub-cortical branch); v3 runs it as a ``blender`` job so it appears in the
+    Jobs rail and terminal like every other computation.  The field order and
+    the values below are exactly what that branch used, so the files written
+    are byte-identical to 2.5.0's.
+
+    Attributes
+    ----------
+    subject_id : str
+        Subject identifier (without ``sub-`` prefix).
+    simulation_name : str
+        Simulation directory name.  Empty means "no simulation" -- geometry
+        only, no field-coloured PLY (the Qt widget's own rule).
+    nifti_path : str
+        Labelled volume to mesh.  Empty resolves to
+        ``<m2m>/segmentation/labeling.nii.gz``.
+    labels : list of int
+        Label values to extract first.  Empty means the whole volume
+        (suffix ``full`` rather than ``labels_<a>_<b>``).
+    clean_components : bool
+        Remove small disconnected components (threshold 0.1).
+    field_name : str
+        Field whose subject-space NIfTI colours the PLY export.
+    output_dir : str
+        Resolved by :func:`tit.blender.subcortical_exporter.run_subcortical`
+        to ``derivatives/ti-toolbox/visual_exports/sub-<id>/sub-cortical``.
+
+    See Also
+    --------
+    tit.blender.subcortical_exporter.run_subcortical : Entry point that
+        consumes this config.
+    """
+
+    subject_id: str
+    simulation_name: str = ""
+    nifti_path: str = ""
+    labels: list[int] = field(default_factory=list)
+    clean_components: bool = False
+    field_name: str = "TI_max"
+
+    # ── Internal — resolved by run_subcortical() via PathManager ──
+    output_dir: str = field(default="", repr=False)
+
+    def __post_init__(self) -> None:
+        if not (self.subject_id or "").strip():
+            raise ValueError("subject_id is required")
+        if not (self.field_name or "").strip():
+            raise ValueError("field_name is required")
+        try:
+            self.labels = [int(v) for v in (self.labels or [])]
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"labels must be integers: {exc}") from exc

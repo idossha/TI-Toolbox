@@ -69,6 +69,7 @@ _TYPE_DISCRIMINATED_BY_NAME: dict[str, str] = {
     "MontageConfig": "MontageConfig",
     "VectorConfig": "VectorConfig",
     "RegionConfig": "RegionConfig",
+    "SubcorticalConfig": "SubcorticalConfig",
 }
 
 
@@ -232,6 +233,7 @@ CONFIG_CLASS_REGISTRY: dict[str, str] = {
     "MontageConfig": "tit.blender.config.MontageConfig",
     "VectorConfig": "tit.blender.config.VectorConfig",
     "RegionConfig": "tit.blender.config.RegionConfig",
+    "SubcorticalConfig": "tit.blender.config.SubcorticalConfig",
     "NiftiAverageConfig": "tit.stats.nifti_average_config.NiftiAverageConfig",
     "NilearnConfig": "tit.plotting.nilearn.config.NilearnConfig",
 }

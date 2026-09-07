@@ -993,6 +993,7 @@ def test_settings_accepts_every_known_panel(client: TestClient) -> None:
         "nilearn-visuals",
         "quick-notes",
         "subject-info",
+        "visual-exporter",
     ]
     r = client.put(
         "/api/settings", json={"panels": known, "theme": "light"}, headers=BEARER

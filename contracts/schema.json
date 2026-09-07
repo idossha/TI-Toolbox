@@ -2796,6 +2796,57 @@
       "type": "object",
       "additionalProperties": false
     },
+    "SubcorticalConfig": {
+      "description": "Configuration for sub-cortical mesh export from a labelled NIfTI.\n\nThe v2.5.0 GUI ran this mode in-process (``VisualExporterWidget._run``'s\nsub-cortical branch); v3 runs it as a ``blender`` job so it appears in the\nJobs rail and terminal like every other computation.  The field order and\nthe values below are exactly what that branch used, so the files written\nare byte-identical to 2.5.0's.\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier (without ``sub-`` prefix).\nsimulation_name : str\n    Simulation directory name.  Empty means \"no simulation\" -- geometry\n    only, no field-coloured PLY (the Qt widget's own rule).\nnifti_path : str\n    Labelled volume to mesh.  Empty resolves to\n    ``<m2m>/segmentation/labeling.nii.gz``.\nlabels : list of int\n    Label values to extract first.  Empty means the whole volume\n    (suffix ``full`` rather than ``labels_<a>_<b>``).\nclean_components : bool\n    Remove small disconnected components (threshold 0.1).\nfield_name : str\n    Field whose subject-space NIfTI colours the PLY export.\noutput_dir : str\n    Resolved by :func:`tit.blender.subcortical_exporter.run_subcortical`\n    to ``derivatives/ti-toolbox/visual_exports/sub-<id>/sub-cortical``.\n\nSee Also\n--------\ntit.blender.subcortical_exporter.run_subcortical : Entry point that\n    consumes this config.",
+      "properties": {
+        "subject_id": {
+          "title": "Subject Id",
+          "type": "string"
+        },
+        "simulation_name": {
+          "default": "",
+          "title": "Simulation Name",
+          "type": "string"
+        },
+        "nifti_path": {
+          "default": "",
+          "title": "Nifti Path",
+          "type": "string"
+        },
+        "labels": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Labels",
+          "type": "array"
+        },
+        "clean_components": {
+          "default": false,
+          "title": "Clean Components",
+          "type": "boolean"
+        },
+        "field_name": {
+          "default": "TI_max",
+          "title": "Field Name",
+          "type": "string"
+        },
+        "output_dir": {
+          "default": "",
+          "title": "Output Dir",
+          "type": "string"
+        },
+        "_type": {
+          "const": "SubcorticalConfig"
+        }
+      },
+      "required": [
+        "subject_id",
+        "_type"
+      ],
+      "title": "SubcorticalConfig",
+      "type": "object",
+      "additionalProperties": false
+    },
     "VectorConfig": {
       "description": "Configuration for TI/mTI vector arrow export to PLY.\n\nVectors are placed at face barycenters of the central surface mesh\nand exported as coloured PLY arrow geometry.\n\nAll paths are resolved automatically from ``subject_id`` +\n``simulation_name`` via PathManager.  mTI mode is auto-detected\nwhen TDCS meshes 3 and 4 exist.\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier.\nsimulation_name : str\n    Name of the simulation directory.\nexport_ch1_ch2 : bool\n    Export individual channel arrows.\nexport_sum : bool\n    Export E-field sum arrows.\nexport_ti_normal : bool\n    Export surface-normal projected TI arrows.\nexport_combined : bool\n    Export all channels merged into one PLY.\ntop_percent : float or None\n    Keep only the top *N* percent of vectors by magnitude.\ncount : int\n    Maximum number of arrows to export.\nall_nodes : bool\n    If ``True``, ignore *count* and export every node.\nseed : int\n    Random seed for reproducible sub-sampling.\nlength_mode : Length\n    ``\"linear\"`` or ``\"visual\"`` arrow-length mapping.\nlength_scale : float\n    Multiplicative length factor.\nvector_scale : float\n    Global arrow size scale.\nvector_width : float\n    Arrow shaft width multiplier.\nvector_length : float\n    Arrow shaft length multiplier.\nanchor : Anchor\n    ``\"tail\"`` or ``\"head\"`` -- which end touches the surface.\ncolor : Color\n    ``\"rgb\"`` (channel colours) or ``\"magscale\"`` (percentile ramp).\nblue_percentile : float\n    Percentile threshold for the blue end of the magscale ramp.\ngreen_percentile : float\n    Percentile threshold for green.\nred_percentile : float\n    Percentile threshold for red.\nverbose : bool\n    Enable verbose logging.\n\nSee Also\n--------\ntit.blender.vector_field_exporter.run_vectors : Entry point that\n    consumes this config.",
       "properties": {
@@ -3011,6 +3062,7 @@
     "RegionConfig": "tit.blender.config.RegionConfig",
     "SimulationConfig": "tit.sim.config.SimulationConfig",
     "SourceConfig": "tit.source.config.SourceConfig",
+    "SubcorticalConfig": "tit.blender.config.SubcorticalConfig",
     "VectorConfig": "tit.blender.config.VectorConfig"
   }
 }

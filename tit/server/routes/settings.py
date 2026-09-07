@@ -49,6 +49,7 @@ _VALID_PANELS: frozenset[str] = frozenset(
         "nilearn-visuals",
         "quick-notes",
         "subject-info",
+        "visual-exporter",
     }
 )
 
