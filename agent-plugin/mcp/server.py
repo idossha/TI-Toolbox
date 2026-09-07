@@ -6,7 +6,9 @@ TI-Toolbox knowledge:
 
 * the wiki (``docs/wiki/*.md``) and changelog -- from a local checkout when one
   is available, otherwise fetched from GitHub and cached on disk;
-* source files of the ``tit`` package (same local/remote rule);
+* the nine developer documents of record (``docs/dev/*.md``);
+* source files of the ``tit`` package and the v3 desktop app (same local/remote
+  rule);
 * a BIDS-aware inspector for a user's TI-Toolbox project directory, so the
   agent can see which subjects, head models, simulations, optimizations and
   reports actually exist on disk.
@@ -39,7 +41,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 SERVER_NAME = "ti-toolbox"
-SERVER_VERSION = "0.1.0"
+SERVER_VERSION = "0.2.0"
 PROTOCOL_VERSION = "2025-06-18"
 
 GITHUB_OWNER = "idossha"
@@ -49,8 +51,27 @@ API_BASE = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}"
 SITE_BASE = "https://idossha.github.io/TI-Toolbox"
 
 WIKI_DIR = "docs/wiki"
+DEV_DOCS_DIR = "docs/dev"
 CHANGELOG = "docs/releases/changelog.md"
-VERSION_FILE = "version.py"
+PY_VERSION_FILE = "tit/__init__.py"  # __version__ of the `tit` package
+DESKTOP_PACKAGE_JSON = "desktop/package.json"  # Electron app version (v3)
+
+# docs/dev/ is the single source of truth for developers and is deliberately
+# capped at nine files; read_dev_doc refuses anything outside this list.
+DEV_DOCS = (
+    "README",
+    "ARCHITECTURE",
+    "DECISIONS",
+    "CONTRIBUTING",
+    "DESIGN",
+    "HISTORY",
+    "BENCHMARKS",
+    "SCIENTIFIC-CORRECTIONS",
+    "RELEASE",
+)
+
+# Never listed, never searched, never counted: build output and vendored deps.
+_SKIP_DIRS = {"__pycache__", "node_modules", "out", "dist", ".git", "coverage"}
 
 MAX_CHARS = 60_000  # hard cap on any single text payload returned to the agent
 CACHE_TTL_S = 24 * 3600
@@ -145,7 +166,7 @@ def list_repo_dir(path: str, *, max_age_s: float = CACHE_TTL_S) -> List[str]:
         return sorted(
             e.name + ("/" if e.is_dir() else "")
             for e in local.iterdir()
-            if not e.name.startswith(".") and e.name != "__pycache__"
+            if not e.name.startswith(".") and e.name not in _SKIP_DIRS
         )
 
     cached = _cache_path(rel + "/.listing.json")
@@ -159,7 +180,7 @@ def list_repo_dir(path: str, *, max_age_s: float = CACHE_TTL_S) -> List[str]:
     names = sorted(
         e["name"] + ("/" if e.get("type") == "dir" else "")
         for e in entries
-        if not e["name"].startswith(".") and e["name"] != "__pycache__"
+        if not e["name"].startswith(".") and e["name"] not in _SKIP_DIRS
     )
     cached.parent.mkdir(parents=True, exist_ok=True)
     cached.write_text(json.dumps(names))
@@ -330,13 +351,111 @@ def tool_read_changelog(args: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def tool_get_toolbox_version(_: Dict[str, Any]) -> Dict[str, Any]:
-    text = read_repo_file(VERSION_FILE, max_age_s=3600)
+    """Python package version (tit/__init__.py) and Electron app version.
+
+    v3 keeps these in lockstep via ``dev/update/update_version.py --version X.Y.Z``;
+    a mismatch here means a release is half-applied, not that one of them is right.
+    """
+    text = read_repo_file(PY_VERSION_FILE, max_age_s=3600)
     m = re.search(r'__version__\s*=\s*"([^"]+)"', text)
+    version = m.group(1) if m else "unknown"
+
+    desktop_version = None
+    try:
+        pkg = json.loads(read_repo_file(DESKTOP_PACKAGE_JSON, max_age_s=3600))
+        desktop_version = pkg.get("version")
+    except (ToolError, json.JSONDecodeError):
+        pass
+
+    base = version.split("-")[0]
+    desktop_base = (desktop_version or "").split("-")[0]
     return {
-        "version": m.group(1) if m else "unknown",
+        "tit_version": version,
+        "tit_version_file": PY_VERSION_FILE,
+        "desktop_version": desktop_version,
+        "desktop_version_file": DESKTOP_PACKAGE_JSON,
+        "in_lockstep": bool(desktop_version) and base == desktop_base,
+        "docker_image": f"idossha/ti-toolbox:v{version}" if m else None,
+        "version_sites_doc": "docs/dev/RELEASE.md (section A) — every file a version bump touches",
+        "bump_command": "python3 dev/update/update_version.py --version X.Y.Z [--dry-run]",
         "source": _source_label(),
-        "docker_image": f"idossha/simnibs:v{m.group(1)}" if m else None,
         "releases_url": f"{SITE_BASE}/releases/",
+    }
+
+
+def tool_read_dev_doc(args: Dict[str, Any]) -> Dict[str, Any]:
+    """Read one of the nine docs/dev/*.md files — the developer source of truth."""
+    name = str(args.get("name", "")).strip().removesuffix(".md")
+    name = name.rsplit("/", 1)[-1]
+    match = next((d for d in DEV_DOCS if d.lower() == name.lower()), None)
+    if match is None:
+        raise ToolError(
+            f"Unknown dev doc {name!r}. docs/dev/ is capped at nine files: "
+            + ", ".join(DEV_DOCS)
+        )
+    text = read_repo_file(f"{DEV_DOCS_DIR}/{match}.md")
+    body = _split_frontmatter(text)["_body"]
+    section = args.get("section")
+    if section:
+        body = _extract_section(body, str(section))
+    return {
+        "name": match,
+        "path": f"{DEV_DOCS_DIR}/{match}.md",
+        "headings": _headings(_split_frontmatter(text)["_body"]),
+        "content": _truncate(body),
+        "note": "docs/dev/ is not published; the user-facing site is docs/wiki/.",
+    }
+
+
+def tool_list_launch_paths(_: Dict[str, Any]) -> Dict[str, Any]:
+    """The three supported ways to start v3, and the one file they all read."""
+    return {
+        "run_spec": {
+            "path": "docker-compose.yml",
+            "note": "The one run spec, at the repository root. One service, `tit`, on "
+            "idossha/ti-toolbox:<ver>. Four readers: the Electron app "
+            "(desktop/src/main/stack.ts -> desktop/src/shared/composeFile.ts), "
+            "tit/launch.py#load_spec, loader.py/loader.sh, and dev/loader/. "
+            "No FreeSurfer service and no X11 — both were dropped in v3.",
+        },
+        "ways_to_run": [
+            {
+                "who": "users, desktop app",
+                "how": "Launch the packaged Electron app (desktop/). It starts the "
+                "container and loads the UI over HTTP from tit.server.",
+            },
+            {
+                "who": "users, no Electron",
+                "how": "./loader.sh --project ~/datasets/000   (or: python loader.py "
+                "--project ~/datasets/000). Both are bootstraps that pass every "
+                "flag through to `tit launch`; loader.sh additionally finds a "
+                "Python that can import tit. Flags: --project, --port, --image, "
+                "--no-open, --timeout, --stop, --status, --logs [--follow].",
+            },
+            {
+                "who": "installed package",
+                "how": "tit launch --project ~/datasets/000  (tit/cli.py -> tit/launch.py; "
+                "the only `tit` subcommand). Host needs CPython >= 3.11 and the "
+                "docker CLI — not SimNIBS, Node or Electron.",
+            },
+            {
+                "who": "developers",
+                "how": "cd desktop && npm run dev  — container + Vite (HMR) + Electron, "
+                "already connected. `npm run dev:web` is the same without Electron "
+                "at http://127.0.0.1:5173/; `npm run dev:down` stops this project's "
+                "container. Dev compose overrides: dev/loader/docker-compose.dev.yml, "
+                "driven by dev/loader/loader_dev.{py,sh}.",
+            },
+        ],
+        "server": {
+            "origin": "http://127.0.0.1:8765 (tit/launch.py DEFAULT_PORT; TIT_SERVER_PORT)",
+            "health": 'GET /api/health -> {"status": "ok"} — the only unauthenticated route',
+            "auth": "Bearer token lives only in the container's env (TIT_SERVER_TOKEN); "
+            "it is never written to the host. There is nothing for a user to paste.",
+        },
+        "first_run": "The first start pulls ~2.3 GB. If the tag does not exist "
+        "(a pre-release checkout), tit launch says so and points at "
+        "`container/blueprint/build.sh --tag <image>` or `--image` with a tag you have.",
     }
 
 
@@ -344,7 +463,19 @@ def tool_get_toolbox_version(_: Dict[str, Any]) -> Dict[str, Any]:
 # Source access
 # --------------------------------------------------------------------------
 
-_SOURCE_PREFIXES = ("tit/", "scripts/", "docs/", "tests/", "container/", "dev/")
+_SOURCE_PREFIXES = (
+    "tit/",
+    "scripts/",
+    "docs/",
+    "tests/",
+    "container/",
+    "dev/",
+    "contracts/",
+    "desktop/src/",
+    "desktop/tests/",
+    "desktop/docker/",
+    "agent-plugin/",
+)
 _TEXT_EXT = {
     ".py",
     ".md",
@@ -357,6 +488,11 @@ _TEXT_EXT = {
     ".ini",
     ".sh",
     ".csv",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".css",
 }
 
 
@@ -370,10 +506,15 @@ def _check_source_path(rel: str) -> str:
             "pyproject.toml",
             "version.py",
             "README.md",
-            "CLAUDE.md",
+            "AGENTS.md",
             "CONTRIBUTING.md",
+            "SECURITY.md",
+            "TODO.md",
             "docker-compose.yml",
             "loader.py",
+            "loader.sh",
+            "pytest.ini",
+            "desktop/package.json",
         }
     )
     if not top_ok:
@@ -457,7 +598,7 @@ def tool_search_source(args: Dict[str, Any]) -> Dict[str, Any]:
         if (
             not f.is_file()
             or f.suffix.lower() not in _TEXT_EXT
-            or "__pycache__" in f.parts
+            or _SKIP_DIRS.intersection(f.parts)
         ):
             continue
         try:
@@ -534,6 +675,9 @@ def tool_inspect_project(args: Dict[str, Any]) -> Dict[str, Any]:
             ).is_file(),
             "qsirecon": (deriv / "qsirecon" / f"sub-{sid}").is_dir(),
             "leadfields": _ls(sub / "leadfields"),
+            "freehand_configs": [
+                f for f in _ls(m2m / "stim_configs") if f.endswith(".json")
+            ],
             "simulations": {},
             "flex_search_runs": _ls(sub / "flex-search", dirs_only=True),
             "ex_search_runs": _ls(sub / "ex-search", dirs_only=True),
@@ -562,10 +706,42 @@ def tool_inspect_project(args: Dict[str, Any]) -> Dict[str, Any]:
         subjects.append(entry)
 
     tt = deriv / "ti-toolbox"
-    cfg = root / "code" / "ti-toolbox" / "config"
+    code = root / "code" / "ti-toolbox"
+    cfg = code / "config"
+    jobs = code / "jobs"
+
+    # The v3 job store: one directory per job, each with status.json.
+    job_dirs = _ls(jobs, dirs_only=True)
+    job_summary: Dict[str, int] = {}
+    recent_failures: List[Dict[str, Any]] = []
+    for jid in job_dirs:
+        sp = jobs / jid / "status.json"
+        if not sp.is_file():
+            continue
+        try:
+            st = json.loads(sp.read_text(encoding="utf-8", errors="replace"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        state = str(st.get("state", "unknown"))
+        job_summary[state] = job_summary.get(state, 0) + 1
+        err = st.get("error") or {}
+        if state in ("failed", "cancelled", "lost", "skipped") and err:
+            recent_failures.append(
+                {
+                    "id": st.get("id", jid),
+                    "kind": st.get("kind"),
+                    "state": state,
+                    "error_type": err.get("type"),
+                    "message": err.get("message"),
+                    "subject_ids": st.get("subject_ids", []),
+                    "finished_at": st.get("finished_at"),
+                }
+            )
+    recent_failures.sort(key=lambda r: str(r.get("finished_at") or ""), reverse=True)
+
     return {
         "project_root": str(root),
-        "looks_like_ti_project": simnibs.is_dir() or cfg.is_dir(),
+        "looks_like_ti_project": simnibs.is_dir() or code.is_dir(),
         "subjects": subjects,
         "sourcedata_subjects": _ls(root / "sourcedata", dirs_only=True),
         "config_files": _ls(cfg),
@@ -574,19 +750,75 @@ def tool_inspect_project(args: Dict[str, Any]) -> Dict[str, Any]:
             t: _ls(tt / "stats" / t, dirs_only=True)
             for t in _ls(tt / "stats", dirs_only=True)
         },
-        "layout_reference": f"{SITE_BASE}/wiki/pre-processing/",
+        "code_ti_toolbox": {
+            "jobs_count": len(job_dirs),
+            "jobs_by_state": job_summary,
+            "recent_failures": recent_failures[:10],
+            "notebooks": _ls(code / "notebooks"),
+            "notebook_examples": _ls(code / "notebooks" / "examples"),
+            "pipelines": [f for f in _ls(code / "pipelines") if f.endswith(".json")],
+            "viewer_scenes": [
+                f for f in _ls(code / "viewer") if f.endswith(".tetravox.json")
+            ],
+        },
+        "notes": [
+            "'Lost (server restarted mid-run)' (error.type 'lost') means the server "
+            "restarted while the job was running — the job is over and will not resume. "
+            "POST /api/jobs/{id}/force is the escape hatch for a job stuck at running.",
+            "A flex/ex/mex run directory without its completion manifest (flex_meta.json, "
+            "run_config.json) is deliberately ignored by the catalog, so a cancelled or "
+            "in-progress run never appears as a result.",
+        ],
+        "layout_reference": f"{SITE_BASE}/wiki/overview/",
     }
 
 
 def tool_read_project_config(args: Dict[str, Any]) -> Dict[str, Any]:
-    """Read one of the JSON config files under code/ti-toolbox/config/ (e.g. montage_list.json)."""
+    """Read one JSON document from a project's v3 config locations.
+
+    ``where`` selects the directory:
+
+    * ``config``       ``code/ti-toolbox/config/``  (default; montage_list.json, ...)
+    * ``pipelines``    ``code/ti-toolbox/pipelines/``
+    * ``viewer``       ``code/ti-toolbox/viewer/``  (``<kind>.tetravox.json``)
+    * ``stim_configs`` ``derivatives/SimNIBS/sub-<id>/m2m_<id>/stim_configs/``
+      (free-hand electrode placements; requires ``subject``).  On-disk shape:
+      ``{"name": ..., "type": "U"|"M", "electrode_positions": {label: [x, y, z]}}``
+      in subject-RAS millimetres.
+    """
     root = Path(str(args.get("project_root", ""))).expanduser()
     name = str(args.get("name", "")).strip()
-    if not re.fullmatch(r"[A-Za-z0-9_\-]+\.json", name):
+    where = str(args.get("where", "config")).strip() or "config"
+    if not re.fullmatch(r"[A-Za-z0-9_\-]+(\.tetravox)?\.json", name):
         raise ToolError("name must be a plain .json filename")
-    p = root / "code" / "ti-toolbox" / "config" / name
+
+    code = root / "code" / "ti-toolbox"
+    if where == "config":
+        directory = code / "config"
+    elif where == "pipelines":
+        directory = code / "pipelines"
+    elif where == "viewer":
+        directory = code / "viewer"
+    elif where == "stim_configs":
+        sid = str(args.get("subject", "")).strip()
+        if not re.fullmatch(r"[A-Za-z0-9_\-]+", sid):
+            raise ToolError(
+                "where='stim_configs' requires a `subject` id (without 'sub-')"
+            )
+        directory = (
+            root
+            / "derivatives"
+            / "SimNIBS"
+            / f"sub-{sid}"
+            / f"m2m_{sid}"
+            / "stim_configs"
+        )
+    else:
+        raise ToolError("where must be one of: config, pipelines, viewer, stim_configs")
+
+    p = directory / name
     if not p.is_file():
-        raise ToolError(f"Not found: {p}. Available: {_ls(p.parent)}")
+        raise ToolError(f"Not found: {p}. Available: {_ls(directory)}")
     text = p.read_text(encoding="utf-8", errors="replace")
     try:
         data = json.loads(text)
@@ -607,10 +839,101 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
         "api_reference": f"{SITE_BASE}/api/",
         "troubleshooting": f"{SITE_BASE}/wiki/troubleshooting/  (read_wiki_page('troubleshooting') -- verified archive of known errors and fixes; check it first for any error)",
         "repo": f"https://github.com/{GITHUB_OWNER}/{GITHUB_REPO}",
-        "runtime": "Everything runs inside the Docker container idossha/simnibs (SimNIBS 4.x, Python 3.11). "
+        "architecture_v3": {
+            "summary": "Three pieces. (1) An Electron desktop app on the host, `desktop/` "
+            "(Electron main/preload + React + TypeScript strict + Vite) — a shell that "
+            "starts the container and loads the UI over HTTP from it. (2) A FastAPI job "
+            "server, `tit.server`, inside the single Docker image idossha/ti-toolbox — it "
+            "owns the job model (queue, dependencies, locks, budget, live events, "
+            "cancellation) and serves the React bundle at `/`. (3) The `tit` Python "
+            "package — the only place scientific logic lives, still usable from scripts "
+            "and notebooks.",
+            "no_pyqt": "The PyQt5 GUI (tit/gui/) was DELETED in v3.0.0. `tit` imports no Qt. "
+            "The core image ships no X11 and no FreeSurfer. Never cite tit/gui/**.",
+            "wire_contract": "contracts/openapi.v1.yaml (frozen interface — a change needs "
+            "the contract edit and a DECISIONS.md entry in the same commit)",
+            "origin": "http://127.0.0.1:8765 — HTTP + WebSockets (/ws/system, /ws/jobs, "
+            "/ws/tetravox, /ws/kernels/{id}). Bearer token lives only in the container's env.",
+        },
+        "runtime": "Everything scientific runs inside the Docker image idossha/ti-toolbox "
+        "(SimNIBS 4.x, Python 3.11, numpy 1.26; no FSL, no ANTs, no X11, no FreeSurfer). "
         "Use `simnibs_python`, not the host python. Project mounted at /mnt/<project>/.",
+        "rail_pages": "Ten rows, ten digits — the rail counts from Cmd+0: Overview (0), "
+        "Pre-processing (1), Simulator (2), Optimizer (3), Analyzer (4), Pipeline (5), "
+        "Notebooks (6), Results (7), Viewer (8), Jobs (9). Settings is not a rail row; "
+        "Cmd+, is its only chord. Cmd+K palette, Cmd+J jobs panel, Cmd+Enter primary action.",
+        "subsystems": {
+            "tit/jobs": "The job engine: kinds.py (kind -> module), scheduler.py (a pure "
+            "evaluate() per queued job), manager.py, registry.py (the on-disk store), "
+            "eta.py (estimates, always labelled as such), locks, costs, events.",
+            "tit/pipeline": "DAG documents (document/plan/validate/notebook). A pipeline "
+            "introduces no job kind and a pipeline run is ONE job group.",
+            "tit/server/kernels.py": "Jupyter kernels driven in-process inside the "
+            "container; WS /ws/kernels/{id}. Max 2 kernels, 30 min idle. There is no "
+            "sandbox — a kernel runs arbitrary user code as the container's user.",
+            "tit/server/notebooks.py": "The .ipynb on disk is the document; open+save must "
+            "produce an empty git diff.",
+            "tit/scene": "Builds skin / grey-matter / electrode / region-label scene "
+            "payloads from a subject's real files, plus the packaged subject-free guide.",
+            "tit/tetravox": "The Tetravox Embed (WebGL2 + WASM viewer) install/update "
+            "channel. Coupling is a PROTOCOL RANGE, never a version; ask by feature name.",
+            "tit/viewspec.py": "build_view(kind, ...) is a pure function returning a "
+            "ViewSpec. The server resolves what to show; the client renders it.",
+            "tit/catalog.py": "Subject/simulation discovery for the UI, built only on "
+            "PathManager plus per-domain helpers. GET /api/catalog/overview is the "
+            "Overview page's single read.",
+            "tit/jobs/eta.py": "minutes = (fixed + per_unit * units) * mesh_scale * "
+            "system.factor / parallel. EMULATION_FACTOR = 3.0 (amd64 under Rosetta).",
+            "tit/launch.py + tit/cli.py": "`tit launch` — the installed, no-Electron way to run.",
+        },
+        "job_kinds": [
+            "pre",
+            "sim",
+            "flex",
+            "flex_adaptive",
+            "flex_pareto",
+            "ex",
+            "mex",
+            "leadfield",
+            "analyzer",
+            "stats",
+            "source",
+            "blender",
+            "nifti_average",
+            "nilearn",
+            "tools",
+            "project_init",
+            "report",
+        ],
+        "job_states": [
+            "queued",
+            "running",
+            "succeeded",
+            "failed",
+            "cancelled",
+            "skipped",
+            "lost",
+        ],
+        "failure_taxonomy": {
+            "preflight": "Preflight check failed",
+            "lock_wait": "Waiting on a lock",
+            "budget_wait": "Waiting on the resource budget",
+            "runner_failed": "Runner failed",
+            "oom_suspected": "Likely out of memory",
+            "cancelled": "Cancelled",
+            "skipped": "Skipped",
+            "lost": "Lost (server restarted mid-run)",
+            "docker_unavailable": "Docker is unavailable",
+            "kind_error": "Invalid job configuration",
+        },
         "entry_points": {
-            "gui": "launched by the Electron desktop app or loader.py",
+            "desktop_app": "the packaged Electron app (desktop/)",
+            "browser_no_electron": "./loader.sh --project <dir>  |  python loader.py "
+            "--project <dir>  |  tit launch --project <dir>   (all three are the same "
+            "thing: bootstraps over tit/launch.py, which owns the run spec)",
+            "run_spec": "docker-compose.yml at the repository root — one service, `tit`. "
+            "Dev overrides in dev/loader/. Call list_launch_paths for the full picture.",
+            "dev_loop": "cd desktop && npm run dev   (container + Vite + Electron)",
             "python_api": "from tit.sim/opt/analyzer/stats/pre import ...",
             "json_config_runners": [
                 "simnibs_python -m tit.sim config.json",
@@ -620,21 +943,80 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
                 "simnibs_python -m tit.analyzer config.json",
                 "simnibs_python -m tit.stats config.json",
                 "simnibs_python -m tit.pre config.json",
+                "simnibs_python -m tit.source config.json",
             ],
         },
         "project_layout": {
             "raw": "sub-<id>/anat/*.nii.gz, sourcedata/ (DICOM)",
             "head_model": "derivatives/SimNIBS/sub-<id>/m2m_<id>/",
+            "freehand_electrodes": "derivatives/SimNIBS/sub-<id>/m2m_<id>/stim_configs/*.json "
+            '— {"name", "type": "U"|"M", "electrode_positions": {label: [x, y, z]}} '
+            "in subject-RAS millimetres",
             "simulations": "derivatives/SimNIBS/sub-<id>/Simulations/<montage>/TI/{mesh,niftis}",
-            "optimization": "derivatives/SimNIBS/sub-<id>/{flex-search,ex-search,m-ex-search}/",
+            "optimization": "derivatives/SimNIBS/sub-<id>/{flex-search,ex-search,m-ex-search}/ "
+            "— the run name IS the directory; a second run under the same name overwrites it",
             "leadfields": "derivatives/SimNIBS/sub-<id>/leadfields/",
             "reports": "derivatives/ti-toolbox/reports/",
             "stats": "derivatives/ti-toolbox/stats/<type>/<name>/",
             "config": "code/ti-toolbox/config/*.json (montage_list.json etc.)",
+            "jobs_store": "code/ti-toolbox/jobs/<id>/{spec.json,status.json,events.jsonl,"
+            "stdout.log} — inside the project so notebooks and a restarted server see the "
+            "same jobs; .bidsignore carries the line code/ti-toolbox/jobs/",
+            "notebooks": "code/ti-toolbox/notebooks/ (examples/ is the only subdirectory; "
+            "examples/getting-started.ipynb is seeded on first listing)",
+            "pipelines": "code/ti-toolbox/pipelines/<name>.json, run outputs under "
+            "pipelines/runs/<pipeline>/<node>.<port>.json",
+            "viewer": "code/ti-toolbox/viewer/<kind>.tetravox.json (suffix .tetravox.json, "
+            "not .json)",
         },
+        "science_rules": {
+            "pair_count": "tit.constants.is_valid_pair_count — an even number of electrode "
+            "pairs, at least 2. 2 pairs = TI, 4 or more (even) = mTI. Odd counts leave a "
+            "channel with nothing to beat against; a single pair is tACS, not TI.",
+            "envelope_api": "tit.calc exposes exactly three functions: "
+            "get_TI_vectors(fields, psi=None), get_TI_avg(fields, psi=None), "
+            "get_TI_dir(fields, directions, psi=None). `fields` is a LIST of 2K arrays "
+            "paired positionally. get_nTI_vectors, get_mTI_vectors/get_mTI_dir, "
+            "get_magnitude_am and the channels= parameter were all removed in v2.5.0.",
+            "carrier_model": "Positional wiring: one field is one carrier "
+            "(tit.fields.hf_peak(*fields) / hf_sar(*fields)). There is no montage.channels.",
+            "exposure_metrics": "Quasi-static: E is a phasor AMPLITUDE (V/m, peak, not RMS), "
+            "no time axis; every exposure quantity is a worst case over unknown relative "
+            "phases. Per Cassara et al. 2025 Part II p.8, fields at identical frequencies "
+            "superpose COHERENTLY (vector sum within a channel) and different frequencies "
+            "INCOHERENTLY (SAR addition across carriers). hf_sar = sum_c |E_c|^2 in (V/m)^2 "
+            "with no 1/2; calibrated SAR = (sigma/2rho)*hf_sar; RMS carrier field = "
+            "sqrt(hf_sar/2) — the 1/2 appears once, in the calibration. "
+            "hf_peak = max over signs |sum_c s_c E_c|, exact for <= 8 carriers "
+            "(EXACT_SIGN_ENUM_MAX_FIELDS), a lower bound above that.",
+            "integrity_rule": "Any change to tit/stats, tit/analyzer, tit/calc, tit/fields "
+            "or tit/sim needs (1) a test in tests/numerical/ against the REAL libraries, "
+            "asserting the claim independently rather than retyping the implementation, and "
+            "(2) if any published result moves, an entry in docs/dev/SCIENTIFIC-CORRECTIONS.md "
+            "saying what was wrong, which versions, which outputs move and by how much, how a "
+            "user spots an affected result, and whether to re-run or rescale.",
+        },
+        "gate_commands": [
+            "cd desktop && npm run typecheck && npm run lint && npx vitest run",
+            "python3 -m pytest tests/ -q        # repo root; heavy libs mocked, numpy real",
+            "docker exec -w /ti-toolbox <container> simnibs_python -m pytest tests/numerical -q",
+            "python3 dev/route_import_guard.py && python3 dev/contracts_check.py",
+            "cd desktop && TIT_E2E_OFFSCREEN=1 npm run e2e:quiet",
+            "cd desktop && npm run build        # LAST, always",
+        ],
+        "gate_note": "Report the numbers, not 'green'. A 200 from /api/health is not "
+        "evidence the new code loaded. Never run two FEM simulations in parallel under "
+        "emulation. One Playwright run at a time (/tmp/tit-e2e.lock).",
+        "docs_of_record": "docs/dev/ is the single source of truth for developers and is "
+        "capped at NINE files: README, ARCHITECTURE, DECISIONS, CONTRIBUTING, DESIGN, "
+        "HISTORY, BENCHMARKS, SCIENTIFIC-CORRECTIONS, RELEASE. Read them with read_dev_doc. "
+        "Nothing in docs/dev/ is published; the user-facing site is docs/wiki/. There are no "
+        "per-lane note files anywhere in the repository and none may be added.",
         "source_status": _source_label(),
-        "tools_hint": "For any error message read_wiki_page('troubleshooting') first. Use search_wiki/read_wiki_page for how-to questions, "
-        "read_source_file/find_symbol for API details, inspect_project for a user's data.",
+        "tools_hint": "For any error message read_wiki_page('troubleshooting') first. Use "
+        "search_wiki/read_wiki_page for user-facing how-to questions, read_dev_doc for how "
+        "the system is built and verified, read_source_file/find_symbol for API details, and "
+        "inspect_project for a user's data.",
     }
 
 
@@ -673,8 +1055,12 @@ TOOLS: List[Dict[str, Any]] = [
     {
         "name": "read_wiki_page",
         "description": "Read a TI-Toolbox wiki page as Markdown, optionally only one section by heading text. "
-        "Slugs: simulator, flex-search, ex-search, mti, analyzer, scripting, pre-processing, "
-        "diffusion-processing, atlases, reports, logging, gui, extension, ...",
+        "The wiki is the USER-facing site. Slugs: overview, desktop-app, jobs, notebooks, "
+        "pipelines, results, simulator, flex-search, ex-search, analyzer, scripting, "
+        "pre-processing, diffusion-processing, atlases, reports, troubleshooting, "
+        "visualizers, logging, extension, agent-plugin, ai-assistant, example-notebook, ... "
+        "There is no 'mti' page any more — mTI is a section of 'simulator'. "
+        "Call list_wiki_pages rather than guessing.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -731,7 +1117,10 @@ TOOLS: List[Dict[str, Any]] = [
     },
     {
         "name": "get_toolbox_version",
-        "description": "Current TI-Toolbox version (from version.py) and matching Docker image tag.",
+        "description": "Current versions: the tit package (tit/__init__.py) and the Electron "
+        "desktop app (desktop/package.json), whether they are in lockstep, and the matching "
+        "Docker image tag. v3 keeps every version site in lockstep via "
+        "dev/update/update_version.py.",
         "inputSchema": {
             "type": "object",
             "properties": {},
@@ -740,8 +1129,52 @@ TOOLS: List[Dict[str, Any]] = [
         "handler": tool_get_toolbox_version,
     },
     {
+        "name": "read_dev_doc",
+        "description": "Read one of the nine docs/dev/*.md files — the DEVELOPER source of "
+        "truth, not published on the site. Names: README (the map and reading order), "
+        "ARCHITECTURE (how it is built, plus the science pipelines and DWI topology), "
+        "DECISIONS (the numbered ADR log), CONTRIBUTING (dev loop, the gate, the smoke "
+        "harness, the science-integrity rule), DESIGN (the UI contract and per-page "
+        "acceptance numbers), HISTORY (what happened, per program), BENCHMARKS (every "
+        "measured number, once), SCIENTIFIC-CORRECTIONS (what v2.x got numerically wrong "
+        "and whether to re-run or rescale), RELEASE (version sites and what is still open). "
+        "Optionally return one section by heading text.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "e.g. 'ARCHITECTURE' or 'SCIENTIFIC-CORRECTIONS'",
+                },
+                "section": {
+                    "type": "string",
+                    "description": "Optional heading text to return only that section",
+                },
+            },
+            "required": ["name"],
+            "additionalProperties": False,
+        },
+        "handler": tool_read_dev_doc,
+    },
+    {
+        "name": "list_launch_paths",
+        "description": "How TI-Toolbox v3 is started: the one run spec (root "
+        "docker-compose.yml) and its four readers, the desktop app, loader.py / loader.sh, "
+        "`tit launch`, the developer's `npm run dev`, the server origin and health route, "
+        "and what the first run prints when the image tag does not exist.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": False,
+        },
+        "handler": tool_list_launch_paths,
+    },
+    {
         "name": "list_source_dir",
-        "description": "List a directory of the TI-Toolbox repo (default 'tit'). Readable roots: tit/, scripts/, docs/, tests/, container/, dev/.",
+        "description": "List a directory of the TI-Toolbox repo (default 'tit'). Readable "
+        "roots: tit/, scripts/, docs/, tests/, container/, dev/, contracts/, desktop/src/, "
+        "desktop/tests/, desktop/docker/, agent-plugin/. node_modules and build output are "
+        "never listed.",
         "inputSchema": {
             "type": "object",
             "properties": {"path": {"type": "string", "default": "tit"}},
@@ -804,9 +1237,12 @@ TOOLS: List[Dict[str, Any]] = [
     },
     {
         "name": "inspect_project",
-        "description": "Inspect a user's TI-Toolbox/BIDS project directory: subjects, head models (m2m), FreeSurfer, "
-        "leadfields, simulations (mesh/NIfTI outputs, analyses), flex/ex/mex search runs, reports, stats. "
-        "Read-only; use it to answer 'what do I have / why is X missing'.",
+        "description": "Inspect a user's TI-Toolbox/BIDS project directory: subjects, head "
+        "models (m2m), FreeSurfer, leadfields, free-hand stim_configs, simulations "
+        "(mesh/NIfTI outputs, analyses), flex/ex/mex search runs, reports, stats, and the v3 "
+        "code/ti-toolbox tree — the job store (counts by state plus recent failures with "
+        "their error.type), notebooks, pipelines and viewer scenes. Read-only; use it to "
+        "answer 'what do I have / why is X missing / why did my job fail'.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -826,7 +1262,11 @@ TOOLS: List[Dict[str, Any]] = [
     },
     {
         "name": "read_project_config",
-        "description": "Read a JSON config from <project>/code/ti-toolbox/config/, e.g. montage_list.json.",
+        "description": "Read one JSON document from a project's v3 config locations: "
+        "code/ti-toolbox/config/ (default — montage_list.json etc.), "
+        "code/ti-toolbox/pipelines/, code/ti-toolbox/viewer/ (<kind>.tetravox.json), or a "
+        "subject's m2m_<id>/stim_configs/ free-hand electrode placements "
+        "({name, type: 'U'|'M', electrode_positions: {label: [x,y,z]}} in subject-RAS mm).",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -834,6 +1274,15 @@ TOOLS: List[Dict[str, Any]] = [
                 "name": {
                     "type": "string",
                     "description": "Filename, e.g. 'montage_list.json'",
+                },
+                "where": {
+                    "type": "string",
+                    "enum": ["config", "pipelines", "viewer", "stim_configs"],
+                    "default": "config",
+                },
+                "subject": {
+                    "type": "string",
+                    "description": "Subject id without 'sub-'; required for where='stim_configs'",
                 },
             },
             "required": ["project_root", "name"],
@@ -879,9 +1328,13 @@ def handle(msg: Dict[str, Any]) -> Optional[Dict[str, Any]]:
                 "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
                 "instructions": (
                     "Read-only knowledge server for TI-Toolbox (temporal interference stimulation toolbox). "
-                    "Start with get_quick_facts. Use search_wiki/read_wiki_page for usage questions, "
-                    "read_source_file/find_symbol for exact API signatures, and inspect_project on the user's "
-                    "project directory before diagnosing missing outputs."
+                    "Start with get_quick_facts. v3 is an Electron desktop app plus a FastAPI server "
+                    "(tit.server) in the Docker image plus the shared `tit` science core; the PyQt GUI "
+                    "(tit/gui) was deleted, so never cite it. Use search_wiki/read_wiki_page for "
+                    "user-facing questions, read_dev_doc for how the system is built and verified, "
+                    "read_source_file/find_symbol for exact API signatures, list_launch_paths for how to "
+                    "run it, and inspect_project on the user's project directory before diagnosing "
+                    "missing outputs."
                 ),
             },
         )
@@ -945,32 +1398,103 @@ def serve() -> None:
             stdout.flush()
 
 
+def _call(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+    r = handle(
+        {
+            "jsonrpc": "2.0",
+            "id": 99,
+            "method": "tools/call",
+            "params": {"name": name, "arguments": args},
+        }
+    )
+    return r["result"]  # type: ignore[index]
+
+
 def selftest() -> int:
+    """Call every registered tool once and report pass/fail per tool.
+
+    Tools that need a local checkout are skipped (not failed) when there is none;
+    ``inspect_project`` / ``read_project_config`` run against a throwaway project
+    tree so they exercise real code without needing the user's data.
+    """
+    import tempfile
+
     print(f"repo root: {REPO_ROOT or '(none -> GitHub)'}")
-    r = handle({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
-    print("tools:", [t["name"] for t in r["result"]["tools"]])
-    r = handle(
-        {
-            "jsonrpc": "2.0",
-            "id": 2,
-            "method": "tools/call",
-            "params": {"name": "get_toolbox_version", "arguments": {}},
-        }
+    listed = handle({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+    names = [t["name"] for t in listed["result"]["tools"]]  # type: ignore[index]
+    print(f"tools ({len(names)}): {', '.join(names)}\n")
+
+    tmp = Path(tempfile.mkdtemp(prefix="ti-mcp-selftest-"))
+    (tmp / "sub-101" / "anat").mkdir(parents=True)
+    (tmp / "code" / "ti-toolbox" / "config").mkdir(parents=True)
+    (tmp / "code" / "ti-toolbox" / "config" / "montage_list.json").write_text(
+        '{"nets": {}}', encoding="utf-8"
     )
-    print(r["result"]["content"][0]["text"])
-    r = handle(
-        {
-            "jsonrpc": "2.0",
-            "id": 3,
-            "method": "tools/call",
-            "params": {
-                "name": "search_wiki",
-                "arguments": {"query": "leadfield", "max_results": 3},
+    m2m = tmp / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101" / "stim_configs"
+    m2m.mkdir(parents=True)
+    (m2m / "demo.json").write_text(
+        '{"name": "demo", "type": "U", "electrode_positions": {"E1+": [1, 2, 3]}}',
+        encoding="utf-8",
+    )
+    jobdir = tmp / "code" / "ti-toolbox" / "jobs" / "j1"
+    jobdir.mkdir(parents=True)
+    (jobdir / "status.json").write_text(
+        '{"id": "j1", "kind": "sim", "state": "failed", "subject_ids": ["101"],'
+        ' "error": {"type": "lost", "message": "server restarted"}}',
+        encoding="utf-8",
+    )
+
+    cases: List[tuple] = [
+        ("get_quick_facts", {}),
+        ("list_wiki_pages", {}),
+        ("read_wiki_page", {"page": "overview"}),
+        ("search_wiki", {"query": "leadfield", "max_results": 3}),
+        ("read_changelog", {"max_versions": 1}),
+        ("get_toolbox_version", {}),
+        ("read_dev_doc", {"name": "ARCHITECTURE"}),
+        ("list_launch_paths", {}),
+        ("list_source_dir", {"path": "tit"}),
+        ("read_source_file", {"path": "tit/calc.py", "start_line": 1, "end_line": 20}),
+        ("find_symbol", {"name": "get_TI_vectors"}),
+        ("search_source", {"pattern": "def hf_sar", "path": "tit", "max_results": 3}),
+        ("inspect_project", {"project_root": str(tmp)}),
+        (
+            "read_project_config",
+            {"project_root": str(tmp), "name": "montage_list.json"},
+        ),
+        (
+            "read_project_config",
+            {
+                "project_root": str(tmp),
+                "name": "demo.json",
+                "where": "stim_configs",
+                "subject": "101",
             },
-        }
-    )
-    print(r["result"]["content"][0]["text"][:600])
-    return 0
+        ),
+    ]
+
+    failures = 0
+    for name, args in cases:
+        res = _call(name, args)
+        text = res["content"][0]["text"]
+        if res.get("isError"):
+            if REPO_ROOT is None and "needs a local checkout" in text:
+                print(f"SKIP  {name}: {text.splitlines()[0]}")
+                continue
+            failures += 1
+            print(f"FAIL  {name}: {text.splitlines()[0]}")
+        else:
+            print(f"ok    {name}  ({len(text)} chars)")
+
+    # Every registered tool must appear in the matrix above.
+    covered = {name for name, _ in cases}
+    missing = [n for n in names if n not in covered]
+    if missing:
+        failures += 1
+        print(f"FAIL  self-test does not cover: {', '.join(missing)}")
+
+    print("\nselftest:", "PASSED" if failures == 0 else f"{failures} FAILURE(S)")
+    return 1 if failures else 0
 
 
 if __name__ == "__main__":

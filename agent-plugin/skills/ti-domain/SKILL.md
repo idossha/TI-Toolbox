@@ -8,6 +8,20 @@ user-invocable: false
 
 This document is the primary domain reference for AI agents working on TI-Toolbox who have no neuroscience background. Every section is relevant to understanding the codebase, the physics it implements, and the clinical context it serves.
 
+> **Before you quote a number, or change code that produces one.**
+> `docs/dev/SCIENTIFIC-CORRECTIONS.md` is the record of what earlier versions got
+> numerically wrong — for each item: which versions, which outputs move and by how
+> much, how a user spots an affected result, and whether to **re-run or rescale**.
+> Read it with the MCP tool `read_dev_doc("SCIENTIFIC-CORRECTIONS")`. Its rules are
+> folded into the sections below (focality units, permutation p-values, cluster sign
+> handling, affine geometry, the exposure metrics, envelope conditioning).
+>
+> And the rule that goes with it: **any change to `tit/stats`, `tit/analyzer`,
+> `tit/calc`, `tit/fields` or `tit/sim` needs a test in `tests/numerical/` that
+> asserts the claim independently against the real libraries — and, if any published
+> result moves, an entry in that file.** A number that changes and is not written
+> down there is indistinguishable, to a user, from a result they can no longer trust.
+
 ---
 
 ## 1. Temporal Interference (TI) Fundamentals
@@ -36,7 +50,11 @@ Understanding these field quantities is critical because they are the primary ou
 
 - **TI_max field**: The maximum envelope amplitude at each spatial point, computed across ALL possible neural fiber orientations. This is the orientation-independent maximum stimulation intensity. It answers: "What is the strongest possible TI effect at this location, regardless of which direction neurons are pointing?"
 
-- **TI_normal field**: The envelope component projected along a specific direction vector — typically the cortical surface normal. It answers: "How strongly would TI stimulate neurons oriented perpendicular to the cortical surface at this point?" This is more physiologically relevant for cortical targets because pyramidal neurons are approximately normal to the cortical sheet.
+- **TI_normal field**: The envelope component projected along a specific direction vector — typically the cortical surface normal. It answers: "How strongly would TI stimulate neurons oriented perpendicular to the cortical surface at this point?" This is more physiologically relevant for cortical targets because pyramidal neurons are approximately normal to the cortical sheet. It is always ≤ `TI_max`.
+
+  **`TI_normal` is mesh-only, by design** — it only exists on the cortical surface, so a voxel-space analysis of it is an error, not a bug. It is written for both TI and mTI runs; for mTI, `tit/sim/mTI.py::_calculate_mti_normal` reads the per-channel central-surface overlays, takes the node normals, and evaluates `get_TI_dir(e_fields, normals)`, writing `<montage>_mTI_normal.msh`. An mTI simulation run *before* that support existed has no normal mesh: requesting `TI_normal` raises `FileNotFoundError` and the `normal_*` statistics are `None` — the fix is to re-run the simulation.
+
+- **fsaverage projection**: `tit/source/fsaverage.py` projects finished simulations onto the fsaverage surface *post hoc* (spacings 5/6/7 = 10242/40962/163842 nodes per hemisphere), covering `TI_max`, `TI_normal`, `hf_peak` and `hf_sar`, and writing `sub-<id>_sim-<sim>_space-fsaverage<spacing>_fields.npz`. This is what makes surface-space group statistics possible. Unlike SimNIBS's native `map_to_fsavg` (simulation time, `TI_max` only) it can be run after the fact. Confirm mTI coverage against the module before promising it — the source and `docs/wiki/simulator.md` disagree today.
 
 - **Modulation depth**: A dimensionless ratio between 0 and 1 that indicates how effectively the two fields interfere at a given point:
 
@@ -50,7 +68,7 @@ Understanding these field quantities is critical because they are the primary ou
 
 ### Important: The Envelope Is Not Simply |E1 - E2|
 
-A common misconception is that the TI effect is just the difference of the two field magnitudes. The actual calculation involves **vector fields** and must consider orientation. At each spatial point, E1 and E2 are 3D vectors. The envelope magnitude depends on the relative orientation of these vectors and the neural fiber direction being considered. The full TI_max calculation uses eigenvalue decomposition (implemented in `tit/sim/calc.py`).
+A common misconception is that the TI effect is just the difference of the two field magnitudes. The actual calculation involves **vector fields** and must consider orientation. At each spatial point, E1 and E2 are 3D vectors. The envelope magnitude depends on the relative orientation of these vectors and the neural fiber direction being considered. The full TI_max calculation searches over orientations using two quadratic forms built from the fields; the implementation is in `tit/calc.py`.
 
 ### Simplified Scalar TI Envelope
 
@@ -102,14 +120,49 @@ The mTI field computation is more complex than standard TI:
 
 ### Key References
 
-- Lee, S. et al. (2020) — Extended TI to multipolar configurations
-- Botzanowski, B. et al. (2022) — Further development of multi-channel TI approaches
+Check attributions against `read_wiki_page("simulator")` before repeating them —
+several were corrected after a full-text audit, and Botzanowski 2025 in particular
+contains **no equations** to cite.
 
 ### Codebase Detection
 
-In the codebase, mTI vs standard TI is auto-detected based on montage configuration:
-- **2 electrode pairs** → standard TI pathway (`tit/sim/ti.py`)
-- **4 electrode pairs** → mTI pathway (`tit/sim/mti.py`)
+mTI vs standard TI is auto-detected from the montage's pair count. The rule is
+stated once, in `tit.constants.is_valid_pair_count`, and enforced in
+`Montage.simulation_mode` and `tit.calc._validate_field_list`:
+
+> an **even** number of electrode pairs, **at least two** — 2 = TI, 4 or more = mTI.
+
+So 2, 4, 6, 8, 12, 16 … are legal and 1, 3, 5 are not: an odd count leaves a
+channel with nothing to beat against, and a single pair is tACS, not TI.
+
+- **2 electrode pairs** → standard TI pathway (`tit/sim/TI.py`)
+- **4+ (even) electrode pairs** → mTI pathway (`tit/sim/mTI.py`)
+
+Note the capitalisation of both filenames — the container's filesystem is
+case-sensitive.
+
+### The envelope API — and what was removed
+
+`tit.calc` exposes exactly **three** public functions, each taking a *list* of `2K`
+field arrays paired **positionally** (each two consecutive fields share one carrier):
+
+```python
+get_TI_vectors(fields, psi=None)           # (N,3) modulation-amplitude vectors
+get_TI_avg(fields, psi=None)               # (N,)  direction-averaged envelope
+get_TI_dir(fields, directions, psi=None)   # (N,)  envelope along given directions
+```
+
+`psi` is a per-carrier envelope phase offset, shape `(K,)`, radians; `None` means
+phase-aligned. `K = 1` uses an exact closed form; `K >= 2` runs the modulation-depth
+direction search.
+
+**Removed in v2.5.0 — never emit or describe these:** `get_nTI_vectors` (the old
+recursive `TI(TI(E1,E2), TI(E3,E4))` algorithm, which is simply wrong for `N >= 4`),
+`get_mTI_vectors` / `get_mTI_dir` (renamed), `get_magnitude_am`, the positional
+`get_TI_vectors(E1, E2)` form, and the `channels=` carrier-regrouping parameter.
+There is no `montage.channels` and no separate "carrier wiring" control:
+**wiring is positional — one field is one carrier**, which is also how
+`tit.fields.hf_peak(*fields)` and `hf_sar(*fields)` read their input.
 
 ---
 
@@ -430,6 +483,45 @@ Focality = max(E_ROI) / percentile(E_nonROI, 95)
 
 Higher focality means the stimulation is more concentrated at the target and weaker elsewhere. A focality of 1.0 means the target receives no more stimulation than the rest of the brain.
 
+Flex-search also offers `focality_tf`, a threshold-free variant
+`mean_ROI^(1+w) / p95_nonROI`, which avoids picking an arbitrary cut-off.
+
+#### Units — the one thing to get right
+
+The analyzer's `focality_50_area`, `focality_75_area`, `focality_90_area` and
+`focality_95_area` measure **how much tissue exceeds a fraction of the peak**, and
+their unit depends on the space:
+
+| Space | Element weight | Reported unit | Conversion |
+|-------|----------------|---------------|------------|
+| mesh  | node area, mm² | **cm²** | ÷ 100 |
+| voxel | voxel volume, mm³ | **cm³** | ÷ 1000 |
+
+The `_area` suffix is deliberately kept for the voxel case too, so existing scripts
+and the group aggregator keep working — **read the name as "extent", and take the
+unit from the space**. Voxel-space values produced by v2.3.0–v2.5.0 divided by 100
+instead of 1000 and are therefore **ten times too large**; divide them by 10, no
+re-run needed. Mesh values were always correct. `total_area_or_volume` is raw
+mm²/mm³ and never moved.
+
+#### Geometry comes from the affine, not the zooms
+
+Voxel volume is `|det(A)|` of the affine's 3×3 block, and the distance from a
+spherical ROI's centre is `‖A(v − c)‖`. The older code used
+`header.get_zooms()` — the affine's *column norms* — which silently assumes the
+voxel axes are orthogonal in world space. On an orthogonal grid the two agree
+exactly; on a sheared one the zooms overestimated voxel volume by ~11%, which
+propagated into `total_area_or_volume` and every `focality_*_area`, and made the
+"spherical" ROI the wrong ellipsoid. Detection: compare
+`prod(header.get_zooms()[:3])` with `abs(det(affine[:3,:3]))` — a difference above
+float noise means the data is sheared and the result must be re-run.
+
+Group stacking is guarded the same way: every subject's image must share a grid
+(shape, direction block, origin) with the first, or the load raises `ValueError`
+naming the subject. Affines differing by more than 1e-3 mm in origin or 1e-4 in the
+direction block mean the analysis compared different anatomy; a sign flip in
+`det(affine[:3,:3])` (a left–right handedness flip) is the worst case.
+
 ### Surface Mapping
 
 Volumetric (3D) field data can be projected onto cortical surfaces for visualization:
@@ -470,11 +562,55 @@ A non-parametric statistical method for spatial data that controls for the multi
 
 **Advantages**: no assumption of normal distribution, controls family-wise error rate across the entire brain, data-driven cluster formation.
 
+#### The p-value is `(b + 1) / (m + 1)`
+
+With a *sampled* Monte-Carlo null, the naive `b / m` (the fraction of `m`
+permutations at least as extreme) can return exactly 0 and is anti-conservative in
+the tail. The correct estimator (Phipson & Smyth 2010) adds the observed statistic
+to its own null:
+
+```
+p = (b + 1) / (m + 1)
+```
+
+At the default 1000 permutations the floor is `1/1001 ≈ 9.99e-4`, never 0, and the
+shift is at most 0.001 absolute. An old report showing `p = 0.0000` should be read
+as `p < 1/(m+1)`; to convert, `p_new = (p_old * m + 1) / (m + 1)`. The exact `b / m`
+is correct **only** when the null is an exhaustive enumeration of the permutation
+group, not a sample.
+
+#### Clusters carry a sign, and the comparison is always right-tailed
+
+A supra-threshold map contains both positive and negative blobs. Labelling it with
+a plain connected-components pass fuses touching positive and negative blobs into
+one cluster whose signed mass is their *difference*, and taking `max()` over signed
+masses under a left- or two-sided tail selects the cluster **closest to zero**
+rather than the most extreme. Two rules fix it:
+
+1. **Label positive and negative voxels as separate components** — a cluster never
+   mixes signs.
+2. **Map each cluster to a statistic monotone in extremeness** before comparing:
+   `mass` for a right tail, `−mass` for a left tail, `|mass|` for two-sided. The
+   observed and permuted values are then on the same scale and the comparison is
+   always right-tailed.
+
+One-sided cluster *forming* is sign-restricted to match. A right-tailed
+(`alternative="greater"`) analysis was never affected, because there the oriented
+statistic already is the signed mass. **Detection tell:** a log line reading
+`Threshold (p<0.050): <a negative number> mass units` — an oriented threshold can
+never be negative. Affected analyses must be **re-run**; there is no rescaling.
+
+Degenerate voxels (zero standard error) are also handled explicitly now: `0/0`
+(undefined) and `±x/0` (perfect separation) are no longer both flattened to
+`t = 0, p = 1`; degenerate voxels are excluded from the valid mask and counted in a
+warning. This can change the valid mask and therefore cluster geometry, so it too
+is a re-run, not a rescale.
+
 ---
 
 ## 8. Key Equations Reference
 
-These equations appear in the codebase (primarily in `tit/sim/calc.py`) and understanding them is essential for working on simulation and analysis code.
+These equations appear in the codebase (primarily in `tit/calc.py`) and understanding them is essential for working on simulation and analysis code.
 
 ### TI Envelope (Simplified Scalar)
 
@@ -490,7 +626,24 @@ For 3D vector fields E1(x) and E2(x), find the orientation unit vector **n** tha
 TI_max(x) = max_n [ |n · (E1 + E2)| - |n · (E1 - E2)| ]
 ```
 
-This optimization over **n** is solved analytically via eigenvalue decomposition of a specific matrix constructed from E1 and E2. The implementation is in `calc.py`.
+For `K = 1` carrier pair this has an exact closed form. For `K >= 2` (mTI) the
+implementation reduces the problem, per direction, to two quadratic forms `P` and
+`Q` built from the fields, and searches directions over a Fibonacci sphere with a
+local refinement pass.
+
+**Numerical conditioning.** The envelope is *not* evaluated as
+`sqrt(2(P+Q)) - sqrt(2(P-Q))`. At `Q << P` — which is every off-target voxel, and
+therefore the denominator of every focality ratio — that subtraction of two nearly
+equal square roots loses all leading digits and returns exactly 0 once
+`Q/P < ~1e-16`. The algebraically identical rationalised form is used instead:
+
+```
+MD = 2*sqrt(2) * Q / ( sqrt(P + Q) + sqrt(P - Q) )
+```
+
+a quotient of *additions*, accurate to ~1e-14 relative down to `Q/P = 1e-20`
+(`P = Q = 0` yields 0). If you touch this expression, the conditioning is the point.
+The implementation is in `tit/calc.py`.
 
 ### Modulation Depth
 
@@ -505,6 +658,9 @@ Ranges from 0 (no modulation, one field dominates) to 1 (perfect modulation, equ
 ```
 F = mean(E_ROI) / mean(E_nonROI)
 ```
+
+Note the analyzer's `focality_*_area` outputs are a different thing — an *extent*
+of tissue above a fraction of peak, in cm2 (mesh) or cm3 (voxel). See section 7.
 
 ### FEM Governing Equation
 
@@ -538,10 +694,54 @@ These safety parameters are embedded in the codebase's validation and constraint
 - Most significant at the electrode-skin interface where impedance is highest
 - Electrode gel/sponge must maintain good electrical contact to prevent hot spots
 
-### SAR (Specific Absorption Rate)
-- Relevant for the high-frequency carrier signals (kHz range)
-- SAR = σ|E|² / ρ (W/kg), where ρ is tissue density
-- Must stay within regulatory limits (typically 2 W/kg averaged over 10g of tissue)
+### Exposure metrics: `hf_peak` and `hf_sar`
+
+These are the toolbox's two carrier-exposure outputs, and their definitions are
+precise. Follow Cassarà et al. 2025 (Parts I and II), which the implementation is
+written to.
+
+**The engine is quasi-static.** An FEM field `E` is a **phasor amplitude** vector
+in V/m — a **peak**, not an RMS — and there is no time axis anywhere in the
+toolbox. Every exposure quantity is therefore a **worst case over the unknown
+relative phases** of the carriers: equal to the time-domain definition when that
+worst phase is actually attained (which it is, for incommensurate carriers), and an
+upper bound otherwise. This is the same convention that gives the modulation depth.
+
+**How carriers combine** (Cassarà Part II, p. 8, verbatim): *"coherent field
+superposition was used for identical frequencies, and incoherent superposition
+(i.e., SAR addition) was used when the frequencies differed."* So fields at the
+same frequency sum **as vectors** first, and distinct carriers then combine
+**incoherently** — in power for `hf_sar`, and by worst-case sign enumeration for
+`hf_peak`. Under the toolbox's shipped **positional wiring** one field *is* one
+carrier, so with `E_c` the field of carrier `c`:
+
+```
+hf_peak = max over signs s_c in {+1,-1} of  | sum_c  s_c * E_c |      (V/m)
+hf_sar  = sum_c |E_c|^2                                              ((V/m)^2)
+```
+
+- `hf_sar` carries **no** time-averaging factor. The factor of ½ appears exactly
+  once, in the calibration: `SAR = (σ / 2ρ) · hf_sar` in W/kg, and the RMS carrier
+  field is `sqrt(hf_sar / 2)`.
+- `hf_peak` is **exact** by enumerating all `2^(N-1)` sign combinations up to
+  `EXACT_SIGN_ENUM_MAX_FIELDS = 8` carriers; above that a direction sweep returns a
+  **lower bound**, which is slightly non-conservative. `hf_peak_is_exact(n)` says
+  which regime you are in.
+- Cassarà's Table 3 (p. 15) limits are **peak** values, not RMS: brain 16 mA /
+  30 V/m below 2.5 kHz, scaling as `f / 2.5 kHz` above; skin 7 mA / 200 V/m. The
+  temperature-derived route gives 14 mA for the FDA's 0.1 °C brain limit and
+  100 mA for 2 °C in skin.
+- `TI_max`, `TI_avg`, `TI_normal` and everything downstream in the analyzer and
+  statistics were never affected by the carrier-grouping question.
+
+**Deliberately not computed** (do not claim the toolbox reports them): current
+density `J = σE` (needs the 2 mm ICNIRP averaging kernel and per-tissue σ),
+temperature rise (Pennes bioheat), charge per phase and the Shannon limit, exposure
+duration / CEM43, and the activating function.
+
+### General SAR context
+- SAR = σ|E|² / ρ (W/kg), where ρ is tissue density; regulatory limits are
+  typically 2 W/kg averaged over 10 g of tissue.
 
 ### Impedance Monitoring
 - Electrode-skin impedance should be monitored before and during stimulation
@@ -593,10 +793,21 @@ project_root/
 │       ├── analysis/                    # Analysis CSV files, figures
 │       └── optimization/               # Optimization results
 │
-└── code/ti-toolbox/config/              # Configuration files
-    ├── montages.json                    # Electrode montage definitions
-    └── metadata.json                    # Project metadata
+└── code/ti-toolbox/                     # Everything the toolbox itself owns
+    ├── config/                          # montage_list.json, EEG nets, settings
+    ├── jobs/{id}/                       # v3 job store: spec.json, status.json,
+    │                                    #   events.jsonl, stdout.log
+    ├── notebooks/                       # .ipynb documents (examples/ only subdir)
+    ├── pipelines/{name}.json            # pipeline DAGs (+ runs/ for resolved ports)
+    └── viewer/{kind}.tetravox.json      # viewer scenes
 ```
+
+The head model also carries `m2m_{id}/eeg_positions/`, `m2m_{id}/segmentation/`,
+`m2m_{id}/surfaces/` and `m2m_{id}/stim_configs/` (free-hand electrode placements
+in subject-RAS millimetres). The job store lives inside the project so a notebook
+and a restarted server see the same jobs; `.bidsignore` carries the line
+`code/ti-toolbox/jobs/`. Never hand-build any of these paths — go through
+`tit.paths.get_path_manager`.
 
 ### Subject ID Convention
 
