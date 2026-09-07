@@ -43,9 +43,71 @@ async function settled(page: Page): Promise<void> {
   await page.waitForFunction(() => window.__scene?.camera.settled === true, null, { timeout: 30_000 });
 }
 
-/** The marker nearest the eye, with its projection — an electrode round the back of the head is
- *  hidden by the scalp by design, so "any visible one" is not good enough. */
-async function frontMarker(page: Page, exclude: string[] = []): Promise<{ index: number; id: string; x: number; y: number }> {
+/**
+ * The marker nearest the eye, with its projection — an electrode round the back of the head is
+ * hidden by the scalp by design, so "any visible one" is not good enough.
+ *
+ * `needsContrast` additionally requires that the anatomy *behind* the marker is not already the
+ * idle marker's own colour. That is not a weaker test, it is what makes the frame-difference proof
+ * below mean anything: since the grey matter became opaque (2026-09-06) the composed scalp lightens
+ * to within a few units of the palette's idle grey over part of the head, and at such a pixel
+ * "with markers" and "without markers" agree to 4/255 whether or not a marker was drawn there. The
+ * separation is measured, not assumed, and the worst case over the front markers is logged.
+ */
+async function frontMarker(
+  page: Page,
+  exclude: string[] = [],
+  needsContrast = false,
+): Promise<{ index: number; id: string; x: number; y: number }> {
+  if (needsContrast) {
+    const picked = await page.evaluate(
+      ([skip, idle]) => {
+        const scene = window.__scene!;
+        const cam = scene.camera as { target: number[]; distance: number; yaw: number; pitch: number };
+        const cp = Math.cos(cam.pitch);
+        const eye = [
+          (cam.target[0] as number) + cam.distance * cp * Math.sin(cam.yaw),
+          (cam.target[1] as number) + cam.distance * cp * Math.cos(cam.yaw),
+          (cam.target[2] as number) + cam.distance * Math.sin(cam.pitch),
+        ];
+        const ranked = scene.markers
+          .map((marker, index) => ({
+            index,
+            id: marker.id,
+            projection: scene.project(marker.world),
+            d: Math.hypot(
+              marker.world[0] - (eye[0] as number),
+              marker.world[1] - (eye[1] as number),
+              marker.world[2] - (eye[2] as number),
+            ),
+          }))
+          .filter((c) => c.projection.inFront && !(skip as string[]).includes(c.id))
+          .sort((a, b) => a.d - b.d);
+        const sep = (c: (typeof ranked)[number]): number => {
+          const bg = scene.samplePixels([[c.projection.x, c.projection.y]], false)?.[0];
+          if (!bg) return 0;
+          return Math.max(...[0, 1, 2].map((i) => Math.abs((bg[i] as number) - ((idle as number[])[i] as number))));
+        };
+        const separations = ranked.slice(0, 24).map((c) => ({ id: c.id, sep: sep(c) }));
+        const best = ranked.slice(0, 24).find((c) => sep(c) > 24) ?? ranked[0];
+        if (!best) throw new Error("no marker in front of the camera");
+        return {
+          index: best.index,
+          id: best.id,
+          x: best.projection.x,
+          y: best.projection.y,
+          worst: Math.min(...separations.map((s) => s.sep)),
+          median: separations.map((s) => s.sep).sort((a, b) => a - b)[Math.floor(separations.length / 2)] ?? 0,
+        };
+      },
+      [exclude, rgb255(SCENE_PALETTE.idle)] as const,
+    );
+    console.log(
+      `REAL-SCENE idle-marker/scalp separation over the 24 nearest front markers: ` +
+        `worst ${picked.worst}, median ${picked.median} (measuring on ${picked.id})`,
+    );
+    return { index: picked.index, id: picked.id, x: picked.x, y: picked.y };
+  }
   return page.evaluate((skip: string[]) => {
     const scene = window.__scene;
     if (!scene) throw new Error("window.__scene is absent — build out/ with VITE_SCENE_HOOKS=1");
@@ -73,6 +135,17 @@ async function frontMarker(page: Page, exclude: string[] = []): Promise<{ index:
     if (!best) throw new Error("no marker in front of the camera");
     return { index: best.index, id: best.id, x: best.projection.x, y: best.projection.y };
   }, exclude);
+}
+
+/** Where one marker, named by id, projects right now. */
+async function projectMarker(page: Page, id: string): Promise<{ x: number; y: number }> {
+  return page.evaluate((markerId: string) => {
+    const scene = window.__scene!;
+    const marker = scene.markers.find((m) => m.id === markerId);
+    if (!marker) throw new Error(`no marker ${markerId}`);
+    const p = scene.project(marker.world);
+    return { x: p.x, y: p.y };
+  }, id);
 }
 
 /** RGBA at one canvas CSS point, from the drawing buffer of a freshly rendered frame. */
@@ -155,7 +228,7 @@ test("an electrode's colour is its whole state, and selecting it adds no ring", 
     await page.mouse.move(primingBox.x + 4, primingBox.y + 4);
     await settled(page);
 
-    const marker = await frontMarker(page, [priming.id]);
+    const marker = await frontMarker(page, [priming.id], true);
     const idle = await pixelAt(page, marker.x, marker.y);
     const background = await pixelAt(page, marker.x, marker.y, false);
     // The marker is really painted here: with the marker pass suppressed the same pixel is the
@@ -177,8 +250,10 @@ test("an electrode's colour is its whole state, and selecting it adds no ring", 
       await page.waitForTimeout(150);
     });
     // The before/after pair is only a colour measurement if the geometry stayed put: a reflow that
-    // moved the camera would make every "changed" pixel a change of subject, not of state.
-    const after = await frontMarker(page, [priming.id]);
+    // moved the camera would make every "changed" pixel a change of subject, not of state. It is
+    // *this* marker that must not have moved — re-ranking the markers here would compare the
+    // projection of whichever one now sorts first, which is a different question.
+    const after = await projectMarker(page, marker.id);
     expect(Math.hypot(after.x - marker.x, after.y - marker.y), "the pane reflowed under the click").toBeLessThan(1);
 
     const selected = await pixelAt(page, marker.x, marker.y);

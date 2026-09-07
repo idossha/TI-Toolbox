@@ -29,9 +29,16 @@ export async function setJobSource(page: Page, row: Locator, label: string): Pro
   await page.getByRole("option", { name: label, exact: true }).click();
 }
 
-/** Sets a row's EEG net — the montage source's net select, whichever column it sits in. */
+/**
+ * Sets a row's EEG net — the montage source's net select, whichever column it sits in.
+ *
+ * Callers pass the net's real filename, because that is its id on the wire everywhere else in the
+ * app. Since 2026-09-06 the row's option is *labelled* with the file's stem (`MontageManager`
+ * renders `netStem(n)`, so a narrow column reads "BioSemi-128-A1" rather than eliding the name to
+ * fit the extension), so the trailing `.csv` is dropped here rather than in every spec.
+ */
 export async function setJobNet(page: Page, row: Locator, option: string): Promise<void> {
-  await pickBy(page, row, "EEG net", option);
+  await pickBy(page, row, "EEG net", option.replace(/\.csv$/i, ""));
 }
 
 /**
