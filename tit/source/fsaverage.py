@@ -14,6 +14,10 @@ central-surface overlays and morphs the requested scalar fields to fsaverage:
 * ``hf_peak``   -- peak carrier field max(|E1+E2|, |E1-E2|) (Cassarà 2025, safety)
 * ``hf_sar``    -- carrier heating driver |E1|^2 + |E2|^2 (proportional to SAR)
 
+This path is standard TI only (mTI skips fsaverage projection), so there are
+exactly two carriers and no ``channels`` grouping to honour -- the two forms
+above are already the per-carrier ones.
+
 ``TI_max`` / ``TI_normal`` are read from the pipeline's central-surface overlays;
 ``hf_peak`` / ``hf_sar`` are interpolated from the carrier **volume** meshes (the
 surface overlays only reliably carry ``E_normal`` on some SimNIBS builds) using

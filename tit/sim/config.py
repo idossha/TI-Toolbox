@@ -135,24 +135,30 @@ class Montage:
         -------
         SimulationMode
             ``SimulationMode.TI`` for 2 pairs, ``SimulationMode.MTI``
-            for 4 or more pairs.
+            for 4 or more (even) pairs.
 
         Raises
         ------
         ValueError
-            If the pair count is not 2 or >= 4.
+            If the pair count is not allowed by
+            :func:`tit.constants.is_valid_pair_count` -- an even count of at
+            least 2.  One pair is tACS, not TI; an odd count leaves a channel
+            with nothing to beat against.
 
         See Also
         --------
         SimulationMode : The returned enum type.
         """
         n = len(self.electrode_pairs)
-        if n == 2:
-            return SimulationMode.TI
-        if n >= 4:
-            return SimulationMode.MTI
-        raise ValueError(
-            f"Invalid number of electrode pairs: {n}. Expected 2 (TI) or 4+ (mTI)."
+        if not const.is_valid_pair_count(n):
+            raise ValueError(
+                f"Invalid number of electrode pairs: {n}. Expected "
+                f"{const.PAIR_COUNT_RULE}."
+            )
+        return (
+            SimulationMode.TI
+            if n == const.TI_ELECTRODE_PAIRS
+            else SimulationMode.MTI
         )
 
     @property

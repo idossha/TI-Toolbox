@@ -74,8 +74,8 @@ class mTISimulation(BaseSimulation):
        envelope over all N carrier fields, grouped into carriers per
        ``montage.channels`` (``None`` = one carrier per pair), plus its
        orientation-averaged companion ``TI_avg`` and the ``hf_peak``/
-       ``hf_sar`` carrier-exposure safety maps (always over all N fields,
-       regardless of ``channels``).
+       ``hf_sar`` carrier-exposure safety maps, which honour the *same*
+       ``montage.channels`` grouping (Cassarà 2025 Part II, p. 8).
     6. Extract GM/WM meshes, convert to NIfTI, organize outputs.
 
     See Also
@@ -198,12 +198,22 @@ class mTISimulation(BaseSimulation):
             mti_avg = get_TI_avg(e_fields, channels=self.montage.channels)
             mout.add_element_field(mti_avg, const.FIELD_TI_AVG)
         if const.FIELD_HF_PEAK in selected:
-            # Carrier-exposure safety map (Cassarà 2025): peak carrier field,
-            # over all N per-pair carrier fields.
-            mout.add_element_field(hf_peak(*e_fields), const.FIELD_HF_PEAK)
+            # Carrier-exposure safety map (Cassarà 2025 Part I, Eq. 3): peak
+            # carrier field. Grouped by the same montage.channels as the
+            # envelope -- fields sharing a carrier are phase-locked and sum
+            # as vectors before the worst-case sign enumeration over carriers.
+            mout.add_element_field(
+                hf_peak(*e_fields, channels=self.montage.channels),
+                const.FIELD_HF_PEAK,
+            )
         if const.FIELD_HF_SAR in selected:
-            # Carrier-exposure safety map (Cassarà 2025): heating driver.
-            mout.add_element_field(hf_sar(*e_fields), const.FIELD_HF_SAR)
+            # Carrier-exposure safety map: heating driver. Coherent sum within
+            # a carrier, power (incoherent) sum across carriers -- Cassarà
+            # 2025 Part II, p. 8.
+            mout.add_element_field(
+                hf_sar(*e_fields, channels=self.montage.channels),
+                const.FIELD_HF_SAR,
+            )
 
         view_field = (
             const.FIELD_MTI_MAX

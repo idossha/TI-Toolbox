@@ -33,6 +33,9 @@ import warnings
 
 import numpy as np
 
+from tit.constants import is_valid_pair_count
+from tit.fields import channel_index_groups
+
 
 def get_TI_vectors(E1_org, E2_org):
     """Compute the TI modulation-amplitude vectors for two electric fields.
@@ -122,8 +125,9 @@ def get_mTI_vectors(fields, channels=None, psi=None):
     summed fields. K=1 dispatches exactly to :func:`get_TI_vectors`; K>=2
     returns ``best_direction * md`` from the verified
     :func:`_mti_modulation_depth` envelope. ``hf_peak``/``hf_sar``
-    (:mod:`tit.fields`) are unaffected by ``channels``: they always sum
-    over every carrier field.
+    (:mod:`tit.fields`) honour the same ``channels`` grouping when it is
+    passed to them: same-carrier fields are summed as vectors before any
+    exposure metric is formed (Cassarà et al. 2025 Part II, p. 8).
 
     Parameters
     ----------
@@ -345,12 +349,16 @@ def _mti_modulation_depth(
 def _validate_field_list(fields):
     """Validate a field list: even length >= 2, identical (N, 3) shapes.
 
+    One field per electrode pair (one current channel), and the allowed
+    counts are exactly `tit.constants.is_valid_pair_count`'s -- the same rule
+    the montage config validates (2 = TI, 4+ even = mTI).
+
     Ported from ``alba/ex-search-multipolar`` (see module docstring
     "Attribution").
     """
     arrs = [np.asarray(field, dtype=np.float64) for field in fields]
     n = len(arrs)
-    if n < 2 or n % 2 != 0:
+    if not is_valid_pair_count(n):
         raise ValueError(f"mTI requires an even number of fields >= 2, got {n}")
     ref_shape = arrs[0].shape
     if len(ref_shape) != 2 or ref_shape[1] != 3:
@@ -392,6 +400,9 @@ def _resolve_channels(fields, channels):
     channel order. This is exact: pre-summing then pairing once is
     algebraically identical to the coherent-sum ``P``/``Q`` the K=1 case
     would compute pairwise (Lee et al. 2022's shared-carrier design).
+    The exposure metrics in :mod:`tit.fields` group carriers the same way
+    (they share :func:`tit.fields.channel_index_groups`), so a montage's
+    envelope and its ``hf_peak``/``hf_sar`` describe the same carriers.
 
     Parameters
     ----------
@@ -427,46 +438,19 @@ def _resolve_channels(fields, channels):
                 f"field 1 has {ref_shape}, field {i} has {arr.shape}"
             )
 
+    # The index-partition validation lives in tit.fields (shared with the
+    # exposure metrics, which must group carriers exactly the same way).
+    # It returns non-empty groups only; an empty group_b is re-materialised
+    # here as a zero field, so the flat list stays 2K long and pairs up.
     channels = list(channels)
-    if len(channels) == 0:
-        raise ValueError("channels must contain at least one channel")
-
-    seen = set()
+    groups = channel_index_groups(len(arrs), channels)
+    used = iter(groups)
     flat = []
-    for ci, (group_a, group_b) in enumerate(channels):
-        group_a = list(group_a)
-        group_b = list(group_b)
-        if len(group_a) == 0:
-            raise ValueError(f"channels[{ci}]: group_a must be non-empty")
-        for label, group in (("group_a", group_a), ("group_b", group_b)):
-            for idx in group:
-                if not (0 <= idx < n):
-                    raise ValueError(
-                        f"channels[{ci}] {label}: index {idx} out of range "
-                        f"for {n} fields"
-                    )
-                if idx in seen:
-                    raise ValueError(
-                        f"channels[{ci}] {label}: field index {idx} is "
-                        "used in more than one channel group"
-                    )
-                seen.add(idx)
-        flat.append(_sum_group(arrs, group_a, ref_shape))
-        flat.append(_sum_group(arrs, group_b, ref_shape))
-
-    # ``channels`` must be an exact partition of ``fields``. Silently dropping
-    # an unreferenced field would compute the envelope of a *different*
-    # montage from the one the caller passed -- and, worse, one whose hf_peak
-    # / hf_sar (which always sum every field) describes more carriers than the
-    # envelope saw. A field that genuinely does not beat is expressed as its
-    # own channel with an empty ``group_b``.
-    missing = sorted(set(range(n)) - seen)
-    if missing:
-        raise ValueError(
-            f"channels must use every field exactly once; field index "
-            f"{missing} " + ("is" if len(missing) == 1 else "are") + " unused. "
-            "Add the field to a channel, or give it its own channel with an "
-            "empty group_b (a non-beating carrier)."
+    for group_a, group_b in channels:
+        flat.append(_sum_group(arrs, list(next(used)), ref_shape))
+        flat.append(
+            _sum_group(arrs, list(next(used)), ref_shape) if list(group_b) else
+            np.zeros(ref_shape, dtype=np.float64)
         )
 
     return flat
@@ -604,18 +588,38 @@ def _envelope_at_quadratics(P6, Q6, D6):
 
 
 def _envelope_from_PQ(P, Q):
-    """MD = sqrt(2) * (sqrt(P+Q) - sqrt(P-Q)), clamped against negative
-    round-off inside the square roots."""
+    r"""Modulation depth from the direction's quadratic forms ``P``, ``Q``.
+
+    Mathematically ``MD = sqrt(2(P+Q)) - sqrt(2(P-Q))``.  Evaluated that way
+    it cancels catastrophically in the **weak-modulation** regime ``Q << P``,
+    where the two square roots converge: the subtraction leaves an absolute
+    error of order ``eps * sqrt(P)`` however small the true depth is, so the
+    relative error grows without bound and the result is exactly ``0`` once
+    ``Q / P`` drops below ~1e-16.  That regime is not exotic -- it is every
+    off-target voxel, which is where a focality ratio has its denominator.
+    Multiplying by the conjugate gives the algebraically identical but
+    well-conditioned form used here:
+
+    .. math::
+
+        \mathrm{MD} = \frac{2\sqrt{2}\,Q}{\sqrt{P+Q} + \sqrt{P-Q}}
+
+    — a quotient of two additions, with no subtraction of near-equal terms.
+    Both roots are still clamped against negative round-off, and a zero
+    denominator (``P = Q = 0``, a null field) yields ``0``.  The opposite
+    extreme ``Q -> P`` is benign in either form (``sqrt(P-Q)`` just goes to
+    zero) and is pinned as unchanged.
+    """
     smin = P - Q
     np.maximum(smin, 0.0, out=smin)
-    smin *= 2.0
     np.sqrt(smin, out=smin)
     smax = P + Q
     np.maximum(smax, 0.0, out=smax)
-    smax *= 2.0
     np.sqrt(smax, out=smax)
-    smax -= smin
-    return smax
+    denom = smax
+    denom += smin
+    num = 2.0 * np.sqrt(2.0) * Q
+    return np.divide(num, denom, out=np.zeros_like(denom), where=denom > 0.0)
 
 
 def _k1_exact_envelope(E1, E2):
