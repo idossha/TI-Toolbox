@@ -14,6 +14,25 @@ import { usePageCommands, usePageCommandStore } from "../../src/renderer/app/com
 import { useRunShortcut } from "../../src/renderer/pages/_shared/run/useRunShortcut";
 import type { ResolvedPage } from "../../src/renderer/app/registry";
 
+// jsdom ships no `matchMedia`, and this file imports Shell statically, which reaches uPlot through
+// the `ui` barrel and calls it at module scope. `vi.hoisted` runs above the imports, which the
+// per-file stubs elsewhere in this suite get for free by importing dynamically.
+vi.hoisted(() => {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }),
+  });
+});
+
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 vi.mock("../../src/renderer/api/client", () => ({
