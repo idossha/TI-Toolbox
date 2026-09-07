@@ -17,7 +17,7 @@ Install the [agent plugin](agent-plugin/README.md) for skills + an MCP server th
 
 ```
 TI-Toolbox
-├── package/          # Electron desktop app (Docker orchestration, X11)
+├── desktop/          # v3 Electron desktop app + web UI (Docker orchestration)
 ├── tit/              # Python package (all scientific code)
 │   ├── paths.py      # PathManager singleton (BIDS path resolution)
 │   ├── constants.py  # Project-wide constants

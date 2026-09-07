@@ -111,31 +111,9 @@ def update_version(new_version):
         "desktop/package.json": [
             (r'"version": "\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?"', f'"version": "{new_version}"'),
         ],
-        # Legacy Electron launcher (package/). Retired on the v3 branch; the entries are kept
-        # harmless — update_file_content prints "Skipped (not found)" when the tree has no package/.
-        "package/package.json": [
-            (r'"version": "\d+\.\d+\.\d+"', f'"version": "{new_version}"'),
-        ],
-        "package/src/index.html": [
-            (r"TI-Toolbox V\d+\.\d+\.\d+", f"TI-Toolbox V{new_version}"),
-        ],
-        "package/docker/docker-compose.yml": [
-            (
-                r"image: idossha/simnibs:v[\d\.]+",
-                f"image: idossha/simnibs:v{new_version}",
-            ),
-            (
-                r'TI_TOOLBOX_VERSION: "v[\d\.]+"',
-                f'TI_TOOLBOX_VERSION: "v{new_version}"',
-            ),
-        ],
         # Python package version
         "tit/__init__.py": [
             (r'__version__ = "[^"]*"', f'__version__ = "{new_version}"'),
-        ],
-        # Electron app project metadata version
-        "package/src/main.js": [
-            (r"version: '[^']*'", f"version: '{new_version}'"),
         ],
         # Software citation metadata
         # Software citation metadata. Anchored on a leading newline so
@@ -173,9 +151,7 @@ def update_version(new_version):
     print(
         f"   • Updated dataset description JSON files with new SimNIBS Docker image version"
     )
-    print(
-        f"   • Updated Electron Desktop App (package.json, index.html, docker-compose.yml, main.js)"
-    )
+    print(f"   • Updated the v3 desktop app version (desktop/package.json)")
     print(f"   • Updated Python package version (tit/__init__.py)")
 
 
