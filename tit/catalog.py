@@ -440,6 +440,38 @@ def simulation_detail(pm: PathManager, sid: str, sim: str) -> dict | None:
     }
 
 
+def simulation_figures(pm: PathManager, sid: str, sim: str) -> list[dict] | None:
+    """Pictures a simulation run saved of itself; ``None`` if subject/simulation is unknown.
+
+    Today that is the montage visualisation ``tit.tools.montage_visualizer`` writes as
+    ``<sim>/<TI|mTI>/montage_imgs/<name>_highlighted_visualization.png`` -- the EEG net with
+    this run's electrodes highlighted. The Results pane shows it beside the channel chips,
+    which name the same montage in text, and in the run's Figures grid.
+
+    Not folded into ``SimulationDetail``: that response has a Pydantic ``response_model``
+    generated from the frozen v1 contract, so a new field there is a contract change. This is
+    the same shape as :func:`electrode_overlays` above -- a small presence query beside the
+    main read.
+    """
+    if sid not in subject_ids(pm) or sim not in pm.list_simulations(sid):
+        return None
+    sim_dir = pm.simulation(sid, sim)
+    out: list[dict] = []
+    for mode in _MODE_DIRS:
+        path = os.path.join(
+            sim_dir, mode, "montage_imgs", f"{sim}_highlighted_visualization.png"
+        )
+        if os.path.isfile(path):
+            out.append(
+                {
+                    "path": path,
+                    "kind": "image",
+                    "label": f"{mode} montage",
+                }
+            )
+    return out
+
+
 def electrode_overlays(pm: PathManager, sid: str, sim: str) -> list[dict] | None:
     """Electrode-overlay NIfTI presence for one simulation, per TI/mTI mode.
 

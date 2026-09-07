@@ -50,6 +50,17 @@ def simulation_detail(name: str, subject: str = Query(...)) -> dict:
 
 
 @router.get(
+    "/api/catalog/simulations/{name}/figures",
+    summary="Pictures a simulation saved of itself (the montage visualisation)",
+)
+def simulation_figures(name: str, subject: str = Query(...)) -> list[dict]:
+    return _or_404(
+        catalog.simulation_figures(_pm(), subject, name),
+        f"Unknown subject or simulation: {subject}/{name}",
+    )
+
+
+@router.get(
     "/api/catalog/electrode-overlays",
     summary="Electrode overlay NIfTI presence for one simulation, per TI/mTI mode",
 )
