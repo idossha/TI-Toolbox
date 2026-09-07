@@ -96,13 +96,29 @@
 }
 
 /*
+ * One 24 px row above the stage: the "Showing:" chip first, the channel legend's chips immediately
+ * to its right, sharing a vertical centre. It wraps only when the pane is narrower than the two
+ * together, and then it is the legend that moves to the second line — the "Showing" claim stays
+ * first because it names what everything else in the row is about.
+ */
+.scene-pane-head {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 24px;
+  min-width: 0;
+}
+
+/*
  * The channel legend (`ui/ChannelLegend.tsx`, plan B4). One row of chips above the stage; it is
  * the only place the pane spells out which hue is which pair, so it never scrolls out of view —
  * it wraps instead, which is what a 4-pair mTI montage needs.
  */
 
 .channel-legend {
-  flex: none;
+  flex: 0 1 auto;
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);
@@ -160,6 +176,10 @@
  */
 .scene-pane-showing {
   margin: 0;
+  /* Shrinks (to its ellipsis) before the pair chips are pushed onto a second line: the row reads
+     as one line for as long as the pane can hold the chips at all. */
+  flex: 0 1 auto;
+  min-width: 0;
   padding: 4px var(--space-2);
   border-left: 2px solid var(--accent);
   border-radius: 0 var(--radius-control) var(--radius-control) 0;

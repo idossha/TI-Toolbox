@@ -431,7 +431,7 @@ test("pane collapse and expansion retain the live canvas, work DOM and a scrolle
   // spinbuttons went with the embed). Nudge each off its default with the keyboard and remember
   // what it became — the point of the test is that collapsing the pane does not reset it.
   const skin = current.getByRole("slider", { name: "Skin opacity" });
-  const grey = current.getByRole("slider", { name: "Grey matter opacity" });
+  const grey = current.getByRole("slider", { name: "GM opacity" });
   await skin.focus();
   for (let i = 0; i < 5; i++) await page.keyboard.press("ArrowLeft");
   await grey.focus();

@@ -56,7 +56,7 @@ for (const endpoint of ["manifest", "surface"] as const) {
       expect(requests).toBeGreaterThan(afterFirstRound);
       // The renderer's own per-surface opacity controls — proof the canvas mounted with both parts.
       await expect(panel.getByRole("slider", { name: "Skin opacity", exact: true })).toBeEnabled();
-      await expect(panel.getByRole("slider", { name: "Grey matter opacity", exact: true })).toBeEnabled();
+      await expect(panel.getByRole("slider", { name: "GM opacity", exact: true })).toBeEnabled();
     } finally {
       await page?.unrouteAll({ behavior: "wait" });
       await app.close();

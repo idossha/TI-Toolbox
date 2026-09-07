@@ -432,6 +432,54 @@ test("a camera preset re-frames the scene and the keyboard reaches the same pres
   expect((await readScene(page)).camera.yaw).toBeCloseTo(Math.PI / 2, 6);
 });
 
+test("the pane's chrome sits in its corners and every opacity row is one line", async () => {
+  await connect(page);
+  await openGalleryScene(page);
+  const pane = page.getByTestId("scene-pane");
+  const paneBox = (await pane.boundingBox())!;
+
+  // (1) The view cluster is flush in the TOP-RIGHT corner: 8 px in from both edges, not floating
+  // a gap in from the corner. Measured on the cluster's own box, not its CSS.
+  const cluster = pane.locator(".scene-chrome-top");
+  const clusterBox = (await cluster.boundingBox())!;
+  expect(Math.abs(paneBox.x + paneBox.width - (clusterBox.x + clusterBox.width))).toBeLessThanOrEqual(8);
+  expect(Math.abs(clusterBox.y - paneBox.y)).toBeLessThanOrEqual(8);
+
+  // (2) "GM", not "Grey matter": on a 2-row card the long name wrapped and made its slider row two
+  // lines tall. Each row is one line — its height is under one and a half line boxes.
+  const rows = pane.locator(".scene-opacity-row");
+  const heights = await rows.evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
+  expect(heights.length).toBe(2);
+  for (const h of heights) expect(h).toBeLessThan(28);
+  await expect(pane.getByTestId("scene-opacity")).toContainText("GM");
+});
+
+test("the Electrode names switch shows a name for every electrode the eye can see", async () => {
+  await connect(page);
+  await openGalleryScene(page);
+  const pane = page.getByTestId("scene-pane");
+  const toggle = pane.getByTestId("scene-names-toggle");
+
+  // Default off: no name overlay at all.
+  await expect(pane.getByTestId("scene-names")).toHaveCount(0);
+  await expect(toggle.getByRole("switch", { name: "Electrode names" })).toHaveAttribute("data-state", "unchecked");
+
+  await toggle.getByRole("switch", { name: "Electrode names" }).click();
+  const names = pane.getByTestId("scene-names");
+  await expect(names).toHaveCount(1);
+  // One span per marker, and the visible ones are the near-side half — the same claim the marker
+  // pass makes with the depth buffer, so "all of them" would be the bug (names bleeding through
+  // the head).
+  const total = (await readScene(page)).markers.length;
+  await expect(names.locator(".scene-name")).toHaveCount(total);
+  const visible = await names.locator(".scene-name:not([hidden])").count();
+  expect(visible).toBeGreaterThan(0);
+  expect(visible).toBeLessThan(total);
+
+  await toggle.getByRole("switch", { name: "Electrode names" }).click();
+  await expect(pane.getByTestId("scene-names")).toHaveCount(0);
+});
+
 test("recovers from a lost context by re-uploading everything", async () => {
   await connect(page);
   await openGalleryScene(page);
@@ -537,7 +585,7 @@ test("falls back to one readable line when the display has no WebGL2", async () 
   // No canvas, no debug handle, and the legend still says what the pane would have drawn — the
   // page keeps working without it (S6).
   await expect(page.getByTestId("scene-canvas")).toHaveCount(0);
-  await expect(fallback.getByTestId("scene-legend")).toContainText("Grey matter");
+  await expect(fallback.getByTestId("scene-legend")).toContainText("GM");
   // The handle still exists (it is mounted by the component, not by the GL context) and says so:
   // no WebGL2, never ready, nothing uploaded.
   expect(await page.evaluate(() => ({ webgl2: window.__scene?.webgl2, ready: window.__scene?.ready }))).toEqual({

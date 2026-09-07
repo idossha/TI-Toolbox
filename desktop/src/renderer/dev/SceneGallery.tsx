@@ -75,8 +75,8 @@ export function SceneGallery() {
     if (!mounted) return [];
     return [
       size === "folded"
-        ? part("gm", "Grey matter", FIXTURE_GM, SCENE_PALETTE.gm, 0.6, false, true)
-        : part("gm", "Grey matter", FIXTURE_GM, SCENE_PALETTE.gm, 0.55, true),
+        ? part("gm", "GM", FIXTURE_GM, SCENE_PALETTE.gm, 0.6, false, true)
+        : part("gm", "GM", FIXTURE_GM, SCENE_PALETTE.gm, 0.55, true),
       part("skin", "Skin", size === "budget" ? FIXTURE_BUDGET : FIXTURE_SKIN, SCENE_PALETTE.skin, 0.25, false),
     ];
   }, [mounted, size]);

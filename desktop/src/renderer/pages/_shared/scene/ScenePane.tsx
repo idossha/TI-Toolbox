@@ -265,7 +265,7 @@ export function ScenePane({
     if (gmData?.indices) {
       out.push({
         id: "gm",
-        label: "Grey matter",
+        label: "GM",
         positions: gmData.positions,
         indices: gmData.indices,
         labels: alignment.aligned ? (labelData?.labels ?? null) : null,
@@ -517,13 +517,17 @@ export function ScenePane({
       data-renderer="native"
       data-active-channel={activeChannel ?? ""}
     >
-      {showing ? (
-        <p className="scene-pane-showing" data-testid="scene-pane-showing">
-          Showing: <strong>{showing.montage}</strong> · {showing.net}
-        </p>
-      ) : null}
-      {gesture === "electrode" ? (
-        <ChannelLegend pairs={activePairs} activeChannel={activeChannel} onActivate={activateChannel} />
+      {showing || gesture === "electrode" ? (
+        <div className="scene-pane-head">
+          {showing ? (
+            <p className="scene-pane-showing" data-testid="scene-pane-showing">
+              Showing: <strong>{showing.montage}</strong> · {showing.net}
+            </p>
+          ) : null}
+          {gesture === "electrode" ? (
+            <ChannelLegend pairs={activePairs} activeChannel={activeChannel} onActivate={activateChannel} />
+          ) : null}
+        </div>
       ) : null}
       {wantsRegions && atlasOptions.length > 0 ? (
         <div className="scene-pane-atlas" data-testid="scene-pane-atlas">

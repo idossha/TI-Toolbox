@@ -56,9 +56,12 @@
 }
 
 .scene-chrome-top {
-  top: var(--space-2);
-  right: var(--space-2);
+  /* Flush in the corner: 8 px from the top and right edges of the pane, with no `left` at all, so
+     the cluster is anchored to the corner rather than floating a gap in from it. */
+  top: 8px;
+  right: 8px;
   align-items: center;
+  justify-content: flex-end;
 }
 
 .scene-chrome-bottom {
@@ -175,4 +178,54 @@
 .scene-pane-fallback .scene-legend-label,
 .scene-pane-fallback .scene-legend-detail {
   color: var(--ink-2);
+}
+
+/* The legend card and the "Electrode names" switch, stacked in the bottom-left corner. */
+.scene-chrome-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.scene-names-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-control);
+  background: rgba(11, 13, 16, 0.72);
+  border: 1px solid rgba(230, 235, 241, 0.14);
+  color: rgba(230, 235, 241, 0.9);
+  font-size: 11px;
+  line-height: 16px;
+  cursor: pointer;
+}
+
+/*
+ * Electrode names over the head. Positioned imperatively by the render loop (SceneCanvas), so the
+ * container is the canvas's own box and each name is translated to its projected point. Labels are
+ * never pointer targets: a name sitting over an electrode must not eat the click that picks it.
+ */
+.scene-names {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.scene-name {
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin: -8px 0 0 8px;
+  padding: 0 3px;
+  border-radius: 3px;
+  background: rgba(11, 13, 16, 0.6);
+  color: rgba(240, 244, 248, 0.95);
+  font-size: 10px;
+  line-height: 14px;
+  white-space: nowrap;
+  will-change: transform;
 }

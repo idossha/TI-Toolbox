@@ -180,6 +180,25 @@ test("the row the 3-D pane is drawing is tinted, and up/down moves it", async ()
   await expect(rows.nth(1)).not.toHaveAttribute("data-active", "true");
 });
 
+test("the Showing chip and the channel legend share one row", async () => {
+  // One 24 px line above the stage: the chip first, the pair chips immediately to its right. The
+  // assertion is the shared vertical centre — stacked on two lines they would differ by a row
+  // height, which is what this replaces.
+  // A wide viewport, because the file's earlier tests drag the jobs table's columns out and leave
+  // the pane too narrow to hold chip and chips together — where wrapping is the correct behaviour,
+  // not the one under test.
+  await page.setViewportSize({ width: 1600, height: 800 });
+  const chip = page.getByTestId("scene-pane-showing");
+  const first = page.getByTestId("channel-legend").locator(".channel-chip").first();
+  await expect(chip).toBeVisible();
+  await expect(first).toBeVisible();
+  const a = (await chip.boundingBox())!;
+  const b = (await first.boundingBox())!;
+  expect(Math.abs(a.y + a.height / 2 - (b.y + b.height / 2))).toBeLessThanOrEqual(1);
+  expect(b.x).toBeGreaterThan(a.x + a.width - 1);
+  await page.setViewportSize({ width: 1280, height: 800 });
+});
+
 test("the 3-D pane names the row it is drawing, in the row's own accent", async () => {
   const rows = montageRows();
   const chip = page.getByTestId("scene-pane-showing");

@@ -21,8 +21,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../ui/Button";
 import { SegmentedControl } from "../ui/SegmentedControl";
-import { Slider } from "../ui/Toggle";
+import { Slider, Switch } from "../ui/Toggle";
 import {
+  cameraBasis,
   DEFAULT_FOV_Y,
   boundsRadius,
   dampCamera,
@@ -220,7 +221,6 @@ const PRESET_OPTIONS = [
   { value: "top", label: "T", title: "Top — 4" },
 ];
 
-const formatCount = (n: number): string => n.toLocaleString("en-US").replace(/,/g, " ");
 
 const swatch = (color: readonly [number, number, number]): string =>
   `rgb(${color.map((c) => Math.round(c * 255)).join(",")})`;
@@ -278,6 +278,13 @@ export function SceneCanvas({
   const [internalSelection, setInternalSelection] = useState<SceneSelection>(EMPTY_SELECTION);
   const [hover, setHover] = useState<PickTarget | null>(null);
   const [opacities, setOpacities] = useState<Record<string, number>>({});
+  /**
+   * "Electrode names": every marker's name over the head, not only the ones a channel has claimed.
+   * Off by default (a 185-electrode net's names are a grey fog over the scalp) and kept in this
+   * component's own state, which is the page-session: the pane is retained across a collapse, so
+   * the switch survives one exactly as the opacity sliders do.
+   */
+  const [showNames, setShowNames] = useState(false);
   const [preset, setPreset] = useState<CameraPreset | "">("reset");
   const rules = MODE_RULES[mode];
   const activeSelection = selection ?? internalSelection;
@@ -372,6 +379,42 @@ export function SceneCanvas({
     return set;
   }, [parts]);
 
+  /**
+   * The electrode-name overlay, driven imperatively from the render loop rather than from React
+   * state: a name follows the camera every frame of an orbit, and a `setState` per frame for 185
+   * electrodes is a re-render per frame. The spans are rendered once (below); this only writes
+   * their transform and visibility.
+   *
+   * A name is shown when its electrode is in front of the eye AND on the near side of the head —
+   * the same claim the GL marker pass makes with the depth buffer, done here with a dot product
+   * because the overlay is DOM and cannot read the depth buffer per label.
+   */
+  const namesRef = useRef<HTMLDivElement | null>(null);
+  const nameDataRef = useRef<{ world: Vec3[]; center: Vec3 }>({ world: [], center: [0, 0, 0] });
+  const positionNames = useCallback((camera: OrbitCamera) => {
+    const host = namesRef.current;
+    if (!host) return;
+    const { world, center } = nameDataRef.current;
+    const size = sizeRef.current;
+    const { eye } = cameraBasis(camera);
+    const children = host.children;
+    for (let i = 0; i < children.length && i < world.length; i += 1) {
+      const el = children[i] as HTMLElement;
+      const point = world[i] as Vec3;
+      const p = projectToCanvas(camera, point, size.widthCss, size.heightCss);
+      const facing =
+        (point[0] - center[0]) * (eye[0] - point[0]) +
+        (point[1] - center[1]) * (eye[1] - point[1]) +
+        (point[2] - center[2]) * (eye[2] - point[2]);
+      if (!p.inFront || facing <= 0) {
+        el.hidden = true;
+        continue;
+      }
+      el.hidden = false;
+      el.style.transform = `translate(${p.x}px, ${p.y}px)`;
+    }
+  }, []);
+
   const requestFrame = useCallback(() => {
     // `settled` is the signal a caller (and an offscreen test) waits on to mean "the view has
     // stopped moving". It has to go false the moment a frame is PENDING, not when the frame runs:
@@ -394,6 +437,8 @@ export function SceneCanvas({
       settledRef.current = damped.settled;
       scene.render(damped.camera);
       frameRef.current += 1;
+      positionNames(damped.camera);
+
       const fps = fpsRef.current;
       fps.windowFrames += 1;
       if (fps.windowStart === 0) fps.windowStart = time;
@@ -412,7 +457,19 @@ export function SceneCanvas({
       rafRef.current = requestAnimationFrame(step);
     };
     rafRef.current = requestAnimationFrame(step);
-  }, []);
+    // `positionNames` is itself stable (no deps), so the loop is still created once.
+  }, [positionNames]);
+
+  useEffect(() => {
+    const center: Vec3 = [
+      (sceneBounds[0] + sceneBounds[3]) / 2,
+      (sceneBounds[1] + sceneBounds[4]) / 2,
+      (sceneBounds[2] + sceneBounds[5]) / 2,
+    ];
+    nameDataRef.current = { world: markers.map((m) => m.world), center };
+    const camera = cameraRef.current;
+    if (camera) positionNames(camera);
+  }, [markers, sceneBounds, showNames, positionNames]);
 
   const setGoal = useCallback(
     (next: OrbitCamera) => {
@@ -898,12 +955,11 @@ export function SceneCanvas({
       key: part.id,
       label: part.label,
       color: part.color,
-      detail: `${formatCount(part.indices.length / 3)} tri`,
     }));
     if (markers.length > 0) {
       rows.push({
         key: "markers",
-        label: "Markers",
+        label: "Electrodes",
         color: [0.85, 0.87, 0.9],
         detail:
           activeSelection.markers.length > 0
@@ -974,16 +1030,38 @@ export function SceneCanvas({
         </Button>
       </div>
 
-      <div className="scene-chrome scene-chrome-bottom">
-        <ul className="scene-legend" data-testid="scene-legend">
-          {legendRows.map((row) => (
-            <li key={row.key}>
-              <span className="scene-legend-swatch" style={{ background: swatch(row.color) }} aria-hidden />
-              <span className="scene-legend-label">{row.label}</span>
-              {row.detail && <span className="scene-legend-detail">{row.detail}</span>}
-            </li>
+      {showNames && markers.length > 0 && (
+        <div className="scene-names" data-testid="scene-names" ref={namesRef} aria-hidden>
+          {markers.map((marker) => (
+            <span key={marker.id} className="scene-name" data-name={marker.id} hidden>
+              {marker.label}
+            </span>
           ))}
-        </ul>
+        </div>
+      )}
+
+      <div className="scene-chrome scene-chrome-bottom">
+        <div className="scene-chrome-stack">
+          <ul className="scene-legend" data-testid="scene-legend">
+            {legendRows.map((row) => (
+              <li key={row.key}>
+                <span className="scene-legend-swatch" style={{ background: swatch(row.color) }} aria-hidden />
+                <span className="scene-legend-label">{row.label}</span>
+                {row.detail && <span className="scene-legend-detail">{row.detail}</span>}
+              </li>
+            ))}
+          </ul>
+          {markers.length > 0 && (
+            <label className="scene-names-toggle" data-testid="scene-names-toggle">
+              <Switch
+                checked={showNames}
+                onCheckedChange={setShowNames}
+                aria-label="Electrode names"
+              />
+              <span>Electrode names</span>
+            </label>
+          )}
+        </div>
         <div className="scene-opacity" data-testid="scene-opacity">
           {parts.map((part) => (
             <div key={part.id} className="scene-opacity-row">
