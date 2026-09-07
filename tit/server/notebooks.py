@@ -397,17 +397,20 @@ pd.DataFrame(rows).set_index("subject")
 """
 
 EXAMPLE_CALC = """# 3 — a real TI-Toolbox computation. `tit.calc.get_TI_vectors` is the toolbox's
-# own envelope maths: two carrier fields in, the temporal-interference envelope
-# out, per voxel.
+# own envelope maths: the carrier's two channel fields in, the temporal-interference
+# envelope out, per voxel.
 import numpy as np
 
 from tit import calc
 
-# Two orthogonal 1 V/m carriers, then the same pair rotated towards each other.
+# One carrier's two channels: orthogonal 1 V/m, then rotated towards each other,
+# then exactly aligned.
 E1 = np.array([[1.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
 E2 = np.array([[0.0, 1.0, 0.0], [0.5, 0.5, 0.0], [1.0, 0.0, 0.0]])
 
-envelope = calc.get_TI_vectors(E1, E2)
+# `fields` is a LIST — [E_1a, E_1b, ...], two consecutive entries per carrier.
+# Passing them as two positional arguments makes the second one `psi`.
+envelope = calc.get_TI_vectors([E1, E2])
 pd.DataFrame(
     {
         "|E1|": np.linalg.norm(E1, axis=1),
