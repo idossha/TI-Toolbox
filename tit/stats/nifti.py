@@ -110,6 +110,80 @@ def load_subject_nifti_ti_toolbox(
     return data, img, filepath
 
 
+# ==============================================================================
+# GRID CONSISTENCY
+# ==============================================================================
+
+#: Tolerances for declaring two NIfTI grids "the same space".  Voxelwise group
+#: statistics compare voxel *i* across subjects, which is only meaningful if
+#: voxel *i* is the same point of the world in every image.  Equal ``shape``
+#: alone does not guarantee that: two images can share a shape and disagree on
+#: origin, orientation, voxel size or handedness.
+AFFINE_ROTATION_ATOL = 1e-4  # unitless (direction-cosine * zoom entries, mm)
+AFFINE_TRANSLATION_ATOL = 1e-3  # mm
+
+
+def _check_same_grid(
+    subject_id,
+    filepath,
+    shape,
+    affine,
+    ref_shape,
+    ref_affine,
+    ref_path,
+):
+    """Raise ``ValueError`` unless *affine*/*shape* match the reference grid.
+
+    v2.x stacked any images that happened to share a shape and silently kept
+    only the first affine, so a subject in a differently-oriented (or
+    differently-handed) space was analysed as if it were aligned.  Errors here
+    name the offending subject and file so the mismatch can be fixed at the
+    source (re-run the MNI normalisation, or resample to a common reference).
+    """
+    if tuple(shape) != tuple(ref_shape):
+        raise ValueError(
+            f"Subject {subject_id} has shape {tuple(shape)}, but the group "
+            f"reference has shape {tuple(ref_shape)}.\n"
+            f"  subject:   {filepath}\n"
+            f"  reference: {ref_path}\n"
+            "All subjects must be on a common voxel grid; resample them to a "
+            "shared reference before running group statistics."
+        )
+
+    affine = np.asarray(affine, dtype=np.float64)
+    ref_affine = np.asarray(ref_affine, dtype=np.float64)
+    rot_ok = np.allclose(affine[:3, :3], ref_affine[:3, :3], atol=AFFINE_ROTATION_ATOL)
+    trans_ok = np.allclose(
+        affine[:3, 3], ref_affine[:3, 3], atol=AFFINE_TRANSLATION_ATOL
+    )
+    if rot_ok and trans_ok:
+        return
+
+    detail = []
+    if not rot_ok:
+        detail.append("orientation/voxel size")
+        if np.sign(np.linalg.det(affine[:3, :3])) != np.sign(
+            np.linalg.det(ref_affine[:3, :3])
+        ):
+            detail.append("handedness (left/right flip!)")
+    if not trans_ok:
+        offset = affine[:3, 3] - ref_affine[:3, 3]
+        detail.append(
+            f"origin (offset {offset[0]:+.3f}, {offset[1]:+.3f}, {offset[2]:+.3f} mm)"
+        )
+    raise ValueError(
+        f"Subject {subject_id} is on a different voxel grid from the group "
+        f"reference: {', '.join(detail)}.\n"
+        f"  subject affine:\n{affine}\n"
+        f"  reference affine:\n{ref_affine}\n"
+        f"  subject:   {filepath}\n"
+        f"  reference: {ref_path}\n"
+        "Equal array shapes are not enough -- voxelwise statistics compare "
+        "voxel i across subjects, so voxel i must be the same anatomical "
+        "location in every image. Resample the subjects to a common reference."
+    )
+
+
 def load_group_data_ti_toolbox(
     subject_configs: list[dict],
     nifti_file_pattern: str = "grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz",
@@ -142,13 +216,16 @@ def load_group_data_ti_toolbox(
     ValueError
         If no subjects could be loaded.
     """
-    data_list = []
-    subject_ids = []
-    template_img = None
+    if len(subject_configs) == 0:
+        raise ValueError("No subjects could be loaded successfully")
+
+    data_4d = None
+    subject_ids: list[str] = []
     template_affine = None
     template_header = None
+    reference_path = None
 
-    for config in subject_configs:
+    for index, config in enumerate(subject_configs):
         subject_id = config["subject_id"]
         simulation_name = config["simulation_name"]
 
@@ -156,29 +233,34 @@ def load_group_data_ti_toolbox(
             subject_id, simulation_name, nifti_file_pattern, dtype=dtype
         )
 
-        # Store template image from first subject
-        if template_img is None:
-            template_img = img
+        if data_4d is None:
             template_affine = img.affine.copy()
             template_header = img.header.copy()
+            reference_path = filepath
+            # Preallocate: np.stack + astype on a list of N volumes peaks at
+            # ~3x the final array; writing each subject straight into the
+            # output keeps it at 1x + one volume.
+            data_4d = np.empty(data.shape + (len(subject_configs),), dtype=dtype)
+        else:
+            _check_same_grid(
+                subject_id,
+                filepath,
+                data.shape,
+                img.affine,
+                data_4d.shape[:-1],
+                template_affine,
+                reference_path,
+            )
 
-        data_list.append(data)
+        data_4d[..., index] = data
         subject_ids.append(subject_id)
 
         # Clear the image object to free memory
-        del img
-
-    if len(data_list) == 0:
-        raise ValueError("No subjects could be loaded successfully")
-
-    # Stack into 4D array
-    data_4d = np.stack(data_list, axis=-1).astype(dtype)
+        del img, data
 
     # Recreate minimal template image
     template_img = nib.Nifti1Image(data_4d[..., 0], template_affine, template_header)
 
-    # Clean up
-    del data_list
     gc.collect()
 
     return data_4d, template_img, subject_ids
