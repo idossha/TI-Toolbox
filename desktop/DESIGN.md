@@ -922,13 +922,19 @@ group heading told the user a page belonged to a subject when it did not.
 | 4 | `optimizer` | Optimizer | `Target` | ⌘4 | run |
 | 5 | `analyzer` | Analyzer | `BarChart3` | ⌘5 | run |
 | 6 | `pipeline` | Pipeline | `Workflow` | ⌘6 | run |
-| 7 | `results` | Results | `FolderOpen` | ⌘7 | browse |
-| 8 | `viewer` | Viewer | `Eye` | ⌘8 | bleed |
-| 9 | `jobs` | Jobs | `ListChecks` | ⌘9 | browse |
+| 7 | `notebooks` | Notebooks | `BookOpen` | ⌘7 | browse |
+| 8 | `results` | Results | `FolderOpen` | ⌘8 | browse |
+| 9 | `viewer` | Viewer | `Eye` | ⌘9 | bleed |
+| 10 | `jobs` | Jobs | `ListChecks` | — (⌘K) | browse |
 | — | *(spacer)* | | | | |
 | 0 | `settings` | Settings | `Settings` | ⌘0 (⌘, alias) | run + header |
 | 10 | `help` | Help | `CircleHelp` | — (`?` sheet) | run + header |
 
+- **Ten rows, nine digits.** Notebooks (2026-09-06) sits after Pipeline, in workflow order — the
+  pipeline canvas exports a notebook and this is where it lands. That makes ten workflow rows, and
+  since ⌘0 is Settings there are only nine numbers to give out: Jobs, the tenth, has none and is
+  reached by ⌘K and its route. `shortcutForSlot` returns nothing past the ninth row rather than the
+  `"10"` it used to print, which no keyboard can send. See DECISIONS 2026-09-06 (NB lane).
 - **Optimizer is one page.** `optimizer-flex` and `optimizer-ex` merge into `pages/optimizer`, with
   a `SegmentedControl` **Method ⟨Flex │ Ex │ mEx⟩** as the first row of the work pane and one shared
   `RoiPicker`. Two nav entries were a copy of the PyQt tab strip, not a workflow.
@@ -1083,6 +1089,31 @@ release index on mount would tell a remote host that this install exists every t
 Settings, and an air-gapped install is a supported state, not an error to retry. And it **shows what
 was verified**: the sha256 on the row, because an install that hides what it checks asks to be
 trusted rather than checked.
+
+
+### 9.3 Notebooks
+
+Two panes and no right pane. **Left, 260 px**: the notebook list — name and modified time, `+ New`,
+`Import .ipynb`, and a delete affordance that appears on hover. **Right**: the notebook itself —
+a toolbar (insert, Run all, Interrupt, Restart, Clear outputs, Save, and a kernel pill), then the
+cells in one scroller.
+
+- **The kernel pill is a `StatusDot` plus the kernelspec's display name**, tinted `neutral · warning
+  · success · accent · danger` for `off · starting · idle · busy · dead`, and pulsing only while
+  starting — the one state the author is waiting on.
+- **A cell is a gutter and a body.** The gutter is 52 px: a run button that appears on hover and the
+  execution count, `[ ]` / `[*]` / `[7]`. The body is an auto-sizing textarea (no cell scrolls
+  inside itself) and, beneath it, the outputs.
+- **The selected cell is marked by a 2 px accent rule on its left edge and the raised surface**,
+  never by an outline: the scroller holds focus in command mode, and a focus ring on it would say
+  the wrong thing.
+- **Figures keep a white ground.** An output image is authored on white; a dark theme must not
+  invert it into something the paper will never look like.
+- **stderr is `--warning`, not `--danger`.** Every `logging` call lands there, and painting them as
+  failures would cry wolf. Only an `error` output gets the danger rule.
+- Every colour in `notebooks.css` is a §3 token, including the sixteen ANSI classes the traceback
+  parser emits — a traceback belongs to this app's palette rather than importing a terminal's.
+
 
 ## 10. Viewer
 

@@ -25,6 +25,7 @@ remains the reference for continuity while switching tabs.
 | R2 — consistent usable controls | Shared-control tests, layout geometry and token contrast | Pending |
 | R3 — viewport and surface opacity | Renderer unit assertions and a real drawing-buffer pixel test | Pending |
 | Integration | Typecheck, lint, unit suite, build and relevant hidden e2e suites | Pending |
+| 2026-09-06 NB — Notebooks (ARCHITECTURE §7.6) | `pytest -k "kernel or notebook"` (46), `vitest` notebook units (27), `notebooks.spec.ts` (7 mock) | Passed; the real spec `tests/e2e/real/notebooks.spec.ts` is written but unrun — Docker Desktop stopped on the host mid-session (see `dev/notes/v3-native-panes-external-viewer/NB.md`) |
 | 2026-09-05 R1 — Overview replaces Subjects | One aggregate `GET /api/catalog/overview`; `overview.spec.ts` at 3 and 30 subjects; Subject Info deleted | Passed (`dev/notes/v3-overview-batch-viewer/OV.md`) |
 | 2026-09-05 R2 — shared scrollable, clearable terminal | `terminal.spec.ts` geometry; `job-console.test.tsx` watermark semantics | Passed (`.../TM.md`) |
 | 2026-09-05 R3 — subject selection and execution policy | `batch.spec.ts` one-request/cap 1/cap 2; `tests/test_jobs_routes.py` against the real scheduler | Passed (`.../BX.md`) |
@@ -74,3 +75,19 @@ This pass is not a release certification. Full scientific workflow validation on
 platforms, packaging/signing and release delivery remain owned by the broader v3 program. CI can
 reproduce synthetic tests; local GPU/data evidence is recorded separately rather than implied by a
 mock-server pass.
+
+## Notebooks — open work (2026-09-06, NB lane)
+
+1. **Completions and hovers.** The image already installs `python-lsp-server` and `jupyterlab-lsp`
+   and nothing uses them. A notebook cell is the obvious first client: `pylsp` over the same socket
+   the kernel uses, or its own.
+2. **Syntax highlighting in cells.** A cell is a plain textarea today (DECISIONS 2026-09-06, "a
+   cell is a textarea"). This is the change that would justify a CodeMirror dependency, and it
+   should arrive with the LSP work rather than before it.
+3. **A variable explorer.** The kernel is already driven from the server, so a `%whos`-shaped
+   inspector is a route and a pane rather than new machinery.
+4. **Interactive plots.** Would need a privileged scheme for output frames, the way SUNA's
+   `suna-output:` works — a shell change, not a notebook change.
+5. **The pipeline canvas should be able to save its export here.** `POST /api/notebooks` already
+   accepts a document, so this is one button on the canvas: today its export still goes only to a
+   host download.

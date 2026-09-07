@@ -593,3 +593,60 @@ renderer-produced text to a file the user picks is a host action, and the render
 on a `blob:` URL was inert in this shell and reported success anyway). Reversing the viewer
 amendment therefore returns one entry, not two. A page that renders the embed needs no bridge entry
 at all — it is an `<iframe src="/tetravox/">` on the same origin.
+
+## 2026-09-06 (NB lane) — notebooks: the kernel is the container's, and the UI is SUNA's
+
+**Decision.** A Notebooks page runs `.ipynb` files on a Jupyter kernel owned by `tit.server`
+(`tit/server/kernels.py`, kernelspec `simnibs`, cwd the project), driven over
+`WS /ws/kernels/{kernel_id}`, with the files under `<project>/code/ti-toolbox/notebooks/` behind
+`/api/notebooks`. At most **2** kernels run at once and one idle for **30 minutes** is shut down.
+The renderer is ported from SUNA (github.com/idossha/SUNA), GPL-3.0, same author, attributed in
+each file's header. ARCHITECTURE §7.6.
+
+**Why.** The ask was that "the TI-Toolbox environment is automatically loaded". The environment is
+not something to load — it is the container's SimNIBS Python with `tit` on the path, and it is
+already where the server runs. Putting the kernel there means the answer to "which interpreter?" is
+never asked: no picker, no `ipykernel` install prompt, no per-project selection. SUNA needs all
+three because its kernel is the user's own machine's; §16.2 there is largely the machinery for
+degrading honestly when that interpreter has no `jupyter_client`. **That entire branch disappears
+here**, which is why this port is shorter than its source rather than longer.
+
+**Why SUNA's code rather than a fresh UI.** Everything hard about a notebook front end is already
+solved there and solved for reasons that hold identically here: an iopub content *is* an nbformat
+output so nothing translates; a plot beats its own text repr but a DataFrame table beats both;
+output with no attributable parent is dropped rather than mispinned; ANSI is parsed because an
+uncoloured IPython traceback is unreadable; modal editing is the only way `dd` can be a bare
+keystroke. Rewriting that would have reproduced the bugs it already fixed.
+
+**Alternatives rejected.** *Publishing the image's JupyterLab and linking to it* — one HTTP port and
+no code, and it is a different application in a different window with its own auth, its own file
+tree and no idea what a TI-Toolbox project is; the ask was for notebooks *within* TI-Toolbox.
+*Running the kernel on the host under the user's own Python* — SUNA's topology, and it would put
+the user back in the business of installing SimNIBS. *Framing the bridge as a child process anyway,
+for symmetry with SUNA* — a process and a pipe to reach a library already importable in this
+process.
+
+**Known consequence — Jobs loses ⌘9.** Notebooks sits after Pipeline (the maintainer's placement),
+making ten workflow rows. There are nine digits and ⌘0 is Settings, so the tenth row has no number:
+Jobs is now ⌘K and its route only. `shortcutForSlot` was returning `"10"` for a tenth row — a chord
+no keyboard can send, printed in the rail and the `?` sheet as though it worked — and now returns
+nothing past the ninth. If ⌘9 Jobs matters more than the rail's workflow order, the fix is to move
+Notebooks to the end of `NAV_ORDER`, not to reinstate an untypeable shortcut.
+
+**Known limit — interactive plots fall back to a picture.** SUNA renders plotly/vega by loading the
+library from a CDN into an iframe on its own privileged `suna-output:` scheme, because the renderer
+CSP rightly forbids kernel-supplied scripts and a `srcdoc` iframe inherits that CSP. TI-Toolbox has
+no such scheme, so a live plot here would silently draw nothing. `pickRepresentation` still
+*recognises* the interactive mime — that is what lets `Outputs.tsx` fall back to the static PNG the
+kernel sends beside it — and matplotlib, the dominant case in this domain, was never affected.
+
+**Known limit — a cell is a textarea.** SUNA puts a CodeMirror in every cell because the rest of
+that app already ships one. Five CodeMirror packages for cell text is a dependency nothing else in
+this app would use, so cells are auto-sizing textareas in the mono token face and syntax
+highlighting is on the ROADMAP. **No new dependency was added for this feature.**
+
+**Proved live, and one defect it caught.** Driving the dev container's `/api/kernels` and
+`/ws/kernels/{id}` directly ran a real cell in SimNIBS Python and got a real IPython traceback
+back — which is how the starter cell was found to say `pm.project_root` when `PathManager`'s
+attribute is `pm.project_dir`. Static reading had it wrong in both the server and the mock; a
+driven run said so.

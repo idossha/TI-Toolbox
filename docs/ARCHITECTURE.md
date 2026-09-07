@@ -423,3 +423,57 @@ silently resolved to the first row's answer. Submitting does not empty the table
 
 What runs is unchanged: one `POST /api/jobs/groups` with `subject_configs`, one config per row
 carrying its own subject, and §7.4's shared existing-outputs question.
+
+---
+
+### 7.6 Notebooks
+
+*Added 2026-09-06 (NB lane); refines §7. Requirements: the maintainer's ask for "a Jupyter-like
+environment where the TI-Toolbox environment is automatically loaded". The kernel bridge, the
+notebook UI and the mime handling are ported from SUNA (github.com/idossha/SUNA,
+docs/ARCHITECTURE.md §16.2/§16.3 there), GPL-3.0, by the same author. Rationale in
+[DECISIONS.md](DECISIONS.md).*
+
+A **notebook** is an `.ipynb` file under `<project>/code/ti-toolbox/notebooks/`, edited in the
+Notebooks page and executed by a Jupyter kernel the *server* owns. Five rules.
+
+1. *The kernel runs inside the container, and the server owns it.* SUNA spawns a `bridge.py` child
+   process because its kernel is on the user's laptop; here the interpreter that has to run the
+   code is the container's SimNIBS Python, and the server already runs there — so
+   `tit/server/kernels.py` drives `jupyter_client.manager.KernelManager` in-process, and the pipe
+   SUNA framed over stdio is `WS /ws/kernels/{kernel_id}` instead. There is no client-side kernel
+   and no second interpreter to configure. **That rule is the feature**: `from tit import
+   get_path_manager` works in a cell with nothing installed, because the kernelspec `simnibs` the
+   image registers *is* the environment every job runs in.
+
+2. *An iopub message's `content` IS an nbformat output.* Adding `output_type` is the whole
+   translation, so the live kernel and the `.ipynb` need no layer between them — the object the
+   renderer draws is the object that gets written to the file. Output that cannot be attributed to
+   a cell through `parent_header.msg_id` is **dropped**, never pinned to whichever cell ran last.
+
+3. *A request ends on two channels, and the second one to arrive is what may report it.* The shell
+   `execute_reply` carries the status; the iopub `status: idle` follows the outputs. Two threads
+   poll those, so a reply emitted from the shell thread alone can overtake the output it concludes
+   — and did, in the first run of `tests/test_kernels.py`. `KernelRegistry._finish_half` joins them.
+
+4. *Kernels are capped and reaped.* At most `MAX_KERNELS` (2) run at once, and one idle for
+   `IDLE_TIMEOUT_SECONDS` (30 min) is shut down; `GET /api/kernels` reports both numbers so no
+   client hard-codes them. A kernel is a full SimNIBS Python interpreter sharing a container with
+   FEM runs, which is why the limit exists and why "2" is a budget rather than a magic number.
+   Every kernel is shut down with the server's lifespan.
+
+5. *The `.ipynb` on disk is the document.* `nbformat` reads and writes it (`tit/server/notebooks.py`),
+   a save is validated before it lands, and unknown keys survive the round trip untouched — a
+   notebook this app opens and saves must produce an empty git diff, or every notebook in a project
+   becomes a merge conflict. Cell ids are minted only where the format version has them.
+
+**There is no sandbox.** A kernel executes arbitrary user code as the container's own user with the
+project mounted — the same trust boundary the job runners already have. Nothing in the product may
+call it a sandbox.
+
+**Non-goals.** A hosted JupyterLab (the image still has one, unpublished — this is not it); live
+plotting front ends (plotly/vega/ipywidgets fall back to the static image the kernel sends beside
+them); completions, hovers or a variable explorer (`pylsp` is in the image and unused — ROADMAP);
+notebooks outside the one directory; more than one kernel per notebook.
+
+---
