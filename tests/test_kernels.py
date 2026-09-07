@@ -112,6 +112,38 @@ class FakeClient:
         )
         return msg_id
 
+    def complete(self, code: str, cursor_pos: int) -> str:
+        self._seq += 1
+        msg_id = f"c{self._seq}"
+        prefix = code[:cursor_pos].split(".")[-1].split(" ")[-1]
+        matches = [n for n in ("get_path_manager", "get_project", "run_simulation") if n.startswith(prefix)]
+        self.shell.put(
+            self._msg(
+                "complete_reply",
+                {
+                    "matches": matches,
+                    "cursor_start": cursor_pos - len(prefix),
+                    "cursor_end": cursor_pos,
+                    "metadata": {},
+                    "status": "ok",
+                },
+                msg_id,
+            )
+        )
+        return msg_id
+
+    def inspect(self, code: str, cursor_pos: int, detail_level: int = 0) -> str:
+        self._seq += 1
+        msg_id = f"i{self._seq}"
+        self.shell.put(
+            self._msg(
+                "inspect_reply",
+                {"found": True, "data": {"text/plain": "Signature: get_path_manager(d=None)"}},
+                msg_id,
+            )
+        )
+        return msg_id
+
     def get_iopub_msg(self, timeout: float | None = None) -> dict[str, Any]:
         return self.iopub.get(timeout=timeout)
 
@@ -326,6 +358,66 @@ def test_interrupt_restart_and_shutdown(registry: kernels_mod.KernelRegistry) ->
     assert error.value.code == "no-such-kernel"
 
 
+def test_complete_answers_from_the_kernel(registry: kernels_mod.KernelRegistry) -> None:
+    session = registry.start(cwd="/mnt/000")
+    events: list[dict[str, Any]] = []
+    registry.subscribe(session.id, events.append)
+
+    code = "from tit import get_p"
+    registry.complete(session.id, "c1", code, len(code))
+    event = drain(events, lambda e: e["type"] == "complete")
+    assert event["reqId"] == "c1"
+    assert event["matches"] == ["get_path_manager", "get_project"]
+    # The range is the kernel's, not the client's guess: only the kernel knows
+    # where the token it completed actually started.
+    assert code[event["cursorStart"] : event["cursorEnd"]] == "get_p"
+
+
+def test_inspect_answers_with_the_text_bundle(registry: kernels_mod.KernelRegistry) -> None:
+    session = registry.start(cwd="/mnt/000")
+    events: list[dict[str, Any]] = []
+    registry.subscribe(session.id, events.append)
+    registry.inspect(session.id, "i1", "get_path_manager", 5)
+    event = drain(events, lambda e: e["type"] == "inspect")
+    assert event == {
+        "type": "inspect",
+        "reqId": "i1",
+        "found": True,
+        "text": "Signature: get_path_manager(d=None)",
+    }
+
+
+def test_a_query_does_not_wait_for_an_iopub_idle(registry: kernels_mod.KernelRegistry) -> None:
+    """The bug this guards against.
+
+    An execute is finished by BOTH the shell reply and the iopub `idle`
+    (`_finish_half`). A completion produces a shell reply and no iopub traffic
+    at all, so routing it through that join would leave it waiting forever.
+    """
+    session = registry.start(cwd="/mnt/000")
+    events: list[dict[str, Any]] = []
+    registry.subscribe(session.id, events.append)
+    registry.complete(session.id, "c1", "get_pa", 6)
+    drain(events, lambda e: e["type"] == "complete", timeout=1.0)
+    with session.lock:
+        assert session.queries == {}
+        assert session.finishing == {}
+
+
+def test_completion_and_execution_do_not_confuse_each_other(
+    registry: kernels_mod.KernelRegistry,
+) -> None:
+    session = registry.start(cwd="/mnt/000")
+    events: list[dict[str, Any]] = []
+    registry.subscribe(session.id, events.append)
+    registry.execute(session.id, "r1", "print('x')")
+    registry.complete(session.id, "c1", "get_pa", 6)
+    reply = drain(events, lambda e: e["type"] == "reply")
+    completion = drain(events, lambda e: e["type"] == "complete")
+    assert reply["reqId"] == "r1"
+    assert completion["reqId"] == "c1"
+
+
 def test_unsubscribe_stops_delivery(registry: kernels_mod.KernelRegistry) -> None:
     session = registry.start(cwd="/mnt/000")
     events: list[dict[str, Any]] = []
@@ -427,6 +519,28 @@ def test_kernel_websocket_relays_a_cell(client: TestClient) -> None:
     assert outputs[0]["reqId"] == "r1"
     assert outputs[0]["output"]["text"] == "2\n"
     assert seen[-1]["status"] == "ok"
+
+
+def test_kernel_websocket_completes(client: TestClient) -> None:
+    kernel_id = client.post("/api/kernels", headers=BEARER, json={}).json()["id"]
+    url = f"ws://127.0.0.1:8765/ws/kernels/{kernel_id}?token={TOKEN}"
+    code = "from tit import get_p"
+    with client.websocket_connect(url) as socket:
+        assert socket.receive_json()["type"] == "ready"
+        socket.send_json({"id": "c1", "op": "complete", "code": code, "cursorPos": len(code)})
+        event = socket.receive_json()
+        while event["type"] != "complete":
+            event = socket.receive_json()
+    assert event["matches"] == ["get_path_manager", "get_project"]
+
+    with client.websocket_connect(url) as socket:
+        assert socket.receive_json()["type"] == "ready"
+        socket.send_json({"id": "i1", "op": "inspect", "code": code, "cursorPos": 20})
+        event = socket.receive_json()
+        while event["type"] != "inspect":
+            event = socket.receive_json()
+    assert event["found"] is True
+    assert "Signature" in event["text"]
 
 
 def test_kernel_websocket_refuses_an_unknown_kernel(client: TestClient) -> None:

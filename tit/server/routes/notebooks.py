@@ -45,6 +45,14 @@ def _fail(error: nb.NotebookError) -> HTTPException:
 )
 def list_notebooks(request: Request) -> dict[str, Any]:
     root = _project_root(request)
+    # The worked example is seeded here, on the first listing a project ever
+    # gets, because it names *this* project's subjects and fields — there is
+    # nothing to ship in the image that would be correct before a project
+    # exists. A user who deletes it is not given it back.
+    try:
+        nb.seed_example(root)
+    except nb.NotebookError as error:  # a read-only project must still list
+        raise _fail(error) from error
     return {
         "dir": str(nb.notebooks_dir(root)),
         "notebooks": [entry.as_dict() for entry in nb.list_notebooks(root)],
@@ -82,7 +90,7 @@ def create_notebook(request: Request, body: dict[str, Any] = Body(...)) -> dict[
             raise HTTPException(
                 status_code=409, detail=f"{file_name} already exists in this project."
             )
-        document = content if content is not None else nb.new_notebook(root)
+        document = content if content is not None else nb.new_notebook()
         nb.write_notebook(root, file_name, document)
         return {"name": file_name, "content": nb.read_notebook(root, file_name)}
     except nb.NotebookError as error:

@@ -5888,11 +5888,13 @@
         "required": [
           "name",
           "size",
-          "modified"
+          "modified",
+          "example"
         ],
         "properties": {
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "file name; may carry the one `examples/` prefix"
           },
           "size": {
             "type": "integer"
@@ -5901,6 +5903,10 @@
             "type": "number",
             "description": "mtime",
             "seconds since the epoch": null
+          },
+          "example": {
+            "type": "boolean",
+            "description": "Lives under `examples/`. The seeded worked example, which the list sorts last and labels; a user's own notebooks are what they came for and are never pushed below it."
           }
         }
       },
@@ -9205,7 +9211,7 @@
             "items": {
               "type": "string"
             },
-            "description": "enabled optional panels (Source, Cluster Permutation, NIfTI Group Average, Nilearn Visuals, Quick Notes, Subject Info), Electrode Placement"
+            "description": "enabled optional panels (Source, Cluster Permutation, NIfTI Group Average, Nilearn Visuals, Quick Notes, Subject Info, Electrode Placement)"
           },
           "image_tag": {
             "type": [

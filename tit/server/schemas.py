@@ -461,6 +461,8 @@ class NotebookEntry(BaseModel):
     name: str
     size: int
     modified: float
+    #: Under ``examples/`` -- the seeded worked example.
+    example: bool = False
 
 
 class NotebookList(BaseModel):

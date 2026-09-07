@@ -16,6 +16,7 @@
  */
 import { create } from "zustand";
 import { wsUrl } from "../../api/client";
+import type { CompleteReply } from "./completion";
 import {
   createNotebook,
   interruptKernel,
@@ -98,6 +99,12 @@ function message(error: unknown): string {
 interface KernelEvent {
   type: string;
   reqId?: string;
+  matches?: string[];
+  cursorStart?: number;
+  cursorEnd?: number;
+  metadata?: Record<string, unknown>;
+  found?: boolean;
+  text?: string;
   output?: Output;
   executionCount?: number | null;
   state?: string;
@@ -121,6 +128,8 @@ export class Session {
   /** reqId → the cell that asked for it. */
   private inflight = new Map<string, CodeCell>();
   private reqSeq = 0;
+  /** reqId → the promise waiting on a complete/inspect round trip. */
+  private queries = new Map<string, (event: KernelEvent) => void>();
   private autosave: ReturnType<typeof setTimeout> | null = null;
   private saving: Promise<boolean> | null = null;
   /** The last deleted cell and where it was; one slot, like Jupyter's. */
@@ -276,6 +285,18 @@ export class Session {
                   : "idle",
         });
         return;
+      case "complete":
+      case "inspect": {
+        // A query is a request/response pair, not a stream: the one waiter
+        // resolves and the entry goes, so a slow kernel cannot leave a
+        // completion popup attached to a keystroke three edits ago.
+        const settle = event.reqId === undefined ? undefined : this.queries.get(event.reqId);
+        if (settle !== undefined) {
+          this.queries.delete(event.reqId as string);
+          settle(event);
+        }
+        return;
+      }
       case "fatal":
         patch(this.name, {
           kernelStatus: "dead",
@@ -308,6 +329,65 @@ export class Session {
       bump(this.name, { running: meta.running.filter((k) => k !== key) });
       this.markDirty();
     }
+  }
+
+  /**
+   * One request/response round trip to the kernel, with a deadline.
+   *
+   * Completion runs on a keystroke, so it must never hang the editor: a kernel
+   * busy in a FEM loop will not answer, and after `timeoutMs` the caller gets
+   * `null` and CodeMirror simply shows nothing. Resolving with null beats
+   * rejecting — a completion that did not arrive is not an error to report.
+   */
+  private query(op: "complete" | "inspect", code: string, cursorPos: number, timeoutMs = 2500): Promise<KernelEvent | null> {
+    if (this.socket === null || this.socket.readyState !== WebSocket.OPEN) {
+      return Promise.resolve(null);
+    }
+    const reqId = `q${(this.reqSeq += 1)}`;
+    return new Promise<KernelEvent | null>((resolve) => {
+      const timer = setTimeout(() => {
+        this.queries.delete(reqId);
+        resolve(null);
+      }, timeoutMs);
+      this.queries.set(reqId, (event) => {
+        clearTimeout(timer);
+        resolve(event);
+      });
+      this.socket?.send(JSON.stringify({ id: reqId, op, code, cursorPos }));
+    });
+  }
+
+  /**
+   * What could follow the cursor, from the kernel's live namespace.
+   *
+   * The kernel is only asked when one is already up. Starting an interpreter
+   * because someone pressed a key would be a several-second stall and a
+   * container resource taken without asking.
+   */
+  async complete(code: string, cursorPos: number): Promise<CompleteReply | null> {
+    if (this.socket === null) return null;
+    const event = await this.query("complete", code, cursorPos);
+    if (event === null || !Array.isArray(event.matches)) return null;
+    return {
+      matches: event.matches,
+      cursorStart: event.cursorStart ?? cursorPos,
+      cursorEnd: event.cursorEnd ?? cursorPos,
+      metadata: event.metadata,
+    };
+  }
+
+  /** The signature/docstring for the name under the cursor, or null. */
+  async inspect(code: string, cursorPos: number): Promise<string | null> {
+    if (this.socket === null) return null;
+    const event = await this.query("inspect", code, cursorPos);
+    if (event === null || event.found !== true) return null;
+    const text = typeof event.text === "string" ? event.text : "";
+    return text === "" ? null : text;
+  }
+
+  /** True when a kernel is up: what the editor checks before asking it. */
+  get connected(): boolean {
+    return this.socket !== null && this.socket.readyState === WebSocket.OPEN;
   }
 
   async runCell(cell: CodeCell): Promise<void> {

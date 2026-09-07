@@ -278,23 +278,34 @@
   min-width: 0; /* long output lines scroll rather than stretching the page */
 }
 
+/* A code cell's editor is a CodeMirror; its chrome and its Python palette are
+   `editor.ts`, built from these same tokens so the theme switch is free. This
+   only has to give it somewhere to live. */
 .nb-cell__editor {
   display: block;
   width: 100%;
-  min-height: calc(var(--control-h) - 4px);
+  min-width: 0;
+}
+
+.nb-cell__editor .cm-editor {
+  max-height: 60vh;
+}
+
+/* A markdown cell has nothing to highlight, so it stays a textarea. */
+.nb-cell__editor--plain {
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--line);
   border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--ink);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--nb-font-size, 12px);
   line-height: 1.5;
   resize: none;
   overflow: hidden;
 }
 
-.nb-cell__editor:focus {
+.nb-cell__editor--plain:focus {
   outline: 2px solid var(--focus);
   outline-offset: -1px;
 }
@@ -379,7 +390,9 @@
 .nb-output__text {
   margin: 0;
   font-family: var(--font-mono);
-  font-size: 12px;
+  /* Output follows the editor's font size: reading a traceback next to the
+     code that raised it in two different sizes is its own small friction. */
+  font-size: var(--nb-font-size, 12px);
   line-height: 1.45;
   color: var(--ink-2);
   white-space: pre-wrap;
@@ -466,4 +479,209 @@
 .ansi-white,
 .ansi-bright-white {
   color: var(--ink);
+}
+
+/* ---- rendered markdown (markdown.ts) --------------------------------------
+   DESIGN §4 typography: prose is the sans face at 13px/1.6, code and maths keep
+   the mono face, and every rule is a §3 token. Headings step down by ratio
+   rather than by browser default, so a cell's h1 does not shout over the page. */
+
+.nb-cell__prose h1,
+.nb-cell__prose h2,
+.nb-cell__prose h3,
+.nb-cell__prose h4,
+.nb-cell__prose h5,
+.nb-cell__prose h6 {
+  margin: var(--space-4) 0 var(--space-2);
+  color: var(--ink);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.nb-cell__prose h1 {
+  font-size: 20px;
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--line);
+}
+.nb-cell__prose h2 {
+  font-size: 16px;
+}
+.nb-cell__prose h3 {
+  font-size: 14px;
+}
+.nb-cell__prose h4,
+.nb-cell__prose h5,
+.nb-cell__prose h6 {
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.nb-cell__prose p {
+  margin: 0 0 var(--space-3);
+}
+
+.nb-cell__prose ul,
+.nb-cell__prose ol {
+  margin: 0 0 var(--space-3);
+  padding-left: var(--space-6);
+}
+
+.nb-cell__prose li {
+  margin-bottom: 2px;
+}
+
+.nb-cell__prose a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.nb-cell__prose strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.nb-cell__prose hr {
+  margin: var(--space-4) 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.nb-cell__prose blockquote {
+  margin: 0 0 var(--space-3);
+  padding: 0 var(--space-3);
+  border-left: 2px solid var(--line-strong);
+  color: var(--ink-2);
+}
+
+/* A fenced block keeps the mono face and its own ground — the one thing a
+   reader must be able to tell apart from prose at a glance. */
+.nb-cell__prose pre.nb-code {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  overflow-x: auto;
+}
+
+.nb-cell__prose pre.nb-code code {
+  padding: 0;
+  background: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.nb-cell__prose table {
+  margin: 0 0 var(--space-3);
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.nb-cell__prose th,
+.nb-cell__prose td {
+  padding: 3px var(--space-2);
+  border: 1px solid var(--line);
+  text-align: left;
+}
+
+.nb-cell__prose th {
+  background: var(--surface-2);
+  font-weight: 600;
+}
+
+.nb-cell__prose img {
+  max-width: 100%;
+}
+
+/* KaTeX inherits the page ink; a display equation is centred in its own band. */
+.nb-cell__prose .katex {
+  font-size: 1.02em;
+  color: var(--ink);
+}
+
+.nb-cell__prose .nb-math-block {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) 0;
+  overflow-x: auto;
+}
+
+.nb-cell__prose .nb-math-block .katex-display {
+  margin: 0;
+}
+
+/* TeX that did not parse says so, rather than borrowing KaTeX's red — which in
+   a notebook is indistinguishable from a deliberately red equation. */
+.nb-cell__prose .nb-math-error {
+  color: var(--danger);
+  background: var(--danger-soft);
+  font-family: var(--font-mono);
+}
+
+/* The seeded example is reference material, not the author's own work: it sits
+   below their notebooks and says what it is where a date would otherwise be. */
+.nb-list__item[data-example] .nb-list__meta {
+  font-style: italic;
+}
+
+/* ---- the settings popover (SettingsPopover.tsx) --------------------------- */
+
+.nb-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 320px;
+  padding: var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-2);
+  z-index: 40;
+}
+
+.nb-settings__title {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.nb-settings__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  cursor: pointer;
+}
+
+.nb-settings__row--stacked {
+  align-items: center;
+  cursor: default;
+}
+
+.nb-settings__label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.nb-settings__hint {
+  color: var(--ink-3);
+  font-size: 10px;
+  line-height: 1.4;
+  font-weight: 400;
+}
+
+.nb-settings__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--line);
 }

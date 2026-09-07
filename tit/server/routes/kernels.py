@@ -5,7 +5,13 @@ Thin HTTP and WebSocket over :mod:`tit.server.kernels`, which owns the
 list, interrupt, restart, shut down) because those are things a page and a
 command palette both want and neither needs a socket for; the socket carries
 exactly one cell's traffic — ``execute`` down, ``status``/``input``/``output``/
-``clear``/``reply`` up — because that is a stream and nothing else here is.
+``clear``/``reply`` up, plus ``complete``/``inspect`` round trips — because
+that is a stream and nothing else here is.
+
+Completion is a kernel round trip rather than a language server on purpose: a
+kernel that has run the notebook's imports is *holding* the objects, so
+``tit.<Tab>`` answers from the live namespace. ``jedi`` is already inside
+ipykernel, so there is nothing to install and nothing to keep in sync.
 
 This is SUNA's kernel bridge protocol (docs/ARCHITECTURE.md §16.2 there) with
 the pipe swapped: SUNA frames it over a child process's stdio, and TI-Toolbox
@@ -215,6 +221,14 @@ async def ws_kernel(ws: WebSocket, kernel_id: str) -> None:
                     registry.interrupt(kernel_id)
                 elif op == "restart":
                     registry.restart(kernel_id)
+                elif op == "complete":
+                    registry.complete(
+                        kernel_id, req_id, str(message.get("code", "")), int(message.get("cursorPos", 0))
+                    )
+                elif op == "inspect":
+                    registry.inspect(
+                        kernel_id, req_id, str(message.get("code", "")), int(message.get("cursorPos", 0))
+                    )
                 else:
                     logger.debug("kernel %s: unknown op %r", kernel_id, op)
             except KernelError as error:

@@ -10,7 +10,8 @@ import {
   type CodeCell,
   type Notebook,
 } from "../../src/renderer/pages/notebooks/notebook";
-import { renderMarkdown } from "../../src/renderer/pages/notebooks/markdown";
+
+// Markdown rendering has its own suite: `notebook-markdown.test.ts`.
 
 function notebook(minor = 5): Notebook {
   return { cells: [], metadata: {}, nbformat: 4, nbformat_minor: minor };
@@ -66,29 +67,5 @@ describe("the notebook model", () => {
     const a: Cell = { cell_type: "code", source: "", metadata: {} };
     const b: Cell = { cell_type: "code", source: "", metadata: {} };
     expect(cellKey(a)).not.toBe(cellKey(b));
-  });
-});
-
-describe("markdown cells", () => {
-  it("renders the shapes a notebook heading cell actually uses", () => {
-    expect(renderMarkdown("# Title")).toBe("<h1>Title</h1>");
-    expect(renderMarkdown("- one\n- two")).toBe("<ul>\n<li>one</li>\n<li>two</li>\n</ul>");
-    expect(renderMarkdown("a **bold** and `code`")).toBe(
-      "<p>a <strong>bold</strong> and <code>code</code></p>",
-    );
-    expect(renderMarkdown("```\nx = 1\n```")).toBe("<pre><code>x = 1</code></pre>");
-  });
-
-  it("shows HTML in a cell as text rather than running it", () => {
-    // The security property this file rests on: source is escaped first, and
-    // markup is only ever added to escaped text.
-    const html = renderMarkdown('<img src=x onerror="steal()">');
-    expect(html).not.toContain("<img");
-    expect(html).toContain("&lt;img");
-  });
-
-  it("refuses a link scheme that is not http or mailto", () => {
-    expect(renderMarkdown("[x](javascript:alert(1))")).not.toContain("<a ");
-    expect(renderMarkdown("[x](https://example.org)")).toContain('href="https://example.org"');
   });
 });

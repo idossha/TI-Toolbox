@@ -29,6 +29,8 @@ import type { PageDef } from "../../app/registry";
 import { Button, Cluster, EmptyState, PageLayout, Stack, StatusDot, type SemanticKind } from "../../ui";
 import { deleteNotebook, listNotebooks, type NotebookEntry } from "./api";
 import { CellView, type CellCommands } from "./CellView";
+import { NotebookSettings } from "./SettingsPopover";
+import { useNotebookPrefs } from "./settings";
 import { cellKey, isCodeCell, type CellType, type Notebook } from "./notebook";
 import {
   acquireNotebook,
@@ -39,6 +41,9 @@ import {
   type KernelStatus,
   type Session,
 } from "./session";
+// KaTeX ships its own stylesheet and its own woff2 faces; both are bundled by
+// Vite, so a rendered equation needs no network. See markdown.ts.
+import "katex/dist/katex.min.css";
 import "./notebooks.css";
 
 const STATUS_LABEL: Record<KernelStatus, string> = {
@@ -105,8 +110,9 @@ function NotebookListPane({
       </Cluster>
       {notebooks.length === 0 ? (
         <p className="nb-list__empty">
-          No notebooks yet. A new one opens with `tit` already imported and this project&rsquo;s root
-          printed — the pipeline canvas&rsquo;s exported notebooks land here too.
+          No notebooks yet. A new one opens with <code>tit</code> already imported and this
+          project&rsquo;s subjects listed — the pipeline canvas&rsquo;s exported notebooks land here
+          too.
         </p>
       ) : (
         <ul className="nb-list__items">
@@ -115,10 +121,18 @@ function NotebookListPane({
               <button
                 className={`nb-list__item${entry.name === open ? " nb-list__item--open" : ""}`}
                 data-testid="nb-list-item"
+                data-example={entry.example ? "1" : undefined}
                 onClick={() => onOpen(entry.name)}
               >
-                <span className="nb-list__name">{entry.name}</span>
-                <span className="nb-list__meta">{modified(entry)}</span>
+                <span className="nb-list__name">
+                  {entry.example ? entry.name.slice("examples/".length) : entry.name}
+                </span>
+                <span className="nb-list__meta">
+                  {/* The example is reference material the app wrote, so it is
+                      labelled rather than dated: its mtime says nothing a
+                      reader wants. */}
+                  {entry.example ? "example" : modified(entry)}
+                </span>
               </button>
               <button
                 className="nb-list__delete"
@@ -178,6 +192,7 @@ function Toolbar({ session, name }: { session: Session; name: string }) {
         Clear outputs
       </Button>
       <span className="nb-toolbar__spacer" />
+      <NotebookSettings />
       <Button
         size="sm"
         variant="ghost"
@@ -220,6 +235,7 @@ function KernelFault({ name, session }: { name: string; session: Session }) {
 
 function NotebookView({ name }: { name: string }) {
   const meta = useNotebookMeta(name);
+  const prefs = useNotebookPrefs((state) => state.prefs);
   const [selected, setSelected] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const cellsRef = useRef<HTMLDivElement>(null);
@@ -307,9 +323,17 @@ function NotebookView({ name }: { name: string }) {
       const s = session;
       if (s.nb === null) return;
       const target = event.target as HTMLElement;
-      // A focused editor has these same keys on its own handler and has already
-      // acted on them; handling them again here would run the cell twice.
-      if (target.tagName === "TEXTAREA") return;
+      // An editor that has focus has already acted on these keys through its
+      // own keymap; handling them again here would run the cell twice — and,
+      // worse, would let command mode see ordinary typing.
+      //
+      // THE defect this exists for: the guard used to test `tagName ===
+      // "TEXTAREA"`, which was true while a cell was a textarea and false the
+      // moment it became a CodeMirror (a contenteditable `div`). Typing
+      // `print(...)` then delivered `r` to command mode, which re-typed the
+      // cell as **raw** and destroyed the editor mid-word. The test is now
+      // "did this come from inside an editor", which is what was always meant.
+      if (target.closest(".cm-editor") !== null || target.tagName === "TEXTAREA") return;
 
       const mod = event.metaKey || event.ctrlKey;
       const stop = (): void => {
@@ -427,6 +451,10 @@ function NotebookView({ name }: { name: string }) {
       // `version` is the whole re-render signal: the notebook is mutated in
       // place, so nothing below would change identity on its own.
       data-nb-version={meta.version}
+      // One variable, set once on the root: the editor reads it through its own
+      // theme compartment and the outputs through the stylesheet, so code and
+      // the traceback it produced are never two different sizes.
+      style={{ "--nb-font-size": `${prefs.fontSize}px` } as React.CSSProperties}
       onKeyDown={onKeyDown}
     >
       <Toolbar session={session} name={name} />
@@ -548,7 +576,7 @@ function NotebooksPage() {
             <Stack gap={3} align="center" className="nb-page__blank">
               <EmptyState
                 icon={<BookOpen size={20} />}
-                message="No notebook open. Pick one on the left, or make a new one — cells run on the container's SimNIBS Python, so tit, simnibs, numpy and nibabel are importable with nothing to install."
+                message="No notebook open. Open examples/getting-started for a worked example, pick one on the left, or make a new one — cells run on the container's SimNIBS Python, so tit, simnibs, numpy, nibabel, pandas and matplotlib are importable with nothing to install."
               />
             </Stack>
           ) : (

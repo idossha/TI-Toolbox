@@ -166,8 +166,9 @@ def _custom_openapi(app: FastAPI) -> dict[str, Any]:
     }
     schema["paths"]["/ws/kernels/{kernel_id}"] = {
         "get": {
-            "summary": "WebSocket; one notebook kernel's traffic — execute/interrupt/restart "
-            "down, status/input/output/clear/reply/fatal up (auth via cookie or ?token=)",
+            "summary": "WebSocket; one notebook kernel's traffic — execute/interrupt/restart/"
+            "complete/inspect down, status/input/output/clear/reply/complete/inspect/fatal up "
+            "(auth via cookie or ?token=)",
             "responses": {"101": {"description": "switching protocols"}},
         }
     }

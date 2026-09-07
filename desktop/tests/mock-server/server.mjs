@@ -1882,7 +1882,8 @@ route("GET", "/api/catalog/subject-info", (ctx) => json(ctx.res, 200, subjectInf
 route("GET", "/api/subjects/:id/info", (ctx) => {
   const body = subjectInfoBody(ctx.params.id);
   if (!body) return json(ctx.res, 404, { detail: `Unknown subject: ${ctx.params.id}` });
-
+  json(ctx.res, 200, body);
+});
 // R1: the Overview page's one aggregate read. Deliberately the ONLY route this page needs -- a
 // spec counting requests here is counting the whole page.
 route("GET", "/api/catalog/overview", (ctx) => json(ctx.res, 200, overview));
@@ -2340,10 +2341,82 @@ const notebookStore = new Map();
 const NOTEBOOK_DIR = "/mnt/000/code/ti-toolbox/notebooks";
 
 function notebookName(name) {
-  const trimmed = String(name ?? "").trim().replace(/\.ipynb$/, "");
-  if (!/^[A-Za-z0-9][A-Za-z0-9 ._-]{0,127}$/.test(trimmed)) return null;
-  return `${trimmed}.ipynb`;
+  let rest = String(name ?? "").trim();
+  let prefix = "";
+  if (rest.startsWith("examples/")) {
+    prefix = "examples/";
+    rest = rest.slice(prefix.length);
+  }
+  rest = rest.replace(/\.ipynb$/, "");
+  if (!/^[A-Za-z0-9][A-Za-z0-9 ._-]{0,127}$/.test(rest)) return null;
+  return `${prefix}${rest}.ipynb`;
 }
+
+const EXAMPLE_NAME = "examples/getting-started.ipynb";
+
+/** Mirrors `tit.server.notebooks.EXAMPLE_INTRO`'s feature set, not its prose. */
+const EXAMPLE_INTRO = [
+  "# Getting started with TI-Toolbox notebooks",
+  "",
+  "This notebook runs on the container's **SimNIBS Python**, so `tit`, `simnibs` and",
+  "`matplotlib` are importable with *nothing to install*.",
+  "",
+  "## What it shows",
+  "",
+  "1. The environment.",
+  "2. A `pandas` table.",
+  "",
+  "$$",
+  "|\\vec{E}_{\\mathrm{TI}}| = 2\\,|\\vec{E}_2|",
+  "$$",
+  "",
+  "and $2\\,|\\vec{E}_1|$ otherwise.",
+  "",
+  "```python",
+  "from tit import get_path_manager",
+  "```",
+  "",
+  "| step | cost |",
+  "| --- | ---: |",
+  "| environment | instant |",
+  "",
+  "See the [TI-Toolbox wiki](https://idossha.github.io/TI-Toolbox/).",
+].join("\n");
+
+function exampleNotebook() {
+  return {
+    nbformat: 4,
+    nbformat_minor: 5,
+    metadata: {
+      kernelspec: { name: "simnibs", display_name: "SimNIBS + TI-Toolbox", language: "python" },
+      language_info: { name: "python" },
+    },
+    cells: [
+      { cell_type: "markdown", id: "ex-intro", metadata: {}, source: EXAMPLE_INTRO },
+      {
+        cell_type: "code",
+        id: "ex-env",
+        metadata: {},
+        execution_count: null,
+        outputs: [],
+        source: "print('project /mnt/000')",
+      },
+    ],
+  };
+}
+
+/** Seeded on the first listing, exactly as the real server does. */
+function seedExample() {
+  if (notebookStore.has(EXAMPLE_NAME) || notebooksSeeded.deleted) return;
+  const content = exampleNotebook();
+  notebookStore.set(EXAMPLE_NAME, {
+    content,
+    size: JSON.stringify(content).length,
+    modified: 0,
+  });
+}
+
+const notebooksSeeded = { deleted: false };
 
 function starterNotebook() {
   return {
@@ -2359,7 +2432,7 @@ function starterNotebook() {
         id: "intro",
         metadata: {},
         source:
-          "# New TI-Toolbox notebook\n\nThis kernel is the container's SimNIBS Python, so `tit`, `simnibs`, `numpy` and `nibabel` are all importable with nothing to install.",
+          "# New TI-Toolbox notebook\n\nThis kernel is the container's **SimNIBS Python**, so `tit`, `simnibs`, `numpy`, `nibabel`, `pandas` and `matplotlib` are all importable with nothing to install.\n\nRun the cell below with **\u21e7\u21b5**. For a worked example \u2014 a real field summarised, plotted and tabulated \u2014 open `examples/getting-started.ipynb`.",
       },
       {
         cell_type: "code",
@@ -2368,20 +2441,27 @@ function starterNotebook() {
         execution_count: null,
         outputs: [],
         source:
-          "# TI-Toolbox is already on this kernel's path.\nfrom tit import get_path_manager\n\npm = get_path_manager()\nprint('project:', pm.project_dir)\nprint('subjects:', pm.list_all_subjects())\n",
+          "# TI-Toolbox is already on this kernel's path \u2014 this cell proves it,\n# and it is the block every scripted workflow starts from.\nimport simnibs\n\nfrom tit import catalog, get_path_manager\nfrom tit.analyzer import Analyzer\nfrom tit.sim import SimulationConfig\n\npm = get_path_manager()\nsubjects = catalog.subject_ids(pm)\n\nprint('project ', pm.project_dir)\nprint('simnibs ', simnibs.__version__)\nprint('subjects', subjects)\n",
       },
     ],
   };
 }
 
-route("GET", "/api/notebooks", (ctx) =>
-  json(ctx.res, 200, {
+route("GET", "/api/notebooks", (ctx) => {
+  seedExample();
+  return json(ctx.res, 200, {
     dir: NOTEBOOK_DIR,
     notebooks: [...notebookStore.entries()]
-      .map(([name, entry]) => ({ name, size: entry.size, modified: entry.modified }))
-      .sort((a, b) => b.modified - a.modified),
-  })
-);
+      .map(([name, entry]) => ({
+        name,
+        size: entry.size,
+        modified: entry.modified,
+        example: name.startsWith("examples/"),
+      }))
+      // The example sorts last: a user's own notebooks are what they came for.
+      .sort((a, b) => Number(a.example) - Number(b.example) || b.modified - a.modified),
+  });
+});
 
 route("POST", "/api/notebooks", async (ctx) => {
   const body = await ctx.body();
@@ -2418,7 +2498,7 @@ route("PUT", "/api/notebooks/:name", async (ctx) => {
   const size = JSON.stringify(content).length;
   const modified = Date.now() / 1000;
   notebookStore.set(name, { content, size, modified });
-  json(ctx.res, 200, { name, size, modified });
+  json(ctx.res, 200, { name, size, modified, example: name.startsWith("examples/") });
 });
 
 route("DELETE", "/api/notebooks/:name", (ctx) => {
@@ -2427,6 +2507,7 @@ route("DELETE", "/api/notebooks/:name", (ctx) => {
     return json(ctx.res, 404, { detail: "no such notebook" });
   }
   notebookStore.delete(name);
+  if (name === EXAMPLE_NAME) notebooksSeeded.deleted = true;
   json(ctx.res, 200, { deleted: name });
 });
 
@@ -2519,6 +2600,54 @@ route("POST", "/api/kernels/:id/restart", (ctx) => {
   kernelBroadcast(kernel, { type: "ready", kernel: kernelDescribe(kernel) });
   json(ctx.res, 200, kernelDescribe(kernel));
 });
+
+/**
+ * The fake kernel's completer. A fixed vocabulary, matched on the token before
+ * the cursor — enough to prove the ROUND TRIP (request out, matches back,
+ * kernel-owned replacement range applied) without pretending to be jedi.
+ */
+const MOCK_NAMES = [
+  "get_path_manager",
+  "get_project",
+  "catalog.subject_ids",
+  "catalog.subject_detail",
+  "catalog.list_simulations",
+  "run_simulation",
+  "SimulationConfig",
+  "Analyzer",
+  "print",
+];
+
+function kernelComplete(kernel, reqId, code, cursorPos) {
+  const before = code.slice(0, cursorPos);
+  const token = (/[\w.]*$/.exec(before) ?? [""])[0];
+  const matches = token === "" ? [] : MOCK_NAMES.filter((name) => name.startsWith(token));
+  kernelBroadcast(kernel, {
+    type: "complete",
+    reqId,
+    matches,
+    cursorStart: cursorPos - token.length,
+    cursorEnd: cursorPos,
+    metadata: {
+      _jupyter_types_experimental: matches.map((text) => ({
+        text,
+        type: /^[A-Z]/.test(text.split(".").pop()) ? "class" : "function",
+      })),
+    },
+  });
+}
+
+function kernelInspect(kernel, reqId, code, cursorPos) {
+  const before = code.slice(0, cursorPos);
+  const token = (/[\w.]*$/.exec(before) ?? [""])[0];
+  const found = MOCK_NAMES.includes(token);
+  kernelBroadcast(kernel, {
+    type: "inspect",
+    reqId,
+    found,
+    text: found ? `Signature: ${token}(*args)\nDocstring: the mock kernel's answer.` : "",
+  });
+}
 
 function kernelBroadcast(kernel, event) {
   for (const ws of kernel.sockets) {
@@ -2671,6 +2800,7 @@ route("POST", "/api/__mock/reset", (ctx) => {
   for (const client of wsJobClients) client.subs.clear();
   groupParallelLimit.clear();
   notebookStore.clear();
+  notebooksSeeded.deleted = false;
   for (const kernel of kernelStore.values()) {
     if (kernel.running) clearTimeout(kernel.running.timer);
     for (const ws of kernel.sockets) ws.close();
@@ -3729,6 +3859,10 @@ server.on("upgrade", (req, socket, head) => {
           kernelExecute(kernel, String(msg.id ?? ""), String(msg.code ?? ""));
         } else if (msg.op === "interrupt") {
           kernelInterrupt(kernel);
+        } else if (msg.op === "complete") {
+          kernelComplete(kernel, String(msg.id ?? ""), String(msg.code ?? ""), Number(msg.cursorPos ?? 0));
+        } else if (msg.op === "inspect") {
+          kernelInspect(kernel, String(msg.id ?? ""), String(msg.code ?? ""), Number(msg.cursorPos ?? 0));
         }
       });
       ws.on("close", () => kernel.sockets.delete(ws));

@@ -24,6 +24,18 @@ renderer already understands:
     {"type": "reply",  "reqId": "r1", "status": "ok", "executionCount": 3}
     {"type": "fatal",  "code": "...", "message": "..."}
 
+plus two SUNA does not have, because SUNA's cells are a CodeMirror driven by a
+language server and these cells are driven by the kernel itself:
+
+    {"type": "complete", "reqId": "c1", "matches": [...],
+                         "cursorStart": 18, "cursorEnd": 24, "metadata": {...}}
+    {"type": "inspect",  "reqId": "i1", "found": true, "text": "..."}
+
+A kernel that has *executed* the notebook knows what `tit.` holds better than
+any static analyser could -- it is holding the object. That is why completion
+is a kernel round trip here rather than an LSP: `jedi` is already inside
+ipykernel, and the namespace it completes against is the live one.
+
 Two limits exist because a kernel here is a container-wide resource rather
 than one user's laptop: at most ``MAX_KERNELS`` run at once, and a kernel
 nobody has touched for ``IDLE_TIMEOUT_SECONDS`` is shut down. A FEM run and
@@ -116,6 +128,32 @@ def output_from_msg(msg_type: str, content: dict[str, Any]) -> dict[str, Any] | 
     return None
 
 
+def _query_event(req_id: str, msg_type: str, content: dict[str, Any]) -> dict[str, Any]:
+    """A ``complete_reply``/``inspect_reply`` as the event the client reads.
+
+    An inspect reply's payload is a mime bundle; only ``text/plain`` is taken,
+    because the cell's hover is a tooltip and IPython's own signature/docstring
+    lives there. It arrives ANSI-coloured, and stays that way -- the renderer
+    already parses ANSI for tracebacks and reuses that here.
+    """
+    if msg_type == "complete_reply":
+        return {
+            "type": "complete",
+            "reqId": req_id,
+            "matches": list(content.get("matches", [])),
+            "cursorStart": content.get("cursor_start", 0),
+            "cursorEnd": content.get("cursor_end", 0),
+            "metadata": content.get("metadata", {}),
+        }
+    data = content.get("data", {}) or {}
+    return {
+        "type": "inspect",
+        "reqId": req_id,
+        "found": bool(content.get("found", False)),
+        "text": data.get("text/plain", ""),
+    }
+
+
 Listener = Callable[[dict[str, Any]], None]
 
 
@@ -143,6 +181,11 @@ class KernelSession:
     #: arrives second is the one that may emit — otherwise a reply can, and
     #: in the test suite did, overtake the very output it concludes.
     finishing: dict[str, dict[str, Any]] = field(default_factory=dict)
+    #: shell msg_id -> (request id, "complete" | "inspect"). Kept apart from
+    #: ``pending``: a query produces exactly one shell reply and no iopub
+    #: output at all, so it must not go through the two-channel join above --
+    #: it would wait forever for an ``idle`` that belongs to nothing.
+    queries: dict[str, tuple[str, str]] = field(default_factory=dict)
     listeners: list[Listener] = field(default_factory=list)
     lock: threading.Lock = field(default_factory=threading.Lock)
     stopping: threading.Event = field(default_factory=threading.Event)
@@ -312,6 +355,34 @@ class KernelRegistry:
         with session.lock:
             session.pending[msg_id] = req_id
 
+    def complete(self, kernel_id: str, req_id: str, code: str, cursor_pos: int) -> None:
+        """Ask the kernel what could follow the cursor.
+
+        This is `complete_request`, the same call Jupyter's own front end
+        makes. It is answered by IPython's completer against the kernel's
+        **live namespace**, so after the notebook has run its imports,
+        ``tit.<Tab>`` lists what `tit` actually holds in that interpreter.
+        """
+        session = self.get(kernel_id)
+        session.last_used = time.time()
+        try:
+            msg_id = session.client.complete(code, cursor_pos)
+        except Exception as error:
+            raise KernelError("op-failed", f"complete: {error}") from error
+        with session.lock:
+            session.queries[msg_id] = (req_id, "complete")
+
+    def inspect(self, kernel_id: str, req_id: str, code: str, cursor_pos: int, detail: int = 0) -> None:
+        """Ask the kernel about the name under the cursor (Jupyter's ⇧⇥)."""
+        session = self.get(kernel_id)
+        session.last_used = time.time()
+        try:
+            msg_id = session.client.inspect(code, cursor_pos, detail_level=detail)
+        except Exception as error:
+            raise KernelError("op-failed", f"inspect: {error}") from error
+        with session.lock:
+            session.queries[msg_id] = (req_id, "inspect")
+
     def interrupt(self, kernel_id: str) -> None:
         session = self.get(kernel_id)
         session.last_used = time.time()
@@ -326,6 +397,7 @@ class KernelRegistry:
         with session.lock:
             session.pending.clear()
             session.finishing.clear()
+            session.queries.clear()
         self._emit(session, {"type": "status", "state": "starting"})
         try:
             session.manager.restart_kernel(now=False)
@@ -454,10 +526,18 @@ class KernelRegistry:
                 if not session.stopping.is_set():
                     logger.info("kernel %s shell ended: %s", session.id, error)
                 return
-            if msg["header"]["msg_type"] != "execute_reply":
-                continue
+            msg_type = msg["header"]["msg_type"]
             parent_id = msg.get("parent_header", {}).get("msg_id")
             if not parent_id:
+                continue
+            if msg_type in ("complete_reply", "inspect_reply"):
+                with session.lock:
+                    query = session.queries.pop(parent_id, None)
+                if query is None:
+                    continue
+                self._emit(session, _query_event(query[0], msg_type, msg.get("content", {})))
+                continue
+            if msg_type != "execute_reply":
                 continue
             event = self._finish_half(session, parent_id, "reply", msg.get("content", {}))
             if event is not None:

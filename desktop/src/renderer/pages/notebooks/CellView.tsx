@@ -1,12 +1,15 @@
 /**
  * Ported from SUNA (github.com/idossha/SUNA,
  * `apps/desktop/src/renderer/src/notebook/CellView.tsx`), GPL-3.0, by the same
- * author. The structure, the modal edit/command split and the reasoning are
- * SUNA's; the editor is not. SUNA puts a full CodeMirror in every cell because
- * the rest of that app already ships one. TI-Toolbox ships no editor, and five
- * CodeMirror packages for cell text is a dependency the rest of this app has no
- * use for — so a cell is an auto-sizing `<textarea>` in the mono token face.
- * Syntax highlighting is on the roadmap and would be that dependency's job.
+ * author, including the editor: a code cell is a **CodeMirror 6** with Python
+ * highlighting and kernel-backed completion (`editor.ts`).
+ *
+ * It was a `<textarea>` first, to avoid the dependency. That was the wrong
+ * trade and the maintainer said so: a textarea cannot colour Python, cannot
+ * indent a block and has nowhere to put a completion popup, and "easier for
+ * users to develop" is the whole point of the page. A markdown cell is still a
+ * textarea — there is nothing to highlight in prose, and its rendered form is
+ * where the reading happens.
  *
  * Selection and the modal edit/command distinction belong to the notebook, not
  * to a cell: every keystroke that acts on the cell LIST (insert, delete, move,
@@ -14,12 +17,14 @@
  * it is selected and whether it is being edited, and reports back gestures — it
  * decides neither.
  */
-import { useEffect, useLayoutEffect, useRef, type JSX, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, type JSX, type KeyboardEvent } from "react";
 import { ChevronDown, ChevronUp, Play, X } from "lucide-react";
+import { Compartment, EditorState, EditorView, baseExtensions, completionExtensions, keymap, prefExtensions, type CompletionSource } from "./editor";
 import { renderMarkdown } from "./markdown";
 import { cellText, type Cell, type CodeCell } from "./notebook";
 import { OutputList } from "./Outputs";
 import type { Session } from "./session";
+import { useNotebookPrefs } from "./settings";
 
 export interface CellCommands {
   /** Run the selected cell; then stay on it, step to the next, or insert. */
@@ -123,7 +128,8 @@ function useAutoSize(ref: React.RefObject<HTMLTextAreaElement | null>, text: str
   }, [ref, text]);
 }
 
-function CellEditor({
+/** Markdown source while a prose cell is being edited. Nothing to highlight. */
+function MarkdownEditor({
   cell,
   session,
   editing,
@@ -140,7 +146,6 @@ function CellEditor({
   const text = cellText(cell);
   useAutoSize(ref, text);
 
-  // Edit mode IS "the editor has focus": Escape leaves it, Enter comes back.
   useEffect(() => {
     const node = ref.current;
     if (node === null) return;
@@ -151,18 +156,161 @@ function CellEditor({
   return (
     <textarea
       ref={ref}
-      className="nb-cell__editor"
+      className="nb-cell__editor nb-cell__editor--plain"
       spellCheck={false}
       aria-label={label}
       value={text}
-      // The cell object is mutated, not replaced: it is the same object that
-      // gets sent back to the server as this notebook's document. The write
-      // goes through the session rather than straight onto the prop, so the
-      // one place that owns the document is the one place that changes it.
       onChange={(event) => session.setCellSource(cell, event.target.value)}
       onKeyDown={(event) => editorKeys(event, commands)}
     />
   );
+}
+
+/**
+ * A code cell's CodeMirror.
+ *
+ * Built ONCE per cell and then reconfigured. Rebuilding it on a re-render would
+ * throw away the author's cursor, selection and undo history on every keystroke
+ * — the notebook re-renders on every kernel output, so that is not a rare case.
+ * Preferences reach it through compartments, and the notebook's commands
+ * through a ref the keymap reads at keystroke time.
+ */
+function CodeEditor({
+  cell,
+  session,
+  editing,
+  commands,
+  label,
+  onFocus,
+}: {
+  cell: Cell;
+  session: Session;
+  editing: boolean;
+  commands: CellCommands;
+  label: string;
+  /** The editor took focus: the notebook is now in edit mode on this cell. */
+  onFocus: () => void;
+}): JSX.Element {
+  const host = useRef<HTMLDivElement>(null);
+  const view = useRef<EditorView | null>(null);
+  const compartments = useRef({ prefs: new Compartment(), completion: new Compartment() });
+  const prefs = useNotebookPrefs((state) => state.prefs);
+
+  // Read at keystroke time: the keymap is installed once, and would otherwise
+  // close over the first render's callbacks forever. Written in an effect
+  // rather than during render — the keymap only fires after a commit, so it
+  // never needs a value the current render has not finished producing.
+  const latest = useRef({ commands, session, cell, onFocus });
+  useEffect(() => {
+    latest.current = { commands, session, cell, onFocus };
+  }, [commands, session, cell, onFocus]);
+
+  const completionSource = useCallback(
+    (): CompletionSource => ({
+      connected: latest.current.session.connected,
+      complete: (code, pos) => latest.current.session.complete(code, pos),
+      inspect: (code, pos) => latest.current.session.inspect(code, pos),
+    }),
+    [],
+  );
+
+  useEffect(() => {
+    const parent = host.current;
+    if (parent === null) return;
+    const { prefs: prefsSlot, completion: completionSlot } = compartments.current;
+
+    const editor = new EditorView({
+      parent,
+      state: EditorState.create({
+        doc: cellText(latest.current.cell),
+        extensions: [
+          // The notebook's own keys come FIRST, at the highest precedence:
+          // CodeMirror binds ⇧↵ and ⌘↵ itself, and a cell that inserts a
+          // newline instead of running is the whole gesture broken.
+          keymap.of([
+            { key: "Shift-Enter", run: () => (latest.current.commands.run("next"), true) },
+            { key: "Mod-Enter", run: () => (latest.current.commands.run("stay"), true) },
+            { key: "Alt-Enter", run: () => (latest.current.commands.run("insert"), true) },
+            { key: "Mod-Shift-ArrowUp", run: () => (latest.current.commands.move(-1), true) },
+            { key: "Mod-Shift-ArrowDown", run: () => (latest.current.commands.move(1), true) },
+            { key: "Mod-s", run: () => (latest.current.commands.save(), true), preventDefault: true },
+            { key: "Escape", run: () => (latest.current.commands.toCommandMode(), true) },
+          ]),
+          prefsSlot.of(prefExtensions(prefs)),
+          completionSlot.of(completionExtensions(prefs.autocomplete, completionSource)),
+          baseExtensions(),
+          // THE defect this exists for. Edit mode is notebook state, and the
+          // editor is what actually holds focus — so the editor is what must
+          // report it. Relying on React's `onFocus` bubbling out of
+          // CodeMirror's contenteditable left `editing` false, and the next
+          // re-render (which every keystroke causes, because a keystroke
+          // changes the document) then BLURRED the editor mid-word. The rest
+          // of the word fell through to command mode, where `r` re-typed the
+          // cell as raw and the editor vanished under the author's cursor.
+          EditorView.domEventHandlers({
+            focus: () => {
+              latest.current.onFocus();
+              return false;
+            },
+          }),
+          EditorView.updateListener.of((update) => {
+            if (!update.docChanged) return;
+            latest.current.session.setCellSource(
+              latest.current.cell,
+              update.state.doc.toString(),
+            );
+          }),
+          EditorView.contentAttributes.of({ "aria-label": label }),
+        ],
+      }),
+    });
+    view.current = editor;
+    return () => {
+      editor.destroy();
+      view.current = null;
+    };
+    // Mounted once per cell. `prefs` is applied through the compartment below,
+    // not by rebuilding — see the note above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const editor = view.current;
+    if (editor === null) return;
+    editor.dispatch({
+      effects: [
+        compartments.current.prefs.reconfigure(prefExtensions(prefs)),
+        compartments.current.completion.reconfigure(
+          completionExtensions(prefs.autocomplete, completionSource),
+        ),
+      ],
+    });
+  }, [prefs, completionSource]);
+
+  // The document can change from outside the editor — a notebook reload, or a
+  // cell restored by `z`. Only push when it actually differs, or every
+  // keystroke would round-trip through here and reset the cursor.
+  const source = cellText(cell);
+  useEffect(() => {
+    const editor = view.current;
+    if (editor === null) return;
+    const current = editor.state.doc.toString();
+    if (current === source) return;
+    editor.dispatch({ changes: { from: 0, to: current.length, insert: source } });
+  }, [source]);
+
+  // Edit mode IS "the editor has focus": Escape leaves it, Enter comes back.
+  // The blur half only runs when the notebook deliberately left edit mode —
+  // with the focus handler above, `editing` is true whenever the editor holds
+  // focus, so this can no longer fire on an ordinary keystroke re-render.
+  useEffect(() => {
+    const editor = view.current;
+    if (editor === null) return;
+    if (editing && !editor.hasFocus) editor.focus();
+    else if (!editing && editor.hasFocus) editor.contentDOM.blur();
+  }, [editing]);
+
+  return <div ref={host} className="nb-cell__editor" data-testid="nb-code-editor" />;
 }
 
 function CodeCellView(props: CellProps): JSX.Element {
@@ -191,11 +339,12 @@ function CodeCellView(props: CellProps): JSX.Element {
         </span>
       </div>
       <div className="nb-cell__body">
-        <CellEditor
+        <CodeEditor
           cell={cell}
           session={session}
           editing={editing}
           commands={commands}
+          onFocus={onEdit}
           label={`Code cell ${props.index + 1}`}
         />
         <OutputList outputs={code.outputs} />
@@ -219,7 +368,7 @@ function MarkdownCellView(props: CellProps): JSX.Element {
       >
         <div className="nb-cell__gutter" />
         <div className="nb-cell__body">
-          <CellEditor
+          <MarkdownEditor
             cell={cell}
             session={session}
             editing={editing}

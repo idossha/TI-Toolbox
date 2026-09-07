@@ -3036,11 +3036,16 @@ components:
     # ------------------------------------------------------------------ notebooks and kernels
     NotebookEntry:
       type: object
-      required: [name, size, modified]
+      required: [name, size, modified, example]
       properties:
-        name: { type: string }
+        name: { type: string, description: "file name; may carry the one `examples/` prefix" }
         size: { type: integer }
         modified: { type: number, description: mtime, seconds since the epoch }
+        example:
+          type: boolean
+          description: >-
+            Lives under `examples/`. The seeded worked example, which the list sorts last and
+            labels; a user's own notebooks are what they came for and are never pushed below it.
     NotebookList:
       type: object
       required: [dir, notebooks]
@@ -4558,7 +4563,7 @@ components:
         panels:
           type: array
           items: { type: string }
-          description: enabled optional panels (Source, Cluster Permutation, NIfTI Group Average, Nilearn Visuals, Quick Notes, Subject Info), Electrode Placement
+          description: enabled optional panels (Source, Cluster Permutation, NIfTI Group Average, Nilearn Visuals, Quick Notes, Subject Info, Electrode Placement)
         image_tag: { type: [string, "null"] }
         allow_unsafe_overrides: { type: boolean }
         theme: { type: string, enum: [system, light, dark] }

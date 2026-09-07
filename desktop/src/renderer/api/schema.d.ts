@@ -4716,10 +4716,13 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         NotebookEntry: {
+            /** @description file name; may carry the one `examples/` prefix */
             name: string;
             size: number;
             /** @description mtime */
             modified: number;
+            /** @description Lives under `examples/`. The seeded worked example, which the list sorts last and labels; a user's own notebooks are what they came for and are never pushed below it. */
+            example: boolean;
         };
         NotebookList: {
             /** @description container path of code/ti-toolbox/notebooks */
@@ -5580,7 +5583,7 @@ export interface components {
         };
         Settings: {
             telemetry: components["schemas"]["Telemetry"];
-            /** @description enabled optional panels (Source, Cluster Permutation, NIfTI Group Average, Nilearn Visuals, Quick Notes, Subject Info), Electrode Placement */
+            /** @description enabled optional panels (Source, Cluster Permutation, NIfTI Group Average, Nilearn Visuals, Quick Notes, Subject Info, Electrode Placement) */
             panels: string[];
             image_tag?: string | null;
             allow_unsafe_overrides: boolean;
