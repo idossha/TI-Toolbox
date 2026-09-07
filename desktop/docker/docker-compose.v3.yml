@@ -1,5 +1,5 @@
 # v3 compose stack — one service, `tit`, on the streamlined image `idossha/ti-toolbox:<ver>`
-# (D1, `dev/notes/v3-docker-streamline-plan.md`). Compose stays the stack *definition*; the
+# (D1, `docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)`). Compose stays the stack *definition*; the
 # app itself never shells out to the `docker compose` CLI (D4) — it parses this YAML and
 # realises it through the dependency-free Engine API client (`desktop/src/main/docker/`).
 #

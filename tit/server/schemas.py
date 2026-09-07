@@ -247,7 +247,7 @@ class ViewerSceneFile(BaseModel):
 class ViewerOpen(BaseModel):
     """``POST /api/view/open`` -- where the scene file was written, in both path languages.
 
-    V2 (``dev/notes/v3-native-panes-external-viewer-plan.md``).  ``path`` is
+    V2 (``docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)``).  ``path`` is
     inside this container; ``host_path`` is the same file as the *host* sees
     it, and is what the Electron shell hands to the Tetravox desktop app.
     ``host_path`` is ``None`` when this server cannot know its project's host
@@ -378,7 +378,7 @@ class SystemSnapshot(BaseModel):
 
 # ── overview (v1): the project Overview page's single aggregate read ─────────
 #
-# R1 of desktop/IMPLEMENTATION_PLAN.md: the Overview page must answer "what is
+# R1 of docs/dev/v3-implementation-plan.md: the Overview page must answer "what is
 # on disk for every subject, and what can run next" in ONE request whose count
 # does not grow with the number of subjects, simulations or outputs. The
 # per-subject fan-out it replaces silently omitted counts past the renderer's

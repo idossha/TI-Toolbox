@@ -11,7 +11,7 @@ Validated voxel-for-voxel against live ``mri_segstats`` (FreeSurfer 7.4.1,
 output (``aparc.DKTatlas+aseg.mgz``, ``aparc.a2009s+aseg.mgz``,
 ``ThalamicNuclei.v13.T1.mgz``) and charm's own ``labeling.nii.gz``: identical
 label-id sets and voxel counts in every case (see
-``dev/spikes/native/fs-binaries/REPORT.md`` for the exact commands and
+``docs/dev/SPIKES.md`` for the exact commands and
 numbers).
 
 Public API

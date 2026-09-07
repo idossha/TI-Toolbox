@@ -1,6 +1,6 @@
 """Notebook file IO and ``/api/notebooks/*``.
 
-The claim under test is SUNA's (docs/ARCHITECTURE.md §16.3 there): the
+The claim under test is SUNA's (docs/dev/ARCHITECTURE.md §16.3 there): the
 ``.ipynb`` on disk *is* the document. A notebook read and written back
 unchanged must come out the same, or every notebook in a project becomes a
 merge conflict the moment two tools disagree about it.

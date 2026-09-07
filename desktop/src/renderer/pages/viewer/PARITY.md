@@ -5,16 +5,16 @@ subject's directories, built a `freeview` argv and `subprocess.Popen`'d it.
 
 **v3 does not launch anything.** X11 is out of the runtime, `POST /api/viewers/{freeview,gmsh}` is
 out of the server, and the launch buttons, the argv preview, the `viewer` job and the X-server
-capability callout are out of this page (D3, `dev/notes/v3-docker-streamline-plan.md`; W3a's server
+capability callout are out of this page (D3, `docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)`; W3a's server
 notes for the routes that went with them). What replaced it: `GET /api/view/{kind}` returns a
 Tetravox **ViewSpec v2** document, which `POST /api/view/open` writes to disk for the host-installed
-Tetravox desktop app to open (V1/V2, `dev/notes/v3-native-panes-external-viewer-plan.md`). The rest
+Tetravox desktop app to open (V1/V2, `docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)`). The rest
 of this checklist still speaks of the retired embed and wants a pass from whoever owns the parity
-question — see `dev/notes/v3-native-panes-external-viewer/VX.md` §8.3.
+question — see `docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)` §8.3.
 So the Qt tab's *outputs* are all still reachable — the difference is that they are rendered in the
 window instead of shelled out to another process.
 
-## U5 (program v3, `dev/notes/v3-ui-program.md`): the inspector is gone
+## U5 (program v3, `docs/dev/HISTORY.md § 2026-09-03 (UI program)`): the inspector is gone
 
 v2 drew a Layers / Cursor / Scene inspector beside the embed — a second, host-drawn copy of
 controls the embed already draws in its own panels. DESIGN.md §10's ownership rule (image chrome is

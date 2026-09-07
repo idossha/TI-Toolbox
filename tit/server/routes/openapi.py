@@ -5,7 +5,7 @@ The app is built with ``openapi_url=None`` (``tit.server.app.create_app``): Fast
 route map of a server that can start jobs on the user's machine is not something to publish. The
 document itself is still worth serving -- a client (the smoke harness, a notebook, a future SDK)
 should be able to ask a *live* server what routes and what ``JobKind``s it actually has instead of
-reading a checked-in file that may be a release behind (`dev/notes/v3-pipelines/2026-09-03-smoke.md`
+reading a checked-in file that may be a release behind (`docs/dev/HISTORY.md § 2026-09-03 (pipelines program)`
 open issue 6). So the same document, at a path under ``/api`` that inherits the app's ``require_auth``
 dependency like every other ``/api`` route.
 

@@ -1,6 +1,6 @@
 /**
  * Framing: how much of the pane the head actually occupies when the scene first appears
- * (lane FIX-A, defect 3 — reported by lane SCC, `dev/notes/v3-scene-ia/scc-notes.md` §6.4:
+ * (lane FIX-A, defect 3 — reported by lane SCC, `docs/dev/HISTORY.md § 2026-09-04 (scene service)` §6.4:
  * "at 1192 x 544 the whole head occupies ~230 px of the 544 px height").
  *
  * Every number here is measured, not judged. For each pane size and camera preset the test builds

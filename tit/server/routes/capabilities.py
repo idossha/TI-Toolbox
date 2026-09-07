@@ -1,6 +1,6 @@
 """``GET /api/capabilities`` — what this runtime can do (UI greys out the rest).
 
-D3 (``dev/notes/v3-docker-streamline-plan.md``): X11/Freeview/Gmsh/FreeSurfer
+D3 (``docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)``): X11/Freeview/Gmsh/FreeSurfer
 are gone from this runtime entirely -- viewing is the Tetravox embed
 (``tetravox_embed``, served at ``/tetravox/`` by :mod:`tit.server.static`) and
 voxel-space cortical parcellation is FastSurfer ``--seg_only`` (``fastsurfer``).

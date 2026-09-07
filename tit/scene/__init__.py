@@ -1,6 +1,6 @@
 """``tit.scene`` — the slim scene service behind the v3 3D panes.
 
-Plan of record: ``dev/notes/v3-scene-ia-plan.md`` §2, decisions S1-S3.
+Plan of record: ``docs/dev/HISTORY.md § 2026-09-04 (scene service)`` §2, decisions S1-S3.
 
 **Non-goals, written here so they stay non-goals** (decision S1): no volume
 slicing, no colormaps, no field overlays, no publication screenshots, no layer

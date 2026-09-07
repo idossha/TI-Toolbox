@@ -92,7 +92,7 @@ test("changes theme, toggles a panel, and sees it appear in the nav after saving
 });
 
 test("installs a viewer bundle from the release index, then rolls back to the baked one", async () => {
-  // dev/notes/v3-embed-convergence-plan.md E1-E4: the whole point is that a Tetravox update does
+  // docs/dev/HISTORY.md § 2026-09-04 (embed convergence) E1-E4: the whole point is that a Tetravox update does
   // not need a TI-Toolbox release. This drives the loop a user actually performs — see what is
   // running, check the index, install, roll back — against the mock's in-memory install root.
   //

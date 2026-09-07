@@ -1,8 +1,8 @@
 # v3 program history
 
 > Historical. This is the record of how v3 was built; the living description is
-> `docs/ARCHITECTURE.md`, the reasoning is `docs/DECISIONS.md`, the measured
-> numbers are `docs/BENCHMARKS.md`, and the UI contract is `desktop/DESIGN.md`.
+> `docs/dev/ARCHITECTURE.md`, the reasoning is `docs/dev/DECISIONS.md`, the measured
+> numbers are `docs/dev/BENCHMARKS.md`, and the UI contract is `docs/dev/DESIGN.md`.
 > Where this file and those disagree, they win.
 
 One chronological record of the v3 (Electron desktop) development programs on
@@ -11,13 +11,13 @@ plan files and per-lane evidence notes that used to live under `dev/notes/`.
 
 **This file is not a contract.** The durable records are:
 
-- `docs/ARCHITECTURE.md` — what the system is.
-- `docs/DECISIONS.md` and the ADR table in `tracks/active/v3-electron-gui.md` —
+- `docs/dev/ARCHITECTURE.md` — what the system is.
+- `docs/dev/DECISIONS.md` and the ADR table in `docs/dev/ADR.md` —
   what was decided and why.
-- `desktop/DESIGN.md` — the UI design contract and its acceptance numbers.
-- `docs/requirements/*` — the dated requirement documents.
-- `docs/ROADMAP.md` — the gate table.
-- `desktop/IMPLEMENTATION_PLAN.md` — the live plan-of-record index.
+- `docs/dev/DESIGN.md` — the UI design contract and its acceptance numbers.
+- `docs/dev/requirements/*` — the dated requirement documents.
+- `docs/dev/ROADMAP.md` — the gate table.
+- `docs/dev/v3-implementation-plan.md` — the live plan-of-record index.
 
 What is kept here is only what those do not carry: for each program, the
 maintainer's ask, what shipped, which decisions survived and where they are now
@@ -25,14 +25,14 @@ recorded, which plans were reversed (several were reversed the same day they
 were written), and the **gotchas** that were paid for once and would otherwise
 be lost.
 
-Measured numbers live in `docs/BENCHMARKS.md`, once, with the conditions they
+Measured numbers live in `docs/dev/BENCHMARKS.md`, once, with the conditions they
 were measured under. This file does not restate them.
 
 Still-live companion files under `dev/notes/`:
 
 - `v3-pipelines/RUNBOOK.md` — live smoke-run runbook, still cited by e2e specs.
 - `v3-ui-program/u0-design-notes.md` — the verbatim TypeScript contract
-  signatures `desktop/DESIGN.md` §5 defers to.
+  signatures `docs/dev/DESIGN.md` §5 defers to.
 - `v3-ui-program/wireframes.md` — per-page ASCII layouts and empty-state copy.
 - `flex-search-multicore-analysis.md` — unrelated 2026-04 backend analysis.
 - `../spikes/README.md` — the merged native-desktop spike verdicts.
@@ -59,7 +59,7 @@ Dataset 000.
 
 **Decisions that survived:** contract-first development (the mock server is
 built from `openapi.v1.json`; the backend implements the same contract) —
-`tracks/active/v3-electron-gui.md`. Lane ownership discipline carried into every
+`docs/dev/ADR.md`. Lane ownership discipline carried into every
 later program.
 
 **Reversed / superseded:** the flat per-page IA this plan produced (19 nav rows,
@@ -116,7 +116,7 @@ rather than vendored source, and same-origin HTTP via
 `/api/files/raw/{path}` rather than a custom Electron scheme — ADR rows 15–17.
 The workflow-first IA (one subject switcher; nav = Project / Prepare / Simulate /
 Optimize / Analyze / Results / Viewer / Jobs) became the plan of record over
-`desktop/DESIGN.md` §2–§5.
+`docs/dev/DESIGN.md` §2–§5.
 
 **Reversed / superseded:** in-process `@tetravox/engine` vendoring under
 `desktop/vendor/**` was built and measured, then rejected by the maintainer
@@ -187,7 +187,7 @@ unused by our code) inside the SimNIBS wheel, and Intel MKL's EULA on Linux and
 Windows.
 
 **Lessons and gotchas:** the six spike lanes' verdicts and numbers are in
-`dev/spikes/README.md` — a native runtime reproducing the container's TI result
+`docs/dev/SPIKES.md` — a native runtime reproducing the container's TI result
 to 13–14 significant figures, FastSurfer's Dice 0.922/0.914 against `recon-all`,
 exact `mri_convert`/`mri_segstats` replacements, and the packaging and
 job-control findings. Gate for the program: host pytest 3122 passed / 17
@@ -336,7 +336,7 @@ no token in hand, and prove accept/start/complete on Dataset 000.
 
 **Decisions that survived:** the dev-mode contract (`npm run dev` is the whole
 system, no token in hand, live-mounted repo with `--reload`), cited live from
-`desktop/.env.dev.example`, `desktop/DESIGN.md` §138, `dev.ts` and `devProxy.ts`;
+`desktop/.env.dev.example`, `docs/dev/DESIGN.md` §138, `dev.ts` and `devProxy.ts`;
 the harness contract (the accepted/started/completed vocabulary, namespaced and
 cleaned outputs, one heavy job at a time, a results table of numbers rather than
 impressions), cited from `tests/smoke/__init__.py`, `tests/smoke/matrix.py`,
@@ -410,12 +410,12 @@ than a screenshot — "judge numbers, not pictures".
 **Decisions that survived:** the responsive rail rule (icons under 1440 px,
 labels at or above, no special case for the Viewer); the dead-space target,
 renegotiated from ≤25% to ≤45% for run pages specifically (unreachable for any
-label-left form) — `desktop/DESIGN.md` §12.3 is now the acceptance table of
+label-left form) — `docs/dev/DESIGN.md` §12.3 is now the acceptance table of
 record; the RunPanel's lower half being tabbed Plan / Terminal-Scene rather than
-Terminal alone (`desktop/DESIGN.md` §4.5, §4.6, `RunPaneTabs.tsx`); and the
+Terminal alone (`docs/dev/DESIGN.md` §4.5, §4.6, `RunPaneTabs.tsx`); and the
 contract signatures for `PlanModel`, `RunPanel`, `PlanGrid`, `JobTerminal`,
 `useStatusCells`, `PageLayout` v3, the outputs tree and the metrics helpers —
-`desktop/DESIGN.md` §5 defers to `v3-ui-program/u0-design-notes.md` §3 as the
+`docs/dev/DESIGN.md` §5 defers to `v3-ui-program/u0-design-notes.md` §3 as the
 verbatim source rather than restating them, which is why that one file is kept.
 
 **Reversed / superseded:** presence chips and "+ Add subjects" were removed from
@@ -473,7 +473,7 @@ replacing four divergent subject pickers; and a shared run-page layout skeleton
 pane showing Plan over a tabbed Terminal/Scene).
 
 **Decisions that survived:** the scene service is a **form control, not a
-viewer** — cited from `desktop/DESIGN.md`, `tit/scene/build.py`,
+viewer** — cited from `docs/dev/DESIGN.md`, `tit/scene/build.py`,
 `tit/server/routes/scene.py` and `tests/test_scene_{tvsc,routes,realdata}.py`.
 The `SubjectsField` grammar (one summary line, a disclosure, a table with a
 per-row eligibility reason) still governs Pre-processing, Simulator, Optimizer
@@ -607,9 +607,9 @@ give the Viewer's top bar more selectors and stop auto-loading on subject pick.
   `GET /api/view/{kind}` and `tit.viewspec.build_view` (absent means unchanged
   behaviour, and an unknown id falls back rather than 404-ing).
 
-**Decisions that survived** (each recorded in `docs/DECISIONS.md`, with
-`docs/ARCHITECTURE.md` §3/§5/§6 and `desktop/DESIGN.md` §§4.6, 9, 10, 13 and
-`docs/ROADMAP.md` rows R1–R5 alongside): Overview is the landing page and
+**Decisions that survived** (each recorded in `docs/dev/DECISIONS.md`, with
+`docs/dev/ARCHITECTURE.md` §3/§5/§6 and `docs/dev/DESIGN.md` §§4.6, 9, 10, 13 and
+`docs/dev/ROADMAP.md` rows R1–R5 alongside): Overview is the landing page and
 Subject Info is deleted; terminal Clear is presentational, not destructive;
 batch execution is a scheduler cap rather than renderer request timing, and the
 cap counts **jobs, not distinct subjects** (a Simulator subject with three
@@ -700,11 +700,11 @@ pipeline builder that runs as one job group and exports to Jupyter notebooks.
   pipeline JSON in `metadata.ti_toolbox.pipeline`; importing from a notebook is
   a non-goal.
 
-**Decisions that survived:** `docs/ARCHITECTURE.md` §7 (7.1 update channel, 7.2
+**Decisions that survived:** `docs/dev/ARCHITECTURE.md` §7 (7.1 update channel, 7.2
 points-layer/electrode contract, 7.3 pipelines, 7.4 selection grammar, receipt
-and derived ⌘-number), eight `docs/DECISIONS.md` entries, six `docs/ROADMAP.md`
+and derived ⌘-number), eight `docs/dev/DECISIONS.md` entries, six `docs/dev/ROADMAP.md`
 rows plus its new ten-item "Known follow-ups" table, ADR row 26, and
-`desktop/DESIGN.md` §§4.8, 4.9, 9.1, 9.2.
+`docs/dev/DESIGN.md` §§4.8, 4.9, 9.1, 9.2.
 
 **Reversed / superseded:**
 - The earlier draft plan (decisions T1/U1/U2/E1/E2/S1/S2, lanes T/U/E/S) was
@@ -792,13 +792,13 @@ that opens the scene in the standalone Tetravox desktop app.
 
 **Decisions that survived** — all recorded, so this is only a pointer: the
 external-viewer contract and host-installed (never bundled) Tetravox
-(`docs/DECISIONS.md` 2026-09-06, `docs/ARCHITECTURE.md` §7.1); the native
+(`docs/dev/DECISIONS.md` 2026-09-06, `docs/dev/ARCHITECTURE.md` §7.1); the native
 run-page renderer, TVSC1 labels and one region-selection model
-(`docs/ARCHITECTURE.md` §7.2, `desktop/DESIGN.md` §9/§10); the jobs table as the
-run-page grammar (`docs/ARCHITECTURE.md` §7.5, `desktop/DESIGN.md` §4.10); rail
+(`docs/dev/ARCHITECTURE.md` §7.2, `docs/dev/DESIGN.md` §9/§10); the jobs table as the
+run-page grammar (`docs/dev/ARCHITECTURE.md` §7.5, `docs/dev/DESIGN.md` §4.10); rail
 digits counting from ⌘0, superseding the 2026-09-05 Settings-digit entry; grey
 matter always opaque, the camera owned by the user, and free-hand placement in
-the Simulator (`docs/DECISIONS.md`, commit `d068782e`); ADR rows 27/28, which
+the Simulator (`docs/dev/DECISIONS.md`, commit `d068782e`); ADR rows 27/28, which
 supersede rows 15 and 23 and the Tetravox/electrode halves of row 26.
 
 **Reversed / superseded:**
@@ -852,3 +852,60 @@ supersede rows 15 and 23 and the Tetravox/electrode halves of row 26.
   StrictMode double-invoke in dev only. Assert visibility, not success.
 - Open, unfixed: an idle electrode's worst measured contrast against the
   now-opaque scalp is 2/255. Left as a design call for the maintainer.
+- **`.tetravox.json` is a compound extension and load-bearing.** Tetravox's
+  `isScenePath` is `/\.tetravox\.json$/i`; any other suffix (the plan's working
+  name `.tvx.json`) is classified as *data* and silently read as a volume, with
+  no error on either side.
+- **A Tetravox left running with no window swallows the scene and `open` still
+  exits 0.** Measured: against a windowless instance, `open -a Tetravox <scene>`
+  and `open -n -a …` both exit 0 with 0 windows; upstream's `open-file` handler
+  parks the path in `startupScene` and nothing drains it. The fix is a second,
+  document-less `open -a` as an activation kick. Tetravox also has **no
+  `--version` flag** — assert an install by bundle structure and `codesign`,
+  never by launching it.
+- **`dev/build_contract.py` was non-deterministic**: it iterated a `set[str]`,
+  whose order follows the per-process `PYTHONHASHSEED`, so two runs on identical
+  inputs differed by 220 then 265 lines. Two lanes concluded the JSON was
+  "stale" and hand-spliced schema edits because of it. Fixed with `sorted(...)`;
+  the generator is safe to run again.
+- **`--reload` persists settings to a 0600 JSON file that every reloaded worker
+  re-reads**, so removing a `ServerSettings` field mid-session made `cls(**data)`
+  raise on every reload and took the shared dev container's HTTP server down for
+  a whole lane's window. `from_json` now drops undeclared keys. Corollary: **a
+  200 from `/api/health` is not evidence the new code loaded** — it can come
+  from the pre-reload process.
+- **A browser silently drops a declaration whose `var()` is undefined** — no
+  console warning, no build error, no failing test. `pipeline.css` had 36
+  references to a token vocabulary this app never had; the page was not
+  "broken", it was unstyled. Eight more undefined refs remain in
+  `jobs-rail.css`, `scene-pane.css`, `optimizer.css`, `viewer-page.css`.
+- `window.prompt` is not implemented in Electron (it silently resolves
+  `undefined`), and `<a download>` on a `blob:` URL is inert without a
+  `will-download` handler. Both look like success and write nothing.
+- **`emit_artifact` verifies nothing.** A `sim` job reported `succeeded` with an
+  artifact path that was not on disk, and its dependent analyzer failed five
+  seconds later with `FileNotFoundError` naming its producer's own declared
+  output. One `Path(path).exists()` at emit time would turn a confusing
+  downstream failure into an honest upstream one.
+- `antialias: true` forbids an exact depth-equality sheet test (the colour pass
+  is multisampled while the depth pre-pass is not, so an edge fragment's
+  `gl_FragCoord.z` disagrees and fragments are dropped at every facet edge). Use
+  an inequality with `SHEET_EPS = 1e-5`. For a selection outline use `fwidth`
+  and read the varying as a signed field whose 0.5 contour is the boundary:
+  treating `0 < v < 1` as "the rim" paints every triangle straddling it, a band
+  of shards several triangles thick on a decimated cortex.
+- A `Select` popover (z-index 60) is **unclickable inside a `Dialog`** (80/90) —
+  a known `ui/components.css` gap, and the reason the montage and free-hand
+  editors are inline cards rather than dialogs.
+- `GET /api/view/presets` would have been shadowed by `GET /api/view/{kind}`,
+  returning 404 — indistinguishable from "no presets". The real path is
+  `/api/viewer/presets`. Related: `/tetravox/` answering 200 is **correct**, not
+  a leak — once it left `RESERVED_PREFIXES` the path falls through to the SPA
+  catch-all — and `host_path: null` is an honest answer from a server running on
+  the host, not a defect.
+- Still-open traps: `/api/scene/*` is live and called by nothing; the guide
+  packages ~11.3 MB of GIfTI copies nothing reads (`SURFACE_FORMATS` /
+  `LABEL_FORMATS` could drop to `("tvsc",)`); job re-adoption does not survive a
+  `--reload` (the pid is held in memory, though `status.json` already persists
+  it); and `FlexConfig.output_folder` is the run name while ex/mEx use
+  `run_name` — two names for one user-facing idea.

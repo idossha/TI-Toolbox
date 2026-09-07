@@ -15,7 +15,7 @@ import {
 } from "../../src/shared/composeFile";
 
 /**
- * The compose subset the app implements (`dev/notes/v3-docker-streamline-plan.md` §1), against the
+ * The compose subset the app implements (`docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)` §1), against the
  * fixture that mirrors the shipped file's keys (`tests/e2e/fixtures/compose-v3.fixture.yml`) and,
  * at the bottom, against the shipped file itself.
  */

@@ -1,6 +1,6 @@
 /**
  * `/ws/tetravox` — one toast when the server replaces the viewer bundle under the app (A3,
- * `dev/notes/v3-tetravox-selection-pipeline-plan.md`).
+ * `docs/dev/HISTORY.md § 2026-09-05/06 (Tetravox auto-update, selection, pipeline canvas)`).
  *
  * Why a hook and not a stream class: this socket carries one message type, has no state to
  * accumulate, no backfill and nothing to subscribe to. `jobsStream.ts`'s machinery (a store, a

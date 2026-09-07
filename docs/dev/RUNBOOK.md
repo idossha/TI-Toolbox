@@ -2,12 +2,12 @@
 
 > Live. This is the runbook for the two-level smoke harness, cited by
 > `desktop/tests/e2e/batch.spec.ts` and `real/pipeline.spec.ts`. The program
-> narrative is `dev/notes/v3-program-history.md` § 2026-09-03 — Pipelines
-> program; the numbers are in `docs/BENCHMARKS.md`.
+> narrative is `docs/dev/HISTORY.md` § 2026-09-03 — Pipelines
+> program; the numbers are in `docs/dev/BENCHMARKS.md`.
 
 One page, commands only. Every command below was run for real this session (2026-09-04, lane
 HX) against `ti-toolbox-fad740e5-tit-1` / `http://127.0.0.1:8765` unless a line says otherwise
-and names whose run it cites instead. Full detail: `dev/notes/v3-program-history.md` (2026-09-03) and `docs/BENCHMARKS.md`.
+and names whose run it cites instead. Full detail: `docs/dev/HISTORY.md` (2026-09-03) and `docs/dev/BENCHMARKS.md`.
 
 ## Dev mode
 
@@ -20,7 +20,7 @@ npm run dev:down                               # stop + remove *this project's* 
 - `npm run dev` — proves the packaged app's own attach-or-start path reaches a real,
   populated `subjects` page offscreen. Not re-run here (D0 owns `scripts/dev.ts`); cited from
   D0's own verified run: `TIT_E2E_OFFSCREEN=1`, quiet-check **PASS**, `DATA-PAGE subjects`,
-  `SUBJECT-ROWS 4`, `LAUNCHER-SHOWN false` (dev-mode contract; `dev/notes/v3-program-history.md`, 2026-09-03).
+  `SUBJECT-ROWS 4`, `LAUNCHER-SHOWN false` (dev-mode contract; `docs/dev/HISTORY.md`, 2026-09-03).
 - `npm run dev:web` — proves the Vite proxy serves the API with **no cookie, no header** from
   the client. Verified fresh here on a scratch project (`TIT_DEV_PROJECT_DIR=<scratch>
   TIT_DEV_PORT=8792`, never the shared project — a mismatched recreate mints a new token and
@@ -46,7 +46,7 @@ dev/smoke.sh --full <row>...              # run long kinds to completion instead
   under each, exit 0 for `--list` / exit 2 for an unresolved ambiguous run (both cases run
   live this session, fixture container removed after).
 - bare matrix run — `21 passed, 0 failed` in 280.7s, zero paths left on disk (run of record:
-  `docs/BENCHMARKS.md`).
+  `docs/dev/BENCHMARKS.md`).
 - one row/kind, **replayed twice in a row** (the HX fix: a recorded payload's name-bearing
   field is rewritten to a fresh `smoke-<runid>` tag on every load, not just the session that
   recorded it) — proves a payload never skips its own second replay. Verified:
@@ -87,7 +87,7 @@ its `pree2e` hook force-rebuilds `out/` and races any other lane's build.
 **The three `scene-*` specs need a different build than every other spec here** (defect 3,
 fix-round 2026-09-04, lane FIX-C — the critic ran the plain-build command above literally and
 got 3 failed / 10 skipped, one per scene spec file:
-`dev/notes/v3-program-history.md`, 2026-09-04). `tests/e2e/real/scene-simulator.spec.ts`,
+`docs/dev/HISTORY.md`, 2026-09-04). `tests/e2e/real/scene-simulator.spec.ts`,
 `scene-optimizer.spec.ts` and `scene-analyzer.spec.ts` read `window.__scene` /
 `window.__scenePane` (`SCENE_DEBUG` in `src/renderer/scene/SceneCanvas.tsx`), which a *plain*
 `npm run build` correctly strips — `import.meta.env.DEV` is false for every `electron-vite build`
@@ -108,7 +108,7 @@ npm run build   # plain again before any other spec, or before leaving out/ for 
 `VITE_INCLUDE_GALLERY=1` — the design gallery's flag, which gated the hooks too because nobody had
 split them, and which cost three lanes time: a scene spec built with it dragged a whole `dev/`
 route it never opens into the bundle, and a build *without* it failed with "Design gallery heading
-not found" rather than anything about a missing hook (`dev/notes/v3-program-history.md`, 2026-09-04, open
+not found" rather than anything about a missing hook (`docs/dev/HISTORY.md`, 2026-09-04, open
 issue 2, `fix-a-notes.md` §5.5). The two are now independent:
 
 | Spec | Build flags |
@@ -149,4 +149,4 @@ ls -t tests/smoke/artifacts/results-*.md | head -1    # newest matrix run's tabl
 ls -t tests/smoke/artifacts/manifest-*.json | head -1  # its created-path manifest
 ```
 The run of record for the whole matrix is the smoke-matrix table in
-`docs/BENCHMARKS.md`.
+`docs/dev/BENCHMARKS.md`.

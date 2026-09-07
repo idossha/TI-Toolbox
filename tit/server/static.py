@@ -31,7 +31,7 @@ mimetypes.add_type("application/wasm", ".wasm")
 
 RESERVED_PREFIXES = ("api", "ws", "auth", "tetravox")
 
-# The embed's own CSP (D1/D3, dev/notes/v3-docker-streamline-plan.md): distinct from the app's
+# The embed's own CSP (D1/D3, docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)): distinct from the app's
 # main CSP_HEADER in tit/server/app.py (which drops 'wasm-unsafe-eval' now that the embed carries
 # its own) -- 'wasm-unsafe-eval' for the engine's Rust->WASM module, 'blob:' for its dataset
 # workers, no 'frame-src'/'object-src' entries the embed itself has no use for.

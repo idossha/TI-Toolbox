@@ -113,7 +113,7 @@ def _default_mni_atlas_path(requested: str | None = None) -> str | None:
     """The bundled MNI atlas file to overlay.
 
     *requested* is the optional ``atlas`` query parameter (R5,
-    ``desktop/IMPLEMENTATION_PLAN.md``): the **basename** of one of the
+    ``docs/dev/v3-implementation-plan.md``): the **basename** of one of the
     bundled files, as ``GET /api/catalog/atlases?space=mni`` reports it. An
     id that matches nothing bundled falls through to the default rather
     than failing the whole view -- a stale bookmark or a project moved
@@ -297,7 +297,7 @@ def _grey_mesh_layer(sim_dir: str, sim: str) -> dict[str, Any] | None:
     ``ViewLayer`` contract's ``Literal["volume", "label"]`` (a mesh has no
     kind of its own there; ``build_view``'s ``custom`` branch uses the same
     convention). Hidden (``visible=False``) because these files run
-    24-420 MB (``dev/notes/v3-native-research/r3-server-viewer-side.md``) --
+    24-420 MB (``docs/dev/HISTORY.md § 2026-09-03 (native desktop research)``) --
     the dataset is declared lazy in the scene and fetched only if the user
     makes the layer visible.
     """
@@ -751,7 +751,7 @@ def build_view(
     that into a 404); an unrecognised *kind* also returns ``None``.
 
     *extras* and *overrides* are **additive and optional** (VM,
-    ``dev/notes/v3-native-panes-external-viewer/VM.md``).  With neither
+    ``docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)``).  With neither
     given -- which is every caller that existed before them -- this function
     returns exactly the document it returned before: *extras* adds no layer
     and :func:`apply_scene_overrides` is not called at all.  *extras* names
@@ -1174,7 +1174,7 @@ def resolve_percentiles(spec: dict[str, Any]) -> dict[str, Any]:
     return spec
 
 
-# ── Tetravox ViewSpec v2 (dev/notes/v3-docker-streamline-plan.md §1) ─────────
+# ── Tetravox ViewSpec v2 (docs/dev/HISTORY.md § 2026-09-03 (Docker streamline) §1) ─────────
 #
 # The scene the in-app viewer loads: a real Tetravox `ViewSpec` (v2, the
 # frozen `@tetravox/engine` `scene/types.ts`/`scene/serialize.ts` shape), not

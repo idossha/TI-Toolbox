@@ -1,6 +1,6 @@
 /**
  * **Settings → Viewer engine** — the in-app half of dynamic embed delivery (E1–E4,
- * `dev/notes/v3-embed-convergence-plan.md`).
+ * `docs/dev/HISTORY.md § 2026-09-04 (embed convergence)`).
  *
  * The maintainer's ask: *"a system where we do not need to release a new version every time
  * Tetravox updates"*. This card is where that happens — what is running, where it came from,
@@ -24,7 +24,7 @@
  * 5. **Off stops the installing, not the knowing.** With the switch off the server still checks
  *    and this card still shows what it found, with an explicit Install per compatible release.
  *
- * A3 (`dev/notes/v3-tetravox-selection-pipeline-plan.md`) added the automatic half. Rule 2 above
+ * A3 (`docs/dev/HISTORY.md § 2026-09-05/06 (Tetravox auto-update, selection, pipeline canvas)`) added the automatic half. Rule 2 above
  * is unchanged in substance and sharper in practice: **rendering this card still makes no network
  * request**, because the server's own 24 h check writes a cache and the card reads it — it shows
  * *when* the server last looked and *what it decided*. "Check now" is the only thing that spends

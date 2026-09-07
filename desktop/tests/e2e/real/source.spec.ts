@@ -36,7 +36,7 @@ const TOKEN = process.env.TIT_E2E_TOKEN as string;
 const RUN_ID = process.env.TIT_E2E_RUN_ID ?? "real";
 const FORWARD_DIR = join(PROJECT_HOST_ROOT, "derivatives/SimNIBS/sub-101/forward");
 
-// Defect 2 (dev/notes/v3-scene-ia/critic-notes.md §2b, fix-round 2026-09-04, lane FIX-C): this
+// Defect 2 (docs/dev/HISTORY.md § 2026-09-04 (scene service) §2b, fix-round 2026-09-04, lane FIX-C): this
 // job's own measured completions on this container — SUB 2026-09-04 exceeded 600 000ms outright
 // (`sub-notes.md` §6 item 5), LAY's own run 9.5m (570 000ms, critic-notes.md §7), critic's own run
 // 9.7m (582 000ms, critic-notes.md §2b) — cluster at 570-600s+ with no headroom, so the *documented*

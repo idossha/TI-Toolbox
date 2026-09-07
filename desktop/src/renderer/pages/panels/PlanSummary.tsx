@@ -3,7 +3,7 @@
  * (design QA #7: "Plan vocabulary differs on every run screen ... one PlanSummary primitive").
  * Same shape/vocabulary as `pages/analyzer/PlanSummary.tsx` (Jobs · CPUs · Memory · Outputs ·
  * Waits) — kept as a local component here rather than moved into `ui/` because `ui/**` is owned
- * by the design-system agent (see `dev/notes/v3-build-plan.md` §2's ownership map); this converges
+ * by the design-system agent (see `docs/dev/HISTORY.md § 2026-08-27 (v3 build program)` §2's ownership map); this converges
  * the four panels this lane owns onto one wording instead of inventing a fifth.
  */
 import { DefinitionList, Skeleton, Callout } from "../../ui/Feedback";

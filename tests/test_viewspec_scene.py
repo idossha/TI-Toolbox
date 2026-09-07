@@ -1,4 +1,4 @@
-"""Tests for ``tit.viewspec.to_tetravox_viewspec`` (dev/notes/v3-docker-streamline-plan.md §1).
+"""Tests for ``tit.viewspec.to_tetravox_viewspec`` (docs/dev/HISTORY.md § 2026-09-03 (Docker streamline) §1).
 
 The scene is the in-app viewer's whole input: which files it fetches, over
 which URLs, with which colormap/scale/window and visibility -- expressed as

@@ -1,5 +1,5 @@
 /**
- * `npm run dev` — the whole system, from one command (P1, `dev/notes/v3-pipelines-program.md` §2).
+ * `npm run dev` — the whole system, from one command (P1, `docs/dev/HISTORY.md § 2026-09-03 (pipelines program)` §2).
  *
  *   npm run dev        container (attach / recreate / start) → Vite → Electron, already connected
  *   npm run dev:web    the same without Electron; open http://127.0.0.1:5173/

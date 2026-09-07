@@ -3,7 +3,7 @@
  * `api/client.ts` (owned across many pages) — see PARITY.md and the final report. Mirrors the
  * pattern in `pages/simulator/api.ts` and `pages/viewer/api.ts`.
  *
- * v3 (D3, `dev/notes/v3-docker-streamline-plan.md`): `launchFreeview`/`launchGmsh` and the
+ * v3 (D3, `docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)`): `launchFreeview`/`launchGmsh` and the
  * `kind=custom` ViewSpec fetch that fed them are gone — `POST /api/viewers/{freeview,gmsh}` no
  * longer exists (no X11 in this runtime) and "Open in viewer" is an in-app navigation to
  * `/viewer`, not a server call. Nothing in this module launches anything any more.

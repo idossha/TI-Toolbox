@@ -696,7 +696,7 @@ and just ran with the dataclass default).
 ## 2026-09-02 — F2 (server, v3 in-app viewer) — `/api/files/raw/{path}`, `ViewSpec.scene`, `TitScene`
 
 No dataclass changes, so `contracts/schema.json` is untouched by this entry.
-Everything here comes from `dev/notes/v3-ux-redesign-plan.md` §4.1/§4.2 (the
+Everything here comes from `docs/dev/HISTORY.md § 2026-09-02 (UX redesign)` §4.1/§4.2 (the
 in-app viewer replaces the Freeview/Gmsh round trip for *viewing*; both
 launchers stay).
 
@@ -780,7 +780,7 @@ Regenerated: `python3 dev/build_contract.py` → `contracts/openapi.v1.json`;
 
 ## 2026-09-03 — W3a (server, Docker streamline) — real Tetravox ViewSpec v2 replaces `TitScene`; `/tetravox/` embed route; `Capabilities` drops X11/Freeview/Gmsh/FreeSurfer, adds `tetravox_embed`/`fastsurfer`
 
-`dev/notes/v3-docker-streamline-plan.md` D1/D3: Freeview/Gmsh/X11/FreeSurfer removed from the
+`docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)` D1/D3: Freeview/Gmsh/X11/FreeSurfer removed from the
 runtime entirely; viewing is the Tetravox embed served client-side from this same server.
 
 1. **`ViewSpec.scene` is now a real Tetravox `ViewSpec` v2 document** (the frozen
@@ -927,7 +927,7 @@ for. `npx vitest run` -- 465 passed, 4 failed, all four in the same two unowned 
 files. `npm run build` -- clean.
 
 
-## 2026-09-04 — lane U (dynamic embed delivery, `dev/notes/v3-embed-convergence-plan.md` E1-E4)
+## 2026-09-04 — lane U (dynamic embed delivery, `docs/dev/HISTORY.md § 2026-09-04 (embed convergence)` E1-E4)
 
 Additive only: every change below is a new path or a new optional-in-practice property, and a
 client that ignores all of it behaves exactly as before.
@@ -965,7 +965,7 @@ Additive only: one new path and seven new schemas. Every existing path, schema a
 unchanged, so a client that ignores all of it behaves exactly as before.
 
 1. **New path `GET /api/catalog/overview`** (tag `catalog`), answering `Overview`. It is the
-   project Overview page's *single* read (`desktop/IMPLEMENTATION_PLAN.md` R1): the page it serves
+   project Overview page's *single* read (`docs/dev/v3-implementation-plan.md` R1): the page it serves
    replaced Subjects, and with it a request fan-out of one `/api/catalog/subjects/{id}` per subject
    plus five output lists per subject plus one `/api/catalog/analyses` per simulation. That
    fan-out was capped in the renderer at 25 subjects, so a larger project silently rendered **no**
@@ -997,7 +997,7 @@ client that keeps sending exactly what it sent before (`kind: "pre"`, `config`, 
 
 1. **`JobGroupRequest.kind`** widens from `enum: [pre]` to
    `[pre, sim, flex, flex_adaptive, flex_pareto, ex, mex]` — every kind that runs one independent
-   job per subject (`desktop/IMPLEMENTATION_PLAN.md` R3). `pre` still expands into
+   job per subject (`docs/dev/v3-implementation-plan.md` R3). `pre` still expands into
    `tit.jobs.plans.plan_preprocessing`'s per-subject G1–G6/report DAG; the new kinds expand into
    one job per `(subject, config)` entry via the new `tit.jobs.plans.plan_per_subject`. Cohort
    kinds are deliberately *not* in the enum: a grouped `analyzer` run is one job over the whole
@@ -1085,7 +1085,7 @@ it got before.
 ## 2026-09-05 — lane AU — automatic Tetravox embed updates (additive)
 
 No dataclass changes, so `contracts/schema.json` is untouched. Plan of record:
-`dev/notes/v3-tetravox-selection-pipeline-plan.md` §1-A (A2–A5).
+`docs/dev/HISTORY.md § 2026-09-05/06 (Tetravox auto-update, selection, pipeline canvas)` §1-A (A2–A5).
 
 1. **New path `POST /api/tetravox/policy`** — `{auto_update: boolean}` → the same
    `TetravoxState` every other tetravox write answers with. This is the only switch for
@@ -1163,7 +1163,7 @@ was edited, so every v1 client keeps working unchanged.
 
 ## 2026-09-06 — feat:external-viewer — `POST /api/view/open` lands; the whole `tetravox` section goes
 
-Plan of record: `dev/notes/v3-native-panes-external-viewer-plan.md`, decisions V1-V4.
+Plan of record: `docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)`, decisions V1-V4.
 No dataclass changes, so `contracts/schema.json` is untouched; `openapi.v1.yaml` was
 edited and `openapi.v1.json` / `desktop/src/renderer/api/schema.d.ts` regenerated with
 `python3 dev/build_contract.py` and `pnpm run gen:api`.
@@ -1234,7 +1234,7 @@ mirror of `tit/pipeline/*`), asserted in `tests/test_pipeline_validate.py` and
 ## 2026-09-06 — feat:viewer-composition — `POST /api/view/open` gains `extras`, `overrides`, `dry_run`; `ViewerOpen` gains `files`, `dry_run`
 
 The Viewer page became a composition panel (VM,
-`dev/notes/v3-native-panes-external-viewer/VM.md`), so the request that writes
+`docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)`), so the request that writes
 the scene had to be able to carry what the panel composes. All three request
 fields are **optional and additive**, and `tests/test_viewspec_overrides.py`
 pins the guarantee that matters: with none of them given, the document this

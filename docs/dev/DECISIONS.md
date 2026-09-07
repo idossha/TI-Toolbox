@@ -576,7 +576,7 @@ accessibility path at those widths rather than a convenience.
 app's own WebGL2 renderer on the run pages (§7.2, unchanged and untouched by this reversal). That
 is a deliberate split — the panes draw packaged reference anatomy and need picking and marker
 behaviour this project controls, while the Viewer draws the user's data and wants the whole engine.
-Converging them (`dev/notes/v3-embed-convergence-plan.md`) is a future question again, not a settled
+Converging them (`docs/dev/HISTORY.md § 2026-09-04 (embed convergence)`) is a future question again, not a settled
 one.
 
 ## 2026-09-06 (later the same day) — The bridge budget is 13, and `viewer` is not one of them

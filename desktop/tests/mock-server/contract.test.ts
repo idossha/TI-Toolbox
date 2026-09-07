@@ -300,13 +300,13 @@ describe("contract coverage: every openapi.v1.yaml path+method", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await call("/api/jobs/{id}", "DELETE", `/api/jobs/${(projectInit as any).id}`);
 
-    // viewers (v1) -- D3 (dev/notes/v3-docker-streamline-plan.md): no more Freeview/Gmsh launch
+    // viewers (v1) -- D3 (docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)): no more Freeview/Gmsh launch
     // routes to exercise here (removed from the contract along with the routes); GET
     // /api/view/{kind} now returns a real Tetravox ViewSpec v2 `scene`, and POST /api/view/args
     // (deliberately not declared in the contract -- see its yaml comment) is covered directly by
     // its own vitest in server.test.ts / tit's own tests/test_catalog_v1.py.
     await call("/api/view/{kind}", "GET", "/api/view/subject?subject=ernie");
-    // V2 (dev/notes/v3-native-panes-external-viewer-plan.md): the scene file the host-installed
+    // V2 (docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)): the scene file the host-installed
     // Tetravox app opens.
     await call("/api/view/open", "POST", "/api/view/open", { body: { kind: "subject", subject: "ernie" } });
     // VM: saved compositions. The path is /api/viewer/presets, not /api/view/presets, because the
@@ -333,7 +333,7 @@ describe("contract coverage: every openapi.v1.yaml path+method", () => {
       "/api/files/raw/mnt/example/derivatives/SimNIBS/sub-ernie/m2m_ernie/T1.nii.gz",
     );
 
-    // tetravox (v1) -- dynamic embed delivery (dev/notes/v3-embed-convergence-plan.md E1-E4).
+    // tetravox (v1) -- dynamic embed delivery (docs/dev/HISTORY.md § 2026-09-04 (embed convergence) E1-E4).
     // Ordered so the state machine is exercised in full: read, index, install by version,
     // roll back to the baked bundle, forward again, remove.
     await call("/api/tetravox", "GET", "/api/tetravox");
@@ -344,7 +344,7 @@ describe("contract coverage: every openapi.v1.yaml path+method", () => {
     await call("/api/tetravox/activate", "POST", "/api/tetravox/activate", { body: { version: "0.4.0" } });
     await call("/api/tetravox/{version}", "DELETE", "/api/tetravox/0.4.0");
 
-    // pipelines (v1) -- the canvas (dev/notes/v3-tetravox-selection-pipeline-plan.md D1-D6).
+    // pipelines (v1) -- the canvas (docs/dev/HISTORY.md § 2026-09-05/06 (Tetravox auto-update, selection, pipeline canvas) D1-D6).
     // A pipeline is a DAG of existing job kinds; `run` submits the whole thing as ONE job group,
     // so the interesting contract facts here are the palette, the validation shape, and that the
     // run response carries a single group_id.

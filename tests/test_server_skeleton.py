@@ -429,7 +429,7 @@ def test_version_schema_hash_changes_when_schema_json_changes(
 
 def test_capabilities_shape(client: TestClient) -> None:
     body = client.get("/api/capabilities", headers=BEARER).json()
-    # D3 (dev/notes/v3-docker-streamline-plan.md): x11_display/freeview/gmsh/freesurfer are gone
+    # D3 (docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)): x11_display/freeview/gmsh/freesurfer are gone
     # from this runtime; `tetravox_embed` and `fastsurfer` are what replaced them. VE reversed V4's
     # brief removal of `tetravox_embed`: the viewer is served by this server, at /tetravox/, from a
     # bundle in this image -- which makes it exactly the kind of thing a capability describes.
@@ -628,7 +628,7 @@ def test_csp_no_longer_grants_wasm_eval_in_the_app_origin() -> None:
     """V4: nothing in this origin instantiates WASM any more.
 
     D3 moved the in-app viewer into the embed's own iframe and CSP; V4
-    (``dev/notes/v3-native-panes-external-viewer-plan.md``) removed the embed
+    (``docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)``) removed the embed
     outright. Neither ``eval`` nor WASM instantiation is granted anywhere this
     server serves.
     """

@@ -20,7 +20,7 @@ ENV_SETTINGS_FILE = "TIT_SERVER_SETTINGS_FILE"
 ENV_TETRAVOX_EMBED_DIR = "TIT_TETRAVOX_EMBED_DIR"
 ENV_TETRAVOX_INSTALL_ROOT = "TIT_TETRAVOX_INSTALL_ROOT"
 
-# The image bakes the embed bundle here (D1, dev/notes/v3-docker-streamline-plan.md); a dev
+# The image bakes the embed bundle here (D1, docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)); a dev
 # checkout with no bundle installed just gets tetravox_embed.available=false and a 404 under
 # /tetravox/ -- never a startup failure, since a host without the bundle is a normal state
 # (Phase-B integration, or W2's image before the real embed tarball lands).

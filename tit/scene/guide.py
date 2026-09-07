@@ -1,6 +1,6 @@
 """The **fixed guide scene** — one immutable, project-independent head.
 
-Plan of record: ``desktop/IMPLEMENTATION_PLAN.md`` R4. The three run pages'
+Plan of record: ``docs/dev/v3-implementation-plan.md`` R4. The three run pages'
 3D panes used to draw *the first selected research subject*. That coupled a
 form control to project data in three ways that each cost something real:
 

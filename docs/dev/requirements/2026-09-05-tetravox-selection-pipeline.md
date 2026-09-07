@@ -3,8 +3,8 @@
 These are hard gates for the Tetravox-currency / electrode-dots / selection-grammar / pipeline pass.
 They refine [ARCHITECTURE.md](../ARCHITECTURE.md) §§1–6 and add §7. They do **not** reverse the
 [first 2026-09-05 batch](2026-09-05-overview-batch-viewer.md); they follow it. The plan of record is
-`dev/notes/v3-tetravox-selection-pipeline-plan.md` (decisions A–D, lanes TX/AU/EL/SG/PC/CX2); the
-per-lane evidence is in `dev/notes/v3-tetravox-selection-pipeline/`.
+`docs/dev/HISTORY.md § 2026-09-05/06 (Tetravox auto-update, selection, pipeline canvas)` (decisions A–D, lanes TX/AU/EL/SG/PC/CX2); the
+per-lane evidence is in `docs/dev/HISTORY.md § 2026-09-05/06 (Tetravox auto-update, selection, pipeline canvas)`.
 
 ## Asks, verbatim
 

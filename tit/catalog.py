@@ -9,7 +9,7 @@ these dicts as-is, so the BIDS / derivative layout rules are never
 re-implemented outside ``tit``.
 
 v1 additions (this module is extended, not replaced, for Stage 1 / lane B2 —
-see ``dev/notes/v3-build-plan.md`` §3 "Catalog"): subject/simulation detail,
+see ``docs/dev/HISTORY.md § 2026-08-27 (v3 build program)`` §3 "Catalog"): subject/simulation detail,
 montage CRUD, EEG nets, atlases + regions, ROI CRUD, leadfields, flex/ex/mex
 runs, analyses, reports, freehand configs, the project-level group catalog,
 Quick Notes, and the subject-info presence matrix. A run/analysis directory
@@ -120,7 +120,7 @@ def sourcedata_only_subject_ids(pm: PathManager) -> list[str]:
     m2m, no FastSurfer/FreeSurfer -- so a project's own newly-arrived DICOMs
     (Dataset 000's ``sub-102``, before its DICOM-conversion stage has ever
     run) were invisible to every page built on the catalog (lane FX5,
-    ``dev/notes/v3-pipelines-program.md``). Naturally sorted; a subject that
+    ``docs/dev/HISTORY.md § 2026-09-03 (pipelines program)``). Naturally sorted; a subject that
     already appears in :func:`subject_ids` is never repeated here even if
     ``sourcedata/`` also holds a copy of its DICOMs.
     """

@@ -5,7 +5,7 @@ be worse:
 
 **The GitHub Releases API is the index** (A2).  The previous design read a
 ``releases.json`` committed to the Tetravox repo; it never existed
-(``dev/notes/v3-embed-convergence/u-notes.md`` §6, request 2 — the URL answered
+(``docs/dev/HISTORY.md § 2026-09-04 (embed convergence)`` §6, request 2 — the URL answered
 404 for the whole of lane U's live run), and a file a human has to remember to
 update is an index that goes stale silently.  ``/repos/idossha/tetravox/releases``
 is written by the release itself.  A release is *incorporable* when it carries

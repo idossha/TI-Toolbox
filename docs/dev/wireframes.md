@@ -2,11 +2,11 @@
 
 > Historical. Kept for the per-page ASCII layouts and empty-state copy, which
 > live nowhere else. Its §9 dead-space ceilings are superseded by
-> `desktop/DESIGN.md` §12.3; the program narrative is
-> `dev/notes/v3-program-history.md` § 2026-09-03 — UI program.
+> `docs/dev/DESIGN.md` §12.3; the program narrative is
+> `docs/dev/HISTORY.md` § 2026-09-03 — UI program.
 
-Companion to `desktop/DESIGN.md` v3 (§2 layouts, §4.5 run panel, §4.6 terminal, §9 nav, §10 viewer,
-§11 status bar, §12 dev loop) and to the decisions U1-U10 summarised in `dev/notes/v3-program-history.md` (2026-09-03). Every
+Companion to `docs/dev/DESIGN.md` v3 (§2 layouts, §4.5 run panel, §4.6 terminal, §9 nav, §10 viewer,
+§11 status bar, §12 dev loop) and to the decisions U1-U10 summarised in `docs/dev/HISTORY.md` (2026-09-03). Every
 frame below is what a build lane implements; every number under a frame is what its round measures.
 
 **Scale.** Horizontally **1 character = 10 px**, so a 1280 window is 128 characters and a 1440

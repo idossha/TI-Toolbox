@@ -1,7 +1,7 @@
 /**
  * A small, dependency-free, typed Docker Engine API client — Node stdlib `http` over the Unix
  * socket / Windows named pipe `discover.ts` resolves, never dockerode and never the `docker` CLI
- * (D4, `dev/notes/v3-docker-streamline-plan.md`: `discover.ts`'s own `docker context inspect`
+ * (D4, `docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)`: `discover.ts`'s own `docker context inspect`
  * call is the only CLI use left anywhere in the app -- the `dockerCli.ts` module this comment
  * used to point at is deleted). `http.request({ socketPath })`
  * speaks HTTP/1.1 over a Unix domain socket with no extra dependency (Node's own long-standing

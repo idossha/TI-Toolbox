@@ -5,7 +5,7 @@
  * The selection model and the deep-link reader: more branches than a spec can usefully click
  * through, and none of them need a DOM.
  *
- * V1 (`dev/notes/v3-native-panes-external-viewer-plan.md`) removed the embed, and with it the
+ * V1 (`docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)`) removed the embed, and with it the
  * three derivations this file also used to cover — `hidden3DLayer` (a hint about the *embed's*
  * 3D pane), `formatRas` and `shortRenderer` (status-bar cells fed by the embed's cursor and its
  * WebGL renderer string). None of the three has a referent any more: the picture is in another
@@ -62,7 +62,7 @@ describe("readDeepLink", () => {
 });
 
 // -------------------------------------------------------------------------------------------------
-// R5 — the draft/loaded model's pure half (desktop/IMPLEMENTATION_PLAN.md).
+// R5 — the draft/loaded model's pure half (docs/dev/v3-implementation-plan.md).
 //
 // The e2e proves the *counts* (zero requests on an edit, exactly one on Load). What it cannot show
 // cheaply is that the request a given draft WOULD produce carries the draft's own values and only

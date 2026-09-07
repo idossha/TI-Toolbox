@@ -1,5 +1,5 @@
 /**
- * The run pane's Terminal · Scene tab host (plan of record `dev/notes/v3-scene-ia-plan.md` S7),
+ * The run pane's Terminal · Scene tab host (plan of record `docs/dev/HISTORY.md § 2026-09-04 (scene service)` S7),
  * driven identically from every spec so a change to the tab strip's DOM is one edit here.
  *
  * The rule these helpers encode, and why a spec must not just look for the terminal any more:

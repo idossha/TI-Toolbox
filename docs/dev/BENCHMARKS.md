@@ -2,7 +2,7 @@
 
 The measured numbers the v3 desktop application was built against. Everything
 here was produced by a real run during the programs recorded in
-[`dev/notes/v3-program-history.md`](../dev/notes/v3-program-history.md), which
+[`docs/dev/HISTORY.md`](../docs/dev/HISTORY.md), which
 carries the narrative and the gotchas; this page carries the figures.
 
 Unless a row says otherwise, the host is an Apple M2 (macOS, arm64) and the
@@ -43,7 +43,7 @@ immediately.
 
 Bare matrix: **21/21 passed in 280.7 s**, zero paths left on disk; an
 independent rerun six minutes later also went 21/21. Reproduce with
-`dev/smoke.sh` (see [`dev/notes/v3-pipelines/RUNBOOK.md`](../dev/notes/v3-pipelines/RUNBOOK.md)).
+`dev/smoke.sh` (see [`docs/dev/RUNBOOK.md`](../docs/dev/RUNBOOK.md)).
 
 | Kind | Note |
 |---|---|
@@ -148,13 +148,13 @@ proven: `mri_convert --reslice_like` → `nibabel.processing.resample_from_to
 (order=0)` differs in **0 of 13,631,488 voxels**, and `tit/atlas/segstats.py`
 matches `mri_segstats` label ids and voxel counts exactly on four real atlases
 (102/102, 188/188, 48/48, 56/56). Full verdicts:
-[`dev/spikes/README.md`](../dev/spikes/README.md).
+[`docs/dev/SPIKES.md`](../docs/dev/SPIKES.md).
 
 ## Layout dead space
 
 Measured by `desktop/tests/e2e/_metrics.ts::deadSpaceRatio` (a
 topmost-element-is-content test, stricter than the pixel-occupancy proxy it
-replaced). The acceptance table of record is `desktop/DESIGN.md` §12.3; the
+replaced). The acceptance table of record is `docs/dev/DESIGN.md` §12.3; the
 limit for run pages is 45%.
 
 | Page | Value | When |
@@ -172,6 +172,24 @@ limit for run pages is 45%.
 | 2026-09-04 (scene IA) | 3519 passed | 909 passed | 5 passed |
 | 2026-09-05 (overview/batch) | 3655 passed / 47 skipped | 79 files / 892 tests | 172 passed / 3 skipped |
 | 2026-09-05 (tetravox/pipeline) | 3741 passed | 84 files / 949 tests | 195 passed / 3 skipped |
+| 2026-09-06/07 (native panes, CX5) | 3970 passed / 36 skipped | 105 files / 1275 tests | 317 passed, quiet-check PASS |
+
+The 2026-09-06/07 row is the whole-program gate: typecheck clean, lint 0 errors (3
+pre-existing React-Compiler warnings), route-import guard 23 modules, `dev/contracts_check.py`
+OK, and 22 real specs against the dev container on Dataset 000. `test_scene_guide`'s known
+order-dependent failure in a full run is not counted as a red — it passes standalone.
+
+### Real-container measurements, 2026-09-06/07 (sub-ernie, 1280 px, warm)
+
+| What | Value |
+|---|---|
+| Native pane, first paint (warm) | 92 ms (`scene-electrodes`), 122 ms (`scene-atlas-border`); budget 300 ms |
+| Orbit frame rate | 122 fps on 222,434 triangles, 0.10 ms CPU per frame |
+| DK40 border quality | 24 scan lines, 129 border crossings, 18 A\|B\|A excursions, 8 sub-triangle spikes = **6.20 %** |
+| Region colour fidelity | `rostralmiddlefrontal/lh` cos-to-own-atlas-hue **0.998**, cos-to-flat-blue 0.771 |
+| Electrode state change | idle `[155,163,176]` → selected `[0,112,175]`, 94 px changed, solid to r=7 (no ring) |
+| Idle marker vs scalp separation | worst **2/255**, median 35 over the 24 nearest front electrodes — see DECISIONS, open |
+
 
 ## Native panes and external viewer (2026-09-06)
 
@@ -205,4 +223,4 @@ Gate progression across the program's three consolidation passes: host pytest
 3,662 → **3,970 passed** / 36 skipped / 21 deselected; desktop vitest 1,039 →
 **1,275 passed** across 88 → 105 files; offscreen mock e2e 208 → **285 passed**
 (blocked twice at CX4 by `ENOSPC`); real subset **22 passed**. The final CX5 row
-with its full detail is in `docs/ROADMAP.md`.
+with its full detail is in `docs/dev/ROADMAP.md`.

@@ -271,7 +271,7 @@ test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.
      * something strictly smaller: a sample counts only where the topmost element is a control, a
      * text leaf or a small tinted box, so the padding inside a section header, the empty half of a
      * table row and the unfilled tail of a virtualised console are all dead. Measured breakdown at
-     * 1280×800 in `dev/notes/v3-ui-program/b2-run-pages-notes.md`.
+     * 1280×800 in `docs/dev/HISTORY.md § 2026-09-03 (UI program)`.
      *
      * This limit is the number this page actually reaches with every honest lever pulled (run pane
      * stretched, no cards, no page header, no 880 px cap, form two-up, plan as a matrix). The

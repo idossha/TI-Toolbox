@@ -18,7 +18,7 @@ writes ``contracts/openapi.v1.json``).
 
 Fails with a clear, non-traceback error (exit 1) if either input file does
 not exist yet -- the v1 contract and the generated schema are written by
-different agents in parallel (see ``dev/notes/v3-program-history.md`` (2026-08-27)),
+different agents in parallel (see ``docs/dev/HISTORY.md`` (2026-08-27)),
 so either one may not exist yet when this runs.
 """
 
@@ -191,7 +191,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.openapi.is_file():
         print(
             f"error: {args.openapi} does not exist yet -- this runs after the "
-            "v1 contract has been authored (dev/notes/v3-program-history.md, 2026-08-27).",
+            "v1 contract has been authored (docs/dev/HISTORY.md, 2026-08-27).",
             file=sys.stderr,
         )
         return 1

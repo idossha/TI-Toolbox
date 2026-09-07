@@ -3,7 +3,7 @@
 Thin HTTP wrappers over :mod:`tit.catalog` only -- every discovery/CRUD rule
 (which files make a montage, how an ROI is named, which run dirs count as
 complete) lives there on top of :class:`tit.paths.PathManager`, per
-``dev/notes/v3-build-plan.md`` "Design rules" R1. Response bodies are plain
+``docs/dev/HISTORY.md § 2026-08-27 (v3 build program)`` "Design rules" R1. Response bodies are plain
 dicts rather than a ``response_model`` for endpoints where the v1 contract's
 hand-authored schema does not exactly match what the underlying files
 contain today (see ``FreehandConfig`` below and this lane's final report);

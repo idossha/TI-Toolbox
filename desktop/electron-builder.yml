@@ -1,9 +1,9 @@
-# electron-builder config for the N0.4 native-packaging spike (dev/notes/v3-native-desktop-plan.md
+# electron-builder config for the N0.4 native-packaging spike (docs/dev/HISTORY.md § 2026-09-03 (native desktop research)
 # Stage N0 lane 4). Proves the mechanics — extraResources for a bundled Python runtime, hardened
 # runtime + entitlements, macOS `--dir` packaging, ad-hoc signing cost — NOT a production release
 # pipeline: only macOS arm64 `dir` has been run against this file (REPORT.md). Linux/Windows blocks
 # below are declared (electron-builder validates the whole config either way) but not built here —
-# that is Stage N1 (dev/notes/v3-native-desktop-plan.md §2, Stage N1 item 5).
+# that is Stage N1 (docs/dev/HISTORY.md § 2026-09-03 (native desktop research) §2, Stage N1 item 5).
 #
 # Signing posture, deliberately unlike a real release: `mac.identity: null` disables code signing
 # entirely (electron-builder's own meaning for a null identity — not "auto-discover one"), so
@@ -50,7 +50,7 @@ files:
 # `src/main/index.ts`'s `resolveNativeStaticDir`):
 #
 #   1. runtime/darwin-arm64 <- $TIT_RUNTIME_DIR (env, not hardcoded — this spike points it at
-#      dev/spikes/native/packaging/build-runtime.sh's output; Stage N1's CI runtime build produces
+#      docs/dev/SPIKES.md's output; Stage N1's CI runtime build produces
 #      the same shape from a real SimNIBS+tit environment, N0.1's lane). Only darwin-arm64 exists as
 #      a `to:` path today because that is the one platform this spike built and measured; the
 #      per-platform "to" of a real build is `runtime/<platform>-<arch>` matching

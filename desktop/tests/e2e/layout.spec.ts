@@ -15,7 +15,7 @@ import {
 } from "./_metrics";
 
 /**
- * The layout pass's acceptance, as numbers (plan `dev/notes/v3-scene-ia-plan.md` §4, L1–L5).
+ * The layout pass's acceptance, as numbers (plan `docs/dev/HISTORY.md § 2026-09-04 (scene service)` §4, L1–L5).
  *
  * `screens.spec.ts` is the *instrument* — it captures every page and writes `metrics.json` for a
  * human to look at, and fails only when a page will not open. This spec is the *gate*: it states
@@ -124,7 +124,7 @@ let page: Page;
 test.describe.configure({ mode: "serial" });
 
 test.beforeAll(async () => {
-  // V4 (dev/notes/v3-native-panes-external-viewer-plan.md): the embed and its protocol range are
+  // V4 (docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)): the embed and its protocol range are
   // gone, so this suite no longer has to install a fixture bundle around itself to get a populated
   // pane. The panes draw with the app's own renderer.
   const userDataDir = mkdtempSync(join(tmpdir(), "tit-e2e-lay-"));

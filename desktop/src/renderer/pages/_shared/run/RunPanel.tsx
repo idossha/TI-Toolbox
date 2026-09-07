@@ -1,7 +1,7 @@
 /**
  * The right pane of every run page (DESIGN.md v3 §4.5/§4.6, program U2): a Plan grid on top and,
  * below it, the Terminal — or, on a page that passes a `scene`, the **Terminal · Scene** tab host
- * (plan of record `dev/notes/v3-scene-ia-plan.md` decision S7). Nothing else goes in it.
+ * (plan of record `docs/dev/HISTORY.md § 2026-09-04 (scene service)` decision S7). Nothing else goes in it.
  *
  * The plan grid is capped at 45% of the pane height and scrolls internally past that, so a
  * twelve-subject plan cannot squeeze the log out of existence (§4.6, "Height").

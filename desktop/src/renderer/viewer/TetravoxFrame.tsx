@@ -3,7 +3,7 @@
  *
  * The embed is a released Tetravox artifact installed into the container image at
  * `/opt/tetravox/embed` and served by `tit.server` under `/tetravox/` with its own CSP
- * (`dev/notes/v3-docker-streamline-plan.md` D1/D3). TI owns the frame, the protocol types and the
+ * (`docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)` D1/D3). TI owns the frame, the protocol types and the
  * scene; it owns no rendering code at all.
  *
  * The iframe itself, its sandbox flags and its teardown are `viewer/EmbedFrame.tsx`, shared with

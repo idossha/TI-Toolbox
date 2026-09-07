@@ -1,6 +1,6 @@
 /**
  * The instrument every v3 build lane and the critic panel measure with (DESIGN.md §12.1, program
- * U10, `dev/notes/v3-ui-program/u0-design-notes.md` §3.8).
+ * U10, `docs/dev/design-notes.md` §3.8).
  *
  * "An agent judges numbers, not pictures." A screenshot is an artifact a human opens later; the
  * assertions are made on the three functions below and on the `metrics.json` they feed. Nothing

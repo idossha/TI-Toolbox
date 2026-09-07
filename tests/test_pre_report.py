@@ -1,6 +1,6 @@
 """Tests for tit.pre.report -- the ``report`` job kind's runner (F0).
 
-F0 evidence (dev/notes/v3-pipelines-program.md §0): every trailing report job of a
+F0 evidence (docs/dev/HISTORY.md § 2026-09-03 (pipelines program) §0): every trailing report job of a
 `pre` group failed with ``unknown job kind: 'report'`` (jobs 614b666712054f03,
 d6ccfcce2e2c43ce) because tit/jobs/kinds.py's MODULE_FOR_KIND had no entry for it.
 This module is that entry's runner: `simnibs_python -m tit.pre.report config.json`,

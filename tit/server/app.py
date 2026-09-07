@@ -24,7 +24,7 @@ from tit.server.auth import _token_matches, new_session_id, require_auth
 from tit.server.routes import OPEN_MODULES, iter_route_modules
 from tit.server.settings import ServerSettings
 
-# TODO.md §2.8. D3 (dev/notes/v3-docker-streamline-plan.md): the in-app viewer is now the
+# TODO.md §2.8. D3 (docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)): the in-app viewer is now the
 # Tetravox embed, rendered inside a same-origin <iframe src="/tetravox/...">, not code running in
 # this app's own origin/CSP -- tit/server/static.py's TETRAVOX_CSP carries the 'wasm-unsafe-eval'
 # its Rust->WASM engine needs, on responses under /tetravox/ only. This header no longer needs

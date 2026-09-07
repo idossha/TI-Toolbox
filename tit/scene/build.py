@@ -506,7 +506,7 @@ def orient_outward(
     """``(triangles wound outward, whether they had to be flipped)``.
 
     Why this exists, measured on ``sub-ernie`` on 2026-09-04 (lane FIX-A,
-    ``dev/notes/v3-scene-ia/fix-a-notes.md`` §5.1, reproduced by CL1): the head
+    ``docs/dev/HISTORY.md § 2026-09-04 (scene service)`` §5.1, reproduced by CL1): the head
     mesh's tag-1005 (skin) surface elements come out of ``crop_mesh`` wound
     outward (signed volume ``+4 841 347 mm3``, 99.5 % of triangle normals
     pointing away from the centroid) and its tag-1002 (grey matter) elements

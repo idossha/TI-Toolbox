@@ -1,5 +1,5 @@
 /**
- * `renderer/scene/` — the slim scene renderer (plan of record `dev/notes/v3-scene-ia-plan.md`,
+ * `renderer/scene/` — the slim scene renderer (plan of record `docs/dev/HISTORY.md § 2026-09-04 (scene service)`,
  * decisions S1, S4, S5, S6).
  *
  * ## What this is

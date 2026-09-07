@@ -1,6 +1,6 @@
 /**
  * `<ScenePane mode="montage" | "target" | "inspect">` — the scene as a **form control** on the
- * three run pages (`dev/notes/v3-native-panes-external-viewer-plan.md`, N1–N4).
+ * three run pages (`docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)`, N1–N4).
  *
  * `renderer/scene/` draws — our own WebGL2, no runtime dependency, no iframe, no protocol. This
  * file is everything between that renderer and a page's form: it fetches the packaged guide over

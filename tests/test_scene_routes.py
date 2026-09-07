@@ -8,7 +8,7 @@ What this pins
     way every other v1 route module asserts it.
 
     Added in the 2026-09-04 fix round (lane FIX-B,
-    ``dev/notes/v3-scene-ia/fix-b-notes.md``): all six routes give *one*
+    ``docs/dev/HISTORY.md § 2026-09-04 (scene service)``): all six routes give *one*
     subject-level answer, and it names what is missing and what to run rather
     than "unknown subject" (which was what a subject staged under
     ``sourcedata/`` -- and listed by the app's own picker -- used to get); and
@@ -22,7 +22,7 @@ Where the numbers come from
     ``MagicMock``s in this suite, so :func:`tit.scene.build.build_surfaces` is
     replaced by a stub that publishes a known payload. What a *real* mesh
     produces is ``tests/test_scene_realdata.py`` (env-gated) and the live runs
-    recorded in ``dev/notes/v3-scene-ia/sca-notes.md``.
+    recorded in ``docs/dev/HISTORY.md § 2026-09-04 (scene service)``.
 
 Deliberately elsewhere
     Format bytes: ``tests/test_scene_tvsc.py``. Cache internals:
@@ -265,7 +265,7 @@ def test_a_staged_subject_is_told_what_to_run_not_that_it_is_unknown(
 ) -> None:
     """``sub-102``: in the app's subject picker, not in ``catalog.subject_ids``.
 
-    Reported by lane SCC (``dev/notes/v3-scene-ia/scc-notes.md`` §6.3): every
+    Reported by lane SCC (``docs/dev/HISTORY.md § 2026-09-04 (scene service)`` §6.3): every
     scene route answered ``"Unknown subject: 102"``, a sentence that is true of
     the *function* and false to a user looking at 102 in the Subjects table.
     The answer has to name what is missing (no ``m2m_102/``), where the subject

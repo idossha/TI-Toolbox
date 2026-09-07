@@ -322,7 +322,7 @@ def _report_requests(sid: str, config: dict[str, Any]) -> list[LockRequest]:
     unrelated subject's ``pre`` job, must still run concurrently. The one write is the report's
     own output, so two reports for the *same* subject serialize instead of racing on one file.
     Before this, ``keys_for("report", ...)`` returned nothing at all for a per-subject report
-    (`dev/notes/v3-pipelines/f0-notes.md` open issue 1) -- it scanned a subject's derivatives
+    (`docs/dev/HISTORY.md § 2026-09-03 (pipelines program)` open issue 1) -- it scanned a subject's derivatives
     while anything at all could be rewriting them.
     """
     stages = [name for flag_key, name in _PRE_STAGE_FLAGS if config.get(flag_key)]

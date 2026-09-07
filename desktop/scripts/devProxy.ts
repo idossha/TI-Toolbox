@@ -1,6 +1,6 @@
 /**
  * The Vite dev-server proxy for `/api`, `/auth` and `/ws` — and the one place the dev token is
- * spent (P2, `dev/notes/v3-pipelines-program.md` §2).
+ * spent (P2, `docs/dev/HISTORY.md § 2026-09-03 (pipelines program)` §2).
  *
  * The old dev loop made the *developer* carry the token: read it out of `docker inspect`, paste
  * `/auth/session?token=…` into a browser to mint a cookie, and export `TIT_DEV_ORIGINS=<vite
@@ -72,7 +72,7 @@ export function attachDevAuth(proxy: ProxyEventSink, target: string, token: stri
 /**
  * The four proxy entries `electron.vite.config.ts` installs on the renderer's dev server.
  *
- * `/tetravox` is the Viewer's embed (U12, `dev/notes/v3-pipelines-program.md` §6): the page mounts
+ * `/tetravox` is the Viewer's embed (U12, `docs/dev/HISTORY.md § 2026-09-03 (pipelines program)` §6): the page mounts
  * an iframe at the origin-relative `/tetravox/index.html?embed=1`, which under Vite fell through to
  * the SPA fallback and rendered TI-Toolbox inside itself. The embed's own `/api/files/raw/...`
  * dataset fetches are origin-relative too, so they ride the `/api` entry's bearer like everything

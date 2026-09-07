@@ -1,10 +1,10 @@
 # TI-Toolbox v3 overview, batch, terminal, and viewer plan
 
 Date: 2026-09-05  
-Status: R1-R5 implemented and gated per-lane (`dev/notes/v3-program-history.md`, 2026-09-05);
+Status: R1-R5 implemented and gated per-lane (`docs/dev/HISTORY.md`, 2026-09-05);
 delivery steps 1 and 7 closed by the consolidation lane (`.../CX.md`) — records landed in
-`docs/{ARCHITECTURE,DECISIONS,ROADMAP}.md`, `docs/requirements/2026-09-05-overview-batch-viewer.md`,
-`tracks/active/v3-electron-gui.md` and `desktop/DESIGN.md`; typecheck, lint, unit, full offscreen
+`docs/{ARCHITECTURE,DECISIONS,ROADMAP}.md`, `docs/dev/requirements/2026-09-05-overview-batch-viewer.md`,
+`docs/dev/ADR.md` and `docs/dev/DESIGN.md`; typecheck, lint, unit, full offscreen
 e2e, build, host pytest, the route-import guard and the real-container checks are green. Step 7's
 `pnpm run dev` smoke is the maintainer's own, deliberately not run here. Nothing is committed.
 
@@ -13,15 +13,15 @@ run-page 3-D panes are now this app's own WebGL2 renderer, the Viewer page is a 
 opens the host-installed Tetravox desktop app with a scene file (the embed, its update channel and
 `Capabilities.tetravox_embed` are deleted), and the Simulator and Analyzer describe a run as a jobs
 table instead of a page-level subject set fanned across a montage list. Plan of record
-`dev/notes/v3-native-panes-external-viewer-plan.md`; requirements
-`docs/requirements/2026-09-06-native-panes-external-viewer.md`; contract `docs/ARCHITECTURE.md`
-§§7.1, 7.2, 7.5; gate `docs/ROADMAP.md`.
+`docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)`; requirements
+`docs/dev/requirements/2026-09-06-native-panes-external-viewer.md`; contract `docs/dev/ARCHITECTURE.md`
+§§7.1, 7.2, 7.5; gate `docs/dev/ROADMAP.md`.
 
 A **second** 2026-09-05 pass followed this one — Tetravox currency and automatic updates, electrodes
 as coloured dots, one selection grammar with the receipt, and the pipeline canvas. Its plan of record
-is `docs/requirements/2026-09-05-tetravox-selection-pipeline.md` (A-D), its requirements are
-`docs/requirements/2026-09-05-tetravox-selection-pipeline.md`, its contract is
-`docs/ARCHITECTURE.md` §7, and its gate is `docs/ROADMAP.md`. It does
+is `docs/dev/requirements/2026-09-05-tetravox-selection-pipeline.md` (A-D), its requirements are
+`docs/dev/requirements/2026-09-05-tetravox-selection-pipeline.md`, its contract is
+`docs/dev/ARCHITECTURE.md` §7, and its gate is `docs/dev/ROADMAP.md`. It does
 not reverse anything here; it adds a ninth rail row (Pipeline, ⌘6), which moves Settings to ⌘0.  
 Scope: Electron desktop, catalog/job/scene APIs, tests, and the corresponding architecture records
 
@@ -31,7 +31,7 @@ Make the desktop open on a project-level Overview, give every runnable workflow 
 batch grammar, make every interactive terminal scrollable and locally clearable, and decouple guide
 visualization from the selected research subject. Keep detailed outputs in Results.
 
-This plan refines `../docs/ARCHITECTURE.md` §§2–5 and reverses the current landing-page and
+This plan refines `../docs/dev/ARCHITECTURE.md` §§2–5 and reverses the current landing-page and
 subject-coupled scene rules in `DESIGN.md` §§9–10. The dated parent-repository intent document,
 contract amendment, decision entries, and roadmap lines must land in the same implementation commit.
 The maintainer's 2026-09-05 notes outrank earlier plans where they conflict.

@@ -20,7 +20,7 @@ import { setSubjectChecked, subjectsField } from "./_subjects";
  *
  * (5) is asserted against the mock server's scheduler rather than a real container: the pipelines
  * program's standing rule is that two FEM simulations must never run concurrently on the shared
- * dev container (`dev/notes/v3-pipelines/RUNBOOK.md`), so a real-data proof of a cap of 2 would
+ * dev container (`docs/dev/RUNBOOK.md`), so a real-data proof of a cap of 2 would
  * be the exact thing it forbids. The cap logic under test is the same shape in both
  * (`tit/jobs/scheduler.py`'s `group_cap` branch, mirrored by the mock's `isReady`), and the
  * server-side half is pinned directly in `tests/test_jobs_routes.py`.

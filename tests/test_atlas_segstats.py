@@ -9,7 +9,7 @@ value with real numpy arrays for ``.dataobj``/``.affine`` -- matching the
 pattern used throughout tests/test_atlas_coverage.py.
 
 Voxel-for-voxel validation against live ``mri_segstats`` on real recon-all
-and charm data lives in dev/spikes/native/fs-binaries/REPORT.md (this suite
+and charm data lives in docs/dev/SPIKES.md (this suite
 covers the pure-function contract, not that live comparison).
 """
 

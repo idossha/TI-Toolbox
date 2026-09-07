@@ -34,7 +34,7 @@ export async function getVersion(): Promise<Version> {
   return unwrap(await api.GET("/api/version"), "/api/version");
 }
 
-// ── the embedded viewer bundle (dev/notes/v3-embed-convergence-plan.md, E1-E4) ────────────────
+// ── the embedded viewer bundle (docs/dev/HISTORY.md § 2026-09-04 (embed convergence), E1-E4) ────────────────
 //
 // These use `unwrapDetail`, not the shared `unwrap`: every refusal here is a sentence written for
 // the person reading it ("sha256 mismatch: the download is …, expected …. Nothing was installed.",

@@ -45,7 +45,7 @@ DEFAULT_GRACE_S = 10.0
 #     [0]PETSC ERROR: Caught signal number 15 Terminate: ...
 #     application called MPI_Abort(MPI_COMM_WORLD, 59) - process 0
 # -- ten lines of solver wreckage at the end of a `blender` job that ran no solver at all
-# (`dev/notes/v3-pipelines/2026-09-03-smoke.md` open issue 2; job 169bb37396634a31).
+# (`docs/dev/HISTORY.md § 2026-09-03 (pipelines program)` open issue 2; job 169bb37396634a31).
 # `-no_signal_handler` is PETSc's own documented switch for "do not install it", and PETSc reads
 # options from this environment variable, so it applies to every runner without touching a single
 # runner module. SIGTERM then does what a cancel means: the default disposition ends the process

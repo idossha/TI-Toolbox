@@ -98,7 +98,7 @@ def build() -> tuple[dict[str, bytes], dict]:
     manifest = {
         "//": (
             "Regenerate with `python3 tests/scene/make_fixtures.py`. Every number here is "
-            "authored from the TVSC1 spec table in dev/notes/v3-scene-ia-plan.md 2.3 and the "
+            "authored from the TVSC1 spec table in docs/dev/HISTORY.md § 2026-09-04 (scene service) 2.3 and the "
             "position formula above, never read back from the encoder."
         ),
         "format": {

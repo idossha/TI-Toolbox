@@ -1,5 +1,5 @@
 /**
- * The Results outputs tree (program U4, `dev/notes/v3-ui-program/u0-design-notes.md` §3.7).
+ * The Results outputs tree (program U4, `docs/dev/design-notes.md` §3.7).
  *
  * Pure functions only: the page fetches the catalog endpoints, hands the raw responses in, and
  * gets back the grouped tree the middle column renders. Nothing here touches React or the network,

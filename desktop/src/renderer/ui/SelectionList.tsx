@@ -1,6 +1,6 @@
 /**
  * `SelectionList` — **the** way anything is picked out of a list in v3 (plan of record
- * `dev/notes/v3-tetravox-selection-pipeline-plan.md` §1-C, C1/C2).
+ * `docs/dev/HISTORY.md § 2026-09-05/06 (Tetravox auto-update, selection, pipeline canvas)` §1-C, C1/C2).
  *
  * The defect it closes, in the maintainer's words: *"in the TI toolbox 2.5.0 we had a great logic
  * for selecting multiple jobs … right now it's too convoluted for the users to choose and to

@@ -3,10 +3,10 @@
  * `api/client.ts` (owned across many pages; every lane needing catalog v1/viewer/jobs endpoints
  * would otherwise collide editing the same file) — mirrors `pages/simulator/api.ts`.
  *
- * v3 (D3, `dev/notes/v3-docker-streamline-plan.md`): `POST /api/viewers/{freeview,gmsh}` are gone
+ * v3 (D3, `docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)`): `POST /api/viewers/{freeview,gmsh}` are gone
  * from the server along with X11 itself.
  *
- * VE (`dev/notes/v3-native-panes-external-viewer/VE.md`): `openView` resolves the scene once and
+ * VE (`docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)`): `openView` resolves the scene once and
  * answers with both addressings of it — `view`, whose dataset paths are `/api/files/raw/...` URLs
  * and which is what the page posts into the embed's iframe, and `scene`, whose paths are the
  * host's and which is the document written to disk. There is no launch and no bridge: the viewer

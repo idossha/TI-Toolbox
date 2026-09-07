@@ -1,6 +1,6 @@
 /**
  * Viewer screen, against the mock server — **a menu and a viewer, in one tab**
- * (V1 · VM2 · VE, `dev/notes/v3-native-panes-external-viewer/{VX,VM,VM2}.md`).
+ * (V1 · VM2 · VE, `docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer){VX,VM,VM2}.md`).
  *
  * What this spec was for one day: a host-installed **Tetravox desktop app**, launched over an
  * Electron IPC bridge, with a spy sitting on `tit:viewer:open` and an assertion that no iframe

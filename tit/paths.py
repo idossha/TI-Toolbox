@@ -45,7 +45,7 @@ def natural_key(text: str) -> list[int | str]:
 
 
 # ============================================================================
-# PACKAGE RESOURCES (N0.6 spike -- dev/spikes/native/job-control/REPORT.md)
+# PACKAGE RESOURCES (N0.6 spike -- docs/dev/SPIKES.md)
 # ============================================================================
 #
 # Distinct from everything else in this module: PathManager resolves *project* directories

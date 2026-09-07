@@ -32,7 +32,7 @@ which this module's ``/policy`` route is what turns off.
 
 Import-time work: none (a route module that does work at import takes the whole
 server down under ``--reload`` when it fails; see
-``dev/notes/v3-scene-ia-plan.md`` §6 F1).
+``docs/dev/HISTORY.md § 2026-09-04 (scene service)`` §6 F1).
 """
 
 from __future__ import annotations

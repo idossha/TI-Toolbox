@@ -6,8 +6,8 @@ table *into* them. They **reverse** parts of the two 2026-09-05 batches — the 
 "Viewer loads into a retained iframe" rule of
 [2026-09-05 overview/batch/viewer](2026-09-05-overview-batch-viewer.md) — and they replace
 [ARCHITECTURE.md](../ARCHITECTURE.md) §7.1 and rewrite §7.2. The plan of record is
-`dev/notes/v3-native-panes-external-viewer-plan.md` (decisions N1–N4, V1–V5, lanes NR/VX/JB/CX3);
-the per-lane evidence is in `dev/notes/v3-native-panes-external-viewer/`.
+`docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)` (decisions N1–N4, V1–V5, lanes NR/VX/JB/CX3);
+the per-lane evidence is in `docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)`.
 
 ## Asks, verbatim
 

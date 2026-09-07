@@ -1176,7 +1176,7 @@ class Analyzer:
         Validated voxel-for-voxel (0 differing voxels, including on the
         labelled subset) against real ``mri_convert --reslice_like`` output
         cached on disk for ``sub-ernie`` -- see
-        ``dev/spikes/native/fs-binaries/REPORT.md``.
+        ``docs/dev/SPIKES.md``.
 
         The resampled result is saved next to *atlas_path* with a
         shape-encoded suffix so that repeated analyses reuse the cached

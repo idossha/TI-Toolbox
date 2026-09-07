@@ -356,7 +356,7 @@ def test_runner_env_scrub_is_a_noop_when_absent():
 def test_runner_env_disables_the_petsc_signal_handler():
     """PETSc installs a C SIGTERM handler on ``import simnibs`` -- in *every* runner, solver or
     not -- and turns a cancel into a ten-line "Caught signal number 15 / MPI_Abort" crash block
-    (`dev/notes/v3-pipelines/2026-09-03-smoke.md` open issue 2: a cancelled ``blender`` job,
+    (`docs/dev/HISTORY.md § 2026-09-03 (pipelines program)` open issue 2: a cancelled ``blender`` job,
     which runs no solver, ended that way). PETSc reads this variable, so one env entry covers
     every kind without touching a runner module."""
     env = jobs_runner.runner_env(
@@ -472,7 +472,7 @@ def test_keys_for_pre_matches_plan_preprocessing_stage_configs():
 
 def test_keys_for_report_holds_read_locks_for_what_it_scans():
     """FX2: a per-subject ``report`` job used to request *no* locks at all
-    (`dev/notes/v3-pipelines/f0-notes.md` open issue 1) while ``scan_for_data()`` walked the
+    (`docs/dev/HISTORY.md § 2026-09-03 (pipelines program)` open issue 1) while ``scan_for_data()`` walked the
     subject's rawdata and derivatives -- only a top-level "group report" branch existed, and
     ``plan_preprocessing``'s config has no ``group`` key, so it never fired."""
     reqs = locks.keys_for(

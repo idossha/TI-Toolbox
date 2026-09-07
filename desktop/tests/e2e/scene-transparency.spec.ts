@@ -33,7 +33,7 @@ import { gotoPage, launchElectronApp } from "./_helpers";
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
 const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
 /** A FIXED path, not the per-run artifacts dir: this pair of images is a record of one change, kept
- *  beside the code and referenced from `dev/notes/v3-native-panes-external-viewer/TR.md`. */
+ *  beside the code and referenced from `docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)`. */
 const ARTIFACTS = join(__dirname, "artifacts");
 
 /**

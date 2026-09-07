@@ -13,7 +13,7 @@ import { connectReal, expectPage, launchElectronApp } from "../_helpers";
  * the release-index answer with its real message. Read-only on purpose: installing here would
  * write into the maintainer's own `~/.config/ti-toolbox`, and the install/rollback/remove loop is
  * proved against the live API with the real 0.3.4 tarball in
- * `dev/notes/v3-embed-convergence/u-notes.md` §4.
+ * `docs/dev/HISTORY.md § 2026-09-04 (embed convergence)` §4.
  */
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL as string;
 const TOKEN = process.env.TIT_E2E_TOKEN as string;

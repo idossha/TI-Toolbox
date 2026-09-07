@@ -21,7 +21,7 @@ reports those tabs open externally, into one browsable, per-subject tree (task s
 ## v3: no external viewers (D3)
 
 X11 is out of the runtime and `POST /api/viewers/{freeview,gmsh}` is out of the server
-(`dev/notes/v3-docker-streamline-plan.md` D3), so **every "Open" on this page is now an in-app
+(`docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)` D3), so **every "Open" on this page is now an in-app
 navigation to the Viewer**, which loads the scene into the embedded Tetravox viewer. `launchFreeview`,
 `launchGmsh` and the `GET /api/view/custom` fetch that fed them are deleted from `api.ts`, and the
 "Open externally ▾" menu the UX plan sketched (§2) never ships: there is nothing external to open.
@@ -51,7 +51,7 @@ its own is gap 5 below.
    `tit.catalog` group-catalog builder's fields evolve, but it also means no field gets special
    rendering (e.g. a nilearn PNG thumbnail, a "created" date formatted). Low priority; flagged here
    rather than guessing at a shape the contract explicitly left open.
-4. **Ex/mEx run list vs. results table naming.** Per `dev/notes/v3-build-plan.md` §3 (B backend
+4. **Ex/mEx run list vs. results table naming.** Per `docs/dev/HISTORY.md § 2026-08-27 (v3 build program)` §3 (B backend
    budget), the ex-search run-name/directory-naming convention "settle with a real run in Phase 2"
    is still open; this page trusts `ExRun.run_name` and `.path` as given by the catalog and doesn't
    re-derive either.

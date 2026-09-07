@@ -44,4 +44,7 @@ exclude:
   - build-docs.sh 
   # MkDocs sources for API docs (the built site is committed to `docs/api/`)
   - api_mkdocs/
+  # Development source of truth (architecture, decisions, benchmarks, history).
+  # Written for maintainers and agents, not for the documentation site.
+  - dev/
 

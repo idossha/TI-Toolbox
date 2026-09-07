@@ -1,11 +1,11 @@
 # Maintainer requirements — 2026-09-05
 
 These are hard gates for the v3 overview / batch / terminal / guide / viewer pass. They refine
-[ARCHITECTURE.md](../ARCHITECTURE.md) §§2–6 and **reverse** desktop/DESIGN.md §§9–10 where those
+[ARCHITECTURE.md](../ARCHITECTURE.md) §§2–6 and **reverse** docs/dev/DESIGN.md §§9–10 where those
 made Subjects the landing page, coupled a run page's 3D pane to the selected subject, and let the
 Viewer load a scene from a selector change. Where an earlier plan conflicts, these requirements win
 and the contract is amended with the implementation. The implementation plan of record is
-[desktop/IMPLEMENTATION_PLAN.md](../../desktop/IMPLEMENTATION_PLAN.md) (R1–R5, gate tests).
+[docs/dev/v3-implementation-plan.md](../../docs/dev/v3-implementation-plan.md) (R1–R5, gate tests).
 
 ## Asks, verbatim
 

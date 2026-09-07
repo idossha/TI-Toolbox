@@ -1,6 +1,6 @@
 /**
  * Overview — the project's eagle-eye page (DESIGN.md §2 shape B, wireframes §1; R1 of
- * desktop/IMPLEMENTATION_PLAN.md, which made this the app's first rail item in place of Subjects).
+ * docs/dev/v3-implementation-plan.md, which made this the app's first rail item in place of Subjects).
  * Presence chips live here and nowhere else (U6). Full-width work pane; the detail pane is
  * rendered only when a row is selected, and the table takes its 360 px back when nothing is (U1).
  *

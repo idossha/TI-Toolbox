@@ -6,7 +6,7 @@ so the same bundle works inside Electron, in the Vite dev server (proxied) and i
 The Electron main process only does host things: a local launcher page, a health poll, a
 navigation guard and a settings file. Science and path rules stay in Python (`tit`).
 
-Plan of record: `../dev/notes/v3-program-history.md`, design contract: `DESIGN.md`, API contract:
+Plan of record: `../docs/dev/HISTORY.md`, design contract: `DESIGN.md`, API contract:
 `../contracts/openapi.v0.yaml`.
 
 ## Layout

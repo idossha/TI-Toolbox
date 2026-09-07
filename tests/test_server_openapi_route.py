@@ -2,7 +2,7 @@
 
 The failure these pin: the app is built with ``openapi_url=None``, so a client talking to a
 running server could not discover its routes or which ``JobKind``s it accepts, and had to read a
-checked-in contract file instead (`dev/notes/v3-pipelines/2026-09-03-smoke.md` open issue 6).
+checked-in contract file instead (`docs/dev/HISTORY.md § 2026-09-03 (pipelines program)` open issue 6).
 The document must be behind auth (it maps a server that can start jobs on the user's machine),
 must be byte-identical to what ``--dump-openapi`` writes, and must actually carry the job enums.
 """

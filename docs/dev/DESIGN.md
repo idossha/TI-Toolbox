@@ -4,8 +4,8 @@ This is the visual and interaction contract for every screen in `desktop/`. Page
 it; the design-system package (`src/renderer/ui/`) is the only place tokens and primitives live.
 If a page needs something that is not here, it asks (report it) rather than inventing a variant.
 
-v3 carries the "use the real estate" decisions U1–U10 from `dev/notes/v3-ui-program.md`, on top
-of the density and information-architecture decisions of `dev/notes/v3-ux-redesign-plan.md` (§0
+v3 carries the "use the real estate" decisions U1–U10 from `docs/dev/HISTORY.md § 2026-09-03 (UI program)`, on top
+of the density and information-architecture decisions of `docs/dev/HISTORY.md § 2026-09-02 (UX redesign)` (§0
 D1–D8, migration map §2, rules §3) — whose §1–§3 layout parts this document's §2 supersedes. Where
 this document and the UI program disagree, **the program wins and this document is wrong** — say so.
 Sections are numbered and never renumbered: lanes, specs and commits cite them by number.
@@ -135,7 +135,7 @@ current `screens.spec.ts` capture rather than this table before relying on eithe
   palette's Subjects section (`⌘P` opens the same palette — §6 rule 5) or from a page's own control;
   presence chips live on the Subjects page and batch selection is a page's own job (Pre-processing's
   Subjects section is the first to have one) — scope is chosen where the work is, not in a rail.
-  `dev/notes/v3-pipelines-program.md` §6 U11 is the record of the decision.
+  `docs/dev/HISTORY.md § 2026-09-03 (pipelines program)` §6 U11 is the record of the decision.
 - **The action bar owns commitment.** 44 px at the bottom of the *work pane*, on shape A only.
   Left: the plan digest (`planDigest(plan)`, §4.5), shown only while the run can start — when it is
   blocked the bar prints nothing and the disabled primary carries the reason as its tooltip (L3). Right: at most one secondary and
@@ -442,7 +442,7 @@ Three consequences, each with the failure it prevents:
    surfaces and uploaded buffers. The 2026-09-04 maintainer requirement supersedes the embed
    migration's visible-only lifetime: visited pages and their canvases remain mounted, and a
    retained canvas is the claim `page-memory.spec.ts` measures — the same DOM node, a live GL
-   context, and zero guide requests to redraw it. Contexts are released on project close/switch. See §13 and `docs/ARCHITECTURE.md` §2.
+   context, and zero guide requests to redraw it. Contexts are released on project close/switch. See §13 and `docs/dev/ARCHITECTURE.md` §2.
 
 ### 4.5 Run panel
 
@@ -580,7 +580,7 @@ content in the log pane of a page you merely opened is what made an idle tab loo
 
 ### 4.7 The run-page skeleton, and the four numbers it is held to
 
-Plan of record `dev/notes/v3-scene-ia-plan.md` §4 (L1–L5). Pre-processing, Simulator, Optimizer and
+Plan of record `docs/dev/HISTORY.md § 2026-09-04 (scene service)` §4 (L1–L5). Pre-processing, Simulator, Optimizer and
 Analyzer are **one skeleton**, and a page may add sections but never reorder it:
 
 ```
@@ -708,7 +708,7 @@ markers re-derive from it in one pass — there is no partial update to get wron
 
 ### 4.10 Jobs table
 
-*Added 2026-09-06 (`docs/ARCHITECTURE.md` §7.5), extended the same day to the Optimizer. It removes
+*Added 2026-09-06 (`docs/dev/ARCHITECTURE.md` §7.5), extended the same day to the Optimizer. It removes
 the page-level subject set from all three run pages that submit batches, and with it §4.4.1's "a
 set" answer for them.*
 
@@ -770,8 +770,8 @@ enough to change the run shape's auto-open decision across a navigation, which �
 ## 5. Components (`src/renderer/ui/`) — the only primitives pages may use
 
 The exact props, file paths and "must keep working" lists for every v3 addition below live in
-`dev/notes/v3-ui-program/u0-design-notes.md` §3; the wireframe each one appears in lives in
-`dev/notes/v3-ui-program/wireframes.md`. Lanes code against those signatures verbatim.
+`docs/dev/design-notes.md` §3; the wireframe each one appears in lives in
+`docs/dev/wireframes.md`. Lanes code against those signatures verbatim.
 
 
 **Buttons.** `primary` (accent fill), `secondary` (surface + `--line`), `ghost`, `destructive`.
@@ -1154,7 +1154,7 @@ cells in one scroller.
 ## 10. Viewer
 
 **The Viewer page is a Menu and a Tetravox, and the rail shows both** (2026-09-06, ADR row 29,
-`docs/ARCHITECTURE.md` §7.1). Maintainer: *"Tetravox should not be visually embedded in the
+`docs/dev/ARCHITECTURE.md` §7.1). Maintainer: *"Tetravox should not be visually embedded in the
 TI-Toolbox tab; it should open in its own [view]. In the Viewer, the left menu has two subsections:
 the Menu, and below it the actual Viewer. The user configures in the Menu, hits Open, is moved to
 the Viewer where the Tetravox embed is; they can go back to the Menu, tinker, and reload a different
@@ -1192,7 +1192,7 @@ fact instead of two that can drift; a bare `/viewer`, and every `/viewer?…` de
 ### 10.1 The Menu
 
 VM2's page, unchanged but for the button's name
-(`dev/notes/v3-native-panes-external-viewer/VM2.md`): a **Source** card and one editable **What
+(`docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)`): a **Source** card and one editable **What
 will open** list, centred, max 880. Nothing else — VM's per-layer cards, its layout and camera
 section and its "Also open" checkboxes are gone, and stay gone.
 
@@ -1297,7 +1297,7 @@ empty so §12 and §13 still mean what the lane notes say they mean.
 
 The method is the deliverable (program U10): **build → offscreen screenshots → DOM metrics →
 self-critique against the checklist → fix**, at least twice per lane, with the numbers per round
-recorded in `dev/notes/v3-ui-program/<lane>-notes.md`. "Looks fine" is not a gate. An agent cannot
+recorded in `docs/dev/BENCHMARKS.md`. "Looks fine" is not a gate. An agent cannot
 judge a picture; it can judge a number.
 
 ### 12.1 The instrument — `desktop/tests/e2e/_metrics.ts`
@@ -1382,7 +1382,7 @@ more of the page as empty: the measured floor of the page as it now is, held by
 `tests/e2e/overview.spec.ts` so a regression that empties it further still fails.
 
 For reference, the same measurement on the v2 build this program replaces (cell-occupancy pixel
-proxy, `dev/notes/v3-ui-program/u0-design-notes.md` §1): subjects 88 %, preprocess 74 %,
+proxy, `docs/dev/design-notes.md` §1): subjects 88 %, preprocess 74 %,
 simulator 67 %, results 86 %, jobs 92 %, viewer 16 %.
 
 ### 12.4 The self-critique checklist
@@ -1402,9 +1402,9 @@ Every lane runs this every round; the critic panel uses the same list and report
 
 ## 13. Workflow continuity and focused scene previews
 
-The [2026-09-04 maintainer requirements](../docs/requirements/2026-09-04-maintainer-polish.md)
+The [2026-09-04 maintainer requirements](../docs/dev/requirements/2026-09-04-maintainer-polish.md)
 supersede earlier plans wherever they required unmounting an inactive tab. The cross-component
-contract is [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) §§2–4.
+contract is [docs/dev/ARCHITECTURE.md](../docs/dev/ARCHITECTURE.md) §§2–4.
 
 Visited tabs retain their live page, form and live canvas until project close/switch. Each tab remembers
 its subject and route context; a different tab cannot reset it. Inactive pages relinquish keyboard
@@ -1423,7 +1423,7 @@ coordinate is not any research subject's millimetres, so the form's typed x/y/z 
 a centre is set. Subject-specific anatomy lives in the Viewer and in Results.
 
 **Those panes are this app's own WebGL2 renderer** (`src/renderer/scene/`, restored 2026-09-06,
-`docs/ARCHITECTURE.md` §7.2) — no iframe, no message protocol, no second engine to install. They
+`docs/dev/ARCHITECTURE.md` §7.2) — no iframe, no message protocol, no second engine to install. They
 draw one 3-D viewport, the orientation cues, **one** labelled Skin opacity control and the
 interaction hint. There is no application chrome to hide, because the renderer only ever drew the
 pane. Opacity is shown as a percent and changing it updates the skin without reloading geometry or

@@ -5,14 +5,14 @@ lookups, the six audit-bug fixes, percentile resolution, the Tetravox
 ``ViewSpec`` v2 ``scene`` document); this module only maps the query params
 to ``build_view``.
 
-D3 (``dev/notes/v3-docker-streamline-plan.md``): the external Freeview/Gmsh
+D3 (``docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)``): the external Freeview/Gmsh
 launch routes (``POST /api/viewers/freeview``, ``POST /api/viewers/gmsh``),
 ``_require_x11`` and the ``viewer`` job-kind submission they drove are
 **removed** -- there is no X11 in this runtime. ``freeview_args`` itself
 stays on the response for one release (deprecated) so an old client
 mid-migration does not break; :func:`view_args` still exists to preview it.
 
-V2 (``dev/notes/v3-native-panes-external-viewer-plan.md``): viewing is the
+V2 (``docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)``): viewing is the
 **host-installed Tetravox desktop app**, not an embed served from this
 origin. ``POST /api/view/open`` (bottom of this module) writes the scene
 document that app opens; it still launches nothing server-side, because the
@@ -185,7 +185,7 @@ def view_args(body: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # V2 -- the scene file the host-installed Tetravox desktop app opens.
 #
-# The embed is retired (dev/notes/v3-native-panes-external-viewer-plan.md, V4):
+# The embed is retired (docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer), V4):
 # nothing renders a viewer inside this app any more, and this container has no
 # display to render one in.  Viewing is the Tetravox *desktop app* on the host,
 # which the maintainer already installs and which auto-updates itself.  This

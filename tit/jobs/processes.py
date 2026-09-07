@@ -1,5 +1,5 @@
 """Cross-platform process-tree primitives for ``tit/jobs/runner.py`` (N0.6 spike; see
-``dev/spikes/native/job-control/REPORT.md``).
+``docs/dev/SPIKES.md``).
 
 POSIX and Windows disagree about almost everything a "kill this job's whole process tree"
 primitive needs: how a child gets its own process group at spawn time, and what a caller sends
@@ -89,7 +89,7 @@ def send_kill(proc: psutil.Process) -> None:
     ``psutil.NoSuchProcess``/``AccessDenied`` guard around the call site ever gets a chance to
     catch it (that guard's exception tuple never included ``AttributeError``). This was the bug
     at ``tit/jobs/runner.py:213`` before this module existed -- see
-    ``dev/spikes/native/job-control/REPORT.md`` for the fix and how it was verified.
+    ``docs/dev/SPIKES.md`` for the fix and how it was verified.
     """
     if is_windows():
         proc.kill()

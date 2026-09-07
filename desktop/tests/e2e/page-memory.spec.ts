@@ -12,7 +12,7 @@
  * element), every page keeps its state in `useState`, and `RunWork`'s fill controller then
  * re-derives the section layout from whatever it measures on the new mount.
  *
- * The model this spec encodes (`dev/notes/v3-program-history.md § 2026-09-04 (scene service)` §1):
+ * The model this spec encodes (`docs/dev/HISTORY.md § 2026-09-04 (scene service)` §1):
  *
  *   - **The user's state is theirs for the session.** A section they opened or closed, the
  *     Terminal/Scene tab they picked, where they scrolled, the segment they chose, what they
@@ -57,7 +57,7 @@ function activePage(target: Page = page) {
 // `layout.spec.ts` reports all four run pages' numbers before it fails.
 
 test.beforeAll(async () => {
-  // V4 (dev/notes/v3-program-history.md § 2026-09-06 (native panes, external viewer)): the embed, its protocol range and the
+  // V4 (docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)): the embed, its protocol range and the
   // install/activate dance this suite used to perform around itself are gone. The run panes draw
   // with the app's own renderer and need nothing installed.
   app = await launchElectronApp({ userDataDir: mkdtempSync(join(tmpdir(), "tit-e2e-memory-")) });

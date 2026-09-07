@@ -1,7 +1,7 @@
 /**
  * The catalog reads behind the Results outputs tree.
  *
- * It fed the Subjects page's output counts too until R1 (`desktop/IMPLEMENTATION_PLAN.md`) made
+ * It fed the Subjects page's output counts too until R1 (`docs/dev/v3-implementation-plan.md`) made
  * that page the Overview and gave it one aggregate endpoint: a project-wide *count* must not be a
  * per-subject fan-out, because the cap below silently blanked it above 25 subjects. Results is the
  * one caller now, and here the laziness is the design — this module builds the detailed **tree**

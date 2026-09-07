@@ -1,6 +1,6 @@
 /**
  * Overview — the project's front door and R1's gate
- * (`desktop/IMPLEMENTATION_PLAN.md`; DESIGN.md §12.3, wireframes §1).
+ * (`docs/dev/v3-implementation-plan.md`; DESIGN.md §12.3, wireframes §1).
  *
  * The gate this file closes, in the plan's own words: *in mock projects containing 3 and 30
  * subjects, opening Overview makes exactly one overview catalog request, renders every subject and

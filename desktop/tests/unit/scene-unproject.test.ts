@@ -1,6 +1,6 @@
 /**
  * Unprojection: canvas pixel + depth -> the world point under the cursor (lane FIX-A, defect 2 —
- * lane SCC's request in `dev/notes/v3-scene-ia/scc-notes.md` §6.1: `onPick` says *which* marker or
+ * lane SCC's request in `docs/dev/HISTORY.md § 2026-09-04 (scene service)` §6.1: `onPick` says *which* marker or
  * region was hit but not *where*, so "click anywhere on the cortex to place the sphere centre"
  * cannot be built).
  *

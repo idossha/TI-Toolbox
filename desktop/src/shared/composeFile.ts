@@ -8,7 +8,7 @@
  * fails loudly at startup instead of being silently dropped by a CLI that understands more of the
  * Compose Spec than this app does.
  *
- * The supported subset is exactly the one in `dev/notes/v3-docker-streamline-plan.md` §1:
+ * The supported subset is exactly the one in `docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)` §1:
  *
  *   services.<name>.{image, environment, volumes, ports, labels, healthcheck, command,
  *                    working_dir, init}  + platform, restart  (see SERVICE_KEYS)

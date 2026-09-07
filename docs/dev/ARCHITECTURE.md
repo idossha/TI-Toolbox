@@ -15,7 +15,7 @@ do not renumber them. [ROADMAP.md](ROADMAP.md) records verification and remainin
 | Verification | Vitest and hidden Playwright/Electron runs | State, geometry and drawing-buffer assertions detect failures that a screenshot impression cannot establish. |
 
 Versions and the dependency roster are authoritative in `desktop/package.json` and its lockfile.
-The detailed visual contract is [desktop/DESIGN.md](../desktop/DESIGN.md); this document owns the
+The detailed visual contract is [docs/dev/DESIGN.md](../docs/dev/DESIGN.md); this document owns the
 lifetime and integration guarantees that cross its sections. Native runtime and container procedures
 remain in [the desktop manual](wiki/desktop-app.md) and [desktop/README.md](../desktop/README.md).
 
@@ -121,7 +121,7 @@ all release-platform CI or real scientific workflows have passed.
 ## 6. Project overview, batch execution, the shared terminal, the guide and the Viewer
 
 *Added 2026-09-05; refines §§2–5 and reverses the landing-page and subject-coupled-scene rules of
-desktop/DESIGN.md §§9–10. Rationale in [DECISIONS.md](DECISIONS.md).*
+docs/dev/DESIGN.md §§9–10. Rationale in [DECISIONS.md](DECISIONS.md).*
 
 **`GET /api/catalog/overview` → `Overview` is the project Overview page's single read.** It is the
 one catalog endpoint that aggregates across subjects; every other catalog route stays per-subject
@@ -236,7 +236,7 @@ running install would update itself to" cannot disagree about which release is i
 and `DELETE /api/tetravox/{version}`. The index is the GitHub Releases API. A download is
 verified against its sha256 before the archive is opened, extraction refuses absolute paths,
 `..` and links (Python 3.11's unfiltered `extractall` writes outside the destination — measured
-in this image, `dev/notes/v3-embed-convergence/u-notes.md`), the manifest's protocol must be in
+in this image, `docs/dev/HISTORY.md § 2026-09-04 (embed convergence)`), the manifest's protocol must be in
 range, and activation is one atomic rename, so a half-extracted bundle is never served. The
 policy (`auto_update`, **default on**) is stored at `<install root>/policy.json`; the lifespan
 task checks at startup and every 24 h (`CHECK_INTERVAL_S`), never on the path to a render, and
@@ -443,7 +443,7 @@ carrying its own subject, and §7.4's shared existing-outputs question.
 *Added 2026-09-06 (NB lane); refines §7. Requirements: the maintainer's ask for "a Jupyter-like
 environment where the TI-Toolbox environment is automatically loaded". The kernel bridge, the
 notebook UI and the mime handling are ported from SUNA (github.com/idossha/SUNA,
-docs/ARCHITECTURE.md §16.2/§16.3 there), GPL-3.0, by the same author. Rationale in
+docs/dev/ARCHITECTURE.md §16.2/§16.3 there), GPL-3.0, by the same author. Rationale in
 [DECISIONS.md](DECISIONS.md).*
 
 A **notebook** is an `.ipynb` file under `<project>/code/ti-toolbox/notebooks/`, edited in the

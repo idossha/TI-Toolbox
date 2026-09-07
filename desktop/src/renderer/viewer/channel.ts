@@ -2,7 +2,7 @@
  * The postMessage channel to one Tetravox embed — **one message layer for every host in the app**.
  *
  * There are up to four embeds alive at once now: the Viewer page's, and the run pages' three scene
- * panes (plan of record `dev/notes/v3-embed-convergence-plan.md`, decision E6). They share this
+ * panes (plan of record `docs/dev/HISTORY.md § 2026-09-04 (embed convergence)`, decision E6). They share this
  * file and `EmbedFrame.tsx`, deliberately: a second copy of the handshake, the id correlation and
  * the teardown is a second place for "the frame reloaded and nobody re-sent the scene" to be wrong,
  * and the two would drift the first time one of them was fixed.

@@ -455,7 +455,8 @@ def test_the_startup_check_does_not_delay_health(project, root, baked, monkeypat
             # moving the check off `run_in_threadpool` onto the event loop did **not** make this
             # fail (measured -- the run took 8.8 s instead of 3.3 s, and every health sample was
             # still under 10 ms). So this asserts the property, and the evidence that it holds
-            # under a real uvicorn is the container measurement in dev/notes/.../AU.md §gates:
+            # under a real uvicorn is the container measurement in
+            # docs/dev/HISTORY.md § 2026-09-05/06 (Tetravox auto-update):
             # eight samples straight after a reload, worst 9.3 ms, while the startup check was
             # demonstrably running (its outcome timestamp lands mid-window).
             elapsed = []

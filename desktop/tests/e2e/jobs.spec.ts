@@ -417,7 +417,7 @@ test("uses the width: no pane exists without content, and the detail column hold
   // 85%, whatever job was selected): `JobDetailPane`'s "Summary" tab was a fixed ~8-row
   // DefinitionList with nothing below it, leaving roughly the bottom half of the 736px pane blank.
   // Fixed (this lane) with the console excerpt the wireframe's own Jobs detail always called for
-  // (`dev/notes/v3-ui-program/wireframes.md` §8) — measured 24.2% here after the fix.
+  // (`docs/dev/wireframes.md` §8) — measured 24.2% here after the fix.
   expect(deadSelected.ratio, `jobs dead space with a job selected: ${JSON.stringify(deadSelected)}`).toBeLessThanOrEqual(0.25);
   // The container, not a wait for its query to settle: `getJobLog` (pre-existing, unmodified by
   // this fix — the Raw log tab has called it since before this lane) intermittently aborts against

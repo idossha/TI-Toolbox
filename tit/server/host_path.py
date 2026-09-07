@@ -11,7 +11,7 @@ docker-compose.v3.yml`` interpolates it into the ``volumes:`` entry only), so ev
 answered ``host_path: null`` -- while the very same container carried the answer twice over,
 in its ``tit.host_project_dir`` label and in the bind mount that produced ``/mnt/<name>``.
 That forced every client that needs a host path to run ``docker inspect`` itself
-(``dev/smoke.sh``, `dev/notes/v3-pipelines/s1-notes.md`).
+(``dev/smoke.sh``, `docs/dev/HISTORY.md § 2026-09-03 (pipelines program)`).
 
 So: the environment variable stays authoritative when it is set, and when it is not, the
 server asks the Docker Engine about *its own container* through the socket the stack already

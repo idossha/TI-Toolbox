@@ -8,14 +8,14 @@ What this pins
     hypothetical: route modules are auto-discovered, so an import-time
     ``assert`` in one of them took the shared dev container down for about four
     minutes on 2026-09-04 and broke the maintainer's ``pnpm dev`` while it was
-    down (``dev/notes/v3-scene-ia-plan.md`` §6 F1).
+    down (``docs/dev/HISTORY.md § 2026-09-04 (scene service)`` §6 F1).
 
 Where the numbers come from
     The 400 ms budget is measured, not guessed: this file's own prober timed
     every route module on 2026-09-04, slowest legitimate ``scene`` at 131 ms in
     the container (``simnibs_python``, ``numpy`` via ``tit.scene.build``) and
     40 ms on the host. The number it must catch is ``import tit.opt`` ->
-    ``simnibs`` at 3 197 ms (``dev/notes/v3-scene-ia/sca-notes.md`` §A4).
+    ``simnibs`` at 3 197 ms (``docs/dev/HISTORY.md § 2026-09-04 (scene service)`` §A4).
     Reproduce with ``python3 dev/route_import_guard.py`` (host) or
     ``docker exec <container> bash -lc 'simnibs_python
     /ti-toolbox/dev/route_import_guard.py --repo /ti-toolbox --python

@@ -26,7 +26,7 @@ import {
  * 2. DICOM→NIfTI onboarding of `sub-102` (matrix §3's canonical "creates a new subject" row —
  *    sourcedata DICOMs, no BIDS dir yet). Previously unreachable from this page at all: an earlier
  *    lane found `getSubjects()` never listed a sourcedata-only subject (`catalog.list_subjects`
- *    was m2m/BIDS-only). Lane FX5 (`dev/notes/v3-pipelines-program.md` §7) made
+ *    was m2m/BIDS-only). Lane FX5 (`docs/dev/HISTORY.md § 2026-09-03 (pipelines program)` §7) made
  *    `tit.catalog.list_subjects`/`subject_detail` also list a sourcedata-only subject (with
  *    `has_sourcedata: true`, `has_raw: false`), so `sub-102` now appears in this page's own batch
  *    table (with a "not converted" chip) and the DICOM stage can be planned and run for it.
@@ -116,7 +116,7 @@ test("tissue analysis on sub-101: accepted, started, and completed with a real a
 
   // The maintainer's brief: "look at the artifact it creates". `outputsTree.ts` has no results-tree
   // node kind for tissue analysis (only simulation/flex/ex/mex/analysis/report), and the trailing
-  // `report` job every `pre` group plans (F0's known-broken kind — dev/notes/v3-pipelines-program.md
+  // `report` job every `pre` group plans (F0's known-broken kind — docs/dev/HISTORY.md § 2026-09-03 (pipelines program)
   // §0) would be what turns this run into a Results-visible report, so a "new node in Results"
   // assertion here would fail on F0's bug rather than on anything this lane owns. Assert on the
   // job's own reported artifacts existing on disk instead — the thing this behaviour actually is.

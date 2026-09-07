@@ -29,7 +29,7 @@ export function offscreenEnv(env: NodeJS.ProcessEnv = process.env): Record<strin
 }
 
 /**
- * Defect 1 (`dev/notes/v3-scene-ia/critic-notes.md` §5a/§7.2, fix-round lane FIX-C): `npx
+ * Defect 1 (`docs/dev/HISTORY.md § 2026-09-04 (scene service)` §5a/§7.2, fix-round lane FIX-C): `npx
  * playwright test`'s `default` project starts exactly one `tests/mock-server/server.mjs` process
  * for the WHOLE invocation (`playwright.config.ts`'s `webServer`, `workers: 1`), so a job an
  * earlier spec FILE created and never itself drove to a terminal state keeps its exclusivity slot

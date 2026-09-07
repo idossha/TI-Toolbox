@@ -3,7 +3,7 @@
  *
  * `viewer/store.ts` is a few KB of postMessage plumbing over the Tetravox Embed's iframe (the
  * embed itself ships inside the container image, not this bundle — D1/D3,
- * `dev/notes/v3-docker-streamline-plan.md`), so importing it here is cheap either way. The lazy
+ * `docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)`), so importing it here is cheap either way. The lazy
  * fetch is kept anyway for the chunking property it still gives: through `import.meta.glob`,
  * whose loader Vite turns into the same dynamic chunk the Viewer page itself uses, the module
  * loads only while a page that declares `PageDef.viewer` is mounted. Off that page the bar reads

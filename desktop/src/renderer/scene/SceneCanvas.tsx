@@ -73,7 +73,7 @@ import "./scene.css";
  * 2026-09-04 and three lanes paid for it: a `--project=real` scene spec needs these hooks and does
  * not need the gallery, so the build it asked for shipped a whole `dev/` route it never opened,
  * and when someone built without the flag the failure read "Design gallery heading not found"
- * (`dev/notes/v3-scene-ia/fix-c-notes.md` open issue 2, `fix-a-notes.md` §5.5). `VITE_INCLUDE_GALLERY`
+ * (`docs/dev/HISTORY.md § 2026-09-04 (scene service)` open issue 2, `fix-a-notes.md` §5.5). `VITE_INCLUDE_GALLERY`
  * still works on its own for the gallery, and `pree2e` sets both.
  */
 export const SCENE_DEBUG =

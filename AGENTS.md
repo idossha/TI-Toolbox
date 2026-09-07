@@ -191,6 +191,67 @@ from tit.reporting import ReportAssembler
 from tit.reporting.generators import SimulationReportGenerator
 ```
 
+## Development source of truth — `docs/dev/`
+
+Everything about how this software is built and why lives in `docs/dev/`. Read the one that
+matches your question; do not restate its content anywhere else.
+
+| File | What it holds |
+|---|---|
+| `docs/dev/ARCHITECTURE.md` | How it is built — the contract. Changing a rule needs a DECISIONS entry in the same commit. |
+| `docs/dev/DECISIONS.md` | Why. Append-only; new entries as **Decision / Why / Cost / Revisit if**. |
+| `docs/dev/ROADMAP.md` | What is next, and the gate table. |
+| `docs/dev/BENCHMARKS.md` | Every measured number, once. |
+| `docs/dev/HISTORY.md` | What happened per program, with the gotchas that exist nowhere else. |
+| `docs/dev/DESIGN.md` | The desktop UI contract (with `design-notes.md`, `wireframes.md`). |
+| `docs/dev/ADR.md` | The numbered table the code cites as "ADR row N". |
+| `docs/dev/RUNBOOK.md` | How to run the smoke harness. |
+| `docs/dev/requirements/` | Dated asks, verbatim. Later wins over earlier. |
+| `docs/dev/SPIKES.md` | Verdicts of work that was never shipped. |
+
+**Where a new fact goes.** A measurement → `BENCHMARKS.md`. A decision → `DECISIONS.md` (plus the
+`ARCHITECTURE.md` edit, same commit). A gate result → the `ROADMAP.md` table, with the command that
+produced it. What happened in a program → `HISTORY.md`. **Never write a per-lane note file** —
+about 120 of them accumulated in eleven days, each citing the others, and no reader could tell
+which were still true.
+
+## Working in a shared worktree
+
+Several agents may be in one worktree at once. These are not style preferences; each one cost a
+lane real work.
+
+- **Stage only your own files.** `git add -A` swept another lane's uncommitted work into the wrong
+  commit three times in one day — the content was right, the attribution was not.
+- **Never `git stash`.** It takes every other lane's work with it.
+- **One Playwright run at a time**, guarded by `/tmp/tit-e2e.lock`. Runs share the mock server on
+  8790 and one `out/`, so a second run's build lands under an executing suite. Never
+  `pkill -f "playwright test"` — it kills whoever else is mid-gate.
+- **`pnpm run pree2e` before any scene spec** (`VITE_SCENE_HOOKS=1`), and a plain `pnpm run build`
+  **last**: the dev container serves `desktop/out/renderer` straight from the worktree, so a plain
+  build before a real run makes specs time out 30 s later with no hint why.
+- **Verify path and filesystem behaviour in the container** (Python 3.11, case-sensitive), never on
+  the macOS host.
+- **Never recreate the maintainer's dev container.** It bind-mounts the worktree for both `tit` and
+  the UI bundle; a recreated one from the plain `docker run` line serves the image's baked copies
+  instead.
+
+## Gate checklist
+
+Run all of it, and report the numbers rather than "green":
+
+```
+npm run typecheck && npm run lint          # in desktop/
+npx vitest run                             # in desktop/
+python3 -m pytest tests/ -q                # repo root
+python3 dev/route_import_guard.py && python3 dev/contracts_check.py
+TIT_E2E_OFFSCREEN=1 npm run e2e:quiet      # full mock suite, serial, under the lock
+npx playwright test --project=real …       # against the dev container
+pnpm run build                             # LAST
+```
+
+`tests/test_scene_guide.py` has one known order-dependent failure in a full run that passes
+standalone; confirm it in isolation rather than treating it as a red.
+
 ## Development Workflow
 
 1. **Feature development**: Discuss in issue before implementing

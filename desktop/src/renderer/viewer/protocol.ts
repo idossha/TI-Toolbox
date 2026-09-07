@@ -10,7 +10,7 @@
  *           the camera", 2026-09-04)
  *
  * TI-Toolbox integrates with Tetravox as a *service*, not as a dependency
- * (`dev/notes/v3-ux-redesign-plan.md` D1/D3): the embed is a directory in the container image and
+ * (`docs/dev/HISTORY.md § 2026-09-02 (UX redesign)` D1/D3): the embed is a directory in the container image and
  * this repo carries no Tetravox source. So the message interfaces below are a verbatim copy of
  * that file's, with exactly two mechanical deviations, both forced by the un-vendoring and both
  * marked `TI DEVIATION` where they occur:
@@ -558,7 +558,7 @@ export const EMBED_MESSAGE_TYPES = [
  * `absPath` is a filesystem path an embed does not have.
  *
  * What `tit.server` actually emits (`tit/viewspec.py::to_tetravox_viewspec`, contract in
- * `dev/notes/v3-docker-streamline/w3a-server-notes.md`) sets **both** `path` and `absPath` to the
+ * `docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)`) sets **both** `path` and `absPath` to the
  * same origin-relative `/api/files/raw/<path>` string, and `fingerprint` to `""`.
  */
 export interface EmbedDatasetRef {

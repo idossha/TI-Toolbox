@@ -214,7 +214,7 @@ describe("mock server: GET/HEAD /api/files/raw/{path}", () => {
   });
 });
 
-// VE (dev/notes/v3-native-panes-external-viewer/VE.md): one resolution, two addressings. `view`
+// VE (docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)): one resolution, two addressings. `view`
 // is what the embed at /tetravox/ is posted; `scene` is the host-path document written to disk.
 describe("POST /api/view/open", () => {
   it("names a file the Tetravox app will treat as a scene, in both path languages", async () => {
@@ -264,7 +264,7 @@ describe("POST /api/view/open", () => {
   });
 });
 
-// D1/D3 (dev/notes/v3-docker-streamline-plan.md): /tetravox/ serves the embed bundle -- the
+// D1/D3 (docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)): /tetravox/ serves the embed bundle -- the
 // deterministic fake-embed fixture by default (TIT_MOCK_EMBED_DIR unset) -- unauthenticated,
 // with its own CSP, never falling back to the renderer's index.html.
 describe("GET /tetravox/*", () => {
@@ -297,7 +297,7 @@ describe("GET /tetravox/*", () => {
   });
 });
 
-// Defect 1 (dev/notes/v3-scene-ia/critic-notes.md §5a/§7.2, fix-round lane FIX-C): one
+// Defect 1 (docs/dev/HISTORY.md § 2026-09-04 (scene service) §5a/§7.2, fix-round lane FIX-C): one
 // `server.mjs` process backs a whole `npx playwright test` invocation (`playwright.config.ts`'s
 // `webServer`), so a job an earlier spec FILE created and never itself drove to a terminal state
 // keeps `isReady()`'s same-(kind,subject) exclusivity slot for every later file too. Server.mjs's

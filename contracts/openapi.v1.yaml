@@ -99,7 +99,7 @@ tags:
       and `/api/files/raw/{path}` entries) for something to view, and write the same document to
       disk with host paths so it can be exported (401/403/404 implied globally -- see the auth/jail
       note in this document's top-level description). D3
-      (dev/notes/v3-docker-streamline-plan.md): the external Freeview/Gmsh launch routes this tag
+      (docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)): the external Freeview/Gmsh launch routes this tag
       used to also cover are removed -- there is no X11 in this runtime any more.
   - name: files
     description: >-
@@ -113,7 +113,7 @@ tags:
     description: >-
       install, activate and remove the embedded viewer bundle served at /tetravox/ (401/403/404
       implied globally -- see the auth/jail note in this document's top-level description).
-      dev/notes/v3-embed-convergence-plan.md decisions E1-E4: the app pins a protocol *range* and
+      docs/dev/HISTORY.md § 2026-09-04 (embed convergence) decisions E1-E4: the app pins a protocol *range* and
       named features rather than a viewer version, so a Tetravox release no longer implies a
       TI-Toolbox release.
   - name: scene
@@ -123,12 +123,12 @@ tags:
       derivatives/ti-toolbox/scene_cache/ (401/403/404 implied globally -- see the auth/jail note
       in this document's top-level description). It is a *form control's* data source, not a
       viewer: no slicing, colormaps, field overlays or screenshots live here
-      (dev/notes/v3-scene-ia-plan.md, decision S1).
+      (docs/dev/HISTORY.md § 2026-09-04 (scene service), decision S1).
   - name: guide
     description: >-
       the fixed guide scene: prebuilt, immutable surfaces, atlas label payloads, legends and EEG-net
       channel positions packaged with the installation and derived from one reference head
-      (desktop/IMPLEMENTATION_PLAN.md R4). It answers with no project bound and no subject selected,
+      (docs/dev/v3-implementation-plan.md R4). It answers with no project bound and no subject selected,
       and its coordinates are `guide-ras` -- an anatomical legend for choosing *names*, never a
       source of coordinates for a research subject's configuration.
 paths:
@@ -958,7 +958,7 @@ paths:
       tags: [catalog]
       summary: Every project Overview fact in one bounded request
       description: >
-        The Overview page's single read (desktop/IMPLEMENTATION_PLAN.md R1). One response
+        The Overview page's single read (docs/dev/v3-implementation-plan.md R1). One response
         carries every subject's presence columns, EEG nets/leadfields, output counts and
         workflow readiness, so the page's request count does not grow with the number of
         subjects, simulations or outputs. Detailed output discovery stays lazy and stays
@@ -1383,7 +1383,7 @@ paths:
       tags: [viewers]
       summary: Write the scene file the host-installed Tetravox desktop app opens
       description: >-
-        V2 (dev/notes/v3-native-panes-external-viewer-plan.md). Builds exactly the ViewSpec
+        V2 (docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)). Builds exactly the ViewSpec
         GET /api/view/{kind} would build for the same selection, rewrites every dataset and
         sidecar path from an /api/files/raw URL to the host's own absolute path, and writes it
         to <project>/code/ti-toolbox/viewer/<name>.tetravox.json -- the compound extension the
@@ -1936,7 +1936,7 @@ paths:
           $ref: "#/components/responses/NotFound"
 
   # ----------------------------------------------------------------------------------- tetravox (v1)
-  # dev/notes/v3-embed-convergence-plan.md, decisions E1-E4. Nothing here auto-installs: every
+  # docs/dev/HISTORY.md § 2026-09-04 (embed convergence), decisions E1-E4. Nothing here auto-installs: every
   # write starts at a request the user made in Settings -> Viewer engine.
   /api/tetravox:
     get:
@@ -1957,7 +1957,7 @@ paths:
       summary: Check the release index for installable embed bundles
       description: >-
         The index is the GitHub Releases API of idossha/tetravox (A2,
-        dev/notes/v3-tetravox-selection-pipeline-plan.md): non-draft, non-prerelease releases
+        docs/dev/HISTORY.md § 2026-09-05/06 (Tetravox auto-update, selection, pipeline canvas)): non-draft, non-prerelease releases
         carrying tetravox-embed-<ver>.tgz plus its .tgz.sha256 and .manifest.json sidecars, the
         protocol read from the manifest asset so the check never downloads a bundle.
         TIT_TETRAVOX_RELEASE_INDEX overrides it for a mirror and accepts either that JSON or a
@@ -2092,7 +2092,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
 
   # -------------------------------------------------------------------------------------- scene (v1)
-  # dev/notes/v3-scene-ia-plan.md §2, decisions S1-S3. Response bodies are plain dicts (the
+  # docs/dev/HISTORY.md § 2026-09-04 (scene service) §2, decisions S1-S3. Response bodies are plain dicts (the
   # pattern every /api/catalog route follows), so the shapes below are stated inline rather
   # than as named components -- there is no server-side Pydantic model for the dump to name.
   /api/scene/manifest:
@@ -2224,7 +2224,7 @@ paths:
       tags: [scene]
       summary: One scene surface (skin or gm) as TVSC1 or GIfTI binary
       description: >-
-        The `tvsc` payload is the `TVSC1` layout frozen in `dev/notes/v3-scene-ia-plan.md` §2.3:
+        The `tvsc` payload is the `TVSC1` layout frozen in `docs/dev/HISTORY.md § 2026-09-04 (scene service)` §2.3:
         a 32-byte header (magic `TVSC`, version 1, `u32` vertexCount, `u32` indexCount, `u32`
         flags, 12 reserved bytes) then `float32` positions in world millimetres and `uint32`
         triangle indices. `format=gii` serves the same vertices and triangles as a GIfTI mesh for
@@ -2251,7 +2251,7 @@ paths:
             `NIFTI_INTENT_TRIANGLE` (int32), `GZipBase64Binary` (a zlib stream), the
             coordinate system declared as `NIFTI_XFORM_SCANNER_ANAT` with an identity
             matrix — which the Tetravox embed reads with no bespoke decoder
-            (`dev/notes/v3-embed-convergence-plan.md` decision E7). Both are built from
+            (`docs/dev/HISTORY.md § 2026-09-04 (embed convergence)` decision E7). Both are built from
             the same vertices and triangles by one build, and the `ETag` names the
             format so one payload can never be revalidated as the other.
           schema: { type: string, enum: [tvsc, gii], default: tvsc }
@@ -2314,7 +2314,7 @@ paths:
             `NIFTI_INTENT_TRIANGLE` (int32), `GZipBase64Binary` (a zlib stream), the
             coordinate system declared as `NIFTI_XFORM_SCANNER_ANAT` with an identity
             matrix — which the Tetravox embed reads with no bespoke decoder
-            (`dev/notes/v3-embed-convergence-plan.md` decision E7). Both are built from
+            (`docs/dev/HISTORY.md § 2026-09-04 (embed convergence)` decision E7). Both are built from
             the same vertices and triangles by one build, and the `ETag` names the
             format so one payload can never be revalidated as the other.
           schema: { type: string, enum: [tvsc, gii], default: tvsc }
@@ -2533,7 +2533,7 @@ paths:
             Also: a volume id with no `labeling_LUT.txt` beside it.
 
   # -------------------------------------------------------------------------------------- guide (v1)
-  # desktop/IMPLEMENTATION_PLAN.md R4. The fixed guide scene: the same shapes /api/scene/* answers
+  # docs/dev/v3-implementation-plan.md R4. The fixed guide scene: the same shapes /api/scene/* answers
   # with, minus every project-dependent part of them. No `subject` parameter, no cache state worth
   # polling, no build -- each response is a read of a file packaged with the installation.
   /api/guide/manifest:
@@ -3108,7 +3108,7 @@ components:
         python: { type: string }
         simnibs: { type: [string, "null"] }
     Capabilities:
-      # D3 (dev/notes/v3-docker-streamline-plan.md): x11_display/freeview/gmsh/freesurfer removed
+      # D3 (docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)): x11_display/freeview/gmsh/freesurfer removed
       # from the runtime entirely; tetravox_embed/fastsurfer replace them.
       type: object
       required: [docker_socket, bpy, jupyter, tetravox_embed, fastsurfer]
@@ -4510,7 +4510,7 @@ components:
           type: array
           items: { type: string }
           description: >-
-            DEPRECATED (D3, dev/notes/v3-docker-streamline-plan.md): the exact argv tail an
+            DEPRECATED (D3, docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)): the exact argv tail an
             external Freeview process would need (to_freeview_args). Kept for one release; no
             route launches Freeview any more (there is no X11 in this runtime).
         scene:

@@ -129,7 +129,7 @@ components:
         python: { type: string }
         simnibs: { type: [string, "null"] }
     Capabilities:
-      # D3 (dev/notes/v3-docker-streamline-plan.md): x11_display/freeview/gmsh/freesurfer removed
+      # D3 (docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)): x11_display/freeview/gmsh/freesurfer removed
       # from the runtime entirely (viewing = the Tetravox embed, no X11 anywhere); tetravox_embed
       # and fastsurfer take their place. The walking-skeleton contract tracks the live runtime's
       # actual capability surface rather than freezing a Phase-0 shape the server no longer has.

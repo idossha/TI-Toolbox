@@ -20,7 +20,7 @@ Legend: [x] built · [~] built, adapted for the v3 job-per-subject model (see no
 - [x] "Convert DICOM files to NIfTI" (default **on**, matching Qt) → `convert_dicom`.
 - [x] "Run FastSurfer segmentation" (default **on**), tooltip → `run_fastsurfer`. FreeSurfer
       `recon-all` and the thalamic-nuclei/hippocampal-subfield subcortical segmentations were
-      removed with the FreeSurfer container (D2, `dev/notes/v3-docker-streamline-plan.md`);
+      removed with the FreeSurfer container (D2, `docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)`);
       `tit.pre.config.migrate_legacy_keys` still reads an old config's `run_recon` and maps it onto
       `run_fastsurfer` with a warning, so a saved v2 config keeps working. Existing
       `derivatives/freesurfer` output on disk is unaffected — every atlas reader still discovers

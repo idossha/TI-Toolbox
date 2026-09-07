@@ -8,7 +8,7 @@ shipped and has been deleted — these verdicts and their numbers are what
 mattered, and this file is the only surviving record of them. Everything below
 was measured on one Apple M2 Mac; no x86_64 or Windows machine was ever used.
 
-Program context: `dev/notes/v3-program-history.md`, section
+Program context: `docs/dev/HISTORY.md`, section
 "2026-09-03 — Native desktop research (parked)".
 
 ## runtime (N0.1) — proven, numerically exact

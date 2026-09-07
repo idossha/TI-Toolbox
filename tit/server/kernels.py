@@ -1,7 +1,7 @@
 """Jupyter kernels, owned by the server process, one per notebook session.
 
 Ported from SUNA's ``python/suna_kernel/bridge.py`` (github.com/idossha/SUNA,
-docs/ARCHITECTURE.md §16.2) — the protocol translation, the nbformat-verbatim
+docs/dev/ARCHITECTURE.md §16.2) — the protocol translation, the nbformat-verbatim
 output rule, the request attribution and the fatal error codes are that file's
 design. What changed is the *topology*.
 

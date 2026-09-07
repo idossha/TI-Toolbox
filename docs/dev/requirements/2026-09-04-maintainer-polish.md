@@ -3,7 +3,7 @@
 These are hard gates for the v3 tab and visualization polishing pass. Hidden Electron tests use the
 mock project and synthetic scenes, with exact state/identity comparisons and measured control
 geometry. The real Tetravox embed supplies rendering evidence. These requirements refine
-[ARCHITECTURE.md](../ARCHITECTURE.md) §§2–4 and desktop/DESIGN.md §§4.4.2 and 10; where an earlier
+[ARCHITECTURE.md](../ARCHITECTURE.md) §§2–4 and docs/dev/DESIGN.md §§4.4.2 and 10; where an earlier
 plan conflicts, these requirements win and the contract is amended with the implementation.
 
 ## Asks, verbatim

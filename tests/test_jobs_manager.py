@@ -418,7 +418,7 @@ def test_cancel_running_job_kills_process(manager):
 def test_cancel_closes_the_log_with_one_readable_line(manager):
     """FX2: a cancelled job's log used to end in PETSc's ten-line "Caught signal number 15 /
     MPI_Abort" block -- even for kinds that run no solver -- so a cancel read as a crash
-    (`dev/notes/v3-pipelines/2026-09-03-smoke.md` open issue 2). The runner cannot write this
+    (`docs/dev/HISTORY.md § 2026-09-03 (pipelines program)` open issue 2). The runner cannot write this
     line itself (SIGTERM's default disposition runs no Python), so the manager writes it once,
     after the process tree is gone."""
     from tit.jobs.manager import CANCEL_NOTE

@@ -1,6 +1,6 @@
 /**
  * Viewer screen — **a source, a file list, and Open** (V1 · VM · VM2,
- * `dev/notes/v3-native-panes-external-viewer/{VX,VM,VM2}.md`).
+ * `docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer){VX,VM,VM2}.md`).
  *
  * V1's brief: *"the viewer tab only acts as the data selection and it actually opens up everything
  * in [an external window] like we have in 2.5.0."* VM read that as room for a composition panel —

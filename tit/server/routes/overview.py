@@ -1,6 +1,6 @@
 """``GET /api/catalog/overview`` -- the project Overview page's one aggregate read.
 
-R1 of ``desktop/IMPLEMENTATION_PLAN.md``. The page this serves replaced the
+R1 of ``docs/dev/v3-implementation-plan.md``. The page this serves replaced the
 Subjects page, and with it a request fan-out that grew with the project: one
 ``/api/catalog/subjects/{id}`` per subject plus five output lists per subject
 plus one analyses list per simulation, capped in the renderer at 25 subjects

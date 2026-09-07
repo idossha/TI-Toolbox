@@ -1,6 +1,6 @@
 """Notebook files under ``code/ti-toolbox/notebooks/`` — read, write, list.
 
-The ``.ipynb`` on disk **is** the document (SUNA docs/ARCHITECTURE.md §16.3).
+The ``.ipynb`` on disk **is** the document (SUNA docs/dev/ARCHITECTURE.md §16.3).
 A notebook the app opens and saves untouched must produce an empty git diff,
 or every notebook in a project becomes a merge conflict the moment two tools
 disagree about whitespace. SUNA reimplements nbformat's serializer in

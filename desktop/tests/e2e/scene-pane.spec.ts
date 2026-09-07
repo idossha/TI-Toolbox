@@ -1,6 +1,6 @@
 /**
  * The run-page scene pane, on the native WebGL2 renderer (plan
- * `dev/notes/v3-native-panes-external-viewer-plan.md`, N1-N4; NR's mock gate).
+ * `docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)`, N1-N4; NR's mock gate).
  *
  * There is not a screenshot in this file. The two claims it exists to pin are the two directions of
  * one selection:

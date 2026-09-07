@@ -13,7 +13,7 @@ kernel that has run the notebook's imports is *holding* the objects, so
 ``tit.<Tab>`` answers from the live namespace. ``jedi`` is already inside
 ipykernel, so there is nothing to install and nothing to keep in sync.
 
-This is SUNA's kernel bridge protocol (docs/ARCHITECTURE.md §16.2 there) with
+This is SUNA's kernel bridge protocol (docs/dev/ARCHITECTURE.md §16.2 there) with
 the pipe swapped: SUNA frames it over a child process's stdio, and TI-Toolbox
 over this socket, because the interpreter that has to run the code is the
 container's and the container is where the server already is.

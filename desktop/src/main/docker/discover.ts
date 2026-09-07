@@ -45,7 +45,7 @@ const DOCKER_CLI_CANDIDATES = ["/usr/local/bin/docker", "/opt/homebrew/bin/docke
  * Well-known `docker` CLI locations, else bare `docker` if `which`/`where` resolves it on PATH,
  * else `null`. `TIT_DOCKER_BIN_FOR_DISCOVERY` is a test-only override -- `docker context inspect`
  * (below) is the only `docker` CLI invocation left anywhere in the app (D4,
- * `dev/notes/v3-docker-streamline-plan.md`; the former `dockerCli.ts` that shelled out for
+ * `docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)`; the former `dockerCli.ts` that shelled out for
  * everything else is deleted), so this module no longer shares its override env var with a
  * sibling CLI-spawning module the way it once did.
  */

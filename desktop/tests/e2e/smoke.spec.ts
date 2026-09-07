@@ -140,7 +140,7 @@ test("launcher connects and the shell renders its chrome around the landing page
   await page.screenshot({ path: join(ARTIFACTS, "subjects.png") });
 
   // The bridge exists but the token never reaches the renderer. Thirteen entries: twelve, plus
-  // `saveFile`, which the Pipeline canvas added (`dev/notes/v3-native-panes-external-viewer/PL.md`)
+  // `saveFile`, which the Pipeline canvas added (`docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)`)
   // because saving renderer-produced text to a file the user picks is a host action and the
   // renderer had no way to do it at all — its `<a download>` on a blob: URL was inert in this
   // shell and reported success anyway.
@@ -208,7 +208,7 @@ test("keyboard shortcuts jump screens and toggle the jobs rail", async () => {
 });
 
 test("the rail's icon/label breakpoint updates on resize even while the Viewer streams (B5's flake)", async () => {
-  // B5 (dev/notes/v3-ui-program/b5-viewer-notes.md §4 finding 2): `NavRail.tsx`'s icon/label
+  // B5 (docs/dev/HISTORY.md § 2026-09-03 (UI program) §4 finding 2): `NavRail.tsx`'s icon/label
   // breakpoint intermittently stayed "icons" after a resize to >=1440 specifically on the Viewer
   // page with a scene already loaded — i.e. while its postMessage channel to the embed is live —
   // never reproduced on a page with no iframe. This reproduces that exact condition end to end.

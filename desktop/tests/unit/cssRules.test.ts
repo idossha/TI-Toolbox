@@ -119,7 +119,7 @@ describe("v2 density — tokens", () => {
   });
 
   it("--canvas is #0b0d10 in BOTH themes: it is defined once on bare :root and never overridden", () => {
-    // Imaging convention (Tetravox docs/ARCHITECTURE.md §13): a light viewport changes what a
+    // Imaging convention (Tetravox docs/dev/ARCHITECTURE.md §13): a light viewport changes what a
     // greyscale T1 and a heat overlay look like. A theme block redefining this would silently
     // break every screenshot of the viewer in light mode.
     expect(root).toMatch(/--canvas:\s*#0b0d10/i);
@@ -145,7 +145,7 @@ describe("v2 density — geometry", () => {
     expect(field).toMatch(/min-height:\s*var\(--row-h\)/);
   });
 
-  // L4 ("nothing overlaps", plan `dev/notes/v3-scene-ia-plan.md` §4): the section header is a
+  // L4 ("nothing overlaps", plan `docs/dev/HISTORY.md § 2026-09-04 (scene service)` §4): the section header is a
   // 28px band on --surface-2 — the same object §4.3 defines for a table header — and it is NOT
   // sticky any more. A sticky header inside the pane's own scroller paints over its own body:
   // measured on the Optimizer at 1280x800, five controls (the Target radios, the atlas combobox

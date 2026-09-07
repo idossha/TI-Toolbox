@@ -36,7 +36,7 @@ export default defineConfig({
     // Served by tit.server at "/" (and by the mock server): asset URLs must be relative.
     base: "./",
     plugins: [react(), tailwindcss()],
-    // No Tetravox settings here any more (D3, dev/notes/v3-docker-streamline-plan.md): the viewer
+    // No Tetravox settings here any more (D3, docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)): the viewer
     // is a released embed bundle served by tit.server at /tetravox/ and mounted in an <iframe>, so
     // its engine, its module workers and its wasm binary are built and shipped by the tetravox
     // repo and never enter this bundle's module graph. What that removed: an `optimizeDeps.exclude`

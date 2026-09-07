@@ -10,7 +10,7 @@ Why this guard exists (the failure it prevents, measured 2026-09-04)
     the file is fixed: lane SCA's module-level ``assert _HEADER.size ==
     HEADER_SIZE`` (with a 28-byte format string) took the container down for
     **~4 minutes** and broke the maintainer's ``pnpm dev`` while it was down
-    (``docs/ARCHITECTURE.md``, ``dev/notes/v3-program-history.md``,
+    (``docs/dev/ARCHITECTURE.md``, ``docs/dev/HISTORY.md``,
     2026-09-04). Import-time filesystem work is the same class of bug
     one step quieter: it makes every reload slower, and it fails on a machine
     where the file is absent -- for a module that is imported before any

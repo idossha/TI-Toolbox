@@ -10,7 +10,7 @@
  * `tests/unit/docker-engine-frames.test.ts` can feed them arbitrary chunk splits (a frame's
  * 8-byte header split across two chunks, a payload split mid-way, three NDJSON objects arriving
  * in one chunk, one line arriving in two chunks) without a socket anywhere in the test — see
- * `dev/spikes/native/docker/REPORT.md` §"framing edge cases" for the exact cases exercised.
+ * `docs/dev/SPIKES.md` §"framing edge cases" for the exact cases exercised.
  */
 
 export type LogStreamName = "stdin" | "stdout" | "stderr";

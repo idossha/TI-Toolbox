@@ -114,7 +114,7 @@ def _scene_subject(pm, subject: str) -> str:
 
     Every route calls this first, so all six give one answer to a
     subject-level question. What it prevents, measured on Dataset 000 (lane
-    SCC, ``dev/notes/v3-scene-ia/scc-notes.md`` §6.3):
+    SCC, ``docs/dev/HISTORY.md § 2026-09-04 (scene service)`` §6.3):
 
     * ``sub-102`` is listed by ``GET /api/catalog/subjects`` and by the app's
       Subjects table -- its DICOMs are staged under ``sourcedata/`` -- but not

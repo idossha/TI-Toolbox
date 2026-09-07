@@ -79,7 +79,7 @@ def test_list_subjects(pm: PathManager) -> None:
     ]
 
 
-# ── sourcedata-only subjects (lane FX5: dev/notes/v3-pipelines-program.md) ──────────────────
+# ── sourcedata-only subjects (lane FX5: docs/dev/HISTORY.md § 2026-09-03 (pipelines program)) ──────────────────
 
 
 def test_sourcedata_only_subject_appears_in_list_subjects(tmp_path: Path) -> None:

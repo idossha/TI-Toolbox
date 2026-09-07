@@ -24,9 +24,9 @@ commands:
 
 jobs:
 
-  # v3 image build + smoke (docs/ARCHITECTURE.md; dev/notes/v3-program-history.md 2026-09-03).
+  # v3 image build + smoke (docs/dev/ARCHITECTURE.md; docs/dev/HISTORY.md 2026-09-03).
   #
-  # KNOWN RUNTIME PROBLEM (VE, 2026-09-06, dev/notes/v3-program-history.md 2026-09-06).
+  # KNOWN RUNTIME PROBLEM (VE, 2026-09-06, docs/dev/HISTORY.md 2026-09-06).
   # This job used to build the *layered* recipe (Dockerfile.ti-toolbox.layered, FROM
   # idossha/simnibs:v2.5.0) precisely so it would be CI-tractable: pull ~6 GB, build in
   # minutes. The maintainer deleted that recipe, so `build.sh` now has one recipe and this
@@ -41,7 +41,7 @@ jobs:
   # provisioned, the job moves to a nightly/release trigger instead of every push, or a
   # published base image is reintroduced to build from. It is left declared rather than
   # deleted so the gap is visible in CI rather than only in a note. See
-  # dev/notes/v3-program-history.md (2026-09-03, Docker streamline) for the original reasoning.
+  # docs/dev/HISTORY.md (2026-09-03, Docker streamline) for the original reasoning.
   #
   # `ubuntu-2204:current` is an x86_64 machine, so this build and its smoke run natively
   # (no QEMU emulation) — unlike a build on Apple Silicon, this is a legitimate place to
