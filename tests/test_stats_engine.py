@@ -313,6 +313,59 @@ class TestTtestInd:
         with pytest.raises(ValueError, match="alternative must be"):
             ttest_ind(data, n_resp=2, n_non_resp=2, alternative="bogus")
 
+    @pytest.mark.unit
+    def test_singleton_group_is_defined(self):
+        """A 2-vs-1 design has df = 1 and a finite t; it is not degenerate.
+
+        Regression: the pooled variance was built as ``(n - 1) * np.var(x, ddof=1)``, and for a
+        group of one that is ``0 * nan``, i.e. ``nan``. Every voxel of a 2-vs-1 group comparison
+        came back ``nan``, was dropped as "zero within-group variance", and the run died with
+        "No voxel could be tested" having written nothing but its log.
+        """
+        data = np.array([[10.0, 12.0, 1.0]])
+        t, p = ttest_ind(data, n_resp=2, n_non_resp=1)
+        assert np.isfinite(t[0])
+        assert np.isfinite(p[0])
+        # Hand-checked: pooled var = ((10-11)^2 + (12-11)^2 + 0) / (2 + 1 - 2) = 2.
+        # se = sqrt(2 * (1/2 + 1/1)) = sqrt(3); t = (11 - 1) / sqrt(3).
+        assert t[0] == pytest.approx(10.0 / np.sqrt(3.0))
+
+    @pytest.mark.unit
+    def test_singleton_group_matches_scipy(self):
+        """The 2-vs-1 t and p agree with ``scipy.stats.ttest_ind`` on the same samples."""
+        resp = np.array([0.4, 0.9])
+        non_resp = np.array([0.15])
+        t, p = ttest_ind(np.array([[*resp, *non_resp]]), n_resp=2, n_non_resp=1)
+        ref = scipy.stats.ttest_ind(resp, non_resp, equal_var=True)
+        assert t[0] == pytest.approx(float(ref.statistic))
+        assert p[0] == pytest.approx(float(ref.pvalue))
+
+    @pytest.mark.unit
+    def test_singleton_group_with_constant_other_group_is_degenerate(self):
+        """A 2-vs-1 design whose *pair* is constant still has no variance to test with."""
+        data = np.array([[2.0, 2.0, 1.0]])
+        t, p = ttest_ind(data, n_resp=2, n_non_resp=1)
+        assert np.isposinf(t[0])
+        assert p[0] == pytest.approx(0.0)
+
+    @pytest.mark.unit
+    def test_singleton_groups_survive_ttest_voxelwise(self):
+        """The 2-vs-1 path reaches ``ttest_voxelwise`` with a non-empty ``valid_mask``.
+
+        The end-to-end shape of the bug: with every voxel ``nan`` the mask emptied and the
+        function raised, so the group-comparison run wrote no maps at all.
+        """
+        responders = np.zeros((2, 1, 1, 2))
+        non_responders = np.zeros((2, 1, 1, 1))
+        responders[0, 0, 0, :] = [0.4, 0.9]
+        non_responders[0, 0, 0, :] = [0.15]
+        responders[1, 0, 0, :] = [0.2, 0.3]
+        non_responders[1, 0, 0, :] = [0.25]
+        p_values, t_stats, valid_mask = ttest_voxelwise(responders, non_responders)
+        assert valid_mask.sum() == 2
+        assert np.isfinite(t_stats[valid_mask]).all()
+        assert (p_values[valid_mask] <= 1.0).all()
+
 
 # ─── ttest_rel ────────────────────────────────────────────────────────────
 

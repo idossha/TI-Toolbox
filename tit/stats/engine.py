@@ -337,12 +337,23 @@ def ttest_ind(test_data, n_resp, n_non_resp, alternative="two-sided"):
 
     resp_means = np.mean(resp_data, axis=1)
     non_resp_means = np.mean(non_resp_data, axis=1)
-    resp_vars = np.var(resp_data, axis=1, ddof=1)
-    non_resp_vars = np.var(non_resp_data, axis=1, ddof=1)
 
-    numerator = (n_resp - 1) * resp_vars + (n_non_resp - 1) * non_resp_vars
+    # Pooled variance from each group's SUM OF SQUARED DEVIATIONS, not from
+    # ``(n - 1) * np.var(..., ddof=1)``.
+    #
+    # The two are algebraically the same for n >= 2, but a group of ONE subject makes
+    # ``np.var(x, ddof=1)`` a 0/0 ``nan``, and ``(n - 1) * nan`` is ``0 * nan == nan``, not the
+    # 0 the pooled estimator calls for. So every voxel of a 2-vs-1 design came out ``nan``,
+    # was counted as degenerate by ``ttest_voxelwise`` ("... 0 perfectly separated, N constant"),
+    # emptied ``valid_mask``, and the run died with "No voxel could be tested" having written
+    # nothing but its log — a design that is under-powered but perfectly well defined
+    # (df = n1 + n2 - 2 = 1) reported as data with no variance in it. Summing the deviations
+    # gives the singleton group its true contribution, which is exactly zero.
+    resp_ss = np.sum((resp_data - resp_means[:, None]) ** 2, axis=1)
+    non_resp_ss = np.sum((non_resp_data - non_resp_means[:, None]) ** 2, axis=1)
+
     denominator = n_resp + n_non_resp - 2
-    pooled_vars = numerator / denominator
+    pooled_vars = (resp_ss + non_resp_ss) / denominator
 
     se_diff = np.sqrt(pooled_vars * (1 / n_resp + 1 / n_non_resp))
     t_stats = _safe_t(resp_means - non_resp_means, se_diff)
