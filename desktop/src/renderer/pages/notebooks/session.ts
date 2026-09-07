@@ -77,6 +77,9 @@ interface MetaState {
 
 const useMetaStore = create<MetaState>(() => ({ byName: {} }));
 
+/** The meta store itself, so a unit test can read `dirty` without a React tree. */
+export const useNotebookMetaStoreForTests = useMetaStore;
+
 export function useNotebookMeta(name: string): NotebookMeta {
   return useMetaStore((s) => s.byName[name] ?? EMPTY_META);
 }
@@ -133,6 +136,12 @@ export class Session {
   private queries = new Map<string, (event: KernelEvent) => void>();
   private autosave: ReturnType<typeof setTimeout> | null = null;
   private saving: Promise<boolean> | null = null;
+  /** A save queued behind the in-flight one because edits arrived mid-flight. */
+  private followUp: Promise<boolean> | null = null;
+  /** Bumped by every edit. What "the document has moved on" is measured against. */
+  private revision = 0;
+  /** The highest revision a PUT has actually written. */
+  private savedRevision = 0;
   /** The last deleted cell and where it was; one slot, like Jupyter's. */
   private deleted: { cell: Cell; index: number } | null = null;
 
@@ -158,12 +167,31 @@ export class Session {
       this.autosave = null;
     }
     // One save at a time: two PUTs of the same mutable document racing is how
-    // the older one wins and the author's last edit disappears.
-    if (this.saving !== null) return this.saving;
+    // the older one wins and the author's last edit disappears. But *joining*
+    // the in-flight one is not enough — an edit made while it was in flight is
+    // not in the body it already sent, so a caller that joined it would be told
+    // the notebook is written when the newest text never left the app. Queue a
+    // second write instead, and let flush() wait on that.
+    if (this.saving !== null) {
+      if (this.followUp === null) {
+        const chained = this.saving.then(() =>
+          this.revision > this.savedRevision ? this.save() : true,
+        );
+        this.followUp = chained;
+        void chained.finally(() => {
+          if (this.followUp === chained) this.followUp = null;
+        });
+      }
+      return this.followUp;
+    }
+    const revision = this.revision;
     const document = this.nb;
     this.saving = saveNotebook(this.name, document)
       .then(() => {
-        patch(this.name, { dirty: false });
+        this.savedRevision = revision;
+        // Only the revision this PUT carried is clean. A later edit keeps the
+        // notebook dirty, so the queued write above still has a reason to run.
+        if (this.revision === revision) patch(this.name, { dirty: false });
         return true;
       })
       .catch((error: unknown) => {
@@ -194,7 +222,7 @@ export class Session {
 
   /** A save is queued or in flight — what a navigation guard has to wait on. */
   get pendingSave(): boolean {
-    return this.autosave !== null || this.saving !== null;
+    return this.autosave !== null || this.saving !== null || this.followUp !== null;
   }
 
   /**
@@ -214,6 +242,7 @@ export class Session {
   }
 
   markDirty(): void {
+    this.revision += 1;
     bump(this.name, { dirty: true });
     if (this.autosave !== null) clearTimeout(this.autosave);
     this.autosave = setTimeout(() => {
