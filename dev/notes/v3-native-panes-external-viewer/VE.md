@@ -318,6 +318,25 @@ Open                         1 request, click -> response 22 ms
 The old spec asserted `dryRun > 0` on an edit and passed; it now asserts `0` requests. That
 inversion is the fail-first evidence for the client half.
 
+**And on the real system** — the live dev container `ti-toolbox-fad740e5-tit-1` (emulated amd64,
+this worktree mounted, `sub-ernie` / `L_Insula`, 100 MB of datasets), over HTTP, five consecutive
+`POST /api/view/open`:
+
+```
+#1  2.280912s      <- cold: the five volumes are read once
+#2  0.005515s
+#3  0.005395s
+#4  0.004574s
+#5  0.003940s      <- ~580x
+```
+
+That is the number the maintainer feels, and it is larger than the host measurement because the
+container is emulated. The same response carried both addressings correctly —
+`view` `/api/files/raw/mnt/000/…`, `scene` `/Users/idohaber/datasets/000/…`, same dataset ids in the
+same order, `host_path` resolved through the project mount — and `GET /api/capabilities` reported
+`tetravox_embed` **available, 0.4.0, protocol 2, source "installed"**, which is the restored
+capability answering live from the container rather than from a unit test.
+
 
 ### 4.7 Three follow-ups, and the one that was a real bug
 
