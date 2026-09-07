@@ -1051,6 +1051,243 @@ def viewer_candidates(
     return unique
 
 
+# ── the composition tree (2026-09-07) ────────────────────────────────────────
+#
+# Maintainer: *"please change the menu such that there is subject and then it kind of like shows
+# two little branches with the anatomy and then there is a simulation section where they can
+# choose the different simulations -- they can potentially choose multiple -- and then they choose
+# analysis output; and in each one the user should be able to choose what input they want for each
+# stage ... It depends on what is available and what is selected, but it should be a continuous
+# integrated thing instead of what we have right now."*
+#
+# `viewer_candidates` above already knows every file a scene can use; what it does not do is say
+# what *stage* a file belongs to, whether it is available, or why not. That is the difference
+# between a flat "+ Add..." picker and a tree a person can read their whole composition off.
+#
+# Two rules this shares with the rest of the module, and they are what keep the tree honest:
+#
+#  1. **Every node is a real file that exists right now**, with its size -- or it is marked
+#     unavailable with the reason. A tree that offers something which is not there moves the
+#     failure to Open, which is a worse moment to learn it.
+#  2. **No voxel is read.** The tree is drawn on every keystroke in the Menu; it is `os.listdir`
+#     and `os.stat`, nothing more. Windows are decided later, by `build_view`, from the sidecar.
+
+#: Stable id for a node: the container path. Not an index and not a display name -- a composition
+#: saved today has to resolve against a project that has since gained or lost files, and the only
+#: thing that survives that is what the file is called.
+def _tree_node(path: str, *, label: str | None = None, default_on: bool = False) -> dict[str, Any]:
+    try:
+        size: int | None = os.path.getsize(path)
+        available = True
+        reason = None
+    except OSError:
+        size, available, reason = None, False, "file is missing"
+    return {
+        "id": path,
+        "name": os.path.basename(path),
+        "label": label or _scene_display_name(
+            os.path.basename(path),
+            role=_scene_role(path, "heat" if _scene_field_name(os.path.basename(path)) else "grayscale"),
+            field_name=_scene_field_name(os.path.basename(path)),
+        ),
+        "path": path,
+        "kind": "mesh" if _scene_is_mesh(path) else "volume",
+        "bytes": size,
+        "default_on": default_on,
+        "available": available,
+        "reason": reason,
+    }
+
+
+def _anatomy_branch(pm, subject: str, space: str) -> list[dict[str, Any]]:
+    """T1, T2, the head mesh, the reconstruction surfaces and the atlases.
+
+    ``default_on`` marks the T1 (in subject space) or the MNI template (in MNI space): a scene
+    with no anatomy under it is a field floating in black, so exactly one base layer starts ticked
+    and everything else starts off.
+    """
+    out: list[dict[str, Any]] = []
+    m2m = pm.m2m(subject)
+    names = sorted(os.listdir(m2m)) if os.path.isdir(m2m) else []
+    for name in names:
+        candidate = os.path.join(m2m, name)
+        if not os.path.isfile(candidate):
+            continue
+        if not name.endswith((".nii", ".nii.gz", ".mgz", ".msh")):
+            continue
+        out.append(
+            _tree_node(
+                candidate,
+                label=_scene_stem(name),
+                default_on=(space == "subject" and name in ("T1.nii.gz", "T1.nii")),
+            )
+        )
+
+    surfaces = os.path.join(m2m, "surfaces")
+    for path in sorted(glob.glob(os.path.join(surfaces, "*.gii"))):
+        # central/pial/white only: `sphere` and `sphere.reg` are registration targets, and
+        # offering them would be offering a ball.
+        parts = os.path.basename(path).split(".")
+        if len(parts) > 1 and parts[1] in ("central", "pial", "white"):
+            out.append(_tree_node(path, label=_scene_stem(os.path.basename(path))))
+
+    manager = VoxelAtlasManager(
+        fastsurfer_mri_dir=pm.fastsurfer_mri(subject),
+        freesurfer_mri_dir=pm.freesurfer_mri(subject),
+        seg_dir=os.path.join(m2m, "segmentation"),
+        masks_dir=pm.masks(subject),
+    )
+    for display, path in manager.list_atlases():
+        if os.path.isfile(path):
+            out.append(_tree_node(path, label=display))
+
+    if space == "mni":
+        for path in VoxelAtlasManager.detect_mni_atlases(mni_resources_dir()):
+            out.append(_tree_node(path, label=_scene_stem(os.path.basename(path))))
+        template = os.path.join(mni_resources_dir(), MNI_TEMPLATE)
+        if os.path.isfile(template):
+            out.append(_tree_node(template, label="MNI152 template", default_on=True))
+    return out
+
+
+def _simulation_branch(pm, subject: str, simulation: str, space: str) -> dict[str, Any]:
+    """One simulation's own outputs, split into what a person picks between.
+
+    ``fields`` are the NIfTI volumes, ``meshes`` the ``.msh`` surfaces, ``electrodes`` the
+    montage overlay. Space matters: a subject-space scene must not offer the MNI copies, because
+    two volumes in different spaces in one scene is a misregistration nobody asked for.
+    """
+    sim_dir = pm.simulation(subject, simulation)
+    fields: list[dict[str, Any]] = []
+    meshes: list[dict[str, Any]] = []
+    electrodes: list[dict[str, Any]] = []
+    for mode in _MODE_DIRS + ("high_Frequency",):
+        for sub, bucket in (
+            ("niftis", fields),
+            ("mesh", meshes),
+            ("montage_imgs", electrodes),
+        ):
+            for path in sorted(glob.glob(os.path.join(sim_dir, mode, sub, "*"))):
+                if not os.path.isfile(path):
+                    continue
+                if not path.endswith((".nii", ".nii.gz", ".mgz", ".msh", ".gii")):
+                    continue
+                if not _in_space(os.path.basename(path), space, is_mesh=_scene_is_mesh(path)):
+                    continue
+                bucket.append(_tree_node(path))
+
+    # The grey-matter-masked field is the one a reader wants first: the whole-head copy is mostly
+    # skull and CSF, where the number is not the thing being reported.
+    for node in fields:
+        if node["name"].lower().startswith("grey_"):
+            node["default_on"] = True
+            break
+    else:
+        if fields:
+            fields[0]["default_on"] = True
+
+    return {
+        "name": simulation,
+        "fields": fields,
+        "meshes": meshes,
+        "electrodes": electrodes,
+    }
+
+
+def _in_space(name: str, space: str, *, is_mesh: bool) -> bool:
+    """Whether *name* belongs in a *space* scene.
+
+    SimNIBS marks the MNI copies in the filename (``..._MNI_MNI_TI_max.nii.gz`` against
+    ``..._subject_TI_max.nii.gz``). Meshes are always subject space -- there is no MNI mesh -- so
+    they are offered in both, which is the honest answer rather than hiding them in MNI mode.
+    """
+    if is_mesh:
+        return True
+    lowered = name.lower()
+    if "_mni_" in lowered or lowered.endswith("_mni.nii.gz"):
+        return space == "mni"
+    if "_subject_" in lowered:
+        return space == "subject"
+    return True
+
+
+def _analysis_branch(pm, subject: str, simulation: str) -> list[dict[str, Any]]:
+    """The analyzer outputs under one simulation: ROI masks, spheres, group and statistic maps."""
+    sim_dir = pm.simulation(subject, simulation)
+    out: list[dict[str, Any]] = []
+    for space_dir in ("Voxel", "Mesh"):
+        root = os.path.join(sim_dir, "Analyses", space_dir)
+        for run in sorted(glob.glob(os.path.join(root, "*"))):
+            if not os.path.isdir(run):
+                continue
+            nodes = [
+                _tree_node(path)
+                for path in sorted(glob.glob(os.path.join(run, "*")))
+                if os.path.isfile(path) and path.endswith((".nii", ".nii.gz", ".mgz", ".msh"))
+            ]
+            if nodes:
+                out.append(
+                    {
+                        "name": os.path.basename(run),
+                        "simulation": simulation,
+                        "space": space_dir.lower(),
+                        "outputs": nodes,
+                    }
+                )
+    return out
+
+
+def viewer_tree(
+    subject: str | None = None,
+    space: str | None = None,
+    simulations: list[str] | None = None,
+) -> dict[str, Any]:
+    """What the Menu's composition tree draws, for one subject.
+
+    *simulations* is what the person has expanded/selected: analyses are listed only for those,
+    because a subject with a dozen simulations has a dozen Analyses directories and listing all of
+    them turns a menu into a file browser. Anatomy is always listed; it is what a scene starts from.
+
+    A read. It opens nothing, writes nothing and reads no voxels.
+    """
+    pm = get_path_manager()
+    space = "mni" if (space or "").lower() == "mni" else "subject"
+    empty = {
+        "subject": subject,
+        "space": space,
+        "anatomy": [],
+        "simulations": [],
+        "analyses": [],
+        "available": False,
+        "reason": None,
+    }
+    if not subject:
+        return {**empty, "reason": "no subject chosen"}
+    if subject not in pm.list_simnibs_subjects():
+        # Named rather than silently empty: "this subject has no head model" is a different
+        # problem from "this subject has no simulations", and the Menu should be able to say which.
+        return {**empty, "reason": f"{subject} has no head model (m2m directory)"}
+
+    chosen = set(simulations or [])
+    all_sims = pm.list_simulations(subject) or []
+    sims = [_simulation_branch(pm, subject, name, space) for name in sorted(all_sims)]
+    analyses: list[dict[str, Any]] = []
+    for name in sorted(all_sims):
+        if chosen and name not in chosen:
+            continue
+        analyses.extend(_analysis_branch(pm, subject, name))
+
+    return {
+        "subject": subject,
+        "space": space,
+        "anatomy": _anatomy_branch(pm, subject, space),
+        "simulations": sims,
+        "analyses": analyses,
+        "available": True,
+        "reason": None,
+    }
+
+
 def _percentiles_from_array(
     data: Any, lo: float, hi: float
 ) -> tuple[float, float] | None:

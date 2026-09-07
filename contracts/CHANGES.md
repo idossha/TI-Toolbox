@@ -852,3 +852,36 @@ with its own cost, locks, ETA line and plan column. No other kind ever did this.
   `main()` and the manager hook both call.
 - The mock server mirrors all of the above (`desktop/tests/mock-server/server.mjs`): no report
   plan row, no report job, and a `pre` job's artifacts now carry its `report.html`.
+
+## 2026-09-07 — feat:viewer — the composition tree, saved compositions and saved scenes
+
+Maintainer, on the Viewer Menu's `Type / Subject / Simulation / Field / Space` card: *"please
+change the menu such that there is subject and then it kind of like shows two little branches with
+the anatomy and then there is a simulation section ... At the end they could choose to save it as a
+JSON for future reproducibility. Also we should be integrating scene saving ... and we should be
+very opinionated about that and save it in the Tetravox [scene format]."*
+
+Seven new paths, all under the existing `viewers` tag and all served by
+`tit/server/routes/viewer_library.py`:
+
+- `GET /api/viewer/tree` — anatomy, simulations and analyses for one subject, as the Menu draws
+  them. `simulations` repeats and says which are expanded, so analyses are listed only for those.
+  Every node carries its size and an `available`/`reason` pair; the id is the **container path**,
+  because a composition saved today has to resolve against a project that has since gained or lost
+  files. Reads no voxels — `listdir` and `stat`, because it is redrawn as a person clicks.
+- `GET`/`PUT`/`DELETE /api/viewer/compositions[/{name}]` — *what a person chose*. Unknown keys are
+  kept, deliberately: the tree's vocabulary will grow and a server that rejected new keys would
+  make every Menu change a two-repository change.
+- `GET`/`PUT`/`DELETE /api/viewer/scenes[/{name}]` and `GET /api/viewer/scenes/suggest/name` —
+  *what a person was looking at*: the embed's own `serialize` reply, written **verbatim** as
+  `scenes/<slug>.tetravox.json` with a PNG thumbnail and a metadata file under the same stem. The
+  suffix is not negotiable — the Tetravox app routes any other suffix as a *dataset* and tries to
+  read the JSON as a volume, silently (the same trap `_SCENE_SUFFIX` documents).
+
+New schemas: `ViewerTree`, `ViewerTreeNode`, `ViewerTreeSimulation`, `ViewerTreeAnalysis`,
+`ViewerComposition`, `SavedScene`. Nothing existing changed shape, so no client migration.
+
+The `413` on `PUT /api/viewer/scenes/{name}` is declared on the route rather than only raised:
+`dev/contracts_check.py` holds the server's OpenAPI to being a superset of the hand-written
+contract, and a status a client is told to expect but the document never mentions is exactly the
+drift that gate exists to catch.

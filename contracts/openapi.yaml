@@ -1504,6 +1504,258 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/viewer/tree:
+    get:
+      tags: [viewers]
+      summary: What one subject offers the Menu's composition tree
+      description: >-
+        The Menu is a tree, not a row of dropdowns (2026-09-07): a subject, then Anatomy,
+        Simulations and Analyses, each listing the inputs it actually has. Availability is driven
+        by the catalog and by what is on disk right now -- every node is a real file with its size,
+        or it is marked unavailable with the reason, because a tree that offers something which is
+        not there moves the failure to Open. `simulations` repeats and says which ones are
+        expanded, so analyses are listed only for those; a subject with a dozen simulations has a
+        dozen Analyses directories, and listing all of them turns a menu into a file browser.
+        Reads no voxels -- it is os.listdir and os.stat, because it is redrawn as a person clicks.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: subject
+          schema: { type: string }
+        - in: query
+          name: space
+          schema: { type: string, enum: [subject, mni] }
+        - in: query
+          name: simulations
+          schema: { type: array, items: { type: string } }
+          description: which simulations are expanded; absent means all of them
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ViewerTree" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/viewer/compositions:
+    get:
+      tags: [viewers]
+      summary: Saved Viewer compositions
+      description: >-
+        A composition is *what a person chose* -- a subject, a space and the inputs ticked in the
+        tree, by stable id (the container path). Small, diffable, and it survives a re-run of the
+        pipeline: reloading it re-resolves today's choices against whatever is on disk then, and
+        reports what has gone missing rather than failing. Distinct from a saved *scene*, which is
+        what a person was looking at. One unreadable file is skipped, never fatal.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [compositions]
+                properties:
+                  compositions:
+                    type: array
+                    items: { $ref: "#/components/schemas/ViewerComposition" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/viewer/compositions/{name}:
+    put:
+      tags: [viewers]
+      summary: Save one Viewer composition
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ViewerComposition" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ViewerComposition" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          description: a name that cannot become a file (refused rather than silently renamed)
+    delete:
+      tags: [viewers]
+      summary: Forget one composition
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name: { type: string }
+                  deleted: { type: boolean }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: no composition by that name
+  /api/viewer/scenes:
+    get:
+      tags: [viewers]
+      summary: Saved Tetravox scenes
+      description: >-
+        A scene is *what a person was looking at* -- the embed's own serialized ViewSpec, camera
+        and per-layer window included -- written in the app's own format so the standalone
+        Tetravox app opens it by double-click. The suffix `.tetravox.json` is not negotiable: the
+        app routes any other suffix as a dataset and tries to read the JSON as a volume, silently.
+        A PNG thumbnail and a metadata file share the stem. The documents themselves are not
+        returned here (one is megabytes); GET /api/viewer/scenes/{name} is the read. Newest first.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [scenes]
+                properties:
+                  scenes:
+                    type: array
+                    items: { $ref: "#/components/schemas/SavedScene" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/viewer/scenes/suggest/name:
+    get:
+      tags: [viewers]
+      summary: A default name for a new scene
+      description: >-
+        `<subject>_<sim>_<field>_<date>`. Server-side so the name a scene gets does not depend on
+        which client saved it, and so the date is the project's clock rather than a browser's.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: subject
+          schema: { type: string }
+        - in: query
+          name: simulation
+          schema: { type: string }
+        - in: query
+          name: field
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [name]
+                properties:
+                  name: { type: string }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/viewer/scenes/{name}:
+    get:
+      tags: [viewers]
+      summary: One saved scene document
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [name, path, scene]
+                properties:
+                  name: { type: string }
+                  path: { type: string }
+                  scene:
+                    type: object
+                    additionalProperties: true
+                    description: the Tetravox ViewSpec v2 document, verbatim
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: no saved scene by that name
+    put:
+      tags: [viewers]
+      summary: Save the scene the viewer is showing
+      description: >-
+        `scene` is the embed's own `serialize` reply -- the live ViewSpec, with the camera the
+        person left it at and every layer's current window -- and is written verbatim: a server
+        that re-derived any part of it would be recording something other than what was on screen.
+        `thumbnail` is the embed's `screenshot` reply as a data URL; anything that is not a real
+        PNG, or is over the size cap, is dropped rather than refused, because a scene worth
+        keeping is still worth keeping without its picture.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scene]
+              properties:
+                scene:
+                  type: object
+                  additionalProperties: true
+                  description: the embed's serialized ViewSpec; must carry at least one layer
+                thumbnail:
+                  type: [string, "null"]
+                  description: "data:image/png;base64,... from the embed's screenshot reply"
+                subject: { type: [string, "null"] }
+                simulation: { type: [string, "null"] }
+                field: { type: [string, "null"] }
+                space: { type: [string, "null"] }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SavedScene" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "413":
+          description: scene document is implausibly large
+        "422":
+          description: an unusable name, or a scene with no layers
+    delete:
+      tags: [viewers]
+      summary: Forget one saved scene
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name: { type: string }
+                  deleted: { type: boolean }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: no saved scene by that name
   /api/viewer/presets:
     get:
       tags: [viewers]
@@ -3317,6 +3569,104 @@ components:
         kind: { type: string, enum: [volume, mesh] }
         group: { type: string, description: the heading it is listed under }
         bytes: { type: [integer, "null"] }
+    ViewerTreeNode:
+      type: object
+      required: [id, name, label, path, kind, default_on, available]
+      description: >-
+        One input in the Menu's composition tree. `id` is the container path, deliberately: a
+        composition saved today has to resolve against a project that has since gained or lost
+        files, and the only thing that survives that is what the file is called.
+      properties:
+        id: { type: string }
+        name: { type: string }
+        label: { type: string, description: the curated display name, e.g. "GM · TI_max" }
+        path: { type: string }
+        kind: { type: string, enum: [volume, mesh] }
+        bytes: { type: [integer, "null"] }
+        default_on: { type: boolean, description: ticked when the tree is first drawn }
+        available: { type: boolean }
+        reason: { type: [string, "null"], description: why it is unavailable }
+    ViewerTreeSimulation:
+      type: object
+      required: [name, fields, meshes, electrodes]
+      properties:
+        name: { type: string }
+        fields:
+          type: array
+          items: { $ref: "#/components/schemas/ViewerTreeNode" }
+        meshes:
+          type: array
+          items: { $ref: "#/components/schemas/ViewerTreeNode" }
+        electrodes:
+          type: array
+          items: { $ref: "#/components/schemas/ViewerTreeNode" }
+    ViewerTreeAnalysis:
+      type: object
+      required: [name, simulation, space, outputs]
+      properties:
+        name: { type: string }
+        simulation: { type: string }
+        space: { type: string, enum: [voxel, mesh] }
+        outputs:
+          type: array
+          items: { $ref: "#/components/schemas/ViewerTreeNode" }
+    ViewerTree:
+      type: object
+      required: [subject, space, anatomy, simulations, analyses, available]
+      properties:
+        subject: { type: [string, "null"] }
+        space: { type: string, enum: [subject, mni] }
+        anatomy:
+          type: array
+          items: { $ref: "#/components/schemas/ViewerTreeNode" }
+        simulations:
+          type: array
+          items: { $ref: "#/components/schemas/ViewerTreeSimulation" }
+        analyses:
+          type: array
+          items: { $ref: "#/components/schemas/ViewerTreeAnalysis" }
+        available: { type: boolean }
+        reason:
+          type: [string, "null"]
+          description: >-
+            why the tree is empty -- "no subject chosen" and "no head model" are different
+            problems and the Menu has to be able to say which
+    ViewerComposition:
+      type: object
+      required: [name]
+      description: >-
+        What a person chose, by stable id. Unknown keys are kept rather than rejected: the tree's
+        vocabulary will grow, and a server that refused new keys would make every Menu change a
+        two-repository change.
+      additionalProperties: true
+      properties:
+        name: { type: string }
+        version: { type: integer }
+        saved_at: { type: string }
+        subject: { type: [string, "null"] }
+        space: { type: [string, "null"], enum: [subject, mni, null] }
+        inputs:
+          type: array
+          items: { type: string }
+          description: chosen input ids (container paths), in layer order
+        simulations:
+          type: array
+          items: { type: string }
+    SavedScene:
+      type: object
+      required: [name, slug, path]
+      properties:
+        name: { type: string }
+        slug: { type: string }
+        path: { type: string, description: ends in .tetravox.json }
+        host_path: { type: [string, "null"] }
+        bytes: { type: [integer, "null"] }
+        saved_at: { type: [string, "null"] }
+        subject: { type: [string, "null"] }
+        simulation: { type: [string, "null"] }
+        field: { type: [string, "null"] }
+        space: { type: [string, "null"] }
+        has_thumbnail: { type: boolean }
     ViewerPreset:
       type: object
       required: [name]

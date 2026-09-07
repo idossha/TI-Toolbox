@@ -2442,6 +2442,396 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/viewer/tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What one subject offers the Menu's composition tree
+         * @description The Menu is a tree, not a row of dropdowns (2026-09-07): a subject, then Anatomy, Simulations and Analyses, each listing the inputs it actually has. Availability is driven by the catalog and by what is on disk right now -- every node is a real file with its size, or it is marked unavailable with the reason, because a tree that offers something which is not there moves the failure to Open. `simulations` repeats and says which ones are expanded, so analyses are listed only for those; a subject with a dozen simulations has a dozen Analyses directories, and listing all of them turns a menu into a file browser. Reads no voxels -- it is os.listdir and os.stat, because it is redrawn as a person clicks.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    subject?: string;
+                    space?: "subject" | "mni";
+                    /** @description which simulations are expanded; absent means all of them */
+                    simulations?: string[];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ViewerTree"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/viewer/compositions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Saved Viewer compositions
+         * @description A composition is *what a person chose* -- a subject, a space and the inputs ticked in the tree, by stable id (the container path). Small, diffable, and it survives a re-run of the pipeline: reloading it re-resolves today's choices against whatever is on disk then, and reports what has gone missing rather than failing. Distinct from a saved *scene*, which is what a person was looking at. One unreadable file is skipped, never fatal.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            compositions: components["schemas"]["ViewerComposition"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/viewer/compositions/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save one Viewer composition */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ViewerComposition"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ViewerComposition"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description a name that cannot become a file (refused rather than silently renamed) */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        /** Forget one composition */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            name?: string;
+                            deleted?: boolean;
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description no composition by that name */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/viewer/scenes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Saved Tetravox scenes
+         * @description A scene is *what a person was looking at* -- the embed's own serialized ViewSpec, camera and per-layer window included -- written in the app's own format so the standalone Tetravox app opens it by double-click. The suffix `.tetravox.json` is not negotiable: the app routes any other suffix as a dataset and tries to read the JSON as a volume, silently. A PNG thumbnail and a metadata file share the stem. The documents themselves are not returned here (one is megabytes); GET /api/viewer/scenes/{name} is the read. Newest first.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            scenes: components["schemas"]["SavedScene"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/viewer/scenes/suggest/name": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A default name for a new scene
+         * @description `<subject>_<sim>_<field>_<date>`. Server-side so the name a scene gets does not depend on which client saved it, and so the date is the project's clock rather than a browser's.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    subject?: string;
+                    simulation?: string;
+                    field?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            name: string;
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/viewer/scenes/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One saved scene document */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            name: string;
+                            path: string;
+                            /** @description the Tetravox ViewSpec v2 document, verbatim */
+                            scene: {
+                                [key: string]: unknown;
+                            };
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description no saved scene by that name */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /**
+         * Save the scene the viewer is showing
+         * @description `scene` is the embed's own `serialize` reply -- the live ViewSpec, with the camera the person left it at and every layer's current window -- and is written verbatim: a server that re-derived any part of it would be recording something other than what was on screen. `thumbnail` is the embed's `screenshot` reply as a data URL; anything that is not a real PNG, or is over the size cap, is dropped rather than refused, because a scene worth keeping is still worth keeping without its picture.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description the embed's serialized ViewSpec; must carry at least one layer */
+                        scene: {
+                            [key: string]: unknown;
+                        };
+                        /** @description data:image/png;base64,... from the embed's screenshot reply */
+                        thumbnail?: string | null;
+                        subject?: string | null;
+                        simulation?: string | null;
+                        field?: string | null;
+                        space?: string | null;
+                    };
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SavedScene"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description scene document is implausibly large */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description an unusable name, or a scene with no layers */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        /** Forget one saved scene */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            name?: string;
+                            deleted?: boolean;
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description no saved scene by that name */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/viewer/presets": {
         parameters: {
             query?: never;
@@ -4896,6 +5286,74 @@ export interface components {
             /** @description the heading it is listed under */
             group: string;
             bytes?: number | null;
+        };
+        /** @description One input in the Menu's composition tree. `id` is the container path, deliberately: a composition saved today has to resolve against a project that has since gained or lost files, and the only thing that survives that is what the file is called. */
+        ViewerTreeNode: {
+            id: string;
+            name: string;
+            /** @description the curated display name */
+            label: string;
+            path: string;
+            /** @enum {string} */
+            kind: "volume" | "mesh";
+            bytes?: number | null;
+            /** @description ticked when the tree is first drawn */
+            default_on: boolean;
+            available: boolean;
+            /** @description why it is unavailable */
+            reason?: string | null;
+        };
+        ViewerTreeSimulation: {
+            name: string;
+            fields: components["schemas"]["ViewerTreeNode"][];
+            meshes: components["schemas"]["ViewerTreeNode"][];
+            electrodes: components["schemas"]["ViewerTreeNode"][];
+        };
+        ViewerTreeAnalysis: {
+            name: string;
+            simulation: string;
+            /** @enum {string} */
+            space: "voxel" | "mesh";
+            outputs: components["schemas"]["ViewerTreeNode"][];
+        };
+        ViewerTree: {
+            subject: string | null;
+            /** @enum {string} */
+            space: "subject" | "mni";
+            anatomy: components["schemas"]["ViewerTreeNode"][];
+            simulations: components["schemas"]["ViewerTreeSimulation"][];
+            analyses: components["schemas"]["ViewerTreeAnalysis"][];
+            available: boolean;
+            /** @description why the tree is empty -- "no subject chosen" and "no head model" are different problems and the Menu has to be able to say which */
+            reason?: string | null;
+        };
+        /** @description What a person chose, by stable id. Unknown keys are kept rather than rejected: the tree's vocabulary will grow, and a server that refused new keys would make every Menu change a two-repository change. */
+        ViewerComposition: {
+            name: string;
+            version?: number;
+            saved_at?: string;
+            subject?: string | null;
+            /** @enum {string|null} */
+            space?: "subject" | "mni" | null;
+            /** @description chosen input ids (container paths), in layer order */
+            inputs?: string[];
+            simulations?: string[];
+        } & {
+            [key: string]: unknown;
+        };
+        SavedScene: {
+            name: string;
+            slug: string;
+            /** @description ends in .tetravox.json */
+            path: string;
+            host_path?: string | null;
+            bytes?: number | null;
+            saved_at?: string | null;
+            subject?: string | null;
+            simulation?: string | null;
+            field?: string | null;
+            space?: string | null;
+            has_thumbnail?: boolean;
         };
         /** @description VM/VM2. One saved Viewer selection -- the source and, when the person edited it, the file list, exactly as POST /api/view/open takes them, so restoring a preset is replaying a request rather than reconstructing one. `extras`/`overrides` are still accepted for a preset saved by the VM panel that briefly exposed them. */
         ViewerPreset: {
