@@ -18,7 +18,7 @@ const APP_KEYS: [string, string][] = [
   [modShiftKey("V"), "Focus the viewer canvas"],
   [modShiftKey("I"), "Collapse or restore the right pane"],
   [modKey("⏎"), "Run the action bar's primary"],
-  [modKey(","), "Settings (same as ⌘0)"],
+  [modKey(","), "Settings"],
   ["?", "This sheet"],
   ["Esc", "Close the innermost overlay"],
 ];

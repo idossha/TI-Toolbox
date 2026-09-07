@@ -102,21 +102,20 @@ export const NAV_ORDER = [
   "optimizer",
   "analyzer",
   "pipeline",
+  // NB lane: notebooks sit after the pipeline because that is the workflow order
+  // — the canvas exports a notebook, and this is where it lands and runs.
+  "notebooks",
   "results",
   "viewer",
   "jobs",
-  // Notebooks is last, and so is the one workflow row without a ⌘-number: the rail grew to ten
-  // rows, and of them Jobs is the one reached by keyboard many times an hour, so it keeps ⌘9.
-  // The workflow reading of the row is still "after the pipeline" — the canvas exports a
-  // notebook, and this is where it lands and runs — but the rail's tenth slot has no digit to
-  // give, and spending ⌘9 on it would have cost the more-used page its key.
-  "notebooks",
 ] as const;
 
-/** Pinned to the bottom below a spacer. Settings takes ⌘0 (⌘, alias); Help is the `?` sheet only. */
+/** Pinned to the bottom below a spacer. Neither takes a rail digit: Settings is ⌘, and Help is
+ *  the `?` sheet only. */
 export const PINNED_ORDER = ["settings", "help"] as const;
 
-/** ⌘, still opens Settings — one preference, two ways in, both spelled in the `?` sheet. */
+/** ⌘, opens Settings. The rail's digits are ⌘0–⌘9 and all ten belong to workflow rows, so this
+ *  alias is now Settings' only chord, and the `?` sheet spells it. */
 export const SHORTCUT_ALIASES: Record<string, string> = { ",": "settings" };
 
 /**
@@ -163,23 +162,23 @@ export function navSlotOf(id: string, known: ReadonlySet<string> = DISCOVERED): 
 }
 
 /**
- * The ⌘-number for a slot: 1..N across the rail, then the next free digit for Settings, none for
- * Help.
+ * The ⌘-number for a slot: the rail counts **from ⌘0**, so the ten workflow rows are ⌘0 Overview
+ * through ⌘9 Jobs, and nothing else has a number.
  *
- * Settings used to be hard-coded to ⌘9 because the rail was exactly eight rows. Adding the ninth
- * (Pipeline, ⌘6) would have put two pages on ⌘9 — a shortcut that opens whichever page the lookup
- * happened to find first. Deriving it from `NAV_ORDER.length` instead means the rail can grow
- * without ever silently colliding, and Settings keeps its ⌘, alias either way.
+ * A keyboard has ten digits and the rail has ten rows, so they match exactly — but only if the
+ * count starts at zero (maintainer, 2026-09-06: *"start from 0 the rail digit and finish at 9"*).
+ * Counting from 1 spends ⌘0 on Settings, which is not a rail row at all, and then leaves the tenth
+ * row with no key: earlier revisions printed "⌘10", a chord no keyboard can send, and then dropped
+ * it, which cost Jobs its shortcut. Settings keeps ⌘, (`SHORTCUT_ALIASES`) and Help the `?` sheet;
+ * neither is in `NAV_ORDER`, so neither takes a digit from a workflow row.
+ *
+ * An eleventh row would again have no number. That is a real limit of ten digits, not of this
+ * function, and it is `NAV_ORDER`'s job to stay within it.
  */
 export function shortcutForSlot(slot: string | null): string | undefined {
   if (slot === null) return undefined;
   const i = (NAV_ORDER as readonly string[]).indexOf(slot);
-  // There are nine digits and ⌘0 is Settings, so a rail longer than nine rows
-  // has rows with no number. `String(i + 1)` used to return "10" for a tenth
-  // row — a chord no keyboard can send, printed in the rail and the `?` sheet
-  // as though it worked. The rows past the ninth get none, and say none.
-  if (i >= 0) return i < 9 ? String(i + 1) : undefined;
-  if (slot === "settings") return NAV_ORDER.length < 9 ? "9" : "0";
+  if (i >= 0) return i < 10 ? String(i) : undefined;
   return undefined;
 }
 

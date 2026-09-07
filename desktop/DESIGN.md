@@ -916,27 +916,28 @@ group heading told the user a page belonged to a subject when it did not.
 
 | # | page id | label | icon (`lucide-react`) | shortcut | layout |
 |---|---|---|---|---|---|
-| 1 | `overview` | Overview | `LayoutGrid` | ⌘1 | browse |
-| 2 | `preprocess` | Pre-processing | `SquareStack` | ⌘2 | run |
-| 3 | `simulator` | Simulator | `Zap` | ⌘3 | run |
-| 4 | `optimizer` | Optimizer | `Target` | ⌘4 | run |
-| 5 | `analyzer` | Analyzer | `BarChart3` | ⌘5 | run |
-| 6 | `pipeline` | Pipeline | `Workflow` | ⌘6 | run |
-| 7 | `results` | Results | `FolderOpen` | ⌘7 | browse |
-| 8 | `viewer` | Viewer | `Eye` | ⌘8 | bleed |
-| 9 | `jobs` | Jobs | `ListChecks` | ⌘9 | browse |
-| 10 | `notebooks` | Notebooks | `BookOpen` | — (⌘K) | browse |
+| 1 | `overview` | Overview | `LayoutGrid` | ⌘0 | browse |
+| 2 | `preprocess` | Pre-processing | `SquareStack` | ⌘1 | run |
+| 3 | `simulator` | Simulator | `Zap` | ⌘2 | run |
+| 4 | `optimizer` | Optimizer | `Target` | ⌘3 | run |
+| 5 | `analyzer` | Analyzer | `BarChart3` | ⌘4 | run |
+| 6 | `pipeline` | Pipeline | `Workflow` | ⌘5 | run |
+| 7 | `notebooks` | Notebooks | `BookOpen` | ⌘6 | browse |
+| 8 | `results` | Results | `FolderOpen` | ⌘7 | browse |
+| 9 | `viewer` | Viewer | `Eye` | ⌘8 | bleed |
+| 10 | `jobs` | Jobs | `ListChecks` | ⌘9 | browse |
 | — | *(spacer)* | | | | |
-| 0 | `settings` | Settings | `Settings` | ⌘0 (⌘, alias) | run + header |
-| 10 | `help` | Help | `CircleHelp` | — (`?` sheet) | run + header |
+| — | `settings` | Settings | `Settings` | ⌘, | run + header |
+| — | `help` | Help | `CircleHelp` | — (`?` sheet) | run + header |
 
-- **Ten rows, nine digits.** Notebooks (2026-09-06) made the rail ten workflow rows, and since ⌘0 is
-  Settings there are only nine numbers to give out. Notebooks is the row that goes without: it is
-  last in `NAV_ORDER`, reached by ⌘K and its route, so ⌘9 stays on Jobs — the page opened by keyboard
-  many times an hour, where Notebooks is opened deliberately and rarely. The workflow reading is
-  unchanged (the pipeline canvas exports a notebook and this is where it lands and runs); only the
-  digit moved. `shortcutForSlot` returns nothing past the ninth row rather than the `"10"` it used to
-  print, which no keyboard can send. See DECISIONS 2026-09-06 (NB lane, revised by CX5).
+- **Ten rows, ten digits — the rail counts from ⌘0.** Notebooks (2026-09-06) made the rail ten
+  workflow rows, which is exactly how many digits a keyboard has, but only if the count starts at
+  zero (maintainer: *"start from 0 the rail digit and finish at 9"*). So ⌘0 is Overview and ⌘9 is
+  Jobs, and every rail row has a key. Settings is not a rail row and no longer takes a digit: it
+  keeps ⌘, which is now its only chord, and the `?` sheet and the Help tab list it as such.
+  `shortcutForSlot` is the single source — the rail, the palette and both sheets read it — and an
+  eleventh row would again have no number, which is a limit of ten digits, not of the function.
+  See DECISIONS 2026-09-06 (NB lane, revised by CX5).
 - **Optimizer is one page.** `optimizer-flex` and `optimizer-ex` merge into `pages/optimizer`, with
   a `SegmentedControl` **Method ⟨Flex │ Ex │ mEx⟩** as the first row of the work pane and one shared
   `RoiPicker`. Two nav entries were a copy of the PyQt tab strip, not a workflow.

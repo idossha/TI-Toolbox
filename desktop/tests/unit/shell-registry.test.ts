@@ -91,38 +91,36 @@ describe("the rail is NAV_ORDER, not a page's own navGroup (U7)", () => {
   });
 });
 
-describe("the shortcut map (DESIGN.md §9: ⌘1 Overview … ⌘9 Jobs, ⌘0 Settings)", () => {
+describe("the shortcut map (DESIGN.md §9: ⌘0 Overview … ⌘9 Jobs; Settings is ⌘, only)", () => {
   const shortcutOf = (id: string) => pageById(id)?.shortcut;
 
   it("the ⌘-number IS the index in NAV_ORDER, so nav/palette/sheet cannot disagree", () => {
     // Only the first nine: there are nine digits, and ⌘0 is Settings.
     NAV_ORDER.forEach((slot, i) =>
-      expect(shortcutForSlot(slot)).toBe(i < 9 ? String(i + 1) : undefined),
+      expect(shortcutForSlot(slot)).toBe(i < 10 ? String(i) : undefined),
     );
-    // Settings takes the first digit the rail does not: ⌘9 while the rail was eight rows, ⌘0 now
-    // that Pipeline made it nine. Two pages on one number would be a shortcut that opens
-    // whichever the lookup found first.
-    expect(shortcutForSlot("settings")).toBe(NAV_ORDER.length < 9 ? "9" : "0");
+    // Settings is pinned, not a rail row, so it takes no digit at all: the ten digits belong to
+    // the ten workflow rows. Two pages on one number would be a shortcut that opens whichever the
+    // lookup found first.
+    expect(shortcutForSlot("settings")).toBeUndefined();
     expect(shortcutForSlot("help")).toBeUndefined();
     expect(shortcutForSlot(null)).toBeUndefined();
   });
 
-  it("assigns them to today's page ids, with optimizer-flex holding ⌘4", () => {
-    expect(shortcutOf("overview")).toBe("1");
-    expect(shortcutOf("preprocess")).toBe("2");
-    expect(shortcutOf("simulator")).toBe("3");
-    expect(shortcutOf("optimizer") ?? shortcutOf("optimizer-flex")).toBe("4");
-    expect(shortcutOf("analyzer")).toBe("5");
-    expect(shortcutOf("pipeline")).toBe("6");
+  it("assigns them to today's page ids, with optimizer-flex holding ⌘3", () => {
+    expect(shortcutOf("overview")).toBe("0");
+    expect(shortcutOf("preprocess")).toBe("1");
+    expect(shortcutOf("simulator")).toBe("2");
+    expect(shortcutOf("optimizer") ?? shortcutOf("optimizer-flex")).toBe("3");
+    expect(shortcutOf("analyzer")).toBe("4");
+    expect(shortcutOf("pipeline")).toBe("5");
+    expect(shortcutOf("notebooks")).toBe("6");
     expect(shortcutOf("results")).toBe("7");
     expect(shortcutOf("viewer")).toBe("8");
     expect(shortcutOf("jobs")).toBe("9");
-    // The tenth workflow row. Nine digits, and ⌘0 is Settings — so Notebooks is
-    // reached by ⌘K and by its route, and the rail says no number rather than
-    // printing one that cannot be typed. Jobs, not Notebooks, holds ⌘9: it is the
-    // page reached by keyboard many times an hour.
-    expect(shortcutOf("notebooks")).toBeUndefined();
-    expect(shortcutOf("settings")).toBe("0");
+    // Ten rows, ten digits, because the count starts at zero. Settings is not a rail
+    // row, so it has no digit at all — ⌘, is its only chord.
+    expect(shortcutOf("settings")).toBeUndefined();
   });
 
   it("gives no number to a page the rail does not carry, whatever its PageDef declared", () => {
@@ -217,7 +215,7 @@ describe("the viewer flag", () => {
 describe("rail sub-items (PageDef.subNav)", () => {
   it("a sub-item takes no rail slot and no ⌘-number — it is a route inside one page", () => {
     // The rail is still exactly NAV_ORDER. A sub-item that had a slot would also have a number,
-    // and ⌘9 would have moved off Jobs the day the Viewer grew a second row.
+    // and every number after the Viewer would have shifted the day it grew a second row.
     expect(navSlotOf("menu")).toBeNull();
     expect(navSlotOf("tetravox")).toBeNull();
     expect(shortcutForSlot(navSlotOf("tetravox"))).toBeUndefined();
@@ -230,7 +228,7 @@ describe("rail sub-items (PageDef.subNav)", () => {
     const viewerIndex = order.indexOf("viewer");
     expect(viewerIndex).toBeGreaterThanOrEqual(0);
     expect(pageById("viewer")?.shortcut).toBe(shortcutForSlot("viewer"));
-    expect(pageById("viewer")?.shortcut).toBe(String(viewerIndex + 1));
+    expect(pageById("viewer")?.shortcut).toBe(String(viewerIndex));
     // The row after the Viewer is one slot after it, not three.
     expect(order.indexOf("jobs")).toBe(viewerIndex + 1);
   });

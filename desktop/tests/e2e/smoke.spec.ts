@@ -24,11 +24,10 @@ async function railKey(pageId: string): Promise<string | null> {
 /**
  * Press the row's key and assert it landed — or, for a row that has no key, click it and say so.
  *
- * A row CAN have no key, and that is a finding rather than a bug in this file: `shortcutForSlot`
- * hands out ⌘1..⌘9 and then the first free digit to Settings, so a rail of ten workflow rows has
- * one row past the end of the scheme. Jobs is that row today (the Notebooks insertion made it the
- * tenth). Asserting "every row has a key" here would be asserting a decision this spec does not
- * own; asserting "the key the row advertises works" is the property that must hold either way.
+ * A row CAN have no key, and that would be a finding rather than a bug in this file: today
+ * `shortcutForSlot` hands out ⌘0..⌘9 across the rail, so all ten workflow rows have one, but an
+ * eleventh would not. Asserting "every row has a key" here would be asserting a decision this spec
+ * does not own; asserting "the key the row advertises works" is the property that holds either way.
  */
 async function jumpTo(pageId: string): Promise<boolean> {
   const key = await railKey(pageId);
@@ -178,10 +177,10 @@ test("keyboard shortcuts jump screens and toggle the jobs rail", async () => {
 
   const mod = MOD;
 
-  // DESIGN.md §9: ⌘1 Overview · ⌘2 Pre-processing · ⌘3 Simulator · ⌘4 Optimizer · ⌘5 Analyzer ·
-  // ⌘6 Pipeline · ⌘7 Results · ⌘8 Viewer · ⌘9 Jobs · ⌘0 Settings. The number is the page's index in
-  // `registry.ts`'s NAV_ORDER, so the rail, the palette and the `?` sheet cannot disagree — and
-  // Settings takes the first digit the rail does not, which the Pipeline row moved from 9 to 0.
+  // DESIGN.md §9: ⌘0 Overview · ⌘1 Pre-processing · ⌘2 Simulator · ⌘3 Optimizer · ⌘4 Analyzer ·
+  // ⌘5 Pipeline · ⌘6 Notebooks · ⌘7 Results · ⌘8 Viewer · ⌘9 Jobs. The number is the page's index
+  // in `registry.ts`'s NAV_ORDER — counting from zero, so ten digits cover ten rows — which is why
+  // the rail, the palette and the `?` sheet cannot disagree. Settings is not a rail row: ⌘, only.
   await jumpTo("pipeline");
 
   await jumpTo("results");

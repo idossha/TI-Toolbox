@@ -111,8 +111,8 @@ export function useGlobalShortcuts(handlers: ShellShortcuts): void {
         return;
       }
 
-      // ⌘1..⌘N are the rail in order, the next free digit is Settings (⌘0 now that the rail is
-      // nine rows deep), and ⌘, is Settings' alias (DESIGN.md §9).
+      // ⌘0..⌘9 are the rail's ten workflow rows in order — the count starts at zero so ten digits
+      // cover ten rows exactly — and ⌘, is Settings, which is not a rail row (DESIGN.md §9).
       // The number comes from `registry.ts`'s NAV_ORDER, so the rail, the palette and the `?`
       // sheet cannot disagree about which key goes where.
       if (/^[0-9,]$/.test(e.key)) {

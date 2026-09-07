@@ -60,8 +60,9 @@ Not a Qt tab — the PyQt help center had no app-wide shortcut reference, only t
 own "Tips and Shortcuts" section (mouse wheel, right-click-drag, `Ctrl+Wheel`, …), which does not
 carry over: that viewer, and the external Freeview/Gmsh flow it half-described, are both gone in
 v3 (D3). This tab is new copy, sourced from `dev/notes/v3-ui-program/u0-design-notes.md` §4 (Q5,
-confirmed): a `⌘`-number per workflow page in nav order (`⌘1`–`⌘9` today, Overview through Jobs),
-`⌘0` Settings, `?` this page, plus `⌘K`, `⌘J`, `⌘⇧I` and `⌘⇧V`. It complements rather than replaces
+confirmed): a `⌘`-number per workflow page in nav order (`⌘0`–`⌘9` today, Overview through Jobs — the
+rail counts from zero so ten digits cover ten rows), `⌘,` Settings, `?` this page, plus `⌘K`, `⌘J`,
+`⌘⇧I` and `⌘⇧V`. It complements rather than replaces
 the `?` overlay (`app/KeyboardSheet.tsx`) — a page you can browse to versus a sheet you need to
 already know to open. Both derive the rows from `app/registry.ts`'s `NAV_ORDER`, so adding a rail
 row (Pipeline did, in 2026-09) moves the numbers in both places at once.

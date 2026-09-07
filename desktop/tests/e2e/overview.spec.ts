@@ -170,15 +170,15 @@ test("GATE: one overview request renders every subject and every column — at 3
   }
 });
 
-test("GATE: first launch, Cmd+1, the rail and the palette all resolve to Overview; Subject Info does not exist", async () => {
+test("GATE: first launch, Cmd+0, the rail and the palette all resolve to Overview; Subject Info does not exist", async () => {
   // 1. first launch — the app lands here with nothing clicked.
   await connect();
   await expectPage(page, "overview");
 
-  // 2. Cmd+1.
+  // 2. Cmd+0 — the rail counts from zero (DESIGN.md §9), so the first row is ⌘0.
   await gotoPage(page, "settings");
   await expectPage(page, "settings");
-  await page.keyboard.press(`${MOD}+1`);
+  await page.keyboard.press(`${MOD}+0`);
   await expectPage(page, "overview");
 
   // 3. the rail's first row.
