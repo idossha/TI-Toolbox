@@ -1,0 +1,9 @@
+{
+  "ernie/Thalamus": [
+    {
+      "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/TI/montage_imgs/Thalamus_highlighted_visualization.png",
+      "kind": "image",
+      "label": "TI montage"
+    }
+  ]
+}

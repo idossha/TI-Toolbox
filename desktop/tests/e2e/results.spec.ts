@@ -112,7 +112,7 @@ test("a simulation previews its configuration, its files and its report — not 
   await expect(chips.getByText("F8 → P8")).toBeVisible();
 
   // The field files, from the catalog, with their kind badges.
-  const fields = page.getByTestId("results-field-files");
+  const fields = page.getByTestId("results-files");
   await expect(fields).toContainText("TI_max · subject");
   await expect(fields).toContainText("NIfTI");
   await expect(fields).toContainText("mesh");
@@ -205,7 +205,7 @@ test("selecting an ex-search run and an analysis swaps the preview for their tab
   await expect(page.getByText("Ranked montages plot")).toBeVisible();
 
   await page.getByTestId("results-node-analysis:ernie:Thalamus/Thalamus_DK40_TI_max").click();
-  await expect(page.getByTestId("results-analysis-table")).toBeVisible();
+  await expect(page.getByTestId("results-key-numbers")).toBeVisible();
   await expect(page.getByText("Summary table")).toBeVisible();
   await expect(page.getByText("PDF report")).toBeVisible();
 });
@@ -345,7 +345,7 @@ test("hits its §12.3 numbers at 1280x800 and 1440x900, light and dark", async (
       r('[data-testid="results-preview"]'),
       r(".results-preview-body"),
       r(".results-report-frame"),
-      r(".results-preview-artifacts"),
+      r('[data-testid="results-files-section"]'),
     ].join(" | ");
   });
   console.log("results geometry:", geometry);

@@ -77,6 +77,7 @@ const analyses = loadJson("analyses.json");
 const reports = loadJson("reports.json");
 const groupCatalog = loadJson("group_catalog.json");
 const groupStatsDetail = loadJson("group_stats_detail.json");
+const simulationFigures = loadJson("simulation_figures.json");
 const subjectInfo = loadJson("subject_info.json");
 const overviewSmall = loadJson("overview.json");
 const roisSeed = loadJson("rois_seed.json");
@@ -369,6 +370,9 @@ const EXT_FALLBACK = {
 const artifactRegistry = new Map();
 function registerArtifact(virtualPath, file, contentType) {
   if (virtualPath) artifactRegistry.set(virtualPath, { file, contentType });
+}
+for (const list of Object.values(simulationFigures)) {
+  for (const f of list) registerArtifact(f.path, fixturePath("artifacts", "sample.png"), "image/png");
 }
 for (const a of groupStatsDetail.artifacts) {
   if (a.kind === "pdf") registerArtifact(a.path, fixturePath("artifacts", "sample.pdf"), "application/pdf");
@@ -1869,6 +1873,14 @@ route("GET", "/api/catalog/ex-runs/:run/results", (ctx) => {
   const list = exRuns[subject]?.[kind];
   if (!list || !list.some((r) => r.run_name === ctx.params.run)) return json(ctx.res, 404, { detail: "unknown run" });
   json(ctx.res, 200, exResultsCsv[kind]);
+});
+// The pictures a simulation saved of itself (`tit/catalog.py::simulation_figures`): the montage
+// visualisation under `<sim>/<TI|mTI>/montage_imgs/<name>_highlighted_visualization.png`.
+route("GET", "/api/catalog/simulations/:name/figures", (ctx) => {
+  const subject = ctx.url.searchParams.get("subject");
+  const sim = (simulations[subject] ?? []).find((s) => s.name === ctx.params.name);
+  if (!sim) return json(ctx.res, 404, { detail: "unknown subject or simulation" });
+  json(ctx.res, 200, simulationFigures[`${subject}/${ctx.params.name}`] ?? []);
 });
 route("GET", "/api/catalog/analyses", (ctx) => {
   const subject = ctx.url.searchParams.get("subject");

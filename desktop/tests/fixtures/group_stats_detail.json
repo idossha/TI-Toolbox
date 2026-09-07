@@ -1,0 +1,140 @@
+{
+  "type": "group_comparison",
+  "name": "group_comparison_Thalamus_TI_max_20260815",
+  "path": "/mnt/example/derivatives/group/stats/group_comparison_Thalamus_TI_max_20260815",
+  "created": "2026-08-15T12:00:00Z",
+  "status": "ok",
+  "reason": null,
+  "config": [
+    {
+      "label": "Test",
+      "value": "unpaired"
+    },
+    {
+      "label": "Alternative",
+      "value": "two-sided"
+    },
+    {
+      "label": "Cluster statistic",
+      "value": "mass"
+    },
+    {
+      "label": "Cluster-forming p",
+      "value": "0.050"
+    },
+    {
+      "label": "Permutations",
+      "value": "100"
+    },
+    {
+      "label": "Cluster alpha",
+      "value": "0.050"
+    }
+  ],
+  "results": [
+    {
+      "label": "Smallest uncorrected p",
+      "value": "2.06e-08"
+    },
+    {
+      "label": "Testable voxels",
+      "value": "1282385"
+    },
+    {
+      "label": "Voxels at p < 0.05",
+      "value": "49077"
+    },
+    {
+      "label": "Candidate clusters",
+      "value": "26086"
+    },
+    {
+      "label": "Cluster threshold",
+      "value": "30972312.56"
+    },
+    {
+      "label": "Significant clusters",
+      "value": "0"
+    },
+    {
+      "label": "Significant voxels",
+      "value": "0"
+    }
+  ],
+  "groups": [
+    {
+      "name": "Responders",
+      "n": 2,
+      "subjects": [
+        "101",
+        "MNI152"
+      ]
+    },
+    {
+      "name": "Non-Responders",
+      "n": 1,
+      "subjects": [
+        "ernie"
+      ]
+    }
+  ],
+  "image_shape": "(182, 218, 182)",
+  "clusters": {
+    "columns": [
+      "Cluster",
+      "mass",
+      "Size (voxels)",
+      "p",
+      "Verdict"
+    ],
+    "rows": [
+      [
+        12,
+        24346.53,
+        35,
+        1.0,
+        "ns"
+      ],
+      [
+        1,
+        158.39,
+        3,
+        1.0,
+        "ns"
+      ]
+    ]
+  },
+  "log": "/mnt/example/derivatives/group/stats/group_comparison_Thalamus_TI_max_20260815/group_comparison_analysis_20260815_120000.log",
+  "artifacts": [
+    {
+      "path": "/mnt/example/derivatives/group/stats/group_comparison_Thalamus_TI_max_20260815/average_responders.nii.gz",
+      "kind": "nifti",
+      "label": "Group 1 average field"
+    },
+    {
+      "path": "/mnt/example/derivatives/group/stats/group_comparison_Thalamus_TI_max_20260815/difference_map.nii.gz",
+      "kind": "nifti",
+      "label": "Difference map (group 1 \u2212 group 2)"
+    },
+    {
+      "path": "/mnt/example/derivatives/group/stats/group_comparison_Thalamus_TI_max_20260815/pvalues_map.nii.gz",
+      "kind": "nifti",
+      "label": "p-value map (\u2212log10 p)"
+    },
+    {
+      "path": "/mnt/example/derivatives/group/stats/group_comparison_Thalamus_TI_max_20260815/permutation_null_distribution.pdf",
+      "kind": "pdf",
+      "label": "Permutation null distribution"
+    },
+    {
+      "path": "/mnt/example/derivatives/group/stats/group_comparison_Thalamus_TI_max_20260815/analysis_summary.txt",
+      "kind": "text",
+      "label": "Analysis summary"
+    },
+    {
+      "path": "/mnt/example/derivatives/group/stats/group_comparison_Thalamus_TI_max_20260815/group_comparison_analysis_20260815_120000.log",
+      "kind": "log",
+      "label": "group comparison analysis 20260815 120000"
+    }
+  ]
+}

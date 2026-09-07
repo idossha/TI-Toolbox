@@ -3,10 +3,13 @@
     {
       "name": "group_comparison_Thalamus_TI_max_20260815",
       "path": "/mnt/example/derivatives/group/stats/group_comparison_Thalamus_TI_max_20260815",
-      "kind": "group_comparison",
       "field": "TI_max",
-      "subjects": ["ernie", "101"],
-      "created": "2026-08-15T12:00:00Z"
+      "subjects": [
+        "ernie",
+        "101"
+      ],
+      "created": "2026-08-15T12:00:00Z",
+      "type": "group_comparison"
     }
   ],
   "nilearn": [
@@ -23,7 +26,10 @@
       "path": "/mnt/example/derivatives/group/analyses/group_avg_TI_max_DK40_20260817",
       "field": "TI_max",
       "atlas": "DK40",
-      "subjects": ["ernie", "101"],
+      "subjects": [
+        "ernie",
+        "101"
+      ],
       "created": "2026-08-17T15:45:00Z"
     }
   ]
