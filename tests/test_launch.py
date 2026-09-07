@@ -10,6 +10,7 @@ is that the spec cannot drift.
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -411,6 +412,30 @@ def test_python_m_tit_cli_is_runnable():
     assert "--project" in result.stdout, "python -m tit.cli produced no help output"
 
 
+def _skip_without_host_python() -> None:
+    """Skip when the machine has no CPython >= 3.11 that ``loader.sh`` would find.
+
+    ``loader.sh`` is the *host* entry point: it looks for python3.14…python3.11, python3,
+    python on PATH and refuses with a diagnostic when none is a CPython >= 3.11. Inside the
+    SimNIBS container that is exactly the case -- ``python3`` there is 3.10, and the 3.11 is
+    ``simnibs_python``, which is not one of the names loader.sh probes. The script is behaving
+    correctly; the container is simply not a host. Skipping on the script's own precondition
+    keeps this test real everywhere it can run (the host gate does run it) instead of asserting
+    an environment.
+    """
+    for candidate in ("python3.14", "python3.13", "python3.12", "python3.11", "python3", "python"):
+        exe = shutil.which(candidate)
+        if exe is None:
+            continue
+        probe = subprocess.run(
+            [exe, "-c", "import sys; sys.exit(0 if sys.version_info[:2] >= (3, 11) else 1)"],
+            capture_output=True,
+        )
+        if probe.returncode == 0:
+            return
+    pytest.skip("no CPython >= 3.11 on PATH, so loader.sh correctly refuses to run")
+
+
 def test_loader_sh_in_a_checkout_runs_the_checkout():
     """``./loader.sh`` from a checkout must run *that* checkout, and say so.
 
@@ -420,6 +445,7 @@ def test_loader_sh_in_a_checkout_runs_the_checkout():
     anywhere still took the installed branch and printed ``tit launch …`` follow-up hints
     naming a command that did not exist on the machine.
     """
+    _skip_without_host_python()
     result = subprocess.run(
         ["bash", str(LOADER_SH), "--help"], capture_output=True, text=True, cwd=REPO_ROOT
     )
