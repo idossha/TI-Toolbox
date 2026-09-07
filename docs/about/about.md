@@ -35,12 +35,12 @@ Step-by-step instructions per platform are in the
 | **Docker** | Docker Desktop (macOS, Windows) or Docker Engine (Linux). The app talks to it over its API — you never type a `docker` command. |
 | **The app** | `.dmg` (macOS, Apple Silicon and Intel), `.exe` (Windows x64), `.AppImage` or `.deb` (Linux x64) |
 | **Graphics** | A GPU/driver combination with **WebGL2**, for the viewer and the 3-D panes. If it is missing, the app says so explicitly and every choice a pane offers is still available from the form beside it. |
-| **Disk** | Roughly 7 GB for the image, plus your project |
+| **Disk** | ≈ 2.3 GB to download, ≈ 9 GB unpacked on disk, plus your project |
 | **A GPU** | **Not required.** Everything ships CPU-only; the sole GPU switch anywhere is an optional QSIRecon setting, off by default. |
 | **X11** | **Not required, and not used.** No XQuartz, no VcXsrv, no `DISPLAY`. |
 
-**Inside the image** (≈6.7 GB content size — the fresh-pull cost; `docker images` reports a larger,
-non-deduplicated figure)
+**Inside the image** (≈ 2.3 GB to download; ≈ 9 GB unpacked on disk, which is the figure
+`docker images` prints)
 
 | | |
 |---|---|

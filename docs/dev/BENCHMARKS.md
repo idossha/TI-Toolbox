@@ -14,7 +14,8 @@ are labelled where it matters.
 
 | Artifact | Content size | Disk usage | Measured |
 |---|---|---|---|
-| `idossha/ti-toolbox:dev` (one image) | **6.66–6.67 GB** | 21.3 GB with `simnibs:v2.5.0` cached alongside | 2026-09-03 |
+| `idossha/ti-toolbox:dev` (one image, `853220d5`, after the slimming pass) | **2.32 GB** | 8.93 GB | 2026-09-07 |
+| `idossha/ti-toolbox:dev` (one image, pre-slimming — superseded) | 6.66–6.67 GB | 21.3 GB with `simnibs:v2.5.0` cached alongside | 2026-09-03 |
 | `idossha/simnibs:v2.5.0` (old stack) | 6.15 GB | 19.2 GB | 2026-09-03 |
 | `ti-toolbox_freesurfer:v7.4.1` (old stack, dropped) | 21.9 GB | 67.5 GB | 2026-09-03 |
 | Native pip runtime, no bpy (spike, parked) | 2.0 GB | — | 2026-09-03 |
@@ -22,6 +23,15 @@ are labelled where it matters.
 
 `docker images` prints non-deduplicated *disk usage*. Always cite content size —
 it is the fresh-pull cost and it is stable.
+
+The 2026-09-07 row is the image after the Dockerfile slimming pass (gmsh, PyQt5,
+TMS coil models, neovim and the build compilers removed): `docker image inspect
+--format '{{.Size}}'` reports 2.32 GB, `docker images` / `docker system df`
+report 8.93 GB for the same id. The documentation site states both, as
+"≈ 2.3 GB to download, ≈ 9 GB unpacked on disk" (`docs/about/about.md`), because a
+reader planning disk space needs the second number and a reader planning a pull
+needs the first. The 2026-09-03 row is kept so the two measurements are not read
+as a contradiction.
 
 Largest packages in a native runtime: simnibs 384 M (219 M of it atlases),
 torch 345 M, PyQt5 136 M, llvmlite 113 M, scipy 100 M, sympy 77 M, pandas 73 M,
