@@ -17,6 +17,8 @@ from __future__ import annotations
 import json
 import os
 
+import pytest
+
 from tit.jobs.bindings import BINDINGS_KEY, merge_pipeline_bindings
 from tit.jobs.manager import JobManager
 from tit.jobs.spec import JobSpec
@@ -110,6 +112,38 @@ def test_the_resolve_tool_writes_where_the_consumer_looks(
     descriptor = jobs["sim1:0"].config[BINDINGS_KEY][0]
     written = json.loads((project / descriptor["path"]).read_text())
     assert written["values"] == {"ernie": ["L_Insula_mean"]}
+
+
+def test_the_resolve_tool_refuses_a_traversing_pipeline_or_node(tmp_path, monkeypatch) -> None:
+    """RUN-06: --pipeline and --node become path components of the file it writes."""
+    from tit.tools import pipeline_resolve
+
+    project = tmp_path / "project"
+    (project / "code").mkdir(parents=True)
+    monkeypatch.setenv("TI_PROJECT_DIR", str(project))
+    base = ["--port", "montages", "--subjects", "ernie", "--project-dir", str(project)]
+    for pipeline, node in (("../../../escape", "sim1"), ("demo", "../../escape"), ("/abs", "sim1")):
+        with pytest.raises(SystemExit):
+            pipeline_resolve.main(["--pipeline", pipeline, "--node", node, *base])
+    assert not list(tmp_path.glob("*.json"))
+    assert not list(tmp_path.parent.glob("escape*"))
+
+
+def test_the_resolve_tool_refuses_an_invalid_subject_id(tmp_path, monkeypatch) -> None:
+    from tit.tools import pipeline_resolve
+
+    project = tmp_path / "project"
+    project.mkdir()
+    monkeypatch.setenv("TI_PROJECT_DIR", str(project))
+    assert (
+        pipeline_resolve.main(
+            [
+                "--pipeline", "demo", "--node", "sim1", "--port", "montages",
+                "--subjects", "../../evil", "--project-dir", str(project),
+            ]
+        )
+        == 2
+    )
 
 
 def test_the_manager_merges_the_resolved_value_into_the_runners_config(

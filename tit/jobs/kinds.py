@@ -8,20 +8,19 @@ modules only (ra_14 finding #2): any importable module (``-m http.server``, ``-m
 attacker's own package on ``PYTHONPATH``) would otherwise be remote code execution for any
 token holder, and in the container that's host root via the mounted docker.sock.
 
-Follow-up not yet done (rb_12 re-check): the allowlist above closes *which module* runs, not
-*what it can be told to touch* -- ``config.args`` is forwarded to the chosen ``tit.tools.*``
-module verbatim (see ``_string_list`` below), so any positional path argument a tool script
-accepts (e.g. an output path) is still fully attacker-controlled and unjailed to the project
-directory the way ``routes/viewers.py`` jails viewer paths (ra_14 finding #11). Same trust level
-as before this module's fix for path *arguments* specifically -- lower severity now that the
-module itself can no longer be arbitrary, but still worth a real jail (e.g. resolve every
-path-shaped arg through the same ``resolve_jailed``/``jail_roots`` machinery ``viewspec.py``
-already has) before ``tools`` is exposed to anyone less trusted than the desktop app's own token.
+The allowlist closes *which module* runs; :data:`TOOL_ARG_POLICY` and :func:`check_tool_args`
+close *what it can be told to touch* (RUN-06). Every path-shaped ``config.args`` value must
+resolve inside the manager's project root, and the options a tool treats as identifiers
+(``--pipeline``, ``--node``) must be safe names -- checked when the argv is built, before the
+job is spawned and therefore before any file is created. A ``tools`` job whose args mention a
+path but whose manager has no project root bound is refused rather than trusted.
 """
 
 from __future__ import annotations
 
 import importlib.util
+import os
+import re
 import shlex
 from pathlib import Path
 from typing import Any
@@ -73,8 +72,18 @@ def module_exists(dotted: str) -> bool:
         return False
 
 
-def command_for(kind: str, config: dict[str, Any], spec_path: str) -> list[str]:
-    """The argv to exec for one job. Raises :class:`KindError` for anything it can't build."""
+def command_for(
+    kind: str,
+    config: dict[str, Any],
+    spec_path: str,
+    *,
+    project_dir: str | None = None,
+) -> list[str]:
+    """The argv to exec for one job. Raises :class:`KindError` for anything it can't build.
+
+    *project_dir* is the root a ``tools`` job's path arguments are jailed to
+    (:func:`check_tool_args`); :class:`tit.jobs.manager.JobManager` binds its own.
+    """
     config = config or {}
 
     if kind in MODULE_FOR_KIND:
@@ -101,6 +110,7 @@ def command_for(kind: str, config: dict[str, Any], spec_path: str) -> list[str]:
                 f"{TOOLS_DIR})"
             )
         args = _string_list(config.get("args", []))
+        check_tool_args(module, args, project_dir)
         return [PYTHON_INTERPRETER, "-m", module, *args]
 
     raise KindError(f"unknown job kind: {kind!r}")
@@ -138,6 +148,102 @@ def _resolve_tool_module_path(module: str) -> Path | None:
     if not origin.is_relative_to(TOOLS_DIR) or not origin.is_file():
         return None
     return origin
+
+
+#: Per-tool argument policy for the ``tools`` kind: option -> how its value is checked.
+#:
+#: ``"name"``     a bare identifier that becomes a directory or file component
+#: ``"subjects"`` a comma-separated list of subject ids
+#: ``"root"``     must be the manager's own project root, not some other directory
+#:
+#: Anything not listed -- another option's value, or a positional -- is checked by the
+#: default rule: if it looks like a path it must resolve inside the project root. That rule
+#: is what covers ``tit.tools.electrode_overlay``'s three positional paths, and every tool
+#: script added later without a policy entry of its own.
+TOOL_ARG_POLICY: dict[str, dict[str, str]] = {
+    "tit.tools.pipeline_resolve": {
+        "--pipeline": "name",
+        "--node": "name",
+        "--port": "name",
+        "--from-kind": "name",
+        "--subjects": "subjects",
+        "--project-dir": "root",
+    },
+}
+
+
+def _looks_like_a_path(value: str) -> bool:
+    """True for anything that could name a filesystem location rather than a plain word."""
+    return (
+        os.path.isabs(value)
+        or value.startswith("~")
+        or "/" in value
+        or "\\" in value
+        or value in (".", "..")
+    )
+
+
+def check_tool_args(module: str, args: list[str], project_dir: str | None) -> None:
+    """Raise :class:`KindError` unless every argument of a ``tools`` job stays in bounds.
+
+    RUN-06: ``config.args`` used to be forwarded verbatim, so an allowlisted tool could be
+    handed an absolute output path and made to write anywhere the container's user can write.
+    """
+    from tit.paths import is_valid_subject_id, is_within
+
+    policy = TOOL_ARG_POLICY.get(module, {})
+
+    def check(option: str | None, value: str) -> None:
+        rule = policy.get(option or "", "")
+        where = option or "argument"
+        if rule == "name":
+            if not _SAFE_ARG_NAME.match(value):
+                raise KindError(
+                    f"tools job: {where} {value!r} must be a plain name "
+                    f"(letters, digits, '_', '-', '.', at most 64 characters)"
+                )
+            return
+        if rule == "subjects":
+            for sid in value.split(","):
+                if sid and not is_valid_subject_id(sid):
+                    raise KindError(f"tools job: {where} has an invalid subject id {sid!r}")
+            return
+        if rule == "root":
+            if not project_dir or os.path.realpath(value) != os.path.realpath(project_dir):
+                raise KindError(
+                    f"tools job: {where} must be this server's project directory"
+                )
+            return
+        if not _looks_like_a_path(value):
+            return
+        if not project_dir:
+            raise KindError(
+                f"tools job: {where} {value!r} looks like a path, and this manager has no "
+                f"project directory to jail it to"
+            )
+        resolved = os.path.join(project_dir, os.path.expanduser(value))
+        if not is_within(project_dir, resolved):
+            raise KindError(
+                f"tools job: {where} {value!r} resolves outside the project directory"
+            )
+
+    pending: str | None = None
+    for arg in args:
+        if arg.startswith("-") and not os.path.isabs(arg):
+            pending = None
+            option, sep, inline = arg.partition("=")
+            if sep:
+                check(option, inline)
+            elif option in policy or option.startswith("--"):
+                pending = option
+            continue
+        check(pending, arg)
+        pending = None
+
+
+#: Identifier grammar for a ``"name"`` argument -- a directory or file component a tool builds
+#: a path out of. Wider than a subject id only by ``.`` (run names carry versions).
+_SAFE_ARG_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 
 
 def _string_list(value: Any) -> list[str]:

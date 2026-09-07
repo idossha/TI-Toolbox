@@ -17,6 +17,7 @@ import os
 
 import asyncio
 import contextlib
+import functools
 import logging
 import queue
 import threading
@@ -102,7 +103,12 @@ class JobManager:
         self.project_dir = project_dir
         self.runner = runner or LocalPopenRunner()
         self.runner_cwd = runner_cwd or project_dir
-        self._command_for = command_for or kinds.command_for
+        # Bound to this manager's project root so a `tools` job's path arguments can be
+        # jailed to it (tit.jobs.kinds.check_tool_args). A caller-supplied builder (tests,
+        # and only tests) keeps the plain three-argument signature.
+        self._command_for = command_for or functools.partial(
+            kinds.command_for, project_dir=project_dir
+        )
         self.poll_interval = poll_interval
         self.registry = JobRegistry(project_dir)
         self._budget = budget or scheduler.discover_budget()

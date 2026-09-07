@@ -184,6 +184,87 @@ def test_default_cost_config_override_wins():
 # ---------------------------------------------------------------------------------------------
 
 
+class TestToolsArgumentJail:
+    """RUN-06: an allowlisted tool may not be told to touch anything outside the project."""
+
+    PROJECT = "/proj"
+
+    def _argv(self, module, args, project_dir="/proj"):
+        return kinds.command_for(
+            "tools", {"module": module, "args": args}, "/proj/spec.json",
+            project_dir=project_dir,
+        )
+
+    def test_electrode_overlay_accepts_paths_inside_the_project(self):
+        argv = self._argv(
+            "tit.tools.electrode_overlay",
+            [
+                "/proj/derivatives/SimNIBS/sub-001/Simulations/s1/documentation/config.json",
+                "/proj/derivatives/SimNIBS/sub-001/m2m_001/T1.nii.gz",
+                "/proj/derivatives/SimNIBS/sub-001/Simulations/s1/TI/montage_imgs/o.nii.gz",
+            ],
+        )
+        assert argv[:3] == ["simnibs_python", "-m", "tit.tools.electrode_overlay"]
+
+    def test_electrode_overlay_refuses_an_output_outside_the_project(self):
+        with pytest.raises(kinds.KindError, match="outside the project"):
+            self._argv(
+                "tit.tools.electrode_overlay",
+                ["/proj/in.json", "/proj/T1.nii.gz", "/etc/cron.d/pwned"],
+            )
+
+    def test_electrode_overlay_refuses_a_traversing_relative_output(self):
+        with pytest.raises(kinds.KindError, match="outside the project"):
+            self._argv(
+                "tit.tools.electrode_overlay",
+                ["in.json", "T1.nii.gz", "../../../../tmp/pwned.nii.gz"],
+            )
+
+    def test_a_home_relative_path_is_refused_too(self):
+        with pytest.raises(kinds.KindError, match="outside the project"):
+            self._argv("tit.tools.electrode_overlay", ["~/.ssh/authorized_keys"])
+
+    def test_pipeline_resolve_accepts_its_planned_argv(self):
+        argv = self._argv(
+            "tit.tools.pipeline_resolve",
+            ["--pipeline", "demo", "--node", "sim1", "--port", "montages",
+             "--from-kind", "flex", "--subjects", "ernie,001",
+             "--project-dir", "/proj"],
+        )
+        assert argv[-1] == "/proj"
+
+    def test_pipeline_resolve_refuses_a_traversing_name(self):
+        for args in (
+            ["--pipeline", "../../escape", "--node", "sim1"],
+            ["--node", "../escape"],
+            ["--pipeline=../escape"],
+        ):
+            with pytest.raises(kinds.KindError, match="plain name"):
+                self._argv("tit.tools.pipeline_resolve", args)
+
+    def test_pipeline_resolve_refuses_another_projects_root(self):
+        with pytest.raises(kinds.KindError, match="project directory"):
+            self._argv("tit.tools.pipeline_resolve", ["--project-dir", "/etc"])
+
+    def test_pipeline_resolve_refuses_an_invalid_subject_id(self):
+        with pytest.raises(kinds.KindError, match="subject id"):
+            self._argv("tit.tools.pipeline_resolve", ["--subjects", "ernie,../../evil"])
+
+    def test_a_tool_with_no_policy_still_has_its_paths_jailed(self):
+        """The default rule covers every tool script added without a policy entry."""
+        with pytest.raises(kinds.KindError, match="outside the project"):
+            self._argv("tit.tools.mesh2nii", ["/etc/passwd"])
+        assert self._argv("tit.tools.mesh2nii", ["/proj/mesh.msh"])[-1] == "/proj/mesh.msh"
+
+    def test_a_path_argument_with_no_project_root_is_refused(self):
+        with pytest.raises(kinds.KindError, match="no project directory"):
+            self._argv("tit.tools.mesh2nii", ["/proj/mesh.msh"], project_dir=None)
+
+    def test_plain_words_never_need_a_project_root(self):
+        argv = self._argv("tit.tools.mesh2nii", ["--verbose", "T1"], project_dir=None)
+        assert argv[-2:] == ["--verbose", "T1"]
+
+
 def test_command_for_module_kind_needs_importable_module():
     # sim/pre/flex/... are always importable under this suite (conftest mocks simnibs).
     argv = kinds.command_for("sim", {}, "/proj/jobs/abc/spec.json")

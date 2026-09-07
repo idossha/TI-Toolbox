@@ -26,7 +26,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 from datetime import datetime, timezone
+
+from tit.paths import is_valid_subject_id, is_within
 
 __all__ = [
     "main",
@@ -37,9 +40,27 @@ __all__ = [
 ]
 
 
+#: ``--pipeline``/``--node`` become path components of the file this writes, so they are
+#: names and nothing else. A traversal here wrote the binding file anywhere the container's
+#: user could write (RUN-06); `tit.jobs.kinds.check_tool_args` refuses one before the job is
+#: spawned, and this refuses it again for a direct `simnibs_python -m` invocation.
+_SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
+
+
+def _checked_name(what: str, value: str) -> str:
+    if not _SAFE_NAME.match(value or ""):
+        raise SystemExit(
+            f"[error] --{what} {value!r} must be a plain name "
+            f"(letters, digits, '_', '-', '.', at most 64 characters)"
+        )
+    return value
+
+
 def runs_dir(project_dir: str, pipeline: str) -> str:
     """``<project>/code/ti-toolbox/pipelines/runs/<pipeline>/``."""
-    return os.path.join(project_dir, "code", "ti-toolbox", "pipelines", "runs", pipeline)
+    return os.path.join(
+        project_dir, "code", "ti-toolbox", "pipelines", "runs", _checked_name("pipeline", pipeline)
+    )
 
 
 def resolve_montages(pm, subject_id: str, from_kind: str) -> list[str]:
@@ -120,7 +141,13 @@ def main(argv: list[str] | None = None) -> int:
         print("[error] no project directory bound; set TI_PROJECT_DIR or pass --project-dir")
         return 2
 
+    _checked_name("pipeline", args.pipeline)
+    _checked_name("node", args.node)
     subjects = [s for s in (args.subjects or "").split(",") if s]
+    for subject_id in subjects:
+        if not is_valid_subject_id(subject_id):
+            print(f"[error] invalid subject id {subject_id!r}")
+            return 2
     values: dict[str, list[str]] = {}
     for subject_id in subjects:
         if args.port == "montages":
@@ -139,8 +166,11 @@ def main(argv: list[str] | None = None) -> int:
         "values": values,
     }
     out_dir = runs_dir(project_dir, args.pipeline)
-    os.makedirs(out_dir, exist_ok=True)
     out_path = os.path.join(out_dir, f"{args.node}.{args.port}.json")
+    if not is_within(project_dir, out_path):
+        print(f"[error] refusing to write {out_path!r}: outside {project_dir!r}")
+        return 2
+    os.makedirs(out_dir, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as fh:
         json.dump(payload, fh, indent=2)
     print(f"[info] wrote {out_path}")
