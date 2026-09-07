@@ -315,8 +315,7 @@ class TestAnalyzeVoxelROI:
         roi_mask[0, 0, 0] = True  # value 1.0
         roi_mask[0, 0, 1] = True  # value 2.0
         gm_mask = field_arr > 0
-        affine = np.eye(4)
-        voxel_size = np.array([1.0, 1.0, 1.0])
+        affine = np.eye(4)  # 1 mm isotropic -> voxel volume 1 mm^3
 
         a._resolve_output_dir = MagicMock(return_value="/tmp/out")
 
@@ -325,7 +324,6 @@ class TestAnalyzeVoxelROI:
             roi_mask,
             gm_mask,
             affine,
-            voxel_size,
             region_name="test_roi",
             analysis_type="spherical",
         )
@@ -349,7 +347,6 @@ class TestAnalyzeVoxelROI:
         roi_mask = np.ones_like(field_arr, dtype=bool)
         gm_mask = roi_mask.copy()
         affine = np.eye(4)
-        voxel_size = np.array([1.0, 1.0, 1.0])
 
         a._resolve_output_dir = MagicMock(return_value="/tmp/out")
         a._visualize_voxel = MagicMock()
@@ -359,7 +356,6 @@ class TestAnalyzeVoxelROI:
             roi_mask,
             gm_mask,
             affine,
-            voxel_size,
             region_name="roi",
             analysis_type="spherical",
             visualize=True,
