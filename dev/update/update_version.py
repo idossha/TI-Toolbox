@@ -81,24 +81,19 @@ def update_version(new_version):
         "docs/_config.yml": [
             (r'version: "[^"]*"', f'version: "{new_version}"'),
         ],
-        "docker-compose.yml": [
-            (r"image: idossha/simnibs:[\S]+", f"image: idossha/simnibs:v{new_version}"),
-            (r'TI_TOOLBOX_VERSION: "[\S]+"', f'TI_TOOLBOX_VERSION: "v{new_version}"'),
-        ],
-        # Was "dev/bash_dev/docker-compose.dev.yml", a path that has not existed for some time:
-        # update_file_content printed "Skipped (not found)" and nobody noticed, so the dev loader's
-        # compose file kept last release's image on every bump.
-        "dev/loader/docker-compose.dev.yml": [
-            (r"image: idossha/simnibs:[\S]+", f"image: idossha/simnibs:v{new_version}")
-        ],
+        # THE run spec, and the only compose file in the repository (it moved here from
+        # desktop/docker/docker-compose.v3.yml; the v2 two-service root compose it replaced is
+        # gone, which is why there is no longer an idossha/simnibs bump here — nor in
+        # dev/loader/docker-compose.dev.yml, which now carries dev *overrides* only and names no
+        # image at all).
+        #
         # v3 streamlined stack (docs/dev/ARCHITECTURE.md; docs/dev/HISTORY.md 2026-09-03): one image,
-        # idossha/ti-toolbox:<ver>, tagged independently of idossha/simnibs above (the v3
-        # image bundles a specific SimNIBS build, it does not share its version number).
+        # idossha/ti-toolbox:<ver>, tagged independently of idossha/simnibs (the v3 image bundles a
+        # specific SimNIBS build, it does not share its version number).
         # The `:-dev` default is deliberately for local iteration only — bump it on every
-        # release so a fresh `desktop/docker/docker-compose.v3.yml` pull with no
-        # TIT_IMAGE_TAG override resolves to the version being released, not last
-        # release's dev tag.
-        "desktop/docker/docker-compose.v3.yml": [
+        # release so a fresh `docker-compose.yml` pull with no TIT_IMAGE_TAG override resolves to
+        # the version being released, not last release's dev tag.
+        "docker-compose.yml": [
             (
                 r"image: idossha/ti-toolbox:\$\{TIT_IMAGE_TAG:-[^}]*\}",
                 f"image: idossha/ti-toolbox:${{TIT_IMAGE_TAG:-{new_version}}}",
@@ -382,10 +377,7 @@ def update_navigation(version):
                 break
         content = "\n".join(lines)
 
-    with open(nav_file, "w", encoding="utf-8") as f:
-        f.write(content)
-
-    print(f"Updated releases nav in {nav_file}")
+    _write(nav_file, content)
 
 
 

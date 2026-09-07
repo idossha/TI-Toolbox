@@ -9,6 +9,7 @@ is that the spec cannot drift.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -19,7 +20,7 @@ from tit import launch
 from tit.cli import build_parser
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-COMPOSE = REPO_ROOT / "desktop" / "docker" / "docker-compose.v3.yml"
+COMPOSE = REPO_ROOT / "docker-compose.yml"
 
 # One host directory, used everywhere below so the expected container name is stable.
 PROJECT = "/Users/you/datasets/000"
@@ -34,7 +35,7 @@ PROJECT = "/Users/you/datasets/000"
 def test_builtin_spec_matches_compose():
     """The wheel's fallback spec must equal what the compose file actually says.
 
-    An installed ``tit`` has no ``desktop/`` directory, so :data:`launch.BUILTIN_SPEC`
+    An installed ``tit`` has no repository above it, so :data:`launch.BUILTIN_SPEC`
     stands in for the file.  If someone edits the compose file, this fails — which
     is the whole point: the two must not describe different containers.
     """
@@ -279,3 +280,148 @@ def test_cli_runs_on_a_bare_interpreter_with_no_third_party_imports():
     result = subprocess.run([sys.executable, "-I", "-c", program], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
     assert "--project" in result.stdout
+
+
+# ---------------------------------------------------------------------------------------
+# The four front doors: loader.py, loader.sh, dev/loader/loader_dev.{py,sh}
+# ---------------------------------------------------------------------------------------
+
+LOADER = REPO_ROOT / "loader.py"
+LOADER_SH = REPO_ROOT / "loader.sh"
+LOADER_DEV = REPO_ROOT / "dev" / "loader" / "loader_dev.py"
+LOADER_DEV_SH = REPO_ROOT / "dev" / "loader" / "loader_dev.sh"
+COMPOSE_DEV = REPO_ROOT / "dev" / "loader" / "docker-compose.dev.yml"
+
+
+def test_the_entry_points_exist_and_the_v2_ones_are_gone():
+    """Two user entry points at the root, two dev equivalents beside the dev compose."""
+    for path in (LOADER, LOADER_SH, LOADER_DEV, LOADER_DEV_SH, COMPOSE_DEV):
+        assert path.is_file(), f"missing entry point: {path}"
+    assert not (REPO_ROOT / "ti-toolbox.sh").exists(), "ti-toolbox.sh was replaced by loader.sh"
+    assert not (REPO_ROOT / "desktop" / "docker").exists(), "the compose file moved to the root"
+
+
+@pytest.mark.parametrize("script", [LOADER, LOADER_DEV])
+def test_loader_help_is_one_screen(script):
+    """``--help`` has to fit a terminal, or nobody reads the one line they needed."""
+    result = subprocess.run(
+        [sys.executable, str(script), "--help"], capture_output=True, text=True, cwd=REPO_ROOT
+    )
+    assert result.returncode == 0, result.stderr
+    lines = result.stdout.splitlines()
+    assert len(lines) <= 45, f"{script.name} --help is {len(lines)} lines"
+    # Its own name, not the name of the thing it delegates to.
+    assert script.name in result.stdout
+
+
+@pytest.mark.parametrize("script", [LOADER, LOADER_DEV])
+def test_loader_offers_the_same_options_as_tit_launch(script):
+    """The front doors share one option set (``tit.cli.launch_arguments``), so this cannot drift."""
+    result = subprocess.run(
+        [sys.executable, str(script), "--help"], capture_output=True, text=True, cwd=REPO_ROOT
+    )
+    for flag in ("--project", "--port", "--image", "--no-open", "--timeout", "--stop", "--status", "--logs"):
+        assert flag in result.stdout, f"{script.name} --help does not mention {flag}"
+
+
+def test_loader_reports_a_missing_project_without_touching_docker():
+    """No ``--project`` is a message, not a traceback — and not a Docker call either."""
+    result = subprocess.run(
+        [sys.executable, str(LOADER), "--status"],
+        capture_output=True, text=True, cwd=REPO_ROOT,
+        env={"PATH": "/nonexistent", "HOME": str(REPO_ROOT)},
+    )
+    assert result.returncode == 1
+    assert "python loader.py:" in result.stderr
+
+
+@pytest.mark.parametrize("script", [LOADER_SH, LOADER_DEV_SH])
+def test_shell_loaders_are_executable_and_parse(script):
+    """``bash -n`` catches a syntax error that would otherwise surface on a user's machine."""
+    assert os.access(script, os.X_OK), f"{script} is not executable"
+    result = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+
+
+# ---------------------------------------------------------------------------------------
+# The dev overrides have one definition too
+# ---------------------------------------------------------------------------------------
+
+
+def test_dev_overrides_match_compose():
+    """``docker-compose.dev.yml`` and ``loader_dev.py`` must set the same three variables.
+
+    The dev file is what ``docker compose -f docker-compose.yml -f
+    dev/loader/docker-compose.dev.yml`` layers on; ``loader_dev.py`` sets the same three
+    through :func:`tit.launch.build_env`.  Two ways to say the same thing is fine; two
+    ways that say *different* things is a developer debugging the wrong container.
+    """
+    text = COMPOSE_DEV.read_text(encoding="utf-8")
+    assert "services:" in text and "tit:" in text
+    for key in ("TIT_REPO_DIR", "TIT_SERVER_RELOAD", "TIT_STATIC_DIR"):
+        assert key in text, f"{COMPOSE_DEV.name} does not set {key}"
+    # Overrides only: no image, no ports, no volumes — the root file owns those.
+    for owned_by_root in ("image:", "ports:", "volumes:", "healthcheck:"):
+        assert owned_by_root not in text, f"{COMPOSE_DEV.name} redefines {owned_by_root}"
+
+
+def test_dev_overrides_reach_the_container_env():
+    """``repo_dir``/``server_reload``/``static_dir`` end up on the ``docker run`` argv."""
+    env = launch.build_env(
+        host_project_dir=PROJECT,
+        port=8765,
+        token="t",
+        user_config="/tmp/cfg",
+        image_tag="dev",
+        repo_dir="/checkout",
+        static_dir="/ti-toolbox/desktop/out/renderer",
+        server_reload=True,
+    )
+    argv = launch.build_run_argv(launch.BUILTIN_SPEC, env, host_project_dir=PROJECT, image="img")
+    assert "TIT_REPO_DIR=/checkout" in argv
+    assert "TIT_SERVER_RELOAD=1" in argv
+    assert "TIT_STATIC_DIR=/ti-toolbox/desktop/out/renderer" in argv
+    assert "/checkout:/ti-toolbox" in argv
+
+
+def test_a_user_run_mounts_no_repo():
+    """The default is off: a user run must never bind-mount a host dir over ``/ti-toolbox``."""
+    env = launch.build_env(
+        host_project_dir=PROJECT, port=8765, token="t", user_config="/tmp/cfg", image_tag="3.0.0"
+    )
+    argv = launch.build_run_argv(launch.BUILTIN_SPEC, env, host_project_dir=PROJECT, image="img")
+    assert "TIT_REPO_DIR=" in argv
+    assert "TIT_SERVER_RELOAD=" in argv
+    assert not any(a.endswith(":/ti-toolbox") for a in argv), "a user run mounted something at /ti-toolbox"
+
+
+def test_python_m_tit_cli_is_runnable():
+    """``python -m tit.cli`` must actually run — ``loader.sh`` execs exactly that.
+
+    Regression: the ``if __name__ == "__main__"`` guard went missing once during a
+    refactor of this module.  Nothing failed — ``python -m tit.cli launch --status``
+    simply printed nothing and exited 0, so ``loader.sh`` looked like it had worked.
+    Importing the module is not enough to catch that; it has to be *run*.
+    """
+    result = subprocess.run(
+        [sys.executable, "-m", "tit.cli", "launch", "--help"],
+        capture_output=True, text=True, cwd=REPO_ROOT,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "--project" in result.stdout, "python -m tit.cli produced no help output"
+
+
+def test_loader_sh_in_a_checkout_runs_the_checkout():
+    """``./loader.sh`` from a checkout must run *that* checkout, and say so.
+
+    The installed-package branch used to come first, and its probe (``python -c 'import
+    tit.launch'``) succeeds merely by being run from the repository root, because ``-c``
+    puts the current directory on ``sys.path``.  So a checkout with no ``tit`` installed
+    anywhere still took the installed branch and printed ``tit launch …`` follow-up hints
+    naming a command that did not exist on the machine.
+    """
+    result = subprocess.run(
+        ["bash", str(LOADER_SH), "--help"], capture_output=True, text=True, cwd=REPO_ROOT
+    )
+    assert result.returncode == 0, result.stderr
+    assert "python loader.py" in result.stdout, result.stdout[:400]

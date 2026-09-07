@@ -12,7 +12,7 @@ import { startFakeEngineApi, type FakeEngineApi, type FakeEngineApiOptions } fro
  * `docker/discover.ts` honours ahead of the CLI and every well-known path.
  *
  * The stack definition is `tests/e2e/fixtures/compose-v3.fixture.yml` (via `TIT_COMPOSE_FILE`) —
- * it mirrors the shipped `docker/docker-compose.v3.yml`'s keys while lane W2 rewrites that file.
+ * it mirrors the shipped root `docker-compose.yml`'s keys without depending on that file.
  *
  * "The container" is real enough to connect to: on `POST /containers/{id}/start` the fake engine
  * listens on the container's own `TIT_SERVER_PORT` and answers `/api/health`, `/api/version`,

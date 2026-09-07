@@ -42,47 +42,117 @@ that talks to the server works identically; the few Electron-only conveniences
 """
 
 
+def launch_arguments() -> argparse.ArgumentParser:
+    """The ``launch`` options, as a reusable parent parser.
+
+    Declared once and shared by three front doors so they cannot drift: the ``tit
+    launch`` subcommand below, ``loader.py`` at the repository root, and
+    ``dev/loader/loader_dev.py``.  ``add_help=False`` because a parent parser must not
+    install a second ``-h``.
+    """
+    parent = argparse.ArgumentParser(add_help=False)
+    parent.add_argument(
+        "--project",
+        default=os.environ.get("TIT_PROJECT_DIR"),
+        metavar="DIR",
+        help="the BIDS project directory to open (default: $TIT_PROJECT_DIR)",
+    )
+    parent.add_argument(
+        "--port", type=int, default=8765,
+        help="first host port to try (default: 8765; the next free one is used if it is taken)",
+    )
+    parent.add_argument(
+        "--image", default=None, metavar="IMAGE:TAG",
+        help=f"container image to run (default: {default_image()})",
+    )
+    parent.add_argument("--no-open", action="store_true", help="print the URL instead of opening a browser")
+    parent.add_argument(
+        "--timeout", type=float, default=180.0, metavar="SECONDS",
+        help="how long to wait for the server to answer (default: 180)",
+    )
+    mode = parent.add_mutually_exclusive_group()
+    mode.add_argument("--stop", action="store_true", help="stop and remove this project's container")
+    mode.add_argument("--status", action="store_true", help="report the container's state and URL")
+    mode.add_argument("--logs", action="store_true", help="print the container's logs")
+    parent.add_argument("--follow", "-f", action="store_true", help="with --logs, keep streaming")
+    return parent
+
+
+def launch_parser(prog: str = "tit launch") -> argparse.ArgumentParser:
+    """A standalone parser for the launch options, for front doors with no subcommand.
+
+    ``loader.py`` and ``dev/loader/loader_dev.py`` use this so that their ``--help`` is
+    the same one screen ``tit launch --help`` prints, under their own name.
+    """
+    return argparse.ArgumentParser(
+        prog=prog,
+        description="Start the TI-Toolbox container for one project and open its UI in a browser.",
+        epilog=LAUNCH_EPILOG.replace("tit launch", prog),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        parents=[launch_arguments()],
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     """The whole CLI surface, built separately so a test can assert it without running it."""
     parser = argparse.ArgumentParser(prog="tit", description="TI-Toolbox command line.")
     parser.add_argument("--version", action="version", version=f"TI-Toolbox {tit.__version__}")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    launch = subparsers.add_parser(
+    subparsers.add_parser(
         "launch",
         help="run the TI-Toolbox UI in a browser (no Electron required)",
         description="Start the TI-Toolbox container for one project and open its UI in a browser.",
         epilog=LAUNCH_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        parents=[launch_arguments()],
     )
-    launch.add_argument(
-        "--project",
-        default=os.environ.get("TIT_PROJECT_DIR"),
-        metavar="DIR",
-        help="the BIDS project directory to open (default: $TIT_PROJECT_DIR)",
-    )
-    launch.add_argument(
-        "--port", type=int, default=8765,
-        help="first host port to try (default: 8765; the next free one is used if it is taken)",
-    )
-    launch.add_argument(
-        "--image", default=None, metavar="IMAGE:TAG",
-        help=f"container image to run (default: {default_image()})",
-    )
-    launch.add_argument("--no-open", action="store_true", help="print the URL instead of opening a browser")
-    launch.add_argument(
-        "--timeout", type=float, default=180.0, metavar="SECONDS",
-        help="how long to wait for the server to answer (default: 180)",
-    )
-    mode = launch.add_mutually_exclusive_group()
-    mode.add_argument("--stop", action="store_true", help="stop and remove this project's container")
-    mode.add_argument("--status", action="store_true", help="report the container's state and URL")
-    mode.add_argument("--logs", action="store_true", help="print the container's logs")
-    launch.add_argument("--follow", "-f", action="store_true", help="with --logs, keep streaming")
     return parser
 
 
-def _launch(args: argparse.Namespace) -> int:
+def launch_command(
+    args: argparse.Namespace,
+    *,
+    invocation: str = "tit launch",
+    repo_dir: str = "",
+    server_reload: bool = False,
+    static_dir: str = "",
+) -> int:
+    """Run one launch invocation, turning every failure into one actionable line.
+
+    ``invocation`` is how this front door is spelled (``tit launch``, ``python
+    loader.py``, ``python dev/loader/loader_dev.py``); it appears in the follow-up hints
+    and in error messages, so the line printed is a line the user can actually retype.
+
+    ``repo_dir``/``server_reload``/``static_dir`` are the dev overrides — the same three
+    the root ``docker-compose.yml`` exposes as ``${TIT_REPO_DIR:-}``,
+    ``${TIT_SERVER_RELOAD:-}`` and ``${TIT_STATIC_DIR:-}``, and the only thing
+    ``dev/loader/docker-compose.dev.yml`` sets.  All three are off for a user run.
+    """
+    try:
+        return _dispatch(
+            args,
+            invocation=invocation,
+            repo_dir=repo_dir,
+            server_reload=server_reload,
+            static_dir=static_dir,
+        )
+    except LaunchError as err:
+        print(f"{invocation}: {err}", file=sys.stderr)
+        return 1
+    except KeyboardInterrupt:
+        print("\ninterrupted", file=sys.stderr)
+        return 130
+
+
+def _dispatch(
+    args: argparse.Namespace,
+    *,
+    invocation: str,
+    repo_dir: str,
+    server_reload: bool,
+    static_dir: str,
+) -> int:
     if args.stop:
         removed = launch_stop(args.project)
         print(f"stopped and removed {', '.join(removed)}" if removed else "nothing to stop for that project")
@@ -105,6 +175,9 @@ def _launch(args: argparse.Namespace) -> int:
             image=args.image,
             open_browser=not args.no_open,
             timeout=args.timeout,
+            repo_dir=repo_dir,
+            server_reload=server_reload,
+            static_dir=static_dir,
         )
     )
     url = session_url(origin, token)
@@ -113,8 +186,8 @@ def _launch(args: argparse.Namespace) -> int:
     print(f"Open this URL to sign in (it is single-use per session):\n  {url}")
     print()
     print("The container keeps running after this command exits.")
-    print(f"  tit launch --project {args.project} --status   state and URL")
-    print(f"  tit launch --project {args.project} --stop     shut it down")
+    print(f"  {invocation} --project {args.project} --status   state and URL")
+    print(f"  {invocation} --project {args.project} --stop     shut it down")
     if not args.no_open:
         open_in_browser(url)
     return 0
@@ -123,15 +196,8 @@ def _launch(args: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     """Entry point; every :class:`~tit.launch.LaunchError` becomes one actionable line."""
     args = build_parser().parse_args(argv if argv is not None else sys.argv[1:])
-    try:
-        if args.command == "launch":
-            return _launch(args)
-    except LaunchError as err:
-        print(f"tit launch: {err}", file=sys.stderr)
-        return 1
-    except KeyboardInterrupt:
-        print("\ninterrupted", file=sys.stderr)
-        return 130
+    if args.command == "launch":
+        return launch_command(args)
     return 2
 
 

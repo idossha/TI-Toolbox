@@ -8,7 +8,7 @@
 # (Dockerfile.ti-toolbox*, this lane's whole point per D1).
 #
 # `exec` (not a plain call) so tit.server becomes PID 1's replacement (or `init: true`'s
-# child under tini, per docker-compose.v3.yml) and receives SIGTERM directly on
+# child under tini, per the root docker-compose.yml) and receives SIGTERM directly on
 # `docker stop` / `docker compose down` — no wrapper shell left holding the signal.
 
 set -euo pipefail
@@ -28,13 +28,13 @@ PROJECT_DIR="${TIT_PROJECT_DIR:-/mnt/${PROJECT_DIR_NAME:-}}"
 # swap UI bundles without a rebuild. Falls back to the image's baked-in UI.
 STATIC_DIR="${TIT_STATIC_DIR:-/opt/ti-toolbox/ui}"
 
-# No explicit `command:` in docker-compose.v3.yml overrides this — if one is ever passed
+# No explicit `command:` in the root docker-compose.yml overrides this — if one is ever passed
 # (`docker run ... idossha/ti-toolbox:dev bash`), honor it instead of forcing the server.
 if [ $# -gt 0 ]; then
     exec "$@"
 fi
 
-# TIT_SERVER_RELOAD=1 (set only by `npm run dev`, docker-compose.v3.yml) runs the server under
+# TIT_SERVER_RELOAD=1 (set only by `npm run dev` and dev/loader/loader_dev.py) runs the server under
 # uvicorn's reloader so an edit to tit/server/** or tit/jobs/** in the bind-mounted worktree
 # restarts it instead of needing `docker restart`. --reload-dir is not optional here: uvicorn's
 # default watch root is the working directory, which is the whole mounted repo — including

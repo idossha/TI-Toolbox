@@ -1,4 +1,4 @@
-# A stand-in for `desktop/docker/docker-compose.v3.yml` while lane W2 rewrites the shipped file.
+# A stand-in for the root `docker-compose.yml`, so the e2e fake engine has a spec of its own.
 #
 # It mirrors the shipped file's *keys* exactly — the subset `src/shared/composeFile.ts` implements
 # (plan of record §1) — so `tests/unit/composeFile.test.ts` and `tests/e2e/launcher.spec.ts` both

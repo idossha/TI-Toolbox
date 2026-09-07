@@ -8,7 +8,7 @@ further for something ~15 lines of stdlib already does).
 
 **Scope, and why it is narrower than the TypeScript client**: this module is used from *inside*
 the ``tit`` container, where QSIPrep/QSIRecon are spawned as sibling containers via
-Docker-outside-of-Docker (DooD) — ``docker-compose.v3.yml`` mounts the *host's*
+Docker-outside-of-Docker (DooD) — the root ``docker-compose.yml`` mounts the *host's*
 ``/var/run/docker.sock`` straight through, a Unix path, regardless of what OS the host actually
 is. So unlike the Electron client (which must speak to a real Windows named pipe on a Windows
 host), this module **never needs npipe transport at all** — Windows support here would mean

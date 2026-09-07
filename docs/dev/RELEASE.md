@@ -26,7 +26,7 @@ The desktop app is a shell: it starts the image, then loads the UI over http fro
 (`desktop/src/main/index.ts` `loadURL`). So the app is useless if the image tag it resolves does not
 exist. **That is the single failure mode this whole procedure is built around.**
 
-The tag is resolved from `desktop/docker/docker-compose.v3.yml`:
+The tag is resolved from the root `docker-compose.yml`:
 `image: idossha/ti-toolbox:${TIT_IMAGE_TAG:-<ver>}`. In a packaged app nothing sets `TIT_IMAGE_TAG`,
 so the `:-` default *is* the shipped tag. If it still says `dev`, or last release's number, a
 correctly-signed v3.0.0 app pulls the wrong image. `dev/update/update_version.py` rewrites it and the
@@ -76,16 +76,16 @@ are load-bearing (marked ✓).
 | `tit/__init__.py` ✓ | the Python package version, and what `build.sh` reads to tag the image |
 | `version.py` ✓ | the version/build metadata table |
 | `desktop/package.json` ✓ | what electron-builder stamps into the bundle, `app.getVersion()`, and every artifact file name |
-| `desktop/docker/docker-compose.v3.yml` ✓ | the image tag a packaged app falls back to |
-| `docker-compose.yml` | the v2 stack's image + `TI_TOOLBOX_VERSION` |
-| `dev/loader/docker-compose.dev.yml` | the dev loader's image |
+| `docker-compose.yml` ✓ | the image tag a packaged app falls back to — the one run spec, at the repository root |
 | `resources/dataset_descriptions/*.json` | the SimNIBS image recorded in generated BIDS datasets |
 | `CITATION.cff` | citation version + release date |
 | `docs/releases/*`, `docs/_layouts/releases.html` | the generated release pages and sidebar |
 
 Two of these were broken before the v3 release work and are worth knowing about: the script pointed
 at `dev/bash_dev/docker-compose.dev.yml`, a path that no longer exists (it printed "Skipped (not
-found)" and nobody read it), and it did not know about `desktop/package.json` at all.
+found)" and nobody read it), and it did not know about `desktop/package.json` at all. Both v2
+compose entries are gone now: there is one compose file, at the root, and
+`dev/loader/docker-compose.dev.yml` carries dev overrides only and names no image.
 
 ## What `verify-package.mjs` checks, and why each check exists
 
@@ -98,10 +98,13 @@ downloaded artifact. It checks:
   in test form.
 - **the main entry is actually bundled** — a `main` field pointing at a file `files:` excluded
   produces an app that installs and then does nothing.
-- **`docker/docker-compose.v3.yml` is bundled.** `src/main/stack.ts#resolveComposeFile` reads it from
-  `app.getAppPath()` at every stack start. The pre-fix `electron-builder.yml` shipped only `out/**`
-  and `package.json`, so every packaged build died on first launch with `compose-invalid`. Found by
-  running this script against a scratch `--dir` build; no unit test or `npm run build` can see it.
+- **the run spec is bundled.** `src/main/stack.ts#resolveComposeFile` reads a `docker-compose.yml`
+  at every stack start. The pre-fix `electron-builder.yml` shipped only `out/**` and
+  `package.json`, so every packaged build died on first launch with `compose-invalid`. It now ships
+  as an `extraResources` entry copied from the repository root (`files:` globs cannot reach outside
+  the app directory) and lands at `Resources/docker-compose.yml`, which the script checks for by
+  content, not just existence. Found by running this script against a scratch `--dir` build; no unit
+  test or `npm run build` can see it.
 - **nothing dev-only or deleted leaked in** — `tit/gui` (the deleted PyQt GUI), `tests/`,
   `playwright.config.ts`, `node_modules`, TypeScript sources. Their presence means something is
   packaging the repository root instead of `out/**`.

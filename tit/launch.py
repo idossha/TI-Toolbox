@@ -17,7 +17,7 @@ simulation itself.
 creates: same image, same mounts, same environment, same four labels, so
 ``docker ps`` and the app's own attach-by-label logic
 (``desktop/src/main/stack.ts``) see one kind of container, not two.  The
-definition lives in ``desktop/docker/docker-compose.v3.yml``; :func:`load_spec`
+definition lives in the repository's one ``docker-compose.yml``; :func:`load_spec`
 reads it when the file is there (a repository checkout) and falls back to
 :data:`BUILTIN_SPEC` when it is not (an installed wheel, which cannot carry a
 file from outside the package).  ``tests/unit/test_launch.py`` asserts the two
@@ -108,8 +108,8 @@ class StackSpec:
     healthcheck: tuple[str, ...] = ()
 
 
-#: Fallback used when ``desktop/docker/docker-compose.v3.yml`` is not on disk (an installed
-#: wheel).  Kept honest by ``tests/unit/test_launch.py::test_builtin_spec_matches_compose``.
+#: Fallback used when the repository's ``docker-compose.yml`` is not on disk (an installed
+#: wheel).  Kept honest by ``tests/test_launch.py::test_builtin_spec_matches_compose``.
 BUILTIN_SPEC = StackSpec(
     image="idossha/ti-toolbox:${TIT_IMAGE_TAG:-dev}",
     working_dir="/ti-toolbox",
@@ -145,8 +145,14 @@ BUILTIN_SPEC = StackSpec(
 
 
 def compose_path() -> Path | None:
-    """``desktop/docker/docker-compose.v3.yml`` when this is a checkout, else ``None``."""
-    candidate = Path(__file__).resolve().parent.parent / "desktop" / "docker" / "docker-compose.v3.yml"
+    """The repository's root ``docker-compose.yml`` when this is a checkout, else ``None``.
+
+    ``tit/launch.py`` -> ``tit/`` -> the repository root, where the one run spec lives (it
+    used to be ``desktop/docker/docker-compose.v3.yml``, reachable only from the Electron
+    app without a ``..``).  An installed wheel has no repository above it, so this returns
+    ``None`` and :data:`BUILTIN_SPEC` stands in.
+    """
+    candidate = Path(__file__).resolve().parent.parent / "docker-compose.yml"
     return candidate if candidate.is_file() else None
 
 
@@ -375,6 +381,7 @@ def build_env(
     image_tag: str,
     repo_dir: str = "",
     static_dir: str = "",
+    server_reload: bool = False,
 ) -> dict[str, str]:
     """The map the compose file's ``${VAR}`` references are interpolated from.
 
@@ -395,7 +402,7 @@ def build_env(
         "TIT_IMAGE_TAG": image_tag,
         "TIT_REPO_DIR": repo_dir,
         "TIT_STATIC_DIR": static_dir,
-        "TIT_SERVER_RELOAD": "",
+        "TIT_SERVER_RELOAD": "1" if server_reload else "",
     }
 
 
@@ -594,12 +601,26 @@ def wait_for_health(origin: str, timeout: float = 180.0, *, echo=print) -> None:
 
 @dataclass
 class LaunchOptions:
+    """One launch invocation.
+
+    The last three are the *dev overrides* — the three variables the compose file exposes
+    as ``${TIT_REPO_DIR:-}``, ``${TIT_SERVER_RELOAD:-}`` and ``${TIT_STATIC_DIR:-}``, and
+    the only difference between a user run and a developer run (see
+    ``dev/loader/docker-compose.dev.yml``).  They default to off, which is the only correct
+    answer for a user: ``repo_dir`` bind-mounts a host directory over ``/ti-toolbox``, which
+    is where the image installed its own ``tit`` from, so a non-empty value in a packaged or
+    pip-installed run replaces the toolbox with whatever is at that path.
+    """
+
     project: str
     port: int = DEFAULT_PORT
     image: str | None = None
     open_browser: bool = True
     timeout: float = 180.0
     echo: object = field(default=print)
+    repo_dir: str = ""
+    server_reload: bool = False
+    static_dir: str = ""
 
 
 def resolve_project(raw: str | None) -> str:
@@ -644,6 +665,9 @@ def start(options: LaunchOptions) -> tuple[str, str]:
         token=token,
         user_config=str(user_config_dir()),
         image_tag=image.rsplit(":", 1)[-1],
+        repo_dir=options.repo_dir,
+        static_dir=options.static_dir,
+        server_reload=options.server_reload,
     )
     argv = build_run_argv(load_spec(), env, host_project_dir=host_project_dir, image=image)
     echo(f"starting {container_name(host_project_dir)} on port {port}…")

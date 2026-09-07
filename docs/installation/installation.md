@@ -60,7 +60,7 @@ tit launch --project ~/datasets/000
 ```
 
 `tit launch` checks Docker, pulls the image if it is missing, starts the container, waits for
-the server, then prints and opens a URL. Full options, the `ti-toolbox.sh` bootstrap and the
+the server, then prints and opens a URL. Full options, the `loader.py` / `loader.sh` bootstraps and the
 advanced "already have SimNIBS on this host" path are on the
 **[Command-line launcher]({{ site.baseurl }}/installation/bash-cli/)** page.
 

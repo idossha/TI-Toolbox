@@ -104,8 +104,8 @@ jobs:
           check version.py "$(sed -nE 's/^__version__[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' version.py | head -1)"
           # The compose default the packaged app falls back to when nothing sets TIT_IMAGE_TAG.
           # If this drifts, a shipped v3.0.0 app pulls last release's image.
-          check desktop/docker/docker-compose.v3.yml \
-            "$(sed -nE 's|.*image: idossha/ti-toolbox:\$\{TIT_IMAGE_TAG:-([^}]*)\}.*|\1|p' desktop/docker/docker-compose.v3.yml | head -1)"
+          check docker-compose.yml \
+            "$(sed -nE 's|.*image: idossha/ti-toolbox:\$\{TIT_IMAGE_TAG:-([^}]*)\}.*|\1|p' docker-compose.yml | head -1)"
           exit "$FAIL"
 
       - name: Extract release notes

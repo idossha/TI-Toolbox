@@ -99,7 +99,7 @@ describe("resolveRuntime", () => {
 });
 
 describe("buildServerArgs", () => {
-  it("reproduces the docker-compose.v3.yml CLI contract, loopback-bound", () => {
+  it("reproduces the docker-compose.yml CLI contract, loopback-bound", () => {
     expect(buildServerArgs({ projectDir: "/data/proj", port: 18765 })).toEqual([
       "-m",
       "tit.server",

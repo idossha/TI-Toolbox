@@ -35,13 +35,20 @@ Or run it straight from a checkout, with no install at all:
 ```bash
 git clone https://github.com/idossha/TI-Toolbox.git
 cd TI-Toolbox
-./ti-toolbox.sh --project ~/datasets/000
+python loader.py --project ~/datasets/000     # or: ./loader.sh --project ~/datasets/000
 ```
 
-`ti-toolbox.sh` is a bootstrap, not a second launcher: it finds a Python that can import
-`tit` — one you installed, the checkout it is sitting in, or a virtualenv it creates in
-`~/.cache/ti-toolbox/venv` — and hands your arguments to `tit launch`. There is one
-implementation of the container's run specification, so the container you get here is exactly
+Two entry points sit at the root of the checkout, and they take the same options:
+
+| | |
+|---|---|
+| `loader.py` | For a host where you already know which Python to use. Standard library only. |
+| `loader.sh` | For one where finding it is the hard part: it locates a CPython ≥ 3.11 — one you installed, the checkout it is sitting in, or a virtualenv it creates in `~/.cache/ti-toolbox/venv` — and hands your arguments on. |
+
+Both are bootstraps, not second launchers: every option is the option `tit launch` defines,
+and the work is done by the same code. There is one implementation of the container's run
+specification — the single `docker-compose.yml` at the root of the repository, which the
+desktop app, `tit launch` and both loaders all read — so the container you get here is exactly
 the container the desktop app creates.
 
 ## Launch
@@ -178,6 +185,26 @@ npm run dev:down   # stop and remove this project's dev container
 
 Ctrl-C stops the renderer and the app but **leaves the container running**, so the next
 `npm run dev` attaches in a second or two.
+
+#### Without Node
+
+`dev/loader/loader_dev.py` and `dev/loader/loader_dev.sh` are the developer's equivalents of
+the two loaders at the root, and they need no `npm install`:
+
+```bash
+python dev/loader/loader_dev.py --project ~/datasets/000   # container only, no Node
+python dev/loader/loader_dev.py --build                    # build the image, then exit
+python dev/loader/loader_dev.py --web                      # hand over to `npm run dev:web`
+```
+
+They take every option the user loaders take, and add exactly one thing to what the container
+gets: the three dev overrides collected in `dev/loader/docker-compose.dev.yml` — your checkout
+bind-mounted at `/ti-toolbox`, the server run with `--reload`, and your locally built renderer
+served instead of the image's. That file is *overrides only*; the service itself is defined
+once, in the root `docker-compose.yml`, so the two can never describe different containers.
+
+`--web` does not reimplement the dev loop — it runs `npm run dev:web` for you, so there is one
+implementation of container + Vite + Electron and it is the one `npm run dev` uses.
 
 ### First run: the image
 

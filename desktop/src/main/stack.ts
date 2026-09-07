@@ -1,7 +1,7 @@
 /**
  * The Docker stack for one project directory, driven entirely through the Engine API.
  *
- * Compose is still the definition — `docker/docker-compose.v3.yml`, parsed by
+ * Compose is still the definition — the repository's root `docker-compose.yml`, parsed by
  * `shared/composeFile.ts` — but nothing here shells out to `docker compose` (or to `docker` at
  * all, beyond the one `docker context inspect` inside `docker/discover.ts`). `start()` discovers
  * the engine, checks its API version, reads the compose file, ensures the network and named
@@ -95,7 +95,7 @@ export type StackEvent =
 export interface StackHost {
   /** `app.isPackaged`. Always false under the dev script — it is a checkout, by definition. */
   isPackaged: boolean;
-  /** `app.getAppPath()` — where `docker/docker-compose.v3.yml` is looked up. */
+  /** `app.getAppPath()` — the base for the `docker-compose.yml` lookup (see `resolveComposeFile`). */
   appPath: string;
   /** `process.resourcesPath` in a packaged app; `undefined` anywhere else. */
   resourcesPath?: string | undefined;
@@ -602,11 +602,22 @@ function resolveComposeFile(host: StackHost): string {
     if (!existsSync(override)) throw new StackStartError("compose-invalid", `TIT_COMPOSE_FILE does not exist: ${override}`);
     return override;
   }
-  const candidates = [join(host.appPath, "docker", "docker-compose.v3.yml"), host.resourcesPath ? join(host.resourcesPath, "docker", "docker-compose.v3.yml") : null].filter(
-    (c): c is string => Boolean(c),
-  );
+  // The run spec is the repository's single root `docker-compose.yml`. Three places it can be,
+  // in the order they are tried:
+  //   1. `appPath/../docker-compose.yml`  — unpackaged: `appPath` is `desktop/`, so `..` is the
+  //      repository root. This is the file `tit/launch.py` and the loaders read too.
+  //   2. `resourcesPath/docker-compose.yml` — packaged: electron-builder's `extraResources`
+  //      copies the root file to `Resources/` (it is outside the app directory, so it cannot be
+  //      an asar `files:` entry the way `docker/**` was).
+  //   3. `appPath/docker-compose.yml` — a layout that puts it beside the app; kept last so the
+  //      two real cases above are what normally matches.
+  const candidates = [
+    join(host.appPath, "..", "docker-compose.yml"),
+    host.resourcesPath ? join(host.resourcesPath, "docker-compose.yml") : null,
+    join(host.appPath, "docker-compose.yml"),
+  ].filter((c): c is string => Boolean(c));
   const found = candidates.find((c) => existsSync(c));
-  if (!found) throw new StackStartError("compose-invalid", `docker-compose.v3.yml not found (looked in: ${candidates.join(", ")})`);
+  if (!found) throw new StackStartError("compose-invalid", `docker-compose.yml not found (looked in: ${candidates.join(", ")})`);
   return found;
 }
 

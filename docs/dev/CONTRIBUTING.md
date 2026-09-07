@@ -45,6 +45,14 @@ Four facts about this loop that are not obvious, and each of which has cost some
 `Ctrl-C` stops Vite and Electron and leaves the container running, so the next `npm run dev`
 attaches in well under a second.
 
+**Without Node.** `dev/loader/loader_dev.py` (and `loader_dev.sh` beside it) start the same dev
+container from Python alone — same options as the root `loader.py`, plus `--build`, `--image` and
+`--web`. They are the developer's equivalents of the two user entry points at the repository root,
+and they set exactly the three overrides in `dev/loader/docker-compose.dev.yml`: the worktree
+mounted at `/ti-toolbox`, `TIT_SERVER_RELOAD=1`, and the locally built renderer. `--web` hands over
+to `npm run dev:web` rather than reimplementing the loop, so there is still one implementation of
+container + Vite + Electron. The stack itself is defined once, in the root `docker-compose.yml`.
+
 ---
 
 ## 2. The gate

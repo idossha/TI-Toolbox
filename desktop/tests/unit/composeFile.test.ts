@@ -21,7 +21,7 @@ import {
  */
 
 const FIXTURE = join(__dirname, "..", "e2e", "fixtures", "compose-v3.fixture.yml");
-const SHIPPED = join(__dirname, "..", "..", "docker", "docker-compose.v3.yml");
+const SHIPPED = join(__dirname, "..", "..", "..", "docker-compose.yml");
 
 const ENV: Record<string, string> = {
   LOCAL_PROJECT_DIR: "/Users/ido/datasets/000",
@@ -288,7 +288,7 @@ describe("buildContainerPlan", () => {
  * making about *that* one is that the parser refuses it by name rather than silently dropping its
  * freesurfer service and X11 mounts.
  */
-describe("the shipped docker-compose.v3.yml", () => {
+describe("the shipped docker-compose.yml", () => {
   const text = readFileSync(SHIPPED, "utf8");
   const rewritten = !/^\s*freesurfer:/m.test(text);
 

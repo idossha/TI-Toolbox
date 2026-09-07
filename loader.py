@@ -1,448 +1,61 @@
 #!/usr/bin/env python3
+"""``loader.py`` — start the TI-Toolbox UI from this checkout, with nothing installed.
+
+    python loader.py --project ~/datasets/000
+    python loader.py --project ~/datasets/000 --status | --logs | --stop
+
+This is a BOOTSTRAP, not a second launcher.  Every option below is the option
+:mod:`tit.cli` defines for ``tit launch``, reused here through ``parents=`` rather
+than re-declared, and the work is done by :mod:`tit.launch` — which owns the run
+spec, read from the one ``docker-compose.yml`` beside this file.  A ``docker run``
+written out again here would drift from the Electron app's container on the first
+change to a label, a mount or an environment variable, and the two would stop being
+interchangeable.
+
+``tit`` is imported from this checkout when this file sits in one (no install, no
+virtualenv, nothing written anywhere); otherwise the pip-installed package is used and
+``tit launch`` is the same command by another name.
+
+Standard library only.  The host needs CPython >= 3.11 and the ``docker`` CLI; it does
+not need SimNIBS, Node or Electron — the toolbox itself lives in the container.
+"""
+
 from __future__ import annotations
 
-import argparse
-import os
-import platform
-import re
-import shutil
-import subprocess
 import sys
-import time
 from pathlib import Path
-from typing import Optional
+
+HERE = Path(__file__).resolve().parent
 
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-DEFAULT_PATHS_FILE = SCRIPT_DIR / ".default_paths.user"
-DOCKER_COMPOSE_FILE = SCRIPT_DIR / "docker-compose.yml"
-FREESURFER_VOLUME_PREFIX = "ti-toolbox_freesurfer_data"
-X11_MARKER_NAME = ".ti_toolbox_x11_initialized"
-X11_MARKER_DIR = Path("code/ti-toolbox/config")
+def bootstrap() -> None:
+    """Make ``tit`` importable from this checkout, in preference to any installed copy.
 
-
-def run(
-    cmd: list[str],
-    *,
-    check: bool = True,
-    env: Optional[dict[str, str]] = None,
-    capture_output: bool = False,
-) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        cmd,
-        check=check,
-        env=env,
-        stdout=subprocess.PIPE if capture_output else None,
-        stderr=subprocess.PIPE if capture_output else None,
-        text=True,
-    )
-
-
-def capture(cmd: list[str]) -> str:
-    return subprocess.check_output(cmd, text=True).strip()
-
-
-def load_default_project_dir() -> str:
-    if not DEFAULT_PATHS_FILE.exists():
-        return ""
-    content = DEFAULT_PATHS_FILE.read_text(errors="ignore")
-    match = re.search(r'LOCAL_PROJECT_DIR="([^"]*)"', content)
-    return match.group(1) if match else ""
-
-
-def save_default_project_dir(project_dir: str) -> None:
-    DEFAULT_PATHS_FILE.write_text(f'LOCAL_PROJECT_DIR="{project_dir}"\n')
-
-
-def get_project_dir(
-    default_dir: str, provided_dir: str | None = None
-) -> tuple[Path, bool]:
-    project_dir = provided_dir or default_dir
-    if not project_dir:
-        project_dir = input("Give path to local project dir:\n").strip()
-    else:
-        print(f"Current project directory: {project_dir}")
-        new_path = input("Press Enter to use this or enter a new path:\n").strip()
-        if new_path:
-            project_dir = new_path
-
-    path = Path(os.path.expanduser(project_dir))
-    if not path.exists():
-        print(f"Error: Directory does not exist: {path}")
-        sys.exit(1)
-    if not path.is_dir():
-        print(f"Error: Path is not a directory: {path}")
-        sys.exit(1)
-    return path, not any(path.iterdir())
-
-
-def display_welcome() -> None:
-    print(
-        "Welcome to the TI-Toolbox from the Center for Sleep and Consciousness @ UW-Madison"
-    )
-    print("")
-    print("#####################################################################")
-    print("")
-
-
-def get_host_timezone() -> str:
-    return capture(["date", "+%Z"])
-
-
-def get_user_config_dir() -> str:
-    """Return the host-side user config directory for TI-Toolbox.
-
-    Creates the directory if it does not exist.  Mounted into Docker at
-    ``/root/.config/ti-toolbox`` so telemetry consent and preferences
-    persist across container restarts.
+    Only when the checkout really is one: a stray ``loader.py`` copied elsewhere must
+    not put an unrelated directory on ``sys.path``.
     """
-    system = platform.system()
-    if system == "Darwin":
-        base = Path.home() / ".config"
-    elif system == "Windows":
-        base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
-    else:
-        base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
-    config_dir = base / "ti-toolbox"
-    config_dir.mkdir(parents=True, exist_ok=True)
-    return str(config_dir)
+    if (HERE / "tit" / "launch.py").is_file() and (HERE / "pyproject.toml").is_file():
+        if str(HERE) not in sys.path:
+            sys.path.insert(0, str(HERE))
 
 
-def check_docker_available() -> None:
-    if not shutil.which("docker"):
-        print("Error: Docker is not installed or not in PATH.")
-        sys.exit(1)
-    result = subprocess.run(["docker", "info"], capture_output=True)
-    if result.returncode != 0:
-        print("Error: Docker daemon is not running. Please start Docker and try again.")
-        sys.exit(1)
-    result = subprocess.run(["docker", "compose", "version"], capture_output=True)
-    if result.returncode != 0:
-        print("Error: Docker Compose (v2) is not available.")
-        sys.exit(1)
-
-
-def find_xhost() -> Optional[str]:
-    return shutil.which("xhost") or shutil.which("/opt/X11/bin/xhost")
-
-
-def check_x_forwarding() -> Optional[str]:
-    system = platform.system()
-    dispatch = {
-        "Linux": (os.environ.get("DISPLAY", ":0"), find_xhost),
-        "Darwin": ("host.docker.internal:0", find_xhost),
-        "Windows": ("host.docker.internal:0", None),
-    }
-    display, xhost = dispatch[system]
-    os.environ["DISPLAY"] = display
-    if system == "Windows":
-        print(
-            "Windows detected. Please ensure your X server (VcXsrv/Xming) is running with:"
-        )
-        print("  - 'Multiple windows' mode")
-        print("  - 'Disable access control' checked")
-        print("  - Firewall configured to allow X server connections")
-        print("")
-        input("Press Enter to continue once X server is configured...")
-        return None
-    return xhost() if xhost else None
-
-
-def allow_xhost(xhost_bin: Optional[str]) -> None:
-    if not xhost_bin:
-        return
-    env = os.environ.copy()
-    if platform.system() != "Darwin":
-        env["DISPLAY"] = ":0"
-    run([xhost_bin, "+"], check=False, env=env, capture_output=True)
-
-
-def x11_marker_path(project_dir: Path) -> Path:
-    return project_dir / X11_MARKER_DIR / X11_MARKER_NAME
-
-
-def init_macos_x11_once(xhost_bin: Optional[str]) -> None:
-    xquartz_app = Path("/Applications/Utilities/XQuartz.app")
-    if not xquartz_app.exists():
-        print("Error: XQuartz is not installed. Please install XQuartz.")
-        sys.exit(1)
-    if not xhost_bin:
-        print("Error: xhost is not available. Please ensure XQuartz is installed correctly.")
-        sys.exit(1)
-
-    Path.home().joinpath(".Xauthority").touch(exist_ok=True)
-    run(
-        [
-            "defaults",
-            "write",
-            "org.macosforge.xquartz.X11",
-            "nolisten_tcp",
-            "-bool",
-            "false",
-        ],
-        check=False,
-    )
-
-    cmd = capture(["ps", "-ax", "-o", "command="])
-    if "XQuartz" not in cmd and "Xquartz" not in cmd:
-        print("Starting XQuartz...")
-        run(["open", "-a", "XQuartz"], check=False)
-        time.sleep(2)
-        cmd = capture(["ps", "-ax", "-o", "command="])
-
-    if "XQuartz" not in cmd and "Xquartz" not in cmd:
-        print("Error: XQuartz is not running. Start it first (open -a XQuartz).")
-        sys.exit(1)
-    if "-nolisten tcp" in cmd:
-        print(
-            "Error: XQuartz is running with -nolisten tcp. Quit and restart XQuartz after running: "
-            "defaults write org.macosforge.xquartz.X11 nolisten_tcp -bool false"
-        )
-        sys.exit(1)
-
-    env = os.environ.copy()
-    env["DISPLAY"] = ":0"
-    run([xhost_bin, "+"], check=False, env=env, capture_output=True)
-
-
-def maybe_init_macos_x11(
-    project_dir: Path, is_new_project: bool, xhost_bin: Optional[str]
-) -> None:
-    if platform.system() != "Darwin":
-        return
-    marker = x11_marker_path(project_dir)
-    if is_new_project or not marker.exists():
-        print("Initializing XQuartz for X11 forwarding (one-time)...")
-        init_macos_x11_once(xhost_bin)
-        marker.parent.mkdir(parents=True, exist_ok=True)
-        marker.write_text("x11_initialized=1\n")
-    print("XQuartz: ensure 'Allow connections from network clients' is enabled.")
-
-
-def get_freesurfer_volume_name() -> Optional[str]:
-    """Versioned FreeSurfer volume name from the compose image tag.
-
-    Returns ``None`` if the image tag cannot be parsed. Callers must then leave
-    ``FREESURFER_VOLUME`` unset (so compose's versioned default seeds the correct
-    volume) and skip pruning, rather than falling back to the bare prefix.
-    """
-    for line in DOCKER_COMPOSE_FILE.read_text().splitlines():
-        match = re.match(r"^\s*image:\s*\S*ti-toolbox_freesurfer:(\S+)\s*$", line)
-        if match:
-            return f"{FREESURFER_VOLUME_PREFIX}_{match.group(1)}"
-    return None
-
-
-def prune_old_freesurfer_volumes(current_name: Optional[str]) -> None:
-    """Remove stale older-version FreeSurfer volumes (best-effort).
-
-    A ``None`` ``current_name`` means the active version is unknown (tag parse
-    failed); pruning is skipped so a good versioned volume is never destroyed.
-    """
-    if not current_name:
-        return
+def main(argv: list[str] | None = None) -> int:
+    bootstrap()
     try:
-        names = capture(["docker", "volume", "ls", "--format", "{{.Name}}"]).split()
-    except Exception:
-        return
-    for name in names:
-        is_versioned = name.startswith(f"{FREESURFER_VOLUME_PREFIX}_")
-        is_legacy = name == FREESURFER_VOLUME_PREFIX
-        if (is_versioned or is_legacy) and name != current_name:
-            subprocess.run(
-                ["docker", "volume", "rm", name],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-
-
-def get_compose_images() -> list[str]:
-    images: list[str] = []
-    for line in DOCKER_COMPOSE_FILE.read_text().splitlines():
-        match = re.match(r"^\s*image:\s*(\S+)\s*$", line)
-        if match:
-            images.append(match.group(1))
-    return images
-
-
-def ensure_images_pulled(env: dict[str, str]) -> None:
-    images = get_compose_images()
-    if not images:
-        return
-
-    existing = set(
-        capture(
-            ["docker", "images", "--format", "{{.Repository}}:{{.Tag}}"]
-        ).splitlines()
-    )
-    missing = [image for image in images if image not in existing]
-    if not missing:
-        return
-
-    print("Pulling required Docker images...")
-    subprocess.run(
-        ["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "pull"], env=env
-    )
-
-
-def run_project_init_in_container(container_name: str, project_dir_name: str) -> None:
-    container_project_dir = f"/mnt/{project_dir_name}"
-
-    local_manager = SCRIPT_DIR / "tit" / "project_init" / "example_data_manager.py"
-    if local_manager.exists():
-        subprocess.run(
-            [
-                "docker",
-                "cp",
-                str(local_manager),
-                f"{container_name}:/ti-toolbox/tit/project_init/example_data_manager.py",
-            ],
-            check=False,
+        from tit.cli import launch_command, launch_parser
+    except ImportError as err:  # pragma: no cover - exercised by the message, not a test
+        sys.stderr.write(
+            f"loader.py: could not import the `tit` package ({err}).\n"
+            "  Run this file from a TI-Toolbox checkout, or install it first:\n"
+            "    pip install tit\n"
         )
+        return 2
 
-    # Run project init + optional example-data setup entirely in container python.
-    # The snippet always exits 0 to avoid treating "no-op" as failure.
-    cmd = [
-        "docker",
-        "exec",
-        "-e",
-        f"PROJECT_DIR={container_project_dir}",
-        container_name,
-        "bash",
-        "-lc",
-        "PYTHONPATH=/ti-toolbox simnibs_python - <<'PY'\n"
-        "import os\n"
-        "from pathlib import Path\n"
-        "from tit.project_init import is_new_project, initialize_project_structure, setup_example_data\n"
-        "\n"
-        "project_dir = Path(os.environ['PROJECT_DIR'])\n"
-        "toolbox_root = Path('/ti-toolbox')\n"
-        "\n"
-        "if is_new_project(project_dir):\n"
-        "    initialize_project_structure(project_dir)\n"
-        "\n"
-        "setup_example_data(toolbox_root, project_dir)\n"
-        "PY",
-    ]
-    subprocess.run(cmd, check=False)
-
-
-def wait_for_container(name: str, timeout_s: int = 30) -> bool:
-    """Poll until *name* reports State.Running, or give up after *timeout_s*."""
-    deadline = time.time() + timeout_s
-    while time.time() < deadline:
-        probe = subprocess.run(
-            ["docker", "inspect", "-f", "{{.State.Running}}", name],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            text=True,
-        )
-        if probe.returncode == 0 and probe.stdout.strip() == "true":
-            return True
-        time.sleep(1)
-    return False
-
-
-def run_docker_compose(project_dir: Path, project_dir_name: str) -> None:
-    freesurfer_volume = get_freesurfer_volume_name()
-
-    env = os.environ.copy()
-    if freesurfer_volume:
-        env["FREESURFER_VOLUME"] = freesurfer_volume
-
-    # Bring any containers from a previous (older-image) run down first so they
-    # release the old FreeSurfer volume; otherwise the prune below fails with
-    # "volume is in use" and the stale volume lingers.
-    subprocess.run(
-        ["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "down"],
-        env=env,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        check=False,
-    )
-    prune_old_freesurfer_volumes(freesurfer_volume)
-
-    env["LOCAL_PROJECT_DIR"] = str(project_dir)
-    env["PROJECT_DIR_NAME"] = project_dir_name
-    env["TZ"] = get_host_timezone()
-    env["HOME"] = env.get("HOME") or env.get("USERPROFILE", "")
-    env["TIT_USER_CONFIG"] = get_user_config_dir()
-    env["TIT_HOST_OS"] = platform.system().lower()
-    env["TIT_HOST_OS_VERSION"] = platform.release()
-    env["TIT_HOST_ARCH"] = platform.machine()
-    ensure_images_pulled(env)
-
-    print("Starting services...")
-    up = subprocess.run(
-        ["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "up", "--build", "-d"],
-        env=env,
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-    )
-    if up.returncode != 0:
-        # Show the real compose error (port in use, platform mismatch, bad
-        # mount, ...) instead of only the generic message below.
-        print(up.stdout.strip())
-
-    print("Waiting for services to initialize...")
-    if not wait_for_container("simnibs_container", timeout_s=30):
-        print(
-            "Error: simnibs service is not running. Please check your docker-compose.yml and container logs."
-        )
-        print(f"Host: {platform.system()} {platform.machine()} (images are linux/amd64)")
-        subprocess.run(
-            ["docker", "ps", "-a", "--filter", "name=simnibs_container",
-             "--format", "table {{.Names}}\t{{.Status}}\t{{.Image}}"],
-            check=False,
-        )
-        subprocess.run(["docker", "logs", "--tail", "50", "simnibs_container"], check=False)
-        sys.exit(1)
-
-    print("Initializing project (inside container)...")
-    run_project_init_in_container("simnibs_container", project_dir_name)
-
-    print("Attaching to the simnibs_container...")
-    if sys.stdin.isatty():
-        subprocess.run(["docker", "exec", "-ti", "simnibs_container", "bash"])
-    else:
-        subprocess.run(["docker", "exec", "-i", "simnibs_container", "bash"])
-    run(
-        ["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "down"],
-        env=env,
-        check=False,
-    )
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="TI-Toolbox CLI loader")
-    parser.add_argument("--project-dir", help="Path to the local project directory")
-    return parser.parse_args()
-
-
-def main() -> None:
-    if not DOCKER_COMPOSE_FILE.exists():
-        print(f"Error: docker-compose.yml not found in {SCRIPT_DIR}. Please make sure the file is present.")
-        sys.exit(1)
-
-    args = parse_args()
-
-    check_docker_available()
-    xhost_bin = check_x_forwarding()
-    display_welcome()
-
-    default_dir = load_default_project_dir()
-    project_dir, is_new_project = get_project_dir(default_dir, args.project_dir)
-
-    save_default_project_dir(str(project_dir))
-
-    maybe_init_macos_x11(project_dir, is_new_project, xhost_bin)
-    if platform.system() == "Linux":
-        allow_xhost(xhost_bin)
-
-    run_docker_compose(project_dir, project_dir.name)
+    invocation = "python loader.py"
+    parser = launch_parser(prog=invocation)
+    args = parser.parse_args(argv if argv is not None else sys.argv[1:])
+    return launch_command(args, invocation=invocation)
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

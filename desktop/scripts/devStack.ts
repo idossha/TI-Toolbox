@@ -17,7 +17,8 @@ import { createStackManager, sameHostDir, type StackEvent, type StackHost } from
 import type { DevConfig } from "./devEnv";
 
 /**
- * `desktop/` — where `docker/docker-compose.v3.yml` lives, i.e. the Node host's `appPath`.
+ * `desktop/` — the Node host's `appPath`; the run spec is the root `docker-compose.yml` one
+ * level up, which `src/main/stack.ts#resolveComposeFile` finds from it.
  * `__dirname`, not `import.meta.url`: `desktop/package.json` has no `"type": "module"`, so tsx
  * runs these scripts as CommonJS and `import.meta` is not available in them.
  */
@@ -160,5 +161,5 @@ export async function stopDevStack(config: DevConfig): Promise<DevStackDownResul
   return { removed };
 }
 
-/** `desktop/docker/docker-compose.v3.yml`, for the message that names what dev will realise. */
-export const COMPOSE_FILE = join(DESKTOP_DIR, "docker", "docker-compose.v3.yml");
+/** The root `docker-compose.yml`, for the message that names what dev will realise. */
+export const COMPOSE_FILE = join(REPO_DIR, "docker-compose.yml");

@@ -3,7 +3,7 @@
  * `stack.ts`'s Docker lifecycle. Locates a python-build-standalone runtime tree shipped as
  * electron-builder `extraResources` (or pointed at by `TIT_NATIVE_RUNTIME_DIR` for dev/e2e),
  * spawns `python -m tit.server` directly as a local child process with the exact CLI/env contract
- * `docker-compose.v3.yml` already uses (r4-python-in-electron.md §1.1), waits for `/api/health`
+ * the root `docker-compose.yml` already uses (r4-python-in-electron.md §1.1), waits for `/api/health`
  * (reusing `./health.ts`, transport-agnostic already — no changes needed there), and hands back
  * the same `{url, token}` shape `stack.start` does so `index.ts`'s existing `connect()` needs no
  * redesign.
@@ -92,7 +92,7 @@ export interface ServerArgsOptions {
   staticDir?: string;
 }
 
-/** The exact `-m tit.server` CLI contract `docker-compose.v3.yml` already uses (r4 §1.1), minus the
+/** The exact `-m tit.server` CLI contract the root `docker-compose.yml` already uses (r4 §1.1), minus the
  * Docker-only `0.0.0.0` bind — a native spawn always binds loopback only. */
 export function buildServerArgs(opts: ServerArgsOptions): string[] {
   const args = ["-m", "tit.server", "--project", opts.projectDir, "--host", opts.host ?? "127.0.0.1", "--port", String(opts.port)];
@@ -112,7 +112,7 @@ export interface ServerEnvOptions {
  * interpreter to not accidentally pick up a system Python's stdlib"). `PYTHONNOUSERSITE=1` stops a
  * developer's own `~/.local`/`~/Library/Python` site-packages from shadowing the bundled ones.
  * `MPLBACKEND=Agg` — this app never has a display for the child to draw to. `KMP_AFFINITY=disabled`
- * + `OMP_NUM_THREADS=1` are the exact pair `docker-compose.v3.yml` sets today for the container path,
+ * + `OMP_NUM_THREADS=1` are the exact pair the root `docker-compose.yml` sets today for the container path,
  * load-bearing not cosmetic (`Dockerfile.simnibs`'s own comment: "Avoid OpenMP affinity crash during
  * postinstall", r4 §1.1/§8 risk 4) — dropping them here would reproduce a known crash class outside
  * the container's protection.

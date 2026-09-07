@@ -1,5 +1,5 @@
 /**
- * Reads `docker/docker-compose.v3.yml` — the stack definition — into a typed `Stack`, and turns
+ * Reads the repository's root `docker-compose.yml` — the stack definition — into a typed `Stack`, and turns
  * that `Stack` into the exact body the Docker Engine API's `POST /containers/create` wants.
  *
  * Compose stays the definition (plan of record D4); the Engine API is the driver. Nothing here

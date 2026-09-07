@@ -49,7 +49,7 @@ right volumes/env, wait for it to answer a health check, then point a `BrowserWi
 | **Docker orchestration** | `dockerode` for health checks/log streaming + the `docker compose` CLI shelled out to for starting/stopping services | A dependency-free Docker Engine API client only — no CLI subprocess at all, except `docker context inspect` to discover the active context |
 | **Images** | Two: `idossha/simnibs` (~19 GB) + a separate FreeSurfer image (~67 GB) | One: `idossha/ti-toolbox:<ver>` (≈ 2.3 GB to download, ≈ 9 GB unpacked on disk), SimNIBS + FastSurfer + the UI + the viewer baked in |
 | **X11 host setup** | XQuartz (macOS) / VcXsrv (Windows) / native X11 (Linux), `xhost` permission juggling on every launch | None |
-| **Compose's role** | Read by both the app (for its own bookkeeping) and shelled out to via the `docker compose` CLI | Still the stack *definition* (one `tit` service, `desktop/docker/docker-compose.v3.yml`), but the app parses the YAML itself and realizes it purely through Engine API calls — `docker compose` is never invoked |
+| **Compose's role** | Read by both the app (for its own bookkeeping) and shelled out to via the `docker compose` CLI | Still the stack *definition* (one `tit` service, the root `docker-compose.yml`), but the app parses the YAML itself and realizes it purely through Engine API calls — `docker compose` is never invoked |
 
 ## Components
 
@@ -72,7 +72,7 @@ The Node.js process that gets the container running and stays out of the way onc
 - **Docker discovery** (`desktop/src/main/docker/discover.ts`) — resolves the active Docker
   context (`DOCKER_HOST`, then `docker context inspect`, then well-known socket paths). This
   is the *only* place the app still shells out to the `docker` CLI.
-- **Stack orchestration** (`desktop/src/main/stack.ts`) — reads `docker-compose.v3.yml`,
+- **Stack orchestration** (`desktop/src/main/stack.ts`) — reads the root `docker-compose.yml`,
   interpolates its `${VAR}` placeholders from the app's own environment map, and drives the
   whole lifecycle (network, volume, image pull with progress, container create/start, health
   check, attach-by-label, stop+remove) through the Engine API client under
@@ -185,13 +185,15 @@ with it:
 
 | | Command | What it gives you |
 |---|---|---|
-| **Python/bash launcher** | `tit launch --project <dir>` | The UI in a browser. Needs only Python 3.11+ and the `docker` CLI. `--status`, `--logs`, `--stop`. |
+| **Python/bash launcher** | `tit launch --project <dir>`, or `python loader.py` / `./loader.sh` from a checkout | The UI in a browser. Needs only Python 3.11+ and the `docker` CLI. `--status`, `--logs`, `--stop`. |
 | **From source** | `npm run dev` in `desktop/` | The whole system from a checkout, for unreleased code. |
 
-There is one run specification, `desktop/docker/docker-compose.v3.yml`, and all three read it:
-the app and `npm run dev` through `shared/composeFile.ts` and the Engine API, `tit launch`
-through `tit/launch.py`, whose built-in fallback for an installed wheel is pinned to that file
-by a test. That is why `tit launch --status` can report on a container the app started, and why
+There is one run specification — the `docker-compose.yml` at the root of the repository — and
+all three read it: the app and `npm run dev` through `shared/composeFile.ts` and the Engine
+API, `tit launch` (and the `loader.py` / `loader.sh` wrappers over it) through `tit/launch.py`,
+whose built-in fallback for an installed wheel is pinned to that file by a test. It lives at
+the root rather than under `desktop/` precisely because the app is not its only reader; a
+packaged build carries a copy at `Resources/docker-compose.yml`. That is why `tit launch --status` can report on a container the app started, and why
 the app can attach to one `tit launch` created.
 
 In a browser there is no Electron bridge (`window.tit`), so reveal-in-file-manager, native

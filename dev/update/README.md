@@ -2,7 +2,7 @@
 
 One script, `update_version.py`. It rewrites every place a version number is written — `version.py`,
 `tit/__init__.py`, `desktop/package.json`, the image tag default in
-`desktop/docker/docker-compose.v3.yml`, the docs — and writes the release pages under
+the root `docker-compose.yml`, the docs — and writes the release pages under
 `docs/releases/`, so a tag and the artifacts built from it agree.
 
 ```bash

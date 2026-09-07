@@ -6,12 +6,16 @@
 # docs/dev/HISTORY.md § 2026-09-03 (native desktop research)). Three things changed, each because
 # the spike config could not have produced a shippable artifact:
 #
-#   1. `docker/**` is in `files:` now. `src/main/stack.ts#resolveComposeFile` reads
-#      `docker/docker-compose.v3.yml` from `app.getAppPath()` (i.e. inside app.asar) at every stack
-#      start; the spike config shipped only `out/**` and `package.json`, so every packaged build
-#      died on first launch with `compose-invalid: docker-compose.v3.yml not found`. Proven by
-#      `scripts/verify-package.mjs` against a `--dir` build, which is why that script now runs in
-#      the release workflow's validation job before anything is signed.
+#   1. The run spec ships. `src/main/stack.ts#resolveComposeFile` reads a `docker-compose.yml` at
+#      every stack start; the spike config shipped only `out/**` and `package.json`, so every
+#      packaged build died on first launch with `compose-invalid: docker-compose.yml not found`.
+#      It is an `extraResources` entry rather than a `files:` one because the file lives at the
+#      REPOSITORY ROOT (`../docker-compose.yml`) — one spec read by the app, `tit launch`,
+#      `loader.py` and `loader.sh` alike — and `files:` globs cannot reach outside the app
+#      directory. `extraResources` lands it in `Resources/`, which is exactly the second
+#      candidate `resolveComposeFile` looks at. Proven by `scripts/verify-package.mjs` against a
+#      `--dir` build, which is why that script now runs in the release workflow's validation job
+#      before anything is signed.
 #   2. The `.runtime-staging/darwin-arm64 -> runtime/darwin-arm64` extraResources entry is gone.
 #      The shipping app is Docker-backed: `tit.server` runs inside `idossha/ti-toolbox:<ver>`, so
 #      there is no bundled Python runtime to stage, and an entry pointing at a directory that only
@@ -49,11 +53,8 @@ directories:
 # needs to ship (the bundler inlines every renderer dependency, and main/preload are bundled too via
 # electron-vite's own esbuild step).
 #
-# `docker/**` is the stack definition the app parses at runtime (see the header, item 1). It is one
-# small YAML file; it is listed by directory so a second compose file added later ships too.
 files:
   - out/**
-  - docker/**
   - package.json
   - '!node_modules/**'
 
@@ -67,6 +68,12 @@ extraResources:
     to: renderer
     filter:
       - '**/*'
+  # The stack definition the app parses at runtime (see the header, item 1). One small YAML file,
+  # taken from the repository root because that is where the single run spec lives; it lands at
+  # `Resources/docker-compose.yml`, which `src/main/stack.ts#resolveComposeFile` looks for and
+  # `scripts/verify-package.mjs` asserts is present.
+  - from: ../docker-compose.yml
+    to: docker-compose.yml
 
 asar: true
 npmRebuild: false

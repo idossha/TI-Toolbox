@@ -2,7 +2,7 @@
  * Host <-> container path mapping for one mounted project.
  *
  * The compose stack always mounts exactly one host directory at `/mnt/<basename>` inside the
- * container (`LOCAL_PROJECT_DIR:/mnt/${PROJECT_DIR_NAME}`, see `docker/docker-compose.v3.yml`).
+ * container (`LOCAL_PROJECT_DIR:/mnt/${PROJECT_DIR_NAME}`, see the root `docker-compose.yml`).
  * Every path the server hands back to the renderer (artifacts, reports, "Reveal" targets) is a
  * *container* path under that mount. `shell.openPath`/`shell.showItemInFolder` need the matching
  * *host* path, so the main process (never the renderer — R5) converts one to the other with the

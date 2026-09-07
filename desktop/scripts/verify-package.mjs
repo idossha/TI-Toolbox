@@ -9,10 +9,11 @@
  * what goes inside `app.asar` and what sits beside it in `resources/`. The two defects this was
  * written against, both real:
  *
- *   1. `desktop/docker/docker-compose.v3.yml` was not in electron-builder.yml's `files:` list,
- *      while `src/main/stack.ts#resolveComposeFile` reads it from `app.getAppPath()/docker/` at
- *      startup. Every packaged build therefore died with `compose-invalid: docker-compose.v3.yml
- *      not found` on first launch — a defect no unit test or `npm run build` can see.
+ *   1. The run spec was not packaged at all, while `src/main/stack.ts#resolveComposeFile` reads a
+ *      `docker-compose.yml` at startup. Every packaged build therefore died with
+ *      `compose-invalid: docker-compose.yml not found` on first launch — a defect no unit test or
+ *      `npm run build` can see. It now ships as an extraResource from the repository root, so the
+ *      check for it is check 7 below (`resources/`), not an asar-contents check.
  *   2. The legacy launcher (`package/`, v2.4.0) was what the release workflow actually built, so
  *      the version inside the artifact did not match the tag it was published under.
  *
@@ -154,11 +155,7 @@ const FORBIDDEN = [
 ];
 
 /** Files the app reads at runtime and therefore MUST be inside the asar. */
-const REQUIRED_IN_ASAR = [
-  // src/main/stack.ts#resolveComposeFile — read at every stack start; its absence is fatal.
-  "docker/docker-compose.v3.yml",
-  "package.json",
-];
+const REQUIRED_IN_ASAR = ["package.json"];
 
 function main() {
   const args = process.argv.slice(2);
@@ -273,6 +270,19 @@ function main() {
     "renderer staged at resources/renderer",
     existsSync(join(app.resourcesDir, "renderer", "index.html")),
     join(app.resourcesDir, "renderer", "index.html"),
+  );
+
+  // The run spec, copied from the repository root by electron-builder's extraResources. This is
+  // the file `src/main/stack.ts#resolveComposeFile` finds at `resourcesPath/docker-compose.yml`;
+  // without it every stack start fails with `compose-invalid`, which is defect 1 in the header.
+  // Its content is checked too, not just its presence: an empty or wrong file placed here would
+  // satisfy `existsSync` and still fail at runtime.
+  const composePath = join(app.resourcesDir, "docker-compose.yml");
+  const composeText = existsSync(composePath) ? readFileSync(composePath, "utf8") : "";
+  check(
+    "run spec staged at resources/docker-compose.yml",
+    /^\s*tit:/m.test(composeText) && composeText.includes("idossha/ti-toolbox:"),
+    existsSync(composePath) ? `${composeText.length} bytes` : `${composePath} missing`,
   );
 
   // --- 8. executable exists and is the right name --------------------------------------------------

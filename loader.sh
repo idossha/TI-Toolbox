@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
-# ti-toolbox.sh — start the TI-Toolbox UI in a browser, without Electron.
+# loader.sh — start the TI-Toolbox UI in a browser, without Electron.
 #
-#   ./ti-toolbox.sh --project ~/datasets/000
-#   ./ti-toolbox.sh --project ~/datasets/000 --status | --logs | --stop
-#   curl -fsSL https://raw.githubusercontent.com/idossha/TI-Toolbox/main/ti-toolbox.sh | bash -s -- --project ~/datasets/000
+#   ./loader.sh --project ~/datasets/000
+#   ./loader.sh --project ~/datasets/000 --status | --logs | --stop
+#   curl -fsSL https://raw.githubusercontent.com/idossha/TI-Toolbox/main/loader.sh | bash -s -- --project ~/datasets/000
+#
+# The bash half of the pair at the repository root: `loader.py` for a host that already has a
+# Python you want to use, `loader.sh` for one where finding it is the hard part. Both end up in
+# the same place. (This file was `ti-toolbox.sh`; the name changed, nothing else did.)
 #
 # This script is a BOOTSTRAP, not a second launcher: every flag is passed straight through to
 # `tit launch` (tit/launch.py), which owns the run spec. That is deliberate — a `docker run`
@@ -12,8 +16,8 @@
 # All this file does is find a Python that can import `tit`, in this order:
 #
 #   1. $TIT_PYTHON, if set.
-#   2. A CPython >= 3.11 on PATH that can already import `tit` (a pip/pipx install).
-#   3. This repository, if the script is running from a checkout (PYTHONPATH=<repo root>).
+#   2. This repository, if the script is running from a checkout — it execs `loader.py` beside it.
+#   3. A CPython >= 3.11 on PATH that can already import `tit` (a pip/pipx install).
 #   4. A cached virtualenv at ~/.cache/ti-toolbox/venv, created and pip-installed on first use
 #      (from the checkout when there is one, otherwise from PyPI).
 #
@@ -68,14 +72,21 @@ PYTHON="$(find_python || true)"
 
 REPO="$(repo_root || true)"
 
-# 2. an installed `tit`
-if "$PYTHON" -c 'import tit.launch' >/dev/null 2>&1; then
-    exec "$PYTHON" -m tit.cli launch "$@"
+# 2. this checkout, imported in place — no install, no venv, nothing written anywhere.
+# Before the installed-package branch, not after, for two reasons. Running a checkout's
+# `./loader.sh` must run *that* checkout's code, not some older `tit` the user pip-installed
+# once. And the probe below cannot tell the two apart from in here anyway: `python -c` puts the
+# current directory on `sys.path`, so `import tit.launch` succeeds merely by virtue of being run
+# from the repository root, and the run would then print `tit launch …` follow-up hints naming a
+# command that may not exist on this machine at all.
+if [ -n "$REPO" ]; then
+    exec "$PYTHON" "$REPO/loader.py" "$@"
 fi
 
-# 3. this checkout, imported in place — no install, no venv, nothing written anywhere
-if [ -n "$REPO" ]; then
-    exec env PYTHONPATH="$REPO${PYTHONPATH:+:$PYTHONPATH}" "$PYTHON" -m tit.cli launch "$@"
+# 3. an installed `tit` (pip/pipx). `cd /` so the probe cannot be satisfied by the current
+# directory the way it can above.
+if (cd / && "$PYTHON" -c 'import tit.launch') >/dev/null 2>&1; then
+    exec "$PYTHON" -m tit.cli launch "$@"
 fi
 
 # 4. a cached venv. Only reached when the script was piped from curl on a host with no `tit`
@@ -85,6 +96,6 @@ if [ ! -x "$VENV_DIR/bin/python" ]; then
     "$PYTHON" -m venv "$VENV_DIR" || die "could not create a virtualenv at $VENV_DIR"
     "$VENV_DIR/bin/python" -m pip install --quiet --upgrade pip
     "$VENV_DIR/bin/python" -m pip install --quiet tit \
-        || die "could not install tit from PyPI. Clone the repository and run ./ti-toolbox.sh from it instead."
+        || die "could not install tit from PyPI. Clone the repository and run ./loader.sh from it instead."
 fi
 exec "$VENV_DIR/bin/python" -m tit.cli launch "$@"

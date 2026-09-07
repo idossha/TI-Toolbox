@@ -1,61 +1,29 @@
+# dev/loader/docker-compose.dev.yml — the DEV OVERRIDES, and nothing else.
+#
+#   docker compose -f docker-compose.yml -f dev/loader/docker-compose.dev.yml up
+#
+# There is no second service definition here: the stack is defined once, in the root
+# `docker-compose.yml`, and this file only fills in the three variables that file already
+# exposes as `${TIT_REPO_DIR:-}`, `${TIT_SERVER_RELOAD:-}` and `${TIT_STATIC_DIR:-}`. That
+# is the whole difference between a user run and a developer run:
+#
+#   TIT_REPO_DIR       the checkout, bind-mounted at /ti-toolbox — the container then runs
+#                      this worktree's `tit` instead of the one baked into the image.
+#   TIT_SERVER_RELOAD  "1" — the entrypoint adds `--reload --reload-dir /ti-toolbox/tit`,
+#                      so an edit under tit/server/ or tit/jobs/ restarts the server.
+#   TIT_STATIC_DIR     this worktree's built renderer, so the page served is the one just
+#                      built rather than the bundle the image happens to carry.
+#
+# `dev/loader/loader_dev.py` sets exactly these three through `tit.launch` instead of
+# shelling out to `docker compose`; `tests/test_launch.py::test_dev_overrides_match_compose`
+# asserts the two agree, so this file cannot drift from the loader beside it.
+#
+# DEV_CODEBASE_DIR defaults to the checkout this file lives in, so the plain
+# `docker compose -f … -f …` form above needs no environment set up by hand.
+
 services:
-  freesurfer:
-    image: idossha/ti-toolbox_freesurfer:v7.4.1
-    platform: linux/amd64
-    container_name: freesurfer_container
-    volumes:
-      - freesurfer_data:/usr/local/freesurfer/
-    networks:
-      - ti_network
-    restart: unless-stopped
-
-  simnibs:
-    platform: linux/amd64
-    image: idossha/simnibs:v2.5.0
-    container_name: simnibs_container
-    volumes:
-      - freesurfer_data:/usr/local/freesurfer/
-      - /tmp/.X11-unix:/tmp/.X11-unix
-      - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
-      - ${TIT_USER_CONFIG}:/root/.config/ti-toolbox # User-level config (telemetry, prefs)
-      - ${DEV_CODEBASE_DIR}:/ti-toolbox
-      - /var/run/docker.sock:/var/run/docker.sock # Docker socket for DooD (QSIPrep/QSIRecon)
+  tit:
     environment:
-      USER: root
-      DISPLAY: ${DISPLAY}
-      MPLBACKEND: "Agg"
-
-      FREESURFER_HOME: /usr/local/freesurfer
-      SUBJECTS_DIR: /usr/local/freesurfer/subjects
-      FS_LICENSE: /usr/local/freesurfer/license.txt
-      LOCAL_PROJECT_DIR: ${LOCAL_PROJECT_DIR}
-      PROJECT_DIR_NAME: ${PROJECT_DIR_NAME}
-      DEV_CODEBASE_DIR: ${DEV_CODEBASE_DIR}
-      DEV_CODEBASE_NAME: ${DEV_CODEBASE_NAME}
-      TZ: ${TZ}
-      TIT_HOST_OS: ${TIT_HOST_OS:-unknown}
-      TIT_HOST_OS_VERSION: ${TIT_HOST_OS_VERSION:-unknown}
-      TIT_HOST_ARCH: ${TIT_HOST_ARCH:-unknown}
-      KMP_AFFINITY: "disabled"
-      TI_TOOLBOX_VERSION: "dev"
-    ports:
-      - "8888:8888"
-    networks:
-      - ti_network
-    depends_on:
-      - freesurfer
-    tty: true
-    stdin_open: true
-    working_dir: /ti-toolbox
-    command: ["/bin/bash"]
-    restart: unless-stopped
-
-networks:
-  ti_network:
-    driver: bridge
-
-volumes:
-  freesurfer_data:
-    # Versioned name (must match the freesurfer image tag) so a FreeSurfer bump
-    # re-seeds a fresh volume. Launcher overrides FREESURFER_VOLUME.
-    name: ${FREESURFER_VOLUME:-ti-toolbox_freesurfer_data_v7.4.1}
+      TIT_REPO_DIR: ${TIT_REPO_DIR:-${DEV_CODEBASE_DIR:-..}}
+      TIT_SERVER_RELOAD: "1"
+      TIT_STATIC_DIR: ${TIT_STATIC_DIR:-}

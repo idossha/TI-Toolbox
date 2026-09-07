@@ -1,57 +1,101 @@
-services:
-  freesurfer:
-    image: idossha/ti-toolbox_freesurfer:v7.4.1
-    platform: linux/amd64
-    container_name: freesurfer_container
-    volumes:
-      - freesurfer_data:/usr/local/freesurfer/
-    networks:
-      - ti_network
-    restart: unless-stopped
+# docker-compose.yml — THE run spec for TI-Toolbox v3. There is exactly one, and it lives here.
+#
+# One service, `tit`, on the streamlined image `idossha/ti-toolbox:<ver>` (D1,
+# `docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)`). Compose stays the stack *definition*; the
+# app itself never shells out to the `docker compose` CLI (D4) — it parses this YAML and
+# realises it through the dependency-free Engine API client (`desktop/src/main/docker/`).
+#
+# FOUR READERS, ONE FILE — this is the point of keeping it at the repository root rather than
+# under `desktop/`, where only the Electron app could reach it without a `..`:
+#   * the Electron app        `desktop/src/main/stack.ts` -> `desktop/src/shared/composeFile.ts`
+#   * `tit launch`            `tit/launch.py#load_spec` (stdlib parser; `BUILTIN_SPEC` is the
+#                             wheel's copy, and `tests/test_launch.py` asserts they agree)
+#   * `loader.py` / `loader.sh`      the user's entry points — thin wrappers over `tit launch`
+#   * `dev/loader/loader_dev.*`      the developer's, which add only the three `${...:-}` dev
+#                             overrides collected in `dev/loader/docker-compose.dev.yml`
+# It replaces the v2 root compose (two services, FreeSurfer + X11) that the v2 `loader.py` used;
+# that stack is gone with v3, not moved.
+#
+# THE APP'S PARSER UNDERSTANDS EXACTLY THIS SUBSET (plan §1) — anything else is a startup
+# error naming the key:
+#   services.<name>.{image, environment, volumes, ports, labels, healthcheck, command,
+#                     working_dir, init}
+#   top level: networks, volumes
+#   ${VAR} / ${VAR:-default} interpolation from the app's own env map (standard Compose-spec
+#   syntax — every default below relies on the parser supporting the `:-` form, matching
+#   the v2 root compose's own precedent for `FREESURFER_VOLUME`).
+# `platform`, `restart`, `depends_on`, `container_name`, `tty`, `stdin_open`, `networks` (per
+# service) are deliberately NOT used here even though the v2 file used them — `platform:
+# linux/amd64` in particular is dropped on purpose: this image is amd64-only (D1), so the app
+# is expected to pin that when it creates the container via the Engine API, not read it from
+# here (there is no key for it in the understood subset).
+#
+# Changes from the v2/v3-draft file this replaces (D1-D4):
+#   - No `freesurfer` service, no `freesurfer_data` volume (D2 — FreeSurfer dropped from the
+#     core image entirely; existing recon-all derivatives on disk still work, readers accept
+#     both, per D2's own wording).
+#   - No X11: no `/tmp/.X11-unix` or `.Xauthority` mounts, no `DISPLAY` (D3 — Freeview/Gmsh
+#     launchers are gone; viewing is the Tetravox Embed, rendered in the Electron window from
+#     the container-served bundle).
+#   - No `command:` — the image's own entrypoint (`entrypoint.ti-toolbox.sh`) execs
+#     `tit.server` directly. The v3-draft file's `bash -lc "pip install ... && exec ..."`
+#     command existed only because the *published* image had no fastapi/uvicorn baked in;
+#     `idossha/ti-toolbox:<ver>` bakes them (D1), so there is nothing left to install at
+#     start.
+#   - Container port always equals `TIT_SERVER_PORT`: one variable drives both the server's
+#     `--port` (via this same env var, read by the entrypoint) and the published host port,
+#     rather than a second `TIT_CONTAINER_PORT`-style variable — one fewer moving part for the
+#     launcher to keep in sync, and it matches the v3-draft file's own existing choice.
+#   - `${TIT_REPO_DIR:-}:/ti-toolbox` is the *optional* dev-repo mount, and it is off unless a
+#     developer asks for it by name (`TIT_DEV_REPO_DIR`, unpackaged runs only — see
+#     `main/stack.ts#resolveRepoDir`). `buildStackEnv` always supplies `TIT_REPO_DIR`, empty when
+#     there is no such request, and `shared/composeFile.ts` drops a volume entry whose source
+#     interpolated to empty rather than handing Docker an empty bind source. This matters more
+#     than it looks: `/ti-toolbox` is where the image checks the repo out and pip-installs `tit`
+#     from (`container/blueprint/Dockerfile.ti-toolbox`), so a mount here replaces the image's own
+#     toolbox — in a packaged app with a host path that has no `tit` in it, fatally.
+#
+# Env vars are supplied by `desktop/src/main/compose.ts` (`buildStackEnv`) or `tit/launch.py`
+# (`build_env`), which `loader.py` and `dev/loader/loader_dev.py` both go through;
+# nothing here has a project-specific default baked in beyond what's shown.
 
-  simnibs:
-    platform: linux/amd64
-    image: idossha/simnibs:v2.5.0
-    container_name: simnibs_container
+services:
+  tit:
+    image: idossha/ti-toolbox:${TIT_IMAGE_TAG:-dev}
+    init: true # reap zombie processes under uvicorn's worker/reload subprocesses
+    working_dir: /ti-toolbox
     volumes:
-      - freesurfer_data:/usr/local/freesurfer/
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw # X11 socket mount for GUI
       - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
-      - ${TIT_USER_CONFIG}:/root/.config/ti-toolbox # User-level config (telemetry, prefs)
-      - /var/run/docker.sock:/var/run/docker.sock # Docker socket for DooD (QSIPrep/QSIRecon)
-      - ${HOME}/.Xauthority:/root/.Xauthority:rw # X11 auth for remote displays
+      - ${TIT_USER_CONFIG}:/root/.config/ti-toolbox # user-level config (telemetry, prefs)
+      - /var/run/docker.sock:/var/run/docker.sock # DooD for QSIPrep/QSIRecon (DWI)
+      - ${TIT_REPO_DIR:-}:/ti-toolbox # dev only — see header note; the whole entry is dropped when empty
     environment:
-      USER: root
-      DISPLAY: ${DISPLAY}
-      FREESURFER_HOME: /usr/local/freesurfer
-      SUBJECTS_DIR: /usr/local/freesurfer/subjects
-      FS_LICENSE: /usr/local/freesurfer/license.txt
-      LOCAL_PROJECT_DIR: ${LOCAL_PROJECT_DIR}
       PROJECT_DIR_NAME: ${PROJECT_DIR_NAME}
-      TZ: ${TZ}
+      LOCAL_PROJECT_DIR: ${LOCAL_PROJECT_DIR} # host path of the project: tit/pre/qsi spawns sibling QSIPrep/QSIRecon containers that bind-mount it (FX2 finding)
+      TIT_SERVER_TOKEN: ${TIT_SERVER_TOKEN}
+      TIT_SERVER_PORT: ${TIT_SERVER_PORT:-8765}
+      TIT_STATIC_DIR: ${TIT_STATIC_DIR:-} # dev override; empty = the image's baked-in UI bundle
+      PYTHONPATH: /ti-toolbox # only matters when the dev repo mount above is active
+      # Recorded on the container so attach-or-start can tell whether a *running* container is the
+      # one this run needs (`main/stack.ts#describeMismatch`). Interpolated from the same
+      # `${TIT_REPO_DIR}` as the volume entry above, so it is the mount, not a marker that can drift
+      # from it: without it, `npm run dev` would happily attach to a container with no worktree
+      # mounted and every Python edit would land in a directory nothing imports.
+      TIT_REPO_DIR: ${TIT_REPO_DIR:-}
+      # dev only: "1" makes entrypoint.ti-toolbox.sh run uvicorn with
+      # `--reload --reload-dir /ti-toolbox/tit`, so an edit under tit/server/ or tit/jobs/ restarts
+      # the server instead of needing a container restart. Scoped to tit/ on purpose — reloading on
+      # the whole mounted worktree would watch desktop/node_modules.
+      TIT_SERVER_RELOAD: ${TIT_SERVER_RELOAD:-}
+      TZ: ${TZ:-UTC}
       TIT_HOST_OS: ${TIT_HOST_OS:-unknown}
       TIT_HOST_OS_VERSION: ${TIT_HOST_OS_VERSION:-unknown}
       TIT_HOST_ARCH: ${TIT_HOST_ARCH:-unknown}
-      KMP_AFFINITY: "disabled"
-      TI_TOOLBOX_VERSION: "v2.5.0"
     ports:
-      - "8888:8888"
-    networks:
-      - ti_network
-    depends_on:
-      - freesurfer
-    tty: true
-    stdin_open: true
-    working_dir: /ti-toolbox
-    restart: unless-stopped
-    command: ["tail", "-f", "/dev/null"]
-
-networks:
-  ti_network:
-    driver: bridge
-
-volumes:
-  freesurfer_data:
-    # Versioned name (must match the freesurfer image tag) so a FreeSurfer bump
-    # re-seeds a fresh volume. Launchers override FREESURFER_VOLUME.
-    name: ${FREESURFER_VOLUME:-ti-toolbox_freesurfer_data_v7.4.1}
+      - "127.0.0.1:${TIT_SERVER_PORT:-8765}:${TIT_SERVER_PORT:-8765}"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:${TIT_SERVER_PORT:-8765}/api/health"]
+      interval: 10s
+      timeout: 3s
+      start_period: 20s
+      retries: 6

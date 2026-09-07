@@ -107,7 +107,7 @@ shell — the shell wins over the file — e.g. `TIT_DEV_PORT=8766 npm run dev`.
 **What `npm run dev` does** (`scripts/dev.ts`):
 
 1. **Container: attach, recreate or start.** Through the *same* `StackManager` the packaged app
-   uses (`src/main/stack.ts`, driven by the Engine API from `docker/docker-compose.v3.yml`), so the
+   uses (`src/main/stack.ts`, driven by the Engine API from the root `docker-compose.yml`), so the
    container you develop against is the container the product creates — labels, mounts, health wait
    and all. It attaches to a running one when its recorded state already matches; recreates it, with
    a printed one-line reason, when it does not ("it mounts (none) at /ti-toolbox, this run wants

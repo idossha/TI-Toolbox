@@ -159,7 +159,7 @@ smoke run *natively* there, unlike on Apple Silicon) builds the image with
 (see above). The job otherwise:
 
 1. starts the container with the checked-out repo bind-mounted over `/ti-toolbox`
-   (`PYTHONPATH=/ti-toolbox`) — the same dev-mount shape `docker-compose.v3.yml`'s optional
+   (`PYTHONPATH=/ti-toolbox`) — the same dev-mount shape the root `docker-compose.yml`'s optional
    `${TIT_REPO_DIR}:/ti-toolbox` documents, so the smoke test and pytest subset run against the
    commit under test, not whatever was baked in at image-build time
 2. waits for the Dockerfile's own `HEALTHCHECK` to report `healthy`

@@ -6,8 +6,8 @@ client turn the container paths every artifact carries into something the host's
 manager, a ``docker run -v`` for a sibling container, or a "Reveal in Finder" can use.
 
 Until now ``host_path`` was ``os.environ["LOCAL_PROJECT_DIR"]`` and nothing else, and the v3
-compose stack does not put that variable *inside* the container (``desktop/docker/
-docker-compose.v3.yml`` interpolates it into the ``volumes:`` entry only), so every v3 server
+compose stack does not put that variable *inside* the container (the root
+``docker-compose.yml`` interpolates it into the ``volumes:`` entry only), so every v3 server
 answered ``host_path: null`` -- while the very same container carried the answer twice over,
 in its ``tit.host_project_dir`` label and in the bind mount that produced ``/mnt/<name>``.
 That forced every client that needs a host path to run ``docker inspect`` itself
