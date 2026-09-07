@@ -207,6 +207,75 @@ def test_submit_validation_errors(client: TestClient) -> None:
     )
 
 
+def test_submit_rejects_a_subject_id_that_is_not_one(client: TestClient, project: Path) -> None:
+    """RUN-05: a subject id becomes a `sub-<id>` path component in every runner downstream.
+
+    Rejected before persistence — no job record, no spec.json, no scaffolded directory.
+    """
+    before = client.get("/api/jobs", headers=BEARER).json()
+    for bad in ("../../../outside", "001/../../x", "a/b", "..", "", "sub 001", 7, None):
+        r = client.post(
+            "/api/jobs",
+            headers=BEARER,
+            json={
+                "kind": "tools",
+                "config": {"__fake": {"duration_s": 0.01}},
+                "subject_ids": [bad],
+            },
+        )
+        assert r.status_code == 422, (bad, r.status_code)
+        assert "subject id" in str(r.json()["detail"])
+    assert client.get("/api/jobs", headers=BEARER).json() == before
+    assert not list(project.glob("sub-*"))
+    assert not list(project.glob("../outside"))
+
+
+def test_submit_group_rejects_a_subject_id_that_is_not_one(client: TestClient) -> None:
+    r = client.post(
+        "/api/jobs/groups",
+        headers=BEARER,
+        json={
+            "kind": "sim",
+            "config": {},
+            "subject_ids": ["../../evil"],
+            "parallel_subjects": 1,
+        },
+    )
+    assert r.status_code == 422
+    assert "subject id" in str(r.json()["detail"])
+
+
+def test_submit_keeps_valid_subject_ids_exactly_as_given(client: TestClient) -> None:
+    for good in ("001", "ernie", "sub-01", "P_01", "01a"):
+        r = client.post(
+            "/api/jobs",
+            headers=BEARER,
+            json={
+                "kind": "tools",
+                "config": {"__fake": {"duration_s": 0.01}},
+                "subject_ids": [good],
+            },
+        )
+        assert r.status_code == 201, (good, r.text)
+        assert r.json()["subject_ids"] == [good]
+
+
+def test_submit_rejects_an_after_naming_an_unknown_job(client: TestClient) -> None:
+    """RUN-04 through the route: 422, not a job that ignores its own precondition."""
+    r = client.post(
+        "/api/jobs",
+        headers=BEARER,
+        json={
+            "kind": "tools",
+            "config": {"__fake": {"duration_s": 0.01}},
+            "subject_ids": ["001"],
+            "after": ["no-such-job"],
+        },
+    )
+    assert r.status_code == 422
+    assert "after" in str(r.json()["detail"])
+
+
 def test_submit_rejects_a_sim_config_the_runner_could_not_deserialise(
     client: TestClient,
 ) -> None:

@@ -873,3 +873,38 @@ class TestResolveResourcesDir:
         assert resolve_resource_path("amv", "GSN-256.csv") == os.path.join(
             str(tmp_path), "amv", "GSN-256.csv"
         )
+
+
+class TestSubjectIdGrammar:
+    """RUN-05: one documented grammar, enforced wherever an id becomes a path component."""
+
+    def test_accepts_the_ids_real_datasets_use(self, tmp_path):
+        pm = PathManager(str(tmp_path))
+        for sid in ("001", "01", "ernie", "sub-01", "P_01", "ernie_extended", "1a"):
+            assert pm.sub(sid).endswith(f"sub-{sid}")
+            assert pm.bids_anat(sid).endswith(os.path.join(f"sub-{sid}", "anat"))
+
+    def test_rejects_separators_traversal_and_non_strings(self, tmp_path):
+        pm = PathManager(str(tmp_path))
+        for bad in ("../../../outside", "..", "a/b", "a\\b", "", " ", "001 ", ".hidden",
+                    "a" * 65, None, 7, ["001"]):
+            with pytest.raises(ValueError, match="subject id"):
+                pm.sub(bad)
+
+    def test_every_subject_path_helper_is_guarded(self, tmp_path):
+        pm = PathManager(str(tmp_path))
+        helpers = [
+            pm.sub, pm.m2m, pm.bids_subject, pm.bids_anat, pm.bids_dwi,
+            pm.sourcedata_subject, pm.fastsurfer_subject, pm.freesurfer_subject,
+            pm.qsiprep_subject, pm.qsirecon_subject, pm.logs, pm.tissue_analysis_output,
+        ]
+        for helper in helpers:
+            with pytest.raises(ValueError, match="subject id"):
+                helper("../../evil")
+
+    def test_a_guarded_path_can_never_leave_the_project(self, tmp_path):
+        from tit.paths import is_within
+
+        pm = PathManager(str(tmp_path))
+        assert is_within(str(tmp_path), pm.bids_anat("001"))
+        assert not is_within(str(tmp_path), str(tmp_path.parent / "outside"))

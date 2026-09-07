@@ -104,6 +104,44 @@ def resolve_resource_path(*parts: str) -> str:
     return os.path.join(resolve_resources_dir(), *parts)
 
 
+#: The subject-id grammar, enforced everywhere a subject id becomes a path component.
+#:
+#: BIDS labels are alphanumeric only; this is deliberately one notch wider (``_`` and ``-``,
+#: which existing TI-Toolbox projects use) and matches ``tit.catalog.is_safe_name``, the rule
+#: already applied to every other user-supplied filename component. What it excludes is the
+#: point: path separators, ``..``, NUL, whitespace and a leading punctuation character. A
+#: subject id of ``../../../outside`` used to build ``<project>/sub-../../../outside/anat``
+#: and `tit.pre.utils.ensure_subject_dirs` then created it, outside the project entirely.
+SUBJECT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
+
+
+def is_valid_subject_id(sid: object) -> bool:
+    """``True`` if *sid* may be used as a ``sub-<id>`` path component."""
+    return isinstance(sid, str) and bool(SUBJECT_ID_RE.match(sid))
+
+
+def validate_subject_id(sid: object) -> str:
+    """Return *sid* unchanged, or raise ``ValueError`` naming the rule it broke.
+
+    Called by every :class:`PathManager` accessor that puts a subject id in a path, so a
+    traversal cannot reach the filesystem however it entered the process — an API body, a
+    config file, or a script argument.
+    """
+    if not is_valid_subject_id(sid):
+        raise ValueError(
+            f"invalid subject id {sid!r}: letters, digits, '_' and '-' only, "
+            f"starting with a letter or digit, at most 64 characters"
+        )
+    return sid  # type: ignore[return-value]
+
+
+def is_within(root: str, path: str) -> bool:
+    """``True`` if *path* resolves inside *root* (containment check for created directories)."""
+    root_real = os.path.realpath(root)
+    candidate = os.path.realpath(path)
+    return candidate == root_real or candidate.startswith(root_real + os.sep)
+
+
 class PathManager:
     """BIDS-compliant path resolution for TI-Toolbox projects.
 
@@ -356,7 +394,9 @@ class PathManager:
         str
             Absolute path to the subject's SimNIBS directory.
         """
-        return os.path.join(self._root(), "derivatives", "SimNIBS", f"sub-{sid}")
+        return os.path.join(
+            self._root(), "derivatives", "SimNIBS", f"sub-{validate_subject_id(sid)}"
+        )
 
     def m2m(self, sid: str) -> str:
         """Path to the ``m2m_{sid}`` head-model directory for *sid*."""
@@ -412,15 +452,17 @@ class PathManager:
 
     def logs(self, sid: str) -> str:
         """Path to per-subject log directory for *sid*."""
-        return os.path.join(self.ti_toolbox(), "logs", f"sub-{sid}")
+        return os.path.join(self.ti_toolbox(), "logs", f"sub-{validate_subject_id(sid)}")
 
     def tissue_analysis_output(self, sid: str) -> str:
         """Path to tissue-analysis output directory for *sid*."""
-        return os.path.join(self.ti_toolbox(), "tissue_analysis", f"sub-{sid}")
+        return os.path.join(
+            self.ti_toolbox(), "tissue_analysis", f"sub-{validate_subject_id(sid)}"
+        )
 
     def bids_subject(self, sid: str) -> str:
         """Path to ``<project>/sub-{sid}/`` (raw BIDS subject root)."""
-        return os.path.join(self._root(), f"sub-{sid}")
+        return os.path.join(self._root(), f"sub-{validate_subject_id(sid)}")
 
     def bids_datatype(self, sid: str, datatype: str) -> str:
         """Path to ``<project>/sub-{sid}/{datatype}/`` for any BIDS datatype."""
@@ -436,11 +478,11 @@ class PathManager:
 
     def sourcedata_subject(self, sid: str) -> str:
         """Path to ``sourcedata/sub-{sid}/``."""
-        return os.path.join(self.sourcedata(), f"sub-{sid}")
+        return os.path.join(self.sourcedata(), f"sub-{validate_subject_id(sid)}")
 
     def fastsurfer_subject(self, sid: str) -> str:
         """Path to ``derivatives/fastsurfer/sub-{sid}/``."""
-        return os.path.join(self.fastsurfer(), f"sub-{sid}")
+        return os.path.join(self.fastsurfer(), f"sub-{validate_subject_id(sid)}")
 
     def fastsurfer_mri(self, sid: str) -> str:
         """Path to ``derivatives/fastsurfer/sub-{sid}/mri/``.
@@ -452,7 +494,7 @@ class PathManager:
 
     def freesurfer_subject(self, sid: str) -> str:
         """Path to ``derivatives/freesurfer/sub-{sid}/`` (legacy, read-only)."""
-        return os.path.join(self.freesurfer(), f"sub-{sid}")
+        return os.path.join(self.freesurfer(), f"sub-{validate_subject_id(sid)}")
 
     def freesurfer_mri(self, sid: str) -> str:
         """Path to ``derivatives/freesurfer/sub-{sid}/mri/`` (legacy, read-only)."""
@@ -460,11 +502,11 @@ class PathManager:
 
     def qsiprep_subject(self, sid: str) -> str:
         """Path to ``derivatives/qsiprep/sub-{sid}/``."""
-        return os.path.join(self.qsiprep(), f"sub-{sid}")
+        return os.path.join(self.qsiprep(), f"sub-{validate_subject_id(sid)}")
 
     def qsirecon_subject(self, sid: str) -> str:
         """Path to ``derivatives/qsirecon/sub-{sid}/``."""
-        return os.path.join(self.qsirecon(), f"sub-{sid}")
+        return os.path.join(self.qsirecon(), f"sub-{validate_subject_id(sid)}")
 
     def ex_search(self, sid: str) -> str:
         """Path to exhaustive-search results for *sid*."""

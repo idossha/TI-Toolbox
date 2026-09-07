@@ -20,10 +20,32 @@ from tit.jobs.bootstrap import get_manager
 from tit.jobs.config_check import check_job_config
 from tit.jobs.manager import JobManager
 from tit.jobs.spec import JOB_KINDS, JOB_STATES
+from tit.paths import is_valid_subject_id
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _checked_subject_ids(subject_ids: Any) -> list[str]:
+    """*subject_ids* as a list, or an HTTP 422 naming the first one that is not a subject id.
+
+    Enforced here, before the job is persisted: a subject id becomes a path component
+    (``sub-<id>``) in every runner downstream, and one carrying a separator or ``..`` used to
+    reach outside the project (``tit.paths.validate_subject_id``, which is the same grammar).
+    """
+    if not isinstance(subject_ids, list):
+        raise HTTPException(status_code=422, detail="subject_ids must be an array")
+    for sid in subject_ids:
+        if not is_valid_subject_id(sid):
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"invalid subject id {sid!r}: letters, digits, '_' and '-' only, "
+                    f"starting with a letter or digit, at most 64 characters"
+                ),
+            )
+    return list(subject_ids)
 
 
 def _manager(request: Request) -> JobManager:
@@ -57,9 +79,7 @@ def submit_job(request: Request, body: dict[str, Any] = Body(...)) -> dict[str, 
     config = body.get("config")
     if not isinstance(config, dict):
         raise HTTPException(status_code=422, detail="config must be an object")
-    subject_ids = body.get("subject_ids")
-    if not isinstance(subject_ids, list):
-        raise HTTPException(status_code=422, detail="subject_ids must be an array")
+    subject_ids = _checked_subject_ids(body.get("subject_ids"))
     # `/api/jobs/groups` gets this for free: `plan_per_subject` round-trips every generated
     # config through the kind's dataclass. This single-job route did not, so a config the
     # runner cannot deserialise (a `sim` config with no `subject_id`/`montages`) was accepted,
@@ -115,11 +135,11 @@ def submit_group(request: Request, body: dict[str, Any] = Body(...)) -> dict[str
             detail=f"kind must be one of {GROUP_KINDS} for a job group, got {kind!r}",
         )
     config = body.get("config")
-    subject_ids = body.get("subject_ids")
-    if not isinstance(config, dict) or not isinstance(subject_ids, list):
+    if not isinstance(config, dict):
         raise HTTPException(
             status_code=422, detail="config must be an object and subject_ids an array"
         )
+    subject_ids = _checked_subject_ids(body.get("subject_ids"))
     parallel_subjects = body.get("parallel_subjects")
     if (
         not isinstance(parallel_subjects, int)

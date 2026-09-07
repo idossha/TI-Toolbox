@@ -62,6 +62,7 @@ from tit.jobs.spec import (
     utcnow_iso,
 )
 from tit.jobs.tailer import EventTailer, read_events
+from tit.paths import validate_subject_id
 
 logger = logging.getLogger(__name__)
 
@@ -354,6 +355,10 @@ class JobManager:
             raise ValueError(
                 f"unknown job kind: {kind!r} (expected one of {JOB_KINDS})"
             )
+        for sid in subject_ids or []:
+            # Defence in depth behind the route's own check: a subject id becomes a
+            # `sub-<id>` path component in every runner this job spawns.
+            validate_subject_id(sid)
         with self._lock:
             unknown = [dep for dep in (after or []) if dep not in self._specs]
         if unknown:

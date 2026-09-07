@@ -23,7 +23,7 @@ import time
 from collections.abc import Callable, Iterable
 
 from tit import constants as const
-from tit.paths import get_path_manager
+from tit.paths import get_path_manager, validate_subject_id
 
 from .charm import run_charm, run_subject_atlas
 from .dicom2nifti import run_dicom_to_nifti
@@ -532,6 +532,11 @@ def _run_pipeline_inner(
 ) -> int:
     """Inner implementation of :func:`run_pipeline`."""
     subject_list = list(subject_ids)
+    # One grammar, checked at the entrypoint: `run_pipeline` is reachable from a script and
+    # from `simnibs_python -m tit.pre config.json`, neither of which came through the API's
+    # own check (tit.server.routes.jobs).
+    for sid in subject_list:
+        validate_subject_id(sid)
 
     pm = get_path_manager()
     project_dir = pm._root()

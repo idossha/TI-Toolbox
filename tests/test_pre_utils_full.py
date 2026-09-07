@@ -152,10 +152,48 @@ class TestEnsureSubjectDirs:
             modality for modality, _ in MODALITIES
         ]
 
+    def test_rejects_a_subject_id_that_would_escape_the_project(self, tmp_path):
+        """RUN-05: this scaffolds directories from an id that may come from a config file.
+
+        ``../../../outside`` used to create ``anat/`` outside the project entirely.
+        """
+        project = tmp_path / "proj"
+        project.mkdir()
+        for bad in ("../../../outside", "../escaped", "a/b", "..", ""):
+            with pytest.raises(ValueError, match="subject id"):
+                ensure_subject_dirs(str(project), bad)
+        assert sorted(p.name for p in tmp_path.iterdir()) == ["proj"]
+        assert list(project.iterdir()) == []
+
+    def test_scaffolds_a_valid_subject_inside_the_project(self, tmp_path):
+        project = tmp_path / "proj"
+        project.mkdir()
+        ensure_subject_dirs(str(project), "001")
+        assert (project / "sub-001" / "anat").is_dir()
+        assert (project / "derivatives" / "SimNIBS" / "sub-001").is_dir()
+
+    @patch(f"{MODULE}.get_path_manager")
+    def test_refuses_a_path_helper_that_points_outside_the_project(self, mock_gpm, tmp_path):
+        """The containment check is independent of the grammar: a valid id whose path lands
+        outside the project is still refused rather than created."""
+        pm = MagicMock()
+        pm.sourcedata_dicom.return_value = str(tmp_path / "elsewhere" / "dicom")
+        pm.bids_anat.return_value = str(tmp_path / "proj" / "sub-001" / "anat")
+        pm.sub.return_value = str(tmp_path / "proj" / "derivatives")
+        mock_gpm.return_value = pm
+        with pytest.raises(ValueError, match="outside"):
+            ensure_subject_dirs(str(tmp_path / "proj"), "001")
+        pm.ensure.assert_not_called()
+
     @patch(f"{MODULE}.get_path_manager")
     def test_does_not_precreate_freesurfer_subject_dir(self, mock_gpm):
         """An empty freesurfer dir would read as an existing recon-all output."""
         pm = MagicMock()
+        # Real strings, not MagicMocks: every scaffolded path is containment-checked.
+        pm.sourcedata_dicom.return_value = "/proj/sourcedata/sub-001/T1w/dicom"
+        pm.bids_anat.return_value = "/proj/sub-001/anat"
+        pm.sub.return_value = "/proj/derivatives/SimNIBS/sub-001"
+        pm.ti_toolbox.return_value = "/proj/derivatives/ti-toolbox"
         mock_gpm.return_value = pm
 
         ensure_subject_dirs("/proj", "001")
