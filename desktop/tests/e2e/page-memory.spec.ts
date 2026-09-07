@@ -12,7 +12,7 @@
  * element), every page keeps its state in `useState`, and `RunWork`'s fill controller then
  * re-derives the section layout from whatever it measures on the new mount.
  *
- * The model this spec encodes (`dev/notes/v3-scene-ia/n2-notes.md` §1):
+ * The model this spec encodes (`dev/notes/v3-program-history.md § 2026-09-04 (scene service)` §1):
  *
  *   - **The user's state is theirs for the session.** A section they opened or closed, the
  *     Terminal/Scene tab they picked, where they scrolled, the segment they chose, what they
@@ -57,7 +57,7 @@ function activePage(target: Page = page) {
 // `layout.spec.ts` reports all four run pages' numbers before it fails.
 
 test.beforeAll(async () => {
-  // V4 (dev/notes/v3-native-panes-external-viewer-plan.md): the embed, its protocol range and the
+  // V4 (dev/notes/v3-program-history.md § 2026-09-06 (native panes, external viewer)): the embed, its protocol range and the
   // install/activate dance this suite used to perform around itself are gone. The run panes draw
   // with the app's own renderer and need nothing installed.
   app = await launchElectronApp({ userDataDir: mkdtempSync(join(tmpdir(), "tit-e2e-memory-")) });
@@ -433,7 +433,9 @@ test("pane collapse and expansion retain the live canvas, work DOM and a scrolle
   await current.getByRole("button", { name: "New placement", exact: true }).click();
   await current.getByPlaceholder("e.g. custom_4electrode", { exact: true }).fill("pane_draft");
   await current.getByLabel("Position 1 X", { exact: true }).fill("12.5");
-  await current.getByRole("button", { name: "Add position", exact: true }).click();
+  // Positions come in pairs (2026-09-06): the editor's button adds two, because an odd count
+  // cannot describe a montage.
+  await current.getByRole("button", { name: "Add electrode pair", exact: true }).click();
   await waitForScene(page);
   // The native canvas carries its own opacity chrome: the skin slider alone, no number input (the
   // embed's spinbuttons went with the embed). The grey matter is always opaque and has no control.
@@ -541,16 +543,21 @@ test("the free-hand draft survives a navigation away and back", async () => {
   await current.getByLabel("Position 1 label", { exact: true }).fill("custom-A");
   await current.getByLabel("Position 1 Y", { exact: true }).fill("-23.5");
   await current.getByLabel("Position 1 Z", { exact: true }).fill("67.5");
-  // Five positions are deliberately incomplete; a navigation must not silently repair them.
-  while (await current.getByRole("button", { name: /^Remove position / }).count() > 4) {
+  // Six positions are deliberately incomplete — not 4, and not 8 or more; a navigation must not
+  // silently repair them. Positions come in PAIRS since 2026-09-06 (an odd count cannot describe a
+  // montage, so the editor's own button adds two), which is why this is 6 rather than the 5 the
+  // rule was first written with.
+  while ((await current.getByRole("button", { name: /^Remove position / }).count()) > 4) {
     await current.getByRole("button", { name: /^Remove position / }).last().click();
   }
-  await current.getByRole("button", { name: "Add position", exact: true }).click();
-  await expect(current.getByRole("button", { name: /^Remove position / })).toHaveCount(5);
-  // Scoped to *this* field's error: the page carries whatever other validation the earlier tests
-  // in this file left behind (an emptied output-field list, say), and an unscoped `.field-error`
-  // then resolves to two nodes and fails on strict mode rather than on the rule under test.
-  await expect(current.locator(".field-error", { hasText: "Use 4 positions" })).toBeVisible();
+  await current.getByRole("button", { name: "Add electrode pair", exact: true }).click();
+  await expect(current.getByRole("button", { name: /^Remove position / })).toHaveCount(6);
+  // The count rule is muted guidance, not a red error: it is wrong for as long as the user is
+  // still building the table, and the blocking reason is carried by the disabled Save button
+  // (2026-09-06, DESIGN.md §6.3). So what is asserted is the guidance and the disabled Save, not
+  // a `.field-error` the editor deliberately no longer renders.
+  await expect(current.locator(".field-help", { hasText: "Use 4 positions" })).toBeVisible();
+  await expect(current.getByRole("button", { name: "Save placement", exact: true })).toBeDisabled();
 
   await gotoPage(page, "analyzer");
   await expectPage(page, "analyzer");
@@ -563,7 +570,7 @@ test("the free-hand draft survives a navigation away and back", async () => {
   await expect(back.getByLabel("Position 1 label", { exact: true })).toHaveValue("custom-A");
   await expect(back.getByLabel("Position 1 Y", { exact: true })).toHaveValue("-23.5");
   await expect(back.getByLabel("Position 1 Z", { exact: true })).toHaveValue("67.5");
-  await expect(back.getByRole("button", { name: /^Remove position / })).toHaveCount(5);
-  await expect(back.locator(".field-error", { hasText: "Use 4 positions" })).toBeVisible();
+  await expect(back.getByRole("button", { name: /^Remove position / })).toHaveCount(6);
+  await expect(back.locator(".field-help", { hasText: "Use 4 positions" })).toBeVisible();
   await expect(back.getByRole("button", { name: "Save placement", exact: true })).toBeDisabled();
 });
