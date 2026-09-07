@@ -108,8 +108,19 @@ TIT_E2E_SERVER_URL=http://127.0.0.1:8765 TIT_E2E_TOKEN=<token> TIT_E2E_OFFSCREEN
 - **Never `npm run e2e` for a real-server run**: its `pree2e` hook force-rebuilds `out/` and races
   any other lane's build.
 - **The three `scene-*` real specs need `VITE_SCENE_HOOKS=1 npx electron-vite build` first**, and a
-  plain `npm run build` again afterwards. Which spec needs which flag is tabulated in
-  [`RUNBOOK.md`](RUNBOOK.md).
+  plain `npm run build` again afterwards. A plain build correctly strips `window.__scene` /
+  `__scenePane` — `import.meta.env.DEV` is false for every `electron-vite build`, `--mode`
+  notwithstanding — so without the flag those three specs time out 30 s later with no hint why:
+
+  | Spec | Build flags |
+  |---|---|
+  | `tests/e2e/real/scene-{simulator,optimizer,analyzer}.spec.ts` | `VITE_SCENE_HOOKS=1` |
+  | `tests/e2e/scene.spec.ts` (offscreen, mounts the gallery's scene page) | `VITE_INCLUDE_GALLERY=1 VITE_SCENE_HOOKS=1` |
+  | `tests/e2e/gallery.spec.ts` | `VITE_INCLUDE_GALLERY=1` |
+  | everything else | plain `npm run build` |
+
+  `npm run e2e`'s `pree2e` hook sets both, which is why the default suite works untouched — and is
+  still not what to use for a real-server run.
 - E2E is **offscreen/headless by default on this machine**. `scripts/e2e-quiet-check.sh` proves no
   window reached the screen; report its PASS.
 

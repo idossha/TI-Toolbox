@@ -1,4 +1,13 @@
-# Releasing TI-Toolbox v3
+# Releasing TI-Toolbox v3, and what is still open
+
+Two jobs, and they belong together: **§A** is how a version number becomes an image, four installers
+and a GitHub Release; **§B** is the honest list of what is not done, which is what a release has to
+be decided against. Gate *results* are in [`BENCHMARKS.md`](BENCHMARKS.md); the narrative is
+[`HISTORY.md`](HISTORY.md).
+
+---
+
+# A. How we release
 
 How a version number becomes a Docker image, four desktop installers and a GitHub Release. This is
 the document of record for the release path; `.github/workflows/release-v3.yml` is its executable
@@ -157,3 +166,48 @@ Honest list of what has *not* been executed:
   branch.
 - The Tetravox resolver has never successfully resolved a release, because no release carries the
   embed asset yet.
+
+---
+
+# B. What is still open
+
+Everything here is known, none of it is a surprise, and each row says why it is not done. This is the
+list a release decision reads.
+
+## The release path itself
+
+| Open | Why it is not done |
+|---|---|
+| **`release-v3.yml` has never run.** A `workflow_dispatch` dry run (`dry_run=true`, which stops after the unsigned validation job) is the cheapest thing that would prove the plan → image → desktop-validate half | Only CI can run it. Locally, only macOS arm64 was packaged and verified; signing and notarisation have never been exercised on this branch. |
+| **CI builds the from-scratch image recipe.** `Dockerfile.ti-toolbox.layered` was deleted and `build.sh` has one recipe; `.circleci/config.yml`'s `build-and-smoke-image` passed `--layered`, which is now accepted and ignored | A from-scratch SimNIBS install is 30–60+ minutes natively and far longer emulated, well past what a default `machine` resource class should absorb on every push. Nothing here provisions a larger or self-hosted executor, and no nightly or release-gated variant of the job exists yet. |
+| **The Tetravox embed asset does not exist yet.** `build.sh` resolves nothing and exits non-zero, which is correct — an image shipping a placeholder viewer fails at the user rather than in CI | It arrives with Tetravox PR #35 and the `v0.3.12` tag; merging and tagging are the maintainer's. Pass `tetravox_tgz` + `tetravox_sha256` to the workflow dispatch to release before then. |
+
+## Known follow-ups in the product
+
+| Follow-up | Why it is not done |
+|---|---|
+| **Job re-adoption does not survive a server restart.** The manager keeps a child pid in memory only, so a `--reload` leaves a finished job at `running`/`stalled` with `pid: None` and its dependants queued behind it for ever | `status.json` already persists the `pid`/`create_time` pair for exactly this. `POST /api/jobs/{id}/force` is today's escape hatch and lands the job in `lost`. **The single most user-visible open gap.** |
+| **`tests/e2e/real/mex.spec.ts` is the one red in the real leg.** It is written against the pre-jobs-table Optimizer throughout — a page-level Method radiogroup, a global Run name, a page-level Subcortical radio, a leadfield strip | All four are the global sections ADR row 28 dissolved into the row, and `mex` is no longer a method at all: it is *derived* from eight electrodes / four pairs. Making it green is a rewrite the way `ex.spec.ts` now does it, and a wrong one would be worse than an honest red. |
+| **The `cluster-permutation` real job fails on Dataset 000** — every voxel is excluded as degenerate, so nothing is testable. It now says so instead of raising a numpy "zero-size array" traceback | Whether a 2-vs-1 unpaired contrast on those three images *should* be degenerate everywhere is a data question, not a code one. Worth answering: a real spec that accepts a failed job proves less than it looks like it does. |
+| **An idle electrode can be invisible.** Worst measured contrast against the now-opaque scalp is 2/255, median 35 | A design call for the maintainer. A thin contour on *every* marker — not only the ones carrying a channel colour — would keep colour as the whole state signal, because the contour would be constant. `DECISIONS.md` 2026-09-06 (CX5). |
+| **Two renderers, and no decision to converge them.** The Viewer sub-page draws with the Tetravox embed; the run-page panes draw with this app's own WebGL2 renderer | Deliberate for now: the panes draw packaged reference anatomy and need picking and marker behaviour this project controls, while the Viewer draws the user's data and wants the whole engine. Convergence is a future question again, not a settled one. |
+| **`mex` "force left/right symmetry" raises `ValueError`** for SimNIBS's own `<sid>_leadfield_<net>.hdf5` naming | `tit/opt/mex/mex.py:118-128` uses `removesuffix("_leadfield")`, a no-op when the net comes *after* it. `tit/opt/leadfield.py::list_leadfields` already has the right split. Verified still open 2026-09-07. |
+| **Every real e2e run rewrites two tracked smoke payloads** with a fresh run-id namespace, so the worktree is dirty after a gate | Churn by design: Level A replays what the UI sent, and the run id must be unique per run. It still costs every lane a `git checkout` it has to know about. |
+| **`FlexConfig.output_folder` is the run name** while ex/mEx write `run_name` | Two names for one user-facing idea, inherited from two config dataclasses. Unifying is a server-side change. |
+| **One job group per kind on the Optimizer.** A Run whose rows mix a flex-family and an ex-family method is two `POST /api/jobs/groups` calls and two group ids, which the page states rather than hides | `/api/jobs/groups` takes one `kind`; making one Run one group needs either a mixed-kind group on the server or a client-side grouping that would lie about cancel. |
+| **`contracts/` holds three files for one contract** — `openapi.v0.yaml`, `openapi.v1.json` and the generated `openapi.json` | Nothing is broken; `dev/contracts_check.py` is green over all of it. It is a shape a newcomer has to be told about rather than read. |
+| Notebook **import** (`POST /api/pipelines/import`, reading `metadata.ti_toolbox.pipeline`) | Closes the round trip export already encodes. Parsing hand-edited Python stays a non-goal. |
+| `POST /api/jobs/{id}/retry` | The Jobs page's selection grammar can cancel and pin a selection but not retry it, because there is no endpoint. |
+| A saved pipeline's node forms open at their defaults | The document stores each node's built config; no page has a config → form-state reader. |
+| `ex`/`mex`/`leadfield`/`source`/`stats` pipeline nodes are edited as JSON | Their builders need values only the Optimizer page computes, or have no v3 form at all. The JSON is still validated server-side. |
+| **The Simulator node on the pipeline canvas is not yet the Simulator's jobs table** | The table was being rewritten in the same worktree while the canvas lane ran; the node still fans out per subject × montage on the server. |
+| **The Viewer's `overrides` / `extras` server plumbing has no client.** Kept: additive, contract-declared and covered by `tests/test_viewspec_overrides.py` | The Menu does not set per-layer appearance by design (§10.1), so nothing calls it. Deleting it is a five-line change and the test file says exactly what would be lost. |
+| Shared `useTableColumns` and `roiLabel(value, opts)` helpers; a `rowAction` slot on `SelectionList`; `tags` on `JobStatus` | Each is a small refactor across files three lanes were editing at once, or a contract change no lane would make unilaterally. |
+| **Notebooks:** a variable explorer; interactive plots; saving the pipeline canvas's export straight to a notebook | The explorer is a route and a pane (`%whos`-shaped). Interactive plots need a privileged scheme for output frames, the way SUNA's `suna-output:` works — a shell change, not a notebook change. The canvas export is one button: `POST /api/notebooks` already accepts a document. |
+| **OpenSSF best practices**, and the two standing invitations to contributors — more unit and integration tests, and docs maintenance | Nothing has been assessed against the badge criteria yet; `code-ql-analysis.yml` and `python-security.yml` cover part of the static-analysis rows. |
+
+## Not claimed
+
+This is not a release certification. Full scientific workflow validation on every supported runtime
+platform, packaging, signing and release delivery remain open. CI reproduces synthetic tests; local
+GPU and real-data evidence is recorded in `BENCHMARKS.md` rather than implied by a mock-server pass.

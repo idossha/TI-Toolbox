@@ -2,7 +2,7 @@
 
 This file is the contract for the developing desktop application. Deviations require an edit here
 and an appended entry in [DECISIONS.md](DECISIONS.md) in the same commit. Section numbers are stable;
-do not renumber them. [ROADMAP.md](ROADMAP.md) records verification and remaining work.
+do not renumber them. [BENCHMARKS.md](BENCHMARKS.md) records what was verified and [RELEASE.md](RELEASE.md) §B what is still open.
 
 ## 1. Boundaries and settled stack
 
@@ -101,8 +101,8 @@ lockfile. Commit titles state the defect or resulting behavior; no AI co-author 
 
 ## 5. Verification and frozen interfaces
 
-The [2026-09-04 requirements](requirements/2026-09-04-maintainer-polish.md) and the
-[2026-09-05 requirements](requirements/2026-09-05-overview-batch-viewer.md) define the observable
+The [2026-09-04 requirements](HISTORY.md) and the
+[2026-09-05 requirements](HISTORY.md) define the observable
 gate; where they conflict, the later one wins.
 `desktop/tests/e2e/page-memory.spec.ts` holds tab continuity;
 `desktop/tests/e2e/scene-pane.spec.ts` holds protocol/opacity integration;
@@ -182,8 +182,7 @@ Deep links prefill the draft and never auto-open.
 *Added 2026-09-05 (second batch); refines §§1–6. §§7.1–7.2 were **replaced on 2026-09-06**: §7.2
 makes the run-page panes this app's own renderer, and §7.1 was replaced twice that day — the embed
 was retired in the morning and restored in the afternoon (ADR row 28). Requirements:
-[2026-09-05 Tetravox/selection/pipeline](requirements/2026-09-05-tetravox-selection-pipeline.md),
-[2026-09-06 native panes / external viewer](requirements/2026-09-06-native-panes-external-viewer.md).
+the 2026-09-05 (second batch) and 2026-09-06 asks in [HISTORY.md](HISTORY.md).
 Rationale in [DECISIONS.md](DECISIONS.md).*
 
 ### 7.1 The viewer is the Tetravox embed, and it ships in the image
@@ -518,7 +517,7 @@ call it a sandbox.
 **Non-goals.** A hosted JupyterLab (the image still has one, unpublished — this is not it); live
 plotting front ends (plotly/vega/ipywidgets fall back to the static image the kernel sends beside
 them); a language server (`pylsp` is in the image and stays unused — the kernel is the completer);
-a variable explorer (ROADMAP); notebooks outside the one directory; more than one kernel per
+a variable explorer (`RELEASE.md` §B); notebooks outside the one directory; more than one kernel per
 notebook.
 
 ---

@@ -93,7 +93,7 @@ pipelines; ordinary controls use 28px. This preserves the same hierarchy with or
 **Why.** Separate page variants would repeat the same layout and accessibility defects. No new
 dependency or scientific configuration format is introduced by this pass.
 
-Verification results are recorded in [ROADMAP.md](ROADMAP.md) after the commands run.
+Verification results are recorded in [BENCHMARKS.md](BENCHMARKS.md) after the commands run.
 
 **Cost.** One more rule the pages must obey, and two sizes to remember; no new dependency and no new configuration format.
 
@@ -420,11 +420,11 @@ protocol-2 asks upstream — i.e. a pane feature this project could not ship wit
 project's release.
 
 **Cost.** Waiting on Tetravox protocol 2 (`markers`, `pick`, `camera`) makes a pane
-feature depend on another product's release cadence; the parked work is recorded in ROADMAP.md and
+feature depend on another product's release cadence; the parked work is recorded in `RELEASE.md` §B and
 remains useful upstream. Rendering only 2-D slices in the pane loses the electrode geometry that is
 the whole point of the Simulator's pane.
 
-**Revisit if.** The two renderers are converged — an open question, tracked in `ROADMAP.md`.
+**Revisit if.** The two renderers are converged — an open question, tracked in `RELEASE.md` §B.
 
 ### 2026-09-06 — The guide packages `TVSC1` labels again
 
@@ -1149,8 +1149,8 @@ library's — would not run. The frame would be safe and useless.
 unavailable.
 
 **Revisit if.** Interactive plots are wanted: that needs a privileged scheme for output frames (the
-way SUNA's `suna-output:` works), which is a shell change, not a notebook change — ROADMAP,
-Notebooks open work item 5.
+way SUNA's `suna-output:` works), which is a shell change, not a notebook change
+(`RELEASE.md` §B, Notebooks).
 
 ### 2026-09-07 (CX6) — the quit plan belongs to the app, not to the Docker branch
 

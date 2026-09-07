@@ -2,7 +2,7 @@
 
 The measured numbers the v3 desktop application was built against. Everything
 here was produced by a real run during the programs recorded in
-[`docs/dev/HISTORY.md`](../docs/dev/HISTORY.md), which
+[`HISTORY.md`](HISTORY.md), which
 carries the narrative and the gotchas; this page carries the figures.
 
 Unless a row says otherwise, the host is an Apple M2 (macOS, arm64) and the
@@ -43,7 +43,7 @@ immediately.
 
 Bare matrix: **21/21 passed in 280.7 s**, zero paths left on disk; an
 independent rerun six minutes later also went 21/21. Reproduce with
-`dev/smoke.sh` (see [`docs/dev/RUNBOOK.md`](../docs/dev/RUNBOOK.md)).
+`dev/smoke.sh` (see [`CONTRIBUTING.md` §2.6](CONTRIBUTING.md)).
 
 | Kind | Note |
 |---|---|
@@ -148,13 +148,13 @@ proven: `mri_convert --reslice_like` → `nibabel.processing.resample_from_to
 (order=0)` differs in **0 of 13,631,488 voxels**, and `tit/atlas/segstats.py`
 matches `mri_segstats` label ids and voxel counts exactly on four real atlases
 (102/102, 188/188, 48/48, 56/56). Full verdicts:
-[`docs/dev/SPIKES.md`](../docs/dev/SPIKES.md).
+[`HISTORY.md` § 2026-09-03 — native desktop research](HISTORY.md).
 
 ## Layout dead space
 
 Measured by `desktop/tests/e2e/_metrics.ts::deadSpaceRatio` (a
 topmost-element-is-content test, stricter than the pixel-occupancy proxy it
-replaced). The acceptance table of record is `docs/dev/DESIGN.md` §12.3; the
+replaced). The acceptance table of record is [`DESIGN.md`](DESIGN.md) §12.3; the
 limit for run pages is 45%.
 
 | Page | Value | When |
@@ -172,7 +172,8 @@ limit for run pages is 45%.
 | 2026-09-04 (scene IA) | 3519 passed | 909 passed | 5 passed |
 | 2026-09-05 (overview/batch) | 3655 passed / 47 skipped | 79 files / 892 tests | 172 passed / 3 skipped |
 | 2026-09-05 (tetravox/pipeline) | 3741 passed | 84 files / 949 tests | 195 passed / 3 skipped |
-| 2026-09-06/07 (native panes, CX5) | 3970 passed / 36 skipped | 105 files / 1275 tests | 317 passed, quiet-check PASS |
+| 2026-09-06/07 (native panes, CX5) | 3970 passed / 36 skipped | 105 files / 1275 tests | 285 passed, quiet-check PASS |
+| 2026-09-07 (external audit, CX6) | 4069 passed / 37 skipped | 109 files / 1304 tests | 317 passed / 2 skipped |
 
 The 2026-09-06/07 row is the whole-program gate: typecheck clean, lint 0 errors (3
 pre-existing React-Compiler warnings), route-import guard 23 modules, `dev/contracts_check.py`
@@ -219,12 +220,6 @@ order-dependent failure in a full run is not counted as a red — it passes stan
 | Managed-Tetravox real download (superseded design) | 131 MB; verify + unpack + codesign in 6.3 s | |
 | Disk at the CX4 gate | 893 GiB used of 926; Docker images 280.2 GB (53.8 reclaimable), build cache 50.1 GB (21.4), volumes 26.8 GB (all) | the `ENOSPC` incident |
 
-Gate progression across the program's three consolidation passes: host pytest
-3,662 → **3,970 passed** / 36 skipped / 21 deselected; desktop vitest 1,039 →
-**1,275 passed** across 88 → 105 files; offscreen mock e2e 208 → **285 passed**
-(blocked twice at CX4 by `ENOSPC`); real subset **22 passed**. The final CX5 row
-with its full detail is in `docs/dev/ROADMAP.md`.
-
 ## External audit response (2026-09-07, CX6)
 
 ### Scientific corrections — the numbers behind the claims
@@ -257,7 +252,7 @@ with its full detail is in `docs/dev/ROADMAP.md`.
 | Route imports | `dev/route_import_guard.py` | 23 modules clean, 9.5–62.8 ms each |
 | Workflows | `actionlint .github/workflows/*.yml` | clean (was 17 findings in `python-security.yml`) |
 | Mock e2e | `TIT_E2E_OFFSCREEN=1 npm run e2e:quiet -- --workers=1` | **317 passed**, 2 skipped, 4.4 min, no window reached the screen |
-| Real e2e | `npx playwright test --project=real` against the dev container | **39 of 40 passed**, 28 min; the one red is `mex.spec.ts`, written against the pre-jobs-table Optimizer (ROADMAP) |
+| Real e2e | `npx playwright test --project=real` against the dev container | **39 of 40 passed**, 28 min; the one red is `mex.spec.ts`, written against the pre-jobs-table Optimizer (`RELEASE.md` §B) |
 | Viewer Open, mock | `viewer.spec.ts` | click → response 23 ms, response → scene on screen 16 ms |
 
 Six reds the gate found and fixed, each at its cause: the `test_scene_guide` order dependency
