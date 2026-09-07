@@ -293,6 +293,14 @@ re-added by habit:
   import at module load — only writes `.opt` files and never imports the module, so simulation
   and flex optimisation import and run without it.
 - **SimNIBS's HTML documentation** (38 MB) — read on the web, not in a container.
+- **`PyQt5`** (202 MB), `simnibs/GUI/` and the `simnibs_gui` launcher — the only non-GUI
+  reference to Qt in the whole SimNIBS package is `cli/postinstall_simnibs.py`, which runs at
+  install time; `tit`'s own Qt imports all sit under `tit.gui` (not shipped) or behind a lazy
+  function import (`tit/telemetry.py`).
+- **`simnibs/resources/coil_models`** (41 MB) — TMS coil geometry, in a TES-only toolbox.
+  `file_finder.coil_models` is an `os.path.join`, evaluated at import but never opened; the TMS
+  classes in `sim_struct.py` read a coil file only when one is used. `SESSION` + `TDCSLIST`
+  with two electrodes still construct after the removal.
 - **`mesa-utils` / `mesa-va-drivers`, `gettext`, `locales`, `dos2unix`, `unzip`, `bzip2`** — no
   caller. The remaining Mesa/EGL packages and the `libX*`/`libICE`/`libSM`/`libxkbcommon`
   shared objects stay because they are `ldd` dependencies of `bpy`'s own `.so`; `import bpy`
@@ -312,4 +320,5 @@ Kept, with the reason, so these are not "cleaned up" next time:
 | | Disk usage | Content size |
 |---|---|---|
 | before this pass | 19.5 GB | 5.88 GB |
-| after | 9.27 GB | 2.41 GB |
+| after (first pass) | 9.27 GB | 2.41 GB |
+| after (PyQt5 + coil models) | 8.93 GB | 2.32 GB |

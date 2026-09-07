@@ -229,3 +229,22 @@ last three are SimNIBS's own vendored environment, not ours to prune from a pip 
 - Container healthy in ~20 s; `/api/health`, `/api/version`, `/api/capabilities`
   (`tetravox_embed`: baked, 0.3.11, protocol 2, compatible), `/tetravox/` 200 with its CSP,
   `/tetravox/nope.js` 404. Build record and OCI labels present.
+
+### PyQt5 and TMS coil models (2026-09-06, maintainer's answer on the UNSURE list)
+
+Removed in the same prune `RUN`. Proof, run inside the image before and after:
+
+- `grep -rn PyQt5 site-packages/simnibs --include='*.py' | grep -v /GUI/` -> 4 hits, all in
+  `cli/postinstall_simnibs.py` (install time). In `tit/`, every Qt import is under `tit.gui`
+  (not shipped), plus `tit/project_init/first_time_user.py` — imported only from
+  `tit/gui/main.py:624` — and one lazy in-function import in `tit/telemetry.py:652`.
+- `grep -rln coil_models site-packages/simnibs` -> the TMS example, `tms_flex_optimization.py`,
+  `cli/download_coils.py`, `sim_struct.py`'s TMS classes and `utils/file_finder.py:63`, which is
+  an `os.path.join` with no existence check. After removal, `from simnibs import sim_struct` and
+  a `SESSION` + `TDCSLIST` with two 50x50 rect electrodes construct fine
+  (`TDCSLIST 2 [0.001, -0.001]`).
+- `import PyQt5` and `import simnibs.GUI` now both raise ModuleNotFoundError while every
+  runtime import listed above still succeeds, the kernel still starts and executes, and
+  `verify-image.sh` is unchanged (healthy, embed 0.3.11 protocol 2 baked, `/tetravox/` 200).
+
+8.93 GB disk / 2.32 GB content (from 9.27 / 2.41).
