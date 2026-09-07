@@ -24,7 +24,7 @@ Object.defineProperty(window, "matchMedia", {
   }),
 });
 
-const { resolvePage, navSections, landingPage, navSlotOf, shortcutForSlot, NAV_ORDER, PINNED_ORDER, pages, enabledPages, pageById } =
+const { resolvePage, navSections, landingPage, navSlotOf, shortcutForSlot, pagePath, NAV_ORDER, PINNED_ORDER, pages, enabledPages, pageById } =
   await import("../../src/renderer/app/registry");
 type Registry = typeof import("../../src/renderer/app/registry");
 type PageDef = Parameters<Registry["resolvePage"]>[0];
@@ -195,5 +195,44 @@ describe("the viewer flag", () => {
   it("marks the pages that mount the canvas", () => {
     expect(pageById("viewer")?.viewer).toBe(true);
     expect(pageById("overview")?.viewer).toBe(false);
+  });
+});
+
+/**
+ * `PageDef.subNav` — the one exception to the flat rail (VE, 2026-09-06). The maintainer: *"In the
+ * Viewer, the left menu has two subsections: the Menu, and below it the actual Viewer."*
+ *
+ * These assert the two properties the design rests on: a sub-item is **not** a page (it takes no
+ * rail slot and no ⌘-number of its own), and a page that has sub-items has no route of its own —
+ * its row, its number and its palette entry all land on the first one.
+ */
+describe("rail sub-items (PageDef.subNav)", () => {
+  it("a sub-item takes no rail slot and no ⌘-number — it is a route inside one page", () => {
+    // The rail is still exactly NAV_ORDER. A sub-item that had a slot would also have a number,
+    // and ⌘9 would have moved off Jobs the day the Viewer grew a second row.
+    expect(navSlotOf("menu")).toBeNull();
+    expect(navSlotOf("tetravox")).toBeNull();
+    expect(shortcutForSlot(navSlotOf("tetravox"))).toBeUndefined();
+    expect(pageById("viewer")?.shortcut).toBe("8");
+    expect(pageById("jobs")?.shortcut).toBe("9");
+  });
+
+  it("the real Viewer page declares Menu then Tetravox, in that order", () => {
+    // Order is load-bearing: the first is where the page's row, ⌘8 and a bare /viewer all land.
+    expect(pageById("viewer")?.subNav?.map((s) => s.id)).toEqual(["menu", "tetravox"]);
+    expect(pageById("viewer")?.subNav?.map((s) => s.title)).toEqual(["Menu", "Tetravox"]);
+  });
+
+  it("pagePath sends a page with sub-items to its first one, and any other page to itself", () => {
+    expect(pagePath({ id: "viewer", subNav: [{ id: "menu", title: "Menu" }] })).toBe("/viewer/menu");
+    expect(pagePath({ id: "viewer", subNav: [] })).toBe("/viewer");
+    expect(pagePath({ id: "jobs" })).toBe("/jobs");
+    // The real page, so the rail, ⌘8 and the palette cannot disagree with this test either.
+    expect(pagePath(pageById("viewer")!)).toBe("/viewer/menu");
+  });
+
+  it("no page but the Viewer has sub-items — the rail is otherwise flat", () => {
+    const withSubs = pages.filter((p) => (p.subNav?.length ?? 0) > 0).map((p) => p.id);
+    expect(withSubs).toEqual(["viewer"]);
   });
 });
