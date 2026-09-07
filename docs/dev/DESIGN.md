@@ -78,18 +78,14 @@ above it**; the browser shape negates it.
 | **B** two-pane degenerate (Subjects, Jobs) | 1224 / 0 (no selection) | 1224 / 0 (no selection) |
 | **C** source bar / stage | 40 / **1224 × 664** | 40 / **1224 × 764** |
 
-The nav rail's 160 px of labels at ≥ 1440 is funded by the window's own 160 px of extra width
-(1440 − 1280), so the content box is **1224 px wide at both sizes** — every page but the run shape
-(A) sees identical horizontal room whether the window is 1280 or 1440 wide; only its height and
-`--page-pad` change. The run panel and page padding grow at 1440 (400 px / 24 px vs. 360 px / 16 px),
-which is why the work pane is *narrower* at 1440 (560) than at 1280 (610) despite the wider window.
+The content box is **1224 px wide at both sizes**: the rail's 160 px of labels at ≥ 1440 is funded
+by the window's own extra 160 px. Only the run shape (A) differs, because the run panel and page
+padding also grow at 1440 — which is why its work pane is *narrower* at 1440 (560) than at 1280 (610).
 
 The 760 px number is not arbitrary: it is the container width below which a label-left row
-(`--field-label-w` 160 + a 240 px control + gutter) stops being honest two-up (§4.2). With the work
-pane now 826 px at 1280 (Q1 raised it from the pre-Q1 666 px), a form section's container may
-already clear 760 px at 1280 as well as 1440 — this is a **container** query, not a window-width
-rule, so the exact column count depends on each section's own padding chain; verify against a
-current `screens.spec.ts` capture rather than this table before relying on either count.
+(`--field-label-w` 160 + a 240 px control + gutter) stops being honest two-up (§4.2). It is a
+**container** query, so a section's own padding chain decides its column count — verify against a
+current `screens.spec.ts` capture rather than this table.
 
 - **Right-pane sizing.** The **run panel** (A: Pre-processing, Simulator, Optimizer, Analyzer,
   Source) is a fraction of the *window*, not a fixed column: `clamp(320px, 45vw, calc(100% - 566px))`
@@ -405,15 +401,12 @@ the measurement that forced it, not a new control.
 
 ### 4.4.2 What survives a navigation — the user's state and the derived state
 
-**A page comes back exactly as the user left it, for the open project session.** Visited pages now
-retain their component tree and live canvas (§13). Previously, leaving a page unmounted it and state in
-`useState`, so a step onto Results and back built a brand-new page: measured on 2026-09-04 against
-the running container, `tests/e2e/real/page-memory.spec.ts` failed on **all four** run pages —
-Simulator's `Electrodes` closed by hand came back open, the Optimizer's "After the search" opened by
-hand came back closed and its typed run name was gone, the work pane's 55 px scroll offset went to
-0, the right pane fell back from Terminal to Scene, and the Analyzer's table went from 1 row to 2.
-The maintainer reported it as *"the state of the tabs is not persistent: jumping between tabs resets
-them"*.
+**A page comes back exactly as the user left it, for the open project session.** Visited pages
+retain their component tree and live canvas (§13). Previously, leaving a page unmounted it: measured
+2026-09-04 against the running container, `page-memory.spec.ts` failed on **all four** run pages —
+sections reopened or reclosed, a typed run name gone, a 55 px scroll offset back to 0, the right pane
+fallen from Terminal to Scene, the Analyzer's table from 1 row to 2. The maintainer reported it as
+*"the state of the tabs is not persistent: jumping between tabs resets them"*.
 
 The line, and it is the whole rule:
 
@@ -769,9 +762,10 @@ enough to change the run shape's auto-open decision across a navigation, which �
 
 ## 5. Components (`src/renderer/ui/`) — the only primitives pages may use
 
-The exact props, file paths and "must keep working" lists for every v3 addition below live in
-`docs/dev/design-notes.md` §3; the wireframe each one appears in lives in
-`docs/dev/wireframes.md`. Lanes code against those signatures verbatim.
+The exact props are the exported TypeScript types themselves — `pages/_shared/run/planModel.ts`,
+`RunPanel.tsx`, `PlanGrid.tsx`, `JobTerminal.tsx` and `ui/Layout.tsx` — which is where a lane reads
+them and the only copy that cannot drift. **Appendix A** carries the two things the source does not
+say and a spec does depend on.
 
 
 **Buttons.** `primary` (accent fill), `secondary` (surface + `--line`), `ghost`, `destructive`.
@@ -793,9 +787,8 @@ row — Method, Scope, Space), `Slider`, `PathInput`, `SubjectPicker`, `Coordina
 `KeyValueTable`, `ElectrodePairsEditor`, `FormSection` (§4.2 rules 4–6).
 
 **Chrome.** `ContextBar` + `Crumb`/`CrumbSeparator` (a breadcrumb-style trigger; the context bar
-itself stopped using it at U11, but a page's own scope control — a run label, a batch table's
-header — still can), `ActionBar` (digest,
-warning count, one secondary, one primary, `⌘⏎` hint), `StatusBar` + `StatusCell`, `RefetchBar`,
+itself stopped using it at U11, but a page's own scope control still can), `ActionBar` (digest,
+warning count, one secondary, one primary, `⌘⏎` hint), `RefetchBar`,
 `PageLayout` (§4.1), `ResizablePanels`.
 
 **Containers.** `Card`/`CardHeader`/`CardBody` (Workbench cards, result summaries — not form
@@ -864,17 +857,11 @@ motion respected; light and dark both checked; the screens spec (§12) captures 
 themes at 1280 × 800 and 1440 × 900 into the run's artifact directory (gitignored) and writes the
 numbers beside them.
 
-**Acceptance numbers.** v3 replaces v2's work-column target — the cap it measured is gone — with the
-three metrics of §12. The per-page limits are in §12.3. The density numbers below survive unchanged
-and are still what makes those limits reachable:
-
-| | v1 | v2 | v3 |
-|---|---|---|---|
-| work column width | 674 px | ≥ 880 px | **the content box minus the right pane** (§2.1) |
-| page header | 86 px | 0 px | **0 px** (Settings and Help excepted) |
-| chrome per form section | 94 px | ≤ 41 px | **≤ 41 px** |
-| field row / section header / table row | 70 / 44 / 36 px | 28 / 28 / 28 px | **28 / 28 / 28 px** |
-| dead-space ratio, populated, 1280 × 800 | — | — | **≤ 25 %** (§12.3) |
+**Acceptance numbers.** The per-page limits are §12.3's. The density numbers that make them
+reachable: a work column of **the content box minus the right pane** (§2.1, against v1's 674 px and
+v2's ≥ 880 px cap); **0 px** of page header outside Settings and Help (v1: 86); **≤ 41 px** of chrome
+per form section (v1: 94); **28 / 28 / 28 px** for a field row, a section header and a table row
+(v1: 70 / 44 / 36).
 
 Every run page shows all of its Tier-1 controls on the first screen at 1280 × 800 without scrolling
 (`firstScreenControls(page).hidden.length === 0`). The Gallery's density ruler
@@ -938,15 +925,15 @@ group heading told the user a page belonged to a subject when it did not.
   `shortcutForSlot` is the single source — the rail, the palette and both sheets read it — and an
   eleventh row would again have no number, which is a limit of ten digits, not of the function.
   See DECISIONS 2026-09-06 (NB lane, revised by CX5).
-- **Optimizer is one page.** `optimizer-flex` and `optimizer-ex` merge into `pages/optimizer`, with
-  a `SegmentedControl` **Method ⟨Flex │ Ex │ mEx⟩** as the first row of the work pane and one shared
-  `RoiPicker`. Two nav entries were a copy of the PyQt tab strip, not a workflow.
+- **Optimizer is one page.** `optimizer-flex` and `optimizer-ex` merged into `pages/optimizer`; two
+  nav entries were a copy of the PyQt tab strip, not a workflow. Method is now a **cell** in the jobs
+  table offering Flex and Ex, with the five job kinds derived (§4.10), not a page-level segment.
 - **Icons + tooltips below 1440; icons + labels at ≥ 1440** (Q1, §0). A 216 px labelled rail below
   1440 would leave only 1064 px of content — too little for the run pages' 3-D panes —
   so the icon breakpoint moved to 1440 for every page rather than forcing the Viewer alone onto a
   permanent icon rail (`PageDef.railMode: "icons"` still exists for a future page that needs it,
   but no page sets it today: at 1440 the Viewer's content box is 1224 px either way).
-- **The rail's first row is Overview** (⌘1): the landing page, the catch-all destination and the
+- **The rail's first row is Overview** (⌘0): the landing page, the catch-all destination and the
   palette's first page. It is the project's coverage, its presence matrix and who can run what next
   — per subject: raw staged/converted, FastSurfer, FreeSurfer, m2m, DWI, CT, leadfields, EEG nets
   and high-level totals for simulations, optimizations and analyses, in five presence states
@@ -982,14 +969,10 @@ group heading told the user a page belonged to a subject when it did not.
   `/overview` and a stale saved panel id is ignored), `panel-source`
   into Pre-processing, the three analysis panels into Analyzer, `system` into the jobs panel's Host
   tab, `panel-quick-notes` into the `⌘⇧N` drawer, and `dev` stays palette-only behind
-  `VITE_INCLUDE_GALLERY`. **Not yet done** (critic round 1, finding 1; Stage-2 scope, deliberately
-  not this round's fix): the four panel pages (`panel-source`,
-  `panel-cluster-permutation`, `panel-nilearn-visuals`, `panel-nifti-group-average`) still ship as
-  independent rail rows and routes rather than folded modes, and Settings' "Optional tools" copy
-  says as much ("Enabled panels appear in the nav rail"). What *is* done for this round: they carry
-  no `PageHeader` (§2.3's "no page header outside Settings and Help" rule applies to them like any
-  other page — `pageHeaderHeight: 0`), and each page's one-line purpose moved into an info tooltip
-  on its first section header rather than being lost. Panels remain standalone pages until folded.
+  `VITE_INCLUDE_GALLERY`. **Still standalone:** the four panel pages (`panel-source`, `panel-cluster-permutation`,
+  `panel-nilearn-visuals`, `panel-nifti-group-average`) ship as their own rail rows and routes rather
+  than folded modes, and Settings' copy says so. They carry no `PageHeader` like every other page,
+  and each page's one-line purpose is an info tooltip on its first section header.
 
   **The Electrode Placement extension is not a panel at all.** Maintainer, 2026-09-06: *"just
   enhance the simulator instead of actually embedding a complete extension for it."* The Simulator's
@@ -1002,7 +985,7 @@ group heading told the user a page belonged to a subject when it did not.
 
 ## 9.1 Pipeline
 
-**A pipeline page is a canvas of the pages you already have.** Rail row 6, ⌘6, the `run` shape.
+**A pipeline page is a canvas of the pages you already have.** Rail row 6, ⌘5 (§9), the `run` shape.
 Palette on the left (the node kinds), the React Flow canvas in the middle, the receipt over the
 Terminal on the right — the same right pane every run page has, because a pipeline run is a job group
 like any other.
@@ -1302,31 +1285,20 @@ judge a picture; it can judge a number.
 
 ### 12.1 The instrument — `desktop/tests/e2e/_metrics.ts`
 
-Three helpers, shared by every lane and by the critic panel.
+Three helpers, shared by every lane and by the critic panel; their signatures and the sampling
+implementation are Appendix A.5.
 
-**`deadSpaceRatio(page, selector?)`** — the U1 metric. Samples the element's rect on a **16 px grid**
-starting 8 px inside its top-left, calls `document.elementFromPoint(x, y)` at each point, and counts
-the point as **content** when the topmost element is:
-
-- a `CANVAS`, `IFRAME`, `IMG`, `SVG`, `VIDEO`, `INPUT`, `SELECT`, `TEXTAREA`, `BUTTON` or `A`; or
-- a leaf (`childElementCount === 0`) whose `textContent.trim()` is non-empty; or
-- an element with a non-transparent `background-color` **whose own rect covers less than 25 % of the
-  sampled rect** — that is what makes a chip, a table header or a stats tile count while a pane's own
-  background does not.
-
-Everything else is dead. Returns `{ ratio, samples, dead, rect }`. The 25 % clause is the whole
-point of the metric: without it a page could paint one giant surface and score zero.
-
-**`paneWidths(page)`** — `{ nav, content, work, right, gap }`, each the rounded
-`getBoundingClientRect().width` of `[data-testid="nav-rail"]`, `[data-testid="shell-content"]`,
-`[data-testid="page-work"]` and `[data-testid="page-right-pane"]`; a pane that is not rendered
-reports `0`, which is how "never an empty pane" is asserted rather than described.
-
-**`firstScreenControls(page)`** — `{ total, visible, hidden }` over
-`[data-tier="1"] :is(input, select, textarea, button, [role="combobox"], [role="radiogroup"], [role="switch"])`
-inside the work pane; a control is `visible` when its rect bottom is at or above the work pane's
-visible bottom **with the pane's scrollTop at 0**. `hidden` carries the accessible names, so a
-failure says *which* control fell off the first screen.
+- **`deadSpaceRatio(page, selector?)`** — the U1 metric. Samples a **16 px grid** and counts a point
+  as content when the topmost element is an interactive/media tag, a leaf with text, or an element
+  with a non-transparent background **whose own rect covers less than 25 % of the sampled rect**.
+  That last clause is the whole point: without it a page could paint one giant surface and score
+  zero. Take it after the page's loaded marker (a skeleton is content) and with the work pane
+  scrolled to the top, because `elementFromPoint` reads the viewport.
+- **`paneWidths(page)`** — `{ nav, content, work, right, gap }`. A pane that is not rendered reports
+  `0`, which is how "never an empty pane" is asserted rather than described.
+- **`firstScreenControls(page)`** — `{ total, visible, hidden }` over the `data-tier="1"` controls
+  inside the work pane, with the pane's `scrollTop` at 0. `hidden` carries accessible names, so a
+  failure says *which* control fell off the first screen.
 
 ### 12.2 The artifacts — `desktop/tests/e2e/screens.spec.ts`
 
@@ -1339,21 +1311,8 @@ tests/e2e/artifacts/<run id>/
   metrics.json
 ```
 
-```json
-{
-  "runId": "u0-32124",
-  "capturedAt": "2026-09-03T14:04:11Z",
-  "pages": [
-    {
-      "page": "preprocess", "theme": "light", "width": 1280, "height": 800,
-      "deadSpaceRatio": 0.21, "samples": 2814, "dead": 591,
-      "panes": { "nav": 216, "content": 1064, "work": 666, "right": 360, "gap": 6 },
-      "firstScreenControls": { "total": 9, "visible": 9, "hidden": [] },
-      "screenshot": "preprocess-light-1280x800.png"
-    }
-  ]
-}
-```
+Each row carries `page`, `theme`, `width`, `height`, `deadSpaceRatio`, `samples`, `dead`, the
+`panes` object, `firstScreenControls` and the screenshot's file name (Appendix A.5, `PageMetrics`).
 
 The pictures are evidence for a human; `metrics.json` is what the lanes and the critic assert on.
 The run never takes the screen — `scripts/e2e-quiet-check.sh` proves it by sampling the window
@@ -1366,7 +1325,7 @@ numbers are captured at 1440 × 900 and in dark, where they may only improve.
 
 | page | dead space | panes at 1280 | first-screen Tier 1 |
 |---|---|---|---|
-| `subjects` | ≤ 44 % populated · ≤ 45 % with no row selected | nav 216 · work ≥ 704 · right 360 or **0** | n/a |
+| `overview` | ≤ 44 % populated · ≤ 45 % with no row selected | nav 216 · work ≥ 704 · right 360 or **0** | n/a |
 | `preprocess` | ≤ 22 % | work ≥ 560 · right 576 | `hidden` empty |
 | `simulator` | ≤ 22 % | work ≥ 560 · right 576 | `hidden` empty |
 | `optimizer` | ≤ 22 % | work ≥ 560 · right 576 | `hidden` empty |
@@ -1375,15 +1334,15 @@ numbers are captured at 1440 × 900 and in dark, where they may only improve.
 | `viewer` | n/a (V1: a selector page is meant to be mostly empty — §10) | nav **56** · work ≥ 1200 | n/a |
 | `jobs` | ≤ 25 % with history · ≤ 30 % empty | work ≥ 704 · right 360 or **0** | n/a |
 
-`subjects` was ≤ 25 % / ≤ 30 % while four cards of readiness chips covered the lower half of the
+`overview` was ≤ 25 % / ≤ 30 % while four cards of readiness chips covered the lower half of the
 page. Those cards were removed on 2026-09-06 and the presence matrix's columns were spread out for
 readability, so eight of a row's eleven columns now hold one 10 px dot each and the sampler counts
 more of the page as empty: the measured floor of the page as it now is, held by
 `tests/e2e/overview.spec.ts` so a regression that empties it further still fails.
 
-For reference, the same measurement on the v2 build this program replaces (cell-occupancy pixel
-proxy, `docs/dev/design-notes.md` §1): subjects 88 %, preprocess 74 %,
-simulator 67 %, results 86 %, jobs 92 %, viewer 16 %.
+For reference, the same measurement on the v2 build this program replaced (a cell-occupancy pixel
+proxy, systematically *optimistic* about content): subjects 88 %, preprocess 74 %, simulator 67 %,
+results 86 %, jobs 92 %, viewer 16 %.
 
 ### 12.4 The self-critique checklist
 
@@ -1402,43 +1361,74 @@ Every lane runs this every round; the critic panel uses the same list and report
 
 ## 13. Workflow continuity and focused scene previews
 
-The [2026-09-04 maintainer requirements](../docs/dev/requirements/2026-09-04-maintainer-polish.md)
-supersede earlier plans wherever they required unmounting an inactive tab. The cross-component
-contract is [docs/dev/ARCHITECTURE.md](../docs/dev/ARCHITECTURE.md) §§2–4.
+The cross-component contract is [`ARCHITECTURE.md`](ARCHITECTURE.md) §§2–4; the rule and the failure
+it prevents are §4.4.2 above. What only this section says:
 
-Visited tabs retain their live page, form and live canvas until project close/switch. Each tab remembers
-its subject and route context; a different tab cannot reset it. Inactive pages relinquish keyboard
-shortcuts, commands, status cells and portals, and their content is hidden and inert. A Results link
-prefills the Viewer's draft selection; nothing opens until **Open in Tetravox** is pressed (§10).
-Plain navigation resumes the draft.
+- **Preview collapse or expansion hides the alternate pane without discarding it.** Source-editor
+  drafts, including unfinished coordinate text, and dropdown search terms survive a return.
+- **Inactive pages relinquish keyboard shortcuts, commands and portals**, and their content is
+  hidden and inert — a hidden page cannot navigate the app, submit from a shortcut, or overwrite the
+  active page's status. Contexts are released on project close or switch, not on navigation.
+- **The run-page panes draw a fixed packaged guide, not the selected subject** (§4.9, §4.10,
+  ARCHITECTURE §3): the pane selects *names* — electrodes, nets, atlas regions — and never
+  coordinates, and a subject switch costs it zero requests and zero remounts. Click-to-place of a
+  sphere centre is gone from these panes, because a guide coordinate is not any research subject's
+  millimetres. Subject-specific anatomy lives in the Viewer and in Results.
+- **They are this app's own WebGL2 renderer** (`src/renderer/scene/`, ARCHITECTURE §7.2) — no
+  iframe, no message protocol, no second engine to install. One viewport, the orientation cues,
+  **one** labelled Skin opacity control (grey matter is always opaque, 2026-09-06) and the
+  interaction hint. Changing opacity reloads no geometry and resets no camera; the camera is the
+  user's, reframed only on the pane's first payload and on an explicit reset.
+- Shared dropdowns contain long values and use the available viewport height; every interactive
+  element carries its accessible name; the action bar keeps the primary on the right and grows from
+  its minimum height when a blocked-action reason needs another line.
 
-Preview collapse/expansion hides the alternate pane without discarding it. Source-editor drafts,
-including unfinished coordinate text, and dropdown search terms remain intact when returning.
+---
 
-**The run-page scene panes draw a fixed guide, not the selected subject.** Simulator, Optimizer and
-Analyzer render packaged reference anatomy served by `GET /api/guide/*`; the pane selects *names*
-(electrodes, EEG nets, atlas regions) and never coordinates, and a subject switch costs it zero
-requests and zero remounts. Click-to-place of a sphere centre is gone from these panes: a guide
-coordinate is not any research subject's millimetres, so the form's typed x/y/z fields are the way
-a centre is set. Subject-specific anatomy lives in the Viewer and in Results.
+## Appendix A — the two contracts the source does not state
 
-**Those panes are this app's own WebGL2 renderer** (`src/renderer/scene/`, restored 2026-09-06,
-`docs/dev/ARCHITECTURE.md` §7.2) — no iframe, no message protocol, no second engine to install. They
-draw one 3-D viewport, the orientation cues, **one** labelled Skin opacity control and the
-interaction hint. There is no application chrome to hide, because the renderer only ever drew the
-pane. Opacity is shown as a percent and changing it updates the skin without reloading geometry or
-resetting the camera.
+*Folded in 2026-09-07 from `design-notes.md` §3, which is deleted. Everything else in that file was
+either the TypeScript the modules now export, or measurements superseded by §12.3 and
+`BENCHMARKS.md`.*
 
-Grey matter has no slider: it is always opaque (2026-09-06). A translucent cortex read under a
-translucent scalp composes to a colour that is neither surface's, and the fresnel silhouette term
-pushes both towards white by an amount that depends on where on the head you look — so a region
-arrived on screen in a diluted version of its own atlas hue. It carries the cortical atlas surface,
-whose regions the pane names on hover and selects on click (§4.9, §4.10), and whose borders follow
-the mesh edges because each triangle's label is transferred to its provoking corner before upload.
+### A.1 How a plan cell's chip is derived, and the one place it is a guess
 
-The camera is the user's: changing net, montage or subject reframes nothing. Framing happens on the
-pane's first payload and on an explicit reset.
+`planModelFrom` maps `POST /api/plan/{kind}` onto §4.5's matrix. `stats.jobs` is
+`PlanResult.jobs.length`, `stats.cpus`/`memoryGb` are `PlanResult.cost.cpus`/`.mem_gb`, `stats.waits`
+is `lock_conflicts.length`, `cells[].outputDir` is `PlanJob.output_dir`, and `warnings` is verbatim.
 
-Shared dropdowns contain long values and use the available viewport height. Interactive elements
-carry their accessible names. The action bar has the shared primary action on the right and grows
-from its existing minimum height when a blocked-action reason needs another line.
+The **stage id** is resolved in precedence order: `result.resolved.stages[i].tags[0]` (`kind: "pre"`
+only — `_plan_pre` appends to `jobs` and `resolved.stages` in the same loop, so index `i` is aligned
+by construction; assert the lengths match and fall through if they do not), then
+`resolved.stages[i].label`, then `basename(job.output_dir)` — the montage for `sim`, the run name for
+`flex`/`ex`/`mex`/`analyzer`, one column per distinct value in first-seen order.
+
+The **chip** is `blocked > wait > overwrite > skip > new`, where `wait` is a `lock_conflicts[]` entry
+with this subject, `overwrite` is `job.exists && job.will_overwrite`, `skip` is `job.exists &&
+!job.will_overwrite`, and `new` is `!job.exists`.
+
+**`blocked` has no server field.** `PlanResult` carries `warnings: string[]` and nothing structured,
+so the chip is derived by matching a warning that names both the subject and the stage,
+case-insensitively on word boundaries — string matching against prose the server writes. This was
+accepted for 3.0 rather than adding `PlanResult.blocked: [{subject, stage, reason}]`; it is the one
+place a rendered chip is a guess, and the reason a reworded warning can silently stop blocking.
+
+**The cost tiles are per job, not per plan.** `_plan_cost` returns one representative job's cost,
+"not summed across a multi-job plan" (its own docstring), so the tiles carry the `title` attribute
+`"per job"` and nothing multiplies them. `8 × 2 = 16 CPU` is a number the server has not measured.
+
+### A.2 The DOM contract the metrics and every spec read
+
+Not decoration — `_metrics.ts` and the layout specs fail without it.
+
+- `data-testid="page-work"` on the work pane; `data-testid="page-right-pane"` on the right pane, and
+  **absent from the DOM entirely** when there is no right pane, which is how `paneWidths().right ===
+  0` asserts §2.1's "never an empty pane".
+- `data-tier="1"` on the always-open sections of a run page, so `firstScreenControls` can find them.
+- `data-fill-section` carrying `data-fill-user="open"|"closed"` while a section's state is the
+  user's and nothing while it is still the fill controller's (§4.4.2); `RunPaneTabs` publishes the
+  same contract as `data-chosen`. Without it a test cannot tell a section that *is* open from one
+  that will *stay* open, and a spec that read one for the other failed intermittently.
+- `data-page` / `data-subject` on `[data-testid="shell-content"]` — the app runs a MemoryRouter, so
+  `toHaveURL` can never see a route change (§8.1).
+- `data-status-cell` is **retired** with the status bar (§11).
