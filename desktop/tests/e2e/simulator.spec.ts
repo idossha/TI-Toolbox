@@ -2,7 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page, type Request } from "@playwright/test";
-import { answerExistingOutputs, expectPage, gotoPage, launchElectronApp, openPalette, setSectionOpen } from "./_helpers";
+import { answerExistingOutputs, expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
 import { expectRunPaneTab, showRunPaneTab } from "./_runPane";
 import { captureScreen, type PageMetrics } from "./_metrics";
 import { addJobRow, clearJobRows, configureMontageJob, jobBlank, jobCurrents, jobDetail, jobPairs, jobRows, setJobMappedNet, setJobMontage, setJobNet, setJobPlacement, setJobSource, setJobSubject } from "./_jobs";
@@ -382,14 +382,14 @@ test("a row on the Flex result source becomes a planned job, in either placement
  * configs that reach the server — one customised job differs from its neighbour, and a changed
  * default reaches only the job that never disagreed with it.
  */
-test("a job's own electrodes reach its config, and a changed default reaches only the other job", async () => {
+test("a job's own electrodes reach its config, and its neighbour keeps the built-in defaults", async () => {
   await clearMontageRows();
   const first = montageRows().first();
   await configureMontageJob(page, first, { subject: "ernie", net: "GSN-HydroCel-185", montage: "F3_F4 · TI" });
   const second = await addJobRow(page);
   await configureMontageJob(page, second, { subject: "ernie", net: "GSN-HydroCel-185", montage: "Thalamus_target · TI" });
 
-  // Customise the FIRST job: rectangle, 10x10, and TI_avg instead of TI_max.
+  // Customise the FIRST job: rectangle, 10x10, and TI_avg alongside TI_max.
   await first.locator('td[data-cell="actions"]').getByRole("button", { name: /^Job settings/ }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByTestId("job-settings-form")).toBeVisible();
@@ -404,11 +404,6 @@ test("a job's own electrodes reach its config, and a changed default reaches onl
   // Line 2 says so, on that row only.
   await expect(jobDetail(first).locator('[data-cell="custom"]')).toHaveText(/^custom: rect 10×10/);
   await expect(jobDetail(second).locator('[data-cell="custom"]')).toHaveCount(0);
-
-  // Change a DEFAULT: gel thickness 4 -> 6. The customised row keeps its own 4.
-  const electrodes = await setSectionOpen(page, "Electrodes", true);
-  await electrodes.getByRole("spinbutton").last().fill("6");
-  await electrodes.getByRole("spinbutton").last().blur();
 
   const bodies: Record<string, unknown>[] = [];
   const collect = (r: Request) => {
@@ -432,9 +427,10 @@ test("a job's own electrodes reach its config, and a changed default reaches onl
   expect(custom.electrode_dimensions).toEqual([10, 10]);
   expect(custom.output_fields).toEqual(["TI_max", "TI_avg"]);
   expect(custom.gel_thickness).toBe(4);
-  // ...and the untouched job followed the default that changed after it was created.
+  // ...and the untouched job carries the built-in defaults, untouched by its neighbour's editing.
   expect(plain.electrode_shape).toBe("ellipse");
-  expect(plain.gel_thickness).toBe(6);
+  expect(plain.electrode_dimensions).toEqual([8, 8]);
+  expect(plain.gel_thickness).toBe(4);
   expect(plain.output_fields).toEqual(["TI_max"]);
 
   // Reset puts the row back on the defaults — including the one that changed meanwhile.
@@ -443,24 +439,27 @@ test("a job's own electrodes reach its config, and a changed default reaches onl
   await page.getByRole("dialog").getByRole("button", { name: "Done", exact: true }).click();
   await expect(jobDetail(first).locator('[data-cell="custom"]')).toHaveCount(0);
 
-  // Put the default back: this file is serial, and the next test reads the section's summary.
-  const gel = (await setSectionOpen(page, "Electrodes", true)).getByRole("spinbutton").last();
-  await gel.fill("4");
-  await gel.blur();
+  // And a NEW row starts from the settings the user configured last, not from the built-ins: the
+  // seed is what makes "configure one job, then add the next like it" one gesture.
+  await first.locator('td[data-cell="actions"]').getByRole("button", { name: /^Job settings/ }).click();
+  const again = page.getByRole("dialog");
+  await again.getByRole("radio", { name: "Rectangle", exact: true }).click();
+  await again.getByRole("button", { name: "Done", exact: true }).click();
+  const third = await addJobRow(page);
+  await expect(jobDetail(third).locator('[data-cell="custom"]')).toHaveText(/^custom: rect /);
+  await third.getByRole("button", { name: /^Remove job / }).click();
 });
 
-test("collapsed sections state their own values (§4.2 rule 5)", async () => {
-  // FXU1: sections auto-expand to fill the pane, so the summary is asserted on a section the user
-  // has collapsed by hand — which is the state the rule is actually about ("a collapsed section
-  // still states what it holds"). A hand toggle also takes the section out of the fill
-  // controller's reach, so it stays collapsed for the assertion.
-  // Converging, not check-then-act: the controller can open the section between the count and the
-  // click, and the click would then re-open what this test needs closed (`setSectionOpen`).
-  const electrodes = await setSectionOpen(page, "Electrodes", false);
-  await expect(electrodes.locator(".form-section-summary")).toHaveText("ellipse · 8×8 mm · gel 4 mm");
-
-  const fields = await setSectionOpen(page, "Output fields", false);
-  await expect(fields.locator(".form-section-summary")).toHaveText("TI_max");
+test("the page is the jobs table — no page-level electrode, conductivity or output-field form", async () => {
+  // 2026-09-06: those three sections used to sit under the table and apply to every job. They are
+  // gone; each row carries its own, edited in the row's own dialog (`Job settings`), and a new row
+  // starts from the last row the user configured.
+  const active = page.locator('[data-page-active="true"]');
+  for (const title of ["Electrodes", "Conductivity", "Output fields"]) {
+    await expect(active.locator(".form-section", { hasText: title })).toHaveCount(0);
+  }
+  await expect(active.locator(".form-section", { hasText: "Jobs" })).toHaveCount(1);
+  await expect(active.locator(".form-section", { hasText: "Free-hand placements" })).toHaveCount(1);
 });
 
 test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.3)", async () => {

@@ -2,7 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Locator, type Page } from "@playwright/test";
-import { expectPage, gotoPage, launchElectronApp, openPalette, setSectionOpen } from "./_helpers";
+import { expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
 import { closeOptEditor, openOptEditor, optRows, setOptCell } from "./_jobs";
 
 /**
@@ -30,17 +30,6 @@ test.describe.configure({ mode: "serial" });
 
 function field(label: string, root: Page | Locator = page): Locator {
   return root.locator(".field", { hasText: label }).first();
-}
-
-/**
- * Sections fill the pane by themselves (FXU1), so this opens one only when it is closed — via the
- * converging helper, because the controller can open it between the read and the click and turn
- * this into a close (`_helpers.ts`'s `setSectionOpen`).
- */
-async function openSection(title: string): Promise<Locator> {
-  const section = await setSectionOpen(page, title, true);
-  await expect(section.locator(".form-section-body")).toHaveCount(1);
-  return section;
 }
 
 /** The rule, stated once: no page shows the other idiom anywhere in its work pane. */
@@ -79,24 +68,27 @@ test.afterAll(async () => {
   await app?.close();
 });
 
-test("the Simulator's electrode shape is a segment, and choosing one still changes the form", async () => {
+test("the Simulator's electrode shape is a segment, in the job's own settings editor", async () => {
   await gotoPage(page, "simulator", "Simulator");
   await expectPage(page, "simulator");
 
-  const electrodes = await openSection("Electrodes");
-  const shape = field("Shape", electrodes).locator(".segmented");
+  // The three page-level sections are gone (2026-09-06): electrodes, conductivity and output
+  // fields belong to a JOB, so the segment lives in the row's own editor.
+  await page.locator("tr[data-job-row]").first().locator('td[data-cell="actions"]').getByRole("button", { name: /^Job settings/ }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByTestId("job-settings-form")).toBeVisible();
+
+  const shape = field("Shape", dialog).locator(".segmented");
   await expect(shape).toHaveCount(1);
   expect(await shape.getByRole("radio").allTextContents()).toEqual(["Ellipse", "Rectangle"]);
   await expect(shape.getByRole("radio", { name: "Ellipse", exact: true })).toBeChecked();
 
   await shape.getByRole("radio", { name: "Rectangle", exact: true }).click();
   await expect(shape.getByRole("radio", { name: "Rectangle", exact: true })).toBeChecked();
-  // The section's own summary is the page's readout of that choice: proof the click reached the
-  // form and not just the control's own pressed state.
-  await setSectionOpen(page, "Electrodes", false);
-  await expect(electrodes.locator(".form-section-summary")).toHaveText(/^rectangle · /);
-  await setSectionOpen(page, "Electrodes", true);
-  await shape.getByRole("radio", { name: "Ellipse", exact: true }).click();
+  // Proof the click reached the form and not just the control's own pressed state: the row says so
+  // once the editor is done with.
+  await dialog.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.locator('tr[data-job-detail] [data-cell="custom"]').first()).toHaveText(/rect /);
 
   await noRadioGroup();
 });

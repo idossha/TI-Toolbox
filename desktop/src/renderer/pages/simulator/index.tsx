@@ -10,25 +10,17 @@ import { usePageSession } from "../../app/pageSession";
 import { EmptyState } from "../../ui/Feedback";
 import { ActionBar } from "../../ui/Chrome";
 import { FormSection, PageLayout, PaneHeaderControls, usePaneController } from "../../ui/Layout";
-import { SegmentedControl } from "../../ui/SegmentedControl";
-import { Field } from "../../ui/Field";
-import { NumberInput } from "../../ui/NumberInput";
-import { Select } from "../../ui/Select";
-import { Button, IconButton } from "../../ui/Button";
-import { Checkbox } from "../../ui/Toggle";
+import { IconButton } from "../../ui/Button";
 import { Popover } from "../../ui/Overlay";
 import { subjectsBlockedReason } from "../_shared/subjects";
 import { getSubjectDetail } from "./api";
 import { JobsTable, emptyDraft, type JobSubject, type MontageDraft } from "./MontageManager";
 import { FreehandTab } from "./FreehandTab";
-import { ConductivityDialog, type CustomConductivities } from "./ConductivityDialog";
 import { JobSettingsDialog } from "./JobSettingsDialog";
 import "./simulator-page.css";
 import { useSimPlan, RunButton } from "./RunControls";
 import {
-  CONDUCTIVITY_OPTIONS,
-  OUTPUT_FIELDS,
-  OUTPUT_FIELDS_HELP,
+  DEFAULT_JOB_SETTINGS,
   emptyRow,
   isRunnableRow,
   type JobSettings,
@@ -38,17 +30,6 @@ import {
 import { RunPanel, RunWork, planDigest, stepsFor } from "../_shared/run";
 import { ScenePane, withSlot } from "../_shared/scene";
 import type { GlobalParams } from "./buildConfig";
-
-/** The collapsed ELECTRODES section states its own values (DESIGN.md v3 §4.2 rule 5). */
-export function electrodeSummary(shape: "ellipse" | "rect", dims: [number, number], gel: number): string {
-  return `${shape === "ellipse" ? "ellipse" : "rectangle"} · ${dims[0]}×${dims[1]} mm · gel ${gel} mm`;
-}
-
-/** Same, for CONDUCTIVITY: the model plus how many tissue values were overridden. */
-export function conductivitySummary(model: string, overrides: number): string {
-  const label = CONDUCTIVITY_OPTIONS.find((o) => o.value === model)?.label ?? model;
-  return `${label.toLowerCase()} · ${overrides === 0 ? "SimNIBS defaults" : `${overrides} override${overrides === 1 ? "" : "s"}`}`;
-}
 
 /** The primary's label, from the plan. */
 export function runLabelFor(rowCount: number): string {
@@ -98,13 +79,15 @@ function SimulatorPage() {
   // jobs they had assembled and the sections they had opened.
   const [rows, setRows] = usePageSession<SelectedRow[]>("jobRows", []);
 
-  const [conductivity, setConductivity] = usePageSession("conductivity", "scalar");
-  const [customConductivities, setCustomConductivities] = usePageSession<CustomConductivities>("conductivityOverrides", {});
-  const [conductivityDialogOpen, setConductivityDialogOpen] = useState(false);
-  const [electrodeShape, setElectrodeShape] = usePageSession<"ellipse" | "rect">("electrodeShape", "ellipse");
-  const [dimensions, setDimensions] = usePageSession<[number, number]>("electrodeDims", [8, 8]);
-  const [gelThickness, setGelThickness] = usePageSession("gelThickness", 4);
-  const [outputFields, setOutputFields] = usePageSession<string[]>("outputFields", ["TI_max"]);
+  /**
+   * The settings a **new** row starts with: the ones the user last edited in a row's own dialog,
+   * falling back to the built-in defaults. Not a page-level form any more (2026-09-06): the three
+   * sections that used to sit under the table are gone, because every job now carries its own
+   * electrodes, conductivity and output fields. Seeding from the last-edited row is what someone
+   * assembling a batch expects — they configure one job and add the next like it — while `Reset to
+   * defaults` in the dialog always means the built-ins.
+   */
+  const [seedSettings, setSeedSettings] = usePageSession<JobSettings | null>("jobSettingsSeed", null);
   const parallelSubjects = useExecutionPrefs((s) => s.parallelSubjects);
   const [pinnedJobId, setPinnedJobId] = usePageSession<string | null>("pinnedJob", null);
   // The montage editor's state, lifted here (SCC): the scene pane and the pairs editor are two
@@ -147,14 +130,11 @@ function SimulatorPage() {
   const planSubjects = useMemo(() => [...new Set(runnableRows.map((r) => r.subjectId))], [runnableRows]);
 
   /**
-   * The page's **defaults for new jobs**, not a global applied to every job (maintainer,
-   * 2026-09-06). A row that has never been opened in its own editor follows these live; a row that
-   * has carries its own copy and ignores them.
+   * What a row that carries no settings of its own runs with, and what `Reset to defaults` returns
+   * to: the built-ins (`DEFAULT_JOB_SETTINGS`), not a page control. A row seeded from the last
+   * edited one carries a copy, so it shows as customised and is unaffected by anything else.
    */
-  const params: GlobalParams = useMemo(
-    () => ({ conductivity, electrodeShape, dimensions, gelThickness, outputFields, customConductivities }),
-    [conductivity, electrodeShape, dimensions, gelThickness, outputFields, customConductivities],
-  );
+  const params: GlobalParams = DEFAULT_JOB_SETTINGS as GlobalParams;
 
   // The subject clause of the blocked sentence is still the shared grammar's, but it is now about
   // the subjects the ROWS name rather than a page-level tick list.
@@ -166,7 +146,6 @@ function SimulatorPage() {
   );
 
   const plan = useSimPlan(runnableRows, params, planSubjects, runnableRows.length === 0 ? null : subjectsBlocked);
-  const overrides = Object.keys(customConductivities).length;
 
   const digest = plan.model ? planDigest(plan.model) : (plan.blockedReason ?? "Resolving the plan…");
 
@@ -273,6 +252,7 @@ function SimulatorPage() {
                 ) : (
                   <JobsTable
                     defaults={params}
+                    seedSettings={seedSettings ?? undefined}
                     onEditSettings={(row) => setSettingsRowId(row.id)}
                     subjects={jobSubjects}
                     subjectNets={subjectNets}
@@ -291,90 +271,6 @@ function SimulatorPage() {
 
           {subjects.length > 0 && (
             <>
-              <FormSection
-                title="Electrodes · default for new jobs"
-                collapsible
-                defaultOpen={false}
-                changed={electrodeShape !== "ellipse" || dimensions[0] !== 8 || dimensions[1] !== 8 || gelThickness !== 4}
-                summary={electrodeSummary(electrodeShape, dimensions, gelThickness)}
-              >
-                {/* Shape, dimensions and gel thickness are one decision about one object, and
-                    three narrow controls; `.field-row-inline` keeps them on a single line. */}
-                <div className="field-row-inline">
-                  <Field label="Shape">
-                    <SegmentedControl
-                      value={electrodeShape}
-                      onValueChange={(v) => setElectrodeShape(v as "ellipse" | "rect")}
-                      options={[
-                        { value: "ellipse", label: "Ellipse" },
-                        { value: "rect", label: "Rectangle" },
-                      ]}
-                      aria-label="Electrode shape"
-                    />
-                  </Field>
-                  <Field label="Dimensions">
-                    <div style={{ display: "flex", gap: "var(--space-2)" }}>
-                      <NumberInput value={dimensions[0]} onValueChange={(v) => setDimensions([v ?? 8, dimensions[1]])} unit="w" step={0.5} min={0} aria-label="Electrode width" />
-                      <NumberInput value={dimensions[1]} onValueChange={(v) => setDimensions([dimensions[0], v ?? 8])} unit="h" step={0.5} min={0} aria-label="Electrode height" />
-                    </div>
-                  </Field>
-                  <Field label="Gel thickness" className="sim-gel-field">
-                    <NumberInput value={gelThickness} onValueChange={(v) => setGelThickness(v ?? 4)} step={0.5} min={0} unit="mm" />
-                  </Field>
-                </div>
-              </FormSection>
-
-              <FormSection
-                title="Conductivity · default for new jobs"
-                collapsible
-                defaultOpen={false}
-                changed={conductivity !== "scalar" || overrides > 0}
-                summary={conductivitySummary(conductivity, overrides)}
-              >
-                <div className="field-row-inline">
-                  <Field label="Model">
-                    <Select value={conductivity} onValueChange={setConductivity} options={CONDUCTIVITY_OPTIONS} />
-                  </Field>
-                  <Field label="Tissue values" help="Overrides SimNIBS's per-tissue defaults for this run only.">
-                    <Button variant="secondary" onClick={() => setConductivityDialogOpen(true)}>
-                      Edit tissue conductivities…
-                    </Button>
-                  </Field>
-                </div>
-              </FormSection>
-
-              <FormSection
-                title="Output fields · default for new jobs"
-                collapsible
-                defaultOpen={false}
-                changed={outputFields.length !== 1 || outputFields[0] !== "TI_max"}
-                error={outputFields.length === 0}
-                summary={outputFields.join(", ") || "none"}
-                helpSlot={
-                  <Popover trigger={<IconButton aria-label="Output fields help" icon={<Info size={13} />} variant="ghost" size="sm" />}>
-                    <div style={{ maxWidth: 360, whiteSpace: "pre-wrap" }} className="text-dense">
-                      {OUTPUT_FIELDS_HELP}
-                    </div>
-                  </Popover>
-                }
-              >
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <div style={{ display: "flex", gap: "var(--space-4)", flexWrap: "wrap" }}>
-                    {OUTPUT_FIELDS.map((f) => (
-                      <label key={f.name} title={f.description} className="checkbox-label-row">
-                        <Checkbox
-                          checked={outputFields.includes(f.name)}
-                          onCheckedChange={(checked) => setOutputFields((prev) => (checked ? [...prev, f.name] : prev.filter((n) => n !== f.name)))}
-                        />
-                        {f.name}
-                      </label>
-                    ))}
-                  </div>
-                  {outputFields.length === 0 && <span className="field-error">Select at least one output field.</span>}
-                </div>
-              </FormSection>
-
-
               {/*
                * Free-hand placements are AUTHORED here and CHOSEN in a job row's Montage cell — the
                * same split the montage catalog has (its editor is inside the table's own "New
@@ -396,10 +292,11 @@ function SimulatorPage() {
         onClose={() => setSettingsRowId(null)}
         onSave={(settings: JobSettings | undefined) => {
           setRows((prev) => prev.map((r) => (r.id === settingsRowId ? { ...r, settings } : r)));
+          // The last row the user configured is what the next one starts from.
+          setSeedSettings(settings ?? null);
           setSettingsRowId(null);
         }}
       />
-      <ConductivityDialog open={conductivityDialogOpen} onOpenChange={setConductivityDialogOpen} value={customConductivities} onSave={setCustomConductivities} />
     </>
   );
 }

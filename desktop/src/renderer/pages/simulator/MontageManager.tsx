@@ -328,6 +328,20 @@ function ChannelList({ row, onChange }: { row: SelectedRow; onChange: (currents:
   );
 }
 
+/**
+ * The chip line 2 carries when a job does not use the built-in defaults — on a half-filled row
+ * too, because a row seeded from the last configured job is customised before it has a montage.
+ */
+function customChip(row: SelectedRow, defaults: JobSettings) {
+  const summary = row.settings ? settingsSummary(row.settings, defaults) : "";
+  if (!summary) return null;
+  return (
+    <span className="job-custom-chip" data-cell="custom" title="This job does not use the built-in defaults">
+      custom: {summary}
+    </span>
+  );
+}
+
 /** What each channel of a row is, in words: its electrode pair, or its coordinate count. */
 export function channelLabels(row: SelectedRow, count: number): string[] {
   return Array.from({ length: count }, (_, i) => {
@@ -391,8 +405,10 @@ export interface JobsTableProps {
   /** The source of the active row, so the page can note that flex/free-hand carry their own
    *  coordinates rather than the previewed net's. */
   onActiveSourceChange?: (source: MontageSource | null) => void;
-  /** The page's defaults for new jobs — what a row that never disagreed with them runs with. */
+  /** The built-in defaults — what a row that carries no settings of its own runs with. */
   defaults: JobSettings;
+  /** What a NEW row starts from: the settings of the row the user configured last, if any. */
+  seedSettings?: JobSettings;
   /** Open this row's own settings editor (electrodes · conductivity · output fields). */
   onEditSettings?: (row: SelectedRow) => void;
 }
@@ -408,6 +424,7 @@ export function JobsTable({
   onPreviewChange,
   onActiveSourceChange,
   defaults,
+  seedSettings,
   onEditSettings,
 }: JobsTableProps) {
   const queryClient = useQueryClient();
@@ -676,7 +693,9 @@ export function JobsTable({
   function addRow() {
     const last = rows[rows.length - 1];
     const seedSubject = last?.subjectId || usable[0] || "";
-    onRowsChange([...rows, emptyRow(seedSubject, "montage", editorNet)]);
+    // A new row starts from the settings the user configured last — assembling a batch is
+    // configuring one job and adding the next one like it — and from the built-ins before that.
+    onRowsChange([...rows, { ...emptyRow(seedSubject, "montage", editorNet), settings: seedSettings }]);
   }
 
   function duplicateRow(row: SelectedRow) {
@@ -1028,11 +1047,7 @@ export function JobsTable({
                           </td>
                           <td colSpan={2} data-cell="detail">
                             <div className="job-line2" data-cell="pairs">
-                              {row.settings && settingsSummary(row.settings, defaults) && (
-                                <span className="job-custom-chip" data-cell="custom" title="This job does not use the page's defaults">
-                                  custom: {settingsSummary(row.settings, defaults)}
-                                </span>
-                              )}
+                              {customChip(row, defaults)}
                               <ChannelList row={row} onChange={(currents) => patch(row.id, { currents })} />
                             </div>
                           </td>
@@ -1040,6 +1055,7 @@ export function JobsTable({
                       ) : (
                         <td colSpan={4} data-cell="detail">
                           <div className="job-line2">
+                            {customChip(row, defaults)}
                             <span className="job-line2-empty">Pairs and currents appear once a montage is chosen</span>
                           </div>
                         </td>

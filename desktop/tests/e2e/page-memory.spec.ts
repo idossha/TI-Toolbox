@@ -461,6 +461,14 @@ test("pane collapse and expansion retain the live canvas, work DOM and a scrolle
   // range when it was written and is outside it now that the Simulator's page-level sections
   // became a jobs table (max is 66 px here), so the test was measuring the clamp rather than the
   // retention. Half the range is inside both widths' range and still nonzero.
+  // The Simulator's work column lost its last three page-level sections to per-job settings
+  // (2026-09-06), so with one job row it does not scroll at all. Add rows until it does: what this
+  // test is about is the offset surviving a pane collapse, not how the range came to exist.
+  for (let i = 0; i < 6; i++) {
+    const range = await scroller.evaluate((el) => el.scrollHeight - el.clientHeight);
+    if (range > 8) break;
+    await current.getByRole("button", { name: "Add job", exact: true }).click();
+  }
   const scrollBefore = await scroller.evaluate((el) => {
     el.scrollTop = Math.floor((el.scrollHeight - el.clientHeight) / 2);
     return el.scrollTop;
