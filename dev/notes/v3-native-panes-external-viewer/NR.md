@@ -1,6 +1,6 @@
 # Lane NR — native run-page panes on our own renderer (2026-09-06)
 
-Plan of record: `dev/notes/v3-native-panes-external-viewer-plan.md`, decisions **N1–N4** and the **NR** gate (§3).
+Plan of record: `dev/notes/v3-program-history.md § 2026-09-06 (native panes, external viewer)`, decisions **N1–N4** and the **NR** gate (§3).
 Branch: `feature/v3-electron-gui` (worktree `.claude/worktrees/v3-electron-gui`).
 
 ## 1. What changed

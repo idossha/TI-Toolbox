@@ -1,7 +1,7 @@
 # Native run-page panes and an external Tetravox viewer (plan of record, 2026-09-06)
 
 Status: **implemented and gated (2026-09-06)**. Lanes NR/VX/JB done, seams closed and records landed
-by CX3 — evidence `dev/notes/v3-native-panes-external-viewer/{NR,VX,JB,CX3}.md`, requirements
+by CX3 — evidence `dev/notes/v3-program-history.md § 2026-09-06 (native panes, external viewer){NR,VX,JB,CX3}.md`, requirements
 `docs/requirements/2026-09-06-native-panes-external-viewer.md`, contract `docs/ARCHITECTURE.md`
 §§7.1/7.2/7.5, ADR row 27.
 

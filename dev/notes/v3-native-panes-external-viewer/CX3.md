@@ -1,7 +1,7 @@
 # Lane CX3 — consolidation: seams, records, gate
 
 Branch `feature/v3-electron-gui` (worktree `.claude/worktrees/v3-electron-gui`), 2026-09-06.
-Plan of record `dev/notes/v3-native-panes-external-viewer-plan.md`; lanes
+Plan of record `dev/notes/v3-program-history.md § 2026-09-06 (native panes, external viewer)`; lanes
 `{NR,VX,JB}.md`. Every Playwright run was offscreen and **serial** — never two at once, and
 `e2e-quiet-check` reported "no new Electron/Chromium window reached the screen" on each.
 

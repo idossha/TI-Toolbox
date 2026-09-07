@@ -172,3 +172,37 @@ limit for run pages is 45%.
 | 2026-09-04 (scene IA) | 3519 passed | 909 passed | 5 passed |
 | 2026-09-05 (overview/batch) | 3655 passed / 47 skipped | 79 files / 892 tests | 172 passed / 3 skipped |
 | 2026-09-05 (tetravox/pipeline) | 3741 passed | 84 files / 949 tests | 195 passed / 3 skipped |
+
+## Native panes and external viewer (2026-09-06)
+
+| What | Value | Context |
+|---|---|---|
+| Image, gmsh/X11-set prune | 19.5 → 9.27 GB disk; 5.88 → 2.41 GB content | `Dockerfile.ti-toolbox` slim pass |
+| Image, PyQt5 + TMS coil models removed | 9.27 → 8.93 GB disk; 2.41 → 2.32 GB content | |
+| Build context, `.dockerignore` allow-list | ~2 GB raw → 262.8 MB → 137.5 MB | local-source build |
+| Tetravox embed package (0.3.11, protocol 2) | 1.8 MB tarball | before the embed was retired |
+| Guide packaging with TVSC1 labels | 15.48 → 18.44 MB (+2.96 MB), 8.4 s | real `sub-ernie` mesh |
+| Guide GIfTI copies, still packaged | ~11.3 MB | open item — droppable |
+| Scene render, 152–156 k tris, 1280×800 @dpr2 | 120.0 fps | gallery fixture |
+| Scene render, real sub-ernie, 222,434 tris, orbit | 122.5–122.8 fps; last frame 0.10–0.20 ms CPU | |
+| Scene warm first paint, real server | 91–219 ms | |
+| Electrode pick error | 1.086 mm against a 1.865 mm tolerance | |
+| Transparency, worst per-channel colour step | 23/255 (old winding split) → 2/255 (depth-resolved sheets); bound 12, never above 4 in 10 runs | |
+| Draw calls per frame, 2 surfaces + markers | 7 → 13 after depth-peel | |
+| Atlas border, white pixels in a 100×100 window | 40/441 → 0/441; repainted-outline pixels 4/439 (0.9%) | |
+| Atlas border sub-triangle spikes | 8 spikes = 6.20% of 129 border crossings over 24 scan lines | |
+| Idle electrode vs opaque-GM scalp contrast | worst 2/255, median 35 | 24 front-most electrodes, ernie / GSN-HydroCel-185. **Open** |
+| `/api/view/open` dry run, host | 831 ms cold → 0.4 ms warm (median of 9); target ≤200 ms | |
+| `build_view` | 864 ms → 0.3 ms (2,723×) | |
+| `/api/view/open`, real emulated container, 5 calls | 2.28 s cold → 0.0055 / 0.0054 / 0.0046 / 0.0039 s (~580×) | |
+| ViewSpec scene file | 7,190 bytes | real `simulation.tetravox.json`, 5 datasets |
+| Tetravox scene byte cap | `MAX_SCENE_BYTES` = 8 MiB | |
+| Menu list edit, after client-side caching | 1 dry run per click → 0 requests; Open click → response 22 ms, response → on screen 16 ms | |
+| Managed-Tetravox real download (superseded design) | 131 MB; verify + unpack + codesign in 6.3 s | |
+| Disk at the CX4 gate | 893 GiB used of 926; Docker images 280.2 GB (53.8 reclaimable), build cache 50.1 GB (21.4), volumes 26.8 GB (all) | the `ENOSPC` incident |
+
+Gate progression across the program's three consolidation passes: host pytest
+3,662 → **3,970 passed** / 36 skipped / 21 deselected; desktop vitest 1,039 →
+**1,275 passed** across 88 → 105 files; offscreen mock e2e 208 → **285 passed**
+(blocked twice at CX4 by `ENOSPC`); real subset **22 passed**. The final CX5 row
+with its full detail is in `docs/ROADMAP.md`.

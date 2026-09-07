@@ -1,7 +1,7 @@
 # Lane CX5 — third consolidation: the reds, the rail's digits, records, gate
 
 Branch `feature/v3-electron-gui`, worktree `.claude/worktrees/v3-electron-gui`, 2026-09-06 (night).
-Plan of record `dev/notes/v3-native-panes-external-viewer-plan.md`; lanes `{CX3,CX4,TR,PL,TI,VM,
+Plan of record `dev/notes/v3-program-history.md § 2026-09-06 (native panes, external viewer)`; lanes `{CX3,CX4,TR,PL,TI,VM,
 VM2,OJ,NB,NR,VE,JB,IB}.md`. Every Playwright run was **offscreen and serial**, under
 `/tmp/tit-e2e.lock`; `git stash` was not run in any form.
 

@@ -1,7 +1,7 @@
 # Lane VX — the external viewer (V1–V5)
 
 Worktree `.claude/worktrees/v3-electron-gui`, branch `feature/v3-electron-gui`, 2026-09-06.
-Plan of record `dev/notes/v3-native-panes-external-viewer-plan.md`, decisions **V1–V5**.
+Plan of record `dev/notes/v3-program-history.md § 2026-09-06 (native panes, external viewer)`, decisions **V1–V5**.
 
 Maintainer's brief, verbatim: *"for the viewer, instead of embedding the web version of Tetravox …
 the viewer tab only acts as the data selection and it actually opens up everything in [an external
@@ -308,7 +308,7 @@ The four records below are CX3's to land.
 
 ### 7.3 `tracks/active/v3-electron-gui.md` — proposed ADR row
 
-> | 27 | Native panes, external viewer (2026-09-06) | **The viewer is a separate desktop application.** The Viewer page is a data selector whose Open writes `<project>/code/ti-toolbox/viewer/<kind>.tetravox.json` (`POST /api/view/open`, host paths, not `/api/files/raw` URLs) and hands it to the host's Tetravox app through a new `viewer` preload entry; run-page 3-D panes are the app's own WebGL2 renderer (lane NR). The embed, `/tetravox/`, `tit/tetravox/**`, the protocol range, the release index, the install store, `/ws/tetravox` and `Capabilities.tetravox_embed` are all removed; the image bakes no viewer. Supersedes rows 15, 23 and the embed half of 26; **row 14's bridge budget becomes 13** | maintainer, 2026-09-06: "the viewer tab only acts as the data selection and it actually opens up everything in [an external window] like we have in 2.5.0", "I want the complexity to be as simple as possible and the implementation to require minimal maintenance". The container has no display (D3), so the only Tetravox that can draw is the host app — which is also the only one that is signed, notarised and self-updating. Plan `dev/notes/v3-native-panes-external-viewer-plan.md`; evidence `dev/notes/v3-native-panes-external-viewer/{NR,VX,CX3}.md` |
+> | 27 | Native panes, external viewer (2026-09-06) | **The viewer is a separate desktop application.** The Viewer page is a data selector whose Open writes `<project>/code/ti-toolbox/viewer/<kind>.tetravox.json` (`POST /api/view/open`, host paths, not `/api/files/raw` URLs) and hands it to the host's Tetravox app through a new `viewer` preload entry; run-page 3-D panes are the app's own WebGL2 renderer (lane NR). The embed, `/tetravox/`, `tit/tetravox/**`, the protocol range, the release index, the install store, `/ws/tetravox` and `Capabilities.tetravox_embed` are all removed; the image bakes no viewer. Supersedes rows 15, 23 and the embed half of 26; **row 14's bridge budget becomes 13** | maintainer, 2026-09-06: "the viewer tab only acts as the data selection and it actually opens up everything in [an external window] like we have in 2.5.0", "I want the complexity to be as simple as possible and the implementation to require minimal maintenance". The container has no display (D3), so the only Tetravox that can draw is the host app — which is also the only one that is signed, notarised and self-updating. Plan `dev/notes/v3-program-history.md § 2026-09-06 (native panes, external viewer)`; evidence `dev/notes/v3-program-history.md § 2026-09-06 (native panes, external viewer){NR,VX,CX3}.md` |
 
 ### 7.4 `ROADMAP` — proposed text
 

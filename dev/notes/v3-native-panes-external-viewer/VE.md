@@ -2,8 +2,8 @@
 
 Worktree `.claude/worktrees/v3-electron-gui`, branch `feature/v3-electron-gui`, 2026-09-06 (evening).
 Reverses **VX** (`VX.md`) and **TI** (`TI.md`) of this morning. Keeps **VM2** (`VM2.md`) whole.
-Restores the delivery stack of `dev/notes/v3-embed-convergence/u-notes.md` and
-`dev/notes/v3-tetravox-selection-pipeline/AU.md`.
+Restores the delivery stack of `dev/notes/v3-program-history.md § 2026-09-04 (embed convergence)` and
+`dev/notes/v3-program-history.md § 2026-09-05/06 (Tetravox auto-update, selection, pipeline canvas)`.
 
 Maintainer's decision, verbatim:
 
@@ -433,7 +433,7 @@ closing by having the picker also offer the baseline rows that are currently out
 
 **5.6 The app now has two renderers, and that is not yet a decision.** The Viewer sub-page draws
 with the Tetravox embed; the run-page 3-D panes draw with lane NR's native WebGL2 renderer
-(`pages/_shared/scene/`), untouched here as instructed. `dev/notes/v3-embed-convergence-plan.md`
+(`pages/_shared/scene/`), untouched here as instructed. `dev/notes/v3-program-history.md § 2026-09-04 (embed convergence)`
 existed to converge them, and its conclusion was reached under this morning's assumption that the
 embed was going away. Someone should re-open it now that the embed is the Viewer's renderer again;
 nothing in this lane depends on the answer.

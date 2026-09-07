@@ -762,22 +762,93 @@ rows plus its new ten-item "Known follow-ups" table, ADR row 26, and
 
 ## 2026-09-06 — Native panes, external viewer
 
-See `docs/requirements/2026-09-06-native-panes-external-viewer.md`,
-`docs/ARCHITECTURE.md` §7.1/§7.2, `desktop/DESIGN.md` and `docs/ROADMAP.md` for
-this program; its lane evidence was folded into those documents directly by the
-program's own consolidation lane. In one line: the Tetravox **embed** was
-retired, the run-page 3-D panes went back to this app's own WebGL2 renderer with
-an interactive atlas and electrode dots, and the Viewer became "Open in Tetravox
-app" over `*.tetravox.json` files.
+**Ask:** stop embedding Tetravox in the run-page panes and in the Viewer tab.
+Give Simulator/Optimizer/Analyzer back their own interactive WebGL2 renderer
+with a clickable atlas and electrode dots, and make the Viewer a data selector
+that opens the scene in the standalone Tetravox desktop app.
 
-Measurements and gotchas from that program that are not in the documents above:
+**Shipped:**
+- The 2026-09-04 native WebGL2 renderer restored (`desktop/src/renderer/scene/`,
+  5,048 lines) and made the only renderer under `pages/`.
+- Guide packaging regained TVSC1 per-vertex atlas labels
+  (`tit/scene/guide_build.py`), so a pane can highlight DK40 / HCP-MMP1 /
+  a2009s regions; `<ScenePane>` and `<RoiPicker>` share one region-selection
+  model.
+- Electrodes as colour-only screen-space dots (the Okabe-Ito six-hue channel
+  set, idle grey, no ring); stacked translucent skin and GM surfaces resolved by
+  a two-sheet depth-peel ported from Tetravox 0.3.10.
+- The Viewer page rewritten as a data selector (a "what will open" list,
+  `+ Add…`, reorder, Reset). `Open in Tetravox` posts `POST /api/view/open`,
+  writes `<project>/code/ti-toolbox/viewer/<kind>.tetravox.json`, and Electron
+  main spawns or reuses the host-installed Tetravox app.
+- Every piece of embed-delivery machinery deleted for good: `tit/tetravox/`,
+  the `/tetravox/` static route and its CSP, `/ws/tetravox`, the Settings embed
+  card, the Dockerfile and `build.sh` embed bake, and
+  `desktop/src/renderer/viewer/`.
+- Simulator, Analyzer and Optimizer gained per-row jobs tables (one row is one
+  job with its own subject/source/montage), replacing the page-level
+  subject-set × montage cross-product.
+- A Notebooks page (SUNA-derived, in-container kernel) shipped alongside.
 
-- The machine ran out of disk during the second consolidation gate (893 GiB of
-  926 used) while a second lane ran Playwright concurrently in the same
-  worktree; both runs died on `ENOSPC`. This is the concrete origin of the
-  "never two Playwright runs at once" rule.
-- `.circleci/config.yml` records a known runtime problem from this program's
-  VE lane against the built image; see the comment at the head of that file.
-- Image-content notes for the from-scratch recipe (including why torch is
-  pinned) live in `container/blueprint/README.md`, which is the durable home for
-  them.
+**Decisions that survived** — all recorded, so this is only a pointer: the
+external-viewer contract and host-installed (never bundled) Tetravox
+(`docs/DECISIONS.md` 2026-09-06, `docs/ARCHITECTURE.md` §7.1); the native
+run-page renderer, TVSC1 labels and one region-selection model
+(`docs/ARCHITECTURE.md` §7.2, `desktop/DESIGN.md` §9/§10); the jobs table as the
+run-page grammar (`docs/ARCHITECTURE.md` §7.5, `desktop/DESIGN.md` §4.10); rail
+digits counting from ⌘0, superseding the 2026-09-05 Settings-digit entry; grey
+matter always opaque, the camera owned by the user, and free-hand placement in
+the Simulator (`docs/DECISIONS.md`, commit `d068782e`); ADR rows 27/28, which
+supersede rows 15 and 23 and the Tetravox/electrode halves of row 26.
+
+**Reversed / superseded:**
+- Lane VE's evening reinstatement of the in-image Tetravox embed (the bake,
+  `/tetravox/`, `/ws/tetravox`, the rail sub-items) was itself reversed later in
+  the same program. The embed is retired for good.
+- Lane TI's managed-download / auto-install Tetravox flow (`tetravoxInstall.ts`)
+  lost to the simpler host-installed-app plus download-link design.
+- The embed-convergence plan's E6 and the Viewer-in-iframe half of ADR rows
+  15/23 are superseded.
+
+**Lessons and gotchas:**
+- `Fiducials.csv` was listed as an EEG net — it holds only registration
+  landmarks and never resolves an electrode. A real e2e spec caught it; no unit
+  test did.
+- **Never run two Playwright invocations against one worktree at once.** They
+  share the mock `webServer` on 8790, and one lane's `pnpm run pree2e` rebuilds
+  `out/` underneath a suite already executing. Enforce it with a lock file
+  (`/tmp/tit-e2e.lock`), not with convention.
+- `VITE_SCENE_HOOKS=1` must be built (`pnpm run pree2e`) immediately before real
+  scene specs, or `window.__scene` is absent and the spec times out 30 s later
+  with no hint why.
+- **Never `git add -A` in a shared worktree.** It swept another lane's
+  uncommitted files into the wrong commit three times in one day — the content
+  was right, the attribution was not. Use disjoint explicit paths.
+- `desktop/package-lock.json` was stale: `npm ci` failed on
+  `@xyflow/react@12.11.6` and `zustand@4.5.7`, which existed only in
+  `pnpm-lock.yaml`. Separately, the isolated `fastsurfer` Docker stage could not
+  download checkpoints, because `download_checkpoints.py` imports `torch` at
+  module level while that stage installs only `requests`; the download moved to
+  the final stage. Both are written up in `container/blueprint/README.md`.
+- The CI known runtime problem declared at `.circleci/config.yml:29`: deleting
+  `Dockerfile.ti-toolbox.layered` removed the only thing that made the image job
+  tractable. The job now builds SimNIBS from scratch — 30–60+ minutes on a
+  2-vCPU / 8 GB `machine` executor against a 15 m `no_output_timeout`. Declared,
+  not fixed.
+- The Mac ran out of disk mid-gate (359 MiB free of 926 GB), killing the full
+  offscreen e2e twice with `ENOSPC` while a second lane ran Playwright
+  concurrently. About 100 GB was reclaimable in Docker images, build cache and
+  volumes; pruning was left to the maintainer rather than taken unilaterally.
+- A real `sim → analyzer` run hit the Docker bind-mount phantom write: SimNIBS
+  logged writing `Simulations/.../TI/mesh/*.msh`, but the directory held only
+  `fsaverage/` afterwards, on host and in container alike. Already known against
+  the mTI optimization program; not this program's bug.
+- The 2026-09-04 native renderer was recovered from a
+  `~/.treehouse/ti-v3-firstmate/uiux/desktop/src/renderer/scene/` copy, **not**
+  from git history. That copy was its only surviving source.
+- A viewer test that checks only that the plumbing ran — no requests, no error —
+  can still be showing nothing on screen. It happened twice in one day: a
+  1224×0 pane, and a scene never posted because `pendingScene` was nulled by a
+  StrictMode double-invoke in dev only. Assert visibility, not success.
+- Open, unfixed: an idle electrode's worst measured contrast against the
+  now-opaque scalp is 2/255. Left as a design call for the maintainer.

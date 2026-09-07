@@ -1,7 +1,7 @@
 # Lane CX4 — second consolidation: seams, records, gate
 
 Branch `feature/v3-electron-gui`, worktree `.claude/worktrees/v3-electron-gui`, 2026-09-06.
-Plan of record `dev/notes/v3-native-panes-external-viewer-plan.md`; lanes
+Plan of record `dev/notes/v3-program-history.md § 2026-09-06 (native panes, external viewer)`; lanes
 `{CX3,TR,PL,TI,VM,VM2,OJ}.md`. Every Playwright run was **offscreen and serial** — never two at
 once. `git stash` was not run in any form.
 
