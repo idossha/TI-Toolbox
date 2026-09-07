@@ -239,7 +239,17 @@ async def _tetravox_auto_update(app: FastAPI) -> None:
 
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Start the background Tetravox check; cancel it on shutdown."""
+    """Reconcile stranded jobs, start the background Tetravox check, clean up on shutdown."""
+    # Startup reconciliation (tit/jobs/manager.py::_reconcile_all) runs when the job manager is
+    # first constructed, and blocks until it is done. Doing that here, rather than lazily on the
+    # first jobs request, is what the maintainer's rule ("a restart should not automatically keep
+    # running jobs") needs: any runner or sibling container left over from the previous server
+    # life is stopped and its job failed *before* this server answers anything. Best-effort: a
+    # server started without a project directory has no store to reconcile.
+    with contextlib.suppress(Exception):
+        from tit.jobs.bootstrap import get_manager
+
+        await asyncio.to_thread(get_manager, app)
     task = asyncio.create_task(_tetravox_auto_update(app))
     try:
         yield

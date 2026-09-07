@@ -45,10 +45,12 @@ from tit.jobs.runner import (
     is_alive,
     runner_env,
     stop_docker_siblings,
+    stop_docker_siblings_via_engine,
     terminate_tree,
 )
 from tit.jobs.spec import (
     JOB_KINDS,
+    TERMINAL_STATES,
     Artifact,
     Cost,
     JobError,
@@ -67,13 +69,22 @@ STALL_THRESHOLD_S = 45.0
 STALL_CPU_PERCENT = 2.0
 LOG_TAIL_ON_FAILURE = 20
 SUBSCRIBER_QUEUE_MAXSIZE = 10_000
-#: The single line a cancelled job's log ends with (see ``JobManager._append_cancel_note``).
+#: The single line a cancelled job's log ends with (see ``JobManager._append_note``).
 #: Upper bound on the whole "stop this job's sibling containers" step during a cancel. Kept well
 #: under ``cancel()``'s own 20 s future timeout so a wedged Docker daemon can never be what makes
 #: a cancel fail: the job still lands in ``cancelled``, with a warning in the log.
 DOCKER_CANCEL_TIMEOUT_S = 3.0
 
 CANCEL_NOTE = "cancelled by user"
+#: The single line a job interrupted by a server restart ends with, and the message of its
+#: ``JobError`` (see :meth:`JobManager._reconcile_all`).
+RESTART_NOTE = "interrupted: server restarted"
+#: Same, for a job that was still queued (nothing was ever started, nothing is re-submitted).
+RESTART_QUEUED_NOTE = "interrupted before start: server restarted"
+#: Upper bound on the whole reconciliation's Docker work, per job. Startup must stay bounded.
+DOCKER_RECONCILE_TIMEOUT_S = 3.0
+#: How long start() waits for reconciliation before serving requests anyway (see start()).
+RECONCILE_STARTUP_TIMEOUT_S = 30.0
 
 
 class JobManager:
@@ -103,7 +114,11 @@ class JobManager:
         self._last_event_ts: dict[str, float] = {}
         self._last_exit_code: dict[str, int] = {}
         self._cancelled: set[str] = set()
-        self._reattached: set[str] = set()
+        #: Non-terminal jobs found in the store at start(), i.e. left over from a previous
+        #: server life -- reconciled once, before the first tick (see _reconcile_all).
+        self._stranded: list[str] = []
+        #: Set once _reconcile_all() has finished; start() waits on it (see start()).
+        self._reconciled = threading.Event()
 
         self._status_subs: list[queue.Queue[dict[str, Any]]] = []
         self._event_subs: dict[str, list[queue.Queue[dict[str, Any]]]] = {}
@@ -128,9 +143,19 @@ class JobManager:
         self._thread.start()
         for _ in range(400):
             if self._loop is not None:
-                return
+                break
             time.sleep(0.005)
-        raise RuntimeError("JobManager background loop failed to start")
+        else:
+            raise RuntimeError("JobManager background loop failed to start")
+        # Block the caller (tit.server's startup) until startup reconciliation has finished, so
+        # no request can ever observe a stranded job from the previous server life as "running".
+        # Bounded: a wedged Docker daemon or an unkillable process must not stop the server from
+        # coming up -- reconciliation keeps going on the manager's own loop either way.
+        if not self._reconciled.wait(timeout=RECONCILE_STARTUP_TIMEOUT_S):
+            logger.warning(
+                "startup reconciliation is still running after %.0fs; serving anyway",
+                RECONCILE_STARTUP_TIMEOUT_S,
+            )
 
     def _run_loop(self) -> None:
         loop = asyncio.new_event_loop()
@@ -145,7 +170,10 @@ class JobManager:
             loop.close()
 
     async def _main(self) -> None:
-        await self._reattach_all()
+        try:
+            await self._reconcile_all()
+        finally:
+            self._reconciled.set()
         while True:
             try:
                 await self._tick()
@@ -175,87 +203,136 @@ class JobManager:
                 continue
             self._specs[job_id] = spec
             self._status[job_id] = status
+            if status.state not in TERMINAL_STATES:
+                # Snapshot taken *before* the manager's loop thread starts, so a job submitted
+                # by this server life can never be swept up by startup reconciliation.
+                self._stranded.append(job_id)
 
-    async def _reattach_all(self) -> None:
-        for job_id, status in list(self._status.items()):
-            if status.state != "running":
-                continue
-            # ra_14 finding #5: a "running" status.json with no create_time can't be verified
-            # as the same process this server actually spawned (create_time is what is_alive()
-            # uses to rule out pid reuse) -- treat it as lost rather than re-attaching to
-            # whatever unrelated process now happens to hold that pid (including this server's
-            # own pid, or pid 1, which is_alive() also refuses on its own).
-            if (
-                status.pid is not None
-                and status.create_time is not None
-                and is_alive(status.pid, status.create_time)
-            ):
-                self._reattached.add(job_id)
-                self._tailers[job_id] = EventTailer(
-                    events_path(self.project_dir, job_id),
-                    start_seq=_next_seq_for(events_path(self.project_dir, job_id)),
-                )
-                logger.info("re-attached running job %s (pid %s)", job_id, status.pid)
-            else:
-                self._finalize_reattached_gone(job_id, status)
+    async def _reconcile_all(self) -> None:
+        """Startup reconciliation: a server restart must not leave jobs running (maintainer,
+        Sep 2026: *"a restart should not automatically keep running jobs"*).
 
-    def _finalize_reattached_gone(self, job_id: str, status: JobStatus) -> None:
-        """The process a re-attached "running" job pointed to is gone (crashed, OOM-killed, or
-        the pid was reused) -- decide succeeded/failed/lost from whatever ``events.jsonl`` the
-        process managed to write before dying, primarily its ``exit`` event's ``code``
-        (``contracts/events.schema.json``).
+        This replaces the older re-attach behaviour, which adopted a still-live runner pid from
+        the previous server life. Re-attaching left three bad states observed live: the store
+        said ``running`` while nothing watched the process, the rail spun forever, and ``cancel``
+        did nothing — while a leftover subprocess tree or QSIPrep/QSIRecon sibling container kept
+        burning the machine unattended. So instead, for every non-terminal job:
+
+        * ``running`` with a pid that is *still alive and still the same process* (create_time
+          match — :func:`tit.jobs.runner.is_alive` is what rules out pid reuse, and refuses pid 1
+          and this server's own pid outright): SIGTERM → SIGKILL its whole tree, ``docker stop``
+          any container carrying its ``tit.job_id`` label (bounded, Engine API, never the CLI),
+          then finalize it ``failed``.
+        * ``running`` whose process is gone: finalized from its own ``events.jsonl`` when that
+          records a real ``exit`` (a job that genuinely finished while the server was down is
+          still reported ``succeeded``/``failed`` with its true exit code) — otherwise ``failed``
+          with the same "interrupted" reason. Sibling containers are stopped either way: a
+          container can outlive the runner that started it.
+        * ``queued``: ``failed`` with "interrupted before start". Nothing is ever re-submitted
+          automatically; re-running is the user's call.
+
+        Runs on the manager's loop before the first tick, i.e. before the server accepts
+        requests, and every transition is persisted *and* published so open clients update.
         """
-        events = read_events(events_path(self.project_dir, job_id))
-        with self._lock:
-            if events:
-                # `events` is the job's *entire* events.jsonl from seq 0 (not just what's new
-                # since some prior poll), so rebuild `artifacts` from scratch rather than
-                # appending onto whatever a live-running poll already persisted before the
-                # server went away -- otherwise an "artifact" event already applied once would
-                # be double-counted here.
-                status.artifacts = []
-                self._apply_events(job_id, status, events)
-            exit_code = self._last_exit_code.pop(job_id, None)
-            if exit_code is not None:
-                state = "succeeded" if exit_code == 0 else "failed"
-                error = (
-                    None
-                    if state == "succeeded"
-                    else self._build_error(job_id, exit_code)
-                )
-            elif any(e.get("type") == "exit" for e in events):
-                # An "exit" event was written but without a valid integer `code` (the schema
-                # requires one, but be defensive against a malformed/older-shape line): fall
-                # back to whether a "result" event was also recorded.
-                saw_result = any(e.get("type") == "result" for e in events)
-                state = "succeeded" if saw_result else "failed"
-                error = (
-                    None
-                    if state == "succeeded"
-                    else JobError(
-                        type="runner_failed",
-                        message="process exited; no result event recorded",
-                        last_lines=self._log_tail(job_id),
+        stranded, self._stranded = self._stranded, []
+        for job_id in stranded:
+            status = self._status.get(job_id)
+            if status is None:
+                continue
+            try:
+                if status.state == "queued":
+                    self._finalize_interrupted(
+                        job_id, status, note=RESTART_QUEUED_NOTE, use_events=False
                     )
-                )
-            else:
-                state = "lost"
+                elif status.state == "running":
+                    await self._reconcile_running(job_id, status)
+            except Exception:
+                logger.exception("job %s: startup reconciliation failed", job_id)
+
+    async def _reconcile_running(self, job_id: str, status: JobStatus) -> None:
+        pid, create_time = status.pid, status.create_time
+        terminated = False
+        if pid is not None and create_time is not None and is_alive(pid, create_time):
+            terminated = True
+            logger.warning(
+                "job %s: runner pid %s outlived the previous server; terminating it", job_id, pid
+            )
+            await terminate_tree(pid, create_time)
+        if may_spawn_docker_siblings(
+            self._specs[job_id].kind if job_id in self._specs else status.kind,
+            self._specs[job_id].config if job_id in self._specs else None,
+        ):
+            await stop_docker_siblings_via_engine(
+                job_id, timeout_s=DOCKER_RECONCILE_TIMEOUT_S
+            )
+        self._finalize_interrupted(
+            job_id, status, note=RESTART_NOTE, use_events=True, trust_exit=not terminated
+        )
+
+    def _finalize_interrupted(
+        self,
+        job_id: str,
+        status: JobStatus,
+        *,
+        note: str,
+        use_events: bool,
+        trust_exit: bool = True,
+    ) -> None:
+        """Land one non-terminal job in a terminal state after a restart.
+
+        With *use_events*, the job's whole ``events.jsonl`` is replayed first: artifacts recorded
+        before the server went away are recovered, and a recorded ``exit`` still decides
+        succeeded/failed with its real code (``contracts/events.schema.json``). ``events`` is the
+        file from seq 0, not a delta, so ``artifacts`` is rebuilt from scratch rather than
+        appended onto whatever a live poll persisted earlier.
+
+        *trust_exit* is ``False`` when reconciliation itself killed the runner: the ``exit``
+        event it managed to write on the way down (``terminated by signal 15``) describes our
+        own SIGTERM, not the job's outcome, so the reason must stay "interrupted".
+        """
+        self._append_note(job_id, note)
+        state, exit_code, error = "failed", None, None
+        with self._lock:
+            if use_events:
+                events = read_events(events_path(self.project_dir, job_id))
+                if events:
+                    status.artifacts = []
+                    self._apply_events(job_id, status, events)
+                exit_code = self._last_exit_code.get(job_id) if trust_exit else None
+                if exit_code is not None:
+                    state = "succeeded" if exit_code == 0 else "failed"
+                    error = (
+                        None
+                        if state == "succeeded"
+                        else self._build_error(job_id, exit_code)
+                    )
+                elif trust_exit and any(e.get("type") == "exit" for e in events):
+                    # An "exit" event without a usable integer `code` (the schema requires one;
+                    # be defensive about older/malformed lines): fall back to whether a "result"
+                    # event was recorded too.
+                    saw_result = any(e.get("type") == "result" for e in events)
+                    state = "succeeded" if saw_result else "failed"
+                    error = (
+                        None
+                        if state == "succeeded"
+                        else JobError(
+                            type="runner_failed",
+                            message="process exited; no result event recorded",
+                            last_lines=self._log_tail(job_id),
+                        )
+                    )
+            if error is None and state == "failed":
+                # `lost` is the existing taxonomy value for "the server restarted mid-run"
+                # (`desktop/.../jobs-rail/format.ts::ERROR_LABEL`); the state is `failed`
+                # because the job is over and will not resume -- see JobState in
+                # contracts/openapi.v1.yaml, which has no `interrupted` member.
                 error = JobError(
-                    type="lost",
-                    message="server restarted while this job was running and no exit "
-                    "event was recorded; it may still be running under another pid, "
-                    "or it crashed",
-                    last_lines=self._log_tail(job_id),
+                    type="lost", message=note, last_lines=self._log_tail(job_id)
                 )
-            status.state = state
-            status.exit_code = exit_code
-            status.error = error
-            status.finished_at = status.finished_at or utcnow_iso()
-            status.pid = None
-            status.liveness = None
-            self._tailers.pop(job_id, None)
-            self._last_event_ts.pop(job_id, None)
-            self._persist_status(status)
+            self._finalize_locked(
+                status, state=state, exit_code=exit_code, error=error
+            )
+        locks.release_job(self.project_dir, job_id)
 
     # -- submission ---------------------------------------------------------------------------
 
@@ -299,6 +376,10 @@ class JobManager:
         with self._lock:
             self._specs[job_id] = spec
             self._status[job_id] = status
+            if status.state not in TERMINAL_STATES:
+                # Snapshot taken *before* the manager's loop thread starts, so a job submitted
+                # by this server life can never be swept up by startup reconciliation.
+                self._stranded.append(job_id)
             self.registry.create(spec, status)
         self._publish_status(status)
         return status.to_api(self.project_dir)
@@ -463,7 +544,7 @@ class JobManager:
         # (including nothing at all, on a wedged daemon), a cancel must always end the job.
         await terminate_tree(pid, create_time)
         await self._stop_docker_siblings_if_any(job_id)
-        self._append_cancel_note(job_id)
+        self._append_note(job_id, CANCEL_NOTE)
         with self._lock:
             status = self._status.get(job_id)
             if status is not None and status.state == "running":
@@ -508,8 +589,9 @@ class JobManager:
                 exc_info=True,
             )
 
-    def _append_cancel_note(self, job_id: str) -> None:
-        """Close a cancelled job's log with one line saying what happened.
+    def _append_note(self, job_id: str, note: str) -> None:
+        """Close a job's log with one line saying what happened to it (a cancel, or a server
+        restart that interrupted it).
 
         A cancelled job's last log line used to be whatever the runner happened to be printing
         when SIGTERM landed -- and, before ``tit.jobs.runner``'s ``PETSC_OPTIONS`` fix, PETSc's
@@ -528,7 +610,7 @@ class JobManager:
             with open(
                 stdout_path(self.project_dir, job_id), "a", encoding="utf-8"
             ) as fh:
-                fh.write(f"{CANCEL_NOTE}\n")
+                fh.write(f"{note}\n")
         except OSError as exc:
             logger.debug("job %s: could not append the cancel note: %s", job_id, exc)
 
@@ -856,7 +938,6 @@ class JobManager:
         self._last_event_ts.pop(status.id, None)
         self._last_exit_code.pop(status.id, None)
         self._cancelled.discard(status.id)
-        self._reattached.discard(status.id)
         self._persist_status(status)
         self._publish_status(status)
 
@@ -945,9 +1026,3 @@ class JobManager:
 
     def _persist_status(self, status: JobStatus) -> None:
         self.registry.write_status(status)
-
-
-def _next_seq_for(path: str) -> int:
-    from tit.jobs.tailer import line_count
-
-    return line_count(path)

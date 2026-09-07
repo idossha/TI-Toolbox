@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import subprocess
 import sys
 import time
 
@@ -19,7 +20,7 @@ import pytest
 from tit.jobs import locks
 from tit.jobs.kinds import may_spawn_docker_siblings
 from tit.jobs.manager import JobManager
-from tit.jobs.registry import events_path
+from tit.jobs.registry import events_path, stdout_path
 from tit.jobs.spec import Cost
 
 FAKE_RUNNER = os.path.join(os.path.dirname(__file__), "fake_runner.py")
@@ -442,7 +443,7 @@ def test_cancel_note_survives_a_missing_log(tmp_path):
     """Best-effort: a job whose log directory is gone must still cancel cleanly."""
     manager = make_manager(tmp_path)
     try:
-        manager._append_cancel_note("no-such-job")  # must not raise
+        manager._append_note("no-such-job", "cancelled by user")  # must not raise
     finally:
         manager.shutdown()
 
@@ -532,18 +533,19 @@ def test_rerun_submits_new_job_with_same_config(manager):
 
 
 # ---------------------------------------------------------------------------------------------
-# restart re-attach / lost detection
+# restart reconciliation (maintainer, Sep 2026: a restart must not keep running jobs)
 # ---------------------------------------------------------------------------------------------
 
 
-def test_restart_reattaches_still_running_job(tmp_path):
+def test_restart_terminates_a_still_running_job_and_fails_it(tmp_path):
+    """The headline policy: a runner that outlived the previous server is killed, not adopted."""
     manager1 = make_manager(tmp_path)
     status = manager1.submit(
-        "tools", {"__fake": {"duration_s": 3.0, "stages": ["a", "b", "c"]}}, []
+        "tools", {"__fake": {"duration_s": 30.0, "stages": ["a", "b", "c"]}}, []
     )
     # Wait for at least one progress event to have been tailed, not just "running" (which flips
     # the instant the process is spawned, before it's necessarily emitted anything yet).
-    running = wait_until(
+    wait_until(
         lambda: (lambda s: s if s["state"] == "running" and s["progress"] else None)(
             manager1.get(status["id"])
         )
@@ -558,26 +560,98 @@ def test_restart_reattaches_still_running_job(tmp_path):
 
     manager2 = make_manager(tmp_path)
     try:
-        reattached = manager2.get(status["id"])
-        assert reattached["state"] == "running"
-        assert (
-            reattached["progress"] is not None
-        )  # continues tailing from where it left off
-
-        result = manager2.cancel(status["id"])
-        assert result["state"] == "cancelled"
+        final = wait_until(
+            lambda: (lambda s: s if s["state"] != "running" else None)(
+                manager2.get(status["id"])
+            )
+        )
+        assert final["state"] == "failed"
+        assert final["error"]["message"] == "interrupted: server restarted"
+        # ...and the surviving process was actually stopped, not left running unattended.
         wait_until(lambda: (not psutil.pid_exists(pid)) or None)
+        # One line at the end of the log says why.
+        log = open(stdout_path(str(tmp_path), status["id"]), encoding="utf-8").read()
+        assert log.rstrip().endswith("interrupted: server restarted")
     finally:
         manager2.shutdown()
 
 
-def test_restart_detects_lost_job(tmp_path):
-    # Rewrite a finished job's status.json as if it were still "running" under a pid that
-    # cannot possibly exist, and blank its events -- simulating a server restart discovering a
-    # job whose real process died without a trace (e.g. an OOM kill), without any real-OS-timing
-    # race around actually killing and reaping a process and hoping its pid isn't reused before
-    # the next manager starts (a genuine risk in a suite that spawns many short-lived
-    # processes back to back).
+def test_restart_publishes_the_reconciled_job_to_subscribers(tmp_path):
+    """Open clients (the jobs rail) must see the transition, not keep spinning on "running"."""
+    manager1 = make_manager(tmp_path)
+    status = manager1.submit("tools", {"__fake": {"duration_s": 0.05}}, [])
+    wait_until(
+        lambda: (lambda s: s if s["state"] == "succeeded" else None)(
+            manager1.get(status["id"])
+        )
+    )
+    _strand_as_running(manager1, status["id"], pid=999_999_999, create_time=0.0)
+    manager1.shutdown()
+
+    # Subscribe *before* start(), so the reconciliation publish cannot be missed.
+    manager2 = JobManager(
+        str(tmp_path),
+        runner_cwd=str(tmp_path),
+        poll_interval=0.05,
+        budget=Cost(cpus=8, mem_gb=64),
+        command_for=_fake_command_for,
+    )
+    q = manager2.subscribe_status()
+    manager2.start()
+    try:
+        payload = q.get(timeout=10.0)
+        assert payload["id"] == status["id"]
+        assert payload["state"] == "failed"
+    finally:
+        manager2.shutdown()
+
+
+def _strand_as_running(manager, job_id, *, pid, create_time):
+    """Rewrite a finished job's status.json as if it were still "running" -- simulating a server
+    restart finding a stranded job, without the real-OS-timing race of killing a process and
+    hoping its pid isn't reused before the next manager starts."""
+    with manager._lock:
+        job_status = manager._status[job_id]
+        job_status.state = "running"
+        job_status.pid = pid
+        job_status.create_time = create_time
+        job_status.finished_at = None
+        job_status.error = None
+        job_status.exit_code = None
+        manager.registry.write_status(job_status)
+    open(events_path(str(manager.project_dir), job_id), "w", encoding="utf-8").close()
+
+
+def test_restart_fails_a_stranded_running_job_whose_pid_is_dead(tmp_path):
+    manager1 = make_manager(tmp_path)
+    status = manager1.submit("tools", {"__fake": {"duration_s": 0.05}}, [])
+    wait_until(
+        lambda: (lambda s: s if s["state"] == "succeeded" else None)(
+            manager1.get(status["id"])
+        )
+    )
+    _strand_as_running(manager1, status["id"], pid=999_999_999, create_time=0.0)
+    manager1.shutdown()
+
+    manager2 = make_manager(tmp_path)
+    try:
+        # start() only guarantees the background loop *exists*, not that its first tick (which
+        # runs _reconcile_all()) has executed yet -- poll rather than assume it already has.
+        final = wait_until(
+            lambda: (lambda s: s if s["state"] != "running" else None)(
+                manager2.get(status["id"])
+            )
+        )
+        assert final["state"] == "failed"
+        assert final["error"]["type"] == "lost"
+        assert final["error"]["message"] == "interrupted: server restarted"
+    finally:
+        manager2.shutdown()
+
+
+def test_restart_fails_a_queued_job_and_never_resubmits_it(tmp_path):
+    """"a restart should not automatically keep running jobs" -- including starting one that
+    had not started yet."""
     manager1 = make_manager(tmp_path)
     status = manager1.submit("tools", {"__fake": {"duration_s": 0.05}}, [])
     wait_until(
@@ -587,37 +661,88 @@ def test_restart_detects_lost_job(tmp_path):
     )
     with manager1._lock:
         job_status = manager1._status[status["id"]]
-        job_status.state = "running"
-        job_status.pid = 999_999_999
-        job_status.create_time = 0.0
+        job_status.state = "queued"
+        job_status.started_at = None
         job_status.finished_at = None
+        job_status.pid = None
+        job_status.create_time = None
         job_status.error = None
+        job_status.exit_code = None
         manager1.registry.write_status(job_status)
-    open(events_path(str(tmp_path), status["id"]), "w", encoding="utf-8").close()
     manager1.shutdown()
 
     manager2 = make_manager(tmp_path)
     try:
-        # start() only guarantees the background loop *exists*, not that its first tick (which
-        # runs _reattach_all()) has executed yet -- poll rather than assume it already has.
+        final = wait_until(
+            lambda: (lambda s: s if s["state"] != "queued" else None)(
+                manager2.get(status["id"])
+            )
+        )
+        assert final["state"] == "failed"
+        assert final["error"]["message"] == "interrupted before start: server restarted"
+        # Give the scheduler a few ticks: it must not admit the job after reconciliation.
+        time.sleep(0.3)
+        assert manager2.get(status["id"])["state"] == "failed"
+    finally:
+        manager2.shutdown()
+
+
+def test_restart_leaves_terminal_jobs_untouched(tmp_path):
+    manager1 = make_manager(tmp_path)
+    status = manager1.submit("tools", {"__fake": {"duration_s": 0.05}}, [])
+    done = wait_until(
+        lambda: (lambda s: s if s["state"] == "succeeded" else None)(
+            manager1.get(status["id"])
+        )
+    )
+    manager1.shutdown()
+
+    manager2 = make_manager(tmp_path)
+    try:
+        time.sleep(0.3)
+        after = manager2.get(status["id"])
+        assert after["state"] == "succeeded"
+        assert after["error"] is None
+        assert after["finished_at"] == done["finished_at"]
+    finally:
+        manager2.shutdown()
+
+
+def test_restart_still_reports_a_job_that_really_finished_while_the_server_was_down(
+    tmp_path,
+):
+    """Reconciliation is not a blanket "fail everything": a stranded "running" job whose
+    events.jsonl records a real exit keeps its true outcome and exit code."""
+    manager1 = make_manager(tmp_path)
+    status = manager1.submit("tools", {"__fake": {"duration_s": 0.05}}, [])
+    wait_until(
+        lambda: (lambda s: s if s["state"] == "succeeded" else None)(
+            manager1.get(status["id"])
+        )
+    )
+    events_file = events_path(str(tmp_path), status["id"])
+    kept = open(events_file, encoding="utf-8").read()
+    _strand_as_running(manager1, status["id"], pid=999_999_999, create_time=0.0)
+    open(events_file, "w", encoding="utf-8").write(kept)  # restore the real exit event
+    manager1.shutdown()
+
+    manager2 = make_manager(tmp_path)
+    try:
         final = wait_until(
             lambda: (lambda s: s if s["state"] != "running" else None)(
                 manager2.get(status["id"])
             )
         )
-        assert final["state"] == "lost"
-        assert final["error"]["type"] == "lost"
+        assert final["state"] == "succeeded"
+        assert final["exit_code"] == 0
     finally:
         manager2.shutdown()
 
 
-def test_restart_refuses_to_reattach_to_pid_1_or_this_processs_own_pid(tmp_path):
-    """ra_14 finding #5: a crafted/corrupted status.json naming pid 1 or the *reattaching*
-    process's own pid (standing in here for "the server's own pid", which is exactly what a
-    real server restart's own re-attach would be checking against) must never be treated as
-    "still running" -- even when create_time is filled in with a value that would otherwise
-    pass the pid-reuse check. Regression coverage for is_alive()'s untouchable-pid guard, at
-    the level actually exercised by a restart (not just the unit test in test_jobs_model.py).
+def test_restart_never_signals_pid_1_or_the_servers_own_pid(tmp_path):
+    """ra_14 finding #5, now on the reconciliation path: a crafted/corrupted status.json naming
+    this process's own pid (standing in for "the server's own pid") must never be treated as a
+    live runner and must never be signalled -- even with a create_time that matches it exactly.
     """
     import psutil as _psutil
 
@@ -629,15 +754,9 @@ def test_restart_refuses_to_reattach_to_pid_1_or_this_processs_own_pid(tmp_path)
             manager1.get(status["id"])
         )
     )
-    with manager1._lock:
-        job_status = manager1._status[status["id"]]
-        job_status.state = "running"
-        job_status.pid = os.getpid()  # this test process -- genuinely alive
-        job_status.create_time = own_create_time  # and correctly attributed to it
-        job_status.finished_at = None
-        job_status.error = None
-        manager1.registry.write_status(job_status)
-    open(events_path(str(tmp_path), status["id"]), "w", encoding="utf-8").close()
+    _strand_as_running(
+        manager1, status["id"], pid=os.getpid(), create_time=own_create_time
+    )
     manager1.shutdown()
 
     manager2 = make_manager(tmp_path)
@@ -647,19 +766,59 @@ def test_restart_refuses_to_reattach_to_pid_1_or_this_processs_own_pid(tmp_path)
                 manager2.get(status["id"])
             )
         )
-        assert final["state"] == "lost"
+        assert final["state"] == "failed"
     finally:
         manager2.shutdown()
     # The pid this test runs under is still alive and untouched.
     assert psutil.pid_exists(os.getpid())
 
 
-def test_restart_refuses_to_reattach_without_a_create_time(tmp_path):
-    """ra_14 finding #5: a "running" status.json with no create_time can't be verified as the
-    same process this server actually spawned (pid reuse is otherwise undetectable) -- treat
-    it as lost, even though the pid it names happens to be a genuinely live, unrelated process
-    (this test's own pid).
-    """
+def test_restart_pid_reuse_guard_leaves_the_unrelated_process_alone(tmp_path):
+    """A live pid whose create_time does *not* match the record is a different process that
+    merely inherited the number -- reconciliation must fail the job without signalling it."""
+    victim = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+    manager1 = make_manager(tmp_path)
+    try:
+        status = manager1.submit("tools", {"__fake": {"duration_s": 0.05}}, [])
+        wait_until(
+            lambda: (lambda s: s if s["state"] == "succeeded" else None)(
+                manager1.get(status["id"])
+            )
+        )
+        # Same pid, wrong create_time: pid reuse, as far as the record can tell.
+        _strand_as_running(manager1, status["id"], pid=victim.pid, create_time=1.0)
+        manager1.shutdown()
+
+        manager2 = make_manager(tmp_path)
+        try:
+            final = wait_until(
+                lambda: (lambda s: s if s["state"] != "running" else None)(
+                    manager2.get(status["id"])
+                )
+            )
+            assert final["state"] == "failed"
+            assert victim.poll() is None  # untouched
+        finally:
+            manager2.shutdown()
+    finally:
+        victim.kill()
+        victim.wait()
+
+
+def test_restart_stops_sibling_containers_of_a_stranded_docker_job(tmp_path, monkeypatch):
+    """QSIPrep/QSIRecon siblings can outlive the runner; reconciliation stops them by label,
+    through the bounded Engine-API client (never the docker CLI)."""
+    import tit.jobs.manager as jobs_manager
+
+    stopped: list[str] = []
+
+    async def _fake_stop(job_id, timeout_s=3.0):
+        stopped.append(job_id)
+        return 1
+
+    monkeypatch.setattr(jobs_manager, "stop_docker_siblings_via_engine", _fake_stop)
+    monkeypatch.setattr(jobs_manager, "may_spawn_docker_siblings", lambda *a, **k: True)
+
     manager1 = make_manager(tmp_path)
     status = manager1.submit("tools", {"__fake": {"duration_s": 0.05}}, [])
     wait_until(
@@ -667,25 +826,17 @@ def test_restart_refuses_to_reattach_without_a_create_time(tmp_path):
             manager1.get(status["id"])
         )
     )
-    with manager1._lock:
-        job_status = manager1._status[status["id"]]
-        job_status.state = "running"
-        job_status.pid = os.getpid()  # genuinely alive
-        job_status.create_time = None  # ...but unverifiable
-        job_status.finished_at = None
-        job_status.error = None
-        manager1.registry.write_status(job_status)
-    open(events_path(str(tmp_path), status["id"]), "w", encoding="utf-8").close()
+    _strand_as_running(manager1, status["id"], pid=999_999_999, create_time=0.0)
     manager1.shutdown()
 
     manager2 = make_manager(tmp_path)
     try:
-        final = wait_until(
+        wait_until(
             lambda: (lambda s: s if s["state"] != "running" else None)(
                 manager2.get(status["id"])
             )
         )
-        assert final["state"] == "lost"
+        assert stopped == [status["id"]]
     finally:
         manager2.shutdown()
 
@@ -694,7 +845,7 @@ def test_cancel_of_a_running_status_pointing_at_pid_1_never_signals_it(manager):
     """ra_14 finding #5, the ``cancel`` path specifically: even if a job's in-memory status
     somehow carries pid 1 (a corrupted status.json read back, or -- the real-world case this
     guards -- a re-attach that predates this fix), ``cancel()`` must finalize the job without
-    ever calling ``terminate_tree`` on pid 1 itself. Bypasses ``_reattach_all`` entirely (already
+    ever calling ``terminate_tree`` on pid 1 itself. Bypasses ``_reconcile_all`` entirely (already
     covered by the two tests above) to isolate the cancel-path guard in ``runner.terminate_tree``.
     """
     status = manager.submit("tools", {"__fake": {"duration_s": 0.05}}, [])

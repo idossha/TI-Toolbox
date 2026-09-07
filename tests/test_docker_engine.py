@@ -16,6 +16,7 @@ Two layers, mirroring desktop/tests/unit/docker-engine-*.test.ts:
 
 from __future__ import annotations
 
+import asyncio
 import http.server
 import json
 import os
@@ -283,6 +284,26 @@ class _FakeEngineHandler(http.server.BaseHTTPRequestHandler):
             self._end_stream()
             return None
 
+        if method == "GET" and path == "/containers/json":
+            # `filters` is the Engine's JSON-encoded filter map; only `label` is supported here,
+            # which is all `tit/jobs/runner.py::stop_docker_siblings_via_engine` ever sends.
+            wanted = []
+            if query.get("filters"):
+                wanted = json.loads(query["filters"]).get("label", [])
+            show_all = query.get("all") in ("1", "true", "True")
+            out = []
+            with self.server.lock:
+                for container in self.server.containers.values():
+                    if not show_all and not container["running"]:
+                        continue
+                    labels = container["labels"]
+                    if all(
+                        labels.get(w.split("=", 1)[0]) == w.split("=", 1)[1]
+                        for w in wanted
+                    ):
+                        out.append({"Id": container["id"], "Labels": labels, "State": "running" if container["running"] else "exited"})
+            return self._write_json(200, out)
+
         if method == "POST" and path == "/containers/create":
             try:
                 spec = json.loads(raw_body or b"{}")
@@ -395,6 +416,69 @@ def client(fake_engine):
 # ---------------------------------------------------------------------------------------------
 # Integration tests
 # ---------------------------------------------------------------------------------------------
+
+
+class TestListContainersAndSiblingStop:
+    """``list_containers`` + ``tit/jobs/runner.py::stop_docker_siblings_via_engine`` -- the
+    Engine-API path startup reconciliation uses to stop a stranded job's sibling containers."""
+
+    def _start_labelled(self, client, job_id: str) -> str:
+        cid = client.create_container(
+            ContainerCreateSpec(
+                image="fixture/ok",
+                cmd=["true"],
+                labels={"tit.job_id": job_id, "fixture.execDelayMs": "60000"},
+            )
+        )
+        client.start_container(cid)
+        return cid
+
+    def test_list_containers_filters_by_job_label(self, client):
+        mine = self._start_labelled(client, "job-a")
+        self._start_labelled(client, "job-b")
+        found = client.list_containers(filters={"label": ["tit.job_id=job-a"]})
+        assert [c["Id"] for c in found] == [mine]
+
+    def test_stop_docker_siblings_via_engine_stops_only_this_jobs_containers(
+        self, client, fake_engine, monkeypatch
+    ):
+        import tit.jobs.runner as jobs_runner
+
+        mine = self._start_labelled(client, "job-a")
+        theirs = self._start_labelled(client, "job-b")
+        monkeypatch.setattr(
+            jobs_runner_docker_engine(),
+            "discover",
+            lambda env=None: DockerConnection(socket_path=fake_engine),
+        )
+        stopped = asyncio.run(
+            jobs_runner.stop_docker_siblings_via_engine("job-a", timeout_s=5.0)
+        )
+        assert stopped == 1
+        assert client.inspect_container(mine)["State"]["Running"] is False
+        assert client.inspect_container(theirs)["State"]["Running"] is True
+
+    def test_unreachable_daemon_is_a_silent_no_op(self, tmp_path, monkeypatch):
+        import tit.jobs.runner as jobs_runner
+
+        monkeypatch.setattr(
+            jobs_runner_docker_engine(),
+            "discover",
+            lambda env=None: DockerConnection(socket_path=str(tmp_path / "nope.sock")),
+        )
+        assert (
+            asyncio.run(
+                jobs_runner.stop_docker_siblings_via_engine("job-a", timeout_s=1.0)
+            )
+            == 0
+        )
+
+
+def jobs_runner_docker_engine():
+    """The module object ``stop_docker_siblings_via_engine`` imports lazily (patched by name)."""
+    import tit.jobs.docker_engine as mod
+
+    return mod
 
 
 class TestDockerEngineClient:

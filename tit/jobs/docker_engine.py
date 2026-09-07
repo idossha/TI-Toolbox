@@ -441,6 +441,31 @@ class DockerEngineClient:
         )
         return result["Id"]
 
+    def list_containers(
+        self,
+        *,
+        filters: dict[str, list[str]] | None = None,
+        all_containers: bool = False,
+        timeout_s: float | None | object = "default",
+    ) -> list[dict[str, Any]]:
+        """``GET /containers/json`` — the Engine-API equivalent of ``docker ps [--filter …]``.
+
+        *filters* is the Engine's own filter map (e.g. ``{"label": ["tit.job_id=abc"]}``); it is
+        JSON-encoded into the query string by :meth:`_request`. Every caller in this repo passes
+        an explicit *timeout_s* (startup reconciliation must never block on a wedged daemon).
+        """
+        self._ensure_negotiated()
+        result = self._json_request(
+            "GET",
+            self._vpath("/containers/json"),
+            query={
+                "all": "1" if all_containers else "0",
+                "filters": filters or None,
+            },
+            timeout_s=timeout_s,
+        )
+        return list(result or [])
+
     def start_container(self, container_id: str) -> None:
         self._ensure_negotiated()
         self._json_request("POST", self._vpath(f"/containers/{container_id}/start"))

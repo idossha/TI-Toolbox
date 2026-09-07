@@ -310,6 +310,55 @@ async def stop_docker_siblings(
     await _run_docker(["stop", *ids], timeout_s)
 
 
+def _stop_siblings_via_engine_blocking(job_id: str, timeout_s: float) -> int:
+    """Blocking half of :func:`stop_docker_siblings_via_engine` (runs in a worker thread)."""
+    from tit.jobs import docker_engine
+
+    conn = docker_engine.discover()
+    client = docker_engine.DockerEngineClient(conn, timeout_s=timeout_s)
+    containers = client.list_containers(
+        filters={"label": [f"tit.job_id={job_id}"]}, timeout_s=timeout_s
+    )
+    stopped = 0
+    for container in containers:
+        cid = container.get("Id")
+        if not cid:
+            continue
+        # `t` is the daemon-side SIGTERM->SIGKILL grace, and the HTTP call itself is bounded by
+        # the client's own socket timeout, so a container that ignores SIGTERM cannot wedge us.
+        client.stop_container(cid, grace_seconds=int(max(1, timeout_s)))
+        stopped += 1
+    return stopped
+
+
+async def stop_docker_siblings_via_engine(
+    job_id: str, timeout_s: float = DOCKER_CLI_TIMEOUT_S
+) -> int:
+    """Stop this job's sibling containers through the bounded Engine-API client.
+
+    Used by startup reconciliation (``JobManager._reconcile_all``), which must not shell out:
+    at startup a ``docker`` CLI may not be on PATH at all, and every step before the server
+    accepts requests has to be hard-bounded. :func:`stop_docker_siblings` (the CLI form) stays
+    for the cancel path, whose behaviour and tests predate this. Never raises — an unreachable
+    or wedged daemon degrades to a logged warning and ``0``.
+    """
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(_stop_siblings_via_engine_blocking, job_id, timeout_s),
+            timeout=timeout_s,
+        )
+    except (asyncio.TimeoutError, TimeoutError):
+        logger.warning(
+            "job %s: Docker did not answer within %.1fs; leaving any sibling containers alone",
+            job_id,
+            timeout_s,
+        )
+        return 0
+    except Exception as exc:  # daemon absent, socket refused, API error
+        logger.debug("job %s: could not stop sibling containers: %s", job_id, exc)
+        return 0
+
+
 class _ignore_gone:
     def __enter__(self) -> "_ignore_gone":
         return self
