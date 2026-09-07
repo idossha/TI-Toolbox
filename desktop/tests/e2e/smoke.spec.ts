@@ -324,6 +324,11 @@ test("a wrong token stays in the launcher with an error", async () => {
 test("navigation outside the server origin is blocked", async () => {
   await connectFromLauncher(SERVER_URL, TOKEN);
   await expect(page).toHaveURL(new URL("/", SERVER_URL).href, { timeout: 20_000 });
+  // Wait for the landing page to have actually rendered before provoking the navigation. The
+  // assertion below is "the app is still standing where it was", and a table that had not painted
+  // yet fails it for a reason that has nothing to do with the guard — the URL arrives long before
+  // Overview's first fetch resolves, so this raced whenever the machine was busy.
+  await expect(page.getByTestId("overview-table")).toBeVisible({ timeout: 20_000 });
   // app:// is a registered scheme with no external handler, so the guard runs without opening a browser
   // (file: never reaches will-navigate: Chromium refuses it in the renderer).
   await page.evaluate(() => {
