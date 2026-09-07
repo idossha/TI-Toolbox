@@ -152,3 +152,60 @@ def test_voxelwise_drops_degenerate_voxels_from_valid_mask():
     assert not valid[1, 0, 0] and not valid[2, 0, 0]
     assert np.all(np.isfinite(t))
     assert np.all(np.isfinite(p))
+
+
+# ---------------------------------------------------------------------------
+# The empty-mask guard SCI-06 made reachable
+# ---------------------------------------------------------------------------
+
+
+class TestEmptyValidMaskIsReported:
+    """An all-degenerate group is a reportable state, not a numpy traceback.
+
+    Excluding degenerate voxels from ``valid_mask`` (SCI-06) made an *empty* mask reachable for
+    data that previously produced ``t = 0, p = 1`` everywhere. The caller's first act is
+    ``np.min(p_values[valid_mask])``, which then raised "zero-size array to reduction operation
+    minimum which has no identity" — observed on a real ``cluster-permutation`` job against the
+    dev container, where it reached the user as a bare stack trace.
+    """
+
+    def test_every_voxel_degenerate_raises_naming_the_cause(self):
+        import numpy as np
+        import pytest
+
+        from tit.stats.engine import ttest_voxelwise
+
+        # Non-zero (so the voxels are in the mask) but constant within each group, at every
+        # voxel: zero within-group variance everywhere.
+        resp = np.full((2, 2, 2, 3), 1.0, dtype=np.float32)
+        non_resp = np.full((2, 2, 2, 3), 2.0, dtype=np.float32)
+
+        with pytest.raises(ValueError, match="zero within-group variance"):
+            ttest_voxelwise(resp, non_resp, test_type="unpaired")
+
+    def test_no_data_at_all_raises_saying_so_instead(self):
+        import numpy as np
+        import pytest
+
+        from tit.stats.engine import ttest_voxelwise
+
+        zeros = np.zeros((2, 2, 2, 3), dtype=np.float32)
+
+        with pytest.raises(ValueError, match="non-zero in either group"):
+            ttest_voxelwise(zeros, zeros, test_type="unpaired")
+
+    def test_one_testable_voxel_is_enough(self):
+        """The guard fires on empty, not on small — one usable voxel still returns."""
+        import numpy as np
+
+        from tit.stats.engine import ttest_voxelwise
+
+        resp = np.full((2, 2, 2, 3), 1.0, dtype=np.float32)
+        non_resp = np.full((2, 2, 2, 3), 2.0, dtype=np.float32)
+        resp[0, 0, 0, :] = [1.0, 2.0, 3.0]
+
+        p_values, t_statistics, valid_mask = ttest_voxelwise(
+            resp, non_resp, test_type="unpaired"
+        )
+        assert int(np.count_nonzero(valid_mask)) == 1
+        assert valid_mask[0, 0, 0]

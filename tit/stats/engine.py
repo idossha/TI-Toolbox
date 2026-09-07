@@ -461,6 +461,24 @@ def ttest_voxelwise(
     t_statistics[idx_i, idx_j, idx_k] = t_1d
     p_values[idx_i, idx_j, idx_k] = p_1d
 
+    # An empty mask is a real, reportable state of the data, not something a caller can use.
+    # Every reduction over `values[valid_mask]` downstream — the caller's own `np.min(p_values
+    # [valid_mask])` first of all — raises "zero-size array to reduction operation minimum",
+    # a numpy traceback that says nothing about why. Two things produce it: no voxel is
+    # non-zero in either group, and (since the degenerate exclusion above) every testable voxel
+    # has zero within-group variance. Say which of the two, here, where both are known.
+    if not valid_mask.any():
+        raise ValueError(
+            "No voxel could be tested. "
+            + (
+                "Every voxel with data has zero within-group variance — a constant value "
+                "across every subject in a group — and was excluded as degenerate."
+                if len(valid_coords) > 0
+                else "No voxel is non-zero in either group; the input images or the mask are empty."
+            )
+            + " Check that the input images are the fields you meant and that the groups vary."
+        )
+
     return p_values, t_statistics, valid_mask
 
 

@@ -194,9 +194,12 @@ def _run_group_comparison_inner(config, callback_handler=None, stop_callback=Non
         log=log,
     )
 
+    # `ttest_voxelwise` guarantees a non-empty mask (it raises otherwise), so this reduction
+    # cannot be over an empty array.
     log.info(
-        "Min p=%.2e, p<0.05: %d  (%.1fs)",
+        "Min p=%.2e over %d testable voxel(s), p<0.05: %d  (%.1fs)",
         np.min(p_values[valid_mask]),
+        int(np.count_nonzero(valid_mask)),
         np.sum((p_values < 0.05) & valid_mask),
         time.time() - step,
     )
