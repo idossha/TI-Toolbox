@@ -131,11 +131,15 @@ test("montage mode negates the checkbox and carries the electrode dimensions", a
   await page.getByRole("radio", { name: "Montage visualizer" }).click();
   await page.getByRole("checkbox", { name: /only montage electrodes/ }).click();
 
+  // The Plan card names the directory the exporter will actually write into, rather than the
+  // "cannot be previewed here" warning it used to show for every mode.
+  await expect(page.getByText(/visual_exports\/sub-ernie\/montage_publication/)).toBeVisible({ timeout: 20_000 });
+
   const job = await submittedJob(() => page.getByTestId("run-button").click());
   expect(job.config).toMatchObject({ _type: "MontageConfig", show_full_net: false, electrode_diameter_mm: 10, electrode_height_mm: 6 });
 });
 
-test("sub-cortical mode runs without a simulation, and refuses a non-numeric label", async () => {
+test("sub-cortical mode picks labels from the volume and runs without a simulation", async () => {
   await launchApp(true);
   await connect();
   await openPanel();
@@ -143,6 +147,35 @@ test("sub-cortical mode runs without a simulation, and refuses a non-numeric lab
   await page.getByRole("option", { name: "ernie", exact: true }).click();
 
   await page.getByRole("radio", { name: "Sub-cortical" }).click();
+
+  // The label browser (GET /api/catalog/nifti/labels) answers for this subject, so the picker is
+  // the control and the free-text field is not rendered at all.
+  await page.getByTestId("ve-labels-trigger").click();
+  // The checkbox column, not a bare row click: in the one selection grammar a plain click selects
+  // exactly ONE row (SelectionList's doc comment), so clicking two rows in turn would leave one
+  // label chosen, not two.
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("option", { name: /Left-Thalamus/ }).locator(".checkbox-root").click();
+  await dialog.getByRole("option", { name: /Right-Thalamus/ }).locator(".checkbox-root").click();
+  await page.getByRole("button", { name: "Done" }).click();
+  await expect(page.locator("#ve-labels")).toHaveCount(0);
+
+  const picked = await submittedJob(() => page.getByTestId("run-button").click());
+  expect(picked.config).toMatchObject({ _type: "SubcorticalConfig", labels: [10, 49], simulation_name: "" });
+});
+
+test("the label browser falls back to the typed field when the volume cannot be read", async () => {
+  await launchApp(true);
+  await connect();
+  // 404 is what the server returns for a subject with no segmentation volume, a path outside the
+  // project jail, and an unreadable file alike — all three land on the 2.5.0 text field.
+  await page.route("**/api/catalog/nifti/labels*", (route) => route.fulfill({ status: 404, json: { detail: "no readable label volume" } }));
+  await openPanel();
+  await page.locator("#ve-subject").click();
+  await page.getByRole("option", { name: "ernie", exact: true }).click();
+  await page.getByRole("radio", { name: "Sub-cortical" }).click();
+
+  await expect(page.getByTestId("ve-labels-trigger")).toHaveCount(0);
   await page.fill("#ve-labels", "10, thalamus");
   // A blocked run prints no digest — the reason is the primary's own `title` (ui/Chrome.tsx), and
   // clicking it says so in a toast rather than doing nothing (DESIGN.md §6.3).

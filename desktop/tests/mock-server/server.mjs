@@ -1749,6 +1749,27 @@ route("GET", "/api/catalog/atlases/regions", (ctx) => {
   if (!regions) return json(ctx.res, 404, { detail: "unknown atlas" });
   json(ctx.res, 200, regions);
 });
+// The sub-cortical exporter's label browser. A handful of real FreeSurfer aseg ids, with the
+// voxel counts that make the list readable — enough to prove the picker writes chosen *ids* into
+// `SubcorticalConfig.labels`, which is the only thing a mock can honestly prove here.
+const NIFTI_LABELS = [
+  { id: 10, name: "Left-Thalamus", n_voxels: 7421 },
+  { id: 11, name: "Left-Caudate", n_voxels: 3610 },
+  { id: 17, name: "Left-Hippocampus", n_voxels: 4188 },
+  { id: 49, name: "Right-Thalamus", n_voxels: 7305 },
+  { id: 53, name: "Right-Hippocampus", n_voxels: 4260 },
+];
+route("GET", "/api/catalog/nifti/labels", (ctx) => {
+  const subject = ctx.url.searchParams.get("subject");
+  if (!subjectDetail(subject)) return json(ctx.res, 404, { detail: "unknown subject" });
+  const path = ctx.url.searchParams.get("path");
+  // The server jails `path` to the project and 404s anything outside it; the mock reproduces the
+  // shape of that answer, not the resolution itself.
+  if (path && !path.includes("/derivatives/") && !path.includes("/m2m")) {
+    return json(ctx.res, 404, { detail: "no readable label volume" });
+  }
+  json(ctx.res, 200, NIFTI_LABELS);
+});
 route("GET", "/api/catalog/rois", (ctx) => {
   const subject = ctx.url.searchParams.get("subject");
   if (!(subject in rois)) return json(ctx.res, 404, { detail: "unknown subject" });

@@ -91,12 +91,19 @@ describe("montage visualizer mode", () => {
 });
 
 describe("sub-cortical mode", () => {
-  const form = { subjectId: "ernie", simulationName: "Thalamus", niftiPath: "", labelsText: "10, 49", cleanComponents: true, fieldName: "TI_max" };
+  const form = { subjectId: "ernie", simulationName: "Thalamus", niftiPath: "", labels: [10, 49], cleanComponents: true, fieldName: "TI_max" };
 
-  it("parses the comma-separated label list Qt's line edit took", () => {
+  it("parses the comma-separated label list Qt's line edit took — the fallback when the label browser cannot answer", () => {
     expect(parseLabels("10, 49")).toEqual([10, 49]);
     expect(parseLabels("")).toEqual([]);
     expect(() => parseLabels("10, thalamus")).toThrow(/Invalid label format/);
+  });
+
+  it("copies the chosen label ids rather than aliasing the caller's array", () => {
+    const labels = [10, 49];
+    const config = buildSubcorticalConfig({ ...form, labels });
+    labels.push(53);
+    expect(config.labels).toEqual([10, 49]);
   });
 
   it("is a valid SubcorticalConfig, and stays valid with no simulation", () => {

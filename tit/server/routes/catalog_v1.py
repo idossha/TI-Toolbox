@@ -145,6 +145,23 @@ def atlas_regions(
     )
 
 
+@router.get("/api/catalog/nifti/labels", summary="Integer labels of a NIfTI volume")
+def nifti_labels(
+    subject: str = Query(...),
+    path: str | None = Query(None),
+) -> list[dict]:
+    """Browse the labels of a segmentation volume (the sub-cortical exporter's picker).
+
+    One 404 covers unknown subject, a path outside the project jail, and a file that
+    is not there -- see :func:`tit.catalog.nifti_labels` for why they are not
+    distinguished.
+    """
+    return _or_404(
+        catalog.nifti_labels(_pm(), subject, path),
+        f"No readable label volume for {subject}",
+    )
+
+
 # ── ROIs ─────────────────────────────────────────────────────────────────────
 
 

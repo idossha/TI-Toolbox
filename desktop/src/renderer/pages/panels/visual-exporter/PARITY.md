@@ -90,10 +90,14 @@ the same `subcortical_<suffix>.{stl,msh,ply,nii.gz}` names, the same `full`/`lab
 - [x] "Remove small disconnected components" → `Checkbox`.
 - [x] "Field (for PLY)" (`TI_max`) and the note about needing a simulation → same field, same note.
 - [x] Simulation optional in this mode only — the Qt validation rule, kept.
-- [ ] **Dropped: "Search && Select Labels…"** (`_show_lut_table` / `AtlasRegionFinderDialog` over a
-      FreeSurfer LUT). Gap, reported below, not hacked around: no v1 catalog route lists the
-      *labels of a NIfTI segmentation file*; `GET /api/catalog/atlases/regions` answers for a named
-      atlas, not for an arbitrary volume the user typed a path to.
+- [x] "Search && Select Labels…" (`_show_lut_table` / `AtlasRegionFinderDialog` over a FreeSurfer
+      LUT) → the same `SelectionPicker` the regions mode uses, fed by the new
+      `GET /api/catalog/nifti/labels?subject=&path=` (`tit/catalog.py::nifti_labels`), which lists
+      every integer label present in the volume with its LUT name and voxel count. Names and
+      caching come from the toolbox's own segstats path (`compute_segstats` +
+      `resolve_lut_for_atlas`, sidecar `<name>_labels.txt`) — the same machinery
+      `VoxelAtlasManager.list_regions` uses, so a second visit is a file read. The typed field is
+      still there as the fallback for a subject whose volume cannot be read (see below).
 
 ## Running
 
@@ -103,15 +107,32 @@ the same `subcortical_<suffix>.{stl,msh,ply,nii.gz}` names, the same `full`/`lab
 - [x] Plan card (`pages/panels/PlanSummary`) — jobs, CPU, memory, resolved outputs — which the Qt
       widget had no equivalent of at all.
 
+## Plan card
+
+`_plan_blender` (`tit/server/routes/plan.py`) now resolves the destination for **every** mode
+rather than only for a config that already carries an `output_dir` — which none of the four set,
+so the card used to show an empty Outputs column and a "cannot be previewed here" warning for
+every export the panel could submit. `_blender_output_dir` restates each exporter's own
+`_resolve_paths` formula beside a reference to the file it came from:
+
+| mode | directory |
+|---|---|
+| `RegionConfig` | `visual_exports/sub-<id>/<sim>/<stl\|ply>` |
+| `VectorConfig` | `visual_exports/sub-<id>/<sim>/vectors` |
+| `MontageConfig` | `visual_exports/sub-<id>/montage_publication` |
+| `SubcorticalConfig` | `visual_exports/sub-<id>/sub-cortical` |
+
+An `output_dir` already on the config still wins. The formulas are restated rather than imported
+because the exporters need `bpy`/`trimesh`, which exist only inside the SimNIBS container — which
+is also why `tests/test_plan_routes.py::TestPlanBlenderOutputDir` asserts all four against the
+route: a drift between the two sides is otherwise invisible until a user reads the wrong path.
+
 ## Known gaps (reported, not hacked around)
 
-- **No label-lookup route.** The sub-cortical LUT browser cannot be rebuilt without a route that
-  lists the label values present in a given NIfTI. Until one exists, labels are typed as
-  `10,49` — the same field 2.5.0 offered beside the browser.
+- **The label browser needs a readable volume.** `GET /api/catalog/nifti/labels` 404s for a
+  subject with no segmentation, a path outside the project jail, and an unreadable file alike
+  (deliberately one status — the route must not confirm what exists outside the jail). All three
+  fall back to the 2.5.0 typed field, which is why `parseLabels` is still here and still tested.
 - **`GET /api/catalog/atlases/regions` needs a built subject.** For a subject with no m2m
   segmentation the region picker is empty rather than erroring; the Run button's own blocking
   reason still names the missing subject.
-- **`_plan_blender` is best-effort.** It can only resolve an output directory when the config
-  already carries one, and none of these four modes sets it (every exporter resolves its own).
-  The Plan card therefore shows cost and job count with a server warning rather than a resolved
-  path. Unchanged by this round; noted so the empty Outputs column is not read as a panel bug.

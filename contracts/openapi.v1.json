@@ -955,6 +955,61 @@
         }
       }
     },
+    "/api/catalog/nifti/labels": {
+      "get": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "Integer labels present in one NIfTI label volume",
+        "description": "The label browser the 3D Visual Exporter's sub-cortical mode picks from. `path` is optional: omitted, it means the subject's own `<m2m>/segmentation/labeling.nii.gz`. A path outside the project jail returns 404, the same status as a file that is not there, so the route cannot be used to probe the filesystem.",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "path",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NiftiLabel"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "unknown subject, or no readable label volume at that path"
+          }
+        }
+      }
+    },
     "/api/catalog/rois": {
       "get": {
         "tags": [
@@ -7018,6 +7073,26 @@
               "rh",
               null
             ]
+          }
+        }
+      },
+      "NiftiLabel": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "n_voxels"
+        ],
+        "description": "One integer label present in a segmentation volume. `id` is the voxel value (what `SubcorticalConfig.labels` carries), `name` comes from a sidecar colour table or the bundled FreeSurfer LUT and falls back to `Label {id}`, and `n_voxels` is how many voxels carry it \u2014 the size cue that tells a stray label from a real structure.",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "n_voxels": {
+            "type": "integer"
           }
         }
       },

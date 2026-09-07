@@ -659,6 +659,123 @@ def atlas_regions(
     return out
 
 
+def nifti_labels(pm: PathManager, sid: str, path: str | None = None) -> list[dict] | None:
+    """Unique integer labels present in one label volume, named where a LUT applies.
+
+    The 3D Visual Exporter's sub-cortical mode asks the user for label *numbers*
+    (``10,49``); 2.5.0 answered that with a Qt dialog that parsed a FreeSurfer LUT
+    itself. This is that browser's data, from the toolbox's own segstats path
+    (:func:`tit.atlas.segstats.compute_segstats` +
+    :func:`~tit.atlas.segstats.resolve_lut_for_atlas`), which also writes the
+    ``<name>_labels.txt`` sidecar cache beside the volume -- so the first call on a
+    subject pays for the scan and every later one reads the cache, same as
+    :meth:`VoxelAtlasManager.list_regions`.
+
+    Parameters
+    ----------
+    pm : PathManager
+    sid : str
+        Subject whose ``m2m`` holds the default volume.
+    path : str or None
+        A specific label volume. ``None``/empty means the subject's own
+        ``<m2m>/segmentation/labeling.nii.gz`` -- the sub-cortical mode's default,
+        and the only path the panel ever sends for an untouched form.
+
+    Returns
+    -------
+    list of dict or None
+        ``[{"id": int, "name": str, "n_voxels": int}]`` sorted by ``id``; ``None``
+        for an unknown subject, a path outside the project jail, or a file that is
+        not there. The caller (``routes/catalog_v1``) turns ``None`` into a 404 --
+        deliberately one status for all three, so probing this route cannot tell a
+        file that exists outside the jail from one that does not exist at all.
+    """
+    if sid not in subject_ids(pm):
+        return None
+
+    raw = (path or "").strip()
+    if not raw:
+        m2m = pm.m2m(sid)
+        if not m2m:
+            return None
+        raw = os.path.join(m2m, "segmentation", "labeling.nii.gz")
+
+    from tit.viewspec import resolve_jailed
+
+    resolved = resolve_jailed(raw)
+    if resolved is None:
+        return None
+
+    cached = _read_segstats_sum(_segstats_sidecar(str(resolved)))
+    if cached is not None:
+        return cached
+
+    from tit.atlas.segstats import (
+        compute_segstats,
+        resolve_lut_for_atlas,
+        write_segstats_sum,
+    )
+
+    try:
+        lut = resolve_lut_for_atlas(str(resolved))
+        stats = compute_segstats(str(resolved), lut)
+    except (OSError, ValueError):
+        # An unreadable or non-label volume is "nothing to browse", not a 500: the
+        # path came from a text field the user can type anything into.
+        return None
+    try:
+        write_segstats_sum(stats, _segstats_sidecar(str(resolved)))
+    except OSError:
+        # A read-only project still gets its answer -- it just pays for the scan again.
+        pass
+    return [
+        {"id": int(s.seg_id), "name": s.name, "n_voxels": int(s.n_voxels)}
+        for s in stats
+    ]
+
+
+def _segstats_sidecar(volume_path: str) -> str:
+    """``<dir>/<name>_labels.txt`` -- the cache filename ``VoxelAtlasManager`` already uses."""
+    bname = os.path.splitext(os.path.basename(volume_path))[0]
+    if bname.endswith(".nii"):
+        bname = os.path.splitext(bname)[0]
+    return os.path.join(os.path.dirname(volume_path), f"{bname}_labels.txt")
+
+
+def _read_segstats_sum(labels_file: str) -> list[dict] | None:
+    """Parse an ``mri_segstats --sum`` sidecar; ``None`` if it is not there or is unusable.
+
+    Same file and columns (``Index SegId NVoxels Volume_mm3 StructName``) as
+    :meth:`VoxelAtlasManager._parse_labels_file`, which throws the voxel count away --
+    kept here because the size of a label is exactly what tells a real structure from a
+    stray voxel when you are picking one out of a hundred.
+    """
+    if not os.path.isfile(labels_file):
+        return None
+    out: list[dict] = []
+    try:
+        with open(labels_file) as fh:
+            for line in fh:
+                if line.startswith("#") or not line.strip():
+                    continue
+                parts = line.split()
+                if len(parts) < 5:
+                    continue
+                try:
+                    seg_id = int(parts[1])
+                    n_voxels = int(parts[2])
+                except ValueError:
+                    continue
+                out.append(
+                    {"id": seg_id, "name": " ".join(parts[4:]), "n_voxels": n_voxels}
+                )
+    except OSError:
+        return None
+    if not out:
+        return None
+    return sorted(out, key=lambda r: r["id"])
+
+
 # ── ROIs ─────────────────────────────────────────────────────────────────────
 
 # User-supplied identifiers that become filename components (ROI names,

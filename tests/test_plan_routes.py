@@ -892,3 +892,113 @@ def test_plan_sim_eta_grows_with_the_batch(client: TestClient, project: Path) ->
         headers=BEARER,
     )
     assert two.json()["cost"]["eta_minutes"] > one.json()["cost"]["eta_minutes"]
+
+
+# ---------------------------------------------------------------------------
+# kind="blender" -- the 3D Visual Exporter's four modes
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestPlanBlenderOutputDir:
+    """Every mode names the directory its exporter will actually write into.
+
+    Before this, ``_plan_blender`` resolved a path only when the config already carried an
+    ``output_dir`` -- which none of the four modes sets -- so the Plan card showed an empty
+    Outputs column and a warning for every export the panel could submit.
+    """
+
+    def _plan(self, client: TestClient, config: dict) -> dict:
+        r = client.post(
+            "/api/plan/blender",
+            json={"config": config, "subject_ids": ["001"]},
+            headers=BEARER,
+        )
+        assert r.status_code == 200, r.text
+        return r.json()
+
+    def test_region_stl_and_ply_land_in_different_directories(
+        self, client: TestClient, project: Path
+    ):
+        base = f"{project}/derivatives/ti-toolbox/visual_exports/sub-001/Thalamus"
+        for fmt in ("stl", "ply"):
+            body = self._plan(
+                client,
+                {
+                    "_type": "RegionConfig",
+                    "subject_id": "001",
+                    "simulation_name": "Thalamus",
+                    "format": fmt,
+                },
+            )
+            assert body["jobs"][0]["output_dir"] == f"{base}/{fmt}"
+            assert body["warnings"] == []
+
+    def test_vectors_land_in_the_simulation_s_vectors_directory(
+        self, client: TestClient, project: Path
+    ):
+        body = self._plan(
+            client,
+            {
+                "_type": "VectorConfig",
+                "subject_id": "001",
+                "simulation_name": "Thalamus",
+            },
+        )
+        assert body["jobs"][0]["output_dir"] == (
+            f"{project}/derivatives/ti-toolbox/visual_exports/sub-001/Thalamus/vectors"
+        )
+
+    def test_montage_is_subject_scoped_not_simulation_scoped(
+        self, client: TestClient, project: Path
+    ):
+        body = self._plan(
+            client,
+            {
+                "_type": "MontageConfig",
+                "subject_id": "001",
+                "simulation_name": "Thalamus",
+            },
+        )
+        assert body["jobs"][0]["output_dir"] == (
+            f"{project}/derivatives/ti-toolbox/visual_exports/sub-001/montage_publication"
+        )
+
+    def test_subcortical_resolves_without_a_simulation(
+        self, client: TestClient, project: Path
+    ):
+        body = self._plan(
+            client, {"_type": "SubcorticalConfig", "subject_id": "001"}
+        )
+        assert body["jobs"][0]["output_dir"] == (
+            f"{project}/derivatives/ti-toolbox/visual_exports/sub-001/sub-cortical"
+        )
+        assert body["warnings"] == []
+
+    def test_an_explicit_output_dir_still_wins(self, client: TestClient, tmp_path: Path):
+        chosen = str(tmp_path / "somewhere-else")
+        body = self._plan(
+            client,
+            {
+                "_type": "SubcorticalConfig",
+                "subject_id": "001",
+                "output_dir": chosen,
+            },
+        )
+        assert body["jobs"][0]["output_dir"] == chosen
+
+    def test_exists_is_reported_for_a_directory_that_is_already_there(
+        self, client: TestClient, project: Path
+    ):
+        target = (
+            project
+            / "derivatives"
+            / "ti-toolbox"
+            / "visual_exports"
+            / "sub-001"
+            / "sub-cortical"
+        )
+        target.mkdir(parents=True)
+        body = self._plan(client, {"_type": "SubcorticalConfig", "subject_id": "001"})
+        assert body["jobs"][0]["exists"] is True
+        assert body["jobs"][0]["will_overwrite"] is True

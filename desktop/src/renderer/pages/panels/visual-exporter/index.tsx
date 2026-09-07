@@ -36,7 +36,7 @@ import { ActionBar } from "../../../ui/Chrome";
 import { isPanelEnabled, panelDigest } from "../_shared";
 import "../panels.css";
 import { PlanSummary } from "../PlanSummary";
-import { createBlenderJob, getAtlasRegions, getSimulationsFor, planBlender, validateBlender, type BlenderConfig } from "./api";
+import { createBlenderJob, getAtlasRegions, getNiftiLabels, getSimulationsFor, planBlender, validateBlender, type BlenderConfig } from "./api";
 import {
   buildMontageConfig,
   buildRegionConfigs,
@@ -113,6 +113,7 @@ function VisualExporterPanel() {
 
   // Sub-cortical
   const [niftiPath, setNiftiPath] = usePageSession("niftiPath", "");
+  const [labelIds, setLabelIds] = usePageSession<string[]>("labelIds", []);
   const [labelsText, setLabelsText] = usePageSession("labelsText", "");
   const [cleanComponents, setCleanComponents] = usePageSession("cleanComponents", false);
   const [subcortField, setSubcortField] = usePageSession("subcortField", "TI_max");
@@ -129,6 +130,12 @@ function VisualExporterPanel() {
     queryFn: () => getAtlasRegions(subjectId, atlas),
     enabled: mode === "regions" && !!subjectId,
   });
+  const labelsQuery = useQuery({
+    queryKey: ["nifti-labels", subjectId, niftiPath],
+    queryFn: () => getNiftiLabels(subjectId, niftiPath),
+    enabled: mode === "subcortical" && !!subjectId,
+    retry: false,
+  });
 
   const subjectOptions = (subjectsQuery.data ?? []).map((s) => ({ value: s.id, label: s.id }));
   const simulationOptions = (simulationsQuery.data ?? []).map((s) => ({ value: s.name, label: s.name }));
@@ -144,17 +151,43 @@ function VisualExporterPanel() {
     [regionsQuery.data],
   );
 
+  const labelItems: SelectionItem[] = useMemo(
+    () =>
+      (labelsQuery.data ?? []).map((l) => ({
+        id: String(l.id),
+        label: l.name,
+        // The id is what lands in `SubcorticalConfig.labels`, and the voxel count is what tells a
+        // real structure from a stray label — both belong on the row, not just the name.
+        detail: `${l.id} · ${l.n_voxels.toLocaleString()} voxels`,
+        search: `${l.id} ${l.name}`,
+      })),
+    [labelsQuery.data],
+  );
+  // The browser answers for most subjects; when it cannot (no segmentation volume, or a path the
+  // server will not read) the 2.5.0 text field is still the way through, rather than a dead end.
+  const labelsBrowsable = labelsQuery.isSuccess && labelItems.length > 0;
+
   /** The Qt widget's own per-mode input rules, in its own order (`_run`'s first block). */
   const clientErrors: string[] = [];
   if (!subjectId) clientErrors.push("Select a subject.");
   else if (mode !== "subcortical" && !simulationName) clientErrors.push("Select a simulation.");
+  let subcorticalLabels: number[] = [];
   if (mode === "subcortical") {
-    try {
-      parseLabels(labelsText);
-    } catch (e) {
-      clientErrors.push(e instanceof Error ? e.message : "Invalid label format.");
+    if (labelsBrowsable) {
+      subcorticalLabels = labelIds.map(Number);
+    } else {
+      try {
+        subcorticalLabels = parseLabels(labelsText);
+      } catch (e) {
+        clientErrors.push(e instanceof Error ? e.message : "Invalid label format.");
+      }
     }
   }
+
+  // The memo below reads the labels through this string, not through the array: a fresh array
+  // every render would rebuild the config (and re-fire validate/plan) on every keystroke anywhere
+  // on the page, and it is not something a dependency array can check.
+  const labelsKey = subcorticalLabels.join(",");
 
   const configs: BlenderConfig[] = useMemo(() => {
     if (clientErrors.length > 0) return [];
@@ -192,7 +225,7 @@ function VisualExporterPanel() {
           }),
         ];
       case "subcortical":
-        return [buildSubcorticalConfig({ subjectId, simulationName, niftiPath, labelsText, cleanComponents, fieldName: subcortField })];
+        return [buildSubcorticalConfig({ subjectId, simulationName, niftiPath, labels: labelsKey ? labelsKey.split(",").map(Number) : [], cleanComponents, fieldName: subcortField })];
     }
   }, [
     clientErrors.length,
@@ -219,7 +252,7 @@ function VisualExporterPanel() {
     diameter,
     height,
     niftiPath,
-    labelsText,
+    labelsKey,
     cleanComponents,
     subcortField,
   ]);
@@ -472,9 +505,35 @@ function VisualExporterPanel() {
                     <TextInput id="ve-nifti" value={niftiPath} onChange={(e) => setNiftiPath(e.target.value)} placeholder="Auto — m2m segmentation/labeling.nii.gz" />
                   </Field>
                   <div className="form-grid">
-                    <Field label="Labels to extract" htmlFor="ve-labels" help="Comma-separated, e.g. 10,49. Empty meshes the whole volume.">
-                      <TextInput id="ve-labels" value={labelsText} onChange={(e) => setLabelsText(e.target.value)} placeholder="10,49" />
-                    </Field>
+                    {labelsBrowsable ? (
+                      <Field label="Labels to extract" help="Nothing chosen meshes the whole volume.">
+                        <SelectionPicker
+                          items={labelItems}
+                          value={labelIds}
+                          onChange={setLabelIds}
+                          label="Labels"
+                          title="Choose labels to extract"
+                          description="Every integer label present in this volume, named from its colour table."
+                          headers={{ label: "Structure", detail: "Label · size" }}
+                          filterPlaceholder="Filter by name or id…"
+                          idPrefix="ve-labels"
+                          placeholder="Whole volume"
+                          triggerTestId="ve-labels-trigger"
+                        />
+                      </Field>
+                    ) : (
+                      <Field
+                        label="Labels to extract"
+                        htmlFor="ve-labels"
+                        help={
+                          labelsQuery.isPending && subjectId
+                            ? "Reading the labels in this volume…"
+                            : "Comma-separated, e.g. 10,49. Empty meshes the whole volume."
+                        }
+                      >
+                        <TextInput id="ve-labels" value={labelsText} onChange={(e) => setLabelsText(e.target.value)} placeholder="10,49" />
+                      </Field>
+                    )}
                     <Field label="Field (for PLY)" htmlFor="ve-subcort-field">
                       <TextInput id="ve-subcort-field" value={subcortField} onChange={(e) => setSubcortField(e.target.value)} placeholder="TI_max" />
                     </Field>

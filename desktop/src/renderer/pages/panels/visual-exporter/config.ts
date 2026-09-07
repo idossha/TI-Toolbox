@@ -109,14 +109,20 @@ export interface SubcorticalForm {
   /** Optional — no simulation means geometry only, no field-coloured PLY. */
   simulationName: string;
   niftiPath: string;
-  /** Raw text of the Qt "Labels to extract" field, e.g. `10, 49`. */
-  labelsText: string;
+  /** Label values to extract; empty means the whole volume. */
+  labels: number[];
   cleanComponents: boolean;
   fieldName: string;
 }
 
-/** `"10, 49"` → `[10, 49]`; `""` → `[]`. Throws the way Qt's `int(l.strip())` did, for a caller
- * that wants to say "Invalid label format" before submitting. */
+/**
+ * `"10, 49"` → `[10, 49]`; `""` → `[]`. Throws the way Qt's `int(l.strip())` did, for a caller
+ * that wants to say "Invalid label format" before submitting.
+ *
+ * Still here after the label browser landed, because the browser can fail to answer — a subject
+ * with no segmentation volume, or a path typed by hand that the server will not read — and typing
+ * the numbers is then the only way through, exactly as it was in 2.5.0.
+ */
 export function parseLabels(text: string): number[] {
   const trimmed = text.trim();
   if (!trimmed) return [];
@@ -132,7 +138,7 @@ export function buildSubcorticalConfig(form: SubcorticalForm): SubcorticalConfig
     subject_id: form.subjectId,
     simulation_name: form.simulationName,
     nifti_path: form.niftiPath,
-    labels: parseLabels(form.labelsText),
+    labels: [...form.labels],
     clean_components: form.cleanComponents,
     field_name: form.fieldName || "TI_max",
     _type: "SubcorticalConfig",

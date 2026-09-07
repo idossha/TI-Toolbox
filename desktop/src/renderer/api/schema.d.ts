@@ -888,6 +888,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/catalog/nifti/labels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Integer labels present in one NIfTI label volume
+         * @description The label browser the 3D Visual Exporter's sub-cortical mode picks from. `path` is optional: omitted, it means the subject's own `<m2m>/segmentation/labeling.nii.gz`. A path outside the project jail returns 404, the same status as a file that is not there, so the route cannot be used to probe the filesystem.
+         */
+        get: {
+            parameters: {
+                query: {
+                    subject: string;
+                    path?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["NiftiLabel"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description unknown subject, or no readable label volume at that path */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/catalog/rois": {
         parameters: {
             query?: never;
@@ -4987,6 +5036,12 @@ export interface components {
             name: string;
             /** @enum {string|null} */
             hemi: "lh" | "rh" | null;
+        };
+        /** @description One integer label present in a segmentation volume. `id` is the voxel value (what `SubcorticalConfig.labels` carries), `name` comes from a sidecar colour table or the bundled FreeSurfer LUT and falls back to `Label {id}`, and `n_voxels` is how many voxels carry it — the size cue that tells a stray label from a real structure. */
+        NiftiLabel: {
+            id: number;
+            name: string;
+            n_voxels: number;
         };
         Roi: {
             name: string;

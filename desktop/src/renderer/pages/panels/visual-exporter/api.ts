@@ -17,6 +17,7 @@ export type VectorConfig = components["schemas"]["VectorConfig"];
 export type RegionConfig = components["schemas"]["RegionConfig"];
 export type SubcorticalConfig = components["schemas"]["SubcorticalConfig"];
 export type Region = components["schemas"]["Region"];
+export type NiftiLabel = components["schemas"]["NiftiLabel"];
 type PipelineConfig = components["schemas"]["PipelineConfig"];
 
 export type BlenderConfig = MontageConfig | VectorConfig | RegionConfig | SubcorticalConfig;
@@ -35,6 +36,14 @@ export async function getSimulationsFor(subject: string): Promise<Simulation[]> 
 export async function getAtlasRegions(subject: string, atlas: string): Promise<Region[]> {
   const path = "/api/catalog/atlases/regions";
   return unwrap(await api.GET(path, { params: { query: { subject, atlas, hemi: "both" } } }), path);
+}
+
+/** The integer labels of one segmentation volume — the sub-cortical mode's label browser, and
+ * the v3 replacement for the Qt `AtlasRegionFinderDialog` that parsed a FreeSurfer LUT itself.
+ * An empty `path` means the subject's own `<m2m>/segmentation/labeling.nii.gz`. */
+export async function getNiftiLabels(subject: string, path?: string): Promise<NiftiLabel[]> {
+  const p = "/api/catalog/nifti/labels";
+  return unwrap(await api.GET(p, { params: { query: { subject, path: path || undefined } } }), p);
 }
 
 export async function validateBlender(config: BlenderConfig): Promise<ValidateResult> {

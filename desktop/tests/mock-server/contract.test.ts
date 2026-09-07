@@ -201,6 +201,7 @@ describe("contract coverage: every openapi.v1.yaml path+method", () => {
     await call("/api/catalog/eeg-nets", "GET", "/api/catalog/eeg-nets?subject=ernie");
     await call("/api/catalog/atlases", "GET", "/api/catalog/atlases?subject=ernie&kind=cortical");
     await call("/api/catalog/atlases/regions", "GET", "/api/catalog/atlases/regions?subject=ernie&atlas=DK40&hemi=lh");
+    await call("/api/catalog/nifti/labels", "GET", "/api/catalog/nifti/labels?subject=ernie");
     await call("/api/catalog/rois", "GET", "/api/catalog/rois?subject=ernie");
     await call("/api/catalog/rois", "POST", "/api/catalog/rois?subject=ernie", { body: { name: "contract_test_roi", x: 1, y: 2, z: 3, space: "subject" } });
     await call("/api/catalog/rois/{name}", "DELETE", "/api/catalog/rois/contract_test_roi?subject=ernie");

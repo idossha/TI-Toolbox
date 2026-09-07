@@ -60,9 +60,10 @@ Per-kind output-dir resolution
     literal ``analysis_type`` ``tit.stats.permutation`` itself uses (``"group_comparison"`` /
     ``"correlation"``).
 ``blender``
-    Best-effort: only when the config's own ``output_dir`` is already set (blender's exporters
-    otherwise resolve it internally, which needs ``bpy``/``trimesh`` -- not importable outside
-    the SimNIBS container, and not reproduced here).
+    One :class:`PlanJob` whose ``output_dir`` is the directory the matching exporter will
+    write into -- see :func:`_blender_output_dir`, which restates each mode's own
+    ``_resolve_paths`` formula (the exporters cannot be imported here: they need
+    ``bpy``/``trimesh``, which exist only inside the SimNIBS container).
 ``nifti_average`` / ``nilearn``
     One project-level :class:`PlanJob` (``subject=""``, like ``stats``): ``output_dir`` mirrors
     ``tit.stats.nifti_average.main`` / ``tit.plotting.nilearn.__main__.main``'s own formula
@@ -779,15 +780,55 @@ def _plan_stats(kind: str, pm: PathManager, config: Any) -> tuple[list[PlanJob],
     ], None
 
 
+def _blender_output_dir(pm: PathManager, config: Any) -> str:
+    """The directory the matching ``tit.blender`` exporter will write into.
+
+    Each exporter's ``_resolve_paths`` computes this itself at run time, inside the SimNIBS
+    container; the formulas are one ``os.path.join`` each and are restated here so the Plan
+    card can name the real destination before the job starts. Kept in one function, beside
+    the file references, so a change to either side is a two-line diff in an obvious place:
+
+    ``RegionConfig``       ``visual_exports/sub-<id>/<sim>/<stl|ply>``  (region_exporter.py)
+    ``VectorConfig``       ``visual_exports/sub-<id>/<sim>/vectors``    (vector_field_exporter.py)
+    ``MontageConfig``      ``visual_exports/sub-<id>/montage_publication`` (montage_publication.py)
+    ``SubcorticalConfig``  ``visual_exports/sub-<id>/sub-cortical``     (subcortical_exporter.py)
+
+    An ``output_dir`` already on the config always wins -- montage and sub-cortical both
+    accept one, and a caller that set it means it.
+    """
+    explicit = (getattr(config, "output_dir", None) or "").strip()
+    if explicit:
+        return explicit
+
+    sid = getattr(config, "subject_id", "") or ""
+    if not sid:
+        return ""
+    base = os.path.join(pm.ti_toolbox(), "visual_exports", f"sub-{sid}")
+    name = type(config).__name__
+    sim = (getattr(config, "simulation_name", "") or "").strip()
+
+    if name == "MontageConfig":
+        return os.path.join(base, "montage_publication")
+    if name == "SubcorticalConfig":
+        return os.path.join(base, "sub-cortical")
+    if not sim:
+        # Regions and vectors are simulation-scoped; without one there is no directory to
+        # name, and the config's own validation will have rejected it before it runs.
+        return ""
+    if name == "VectorConfig":
+        return os.path.join(base, sim, "vectors")
+    if name == "RegionConfig":
+        return os.path.join(base, sim, str(config.format).lower())
+    return ""
+
+
 def _plan_blender(
-    kind: str, config: Any, warnings: list[str]
+    kind: str, pm: PathManager, config: Any, warnings: list[str]
 ) -> tuple[list[PlanJob], None]:
-    output_dir = getattr(config, "output_dir", None) or ""
+    output_dir = _blender_output_dir(pm, config)
     if not output_dir:
         warnings.append(
-            "blender output_dir not set on the config; tit.blender resolves it internally "
-            "at run time (needs bpy/trimesh, not importable outside the SimNIBS container) "
-            "so it cannot be previewed here"
+            "This export's output directory cannot be resolved from the configuration yet."
         )
     exists = _dir_exists(output_dir)
     return [
@@ -875,7 +916,7 @@ def plan(kind: str, body: PlanRequest) -> PlanResult:
     elif kind == "stats":
         jobs, resolved = _plan_stats(kind, pm, config)
     elif kind == "blender":
-        jobs, resolved = _plan_blender(kind, config, warnings)
+        jobs, resolved = _plan_blender(kind, pm, config, warnings)
     elif kind == "nifti_average":
         jobs, resolved = _plan_nifti_average(kind, pm, config)
     elif kind == "nilearn":

@@ -856,6 +856,77 @@ def test_atlas_regions_subcortical_returns_integer_id_and_null_hemi(
     assert {"id": 2, "name": "Right-Thalamus", "hemi": None} in body
 
 
+def _seed_labeling(pm, cache: bool = True) -> Path:
+    seg_dir = os.path.join(pm.m2m("ernie"), "segmentation")
+    os.makedirs(seg_dir, exist_ok=True)
+    volume = Path(seg_dir, "labeling.nii.gz")
+    volume.write_bytes(b"x")
+    if cache:
+        Path(seg_dir, "labeling_labels.txt").write_text(
+            "# Index SegId NVoxels Volume_mm3 StructName\n"
+            "  1  49  1200  1200.0 Right-Thalamus\n"
+            "  2  10  1100  1100.0 Left-Thalamus\n"
+        )
+    return volume
+
+
+def test_nifti_labels_defaults_to_the_subject_labeling_volume(
+    client: TestClient, project: Path
+) -> None:
+    _seed_labeling(get_path_manager())
+    body = client.get(
+        "/api/catalog/nifti/labels", params={"subject": "ernie"}, headers=BEARER
+    ).json()
+    # Sorted by id, with the voxel count VoxelAtlasManager's own parser discards.
+    assert body == [
+        {"id": 10, "name": "Left-Thalamus", "n_voxels": 1100},
+        {"id": 49, "name": "Right-Thalamus", "n_voxels": 1200},
+    ]
+
+
+def test_nifti_labels_accepts_an_explicit_path_inside_the_project(
+    client: TestClient, project: Path
+) -> None:
+    volume = _seed_labeling(get_path_manager())
+    body = client.get(
+        "/api/catalog/nifti/labels",
+        params={"subject": "ernie", "path": str(volume)},
+        headers=BEARER,
+    ).json()
+    assert [r["id"] for r in body] == [10, 49]
+
+
+def test_nifti_labels_refuses_a_path_outside_the_project(
+    client: TestClient, project: Path, tmp_path: Path
+) -> None:
+    outside = tmp_path.parent / "outside.nii.gz"
+    outside.write_bytes(b"x")
+    r = client.get(
+        "/api/catalog/nifti/labels",
+        params={"subject": "ernie", "path": str(outside)},
+        headers=BEARER,
+    )
+    # Same 404 a missing file gets: the route must not confirm that a file outside the
+    # jail exists.
+    assert r.status_code == 404
+
+
+def test_nifti_labels_404s_for_an_unknown_subject(client: TestClient) -> None:
+    r = client.get(
+        "/api/catalog/nifti/labels", params={"subject": "nobody"}, headers=BEARER
+    )
+    assert r.status_code == 404
+
+
+def test_nifti_labels_404s_when_the_volume_is_not_there(
+    client: TestClient, project: Path
+) -> None:
+    r = client.get(
+        "/api/catalog/nifti/labels", params={"subject": "ernie"}, headers=BEARER
+    )
+    assert r.status_code == 404
+
+
 def test_flex_run_artifacts_lists_pngs_json_and_manifest(
     client: TestClient, project: Path
 ) -> None:
