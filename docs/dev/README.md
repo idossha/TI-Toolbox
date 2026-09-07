@@ -21,6 +21,7 @@ citing the others, and no reader could tell which of them was still true.
 | `DESIGN.md` | The **UI contract** for the desktop app: pages, the rail, layout shapes, tokens, per-page behaviour. |
 | `ADR.md` | The numbered architecture decision table the codebase cites as "ADR row N". |
 | `RUNBOOK.md` | **How to run things** — the two-level smoke harness, cited by the e2e specs. |
+| `RELEASE.md` | **How a version is released** — the version sites, the tag-to-publish pipeline, the dry run, and what only a real CI run can prove. `.github/workflows/release-v3.yml` is its executable form. |
 | `requirements/` | **Dated asks**, verbatim from the maintainer. Where two conflict, the later one wins. |
 | `SPIKES.md` | Verdicts of investigations whose code was never shipped. |
 | `design-notes.md`, `wireframes.md` | The verbatim contract signatures and per-page ASCII layouts `DESIGN.md` defers to instead of restating. |
