@@ -8,36 +8,30 @@ number of electrode pairs (mTI).
 Public API
 ----------
 get_TI_vectors
-    TI modulation-amplitude vectors for a single electrode pair (K=1).
-get_mTI_vectors
-    Modulation-amplitude vectors for K >= 1 electrode pairs; the
-    verified N>2 replacement for :func:`get_nTI_vectors`.
+    Modulation-amplitude vectors for K >= 1 carriers (K=1 exact closed
+    form; K>=2 direction search).
 get_TI_avg
-    Direction-averaged modulation depth for K >= 1 electrode pairs.
-get_magnitude_am
-    Direction-free magnitude-envelope AM, K >= 1 electrode pairs.
-get_nTI_vectors
-    Deprecated. Recursive binary-tree N-field TI; not physically valid
-    for N > 2. Delegates to :func:`get_mTI_vectors`.
+    Direction-averaged modulation depth for K >= 1 carriers.
+get_TI_dir
+    Modulation depth evaluated along a fixed per-element direction
+    (e.g. the cortical surface normal); backs ``TI_normal`` for mTI.
 
 Attribution
 -----------
 The K >= 2 envelope and the ``_fibonacci_sphere`` /
 ``_validate_field_list`` helpers originate from collaborator Larissa
 Albantakis's branch ``alba/mTI_testing`` and are ported here with
-attribution, not reimplemented. ``get_magnitude_am`` is likewise ported
-from that branch's ``_botzanowski_magnitude_am_components``.
+attribution, not reimplemented.
 """
 
-import warnings
+import os
 
 import numpy as np
 
 from tit.constants import is_valid_pair_count
-from tit.fields import channel_index_groups
 
 
-def get_TI_vectors(E1_org, E2_org):
+def _get_TI_vectors_k1(E1_org, E2_org):
     """Compute the TI modulation-amplitude vectors for two electric fields.
 
     Sign-agnostic closed form (Hirata et al. 2024), equivalent to the
@@ -115,31 +109,24 @@ def get_TI_vectors(E1_org, E2_org):
     return TI_vectors
 
 
-def get_mTI_vectors(fields, channels=None, psi=None):
-    """Compute mTI modulation-amplitude vectors for K >= 1 electrode pairs.
+def get_TI_vectors(fields, psi=None):
+    """Compute TI modulation-amplitude vectors for K >= 1 carriers.
 
     ``fields`` is ``[E_1a, E_1b, ..., E_Ka, E_Kb]``, 2K arrays of shape
-    ``(N, 3)``, paired positionally into K channels by default. Pass
-    ``channels`` to override the grouping -- e.g. many electrode pairs
-    sharing just two carriers (Lee et al. 2022) becomes one channel of
-    summed fields. K=1 dispatches exactly to :func:`get_TI_vectors`; K>=2
+    ``(N, 3)`` -- one per channel, paired positionally: each two
+    consecutive fields are the two channels sharing one carrier. K=1
+    (standard TI) is solved by an exact closed form (Grossman et al.
+    2017; Hirata et al. 2024) with no direction search; K>=2 (mTI)
     returns ``best_direction * md`` from the verified
-    :func:`_mti_modulation_depth` envelope. ``hf_peak``/``hf_sar``
-    (:mod:`tit.fields`) honour the same ``channels`` grouping when it is
-    passed to them: same-carrier fields are summed as vectors before any
-    exposure metric is formed (Cassarà et al. 2025 Part II, p. 8).
+    :func:`_mti_modulation_depth` envelope.
 
     Parameters
     ----------
     fields : list of np.ndarray, each shape (N, 3)
-        Carrier field vectors, referenced by index from ``channels``.
-    channels : sequence of (group_a, group_b), or None
-        Per-channel index groups into ``fields`` (see
-        :func:`_resolve_channels`); ``None`` is consecutive pairing,
-        identical to today's behaviour.
+        Channel field vectors, consecutive fields sharing a carrier.
     psi : array-like, shape (K,), or None
-        Per-pair envelope phase offset (radians); ``None`` means
-        phase-aligned pairs (``psi_k=0``), the standard case. Ignored
+        Per-carrier envelope phase offset (radians); ``None`` means
+        phase-aligned carriers (``psi_k=0``), the standard case. Ignored
         at K=1 (phase-invariant there).
 
     Returns
@@ -150,28 +137,32 @@ def get_mTI_vectors(fields, channels=None, psi=None):
     Raises
     ------
     ValueError
-        Invalid ``fields``, ``channels``, or ``psi``; see
-        :func:`_resolve_channels` and :func:`_validate_psi`.
+        Invalid ``fields`` or ``psi``; see :func:`_validate_field_list`
+        and :func:`_validate_psi`.
 
     References
     ----------
     Grossman, N. et al. (2017). Cell, 169(6), 1029-1041 (K=1 closed form).
+    Botzanowski, B. et al. (2025). Bioelectronic Medicine, 11(1), 7 --
+    multipolar TI (K carrier bands, phase-aligned envelopes); describes the
+    square/low-pass/sqrt envelope procedure in prose (no published
+    equation), which the (P, Q) form here formalizes.
     """
-    arrs = _resolve_channels(fields, channels)
+    arrs = _validate_field_list(fields)
     n_pairs = len(arrs) // 2
     _validate_psi(psi, n_pairs)
 
     if n_pairs == 1:
-        return get_TI_vectors(arrs[0], arrs[1])
+        return _get_TI_vectors_k1(arrs[0], arrs[1])
 
     result = _mti_modulation_depth(arrs, psi=psi)
     return result["best_direction"] * result["md"][:, None]
 
 
-def get_TI_avg(fields, channels=None, psi=None):
+def get_TI_avg(fields, psi=None):
     """Direction-averaged modulation depth for K >= 1 electrode pairs.
 
-    ``TI_max`` (:func:`get_mTI_vectors`) maximizes the envelope over
+    ``TI_max`` (:func:`get_TI_vectors`) maximizes the envelope over
     direction -- a best case for a neuron aligned with the optimal axis.
     ``TI_avg`` instead averages the same coarse Fibonacci-sphere sweep
     over all sampled directions, giving what a randomly-oriented neuron
@@ -181,97 +172,50 @@ def get_TI_avg(fields, channels=None, psi=None):
     Parameters
     ----------
     fields : list of np.ndarray, each shape (N, 3)
-        Carrier field vectors, referenced by index from ``channels``.
-    channels : sequence of (group_a, group_b), or None
-        Per-channel index groups into ``fields``; see
-        :func:`get_mTI_vectors` and :func:`_resolve_channels`.
+        Channel field vectors, consecutive fields sharing a carrier.
     psi : array-like, shape (K,), or None
-        Per-pair envelope phase offset (radians); see
-        :func:`get_mTI_vectors`.
+        Per-carrier envelope phase offset (radians); see
+        :func:`get_TI_vectors`.
 
     Returns
     -------
     np.ndarray, shape (N,)
         Modulation depth [V/m], averaged over sampled directions.
     """
-    arrs = _resolve_channels(fields, channels)
+    arrs = _validate_field_list(fields)
     n_pairs = len(arrs) // 2
     psi_arr = _validate_psi(psi, n_pairs)
     return _mti_modulation_depth_avg(arrs, psi_arr)
 
 
-def get_magnitude_am(fields):
-    """Direction-free amplitude-modulation envelope of ``||E(t)||``.
+def get_TI_dir(fields, directions, psi=None):
+    """Modulation depth along a fixed per-element direction, K >= 1.
 
-    Not the direction-maximized modulation depth from
-    :func:`get_mTI_vectors` -- the AM envelope of the field *magnitude*
-    itself, no direction search, computed on the full 3-vectors:
-    ``P = 0.5*sum_i ||E_i||^2``, ``Q = |sum_k E_ka . E_kb|`` (3D dot
-    products per pair), result ``= sqrt(2*(P+Q)) - sqrt(2*max(P-Q, 0))``.
-    At K=1 this reduces to ``abs(|E1+E2| - |E1-E2|)``.
+    The multi-carrier analogue of SimNIBS's 2-field ``TI.get_dirTI``:
+    instead of maximizing the envelope over direction
+    (:func:`get_TI_vectors`), evaluate it at a given direction per
+    element -- typically the cortical surface normal, which yields the
+    ``TI_normal`` quantity. Exact (no direction search) for any K.
 
     Parameters
     ----------
     fields : list of np.ndarray, each shape (N, 3)
-        Field vectors for 2K sub-channels (K electrode pairs), K >= 1.
+        Field vectors ordered ``[E_1a, E_1b, E_2a, E_2b, ...]``, one per
+        channel; consecutive fields are the two channels of one carrier.
+    directions : np.ndarray, shape (N, 3)
+        Per-element direction to evaluate the envelope along. Need not be
+        unit length; zero vectors yield 0.
+    psi : array-like, shape (K,), or None
+        Per-carrier envelope phase offset (radians); see
+        :func:`get_TI_vectors`.
 
     Returns
     -------
     np.ndarray, shape (N,)
-        Magnitude-AM envelope [V/m].
-
-    See Also
-    --------
-    get_mTI_vectors : Direction-maximized modulation-amplitude vectors --
-        a different quantity from this magnitude envelope.
-
-    References
-    ----------
-    Botzanowski, B. et al. (2025). Bioelectronic Medicine, 11(1), 7.
+        Modulation depth [V/m] along ``directions``.
     """
-    arrs = _validate_field_list(fields)
-    n_pairs = len(arrs) // 2
-
-    P = np.zeros(arrs[0].shape[0], dtype=np.float64)
-    for e in arrs:
-        P += np.sum(e * e, axis=1)
-    P *= 0.5
-
-    dot_sum = np.zeros(arrs[0].shape[0], dtype=np.float64)
-    for k in range(n_pairs):
-        dot_sum += np.sum(arrs[2 * k] * arrs[2 * k + 1], axis=1)
-    Q = np.abs(dot_sum)
-
-    env_max = np.sqrt(2.0 * np.maximum(P + Q, 0.0))
-    env_min = np.sqrt(2.0 * np.maximum(P - Q, 0.0))
-    return env_max - env_min
-
-
-def get_nTI_vectors(fields):
-    """Deprecated: recursive binary-tree N-field TI. Use :func:`get_mTI_vectors`.
-
-    This paired fields via ``TI(TI(E1,E2), TI(E3,E4), ...)``, feeding
-    already-modulated envelope vectors back into :func:`get_TI_vectors` --
-    a formula derived only for two carrier fields. Measured against the
-    verified :func:`_mti_modulation_depth` envelope on random fields: signed
-    mean error +38.6% (range -90% to +416%) at N=4, +103% at N=8.
-
-    Parameters
-    ----------
-    fields : list of np.ndarray, each shape (N, 3)
-
-    Returns
-    -------
-    np.ndarray, shape (N, 3)
-    """
-    warnings.warn(
-        "get_nTI_vectors is deprecated and physically invalid for N>2 "
-        "(measured +38.6% mean error at N=4 vs. the verified envelope); "
-        "use get_mTI_vectors instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return get_mTI_vectors(fields)
+    result = _mti_modulation_depth(fields, psi=psi, directions=directions)
+    return result["md"]
 
 
 def _mti_modulation_depth(
@@ -384,86 +328,6 @@ def _validate_psi(psi, n_pairs):
             f"shape {psi_arr.shape}"
         )
     return psi_arr
-
-
-def _resolve_channels(fields, channels):
-    """Pre-sum ``fields`` into the flat 2K-array pairing consumed downstream.
-
-    ``channels=None`` reproduces today's positional pairing exactly --
-    :func:`_validate_field_list` runs unmodified and the result is
-    returned untouched. Otherwise ``channels`` is a sequence of
-    ``(group_a, group_b)``, each group a sequence of integer indices into
-    ``fields``; per channel, ``E_a = sum(fields[i] for i in group_a)`` and
-    ``E_b = sum(fields[i] for i in group_b)`` (zeros if ``group_b`` is
-    empty -- a non-beating carrier, contributing to ``P`` but not ``Q`` in
-    :func:`_pairwise_products`), and the summed pairs are concatenated in
-    channel order. This is exact: pre-summing then pairing once is
-    algebraically identical to the coherent-sum ``P``/``Q`` the K=1 case
-    would compute pairwise (Lee et al. 2022's shared-carrier design).
-    The exposure metrics in :mod:`tit.fields` group carriers the same way
-    (they share :func:`tit.fields.channel_index_groups`), so a montage's
-    envelope and its ``hf_peak``/``hf_sar`` describe the same carriers.
-
-    Parameters
-    ----------
-    fields : sequence of array-like, each (N, 3)
-    channels : sequence of (group_a, group_b), or None
-
-    Returns
-    -------
-    list of np.ndarray, each shape (N, 3)
-
-    Raises
-    ------
-    ValueError
-        Non-``(N, 3)``/mismatched field shapes, no channels, an empty
-        ``group_a``, an out-of-range index, an index reused across groups,
-        or a field index that no channel uses (``channels`` must be an exact
-        partition of ``fields``).
-    """
-    if channels is None:
-        return _validate_field_list(fields)
-
-    arrs = [np.asarray(f, dtype=np.float64) for f in fields]
-    n = len(arrs)
-    if n == 0:
-        raise ValueError("fields must be non-empty when channels is given")
-    ref_shape = arrs[0].shape
-    if len(ref_shape) != 2 or ref_shape[1] != 3:
-        raise ValueError(f"Fields must have shape (N, 3), got {ref_shape}")
-    for i, arr in enumerate(arrs[1:], start=2):
-        if arr.shape != ref_shape:
-            raise ValueError(
-                "All fields must have identical shape; "
-                f"field 1 has {ref_shape}, field {i} has {arr.shape}"
-            )
-
-    # The index-partition validation lives in tit.fields (shared with the
-    # exposure metrics, which must group carriers exactly the same way).
-    # It returns non-empty groups only; an empty group_b is re-materialised
-    # here as a zero field, so the flat list stays 2K long and pairs up.
-    channels = list(channels)
-    groups = channel_index_groups(len(arrs), channels)
-    used = iter(groups)
-    flat = []
-    for group_a, group_b in channels:
-        flat.append(_sum_group(arrs, list(next(used)), ref_shape))
-        flat.append(
-            _sum_group(arrs, list(next(used)), ref_shape) if list(group_b) else
-            np.zeros(ref_shape, dtype=np.float64)
-        )
-
-    return flat
-
-
-def _sum_group(arrs, indices, ref_shape):
-    """Sum ``arrs[i]`` for ``i in indices``; an empty group sums to zero."""
-    if not indices:
-        return np.zeros(ref_shape, dtype=np.float64)
-    acc = arrs[indices[0]].copy()
-    for idx in indices[1:]:
-        acc = acc + arrs[idx]
-    return acc
 
 
 def _pairwise_products(proj_fields, psi):
@@ -604,7 +468,7 @@ def _envelope_from_PQ(P, Q):
 
         \mathrm{MD} = \frac{2\sqrt{2}\,Q}{\sqrt{P+Q} + \sqrt{P-Q}}
 
-    — a quotient of two additions, with no subtraction of near-equal terms.
+    -- a quotient of two additions, with no subtraction of near-equal terms.
     Both roots are still clamped against negative round-off, and a zero
     denominator (``P = Q = 0``, a null field) yields ``0``.  The opposite
     extreme ``Q -> P`` is benign in either form (``sqrt(P-Q)`` just goes to
@@ -927,6 +791,27 @@ def _mti_modulation_depth_avg(arrs, psi, num_directions=192, chunk_size=16384):
     return avg_md
 
 
+def _fused_sweep_kernel():
+    """The numba sweep+refine kernel (:mod:`tit._mti_kernel`), or ``None``.
+
+    ``None`` -- meaning "use the chunked NumPy path" -- when numba is not
+    importable or the environment variable ``TIT_MTI_KERNEL`` is set to
+    ``"numpy"`` (any other value, or unset, prefers numba). The kernel
+    reproduces the NumPy algorithm step for step, so the two paths agree
+    to round-off; the override exists for A/B testing and as an escape
+    hatch.
+    """
+    if os.environ.get("TIT_MTI_KERNEL", "").strip().lower() == "numpy":
+        return None
+    try:
+        from tit import _mti_kernel
+    except Exception:  # noqa: BLE001 - any failure means "no kernel"
+        return None
+    if not _mti_kernel.HAVE_NUMBA:
+        return None
+    return _mti_kernel.sweep_refine
+
+
 def _mti_modulation_depth_sweep(arrs, psi, num_directions, chunk_size, refine):
     """Chunked Fibonacci-sphere direction sweep -- returns best-direction
     md/carrier_power/best_direction per element. When ``refine`` is True,
@@ -935,6 +820,23 @@ def _mti_modulation_depth_sweep(arrs, psi, num_directions, chunk_size, refine):
     coarse-sweep-only result."""
     directions = _fibonacci_sphere(num_directions)
     n_vox = arrs[0].shape[0]
+
+    kernel = _fused_sweep_kernel()
+    if kernel is not None and n_vox > 0:
+        n_seeds = min(_REFINE_N_SEEDS, directions.shape[0])
+        min_cos = np.cos(np.radians(_REFINE_MIN_SEED_ANGLE_DEG))
+        too_close = (directions @ directions.T) > min_cos
+        half_angle = 2.0 / np.sqrt(num_directions)
+        patch_weights = np.stack(
+            [
+                _patch_weights(half_angle * _REFINE_SHRINK**r, _REFINE_PATCH_SIZE)
+                for r in range(_REFINE_N_ROUNDS)
+            ]
+        )
+        md, carrier_power, best_direction = kernel(
+            arrs, psi, directions, too_close, patch_weights, n_seeds, refine
+        )
+        return {"md": md, "carrier_power": carrier_power, "best_direction": best_direction}
 
     md = np.zeros(n_vox, dtype=np.float64)
     carrier_power = np.zeros(n_vox, dtype=np.float64)

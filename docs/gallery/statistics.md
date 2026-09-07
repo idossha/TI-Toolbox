@@ -20,6 +20,16 @@ permalink: /gallery/statistics/
   </div>
 </div>
 
+<div class="gallery-section">
+  <h3>Group Differences in Voxel Space</h3>
+  <div class="gallery-grid">
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/visualizers/group_diff_nifti.png" alt="Group difference visualization" onclick="openLightbox(this)" />
+      <p>Voxel-space group difference map from the NIfTI group-averaging workflow, comparing two experimental groups.</p>
+    </div>
+  </div>
+</div>
+
 <!-- Lightbox Modal -->
 <div id="lightbox" class="lightbox" onclick="closeLightbox()">
   <span class="close" onclick="closeLightbox()">&times;</span>

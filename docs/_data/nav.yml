@@ -28,7 +28,6 @@ wiki:
     - { title: Simulator, url: /wiki/simulator/ }
     - { title: Flex Search, url: /wiki/flex-search/ }
     - { title: Ex Search, url: /wiki/ex-search/ }
-    - { title: Multipolar TI (mTI), url: /wiki/mti/ }
     - { title: Analyzer, url: /wiki/analyzer/ }
     - { title: Pipeline, url: /wiki/pipelines/ }
     - { title: Notebooks, url: /wiki/notebooks/ }
@@ -42,7 +41,6 @@ wiki:
     - { title: Reports, url: /wiki/reports/ }
     - { title: Logging, url: /wiki/logging/ }
     - { title: Brain Atlases, url: /wiki/atlases/ }
-    - { title: Atlas Resampling, url: /wiki/atlas-resampling/ }
     - { title: Montage Visualizer, url: /wiki/montage_visualizer/ }
     - { title: Electrode Mapping, url: /wiki/electrode-mapping/ }
     - group: Optional Tools
@@ -65,9 +63,10 @@ wiki:
 releases:
   title: Releases
   items:
-    - { title: Latest, url: /releases/ }
+    - { title: Latest (v2.5.0), url: /releases/ }
     - { title: Changelog, url: /releases/changelog/ }
     - group: Version History
+    - { title: v2.5.0, url: /releases/v2.5.0/ }
     - { title: v2.4.0, url: /releases/v2.4.0/ }
     - { title: v2.3.2, url: /releases/v2.3.2/ }
     - { title: v2.3.1, url: /releases/v2.3.1/ }

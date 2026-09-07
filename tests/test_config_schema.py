@@ -118,7 +118,6 @@ def _sample_instances() -> dict[str, object]:
                     mode=Montage.Mode.NET,
                     electrode_pairs=[("E1", "E2"), ("E3", "E4")],
                     eeg_net="GSN-HydroCel-185.csv",
-                    channels=[([0], [1])],
                 )
             ],
             # Exercises the dict[int, float] round trip: JSON always has string keys
@@ -164,7 +163,6 @@ def _sample_instances() -> dict[str, object]:
                 e4_plus=["P3"],
                 e4_minus=["P4"],
             ),
-            channels=[([0, 2], [1, 3])],
         ),
         "AnalyzerConfig": AnalyzerConfig(
             mode="group",

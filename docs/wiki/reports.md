@@ -4,28 +4,27 @@ title: TI-Toolbox Reports
 permalink: /wiki/reports/
 ---
 
-The TI-Toolbox generates comprehensive HTML reports that provide detailed documentation of preprocessing and simulation workflows. These professional reports ensure reproducibility, facilitate quality control, and provide publication-ready methodology descriptions.
+The TI-Toolbox generates HTML reports that provide detailed documentation of preprocessing and simulation workflows. These professional reports ensure reproducibility, facilitate quality control, and provide publication-ready methodology descriptions.
 
 ## Overview
 
 The toolbox produces three types of reports:
+
 - **Preprocessing Reports**: Document anatomical data processing pipeline for each subject
 - **Simulation Reports**: Detail transcranial stimulation simulation parameters and results
 - **Flex-Search Reports**: Summarise an electrode-position optimization run (goal, ROI, best montage, convergence)
 
-Common properties:
-- **Interactive Format**: HTML reports with collapsible sections and modern styling
-- **Publication Ready**: Include boilerplate methodology text for scientific papers
-
 ## Report Features
 
 ### Professional Documentation
+
 - **Interactive HTML Interface**: Modern, responsive design with collapsible sections
 - **Comprehensive Tracking**: Complete workflow documentation from input to output
 - **Error Management**: Detailed error and warning logs with timestamps
 - **Software Versioning**: Complete tool version tracking for reproducibility
 
 ### Quality Control
+
 - **Status Indicators**: Visual confirmation of processing step completion
 - **File Validation**: Automatic counting and listing of input/output files
 - **Parameter Documentation**: Complete record of processing parameters
@@ -41,87 +40,12 @@ Below is a complete simulation report generated with TI-Toolbox v2.4.0 for `sub-
         style="border: 1px solid #ddd; border-radius: 8px;">
 </iframe>
 
-*Sections: Simulation Overview, Electrode Montages (with the montage visualizer image), Field Visualizations (Nilearn), Errors and Warnings, Methods, References, Machine-Readable Provenance*
-
-## Preprocessing Reports
-
-### Report Structure
-
-| Section | Content | Purpose |
-|---------|---------|---------|
-| **Header** | Subject ID, timestamp, project directory | Quick identification |
-| **Summary** | Processing status, file counts, error/warning counts | Overview dashboard |
-| **Input Data** | T1/T2 images, DICOM files with counts | Data validation |
-| **Processing Steps** | DICOM conversion, m2m creation, atlas segmentation | Workflow tracking |
-| **Output Data** | NIfTI files, m2m files, atlas files | Result verification |
-| **Software Info** | SimNIBS, dcm2niix, tool versions | Reproducibility |
-| **Methods** | Publication-ready methodology text | Scientific documentation |
-| **Errors/Warnings** | Timestamped messages | Quality control |
-
-### Key Information Tracked
-
-**Subject Information:**
-- Subject ID and BIDS compliance
-- Project directory structure
-- Input data inventory (T1, T2, DICOM files)
-
-**Processing Pipeline:**
-- DICOM to NIfTI conversion status
-- SimNIBS m2m head model creation
-- Atlas segmentation and registration
-- Parameter documentation for each step
-
-**Quality Assurance:**
-- File count verification
-- Processing step completion status
-- Error and warning documentation
-- Software version tracking
-
-## Simulation Reports
-
-### Report Structure
-
-| Section | Content | Purpose |
-|---------|---------|---------|
-| **Header** | Session ID, timestamp, project info | Session identification |
-| **Simulation Overview** | Summary cards, subjects, parameters, results, software versions, config/log paths | Single consolidated audit summary |
-| **Montages** | Electrode pairs, montage types, configurations | Stimulation protocols |
-| **Visualizations** | Brain renders, NIfTI previews | Visual verification |
-| **Methods** | Concise publication methodology paragraphs | Scientific documentation |
-| **References** | DOI/URL-linked citations | Citation support |
-| **Machine-Readable Provenance** | Embedded JSON at the end of the HTML report | Automated audit/regeneration metadata |
-
-### Key Information Tracked
-
-**Simulation Configuration:**
-- Authoritative montage and electrode metadata rehydrated from saved simulation provenance
-- Conductivity settings and tissue properties, including scalar versus anisotropic (`vn`, `dir`, `mc`) models
-- Simulation mode (standard two-pair TI or multipolar mTI)
-- EEG net, mapped/free XYZ, or freehand coordinate provenance
-- Current intensities and stimulation parameters for every electrode pair
-- Visible warnings when runtime/GUI report metadata disagrees with saved simulation provenance
-
-**Hardware Specifications:**
-- Electrode shape and dimensions in mm
-- Conductive gel and rubber layer thicknesses
-- Montage configurations and electrode pairs as saved by the simulation run
-- Stimulation protocols and current flow patterns
-
-**Results Documentation:**
-- Processing duration and computational metrics when recorded
-- Output file generation and validation, including TI/mTI meshes and NIfTI/MNI exports when available
-- Visual confirmation through brain renderings when optional images are available
-- Explicit unavailable notes for missing montage PNGs or optional nilearn/MNI field visualizations
-- Error tracking and quality assurance
-
-**Methods and Citations:**
-- Concise provenance-backed methods paragraphs that summarize TI versus mTI, pair labels/currents, electrode modeling, conductivity mode, SimNIBS/CHARM FEM provenance, and generated field outputs
-- Core linked references for the TI-Toolbox Brain Stimulation paper (Haber 2026), TI theory, SimNIBS FEM/head modeling, CHARM segmentation, electrode modeling, EEG positions, BIDS, and optional Nilearn visualizations
-- Machine-readable provenance JSON embedded as the final report section rather than written as a sidecar file
+_Sections: Simulation Overview, Electrode Montages (with the montage visualizer image), Field Visualizations (Nilearn), Errors and Warnings, Methods, References, Machine-Readable Provenance_
 
 ## Report Locations
 
 ### File Organization
+
 ```
 derivatives/ti-toolbox/reports/
 ├── dataset_description.json
@@ -140,6 +64,7 @@ derivatives/SimNIBS/sub-{ID}/Simulations/{montage}/documentation/config.json
 ```
 
 ### Naming Convention
+
 - **Preprocessing**: `pre_processing_report_{YYYYMMDD}_{HHMMSS}.html`
 - **Simulation**: `simulation_report_{YYYYMMDD}_{HHMMSS}.html`
 - **Flex-Search**: `flex_search_report_{YYYYMMDD}_{HHMMSS}.html`
@@ -148,33 +73,21 @@ derivatives/SimNIBS/sub-{ID}/Simulations/{montage}/documentation/config.json
 ## Viewing and Sharing
 
 ### Browser Compatibility
+
 - **Modern Browsers**: Chrome, Firefox, Safari, Edge
 - **Responsive Design**: Adapts to different screen sizes
 - **No Dependencies**: Self-contained HTML files
 
 ### Sharing Reports
+
 - **Self-Contained**: All styling and scripts embedded
 - **Portable**: Can be shared via email or cloud storage
 - **Archive Safe**: HTML format ensures long-term accessibility
 
-### Fast Preview Reports for Development
-
-To inspect report layout without running SimNIBS or flex-search, generate deterministic synthetic previews:
-
-```bash
-TI_TOOLBOX_WRITE_REPORT_PREVIEWS=1 python3 -m pytest tests/test_report_previews.py -q -s
-```
-
-The tests write self-contained HTML files to `.cache/report-previews/`:
-
-- `simulation_report_ernie_preview.html`
-- `flex_search_report_ernie_preview.html`
-
-These previews use synthetic ernie/BU_eg2 provenance and synthetic flex-search results, so they are fast and do not require simulation outputs.
-
 ## Publication Integration
 
 ### Methodology Text
+
 Both report types include publication-ready methodology sections that can be directly incorporated into scientific papers. Simulation reports keep this information inside the HTML report:
 
 - **Concise Methods Text**: Simulation pair labels/currents, electrode model, conductivity mode, SimNIBS/CHARM modeling, and generated outputs are summarized as readable paragraphs
@@ -188,12 +101,23 @@ Both report types include publication-ready methodology sections that can be dir
 
 A simulation report can be regenerated from an existing simulation directory as long as the montage's `documentation/config.json` is present. During generation, TI-Toolbox prefers saved simulation provenance over stale GUI/runtime state. If the runtime state disagrees (for example, it only contains a placeholder `E1-E2` pair while the saved provenance contains `AF3-AF4` and `C5-C6`), the report displays a warning and renders the provenance-backed pairs.
 
-### Quality Assurance
-- **Peer Review Ready**: Comprehensive documentation supports manuscript review
-- **Reproducibility**: Complete parameter and version tracking
-- **Transparency**: Open documentation of all processing steps
+Name the subject and the montage and let the saved provenance supply the rest:
+
+```python
+from tit.reporting import SimulationReportGenerator
+
+gen = SimulationReportGenerator(
+    project_dir="/mnt/my_project",
+    subject_id="001",
+    simulation_session_id="regen_BU_eg2",
+)
+gen.add_montage("BU_eg2", [], montage_type="TI")
+print(gen.generate())  # -> derivatives/ti-toolbox/reports/sub-001/simulation_report_<timestamp>.html
+```
+
+Passing empty electrode pairs leaves nothing to disagree with, so the report is rendered straight from `documentation/config.json` with no warning. Run it with `simnibs_python` inside the container.
 
 ---
 
-*Last Updated: August 2026*
-*Compatible with: TI-Toolbox v2.4.0, Modern Web Browsers*
+_Last Updated: August 2026_
+_Compatible with: TI-Toolbox v2.4.0, Modern Web Browsers_

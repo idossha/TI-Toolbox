@@ -81,13 +81,35 @@ def select_field_file(
 
     pm = get_path_manager()
     sim_dir = Path(pm.simulation(subject_id, simulation))
-    is_mti = (sim_dir / "mTI" / "mesh").is_dir()
+    is_mti = is_mti_simulation(subject_id, simulation)
 
     if space == "mesh":
         return _select_mesh(sim_dir, simulation, is_mti, field)
     if space == "voxel":
         return _select_voxel(sim_dir, is_mti, tissue_type, field)
     raise ValueError(f"Unsupported space: {space!r} (expected 'mesh' or 'voxel')")
+
+
+def is_mti_simulation(subject_id: str, simulation: str) -> bool:
+    """Whether *simulation* is an mTI (multipolar) run.
+
+    The only signal is whether the simulation wrote an ``mTI/mesh/``
+    directory; there is no flag stored anywhere else.
+
+    Parameters
+    ----------
+    subject_id : str
+        Subject identifier (without ``sub-`` prefix).
+    simulation : str
+        Simulation (montage) folder name.
+
+    Returns
+    -------
+    bool
+        ``True`` for an mTI simulation, ``False`` for 2-pair TI.
+    """
+    sim_dir = Path(get_path_manager().simulation(subject_id, simulation))
+    return (sim_dir / "mTI" / "mesh").is_dir()
 
 
 # ---------------------------------------------------------------------------
@@ -119,14 +141,18 @@ def _select_mesh(
     )
     field_name = _canonical_field_name(field_name, is_mti)
 
-    # TI_normal lives in a separate mesh (written by _calculate_ti_normal),
-    # not the main TI/mTI output mesh.
+    # TI_normal lives in a separate mesh (written by _calculate_ti_normal /
+    # _calculate_mti_normal), not the main TI/mTI output mesh.
     if field_name == const.FIELD_TI_NORMAL:
-        normal_path = sim_dir / "TI" / "mesh" / f"{simulation}_normal.msh"
+        if is_mti:
+            normal_path = sim_dir / "mTI" / "mesh" / f"{simulation}_mTI_normal.msh"
+        else:
+            normal_path = sim_dir / "TI" / "mesh" / f"{simulation}_normal.msh"
         if not normal_path.exists():
             raise FileNotFoundError(
-                f"TI_normal mesh not found: {normal_path}. TI_normal is only "
-                "computed for standard 2-pair TI simulations."
+                f"TI_normal mesh not found: {normal_path}. This simulation "
+                "predates TI_normal support for its mode; re-run it to get "
+                "the normal-component mesh."
             )
         logger.debug("Selected mesh field file: %s (field=%s)", normal_path, field_name)
         return normal_path, field_name

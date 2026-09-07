@@ -52,6 +52,50 @@ permalink: /gallery/blender/
   </div>
 </div>
 
+<div class="gallery-section">
+  <h3>Mesh Exports</h3>
+  <div class="gallery-grid">
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/blender/visual_exporter_ply_sample.png" alt="PLY export sample" onclick="openLightbox(this)" />
+      <p>PLY mesh export from the 3D Visual Exporter, carrying per-vertex colour attributes.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/blender/visual_exporter_stl_sample.png" alt="STL export sample" onclick="openLightbox(this)" />
+      <p>STL mesh export, geometry only, for tools that do not read vertex colours.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/blender/visual_exporter_electrodes_subcortical.png" alt="Electrodes with sub-cortical structures" onclick="openLightbox(this)" />
+      <p>Electrode placement rendered together with sub-cortical structures for anatomical context.</p>
+    </div>
+  </div>
+</div>
+
+<div class="gallery-section">
+  <h3>Importing an Export into Blender</h3>
+  <div class="gallery-grid">
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/blender/visual_exporter_blender_1.png" alt="Import PLY file" onclick="openLightbox(this)" />
+      <p>Step 1 &mdash; import the exported PLY; the mesh appears in the viewport and may need rescaling.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/blender/visual_exporter_blender_2.png" alt="Material Preview mode" onclick="openLightbox(this)" />
+      <p>Step 2 &mdash; switch to Material Preview to see materials under basic lighting.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/blender/visual_exporter_blender_3.png" alt="Adding a material" onclick="openLightbox(this)" />
+      <p>Step 3 &mdash; add a material, which is assigned to the selected object automatically.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/blender/visual_exporter_blender_4.png" alt="Setting the colour attribute" onclick="openLightbox(this)" />
+      <p>Step 4 &mdash; add an Attribute node pointing at the exported colour attribute.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/blender/visual_exporter_blender_5.png" alt="Connected shader" onclick="openLightbox(this)" />
+      <p>Step 5 &mdash; connect the Attribute node into the shader so the exported colours render.</p>
+    </div>
+  </div>
+</div>
+
 <!-- Lightbox Modal -->
 <div id="lightbox" class="lightbox" onclick="closeLightbox()">
   <span class="close" onclick="closeLightbox()">&times;</span>

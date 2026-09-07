@@ -5,8 +5,8 @@ message: "If you use this software, please cite both the software and the associ
 
 type: software
 
-version: 2.4.0
-date-released: "2026-07-20"
+version: 2.5.0
+date-released: "2026-08-27"
 url: "https://github.com/idossha/TI-Toolbox"
 repository-code: "https://github.com/idossha/TI-Toolbox"
 license: GPL-3.0

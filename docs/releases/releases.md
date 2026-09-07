@@ -4,121 +4,64 @@ title: Latest Release
 permalink: /releases/
 ---
 
-### v2.4.0 (Latest Release)
+### v2.5.0 (Latest Release)
 
-**Release Date**: July 20, 2026
+**Release Date**: August 31, 2026
 
 #### Additions
 
-- **Combine multiple ROIs in optimization** — flex-search and exhaustive-search can now target the union of several same-type regions (cortical by name including cross-hemisphere, subcortical by label, or multiple spheres) through a searchable region picker with region chips.
-- **TI safety metrics (Cassarà et al. 2025)** — peak carrier field and SAR-driver maps are now written as subject- and MNI-space NIfTI volumes alongside TI_max.
-- **Surface-based group statistics** — run group comparisons and correlations directly on the fsaverage cortical surface with cluster-based permutation testing and inflated-cortex rendering; TI fields now auto-project to fsaverage after each simulation.
-- **CT and NIfTI ingestion** — preprocessing can now import head CT scans and pre-converted NIfTI files (T1w/T2w/CT/DWI), not only DICOMs.
-- **3D Visualizer subcortical field export** — export subcortical structures colored by a simulation field (PLY) using a searchable label picker.
-- **Simulator skip/replace policy** — choose to skip or overwrite existing simulation outputs instead of aborting with an error.
-- **Montage visualizer clarity** — connection arcs now show which channels interfere (TI partners), with a channel color legend.
-- **Faster simulations** — mesh-to-NIfTI conversion is parallelized, cutting end-to-end simulation time by roughly 30%.
+- `TI_normal` for mTI — multipolar simulations now write the normal-component envelope (`{montage}_mTI_normal.msh`) by default, computed by evaluating the multi-carrier envelope along the cortical surface normal; the analyzer's `normal_*` ROI statistics populate for mTI exactly as for standard TI.
+- fsaverage projection for mTI — `map_to_fsavg` no longer skips multipolar runs: the modulation depth is read from the mTI central surface and `hf_peak`/`hf_sar` are derived from all N channel volume meshes.
+- Multipolar exhaustive search (mex-search) — a multipolar counterpart to ex-search (`tit/opt/mex`), with a TI/mTI toggle, symmetric (bilateral) buckets, atlas-region and MNI-space ROI targeting, and a shared searchable ROI picker across ex-search and mTI.
+- Threshold-free focality goal for flex-search — a new opt-in focality objective plus an opt-in current-ratio search, replacing threshold-dependent focality scoring.
+- Selectable output fields — the simulator now writes only the fields you choose (TI_max by default) instead of a fixed set, with field definitions documented in the help popup.
+- Custom subject masks as ROI targets — label volumes placed under `m2m_<id>/masks/` are auto-discovered and offered as subcortical ROI targets in flex/ex/mex-search and the analyzer.
+- Unified TI/mTI field metrics — carrier grouping, hf_peak sign handling, and the TI/mTI metric surface were corrected and unified across calc, sim and the analyzer, closing several description/code mismatches; a literature-grounded field-metrics note documents the math.
+- DWI preflight validation — gradient tables and sidecars are validated and QSIPrep node crashfiles are logged before/at container failure, catching bad DWI conversions early.
+- Interactive atlas browser and multipolar TI documentation pages on the docs site, including subject-space atlas assets and a redesigned full-width docs theme with per-page subnav and KaTeX equation rendering.
+- Claude Code / AI-assistant plugin (`agent-plugin/`) — an MCP server and marketplace listing so AI coding assistants understand the TI-Toolbox codebase, plus a maintainer-verified Troubleshooting Archive.
+- Faster ex/mex-search — unit-current channel fields are now computed once per montage and reused across current splits, the TI/mTI envelope is evaluated on ROI∪GM only (not the whole head), and candidates run on a forked worker pool (`n_jobs`). Ex-search: 0.39 s → 0.05 s per evaluation (~8×; a 4,375-evaluation bucket search dropped from 28 min to 3 min). Mex-search: 58 s → ~1.4–2 s per candidate (~30–40×) via a fused numba kernel for the K≥2 mTI direction search.
+- Ex/mex-search electrode-map visuals — every ex/mex-search run now writes an electrode participation heatmap and montage strength/focality maps, ported from work by [Larissa Albantakis](https://github.com/Albantakis) on her [ex-search-multipolar branch](https://github.com/Albantakis/TI-Toolbox/tree/ex-search-multipolar).
+- Zenodo DOIs added for the archived software release.
+
+#### Changes
+
+- **Breaking:** `tit.calc` consolidated to exactly three envelope functions — `get_TI_vectors(fields, psi=None)` (K ≥ 1 carriers; the K = 1 exact closed form is applied internally), `get_TI_avg(fields, psi=None)`, and `get_TI_dir(fields, directions, psi=None)`. Scripts calling `get_TI_vectors(E1, E2)` positionally must switch to `get_TI_vectors([E1, E2])`; `get_mTI_vectors` is now `get_TI_vectors`, `get_mTI_dir` is `get_TI_dir`, and the deprecated `get_nTI_vectors` shim and the unused `get_magnitude_am` were removed, as was the legacy `channels=` carrier-regrouping parameter.
+- Carrier wiring removed — mTI is always positional (each two consecutive electrodes compose a channel, each two consecutive channels compose a carrier): the mex-search "Carrier Wiring" combo, `MTI_CHANNEL_ARCHITECTURES`, and the `channels` JSON config keys are gone (old configs with the key are ignored).
+- Documentation vocabulary unified across the simulator, analyzer and ex-search pages: **electrodes → channels (2 electrodes each) → carriers (shared by 2 channels)**; TI = 4 electrodes / 2 channels / 1 carrier, mTI = 8 electrodes / 4 channels / 2 carriers.
 
 #### Fixes
 
-- **DICOM import crash** — fixed a crash on projects seeded with macOS junk (AppleDouble) files.
-- **QSIPrep preprocessing failures** — the root BIDS dataset description is now always created, and a missing T1w is reported up front instead of failing deep in the workflow.
-- **3D exporter file loss** — fixed the exporter deleting cortical region files after export.
-- **FreeSurfer data volume versioning** — the volume is now versioned by image tag so image updates correctly re-seed it.
+- Analyzer sim-list bug fix, plus analyzer/ex-search layout cleanups (paired Tissue/Space and Field/Type controls, either/or ROI selection, dead vertical space removed).
+- Ex-search now rejects empty ROI configs, tolerates header rows in MNI ROI CSVs, and fails cleanly on zero candidates instead of silently returning nothing.
+- Flex-search summary.txt no longer prints a raw Python function repr on the Goal line.
+- QSIPrep/QSIRecon fixes — the root BIDS dataset description is always created, a missing T1w is reported up front, QSIRecon's log directory is no longer mistaken for existing output, and a converted DWI arriving without its gradient table now warns instead of failing silently.
+- DICOM import — a converted DWI missing its gradient table is now caught and reported.
+- Atlas resampling in the analyzer — atlases and tissue masks are now matched to the field on shape **and** affine and resampled nearest-neighbour, replacing a shape-only check and an interpolating `mri_convert` call that also required FreeSurfer binaries absent from the simulation container. See the note below.
+- Docs — corrected stale ROI, tissue, atlas, CLI and testing-pipeline claims across the wiki, scripting, ex-search and analyzer pages; fixed release download links and a blank atlas viewer for cached scripts.
+- Dev loader — `loader_dev.sh` rewritten as a working Python-free bash loader after regressions.
+
+#### Note: atlas resampling in the analyzer
+
+The analyzer's grid check compared shape only, so an atlas with matching dimensions but a different affine could pass through untouched and produce statistics for the wrong tissue, silently. Resampling also used `mri_convert --reslice_like`, whose default trilinear interpolation blends discrete region ids into ids that belong to no region. The check now compares the affine too, resampling is nearest-neighbour, and neither step needs FreeSurfer binaries that the simulation container does not ship.
+
+<a href="{{ site.baseurl }}/assets/imgs/atlas-resampling/atlas_resample_v250_old_vs_new.png">
+  <img src="{{ site.baseurl }}/assets/imgs/atlas-resampling/atlas_resample_v250_old_vs_new.png" alt="Old versus new atlas resampling in v2.5.0" style="width: 100%; max-width: 950px;">
+</a>
+
+**This is a robustness fix, not a result-changing one.** Interpolation order only matters when the atlas and field lattices do not coincide, which for the 1 mm FreeSurfer parcellations, the thalamic nuclei and every MNI atlas they do — old and new are bit-identical there. The one exception is the 0.333 mm hippocampal and amygdala subfields, shown above: even in that worst case the reported **field changes by ~0.5%** (mean −0.6%, max −1.2%) while the ROI *volume* changes by −42%, because trilinear erodes the region's boundary. Field statistics from earlier versions stand; ROI voxel counts and volumes from a hippocampal or amygdala subfield ROI are worth regenerating. Details on the [Brain Atlases]({{ site.baseurl }}/wiki/atlases/#atlas-resampling) page.
 
 #### Download Links
 
 **Desktop App (latest):**
-[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.4.0.dmg) ·
-[macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.4.0-arm64.dmg) ·
-[Windows](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox.Setup.2.4.0.exe) ·
-[Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.4.0.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-Toolbox/releases/latest/download/ti-toolbox_2.4.0_amd64.deb)
+[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.5.0.dmg) ·
+[macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.5.0-arm64.dmg) ·
+[Windows](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox.Setup.2.5.0.exe) ·
+[Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.5.0.AppImage) ·
+[Linux deb](https://github.com/idossha/TI-Toolbox/releases/latest/download/ti-toolbox_2.5.0_amd64.deb)
 
 **Other:**
-- Docker Image: `docker pull idossha/simnibs:v2.4.0`
-- Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
-
-For installation instructions, see the [Installation Guide]({{ site.baseurl }}/installation/).
-### v2.3.2
-
-**Release Date**: June 11, 2026
-
-#### Additions
-
-- New Source tool (extension): build MNE EEG forward solutions and project TI fields onto the fsaverage template.
-- Preprocessing now automatically converts DWI DICOMs to BIDS NIfTI alongside T1w/T2w.
-
-#### Fixes
-
-- FreeSurfer recon-all no longer falsely reports its output as already existing on a fresh project.
-
-#### Download Links
-
-**Desktop App (v2.3.2):**
-[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.2/TI-Toolbox-2.3.2.dmg) ·
-[macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.2/TI-Toolbox-2.3.2-arm64.dmg) ·
-[Windows](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.2/TI-Toolbox.Setup.2.3.2.exe) ·
-[Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.2/TI-Toolbox-2.3.2.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.2/ti-toolbox_2.3.2_amd64.deb)
-
-**Other:**
-- Docker Image: `docker pull idossha/simnibs:v2.3.2`
-- Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
-
-For installation instructions, see the [Installation Guide]({{ site.baseurl }}/installation/).
-### v2.3.1
-
-**Release Date**: May 8, 2026
-
-#### Fixes & Maintenance
-
-##### Flex-search and Simulation Workflow
-
-- **Flex-search simulation identity and UI naming** — simulator-generated flex-search runs now keep a unique storage key while showing compact, readable run labels and hover metadata in the GUI, following the run-id/run-name split used by tools such as [MLflow](https://mlflow.org/docs/latest/api_reference/python_api/mlflow.html).
-- **Flex-search valid skin region controls** — flex-search now exposes `skin_region_margin_mm`, optional landmark guarding, GUI controls, and report imagery so users can inspect and tune the valid scalp placement region used by optimization.
-
-##### Reports and Visualization
-
-- **Report and visualization follow-ups** — simulation reports use clearer missing-visualization states and simulations continue when optional montage visualization cannot be generated.
-- **Analyzer discovery improvements** — Analyzer refreshes simulation lists when shown and after simulation completion, with clearer messages when TI/mTI post-processing outputs are missing.
-
-##### NIfTI Viewer
-
-- **Electrode NIfTI overlays** — the NIfTI Viewer can create and auto-load a single label-mask overlay showing saved electrode placements from `documentation/config.json`. Labels are channel-based, use the same color order as montage PNGs, and are saved next to montage images under `TI/montage_imgs/` or `mTI/montage_imgs/` depending on simulation mode.
-
-##### GUI Reliability
-
-- **GUI lifecycle reliability** — preprocessing, simulation, flex-search, ex-search, Analyzer, and NIfTI Viewer tabs now refresh dependent outputs more consistently and avoid reporting success after failed subprocesses.
-
-##### Preprocessing and QSI
-
-- **DICOM preprocessing hardening** — DICOM discovery now searches nested `.dcm`/`.dicom` files and supports basic compressed inputs (`.zip`, `.tar`, `.tar.gz`, `.tgz`) in the documented `sourcedata/sub-{id}/{T1w,T2w}/dicom/` layout.
-- **Preprocessing existing-output handling** — the GUI now detects existing outputs before rerunning DICOM conversion, CHARM, FreeSurfer `recon-all`, QSIPrep, QSIRecon, or DTI extraction. Users can cancel, skip existing outputs, or explicitly replace them and rerun. The same policy is available to scripts through `skip_existing_outputs` and `replace_existing_outputs`.
-- **QSI Docker preflight** — QSIPrep and QSIRecon now validate Docker/DooD setup early, before starting long-running container work.
-- **QSI containers updated** — QSIPrep and QSIRecon now target PennLINC `26.0.0`, with CLI compatibility handling for QSIPrep `concat` and QSIRecon `--input-type qsiprep`.
-
-##### Telemetry and Release Operations
-
-- **Telemetry error grouping** — operation telemetry now emits a per-run `run_id` plus a stable, path-sanitized `error_fingerprint`, making recurring failures easier to group without sending tracebacks or local paths.
-- **Telemetry-driven preflight checks** — common user/environment problems are validated before telemetry-tracked work starts for simulation, flex-search, and empty preprocessing subject selections, reducing noisy error reports while preserving real exceptions.
-- **Telemetry consent persistence** — GUI telemetry consent is stored in the user-level config mount and should no longer reappear every launch once answered.
-- **Launcher telemetry normalization** — host OS and architecture values are canonicalized across the Electron launcher and `loader.py`, keeping telemetry slices consistent across entrypoints.
-- **Community link** — README and release help links now point to the active TI-Toolbox Discord server.
-- **Release-gate tests** — added Dockerfile.test-based integration checks plus a self-contained comprehensive release-gate entry point using only test-environment fixtures.
-
-#### Download Links
-
-**Desktop App (v2.3.1):**
-[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.1/TI-Toolbox-2.3.1.dmg) ·
-[macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.1/TI-Toolbox-2.3.1-arm64.dmg) ·
-[Windows](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.1/TI-Toolbox.Setup.2.3.1.exe) ·
-[Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.1/TI-Toolbox-2.3.1.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v2.3.1/ti-toolbox_2.3.1_amd64.deb)
-
-**Other:**
-
-- Docker Image: `docker pull idossha/simnibs:v2.3.1`
+- Docker Image: `docker pull idossha/simnibs:latest`
 - Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
 
 For installation instructions, see the [Installation Guide]({{ site.baseurl }}/installation/).
@@ -127,7 +70,7 @@ For installation instructions, see the [Installation Guide]({{ site.baseurl }}/i
 
 ## Getting Help
 
-If you encounter issues with any release:
+If you encounter issues with this release:
 
 1. Check the [Installation Guide]({{ site.baseurl }}/installation/) for setup instructions
 2. Review the [Troubleshooting Archive]({{ site.baseurl }}/wiki/troubleshooting/) section

@@ -3,7 +3,7 @@
 Covers candidate generation (logic.py), the electrode mirror map and
 generalized bucket loader (ex/buckets.py), MExConfig round trips through
 config_io, the engine's ROI metric computation, and the carrier-grouping
-(``channels``) behavior that replaces the rejected recursive mTI dispatch.
+behavior that replaces the rejected recursive mTI dispatch.
 """
 
 import csv
@@ -355,7 +355,6 @@ class TestMExConfigValidation:
         )
         assert config.roi_name == "target.csv"
         assert config.current_mA == 2.0
-        assert config.channels is None
         assert config.symmetric_bucket is False
 
     def test_rejects_non_positive_current(self):
@@ -416,7 +415,6 @@ class TestMExConfigConfigIO:
                 e4_minus=["H"],
             ),
             current_mA=1.5,
-            channels=[([0, 2], [1, 3])],
         )
         path = write_config_json(config, prefix="mex_test")
         try:
@@ -425,11 +423,10 @@ class TestMExConfigConfigIO:
             assert data["electrodes"]["e3_minus"] == ["F"]
             assert data["roi_name"] == "target.csv"
             assert data["current_mA"] == 1.5
-            assert data["channels"] == [[[0, 2], [1, 3]]]
         finally:
             os.unlink(path)
 
-    def test_pool_electrodes_and_channels_survive_main_rebuild(self):
+    def test_pool_electrodes_survive_main_rebuild(self):
         from tit.config_io import deserialize_config, serialize_config
         from tit.opt.config import MExConfig
 
@@ -440,32 +437,16 @@ class TestMExConfigConfigIO:
             electrodes=MExConfig.PoolElectrodes(
                 electrodes=[f"E{i}" for i in range(1, 9)]
             ),
-            channels=[([0, 2], [1, 3])],
         )
         data = json.loads(json.dumps(serialize_config(config)))
         data.pop("project_dir", None)
 
-        # tit.opt.mex.__main__ now rebuilds the whole config via
-        # deserialize_config rather than hand-rolling electrodes/channels.
+        # tit.opt.mex.__main__ rebuilds the whole config through
+        # tit.config_io.deserialize_config rather than hand-rolling electrodes.
         rebuilt = deserialize_config(MExConfig, data)
 
         assert isinstance(rebuilt.electrodes, MExConfig.PoolElectrodes)
         assert rebuilt.electrodes.electrodes == [f"E{i}" for i in range(1, 9)]
-        assert rebuilt.channels == [([0, 2], [1, 3])]
-
-    def test_absent_channels_rebuild_to_none(self):
-        from tit.config_io import deserialize_config, serialize_config
-        from tit.opt.config import MExConfig
-
-        config = MExConfig(
-            subject_id="001",
-            leadfield_hdf="lf.hdf5",
-            roi_name="target",
-            electrodes=MExConfig.PoolElectrodes(electrodes=["E1"] * 8),
-        )
-        data = json.loads(json.dumps(serialize_config(config)))
-        data.pop("project_dir", None)
-        assert deserialize_config(MExConfig, data).channels is None
 
 
 # ---------------------------------------------------------------------------
@@ -545,26 +526,12 @@ class TestSaveRunConfigPolymorphism:
 
 
 # ---------------------------------------------------------------------------
-# tit.calc.get_mTI_vectors -- channels grouping changes the field (critical
-# correctness requirement: no recursive-envelope dispatch was reintroduced)
+# No recursive-envelope dispatch was reintroduced (critical correctness)
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
-class TestChannelsGroupingAffectsField:
-    def test_shared_carrier_channels_differ_from_independent_pairs(self):
-        from tit.calc import get_mTI_vectors
-
-        rng = np.random.default_rng(0)
-        fields = [rng.normal(size=(20, 3)) for _ in range(4)]
-
-        independent = get_mTI_vectors(fields, channels=None)
-        shared_carrier = get_mTI_vectors(fields, channels=[([0, 2], [1, 3])])
-
-        assert independent.shape == (20, 3)
-        assert shared_carrier.shape == (20, 3)
-        assert not np.allclose(independent, shared_carrier)
-
+class TestNoRecursiveDispatch:
     def test_no_recursive_mti_dispatch_reintroduced(self):
         """MExSearchEngine must not depend on compute_mti_metric_field/MTIMetric."""
         import tit.calc as calc_mod
@@ -582,7 +549,7 @@ class TestChannelsGroupingAffectsField:
 # ---------------------------------------------------------------------------
 
 
-def _make_mex_engine(channels=None, logger=None):
+def _make_mex_engine(logger=None):
     if logger is None:
         logger = MagicMock()
     from tit.opt.mex.engine import MExSearchEngine
@@ -592,7 +559,6 @@ def _make_mex_engine(channels=None, logger=None):
         roi_file="/fake/roi.csv",
         roi_name="TestROI",
         logger=logger,
-        channels=channels,
     )
 
 
@@ -608,45 +574,9 @@ def _setup_engine_fields(engine):
 
 @pytest.mark.unit
 class TestMExSearchEngineInit:
-    def test_run_forwards_channels_to_pool_enumeration(self, tmp_path):
-        from tit.opt.mex.engine import MExSearchEngine
-
-        channels = [([0, 2], [1, 3])]
-        engine = MExSearchEngine.__new__(MExSearchEngine)
-        engine.channels = channels
-        engine.logger = MagicMock()
-        engine.roi_name = "roi"
-        engine.compute_mti_field = MagicMock(
-            return_value={
-                "roi_TImax_ROI": 0.0,
-                "roi_TImean_ROI": 0.0,
-                "roi_Focality": 0.0,
-            }
-        )
-        engine._log_progress_estimate = MagicMock()
-        pool = [f"E{i}" for i in range(8)]
-        with (
-            patch("tit.opt.mex.engine.signal"),
-            patch(
-                "tit.opt.mex.engine.count_multipolar_combinations", return_value=1
-            ) as mock_count,
-            patch(
-                "tit.opt.mex.engine.generate_multipolar_combinations",
-                return_value=iter([tuple(pool)]),
-            ) as mock_gen,
-        ):
-            engine.run(pool, True, str(tmp_path), current_mA=1.0)
-        assert mock_count.call_args.kwargs["channels"] == channels
-        assert mock_gen.call_args.kwargs["channels"] == channels
-
-    def test_stores_channels(self):
-        engine = _make_mex_engine(channels=[([0, 2], [1, 3])])
-        assert engine.channels == [([0, 2], [1, 3])]
-        assert engine.roi_name == "TestROI"
-
-    def test_defaults_to_no_channels(self):
+    def test_init_stores_roi_name(self):
         engine = _make_mex_engine()
-        assert engine.channels is None
+        assert engine.roi_name == "TestROI"
 
 
 @pytest.mark.unit
@@ -654,7 +584,7 @@ class TestComputeMtiField:
     def test_computes_expected_roi_metric_keys(self):
         import tit.opt.mex.engine as engine_mod
 
-        engine = _make_mex_engine(channels=[([0, 2], [1, 3])])
+        engine = _make_mex_engine()
         _setup_engine_fields(engine)
 
         engine_mod.TI.get_field = MagicMock(
@@ -669,7 +599,7 @@ class TestComputeMtiField:
                 [0.25, 0.0, 0.0],
             ]
         )
-        engine_mod.get_mTI_vectors = MagicMock(return_value=metric_vectors)
+        engine_mod.get_TI_vectors = MagicMock(return_value=metric_vectors)
 
         electrodes = ("A1", "A2", "B1", "B2", "C1", "C2", "D1", "D2")
         result = engine.compute_mti_field(electrodes, current_mA=2.0)
@@ -701,9 +631,8 @@ class TestComputeMtiField:
             ["D1", "D2", 0.002], engine.leadfield, engine.idx_lf
         )
 
-        call = engine_mod.get_mTI_vectors.call_args
-        assert call.kwargs["channels"] == [([0, 2], [1, 3])]
-        assert len(call.args[0]) == 4
+        call = engine_mod.get_TI_vectors.call_args
+        assert len(call.args[0]) == 4  # four channel fields, paired positionally
 
     def test_zero_roi_elements_returns_zeros(self):
         import tit.opt.mex.engine as engine_mod
@@ -716,7 +645,7 @@ class TestComputeMtiField:
         engine_mod.TI.get_field = MagicMock(
             side_effect=[np.zeros((5, 3)) for _ in range(4)]
         )
-        engine_mod.get_mTI_vectors = MagicMock(return_value=np.zeros((5, 3)))
+        engine_mod.get_TI_vectors = MagicMock(return_value=np.zeros((5, 3)))
 
         electrodes = ("A1", "A2", "B1", "B2", "C1", "C2", "D1", "D2")
         result = engine.compute_mti_field(electrodes, current_mA=1.0)
@@ -940,3 +869,49 @@ class TestRunMExSearchAtlasAndMni:
             run_m_ex_search(_mex_pool_config())
 
         mock_transform.assert_not_called()
+
+
+class TestInferSymmetryEegCsv:
+    """Leadfields are named ``{subject}_leadfield_{net}.hdf5``."""
+
+    def test_net_name_is_taken_after_the_leadfield_marker(self, tmp_path, monkeypatch):
+        from tit.opt.ex import symmetry
+
+        eeg_dir = tmp_path / "eeg_positions"
+        eeg_dir.mkdir()
+        csv = eeg_dir / "EEG10-10_UI_Jurak_2007.csv"
+        csv.write_text("Electrode,0,0,0,Cz\n")
+        monkeypatch.setattr(symmetry, "canonical_template_coord_path", lambda name: None)
+
+        assert (
+            symmetry.infer_symmetry_eeg_csv(
+                "/lf/ernie_leadfield_EEG10-10_UI_Jurak_2007.hdf5", eeg_dir
+            )
+            == csv
+        )
+
+    def test_unknown_naming_returns_none(self, tmp_path, monkeypatch):
+        from tit.opt.ex import symmetry
+
+        monkeypatch.setattr(symmetry, "canonical_template_coord_path", lambda name: None)
+        assert symmetry.infer_symmetry_eeg_csv("/lf/weird.hdf5", tmp_path) is None
+
+    def test_explicit_symmetry_eeg_csv_wins(self, tmp_path):
+        from tit.opt.config import MExConfig
+        from tit.opt.ex.symmetry import resolve_eeg_positions_csv
+
+        csv = tmp_path / "custom.csv"
+        csv.write_text("Electrode,0,0,0,Cz\n")
+        cfg = MExConfig(
+            subject_id="ernie",
+            leadfield_hdf="/lf/ernie_leadfield_EEG10-10_UI_Jurak_2007.hdf5",
+            roi_name="roi.csv",
+            electrodes=MExConfig.PoolElectrodes(electrodes=[f"E{i}" for i in range(8)]),
+            symmetry_eeg_csv=str(csv),
+        )
+
+        class PM:
+            def eeg_positions(self, sid):
+                return str(tmp_path / "missing")
+
+        assert resolve_eeg_positions_csv(cfg, PM()) == csv

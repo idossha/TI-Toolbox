@@ -4,15 +4,13 @@ title: Electrode Mapping
 permalink: /wiki/electrode-mapping/
 ---
 
-# Electrode Mapping Tool
-
 ## Overview
 
 The `map_electrodes.py` tool maps optimized electrode positions to the nearest available positions in an EEG net using the Hungarian algorithm (linear sum assignment) for optimal matching.
 
 ## Usage
 
-`tit/tools/map_electrodes.py` is a library module (no command-line entry point). The Simulator tab calls it automatically when a flex-search result is simulated with the **Flex-Search** montage source and mapping to an EEG net is selected. The same four functions can be used from a script:
+The **Flex-Search** montage source and mapping to an EEG net is selected. The same four functions can be used from a script:
 
 ```python
 import os
@@ -41,7 +39,7 @@ log_mapping_summary(result)    # per-electrode distances, via the tit.tools logg
 ```json
 {
   "optimized_positions": [
-    [-85.61, -29.00, -8.56],
+    [-85.61, -29.0, -8.56],
     [72.81, -44.38, -16.95]
   ],
   "channel_array_indices": [
@@ -56,6 +54,7 @@ log_mapping_summary(result)    # per-electrode distances, via the tit.tools logg
 The tool supports multiple CSV formats commonly used in neuroimaging:
 
 **SimNIBS format:**
+
 ```csv
 Type,X,Y,Z,Name,Extra
 Electrode,-85.5,-28.9,-8.4,E1,
@@ -63,6 +62,7 @@ ReferenceElectrode,0.0,85.0,0.0,REF,
 ```
 
 **Simple format:**
+
 ```csv
 Label,X,Y,Z
 E1,-85.5,-28.9,-8.4
@@ -71,6 +71,7 @@ REF,0.0,85.0,0.0
 ```
 
 **Notes:**
+
 - The tool automatically detects the format based on the first column
 - Only `Electrode` and `ReferenceElectrode` types are included (Fiducials are ignored)
 - Empty lines and lines starting with `#` are skipped
@@ -82,7 +83,7 @@ The tool generates a JSON file with the following structure:
 ```json
 {
   "optimized_positions": [
-    [-85.61, -29.00, -8.56],
+    [-85.61, -29.0, -8.56],
     [72.81, -44.38, -16.95]
   ],
   "mapped_positions": [
@@ -91,7 +92,10 @@ The tool generates a JSON file with the following structure:
   ],
   "mapped_labels": ["E1", "E2"],
   "distances": [0.15, 0.12],
-  "channel_array_indices": [[0, 0], [0, 1]],
+  "channel_array_indices": [
+    [0, 0],
+    [0, 1]
+  ],
   "eeg_net": "EGI_template.csv"
 }
 ```
@@ -109,7 +113,9 @@ This module is called when a flex-search result is simulated with electrodes map
 
 ## EEG Net Density Impact on Optimization Performance
 
-<img src="{{ site.baseurl }}/assets/imgs/other/net_density_impact.png" alt="Network Density Impact on TImax" style="width: 80%; max-width: 600px;">
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/other/net_density_impact.png" alt="Network Density Impact on TImax" style="width: 80%; max-width: 600px;">
+</div>
 
 **Impact of EEG net density on TImax intensity**: This analysis demonstrates the progressive decline in achievable TImax intensity as electrode density decreases. Starting from fully optimized electrode positions (theoretical maximum), the study shows how mapping to standardized EEG nets progressively reduces field strength: fully optimized positions achieve maximum intensity, followed by 10:5 density (high coverage), 10:10 system (standard density), and finally 10:20 system showing the greatest reduction. This highlights the trade-off between practical electrode accessibility and theoretical optimization performance.
 

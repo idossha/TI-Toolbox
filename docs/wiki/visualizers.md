@@ -86,10 +86,12 @@ subject anatomy, and load it as one of the viewer's layers.
 ## File Formats and Locations
 
 ### Mesh Files (.msh)
+
 - **Location**: `derivatives/SimNIBS/sub-{ID}/Simulations/{sim_name}/Analyses/Mesh/{analysis_name}/`
 - **Content**: Tetrahedral mesh with embedded field data
 
 ### NIfTI Files (.nii/.nii.gz)
+
 - **Location**: `derivatives/SimNIBS/sub-{ID}/Simulations/{sim_name}/Analyses/Voxel/{analysis_name}/`
 - **Content**: Volumetric data in standard neuroimaging format
 

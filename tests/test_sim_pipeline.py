@@ -70,13 +70,12 @@ def _make_ti_montage(name="test_ti"):
     )
 
 
-def _make_mti_montage(name="test_mti", channels=None):
+def _make_mti_montage(name="test_mti"):
     return Montage(
         name=name,
         mode=Montage.Mode.NET,
         electrode_pairs=[("E1", "E2"), ("E3", "E4"), ("E5", "E6"), ("E7", "E8")],
         eeg_net="GSN-256.csv",
-        channels=channels,
     )
 
 
@@ -312,8 +311,8 @@ class TestMTISimulation:
             patch.object(_mti_mod, "safe_move"),
             patch.object(_mti_mod, "mesh_io") as mock_mesh_io,
             patch.object(_mti_mod, "TI"),
-            patch.object(_mti_mod, "get_mTI_vectors") as mock_get_mti,
             patch.object(_mti_mod, "get_TI_vectors") as mock_get_ti,
+            patch.object(_mti_mod, "get_TI_dir"),
             patch.object(_mti_mod, "glob"),
             patch.object(_mti_mod, "deepcopy") as mock_deepcopy,
         ):
@@ -347,8 +346,7 @@ class TestMTISimulation:
 
             import numpy as np
 
-            mock_get_mti.return_value = np.zeros((e_field_value.shape[0], 3))
-            mock_get_ti.return_value = np.zeros((10, 3))
+            mock_get_ti.return_value = np.zeros((e_field_value.shape[0], 3))
 
             config = _make_sim_config(
                 intensities=[1.0, 1.0, 1.0, 1.0],
@@ -375,9 +373,9 @@ class TestMTISimulation:
             )
             mock_run_simnibs.assert_called_once()
 
-            # D3: the true K-pair envelope replaces the deprecated
-            # recursive binary-tree get_nTI_vectors combination.
-            mock_get_mti.assert_called_once()
+            # D3: the final envelope is computed over all four channel
+            # fields at once, not a recursive TI-of-TI recombination.
+            assert len(mock_get_ti.call_args.args[0]) == 4
 
             # D2 regression guard: hf_peak/hf_sar safety metrics must be
             # written onto the mTI output mesh when selected.
@@ -392,10 +390,10 @@ class TestMTISimulation:
             # to mTI_max, must also be written when selected.
             assert const.FIELD_TI_AVG in written_field_names
 
-    def test_montage_channels_passed_to_get_mti_and_get_ti_avg(self):
-        """Montage.channels must round-trip through construction and reach
-        both tit.calc.get_mTI_vectors and tit.calc.get_TI_avg unchanged --
-        the pre-processing pass-through this feature depends on."""
+    def test_envelope_uses_positional_channel_pairing(self):
+        """get_TI_vectors/get_TI_avg are called with the channel fields
+        alone -- pairing is positional (each two consecutive channels share
+        a carrier); there is no per-montage carrier override."""
         with (
             patch.object(_base_mod, "get_path_manager") as mock_pm,
             patch.object(_base_mod, "setup_montage_directories") as mock_setup_dirs,
@@ -410,79 +408,9 @@ class TestMTISimulation:
             patch.object(_mti_mod, "safe_move"),
             patch.object(_mti_mod, "mesh_io") as mock_mesh_io,
             patch.object(_mti_mod, "TI"),
-            patch.object(_mti_mod, "get_mTI_vectors") as mock_get_mti,
-            patch.object(_mti_mod, "get_TI_avg") as mock_get_avg,
             patch.object(_mti_mod, "get_TI_vectors") as mock_get_ti,
-            patch.object(_mti_mod, "glob"),
-            patch.object(_mti_mod, "deepcopy") as mock_deepcopy,
-        ):
-            mock_pm.return_value.m2m.return_value = "/fake/m2m"
-            mock_pm.return_value.simulation.return_value = "/fake/sim/test_mti_ch"
-            mock_pm.return_value.eeg_positions.return_value = "/fake/eeg"
-            e_field_value = _mock_mesh_efields(mock_mesh_io)
-            mock_deepcopy.side_effect = lambda obj: obj
-
-            mock_setup_dirs.return_value = {
-                "montage_dir": "/fake/sim/test_mti_ch",
-                "hf_dir": "/fake/sim/test_mti_ch/high_Frequency",
-                "hf_mesh": "/fake/sim/test_mti_ch/high_Frequency/mesh",
-                "hf_niftis": "/fake/sim/test_mti_ch/high_Frequency/niftis",
-                "hf_analysis": "/fake/sim/test_mti_ch/high_Frequency/analysis",
-                "ti_mesh": "/fake/sim/test_mti_ch/TI/mesh",
-                "ti_niftis": "/fake/sim/test_mti_ch/TI/niftis",
-                "ti_surfaces": "/fake/sim/test_mti_ch/TI/mesh/surfaces",
-                "ti_surface_overlays": "/fake/sim/test_mti_ch/TI/surface_overlays",
-                "ti_montage_imgs": "/fake/sim/test_mti_ch/TI/montage_imgs",
-                "mti_mesh": "/fake/sim/test_mti_ch/mTI/mesh",
-                "mti_surfaces": "/fake/sim/test_mti_ch/mTI/mesh/surfaces",
-                "mti_niftis": "/fake/sim/test_mti_ch/mTI/niftis",
-                "mti_montage_imgs": "/fake/sim/test_mti_ch/mTI/montage_imgs",
-                "documentation": "/fake/sim/test_mti_ch/documentation",
-            }
-
-            mock_get_mti.return_value = np.zeros((e_field_value.shape[0], 3))
-            mock_get_avg.return_value = np.zeros(e_field_value.shape[0])
-            mock_get_ti.return_value = np.zeros((10, 3))
-
-            channels = [([0, 2], [1, 3])]
-            # opt into TI_avg: this test asserts channel pass-through to
-            # get_TI_avg, which is no longer computed by default.
-            config = _make_sim_config(
-                intensities=[1.0, 1.0, 1.0, 1.0],
-                output_fields=[const.FIELD_TI_MAX, const.FIELD_TI_AVG],
-            )
-            montage = _make_mti_montage(name="test_mti_ch", channels=channels)
-            assert montage.channels == channels  # dataclass field round-trip
-
-            sim = _mti_mod.mTISimulation(config, montage, MagicMock())
-            sim.run("/fake/simulation_dir")
-
-            mock_get_mti.assert_called_once()
-            assert mock_get_mti.call_args.kwargs["channels"] == channels
-
-            mock_get_avg.assert_called_once()
-            assert mock_get_avg.call_args.kwargs["channels"] == channels
-
-    def test_montage_channels_defaults_to_none(self):
-        """A montage built without channels must pass channels=None through
-        to get_mTI_vectors/get_TI_avg -- today's positional-pairing default."""
-        with (
-            patch.object(_base_mod, "get_path_manager") as mock_pm,
-            patch.object(_base_mod, "setup_montage_directories") as mock_setup_dirs,
-            patch.object(_base_mod, "create_simulation_config_file"),
-            patch.object(_base_mod, "run_montage_visualization"),
-            patch.object(_base_mod, "run_simnibs"),
-            patch.object(_base_mod, "subprocess"),
-            patch.object(_mti_mod, "extract_fields"),
-            patch.object(_mti_mod, "transform_dirs_to_nifti"),
-            patch.object(_mti_mod, "start_t1_to_mni"),
-            patch.object(_mti_mod, "finish_t1_to_mni"),
-            patch.object(_mti_mod, "safe_move"),
-            patch.object(_mti_mod, "mesh_io") as mock_mesh_io,
-            patch.object(_mti_mod, "TI"),
-            patch.object(_mti_mod, "get_mTI_vectors") as mock_get_mti,
+            patch.object(_mti_mod, "get_TI_dir"),
             patch.object(_mti_mod, "get_TI_avg") as mock_get_avg,
-            patch.object(_mti_mod, "get_TI_vectors") as mock_get_ti,
             patch.object(_mti_mod, "glob"),
             patch.object(_mti_mod, "deepcopy") as mock_deepcopy,
         ):
@@ -510,24 +438,24 @@ class TestMTISimulation:
                 "documentation": "/fake/sim/test_mti/documentation",
             }
 
-            mock_get_mti.return_value = np.zeros((e_field_value.shape[0], 3))
+            mock_get_ti.return_value = np.zeros((e_field_value.shape[0], 3))
             mock_get_avg.return_value = np.zeros(e_field_value.shape[0])
-            mock_get_ti.return_value = np.zeros((10, 3))
 
-            # opt into TI_avg: this test asserts channel pass-through to
-            # get_TI_avg, which is no longer computed by default.
+            # opt into TI_avg so both envelope calls are exercised.
             config = _make_sim_config(
                 intensities=[1.0, 1.0, 1.0, 1.0],
                 output_fields=[const.FIELD_TI_MAX, const.FIELD_TI_AVG],
             )
             montage = _make_mti_montage()
-            assert montage.channels is None
 
             sim = _mti_mod.mTISimulation(config, montage, MagicMock())
             sim.run("/fake/simulation_dir")
 
-            assert mock_get_mti.call_args.kwargs["channels"] is None
-            assert mock_get_avg.call_args.kwargs["channels"] is None
+            # Once per carrier for the intermediate TI_AB/TI_CD meshes (two
+            # channel fields each) plus once for the final joint envelope.
+            assert mock_get_ti.call_count == 3
+            assert len(mock_get_ti.call_args.args[0]) == 4
+            mock_get_avg.assert_called_once()
 
 
 # ============================================================================

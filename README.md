@@ -19,54 +19,7 @@
 
 Releases, guides, and wiki please see: [https://idossha.github.io/TI-Toolbox/](https://idossha.github.io/TI-Toolbox/)
 
-> **v3**: TI-Toolbox is now a **desktop application**. The PyQt5 GUI is gone — it ran inside the
-> container and was displayed over X11 — and is replaced by a native Electron app on your machine
-> talking to a job server in a single Docker image (`idossha/ti-toolbox`). SimNIBS, FastSurfer, the
-> toolbox UI and the built-in 3D/volume viewer are all served by that one container and rendered in
-> the app window: no XQuartz/VcXsrv, no separate FreeSurfer image or license for the core workflow.
-> The Python package `tit` is unchanged and still drives everything from Jupyter or a script. See
-> the [installation docs](https://idossha.github.io/TI-Toolbox/installation/) and the
-> [desktop app page](https://idossha.github.io/TI-Toolbox/wiki/desktop-app/).
-
-> **If you have results from v2.x**: v3.0.0 corrects six numerical defects in the statistics
-> engine and the field analyzer that an external audit found in v2.2.3–v2.5.0. Some outputs move.
-> [`docs/dev/SCIENTIFIC-CORRECTIONS.md`](docs/dev/SCIENTIFIC-CORRECTIONS.md) says, per correction,
-> which versions are affected, how to tell whether yours is one of them, and whether you need to
-> re-run the analysis or can simply rescale the number.
-
-## Run it
-
-Three ways in, all landing on the same UI — it is served by the container
-(`idossha/ti-toolbox:<version>`), and the desktop app is a shell around it. Docker Desktop
-(macOS/Windows) or Docker Engine (Linux) is the only thing you install yourself; the first
-launch downloads the image (**≈2.3 GB compressed, ≈9 GB on disk**).
-
-**1. Desktop app** — download the installer for your platform from the
-[latest release](https://github.com/idossha/TI-toolbox/releases/latest), open it, pick a
-project folder, press Start. It pulls the image and starts the container for you: no Docker
-CLI, no Python, no Node.
-
-**2. Command line, no Electron** — for servers, SSH sessions and anyone who would rather have
-a browser tab. Needs Python 3.11+ and the `docker` CLI, nothing else:
-
-```bash
-pip install tit                      # or: pipx install tit
-tit launch --project ~/datasets/000  # starts the container, opens the UI in your browser
-tit launch --project ~/datasets/000 --status   # …--logs, --stop, --port, --image, --no-open
-```
-
-From a clone, `./ti-toolbox.sh --project ~/datasets/000` does the same with no install step.
-
-**3. Build from source** — run the latest unreleased code. Needs Docker and Node 22.12+:
-
-```bash
-git clone https://github.com/idossha/TI-Toolbox.git && cd TI-Toolbox/desktop
-cp .env.dev.example .env.dev         # point TIT_DEV_PROJECT_DIR at a project folder
-npm ci && npm run dev                # container + renderer + app, already connected
-```
-
-Full instructions, per-OS steps and the prerequisites are in the
-[installation docs](https://idossha.github.io/TI-Toolbox/installation/).
+> **Note**: Latest macOS versions (26/Tahoe+) may have GUI compatibility issues with Gmsh and FreeView. See [installation docs](https://idossha.github.io/TI-Toolbox/installation/) for details.
 
 ## How to Cite
 
@@ -83,16 +36,6 @@ version-specific DOI, listed on that page.
 
 Machine-readable metadata is in [`CITATION.cff`](CITATION.cff); GitHub renders it
 under "Cite this repository" in the sidebar.
-
-## Contributing
-
-Process — issues, branches, pull requests — is in [`CONTRIBUTING.md`](CONTRIBUTING.md).
-
-Working on the code: [`docs/dev/`](docs/dev/README.md) is the development source of truth, with a
-reading order that gets you to a first change in about an hour —
-[architecture](docs/dev/ARCHITECTURE.md), the [UI contract](docs/dev/DESIGN.md), the
-[development manual](docs/dev/CONTRIBUTING.md) (`npm run dev` and the full verification gate), and
-the [decision log](docs/dev/DECISIONS.md).
 
 ## AI coding agents
 

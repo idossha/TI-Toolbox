@@ -341,9 +341,40 @@ Comparing this table with the MNI one is a useful check on how far a subject's s
 
 <br>
 
+## Atlas Resampling
+
+Voxel-space ROI analysis requires the atlas and the field NIfTI to sit on the **same voxel grid**. They often do not: the field is written on the simulation's grid, while a subject-space parcellation comes off `recon-all` at whatever resolution that ran at. Before masking, `Analyzer` brings the atlas onto the field's grid so the two are compared voxel-for-voxel.
+
+<a href="{{ site.baseurl }}/assets/imgs/atlas-resampling/atlas_resample_validation.png">
+  <img src="{{ site.baseurl }}/assets/imgs/atlas-resampling/atlas_resample_validation.png" alt="Voxel-level validation of atlas resampling" style="width: 100%; max-width: 1000px;">
+</a>
+
+_Validation on sub-ernie with the DKT parcellation. **Top:** an atlas cropped to the field's dimensions keeps its own affine, so the shapes match but the geometry does not — a shape-only check passes it straight through and the parcellation lands on the wrong anatomy, with only 13% of labelled voxels agreeing with where they belong. Comparing the affine as well forces the resample, and agreement goes to 100%. **Bottom:** on a 0.5 mm target grid, voxel centres fall between source centres. An interpolating order blends neighbouring region ids and produces 3,708 values (1.80% of voxels, magenta) that exist in neither the atlas nor `FreeSurferColorLUT.txt`; nearest-neighbour produces none. Axial slices, neurological convention._
+
+### ROI analysis on the corrected grid
+
+<a href="{{ site.baseurl }}/assets/imgs/atlas-resampling/atlas_resample_roi_analysis.png">
+  <img src="{{ site.baseurl }}/assets/imgs/atlas-resampling/atlas_resample_roi_analysis.png" alt="Left insula and left thalamus ROI analysis on the corrected grid" style="width: 100%; max-width: 1000px;">
+</a>
+
+\_Two ROI analyses on sub-ernie, each shown as the region on the subject T1, the TI field it sits in, and the statistics the analyzer reports once the atlas is on the field grid. **Left insula** (`L_Insula` simulation): 6,528 voxels, mean 0.076 V/m. **Left thalamus** (`Thalamus` simulation): 8,045 voxels, mean 0.127 V/m. The cyan outline is the atlas region; the coloured area is that region intersected with the tissue.
+
+**A grid is a shape _and_ an affine.** A volume is left untouched only when it already matches the field on both. Shape alone does not identify a grid — two volumes can agree on dimensions while sampling entirely different anatomy, and that case is silent: the analysis returns an ROI mask, statistics and a CSV, all describing the wrong tissue.
+
+**Labels are discrete, so the interpolation order is nearest-neighbour, always.** Atlases carry region ids and tissue masks carry 0/1 flags. Any interpolating order averages neighbouring values, and the average of two region ids is a third id belonging to some unrelated structure — or to nothing at all. The resample uses `nibabel.processing.resample_from_to(..., order=0)`; voxels falling outside the source field of view become 0 (background). The same routine handles tissue-mask NIfTIs, and both `.nii`/`.nii.gz` and FreeSurfer `.mgz` atlases are accepted.
+
+**Caching.** The result is written next to the original atlas as `{atlas_stem}_resampled_{width}x{height}x{depth}_{grid}.nii.gz`, where `{grid}` is a short hash of the target affine — part of the key for the same reason it is part of the equality check. A later analysis on the same grid reuses that file, so the cost is paid once per (atlas, grid) pair. Original atlas files are never modified, and caching is best-effort: if the atlas directory is not writable, the analysis proceeds on the in-memory result rather than failing.
+
+Resampling is logged at INFO level, so a mismatch is visible in the analyzer's log rather than silent:
+
+```
+INFO | tit.analyzer | Resampling aparc.DKTatlas+aseg.mgz: (256, 256, 256) -> (256, 256, 208) (nearest-neighbour)
+```
+
+<br>
+
 ## See Also
 
-- [Atlas Resampling]({{ site.baseurl }}/wiki/atlas-resampling/) — how the toolbox aligns an atlas to a subject's field data
 - [Analyzer]({{ site.baseurl }}/wiki/analyzer/) — the primary consumer of ROI/atlas selection
 - [Pre-Processing]({{ site.baseurl }}/wiki/pre-processing/) — how the subject-space atlases get generated
 - Return to [Wiki]({{ site.baseurl }}/wiki/)

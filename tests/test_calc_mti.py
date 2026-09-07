@@ -2,7 +2,7 @@
 """
 Unit tests for the mTI (N>2 electrode pair) envelope in tit/calc.py.
 
-Covers get_mTI_vectors's dispatch/validation contract and the verified
+Covers get_TI_vectors's dispatch/validation contract and the verified
 _mti_modulation_depth envelope that backs it for K>=2 electrode pairs,
 including the K=1 exact-vs-sweep consistency check and a regression test
 documenting the intentional behavior change away from the old (invalid)
@@ -23,9 +23,7 @@ if str(REPO_ROOT) not in sys.path:
 from tit.calc import (
     get_TI_vectors,
     get_TI_avg,
-    get_mTI_vectors,
-    get_magnitude_am,
-    get_nTI_vectors,
+    get_TI_vectors,
     _mti_modulation_depth,
 )
 
@@ -37,7 +35,7 @@ def _random_fields(n_fields, n_elements=50, rng=RNG):
 
 
 # ---------------------------------------------------------------------------
-# get_mTI_vectors -- N=2 exact dispatch
+# get_TI_vectors -- N=2 exact dispatch
 # ---------------------------------------------------------------------------
 
 
@@ -45,8 +43,8 @@ def _random_fields(n_fields, n_elements=50, rng=RNG):
 class TestMTIVectorsN2:
     def test_matches_get_ti_vectors_exactly(self):
         E1, E2 = _random_fields(2, n_elements=500)
-        result = get_mTI_vectors([E1, E2])
-        expected = get_TI_vectors(E1, E2)
+        result = get_TI_vectors([E1, E2])
+        expected = get_TI_vectors([E1, E2])
         diff = np.max(np.abs(result - expected))
         assert diff == 0.0
         np.testing.assert_array_equal(result, expected)
@@ -54,13 +52,13 @@ class TestMTIVectorsN2:
     def test_psi_ignored_at_n2(self):
         """psi has no effect on a single pair (K=1 phase invariance)."""
         E1, E2 = _random_fields(2, n_elements=50)
-        result_no_psi = get_mTI_vectors([E1, E2], psi=None)
-        result_with_psi = get_mTI_vectors([E1, E2], psi=[1.7])
+        result_no_psi = get_TI_vectors([E1, E2], psi=None)
+        result_with_psi = get_TI_vectors([E1, E2], psi=[1.7])
         np.testing.assert_allclose(result_no_psi, result_with_psi, atol=1e-12)
 
 
 # ---------------------------------------------------------------------------
-# get_mTI_vectors -- N=4/6/8 shapes
+# get_TI_vectors -- N=4/6/8 shapes
 # ---------------------------------------------------------------------------
 
 
@@ -70,7 +68,7 @@ class TestMTIVectorsShapes:
     def test_runs_and_returns_correct_shape(self, n_pairs):
         n_elements = 30
         fields = _random_fields(2 * n_pairs, n_elements=n_elements)
-        result = get_mTI_vectors(fields)
+        result = get_TI_vectors(fields)
         assert result.shape == (n_elements, 3)
         assert not np.any(np.isnan(result))
         assert not np.any(np.isinf(result))
@@ -79,13 +77,13 @@ class TestMTIVectorsShapes:
         n_elements = 20
         fields = _random_fields(8, n_elements=n_elements)
         psi = [0.0, 0.5, -0.5, 1.0]
-        result = get_mTI_vectors(fields, psi=psi)
+        result = get_TI_vectors(fields, psi=psi)
         assert result.shape == (n_elements, 3)
         assert not np.any(np.isnan(result))
 
 
 # ---------------------------------------------------------------------------
-# get_mTI_vectors -- input validation
+# get_TI_vectors -- input validation
 # ---------------------------------------------------------------------------
 
 
@@ -94,33 +92,33 @@ class TestMTIVectorsValidation:
     def test_odd_n_raises(self):
         fields = _random_fields(5)
         with pytest.raises(ValueError, match="even number"):
-            get_mTI_vectors(fields)
+            get_TI_vectors(fields)
 
     def test_n_less_than_2_raises(self):
         fields = _random_fields(1)
         with pytest.raises(ValueError, match="even number"):
-            get_mTI_vectors(fields)
+            get_TI_vectors(fields)
 
     def test_empty_raises(self):
         with pytest.raises(ValueError, match="even number"):
-            get_mTI_vectors([])
+            get_TI_vectors([])
 
     def test_mismatched_shapes_raises(self):
         E1, E2 = _random_fields(2, n_elements=10)
         E3, E4 = _random_fields(2, n_elements=7)
         with pytest.raises(ValueError, match="identical shape"):
-            get_mTI_vectors([E1, E2, E3, E4])
+            get_TI_vectors([E1, E2, E3, E4])
 
     def test_wrong_last_dim_raises(self):
         bad = RNG.standard_normal((10, 2))
         ok = RNG.standard_normal((10, 3))
         with pytest.raises(ValueError, match="must have shape"):
-            get_mTI_vectors([bad, ok])
+            get_TI_vectors([bad, ok])
 
     def test_bad_psi_shape_raises(self):
         fields = _random_fields(4, n_elements=10)
         with pytest.raises(ValueError, match="psi"):
-            get_mTI_vectors(fields, psi=[0.0, 0.0, 0.0])  # K=2, needs shape (2,)
+            get_TI_vectors(fields, psi=[0.0, 0.0, 0.0])  # K=2, needs shape (2,)
 
 
 # ---------------------------------------------------------------------------
@@ -136,7 +134,7 @@ class TestK1ExactVsSweep:
         E1, E2 = _random_fields(2, n_elements=300)
         exact = _mti_modulation_depth([E1, E2], refine=True)
         sweep = _mti_modulation_depth([E1, E2], refine=False, num_directions=2048)
-        ti_mag = np.linalg.norm(get_TI_vectors(E1, E2), axis=1)
+        ti_mag = np.linalg.norm(get_TI_vectors([E1, E2]), axis=1)
 
         np.testing.assert_allclose(exact["md"], ti_mag, atol=1e-9)
         # A dense coarse sweep should closely approximate the exact value;
@@ -198,26 +196,6 @@ class TestModulationDepthKGe2:
 
 
 # ---------------------------------------------------------------------------
-# get_nTI_vectors -- deprecation
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.unit
-class TestNTIDeprecation:
-    def test_emits_deprecation_warning(self):
-        E1, E2 = _random_fields(2, n_elements=10)
-        with pytest.warns(DeprecationWarning, match="deprecated"):
-            get_nTI_vectors([E1, E2])
-
-    def test_warning_survives_error_filter_context(self):
-        E1, E2 = _random_fields(2, n_elements=10)
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            get_nTI_vectors([E1, E2])
-        assert any(issubclass(w.category, DeprecationWarning) for w in caught)
-
-
-# ---------------------------------------------------------------------------
 # Regression: new mTI result intentionally differs from the old recursive
 # binary-tree formula at N=4 (documents the fixed +38.6% mean error bug).
 # ---------------------------------------------------------------------------
@@ -227,12 +205,12 @@ class TestNTIDeprecation:
 class TestRecursiveRegression:
     def test_new_result_differs_materially_from_old_recursive_formula(self):
         fields = _random_fields(4, n_elements=200)
-        new_result = get_mTI_vectors(fields)
+        new_result = get_TI_vectors(fields)
 
         # The old (removed) get_nTI_vectors algorithm: TI(TI(E1,E2), TI(E3,E4)).
-        old_ti_a = get_TI_vectors(fields[0], fields[1])
-        old_ti_b = get_TI_vectors(fields[2], fields[3])
-        old_recursive_result = get_TI_vectors(old_ti_a, old_ti_b)
+        old_ti_a = get_TI_vectors([fields[0], fields[1]])
+        old_ti_b = get_TI_vectors([fields[2], fields[3]])
+        old_recursive_result = get_TI_vectors([old_ti_a, old_ti_b])
 
         new_mag = np.linalg.norm(new_result, axis=1)
         old_mag = np.linalg.norm(old_recursive_result, axis=1)
@@ -256,10 +234,10 @@ class TestGetTIAvg:
     @pytest.mark.parametrize("n_pairs", [1, 2, 3])
     def test_avg_never_exceeds_max(self, n_pairs):
         """Key invariant: an average over directions cannot exceed the
-        direction maximum (get_mTI_vectors's norm)."""
+        direction maximum (get_TI_vectors's norm)."""
         fields = _random_fields(2 * n_pairs, n_elements=200)
         avg = get_TI_avg(fields)
-        max_mag = np.linalg.norm(get_mTI_vectors(fields), axis=1)
+        max_mag = np.linalg.norm(get_TI_vectors(fields), axis=1)
         assert np.all(avg <= max_mag + 1e-9)
 
     @pytest.mark.parametrize("n_pairs", [1, 2, 3])
@@ -290,229 +268,6 @@ class TestGetTIAvg:
         fields = _random_fields(4, n_elements=10)
         with pytest.raises(ValueError, match="psi"):
             get_TI_avg(fields, psi=[0.0, 0.0, 0.0])  # K=2, needs shape (2,)
-
-
-# ---------------------------------------------------------------------------
-# channels -- carrier-grouping pre-processing (get_mTI_vectors/get_TI_avg)
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.unit
-class TestChannelsBackwardCompatibility:
-    """channels=None must reproduce today's positional pairing exactly --
-    the critical regression guard."""
-
-    @pytest.mark.parametrize("n_pairs", [1, 2, 3])
-    def test_none_is_byte_identical_to_default(self, n_pairs):
-        fields = _random_fields(2 * n_pairs, n_elements=64)
-        default = get_mTI_vectors(fields)
-        explicit_none = get_mTI_vectors(fields, channels=None)
-        diff = np.max(np.abs(default - explicit_none))
-        assert diff == 0.0
-        np.testing.assert_array_equal(default, explicit_none)
-
-    @pytest.mark.parametrize("n_pairs", [1, 2, 3])
-    def test_avg_none_is_byte_identical_to_default(self, n_pairs):
-        fields = _random_fields(2 * n_pairs, n_elements=64)
-        default = get_TI_avg(fields)
-        explicit_none = get_TI_avg(fields, channels=None)
-        diff = np.max(np.abs(default - explicit_none))
-        assert diff == 0.0
-
-    def test_explicit_consecutive_equals_none_default(self):
-        """An explicit [([0],[1]), ([2],[3])] channel spec must equal the
-        None default exactly -- not just numerically close."""
-        fields = _random_fields(4, n_elements=64)
-        default = get_mTI_vectors(fields)
-        explicit = get_mTI_vectors(fields, channels=[([0], [1]), ([2], [3])])
-        diff = np.max(np.abs(default - explicit))
-        assert diff == 0.0
-        np.testing.assert_array_equal(default, explicit)
-
-
-@pytest.mark.unit
-class TestChannelsLeeArchitecture:
-    """Lee et al. (2022)-style shared-carrier grouping: many pairs on two
-    carriers, envelope taken once over the pre-summed fields."""
-
-    def test_shared_carrier_matches_presummed_ti_vectors(self):
-        """channels=[([0,2],[1,3])] must equal
-        get_TI_vectors(E0+E2, E1+E3) to tight tolerance -- this is the
-        exact property that positional pairing gets wrong (measured >5%
-        error in 92% of elements for this montage)."""
-        E0, E1, E2, E3 = _random_fields(4, n_elements=300)
-        result = get_mTI_vectors([E0, E1, E2, E3], channels=[([0, 2], [1, 3])])
-        expected = get_TI_vectors(E0 + E2, E1 + E3)
-        np.testing.assert_allclose(result, expected, atol=1e-9)
-
-    def test_shared_carrier_differs_from_positional_pairing(self):
-        """The whole point of channels: positional pairing (0,1),(2,3) is
-        materially wrong for a Lee-style two-carrier montage."""
-        E0, E1, E2, E3 = _random_fields(4, n_elements=300)
-        shared = get_mTI_vectors([E0, E1, E2, E3], channels=[([0, 2], [1, 3])])
-        positional = get_mTI_vectors([E0, E1, E2, E3])
-
-        shared_mag = np.linalg.norm(shared, axis=1)
-        positional_mag = np.linalg.norm(positional, axis=1)
-        rel_diff = np.abs(shared_mag - positional_mag) / np.maximum(
-            positional_mag, 1e-8
-        )
-        assert np.mean(rel_diff > 0.05) > 0.5
-
-
-@pytest.mark.unit
-class TestChannelsNonBeatingCarrier:
-    """An empty second group models a carrier that contributes exposure
-    but does not beat against anything."""
-
-    def test_extra_carrier_strictly_reduces_envelope(self):
-        n = 200
-        E0, E1, E2 = _random_fields(3, n_elements=n)
-        base = get_mTI_vectors([E0, E1], channels=[([0], [1])])
-        with_carrier = get_mTI_vectors([E0, E1, E2], channels=[([0], [1]), ([2], [])])
-        base_mag = np.linalg.norm(base, axis=1)
-        wc_mag = np.linalg.norm(with_carrier, axis=1)
-
-        # Never larger; strictly smaller on average (a non-beating carrier
-        # adds to P but not Q, thinning the modulation depth).
-        assert np.all(wc_mag <= base_mag + 1e-9)
-        assert np.mean(wc_mag) < np.mean(base_mag)
-
-    def test_extra_carrier_matches_closed_form_thinning(self):
-        """Collinear fields: adding a same-direction non-beating carrier of
-        magnitude c to two equal-magnitude beating carriers of magnitude m
-        thins MD from 2m to 2*m^2/sqrt(m^2+c^2) (P=m^2+c^2/2, Q=m^2)."""
-        n_hat = np.array([1.0, 0.0, 0.0])
-        n = 10
-        m = 1.0
-        E0 = np.tile(m * n_hat, (n, 1))
-        E1 = np.tile(m * n_hat, (n, 1))
-
-        for c in (0.5, 0.8):
-            E2 = np.tile(c * n_hat, (n, 1))
-            with_carrier = get_mTI_vectors(
-                [E0, E1, E2], channels=[([0], [1]), ([2], [])]
-            )
-            wc_mag = np.linalg.norm(with_carrier, axis=1)
-
-            P = m * m + 0.5 * c * c
-            Q = m * m
-            expected_md = np.sqrt(2 * (P + Q)) - np.sqrt(2 * max(P - Q, 0.0))
-            # K=2 (two channels) goes through the coarse-sweep + local-refine
-            # search, not an exact closed form, so allow a small numerical
-            # margin (measured ~5e-6) rather than requiring bit-exactness.
-            np.testing.assert_allclose(wc_mag, expected_md, atol=1e-4)
-
-            base_md = 2.0 * m
-            thinning = 1.0 - expected_md / base_md
-            # Sanity: thinning grows with the non-beating carrier's size.
-            assert 0.0 < thinning < 1.0
-
-
-@pytest.mark.unit
-class TestChannelsValidation:
-    def test_out_of_range_index_raises(self):
-        fields = _random_fields(4, n_elements=10)
-        with pytest.raises(ValueError, match="out of range"):
-            get_mTI_vectors(fields, channels=[([0], [9])])
-
-    def test_reused_index_raises(self):
-        fields = _random_fields(4, n_elements=10)
-        with pytest.raises(ValueError, match="more than one channel group"):
-            get_mTI_vectors(fields, channels=[([0], [1]), ([0], [2])])
-
-    def test_empty_channel_list_raises(self):
-        fields = _random_fields(4, n_elements=10)
-        with pytest.raises(ValueError, match="at least one channel"):
-            get_mTI_vectors(fields, channels=[])
-
-    def test_empty_group_a_raises(self):
-        fields = _random_fields(4, n_elements=10)
-        with pytest.raises(ValueError, match="group_a must be non-empty"):
-            get_mTI_vectors(fields, channels=[([], [1])])
-
-    def test_empty_group_b_is_allowed(self):
-        """group_b may be empty (non-beating carrier) -- must not raise."""
-        fields = _random_fields(3, n_elements=10)
-        result = get_mTI_vectors(fields, channels=[([0], [1]), ([2], [])])
-        assert result.shape == (10, 3)
-
-    def test_psi_length_mismatch_raises(self):
-        fields = _random_fields(4, n_elements=10)
-        with pytest.raises(ValueError, match="psi"):
-            get_mTI_vectors(
-                fields, channels=[([0], [1]), ([2], [3])], psi=[0.0]
-            )  # 2 channels, needs shape (2,)
-
-    def test_get_ti_avg_validation_matches(self):
-        """get_TI_avg shares the same channels validation contract."""
-        fields = _random_fields(4, n_elements=10)
-        with pytest.raises(ValueError, match="out of range"):
-            get_TI_avg(fields, channels=[([0], [9])])
-
-
-# ---------------------------------------------------------------------------
-# get_magnitude_am -- direction-free magnitude envelope
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.unit
-class TestGetMagnitudeAM:
-    def test_k1_matches_norm_identity(self):
-        """At K=1, get_magnitude_am reduces exactly to
-        abs(|E1+E2| - |E1-E2|)."""
-        E1, E2 = _random_fields(2, n_elements=300)
-        result = get_magnitude_am([E1, E2])
-        expected = np.abs(
-            np.linalg.norm(E1 + E2, axis=1) - np.linalg.norm(E1 - E2, axis=1)
-        )
-        np.testing.assert_allclose(result, expected, atol=1e-9)
-
-    def test_k1_differs_materially_from_mti_vectors(self):
-        """get_magnitude_am is a genuinely different quantity from the
-        direction-maximized modulation depth, not a refinement of it."""
-        E1, E2 = _random_fields(2, n_elements=500)
-        mag_am = get_magnitude_am([E1, E2])
-        ti_mag = np.linalg.norm(get_mTI_vectors([E1, E2]), axis=1)
-
-        rel_diff = np.abs(mag_am - ti_mag) / np.maximum(ti_mag, 1e-8)
-        assert np.mean(rel_diff > 0.01) > 0.5
-
-    def test_collinear_fields_all_three_forms_agree(self):
-        """For collinear (same-direction) E1, E2 the magnitude-AM envelope,
-        the direction-maximized envelope, and 2*min(|E1|,|E2|) all coincide
-        -- an identity that holds only in the collinear case."""
-        n = 20
-        n_hat = np.array([1.0, 0.0, 0.0])
-        a = RNG.uniform(0.5, 3.0, size=n)
-        b = RNG.uniform(0.5, 3.0, size=n)
-        E1 = np.outer(a, n_hat)
-        E2 = np.outer(b, n_hat)
-
-        mag_am = get_magnitude_am([E1, E2])
-        ti_mag = np.linalg.norm(get_mTI_vectors([E1, E2]), axis=1)
-        expected = 2.0 * np.minimum(a, b)
-
-        np.testing.assert_allclose(mag_am, expected, atol=1e-9)
-        np.testing.assert_allclose(ti_mag, expected, atol=1e-9)
-
-    @pytest.mark.parametrize("n_fields", [2, 4, 6])
-    def test_shape_and_nonneg(self, n_fields):
-        n_elements = 30
-        fields = _random_fields(n_fields, n_elements=n_elements)
-        result = get_magnitude_am(fields)
-        assert result.shape == (n_elements,)
-        assert np.all(result >= -1e-9)  # tiny round-off only
-        assert not np.any(np.isnan(result))
-
-    def test_odd_n_raises(self):
-        fields = _random_fields(5)
-        with pytest.raises(ValueError, match="even number"):
-            get_magnitude_am(fields)
-
-    def test_empty_raises(self):
-        with pytest.raises(ValueError, match="even number"):
-            get_magnitude_am([])
 
 
 # ---------------------------------------------------------------------------
@@ -589,7 +344,7 @@ class TestHirataFormEquivalence:
         E2 = dir2 * scale2[:, None]
 
         expected = _legacy_get_TI_vectors(E1, E2)
-        result = get_TI_vectors(E1, E2)
+        result = get_TI_vectors([E1, E2])
         np.testing.assert_allclose(result, expected, atol=0)
 
     def test_matches_legacy_random_standard_normal(self):
@@ -599,7 +354,7 @@ class TestHirataFormEquivalence:
         E2 = rng.standard_normal((n, 3))
 
         expected = _legacy_get_TI_vectors(E1, E2)
-        result = get_TI_vectors(E1, E2)
+        result = get_TI_vectors([E1, E2])
         np.testing.assert_allclose(result, expected, atol=0)
 
     def test_matches_legacy_near_orthogonal_cancellation_sweep(self):
@@ -624,7 +379,7 @@ class TestHirataFormEquivalence:
         ) * mag2[:, None]
 
         expected = _legacy_get_TI_vectors(E1, E2)
-        result = get_TI_vectors(E1, E2)
+        result = get_TI_vectors([E1, E2])
         np.testing.assert_allclose(result, expected, atol=0)
 
     @pytest.mark.parametrize(
@@ -687,7 +442,7 @@ class TestHirataFormEquivalence:
     )
     def test_matches_legacy_degenerate_cases(self, name, E1, E2):
         expected = _legacy_get_TI_vectors(E1, E2)
-        result = get_TI_vectors(E1, E2)
+        result = get_TI_vectors([E1, E2])
         np.testing.assert_allclose(result, expected, atol=0)
 
 
@@ -800,7 +555,7 @@ class TestQuadraticFormSweepRegression:
             for _ in range(n_fields)
         ]
         ref_md, ref_dir = _reference_mti_sweep(fields)
-        vec = get_mTI_vectors(fields)
+        vec = get_TI_vectors(fields)
         np.testing.assert_allclose(np.linalg.norm(vec, axis=1), ref_md, rtol=0, atol=1e-9)
         np.testing.assert_allclose(vec, ref_dir * ref_md[:, None], rtol=0, atol=1e-9)
 
@@ -835,15 +590,41 @@ class TestQuadraticFormSweepRegression:
 
 
 @pytest.mark.unit
-class TestChannelsMustPartitionFields:
-    """Low-priority audit item: no silent omission of unused field indices."""
+class TestGetMTIDir:
+    """get_TI_dir -- the public fixed-direction envelope backing mTI's TI_normal."""
 
-    def test_unused_field_index_raises(self):
-        fields = _random_fields(3, n_elements=10)
-        with pytest.raises(ValueError, match="unused"):
-            get_mTI_vectors(fields, channels=[([0], [1])])
+    def test_matches_best_direction_envelope(self):
+        """Evaluating at get_TI_vectors' own best directions reproduces the
+        maximized modulation depth (up to refinement round-off)."""
+        from tit.calc import get_TI_dir, _mti_modulation_depth
 
-    def test_non_beating_carrier_is_the_supported_spelling(self):
-        fields = _random_fields(3, n_elements=10)
-        out = get_mTI_vectors(fields, channels=[([0], [1]), ([2], [])])
-        assert out.shape == fields[0].shape
+        rng = np.random.default_rng(7)
+        fields = [rng.standard_normal((300, 3)) for _ in range(4)]
+        best = _mti_modulation_depth(fields)
+        md = get_TI_dir(fields, best["best_direction"])
+        np.testing.assert_allclose(md, best["md"], rtol=0, atol=1e-9)
+
+    def test_never_exceeds_maximized_envelope(self):
+        from tit.calc import get_TI_dir, get_TI_vectors
+
+        rng = np.random.default_rng(8)
+        fields = [rng.standard_normal((300, 3)) for _ in range(4)]
+        md_max = np.linalg.norm(get_TI_vectors(fields), axis=1)
+        dirs = rng.standard_normal((300, 3))
+        assert np.all(get_TI_dir(fields, dirs) <= md_max + 1e-6)
+
+    def test_k1_colinear_along_field_axis(self):
+        """One carrier, colinear equal fields, evaluated along that axis:
+        MD = 2*min(|E1|,|E2|) exactly (Grossman 2017)."""
+        from tit.calc import get_TI_dir
+
+        e = np.array([[0.5, 0.0, 0.0]])
+        md = get_TI_dir([e, e], np.array([[1.0, 0.0, 0.0]]))
+        np.testing.assert_allclose(md, [1.0], atol=1e-12)
+
+    def test_direction_shape_mismatch_raises(self):
+        from tit.calc import get_TI_dir
+
+        fields = [np.zeros((5, 3)) for _ in range(4)]
+        with pytest.raises(ValueError, match="directions"):
+            get_TI_dir(fields, np.zeros((4, 3)))

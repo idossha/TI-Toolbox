@@ -444,13 +444,66 @@ class TestComputeTiField:
         assert result["current_ch1_mA"] == 1.0
         assert result["current_ch2_mA"] == 1.0
 
+        # Unit-current fields are gathered once and scaled per split.
         engine_mod.TI.get_field.assert_any_call(
-            ["E1", "E2", 0.001], engine.leadfield, engine.idx_lf
+            ["E1", "E2", 1.0], engine.leadfield, engine.idx_lf
         )
         engine_mod.TI.get_field.assert_any_call(
-            ["E3", "E4", 0.001], engine.leadfield, engine.idx_lf
+            ["E3", "E4", 1.0], engine.leadfield, engine.idx_lf
         )
         engine_mod.TI.get_maxTI.assert_called_once()
+
+    def test_ratio_batching_scales_unit_fields(self):
+        """All current splits of one montage reuse the two unit fields, and
+        each split's field equals ``current/1000 * unit`` bit for bit."""
+        import tit.opt.ex.engine as engine_mod
+
+        engine = _make_engine()
+        _setup_engine_fields(engine)
+        rng = np.random.default_rng(0)
+        unit1 = rng.normal(size=(5, 3))
+        unit2 = rng.normal(size=(5, 3))
+        engine_mod.TI.get_field = MagicMock(side_effect=[unit1, unit2])
+        seen = []
+
+        def fake_maxti(e1, e2):
+            seen.append((e1.copy(), e2.copy()))
+            return np.linalg.norm(e1 + e2, axis=1)
+
+        engine_mod.TI.get_maxTI = MagicMock(side_effect=fake_maxti)
+
+        ratios = [(1.5, 0.5), (1.0, 1.0), (0.5, 1.5)]
+        results = engine.compute_ti_fields("E1", "E2", "E3", "E4", ratios)
+
+        assert engine_mod.TI.get_field.call_count == 2
+        assert [(r["current_ch1_mA"], r["current_ch2_mA"]) for r in results] == ratios
+        for (ch1, ch2), (e1, e2) in zip(ratios, seen):
+            np.testing.assert_array_equal(e1, (ch1 / 1000) * unit1)
+            np.testing.assert_array_equal(e2, (ch2 / 1000) * unit2)
+
+    def test_subset_restricts_to_roi_and_gm(self):
+        """Fields are evaluated on ROI | GM only, with metrics unchanged."""
+        import tit.opt.ex.engine as engine_mod
+
+        engine = _make_engine()
+        _setup_engine_fields(engine)
+        engine.roi_indices = np.array([7, 2])
+        engine.roi_volumes = np.array([1.0, 3.0])
+        engine.gm_indices = np.array([2, 5, 7, 9])
+        engine.gm_volumes = np.array([1.0, 1.0, 1.0, 1.0])
+        full = np.arange(30, dtype=float).reshape(10, 3)
+        engine_mod.TI.get_field = MagicMock(return_value=full)
+        engine_mod.TI.get_maxTI = MagicMock(side_effect=lambda a, b: a[:, 0])
+
+        result = engine.compute_ti_field("E1", "E2", 1.0, "E3", "E4", 1.0)
+
+        # subset = [2, 5, 7, 9]; field = 0.001 * x-column = [6, 15, 21, 27]/1000
+        assert result["TestROI_TImax_ROI"] == pytest.approx(0.021)
+        assert result["TestROI_TImean_ROI"] == pytest.approx((21 + 3 * 6) / 4 / 1000)
+        assert result["TestROI_TImean_GM"] == pytest.approx((6 + 15 + 21 + 27) / 4 / 1000)
+        assert result["TestROI_n_elements"] == 2
+        (e1, e2), _ = engine_mod.TI.get_maxTI.call_args
+        assert e1.shape == (4, 3)
 
     def test_empty_roi(self):
         import tit.opt.ex.engine as engine_mod
@@ -546,16 +599,18 @@ class TestInitialize:
 class TestRun:
     def test_basic_run(self):
         engine = _make_engine()
-        engine.compute_ti_field = MagicMock(
-            return_value={
-                "TestROI_TImax_ROI": 0.5,
-                "TestROI_TImean_ROI": 0.3,
-                "TestROI_TImean_GM": 0.2,
-                "TestROI_Focality": 1.5,
-                "TestROI_n_elements": 100,
-                "current_ch1_mA": 1.0,
-                "current_ch2_mA": 1.0,
-            }
+        engine.compute_ti_fields = MagicMock(
+            return_value=[
+                {
+                    "TestROI_TImax_ROI": 0.5,
+                    "TestROI_TImean_ROI": 0.3,
+                    "TestROI_TImean_GM": 0.2,
+                    "TestROI_Focality": 1.5,
+                    "TestROI_n_elements": 100,
+                    "current_ch1_mA": 1.0,
+                    "current_ch2_mA": 1.0,
+                }
+            ]
         )
 
         results = engine.run(
@@ -569,21 +624,28 @@ class TestRun:
         )
 
         assert len(results) == 1
-        engine.compute_ti_field.assert_called_once()
+        engine.compute_ti_fields.assert_called_once_with(
+            "E1", "E2", "E3", "E4", [(1.0, 1.0)]
+        )
 
     def test_multiple_combinations(self):
         engine = _make_engine()
-        engine.compute_ti_field = MagicMock(
-            return_value={
-                "TestROI_TImax_ROI": 0.5,
-                "TestROI_TImean_ROI": 0.3,
-                "TestROI_TImean_GM": 0.2,
-                "TestROI_Focality": 1.5,
-                "TestROI_n_elements": 100,
-                "current_ch1_mA": 1.0,
-                "current_ch2_mA": 1.0,
-            }
-        )
+
+        def fake(ep1, em1, ep2, em2, ratios):
+            return [
+                {
+                    "TestROI_TImax_ROI": 0.5,
+                    "TestROI_TImean_ROI": 0.3,
+                    "TestROI_TImean_GM": 0.2,
+                    "TestROI_Focality": 1.5,
+                    "TestROI_n_elements": 100,
+                    "current_ch1_mA": ch1,
+                    "current_ch2_mA": ch2,
+                }
+                for ch1, ch2 in ratios
+            ]
+
+        engine.compute_ti_fields = MagicMock(side_effect=fake)
 
         results = engine.run(
             e1_plus=["E1", "E2"],
@@ -596,6 +658,13 @@ class TestRun:
         )
 
         assert len(results) == 4  # 2 electrodes * 2 ratios
+        # Enumeration order: montage-major, ratio-minor (as before).
+        assert list(results) == [
+            "TI_field_E1_E3_and_E4_E5_I1-1.0mA_I2-1.0mA.msh",
+            "TI_field_E1_E3_and_E4_E5_I1-1.5mA_I2-0.5mA.msh",
+            "TI_field_E2_E3_and_E4_E5_I1-1.0mA_I2-1.0mA.msh",
+            "TI_field_E2_E3_and_E4_E5_I1-1.5mA_I2-0.5mA.msh",
+        ]
 
     def test_empty_results_no_crash(self):
         engine = _make_engine()

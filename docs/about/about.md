@@ -73,12 +73,42 @@ TI-Toolbox is developed openly on [GitHub](https://github.com/idossha/TI-toolbox
         <h3>Ido Haber</h3>
         <p class="contributor-role">Lead Developer & Project Founder</p>
         <p class="contributor-description">
-          PhD Research Assistant and software developer specializing in computational neurostimulation. 
-          Developed the idea and architecture for the TI-Toolbox.<br>
+          PhD Research Assistant and software developer specializing in computational neurostimulation.
+          Developed the idea and architecture for the TI-Toolbox.
         </p>
+        <ul class="contributor-list">
+          <li>Project coordination and release management</li>
+          <li>System architecture: pipeline design, containerization, and the BIDS-based data model</li>
+          <li>Full-stack development</li>
+          <li>Desktop application, GUI, and cross-platform packaging</li>
+          <li>Documentation and maintenance across the complete code</li>
+        </ul>
         <div class="contributor-links">
           <a href="mailto:ihaber@wisc.edu" target="_blank">📧 Email</a>
           <a href="https://github.com/idossha" target="_blank">🔗 GitHub</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Larissa Albantakis Profile -->
+    <div class="contributor-card">
+      <div class="contributor-avatar">
+        <img src="{{ site.baseurl }}/assets/imgs/about/larissa_profile.jpg" alt="Larissa Albantakis"
+             onerror="this.src='{{ site.baseurl }}/assets/imgs/default-avatar.png'">
+      </div>
+      <div class="contributor-info">
+        <h3>Larissa Albantakis</h3>
+        <p class="contributor-role">Core Contributor</p>
+        <p class="contributor-description">
+          Larissa Albantakis, PhD is a computational neuroscientist and Assistant Professor of Computational Psychiatry at University of Wisconsin - Madison.
+        </p>
+        <ul class="contributor-list">
+          <li>Multipolar TI field math: modulation envelope, Fibonacci-sphere direction, magnitude-AM measure (2.5)</li>
+          <li>Exhaustive search: multipolar extension, symmetric bucket constraint, montage heatmaps(2.5)</li>
+        </ul>
+        <div class="contributor-links">
+          <a href="mailto:albantakis@wisc.edu" target="_blank">📧 Email</a>
+          <a href="https://github.com/Albantakis" target="_blank">🔗 GitHub</a>
         </div>
       </div>
     </div>
@@ -94,15 +124,20 @@ TI-Toolbox is developed openly on [GitHub](https://github.com/idossha/TI-toolbox
     <!-- Aksel Profile -->
     <div class="contributor-card">
       <div class="contributor-avatar">
-        <img src="{{ site.baseurl }}/assets/imgs/about/aksel_profile.png" alt="Aksel" 
+        <img src="{{ site.baseurl }}/assets/imgs/about/aksel_profile.png" alt="Aksel"
              onerror="this.src='{{ site.baseurl }}/assets/imgs/default-avatar.png'">
       </div>
       <div class="contributor-info">
         <h3>Aksel Jackson</h3>
         <p class="contributor-role">Core Contributor</p>
         <p class="contributor-description">
-          Undergraduate Research Assistant and software developer focused on computational modeling, visualization, and analysis of electric field distribution. <br>
+          Undergraduate Research Assistant and software developer focused on computational modeling, visualization, and analysis of electric field distributions.
         </p>
+        <ul class="contributor-list">
+          <li>Analyzer visualizations (2.0)</li>
+          <li>Central logging utility(2.0)</li>
+          <li>BIDS compliance (2.1)</li>
+        </ul>
         <div class="contributor-links">
           <a href="mailto:awjackson2@wisc.edu" target="_blank">📧 Email</a>
           <a href="https://github.com/awjackson2" target="_blank">🔗 GitHub</a>
@@ -130,8 +165,6 @@ TI-Toolbox stands on the shoulders of many open-source projects. We extend our g
 - [**QSIPrep**](https://qsiprep.readthedocs.io/) / [**QSIRecon**](https://qsirecon.readthedocs.io/): Preprocessing and reconstruction pipelines for diffusion MRI, used to derive anisotropic conductivity tensors.
 - [**Blender**](https://www.blender.org/): An open-source 3D creation suite, used for rendering head models, electrodes, and field distributions.
 - **Python ecosystem**: [NumPy](https://numpy.org/), [SciPy](https://scipy.org/), [nibabel](https://nipy.org/nibabel/), [matplotlib](https://matplotlib.org/), [pandas](https://pandas.pydata.org/), [nilearn](https://nilearn.github.io/), [MNE-Python](https://mne.tools/), and [Jupyter](https://jupyter.org/).
-
-
 
 <style>
 .contributors-section {
@@ -199,6 +232,19 @@ TI-Toolbox stands on the shoulders of many open-source projects. We extend our g
   text-align: Left;
 }
 
+.contributor-list {
+  color: #495057;
+  line-height: 1.5;
+  font-size: 0.95rem;
+  text-align: left;
+  margin: 0.5rem 0 1rem;
+  padding-left: 1.1rem;
+}
+
+.contributor-list li {
+  margin-bottom: 0.35rem;
+}
+
 .contributor-links {
   display: flex;
   justify-content: center;
@@ -235,4 +281,4 @@ TI-Toolbox stands on the shoulders of many open-source projects. We extend our g
     height: 60px;
   }
 }
-</style> 
+</style>

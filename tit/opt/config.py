@@ -826,13 +826,29 @@ class ExConfig:
         Spherical ROI radius in mm for the target region.
     run_name : str or None
         Optional name for this run.  Defaults to a datetime stamp.
+    n_jobs : int
+        Worker processes evaluating candidates in parallel.  ``-1``
+        (default) uses all cores minus one; ``1`` evaluates in-process.
+        Results and CSV ordering do not depend on it.
+    symmetric_bucket : bool
+        When True in bucket mode, evaluate only left/right mirrored
+        montages (see :func:`tit.opt.ex.buckets.build_electrode_mirror_map`).
+    symmetry_eeg_csv : str or None
+        EEG-position CSV used to derive mirrored electrode pairs.  If
+        unset, it is inferred from the leadfield's net name.
+    symmetry_pairing : str
+        Symmetry interpretation when *symmetric_bucket* is True.
+        ``"within_pairs"``: each pair's minus electrode is the mirror of
+        its plus electrode (e.g. F7-F8).  ``"cross_pairs"``: pair 2 is the
+        mirror image of pair 1 (``e2+ = mirror(e1+)``, ``e2- = mirror(e1-)``).
 
     Raises
     ------
     ValueError
         If *current_step*, *total_current*, or *channel_limit* are
-        non-positive, or if *roi_coordinate_space* is not ``"subject"``
-        or ``"mni"``.
+        non-positive, if *symmetric_bucket* is set with pool electrodes,
+        if *symmetry_pairing* is not ``"within_pairs"``/``"cross_pairs"``,
+        or if *roi_coordinate_space* is not ``"subject"`` or ``"mni"``.
 
     See Also
     --------
@@ -914,6 +930,14 @@ class ExConfig:
     # ── Output naming (defaults to datetime stamp) ─────────────────────
     run_name: str | None = None
 
+    # ── Parallelism ────────────────────────────────────────────────────
+    n_jobs: int = -1
+
+    # ── Symmetric bucket search ─────────────────────────────────────────
+    symmetric_bucket: bool = False
+    symmetry_eeg_csv: str | None = None
+    symmetry_pairing: str = "within_pairs"
+
     def __post_init__(self):
         if isinstance(self.electrodes, dict):
             if "electrodes" in self.electrodes:
@@ -950,6 +974,12 @@ class ExConfig:
             raise ValueError("total_current must be positive")
         if self.channel_limit is not None and self.channel_limit <= 0:
             raise ValueError("channel_limit must be positive")
+        if self.symmetric_bucket and isinstance(
+            self.electrodes, ExConfig.PoolElectrodes
+        ):
+            raise ValueError("symmetric_bucket is only supported for bucket electrodes")
+        if self.symmetry_pairing not in ("within_pairs", "cross_pairs"):
+            raise ValueError("symmetry_pairing must be 'within_pairs' or 'cross_pairs'")
 
 
 @dataclass
@@ -994,7 +1024,7 @@ class MExConfig:
     Evaluates every valid combination of four bipolar electrode pairs from
     a user-defined pool or bucket set, at one fixed current per pair, and
     scores each candidate with the verified N>2 mTI envelope
-    (:func:`tit.calc.get_mTI_vectors`).
+    (:func:`tit.calc.get_TI_vectors`).
 
     Attributes
     ----------
@@ -1012,16 +1042,6 @@ class MExConfig:
         ``__post_init__``.
     current_mA : float
         Current in mA delivered by each of the four pairs.
-    channels : list of (list of int, list of int), or None
-        Carrier grouping passed to :func:`tit.calc.get_mTI_vectors`.
-        ``None`` treats the four pairs as two independent TI channels
-        (equivalent to ``[([0], [1]), ([2], [3])]``); an explicit grouping
-        such as ``[([0, 2], [1, 3])]`` instead treats all four pairs as
-        one channel sharing two carriers (Lee et al. 2022).  These give
-        materially different fields, so the grouping must be chosen
-        deliberately -- the quasi-static field solve has no frequency
-        term, so this grouping is the only place carrier assignment is
-        expressed.
     roi_radius : float
         Spherical ROI radius in mm for the target region.
     roi_names : list of str or None
@@ -1042,6 +1062,10 @@ class MExConfig:
         affect *roi_atlas*, which is always subject space.
     run_name : str or None
         Optional name for this run.  Defaults to a datetime stamp.
+    n_jobs : int
+        Worker processes evaluating candidates in parallel.  ``-1``
+        (default) uses all cores minus one; ``1`` evaluates in-process.
+        Results and CSV ordering do not depend on it.
     symmetric_bucket : bool
         When True in bucket mode, evaluate only left/right mirrored
         electrode pairs (see :func:`tit.opt.ex.buckets.build_electrode_mirror_map`).
@@ -1066,7 +1090,7 @@ class MExConfig:
     --------
     MExResult : Result container returned by :func:`~tit.opt.mex.mex.run_m_ex_search`.
     tit.opt.mex.mex.run_m_ex_search : Consumes this config.
-    tit.calc.get_mTI_vectors : Modulation-amplitude envelope; consumes *channels*.
+    tit.calc.get_TI_vectors : Modulation-amplitude envelope.
     """
 
     # ── Nested ROI types ─────────────────────────────────────────────────
@@ -1127,9 +1151,8 @@ class MExConfig:
     roi_name: str
     electrodes: "MExConfig.BucketElectrodes | MExConfig.PoolElectrodes"
 
-    # ── Current and carrier grouping ────────────────────────────────────
+    # ── Current ─────────────────────────────────────────────────────────
     current_mA: float = 2.0
-    channels: list[tuple[list[int], list[int]]] | None = None
 
     # ── ROI ────────────────────────────────────────────────────────────
     roi_radius: float = 3.0
@@ -1139,6 +1162,9 @@ class MExConfig:
 
     # ── Output naming (defaults to datetime stamp) ─────────────────────
     run_name: str | None = None
+
+    # ── Parallelism ────────────────────────────────────────────────────
+    n_jobs: int = -1
 
     # ── Symmetric bucket search ─────────────────────────────────────────
     symmetric_bucket: bool = False
@@ -1219,17 +1245,6 @@ class MExResult:
 #: Exhaustive-search modes. ``TI`` searches two bipolar pairs, ``mTI`` four.
 SEARCH_MODE_TI = "TI"
 SEARCH_MODE_MTI = "mTI"
-
-#: Carrier wiring for a four-pair montage, as (label, ``channels`` value).
-#: Four pairs can be two independent TI channels -- consecutive pairing, the
-#: default -- or four pairs sharing two carriers, where same-carrier fields
-#: superpose before the envelope is taken (Lee et al. 2022). The two give
-#: materially different fields, so it is a real choice rather than a detail.
-MTI_CHANNEL_ARCHITECTURES = [
-    ("Two independent channels", None),
-    ("Four pairs, two carriers", [([0, 2], [1, 3])]),
-]
-
 
 def search_backend_for_mode(mode):
     """Return ``(module path, config class)`` for an exhaustive-search mode.

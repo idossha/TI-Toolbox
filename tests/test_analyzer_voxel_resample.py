@@ -3,7 +3,8 @@
 tit/analyzer/analyzer.py:
 
 - ``Analyzer._resample_if_needed``: was ``mri_convert --reslice_like``, now
-  ``nibabel.processing.resample_from_to(..., order=0)``.
+  ``nibabel.processing.resample_from_to(..., order=0)``, keyed on the full
+  target grid (shape *and* affine).
 - ``Analyzer._find_voxel_region_id``: was a ``mri_segstats`` subprocess +
   temp-file parse, now ``tit.atlas.segstats.compute_segstats``.
 
@@ -34,15 +35,48 @@ from tit.analyzer.analyzer import Analyzer
 
 @pytest.mark.unit
 class TestResampleIfNeeded:
-    def test_matching_shape_returns_input_unchanged(self):
-        """No resampling (and no nibabel.processing call) when shapes already match."""
+    @pytest.fixture(autouse=True)
+    def _nib_processing(self):
+        """`nibabel` is mocked module-wide in conftest, so the submodule the
+        implementation imports has to exist before any of these run."""
+        import sys as _sys
+
+        mock = MagicMock()
+        _sys.modules["nibabel.processing"] = mock
+        yield mock
+
+    def test_matching_grid_returns_input_unchanged(self):
+        """No resampling when shape *and* affine already match the target."""
         atlas_arr = np.ones((4, 4, 4))
         atlas_img = MagicMock()
+        atlas_img.affine = np.eye(4)
 
         result = Analyzer._resample_if_needed(
             atlas_img, atlas_arr, (4, 4, 4), np.eye(4), Path("/unused/atlas.mgz")
         )
         assert result is atlas_arr
+
+    def test_matching_shape_but_different_affine_still_resamples(self, tmp_path):
+        """Shape alone does not identify a grid -- two volumes can share
+        dimensions while sampling entirely different anatomy."""
+        import sys as _sys
+
+        nib_processing_mock = MagicMock()
+        _sys.modules["nibabel.processing"] = nib_processing_mock
+        nib_processing_mock.resample_from_to.return_value.dataobj = np.zeros((2, 2, 2))
+
+        atlas_img = MagicMock()
+        atlas_img.affine = np.eye(4)
+        target_affine = np.eye(4)
+        target_affine[0, 3] = 40.0  # same shape, 40 mm away
+
+        atlas_path = tmp_path / "atlas.mgz"
+        atlas_path.touch()
+        with patch("nibabel.Nifti1Image"), patch("nibabel.save"), patch("nibabel.load"):
+            Analyzer._resample_if_needed(
+                atlas_img, np.ones((2, 2, 2)), (2, 2, 2), target_affine, atlas_path
+            )
+        nib_processing_mock.resample_from_to.assert_called_once()
 
     def test_mismatched_shape_calls_resample_from_to(self, tmp_path):
         import sys as _sys
@@ -52,51 +86,51 @@ class TestResampleIfNeeded:
 
         atlas_arr = np.ones((2, 2, 2))
         atlas_img = MagicMock()
+        atlas_img.affine = np.eye(4)
         atlas_path = tmp_path / "aparc.DKTatlas+aseg.mgz"
         atlas_path.touch()
 
         target_affine = np.eye(4)
-        resampled_img = MagicMock()
-        nib_processing_mock.resample_from_to.return_value = resampled_img
+        resampled = np.full((3, 2, 2), 9.0)
+        nib_processing_mock.resample_from_to.return_value.dataobj = resampled
 
-        saved_data = np.array(
-            [
-                [[9.0, 9.0], [9.0, 9.0]],
-                [[9.0, 9.0], [9.0, 9.0]],
-                [[9.0, 9.0], [9.0, 9.0]],
-            ]
-        )
-        with patch("nibabel.save") as mock_save, patch("nibabel.load") as mock_load:
-            mock_load.return_value.get_fdata.return_value = saved_data
+        rebuilt = MagicMock()
+        with patch("nibabel.Nifti1Image", return_value=rebuilt) as mock_image, patch(
+            "nibabel.save"
+        ), patch("nibabel.load"):
             result = Analyzer._resample_if_needed(
                 atlas_img, atlas_arr, (3, 2, 2), target_affine, atlas_path
             )
 
+        # The source image is rebuilt from the array actually passed in -- the
+        # caller may have squeezed a trailing singleton axis off a 4D volume.
+        # (called again by _cache_resample when writing the cache)
+        np.testing.assert_array_equal(mock_image.call_args_list[0][0][0], atlas_arr)
         nib_processing_mock.resample_from_to.assert_called_once_with(
-            atlas_img, ((3, 2, 2), target_affine), order=0
+            rebuilt, ((3, 2, 2), target_affine), order=0
         )
-        mock_save.assert_called_once()
-        np.testing.assert_array_equal(result, saved_data)
+        np.testing.assert_array_equal(result, resampled)
 
-    def test_mismatched_shape_writes_shape_encoded_cache_name(self, tmp_path):
-        """The cache filename convention (other lanes/tools may glob it) is preserved."""
-        import sys as _sys
+    def test_cache_name_encodes_both_shape_and_affine(self, tmp_path):
+        """The cache key is the full target grid.
 
-        nib_processing_mock = MagicMock()
-        _sys.modules["nibabel.processing"] = nib_processing_mock
-        nib_processing_mock.resample_from_to.return_value = MagicMock()
+        Keying on shape alone would hand back a volume resampled to different
+        anatomy whenever two grids happen to share dimensions; and the stem
+        keeps every dotted component, so ``aparc.DKTatlas+aseg`` and
+        ``aparc.a2009s+aseg`` cannot collide.
+        """
+        src = Path("/somewhere/aparc.DKTatlas+aseg.mgz")
+        other = Path("/somewhere/aparc.a2009s+aseg.mgz")
+        a1 = np.eye(4)
+        a2 = np.eye(4)
+        a2[0, 3] = 40.0
 
-        atlas_arr = np.ones((2, 2, 2))
-        atlas_path = tmp_path / "aparc.DKTatlas+aseg.mgz"
-        atlas_path.touch()
-
-        with patch("nibabel.save") as mock_save, patch("nibabel.load"):
-            Analyzer._resample_if_needed(
-                MagicMock(), atlas_arr, (256, 256, 208), np.eye(4), atlas_path
-            )
-
-        saved_path = mock_save.call_args[0][1]
-        assert saved_path == str(tmp_path / "aparc_resampled_256x256x208.nii.gz")
+        n1 = Analyzer._resampled_name(src, (256, 256, 208), a1)
+        assert n1.startswith("aparc_DKTatlas+aseg_resampled_256x256x208_")
+        assert n1.endswith(".nii.gz")
+        assert n1 != Analyzer._resampled_name(src, (256, 256, 208), a2)
+        assert n1 != Analyzer._resampled_name(other, (256, 256, 208), a1)
+        assert n1 == Analyzer._resampled_name(src, (256, 256, 208), a1.copy())
 
     def test_existing_cache_is_reused_without_resampling(self, tmp_path):
         """A cached resampled file short-circuits resample_from_to entirely."""
@@ -106,20 +140,31 @@ class TestResampleIfNeeded:
         _sys.modules["nibabel.processing"] = nib_processing_mock
 
         atlas_arr = np.ones((2, 2, 2))
+        atlas_img = MagicMock()
+        atlas_img.affine = np.eye(4)
         atlas_path = tmp_path / "atlas.mgz"
         atlas_path.touch()
-        cached_path = tmp_path / "atlas_resampled_3x3x3.nii.gz"
+        cached_path = tmp_path / Analyzer._resampled_name(
+            atlas_path, (3, 3, 3), np.eye(4)
+        )
         cached_path.touch()  # presence alone triggers the cache-hit branch
 
         cached_data = np.full((3, 3, 3), 5.0)
         with patch("nibabel.load") as mock_load:
-            mock_load.return_value.get_fdata.return_value = cached_data
+            mock_load.return_value.dataobj = cached_data
             result = Analyzer._resample_if_needed(
-                MagicMock(), atlas_arr, (3, 3, 3), np.eye(4), atlas_path
+                atlas_img, atlas_arr, (3, 3, 3), np.eye(4), atlas_path
             )
 
         nib_processing_mock.resample_from_to.assert_not_called()
         np.testing.assert_array_equal(result, cached_data)
+
+    def test_unwritable_cache_degrades_to_in_memory(self, tmp_path):
+        """Caching is best-effort: an OSError must not fail the analysis."""
+        with patch("nibabel.save", side_effect=OSError("read-only")):
+            Analyzer._cache_resample(
+                np.zeros((2, 2, 2)), np.eye(4), tmp_path / "nope" / "x.nii.gz"
+            )
 
 
 # ============================================================================

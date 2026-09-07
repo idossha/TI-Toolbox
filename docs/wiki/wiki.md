@@ -19,7 +19,6 @@ server fit together.
 - **[Simulator](simulator)** - One row per simulation job, with free-hand electrode placement on the subject's own scalp
 - **[Flex Search](flex-search)** - The Optimizer's *Flex* method: differential-evolution electrode optimization
 - **[Ex Search](ex-search)** - The Optimizer's *Ex* method: exhaustive search over a leadfield matrix
-- **[Multipolar TI (mTI)](mti)** - Multi-channel TI simulation with 4+ electrode pairs, and multipolar exhaustive search
 - **[Analyzer](analyzer)** - Field analysis in mesh and voxel space, one target per job row
 - **[Pipeline](pipelines)** - Wire the steps into a graph and run the whole thing as one job group
 - **[Notebooks](notebooks)** - Jupyter on the container's SimNIBS Python, inside the app
@@ -33,8 +32,7 @@ server fit together.
 ### Embedded Tools
 - **[Reports](reports)** - Understanding HTML simulation reports and results
 - **[Logging](logging)** - Comprehensive logging system documentation
-- **[Brain Atlases](atlases)** - The four MNI-space atlases shipped with TI-Toolbox
-- **[Atlas Resampling](atlas-resampling)** - Working with brain atlases and resampling
+- **[Brain Atlases](atlases)** - The MNI-space atlases shipped with TI-Toolbox, the subject-space parcellations built during pre-processing, and atlas resampling
 - **[Montage Visualizer](montage_visualizer)** - Electrode montage visualization on head
 - **[Electrode Mapping](electrode-mapping)** - Optimal electrode position mapping to EEG nets
 

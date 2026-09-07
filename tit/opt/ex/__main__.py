@@ -69,6 +69,11 @@ def main() -> None:
                     "n_combinations": result.n_combinations,
                 }
             )
+    except ValueError as exc:
+        # Configuration errors -- an enumeration with zero candidates, say --
+        # are the user's to fix, so report the reason plainly instead of a
+        # traceback (the console shows this line verbatim).
+        logging.getLogger("tit.opt.ex_search").error("ERROR: %s", exc)
     finally:
         events.emit_exit(exit_code)
 

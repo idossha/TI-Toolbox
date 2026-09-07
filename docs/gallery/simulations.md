@@ -52,6 +52,24 @@ permalink: /gallery/simulations/
   </div>
 </div>
 
+<div class="gallery-section">
+  <h3>Unipolar and Multipolar Montages</h3>
+  <div class="gallery-grid">
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/mti/uti_mti_albantakis2026.png" alt="Unipolar vs multipolar TI" onclick="openLightbox(this)" />
+      <p>Standard two-pair (unipolar) TI next to multipolar TI, which generalizes the beat pattern to four or more pairs. Adapted from Albantakis &amp; Tononi 2026, <i>American Journal of Psychiatry</i>.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/simulator/unipolar.png" alt="Unipolar montage" onclick="openLightbox(this)" />
+      <p>Montage visualizer output for a unipolar montage: four electrodes in two channels, one image per montage.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/simulator/multipolar.png" alt="Multipolar montage" onclick="openLightbox(this)" />
+      <p>Montage visualizer output for a multipolar (mTI) montage: eight electrodes in four channels, drawn as a single combined image.</p>
+    </div>
+  </div>
+</div>
+
 <!-- Lightbox Modal -->
 <div id="lightbox" class="lightbox" onclick="closeLightbox()">
   <span class="close" onclick="closeLightbox()">&times;</span>

@@ -8,10 +8,6 @@ permalink: /wiki/example-notebook/
 <a href="{{ site.baseurl }}/assets/notebooks/example_workflow.ipynb" download>&#11015; Download example_workflow.ipynb</a>
 &nbsp;&nbsp;
 <a href="https://github.com/idossha/TI-Toolbox/blob/main/docs/assets/notebooks/example_workflow.ipynb">View on GitHub</a>
-{% if site.jupyterhub_url != "" %}
-&nbsp;&nbsp;
-<a href="{{ site.jupyterhub_url }}/hub/user-redirect/lab/tree/notebooks/example_workflow.ipynb"><strong>&#9654; Run it in your browser</strong></a> (hosted TI-Toolbox, GitHub login)
-{% endif %}
 </p>
 
 This page is a Jupyter notebook that was executed inside the TI-Toolbox container against Dataset 000 and exported as-is. Every output, table and figure below is real. Download the `.ipynb` and import it on the app's [Notebooks]({{ site.baseurl }}/wiki/notebooks/) page (**Import .ipynb**) to run it against your own project — the kernel there is the container's SimNIBS Python, so nothing needs installing.
@@ -439,7 +435,9 @@ plt.show()
 
 
     
-<img src="{{ site.baseurl }}/assets/imgs/notebook/nb_14_0.png" alt="notebook output" style="max-width: 100%;">
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/notebook/nb_14_0.png" alt="notebook output" style="max-width: 100%;">
+</div>
     
 
 
@@ -461,7 +459,9 @@ plt.show()
 
 
     
-<img src="{{ site.baseurl }}/assets/imgs/notebook/nb_15_0.png" alt="notebook output" style="max-width: 100%;">
+<div class="image-container">
+  <img src="{{ site.baseurl }}/assets/imgs/notebook/nb_15_0.png" alt="notebook output" style="max-width: 100%;">
+</div>
     
 
 

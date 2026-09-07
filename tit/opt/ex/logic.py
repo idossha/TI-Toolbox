@@ -19,6 +19,14 @@ tit.opt.ex.ex_search : Orchestrator that consumes these generators.
 
 from itertools import product
 
+from .symmetry import (
+    SYMMETRY_PAIRING_CROSS_PAIRS,
+    SYMMETRY_PAIRING_WITHIN_PAIRS,
+    SYMMETRY_PAIRINGS,
+    format_mirror_map,
+    symmetric_pair_options,
+)
+
 
 def generate_current_ratios(total_current, current_step, channel_limit):
     """Generate valid two-channel current splits for TI stimulation.
@@ -64,18 +72,132 @@ def generate_current_ratios(total_current, current_step, channel_limit):
     return ratios
 
 
-def _electrode_combinations(e1_plus, e1_minus, e2_plus, e2_minus, all_combinations):
-    """Yield valid electrode 4-tuples from the bucket or pool lists."""
+def _valid_quad(combo):
+    return len(set(combo)) == 4
+
+
+def _within_pair_symmetric_combinations(e1_plus, e1_minus, e2_plus, e2_minus, mirror_map):
+    """Each pair's minus electrode is the mirror of its plus electrode."""
+    pair1 = list(symmetric_pair_options(e1_plus, e1_minus, mirror_map))
+    pair2 = list(symmetric_pair_options(e2_plus, e2_minus, mirror_map))
+    for (e1p, e1m), (e2p, e2m) in product(pair1, pair2):
+        combo = (e1p, e1m, e2p, e2m)
+        if _valid_quad(combo):
+            yield combo
+
+
+def _cross_pair_symmetric_combinations(e1_plus, e1_minus, e2_plus, e2_minus, mirror_map):
+    """Pair 2 is the mirror image of pair 1 (``e2+ = mirror(e1+)``, ``e2- = mirror(e1-)``)."""
+    plus_options = list(symmetric_pair_options(e1_plus, e2_plus, mirror_map))
+    minus_options = list(symmetric_pair_options(e1_minus, e2_minus, mirror_map))
+    for (e1p, e2p), (e1m, e2m) in product(plus_options, minus_options):
+        combo = (e1p, e1m, e2p, e2m)
+        if _valid_quad(combo):
+            yield combo
+
+
+def _electrode_combinations(
+    e1_plus,
+    e1_minus,
+    e2_plus,
+    e2_minus,
+    all_combinations,
+    symmetry_mirror_map=None,
+    symmetry_pairing=SYMMETRY_PAIRING_WITHIN_PAIRS,
+):
+    """Yield valid electrode 4-tuples from the bucket or pool lists.
+
+    With a *symmetry_mirror_map* (bucket mode only) the enumeration is
+    restricted to left/right mirrored montages, following *symmetry_pairing*
+    (``"within_pairs"`` or ``"cross_pairs"``).
+    """
     if all_combinations:
         for combo in product(e1_plus, repeat=4):
-            if len(set(combo)) == 4:
+            if _valid_quad(combo):
                 yield combo
-    else:
+        return
+    if symmetry_mirror_map is None:
         yield from product(e1_plus, e1_minus, e2_plus, e2_minus)
+        return
+    if symmetry_pairing not in SYMMETRY_PAIRINGS:
+        raise ValueError(f"Unsupported ex-search symmetry pairing: {symmetry_pairing}")
+    if symmetry_pairing == SYMMETRY_PAIRING_CROSS_PAIRS:
+        yield from _cross_pair_symmetric_combinations(
+            e1_plus, e1_minus, e2_plus, e2_minus, symmetry_mirror_map
+        )
+    else:
+        yield from _within_pair_symmetric_combinations(
+            e1_plus, e1_minus, e2_plus, e2_minus, symmetry_mirror_map
+        )
+
+
+def explain_zero_combinations(
+    e1_plus,
+    e1_minus,
+    e2_plus,
+    e2_minus,
+    current_ratios,
+    all_combinations,
+    symmetry_mirror_map=None,
+    symmetry_pairing=SYMMETRY_PAIRING_WITHIN_PAIRS,
+):
+    """Return a human-readable reason why the enumeration yields no candidate.
+
+    Called only after :func:`count_combinations` returned zero; the message is
+    meant to be shown to the user verbatim.
+    """
+    if not current_ratios:
+        return (
+            "no valid current ratios: check total_current, current_step and "
+            "channel_limit (each channel needs at least one step and at most "
+            "channel_limit, summing to total_current)"
+        )
+    if all_combinations:
+        n = len(set(e1_plus))
+        return f"pool mode needs at least 4 distinct electrodes, got {n}"
+
+    buckets = {
+        "e1_plus": e1_plus,
+        "e1_minus": e1_minus,
+        "e2_plus": e2_plus,
+        "e2_minus": e2_minus,
+    }
+    empty = [key for key, values in buckets.items() if not values]
+    if empty:
+        return f"empty electrode bucket(s): {', '.join(empty)}"
+
+    if symmetry_mirror_map is not None:
+        mm = symmetry_mirror_map
+        if symmetry_pairing == SYMMETRY_PAIRING_CROSS_PAIRS:
+            checks = [("e1_plus", "e2_plus"), ("e1_minus", "e2_minus")]
+            what = "cross_pairs: pair 2 must mirror pair 1"
+        else:
+            checks = [("e1_plus", "e1_minus"), ("e2_plus", "e2_minus")]
+            what = "within_pairs: each pair's minus electrode must mirror its plus"
+        for src, dst in checks:
+            if not list(symmetric_pair_options(buckets[src], buckets[dst], mm)):
+                return (
+                    f"symmetric_bucket={symmetry_pairing}: no electrode in {src} "
+                    f"has its mirror in {dst} ({what}; mirror map: "
+                    f"{format_mirror_map(buckets[src], mm)}; {dst}: "
+                    f"{', '.join(buckets[dst])})"
+                )
+        return (
+            f"symmetric_bucket={symmetry_pairing}: every mirrored montage "
+            "reuses an electrode (the four electrodes must be distinct)"
+        )
+    return "every montage was rejected by the enumeration filters"
 
 
 def generate_montage_combinations(
-    e1_plus, e1_minus, e2_plus, e2_minus, current_ratios, all_combinations
+    e1_plus,
+    e1_minus,
+    e2_plus,
+    e2_minus,
+    current_ratios,
+    all_combinations,
+    symmetry_mirror_map=None,
+    symmetry_pairing=SYMMETRY_PAIRING_WITHIN_PAIRS,
 ):
     """Yield every electrode + current-ratio combination for evaluation.
 
@@ -88,6 +210,11 @@ def generate_montage_combinations(
     all_combinations : bool
         When *True*, treat all four lists as a single pool and require
         four distinct electrodes (permutation mode).
+    symmetry_mirror_map : dict or None
+        Electrode mirror map for symmetric bucket mode (see
+        :mod:`tit.opt.ex.symmetry`); ``None`` disables the constraint.
+    symmetry_pairing : str
+        ``"within_pairs"`` or ``"cross_pairs"``.
 
     Yields
     ------
@@ -95,14 +222,27 @@ def generate_montage_combinations(
         ``(e1p, e1m, e2p, e2m, (ch1_mA, ch2_mA))``.
     """
     for electrodes in _electrode_combinations(
-        e1_plus, e1_minus, e2_plus, e2_minus, all_combinations
+        e1_plus,
+        e1_minus,
+        e2_plus,
+        e2_minus,
+        all_combinations,
+        symmetry_mirror_map,
+        symmetry_pairing,
     ):
         for ratio in current_ratios:
             yield (*electrodes, ratio)
 
 
 def count_combinations(
-    e1_plus, e1_minus, e2_plus, e2_minus, current_ratios, all_combinations
+    e1_plus,
+    e1_minus,
+    e2_plus,
+    e2_minus,
+    current_ratios,
+    all_combinations,
+    symmetry_mirror_map=None,
+    symmetry_pairing=SYMMETRY_PAIRING_WITHIN_PAIRS,
 ):
     """Count total montage-x-ratio combinations without materializing them.
 
@@ -123,7 +263,13 @@ def count_combinations(
     n_electrodes = sum(
         1
         for _ in _electrode_combinations(
-            e1_plus, e1_minus, e2_plus, e2_minus, all_combinations
+            e1_plus,
+            e1_minus,
+            e2_plus,
+            e2_minus,
+            all_combinations,
+            symmetry_mirror_map,
+            symmetry_pairing,
         )
     )
     return n_electrodes * len(current_ratios)

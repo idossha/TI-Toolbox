@@ -1,4 +1,4 @@
-"""SCI-07 -- the exposure metrics honour the montage's declared carriers.
+"""SCI-07 -- the exposure metrics, on ``main``'s positional carrier model.
 
 Cassarà et al. 2025, *Recommendations for the Safe Application of Temporal
 Interference Stimulation in the Human Brain*, Part II, p. 8:
@@ -7,11 +7,18 @@ Interference Stimulation in the Human Brain*, Part II, p. 8:
     superposition was used for identical frequencies, and incoherent
     superposition (i.e., SAR addition) was used when the frequencies differed."
 
-Before this fix ``tit/fields.py`` treated **every** raw FEM field as its own
-incoherent carrier, so a montage that declares ``channels`` (several electrode
-pairs driven phase-locked from one carrier, the shared-carrier design) had its
-``hf_sar`` computed as ``sum_i |E_i|^2`` instead of ``sum_c |sum_{i in c} E_i|^2``
--- a lower bound, and therefore *non-conservative* for a safety metric.
+**Which fields share a frequency is a property of the wiring.**  Since v2.5.0
+(``7a5ee2dd``, ``d4706e5a``, ``b19a1c26``) TI-Toolbox has exactly one wiring:
+**positional**.  ``electrode_pairs`` are taken two at a time, each pair driven
+at its own carrier frequency, so *one FEM field is one carrier* and the
+coherent pre-sum within a frequency is the identity.  The exposure metrics
+therefore sum incoherently over the N fields:
+
+    ``hf_sar = sum_i |E_i|^2``            (power adds; distinct frequencies)
+    ``hf_peak = max_s |sum_i s_i E_i|``   (worst-case realisable phase)
+
+with the sinusoid's ``1/2`` applied exactly once, in the SAR calibration
+``(sigma / 2 rho) * hf_sar``, and nowhere in the field-domain quantity itself.
 
 Everything below is checked against an **independent time-domain simulation**:
 the fields are given actual carrier frequencies and phases, ``E(t)`` is summed
@@ -23,8 +30,9 @@ Frequencies are chosen commensurate (a common period exists) so that the
 time-average is exact rather than asymptotic; they are still *distinct*, which
 is all the incoherence argument needs -- the cross terms of two different
 frequencies integrate to zero over the common period, while two contributions
-at the *same* frequency keep their cross term.  That is precisely the
-distinction the fix is about.
+at the *same* frequency keep their cross term.  The last section pins that
+distinction explicitly: it measures what a shared-frequency pair would do, and
+records that the positional wiring never produces one.
 """
 
 import itertools
@@ -41,9 +49,9 @@ pytestmark = pytest.mark.unit
 
 #: Carrier frequencies in Hz.  Distinct, and with a common period of 1/10 s
 #: (gcd = 10 Hz), so a whole number of cycles of every carrier fits the window.
-_FREQS = (2000.0, 2010.0, 2030.0, 2070.0)
+_FREQS = (2000.0, 2010.0, 2030.0, 2070.0, 2110.0, 2130.0, 2170.0, 2190.0)
 _COMMON_PERIOD = 0.1  # s; 1 / gcd(_FREQS)
-_N_SAMPLES = 400_000  # ~200 samples per cycle of the fastest carrier
+_N_SAMPLES = 400_000  # ~180 samples per cycle of the fastest carrier
 
 
 def _time_series(fields, freqs, phases):
@@ -51,8 +59,8 @@ def _time_series(fields, freqs, phases):
 
     ``fields[i]`` is a ``(3,)`` amplitude vector driven at ``freqs[i]`` with
     phase ``phases[i]``: ``E(t) = sum_i E_i cos(2 pi f_i t + phi_i)``.  Fields
-    that share a frequency *and* phase are phase-locked -- the shared-carrier
-    case -- and their contributions add coherently at every instant.
+    that share a frequency *and* phase are phase-locked and add coherently at
+    every instant; distinct frequencies do not.
     """
     t = np.arange(_N_SAMPLES, dtype=np.float64) * (_COMMON_PERIOD / _N_SAMPLES)
     out = np.zeros((_N_SAMPLES, 3), dtype=np.float64)
@@ -93,83 +101,13 @@ def _as_rows(*vectors):
 
 
 # --------------------------------------------------------------------------
-# 1. One carrier group: aligned / opposing / orthogonal contributions.
+# 1. One field is one carrier: hf_sar / 2 is the measured time-average.
 # --------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    "e_a, e_b, label",
-    [
-        ([1.0, 0.0, 0.0], [1.0, 0.0, 0.0], "aligned"),
-        ([1.0, 0.0, 0.0], [-1.0, 0.0, 0.0], "opposing"),
-        ([1.0, 0.0, 0.0], [0.0, 1.0, 0.0], "orthogonal"),
-        ([0.7, -0.2, 0.4], [0.3, 0.9, -0.1], "oblique"),
-    ],
-)
-def test_same_channel_pair_sums_coherently(e_a, e_b, label):
-    """Two fields on one carrier + a third on another.
-
-    The reference drives fields 0 and 1 at the *same* frequency and phase, and
-    field 2 at a different one.  The measured time-averaged ``|E|^2`` must be
-    ``hf_sar / 2`` with ``channels`` declared, and must *not* match the
-    ungrouped ``hf_sar / 2`` unless the two happen to be orthogonal.
-    """
-    from tit.fields import hf_sar
-
-    e_a = np.array(e_a)
-    e_b = np.array(e_b)
-    e_c = np.array([0.2, 0.1, 0.8])
-    fields = _as_rows(e_a, e_b, e_c)
-    channels = [([0, 1], [2])]
-
-    # Independent measurement: fields 0,1 share carrier 0; field 2 is carrier 1.
-    measured = _true_mean_square(
-        [e_a, e_b, e_c], (_FREQS[0], _FREQS[0], _FREQS[1]), (0.3, 0.3, 1.1)
-    )
-
-    grouped = hf_sar(*fields, channels=channels)
-    assert grouped.shape == (4,)
-    assert grouped[0] == pytest.approx(2.0 * measured, rel=1e-9)
-
-    # And it equals the longhand coherent-then-power reference.
-    assert grouped[0] == pytest.approx(_reference_hf_sar([e_a + e_b, e_c]), rel=1e-12)
-
-    ungrouped = hf_sar(*fields)
-    if label == "orthogonal":
-        # Orthogonal same-carrier contributions have no cross term, so the two
-        # models coincide -- the one case where the old behaviour was right.
-        assert ungrouped[0] == pytest.approx(grouped[0], rel=1e-12)
-    else:
-        assert ungrouped[0] != pytest.approx(grouped[0], rel=1e-6)
-        # Aligned contributions are the worst case: on the grouped carrier
-        # alone the old value was a factor of two low for two equal aligned
-        # fields (the third field's own carrier is common to both models).
-        if label == "aligned":
-            third = float(np.dot(e_c, e_c))
-            assert grouped[0] - third == pytest.approx(
-                2.0 * (ungrouped[0] - third), rel=1e-12
-            )
-
-
-def test_aligned_pair_old_behaviour_was_a_lower_bound():
-    """The documented 2 -> 4 magnitude for two aligned unit fields."""
-    from tit.fields import hf_sar
-
-    fields = _as_rows([1.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0])
-    ungrouped = float(hf_sar(*fields)[0])
-    grouped = float(hf_sar(*fields, channels=[([0, 1], [2])])[0])
-    assert ungrouped == pytest.approx(3.0)  # 1 + 1 + 1
-    assert grouped == pytest.approx(5.0)  # |E0+E1|^2 + |E2|^2 = 4 + 1
-
-
-# --------------------------------------------------------------------------
-# 2. Time-averaged |E|^2 for 1, 2 and 3 carriers.
-# --------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize("n_carriers", [1, 2, 3])
+@pytest.mark.parametrize("n_carriers", [2, 3, 4, 6, 8])
 def test_hf_sar_matches_measured_time_average(n_carriers):
-    """``hf_sar / 2`` is the true time-averaged ``|E(t)|^2``, for any carrier count.
+    """``hf_sar / 2`` is the true time-averaged ``|E(t)|^2``.
 
     The ``1/2`` is the sinusoid's time-average (Cassarà Part II, p. 6: "For
     sinusoidal currents, root mean square (RMS) peak E-field and current
@@ -180,27 +118,41 @@ def test_hf_sar_matches_measured_time_average(n_carriers):
     from tit.fields import hf_sar
 
     rng = np.random.default_rng(20260907 + n_carriers)
-    # Two fields per carrier, so the coherent-sum step is exercised at every
-    # carrier count and the flat field list is never trivially the carriers.
-    per_carrier = [rng.normal(size=(2, 3)) for _ in range(n_carriers)]
-    flat = [v for pair in per_carrier for v in pair]
-    channels = []
-    for c in range(n_carriers):
-        # One carrier per group_a; group_b of the previous channel is empty for
-        # odd counts, so pair the carriers up and leave a lone one non-beating.
-        channels.append(([2 * c, 2 * c + 1], []))
+    vecs = [rng.normal(size=3) for _ in range(n_carriers)]
+    fields = _as_rows(*vecs)
 
-    fields = _as_rows(*flat)
-    freqs = [f for c in range(n_carriers) for f in (_FREQS[c], _FREQS[c])]
-    phases = [p for c in range(n_carriers) for p in (0.4 * c, 0.4 * c)]
+    freqs = _FREQS[:n_carriers]
+    phases = [0.37 * i for i in range(n_carriers)]
 
-    measured = _true_mean_square(flat, freqs, phases)
-    got = float(hf_sar(*fields, channels=channels)[0])
-    assert got == pytest.approx(2.0 * measured, rel=1e-9)
+    measured = _true_mean_square(vecs, freqs, phases)
+    got = hf_sar(*fields)
+    assert got.shape == (4,)
+    assert float(got[0]) == pytest.approx(2.0 * measured, rel=1e-9)
+    # ... and it is the longhand incoherent sum (summation order aside).
+    assert float(got[0]) == pytest.approx(_reference_hf_sar(vecs), rel=1e-15)
+
+
+def test_hf_sar_is_phase_blind():
+    """Distinct carriers: the time-average does not depend on their phases.
+
+    This is the whole content of "incoherent superposition" -- the cross terms
+    of two different frequencies integrate to zero over the common period, so
+    ``hf_sar`` is a function of the amplitudes alone.
+    """
+    from tit.fields import hf_sar
+
+    rng = np.random.default_rng(9091)
+    vecs = [rng.normal(size=3) for _ in range(4)]
+    freqs = _FREQS[:4]
+
+    a = _true_mean_square(vecs, freqs, [0.0, 0.0, 0.0, 0.0])
+    b = _true_mean_square(vecs, freqs, [0.0, 1.3, 2.9, 0.6])
+    assert a == pytest.approx(b, rel=1e-9)
+    assert float(hf_sar(*_as_rows(*vecs))[0]) == pytest.approx(2.0 * a, rel=1e-9)
 
 
 # --------------------------------------------------------------------------
-# 3. Peak carrier field over channel sums.
+# 2. Peak carrier field: the worst-case realisable phase.
 # --------------------------------------------------------------------------
 
 
@@ -208,99 +160,88 @@ def test_hf_peak_matches_measured_peak_two_carriers():
     """``hf_peak`` is the true ``max_t |E(t)|`` for two carriers.
 
     Cassarà Part I, Eq. 3 (p. 11): the worst case is "in-phase, spatially
-    aligned fields", ``max(|E1+E2|, |E1-E2|)``.  With distinct frequencies the
-    relative phase sweeps the full circle, and the supremum of
-    ``|sum_c A_c cos(theta_c)|`` over the phase box is attained at a vertex --
-    which is exactly the sign enumeration.
+    aligned fields", ``max(|E1+E2|, |E1-E2|)``.  Two distinct frequencies make
+    the *relative* phase sweep the whole circle within one beat period, so the
+    supremum is actually attained and the measurement is exact.
     """
     from tit.fields import hf_peak
 
     e0 = np.array([0.9, -0.3, 0.2])
     e1 = np.array([0.1, 0.5, -0.4])
-    e2 = np.array([0.3, 0.3, 0.7])
-    fields = _as_rows(e0, e1, e2)
-    channels = [([0, 1], [2])]
-
-    measured = _true_peak(
-        [e0, e1, e2], (_FREQS[0], _FREQS[0], _FREQS[1]), (0.0, 0.0, 0.0)
-    )
-    got = float(hf_peak(*fields, channels=channels)[0])
+    measured = _true_peak([e0, e1], (_FREQS[0], _FREQS[1]), (0.0, 0.0))
+    got = float(hf_peak(*_as_rows(e0, e1))[0])
     assert got == pytest.approx(measured, rel=2e-4)
-    assert got == pytest.approx(_reference_hf_peak([e0 + e1, e2]), rel=1e-12)
+    assert got == pytest.approx(_reference_hf_peak([e0, e1]), rel=1e-12)
 
 
-def test_hf_peak_grouping_can_only_lower_the_peak():
-    """Grouping removes sign patterns the hardware cannot realise.
+@pytest.mark.parametrize("n_carriers", [3, 4, 5])
+def test_hf_peak_is_conservative_for_more_carriers(n_carriers):
+    """Above two carriers the metric must *dominate* any observed instant.
 
-    Two pairs fed from one phase-locked source cannot be in anti-phase, so the
-    ungrouped enumeration -- which is free to flip them independently -- is an
-    over-estimate.  It is a *safe* over-estimate, but not the physical value.
+    With commensurate frequencies the relative phases trace a closed line on
+    the phase torus rather than filling it, so a finite simulation does not
+    generally reach the all-in-phase vertex.  What matters for a safety metric
+    is the direction of the inequality: ``hf_peak`` is an upper bound on every
+    instantaneous magnitude, and the supremum over the torus is the sign
+    enumeration it reports.
     """
     from tit.fields import hf_peak
 
-    e0 = np.array([1.0, 0.0, 0.0])
-    e1 = np.array([-0.9, 0.0, 0.0])  # nearly cancels e0 on its own carrier
-    e2 = np.array([0.0, 0.4, 0.0])
-    fields = _as_rows(e0, e1, e2)
+    rng = np.random.default_rng(808 + n_carriers)
+    vecs = [rng.normal(size=3) for _ in range(n_carriers)]
+    got = float(hf_peak(*_as_rows(*vecs))[0])
 
-    ungrouped = float(hf_peak(*fields)[0])
-    grouped = float(hf_peak(*fields, channels=[([0, 1], [2])])[0])
-    assert grouped < ungrouped
-    # carrier 0 is e0 + e1 = 0.1 x-hat; peak is |0.1 x| + |0.4 y| in quadrature
-    assert grouped == pytest.approx(np.hypot(0.1, 0.4), rel=1e-12)
-    assert ungrouped == pytest.approx(np.hypot(1.9, 0.4), rel=1e-12)
+    assert got == pytest.approx(_reference_hf_peak(vecs), rel=1e-12)
+    for phases in ((0.0,) * n_carriers, tuple(0.31 * i for i in range(n_carriers))):
+        assert _true_peak(vecs, _FREQS[:n_carriers], phases) <= got + 1e-9
 
 
-def test_three_pairs_sharing_one_carrier():
-    """Six electrode pairs, three per carrier -- the Lee et al. 2022 design.
+def test_hf_peak_two_carriers_is_cassara_eq3():
+    """At two carriers the sign enumeration *is* ``max(|E1+E2|, |E1-E2|)``."""
+    from tit.fields import hf_peak
 
-    This is the case the old code got most wrong: ``hf_sar`` saw six
-    independent carriers where the montage declares two.
-    """
-    from tit.fields import hf_peak, hf_peak_is_exact, hf_sar
+    rng = np.random.default_rng(3131)
+    for _ in range(20):
+        e1, e2 = rng.normal(size=3), rng.normal(size=3)
+        eq3 = max(np.linalg.norm(e1 + e2), np.linalg.norm(e1 - e2))
+        assert float(hf_peak(*_as_rows(e1, e2))[0]) == pytest.approx(eq3, rel=1e-14)
 
-    rng = np.random.default_rng(70725)
+
+def test_hf_peak_never_below_any_single_carrier():
+    """A safety metric must dominate every one of its constituents."""
+    from tit.fields import hf_peak
+
+    rng = np.random.default_rng(555)
     vecs = [rng.normal(size=3) for _ in range(6)]
-    fields = _as_rows(*vecs)
-    channels = [([0, 1, 2], [3, 4, 5])]
-
-    a = vecs[0] + vecs[1] + vecs[2]
-    b = vecs[3] + vecs[4] + vecs[5]
-
-    measured_ms = _true_mean_square(
-        vecs, [_FREQS[0]] * 3 + [_FREQS[1]] * 3, [0.7] * 3 + [2.1] * 3
-    )
-    assert float(hf_sar(*fields, channels=channels)[0]) == pytest.approx(
-        2.0 * measured_ms, rel=1e-9
-    )
-    assert float(hf_sar(*fields, channels=channels)[0]) == pytest.approx(
-        _reference_hf_sar([a, b]), rel=1e-12
-    )
-
-    measured_peak = _true_peak(vecs, [_FREQS[0]] * 3 + [_FREQS[1]] * 3, [0.0] * 6)
-    assert float(hf_peak(*fields, channels=channels)[0]) == pytest.approx(
-        measured_peak, rel=2e-4
-    )
-    assert float(hf_peak(*fields, channels=channels)[0]) == pytest.approx(
-        max(np.linalg.norm(a + b), np.linalg.norm(a - b)), rel=1e-12
-    )
-
-    # Six raw fields would still be exact, but the carrier count is what counts.
-    assert hf_peak_is_exact(6, channels) is True
-    assert len(channels) == 1
+    peak = float(hf_peak(*_as_rows(*vecs))[0])
+    assert peak >= max(float(np.linalg.norm(v)) for v in vecs) - 1e-12
 
 
-def test_hf_peak_is_exact_counts_carriers_not_fields():
-    """Twelve fields on two carriers take the exact path, not the sweep."""
-    from tit.fields import hf_peak_is_exact
+def test_hf_peak_is_exact_counts_carriers():
+    """One field is one carrier, so the flag is a plain count threshold."""
+    from tit.fields import EXACT_SIGN_ENUM_MAX_FIELDS, hf_peak_is_exact
 
-    twelve_on_two = [(list(range(6)), list(range(6, 12)))]
-    assert hf_peak_is_exact(12) is False  # ungrouped: 12 carriers, sweep
-    assert hf_peak_is_exact(12, twelve_on_two) is True  # grouped: 2 carriers
+    assert hf_peak_is_exact(2) is True
+    assert hf_peak_is_exact(EXACT_SIGN_ENUM_MAX_FIELDS) is True
+    assert hf_peak_is_exact(EXACT_SIGN_ENUM_MAX_FIELDS + 1) is False
+    assert hf_peak_is_exact(12) is False
+
+
+def test_hf_peak_sweep_is_a_lower_bound_on_the_exact_enumeration():
+    """Above the enumeration cap the sweep may under-report, never over-report."""
+    from tit.fields import EXACT_SIGN_ENUM_MAX_FIELDS, hf_peak
+
+    n = EXACT_SIGN_ENUM_MAX_FIELDS + 2
+    rng = np.random.default_rng(24601)
+    vecs = [rng.normal(size=3) for _ in range(n)]
+    swept = float(hf_peak(*_as_rows(*vecs))[0])
+    exact = _reference_hf_peak(vecs)
+    assert swept <= exact + 1e-9
+    assert swept == pytest.approx(exact, rel=5e-2)
 
 
 # --------------------------------------------------------------------------
-# 4. The envelope: the stimulation-relevant quantity, unchanged.
+# 3. The envelope: the stimulation-relevant quantity.
 # --------------------------------------------------------------------------
 
 
@@ -325,10 +266,6 @@ def test_directional_envelope_matches_time_domain_beat_depth():
     eq1 = abs(abs(a + b) - abs(a - b))
     assert eq1 == pytest.approx(2.0 * min(abs(a), abs(b)), rel=1e-12)
 
-    # Measured: the envelope of the projected beat, from the time series.
-    # The envelope is the peak |proj| within each *carrier* period; the beat
-    # then swings that envelope between |a|+|b| and ||a|-|b|| over the window
-    # (which is exactly one beat period here).
     e_t = _time_series([e1, e2], (_FREQS[0], _FREQS[1]), (0.0, 0.0))
     proj = np.abs(e_t @ n)
     per_carrier_period = int(round(_N_SAMPLES / (_FREQS[0] * _COMMON_PERIOD)))
@@ -352,7 +289,6 @@ def test_max_envelope_matches_the_best_direction_of_the_measured_beat():
     e1 = np.array([0.8, 0.2, -0.1])
     e2 = np.array([0.3, -0.5, 0.4])
 
-    # Dense Fibonacci sweep, written here rather than imported.
     m = 200_001
     i = np.arange(m) + 0.5
     phi = np.arccos(1 - 2 * i / m)
@@ -367,63 +303,85 @@ def test_max_envelope_matches_the_best_direction_of_the_measured_beat():
 
     got = float(
         np.linalg.norm(
-            get_TI_vectors(np.tile(e1, (4, 1)), np.tile(e2, (4, 1)))[0]
+            get_TI_vectors([np.tile(e1, (4, 1)), np.tile(e2, (4, 1))])[0]
         )
     )
-    # The sweep is a lower bound that converges quadratically in the angular
-    # spacing; the closed form is the exact maximum, so it must sit just above.
     assert got == pytest.approx(swept, rel=1e-3)
     assert got >= swept - 1e-12
 
 
 # --------------------------------------------------------------------------
-# 5. The channels=None path is bit-identical to the pre-fix behaviour.
+# 4. The envelope and the exposure metrics see the SAME carriers.
 # --------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("n_fields", [2, 3, 4, 5, 8])
-def test_channels_none_is_bit_identical(n_fields):
-    """Every montage without a declared grouping is untouched, to the last bit.
+@pytest.mark.parametrize("n_fields", [2, 4, 6, 8])
+def test_envelope_and_exposure_consume_the_same_positional_field_list(n_fields):
+    """One field list, one carrier per entry, both paths.
 
-    Both metrics are compared against a reference written out longhand in this
-    file, with ``==`` rather than a tolerance.
+    ``tit.calc`` pairs ``fields`` positionally into ``n_fields // 2`` beating
+    carriers and ``tit.fields`` sums the same ``n_fields`` entries
+    incoherently.  There is no grouping argument on either side to drift, so
+    what this pins is the *shape* contract: both accept exactly the montage's
+    field list, in order, and neither drops or re-pairs an entry.
     """
+    from tit.calc import get_TI_vectors
     from tit.fields import hf_peak, hf_sar
 
-    rng = np.random.default_rng(1000 + n_fields)
-    vecs = [rng.normal(size=3) for _ in range(n_fields)]
-    fields = _as_rows(*vecs)
+    rng = np.random.default_rng(1729 + n_fields)
+    fields = [rng.normal(size=(8, 3)) for _ in range(n_fields)]
 
-    sar = hf_sar(*fields)
-    peak = hf_peak(*fields)
+    assert get_TI_vectors(fields).shape == (8, 3)
+    assert hf_sar(*fields).shape == (8,)
+    assert hf_peak(*fields).shape == (8,)
 
-    assert float(sar[0]) == _reference_hf_sar(vecs)
-    assert float(peak[0]) == pytest.approx(_reference_hf_peak(vecs), rel=1e-15)
-
-    # Passing an explicit trivial grouping names the same carriers, so it must
-    # give exactly the same numbers as no grouping at all.
-    trivial = [
-        ([2 * k], [2 * k + 1]) for k in range(n_fields // 2)
-    ]
-    if n_fields % 2:
-        trivial.append(([n_fields - 1], []))
-    assert np.array_equal(hf_sar(*fields, channels=trivial), sar)
-    assert np.array_equal(hf_peak(*fields, channels=trivial), peak)
+    # Permuting whole positional pairs re-labels carriers but changes neither
+    # metric: both are symmetric under carrier exchange.
+    pairs = [(fields[2 * k], fields[2 * k + 1]) for k in range(n_fields // 2)]
+    reordered = [f for p in reversed(pairs) for f in p]
+    assert np.allclose(hf_sar(*reordered), hf_sar(*fields), rtol=0, atol=1e-12)
+    assert np.allclose(hf_peak(*reordered), hf_peak(*fields), rtol=0, atol=1e-12)
 
 
-def test_channels_none_leaves_the_full_mti_path_unchanged():
-    """``get_mTI_vectors`` with and without an equivalent explicit grouping."""
-    from tit.calc import get_mTI_vectors
+def test_shared_frequency_would_need_a_coherent_presum_and_never_occurs():
+    """The regime the positional wiring rules out, measured rather than argued.
 
-    rng = np.random.default_rng(4242)
-    fields = [rng.normal(size=(16, 3)) for _ in range(4)]
-    default = get_mTI_vectors(fields)
-    explicit = get_mTI_vectors(fields, channels=[([0], [1]), ([2], [3])])
-    assert np.allclose(default, explicit, rtol=0, atol=0)
+    If two electrode pairs were driven *phase-locked at one frequency* -- the
+    Lee et al. 2022 shared-carrier design -- the true time-averaged ``|E|^2``
+    would be ``|E_a + E_b|^2 / 2``, not ``(|E_a|^2 + |E_b|^2) / 2``, and
+    ``hf_sar`` over the raw fields would understate exposure by the cross term
+    (a factor of 2 for two equal aligned fields).  That is why the metric is
+    stated over *carriers*.  Positional wiring gives every field its own
+    frequency, so the case cannot arise -- and ``Montage`` has no field with
+    which to express it.  If a future montage regains one, the coherent
+    pre-sum belongs in ``tit.fields`` and this test is the specification.
+    """
+    from dataclasses import fields as dataclass_fields
+
+    from tit.fields import hf_sar
+    from tit.sim.config import Montage
+
+    e_a = np.array([1.0, 0.0, 0.0])
+    e_b = np.array([1.0, 0.0, 0.0])
+
+    shared = _true_mean_square([e_a, e_b], (_FREQS[0], _FREQS[0]), (0.3, 0.3))
+    distinct = _true_mean_square([e_a, e_b], (_FREQS[0], _FREQS[1]), (0.3, 0.3))
+    assert shared == pytest.approx(2.0, rel=1e-9)  # |E_a + E_b|^2 / 2 = 4/2
+    assert distinct == pytest.approx(1.0, rel=1e-9)  # (1 + 1) / 2
+
+    # The toolbox computes the distinct-frequency value, which is correct for
+    # the only wiring it can express.
+    assert float(hf_sar(*_as_rows(e_a, e_b))[0]) == pytest.approx(
+        2.0 * distinct, rel=1e-12
+    )
+
+    # And there is no way to declare the shared-frequency wiring.
+    assert "channels" not in {f.name for f in dataclass_fields(Montage)}
+    assert "channels" not in hf_sar.__code__.co_varnames
 
 
 # --------------------------------------------------------------------------
-# 6. The rationalised envelope form at extreme P/Q.
+# 5. The rationalised envelope form at extreme P/Q.
 # --------------------------------------------------------------------------
 
 
@@ -451,7 +409,6 @@ def test_envelope_from_pq_survives_catastrophic_cancellation():
     getcontext().prec = 60
     P = 1.0
 
-    # Weak-modulation regime: Q/P from 1e-8 down to 1e-20.
     worst_ours = 0.0
     worst_naive = 0.0
     for q in (1e-8, 1e-11, 1e-13, 1e-15, 1e-17, 1e-20):
@@ -468,11 +425,9 @@ def test_envelope_from_pq_survives_catastrophic_cancellation():
         worst_ours = max(worst_ours, abs(got / float(exact) - 1.0))
         worst_naive = max(worst_naive, abs(naive / float(exact) - 1.0))
 
-    # The naive form loses everything at the bottom of that range; ours does not.
     assert worst_ours < 1e-14
     assert worst_naive > 0.1
 
-    # |P - Q| / P ~ 1e-13 and exact equality: well-conditioned, still exact.
     for rel in (1e-13, 0.0):
         Q = P * (1.0 - rel)
         dP, dQ = Decimal(P), Decimal(Q)
@@ -490,52 +445,23 @@ def test_envelope_from_pq_null_field_is_zero():
     assert np.isfinite(out).all()
 
 
-# --------------------------------------------------------------------------
-# 7. The envelope and the exposure metrics see the SAME channel vectors.
-# --------------------------------------------------------------------------
+def test_numba_kernel_envelope_agrees_with_the_numpy_form():
+    """``tit._mti_kernel._envelope`` carries the same conditioning fix.
 
-
-def test_envelope_and_exposure_resolve_identical_carriers():
-    """One grouping rule, consumed by both paths.
-
-    ``tit.calc._resolve_channels`` (the modulation-depth search) and
-    ``tit.fields._carrier_stack`` (the exposure metrics) both go through
-    ``tit.fields.channel_index_groups``.  Feeding the exposure metrics the
-    envelope path's own resolved channel vectors must therefore reproduce the
-    grouped result exactly -- if the two ever drifted apart, this fails.
+    The accelerated K>=2 sweep has its own scalar copy of the envelope; if the
+    two forms ever diverge, the numba and NumPy paths would report different
+    modulation depths for the same montage.
     """
-    from tit.calc import _resolve_channels
-    from tit.fields import hf_peak, hf_sar
+    from tit._mti_kernel import _envelope
+    from tit.calc import _envelope_from_PQ
 
-    rng = np.random.default_rng(1729)
-    fields = [rng.normal(size=(8, 3)) for _ in range(6)]
-    channels = [([0, 1], [2]), ([3], [4, 5])]
-
-    resolved = _resolve_channels(fields, channels)
-    assert np.array_equal(hf_sar(*resolved), hf_sar(*fields, channels=channels))
-    assert np.array_equal(hf_peak(*resolved), hf_peak(*fields, channels=channels))
-
-
-def test_non_beating_carrier_group_is_a_zero_field_for_the_envelope_only():
-    """An empty ``group_b`` adds nothing to either exposure metric."""
-    from tit.calc import _resolve_channels
-    from tit.fields import hf_sar
-
-    rng = np.random.default_rng(31337)
-    fields = [rng.normal(size=(4, 3)) for _ in range(3)]
-    channels = [([0], [1]), ([2], [])]
-
-    # The envelope path materialises the empty group as a zero field so the
-    # flat list stays 2K long; the exposure path drops it. Same numbers.
-    assert len(_resolve_channels(fields, channels)) == 4
-    assert np.allclose(
-        hf_sar(*fields, channels=channels),
-        sum(np.sum(f * f, axis=1) for f in fields),
-    )
+    for P, Q in [(1.0, 1e-20), (1.0, 1e-13), (1.0, 0.5), (1.0, 1.0), (0.0, 0.0)]:
+        vec = float(_envelope_from_PQ(np.array([P]), np.array([Q]))[0])
+        assert float(_envelope(P, Q)) == pytest.approx(vec, rel=1e-14, abs=1e-300)
 
 
 # --------------------------------------------------------------------------
-# 8. Allowed channel (electrode-pair) counts.
+# 6. Allowed channel (electrode-pair) counts.
 # --------------------------------------------------------------------------
 
 
@@ -557,12 +483,12 @@ def test_allowed_electrode_pair_counts(n, ok):
 
 def test_calc_rejects_disallowed_field_counts():
     """``tit.calc`` enforces the same rule as the montage config."""
-    from tit.calc import get_mTI_vectors
+    from tit.calc import get_TI_vectors
 
     rng = np.random.default_rng(5)
     three = [rng.normal(size=(4, 3)) for _ in range(3)]
     with pytest.raises(ValueError, match="even number of fields"):
-        get_mTI_vectors(three)
+        get_TI_vectors(three)
 
 
 def test_montage_rejects_odd_pair_counts():
