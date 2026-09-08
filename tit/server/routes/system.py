@@ -97,10 +97,12 @@ def is_relevant_process(proc_name: str, cmdline: str) -> bool:
     return any(keyword.lower() in search_text for keyword in RELEVANT_KEYWORDS)
 
 
-#: The htop-style table shows the busiest processes, not all of them: a SimNIBS run inside the
-#: container has a few dozen and a snapshot every second must stay small.  `process_total` on the
-#: snapshot says how many there really were, so the table can honestly say "top 30 of 84".
-PROCESS_LIMIT = 30
+#: The htop-style table shows the busiest processes, not literally all of them: a snapshot every
+#: second has to stay small.  Sixty-four is well past what a `tit` container actually runs (the dev
+#: container sits at four to eight, a live SimNIBS job at a few dozen), so in practice the table
+#: shows everything and the UI prints a plain count rather than "top N of M" -- it says "N of M"
+#: only when a truncation has genuinely happened.  `process_total` always reports the real number.
+PROCESS_LIMIT = 64
 
 
 def job_pid_owners() -> dict[int, tuple[str, str]]:
@@ -204,9 +206,13 @@ def process_list() -> tuple[list[ProcessInfo], int]:
         ):
             try:
                 info = proc.info
-                total += 1
                 if info["pid"] == own_pid:
+                    # Not counted either. `process_total` is "how many rows COULD be listed", so
+                    # that the UI can print a plain count when nothing is hidden; counting the one
+                    # process we deliberately never list made a 4-process container report
+                    # "3 of 4" forever, which reads as a truncation that is not happening.
                     continue
+                total += 1
                 cmdline = " ".join(info["cmdline"]) if info["cmdline"] else ""
                 name = info["name"] or ""
                 mem = info["memory_info"]

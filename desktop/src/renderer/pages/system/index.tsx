@@ -7,71 +7,52 @@
  * the one `/ws/system` snapshot the jobs rail's Host tab already reads (`ws/useSystemStream`, one
  * shared socket for the whole app), so the two surfaces cannot disagree about a number.
  *
- * **Why both this and the Host tab.** Host is the glance you take without leaving the page you
- * are on: four figures and a process list in 260 px. This is where you go when the glance said
- * something is wrong, and it is shaped like the tools people already read that way — btop for the
- * resource band, Docker Desktop for the daemon panel, htop for the processes.
+ * **The layout is the argument** (maintainer, 2026-09-07). Two columns, full height.
  *
- * **The layout is the argument.** One screen, four questions, top to bottom: *what are the
- * resources doing* (the gauges band), *is Docker healthy* and *what is running* (the two middle
- * panels), *whose work is this* (the jobs strip). Nothing scrolls at 1440×900 in the common case,
- * because a monitor you have to scroll is a monitor you read half of.
+ * The left column is the live picture and its explanation, at one width: a rolling five-minute
+ * timeline with CPU and memory on a shared x-axis — the question people have is whether the two
+ * moved *together* — and directly beneath it the process table that answers *why*. Reading down
+ * one column is "the machine is at 90 %" → "…because of this", which is why the two share a width
+ * rather than the chart spanning the page above a narrower table.
  *
- * Nothing here is persisted. The charts are the last five minutes of the socket's own sample ring
- * and start over on a reload — a monitor, not a history; `derivatives/` is for things worth
- * keeping.
+ * The right column is the standing facts: memory composition, storage, Docker, host. They change
+ * slowly, they are read on purpose rather than watched, and they take the remaining width.
+ *
+ * There is no jobs strip. The rail is on every screen and `pages/jobs` is the full list; a third
+ * view of the same rows was this page's own largest redundancy, and it took its height from the
+ * process table.
+ *
+ * **Nothing is shown twice.** `model.ts`'s `METRIC_HOME` assigns each metric exactly one card,
+ * every card publishes its own list as `data-metrics`, and `tests/unit/system-redundancy.test.tsx`
+ * checks the rule against the rendered DOM. A number in two places is a number a reader has to
+ * check for agreement.
+ *
+ * Nothing here is persisted. The timeline is the socket's own five-minute sample ring and starts
+ * over on a reload — a monitor, not a history; `derivatives/` is for things worth keeping.
  */
 import { useCallback, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Activity, Cpu, Gauge, HardDrive, MemoryStick } from "lucide-react";
+import { Activity } from "lucide-react";
 import type { PageDef } from "../../app/registry";
 import { cancelJob } from "../../app/jobs-rail/api";
-import { useJobsModel } from "../../app/jobs-rail/model";
 import { ApiError } from "../../api/client";
 import { StatusDot } from "../../ui/Status";
 import { PageLayout } from "../../ui/Layout";
 import { notify } from "../../ui/Toast";
-import { bytes, pct } from "../../ui/utils";
 import { useSystemStream } from "../../ws/useSystemStream";
-import { AreaChart } from "./AreaChart";
+import { HostCard, MemoryCard, StorageCard } from "./cards";
 import { DockerPanel } from "./DockerPanel";
-import { JobsStrip } from "./JobsStrip";
 import { ProcessPanel } from "./ProcessPanel";
-import {
-  coreRows,
-  diskSegments,
-  formatRate,
-  formatUptime,
-  loadLabel,
-  loadTone,
-  memorySegments,
-  netRate,
-  seriesOf,
-  swapSegments,
-  toneFor,
-  windowed,
-  type Process,
-} from "./model";
-import { CoreCell, Meter, MeterLegend, Panel, Readout } from "./parts";
+import { Timeline } from "./Timeline";
+import { netRate, windowed, type Process } from "./model";
 import "./system-page.css";
-
-/** The three windows a load average reports, in the order psutil returns them. */
-const LOAD_WINDOWS = ["1 m", "5 m", "15 m"];
 
 function SystemPage() {
   const { status, samples } = useSystemStream();
-  const jobs = useJobsModel();
   const queryClient = useQueryClient();
 
   const latest = samples[samples.length - 1];
   const window5m = useMemo(() => windowed(samples), [samples]);
-  const cpuSeries = useMemo(() => seriesOf(window5m, (s) => s.cpu_percent), [window5m]);
-  const memSeries = useMemo(() => seriesOf(window5m, (s) => s.mem.percent), [window5m]);
-  const cores = useMemo(() => coreRows(samples), [samples]);
-  const memSegs = useMemo(() => memorySegments(latest?.mem), [latest?.mem]);
-  const swapSegs = useMemo(() => swapSegments(latest?.swap), [latest?.swap]);
-  const projectSegs = useMemo(() => diskSegments(latest?.disk), [latest?.disk]);
-  const dockerDiskSegs = useMemo(() => diskSegments(latest?.disk_docker), [latest?.disk_docker]);
   const rate = useMemo(() => netRate(samples), [samples]);
 
   const stop = useMutation({
@@ -101,197 +82,22 @@ function SystemPage() {
     [stop],
   );
 
-  const memUsedLabel = latest ? `${bytes(latest.mem.used)} of ${bytes(latest.mem.total)}` : "—";
-  const cpuLimit = latest?.docker?.own?.cpu_limit;
-
   return (
     <PageLayout header={<SystemHeader status={status} latest={latest} />}>
       <div className="system-page" data-testid="system-page">
-        {/* ── band 1: resources ─────────────────────────────────────────── */}
-        <div className="system-band" data-testid="system-band">
-          <Panel
-            title={
-              <>
-                <Cpu size={12} aria-hidden /> CPU
-              </>
-            }
-            aside={latest ? `${latest.cpu_count} cores${cpuLimit ? ` · limit ${cpuLimit}` : ""}` : "—"}
-            testId="system-cpu"
-          >
-            <Readout
-              value={pct(latest?.cpu_percent)}
-              detail={`load ${loadLabel(latest?.load_avg)}`}
-              tone={toneFor(latest?.cpu_percent)}
-            />
-            <AreaChart timestamps={cpuSeries.timestamps} values={cpuSeries.values} label="CPU" height={88} />
-            {cores.length > 0 && (
-              <div className="system-cores" data-testid="system-cores">
-                {cores.map((core) => (
-                  <CoreCell key={core.index} core={core} />
-                ))}
-              </div>
-            )}
-          </Panel>
-
-          <Panel
-            title={
-              <>
-                <MemoryStick size={12} aria-hidden /> Memory
-              </>
-            }
-            aside={memUsedLabel}
-            testId="system-memory"
-          >
-            <Readout
-              value={pct(latest?.mem.percent)}
-              detail={latest ? `${bytes(latest.mem.available)} available` : "—"}
-              tone={toneFor(latest?.mem.percent)}
-            />
-            <Meter segments={memSegs} testId="memory-meter" />
-            <MeterLegend segments={memSegs} />
-            <AreaChart
-              timestamps={memSeries.timestamps}
-              values={memSeries.values}
-              label="Memory"
-              height={88}
-              colorVar="--success"
-            />
-            <div className="system-block">
-              <div className="system-block-head text-caption">
-                Swap
-                <span className="system-block-value tabular-nums">
-                  {latest?.swap
-                    ? latest.swap.total === 0
-                      ? "none configured"
-                      : `${bytes(latest.swap.used)} of ${bytes(latest.swap.total)}`
-                    : "—"}
-                </span>
-              </div>
-              <Meter segments={swapSegs} testId="swap-meter" />
-            </div>
-          </Panel>
-
-          <Panel
-            title={
-              <>
-                <HardDrive size={12} aria-hidden /> Storage
-              </>
-            }
-            aside={latest?.disk ? `${bytes(latest.disk.free)} free` : "—"}
-            testId="system-storage"
-          >
-            <div className="system-block">
-              <div className="system-block-head text-caption">
-                Project volume
-                <span className="system-block-value mono">{latest?.disk?.path || "—"}</span>
-              </div>
-              <Meter segments={projectSegs} testId="project-disk-meter" />
-              <p className="system-note text-caption tabular-nums">
-                {latest?.disk ? `${bytes(latest.disk.free)} free of ${bytes(latest.disk.total)}` : "—"}
-              </p>
-            </div>
-            <div className="system-block">
-              <div className="system-block-head text-caption">
-                Docker root
-                <span className="system-block-value mono">{latest?.disk_docker?.path || "not visible"}</span>
-              </div>
-              {latest?.disk_docker ? (
-                <>
-                  <Meter segments={dockerDiskSegs} testId="docker-disk-meter" />
-                  <p className="system-note text-caption tabular-nums">
-                    {bytes(latest.disk_docker.free)} free of {bytes(latest.disk_docker.total)}
-                  </p>
-                </>
-              ) : (
-                /* The normal case from inside the container: the socket is bind-mounted, the
-                   graph directory is not. `docker system df` in the Docker panel answers the
-                   question this reading was standing in for. */
-                <p className="system-note text-caption">
-                  The daemon&apos;s storage is outside this container — see Docker for what it holds.
-                </p>
-              )}
-            </div>
-            {/* Bind mounts are a *storage* fact — what of the host is visible in here, and
-                whether it is writable — so they live beside the two filesystems rather than in
-                the Docker panel, where they were one more line in a column of daemon facts. */}
-            {(latest?.docker?.own?.mounts ?? []).length > 0 && (
-              <div className="system-block">
-                <div className="system-block-head text-caption">Mounts</div>
-                <table className="system-mini" data-testid="system-mounts">
-                  <tbody>
-                    {latest!.docker!.own!.mounts!.map((m) => (
-                      <tr key={m.destination}>
-                        <td className="mono system-mini-strong">{m.destination}</td>
-                        <td className="mono system-mini-dim system-mini-ellipsis">{m.source}</td>
-                        <td className="system-mini-num system-mini-dim">{m.mode || "rw"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Panel>
-
-          <Panel
-            title={
-              <>
-                <Gauge size={12} aria-hidden /> Host
-              </>
-            }
-            aside={formatUptime(latest?.uptime_s)}
-            testId="system-host"
-          >
-            {/* The load average, drawn against the core count: "1.42" means nothing until you
-                know whether this machine has 2 cores or 32, and the bar is that comparison. */}
-            {(latest?.load_avg ?? []).length > 0 && (
-              <div className="system-block" data-testid="system-load">
-                {latest!.load_avg!.map((value, i) => {
-                  const cores = latest!.cpu_count || 1;
-                  return (
-                    <div
-                      key={LOAD_WINDOWS[i] ?? i}
-                      className="system-load"
-                      data-tone={loadTone([value], cores)}
-                      title={`${value.toFixed(2)} over ${LOAD_WINDOWS[i] ?? "?"}, on ${cores} cores`}
-                    >
-                      <span className="system-load-label text-caption">{LOAD_WINDOWS[i] ?? ""}</span>
-                      <div className="system-load-track">
-                        <div
-                          className="system-load-fill"
-                          style={{ width: `${Math.max(1, Math.min(100, (value / cores) * 100))}%` }}
-                        />
-                      </div>
-                      <span className="system-load-value text-caption tabular-nums">{value.toFixed(2)}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            <dl className="system-kv" data-testid="system-host-kv">
-              <dt>Network</dt>
-              <dd className="tabular-nums">
-                {rate ? `↓ ${formatRate(rate.recv)} · ↑ ${formatRate(rate.sent)}` : "—"}
-              </dd>
-              <dt>Processes</dt>
-              <dd className="tabular-nums">{latest?.process_total ?? "—"}</dd>
-              <dt>Kernels</dt>
-              <dd className="tabular-nums">{latest?.kernels ?? 0}</dd>
-              <dt>Server</dt>
-              <dd className="tabular-nums">
-                {latest?.own ? `pid ${latest.own.pid} · ${bytes(latest.own.rss)}` : "—"}
-              </dd>
-            </dl>
-          </Panel>
-        </div>
-
-        {/* ── band 2: Docker | processes ────────────────────────────────── */}
-        <div className="system-middle">
-          <DockerPanel docker={latest?.docker} />
+        {/* Left: the timeline and the processes it explains, at the SAME width — they are one
+            column, read top to bottom ("the machine is at 90 %" → "…because of this"). Right: the
+            standing facts, stacked, taking the rest of the width for the full height. */}
+        <div className="system-main">
+          <Timeline samples={window5m} latest={latest} />
           <ProcessPanel snapshot={latest} onStop={onStopProcess} />
         </div>
-
-        {/* ── band 3: the work ──────────────────────────────────────────── */}
-        <JobsStrip model={jobs} />
+        <div className="system-stack">
+          <MemoryCard latest={latest} />
+          <StorageCard latest={latest} />
+          <DockerPanel docker={latest?.docker} />
+          <HostCard latest={latest} rate={rate} />
+        </div>
       </div>
     </PageLayout>
   );

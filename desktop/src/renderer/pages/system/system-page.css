@@ -11,12 +11,43 @@
  * only the two middle panels scroll, internally, and only when there is genuinely more than fits.
  */
 
+/*
+ * Two columns, both full height (maintainer, 2026-09-07).
+ *
+ * 3fr / 2fr — 60/40 at any width, rather than a pixel split that would be two thirds of the window
+ * at 1280 and a third at 1920. The left column is the timeline over the process table at ONE
+ * width: they are read together, top to bottom, and a chart spanning the page above a narrower
+ * table breaks that reading. The right column is the standing facts.
+ *
+ * `min-height: 0` on both columns is what keeps the page from ever scrolling: it lets the process
+ * table and the right stack overflow *inside themselves* instead of growing the grid.
+ */
 .system-page {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-columns: 3fr 2fr;
   gap: var(--space-2);
   height: 100%;
   min-height: 0;
+}
+@media (max-width: 1200px) {
+  .system-page {
+    grid-template-columns: minmax(0, 1fr);
+    overflow-y: auto;
+  }
+}
+
+/*
+ * The left column. The timeline takes a share of the height rather than a fixed number of pixels
+ * — the maintainer's ask was for the live graph to have real estate, and 300px is half the column
+ * at 900 and a third at 1440 — with a 260px floor, which is where its axis labels and the twelve
+ * core bars still fit. The process table takes the rest.
+ */
+.system-main {
+  display: grid;
+  grid-template-rows: minmax(260px, 38%) minmax(0, 1fr);
+  gap: var(--space-2);
+  min-height: 0;
+  min-width: 0;
 }
 
 .system-header {
@@ -83,49 +114,80 @@
   text-overflow: ellipsis;
 }
 
-/* ---------- band 1: resources ---------- */
+/* ---------- the timeline ---------- */
 
-/* Four cards at 1440+, two at 1200, one below that. `auto-fit` would collapse to five narrow
-   columns at 1920; the explicit counts keep a card wide enough for its chart at every step. */
-.system-band {
+.system-timeline {
+  min-height: 0;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: var(--space-2);
 }
-@media (max-width: 1400px) {
-  .system-band {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.system-timeline-plot {
+  position: relative;
+  min-height: 0;
 }
-@media (max-width: 760px) {
-  .system-band {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.system-timeline-plot > div {
+  width: 100%;
+  height: 100%;
 }
-
-.system-readout {
+.system-timeline-collecting {
+  position: absolute;
+  inset: 0;
   display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  flex: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-3);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-controls);
 }
-.system-readout-value {
-  font-size: 24px;
-  font-weight: 500;
-  line-height: 1.1;
-  letter-spacing: -0.01em;
-}
-.system-readout[data-tone="warning"] .system-readout-value {
-  color: var(--warning);
-}
-.system-readout[data-tone="danger"] .system-readout-value {
-  color: var(--danger);
-}
-.system-readout-detail {
+/* The legend IS the live read-out — which is why no CPU or memory percentage is printed anywhere
+   else on the page. On hover it switches to the values at the hovered instant, so the same three
+   words answer both "what is it now" and "what was it then". */
+.system-timeline-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: var(--space-3);
   color: var(--ink-2);
+  font-size: 12px;
+}
+.system-timeline-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+.system-timeline-key strong {
+  color: var(--ink);
+  font-weight: 500;
+}
+.system-timeline-swatch {
+  width: 8px;
+  height: 2px;
+  border-radius: 1px;
+}
+.system-timeline-at {
+  color: var(--ink-3);
+}
+.system-chip {
+  margin-left: auto;
+  height: var(--control-h-sm);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.system-chip:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+.system-chip[data-active] {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* ---------- meters ---------- */
@@ -230,48 +292,51 @@
   cursor: crosshair;
 }
 
-/* ---------- per-core grid ---------- */
+/* ---------- the timeline's per-core footer ---------- */
 
-/* Two columns of core rows: twelve cores fit in six rows, and an unbalanced machine — one core
-   pinned, eleven idle — is visible without reading a single number. */
-.system-cores {
+/*
+ * Twelve gauges across the FULL card width, `repeat(n, 1fr)` from the component (the count is the
+ * host's, not a literal here). The previous row was six-pixel slivers with a one-pixel fill,
+ * huddled in the left third of a card with the width to spare — which made the one thing this row
+ * exists for, seeing that one core is pinned while eleven idle, something you had to squint at.
+ *
+ * Height is `clamp`ed rather than fixed: 56px is the floor at which a fill and its percentage are
+ * both legible, and on a tall window the row takes more instead of leaving the card half empty.
+ */
+.system-cores-block {
   flex: none;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1px var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
 }
-@media (max-width: 1400px) {
-  .system-cores {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-.system-core {
-  display: grid;
-  grid-template-columns: 14px 40px minmax(20px, 1fr) 22px;
-  align-items: center;
-  gap: 4px;
-}
-.system-core-num {
-  color: var(--ink-3);
-  text-align: right;
-}
-.system-core-pct {
-  text-align: right;
+.system-cores-label {
   color: var(--ink-2);
 }
-.system-core[data-tone="warning"] .system-core-pct,
-.system-core[data-tone="danger"] .system-core-pct {
-  color: var(--ink);
+.system-cores {
+  display: grid;
+  gap: var(--space-2);
+  align-items: end;
+}
+.system-core {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 .system-core-track {
-  height: 4px;
-  border-radius: 999px;
+  position: relative;
+  height: clamp(56px, 8vh, 96px);
+  display: flex;
+  align-items: flex-end;
   background: var(--surface-2);
+  border-radius: var(--radius-controls);
   overflow: hidden;
 }
 .system-core-fill {
-  height: 100%;
+  width: 100%;
   background: var(--tone-accent);
+  transition: height 240ms ease;
 }
 .system-core[data-tone="warning"] .system-core-fill {
   background: var(--tone-warning);
@@ -279,44 +344,67 @@
 .system-core[data-tone="danger"] .system-core-fill {
   background: var(--tone-danger);
 }
+/* The last 60 s behind the level. Faint on purpose: the level is the reading, the history is
+   context — a full-strength line would compete with the thing it is behind. */
+.system-core-spark {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.system-core-spark polyline {
+  stroke: var(--ink-3);
+  opacity: 0.5;
+}
+.system-core-pct {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--ink-2);
+}
+.system-core[data-tone="warning"] .system-core-pct,
+.system-core[data-tone="danger"] .system-core-pct {
+  color: var(--ink);
+  font-weight: 500;
+}
+.system-core-num {
+  text-align: center;
+  color: var(--ink-3);
+  font-size: 10px;
+  line-height: 1;
+}
+
+/* The jobs-row sparkline (`parts.tsx`'s `Spark`) — unrelated to the core gauges above. */
 .system-spark {
   display: block;
   overflow: visible;
 }
 .system-spark polyline {
   stroke: var(--tone-accent);
-  opacity: 0.7;
-}
-.system-core[data-tone="warning"] .system-spark polyline {
-  stroke: var(--tone-warning);
-  opacity: 1;
-}
-.system-core[data-tone="danger"] .system-spark polyline {
-  stroke: var(--tone-danger);
-  opacity: 1;
+  opacity: 0.8;
 }
 
-/* ---------- band 2: Docker | processes ---------- */
+/* ---------- the right column ---------- */
 
-/* 2:3 — the process table is the one that rewards width (a command line), the Docker panel is a
-   column of short facts. */
-.system-middle {
-  display: grid;
-  grid-template-columns: 2fr 3fr;
+/* The stack scrolls as a whole rather than each card scrolling separately: four cards each with
+   their own scrollbar is four places to lose your position. */
+.system-stack {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-2);
   min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
 }
-@media (max-width: 1200px) {
-  .system-middle {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.system-stack > .system-panel {
+  flex: none;
 }
-.system-panel-docker,
 .system-panel-processes {
   overflow: hidden;
-}
-.system-panel-docker {
-  overflow-y: auto;
 }
 
 .system-block {
@@ -347,6 +435,9 @@
 .system-note {
   color: var(--ink-2);
   margin: 0;
+}
+.system-note-warn {
+  color: var(--warning);
 }
 .system-docker-down {
   color: var(--danger);
@@ -596,52 +687,63 @@
   text-align: right;
 }
 
-/* ---------- load bars ---------- */
+/* ---------- load average ---------- */
 
-/* A load average against the core count, drawn. "1.42" means nothing until you know whether this
-   machine has 2 cores or 32; the bar is that comparison, and the tone is `loadTone`'s. */
-.system-load {
-  display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) 40px;
-  align-items: center;
-  gap: 3px var(--space-2);
+/* Four small numbers in a row: 1 m, 5 m, 15 m and the core count they are read against. The bars
+   this replaces were a second drawing of a shape the timeline above already draws; what a load
+   average needs is the denominator, and that is now on screen beside it. */
+.system-loads {
+  display: flex;
+  gap: var(--space-4);
 }
-.system-load-label,
-.system-load-value {
+.system-load-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.system-load-window {
+  color: var(--ink-3);
+  line-height: 1.2;
+}
+.system-load-num {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+.system-load-cell[data-tone="warning"] .system-load-num {
+  color: var(--warning);
+}
+.system-load-cell[data-tone="danger"] .system-load-num {
+  color: var(--danger);
+}
+.system-load-cores {
+  margin-left: auto;
+}
+.system-load-cores .system-load-num {
   color: var(--ink-2);
 }
-.system-load-value {
-  text-align: right;
-}
-.system-load-track {
-  height: 4px;
-  border-radius: 999px;
-  background: var(--surface-2);
-  overflow: hidden;
-}
-.system-load-fill {
-  height: 100%;
-  background: var(--tone-accent);
-}
-.system-load[data-tone="warning"] .system-load-fill {
-  background: var(--tone-warning);
-}
-.system-load[data-tone="danger"] .system-load-fill {
-  background: var(--tone-danger);
-}
 
-/* ---------- band 3: jobs ---------- */
+/* ---------- disclosure ---------- */
 
-.system-panel-jobs {
-  flex: none;
-  max-height: 168px;
-  overflow: auto;
+.system-disclosure {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--ink-2);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
 }
-.system-jobs-table td {
-  padding-top: 2px;
-  padding-bottom: 2px;
+.system-disclosure:hover {
+  color: var(--ink);
 }
-.system-jobs-eta {
-  text-align: right;
-  color: var(--ink-3);
+.system-disclosure-chevron {
+  transition: transform 120ms ease;
+}
+.system-disclosure[aria-expanded="true"] .system-disclosure-chevron {
+  transform: rotate(90deg);
 }

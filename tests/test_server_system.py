@@ -276,6 +276,20 @@ def test_we_are_not_our_own_sibling() -> None:
     assert len(system_routes._containers(_Client(), own_id=None)) == 2
 
 
+def test_process_total_counts_what_could_be_listed_not_what_exists() -> None:
+    """`process_total` excludes the server's own process, exactly as `processes` does.
+
+    Counting the one process we deliberately never list made a four-process container report
+    "3 of 4" in the UI header forever — which reads as a truncation that is not happening. The
+    header prints a plain count when nothing is hidden, and that is only correct if the two
+    numbers are counted the same way.
+    """
+    rows, total = system_routes.process_list()
+    if len(rows) < system_routes.PROCESS_LIMIT:
+        assert total == len(rows), "nothing was truncated, so the two must agree"
+    assert all(p.pid != os.getpid() for p in rows)
+
+
 def test_process_rows_carry_what_an_htop_row_carries() -> None:
     rows, _total = system_routes.process_list()
     assert rows, "the test process itself should be listed"

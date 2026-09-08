@@ -7,7 +7,7 @@
  */
 import type { ReactNode } from "react";
 import { bytes } from "../../ui/utils";
-import type { CoreRow, Segment } from "./model";
+import type { Segment } from "./model";
 
 /** A card: an eyebrow title, an optional right-aligned aside, and a body. */
 export function Panel({
@@ -16,31 +16,32 @@ export function Panel({
   children,
   className,
   testId,
+  metrics,
 }: {
   title: ReactNode;
   aside?: ReactNode;
   children: ReactNode;
   className?: string;
   testId?: string;
+  /**
+   * The metrics this card owns (`model.ts`'s `metricsOf`), published on the DOM so the redundancy
+   * audit can check the rule against what is actually rendered rather than against a table that
+   * says what ought to be rendered.
+   */
+  metrics?: readonly string[];
 }) {
   return (
-    <section className={className ? `system-panel ${className}` : "system-panel"} data-testid={testId}>
+    <section
+      className={className ? `system-panel ${className}` : "system-panel"}
+      data-testid={testId}
+      data-metrics={metrics ? metrics.join(" ") : undefined}
+    >
       <header className="system-panel-head">
         <span className="text-eyebrow">{title}</span>
         {aside !== undefined && <span className="system-panel-aside text-caption tabular-nums">{aside}</span>}
       </header>
       {children}
     </section>
-  );
-}
-
-/** The big number a card leads with, plus one line of context under it. */
-export function Readout({ value, detail, tone = "neutral" }: { value: string; detail: string; tone?: string }) {
-  return (
-    <div className="system-readout" data-tone={tone}>
-      <span className="system-readout-value tabular-nums">{value}</span>
-      <span className="system-readout-detail text-caption tabular-nums">{detail}</span>
-    </div>
   );
 }
 
@@ -82,28 +83,6 @@ export function MeterLegend({ segments }: { segments: Segment[] }) {
         </li>
       ))}
     </ul>
-  );
-}
-
-/**
- * One core: its number, a 60 s sparkline, a level bar and the current percentage.
- *
- * Per-core is what makes an unbalanced machine visible at all — twelve cores where one is pinned
- * reads instantly, and the same twelve as a single average reads as "8 % CPU, everything is
- * fine". The sparkline is inline SVG rather than a chart library: it is a dozen polylines of
- * thirty points, redrawn a couple of times a second, and a uPlot instance each would be twelve
- * canvases for something a `<polyline>` draws exactly.
- */
-export function CoreCell({ core }: { core: CoreRow }) {
-  return (
-    <div className="system-core" data-tone={core.tone} title={`Core ${core.index}: ${core.percent.toFixed(1)} %`}>
-      <span className="system-core-num text-caption tabular-nums">{core.index}</span>
-      <Spark values={core.history} />
-      <div className="system-core-track">
-        <div className="system-core-fill" style={{ width: `${Math.max(2, Math.min(100, core.percent))}%` }} />
-      </div>
-      <span className="system-core-pct text-caption tabular-nums">{Math.round(core.percent)}</span>
-    </div>
   );
 }
 

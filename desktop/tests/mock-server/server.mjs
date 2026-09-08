@@ -124,6 +124,28 @@ const processes = [
   { pid: 9021, ppid: 4231, name: "meshfix", cmdline: "meshfix skin.off --no-clean", cpu_percent: 0, rss: 96 * 1024 ** 2, started: Date.now() / 1000 - 90, status: "zombie", threads: 0, relevant: false, owner_kind: "job", owner_id: "job-0001", owner_label: "sim · ernie" },
 ];
 
+// Thirty-four filler processes so the mock exercises the case the layout is actually built for:
+// a process table with more rows than fit, scrolling INSIDE its panel while the page itself does
+// not scroll. Deterministic (no Math.random in the shape) so `system.spec.ts` can count them.
+const FILLER_NAMES = ["bash", "sshd", "cron", "rsyslogd", "dbus-daemon", "node", "postgres", "nginx", "awk", "sed", "tail"];
+for (let i = 0; i < 34; i += 1) {
+  processes.push({
+    pid: 200 + i,
+    ppid: 1,
+    name: FILLER_NAMES[i % FILLER_NAMES.length],
+    cmdline: `${FILLER_NAMES[i % FILLER_NAMES.length]} --worker ${i}`,
+    cpu_percent: 0,
+    rss: (4 + (i % 7)) * 1024 ** 2,
+    started: Date.now() / 1000 - 1000 - i,
+    status: i % 9 === 0 ? "sleeping" : "running",
+    threads: 1 + (i % 3),
+    relevant: false,
+    owner_kind: null,
+    owner_id: null,
+    owner_label: "",
+  });
+}
+
 const siblingContainers = [
   { id: "9f2c1a4b7de0", name: "qsiprep-sub-101", image: "pennlinc/qsiprep:0.22.0", state: "running", status: "Up 4 minutes" },
   { id: "44b7de09f2c1", name: "qsirecon-sub-101", image: "pennlinc/qsirecon:0.23.2", state: "exited", status: "Exited (0) 2 hours ago" },
@@ -423,7 +445,9 @@ function snapshot() {
       ],
       warnings: ["24 GB of unused images — `docker image prune` would reclaim it"],
     },
-    process_total: processes.length + 54,
+    // Equal to what is sent: the table shows everything, so its header prints a plain count
+    // rather than "N of M". A real server truncates only past PROCESS_LIMIT (64).
+    process_total: processes.length,
     processes: processes.map((p) => ({
       ...p,
       cpu_percent: Number((Math.random() * 100).toFixed(1)),

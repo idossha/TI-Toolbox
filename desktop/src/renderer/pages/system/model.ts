@@ -297,3 +297,117 @@ export function limitsLabel(own: { cpu_limit?: number | null; mem_limit?: number
   if (own.mem_limit) parts.push(bytes(own.mem_limit));
   return parts.length > 0 ? parts.join(" · ") : "no limit set";
 }
+
+
+// ------------------------------------------------------- the redundancy map
+
+/**
+ * Which card owns each metric — **one card each, and only one**.
+ *
+ * The page showed the same number in two places more than once while it was being built (a CPU
+ * percentage in its own tile and again in the chart legend; disk free in a tile and in the meter
+ * caption; the load average in two cards), and every instance of that was a place a reader had to
+ * check whether the two agreed. This table is the rule, `tests/unit/system-redundancy.test.tsx`
+ * enforces it against the rendered DOM, and each card carries its own list as `data-metrics` so
+ * the rule and the markup cannot drift apart.
+ *
+ * Adding a metric means adding it here, once. If it genuinely belongs in two cards, that is a
+ * layout problem to solve, not an entry to duplicate.
+ */
+export type CardId = "timeline" | "processes" | "memory" | "storage" | "docker" | "host";
+
+export const METRIC_HOME = {
+  // The timeline is the only place a CPU or memory *percentage* is printed.
+  "cpu.percent": "timeline",
+  "mem.percent": "timeline",
+  "cpu.perCore": "timeline",
+  // Memory: the composition, not the percentage.
+  "mem.breakdown": "memory",
+  "mem.swap": "memory",
+  // Storage: both the filesystem and what Docker is holding — one question, one card.
+  "disk.project": "storage",
+  "disk.dockerRoot": "storage",
+  "docker.df": "storage",
+  // Docker: the daemon and this container.
+  "docker.engine": "docker",
+  "docker.own": "docker",
+  "docker.mounts": "docker",
+  "docker.siblings": "docker",
+  "docker.images": "docker",
+  // Host: the numbers that are neither a resource meter nor a Docker fact.
+  "host.load": "host",
+  "host.uptime": "host",
+  "host.net": "host",
+  "host.counts": "host",
+  processes: "processes",
+  // No `jobs` key. A jobs strip lived here briefly and was removed (maintainer, 2026-09-07): the
+  // rail is on every screen and `pages/jobs` is the full list, so a third view of the same rows
+  // was the page's own largest redundancy — and it was taking height from the process table,
+  // which always has more to show.
+} as const satisfies Record<string, CardId>;
+
+export type MetricKey = keyof typeof METRIC_HOME;
+
+/** The metrics a card owns — what it renders as `data-metrics`. */
+export function metricsOf(card: CardId): MetricKey[] {
+  return (Object.keys(METRIC_HOME) as MetricKey[]).filter((k) => METRIC_HOME[k] === card);
+}
+
+// ------------------------------------------------------------- the timeline
+
+/** One series on the shared timeline. */
+export interface TimelineSeries {
+  id: string;
+  label: string;
+  values: number[];
+  /** A CSS custom property name, resolved at draw time so the chart follows the theme toggle. */
+  colorVar: string;
+  /** Filled area under the line. Per-core lines are not filled — twelve fills is a smear. */
+  fill: boolean;
+}
+
+export interface Timeline {
+  timestamps: number[];
+  series: TimelineSeries[];
+}
+
+/**
+ * CPU and memory on **one** shared x-axis, plus per-core lines when they are turned on.
+ *
+ * One timeline rather than two stacked charts because the question people actually have is
+ * whether the two moved *together* — memory climbing while CPU flatlines is a solve that started
+ * swapping, and two charts with two independent time axes make that a thing you have to
+ * reconstruct rather than see.
+ */
+export function timeline(samples: SystemSnapshot[], opts: { perCore?: boolean } = {}): Timeline {
+  const timestamps = samples.map((s) => s.ts);
+  const series: TimelineSeries[] = [
+    { id: "cpu", label: "CPU", values: samples.map((s) => s.cpu_percent), colorVar: "--accent", fill: true },
+    { id: "mem", label: "Memory", values: samples.map((s) => s.mem.percent), colorVar: "--success", fill: true },
+  ];
+  if (opts.perCore) {
+    const count = samples[samples.length - 1]?.cpu_per_core?.length ?? 0;
+    for (let i = 0; i < count; i += 1) {
+      series.push({
+        id: `core-${i}`,
+        label: `Core ${i}`,
+        values: samples.map((s) => s.cpu_per_core?.[i] ?? 0),
+        colorVar: "--ink-3",
+        fill: false,
+      });
+    }
+  }
+  return { timestamps, series };
+}
+
+/** "CPU 0.5 % · Memory 6.6 %" — the live read-out, which is the legend. */
+export function timelineLegend(latest: SystemSnapshot | undefined): { id: string; label: string; value: string; colorVar: string }[] {
+  return [
+    { id: "cpu", label: "CPU", value: pctLabel(latest?.cpu_percent), colorVar: "--accent" },
+    { id: "mem", label: "Memory", value: pctLabel(latest?.mem.percent), colorVar: "--success" },
+  ];
+}
+
+function pctLabel(n: number | undefined): string {
+  return n === undefined ? "—" : `${n.toFixed(1)} %`;
+}

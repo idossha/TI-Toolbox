@@ -22,7 +22,7 @@ import { IconButton } from "../../ui/Button";
 import { AlertDialog } from "../../ui/Overlay";
 import { Skeleton } from "../../ui/Feedback";
 import { bytes } from "../../ui/utils";
-import { isStoppable, sortProcesses, type Process, type ProcessSort } from "./model";
+import { isStoppable, metricsOf, sortProcesses, type Process, type ProcessSort } from "./model";
 import { Panel } from "./parts";
 
 const COLUMNS: { id: ProcessSort; label: string; numeric?: boolean }[] = [
@@ -50,9 +50,13 @@ export function ProcessPanel({
   return (
     <Panel
       title="Processes"
-      aside={total > rows.length ? `top ${rows.length} of ${total}` : `${rows.length}`}
+      // The count, not a cap. "top 3 of 4" told the reader they were being shown a selection when
+      // they were being shown everything; the server's limit is high enough that a truncation is
+      // the exception, and it says so only when it actually happens.
+      aside={total > rows.length ? `${rows.length} of ${total}` : `${rows.length}`}
       className="system-panel-processes"
       testId="system-processes"
+      metrics={metricsOf("processes")}
     >
       {!snapshot ? (
         <Skeleton rows={8} />

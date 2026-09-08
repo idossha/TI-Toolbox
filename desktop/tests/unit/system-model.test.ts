@@ -9,8 +9,6 @@
  */
 import { describe, expect, it } from "vitest";
 import type { SystemSnapshot } from "../../src/renderer/api/client";
-import { remainingLabel } from "../../src/renderer/pages/system/JobsStrip";
-import type { JobStatus } from "../../src/renderer/app/jobs-rail/api";
 import {
   CORE_WINDOW_MS,
   coreRows,
@@ -312,36 +310,5 @@ describe("the process table", () => {
     expect(isStoppable(proc({ owner_kind: null }))).toBe(false);
     // Being a *toolbox* process is not ownership: `charm` spawned outside a job is still unowned.
     expect(isStoppable(proc({ relevant: true, owner_kind: null }))).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------- jobs strip
-
-describe("remaining-time extrapolation", () => {
-  const now = Date.parse("2026-09-07T12:10:00Z");
-  const job = (pct: number | undefined, startedMinutesAgo: number): JobStatus =>
-    ({
-      id: "j",
-      kind: "sim",
-      state: "running",
-      subject_ids: ["ernie"],
-      artifacts: [],
-      created_at: "2026-09-07T12:00:00Z",
-      started_at: new Date(now - startedMinutesAgo * 60_000).toISOString(),
-      progress: pct === undefined ? undefined : { stage: "solve", pct },
-    }) as unknown as JobStatus;
-
-  it("extrapolates linearly and SAYS that is what it is", () => {
-    // 10 minutes to reach 50 % implies about 10 more. "at this rate" is the honest framing: the
-    // server has no per-job time model, and charm is not linear.
-    expect(remainingLabel(job(50, 10), now)).toBe("~10 min left, at this rate");
-    expect(remainingLabel(job(25, 30), now)).toBe("~1.5 h left, at this rate");
-  });
-
-  it("says nothing at all when the extrapolation would be meaningless", () => {
-    expect(remainingLabel(job(undefined, 10), now)).toBe("");
-    expect(remainingLabel(job(2, 10), now)).toBe(""); // too early to extrapolate
-    expect(remainingLabel(job(100, 10), now)).toBe(""); // done
-    expect(remainingLabel({ ...job(50, 10), started_at: null } as unknown as JobStatus, now)).toBe("");
   });
 });

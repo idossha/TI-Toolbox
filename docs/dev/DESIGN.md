@@ -1077,14 +1077,36 @@ group heading told the user a page belonged to a subject when it did not.
   **System vs the rail's Host tab.** They read the *same* `/ws/system` snapshot through the *same*
   shared socket, so they cannot disagree about a number. What differs is how much you are asking.
   Host is four figures and a process list in 260 px — the glance you take without leaving the page
-  you are on. System is the full monitor, and it is deliberately shaped like the tools people
-  already read that way: a **btop**-style resource band (CPU with per-core rows and 60 s
-  sparklines, a used/cache/free memory bar, swap, both filesystems), a **Docker Desktop**-style
-  health panel (daemon version and latency, `docker system df` as one bar, our own container's
-  image/limits/mounts/restarts, sibling containers, actionable warnings), an **htop**-style
-  process table (everything, busiest first, sortable, each row attributed to the job or kernel it
-  belongs to), and a jobs strip. Three grid bands — `auto / 1fr / auto` — so it fills 1440×900 and
-  1920×1080 with no page scroll; only the two middle panels scroll, internally.
+  you are on. System is the full monitor, shaped like the tools people already read that way: a
+  **btop**-style rolling timeline, a **Docker Desktop**-style health panel, an **htop**-style
+  process table.
+
+  **Two columns, both full height** (3fr / 2fr — 60/40 at any width rather than a pixel split that
+  would be two thirds of the window at 1280 and a third at 1920):
+
+  - **Left**, at one width, the live picture and its explanation. A single rolling five-minute
+    timeline with **CPU and memory on a shared x-axis** — the question people have is whether the
+    two moved *together*, and two charts on two independent time axes make that something you
+    reconstruct rather than see — with its legend as the live read-out, a hover cursor giving both
+    values at an instant, and a per-core row of bars in its footer that a toggle *replaces* with
+    per-core lines. Directly beneath it, the same width, the process table that answers *why*:
+    everything the server reports, busiest first, sortable, the command line expanded in place on
+    click, each row attributed to the job or kernel it belongs to.
+  - **Right**, the standing facts, stacked: memory composition (used/cache/buffers/free and swap —
+    the part a percentage cannot say), storage (project volume and `docker system df`), Docker
+    (engine, this container's image/status/limits/mounts, siblings, images behind a disclosure),
+    host (load against the core count, network, counts, uptime).
+
+  There is **no jobs strip**: the rail is on every screen and `pages/jobs` is the full list.
+
+  **Nothing is shown twice.** `pages/system/model.ts`'s `METRIC_HOME` assigns every metric exactly
+  one owning card, each card publishes its own list as `data-metrics`, and
+  `tests/unit/system-redundancy.test.tsx` searches the *rendered DOM* for the literal figures a
+  fixture produces and requires each to occur exactly once — the structural half of that check
+  would not have caught any of the duplicates that actually happened, which were undeclared.
+
+  The page fills 1440×900 and 1920×1080 with no page scroll; the process table and the right stack
+  overflow inside themselves.
 
   **The stop affordance is only on owned rows.** Stopping a process the server attributed to a job
   goes through that job's own cancel, which unwinds its lock, its events and its sibling
