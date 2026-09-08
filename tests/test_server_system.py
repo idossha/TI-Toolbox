@@ -16,6 +16,8 @@ worse than one that says "no siblings".
 from __future__ import annotations
 
 import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -290,10 +292,28 @@ def test_process_total_counts_what_could_be_listed_not_what_exists() -> None:
     assert all(p.pid != os.getpid() for p in rows)
 
 
-def test_process_rows_carry_what_an_htop_row_carries() -> None:
-    rows, _total = system_routes.process_list()
-    assert rows, "the test process itself should be listed"
-    row = rows[0]
+def test_process_rows_carry_what_an_htop_row_carries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A row for a process that genuinely exists carries every htop column.
+
+    The row is a child spawned here rather than "whatever happens to be running": the test
+    process itself is deliberately never listed (it is reported once as ``own``), and in a bare
+    ``docker run`` the test *is* pid 1 with nothing else alive, so relying on the ambient process
+    table made this pass on a dev host and fail in the image.
+    """
+    # The row wanted is a freshly spawned idle child; on a busy host it would sit far below the
+    # 64-row CPU cutoff. The cap is not what is under test here.
+    monkeypatch.setattr(system_routes, "PROCESS_LIMIT", 100_000)
+    child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+    try:
+        rows, _total = system_routes.process_list()
+        by_pid = {p.pid: p for p in rows}
+        assert child.pid in by_pid, "a live child process must be listed"
+        row = by_pid[child.pid]
+    finally:
+        child.kill()
+        child.wait()
     assert row.status  # psutil's own status string, never empty for a live process
     assert row.threads >= 1
     assert row.ppid >= 0

@@ -177,7 +177,13 @@ def test_massp_special_case_lut(tmp_path: Path) -> None:
 
 
 def test_mni_resources_dir_falls_back_off_container_path(monkeypatch) -> None:
-    monkeypatch.setattr(viewspec, "MNI_ATLAS_DIR", "/no/such/container/path")
+    # The constant has to be patched where mni_resources_dir() reads it (tit.atlas.constants);
+    # rebinding the name re-exported into tit.viewspec changes nothing. Inside the Docker image
+    # the real /ti-toolbox/resources/atlas exists, so without this the first candidate wins and
+    # the fallback rule is never exercised.
+    from tit.atlas import constants as atlas_constants
+
+    monkeypatch.setattr(atlas_constants, "MNI_ATLAS_DIR", "/no/such/container/path")
     resolved = viewspec.mni_resources_dir()
     assert os.path.isdir(resolved)
     assert resolved == str(

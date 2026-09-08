@@ -820,10 +820,25 @@ from tit.paths import resolve_resource_path, resolve_resources_dir  # noqa: E402
 
 
 class TestResolveResourcesDir:
-    def test_checkout_relative_fallback_is_the_real_repo_resources_dir(self):
-        """No env override, and /ti-toolbox doesn't exist on this dev host (r6/skeptic-3): the
-        real, unmocked resolution must land on this checkout's own resources/ directory, which
-        genuinely exists on disk -- not just a plausible-looking string."""
+    def test_checkout_relative_fallback_is_the_real_repo_resources_dir(
+        self, monkeypatch
+    ):
+        """No env override and no container layout: resolution must land on this checkout's own
+        resources/ directory, which genuinely exists on disk -- not just a plausible-looking
+        string.
+
+        The absence of /ti-toolbox is asserted as a *premise*, not inherited from the host: inside
+        the Docker image that directory really exists (the baked copy of the checkout), and the
+        rule under test is the third candidate, which only applies when the second is absent.
+        """
+        real_isdir = os.path.isdir
+
+        def no_container_layout(path):
+            if path == "/ti-toolbox/resources":
+                return False
+            return real_isdir(path)
+
+        monkeypatch.setattr(_paths_module.os.path, "isdir", no_container_layout)
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("TIT_RESOURCES_DIR", None)
             resolved = resolve_resources_dir()
