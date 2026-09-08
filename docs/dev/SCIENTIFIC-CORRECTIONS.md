@@ -1,10 +1,12 @@
 # Scientific corrections from v2.x to v3.0.0
 
 An external audit of the shared scientific core on **2026-09-07** found six defects in the
-statistics engine and the field analyzer. All six were reproduced independently in this
-repository, fixed on `feature/v3-electron-gui`, and pinned by tests. This page is the
-record a user needs to decide whether their existing results are affected and what to do
-about it.
+statistics engine and the field analyzer. Three more were found in this repository while
+building on the audit's fixes — [SCI-07](#sci-07) and [SCI-08](#sci-08) in the same pass, and
+[SCI-09](#sci-09) when the v3 results work first ran a one-vs-many group comparison. All nine
+were reproduced independently here, fixed on `feature/v3-electron-gui`, and pinned by tests.
+This page is the record a user needs to decide whether their existing results are affected
+and what to do about it.
 
 Scope: `tit/stats/**` and `tit/analyzer/**`, plus (SCI-07, SCI-08) `tit/calc.py`,
 `tit/fields.py` and `tit/sim/mTI.py`. Simulation and optimization (`tit/sim`,
@@ -30,6 +32,7 @@ sources, not inferred.
 | [SCI-06](#sci-06) | Zero standard error collapsed to `t = 0, p = 1` | 2.2.3 – 2.5.0 | Perfectly separated voxels reported as null; **re-run** |
 | [SCI-07](#sci-07) | `hf_peak` / `hf_sar` ignored the montage's carrier grouping, treating phase-locked same-carrier fields as independent carriers | none released — the grouping existed only between `ff823ce1` and `7a5ee2dd` on `main` | no user-visible result moves; the metrics are now stated over *carriers*, which under the shipped positional wiring is one carrier per field |
 | [SCI-08](#sci-08) | Envelope evaluated as a difference of two near-equal square roots | 2.4.0 – 2.5.0 | Precision loss at `Q ≪ P` only, below the FEM noise floor; **no action** |
+| [SCI-09](#sci-09) | Pooled variance built as `(n−1)·var(x, ddof=1)`, which is `0 × nan` for a group of **one** | 2.2.3 – 2.5.0 | Every voxel of a one-vs-many comparison reported `t = 0, p = 1`; a uniformly null result presented as a finding; **re-run** |
 
 ---
 
@@ -395,6 +398,82 @@ The accelerated K ≥ 2 sweep has its own scalar copy of the envelope in
 cancelling form, so the numba and NumPy paths would have disagreed in the far-field tail;
 it now uses the same rationalised expression, pinned by
 `test_numba_kernel_envelope_agrees_with_the_numpy_form`.
+
+---
+
+## SCI-09
+
+**What was wrong.** `engine.ttest_ind` built the pooled variance from each group's
+*variance* rather than from its sum of squared deviations:
+
+```python
+numerator = (n_resp - 1) * resp_vars + (n_non_resp - 1) * non_resp_vars   # v2.x
+```
+
+For `n ≥ 2` the two forms are algebraically the same. For a group of **one** subject
+`np.var(x, ddof=1)` is a `0/0` → `nan`, and `(n - 1) * nan` is `0 * nan == nan`, not the `0`
+the pooled estimator calls for. So the pooled variance, the standard error and therefore the
+t of **every voxel** of a one-vs-many comparison came out `nan` — a design that is
+under-powered but perfectly well defined (`df = n₁ + n₂ − 2 = 1`) reported as data with no
+variance in it.
+
+**Affected.** 2.2.3 – 2.5.0 (`tit/stats/stats_utils.py::ttest_ind` at 2.2.3–2.2.4;
+`tit/stats/engine.py::ttest_ind` from 2.3.0). Verified present on `main` by reading the
+tagged sources. The fsaverage surface path (`tit/stats/surface.py`, 2.4.0+) calls the same
+`ttest_ind`, so it is affected identically. Reached by any **group comparison** — voxel or
+surface — in which one of the two groups has exactly one subject. Correlation analyses,
+paired tests (`ttest_rel`) and every group of two or more are untouched.
+
+**What changes and by how much.** Everything, for that design; nothing, for any other. The
+two released and unreleased failure modes are different, and it matters which one you saw:
+
+- **On 2.2.3 – 2.5.0 (what users have on disk).** The `nan` standard error met the
+  zero-standard-error guard `valid = se_diff > 0`, and `nan > 0` is `False`, so the guard
+  took the branch it was written for and left `t = 0` at every voxel — hence `p = 1`
+  everywhere, no supra-threshold voxel, no cluster, and an output set that is complete,
+  well-formed and uniformly null. The run **succeeded**. This is the dangerous case: a
+  one-vs-many comparison reported "no effect anywhere" as a finding.
+- **On `feature/v3-electron-gui` between `682cbfcf` ([SCI-06](#sci-06)) and the fix.** SCI-06
+  replaced that guard with the IEEE-correct `_safe_t`, so the `nan` survived to
+  `ttest_voxelwise`, which counts non-finite t as degenerate, dropped every voxel from
+  `valid_mask`, and raised `No voxel could be tested` — after the log file existed and before
+  any map was written. Loud, and never released.
+
+After the fix, a 2-vs-1 design agrees with `scipy.stats.ttest_ind(..., equal_var=True)` to
+floating-point equality.
+
+**How to detect affected results.** Any `derivatives/.../stats/` group comparison whose
+subject CSV has exactly one subject on one side of `response`. The tell in the outputs is
+total: `t_statistics` identically `0`, `p_values` identically `1`, an empty
+`significant_voxels_mask.nii.gz` and an empty `significant_clusters.csv`. In the analysis log,
+`min p = 1.000000` with a non-empty `valid_mask` is the signature. On the v3 branch before the
+fix the tell is instead a `.log` that stops at `No voxel could be tested` with no maps beside
+it.
+
+**What to do.** Re-run. There is nothing to rescale: the statistic was never computed.
+
+Re-running will usually produce **zero significant clusters anyway**, and that is arithmetic,
+not a second bug. A 2-vs-1 design admits only `C(3,1) = 3` distinct relabellings, so the
+permutation null has three members, one of which is the observation itself: the smallest
+attainable cluster p-value is `1/3` under exhaustive enumeration and `2/4` under the shipped
+sampled estimator — an order of magnitude above any usable α. The value of the fix is that the t and p
+maps are now the real ones, so the effect *sizes* can be read even though nothing can clear
+a permutation threshold. Three subjects cannot support cluster-level inference; see the
+[Cluster-Based Permutation Testing]({{ site.baseurl }}/wiki/cluster-permutation-testing/)
+page.
+
+**Fix.** `1b5ffdd7` — *fix(stats): a group of one no longer makes every voxel degenerate*.
+`ttest_ind` sums each group's squared deviations about its own mean
+(`np.sum((x - x̄)**2, axis=1)`) and divides by `n₁ + n₂ − 2`. A singleton group contributes
+exactly `0`, which is its true contribution; for `n ≥ 2` the value is bit-identical to the old
+expression up to floating-point associativity.
+
+**Tests.** `tests/numerical/test_sci09_singleton_group.py` — the real-scipy leg: a 2-vs-1 and a
+1-vs-2 t and p checked against `scipy.stats.ttest_ind` for all three `alternative` values, the
+`(n − 1)·var` form shown to be `nan` on the same input, the `n ≥ 2` no-op, and
+`ttest_voxelwise` shown to keep a non-empty `valid_mask`. `tests/test_stats_engine.py`
+(`TestTtestInd::test_singleton_group_*`) carries the same claims in the fast host leg,
+including the hand-checked `t = 10/√3` and the degenerate-pair case.
 
 ---
 

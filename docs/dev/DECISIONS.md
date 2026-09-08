@@ -1261,3 +1261,43 @@ in `SCIENTIFIC-CORRECTIONS.md` § SCI-07 and
 
 **Revisit if.** A montage architecture returns in which several electrode pairs are driven
 phase-locked from one source.
+
+### 2026-09-07 (CX9) — SCI-09: a pooled variance is a sum of squares, not a sum of variances
+
+**Decision.** `engine.ttest_ind` builds the pooled variance from each group's **sum of squared
+deviations** about its own mean, `Σ(x − x̄)²`, divided by `n₁ + n₂ − 2`. It no longer reconstructs
+that sum as `(n − 1) · np.var(x, ddof=1)`. Recorded as
+[SCI-09](SCIENTIFIC-CORRECTIONS.md#sci-09); fix `1b5ffdd7`, tests
+`tests/numerical/test_sci09_singleton_group.py` (real scipy) and
+`tests/test_stats_engine.py::TestTtestInd::test_singleton_group_*`.
+
+**Why.** The two forms are equal for `n ≥ 2`, and differ for exactly one input the toolbox accepts:
+a group of **one**. There `np.var(x, ddof=1)` is a `0/0` `nan`, and `(n − 1) · nan` is `0 * nan ==
+nan`, not the `0` the pooled estimator calls for — so the pooled variance, the standard error and
+the t of every voxel of a one-vs-many comparison came out `nan`. `df = n₁ + n₂ − 2 = 1` is
+under-powered, but it is not undefined, and the engine had no business reporting it as data with no
+variance in it. Summing the deviations gives the singleton its true contribution, which is exactly
+zero, and needs no special case.
+
+**What it cost users.** On 2.2.3 – 2.5.0 the `nan` was swallowed by the zero-standard-error guard
+`valid = se_diff > 0` (`nan > 0` is `False`), leaving `t = 0, p = 1` at every voxel: a complete,
+well-formed, uniformly null result set. That is the worst shape a defect can take — the run
+succeeded and reported "no effect anywhere" as a finding. The loud shape appeared only on this
+branch, between `682cbfcf` ([SCI-06](SCIENTIFIC-CORRECTIONS.md#sci-06), which made `_safe_t`
+IEEE-correct) and the fix: the `nan` reached `ttest_voxelwise`, emptied `valid_mask` and raised
+`No voxel could be tested` after the log existed and before any map was written. Both are a
+**re-run**; there is nothing to rescale, because the statistic was never computed.
+
+**What the fix does not buy.** A 2-vs-1 design still cannot reach significance. Three subjects admit
+`C(3,1) = 3` relabellings, so the permutation null has three members — one of them the observation —
+and the floor on a cluster p-value is `1/3` exhaustively, `2/4` under the shipped sampled estimator.
+**Zero significant clusters from three subjects is the arithmetic of the design, not a defect**, and
+that is now said on the [Cluster-Based Permutation Testing]({{ site.baseurl }}/wiki/cluster-permutation-testing/)
+page next to the data requirements, with `C(6,3) = 20` (three per group) named as the first size at
+which `α = 0.05` is even reachable. What the fix buys is that the `t` and `p` maps are the real
+ones, so the effect can be *read* where it cannot be *tested*.
+
+**Revisit if.** A degenerate-input guard is added anywhere else in the engine that tests a derived
+quantity for `> 0` — `nan > 0` is `False`, and a guard written for zero will quietly take the zero
+branch on `nan`. `_safe_t` is the pattern to follow instead: let the IEEE value through and classify
+it explicitly.

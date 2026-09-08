@@ -211,6 +211,24 @@ correlation/hippocampus_effect_size_correlation/
 - **Data Type**: Electric field magnitude values
 - **Analysis Types**: Both classification and correlation approaches supported
 
+### How many subjects you need
+
+A permutation test can only be as fine-grained as the number of ways the labels can be
+rearranged, and with a handful of subjects that number is tiny. In a group comparison with
+**three subjects** split 2-vs-1 there are exactly `C(3,1) = 3` relabellings, so the null
+distribution has three members — one of which is your own data. The smallest cluster
+p-value the design can ever produce is therefore `1/3` (about `0.33`), and the estimator the
+toolbox actually uses is one notch more conservative still. No cluster can clear
+`p < 0.05`, whatever the effect size.
+
+So **zero significant clusters from three subjects is the correct answer, not a failure.**
+The run is still worth doing — the `t_statistics` and `p_values` maps are real and show you
+where and how large the effect is — but cluster-level inference needs more subjects. As a
+rule of thumb, a two-sided test at `α = 0.05` needs at least `1/0.05 = 20` distinct
+relabellings, which a balanced group comparison first reaches at **three per group**
+(`C(6,3) = 20`); six or more per group is where the null becomes finely enough resolved to
+be informative.
+
 ### CSV-Based Configuration
 
 #### Classification Mode CSV
