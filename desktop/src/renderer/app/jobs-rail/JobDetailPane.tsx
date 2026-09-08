@@ -9,18 +9,16 @@
  */
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, FolderOpen, RotateCw, Square, Trash2, Zap } from "lucide-react";
+import { ExternalLink, Eye, FolderOpen, RotateCw, Square, Trash2, Zap } from "lucide-react";
 import { ApiError } from "../../api/client";
 import { Button, IconButton } from "../../ui/Button";
 import { Callout, DefinitionList, EmptyState, InlineError, Skeleton } from "../../ui/Feedback";
-import { ArtifactList, type ArtifactItem } from "../../ui/Jobs";
 import { Cluster, Stack, Tabs } from "../../ui/Layout";
 import { AlertDialog } from "../../ui/Overlay";
 import { Chip, JobStateChip, LivenessBadge } from "../../ui/Status";
 import { notify } from "../../ui/Toast";
 import { bytes, pct } from "../../ui/utils";
 import {
-  artifactUrl,
   cancelJob,
   deleteJob,
   forceJob,
@@ -31,13 +29,12 @@ import {
 } from "./api";
 import { elapsedLabel, errorLabel, failureReason } from "./format";
 import { JobRawLog } from "./JobRawLog";
-import { openNative, reveal } from "./reveal";
+import { reveal } from "./reveal";
+import { FileList } from "../../pages/results/preview/views";
+import { useOpenInViewer } from "../openInViewer";
+import { jobFolder, viewerLinkForArtifact } from "./artifacts";
 
 type ConfirmKind = "stop" | "force" | "delete";
-
-function toArtifactItems(job: JobStatus): ArtifactItem[] {
-  return job.artifacts.map((a) => ({ path: a.path, kind: a.kind, label: a.label ?? a.path }));
-}
 
 export interface JobDetailPaneProps {
   job: JobStatus | undefined;
@@ -124,7 +121,12 @@ export function JobDetailPane({ job, allowUnsafeOverrides, onOpenJob, density = 
     onError: (e) => notify.error("Could not delete the job.", e instanceof ApiError ? e.message : String(e)),
   });
 
-  const artifacts = useMemo(() => (job ? toArtifactItems(job) : []), [job]);
+  const artifacts = job?.artifacts ?? [];
+  // Every artifact of a job is written into the job's own directory, so one folder serves the
+  // whole tab. Derived from a path the job already reported rather than reconstructed from the
+  // `code/ti-toolbox/jobs/<id>/` convention, which the client has no business knowing.
+  const folder = useMemo(() => (job ? jobFolder(job) : null), [job]);
+  const openInViewer = useOpenInViewer();
 
   if (!job) {
     return (
@@ -239,11 +241,48 @@ export function JobDetailPane({ job, allowUnsafeOverrides, onOpenJob, density = 
                   label: `Artifacts${artifacts.length > 0 ? ` (${artifacts.length})` : ""}`,
                   content: (
                     <div className="job-detail-tab job-detail-tab-scroll">
-                      <ArtifactList
-                        artifacts={artifacts}
-                        onView={(a) => window.open(artifactUrl(a.path), "_blank", "noopener")}
-                        onOpen={(a) => openNative(a.path)}
+                      {/* The same `FileList` the Results panes use, so a CSV, JSON, PNG, PDF or
+                          HTML artifact previews inline by clicking its name — which is what
+                          `View` (a raw file in an OS browser tab) was standing in for, badly.
+
+                          No per-row `Open`: every artifact of a job is in the job's own folder,
+                          so N buttons opened one place. One `Open folder` under the list instead
+                          (maintainer review). The header keeps its folder icon — it is the same
+                          folder and the same action, and a person looking at the tab should not
+                          have to travel to the header to find it; the duplication is deliberate. */}
+                      <FileList
+                        files={job.artifacts}
+                        rootDir={folder ?? undefined}
+                        emptyMessage="This job has written no artifacts."
+                        rowAction={(f) => {
+                          const link = viewerLinkForArtifact(job, f.path);
+                          if (!link) return null;
+                          return (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              icon={<Eye size={13} />}
+                              data-testid={`job-artifact-tetravox-${f.path.split("/").pop()}`}
+                              onClick={() => openInViewer(link)}
+                            >
+                              Open in Tetravox
+                            </Button>
+                          );
+                        }}
                       />
+                      {folder && job.artifacts.length > 0 && (
+                        <div className="job-detail-artifacts-foot">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            icon={<FolderOpen size={14} />}
+                            data-testid="job-artifacts-open-folder"
+                            onClick={() => reveal(folder)}
+                          >
+                            Open folder
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   ),
                 },

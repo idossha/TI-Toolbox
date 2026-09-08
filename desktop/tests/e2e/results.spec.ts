@@ -270,13 +270,24 @@ test("a subject with no outputs drops the preview pane and the tree takes its wi
   expect(panes.work).toBe(panes.content);
 });
 
-test("'Open in viewer' deep-links the selected simulation", async () => {
+test("'Open in viewer' opens the scene, it does not park you on the Menu", async () => {
+  // Maintainer, 2026-09-07: *"Open in viewer sends me to the Menu but doesn't actually select the
+  // correct items. It should automatically open the visualizer with the minimal selection of what
+  // makes sense for a quick visualization."* The link now carries `?open=1`, and the Viewer runs
+  // the same `open()` its own button runs.
   await connect();
   await openResults();
 
   await page.getByTestId("results-open-in-viewer").click();
   await expectPage(page, "viewer");
   await expectSubject(page, "ernie");
+
+  // Landed on the Tetravox sub-page with a scene, rather than on the Menu with a form.
+  await expect(page.getByTestId("viewer-sub-viewer")).toHaveAttribute("data-active", "true", { timeout: 20_000 });
+
+  // That the Menu behind it is pre-filled with the selection the scene was built from is asserted
+  // in `viewer.spec.ts` ("a deep link that asks to open..."), which already has the tree helpers
+  // for it. This spec's claim is the navigation.
 });
 
 test("hits its §12.3 numbers at 1280x800 and 1440x900, light and dark", async () => {

@@ -50,7 +50,7 @@
  * paths) written to `<project>/code/ti-toolbox/viewer/<kind>.tetravox.json` for export. One
  * request, one message.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Camera, Clock, Eye, GripVertical, Plus, RefreshCw, Save, X } from "lucide-react";
@@ -217,13 +217,8 @@ function ViewerPage() {
     [draft.subject, files, setDraft, setFiles],
   );
 
-  // A later deep link (Results → "Open in viewer") re-prefills the draft. It still does not open.
   const linkCarriesControls = hasViewerDeepLink(deepLink);
-  useEffect(() => {
-    if (!active || !linkCarriesControls || location.state?.[SUBJECT_SYNC_STATE]) return;
-    setFiles(null);
-    setDraft((current) => selectionFromDeepLink(deepLink, current));
-  }, [active, location.key, location.state, deepLink, linkCarriesControls, setDraft, setFiles]);
+
 
   // The shell's subject switcher edits the draft's subject — a draft edit like any other, and so
   // it rescopes the list exactly as the page's own Subject selector does.
@@ -454,8 +449,12 @@ function ViewerPage() {
   const [busy, setBusy] = useState(false);
   const [recents, setRecents] = useState<ViewerRecent[]>(() => readRecents());
 
-  const open = useCallback(async () => {
-    const attempt = draft;
+  const open = useCallback(async (selection?: ViewerSelection, only?: string[]) => {
+    // `selection`/`only` are passed by the auto-open below, which has the deep link's selection in
+    // hand on the same tick it sets it: reading `draft` there would open the *previous* draft,
+    // because a `setDraft` in the same effect has not committed yet.
+    const attempt = selection ?? draft;
+    const chosenFiles = only ?? files;
     const key = selectionKey(attempt);
     const incomplete = validateSelection(attempt);
     if (incomplete !== null) {
@@ -467,8 +466,8 @@ function ViewerPage() {
     setFailure(null);
     setBusy(true);
     try {
-      const written = await openView(attempt.kind, viewQuery(attempt) as ViewQuery, { files: files ?? undefined });
-      setRecents(pushRecent({ key: `${key}|${(files ?? []).join(",")}`, label: selectionLabel(attempt), selection: attempt, files }));
+      const written = await openView(attempt.kind, viewQuery(attempt) as ViewQuery, { files: chosenFiles ?? undefined });
+      setRecents(pushRecent({ key: `${key}|${(chosenFiles ?? []).join(",")}`, label: selectionLabel(attempt), selection: attempt, files: chosenFiles }));
       // One message. `written.view` is the embed's addressing of the same resolution that produced
       // the file on disk, so what the iframe draws and what the scene file describes cannot
       // disagree. The store holds it until the frame says `ready`, which is what lets Open work on
@@ -490,6 +489,55 @@ function ViewerPage() {
       setBusy(false);
     }
   }, [draft, files, loadScene, setSub]);
+
+
+  // A deep link (Results ▸ "Open in viewer", Jobs ▸ "Open in Tetravox") re-prefills the draft, and
+  // with `?open=1` it also *opens*.
+  //
+  // Pre-filling alone was the reported defect: clicking a result put you on the Menu with the
+  // controls set and an Open button still to press, which is not what "open in viewer" means. So
+  // the link carries the intent, and the same `open()` the Open button calls runs here — one path,
+  // one `POST /api/view/open`, one set of `build_view` rules per kind. The draft is still set, so
+  // going back to the Menu shows the selection the scene was built from.
+  //
+  // Declared *after* `open` deliberately: `open` is a `const`, and naming it in a dependency array
+  // above its own declaration is a temporal-dead-zone ReferenceError during render.
+  //
+  // The base is the page's own default, not the draft in state. A deep link is somebody asking for
+  // a *specific* thing, and every one of them carries at least a kind and a subject; folding it
+  // onto whatever selection happened to be sitting in the Menu would let a stale `field` or `roi`
+  // from a previous visit ride into a scene nobody asked for. It also keeps this effect out of
+  // `draft`'s dependency list, which would otherwise re-run it on every edit.
+  //
+  // `open` is held in a ref rather than named as a dependency. It is a `useCallback` over `draft`,
+  // so depending on it makes this effect run again the moment it calls `setDraft` — and since the
+  // selection is a fresh object every time, that never converges: the page re-rendered without
+  // pause and `setSub("tetravox")` never landed. The ref is written from its own effect (writing
+  // one during render is what `react-hooks/refs` catches) declared *above* this one, so it is
+  // already current on the commit a new deep link arrives.
+  const openRef = useRef(open);
+  useEffect(() => {
+    openRef.current = open;
+  }, [open]);
+  const autoOpened = useRef<string | null>(null);
+  useEffect(() => {
+    if (!active || !linkCarriesControls || location.state?.[SUBJECT_SYNC_STATE]) return;
+    // `?path=` names one file — a job artifact — so it is also the whole file list.
+    const only = deepLink.path ? [deepLink.path] : null;
+    const next = selectionFromDeepLink(deepLink, {
+      kind: "subject",
+      subject: deepLink.subject ?? subjectId ?? undefined,
+      space: "subject",
+    });
+    setFiles(only);
+    setDraft(next);
+    // Once per navigation. Without the guard, any re-render of an active page would re-post the
+    // scene and reload the embed under a person who is using it.
+    if (deepLink.open && autoOpened.current !== location.key) {
+      autoOpened.current = location.key;
+      void openRef.current(next, only ?? undefined);
+    }
+  }, [active, location.key, location.state, deepLink, linkCarriesControls, subjectId, setDraft, setFiles]);
 
   /** Re-post the scene that is already loaded. Not a new resolution and not a new request. */
   const reloadScene = useCallback(() => {

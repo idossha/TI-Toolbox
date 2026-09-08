@@ -160,54 +160,29 @@ function simulationFieldFiles(sim: SimulationDetail): Artifact[] {
 
 // ----------------------------------------------------------------------- viewer deep link
 
+// The link itself lives in `app/openInViewer.ts` — the jobs rail opens artifacts through the same
+// helper, and the shell must not import a page module to do it. Re-exported here so this module
+// stays the import site its existing callers (Optimizer, Analyzer) already use.
+export { viewerSearch, useOpenInViewer, type ViewerLink } from "../../app/openInViewer";
+import { useOpenInViewer, type ViewerLink } from "../../app/openInViewer";
+
 /**
- * "Open in viewer" — a deep link to the Viewer page, not a launch. D3 removed X11 from the runtime,
- * so there is no Freeview and no Gmsh to hand a file to.
+ * The viewer link a tree node stands for. `undefined` for a node with no subject-space field.
  *
- * The query goes on the ROUTER's URL — the app is a `MemoryRouter`, so that is the only query the
- * Viewer page can read from a navigation — and the subject also rides in the router state so the
- * shell's subject switcher re-scopes with it.
+ * `open: true` on every one of them: this is the pane's "Open in viewer" button, and a person who
+ * pressed it asked to see the result, not to be shown a form about it.
  */
-export interface ViewerLink {
-  subject: string;
-  simulation?: string;
-  field?: string;
-  kind?: "subject" | "simulation" | "analysis";
-}
-
-export function viewerSearch(link: ViewerLink): string {
-  const params = new URLSearchParams();
-  params.set("kind", link.kind ?? (link.simulation ? "simulation" : "subject"));
-  params.set("subject", link.subject);
-  if (link.simulation) params.set("simulation", link.simulation);
-  if (link.field) params.set("field", link.field);
-  return `?${params.toString()}`;
-}
-
-export function useOpenInViewer(): (link: ViewerLink) => void {
-  const navigate = useNavigate();
-  return useCallback(
-    (link: ViewerLink) =>
-      navigate(
-        { pathname: "/viewer", search: viewerSearch(link) },
-        { state: { subject: link.subject } },
-      ),
-    [navigate],
-  );
-}
-
-/** The viewer link a tree node stands for. `undefined` for a node with no subject-space field. */
 export function viewerLinkFor(
   subject: string,
   node: OutputNode,
 ): ViewerLink | undefined {
   if (subject === GROUP_SUBJECT) return undefined;
-  if (node.kind === "simulation") return { subject, simulation: node.label };
+  if (node.kind === "simulation") return { subject, simulation: node.label, open: true };
   if (node.kind === "analysis") {
     const simulation = node.label.split(" / ")[0];
-    return { subject, simulation, kind: "analysis" };
+    return { subject, simulation, kind: "analysis", open: true };
   }
-  return { subject };
+  return { subject, open: true };
 }
 
 // ----------------------------------------------------------------------- small views

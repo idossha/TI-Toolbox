@@ -17,6 +17,16 @@ export interface ViewerDeepLink {
   space?: Space;
   roi?: string;
   path?: string;
+  /**
+   * `?open=1` — build and show the scene immediately instead of only pre-filling the Menu.
+   *
+   * Results ▸ "Open in viewer" and Jobs ▸ "Open in Tetravox" both set it: a person who clicked a
+   * result asked to *see* it, and landing them on a pre-filled Menu with an Open button still to
+   * press was the gap the maintainer reported ("sends me to the Menu but doesn't actually select
+   * the correct items"). The draft is still pre-filled, so going back to the Menu shows exactly
+   * what is on screen.
+   */
+  open?: boolean;
 }
 
 const VIEW_KINDS: ViewKind[] = ["subject", "simulation", "analysis", "group", "custom"];
@@ -47,6 +57,7 @@ export function readDeepLink(routerSearch: string, documentSearch: string): View
     space: space === "mni" || space === "subject" ? space : undefined,
     roi: read("roi"),
     path: read("path"),
+    open: read("open") === "1" || read("open") === "true",
   };
 }
 

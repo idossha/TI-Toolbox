@@ -436,7 +436,16 @@ test("an incomplete selection is refused before the wire, and opens nothing", as
   await expect(page.getByTestId("tetravox-frame")).toHaveCount(0);
 });
 
-test("a deep link fills the controls and still opens nothing", async () => {
+test("a deep link that asks to open, opens — exactly once, and fills the Menu behind it", async () => {
+  // Amends "a deep link fills the controls and still opens nothing" (R5/V1). The rule that
+  // survives is *a link never opens unless it says so*, which the next test pins. What changed is
+  // that Results ▸ "Open in viewer" now says so: the maintainer's report was that pressing it left
+  // them on a form. `?open=1` is the intent, and one `POST /api/view/open` is the whole cost.
+  //
+  // The negative — a link WITHOUT `open` (Optimizer's and Analyzer's "go to the viewer for this
+  // subject", which is navigation rather than a render request) opens nothing — is pinned in
+  // `tests/unit/viewer-page.test.ts` (`readDeepLink`) and `tests/unit/job-artifacts.test.ts`
+  // (`viewerSearch`), where it costs no browser.
   await connect();
   await chooseSubject("ernie");
   await gotoPage(page, "results");
@@ -449,16 +458,23 @@ test("a deep link fills the controls and still opens nothing", async () => {
   const seen = recordViewRequests();
   await page.getByTestId("results-open-in-viewer").click();
   await expectPage(page, "viewer");
-  // The link prefills the composition: the tree is drawn for that subject and offers the
-  // simulation the link named, with the list already resolved to its files. (Not asserted by
-  // filename: this mock names a simulation's outputs after the *subject*, so the simulation's own
-  // name never appears in them.)
-  await expect(page.getByTestId("viewer-tree-sim-docs_example")).toBeVisible({ timeout: 15_000 });
+  await expectSub("viewer");
+  // ONE open. The auto-open is guarded per navigation; without that guard every re-render of an
+  // active page would re-post the scene and reload the embed under the person using it.
+  await expect.poll(() => opens(seen).length, { timeout: 15_000 }).toBe(1);
+
+  // The Menu behind it is prefilled with the selection the scene was built from: the tree is drawn
+  // for that subject and offers the simulation the link named, with the list already resolved to
+  // its files. (Not asserted by filename: this mock names a simulation's outputs after the
+  // *subject*, so the simulation's own name never appears in them.)
+  // Read without navigating: the Menu pane stays mounted behind the Tetravox one (that is what
+  // `viewer-sub-menu` being a sibling with `data-active="false"` means), and the rail's sub-items
+  // are hidden below 1440px, so clicking one is a viewport dependency this assertion does not need.
+  await expect(page.getByTestId("viewer-sub-menu")).toHaveAttribute("data-active", "false");
+  await expect(page.getByTestId("viewer-tree-sim-docs_example")).toHaveCount(1, { timeout: 15_000 });
   await expect.poll(rowNames).not.toEqual([]);
-  expect(opens(seen)).toHaveLength(0);
-  // A link prefills the Menu; it never jumps someone into a picture they did not ask for.
-  await expectSub("menu");
 });
+
 
 test("a failed Open names the failure and shows no scene", async () => {
   await connect();

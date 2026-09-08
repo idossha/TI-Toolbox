@@ -208,12 +208,21 @@ export function FileList({
   files,
   rootDir,
   emptyMessage = "This output has no files yet.",
+  rowAction,
 }: {
   files: Artifact[];
   /** The pane's own directory — the one its header's folder icon opens. A file outside it shows
    * its path relative to it, so "the folder icon opens the folder these files are in" stays true. */
   rootDir?: string;
   emptyMessage?: string;
+  /**
+   * An optional control at the right end of a row — the jobs rail's "Open in Tetravox", which it
+   * shows only on the rows a scene can draw. `undefined` for a row that has none, which is why
+   * this is a function of the file rather than a flag.
+   *
+   * Results panes pass nothing: their rows already open by clicking the name.
+   */
+  rowAction?: (file: Artifact) => ReactNode;
 }) {
   const [openPath, setOpenPath] = useState<string | undefined>(undefined);
   if (files.length === 0) return <p className="field-help">{emptyMessage}</p>;
@@ -251,6 +260,7 @@ export function FileList({
                   {body}
                 </span>
               )}
+              {rowAction?.(f)}
             </div>
             {open && <FilePreview file={f} />}
           </li>

@@ -744,3 +744,60 @@ for (const size of [
     if (size.width === 1280) await page.screenshot({ path: join(ARTIFACTS, "jobs-rawlog.png") });
   });
 }
+
+// -------------------------------------------------------------------------------------------------
+// The Artifacts tab (maintainer review, 2026-09-07): no `View`, no per-row `Open`, one `Open
+// folder` under the list, and "Open in Tetravox" only on a row a scene can draw.
+// -------------------------------------------------------------------------------------------------
+
+test("the Artifacts tab has no View and no per-row Open, and one Open folder at the bottom", async () => {
+  const job = await submitJob({ kind: "analyzer", config: {}, subject_ids: ["ernie"], tags: ["e2e-artifacts"] });
+  await connect();
+  await openJobs();
+
+  await page.getByTestId("jobs-table").getByRole("row", { name: /ernie/ }).first().click();
+  const detail = page.getByTestId("job-detail");
+  await expect(detail.getByText(`id ${job.id}`)).toBeVisible();
+
+  // Wait for the mock's job to finish so its artifacts have arrived.
+  await expect(detail.getByRole("tab", { name: "Artifacts (5)" })).toBeVisible({ timeout: 30_000 });
+  await detail.getByRole("tab", { name: /^Artifacts/ }).click();
+
+  const rows = detail.getByTestId("results-files").getByRole("listitem");
+  await expect(rows).toHaveCount(5);
+
+  // The two controls the maintainer asked to be removed. Scoped to the tab, not the page: the
+  // pane header keeps a folder icon, and the point is that the *rows* carry neither.
+  await expect(detail.getByRole("button", { name: "View" })).toHaveCount(0);
+  await expect(rows.getByRole("button", { name: /^↗?\s*Open$/ })).toHaveCount(0);
+
+  // One folder button, under the list rather than beside every row.
+  const folder = detail.getByTestId("job-artifacts-open-folder");
+  await expect(folder).toHaveCount(1);
+  await expect(folder).toHaveText(/Open folder/);
+  const listBottom = (await detail.getByTestId("results-files").boundingBox())!;
+  const buttonBox = (await folder.boundingBox())!;
+  expect(buttonBox.y).toBeGreaterThanOrEqual(listBottom.y + listBottom.height - 1);
+});
+
+test("Open in Tetravox is offered on the mesh and on nothing else", async () => {
+  await submitJob({ kind: "analyzer", config: {}, subject_ids: ["ernie"], tags: ["e2e-artifacts-tvx"] });
+  await connect();
+  await openJobs();
+
+  const detail = page.getByTestId("job-detail");
+  await page.getByTestId("jobs-table").getByRole("row", { name: /ernie/ }).first().click();
+  await expect(detail.getByRole("tab", { name: "Artifacts (5)" })).toBeVisible({ timeout: 30_000 });
+  await detail.getByRole("tab", { name: /^Artifacts/ }).click();
+
+  // Exactly one: `roi_overlay.msh`. Not `roi_overlay.msh.opt` — a Gmsh options file with nothing
+  // in it to draw — and not the JSON, CSV or PDF.
+  const tetravox = detail.getByRole("button", { name: "Open in Tetravox" });
+  await expect(tetravox).toHaveCount(1);
+  await expect(detail.getByTestId("job-artifact-tetravox-roi_overlay.msh")).toHaveCount(1);
+  await expect(detail.getByTestId("job-artifact-tetravox-roi_overlay.msh.opt")).toHaveCount(0);
+
+  // …and it opens the viewer rather than filling in its Menu.
+  await tetravox.click();
+  await expect(page.getByTestId("viewer-sub-viewer")).toHaveAttribute("data-active", "true", { timeout: 20_000 });
+});

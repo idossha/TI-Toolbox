@@ -1341,8 +1341,20 @@ function buildArtifacts(job) {
     case "ex":
     case "mex":
       return [{ path: `${base}/${job.status.kind}-search/mock_${id}/final_output.csv`, kind: "table", label: "Final output" }];
-    case "analyzer":
-      return [{ path: `${base}/Simulations/mock/Analyses/mock_${id}/summary.csv`, kind: "table", label: "Summary" }];
+    case "analyzer": {
+      // The five files a real mesh-space analyzer run writes, in the order the maintainer's
+      // screenshot showed them. The mesh and its `.opt` sidecar are what the Artifacts tab's
+      // "Open in Tetravox" rule is decided on, so the mock has to carry both or the e2e is
+      // asserting a button against a list that could never produce it.
+      const dir = `${base}/Simulations/mock/Analyses/mock_${id}`;
+      return [
+        { path: `${dir}/analysis.json`, kind: "json", label: "Analysis" },
+        { path: `${dir}/histogram_histogram.pdf`, kind: "pdf", label: "Histogram" },
+        { path: `${dir}/results.csv`, kind: "csv", label: "Summary" },
+        { path: `${dir}/roi_overlay.msh`, kind: "mesh", label: "ROI overlay" },
+        { path: `${dir}/roi_overlay.msh.opt`, kind: "txt", label: "ROI overlay options" },
+      ];
+    }
     case "pre":
       // The report is an attachment of the job that produced it, not a job of its own -- the
       // real server records it here too (JobManager._attach_pre_report).

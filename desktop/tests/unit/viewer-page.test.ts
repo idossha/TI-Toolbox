@@ -56,6 +56,7 @@ describe("readDeepLink", () => {
       space: undefined,
       roi: undefined,
       path: undefined,
+      open: false,
     });
   });
 
@@ -70,7 +71,22 @@ describe("readDeepLink", () => {
       space: undefined,
       roi: undefined,
       path: undefined,
+      open: false,
     });
+  });
+
+  it("reads `?open=1` as the caller asking to see the scene, not to fill in a form", () => {
+    // The maintainer's report: "Open in viewer sends me to the Menu but doesn't actually select
+    // the correct items". `open` is what turns the pre-fill into an open.
+    expect(readDeepLink("kind=analysis&subject=ernie&open=1", "").open).toBe(true);
+    expect(readDeepLink("kind=analysis&subject=ernie&open=true", "").open).toBe(true);
+  });
+
+  it("is not opening on a link that does not ask to", () => {
+    // Optimizer's and Analyzer's "go to the viewer for this subject" is navigation, not a render
+    // request, so a scene must not be built behind it.
+    expect(readDeepLink("kind=subject&subject=ernie", "").open).toBe(false);
+    expect(readDeepLink("kind=subject&subject=ernie&open=0", "").open).toBe(false);
   });
 });
 

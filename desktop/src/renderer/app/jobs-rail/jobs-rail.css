@@ -494,3 +494,14 @@
   overflow-wrap: anywhere;
   line-height: 1.4;
 }
+
+/* The Artifacts tab's foot: one `Open folder` under the list, replacing the per-row `↗ Open`
+   buttons that all opened the same directory. A rule of its own rather than a bare margin so the
+   button reads as belonging to the list above it rather than floating after it. */
+.job-detail-artifacts-foot {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
