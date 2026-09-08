@@ -142,8 +142,14 @@ current `screens.spec.ts` capture rather than this table.
 - **The right pane owns either the run or the result** — never a grab-bag inspector. On shape A it is
   the `RunPanel`; on shape B it is the preview of the selected row; on shape C it does not exist.
 - **The jobs rail owns running work.** One component at three heights: rail 32 / panel 260 (`⌘J`,
-  tabs Jobs / Console / Host / Report) / full page (`jobs` route). It is the app's signature and it
-  stays on every screen.
+  tabs **Jobs / Host**) / full page (`jobs` route). It is the app's signature and it stays on every
+  screen. The panel's Console and Report tabs were removed (2026-09-07): both were a second surface
+  for something already one click away in the detail pane beside the table — the console is that
+  pane's **Raw log** tab, and a report is an **artifact** of the job (browsed in Results). The
+  Jobs tab's own split is a divider you can drag, double-click to reset and that is remembered
+  (`app/jobs-rail/split.ts`): a fraction of the box, default 62 % list / 38 % detail, with a 420 px
+  floor under the detail pane. A pixel default could not hold a *shape* across 1280 / 1440 / 1920 —
+  the fixed 560 px it replaces was a 39 % list at 1440 and a 29 % list at 1920.
 - **There is no status bar.** The 24 px bottom rail and its per-page cell registry were removed
   wholesale: it printed a job/plan digest and a viewer read-out that nobody navigated by, and it
   cost every page a registration hook to fill. The one fact that had to survive is **whether the
@@ -960,6 +966,40 @@ group heading told the user a page belonged to a subject when it did not.
   rows (`Viewer · Menu`, `Viewer · Tetravox`); that makes the palette a real accessibility route
   there, not a convenience.
 
+- **The Viewer's Menu is a tree, not a type-then-dropdowns card** (2026-09-07). It replaces
+  `Type / Subject / Simulation / Field / Space`. The old card asked for a *view type* first, and the
+  type decided which of six dropdowns were even shown — so a person who wanted a T1 with a field on
+  top had to know that "Simulation" was the type producing both, and a person who wanted two
+  simulations in one scene could not say so at all. The type was a fact about the server's view
+  builders that a reader had to learn before they could describe what they wanted to look at.
+
+  The tree has no type: a subject, a space, and three branches (Anatomy, Simulations, Analyses)
+  listing what that subject actually has, from `GET /api/viewer/tree`. **It owns no selection** — a
+  row is ticked when its path is in the page's one editable "what will open" list, so the branches
+  and the list cannot disagree, and Reset, reordering, presets and deep links keep working with no
+  second mechanism. That is what makes it "a continuous integrated thing" rather than a fourth
+  state to keep in step. Component: `pages/viewer/Tree.tsx`; the rules are pure and live in
+  `pages/viewer/lib.ts`.
+
+  Ticking a **field** row is the one tick that also moves the draft, because a field decides which
+  layer the window chip describes and which simulation the scene's cursor comes from. Every other
+  tick is a local list edit and costs the server nothing, which is the property that keeps the
+  Menu fast.
+
+- **A layer is named by its file** (2026-09-07). Maintainer, on the Tetravox Layers panel:
+  *"Please do not change the name of the files that we load into the viewer. For example,
+  `labeling.nii.gz` should be `labeling.nii.gz` and not [Atlas]."* Every layer's `name` in the
+  ViewSpec is `os.path.basename` of its resolved path, exactly as on disk — no aliases, no field or
+  electrode-pair suffixes, no stripped extension.
+
+  The panel used to carry curated labels (`Atlas`, `T1`, `GM · TI_max (volume)`,
+  `Head mesh · magnE · pair 2`). They explained a layer at the cost of naming nothing a person could
+  find on disk, grep a log for, or match against the "what will open" list they had just composed.
+  The engine's `LayerBase` has no description or subtitle field, so the context is *dropped* rather
+  than smuggled back into the name. Curated labels survive in exactly one place — the Menu's
+  composition tree, where they label a *choice* and the filename is beside them anyway. Pinned
+  across every `build_view` source kind in `tests/test_viewspec_scene.py`.
+
 - **The Viewer keeps two artefacts, and they are deliberately not one** (2026-09-07). A
   **composition** (`code/ti-toolbox/viewer/compositions/<name>.json`) is *what a person chose* —
   subject, space and input ids — and a **scene**
@@ -985,8 +1025,7 @@ group heading told the user a page belonged to a subject when it did not.
 - There is no "Panels" group and no "Tools" group: every optional panel is a *mode* inside a page,
   toggled by Settings ▸ Optional tools. `panel-subject-info` is **deleted** (its facts are Overview's; `/panel-subject-info` falls through to
   `/overview` and a stale saved panel id is ignored), `panel-source`
-  into Pre-processing, the three analysis panels into Analyzer, `system` into the jobs panel's Host
-  tab, `panel-quick-notes` into the `⌘⇧N` drawer, and `dev` stays palette-only behind
+  into Pre-processing, the three analysis panels into Analyzer, `panel-quick-notes` into the `⌘⇧N` drawer, and `dev` stays palette-only behind
   `VITE_INCLUDE_GALLERY`. **Still standalone:** the four panel pages (`panel-source`, `panel-cluster-permutation`,
   `panel-nilearn-visuals`, `panel-nifti-group-average`) ship as their own rail rows and routes rather
   than folded modes, and Settings' copy says so. They carry no `PageHeader` like every other page,

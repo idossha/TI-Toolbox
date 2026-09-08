@@ -4,7 +4,25 @@
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { densitySpec, overflowTooltip, RAIL_MAX_TRACES, splitRailJobs } from "../../src/renderer/app/jobs-rail/model";
-import { activeFilterCount, ALL, applyJobsFilters, NO_FILTERS, useJobsUi } from "../../src/renderer/app/jobs-rail/store";
+import {
+  activeFilterCount,
+  ALL,
+  applyJobsFilters,
+  JOBS_PANEL_TABS,
+  NO_FILTERS,
+  useJobsUi,
+} from "../../src/renderer/app/jobs-rail/store";
+import {
+  clampListFraction,
+  DEFAULT_LIST_FRACTION,
+  HANDLE_PX,
+  listWidth,
+  MIN_DETAIL_PX,
+  MIN_LIST_PX,
+  readSplit,
+  SPLIT_KEY,
+  writeSplit,
+} from "../../src/renderer/app/jobs-rail/split";
 import type { JobStatus } from "../../src/renderer/app/jobs-rail/api";
 
 function job(id: string, state: string, kind = "sim", subjects = ["ernie"]): JobStatus {
@@ -82,9 +100,9 @@ describe("jobs UI store", () => {
   });
 
   it("keeps a job-shaped tab when a job is selected", () => {
-    useJobsUi.getState().setTab("console");
+    useJobsUi.getState().setTab("jobs");
     useJobsUi.getState().select("job-8");
-    expect(useJobsUi.getState().tab).toBe("console");
+    expect(useJobsUi.getState().tab).toBe("jobs");
   });
 
   it("filters by state, kind and subject together", () => {
@@ -101,5 +119,76 @@ describe("jobs UI store", () => {
   it("counts the narrowing filters", () => {
     expect(activeFilterCount(NO_FILTERS)).toBe(0);
     expect(activeFilterCount({ state: "running", kind: ALL, subject: "ernie" })).toBe(2);
+  });
+});
+
+describe("the panel's tabs", () => {
+  it("is Jobs and Host — Console and Report are gone (maintainer, 2026-09-07)", () => {
+    expect(JOBS_PANEL_TABS.map((t) => t.value)).toEqual(["jobs", "host"]);
+    expect(JOBS_PANEL_TABS.map((t) => t.label)).toEqual(["Jobs", "Host"]);
+  });
+
+  it("keeps Jobs first, so the panel opens on the work rather than on the machine", () => {
+    expect(JOBS_PANEL_TABS[0]!.value).toBe("jobs");
+  });
+});
+
+describe("the master–detail split", () => {
+  it("defaults to a list-heavy 62/38, not the old fixed 560px", () => {
+    // At 1440 the fixed 560px default was a 39% list; at 1920 it was 29%. The fraction keeps the
+    // shape the maintainer's screenshot asked for at every width.
+    expect(DEFAULT_LIST_FRACTION).toBeCloseTo(0.62, 2);
+    expect(clampListFraction(DEFAULT_LIST_FRACTION, 1440)).toBeCloseTo(0.62, 2);
+    expect(clampListFraction(DEFAULT_LIST_FRACTION, 1920)).toBeCloseTo(0.62, 2);
+  });
+
+  it("never leaves the detail pane below its 420px minimum", () => {
+    for (const box of [1280, 1440, 1920]) {
+      const width = listWidth(0.95, box); // a drag all the way right
+      expect(box - HANDLE_PX - width).toBeGreaterThanOrEqual(MIN_DETAIL_PX);
+    }
+  });
+
+  it("never leaves the list below its own minimum", () => {
+    for (const box of [1280, 1440, 1920]) {
+      expect(listWidth(0.01, box)).toBeGreaterThanOrEqual(MIN_LIST_PX);
+    }
+  });
+
+  it("falls back to the default proportion where neither minimum can hold", () => {
+    // Narrower than 360 + 420 + handle: clamping to either minimum would push the other pane off
+    // the box entirely, so the proportion wins.
+    expect(clampListFraction(0.95, 600)).toBe(DEFAULT_LIST_FRACTION);
+  });
+
+  it("remembers the divider, and shrugs off anything it cannot use", () => {
+    const store = new Map<string, string>();
+    const storage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+    };
+    writeSplit(0.45, storage);
+    expect(store.get(SPLIT_KEY)).toBe("0.4500");
+    expect(readSplit(storage)).toBeCloseTo(0.45, 4);
+
+    for (const junk of ["", "nonsense", "0", "1", "-0.3", "1.4"]) {
+      store.set(SPLIT_KEY, junk);
+      expect(readSplit(storage)).toBe(DEFAULT_LIST_FRACTION);
+    }
+    store.clear();
+    expect(readSplit(storage)).toBe(DEFAULT_LIST_FRACTION);
+  });
+
+  it("survives storage that throws (private window, blocked site data)", () => {
+    const throwing = {
+      getItem: () => {
+        throw new Error("blocked");
+      },
+      setItem: () => {
+        throw new Error("blocked");
+      },
+    };
+    expect(readSplit(throwing)).toBe(DEFAULT_LIST_FRACTION);
+    expect(() => writeSplit(0.5, throwing)).not.toThrow();
   });
 });

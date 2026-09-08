@@ -110,6 +110,55 @@
   overflow: hidden;
 }
 
+/* ---------- the master-detail split (`JobsSplit`, `split.ts`) ---------- */
+
+.jobs-split {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+}
+.jobs-split-list {
+  flex: none;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* The detail pane takes what is left, and `min-width: 0` is what lets it: without it the pane's
+   own content (a long subject list, an artifact path) sets a min-content floor that the drag
+   silently refuses to go below, so the divider stops moving before its stated minimum. */
+.jobs-split-detail {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.jobs-split-handle {
+  flex: none;
+  width: 6px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: col-resize;
+  position: relative;
+}
+.jobs-split-handle::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--line);
+}
+.jobs-split-handle:hover::after,
+.jobs-split-handle:focus-visible::after {
+  background: var(--line-strong);
+}
+.jobs-split-handle:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
 /* ---------- the one table, at both heights ---------- */
 
 .jobs-table {
@@ -124,6 +173,68 @@
 .jobs-table-skeleton {
   padding: var(--pane-pad);
 }
+
+/*
+ * Column widths (maintainer, 2026-09-07: *"create a better width for the two columns ... so
+ * STATE/KIND/SUBJECTS don't waste space"*).
+ *
+ * `table-layout: fixed` is what makes these widths *instructions* rather than hints: with the
+ * default `auto` layout a browser re-solves every column against its content, so one job with a
+ * six-subject list stretched SUBJECTS and squeezed STAGE — the column that carries the progress
+ * a person is actually watching — down to nothing.
+ *
+ * These are `nth-child` selectors rather than per-column classes because `ui/DataTable` renders
+ * plain `th`/`td` with no column identity, and that file belongs to another lane. The coupling is
+ * to `JobsTable`'s column ARRAY ORDER, which the array's own comment states and which
+ * `tests/unit/jobs-table.test.tsx` pins: state · kind · subjects · stage · elapsed · CPU · RSS ·
+ * waiting-on. STAGE (4) is the only column with no width — it takes all the slack.
+ */
+.jobs-table table {
+  table-layout: fixed;
+  width: 100%;
+}
+.jobs-table th:nth-child(1),
+.jobs-table td:nth-child(1) {
+  width: 96px;
+}
+.jobs-table th:nth-child(2),
+.jobs-table td:nth-child(2) {
+  width: 88px;
+}
+.jobs-table th:nth-child(3),
+.jobs-table td:nth-child(3) {
+  width: 148px;
+}
+.jobs-table th:nth-child(5),
+.jobs-table td:nth-child(5) {
+  width: 80px;
+}
+.jobs-table th:nth-child(6),
+.jobs-table td:nth-child(6) {
+  width: 68px;
+}
+.jobs-table th:nth-child(7),
+.jobs-table td:nth-child(7) {
+  width: 80px;
+}
+.jobs-table th:nth-child(8),
+.jobs-table td:nth-child(8) {
+  width: 116px;
+}
+/* Fixed layout clips rather than wraps, so every cell has to say how it gives way. The subjects
+   cell ellipsizes and carries its full text as a `title` (`JobsTable`); the rest are short. */
+.jobs-table td,
+.jobs-table th {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.jobs-cell-subjects {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .jobs-cell-none {
   color: var(--ink-3);
 }
@@ -135,18 +246,16 @@
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  border-left: 1px solid var(--line);
   padding: var(--space-2) var(--pane-pad);
   gap: var(--space-2);
-  overflow: auto;
+  /* The tabs below manage their own scrolling, one tab at a time, so the pane itself must not
+     also scroll — otherwise the Raw log console can never know how tall it is allowed to be.
+     True at BOTH densities since the panel gained the same tabs (`JobDetailPane`). */
+  overflow: hidden;
 }
 .job-detail[data-density="page"] {
-  border-left: none;
   border: 1px solid var(--line);
   border-radius: var(--radius-panes);
-  /* The tabs below manage their own scrolling, one tab at a time, so the pane itself must not
-     also scroll — otherwise the Raw log console can never know how tall it is allowed to be. */
-  overflow: hidden;
 }
 .job-detail-head {
   flex: none;
@@ -176,12 +285,35 @@
 .job-detail-body {
   flex: 1;
   min-height: 0;
-  overflow: auto;
-}
-.job-detail[data-density="page"] .job-detail-body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+/*
+ * The key/value block fills the pane (maintainer, 2026-09-07: in the screenshot it used only the
+ * detail pane's left third, while the pane itself had ~45% of the rail). `ui/Feedback`'s
+ * `DefinitionList` is a two-track `max-content 1fr` grid, which is right for a 320px context
+ * panel and leaves a wide pane two-thirds empty; here it becomes TWO label/value pairs per row
+ * once there is room for them.
+ *
+ * A container query, not a media query: the trigger is the width of *this pane*, which is what
+ * the divider changes — a media query would answer for the window and switch to two columns
+ * while the user has dragged the pane down to 300px.
+ */
+/* The container is the tab body — never the list itself: an element cannot answer a container
+   query it is the container for, so `container-type` on `.definition-list` would silently pin it
+   to one column forever. */
+.job-detail .job-detail-tab-scroll {
+  container-type: inline-size;
+}
+.job-detail .definition-list {
+  width: 100%;
+}
+@container (min-width: 560px) {
+  .job-detail .definition-list {
+    grid-template-columns: max-content 1fr max-content 1fr;
+  }
 }
 
 /* The tab strip and the active tab's body form one flex column that fills the pane, so the Raw
@@ -263,40 +395,8 @@
   min-height: 220px;
 }
 
-/* ---------- console / report panes ---------- */
-
 .jobs-pane-empty {
   padding: var(--space-2) var(--pane-pad);
-}
-.console-pane,
-.report-pane {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
-}
-.console-pane-head,
-.report-pane-head {
-  flex: none;
-  height: var(--section-header-h);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding: 0 var(--pane-pad);
-  border-bottom: 1px solid var(--line);
-  color: var(--ink-2);
-}
-.console-pane-body {
-  flex: 1;
-  min-height: 0;
-}
-.report-pane-frame {
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-  border: none;
-  background: #ffffff;
 }
 
 /* ---------- Host tab ---------- */

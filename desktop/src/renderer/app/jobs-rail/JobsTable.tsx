@@ -4,6 +4,10 @@
  *
  * Columns, in the order the brief fixes them: state · kind · subjects · stage/progress · elapsed ·
  * CPU · RSS · waiting-on. Numbers are right-aligned and tabular (DESIGN.md §4.3).
+ *
+ * **That order is load-bearing.** `jobs-rail.css` sizes the columns by `nth-child` (the shared
+ * `ui/DataTable` renders plain cells with no column identity), so reordering this array without
+ * reordering those rules puts every width on the wrong column.
  */
 import { useMemo, type CSSProperties } from "react";
 import { Button } from "../../ui/Button";
@@ -63,7 +67,21 @@ export function JobsTable({
         cell: ({ row }) => <JobStateChip state={row.original.state} pulse={row.original.liveness === "active"} />,
       },
       { id: "kind", header: "Kind", accessorKey: "kind" },
-      { id: "subjects", header: "Subjects", cell: ({ row }) => row.original.subject_ids.join(", ") || "—" },
+      {
+        id: "subjects",
+        header: "Subjects",
+        // The column has a fixed 148px (`jobs-rail.css`), so a batch of eight subjects has to
+        // give way somewhere; it ellipsizes and keeps the whole list on hover rather than
+        // stretching the column and starving STAGE.
+        cell: ({ row }) => {
+          const label = row.original.subject_ids.join(", ") || "—";
+          return (
+            <span className="jobs-cell-subjects" title={label}>
+              {label}
+            </span>
+          );
+        },
+      },
       {
         id: "stage",
         header: "Stage",

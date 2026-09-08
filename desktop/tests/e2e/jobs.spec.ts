@@ -9,8 +9,9 @@ import { captureScreen, deadSpaceRatio, paneWidths, type PageMetrics } from "./_
 // run against a real tit.server. Mirrors viewer.spec.ts's launch/connect pattern.
 //
 // This spec covers all three heights of the jobs component (plan §1): the full `jobs` page, the
-// 260px panel behind ⌘J with its four tabs, and — since `pages/system` was folded into the panel's
-// Host tab — the live CPU/RAM assertions that used to live in `system.spec.ts`.
+// 260px panel behind ⌘J with its two tabs (Console and Report were removed 2026-09-07), and the
+// live CPU/RAM assertions on the panel's Host tab. The full-height system monitor is
+// `pages/system`, covered by `system.spec.ts`.
 //
 // The "Submit test job" button is gated on `import.meta.env.DEV` (it disappears from a production
 // build, like the Gallery page), so these tests seed jobs directly against the mock's REST API.
@@ -49,7 +50,7 @@ async function openJobsPanel(): Promise<void> {
   await expect(page.locator(".jobs-rail-expanded")).toHaveCount(1);
 }
 
-async function panelTab(name: "Jobs" | "Console" | "Host" | "Report"): Promise<void> {
+async function panelTab(name: "Jobs" | "Host"): Promise<void> {
   await page.getByRole("radiogroup", { name: "Jobs panel" }).getByRole("radio", { name, exact: true }).click();
 }
 
@@ -284,7 +285,7 @@ test("the toolbar filters the table and toggles the group trees", async () => {
   await expect(page.getByTestId("jobs-table")).toBeVisible();
 });
 
-test("the panel opens at 260px with Jobs, Console, Host and Report tabs", async () => {
+test("the panel opens at 260px with exactly two tabs: Jobs and Host", async () => {
   const job = await submitJob({ kind: "sim", config: seedConfig("sim", "ernie"), subject_ids: ["ernie"], tags: ["e2e-panel"] });
 
   await connect();
@@ -293,27 +294,81 @@ test("the panel opens at 260px with Jobs, Console, Host and Report tabs", async 
   const rail = page.locator(".jobs-rail-expanded");
   expect(Math.round((await rail.boundingBox())!.height)).toBe(260);
 
+  // The tab set itself is the assertion: Console and Report are gone (maintainer, 2026-09-07),
+  // and a test that only checked "Jobs and Host are present" would pass with them still there.
+  const tabs = page.getByRole("radiogroup", { name: "Jobs panel" });
+  await expect(tabs.getByRole("radio")).toHaveText(["Jobs", "Host"]);
+
   // Jobs tab: master-detail inside the panel.
   const panelTable = page.getByTestId("jobs-panel-table");
   await expect(panelTable).toBeVisible({ timeout: 10_000 });
   await panelTable.getByRole("row", { name: /ernie/ }).first().click();
-  await expect(page.getByTestId("job-detail").getByText(`id ${job.id}`)).toBeVisible();
+  const detail = page.getByTestId("job-detail");
+  await expect(detail.getByText(`id ${job.id}`)).toBeVisible();
   await page.screenshot({ path: join(ARTIFACTS, "jobs-panel-expanded.png") });
 
-  // Console tab: the selected job's virtualised console.
-  await panelTab("Console");
-  await expect(page.getByTestId("job-console-pane")).toBeVisible();
+  // What the Console tab used to be is one click away in the pane already on screen.
+  await detail.getByRole("tab", { name: "Raw log" }).click();
+  await expect(page.getByTestId("job-detail-rawlog")).toBeVisible();
   await expect(page.getByRole("switch", { name: "Follow tail" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Clear terminal" })).toBeVisible();
 
-  // Report tab: no report for a bare sim job on the mock, so the designed empty state.
-  await panelTab("Report");
-  await expect(page.getByText("This job has no report yet.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Open in Results" })).toBeVisible();
+  // …and what the Report tab used to be is an artifact of the job, in the Artifacts tab.
+  await expect(detail.getByRole("tab", { name: /^Artifacts/ })).toBeVisible();
 
   // ⌘J closes it again.
   await page.keyboard.press(process.platform === "darwin" ? "Meta+j" : "Control+j");
   await expect(page.locator(".jobs-rail-expanded")).toHaveCount(0);
+});
+
+test("the panel's divider drags, resets and is remembered across a reload", async () => {
+  await submitJob({ kind: "sim", config: seedConfig("sim", "ernie"), subject_ids: ["ernie"], tags: ["e2e-split"] });
+  await connect();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openJobsPanel();
+
+  const split = page.getByTestId("jobs-split");
+  const list = split.locator(".jobs-split-list");
+  const handle = page.getByTestId("jobs-split-handle");
+  await expect(handle).toBeVisible();
+
+  const boxWidth = (await split.boundingBox())!.width;
+  const defaultWidth = (await list.boundingBox())!.width;
+  // ~62% of the box, not the old fixed 560px.
+  expect(defaultWidth / boxWidth).toBeGreaterThan(0.58);
+  expect(defaultWidth / boxWidth).toBeLessThan(0.66);
+
+  // Drag it 200px to the left.
+  const grip = (await handle.boundingBox())!;
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(grip.x + grip.width / 2 - 200, grip.y + grip.height / 2, { steps: 10 });
+  await page.mouse.up();
+  const dragged = (await list.boundingBox())!.width;
+  expect(dragged).toBeLessThan(defaultWidth - 150);
+
+  // It survives a reload — the point of persisting it at all.
+  await page.reload();
+  await expect(page.getByTestId("overview-table")).toBeVisible({ timeout: 20_000 });
+  await openJobsPanel();
+  await expect(page.getByTestId("jobs-split")).toBeVisible();
+  const restored = (await page.locator(".jobs-split-list").boundingBox())!.width;
+  expect(Math.abs(restored - dragged)).toBeLessThan(8);
+
+  // Double-click resets to the default.
+  await page.getByTestId("jobs-split-handle").dblclick();
+  const reset = (await page.locator(".jobs-split-list").boundingBox())!.width;
+  expect(Math.abs(reset - defaultWidth)).toBeLessThan(8);
+
+  // The detail pane never drops below its 420px minimum, however far right the divider is pushed.
+  const grip2 = (await page.getByTestId("jobs-split-handle").boundingBox())!;
+  await page.mouse.move(grip2.x + grip2.width / 2, grip2.y + grip2.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(grip2.x + 900, grip2.y + grip2.height / 2, { steps: 10 });
+  await page.mouse.up();
+  const detailWidth = (await page.locator(".jobs-split-detail").boundingBox())!.width;
+  expect(detailWidth).toBeGreaterThanOrEqual(419);
+  await page.screenshot({ path: join(ARTIFACTS, "jobs-panel-split-1440.png") });
 });
 
 test("the Host tab shows live CPU, memory and disk and terminates a process", async () => {
