@@ -92,6 +92,11 @@ function SimulatorPage() {
   const [seedSettings, setSeedSettings] = usePageSession<JobSettings | null>("jobSettingsSeed", null);
   const parallelSubjects = useExecutionPrefs((s) => s.parallelSubjects);
   const [pinnedJobId, setPinnedJobId] = usePageSession<string | null>("pinnedJob", null);
+  // The jobs this Run press started: they keep their log and final status line in the terminal
+  // after they finish, instead of the pane emptying itself the moment the run succeeds
+  // (maintainer, 2026-09-07). Page-session state, like the pin, so navigating away and back keeps
+  // the output; a new Run replaces it.
+  const [startedJobIds, setStartedJobIds] = usePageSession<string[]>("startedJobs", []);
   // The montage editor's state, lifted here (SCC): the scene pane and the pairs editor are two
   // editors of ONE draft, which is what makes "click an electrode" and "pick it in the form" the
   // same act rather than two states that can disagree (plan decision S6).
@@ -196,7 +201,12 @@ function SimulatorPage() {
       parallelSubjects={parallelSubjects}
       /* 2.5.0 kept its job cards after a run, and so does the table: the rows are what the user
          built, and a queued batch is very often the thing you then tweak and run again. */
-      onSubmitted={() => undefined}
+      onSubmitted={(jobIds) => {
+        // A new run takes the terminal over: drop any explicit pin and follow this press's jobs,
+        // which stay in the pane after they finish (maintainer, 2026-09-07).
+        setPinnedJobId(null);
+        setStartedJobIds(jobIds);
+      }}
       label={runLabelFor(runnableRows.length)}
     />
   );
@@ -222,6 +232,7 @@ function SimulatorPage() {
             subjects={planSubjects}
             emptyMessage={plan.blockedReason ?? "Add a job to see the plan."}
             pinnedJobId={pinnedJobId}
+            startedJobIds={startedJobIds}
             onPinJob={setPinnedJobId}
             steps={SIM_STEPS}
             parallel={parallelSubjects}

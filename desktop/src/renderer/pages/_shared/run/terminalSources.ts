@@ -46,16 +46,23 @@ const RUNNING: JobState[] = ["running", "queued"];
  * Order, first match wins, ties on `createdAt` descending:
  *   1. the job the user pinned (whatever its state — they asked for that log by name);
  *   2. the newest running/queued job of one of `kinds` whose subjects intersect `subjects`;
- *   3. the newest running/queued job of one of `kinds`, when nothing intersects.
+ *   3. the newest running/queued job of one of `kinds`, when nothing intersects;
+ *   4. the newest job **this page session started** (`startedJobIds`), whatever state it is in.
  *
- * There is deliberately no fourth rule. A finished job is only ever shown because someone asked
- * for it: from the Jobs page, from a plan cell, or from this pane's pin button.
+ * Rule 4 is the maintainer's 2026-09-07 correction. Rules 1-3 alone unpinned a job the instant it
+ * reached a terminal state, so the analyzer run you had just watched vanished — log and final
+ * status line with it — the moment it succeeded. A job you started here stays in your terminal
+ * through completion until you start another one from this page, pin another job, or the page
+ * session ends. It is deliberately NOT a general "show the last finished job": a finished job this
+ * page session did not start is still never auto-followed on open, which is the rule the earlier
+ * screenshot (an idle Pre-processing tab reading `pre · 102 · succeeded 12s`) forced.
  */
 export function resolveFollowedJob(
   jobs: FollowableJob[],
   kinds: PlanKind[],
   subjects: string[],
   pinnedJobId?: string | null,
+  startedJobIds?: readonly string[],
 ): FollowableJob | null {
   const byNewest = [...jobs].sort((a, b) => b.createdAt - a.createdAt);
   if (pinnedJobId) {
@@ -63,7 +70,18 @@ export function resolveFollowedJob(
     if (pinned) return pinned;
   }
   const running = byNewest.filter((j) => kinds.includes(j.kind as PlanKind) && RUNNING.includes(j.state));
-  return running.find((j) => j.subjects.some((s) => subjects.includes(s))) ?? running[0] ?? null;
+  const live = running.find((j) => j.subjects.some((s) => subjects.includes(s))) ?? running[0];
+  if (live) return live;
+  if (startedJobIds && startedJobIds.length > 0) {
+    const started = new Set(startedJobIds);
+    // Newest first, so a multi-stage run (preprocessing expands one subject into one job per
+    // stage) settles on the LAST stage's log rather than the first one to finish.
+    // Kind-filtered like every other rule: the started ids are this page's by construction, and
+    // a stale id from another page's session bag must not put a foreign log in this pane.
+    const mine = byNewest.find((j) => started.has(j.id) && kinds.includes(j.kind as PlanKind));
+    if (mine) return mine;
+  }
+  return null;
 }
 
 /** One entry of a page's "What will run" list. */

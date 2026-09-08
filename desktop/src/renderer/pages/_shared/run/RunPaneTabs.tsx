@@ -61,16 +61,24 @@ export interface RunPaneTabsProps {
    * belongs beside the thing it widens, and the run pane has no header of its own to put it in.
    */
   controls?: ReactNode;
+  /**
+   * True once this page session has started a job. The automatic Scene→Terminal switch would
+   * otherwise flip back to Scene the instant that job finished, taking the output the user was
+   * watching off the screen — the tab-level half of the same complaint that made a finished job
+   * stay in the terminal (maintainer, 2026-09-07).
+   */
+  ranHere?: boolean;
 }
 
-export function RunPaneTabs({ kinds, terminal, scene, onTabChange, controls }: RunPaneTabsProps) {
+export function RunPaneTabs({ kinds, terminal, scene, onTabChange, controls, ranHere }: RunPaneTabsProps) {
   const { all } = useJobsModel();
   const [chosen, setChosen] = usePageSession<RunPaneTab | null>("runPaneTab", null);
-  const active = useMemo(() => hasActiveJob(all, kinds), [all, kinds]);
+  const live = useMemo(() => hasActiveJob(all, kinds), [all, kinds]);
+  const active = live || !!ranHere;
   const tab = resolveTab(chosen, active);
 
   return (
-    <section className="run-tabs" data-testid="run-pane-tabs" data-tab={tab} data-active-job={active ? "1" : "0"} data-chosen={chosen ?? ""}>
+    <section className="run-tabs" data-testid="run-pane-tabs" data-tab={tab} data-active-job={live ? "1" : "0"} data-ran-here={ranHere ? "1" : "0"} data-chosen={chosen ?? ""}>
       <header className="run-tabs-head">
         <SegmentedControl
           aria-label="Run pane"

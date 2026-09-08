@@ -222,6 +222,11 @@ function PreprocessPage() {
   const [qsiReconOpen, setQsiReconOpen] = useState(false);
   const [existingOpen, setExistingOpen] = useState(false);
   const [pinnedJobId, setPinnedJobId] = usePageSession<string | null>("pinnedJob", null);
+  // The jobs this Run press started: they keep their log and final status line in the terminal
+  // after they finish, instead of the pane emptying itself the moment the run succeeds
+  // (maintainer, 2026-09-07). Page-session state, like the pin, so navigating away and back keeps
+  // the output; a new Run replaces it.
+  const [startedJobIds, setStartedJobIds] = usePageSession<string[]>("startedJobs", []);
 
   // The checked steps are the user's too (N2). React Hook Form keeps them in its own store, which
   // dies with the component like any other, so the bag seeds `defaultValues` once and a
@@ -286,7 +291,9 @@ function PreprocessPage() {
           ? `Queued preprocessing for ${selected.length} subjects (${result.jobs.length} jobs).`
           : `Queued preprocessing for ${selected[0]}.`,
       );
+      // A new run takes the terminal over: drop any explicit pin and follow this press's jobs.
       setPinnedJobId(null);
+      setStartedJobIds(result.jobs.map((job) => job.id));
     },
     onError: () => notify.error("Could not queue preprocessing.", "Check the connection and try again."),
   });
@@ -333,6 +340,7 @@ function PreprocessPage() {
           subjects={selected}
           emptyMessage={blockedReason ?? "Select a subject to see the plan."}
           pinnedJobId={pinnedJobId}
+          startedJobIds={startedJobIds}
           onPinJob={setPinnedJobId}
           steps={previewSteps}
           parallel={parallelSubjects}

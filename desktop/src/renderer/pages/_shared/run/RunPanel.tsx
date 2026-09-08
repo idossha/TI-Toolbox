@@ -33,6 +33,8 @@ export interface RunPanelProps {
   /** Clicking a plan row pins the terminal; the page owns the state so ⌘K can clear it. */
   pinnedJobId?: string | null;
   onPinJob?: (jobId: string | null) => void;
+  /** Ids of the jobs this page session started; they stay in the terminal after they finish. */
+  startedJobIds?: readonly string[];
   emptyMessage?: string;
   onEmptyAction?: () => void;
   /**
@@ -64,6 +66,7 @@ export function RunPanel({
   onRevealLogFile,
   pinnedJobId,
   onPinJob,
+  startedJobIds,
   emptyMessage,
   onEmptyAction,
   onTerminalSourceChange,
@@ -86,6 +89,7 @@ export function RunPanel({
       kinds={jobKinds ?? [kind]}
       subjects={focused}
       pinnedJobId={pinnedJobId}
+      startedJobIds={startedJobIds}
       onPinJob={onPinJob}
       onRevealLogFile={onRevealLogFile}
       onSourceChange={onTerminalSourceChange}
@@ -107,7 +111,7 @@ export function RunPanel({
         onSelectRow={(subject) => setRowSubject((prev) => (prev === subject ? null : subject))}
       />
       {scene ? (
-        <RunPaneTabs kinds={jobKinds ?? [kind]} terminal={terminal} scene={scene} onTabChange={onPaneTabChange} controls={paneControls} />
+        <RunPaneTabs kinds={jobKinds ?? [kind]} ranHere={(startedJobIds?.length ?? 0) > 0} terminal={terminal} scene={scene} onTabChange={onPaneTabChange} controls={paneControls} />
       ) : (
         terminal
       )}

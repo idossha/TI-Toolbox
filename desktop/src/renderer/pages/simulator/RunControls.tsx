@@ -152,7 +152,8 @@ export function RunButton({
   plan: SimPlan;
   /** The `Subjects in parallel` cap; goes onto the one group request as `parallel_subjects`. */
   parallelSubjects: number;
-  onSubmitted: () => void;
+  /** The ids of the jobs the press created — the page's terminal follows them (2026-09-07). */
+  onSubmitted: (jobIds: string[]) => void;
   label: string;
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -187,7 +188,7 @@ export function RunButton({
           ? `Queued: simulation for ${subjectIds[0]}`
           : `Queued ${result.jobs.length} simulation jobs${parallelSubjects > 1 ? ` (${parallelSubjects} at a time)` : " (one at a time)"}`,
       );
-      onSubmitted();
+      onSubmitted(result.jobs.map((job) => job.id));
     } catch {
       notify.error("Could not queue the simulation jobs.");
     } finally {

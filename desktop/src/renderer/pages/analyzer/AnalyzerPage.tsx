@@ -158,6 +158,11 @@ export function AnalyzerPage() {
    */
   const [retry, setRetry] = useState<{ key: string; specs: AnalyzerJobSpec[] }>({ key: "", specs: [] });
   const [pinnedJobId, setPinnedJobId] = usePageSession<string | null>("pinnedJob", null);
+  // The jobs this Run press started: they keep their log and final status line in the terminal
+  // after they finish, instead of the pane emptying itself the moment the run succeeds
+  // (maintainer, 2026-09-07). Page-session state, like the pin, so navigating away and back keeps
+  // the output; a new Run replaces it.
+  const [startedJobIds, setStartedJobIds] = usePageSession<string[]>("startedJobs", []);
 
   // One simulation query per project subject — the Simulation cell's options, and the readiness
   // the row's Subject cell states.
@@ -288,6 +293,12 @@ export function AnalyzerPage() {
         submitAnalyzerJob(spec.config, spec.subjectIds, replace, [tag]),
       );
       setRetry({ key: specsKey, specs: outcome.rejected.map((entry) => entry.spec) });
+      // A new run takes the terminal over: drop any explicit pin and follow this press's jobs,
+      // which stay in the pane with their final status line after they finish (2026-09-07).
+      if (outcome.acceptedIds.length > 0) {
+        setPinnedJobId(null);
+        setStartedJobIds(outcome.acceptedIds);
+      }
       const receipt = batchReceipt(outcome);
       if (outcome.rejected.length === 0) notify.success(receipt);
       else notify.error(receipt);
@@ -388,6 +399,7 @@ export function AnalyzerPage() {
           subjects={effectiveSubjectIds}
           emptyMessage={blockedReason ?? "Pick a simulation to analyze."}
           pinnedJobId={pinnedJobId}
+          startedJobIds={startedJobIds}
           onPinJob={setPinnedJobId}
           steps={ANALYZER_STEPS}
           paneControls={<PaneHeaderControls controller={scenePane} />}

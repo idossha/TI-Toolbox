@@ -148,6 +148,11 @@ function OptimizerPage() {
   const [activeRowId, setActiveRowId] = usePageSession<string | null>("activeRow", null);
   const [overwrite, setOverwrite] = usePageSession("overwrite", false);
   const [pinnedJobId, setPinnedJobId] = usePageSession<string | null>("pinnedJob", null);
+  // The jobs this Run press started: they keep their log and final status line in the terminal
+  // after they finish, instead of the pane emptying itself the moment the run succeeds
+  // (maintainer, 2026-09-07). Page-session state, like the pin, so navigating away and back keeps
+  // the output; a new Run replaces it.
+  const [startedJobIds, setStartedJobIds] = usePageSession<string[]>("startedJobs", []);
   const [confirmOverwrite, setConfirmOverwrite] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const parallelSubjects = useExecutionPrefs((s) => s.parallelSubjects);
@@ -332,23 +337,27 @@ function OptimizerPage() {
       }
       setValidationErrors([]);
 
+      const startedIds: string[] = [];
       for (const [kind, group] of byKind) {
         const subjectIds = [...new Set(group.map((j) => j.subject))];
-        await submitJobGroup(kind, group[0]!.config, subjectIds, parallelSubjects, {
+        const result = await submitJobGroup(kind, group[0]!.config, subjectIds, parallelSubjects, {
           subjectConfigs: group.map((j) => ({ subject_id: j.subject, config: j.config })),
           tags: group.length > 1 ? [`${kind}-batch`] : [],
           overwrite: overwriteFlag,
         });
+        startedIds.push(...result.jobs.map((job) => job.id));
       }
-      return { jobs: jobs.length, kinds: [...byKind.keys()] };
+      return { jobs: jobs.length, kinds: [...byKind.keys()], startedIds };
     },
-    onSuccess: ({ jobs: n, kinds }) => {
+    onSuccess: ({ jobs: n, kinds, startedIds }) => {
       notify.success(
         n === 1
           ? `Queued: ${OPT_METHOD_LABEL[kinds[0] as keyof typeof OPT_METHOD_LABEL] ?? kinds[0]} search.`
           : `Queued ${n} searches in ${kinds.length} group${kinds.length === 1 ? "" : "s"} (${kinds.join(", ")}).`,
       );
+      // A new run takes the terminal over: drop any explicit pin and follow this press's jobs.
       setPinnedJobId(null);
+      setStartedJobIds(startedIds);
     },
     onError: (e) => {
       if ((e as Error).message !== "invalid") notify.error("Could not queue the search.");
@@ -428,6 +437,7 @@ function OptimizerPage() {
           subjects={planSubjects}
           emptyMessage={blockedReason ?? "Add a job to see the plan."}
           pinnedJobId={pinnedJobId}
+          startedJobIds={startedJobIds}
           onPinJob={setPinnedJobId}
           steps={stepsFor(planKind)}
           parallel={parallelSubjects}

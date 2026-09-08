@@ -9,7 +9,8 @@
  *
  * Which job it follows is `terminalSources.ts`'s `resolveFollowedJob`, and the rule it now obeys
  * (fix lane FXU2) is: **nothing is pinned on page open unless a job of this page's kind is really
- * running or queued.** Opening a tab must never look like it started something.
+ * running or queued — or unless this page session started it.** Opening a tab must never look like
+ * it started something; equally, a job you did start here must not disappear the instant it ends.
  */
 import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -48,6 +49,13 @@ export interface JobTerminalProps {
   subjects: string[];
   pinnedJobId?: string | null;
   onPinJob?: (jobId: string | null) => void;
+  /**
+   * Jobs THIS page session started (the ids of the last Run press). They keep their log and final
+   * status line in the pane after they finish, instead of the pane emptying itself the moment the
+   * run the user was watching succeeds (maintainer, 2026-09-07). Page-session state, so navigating
+   * away and back keeps it; a fresh app start starts empty.
+   */
+  startedJobIds?: readonly string[];
   onRevealLogFile?: (jobId: string) => void;
   /**
    * Accepted and ignored since FXU2, when the pane's "What will run" preview was retired: showing
@@ -62,14 +70,22 @@ export interface JobTerminalProps {
   onSourceChange?: (source: TerminalSource) => void;
 }
 
-export function JobTerminal({ kinds, subjects, pinnedJobId, onPinJob, onRevealLogFile, onSourceChange }: JobTerminalProps) {
+export function JobTerminal({
+  kinds,
+  subjects,
+  pinnedJobId,
+  startedJobIds,
+  onPinJob,
+  onRevealLogFile,
+  onSourceChange,
+}: JobTerminalProps) {
   const { all, now } = useJobsModel();
   const { eventsByJob } = useJobsStream();
 
   const followable = useMemo(() => all.map((j) => toFollowable(j, now)), [all, now]);
   const job = useMemo(
-    () => resolveFollowedJob(followable, kinds, subjects, pinnedJobId),
-    [followable, kinds, subjects, pinnedJobId],
+    () => resolveFollowedJob(followable, kinds, subjects, pinnedJobId, startedJobIds),
+    [followable, kinds, subjects, pinnedJobId, startedJobIds],
   );
   const jobId = job?.id;
 
