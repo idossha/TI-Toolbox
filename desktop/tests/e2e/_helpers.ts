@@ -257,11 +257,26 @@ export async function openJobsPanel(page: Page): Promise<void> {
   await expect(page.locator(".jobs-rail-expanded")).toHaveCount(1);
 }
 
-/** Switches the expanded jobs panel's tab (`app/jobs-rail/JobsPanel.tsx`'s `[Jobs][Console][Host]
- *  [Report]` segment). Panel pages (Source, Cluster Permutation, NIfTI averaging, Nilearn) have no
- *  page-local `job-terminal` of their own — this is their "page terminal" equivalent. */
-export async function selectJobsPanelTab(page: Page, name: "Jobs" | "Console" | "Host" | "Report"): Promise<void> {
+/** Switches the expanded jobs panel's tab (`app/jobs-rail/JobsPanel.tsx`'s `[Jobs][Host]`
+ *  segment; Console and Report were removed 2026-09-07). */
+export async function selectJobsPanelTab(page: Page, name: "Jobs" | "Host"): Promise<void> {
   await page.getByRole("radiogroup", { name: "Jobs panel" }).getByRole("radio", { name, exact: true }).click();
+}
+
+/**
+ * Opens the selected job's console in the expanded panel — the successor to
+ * `selectJobsPanelTab(page, "Console")`.
+ *
+ * The panel's Console tab is gone; the console it showed is the detail pane's **Raw log** tab,
+ * which is the same `ui/Jobs.tsx` console over the same events, beside the table you picked the
+ * job from. The caller must already have selected a job (clicking its rail trace does it). Panel
+ * pages (Source, Cluster Permutation, NIfTI averaging, Nilearn) have no page-local `job-terminal`
+ * of their own — this is their "page terminal" equivalent.
+ */
+export async function openJobRawLog(page: Page): Promise<void> {
+  await selectJobsPanelTab(page, "Jobs");
+  await page.getByTestId("job-detail").getByRole("tab", { name: "Raw log" }).click();
+  await expect(page.getByTestId("job-detail-rawlog")).toBeVisible();
 }
 
 /**

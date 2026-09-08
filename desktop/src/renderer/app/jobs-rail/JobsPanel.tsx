@@ -1,26 +1,22 @@
 /**
- * Height 2 of 3: the 260px panel behind ⌘J. Tabs [Jobs][Console][Host][Report] as a
- * `SegmentedControl` (one 28px row, not a 44px tab strip), and Jobs is a master–detail split —
- * the table on the left, the selected job's detail and actions in a pane on the right, inside the
- * panel. Nothing here opens a modal.
+ * Height 2 of 3: the 260px panel behind ⌘J. Tabs [Jobs][Host] as a `SegmentedControl` (one 28px
+ * row, not a 44px tab strip) — see `store.ts`'s `JOBS_PANEL_TABS` for why Console and Report are
+ * gone — and Jobs is a master–detail split: the table on the left, the selected job's detail and
+ * actions in a pane on the right, inside the panel. Nothing here opens a modal.
  */
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
 import { IconButton } from "../../ui/Button";
 import { SegmentedControl } from "../../ui/SegmentedControl";
-import { ResizablePanels } from "../../ui/Layout";
 import { getSettings } from "./api";
-import { ConsolePane } from "./ConsolePane";
 import { HostPanel } from "./host/HostPanel";
 import { JobDetailPane } from "./JobDetailPane";
+import { JobsSplit } from "./JobsSplit";
 import { JobsTable } from "./JobsTable";
-import { ReportPane } from "./ReportPane";
 import { JOBS_PANEL_TABS, useJobsUi } from "./store";
 import type { JobsModel } from "./model";
 
 export function JobsPanel({ model, onCollapse }: { model: JobsModel; onCollapse: () => void }) {
-  const navigate = useNavigate();
   const { selectedId, select, tab, setTab } = useJobsUi();
   const settings = useQuery({ queryKey: ["jobs-settings"], queryFn: getSettings });
   const selected = selectedId ? model.all.find((j) => j.id === selectedId) : undefined;
@@ -43,11 +39,8 @@ export function JobsPanel({ model, onCollapse }: { model: JobsModel; onCollapse:
 
       <div className="jobs-panel-body">
         {tab === "jobs" && (
-          <ResizablePanels
-            defaultLeftWidth={560}
-            minLeftWidth={360}
-            maxLeftWidth={880}
-            left={
+          <JobsSplit
+            list={
               <JobsTable
                 jobs={model.all}
                 now={model.now}
@@ -60,7 +53,7 @@ export function JobsPanel({ model, onCollapse }: { model: JobsModel; onCollapse:
                 emptyMessage="No jobs yet."
               />
             }
-            right={
+            detail={
               <JobDetailPane
                 job={selected}
                 density="panel"
@@ -70,9 +63,7 @@ export function JobsPanel({ model, onCollapse }: { model: JobsModel; onCollapse:
             }
           />
         )}
-        {tab === "console" && <ConsolePane job={selected} />}
         {tab === "host" && <HostPanel />}
-        {tab === "report" && <ReportPane job={selected} onOpenResults={() => navigate("/results")} />}
       </div>
     </div>
   );

@@ -8,7 +8,7 @@ import {
   launchElectronApp,
   PROJECT_HOST_ROOT,
   recordPayload,
-  selectJobsPanelTab,
+  openJobRawLog,
   waitForJobTerminal,
   waitForJobTrace,
   type JobStatusLite,
@@ -149,12 +149,12 @@ test("build forward solution for sub-101: accepted, started, and completed", asy
 
   const created = (await (await jobResponse).json()) as { id: string };
   jobId = created.id; // afterAll's cleanup needs this the moment it exists, success or not
-  // Click the trace (not just wait for it): the Console tab renders the *selected* job's log —
-  // `ConsolePane`'s `job` prop is `undefined` (empty state, no `.job-console-line` ever) until
-  // something calls `select(job.id)`, which only the trace's own `onClick` does.
+  // Click the trace (not just wait for it): the detail pane's Raw log renders the *selected*
+  // job's log — the pane's `job` prop is `undefined` (empty state, no `.job-console-line` ever)
+  // until something calls `select(job.id)`, which only the trace's own `onClick` does.
   const trace = await waitForJobTrace(page, "source", { timeoutMs: 120_000 });
   await trace.click();
-  await selectJobsPanelTab(page, "Console");
+  await openJobRawLog(page);
   await expect(page.locator(".job-console-line").first()).toBeVisible({ timeout: 120_000 });
 
   const startedAtMs = Date.now();

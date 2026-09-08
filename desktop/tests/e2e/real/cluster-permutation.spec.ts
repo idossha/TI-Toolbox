@@ -9,7 +9,7 @@ import {
   launchElectronApp,
   PROJECT_HOST_ROOT,
   recordPayload,
-  selectJobsPanelTab,
+  openJobRawLog,
   waitForJobTerminal,
   waitForJobTrace,
 } from "../_helpers";
@@ -101,12 +101,12 @@ test("classification, 2 responders + 1 non-responder: accepted, started, and a r
   recordPayload("stats", body);
 
   const created = (await (await jobResponse).json()) as { id: string };
-  // Click the trace (not just wait for it): the Console tab renders the *selected* job's log —
-  // `ConsolePane`'s `job` prop is `undefined` (empty state, no `.job-console-line` ever) until
-  // something calls `select(job.id)`, which only the trace's own `onClick` does.
+  // Click the trace (not just wait for it): the detail pane's Raw log renders the *selected*
+  // job's log — the pane's `job` prop is `undefined` (empty state, no `.job-console-line` ever)
+  // until something calls `select(job.id)`, which only the trace's own `onClick` does.
   const trace = await waitForJobTrace(page, "stats", { timeoutMs: 120_000 });
   await trace.click();
-  await selectJobsPanelTab(page, "Console");
+  await openJobRawLog(page);
   await expect(page.locator(".job-console-line").first()).toBeVisible({ timeout: 120_000 });
 
   const finalJob = await waitForJobTerminal(page, { url: SERVER_URL, token: TOKEN, jobId: created.id, timeoutMs: 300_000 });

@@ -218,12 +218,16 @@ export function JobDetailPane({ job, allowUnsafeOverrides, onOpenJob, density = 
       </div>
 
       <div className="job-detail-body">
-        {density === "panel" ? (
-          summary
-        ) : (
-          /* The tabs own the pane's remaining height, not just their natural height: the Raw log
-             tab is a full console that has to reach the pane's bottom edge (`.job-detail-tabs`). */
-          <div className="job-detail-tabs">
+        {/* The tabs own the pane's remaining height, not just their natural height: the Raw log
+             tab is a full console that has to reach the pane's bottom edge (`.job-detail-tabs`).
+
+             At `panel` density this pane used to be the Summary alone, because the 260px panel
+             had a Console tab of its own. That tab is gone (`store.ts`), so the panel gets the
+             same three tabs the page has — which is what keeps a job's console one click from
+             the table you picked the job out of, instead of a screen away. The Summary's 40-line
+             console excerpt stays off at this density: it is what fills a 736px page pane, and
+             in a 260px panel it would push the definition list off the top. */}
+        <div className="job-detail-tabs">
             <Tabs
               value={tab}
               onValueChange={setTab}
@@ -243,10 +247,9 @@ export function JobDetailPane({ job, allowUnsafeOverrides, onOpenJob, density = 
                     </div>
                   ),
                 },
-              ]}
-            />
-          </div>
-        )}
+            ]}
+          />
+        </div>
       </div>
 
       <AlertDialog

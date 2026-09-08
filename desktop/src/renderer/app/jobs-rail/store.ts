@@ -7,13 +7,29 @@
  */
 import { create } from "zustand";
 
-export type JobsPanelTab = "jobs" | "console" | "host" | "report";
+/**
+ * The panel's tabs — **two**, since 2026-09-07 (maintainer: *"In that bottom element, please
+ * remove the Report and Console as well"*).
+ *
+ * Both removals are of a tab that had stopped being the way to the thing it named:
+ *
+ * - **Console** duplicated `JobDetailPane`'s own "Raw log" tab, which is the *same*
+ *   `ui/Jobs.tsx` console over the same events, one click away in the pane already on screen.
+ *   Selecting a job and then moving to a second tab to read its log meant the table you picked
+ *   it from was no longer visible.
+ * - **Report** is an artifact of the job now. A generated report appears in the detail pane's
+ *   Artifacts tab like every other output, and `pages/results` is where reports are browsed —
+ *   the tab was a whole surface that, for every job kind but `pre`, could only ever say
+ *   "this job has no report yet".
+ *
+ * What is left is the two things the rail is for: the work (`Jobs`) and the machine running it
+ * (`Host` — the quick glance; `pages/system` is the full-height version).
+ */
+export type JobsPanelTab = "jobs" | "host";
 
 export const JOBS_PANEL_TABS: { value: JobsPanelTab; label: string }[] = [
   { value: "jobs", label: "Jobs" },
-  { value: "console", label: "Console" },
   { value: "host", label: "Host" },
-  { value: "report", label: "Report" },
 ];
 
 /** The "all" sentinel for a filter that is not narrowing anything. */

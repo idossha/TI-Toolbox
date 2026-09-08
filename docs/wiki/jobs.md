@@ -16,7 +16,9 @@ so a page never has a Stop button and never has a console of its own. Both live 
 ## Where jobs appear
 
 - **The Jobs rail** at the bottom of every page — a one-line summary ("2 running"), expanded to a
-  260 px panel with ⌘J. Its tabs are **Jobs**, **Console**, **Host** and **Report**.
+  260 px panel with ⌘J. Its tabs are **Jobs** and **Host**. The Jobs tab is the table beside the
+  selected job's detail pane, split by a divider you can **drag**, **double-click to reset**, and
+  which is remembered between sessions.
 - **The Jobs page** (⌘9) — the full table with filters and a detail pane.
 - **A run page's right pane** — the **Terminal** tab shows the console of the job that page just
   submitted, beside the **Scene** tab.
@@ -38,13 +40,16 @@ be watched and cancelled as one thing.
 
 ## The detail pane
 
-Select a row and the pane on the right opens with:
+Select a row — in the panel or on the page — and the pane on the right opens with:
 
-- **Console** — the live log, streamed over `/ws/jobs` and backfilled over REST, with level
-  colouring, a filter, follow-tail and **Load earlier** for the history before you looked.
-- **Raw log** — the same file, unstyled, as it is on disk.
-- **Artifacts** — what the job wrote, with Open (into the Viewer) and Reveal.
-- **Actions** — Stop, Rerun, Force and Delete.
+- **Summary** — kind, subjects, group, created, elapsed, CPU, RSS and exit code, plus (on the
+  full page) the last 40 lines of the console.
+- **Raw log** — the whole log: streamed over `/ws/jobs`, backfilled over REST, falling back to the
+  log file on disk for a job whose events the server no longer holds. Level colouring, a filter,
+  follow-tail and **Clear** are in the console's own toolbar.
+- **Artifacts** — what the job wrote, with Open (into the Viewer) and Reveal. A generated **report**
+  is one of these; browse reports in **Results**.
+- **Actions** — Stop, Rerun, Force and Delete, in the pane's header row.
 
 When a job fails, the pane names *which kind* of failure it was rather than only printing a
 traceback: `preflight`, `lock_wait`, `budget_wait`, `runner_failed`, `oom_suspected`, `cancelled`,
