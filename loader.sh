@@ -62,10 +62,30 @@ find_python() {
     return 1
 }
 
-command -v docker >/dev/null 2>&1 || die \
-    "Docker was not found. Install Docker Desktop (macOS/Windows) or Docker Engine (Linux) first."
-docker version --format '{{.Server.APIVersion}}' >/dev/null 2>&1 || die \
-    "Docker is installed but not running. Start Docker Desktop (or your Docker daemon) and retry."
+# The Docker preconditions are checked for a RUN, not for `--help`.
+#
+# They used to be the first thing this script did, which made reading the flag list conditional on
+# a running daemon — so a person whose daemon was down could not find out how to ask this script
+# for its status. It also made
+# `tests/test_launch.py::test_loader_sh_in_a_checkout_runs_the_checkout` pass only on a machine
+# that happened to have Docker running, which is the opposite of a test.
+#
+# `--help` is the only argument that reaches `tit launch` without starting anything, so it is the
+# only one exempted. Everything else still meets both checks here, before any Python is found.
+wants_help() {
+    local arg
+    for arg in "$@"; do
+        case "$arg" in -h|--help) return 0 ;; esac
+    done
+    return 1
+}
+
+if ! wants_help "$@"; then
+    command -v docker >/dev/null 2>&1 || die \
+        "Docker was not found. Install Docker Desktop (macOS/Windows) or Docker Engine (Linux) first."
+    docker version --format '{{.Server.APIVersion}}' >/dev/null 2>&1 || die \
+        "Docker is installed but not running. Start Docker Desktop (or your Docker daemon) and retry."
+fi
 
 PYTHON="$(find_python || true)"
 [ -n "$PYTHON" ] || die "no CPython >= 3.11 found on PATH. Install one, or set TIT_PYTHON=/path/to/python3."

@@ -436,7 +436,7 @@ def _skip_without_host_python() -> None:
     pytest.skip("no CPython >= 3.11 on PATH, so loader.sh correctly refuses to run")
 
 
-def test_loader_sh_in_a_checkout_runs_the_checkout():
+def test_loader_sh_in_a_checkout_runs_the_checkout(tmp_path):
     """``./loader.sh`` from a checkout must run *that* checkout, and say so.
 
     The installed-package branch used to come first, and its probe (``python -c 'import
@@ -446,8 +446,21 @@ def test_loader_sh_in_a_checkout_runs_the_checkout():
     naming a command that did not exist on the machine.
     """
     _skip_without_host_python()
+    # Run with a `docker` whose daemon is DOWN, so this proves the dispatch rather than the
+    # machine. The old form ran with the ambient PATH and passed only where a daemon happened to
+    # be running: the preconditions were the first thing `loader.sh` did, so with the daemon down
+    # it exited 1 before reaching the checkout branch this test is about. Asking a script for its
+    # flags is not asking it to start a container.
+    shim = tmp_path / "docker"
+    shim.write_text('#!/bin/sh\nexit 1\n')
+    shim.chmod(0o755)
+    env = dict(os.environ, PATH=f"{tmp_path}:{os.environ.get('PATH', '')}")
     result = subprocess.run(
-        ["bash", str(LOADER_SH), "--help"], capture_output=True, text=True, cwd=REPO_ROOT
+        ["bash", str(LOADER_SH), "--help"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        env=env,
     )
     assert result.returncode == 0, result.stderr
     assert "python loader.py" in result.stdout, result.stdout[:400]

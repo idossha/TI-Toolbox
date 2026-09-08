@@ -375,7 +375,7 @@ Nothing in this table is inferred from a passing host leg.
 | Typecheck (node + web) | `pnpm run typecheck` | clean — **after fixing 10 pre-existing errors** (below) |
 | Lint | `pnpm run lint` | **0 errors**, the same 3 React-Compiler `incompatible-library` warnings |
 | Desktop unit | `pnpm exec vitest run` | **1,488 passed** across **115 files**, 8.8 s |
-| Host Python | `python3 -m pytest tests -q` | **4,331 passed**, 45 skipped, 21 deselected, 98.4 s |
+| Host Python | `python3 -m pytest tests -q` | **4,342 passed**, 45 skipped, 21 deselected, 100.1 s |
 | Container numerical | `docker exec … -m pytest tests/numerical -q` | **UNRUN — no Docker daemon** |
 | Container view/jobs/kernels/server/launch | `docker exec … -m pytest tests/test_view*.py tests/test_jobs*.py …` | **UNRUN — no Docker daemon** |
 | Contract | `python3 dev/contracts_check.py` | OK — **114 operations, 136 schemas**, 244 warnings |
@@ -383,7 +383,7 @@ Nothing in this table is inferred from a passing host leg.
 | Route imports | `python3 -m pytest tests/test_route_import_guard.py` | **24 passed** |
 | Workflows | `actionlint` | clean |
 | Plugin | `python3 agent-plugin/mcp/server.py --selftest` | PASSED |
-| Launchers | `./loader.sh --help`, `bash dev/loader/loader_dev.sh --help` | both exit 0 — but see the note below |
+| Launchers | `./loader.sh --help`, `bash dev/loader/loader_dev.sh --help` | both exit 0 — `loader.sh` only after the fix below |
 | Site build | `bundle exec jekyll build` (Homebrew Ruby 3.3.10, `ruby@3.3`) | done in 1.85 s |
 | Site links | internal-link scan over `docs/_site` | **3,324 internal links, 2 dead**, both in the vendored `docs/api/404.html` mkdocs tree (`/api/.`, `/api/assets/_mkdocstrings.css`) |
 | Mock e2e | `pnpm run e2e:quiet` | **363 passed**, 2 skipped, 0 failed — **twice**, 6.8 min and 6.1 min |
@@ -400,10 +400,15 @@ passed straight into non-optional slots (`8a1f84ac`). The one that mattered was 
 branches, so they are now named in a type. **A `Record<string, T>` for a fixed, known key set is a
 type that has thrown away the thing worth knowing.**
 
-**The `--help` gate row is close to vacuous and should be fixed.** Neither loader implements
-`--help`. `dev/loader/loader_dev.sh` passes it through to `loader_dev.py`, which does print usage;
-`./loader.sh` reaches its Docker precondition first and exits 0 with *"Docker is installed but not
-running"*. So on a machine with no daemon the row proves the script starts, and nothing more.
+**The `--help` gate row was vacuous, and the gate is where that showed.** `loader.sh` checked for
+`docker` and for a running daemon as the very first thing it did, so `./loader.sh --help` exited 1
+on a machine with the daemon down — and
+`tests/test_launch.py::test_loader_sh_in_a_checkout_runs_the_checkout`, which asserts `--help` exits
+0, had been passing only because every previous gate machine happened to have Docker running. Fixed
+at the cause: the preconditions run for a *run*, not for `--help`, and the test now runs with a
+`docker` shim whose daemon is down, verified red against the previous script. **A precondition
+placed at the top of a script is a precondition on every one of its verbs, including the ones that
+do nothing.**
 
 **Three e2e specs had been red on the branch since `509100ef`**, all driving `viewer-select-kind` /
 `viewer-select-simulation` — testids deleted when the Menu became a composition tree. Fixed at the
