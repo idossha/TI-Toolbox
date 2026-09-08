@@ -597,6 +597,75 @@ two. Do not chase the test name, and do not run anything beside a Playwright sui
 
 ---
 
+## 2026-09-07 (evening) — the Viewer became a tree, results grew panes, and a group of one stopped being nothing
+
+An addendum to the three 2026-09-07 entries above, covering what landed after them and what the CX9
+consolidation gate found.
+
+**The Viewer's Menu is a composition tree.** The kind/simulation/space selectors are gone
+(`509100ef`, `4d77d375`): the bar above the tree is the two facts every branch depends on — Subject
+and Space — and everything else is a row you tick. Anatomy is grouped by *what a file is* rather
+than by the directory it came out of, because a flat list put an 8 MB cortical sheet between a T1
+and a 64 MB FEM volume with nothing to say they were three different kinds of thing (`bc643865`,
+`86162e89`: a mesh is a tetrahedral FEM, a surface is a triangular sheet, and a surface reaches the
+embed as a surface or not at all). Compositions and scenes save and reload (`a7338dcc`, `c8c0b678`),
+and the subject rule is enforced: changing subject drops the other subject's rows *and says how
+many*, because a scene spanning two people is two head-shaped brains roughly aligned with no way to
+see that it is wrong.
+
+**The gate's own finding: three e2e specs had been red since that change.** `smoke.spec.ts` and
+three tests in `page-memory.spec.ts` were still driving `viewer-select-kind` /
+`viewer-select-simulation`, testids that no longer exist anywhere in `src/renderer`. Nothing in the
+app was wrong; the specs had simply not been carried across (`8b82ee43`, `611fb54f`). **A lane that
+deletes a testid owns every spec that used it** — grep for it before the commit, not at the next
+gate.
+
+**Results has one shape per output kind** (`0a3d329c`, `cfbb349b`, `4f614684`), PDFs render as
+images at their own aspect rather than being handed to Chromium's PDF viewer, and a report is an
+*attachment of the job that produced it*, not a job of its own (`ac09534e`). Help popovers and the
+preprocess flows landed (`1b4ee3b3`, `072f446e`), the jobs rail lost its Console and Report tabs for
+a remembered 62/38 divider (`b92fc521`, `bf64bfe9`), and the System page arrived as a real-time
+monitor pinned above Settings (`107b41eb`, `2244587f`, `48089caf`) — one rolling five-minute CPU and
+memory chart, because the question people have is whether the two moved *together*.
+
+**"Open in viewer" did not open.** Two maintainer reports with one cause: the deep link pre-filled
+the Viewer's draft and left an Open button to press. `?open=1` now carries the intent and the Viewer
+runs the same `open()` its own button runs (`e52a8c5f`). The same link is what the Jobs detail
+pane's Artifacts tab uses: no `View`, no per-row `Open` (every artifact of a job is in the job's own
+folder, so N buttons opened one place), one **Open folder** under the list, and **Open in Tetravox**
+only on the rows a scene can draw — never on `roi_overlay.msh.opt`, the Gmsh options file that sits
+beside the mesh with nothing in it to view.
+
+**The trap in that change, worth remembering.** The auto-open effect first named `open` as a
+dependency. `open` is a `useCallback` over `draft`, so the effect re-ran the moment it called
+`setDraft` — and because the selection is a fresh object each time, it never converged: the page
+re-rendered without pause and `setSub("tetravox")` never landed. It is held in a ref written from
+its own effect. **An effect that sets state must not depend on a callback closed over that state.**
+
+**SCI-09: a group of one returned a uniformly null result, not an error.** The pooled variance was
+`(n-1) * np.var(x, ddof=1)`, which for a group of one subject is `0 * nan == nan` rather than the
+`0` the pooled estimator calls for, so every voxel of a one-vs-many comparison came out `nan`. On
+2.2.3–2.5.0 the `valid = se_diff > 0` guard swallowed it — `nan > 0` is `False` — and left
+`t = 0, p = 1` everywhere: a complete, well-formed, uniformly null result set from a run that
+*succeeded*. That is the worst shape a defect can take. The loud shape appeared only on this branch,
+between `682cbfcf` (SCI-06, which made `_safe_t` IEEE-correct) and the fix `1b5ffdd7`.
+
+**This closes a `RELEASE.md` follow-up that had been filed as a data question.** "The
+`cluster-permutation` real job fails on Dataset 000 — every voxel is excluded as degenerate" was
+recorded as *whether a 2-vs-1 contrast on those three images should be degenerate is a data
+question, not a code one*. It was a code question. The generalisable lesson: **a guard that tests a
+derived quantity for `> 0` takes its zero branch on `nan`** — `_safe_t` is the pattern to follow
+instead, letting the IEEE value through and classifying it explicitly.
+
+What re-running does *not* buy is significance. Three subjects admit `C(3,1) = 3` relabellings, so
+the permutation null has three members — one of them the observation — and the floor on a cluster
+p-value is `1/3` exhaustively, `2/4` under the shipped sampled estimator. **Zero significant
+clusters from three subjects is the arithmetic of the design, not a defect**, and the
+cluster-permutation wiki page now says so next to its data requirements, naming `C(6,3) = 20` (three
+per group) as the first size at which `α = 0.05` is reachable at all.
+
+---
+
 ## Pre-v3 backend defect reports (2026-08), rechecked 2026-09-07
 
 A code-reading pass filed three defects against the PyQt build. The Qt tabs are gone; these are what

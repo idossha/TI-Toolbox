@@ -859,8 +859,20 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
         "Use `simnibs_python`, not the host python. Project mounted at /mnt/<project>/.",
         "rail_pages": "Ten rows, ten digits — the rail counts from Cmd+0: Overview (0), "
         "Pre-processing (1), Simulator (2), Optimizer (3), Analyzer (4), Pipeline (5), "
-        "Notebooks (6), Results (7), Viewer (8), Jobs (9). Settings is not a rail row; "
-        "Cmd+, is its only chord. Cmd+K palette, Cmd+J jobs panel, Cmd+Enter primary action.",
+        "Notebooks (6), Results (7), Viewer (8), Jobs (9). System, Settings and Help are "
+        "pinned below a spacer and take no digit; System is the full-height monitor "
+        "(one rolling five-minute CPU+memory timeline, Docker health, process table) "
+        "reading the same /ws/system snapshot as the jobs panel's 260px Host tab, so the "
+        "two cannot disagree. Cmd+, is Settings' only chord. Cmd+K palette, Cmd+J jobs "
+        "panel, Cmd+Enter primary action.",
+        "viewer_menu": "The Viewer's Menu is a COMPOSITION TREE, not a form: Subject and "
+        "Space above it, then Anatomy / Simulations / Analyses branches of rows you tick. "
+        "There is no view-kind or simulation selector (removed 2026-09-07). Anatomy is "
+        "grouped by what a file IS — volume, label-volume, surface, mesh — per "
+        "tit/catalog.py::classify_view_file; a mesh is a tetrahedral FEM (.msh) and a "
+        "surface is a triangular sheet (.gii and friends), and the two are never conflated. "
+        "A deep link (/viewer?kind=&subject=&path=&open=1) pre-fills the tree, and with "
+        "open=1 also builds and shows the scene.",
         "subsystems": {
             "tit/jobs": "The job engine: kinds.py (kind -> module), scheduler.py (a pure "
             "evaluate() per queued job), manager.py, registry.py (the on-disk store), "

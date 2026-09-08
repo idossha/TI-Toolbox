@@ -340,7 +340,7 @@ plugin refresh had all landed on the branch.
 | Mock e2e | `TIT_E2E_OFFSCREEN=1 npm run e2e:quiet` | **323 passed**, 2 skipped, twice — 4.4 min and 4.7 min, quiet-check PASS both |
 | Real e2e — UI subset | the same 9 real specs CX7 ran | **23 passed**, 1.6 min, quiet-check PASS |
 | Real e2e — docs shots | `npx playwright test --project=real tests/e2e/real/docs-shots.spec.ts` | **7 passed**, 1.0 min, quiet-check PASS; PNGs reverted |
-| Build of record | `pnpm run build` | see below |
+| Build of record | `pnpm run build` | **built in 4.24 s** — renderer entry `index-DhcoV8Sp.js` (4,109.83 kB), `index-Bxei7s40.css` (361.75 kB) |
 
 **The "1 in 325 flake" CX7 recorded is machine load, not the product, and this gate has the
 counter-example.** A middle run of the mock suite failed **ten** tests at once — four
@@ -359,3 +359,71 @@ desktop — it reported `FAIL — a test binary held the focus` twice while its 
 *no new Electron/Chromium window reached the screen*, because the maintainer's `npm run dev`
 Electron app was on screen and being clicked by a human.
 
+
+### CX9 consolidation gate
+
+Run after the viewer tree/scenes/kinds, the results panes, the report-as-attachment change, the help
+popovers, the jobs rail and the System page had all landed, and after this lane's own two changes
+(SCI-09's record, and "open in viewer" actually opening).
+
+**Docker Desktop was not running on the gate machine and could not be started without taking the
+screen, so every container leg is UNRUN, not green.** They are listed below with that word in them.
+Nothing in this table is inferred from a passing host leg.
+
+| Gate | Command | Result |
+|---|---|---|
+| Typecheck (node + web) | `pnpm run typecheck` | clean — **after fixing 10 pre-existing errors** (below) |
+| Lint | `pnpm run lint` | **0 errors**, the same 3 React-Compiler `incompatible-library` warnings |
+| Desktop unit | `pnpm exec vitest run` | **1,488 passed** across **115 files**, 8.8 s |
+| Host Python | `python3 -m pytest tests -q` | **4,331 passed**, 45 skipped, 21 deselected, 98.4 s |
+| Container numerical | `docker exec … -m pytest tests/numerical -q` | **UNRUN — no Docker daemon** |
+| Container view/jobs/kernels/server/launch | `docker exec … -m pytest tests/test_view*.py tests/test_jobs*.py …` | **UNRUN — no Docker daemon** |
+| Contract | `python3 dev/contracts_check.py` | OK — **114 operations, 136 schemas**, 244 warnings |
+| Generated files | `pnpm run gen` | byte-identical on re-run |
+| Route imports | `python3 -m pytest tests/test_route_import_guard.py` | **24 passed** |
+| Workflows | `actionlint` | clean |
+| Plugin | `python3 agent-plugin/mcp/server.py --selftest` | PASSED |
+| Launchers | `./loader.sh --help`, `bash dev/loader/loader_dev.sh --help` | both exit 0 — but see the note below |
+| Site build | `bundle exec jekyll build` (Homebrew Ruby 3.3.10, `ruby@3.3`) | done in 1.85 s |
+| Site links | internal-link scan over `docs/_site` | **3,324 internal links, 2 dead**, both in the vendored `docs/api/404.html` mkdocs tree (`/api/.`, `/api/assets/_mkdocstrings.css`) |
+| Mock e2e | `pnpm run e2e:quiet` | **363 passed**, 2 skipped, 0 failed — **twice**, 6.8 min and 6.1 min |
+| Real e2e (viewer-open, results-group, docs-shots, notebooks, browser-mode) | `--project=real` | **UNRUN — no Docker daemon** (the real project is served by the dev container) |
+| `verify-image.sh` vs `idossha/ti-toolbox:dev` | throwaway container, expect embed 0.4.0 / protocol 3 | **UNRUN — no Docker daemon** |
+| Dev container serves the new build hash | `pnpm run build`, then read the served asset | **UNRUN — no Docker daemon** |
+| Build of record | `pnpm run build` | see below |
+
+**Typecheck was red on arrival, on ten errors in one lane's files.** All the same shape:
+`noUncheckedIndexedAccess` types an index read as possibly `undefined`, and the reads were being
+passed straight into non-optional slots (`8a1f84ac`). The one that mattered was `Tree.tsx`'s
+`openBranches` typed as `Record<string, boolean>` — an index signature makes every read
+`boolean | undefined`, and `<Branch open=…>` wants a boolean. The component renders exactly three
+branches, so they are now named in a type. **A `Record<string, T>` for a fixed, known key set is a
+type that has thrown away the thing worth knowing.**
+
+**The `--help` gate row is close to vacuous and should be fixed.** Neither loader implements
+`--help`. `dev/loader/loader_dev.sh` passes it through to `loader_dev.py`, which does print usage;
+`./loader.sh` reaches its Docker precondition first and exits 0 with *"Docker is installed but not
+running"*. So on a machine with no daemon the row proves the script starts, and nothing more.
+
+**Three e2e specs had been red on the branch since `509100ef`**, all driving `viewer-select-kind` /
+`viewer-select-simulation` — testids deleted when the Menu became a composition tree. Fixed at the
+cause in `8b82ee43` and `611fb54f`; see `HISTORY.md` § 2026-09-07 (evening).
+
+**The quiet-check's focus leg failed on every run, and its window leg passed on every run.** It
+reported `FAIL — a test binary held the focus` while also reporting *no new Electron/Chromium window
+reached the screen* — the same split CX8 recorded, from the same cause: the offscreen Electron
+becomes the frontmost *process* without ever showing a window, on a desktop a human is also using.
+**The window leg is the assertion that means something; the focus leg is advisory on a shared
+machine.**
+
+#### Viewer resolve latency and the group-analysis run
+
+Carried forward from the lanes that measured them, not re-measured here (the real leg is unrun):
+
+| Measurement | Before | After |
+|---|---|---|
+| Viewer selection → resolved file list | **16.4 s** | **28 ms** |
+| Group analysis, three subjects, mesh space | — | see the results lane's own row above |
+
+The 16.4 s → 28 ms figure is a ~590× reduction and is the single largest latency change in the v3
+work; it is what makes the Menu a thing you edit rather than a form you submit.
