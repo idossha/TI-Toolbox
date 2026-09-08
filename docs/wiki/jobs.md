@@ -16,7 +16,9 @@ so a page never has a Stop button and never has a console of its own. Both live 
 ## Where jobs appear
 
 - **The Jobs rail** at the bottom of every page — a one-line summary ("2 running"), expanded to a
-  260 px panel with ⌘J. Its tabs are **Jobs** and **Host**. The Jobs tab is the table beside the
+  260 px panel with ⌘J. Its tabs are **Jobs** and **Host** — Host being the quick glance at the
+  machine (CPU, memory, disk, toolbox processes) without leaving the page you are on; the
+  full-height version is the **System** page, pinned at the bottom of the rail above Settings. The Jobs tab is the table beside the
   selected job's detail pane, split by a divider you can **drag**, **double-click to reset**, and
   which is remembered between sessions.
 - **The Jobs page** (⌘9) — the full table with filters and a detail pane.

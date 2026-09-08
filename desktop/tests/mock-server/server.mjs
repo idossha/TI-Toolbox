@@ -112,9 +112,21 @@ const rois = structuredClone(roisSeed);
 const freehand = structuredClone(freehandSeed);
 let notes = structuredClone(notesSeed);
 let settingsStore = structuredClone(settingsSeed);
+// The process table is htop-shaped since 2026-09-07: everything, busiest first, with the toolbox
+// keyword match kept as `relevant` and an `owner` that gates the UI's stop affordance. So the
+// fixture carries owned rows (a job, a kernel), unowned system rows, and a zombie.
 const processes = [
-  { pid: 4231, name: "simnibs_python", cmdline: "simnibs_python -m tit.sim /mnt/example/code/ti-toolbox/jobs/0001/spec.json", cpu_percent: 0, rss: 1.8 * 1024 ** 3, started: Date.now() / 1000 - 600 },
-  { pid: 4310, name: "charm", cmdline: "charm 101 T1.nii.gz --forceqform", cpu_percent: 0, rss: 3.2 * 1024 ** 3, started: Date.now() / 1000 - 3600 },
+  { pid: 4231, ppid: 40, name: "simnibs_python", cmdline: "simnibs_python -m tit.sim /mnt/example/code/ti-toolbox/jobs/0001/spec.json", cpu_percent: 0, rss: 1.8 * 1024 ** 3, started: Date.now() / 1000 - 600, status: "running", threads: 8, relevant: true, owner_kind: "job", owner_id: "job-0001", owner_label: "sim · ernie" },
+  { pid: 4310, ppid: 40, name: "charm", cmdline: "charm 101 T1.nii.gz --forceqform", cpu_percent: 0, rss: 3.2 * 1024 ** 3, started: Date.now() / 1000 - 3600, status: "running", threads: 4, relevant: true, owner_kind: "job", owner_id: "job-0002", owner_label: "pre · 101" },
+  { pid: 4402, ppid: 41, name: "python3.11", cmdline: "python3.11 -m ipykernel_launcher -f /tmp/kernel-4402.json", cpu_percent: 0, rss: 420 * 1024 ** 2, started: Date.now() / 1000 - 1800, status: "sleeping", threads: 6, relevant: false, owner_kind: "kernel", owner_id: "k-9f2c", owner_label: "kernel k-9f2c" },
+  { pid: 118, ppid: 1, name: "gmsh", cmdline: "gmsh -3 -optimize_netgen mesh.geo", cpu_percent: 0, rss: 740 * 1024 ** 2, started: Date.now() / 1000 - 240, status: "running", threads: 2, relevant: true, owner_kind: null, owner_id: null, owner_label: "" },
+  { pid: 1, ppid: 0, name: "tini", cmdline: "/sbin/tini -- /opt/tit/entrypoint.sh", cpu_percent: 0, rss: 2 * 1024 ** 2, started: Date.now() / 1000 - 300000, status: "sleeping", threads: 1, relevant: false, owner_kind: null, owner_id: null, owner_label: "" },
+  { pid: 9021, ppid: 4231, name: "meshfix", cmdline: "meshfix skin.off --no-clean", cpu_percent: 0, rss: 96 * 1024 ** 2, started: Date.now() / 1000 - 90, status: "zombie", threads: 0, relevant: false, owner_kind: "job", owner_id: "job-0001", owner_label: "sim · ernie" },
+];
+
+const siblingContainers = [
+  { id: "9f2c1a4b7de0", name: "qsiprep-sub-101", image: "pennlinc/qsiprep:0.22.0", state: "running", status: "Up 4 minutes" },
+  { id: "44b7de09f2c1", name: "qsirecon-sub-101", image: "pennlinc/qsirecon:0.23.2", state: "exited", status: "Exited (0) 2 hours ago" },
 ];
 
 // ---------------------------------------------------------------------------- overview projects
@@ -319,20 +331,105 @@ function serveTetravox(res, pathname) {
 }
 
 // --- system snapshot generator (random walk so charts move) ---
+//
+// This mirrors the FULL 2026-09-07 payload (contracts/CHANGES.md), not the subset the old Host
+// tab read. A mock that answered only the required fields would let the System page's e2e pass
+// on the degraded rendering of every optional one, which is precisely the rendering that must
+// NOT be what a person normally sees.
+const CPU_COUNT = 12;
 let cpu = 12;
 let memPercent = 41;
+let perCore = Array.from({ length: CPU_COUNT }, () => 10 + Math.random() * 20);
+let netSent = 4 * 1024 ** 3;
+let netRecv = 19 * 1024 ** 3;
+function walk(value, amplitude) {
+  return Math.min(100, Math.max(0, value + (Math.random() - 0.5) * amplitude));
+}
 function snapshot() {
-  cpu = Math.min(100, Math.max(0, cpu + (Math.random() - 0.5) * 12));
-  memPercent = Math.min(100, Math.max(0, memPercent + (Math.random() - 0.5) * 2));
+  cpu = walk(cpu, 12);
+  memPercent = walk(memPercent, 2);
+  perCore = perCore.map((v) => walk(v, 25));
+  netSent += Math.round(Math.random() * 2 * 1024 ** 2);
+  netRecv += Math.round(Math.random() * 6 * 1024 ** 2);
   const total = 32 * 1024 ** 3;
   const used = Math.round((total * memPercent) / 100);
+  const cached = Math.round(total * 0.18);
+  const buffers = Math.round(total * 0.03);
+  const swapTotal = 4 * 1024 ** 3;
+  const swapUsed = Math.round(swapTotal * 0.12);
   return {
     ts: Date.now() / 1000,
     cpu_percent: Number(cpu.toFixed(1)),
-    cpu_count: 12,
-    mem: { total, available: total - used, used, percent: Number(memPercent.toFixed(1)) },
-    disk: { total: 1000 * 1024 ** 3, free: 412 * 1024 ** 3, percent: 58.8 },
-    processes: processes.map((p) => ({ ...p, cpu_percent: Number((Math.random() * 100).toFixed(1)), rss: Math.round(p.rss) })),
+    cpu_count: CPU_COUNT,
+    cpu_per_core: perCore.map((v) => Number(v.toFixed(1))),
+    load_avg: [1.42, 1.1, 0.98],
+    uptime_s: 3 * 86400 + 4 * 3600 + 12 * 60,
+    mem: {
+      total,
+      available: total - used,
+      used,
+      percent: Number(memPercent.toFixed(1)),
+      free: total - used - cached - buffers,
+      cached,
+      buffers,
+    },
+    swap: { total: swapTotal, used: swapUsed, free: swapTotal - swapUsed, percent: 12 },
+    disk: { total: 1000 * 1024 ** 3, free: 412 * 1024 ** 3, percent: 58.8, path: "/mnt/example" },
+    disk_docker: { total: 500 * 1024 ** 3, free: 88 * 1024 ** 3, percent: 82.4, path: "/var/lib/docker" },
+    own: { pid: 41, cpu_percent: 3.2, rss: 210 * 1024 ** 2 },
+    kernels: 1,
+    net: { bytes_sent: netSent, bytes_recv: netRecv },
+    containers: siblingContainers,
+    docker: {
+      reachable: true,
+      latency_ms: 3.4,
+      version: "27.3.1",
+      api_version: "1.47",
+      error: "",
+      df: {
+        images_size: 61 * 1024 ** 3,
+        images_count: 7,
+        images_reclaimable: 24 * 1024 ** 3,
+        containers_size: 812 * 1024 ** 2,
+        containers_count: 3,
+        volumes_size: 9 * 1024 ** 3,
+        volumes_count: 4,
+        volumes_reclaimable: 2 * 1024 ** 3,
+        build_cache_size: 3 * 1024 ** 3,
+      },
+      own: {
+        id: "e086e5826ed6",
+        name: "ti-toolbox-tit-1",
+        image: "idossha/ti-toolbox:3.0.0",
+        image_id: "sha256:9c1f2a7b4de0",
+        state: "running",
+        status: "running",
+        health: "healthy",
+        started_at: "2026-09-04T08:12:44.113Z",
+        restarts: 0,
+        cpu_limit: 8,
+        mem_limit: 24 * 1024 ** 3,
+        mounts: [
+          { source: "/Users/example/projects/000", destination: "/mnt/example", mode: "rw" },
+          { source: "/var/run/docker.sock", destination: "/var/run/docker.sock", mode: "rw" },
+        ],
+      },
+      containers: siblingContainers,
+      images: [
+        { repo_tag: "idossha/ti-toolbox:3.0.0", size: 19 * 1024 ** 3 },
+        { repo_tag: "pennlinc/qsiprep:0.22.0", size: 14 * 1024 ** 3 },
+        { repo_tag: "pennlinc/qsirecon:0.23.2", size: 12 * 1024 ** 3 },
+        { repo_tag: "nipreps/mriqc:24.0.2", size: 9 * 1024 ** 3 },
+      ],
+      warnings: ["24 GB of unused images — `docker image prune` would reclaim it"],
+    },
+    process_total: processes.length + 54,
+    processes: processes.map((p) => ({
+      ...p,
+      cpu_percent: Number((Math.random() * 100).toFixed(1)),
+      rss: Math.round(p.rss),
+      mem_percent: Number(((p.rss / (32 * 1024 ** 3)) * 100).toFixed(1)),
+    })),
   };
 }
 

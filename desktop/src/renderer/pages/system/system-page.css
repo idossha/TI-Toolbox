@@ -1,0 +1,647 @@
+/*
+ * System page geometry.
+ *
+ * The whole file is on the app's tokens — no literal colours, no font that is not already the
+ * app's, and every tone resolved from `--accent`/`--success`/`--warning`/`--danger`, so both
+ * themes follow the app's toggle with nothing theme-specific written here.
+ *
+ * The layout is three bands in a `grid-template-rows: auto minmax(0,1fr) auto`: the resource band
+ * sizes to its content, the Docker/processes pair takes everything left, and the jobs strip sizes
+ * to its rows. That is what makes the page fill 1440×900 and 1920×1080 without a page scroll —
+ * only the two middle panels scroll, internally, and only when there is genuinely more than fits.
+ */
+
+.system-page {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  height: 100%;
+  min-height: 0;
+}
+
+.system-header {
+  display: flex;
+  gap: var(--space-2);
+}
+.system-ws-status {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.system-ws-stamp {
+  color: var(--ink-3);
+}
+
+/* ---------- tones ----------
+ * One place resolves a tone name to a colour. Every meter, dot, core cell and read-out on the
+ * page reads from here, which is what keeps "warning" the same warning everywhere.
+ */
+.system-page {
+  --tone-neutral: var(--ink-3);
+  --tone-accent: var(--accent);
+  --tone-warning: var(--warning);
+  --tone-danger: var(--danger);
+  /* Reclaimable page cache: present, but not pressure — a distinct band rather than a fifth
+     alarm colour. */
+  --tone-cache: color-mix(in srgb, var(--accent) 45%, var(--surface-2));
+  --tone-muted: var(--surface-2);
+}
+
+/* ---------- panels ---------- */
+
+.system-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panes);
+  background: var(--surface);
+  padding: var(--space-2) var(--space-3);
+}
+.system-panel-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ink-2);
+}
+.system-panel-head > .text-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.system-panel-aside {
+  margin-left: auto;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- band 1: resources ---------- */
+
+/* Four cards at 1440+, two at 1200, one below that. `auto-fit` would collapse to five narrow
+   columns at 1920; the explicit counts keep a card wide enough for its chart at every step. */
+.system-band {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+@media (max-width: 1400px) {
+  .system-band {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .system-band {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.system-readout {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex: none;
+}
+.system-readout-value {
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+.system-readout[data-tone="warning"] .system-readout-value {
+  color: var(--warning);
+}
+.system-readout[data-tone="danger"] .system-readout-value {
+  color: var(--danger);
+}
+.system-readout-detail {
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- meters ---------- */
+
+.system-meter {
+  flex: none;
+  display: flex;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.system-meter-empty {
+  opacity: 0.5;
+}
+.system-meter-seg {
+  height: 100%;
+  background: var(--tone-neutral);
+}
+.system-meter-seg[data-tone="accent"] {
+  background: var(--tone-accent);
+}
+.system-meter-seg[data-tone="warning"] {
+  background: var(--tone-warning);
+}
+.system-meter-seg[data-tone="danger"] {
+  background: var(--tone-danger);
+}
+.system-meter-seg[data-tone="cache"] {
+  background: var(--tone-cache);
+}
+.system-meter-seg[data-tone="muted"] {
+  background: var(--tone-muted);
+}
+
+.system-legend {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ink-2);
+}
+.system-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.system-legend-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--tone-neutral);
+}
+.system-legend-dot[data-tone="accent"] {
+  background: var(--tone-accent);
+}
+.system-legend-dot[data-tone="warning"] {
+  background: var(--tone-warning);
+}
+.system-legend-dot[data-tone="danger"] {
+  background: var(--tone-danger);
+}
+.system-legend-dot[data-tone="cache"] {
+  background: var(--tone-cache);
+}
+.system-legend-dot[data-tone="muted"] {
+  background: var(--tone-muted);
+  outline: 1px solid var(--line);
+  outline-offset: -1px;
+}
+.system-legend-value {
+  color: var(--ink);
+}
+
+/* ---------- charts ---------- */
+
+.system-area {
+  flex: none;
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+.system-area > div {
+  width: 100%;
+}
+.system-area-collecting {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-3);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-controls);
+}
+/* uPlot paints its own legend/cursor chrome; the page supplies the frame. */
+.system-area .u-wrap {
+  cursor: crosshair;
+}
+
+/* ---------- per-core grid ---------- */
+
+/* Two columns of core rows: twelve cores fit in six rows, and an unbalanced machine — one core
+   pinned, eleven idle — is visible without reading a single number. */
+.system-cores {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px var(--space-3);
+}
+@media (max-width: 1400px) {
+  .system-cores {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.system-core {
+  display: grid;
+  grid-template-columns: 14px 40px minmax(20px, 1fr) 22px;
+  align-items: center;
+  gap: 4px;
+}
+.system-core-num {
+  color: var(--ink-3);
+  text-align: right;
+}
+.system-core-pct {
+  text-align: right;
+  color: var(--ink-2);
+}
+.system-core[data-tone="warning"] .system-core-pct,
+.system-core[data-tone="danger"] .system-core-pct {
+  color: var(--ink);
+}
+.system-core-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.system-core-fill {
+  height: 100%;
+  background: var(--tone-accent);
+}
+.system-core[data-tone="warning"] .system-core-fill {
+  background: var(--tone-warning);
+}
+.system-core[data-tone="danger"] .system-core-fill {
+  background: var(--tone-danger);
+}
+.system-spark {
+  display: block;
+  overflow: visible;
+}
+.system-spark polyline {
+  stroke: var(--tone-accent);
+  opacity: 0.7;
+}
+.system-core[data-tone="warning"] .system-spark polyline {
+  stroke: var(--tone-warning);
+  opacity: 1;
+}
+.system-core[data-tone="danger"] .system-spark polyline {
+  stroke: var(--tone-danger);
+  opacity: 1;
+}
+
+/* ---------- band 2: Docker | processes ---------- */
+
+/* 2:3 — the process table is the one that rewards width (a command line), the Docker panel is a
+   column of short facts. */
+.system-middle {
+  display: grid;
+  grid-template-columns: 2fr 3fr;
+  gap: var(--space-2);
+  min-height: 0;
+}
+@media (max-width: 1200px) {
+  .system-middle {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.system-panel-docker,
+.system-panel-processes {
+  overflow: hidden;
+}
+.system-panel-docker {
+  overflow-y: auto;
+}
+
+.system-block {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+/* Every block in a scrolling panel is `flex: none`. A block that was allowed to grow-and-shrink
+   (`flex: 1 1 auto; min-height: 0`) was shrunk below its own table by its siblings, and the table
+   then painted straight over the block after it — the Docker panel's sibling-container list ran
+   through "Largest images". The panel scrolls; the blocks keep their heights. */
+.system-block-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ink-2);
+}
+.system-block-value {
+  margin-left: auto;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 60%;
+}
+.system-note {
+  color: var(--ink-2);
+  margin: 0;
+}
+.system-docker-down {
+  color: var(--danger);
+  margin: 0;
+}
+.system-docker-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.system-warnings {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--warning);
+}
+.system-warnings li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ---------- key/value blocks ---------- */
+
+.system-kv {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 2px var(--space-3);
+  margin: 0;
+  font-size: 12px;
+}
+.system-kv dt {
+  color: var(--ink-2);
+}
+.system-kv dd {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.system-kv dd[data-tone="warning"] {
+  color: var(--warning);
+}
+.system-kv dd[data-tone="danger"] {
+  color: var(--danger);
+}
+.system-kv-wrap {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- compact tables ---------- */
+
+/* Not `ui/DataTable`: these are read-only lists with no sorting and no selection, and a full
+   DataTable per list would put three sticky headers in a panel that has to hold four sections.
+   The process table below is the one with sorting and an action, and it is hand-built for the
+   same reason — its "name + command line" cell is one control, not two columns. */
+.system-mini {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.system-mini td {
+  padding: 3px var(--space-2) 3px 0;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+.system-mini tr:last-child td {
+  border-bottom: none;
+}
+.system-mini-strong {
+  font-weight: 500;
+}
+.system-mini-dim {
+  color: var(--ink-2);
+}
+.system-mini-num {
+  text-align: right;
+  padding-right: 0;
+  /* The figure is the point of the row; it never gives way to the label beside it. */
+  width: 1%;
+  white-space: nowrap;
+}
+.system-mini-dot {
+  width: 12px;
+  padding-right: 4px;
+}
+.system-mini-ellipsis {
+  max-width: 1px;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- the process table ---------- */
+
+.system-proc-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* Never horizontally: the columns are fixed and the one elastic cell ellipsises, so a
+     horizontal scrollbar here would only ever mean something has been mis-sized. */
+  overflow-x: hidden;
+}
+/*
+ * `table-layout: fixed` with explicit column widths, and the widths are the whole point: without
+ * it a single long command line ("simnibs_python -m tit.sim /mnt/example/code/...") sized the
+ * Process column to its own content, pushed the table past the panel, and left the visible part
+ * scrolled to the MIDDLE of every name — the table read as a list of file paths with no process
+ * names in it at all.
+ *
+ * Column order is PID · Process · CPU · MEM · Owner · action (`ProcessPanel`'s `COLUMNS` plus the
+ * two it appends); Process is the only one with no width, so it takes all the slack and its
+ * command line ellipsises inside it.
+ */
+.system-proc {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.system-proc th:nth-child(1),
+.system-proc td:nth-child(1) {
+  width: 52px;
+}
+.system-proc th:nth-child(3),
+.system-proc td:nth-child(3) {
+  width: 52px;
+}
+.system-proc th:nth-child(4),
+.system-proc td:nth-child(4) {
+  width: 68px;
+}
+.system-proc th:nth-child(5),
+.system-proc td:nth-child(5) {
+  width: 108px;
+}
+.system-proc th:nth-child(6),
+.system-proc td:nth-child(6) {
+  width: 30px;
+}
+.system-proc thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  padding: 0 var(--space-2) 3px 0;
+  font-weight: 400;
+}
+.system-proc th[data-align="right"] {
+  text-align: right;
+}
+.system-proc-sort {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--ink-2);
+  font: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 10px;
+  cursor: pointer;
+}
+.system-proc-sort[data-active] {
+  color: var(--ink);
+}
+.system-proc tbody td {
+  padding: 2px var(--space-2) 2px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+  vertical-align: middle;
+}
+.system-proc-num {
+  text-align: right;
+  white-space: nowrap;
+}
+.system-proc-num[data-hot] {
+  color: var(--warning);
+  font-weight: 500;
+}
+/* The whole "name + command" cell is one button: clicking anywhere on it reveals the full
+   command line in place, which is the thing you actually want to read and copy. */
+.system-proc-name {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.system-proc-strong {
+  flex: none;
+  font-weight: 500;
+}
+.system-proc-cmd {
+  flex: 1;
+  min-width: 0;
+  color: var(--ink-3);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.system-proc-cmd-open {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  color: var(--ink-2);
+}
+.system-proc-owner {
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* A toolbox process gets a marker, not a colour: the row is still an ordinary row, and colour on
+   this page means pressure. */
+.system-proc tbody tr[data-toolbox] .system-proc-strong::before {
+  content: "";
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--accent);
+  vertical-align: 3px;
+  margin-right: 4px;
+}
+.system-proc tbody tr:hover {
+  background: var(--surface-2);
+}
+.system-proc-action {
+  width: 28px;
+  text-align: right;
+}
+
+/* ---------- load bars ---------- */
+
+/* A load average against the core count, drawn. "1.42" means nothing until you know whether this
+   machine has 2 cores or 32; the bar is that comparison, and the tone is `loadTone`'s. */
+.system-load {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 40px;
+  align-items: center;
+  gap: 3px var(--space-2);
+}
+.system-load-label,
+.system-load-value {
+  color: var(--ink-2);
+}
+.system-load-value {
+  text-align: right;
+}
+.system-load-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.system-load-fill {
+  height: 100%;
+  background: var(--tone-accent);
+}
+.system-load[data-tone="warning"] .system-load-fill {
+  background: var(--tone-warning);
+}
+.system-load[data-tone="danger"] .system-load-fill {
+  background: var(--tone-danger);
+}
+
+/* ---------- band 3: jobs ---------- */
+
+.system-panel-jobs {
+  flex: none;
+  max-height: 168px;
+  overflow: auto;
+}
+.system-jobs-table td {
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+.system-jobs-eta {
+  text-align: right;
+  color: var(--ink-3);
+}

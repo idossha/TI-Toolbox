@@ -156,8 +156,8 @@ current `screens.spec.ts` capture rather than this table.
   server is reachable**, and that now lives only in the context bar, as the connection dot next to
   the running-jobs count (`AppContextBar`, with `connection.reason` as its tooltip). The version
   string it also carried was already stated at Settings ▸ About the server.
-- **No page header.** The nav rail already says which page this is. Settings and Help are the two
-  exceptions (`showHeader`). *Today Subjects, Simulator and Results still print one — that is a
+- **No page header.** The nav rail already says which page this is. System, Settings and Help are
+  the exceptions (`showHeader`), each capped at a single 28 px eyebrow. *Today Subjects, Simulator and Results still print one — that is a
   v2 regression each lane removes.*
 - **The command palette** (`cmdk`, `⌘K`) carries pages, subjects, runs, jobs, verbs and the theme.
 
@@ -268,7 +268,7 @@ in the nav rail; always with a label or a tooltip, never icon-only without `aria
 - **`bleed`** — no padding, no max width; the page fills the shell's content box. The Viewer is the
   reason it exists.
 - Slots: `rightPane` content, `actionBar`, and an opt-in header (`showHeader` + `title`/`purpose`,
-  or a built `header` node) that only Settings and Help use.
+  or a built `header` node) that only System, Settings and Help use.
 
 The v2 names survive so no page needs an edit to keep working: `variant="standard"` maps to `run`
 without a right pane, `variant="full-bleed"` maps to `bleed`, and `inspector` / `contextPanel` still
@@ -865,7 +865,7 @@ numbers beside them.
 
 **Acceptance numbers.** The per-page limits are §12.3's. The density numbers that make them
 reachable: a work column of **the content box minus the right pane** (§2.1, against v1's 674 px and
-v2's ≥ 880 px cap); **0 px** of page header outside Settings and Help (v1: 86); **≤ 41 px** of chrome
+v2's ≥ 880 px cap); **0 px** of page header outside System, Settings and Help (v1: 86); **≤ 41 px** of chrome
 per form section (v1: 94); **28 / 28 / 28 px** for a field row, a section header and a table row
 (v1: 70 / 44 / 36).
 
@@ -1018,8 +1018,32 @@ group heading told the user a page belonged to a subject when it did not.
   the embed's answer, never a re-derivation: everything worth saving about a scene is what changed
   after it loaded. Routes: `tit/server/routes/viewer_library.py`.
 
-- Settings and Help are pinned to the bottom below a spacer; they are the only two pages with a
-  header.
+- **System, Settings and Help** are pinned to the bottom below a spacer, in that order (maintainer,
+  2026-09-07: *"place it above the Settings over there in the bottom left corner"*), and they are
+  the only three pages with a header — a single 28 px eyebrow. None takes a ⌘ digit: all ten belong
+  to the workflow rows. Settings keeps ⌘, ; Help is the `?` sheet; System is reached from the rail
+  or ⌘K, which is right for a screen you open when something looks wrong rather than one you jump
+  to mid-task.
+
+  **System vs the rail's Host tab.** They read the *same* `/ws/system` snapshot through the *same*
+  shared socket, so they cannot disagree about a number. What differs is how much you are asking.
+  Host is four figures and a process list in 260 px — the glance you take without leaving the page
+  you are on. System is the full monitor, and it is deliberately shaped like the tools people
+  already read that way: a **btop**-style resource band (CPU with per-core rows and 60 s
+  sparklines, a used/cache/free memory bar, swap, both filesystems), a **Docker Desktop**-style
+  health panel (daemon version and latency, `docker system df` as one bar, our own container's
+  image/limits/mounts/restarts, sibling containers, actionable warnings), an **htop**-style
+  process table (everything, busiest first, sortable, each row attributed to the job or kernel it
+  belongs to), and a jobs strip. Three grid bands — `auto / 1fr / auto` — so it fills 1440×900 and
+  1920×1080 with no page scroll; only the two middle panels scroll, internally.
+
+  **The stop affordance is only on owned rows.** Stopping a process the server attributed to a job
+  goes through that job's own cancel, which unwinds its lock, its events and its sibling
+  containers. An unowned pid has no such path, so it gets no button — a monitor has no business
+  raw-killing an arbitrary process inside the container.
+
+  Nothing on the page is persisted: the charts are the last five minutes of the socket's own
+  sample ring and start over on a reload.
 - Nav rows carry **no shortcut badges** — shortcuts live in the palette and the `?` sheet, assigned
   in the registry so nav, palette and sheet cannot disagree.
 - There is no "Panels" group and no "Tools" group: every optional panel is a *mode* inside a page,
@@ -1406,7 +1430,7 @@ results 86 %, jobs 92 %, viewer 16 %.
 Every lane runs this every round; the critic panel uses the same list and reports by item number.
 
 1. Dead-space ratio within §12.3 on the populated state; no pane exists without content (U1).
-2. Nothing on screen restates the nav label; no page header outside Settings and Help.
+2. Nothing on screen restates the nav label; no page header outside System, Settings and Help.
 3. Every chip and badge is from the shared vocabulary (§4.5, §5); no ad-hoc colours.
 4. Every number is tabular; units are suffixes; paths are mono and truncate from the left.
 5. Both themes: text contrast ≥ 4.5:1 by the token test; no hard-coded colours.

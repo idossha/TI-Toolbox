@@ -24,7 +24,7 @@ Object.defineProperty(window, "matchMedia", {
   }),
 });
 
-const { resolvePage, navSections, landingPage, navSlotOf, shortcutForSlot, pagePath, NAV_ORDER, PINNED_ORDER, pages, enabledPages, pageById } =
+const { resolvePage, navSections, landingPage, navSlotOf, shortcutForSlot, pagePath, NAV_ORDER, PINNED_ORDER, SHORTCUT_ALIASES, pages, enabledPages, pageById } =
   await import("../../src/renderer/app/registry");
 type Registry = typeof import("../../src/renderer/app/registry");
 type PageDef = Parameters<Registry["resolvePage"]>[0];
@@ -47,7 +47,7 @@ describe("the rail is NAV_ORDER, not a page's own navGroup (U7)", () => {
   it("a page in NAV_ORDER takes that slot; one in neither list is palette-only", () => {
     expect(navSlotOf("simulator")).toBe("simulator");
     expect(navSlotOf("settings")).toBe("settings");
-    expect(navSlotOf("system")).toBeNull();
+    expect(navSlotOf("system")).toBe("system");
     expect(navSlotOf("dev")).toBeNull();
   });
 
@@ -68,8 +68,10 @@ describe("the rail is NAV_ORDER, not a page's own navGroup (U7)", () => {
   });
 
   it("a page with no slot is hidden from the rail whatever its PageDef says", () => {
-    expect(resolvePage(def({ id: "system", navGroup: "system" })).hidden).toBe(true);
+    expect(resolvePage(def({ id: "dev", navGroup: "system" })).hidden).toBe(true);
     expect(resolvePage(def({ id: "jobs", navGroup: "system" })).hidden).toBe(false);
+    // …and a pinned page is a rail row like any other, so it is not hidden.
+    expect(resolvePage(def({ id: "system", navGroup: "system" })).hidden).toBe(false);
   });
 
   it("a panel page is NOT force-hidden: it gets a real slot, gated by `enabled` like any other page", () => {
@@ -157,16 +159,26 @@ describe("the rail's two sections, over the real discovered pages", () => {
     for (const section of sections) expect("label" in section).toBe(false);
   });
 
-  it("keeps system and dev out of the rail but addressable for the palette", () => {
+  it("keeps dev and optimizer-ex out of the rail but addressable for the palette", () => {
     const railIds = sections.flatMap((s) => s.pages.map((p) => p.id));
-    for (const id of ["system", "dev", "optimizer-ex"]) expect(railIds).not.toContain(id);
+    for (const id of ["dev", "optimizer-ex"]) expect(railIds).not.toContain(id);
+  });
+
+  it("pins System ABOVE Settings, and gives it no ⌘ digit (maintainer, 2026-09-07)", () => {
+    // The order is the instruction: *"place it above the Settings over there in the bottom left
+    // corner"*. Asserting the whole pinned list, not just "system is present", is what makes a
+    // later append to PINNED_ORDER fail here instead of silently moving System below Settings.
+    expect(ids("pinned")).toEqual(["system", "settings", "help"]);
+    expect(shortcutForSlot("system")).toBeUndefined();
+    // Settings keeps its own chord; the rail's ten digits stay with the workflow rows.
+    expect(SHORTCUT_ALIASES[","]).toBe("settings");
   });
 
   it("panel pages are structurally rail-eligible (not `hidden`) — only `enabled` keeps a disabled one out", () => {
     // `navSections()` here reads the default `enabledPages`, i.e. each real panel module's static
     // `PageDef.enabled` (`isPanelEnabled`, a localStorage mirror empty in this test environment) —
     // so none show up in `railIds` today, but that must be because they are disabled, never because
-    // they are architecturally excluded the way `system`/`dev`/`optimizer-ex` are.
+    // they are architecturally excluded the way `dev`/`optimizer-ex` are.
     expect(pages.some((p) => p.navGroup === "panels")).toBe(true);
     expect(pages.filter((p) => p.navGroup === "panels").every((p) => !p.hidden)).toBe(true);
     expect(pages.filter((p) => p.navGroup === "panels").every((p) => p.slot?.startsWith("panel-"))).toBe(true);

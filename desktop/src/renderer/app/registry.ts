@@ -110,9 +110,18 @@ export const NAV_ORDER = [
   "jobs",
 ] as const;
 
-/** Pinned to the bottom below a spacer. Neither takes a rail digit: Settings is ⌘, and Help is
- *  the `?` sheet only. */
-export const PINNED_ORDER = ["settings", "help"] as const;
+/**
+ * Pinned to the bottom below a spacer, in this order: **System · Settings · Help**.
+ *
+ * None of the three takes a rail digit — all ten belong to the workflow rows (see
+ * `shortcutForSlot`). Settings keeps ⌘, and Help the `?` sheet; System has no chord at all, which
+ * is right for a screen you open when something looks wrong rather than one you jump to mid-task.
+ *
+ * System sits *above* Settings on the maintainer's instruction (2026-09-07: *"place it above the
+ * Settings over there in the bottom left corner of the UI"*), and the order reads correctly for
+ * what these are: the machine, then this install's preferences, then the manual.
+ */
+export const PINNED_ORDER = ["system", "settings", "help"] as const;
 
 /** ⌘, opens Settings. The rail's digits are ⌘0–⌘9 and all ten belong to workflow rows, so this
  *  alias is now Settings' only chord, and the `?` sheet spells it. */
@@ -141,8 +150,10 @@ const SUBJECT_SCOPED = new Set<string>(["preprocess", "simulator", "optimizer", 
  * Which rail slot a page occupies, or `null` for "palette-only".
  *
  * `null` is the mechanism §9's "there is no Panels group and no Tools group" is implemented with
- * for `system`, `optimizer-ex` and `dev`: all still routable and all still in ⌘K, but never a row
- * in the rail, in any state. A `navGroup: "panels"` page is different — §9 calls it "a *mode*
+ * for `optimizer-ex` and `dev`: both still routable and both still in ⌘K, but never a row in the
+ * rail, in any state. (`system` was one of them until 2026-09-07, when the full-height system
+ * monitor came back as a pinned row above Settings; the jobs panel's Host tab stays as the glance
+ * you take without leaving the page you are on.) A `navGroup: "panels"` page is different — §9 calls it "a *mode*
  * inside a page, toggled by Settings ▸ Optional tools", which needs a rail row *while the user has
  * it turned on*: it gets the `panel-<id>` slot below, so whether it shows follows `PageDef.enabled`
  * (§ live gating below) rather than being permanently excluded like the three palette-only ids.
