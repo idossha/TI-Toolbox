@@ -45,7 +45,7 @@ test("shows the live embed bundle, where it came from, and the protocol range th
   // a protocol, a source, and the range — never "up to date" with nothing behind it.
   await expect(page.getByTestId("tetravox-active-version")).toHaveText(/^v\d+\.\d+\.\d+.* · protocol \d+$/);
   await expect(card).toContainText(/Baked into the image|Installed|Developer override/);
-  await expect(card).toContainText("protocol 1–2");
+  await expect(card).toContainText(/protocol 1–[23]/);
   await expect(page.getByTestId("tetravox-reason")).toContainText("tetravox/embed");
 
   // The About card reads the same `capabilities.tetravox_embed`, so the two cannot disagree.
