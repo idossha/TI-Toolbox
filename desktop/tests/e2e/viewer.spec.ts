@@ -79,9 +79,9 @@ async function openViewer(): Promise<void> {
  * bar's shape depend on the chosen view type, so "the second combobox" is no longer a stable
  * identity for anything.
  */
-async function chooseOption(control: string, name: string): Promise<void> {
-  await page.getByTestId(`viewer-select-${control}`).getByRole("combobox").click();
-  await page.getByRole("option", { name, exact: true }).click();
+/** The other control that changes the *source* rather than the list, and so resets it. */
+async function chooseSpace(label: "Subject" | "MNI"): Promise<void> {
+  await page.getByRole("radiogroup", { name: "Space" }).getByRole("radio", { name: label, exact: true }).click();
 }
 
 async function pressOpen(): Promise<void> {
@@ -181,8 +181,7 @@ test("one Open is one request, and it writes one scene file", async () => {
   await openViewer();
   const seen = recordViewRequests();
 
-  await chooseOption("kind", "Simulation");
-  await chooseOption("simulation", "Thalamus");
+  await draftSimulation();
   expect(opens(seen), "drafting a selection writes no scene").toHaveLength(0);
 
   await pressOpen();
@@ -213,8 +212,7 @@ test("Open moves to the Viewer sub-page and shows the scene", async () => {
   await page.getByTestId("viewer-empty-menu").click();
   await expectSub("menu");
 
-  await chooseOption("kind", "Simulation");
-  await chooseOption("simulation", "Thalamus");
+  await draftSimulation();
   await pressOpen();
   await expectOpened();
 
@@ -243,8 +241,7 @@ test("going back to the Menu keeps the scene, and costs nothing", async () => {
   await openViewer();
   const seen = recordViewRequests();
 
-  await chooseOption("kind", "Simulation");
-  await chooseOption("simulation", "Thalamus");
+  await draftSimulation();
   await pressOpen();
   await expectOpened();
   await expect(page.getByTestId("tetravox-host")).toHaveAttribute("data-viewer-status", "ready", { timeout: 20_000 });
@@ -259,8 +256,9 @@ test("going back to the Menu keeps the scene, and costs nothing", async () => {
   // The frame is hidden, not gone: it is still in the document with its marker intact.
   await expect(page.getByTestId("tetravox-frame")).toHaveCount(1);
   await expect(page.getByTestId("tetravox-frame")).toHaveAttribute("data-e2e-identity", "the-one-and-only");
-  // The Menu is fully usable again, with the selection the person left there.
-  await expect(page.getByTestId("viewer-select-simulation").getByRole("combobox")).toContainText("Thalamus");
+  // The Menu is fully usable again, with the composition the person left there.
+  await expect(page.getByTestId("viewer-tree-sim-Thalamus")).toHaveAttribute("data-open", "true");
+  await expect.poll(rowNames).toContain("grey_Thalamus_TI_subject_TI_max.nii.gz");
 
   await gotoSub("tetravox");
   // Same element, same document, same scene — and the round trip asked the server for nothing.
@@ -279,8 +277,7 @@ test("Reload re-posts the scene without a new request", async () => {
   await openViewer();
   const seen = recordViewRequests();
 
-  await chooseOption("kind", "Simulation");
-  await chooseOption("simulation", "Thalamus");
+  await draftSimulation();
   await pressOpen();
   await expectOpened();
   await expect(page.getByTestId("tetravox-host")).toHaveAttribute("data-viewer-status", "ready", { timeout: 20_000 });
@@ -299,20 +296,22 @@ test("opening again replaces the scene in the same frame", async () => {
   await openViewer();
   const seen = recordViewRequests();
 
-  await chooseOption("kind", "Simulation");
-  await chooseOption("simulation", "Thalamus");
+  await draftSimulation();
   await pressOpen();
   await expectOpened();
   await expect(page.getByTestId("viewer-strip-name")).toHaveText("simulation.tetravox.json");
   expect(opens(seen)).toHaveLength(1);
 
   await gotoSub("menu");
-  await chooseOption("kind", "Subject anatomy");
+  await chooseSpace("MNI");
   await pressOpen();
   await expectOpened();
 
   expect(opens(seen), "a second Open is exactly one more request").toHaveLength(2);
-  await expect(page.getByTestId("viewer-strip-name")).toHaveText("subject.tetravox.json");
+  // Still a scene, and still the one this view type writes. (It used to become
+  // `subject.tetravox.json` because the second Open switched the *type* — a control the tree does
+  // not have. What the test is about is the frame, not the file name.)
+  await expect(page.getByTestId("viewer-strip-name")).toHaveText("simulation.tetravox.json");
   await expect(page.getByTestId("tetravox-host")).toHaveAttribute("data-viewer-status", "ready", { timeout: 20_000 });
   // One frame, still — a second Open is a new scene in the same engine, not a second viewer.
   await expect(page.getByTestId("tetravox-frame")).toHaveCount(1);
@@ -332,8 +331,7 @@ test("exactly one page frames a scene, and it is the Viewer", async () => {
   await connect();
   await chooseSubject("ernie");
   await openViewer();
-  await chooseOption("kind", "Simulation");
-  await chooseOption("simulation", "Thalamus");
+  await draftSimulation();
   await pressOpen();
   await expectOpened();
 
@@ -386,10 +384,9 @@ test("navigating to the Viewer and editing the draft opens nothing", async () =>
   await openViewer();
 
   expect(opens(seen)).toHaveLength(0);
-  await chooseOption("kind", "Simulation");
-  await chooseOption("simulation", "Thalamus");
-  await chooseOption("kind", "Subject anatomy");
-  await page.getByRole("radiogroup", { name: "Space" }).getByRole("radio", { name: "MNI", exact: true }).click();
+  await draftSimulation();
+  await tickNode("grey_Thalamus_TI_subject_TI_max.nii.gz", false);
+  await chooseSpace("MNI");
   expect(opens(seen)).toHaveLength(0);
   await expectSub("menu");
 });
@@ -406,8 +403,7 @@ test("the Open request carries the values the bar is showing", async () => {
     if (body.dry_run !== true) bodies.push(body);
   });
 
-  await chooseOption("kind", "Simulation");
-  await chooseOption("simulation", "Thalamus");
+  await draftSimulation();
   await pressOpen();
   await expectOpened();
 
@@ -416,19 +412,24 @@ test("the Open request carries the values the bar is showing", async () => {
 });
 
 test("an incomplete selection is refused before the wire, and opens nothing", async () => {
+  // Deliberately no `chooseSubject`: a fresh session has no subject, which with the tree is the
+  // one way a composition can be incomplete.
   await connect();
-  await chooseSubject("ernie");
   await openViewer();
   const seen = recordViewRequests();
 
-  // `custom` needs a path; leaving it empty is a mistake to *name*, not a request to make — and
-  // the page names it on the button itself rather than waiting for a click to punish. Refusing in
-  // the control is stronger than refusing after it: there is no moment at which a request could
-  // have escaped.
-  await chooseOption("kind", "Custom files");
+  // An incomplete composition is a mistake to *name*, not a request to make — and the page names
+  // it on the button itself rather than waiting for a click to punish. Refusing in the control is
+  // stronger than refusing after it: there is no moment at which a request could have escaped.
+  //
+  // With the tree there is one way to be incomplete: no subject, so there is nothing to compose
+  // from. (The `custom` view type, whose empty path this used to test, has no control any more —
+  // the tree has no type at all; see `Tree.tsx`.)
   const openButton = page.getByTestId("viewer-open");
   await expect(openButton).toBeDisabled();
-  await expect(openButton).toHaveAttribute("title", /Choose .*[Pp]ath/);
+  await expect(openButton).toHaveAttribute("title", /[Cc]hoose/);
+  // Nothing has been asked of the server, so the tree prompts rather than reporting an answer.
+  await expect(page.getByTestId("viewer-tree-loading")).toContainText("subject");
   expect(opens(seen)).toHaveLength(0);
   // Refused means the person is left where they were, with the mistake named in front of them.
   await expectSub("menu");
@@ -448,7 +449,12 @@ test("a deep link fills the controls and still opens nothing", async () => {
   const seen = recordViewRequests();
   await page.getByTestId("results-open-in-viewer").click();
   await expectPage(page, "viewer");
-  await expect(page.getByTestId("viewer-select-simulation").getByRole("combobox")).toContainText("docs_example");
+  // The link prefills the composition: the tree is drawn for that subject and offers the
+  // simulation the link named, with the list already resolved to its files. (Not asserted by
+  // filename: this mock names a simulation's outputs after the *subject*, so the simulation's own
+  // name never appears in them.)
+  await expect(page.getByTestId("viewer-tree-sim-docs_example")).toBeVisible({ timeout: 15_000 });
+  await expect.poll(rowNames).not.toEqual([]);
   expect(opens(seen)).toHaveLength(0);
   // A link prefills the Menu; it never jumps someone into a picture they did not ask for.
   await expectSub("menu");
@@ -467,8 +473,7 @@ test("a failed Open names the failure and shows no scene", async () => {
     return route.fulfill({ status: 500, json: { detail: "boom" } });
   });
 
-  await chooseOption("kind", "Simulation");
-  await chooseOption("simulation", "Thalamus");
+  await draftSimulation();
   await pressOpen();
   await expect(page.getByTestId("viewer-view-error")).toBeVisible({ timeout: 15_000 });
   await expectSub("menu");
@@ -481,8 +486,7 @@ test("the page fills the content box at both sizes — no right pane, low dead s
   await connect();
   await chooseSubject("ernie");
   await openViewer();
-  await chooseOption("kind", "Simulation");
-  await chooseOption("simulation", "Thalamus");
+  await draftSimulation();
   await expect(page.getByTestId("viewer-plan")).toBeVisible();
 
   const measured: Record<number, { work: number; right: number; dead: number }> = {};
@@ -507,8 +511,7 @@ test("takes the light and dark screenshots of the viewer page", async () => {
   await connect();
   await chooseSubject("ernie");
   await openViewer();
-  await chooseOption("kind", "Simulation");
-  await chooseOption("simulation", "Thalamus");
+  await draftSimulation();
   await expect(page.getByTestId("viewer-plan")).toBeVisible();
   await page.screenshot({ path: join(ARTIFACTS, "viewer-light.png"), fullPage: false });
   // VM2's own record: the Menu at the width the maintainer's screenshots were taken at.
@@ -550,11 +553,38 @@ function recordWrittenScenes(): { scene: { datasets: { path: string }[]; layers:
   return scenes;
 }
 
+/**
+ * Compose a scene the way the Menu now asks for one: expand a simulation, tick a field.
+ *
+ * The `Type` and `Simulation` dropdowns this used to drive are gone (2026-09-07) — the type was a
+ * fact about the server's view builders that a reader had to learn before they could say what they
+ * wanted to look at. `expandSimulation` + a tick is the same intent expressed the way a person now
+ * expresses it.
+ */
 async function draftSimulation(): Promise<void> {
-  await chooseOption("kind", "Simulation");
-  await chooseOption("simulation", "Thalamus");
+  await expandSimulation("Thalamus");
+  await tickNode("grey_Thalamus_TI_subject_TI_max.nii.gz");
   await expect(page.getByTestId("viewer-preview-files")).toBeVisible({ timeout: 15_000 });
   await settledOn(/TI_max/);
+}
+
+/** Open a simulation's branch, which is also what makes the server list its analyses. */
+async function expandSimulation(name: string): Promise<void> {
+  await expect(page.getByTestId("viewer-tree")).toBeVisible({ timeout: 15_000 });
+  const branch = page.getByTestId(`viewer-tree-sim-${name}`);
+  await expect(branch).toBeVisible({ timeout: 15_000 });
+  if ((await branch.getAttribute("data-open")) !== "true") {
+    await page.getByTestId(`viewer-tree-sim-${name}-toggle`).click();
+  }
+  await expect(branch).toHaveAttribute("data-open", "true");
+}
+
+/** Tick (or untick) one input row by its file name. */
+async function tickNode(fileName: string, on = true): Promise<void> {
+  const box = page.getByTestId(`viewer-tree-node-${fileName}`).getByRole("checkbox");
+  await expect(box).toBeVisible({ timeout: 15_000 });
+  const checked = (await box.getAttribute("data-state")) === "checked";
+  if (checked !== on) await box.click();
 }
 
 /**
@@ -628,14 +658,17 @@ test("adding the atlas puts it in the list and in the written scene", async () =
   const before = await rowNames();
 
   const scenes = recordWrittenScenes();
+  // A file the composition does not already contain: "+ Add…" offers what is *not* in the scene,
+  // and the tree's own anatomy branch has already put the atlas in it.
+  const extra = "final_tissues.nii.gz";
   await page.getByTestId("viewer-add").click();
-  await page.getByTestId("viewer-add-labeling.nii.gz").click();
-  await expect.poll(rowNames).toEqual([...before, "labeling.nii.gz"]);
+  await page.getByTestId(`viewer-add-${extra}`).click();
+  await expect.poll(rowNames).toEqual([...before, extra]);
 
   await pressOpen();
   await expectOpened();
   await expect.poll(() => scenes.length).toBe(1);
-  expect(datasetNames(scenes[0]!)).toEqual([...before, "labeling.nii.gz"]);
+  expect(datasetNames(scenes[0]!)).toEqual([...before, extra]);
 });
 
 test("reordering the list reorders the scene's layers", async () => {
@@ -664,6 +697,10 @@ test("Reset puts the view type's own list back", async () => {
   await chooseSubject("ernie");
   await openViewer();
   await draftSimulation();
+  // Composing in the tree *is* an edit, so Reset is already offered. Take it once to find out
+  // what this source resolves to on its own — that is the list Reset must restore.
+  await page.getByTestId("viewer-files-reset").click();
+  await settledOn(/TI_max/);
   const before = await rowNames();
 
   await page.getByTestId(`viewer-file-remove-${before[0]!}`).click();
@@ -688,8 +725,8 @@ test("editing the list costs no write until Open", async () => {
   await page.getByTestId(`viewer-file-remove-${before[0]!}`).click();
   await expect.poll(rowNames).toEqual(before.slice(1));
   await page.getByTestId("viewer-add").click();
-  await page.getByTestId("viewer-add-labeling.nii.gz").click();
-  await expect.poll(rowNames).toEqual([...before.slice(1), "labeling.nii.gz"]);
+  await page.getByTestId("viewer-add-final_tissues.nii.gz").click();
+  await expect.poll(rowNames).toEqual([...before.slice(1), "final_tissues.nii.gz"]);
 
   // VE: editing the list costs the server NOTHING at all — not a write, and not a dry run either.
   // It used to cost one `POST /api/view/open?dry_run` per click, and that route reads every volume
@@ -706,7 +743,7 @@ test("editing the list costs no write until Open", async () => {
   expect(opens(seen)).toHaveLength(1);
   // The list travels as container paths, in the list's order; the names are what the rows show.
   const sent = bodies[0]!.files as string[];
-  expect(sent.map((p) => p.split("/").pop())).toEqual([...before.slice(1), "labeling.nii.gz"]);
+  expect(sent.map((p) => p.split("/").pop())).toEqual([...before.slice(1), "final_tissues.nii.gz"]);
 });
 
 test("changing the source resets the list to that source's own files", async () => {
@@ -719,7 +756,7 @@ test("changing the source resets the list to that source's own files", async () 
   await page.getByTestId(`viewer-file-remove-${simulationRows[0]!}`).click();
   await expect.poll(rowNames).toEqual(simulationRows.slice(1));
 
-  await chooseOption("kind", "Subject anatomy");
+  await chooseSpace("MNI");
   await expect(page.getByTestId("viewer-files-reset")).toHaveCount(0);
   await expect.poll(rowNames).not.toEqual(simulationRows.slice(1));
 });
@@ -729,6 +766,10 @@ test("a preset saves the edited list and restores it without opening anything", 
   await chooseSubject("ernie");
   await openViewer();
   await draftSimulation();
+  // Composing in the tree is itself an edit, so take Reset once to establish what this source
+  // resolves to on its own — the list the save/restore round trip is measured against.
+  await page.getByTestId("viewer-files-reset").click();
+  await settledOn(/TI_max/);
   const before = await rowNames();
   await page.getByTestId(`viewer-file-remove-${before[0]!}`).click();
   await expect.poll(rowNames).toEqual(before.slice(1));
@@ -766,10 +807,10 @@ test("the Recent list remembers what was opened and restores it", async () => {
   await gotoSub("menu");
   await expect(page.getByTestId("viewer-recent")).toBeEnabled();
 
-  await chooseOption("kind", "Subject anatomy");
+  await chooseSpace("MNI");
   await page.getByTestId("viewer-recent").click();
   await page.getByTestId("viewer-recent-0").click();
-  await expect(page.getByTestId("viewer-select-simulation").getByRole("combobox")).toContainText("Thalamus");
+  await expect.poll(rowNames).toContain("grey_Thalamus_TI_subject_TI_max.nii.gz");
 });
 
 // ── performance (VE, 2026-09-06) ─────────────────────────────────────────────────────────────
@@ -810,7 +851,9 @@ test("twenty list edits cost the server nothing and never block a frame", async 
   // A file from the "+ Add…" catalogue, so it can be put back. (A row the view type produced but
   // the catalogue does not offer — a simulation output — can be removed and only restored with
   // Reset; that is VM2's picker, unchanged here.)
-  const target = "labeling.nii.gz";
+  // Not the atlas: the tree's anatomy branch has already put that in the scene, and "+ Add…"
+  // offers only what is not in it.
+  const target = "final_tissues.nii.gz";
   for (let i = 0; i < 10; i += 1) {
     await page.getByTestId("viewer-add").click();
     await page.getByTestId(`viewer-add-${target}`).click();
@@ -1024,7 +1067,8 @@ test("changing Field keeps the previous list on screen instead of blanking to Re
     }).observe(card, { childList: true, subtree: true });
   });
 
-  await chooseOption("field", "TI_normal");
+  await tickNode("grey_Thalamus_TI_subject_TI_max.nii.gz", false);
+  await tickNode("white_Thalamus_TI_subject_TI_max.nii.gz");
   await expect.poll(rowNames).not.toEqual([]);
   // Give a superseded resolve room to land late and repaint, if one could.
   await page.waitForTimeout(500);
@@ -1041,9 +1085,16 @@ test("stepping through Field debounces into far fewer resolves than steps", asyn
   await draftSimulation();
 
   const seen = recordViewRequests();
-  // Four changes in quick succession — what walking a `<select>` with the arrow keys looks like.
-  for (const field of ["TI_normal", "TI_max", "TI_normal", "TI_max"]) {
-    await chooseOption("field", field);
+  // Four changes in quick succession — what ticking your way down a branch looks like. Each one
+  // is a *field* row, which is the case that moves the draft and therefore re-resolves.
+  for (const file of [
+    "white_Thalamus_TI_subject_TI_max.nii.gz",
+    "Thalamus_TI_subject_TI_max.nii.gz",
+    "white_Thalamus_TI_subject_TI_max.nii.gz",
+    "Thalamus_TI_subject_TI_max.nii.gz",
+  ]) {
+    await tickNode(file, true);
+    await tickNode(file, false);
   }
   await expect.poll(rowNames).not.toEqual([]);
   await page.waitForTimeout(600);
@@ -1136,4 +1187,128 @@ test("reopening a saved scene puts it back in the same frame", async () => {
   await expect(page.getByTestId("tetravox-host")).toBeVisible();
   expect(opens(seen), "reopening a saved scene must write no new scene").toHaveLength(0);
   expect(seen.filter((r) => r.dryRun), "reopening a saved scene must not re-resolve").toHaveLength(0);
+});
+
+// ── the composition tree (2026-09-07) ────────────────────────────────────────────────────────
+//
+// Maintainer: *"there is subject and then it kind of like shows two little branches with the
+// anatomy and then there is a simulation section where they can choose the different simulations —
+// they can potentially choose multiple — and then they choose analysis output ... it should be a
+// continuous integrated thing instead of what we have right now."*
+//
+// "Continuous" is the property these assert, and it is structural rather than visual: the branches
+// and the "what will open" list are the *same list*, so a tick is a row and a row removed is an
+// untick. That is why there is no test here for "the tree and the list agree" — they cannot
+// disagree; the tests are about what the tree lets a person say that the old card could not.
+
+test("the tree shows what the subject has, in three branches", async () => {
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+
+  await expect(page.getByTestId("viewer-tree")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("viewer-tree-anatomy")).toBeVisible();
+  await expect(page.getByTestId("viewer-tree-simulations")).toBeVisible();
+  await expect(page.getByTestId("viewer-tree-analyses")).toBeVisible();
+
+  // The count is the whole value of a collapsed branch: it answers "is any of this in my scene"
+  // without expanding anything.
+  await expect(page.getByTestId("viewer-tree-anatomy-count")).toContainText("selected");
+  await expect(page.getByTestId("viewer-tree-simulations-count")).toContainText("simulation");
+});
+
+test("ticking a row puts that file in the scene, and unticking takes it out", async () => {
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  await expandSimulation("Thalamus");
+
+  const target = "grey_Thalamus_TI_subject_TI_max.nii.gz";
+  await tickNode(target);
+  await expect.poll(rowNames).toContain(target);
+  // And the branch says so without being expanded.
+  await expect(page.getByTestId("viewer-tree-sim-Thalamus-count")).toContainText("1 selected");
+
+  await tickNode(target, false);
+  await expect.poll(rowNames).not.toContain(target);
+});
+
+test("a scene can carry outputs from more than one simulation at once", async () => {
+  // The old card could not express this at all: one `Simulation` dropdown, one simulation. It is
+  // the maintainer's "they can potentially choose multiple", and it is the reason for the tree.
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+
+  await expandSimulation("Thalamus");
+  await tickNode("grey_Thalamus_TI_subject_TI_max.nii.gz");
+  await expandSimulation("L_Insula");
+  await tickNode("grey_L_Insula_TI_subject_TI_max.nii.gz");
+
+  await expect.poll(rowNames).toContain("grey_Thalamus_TI_subject_TI_max.nii.gz");
+  await expect.poll(rowNames).toContain("grey_L_Insula_TI_subject_TI_max.nii.gz");
+  await expect(page.getByTestId("viewer-tree-simulations-count")).toContainText("2 selected");
+
+  // And it opens as one scene, with both in it.
+  // `recordWrittenScenes`, not `recordOpenBodies`: the first records the scene document the server
+  // *wrote*, which is what `datasetNames` reads; the second records the request that asked for it.
+  const scenes = recordWrittenScenes();
+  await pressOpen();
+  await expectOpened();
+  await expect.poll(() => scenes.length).toBe(1);
+  const names = datasetNames(scenes[0]!);
+  expect(names).toContain("grey_Thalamus_TI_subject_TI_max.nii.gz");
+  expect(names).toContain("grey_L_Insula_TI_subject_TI_max.nii.gz");
+});
+
+test("a branch checkbox takes its whole branch on and off, and reads back tri-state", async () => {
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  await expandSimulation("Thalamus");
+
+  const branch = page.getByTestId("viewer-tree-sim-Thalamus");
+  await tickNode("grey_Thalamus_TI_subject_TI_max.nii.gz");
+  // Part of it is in the scene — the state a person otherwise has to expand the branch to learn.
+  await expect(branch).toHaveAttribute("data-state", "some");
+
+  await branch.getByRole("checkbox").first().click();
+  await expect(branch).toHaveAttribute("data-state", "all");
+  await branch.getByRole("checkbox").first().click();
+  await expect(branch).toHaveAttribute("data-state", "none");
+  await expect.poll(rowNames).not.toContain("grey_Thalamus_TI_subject_TI_max.nii.gz");
+});
+
+test("expanding a simulation is what makes its analyses appear", async () => {
+  // A subject with a dozen simulations has a dozen Analyses directories; listing all of them turns
+  // a menu into a file browser, so the server lists only the ones a person has opened.
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+
+  await expect(page.getByTestId("viewer-tree-analyses")).toBeVisible({ timeout: 15_000 });
+  await expandSimulation("Thalamus");
+  await expect(page.getByTestId("viewer-tree-analyses-count")).toContainText("run", { timeout: 15_000 });
+});
+
+test("saving a composition and loading it puts the same scene back", async () => {
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  await draftSimulation();
+  const composed = await rowNames();
+
+  await page.getByTestId("viewer-save-preset").click();
+  await page.getByTestId("viewer-preset-name").fill("for the paper");
+  await page.getByTestId("viewer-preset-save").click();
+
+  // Change the composition to something else, so a restore has something to undo.
+  await tickNode("grey_Thalamus_TI_subject_TI_max.nii.gz", false);
+  await expect.poll(rowNames).not.toEqual(composed);
+
+  await page.getByTestId("viewer-save-preset").click();
+  await page.getByTestId("viewer-preset-for the paper").click();
+  // Loading is not opening: the page fills in and waits to be told.
+  await expect.poll(rowNames).toEqual(composed);
+  await expectSub("menu");
 });

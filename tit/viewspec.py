@@ -77,6 +77,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import threading
 from collections import OrderedDict
 from pathlib import Path
@@ -1108,6 +1109,7 @@ def _anatomy_branch(pm, subject: str, space: str) -> list[dict[str, Any]]:
     """
     out: list[dict[str, Any]] = []
     m2m = pm.m2m(subject)
+    sid_stem = str(subject)
     names = sorted(os.listdir(m2m)) if os.path.isdir(m2m) else []
     for name in names:
         candidate = os.path.join(m2m, name)
@@ -1115,10 +1117,14 @@ def _anatomy_branch(pm, subject: str, space: str) -> list[dict[str, Any]]:
             continue
         if not name.endswith((".nii", ".nii.gz", ".mgz", ".msh")):
             continue
+        # `<subject>.msh` is the head model itself, and its stem is the subject id -- a row
+        # labelled "101" says nothing about what it is. Everything else reads fine as its stem.
+        stem = _scene_stem(name)
+        label = f"Head mesh ({stem})" if _scene_is_mesh(name) and stem == sid_stem else stem
         out.append(
             _tree_node(
                 candidate,
-                label=_scene_stem(name),
+                label=label,
                 default_on=(space == "subject" and name in ("T1.nii.gz", "T1.nii")),
             )
         )
@@ -1649,6 +1655,20 @@ def _scene_role(path: str, colormap: str) -> str:
     return "base"
 
 
+#: The field tokens SimNIBS puts at the **end** of a volume's basename. Longest-first, so
+#: `TI_normal` is not shadowed by a shorter token that is also a suffix of it.
+_VOLUME_FIELD_TOKENS = (
+    "mTI_normal",
+    "mTI_max",
+    "TI_normal",
+    "TI_max",
+    "hf_peak",
+    "hf_sar",
+    "magnE",
+    "normE",
+)
+
+
 def _scene_field_name(name: str) -> str | None:
     """The physical field a layer represents, guessed from its basename.
 
@@ -1666,7 +1686,26 @@ def _scene_field_name(name: str) -> str | None:
     for a mesh, or "no recognised field" for a volume (e.g. an analysis ROI
     overlay).
     """
-    lowered = name.lower()
+    stem = _scene_stem(name)
+    lowered = stem.lower()
+
+    # A **volume** says which field it is in its last token, and that is what to read. The loose
+    # substring chain below is wrong for one: `L_Insula_TI_subject_hf_peak.nii.gz` contains "ti"
+    # (twice) and was answered `TI_max`, so a simulation's TI_max, hf_peak and hf_sar volumes all
+    # came out named "TI_max (volume)" -- three identical rows in the Layers list and, once the
+    # composition tree existed, three identical checkboxes (screenshot, 2026-09-07). Matching the
+    # trailing token instead is both correct and narrower.
+    for field in _VOLUME_FIELD_TOKENS:
+        if lowered.endswith(f"_{field.lower()}") or lowered == field.lower():
+            return field
+
+    # A **mesh** genuinely carries no trailing field token -- `grey_L_Insula_TI.msh`,
+    # `..._normal.msh`, `..._TDCS_1_scalar.msh` -- so the hint chain stays, but *only* for meshes.
+    # Letting a volume reach it is what made `final_tissues.nii.gz` a "TI_max" layer: "tissues"
+    # contains "ti". A volume whose last token names no field simply has none, which is what this
+    # function's docstring has always said `None` means for a volume.
+    if not _scene_is_mesh(name):
+        return None
     if "magne" in lowered or "tdcs" in lowered:
         return "magnE"
     if "normal" in lowered:
@@ -1717,18 +1756,27 @@ def _scene_display_name(name: str, *, role: str, field_name: str | None) -> str:
         else:
             region = None
 
+        # A high-frequency simulation writes one output *per electrode pair*
+        # (`101_TDCS_1_scalar_subject_magnE`, `..._TDCS_2_...`), so without the pair number two
+        # rows come out identically named -- "magnE (volume)" twice, and "Mesh mesh · magnE" twice
+        # at 412 MB each, with nothing to choose between them (screenshot, 2026-09-07).
+        pair = re.search(r"_tdcs_(\d+)_", lowered)
+        suffix = f" · pair {pair.group(1)}" if pair else ""
+
         if role == "mesh":
-            region_label = region or "Mesh"
+            # "Head", not "Mesh": `region_label` is already followed by the word "mesh", and
+            # "Mesh mesh · TI_max" is a stutter that reads as a bug.
+            region_label = region or "Head"
             return (
-                f"{region_label} mesh · {field_name}"
+                f"{region_label} mesh · {field_name}{suffix}"
                 if field_name
-                else f"{region_label} mesh (tags)"
+                else f"{region_label} mesh (tags){suffix}"
             )
         if field_name:
             return (
-                f"{region} · {field_name} (volume)"
+                f"{region} · {field_name}{suffix} (volume)"
                 if region
-                else f"{field_name} (volume)"
+                else f"{field_name}{suffix} (volume)"
             )
 
     return stem
@@ -2405,7 +2453,23 @@ def to_tetravox_viewspec(spec: dict[str, Any]) -> dict[str, Any]:
         base_fields = {
             "id": layer_id,
             "datasetId": dataset["id"],
-            "name": _scene_display_name(name, role=role, field_name=field_name),
+            # **The file's own basename, exactly as it is on disk.** Maintainer, 2026-09-07:
+            # *"Please do not change the name of the files that we load into the viewer. For
+            # example, `labeling.nii.gz` should be `labeling.nii.gz` and not [Atlas]."*
+            #
+            # This used to be a curated label (`Atlas`, `GM · TI_max (volume)`,
+            # `Head mesh · magnE · pair 2`). The intent was to explain a layer, and the cost was
+            # that the Layers panel no longer named anything a person could find on disk, grep a
+            # log for, or match against the "what will open" list they had just composed. A name
+            # that cannot be looked up is worse than a name that needs one thing explained.
+            #
+            # The context has nowhere else to go -- the engine's `LayerBase` (§4.4) has `id`,
+            # `datasetId`, `name`, `visible`, `opacity`, `pickable`, `showColorbar` and no
+            # description or subtitle field -- so it is dropped rather than smuggled back into the
+            # name. `_scene_display_name` is still used, but only where a *human label for
+            # choosing* is wanted and the filename is beside it anyway: the Menu's composition
+            # tree (`viewer_tree`).
+            "name": name,
             "visible": visible,
             "opacity": float(layer.get("opacity", 1.0)),
             "pickable": True,

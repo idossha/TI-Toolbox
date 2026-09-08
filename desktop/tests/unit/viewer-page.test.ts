@@ -17,6 +17,9 @@ import {
   controlsFor,
   containerPaths,
   formatBytes,
+  branchCount,
+  branchState,
+  fieldOfNode,
   formatFieldValue,
   pushRecent,
   readRecents,
@@ -28,6 +31,9 @@ import {
   selectionFromDeepLink,
   selectionKey,
   validateSelection,
+  simulationNodeIds,
+  toggleId,
+  toggleMany,
   viewQuery,
   windowSummary,
   type ViewerSelection,
@@ -281,6 +287,26 @@ describe("windowSummary", () => {
     expect(windowSummary([heat(0.25388869643211365, 3.3401404163837958)])).toBe("p95–p99.9 · 0.254–3.34 V/m");
   });
 
+  it("describes the field that is in the list, not the source's own visible one", () => {
+    // The preview is resolved for the *source*, not the edited list (re-resolving on every tick is
+    // what made the Menu slow), so once someone has composed something the source's visible layer
+    // may not be the one that will open. A window is a property of the file, so the layer to
+    // describe is the one whose dataset is in the list.
+    const layers = [
+      { ...heat(0.1, 1.5, true), datasetId: "d1" },
+      { ...heat(0.0868, 0.139, false), datasetId: "d2" },
+    ];
+    const datasets = [
+      { id: "d1", name: "L_Insula_TI_subject_TI_max.nii.gz" },
+      { id: "d2", name: "grey_L_Insula_TI_subject_TI_max.nii.gz" },
+    ];
+    expect(windowSummary(layers, datasets, ["/p/grey_L_Insula_TI_subject_TI_max.nii.gz"])).toBe(
+      "p95–p99.9 · 0.0868–0.139 V/m",
+    );
+    // Nothing composed yet: fall back to what the source itself shows.
+    expect(windowSummary(layers, datasets, [])).toBe("p95–p99.9 · 0.1–1.5 V/m");
+  });
+
   it("describes the layer a person is actually looking at, not a hidden one", () => {
     // A simulation scene carries the whole-head and WM copies of the field as hidden layers.
     // Summarising one of those would describe a window nobody can see.
@@ -299,5 +325,85 @@ describe("windowSummary", () => {
     // `ViewerOpen.view` is the embed's document, whose layer union is wider than this reads.
     expect(windowSummary([{ kind: "mesh", visible: true }])).toBeNull();
     expect(windowSummary([{ kind: "volume", visible: true, scale: { kind: "heat" } }])).toBeNull();
+  });
+});
+
+// ── the composition tree (2026-09-07) ─────────────────────────────────────────────────────────
+//
+// The tree owns no selection: a row is ticked when its path is in the page's one editable list.
+// That is what makes these rules pure, and it is why they are tested here rather than by rendering
+// — the component is a function of (tree, chosen) and nothing else.
+
+describe("toggleId / toggleMany", () => {
+  it("appends rather than guessing where a newly ticked file belongs", () => {
+    // Layer order is the list's order and the person can drag it, so inserting at a "natural"
+    // position would be overriding a choice they have a control for.
+    expect(toggleId(["a", "b"], "c", true)).toEqual(["a", "b", "c"]);
+    expect(toggleId(["a", "b"], "a", true)).toEqual(["a", "b"]);
+  });
+
+  it("removes without disturbing the order of what is left", () => {
+    expect(toggleId(["a", "b", "c"], "b", false)).toEqual(["a", "c"]);
+    expect(toggleId(["a"], "zzz", false)).toEqual(["a"]);
+  });
+
+  it("takes a whole branch on or off in one edit", () => {
+    expect(toggleMany(["a"], ["b", "c"], true)).toEqual(["a", "b", "c"]);
+    // Already-present ids are not duplicated — ticking a branch whose parts are partly in is the
+    // normal case, and a duplicate row would be a duplicate layer.
+    expect(toggleMany(["a", "b"], ["b", "c"], true)).toEqual(["a", "b", "c"]);
+    expect(toggleMany(["a", "b", "c"], ["b", "c"], false)).toEqual(["a"]);
+  });
+});
+
+describe("branchState", () => {
+  it("is the tri-state a branch checkbox needs", () => {
+    // "some" is the one that earns its keep: it says part of this simulation is in the scene
+    // without making a person expand it to find out.
+    const chosen = new Set(["a", "b"]);
+    expect(branchState(["a", "b"], chosen)).toBe("all");
+    expect(branchState(["a", "z"], chosen)).toBe("some");
+    expect(branchState(["y", "z"], chosen)).toBe("none");
+    expect(branchState([], chosen)).toBe("none");
+  });
+});
+
+describe("branchCount", () => {
+  it("says how much of a collapsed branch is in the scene", () => {
+    expect(branchCount(3, 2, "simulation")).toBe("3 simulations · 2 selected");
+    expect(branchCount(1, 0, "simulation")).toBe("1 simulation");
+    expect(branchCount(0, 0, "run")).toBe("0 runs");
+  });
+});
+
+describe("fieldOfNode", () => {
+  it("reads the field off the last token, so three outputs are three fields", () => {
+    // The server had the same defect: `L_Insula_TI_subject_hf_peak.nii.gz` contains "ti" twice,
+    // and a substring match called it TI_max.
+    expect(fieldOfNode("L_Insula_TI_subject_TI_max.nii.gz")).toBe("TI_max");
+    expect(fieldOfNode("L_Insula_TI_subject_hf_peak.nii.gz")).toBe("hf_peak");
+    expect(fieldOfNode("grey_L_Insula_TI_subject_TI_normal.nii.gz")).toBe("TI_normal");
+    expect(fieldOfNode("101_TDCS_1_scalar_subject_magnE.nii.gz")).toBe("magnE");
+  });
+
+  it("invents no field for a file that names none", () => {
+    // A caller uses this to set `draft.field`; guessing here would put a window on screen for a
+    // layer that has no field at all.
+    expect(fieldOfNode("T1.nii.gz")).toBeNull();
+    expect(fieldOfNode("final_tissues.nii.gz")).toBeNull();
+    expect(fieldOfNode("roi_mask.nii.gz")).toBeNull();
+  });
+});
+
+describe("simulationNodeIds", () => {
+  it("is every output a simulation offers, across its three buckets", () => {
+    expect(
+      simulationNodeIds({
+        fields: [{ id: "f1" }, { id: "f2" }] as never,
+        meshes: [{ id: "m1" }] as never,
+        electrodes: [{ id: "e1" }] as never,
+      }),
+    ).toEqual(["f1", "f2", "m1", "e1"]);
+    expect(simulationNodeIds({})).toEqual([]);
   });
 });

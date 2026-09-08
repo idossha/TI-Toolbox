@@ -540,3 +540,80 @@ def test_no_field_volume_at_all_leaves_the_mesh_generic(
     scale, threshold = viewspec._mesh_scale_and_threshold(None)
     assert scale == {"kind": "linear", "lo": 0.0, "hi": 1.0}
     assert threshold["hi"] is None
+
+
+# ── which field a file carries ───────────────────────────────────────────────
+
+
+def test_a_simulations_three_volumes_do_not_all_come_out_named_TI_max() -> None:
+    """The field is the basename's **last token**, not any substring of it.
+
+    `L_Insula_TI_subject_hf_peak.nii.gz` contains "ti" twice, and the old substring chain answered
+    `TI_max` for it — so a simulation's TI_max, hf_peak and hf_sar volumes all rendered as
+    "TI_max (volume)": three identical rows in the viewer's Layers list, and three identical
+    checkboxes once the composition tree existed (screenshot, 2026-09-07).
+    """
+    sim = "L_Insula_TI_subject"
+    assert viewspec._scene_field_name(f"{sim}_TI_max.nii.gz") == "TI_max"
+    assert viewspec._scene_field_name(f"{sim}_hf_peak.nii.gz") == "hf_peak"
+    assert viewspec._scene_field_name(f"{sim}_hf_sar.nii.gz") == "hf_sar"
+    assert viewspec._scene_field_name(f"grey_{sim}_TI_normal.nii.gz") == "TI_normal"
+    assert viewspec._scene_field_name("101_TDCS_1_scalar_subject_magnE.nii.gz") == "magnE"
+
+    names = {
+        viewspec._scene_field_name(f"{sim}_{token}.nii.gz")
+        for token in ("TI_max", "hf_peak", "hf_sar")
+    }
+    assert len(names) == 3, "three different fields must not share one name"
+
+
+def test_a_mesh_still_reads_its_field_from_the_hints() -> None:
+    """A `.msh` genuinely carries no trailing field token, so the hint chain stays for those.
+
+    The mesh's real field names live inside a 24-420 MB file this module never reads, which is why
+    the guess exists at all.
+    """
+    assert viewspec._scene_field_name("grey_L_Insula_TI.msh") == "TI_max"
+    assert viewspec._scene_field_name("grey_L_Insula_mTI.msh") == "mTI_max"
+    assert viewspec._scene_field_name("grey_L_Insula_normal.msh") == "TI_normal"
+    assert viewspec._scene_field_name("ernie_TDCS_1_scalar.msh") == "magnE"
+
+
+def test_a_file_that_names_no_field_says_so() -> None:
+    """`None` means "colour by tag" for a mesh and "no recognised field" for a volume — an
+    analysis ROI mask must not be labelled as though it were a field map."""
+    assert viewspec._scene_field_name("roi_mask.nii.gz") is None
+    assert viewspec._scene_field_name("labeling.nii.gz") is None
+
+
+def test_an_anatomy_volume_is_not_mistaken_for_a_field() -> None:
+    """`final_tissues.nii.gz` contains "ti" — in "tissues" — and used to become a "TI_max" layer.
+
+    The hint chain is for meshes only. A volume whose last token names no field has none, which is
+    what `None` has always meant here for a volume.
+    """
+    for name in ("final_tissues.nii.gz", "T1.nii.gz", "T2_reg.nii.gz", "tissue_labelling.nii.gz"):
+        assert viewspec._scene_field_name(name) is None, name
+
+
+def test_two_electrode_pairs_do_not_get_one_name() -> None:
+    """A high-frequency simulation writes one output *per pair*, and the pair number is the only
+    thing that tells them apart — without it a person sees "magnE (volume)" twice, and two
+    412 MB "mesh · magnE" rows, with nothing to choose between them."""
+    display = lambda n: viewspec._scene_display_name(  # noqa: E731
+        n, role=viewspec._scene_role(f"/x/{n}", "heat"), field_name=viewspec._scene_field_name(n)
+    )
+    one = display("101_TDCS_1_scalar_subject_magnE.nii.gz")
+    two = display("101_TDCS_2_scalar_subject_magnE.nii.gz")
+    assert one != two
+    assert "pair 1" in one and "pair 2" in two
+
+
+def test_a_whole_head_mesh_does_not_stutter() -> None:
+    """"Mesh mesh · TI_max" reads as a bug. A mesh with no tissue prefix is the head's own."""
+    name = "L_Insula_TI.msh"
+    label = viewspec._scene_display_name(
+        name, role="mesh", field_name=viewspec._scene_field_name(name)
+    )
+    assert label == "Head mesh · TI_max"
+    assert viewspec._scene_display_name("grey_L_Insula_TI.msh", role="mesh", field_name="TI_max") == "GM mesh · TI_max"

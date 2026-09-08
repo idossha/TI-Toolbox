@@ -23,11 +23,23 @@ subject's.
 The **Viewer** entry in the left rail has two rows indented under it, **Menu** and **Tetravox**.
 Clicking Viewer itself opens Menu.
 
-1. On **Menu**, choose what to look at: the type (simulation, analysis, atlas overlay, a custom
-   path), then the subject, simulation, field and space it takes.
-2. Nothing loads while you are choosing — the page shows a **"What will open"** list of the files
-   it would open, in order, with each one's size. Edit it: remove a file, add another from
-   everything the subject offers or from any path in the project, reorder it.
+1. On **Menu**, pick a **subject** and a **space** (subject or MNI). Below them the page draws a
+   tree of everything that subject has, in three branches:
+
+   - **Anatomy** — T1, T2, the head mesh, the reconstruction surfaces, the atlases.
+   - **Simulations** — one row per simulation; expand one to see its fields (TI_max, TI_normal,
+     the high-frequency magnitudes…), its meshes and its electrode overlay.
+   - **Analyses** — the analyzer runs under the simulations you have expanded, and their outputs.
+
+   Tick whatever belongs in the scene. You can tick outputs from **more than one simulation** —
+   ticking a branch's own box takes the whole branch on or off, and a half-filled box means part of
+   it is in the scene. Anything that is not on disk is shown greyed with the reason rather than
+   hidden, so a missing mesh is a question you can answer instead of a row that never appears.
+2. Nothing loads while you are choosing — the **"What will open"** list below the tree is the scene,
+   in order, with each file's size, and it is the same list the tick boxes drive. Edit it directly
+   too: remove a file, add one from any path in the project, drag to reorder (that is the layer
+   order). **Reset** puts the source's own set back. The chip beside it says the window the field
+   overlay will open at, so you can see the defaults before opening anything.
 3. Press **Open in viewer**. You are moved to **Tetravox**, and the scene is drawn there
    full-bleed.
 
@@ -56,7 +68,7 @@ to.
 Two different things are worth keeping, and the Viewer keeps them separately because they answer
 different questions.
 
-**Save selection…** writes a *composition* to
+**Save selection…** (under the list) writes a *composition* to
 `code/ti-toolbox/viewer/compositions/<name>.json`: the subject, the space, and the inputs you
 ticked, recorded by file name. It is small and readable, and it does not freeze the data — loading
 it next month re-resolves those same choices against whatever is in the project then, and tells you

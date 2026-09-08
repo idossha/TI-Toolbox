@@ -160,12 +160,13 @@ def test_scene_volume_and_mesh_colormaps(pm: PathManager) -> None:
     scene = scene_for("simulation", subject="ernie", simulation="L_Insula")
     volumes = layers_by_kind(scene, "volume")
     meshes = layers_by_kind(scene, "mesh")
-    base = next(v for v in volumes if v["name"] == "T1")
-    # Curated names (FX3 item 3 / qa-neuro-researcher-notes.md #4): the bare
-    # (whole-head) TI_max NIfTI is "TI_max (volume)", not the raw
-    # "L_Insula_TI_subject_TI_max" pipeline basename.
-    field = next(v for v in volumes if v["name"] == "TI_max (volume)")
-    electrodes = next(v for v in volumes if v["name"] == "Electrodes")
+    base = next(v for v in volumes if v["name"] == "T1.nii.gz")
+    # Every layer is named by its file, exactly as on disk (maintainer, 2026-09-07: "please do not
+    # change the name of the files that we load into the viewer ... `labeling.nii.gz` should be
+    # `labeling.nii.gz` and not [Atlas]"). The curated labels these used to carry are still built,
+    # but only where a human label for *choosing* is wanted -- the Menu's composition tree.
+    field = next(v for v in volumes if v["name"] == "L_Insula_TI_subject_TI_max.nii.gz")
+    electrodes = next(v for v in volumes if v["name"] == "electrode_overlay_subject.nii.gz")
 
     assert base["colormap"] == "gray"
     assert base["scale"]["kind"] == "linear"
@@ -208,7 +209,7 @@ def test_scene_field_scale_falls_back_when_the_volume_cannot_be_read(
     placeholder heat scale rather than crashing the whole scene."""
     scene = scene_for("simulation", subject="ernie", simulation="L_Insula")
     field = next(
-        v for v in layers_by_kind(scene, "volume") if v["name"] == "TI_max (volume)"
+        v for v in layers_by_kind(scene, "volume") if v["name"] == "L_Insula_TI_subject_TI_max.nii.gz"
     )
     assert field["scale"] == {
         "kind": "heat",
@@ -237,10 +238,10 @@ def test_scene_mesh_is_visible_because_the_layout_gives_it_a_pane(
     """
     scene = scene_for("simulation", subject="ernie", simulation="L_Insula")
     visible = {layer["name"]: layer["visible"] for layer in scene["layers"]}
-    assert visible["GM · TI_max (volume)"] is True
-    assert visible["TI_max (volume)"] is False
-    assert visible["WM · TI_max (volume)"] is False
-    assert visible["GM mesh · TI_max"] is True
+    assert visible["grey_L_Insula_TI_subject_TI_max.nii.gz"] is True
+    assert visible["L_Insula_TI_subject_TI_max.nii.gz"] is False
+    assert visible["white_L_Insula_TI_subject_TI_max.nii.gz"] is False
+    assert visible["grey_L_Insula_TI.msh"] is True
     assert scene["layout"]["kind"] == "3d+1"
     assert "view3d" in scene["layout"]["cells"]
 
@@ -406,3 +407,55 @@ def test_every_view_kind_produces_a_schema_valid_scene(pm: PathManager) -> None:
     ):
         assert spec is not None
         assert_valid_viewspec(spec["scene"])
+
+
+# ── every layer is named by its file (2026-09-07) ────────────────────────────
+
+
+def test_every_layer_is_named_by_its_file_for_every_view_kind(pm: PathManager) -> None:
+    """Maintainer: *"Please do not change the name of the files that we load into the viewer. For
+    example, `labeling.nii.gz` should be `labeling.nii.gz` and not [Atlas]."*
+
+    The Layers panel used to carry curated labels — `Atlas`, `T1`, `GM · TI_max (volume)`,
+    `Head mesh · magnE · pair 2`. They explained a layer at the cost of naming nothing a person
+    could find on disk, grep a log for, or match against the "what will open" list they had just
+    composed. A name that cannot be looked up is worse than a name that needs one thing explained.
+
+    Asserted across **every** source kind rather than one, because the curated names came from a
+    single helper every kind ran through: pinning one kind would leave the others free to drift
+    back. The check is exact — `os.path.basename` of the layer's own resolved path, extension
+    included — so a "friendly" name cannot creep back as a suffix, a prefix or a stripped `.nii.gz`.
+    """
+    cases = [
+        ("subject", {"subject": "ernie"}),
+        ("simulation", {"subject": "ernie", "simulation": "L_Insula"}),
+        ("analysis", {"subject": "ernie", "simulation": "L_Insula"}),
+        ("group", {"subject": "ernie", "simulation": "L_Insula"}),
+    ]
+    checked = 0
+    for kind, kwargs in cases:
+        spec = viewspec.build_view(kind, **kwargs)
+        if spec is None:  # a kind this fixture cannot produce is not a failure of this rule
+            continue
+        scene = spec["scene"]
+        by_id = {d["id"]: d for d in scene["datasets"]}
+        for layer, source in zip(scene["layers"], spec["layers"]):
+            assert layer["name"] == os.path.basename(source["path"]), f"{kind}: {layer['name']}"
+            # The dataset's own `name` was always the real basename; the two now agree, which is
+            # what makes the panel and the file list one vocabulary.
+            assert by_id[layer["datasetId"]]["name"] == layer["name"]
+            checked += 1
+    assert checked > 0, "no layer was checked, so this test proved nothing"
+
+
+def test_a_custom_file_list_is_named_by_its_files_too(pm: PathManager) -> None:
+    """The `files` path builds layers through a different branch, and must not drift from the rule."""
+    niftis = os.path.join(pm.simulation("ernie", "L_Insula"), "TI", "niftis")
+    chosen = [
+        os.path.join(pm.m2m("ernie"), "T1.nii.gz"),
+        os.path.join(niftis, "grey_L_Insula_TI_subject_TI_max.nii.gz"),
+    ]
+    spec = viewspec.build_view("simulation", subject="ernie", simulation="L_Insula", files=chosen)
+    assert spec is not None
+    names = [layer["name"] for layer in spec["scene"]["layers"]]
+    assert names == ["T1.nii.gz", "grey_L_Insula_TI_subject_TI_max.nii.gz"]

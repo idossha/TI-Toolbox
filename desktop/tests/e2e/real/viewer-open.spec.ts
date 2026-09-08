@@ -36,6 +36,36 @@ test.afterAll(async () => {
   await app?.close();
 });
 
+/**
+ * Compose a scene the way the Menu asks for one: expand a simulation's branch, tick a field row.
+ *
+ * The `Type`/`Simulation` dropdowns this replaces are gone — the tree has no view type (see
+ * `pages/viewer/Tree.tsx`). Ticking a *field* row is also what moves the draft, so the window chip
+ * and the scene's per-layer defaults describe the layer that was chosen.
+ */
+async function composeSimulationField(
+  target: Page,
+  simulation: string,
+  fileName: string,
+  alsoTick: string[] = [],
+): Promise<void> {
+  await expect(target.getByTestId("viewer-tree")).toBeVisible({ timeout: 30_000 });
+  for (const extra of alsoTick) {
+    const box = target.getByTestId(`viewer-tree-node-${extra}`).getByRole("checkbox");
+    await expect(box).toBeVisible({ timeout: 30_000 });
+    if ((await box.getAttribute("data-state")) !== "checked") await box.click();
+  }
+  const branch = target.getByTestId(`viewer-tree-sim-${simulation}`);
+  await expect(branch).toBeVisible({ timeout: 30_000 });
+  if ((await branch.getAttribute("data-open")) !== "true") {
+    await target.getByTestId(`viewer-tree-sim-${simulation}-toggle`).click();
+  }
+  const box = target.getByTestId(`viewer-tree-node-${fileName}`).getByRole("checkbox");
+  await expect(box).toBeVisible({ timeout: 30_000 });
+  if ((await box.getAttribute("data-state")) !== "checked") await box.click();
+  await expect(target.getByTestId("viewer-plan")).not.toHaveAttribute("data-resolving", "true", { timeout: 30_000 });
+}
+
 test("the served embed is a real bundle, not the placeholder", async () => {
   // Read through the app's own session so the request carries the token the way the iframe's will.
   const manifest = await page.evaluate(async (base) => {
@@ -53,10 +83,8 @@ test("Open on sub-ernie lands on the Tetravox sub-page with the embed ready", as
   await gotoPage(page, "viewer", "Viewer");
   await expectPage(page, "viewer");
 
-  await page.getByTestId("viewer-select-kind").getByRole("combobox").click();
-  await page.getByRole("option", { name: "Simulation", exact: true }).click();
-  await page.getByTestId("viewer-select-simulation").getByRole("combobox").click();
-  await page.getByRole("option", { name: "Thalamus", exact: true }).click();
+  // The Menu is a tree now (2026-09-07): expand the simulation, tick its grey-matter field.
+  await composeSimulationField(page, "Thalamus", "grey_Thalamus_TI_subject_TI_max.nii.gz");
 
   await page.getByTestId("viewer-open").click();
   await expect(page.getByTestId("viewer-sub-viewer")).toHaveAttribute("data-active", "true", { timeout: 15_000 });
@@ -93,11 +121,21 @@ test("sub-101/L_Insula opens windowed p95–p99.9, fitted, and crosshaired on th
   await selectSubject(page, "101");
   await gotoPage(page, "viewer", "Viewer");
   await expectPage(page, "viewer");
+  // Chosen in the Viewer's **own** picker, not only the shell's. Both subjects in this project
+  // have an `L_Insula`, so a subject that did not actually change leaves every locator below
+  // matching — against the wrong subject's files, which is how this test first passed while
+  // measuring ernie.
+  await page.getByTestId("viewer-select-subject").getByRole("combobox").click();
+  await page.getByRole("option", { name: "101", exact: true }).click();
+  await expect(page.getByTestId("viewer-select-subject")).toContainText("101");
+  // Start from this subject's own set. A list carried over from the previous test would otherwise
+  // compose a scene spanning two subjects — see the assertion on that below, which is the thing
+  // that caught it.
+  const reset = page.getByTestId("viewer-files-reset");
+  if ((await reset.count()) > 0) await reset.click();
+  await expect(page.getByTestId("viewer-plan")).not.toHaveAttribute("data-resolving", "true", { timeout: 30_000 });
 
-  await page.getByTestId("viewer-select-kind").getByRole("combobox").click();
-  await page.getByRole("option", { name: "Simulation", exact: true }).click();
-  await page.getByTestId("viewer-select-simulation").getByRole("combobox").click();
-  await page.getByRole("option", { name: "L_Insula", exact: true }).click();
+  await composeSimulationField(page, "L_Insula", "grey_L_Insula_TI_subject_TI_max.nii.gz", ["T1.nii.gz"]);
 
   // The card says the window before anything opens — the whole point of showing it.
   const summary = page.getByTestId("viewer-window-summary");
@@ -107,6 +145,10 @@ test("sub-101/L_Insula opens windowed p95–p99.9, fitted, and crosshaired on th
   // chip is only comparable to what Open returns once the page says it has stopped resolving.
   // Without this the two disagree by exactly one selection, which is the feature working.
   await expect(page.getByTestId("viewer-plan")).not.toHaveAttribute("data-resolving", "true", { timeout: 30_000 });
+  // Read the chip **before** Open. It describes the composition on screen; pressing Open navigates
+  // to the Tetravox sub-page, and reading it afterwards reads a card that is no longer the subject
+  // of the assertion.
+  const shownBeforeOpen = (await summary.textContent()) ?? "";
 
   const opened = page.waitForResponse(
     (r) => r.url().includes("/api/view/open") && r.request().method() === "POST" && r.status() === 200,
@@ -147,12 +189,33 @@ test("sub-101/L_Insula opens windowed p95–p99.9, fitted, and crosshaired on th
   // Cross-check: the number the Menu showed a person and the number the engine was handed are the
   // same number, reached by different code (`lib.ts::windowSummary` off the resolved scene, and
   // the scene itself). Three significant figures, which is what the chip prints.
-  const shown = (await summary.textContent()) ?? "";
-  expect(shown).toContain(Number(min.toPrecision(3)).toString());
-  expect(shown).toContain(Number(max.toPrecision(3)).toString());
+  // The numbers the Menu showed are a real layer's window in the scene it opened — the two are
+  // reached by different code (`lib.ts::windowSummary` off the preview, and the scene itself) and
+  // must agree. Matched against *any* heat layer rather than the first visible one: which layer is
+  // visible depends on what was composed, and this is a claim about the numbers, not the order.
+  const heatWindows = view.layers
+    .filter((l) => l.scale?.kind === "heat")
+    .map((l) => [Number((l.scale!.min as number).toPrecision(3)).toString(), Number((l.scale!.max as number).toPrecision(3)).toString()]);
+  expect(heatWindows.length).toBeGreaterThan(0);
+  expect(
+    heatWindows.some(([lo, hi]) => shownBeforeOpen.includes(lo) && shownBeforeOpen.includes(hi)),
+    `the Menu showed "${shownBeforeOpen}", which is no layer's window in ${JSON.stringify(heatWindows)}`,
+  ).toBe(true);
+
+  // ── one subject per scene ──────────────────────────────────────────────────────────────────
+  // Every dataset comes from the subject that was chosen. A scene that quietly spans two subjects
+  // overlays one person's field on another's anatomy, which is wrong in a way no reader can see.
+  const paths = (body.view as unknown as { datasets: { path: string }[] }).datasets.map((d) => d.path);
+  for (const path of paths) {
+    if (path.includes("/derivatives/SimNIBS/sub-")) {
+      expect(path, `a dataset from another subject: ${path}`).toContain("sub-101");
+    }
+  }
 
   // ── the anatomy ────────────────────────────────────────────────────────────────────────────
-  const t1 = view.layers.find((l) => l.kind === "volume" && l.scale?.kind === "linear" && l.colormap === "gray");
+  // By name, which the naming rule above makes exact: every layer is its file's basename, so
+  // "the T1" is `T1.nii.gz` and not "whichever grey linear volume came first".
+  const t1 = view.layers.find((l) => (l as unknown as { name: string }).name === "T1.nii.gz");
   expect(t1, "the scene must carry a T1 base layer").toBeDefined();
   // p2–p98, not min–max: sub-101's T1 maxes at 3238 on a few scalp-fat voxels.
   expect(t1!.scale!.hi as number).toBeLessThan(3000);
@@ -178,6 +241,20 @@ test("sub-101/L_Insula opens windowed p95–p99.9, fitted, and crosshaired on th
   // The crosshair is on the field's peak. World (0,0,0) is the scanner origin, which for a
   // subject-space head volume is off in a corner of the field of view.
   expect(view.cursor.some((c) => Math.abs(c) > 1e-6), "the crosshair must not sit at world zero").toBe(true);
+
+  // ── every layer is named by its file ───────────────────────────────────────────────────────
+  // Maintainer, on the Tetravox LAYERS panel: *"Please do not change the name of the files that we
+  // load into the viewer. For example, `labeling.nii.gz` should be `labeling.nii.gz` and not
+  // [Atlas]."* Asserted against the **real** scene because it is the real panel that showed the
+  // curated names, and because only a real resolve produces the mesh and electrode layers whose
+  // labels (`Head mesh · magnE · pair 2`) were the worst of them.
+  const datasets = new Map((body.view as unknown as { datasets: { id: string; name: string; path: string }[] }).datasets.map((d) => [d.id, d]));
+  for (const layer of view.layers) {
+    const dataset = datasets.get((layer as unknown as { datasetId: string }).datasetId)!;
+    const basename = decodeURIComponent(dataset.path.split("/").pop() ?? "");
+    expect((layer as unknown as { name: string }).name, `layer ${layer.id} is not named by its file`).toBe(basename);
+    expect(dataset.name).toBe(basename);
+  }
 
   // ── and the engine accepted all of it ──────────────────────────────────────────────────────
   const host = page.getByTestId("tetravox-host");

@@ -67,28 +67,23 @@ import { SegmentedControl } from "../../ui/SegmentedControl";
 import { Select, type SelectOption } from "../../ui/Select";
 import { TextInput } from "../../ui/Field";
 import {
-  deletePreset,
-  getAnalyses,
-  getAtlases,
+  deleteComposition,
   getCandidates,
-  getPresets,
-  getSimulationsFor,
+  getCompositions,
+  getTree,
   previewView,
   openView,
-  savePreset,
+  saveComposition,
   saveScene,
   suggestSceneName,
   getSavedScenes,
   readSavedScene,
   type SavedScene,
   type Space,
-  type ViewKind,
   type ViewQuery,
 } from "./api";
 import {
   containerPaths,
-  controlLabel,
-  controlsFor,
   formatBytes,
   hasViewerDeepLink,
   pushRecent,
@@ -102,12 +97,12 @@ import {
   viewQuery,
   windowSummary,
   type ViewerCandidate,
-  type ViewerControl,
   type ViewerFile,
   type ViewerRecent,
   type ViewerSelection,
   type ViewSceneLayer,
 } from "./lib";
+import { CompositionTree } from "./Tree";
 import { TetravoxFrame, useViewerStore } from "../../viewer";
 import { getCapabilities } from "../settings/api";
 import { usePageScrollMemory } from "../_shared/session/usePageScrollMemory";
@@ -116,13 +111,6 @@ import "./viewer-page.css";
 export { readDeepLink } from "./lib";
 export type { ViewerDeepLink, ViewerSelection } from "./lib";
 
-const VIEW_KIND_OPTIONS: SelectOption[] = [
-  { value: "subject", label: "Subject anatomy" },
-  { value: "simulation", label: "Simulation" },
-  { value: "analysis", label: "Analysis" },
-  { value: "group", label: "Group result" },
-  { value: "custom", label: "Custom files" },
-];
 
 /** The two rail sub-items. The id is the last path segment: `/viewer/menu`, `/viewer/tetravox`. */
 type SubPage = "menu" | "tetravox";
@@ -216,26 +204,6 @@ function ViewerPage() {
   // Menus. Catalog reads: they populate options and open nothing.
   // ---------------------------------------------------------------------------------------------
   const subjects = useQuery({ queryKey: ["subjects"], queryFn: () => getSubjects() });
-  const controls = controlsFor(draft.kind);
-  const shows = (control: ViewerControl): boolean => controls.includes(control);
-  const simulations = useQuery({
-    queryKey: ["viewer-simulations", draft.subject],
-    queryFn: () => getSimulationsFor(draft.subject as string),
-    enabled: !!draft.subject && shows("simulation"),
-  });
-  const analyses = useQuery({
-    queryKey: ["viewer-analyses", draft.subject, draft.simulation],
-    queryFn: () => getAnalyses(draft.subject as string, draft.simulation as string),
-    enabled: !!draft.subject && !!draft.simulation && shows("analysis"),
-  });
-  const atlases = useQuery({
-    queryKey: ["viewer-atlases", draft.subject, draft.space],
-    queryFn: () => getAtlases(draft.subject as string, draft.space),
-    enabled: !!draft.subject && shows("atlas"),
-  });
-
-  const selectedSimulation = (simulations.data ?? []).find((s) => s.name === draft.simulation);
-  const fieldsAvailable = selectedSimulation?.fields ?? [];
 
   // Which sub-page is on screen is the *route*, not state: the rail rows are real links, so the
   // rail's highlight and what is on screen are the same fact rather than two that can drift. A
@@ -330,6 +298,23 @@ function ViewerPage() {
     staleTime: Infinity,
   });
 
+  // ---------------------------------------------------------------------------------------------
+  // The composition tree (2026-09-07). Anatomy / Simulations / Analyses for this subject, from
+  // `GET /api/viewer/tree` — `listdir` and `stat` on the server, so it is cheap enough to redraw
+  // as a person clicks. `expandedSims` is sent with it because analyses are listed only for the
+  // simulations someone has opened: a subject with a dozen simulations has a dozen Analyses
+  // directories, and listing all of them turns a menu into a file browser.
+  // ---------------------------------------------------------------------------------------------
+  const [expandedSims, setExpandedSims] = useState<string[]>([]);
+  const tree = useQuery({
+    queryKey: ["viewer-tree", draft.subject, draft.space, expandedSims.join(",")],
+    queryFn: () => getTree(draft.subject, draft.space, expandedSims),
+    enabled: !!draft.subject,
+    retry: false,
+    staleTime: Infinity,
+    placeholderData: keepPreviousData,
+  });
+
   /** Every file this source knows about, by container path. Both queries, one index. */
   const known = useMemo(() => {
     const index = new Map<string, ViewerFile>();
@@ -363,12 +348,40 @@ function ViewerPage() {
 
   /** The window the overlay will open at, shown on the card. See `lib.ts::windowSummary`. */
   const summary = useMemo(
-    () => windowSummary(baseline.data?.view?.layers as ViewSceneLayer[] | undefined),
-    [baseline.data],
+    () =>
+      windowSummary(
+        baseline.data?.view?.layers as ViewSceneLayer[] | undefined,
+        baseline.data?.view?.datasets as { id: string; name: string }[] | undefined,
+        containerPaths(rows),
+      ),
+    [baseline.data, rows],
   );
 
   /** Edit the list. Always through the *resolved* rows, so an edit never invents a path. */
   const editFiles = useCallback((next: string[]) => setFiles(next), [setFiles]);
+
+  /**
+   * A *field* row was ticked in the tree, so bring the draft with it.
+   *
+   * Ticking anything else is a pure list edit and costs the server nothing — that property is
+   * asserted, and it is why the Menu stopped feeling slow. A field is the exception because it is
+   * not only a file: it decides which layer the window chip ("p95–p99.9 · …") describes and which
+   * simulation the scene's cursor and per-layer defaults come from. Letting that go stale would
+   * put a number on screen that belongs to a layer the person has just replaced.
+   */
+  const pickField = useCallback(
+    (simulation: string, field: string | null) => {
+      // `setDraft`, deliberately **not** `editDraft`. `editDraft` clears the list, because a
+      // different *source* resolves to a different set of files and keeping the old rows would
+      // silently open the previous subject's data. That is right for the subject picker and wrong
+      // here: the person is editing the list, and the draft is only following along so the window
+      // chip and the scene's per-layer defaults describe the field they just ticked. Routing this
+      // through `editDraft` threw away the tick that caused it — the row went in and came straight
+      // back out, replaced by the view type's own set.
+      setDraft((current) => ({ ...current, kind: "simulation", simulation, ...(field === null ? {} : { field }) }));
+    },
+    [setDraft],
+  );
   const removeRow = useCallback(
     (index: number) => editFiles(containerPaths(rows).filter((_, i) => i !== index)),
     [editFiles, rows],
@@ -519,27 +532,49 @@ function ViewerPage() {
   // project (`code/ti-toolbox/viewer/presets/`) because the project is the unit people copy and
   // share. A recent is a footprint, and lives in this machine's browser storage.
   // ---------------------------------------------------------------------------------------------
-  const presets = useQuery({ queryKey: ["viewer-presets"], queryFn: () => getPresets(), retry: false });
+  const presets = useQuery({ queryKey: ["viewer-compositions"], queryFn: getCompositions, retry: false });
   const [presetName, setPresetName] = useState("");
   const [presetOpen, setPresetOpen] = useState(false);
   const saving = useMutation({
-    mutationFn: (name: string) => savePreset({ name, selection: draft as unknown as Record<string, never>, files }),
+    // A **composition**, not a scene: ids, not resolved layers. It records what was chosen, so
+    // loading it next month re-resolves those choices against whatever is in the project then and
+    // reports what has gone missing — "show me the same thing, from the current data". The scene
+    // (what it looked like) is the other artefact, saved from the Tetravox sub-page.
+    //
+    // `selection` rides along beside `inputs` so a load can restore the draft exactly — which
+    // field the window chip describes, which simulations were expanded. The server keeps keys it
+    // does not know precisely so this page can carry what it needs without a contract change.
+    mutationFn: (name: string) =>
+      saveComposition(name, {
+        name,
+        subject: draft.subject ?? null,
+        space: draft.space ?? null,
+        inputs: containerPaths(rows),
+        simulations: expandedSims,
+        selection: draft as unknown as Record<string, never>,
+      } as never),
     onSuccess: () => {
       setPresetOpen(false);
       setPresetName("");
-      void queryClient.invalidateQueries({ queryKey: ["viewer-presets"] });
+      void queryClient.invalidateQueries({ queryKey: ["viewer-compositions"] });
     },
   });
   const forgetting = useMutation({
-    mutationFn: (name: string) => deletePreset(name),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["viewer-presets"] }),
+    mutationFn: (name: string) => deleteComposition(name),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["viewer-compositions"] }),
   });
 
   const restore = useCallback(
-    (entry: { selection?: unknown; files?: unknown }) => {
+    (entry: { selection?: unknown; files?: unknown; inputs?: unknown; simulations?: unknown }) => {
       // Restoring is not opening. The page fills in; the person presses Open when they mean it.
       if (entry.selection) setDraft(entry.selection as ViewerSelection);
-      setFiles(Array.isArray(entry.files) ? (entry.files as string[]) : null);
+      // `inputs` is a composition's word for the list; `files` is a recent's. Both are the same
+      // thing — the paths that make the scene — and reading either keeps Recent working unchanged.
+      const list = Array.isArray(entry.inputs) ? entry.inputs : entry.files;
+      setFiles(Array.isArray(list) ? (list as string[]) : null);
+      // Expanding the same simulations puts the tree back the way it was left, which is most of
+      // what "restore" means once the branches, not a dropdown, are how a scene is described.
+      if (Array.isArray(entry.simulations)) setExpandedSims(entry.simulations as string[]);
     },
     [setDraft, setFiles],
   );
@@ -548,17 +583,7 @@ function ViewerPage() {
   // Options
   // ---------------------------------------------------------------------------------------------
   const subjectOptions: SelectOption[] = (subjects.data ?? []).map((s) => ({ value: s.id, label: s.id }));
-  const simulationOptions: SelectOption[] = (simulations.data ?? []).map((s) => ({ value: s.name, label: s.name }));
-  const analysisOptions: SelectOption[] = (analyses.data ?? []).map((a) => ({ value: a.name, label: a.name }));
-  const atlasOptions: SelectOption[] = (atlases.data ?? []).map((a) => ({ value: a.id, label: a.name || a.id }));
-  const fieldOptions: SelectOption[] = fieldsAvailable.map((f) => ({ value: f, label: f }));
 
-  const selector = (control: ViewerControl, node: React.ReactNode) => (
-    <label className="viewer-row viewer-source-item" data-testid={`viewer-select-${control}`} key={control}>
-      <span className="viewer-row-label">{controlLabel(control)}</span>
-      <span className="viewer-row-control">{node}</span>
-    </label>
-  );
 
   // Nothing to install and nothing to find: the viewer is served by the same origin that served
   // this page. The only thing that can stop an Open is an incomplete selection or an empty list.
@@ -582,8 +607,9 @@ function ViewerPage() {
           <header className="viewer-panel-head">
             <h1 className="viewer-panel-title">Open in viewer</h1>
             <p className="viewer-panel-lede">
-              Pick a source, edit the list of files it resolves to, and <strong>Open in viewer</strong> — the scene is drawn under{" "}
-              <strong>Tetravox</strong> in the rail, by the engine that ships inside the toolbox image. Nothing to install.
+              Tick what belongs in the scene — anatomy, a simulation’s outputs, an analysis — then <strong>Open in viewer</strong>. The
+              scene is drawn under <strong>Tetravox</strong> in the rail, by the engine that ships inside the toolbox image. Nothing to
+              install.
             </p>
           </header>
 
@@ -597,127 +623,64 @@ function ViewerPage() {
             </div>
           )}
 
-          {/* ── Source ─────────────────────────────────────────────────────────────────────── */}
+          {/* ── Compose ────────────────────────────────────────────────────────────────────
+              Replaces the `Type / Subject / Simulation / Field / Space` card (2026-09-07). See
+              `Tree.tsx` for why the type went away and why the tree owns no selection of its own. */}
           <section className="viewer-card" data-testid="viewer-section-source">
             <div className="viewer-card-head">
-              <span className="viewer-card-title text-eyebrow">Source</span>
-              <span className="viewer-card-note">The type decides which of the fields it needs.</span>
+              <span className="viewer-card-title text-eyebrow">Compose</span>
+              <span className="viewer-card-note">Tick what belongs in the scene. Everything here is a file this subject already has.</span>
             </div>
+
+            {/* Subject and space are the two facts every branch below depends on, so they sit
+                above the tree rather than inside it. */}
             <div
-              className="viewer-source-grid"
+              className="viewer-compose-head"
               data-testid="viewer-source-bar"
               data-dirty={opened === null || opened.key !== draftKey ? "true" : "false"}
               data-draft-key={draftKey}
               data-opened-key={opened?.key ?? ""}
             >
-              <label className="viewer-row viewer-source-item" data-testid="viewer-select-kind">
-                <span className="viewer-row-label">Type</span>
+              <label className="viewer-row viewer-source-item" data-testid="viewer-select-subject">
+                <span className="viewer-row-label">Subject</span>
                 <span className="viewer-row-control">
-                  <Select value={draft.kind} onValueChange={(v) => editDraft({ kind: v as ViewKind })} options={VIEW_KIND_OPTIONS} aria-label="Type" />
-                </span>
-              </label>
-              {shows("subject") &&
-                selector(
-                  "subject",
                   <Select
                     value={draft.subject}
-                    onValueChange={(v) => editDraft({ subject: v, simulation: undefined, analysis: undefined, field: undefined, atlas: undefined })}
+                    onValueChange={(v) =>
+                      editDraft({ kind: "subject", subject: v, simulation: undefined, analysis: undefined, field: undefined, atlas: undefined })
+                    }
                     options={subjectOptions}
                     placeholder="Subject…"
                     aria-label="Subject"
-                  />,
-                )}
-              {shows("simulation") &&
-                selector(
-                  "simulation",
-                  <Select
-                    value={draft.simulation}
-                    onValueChange={(v) => editDraft({ simulation: v, analysis: undefined, field: undefined })}
-                    options={simulationOptions}
-                    placeholder={simulationOptions.length === 0 ? "None" : "Simulation…"}
-                    disabled={simulationOptions.length === 0}
-                    aria-label="Simulation"
-                  />,
-                )}
-              {shows("analysis") &&
-                selector(
-                  "analysis",
-                  <Select
-                    value={draft.analysis}
-                    onValueChange={(v) => editDraft({ analysis: v })}
-                    options={analysisOptions}
-                    placeholder={analysisOptions.length === 0 ? "None" : "Analysis…"}
-                    disabled={analysisOptions.length === 0}
-                    aria-label="Analysis"
-                  />,
-                )}
-              {shows("field") &&
-                selector(
-                  "field",
-                  <Select
-                    value={draft.field}
-                    onValueChange={(v) => editDraft({ field: v })}
-                    options={fieldOptions}
-                    placeholder={fieldOptions.length === 0 ? "None" : "Field…"}
-                    disabled={fieldOptions.length === 0}
-                    aria-label="Field"
-                  />,
-                )}
-              {shows("atlas") &&
-                selector(
-                  "atlas",
-                  <Select
-                    value={draft.atlas}
-                    onValueChange={(v) => editDraft({ atlas: v })}
-                    options={atlasOptions}
-                    placeholder={atlasOptions.length === 0 ? "Server default" : "Atlas…"}
-                    disabled={atlasOptions.length === 0}
-                    aria-label="Atlas"
-                  />,
-                )}
-              {shows("roi") &&
-                selector(
-                  "roi",
-                  <Select
-                    value={draft.roi}
-                    onValueChange={(v) => editDraft({ roi: v })}
-                    options={atlasOptions}
-                    placeholder={atlasOptions.length === 0 ? "None" : "ROI…"}
-                    disabled={atlasOptions.length === 0}
-                    aria-label="ROI"
-                  />,
-                )}
-              {shows("path") &&
-                selector(
-                  "path",
-                  <input
-                    className="input viewer-source-path"
-                    type="text"
-                    value={draft.path ?? ""}
-                    onChange={(e) => editDraft({ path: e.target.value })}
-                    placeholder="/path/to/volume.nii.gz"
-                    aria-label="Path"
-                    data-testid="viewer-path-input"
-                  />,
-                )}
-              {shows("space") && (
-                <label className="viewer-row viewer-source-item">
-                  <span className="viewer-row-label">Space</span>
-                  <span className="viewer-row-control">
-                    <SegmentedControl<Space>
-                      aria-label="Space"
-                      size="sm"
-                      value={draft.space}
-                      onValueChange={(v) => editDraft({ space: v, atlas: undefined })}
-                      options={[
-                        { value: "subject", label: "Subject" },
-                        { value: "mni", label: "MNI", title: "The scene the server builds in MNI space" },
-                      ]}
-                    />
-                  </span>
-                </label>
-              )}
+                  />
+                </span>
+              </label>
+              <label className="viewer-row viewer-source-item">
+                <span className="viewer-row-label">Space</span>
+                <span className="viewer-row-control">
+                  <SegmentedControl<Space>
+                    aria-label="Space"
+                    size="sm"
+                    value={draft.space}
+                    onValueChange={(v) => editDraft({ space: v, atlas: undefined })}
+                    options={[
+                      { value: "subject", label: "Subject" },
+                      { value: "mni", label: "MNI", title: "The scene the server builds in MNI space" },
+                    ]}
+                  />
+                </span>
+              </label>
             </div>
+
+            <CompositionTree
+              tree={tree.data}
+              loading={tree.isFetching}
+              chosen={containerPaths(rows)}
+              onChange={editFiles}
+              expanded={expandedSims}
+              onExpandedChange={setExpandedSims}
+              onFieldPicked={pickField}
+            />
           </section>
 
           {/* ── What will open ─────────────────────────────────────────────────────────────── */}
@@ -905,17 +868,21 @@ function ViewerPage() {
               onOpenChange={setPresetOpen}
               trigger={
                 <Button variant="secondary" size="sm" icon={<Save size={14} />} disabled={!complete} data-testid="viewer-save-preset">
-                  Save as preset…
+                  Save selection…
                 </Button>
               }
             >
               <div className="viewer-popover">
                 <p className="viewer-popover-title">Save this selection</p>
+                <p className="viewer-popover-text">
+                  Writes the subject, the space and the inputs you ticked to the project as JSON. Loading it later re-resolves those
+                  choices against the data as it is then — so a re-run simulation comes back with its new outputs.
+                </p>
                 <TextInput
                   value={presetName}
                   onChange={(e) => setPresetName(e.target.value)}
                   placeholder="Name"
-                  aria-label="Preset name"
+                  aria-label="Composition name"
                   data-testid="viewer-preset-name"
                 />
                 <Button

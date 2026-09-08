@@ -363,8 +363,35 @@ in both directions: a subject-space scene is not offered the MNI copies, since t
 scene is a misregistration nobody asked for; meshes are offered in both, because there is no MNI
 mesh and hiding them would hide a real option.
 
-Server, contract, mock and tests landed together; the Menu still draws the old source card, and
-replacing it with the tree is the remaining half.
+**The Menu is the tree now.** `Type / Subject / Simulation / Field / Space` is gone: a subject, a
+space, and three branches of what that subject has. The tree owns no selection — a row is ticked
+when its path is in the page's one editable list — so the branches and the list cannot disagree,
+and Reset, reordering, presets and deep links needed no second mechanism. Ticking a *field* row is
+the one tick that also moves the draft (it decides which layer the window chip describes); every
+other tick is a free local edit, which is what keeps the Menu fast.
+
+**And then the labels went away entirely.** Maintainer, on the Tetravox Layers panel: *"Please do
+not change the name of the files that we load into the viewer. For example, `labeling.nii.gz` should
+be `labeling.nii.gz` and not [Atlas]."* Every layer's `name` is now the file's basename, exactly as
+on disk. The curated names explained a layer at the cost of naming nothing a person could find on
+disk, grep a log for, or match against the list they had just composed — and the engine's
+`LayerBase` has no description field, so the context is dropped rather than smuggled back into the
+name. The labels survive only in the composition tree, where they label a *choice* and the filename
+is beside them. Pinned across every `build_view` kind, including the `files` branch.
+
+That makes the two label fixes below matter to the tree rather than to the panel, but they were
+real either way and are worth recording:
+
+Two label defects surfaced the moment forty rows were on screen at once, both older than the tree
+and both visible in the viewer's own Layers list all along. `_scene_field_name` matched substrings,
+so `L_Insula_TI_subject_hf_peak.nii.gz` — which contains "ti" twice — was answered `TI_max`, and a
+simulation's TI_max, hf_peak and hf_sar volumes all rendered as "TI_max (volume)": three identical
+rows. It now reads the basename's **last token**, and the loose hint chain is restricted to meshes,
+which genuinely carry no trailing field token (that chain was also calling `final_tissues.nii.gz` a
+TI_max layer, because "tissues" contains "ti"). Separately, a high-frequency simulation writes one
+output per electrode pair, so two rows came out "magnE (volume)" and two 412 MB meshes came out
+"Mesh mesh · magnE"; the pair number now disambiguates them, and a mesh with no tissue prefix is
+"Head mesh" rather than the "Mesh mesh" stutter.
 
 ## 2026-09-07 — viewer defaults and resolve latency
 

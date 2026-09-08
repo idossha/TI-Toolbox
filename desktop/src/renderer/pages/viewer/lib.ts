@@ -359,6 +359,7 @@ export function selectionLabel(selection: ViewerSelection): string {
  */
 export interface ViewSceneLayer {
   kind?: string;
+  datasetId?: string;
   visible?: boolean;
   scale?: { kind?: string; min?: number; max?: number; lo?: number; hi?: number };
 }
@@ -395,11 +396,122 @@ export function formatFieldValue(value: number): string {
  * Only a *visible* heat layer counts. A scene carries the whole-head and WM copies of a field as
  * hidden layers, and describing a window nobody is looking at would be worse than saying nothing.
  */
-export function windowSummary(layers: ViewSceneLayer[] | undefined): string | null {
+export function windowSummary(
+  layers: ViewSceneLayer[] | undefined,
+  datasets?: { id: string; name: string }[],
+  chosen?: string[],
+): string | null {
   if (!layers) return null;
-  const field = layers.find((l) => l.kind === "volume" && l.visible === true && l.scale?.kind === "heat");
+
+  // Which layer to describe. The preview is resolved for the *source*, not for the edited list —
+  // that is deliberate, because re-resolving on every tick is what made the Menu slow. So once a
+  // person has composed something, the visible layer of the source's own scene may not be the one
+  // that will open, and describing it would put a window on screen for a layer they removed.
+  //
+  // A window is a property of the *file*, though, so the right layer is the one whose dataset is
+  // in the list — found in data already fetched, at no extra request.
+  const nameOf = new Map((datasets ?? []).map((d) => [d.id, d.name]));
+  const wanted = new Set((chosen ?? []).map((p) => p.split("/").pop()));
+  const heat = layers.filter((l) => l.kind === "volume" && l.scale?.kind === "heat");
+  const field =
+    (wanted.size > 0 ? heat.find((l) => wanted.has(nameOf.get(l.datasetId ?? "") ?? "")) : undefined) ??
+    heat.find((l) => l.visible === true);
+
   const min = field?.scale?.min;
   const max = field?.scale?.max;
   if (typeof min !== "number" || typeof max !== "number") return null;
   return `p95–p99.9 · ${formatFieldValue(min)}–${formatFieldValue(max)} V/m`;
+}
+
+// ── the composition tree (2026-09-07) ──────────────────────────────────────────────────────────
+//
+// Maintainer: *"there is subject and then it kind of like shows two little branches with the
+// anatomy and then there is a simulation section where they can choose the different simulations
+// — they can potentially choose multiple — and then they choose analysis output ... It depends on
+// what is available and what is selected, but it should be a continuous integrated thing instead
+// of what we have right now."*
+//
+// **The tree does not own a selection of its own.** It is a second view onto the one list the page
+// already has — the editable "what will open" rows. A checkbox is ticked when that path is in the
+// list, ticking adds it, unticking removes it. That is what makes it "continuous": the branches and
+// the list cannot disagree, because there is only one of them, and every mechanism already built on
+// that list (Reset, drag-to-reorder, presets, deep links, Open) keeps working untouched.
+//
+// The alternative — a `selected: string[]` beside `files` — would have been two sources of truth
+// for one question, and the first edit made in the list rather than the tree would have desynced
+// them.
+
+/** One node in a branch, as the tree API returns it. Narrowed to what the rows read. */
+export interface TreeNode {
+  id: string;
+  name: string;
+  label: string;
+  path: string;
+  kind: string;
+  bytes?: number | null;
+  default_on?: boolean;
+  available?: boolean;
+  reason?: string | null;
+}
+
+/**
+ * `TI_max` for `grey_L_Insula_TI_subject_TI_max.nii.gz` — which physical field a node carries.
+ *
+ * Used to keep `draft.field` in step when someone ticks a field row, which is what keeps the
+ * window chip ("p95–p99.9 · …") describing the layer they just chose. Deliberately the same
+ * vocabulary `tit/viewspec.py::_scene_field_name` guesses from, and `null` when the name says
+ * nothing — a caller must not invent a field for an anatomy file.
+ */
+export function fieldOfNode(name: string): string | null {
+  const stem = name.replace(/\.(nii\.gz|nii|mgz|msh|gii)$/i, "");
+  for (const field of ["mTI_max", "TI_normal", "TI_max", "hf_peak", "hf_sar", "magnE", "normE"]) {
+    if (stem.endsWith(`_${field}`) || stem === field) return field;
+  }
+  return null;
+}
+
+/** Every id a simulation branch offers, across its three buckets. */
+export function simulationNodeIds(sim: { fields?: TreeNode[]; meshes?: TreeNode[]; electrodes?: TreeNode[] }): string[] {
+  return [...(sim.fields ?? []), ...(sim.meshes ?? []), ...(sim.electrodes ?? [])].map((n) => n.id);
+}
+
+/**
+ * `"none" | "some" | "all"` for a branch, given what is currently in the list.
+ *
+ * Drives the branch checkbox's `indeterminate`, which is the only affordance that can say "part of
+ * this simulation is in the scene" without making a person expand it to find out.
+ */
+export function branchState(ids: string[], chosen: ReadonlySet<string>): "none" | "some" | "all" {
+  if (ids.length === 0) return "none";
+  const hits = ids.filter((id) => chosen.has(id)).length;
+  if (hits === 0) return "none";
+  return hits === ids.length ? "all" : "some";
+}
+
+/** `3 simulations · 2 selected` — what a collapsed branch says about itself. */
+export function branchCount(total: number, selected: number, noun: string): string {
+  const plural = `${total} ${noun}${total === 1 ? "" : "s"}`;
+  return selected === 0 ? plural : `${plural} · ${selected} selected`;
+}
+
+/**
+ * Add or remove *id*, preserving the order of everything else.
+ *
+ * Appends rather than inserting at a "natural" position: layer order is the list's order and the
+ * person can drag it, so guessing where a newly ticked file belongs would be overriding a choice
+ * they have a control for.
+ */
+export function toggleId(current: string[], id: string, on: boolean): string[] {
+  if (on) return current.includes(id) ? current : [...current, id];
+  return current.filter((entry) => entry !== id);
+}
+
+/** Add or remove a whole branch at once, without disturbing the rest of the list. */
+export function toggleMany(current: string[], ids: string[], on: boolean): string[] {
+  if (!on) {
+    const drop = new Set(ids);
+    return current.filter((entry) => !drop.has(entry));
+  }
+  const have = new Set(current);
+  return [...current, ...ids.filter((id) => !have.has(id))];
 }

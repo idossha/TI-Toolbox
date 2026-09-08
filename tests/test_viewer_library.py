@@ -304,7 +304,9 @@ def test_the_tree_has_a_branch_per_stage(pm: PathManager) -> None:
     tree = viewspec.viewer_tree("ernie", "subject", ["L_Insula"])
     assert tree["available"] is True
     labels = {n["label"] for n in tree["anatomy"]}
-    assert {"T1", "T2_reg", "ernie"} <= labels
+    # The head model is labelled by what it is, not by the subject id its file is named after: a
+    # row reading "ernie" among "T1" and "T2_reg" says nothing about which of them it is.
+    assert {"T1", "T2_reg", "Head mesh (ernie)"} <= labels
     assert [s["name"] for s in tree["simulations"]] == ["L_Insula"]
     assert [a["name"] for a in tree["analyses"]] == ["cortical_lh.insula_DK40"]
 

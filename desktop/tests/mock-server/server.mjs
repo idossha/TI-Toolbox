@@ -1055,7 +1055,10 @@ function sceneFor(space, layers, cursorIn) {
     if (Object.keys(sidecars).length) dataset.sidecars = sidecars;
     datasets.push(dataset);
 
-    const base = { id: `L${i}`, datasetId, name: sceneDisplayName(name, role, fieldName), visible, opacity: layer.opacity ?? 1, pickable: true, showColorbar: true };
+    // The file's own basename, exactly as on disk (maintainer, 2026-09-07: "please do not change
+    // the name of the files that we load into the viewer"). `sceneDisplayName` is still ported
+    // below because the composition tree labels its *choices* with it -- but never a layer.
+    const base = { id: `L${i}`, datasetId, name, visible, opacity: layer.opacity ?? 1, pickable: true, showColorbar: true };
     if (isMesh) {
       const [scale, threshold] = meshScaleAndThreshold(fieldBounds);
       sceneLayers.push({
@@ -3557,10 +3560,14 @@ route("DELETE", "/api/viewer/presets/:name", (ctx) => {
 // real server's to prove (`tests/test_viewer_library.py`).
 const treeNode = (path, { label, kind = "volume", bytes = 4_194_304, defaultOn = false } = {}) => {
   const name = path.split("/").pop();
+  // The tree is the one place a curated label is still wanted -- it is a label for *choosing*, and
+  // the filename sits beside it in the row's tooltip and in the list below. Layers are named by
+  // their file (see `sceneFor`); these are not layers.
+  const fieldName = sceneFieldName(name);
   return {
     id: path,
     name,
-    label: label ?? name.replace(/\.(nii\.gz|nii|mgz|msh|gii)$/i, ""),
+    label: label ?? sceneDisplayName(name, sceneRole(path, fieldName ? "heat" : "grayscale"), fieldName),
     path,
     kind,
     bytes,
@@ -3588,8 +3595,14 @@ route("GET", "/api/viewer/tree", (ctx) => {
   ];
   if (space === "mni") anatomy.push(treeNode("/ti-toolbox/resources/atlas/MNI152_T1_1mm.nii.gz", { label: "MNI152 template", defaultOn: true }));
 
-  const simNames = ["Thalamus", "L_Insula"];
-  const simulations = simNames.map((name) => {
+  // Driven by the same fixture `GET /api/catalog/simulations` answers from, not a second hard-coded
+  // list: a subject whose catalog has three simulations and whose tree offers two is a mock that
+  // disagrees with itself, and a deep link to the missing one has nowhere to land.
+  const simNames = (simulations[subject] ?? []).map((sim) => sim.name);
+  // `simBranches`, not `simulations`: that name is the module-level fixture this line above reads,
+  // and shadowing it here put the read in its own temporal dead zone — every tree request became a
+  // 500 and the Menu drew no tree at all.
+  const simBranches = simNames.map((name) => {
     const sim = `${base}/Simulations/${name}`;
     const suffix = space === "mni" ? "MNI_MNI" : "subject";
     return {
@@ -3613,7 +3626,7 @@ route("GET", "/api/viewer/tree", (ctx) => {
       outputs: [treeNode(`${base}/Simulations/${name}/Analyses/Voxel/${name}_DK40_TI_max/roi_mask.nii.gz`, { label: "ROI mask" })],
     }));
 
-  json(ctx.res, 200, { subject, space, anatomy, simulations, analyses, available: true, reason: null });
+  json(ctx.res, 200, { subject, space, anatomy, simulations: simBranches, analyses, available: true, reason: null });
 });
 
 const VIEWER_COMPOSITIONS = new Map();
