@@ -190,6 +190,7 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     await call("/api/catalog/simulations", "GET", "/api/catalog/simulations?subject=ernie");
     await call("/api/catalog/simulations/{name}", "GET", "/api/catalog/simulations/Thalamus?subject=ernie");
     await call("/api/system", "GET", "/api/system");
+    await call("/api/system/storage", "GET", "/api/system/storage");
     await call("/api/system/terminate", "POST", "/api/system/terminate", { body: { pid: 999999 } }); // 404: no such pid, declared
 
     // catalog (v1)
