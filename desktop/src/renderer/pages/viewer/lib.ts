@@ -533,7 +533,9 @@ export function groupAnatomy(nodes: TreeNode[]): { key: string; title: string; n
  */
 export function subjectOfPath(path: string): string | null {
   const match = /\/derivatives\/SimNIBS\/sub-([^/]+)\//.exec(path);
-  return match ? match[1] : null;
+  // The capture group is not optional, but `noUncheckedIndexedAccess` types every match index as
+  // possibly undefined; `?? null` says so once rather than asserting it away.
+  return match?.[1] ?? null;
 }
 
 /**

@@ -191,10 +191,16 @@ function Branch({
   );
 }
 
+/** The three branches the tree renders; one boolean each, never an index signature. */
+type OpenBranches = { anatomy: boolean; simulations: boolean; analyses: boolean };
+
 export function CompositionTree({ tree, chosen, onChange, expanded, onExpandedChange, onFieldPicked, loading }: TreeProps) {
-  const [openBranches, setOpenBranches] = useState<Record<string, boolean>>({ anatomy: true, simulations: true, analyses: true });
+  // Keyed by the three branches this component actually renders, not `Record<string, boolean>`:
+  // an index signature makes every read `boolean | undefined`, and `<details open>` wants a boolean.
+  const [openBranches, setOpenBranches] = useState<OpenBranches>({ anatomy: true, simulations: true, analyses: true });
   const picked = new Set(chosen);
-  const setOpen = (key: string, open: boolean) => setOpenBranches((current) => ({ ...current, [key]: open }));
+  const setOpen = (key: keyof OpenBranches, open: boolean) =>
+    setOpenBranches((current) => ({ ...current, [key]: open }));
   const toggle = (id: string, on: boolean) => onChange(toggleId(chosen, id, on));
 
   if (tree !== undefined && tree.available === false) {

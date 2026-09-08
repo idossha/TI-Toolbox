@@ -195,7 +195,10 @@ test("sub-101/L_Insula opens windowed p95–p99.9, fitted, and crosshaired on th
   // visible depends on what was composed, and this is a claim about the numbers, not the order.
   const heatWindows = view.layers
     .filter((l) => l.scale?.kind === "heat")
-    .map((l) => [Number((l.scale!.min as number).toPrecision(3)).toString(), Number((l.scale!.max as number).toPrecision(3)).toString()]);
+    .map((l): [string, string] => [
+      Number((l.scale!.min as number).toPrecision(3)).toString(),
+      Number((l.scale!.max as number).toPrecision(3)).toString(),
+    ]);
   expect(heatWindows.length).toBeGreaterThan(0);
   expect(
     heatWindows.some(([lo, hi]) => shownBeforeOpen.includes(lo) && shownBeforeOpen.includes(hi)),

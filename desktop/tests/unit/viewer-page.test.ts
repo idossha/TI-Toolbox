@@ -42,6 +42,7 @@ import {
   windowSummary,
   type ViewerSelection,
 } from "../../src/renderer/pages/viewer/lib";
+import type { TreeNode } from "../../src/renderer/pages/viewer/lib";
 
 describe("readDeepLink", () => {
   it("prefers the router's query and falls back to the document's", () => {
@@ -437,7 +438,7 @@ describe("kindChip", () => {
 });
 
 describe("groupAnatomy", () => {
-  const nodes = [
+  const nodes: TreeNode[] = [
     { id: "1", name: "T1.nii.gz", label: "T1", path: "/p/T1.nii.gz", kind: "volume" },
     { id: "2", name: "labeling.nii.gz", label: "labeling", path: "/p/labeling.nii.gz", kind: "label-volume" },
     { id: "3", name: "lh.central.gii", label: "lh.central", path: "/p/lh.central.gii", kind: "surface" },
@@ -454,17 +455,18 @@ describe("groupAnatomy", () => {
   });
 
   it("drops empty groups rather than drawing four headings over one row", () => {
-    expect(groupAnatomy([nodes[0]]).map((g) => g.title)).toEqual(["Volumes"]);
+    expect(groupAnatomy([nodes[0]!]).map((g) => g.title)).toEqual(["Volumes"]);
     expect(groupAnatomy([])).toEqual([]);
   });
 
   it("still draws a kind no group claims", () => {
     // A row nobody drew is a file a person cannot find, which is the failure this lane exists to
     // fix — so an unrecognised kind lands in "Other" rather than being dropped.
-    const odd = { ...nodes[0], id: "9", name: "x.hologram", kind: "hologram" };
-    const groups = groupAnatomy([nodes[0], odd]);
+    const volume = nodes[0]!;
+    const odd: TreeNode = { ...volume, id: "9", name: "x.hologram", kind: "hologram" };
+    const groups = groupAnatomy([volume, odd]);
     expect(groups.map((g) => g.title)).toEqual(["Volumes", "Other"]);
-    expect(groups[1].nodes.map((n) => n.name)).toEqual(["x.hologram"]);
+    expect(groups[1]?.nodes.map((n) => n.name)).toEqual(["x.hologram"]);
   });
 });
 
