@@ -12,6 +12,7 @@ export type Project = components["schemas"]["Project"];
 export type Subject = components["schemas"]["Subject"];
 export type Simulation = components["schemas"]["Simulation"];
 export type SystemSnapshot = components["schemas"]["SystemSnapshot"];
+export type ProjectStorage = components["schemas"]["ProjectStorage"];
 
 export class ApiError extends Error {
   constructor(

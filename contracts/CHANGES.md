@@ -981,3 +981,39 @@ kind it does not know. Hosts ask for the *name*, never the number.
 Attachments ride on the dataset as `sidecars.fields: [{path}]`, **relative to the surface's own
 directory** — the only path in a scene that is not absolute, and so the only one neither
 addressing has to re-root.
+
+## 2026-09-07 — `GET /api/system/storage`: what the project costs, by kind
+
+The System page shows the machine's disk limit; this is the other half —
+*what of that is us*, broken down the way a person thinks about their project
+("the flex searches are 180 GB") rather than by directory. New path, new
+schemas `ProjectStorage` / `StorageKind` / `StorageItem`; nothing existing
+changed shape.
+
+It is a **different kind of read** from the snapshot, which is why it is not a
+field on it: `/api/system` is a cheap sample taken every second, this is a full
+walk of the project that takes minutes on a large volume. So the route never
+blocks on the walk — it answers from an on-disk cache
+(`code/ti-toolbox/cache/storage.json`) immediately, starts a background refresh
+when that cache is older than ten minutes (or `refresh=true`), and sets
+`scanning` while one is running. A project that has never been scanned answers
+with zeros and `scanning: true`, so the page can say "scanning…" rather than
+"0 bytes" — a missing number, not a wrong one.
+
+`tit/storage.py` does the walk, and three details in it are what make the
+figures trustworthy:
+
+- **`st_blocks * 512`, not `st_size`** — what the filesystem actually charges.
+  `st_size` over-counts sparse files and under-counts the tail block of every
+  small one.
+- **Hardlinks counted once**, via a `(st_dev, st_ino)` set held for the whole
+  walk. QSIPrep and several of our own steps hardlink rather than copy, and
+  summing per-file sizes produced a total larger than the volume.
+- **Classification asks `PathManager` for each kind's root** rather than
+  matching globs written in the scanner, and takes the longest matching prefix —
+  which is what separates `Simulations/<sim>/Analyses/` from the simulation
+  that produced it.
+
+Verified against `du -sk` on a real project: total 20.02 GB both ways, head
+models 4.64 GB both ways, leadfields 3.72 GB both ways, and `du`'s
+Simulations 7.02 GB = our Simulations 6.66 + Analyses 0.36.

@@ -121,6 +121,25 @@ const SNAPSHOT: SystemSnapshot = {
   },
 } as unknown as SystemSnapshot;
 
+const STORAGE = {
+  project_dir: "/mnt/example",
+  total_bytes: 246 * 1024 ** 3,
+  total_files: 15_100,
+  scanned_at: Date.now() / 1000 - 180,
+  duration_s: 42.7,
+  scanning: false,
+  partial: false,
+  kinds: [
+    { kind: "flex_search", label: "Flex search", bytes: 181 * 1024 ** 3, files: 4120 },
+    { kind: "simulations", label: "Simulations", bytes: 42 * 1024 ** 3, files: 860 },
+  ],
+  largest: [{ name: "sub-101 · Flex search", kind: "flex_search", bytes: 122 * 1024 ** 3 }],
+};
+vi.mock("../../src/renderer/pages/system/storageApi", () => ({
+  useStorage: () => ({ data: STORAGE, isLoading: false, isError: false }),
+  getStorage: async () => STORAGE,
+}));
+
 vi.mock("../../src/renderer/ws/useSystemStream", () => ({
   useSystemStream: () => ({ status: "open", samples: [SNAPSHOT, { ...SNAPSHOT, ts: NOW_S }], attempt: 0 }),
 }));
@@ -198,6 +217,26 @@ describe("the rendered page shows each figure exactly once", () => {
     await renderPage();
     expect(occurrences("412.5 GB")).toBe(1);
     expect(container.querySelector('[data-testid="system-storage"]')!.textContent).toContain("412.5 GB");
+  });
+
+  it("separates the machine's limit from the project's share of it", async () => {
+    await renderPage();
+    const storage = container.querySelector('[data-testid="system-storage"]')!;
+    expect(storage.querySelector('[data-testid="storage-system"]')).not.toBeNull();
+    expect(storage.querySelector('[data-testid="storage-project"]')).not.toBeNull();
+    // The project total is printed once, in its own half.
+    expect(occurrences("246.0 GB")).toBe(1);
+    expect(container.querySelector('[data-testid="project-total"]')!.textContent).toBe("246.0 GB");
+    // …and it is stated as a share of the disk it competes for, so "246 GB" means something.
+    expect(storage.textContent).toContain("% of the system disk");
+    // The card says how old its own numbers are — it is a scan, not a live sample.
+    expect(container.querySelector('[data-testid="storage-age"]')!.textContent).toMatch(/scanned .* ago/);
+  });
+
+  it("keeps the by-kind breakdown behind a disclosure", async () => {
+    await renderPage();
+    expect(container.querySelector('[data-testid="storage-kinds"]')).toBeNull();
+    expect(container.querySelector('[data-testid="storage-kinds-toggle"]')).not.toBeNull();
   });
 
   it("prints the load average and uptime once each, in Host", async () => {

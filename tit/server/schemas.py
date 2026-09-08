@@ -490,6 +490,50 @@ class DockerHealth(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class StorageKind(BaseModel):
+    """One class of project output, and what it costs on disk."""
+
+    kind: str
+    label: str
+    bytes: int
+    files: int
+
+
+class StorageItem(BaseModel):
+    """One named thing inside a kind -- "sub-101 - Flex search"."""
+
+    name: str
+    kind: str
+    bytes: int
+
+
+class ProjectStorage(BaseModel):
+    """``GET /api/system/storage`` -- what the project is using, by kind.
+
+    Separate from :class:`SystemSnapshot` because it is a different *kind* of
+    read: the snapshot is a cheap sample taken every second, this is a full walk
+    of the project that can take minutes on a large volume and is therefore
+    cached on disk and refreshed in the background.  ``scanning`` says a refresh
+    is running right now and these are the previous numbers.
+    """
+
+    project_dir: str
+    total_bytes: int
+    total_files: int
+    scanned_at: float = Field(description="unix seconds; 0 when never scanned")
+    duration_s: float
+    scanning: bool = Field(
+        default=False, description="a background refresh is running; these are the last numbers"
+    )
+    partial: bool = Field(
+        default=False, description="the scan was abandoned before it finished"
+    )
+    kinds: list[StorageKind] = Field(default_factory=list)
+    largest: list[StorageItem] = Field(
+        default_factory=list, description="the biggest subject x kind combinations"
+    )
+
+
 class SystemSnapshot(BaseModel):
     ts: float = Field(description="unix seconds")
     cpu_percent: float

@@ -1787,6 +1787,44 @@ route("GET", "/api/catalog/simulations/:name", (ctx) => {
   json(ctx.res, 200, sim);
 });
 route("GET", "/api/system", (ctx) => json(ctx.res, 200, snapshot()));
+// `GET /api/system/storage` — the project's own disk usage, by kind. Realistic numbers (a real
+// two-subject project with leadfields and a few flex runs), and `scanning` flips to true for one
+// response after `?refresh=true` so the page's "scanning…" state is exercised by the e2e.
+const storageKinds = [
+  { kind: "flex_search", label: "Flex search", bytes: 181 * 1024 ** 3, files: 4120 },
+  { kind: "simulations", label: "Simulations", bytes: 42 * 1024 ** 3, files: 860 },
+  { kind: "head_models", label: "Head models", bytes: 9.4 * 1024 ** 3, files: 562 },
+  { kind: "leadfields", label: "Leadfields", bytes: 7.4 * 1024 ** 3, files: 42 },
+  { kind: "dwi", label: "Diffusion (QSIPrep/QSIRecon)", bytes: 3.1 * 1024 ** 3, files: 1904 },
+  { kind: "sourcedata", label: "Source data (DICOM)", bytes: 1.6 * 1024 ** 3, files: 2906 },
+  { kind: "analyses", label: "Analyses", bytes: 780 * 1024 ** 2, files: 88 },
+  { kind: "surfaces", label: "Surface reconstruction", bytes: 620 * 1024 ** 2, files: 782 },
+  { kind: "reports", label: "Reports", bytes: 340 * 1024 ** 2, files: 250 },
+  { kind: "toolbox", label: "Toolbox state", bytes: 210 * 1024 ** 2, files: 3524 },
+  { kind: "other", label: "Other", bytes: 90 * 1024 ** 2, files: 61 },
+].map((k) => ({ ...k, bytes: Math.round(k.bytes) }));
+let storageScanning = false;
+route("GET", "/api/system/storage", (ctx) => {
+  const refresh = ctx.url.searchParams.get("refresh") === "true";
+  if (refresh) storageScanning = true;
+  const wasScanning = storageScanning;
+  storageScanning = false;
+  json(ctx.res, 200, {
+    project_dir: "/mnt/example",
+    total_bytes: storageKinds.reduce((n, k) => n + k.bytes, 0),
+    total_files: storageKinds.reduce((n, k) => n + k.files, 0),
+    scanned_at: Date.now() / 1000 - 180,
+    duration_s: 42.7,
+    scanning: wasScanning,
+    partial: false,
+    kinds: storageKinds,
+    largest: [
+      { name: "sub-101 · Flex search", kind: "flex_search", bytes: 122 * 1024 ** 3 },
+      { name: "sub-ernie · Flex search", kind: "flex_search", bytes: 59 * 1024 ** 3 },
+      { name: "sub-101 · Simulations", kind: "simulations", bytes: 27 * 1024 ** 3 },
+    ],
+  });
+});
 route("POST", "/api/system/terminate", async (ctx) => {
   const body = await ctx.body();
   const idx = processes.findIndex((p) => p.pid === body.pid);

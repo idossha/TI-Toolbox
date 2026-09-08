@@ -324,10 +324,12 @@ export const METRIC_HOME = {
   // Memory: the composition, not the percentage.
   "mem.breakdown": "memory",
   "mem.swap": "memory",
-  // Storage: both the filesystem and what Docker is holding — one question, one card.
-  "disk.project": "storage",
+  // Storage: the machine's limit, and our share of it.
+  "disk.system": "storage",
   "disk.dockerRoot": "storage",
   "docker.df": "storage",
+  "project.total": "storage",
+  "project.kinds": "storage",
   // Docker: the daemon and this container.
   "docker.engine": "docker",
   "docker.own": "docker",
@@ -410,4 +412,57 @@ export function timelineLegend(latest: SystemSnapshot | undefined): { id: string
 
 function pctLabel(n: number | undefined): string {
   return n === undefined ? "—" : `${n.toFixed(1)} %`;
+}
+
+
+// ------------------------------------------------------- project storage
+
+import type { ProjectStorage } from "../../api/client";
+
+/**
+ * The project's usage as one stacked bar: the kinds the server reported, largest first, with
+ * everything past the first six folded into "Other".
+ *
+ * Folding rather than showing all fifteen: a bar with fifteen bands is a colour key, not a
+ * reading, and the tail is genuinely small — the question this answers is "what are the two or
+ * three things costing me the disk".
+ */
+export const PROJECT_BANDS = 6;
+
+export function projectSegments(storage: ProjectStorage | undefined): Segment[] {
+  const kinds = [...(storage?.kinds ?? [])].sort((a, b) => b.bytes - a.bytes);
+  if (kinds.length === 0 || !storage || storage.total_bytes <= 0) return [];
+  const head = kinds.slice(0, PROJECT_BANDS);
+  const tailBytes = kinds.slice(PROJECT_BANDS).reduce((n, k) => n + k.bytes, 0);
+  const parts = head.map((k, i) => ({
+    id: k.kind,
+    label: k.label,
+    bytes: k.bytes,
+    // A ramp through the one accent, not six unrelated hues: these are shares of one thing.
+    tone: (i === 0 ? "accent" : i < 3 ? "cache" : "muted") as Segment["tone"],
+  }));
+  if (tailBytes > 0) parts.push({ id: "rest", label: "Other kinds", bytes: tailBytes, tone: "muted" });
+  return segments(storage.total_bytes, parts);
+}
+
+/** "scanned 3 min ago" / "never scanned" / "scanning…" — what the card says about its own age. */
+export function scanAgeLabel(storage: ProjectStorage | undefined, now: number = Date.now()): string {
+  if (!storage) return "…";
+  if (storage.scanning) return "scanning…";
+  if (!storage.scanned_at) return "never scanned";
+  const s = Math.max(0, Math.round(now / 1000 - storage.scanned_at));
+  if (s < 60) return `scanned ${s} s ago`;
+  const m = Math.round(s / 60);
+  if (m < 60) return `scanned ${m} min ago`;
+  const h = Math.round(m / 60);
+  return h < 48 ? `scanned ${h} h ago` : `scanned ${Math.round(h / 24)} d ago`;
+}
+
+/** How much of the *system disk* this project is. `null` when either figure is missing. */
+export function projectShareOfDisk(
+  storage: ProjectStorage | undefined,
+  disk: { total: number } | undefined | null,
+): number | null {
+  if (!storage || !disk || disk.total <= 0 || storage.total_bytes <= 0) return null;
+  return (storage.total_bytes / disk.total) * 100;
 }

@@ -72,6 +72,16 @@ async function expectColumnGeometry(): Promise<void> {
   expect(stack.y + stack.height).toBeGreaterThan(pageBox.y + pageBox.height - 2);
 }
 
+/** Collapses the disclosures the assertions opened and scrolls the right stack back to the top,
+ *  so a screenshot shows the page as it opens rather than as a test left it. */
+async function resetToDefaultView(): Promise<void> {
+  for (const id of ["storage-kinds-toggle", "docker-images-toggle"]) {
+    const toggle = page.getByTestId(id);
+    if ((await toggle.getAttribute("aria-expanded")) === "true") await toggle.click();
+  }
+  await page.locator(".system-stack").evaluate((el) => el.scrollTo({ top: 0 }));
+}
+
 /** True when the process table has more rows than its own box — which is where a long list is
  *  supposed to overflow, instead of growing the page. */
 async function processTableScrolls(): Promise<boolean> {
@@ -207,12 +217,36 @@ test("every panel is populated from the live stream, in both themes", async () =
   await expect(memory).toContainText("Cache");
   await expect(page.getByTestId("swap-meter").locator(".system-meter-seg")).toHaveCount(2);
 
-  const storage = page.getByTestId("system-storage");
-  await expect(storage).toContainText("/mnt/example");
+  // Storage is two clearly separated halves: the machine's limit, and our share of it.
+  const systemHalf = page.getByTestId("storage-system");
+  await expect(systemHalf).toContainText("/mnt/example");
   await expect(page.getByTestId("project-disk-meter").locator(".system-meter-seg")).toHaveCount(2);
-  // `docker system df` is Storage's, not the Docker card's: it answers "what is filling the disk".
-  await expect(page.getByTestId("docker-df-meter").locator(".system-meter-seg")).toHaveCount(4);
+  // `docker system df` is part of the *system disk*, indented under it: on a single-disk
+  // deployment the daemon and the project compete for the same free space.
+  await expect(systemHalf.getByTestId("docker-df-meter").locator(".system-meter-seg")).toHaveCount(4);
   await expect(page.getByTestId("docker-reclaimable")).toContainText("prune");
+
+  const projectHalf = page.getByTestId("storage-project");
+  await expect(page.getByTestId("project-total")).toHaveText(/\d+(\.\d+)? GB/);
+  await expect(projectHalf).toContainText("% of the system disk");
+  await expect(page.getByTestId("storage-age")).toHaveText(/scanned .* ago/);
+  await expect(page.getByTestId("project-kinds-meter").locator(".system-meter-seg")).not.toHaveCount(0);
+
+  // The breakdown is behind a disclosure, and it sums to the total within 1 %.
+  await expect(page.getByTestId("storage-kinds")).toHaveCount(0);
+  await projectHalf.getByTestId("storage-kinds-toggle").click();
+  const kinds = page.getByTestId("storage-kinds");
+  await expect(kinds).toContainText("Flex search");
+  const parseGb = (t: string): number => {
+    const n = Number.parseFloat(t);
+    return t.includes("GB") ? n : t.includes("MB") ? n / 1024 : n / 1024 ** 2;
+  };
+  const kindGb = (await kinds.locator("tr td:last-child").allInnerTexts()).map(parseGb);
+  const totalGb = parseGb(await page.getByTestId("project-total").innerText());
+  const summed = kindGb.reduce((a, b) => a + b, 0);
+  expect(Math.abs(summed - totalGb) / totalGb).toBeLessThan(0.01);
+  // …and the largest subject x kind rows, which is what "which flex run is the 120 GB one" needs.
+  await expect(page.getByTestId("storage-largest")).toContainText("sub-101");
 
   const docker = page.getByTestId("system-docker");
   await expect(page.getByTestId("docker-status")).toContainText("Engine 27.3.1");
@@ -242,6 +276,11 @@ test("every panel is populated from the live stream, in both themes", async () =
   // rows than fit — only IT scrolls.
   expect(await pageScrolls()).toBe(false);
   expect(await processTableScrolls()).toBe(true);
+
+  // Back to the state a person actually opens the page in before the shot: the assertions above
+  // left two disclosures open and the right stack scrolled to them, which is not what the page
+  // looks like.
+  await resetToDefaultView();
   await page.screenshot({ path: join(ARTIFACTS, "system-light-1440.png") });
 
   await setTheme(page, "dark", async () => {

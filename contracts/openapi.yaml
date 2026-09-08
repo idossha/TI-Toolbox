@@ -277,6 +277,31 @@ paths:
                 $ref: "#/components/schemas/SystemSnapshot"
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /api/system/storage:
+    get:
+      tags: [system]
+      summary: What the project is using on disk, by output kind
+      description: >-
+        A full walk of the project, which on a large volume takes minutes -- so it is cached on
+        disk (`code/ti-toolbox/cache/storage.json`) and refreshed in a background thread. This
+        route never blocks on the walk: it answers from the cache immediately, starts a refresh
+        when that cache is older than ten minutes (or `refresh=true`), and sets `scanning` while
+        one is running. A project never scanned answers with zeros and `scanning: true`.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: refresh
+          required: false
+          schema: { type: boolean, default: false }
+          description: start a rescan even when the cache is fresh
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectStorage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /api/system/terminate:
     post:
       tags: [system]
@@ -3934,6 +3959,41 @@ components:
         warnings:
           type: array
           items: { type: string }
+    StorageKind:
+      type: object
+      required: [kind, label, bytes, files]
+      properties:
+        kind: { type: string }
+        label: { type: string }
+        bytes: { type: integer, description: real disk usage (st_blocks * 512), hardlinks counted once }
+        files: { type: integer }
+    StorageItem:
+      type: object
+      required: [name, kind, bytes]
+      properties:
+        name: { type: string }
+        kind: { type: string }
+        bytes: { type: integer }
+    ProjectStorage:
+      type: object
+      required: [project_dir, total_bytes, total_files, scanned_at, duration_s]
+      properties:
+        project_dir: { type: string }
+        total_bytes: { type: integer }
+        total_files: { type: integer }
+        scanned_at: { type: number, description: "unix seconds; 0 when never scanned" }
+        duration_s: { type: number }
+        scanning:
+          type: boolean
+          description: a background refresh is running; these are the last numbers
+        partial: { type: boolean, description: the scan was abandoned before it finished }
+        kinds:
+          type: array
+          items: { $ref: "#/components/schemas/StorageKind" }
+        largest:
+          type: array
+          description: the biggest subject x kind combinations
+          items: { $ref: "#/components/schemas/StorageItem" }
     SystemSnapshot:
       type: object
       required: [ts, cpu_percent, cpu_count, mem, disk, processes]

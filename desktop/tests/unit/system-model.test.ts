@@ -30,6 +30,10 @@ import {
   toneFor,
   windowed,
   WINDOW_MS,
+  PROJECT_BANDS,
+  projectSegments,
+  projectShareOfDisk,
+  scanAgeLabel,
   type Process,
 } from "../../src/renderer/pages/system/model";
 
@@ -310,5 +314,67 @@ describe("the process table", () => {
     expect(isStoppable(proc({ owner_kind: null }))).toBe(false);
     // Being a *toolbox* process is not ownership: `charm` spawned outside a job is still unowned.
     expect(isStoppable(proc({ relevant: true, owner_kind: null }))).toBe(false);
+  });
+});
+
+
+// ---------------------------------------------------------- project storage
+
+describe("the project's storage breakdown", () => {
+  const storage = {
+    project_dir: "/mnt/000",
+    total_bytes: 100,
+    total_files: 10,
+    scanned_at: 1_000,
+    duration_s: 1,
+    scanning: false,
+    partial: false,
+    kinds: [
+      { kind: "a", label: "A", bytes: 50, files: 1 },
+      { kind: "b", label: "B", bytes: 20, files: 1 },
+      { kind: "c", label: "C", bytes: 10, files: 1 },
+      { kind: "d", label: "D", bytes: 8, files: 1 },
+      { kind: "e", label: "E", bytes: 6, files: 1 },
+      { kind: "f", label: "F", bytes: 4, files: 1 },
+      { kind: "g", label: "G", bytes: 1, files: 1 },
+      { kind: "h", label: "H", bytes: 1, files: 1 },
+    ],
+    largest: [],
+  };
+
+  it("shows the biggest kinds and folds the tail, summing to the whole", () => {
+    const segs = projectSegments(storage);
+    // Six bands plus one "Other kinds": fifteen bands is a colour key, not a reading.
+    expect(segs).toHaveLength(PROJECT_BANDS + 1);
+    expect(segs[0]!.label).toBe("A");
+    expect(segs[segs.length - 1]!.label).toBe("Other kinds");
+    expect(segs[segs.length - 1]!.bytes).toBe(2);
+    expect(segs.reduce((n, s) => n + s.bytes, 0)).toBe(storage.total_bytes);
+    expect(segs.reduce((n, s) => n + s.fraction, 0)).toBeCloseTo(1, 6);
+  });
+
+  it("draws nothing before the first scan, rather than an empty full bar", () => {
+    expect(projectSegments(undefined)).toEqual([]);
+    expect(projectSegments({ ...storage, total_bytes: 0, kinds: [] })).toEqual([]);
+  });
+
+  it("states the project as a share of the disk it competes for", () => {
+    // "246 GB" means nothing until you know the disk is 1 TB.
+    expect(projectShareOfDisk(storage, { total: 400 })).toBeCloseTo(25, 5);
+    expect(projectShareOfDisk(storage, null)).toBeNull();
+    expect(projectShareOfDisk(undefined, { total: 400 })).toBeNull();
+    expect(projectShareOfDisk(storage, { total: 0 })).toBeNull();
+  });
+
+  it("says how old its own numbers are — it is a scan, not a live sample", () => {
+    const at = 1_700_000_000;
+    const s = { ...storage, scanned_at: at };
+    expect(scanAgeLabel(s, at * 1000 + 30_000)).toBe("scanned 30 s ago");
+    expect(scanAgeLabel(s, at * 1000 + 3 * 60_000)).toBe("scanned 3 min ago");
+    expect(scanAgeLabel(s, at * 1000 + 5 * 3600_000)).toBe("scanned 5 h ago");
+    expect(scanAgeLabel({ ...s, scanning: true }, at * 1000)).toBe("scanning…");
+    // Never scanned is its own answer: "0 bytes" would be a wrong number, not a missing one.
+    expect(scanAgeLabel({ ...s, scanned_at: 0 }, at * 1000)).toBe("never scanned");
+    expect(scanAgeLabel(undefined)).toBe("…");
   });
 });

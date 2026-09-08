@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 import time
 from typing import Any
 
@@ -33,6 +34,7 @@ from tit.server.schemas import (
     NetIO,
     OwnContainer,
     ProcessInfo,
+    ProjectStorage,
     SelfProcessInfo,
     SwapInfo,
     SystemSnapshot,
@@ -667,6 +669,75 @@ def snapshot() -> SystemSnapshot:
 )
 def system() -> SystemSnapshot:
     return snapshot()
+
+
+# ── project storage ──────────────────────────────────────────────────────────
+#
+# A different *kind* of read from the snapshot above: a full walk of the project
+# (``tit.storage``), which on a large volume takes minutes.  So it is never on
+# the 1-2 s tick and never on a request path something waits for -- the route
+# answers from the on-disk cache immediately and starts a background refresh
+# when that cache is stale.
+
+#: One scan at a time, process-wide. A second request while a scan runs joins
+#: the running one rather than starting a competing walk of the same tree.
+_scan_lock = threading.Lock()
+_scanning = threading.Event()
+
+
+def _scan_worker() -> None:
+    from tit import storage
+
+    try:
+        result = storage.scan_project()
+        storage.save_cache(result)
+        logger.info(
+            "storage scan: %.1f GB in %d files (%.1fs)",
+            result.total_bytes / 1e9,
+            result.total_files,
+            result.duration_s,
+        )
+    except Exception:
+        logger.exception("storage scan failed")
+    finally:
+        _scanning.clear()
+
+
+def start_scan() -> bool:
+    """Kick off a background scan unless one is already running. True if started."""
+    with _scan_lock:
+        if _scanning.is_set():
+            return False
+        _scanning.set()
+    thread = threading.Thread(target=_scan_worker, name="tit-storage-scan", daemon=True)
+    thread.start()
+    return True
+
+
+def storage_snapshot(refresh: bool = False) -> ProjectStorage:
+    """The cached scan, refreshing in the background when it is stale or forced.
+
+    Never blocks on the walk. A project that has never been scanned answers with
+    zeros and ``scanning: true``, and the page says "scanning…" rather than
+    "0 bytes", which would be a wrong number rather than a missing one.
+    """
+    from tit import storage
+
+    cached = storage.load_cache()
+    if refresh or storage.is_stale(cached):
+        start_scan()
+    payload = (cached.to_dict() if cached else storage.ProjectStorage(project_dir=get_path_manager().project_dir or "").to_dict())
+    payload["scanning"] = _scanning.is_set()
+    return ProjectStorage(**payload)
+
+
+@router.get(
+    "/api/system/storage",
+    response_model=ProjectStorage,
+    summary="What the project is using on disk, by output kind (cached; refreshes in background)",
+)
+def storage(refresh: bool = False) -> ProjectStorage:
+    return storage_snapshot(refresh=refresh)
 
 
 GRACE_SECONDS = 3.0

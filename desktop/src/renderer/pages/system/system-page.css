@@ -439,6 +439,34 @@
 .system-note-warn {
   color: var(--warning);
 }
+/* A block nested inside another (Docker's usage *of the system disk*): indented and hairlined so
+   the nesting is visible, because "235 GB" under "System disk" has to read as a part of it and
+   not as a second, competing total. */
+.system-subblock {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 4px;
+  padding-left: var(--space-2);
+  border-left: 1px solid var(--line);
+}
+.system-rescan {
+  vertical-align: -3px;
+  margin-left: 4px;
+}
+.system-rescan.is-scanning svg {
+  animation: system-spin 1.1s linear infinite;
+}
+@keyframes system-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .system-rescan.is-scanning svg {
+    animation: none;
+  }
+}
 .system-docker-down {
   color: var(--danger);
   margin: 0;

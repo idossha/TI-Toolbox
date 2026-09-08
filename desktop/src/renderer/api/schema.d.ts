@@ -357,6 +357,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/system/storage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the project is using on disk, by output kind
+         * @description A full walk of the project, which on a large volume takes minutes -- so it is cached on disk (`code/ti-toolbox/cache/storage.json`) and refreshed in a background thread. This route never blocks on the walk: it answers from the cache immediately, starts a refresh when that cache is older than ten minutes (or `refresh=true`), and sets `scanning` while one is running. A project never scanned answers with zeros and `scanning: true`.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description start a rescan even when the cache is fresh */
+                    refresh?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProjectStorage"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/system/terminate": {
         parameters: {
             query?: never;
@@ -5529,6 +5571,33 @@ export interface components {
             containers?: components["schemas"]["ContainerInfo"][];
             images?: components["schemas"]["DockerImage"][];
             warnings?: string[];
+        };
+        StorageKind: {
+            kind: string;
+            label: string;
+            /** @description real disk usage (st_blocks * 512) */
+            bytes: number;
+            files: number;
+        };
+        StorageItem: {
+            name: string;
+            kind: string;
+            bytes: number;
+        };
+        ProjectStorage: {
+            project_dir: string;
+            total_bytes: number;
+            total_files: number;
+            /** @description unix seconds; 0 when never scanned */
+            scanned_at: number;
+            duration_s: number;
+            /** @description a background refresh is running; these are the last numbers */
+            scanning?: boolean;
+            /** @description the scan was abandoned before it finished */
+            partial?: boolean;
+            kinds?: components["schemas"]["StorageKind"][];
+            /** @description the biggest subject x kind combinations */
+            largest?: components["schemas"]["StorageItem"][];
         };
         SystemSnapshot: {
             /** @description unix seconds */
