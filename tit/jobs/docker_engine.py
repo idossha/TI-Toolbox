@@ -393,7 +393,31 @@ class DockerEngineClient:
         except (DockerEngineError, OSError):
             return False
 
+    def system_df(
+        self, timeout_s: float | None | object = "default"
+    ) -> dict[str, Any]:
+        """``GET /system/df`` -- the Engine-API equivalent of ``docker system df``.
+
+        Read-only, used by the System page's Docker-health panel. It is a genuinely expensive call
+        on the daemon side (it walks the image graph), which is why the caller polls it on a
+        multi-second TTL and passes an explicit timeout rather than the client default.
+        """
+        self._ensure_negotiated()
+        return self._json_request(
+            "GET", self._vpath("/system/df"), timeout_s=timeout_s
+        )
+
     # -- images ---------------------------------------------------------------------------------
+
+    def list_images(
+        self, timeout_s: float | None | object = "default"
+    ) -> list[dict[str, Any]]:
+        """``GET /images/json`` -- ``docker images``. Read-only; see :meth:`system_df`."""
+        self._ensure_negotiated()
+        result = self._json_request(
+            "GET", self._vpath("/images/json"), timeout_s=timeout_s
+        )
+        return list(result or [])
 
     def pull_image(
         self,

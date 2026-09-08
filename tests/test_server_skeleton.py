@@ -263,8 +263,11 @@ def test_ws_system_streams_snapshot(client: TestClient) -> None:
         msg = json.loads(ws.receive_text())
     for key in ("ts", "cpu_percent", "cpu_count", "mem", "disk", "processes"):
         assert key in msg
-    assert set(msg["mem"]) == {"total", "available", "used", "percent"}
-    assert set(msg["disk"]) == {"total", "free", "percent"}
+    # The v0 keys are a SUBSET check, not an equality one: the snapshot grew optional fields on
+    # 2026-09-07 for the System page (contracts/CHANGES.md), and pinning the exact key set here
+    # made every additive change to a monitoring payload a red test in an unrelated file.
+    assert set(msg["mem"]) >= {"total", "available", "used", "percent"}
+    assert set(msg["disk"]) >= {"total", "free", "percent"}
 
 
 def test_ws_accepts_cookie(settings: ServerSettings) -> None:
@@ -530,8 +533,9 @@ def test_catalog_unknown_subject_404(client: TestClient) -> None:
 
 
 def test_system_snapshot_shape(client: TestClient) -> None:
+    """The v0 core of the snapshot. Its 2026-09-07 additions are `tests/test_server_system.py`."""
     body = client.get("/api/system", headers=BEARER).json()
-    assert set(body) == {"ts", "cpu_percent", "cpu_count", "mem", "disk", "processes"}
+    assert set(body) >= {"ts", "cpu_percent", "cpu_count", "mem", "disk", "processes"}
     assert isinstance(body["cpu_count"], int)
     for proc in body["processes"]:
         assert set(proc) >= {"pid", "name", "cpu_percent", "rss", "started"}
@@ -563,13 +567,19 @@ def test_relevant_processes_excludes_own_pid(monkeypatch) -> None:
 
     class _Proc:
         def __init__(self, pid: int, name: str) -> None:
+            # The full attr set `process_list` asks psutil for; `process_iter(attrs=...)` fills
+            # every requested key, so a fake that omits one is not a fake of the real call.
             self.info = {
                 "pid": pid,
+                "ppid": 1,
                 "name": name,
                 "cmdline": [name, "-m", "tit.sim"],
                 "cpu_percent": 1.0,
                 "create_time": 0.0,
                 "memory_info": _Mem(),
+                "memory_percent": 0.1,
+                "num_threads": 2,
+                "status": "running",
             }
 
     fake = [_Proc(os.getpid(), "simnibs_python"), _Proc(424242, "simnibs_python")]

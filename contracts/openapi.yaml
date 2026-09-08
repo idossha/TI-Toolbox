@@ -3759,6 +3759,156 @@ components:
         simulations:
           type: array
           items: { $ref: "#/components/schemas/SimulationDetail" }
+    # ---- system snapshot (GET /api/system, /ws/system) ----
+    #
+    # Everything past the six original required fields was added 2026-09-07 for the System page
+    # and is OPTIONAL with a default: a client written against the earlier payload parses this
+    # one unchanged, and a host that cannot answer a field (no getloadavg, no Docker socket,
+    # /var/lib/docker not visible from inside the container) omits it rather than failing the
+    # whole snapshot. See contracts/CHANGES.md.
+    MemoryInfo:
+      type: object
+      required: [total, available, used, percent]
+      properties:
+        total: { type: integer }
+        available: { type: integer }
+        used: { type: integer }
+        percent: { type: number }
+        free: { type: integer }
+        cached: { type: integer, description: "Linux only; 0 elsewhere" }
+        buffers: { type: integer, description: "Linux only; 0 elsewhere" }
+    SwapInfo:
+      type: object
+      required: [total, used, free, percent]
+      properties:
+        total: { type: integer }
+        used: { type: integer }
+        free: { type: integer }
+        percent: { type: number }
+    DiskInfo:
+      type: object
+      required: [total, free, percent]
+      properties:
+        total: { type: integer }
+        free: { type: integer }
+        percent: { type: number }
+        path: { type: string, description: the mount point measured (optional, added 2026-09-07) }
+    NetIO:
+      type: object
+      required: [bytes_sent, bytes_recv]
+      properties:
+        bytes_sent: { type: integer }
+        bytes_recv: { type: integer }
+    SelfProcessInfo:
+      type: object
+      required: [pid, cpu_percent, rss]
+      properties:
+        pid: { type: integer }
+        cpu_percent: { type: number }
+        rss: { type: integer }
+    ProcessInfo:
+      type: object
+      required: [pid, name, cpu_percent, rss, started]
+      properties:
+        pid: { type: integer }
+        name: { type: string }
+        cmdline: { type: string }
+        cpu_percent: { type: number }
+        rss: { type: integer }
+        started: { type: number }
+        ppid: { type: integer }
+        status: { type: string, description: "psutil status: running, sleeping, zombie, ..." }
+        mem_percent: { type: number }
+        threads: { type: integer }
+        relevant:
+          type: boolean
+          description: matches the toolbox keyword filter (what the pre-2026-09-07 list held)
+        owner_kind:
+          type: ["string", "null"]
+          description: >-
+            "job" | "kernel" | "server", or null for an unowned process. Only an owned process
+            gets a stop affordance in the UI.
+        owner_id: { type: ["string", "null"] }
+        owner_label: { type: string }
+    ContainerInfo:
+      type: object
+      required: [id, name, image, state, status]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        image: { type: string }
+        state: { type: string }
+        status: { type: string }
+    DockerDf:
+      type: object
+      description: "`docker system df` totals, summed from the Engine's rows"
+      properties:
+        images_size: { type: integer }
+        images_count: { type: integer }
+        images_reclaimable: { type: integer }
+        containers_size: { type: integer }
+        containers_count: { type: integer }
+        volumes_size: { type: integer }
+        volumes_count: { type: integer }
+        volumes_reclaimable: { type: integer }
+        build_cache_size: { type: integer }
+    DockerImage:
+      type: object
+      required: [repo_tag, size]
+      properties:
+        repo_tag: { type: string }
+        size: { type: integer }
+    DockerMount:
+      type: object
+      required: [source, destination]
+      properties:
+        source: { type: string }
+        destination: { type: string }
+        mode: { type: string }
+    OwnContainer:
+      type: object
+      description: this server's own container, as `docker inspect` describes it
+      required: [id, name, image]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        image: { type: string }
+        image_id: { type: string }
+        state: { type: string }
+        status: { type: string }
+        health: { type: string }
+        started_at: { type: string }
+        restarts: { type: integer }
+        cpu_limit: { type: ["number", "null"], description: cores; null means no limit set }
+        mem_limit: { type: ["integer", "null"], description: bytes; null means no limit set }
+        mounts:
+          type: array
+          items: { $ref: "#/components/schemas/DockerMount" }
+    DockerHealth:
+      type: object
+      description: >-
+        Daemon reachability, disk usage and our own container, read on a 5 s TTL with a 3 s socket
+        timeout. `reachable: false` with an `error` is a first-class answer -- the panel says the
+        daemon is unreachable rather than showing zeros that look like a healthy, empty daemon.
+      properties:
+        reachable: { type: boolean }
+        latency_ms: { type: ["number", "null"] }
+        version: { type: string }
+        api_version: { type: string }
+        error: { type: string }
+        df:
+          allOf: [{ $ref: "#/components/schemas/DockerDf" }]
+        own:
+          allOf: [{ $ref: "#/components/schemas/OwnContainer" }]
+        containers:
+          type: array
+          items: { $ref: "#/components/schemas/ContainerInfo" }
+        images:
+          type: array
+          items: { $ref: "#/components/schemas/DockerImage" }
+        warnings:
+          type: array
+          items: { type: string }
     SystemSnapshot:
       type: object
       required: [ts, cpu_percent, cpu_count, mem, disk, processes]
@@ -3766,34 +3916,43 @@ components:
         ts: { type: number, description: unix seconds }
         cpu_percent: { type: number }
         cpu_count: { type: integer }
-        mem:
-          type: object
-          required: [total, available, used, percent]
-          properties:
-            total: { type: integer }
-            available: { type: integer }
-            used: { type: integer }
-            percent: { type: number }
-        disk:
-          type: object
-          required: [total, free, percent]
-          properties:
-            total: { type: integer }
-            free: { type: integer }
-            percent: { type: number }
+        mem: { $ref: "#/components/schemas/MemoryInfo" }
+        disk: { $ref: "#/components/schemas/DiskInfo" }
         processes:
           type: array
-          description: toolbox-relevant processes (same keyword filter as system_monitor_tab.py)
-          items:
-            type: object
-            required: [pid, name, cpu_percent, rss, started]
-            properties:
-              pid: { type: integer }
-              name: { type: string }
-              cmdline: { type: string }
-              cpu_percent: { type: number }
-              rss: { type: integer }
-              started: { type: number }
+          description: >-
+            The busiest processes, capped server-side; `relevant` flags the ones matching the
+            toolbox keyword filter that used to be the whole list.
+          items: { $ref: "#/components/schemas/ProcessInfo" }
+        process_total:
+          type: integer
+          description: how many processes exist; `processes` is the top N by CPU
+        cpu_per_core:
+          type: array
+          description: per-core utilisation, same order as psutil
+          items: { type: number }
+        load_avg:
+          type: array
+          description: 1/5/15-minute load average; empty where unsupported
+          items: { type: number }
+        uptime_s: { type: number, description: seconds since boot of the machine we see }
+        swap:
+          allOf: [{ $ref: "#/components/schemas/SwapInfo" }]
+        disk_docker:
+          allOf: [{ $ref: "#/components/schemas/DiskInfo" }]
+          description: the Docker root filesystem, when it is visible from here
+        own:
+          allOf: [{ $ref: "#/components/schemas/SelfProcessInfo" }]
+          description: the server process itself (never listed in `processes`)
+        kernels: { type: integer, description: notebook kernels this server currently owns }
+        containers:
+          type: array
+          description: Docker sibling containers (QSIPrep/QSIRecon), if any
+          items: { $ref: "#/components/schemas/ContainerInfo" }
+        net:
+          allOf: [{ $ref: "#/components/schemas/NetIO" }]
+        docker:
+          allOf: [{ $ref: "#/components/schemas/DockerHealth" }]
 
     # -------------------------------------------------------------------------------- catalog (v1)
     SubjectDetail:

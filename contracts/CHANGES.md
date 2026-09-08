@@ -885,3 +885,49 @@ The `413` on `PUT /api/viewer/scenes/{name}` is declared on the route rather tha
 `dev/contracts_check.py` holds the server's OpenAPI to being a superset of the hand-written
 contract, and a status a client is told to expect but the document never mentions is exactly the
 drift that gate exists to catch.
+
+## 2026-09-07 — `SystemSnapshot` becomes the System page's payload (additive)
+
+The bottom rail's **Host** tab stays as the quick glance; the new `system` page
+(pinned above Settings) is the full-height monitor — btop/htop-shaped resource
+gauges, a Docker-health panel, and a process table. Rather than a second
+endpoint, the one snapshot `GET /api/system` and `/ws/system` already carry
+grows the fields, so both surfaces read the same numbers and cannot disagree.
+
+`MemoryInfo`, `DiskInfo`, `ProcessInfo` and `ContainerInfo` are now **named
+component schemas** instead of inline copies; their shapes are unchanged except
+for the optional additions below.
+
+Added, all **optional with a default**, so a client written against the earlier
+payload parses this one unchanged:
+
+- `cpu_per_core`, `load_avg` (1/5/15), `uptime_s`
+- `swap` `{total, used, free, percent}`
+- `mem.free` / `mem.cached` / `mem.buffers` — the reclaimable-cache band of the
+  memory bar. Linux only; 0 elsewhere, which is honest: the bar then draws
+  used/free with no cache band rather than a fabricated one.
+- `disk_docker` (the Docker root filesystem) and `DiskInfo.path`, so a figure
+  can be labelled with the filesystem it belongs to
+- `own` `{pid, cpu_percent, rss}` — the server's own process, which is still
+  never listed in `processes`
+- `kernels`, `net` `{bytes_sent, bytes_recv}`
+- `containers` — Docker *sibling* containers (QSIPrep/QSIRecon)
+- `docker` — `DockerHealth`: daemon reachability + latency + version,
+  `docker system df` totals, our own container's inspect summary (image, status,
+  restarts, CPU/memory limits, mounts), the largest images, and a `warnings`
+  list of conditions a person can act on. Read on a **5 s** TTL with a 3 s socket
+  timeout, separately from the 1–2 s cadence of the CPU figures: `/system/df`
+  walks the image graph, and a wedged daemon must never be able to stall a
+  monitor. `reachable: false` with an `error` is a first-class answer.
+- `process_total`, and on `ProcessInfo`: `ppid`, `status`, `mem_percent`,
+  `threads`, `relevant`, `owner_kind`/`owner_id`/`owner_label`.
+
+**One behaviour change inside an existing field.** `processes` used to hold
+*only* keyword-matched toolbox processes; it now holds the busiest processes,
+capped server-side, with the keyword match preserved as `relevant`. A process
+table that hides whatever is currently using the CPU because its name is not on
+a keyword list is not a process table. The keyword allowlist still gates
+`POST /api/system/terminate`, which is unchanged.
+
+`tit/jobs/docker_engine.py` gains two read-only methods for this:
+`system_df()` and `list_images()`.

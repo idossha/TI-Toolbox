@@ -5412,31 +5412,144 @@ export interface components {
         SimulationList: {
             simulations: components["schemas"]["SimulationDetail"][];
         };
+        MemoryInfo: {
+            total: number;
+            available: number;
+            used: number;
+            percent: number;
+            free?: number;
+            /** @description Linux only; 0 elsewhere */
+            cached?: number;
+            /** @description Linux only; 0 elsewhere */
+            buffers?: number;
+        };
+        SwapInfo: {
+            total: number;
+            used: number;
+            free: number;
+            percent: number;
+        };
+        DiskInfo: {
+            total: number;
+            free: number;
+            percent: number;
+            /** @description the mount point measured (optional */
+            path?: string;
+        };
+        NetIO: {
+            bytes_sent: number;
+            bytes_recv: number;
+        };
+        SelfProcessInfo: {
+            pid: number;
+            cpu_percent: number;
+            rss: number;
+        };
+        ProcessInfo: {
+            pid: number;
+            name: string;
+            cmdline?: string;
+            cpu_percent: number;
+            rss: number;
+            started: number;
+            ppid?: number;
+            /** @description psutil status: running, sleeping, zombie, ... */
+            status?: string;
+            mem_percent?: number;
+            threads?: number;
+            /** @description matches the toolbox keyword filter (what the pre-2026-09-07 list held) */
+            relevant?: boolean;
+            /** @description "job" | "kernel" | "server", or null for an unowned process. Only an owned process gets a stop affordance in the UI. */
+            owner_kind?: string | null;
+            owner_id?: string | null;
+            owner_label?: string;
+        };
+        ContainerInfo: {
+            id: string;
+            name: string;
+            image: string;
+            state: string;
+            status: string;
+        };
+        /** @description `docker system df` totals, summed from the Engine's rows */
+        DockerDf: {
+            images_size?: number;
+            images_count?: number;
+            images_reclaimable?: number;
+            containers_size?: number;
+            containers_count?: number;
+            volumes_size?: number;
+            volumes_count?: number;
+            volumes_reclaimable?: number;
+            build_cache_size?: number;
+        };
+        DockerImage: {
+            repo_tag: string;
+            size: number;
+        };
+        DockerMount: {
+            source: string;
+            destination: string;
+            mode?: string;
+        };
+        /** @description this server's own container, as `docker inspect` describes it */
+        OwnContainer: {
+            id: string;
+            name: string;
+            image: string;
+            image_id?: string;
+            state?: string;
+            status?: string;
+            health?: string;
+            started_at?: string;
+            restarts?: number;
+            /** @description cores; null means no limit set */
+            cpu_limit?: number | null;
+            /** @description bytes; null means no limit set */
+            mem_limit?: number | null;
+            mounts?: components["schemas"]["DockerMount"][];
+        };
+        /** @description Daemon reachability, disk usage and our own container, read on a 5 s TTL with a 3 s socket timeout. `reachable: false` with an `error` is a first-class answer -- the panel says the daemon is unreachable rather than showing zeros that look like a healthy, empty daemon. */
+        DockerHealth: {
+            reachable?: boolean;
+            latency_ms?: number | null;
+            version?: string;
+            api_version?: string;
+            error?: string;
+            df?: components["schemas"]["DockerDf"];
+            own?: components["schemas"]["OwnContainer"];
+            containers?: components["schemas"]["ContainerInfo"][];
+            images?: components["schemas"]["DockerImage"][];
+            warnings?: string[];
+        };
         SystemSnapshot: {
             /** @description unix seconds */
             ts: number;
             cpu_percent: number;
             cpu_count: number;
-            mem: {
-                total: number;
-                available: number;
-                used: number;
-                percent: number;
-            };
-            disk: {
-                total: number;
-                free: number;
-                percent: number;
-            };
-            /** @description toolbox-relevant processes (same keyword filter as system_monitor_tab.py) */
-            processes: {
-                pid: number;
-                name: string;
-                cmdline?: string;
-                cpu_percent: number;
-                rss: number;
-                started: number;
-            }[];
+            mem: components["schemas"]["MemoryInfo"];
+            disk: components["schemas"]["DiskInfo"];
+            /** @description The busiest processes, capped server-side; `relevant` flags the ones matching the toolbox keyword filter that used to be the whole list. */
+            processes: components["schemas"]["ProcessInfo"][];
+            /** @description how many processes exist; `processes` is the top N by CPU */
+            process_total?: number;
+            /** @description per-core utilisation, same order as psutil */
+            cpu_per_core?: number[];
+            /** @description 1/5/15-minute load average; empty where unsupported */
+            load_avg?: number[];
+            /** @description seconds since boot of the machine we see */
+            uptime_s?: number;
+            swap?: components["schemas"]["SwapInfo"];
+            /** @description the Docker root filesystem, when it is visible from here */
+            disk_docker?: components["schemas"]["DiskInfo"];
+            /** @description the server process itself (never listed in `processes`) */
+            own?: components["schemas"]["SelfProcessInfo"];
+            /** @description notebook kernels this server currently owns */
+            kernels?: number;
+            /** @description Docker sibling containers (QSIPrep/QSIRecon), if any */
+            containers?: components["schemas"]["ContainerInfo"][];
+            net?: components["schemas"]["NetIO"];
+            docker?: components["schemas"]["DockerHealth"];
         };
         /** @description v0 Subject plus m2m path, eeg nets, leadfield presence, dwi/ct presence */
         SubjectDetail: components["schemas"]["Subject"] & {

@@ -348,12 +348,49 @@ class MemoryInfo(BaseModel):
     available: int
     used: int
     percent: float
+    # Optional breakdown (added 2026-09-07): what the System page's stacked bar needs to say
+    # "13 GB of this is reclaimable cache" instead of drawing one undifferentiated block.
+    free: int = 0
+    cached: int = 0
+    buffers: int = 0
 
 
 class DiskInfo(BaseModel):
     total: int
     free: int
     percent: float
+    path: str = Field(
+        default="",
+        description="The mount point measured. Optional: added 2026-09-07 so the System page can "
+        "label which filesystem a figure belongs to (the project volume, the Docker root).",
+    )
+
+
+class SwapInfo(BaseModel):
+    """Swap, which the System page reads as a pressure signal rather than a capacity one."""
+
+    total: int
+    used: int
+    free: int
+    percent: float
+
+
+class ContainerInfo(BaseModel):
+    """One Docker container the daemon knows about (our siblings: QSIPrep/QSIRecon)."""
+
+    id: str
+    name: str
+    image: str
+    state: str
+    status: str
+
+
+class SelfProcessInfo(BaseModel):
+    """The server's own process — the one the jobs are children of."""
+
+    pid: int
+    cpu_percent: float
+    rss: int
 
 
 class ProcessInfo(BaseModel):
@@ -363,6 +400,94 @@ class ProcessInfo(BaseModel):
     cpu_percent: float
     rss: int
     started: float
+    # Optional, added 2026-09-07 for the htop-style process table.
+    ppid: int = 0
+    status: str = Field(default="", description="psutil status: running, sleeping, zombie, ...")
+    mem_percent: float = 0.0
+    threads: int = 0
+    relevant: bool = Field(
+        default=True,
+        description="matches the toolbox keyword filter (what the pre-2026-09-07 list held)",
+    )
+    owner_kind: Literal["job", "kernel", "server"] | None = Field(
+        default=None,
+        description="what this process belongs to; only an owned process may be stopped from the UI",
+    )
+    owner_id: str | None = Field(default=None, description="job id or kernel id")
+    owner_label: str = Field(default="", description="human label for the owner, e.g. 'sim - ernie'")
+
+
+class NetIO(BaseModel):
+    """Cumulative interface counters since boot; the page shows the delta between snapshots."""
+
+    bytes_sent: int
+    bytes_recv: int
+
+
+class DockerDf(BaseModel):
+    """``docker system df`` -- the high-level "is the daemon filling the disk" answer."""
+
+    images_size: int = 0
+    images_count: int = 0
+    images_reclaimable: int = 0
+    containers_size: int = 0
+    containers_count: int = 0
+    volumes_size: int = 0
+    volumes_count: int = 0
+    volumes_reclaimable: int = 0
+    build_cache_size: int = 0
+
+
+class DockerImage(BaseModel):
+    repo_tag: str
+    size: int
+
+
+class DockerMount(BaseModel):
+    source: str
+    destination: str
+    mode: str = ""
+
+
+class OwnContainer(BaseModel):
+    """This server's own container, as ``docker inspect`` describes it."""
+
+    id: str
+    name: str
+    image: str
+    image_id: str = ""
+    state: str = ""
+    status: str = ""
+    health: str = ""
+    started_at: str = ""
+    restarts: int = 0
+    #: Cores, not the Engine's NanoCpus. ``None`` means "no limit set".
+    cpu_limit: float | None = None
+    #: Bytes. ``None``/0 means "no limit set" -- the container may use the whole host.
+    mem_limit: int | None = None
+    mounts: list[DockerMount] = Field(default_factory=list)
+
+
+class DockerHealth(BaseModel):
+    """Everything the System page's Docker panel shows, in one bounded read.
+
+    Polled on its own (slower) TTL than the rest of the snapshot: ``/system/df`` walks the image
+    graph and an inspect is a round trip, and neither changes at the 1-2 s cadence the CPU
+    figures do.  ``reachable: false`` with an ``error`` is a first-class answer -- the panel then
+    says the daemon is unreachable rather than showing zeros that look like a healthy, empty
+    daemon.
+    """
+
+    reachable: bool = False
+    latency_ms: float | None = None
+    version: str = ""
+    api_version: str = ""
+    error: str = ""
+    df: DockerDf | None = None
+    own: OwnContainer | None = None
+    containers: list["ContainerInfo"] = Field(default_factory=list)
+    images: list[DockerImage] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class SystemSnapshot(BaseModel):
@@ -372,7 +497,41 @@ class SystemSnapshot(BaseModel):
     mem: MemoryInfo
     disk: DiskInfo
     processes: list[ProcessInfo] = Field(
-        description="toolbox-relevant processes (same keyword filter as system_monitor_tab.py)"
+        description="the busiest processes, capped at PROCESS_LIMIT; `relevant` flags the ones "
+        "matching the toolbox keyword filter that used to be the whole list"
+    )
+
+    # ---- added 2026-09-07 for the System page (the full-height system monitor) ----
+    #
+    # Every field below is OPTIONAL with a default, so a client written against
+    # the pre-2026-09-07 snapshot keeps parsing this payload unchanged, and a
+    # host that cannot answer one of them (no ``getloadavg`` on the platform, no
+    # Docker socket mounted, ``/var/lib/docker`` not visible from inside the
+    # container) simply omits it rather than failing the whole snapshot.
+    cpu_per_core: list[float] = Field(
+        default_factory=list, description="per-core utilisation, same order as psutil"
+    )
+    load_avg: list[float] = Field(
+        default_factory=list, description="1/5/15-minute load average; empty where unsupported"
+    )
+    uptime_s: float = Field(default=0.0, description="seconds since boot of the machine we see")
+    swap: SwapInfo | None = None
+    disk_docker: DiskInfo | None = Field(
+        default=None, description="the Docker root filesystem, when it is visible from here"
+    )
+    own: SelfProcessInfo | None = Field(
+        default=None, description="the server process itself (excluded from `processes`)"
+    )
+    kernels: int = Field(default=0, description="notebook kernels this server currently owns")
+    containers: list[ContainerInfo] = Field(
+        default_factory=list, description="Docker sibling containers (QSIPrep/QSIRecon), if any"
+    )
+    net: NetIO | None = Field(default=None, description="cumulative interface counters")
+    docker: DockerHealth | None = Field(
+        default=None, description="Docker daemon health, disk usage and our own container"
+    )
+    process_total: int = Field(
+        default=0, description="how many processes exist; `processes` is the top N by CPU"
     )
 
 
