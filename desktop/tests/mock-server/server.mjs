@@ -3655,7 +3655,7 @@ route("DELETE", "/api/viewer/presets/:name", (ctx) => {
 // The one thing this cannot mirror is `available: false` for a file that has gone missing -- the
 // mock has no project on disk, so every node it invents exists by construction. That case is the
 // real server's to prove (`tests/test_viewer_library.py`).
-const treeNode = (path, { label, kind = "volume", bytes = 4_194_304, defaultOn = false } = {}) => {
+const treeNode = (path, { label, kind = "volume", bytes = 4_194_304, defaultOn = false, attachments, available = true, reason = null } = {}) => {
   const name = path.split("/").pop();
   // The tree is the one place a curated label is still wanted -- it is a label for *choosing*, and
   // the filename sits beside it in the row's tooltip and in the list below. Layers are named by
@@ -3669,8 +3669,12 @@ const treeNode = (path, { label, kind = "volume", bytes = 4_194_304, defaultOn =
     kind,
     bytes,
     default_on: defaultOn,
-    available: true,
-    reason: null,
+    available,
+    reason,
+    // A surface carries its hemisphere-matched `.annot` / morph / data-GIfTI files as sub-rows.
+    // Absent (not empty) on everything else, exactly as the server answers: only a surface has
+    // anywhere to hang one.
+    ...(kind === "surface" ? { attachments: attachments ?? [] } : {}),
   };
 };
 
@@ -3683,12 +3687,37 @@ route("GET", "/api/viewer/tree", (ctx) => {
 
   const base = `${PROJECT_ROOT}/derivatives/SimNIBS/sub-${subject}`;
   const m2m = `${base}/m2m_${subject}`;
+  // A surface is *not* a mesh (maintainer, 2026-09-07: a mesh is a tetrahedral FEM, a surface is
+  // a triangular 2-D sheet), and the sizes below are why the distinction is not cosmetic: the head
+  // model is 64 MB of tetrahedra and a cortical sheet is 8. The `.annot` files hang off the
+  // surface as sub-rows, from the directory SimNIBS actually writes them to.
+  const surfaceAttachment = (hemi, atlas) =>
+    treeNode(`${m2m}/segmentation/${hemi}.${subject}_${atlas}.annot`, { kind: "annotation", bytes: 1_200_000 });
+  // The one capability switch, exactly as the server applies it (`tit/viewspec.py::_tree_node`):
+  // an embed that cannot draw a surface gets the rows *listed and disabled with the reason*,
+  // never hidden and never re-labelled as meshes to get them through. Driven by the active
+  // bundle, so a spec flips it by installing one rather than by a mock-only back door.
+  const surfacesOk = tvxResolve().release.features.includes("surfaces");
+  const surfaceState = surfacesOk
+    ? {}
+    : { available: false, reason: "needs Tetravox embed >= 0.4.0 (surfaces)" };
   const anatomy = [
     treeNode(`${m2m}/T1.nii.gz`, { defaultOn: space === "subject" }),
     treeNode(`${m2m}/T2_reg.nii.gz`),
     treeNode(`${m2m}/${subject}.msh`, { kind: "mesh", bytes: 64_000_000 }),
-    treeNode(`${m2m}/surfaces/lh.central.gii`, { kind: "mesh", bytes: 8_000_000 }),
-    treeNode(`${m2m}/segmentation/labeling.nii.gz`, { label: "labeling" }),
+    treeNode(`${m2m}/surfaces/lh.central.gii`, {
+      kind: "surface",
+      bytes: 8_000_000,
+      attachments: [surfaceAttachment("lh", "DK40"), surfaceAttachment("lh", "a2009s")].map((a) => ({ ...a, ...surfaceState })),
+      ...surfaceState,
+    }),
+    treeNode(`${m2m}/surfaces/rh.central.gii`, {
+      kind: "surface",
+      bytes: 8_000_000,
+      attachments: [surfaceAttachment("rh", "DK40")].map((a) => ({ ...a, ...surfaceState })),
+      ...surfaceState,
+    }),
+    treeNode(`${m2m}/segmentation/labeling.nii.gz`, { label: "labeling", kind: "label-volume" }),
   ];
   if (space === "mni") anatomy.push(treeNode("/ti-toolbox/resources/atlas/MNI152_T1_1mm.nii.gz", { label: "MNI152 template", defaultOn: true }));
 
@@ -3710,6 +3739,10 @@ route("GET", "/api/viewer/tree", (ctx) => {
         treeNode(`${sim}/TI/niftis/white_${name}_TI_${suffix}_TI_max.nii.gz`, { label: "WM · TI_max (volume)" }),
       ],
       meshes: [treeNode(`${sim}/TI/mesh/grey_${name}_TI.msh`, { label: "GM mesh · TI_max", kind: "mesh", bytes: 63_926_663 })],
+      // Required by the contract even when empty: a simulation that has not been projected to
+      // fsaverage has no surfaces, and "no surfaces" is a different answer from "this server is
+      // too old to tell you".
+      surfaces: [],
       electrodes: [treeNode(`${sim}/TI/montage_imgs/electrode_overlay_subject.nii.gz`, { label: "Electrodes" })],
     };
   });
@@ -3924,8 +3957,11 @@ route("PUT", "/api/settings", async (ctx) => {
 // install root, a pin, and a release index. No download happens here -- the mock's job is the
 // state machine the Settings page drives (install -> active, roll back -> baked, and back
 // again), not the digest verification, which is tested in tests/test_tetravox_install.py.
-const TVX_SUPPORTED = { min: 1, max: 2 };
-const TVX_FEATURE_MIN_PROTOCOL = { volumes: 1, meshes: 1, cursor: 1, probe: 1, screenshot: 1, layers: 1, markers: 2, pick: 2, camera: 2 };
+// In step with `tit/tetravox/protocol.py` and `src/renderer/viewer/embedProtocol.ts`. Protocol 3
+// is Tetravox 0.4.0: a surface is its own layer kind, with `.annot`/morph/data-GIfTI attached to
+// its dataset.
+const TVX_SUPPORTED = { min: 1, max: 3 };
+const TVX_FEATURE_MIN_PROTOCOL = { volumes: 1, meshes: 1, cursor: 1, probe: 1, screenshot: 1, layers: 1, markers: 2, pick: 2, camera: 2, surfaces: 3 };
 const tvxFeatures = (protocol) =>
   Object.keys(TVX_FEATURE_MIN_PROTOCOL)
     .filter((name) => protocol >= TVX_FEATURE_MIN_PROTOCOL[name])
@@ -3966,8 +4002,8 @@ let tvxLastOutcome = null;
 const tvxIndex = [
   // A release past the range this build can host: the index lists it, the UI must show it as not
   // installable, and POST /api/tetravox/install must refuse it (E1 -- the app pins a *range*).
-  { version: "0.5.0", protocol: 3, url: "https://github.com/idossha/tetravox/releases/download/embed-v0.5.0/tetravox-embed-0.5.0.tgz", sha256: "c".repeat(64), notes: "Protocol 3: needs a newer TI-Toolbox.", published: "2026-09-10" },
-  { version: "0.4.0", protocol: 2, url: "https://github.com/idossha/tetravox/releases/download/embed-v0.4.0/tetravox-embed-0.4.0.tgz", sha256: "b".repeat(64), notes: "Protocol 2: points layer, pick events, camera get/set.", published: "2026-09-04" },
+  { version: "0.6.0", protocol: 4, url: "https://github.com/idossha/tetravox/releases/download/embed-v0.6.0/tetravox-embed-0.6.0.tgz", sha256: "c".repeat(64), notes: "Protocol 4: needs a newer TI-Toolbox.", published: "2026-09-10" },
+  { version: "0.4.0", protocol: 3, url: "https://github.com/idossha/tetravox/releases/download/embed-v0.4.0/tetravox-embed-0.4.0.tgz", sha256: "b".repeat(64), notes: "Protocol 3: surfaces are their own layer kind, with .annot and morph attachments.", published: "2026-09-04" },
   { version: "0.3.4", protocol: 1, url: "https://github.com/idossha/tetravox/releases/download/embed-v0.3.4/tetravox-embed-0.3.4.tgz", sha256: "a".repeat(64), notes: "The version baked into this image.", published: "2026-09-03" },
 ];
 

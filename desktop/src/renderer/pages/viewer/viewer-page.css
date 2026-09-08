@@ -822,8 +822,10 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* A `.msh` is 24–420 MB and a volume is 13–80 MB. The tag is not decoration: it is the difference
- * between a row that costs a moment to open and one that costs a minute. */
+/* A `.msh` is 24–420 MB, a volume 13–80 MB, a cortical sheet ~8 MB. The chip is not decoration:
+ * it is the difference between a row that costs a moment to open and one that costs a minute —
+ * and, since 2026-09-07, between a tetrahedral FEM domain and a triangulated 2-D surface, which
+ * one word for both had been hiding. */
 .viewer-tree-tag {
   padding: 0 4px;
   border: 1px solid var(--line);
@@ -831,6 +833,38 @@
   font-size: 10px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+/* The two geometries are told apart at a glance, because that is the whole point: a MESH row is
+ * a wait and a SURFACE row is not. The attachment chips stay unaccented — they are sub-rows, and
+ * three accented chips in a stack would read as three separate choices rather than one. */
+.viewer-tree-tag[data-kind="mesh"] {
+  border-color: var(--accent-line, var(--line));
+  color: var(--ink-2);
+}
+
+.viewer-tree-tag[data-kind="surface"] {
+  border-style: dashed;
+  color: var(--ink-2);
+}
+
+.viewer-tree-tag[data-kind="annotation"],
+.viewer-tree-tag[data-kind="morph"],
+.viewer-tree-tag[data-kind="surface-data"] {
+  border-color: transparent;
+  color: var(--ink-3);
+}
+
+/* An attachment is indented under its surface, and reads a size smaller: it is not a thing you
+ * can open on its own, it is something you hang on the row above. */
+.viewer-tree-node[data-depth="1"] {
+  padding-left: calc(var(--space-4));
+  min-height: 22px;
+}
+
+.viewer-tree-node[data-depth="1"] .viewer-tree-node-label {
+  font-size: 11px;
+  color: var(--ink-2);
 }
 
 /* Unavailable: greyed and disabled, but still *there*, with the reason where the size would be.

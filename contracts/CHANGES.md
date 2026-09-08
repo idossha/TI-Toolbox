@@ -931,3 +931,53 @@ a keyword list is not a process table. The keyword allowlist still gates
 
 `tit/jobs/docker_engine.py` gains two read-only methods for this:
 `system_df()` and `list_images()`.
+
+## 2026-09-07 — a mesh, a surface and a volume are three kinds, not two
+
+`ViewerTreeNode.kind` was `volume | mesh`. It is now
+`volume | label-volume | surface | mesh | annotation | morph | surface-data`, decided in one place
+(`tit.catalog.classify_view_file`) and read by everything that offers a file.
+
+The word that was missing is **surface**. A `.msh` is SimNIBS's tetrahedral FEM domain — the
+solved volume, 24–420 MB. A `.gii` or a FreeSurfer binary is a triangulated 2-D sheet, ~8 MB,
+carrying nothing on its own. The rule behind the old chip was
+`path.endswith((".msh", ".gii"))`, so the Menu's Anatomy branch chipped `lh.central`, `lh.pial`
+and `lh.white` as MESH beside the real `Head mesh (ernie)` — telling a reader that ticking a
+cortical sheet cost the same and answered the same question as ticking the head model. It also
+left nowhere to put a surface's attachments, so the `.annot` parcellations SimNIBS writes for
+those very surfaces were never offered anywhere in the app.
+
+`ViewerTreeNode` therefore also gains **`attachments`**, present only on a `surface` node: the
+`.annot`, morphometry and data-GIfTI files that share its hemisphere, drawn as sub-checkboxes.
+`annotation`, `morph` and `surface-data` are the kinds that appear there and nowhere else.
+
+`ViewerTreeSimulation` gains **`surfaces`**, alongside `fields`, `meshes` and `electrodes`, and it
+is now required. A projected fsaverage sheet filed under "Meshes" beside a 64 MB `.msh` said the
+two were the same sort of wait.
+
+`ViewerCandidate.kind` follows the same classifier, so the "+ Add…" picker and the tree cannot
+disagree about what a file is.
+
+**Two refusals, both 422 on `POST /api/view/open`, and both replacing a silent wrong picture:**
+
+- *A scene may not span two subjects.* One person's field over another's anatomy renders as two
+  brains, head-shaped and roughly aligned, with no artefact to notice. The real `viewer-open`
+  spec passed for a while while measuring the wrong subject entirely. Files outside
+  `derivatives/SimNIBS/sub-<id>/` — the MNI template, the bundled atlases — belong to nobody and
+  are exempt, because an MNI scene is supposed to mix them in.
+- *A surface may not be sent to an embed that cannot draw one.* Degrading to `kind: "mesh"` would
+  load, which is exactly the problem: the sheet comes back with a mesh's defaults and no way to
+  attach the parcellation, and nothing says so.
+
+**Embed protocol range 1–2 → 1–3** (`Capabilities.tetravox_embed.supported.max`), with the new
+named feature `surfaces` at protocol 3 — Tetravox 0.4.0. Additive, like 2 over 1: a protocol-3
+embed answers every protocol-2 message unchanged, and a protocol-2 embed silently skips a layer
+kind it does not know. Hosts ask for the *name*, never the number.
+
+**The scene document** (`ViewSpec.scene`, Tetravox's own schema) gains the `surface` layer kind:
+`kind: "surface"` with `colorMode: solid | overlay | annotation`, `solidColor`, `contourColor`,
+`contoursIn2D`, and no `tagStyle`, `fillIn2D` or clip `caps` — a sheet has no interior to cap.
+`DatasetRef.kind` accepts `"surface"` (the engine's alias for a mesh dataset with no tetrahedra).
+Attachments ride on the dataset as `sidecars.fields: [{path}]`, **relative to the surface's own
+directory** — the only path in a scene that is not absolute, and so the only one neither
+addressing has to re-root.

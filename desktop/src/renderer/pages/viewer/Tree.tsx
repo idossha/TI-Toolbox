@@ -34,7 +34,18 @@
 import { useState } from "react";
 import { ChevronRight, Circle } from "lucide-react";
 import { Checkbox } from "../../ui";
-import { branchCount, branchState, fieldOfNode, formatBytes, simulationNodeIds, toggleId, toggleMany, type TreeNode } from "./lib";
+import {
+  branchCount,
+  branchState,
+  fieldOfNode,
+  formatBytes,
+  groupAnatomy,
+  kindChip,
+  simulationNodeIds,
+  toggleId,
+  toggleMany,
+  type TreeNode,
+} from "./lib";
 import type { ViewerTree } from "./api";
 
 interface TreeProps {
@@ -51,46 +62,82 @@ interface TreeProps {
   loading?: boolean;
 }
 
-/** One checkbox row. Unavailable rows stay visible and say why. */
+/**
+ * One checkbox row. Unavailable rows stay visible and say why.
+ *
+ * The chip is the server's `kind` verbatim (`tit/catalog.py::classify_view_file`) and never a
+ * guess from the extension — which is what put MESH on `lh.central.gii` beside the real
+ * `Head mesh (ernie)` in the maintainer's screenshot of 2026-09-07. A **surface** row also draws
+ * its attachments underneath as sub-checkboxes, because a `.annot` is a colour table with nowhere
+ * to go until a surface is ticked, and putting it at the same level as one said otherwise.
+ */
 function NodeRow({
   node,
-  checked,
+  chosen,
   onToggle,
   onPick,
+  depth = 0,
+  owner,
 }: {
   node: TreeNode;
-  checked: boolean;
-  onToggle: (on: boolean) => void;
+  chosen: ReadonlySet<string>;
+  onToggle: (id: string, on: boolean) => void;
   onPick?: () => void;
+  depth?: number;
+  /**
+   * The surface this row hangs under, for an attachment row's test id.
+   *
+   * A hemisphere's `.annot` files apply to *every* surface of that hemisphere — they share a
+   * vertex numbering — so ernie's three `lh.*` sheets each offer the same three parcellations,
+   * and the file name alone does not identify a row. The tick is still keyed on the file (a
+   * parcellation is chosen once per hemisphere; `tit/viewspec.py::_surface_for_attachment` puts
+   * it on the last surface of that hemisphere in the list), so this names the row and nothing
+   * else.
+   */
+  owner?: string;
 }) {
   const available = node.available !== false;
+  const checked = chosen.has(node.id);
+  const attachments = node.attachments ?? [];
   return (
-    <li className="viewer-tree-node" data-available={available ? undefined : "false"} data-testid={`viewer-tree-node-${node.name}`}>
-      <Checkbox
-        checked={checked}
-        disabled={!available}
-        onCheckedChange={(on) => {
-          onToggle(on);
-          if (on && onPick) onPick();
-        }}
-        aria-label={node.label}
-      />
-      <span className="viewer-tree-node-label" title={node.path}>
-        {node.label}
-      </span>
-      <span className="viewer-tree-node-meta">
-        {available ? (
-          <>
-            {node.kind === "mesh" && <span className="viewer-tree-tag">mesh</span>}
-            {typeof node.bytes === "number" && formatBytes(node.bytes)}
-          </>
-        ) : (
-          /* The reason, not a hidden row: a missing input a person can see is a question they can
-             answer; one that is silently absent is a bug report. */
-          <span className="viewer-tree-reason">{node.reason ?? "unavailable"}</span>
-        )}
-      </span>
-    </li>
+    <>
+      <li
+        className="viewer-tree-node"
+        data-available={available ? undefined : "false"}
+        data-kind={node.kind}
+        data-depth={depth > 0 ? String(depth) : undefined}
+        data-testid={owner === undefined ? `viewer-tree-node-${node.name}` : `viewer-tree-attachment-${owner}-${node.name}`}
+      >
+        <Checkbox
+          checked={checked}
+          disabled={!available}
+          onCheckedChange={(on) => {
+            onToggle(node.id, on);
+            if (on && onPick) onPick();
+          }}
+          aria-label={node.label}
+        />
+        <span className="viewer-tree-node-label" title={node.path}>
+          {node.label}
+        </span>
+        <span className="viewer-tree-node-meta">
+          <span className="viewer-tree-tag" data-kind={node.kind} data-testid={`viewer-tree-chip-${owner === undefined ? node.name : `${owner}-${node.name}`}`}>
+            {kindChip(node.kind)}
+          </span>
+          {available ? (
+            typeof node.bytes === "number" && formatBytes(node.bytes)
+          ) : (
+            /* The reason, not a hidden row: a missing input a person can see is a question they
+               can answer; one that is silently absent is a bug report. This is also where an
+               embed too old to draw a surface says so, rather than the row being sent as a mesh. */
+            <span className="viewer-tree-reason">{node.reason ?? "unavailable"}</span>
+          )}
+        </span>
+      </li>
+      {attachments.map((attachment) => (
+        <NodeRow key={attachment.id} node={attachment} chosen={chosen} onToggle={onToggle} depth={depth + 1} owner={node.name} />
+      ))}
+    </>
   );
 }
 
@@ -186,11 +233,19 @@ export function CompositionTree({ tree, chosen, onChange, expanded, onExpandedCh
         open={openBranches.anatomy}
         onOpenChange={(open) => setOpen("anatomy", open)}
       >
-        <ul className="viewer-tree-nodes">
-          {anatomy.map((node) => (
-            <NodeRow key={node.id} node={node} checked={picked.has(node.id)} onToggle={(on) => toggle(node.id, on)} />
-          ))}
-        </ul>
+        {/* Grouped by what the file *is*, not by the directory it came out of. A flat list put
+            `lh.central.gii` (an 8 MB cortical sheet) between `T1.nii.gz` and `ernie.msh` (a 64 MB
+            FEM volume) with nothing to say they were three different kinds of thing. */}
+        {groupAnatomy(anatomy).map((group) => (
+          <div className="viewer-tree-group" key={group.key} data-testid={`viewer-tree-anatomy-${group.key}`}>
+            <p className="viewer-tree-group-title">{group.title}</p>
+            <ul className="viewer-tree-nodes">
+              {group.nodes.map((node) => (
+                <NodeRow key={node.id} node={node} chosen={picked} onToggle={toggle} />
+              ))}
+            </ul>
+          </div>
+        ))}
       </Branch>
 
       <Branch
@@ -224,6 +279,10 @@ export function CompositionTree({ tree, chosen, onChange, expanded, onExpandedCh
                 {(
                   [
                     ["Fields", (sim.fields ?? []) as TreeNode[], true],
+                    /* Surfaces are their own group here for the same reason they are their own
+                       kind: an fsaverage `.gii` is a few MB and a `.msh` is 64, and filing them
+                       together said they were the same sort of wait. */
+                    ["Surfaces", ((sim as { surfaces?: TreeNode[] }).surfaces ?? []) as TreeNode[], false],
                     ["Meshes", (sim.meshes ?? []) as TreeNode[], false],
                     ["Electrodes", (sim.electrodes ?? []) as TreeNode[], false],
                   ] as [string, TreeNode[], boolean][]
@@ -237,8 +296,8 @@ export function CompositionTree({ tree, chosen, onChange, expanded, onExpandedCh
                           <NodeRow
                             key={node.id}
                             node={node}
-                            checked={picked.has(node.id)}
-                            onToggle={(on) => toggle(node.id, on)}
+                            chosen={picked}
+                            onToggle={toggle}
                             /* Ticking a field row is a *selection* change, not just a list edit:
                                it decides which field the window chip describes, so the draft has
                                to follow it. Ticking anything else stays a free local edit. */
@@ -281,7 +340,7 @@ export function CompositionTree({ tree, chosen, onChange, expanded, onExpandedCh
                 </p>
                 <ul className="viewer-tree-nodes">
                   {nodes.map((node) => (
-                    <NodeRow key={node.id} node={node} checked={picked.has(node.id)} onToggle={(on) => toggle(node.id, on)} />
+                    <NodeRow key={node.id} node={node} chosen={picked} onToggle={toggle} />
                   ))}
                 </ul>
                 {ids.length > 1 && (

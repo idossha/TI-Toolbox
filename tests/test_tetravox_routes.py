@@ -104,7 +104,7 @@ def test_get_reports_the_baked_floor_when_nothing_is_installed(client, baked):
     assert body["active"]["path"] == baked
     assert body["active"]["active"] is True
     assert body["installed"] == []
-    assert body["supported"] == {"min": 1, "max": 2}
+    assert body["supported"] == {"min": 1, "max": 3}
     assert body["reason"] == "the version baked into the image"
 
 
@@ -185,7 +185,7 @@ def test_install_refuses_a_bundle_outside_the_supported_protocol_range(client, s
     )
     assert response.status_code == 400
     detail = response.json()["detail"]
-    assert "protocol 99" in detail and "supports protocol 1-2" in detail
+    assert "protocol 99" in detail and "supports protocol 1-3" in detail
 
 
 def test_install_needs_a_url_or_a_version(client):

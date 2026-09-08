@@ -270,3 +270,112 @@ test("sub-101/L_Insula opens windowed p95–p99.9, fitted, and crosshaired on th
       `· mmPerPx ${mmPerPx[0]} · cursor [${view.cursor.map((c) => c.toFixed(1)).join(", ")}]`,
   );
 });
+
+/**
+ * A surface, with its parcellation on it — against the real embed (2026-09-07).
+ *
+ * Maintainer, on the Menu chipping `lh.central`, `lh.pial` and `lh.white` as MESH beside the true
+ * `Head mesh (ernie)`: *"Please distinguish between NIfTI, mesh, and a surface — a mesh is a
+ * tetrahedral FEM, a surface is just a triangular 2-D surface. Refer to the latest Tetravox
+ * release."* Tetravox 0.4.0 (protocol 3) makes a surface its own layer kind with `.annot`, morph
+ * and data-GIfTI attachments; this is the first scene TI-Toolbox emits one for.
+ *
+ * **Why this cannot be a mock test.** Everything on this path fails *successfully*. A surface sent
+ * as a mesh loads — it is a triangle-only mesh and the engine takes it. A sidecar the embed cannot
+ * fetch is skipped, and `loaded` still arrives: the geometry is there, nothing errors, and the
+ * surface is simply solid-coloured with the parcellation missing. The only thing that tells the
+ * two apart from the outside is `colorMode` on the engine's own `layers` event, and only a real
+ * engine emits one. `ernie` has real `lh.central.gii` and real `lh.*.annot` files; both are read.
+ */
+test("a surface opens as a surface, coloured by the parcellation attached to it", async () => {
+  await selectSubject(page, "ernie");
+  await gotoPage(page, "viewer", "Viewer");
+  await expectPage(page, "viewer");
+  await expect(page.getByTestId("viewer-tree")).toBeVisible({ timeout: 30_000 });
+  // Wait for the plan to be **this** subject's before ticking anything. The card keeps the
+  // previous selection's rows while the next one resolves (greyed), and a tick composes onto the
+  // rows on screen — so ticking early would build a scene half from the previous test's `sub-101`.
+  // The first run of this test did exactly that and was caught by the server's 422 rather than by
+  // a wrong picture, which is the guard doing its job; this is the sequencing that avoids it.
+  await expect(page.getByTestId("viewer-plan")).not.toHaveAttribute("data-resolving", "true", { timeout: 30_000 });
+  // Re-pick the subject in the page's *own* selector, not only the shell's: that is the edit
+  // which clears `simulation`/`analysis`/`field`, so the baseline underneath the ticks is ernie's
+  // anatomy rather than the previous test's simulation scene.
+  await page.getByTestId("viewer-select-subject").getByRole("combobox").click();
+  await page.getByRole("option", { name: "ernie", exact: true }).click();
+  await expect(page.getByTestId("viewer-plan")).not.toHaveAttribute("data-resolving", "true", { timeout: 30_000 });
+
+  // The chip is the classification, read back off the real m2m directory: exactly one MESH in
+  // this branch, and the sheets are not it.
+  await expect(page.getByTestId("viewer-tree-chip-ernie.msh")).toHaveText("MESH");
+  await expect(page.getByTestId("viewer-tree-chip-lh.central.gii")).toHaveText("SURFACE");
+
+  // The parcellation is offered *under* the surface, from `segmentation/` — a directory away from
+  // the geometry, which is why nothing had ever offered it.
+  // ernie has three left sheets (`central`, `pial`, `white`) and they share a vertex numbering, so
+  // the same three parcellations are offered under each — the row is named by the surface it
+  // hangs under, not by the file alone.
+  const annot = page.getByTestId("viewer-tree-attachment-lh.central.gii-lh.ernie_DK40.annot");
+  await expect(annot).toBeVisible({ timeout: 30_000 });
+  await expect(annot).toHaveAttribute("data-depth", "1");
+
+  for (const id of [
+    "viewer-tree-node-T1.nii.gz",
+    "viewer-tree-node-lh.central.gii",
+    "viewer-tree-attachment-lh.central.gii-lh.ernie_DK40.annot",
+  ]) {
+    const box = page.getByTestId(id).getByRole("checkbox");
+    await expect(box).toBeEnabled({ timeout: 30_000 });
+    if ((await box.getAttribute("data-state")) !== "checked") await box.click();
+  }
+  await expect(page.getByTestId("viewer-plan")).not.toHaveAttribute("data-resolving", "true", { timeout: 30_000 });
+
+  // Both are rows of the composition — the list is what a person chose, and unticking the
+  // parcellation there has to work. What the attachment is *not* is a dataset: the assertions on
+  // the wire below are where that shows.
+  await expect(page.getByTestId("viewer-file-lh.central.gii")).toHaveCount(1);
+  await expect(page.getByTestId("viewer-file-lh.ernie_DK40.annot")).toHaveCount(1);
+
+  const openButton = page.getByTestId("viewer-open");
+  await expect(openButton).toBeEnabled({ timeout: 30_000 });
+  // Not filtered to 200: a refusal is a result this test must be able to report, and a predicate
+  // that only matches success turns one into a bare timeout that says nothing about why.
+  const [response] = await Promise.all([
+    page.waitForResponse((r) => r.url().includes("/api/view/open") && r.request().method() === "POST" && !r.url().includes("dry_run"), { timeout: 60_000 }),
+    openButton.click(),
+  ]);
+  expect(response.status(), await response.text()).toBe(200);
+  const body = await response.json();
+
+  // What went on the wire: a surface dataset carrying its sidecar by a path relative to its own
+  // directory, and a layer whose colour source is the annotation.
+  const view = body.view as {
+    datasets: { name: string; kind: string; sidecars?: { fields?: { path: string }[] } }[];
+    layers: { name: string; kind: string; colorMode?: string; annotation?: { name: string } }[];
+  };
+  // Exactly one dataset for the sheet, and **none** for the parcellation: an attachment has no
+  // geometry, so it is not a dataset at all.
+  expect(view.datasets.filter((d) => d.name === "lh.central.gii")).toHaveLength(1);
+  expect(view.datasets.filter((d) => d.name.endsWith(".annot"))).toEqual([]);
+  expect(view.datasets.filter((d) => d.kind === "surface").map((d) => d.name)).toEqual(["lh.central.gii"]);
+  const dataset = view.datasets.find((d) => d.name === "lh.central.gii")!;
+  expect(dataset.kind).toBe("surface");
+  expect(dataset.sidecars?.fields).toEqual([{ path: "../segmentation/lh.ernie_DK40.annot" }]);
+  const layer = view.layers.find((l) => l.name === "lh.central.gii")!;
+  expect(layer.kind).toBe("surface");
+  expect(layer.colorMode).toBe("annotation");
+  // The **file name**, extension and all — the embed names the node field after the file it
+  // attached, and a stem or a role word matches nothing on the dataset.
+  expect(layer.annotation?.name).toBe("lh.ernie_DK40.annot");
+  // The sheet is never smuggled through as the FEM domain: no `.gii` is ever a mesh layer.
+  expect(view.layers.filter((l) => l.kind === "mesh" && l.name.endsWith(".gii"))).toEqual([]);
+  expect(view.layers.filter((l) => l.kind === "surface").map((l) => l.name)).toEqual(["lh.central.gii"]);
+
+  const host = page.getByTestId("tetravox-host");
+  await expect(host).toHaveAttribute("data-viewer-status", "ready", { timeout: 60_000 });
+  await expect(page.getByTestId("viewer-error")).toHaveCount(0);
+
+  // And what the **engine** says it drew. This is the assertion the rest of the test exists for:
+  // a 404'd sidecar would leave everything above true and this line reading `surface:solid`.
+  await expect(host).toHaveAttribute("data-viewer-layer-kinds", /surface:annotation/, { timeout: 60_000 });
+});

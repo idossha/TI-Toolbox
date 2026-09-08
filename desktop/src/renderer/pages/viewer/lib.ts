@@ -452,6 +452,120 @@ export interface TreeNode {
   default_on?: boolean;
   available?: boolean;
   reason?: string | null;
+  /** A surface's `.annot` / morph / data-GIfTI files, matched to it by hemisphere. */
+  attachments?: TreeNode[];
+}
+
+// ── what a file is, and how the tree says so ─────────────────────────────────
+//
+// Maintainer, 2026-09-07: *"Please distinguish between NIfTI, mesh, and a surface — a mesh is a
+// tetrahedral FEM, a surface is just a triangular 2-D surface."* The server decides
+// (`tit/catalog.py::classify_view_file`) and this half only renders the answer; nothing here
+// re-derives a kind from a file extension, which is the mistake that produced the screenshot.
+
+/** The chip a row wears. Four words, because four are what a person is choosing between. */
+export const KIND_CHIP: Record<string, string> = {
+  volume: "VOLUME",
+  "label-volume": "LABELS",
+  surface: "SURFACE",
+  mesh: "MESH",
+  annotation: "ANNOT",
+  morph: "MORPH",
+  "surface-data": "DATA",
+};
+
+/**
+ * A last-resort kind for a path nothing has described.
+ *
+ * Only reachable by typing a path into "+ Add…": every row that came from the tree or the
+ * candidates list already carries the server's own answer, and this must never be used in
+ * preference to that. It exists so such a row is not blank, and it uses the same vocabulary rather
+ * than a second one — a row that said "mesh" for `lh.central.gii` here would reintroduce, in the
+ * list, exactly the confusion the tree stopped making.
+ */
+export function kindFromName(path: string): string {
+  const name = (path.split("/").pop() ?? path).toLowerCase();
+  if (name.endsWith(".msh")) return "mesh";
+  if (name.endsWith(".annot")) return "annotation";
+  if (/\.(func|shape|time)\.gii$/.test(name)) return "surface-data";
+  if (name.endsWith(".gii") || /\.(stl|ply|obj)$/.test(name)) return "surface";
+  if (/^[lr]h\.(pial|white|central|inflated|sphere|smoothwm|orig)$/.test(name)) return "surface";
+  if (/^[lr]h\.(thickness|curv|sulc|area)$/.test(name)) return "morph";
+  return "volume";
+}
+
+export function kindChip(kind: string): string {
+  return KIND_CHIP[kind] ?? kind.toUpperCase();
+}
+
+/**
+ * The Anatomy branch's four groups, in the order they are drawn.
+ *
+ * Volumes first because a scene starts from one; label volumes next because they go on top of
+ * one; then the two geometries, which are what the grouping exists to keep apart.
+ */
+export const ANATOMY_GROUPS: { key: string; title: string; kinds: string[] }[] = [
+  { key: "volumes", title: "Volumes", kinds: ["volume"] },
+  { key: "labels", title: "Label volumes (atlases)", kinds: ["label-volume"] },
+  { key: "surfaces", title: "Surfaces", kinds: ["surface"] },
+  { key: "meshes", title: "Meshes", kinds: ["mesh"] },
+];
+
+/** *nodes* split into {@link ANATOMY_GROUPS}, empty groups dropped. */
+export function groupAnatomy(nodes: TreeNode[]): { key: string; title: string; nodes: TreeNode[] }[] {
+  const groups = ANATOMY_GROUPS.map((group) => ({
+    key: group.key,
+    title: group.title,
+    nodes: nodes.filter((node) => group.kinds.includes(node.kind)),
+  })).filter((group) => group.nodes.length > 0);
+  // A kind no group claims still has to appear — a row nobody drew is a file a person cannot
+  // find, and silently dropping it is the failure mode this whole lane is fixing.
+  const claimed = new Set(ANATOMY_GROUPS.flatMap((group) => group.kinds));
+  const rest = nodes.filter((node) => !claimed.has(node.kind));
+  return rest.length > 0 ? [...groups, { key: "other", title: "Other", nodes: rest }] : groups;
+}
+
+/**
+ * The subject a container path belongs to, or `null` for a file that belongs to nobody.
+ *
+ * `null` is the bundled MNI template and the shared atlases, which an MNI scene is *supposed* to
+ * mix in with a subject's own volumes — so they are never dropped by the rescoping below.
+ */
+export function subjectOfPath(path: string): string | null {
+  const match = /\/derivatives\/SimNIBS\/sub-([^/]+)\//.exec(path);
+  return match ? match[1] : null;
+}
+
+/**
+ * The rows of *files* that still belong, after the subject became *subject*.
+ *
+ * **Why this exists.** The "what will open" list survives a change of subject — it has to, since
+ * it is also the list a person is editing — so picking 101 after ernie left ernie's rows in it,
+ * and Open composed a scene spanning two people. That scene is not obviously wrong to look at:
+ * two brains, both head-shaped, roughly aligned, one person's field over another's anatomy. The
+ * real `viewer-open` spec passed for a while while measuring the wrong subject entirely.
+ *
+ * The server refuses such a scene outright (422, `tit/server/routes/viewers.py`). This is the
+ * other half: rather than let a person hit that refusal, the list drops the rows that no longer
+ * belong and the page says how many, so the removal is something they saw rather than something
+ * they have to reconstruct.
+ */
+export function rescopeToSubject(files: string[], subject: string | undefined): { kept: string[]; dropped: string[] } {
+  if (!subject) return { kept: files, dropped: [] };
+  const kept: string[] = [];
+  const dropped: string[] = [];
+  for (const path of files) {
+    const owner = subjectOfPath(path);
+    (owner === null || owner === subject ? kept : dropped).push(path);
+  }
+  return { kept, dropped };
+}
+
+/** `2 files from another subject were removed` — the notice, or `null` when nothing went. */
+export function rescopeNotice(dropped: string[]): string | null {
+  if (dropped.length === 0) return null;
+  const which = dropped.length === 1 ? "file" : "files";
+  return `${dropped.length} ${which} from another subject ${dropped.length === 1 ? "was" : "were"} removed from what will open.`;
 }
 
 /**
@@ -470,9 +584,19 @@ export function fieldOfNode(name: string): string | null {
   return null;
 }
 
-/** Every id a simulation branch offers, across its three buckets. */
-export function simulationNodeIds(sim: { fields?: TreeNode[]; meshes?: TreeNode[]; electrodes?: TreeNode[] }): string[] {
-  return [...(sim.fields ?? []), ...(sim.meshes ?? []), ...(sim.electrodes ?? [])].map((n) => n.id);
+/**
+ * Every id a simulation branch offers, across its buckets.
+ *
+ * Attachments are **not** included: "select all of this simulation" means its outputs, and
+ * sweeping in every parcellation would tick things whose surfaces may not even be in the scene.
+ */
+export function simulationNodeIds(sim: {
+  fields?: TreeNode[];
+  meshes?: TreeNode[];
+  surfaces?: TreeNode[];
+  electrodes?: TreeNode[];
+}): string[] {
+  return [...(sim.fields ?? []), ...(sim.meshes ?? []), ...(sim.surfaces ?? []), ...(sim.electrodes ?? [])].map((n) => n.id);
 }
 
 /**

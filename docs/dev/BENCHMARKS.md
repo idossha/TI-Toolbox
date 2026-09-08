@@ -14,6 +14,7 @@ are labelled where it matters.
 
 | Artifact | Content size | Disk usage | Measured |
 |---|---|---|---|
+| `idossha/ti-toolbox:dev` (one image, `0ae4757968`, Tetravox embed 0.4.0 / protocol 3) | **2.32 GB** | 8.92 GB | 2026-09-07 |
 | `idossha/ti-toolbox:dev` (one image, `853220d5`, after the slimming pass) | **2.32 GB** | 8.93 GB | 2026-09-07 |
 | `idossha/ti-toolbox:dev` (one image, pre-slimming — superseded) | 6.66–6.67 GB | 21.3 GB with `simnibs:v2.5.0` cached alongside | 2026-09-03 |
 | `idossha/simnibs:v2.5.0` (old stack) | 6.15 GB | 19.2 GB | 2026-09-03 |

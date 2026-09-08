@@ -50,7 +50,7 @@
  * paths) written to `<project>/code/ti-toolbox/viewer/<kind>.tetravox.json` for export. One
  * request, one message.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Camera, Clock, Eye, GripVertical, Plus, RefreshCw, Save, X } from "lucide-react";
@@ -86,10 +86,13 @@ import {
   containerPaths,
   formatBytes,
   hasViewerDeepLink,
+  kindFromName,
   pushRecent,
   readDeepLink,
   readRecents,
   reorder,
+  rescopeNotice,
+  rescopeToSubject,
   selectionFromDeepLink,
   selectionKey,
   selectionLabel,
@@ -174,14 +177,44 @@ function ViewerPage() {
   );
   const [files, setFiles] = usePageSession<string[] | null>("files", () => null);
 
+  /**
+   * A change of subject dropped rows that belonged to the previous one — how many, or `null`.
+   *
+   * Shown rather than done quietly. Removing part of somebody's composition without saying so
+   * leaves them to work out for themselves why the list is shorter than they left it.
+   */
+  const [rescoped, setRescoped] = useState<string | null>(null);
+
   const editDraft = useCallback(
     (patch: Partial<ViewerSelection>) => {
       // A different source resolves to a different set of files, so an edit to the source is an
       // edit to the list: keeping the old rows would silently open the previous subject's data.
-      setFiles(null);
+      //
+      // A change of *subject* is the one that has to be handled rather than merely reset, and it
+      // is the one that has actually gone wrong. The list survives a subject change by design —
+      // it is the thing a person is editing — so picking 101 after ernie left ernie's rows in it
+      // and Open composed a scene spanning two people: one person's field over another's anatomy,
+      // two brains, both head-shaped, roughly aligned, and no way to see that it is wrong. The
+      // real `viewer-open` spec passed for a while while measuring the wrong subject entirely.
+      //
+      // So the rows that still belong are *kept* — including the shared MNI template and atlases,
+      // which belong to nobody and which an MNI scene is supposed to mix in — and the rest are
+      // dropped with a notice. The server refuses a mixed scene outright (422); this is what
+      // stops a person meeting that refusal in the first place.
+      if (patch.subject !== undefined && patch.subject !== draft.subject) {
+        // Read from the value in scope rather than from a `setFiles` updater. An updater must be
+        // pure — setting a *second* piece of state from inside one is not reliably committed, and
+        // the notice simply never appeared.
+        const { kept, dropped } = rescopeToSubject(files ?? [], patch.subject);
+        setRescoped(rescopeNotice(dropped));
+        setFiles(files === null || kept.length === 0 ? null : kept);
+      } else {
+        setFiles(null);
+        setRescoped(null);
+      }
       setDraft((current) => ({ ...current, ...patch }));
     },
-    [setDraft, setFiles],
+    [draft.subject, files, setDraft, setFiles],
   );
 
   // A later deep link (Results → "Open in viewer") re-prefills the draft. It still does not open.
@@ -192,13 +225,19 @@ function ViewerPage() {
     setDraft((current) => selectionFromDeepLink(deepLink, current));
   }, [active, location.key, location.state, deepLink, linkCarriesControls, setDraft, setFiles]);
 
-  // The shell's subject switcher edits the draft's subject — a draft edit like any other.
-  const lastShellSubject = useRef(subjectId);
-  useEffect(() => {
-    if (subjectId === lastShellSubject.current) return;
-    lastShellSubject.current = subjectId;
+  // The shell's subject switcher edits the draft's subject — a draft edit like any other, and so
+  // it rescopes the list exactly as the page's own Subject selector does.
+  //
+  // Adjusted during render rather than in an effect: with the rescoping above, `editDraft` sets
+  // three pieces of state, and doing that from an effect is the cascading-render pattern
+  // `react-hooks/set-state-in-effect` exists to catch (the house alternative — see
+  // `pages/simulator/ConductivityDialog.tsx`). It is also simply correct here: the draft must
+  // already be the new subject's on the render that shows it, not one paint later.
+  const [lastShellSubject, setLastShellSubject] = useState(subjectId);
+  if (subjectId !== lastShellSubject) {
+    setLastShellSubject(subjectId);
     if (subjectId) editDraft({ subject: subjectId });
-  }, [subjectId, editDraft]);
+  }
 
   // ---------------------------------------------------------------------------------------------
   // Menus. Catalog reads: they populate options and open nothing.
@@ -336,8 +375,10 @@ function ViewerPage() {
       (path) =>
         known.get(path) ?? {
           // A path nothing has described — only reachable by typing one into "+ Add…". Shown with
-          // what can be known from the string itself, so the row is never blank.
-          kind: /\.(msh|gii)$/i.test(path) ? "mesh" : "volume",
+          // what can be known from the string itself, so the row is never blank, and in the same
+          // vocabulary the server uses: a row calling `lh.central.gii` a mesh here would put back,
+          // in the list, exactly the confusion the tree stopped making.
+          kind: kindFromName(path),
           name: path.split("/").pop() ?? path,
           path,
           container_path: path,
@@ -698,6 +739,11 @@ function ViewerPage() {
               <span className="viewer-card-note" data-testid="viewer-plan-note">
                 {rows.length === 0 ? "nothing yet" : `${rows.length} file${rows.length === 1 ? "" : "s"}, in this order`}
               </span>
+              {rescoped !== null && (
+                <span className="viewer-card-note viewer-card-rescoped" data-testid="viewer-plan-rescoped" role="status">
+                  {rescoped}
+                </span>
+              )}
               {summary !== null && (
                 <span className="viewer-card-window" data-testid="viewer-window-summary" title="The window the field overlay opens at">
                   {summary}

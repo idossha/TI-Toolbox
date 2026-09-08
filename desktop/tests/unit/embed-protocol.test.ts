@@ -17,7 +17,9 @@ import {
 } from "../../src/renderer/viewer/embedProtocol";
 
 const P1: EmbedCapability = { available: true, version: "0.3.4", protocol: 1, source: "baked", features: [], compatible: true };
-const P2: EmbedCapability = { available: true, version: "0.4.0", protocol: 2, source: "installed", features: [], compatible: true };
+const P2: EmbedCapability = { available: true, version: "0.3.11", protocol: 2, source: "installed", features: [], compatible: true };
+// Tetravox 0.4.0: a surface is its own layer kind, with `.annot`/morph/data-GIfTI attachments.
+const P3: EmbedCapability = { available: true, version: "0.4.0", protocol: 3, source: "installed", features: [], compatible: true };
 
 describe("isSupportedProtocol", () => {
   it("accepts the declared range and nothing else", () => {
@@ -38,7 +40,16 @@ describe("embedCan", () => {
     expect(embedCan(P1, "markers")).toBe(false);
     expect(embedCan(P1, "pick")).toBe(false);
     expect(embedCan(P1, "camera")).toBe(false);
-    for (const feature of Object.keys(EMBED_FEATURE_MIN_PROTOCOL)) expect(embedCan(P2, feature)).toBe(true);
+    // A protocol-2 embed has everything up to 2 and nothing above it — `surfaces` is protocol 3,
+    // and asking for it on this embed is what makes the Viewer list a surface row disabled with a
+    // reason rather than sending a cortical sheet as if it were a tetrahedral FEM mesh.
+    expect(embedCan(P2, "surfaces")).toBe(false);
+    for (const feature of Object.keys(EMBED_FEATURE_MIN_PROTOCOL)) {
+      expect(embedCan(P3, feature), feature).toBe(true);
+      if (EMBED_FEATURE_MIN_PROTOCOL[feature as keyof typeof EMBED_FEATURE_MIN_PROTOCOL] <= 2) {
+        expect(embedCan(P2, feature), feature).toBe(true);
+      }
+    }
   });
 
   it("takes the server's feature list as authoritative when it has one", () => {

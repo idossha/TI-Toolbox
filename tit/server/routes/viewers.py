@@ -56,12 +56,14 @@ from __future__ import annotations
 import copy
 import json
 import os
+import re
 from typing import Any
 from urllib.parse import unquote
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from tit import viewspec
+from tit.catalog import classify_view_file
 from tit.server.schemas import ViewerOpen, ViewSpec
 
 router = APIRouter()
@@ -343,12 +345,95 @@ def _scene_files(spec: dict[str, Any], localised: dict[str, Any]) -> list[dict[s
     return rows
 
 
+#: `.../derivatives/SimNIBS/sub-<id>/...` -- the only place in a project where a path names whose
+#: head it came out of. Files outside it (the bundled MNI template and atlases) belong to nobody
+#: and are exempt below, which is deliberate: an MNI scene is *supposed* to mix them in.
+_SUBJECT_IN_PATH = re.compile(r"/derivatives/SimNIBS/sub-([^/]+)/")
+
+
+def _refuse_a_scene_that_spans_two_subjects(files: list[Any]) -> None:
+    """422 naming both, rather than a picture that is wrong in a way no reader can see.
+
+    Overlaying one person's field on another's anatomy produces a scene that looks entirely
+    normal -- two brains, roughly head-shaped, roughly aligned -- and is a false result. There is
+    no rendering artefact to notice and no warning to read; the only place it can be caught is
+    here, before anything is drawn.
+
+    It is a real path and not a hypothetical: the Viewer's "what will open" list survives a change
+    of subject, so picking 101 after ernie kept ernie's rows in the list, and the real
+    `viewer-open` spec first passed while measuring the wrong subject entirely
+    (`desktop/tests/e2e/real/viewer-open.spec.ts`, the "one subject per scene" block). The client
+    now re-scopes that list on a subject change; this is the rule that makes it not matter whether
+    a client remembers to.
+    """
+    subjects: dict[str, str] = {}
+    for raw in files:
+        if not isinstance(raw, str):
+            continue
+        match = _SUBJECT_IN_PATH.search(raw)
+        if match:
+            subjects.setdefault(match.group(1), raw)
+    if len(subjects) > 1:
+        named = ", ".join(
+            f"{sid} ({os.path.basename(path)})" for sid, path in sorted(subjects.items())
+        )
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"A scene cannot span two subjects: {named}. "
+                "Choose one subject's files, or change subject and compose again."
+            ),
+        )
+
+
+def _refuse_a_surface_this_embed_cannot_draw(
+    request: Request | None, files: list[Any]
+) -> None:  # noqa: D401
+    """422 rather than send a cortical sheet as if it were a tetrahedral FEM mesh.
+
+    Degrading to `kind: "mesh"` is the tempting alternative and it is the wrong one. A sheet sent
+    as a mesh loads (it is a triangle-only mesh, and the engine will take it), so nothing fails --
+    it simply comes back with a mesh's defaults: filled in 2D instead of outlined, capped clip
+    planes for an object with no interior, and no way to attach the parcellation that was the
+    reason for ticking it. The person gets a picture and no reason to doubt it.
+
+    The Menu already disables these rows (`tit.viewspec._tree_node`), so a client that reads the
+    tree never reaches this. It exists for the ones that do not: a saved composition from a newer
+    embed, a deep link, a script.
+    """
+    from tit.server.routes.viewer_library import surfaces_supported
+
+    # No request means no app to probe -- a direct call from a test or a script. Those are not the
+    # caller this guard is for, and refusing them would be refusing on no evidence.
+    if request is None or surfaces_supported(request):
+        return
+    offered = [
+        raw
+        for raw in files
+        if isinstance(raw, str) and classify_view_file(raw) == "surface"
+    ]
+    if offered:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"{viewspec.SURFACE_UNSUPPORTED_REASON}: "
+                + ", ".join(sorted({os.path.basename(p) for p in offered}))
+            ),
+        )
+
+
 @router.post(
     "/api/view/open",
     summary="Resolve a scene once: the embed ViewSpec, and the scene file on disk",
     response_model=ViewerOpen,
 )
-def view_open(body: dict[str, Any] | None = None) -> dict[str, Any]:
+def view_open(
+    body: dict[str, Any] | None = None,
+    # Annotated bare `Request` (never `Request | None`): FastAPI reads the annotation to know this
+    # is the request object and not a body field, and a union is not something it can special-case.
+    # The `= None` is for the direct calls the tests make, which have no app to hand.
+    request: Request = None,  # type: ignore[assignment]
+) -> dict[str, Any]:
     """``{kind, subject, ...}`` -> ``{name, path, host_path, scene, view, files}``.
 
     Launches nothing, and never could: the server has no display (D3).  One
@@ -384,6 +469,9 @@ def view_open(body: dict[str, Any] | None = None) -> dict[str, Any]:
     # order -- and the view type contributes only each kept file's default
     # layer settings. Absent, nothing changes for any caller.
     files = payload.get("files")
+    if isinstance(files, list):
+        _refuse_a_scene_that_spans_two_subjects(files)
+        _refuse_a_surface_this_embed_cannot_draw(request, files)
     spec = viewspec.build_view(
         kind,
         subject=payload.get("subject"),

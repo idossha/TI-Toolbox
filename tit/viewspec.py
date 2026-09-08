@@ -84,7 +84,11 @@ from pathlib import Path
 from typing import Any
 
 from tit.atlas import DEFAULT_MNI_ATLAS, MNI_ATLAS_DIR, MNI_TEMPLATE, VoxelAtlasManager
-from tit.catalog import classify_view_file, surface_attachments
+from tit.catalog import (
+    VIEW_ATTACHMENT_KINDS,
+    classify_view_file,
+    surface_attachments,
+)
 from tit.atlas.constants import mni_resources_dir
 from tit.paths import get_path_manager
 
@@ -692,6 +696,13 @@ def _layer_for_path(path: str) -> dict[str, Any]:
     picture of its outliers.
     """
     name = os.path.basename(path).lower()
+    if classify_view_file(path) == "surface":
+        # **Visible**, unlike the mesh case below. A `.msh` starts hidden because it is 24-420 MB
+        # and loading one nobody asked to see is a minute of somebody's time; a cortical sheet is
+        # ~8 MB. A surface that arrived hidden would mean ticking `lh.central` and its
+        # parcellation and getting a picture with neither in it, which reads as a bug in the
+        # ticking rather than a deliberate saving.
+        return _layer(path, kind="label", colormap="jet", opacity=1.0, visible=True)
     if _scene_is_mesh(path):
         return _layer(path, kind="label", colormap="jet", opacity=1.0, visible=False)
     if any(hint in name for hint in _LABEL_HINTS):
@@ -729,10 +740,46 @@ def _layers_from_files(
         if path in seen or not os.path.exists(path):
             continue
         seen.add(path)
+        kind = classify_view_file(path)
+        if kind in VIEW_ATTACHMENT_KINDS:
+            # An attachment is **not a layer**. A `.annot` is a colour table and a `lh.thickness`
+            # is a column of numbers; neither has geometry, and Tetravox models both the same way
+            # -- as a node field on the surface's own dataset (`sidecars.fields`), referenced by
+            # the surface layer's `annotation.name` / `overlay.name`. Folding it here rather than
+            # in `to_tetravox_viewspec` keeps `spec["layers"]` and `scene["datasets"]` the same
+            # length, which the file list in `tit/server/routes/viewers.py` zips together.
+            #
+            # Hemisphere decides which surface it lands on, because that is the only
+            # correspondence FreeSurfer promises. With no matching surface ticked it is dropped,
+            # like any other unusable row: an attachment alone would draw nothing.
+            host = _surface_for_attachment(layers, path)
+            if host is not None:
+                host.setdefault("attachments", []).append(path)
+            continue
         layers.append(
             copy.deepcopy(by_path[path]) if path in by_path else _layer_for_path(path)
         )
     return layers
+
+
+def _surface_for_attachment(
+    layers: list[dict[str, Any]], attachment: str
+) -> dict[str, Any] | None:
+    """The last ticked surface of the attachment's hemisphere, or ``None``.
+
+    *Last*, so a person who ticks `lh.pial` then `lh.central` then an annotation gets it on the
+    surface they just chose. A hemisphere-less attachment (rare, but a `.func.gii` need not be
+    named `lh.*`) goes on the last surface of any hemisphere.
+    """
+    hemi = os.path.basename(attachment)[:3]
+    hemi = hemi if hemi in ("lh.", "rh.") else ""
+    for layer in reversed(layers):
+        if classify_view_file(layer["path"]) != "surface":
+            continue
+        if hemi and not os.path.basename(layer["path"]).startswith(hemi):
+            continue
+        return layer
+    return None
 
 
 def build_view(
@@ -2469,16 +2516,138 @@ def _mesh_scale_and_threshold(
     )
 
 
+#: Tetravox's own `SURFACE_CONTOUR_PALETTE` first entry (`scene/defaults.ts`) -- Freeview yellow.
+#: Used for both `solidColor` and `contourColor`, which is what `defaultSurfaceLayer` does, so a
+#: scene the server built and a surface a person dropped on the app look the same.
+_SURFACE_COLOR = [1.0, 0.9, 0.15, 1.0]
+
+
+def _attachment_field_name(path: str) -> str:
+    """The node-field name an attached file becomes on its surface's dataset.
+
+    **The file name, extension and all** -- ``lh.ernie_DK40.annot``, not ``lh.ernie_DK40`` and
+    never a role word like ``annotation``. The embed names the field after the file it attached,
+    and this is the embed lane's stated contract (2026-09-07), so it is a fact about the far end
+    rather than a choice made here.
+
+    Worth stating because getting it wrong is invisible from this side: the sidecar loads, the
+    ``loaded`` event is a success, and the surface comes back solid-coloured with the parcellation
+    attached but unselected. Only ``colorMode`` on the embed's own ``layers`` event says so, which
+    is what the real spec asserts on.
+    """
+    return os.path.basename(path)
+
+
+def _surface_layer(
+    name: str, attachments: list[str], index: int
+) -> dict[str, Any]:
+    """The ``kind: "surface"`` half of a layer — Tetravox 0.4.0's own schema (§4.4, §7.4).
+
+    **One colour source at a time**, which is the engine's rule and not ours: ``solid`` for a bare
+    sheet, ``annotation`` when a ``.annot`` is attached, ``overlay`` when a scalar is. An
+    annotation wins over a scalar when both are ticked, because a parcellation is what a person
+    ticks a surface *for*; the other stays attached and one click away in the app's own panel.
+
+    ``annotation.name`` / ``overlay.name`` are **node-field names, not paths**: the worker names
+    the field after the file it attached, so the stem is the name. This is the one thing in this
+    function that is a convention rather than a schema, and it is the thing to re-check against
+    the embed lane's `attachField` reply -- a wrong name leaves the surface solid-coloured with
+    the data attached but unselected, which is recoverable in the app, rather than broken.
+
+    Deliberately **not** emitted: ``tagStyle``, ``fillIn2D`` and clip ``caps``, all of which a
+    mesh layer carries and a surface must not (§7.4: a sheet has no interior to cap). Its
+    2-D presence is an outline, which is why ``contoursIn2D`` is on.
+    """
+    annotation = next(
+        (a for a in attachments if classify_view_file(a) == "annotation"), None
+    )
+    scalar = next(
+        (a for a in attachments if classify_view_file(a) in ("morph", "surface-data")),
+        None,
+    )
+    if annotation is not None:
+        color_mode = "annotation"
+    elif scalar is not None:
+        color_mode = "overlay"
+    else:
+        color_mode = "solid"
+
+    layer: dict[str, Any] = {
+        "kind": "surface",
+        "colorMode": color_mode,
+        "solidColor": list(_SURFACE_COLOR),
+        "colormap": "viridis",
+        # A sheet's own values (curvature, thickness) have no pipeline-wide range the way a field
+        # volume does, and this server reads no vertex data -- so the engine's own default window
+        # is left in place rather than a number invented here.
+        "scale": {"kind": "linear", "lo": 0.0, "hi": 1.0},
+        "threshold": {
+            "lo": 0.0,
+            "hi": None,
+            "symmetric": False,
+            "mode": "clamp",
+            "softEdge": 0.0,
+        },
+        "flatShading": False,
+        "faceMode": "cull",
+        "edges": False,
+        "edgeColor": [0.0, 0.0, 0.0, 1.0],
+        "edgeWidthPx": 1.0,
+        "clip": {"planes": []},
+        "contoursIn2D": True,
+        "contourWidthPx": 1.5,
+        "contourColor": list(_SURFACE_COLOR),
+    }
+    if annotation is not None:
+        layer["annotation"] = {
+            "name": _attachment_field_name(annotation),
+            # Outline, not fill: the surface is usually shown *under* a field, and a filled
+            # parcellation would be the only thing anybody saw.
+            "mode": "outline",
+            "outlineWidthPx": 1.5,
+        }
+        # A parcellation has no continuous scale, so a colorbar for it would be a ramp with no
+        # meaning (Tetravox's own `showAttached` clears it for the same reason).
+        layer["showColorbar"] = False
+    elif scalar is not None:
+        layer["overlay"] = {
+            "name": _attachment_field_name(scalar),
+            "component": "mag",
+        }
+    return layer
+
+
 def _dataset_ref(path: str, index: int) -> dict[str, Any]:
     url = _scene_raw_url(path)
+    # `surface` is an alias of `mesh` on the engine side -- a surface *is* a mesh dataset, one
+    # with no tetrahedra -- so either loads. It is written because a scene is also a document
+    # someone reads, and `kind: "mesh"` on a row called `lh.central.gii` is the exact confusion
+    # this whole change is about.
+    if classify_view_file(path) == "surface":
+        kind = "surface"
+    elif _scene_is_mesh(path):
+        kind = "mesh"
+    else:
+        kind = "volume"
     return {
         "id": f"ds{index}",
-        "kind": "mesh" if _scene_is_mesh(path) else "volume",
+        "kind": kind,
         "name": os.path.basename(path),
         "path": url,
         "absPath": url,
         "fingerprint": "",
     }
+
+
+def _relative_sidecar_path(surface_path: str, attachment: str) -> str:
+    """*attachment* as the embed addresses it: relative to the **surface's** directory.
+
+    Both addressings of a scene (`/api/files/raw/...` URLs for the embed, host paths for the
+    desktop app) re-root every absolute path they carry. A relative path needs neither and is
+    correct in both, which is why the embed lane asks for one -- it is the only field in a scene
+    that survives the re-rooting untouched.
+    """
+    return os.path.relpath(attachment, os.path.dirname(surface_path))
 
 
 def _sidecar_ref(path: str) -> dict[str, str]:
@@ -2535,8 +2704,12 @@ def to_tetravox_viewspec(spec: dict[str, Any]) -> dict[str, Any]:
         name = os.path.basename(path)
         colormap = layer.get("colormap", "grayscale")
         role = _scene_role(path, colormap)
-        is_mesh = role == "mesh"
-        is_label = colormap == "lut" and not is_mesh
+        # A `.gii` sheet used to reach the mesh branch, because `_scene_role` calls anything with
+        # a mesh extension a mesh. It is a `surface` now (Tetravox 0.4.0, protocol 3) and never
+        # emitted as a mesh: `build_view` refuses the scene rather than lie about the file.
+        is_surface = classify_view_file(path) == "surface"
+        is_mesh = role == "mesh" and not is_surface
+        is_label = colormap == "lut" and not is_mesh and not is_surface
         visible = bool(layer.get("visible", True))
         field_name = _scene_field_name(name) if role in ("mesh", "field") else None
 
@@ -2551,6 +2724,24 @@ def to_tetravox_viewspec(spec: dict[str, Any]) -> dict[str, Any]:
             opt = f"{path}.opt"
             if os.path.isfile(opt):
                 sidecars["opt"] = _sidecar_ref(opt)
+        attachments = [
+            attachment
+            for attachment in layer.get("attachments", [])
+            if os.path.isfile(attachment)
+        ]
+        if is_surface and attachments:
+            # Tetravox §4.6: a surface's `.annot`, morph and data-GIfTI files are re-attached from
+            # `sidecars.fields`, in order, before the layers are restored. Each becomes a node
+            # field on this dataset, named after the file -- which is what `annotation.name` /
+            # `overlay.name` below refer to. There is no attachment *layer*.
+            #
+            # Relative to the surface's own directory, and `{path}` alone -- the embed lane's
+            # contract, and the one place in a scene where a path is not absolute. SimNIBS keeps
+            # the parcellations a directory across from the geometry, so these really do come out
+            # as `../segmentation/lh.ernie_DK40.annot`.
+            sidecars["fields"] = [
+                {"path": _relative_sidecar_path(path, a)} for a in attachments
+            ]
         if sidecars:
             dataset["sidecars"] = sidecars
         datasets.append(dataset)
@@ -2582,7 +2773,9 @@ def to_tetravox_viewspec(spec: dict[str, Any]) -> dict[str, Any]:
             "showColorbar": True,
         }
 
-        if is_mesh:
+        if is_surface:
+            layers.append({**base_fields, **_surface_layer(name, attachments, index)})
+        elif is_mesh:
             scale, threshold = _mesh_scale_and_threshold(
                 _bounds_for_mesh(name, field_volumes)
             )

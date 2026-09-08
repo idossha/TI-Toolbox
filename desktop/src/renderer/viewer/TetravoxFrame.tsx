@@ -58,11 +58,25 @@ export function TetravoxFrame({
   const progress = useViewerStore((s) => s.progress);
   const connect = useViewerStore((s) => s.connect);
   const disconnect = useViewerStore((s) => s.disconnect);
+  const layers = useViewerStore((s) => s.layers);
 
   const loading = status === "loading" && progress.length > 0;
 
+  /**
+   * `volume:-,surface:annotation` — what the **engine** says it is drawing, not what we sent it.
+   *
+   * The one observable that can catch a surface whose attachment did not take. A sidecar the
+   * embed could not fetch yields a solid-coloured surface and a perfectly successful `loaded`
+   * event: the geometry is there, nothing errors, and the picture is simply missing the
+   * parcellation that was the whole reason for ticking it. `colorMode` on the `layers` event is
+   * the only place that difference shows, so it is put where a test can read it.
+   */
+  const layerKinds = layers
+    .map((layer) => `${layer.kind ?? "?"}:${(layer as { colorMode?: string }).colorMode ?? "-"}`)
+    .join(",");
+
   return (
-    <div className={className ? `tvx-host ${className}` : "tvx-host"} data-testid="tetravox-host" data-viewer-status={status} data-renderer={renderer ?? ""}>
+    <div className={className ? `tvx-host ${className}` : "tvx-host"} data-testid="tetravox-host" data-viewer-status={status} data-renderer={renderer ?? ""} data-viewer-layer-kinds={layerKinds}>
       <EmbedFrame
         origin={origin}
         connect={connect}

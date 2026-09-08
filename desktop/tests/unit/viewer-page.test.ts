@@ -18,6 +18,10 @@ import {
   containerPaths,
   formatBytes,
   branchCount,
+  groupAnatomy,
+  kindChip,
+  rescopeNotice,
+  rescopeToSubject,
   branchState,
   fieldOfNode,
   formatFieldValue,
@@ -405,5 +409,97 @@ describe("simulationNodeIds", () => {
       }),
     ).toEqual(["f1", "f2", "m1", "e1"]);
     expect(simulationNodeIds({})).toEqual([]);
+  });
+});
+
+// ── what a file is, and how the tree says so (2026-09-07) ─────────────────────────────────────
+//
+// Maintainer: *"Please distinguish between NIfTI, mesh, and a surface — a mesh is a tetrahedral
+// FEM, a surface is just a triangular 2-D surface."* The server classifies
+// (`tit/catalog.py::classify_view_file`); these are the two things the renderer does with the
+// answer, and neither may re-derive a kind from a file extension.
+
+describe("kindChip", () => {
+  it("gives the two geometries different words", () => {
+    // The whole point: a MESH row is a 64 MB FEM domain and a SURFACE row is an 8 MB sheet, and
+    // before this they wore the same chip.
+    expect(kindChip("mesh")).toBe("MESH");
+    expect(kindChip("surface")).toBe("SURFACE");
+    expect(kindChip("volume")).toBe("VOLUME");
+    expect(kindChip("label-volume")).toBe("LABELS");
+  });
+
+  it("shows an unknown kind rather than hiding the row", () => {
+    // A kind this build has never heard of can only come from a newer server. Showing it raw is
+    // ugly; showing nothing would be a row a person cannot identify.
+    expect(kindChip("hologram")).toBe("HOLOGRAM");
+  });
+});
+
+describe("groupAnatomy", () => {
+  const nodes = [
+    { id: "1", name: "T1.nii.gz", label: "T1", path: "/p/T1.nii.gz", kind: "volume" },
+    { id: "2", name: "labeling.nii.gz", label: "labeling", path: "/p/labeling.nii.gz", kind: "label-volume" },
+    { id: "3", name: "lh.central.gii", label: "lh.central", path: "/p/lh.central.gii", kind: "surface" },
+    { id: "4", name: "ernie.msh", label: "Head mesh (ernie)", path: "/p/ernie.msh", kind: "mesh" },
+  ];
+
+  it("splits the branch into the four things a person is choosing between", () => {
+    expect(groupAnatomy(nodes).map((g) => [g.title, g.nodes.map((n) => n.name)])).toEqual([
+      ["Volumes", ["T1.nii.gz"]],
+      ["Label volumes (atlases)", ["labeling.nii.gz"]],
+      ["Surfaces", ["lh.central.gii"]],
+      ["Meshes", ["ernie.msh"]],
+    ]);
+  });
+
+  it("drops empty groups rather than drawing four headings over one row", () => {
+    expect(groupAnatomy([nodes[0]]).map((g) => g.title)).toEqual(["Volumes"]);
+    expect(groupAnatomy([])).toEqual([]);
+  });
+
+  it("still draws a kind no group claims", () => {
+    // A row nobody drew is a file a person cannot find, which is the failure this lane exists to
+    // fix — so an unrecognised kind lands in "Other" rather than being dropped.
+    const odd = { ...nodes[0], id: "9", name: "x.hologram", kind: "hologram" };
+    const groups = groupAnatomy([nodes[0], odd]);
+    expect(groups.map((g) => g.title)).toEqual(["Volumes", "Other"]);
+    expect(groups[1].nodes.map((n) => n.name)).toEqual(["x.hologram"]);
+  });
+});
+
+describe("rescopeToSubject", () => {
+  const ernie = "/mnt/000/derivatives/SimNIBS/sub-ernie/m2m_ernie/T1.nii.gz";
+  const other = "/mnt/000/derivatives/SimNIBS/sub-101/m2m_101/T1.nii.gz";
+  const shared = "/ti-toolbox/resources/atlas/MNI152_T1_1mm.nii.gz";
+
+  it("keeps this subject's rows and drops the previous one's", () => {
+    // The bug: the list survives a subject change by design, so picking 101 after ernie composed
+    // a scene spanning two people — one person's field over another's anatomy, two brains, both
+    // head-shaped, roughly aligned, and nothing on screen to say it was wrong.
+    expect(rescopeToSubject([ernie, other], "101")).toEqual({ kept: [other], dropped: [ernie] });
+  });
+
+  it("never drops a file that belongs to nobody", () => {
+    // The MNI template and the bundled atlases are shared, and an MNI scene is *supposed* to mix
+    // them with a subject's own volumes.
+    expect(rescopeToSubject([shared, other], "101").dropped).toEqual([]);
+  });
+
+  it("keeps everything when there is no subject to scope to", () => {
+    expect(rescopeToSubject([ernie, other], undefined)).toEqual({ kept: [ernie, other], dropped: [] });
+  });
+
+  it("preserves order, because order is layer order", () => {
+    const files = [shared, other, "/mnt/000/derivatives/SimNIBS/sub-101/m2m_101/101.msh"];
+    expect(rescopeToSubject(files, "101").kept).toEqual(files);
+  });
+});
+
+describe("rescopeNotice", () => {
+  it("says what went, so the shorter list is something a person saw", () => {
+    expect(rescopeNotice([])).toBeNull();
+    expect(rescopeNotice(["a"])).toBe("1 file from another subject was removed from what will open.");
+    expect(rescopeNotice(["a", "b"])).toBe("2 files from another subject were removed from what will open.");
   });
 });

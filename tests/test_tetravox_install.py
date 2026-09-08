@@ -173,7 +173,7 @@ def test_a_protocol_outside_the_supported_range_is_refused_with_a_readable_messa
         install.install_archive(archive, root=root, sha256=digest_of(archive))
     message = str(exc.value)
     assert "protocol 99" in message
-    assert "supports protocol 1-2" in message
+    assert "supports protocol 1-3" in message
     assert "Update TI-Toolbox" in message  # what to do about it
     assert installed_names(root) == []
 

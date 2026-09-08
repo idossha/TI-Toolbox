@@ -1312,3 +1312,128 @@ test("saving a composition and loading it puts the same scene back", async () =>
   await expect.poll(rowNames).toEqual(composed);
   await expectSub("menu");
 });
+
+// ── a mesh, a surface and a volume are three different things (2026-09-07) ────────────────────
+//
+// Maintainer, on the Anatomy branch chipping `lh.central`, `lh.pial` and `lh.white` as MESH next
+// to the true `Head mesh (ernie)`: *"Please distinguish between NIfTI, mesh, and a surface — a
+// mesh is a tetrahedral FEM, a surface is just a triangular 2-D surface."*
+//
+// These read the tree the way a person does — the group a row is under, the chip it wears, and
+// whether its attachments are offered — because that is the whole of what was wrong. The
+// classification itself is `tests/test_catalog_view_kinds.py`, over sub-ernie's real listing.
+
+test("the Anatomy branch groups by what a file is, and chips say which", async () => {
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  await expect(page.getByTestId("viewer-tree")).toBeVisible({ timeout: 15_000 });
+
+  // Four groups, in the order a scene is built: the base volume, what goes on top of it, then the
+  // two geometries — which are the pair the grouping exists to keep apart.
+  await expect(page.getByTestId("viewer-tree-anatomy-volumes")).toContainText("Volumes");
+  await expect(page.getByTestId("viewer-tree-anatomy-labels")).toContainText("Label volumes (atlases)");
+  await expect(page.getByTestId("viewer-tree-anatomy-surfaces")).toContainText("Surfaces");
+  await expect(page.getByTestId("viewer-tree-anatomy-meshes")).toContainText("Meshes");
+
+  // The regression itself, stated as the two rows that used to wear the same word.
+  await expect(page.getByTestId("viewer-tree-chip-ernie.msh")).toHaveText("MESH");
+  await expect(page.getByTestId("viewer-tree-chip-lh.central.gii")).toHaveText("SURFACE");
+  await expect(page.getByTestId("viewer-tree-chip-T1.nii.gz")).toHaveText("VOLUME");
+  await expect(page.getByTestId("viewer-tree-chip-labeling.nii.gz")).toHaveText("LABELS");
+
+  // And each row is *under the heading its chip names*, not merely labelled correctly in a flat
+  // list — located by file, since the label beside the chip is a curated display name.
+  await expect(page.getByTestId("viewer-tree-anatomy-meshes").getByTestId("viewer-tree-node-ernie.msh")).toHaveCount(1);
+  await expect(page.getByTestId("viewer-tree-anatomy-surfaces").getByTestId("viewer-tree-node-lh.central.gii")).toHaveCount(1);
+  // The pair that used to share a heading no longer do.
+  await expect(page.getByTestId("viewer-tree-anatomy-meshes").getByTestId("viewer-tree-node-lh.central.gii")).toHaveCount(0);
+});
+
+test("a surface offers its own parcellations, and only its own hemisphere's", async () => {
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  await expect(page.getByTestId("viewer-tree")).toBeVisible({ timeout: 15_000 });
+
+  // SimNIBS writes these two directories away from the geometry, which is why nothing had ever
+  // offered them: with one word for meshes and surfaces there was nowhere to put them.
+  // Named by the surface it hangs under: a hemisphere's parcellations apply to *every* surface of
+  // that hemisphere (they share a vertex numbering), so the same file is offered under each, and
+  // the file name alone does not identify a row.
+  const left = page.getByTestId("viewer-tree-attachment-lh.central.gii-lh.ernie_DK40.annot");
+  await expect(left).toBeVisible();
+  await expect(left).toHaveAttribute("data-depth", "1");
+  await expect(page.getByTestId("viewer-tree-chip-lh.central.gii-lh.ernie_DK40.annot")).toHaveText("ANNOT");
+  // The right hemisphere's parcellation is under the right hemisphere's surface, and there is no
+  // `rh.ernie_a2009s` at all — the tree offers what exists, not what would be symmetrical.
+  await expect(page.getByTestId("viewer-tree-attachment-rh.central.gii-rh.ernie_DK40.annot")).toBeVisible();
+  await expect(page.getByTestId("viewer-tree-attachment-rh.central.gii-rh.ernie_a2009s.annot")).toHaveCount(0);
+  // And no left-hemisphere parcellation is offered under the right-hemisphere sheet.
+  await expect(page.getByTestId("viewer-tree-attachment-rh.central.gii-lh.ernie_DK40.annot")).toHaveCount(0);
+
+  // The second parcellation of the same hemisphere is there too, and each wears its own chip.
+  await expect(page.getByTestId("viewer-tree-attachment-lh.central.gii-lh.ernie_a2009s.annot")).toHaveAttribute("data-depth", "1");
+
+  // An attachment is offered *under* a surface and nowhere else — it is not a row of the Surfaces
+  // group beside the sheets, because on its own it would draw nothing.
+  const surfaces = page.getByTestId("viewer-tree-anatomy-surfaces");
+  await expect(surfaces.getByTestId("viewer-tree-node-lh.central.gii")).toHaveCount(1);
+  await expect(page.getByTestId("viewer-tree-anatomy-volumes").getByTestId("viewer-tree-attachment-lh.central.gii-lh.ernie_DK40.annot")).toHaveCount(0);
+});
+
+test("an embed too old for surfaces greys the rows and says why", async () => {
+  // Listed and disabled, never hidden and never sent as a mesh. Degrading is the tempting
+  // alternative and the wrong one: a sheet sent as a mesh *loads*, so nothing fails — it just
+  // comes back with a mesh's defaults and no way to attach the parcellation that was the reason
+  // for ticking it. The person gets a picture and no reason to doubt it.
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  await expect(page.getByTestId("viewer-tree")).toBeVisible({ timeout: 15_000 });
+
+  // The mock's baked bundle is protocol 1, so this is the default state — a real dev checkout
+  // with an old image sees exactly this.
+  const row = page.getByTestId("viewer-tree-node-lh.central.gii");
+  await expect(row).toHaveAttribute("data-available", "false");
+  await expect(row).toContainText("needs Tetravox embed >= 0.4.0");
+  await expect(row.getByRole("checkbox")).toBeDisabled();
+  // Still a SURFACE, still in the Surfaces group: the row is refused, not reclassified.
+  await expect(page.getByTestId("viewer-tree-chip-lh.central.gii")).toHaveText("SURFACE");
+
+  // Its attachments are greyed with it: a parcellation you could tick for a surface you could not
+  // would be a choice that resolves to nothing.
+  await expect(page.getByTestId("viewer-tree-attachment-lh.central.gii-lh.ernie_DK40.annot")).toHaveAttribute("data-available", "false");
+
+  // And the switch is *only* about surfaces — the head mesh beside them is unaffected.
+  await expect(page.getByTestId("viewer-tree-node-ernie.msh").getByRole("checkbox")).toBeEnabled();
+
+  // The other half — a protocol-3 embed making the same row tickable, and the scene it then
+  // emits — is proved against the real container and the real bundle in
+  // `tests/e2e/real/viewer-open.spec.ts`, because only a real engine can say whether the
+  // attachment actually took (`colorMode` on its `layers` event).
+});
+
+test("changing the subject drops the other subject's rows, and says how many", async () => {
+  // The list survives a subject change by design — it is the thing a person is editing — so
+  // picking a second subject used to leave the first one's rows in it and compose a scene
+  // spanning two people: one person's field over another's anatomy, two brains, both head-shaped,
+  // roughly aligned, with nothing on screen to say it was wrong.
+  await connect();
+  await chooseSubject("ernie");
+  await openViewer();
+  // `T2_reg.nii.gz`, deliberately: `T1.nii.gz` is `default_on`, so ticking it changes nothing —
+  // the list is still "the view type's own set" and there is nothing carried over to drop.
+  await tickNode("T2_reg.nii.gz");
+  await expect.poll(rowNames).toContain("T2_reg.nii.gz");
+
+  await chooseSubject("101");
+  const notice = page.getByTestId("viewer-plan-rescoped");
+  await expect(notice).toBeVisible({ timeout: 15_000 });
+  await expect(notice).toContainText("from another subject");
+
+  await expect(page.getByTestId("viewer-select-subject")).toContainText("101");
+  // And what is on screen is 101's own set, resolved fresh — not ernie's rows relabelled.
+  await expect(page.getByTestId("viewer-plan")).not.toHaveAttribute("data-resolving", "true", { timeout: 30_000 });
+  await expect(page.getByTestId("viewer-plan-note")).not.toContainText("nothing yet");
+});

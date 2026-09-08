@@ -3581,14 +3581,31 @@ components:
         name: { type: string }
         label: { type: string, description: the curated display name, e.g. "GM · TI_max" }
         path: { type: string }
-        kind: { type: string, enum: [volume, mesh] }
+        kind:
+          type: string
+          enum: [volume, label-volume, surface, mesh, annotation, morph, surface-data]
+          description: >-
+            What the file is, decided once by `tit/catalog.py::classify_view_file`. A **mesh** is
+            SimNIBS's tetrahedral FEM domain (`.msh`, 24-420 MB); a **surface** is a triangulated
+            2-D sheet (`.gii`, a FreeSurfer binary, ~8 MB) that carries nothing on its own. They
+            were one word until 2026-09-07, which told a reader the two cost and answered the
+            same. `annotation`, `morph` and `surface-data` appear only as a surface's
+            `attachments`.
         bytes: { type: [integer, "null"] }
         default_on: { type: boolean, description: ticked when the tree is first drawn }
         available: { type: boolean }
         reason: { type: [string, "null"], description: why it is unavailable }
+        attachments:
+          type: array
+          description: >-
+            A surface's `.annot` parcellations, morphometry curves and data GIfTIs, matched to it
+            by hemisphere. Present only on a `surface` node -- nothing else has anywhere to hang
+            one. Drawn as sub-checkboxes under the surface, because a `.annot` on its own is a
+            colour table with nowhere to go.
+          items: { $ref: "#/components/schemas/ViewerTreeNode" }
     ViewerTreeSimulation:
       type: object
-      required: [name, fields, meshes, electrodes]
+      required: [name, fields, meshes, surfaces, electrodes]
       properties:
         name: { type: string }
         fields:
@@ -3596,6 +3613,14 @@ components:
           items: { $ref: "#/components/schemas/ViewerTreeNode" }
         meshes:
           type: array
+          description: the tetrahedral `.msh` outputs, which are the ones that cost a minute to open
+          items: { $ref: "#/components/schemas/ViewerTreeNode" }
+        surfaces:
+          type: array
+          description: >-
+            the GIfTI/fsaverage sheets. Their own bucket rather than a corner of `meshes`: a
+            projected sheet is a few MB and a `.msh` is 64, and filing them together said they
+            were the same sort of wait.
           items: { $ref: "#/components/schemas/ViewerTreeNode" }
         electrodes:
           type: array

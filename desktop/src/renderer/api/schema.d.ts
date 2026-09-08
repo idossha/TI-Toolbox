@@ -5294,19 +5294,27 @@ export interface components {
             /** @description the curated display name */
             label: string;
             path: string;
-            /** @enum {string} */
-            kind: "volume" | "mesh";
+            /**
+             * @description What the file is, decided once by `tit/catalog.py::classify_view_file`. A **mesh** is SimNIBS's tetrahedral FEM domain (`.msh`, 24-420 MB); a **surface** is a triangulated 2-D sheet (`.gii`, a FreeSurfer binary, ~8 MB) that carries nothing on its own. They were one word until 2026-09-07, which told a reader the two cost and answered the same. `annotation`, `morph` and `surface-data` appear only as a surface's `attachments`.
+             * @enum {string}
+             */
+            kind: "volume" | "label-volume" | "surface" | "mesh" | "annotation" | "morph" | "surface-data";
             bytes?: number | null;
             /** @description ticked when the tree is first drawn */
             default_on: boolean;
             available: boolean;
             /** @description why it is unavailable */
             reason?: string | null;
+            /** @description A surface's `.annot` parcellations, morphometry curves and data GIfTIs, matched to it by hemisphere. Present only on a `surface` node -- nothing else has anywhere to hang one. Drawn as sub-checkboxes under the surface, because a `.annot` on its own is a colour table with nowhere to go. */
+            attachments?: components["schemas"]["ViewerTreeNode"][];
         };
         ViewerTreeSimulation: {
             name: string;
             fields: components["schemas"]["ViewerTreeNode"][];
+            /** @description the tetrahedral `.msh` outputs, which are the ones that cost a minute to open */
             meshes: components["schemas"]["ViewerTreeNode"][];
+            /** @description the GIfTI/fsaverage sheets. Their own bucket rather than a corner of `meshes`: a projected sheet is a few MB and a `.msh` is 64, and filing them together said they were the same sort of wait. */
+            surfaces: components["schemas"]["ViewerTreeNode"][];
             electrodes: components["schemas"]["ViewerTreeNode"][];
         };
         ViewerTreeAnalysis: {

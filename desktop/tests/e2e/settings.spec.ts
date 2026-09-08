@@ -106,7 +106,7 @@ test("installs a viewer bundle from the release index, then rolls back to the ba
   await expect(card).toBeVisible();
   await expect(page.getByTestId("tetravox-active-version")).toHaveText("v0.3.4 · protocol 1");
   await expect(card).toContainText("Baked into the image");
-  await expect(card).toContainText("protocol 1–2");
+  await expect(card).toContainText("protocol 1–3");
 
   // The cached answer is on screen without any check being asked for (A3): the server's own
   // background pass wrote it, so opening Settings costs no GitHub request.
@@ -120,12 +120,12 @@ test("installs a viewer bundle from the release index, then rolls back to the ba
   await expect(updates).toContainText("needs a newer app");
 
   await page.getByTestId("tetravox-install-0.4.0").click();
-  await expect(page.getByTestId("tetravox-active-version")).toHaveText("v0.4.0 · protocol 2");
+  await expect(page.getByTestId("tetravox-active-version")).toHaveText("v0.4.0 · protocol 3");
   await expect(card).toContainText("pinned to installed 0.4.0");
   // `capabilities.tetravox_embed` is the active bundle, so the About card's "Viewer bundle" row
   // moved with it. It is a server capability again — the row VX deleted.
   await expect(page.locator(".card", { hasText: "About the server" })).toContainText("Viewer bundle");
-  await expect(page.locator(".card", { hasText: "About the server" })).toContainText("v0.4.0 · protocol 2 · installed");
+  await expect(page.locator(".card", { hasText: "About the server" })).toContainText("v0.4.0 · protocol 3 · installed");
 
   await page.getByTestId("tetravox-activate-baked").click();
   await expect(page.getByTestId("tetravox-active-version")).toHaveText("v0.3.4 · protocol 1");

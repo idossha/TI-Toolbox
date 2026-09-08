@@ -986,6 +986,55 @@ group heading told the user a page belonged to a subject when it did not.
   tick is a local list edit and costs the server nothing, which is the property that keeps the
   Menu fast.
 
+- **A mesh, a surface and a volume are three kinds, and the tree says which** (2026-09-07).
+  Maintainer, on a screenshot of the Anatomy branch chipping `lh.central`, `lh.pial` and `lh.white`
+  as MESH beside the true `Head mesh (ernie)`: *"Please distinguish between NIfTI, mesh, and a
+  surface — a mesh is a tetrahedral FEM, a surface is just a triangular 2-D surface. Refer to the
+  latest Tetravox release."*
+
+  The rule behind that chip was one line, `path.endswith((".msh", ".gii"))`, and it was right about
+  the head model and silently wrong about everything beside it. A `.msh` is the finite-element
+  domain SimNIBS solved on — 24–420 MB of tetrahedra carrying the field on its elements. A `.gii`
+  is a cortical sheet: ~150 k vertices, ~8 MB, carrying nothing at all. One word for both told a
+  reader the two cost the same, loaded the same and answered the same question. It also left
+  nowhere to put a surface's *attachments*, which is why the `.annot` parcellations SimNIBS writes
+  for those very surfaces had never been offered anywhere in the app.
+
+  **One classifier decides**, `tit/catalog.py::classify_view_file`, in seven kinds — `volume`,
+  `label-volume`, `surface`, `mesh`, `annotation`, `morph`, `surface-data` — plus `None` for "not
+  something a scene can use", which is the majority answer over a real FreeSurfer directory.
+  It reads names and one sibling (`<stem>_LUT.txt`) and never a byte, because it runs per row of a
+  menu redrawn on every keystroke. It is deliberately strict: `lh.pial` is a surface and
+  `lh.thickness` is morphometry, but `lh.pial.T1`, `lh.orig.nofix` and `lh.smoothwm.K.crv` get
+  nothing, because a file offered under a guessed kind fails at Open, which is a worse moment.
+  Every menu that offers a file reads that answer; none re-derives one from an extension. Pinned by
+  `tests/test_catalog_view_kinds.py` over sub-ernie's real 225-file listing, committed as a fixture
+  precisely because a hand-written one reproduces the author's blind spot.
+
+  The Anatomy branch is grouped by it (Volumes · Label volumes · Surfaces · Meshes), a simulation
+  gains a `surfaces` bucket beside `fields`/`meshes`/`electrodes`, and a **surface row expands to
+  its attachments** as sub-checkboxes, matched by hemisphere — the only correspondence FreeSurfer
+  promises. An attachment is never a layer or a dataset: it rides on its surface's dataset as
+  `sidecars.fields`, and the layer names it as a colour source.
+
+  **Emitting one is gated on a capability, asked by name** — `surfaces`, protocol 3, Tetravox
+  0.4.0 (E1, `tit/tetravox/protocol.py`, range now 1–3). An embed that cannot draw a surface gets
+  the rows *listed and disabled with the reason*, and `POST /api/view/open` refuses them 422.
+  Degrading to `kind: "mesh"` was the tempting alternative and is the wrong one: a sheet sent as a
+  mesh **loads** — nothing errors — and comes back with a mesh's defaults, filled in 2-D, clip
+  planes capped for an object with no interior, and no way to attach the parcellation that was the
+  reason for ticking it. The person gets a picture and no reason to doubt it.
+
+- **One subject per scene, enforced on the server** (2026-09-07). The "what will open" list
+  survives a change of subject by design — it is the thing a person is editing — so picking a
+  second subject left the first one's rows in it and composed a scene spanning two people. That
+  picture is not detectably wrong: two brains, both head-shaped, roughly aligned, one person's
+  field over another's anatomy. The real `viewer-open` spec passed for a while while measuring the
+  wrong subject entirely. The Menu now rescopes the list on a subject change and says how many rows
+  went; `POST /api/view/open` refuses a mixed list with a 422 naming both subjects. Files outside
+  `derivatives/SimNIBS/sub-<id>/` — the MNI template, the bundled atlases — belong to nobody and
+  are exempt, because an MNI scene is supposed to mix them in.
+
 - **A layer is named by its file** (2026-09-07). Maintainer, on the Tetravox Layers panel:
   *"Please do not change the name of the files that we load into the viewer. For example,
   `labeling.nii.gz` should be `labeling.nii.gz` and not [Atlas]."* Every layer's `name` in the

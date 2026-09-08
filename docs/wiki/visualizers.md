@@ -26,15 +26,38 @@ Clicking Viewer itself opens Menu.
 1. On **Menu**, pick a **subject** and a **space** (subject or MNI). Below them the page draws a
    tree of everything that subject has, in three branches:
 
-   - **Anatomy** — T1, T2, the head mesh, the reconstruction surfaces, the atlases.
+   - **Anatomy** — grouped by what each file *is*: **Volumes** (T1, T2), **Label volumes
+     (atlases)**, **Surfaces** and **Meshes**.
    - **Simulations** — one row per simulation; expand one to see its fields (TI_max, TI_normal,
-     the high-frequency magnitudes…), its meshes and its electrode overlay.
+     the high-frequency magnitudes…), its surfaces, its meshes and its electrode overlay.
    - **Analyses** — the analyzer runs under the simulations you have expanded, and their outputs.
+
+   Every row wears a chip saying which of those it is, because **a mesh and a surface are not the
+   same thing**:
+
+   - **MESH** is a tetrahedral finite-element mesh (`.msh`) — the volume SimNIBS actually solved
+     the field on, 24–420 MB. Opening one takes a moment.
+   - **SURFACE** is a triangulated 2-D sheet (`.gii`, or a FreeSurfer `lh.pial`-style file) — the
+     cortical ribbon, a few MB, and no field data of its own.
+   - **VOLUME** is a NIfTI/MGZ grid of numbers; **LABELS** is one whose numbers are region ids,
+     drawn through a lookup table.
+
+   A **surface** expands to show the things you can hang on it — the `.annot` parcellations
+   SimNIBS wrote for it, morphometry curves like `lh.thickness`, and per-vertex data GIfTIs —
+   matched to it by hemisphere. Tick one and the surface is coloured by it; a parcellation wins
+   over a curve if you tick both, and the curve stays attached for you to switch to inside
+   Tetravox. This needs a Tetravox embed of **0.4.0 or newer**; on an older one the surface rows
+   are shown greyed with that as the reason, rather than being opened as if they were meshes.
 
    Tick whatever belongs in the scene. You can tick outputs from **more than one simulation** —
    ticking a branch's own box takes the whole branch on or off, and a half-filled box means part of
    it is in the scene. Anything that is not on disk is shown greyed with the reason rather than
    hidden, so a missing mesh is a question you can answer instead of a row that never appears.
+
+   **One subject per scene.** Changing the subject drops any rows belonging to the previous one
+   and tells you how many went; shared files (the MNI template, the bundled atlases) stay. A scene
+   mixing two subjects is refused outright, because one person's field over another's anatomy
+   renders as a perfectly ordinary-looking picture.
 2. Nothing loads while you are choosing — the **"What will open"** list below the tree is the scene,
    in order, with each file's size, and it is the same list the tick boxes drive. Edit it directly
    too: remove a file, add one from any path in the project, drag to reorder (that is the layer
@@ -122,8 +145,25 @@ subject anatomy, and load it as one of the viewer's layers.
 
 ### Mesh Files (.msh)
 
-- **Location**: `derivatives/SimNIBS/sub-{ID}/Simulations/{sim_name}/Analyses/Mesh/{analysis_name}/`
-- **Content**: Tetrahedral mesh with embedded field data
+- **Location**: `derivatives/SimNIBS/sub-{ID}/Simulations/{sim_name}/Analyses/Mesh/{analysis_name}/`,
+  and the head model itself at `derivatives/SimNIBS/sub-{ID}/m2m_{ID}/{ID}.msh`
+- **Content**: Tetrahedral mesh with embedded field data — the FEM domain, 24–420 MB
+
+### Surface Files (.gii, FreeSurfer binaries)
+
+- **Location**: `derivatives/SimNIBS/sub-{ID}/m2m_{ID}/surfaces/` (`lh.central.gii`, `lh.pial.gii`,
+  `lh.white.gii` and the right-hemisphere pair), and `derivatives/freesurfer/sub-{ID}/surf/`
+- **Content**: A triangulated 2-D sheet — vertices and faces, and nothing else. Not a mesh: there
+  are no tetrahedra and no field on it.
+
+### Surface Attachments (.annot, morph curves, data GIfTI)
+
+- **Location**: `derivatives/SimNIBS/sub-{ID}/m2m_{ID}/segmentation/` (`lh.{ID}_DK40.annot`,
+  `lh.{ID}_HCP_MMP1.annot`, `lh.{ID}_a2009s.annot` and their right-hemisphere pairs), and
+  `derivatives/freesurfer/sub-{ID}/surf/` (`lh.thickness`, `lh.curv`, `lh.sulc`, `lh.area`)
+- **Content**: One value per vertex of the surfaces of the same hemisphere — a region id for an
+  `.annot`, a number for a morph curve. They carry no geometry, so they are only ever opened
+  *attached to* a surface, never on their own.
 
 ### NIfTI Files (.nii/.nii.gz)
 

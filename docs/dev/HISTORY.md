@@ -62,6 +62,19 @@ to separate users, montages, modes in different jobs … we need a list of jobs 
 decisions **N1–N4** (our own renderer), **V1–V5** (the external viewer — reversed the same day, ADR
 row 29) and **J** (jobs tables). Contract ARCHITECTURE §7.2, §7.5.
 
+**2026-09-07 — a mesh, a surface and a volume are three kinds.** *"Please distinguish between
+NIfTI, mesh, and a surface — a mesh is a tetrahedral FEM, a surface is just a triangular 2-D
+surface. Refer to the latest Tetravox release."* — on a screenshot of the Menu chipping
+`lh.central`, `lh.pial` and `lh.white` as MESH beside the true `Head mesh (ernie)`. The rule behind
+the chip was `path.endswith((".msh", ".gii"))`. One classifier now decides
+(`tit/catalog.py::classify_view_file`, seven kinds, tested over sub-ernie's real 225-file listing);
+the Anatomy branch is grouped by it; a surface expands to the `.annot`, morph and data-GIfTI files
+that share its hemisphere — which SimNIBS had been writing all along and nothing had ever offered,
+because with one word for two objects there was nowhere to put them. Emission is gated on the
+`surfaces` capability (protocol 3, Tetravox 0.4.0, embed protocol range now **1–3**); an older
+embed gets the rows disabled with the reason, never a sheet sent as a FEM mesh. A scene may no
+longer span two subjects. Contract: `contracts/CHANGES.md` (2026-09-07), DESIGN §8.
+
 ---
 
 ## 2026-08-27 — build program and spikes
