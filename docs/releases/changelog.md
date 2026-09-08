@@ -19,7 +19,7 @@ script alike — but **nine defects in the shared scientific core were found and
 release**. If you have 2.x results: **re-run** cluster-based permutation analyses run with
 `two-sided` (the default) or `less`, and any group comparison with **one subject on one side**
 (every voxel of those came back `t = 0, p = 1`); **rescale** voxel `focality_*_area` by 1/10 and any reported
-`p = 0`; **recompute** `hf_peak`/`hf_sar` for montages that declared `channels`; everything else,
+`p = 0`; `hf_peak`/`hf_sar` are unchanged for positional montages (all 2.x montages); everything else,
 `TI_max`/`TI_avg`/`TI_normal` included, stands. Read the record before you reuse them:
 [Scientific corrections from v2.x to v3.0.0](https://github.com/idossha/TI-Toolbox/blob/main/docs/dev/SCIENTIFIC-CORRECTIONS.md),
 and the [Upgrading]({{ site.baseurl }}/releases/v3.0.0/#upgrading-from-2x) section of the
@@ -65,7 +65,7 @@ and the [Wiki]({{ site.baseurl }}/wiki/) for a page per workflow.
 
 #### Changes
 
-- **Exposure metrics follow Cassarà et al. 2025 for shared carriers** — `hf_peak` and `hf_sar` now respect `montage.channels`, summing same-carrier fields **coherently as vectors** and combining across carriers incoherently (SAR addition), which is the rule the envelope path already used. `hf_sar` rises where a declared group's fields reinforce (up to × the group size) and `hf_peak` falls, so the 2.5.0 `hf_sar` was a **lower** bound on exposure. A montage with `channels = None` — every montage built by the 2.x default independent-dyad path — is bit-identical. The formulas, the Cassarà definitions they implement, their limits, and what the toolbox deliberately does *not* compute are set out in the [scientific-corrections record](https://github.com/idossha/TI-Toolbox/blob/main/docs/dev/SCIENTIFIC-CORRECTIONS.md).
+- **Exposure metrics follow Cassarà et al. 2025 for carriers** — `hf_peak` and `hf_sar` are now stated over *carriers* rather than raw FEM fields: fields driven at the same frequency add coherently as vectors, distinct carriers add incoherently (SAR addition), the same rule the envelope path already used. With v2.5.0's positional wiring (every field is exactly one carrier, `channels` removed) this makes the two metrics bit-identical to before for every montage; the change matters for any grouping of fields onto one carrier, where the 2.x `hf_sar` was a **lower** bound on exposure. The formulas, the Cassarà definitions they implement, their limits, and what the toolbox deliberately does *not* compute are set out in the [scientific-corrections record](https://github.com/idossha/TI-Toolbox/blob/main/docs/dev/SCIENTIFIC-CORRECTIONS.md).
 - **Focused 3D previews** — **Simulator / Optimizer / Analyzer ▸ Scene** use only the visualization viewport and restore separate Skin and Grey matter opacity sliders. The dedicated Viewer keeps its full controls; saved scientific configurations are unchanged.
 - **Consistent workflow controls** — subject checkboxes and sliders have keyboard-readable names, long dropdown choices stay inside their pane, and primary actions and blocked-action reasons use the shared layout in both themes.
 - **Config field rename:** `PreprocessConfig.run_recon` → `run_fastsurfer` (an incoming `run_recon` is still accepted as a deprecated alias, with a warning); `parallel_recon`, `parallel_cores`, and `run_subcortical_segmentations` are dropped with no replacement (thalamic-nuclei/hippocampal-subfield segmentation has no FastSurfer equivalent — see the Pre-Processing page).
