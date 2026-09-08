@@ -149,9 +149,24 @@ test("every panel is populated from the live stream, in both themes", async () =
   await expect(processes.getByRole("button", { name: /Stop tini/ })).toHaveCount(0);
   await expect(processes.getByRole("button", { name: /Stop gmsh/ })).toHaveCount(0);
 
-  // Sorting is real: MEM puts the largest RSS first, and charm is the fixture's 3.2 GB row.
+  // Sorting is real: MEM puts the largest RSS first. Asserted against the table's own rows rather
+  // than a named fixture process — the mock's process list is shared server state and
+  // `jobs.spec.ts`'s Host test terminates one of them, so keying on a name would make this spec
+  // pass or fail by file order.
   await processes.getByRole("button", { name: "MEM", exact: true }).click();
-  await expect(processes.locator("tbody tr").first()).toContainText("charm");
+  await expect
+    .poll(
+      async () => {
+        const mem = await processes.locator("tbody tr td:nth-child(4)").allInnerTexts();
+        const gb = mem.map((t) => {
+          const n = Number.parseFloat(t);
+          return t.includes("GB") ? n * 1024 : t.includes("MB") ? n : n / 1024;
+        });
+        return gb.length > 1 && gb.every((v, i) => i === 0 || gb[i - 1]! >= v);
+      },
+      { timeout: 10_000 },
+    )
+    .toBe(true);
 
   // ── band 3: the work ──
   await expect(page.getByTestId("system-jobs")).toBeVisible();

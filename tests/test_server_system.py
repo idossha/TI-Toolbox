@@ -152,8 +152,38 @@ def test_docker_health_is_ttl_cached_so_a_1s_poll_is_not_a_1s_docker_call(
     assert calls["n"] == 2, "a call past the TTL re-reads the daemon"
 
 
-def test_docker_df_sums_the_engine_rows_the_way_docker_system_df_does() -> None:
-    """The Engine returns rows; `docker system df` prints totals. This is that arithmetic."""
+def test_docker_df_prefers_the_daemons_own_totals_over_summing_rows() -> None:
+    """Docker 29 answers with authoritative ``*Usage`` blocks; they win, and they must.
+
+    Summing the rows cannot reproduce what the CLI prints: an image's ``Size`` includes the layers
+    it shares with other images. On the dev container, summing 22 images gave 173 GB where the
+    real on-disk total was 202 GB, and the "images with no container" heuristic put reclaimable at
+    173 GB against the CLI's 33 GB.
+    """
+    raw = {
+        "LayersSize": 999,
+        "Images": [{"Size": 100, "Containers": 0}] * 3,
+        "Containers": [{"SizeRw": 5}],
+        "Volumes": [{"UsageData": {"Size": 7, "RefCount": 1}}],
+        "BuildCache": [{"Size": 11}],
+        "ImageUsage": {"TotalSize": 201_703_883_245, "TotalCount": 22, "Reclaimable": 33_101_819_769},
+        "ContainerUsage": {"TotalSize": 80_711_680, "TotalCount": 2, "Reclaimable": 4096},
+        "VolumeUsage": {"TotalSize": 26_750_567_616, "TotalCount": 29, "Reclaimable": 26_750_567_616},
+        "BuildCacheUsage": {"TotalSize": 21_873_243_338, "TotalCount": 63, "Reclaimable": 20_715_316_011},
+    }
+    df = system_routes._df(raw)
+    assert (df.images_size, df.images_count, df.images_reclaimable) == (
+        201_703_883_245,
+        22,
+        33_101_819_769,
+    )
+    assert (df.containers_size, df.containers_count) == (80_711_680, 2)
+    assert (df.volumes_size, df.volumes_count) == (26_750_567_616, 29)
+    assert df.build_cache_size == 21_873_243_338
+
+
+def test_docker_df_sums_the_engine_rows_on_a_daemon_with_no_usage_blocks() -> None:
+    """The honest best effort for an older daemon that offers nothing better."""
     df = system_routes._df(
         {
             "Images": [
@@ -168,6 +198,7 @@ def test_docker_df_sums_the_engine_rows_the_way_docker_system_df_does() -> None:
             "BuildCache": [{"Size": 11}, {"Size": 9}],
         }
     )
+    # `LayersSize` is absent here, so it falls back to summing per-image sizes.
     assert (df.images_size, df.images_count, df.images_reclaimable) == (350, 2, 250)
     assert (df.containers_size, df.containers_count) == (10, 2)
     assert (df.volumes_size, df.volumes_count, df.volumes_reclaimable) == (100, 2, 60)
@@ -226,3 +257,30 @@ def test_kernel_count_survives_a_registry_that_cannot_be_reached(
         lambda: (_ for _ in ()).throw(RuntimeError("no jupyter_client")),
     )
     assert system_routes.kernel_count() == 0
+
+
+def test_we_are_not_our_own_sibling() -> None:
+    """The page reports this container once, in its own block. Listing it again under "sibling
+    containers" said there were two of it -- *sibling* means "beside us"."""
+
+    class _Client:
+        def list_containers(self, **_kwargs):
+            return [
+                {"Id": "e086e5826ed6aaaa", "Names": ["/ti-toolbox-tit-1"], "Image": "tit", "State": "running", "Status": "Up"},
+                {"Id": "9f2c1a4b7de0bbbb", "Names": ["/qsiprep-sub-101"], "Image": "qsiprep", "State": "running", "Status": "Up"},
+            ]
+
+    names = [c.name for c in system_routes._containers(_Client(), own_id="e086e5826ed6")]
+    assert names == ["qsiprep-sub-101"]
+    # With no own id (the server is not in a container at all), nothing is filtered.
+    assert len(system_routes._containers(_Client(), own_id=None)) == 2
+
+
+def test_process_rows_carry_what_an_htop_row_carries() -> None:
+    rows, _total = system_routes.process_list()
+    assert rows, "the test process itself should be listed"
+    row = rows[0]
+    assert row.status  # psutil's own status string, never empty for a live process
+    assert row.threads >= 1
+    assert row.ppid >= 0
+    assert isinstance(row.relevant, bool)

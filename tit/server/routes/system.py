@@ -346,6 +346,11 @@ def net_io() -> NetIO | None:
 
 DOCKER_TTL_S = 5.0
 DOCKER_TIMEOUT_S = 3.0
+#: ``/system/df`` gets its own, longer bound. It walks the image graph, and on a cold daemon with
+#: a couple of hundred gigabytes of images it genuinely exceeds three seconds -- which is how it
+#: came back empty in the container while the same call, warm, answered instantly. It is safe to
+#: wait: this runs in a threadpool, behind a 5 s TTL, and nothing is blocked on it.
+DF_TIMEOUT_S = 8.0
 #: Only the largest few images are listed; the totals in ``df`` are the headline.
 IMAGE_LIMIT = 8
 #: The container is close enough to its memory limit that a large solve may be OOM-killed.
@@ -402,45 +407,96 @@ def _own_container(client: Any) -> OwnContainer | None:
     )
 
 
+def _usage(raw: dict[str, Any], key: str) -> dict[str, Any] | None:
+    """One of Docker 29's ``*Usage`` blocks, when the daemon speaks that dialect."""
+    block = raw.get(key)
+    return block if isinstance(block, dict) and "TotalSize" in block else None
+
+
 def _df(raw: dict[str, Any]) -> DockerDf:
     """``GET /system/df`` -> the totals ``docker system df`` prints.
 
-    The Engine returns the *rows*, not the totals, so they are summed here. "Reclaimable" is the
-    part nothing is using: an image with no container, a volume with no reference.
+    Two dialects, and the difference is not cosmetic. Docker 29 answers with authoritative
+    ``ImageUsage`` / ``ContainerUsage`` / ``VolumeUsage`` / ``BuildCacheUsage`` blocks carrying
+    ``TotalSize`` and ``Reclaimable``; older daemons return only the *rows*, and the totals have to
+    be summed here.
+
+    We prefer the blocks wherever they exist, because summing the rows does not reproduce what the
+    CLI prints and cannot: an image's ``Size`` includes the layers it shares with other images, so
+    summing 22 images gave 173 GB where the real on-disk total was 202 GB, and the "images with no
+    container" heuristic for reclaimable gave 173 GB against the CLI's 33 GB. A monitor whose
+    headline disk figure disagrees with ``docker system df`` by 140 GB is not worth having.
+    The row-summing path below is the honest best effort for a daemon that offers nothing better.
     """
     images = raw.get("Images") or []
     containers = raw.get("Containers") or []
     volumes = raw.get("Volumes") or []
     cache = raw.get("BuildCache") or []
+
+    image_usage = _usage(raw, "ImageUsage")
+    container_usage = _usage(raw, "ContainerUsage")
+    volume_usage = _usage(raw, "VolumeUsage")
+    cache_usage = _usage(raw, "BuildCacheUsage")
+
     return DockerDf(
-        images_size=sum(int(i.get("Size") or 0) for i in images),
-        images_count=len(images),
-        images_reclaimable=sum(
-            int(i.get("Size") or 0) for i in images if not i.get("Containers")
+        images_size=int(
+            (image_usage or {}).get("TotalSize")
+            # `LayersSize` is the deduplicated on-disk total even on older daemons -- still much
+            # closer than summing per-image sizes.
+            or raw.get("LayersSize")
+            or sum(int(i.get("Size") or 0) for i in images)
         ),
-        containers_size=sum(int(c.get("SizeRw") or 0) for c in containers),
-        containers_count=len(containers),
-        volumes_size=sum(
-            int((v.get("UsageData") or {}).get("Size") or 0) for v in volumes
+        images_count=int((image_usage or {}).get("TotalCount") or len(images)),
+        images_reclaimable=int(
+            (image_usage or {}).get("Reclaimable")
+            if image_usage is not None
+            else sum(int(i.get("Size") or 0) for i in images if not i.get("Containers"))
         ),
-        volumes_count=len(volumes),
-        volumes_reclaimable=sum(
-            int((v.get("UsageData") or {}).get("Size") or 0)
-            for v in volumes
-            if not (v.get("UsageData") or {}).get("RefCount")
+        containers_size=int(
+            (container_usage or {}).get("TotalSize")
+            or sum(int(c.get("SizeRw") or 0) for c in containers)
         ),
-        build_cache_size=sum(int(c.get("Size") or 0) for c in cache),
+        containers_count=int(
+            (container_usage or {}).get("TotalCount") or len(containers)
+        ),
+        volumes_size=int(
+            (volume_usage or {}).get("TotalSize")
+            or sum(int((v.get("UsageData") or {}).get("Size") or 0) for v in volumes)
+        ),
+        volumes_count=int((volume_usage or {}).get("TotalCount") or len(volumes)),
+        volumes_reclaimable=int(
+            (volume_usage or {}).get("Reclaimable")
+            if volume_usage is not None
+            else sum(
+                int((v.get("UsageData") or {}).get("Size") or 0)
+                for v in volumes
+                if not (v.get("UsageData") or {}).get("RefCount")
+            )
+        ),
+        build_cache_size=int(
+            (cache_usage or {}).get("TotalSize")
+            or sum(int(c.get("Size") or 0) for c in cache)
+        ),
     )
 
 
-def _containers(client: Any) -> list[ContainerInfo]:
+def _containers(client: Any, own_id: str | None = None) -> list[ContainerInfo]:
+    """Every container on the daemon except **us**.
+
+    Excluding our own id matters: the System page reports this container once, in its own block
+    with its limits and mounts, and listing it again under "sibling containers" said there were
+    two of it. *Sibling* means "beside us", and we are not beside ourselves.
+    """
     out: list[ContainerInfo] = []
     for raw in client.list_containers(timeout_s=DOCKER_TIMEOUT_S):
+        container_id = str(raw.get("Id", ""))
+        if own_id and container_id.startswith(own_id[:12]):
+            continue
         names = raw.get("Names") or []
         out.append(
             ContainerInfo(
-                id=str(raw.get("Id", ""))[:12],
-                name=str(names[0] if names else raw.get("Id", "")).lstrip("/"),
+                id=container_id[:12],
+                name=str(names[0] if names else container_id).lstrip("/"),
                 image=str(raw.get("Image", "")),
                 state=str(raw.get("State", "")),
                 status=str(raw.get("Status", "")),
@@ -520,13 +576,15 @@ def docker_health(now: float | None = None) -> DockerHealth:
             # permission-gated on some setups) should still give us the container list, so one
             # failure must not cost the other three.
             def _set_df() -> None:
-                health.df = _df(client.system_df(timeout_s=DOCKER_TIMEOUT_S))
+                health.df = _df(client.system_df(timeout_s=DF_TIMEOUT_S))
 
             def _set_own() -> None:
                 health.own = _own_container(client)
 
             def _set_containers() -> None:
-                health.containers = _containers(client)
+                # After `_set_own`, so the container we are running in can be excluded from its
+                # own sibling list. `health.own` is None on a host with no container at all.
+                health.containers = _containers(client, health.own.id if health.own else None)
 
             def _set_images() -> None:
                 health.images = _images(client)
