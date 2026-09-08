@@ -195,27 +195,33 @@ test("settings, results, jobs and viewer keep session-only page state beyond the
 
   await gotoPage(page, "viewer");
   await expectPage(page, "viewer");
-  // R5: selectors draft, Open commands. V1: what Open commands is the external Tetravox app, so
+  // R5: the tree drafts, Open commands. V1: what Open commands is the external Tetravox app, so
   // the page remembers a *selection*, which is all it ever had to remember.
-  await page.getByTestId("viewer-select-kind").getByRole("combobox").click();
-  await page.getByRole("option", { name: "Simulation", exact: true }).click();
-  await page.getByTestId("viewer-select-simulation").getByRole("combobox").click();
-  await page.getByRole("option", { name: "Thalamus", exact: true }).click();
-  await page.getByRole("radiogroup", { name: "Space" }).getByRole("radio", { name: "MNI", exact: true }).click();
-  // VM2: the edited file list is part of the draft too — removing a row is a choice someone made,
-  // and losing it on a tab switch is the same defect as losing the subject.
-  await expect(page.getByTestId("viewer-preview-files")).toBeVisible({ timeout: 15_000 });
-  const rows = await page.getByTestId("viewer-preview-files").locator("li .viewer-file-name").allTextContents();
-  await page.getByTestId(`viewer-file-remove-${rows[0]!}`).click();
-  await expect
-    .poll(() => page.getByTestId("viewer-preview-files").locator("li .viewer-file-name").allTextContents())
-    .toEqual(rows.slice(1));
+  //
+  // The kind/simulation selectors this test used to drive are gone: the Menu is a composition tree
+  // now (`509100ef`), and what is remembered is Space plus the ticked rows.
+  await expect(page.getByTestId("viewer-tree")).toBeVisible({ timeout: 15_000 });
+  const branch = page.getByTestId("viewer-tree-sim-Thalamus");
+  await expect(branch).toBeVisible({ timeout: 15_000 });
+  if ((await branch.getAttribute("data-open")) !== "true") {
+    await page.getByTestId("viewer-tree-sim-Thalamus-toggle").click();
+  }
+  // Stay in the default (subject) space. A change of source re-resolves the tree and clears the
+  // ticked list by design (`editDraft`), so toggling Space here would assert the retention of a
+  // list the page had already, correctly, thrown away — and would race the re-resolve besides.
+  const target = "grey_Thalamus_TI_subject_TI_max.nii.gz";
+  await page.getByTestId(`viewer-tree-node-${target}`).getByRole("checkbox").click();
+  await expect(page.getByTestId("viewer-tree-sim-Thalamus-count")).toContainText("selected");
+
+  // The ticked list is part of the draft, and losing it on a tab switch is the same defect as
+  // losing the subject.
+  const files = () => page.getByTestId("viewer-preview-files").locator("li .viewer-file-name").allTextContents();
+  await expect.poll(files, { timeout: 15_000 }).not.toEqual([]);
+  const rows = await files();
+
   await awayAndBack("viewer");
-  await expect(page.getByRole("radiogroup", { name: "Space" }).getByRole("radio", { name: "MNI", exact: true })).toBeChecked();
-  await expect(page.getByTestId("viewer-select-simulation").getByRole("combobox")).toContainText("Thalamus");
-  await expect
-    .poll(() => page.getByTestId("viewer-preview-files").locator("li .viewer-file-name").allTextContents())
-    .toEqual(rows.slice(1));
+  await expect(page.getByTestId("viewer-tree-sim-Thalamus-count")).toContainText("selected");
+  await expect.poll(files).toEqual(rows);
 });
 
 test("optional panel pages keep their drafts and selections while navigating", async () => {
@@ -313,14 +319,10 @@ test("changing another tab's subject preserves preprocessing and the live viewer
   const viewer = page.locator('[data-page-panel="viewer"]');
   await expectPage(page, "viewer");
   await expect(page.getByTestId("viewer-source-bar")).toBeVisible();
-  // Pin the bar's shape rather than inheriting whatever type the draft happened to hold: R5 makes
-  // the number of selectors a function of the view type (`subject` → type, subject, atlas).
-  await page.getByTestId("viewer-select-kind").getByRole("combobox").click();
-  await page.getByRole("option", { name: "Subject anatomy", exact: true }).click();
-  await expect(page.getByTestId("viewer-source-bar").getByRole("combobox")).toHaveCount(3);
-  // The atlas selector shows "Server default" and is disabled only while its query is in flight;
-  // once the list arrives it becomes an enabled "Atlas…". Snapshotting before that lands compares a
-  // loading placeholder against the settled bar and fails on a difference the user never sees.
+  // Pin the bar's shape. Since the Menu became a composition tree (`509100ef`) the bar above it is
+  // the two facts every branch depends on and nothing else: one Subject combobox and the Space
+  // control. Reading the count rather than inheriting whatever the draft held is the point.
+  await expect(page.getByTestId("viewer-source-bar").getByRole("combobox")).toHaveCount(1);
   await expect(page.getByTestId("viewer-source-bar").getByRole("combobox").last()).toBeEnabled();
   const viewerSource = await page.getByTestId("viewer-source-bar").getByRole("combobox").allTextContents();
   const viewerNode = await viewer.elementHandle();
@@ -361,11 +363,16 @@ test("Results deep links replace the retained viewer selection without remountin
   await page.getByTestId("results-node-simulation:ernie:docs_example").click();
   await page.getByTestId("results-open-in-viewer").click();
   await expectPage(page, "viewer");
-  // A deep link prefills the draft and opens nothing (R5/V1); Open is what launches Tetravox.
-  await expect(page.getByTestId("viewer-select-simulation").getByRole("combobox")).toContainText("docs_example");
+  // The deep link now also opens (`?open=1`, 2026-09-07), so this lands on the Tetravox sub-page.
+  // What this test is about is the *retention* of the page, so come back to the Menu and read the
+  // draft the link pre-filled — which is still the assertion, and is still what a person sees when
+  // they navigate back to the Menu themselves.
+  await expect(page.getByTestId("viewer-sub-viewer")).toHaveAttribute("data-active", "true", { timeout: 20_000 });
+  // The Menu behind it carries the link's selection — the tree offers the simulation it named.
+  await expect(page.getByTestId("viewer-tree-sim-docs_example")).toHaveCount(1, { timeout: 15_000 });
   expect(await viewerPanel.evaluate((current, previous) => current === previous, viewerNode)).toBe(true);
   await awayAndBack("viewer");
-  await expect(page.getByTestId("viewer-select-simulation").getByRole("combobox")).toContainText("docs_example");
+  await expect(page.getByTestId("viewer-tree-sim-docs_example")).toHaveCount(1);
 });
 
 test("a subject's Results action updates an already visited Results tab", async () => {
