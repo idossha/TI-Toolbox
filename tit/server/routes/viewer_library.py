@@ -41,9 +41,10 @@ import re
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException, Query
+from fastapi import APIRouter, Body, HTTPException, Query, Request
 
 from tit import viewspec
+from tit.server.routes.capabilities import probe_capabilities
 from tit.server.routes.viewers import _SCENE_SUFFIX, viewer_scene_dir
 
 router = APIRouter()
@@ -123,8 +124,26 @@ def _now() -> str:
 # ── the composition tree ─────────────────────────────────────────────────────
 
 
+def surfaces_supported(request: Request) -> bool:
+    """Can the **installed** embed draw a surface as its own layer kind?
+
+    Asked as a feature name and never as a version comparison, which is the whole point of E1
+    (:mod:`tit.tetravox.protocol`): an embed installed through Settings after this build shipped
+    can declare ``surfaces`` in its own manifest and be believed.
+
+    ``True`` when there is no embed at all. A dev checkout with nothing installed should draw the
+    tree it will draw once one is, rather than a tree with every surface greyed out for a reason
+    that is not the reason.
+    """
+    embed = probe_capabilities(settings=request.app.state.settings).tetravox_embed
+    if not embed.available:
+        return True
+    return "surfaces" in (embed.features or [])
+
+
 @router.get("/api/viewer/tree", summary="What one subject offers the Menu's composition tree")
 def viewer_tree(
+    request: Request,
     subject: str | None = Query(None),
     space: str | None = Query(None),
     simulations: list[str] | None = Query(None),
@@ -134,8 +153,18 @@ def viewer_tree(
     *simulations* repeats (``?simulations=a&simulations=b``) and says which ones are expanded, so
     analyses are listed only for those. Everything is `os.listdir` and `os.stat`; no voxel is read,
     because this is redrawn as a person clicks.
+
+    Each node carries the ``kind`` :func:`tit.catalog.classify_view_file` decided -- ``volume``,
+    ``label-volume``, ``surface``, ``mesh`` -- and a surface carries its ``attachments``. Surface
+    rows are disabled with a reason when the installed embed is too old to draw one
+    (:func:`surfaces_supported`); they are never re-labelled as meshes to get them through.
     """
-    return viewspec.viewer_tree(subject, space, list(simulations) if simulations else None)
+    return viewspec.viewer_tree(
+        subject,
+        space,
+        list(simulations) if simulations else None,
+        surfaces_supported=surfaces_supported(request),
+    )
 
 
 # ── compositions ─────────────────────────────────────────────────────────────

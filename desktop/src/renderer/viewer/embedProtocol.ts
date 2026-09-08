@@ -21,7 +21,7 @@
  */
 
 /** Inclusive range of embed protocol versions this build can host. Keep in step with the Python twin. */
-export const SUPPORTED_EMBED_PROTOCOL = { min: 1, max: 2 } as const;
+export const SUPPORTED_EMBED_PROTOCOL = { min: 1, max: 3 } as const;
 
 /**
  * Named feature → the lowest protocol that provides it.
@@ -39,6 +39,10 @@ export const EMBED_FEATURE_MIN_PROTOCOL = {
   markers: 2,
   pick: 2,
   camera: 2,
+  // Tetravox 0.4.0: a triangulated sheet is its own layer kind, with `.annot`/morph/data-GIfTI
+  // attached to its dataset. Without it a surface could only be sent *as a mesh*, which is a lie
+  // about what the file is — so the Viewer gates the emission on this name, not on "0.4.0".
+  surfaces: 3,
 } as const;
 
 export type EmbedFeature = keyof typeof EMBED_FEATURE_MIN_PROTOCOL;

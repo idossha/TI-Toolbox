@@ -51,8 +51,12 @@ def pm(tmp_path: Path, monkeypatch) -> PathManager:
 
     surfaces = os.path.join(m2m, "surfaces")
     os.makedirs(surfaces)
-    for name in ("lh.central.gii", "lh.sphere.gii"):
+    for name in ("lh.central.gii", "lh.pial.gii", "rh.white.gii", "lh.sphere.gii"):
         Path(surfaces, name).write_bytes(b"gii")
+    # The parcellations SimNIBS writes for those surfaces, in the directory it actually writes
+    # them to — two away from the geometry, which is why nothing had ever offered them.
+    for name in ("lh.ernie_DK40.annot", "rh.ernie_DK40.annot", "lh.ernie_a2009s.annot"):
+        Path(seg, name).write_bytes(b"annot")
 
     sim = pm.simulation("ernie", "L_Insula")
     niftis = os.path.join(sim, "TI", "niftis")
@@ -366,7 +370,59 @@ def test_every_node_carries_a_stable_id_and_a_size(pm: PathManager) -> None:
     for node in tree["anatomy"]:
         assert node["id"] == node["path"] and os.path.isabs(node["id"])
         assert node["available"] is True and node["bytes"] is not None
-        assert node["kind"] in ("volume", "mesh")
+        assert node["kind"] in ("volume", "label-volume", "surface", "mesh")
+
+
+def test_a_gii_sheet_is_a_surface_and_only_the_msh_is_a_mesh(pm: PathManager) -> None:
+    """Maintainer, 2026-09-07: a mesh is a tetrahedral FEM; a surface is a triangular 2-D sheet.
+
+    The Anatomy branch used to chip `lh.central`, `lh.pial` and `lh.white` as MESH beside the real
+    `Head mesh (ernie)`, because the rule behind the chip was `endswith((".msh", ".gii"))`.
+    """
+    anatomy = viewspec.viewer_tree("ernie", "subject")["anatomy"]
+    by_name = {node["name"]: node for node in anatomy}
+    assert [name for name, node in by_name.items() if node["kind"] == "mesh"] == [
+        "ernie.msh"
+    ]
+    for name in ("lh.central.gii", "lh.pial.gii", "rh.white.gii"):
+        assert by_name[name]["kind"] == "surface", name
+    assert by_name["labeling.nii.gz"]["kind"] == "label-volume"
+    assert by_name["T1.nii.gz"]["kind"] == "volume"
+
+
+def test_a_surface_carries_its_attachments_matched_by_hemisphere(pm: PathManager) -> None:
+    """SimNIBS writes the `.annot` files two directories from the geometry, which is why nothing
+    offered them: the tree looks in `segmentation/` as well as `surfaces/`."""
+    anatomy = viewspec.viewer_tree("ernie", "subject")["anatomy"]
+    left = next(node for node in anatomy if node["name"] == "lh.central.gii")
+    names = [item["name"] for item in left["attachments"]]
+    assert names and all(name.startswith("lh.") for name in names)
+    assert all(
+        item["kind"] in ("annotation", "morph", "surface-data")
+        for item in left["attachments"]
+    )
+    # A volume has no attachments key at all: only a surface can carry one.
+    volume = next(node for node in anatomy if node["name"] == "T1.nii.gz")
+    assert "attachments" not in volume
+
+
+def test_an_old_embed_disables_surfaces_with_the_reason(pm: PathManager) -> None:
+    """Listed and greyed with a reason, never hidden and never sent as a mesh.
+
+    Sending it as a mesh is the failure worth naming: an 8 MB cortical sheet would arrive as a
+    claim about a 400 MB FEM volume, and the person would learn otherwise at Open.
+    """
+    tree = viewspec.viewer_tree("ernie", "subject", surfaces_supported=False)
+    surfaces = [node for node in tree["anatomy"] if node["kind"] == "surface"]
+    assert surfaces, "the fixture has surfaces to disable"
+    for node in surfaces:
+        assert node["available"] is False
+        assert node["reason"] == viewspec.SURFACE_UNSUPPORTED_REASON
+        assert node["kind"] == "surface"
+        assert all(item["available"] is False for item in node["attachments"])
+    # Everything that is not a surface is untouched by the switch.
+    head_mesh = next(node for node in tree["anatomy"] if node["name"] == "ernie.msh")
+    assert head_mesh["available"] is True and head_mesh["reason"] is None
 
 
 def test_an_unknown_subject_says_why_rather_than_returning_an_empty_tree(pm: PathManager) -> None:

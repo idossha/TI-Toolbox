@@ -30,8 +30,13 @@ from typing import Any
 #: 2 because protocol 2 is additive over 1 (plan E5): a protocol-2 embed answers
 #: every protocol-1 message unchanged, so hosting one costs this side nothing.
 #: Raising ``max`` is the only edit a *breaking* Tetravox release needs here.
+#:
+#: Raised to 3 for Tetravox 0.4.0 (2026-09-07), which adds ``kind: "surface"`` as a layer kind of
+#: its own -- additive again, exactly like 2 over 1: its own CHANGELOG states that "scenes saved
+#: before this that held a surface as a mesh layer still open, as a mesh layer", so a protocol-3
+#: embed answers every protocol-2 message unchanged and hosting one costs this side nothing.
 SUPPORTED_PROTOCOL_MIN = 1
-SUPPORTED_PROTOCOL_MAX = 2
+SUPPORTED_PROTOCOL_MAX = 3
 
 #: Named feature -> the lowest protocol that provides it.
 #:
@@ -50,6 +55,12 @@ FEATURE_MIN_PROTOCOL: dict[str, int] = {
     "markers": 2,
     "pick": 2,
     "camera": 2,
+    # Tetravox 0.4.0: a triangulated sheet is `kind: "surface"` with its own colour source
+    # (solid / overlay / annotation) and `.annot`, morph and data-GIfTI files attached to its
+    # dataset. An embed without this can only be handed a surface *as a mesh*, which is a lie
+    # about what the file is -- so the Viewer asks for this name before it emits one, and lists
+    # the row disabled with a reason when the answer is no (`tit.viewspec._tree_node`).
+    "surfaces": 3,
 }
 
 

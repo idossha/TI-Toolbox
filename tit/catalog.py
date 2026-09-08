@@ -284,6 +284,205 @@ def _has_ct(pm: PathManager, sid: str) -> bool:
     )
 
 
+# ── what a file *is*, for every menu that offers one ─────────────────────────
+#
+# Maintainer, 2026-09-07, on the Menu's Anatomy branch tagging `lh.central`, `lh.pial` and
+# `lh.white` as MESH next to the true `Head mesh (ernie)`:
+#
+#   *"Please distinguish between NIfTI, mesh, and a surface — a mesh is a tetrahedral FEM,
+#   a surface is just a triangular 2-D surface."*
+#
+# That is not a labelling nicety. The two are different objects with different things you can do
+# to them:
+#
+#   * a **mesh** (`.msh`) is SimNIBS's tetrahedral volume mesh — the FEM domain itself, 24-420 MB,
+#     carrying the solved field on its elements. You cut it, you colour it by a field, you read a
+#     value at a point inside the head.
+#   * a **surface** (`lh.central.gii`, `rh.pial`) is a two-dimensional triangulated sheet — the
+#     cortical ribbon, ~150 k vertices, ~8 MB, carrying *nothing* on its own. What makes it worth
+#     looking at is what you hang on it: a `.annot` parcellation, a morphometry curve
+#     (`lh.thickness`), or a data GIfTI of per-vertex numbers.
+#
+# Calling both "mesh" told a reader that ticking `lh.pial` would give them the same kind of thing
+# as ticking `ernie.msh`, which is wrong about the size, the load time, the colouring and the
+# question it answers. It also had a concrete cost: with one word for two objects there was
+# nowhere to put a surface's attachments, so the `.annot` files SimNIBS writes right next to the
+# surfaces were simply never offered.
+#
+# This function is the one place that decides, and every menu that offers a file — the composition
+# tree, the Results and Analyzer "Open in viewer" links, the "+ Add…" picker — reads its answer
+# rather than re-deriving one from the extension. Seven kinds, and `None` for "not something a
+# scene can use", which is a real and common answer (`.mat`, `.txt`, `.geo`, `.sigma`, a log).
+
+#: A volume: a regular 3-D lattice of numbers.
+_VOLUME_EXTS = (".nii.gz", ".nii", ".mgz", ".mgh")
+
+#: A surface handed over as a general triangle-soup format rather than as FreeSurfer/GIfTI.
+_TRIANGLE_EXTS = (".stl", ".ply", ".obj")
+
+#: FreeSurfer's extensionless binary **geometry** files, matched exactly after the `?h.` prefix.
+#:
+#: Exactly, not by prefix, and that matters: `surf/` also holds `lh.pial.T1`, `lh.orig.nofix`,
+#: `lh.qsphere.nofix`, `lh.white.preaparc` and `lh.inflated.H` — intermediate and derived files
+#: from recon-all's own bookkeeping, not things to offer someone. A prefix match would sweep all
+#: of them in. A name this function does not recognise is `None`, which is the honest answer for a
+#: file whose format we would be guessing at.
+_FS_SURFACE_STEMS = frozenset(
+    {"pial", "white", "central", "inflated", "sphere", "smoothwm", "orig"}
+)
+
+#: FreeSurfer's extensionless per-vertex **morphometry** curves — one scalar per vertex of the
+#: same hemisphere's surface. Exactly, for the same reason: `lh.curv.pial` and `lh.area.mid` are
+#: computed against a different surface than the one `lh.curv` goes with.
+_FS_MORPH_STEMS = frozenset({"thickness", "curv", "sulc", "area"})
+
+#: Basename shapes that are a **label** volume — an integer parcellation, drawn through a lookup
+#: table at partial opacity, never windowed like a continuous field.
+#:
+#: Checked in addition to (not instead of) the `<stem>_LUT.txt` sidecar test below, because the
+#: FreeSurfer/FastSurfer outputs carry no sidecar of their own: `aparc+aseg.mgz` is a label volume
+#: whether or not anybody wrote a table next to it.
+_LABEL_VOLUME_PATTERNS = (
+    re.compile(r"^labeling$"),
+    # Every `aparc*` is a cortical parcellation, `+aseg` merged or not, resampled or not
+    # (`aparc_resampled_256x256x208.nii.gz` is the analyzer's own resampled copy of one).
+    re.compile(r"^aparc.*$"),
+    re.compile(r"^wmparc.*$"),
+    re.compile(r"^(?:[lr]h\.)?ribbon$"),
+    re.compile(r"^.*labels.*$", re.IGNORECASE),
+    re.compile(r"^ThalamicNuclei.*$"),
+    re.compile(r"^final_tissues.*$"),
+    re.compile(r"^tissue_labeling.*$"),
+    re.compile(r"^aseg(\..*)?$"),
+    re.compile(r"^.*_seg$"),
+)
+
+
+def _hemi_split(basename: str) -> tuple[str, str] | None:
+    """``("lh", "central.gii")`` for a hemisphere-prefixed name, else ``None``."""
+    if basename[:3] in ("lh.", "rh."):
+        return basename[:2], basename[3:]
+    return None
+
+
+def _strip_view_ext(basename: str) -> str:
+    for ext in (".nii.gz", ".nii", ".mgz", ".mgh", ".msh", ".gii", ".annot"):
+        if basename.lower().endswith(ext):
+            return basename[: -len(ext)]
+    return basename
+
+
+def _has_lut_sidecar(path: str) -> bool:
+    """``<stem>_LUT.txt`` beside the file — how SimNIBS marks its own label volumes."""
+    directory = os.path.dirname(path)
+    stem = _strip_view_ext(os.path.basename(path))
+    return os.path.isfile(os.path.join(directory, f"{stem}_LUT.txt"))
+
+
+def classify_view_file(path: str) -> str | None:
+    """What *path* is, as one of the seven kinds a scene understands — or ``None``.
+
+    ``volume`` · ``label-volume`` · ``surface`` · ``mesh`` · ``annotation`` · ``morph`` ·
+    ``surface-data``.
+
+    Decided from the **name and its neighbours only**. No file is opened: this runs once per row
+    of a menu that is redrawn on every keystroke, and a menu that reads its way through a
+    FreeSurfer `surf/` directory is a menu that stutters. The one filesystem touch is
+    :func:`_has_lut_sidecar`, a single `os.path.isfile` on a sibling.
+
+    ``None`` means "not something a scene can use" and is returned for everything unrecognised —
+    `.mat`, `.txt`, `.geo`, `.sigma`, `.label`, `.ctab`, a log, and the derived FreeSurfer files
+    (`lh.pial.T1`, `lh.smoothwm.K.crv`) that are recon-all's bookkeeping rather than anyone's
+    input. Refusing to guess is the point: a file offered under the wrong kind fails at Open,
+    which is a much worse moment to find out than not being offered at all.
+    """
+    basename = os.path.basename(path)
+    lowered = basename.lower()
+
+    # A tetrahedral FEM mesh. The only extension that earns the word.
+    if lowered.endswith(".msh"):
+        return "mesh"
+
+    if lowered.endswith(".annot"):
+        return "annotation"
+
+    if lowered.endswith(".gii"):
+        # GIfTI says what it carries in its own second-to-last suffix. `.func`/`.shape`/`.time`
+        # are per-vertex numbers *for* a surface; `.surf` and a bare `.gii` are the geometry.
+        # SimNIBS writes the geometry bare (`lh.central.gii`), which is why the bare case is
+        # geometry and not the other way round.
+        if re.search(r"\.(func|shape|time)\.gii$", lowered):
+            return "surface-data"
+        return "surface"
+
+    if lowered.endswith(_TRIANGLE_EXTS):
+        return "surface"
+
+    if lowered.endswith(_VOLUME_EXTS):
+        stem = _strip_view_ext(basename)
+        if _has_lut_sidecar(path) or any(
+            pattern.match(stem) for pattern in _LABEL_VOLUME_PATTERNS
+        ):
+            return "label-volume"
+        return "volume"
+
+    # FreeSurfer's extensionless binaries, which is where the distinction is easiest to get wrong:
+    # `lh.pial` and `lh.thickness` look identical to a filename matcher that only splits on dots.
+    hemi = _hemi_split(basename)
+    if hemi is not None:
+        _, rest = hemi
+        if rest in _FS_SURFACE_STEMS:
+            return "surface"
+        if rest in _FS_MORPH_STEMS:
+            return "morph"
+
+    return None
+
+
+#: The kinds that are a *geometry* — something a scene draws directly, rather than something it
+#: hangs on a geometry.
+VIEW_GEOMETRY_KINDS = frozenset({"surface", "mesh"})
+
+#: The kinds that attach to a surface rather than standing alone. Matched to their surface by
+#: hemisphere (`lh.`/`rh.`), which is the only pairing FreeSurfer guarantees.
+VIEW_ATTACHMENT_KINDS = frozenset({"annotation", "morph", "surface-data"})
+
+
+def surface_attachments(
+    surface_path: str, *, extra_dirs: tuple[str, ...] = ()
+) -> list[str]:
+    """Every annotation / morph / data-GIfTI file that belongs on *surface_path*.
+
+    Matched by hemisphere and nothing else, because that is the only correspondence FreeSurfer
+    actually promises: `lh.thickness` has one value per vertex of *every* `lh.*` surface, since
+    they all share a vertex numbering. Which `lh.` surface you hang it on is the viewer's choice,
+    not a fact about the file. (Tetravox's own worker checks the vertex count when the file is
+    attached, so a genuine mismatch is refused there with both counts named — this side does not
+    need to read a byte to be safe, only to be plausible.)
+
+    Searched in the surface's own directory plus *extra_dirs* — SimNIBS keeps the geometry in
+    `m2m_<sid>/surfaces/` but writes the parcellations it made into `m2m_<sid>/segmentation/`,
+    two directories apart, which is exactly why nothing offered them before.
+    """
+    hemi = _hemi_split(os.path.basename(surface_path))
+    if hemi is None:
+        return []
+    prefix = f"{hemi[0]}."
+    found: list[str] = []
+    for directory in (os.path.dirname(surface_path), *extra_dirs):
+        if not os.path.isdir(directory):
+            continue
+        for name in sorted(os.listdir(directory)):
+            if not name.startswith(prefix):
+                continue
+            candidate = os.path.join(directory, name)
+            if not os.path.isfile(candidate):
+                continue
+            if classify_view_file(candidate) in VIEW_ATTACHMENT_KINDS:
+                found.append(candidate)
+    return found
+
+
 # ── subject / simulation detail ──────────────────────────────────────────────
 
 

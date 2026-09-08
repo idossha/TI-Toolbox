@@ -67,5 +67,7 @@ def test_the_range_covers_every_feature_level() -> None:
 
 def test_protocol_supported_rejects_non_integers() -> None:
     assert protocol.protocol_supported(1) and protocol.protocol_supported(2)
-    for value in (0, 3, None, "1", 1.5, True):
+    # 3 is Tetravox 0.4.0's surface layer kind, and is now in range.
+    assert protocol.protocol_supported(3)
+    for value in (0, 4, None, "1", 1.5, True):
         assert not protocol.protocol_supported(value), value

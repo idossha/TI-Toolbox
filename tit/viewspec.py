@@ -84,6 +84,7 @@ from pathlib import Path
 from typing import Any
 
 from tit.atlas import DEFAULT_MNI_ATLAS, MNI_ATLAS_DIR, MNI_TEMPLATE, VoxelAtlasManager
+from tit.catalog import classify_view_file, surface_attachments
 from tit.atlas.constants import mni_resources_dir
 from tit.paths import get_path_manager
 
@@ -962,7 +963,9 @@ def _candidate(path: str, group: str) -> dict[str, Any]:
     return {
         "name": os.path.basename(path),
         "path": path,
-        "kind": "mesh" if _scene_is_mesh(path) else "volume",
+        # The same classifier the composition tree reads (`tit.catalog.classify_view_file`), so
+        # the "+ Add…" picker and the tree cannot disagree about what a file is.
+        "kind": classify_view_file(path) or "volume",
         "group": group,
         "bytes": size,
     }
@@ -1076,14 +1079,56 @@ def viewer_candidates(
 #: Stable id for a node: the container path. Not an index and not a display name -- a composition
 #: saved today has to resolve against a project that has since gained or lost files, and the only
 #: thing that survives that is what the file is called.
-def _tree_node(path: str, *, label: str | None = None, default_on: bool = False) -> dict[str, Any]:
+#: Why a surface row is disabled when the installed embed is too old to draw one.
+#:
+#: Named as a *capability*, not as a version comparison the UI performs: `tit/tetravox/protocol.py`
+#: explains why every host here asks for a feature name. The sentence still carries the version,
+#: because "needs a newer embed" is not something a person can act on and "0.4.0" is.
+SURFACE_UNSUPPORTED_REASON = "needs Tetravox embed >= 0.4.0 (surfaces)"
+
+
+def _size_or_none(path: str) -> int | None:
+    try:
+        return os.path.getsize(path)
+    except OSError:
+        return None
+
+
+def _tree_node(
+    path: str,
+    *,
+    label: str | None = None,
+    default_on: bool = False,
+    attachment_dirs: tuple[str, ...] = (),
+    surfaces_supported: bool = True,
+) -> dict[str, Any]:
+    """One row of the tree, with the *kind* every menu now reads rather than re-derives.
+
+    ``kind`` is :func:`tit.catalog.classify_view_file`'s answer, so this row says ``surface``
+    where it used to say ``mesh`` for a ``.gii`` sheet -- the maintainer's note of 2026-09-07 (a
+    mesh is the tetrahedral FEM domain; a surface is a triangulated sheet). A file the classifier
+    refuses still shows as a ``volume``, because reaching here means some branch already decided
+    it was offerable and silently dropping it would be worse than a blunt chip.
+
+    A **surface** carries its ``attachments``: the ``.annot`` parcellations, morphometry curves
+    and data GIfTIs that share its hemisphere. They are sub-rows, not siblings, because that is
+    what they are -- a ``.annot`` on its own is a colour table with nowhere to go.
+
+    *surfaces_supported* is the one capability switch (E1, :mod:`tit.tetravox.protocol`). When the
+    installed embed cannot draw a surface as its own kind, the row is listed and **disabled with
+    the reason** rather than hidden or -- much worse -- silently sent as a mesh, which would make
+    an 8 MB cortical sheet arrive as a claim about a 400 MB FEM volume.
+    """
     try:
         size: int | None = os.path.getsize(path)
         available = True
         reason = None
     except OSError:
         size, available, reason = None, False, "file is missing"
-    return {
+    kind = classify_view_file(path) or "volume"
+    if kind == "surface" and not surfaces_supported and available:
+        available, reason = False, SURFACE_UNSUPPORTED_REASON
+    node = {
         "id": path,
         "name": os.path.basename(path),
         "label": label or _scene_display_name(
@@ -1092,15 +1137,33 @@ def _tree_node(path: str, *, label: str | None = None, default_on: bool = False)
             field_name=_scene_field_name(os.path.basename(path)),
         ),
         "path": path,
-        "kind": "mesh" if _scene_is_mesh(path) else "volume",
+        "kind": kind,
         "bytes": size,
         "default_on": default_on,
         "available": available,
         "reason": reason,
     }
+    if kind == "surface":
+        node["attachments"] = [
+            {
+                "id": attachment,
+                "name": os.path.basename(attachment),
+                "label": _scene_stem(os.path.basename(attachment)),
+                "path": attachment,
+                "kind": classify_view_file(attachment) or "surface-data",
+                "bytes": _size_or_none(attachment),
+                "default_on": False,
+                "available": available,
+                "reason": reason,
+            }
+            for attachment in surface_attachments(path, extra_dirs=attachment_dirs)
+        ]
+    return node
 
 
-def _anatomy_branch(pm, subject: str, space: str) -> list[dict[str, Any]]:
+def _anatomy_branch(
+    pm, subject: str, space: str, *, surfaces_supported: bool = True
+) -> list[dict[str, Any]]:
     """T1, T2, the head mesh, the reconstruction surfaces and the atlases.
 
     ``default_on`` marks the T1 (in subject space) or the MNI template (in MNI space): a scene
@@ -1130,12 +1193,23 @@ def _anatomy_branch(pm, subject: str, space: str) -> list[dict[str, Any]]:
         )
 
     surfaces = os.path.join(m2m, "surfaces")
+    # SimNIBS keeps the geometry in `surfaces/` and writes the parcellations it made two
+    # directories away, into `segmentation/` -- which is exactly why nothing had ever offered
+    # them. `surface_attachments` is told to look in both.
+    segmentation = os.path.join(m2m, "segmentation")
     for path in sorted(glob.glob(os.path.join(surfaces, "*.gii"))):
         # central/pial/white only: `sphere` and `sphere.reg` are registration targets, and
         # offering them would be offering a ball.
         parts = os.path.basename(path).split(".")
         if len(parts) > 1 and parts[1] in ("central", "pial", "white"):
-            out.append(_tree_node(path, label=_scene_stem(os.path.basename(path))))
+            out.append(
+                _tree_node(
+                    path,
+                    label=_scene_stem(os.path.basename(path)),
+                    attachment_dirs=(segmentation,),
+                    surfaces_supported=surfaces_supported,
+                )
+            )
 
     manager = VoxelAtlasManager(
         fastsurfer_mri_dir=pm.fastsurfer_mri(subject),
@@ -1156,16 +1230,26 @@ def _anatomy_branch(pm, subject: str, space: str) -> list[dict[str, Any]]:
     return out
 
 
-def _simulation_branch(pm, subject: str, simulation: str, space: str) -> dict[str, Any]:
+def _simulation_branch(
+    pm, subject: str, simulation: str, space: str, *, surfaces_supported: bool = True
+) -> dict[str, Any]:
     """One simulation's own outputs, split into what a person picks between.
 
-    ``fields`` are the NIfTI volumes, ``meshes`` the ``.msh`` surfaces, ``electrodes`` the
-    montage overlay. Space matters: a subject-space scene must not offer the MNI copies, because
-    two volumes in different spaces in one scene is a misregistration nobody asked for.
+    ``fields`` are the NIfTI volumes, ``meshes`` the tetrahedral ``.msh`` outputs, ``surfaces``
+    the GIfTI/fsaverage sheets with their per-vertex data, ``electrodes`` the montage overlay.
+
+    ``surfaces`` is its own bucket rather than a corner of ``meshes``, for the reason this whole
+    change exists: the fsaverage projection writes ``lh.*.gii`` sheets a few MB each, and filing
+    them under "Meshes" beside a 64 MB ``.msh`` told a reader they were the same sort of thing and
+    the same sort of wait.
+
+    Space matters: a subject-space scene must not offer the MNI copies, because two volumes in
+    different spaces in one scene is a misregistration nobody asked for.
     """
     sim_dir = pm.simulation(subject, simulation)
     fields: list[dict[str, Any]] = []
     meshes: list[dict[str, Any]] = []
+    surfaces: list[dict[str, Any]] = []
     electrodes: list[dict[str, Any]] = []
     for mode in _MODE_DIRS + ("high_Frequency",):
         for sub, bucket in (
@@ -1180,7 +1264,14 @@ def _simulation_branch(pm, subject: str, simulation: str, space: str) -> dict[st
                     continue
                 if not _in_space(os.path.basename(path), space, is_mesh=_scene_is_mesh(path)):
                     continue
-                bucket.append(_tree_node(path))
+                node = _tree_node(
+                    path,
+                    attachment_dirs=(os.path.dirname(path),),
+                    surfaces_supported=surfaces_supported,
+                )
+                # A `.gii` written into `mesh/` is still a sheet; the directory it landed in is
+                # SimNIBS's filing, not a claim about the geometry.
+                (surfaces if node["kind"] == "surface" else bucket).append(node)
 
     # The grey-matter-masked field is the one a reader wants first: the whole-head copy is mostly
     # skull and CSF, where the number is not the thing being reported.
@@ -1196,6 +1287,7 @@ def _simulation_branch(pm, subject: str, simulation: str, space: str) -> dict[st
         "name": simulation,
         "fields": fields,
         "meshes": meshes,
+        "surfaces": surfaces,
         "electrodes": electrodes,
     }
 
@@ -1217,7 +1309,9 @@ def _in_space(name: str, space: str, *, is_mesh: bool) -> bool:
     return True
 
 
-def _analysis_branch(pm, subject: str, simulation: str) -> list[dict[str, Any]]:
+def _analysis_branch(
+    pm, subject: str, simulation: str, *, surfaces_supported: bool = True
+) -> list[dict[str, Any]]:
     """The analyzer outputs under one simulation: ROI masks, spheres, group and statistic maps."""
     sim_dir = pm.simulation(subject, simulation)
     out: list[dict[str, Any]] = []
@@ -1227,9 +1321,12 @@ def _analysis_branch(pm, subject: str, simulation: str) -> list[dict[str, Any]]:
             if not os.path.isdir(run):
                 continue
             nodes = [
-                _tree_node(path)
+                _tree_node(
+                    path, attachment_dirs=(run,), surfaces_supported=surfaces_supported
+                )
                 for path in sorted(glob.glob(os.path.join(run, "*")))
-                if os.path.isfile(path) and path.endswith((".nii", ".nii.gz", ".mgz", ".msh"))
+                if os.path.isfile(path)
+                and path.endswith((".nii", ".nii.gz", ".mgz", ".msh", ".gii"))
             ]
             if nodes:
                 out.append(
@@ -1247,6 +1344,8 @@ def viewer_tree(
     subject: str | None = None,
     space: str | None = None,
     simulations: list[str] | None = None,
+    *,
+    surfaces_supported: bool = True,
 ) -> dict[str, Any]:
     """What the Menu's composition tree draws, for one subject.
 
@@ -1276,17 +1375,24 @@ def viewer_tree(
 
     chosen = set(simulations or [])
     all_sims = pm.list_simulations(subject) or []
-    sims = [_simulation_branch(pm, subject, name, space) for name in sorted(all_sims)]
+    sims = [
+        _simulation_branch(pm, subject, name, space, surfaces_supported=surfaces_supported)
+        for name in sorted(all_sims)
+    ]
     analyses: list[dict[str, Any]] = []
     for name in sorted(all_sims):
         if chosen and name not in chosen:
             continue
-        analyses.extend(_analysis_branch(pm, subject, name))
+        analyses.extend(
+            _analysis_branch(pm, subject, name, surfaces_supported=surfaces_supported)
+        )
 
     return {
         "subject": subject,
         "space": space,
-        "anatomy": _anatomy_branch(pm, subject, space),
+        "anatomy": _anatomy_branch(
+            pm, subject, space, surfaces_supported=surfaces_supported
+        ),
         "simulations": sims,
         "analyses": analyses,
         "available": True,
