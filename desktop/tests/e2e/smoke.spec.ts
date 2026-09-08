@@ -222,12 +222,18 @@ test("the rail's icon/label breakpoint updates on resize even while the Viewer s
   await expectSubject(page, "ernie");
 
   await jumpTo("viewer");
-  // R5: the source drafts, Open commands — so this smoke test drafts and stops. What Open does
+  // R5: the Menu drafts, Open commands — so this smoke test drafts and stops. What Open does
   // (one request, one scene, a move to the Viewer sub-page) is viewer.spec.ts's.
-  await page.getByTestId("viewer-select-kind").getByRole("combobox").click();
-  await page.getByRole("option", { name: "Simulation", exact: true }).click();
-  await page.getByTestId("viewer-select-simulation").getByRole("combobox").click();
-  await page.getByRole("option", { name: "Thalamus", exact: true }).click();
+  //
+  // The kind/simulation selectors this drove are gone: the Menu is a composition tree (`509100ef`).
+  // What this test needs is a resolved plan on the Viewer page, and expanding a simulation branch
+  // is the gesture that produces one.
+  await expect(page.getByTestId("viewer-tree")).toBeVisible({ timeout: 15_000 });
+  const thalamus = page.getByTestId("viewer-tree-sim-Thalamus");
+  await expect(thalamus).toBeVisible({ timeout: 15_000 });
+  if ((await thalamus.getAttribute("data-open")) !== "true") {
+    await page.getByTestId("viewer-tree-sim-Thalamus-toggle").click();
+  }
   await expect(page.getByTestId("viewer-plan")).toBeVisible({ timeout: 15_000 });
   // VM2: the page is a centred source card and one editable file list, not a bar over a canvas.
   await expect(page.getByTestId("viewer-panel")).toBeVisible();
