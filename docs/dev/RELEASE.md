@@ -142,11 +142,25 @@ Internal preparation is in progress. The cohort identity is `internal-20260908.1
 container has passed selected tests and Python/shell/installed-wheel launcher checks. Actual Flex
 fixture execution also completed; exact measurements and receipts are in
 [BENCHMARKS.md](BENCHMARKS.md#clean-baked-candidate-progress--2026-09-09).
-The full mock suite passed its tests, but the native quiet monitor was inconclusive; it is not
-an overall quiet-check pass. The refreshed full host suite completed with 4,441 passing tests; exact counts and timing
-are in BENCHMARKS.md. The final full real suite remains pending. Installers have not yet been built. Packaging, hosted CI, main merge and
-registry publication remain unverified; no acceptance gate is closed by source or selected-test
-success alone.
+The earlier baked image completed its real-suite assertions, including pipeline and source
+workflows, but its native monitor was inconclusive and three specs were excluded. It predates
+the security fixes now pending commit. The new security-source host refresh has completed;
+its counts and the historical baked/CI results are in BENCHMARKS.md. The new mock run is in
+progress. Rebuild and acceptance of the security-source image, installers and package validation,
+CodeQL and hosted CI reruns, main merge and registry publication remain pending.
+
+Concrete fixes cover atlas/hemi/sidecar/ROI/catalog-content containment, unknown WebSocket job
+subscriptions, pre-existing outward symlinks in metadata/notebook/saved-view storage, exclusive
+atomic temporary writes, the static empty-index symlink case, and safe DOM search rendering.
+Independent review and regression results do not prove that every CodeQL alert is cleared;
+only the new analysis can establish that. Kernels remain intentionally unsandboxed, and
+concurrent malicious local filesystem races are outside the claimed protection. No numerical
+algorithm changed, so this work adds no scientific-correction notice.
+
+CircleCI source job 853 failed a checkout-dependent fixture, now repaired and checked on host
+and container. Desktop job 854 stalled at an interactive service-restart prompt before e2e;
+noninteractive setup is now explicit and CLI-validated. Both hosted reruns remain required.
+
 No public release or update announcement is authorized by this preparation.
 
 Two previously listed blockers were stale: startup reconciliation deliberately interrupts old jobs

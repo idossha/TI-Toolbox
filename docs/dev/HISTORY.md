@@ -720,3 +720,30 @@ verification found a legacy-only mesh filename lookup, now routed through PathMa
 Blender scenes preserve the template's subdivision settings and require a larger memory reservation;
 lightweight non-render exports retain their prior estimate. These are runtime/planning fixes, not
 additional scientific-formula corrections.
+
+
+### 2026-09-09 — Security boundaries and hosted CI follow-up
+
+The first hosted analysis of the internal candidate reported a broad CodeQL delta, including
+path-injection findings and existing baseline alerts. Independent review and failing-first
+fixtures identified concrete containment and DOM-rendering defects; the fixes are pending
+commit and scanner rerun, not an assertion that every alert is resolved.
+
+The source now checks atlas, hemisphere, sidecar, ROI and catalog-content containment; rejects
+subscriptions to unknown WebSocket jobs; and prevents job/lock metadata, notebooks and saved
+views from following pre-existing outward symlinks. Storage writes use exclusive temporary
+files and atomic replacement. The static-content empty-index case also rejects an outward
+symlink. Documentation search now constructs DOM text/highlights without parsing user queries
+or indexed labels as HTML. These changes protect storage/path boundaries, not numerical
+algorithms, so they do not add a scientific-correction notice. Kernels remain deliberately
+unsandboxed, and these checks do not promise protection against a concurrent malicious local
+filesystem race; see ARCHITECTURE.md and DECISIONS.md for the trust boundary.
+
+Hosted source CI exposed a test fixture whose mocked `isdir` collided with the actual checkout
+path. The fixture was repaired and checked on host and container. Hosted desktop CI stopped
+at an interactive system-service restart prompt before reaching e2e; the existing configuration
+now explicitly requests noninteractive package setup and was accepted by the CircleCI CLI.
+Neither repair turns the earlier failed jobs into passes. The earlier baked runtime completed
+its real assertions with an inconclusive native monitor; it predates the security source fixes
+and must not be presented as their rebuilt-image acceptance. Exact results and raw receipts
+remain in BENCHMARKS.md; rebuild, packaging and hosted reruns remain in RELEASE.md.

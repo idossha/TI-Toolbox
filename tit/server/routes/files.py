@@ -82,14 +82,19 @@ def _resolve_jailed(raw_path: str, roots: list[Path] | None = None) -> Path:
     :func:`tit.viewspec.raw_jail_roots` instead.
     """
     try:
-        resolved = Path(raw_path).resolve()
+        resolved = os.path.realpath(raw_path)
     except OSError as exc:  # pragma: no cover - defensive
         raise HTTPException(status_code=404, detail="Not found") from exc
-    if not any(resolved.is_relative_to(root) for root in (roots or jail_roots())):
-        raise HTTPException(status_code=403, detail="Path escapes the project jail")
-    if not resolved.is_file():
-        raise HTTPException(status_code=404, detail="Not found")
-    return resolved
+    for root in roots or jail_roots():
+        canonical_root = os.path.realpath(root)
+        # Include the separator so a sibling such as project-copy cannot match.
+        if resolved == canonical_root or resolved.startswith(
+            canonical_root.rstrip(os.sep) + os.sep
+        ):
+            if not os.path.isfile(resolved):
+                raise HTTPException(status_code=404, detail="Not found")
+            return Path(resolved)
+    raise HTTPException(status_code=403, detail="Path escapes the project jail")
 
 
 @router.get(

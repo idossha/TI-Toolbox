@@ -750,7 +750,9 @@ def test_ws_jobs_subscribe_streams_events(client: TestClient) -> None:
     job_id = submitted["id"]
 
     with client.websocket_connect(f"{WS}?token={TOKEN}") as ws:
-        ws.send_text(json.dumps({"subscribe": {job_id: 0}}))
+        # Unknown ids are ignored without disconnecting or preventing a later valid
+        # subscription in the same frame (2026-09-09 traversal regression).
+        ws.send_text(json.dumps({"subscribe": {"../outside": 0, job_id: 0}}))
         seen_types = []
         for _ in range(200):
             if "exit" in seen_types:

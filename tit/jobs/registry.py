@@ -16,6 +16,7 @@ import time
 from typing import Any
 
 from tit.jobs.spec import JobSpec, JobStatus
+from tit.paths import is_within
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +34,22 @@ DEFAULT_RETENTION_DAYS = 30
 BIDSIGNORE_LINE = "code/ti-toolbox/jobs/"
 
 
+def _storage_path(project_dir: str, path: str) -> str:
+    """Check resolved targets, retaining the final entry for replace/unlink semantics."""
+    resolved = os.path.realpath(path)
+    if not is_within(project_dir, resolved) or resolved == os.path.realpath(
+        project_dir
+    ):
+        raise PermissionError("Job storage path escapes the project directory")
+    # Resolve parent aliases, but do not turn replacing/deleting a final symlink into
+    # replacing/deleting its target. Reads/appends still follow a checked final link.
+    return os.path.join(os.path.realpath(os.path.dirname(path)), os.path.basename(path))
+
+
 def jobs_root(project_dir: str) -> str:
-    return os.path.join(project_dir, "code", "ti-toolbox", "jobs")
+    return _storage_path(
+        project_dir, os.path.join(project_dir, "code", "ti-toolbox", "jobs")
+    )
 
 
 def ensure_bidsignore(project_dir: str) -> None:
@@ -46,7 +61,7 @@ def ensure_bidsignore(project_dir: str) -> None:
     which does the same for CT files -- kept separate here rather than imported so
     :mod:`tit.jobs.registry` never has to import :mod:`tit.pre`).
     """
-    target = os.path.join(project_dir, ".bidsignore")
+    target = _storage_path(project_dir, os.path.join(project_dir, ".bidsignore"))
     try:
         with open(target, encoding="utf-8") as fh:
             existing = fh.read().splitlines()
@@ -60,30 +75,42 @@ def ensure_bidsignore(project_dir: str) -> None:
 
 
 def job_dir(project_dir: str, job_id: str) -> str:
-    return os.path.join(jobs_root(project_dir), job_id)
+    # Legacy ids need not be UUIDs, but a job id is always one directory entry.
+    if not job_id or job_id in (".", "..") or "/" in job_id or "\\" in job_id:
+        raise PermissionError("Job id must be a single directory name")
+    return _storage_path(project_dir, os.path.join(jobs_root(project_dir), job_id))
 
 
 def spec_path(project_dir: str, job_id: str) -> str:
-    return os.path.join(job_dir(project_dir, job_id), SPEC_FILE)
+    return job_file_path(project_dir, job_id, SPEC_FILE)
 
 
 def status_path(project_dir: str, job_id: str) -> str:
-    return os.path.join(job_dir(project_dir, job_id), STATUS_FILE)
+    return job_file_path(project_dir, job_id, STATUS_FILE)
 
 
 def events_path(project_dir: str, job_id: str) -> str:
-    return os.path.join(job_dir(project_dir, job_id), EVENTS_FILE)
+    return job_file_path(project_dir, job_id, EVENTS_FILE)
 
 
 def stdout_path(project_dir: str, job_id: str) -> str:
-    return os.path.join(job_dir(project_dir, job_id), STDOUT_FILE)
+    return job_file_path(project_dir, job_id, STDOUT_FILE)
+
+
+def job_file_path(project_dir: str, job_id: str, filename: str) -> str:
+    """A metadata file whose existing symlinks stay within the project."""
+    if not filename or filename in (".", "..") or "/" in filename or "\\" in filename:
+        raise PermissionError("Job metadata filename must be a single entry")
+    return _storage_path(
+        project_dir, os.path.join(job_dir(project_dir, job_id), filename)
+    )
 
 
 def _atomic_write_json(path: str, data: dict[str, Any]) -> None:
     directory = os.path.dirname(path)
     os.makedirs(directory, exist_ok=True)
     tmp = f"{path}.tmp-{os.getpid()}-{time.monotonic_ns()}"
-    with open(tmp, "w", encoding="utf-8") as fh:
+    with open(tmp, "x", encoding="utf-8") as fh:
         json.dump(data, fh, indent=2, sort_keys=True)
     os.replace(tmp, path)
 
@@ -102,6 +129,11 @@ class JobRegistry:
     # -- create / persist ------------------------------------------------------------------
 
     def create(self, spec: JobSpec, status: JobStatus) -> None:
+        # Validate the whole record before creating anything: a linked event/log file
+        # must not be discovered only after spec/status have already been persisted.
+        for resolve in (spec_path, status_path, events_path, stdout_path):
+            resolve(self.project_dir, spec.id)
+        status_path(self.project_dir, status.id)
         os.makedirs(job_dir(self.project_dir, spec.id), exist_ok=True)
         self.write_spec(spec)
         self.write_status(status)
@@ -133,18 +165,26 @@ class JobRegistry:
 
     def list_ids(self) -> list[str]:
         try:
-            return [
-                name
-                for name in os.listdir(jobs_root(self.project_dir))
-                if name != ".locks"
-                and os.path.isfile(spec_path(self.project_dir, name))
-            ]
+            names = os.listdir(jobs_root(self.project_dir))
         except OSError:
             return []
+        valid = []
+        for name in names:
+            if name == ".locks":
+                continue
+            try:
+                # Skip an unsafe record without hiding unrelated valid jobs on restart.
+                for resolve in (spec_path, status_path, events_path, stdout_path):
+                    resolve(self.project_dir, name)
+                if os.path.isfile(spec_path(self.project_dir, name)):
+                    valid.append(name)
+            except OSError:
+                continue
+        return valid
 
     def read_log_tail(self, job_id: str, tail: int | None = None) -> str:
-        path = stdout_path(self.project_dir, job_id)
         try:
+            path = stdout_path(self.project_dir, job_id)
             with open(path, encoding="utf-8", errors="replace") as fh:
                 if tail is None:
                     return fh.read()
@@ -156,9 +196,15 @@ class JobRegistry:
     # -- delete / retention ------------------------------------------------------------------
 
     def delete(self, job_id: str) -> bool:
-        path = job_dir(self.project_dir, job_id)
+        try:
+            path = job_dir(self.project_dir, job_id)
+        except OSError:
+            return False
         if not os.path.isdir(path):
             return False
+        if os.path.islink(path):
+            os.unlink(path)
+            return True
         shutil.rmtree(path, ignore_errors=True)
         return True
 

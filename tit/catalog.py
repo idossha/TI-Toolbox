@@ -32,7 +32,7 @@ from typing import Any
 from tit.atlas.constants import VOXEL_ATLASES, mni_resources_dir
 from tit.atlas.mesh import MeshAtlasManager
 from tit.atlas.voxel import VoxelAtlasManager, parse_region_label
-from tit.paths import PathManager, natural_key
+from tit.paths import PathManager, is_within, natural_key
 
 # NOTE: tit.opt.ex.roi (used by list_rois) is imported lazily inside the
 # function that needs it, never at module level -- tit/opt/__init__.py
@@ -240,7 +240,9 @@ _ARTIFACT_KIND_BY_EXT = {".png": "image", ".csv": "csv", ".json": "json", ".pdf"
 _MANIFEST_FILENAMES = {"flex_meta.json", "run_config.json"}
 
 
-def _dir_artifacts(root: str, *, max_depth: int = 3) -> list[dict]:
+def _dir_artifacts(
+    root: str, *, max_depth: int = 3, project_root: str | None = None
+) -> list[dict]:
     """PNG/CSV/JSON files under *root* (shallow-recursive) as ``Artifact`` dicts.
 
     Shared by :func:`flex_runs` and :func:`ex_runs` for the v1 ``artifacts``
@@ -253,7 +255,7 @@ def _dir_artifacts(root: str, *, max_depth: int = 3) -> list[dict]:
     paths); anything deeper is not worth surfacing as a top-level artifact.
     """
     out: list[dict] = []
-    if not os.path.isdir(root):
+    if (project_root and not is_within(project_root, root)) or not os.path.isdir(root):
         return out
     root_depth = root.rstrip(os.sep).count(os.sep)
     for dirpath, dirnames, filenames in os.walk(root):
@@ -261,6 +263,10 @@ def _dir_artifacts(root: str, *, max_depth: int = 3) -> list[dict]:
             dirnames[:] = []
             continue
         for name in sorted(filenames):
+            if project_root and not is_within(
+                project_root, os.path.join(dirpath, name)
+            ):
+                continue
             ext = os.path.splitext(name)[1].lower()
             kind = _ARTIFACT_KIND_BY_EXT.get(ext)
             if kind is None:
@@ -600,9 +606,14 @@ def simulation_detail(pm: PathManager, sid: str, sim: str) -> dict | None:
     if sid not in subject_ids(pm) or sim not in pm.list_simulations(sid):
         return None
     sim_dir = pm.simulation(sid, sim)
+    if not _project_paths_safe(pm, sim_dir):
+        return None
     has_ti = os.path.isdir(os.path.dirname(pm.ti_mesh_dir(sid, sim)))
     has_mti = os.path.isdir(os.path.dirname(pm.mti_mesh_dir(sid, sim)))
-    config = _read_json(os.path.join(sim_dir, "documentation", "config.json")) or {}
+    config_path = os.path.join(sim_dir, "documentation", "config.json")
+    config = (
+        _read_json(config_path) if _project_paths_safe(pm, config_path) else None
+    ) or {}
     montage_name = config.get("montage_name") or sim
 
     niftis: list[dict] = []
@@ -702,14 +713,13 @@ def electrode_overlays(pm: PathManager, sid: str, sim: str) -> list[dict] | None
 def get_montages(pm: PathManager) -> dict:
     """``montage_list.json``, reshaped to the v1 ``Montages`` schema.
 
-    ``pm`` is accepted for interface symmetry with the rest of this module;
-    :mod:`tit.sim.utils` reads/writes through the process-wide PathManager
-    singleton (the same instance in practice, since the server sets it once
-    at startup).
+    Reads the explicitly selected project's montage file through the shared writer API.
     """
     from tit.sim.utils import load_montage_data
 
-    data = load_montage_data()
+    if not _project_paths_safe(pm, pm.montage_config()):
+        return {"nets": {}}
+    data = load_montage_data(pm=pm)
     nets = {
         net: {
             "uni_polar": entry.get("uni_polar_montages", {}),
@@ -730,12 +740,15 @@ def put_montage(
         )
     from tit.sim.utils import upsert_montage
 
+    if not _project_paths_safe(pm, pm.montage_config()):
+        raise ValueError("Montage path must remain inside the project")
     mode = "U" if kind == "uni_polar" else "M"
     upsert_montage(
         eeg_net=net,
         montage_name=name,
         electrode_pairs=[list(pair) for pair in pairs],
         mode=mode,
+        pm=pm,
     )
     return pairs
 
@@ -744,13 +757,15 @@ def delete_montage(pm: PathManager, net: str, kind: str, name: str) -> bool:
     """Delete one montage; ``False`` if it did not exist."""
     from tit.sim.utils import load_montage_data, save_montage_data
 
-    data = load_montage_data()
+    if not _project_paths_safe(pm, pm.montage_config()):
+        return False
+    data = load_montage_data(pm=pm)
     key = "uni_polar_montages" if kind == "uni_polar" else "multi_polar_montages"
     montages = data.get("nets", {}).get(net, {}).get(key, {})
     if name not in montages:
         return False
     del montages[name]
-    save_montage_data(data)
+    save_montage_data(data, pm=pm)
     return True
 
 
@@ -782,7 +797,11 @@ def _eeg_caps_with_electrodes(pm: PathManager, sid: str) -> list[tuple[str, list
     is not a net, so it is not listed as one.
     """
     out: list[tuple[str, list[str]]] = []
+    if not _project_paths_safe(pm, pm.eeg_positions(sid)):
+        return out
     for cap_name in pm.list_eeg_caps(sid):
+        if not _project_paths_safe(pm, os.path.join(pm.eeg_positions(sid), cap_name)):
+            continue
         electrodes = _read_cap_electrode_labels(
             os.path.join(pm.eeg_positions(sid), cap_name)
         )
@@ -865,7 +884,7 @@ def atlas_regions(
     ``None`` (a region whose label cannot be parsed as an integer is dropped
     rather than returned with a non-conforming id).
     """
-    if sid not in subject_ids(pm):
+    if hemi not in (None, "both", "lh", "rh") or sid not in subject_ids(pm):
         return None
     seg_dir = os.path.join(pm.m2m(sid), "segmentation")
 
@@ -877,6 +896,8 @@ def atlas_regions(
             annot_path = mesh_mgr.find_atlas_file(atlas_id, h)
             if not annot_path:
                 continue
+            if not is_within(pm.project_dir, annot_path):
+                return None
             for index, name in mesh_mgr.list_annot_regions(annot_path):
                 if name == "unknown":
                     continue
@@ -890,10 +911,16 @@ def atlas_regions(
         masks_dir=pm.masks(sid),
     )
     atlas_path = dict(voxel_mgr.list_atlases()).get(atlas_id)
+    atlas_root = pm.project_dir
     if atlas_path is None:
-        candidate = os.path.join(mni_resources_dir(), atlas_id)
-        if os.path.isfile(candidate):
-            atlas_path = candidate
+        atlas_root = mni_resources_dir()
+        atlas_path = {
+            os.path.basename(path): path
+            for path in VoxelAtlasManager.detect_mni_atlases(atlas_root)
+        }.get(atlas_id)
+    if atlas_path is None:
+        return None
+    atlas_path = _jailed_atlas_path(atlas_root, atlas_path)
     if atlas_path is None:
         return None
 
@@ -909,7 +936,21 @@ def atlas_regions(
     return out
 
 
-def nifti_labels(pm: PathManager, sid: str, path: str | None = None) -> list[dict] | None:
+def _jailed_atlas_path(root: str, path: str) -> str | None:
+    """Contain the volume and its derived cache/LUT paths, including dangling symlinks."""
+    resolved = os.path.realpath(path)
+    if not is_within(root, resolved):
+        return None
+    labels = _segstats_sidecar(resolved)
+    lut = labels.removesuffix("_labels.txt") + "_LUT.txt"
+    if not all(is_within(root, sibling) for sibling in (labels, lut)):
+        return None
+    return resolved
+
+
+def nifti_labels(
+    pm: PathManager, sid: str, path: str | None = None
+) -> list[dict] | None:
     """Unique integer labels present in one label volume, named where a LUT applies.
 
     The 3D Visual Exporter's sub-cortical mode asks the user for label *numbers*
@@ -950,10 +991,15 @@ def nifti_labels(pm: PathManager, sid: str, path: str | None = None) -> list[dic
             return None
         raw = os.path.join(m2m, "segmentation", "labeling.nii.gz")
 
-    from tit.viewspec import resolve_jailed
+    from tit.viewspec import jail_roots, resolve_jailed
 
     resolved = resolve_jailed(raw)
     if resolved is None:
+        return None
+    if not any(
+        _jailed_atlas_path(str(root), str(resolved)) is not None
+        for root in jail_roots()
+    ):
         return None
 
     cached = _read_segstats_sum(_segstats_sidecar(str(resolved)))
@@ -1046,6 +1092,11 @@ def is_safe_name(name: Any) -> bool:
     return isinstance(name, str) and bool(_SAFE_NAME_RE.match(name))
 
 
+def _project_paths_safe(pm: PathManager, *paths: str) -> bool:
+    """Reject outward parent/leaf symlinks before any part of a catalog mutation."""
+    return bool(pm.project_dir) and all(is_within(pm.project_dir, path) for path in paths)
+
+
 def as_float(value: Any, field_name: str) -> float:
     """Coerce *value* to ``float``; raises ``ValueError`` naming the field on failure.
 
@@ -1067,11 +1118,13 @@ def list_rois(pm: PathManager, sid: str) -> list[dict] | None:
     from tit.opt.ex.roi import read_roi_center
 
     roi_dir = pm.rois(sid)
-    if not os.path.isdir(roi_dir):
+    if not _project_paths_safe(pm, roi_dir) or not os.path.isdir(roi_dir):
         return []
     out = []
     for name in sorted(os.listdir(roi_dir)):
-        if not name.endswith(".csv"):
+        if not name.endswith(".csv") or not _project_paths_safe(
+            pm, os.path.join(roi_dir, name)
+        ):
             continue
         try:
             x, y, z = read_roi_center(os.path.join(roi_dir, name))[:3]
@@ -1105,14 +1158,17 @@ def create_roi(pm: PathManager, sid: str, roi: dict) -> dict:
         radius = as_float(radius, "radius")
 
     roi_dir = pm.rois(sid)
-    os.makedirs(roi_dir, exist_ok=True)
     filename = f"{name}.csv"
     base_name = name
+    roi_path = os.path.join(roi_dir, filename)
+    roi_list = os.path.join(roi_dir, "roi_list.txt")
+    if not _project_paths_safe(pm, roi_path, roi_list):
+        raise ValueError("ROI paths must remain inside the project")
+    os.makedirs(roi_dir, exist_ok=True)
 
-    with open(os.path.join(roi_dir, filename), "w", newline="") as f:
+    with open(roi_path, "w", newline="") as f:
         csv.writer(f).writerow([x, y, z])
 
-    roi_list = os.path.join(roi_dir, "roi_list.txt")
     existing = []
     if os.path.isfile(roi_list):
         existing = [line.strip() for line in open(roi_list) if line.strip()]
@@ -1138,11 +1194,13 @@ def delete_roi(pm: PathManager, sid: str, name: str) -> bool:
     roi_dir = pm.rois(sid)
     filename = name if name.endswith(".csv") else f"{name}.csv"
     roi_path = os.path.join(roi_dir, filename)
+    roi_list = os.path.join(roi_dir, "roi_list.txt")
+    if not _project_paths_safe(pm, roi_path, roi_list):
+        return False
     existed = os.path.isfile(roi_path)
     if existed:
         os.remove(roi_path)
 
-    roi_list = os.path.join(roi_dir, "roi_list.txt")
     if os.path.isfile(roi_list):
         lines = [line.strip() for line in open(roi_list) if line.strip()]
         if filename in lines:
@@ -1224,7 +1282,7 @@ def _read_json(path: str) -> dict | None:
     return data if isinstance(data, dict) else None
 
 
-def _flex_mappings(run_dir: str) -> list[dict]:
+def _flex_mappings(run_dir: str, *, project_root: str | None = None) -> list[dict]:
     """EEG-label pairs already mapped for this run, one entry per net.
 
     Reads the ``electrode_mapping_<net>.json`` files
@@ -1232,6 +1290,8 @@ def _flex_mappings(run_dir: str) -> list[dict]:
     read-only, so a run that has never been mapped simply reports none.
     """
     out: list[dict] = []
+    if project_root and not is_within(project_root, run_dir):
+        return out
     try:
         names = sorted(os.listdir(run_dir))
     except OSError:
@@ -1239,13 +1299,14 @@ def _flex_mappings(run_dir: str) -> list[dict]:
     for name in names:
         if not (name.startswith("electrode_mapping_") and name.endswith(".json")):
             continue
-        data = _read_json(os.path.join(run_dir, name))
+        path = os.path.join(run_dir, name)
+        if project_root and not is_within(project_root, path):
+            continue
+        data = _read_json(path)
         if data is None:
             continue
         labels = [
-            label
-            for label in data.get("mapped_labels") or []
-            if isinstance(label, str)
+            label for label in data.get("mapped_labels") or [] if isinstance(label, str)
         ]
         if len(labels) < 4:
             continue
@@ -1261,14 +1322,19 @@ def _flex_mappings(run_dir: str) -> list[dict]:
     return out
 
 
-def _flex_optimized_pairs(run_dir: str) -> list[list] | None:
+def _flex_optimized_pairs(
+    run_dir: str, *, project_root: str | None = None
+) -> list[list] | None:
     """The run's free (un-mapped) XYZ electrode pairs, or ``None``.
 
     ``electrode_positions.json`` is written by every flex-search run, which is
     what makes a run selectable in the Simulator even when it has never been
     mapped onto an EEG net (``Montage.Mode.FLEX_FREE``).
     """
-    data = _read_json(os.path.join(run_dir, "electrode_positions.json"))
+    path = os.path.join(run_dir, "electrode_positions.json")
+    if project_root and not is_within(project_root, path):
+        return None
+    data = _read_json(path)
     if data is None:
         return None
     positions = [
@@ -1290,8 +1356,14 @@ def flex_runs(pm: PathManager, sid: str) -> list[dict] | None:
     from tit.opt.flex.manifest import read_manifest
 
     out = []
+    if not _project_paths_safe(pm, pm.flex_search(sid)):
+        return out
     for name in pm.list_flex_search_runs(sid):
         run_dir = pm.flex_search_run(sid, name)
+        if not _project_paths_safe(
+            pm, run_dir, os.path.join(run_dir, "flex_meta.json")
+        ):
+            continue
         manifest = read_manifest(run_dir)
         if manifest is None:  # no flex_meta.json: ignore, per the plan
             continue
@@ -1306,9 +1378,11 @@ def flex_runs(pm: PathManager, sid: str) -> list[dict] | None:
                 # The electrodes the run actually produced. `flex_meta.json` records
                 # none of them, so a client that reads only `manifest` has no way to
                 # turn a run into a `Montage` for submission (simulator PARITY.md #4).
-                "mappings": _flex_mappings(run_dir),
-                "optimized": _flex_optimized_pairs(run_dir),
-                "artifacts": _dir_artifacts(run_dir),
+                "mappings": _flex_mappings(run_dir, project_root=pm.project_dir),
+                "optimized": _flex_optimized_pairs(
+                    run_dir, project_root=pm.project_dir
+                ),
+                "artifacts": _dir_artifacts(run_dir, project_root=pm.project_dir),
             }
         )
     return out
@@ -1329,9 +1403,11 @@ def _net_from_leadfield_hdf(leadfield_hdf: str) -> str:
     return net if net.endswith(".csv") else f"{net}.csv"
 
 
-def _ex_best(run_dir: str) -> dict | None:
+def _ex_best(run_dir: str, *, project_root: str | None = None) -> dict | None:
     """Highest-``Composite_Index`` row of ``final_output.csv``, or ``None``."""
     csv_path = os.path.join(run_dir, "final_output.csv")
+    if project_root and not is_within(project_root, csv_path):
+        return None
     if not os.path.isfile(csv_path):
         return None
     best_montage, best_score = None, None
@@ -1356,10 +1432,14 @@ def ex_runs(pm: PathManager, sid: str, kind: str = "ex") -> list[dict] | None:
     if sid not in subject_ids(pm):
         return None
     root = pm.ex_search(sid) if kind == "ex" else pm.m_ex_search(sid)
-    if not os.path.isdir(root):
+    if not _project_paths_safe(pm, root) or not os.path.isdir(root):
         return []
     out = []
     for entry in sorted(os.scandir(root), key=lambda e: e.name):
+        if not _project_paths_safe(
+            pm, entry.path, os.path.join(entry.path, "run_config.json")
+        ):
+            continue
         if not entry.is_dir() or entry.name.startswith("."):
             continue
         run_config = _read_json(os.path.join(entry.path, "run_config.json"))
@@ -1371,8 +1451,8 @@ def ex_runs(pm: PathManager, sid: str, kind: str = "ex") -> list[dict] | None:
                 "path": entry.path,
                 "eeg_net": _net_from_leadfield_hdf(run_config.get("leadfield_hdf", "")),
                 "created": _mtime_iso(entry.path),
-                "best": _ex_best(entry.path),
-                "artifacts": _dir_artifacts(entry.path),
+                "best": _ex_best(entry.path, project_root=pm.project_dir),
+                "artifacts": _dir_artifacts(entry.path, project_root=pm.project_dir),
             }
         )
     return out
@@ -1384,6 +1464,8 @@ def ex_run_results(pm: PathManager, sid: str, kind: str, run: str) -> dict | Non
         return None
     root = pm.ex_search_run(sid, run) if kind == "ex" else pm.m_ex_search_run(sid, run)
     csv_path = os.path.join(root, "final_output.csv")
+    if not _project_paths_safe(pm, csv_path):
+        return None
     if not os.path.isfile(csv_path):
         return None
     return _read_csv_table(csv_path)
@@ -1439,7 +1521,9 @@ _ANALYSIS_SPACE_DIRS = ("Mesh", "Voxel")
 _ANALYSIS_NAME_SEP = "__"
 
 
-def _find_analysis_dirs(sim_dir: str) -> list[tuple[str, str, bool]]:
+def _find_analysis_dirs(
+    sim_dir: str, *, project_root: str | None = None
+) -> list[tuple[str, str, bool]]:
     """Every analysis directory under *sim_dir*, as ``(path, name, is_standard)``.
 
     An analysis is a directory holding both ``analysis.json`` and ``results.csv`` -- the
@@ -1457,6 +1541,8 @@ def _find_analysis_dirs(sim_dir: str) -> list[tuple[str, str, bool]]:
     the simulation with each separator replaced by :data:`_ANALYSIS_NAME_SEP`, because a
     name has to survive being a URL path segment (see that constant).
     """
+    if project_root and not is_within(project_root, sim_dir):
+        return []
     standard_parents = {
         os.path.join(sim_dir, "Analyses", space) for space in _ANALYSIS_SPACE_DIRS
     }
@@ -1465,6 +1551,11 @@ def _find_analysis_dirs(sim_dir: str) -> list[tuple[str, str, bool]]:
         dirnames.sort()
         if "analysis.json" in filenames and "results.csv" in filenames:
             dirnames.clear()  # an analysis contains no analyses
+            if project_root and not all(
+                is_within(project_root, os.path.join(dirpath, filename))
+                for filename in ("analysis.json", "results.csv")
+            ):
+                continue
             if dirpath == sim_dir:
                 continue  # the simulation itself is not one of its own analyses
             is_standard = os.path.dirname(dirpath) in standard_parents
@@ -1488,7 +1579,9 @@ def analyses(pm: PathManager, sid: str, sim: str) -> list[dict] | None:
     if sid not in subject_ids(pm) or sim not in pm.list_simulations(sid):
         return None
     out = []
-    for path, name, _standard in _find_analysis_dirs(pm.simulation(sid, sim)):
+    for path, name, _standard in _find_analysis_dirs(
+        pm.simulation(sid, sim), project_root=pm.project_dir
+    ):
         item = _analysis_entry(path, name)
         if item:
             out.append(item)
@@ -1505,7 +1598,9 @@ def analysis_summary(pm: PathManager, sid: str, sim: str, name: str) -> dict | N
     if sid not in subject_ids(pm) or sim not in pm.list_simulations(sid):
         return None
     sim_dir = pm.simulation(sid, sim)
-    for path, found_name, _standard in _find_analysis_dirs(sim_dir):
+    for path, found_name, _standard in _find_analysis_dirs(
+        sim_dir, project_root=pm.project_dir
+    ):
         relative = os.path.relpath(path, sim_dir).replace(os.sep, "/")
         if name in (found_name, relative):
             return _read_csv_table(os.path.join(path, "results.csv"))
@@ -1548,12 +1643,12 @@ def reports(pm: PathManager, sid: str) -> list[dict] | None:
     if sid not in subject_ids(pm):
         return None
     root = os.path.join(pm.reports(), f"sub-{sid}")
-    if not os.path.isdir(root):
+    if not _project_paths_safe(pm, root) or not os.path.isdir(root):
         return []
     return [
         _report_entry(os.path.join(root, name), sid)
         for name in sorted(os.listdir(root))
-        if name.endswith(".html")
+        if name.endswith(".html") and _project_paths_safe(pm, os.path.join(root, name))
     ]
 
 
@@ -1565,7 +1660,7 @@ def find_report_path(pm: PathManager, report_id: str) -> str | None:
     if any(c in stem for c in ("/", "\\", "..")):
         return None
     path = os.path.join(pm.reports(), f"sub-{sid}", f"{stem}.html")
-    return path if os.path.isfile(path) else None
+    return path if _project_paths_safe(pm, path) and os.path.isfile(path) else None
 
 
 # ── freehand (stim_configs) ──────────────────────────────────────────────────
@@ -1600,11 +1695,13 @@ def freehand_configs(pm: PathManager, sid: str) -> list[dict] | None:
     if sid not in subject_ids(pm):
         return None
     stim_dir = os.path.join(pm.m2m(sid), "stim_configs")
-    if not os.path.isdir(stim_dir):
+    if not _project_paths_safe(pm, stim_dir) or not os.path.isdir(stim_dir):
         return []
     out = []
     for name in sorted(os.listdir(stim_dir)):
-        if not name.endswith(".json"):
+        if not name.endswith(".json") or not _project_paths_safe(
+            pm, os.path.join(stim_dir, name)
+        ):
             continue
         cfg = _read_freehand_file(os.path.join(stim_dir, name))
         if cfg:
@@ -1619,6 +1716,9 @@ def put_freehand_config(pm: PathManager, sid: str, name: str, config: dict) -> d
             "name must match ^[A-Za-z0-9_-]{1,64}$ (no path separators or '..')"
         )
     stim_dir = os.path.join(pm.m2m(sid), "stim_configs")
+    path = os.path.join(stim_dir, f"{name}.json")
+    if not _project_paths_safe(pm, path):
+        raise ValueError("Free-hand config path must remain inside the project")
     os.makedirs(stim_dir, exist_ok=True)
     positions = {
         (entry.get("label") or f"E{i + 1}"): [
@@ -1633,7 +1733,6 @@ def put_freehand_config(pm: PathManager, sid: str, name: str, config: dict) -> d
         "type": config.get("type", "U"),
         "electrode_positions": positions,
     }
-    path = os.path.join(stim_dir, f"{name}.json")
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
     return {
@@ -1660,9 +1759,14 @@ def group_catalog(pm: PathManager) -> dict:
     """
 
     def _subdirs(root: str) -> list[str]:
+        if not _project_paths_safe(pm, root):
+            return []
         try:
             return sorted(
-                n for n in os.listdir(root) if os.path.isdir(os.path.join(root, n))
+                n
+                for n in os.listdir(root)
+                if _project_paths_safe(pm, os.path.join(root, n))
+                and os.path.isdir(os.path.join(root, n))
             )
         except OSError:
             return []
@@ -1875,7 +1979,7 @@ def group_stats_detail(pm: PathManager, analysis_type: str, name: str) -> dict |
     if "/" in analysis_type or "/" in name or ".." in (analysis_type, name):
         return None
     run_dir = os.path.join(pm.ti_toolbox(), "stats", analysis_type, name)
-    if not os.path.isdir(run_dir):
+    if not _project_paths_safe(pm, run_dir) or not os.path.isdir(run_dir):
         return None
 
     try:
@@ -1886,7 +1990,7 @@ def group_stats_detail(pm: PathManager, analysis_type: str, name: str) -> dict |
     artifacts: list[dict] = []
     for filename in names:
         path = os.path.join(run_dir, filename)
-        if not os.path.isfile(path):
+        if not _project_paths_safe(pm, path) or not os.path.isfile(path):
             continue
         if filename.endswith(".nii.gz") or filename.endswith(".nii"):
             kind = "nifti"
@@ -1905,15 +2009,18 @@ def group_stats_detail(pm: PathManager, analysis_type: str, name: str) -> dict |
     order = list(_STATS_FILE_LABELS)
     artifacts.sort(
         key=lambda a: (
-            order.index(os.path.basename(a["path"]))
-            if os.path.basename(a["path"]) in order
-            else len(order)
-        ,
+            (
+                order.index(os.path.basename(a["path"]))
+                if os.path.basename(a["path"]) in order
+                else len(order)
+            ),
             a["path"],
         )
     )
 
     log_path = _stats_log_path(run_dir)
+    if log_path and not _project_paths_safe(pm, log_path):
+        log_path = None
     parsed = {
         "config": [],
         "results": [],
@@ -1931,7 +2038,11 @@ def group_stats_detail(pm: PathManager, analysis_type: str, name: str) -> dict |
 
     clusters = parsed["clusters"]
     csv_path = os.path.join(run_dir, "significant_clusters.csv")
-    if clusters is None and os.path.isfile(csv_path):
+    if (
+        clusters is None
+        and _project_paths_safe(pm, csv_path)
+        and os.path.isfile(csv_path)
+    ):
         try:
             clusters = _read_csv_table(csv_path)
         except OSError:
@@ -1966,7 +2077,7 @@ def group_stats_detail(pm: PathManager, analysis_type: str, name: str) -> dict |
 def read_notes(pm: PathManager) -> dict:
     """Quick Notes content (``derivatives/ti-toolbox/notes.txt``)."""
     path = os.path.join(pm.ti_toolbox(), "notes.txt")
-    if not os.path.isfile(path):
+    if not _project_paths_safe(pm, path) or not os.path.isfile(path):
         return {"text": "", "updated_at": None}
     with open(path, encoding="utf-8") as f:
         text = f.read()
@@ -1976,8 +2087,10 @@ def read_notes(pm: PathManager) -> dict:
 def write_notes(pm: PathManager, text: str) -> dict:
     """Replace Quick Notes content, atomically."""
     path = os.path.join(pm.ti_toolbox(), "notes.txt")
-    os.makedirs(os.path.dirname(path), exist_ok=True)
     tmp = f"{path}.tmp"
+    if not _project_paths_safe(pm, path, tmp):
+        raise ValueError("Notes paths must remain inside the project")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(tmp, "w", encoding="utf-8") as f:
         f.write(text)
     os.replace(tmp, path)

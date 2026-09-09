@@ -318,13 +318,18 @@ jobs:
           name: Install Xvfb + Playwright's Chromium OS deps
           command: |
             set -euo pipefail
-            sudo apt-get update
-            sudo apt-get install -y xvfb
+            # needrestart otherwise waits at a service-restart dialog until CI times out.
+            sudo env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+            sudo env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y xvfb
             # Electron bundles Chromium, so the OS libraries Playwright's own Chromium needs
             # (nss, gtk3, dbus, atk, ...) are the same ones Electron needs to start at all --
             # this installs them without downloading a browser binary this project never
             # launches directly (only Electron, via `_electron.launch`).
-            cd desktop && npx playwright install-deps chromium
+            cd desktop
+            # Start Playwright as root with the selected Node PATH so its apt child
+            # inherits these settings instead of losing them at an internal sudo hop.
+            sudo env "PATH=$PATH" DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
+              npx playwright install-deps chromium
 
       - run:
           name: E2E (Electron, offscreen, under Xvfb)

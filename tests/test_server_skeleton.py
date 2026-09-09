@@ -674,6 +674,25 @@ def test_static_bundle_spa_fallback_and_jail(project: Path) -> None:
     assert client.get("/api/nope").status_code == 404
 
 
+@pytest.mark.parametrize("request_path", ["/", "/index.html", "/jobs/42"])
+@pytest.mark.parametrize("outside", [False, True])
+def test_static_index_symlink_stays_in_bundle(
+    project: Path, request_path: str, outside: bool
+) -> None:
+    bundle = project / "bundle"
+    bundle.mkdir()
+    target = (project if outside else bundle) / "content.html"
+    target.write_text("<p>private-index-content</p>")
+    (bundle / "index.html").symlink_to(target)
+    settings = ServerSettings(
+        project_dir=str(project), token=TOKEN, static_dir=str(bundle)
+    )
+    with TestClient(create_app(settings), base_url=BASE) as client:
+        response = client.get(request_path)
+    assert response.status_code == (404 if outside else 200)
+    assert ("private-index-content" in response.text) is not outside
+
+
 def test_spa_head_matches_get_headers_with_no_body(project: Path) -> None:
     # Same APIRoute HEAD-inference gap as /tetravox/ (R2 item 7, FX3 item 1): `curl -I /` 405'd
     # before HEAD was registered explicitly on the SPA catch-all too.

@@ -515,6 +515,7 @@ A local `RepoDigests` entry is not proof of Docker Hub publication.
 | `actionlint` | Exit **0** | Final workflow static check |
 | Selected baked-container pytest | **244 passed**, 14 warnings, **69.81 s** | `baked-numerical-tests.log`; selected scientific corrections, planner, mEx, Blender/process and kernel tests, not the full host suite |
 | Full mock suite via `TIT_E2E_OFFSCREEN=1 npm run e2e:quiet` | **363 passed, 2 skipped, 5.7 min**; test command exit 0 | `mock-e2e-final.log`; native monitor exit **2 (inconclusive)** due to unrelated newly reparented Roost processes and WindowServer overlays; no test-descendant FAIL reported. Not an overall quiet-check pass |
+| Baked real-suite run | **42 passed, 0 failed, 0 skipped, 35.8 min**; test process exit 0 | `real-final-baked.log`, `real-final-baked-receipt.json`; source `e3bee214`, before later security changes. Pipeline **16.7 min**, forward-source test **12.2 min** (job **727.9 s**, **3 artifacts**); final API snapshot has **0 active jobs**. Native monitor exit **2**, 3,871 samples, 0 attributed test-descendant failures; unknown system/Roost ancestry remains inconclusive |
 | Actual Flex fixture execution | Objective **−0.1273302510172551**, four finite XYZ positions, two electrode pairs | `flex-fixture-execution.log`; completed `smoke-flex-fixture-20260909`, not a mocked or start/cancel run |
 
 The baked pytest selection, recoverable from the log, was
@@ -525,8 +526,10 @@ plus `tests/test_plan_routes.py`, `tests/test_opt_mex.py`, `tests/test_blender_p
 `tests/test_jobs_processes.py` and `tests/test_kernels.py`, run with `simnibs_python -m pytest`
 inside the baked container.
 
-**Still pending:** final full real-suite result (running), installers
-and package validation, hosted CI, main merge and registry publication. The earlier real-suite
+**Still pending:** security-source image rebuild and acceptance, installers and package
+validation, hosted CI reruns, main merge and registry publication. The completed baked real
+run excludes `docs-shots.spec.ts`, `scene-atlas-border.spec.ts` and `scene-electrodes.spec.ts`
+as recorded in its receipt; it is not a pass over every real-project spec. The earlier real-suite
 failures and monitor limitations above remain historical evidence; this selected baked pass
 does not relabel them or establish overall readiness.
 
@@ -547,3 +550,27 @@ entries in `docs/_config.yml` restore exactly these existing generated outputs: 
 compared byte-for-byte with their sources, and `api_mkdocs/` and `dev/` remain excluded.
 No generated HTML was edited. The canonical installation Troubleshooting section separately
 restored the destination for 19 historical release links without rewriting those release pages.
+
+
+### Security-source and hosted CI follow-up — 2026-09-09
+
+These measurements follow the baked `e3bee214` image; its passing real assertions do not cover
+the subsequent storage/path and documentation-search fixes. Raw files below live in
+`dist/internal/`. Independent reviews and failing-first regression tests informed the fixes;
+committing them, rebuilding the image and rerunning CodeQL remain separate steps.
+
+| Check / evidence | Result | Scope / limit |
+|---|---|---|
+| CodeQL PR 152, head `72af760fc43e253a57d02138825bf1a69ec3324c` | **218 new versus main**, **7 existing**, **225 total open on PR**; Python analysis includes **213 path-injection findings** | `codeql-alerts.json`, `codeql-python.sarif.json`, `codeql-javascript.sarif.json`; counts describe the earlier scan, not cleared alerts. Rerun required |
+| Search DOM fixtures, `node --test docs/tests/search-results.test.mjs` | Before: **3 failed / 4 passed**; after: **7 passed / 0 skipped** | `search-dom-before.log`, `search-dom-final.log`; query/index markup remains text, executable links rejected, normal matching/empty states retained |
+| Filesystem red-first fixtures | Root-jail case **1 failed** before fix; static-index case **1 failed / 5 passed** before fix | `root-jail-red.log`, `static-jail-red.log`; deliberately recorded failing evidence, not current gate failures |
+| CircleCI source job 853 | **4,451 passed, 1 failed, 35 skipped, 21 deselected, 15 warnings, 361.06 s** | `circleci-853-failure.log`; checkout-path collision in mocked `isdir` fixture, not a passing hosted source job |
+| Fixture repair follow-up | **96 tests passed** on host and container, reported by the implementing lane | Hosted job rerun remains required; this scoped result does not replace source job 853 |
+| CircleCI desktop job 854 | Timed out after **10 min without output**, before e2e | `circleci-854-failure.log`; interactive needrestart prompt. Explicit `DEBIAN_FRONTEND=noninteractive` / `NEEDRESTART_MODE=a` now configured; CircleCI CLI validation passed, hosted rerun pending |
+| Security-source desktop checks | Typecheck and lint: **0 errors**, **3 known lint warnings**; Vitest: **1,498 passed / 117 files** | Final source checks reported by the implementing lane; does not replace pending security-source mock or image acceptance |
+| Security-source full host refresh | **4,658 passed, 46 skipped, 21 deselected, 16 warnings, 108.94 s** | `host-pytest-security.log`, completed when the documentation update read the receipt; host results do not validate a rebuilt image |
+
+The new mock run is in progress. Security-source image rebuild, package validation, CodeQL and
+hosted CI reruns remain pending. No concurrent-local-filesystem-race protection or sandboxed
+kernel execution is claimed. These source changes affect storage/path boundaries and search
+rendering, not numerical algorithms; no additional scientific-correction entry is required.

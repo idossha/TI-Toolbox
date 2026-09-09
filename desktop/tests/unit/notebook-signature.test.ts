@@ -117,7 +117,12 @@ describe("firstParagraph", () => {
 });
 
 describe("callTargetAt", () => {
-  const at = (doc: string) => callTargetAt(doc.replace("|", ""), doc.indexOf("|"));
+  const at = (doc: string) => {
+    const cursor = doc.indexOf("|");
+    expect(cursor).toBeGreaterThanOrEqual(0);
+    expect(doc.indexOf("|", cursor + 1)).toBe(-1);
+    return callTargetAt(doc.slice(0, cursor) + doc.slice(cursor + 1), cursor);
+  };
 
   it("finds the callee of the call the cursor is inside", () => {
     const target = at("get_path_manager(|)")!;

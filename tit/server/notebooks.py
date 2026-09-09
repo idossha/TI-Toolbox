@@ -16,7 +16,9 @@ the UI shows and a traversal is the only thing a name could otherwise buy.
 
 from __future__ import annotations
 
+import os
 import re
+import secrets
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -53,7 +55,11 @@ class NotebookError(ValueError):
 
 def notebooks_dir(project_root: str | Path) -> Path:
     """The notebook directory for a project (not created)."""
-    return Path(project_root) / NOTEBOOK_SUBDIR
+    root = os.path.realpath(project_root)
+    directory = os.path.realpath(os.path.join(root, NOTEBOOK_SUBDIR))
+    if directory == root or directory.startswith(root.rstrip(os.sep) + os.sep):
+        return Path(directory)
+    raise NotebookError("bad-name", "Notebook directory resolves outside the project.")
 
 
 def ensure_notebooks_dir(project_root: str | Path) -> Path:
@@ -88,15 +94,25 @@ def normalise_name(name: str) -> str:
 
 def notebook_path(project_root: str | Path, name: str) -> Path:
     """Where a notebook of this name lives. Never outside the directory."""
-    directory = notebooks_dir(project_root)
-    path = directory / normalise_name(name)
-    # Belt and braces: the name regex already forbids a separator, but the
-    # jail is the thing that must hold, so it is checked rather than assumed.
-    try:
-        path.resolve().relative_to(directory.resolve(strict=False))
-    except ValueError:
-        raise NotebookError("bad-name", f"{name!r} resolves outside the notebook directory.") from None
-    return path
+    return _checked_notebook_entry(project_root, normalise_name(name))
+
+
+def _checked_notebook_entry(project_root: str | Path, name: str) -> Path:
+    """Check a trusted relative entry, preserving its leaf for replace/unlink."""
+    directory = os.path.realpath(notebooks_dir(project_root))
+    named_path = os.path.join(directory, name)
+    # Resolve parent symlinks, but retain the leaf: save/delete must replace or
+    # unlink a notebook alias, not mutate the file that alias points to.
+    parent = os.path.realpath(os.path.dirname(named_path))
+    entry = os.path.abspath(os.path.join(parent, os.path.basename(named_path)))
+    if entry == directory or entry.startswith(directory.rstrip(os.sep) + os.sep):
+        target = os.path.realpath(entry)
+        # Reads follow the leaf, so its target must independently stay jailed.
+        if target == directory or target.startswith(directory.rstrip(os.sep) + os.sep):
+            return Path(entry)
+    raise NotebookError(
+        "bad-name", f"{name!r} resolves outside the notebook directory."
+    )
 
 
 @dataclass(frozen=True)
@@ -134,7 +150,7 @@ def seed_example(project_root: str | Path) -> bool:
 
 
 def _example_stamp(project_root: str | Path) -> Path:
-    return notebooks_dir(project_root) / EXAMPLES_DIR / ".seeded"
+    return _checked_notebook_entry(project_root, f"{EXAMPLES_DIR}/.seeded")
 
 
 def _example_was_deleted(project_root: str | Path) -> bool:
@@ -155,11 +171,13 @@ def list_notebooks(project_root: str | Path) -> list[NotebookEntry]:
     paths += sorted((directory / EXAMPLES_DIR).glob(f"*{NOTEBOOK_SUFFIX}"))
     entries: list[NotebookEntry] = []
     for path in paths:
+        name = (
+            path.name if path.parent == directory else f"{path.parent.name}/{path.name}"
+        )
         try:
-            info = path.stat()
-        except OSError:  # pragma: no cover - raced with a delete
+            info = notebook_path(project_root, name).stat()
+        except (OSError, NotebookError):  # stale file or outward leaf/parent link
             continue
-        name = path.name if path.parent == directory else f"{path.parent.name}/{path.name}"
         entries.append(
             NotebookEntry(
                 name=name,
@@ -282,31 +300,49 @@ def write_notebook(project_root: str | Path, name: str, content: dict[str, Any])
         notebook = nbformat.from_dict(content)
         nbformat.validate(notebook)
     except Exception as error:
-        raise NotebookError("invalid", f"That is not a valid notebook: {error}") from error
-    # Written whole through a temporary file in the same directory: a save
-    # interrupted halfway must not leave the author with a truncated .ipynb.
-    temporary = path.with_name(path.name + ".tmp")
+        raise NotebookError(
+            "invalid", f"That is not a valid notebook: {error}"
+        ) from error
+    # Match nbformat.write's trailing newline without opening an untrusted temp path.
+    content = nbformat.writes(notebook, version=4)
+    if not content.endswith("\n"):
+        content += "\n"
+    _atomic_text_write(path, content)
+    return path
+
+
+def _atomic_text_write(path: Path, content: str) -> None:
+    """Create our own temporary file exclusively; never follow a planted .tmp link."""
+    temporary = None
     try:
-        with temporary.open("w", encoding="utf-8") as handle:
-            nbformat.write(notebook, handle, version=4)
+        candidate = path.with_name(f".notebook-{secrets.token_hex(16)}.tmp")
+        # 'x' refuses collisions and retains the ordinary process umask.
+        with candidate.open("x", encoding="utf-8") as handle:
+            temporary = candidate
+            handle.write(content)
         temporary.replace(path)
     finally:
-        if temporary.exists():  # pragma: no cover - only on a failed write
+        if temporary is not None:
             temporary.unlink(missing_ok=True)
-    return path
 
 
 def delete_notebook(project_root: str | Path, name: str) -> None:
     path = notebook_path(project_root, name)
     if not path.is_file():
         raise NotebookError("not-found", f"No notebook named {name!r}.")
+    # Validate the stamp before deleting anything, so an outward stamp cannot
+    # turn a refused request into a partially completed deletion.
+    stamp = (
+        _example_stamp(project_root) if normalise_name(name) == EXAMPLE_NAME else None
+    )
     path.unlink()
     # Deleting the example is a decision, not an accident to be undone by the
     # next listing. The stamp is what makes "seed once" mean once.
-    if normalise_name(name) == EXAMPLE_NAME:
-        stamp = _example_stamp(project_root)
+    if stamp is not None:
         stamp.parent.mkdir(parents=True, exist_ok=True)
-        stamp.write_text("the example notebook was deleted; do not seed it again\n")
+        _atomic_text_write(
+            stamp, "the example notebook was deleted; do not seed it again\n"
+        )
 
 
 # ---------------------------------------------------------------------------

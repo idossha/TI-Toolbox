@@ -30,13 +30,27 @@ function escapeRegex(text) {
  * Highlight matching text in search results
  * @param {string} text - The text to highlight
  * @param {string} query - The search query
- * @returns {string} HTML with highlighted matches
+ * @returns {DocumentFragment} Text nodes with highlighted matches
  */
 function highlightText(text, query) {
-  if (!query || !text) return text;
-  const escapedQuery = escapeRegex(query);
-  const regex = new RegExp(`(${escapedQuery})`, 'gi');
-  return text.replace(regex, '<mark>$1</mark>');
+  const fragment = document.createDocumentFragment();
+  if (!query || !text) {
+    fragment.append(document.createTextNode(text || ''));
+    return fragment;
+  }
+
+  // Split on literal matches; indexed content must never be parsed as HTML.
+  const regex = new RegExp(`(${escapeRegex(query)})`, 'gi');
+  text.split(regex).forEach((part, index) => {
+    if (index % 2 === 1) {
+      const mark = document.createElement('mark');
+      mark.textContent = part;
+      fragment.append(mark);
+    } else {
+      fragment.append(document.createTextNode(part));
+    }
+  });
+  return fragment;
 }
 
 /**
@@ -74,32 +88,48 @@ function displayResults(results, query) {
     return;
   }
 
-  // Update stats
   const resultText = results.length === 1 ? 'result' : 'results';
-  statsElement.innerHTML = `<p>Found <strong>${results.length}</strong> ${resultText} for "<em>${query}</em>"</p>`;
+  const stats = document.createElement('p');
+  const count = document.createElement('strong');
+  count.textContent = results.length;
+  const searchTerm = document.createElement('em');
+  searchTerm.textContent = query;
+  stats.append('Found ', count, ` ${resultText} for "`, searchTerm, '"');
+  statsElement.replaceChildren(stats);
 
-  // Display results
-  const html = results.map(result => {
-    // Highlight matching text
-    const highlightedTitle = highlightText(result.title, query);
-    const contentPreview = result.content.substring(0, 250);
-    const highlightedContent = highlightText(contentPreview, query);
+  const items = results.map(result => {
+    const item = document.createElement('div');
+    item.className = 'search-result-item';
+    const heading = document.createElement('h3');
+    const link = document.createElement('a');
+    link.className = 'search-result-link';
+    link.append(highlightText(result.title, query));
 
-    // Prefix the site base URL (empty for local preview, /TI-Toolbox on GitHub Pages)
+    // Prefix the site base URL (empty for local preview, /TI-Toolbox on GitHub Pages).
     let resultUrl = result.url;
     if (!resultUrl.startsWith('http') && !resultUrl.startsWith(BASE_URL)) {
       resultUrl = BASE_URL + resultUrl;
     }
+    // DOM attributes prevent quote injection; reject executable URL schemes as well.
+    try {
+      const parsedUrl = new URL(resultUrl, window.location.href);
+      if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
+        link.setAttribute('href', resultUrl);
+      }
+    } catch {
+      // Keep a malformed indexed URL's title readable without creating a broken link.
+    }
+    heading.append(link);
 
-    return `
-      <div class="search-result-item">
-        <h3><a href="${resultUrl}" class="search-result-link">${highlightedTitle}</a></h3>
-        <p class="search-result-content">${highlightedContent}${contentPreview.length === 250 ? '...' : ''}</p>
-      </div>
-    `;
-  }).join('');
-
-  resultsList.innerHTML = html;
+    const contentPreview = result.content.substring(0, 250);
+    const content = document.createElement('p');
+    content.className = 'search-result-content';
+    content.append(highlightText(contentPreview, query));
+    if (contentPreview.length === 250) content.append('...');
+    item.append(heading, content);
+    return item;
+  });
+  resultsList.replaceChildren(...items);
   noResults.style.display = 'none';
 }
 
@@ -111,8 +141,8 @@ function displayNoResults() {
   const resultsList = document.getElementById('search-results-list');
   const noResults = document.getElementById('no-results');
 
-  statsElement.innerHTML = '';
-  resultsList.innerHTML = '';
+  statsElement.replaceChildren();
+  resultsList.replaceChildren();
   noResults.style.display = 'block';
 }
 

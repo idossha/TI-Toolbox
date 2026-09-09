@@ -479,7 +479,7 @@ class TestReferencesReportlet:
         ]
         r = ReferencesReportlet(references=refs)
         html = r.render_html()
-        assert "https://example.com" in html
+        assert 'href="https://example.com"' in html
         assert "[Link]" in html
 
     def test_doi_takes_priority_over_url(self):

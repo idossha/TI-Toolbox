@@ -34,7 +34,7 @@ from tit.jobs.registry import (
     JobRegistry,
     _atomic_write_json,
     events_path,
-    job_dir,
+    job_file_path,
     spec_path,
     stdout_path,
 )
@@ -713,9 +713,13 @@ class JobManager:
     def subscribe_events(
         self, job_id: str, since: int = 0
     ) -> queue.Queue[dict[str, Any]]:
-        """A queue pre-loaded with backlog events since *since*, then fed live ones."""
+        """Backfill and stream a registered job; raise ``ValueError`` for unknown ids."""
         q: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=SUBSCRIBER_QUEUE_MAXSIZE)
         with self._lock:
+            # WebSocket subscription keys are client input, unlike scheduler-owned ids.
+            # Match REST backfill's registration check before a key becomes a path.
+            if job_id not in self._specs:
+                raise ValueError(f"unknown job: {job_id}")
             for event in read_events(
                 events_path(self.project_dir, job_id), since=since
             ):
@@ -862,7 +866,7 @@ class JobManager:
         merge_pipeline_bindings(payload, self.project_dir)
         if spec.kind == "pre" and "subject_ids" not in payload:
             payload["subject_ids"] = list(spec.subject_ids)
-        path = os.path.join(job_dir(self.project_dir, spec.id), "config.json")
+        path = job_file_path(self.project_dir, spec.id, "config.json")
         _atomic_write_json(path, payload)
         return path
 

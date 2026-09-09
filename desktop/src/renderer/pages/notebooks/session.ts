@@ -342,7 +342,7 @@ export class Session {
         // resolves and the entry goes, so a slow kernel cannot leave a
         // completion popup attached to a keystroke three edits ago.
         const settle = event.reqId === undefined ? undefined : this.queries.get(event.reqId);
-        if (settle !== undefined) {
+        if (typeof settle === "function") {
           this.queries.delete(event.reqId as string);
           settle(event);
         }

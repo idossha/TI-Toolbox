@@ -371,7 +371,10 @@ def get_notes() -> dict:
 
 @router.put("/api/catalog/notes", summary="Replace Quick Notes content")
 def put_notes(body: dict = Body(...)) -> dict:
-    return catalog.write_notes(_pm(), str(body.get("text", "")))
+    try:
+        return catalog.write_notes(_pm(), str(body.get("text", "")))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get(

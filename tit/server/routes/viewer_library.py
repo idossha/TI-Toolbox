@@ -45,7 +45,12 @@ from fastapi import APIRouter, Body, HTTPException, Query, Request
 
 from tit import viewspec
 from tit.server.routes.capabilities import probe_capabilities
-from tit.server.routes.viewers import _SCENE_SUFFIX, viewer_scene_dir
+from tit.server.routes.viewers import (
+    _SCENE_SUFFIX,
+    viewer_scene_dir,
+    checked_viewer_path,
+    atomic_viewer_write,
+)
 
 router = APIRouter()
 
@@ -62,11 +67,11 @@ _MAX_SCENE_BYTES = 32 * 1024 * 1024
 
 
 def composition_dir() -> str:
-    return os.path.join(viewer_scene_dir(), "compositions")
+    return checked_viewer_path(os.path.join(viewer_scene_dir(), "compositions"))
 
 
 def saved_scene_dir() -> str:
-    return os.path.join(viewer_scene_dir(), "scenes")
+    return checked_viewer_path(os.path.join(viewer_scene_dir(), "scenes"))
 
 
 def _slug(name: str) -> str:
@@ -96,11 +101,7 @@ def _slug(name: str) -> str:
 
 def _write_json(target: str, document: dict[str, Any]) -> None:
     """Whole, then renamed — a reader must never parse half a document."""
-    os.makedirs(os.path.dirname(target), exist_ok=True)
-    tmp = f"{target}.{os.getpid()}.partial"
-    with open(tmp, "w", encoding="utf-8") as handle:
-        json.dump(document, handle, indent=1)
-    os.replace(tmp, target)
+    atomic_viewer_write(target, json.dumps(document, indent=1).encode("utf-8"))
 
 
 def _read_json(path: str) -> dict[str, Any] | None:
@@ -110,11 +111,18 @@ def _read_json(path: str) -> dict[str, Any] | None:
     the person is using to find their work.
     """
     try:
-        with open(path, encoding="utf-8") as handle:
+        with open(checked_viewer_path(path), encoding="utf-8") as handle:
             body = json.load(handle)
-    except (OSError, ValueError):
+    except (OSError, ValueError, HTTPException):
         return None
     return body if isinstance(body, dict) else None
+
+
+def _has_thumbnail(path: str) -> bool:
+    try:
+        return os.path.isfile(checked_viewer_path(path))
+    except HTTPException:
+        return False
 
 
 def _now() -> str:
@@ -141,7 +149,9 @@ def surfaces_supported(request: Request) -> bool:
     return "surfaces" in (embed.features or [])
 
 
-@router.get("/api/viewer/tree", summary="What one subject offers the Menu's composition tree")
+@router.get(
+    "/api/viewer/tree", summary="What one subject offers the Menu's composition tree"
+)
 def viewer_tree(
     request: Request,
     subject: str | None = Query(None),
@@ -190,7 +200,9 @@ def list_compositions() -> dict[str, Any]:
 
 
 @router.put("/api/viewer/compositions/{name}", summary="Save one Viewer composition")
-def save_composition(name: str, body: dict[str, Any] | None = Body(None)) -> dict[str, Any]:
+def save_composition(
+    name: str, body: dict[str, Any] | None = Body(None)
+) -> dict[str, Any]:
     """Store *body* as this composition.
 
     The shape is the client's — a subject, a space and the chosen input ids — and this route does
@@ -202,13 +214,17 @@ def save_composition(name: str, body: dict[str, Any] | None = Body(None)) -> dic
     document["name"] = name
     document["saved_at"] = _now()
     document.setdefault("version", 1)
-    _write_json(os.path.join(composition_dir(), f"{_slug(name)}{_COMPOSITION_SUFFIX}"), document)
+    _write_json(
+        os.path.join(composition_dir(), f"{_slug(name)}{_COMPOSITION_SUFFIX}"), document
+    )
     return document
 
 
 @router.delete("/api/viewer/compositions/{name}", summary="Forget one composition")
 def delete_composition(name: str) -> dict[str, Any]:
-    target = os.path.join(composition_dir(), f"{_slug(name)}{_COMPOSITION_SUFFIX}")
+    target = checked_viewer_path(
+        os.path.join(composition_dir(), f"{_slug(name)}{_COMPOSITION_SUFFIX}")
+    )
     try:
         os.remove(target)
     except FileNotFoundError:
@@ -227,7 +243,9 @@ def _thumbnail_bytes(data_url: Any) -> bytes | None:
     over the size cap — is dropped rather than refused: a scene worth keeping is still worth
     keeping without its picture.
     """
-    if not isinstance(data_url, str) or not data_url.startswith("data:image/png;base64,"):
+    if not isinstance(data_url, str) or not data_url.startswith(
+        "data:image/png;base64,"
+    ):
         return None
     payload = data_url.split(",", 1)[1] if "," in data_url else ""
     try:
@@ -262,8 +280,8 @@ def list_scenes() -> dict[str, Any]:
         stem = entry[: -len(_SCENE_SUFFIX)]
         path = os.path.join(directory, entry)
         try:
-            st = os.stat(path)
-        except OSError:
+            st = os.stat(checked_viewer_path(path))
+        except (OSError, HTTPException):
             continue
         meta = _read_json(os.path.join(directory, f"{stem}.meta.json")) or {}
         out.append(
@@ -276,7 +294,7 @@ def list_scenes() -> dict[str, Any]:
                 "subject": meta.get("subject"),
                 "simulation": meta.get("simulation"),
                 "field": meta.get("field"),
-                "has_thumbnail": os.path.isfile(os.path.join(directory, f"{stem}.png")),
+                "has_thumbnail": _has_thumbnail(os.path.join(directory, f"{stem}.png")),
             }
         )
     out.sort(key=lambda row: (row.get("saved_at") or "", row["slug"]), reverse=True)
@@ -285,7 +303,9 @@ def list_scenes() -> dict[str, Any]:
 
 @router.get("/api/viewer/scenes/{name}", summary="One saved scene document")
 def read_scene(name: str) -> dict[str, Any]:
-    target = os.path.join(saved_scene_dir(), f"{_slug(name)}{_SCENE_SUFFIX}")
+    target = checked_viewer_path(
+        os.path.join(saved_scene_dir(), f"{_slug(name)}{_SCENE_SUFFIX}")
+    )
     body = _read_json(target)
     if body is None:
         raise HTTPException(status_code=404, detail=f"No saved scene named {name!r}")
@@ -321,21 +341,20 @@ def save_scene(name: str, body: dict[str, Any] | None = Body(None)) -> dict[str,
         )
     encoded = json.dumps(scene)
     if len(encoded.encode("utf-8")) > _MAX_SCENE_BYTES:
-        raise HTTPException(status_code=413, detail="Scene document is implausibly large")
+        raise HTTPException(
+            status_code=413, detail="Scene document is implausibly large"
+        )
 
     slug = _slug(name)
     directory = saved_scene_dir()
-    os.makedirs(directory, exist_ok=True)
-    target = os.path.join(directory, f"{slug}{_SCENE_SUFFIX}")
+    target = checked_viewer_path(os.path.join(directory, f"{slug}{_SCENE_SUFFIX}"))
+    thumb_path = checked_viewer_path(os.path.join(directory, f"{slug}.png"))
+    meta_path = checked_viewer_path(os.path.join(directory, f"{slug}.meta.json"))
     _write_json(target, scene)
 
     thumbnail = _thumbnail_bytes(payload.get("thumbnail"))
-    thumb_path = os.path.join(directory, f"{slug}.png")
     if thumbnail is not None:
-        tmp = f"{thumb_path}.{os.getpid()}.partial"
-        with open(tmp, "wb") as handle:
-            handle.write(thumbnail)
-        os.replace(tmp, thumb_path)
+        atomic_viewer_write(thumb_path, thumbnail)
 
     meta = {
         "name": name,
@@ -346,7 +365,7 @@ def save_scene(name: str, body: dict[str, Any] | None = Body(None)) -> dict[str,
         "field": payload.get("field"),
         "space": payload.get("space"),
     }
-    _write_json(os.path.join(directory, f"{slug}.meta.json"), meta)
+    _write_json(meta_path, meta)
 
     from tit.server.host_path import host_project_dir
     from tit.paths import get_path_manager
@@ -370,10 +389,14 @@ def save_scene(name: str, body: dict[str, Any] | None = Body(None)) -> dict[str,
 def delete_scene(name: str) -> dict[str, Any]:
     slug = _slug(name)
     directory = saved_scene_dir()
-    target = os.path.join(directory, f"{slug}{_SCENE_SUFFIX}")
+    paths = [
+        checked_viewer_path(os.path.join(directory, filename))
+        for filename in (f"{slug}{_SCENE_SUFFIX}", f"{slug}.png", f"{slug}.meta.json")
+    ]
+    target = paths[0]
     if not os.path.isfile(target):
         raise HTTPException(status_code=404, detail=f"No saved scene named {name!r}")
-    for path in (target, os.path.join(directory, f"{slug}.png"), os.path.join(directory, f"{slug}.meta.json")):
+    for path in paths:
         try:
             os.remove(path)
         except OSError:
@@ -399,5 +422,8 @@ def suggest_scene_name(
     """
     parts = [p for p in (subject, simulation, field) if p]
     parts.append(datetime.now(timezone.utc).strftime("%Y%m%d"))
-    name = _DEFAULT_NAME_SAFE.sub("-", "_".join(str(p) for p in parts)).strip("-_") or "scene"
+    name = (
+        _DEFAULT_NAME_SAFE.sub("-", "_".join(str(p) for p in parts)).strip("-_")
+        or "scene"
+    )
     return {"name": name[:80]}

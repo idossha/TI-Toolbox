@@ -357,7 +357,8 @@ test("exactly one page frames a scene, and it is the Viewer", async () => {
     await expect(panel).toHaveCount(1);
     const srcs = await panel.locator("iframe").evaluateAll((nodes) => nodes.map((n) => (n as HTMLIFrameElement).src));
     for (const src of srcs) {
-      const document_ = src.startsWith("https://idossha.github.io") || src.includes("/api/files/report/");
+      const sourceUrl = new URL(src);
+      const document_ = sourceUrl.origin === "https://idossha.github.io" || sourceUrl.pathname.startsWith("/api/files/report/");
       if (document_) continue;
       if (id === "viewer" && /\/tetravox\//.test(src)) continue;
       framed.push(`${id}: ${src}`);

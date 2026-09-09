@@ -33,11 +33,15 @@ from typing import Any
 
 import psutil
 
+from tit.jobs.registry import _storage_path, jobs_root
+
 logger = logging.getLogger(__name__)
 
 LOCKS_SUBDIR = ".locks"
 DESCRIPTOR_FILE = "lock.json"
-ENV_STRICT = "TIT_LOCKS"  # "strict" refuses on ANY conflict; write-vs-write always refuses
+ENV_STRICT = (
+    "TIT_LOCKS"  # "strict" refuses on ANY conflict; write-vs-write always refuses
+)
 
 
 class LockConflictError(RuntimeError):
@@ -59,7 +63,9 @@ class LockRequest:
 
 
 def locks_dir(project_dir: str) -> str:
-    return os.path.join(project_dir, "code", "ti-toolbox", "jobs", LOCKS_SUBDIR)
+    return _storage_path(
+        project_dir, os.path.join(jobs_root(project_dir), LOCKS_SUBDIR)
+    )
 
 
 def _discriminator(request: LockRequest, job_id: str) -> str:
@@ -70,7 +76,7 @@ def _discriminator(request: LockRequest, job_id: str) -> str:
 
 def _dir_for(project_dir: str, request: LockRequest, job_id: str) -> str:
     digest = hashlib.sha1(_discriminator(request, job_id).encode()).hexdigest()[:16]
-    return os.path.join(locks_dir(project_dir), digest)
+    return _storage_path(project_dir, os.path.join(locks_dir(project_dir), digest))
 
 
 def _is_alive(pid: int, create_time: float) -> bool:
@@ -92,8 +98,9 @@ def holders(project_dir: str, *, reconcile_stale: bool = True) -> list[dict[str,
     except OSError:
         return found
     for name in entries:
-        path = os.path.join(base, name, DESCRIPTOR_FILE)
         try:
+            directory = _storage_path(project_dir, os.path.join(base, name))
+            path = _storage_path(project_dir, os.path.join(directory, DESCRIPTOR_FILE))
             with open(path, encoding="utf-8") as fh:
                 data = json.load(fh)
         except (OSError, json.JSONDecodeError):
@@ -102,14 +109,18 @@ def holders(project_dir: str, *, reconcile_stale: bool = True) -> list[dict[str,
         create_time = data.get("create_time")
         if reconcile_stale and pid is not None and create_time is not None:
             if not _is_alive(int(pid), float(create_time)):
-                _remove_dir(os.path.join(base, name))
+                _remove_dir(project_dir, directory)
                 continue
         found.append(data)
     return found
 
 
-def _remove_dir(path: str) -> None:
+def _remove_dir(project_dir: str, path: str) -> None:
     try:
+        path = _storage_path(project_dir, path)
+        if os.path.islink(path):
+            os.unlink(path)
+            return
         for name in os.listdir(path):
             with contextlib.suppress(OSError):
                 os.remove(os.path.join(path, name))
@@ -142,15 +153,15 @@ def release_job(project_dir: str, job_id: str) -> int:
     except OSError:
         return 0
     for name in entries:
-        path = os.path.join(base, name)
-        descriptor = os.path.join(path, DESCRIPTOR_FILE)
         try:
+            path = _storage_path(project_dir, os.path.join(base, name))
+            descriptor = _storage_path(project_dir, os.path.join(path, DESCRIPTOR_FILE))
             with open(descriptor, encoding="utf-8") as fh:
                 data = json.load(fh)
         except (OSError, json.JSONDecodeError):
             continue
         if data.get("job_id") == job_id:
-            _remove_dir(path)
+            _remove_dir(project_dir, path)
             removed += 1
     return removed
 
@@ -253,7 +264,7 @@ def hold(
             try:
                 os.mkdir(path)
             except FileExistsError:
-                if _owned_by_another_live_job(path, job_id):
+                if _owned_by_another_live_job(project_dir, path, job_id):
                     # Someone else's exclusive lock. Do not overwrite the descriptor: that
                     # made `holders` report the wrong owner, and made this job's release
                     # remove the other job's lock directory.
@@ -271,13 +282,16 @@ def hold(
                 "create_time": create_time,
                 "ts": time.time(),
             }
-            with open(os.path.join(path, DESCRIPTOR_FILE), "w", encoding="utf-8") as fh:
+            descriptor_path = _storage_path(
+                project_dir, os.path.join(path, DESCRIPTOR_FILE)
+            )
+            with open(descriptor_path, "w", encoding="utf-8") as fh:
                 json.dump(descriptor, fh)
             held_dirs.append(path)
         yield
     finally:
         for path in held_dirs:
-            _remove_dir(path)
+            _remove_dir(project_dir, path)
 
 
 def _write_against_write(
@@ -291,10 +305,12 @@ def _write_against_write(
     )
 
 
-def _owned_by_another_live_job(path: str, job_id: str) -> bool:
+def _owned_by_another_live_job(project_dir: str, path: str, job_id: str) -> bool:
     """True when *path* already holds a descriptor of a different job whose process is alive."""
+    # An unsafe descriptor is not a missing/dead owner that the caller may overwrite.
+    descriptor = _storage_path(project_dir, os.path.join(path, DESCRIPTOR_FILE))
     try:
-        with open(os.path.join(path, DESCRIPTOR_FILE), encoding="utf-8") as fh:
+        with open(descriptor, encoding="utf-8") as fh:
             data = json.load(fh)
     except (OSError, json.JSONDecodeError):
         return False

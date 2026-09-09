@@ -881,6 +881,112 @@ def _seed_labeling(pm, cache: bool = True) -> Path:
     return volume
 
 
+@pytest.mark.parametrize("relative", [False, True])
+def test_atlas_regions_rejects_unadvertised_external_path(
+    client: TestClient, project: Path, monkeypatch, relative: bool
+) -> None:
+    """An atlas query must not turn a package lookup into an external file read."""
+    resources = project / "packaged-atlases"
+    resources.mkdir()
+    monkeypatch.setattr("tit.catalog.mni_resources_dir", lambda: str(resources))
+    outside = project.parent / "external-atlas.nii.gz"
+    outside.write_bytes(b"x")
+    outside.with_name("external-atlas_labels.txt").write_text("1 17 3 3 External\n")
+    atlas = os.path.relpath(outside, resources) if relative else str(outside)
+    response = client.get(
+        "/api/catalog/atlases/regions",
+        params={"subject": "ernie", "atlas": atlas},
+        headers=BEARER,
+    )
+    assert response.status_code == 404
+
+
+@pytest.mark.parametrize("hemi", ["/outside/lh", "../../lh", "*", "lh\n"])
+def test_atlas_regions_rejects_invalid_hemisphere(
+    client: TestClient, hemi: str
+) -> None:
+    """Only hemisphere names, never paths or glob expressions, reach atlas discovery."""
+    response = client.get(
+        "/api/catalog/atlases/regions",
+        params={"subject": "ernie", "atlas": "DK40", "hemi": hemi},
+        headers=BEARER,
+    )
+    assert response.status_code == 404
+
+
+@pytest.mark.parametrize("outside", [False, True])
+def test_atlas_regions_packaged_symlink_containment(
+    client: TestClient, project: Path, monkeypatch, outside: bool
+) -> None:
+    """Advertised MNI names allow internal links but cannot advertise external targets."""
+    from tit.atlas.constants import MNI_ATLAS_FILES
+
+    resources = project / "packaged-atlases"
+    resources.mkdir()
+    monkeypatch.setattr("tit.catalog.mni_resources_dir", lambda: str(resources))
+    target = (project.parent if outside else resources) / "packaged-target.nii.gz"
+    target.write_bytes(b"x")
+    target.with_name("packaged-target_labels.txt").write_text("1 17 3 3 Packaged\n")
+    atlas = resources / MNI_ATLAS_FILES[0]
+    atlas.symlink_to(target)
+    # Both the old lexical lookup and the new resolved lookup have a usable cache.
+    atlas.with_name(atlas.name.removesuffix(".nii.gz") + "_labels.txt").write_text(
+        "1 17 3 3 Packaged\n"
+    )
+    response = client.get(
+        "/api/catalog/atlases/regions",
+        params={"subject": "ernie", "atlas": atlas.name},
+        headers=BEARER,
+    )
+    assert response.status_code == (404 if outside else 200)
+    if not outside:
+        assert response.json() == [{"id": 17, "name": "Packaged", "hemi": None}]
+
+
+@pytest.mark.parametrize("endpoint", ["atlases/regions", "nifti/labels"])
+@pytest.mark.parametrize("outside", [False, True])
+def test_catalog_label_cache_symlink_containment(
+    client: TestClient, project: Path, endpoint: str, outside: bool
+) -> None:
+    """Jailing a volume does not authorize reading its outward-pointing cache symlink."""
+    volume = _seed_labeling(get_path_manager(), cache=False)
+    target = (project.parent if outside else project) / "label-cache.txt"
+    target.write_text("1 17 3 3 CacheRegion\n")
+    volume.with_name("labeling_labels.txt").symlink_to(target)
+    response = client.get(
+        f"/api/catalog/{endpoint}",
+        params={"subject": "ernie", "atlas": "labeling.nii.gz"},
+        headers=BEARER,
+    )
+    assert response.status_code == (404 if outside else 200)
+    if not outside:
+        assert response.json()[0]["name"] == "CacheRegion"
+
+
+@pytest.mark.parametrize("endpoint", ["atlases/regions", "nifti/labels"])
+def test_catalog_label_cache_dangling_external_symlink_is_not_written(
+    client: TestClient, project: Path, monkeypatch, endpoint: str
+) -> None:
+    """A missing external cache target must not be created through its symlink."""
+    from tit.atlas.segstats import SegStat
+
+    volume = _seed_labeling(get_path_manager(), cache=False)
+    target = project.parent / f"{project.name}-must-not-create-labels.txt"
+    volume.with_name("labeling_labels.txt").symlink_to(target)
+    stats = [SegStat(seg_id=17, name="Computed", n_voxels=3, volume_mm3=3.0)]
+    # Heavy numerical libraries are mocked on the host; retain real cache writes.
+    for module in ("tit.atlas.voxel", "tit.atlas.segstats"):
+        monkeypatch.setattr(f"{module}.compute_segstats", lambda *args: stats)
+        monkeypatch.setattr(f"{module}.resolve_lut_for_atlas", lambda *args: {})
+    response = client.get(
+        f"/api/catalog/{endpoint}",
+        params={"subject": "ernie", "atlas": "labeling.nii.gz"},
+        headers=BEARER,
+    )
+    assert response.status_code == 404
+    assert not target.exists()
+
+
 def test_nifti_labels_defaults_to_the_subject_labeling_volume(
     client: TestClient, project: Path
 ) -> None:
@@ -893,6 +999,339 @@ def test_nifti_labels_defaults_to_the_subject_labeling_volume(
         {"id": 10, "name": "Left-Thalamus", "n_voxels": 1100},
         {"id": 49, "name": "Right-Thalamus", "n_voxels": 1200},
     ]
+
+
+@pytest.mark.parametrize(
+    "operation", ["create_roi", "delete_roi", "freehand", "ex_results"]
+)
+@pytest.mark.parametrize("link_kind", ["parent", "leaf"])
+@pytest.mark.parametrize("outside", [False, True])
+def test_catalog_mutation_and_run_symlink_containment(
+    client: TestClient, project: Path, operation: str, link_kind: str, outside: bool
+) -> None:
+    """Catalog access rejects external links but retains project-local links and run names."""
+    pm = get_path_manager()
+    sid = "linktest"
+    Path(pm.m2m(sid)).mkdir(parents=True)
+    run = "legacy.run with spaces"
+    if operation in ("create_roi", "delete_roi"):
+        directory, filename = Path(pm.rois(sid)), "Boundary.csv"
+    elif operation == "freehand":
+        directory, filename = Path(pm.m2m(sid)) / "stim_configs", "Boundary.json"
+    else:
+        directory, filename = Path(pm.ex_search_run(sid, run)), "final_output.csv"
+    target_dir = (project.parent if outside else project) / f"{project.name}-target"
+    target_dir.mkdir()
+    target = target_dir / filename
+    original = "column\nprivate-value\n"
+    target.write_text(original)
+    directory.parent.mkdir(parents=True, exist_ok=True)
+    if link_kind == "parent":
+        directory.symlink_to(target_dir, target_is_directory=True)
+    else:
+        directory.mkdir()
+        (directory / filename).symlink_to(target)
+
+    if operation == "create_roi":
+        response = client.post(
+            "/api/catalog/rois",
+            params={"subject": sid},
+            headers=BEARER,
+            json={"name": "Boundary", "x": 1, "y": 2, "z": 3},
+        )
+        expected = 422 if outside else 201
+    elif operation == "delete_roi":
+        response = client.delete(
+            "/api/catalog/rois/Boundary",
+            params={"subject": sid},
+            headers=BEARER,
+        )
+        expected = 404 if outside else 204
+    elif operation == "freehand":
+        response = client.put(
+            "/api/catalog/freehand/Boundary",
+            params={"subject": sid},
+            headers=BEARER,
+            json={"type": "U", "electrode_positions": []},
+        )
+        expected = 422 if outside else 200
+    else:
+        response = client.get(
+            f"/api/catalog/ex-runs/{run}/results",
+            params={"subject": sid, "kind": "ex"},
+            headers=BEARER,
+        )
+        expected = 404 if outside else 200
+    assert response.status_code == expected
+    if outside:
+        assert target.read_text() == original
+    elif operation == "ex_results":
+        assert response.json() == {"columns": ["column"], "rows": [["private-value"]]}
+
+
+@pytest.mark.parametrize("operation", ["create", "delete"])
+def test_roi_list_external_symlink_prevents_partial_mutation(
+    client: TestClient, project: Path, operation: str
+) -> None:
+    """The ROI list must be checked before creating or deleting the companion CSV."""
+    roi_dir = Path(get_path_manager().rois("ernie"))
+    roi = roi_dir / "Boundary.csv"
+    roi.write_text("1,2,3\n")
+    target = project.parent / f"{project.name}-roi-list.txt"
+    target.write_text("Boundary.csv\n")
+    roi_list = roi_dir / "roi_list.txt"
+    roi_list.unlink(missing_ok=True)
+    roi_list.symlink_to(target)
+    if operation == "create":
+        response = client.post(
+            "/api/catalog/rois",
+            params={"subject": "ernie"},
+            headers=BEARER,
+            json={"name": "Boundary", "x": 9, "y": 8, "z": 7},
+        )
+        assert response.status_code == 422
+    else:
+        response = client.delete(
+            "/api/catalog/rois/Boundary",
+            params={"subject": "ernie"},
+            headers=BEARER,
+        )
+        assert response.status_code == 404
+    assert roi.read_text() == "1,2,3\n"
+    assert target.read_text() == "Boundary.csv\n"
+
+
+@pytest.mark.parametrize(
+    "kind", ["roi", "freehand", "flex", "ex", "analysis", "report"]
+)
+@pytest.mark.parametrize("link_kind", ["parent", "leaf"])
+@pytest.mark.parametrize("outside", [False, True])
+def test_catalog_discovery_symlink_containment(
+    client: TestClient, project: Path, kind: str, link_kind: str, outside: bool
+) -> None:
+    """Each catalog reader keeps project-local links and excludes external records."""
+    from tit import catalog
+
+    pm = get_path_manager()
+    sid = "discovery"
+    Path(pm.m2m(sid)).mkdir(parents=True)
+    target_dir = (project.parent if outside else project) / f"{project.name}-discovery"
+    target_dir.mkdir()
+    if kind == "roi":
+        directory, filename, content = Path(pm.rois(sid)), "Boundary.csv", "1,2,3\n"
+        read = lambda: catalog.list_rois(pm, sid)
+    elif kind == "freehand":
+        directory, filename, content = (
+            Path(pm.m2m(sid)) / "stim_configs",
+            "Boundary.json",
+            '{"name":"Boundary","electrode_positions":{}}',
+        )
+        read = lambda: catalog.freehand_configs(pm, sid)
+    elif kind == "flex":
+        directory, filename, content = (
+            Path(pm.flex_search_run(sid, "Boundary")),
+            "flex_meta.json",
+            '{"goal":"mean"}',
+        )
+        read = lambda: catalog.flex_runs(pm, sid)
+    elif kind == "ex":
+        directory, filename, content = (
+            Path(pm.ex_search_run(sid, "Boundary")),
+            "run_config.json",
+            "{}",
+        )
+        read = lambda: catalog.ex_runs(pm, sid)
+    elif kind == "analysis":
+        directory = Path(pm.simulation(sid, "Boundary"))
+        filename, content = (
+            "Analyses/Voxel/Boundary/analysis.json",
+            '{"atlas":"Boundary"}',
+        )
+        read = lambda: catalog.analyses(pm, sid, "Boundary")
+    else:
+        directory, filename, content = (
+            Path(pm.reports()) / f"sub-{sid}",
+            "Boundary.html",
+            "external report",
+        )
+        read = lambda: catalog.reports(pm, sid)
+    target = target_dir / filename
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(content)
+    directory.parent.mkdir(parents=True, exist_ok=True)
+    if link_kind == "parent":
+        directory.symlink_to(target_dir, target_is_directory=True)
+    else:
+        (directory / filename).parent.mkdir(parents=True, exist_ok=True)
+        (directory / filename).symlink_to(target)
+    if kind == "analysis":
+        (directory / filename).with_name("results.csv").write_text("value\n17\n")
+    result = read()
+    assert bool(result) is not outside
+    if kind == "report":
+        assert bool(catalog.find_report_path(pm, f"{sid}/Boundary")) is not outside
+    if kind == "analysis":
+        assert (
+            bool(catalog.analysis_summary(pm, sid, "Boundary", "Boundary"))
+            is not outside
+        )
+
+
+@pytest.mark.parametrize("kind", ["mapping", "optimized", "best", "artifact"])
+@pytest.mark.parametrize("outside", [False, True])
+def test_catalog_run_sidecar_symlink_containment(
+    client: TestClient, project: Path, kind: str, outside: bool
+) -> None:
+    """A safe run manifest cannot authorize unrelated outward sidecar links."""
+    from tit import catalog
+
+    pm = get_path_manager()
+    sid = "sidecars"
+    Path(pm.m2m(sid)).mkdir(parents=True)
+    directory = Path(
+        pm.ex_search_run(sid, "Boundary")
+        if kind == "best"
+        else pm.flex_search_run(sid, "Boundary")
+    )
+    directory.mkdir(parents=True)
+    (
+        directory / ("run_config.json" if kind == "best" else "flex_meta.json")
+    ).write_text("{}")
+    if kind == "mapping":
+        filename, content = (
+            "electrode_mapping_cap.json",
+            '{"mapped_labels":["A","B","C","D"]}',
+        )
+    elif kind == "optimized":
+        filename, content = (
+            "electrode_positions.json",
+            '{"optimized_positions":[[1,2,3],[2,3,4],[3,4,5],[4,5,6]]}',
+        )
+    elif kind == "best":
+        filename, content = "final_output.csv", "Montage,Composite_Index\nBoundary,17\n"
+    else:
+        filename, content = "Boundary.png", "image"
+    target = (project.parent if outside else project) / f"{project.name}-{filename}"
+    target.write_text(content)
+    (directory / filename).symlink_to(target)
+    result = (
+        catalog.ex_runs(pm, sid) if kind == "best" else catalog.flex_runs(pm, sid)
+    )[0]
+    field = {"mapping": "mappings", "optimized": "optimized", "best": "best"}.get(kind)
+    if field:
+        assert bool(result[field]) is not outside
+    assert (
+        any(Path(item["path"]).name == filename for item in result["artifacts"])
+        is not outside
+    )
+
+
+@pytest.mark.parametrize(
+    "kind",
+    ["notes", "notes_tmp", "montage", "simulation", "stats_log", "stats_csv", "cap"],
+)
+@pytest.mark.parametrize("outside", [False, True])
+def test_catalog_remaining_file_symlink_containment(
+    client: TestClient, project: Path, kind: str, outside: bool
+) -> None:
+    """Fixed catalog filenames remain boundaries even when only the leaf is a link."""
+    from tit import catalog
+
+    pm = get_path_manager()
+    if kind.startswith("notes"):
+        path = Path(pm.ti_toolbox()) / (
+            "notes.txt.tmp" if kind == "notes_tmp" else "notes.txt"
+        )
+        content = "private note"
+    elif kind == "montage":
+        path = Path(pm.montage_config())
+        content = '{"nets":{"cap":{"uni_polar_montages":{"Boundary":[]}}}}'
+    elif kind == "simulation":
+        path = Path(pm.simulation("ernie", "L_Insula")) / "documentation/config.json"
+        content = '{"montage_name":"Boundary"}'
+    elif kind.startswith("stats"):
+        path = (
+            Path(pm.ti_toolbox())
+            / "stats/group_comparison/Boundary"
+            / ("Boundary.log" if kind == "stats_log" else "significant_clusters.csv")
+        )
+        content = (
+            "ERROR private failure\n"
+            if kind == "stats_log"
+            else "column\nprivate value\n"
+        )
+    else:
+        path = Path(pm.eeg_positions("ernie")) / "Boundary.csv"
+        content = "Electrode,1,2,3,PrivateLabel\n"
+    target = (project.parent if outside else project) / f"{project.name}-fixed-target"
+    target.write_text(content)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.unlink(missing_ok=True)
+    path.symlink_to(target)
+    if kind.startswith("notes"):
+        if kind == "notes":
+            assert (catalog.read_notes(pm)["text"] == content) is not outside
+        if outside:
+            with pytest.raises(ValueError, match="project"):
+                catalog.write_notes(pm, "replacement")
+        else:
+            assert catalog.write_notes(pm, "replacement")["text"] == "replacement"
+    elif kind == "montage":
+        assert bool(catalog.get_montages(pm)["nets"]) is not outside
+        if outside:
+            with pytest.raises(ValueError, match="project"):
+                catalog.put_montage(pm, "cap", "uni_polar", "Boundary", [])
+            assert not catalog.delete_montage(pm, "cap", "uni_polar", "Boundary")
+        else:
+            assert catalog.put_montage(pm, "cap", "uni_polar", "Boundary", []) == []
+            assert catalog.delete_montage(pm, "cap", "uni_polar", "Boundary")
+    elif kind == "simulation":
+        assert (
+            catalog.simulation_detail(pm, "ernie", "L_Insula")["montages"]
+            == ["Boundary"]
+        ) is not outside
+    elif kind.startswith("stats"):
+        result = catalog.group_stats_detail(pm, "group_comparison", "Boundary")
+        assert bool(result["log" if kind == "stats_log" else "clusters"]) is not outside
+        assert bool(result["artifacts"]) is not outside
+    else:
+        assert (
+            any(net["name"] == "Boundary.csv" for net in catalog.eeg_nets(pm, "ernie"))
+            is not outside
+        )
+    if outside:
+        assert target.read_text() == content
+
+
+def test_catalog_montages_use_explicit_project_not_singleton(
+    client: TestClient, project: Path
+) -> None:
+    """A containment check and its montage writer must operate on the same project."""
+    from tit import catalog
+    from tit.paths import PathManager
+
+    original = Path(get_path_manager().montage_config()).read_bytes()
+    (project / "other-project").mkdir()
+    other = PathManager(str(project / "other-project"))
+    catalog.put_montage(other, "cap", "uni_polar", "Boundary", [["A", "B"]])
+    assert catalog.get_montages(other)["nets"]["cap"]["uni_polar"]["Boundary"] == [
+        ["A", "B"]
+    ]
+    assert Path(get_path_manager().montage_config()).read_bytes() == original
+
+
+def test_notes_external_temp_symlink_returns_422(
+    client: TestClient, project: Path
+) -> None:
+    """Rejected notes writes have a validation response and do not touch the target."""
+    target = project.parent / f"{project.name}-notes-target"
+    target.write_text("unchanged")
+    Path(get_path_manager().ti_toolbox(), "notes.txt.tmp").symlink_to(target)
+    response = client.put(
+        "/api/catalog/notes", json={"text": "replacement"}, headers=BEARER
+    )
+    assert response.status_code == 422
+    assert target.read_text() == "unchanged"
 
 
 def test_nifti_labels_accepts_an_explicit_path_inside_the_project(

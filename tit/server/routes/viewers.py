@@ -57,6 +57,7 @@ import copy
 import json
 import os
 import re
+import secrets
 from typing import Any
 from urllib.parse import unquote
 
@@ -233,7 +234,46 @@ def viewer_scene_dir() -> str:
     """``<project>/code/ti-toolbox/viewer/`` -- sibling of ``config/`` and ``jobs/``."""
     from tit.paths import get_path_manager
 
-    return os.path.join(os.path.dirname(get_path_manager().config_dir()), "viewer")
+    return checked_viewer_path(
+        os.path.join(os.path.dirname(get_path_manager().config_dir()), "viewer")
+    )
+
+
+def checked_viewer_path(path: str) -> str:
+    """Reject stored paths resolving outside the project, including pre-existing symlinks."""
+    from tit.paths import get_path_manager, is_within
+
+    root = get_path_manager().project_dir
+    if not root or not is_within(root, path):
+        raise HTTPException(
+            status_code=403, detail="Viewer storage must remain inside the project"
+        )
+    return path
+
+
+def atomic_viewer_write(target: str, content: bytes) -> None:
+    """Replace a whole document without following a predictable temporary-file symlink."""
+    checked_viewer_path(target)
+    directory = os.path.realpath(checked_viewer_path(os.path.dirname(target)))
+    os.makedirs(directory, exist_ok=True)
+    target = os.path.join(directory, os.path.basename(target))
+    checked_viewer_path(target)
+    temporary = None
+    try:
+        candidate = os.path.join(directory, f".viewer-{secrets.token_hex(16)}.partial")
+        # Exclusive creation refuses links/collisions; ordinary file mode preserves the
+        # process umask so a host-side Tetravox user can still read the exported document.
+        with open(candidate, "xb") as handle:
+            temporary = candidate
+            handle.write(content)
+        checked_viewer_path(target)
+        os.replace(temporary, target)
+    finally:
+        if temporary is not None:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
 
 
 def _container_path_from_raw_url(url: str) -> str | None:
@@ -302,7 +342,9 @@ def localise_scene_paths(
     return out
 
 
-def _scene_files(spec: dict[str, Any], localised: dict[str, Any]) -> list[dict[str, Any]]:
+def _scene_files(
+    spec: dict[str, Any], localised: dict[str, Any]
+) -> list[dict[str, Any]]:
     """One row per dataset the scene references -- the Viewer's editable list.
 
     Both path languages, because the row does two jobs: ``path`` is what the
@@ -375,7 +417,8 @@ def _refuse_a_scene_that_spans_two_subjects(files: list[Any]) -> None:
             subjects.setdefault(match.group(1), raw)
     if len(subjects) > 1:
         named = ", ".join(
-            f"{sid} ({os.path.basename(path)})" for sid, path in sorted(subjects.items())
+            f"{sid} ({os.path.basename(path)})"
+            for sid, path in sorted(subjects.items())
         )
         raise HTTPException(
             status_code=422,
@@ -502,17 +545,10 @@ def view_open(
 
     directory = viewer_scene_dir()
     name = f"{_SCENE_NAMES[kind]}{_SCENE_SUFFIX}"
-    target = os.path.join(directory, name)
+    target = checked_viewer_path(os.path.join(directory, name))
     dry_run = bool(payload.get("dry_run"))
     if not dry_run:
-        os.makedirs(directory, exist_ok=True)
-        # Written whole, then renamed: the app may be watching this exact path
-        # from a previous Open, and half a JSON document is a parse error on
-        # screen.
-        tmp = f"{target}.partial"
-        with open(tmp, "w", encoding="utf-8") as handle:
-            json.dump(localised, handle, indent=1)
-        os.replace(tmp, target)
+        atomic_viewer_write(target, json.dumps(localised, indent=1).encode("utf-8"))
 
     return {
         "name": name,
@@ -535,7 +571,7 @@ def view_open(
 
 @router.get(
     "/api/viewer/candidates",
-    summary="Every file this subject/simulation offers the Viewer's \"+ Add…\"",
+    summary='Every file this subject/simulation offers the Viewer\'s "+ Add…"',
 )
 def viewer_candidates(
     subject: str | None = Query(None),
@@ -571,7 +607,7 @@ _PRESET_SUFFIX = ".json"
 
 
 def viewer_preset_dir() -> str:
-    return os.path.join(viewer_scene_dir(), "presets")
+    return checked_viewer_path(os.path.join(viewer_scene_dir(), "presets"))
 
 
 def _preset_slug(name: str) -> str:
@@ -600,9 +636,11 @@ def viewer_presets() -> dict[str, Any]:
         if not entry.endswith(_PRESET_SUFFIX):
             continue
         try:
-            with open(os.path.join(directory, entry), encoding="utf-8") as handle:
+            with open(
+                checked_viewer_path(os.path.join(directory, entry)), encoding="utf-8"
+            ) as handle:
                 body = json.load(handle)
-        except (OSError, ValueError):
+        except (OSError, ValueError, HTTPException):
             # A hand-edited or half-written preset is skipped, not fatal: one
             # bad file must not empty the menu.
             continue
@@ -621,16 +659,15 @@ def save_viewer_preset(name: str, body: dict[str, Any] | None = None) -> dict[st
     document = dict(body or {})
     document["name"] = name
     target = os.path.join(directory, f"{slug}{_PRESET_SUFFIX}")
-    tmp = f"{target}.partial"
-    with open(tmp, "w", encoding="utf-8") as handle:
-        json.dump(document, handle, indent=1)
-    os.replace(tmp, target)
+    atomic_viewer_write(target, json.dumps(document, indent=1).encode("utf-8"))
     return document
 
 
 @router.delete("/api/viewer/presets/{name}", summary="Forget one saved selection")
 def delete_viewer_preset(name: str) -> dict[str, Any]:
-    target = os.path.join(viewer_preset_dir(), f"{_preset_slug(name)}{_PRESET_SUFFIX}")
+    target = checked_viewer_path(
+        os.path.join(viewer_preset_dir(), f"{_preset_slug(name)}{_PRESET_SUFFIX}")
+    )
     try:
         os.remove(target)
     except FileNotFoundError:

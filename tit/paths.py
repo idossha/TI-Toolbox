@@ -139,7 +139,7 @@ def is_within(root: str, path: str) -> bool:
     """``True`` if *path* resolves inside *root* (containment check for created directories)."""
     root_real = os.path.realpath(root)
     candidate = os.path.realpath(path)
-    return candidate == root_real or candidate.startswith(root_real + os.sep)
+    return candidate == root_real or candidate.startswith(root_real.rstrip(os.sep) + os.sep)
 
 
 class PathManager:

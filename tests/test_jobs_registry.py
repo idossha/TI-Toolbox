@@ -5,12 +5,15 @@ from __future__ import annotations
 import json
 import os
 
+import pytest
+
 from tit.jobs.registry import (
     BIDSIGNORE_LINE,
     JobRegistry,
     ensure_bidsignore,
     events_path,
     job_dir,
+    job_file_path,
     jobs_root,
 )
 from tit.jobs.spec import Cost, JobSpec, JobStatus
@@ -40,6 +43,153 @@ def test_registry_create_and_read_round_trip(tmp_path):
     assert registry.read_status("j1") == status
     assert os.path.exists(events_path(str(tmp_path), "j1"))
     assert registry.list_ids() == ["j1"]
+
+
+@pytest.mark.parametrize(
+    "component",
+    ["root", "job", "spec.json", "status.json", "events.jsonl", "stdout.log"],
+)
+def test_registry_rejects_outward_storage_symlinks(tmp_path, component):
+    """2026-09-09: authored outside sentinel must survive job-store operations.
+
+    Reproduce: python3 -m pytest tests/test_jobs_registry.py -k storage_symlink -q.
+    These preexisting links test containment; concurrent link replacement is separate.
+    """
+    project = tmp_path / "project"
+    project.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    registry = JobRegistry(str(project))
+    root = project / "code" / "ti-toolbox" / "jobs"
+    spec = _spec("legacy-job_1")
+    target = root if component == "root" else root / spec.id
+    if component not in ("root", "job"):
+        target.mkdir()
+        target = target / component
+        destination = outside / component
+        destination.write_text("outside sentinel")
+    else:
+        if component == "root":
+            target.rmdir()
+        destination = outside
+    target.symlink_to(destination, target_is_directory=component in ("root", "job"))
+    with pytest.raises(PermissionError):
+        registry.create(spec, JobStatus.queued(spec))
+    assert sorted(p.name for p in outside.iterdir()) == (
+        [] if component in ("root", "job") else [component]
+    )
+    if component not in ("root", "job"):
+        assert destination.read_text() == "outside sentinel"
+
+
+def test_registry_ignores_outward_job_link_and_keeps_valid_jobs(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    registry = JobRegistry(str(project))
+    outside = tmp_path / "outside"
+    external = JobRegistry(str(outside))
+    external.create(_spec("foreign"), JobStatus.queued(_spec("foreign")))
+    root = project / "code" / "ti-toolbox" / "jobs"
+    (root / "foreign").symlink_to(outside / "code" / "ti-toolbox" / "jobs" / "foreign")
+    registry.create(_spec("local"), JobStatus.queued(_spec("local")))
+    assert registry.list_ids() == ["local"]
+    assert registry.read_spec("foreign") is None
+    assert registry.delete("foreign") is False
+    assert external.read_spec("foreign") is not None
+
+
+@pytest.mark.parametrize("component", ["root", "job", "events.jsonl"])
+def test_registry_allows_in_project_storage_symlinks(tmp_path, component):
+    registry = JobRegistry(str(tmp_path))
+    root = tmp_path / "code" / "ti-toolbox" / "jobs"
+    destination = tmp_path / "relocated"
+    if component == "root":
+        root.rmdir()
+        target = root
+    else:
+        target = root / "legacy-job_1"
+        if component == "events.jsonl":
+            target.mkdir()
+            target = target / component
+    if component == "events.jsonl":
+        destination.write_text("")
+    else:
+        destination.mkdir()
+    target.symlink_to(destination, target_is_directory=component != "events.jsonl")
+    spec = _spec("legacy-job_1")
+    registry.create(spec, JobStatus.queued(spec))
+    assert registry.read_spec(spec.id) == spec
+    assert registry.list_ids() == [spec.id]
+
+
+def test_job_file_path_refuses_outward_config_symlink(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    registry = JobRegistry(str(project))
+    registry.create(_spec("j1"), JobStatus.queued(_spec("j1")))
+    outside = tmp_path / "config.json"
+    outside.write_text("outside sentinel")
+    target = project / "code" / "ti-toolbox" / "jobs" / "j1" / "config.json"
+    target.symlink_to(outside)
+    with pytest.raises(PermissionError):
+        job_file_path(str(project), "j1", "config.json")
+    assert outside.read_text() == "outside sentinel"
+
+
+@pytest.mark.parametrize("filename", ["spec.json", "status.json", "events.jsonl", "stdout.log"])
+def test_registry_reopen_skips_outward_metadata_link(tmp_path, filename):
+    project = tmp_path / "project"
+    project.mkdir()
+    registry = JobRegistry(str(project))
+    for name in ("unsafe", "valid"):
+        registry.create(_spec(name), JobStatus.queued(_spec(name)))
+    target = project / "code" / "ti-toolbox" / "jobs" / "unsafe" / filename
+    outside = tmp_path / filename
+    target.rename(outside)
+    target.symlink_to(outside)
+    assert JobRegistry(str(project)).list_ids() == ["valid"]
+
+
+def test_registry_does_not_follow_outward_bidsignore(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    outside = tmp_path / "ignore"
+    outside.write_text("outside sentinel")
+    (project / ".bidsignore").symlink_to(outside)
+    with pytest.raises(PermissionError):
+        JobRegistry(str(project))
+    assert outside.read_text() == "outside sentinel"
+
+
+def test_registry_deleting_in_project_alias_preserves_target(tmp_path):
+    registry = JobRegistry(str(tmp_path))
+    target = tmp_path / "keep"
+    target.mkdir()
+    sentinel = target / "sentinel"
+    sentinel.write_text("keep me")
+    alias = tmp_path / "code" / "ti-toolbox" / "jobs" / "alias"
+    alias.symlink_to(target, target_is_directory=True)
+    assert registry.delete("alias")
+    assert sentinel.read_text() == "keep me"
+    assert not alias.is_symlink()
+
+
+@pytest.mark.parametrize("filename", ["spec.json", "status.json"])
+def test_registry_atomic_write_replaces_in_project_alias(tmp_path, filename):
+    registry = JobRegistry(str(tmp_path))
+    spec = _spec("j1")
+    registry.create(spec, JobStatus.queued(spec))
+    target = tmp_path / "keep.json"
+    target.write_text("keep me")
+    alias = tmp_path / "code" / "ti-toolbox" / "jobs" / "j1" / filename
+    alias.unlink()
+    alias.symlink_to(target)
+    if filename == "spec.json":
+        registry.write_spec(spec)
+    else:
+        registry.write_status(JobStatus.queued(spec))
+    assert target.read_text() == "keep me"
+    assert not alias.is_symlink()
 
 
 def test_registry_reads_legacy_viewer_kind_job_without_crashing(tmp_path):

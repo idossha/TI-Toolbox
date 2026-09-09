@@ -3043,11 +3043,14 @@ def resolve_jailed(raw_path: str) -> Path | None:
     just treats ``None`` the same as any other "can't resolve this" case.
     """
     try:
-        resolved = Path(raw_path).resolve()
+        resolved = os.path.realpath(raw_path)
     except OSError:
         return None
-    if not any(resolved.is_relative_to(root) for root in jail_roots()):
-        return None
-    if not resolved.is_file():
-        return None
-    return resolved
+    for root in jail_roots():
+        canonical_root = os.path.realpath(root)
+        # Include the separator so a sibling such as project-copy cannot match.
+        if resolved == canonical_root or resolved.startswith(
+            canonical_root.rstrip(os.sep) + os.sep
+        ):
+            return Path(resolved) if os.path.isfile(resolved) else None
+    return None

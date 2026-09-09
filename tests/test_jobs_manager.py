@@ -102,6 +102,78 @@ def test_submit_runs_and_succeeds(manager):
     assert "fake_runner: starting kind=tools" in log
 
 
+@pytest.mark.parametrize("job_id", ["unregistered", "../outside", "/outside"])
+def test_event_subscription_rejects_unknown_ids_before_open(
+    tmp_path, monkeypatch, job_id
+):
+    """2026-09-09: unknown WS keys must never open a file, even inside the store.
+
+    Authored adversarial IDs cover missing jobs, relative traversal and absolute paths.
+    Run: python3 -m pytest tests/test_jobs_manager.py -k event_subscription -q.
+    Actual registered-job backfill is exercised separately below.
+    """
+    manager = JobManager(str(tmp_path), budget=Cost(cpus=1, mem_gb=1))
+    opened = []
+
+    def refuse_open(path, *args, **kwargs):
+        opened.append(path)
+        raise OSError("filesystem access must not precede registration checking")
+
+    monkeypatch.setattr("builtins.open", refuse_open)
+    with pytest.raises(ValueError, match="unknown job"):
+        manager.subscribe_events(job_id)
+    assert opened == []
+
+
+@pytest.mark.parametrize("state", ["queued", "succeeded"])
+def test_event_subscription_backfills_registered_jobs(tmp_path, state):
+    """Authored JSONL makes sequence filtering observable without running a science job."""
+    manager = JobManager(str(tmp_path), budget=Cost(cpus=1, mem_gb=1))
+    submitted = manager.submit("tools", {}, [])
+    job_id = submitted["id"]
+    manager._status[job_id].state = state
+    # Write literal input independently of the product's event writer/path helper.
+    path = tmp_path / "code" / "ti-toolbox" / "jobs" / job_id / "events.jsonl"
+    path.write_text(
+        '{"type":"log","message":"first"}\n' '{"type":"log","message":"second"}\n',
+        encoding="utf-8",
+    )
+    subscription = manager.subscribe_events(job_id, since=1)
+    assert subscription.get_nowait() == {"type": "log", "message": "second", "seq": 1}
+    assert subscription.empty()
+    manager.unsubscribe_events(job_id, subscription)
+
+
+def test_runner_config_rejects_outward_metadata_symlink(tmp_path):
+    """An existing metadata link cannot choose where runner config is persisted."""
+    project = tmp_path / "project"
+    project.mkdir()
+    manager = JobManager(str(project), budget=Cost(cpus=1, mem_gb=1))
+    submitted = manager.submit("sim", {}, [])
+    job_id = submitted["id"]
+    outside = tmp_path / "config.json"
+    outside.write_text("outside sentinel")
+    target = project / "code" / "ti-toolbox" / "jobs" / job_id / "config.json"
+    target.symlink_to(outside)
+    with pytest.raises(PermissionError):
+        manager._runner_config_path(manager._specs[job_id])
+    assert outside.read_text() == "outside sentinel"
+
+
+def test_runner_config_replaces_in_project_metadata_alias(tmp_path):
+    """Atomic config replacement must preserve a final alias's existing target bytes."""
+    manager = JobManager(str(tmp_path), budget=Cost(cpus=1, mem_gb=1))
+    submitted = manager.submit("sim", {}, [])
+    job_id = submitted["id"]
+    target = tmp_path / "keep.json"
+    target.write_text("keep me")
+    alias = tmp_path / "code" / "ti-toolbox" / "jobs" / job_id / "config.json"
+    alias.symlink_to(target)
+    manager._runner_config_path(manager._specs[job_id])
+    assert target.read_text() == "keep me"
+    assert not alias.is_symlink()
+
+
 def test_submit_failure_records_exit_code_and_error(manager):
     status = manager.submit(
         "tools", {"__fake": {"duration_s": 0.05, "fail": True, "exit_code": 3}}, []

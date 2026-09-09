@@ -64,11 +64,11 @@ def status_page(static_dir: str | None) -> HTMLResponse:
 
 def resolve_static_file(static_dir: str, path: str) -> Path | None:
     """File under *static_dir* for *path*, or ``None`` (missing / escapes the jail)."""
-    root = Path(static_dir).resolve()
-    candidate = (root / path).resolve() if path else root / "index.html"
-    if not candidate.is_relative_to(root):
-        return None
-    return candidate if candidate.is_file() else None
+    root = os.path.realpath(static_dir)
+    candidate = os.path.realpath(os.path.join(root, path or "index.html"))
+    if candidate == root or candidate.startswith(root.rstrip(os.sep) + os.sep):
+        return Path(candidate) if os.path.isfile(candidate) else None
+    return None
 
 
 def resolve_tetravox_file(embed_dir: str, path: str) -> Path | None:
@@ -79,12 +79,12 @@ def resolve_tetravox_file(embed_dir: str, path: str) -> Path | None:
     embed bundle is a fixed set of files (JS/WASM chunks, the manifest), not
     a client-routed app that needs deep-link fallback.
     """
-    root = Path(embed_dir).resolve()
+    root = os.path.realpath(embed_dir)
     target = "index.html" if path in ("", "index.html") else path
-    candidate = (root / target).resolve()
-    if not candidate.is_relative_to(root):
-        return None
-    return candidate if candidate.is_file() else None
+    candidate = os.path.realpath(os.path.join(root, target))
+    if candidate == root or candidate.startswith(root.rstrip(os.sep) + os.sep):
+        return Path(candidate) if os.path.isfile(candidate) else None
+    return None
 
 
 def _tetravox_media_type(path: Path) -> str:

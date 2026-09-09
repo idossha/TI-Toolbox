@@ -842,7 +842,9 @@ class TestResolveResourcesDir:
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("TIT_RESOURCES_DIR", None)
             resolved = resolve_resources_dir()
-        assert os.path.isdir(resolved)
+        # In CI the checkout itself is /ti-toolbox, so the fallback and masked
+        # container candidate coincide. Verify existence with the real filesystem.
+        assert real_isdir(resolved)
         assert os.path.basename(resolved) == "resources"
         # Two levels above tit/paths.py is the repo root.
         repo_root = os.path.dirname(
@@ -923,3 +925,12 @@ class TestSubjectIdGrammar:
         pm = PathManager(str(tmp_path))
         assert is_within(str(tmp_path), pm.bids_anat("001"))
         assert not is_within(str(tmp_path), str(tmp_path.parent / "outside"))
+
+
+def test_containment_accepts_filesystem_root_and_rejects_sibling_prefix(tmp_path):
+    from tit.paths import is_within
+
+    filesystem_root = pathlib.Path(tmp_path.anchor)
+    assert is_within(str(filesystem_root), str(tmp_path))
+    assert is_within(str(filesystem_root), str(filesystem_root))
+    assert not is_within(str(tmp_path), str(tmp_path.with_name(tmp_path.name + "-other")))
