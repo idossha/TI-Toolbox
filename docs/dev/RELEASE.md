@@ -44,9 +44,9 @@ authored notes are preserved, and public-note generation requires explicit `--pu
 
 ### Tetravox dependency
 
-TI embeds the browser bundle, not the Tetravox desktop executable. Tetravox main currently lacks
-that embed; PR #35 supplies protocol 3. Its published v0.4.0 release has no embed assets as inspected
-on 2026-09-08. This is why a verified branch artifact is temporarily needed; it is not a permanent
+TI embeds the browser bundle, not the Tetravox desktop executable. At the 2026-09-08 dependency review, the required protocol-3
+embed was supplied by Tetravox PR #35 rather than published v0.4.0 assets. Recheck upstream
+availability before the next distribution build. This is why a verified branch artifact is temporarily needed; it is not a permanent
 fork requirement.
 
 For local/internal builds, `container/blueprint/build.sh` accepts an exact tarball URL and SHA256:
@@ -58,9 +58,7 @@ container/blueprint/build.sh --tag idossha/ti-toolbox:internal-20260908.1 \
 
 Serve only the artifact directory locally; Docker Desktop can reach it through
 `host.docker.internal`. A hosted CI build needs a URL reachable from its runner. Without a pin,
-the resolver requires compatible published embed assets and fails if none exist. The verified local
-bundle is version 0.4.0 / protocol 3 from Tetravox commit `3dd3955be40d792aec07781cc89e23f3f1ed4f0f`,
-SHA256 `0afbf2c5792cd32c02d4bb4e6672cc3c0b0234c321cebcea6ea155e723b98daf`.
+the resolver requires compatible published embed assets and fails if none exist. Record the bundle commit, version, protocol and digest with each build receipt.
 
 ### Optional FastSurfer checkpoint cache
 
@@ -97,12 +95,6 @@ Do not disable TLS verification to get a build past a certificate or network fai
 verified cache or fix the transport. Checkpoint verification does not validate the image's
 other dependencies or its scientific outputs.
 
-**Current real-image build: completed locally; acceptance remains in progress.** The clean
-candidate now contains the separate Blender runtime and has run selected tests and all three
-source/wheel launcher routes without source/UI bind mounts. Image identity, local reported
-sizes and receipts are in [BENCHMARKS.md](BENCHMARKS.md#clean-baked-candidate-progress--2026-09-09).
-These results do not establish registry availability, installer acceptance or overall readiness.
-
 ### Optional Blender download cache
 
 `build.sh --blender-archive <http(s)-url>` changes only the transport for the pinned official
@@ -125,34 +117,9 @@ prove the other platforms. User-facing setup and known limits are in
 
 ### Local development testing
 
-From the saved checkout, use the existing Python development loader with an existing copy
-of a project and an available local image:
-
-```bash
-python3 dev/loader/loader_dev.py --project /path/to/project-copy \
-  --image idossha/ti-toolbox:internal-20260908.1
-python3 dev/loader/loader_dev.py --project /path/to/project-copy --status
-python3 dev/loader/loader_dev.py --project /path/to/project-copy --logs
-```
-
-Replace the project path before running. This route mounts checkout source and available
-local renderer output; it is a development check, not clean baked-image acceptance. Reuse an
-active development session and preserve shared containers. The local image now matches the code at `b06b4493`; add `--no-mount-repo` to use its baked
-code and UI instead of checkout mounts. Use `--port 18767` to keep the existing port-8765
-development session untouched.
-See [CONTRIBUTING.md](CONTRIBUTING.md) for shared test/build ordering.
-
-For localhost documentation preview, with Ruby/Bundler and the existing gems installed:
-
-```bash
-cd docs
-ENABLE_ANALYTICS=false bundle exec jekyll serve --host 127.0.0.1 --port 4000 --baseurl ""
-```
-
-Open `http://127.0.0.1:4000/`. This serves the current wiki and existing generated API pages
-locally; it does not publish. The two-generator refresh procedure remains in
-[`docs/README.md`](../README.md). These are operator commands, not evidence that a new image
-or preview server was started during closeout.
+Use the [development loop](CONTRIBUTING.md#1-the-development-environment) for current-checkout
+code and [docs preview](../README.md) for the local website. Source-mounted testing does not
+replace acceptance of a rebuilt image with no source/UI mounts.
 
 ### Production promotion
 
@@ -168,115 +135,37 @@ and first launch must be measured before claiming them; Windows artifacts are un
 
 ## B. Current readiness and follow-ups
 
-This section is the development roadmap: current acceptance work first, then product follow-ups.
-It replaces the root TODO list; historical plan references are explained in
-[HISTORY.md](HISTORY.md#retired-root-plan--2026-09-09).
+Status reviewed 2026-09-09. Candidate branch: `release/3.0.0`.
+The current checkout is available for manual testing through the standard development loader.
+Docker Hub publication waits for maintainer acceptance. No stable tag or public release is implied.
 
-**Current candidate: `release/3.0.0`.** This branch holds the changes intended for main.
-Manual testing precedes Docker Hub publication, as requested by the maintainer. The branch
-rename preserves the development checkpoint and its runtime; it does not tag or publish a
-release. Follow the branch lifecycle in [CONTRIBUTING](../../CONTRIBUTING.md#1-choose-the-branch-and-pull-request-target).
-
-**Local development: ready for human testing.** The clean local image
-`idossha/ti-toolbox:internal-20260908.1` contains source
-`b06b4493bea5aa4834c107fe60301fcd9075afe1` and runs as `3.0.0-dev.1`.
-The Python development loader started it with `--no-mount-repo`: code and UI are baked into
-the image, not supplied by checkout mounts. The installed-wheel launcher also attached.
-The copied local test project is served on port 18767. Exact image/wheel identities and
-executed checks are in [BENCHMARKS.md](BENCHMARKS.md#development-closeout-checks--2026-09-09).
-
-**Subsequent UI/viewer testing.** The release branch now includes the extension run panes,
-contextual export previews and corrected viewer progress. The local frontend at
-`http://127.0.0.1:5173/` serves this checkout and proxies the existing dev backend. Tetravox
-`3b16a47ec1235640f5f392f71a609cc80dce75ed` was built and installed locally through the existing
-validated installer (0.4.0 / protocol 3); progressive and retained-dataset loading passed
-real-data checks. The baked image above is unchanged. A subsequent distributed image must
-include these frontend changes and the updated embed; local activation is not Docker Hub
-publication. Receipts are in BENCHMARKS.md.
-
-**Distribution and production gates remain open.** Main and Docker Hub are unchanged. The
-last hosted CodeQL result reported 205 new alerts on historical PR head `6571d06b`; it does
-not analyze the subsequent fixes on `release/3.0.0`, which still need hosted review. Native macOS
-screen attribution could not establish a baseline; functional offscreen assertions passed.
-The earlier full real suite passed against `e3bee214`; it was not repeated in this closeout.
-No signing, cross-platform acceptance, public tag, release or user update notification is claimed.
-
-The missing `yaml` dependency was repaired and actual packaged Browse → Start succeeded
-against the preceding clean image. The current packaged-launch regression also passed.
-Installers were not regenerated in this closeout: rejected DMG/ZIP files and their generated
-update manifest were moved to `dist/internal/rejected-packages/before-yaml-fix/`. Use the
-Python loader for this handoff, not those archived installers.
-
-Concrete fixes cover atlas/hemi/sidecar/ROI/catalog-content containment, unknown WebSocket job
-subscriptions, pre-existing outward symlinks in metadata/notebook/saved-view storage, exclusive
-atomic temporary writes, the static empty-index symlink case, and safe DOM search rendering.
-Independent review and regression results do not prove that every CodeQL alert is cleared;
-only the new analysis can establish that. Kernels remain intentionally unsandboxed, and
-concurrent malicious local filesystem races are outside the claimed protection. No numerical
-algorithm changed, so this work adds no scientific-correction notice.
-
-CircleCI source job 853 failed a checkout-dependent fixture, now repaired and checked on host
-and container. Desktop job 854 stalled at an interactive service-restart prompt before e2e;
-noninteractive setup is now explicit and CLI-validated. Hosted source job 856 subsequently passed on `6571d06b` and uploaded coverage; desktop
-job 855 was still running at the last observation. These historical results do not certify
-the subsequent release-branch fixes.
-
-No public release or update announcement is authorized by this preparation.
-
-Two previously listed blockers were stale: startup reconciliation deliberately interrupts old jobs
-rather than leaving them running forever (`tit/jobs/manager.py`), and mEx uses the shared symmetry
-map helper (`tit/opt/mex/mex.py`). The obsolete mEx UI test now uses row-based Ex with eight
-electrodes; its real execution is a required integration check, not inferred from the edit.
-
-### Product follow-ups retained from the existing roadmap
-
-These are limitations or future extensions, not evidence that all internal workflows failed. Keep
-the selected colleague workflows explicit and record failures against them. Older measurement claims
-below remain tied to their original BENCHMARKS/decision entries rather than this preparation pass.
-
-| Follow-up | Why it is not done |
+| Remaining acceptance work | Completion criterion |
 |---|---|
-| ~~**The `cluster-permutation` real job fails on Dataset 000** — every voxel is excluded as degenerate~~ **Closed 2026-09-07 (CX9).** It was a code bug, not a data question: [SCI-09](SCIENTIFIC-CORRECTIONS.md#sci-09) | The pooled variance was `(n-1) * np.var(x, ddof=1)`, which for the singleton group of a 2-vs-1 design is `0 * nan == nan`. Every voxel came back `nan` and was dropped. Fixed in `1b5ffdd7`; the contrast is now computed and matches `scipy`. **What remains true** is that three subjects admit only three relabellings, so no cluster can clear `p < 0.05` — a real spec on Dataset 000 should assert a *succeeded* job with **zero** significant clusters, which is a much stronger assertion than accepting a failure. |
-| **An idle electrode can be invisible.** Worst measured contrast against the now-opaque scalp is 2/255, median 35 | A design call for the maintainer. A thin contour on *every* marker — not only the ones carrying a channel colour — would keep colour as the whole state signal, because the contour would be constant. `DECISIONS.md` 2026-09-06 (CX5). |
-| **Two renderers, and no decision to converge them.** The Viewer sub-page draws with the Tetravox embed; the run-page panes draw with this app's own WebGL2 renderer | Deliberate for now: the panes draw packaged reference anatomy and need picking and marker behaviour this project controls, while the Viewer draws the user's data and wants the whole engine. Convergence is a future question again, not a settled one. |
-| **Every real e2e run rewrites two tracked smoke payloads** with a fresh run-id namespace, so the worktree is dirty after a gate | Churn by design: Level A replays what the UI sent, and the run id must be unique per run. It still costs every lane a `git checkout` it has to know about. |
-| **`FlexConfig.output_folder` is the run name** while ex/mEx write `run_name` | Two names for one user-facing idea, inherited from two config dataclasses. Unifying is a server-side change. |
-| **One job group per kind on the Optimizer.** A Run whose rows mix a flex-family and an ex-family method is two `POST /api/jobs/groups` calls and two group ids, which the page states rather than hides | `/api/jobs/groups` takes one `kind`; making one Run one group needs either a mixed-kind group on the server or a client-side grouping that would lie about cancel. |
-| **Ex-search's symmetric buckets have no control on the Optimizer page.** `ExConfig.symmetric_bucket` / `symmetry_pairing` / `symmetry_eeg_csv` arrived from `main` in the v2.5.0 merge (`230fa10a`); the mEx form exposes its equivalents, the two-pair Ex form does not, so requests send the server defaults | A form addition plus a mirror-map precondition the page would have to explain (the EEG net has to yield a mirror for every bucket entry, or the run fails with a zero-candidate error). Worth doing next to the mEx controls rather than alone. |
-| **The analyzer's multi-sphere ROI union is Python-only.** `Analyzer.analyze_spheres` and `_run_group`'s `spheres` key came from `main` (`90cc6ba8`); `AnalyzerConfig` has no `spheres` field, so no v3 job can request one | A config field, a contract regeneration and an Analyzer-page target control. The single-sphere path is unaffected, and a script can call `analyze_spheres` directly today. |
-| **A project seeded before 2026-09-07 keeps the broken worked example.** `examples/getting-started.ipynb` cell 3 called the pre-v2.5.0 `calc.get_TI_vectors(E1, E2)` and raised `ValueError: mTI requires an even number of fields >= 2, got 3`; `tit/server/notebooks.py` is fixed, but `seed_example()` writes the file only when it is absent | Deliberate: re-seeding would clobber a user's own edits to their copy, and the `.seeded` stamp exists precisely so a deleted example is not handed back. The user fix is to delete `code/ti-toolbox/notebooks/examples/getting-started.ipynb` and reopen Notebooks. A "your example is older than the shipped one" prompt is the real answer and is not built. |
-| **A running job carries no ETA.** `JobStatus` has no remaining-time field, so the Jobs table and the detail pane can show elapsed time and a stage counter but never "about 6 minutes left" | The only ETA in the product is the *pre-flight* one on the Optimizer's leadfield strip (`tit/jobs/eta.py`, `planLeadfieldEta`), which is a plan for a job that has not started. Extending it to a running job means either a per-kind model on the server or a client-side extrapolation from `progress.pct`, and an extrapolation that is wrong for the FEM stages — where the last 10 % is most of the wall clock — would be worse than no number. The System page is CPU/memory over five minutes and says nothing about jobs. |
-| **Tetravox PR #35 is at 0.4.0 / protocol 3 and is not released.** The dev image already carries that embed, and `Settings ▸ Viewer engine` installs from the GitHub Releases index of `idossha/tetravox` | Nothing in this repository can close it: the release is cut in the Tetravox repository. Until it is, the auto-update check finds no release carrying `tetravox-embed-0.4.0.tgz` and a user's app stays on the bundle its image shipped — which works, but means the "update the viewer without updating the toolbox" promise is untested end to end against a real index. For internal builds, the verified baked bundle is sufficient; public viewer update delivery remains unverified. |
-| Notebook **import** (`POST /api/pipelines/import`, reading `metadata.ti_toolbox.pipeline`) | Closes the round trip export already encodes. Parsing hand-edited Python stays a non-goal. |
-| `POST /api/jobs/{id}/retry` | The Jobs page's selection grammar can cancel and pin a selection but not retry it, because there is no endpoint. |
-| A saved pipeline's node forms open at their defaults | The document stores each node's built config; no page has a config → form-state reader. |
-| `ex`/`mex`/`leadfield`/`source`/`stats` pipeline nodes are edited as JSON | Their builders need values only the Optimizer page computes, or have no v3 form at all. The JSON is still validated server-side. |
-| **The Simulator node on the pipeline canvas is not yet the Simulator's jobs table** | The table was being rewritten in the same worktree while the canvas lane ran; the node still fans out per subject × montage on the server. |
-| **The Viewer's `overrides` / `extras` server plumbing has no client.** Kept: additive, contract-declared and covered by `tests/test_viewspec_overrides.py` | The Menu does not set per-layer appearance by design (§10.1), so nothing calls it. Deleting it is a five-line change and the test file says exactly what would be lost. |
-| Shared `useTableColumns` and `roiLabel(value, opts)` helpers; a `rowAction` slot on `SelectionList`; `tags` on `JobStatus` | Each is a small refactor across files three lanes were editing at once, or a contract change no lane would make unilaterally. |
-| **Notebooks:** a variable explorer; interactive plots; saving the pipeline canvas's export straight to a notebook | The explorer is a route and a pane (`%whos`-shaped). Interactive plots need a privileged scheme for output frames, the way SUNA's `suna-output:` works — a shell change, not a notebook change. The canvas export is one button: `POST /api/notebooks` already accepts a document. |
-| **OpenSSF best practices**, and the two standing invitations to contributors — more unit and integration tests, and docs maintenance | Nothing has been assessed against the badge criteria yet; `code-ql-analysis.yml` and `python-security.yml` cover part of the static-analysis rows. |
+| Manual workflow testing | Colleagues exercise representative copied projects and report output/result behavior |
+| Rebuild the distribution candidate | Bake current source, renderer and compatible Tetravox embed; record immutable identities |
+| Clean image and loader acceptance | Test without checkout mounts; verify Python/Bash launchers and fresh installer first launch |
+| Hosted review | Run CI/security review on the actual candidate head; older results do not cover later fixes |
+| Platform and publication checks | Verify intended platforms, macOS signing/notarization and registry access before public promotion |
+| Viewer update delivery | Verify compatible published Tetravox assets and update/rollback through the real release index |
 
-## Not claimed
+The retained local internal image includes a montage-dependency repair layer over an earlier
+source build; it is not a fully rebuilt image of the current checkout. Development mounts supply
+later changes. Current verification evidence and its limits belong in [BENCHMARKS.md](BENCHMARKS.md).
 
-An internal candidate is not production certification. Platform testing, signing and final scientific
-acceptance remain explicit. A mock pass, a healthy server or an artifact file alone proves none of
-the other legs. Record only executed commands and distinguish actual computation from start/cancel smoke.
+### Product follow-ups
 
-### Local montage dependency repair — 2026-09-09
+These are scoped improvements, not blanket blockers for internal testing. Recheck the relevant
+source before scheduling them; remove a row when it ships.
 
-`idossha/ti-toolbox:internal-20260908.1` locally now resolves to
-`sha256:b67f879bd46e90007ba3a59a52a2419dd03750f1d44b5151318fb96af58eb758`.
-This is a repair layer over the tested b06 image, not a full source rebuild: ImageMagick,
-DejaVu fonts and the atomic montage renderer were added to both source and installed-package
-locations. Base build metadata remains b06. Receipt: `/tmp/tit-montage-image.log`.
-The original development container was repaired in place without a restart; the existing
-validation container retains its previous image. Docker Hub publication remains on hold.
+| Area | Follow-up |
+|---|---|
+| Optimizer | Ex symmetric-bucket controls; consistent naming for Flex `output_folder` and Ex `run_name`; mixed-kind group submission |
+| Analyzer | Expose Python multi-sphere ROI union in the config and UI |
+| Jobs | Running-job ETA and bulk retry; current elapsed time and single-job Rerun remain available |
+| Pipelines | Restore saved configs into forms; replace JSON-only editors where useful; notebook import round trip |
+| Notebooks | Detect outdated seeded examples without overwriting user edits; variable explorer and interactive plots |
+| Viewer | Decide whether unused per-layer overrides need a client; assess reference-scene marker visibility |
+| Test harness | Avoid tracked smoke-payload churn while preserving UI/HTTP replay equivalence |
+| Maintenance | Assess OpenSSF practices and extend integration coverage for selected colleague workflows |
 
-### Current manual development loop — 2026-09-09
-
-The prior standalone validation containers have been retired. Manual development now uses
-the primary `release/3.0.0` checkout with the retained internal image through the
-[standard development loop](CONTRIBUTING.md#1-the-development-environment). Source-mounted
-testing validates local edits; it does not replace final acceptance of a rebuilt distributable.
-Docker Hub publication remains on hold.
+For older implementation plans and retired TODO references, see [HISTORY.md](HISTORY.md).

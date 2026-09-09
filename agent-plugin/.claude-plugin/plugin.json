@@ -2,7 +2,7 @@
   "name": "ti-toolbox",
   "displayName": "TI-Toolbox",
   "version": "0.2.0",
-  "description": "Teaches coding agents the Temporal Interference Toolbox v3: the Electron desktop app, the FastAPI tit.server in the container, the tit science core, the wiki and the nine developer documents of record, the Python API, project layout and TI domain knowledge \u2014 plus an MCP server that reads the docs/source and inspects your project directory.",
+  "description": "Teaches coding agents the Temporal Interference Toolbox v3: the Electron desktop app, the FastAPI tit.server in the container, the tit science core, the wiki and the developer reference documents, the Python API, project layout and TI domain knowledge \u2014 plus an MCP server that reads the docs/source and inspects your project directory.",
   "author": {
     "name": "Ido Haber",
     "email": "ihaber@wisc.edu",

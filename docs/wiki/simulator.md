@@ -112,7 +112,7 @@ data["nets"][eeg_net]["uni_polar_montages"][name]   = [[e1,e2],[e3,e4]]
 
 The assignment is always positional: each two consecutive electrodes in the montage compose a channel, and each two consecutive channels compose a carrier. For an 8-electrode montage that means channels A & B share the first carrier and channels C & D the second — there is no wiring choice to make.
 
-The kHz-exposure safety metrics `hf_peak`/`hf_sar` always sum over every channel's field, independent of the carrier structure. Their math lives under [Safety Metrics on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#safety-metrics).
+The kHz-exposure safety metrics `hf_peak`/`hf_sar` include every channel field under the shipped positional wiring (one field per carrier). Their math lives under [Safety Metrics on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#safety-metrics).
 
 #### Simulator Behavior for mTI
 

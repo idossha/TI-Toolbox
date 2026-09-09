@@ -6,7 +6,7 @@ TI-Toolbox knowledge:
 
 * the wiki (``docs/wiki/*.md``) and changelog -- from a local checkout when one
   is available, otherwise fetched from GitHub and cached on disk;
-* the nine developer documents of record (``docs/dev/*.md``);
+* the developer reference documents (``docs/dev/*.md``);
 * source files of the ``tit`` package and the v3 desktop app (same local/remote
   rule);
 * a BIDS-aware inspector for a user's TI-Toolbox project directory, so the
@@ -56,8 +56,7 @@ CHANGELOG = "docs/releases/changelog.md"
 PY_VERSION_FILE = "tit/__init__.py"  # __version__ of the `tit` package
 DESKTOP_PACKAGE_JSON = "desktop/package.json"  # Electron app version (v3)
 
-# docs/dev/ is the single source of truth for developers and is deliberately
-# capped at nine files; read_dev_doc refuses anything outside this list.
+# Explicit developer-document roster; reject paths outside these reference pages.
 DEV_DOCS = (
     "README",
     "ARCHITECTURE",
@@ -66,7 +65,6 @@ DEV_DOCS = (
     "DESIGN",
     "HISTORY",
     "BENCHMARKS",
-    "SCIENTIFIC-CORRECTIONS",
     "RELEASE",
 )
 
@@ -406,13 +404,13 @@ def tool_get_toolbox_version(_: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def tool_read_dev_doc(args: Dict[str, Any]) -> Dict[str, Any]:
-    """Read one of the nine docs/dev/*.md files — the developer source of truth."""
+    """Read one of the docs/dev/*.md reference files — the developer source of truth."""
     name = str(args.get("name", "")).strip().removesuffix(".md")
     name = name.rsplit("/", 1)[-1]
     match = next((d for d in DEV_DOCS if d.lower() == name.lower()), None)
     if match is None:
         raise ToolError(
-            f"Unknown dev doc {name!r}. docs/dev/ is capped at nine files: "
+            f"Unknown dev doc {name!r}. Available developer documents: "
             + ", ".join(DEV_DOCS)
         )
     text = read_repo_file(f"{DEV_DOCS_DIR}/{match}.md")
@@ -1021,10 +1019,10 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
             "sqrt(hf_sar/2) — the 1/2 appears once, in the calibration. "
             "hf_peak = max over signs |sum_c s_c E_c|, exact for <= 8 carriers "
             "(EXACT_SIGN_ENUM_MAX_FIELDS), a lower bound above that.",
-            "integrity_rule": "Any change to tit/stats, tit/analyzer, tit/calc, tit/fields "
-            "or tit/sim needs (1) a test in tests/numerical/ against the REAL libraries, "
+            "integrity_rule": "Numerical behavior changes in tit/stats, tit/analyzer, tit/calc, tit/fields "
+            "or tit/sim need (1) a test in tests/numerical/ against the REAL libraries, "
             "asserting the claim independently rather than retyping the implementation, and "
-            "(2) if any published result moves, an entry in docs/dev/SCIENTIFIC-CORRECTIONS.md "
+            "(2) if any published result moves, an entry in the applicable docs/releases/ page "
             "saying what was wrong, which versions, which outputs move and by how much, how a "
             "user spots an affected result, and whether to re-run or rescale.",
         },
@@ -1040,8 +1038,8 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
         "evidence the new code loaded. Never run two FEM simulations in parallel under "
         "emulation. One Playwright run at a time (/tmp/tit-e2e.lock).",
         "docs_of_record": "docs/dev/ is the single source of truth for developers and is "
-        "capped at NINE files: README, ARCHITECTURE, DECISIONS, CONTRIBUTING, DESIGN, "
-        "HISTORY, BENCHMARKS, SCIENTIFIC-CORRECTIONS, RELEASE. Read them with read_dev_doc. "
+        "organized by the README index: README, ARCHITECTURE, DECISIONS, CONTRIBUTING, DESIGN, "
+        "HISTORY, BENCHMARKS, RELEASE. Read them with read_dev_doc. "
         "Nothing in docs/dev/ is published; the user-facing site is docs/wiki/. There are no "
         "per-lane note files anywhere in the repository and none may be added.",
         "source_status": _source_label(),
@@ -1162,21 +1160,20 @@ TOOLS: List[Dict[str, Any]] = [
     },
     {
         "name": "read_dev_doc",
-        "description": "Read one of the nine docs/dev/*.md files — the DEVELOPER source of "
+        "description": "Read one of the docs/dev/*.md reference files — the DEVELOPER source of "
         "truth, not published on the site. Names: README (the map and reading order), "
         "ARCHITECTURE (how it is built, plus the science pipelines and DWI topology), "
         "DECISIONS (the numbered ADR log), CONTRIBUTING (dev loop, the gate, the smoke "
         "harness, the science-integrity rule), DESIGN (the UI contract and per-page "
-        "acceptance numbers), HISTORY (what happened, per program), BENCHMARKS (every "
-        "measured number, once), SCIENTIFIC-CORRECTIONS (what v2.x got numerically wrong "
-        "and whether to re-run or rescale), RELEASE (version sites and what is still open). "
+        "conventions), HISTORY (milestones), BENCHMARKS (scoped validation and performance "
+        "evidence), RELEASE (distribution and current open work). "
         "Optionally return one section by heading text.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "name": {
                     "type": "string",
-                    "description": "e.g. 'ARCHITECTURE' or 'SCIENTIFIC-CORRECTIONS'",
+                    "description": "e.g. 'ARCHITECTURE' or 'RELEASE'",
                 },
                 "section": {
                     "type": "string",

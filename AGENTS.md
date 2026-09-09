@@ -26,38 +26,22 @@ contracts/      openapi.yaml is the one hand-written contract; generated/ is bui
 tests/          host pytest (heavy libs mocked); tests/numerical/ runs the real ones
 dev/            scripts only: build_contracts (+build_schema/build_contract), contracts_check, route_import_guard, smoke.sh
 container/      image blueprints and build.sh
-docs/dev/       how this software is built and why — nine files, the source of truth
+docs/dev/       how this software is built and why — current developer references
 docs/wiki/      the user-facing site (published); docs/wiki/gui.md is deprecated
 agent-plugin/   installable skills + a read-only MCP server for AI clients
 ```
 
 ## Where things are written down
 
-`docs/dev/` is the source of truth, and it is **nine files** —
-[`docs/dev/README.md`](docs/dev/README.md) is its map and reading order. Do not add a tenth.
-
-| Question | File |
-|---|---|
-| How is it built? What must I not break? | `docs/dev/ARCHITECTURE.md` (§8 the pipelines, §9 DWI) |
-| How do I run and verify it? | `docs/dev/CONTRIBUTING.md` (§2 the gate, §2.6 the smoke harness) |
-| Why is it like this? | `docs/dev/DECISIONS.md` — its ADR index is what "ADR row N" means |
-| What happened, and what bit us? | `docs/dev/HISTORY.md` |
-| What is the UI contract? | `docs/dev/DESIGN.md` |
-| Every measured number | `docs/dev/BENCHMARKS.md` |
-| How does it ship, and what is still open? | `docs/dev/RELEASE.md` (§A ship, §B open) |
-| What did v2.x get numerically wrong? | `docs/dev/SCIENTIFIC-CORRECTIONS.md` |
-
-**Where a new fact goes.** A measurement or a gate result → `BENCHMARKS.md`, with the command. A
-decision → `DECISIONS.md` as **Decision / Why / Cost / Revisit if**, plus the `ARCHITECTURE.md` edit
-in the same commit. Something not done, and why → `RELEASE.md` §B. What happened in a program → a
-dated section of `HISTORY.md`. A contract change → `contracts/CHANGES.md`.
-
-**Never write a per-lane note file, and never add a file to `docs/dev/`.** About 120 accumulated in eleven days, each citing the others,
-and no reader could tell which were still true. Record numbers and decisions; delete your scratch.
+[docs/dev/README.md](docs/dev/README.md) owns the document map and update policy.
+Keep architecture, UI design, development commands, release work and historical rationale separate.
+Revise current-state pages rather than appending work logs. Record significant decisions in
+DECISIONS.md, meaningful milestones in HISTORY.md, and contract changes in contracts/CHANGES.md.
+User-visible numerical corrections belong in the applicable release page, not a separate audit file.
 
 ## The gate
 
-Run all of it and **report the numbers, not "green"**. Exact commands and their caveats:
+Run checks appropriate to the change, and the full gate for a release candidate. Report actual results. Exact commands and their caveats:
 [`docs/dev/CONTRIBUTING.md` §2](docs/dev/CONTRIBUTING.md).
 
 ```
@@ -94,12 +78,12 @@ Several agents may be in one worktree at once. Each of these cost a lane real wo
 
 ## Science integrity
 
-Any change to `tit/stats`, `tit/analyzer`, `tit/calc`, `tit/fields` or `tit/sim` needs **both**:
+A change to numerical behavior in `tit/stats`, `tit/analyzer`, `tit/calc`, `tit/fields` or `tit/sim` needs:
 
 1. a test in `tests/numerical/` running against the **real** libraries (the host `tests/conftest.py`
    mocks scipy/nibabel/…), asserting the claim independently rather than retyping the
    implementation; and
-2. if any published result moves, an entry in `docs/dev/SCIENTIFIC-CORRECTIONS.md` — what was
+2. if any published result moves, an entry in the applicable `docs/releases/` page — what was
    wrong, which versions, which outputs move and by how much, how a user spots an affected result,
    and whether to re-run or rescale.
 
@@ -113,14 +97,14 @@ Any change to `tit/stats`, `tit/analyzer`, `tit/calc`, `tit/fields` or `tit/sim`
   the macOS host. It is the only place a path bug reproduces honestly.
 - **The Viewer's scene file suffix is `.tetravox.json`**, written to
   `<project>/code/ti-toolbox/viewer/<kind>.tetravox.json`. Not `.json`.
-- **Guide coordinates are not subject coordinates.** The run-page panes draw packaged reference
-  anatomy; a subject switch must produce zero guide requests and the same canvas.
+- **Guide coordinates are not subject coordinates.** Optimizer/Analyzer use reference anatomy;
+  Simulator subject-space placement requires its subject-specific geometry. Never save guide picks
+  as subject coordinates.
 - **`--project=real`, not `--project real`** — Playwright's flag is variadic and swallows the spec
   path. And never `npm run e2e` for a real-server run: `pree2e` force-rebuilds `out/`.
 - **`electron-vite build` ignores `--mode`**; it hardcodes `NODE_ENV=production`, so
   `import.meta.env.DEV` is always false in a build. That is why gallery and scene hooks are gated
   by `VITE_INCLUDE_GALLERY` / `VITE_SCENE_HOOKS` instead.
-- **An empty `QComboBox` is falsy** — legacy code and ported logic must test `is not None`.
 - The maintainer-verified list of user-visible problems and fixes is
   [`docs/wiki/troubleshooting.md`](docs/wiki/troubleshooting.md). Consult it before diagnosing a
   reported error; add an entry when a new one is confirmed.
@@ -140,7 +124,7 @@ Any change to `tit/stats`, `tit/analyzer`, `tit/calc`, `tit/fields` or `tit/sim`
 ## The agent plugin
 
 An installable plugin under [`agent-plugin/`](agent-plugin/README.md) gives Claude Code, Codex and
-any MCP client four skills (orientation, scripting API, TI domain knowledge, codebase conventions)
+any MCP client five skills (orientation, scripting API, TI domain knowledge, codebase conventions)
 plus a read-only MCP server that searches the wiki, reads `tit` source, finds symbols and inspects
 a user's project directory. In Claude Code:
 

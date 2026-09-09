@@ -35,18 +35,16 @@ checkout you launch, with `/ti-toolbox` first on the Python import path. Changes
 dependencies, system packages or the container entrypoint still require an image rebuild;
 a source mount cannot install those dependencies.
 
-Four facts about this loop that are not obvious, and each of which has cost someone an afternoon:
+Development behavior:
 
 - **There is no token to read, paste or export.** The Vite proxy (`desktop/scripts/devProxy.ts`)
   stamps `Authorization: Bearer <token>` and rewrites `Origin` on every proxied `/api`, `/auth` and
-  `/ws` request — on `proxyReq` *and* `proxyReqWs`, since only the second fires for the `/ws/system`
-  upgrade. So the browser needs no cookie, no `?token=`, and no `TIT_DEV_ORIGINS` allowlist.
+  `/ws` request. So the browser needs no cookie, no `?token=`, and no `TIT_DEV_ORIGINS` allowlist.
 - **The worktree is bind-mounted, so Python is live.** With `TIT_DEV_MOUNT_REPO=1` (the default) the
   repository is mounted at `/ti-toolbox` with `PYTHONPATH=/ti-toolbox`, so an edit under `tit/sim`,
   `tit/opt`, `tit/analyzer`… is live for the *next job* with nothing to restart. The same flag sets
   `TIT_SERVER_RELOAD=1`, so an edit under `tit/server/**` or `tit/jobs/**` restarts the server on
-  its own (the watch is scoped to `tit/` deliberately — uvicorn's default watch root would be the
-  whole mounted repository, 5 834 directories, 2 815 of them `desktop/node_modules`).
+  its own (the watch is scoped to `tit/`).
   Set `TIT_DEV_MOUNT_REPO=0` to test the image's baked-in `tit`, which is what a user gets.
 - **The container also serves the *UI* from the worktree** (`desktop/out/renderer`). A stale or
   wrongly-flagged build is therefore what a real-server e2e run sees — see §2.5.
@@ -75,7 +73,8 @@ is defined once, in the root `docker-compose.yml`.
 
 ## 2. The gate
 
-Run all of it before claiming a change is done, and **report the numbers, not "green"**.
+Run checks appropriate to the changed behavior; run the full gate for a release candidate.
+Report executed checks and failures explicitly. A local pass does not certify hosted CI or packaging.
 
 ### 2.1 Frontend static checks and units
 
@@ -112,8 +111,8 @@ docker exec -w /ti-toolbox <container> simnibs_python -m pytest tests/numerical 
 ```
 
 `tests/numerical/` swaps the real `scipy`/`nibabel` back in and reloads the modules under test, so
-it makes *numerical* claims — cluster masses, permutation p-values, affine determinants. It is the
-required leg for any change to the science core (§4).
+it checks numerical claims such as cluster masses, permutation p-values and affine determinants.
+Use it for changes to numerical behavior (§3).
 
 ### 2.4 Repository guards
 
@@ -166,46 +165,26 @@ TIT_E2E_PROJECT_HOST=/absolute/path/to/copied/project TIT_E2E_SERVER_URL=http://
 - E2E is **offscreen/headless by default on this machine**. `scripts/e2e-quiet-check.sh` proves no
   window reached the screen; report its PASS.
 
-### 2.6 The real-container smoke harness
+### 2.6 Real-container smoke tests
 
-Two levels over one shared payload, both against a **real** dev container on Dataset 000. Level A
-(`tests/smoke/`, pytest, `smoke` marker, deselected by default) drives HTTP; Level B
-(`desktop/tests/e2e/real/*.spec.ts`, Playwright's `real` project) drives the UI and records the
-payloads Level A replays, so the two cannot disagree about the request body.
+[`dev/smoke.sh`](../../dev/smoke.sh) drives HTTP tests in `tests/smoke/`; real Playwright
+specs can record the same payloads for replay. Use a copied representative project.
 
 ```bash
-dev/smoke.sh --list                  # every dev-stack container and its exact selector; runs nothing
-dev/smoke.sh                         # the whole matrix, sequential, cleaned up
-dev/smoke.sh <row-id-or-kind>...     # one row, or a kind -> every row of it
-dev/smoke.sh --keep <row>...         # keep everything created, for inspection
-dev/smoke.sh --full <row>...         # run long kinds to completion instead of cancelling
+dev/smoke.sh --list                 # discover stacks without running jobs
+dev/smoke.sh <row-id-or-kind>       # selected checks
+dev/smoke.sh                       # complete matrix
+dev/smoke.sh --full <row>           # complete a long job instead of start/cancel
 ```
 
-- **Discovery needs no `docker inspect`.** `--list` prints each container with its port and project.
-  With more than one and no selector, the harness prints every `TIT_SMOKE_CONTAINER=<name>
-  dev/smoke.sh` line and exits **2** rather than guessing.
-- **A payload is retagged on every load.** A recorded payload's name-bearing field is rewritten to a
-  fresh `smoke-<runid>` tag each time, not only in the session that recorded it, so a row never
-  skips its own second replay with "recorded payload targets existing output(s)".
-- **One FEM-class job at a time, enforced by the harness itself.** Any row with
-  `behaviour == completed` or `heavy == True` (`sim`, `flex`, `leadfield`, `source`, `blender`,
-  charm, FastSurfer) blocks on `GET /api/jobs` until nothing is `running`/`queued` before
-  submitting. This is the rule `desktop/tests/e2e/batch.spec.ts` and `real/pipeline.spec.ts` cite.
-- **The results table is a file, not an impression.** `ls -t tests/smoke/artifacts/results-*.md |
-  head -1` is the newest matrix run's table; the `manifest-*.json` beside it lists every path it
-  created. The run of record for the whole matrix is in [`BENCHMARKS.md`](BENCHMARKS.md).
+With multiple stacks, select `TIT_SMOKE_CONTAINER` explicitly. Heavy rows wait for an idle queue;
+never run competing FEM simulations under emulation. Payloads use a fresh output namespace.
+Results and cleanup manifests are written under `tests/smoke/artifacts/`; record whether a check
+completed computation or only exercised start/cancel. `--keep` retains generated test artifacts.
 
-**Restart rule** (`tit/server/**`, `tit/jobs/**`, `tit/catalog.py`):
-
-```bash
-curl -s -H "Authorization: Bearer $TOKEN" $URL/api/jobs   # must show nothing running/queued
-docker restart <container>                                # only if the line above is empty
-curl -s $URL/api/health                                   # poll until {"status":"ok"}
-```
-
-A plain `restart` keeps the same token and is healthy again in 2-5 s; only a *recreate* mints a new
-one and kills in-flight jobs. **A 200 from `/api/health` is not evidence the new code loaded** — the
-pre-reload process can still answer. Wait and probe something that reflects the change.
+Before restarting a shared backend, verify no jobs are running or queued through `/api/jobs`.
+Wait for `/api/health`, then probe behavior that proves the changed code loaded. A health response
+alone may come from the pre-reload process. Recreating also changes the token; restarting does not.
 
 ### 2.7 Workflows and packaging
 
@@ -215,75 +194,24 @@ cd desktop && npm run verify:package         # if you touched packaging
 cd desktop && npm run build                  # LAST — always
 ```
 
-**`pnpm run build` (or `npm run build`) goes last, every time.** The dev container serves
+**After frontend/e2e work, restore a normal build last.** The dev container serves
 `desktop/out/renderer` straight from the worktree, so a plain build dropped in the middle of a
 session leaves someone else's e2e run timing out 30 seconds later with no hint why.
 
 ---
 
-## 3. Working alongside other lanes
+## 3. Shared checkout and scientific changes
 
-Several agents may share one worktree. These are not style preferences; each one cost a lane real
-work.
+Coordinate edits and test runs in the launched checkout. Stage only owned files; do not stash,
+discard another contributor's changes, kill shared test processes or recreate an active container.
+Serialize Playwright under `/tmp/tit-e2e.lock` because runs share build output and server ports.
+Check for running/queued jobs before server changes; use a copied project for destructive tests.
 
-- **Stage only your own files.** `git add -A` swept another lane's uncommitted work into the wrong
-  commit three times in one day.
-- **Never `git stash`.** It takes every other lane's work with it.
-- **One Playwright run at a time**, guarded by `/tmp/tit-e2e.lock`. Runs share the mock server on
-  8790 and one `out/`.
-- **Never `pkill -f "playwright test"`** — it kills whoever else is mid-gate.
-- **Never recreate the maintainer's dev container.** It bind-mounts the worktree for both `tit` and
-  the UI bundle; one recreated from a plain `docker run` line serves the image's baked copies
-  instead, and mints a new token that invalidates every other lane's session.
-- **Verify path and filesystem behaviour in the container** (Python 3.11, case-sensitive), never on
-  the macOS host.
-- **Never revert or discard someone else's working-tree changes.**
+Changes to numerical behavior need independent tests against real libraries in
+`tests/numerical/`. If existing published outputs change, describe the affected versions,
+workflows and any re-run/rescaling action in the relevant release page, with a short changelog link.
+Formatting or UI-only edits do not make numerical claims.
 
----
-
-## 4. The science-integrity rule
-
-Any change to `tit/stats`, `tit/analyzer`, `tit/calc`, `tit/fields` or `tit/sim` needs:
-
-1. a test in **`tests/numerical/`** that runs against the **real** libraries (not the host mocks)
-   and asserts the numerical claim independently — not by retyping the implementation; and
-2. if any published result moves, an entry in
-   [`SCIENTIFIC-CORRECTIONS.md`](SCIENTIFIC-CORRECTIONS.md) saying what was wrong, which versions
-   are affected, which outputs move and by how much, how a user spots an affected result, and
-   whether to re-run or rescale.
-
-A number that changes and is not written down there is indistinguishable, to a user, from a
-result they can no longer trust.
-
----
-
-## 5. Commit messages
-
-One topic per commit, present tense, and a title that states **the defect or the new truth** rather
-than the activity:
-
-```
-fix(analyzer): voxel focality volumes in cm^3, geometry from the affine
-docs(contracts): add contracts/README.md, describe the generated/ outputs
-```
-
-Prefix with the area (`fix`, `feat`, `docs`, `test`, `ci`, `refactor`) and the module in
-parentheses. The body says what was wrong and what the reader would otherwise be surprised by.
-Never write "various fixes".
-
----
-
-## 6. Where a new fact goes
-
-| The thing you learned | Where it is written down | Never |
-|---|---|---|
-| A **measurement** (a timing, a size, a test count, a frame rate) | `BENCHMARKS.md` | a commit message, a code comment |
-| A **decision** | `DECISIONS.md`, as **Decision / Why / Cost / Revisit if** — plus the `ARCHITECTURE.md` edit if it changes a rule, in the same commit | a lane note |
-| A **gate result** | the gate table in `BENCHMARKS.md`, with the command that produced it | prose |
-| **What happened** in a program | a dated section of `HISTORY.md` | a new file |
-| A **trap that cost an hour** | that program's `HISTORY.md` gotchas, or `AGENTS.md` if every agent must know it before starting | nowhere |
-| A **contract change** | `contracts/CHANGES.md` (append; never edit a past entry) | only the diff |
-| **A number that moved for users** | `SCIENTIFIC-CORRECTIONS.md` and `docs/releases/changelog.md` | only the test |
-
-**Never write a per-lane note file.** About 120 of them accumulated in eleven days, each citing the
-others, and no reader could tell which were still true.
+Follow the root [contribution guide](../../CONTRIBUTING.md) for branches and pull requests.
+Use focused commits whose title states the change, without AI co-author trailers.
+Documentation ownership and update policy are in [README.md](README.md).

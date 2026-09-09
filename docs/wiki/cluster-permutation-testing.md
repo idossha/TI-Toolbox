@@ -38,7 +38,7 @@ rows unchanged. Import checks table structure and values; dataset files are chec
 > permutation null for two-sided and left-tailed tests was built with the *least* extreme
 > cluster instead of the most extreme one, and the sampled p-value could return exactly 0.
 > Right-tailed (`alternative="greater"`) analyses are unaffected. See the maintainer note
-> `docs/dev/SCIENTIFIC-CORRECTIONS.md` (SCI-01, SCI-04, SCI-06) for how to tell whether a
+> [release notes]({{ site.baseurl }}/releases/v3.0.0/#scientific-corrections) (SCI-01, SCI-04, SCI-06) for how to tell whether a
 > given result is affected and what changes.
 
 ## Theoretical Background

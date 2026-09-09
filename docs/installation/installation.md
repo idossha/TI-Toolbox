@@ -111,7 +111,7 @@ instructions are in [Develop from source]({{ site.baseurl }}/installation/bash-c
 Confirm that subjects appear, open an existing output in the viewer, and complete a small
 simulation or analysis used in your work. Record the source commit, image reference, host OS,
 and job ID when reporting a problem. Existing-result guidance lives in the
-[scientific corrections record](https://github.com/idossha/TI-toolbox/blob/release/3.0.0/docs/dev/SCIENTIFIC-CORRECTIONS.md).
+[scientific corrections record]({{ site.baseurl }}/releases/v3.0.0/#scientific-corrections).
 
 ## Desktop installers
 

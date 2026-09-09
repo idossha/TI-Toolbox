@@ -291,7 +291,7 @@ Documentation updates are highly valued! When contributing:
 
 > Changes to `tit/stats`, `tit/analyzer`, `tit/calc`, `tit/fields` or `tit/sim` additionally need
 > a real-library test in `tests/numerical/` and, if any published number moves, an entry in
-> [`docs/dev/SCIENTIFIC-CORRECTIONS.md`](docs/dev/SCIENTIFIC-CORRECTIONS.md).
+> [the relevant release notes](docs/releases/v3.0.0.md#scientific-corrections).
 
 ### Code Documentation
 

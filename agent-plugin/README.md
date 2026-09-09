@@ -9,7 +9,7 @@ It has two parts, usable together or separately:
 | Part | What it gives the agent |
 |------|-------------------------|
 | **Skills** (`skills/*/SKILL.md`) | Orientation, scripting API cheat-sheet, TI domain knowledge, codebase conventions, a `/troubleshoot-project` command |
-| **MCP server** (`mcp/server.py`) | Read-only tools: search/read the wiki, the nine developer documents of record and the changelog; read `tit` and `desktop` source; find symbols; inspect a project directory (subjects, m2m, simulations, flex/ex runs, the job store, notebooks, pipelines, reports) |
+| **MCP server** (`mcp/server.py`) | Read-only tools: search/read the wiki, the developer reference documents and the changelog; read `tit` and `desktop` source; find symbols; inspect a project directory (subjects, m2m, simulations, flex/ex runs, the job store, notebooks, pipelines, reports) |
 
 The MCP server is a single Python 3.9+ file with **no dependencies**. It reads
 from a local TI-Toolbox checkout when one is present, otherwise it fetches the
@@ -38,7 +38,7 @@ these are the facts that changed:
 - **One run spec.** The root `docker-compose.yml` is it, with four readers: the
   Electron app, `tit launch`, `loader.py`/`loader.sh`, and the dev overrides in
   `dev/loader/`. The new MCP tool `list_launch_paths` reports all of it.
-- **`docs/dev/` is the developer source of truth** and is capped at nine files.
+- **`docs/dev/` is the developer source of truth**; its index defines document ownership.
   The new MCP tool `read_dev_doc(name)` reads them. The user-facing site remains
   `docs/wiki/`, whose pages were restructured — the `mti` page is gone (mTI is now
   a section of `simulator`) and `overview`, `jobs`, `notebooks`, `pipelines` and
@@ -49,10 +49,8 @@ these are the facts that changed:
   paired positionally. `get_nTI_vectors`, `get_mTI_vectors`/`get_mTI_dir`,
   `get_magnitude_am` and the `channels=` carrier-regrouping parameter are gone;
   carrier wiring is always positional, one field per carrier.
-- **The domain skill carries `docs/dev/SCIENTIFIC-CORRECTIONS.md`**: voxel focality
-  extents are cm³ (mesh stays cm²), permutation p-values are `(b+1)/(m+1)`,
-  clusters are labelled per sign and compared right-tailed, and geometry comes from
-  the affine rather than the header zooms. Each says whether to re-run or rescale.
+- **Numerical migration guidance** lives in the [release notes](../docs/releases/v3.0.0.md#scientific-corrections).
+  Domain skills describe current behavior and link to that guidance.
 - **`get_toolbox_version` reads `tit/__init__.py` and `desktop/package.json`** and
   reports whether they are in lockstep, instead of reading `version.py` alone.
 

@@ -8,19 +8,10 @@ user-invocable: false
 
 This document is the primary domain reference for AI agents working on TI-Toolbox who have no neuroscience background. Every section is relevant to understanding the codebase, the physics it implements, and the clinical context it serves.
 
-> **Before you quote a number, or change code that produces one.**
-> `docs/dev/SCIENTIFIC-CORRECTIONS.md` is the record of what earlier versions got
-> numerically wrong — for each item: which versions, which outputs move and by how
-> much, how a user spots an affected result, and whether to **re-run or rescale**.
-> Read it with the MCP tool `read_dev_doc("SCIENTIFIC-CORRECTIONS")`. Its rules are
-> folded into the sections below (focality units, permutation p-values, cluster sign
-> handling, affine geometry, the exposure metrics, envelope conditioning).
->
-> And the rule that goes with it: **any change to `tit/stats`, `tit/analyzer`,
-> `tit/calc`, `tit/fields` or `tit/sim` needs a test in `tests/numerical/` that
-> asserts the claim independently against the real libraries — and, if any published
-> result moves, an entry in that file.** A number that changes and is not written
-> down there is indistinguishable, to a user, from a result they can no longer trust.
+> Numerical behavior changes need independent real-library regression tests. If published
+> outputs change, document affected workflows and any user action in the relevant release page.
+> For 2.x migration, read [the targeted fixes](../../../docs/releases/v3.0.0.md#scientific-corrections);
+> MCP clients can discover the release link through `read_changelog`.
 
 ---
 

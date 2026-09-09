@@ -7,7 +7,7 @@ of *every* voxel of a one-vs-many comparison came out ``nan``.
 
 On 2.2.3--2.5.0 the ``valid = se_diff > 0`` guard then left ``t = 0, p = 1``
 everywhere: a complete, uniformly null result.  On this branch, after
-:doc:`SCI-06 <SCIENTIFIC-CORRECTIONS>` made ``_safe_t`` IEEE-correct, the
+SCI-06 (docs/releases/v3.0.0.md#scientific-corrections) made ``_safe_t`` IEEE-correct, the
 ``nan`` reached ``ttest_voxelwise``, emptied ``valid_mask`` and raised.
 
 These are numerical claims about agreement with ``scipy``, so they live in the

@@ -137,7 +137,7 @@ $$
 
 This is a field-domain heating proxy, **not** calibrated SAR: the actual calibration is $$\tfrac{\sigma}{2\rho} \cdot \mathrm{hf\_sar}$$, requiring the per-tissue conductivity $$\sigma$$ and density $$\rho$$ that the toolbox does not apply.
 
-Both metrics always sum over **every** channel field -- kHz exposure does not depend on the carrier structure -- and both are **opt-in**: neither is in `SimulationConfig.output_fields`'s default (`["TI_max"]`), so a run must explicitly request `hf_peak`/`hf_sar` to get them written.
+Under the shipped positional wiring, each field is one carrier, so both metrics include **every** channel field. Shared-frequency fields would require coherent vector summation first. Both metrics are **opt-in**: neither is in `SimulationConfig.output_fields`'s default (`["TI_max"]`), so a run must explicitly request `hf_peak`/`hf_sar` to get them written.
 
 ### Spatial domain: how the analyzer summarises a field
 
@@ -261,7 +261,7 @@ Every analysis call returns an `AnalysisResult` dataclass. Its statistics are ex
 
 > **Voxel-space `focality_*_area` values written by v2.3.0-v2.5.0 are 10x too large** --
 > they were computed in "cm^2" from a volume. v3.0.0 reports them in $$\mathrm{cm}^3$$;
-> see `docs/dev/SCIENTIFIC-CORRECTIONS.md` (SCI-03) for whether to re-run or rescale.
+> see [release notes]({{ site.baseurl }}/releases/v3.0.0/#scientific-corrections) (SCI-03) for whether to re-run or rescale.
 
 ---
 

@@ -6,9 +6,9 @@ user-invocable: false
 
 # TI-Toolbox Codebase Guide (v3)
 
-**`docs/dev/` is the single source of truth** and is capped at **nine** files —
+**`docs/dev/` is the single source of truth**; its index defines document ownership —
 `README ARCHITECTURE DECISIONS CONTRIBUTING DESIGN HISTORY BENCHMARKS
-SCIENTIFIC-CORRECTIONS RELEASE`. Read them with the MCP tool `read_dev_doc`.
+RELEASE`. Read them with the MCP tool `read_dev_doc`.
 Nothing in `docs/dev/` is published; the user-facing site is `docs/wiki/`. There
 are **no per-lane note files anywhere in the repository and none may be added**
 (`dev/notes/` and `dev/spikes/` were deleted on 2026-09-07). This skill is a map;
@@ -234,7 +234,7 @@ needs **both**:
 1. a test in `tests/numerical/` running against the **real** libraries that asserts
    the claim **independently** — an independent reader or a closed form, never a
    retyping of the implementation; and
-2. if any published result moves, an entry in `docs/dev/SCIENTIFIC-CORRECTIONS.md`
+2. if any published result moves, an entry in the applicable `docs/releases/` page
    saying what was wrong, which versions, which outputs move and by how much, how a
    user spots an affected result, and whether to **re-run or rescale**.
 
