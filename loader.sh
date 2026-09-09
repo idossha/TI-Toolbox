@@ -47,9 +47,9 @@ HELP
 done
 config="${XDG_CONFIG_HOME:-$HOME/.config}/ti-toolbox"
 if [ "$interactive" = 1 ]; then
-    [ -t 0 ] || die 'interactive setup needs a terminal; pass --project DIR'
+    [ -t 0 ] || { printf 'ti-toolbox: interactive setup needs a terminal; pass --project DIR\n' >&2; exit 2; }
     [ -n "$project" ] || { [ ! -f "$config/last-project.txt" ] || project="$(cat "$config/last-project.txt")"; }
-    read -r -p "Project directory${project:+ [$project]}: " answer
+    read -r -p "Project directory${project:+ [$project]}: " answer || exit 2
     project="${answer:-$project}"
 fi
 case "$project" in \~/*) project="$HOME/${project#\~/}" ;; esac
