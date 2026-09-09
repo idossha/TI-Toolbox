@@ -3959,6 +3959,18 @@ route("GET", "/api/files/artifact", (ctx) => {
   if (resolved.notFound || !existsSync(resolved.file)) return json(ctx.res, 404, { detail: "not found" });
   res_stream(ctx.res, resolved.file, resolved.contentType);
 });
+// Binary validation belongs to the real route's numerical tests; this models the upload contract.
+route("POST", "/api/files/mask", async (ctx) => {
+  const name = ctx.url.searchParams.get("name") ?? "";
+  const subject = ctx.url.searchParams.get("subject") ?? "";
+  if (!subjects.subjects.some((row) => row.id === subject)) return json(ctx.res, 404, { detail: "unknown subject" });
+  if (basename(name) !== name || !/\.nii(\.gz)?$/i.test(name)) return json(ctx.res, 422, { detail: "invalid mask filename" });
+  let size = 0;
+  for await (const chunk of ctx.req) size += chunk.length;
+  if (size > 64 * 1024 * 1024) return json(ctx.res, 413, { detail: "mask exceeds size limit" });
+  if (!size) return json(ctx.res, 422, { detail: "empty mask" });
+  return json(ctx.res, 201, { path: `${PROJECT_ROOT}/derivatives/SimNIBS/sub-${subject}/m2m_${subject}/masks/${name}` });
+});
 route("GET", "/api/files/text", (ctx) => {
   const resolved = resolveJailed(ctx.url.searchParams.get("path"));
   if (resolved.jailed) return json(ctx.res, 403, { detail: "path escapes the project jail" });

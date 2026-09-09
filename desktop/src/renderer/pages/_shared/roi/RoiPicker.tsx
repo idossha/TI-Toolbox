@@ -18,9 +18,11 @@
  * cortical branch still returns a display-string id with no `hemi` — cortical ROIs won't resolve
  * correctly end-to-end against the real server until B2 lands the integer label + hemi there too.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Compass, Info, Plus, Target, Trash2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { uploadMask } from "./api";
+import { PathInput } from "../../../ui/PathInput";
 import { Field, TextInput } from "../../../ui/Field";
 import { NumberInput } from "../../../ui/NumberInput";
 import { Select } from "../../../ui/Select";
@@ -61,8 +63,9 @@ const SPACE_OPTIONS = [
 /** Canonical ROI-type order across every picker on the site (DESIGN QA vocabulary pass).
  *  `saved` leads because it is the ex/mEx default; it is absent from flex's `modes`, so flex's
  *  own order (cortical, subcortical, spherical) is unchanged. */
-const MODE_ORDER: RoiMode[] = ["saved", "cortical", "subcortical", "spherical"];
+const MODE_ORDER: RoiMode[] = ["saved", "cortical", "subcortical", "spherical", "mask"];
 const MODE_LABEL: Record<RoiMode, string> = {
+  mask: "NIfTI mask",
   saved: "Saved",
   cortical: "Cortical",
   subcortical: "Subcortical",
@@ -117,6 +120,7 @@ export function RoiPicker({ value, onChange, modes, subject, space = "subject", 
       )}
       {value.mode === "cortical" && <CorticalPanel value={value} onChange={onChange} subject={subject} disabled={disabled} />}
       {value.mode === "subcortical" && <SubcorticalPanel value={value} onChange={onChange} subject={subject} disabled={disabled} />}
+      {value.mode === "mask" && <MaskPanel value={value} onChange={onChange} disabled={disabled} subject={subject} showTissues={modes.includes("spherical")} />}
       {value.mode === "saved" && <SavedPanel value={value} onChange={onChange} subject={subject} disabled={disabled} allowCombine={allowCombine} />}
     </div>
   );
@@ -593,4 +597,56 @@ function SubcorticalPanel({
       {regions.error && <Callout kind="danger">Could not load regions for this atlas.</Callout>}
     </div>
   );
+}
+
+function MaskPanel({ value, onChange, disabled, subject, showTissues }: {
+  value: Extract<RoiValue, { mode: "mask" }>;
+  onChange: (value: RoiValue) => void;
+  disabled?: boolean;
+  subject?: string;
+  showTissues: boolean;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  const activeUpload = useRef<AbortController | null>(null);
+  useEffect(() => () => activeUpload.current?.abort(), []);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string>();
+  async function importFile(file: File) {
+    if (!subject) return;
+    const controller = new AbortController();
+    activeUpload.current = controller;
+    setUploading(true);
+    setError(undefined);
+    try {
+      const path = await uploadMask(file, subject, controller.signal);
+      if (controller.signal.aborted) return;
+      onChange({ ...value, path });
+    } catch (e) {
+      if (controller.signal.aborted) return;
+      setError(e instanceof Error ? e.message : "Could not import the mask.");
+    } finally {
+      if (!controller.signal.aborted) setUploading(false);
+    }
+  }
+  return <div className="form-grid form-grid--single">
+    <Field label="NIfTI mask" required help="Positive voxels form the target. Import a .nii or .nii.gz file, or enter a path inside the project.">
+      <div className="roi-mask-file">
+        <PathInput value={value.path} onValueChange={(path) => onChange({ ...value, path })} disabled={disabled || uploading} placeholder="Project mask path (.nii or .nii.gz)" />
+        <Button disabled={disabled || uploading || !subject} onClick={() => input.current?.click()}>{uploading ? "Importing…" : "Import…"}</Button>
+        <input ref={input} type="file" accept=".nii,.nii.gz" aria-label="Import NIfTI mask" hidden disabled={disabled || uploading} onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) void importFile(file);
+        }} />
+      </div>
+    </Field>
+    <Field label="Mask space">
+      <SegmentedControl aria-label="Mask space" value={value.space} options={SPACE_OPTIONS} disabled={disabled || uploading} onValueChange={(space) => onChange({ ...value, space: space as RoiSpace })} />
+    </Field>
+    {showTissues && <Field label="Tissue type">
+      <Select value={value.tissues} onValueChange={(tissues) => onChange({ ...value, tissues: tissues as TissueKind })} options={TISSUE_OPTIONS} disabled={disabled || uploading} />
+    </Field>}
+    <p className="field-help">Subject masks are used directly. MNI masks are transformed using this subject’s m2m registration.</p>
+    {error && <Callout kind="danger">{error}</Callout>}
+  </div>;
 }

@@ -146,7 +146,7 @@ export function ObjectiveSection({
       )}
       {isFocality && form.nonRoiMethod === "specific" && (
         <Field label="Non-ROI region" className="optimizer-span" layout="stacked">
-          <RoiPicker value={nonRoi} onChange={onNonRoiChange} modes={["cortical", "subcortical", "spherical"]} subject={subject} />
+          <RoiPicker value={nonRoi} onChange={onNonRoiChange} modes={["cortical", "subcortical", "spherical", "mask"]} subject={subject} />
         </Field>
       )}
     </FormSection>

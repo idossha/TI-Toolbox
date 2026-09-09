@@ -54,10 +54,13 @@ The interface provides controls for:
 
 ## Defining the Target (ROI)
 
-A ROI Type toggle picks between two alternative targeting mechanisms, not companions:
+The **Target** section offers three choices:
 
-- **Sphere** (default) uses one or more spherical ROI CSVs (centers, default radius 3 mm, set by the ROI Radius spinbox), with a Coordinate Space toggle (Subject / MNI. MNI coordinates are transformed to the subject automatically). The "Combine selected ROIs into one target" checkbox that unions the selected ROIs into a single search (output named by joining the ROI names with `+`).
-- **Atlas** targets a volumetric subcortical atlas region on its own page. Atlas ROI targets are always resolved in the subject's own space.
+- **Saved** uses saved spherical ROI CSVs, a radius, and Subject/MNI coordinates. “Combine selected ROIs into one target” unions the selected centers for a single Ex search.
+- **Subcortical** selects regions from a volumetric atlas.
+- **NIfTI mask** accepts a local `.nii` or `.nii.gz` file or a server-accessible path. Positive voxels define the target. Subject-space masks are used directly; MNI masks use the subject’s SimNIBS registration in `m2m_<subject>/toMNI`, with nearest-neighbor resampling. The conformation affine alone is not an MNI registration.
+
+**Electrodes** is a separate section: choose four electrodes (TI) or eight (mTI), then configure the search space.
 
 Under the hood, ROI resolution OR-folds a mixed list of CSV centers, whole NIfTI/MGZ masks (voxel value > 0), and `(path, label)` atlas-region selections (voxel value == label) into a single region.
 

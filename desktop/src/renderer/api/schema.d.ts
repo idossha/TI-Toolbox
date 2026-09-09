@@ -2990,6 +2990,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/files/mask": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload a custom NIfTI mask
+         * @description Finite nonempty 3D mask, at most 64 MiB uploaded and 512 MiB decompressed. Coordinate space is selected in the job.
+         */
+        post: {
+            parameters: {
+                query: {
+                    name: string;
+                    subject: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            responses: {
+                /** @description Stored mask */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            path: string;
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description Mask directory escapes the project */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["NotFound"];
+                /** @description Mask exceeds the size limit */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Invalid NIfTI mask or filename */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/files/report/{id}": {
         parameters: {
             query?: never;
@@ -6799,7 +6870,7 @@ export interface components {
          *         Space of the *roi_name*\/*roi_names* CSV centers -- ``"subject"``
          *         (default) or ``"mni"``.  MNI centers are transformed to subject
          *         space with ``simnibs.mni2subject_coords`` before the search runs.
-         *         Does not affect *roi_atlas*, which is always subject space.
+         *         Does not affect *roi_atlas*, which declares its own atlas_space.
          *     electrodes : BucketElectrodes or PoolElectrodes
          *         Electrode specification, either a single shared pool
          *         (:class:`PoolElectrodes`) or separate per-channel buckets
@@ -6958,7 +7029,7 @@ export interface components {
          *         Space of the *roi_name* CSV center -- ``"subject"`` (default) or
          *         ``"mni"``.  An MNI center is transformed to subject space with
          *         ``simnibs.mni2subject_coords`` before the search runs.  Does not
-         *         affect *roi_atlas*, which is always subject space.
+         *         affect *roi_atlas*, which declares its own atlas_space.
          *     run_name : str or None
          *         Optional name for this run.  Defaults to a datetime stamp.
          *     n_jobs : int
@@ -8680,7 +8751,7 @@ export interface components {
          *     atlas_path : str or list of str
          *         Path(s) to the volumetric atlas NIfTI file(s).
          *     label : int or list of int
-         *         Integer label index/indices within the volumetric atlas.
+         *         Integer label index/indices, or None to select all positive mask voxels.
          *     tissues : str
          *         Tissue compartments to include.  One of ``"GM"``, ``"WM"``,
          *         or ``"both"``.
@@ -8698,7 +8769,7 @@ export interface components {
             /** Atlas Path */
             atlas_path: string | string[];
             /** Label */
-            label: number | number[];
+            label: number | number[] | null;
             /**
              * Tissues
              * @default GM
@@ -8739,6 +8810,12 @@ export interface components {
              * @default null
              */
             label: number | null;
+            /**
+             * Atlas Space
+             * @default subject
+             * @enum {string}
+             */
+            atlas_space: "subject" | "mni";
         };
         /**
          * BucketElectrodes
@@ -8811,6 +8888,12 @@ export interface components {
              * @default null
              */
             label: number | null;
+            /**
+             * Atlas Space
+             * @default subject
+             * @enum {string}
+             */
+            atlas_space: "subject" | "mni";
         };
         /**
          * BucketElectrodes

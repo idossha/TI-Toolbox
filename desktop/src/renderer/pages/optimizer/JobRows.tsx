@@ -23,6 +23,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Copy, Plus, SlidersHorizontal, X } from "lucide-react";
 import { Button, IconButton } from "../../ui/Button";
 import { Dialog } from "../../ui/Overlay";
+import { FormSection } from "../../ui/Layout";
 import { Field, TextInput } from "../../ui/Field";
 import { Select } from "../../ui/Select";
 import { SegmentedControl } from "../../ui/SegmentedControl";
@@ -487,6 +488,20 @@ function RowEditor({
   const electrodes = electrodesForNet(nets, row.net);
   const method = OPT_METHODS.find((m) => m.value === row.method);
 
+  const electrodeCountControl = (
+    <Field label="Count" help="Four electrodes are two pairs (TI); eight are four pairs (mTI).">
+      <SegmentedControl
+        aria-label="Electrode count"
+        value={String(row.exPairs)}
+        onValueChange={(v) => onChange({ ...row, exPairs: Number(v) === 4 ? 4 : 2 })}
+        options={[
+          { value: "2", label: "4 electrodes (TI)" },
+          { value: "4", label: "8 electrodes (mTI)" },
+        ]}
+      />
+    </Field>
+  );
+
   return (
     <Dialog
       open
@@ -538,17 +553,20 @@ function RowEditor({
         )}
 
         <section className="optimizer-row-target" data-testid="opt-row-target">
-          <h4 className="text-eyebrow">Target</h4>
-          <RoiPicker
-            value={row.roi}
-            onChange={(roi: RoiValue) => onChange({ ...row, roi })}
-            modes={roiModesFor(row.method)}
-            subject={row.subjectId || undefined}
-            /* The mTI run path has no combined mode, so the control must follow the DERIVED kind,
-               not the family: eight electrodes is `mex`, and `mex` cannot union its targets. */
-            allowCombine={rowJobKind(row) === "ex"}
-            onOpenViewer={row.roi.mode === "spherical" ? onOpenViewer : undefined}
-          />
+          <FormSection title="Target">
+            <div className="optimizer-span">
+              <RoiPicker
+                value={row.roi}
+                onChange={(roi: RoiValue) => onChange({ ...row, roi })}
+                modes={roiModesFor(row.method)}
+                subject={row.subjectId || undefined}
+                /* The mTI run path has no combined mode, so the control must follow the DERIVED kind,
+                   not the family: eight electrodes is `mex`, and `mex` cannot union its targets. */
+                allowCombine={rowJobKind(row) === "ex"}
+                onOpenViewer={row.roi.mode === "spherical" ? onOpenViewer : undefined}
+              />
+            </div>
+          </FormSection>
         </section>
 
         {isFlexMethod(row.method) && (
@@ -567,31 +585,14 @@ function RowEditor({
         )}
         {row.method === "ex" && (
           <>
-            {/*
-              The one control that decides `ex` from `mex`, in two-pair steps — and it is an
-              *electrode count*, not a method name (coordinator, 2026-09-06). Four electrodes is a
-              two-channel TI search; eight is the multipolar mTI one. The same inference the
-              Simulator makes from how many pairs a montage has, and the buckets below follow it.
-            */}
-            <Field label="Electrodes" help="Four electrodes are two pairs (TI); eight are four pairs (mTI). The search kind follows the count.">
-              <SegmentedControl
-                aria-label="Electrode count"
-                value={String(row.exPairs)}
-                onValueChange={(v) => onChange({ ...row, exPairs: Number(v) === 4 ? 4 : 2 })}
-                options={[
-                  { value: "2", label: "4 electrodes (TI)" },
-                  { value: "4", label: "8 electrodes (mTI)" },
-                ]}
-              />
-            </Field>
             {row.exPairs === 2 ? (
               <>
-                <ExElectrodesSection form={row.ex} onChange={patchEx} electrodes={electrodes} disabled={!row.net} />
+                <ExElectrodesSection countControl={electrodeCountControl} form={row.ex} onChange={patchEx} electrodes={electrodes} disabled={!row.net} />
                 <ExCurrentSection form={row.ex} onChange={patchEx} />
               </>
             ) : (
               <>
-                <MExElectrodesSection form={row.mex} onChange={patchMex} electrodes={electrodes} disabled={!row.net} />
+                <MExElectrodesSection countControl={electrodeCountControl} form={row.mex} onChange={patchMex} electrodes={electrodes} disabled={!row.net} />
                 <MExCarrierSection form={row.mex} onChange={patchMex} />
               </>
             )}

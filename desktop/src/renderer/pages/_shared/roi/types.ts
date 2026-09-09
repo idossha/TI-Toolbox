@@ -18,7 +18,7 @@
  * one picker rather than a second picker, because U7's merged Optimizer must not carry two ROI
  * widgets that disagree about what an ROI is.
  */
-export type RoiMode = "spherical" | "cortical" | "subcortical" | "saved";
+export type RoiMode = "spherical" | "cortical" | "subcortical" | "saved" | "mask";
 export type RoiSpace = "subject" | "mni";
 export type TissueKind = "GM" | "WM" | "both";
 
@@ -82,7 +82,14 @@ export interface SavedRoiValue {
   space: RoiSpace;
 }
 
-export type RoiValue = SphericalRoiValue | CorticalRoiValue | SubcorticalRoiValue | SavedRoiValue;
+export interface MaskRoiValue {
+  mode: "mask";
+  path: string;
+  space: RoiSpace;
+  tissues: TissueKind;
+}
+
+export type RoiValue = MaskRoiValue | SphericalRoiValue | CorticalRoiValue | SubcorticalRoiValue | SavedRoiValue;
 
 export function emptyRoi(mode: RoiMode, space: RoiSpace = "subject"): RoiValue {
   switch (mode) {
@@ -92,6 +99,8 @@ export function emptyRoi(mode: RoiMode, space: RoiSpace = "subject"): RoiValue {
       return { mode, atlas: undefined, regions: [] };
     case "subcortical":
       return { mode, atlasSpace: space, atlas: undefined, regions: [], tissues: "GM" };
+    case "mask":
+      return { mode, path: "", space, tissues: "GM" };
     case "saved":
       return { mode, selected: [], combine: false, radius: 3.0, space };
   }
@@ -99,6 +108,7 @@ export function emptyRoi(mode: RoiMode, space: RoiSpace = "subject"): RoiValue {
 
 /** True once the value has enough to build a valid ROI config (see `roiToConfig`). */
 export function isRoiComplete(value: RoiValue): boolean {
+  if (value.mode === "mask") return /\.nii(\.gz)?$/i.test(value.path.trim());
   if (value.mode === "saved") return value.selected.length > 0;
   if (value.mode === "spherical") {
     return (
@@ -113,7 +123,7 @@ export function isRoiComplete(value: RoiValue): boolean {
 export type RoiConfig =
   | { _type: "SphericalROI"; x: number[]; y: number[]; z: number[]; radius: number[]; use_mni: boolean; volumetric: boolean; tissues: TissueKind }
   | { _type: "AtlasROI"; atlas_path: string[]; label: number[]; hemisphere: string[] }
-  | { _type: "SubcorticalROI"; atlas_path: string[]; label: number[]; tissues: TissueKind; atlas_space: RoiSpace };
+  | { _type: "SubcorticalROI"; atlas_path: string | string[]; label: number[] | null; tissues: TissueKind; atlas_space: RoiSpace };
 
 /**
  * A cortical/subcortical atlas as returned by the catalog, resolving a region id to the file
@@ -134,6 +144,7 @@ export function roiToConfig(value: RoiValue, atlasLookup: (atlas: string) => Atl
   if (!isRoiComplete(value)) return undefined;
   // `saved` is not a FlexConfig ROI shape — ex/mEx read it through `exTargets()` instead.
   if (value.mode === "saved") return undefined;
+  if (value.mode === "mask") return { _type: "SubcorticalROI", atlas_path: value.path.trim(), label: null, tissues: value.tissues, atlas_space: value.space };
   if (value.mode === "spherical") {
     return {
       _type: "SphericalROI",

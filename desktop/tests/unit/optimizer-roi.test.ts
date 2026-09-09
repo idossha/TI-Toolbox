@@ -85,3 +85,18 @@ describe("exTargets", () => {
     expect(exTargets(emptyRoi("cortical"), noAtlas, true)).toEqual([]);
   });
 });
+
+describe("custom NIfTI masks", () => {
+  it("requires a NIfTI path before enabling the target", () => {
+    expect(isRoiComplete(emptyRoi("mask"))).toBe(false);
+    expect(isRoiComplete({ mode: "mask", path: "/mnt/project/mask.csv", space: "subject", tissues: "GM" })).toBe(false);
+  });
+  for (const space of ["subject", "mni"] as const) {
+    it(`preserves ${space} and whole-mask semantics for Flex and Ex`, () => {
+      const mask: RoiValue = { mode: "mask", path: "/mnt/project/my target.nii.gz", space, tissues: "both" };
+      expect(roiToConfig(mask, noAtlas)).toEqual({ _type: "SubcorticalROI", atlas_path: mask.path, label: null, tissues: "both", atlas_space: space });
+      expect(exTargets(mask, noAtlas)).toEqual([{ roiName: "my target", roiNames: [], roiAtlas: [{ atlas_path: mask.path, label: null, atlas_space: space }], radius: 3, space }]);
+      expect(exTargets(mask, noAtlas, false)).toEqual(exTargets(mask, noAtlas));
+    });
+  }
+});

@@ -7,6 +7,7 @@
  * segment that states the fact and offers the one action that fixes it, rather than a card with a
  * radio list the user must interpret.
  */
+import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CircleHelp, Zap } from "lucide-react";
 import { Button } from "../../ui/Button";
@@ -182,15 +183,18 @@ export function ExElectrodesSection({
   onChange,
   electrodes,
   disabled,
+  countControl,
 }: {
   form: ExFormState;
   onChange: (patch: Partial<ExFormState>) => void;
   electrodes: string[];
   disabled?: boolean;
+  countControl?: ReactNode;
 }) {
   const cost = exCost(form);
   return (
     <FormSection title="Electrodes">
+      {countControl && <div className="optimizer-span">{countControl}</div>}
       <Field label="Search space">
         <SegmentedControl
           value={form.electrodeMode}
@@ -257,15 +261,18 @@ export function MExElectrodesSection({
   onChange,
   electrodes,
   disabled,
+  countControl,
 }: {
   form: MExFormState;
   onChange: (patch: Partial<MExFormState>) => void;
   electrodes: string[];
   disabled?: boolean;
+  countControl?: ReactNode;
 }) {
   const cost = mexCost(form);
   return (
-    <FormSection title="Electrode pairs">
+    <FormSection title="Electrodes">
+      {countControl && <div className="optimizer-span">{countControl}</div>}
       <BucketGrid keys={MEX_BUCKET_KEYS} values={form.buckets} onChange={(k, v) => onChange({ buckets: { ...form.buckets, [k]: v } })} electrodes={electrodes} disabled={disabled} />
       <p className="optimizer-cost optimizer-span" data-testid="optimizer-cost-mex">
         {cost.line}

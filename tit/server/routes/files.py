@@ -1,4 +1,4 @@
-"""``/api/files/*`` — jailed read-only access to project/resources files (v1).
+"""``/api/files/*`` — jailed file reads and bounded custom-mask imports (v1).
 
 Every route resolves its ``path`` against the project directory (all catalog
 routes hand back absolute container paths already) and against the bundled
@@ -27,6 +27,8 @@ from tit.paths import get_path_manager
 from tit.viewspec import jail_roots, raw_jail_roots
 
 router = APIRouter()
+_MASK_UPLOAD_LIMIT = 64 * 1024 * 1024
+_MASK_DECOMPRESSED_LIMIT = 512 * 1024 * 1024
 
 # Own CSP for the sandboxed report iframe (TODO.md §2.6): reports embed
 # inline <script>/<style> (tit/reporting/core/templates.py) and are derived
@@ -321,3 +323,85 @@ def csv_file(path: str = Query(...)) -> dict:
         return {"columns": [], "rows": []}
     columns, *data = rows
     return {"columns": columns, "rows": data}
+
+
+@router.post(
+    "/api/files/mask",
+    status_code=201,
+    summary="Upload a custom NIfTI mask",
+    responses={413: {"description": "Mask exceeds the size limit"}},
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/octet-stream": {
+                    "schema": {"type": "string", "format": "binary"}
+                }
+            },
+        }
+    },
+)
+async def upload_mask(
+    request: Request, name: str = Query(...), subject: str = Query(...)
+) -> dict:
+    """Store a validated mask under this subject; coordinate space is chosen per job."""
+    import re
+    import tempfile
+
+    from starlette.concurrency import run_in_threadpool
+
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_. -]*\.nii(?:\.gz)?", name):
+        raise HTTPException(422, "Choose a .nii or .nii.gz file with a simple filename")
+    pm = get_path_manager()
+    if subject not in catalog.subject_ids(pm):
+        raise HTTPException(404, "Unknown subject")
+    directory = Path(pm.masks(subject)) / "imported"
+    root = Path(pm.project_dir).resolve()
+    if not directory.resolve().is_relative_to(root):
+        raise HTTPException(403, "Mask directory escapes the project")
+    directory.mkdir(parents=True, exist_ok=True)
+    # Imports stay outside atlas autodiscovery: their coordinate space is explicit in the job.
+    suffix = ".nii.gz" if name.endswith(".nii.gz") else ".nii"
+    try:
+        with tempfile.TemporaryDirectory(dir=directory) as scratch:
+            uploaded = Path(scratch) / ("upload" + suffix)
+            total = 0
+            with uploaded.open("wb") as stream:
+                async for chunk in request.stream():
+                    total += len(chunk)
+                    if total > _MASK_UPLOAD_LIMIT:
+                        raise HTTPException(413, "Mask upload exceeds 64 MiB")
+                    stream.write(chunk)
+            destination = await run_in_threadpool(
+                _finish_mask_upload, uploaded, Path(scratch), directory, name, suffix
+            )
+    except HTTPException:
+        raise
+    except (OSError, ValueError, EOFError) as exc:
+        raise HTTPException(422, f"Invalid NIfTI mask: {exc}") from exc
+    return {"path": str(destination)}
+
+
+def _finish_mask_upload(
+    uploaded: Path, scratch: Path, directory: Path, name: str, suffix: str
+) -> Path:
+    import gzip
+    import uuid
+
+    from tit.opt.masks import validate_mask
+
+    plain = uploaded
+    if suffix == ".nii.gz":
+        plain = scratch / "mask.nii"
+        total = 0
+        with gzip.open(uploaded, "rb") as source, plain.open("wb") as target:
+            while chunk := source.read(1024 * 1024):
+                total += len(chunk)
+                if total > _MASK_DECOMPRESSED_LIMIT:
+                    raise HTTPException(413, "Decompressed mask exceeds 512 MiB")
+                target.write(chunk)
+    validate_mask(str(plain))
+    stem = name[: -len(suffix)]
+    destination = directory / f"{stem}-{uuid.uuid4().hex[:12]}{suffix}"
+    uploaded.rename(destination)
+    return destination

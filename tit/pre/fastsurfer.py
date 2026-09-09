@@ -39,6 +39,8 @@ from __future__ import annotations
 
 import gzip
 import os
+import re
+import subprocess
 import shutil
 import tempfile
 from pathlib import Path
@@ -63,6 +65,7 @@ DEFAULT_FASTSURFER_PYTHON = "simnibs_python"
 
 #: Environment override for the thread count (see :func:`resolve_threads`).
 ENV_FASTSURFER_THREADS = "TIT_FASTSURFER_THREADS"
+ENV_FASTSURFER_DEVICE = "TIT_FASTSURFER_DEVICE"
 
 RUN_SCRIPT = "run_fastsurfer.sh"
 
@@ -79,7 +82,7 @@ SEG_LABELS_FILENAME = "aparc.DKTatlas+aseg.deep_labels.txt"
 
 #: Threads used when neither the caller nor the environment says otherwise.
 #: FastSurfer peaks at ~4.8 GiB regardless of thread count; the ``pre`` job
-#: kind's default budget is 2 cpus / 6 GB (:mod:`tit.jobs.costs`), so 2 is
+#: kind's FastSurfer budget is 2 cpus / 8 GB (:mod:`tit.jobs.costs`), so 2 is
 #: the honest default and callers with a bigger budget pass it explicitly.
 DEFAULT_THREADS = 2
 
@@ -131,6 +134,58 @@ def resolve_threads(threads: int | None = None) -> int:
     if threads is None:
         threads = DEFAULT_THREADS
     return max(1, int(threads))
+
+
+def resolve_device() -> str:
+    """Use FastSurfer's runtime hardware detection unless explicitly overridden."""
+    device = (os.environ.get(ENV_FASTSURFER_DEVICE) or "auto").strip().lower()
+    if not re.fullmatch(r"auto|cpu|mps|cuda(?::[0-9]+)?", device):
+        raise PreprocessError(
+            f"{ENV_FASTSURFER_DEVICE} must be auto, cpu, mps, or cuda[:index]."
+        )
+    return device
+
+
+def inference_environment() -> dict[str, str]:
+    """Enable upstream's required MPS fallback without changing the server env."""
+    env = os.environ.copy()
+    env.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
+    return env
+
+
+def _validate_device(device: str, env: dict[str, str]) -> None:
+    if device in ("auto", "cpu"):
+        return
+    probe = (
+        "import sys, torch; d=sys.argv[1]; "
+        "ok=(torch.cuda.is_available() and "
+        "(int(d.split(':')[1]) if ':' in d else 0)<torch.cuda.device_count()) "
+        "if d.startswith('cuda') else "
+        "(hasattr(torch.backends,'mps') and torch.backends.mps.is_available()); "
+        "sys.exit(0 if ok else 1)"
+    )
+    try:
+        result = subprocess.run(
+            [fastsurfer_python(), "-c", probe, device],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise PreprocessError(
+            f"Cannot check FastSurfer device {device} using {fastsurfer_python()}. "
+            f"Check {ENV_FASTSURFER_PYTHON}."
+        ) from exc
+    if result.returncode:
+        raise PreprocessError(
+            f"FastSurfer device {device} is unavailable in {fastsurfer_python()}. "
+            f"Use {ENV_FASTSURFER_DEVICE}=auto or cpu, or configure a compatible "
+            "PyTorch environment with access to the requested GPU. "
+            "The standard TI-Toolbox Docker image uses CPU-only PyTorch; "
+            "Apple MPS requires native macOS execution."
+        )
 
 
 def _missing_fastsurfer_error() -> PreprocessError:
@@ -293,6 +348,9 @@ def run_fastsurfer(
         subjects_root.mkdir(parents=True, exist_ok=True)
 
         n_threads = resolve_threads(threads)
+        device = resolve_device()
+        env = inference_environment()
+        _validate_device(device, env)
         cmd = [
             str(script),
             "--seg_only",
@@ -311,7 +369,7 @@ def run_fastsurfer(
             "--t1",
             str(t1_file),
             "--device",
-            "cpu",
+            device,
             "--threads",
             str(n_threads),
             "--py",
@@ -320,11 +378,11 @@ def run_fastsurfer(
 
         logger.info(
             f"Running FastSurfer seg_only for subject {subject_id} "
-            f"({n_threads} threads, cpu)"
+            f"({n_threads} threads, device={device})"
         )
         if runner is None:
             runner = CommandRunner()
-        exit_code = runner.run(cmd, logger=logger)
+        exit_code = runner.run(cmd, logger=logger, env=env)
 
         if exit_code != 0:
             raise PreprocessError(

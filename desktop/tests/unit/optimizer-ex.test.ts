@@ -77,7 +77,7 @@ describe("Optimizer Ex/mEx defaults validate against contracts/generated/config.
     };
     const config: ExConfigBody = buildExConfig("ernie", "/mnt/example/leadfields/GSN-HydroCel-185/leadfield.hdf5", form, target, "");
     expect(config.roi_names).toEqual([]);
-    expect(config.roi_atlas).toEqual([{ atlas_path: "/mnt/example/atlases/CIT168.nii.gz", label: 10 }]);
+    expect(config.roi_atlas).toEqual([{ atlas_path: "/mnt/example/atlases/CIT168.nii.gz", label: 10, atlas_space: "subject" }]);
     expect(validate("ExConfig", config as unknown as Record<string, unknown>)).toEqual([]);
   });
 

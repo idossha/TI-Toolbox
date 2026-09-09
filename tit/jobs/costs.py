@@ -51,6 +51,9 @@ def default_cost(kind: str, config: dict[str, Any] | None = None) -> Cost:
     """
     config = config or {}
     base = DEFAULT_COSTS.get(kind, _FALLBACK)
+    if kind == "pre" and config.get("run_fastsurfer"):
+        # Upstream minimum system memory for segmentation; keep other pre stages unchanged.
+        base = Cost(cpus=base.cpus, mem_gb=8)
     if kind == "blender" and config.get("_type") in (
         "VectorConfig",
         "RegionConfig",

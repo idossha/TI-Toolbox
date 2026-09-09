@@ -64,3 +64,32 @@
   margin-left: auto;
   flex: none;
 }
+
+@media (max-width: 1099px) {
+  /* Stacked panes use the page width, including a width remembered from desktop. */
+  .page-layout .page-layout-panel,
+  .page-layout .page-layout-panel[data-pane-width],
+  .page-layout-run .page-layout-panel:not([data-pane-width]) {
+    width: 100%;
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .page-layout-run .page-layout-panel[data-pane-kind="run"] {
+    height: clamp(420px, 65vh, 1100px);
+    flex: none;
+    margin-top: var(--space-3);
+  }
+
+  /* Horizontal resizing has no meaning when the two panes are stacked. */
+  .page-layout .pane-separator[data-pane-mode="normal"] {
+    display: none;
+  }
+
+  .page-layout .pane-separator[data-pane-mode="collapsed"] {
+    width: 100%;
+    height: 24px;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+}

@@ -150,14 +150,16 @@ class TestRunFastsurfer:
         cmd = seen["cmd"]
         assert cmd[0] == str(fake_home / fs.RUN_SCRIPT)
         assert "--seg_only" in cmd
-        assert "--allow_root" in cmd  # the container runs as root; FastSurfer refuses without it
+        assert (
+            "--allow_root" in cmd
+        )  # the container runs as root; FastSurfer refuses without it
         # --no_cc is mandatory: without it the CC module downloads 81 MB of
         # unused checkpoints and crashed in the spike.
         assert "--no_cc" in cmd
         assert "--no_cereb" in cmd
         assert "--no_hypothal" in cmd
         assert cmd[cmd.index("--sid") + 1] == "sub-001"
-        assert cmd[cmd.index("--device") + 1] == "cpu"
+        assert cmd[cmd.index("--device") + 1] == "auto"
         assert cmd[cmd.index("--threads") + 1] == "5"
         assert cmd[cmd.index("--py") + 1] == "simnibs_python"
 
@@ -249,3 +251,70 @@ def test_real_fastsurfer_checkout_is_runnable():
     assert script is not None, f"no {fs.RUN_SCRIPT} under {fs.fastsurfer_home()}"
     assert os.access(script, os.X_OK)
     assert fs.fastsurfer_available() is True
+
+
+@pytest.mark.parametrize("device", ["auto", "cpu", "mps", "cuda", "cuda:1"])
+def test_device_override(monkeypatch, device):
+    monkeypatch.setenv(fs.ENV_FASTSURFER_DEVICE, device)
+    assert fs.resolve_device() == device
+
+
+def test_default_uses_upstream_auto_detection(monkeypatch):
+    monkeypatch.delenv(fs.ENV_FASTSURFER_DEVICE, raising=False)
+    assert fs.resolve_device() == "auto"
+
+
+def test_invalid_device_fails_before_launch(monkeypatch):
+    monkeypatch.setenv(fs.ENV_FASTSURFER_DEVICE, "gpu")
+    with pytest.raises(PreprocessError, match="cuda"):
+        fs.resolve_device()
+
+
+def test_mps_fallback_is_child_only_and_preserves_override(monkeypatch):
+    monkeypatch.delenv("PYTORCH_ENABLE_MPS_FALLBACK", raising=False)
+    assert fs.inference_environment()["PYTORCH_ENABLE_MPS_FALLBACK"] == "1"
+    assert "PYTORCH_ENABLE_MPS_FALLBACK" not in os.environ
+    monkeypatch.setenv("PYTORCH_ENABLE_MPS_FALLBACK", "0")
+    assert fs.inference_environment()["PYTORCH_ENABLE_MPS_FALLBACK"] == "0"
+
+
+def test_unavailable_explicit_device_explains_cpu_image(monkeypatch):
+    monkeypatch.setattr(fs.subprocess, "run", lambda *a, **kw: MagicMock(returncode=1))
+    with pytest.raises(PreprocessError, match="CPU-only"):
+        fs._validate_device("cuda", fs.inference_environment())
+
+
+def test_probe_uses_selected_interpreter_and_device(monkeypatch):
+    monkeypatch.setenv(fs.ENV_FASTSURFER_PYTHON, "/native/fastsurfer/python")
+    run = MagicMock(return_value=MagicMock(returncode=0))
+    monkeypatch.setattr(fs.subprocess, "run", run)
+    env = fs.inference_environment()
+    fs._validate_device("mps", env)
+    assert run.call_args.args[0][0] == "/native/fastsurfer/python"
+    assert run.call_args.args[0][-1] == "mps"
+    assert run.call_args.kwargs["env"] is env
+
+
+@pytest.mark.parametrize("device", ["auto", "cpu"])
+def test_default_devices_do_not_probe_torch_in_server(monkeypatch, device):
+    run = MagicMock()
+    monkeypatch.setattr(fs.subprocess, "run", run)
+    fs._validate_device(device, fs.inference_environment())
+    run.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "config, memory",
+    [
+        ({"run_fastsurfer": True}, 8),
+        ({"run_fastsurfer": False, "create_m2m": True}, 6),
+        ({"run_fastsurfer": True, "memory_gb": 12}, 12),
+        ({"run_fastsurfer": True, "mem_gb": 10}, 10),
+    ],
+)
+def test_fastsurfer_memory_budget_only_changes_its_stage(config, memory):
+    from tit.jobs.costs import default_cost
+
+    cost = default_cost("pre", config)
+    assert cost.mem_gb == memory
+    assert cost.cpus == 2

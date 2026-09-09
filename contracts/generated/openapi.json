@@ -3586,6 +3586,87 @@
         }
       }
     },
+    "/api/files/mask": {
+      "post": {
+        "tags": [
+          "files"
+        ],
+        "summary": "Upload a custom NIfTI mask",
+        "description": "Finite nonempty 3D mask, at most 64 MiB uploaded and 512 MiB decompressed. Coordinate space is selected in the job.",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Stored mask",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "path"
+                  ],
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "Mask directory escapes the project"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "description": "Mask exceeds the size limit"
+          },
+          "422": {
+            "description": "Invalid NIfTI mask or filename"
+          }
+        }
+      }
+    },
     "/api/files/report/{id}": {
       "get": {
         "tags": [
@@ -11060,7 +11141,7 @@
         "additionalProperties": false
       },
       "ExConfig": {
-        "description": "Full configuration for exhaustive search optimization.\n\nExhaustive search evaluates every valid electrode combination from\na user-defined pool or bucket set, sweeping current amplitudes at\ndiscrete steps.\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier matching the m2m directory name.\nleadfield_hdf : str\n    Path to the precomputed leadfield HDF5 file.\nroi_name : str\n    ROI CSV filename (e.g. ``\"target.csv\"``).  The ``\".csv\"`` suffix\n    is appended automatically if missing.  Used as the metric-key\n    prefix and (with the net name) the output-directory label.\nroi_names : list of str or None\n    Optional list of ROI CSV filenames to **union** into a single\n    target.  When provided (combined mode), the spherical masks of\n    every listed ROI are OR-folded into one region.  ``None``\n    (default) keeps single-ROI behavior driven by *roi_name*.  An\n    explicit empty list means \"no spherical centers at all\" -- useful\n    for a purely atlas-driven ROI (*roi_atlas* only).  Each entry gets\n    the ``\".csv\"`` suffix appended if missing.\nroi_atlas : list of AtlasROI or None\n    Volumetric atlas or mask ROI(s) to union with the spherical\n    centers from *roi_name*/*roi_names*.  ``None`` (default) keeps\n    the existing spherical-only behavior.\nroi_coordinate_space : str\n    Space of the *roi_name*/*roi_names* CSV centers -- ``\"subject\"``\n    (default) or ``\"mni\"``.  MNI centers are transformed to subject\n    space with ``simnibs.mni2subject_coords`` before the search runs.\n    Does not affect *roi_atlas*, which is always subject space.\nelectrodes : BucketElectrodes or PoolElectrodes\n    Electrode specification, either a single shared pool\n    (:class:`PoolElectrodes`) or separate per-channel buckets\n    (:class:`BucketElectrodes`).  A plain dict is auto-converted\n    in ``__post_init__``.\ntotal_current : float\n    Total injected current in mA, split across channels.\ncurrent_step : float\n    Current amplitude step size in mA for the sweep.\nchannel_limit : float or None\n    Maximum current per channel in mA.  ``None`` for no per-channel\n    limit.\nroi_radius : float\n    Spherical ROI radius in mm for the target region.\nrun_name : str or None\n    Optional name for this run.  Defaults to a datetime stamp.\nn_jobs : int\n    Worker processes evaluating candidates in parallel.  ``-1``\n    (default) uses all cores minus one; ``1`` evaluates in-process.\n    Results and CSV ordering do not depend on it.\nsymmetric_bucket : bool\n    When True in bucket mode, evaluate only left/right mirrored\n    montages (see :func:`tit.opt.ex.buckets.build_electrode_mirror_map`).\nsymmetry_eeg_csv : str or None\n    EEG-position CSV used to derive mirrored electrode pairs.  If\n    unset, it is inferred from the leadfield's net name.\nsymmetry_pairing : str\n    Symmetry interpretation when *symmetric_bucket* is True.\n    ``\"within_pairs\"``: each pair's minus electrode is the mirror of\n    its plus electrode (e.g. F7-F8).  ``\"cross_pairs\"``: pair 2 is the\n    mirror image of pair 1 (``e2+ = mirror(e1+)``, ``e2- = mirror(e1-)``).\n\nRaises\n------\nValueError\n    If *current_step*, *total_current*, or *channel_limit* are\n    non-positive, if *symmetric_bucket* is set with pool electrodes,\n    if *symmetry_pairing* is not ``\"within_pairs\"``/``\"cross_pairs\"``,\n    or if *roi_coordinate_space* is not ``\"subject\"`` or ``\"mni\"``.\n\nSee Also\n--------\nExResult : Result container returned by :func:`~tit.opt.ex.ex.run_ex_search`.\ntit.opt.ex.ex.run_ex_search : Consumes this config.",
+        "description": "Full configuration for exhaustive search optimization.\n\nExhaustive search evaluates every valid electrode combination from\na user-defined pool or bucket set, sweeping current amplitudes at\ndiscrete steps.\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier matching the m2m directory name.\nleadfield_hdf : str\n    Path to the precomputed leadfield HDF5 file.\nroi_name : str\n    ROI CSV filename (e.g. ``\"target.csv\"``).  The ``\".csv\"`` suffix\n    is appended automatically if missing.  Used as the metric-key\n    prefix and (with the net name) the output-directory label.\nroi_names : list of str or None\n    Optional list of ROI CSV filenames to **union** into a single\n    target.  When provided (combined mode), the spherical masks of\n    every listed ROI are OR-folded into one region.  ``None``\n    (default) keeps single-ROI behavior driven by *roi_name*.  An\n    explicit empty list means \"no spherical centers at all\" -- useful\n    for a purely atlas-driven ROI (*roi_atlas* only).  Each entry gets\n    the ``\".csv\"`` suffix appended if missing.\nroi_atlas : list of AtlasROI or None\n    Volumetric atlas or mask ROI(s) to union with the spherical\n    centers from *roi_name*/*roi_names*.  ``None`` (default) keeps\n    the existing spherical-only behavior.\nroi_coordinate_space : str\n    Space of the *roi_name*/*roi_names* CSV centers -- ``\"subject\"``\n    (default) or ``\"mni\"``.  MNI centers are transformed to subject\n    space with ``simnibs.mni2subject_coords`` before the search runs.\n    Does not affect *roi_atlas*, which declares its own atlas_space.\nelectrodes : BucketElectrodes or PoolElectrodes\n    Electrode specification, either a single shared pool\n    (:class:`PoolElectrodes`) or separate per-channel buckets\n    (:class:`BucketElectrodes`).  A plain dict is auto-converted\n    in ``__post_init__``.\ntotal_current : float\n    Total injected current in mA, split across channels.\ncurrent_step : float\n    Current amplitude step size in mA for the sweep.\nchannel_limit : float or None\n    Maximum current per channel in mA.  ``None`` for no per-channel\n    limit.\nroi_radius : float\n    Spherical ROI radius in mm for the target region.\nrun_name : str or None\n    Optional name for this run.  Defaults to a datetime stamp.\nn_jobs : int\n    Worker processes evaluating candidates in parallel.  ``-1``\n    (default) uses all cores minus one; ``1`` evaluates in-process.\n    Results and CSV ordering do not depend on it.\nsymmetric_bucket : bool\n    When True in bucket mode, evaluate only left/right mirrored\n    montages (see :func:`tit.opt.ex.buckets.build_electrode_mirror_map`).\nsymmetry_eeg_csv : str or None\n    EEG-position CSV used to derive mirrored electrode pairs.  If\n    unset, it is inferred from the leadfield's net name.\nsymmetry_pairing : str\n    Symmetry interpretation when *symmetric_bucket* is True.\n    ``\"within_pairs\"``: each pair's minus electrode is the mirror of\n    its plus electrode (e.g. F7-F8).  ``\"cross_pairs\"``: pair 2 is the\n    mirror image of pair 1 (``e2+ = mirror(e1+)``, ``e2- = mirror(e1-)``).\n\nRaises\n------\nValueError\n    If *current_step*, *total_current*, or *channel_limit* are\n    non-positive, if *symmetric_bucket* is set with pool electrodes,\n    if *symmetry_pairing* is not ``\"within_pairs\"``/``\"cross_pairs\"``,\n    or if *roi_coordinate_space* is not ``\"subject\"`` or ``\"mni\"``.\n\nSee Also\n--------\nExResult : Result container returned by :func:`~tit.opt.ex.ex.run_ex_search`.\ntit.opt.ex.ex.run_ex_search : Consumes this config.",
         "properties": {
           "subject_id": {
             "title": "Subject Id",
@@ -11209,7 +11290,7 @@
         "additionalProperties": false
       },
       "MExConfig": {
-        "description": "Full configuration for multipolar (4-pair, 8-electrode) exhaustive search.\n\nEvaluates every valid combination of four bipolar electrode pairs from\na user-defined pool or bucket set, at one fixed current per pair, and\nscores each candidate with the verified N>2 mTI envelope\n(:func:`tit.calc.get_TI_vectors`).\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier matching the m2m directory name.\nleadfield_hdf : str\n    Path to the precomputed leadfield HDF5 file.\nroi_name : str\n    ROI CSV filename (e.g. ``\"target.csv\"``).  The ``\".csv\"`` suffix\n    is appended automatically if missing.\nelectrodes : BucketElectrodes or PoolElectrodes\n    Electrode specification, either a single shared pool\n    (:class:`PoolElectrodes`) or four separate per-pair buckets\n    (:class:`BucketElectrodes`).  A plain dict is auto-converted in\n    ``__post_init__``.\ncurrent_mA : float\n    Current in mA delivered by each of the four pairs.\nroi_radius : float\n    Spherical ROI radius in mm for the target region.\nroi_names : list of str or None\n    Optional list of ROI CSV filenames to **union** into a single\n    target.  ``None`` (default) keeps single-ROI behavior driven by\n    *roi_name*.  An explicit empty list means \"no spherical centers at\n    all\" -- required for a purely atlas-driven ROI (*roi_atlas* only),\n    in which case *roi_name* is only a naming label and no CSV is read.\n    Each entry gets the ``\".csv\"`` suffix appended if missing.\nroi_atlas : list of AtlasROI or None\n    Volumetric atlas or mask ROI(s) to union with the spherical center\n    from *roi_name*.  ``None`` (default) keeps the existing\n    spherical-only behavior.\nroi_coordinate_space : str\n    Space of the *roi_name* CSV center -- ``\"subject\"`` (default) or\n    ``\"mni\"``.  An MNI center is transformed to subject space with\n    ``simnibs.mni2subject_coords`` before the search runs.  Does not\n    affect *roi_atlas*, which is always subject space.\nrun_name : str or None\n    Optional name for this run.  Defaults to a datetime stamp.\nn_jobs : int\n    Worker processes evaluating candidates in parallel.  ``-1``\n    (default) uses all cores minus one; ``1`` evaluates in-process.\n    Results and CSV ordering do not depend on it.\nsymmetric_bucket : bool\n    When True in bucket mode, evaluate only left/right mirrored\n    electrode pairs (see :func:`tit.opt.ex.buckets.build_electrode_mirror_map`).\nsymmetry_eeg_csv : str or None\n    EEG-position CSV used to derive mirrored electrode pairs.  If\n    unset, it is inferred from the leadfield's net name.\nsymmetry_pairing : str\n    Symmetry interpretation for bucket mode when *symmetric_bucket*\n    is True.  ``\"within_pairs\"`` mirrors each pair's plus/minus\n    electrodes independently; ``\"cross_pairs\"`` additionally mirrors\n    pair 1<->3 and pair 2<->4.\n\nRaises\n------\nValueError\n    If *current_mA* is non-positive, if *symmetric_bucket* is set\n    with pool electrodes, if *symmetry_pairing* is not one of\n    ``\"within_pairs\"``/``\"cross_pairs\"``, or if *roi_coordinate_space*\n    is not ``\"subject\"`` or ``\"mni\"``.\n\nSee Also\n--------\nMExResult : Result container returned by :func:`~tit.opt.mex.mex.run_m_ex_search`.\ntit.opt.mex.mex.run_m_ex_search : Consumes this config.\ntit.calc.get_TI_vectors : Modulation-amplitude envelope.",
+        "description": "Full configuration for multipolar (4-pair, 8-electrode) exhaustive search.\n\nEvaluates every valid combination of four bipolar electrode pairs from\na user-defined pool or bucket set, at one fixed current per pair, and\nscores each candidate with the verified N>2 mTI envelope\n(:func:`tit.calc.get_TI_vectors`).\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier matching the m2m directory name.\nleadfield_hdf : str\n    Path to the precomputed leadfield HDF5 file.\nroi_name : str\n    ROI CSV filename (e.g. ``\"target.csv\"``).  The ``\".csv\"`` suffix\n    is appended automatically if missing.\nelectrodes : BucketElectrodes or PoolElectrodes\n    Electrode specification, either a single shared pool\n    (:class:`PoolElectrodes`) or four separate per-pair buckets\n    (:class:`BucketElectrodes`).  A plain dict is auto-converted in\n    ``__post_init__``.\ncurrent_mA : float\n    Current in mA delivered by each of the four pairs.\nroi_radius : float\n    Spherical ROI radius in mm for the target region.\nroi_names : list of str or None\n    Optional list of ROI CSV filenames to **union** into a single\n    target.  ``None`` (default) keeps single-ROI behavior driven by\n    *roi_name*.  An explicit empty list means \"no spherical centers at\n    all\" -- required for a purely atlas-driven ROI (*roi_atlas* only),\n    in which case *roi_name* is only a naming label and no CSV is read.\n    Each entry gets the ``\".csv\"`` suffix appended if missing.\nroi_atlas : list of AtlasROI or None\n    Volumetric atlas or mask ROI(s) to union with the spherical center\n    from *roi_name*.  ``None`` (default) keeps the existing\n    spherical-only behavior.\nroi_coordinate_space : str\n    Space of the *roi_name* CSV center -- ``\"subject\"`` (default) or\n    ``\"mni\"``.  An MNI center is transformed to subject space with\n    ``simnibs.mni2subject_coords`` before the search runs.  Does not\n    affect *roi_atlas*, which declares its own atlas_space.\nrun_name : str or None\n    Optional name for this run.  Defaults to a datetime stamp.\nn_jobs : int\n    Worker processes evaluating candidates in parallel.  ``-1``\n    (default) uses all cores minus one; ``1`` evaluates in-process.\n    Results and CSV ordering do not depend on it.\nsymmetric_bucket : bool\n    When True in bucket mode, evaluate only left/right mirrored\n    electrode pairs (see :func:`tit.opt.ex.buckets.build_electrode_mirror_map`).\nsymmetry_eeg_csv : str or None\n    EEG-position CSV used to derive mirrored electrode pairs.  If\n    unset, it is inferred from the leadfield's net name.\nsymmetry_pairing : str\n    Symmetry interpretation for bucket mode when *symmetric_bucket*\n    is True.  ``\"within_pairs\"`` mirrors each pair's plus/minus\n    electrodes independently; ``\"cross_pairs\"`` additionally mirrors\n    pair 1<->3 and pair 2<->4.\n\nRaises\n------\nValueError\n    If *current_mA* is non-positive, if *symmetric_bucket* is set\n    with pool electrodes, if *symmetry_pairing* is not one of\n    ``\"within_pairs\"``/``\"cross_pairs\"``, or if *roi_coordinate_space*\n    is not ``\"subject\"`` or ``\"mni\"``.\n\nSee Also\n--------\nMExResult : Result container returned by :func:`~tit.opt.mex.mex.run_m_ex_search`.\ntit.opt.mex.mex.run_m_ex_search : Consumes this config.\ntit.calc.get_TI_vectors : Modulation-amplitude envelope.",
         "properties": {
           "subject_id": {
             "title": "Subject Id",
@@ -12835,7 +12916,7 @@
         "additionalProperties": false
       },
       "SubcorticalROI": {
-        "description": "Subcortical volume ROI from a volumetric atlas.\n\n*label* accepts either a single value (one region) or a list (a union\nof several regions -- e.g. both hippocampi from one ``aseg`` atlas --\nevaluated as one combined target).  *atlas_path* may be a scalar\n(shared by every label) or a list matching the number of labels; a\nsingle shared *tissues* and *atlas_space* apply to the whole union.\n\nAttributes\n----------\natlas_path : str or list of str\n    Path(s) to the volumetric atlas NIfTI file(s).\nlabel : int or list of int\n    Integer label index/indices within the volumetric atlas.\ntissues : str\n    Tissue compartments to include.  One of ``\"GM\"``, ``\"WM\"``,\n    or ``\"both\"``.\natlas_space : str\n    Space of the atlas NIfTI.  One of ``\"subject\"`` or ``\"mni\"``.\n    MNI-space masks are transformed by SimNIBS during ROI setup.\n\nRaises\n------\nValueError\n    If *label* is empty, or *atlas_path* is a list whose length\n    neither equals 1 nor the number of labels.",
+        "description": "Subcortical volume ROI from a volumetric atlas.\n\n*label* accepts either a single value (one region) or a list (a union\nof several regions -- e.g. both hippocampi from one ``aseg`` atlas --\nevaluated as one combined target).  *atlas_path* may be a scalar\n(shared by every label) or a list matching the number of labels; a\nsingle shared *tissues* and *atlas_space* apply to the whole union.\n\nAttributes\n----------\natlas_path : str or list of str\n    Path(s) to the volumetric atlas NIfTI file(s).\nlabel : int or list of int\n    Integer label index/indices, or None to select all positive mask voxels.\ntissues : str\n    Tissue compartments to include.  One of ``\"GM\"``, ``\"WM\"``,\n    or ``\"both\"``.\natlas_space : str\n    Space of the atlas NIfTI.  One of ``\"subject\"`` or ``\"mni\"``.\n    MNI-space masks are transformed by SimNIBS during ROI setup.\n\nRaises\n------\nValueError\n    If *label* is empty, or *atlas_path* is a list whose length\n    neither equals 1 nor the number of labels.",
         "properties": {
           "atlas_path": {
             "anyOf": [
@@ -12861,6 +12942,9 @@
                   "type": "integer"
                 },
                 "type": "array"
+              },
+              {
+                "type": "null"
               }
             ],
             "title": "Label"
@@ -12910,6 +12994,15 @@
             ],
             "default": null,
             "title": "Label"
+          },
+          "atlas_space": {
+            "default": "subject",
+            "enum": [
+              "subject",
+              "mni"
+            ],
+            "title": "Atlas Space",
+            "type": "string"
           }
         },
         "required": [
@@ -13005,6 +13098,15 @@
             ],
             "default": null,
             "title": "Label"
+          },
+          "atlas_space": {
+            "default": "subject",
+            "enum": [
+              "subject",
+              "mni"
+            ],
+            "title": "Atlas Space",
+            "type": "string"
           }
         },
         "required": [

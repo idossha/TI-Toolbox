@@ -9,6 +9,13 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 ---
 ### v3.0.0 (Unreleased)
 
+- **FastSurfer uses available hardware.** Automatic device selection supports CUDA, native
+  Apple MPS, or CPU in the selected Python environment. The bundled Docker image remains CPU-only.
+
+- **Custom NIfTI targets in Flex and Ex searches.** Choose a mask file and its Subject/MNI space;
+  MNI masks use the selected subject’s registration. Target and electrode settings are visually
+  separated, and stacked scene/terminal panes use the available width on portrait screens.
+
 - **Bash launchers no longer require Python.** Both CLI entry points open the Docker-hosted UI;
   their dev variants mount the current checkout. `pnpm dev --host` runs a local API and UI for
   development without Docker.

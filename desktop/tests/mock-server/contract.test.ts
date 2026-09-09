@@ -135,13 +135,13 @@ async function call(
   opPath: string,
   method: string,
   urlPath: string,
-  opts: { body?: unknown; auth?: boolean; headers?: Record<string, string> } = {},
+  opts: { body?: unknown; rawBody?: Uint8Array; auth?: boolean; headers?: Record<string, string> } = {},
 ): Promise<{ res: Response; json?: unknown }> {
-  const { body, auth = true, headers = {} } = opts;
+  const { body, rawBody, auth = true, headers = {} } = opts;
   const res = await fetch(`${BASE}${urlPath}`, {
     method,
     headers: { ...(body !== undefined ? { "content-type": "application/json" } : {}), ...(auth ? { authorization: `Bearer ${TOKEN}` } : {}), ...headers },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: rawBody !== undefined ? Buffer.from(rawBody) : body !== undefined ? JSON.stringify(body) : undefined,
   });
   exercised.add(`${method} ${opPath}`);
   const statuses = declaredStatuses(opPath, method);
@@ -345,6 +345,11 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     await call("/api/files/artifact", "GET", `/api/files/artifact?path=${artifactPath}`);
     await call("/api/files/text", "GET", `/api/files/text?path=${artifactPath}&tail=2`);
     await call("/api/files/csv", "GET", `/api/files/csv?path=${artifactPath}`);
+    const { json: uploadedMask } = await call("/api/files/mask", "POST", "/api/files/mask?subject=ernie&name=target.nii", {
+      rawBody: new Uint8Array([1, 2, 3]), headers: { "content-type": "application/octet-stream" },
+    });
+    expect(uploadedMask).toEqual({ path: "/mnt/example/derivatives/SimNIBS/sub-ernie/m2m_ernie/masks/target.nii" });
+
     // The in-app viewer's byte source. Without TIT_MOCK_DATA_ROOT (the CI default) there are no
     // real volumes to stream, so this is the declared 404 -- the point of the call is that the
     // route exists and is covered, which the exercised-vs-declared assertion below demands.

@@ -473,3 +473,22 @@ mount their own checkout/worktree; missing local UI output must not select the b
 Keep Docker-backed `pnpm dev` as the reproducible default and add explicit `--host`/`dev:host` for
 local API/UI work. Host science dependencies remain the developer's responsibility. This preserves
 existing Docker workflows while making container-free development a deliberate choice.
+
+## 2026-09-09 — Custom optimizer masks and stacked panes
+
+**Decision:** Reuse volumetric ROI configuration for explicit Subject/MNI NIfTI masks in Flex
+and Ex; use SimNIBS’ subject registration for MNI conversion. Give stacked run panes full width
+and viewport-scaled height while preserving the saved desktop width.
+**Why:** Conformation alone is not anatomical registration, and a desktop width should not constrain
+portrait viewing. **Cost:** MNI targets require the subject’s registration files.
+**Revisit if:** Additional mask coordinate spaces or non-SimNIBS registrations are supported.
+
+## 2026-09-09 — FastSurfer selects devices in its own environment
+
+**Decision:** Delegate automatic CPU/CUDA/MPS selection to the pinned FastSurfer runtime,
+with an explicit device override and an 8 GB default job reservation. Preserve the bundled
+CPU-only image and the separate interpreter override for native FastSurfer installations.
+**Why:** Host GPU presence does not imply the container or its PyTorch build can use it.
+Replacing the shared SimNIBS environment with FastSurfer’s package environment would risk
+incompatible dependencies. **Cost:** GPU acceleration needs a compatible native environment
+or custom GPU-enabled image/runtime. **Revisit if:** Supported GPU image variants are added.

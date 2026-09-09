@@ -450,6 +450,13 @@ test("Ex: the Leadfield cell lists what a subject has, and names the refusal whe
 
   // Two uncombined saved ROIs are two runs — 2.5.0's own expansion, kept.
   const dialog = await openOptEditor(page, row);
+  const targetSection = dialog.locator('[data-fill-section="Target"]');
+  const electrodeSection = dialog.locator('[data-fill-section="Electrodes"]');
+  await expect(targetSection.locator('.form-section-header')).toBeVisible();
+  await expect(electrodeSection.getByRole("radiogroup", { name: "Electrode count" })).toBeVisible();
+  expect((await electrodeSection.boundingBox())!.y).toBeGreaterThan(
+    (await targetSection.boundingBox())!.y + (await targetSection.boundingBox())!.height,
+  );
   await expect(dialog.getByRole("radio", { name: "Saved", exact: true })).toBeChecked();
   await pickSavedTarget(dialog, "Thalamus_target");
   await pickSavedTarget(dialog, "L_Insula_target");
@@ -717,4 +724,33 @@ test("artifacts: the jobs table and its two row editors", async () => {
 
   await expect(page.getByTestId("plan-grid")).toBeVisible();
   await page.locator('[data-page-active="true"]').getByTestId("page-work").screenshot({ path: "tests/e2e/artifacts/optimizer-jobs.png" });
+});
+
+
+test("custom masks import and retain explicit space in Flex and Ex", async () => {
+  await clearOptRows(page);
+  await addOptRow(page);
+  const row = optRows(page).first();
+  await setOptSubject(page, row, "ernie");
+  const uploads: string[] = [];
+  await page.route("**/api/files/mask?**", async (route) => {
+    uploads.push(route.request().url());
+    await route.fulfill({ json: { path: "/mnt/project/m2m_ernie/masks/custom.nii.gz" } });
+  });
+  for (const method of ["Flex", "Ex"] as const) {
+    await setOptCell(page, row, "method", method);
+    const dialog = await openOptEditor(page, row);
+    await dialog.getByRole("radio", { name: "NIfTI mask", exact: true }).click();
+    await dialog.getByLabel("Import NIfTI mask").setInputFiles({ name: "custom.nii.gz", mimeType: "application/octet-stream", buffer: Buffer.from("mock NIfTI payload") });
+    await expect(dialog.getByPlaceholder("Project mask path (.nii or .nii.gz)")).toHaveValue("/mnt/project/m2m_ernie/masks/custom.nii.gz");
+    await dialog.getByRole("radiogroup", { name: "Mask space" }).getByRole("radio", { name: "MNI", exact: true }).click();
+    await closeOptEditor(page);
+    await expect(optRowSummary(row)).toContainText("custom.nii.gz · MNI mask");
+    const reopened = await openOptEditor(page, row);
+    await expect(reopened.getByRole("radiogroup", { name: "Mask space" }).getByRole("radio", { name: "MNI", exact: true })).toHaveAttribute("aria-checked", "true");
+    await closeOptEditor(page);
+  }
+  expect(uploads).toHaveLength(2);
+  for (const url of uploads) expect(new URL(url).searchParams.get("subject")).toBe("ernie");
+  await page.unroute("**/api/files/mask?**");
 });

@@ -117,7 +117,7 @@ FastSurfer runs `--seg_only` mode — segmentation only, no surface reconstructi
 run_fastsurfer.sh --seg_only --no_cereb --no_hypothal --no_cc \
   --sid sub-<id> --sd <project>/derivatives/fastsurfer \
   --t1 <project>/sub-<id>/anat/sub-<id>_T1w.nii.gz \
-  --device cpu --threads <n> --py simnibs_python
+  --device auto --threads <n> --py <fastsurfer-python>
 ```
 
 #### Features
@@ -127,8 +127,17 @@ run_fastsurfer.sh --seg_only --no_cereb --no_hypothal --no_cc \
   same output directory).
 - **Independent of charm**: FastSurfer and CHARM run as parallel stages, not sequential ones
   — neither waits on the other.
-- **CPU-only**: no GPU required; `--device cpu` with a configurable thread count (default 2,
-  matching the `pre` job's CPU/memory budget — see "Performance" below).
+- **Hardware-aware execution**: FastSurfer selects CUDA, native macOS MPS, or CPU from what its
+  Python environment can actually use. `TIT_FASTSURFER_DEVICE` overrides `auto`; unavailable
+  explicit devices fail with an actionable error. Thread counts remain bounded by the job budget. FastSurfer jobs reserve 8 GB of memory
+  by default, following the upstream minimum; explicit resource overrides remain available.
+- **Docker versus native**: the bundled Linux image has CPU-only PyTorch, including on Apple
+  Silicon. For native acceleration, install FastSurfer with its recommended pinned environment
+  and set `TIT_FASTSURFER_PYTHON` to that environment’s Python. Apple MPS is available only to
+  native macOS execution; it does not pass through Docker Desktop. Follow the
+  [FastSurfer installation guide](https://github.com/Deep-MI/FastSurfer/blob/dev/doc/overview/INSTALL.md#package)
+  for hardware-specific dependencies. Do not replace the shared SimNIBS environment’s packages
+  with FastSurfer’s dependency set.
 - **Idempotent**: an existing output short-circuits a re-run; the derived NIfTI/label
   sidecar files are still backfilled if missing, so an older run is brought up to the
   current output layout.

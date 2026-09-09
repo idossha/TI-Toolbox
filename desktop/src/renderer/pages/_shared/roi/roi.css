@@ -25,3 +25,6 @@
 .data-table.roi-sphere-table tbody td {
   padding-block: var(--space-1);
 }
+
+.roi-mask-file { display: flex; gap: var(--space-2); min-width: 0; }
+.roi-mask-file .path-input { flex: 1; min-width: 0; }

@@ -50,17 +50,19 @@ The interface provides comprehensive controls for:
 
 - **Basic Parameters**: Subject selection, optimization goal, and post-processing method
 - **Electrode Parameters**: Radius and current settings
-- **ROI Definition**: A shared ROI picker with three modes -- Cortical, Subcortical, and Spherical -- used for both the ROI and the optional non-ROI; see [Defining the ROI](#defining-the-roi) below
+- **ROI Definition**: A shared ROI picker with four modes -- Cortical, Subcortical, Spherical, and NIfTI mask -- used for both the ROI and the optional non-ROI; see [Defining the ROI](#defining-the-roi) below
 - **Stability Options**: Iteration limits, population size, and CPU utilization
 - **Mapping Options**: EEG net electrode mapping capabilities
 
 ### Defining the ROI
 
-The ROI picker (`desktop/src/renderer/pages/_shared/roi/`, backed by `tit/opt/roi_spec.py`) is shared across flex-search, ex-search, and the analyzer. In flex-search it appears twice -- once for the ROI, once for the optional "Specific Region" non-ROI described [below](#non-roi-definition-methods) -- as a radio row with three modes:
+The ROI picker (`desktop/src/renderer/pages/_shared/roi/`, backed by `tit/opt/roi_spec.py`) is shared across flex-search, ex-search, and the analyzer. In flex-search it appears twice -- once for the ROI, once for the optional "Specific Region" non-ROI described [below](#non-roi-definition-methods) -- as a radio row with four modes:
 
 - **Cortical** (default): pick regions from a FreeSurfer `.annot` atlas. An Atlas combo selects the parcellation, and "List Regions" opens a finder that lists regions from both hemispheres by name. Selected regions become removable chips keyed by hemisphere-prefixed name (e.g. `lh.precentral`) -- there is no separate hemisphere selector, so a single target can span both hemispheres from this one page.
 - **Subcortical**: pick regions from a volumetric atlas. A Subject/MNI "Atlas Space" radio pair (Subject default) selects the coordinate space, a Tissue Type combo (GM / WM / GM+WM) sets the tissue restriction, and a Volume Atlas combo selects the atlas. "List Regions" adds selections as removable chips keyed by integer label id.
 - **Spherical**: a Subject/MNI coordinate-space radio pair (Subject default), a multi-row sphere table (X/Y/Z in -150 to 150 mm, radius 1 to 50 mm, default 10.0 mm), Add Sphere / Duplicate Selected / Remove Selected buttons, and the 3-D pane beside the form to look up coordinates against the guide anatomy. A Volumetric checkbox enables a Tissue combo (GM / WM / GM+WM); unchecked, the sphere(s) are evaluated on the cortical surface instead.
+
+- **NIfTI mask**: choose a `.nii` or `.nii.gz` file, or enter a path already accessible to the server. Positive voxels define the target; choose Subject or MNI space and the tissue restriction. Subject-space masks are used directly. MNI masks use the subject’s SimNIBS registration in `m2m_<subject>/toMNI`, with nearest-neighbor resampling to preserve the mask. The conformation affine alone is not an MNI registration.
 
 Whichever mode is used, the picker serializes to one of three dataclasses nested under `FlexConfig`. Every field on all three accepts either a single value or a list -- a list unions several regions into one combined target: N spheres, cross-hemisphere cortical labels (e.g. `lh.insula` + `rh.insula`), or e.g. subcortical labels `17` and `53` for both hippocampi at once.
 
@@ -91,7 +93,7 @@ Always evaluated on the cortical central surface -- `AtlasROI` has no `tissues` 
 | Field         | Type               | Default     | Notes                                                                                  |
 | ------------- | ------------------ | ----------- | -------------------------------------------------------------------------------------- |
 | `atlas_path`  | `str \| list[str]` | required    | Path(s) to volumetric atlas NIfTI file(s); a scalar broadcasts to the number of labels |
-| `label`       | `int \| list[int]` | required    | Integer label index/indices; must be non-empty                                         |
+| `label`       | `int \| list[int] \| None` | required | Integer label(s), or `None` for all positive voxels                                         |
 | `tissues`     | `str`              | `"GM"`      | `"GM"`, `"WM"`, or `"both"` -- applies to the whole union                              |
 | `atlas_space` | `str`              | `"subject"` | `"subject"` or `"mni"` -- applies to the whole union                                   |
 

@@ -145,7 +145,7 @@ export function analyzerTargetLabel(roi: RoiValue, combine = true): string {
     if (roi.volumetric) parts.push(`volumetric ${roi.tissues}`);
     return parts.join(" · ");
   }
-  if (roi.mode === "saved") return "Choose a target…";
+  if (roi.mode === "saved" || roi.mode === "mask") return "Choose a target…";
   const names = roi.regions.map(regionLabel);
   // Cortical and subcortical both name their atlas: a region name means little without the
   // parcellation it came from, and both panels choose one.

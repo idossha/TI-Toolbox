@@ -1853,6 +1853,46 @@ paths:
           $ref: "#/components/responses/NotFound"
 
   # ------------------------------------------------------------------------------------- files (v1)
+  /api/files/mask:
+    post:
+      tags: [files]
+      summary: Upload a custom NIfTI mask
+      description: Finite nonempty 3D mask, at most 64 MiB uploaded and 512 MiB decompressed. Coordinate space is selected in the job.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: name
+          required: true
+          schema: { type: string }
+        - in: query
+          name: subject
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        "201":
+          description: Stored mask
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [path]
+                properties:
+                  path: { type: string }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Mask directory escapes the project
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "413":
+          description: Mask exceeds the size limit
+        "422":
+          description: Invalid NIfTI mask or filename
   /api/files/report/{id}:
     get:
       tags: [files]

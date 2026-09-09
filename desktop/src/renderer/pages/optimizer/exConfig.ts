@@ -95,7 +95,7 @@ export interface ExTarget {
   /** `ExConfig.roi_names` — the saved CSV names unioned into this target, or `[]` for atlas-only. */
   roiNames: string[] | null;
   /** `ExConfig.roi_atlas` — volumetric regions unioned into the target, or `null`. */
-  roiAtlas: { atlas_path: string; label: number }[] | null;
+  roiAtlas: { atlas_path: string; label: number | null; atlas_space?: "subject" | "mni" }[] | null;
   radius: number;
   space: "subject" | "mni";
 }
@@ -117,6 +117,12 @@ export function exTargets(
   atlasLookup: (atlas: string) => AtlasLookup | undefined,
   allowCombine = true,
 ): ExTarget[] {
+  if (roi.mode === "mask") {
+    const path = roi.path.trim();
+    if (!/\.nii(\.gz)?$/i.test(path)) return [];
+    return [{ roiName: path.split("/").pop()!.replace(/\.nii(\.gz)?$/i, ""), roiNames: [],
+      roiAtlas: [{ atlas_path: path, label: null, atlas_space: roi.space }], radius: 3, space: roi.space }];
+  }
   if (roi.mode === "saved") {
     if (roi.selected.length === 0) return [];
     if (roi.combine && allowCombine) {
@@ -168,7 +174,7 @@ export function buildExConfig(
     channel_limit: form.channelLimit,
     roi_radius: target.radius,
     roi_names: target.roiNames,
-    roi_atlas: target.roiAtlas,
+    roi_atlas: target.roiAtlas?.map((roi) => ({ ...roi, atlas_space: roi.atlas_space ?? "subject" })) ?? null,
     roi_coordinate_space: target.space,
     run_name: runName.trim() || null,
     n_jobs: -1,
@@ -206,7 +212,7 @@ export function buildMExConfig(
     current_mA: form.currentMa,
     roi_radius: target.radius,
     roi_names: target.roiNames,
-    roi_atlas: target.roiAtlas,
+    roi_atlas: target.roiAtlas?.map((roi) => ({ ...roi, atlas_space: roi.atlas_space ?? "subject" })) ?? null,
     roi_coordinate_space: target.space,
     run_name: runName.trim() || null,
     symmetric_bucket: form.symmetricBucket,

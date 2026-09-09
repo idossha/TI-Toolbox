@@ -519,7 +519,7 @@ class FlexConfig:
         atlas_path : str or list of str
             Path(s) to the volumetric atlas NIfTI file(s).
         label : int or list of int
-            Integer label index/indices within the volumetric atlas.
+            Integer label index/indices, or None to select all positive mask voxels.
         tissues : str
             Tissue compartments to include.  One of ``"GM"``, ``"WM"``,
             or ``"both"``.
@@ -535,11 +535,13 @@ class FlexConfig:
         """
 
         atlas_path: str | list[str]
-        label: int | list[int]
+        label: int | list[int] | None
         tissues: str = "GM"  # "GM", "WM", or "both"
         atlas_space: Literal["subject", "mni"] = "subject"
 
         def __post_init__(self):
+            if self.label is None and not isinstance(self.atlas_path, str):
+                raise ValueError("A whole-file mask requires one atlas_path")
             n = len(_as_list(self.label))
             if n == 0:
                 raise ValueError("SubcorticalROI label must be non-empty")
@@ -809,7 +811,7 @@ class ExConfig:
         Space of the *roi_name*/*roi_names* CSV centers -- ``"subject"``
         (default) or ``"mni"``.  MNI centers are transformed to subject
         space with ``simnibs.mni2subject_coords`` before the search runs.
-        Does not affect *roi_atlas*, which is always subject space.
+        Does not affect *roi_atlas*, which declares its own atlas_space.
     electrodes : BucketElectrodes or PoolElectrodes
         Electrode specification, either a single shared pool
         (:class:`PoolElectrodes`) or separate per-channel buckets
@@ -875,6 +877,11 @@ class ExConfig:
 
         atlas_path: str
         label: int | None = None
+        atlas_space: Literal["subject", "mni"] = "subject"
+
+        def __post_init__(self):
+            if self.atlas_space not in ("subject", "mni"):
+                raise ValueError("atlas_space must be subject or mni")
 
     # ── Nested electrode types ─────────────────────────────────────────
     @dataclass
@@ -1059,7 +1066,7 @@ class MExConfig:
         Space of the *roi_name* CSV center -- ``"subject"`` (default) or
         ``"mni"``.  An MNI center is transformed to subject space with
         ``simnibs.mni2subject_coords`` before the search runs.  Does not
-        affect *roi_atlas*, which is always subject space.
+        affect *roi_atlas*, which declares its own atlas_space.
     run_name : str or None
         Optional name for this run.  Defaults to a datetime stamp.
     n_jobs : int
@@ -1112,6 +1119,11 @@ class MExConfig:
 
         atlas_path: str
         label: int | None = None
+        atlas_space: Literal["subject", "mni"] = "subject"
+
+        def __post_init__(self):
+            if self.atlas_space not in ("subject", "mni"):
+                raise ValueError("atlas_space must be subject or mni")
 
     # ── Nested electrode types ─────────────────────────────────────────
     @dataclass
@@ -1245,6 +1257,7 @@ class MExResult:
 #: Exhaustive-search modes. ``TI`` searches two bipolar pairs, ``mTI`` four.
 SEARCH_MODE_TI = "TI"
 SEARCH_MODE_MTI = "mTI"
+
 
 def search_backend_for_mode(mode):
     """Return ``(module path, config class)`` for an exhaustive-search mode.

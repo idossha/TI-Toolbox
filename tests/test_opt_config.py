@@ -659,7 +659,11 @@ class TestExConfigAtlasRoiAndCoordinateSpace:
     def test_roi_atlas_dict_converted_to_dataclass(self):
         cfg = self._cfg(
             roi_atlas=[
-                {"atlas_path": "/atlas/aseg.mgz", "label": 17},
+                {
+                    "atlas_path": "/atlas/aseg.mgz",
+                    "label": 17,
+                    "atlas_space": "subject",
+                },
                 {"atlas_path": "/mask.nii.gz"},
             ]
         )
@@ -716,7 +720,11 @@ class TestMExConfigAtlasRoiAndCoordinateSpace:
         assert cfg.roi_coordinate_space == "subject"
 
     def test_roi_atlas_dict_converted_to_dataclass(self):
-        cfg = self._cfg(roi_atlas=[{"atlas_path": "/atlas/aseg.mgz", "label": 53}])
+        cfg = self._cfg(
+            roi_atlas=[
+                {"atlas_path": "/atlas/aseg.mgz", "label": 53, "atlas_space": "subject"}
+            ]
+        )
         assert isinstance(cfg.roi_atlas[0], MExConfig.AtlasROI)
         assert cfg.roi_atlas[0].label == 53
 
@@ -751,7 +759,7 @@ class TestAtlasRoiConfigIORoundtrip:
             electrodes=ExConfig.PoolElectrodes(electrodes=_pool_electrodes(2)),
             roi_atlas=[
                 ExConfig.AtlasROI(atlas_path="/atlas/aseg.mgz", label=17),
-                ExConfig.AtlasROI(atlas_path="/mask.nii.gz"),
+                ExConfig.AtlasROI(atlas_path="/mask.nii.gz", atlas_space="mni"),
             ],
             roi_coordinate_space="mni",
         )
@@ -759,8 +767,12 @@ class TestAtlasRoiConfigIORoundtrip:
         try:
             data = read_config_json(path)
             assert data["roi_atlas"] == [
-                {"atlas_path": "/atlas/aseg.mgz", "label": 17},
-                {"atlas_path": "/mask.nii.gz", "label": None},
+                {
+                    "atlas_path": "/atlas/aseg.mgz",
+                    "label": 17,
+                    "atlas_space": "subject",
+                },
+                {"atlas_path": "/mask.nii.gz", "label": None, "atlas_space": "mni"},
             ]
             assert data["roi_coordinate_space"] == "mni"
 
@@ -790,7 +802,9 @@ class TestAtlasRoiConfigIORoundtrip:
         path = write_config_json(config, prefix="mex_atlas_test")
         try:
             data = read_config_json(path)
-            assert data["roi_atlas"] == [{"atlas_path": "/atlas/aseg.mgz", "label": 53}]
+            assert data["roi_atlas"] == [
+                {"atlas_path": "/atlas/aseg.mgz", "label": 53, "atlas_space": "subject"}
+            ]
             assert data["roi_coordinate_space"] == "mni"
 
             data.pop("project_dir")

@@ -40,3 +40,13 @@ export async function deleteRoi(subject: string, name: string): Promise<void> {
   const { error, response } = await api.DELETE(path, { params: { path: { name }, query: { subject } } });
   if (error || !response.ok) throw new Error(`DELETE ${path} failed (${response.status})`);
 }
+
+export async function uploadMask(file: File, subject: string, signal?: AbortSignal): Promise<string> {
+  if (!/\.nii(\.gz)?$/i.test(file.name)) throw new Error("Choose a .nii or .nii.gz mask.");
+  const response = await fetch(`/api/files/mask?name=${encodeURIComponent(file.name)}&subject=${encodeURIComponent(subject)}`, {
+    method: "POST", signal, credentials: "same-origin", headers: { "Content-Type": "application/octet-stream" }, body: file,
+  });
+  if (!response.ok) throw new Error(`Could not import mask (${response.status}). Check that it is a valid NIfTI file.`);
+  const result = await response.json() as { path: string };
+  return result.path;
+}

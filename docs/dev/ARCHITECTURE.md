@@ -174,6 +174,12 @@ Electrode color expresses availability and channel membership, with no additiona
 The form, channel legend and preview share one palette and one selection model. Atlas clicks and ROI
 chips edit the same region list. Coordinate picking remains constrained by §3.
 
+Optimizer mask targets explicitly declare Subject or MNI space. Subject masks retain their
+coordinates; MNI masks use SimNIBS’ subject registration with nearest-neighbor resampling,
+not only the conformation affine. The existing volumetric ROI config carries whole-mask targets
+with a null label. In stacked layouts, run panes fill the page width and receive viewport-scaled
+height; desktop pane widths remain remembered for the wide layout.
+
 ### 7.3 Pipelines
 
 A pipeline is a typed DAG of existing job kinds, with a `subjects` source and ports `subjects`,
