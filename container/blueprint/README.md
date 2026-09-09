@@ -6,7 +6,7 @@ for a `--ref` clone).
 
 ## v3: `idossha/ti-toolbox:<ver>`
 
-One image (D1; `../../docs/dev/HISTORY.md`, 2026-09-03): SimNIBS 4.6 + `tit` + `tit.server`
+One image (D1; `../../docs/dev/DECISIONS.md`, 2026-09-03): SimNIBS 4.6 + `tit` + `tit.server`
 + fastapi/uvicorn/pyyaml/psutil baked in (no pip install at container start) + the built
 desktop UI at `/opt/ti-toolbox/ui` + the **Tetravox Embed** at `/opt/tetravox/embed` +
 FastSurfer `--seg_only` at `/opt/fastsurfer` with checkpoints pre-downloaded. No FreeSurfer
@@ -58,7 +58,7 @@ dot-directories), `pyproject.toml`, `README.md`, `LICENSE` — which keeps the c
 tree's ~2 GB. The v2 recipes (`Dockerfile.simnibs`, …) use `container/blueprint` itself as
 their context and are unaffected. This is what lets an unpushed branch, or a dirty tree, be
 built and tried before it is pushed — which is how the v3 image was first built at all
-(`../../docs/dev/HISTORY.md`, 2026-09-06).
+(`../../docs/dev/DECISIONS.md`, 2026-09-06).
 
 **`--ref <git-ref>`: a pushed ref.** The `source-clone` stage `git clone --branch`es it from
 GitHub (a branch or tag; `git clone --branch` does not take a raw sha) and the context is an
@@ -138,7 +138,7 @@ release assets.
    nothing in this repo provisions a large or self-hosted executor or a nightly/release-gated
    variant of the job. It is left declared so the gap is visible in CI rather than only here.
    Full reasoning on what a from-scratch-gated job would need is in
-   `../../docs/dev/HISTORY.md` (2026-09-03).
+   `../../docs/dev/DECISIONS.md` (2026-09-03).
 
 ### Local build+smoke (2026-09-06, this recipe)
 
@@ -148,7 +148,7 @@ Attempted from this checkout (unpushed `feature/v3-electron-gui`) with a real
 host free 160 MiB) and Docker Desktop went down with it, so **no image from this recipe has
 been verified yet**. What was proved, what was not, and the two real defects found on the way
 (a stale `desktop/package-lock.json`, and the FastSurfer stage's checkpoint download needing
-torch) are in `../../docs/dev/HISTORY.md`, 2026-09-06. The earlier layered
+torch) are in `../../docs/dev/DECISIONS.md`, 2026-09-06. The earlier layered
 build's numbers are in `../../docs/dev/BENCHMARKS.md`.
 
 ### CI (`.circleci/config.yml`, `build-and-smoke-image` job)
@@ -172,7 +172,7 @@ smoke run *natively* there, unlike on Apple Silicon) builds the image with
 
 Full reasoning and what a from-scratch-gated job would need (a large/self-hosted executor, or a
 separate nightly/release-triggered job) is in
-`../../docs/dev/HISTORY.md` (2026-09-03).
+`../../docs/dev/DECISIONS.md` (2026-09-03).
 
 ### Image size
 
@@ -265,7 +265,7 @@ apptainer build ti-toolbox.sif docker://idossha/simnibs:v2.3.1
 
 See `./apptainer_run.sh --help` for all options.
 
-Full documentation: [HPC Deployment Guide](../../docs/wiki/installation/hpc-apptainer.md)
+Full documentation: [HPC Deployment Guide](../../docs/installation/hpc-apptainer.md)
 
 
 ## What the image deliberately does not contain

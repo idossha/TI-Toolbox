@@ -13,8 +13,8 @@ image's own notice obligation, not this file's — see below for the one compone
 ## Tetravox — no longer bundled here
 
 The 3D viewer is Tetravox, and as of v3 **no Tetravox source, engine or WebAssembly binary is
-distributed by this package** (decision D3, `docs/dev/HISTORY.md § 2026-09-02 (UX redesign)`; D1/D3,
-`docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)`). The earlier cut vendored `@tetravox/{engine,wasm,protocol}`
+distributed by this package** (decision D3, `docs/dev/DECISIONS.md § 2026-09-02 (UX redesign)`; D1/D3,
+`docs/dev/DECISIONS.md § 2026-09-03 (Docker streamline)`). The earlier cut vendored `@tetravox/{engine,wasm,protocol}`
 as source under `desktop/vendor/tetravox/`; that directory, the `file:` dependencies on it, its
 `gl-matrix` transitive dependency and the `vendor-tetravox.sh` script are all removed.
 

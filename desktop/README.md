@@ -168,7 +168,7 @@ Screenshots land in `tests/e2e/artifacts/` (git-ignored).
 
 ## Security settings
 
-Historical rationale: [original plan §2.8](../docs/dev/HISTORY.md#retired-root-plan--2026-09-09).
+Historical rationale: [original plan §2.8](../docs/dev/DECISIONS.md#retired-root-plan--2026-09-09).
 
 `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`, `webSecurity: true`;
 `will-navigate`/`will-redirect` allow only `app://launcher` and the connected server origin;

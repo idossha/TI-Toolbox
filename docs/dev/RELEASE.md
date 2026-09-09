@@ -168,4 +168,4 @@ source before scheduling them; remove a row when it ships.
 | Test harness | Avoid tracked smoke-payload churn while preserving UI/HTTP replay equivalence |
 | Maintenance | Assess OpenSSF practices and extend integration coverage for selected colleague workflows |
 
-For older implementation plans and retired TODO references, see [HISTORY.md](HISTORY.md).
+For older implementation plans and retired TODO references, see [DECISIONS.md](DECISIONS.md).

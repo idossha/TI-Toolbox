@@ -7,7 +7,7 @@ user-invocable: false
 # TI-Toolbox Codebase Guide (v3)
 
 **`docs/dev/` is the single source of truth**; its index defines document ownership —
-`README ARCHITECTURE DECISIONS CONTRIBUTING DESIGN HISTORY BENCHMARKS
+`README ARCHITECTURE DECISIONS CONTRIBUTING DESIGN BENCHMARKS
 RELEASE`. Read them with the MCP tool `read_dev_doc`.
 Nothing in `docs/dev/` is published; the user-facing site is `docs/wiki/`. There
 are **no per-lane note files anywhere in the repository and none may be added**

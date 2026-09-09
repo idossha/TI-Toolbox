@@ -14,8 +14,7 @@ These developer pages are excluded from the documentation website.
 | [CONTRIBUTING](CONTRIBUTING.md) | Local development, tests and shared-checkout workflow | Keep commands current |
 | [RELEASE](RELEASE.md) | Build/distribution procedure, current acceptance work and roadmap | Replace stale status; remove completed tasks |
 | [BENCHMARKS](BENCHMARKS.md) | Reproducible validation and performance evidence, with scope and limitations | Keep useful baselines; replace superseded receipts |
-| [DECISIONS](DECISIONS.md) | Significant choices and their rationale | Append decisions; mark reversals as superseded |
-| [HISTORY](HISTORY.md) | Dated product milestones | Append meaningful milestones, not daily work logs |
+| [DECISIONS](DECISIONS.md) | Significant choices, rationale and dated milestones | Append significant decisions/milestones; mark reversals as superseded |
 
 ## Keep the set concise
 

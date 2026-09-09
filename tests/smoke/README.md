@@ -1,6 +1,6 @@
 # Level A pipeline smoke harness
 
-`docs/dev/HISTORY.md § 2026-09-03 (pipelines program)` §3, decisions **P4–P8**. One HTTP test per pipeline kind,
+`docs/dev/DECISIONS.md § 2026-09-03 (pipelines program)` §3, decisions **P4–P8**. One HTTP test per pipeline kind,
 run against a live `tit.server` and a real BIDS project.
 
 ## Run it

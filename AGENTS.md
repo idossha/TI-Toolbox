@@ -36,7 +36,7 @@ agent-plugin/   installable skills + a read-only MCP server for AI clients
 [docs/dev/README.md](docs/dev/README.md) owns the document map and update policy.
 Keep architecture, UI design, development commands, release work and historical rationale separate.
 Revise current-state pages rather than appending work logs. Record significant decisions in
-DECISIONS.md, meaningful milestones in HISTORY.md, and contract changes in contracts/CHANGES.md.
+DECISIONS.md alongside meaningful milestones, and contract changes in contracts/CHANGES.md.
 User-visible numerical corrections belong in the applicable release page, not a separate audit file.
 
 ## The gate

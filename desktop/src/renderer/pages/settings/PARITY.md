@@ -4,7 +4,7 @@ Qt source: `tit/gui/settings_menu.py` (204 lines). Unlike every other v3 page, t
 one-to-one Qt tab to port: the Qt gear menu only opens Help/Contact/Acknowledgments and a single
 "Usage Statistics: Enabled/Disabled" toggle. Everything else on this screen (project, appearance,
 feature panels, unsafe overrides, Jupyter, server info) is new surface named directly by
-`docs/dev/HISTORY.md § 2026-08-27 (v3 build program)`'s P8 row and `TODO.md` §2.9 — there is nothing to harvest beyond the
+`docs/dev/DECISIONS.md § 2026-08-27 (v3 build program)`'s P8 row and `TODO.md` §2.9 — there is nothing to harvest beyond the
 telemetry toggle, so this checklist tracks the v3 spec instead of a Qt diff.
 
 ## Qt gear menu (settings_menu.py) — items absorbed elsewhere

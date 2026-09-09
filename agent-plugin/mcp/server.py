@@ -63,7 +63,6 @@ DEV_DOCS = (
     "DECISIONS",
     "CONTRIBUTING",
     "DESIGN",
-    "HISTORY",
     "BENCHMARKS",
     "RELEASE",
 )
@@ -1039,7 +1038,7 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
         "emulation. One Playwright run at a time (/tmp/tit-e2e.lock).",
         "docs_of_record": "docs/dev/ is the single source of truth for developers and is "
         "organized by the README index: README, ARCHITECTURE, DECISIONS, CONTRIBUTING, DESIGN, "
-        "HISTORY, BENCHMARKS, RELEASE. Read them with read_dev_doc. "
+        "BENCHMARKS, RELEASE. Read them with read_dev_doc. "
         "Nothing in docs/dev/ is published; the user-facing site is docs/wiki/. There are no "
         "per-lane note files anywhere in the repository and none may be added.",
         "source_status": _source_label(),
@@ -1163,9 +1162,9 @@ TOOLS: List[Dict[str, Any]] = [
         "description": "Read one of the docs/dev/*.md reference files — the DEVELOPER source of "
         "truth, not published on the site. Names: README (the map and reading order), "
         "ARCHITECTURE (how it is built, plus the science pipelines and DWI topology), "
-        "DECISIONS (the numbered ADR log), CONTRIBUTING (dev loop, the gate, the smoke "
+        "DECISIONS (numbered decisions and development milestones), CONTRIBUTING (dev loop, the gate, the smoke "
         "harness, the science-integrity rule), DESIGN (the UI contract and per-page "
-        "conventions), HISTORY (milestones), BENCHMARKS (scoped validation and performance "
+        "conventions), BENCHMARKS (scoped validation and performance "
         "evidence), RELEASE (distribution and current open work). "
         "Optionally return one section by heading text.",
         "inputSchema": {

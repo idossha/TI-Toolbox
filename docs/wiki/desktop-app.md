@@ -128,7 +128,7 @@ the embed is served by the same container, so viewing needs no desktop applicati
 ### Updating the viewer without updating the toolbox
 
 The embed is delivered dynamically, so a Tetravox release does not require a TI-Toolbox release
-(`docs/dev/HISTORY.md § 2026-09-04 (embed convergence)`, decisions E1-E4):
+(`docs/dev/DECISIONS.md § 2026-09-04 (embed convergence)`, decisions E1-E4):
 
 - **The app pins a protocol *range*, not a version.** `tit/tetravox/protocol.py` (and its renderer
   twin `desktop/src/renderer/viewer/embedProtocol.ts`) declare the supported range and a map of
