@@ -9,6 +9,11 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 ---
 ### v3.0.0 (Unreleased)
 
+- **Scene selection works from the first click.** Simulator previews load the selected subject's
+  available EEG nets, including BioSemi nets when tissue labels are present. Analyzer atlas clicks
+  can create a new cortical target directly. Mixed mesh/volume selections no longer crash when
+  a mesh without a selected field loads first; duplicate viewer handshakes do not restart loading.
+
 - **Confirmed simulation replacement reaches SimNIBS.** Reruns no longer fail merely because
   the previous session marker exists. Existing-output replacement requires the project's
   **Allow unsafe overrides** setting and a fresh confirmation; Skip and Cancel remain available.

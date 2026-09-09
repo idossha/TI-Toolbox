@@ -142,7 +142,7 @@ export interface ScenePaneProps {
   onRequestPairs?: (firstElectrode: string) => void;
   /** `target`/`inspect`: the form's region list. The same array `<RoiPicker>` holds. */
   regions?: SceneRegionRef[];
-  onRegionsChange?: (regions: SceneRegionRef[]) => void;
+  onRegionsChange?: (regions: SceneRegionRef[], atlas?: string) => void;
   /** A page-supplied sentence for a target the pane cannot draw (subcortical, a saved ROI CSV). */
   note?: string;
   /**
@@ -464,12 +464,12 @@ export function ScenePane({
       if (gesture === "region" && target.kind === "region") {
         const picked = regionsFromWireLabels(legend, [target.index])[0];
         // The same toggle the form's own chips run — one selection model, not two that agree.
-        if (picked) onRegionsChange?.(toggleRegion(formRegions, picked));
+        if (picked) onRegionsChange?.(toggleRegion(formRegions, picked), effectiveAtlas ?? undefined);
       }
       // Deliberately nothing else. A pick on the guide names an electrode or a region; it can never
       // produce a coordinate, because these millimetres are `guide-ras`.
     },
-    [gesture, electrodeMarkers, onPairsChange, onRequestPairs, activePairs, cursor, legend, formRegions, onRegionsChange, onPlacedPick],
+    [gesture, electrodeMarkers, onPairsChange, onRequestPairs, activePairs, cursor, legend, formRegions, onRegionsChange, onPlacedPick, effectiveAtlas],
   );
 
   /**

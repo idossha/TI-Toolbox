@@ -610,6 +610,28 @@ def test_the_manifest_bbox_spans_every_part(client: TestClient, project: Path) -
     assert body["bbox"] == [0.0, 0.0, 0.0, 10.0, 11.0, 12.0]
 
 
+def test_labeling_volume_does_not_hide_subject_nets(
+    client: TestClient, project: Path
+) -> None:
+    """A CHARM label file must not turn a subject manifest into a 500 (2026-09-09).
+
+    Only file presence is relevant here: no volume parsing or scientific values.
+    The raw-file route independently verifies the URL names the authored bytes.
+    """
+    _publish_fake_surfaces(project)
+    labeling = Path(get_path_manager().tissue_labeling("ernie"))
+    labeling.parent.mkdir(parents=True, exist_ok=True)
+    labeling.write_bytes(b"label-volume-placeholder")
+    response = client.get("/api/scene/manifest?subject=ernie", headers=BEARER)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["nets"][0]["name"] == "EEG10-10.csv"
+    assert body["volumes"][0]["id"] == "labeling"
+    raw = client.get(body["volumes"][0]["url"], headers=BEARER)
+    assert raw.status_code == 200
+    assert raw.content == b"label-volume-placeholder"
+
+
 def test_the_manifest_carries_the_framing_box_beside_the_bounding_box(
     client: TestClient, project: Path
 ) -> None:

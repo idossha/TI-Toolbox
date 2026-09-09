@@ -13,11 +13,11 @@ pages cover configuration details.
 
 ## Artifact availability
 
-The current source ref is `release/3.0.0`; the matching image is
-`idossha/ti-toolbox:internal-20260908.1`. **The image is local only. Docker Hub publication
-will follow manual testing.** Another machine needs a supplied image archive loaded into Docker,
-or the published image once available. There is no image-archive download or public desktop
-installer advertised here yet. The app, source revision, and image must match.
+The current source ref is `release/3.0.0`; its internal image is
+`idossha/ti-toolbox:internal-20260909.1` on Docker Hub. Pull before testing to obtain the
+latest internal rebuild. Record the resolved image digest with any bug report because this
+internal testing tag may be replaced during the current testing round. No public desktop
+installer or stable release is advertised here yet.
 
 ## Install from source
 
@@ -54,15 +54,14 @@ its root `loader.py` uses the selected source without installing a different pac
 Set the image reference supplied with your selected source revision. For the current pairing:
 
 ```bash
-TIT_IMAGE=idossha/ti-toolbox:internal-20260908.1
+TIT_IMAGE=idossha/ti-toolbox:internal-20260909.1
+docker pull "$TIT_IMAGE"
 docker image inspect "$TIT_IMAGE" --format {% raw %}'{{json .RepoTags}}'{% endraw %}
 ```
 
-If the image is absent and you have received an image archive, load that archive with
-`docker load --input /path/to/supplied-image.tar`, then repeat the inspection. For a published
-image, use `docker pull "$TIT_IMAGE"`. See [Artifact availability](#artifact-availability)
-for which distribution route currently exists. Do not substitute another image solely because
-it has a similar version number.
+For offline testing, load a supplied archive with
+`docker load --input /path/to/supplied-image.tar`. Keep the checkout paired with its designated
+image; similar version numbers do not guarantee matching code.
 
 ### 4. Open the interface
 

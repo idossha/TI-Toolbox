@@ -274,6 +274,16 @@ def test_scene_msh_gets_the_opt_sidecar_and_field_and_clip(pm: PathManager) -> N
     assert scene["layout"]["cells"] == ["view3d", "axial"]
 
 
+
+def test_solid_roi_mesh_omits_absent_field(pm: PathManager) -> None:
+    mesh = os.path.join(pm.simulation("ernie", "L_Insula"), "roi_overlay.msh")
+    Path(mesh).write_bytes(b"$MeshFormat")
+    layer = scene_for("custom", path=mesh)["layers"][0]
+    assert layer["kind"] == "mesh"
+    assert layer["colorMode"] == "solid"
+    assert "field" not in layer
+
+
 @pytest.mark.parametrize(
     ("name", "field"),
     [

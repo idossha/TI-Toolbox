@@ -141,40 +141,28 @@ without source/UI mounts. A later source fix invalidates claims based only on an
 - The older [test-script reference](../../tests/README_TESTING.md) documents shell runner options;
   it does not replace these desktop, numerical and artifact acceptance layers.
 
-## Recorded verification and remaining gaps — 2026-09-09
+## Current verification and remaining gaps — 2026-09-09
 
-These dated observations are retained for scope, not presented as fresh checks of later edits.
-Local `/tmp` and ignored `dist/internal/` receipts may expire; committed suites above are the
-reproduction surface. Keep only results that close a milestone or explain a remaining gap.
+Receipts live under ignored `dist/internal/` and `/tmp`; they may expire. The committed suites
+above are the reproduction surface. A source test does not certify a later image rebuild.
 
-### Development closeout checks — 2026-09-09
-
-The clean internal image from source `b06b4493bea5aa4834c107fe60301fcd9075afe1` was
-`sha256:01d66ed257f0341f8467e31e9cd4d1dc3197cefb448812ded00e05931fffa5b6`.
-Its selected baked numerical/boundary/Blender run passed 223 tests with one skip; the functional
-mock suite passed 364 with one skip. Receipts: `dist/internal/baked-develop-tests.log` and
-`mock-e2e-current-contract.log`. Later source/UI changes are not certified by that image.
-
-### Clean baked candidate progress — 2026-09-09
-
-The earlier `e3bee214` image's real run passed 42 tests and excluded docs-shots, scene-atlas-border
-and scene-electrodes. Subsequent security fixes make it historical evidence only. The native
-monitor exited 2 despite no attributed test-descendant failure. Receipt:
-`dist/internal/real-final-baked-receipt.json`. A subsequent packaged Browse → Start repaired the
-missing YAML dependency but paired a dirty-source app with an earlier image; final installer
-acceptance remains separate.
-
-| Latest scoped check | Recorded result / evidence |
+| Scoped check | Result |
 |---|---|
-| Host suite before subsequent UI/dev changes | 4,788 passed, 46 skipped, 21 deselected; `/tmp/tit-loader-host-tests.log` |
-| Forms/mapping/folder desktop units | 1,568 passed / 123 files; `/tmp/tit-touchup-final-unit.log` |
-| Dev attach regression suites | 98 Python and 66 desktop checks passed; live `pnpm dev:web` verified actual checkout/import identity and healthy proxy |
-| Overwrite integration | 221 passed; `/tmp/tit-overwrite-integrated.log`; temporary outputs only |
-| Real SESSION overwrite guard | 1 passed, FEM stubbed; `tests/numerical/test_sim_overwrite.py`; no full simulation claim |
-| Overwrite UI | 44 focused units, 7 selection e2e, final rerun/policy follow-up 17 passed; native monitor exit 2 remained inconclusive |
-| Route/contract guards | 24 route modules; 114 operations / 136 schemas, 244 existing contract warnings |
-| Plugin process/tools | Three offline process tests; 14 tools / 15 selftest calls; no full native-client conversation claim |
-| Montage image regression | 17 container tests including real PNG pixels and atomic failure; `/tmp/tit-montage-container-tests.log` |
+| Host Python suite | 4,825 passed, 48 skipped, 21 deselected; `/tmp/tit-rebuild-host-full.log` |
+| Desktop units | 1,601 passed; `/tmp/tit-rebuild-desktop-tests.log` |
+| Scene interactions | Seven mock e2e passed, including first Analyzer atlas pick and toggle |
+| Subject net rendering | Subject 101/BioSemi-128: real GPU electrode selection/color check passed; native quiet monitor passed with nine samples |
+| Backend route and contract guards | 24 route modules; 114 operations / 136 schemas; 244 existing contract warnings |
+| Prior internal image | Source `3f2af30c`: 355 baked numerical/backend/Blender tests, 83 loader/packaging tests and clean Python/Bash launcher acceptance passed |
 
-No local result clears hosted security alerts, certifies another artifact revision or establishes
-publication. Outstanding platform/security/manual gates live in [ROADMAP](ROADMAP.md).
+The first internal upload resolved to
+`sha256:4f62a4a9c71ef440d3b3428707eaa71bada486d78a8eed57f5c74449181aa409`.
+The maintainer requested rebuilding the same `internal-20260909.1` tag after the scene fixes;
+use each rebuild's registry digest and embedded source SHA, not the tag alone, as its identity.
+The image receipt is `dist/internal/image-internal-20260909.1-receipt.json`.
+
+The seven-test mock run's native monitor exited 2 (unresolved process attribution), so its
+windowlessness measurement is inconclusive despite passing behavior tests. The real net check's
+monitor passed. Host numerical mocks and skips do not replace container checks; the overwrite
+regression stubs FEM and does not prove a complete simulation. Final installer/platform,
+hosted security and manual acceptance remain in [ROADMAP](ROADMAP.md).

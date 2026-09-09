@@ -51,6 +51,20 @@ to work around this development defect.
 If a cold atlas preview shows duplicate skin/cortex surfaces, update the desktop as well: its first
 scene now waits for the required atlas instead of racing a temporary anatomy scene against it.
 
+### Simulator shows a guide instead of the selected subject's EEG net
+
+**Cause:** an early internal build failed to encode the tissue-label path in a subject scene
+manifest. The preview fell back to reference anatomy, whose packaged nets are limited.
+**Fix:** pull the rebuilt internal image and restart it, or refresh the updated development app.
+Subject nets are read from the existing head model; regenerating the model is unnecessary.
+
+### Viewer fails only for some mixed mesh/volume selections
+
+**Cause:** a solid mesh's saved `field: null` value reached controls expecting an absent field.
+If that mesh loaded first, the controls crashed and cancelled the remaining scene load.
+**Fix:** use the rebuilt internal image with the compatible viewer bundle. New scenes omit the
+empty field and the viewer accepts older scenes containing it; source files need no repair.
+
 ## Docker
 
 ### Docker image store is corrupted — `blob sha256:… not found` (historical recovery record)

@@ -9,7 +9,9 @@ are documented in [AUTOMATION.md](AUTOMATION.md).
 A usable desktop build is a **matching image and installer**. The source loaders use the same
 root `docker-compose.yml`; an installed Python wheel has the fallback in `tit/launch.py`.
 The runtime/app version identifies the code; an internal image tag identifies the exact build.
-Do not overwrite an internal image tag after sharing it.
+Prefer immutable internal image tags. During a maintainer-directed testing round, an explicitly
+reused internal tag must be pulled again; record its registry digest and source SHA with each
+build so reports identify the actual artifact. Stable release tags remain immutable.
 
 The existing `.github/workflows/release-build.yml` has three explicit modes:
 
@@ -52,7 +54,7 @@ fork requirement.
 For local/internal builds, `container/blueprint/build.sh` accepts an exact tarball URL and SHA256:
 
 ```bash
-container/blueprint/build.sh --tag idossha/ti-toolbox:internal-20260908.1 \
+container/blueprint/build.sh --tag "$INTERNAL_IMAGE_TAG" \
   --tetravox-tgz "$TETRAVOX_TGZ" --tetravox-sha256 "$TETRAVOX_SHA256"
 ```
 

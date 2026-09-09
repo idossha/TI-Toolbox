@@ -431,7 +431,7 @@ def manifest(
         volumes.append(
             {
                 "id": "labeling",
-                "url": "/api/files/raw" + quote(labeling),
+                "url": "/api/files/raw" + quote(str(labeling)),
                 "legend_url": f"/api/scene/volume-legend?subject={subject_q}&id=labeling",
             }
         )

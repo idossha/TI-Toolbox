@@ -22,7 +22,7 @@ import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Locator, type Page } from "@playwright/test";
 import { expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
 import { expectRunPaneTab } from "./_runPane";
-import { closeOptEditor, openOptEditor, optRows } from "./_jobs";
+import { analysisRows, analysisTargetText, closeOptEditor, openOptEditor, optRows } from "./_jobs";
 import { cameraPosition, type OrbitCamera } from "../../src/renderer/scene/camera";
 
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
@@ -225,6 +225,29 @@ test("changing the EEG net leaves the camera exactly where the user put it", asy
   // Put the montage back on the net the rest of the file is written against.
   await netCell.click();
   await page.getByRole("option", { name: NET, exact: true }).click();
+});
+
+test("Analyzer accepts a first atlas pick without opening the target editor", async () => {
+  await gotoPage(page, "analyzer", "Analyzer");
+  await expectPage(page, "analyzer");
+  const row = analysisRows(page).first();
+  await expect(analysisTargetText(row)).toContainText("Choose a target");
+  const host = page.locator('[data-page-panel="analyzer"]').getByTestId("scene-pane-host");
+  await expectRunPaneTab(page, "scene");
+  await expect(host).toHaveAttribute("data-state", "ready", { timeout: 20_000 });
+  await expect(host).toHaveAttribute("data-gesture", "region");
+  await page.waitForFunction(() => window.__scene?.camera.settled === true, null, { timeout: 20_000 });
+  const box = await canvasBox();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await expect.poll(() => page.evaluate(() => window.__scenePane?.selectedRegions.length ?? 0)).toBe(1);
+  const picked = await page.evaluate(() => window.__scenePane!.selectedRegions[0]);
+  if (!picked) throw new Error("Atlas click did not select a region");
+  await expect(analysisTargetText(row)).toContainText("Cortical · DK40");
+  await expect(analysisTargetText(row)).toContainText(picked.name);
+  // Toggling remains connected to the row after the first pick creates the cortical target.
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await expect.poll(() => page.evaluate(() => window.__scenePane?.selectedRegions.length ?? 0)).toBe(0);
+  await expect(analysisTargetText(row)).toContainText("Choose a target");
 });
 
 test("a region picked in the scene is the region the ROI picker lists", async () => {

@@ -152,6 +152,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
 
   connect: (frame, embedOrigin, timeoutMs = HANDSHAKE_TIMEOUT_MS) => {
     channel?.dispose();
+    set({ embedReady: false });
     channel = createChannel(frame, embedOrigin, get().handleMessage, timeoutMs, () => {
       // Only a frame that never spoke is a missing embed. `embedReady`, not `status`, is the right
       // guard: a host with a subject already selected calls `loadScene` the moment its view query
@@ -197,6 +198,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   handleMessage: (message) => {
     switch (message.type) {
       case "ready": {
+        const alreadyReady = get().embedReady;
         const renderer = message.caps.renderer ?? null;
         if (!message.caps.webgl2) {
           set({ status: "no-webgl2", embedReady: true, renderer, error: null });
@@ -205,7 +207,9 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
         set({ embedReady: true, renderer, error: null });
         // A frame that reloaded (or one that booted after `loadScene` was called) gets the scene
         // now: the store, not the page, owns "the viewer should be showing this".
-        if (pendingScene !== null) {
+        // Boot ready and the reply to hello can both arrive while loading. Only the first
+        // handshake delivers pending intent; a real iframe reload disconnects/reconnects first.
+        if (pendingScene !== null && !alreadyReady) {
           set({ status: "loading" });
           channel?.post({ type: "load", scene: pendingScene });
         }
@@ -296,7 +300,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
     });
     if (cannotRender) return;
     set({ status: "loading" });
-    channel?.post({ type: "load", scene });
+    if (get().embedReady) channel?.post({ type: "load", scene });
   },
 
   setLayerVisible: (layerId, visible) => {

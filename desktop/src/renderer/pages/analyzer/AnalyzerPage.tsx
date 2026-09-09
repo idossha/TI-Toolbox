@@ -61,6 +61,15 @@ import {
 } from "./api";
 import { batchReceipt, submitBatch } from "./submitBatch";
 
+/** An untouched target may be chosen directly from the visible cortical atlas. */
+export function corticalSceneRoi(roi: RoiValue | undefined): Extract<RoiValue, { mode: "cortical" }> | null {
+  if (roi?.mode === "cortical") return roi;
+  if (roi?.mode === "spherical" && roi.spheres.every((sphere) =>
+    sphere.x === undefined && sphere.y === undefined && sphere.z === undefined && sphere.radius === 10,
+  )) return { mode: "cortical", atlas: undefined, regions: [] };
+  return null;
+}
+
 /** Same small local hook every other Run screen defines for its debounced Plan query
  *  (`optimizer-flex/index.tsx`, `optimizer-ex/queries.ts`, `simulator/PlanPanel.tsx`) — not
  *  worth centralizing across lanes for one `setTimeout`. Setting `debounced` from inside the
@@ -370,7 +379,8 @@ export function AnalyzerPage() {
    * `onAtlasChange` writers, now pointed at one row rather than at a page-level ROI.
    */
   const activeRoi = activeRow?.roi;
-  const sceneCortical = activeRoi?.mode === "cortical";
+  const sceneRoi = corticalSceneRoi(activeRoi);
+  const sceneCortical = sceneRoi !== null;
   const scenePane = usePaneController({ pageId: "analyzer", name: "run" });
   const sceneNote = sceneCortical
     ? undefined
@@ -404,16 +414,16 @@ export function AnalyzerPage() {
           scene={
             <ScenePane
               mode="inspect"
-              atlas={sceneCortical && activeRoi.mode === "cortical" ? (activeRoi.atlas ?? null) : null}
-              regions={sceneCortical && activeRoi.mode === "cortical" ? activeRoi.regions : undefined}
+              atlas={sceneRoi?.atlas ?? null}
+              regions={sceneRoi?.regions}
               onAtlasChange={
                 sceneCortical
-                  ? (atlas) => patchActiveRoi({ ...(activeRoi as Extract<RoiValue, { mode: "cortical" }>), atlas })
+                  ? (atlas) => patchActiveRoi({ ...sceneRoi, atlas, regions: [] })
                   : undefined
               }
               onRegionsChange={
                 sceneCortical
-                  ? (regions) => patchActiveRoi({ ...(activeRoi as Extract<RoiValue, { mode: "cortical" }>), regions })
+                  ? (regions, atlas) => patchActiveRoi({ ...sceneRoi, atlas: atlas ?? sceneRoi.atlas, regions })
                   : undefined
               }
               note={sceneNote}

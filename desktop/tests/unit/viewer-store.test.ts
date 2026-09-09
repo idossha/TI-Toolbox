@@ -179,8 +179,10 @@ describe("loading a scene", () => {
     ]);
   });
 
-  it("re-sends the scene when a reloaded frame says ready again", () => {
+  it("re-sends the scene when a reloaded frame reconnects and says ready", () => {
     useViewerStore.getState().loadScene(scene);
+    useViewerStore.getState().disconnect();
+    useViewerStore.getState().connect(frame, ORIGIN, 50);
     posted.length = 0;
     fromEmbed({ tvx: 1, type: "ready", version: 1, caps: { webgl2: true } });
     expect(sent("load")).toMatchObject({ scene });
@@ -316,6 +318,17 @@ describe("disconnect", () => {
  * The fix is that `pendingScene` is the host's *intent*, not the channel's state.
  */
 describe("the first Open, before any frame exists", () => {
+  it("does not restart an in-flight scene for the hello reply after the boot handshake", () => {
+    useViewerStore.getState().connect(frame, ORIGIN, 50);
+    useViewerStore.getState().loadScene(scene);
+    expect(posted.filter((p) => p.message.type === "load")).toHaveLength(0);
+    fromEmbed({ tvx: 1, type: "ready", version: 3, caps: { webgl2: true } });
+    fromEmbed({ tvx: 1, type: "progress", datasetId: "live-1", name: "T1.nii.gz", phase: "read", done: 100, total: 1000 });
+    fromEmbed({ tvx: 1, type: "ready", version: 3, caps: { webgl2: true } });
+    expect(posted.filter((p) => p.message.type === "load")).toHaveLength(1);
+    expect(useViewerStore.getState().progress.find((p) => p.id === "live-1")?.done).toBe(100);
+  });
+
   it("delivers the scene once the embed says ready", () => {
     useViewerStore.getState().loadScene(scene);
     // Nothing to post to yet — this is the whole shape of the bug.

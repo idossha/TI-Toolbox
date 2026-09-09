@@ -6,7 +6,7 @@ work; retain consequential rationale in [DECISIONS.md](DECISIONS.md).
 
 Status reviewed 2026-09-09. Candidate branch: `release/3.0.0`.
 The current checkout is available for manual testing through the standard development loader.
-Docker Hub publication waits for maintainer acceptance. No stable tag or public release is implied.
+The internal image is published on Docker Hub; manual acceptance continues. No stable tag or public release is implied.
 
 | Remaining acceptance work | Completion criterion |
 |---|---|
@@ -17,9 +17,9 @@ Docker Hub publication waits for maintainer acceptance. No stable tag or public 
 | Platform and publication checks | Verify intended platforms, macOS signing/notarization and registry access before public promotion |
 | Viewer update delivery | Verify compatible published Tetravox assets and update/rollback through the real release index |
 
-The retained local internal image includes a montage-dependency repair layer over an earlier
-source build; it is not a fully rebuilt image of the current checkout. Development mounts supply
-later changes. Current verification evidence and its limits belong in [TESTING.md](TESTING.md).
+Distribution candidates are rebuilt from the repository Dockerfile. Source-mounted testing does
+not establish what a published image contains. Current verification evidence and its limits
+belong in [TESTING.md](TESTING.md).
 
 ### Product follow-ups
 

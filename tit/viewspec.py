@@ -2811,10 +2811,10 @@ def to_tetravox_viewspec(spec: dict[str, Any]) -> dict[str, Any]:
                     "kind": "mesh",
                     "colorMode": "field" if field_name else "solid",
                     "solidColor": [0.78, 0.78, 0.8, 1.0],
-                    "field": (
-                        {"source": "elm", "name": field_name, "component": "mag"}
+                    **(
+                        {"field": {"source": "elm", "name": field_name, "component": "mag"}}
                         if field_name
-                        else None
+                        else {}
                     ),
                     "colormap": "jet",
                     "scale": scale,

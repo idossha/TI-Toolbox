@@ -8,7 +8,7 @@ import {
   buildConfig,
 } from "../../src/renderer/pages/analyzer/buildConfig";
 import { EMPTY_SPHERE } from "../../src/renderer/pages/analyzer/SphereRows";
-import { blockedReasonFor, cohortSubjects, groupMismatchReason, rowTargets } from "../../src/renderer/pages/analyzer/AnalyzerPage";
+import { corticalSceneRoi, blockedReasonFor, cohortSubjects, groupMismatchReason, rowTargets } from "../../src/renderer/pages/analyzer/AnalyzerPage";
 import {
   analyzerJobsSummary,
   analyzerTargetLabel,
@@ -395,5 +395,22 @@ describe("the tissue suffix on a row's target line", () => {
   it("names a departure from the default", () => {
     expect(tissueSuffix({ space: "voxel", tissue: "WM" })).toBe(" · tissue WM");
     expect(tissueSuffix({ space: "voxel", tissue: "both" })).toBe(" · GM+WM");
+  });
+});
+
+
+describe("Analyzer visual target entry", () => {
+  it("allows the first atlas pick on a new row", () => {
+    expect(corticalSceneRoi(emptyAnalyzerRow().roi)).toEqual({ mode: "cortical", atlas: undefined, regions: [] });
+  });
+  it("keeps existing cortical selections", () => {
+    expect(corticalSceneRoi(corticalRoi)).toBe(corticalRoi);
+  });
+  it("does not replace an edited sphere or a subcortical target", () => {
+    const blank = emptyAnalyzerRow().roi;
+    if (blank.mode !== "spherical") throw new Error("fixture must be spherical");
+    expect(corticalSceneRoi({ ...blank, spheres: [{ x: 0, y: undefined, z: undefined, radius: 10 }] })).toBeNull();
+    expect(corticalSceneRoi({ ...blank, spheres: [{ x: undefined, y: undefined, z: undefined, radius: 5 }] })).toBeNull();
+    expect(corticalSceneRoi(subcorticalRoi)).toBeNull();
   });
 });
