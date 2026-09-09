@@ -1,8 +1,8 @@
 # Decisions and development history
 
 [ARCHITECTURE.md](ARCHITECTURE.md) defines current behavior; this record explains consequential
-choices, reversals and development milestones. [DESIGN.md](DESIGN.md) owns UI details, [BENCHMARKS.md](BENCHMARKS.md)
-owns retained measurements, and [RELEASE.md](RELEASE.md) owns outstanding work.
+choices, reversals and development milestones. [Interface design](ARCHITECTURE.md#11-interface-design) owns UI details, [BENCHMARKS.md](BENCHMARKS.md)
+owns performance measurements, and [ROADMAP.md](ROADMAP.md) owns outstanding work.
 
 This combined record was condensed on 2026-09-09. The numbered decisions explain why;
 the milestone section records what shipped. Older `HISTORY.md` citations refer here; detailed
@@ -101,7 +101,7 @@ subsequently requested current-product documentation and deferred Docker Hub pub
 manual testing. This supersedes the September 8 preview/teaser documentation decision.
 **Cost.** Each distributed source/image/package pairing needs its own acceptance evidence; a
 generated installer is insufficient. **Revisit if.** Parallel supported releases need maintenance
-branches. Current commands, workflow names and gates live in [RELEASE.md](RELEASE.md).
+branches. Current commands, workflow names and gates live in [RELEASING.md](RELEASING.md).
 
 ### 2026-09-08 — Blender has a separate supported environment
 
@@ -211,7 +211,7 @@ triangle winding. Electrode color encodes state; freehand editing belongs in Sim
 spikes, and duplicate region models could disagree with submitted ROIs.
 **Cost.** Bounded transparency and unresolved idle-marker contrast; real electrode solids need
 solver-consistent tangent frames and geometry. **Revisit if.** Measurements require a different renderer
-or marker design. Current visual rules and open work live in DESIGN and RELEASE.
+or marker design. Current visual rules and open work live in ARCHITECTURE and ROADMAP.
 
 ### 2026-09-07/09 — Viewer composition, scenes and incremental loading
 
@@ -329,7 +329,7 @@ The R1–R5 program delivered aggregate Overview, a shared clearable console, sc
 batch caps, packaged Ernie guide anatomy and draft-versus-loaded Viewer state. The A–D program
 added compatible Tetravox updates, color-coded electrode dots, shared selection controls and the
 pipeline canvas with public-API notebook export. These historical requirement labels still appear
-in code; current behavior belongs in ARCHITECTURE and DESIGN.
+in code; current behavior belongs in ARCHITECTURE.
 
 A container restart during FEM exposed the importance of job recovery semantics. The Jobs layer
 remains independent of pipeline UI code; dynamic bindings live in the Jobs package.
@@ -398,7 +398,7 @@ Earlier failed jobs and inconclusive native-monitor runs remain distinct from la
 A clean internal image and wheel were retained for local testing. The development branch became
 `release/3.0.0` without rewriting ancestry. Documentation now describes the current product;
 installation owns actual artifact availability. Main merge and Docker Hub publication were deferred
-until manual testing. Current delivery status is in RELEASE, not inferred from this milestone.
+until manual testing. Current delivery status is in ROADMAP, not inferred from this milestone.
 
 ### 2026-09-09 — Workflow polish and progressive viewing
 
@@ -420,7 +420,7 @@ images were repaired from saved configuration without rerunning simulations.
 
 Removed root `TODO.md`: its August plan mixed completed work, superseded designs and an incorrect
 public-release claim. Contributor invitations and unresolved work moved to
-[RELEASE.md](RELEASE.md). Historical `TODO §2.x` citations refer to the
+[RELEASING.md](RELEASING.md). Historical `TODO §2.x` citations refer to the
 [original plan in Git history](https://github.com/idossha/TI-Toolbox/blob/b6304f7fbae6d5ebd4f90881e8383ad728282b7e/TODO.md),
 not the current contract. Agent integration gained direct stdio registration and plain-file fallbacks;
 protocol process tests do not claim full native-client acceptance.
@@ -455,3 +455,12 @@ rerun. Tests used temporary fixtures and did not rerun existing user outputs.
 - Electron does not provide browser `prompt` or reliable blob-download behavior automatically;
   file export uses the owned host bridge. Auto-open effects must not recursively depend on the
   draft state they update.
+
+## 2026-09-09 — Documentation ownership
+
+Adopt the roster in [AGENTS.md](../../AGENTS.md#where-things-are-written-down). Contributor setup
+lives at the root; architecture includes UI design; testing, release procedure, performance,
+roadmap and automation have separate owners. The earlier combined release/roadmap and separate
+design pages were superseded to reduce overlap. CHANGELOG moves into this roster while retaining
+its public site route. Revise current-state references; append only significant decisions and
+release history. Revisit when an additional topic has a distinct reader and owner.

@@ -38,7 +38,7 @@ these are the facts that changed:
 - **One run spec.** The root `docker-compose.yml` is it, with four readers: the
   Electron app, `tit launch`, `loader.py`/`loader.sh`, and the dev overrides in
   `dev/loader/`. The new MCP tool `list_launch_paths` reports all of it.
-- **`docs/dev/` is the developer source of truth**; its index defines document ownership.
+- **`docs/dev/` is the developer source of truth**; AGENTS.md defines document ownership.
   The new MCP tool `read_dev_doc(name)` reads them. The user-facing site remains
   `docs/wiki/`, whose pages were restructured — the `mti` page is gone (mTI is now
   a section of `simulator`) and `overview`, `jobs`, `notebooks`, `pipelines` and
@@ -87,7 +87,7 @@ args = ["/absolute/path/to/TI-Toolbox/agent-plugin/mcp/server.py"]
 
 The server detects the checkout from its own location; its working directory does
 not matter. Restart the client after configuration changes, then ask it to call
-`get_quick_facts` and `read_dev_doc` with `name: "README"`. A configuration listing
+`get_quick_facts` and `read_dev_doc` with `name: "ARCHITECTURE"`. A configuration listing
 alone does not prove the server connected. See the [official Codex MCP guide](https://learn.chatgpt.com/docs/extend/mcp?surface=cli).
 
 Skills are installed separately from MCP. Copy or symlink each of the five folders

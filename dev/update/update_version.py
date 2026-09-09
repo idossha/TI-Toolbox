@@ -242,7 +242,7 @@ For installation instructions, see the [Installation Guide]({{{{ site.baseurl }}
 
 def update_changelog_file(version, release_notes, release_date):
     """Update the changelog file"""
-    changelog_file = "docs/releases/changelog.md"
+    changelog_file = "docs/dev/CHANGELOG.md"
 
     new_changelog_section = f"""### v{version} (Latest Release)
 

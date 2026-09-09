@@ -60,6 +60,26 @@ class InternalPackagingTests(unittest.TestCase):
     def write(self, path, content):
         (self.root / path).write_text(content)
 
+    def test_changelog_uses_canonical_dev_path_and_preserves_existing_notes(self):
+        path = self.root / "docs/dev/CHANGELOG.md"
+        path.parent.mkdir(parents=True)
+        path.write_text(
+            "---\nlayout: releases\ntitle: Changelog\npermalink: /releases/changelog/\n"
+            "---\n\nRelease history.\n\n---\n### v2.5.0\nAuthored old notes.\n"
+        )
+        old = os.getcwd()
+        try:
+            os.chdir(self.root)
+            update.update_changelog_file("3.0.0", "Authored new notes.", "2026-09-09")
+            first = path.read_text()
+            update.update_changelog_file("3.0.0", "Must not replace notes.", "2026-09-09")
+        finally:
+            os.chdir(old)
+        self.assertIn("Authored new notes.", first)
+        self.assertIn("Authored old notes.", first)
+        self.assertEqual(path.read_text(), first)
+        self.assertFalse((self.root / "docs/releases/changelog.md").exists())
+
     def test_release_requires_stable_tag(self):
         for ref in (
             "refs/heads/main",

@@ -19,7 +19,7 @@
 **Development line: 3.0.0 (internal testing).** The current runtime version is recorded in
 [`desktop/package.json`](desktop/package.json) and [`tit/__init__.py`](tit/__init__.py).
 The release badge above tracks published releases; this branch has not been publicly released.
-For remaining work, see the [development roadmap](docs/dev/RELEASE.md#b-current-readiness-and-follow-ups).
+For remaining work, see the [development roadmap](docs/dev/ROADMAP.md).
 
 Releases, guides, and wiki please see: [https://idossha.github.io/TI-Toolbox/](https://idossha.github.io/TI-Toolbox/)
 
@@ -60,3 +60,6 @@ the skills directly. See the [setup instructions](agent-plugin/README.md) for ea
 The TI-Toolbox goes through rapid development and we appreciate any feedback from our users.
 
 Known problems and verified fixes are collected in the [Troubleshooting Archive](https://idossha.github.io/TI-Toolbox/wiki/troubleshooting/) — check it first. Otherwise contact us via our [GitHub Issues](https://github.com/idossha/TI-toolbox/issues), [GitHub Discussions](https://github.com/idossha/TI-toolbox/discussions), [Discord](https://discord.gg/KKdjJk8f), or [email](mailto:ihaber@wisc.edu).
+
+See [CONTRIBUTING](CONTRIBUTING.md) for development, [AGENTS](AGENTS.md#where-things-are-written-down)
+for the documentation map, and [CHANGELOG](docs/dev/CHANGELOG.md) for changes by release.

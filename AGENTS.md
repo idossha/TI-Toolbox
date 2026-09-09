@@ -1,7 +1,7 @@
 # AGENTS.md — TI-Toolbox
 
 Entry point for any AI coding agent working in this repository. Read this fully before your first
-edit. Everything else is in [`docs/dev/`](docs/dev/README.md) — link to it, never restate it.
+edit. Everything else is in the documentation map below — link to it, never restate it.
 
 ## What this is
 
@@ -33,16 +33,31 @@ agent-plugin/   installable skills + a read-only MCP server for AI clients
 
 ## Where things are written down
 
-[docs/dev/README.md](docs/dev/README.md) owns the document map and update policy.
-Keep architecture, UI design, development commands, release work and historical rationale separate.
-Revise current-state pages rather than appending work logs. Record significant decisions in
-DECISIONS.md alongside meaningful milestones, and contract changes in contracts/CHANGES.md.
-User-visible numerical corrections belong in the applicable release page, not a separate audit file.
+This is the documentation map. Keep each topic in its designated file and link rather than copy.
+
+| File | Owns |
+|---|---|
+| [README.md](README.md) | Introduction, quick start and documentation links |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Contributor setup and development workflow |
+| [SECURITY.md](SECURITY.md) | Vulnerability reporting and security policy |
+| [ARCHITECTURE.md](docs/dev/ARCHITECTURE.md) | Structure, interfaces, constraints and UI design |
+| [DECISIONS.md](docs/dev/DECISIONS.md) | Dated decisions, alternatives, rationale and milestones |
+| [TESTING.md](docs/dev/TESTING.md) | Test strategy, commands, fixtures and gaps |
+| [RELEASING.md](docs/dev/RELEASING.md) | Versioning, packaging and release procedure |
+| [BENCHMARKS.md](docs/dev/BENCHMARKS.md) | Reproducible performance measurements |
+| [ROADMAP.md](docs/dev/ROADMAP.md) | Priorities, planned work and completion criteria |
+| [CHANGELOG.md](docs/dev/CHANGELOG.md) | User-visible changes by release |
+| [AUTOMATION.md](docs/dev/AUTOMATION.md) | CI, scripts, deployment, monitoring, backups and recovery |
+
+Revise current-state references in place. Append significant decisions/milestones and release
+entries; mark reversals explicitly. Routine test runs and agent handoffs are not permanent work logs.
+Numerical migration guidance belongs in the relevant release page, linked from the changelog.
+Developer references are excluded from the site except CHANGELOG, which retains its public URL.
 
 ## The gate
 
 Run checks appropriate to the change, and the full gate for a release candidate. Report actual results. Exact commands and their caveats:
-[`docs/dev/CONTRIBUTING.md` §2](docs/dev/CONTRIBUTING.md).
+[TESTING.md](docs/dev/TESTING.md).
 
 ```
 cd desktop && npm run typecheck && npm run lint && npx vitest run
@@ -57,7 +72,7 @@ npm run build                   # LAST, always
 ```
 
 Use isolated runs of `tests/test_scene_guide.py` to diagnose order-dependent failures;
-an isolated pass does not waive a failed full suite (see `docs/dev/CONTRIBUTING.md` §2.2).
+an isolated pass does not waive a failed full suite (see `docs/dev/TESTING.md`).
 
 ## Working in a shared worktree
 

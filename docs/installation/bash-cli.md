@@ -225,7 +225,7 @@ container/blueprint/build.sh --tag idossha/ti-toolbox:dev
 Run this command from the repository root. The recipe requires a compatible Tetravox embed;
 when building with a supplied asset, pass `--tetravox-tgz` and `--tetravox-sha256` as described
 in `container/blueprint/build.sh --help`. Its default resolver uses compatible GitHub release
-assets. The [release guide](https://github.com/idossha/TI-toolbox/blob/release/3.0.0/docs/dev/RELEASE.md)
+assets. The [release guide](https://github.com/idossha/TI-toolbox/blob/release/3.0.0/docs/dev/RELEASING.md)
 explains the embed and image-build requirements.
 
 Expect **30–60+ minutes** on native x86_64 hardware and considerably longer under amd64

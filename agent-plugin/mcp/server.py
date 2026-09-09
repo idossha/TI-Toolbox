@@ -52,19 +52,20 @@ SITE_BASE = "https://idossha.github.io/TI-Toolbox"
 
 WIKI_DIR = "docs/wiki"
 DEV_DOCS_DIR = "docs/dev"
-CHANGELOG = "docs/releases/changelog.md"
+CHANGELOG = "docs/dev/CHANGELOG.md"
 PY_VERSION_FILE = "tit/__init__.py"  # __version__ of the `tit` package
 DESKTOP_PACKAGE_JSON = "desktop/package.json"  # Electron app version (v3)
 
 # Explicit developer-document roster; reject paths outside these reference pages.
 DEV_DOCS = (
-    "README",
     "ARCHITECTURE",
     "DECISIONS",
-    "CONTRIBUTING",
-    "DESIGN",
+    "TESTING",
+    "RELEASING",
     "BENCHMARKS",
-    "RELEASE",
+    "ROADMAP",
+    "CHANGELOG",
+    "AUTOMATION",
 )
 
 # Never listed, never searched, never counted: build output and vendored deps.
@@ -395,7 +396,7 @@ def tool_get_toolbox_version(_: Dict[str, Any]) -> Dict[str, Any]:
         "changelog_url": f"{SITE_BASE}/releases/v{base}/" if m else None,
         "docker_image": docker_image,
         "docker_image_source": "docker-compose.yml (configured default; publication unverified)",
-        "version_sites_doc": "docs/dev/RELEASE.md (section A) — every file a version bump touches",
+        "version_sites_doc": "docs/dev/RELEASING.md — every file a version bump touches",
         "bump_command": "python3 dev/update/update_version.py --version X.Y.Z [--dry-run]",
         "source": _source_label(),
         "releases_url": f"{SITE_BASE}/releases/",
@@ -422,7 +423,7 @@ def tool_read_dev_doc(args: Dict[str, Any]) -> Dict[str, Any]:
         "path": f"{DEV_DOCS_DIR}/{match}.md",
         "headings": _headings(_split_frontmatter(text)["_body"]),
         "content": _truncate(body),
-        "note": "docs/dev/ is not published; the user-facing site is docs/wiki/.",
+        "note": "Developer references are unpublished except CHANGELOG; AGENTS.md owns routing.",
     }
 
 
@@ -1036,11 +1037,10 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
         "gate_note": "Report the numbers, not 'green'. A 200 from /api/health is not "
         "evidence the new code loaded. Never run two FEM simulations in parallel under "
         "emulation. One Playwright run at a time (/tmp/tit-e2e.lock).",
-        "docs_of_record": "docs/dev/ is the single source of truth for developers and is "
-        "organized by the README index: README, ARCHITECTURE, DECISIONS, CONTRIBUTING, DESIGN, "
-        "BENCHMARKS, RELEASE. Read them with read_dev_doc. "
-        "Nothing in docs/dev/ is published; the user-facing site is docs/wiki/. There are no "
-        "per-lane note files anywhere in the repository and none may be added.",
+        "docs_of_record": "AGENTS.md owns the documentation map. docs/dev/ contains "
+        "ARCHITECTURE, DECISIONS, TESTING, RELEASING, BENCHMARKS, ROADMAP, CHANGELOG, "
+        "AUTOMATION. Read them with read_dev_doc. Contributor setup is root CONTRIBUTING.md. "
+        "Only CHANGELOG is published from docs/dev/; workflow guides live in docs/wiki/.",
         "source_status": _source_label(),
         "tools_hint": "For any error message read_wiki_page('troubleshooting') first. Use "
         "search_wiki/read_wiki_page for user-facing how-to questions, read_dev_doc for how "
@@ -1159,20 +1159,17 @@ TOOLS: List[Dict[str, Any]] = [
     },
     {
         "name": "read_dev_doc",
-        "description": "Read one of the docs/dev/*.md reference files — the DEVELOPER source of "
-        "truth, not published on the site. Names: README (the map and reading order), "
-        "ARCHITECTURE (how it is built, plus the science pipelines and DWI topology), "
-        "DECISIONS (numbered decisions and development milestones), CONTRIBUTING (dev loop, the gate, the smoke "
-        "harness, the science-integrity rule), DESIGN (the UI contract and per-page "
-        "conventions), BENCHMARKS (scoped validation and performance "
-        "evidence), RELEASE (distribution and current open work). "
-        "Optionally return one section by heading text.",
+        "description": "Read a developer document: ARCHITECTURE (structure and design), "
+        "DECISIONS (dated rationale and milestones), TESTING (strategy, commands, fixtures, gaps), "
+        "RELEASING (versioning and packaging), BENCHMARKS (performance), ROADMAP (priorities), "
+        "CHANGELOG (user-visible changes), AUTOMATION (CI and operations). "
+        "Optionally return one section by heading text. AGENTS.md owns routing.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "name": {
                     "type": "string",
-                    "description": "e.g. 'ARCHITECTURE' or 'RELEASE'",
+                    "description": "e.g. 'ARCHITECTURE' or 'RELEASING'",
                 },
                 "section": {
                     "type": "string",

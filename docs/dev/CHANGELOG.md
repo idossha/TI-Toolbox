@@ -28,13 +28,8 @@ Docker stack with a single streamlined image. There is no X11 anywhere, FastSurf
 `recon-all`, and viewing is [Tetravox]({{ site.baseurl }}/wiki/visualizers/) inside the app window
 instead of Freeview and Gmsh as separate X11 programs.
 
-The desktop app and scripts use the same `tit` scientific core. **Nine scientific corrections**
-are recorded in the unreleased work. Before reusing 2.x results, consult the complete
-[correction table]({{ site.baseurl }}/releases/v3.0.0/#scientific-corrections) and
-[upgrade guidance]({{ site.baseurl }}/releases/v3.0.0/#upgrading-from-2x).
-Those cover re-running affected statistics and geometry analyses, rescaling voxel focality,
-and correcting sampled permutation p-values. No released 2.x montage requires an exposure
-metric rerun for SCI-07; SCI-08 requires no action.
+The desktop app and scripts use the same scientific core. For affected earlier workflows,
+see the [targeted correction table]({{ site.baseurl }}/releases/v3.0.0/#scientific-corrections).
 
 See the [installation guide]({{ site.baseurl }}/installation/) for source and artifact availability.
 

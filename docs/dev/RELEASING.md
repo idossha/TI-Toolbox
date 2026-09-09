@@ -1,8 +1,8 @@
-# Building, distributing and releasing TI-Toolbox
+# Releasing TI-Toolbox
 
-This is the operating procedure and remaining-work list. [ARCHITECTURE.md](ARCHITECTURE.md) §10
-owns the internal/public boundary; [BENCHMARKS.md](BENCHMARKS.md) owns measured gates. Continue the
-existing product and pipeline rather than creating a version-specific procedure or task ledger.
+Versioning, packaging and publication procedure. [ROADMAP.md](ROADMAP.md) owns current
+acceptance priorities; [TESTING.md](TESTING.md) owns validation. Workflow triggers and recovery
+are documented in [AUTOMATION.md](AUTOMATION.md).
 
 ## A. Build and distribution modes
 
@@ -113,11 +113,11 @@ viewer manifest and actual job outputs must agree with the artifact receipt. Rea
 The internal cohort tests its actual platforms and workflows. Full macOS Intel/Apple Silicon,
 Windows and Linux package validation remains a production requirement; one local Mac does not
 prove the other platforms. User-facing setup and known limits are in
-[Installation](../installation/installation.md#internal-colleague-testing).
+[Installation](../installation/installation.md#install-from-source).
 
 ### Local development testing
 
-Use the [development loop](CONTRIBUTING.md#1-the-development-environment) for current-checkout
+Use the [development loop](../../CONTRIBUTING.md#development-environment) for current-checkout
 code and [docs preview](../README.md) for the local website. Source-mounted testing does not
 replace acceptance of a rebuilt image with no source/UI mounts.
 
@@ -133,39 +133,3 @@ Real publishing needs Docker Hub access and macOS `CSC_LINK`, `CSC_KEY_PASSWORD`
 Presence of a secret name does not prove its value works. macOS signing, Gatekeeper, notarization
 and first launch must be measured before claiming them; Windows artifacts are unsigned.
 
-## B. Current readiness and follow-ups
-
-Status reviewed 2026-09-09. Candidate branch: `release/3.0.0`.
-The current checkout is available for manual testing through the standard development loader.
-Docker Hub publication waits for maintainer acceptance. No stable tag or public release is implied.
-
-| Remaining acceptance work | Completion criterion |
-|---|---|
-| Manual workflow testing | Colleagues exercise representative copied projects and report output/result behavior |
-| Rebuild the distribution candidate | Bake current source, renderer and compatible Tetravox embed; record immutable identities |
-| Clean image and loader acceptance | Test without checkout mounts; verify Python/Bash launchers and fresh installer first launch |
-| Hosted review | Run CI/security review on the actual candidate head; older results do not cover later fixes |
-| Platform and publication checks | Verify intended platforms, macOS signing/notarization and registry access before public promotion |
-| Viewer update delivery | Verify compatible published Tetravox assets and update/rollback through the real release index |
-
-The retained local internal image includes a montage-dependency repair layer over an earlier
-source build; it is not a fully rebuilt image of the current checkout. Development mounts supply
-later changes. Current verification evidence and its limits belong in [BENCHMARKS.md](BENCHMARKS.md).
-
-### Product follow-ups
-
-These are scoped improvements, not blanket blockers for internal testing. Recheck the relevant
-source before scheduling them; remove a row when it ships.
-
-| Area | Follow-up |
-|---|---|
-| Optimizer | Ex symmetric-bucket controls; consistent naming for Flex `output_folder` and Ex `run_name`; mixed-kind group submission |
-| Analyzer | Expose Python multi-sphere ROI union in the config and UI |
-| Jobs | Running-job ETA and bulk retry; current elapsed time and single-job Rerun remain available |
-| Pipelines | Restore saved configs into forms; replace JSON-only editors where useful; notebook import round trip |
-| Notebooks | Detect outdated seeded examples without overwriting user edits; variable explorer and interactive plots |
-| Viewer | Decide whether unused per-layer overrides need a client; assess reference-scene marker visibility |
-| Test harness | Avoid tracked smoke-payload churn while preserving UI/HTTP replay equivalence |
-| Maintenance | Assess OpenSSF practices and extend integration coverage for selected colleague workflows |
-
-For older implementation plans and retired TODO references, see [DECISIONS.md](DECISIONS.md).

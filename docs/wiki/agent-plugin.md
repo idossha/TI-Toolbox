@@ -39,7 +39,7 @@ tests/test_agent_plugin_mcp.py
 |------|-------|
 | `get_quick_facts` | Static orientation blob; agents are told to call it first |
 | `list_wiki_pages`, `read_wiki_page`, `search_wiki` | Parse `docs/wiki/*.md` front matter; `read_wiki_page` can return a single `##` section |
-| `read_changelog`, `get_toolbox_version` | `docs/releases/changelog.md`, `version.py` |
+| `read_changelog`, `get_toolbox_version` | `docs/dev/CHANGELOG.md`, `version.py` |
 | `list_source_dir`, `read_source_file` | Restricted to `tit/ scripts/ docs/ tests/ container/ dev/` + top-level manifests; text extensions only; path traversal rejected |
 | `find_symbol`, `search_source` | Local checkout only (regex over the tree) |
 | `inspect_project`, `read_project_config` | Walk a user's BIDS project using the same directory conventions as `tit/paths.py`; names only, no file contents except `code/ti-toolbox/config/*.json` |

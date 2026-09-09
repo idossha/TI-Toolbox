@@ -1,6 +1,6 @@
 # Version updates
 
-The procedure of record is [docs/dev/RELEASE.md](../../docs/dev/RELEASE.md).
+The procedure of record is [docs/dev/RELEASING.md](../../docs/dev/RELEASING.md).
 `update_version.py` separates runtime versioning from public release documentation:
 
 ```sh

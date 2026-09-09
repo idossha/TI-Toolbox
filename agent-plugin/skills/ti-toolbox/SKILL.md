@@ -48,7 +48,7 @@ host — there is nothing for a user to paste.
    project root before diagnosing "my simulation doesn't show up".
 4. **Two doc sets, two audiences.** `docs/wiki/` is the user-facing site — use
    `search_wiki` / `read_wiki_page`. `docs/dev/` is the developer source of truth,
-   is *not* published, ; its index defines document ownership — use `read_dev_doc`.
+   is indexed by AGENTS.md; only CHANGELOG is published — use `read_dev_doc`.
 5. Check `get_toolbox_version` / `read_changelog` when behaviour may depend on version.
 
 ## MCP tools (server `ti-toolbox`)

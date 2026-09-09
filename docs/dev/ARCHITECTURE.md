@@ -1,9 +1,9 @@
 # Architecture
 
-This is the current system contract. [DESIGN.md](DESIGN.md) owns interface behavior,
-[CONTRIBUTING.md](CONTRIBUTING.md) owns development and verification procedures, and
-[DECISIONS.md](DECISIONS.md) records why the design changed. Results belong in
-[BENCHMARKS.md](BENCHMARKS.md); outstanding work belongs in [RELEASE.md](RELEASE.md).
+This is the current system and interface contract.
+[CONTRIBUTING.md](../../CONTRIBUTING.md) owns development; [TESTING.md](TESTING.md) owns verification, and
+[DECISIONS.md](DECISIONS.md) records why the design changed. Performance measurements belong in
+[BENCHMARKS.md](BENCHMARKS.md); outstanding work belongs in [ROADMAP.md](ROADMAP.md).
 Section numbers remain stable because source comments and tests cite them. A contract change
 requires a corresponding decision entry in the same change.
 
@@ -71,7 +71,7 @@ Sources: [`ScenePane.tsx`](../../desktop/src/renderer/pages/_shared/scene/SceneP
 
 ## 4. Controls and conventions
 
-[`DESIGN.md`](DESIGN.md) owns the shared interaction grammar. Pages use the existing UI primitives,
+Section 11 defines the shared interface grammar. Pages use the existing UI primitives,
 semantic tokens and schema-driven forms. Scientific scope appears with the work it controls;
 commitment belongs to a predictable primary action. Long values, errors and dropdowns must remain
 usable inside their pane and viewport. Every interactive node has an accessible name.
@@ -81,7 +81,7 @@ server planning and validation. A client preview is not authority to bypass serv
 
 ## 5. Verification and frozen interfaces
 
-The verification procedure is [CONTRIBUTING.md](CONTRIBUTING.md). Host tests with mocked heavy
+The verification procedure is [TESTING.md](TESTING.md). Host tests with mocked heavy
 libraries do not prove numerical correctness; science changes require independent assertions against
 real libraries. Published-result changes also require [release-specific scientific correction notes](../releases/v3.0.0.md#scientific-corrections).
 UI tests run hidden and assess state, geometry and rendering assertions. An unavailable quiet check
@@ -190,10 +190,11 @@ Sources: [`pipeline schema`](../../contracts/pipeline.schema.json), [`tit/pipeli
 
 ### 7.4 One selection grammar
 
-Set selection uses the shared list/picker: plain click, range selection, modifier toggle, filtered
-All/None and preserved selection order. Unavailable rows remain visible with their reason and cannot
-enter a run through bulk selection. Participant row lists preserve repeats needed by paired studies.
-The detailed grammar belongs to [DESIGN.md](DESIGN.md) §4.8.
+Set selection uses [`SelectionList`](../../desktop/src/renderer/ui/SelectionList.tsx): plain click
+selects one, Shift-click extends a range, modifier-click toggles, modifier-A selects the filtered set
+and Escape clears. All/None affect visible rows while preserving hidden selections. Selection order
+determines submission order. Unavailable rows remain visible with their reason and cannot enter a
+run through bulk selection. Participant row lists preserve repeats needed by paired studies.
 
 A run's grid and action digest derive from one `PlanModel`. They do not maintain separate counts.
 Registry order owns navigation and shortcut numbering; subroutes do not create extra page instances.
@@ -258,7 +259,7 @@ The supported reconstruction path feeds scalar/tensor extraction, registration a
 conversion. The custom scalar-only GQI spec avoids unnecessary connectivity and atlas requirements.
 Other upstream reconstruction specs are not implicitly validated by this integration. Diffusion
 registration and tensor reorientation retain the expert-review limitation recorded in
-[RELEASE.md](RELEASE.md).
+[RELEASING.md](RELEASING.md).
 
 Sources: [`tit/pre/qsi/`](../../tit/pre/qsi/), [`structural.py`](../../tit/pre/structural.py),
 [`GQI scalar spec`](../../resources/qsirecon_pipelines/dsi_studio_gqi_scalar.yaml).
@@ -269,7 +270,7 @@ Internal builds and public releases use the same product and packaging pipeline.
 records its source revision and immutable image identity; launchers and installers resolve the same
 image. An explicit image request retains mismatch protection. Publishing a container or preparing
 an internal build does not create a public release, move `latest` or rewrite stable announcement
-metadata. [RELEASE.md](RELEASE.md) owns distribution procedures and current availability.
+metadata. [RELEASING.md](RELEASING.md) owns distribution procedures and current availability.
 
 ### Runtime dependency boundaries
 
@@ -309,6 +310,10 @@ save-file bridge or browser download.
 
 `allow_unsafe_overrides` is project-scoped and default-off. Existing outputs require a fresh UI
 choice, including Rerun; old confirmation state and saved config flags confer no authority.
+The shared dialog offers Skip, Replace and rerun, or Cancel. Replace stays disabled unless the saved
+project setting is true; loading or failed settings checks confer no permission. Skip states whether
+new jobs will run; Pipeline Skip and job Rerun Skip queue nothing. Incomplete pipeline previews cannot
+enable Replace.
 Submission routes enforce project permission before single jobs, groups, pipelines or reruns create
 jobs. Simulation overwrite intent reaches the subprocess and native SimNIBS session; ordinary runs
 retain native existence protection. Caller environment variables cannot supply permission.
@@ -316,3 +321,121 @@ retain native existence protection. Caller environment variables cannot supply p
 Sources: [`overwrite_policy.py`](../../tit/server/overwrite_policy.py),
 [`ExistingOutputsDialog.tsx`](../../desktop/src/renderer/pages/_shared/run/ExistingOutputsDialog.tsx),
 [`JobDetailPane.tsx`](../../desktop/src/renderer/app/jobs-rail/JobDetailPane.tsx).
+
+## 11. Interface design
+
+The interface supports configuring scientific work, monitoring expensive computations and reaching
+results. Use compact, readable controls, sentence case and consistent action verbs. Numbers, units,
+filenames and scientific scope take precedence over decoration. Lifecycle, coordinate authority and
+submission rules remain in §§2–3 and §§6–10; this section defines their presentation.
+
+### Layout and navigation
+
+[`PageLayout`](../../desktop/src/renderer/ui/Layout.tsx) supplies three shapes:
+
+| Shape | Work area | Secondary area |
+|---|---|---|
+| Run | Inputs and a bottom action bar | Bounded plan above Terminal, with Scene where supported |
+| Browse | Table, catalog or results tree | Selected item detail or preview |
+| Bleed | Canvas or dedicated viewing surface | No additional inspector |
+
+Use the available width. An unselected detail pane is absent; an idle run terminal reserves useful
+space for logs. The action bar sits outside the work scroller, with its primary action on the right
+and at most one secondary action. Controls cannot scroll beneath it. Wide tables scroll internally;
+no page has horizontal overflow. Pane resize supports drag, keyboard, reset, collapse and expansion,
+with remembered widths and the retention guarantees in §2.
+
+Sizing and responsive behavior live in [`tokens.css`](../../desktop/src/renderer/ui/tokens.css),
+[`pane.css`](../../desktop/src/renderer/ui/pane.css),
+[`paneState.ts`](../../desktop/src/renderer/ui/paneState.ts) and
+[`shell.css`](../../desktop/src/renderer/app/shell.css). Support the desktop minimum of 1024 × 680;
+narrow panes become drawers and forms respond to their own container width.
+
+The context bar owns command search, connection state and running-job count. Scientific scope stays
+in the page or palette. The jobs rail remains available throughout the app, with Jobs/Host views,
+raw logs and artifacts. There is no separate bottom status bar. System, Settings and Help have page
+headers; workflow pages use their navigation context. [`registry.ts`](../../desktop/src/renderer/app/registry.ts)
+owns navigation order, gating, palette destinations and shortcuts, including Viewer subroutes.
+
+### Visual system and controls
+
+[`ui/`](../../desktop/src/renderer/ui/) owns layout, controls, selection, feedback and overlays;
+[`pages/_shared/`](../../desktop/src/renderer/pages/_shared/) owns shared domain components. Exported
+TypeScript props are the component reference. Use semantic tokens from `tokens.css`, not copied
+colors or a page-specific design vocabulary. Panes use thin rules; elevation belongs to overlays.
+Accent denotes actions and selection, semantic state colors have accompanying text, and scientific
+field colors keep their own meaning. Muted placeholder/disabled ink is not normal body copy.
+
+Use IBM Plex Sans for prose and IBM Plex Mono for values, paths and logs, with tabular numbers.
+Normal copy has a 12 px floor; shared tokens own the remaining scale and 4 px spacing grid.
+Disabled controls are distinguishable and expose a reason where needed. Loading keeps button labels
+and widths stable. Dialogs, dropdowns and tooltips fit the viewport and remain keyboard accessible.
+
+Light is the initial theme. Light, dark and system preferences apply before paint through the
+[theme store](../../desktop/src/renderer/app/theme/store.ts). Scientific canvases retain their dark
+ground in either theme; authored figures retain their background. Both themes support readable
+contrast, visible focus and reduced motion. App shortcuts use Cmd/Ctrl; unmodified keys belong to
+the focused editor or canvas. Escape closes the innermost overlay first.
+
+### Forms, tables and feedback
+
+Forms use shared label rows, help popovers and unit suffixes. Wide tables, coordinate editors, paths
+and consoles span the row. Flush `FormSection` groups have nonsticky headers; collapsed sections
+summarize values and retain changed/error indicators. Essential choices remain exposed, and advanced
+non-default settings remain apparent. User-touched disclosure choices outrank automatic layout.
+Schema defaults, changed values and field validation use [`forms/`](../../desktop/src/renderer/forms/).
+Blocked actions explain their reason; output replacement is decided at commitment (§10).
+
+Tables retain their headers and inline empty state, use shared row density and right-align numbers.
+Job rows align identifying fields in columns, with richer pairs, currents and targets on a second
+line where needed. Inapplicable cells show a reasoned dash; incomplete rows remain editable (§7.5).
+
+| State | Presentation |
+|---|---|
+| Initial load | Skeleton or dataset progress sized for expected content |
+| Empty | Inline explanation and relevant action, preserving table or console shape |
+| Load failure | Persistent local error and retry |
+| Refetch | Existing content remains visible with a refresh indication |
+| Disconnected | Editable drafts survive; unavailable submission has a reason |
+
+Submission toasts supplement the persistent job record. A rendering failure retains successful
+layers where possible. Errors name what failed and a usable next step.
+
+### Workflow presentation
+
+[`RunPanel`](../../desktop/src/renderer/pages/_shared/run/RunPanel.tsx) bounds the plan above live output.
+The shared [`PlanModel`](../../desktop/src/renderer/pages/_shared/run/planModel.ts) supplies counts,
+paths, waits and representative per-job CPU/memory cost; do not multiply these into an invented batch
+budget. Chip precedence is `blocked > wait > overwrite > skip > new`. Blocked-chip detection currently
+matches prose warnings because the wire plan lacks structured per-cell blockers; it is a preview
+limitation, not server admission authority. The terminal header identifies the actual job and state.
+
+Pipeline cards use shared density and tokens. Named ports supplement color; missing inputs lead to
+the node editor. A valid receipt states jobs and dependencies; an invalid receipt groups structured
+issues by node and offers Fix. The empty prompt leaves the canvas mounted and sample/import actions
+available. Samples still undergo current server validation.
+
+The Viewer Menu's subject/space tree and editable composition share selection. Meshes, surfaces,
+volumes and attachments retain server-classified kinds, filenames and size. The embed owns detailed
+camera/layer controls; TI provides a slim scene/reload strip and distinguishes missing bundle,
+handshake timeout, rendering unavailability and dataset failure. See the
+[Viewer page](../../desktop/src/renderer/pages/viewer/index.tsx) and §7.1 for load and retention rules.
+Settings reports the active bundle, compatibility, source and verified digest; opening it does not
+itself fetch a remote release index. Project overwrite permission is separate from machine preferences.
+
+Notebooks place the file list beside a single cell scroller. Execution controls and kernel state
+remain visible, with recovery actions. CodeMirror completion uses the existing kernel; editor
+preferences remain separate from document content. Selected cells use an accent rule; stderr and
+error outputs have distinct warning/danger treatment. Kernel and save guarantees remain in §7.6.
+
+### Interface verification contract
+
+Hidden tests assert useful occupied space, reachable essential controls, no action-bar occlusion and
+no contentless detail pane. Executable thresholds belong to the tests, not copied historical numbers:
+[`_metrics.ts`](../../desktop/tests/e2e/_metrics.ts),
+[`layout.spec.ts`](../../desktop/tests/e2e/layout.spec.ts) and
+[`screens.spec.ts`](../../desktop/tests/e2e/screens.spec.ts). Screenshots supplement assertions.
+
+Preserve work/right-pane test IDs, `data-tier="1"`, user-touched disclosure markers and chosen pane
+tab markers. Shell `data-page`/`data-subject` identify active context because MemoryRouter navigation
+is not described by the browser URL alone. Tests distinguish active content from hidden retained pages.

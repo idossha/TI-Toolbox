@@ -6,8 +6,8 @@ so the same bundle works inside Electron, in the Vite dev server (proxied) and i
 The Electron main process only does host things: a local launcher page, a health poll, a
 navigation guard and a settings file. Science and path rules stay in Python (`tit`).
 
-Development guide: [CONTRIBUTING](../docs/dev/CONTRIBUTING.md), design contract:
-[DESIGN](../docs/dev/DESIGN.md), API contract: [OpenAPI](../contracts/openapi.yaml)
+Development guide: [CONTRIBUTING](../CONTRIBUTING.md), design contract:
+[DESIGN](../docs/dev/ARCHITECTURE.md#11-interface-design), API contract: [OpenAPI](../contracts/openapi.yaml)
 (see [contract workflow](../contracts/README.md)).
 
 ## Layout
@@ -22,7 +22,7 @@ src/main/stack.ts         attach-or-start, electron-free (an injected StackHost)
 src/preload/              contextBridge `window.tit` (sandboxed, dependency-free)
 src/shared/tit-bridge.d.ts  the bridge's TypeScript surface (renderer + preload)
 src/renderer/
-  ui/          design system — tokens.css/base.css/components.css + every primitive (docs/dev/DESIGN.md §5);
+  ui/          design system — tokens.css/base.css/components.css + every primitive (docs/dev/ARCHITECTURE.md §5);
                pages import only from here, never a literal colour
   forms/       schema loader (/api/schema, cached), Ajv 2020-12 react-hook-form resolver, SchemaField,
                server-error -> field mapping (see forms/README.md)

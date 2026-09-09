@@ -59,7 +59,7 @@ full reference text + a "copy citation" button + an external link to the DOI.
 Not a Qt tab — the PyQt help center had no app-wide shortcut reference, only the NIfTI Viewer's
 own "Tips and Shortcuts" section (mouse wheel, right-click-drag, `Ctrl+Wheel`, …), which does not
 carry over: that viewer, and the external Freeview/Gmsh flow it half-described, are both gone in
-v3 (D3). This tab is new copy, sourced from `docs/dev/DESIGN.md` §9 (Q5,
+v3 (D3). This tab is new copy, sourced from `docs/dev/ARCHITECTURE.md` §9 (Q5,
 confirmed): a `⌘`-number per workflow page in nav order (`⌘0`–`⌘9` today, Overview through Jobs — the
 rail counts from zero so ten digits cover ten rows), `⌘,` Settings, `?` this page, plus `⌘K`, `⌘J`,
 `⌘⇧I` and `⌘⇧V`. It complements rather than replaces

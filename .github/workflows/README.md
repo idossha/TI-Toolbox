@@ -1,6 +1,6 @@
 # GitHub Actions workflows
 
-The build and release procedure is [docs/dev/RELEASE.md](../../docs/dev/RELEASE.md).
+The build and release procedure is [docs/dev/RELEASING.md](../../docs/dev/RELEASING.md).
 
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
