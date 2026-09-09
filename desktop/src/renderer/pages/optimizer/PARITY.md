@@ -39,8 +39,7 @@ pane is the shared `RunPanel` (lane B2) with `kind` following the segment and
       only**, because the leadfield they need is resolved per subject — unchanged from the old
       page, which had a single-subject `Select`.
 - [x] **Run name** (`ExConfig.run_name` / `MExConfig.run_name`) — was Ex-only; now the first row
-      beside the Method segment for all three. Flex ignores it (`FlexConfig` has `output_folder`,
-      left `null` exactly as before).
+      beside the Method segment for all three. Flex resolves it to `output_folder` under the subject results directory.
 - [x] **ROI definition — one picker.** `pages/_shared/roi`'s `RoiPicker`, with `modes` per method:
       flex `["cortical","subcortical","spherical"]`, ex/mEx `["saved","subcortical"]`.
       `saved` is a **new fourth mode** of the shared picker (this lane), carrying what the old ex

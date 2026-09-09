@@ -827,3 +827,11 @@ now adopts layers as datasets complete and reuses retained datasets when selecti
 TI corrects progress identity/units and leaves successful layers visible on partial failure.
 The new upstream commit was built and locally activated through the existing installer.
 Docker Hub publication and production promotion remain deferred.
+
+### 2026-09-09 — Form and Source touch-ups
+
+Left-aligned form labels, stable participant Add actions, and moved fsaverage mapping from
+Source into each simulation job’s settings. Terminal and notebook mapping remain supported.
+
+Automatic Flex run folders now agree between preview and submission, and CSV/TSV interchange
+supports Cluster permutation and NIfTI group averaging participant tables.

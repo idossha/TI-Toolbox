@@ -122,7 +122,7 @@ On disk, the mTI mesh spells the modulation-depth field `mTI_max` -- the same qu
 
 **TI_normal is computed for mTI too.** Standard TI derives it from SimNIBS's 2-field `TI.get_dirTI`; mTI evaluates the same $$K$$-carrier envelope at a _fixed_ direction — the cortical surface normal — via `tit.calc.get_TI_dir` over all N channel overlays, and writes it as `{montage}_mTI_normal.msh` in `mTI/mesh/`.
 
-**fsaverage projection covers mTI.** `SimulationConfig.map_to_fsavg` defaults to `True` and runs for both modes; for mTI it reads the modulation depth from the mTI central surface (field `mTI_max`) and derives `hf_peak`/`hf_sar` from all N channel volume meshes.
+**fsaverage projection covers mTI.** Enable **Map fields to fsaverage** in each job’s settings to project its fields after simulation. New UI jobs start with mapping off; new rows inherit the last configured job settings. The Python `SimulationConfig.map_to_fsavg` default remains `True` for existing scripts. Projection runs for both modes; for mTI it reads the modulation depth from the mTI central surface (field `mTI_max`) and derives `hf_peak`/`hf_sar` from all N channel volume meshes.
 
 mTI supports an arbitrary even number of channels, **capped at 26** (A-Z channel labelling); more than 26 channels raises `ValueError`. Post-processing:
 

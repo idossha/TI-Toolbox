@@ -62,6 +62,7 @@ export function buildSimulationConfig(row: SelectedRow, defaults: GlobalParams):
     electrode_dimensions: params.dimensions,
     gel_thickness: params.gelThickness,
     output_fields: params.outputFields,
+    map_to_fsavg: params.mapToFsavg ?? false,
   };
   if (Object.keys(params.customConductivities).length > 0) {
     config.tissue_conductivities = params.customConductivities;

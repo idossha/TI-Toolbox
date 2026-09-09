@@ -13,8 +13,8 @@
  *   - **rows, not a set.** The same subject may appear twice (a paired test, a diff pair), which a
  *     set control cannot express — lane SUB's measured reason for not converting these three
  *     panels. The summary line says so outright when it happens (`4 rows · 3 subjects · …`).
- *   - **no filter, no select-all.** Both are set operations over a catalog. This table is the
- *     study design itself: every row is there because someone added it.
+ *   - **row selection.** Filtering and bulk selection apply to the study-design rows, not the
+ *     subject catalog. Adding a row stays in the header as these controls appear below it.
  *   - **always open.** There is nothing to disclose — the rows *are* the page's first decision.
  *
  * Everything else is deliberately identical: the 28 px `--surface-2` header band, the eyebrow
@@ -50,6 +50,7 @@ export function ParticipantsField<R>({
   eligibility,
   note,
   onAdd,
+  fileTools,
   addLabel = "Add subject",
   onRemove,
   minRows = 0,
@@ -145,7 +146,14 @@ export function ParticipantsField<R>({
           )}
         </span>
         {help}
-        {rows.length > 1 && (
+        {onAdd && (
+          <Button variant="secondary" size="sm" icon={<Plus size={14} />} onClick={onAdd} data-testid="participants-add">
+            {addLabel}
+          </Button>
+        )}
+      </div>
+      {rows.length > 1 && (
+        <div className="participants-field-tools">
           <TextInput
             className="participants-filter"
             aria-label="Filter participants"
@@ -154,8 +162,6 @@ export function ParticipantsField<R>({
             onChange={(e) => setQuery(e.target.value)}
             data-testid="participants-filter"
           />
-        )}
-        {rows.length > 1 && (
           <span className="participants-bulk">
             <Button
               variant="ghost"
@@ -182,28 +188,24 @@ export function ParticipantsField<R>({
               {selectionBadge(selected.length, rows.length)}
             </span>
           </span>
-        )}
-        {onRemove && selected.length > 0 && rows.length > selected.length && (
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<Trash2 size={14} />}
-            onClick={() => {
-              for (const id of selected) onRemove(id);
-              setSelection({ value: [], anchor: null });
-            }}
-            data-testid="participants-remove-selected"
-          >
-            Remove {selected.length}
-          </Button>
-        )}
-        {onAdd && (
-          <Button variant="secondary" size="sm" icon={<Plus size={14} />} onClick={onAdd} data-testid="participants-add">
-            {addLabel}
-          </Button>
-        )}
-      </div>
+          {onRemove && selected.length > 0 && rows.length > selected.length && (
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Trash2 size={14} />}
+              onClick={() => {
+                for (const id of selected) onRemove(id);
+                setSelection({ value: [], anchor: null });
+              }}
+              data-testid="participants-remove-selected"
+            >
+              Remove {selected.length}
+            </Button>
+          )}
+        </div>
+      )}
 
+      {fileTools}
       {loading && <Skeleton rows={3} />}
       {!loading && (
         <div className="participants-scroll" data-fill={fill ? "true" : undefined} ref={setBox} data-testid="participants-field-table">

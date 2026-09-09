@@ -63,6 +63,13 @@ const baseParams: GlobalParams = {
 };
 
 describe("Simulator page configs validate against contracts/generated/config.schema.json", () => {
+  it("maps only the job that opts in, including older saved settings without the flag", () => {
+    const row: SelectedRow = { id: "mapping", subjectId: "ernie", source: "montage", name: "F3_F4", currents: "1,1", pairs: [["E24", "E124"]] };
+    expect(buildSimulationConfig(row, baseParams).map_to_fsavg).toBe(false);
+    expect(buildSimulationConfig({ ...row, settings: { ...baseParams, mapToFsavg: true } }, baseParams).map_to_fsavg).toBe(true);
+    expect(buildSimulationConfig({ ...row, settings: baseParams }, baseParams).map_to_fsavg).toBe(false);
+  });
+
   it("a montage-source (net mode, uni-polar) row builds a valid SimulationConfig", async () => {
     const row: SelectedRow = {
       id: "montage:GSN-HydroCel-185:uni_polar:F3_F4:ernie",

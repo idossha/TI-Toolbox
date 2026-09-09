@@ -676,7 +676,7 @@ function outputDirFor(kind, subject, config) {
     case "flex":
     case "flex_adaptive":
     case "flex_pareto":
-      return `${base}/flex-search/${name}`;
+      return cfg.output_folder || `${base}/flex-search/${name}`;
     case "ex":
       return `${base}/ex-search/${name}`;
     case "mex":

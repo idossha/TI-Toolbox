@@ -18,6 +18,7 @@ import { useState } from "react";
 import { RotateCcw } from "lucide-react";
 import { Dialog } from "../../ui/Overlay";
 import { Button } from "../../ui/Button";
+import { HelpIcon } from "../../ui/HelpPopover";
 import { Field } from "../../ui/Field";
 import { NumberInput } from "../../ui/NumberInput";
 import { Select } from "../../ui/Select";
@@ -173,6 +174,16 @@ export function JobSettingsDialog({ row, defaults, onClose, onSave }: JobSetting
               ))}
             </div>
             {invalid && <span className="field-error">Select at least one output field.</span>}
+          </section>
+          <section>
+            <h4>Surface mapping</h4>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+              <label className="checkbox-label-row">
+                <Checkbox checked={draft.mapToFsavg ?? false} onCheckedChange={(checked) => setDraft({ ...draft, mapToFsavg: checked })} />
+                Map fields to fsaverage
+              </label>
+              <HelpIcon variant="plain" title="Surface mapping" text="Project this job’s surface fields to fsaverage5 after simulation for comparisons across subjects." />
+            </div>
           </section>
         </div>
       </Dialog>

@@ -11,7 +11,6 @@ import { usePageScrollMemory } from "../../_shared/session/usePageScrollMemory";
 import { Field } from "../../../ui/Field";
 import { Select } from "../../../ui/Select";
 import { NumberInput } from "../../../ui/NumberInput";
-import { Checkbox } from "../../../ui/Toggle";
 import { Button } from "../../../ui/Button";
 import { EmptyState } from "../../../ui/Feedback";
 import { AlertDialog } from "../../../ui/Overlay";
@@ -20,8 +19,8 @@ import { isPanelEnabled } from "../_shared";
 import "../panels.css";
 import { PlanSummary } from "../PlanSummary";
 import { ExtensionRunPanel, useExtensionJobs } from "../ExtensionRunPanel";
-import { createSourceJob, getSimulationsFor, getSubjectDetail, planSource, validateSource, type SourceConfig } from "./api";
-import { buildForwardConfig, buildFsavgConfig } from "./config";
+import { createSourceJob, getSubjectDetail, planSource, validateSource, type SourceConfig } from "./api";
+import { buildForwardConfig } from "./config";
 
 /** The same readiness vocabulary every other page uses; this panel's data carries no dwi/ct. */
 const SOURCE_COLUMNS = presenceColumns<{ id: string; has_raw: boolean; has_fastsurfer: boolean; has_freesurfer: boolean; has_m2m: boolean }>();
@@ -30,13 +29,6 @@ const SPACING_OPTIONS = [
   { value: "5", label: "5" },
   { value: "6", label: "6" },
   { value: "7", label: "7" },
-];
-
-const FSAVG_FIELDS: { name: string; label: string; help: string; defaultOn: boolean }[] = [
-  { name: "TI_max", label: "TI max", help: "Envelope modulation depth, maximised over direction (V/m).", defaultOn: true },
-  { name: "TI_normal", label: "TI normal", help: "Modulation depth along the cortical surface normal (V/m).", defaultOn: true },
-  { name: "hf_peak", label: "hf peak", help: "Largest instantaneous magnitude of the summed carrier fields (V/m).", defaultOn: false },
-  { name: "hf_sar", label: "hf SAR", help: "Sum of carrier power — proportional to SAR but not calibrated ((V/m)^2).", defaultOn: false },
 ];
 
 function useDebounced<T>(value: T, delayMs: number): T {
@@ -158,56 +150,6 @@ function SourcePanel() {
     }
   }
 
-  // --- Map fields to fsaverage ---
-  const [perSubjectSim, setPerSubjectSim] = usePageSession<Record<string, string>>("fsaverage.simulations", {});
-  const [fields, setFields] = usePageSession<string[]>("fsaverage.fields", () => FSAVG_FIELDS.filter((f) => f.defaultOn).map((f) => f.name));
-  const [fsavgSpacing, setFsavgSpacing] = usePageSession("fsaverage.spacing", "5");
-  const [workers, setWorkers] = usePageSession<number | undefined>("fsaverage.workers", 1);
-  const [fsavgRunning, setFsavgRunning] = useState(false);
-  const [fsavgConfirm, setFsavgConfirm] = useState(false);
-
-  const simQueries = useQueries({ queries: selected.map((id) => ({ queryKey: ["simulations", id], queryFn: () => getSimulationsFor(id) })) });
-
-  const pairs = selected
-    .map((id, i) => ({ subject_id: id, simulation: perSubjectSim[id] ?? simQueries[i]?.data?.[0]?.name }))
-    .filter((p): p is { subject_id: string; simulation: string } => !!p.simulation);
-
-  const fsavgConfig: SourceConfig | null =
-    pairs.length > 0 && fields.length > 0 ? buildFsavgConfig({ pairs, fields, fsaverageSpacing: Number(fsavgSpacing), workers: workers ?? 1, overwrite: false }) : null;
-
-  const fsavgBlocked = fsavgConfig
-    ? null
-    : pairs.length === 0
-      ? "Select at least one subject with a simulation."
-      : "Pick at least one field to project.";
-
-  function handleFsavgClick() {
-    if (!fsavgConfig) {
-      notify.error(pairs.length === 0 ? "Select at least one subject with a simulation." : "Pick at least one field to project.");
-      return;
-    }
-    setFsavgConfirm(true);
-  }
-
-  async function runFsavg(overwrite: boolean) {
-    if (!fsavgConfig) return;
-    setFsavgRunning(true);
-    try {
-      const job = await createSourceJob({ ...fsavgConfig, fsavg_map: { ...fsavgConfig.fsavg_map!, overwrite } }, pairs.map((p) => p.subject_id), overwrite);
-      jobs.trackJob(job);
-      notify.success(pairs.length === 1 ? `Queued: fsaverage mapping for ${pairs[0]!.subject_id}` : `Queued ${pairs.length} fsaverage-mapping jobs`);
-    } catch {
-      notify.error("Could not queue the fsaverage-mapping job.");
-    } finally {
-      setFsavgRunning(false);
-      setFsavgConfirm(false);
-    }
-  }
-
-  function toggleField(name: string, on: boolean) {
-    setFields((prev) => (on ? [...prev, name] : prev.filter((f) => f !== name)));
-  }
-
   return (
     <PageLayout rightPane={
       <ExtensionRunPanel kind="source" subjects={selected} {...jobs} plan={
@@ -215,10 +157,6 @@ function SourcePanel() {
           <section aria-label="Forward solution plan">
             <h3 className="card-title">Forward solution</h3>
             <SourcePlan config={forwardConfig} subjectIds={selected} />
-          </section>
-          <section aria-label="Field mapping plan">
-            <h3 className="card-title">Map fields to fsaverage</h3>
-            <SourcePlan config={fsavgConfig} subjectIds={pairs.map((p) => p.subject_id)} />
           </section>
         </>
       } />
@@ -246,10 +184,6 @@ function SourcePanel() {
           )}
         </div>
 
-        {/* The two pipelines are ALWAYS on the page, disabled until a subject is chosen (defect 4:
-            an empty state shows the shape of what will appear). Before this the page answered "no
-            subject yet" with one sentence and 400 px of ground — measured 82.3 % dead at 1280x800
-            — and a user could not see what the page was even for without first picking someone. */}
           </div>
           <div className="panel-page-col">
             <Card>
@@ -272,45 +206,7 @@ function SourcePanel() {
               </CardBody>
             </Card>
 
-            <Card>
-              <CardHeader title="Map fields to fsaverage" />
-              <CardBody>
-                <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-                  {selected.length === 0 && (
-                    <Field label="Simulation">
-                      <span className="field-help">One row per selected subject.</span>
-                    </Field>
-                  )}
-                  {selected.map((id, i) => (
-                    <Field key={id} label={`Simulation — ${id}`} htmlFor={`source-fsavg-sim-${id}`}>
-                      <Select
-                        id={`source-fsavg-sim-${id}`}
-                        value={perSubjectSim[id] ?? simQueries[i]?.data?.[0]?.name}
-                        onValueChange={(v) => setPerSubjectSim((prev) => ({ ...prev, [id]: v }))}
-                        options={(simQueries[i]?.data ?? []).map((s) => ({ value: s.name, label: s.name }))}
-                        placeholder={simQueries[i]?.data?.length ? "Select…" : "No simulations yet"}
-                      />
-                    </Field>
-                  ))}
-                  <Field label="Fields">
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-3)" }}>
-                      {FSAVG_FIELDS.map((f) => (
-                        <Checkbox key={f.name} checked={fields.includes(f.name)} onCheckedChange={(on) => toggleField(f.name, on)} label={f.label} />
-                      ))}
-                    </div>
-                  </Field>
-                  <Field label="fsaverage spacing" htmlFor="source-fsavg-spacing">
-                    <Select id="source-fsavg-spacing" value={fsavgSpacing} onValueChange={setFsavgSpacing} options={SPACING_OPTIONS} />
-                  </Field>
-                  <Field label="Workers" htmlFor="source-fsavg-workers" help="Subjects projected in parallel (1 = serial).">
-                    <NumberInput id="source-fsavg-workers" value={workers} onValueChange={setWorkers} min={1} step={1} />
-                  </Field>
-                  <Button variant="primary" size="lg" icon={<Play size={14} />} loading={fsavgRunning} onClick={handleFsavgClick} disabled={!!fsavgBlocked} title={fsavgBlocked ?? undefined}>
-                    Map to fsaverage
-                  </Button>
-                </div>
-              </CardBody>
-            </Card>
+
           </div>
         </div>
       </div>
@@ -324,15 +220,6 @@ function SourcePanel() {
         confirmVariant="primary"
         onConfirm={() => void runForward(true)}
       />
-      <AlertDialog
-        open={fsavgConfirm}
-        onOpenChange={setFsavgConfirm}
-        title="Map fields to fsaverage?"
-        description="If a projection already exists for a selected subject and simulation, it will be overwritten."
-        confirmLabel="Map to fsaverage"
-        confirmVariant="primary"
-        onConfirm={() => void runFsavg(true)}
-      />
     </PageLayout>
   );
 }
@@ -340,7 +227,7 @@ function SourcePanel() {
 const page: PageDef = {
   id: "panel-source",
   title: "Source",
-  purpose: "Build EEG forward solutions and map simulation fields to fsaverage.",
+  purpose: "Build EEG forward solutions.",
   navGroup: "panels",
   order: 100,
   icon: Waves,

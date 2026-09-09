@@ -22,13 +22,20 @@
   min-height: var(--section-header-h);
   background: var(--surface-2);
   min-width: 0;
-  /* Wrap rather than overflow. This band's widest state is title + summary + Select all + count +
-     "Remove N" + Add, whose intrinsic width does not fit the split layout's left column: measured
-     at 1280 px on the NIfTI panel, the Add button rendered at x=1048 while the column ends near
-     750, i.e. on top of the right column's card — where it was both unreadable and unclickable
-     (`elementFromPoint` at its centre returned that card's `.card-header`, and the real e2e's
-     click on it timed out). `min-height` keeps the common single-line band exactly as it was. */
+  /* Adding rows must not move the Add action into the conditional selection toolbar. */
+  flex-wrap: nowrap;
+}
+.participants-field-head > button {
+  flex-shrink: 0;
+}
+.participants-field-tools {
+  display: flex;
+  align-items: center;
   flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  background: var(--surface-2);
+  min-width: 0;
 }
 .participants-field-title {
   flex: none;

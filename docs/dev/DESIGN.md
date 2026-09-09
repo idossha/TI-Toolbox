@@ -228,7 +228,7 @@ with `--ink-3`. `tests/unit/cssRules.test.ts` scans the stylesheets for that pai
 | `--control-h` / `-sm` / `-lg` | 28 / 24 / 32 | every input, select, button (sm: in-table controls and chips; lg: a workflow's primary run action, including Source's in-card actions) |
 | `--row-h` | 28 | table rows, field rows, list rows |
 | `--section-header-h` | 28 | flush section headers |
-| `--field-label-w` | 160 | the label column of a label-left field row |
+| `--field-label-w` | 160 | maximum label width of a left-aligned field row |
 | `--pane-pad` | 12 | pane and section body padding |
 | `--context-bar-h` / `--action-bar-h` | 40 / 44 | shell strips |
 | `--nav-w` / `--nav-w-icons` | 216 / 56 | the rail, labelled and icon-only |
@@ -278,8 +278,8 @@ cap and the "Plan block on top, then page-specific blocks" inspector: the Plan i
 
 ### 4.2 Forms — nine rules
 
-1. **Label-left rows.** `Field` is a 28 px grid row: label in a `--field-label-w` gutter,
-   right-aligned, 12 px `--ink-2`; control right. No third line. Cost per field: 28 px, down from
+1. **Label-left rows.** `Field` is a 28 px grid row: content-sized label capped by `--field-label-w`,
+   left-aligned, 12 px `--ink-2`; control right. No third line. Cost per field: 28 px, down from
    70. `layout="stacked"` and `fullBleed` are the only escapes.
 2. **Help is an (i) popover, units are a suffix.** A sentence of help opens from a 14 px trigger
    next to the label; `mm`, `mA`, `V/m` live inside the control (`NumberInput`'s `unit`). Help is

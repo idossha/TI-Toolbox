@@ -25,11 +25,30 @@ exporter]({{ site.baseurl }}/wiki/blender/).
 
 Computational tools use the same layout as the main run pages: **inputs on the left**, with
 the **plan and live terminal on the right**. Submitted jobs remain available in that terminal
-after completion and when you return to the page. Source has separate plans for forward
-solutions and field mapping. Quick Notes remains a note editor, not a job runner.
+after completion and when you return to the page. Source builds EEG forward solutions. Field mapping is an opt-in in each Simulator job’s settings. Quick Notes remains a note editor, not a job runner.
 
 The 3D visual exporter adds **Scene / Terminal** tabs. Its scene follows the selected export
 type; see the [export preview guide]({{ site.baseurl }}/wiki/blender/#preview-and-export).
+
+### Map existing fields from a notebook or terminal
+
+In the supplied Jupyter environment, initialize the project and use the existing Python API:
+
+```python
+from tit import get_path_manager
+from tit.source.config import FsavgMapConfig
+from tit.source.fsaverage import project_fields_to_fsaverage
+
+get_path_manager("/data/my-project")  # Use your project's path inside the container.
+results = project_fields_to_fsaverage(
+    [("101", "L_Insula")],
+    FsavgMapConfig(fields=("TI_max", "TI_normal"), fsaverage_spacing=5),
+)
+```
+
+For a terminal run, save that code as a script and run `simnibs_python map_fields.py`.
+This maps existing outputs without rerunning simulation. For new simulations, enable
+**Map fields to fsaverage** in the job’s settings before running it.
 
 Two former extensions no longer exist as panels: **Electrode Placement** is now the Simulator's
 [free-hand mode]({{ site.baseurl }}/wiki/electrode-placement/), and **Subject Info** is the

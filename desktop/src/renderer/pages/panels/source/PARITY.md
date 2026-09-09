@@ -24,20 +24,11 @@ independent pipelines dispatched to `simnibs_python -m tit.source`, unified in t
 - [x] "Build forward" button → part of the shared Plan panel's Run button (Plan shows which mode
       is about to run).
 
-## Map fields to fsaverage (`FsavgMapConfig`)
+## Field mapping
 
-- [x] "Simulation" combo, per selected subject → since fsavg_map is a **pairs** list (Qt's
-      `[{subject_id, simulation}]` for every selected subject with the *same* simulation name),
-      the UI needs one simulation picker per selected subject when the simulation names differ
-      across subjects — implemented as one `Select` per subject row instead of Qt's single shared
-      combo (Qt's `_run_fsavg` reuses one `sim_combo.currentText()` for every subject, so a
-      subject lacking that exact simulation name silently gets skipped server-side; this fixes
-      that by resolving each subject's own simulation list).
-- [x] Field checkboxes (TI_max, TI_normal checked by default; hf_peak, hf_sar unchecked) →
-      `Checkbox` row, same defaults, same field labels/descriptions (`get_field_spec` tooltips
-      ported as `help` text).
-- [x] "fsaverage spacing" combo (5/6/7) → `Select`, default 5.
-- [x] `workers` (hardcoded 1 in Qt) → `NumberInput`, default 1.
+Removed from Source by maintainer request (2026-09-09). New simulations opt in through
+per-job Simulator settings; existing outputs use `tit.source.fsaverage` from a notebook or
+terminal. The SourceConfig mapping mode remains supported by the backend.
 
 ## Shared
 
@@ -46,13 +37,6 @@ independent pipelines dispatched to `simnibs_python -m tit.source`, unified in t
       (`ui/Jobs.tsx`), not a page-local console (R3).
 - [x] Overwrite confirmation (`confirm_overwrite`) → Plan panel `AlertDialog`, same as every other
       Run screen.
-
-## Known gaps
-
-- `SourceConfig` has no discriminator field beyond `mode` itself for `/api/plan/source` and
-  `/api/jobs` — both pipelines share `kind: "source"`; the Plan panel keys off which sub-form
-  (`forward` vs `fsavg_map`) the user is filling in tab-locally, mirrored into the submitted
-  config's `mode`.
 
 ## Honest gap found in Round 2 — not mine to fix (mock-server, F3-owned)
 

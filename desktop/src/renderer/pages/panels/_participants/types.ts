@@ -46,6 +46,8 @@ export interface ParticipantsFieldProps<R> {
   /** J4, stated once in the summary line: what running these rows actually does. */
   note: string;
   onAdd?: () => void;
+  /** Local table import/export controls, below the stable summary and Add action. */
+  fileTools?: ReactNode;
   /** "Add subject" / "Add pair" — the page's own word for one row. */
   addLabel?: string;
   onRemove?: (id: string) => void;

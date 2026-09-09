@@ -178,3 +178,5 @@ validation** — `Montage` is a member of the top-level `PipelineConfig` union, 
 `dev/build_contract.py`/`config_io.py` mark it `required: [..., "_type"]` even when nested. Caught
 by `tests/unit/simulator-defaults.test.ts` before this ever reached a real server; fixed in
 `buildConfig.ts`.
+
+Per-job settings expose `map_to_fsavg`, opt-in in the UI; Python defaults are unchanged.

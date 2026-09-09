@@ -12,6 +12,14 @@ permalink: /wiki/flex-search/
 
 - [Haber, I., Jackson, A., Thielscher, A., Hai, A., & Tononi, G. TI-Toolbox: An Open-Source Software for Temporal Interference Stimulation Research. Brain Stimulation](<https://www.brainstimjrnl.com/article/S1935-861X(25)00418-8/fulltext>)
 
+## Run names
+
+Leave the run name blank to use the current date and time. The application resolves one
+folder for both the preview and submission; simultaneous rows receive distinct suffixes.
+After submission, the next automatic run gets a fresh name. Enter a name to use that folder
+under the subject’s `flex-search` directory instead. Existing-output checks still apply.
+
+
 ## Overview
 
 Flex Search uses differential evolution optimization to determine the best electrode positions for TI stimulation. The public API is `run_flex_search(config: FlexConfig) -> FlexResult`, with all configuration expressed through type-safe dataclasses and enums.

@@ -1,3 +1,5 @@
+import { ParticipantTableFiles } from "../_participants/ParticipantTableFiles";
+import { CLUSTER_COLUMNS } from "../_participants/tableFile";
 import { useEffect, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { GitCompare, Play } from "lucide-react";
@@ -286,6 +288,12 @@ function ClusterPermutationPanel() {
               subjectOf={(r) => r.subjectId}
               eligibility={rowEligibility(mode)}
               note="one job over all subjects"
+              fileTools={<ParticipantTableFiles
+                columns={CLUSTER_COLUMNS}
+                filename="cluster-permutation-participants"
+                records={rows.map((row) => ({ subject_id: row.subjectId, simulation_name: row.simulationName, response: String(row.response), effect_size: row.effectSize === undefined ? "" : String(row.effectSize), weight: row.weight === undefined ? "" : String(row.weight) }))}
+                onImport={(imported) => setRows(imported.map((row) => ({ ...newRow(), subjectId: row.subject_id!, simulationName: row.simulation_name!, response: row.response === "0" ? 0 : 1, effectSize: row.effect_size ? Number(row.effect_size) : undefined, weight: row.weight ? Number(row.weight) : undefined })))}
+              />}
               onAdd={addRow}
               onRemove={removeRow}
               loading={subjectsQuery.isPending}

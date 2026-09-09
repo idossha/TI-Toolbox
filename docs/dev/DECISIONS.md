@@ -1438,3 +1438,28 @@ reuses memory even if a file was overwritten; Reload is the explicit freshness b
 
 **Revisit if.** Measured memory pressure calls for a bounded load queue or server-provided
 file revisions make automatic freshness detection reliable.
+
+### 2026-09-09 — Left-aligned forms and per-job field mapping
+
+**Decision.** Content-sized, left-aligned labels leave remaining width to controls. Participant
+Add actions stay in the summary header while conditional selection tools occupy a separate row.
+Source exposes EEG forward preparation; Simulator settings expose opt-in fsaverage projection
+through the existing config flag. Python defaults and standalone mapping remain compatible.
+
+**Why.** The maintainer requested readable left alignment, stable Add buttons as rows grow,
+and mapping alongside the simulation job rather than a second Source workflow.
+
+**Cost.** Control left edges vary with label length; UI mapping now starts off unless inherited
+from the last configured job. **Revisit if** per-job projection needs spacing or field overrides.
+
+### 2026-09-09 — Resolve automatic search folders before preview
+
+**Decision.** The Optimizer resolves the subject root through the server, then plans and submits
+one explicit folder. Automatic names use local date/time, milliseconds and row identity; a
+successful submission refreshes them. Manual basenames resolve inside the subject results root.
+
+**Why.** The maintainer requested that timestamp timing differences not become user warnings.
+Pinning the destination also prevents two simultaneous UI rows from sharing an automatic folder.
+
+**Cost.** Flex planning makes a second lightweight request. Raw API callers omitting the output
+folder retain the existing warning because their destination has not been pinned.

@@ -6,6 +6,23 @@ permalink: /wiki/cluster-permutation-testing/
 
 The Cluster-Based Permutation Testing extension performs non-parametric statistical analysis to identify brain regions with significant relationships between temporal interference (TI) stimulation fields and behavioral/clinical outcomes. This method provides robust control of family-wise error rates for both **group comparison** (binary outcomes) and **correlation analysis** (continuous outcomes).
 
+## Import and export participant rows
+
+Use **Import CSV/TSV**, **Export CSV**, or **Export TSV** below the Subjects header.
+Export the current table for an editable template. The required header and an example CSV row are:
+
+```csv
+subject_id,simulation_name,response,effect_size,weight
+101,L_Insula,1,,1
+```
+
+For TSV, use tabs instead of commas. Columns may be reordered, but all headers must be present
+with exactly these names. Subject IDs omit `sub-`; simulation names match the project catalog.
+`response` is 0 or 1. `effect_size` may be blank or a finite number; `weight` may be blank or a positive finite number. Quoted fields, embedded separators, UTF-8 BOM and Windows line endings are supported.
+An import replaces the table only after every row validates. A malformed file leaves existing
+rows unchanged. Import checks table structure and values; dataset files are checked by the job workflow.
+
+
 ## Key Features
 
 - **Dual Analysis Modes**: Group comparison (responders vs non-responders) and correlation analysis (continuous outcomes)

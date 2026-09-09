@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
@@ -86,7 +86,7 @@ async function expectRunLayout(): Promise<void> {
   expect(terminalBox!.height).toBeGreaterThan(rightBox!.height * 0.45);
 }
 
-test("Source panel: selecting a subject produces a Plan for both pipelines", async () => {
+test("Source panel: selecting a subject shows the forward workflow", async () => {
   await connect();
   await page.getByRole("link", { name: "Source", exact: true }).click();
   // No page header outside Settings/Help (DESIGN.md §2.3, §12.4 item 2) — the panel identity is
@@ -101,6 +101,7 @@ test("Source panel: selecting a subject produces a Plan for both pipelines", asy
   await page.locator(".subject-picker-row", { hasText: "ernie" }).click();
   // CardHeader renders its title as a <span> (see ui/Layout.tsx), not a heading element.
   await expect(page.getByText("Build forward solution")).toBeVisible();
+  await expect(page.getByText("Map fields to fsaverage", { exact: true })).toHaveCount(0);
   // Known mock-server gap (see pages/panels/source/PARITY.md "Honest gap found in Round 2"):
   // validateConfig() wrongly requires a `subject_id` field for kind="source" (SourceConfig has no
   // such field — it's `subject_ids`/`pairs`), so /api/validate/source against the mock always
@@ -168,6 +169,23 @@ test("NIfTI Group Averaging panel renders its form", async () => {
   // needs two subjects) and the missing name is left as the only one standing.
   const run = page.getByTestId("run-button");
   await fillParticipants(2);
+  const table = page.locator('[data-page-active="true"]').getByTestId("participants-field");
+  const exportPath = join(mkdtempSync(join(tmpdir(), "tit-table-")), "participants.tsv");
+  await app.evaluate(({ dialog }, path) => {
+    (dialog as unknown as { showSaveDialog: unknown }).showSaveDialog = async () => ({ canceled: false, filePath: path });
+  }, exportPath);
+  await table.getByRole("button", { name: "Export TSV", exact: true }).click();
+  await expect.poll(() => existsSync(exportPath)).toBe(true);
+  const exported = readFileSync(exportPath, "utf8");
+  expect(exported).toContain("subject_id\tsimulation_name\tgroup");
+  const beforeImport = await table.locator("tbody").innerText();
+  await table.locator('input[type="file"]').setInputFiles({ name: "invalid.csv", mimeType: "text/csv", buffer: Buffer.from("wrong,header\n1,2\n") });
+  await expect(page.getByText("Expected columns: subject_id, simulation_name, group.")).toBeVisible();
+  expect(await table.locator("tbody").innerText()).toBe(beforeImport);
+  await table.locator('input[type="file"]').setInputFiles({ name: "participants.tsv", mimeType: "text/tab-separated-values", buffer: Buffer.from(exported) });
+  await expect(page.getByText("Imported 2 participant rows.")).toBeVisible();
+  expect(await table.locator("tbody").innerText()).toBe(beforeImport);
+
   await expect(run).toBeDisabled();
   await expect(run).toHaveAttribute("title", "Enter an analysis name.");
   await page.getByLabel("Analysis name").fill("E2E_Group_Average");
@@ -213,6 +231,33 @@ test("Cluster Permutation panel switches between classification and correlation"
   await expectPage(page, "panel-cluster-permutation");
   await expectRunLayout();
   await expect(page.getByText("Test type")).toBeVisible();
+  const active = page.locator('[data-page-active="true"]');
+  const participants = active.getByTestId("participants-field");
+  while (await participants.getByRole("button", { name: /^Remove row/ }).count() > 1) {
+    await participants.getByRole("button", { name: /^Remove row/ }).last().click();
+  }
+  const add = participants.getByTestId("participants-add");
+  const before = await add.boundingBox();
+  await add.click();
+  await add.click();
+  const after = await add.boundingBox();
+  expect(Math.abs(after!.x - before!.x)).toBeLessThan(1);
+  expect(Math.abs(after!.y - before!.y)).toBeLessThan(1);
+  const fields = await active.locator(".field").evaluateAll((rows) => rows.map((row) => {
+    const label = row.querySelector(".field-label");
+    const control = row.querySelector("input.control, .select-trigger");
+    if (!label || !control) return null;
+    return { left: label.getBoundingClientRect().left - row.getBoundingClientRect().left,
+      align: getComputedStyle(label).textAlign,
+      overflow: control.getBoundingClientRect().right - row.getBoundingClientRect().right };
+  }).filter(Boolean));
+  expect(fields.length).toBeGreaterThan(2);
+  for (const field of fields) {
+    expect(field!.left).toBeLessThan(1);
+    expect(field!.align).toBe("left");
+    expect(field!.overflow).toBeLessThan(1);
+  }
+
 
   await page.getByRole("radio", { name: "Correlation" }).click();
   await expect(page.getByText("Correlation type")).toBeVisible();

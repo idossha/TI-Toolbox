@@ -1,3 +1,5 @@
+import { ParticipantTableFiles } from "../_participants/ParticipantTableFiles";
+import { AVERAGE_COLUMNS } from "../_participants/tableFile";
 import { useEffect, useMemo, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { Layers, Play } from "lucide-react";
@@ -196,6 +198,12 @@ function NiftiGroupAveragePanel() {
               subjectOf={(r) => r.subjectId}
               eligibility={rowEligibility}
               note="one job over all subjects"
+              fileTools={<ParticipantTableFiles
+                columns={AVERAGE_COLUMNS}
+                filename="nifti-group-average-participants"
+                records={rows.map((row) => ({ subject_id: row.subjectId, simulation_name: row.simulationName, group: row.group }))}
+                onImport={(imported) => setRows(imported.map((row) => ({ ...newRow(), subjectId: row.subject_id!, simulationName: row.simulation_name!, group: row.group! })))}
+              />}
               onAdd={addRow}
               onRemove={removeRow}
               loading={subjectsQuery.isPending}

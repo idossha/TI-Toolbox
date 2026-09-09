@@ -288,7 +288,9 @@
  */
 .field {
   display: grid;
-  grid-template-columns: var(--field-label-w) minmax(0, 1fr);
+  /* Size the label to its text so short labels leave room for the control. The cap keeps
+     long labels from crowding inputs; every row still finishes at the same right edge. */
+  grid-template-columns: fit-content(var(--field-label-w)) minmax(0, 1fr);
   align-items: center;
   column-gap: var(--space-3);
   row-gap: 2px;
@@ -322,7 +324,7 @@
 .field-label-row {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 4px;
   min-width: 0;
 }
@@ -331,7 +333,7 @@
   line-height: 16px;
   font-weight: 500;
   color: var(--ink-2);
-  text-align: right;
+  text-align: left;
   min-width: 0;
   overflow-wrap: break-word;
 }

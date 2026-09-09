@@ -93,8 +93,8 @@ bar keeps the primary action in a predictable position. Labels and blocked-actio
 readable, long selections cannot push controls outside their pane, and dropdowns fit their viewport.
 Keyboard names belong on interactive nodes, including checkbox rows and slider thumbs.
 
-Ordinary controls use the 28px token; workflow run actions use 32px, including Source's two in-card
-pipelines. The larger primary action must not depend on a page inheriting an accidental button default.
+Ordinary controls use the 28px token; workflow run actions use 32px, including Source's in-card
+forward action. The larger primary action must not depend on a page inheriting an accidental button default.
 
 No new dependency is required. A future dependency change requires a decision entry and a regenerated
 lockfile. Commit titles state the defect or resulting behavior; no AI co-author trailers.
@@ -692,7 +692,7 @@ Explicit `--image` or `TIT_IMAGE_TAG` requests retain the image-mismatch guard.
 
 Computational extension pages keep inputs in the work pane and the existing shared live
 terminal below a bounded plan in the right pane. Returned job IDs belong to page-session
-state, including both cortical export formats and both Source actions. This prevents
+state, including both cortical export formats and the Source forward action. This prevents
 completed logs disappearing or one extension following unrelated job kinds.
 
 Visual export previews follow the selected subject/configuration: cortical picks write
@@ -711,3 +711,19 @@ host progress/error presentation, not a second dataset cache. Explicit Reload re
 frame, releases workers, and re-reads changed files at unchanged paths. Successful layers
 remain visible after another dataset fails; a progress row's byte count comes from reading,
 not indexing sample counts.
+
+### Simulation field mapping ownership
+
+The Source panel builds EEG forward solutions. Each Simulator job owns an optional fsaverage
+projection flag, explicitly serialized as `map_to_fsavg` (UI default false, including old saved
+settings without the key). New rows inherit the last configured settings. Python configs retain
+their existing default and the standalone `tit.source` mapping API remains available.
+
+Optimizer Flex plans resolve an absolute subject output folder before displaying the final plan.
+Submission reuses that exact config; it waits for current, settled planning queries. Successful
+submission refreshes automatic names. The Python API's literal `output_folder` semantics remain
+unchanged; the UI resolves a manual basename under the subject directory.
+
+Participant tables in Cluster permutation and NIfTI group averaging accept local CSV/TSV with
+explicit headers. Parsing and value validation finish before replacing rows; no partial import.
+Electron exports use the existing save-file bridge; web exports use browser downloads.

@@ -398,6 +398,8 @@ test("a job's own electrodes reach its config, and its neighbour keeps the built
   await dialog.getByRole("spinbutton", { name: "Electrode width" }).fill("10");
   await dialog.getByRole("spinbutton", { name: "Electrode height" }).fill("10");
   await dialog.getByRole("checkbox", { name: "TI_avg" }).click();
+  await expect(dialog.getByRole("checkbox", { name: "Map fields to fsaverage" })).not.toBeChecked();
+  await dialog.getByRole("checkbox", { name: "Map fields to fsaverage" }).click();
   await dialog.getByRole("button", { name: "Done", exact: true }).click();
   await expect(dialog).toHaveCount(0);
 
@@ -427,6 +429,8 @@ test("a job's own electrodes reach its config, and its neighbour keeps the built
   expect(custom.electrode_dimensions).toEqual([10, 10]);
   expect(custom.output_fields).toEqual(["TI_max", "TI_avg"]);
   expect(custom.gel_thickness).toBe(4);
+  expect(custom.map_to_fsavg).toBe(true);
+  expect(plain.map_to_fsavg).toBe(false);
   // ...and the untouched job carries the built-in defaults, untouched by its neighbour's editing.
   expect(plain.electrode_shape).toBe("ellipse");
   expect(plain.electrode_dimensions).toEqual([8, 8]);

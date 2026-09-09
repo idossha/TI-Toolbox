@@ -723,3 +723,19 @@ Evidence: `dist/internal/export-real-preview-receipt.json`,
 `3b16a47ec1235640f5f392f71a609cc80dce75ed`, archive SHA-256
 `298e9247e0ed55ec3e36780ceea7c0f5b2ed65760e6f46cc3e2390e5f8e37048`.
 The prior baked embed remains available as rollback; no container restart or publication occurred.
+
+### 2026-09-09 — Forms, per-job mapping, run folders and table files
+
+- Frontend unit suite: 1,568 passed / 123 files, 22.93 s (`/tmp/tit-touchup-final-unit.log`).
+- Typecheck passed; ESLint: 0 errors, 3 existing warnings. Normal production build passed.
+- Hidden Source/NIfTI/Nilearn/Cluster suite: 4 passed, 6.3 s; includes actual native export,
+  TSV re-import, rejected CSV preserving the table, left label geometry and stable Add position
+  (`/tmp/tit-touchup-table-e2e.log`).
+- Hidden Optimizer suite: all 13 passed in the combined run (`/tmp/tit-touchup-final-e2e.log`);
+  the same run caught the Electron export failure subsequently fixed and rechecked above.
+  Preview and submission destinations are compared on the actual request bodies.
+- Hidden Simulator + Optimizer: 28 passed, 23.0 s (`/tmp/tit-touchup-optimizer-e2e.log`), including
+  per-job fsaverage opt-in without altering its neighbour. Visual exporter: 5 passed in the
+  earlier 24-test extension/simulator run (`/tmp/tit-touchup-e2e.log`).
+- Jekyll build passed, 2.151 s (`/tmp/tit-touchup-docs.log`). No scientific runs submitted to
+  either maintainer container; all job-submission checks used the mock server.

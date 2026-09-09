@@ -98,3 +98,21 @@ export function rowFormReason(row: OptimizerRow): string | null {
   if (MEX_BUCKET_KEYS.some((k) => (row.mex.buckets[k] ?? []).length === 0)) return "Fill in all eight electrode buckets.";
   return null;
 }
+
+/** Resolve a run-name control under the subject's server-provided flex directory. */
+export function flexOutputFolder(defaultFolder: string, manualName: string, autoName: string): string {
+  const name = manualName.trim();
+  if (name.startsWith("/")) return name;
+  if (name.includes("/") || name.includes("\\") || name === "." || name === "..") throw new Error("Use a run name without directory separators.");
+  const slash = defaultFolder.lastIndexOf("/");
+  if (slash <= 0 || !defaultFolder.startsWith("/")) throw new Error("The server did not resolve the subject’s results directory.");
+  const parent = defaultFolder.slice(0, slash);
+  if (!parent) throw new Error("The server did not resolve the subject's results directory.");
+  return `${parent}/${name || autoName}`;
+}
+
+/** Date and time, with milliseconds and row identity to distinguish simultaneous jobs. */
+export function automaticRunName(rowId: string, now = new Date()): string {
+  const pad = (value: number, width = 2) => String(value).padStart(width, "0");
+  return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}_${pad(now.getMilliseconds(), 3)}_${rowId.replace(/^opt-/, "")}`;
+}

@@ -64,7 +64,7 @@ import { viewerSearch } from "../results";
 import { getEegNets, getLeadfields, planFor, submitLeadfieldJob, validateFor, type EegNet, type Leadfield } from "./api";
 import { leadfieldPathFor } from "./nets";
 import { OptimizerJobRows, type OptimizerSubject } from "./JobRows";
-import { jobsForRow, rowFormReason, type OptimizerJobSpec } from "./plan";
+import { automaticRunName, flexOutputFolder, jobsForRow, rowFormReason, type OptimizerJobSpec } from "./plan";
 import {
   emptyOptimizerRow,
   isRunnableOptimizerRow,
@@ -233,13 +233,22 @@ function OptimizerPage() {
   // row: a job's config is its own, so it is the only thing that can be planned.
   const planQueries = useQueries({
     queries: debouncedJobs.map((job) => ({
-      queryKey: ["plan", job.kind, job.subject, JSON.stringify(job.config), debouncedOverwrite],
-      queryFn: () => planFor(job.kind, job.config, [job.subject], debouncedOverwrite),
+      queryKey: ["plan", job.kind, job.rowId, job.subject, JSON.stringify(job.config), debouncedOverwrite],
+      queryFn: async () => {
+        if (job.stage !== "flex") return { plan: await planFor(job.kind, job.config, [job.subject], debouncedOverwrite), config: job.config };
+        const config = job.config as Record<string, unknown>;
+        // Ask the server for this subject's root, then plan the exact destination we will submit.
+        const base = await planFor(job.kind, { ...config, output_folder: null }, [job.subject], false);
+        const folder = base.jobs[0]?.output_dir;
+        if (!folder) throw new Error("The server did not resolve the run folder.");
+        const resolved = { ...config, output_folder: flexOutputFolder(folder, String(config.output_folder ?? ""), automaticRunName(job.rowId)) };
+        return { plan: await planFor(job.kind, resolved, [job.subject], debouncedOverwrite), config: resolved };
+      },
     })),
   });
 
-  const planResults = planQueries.map((q) => q.data as PlanResult | undefined);
-  const allPlanned = planResults.length > 0 && planResults.every((r) => r !== undefined);
+  const planResults = planQueries.map((q) => q.data?.plan as PlanResult | undefined);
+  const allPlanned = planResults.length > 0 && planResults.every((r) => r !== undefined) && planQueries.every((q) => q.isSuccess && !q.isFetching);
   /** The signature the derived plan objects are keyed on: which queries have answered, and when. */
   const planSig = `${debouncedSig.length}:${planQueries.map((q) => `${q.status}@${q.dataUpdatedAt}`).join("|")}`;
 
@@ -279,8 +288,9 @@ function OptimizerPage() {
       void i;
     }
     if (jobs.length === 0) return "No job resolves to a target yet.";
+    if (jobsSig !== debouncedSig || !allPlanned) return "Resolving the run folders…";
     return null;
-  }, [rows, runnableRows, subjectsBlocked, jobs]);
+  }, [rows, runnableRows, subjectsBlocked, jobs, jobsSig, debouncedSig, allPlanned]);
 
   /** The panel's own kind — the family of the first job, which is what its step list describes. */
   const planKind: PlanKind = runnableRows[0] ? rowPlanKind(runnableRows[0]) : "flex";
@@ -324,7 +334,11 @@ function OptimizerPage() {
       // is unchanged: each job travels as its own `subject_configs` entry carrying its own
       // subject, and the server forces each config's `subject_id` to match.
       const byKind = new Map<GroupKind, OptimizerJobSpec[]>();
-      for (const job of jobs) byKind.set(job.kind, [...(byKind.get(job.kind) ?? []), job]);
+      if (jobsSig !== debouncedSig || !allPlanned) throw new Error("Wait for the current plan.");
+      for (const [index, job] of jobs.entries()) {
+        const resolved = { ...job, config: planQueries[index]!.data!.config };
+        byKind.set(job.kind, [...(byKind.get(job.kind) ?? []), resolved]);
+      }
 
       // Validate one representative config per kind before anything is queued (the flex path's
       // long-standing behaviour, now covering every kind the table holds).
@@ -349,7 +363,7 @@ function OptimizerPage() {
       }
       return { jobs: jobs.length, kinds: [...byKind.keys()], startedIds };
     },
-    onSuccess: ({ jobs: n, kinds, startedIds }) => {
+    onSuccess: async ({ jobs: n, kinds, startedIds }) => {
       notify.success(
         n === 1
           ? `Queued: ${OPT_METHOD_LABEL[kinds[0] as keyof typeof OPT_METHOD_LABEL] ?? kinds[0]} search.`
@@ -358,6 +372,7 @@ function OptimizerPage() {
       // A new run takes the terminal over: drop any explicit pin and follow this press's jobs.
       setPinnedJobId(null);
       setStartedJobIds(startedIds);
+      await queryClient.invalidateQueries({ queryKey: ["plan"] });
     },
     onError: (e) => {
       if ((e as Error).message !== "invalid") notify.error("Could not queue the search.");

@@ -243,6 +243,15 @@ test("the entry is two lines of a fixed 63px, and the table never scrolls sidewa
 });
 
 test("Flex: the row's editor holds the target and the form, and one flex job reaches the wire", async () => {
+  let previewFolder = "";
+  const recordPlan = (request: import("@playwright/test").Request) => {
+    if (request.method() === "POST" && request.url().endsWith("/api/plan/flex")) {
+      const folder = request.postDataJSON().config.output_folder;
+      if (folder) previewFolder = folder;
+    }
+  };
+  page.on("request", recordPlan);
+
   const row = optRows(page).first();
   await expect(row).toHaveAttribute("data-target-ready", "false");
   await expect(optRowSummary(row)).toHaveText("Choose a target…");
@@ -288,9 +297,13 @@ test("Flex: the row's editor holds the target and the form, and one flex job rea
     kind: string;
     subject_ids: string[];
     parallel_subjects: number;
-    subject_configs: { subject_id: string; config: { goal: string; roi: { _type: string; label: number[] } } }[];
+    subject_configs: { subject_id: string; config: { output_folder: string; goal: string; roi: { _type: string; label: number[] } } }[];
   };
   expect(body.kind).toBe("flex");
+  page.off("request", recordPlan);
+  expect(previewFolder).toMatch(/\/flex-search\/\d{8}_\d{6}_\d{3}_\d+$/);
+  expect(body.subject_configs[0]!.config.output_folder).toBe(previewFolder);
+
   expect(body.subject_ids).toEqual(["ernie"]);
   expect(body.parallel_subjects).toBe(1);
   expect(body.subject_configs.map((e) => e.subject_id)).toEqual(["ernie"]);
