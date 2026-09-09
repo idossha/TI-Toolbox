@@ -14,7 +14,7 @@ Install [Docker Desktop for Mac](https://www.docker.com/products/docker-desktop/
 Mac's architecture, start it, and wait for the engine to be ready. No XQuartz or separate
 X11 server is required.
 
-The browser launcher requires Python 3.11+ (`python3 --version`). The Electron development
+The Bash launcher needs no Python; Docker Desktop includes Compose. The Python launcher needs Python 3.11+. The Electron development
 app additionally requires Node 22.12+ and git. Use an absolute project path such as
 `/Users/you/datasets/project-copy` in the installation commands and `TIT_DEV_PROJECT_DIR`.
 

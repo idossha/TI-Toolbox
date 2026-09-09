@@ -17,23 +17,23 @@ server, a container host, a scripted setup, or simply a preference for the termi
 ## Requirements
 
 - **Docker Desktop** (macOS/Windows) or **Docker Engine** (Linux), running.
-- **CPython 3.11 or newer**.
+- Bash loader: **Docker Compose and curl**, no host Python.
+- Python loader: **CPython 3.11 or newer**.
 
-That is the whole list. The launcher uses the Python standard library and the `docker` CLI —
-it does **not** need SimNIBS, numpy, or Node on your machine. Everything the toolbox actually
-computes with lives inside the image.
+Neither launcher needs host SimNIBS, numpy or Node. The scientific tools run inside the image.
 
 ## Setup
 
 Complete the [installation procedure]({{ site.baseurl }}/installation/#install-from-source)
 to select a source ref, set `TIT_IMAGE`, and make that image available locally. Run this
 reference's commands from the repository root. `loader.py` and `loader.sh` use the source
-in that checkout; they pass options to the same implementation as `tit launch`.
+in that checkout. Python uses `tit launch`; Bash uses Docker Compose directly. Both share the
+root compose specification and container identity, so either can manage the same project.
 
 | Entry point | Use |
 |---|---|
 | `python3 loader.py` | Python 3.11+ and the Docker CLI are on your PATH. |
-| `./loader.sh` | Find a suitable Python interpreter before forwarding the same options. |
+| `./loader.sh` | Start Docker directly, without Python. |
 
 Keep the loaders inside the selected checkout so they use that revision.
 
@@ -206,8 +206,8 @@ python3 dev/loader/loader_dev.py --web                      # hand over to `npm 
 They take every option the user loaders take, including `--interactive`. By default they apply
 the three dev overrides collected in `dev/loader/docker-compose.dev.yml` — your checkout
 bind-mounted at `/ti-toolbox`, the server run with `--reload`, and your locally built renderer
-served instead of the image's when `desktop/out/renderer/index.html` exists. Otherwise the
-image's baked renderer is used. That file is *overrides only*; the service itself is defined
+served instead of the image's. Build `desktop/out/renderer` first or use Vite; a missing
+local bundle does not fall back to baked code. That file is *overrides only*; the service itself is defined
 once, in the root `docker-compose.yml`, so the two can never describe different containers.
 Pass `--no-mount-repo` to test the image's baked Python package and UI instead.
 
@@ -286,3 +286,7 @@ that outran `--timeout`. Raise it (`--timeout 300`) and look at `python3 loader.
 one it used; pass `--port` to steer it.
 
 More on the [Troubleshooting]({{ site.baseurl }}/installation/troubleshooting/) page.
+
+For a Docker-free local API and frontend, use `pnpm dev:host --project /path/to/project` from
+`desktop/` after the [host setup](https://github.com/idossha/TI-Toolbox/blob/release/3.0.0/CONTRIBUTING.md#development-environment).
+Scientific tools must then be available on the host.

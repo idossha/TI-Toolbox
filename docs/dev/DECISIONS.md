@@ -464,3 +464,12 @@ roadmap and automation have separate owners. The earlier combined release/roadma
 design pages were superseded to reduce overlap. CHANGELOG moves into this roster while retaining
 its public site route. Revise current-state references; append only significant decisions and
 release history. Revisit when an additional topic has a distinct reader and owner.
+
+## 2026-09-09 — Explicit loader and development modes
+
+The Bash entry point must not require Python. It uses Docker Compose and the same run spec and
+project labels as the Python/Electron launchers, rather than bootstrapping Python. Dev loaders
+mount their own checkout/worktree; missing local UI output must not select the baked UI instead.
+Keep Docker-backed `pnpm dev` as the reproducible default and add explicit `--host`/`dev:host` for
+local API/UI work. Host science dependencies remain the developer's responsibility. This preserves
+existing Docker workflows while making container-free development a deliberate choice.

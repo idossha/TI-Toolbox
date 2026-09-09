@@ -9,6 +9,10 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 ---
 ### v3.0.0 (Unreleased)
 
+- **Bash launchers no longer require Python.** Both CLI entry points open the Docker-hosted UI;
+  their dev variants mount the current checkout. `pnpm dev --host` runs a local API and UI for
+  development without Docker.
+
 - **Scene selection works from the first click.** Simulator previews load the selected subject's
   available EEG nets, including BioSemi nets when tissue labels are present. Analyzer atlas clicks
   can create a new cortical target directly. Mixed mesh/volume selections no longer crash when

@@ -25,7 +25,8 @@ installer or stable release is advertised here yet.
 
 Install and start [Docker Desktop](https://www.docker.com/products/docker-desktop/) on macOS
 or Windows, or [Docker Engine](https://docs.docker.com/engine/install/) on Linux. For the
-browser launcher, install Python 3.11+ and git. The Electron development app additionally
+Bash launcher, install curl and the Docker Compose plugin; Python is not required. The
+Python launcher requires Python 3.11+. Install git for a source checkout. The Electron development app additionally
 needs Node 22.12+. SimNIBS, FastSurfer, Python science dependencies, and the viewer are in the
 image; no X11 server is needed.
 

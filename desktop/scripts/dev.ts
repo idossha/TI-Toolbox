@@ -1,26 +1,11 @@
-/**
- * `npm run dev` — the whole system, from one command (P1, `docs/dev/HISTORY.md § 2026-09-03 (pipelines program)` §2).
- *
- *   npm run dev        container (attach / recreate / start) → Vite → Electron, already connected
- *   npm run dev:web    the same without Electron; open http://127.0.0.1:5173/
- *   npm run dev:down   stop and remove this project's container
- *
- * What it replaces: a hand-written `docker run` with eight flags and four labels, `docker inspect`
- * to read the token out of the container, `TIT_DEV_ORIGINS=<vite origin>` exported on the server so
- * the CSRF check would accept the tab, and `/auth/session?token=…` pasted into the address bar
- * after every restart. None of those steps is in the loop any more, and the developer never sees
- * the token: it is recovered from the container, handed to Vite and Electron in the child
- * environment, and stamped onto every proxied request as a bearer header (`scripts/devProxy.ts`).
- *
- * Ctrl-C stops Vite and Electron and leaves the container running, so the next `npm run dev`
- * attaches in a second or two. `npm run dev:down` is the one that stops it.
- */
+/** Docker-backed development by default; --host runs the API locally. */
 import { spawn } from "node:child_process";
 import { join } from "node:path";
 import { DEV_ENV_EXAMPLE, DEV_ENV_FILE, DevConfigError, loadDevConfig } from "./devEnv";
 
-const USAGE = `Usage: tsx scripts/dev.ts [--web] [--project PATH] [--down] [--force]
+const USAGE = `Usage: tsx scripts/dev.ts [--web] [--host] [--project PATH] [--down] [--force]
 
+  --host   run the API on the host (Python dependencies required); no Docker
   --web    the renderer dev server only, no Electron window (http://127.0.0.1:5173/)
   --project PATH  BIDS project directory (overrides .env.dev)
   --down   stop and remove this project's dev container, then exit
@@ -45,6 +30,7 @@ async function main(argv: string[]): Promise<number> {
     return 0;
   }
   const web = argv.includes("--web");
+  const host = argv.includes("--host");
   const down = argv.includes("--down");
   const force = argv.includes("--force");
 
@@ -64,39 +50,25 @@ async function main(argv: string[]): Promise<number> {
     throw err;
   }
 
+  if (host && (down || force)) throw new DevConfigError("--host cannot be combined with --down or --force; Ctrl-C stops the host server.");
+
   if (down) {
     const { removed } = await stopDevStack(config);
     console.log(removed.length ? `[dev] stopped and removed ${removed.join(", ")}` : "[dev] nothing to stop for this project");
     return 0;
   }
 
-  console.log(`[dev] project   ${config.projectDir}`);
-  console.log(`[dev] image     idossha/ti-toolbox:${config.imageTag}`);
-  console.log(`[dev] port      ${config.port}`);
-  console.log(`[dev] repo      ${config.mountRepo ? `${REPO_DIR} -> /ti-toolbox (server runs with --reload)` : "not mounted (the image's own tit)"}`);
-
-  // Select the checkout even before its first build. Vite serves fresh clones immediately;
-  // the backend shows its missing-bundle page until `npm run build`, never an old baked UI.
-  if (config.mountRepo) console.log("[dev] static    /ti-toolbox/desktop/out/renderer (this checkout's build output)");
-
-  // A clean clone has no image. `idossha/ti-toolbox:dev` is not a published tag — it is what
-  // `container/blueprint/build.sh` writes locally — so the pull inside `ensureDevStack` fails with
-  // a registry error that reads like a network problem. Saying what to build here is the
-  // difference between a five-minute detour and an afternoon.
-  const stack = await ensureDevStack(config, { forceRecreate: force }).catch((err: unknown) => {
-    const message = err instanceof Error ? err.message : String(err);
-    if (/could not be downloaded|not found|manifest unknown|pull access denied/i.test(message)) {
-      throw new Error(
-        `${message}\n` +
-          `[dev] idossha/ti-toolbox:${config.imageTag} is not on this machine, and no v3 image is\n` +
-          `[dev] published on Docker Hub yet. Build it once from this checkout (30-60+ minutes,\n` +
-          "[dev] longer under amd64 emulation on Apple silicon):\n" +
-          `[dev]   ../container/blueprint/build.sh --tag idossha/ti-toolbox:${config.imageTag}\n` +
-          "[dev] Or point TIT_DEV_IMAGE_TAG at a tag you already have (docker images idossha/ti-toolbox).",
-      );
+  console.log(`[dev] project ${config.projectDir}`);
+  const hostServer = host
+    ? await (await import("./devHost")).startHostServer(REPO_DIR, config.projectDir, config.port)
+    : undefined;
+  const stack = hostServer ?? await ensureDevStack(config, { forceRecreate: force });
+  if (hostServer) {
+    process.once("exit", hostServer.stop);
+    for (const signal of ["SIGINT", "SIGTERM"] as const) {
+      process.once(signal, () => { hostServer.stop(); process.exit(0); });
     }
-    throw err;
-  });
+  }
   console.log(`[dev] ${stack.attached ? "attached to" : "started"} ${stack.origin}`);
 
   // The token reaches Vite and Electron here and nowhere else: not on the command line (where `ps`

@@ -29,7 +29,7 @@ Docker group access gives control of the host; see the
 
 ## Launch choices
 
-The browser launcher needs Python 3.11+ and git. The Electron development app additionally
+The Bash launcher needs Docker Compose and curl; the Python launcher needs Python 3.11+. Install git for a checkout. The Electron development app additionally
 needs Node 22.12+ and a desktop session. Use an absolute Linux project path in the shared
 installation procedure. TI-Toolbox needs no X11 forwarding into the container.
 

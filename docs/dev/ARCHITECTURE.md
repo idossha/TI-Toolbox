@@ -28,6 +28,15 @@ Tetravox Embed on the host GPU; focused run previews use the application's WebGL
 Dependency versions belong in the package manifests, lockfile and container blueprint, not prose
 copies. Replacing these boundaries or adding a dependency is an architecture decision.
 
+### Launch modes
+
+`loader.py` uses the host Python standard library; `loader.sh` is Python-free and runs Docker
+Compose directly. Both consume the root compose specification and share the project hash and
+labels with Electron. Their development variants mount the launched checkout/worktree, including
+the locally built UI, without replacing scientific dependencies. `pnpm dev` uses that container
+with Vite; explicit `--host` runs the Python API locally on loopback and stops it on exit.
+Host-only execution depends on locally installed tools and is not an image acceptance test.
+
 ## 2. Project and tab lifetime
 
 Visited pages retain their component trees until the project session ends. Navigation hides and

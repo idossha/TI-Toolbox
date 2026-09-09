@@ -19,7 +19,7 @@ No VcXsrv or X11 forwarding is required for the toolbox interface.
 
 ## Browser from a source checkout
 
-Run the shared installation commands inside Ubuntu/WSL2, with Python 3.11+ and git installed
+Run the shared installation commands inside Ubuntu/WSL2, with Docker Compose, curl and git installed (Python 3.11+ only for `loader.py`)
 there. Use WSL paths for projects: `C:\Users\YourName\datasets\project-copy` becomes
 `/mnt/c/Users/YourName/datasets/project-copy`. The same path is used for the Docker bind mount.
 

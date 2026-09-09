@@ -52,20 +52,36 @@ the actual checkout and runtime settings. A mismatch with active or uninspectabl
 automatic replacement. Check jobs before backend changes: reload can interrupt work. A container
 recreate changes its token; a plain restart preserves the token but still interrupts its processes.
 
-For Python/Bash startup, use `python3 dev/loader/loader_dev.py` or the adjacent shell wrapper.
-Argument-free launch asks only for the project and remembers it. `--web` hands over to Vite;
-without it, build with `npm --prefix desktop run build` after frontend changes. A missing local
-renderer is an error, never a silent fallback to baked UI; `--no-open` starts only the API.
-The root `loader.py` / `loader.sh` are ordinary image-backed user launchers.
+Choose the execution mode explicitly:
 
-For host Python development:
+| Mode | Command | Code used |
+|---|---|---|
+| Run the built image | `bash loader.sh` or `python3 loader.py` | Image contents |
+| Develop inside Docker | `bash dev/loader/loader_dev.sh` or `python3 dev/loader/loader_dev.py` | The launched checkout/worktree mounted at `/ti-toolbox` |
+| Docker + live frontend | From `desktop/`: `pnpm dev` or `pnpm dev:web` | Mounted backend + Vite frontend |
+| Host-only development | From `desktop/`: `pnpm dev --host` or `pnpm dev:host` | Local Python API + Vite; no container |
+
+Both Bash entry points require Docker Compose and curl, **not host Python**. Both Python entry
+points require Python 3.11+. With no arguments the loaders ask only for a project; explicit
+`--project`, `--image`, `--port`, `--no-open`, `--status`, `--logs` and `--stop` stay scriptable.
+Dev loaders always use their own checkout, including a branch or worktree. Build its frontend
+with `npm --prefix desktop run build` after edits, or use Vite for live changes. A missing local
+bundle never silently falls back to the image's UI.
+
+Host-only setup, from the repository root:
 
 ```bash
 python3.11 -m venv .venv
 .venv/bin/python -m pip install -e '.[test]'
+cd desktop
+pnpm install
+pnpm dev:host --project /absolute/path/to/project
 ```
 
-The test extra is host-only and must not replace the image's SimNIBS dependency environment.
+Host mode uses `.venv` when present, otherwise `python3`; `TIT_DEV_PYTHON` overrides the interpreter.
+The API binds to localhost, selects a free port, and stops with Ctrl-C. It is useful for UI/API
+work; scientific jobs require the relevant tools installed on the host. Docker remains the
+reproducible scientific environment. The test extra must not replace the image's SimNIBS pins.
 
 ## Development workflow
 

@@ -98,3 +98,11 @@ describe("loadDevConfig", () => {
     expect(loadDevConfig(desktop, { TIT_DEV_PORT: "8766" }).port).toBe(8766);
   });
 });
+
+it("uses the checkout compose image when no dev image is specified", () => {
+  const root = mkdtempSync(join(tmpdir(), "tit-dev-compose-"));
+  const desktop = join(root, "desktop");
+  mkdirSync(desktop);
+  writeFileSync(join(root, "docker-compose.yml"), 'services:\n  tit:\n    image: idossha/ti-toolbox:${TIT_IMAGE_TAG:-internal-fixture}\n');
+  expect(loadDevConfig(desktop, { TIT_DEV_PROJECT_DIR: projectDir }).imageTag).toBe("internal-fixture");
+});

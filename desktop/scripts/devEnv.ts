@@ -14,6 +14,8 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
+import { parseDocument } from "yaml";
+import { interpolate } from "../src/shared/composeFile";
 
 export const DEV_ENV_FILE = ".env.dev";
 export const DEV_ENV_EXAMPLE = ".env.dev.example";
@@ -115,5 +117,14 @@ export function resolveDevConfig(vars: Record<string, string>, desktopDir: strin
 export function loadDevConfig(desktopDir: string, shell: NodeJS.ProcessEnv = process.env): DevConfig {
   const file = join(desktopDir, DEV_ENV_FILE);
   const fileVars = existsSync(file) ? parseDotenv(readFileSync(file, "utf8")) : {};
-  return resolveDevConfig(mergeDevEnv(fileVars, shell), desktopDir);
+  const vars = mergeDevEnv(fileVars, shell);
+  const compose = join(desktopDir, "..", "docker-compose.yml");
+  if (!vars.TIT_DEV_IMAGE_TAG?.trim() && existsSync(compose)) {
+    const image = parseDocument(readFileSync(compose, "utf8")).getIn(["services", "tit", "image"]);
+    if (typeof image !== "string") throw new DevConfigError("docker-compose.yml has no tit image");
+    const resolved = interpolate(image, {});
+    if (!resolved.startsWith("idossha/ti-toolbox:")) throw new DevConfigError("Set TIT_DEV_IMAGE_TAG for this compose image");
+    vars.TIT_DEV_IMAGE_TAG = resolved.slice("idossha/ti-toolbox:".length);
+  }
+  return resolveDevConfig(vars, desktopDir);
 }

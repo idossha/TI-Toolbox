@@ -12,6 +12,7 @@
   "scripts": {
     "dev": "tsx scripts/dev.ts",
     "dev:web": "tsx scripts/dev.ts --web",
+    "dev:host": "tsx scripts/dev.ts --host --web",
     "dev:down": "tsx scripts/dev.ts --down",
     "build": "electron-vite build",
     "preview": "electron-vite preview",

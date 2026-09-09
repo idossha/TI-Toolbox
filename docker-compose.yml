@@ -1,4 +1,4 @@
-# Shared container specification for Electron and Python launchers.
+# Shared container specification for Bash, Python and Electron launchers.
 # Supported keys and development setup: docs/dev/ARCHITECTURE.md and CONTRIBUTING.md.
 
 services:

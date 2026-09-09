@@ -476,11 +476,11 @@ def test_a_user_run_mounts_no_repo():
 
 
 def test_python_m_tit_cli_is_runnable():
-    """``python -m tit.cli`` must actually run — ``loader.sh`` execs exactly that.
+    """The Python CLI must produce help when invoked as a module.
 
     Regression: the ``if __name__ == "__main__"`` guard went missing once during a
     refactor of this module.  Nothing failed — ``python -m tit.cli launch --status``
-    simply printed nothing and exited 0, so ``loader.sh`` looked like it had worked.
+    simply printed nothing and exited 0.
     Importing the module is not enough to catch that; it has to be *run*.
     """
     result = subprocess.run(
@@ -493,210 +493,73 @@ def test_python_m_tit_cli_is_runnable():
     assert "--project" in result.stdout, "python -m tit.cli produced no help output"
 
 
-def _skip_without_host_python() -> None:
-    """Skip when the machine has no CPython >= 3.11 that ``loader.sh`` would find.
-
-    ``loader.sh`` is the *host* entry point: it looks for python3.14…python3.11, python3,
-    python on PATH and refuses with a diagnostic when none is a CPython >= 3.11. Inside the
-    SimNIBS container that is exactly the case -- ``python3`` there is 3.10, and the 3.11 is
-    ``simnibs_python``, which is not one of the names loader.sh probes. The script is behaving
-    correctly; the container is simply not a host. Skipping on the script's own precondition
-    keeps this test real everywhere it can run (the host gate does run it) instead of asserting
-    an environment.
-    """
-    for candidate in (
-        "python3.14",
-        "python3.13",
-        "python3.12",
-        "python3.11",
-        "python3",
-        "python",
-    ):
-        exe = shutil.which(candidate)
-        if exe is None:
-            continue
-        probe = subprocess.run(
-            [
-                exe,
-                "-c",
-                "import sys; sys.exit(0 if sys.version_info[:2] >= (3, 11) else 1)",
-            ],
-            capture_output=True,
-        )
-        if probe.returncode == 0:
-            return
-    pytest.skip("no CPython >= 3.11 on PATH, so loader.sh correctly refuses to run")
-
-
-def test_loader_sh_in_a_checkout_runs_the_checkout(tmp_path):
-    """``./loader.sh`` from a checkout must run *that* checkout, and say so.
-
-    The installed-package branch used to come first, and its probe (``python -c 'import
-    tit.launch'``) succeeds merely by being run from the repository root, because ``-c``
-    puts the current directory on ``sys.path``.  So a checkout with no ``tit`` installed
-    anywhere still took the installed branch and printed ``tit launch …`` follow-up hints
-    naming a command that did not exist on the machine.
-    """
-    _skip_without_host_python()
-    # Run with a `docker` whose daemon is DOWN, so this proves the dispatch rather than the
-    # machine. The old form ran with the ambient PATH and passed only where a daemon happened to
-    # be running: the preconditions were the first thing `loader.sh` did, so with the daemon down
-    # it exited 1 before reaching the checkout branch this test is about. Asking a script for its
-    # flags is not asking it to start a container.
-    shim = tmp_path / "docker"
-    shim.write_text("#!/bin/sh\nexit 1\n")
-    shim.chmod(0o755)
-    env = dict(os.environ, PATH=f"{tmp_path}:{os.environ.get('PATH', '')}")
-    result = subprocess.run(
-        ["bash", str(LOADER_SH), "--help"],
-        capture_output=True,
-        text=True,
-        cwd=REPO_ROOT,
-        env=env,
-    )
+@pytest.mark.parametrize('script', [LOADER_SH, LOADER_DEV_SH])
+def test_shell_help_does_not_need_python(tmp_path, script):
+    bin_dir = tmp_path / 'bin'
+    bin_dir.mkdir()
+    for name in ('cat', 'dirname', 'bash'):
+        (bin_dir / name).symlink_to(shutil.which(name))
+    result = subprocess.run(['/bin/bash', str(script), '--help'], env=dict(os.environ, PATH=str(bin_dir)), capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
-    assert "python loader.py" in result.stdout, result.stdout[:400]
+    assert '--project' in result.stdout
+    assert 'no host Python' in result.stdout
 
 
-@pytest.mark.parametrize("piped", [False, True])
-@pytest.mark.parametrize("cached", [False, True])
-def test_standalone_loader_refreshes_main_even_with_cached_environment(
-    tmp_path, piped, cached
-):
-    """A same-version cached or globally installed release must not hide main updates."""
-    script = tmp_path / "loader.sh"
+@pytest.mark.parametrize('operation', ['--stop', '--status', '--logs'])
+def test_standalone_shell_management_needs_no_download_or_python(tmp_path, operation):
+    script = tmp_path / 'loader.sh'
     script.write_text(LOADER_SH.read_text())
-    venv = tmp_path / "cached venv"
-    (venv / "bin").mkdir(parents=True)
-    trace = tmp_path / "calls.jsonl"
-    shim = tmp_path / "python"
-    shim.write_text(
-        f"#!{sys.executable}\n"
-        "import json, os, sys, pathlib, shutil\n"
-        "with open(os.environ['LOADER_TRACE'], 'a') as f: f.write(json.dumps(sys.argv[1:]) + '\\n')\n"
-        "if 'venv' in sys.argv:\n"
-        "    target = pathlib.Path(sys.argv[-1]) / 'bin' / 'python'\n"
-        "    target.parent.mkdir(parents=True, exist_ok=True)\n"
-        "    shutil.copy2(sys.argv[0], target)\n"
-        "if 'tit.cli' in sys.argv: print('fixture launcher')\n"
-        "if 'pip' in sys.argv and os.environ.get('FAIL_REFRESH'): sys.exit(1)\n"
-    )
-    shim.chmod(0o755)
-    if cached:
-        shutil.copy2(shim, venv / "bin" / "python")
-    env = dict(
-        os.environ,
-        TIT_PYTHON=str(shim),
-        TIT_VENV_DIR=str(venv),
-        LOADER_TRACE=str(trace),
-    )
-    command = (
-        ["bash", "-s", "--", "--help"] if piped else ["bash", str(script), "--help"]
-    )
-    for _ in range(2):
-        result = subprocess.run(
-            command,
-            input=script.read_text() if piped else None,
-            capture_output=True,
-            text=True,
-            cwd=tmp_path,
-            env=env,
-        )
-        assert result.returncode == 0, result.stderr
-        assert result.stdout.strip() == "fixture launcher"
-    calls = [json.loads(line) for line in trace.read_text().splitlines()]
-    installs = [call for call in calls if "pip" in call]
-    assert len(installs) == 2
-    for call in installs:
-        assert call == [
-            "-I",
-            "-m",
-            "pip",
-            "install",
-            "--quiet",
-            "--upgrade",
-            "--force-reinstall",
-            "--no-deps",
-            "https://github.com/idossha/TI-toolbox/archive/refs/heads/main.zip",
-        ]
-    assert [call for call in calls if "tit.cli" in call] == [
-        ["-I", "-m", "tit.cli", "launch", "--help"],
-        ["-I", "-m", "tit.cli", "launch", "--help"],
-    ]
-    trace.write_text("")
-    result = subprocess.run(
-        command,
-        input=script.read_text() if piped else None,
-        capture_output=True,
-        text=True,
-        cwd=tmp_path,
-        env=dict(env, FAIL_REFRESH="1"),
-    )
-    assert result.returncode != 0
-    assert "could not refresh the launcher from main" in result.stderr
-    assert all(
-        "tit.cli" not in json.loads(line) for line in trace.read_text().splitlines()
-    )
-
-
-@pytest.mark.parametrize("operation", ["--stop", "--status", "--logs"])
-@pytest.mark.parametrize("cached", [True, False])
-def test_standalone_shell_management_works_offline_with_cache(
-    tmp_path, operation, cached
-):
-    script = tmp_path / "loader.sh"
-    script.write_text(LOADER_SH.read_text())
-    venv = tmp_path / "cache"
-    (venv / "bin").mkdir(parents=True)
-    trace = tmp_path / "calls.jsonl"
-    shim = tmp_path / "python"
-    shim.write_text(
-        f"#!{sys.executable}\n"
-        "import json, os, sys, pathlib, shutil\n"
-        "with open(os.environ['LOADER_TRACE'], 'a') as f: f.write(json.dumps(sys.argv[1:]) + '\\n')\n"
-        "if 'venv' in sys.argv:\n"
-        "    target = pathlib.Path(sys.argv[-1]) / 'bin' / 'python'\n"
-        "    target.parent.mkdir(parents=True, exist_ok=True)\n"
-        "    shutil.copy2(sys.argv[0], target)\n"
-        "if 'pip' in sys.argv: sys.exit(73)  # offline\n"
-        "if 'tit.cli' in sys.argv: print('managed existing container')\n"
-    )
-    shim.chmod(0o755)
-    if cached:
-        shutil.copy2(shim, venv / "bin" / "python")
-    docker = tmp_path / "docker"
-    docker.write_text("#!/bin/sh\nexit 0\n")
+    docker = tmp_path / 'docker'
+    docker.write_text('#!/bin/sh\ncase "$1" in info) exit 0;; ps) echo fixture;; stop|rm|logs|inspect) exit 0;; *) exit 99;; esac\n')
     docker.chmod(0o755)
-    env = dict(
-        os.environ,
-        TIT_PYTHON=str(shim),
-        TIT_VENV_DIR=str(venv),
-        LOADER_TRACE=str(trace),
-        PATH=str(tmp_path) + os.pathsep + os.environ["PATH"],
-    )
-    result = subprocess.run(
-        ["bash", str(script), operation, "--project", "/tmp/existing project"],
-        cwd=tmp_path,
-        env=env,
-        capture_output=True,
-        text=True,
-    )
-    calls = [json.loads(line) for line in trace.read_text().splitlines()]
-    if cached:
-        assert result.returncode == 0, result.stderr
-        assert result.stdout.strip() == "managed existing container"
-        assert not any("pip" in call for call in calls)
-        assert calls[-1] == [
-            "-I",
-            "-m",
-            "tit.cli",
-            "launch",
-            operation,
-            "--project",
-            "/tmp/existing project",
-        ]
-    else:
-        assert result.returncode != 0
-        assert any("pip" in call for call in calls)
-        assert not any("tit.cli" in call for call in calls)
-        assert "could not refresh" in result.stderr
+    # A minimal PATH has neither Python, curl nor a package installer.
+    (tmp_path / 'awk').symlink_to(shutil.which('awk'))
+    result = subprocess.run(['/bin/bash', str(script), operation, '--project', str(tmp_path)], env=dict(os.environ, PATH=str(tmp_path)), capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize('dev', [False, True])
+def test_shell_start_uses_shared_compose_and_project_identity(tmp_path, dev):
+    bin_dir = tmp_path / 'bin'
+    bin_dir.mkdir()
+    trace = tmp_path / 'args'
+    copied_spec = tmp_path / 'compose.yml'
+    docker = bin_dir / 'docker'
+    docker.write_text('''#!/bin/sh
+case "$1" in
+ info|image) exit 0;;
+ ps) exit 0;;
+ compose)
+   [ "$2" != version ] || exit 0
+   printf '%s\\n' "$@" > "$TRACE"
+   while [ "$#" -gt 0 ]; do
+     if [ "$1" = -f ]; then cp "$2" "$COPIED_SPEC"; fi
+     shift
+   done
+   printf '%s\\n' "$TIT_REPO_DIR" "$TIT_STATIC_DIR" "$TIT_SERVER_RELOAD" > "$DEV_ENV_TRACE"
+   echo fixture;;
+ *) exit 99;;
+esac
+''')
+    docker.chmod(0o755)
+    curl = bin_dir / 'curl'
+    curl.write_text('#!/bin/sh\nexit 0\n')
+    curl.chmod(0o755)
+    for name in ('awk', 'cat', 'cp', 'dirname', 'mktemp', 'rm', 'sed', 'od', 'tr', 'uname', 'mkdir', 'bash'):
+        (bin_dir / name).symlink_to(shutil.which(name))
+    project = tmp_path / 'project space'
+    project.mkdir()
+    env_trace = tmp_path / 'dev-env'
+    env = dict(os.environ, PATH=str(bin_dir), TRACE=str(trace), COPIED_SPEC=str(copied_spec), DEV_ENV_TRACE=str(env_trace), XDG_CONFIG_HOME=str(tmp_path / 'config'))
+    env.pop('TIT_DEV_REPO_DIR', None)
+    env.pop('TIT_IMAGE_TAG', None)
+    result = subprocess.run(['/bin/bash', str(LOADER_DEV_SH if dev else LOADER_SH), '--project', str(project), '--port', '54321', '--no-open'], env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    args = trace.read_text().splitlines()
+    assert args[args.index('--name') + 1] == launch.container_name(str(project.resolve()))
+    assert f'tit.host_project_dir={project.resolve()}' in args
+    assert '--service-ports' in args
+    spec = launch.parse_compose(copied_spec.read_text())
+    assert spec.image == launch.default_image()
+    assert ('${TIT_REPO_DIR:-}:/ti-toolbox' in spec.volumes) == dev
+    assert env_trace.read_text().splitlines() == ([str(REPO_ROOT), '/ti-toolbox/desktop/out/renderer', '1'] if dev else ['', '', ''])
