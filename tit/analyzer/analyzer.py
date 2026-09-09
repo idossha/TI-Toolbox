@@ -39,6 +39,8 @@ from tit.logger import add_file_handler
 from tit.paths import get_path_manager
 
 logger = logging.getLogger(__name__)
+
+
 def voxel_volume_mm3(affine: np.ndarray) -> float:
     """Volume of one voxel in mm^3 from the image affine.
 
@@ -71,8 +73,6 @@ def _world_distance_grid(
         component = row[0] * deltas[0] + row[1] * deltas[1] + row[2] * deltas[2]
         dist_sq = dist_sq + component**2
     return np.sqrt(dist_sq)
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -426,6 +426,89 @@ class Analyzer:
         with track_operation(const.TELEMETRY_OP_ANALYSIS):
             dispatch = {"mesh": self._cortex_mesh, "voxel": self._cortex_voxel}
             return dispatch[self.space](atlas, region, visualize)
+
+    def analyze_mask(
+        self,
+        mask_path: str,
+        coordinate_space: str = "subject",
+        visualize: bool = False,
+    ) -> AnalysisResult:
+        """Analyze positive NIfTI voxels sampled onto subject geometry.
+
+        MNI masks use the optimizer's nonlinear m2m registration. Nearest-neighbour
+        sampling preserves binary membership; mesh results remain GM surface-area
+        statistics and voxel results retain the selected tissue and volume units.
+        """
+        import tempfile
+        import nibabel as nib
+        from nibabel.processing import resample_from_to
+        from scipy.ndimage import map_coordinates
+        from tit.opt.masks import prepare_mask
+        from tit.analyzer.masks import mask_region_name
+        from tit import constants as const
+        from tit.telemetry import track_operation
+
+        coordinate_space = coordinate_space.lower()
+        region_name = mask_region_name(mask_path, coordinate_space)
+        with (
+            track_operation(const.TELEMETRY_OP_ANALYSIS),
+            tempfile.TemporaryDirectory() as scratch,
+        ):
+            prepared = prepare_mask(
+                mask_path, coordinate_space, str(self.m2m_path), scratch, binary=True
+            )
+            mask_img = nib.load(prepared)
+            if self.space == "mesh":
+                surface = self._load_surface_mesh()
+                coords = nib.affines.apply_affine(
+                    np.linalg.inv(mask_img.affine), surface.nodes.node_coord
+                )
+                mask = (
+                    map_coordinates(
+                        mask_img.get_fdata(), coords.T, order=0, mode="constant", cval=0
+                    )
+                    > 0
+                )
+                if not mask.any():
+                    raise ValueError("Mask does not overlap the gray-matter surface")
+                return self._analyze_mesh_roi(
+                    surface,
+                    self._field_values(surface),
+                    self._node_areas(surface),
+                    mask,
+                    region_name=region_name,
+                    analysis_type="mask",
+                    visualize=visualize,
+                )
+            img = nib.load(str(self.field_path))
+            field_arr = self._squeeze_4d(img.get_fdata())
+            sampled = (
+                resample_from_to(
+                    mask_img,
+                    (field_arr.shape[:3], img.affine),
+                    order=0,
+                    mode="constant",
+                    cval=0,
+                ).get_fdata()
+                > 0
+            )
+            analysis_mask = (field_arr > 0) & self._voxel_tissue_mask(
+                img, field_arr.shape[:3], img.affine
+            )
+            roi_mask = sampled & analysis_mask
+            if not roi_mask.any():
+                raise ValueError(
+                    "Mask does not overlap positive field values in the selected tissue"
+                )
+            return self._analyze_voxel_roi(
+                field_arr,
+                roi_mask,
+                analysis_mask,
+                img.affine,
+                region_name=region_name,
+                analysis_type="mask",
+                visualize=visualize,
+            )
 
     # ------------------------------------------------------------------
     # Mesh: spherical
@@ -1079,9 +1162,7 @@ class Analyzer:
     @staticmethod
     def _sphere_region_name(spheres) -> str:
         """Name a spherical ROI: one sphere keeps the classic name."""
-        parts = [
-            f"sphere_x{x:.2f}_y{y:.2f}_z{z:.2f}_r{r}" for x, y, z, r in spheres
-        ]
+        parts = [f"sphere_x{x:.2f}_y{y:.2f}_z{z:.2f}_r{r}" for x, y, z, r in spheres]
         return "+".join(parts)
 
     def _resolve_output_dir(
@@ -1413,9 +1494,7 @@ class Analyzer:
         return arr
 
     @staticmethod
-    def _cache_resample(
-        arr: np.ndarray, affine: np.ndarray, cached_path: Path
-    ) -> None:
+    def _cache_resample(arr: np.ndarray, affine: np.ndarray, cached_path: Path) -> None:
         """Write the resample cache; never raise.
 
         Written via a temporary directory and copied into place: nibabel's

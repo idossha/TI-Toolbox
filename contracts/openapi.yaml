@@ -2420,6 +2420,161 @@ paths:
   # docs/dev/HISTORY.md § 2026-09-04 (scene service) §2, decisions S1-S3. Response bodies are plain dicts (the
   # pattern every /api/catalog route follows), so the shapes below are stated inline rather
   # than as named components -- there is no server-side Pydantic model for the dump to name.
+  /api/scene/target-preview:
+    post:
+      tags:
+      - scene
+      summary: Read-only subject-space target volume preview
+      description: Binary target extent on subject T1 geometry. MNI volumes use nonlinear
+        subject registration; spheres transform centers while preserving radius. No
+        scientific job or saved viewer scene is created.
+      security:
+      - cookieAuth: []
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                subject:
+                  type: string
+                roi:
+                  oneOf:
+                  - additionalProperties: false
+                    properties:
+                      kind:
+                        const: mask
+                        type: string
+                      path:
+                        type: string
+                      space:
+                        enum:
+                        - subject
+                        - mni
+                        type: string
+                    required:
+                    - kind
+                    - path
+                    - space
+                    type: object
+                  - additionalProperties: false
+                    properties:
+                      kind:
+                        const: subcortical
+                        type: string
+                      atlas:
+                        type: string
+                      space:
+                        enum:
+                        - subject
+                        - mni
+                        type: string
+                      labels:
+                        items:
+                          type: integer
+                        maxItems: 10000
+                        minItems: 1
+                        type: array
+                    required:
+                    - kind
+                    - atlas
+                    - space
+                    - labels
+                    type: object
+                  - additionalProperties: false
+                    properties:
+                      kind:
+                        const: spherical
+                        type: string
+                      space:
+                        enum:
+                        - subject
+                        - mni
+                        type: string
+                      spheres:
+                        items:
+                          additionalProperties: false
+                          properties:
+                            center:
+                              maxItems: 3
+                              minItems: 3
+                              prefixItems:
+                              - type: number
+                              - type: number
+                              - type: number
+                              type: array
+                            radius:
+                              exclusiveMinimum: 0
+                              maximum: 500
+                              type: number
+                          required:
+                          - center
+                          - radius
+                          type: object
+                        maxItems: 100
+                        minItems: 1
+                        type: array
+                    required:
+                    - kind
+                    - space
+                    - spheres
+                    type: object
+                  - additionalProperties: false
+                    properties:
+                      kind:
+                        const: saved
+                        type: string
+                      names:
+                        items:
+                          type: string
+                        maxItems: 100
+                        minItems: 1
+                        type: array
+                      radius:
+                        exclusiveMinimum: 0
+                        maximum: 500
+                        type: number
+                      space:
+                        enum:
+                        - subject
+                        - mni
+                        type: string
+                    required:
+                    - kind
+                    - names
+                    - radius
+                    - space
+                    type: object
+              required:
+              - subject
+              - roi
+              type: object
+      responses:
+        '200':
+          description: Anatomy and selected binary target in a Tetravox scene
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - scene
+                - note
+                properties:
+                  scene:
+                    type: object
+                    additionalProperties: true
+                  note:
+                    type: string
+        '403':
+          description: Input or cache escapes project jail
+        '404':
+          description: Subject anatomy, atlas or registration unavailable
+        '409':
+          description: No project bound
+        '422':
+          description: Invalid target or no subject overlap
   /api/scene/manifest:
     get:
       tags: [scene]

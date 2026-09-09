@@ -56,6 +56,7 @@ test.afterAll(async () => {
   await app?.close();
 });
 
+
 test("shape A, no page header, and one Jobs table instead of a global subject set", async () => {
   await expect(page.locator(".page-header")).toHaveCount(0);
   /*
@@ -589,4 +590,49 @@ test("hits its acceptance numbers at both sizes, in both themes (DESIGN.md §12.
 
   const first = rows.find((r) => r.width === 1280 && r.theme === "light");
   expect(first?.firstScreenControls.hidden).toEqual([]);
+});
+
+test("NIfTI masks import with explicit Subject and MNI space in the analysis config", async () => {
+  const row = analysisRows(page).first();
+  if ((await row.getAttribute("data-subject")) !== "ernie") await setAnalysisSubject(page, row, "ernie");
+  await setAnalysisCell(page, row, "simulation", "Thalamus");
+  const uploads: URL[] = [];
+  const configs: Record<string, unknown>[] = [];
+  await page.route("**/api/files/mask?**", async (route) => {
+    const url = new URL(route.request().url());
+    uploads.push(url);
+    await route.fulfill({ json: { path: `/mnt/project/m2m_ernie/masks/${url.searchParams.get("name")}` } });
+  });
+  await page.route("**/api/plan/analyzer", async (route) => {
+    const body = route.request().postDataJSON() as { config: Record<string, unknown> };
+    configs.push(body.config);
+    await route.continue();
+  });
+  try {
+    for (const [name, space] of [["analyzer-subject.nii", "Subject"], ["analyzer-mni.nii.gz", "MNI"]] as const) {
+      const dialog = await openAnalysisTarget(page, row);
+      await dialog.getByRole("radio", { name: "NIfTI mask", exact: true }).click();
+      const picker = dialog.getByLabel("Import NIfTI mask");
+      await expect(picker).toHaveAttribute("accept", ".nii,.gz,application/gzip,application/x-gzip");
+      await picker.setInputFiles({ name, mimeType: "application/octet-stream", buffer: Buffer.from("mock NIfTI payload") });
+      const path = `/mnt/project/m2m_ernie/masks/${name}`;
+      await expect(dialog.getByRole("textbox", { name: "Imported mask" })).toHaveValue(path);
+      await expect(dialog.getByRole("textbox", { name: "Imported mask" })).toHaveAttribute("readonly", "");
+      await dialog.getByRole("radiogroup", { name: "Mask space" }).getByRole("radio", { name: space, exact: true }).click();
+      await closeAnalysisTarget(page);
+      await expect(analysisTargetText(row)).toHaveText(`NIfTI mask · ${name} · ${space}`);
+      await expect.poll(() => configs.some((config) =>
+        config.analysis_type === "mask" && config.mask_path === path && config.coordinate_space === space.toLowerCase(),
+      )).toBe(true);
+      const reopened = await openAnalysisTarget(page, row);
+      await expect(reopened.getByRole("radiogroup", { name: "Mask space" }).getByRole("radio", { name: space, exact: true })).toHaveAttribute("aria-checked", "true");
+      await expect(reopened.getByRole("textbox", { name: "Imported mask" })).toHaveValue(path);
+      await closeAnalysisTarget(page);
+    }
+    expect(uploads.map((url) => url.searchParams.get("name"))).toEqual(["analyzer-subject.nii", "analyzer-mni.nii.gz"]);
+    expect(uploads.every((url) => url.searchParams.get("subject") === "ernie")).toBe(true);
+  } finally {
+    await page.unroute("**/api/files/mask?**");
+    await page.unroute("**/api/plan/analyzer");
+  }
 });

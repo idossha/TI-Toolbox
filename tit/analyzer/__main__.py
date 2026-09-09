@@ -55,6 +55,7 @@ def _build_config_legacy(data: dict) -> AnalyzerConfig:
         center=data.get("center"),
         radius=data.get("radius"),
         coordinate_space=data.get("coordinate_space", "subject"),
+        mask_path=data.get("mask_path"),
         atlas=data.get("atlas"),
         region=data.get("regions") or data.get("region"),
         output_dir=data.get("output_dir"),
@@ -193,6 +194,7 @@ def _run_group(config: AnalyzerConfig):
         visualize=config.visualize,
         output_dir=config.output_dir,
         field=config.field,
+        mask_path=config.mask_path,
     )
 
 
@@ -266,6 +268,11 @@ def _run_single(config: AnalyzerConfig) -> None:
         flush=True,
     )
 
+    if config.analysis_type is AnalysisType.MASK:
+        from tit.opt.masks import validate_mask
+
+        validate_mask(config.mask_path)
+
     analyzer = Analyzer(
         subject_id=config.subject_id,
         simulation=config.simulation,
@@ -279,6 +286,12 @@ def _run_single(config: AnalyzerConfig) -> None:
         analyzer.analyze_sphere(
             center=tuple(config.center),
             radius=config.radius,
+            coordinate_space=config.coordinate_space.value,
+            visualize=config.visualize,
+        )
+    elif config.analysis_type is AnalysisType.MASK:
+        analyzer.analyze_mask(
+            mask_path=config.mask_path,
             coordinate_space=config.coordinate_space.value,
             visualize=config.visualize,
         )

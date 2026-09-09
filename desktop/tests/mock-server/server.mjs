@@ -2408,6 +2408,20 @@ route("GET", "/api/scene/electrodes", (ctx) => {
   });
 });
 
+// Target previews use a separate read-only embed. The mock checks its wiring and replacement;
+// actual mask generation and anatomical alignment are covered by backend/real-library tests.
+route("POST", "/api/scene/target-preview", async (ctx) => {
+  const { subject, roi } = (await ctx.body()) ?? {};
+  if (!subject || !roi || !["mask", "subcortical", "spherical", "saved"].includes(roi.kind)) {
+    return json(ctx.res, 422, { detail: "A subject and a supported target are required." });
+  }
+  const scene = sceneFor("subject", [
+    { path: `/mock/${subject}/T1.nii.gz`, colormap: "grayscale", visible: true, opacity: 1 },
+    { path: `/mock/${subject}/${roi.kind}-target.nii.gz`, colormap: "lut", visible: true, opacity: 0.7 },
+  ], null);
+  json(ctx.res, 200, { scene, note: "Target extent in subject space; analysis/search applies its tissue and mesh settings." });
+});
+
 route("GET", "/api/scene/volume-legend", (ctx) => {
   const subject = ctx.url.searchParams.get("subject");
   const id = ctx.url.searchParams.get("id") ?? "labeling";

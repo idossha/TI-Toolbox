@@ -89,6 +89,7 @@ def run_group_analysis(
     visualize: bool = False,
     output_dir: str | Path | None = None,
     field: str | None = None,
+    mask_path: str | None = None,
 ) -> GroupResult:
     """Run the same ROI analysis across multiple subjects and summarise.
 
@@ -150,6 +151,13 @@ def run_group_analysis(
     from tit.telemetry import track_operation
     from tit import constants as _const
 
+    if analysis_type == "mask":
+        from tit.opt.masks import validate_mask
+
+        if coordinate_space.lower() != "mni":
+            raise ValueError("Group mask analysis requires an MNI-space mask")
+        validate_mask(mask_path)
+
     with track_operation(_const.TELEMETRY_OP_GROUP_ANALYSIS):
         out = _resolve_output_dir(output_dir)
 
@@ -179,6 +187,11 @@ def run_group_analysis(
                     coordinate_space=coordinate_space,
                     visualize=visualize,
                 )
+            ),
+            "mask": lambda a: a.analyze_mask(
+                mask_path=mask_path,
+                coordinate_space=coordinate_space,
+                visualize=visualize,
             ),
             "cortical": lambda a: a.analyze_cortex(
                 atlas=atlas,

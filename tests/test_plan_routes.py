@@ -1076,3 +1076,56 @@ class TestPlanBlenderOutputDir:
         body = self._plan(client, {"_type": "SubcorticalConfig", "subject_id": "001"})
         assert body["jobs"][0]["exists"] is True
         assert body["jobs"][0]["will_overwrite"] is True
+
+
+def test_analyzer_mask_paths_are_preflighted_by_validate_and_plan(client, project):
+    config = {
+        "subject_id": "001",
+        "simulation": "TestSim",
+        "analysis_type": "mask",
+        "mask_path": str(project / "missing.nii"),
+        "coordinate_space": "subject",
+    }
+    response = client.post(
+        "/api/validate/analyzer", json={"config": config}, headers=BEARER
+    )
+    assert response.status_code == 200
+    assert response.json()["ok"] is False
+    assert "not accessible in the container" in response.text
+    response = client.post(
+        "/api/plan/analyzer", json={"config": config}, headers=BEARER
+    )
+    assert response.status_code == 422
+    assert "not accessible in the container" in response.text
+
+
+def test_analyzer_mask_plan_matches_runtime_output_directory(client, project):
+    from tit.analyzer.analyzer import Analyzer
+
+    mask = project / "target.nii"
+    mask.touch()  # Planning checks access; real image validation is a runner responsibility.
+    config = {
+        "subject_id": "001",
+        "simulation": "TestSim",
+        "analysis_type": "mask",
+        "mask_path": str(mask),
+        "coordinate_space": "mni",
+    }
+    response = client.post(
+        "/api/plan/analyzer", json={"config": config}, headers=BEARER
+    )
+    assert response.status_code == 200
+    planned = response.json()["jobs"][0]["output_dir"]
+    from tit.analyzer.masks import mask_region_name
+
+    analyzer = object.__new__(Analyzer)
+    analyzer.output_dir = None
+    analyzer.subject_id = "001"
+    analyzer.simulation = "TestSim"
+    analyzer.space = "mesh"
+    analyzer._pm = get_path_manager(str(project))
+    runtime = analyzer._resolve_output_dir(
+        analysis_type="mask", region_name=mask_region_name(str(mask), "mni")
+    )
+    assert planned == runtime
+    assert "mask_target_mni" in planned

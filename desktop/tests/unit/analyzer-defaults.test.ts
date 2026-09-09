@@ -407,10 +407,19 @@ describe("Analyzer visual target entry", () => {
     expect(corticalSceneRoi(corticalRoi)).toBe(corticalRoi);
   });
   it("does not replace an edited sphere or a subcortical target", () => {
-    const blank = emptyAnalyzerRow().roi;
-    if (blank.mode !== "spherical") throw new Error("fixture must be spherical");
+    const blank = { mode: "spherical", spheres: [], space: "subject", volumetric: false, tissues: "GM" } as const;
     expect(corticalSceneRoi({ ...blank, spheres: [{ x: 0, y: undefined, z: undefined, radius: 10 }] })).toBeNull();
     expect(corticalSceneRoi({ ...blank, spheres: [{ x: undefined, y: undefined, z: undefined, radius: 5 }] })).toBeNull();
     expect(corticalSceneRoi(subcorticalRoi)).toBeNull();
+  });
+});
+
+describe("Analyzer NIfTI mask targets", () => {
+  it.each(["subject", "mni"] as const)("builds a complete %s mask config without atlas labels", (space) => {
+    const roi: RoiValue = { mode: "mask", path: "/data/roi.nii.gz", space, tissues: "WM" };
+    const config = buildConfig({ mode: "single", subjectId: "ernie", subjectIds: [], simulation: "Thalamus", space: "voxel", tissueType: "both", field: AUTO_FIELD, analysisType: "mask", coordinateSpace: "subject", sphere: EMPTY_SPHERE, roiValue: roi });
+    expect(config).toMatchObject({ analysis_type: "mask", mask_path: "/data/roi.nii.gz", coordinate_space: space, atlas: null, region: null, tissue_type: "both" });
+    expect(validate("AnalyzerConfig", config)).toMatchObject({ valid: true, errors: [] });
+    expect(analyzerTargetLabel(roi, true)).toContain("roi.nii.gz");
   });
 });

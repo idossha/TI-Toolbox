@@ -244,6 +244,10 @@ def validate(kind: str, body: ValidateRequest) -> ValidateResult:
             from tit.opt.masks import validate_mask_paths
 
             validate_mask_paths(parsed)
+        elif kind == "analyzer":
+            from tit.analyzer.masks import validate_mask_path
+
+            validate_mask_path(parsed)
     except (ValueError, TypeError, KeyError) as exc:
         return ValidateResult(
             ok=False,

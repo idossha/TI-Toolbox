@@ -73,7 +73,7 @@ export const TISSUE_OPTIONS = [
 ] as const;
 
 /** The three target modes the analyzer runner understands (`saved` is an ex/mEx target). */
-export const ANALYZER_ROI_MODES = ["cortical", "subcortical", "spherical"] as const;
+export const ANALYZER_ROI_MODES = ["cortical", "subcortical", "spherical", "mask"] as const;
 
 let rowSeq = 0;
 
@@ -91,7 +91,7 @@ export function emptyAnalyzerRow(seed?: Partial<AnalyzerRow>): AnalyzerRow {
     space: seed?.space ?? "mesh",
     field: seed?.field ?? AUTO_FIELD,
     tissue: seed?.tissue ?? "GM",
-    roi: seed?.roi ?? emptyRoi("spherical"),
+    roi: seed?.roi ?? emptyRoi("cortical"),
     combine: seed?.combine ?? true,
   };
 }
@@ -145,7 +145,8 @@ export function analyzerTargetLabel(roi: RoiValue, combine = true): string {
     if (roi.volumetric) parts.push(`volumetric ${roi.tissues}`);
     return parts.join(" · ");
   }
-  if (roi.mode === "saved" || roi.mode === "mask") return "Choose a target…";
+  if (roi.mode === "mask") return `NIfTI mask · ${roi.path.split("/").pop()} · ${roi.space === "mni" ? "MNI" : "Subject"}`;
+  if (roi.mode === "saved") return "Choose a target…";
   const names = roi.regions.map(regionLabel);
   // Cortical and subcortical both name their atlas: a region name means little without the
   // parcellation it came from, and both panels choose one.
@@ -555,11 +556,12 @@ export function AnalyzerJobRows({
               value={targetRow.roi}
               onChange={(roi) => patch(targetRow.id, { roi })}
               modes={[...ANALYZER_ROI_MODES]}
+              showMaskTissues={false}
               subject={targetRow.subjectId || undefined}
               space={targetRow.space === "voxel" ? "mni" : "subject"}
               onOpenViewer={onOpenViewer}
             />
-            {targetRow.roi.mode !== "spherical" && (
+            {(targetRow.roi.mode === "cortical" || targetRow.roi.mode === "subcortical") && (
               /* One line, not two: the checkbox and the (i) that explains it, the same shape as
                  the Combine switch on the table's footer. The paragraph this replaces said in two
                  sentences what the target line now says in one word ("combined"). */

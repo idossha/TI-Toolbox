@@ -24,7 +24,7 @@ manager. [`contracts/openapi.yaml`](../../contracts/openapi.yaml) is the hand-wr
 generated schemas and renderer types are build outputs.
 
 The core container has no Qt GUI, X11 display or FreeSurfer installation. Dedicated viewing uses
-Tetravox Embed on the host GPU; focused run previews use the application's WebGL2 renderer (§7).
+Tetravox Embed on the host GPU; surface run previews use the application's WebGL2 renderer and volumetric previews use Tetravox (§7).
 Dependency versions belong in the package manifests, lockfile and container blueprint, not prose
 copies. Replacing these boundaries or adding a dependency is an architecture decision.
 
@@ -147,7 +147,8 @@ absolute paths, traversal or links; activation is atomic. The update policy is s
 checks outside the rendering path. Pins, including the baked bundle, support rollback. Runtime
 capabilities describe the active bundle rather than a build-time assumption.
 
-The Viewer has Menu and Tetravox subroutes within one retained page. Open resolves the editable
+The Viewer has Menu and Tetravox subroutes within one retained page. Its embed mounts before a
+scene is selected, allowing direct local file drops. Open resolves the editable
 composition once. Scenes contain one research subject; shared templates and atlases are exempt.
 Layer names are file basenames. A composition stores input choices and re-resolves current data;
 a saved `.tetravox.json` scene stores the embed's serialized view, including camera and layer state.
@@ -162,7 +163,7 @@ Sources: [`tit/tetravox/`](../../tit/tetravox/),
 [`viewer library`](../../tit/server/routes/viewer_library.py),
 [`TetravoxFrame.tsx`](../../desktop/src/renderer/viewer/TetravoxFrame.tsx).
 
-### 7.2 The run-page panes are our own WebGL2 renderer
+### 7.2 Run-page surface selection and volumetric previews
 
 [`scene/`](../../desktop/src/renderer/scene/) renders surfaces, screen-space markers and atlas
 selection without an iframe or a second graphics dependency. Guide labels align with their geometry.
@@ -174,11 +175,23 @@ Electrode color expresses availability and channel membership, with no additiona
 The form, channel legend and preview share one palette and one selection model. Atlas clicks and ROI
 chips edit the same region list. Coordinate picking remains constrained by §3.
 
+Non-surface targets use a private Tetravox channel, separate from the retained Viewer.
+`POST /api/scene/target-preview` caches a binary target extent on the subject T1 grid for masks,
+subcortical labels, spheres and saved ROI centers. Preview events never change the form;
+incomplete requests and errors clear old geometry. Tissue and mesh filtering remain downstream.
+
 Optimizer mask targets explicitly declare Subject or MNI space. Subject masks retain their
 coordinates; MNI masks use SimNIBS’ subject registration with nearest-neighbor resampling,
 not only the conformation affine. The existing volumetric ROI config carries whole-mask targets
 with a null label. In stacked layouts, run panes fill the page width and receive viewport-scaled
 height; desktop pane widths remain remembered for the wide layout.
+
+Analyzer reuses that mask registration and picker through additive `analysis_type="mask"`
+and `mask_path` fields; absent `mask_path` preserves existing ROI behavior. Positive voxels
+select nodes on the subject GM surface (area statistics) or voxels in the subject field grid
+(volume statistics, intersected with the selected tissue). Group masks require MNI coordinates
+so each subject gets its own registered target. Nearest-neighbor sampling preserves membership;
+`tests/numerical/test_analyzer_masks.py` pins transformed landmarks, membership, and units.
 
 ### 7.3 Pipelines
 

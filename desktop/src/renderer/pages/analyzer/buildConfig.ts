@@ -9,7 +9,7 @@ import type { AnalyzerConfig } from "./api";
 
 export type Mode = "single" | "group";
 export type Space = "mesh" | "voxel";
-export type AnalysisType = "spherical" | "cortical" | "subcortical";
+export type AnalysisType = "spherical" | "cortical" | "subcortical" | "mask";
 
 /** Sentinel for the Field select's "Auto" option — Radix Select reserves `value=""` to mean "show
  *  the placeholder, nothing selected", so the wire meaning (`field: null`) needs a real string. */
@@ -71,7 +71,8 @@ export function buildConfig(opts: {
         ? [sphere.x ?? 0, sphere.y ?? 0, sphere.z ?? 0]
         : null,
     radius: analysisType === "spherical" ? (sphere.radius ?? 0) : null,
-    coordinate_space: coordinateSpace,
+    coordinate_space: roiValue.mode === "mask" ? roiValue.space : coordinateSpace,
+    mask_path: roiValue.mode === "mask" ? roiValue.path.trim() : null,
     atlas,
     region,
     output_dir: null,

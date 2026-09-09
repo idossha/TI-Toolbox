@@ -4026,6 +4026,118 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/scene/target-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read-only subject-space target volume preview
+         * @description Binary target extent on subject T1 geometry. MNI volumes use nonlinear subject registration; spheres transform centers while preserving radius. No scientific job or saved viewer scene is created.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        subject: string;
+                        roi: {
+                            /** @constant */
+                            kind: "mask";
+                            path: string;
+                            /** @enum {string} */
+                            space: "subject" | "mni";
+                        } | {
+                            /** @constant */
+                            kind: "subcortical";
+                            atlas: string;
+                            /** @enum {string} */
+                            space: "subject" | "mni";
+                            labels: number[];
+                        } | {
+                            /** @constant */
+                            kind: "spherical";
+                            /** @enum {string} */
+                            space: "subject" | "mni";
+                            spheres: {
+                                center: [
+                                    number,
+                                    number,
+                                    number
+                                ];
+                                radius: number;
+                            }[];
+                        } | {
+                            /** @constant */
+                            kind: "saved";
+                            names: string[];
+                            radius: number;
+                            /** @enum {string} */
+                            space: "subject" | "mni";
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description Anatomy and selected binary target in a Tetravox scene */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            scene: {
+                                [key: string]: unknown;
+                            };
+                            note: string;
+                        };
+                    };
+                };
+                /** @description Input or cache escapes project jail */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Subject anatomy, atlas or registration unavailable */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No project bound */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Invalid target or no subject overlap */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/scene/manifest": {
         parameters: {
             query?: never;
@@ -7160,6 +7272,8 @@ export interface components {
          *     region : str or list of str or None
          *         Region name(s) within *atlas*. Required for
          *         ``analysis_type="cortical"``.
+         *     mask_path : str or None
+         *         NIfTI mask; positive voxels select the ROI in *coordinate_space*.
          *     output_dir : str or None
          *         Override output directory. ``None`` derives it from PathManager.
          *     visualize : bool
@@ -7254,6 +7368,11 @@ export interface components {
              * @default true
              */
             visualize: boolean;
+            /**
+             * Mask Path
+             * @default null
+             */
+            mask_path: string | null;
         };
         /**
          * PreprocessConfig
@@ -8973,7 +9092,7 @@ export interface components {
          *         see :class:`AnalyzerConfig`'s Notes.
          * @enum {string}
          */
-        AnalysisType: "spherical" | "cortical" | "subcortical";
+        AnalysisType: "spherical" | "cortical" | "subcortical" | "mask";
         /**
          * AnalyzerCoordinateSpace
          * @description Space of *center* for a spherical ROI.

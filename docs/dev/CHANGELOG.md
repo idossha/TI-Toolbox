@@ -9,6 +9,11 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 ---
 ### v3.0.0 (Unreleased)
 
+- **Analyzer accepts NIfTI masks.** Import Subject/MNI masks using the same picker as Optimizer;
+  group masks are registered separately for each subject.
+- **Target previews follow the form.** Optimizer and Analyzer display non-surface targets as
+  read-only volumetric previews; cortical atlas picking remains interactive.
+
 - **Tetravox opens immediately.** The Viewer displays its full UI before a scene is selected,
   allowing local files to be dragged directly into it.
 

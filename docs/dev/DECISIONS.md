@@ -492,3 +492,23 @@ CPU-only image and the separate interpreter override for native FastSurfer insta
 Replacing the shared SimNIBS environment with FastSurfer’s package environment would risk
 incompatible dependencies. **Cost:** GPU acceleration needs a compatible native environment
 or custom GPU-enabled image/runtime. **Revisit if:** Supported GPU image variants are added.
+
+
+## 2026-09-09 — Analyzer imports registered mask targets
+
+**Decision:** Extend Analyzer with the optimizer's NIfTI import and subject-registration path.
+Masks select positive voxels with nearest-neighbor sampling; mesh statistics retain surface-area
+weights and voxel statistics retain volume weights and tissue selection (§7.2 of ARCHITECTURE.md).
+**Why:** A shared picker must produce a runnable target without duplicating nonlinear transforms
+or treating subject coordinates as MNI. **Cost:** Group masks require MNI input and each subject's
+m2m registration. **Compatibility:** `mask_path` is optional and appended to AnalyzerConfig;
+existing sphere and atlas configurations retain their behavior. **Verification:**
+`tests/numerical/test_analyzer_masks.py` covers native geometry and real nonlinear registration.
+
+## 2026-09-09 — Read-only volumetric target previews
+
+**Decision:** Use a separate Tetravox viewport for non-surface targets, backed by a cached
+subject-space binary volume. Keep cortical picking in the existing surface renderer and make
+the form authoritative. **Why:** Reference anatomy cannot accurately show a subject-space mask.
+**Cost:** Previews need subject T1 and, for MNI targets, registration; geometric extent is shown
+before tissue or mesh filtering. The main Viewer remains mounted for direct file drops.

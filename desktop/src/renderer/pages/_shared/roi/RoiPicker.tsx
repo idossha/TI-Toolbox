@@ -96,9 +96,11 @@ export interface RoiPickerProps {
   /** `saved` mode only: mEx never unions selected ROIs (its run path has no combined mode), so
    *  the Optimizer hides the checkbox on that method rather than showing a dead control. */
   allowCombine?: boolean;
+  /** Hide when the caller already owns tissue selection (Analyzer job settings). */
+  showMaskTissues?: boolean;
 }
 
-export function RoiPicker({ value, onChange, modes, subject, space = "subject", disabled, onOpenViewer, allowCombine }: RoiPickerProps) {
+export function RoiPicker({ value, onChange, modes, subject, space = "subject", disabled, onOpenViewer, allowCombine, showMaskTissues }: RoiPickerProps) {
   function setMode(mode: RoiMode) {
     if (mode === value.mode) return;
     onChange(emptyRoi(mode, space));
@@ -119,7 +121,7 @@ export function RoiPicker({ value, onChange, modes, subject, space = "subject", 
       )}
       {value.mode === "cortical" && <CorticalPanel value={value} onChange={onChange} subject={subject} disabled={disabled} />}
       {value.mode === "subcortical" && <SubcorticalPanel value={value} onChange={onChange} subject={subject} disabled={disabled} />}
-      {value.mode === "mask" && <MaskPanel value={value} onChange={onChange} disabled={disabled} subject={subject} showTissues={modes.includes("spherical")} />}
+      {value.mode === "mask" && <MaskPanel value={value} onChange={onChange} disabled={disabled} subject={subject} showTissues={showMaskTissues ?? modes.includes("spherical")} />}
       {value.mode === "saved" && <SavedPanel value={value} onChange={onChange} subject={subject} disabled={disabled} allowCombine={allowCombine} />}
     </div>
   );

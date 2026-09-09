@@ -417,6 +417,10 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     await call("/api/kernels/{kernel_id}/restart", "POST", `/api/kernels/${kernelId}/restart`);
     await call("/api/kernels/{kernel_id}", "DELETE", `/api/kernels/${kernelId}`);
 
+    await call("/api/scene/target-preview", "POST", "/api/scene/target-preview", {
+      body: { subject: "ernie", roi: { kind: "spherical", space: "subject", spheres: [{ center: [0, 0, 0], radius: 10 }] } },
+    });
+
     // settings (v1)
     await call("/api/settings", "GET", "/api/settings");
     await call("/api/settings", "PUT", "/api/settings", { body: { theme: "dark", panels: [], allow_unsafe_overrides: false, telemetry: { consented: true, enabled: false } } });

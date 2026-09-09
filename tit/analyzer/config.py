@@ -73,6 +73,7 @@ class AnalysisType(StrEnum):
     SPHERICAL = "spherical"
     CORTICAL = "cortical"
     SUBCORTICAL = "subcortical"
+    MASK = "mask"
 
 
 class AnalyzerCoordinateSpace(StrEnum):
@@ -127,6 +128,8 @@ class AnalyzerConfig:
     region : str or list of str or None
         Region name(s) within *atlas*. Required for
         ``analysis_type="cortical"``.
+    mask_path : str or None
+        NIfTI mask; positive voxels select the ROI in *coordinate_space*.
     output_dir : str or None
         Override output directory. ``None`` derives it from PathManager.
     visualize : bool
@@ -176,6 +179,7 @@ class AnalyzerConfig:
     region: str | list[str] | None = None
     output_dir: str | None = None
     visualize: bool = True
+    mask_path: str | None = None
 
     def __post_init__(self) -> None:
         self.mode = AnalysisMode(self.mode)
@@ -192,5 +196,17 @@ class AnalyzerConfig:
                 raise ValueError(
                     "center and radius are required for analysis_type='spherical'"
                 )
+        if self.analysis_type is AnalysisType.MASK:
+            if not self.mask_path or not self.mask_path.lower().endswith(
+                (".nii", ".nii.gz")
+            ):
+                raise ValueError(
+                    "mask_path must name a .nii or .nii.gz file for analysis_type='mask'"
+                )
+            if (
+                self.mode is AnalysisMode.GROUP
+                and self.coordinate_space is not AnalyzerCoordinateSpace.MNI
+            ):
+                raise ValueError("Group mask analysis requires an MNI-space mask")
         if self.analysis_type is AnalysisType.CORTICAL and not self.atlas:
             raise ValueError("atlas is required for analysis_type='cortical'")

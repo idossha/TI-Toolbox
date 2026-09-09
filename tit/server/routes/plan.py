@@ -568,6 +568,18 @@ def _plan_analyzer(
                         radius=config.radius,
                         coordinate_space=config.coordinate_space.value,
                     )
+                elif config.analysis_type == AnalysisType.MASK:
+                    from tit.analyzer.masks import mask_region_name
+
+                    output_dir = pm.analysis_output_dir(
+                        sid=sid,
+                        sim=config.simulation,
+                        space=config.space.value,
+                        analysis_type="mask",
+                        region=mask_region_name(
+                            config.mask_path, config.coordinate_space.value
+                        ),
+                    )
                 else:
                     region = config.region
                     region_str = (
@@ -890,6 +902,10 @@ def plan(kind: str, body: PlanRequest) -> PlanResult:
             from tit.opt.masks import validate_mask_paths
 
             validate_mask_paths(config)
+        elif kind == "analyzer":
+            from tit.analyzer.masks import validate_mask_path
+
+            validate_mask_path(config)
     except (ValueError, TypeError, KeyError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

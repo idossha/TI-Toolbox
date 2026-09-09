@@ -60,6 +60,7 @@ import {
   type PlanStage,
 } from "../_shared/run";
 import { ScenePane } from "../_shared/scene";
+import { TargetPreview } from "../_shared/scene/TargetPreview";
 import { viewerSearch } from "../results";
 import { getEegNets, getLeadfields, planFor, submitLeadfieldJob, validateFor, type EegNet, type Leadfield } from "./api";
 import { leadfieldPathFor } from "./nets";
@@ -402,23 +403,9 @@ function OptimizerPage() {
     }));
   }, [projectSubjects]);
 
-  /*
-   * The scene pane in `target` mode, showing the **active row's** target — the same contract the
-   * Analyzer's pane has. What a click means depends on what that row's picker is expressing:
-   * cortical rows edit their own regions, everything else is the read-only reference guide with a
-   * line saying why (a volumetric atlas id is not a cortical `.annot`, so asking
-   * `/api/scene/regions` for one would 404 the pane for a target the form expresses perfectly).
-   */
+  // Cortical targets retain atlas picking; other targets show read-only extents from the form.
   const activeRow = rows.find((r) => r.id === activeRowId) ?? rows[0] ?? null;
   const sceneCortical = !!activeRow && activeRow.method === "flex" && activeRow.roi.mode === "cortical";
-  const sceneSpherical = !!activeRow && activeRow.roi.mode === "spherical";
-  const sceneNote = sceneCortical
-    ? undefined
-    : sceneSpherical
-      ? "Coordinates are typed, not picked — the pane draws the reference guide, not this subject."
-      : !activeRow || activeRow.method === "flex"
-        ? "Subcortical targets are volumetric — pick them in the job's editor; the pane shows the reference guide."
-        : "Ex and mEx targets are saved ROIs — pick them in the job's editor; the pane shows the reference guide.";
 
   function patchActiveRoi(next: RoiValue): void {
     if (!activeRow) return;
@@ -456,7 +443,9 @@ function OptimizerPage() {
           parallel={parallelSubjects}
           paneControls={<PaneHeaderControls controller={scenePane} />}
           scene={
-            <ScenePane
+            activeRow?.roi.mode !== "cortical"
+              ? <TargetPreview subject={activeRow?.subjectId} roi={activeRow?.roi} />
+              : <ScenePane
               mode="target"
               atlas={sceneCortical && activeRow?.roi.mode === "cortical" ? (activeRow.roi.atlas ?? null) : null}
               regions={sceneCortical && activeRow?.roi.mode === "cortical" ? activeRow.roi.regions : undefined}
@@ -470,7 +459,6 @@ function OptimizerPage() {
                   ? (regions) => patchActiveRoi({ ...(activeRow.roi as Extract<RoiValue, { mode: "cortical" }>), regions })
                   : undefined
               }
-              note={sceneNote}
             />
           }
         />

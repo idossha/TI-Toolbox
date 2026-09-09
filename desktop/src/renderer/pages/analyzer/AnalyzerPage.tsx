@@ -35,6 +35,7 @@ import { subjectsBlockedReason } from "../_shared/subjects";
 import { ExistingOutputsDialog, planCounts, RunPanel, RunWork, planDigest, planModelFrom, stepsFor, useRunShortcut, type PlanModel, type PlanResult as SharedPlanResult } from "../_shared/run";
 import { isRoiComplete, type RoiValue } from "../_shared/roi";
 import { ScenePane } from "../_shared/scene";
+import { TargetPreview } from "../_shared/scene/TargetPreview";
 import {
   AnalyzerJobRows,
   analyzerJobsSummary,
@@ -61,13 +62,9 @@ import {
 } from "./api";
 import { batchReceipt, submitBatch } from "./submitBatch";
 
-/** An untouched target may be chosen directly from the visible cortical atlas. */
+/** Cortical atlas picking stays on the interactive surface pane. */
 export function corticalSceneRoi(roi: RoiValue | undefined): Extract<RoiValue, { mode: "cortical" }> | null {
-  if (roi?.mode === "cortical") return roi;
-  if (roi?.mode === "spherical" && roi.spheres.every((sphere) =>
-    sphere.x === undefined && sphere.y === undefined && sphere.z === undefined && sphere.radius === 10,
-  )) return { mode: "cortical", atlas: undefined, regions: [] };
-  return null;
+  return roi?.mode === "cortical" ? roi : null;
 }
 
 /** Same small local hook every other Run screen defines for its debounced Plan query
@@ -120,6 +117,8 @@ export function groupMismatchReason(rows: AnalyzerRow[]): string | null {
   // Since the target became a row's own (maintainer, 2026-09-06), a cohort needs the rows to agree
   // about it too — the one ROI the group job is given.
   const lead = runnable[0] as AnalyzerRow;
+  if (lead.roi.mode === "mask" && lead.roi.space !== "mni")
+    return "Group mask analysis requires an MNI-space mask, transformed separately for each subject.";
   if (runnable.some((r) => !sameTarget(lead, r)))
     return "A group analysis measures one target — these rows name more than one.";
   return null;
@@ -382,13 +381,7 @@ export function AnalyzerPage() {
   const sceneRoi = corticalSceneRoi(activeRoi);
   const sceneCortical = sceneRoi !== null;
   const scenePane = usePaneController({ pageId: "analyzer", name: "run" });
-  const sceneNote = sceneCortical
-    ? undefined
-    : activeRoi?.mode === "spherical"
-      ? activeRoi.space === "subject"
-        ? undefined
-        : "Coordinates are typed, not picked — the pane draws the reference guide, not this subject."
-      : "Subcortical targets are volumetric — the preview shows the head model, not the label volume.";
+
 
   return (
     // No page header: the nav rail already says which page this is (DESIGN.md §2.3).
@@ -412,7 +405,7 @@ export function AnalyzerPage() {
           steps={ANALYZER_STEPS}
           paneControls={<PaneHeaderControls controller={scenePane} />}
           scene={
-            <ScenePane
+            !sceneCortical ? <TargetPreview subject={activeRow?.subjectId} roi={activeRoi} /> : <ScenePane
               mode="inspect"
               atlas={sceneRoi?.atlas ?? null}
               regions={sceneRoi?.regions}
@@ -426,7 +419,6 @@ export function AnalyzerPage() {
                   ? (regions, atlas) => patchActiveRoi({ ...sceneRoi, atlas: atlas ?? sceneRoi.atlas, regions })
                   : undefined
               }
-              note={sceneNote}
             />
           }
         />

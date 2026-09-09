@@ -305,3 +305,10 @@ JSON config keys: `project_dir`, `subject_id`, `leadfield_hdf`, `roi_name`, `ele
 ```
 
 _The multipolar exhaustive search combination logic (`tit/opt/mex/logic.py`) and the generalized electrode-bucket loader (`tit/opt/ex/buckets.py`) were ported from collaborator Larissa Albantakis's branch `alba/ex-search-multipolar`._
+
+### Target preview
+
+The Scene pane displays the selected mask, subcortical regions, or saved ROI spheres in
+subject space. It is read-only: edit targets in the job form. Multiple saved ROIs are shown
+together; the Combine setting still determines whether they run together or separately.
+The preview shows target extent before search-specific tissue and mesh filtering.

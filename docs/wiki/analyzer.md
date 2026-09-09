@@ -328,3 +328,25 @@ application window. Both mesh-based analysis types are supported:
 > Full list: [the v3.0.0 release notes]({{ site.baseurl }}/releases/v3.0.0/).
 
 There is no separate "whole head" analysis type — the Analyzer supports only `analysis_type` `spherical` and `cortical`. A whole-head field-distribution histogram is generated as a by-product of every analysis (mesh or voxel), alongside the ROI-specific outputs.
+
+
+## Custom NIfTI mask targets
+
+Choose **NIfTI mask** in a job's Target editor and import a `.nii` or `.nii.gz` file.
+All positive voxels belong to the target. Declare **Subject** or **MNI** explicitly:
+subject masks retain their coordinates, while MNI masks use the subject's nonlinear m2m
+registration and nearest-neighbor sampling. Group analysis requires an MNI mask, registered
+separately for each subject.
+
+Mesh analysis samples the mask at gray-matter surface nodes and reports surface-area statistics.
+Voxel analysis samples it onto the subject field grid and intersects it with the tissue selected
+in the job settings, retaining volume statistics. An empty overlap fails with a clear error.
+The script equivalent is `analyzer.analyze_mask(mask_path, coordinate_space="mni")`;
+job JSON uses `analysis_type="mask"`, `mask_path`, and `coordinate_space`.
+
+### Target preview
+
+The Scene pane follows the active job. Cortical atlas regions remain clickable. Masks,
+subcortical regions and spheres show a read-only target extent on subject anatomy; edit the
+target in its form. This previews the geometry, before the analysis applies its tissue and
+mesh settings. Incomplete targets or unavailable registration show an explanatory message.

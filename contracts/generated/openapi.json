@@ -4665,6 +4665,237 @@
         }
       }
     },
+    "/api/scene/target-preview": {
+      "post": {
+        "tags": [
+          "scene"
+        ],
+        "summary": "Read-only subject-space target volume preview",
+        "description": "Binary target extent on subject T1 geometry. MNI volumes use nonlinear subject registration; spheres transform centers while preserving radius. No scientific job or saved viewer scene is created.",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "subject": {
+                    "type": "string"
+                  },
+                  "roi": {
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "kind": {
+                            "const": "mask",
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          },
+                          "space": {
+                            "enum": [
+                              "subject",
+                              "mni"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "path",
+                          "space"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "kind": {
+                            "const": "subcortical",
+                            "type": "string"
+                          },
+                          "atlas": {
+                            "type": "string"
+                          },
+                          "space": {
+                            "enum": [
+                              "subject",
+                              "mni"
+                            ],
+                            "type": "string"
+                          },
+                          "labels": {
+                            "items": {
+                              "type": "integer"
+                            },
+                            "maxItems": 10000,
+                            "minItems": 1,
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "atlas",
+                          "space",
+                          "labels"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "kind": {
+                            "const": "spherical",
+                            "type": "string"
+                          },
+                          "space": {
+                            "enum": [
+                              "subject",
+                              "mni"
+                            ],
+                            "type": "string"
+                          },
+                          "spheres": {
+                            "items": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "center": {
+                                  "maxItems": 3,
+                                  "minItems": 3,
+                                  "prefixItems": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ],
+                                  "type": "array"
+                                },
+                                "radius": {
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 500,
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "center",
+                                "radius"
+                              ],
+                              "type": "object"
+                            },
+                            "maxItems": 100,
+                            "minItems": 1,
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "space",
+                          "spheres"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "kind": {
+                            "const": "saved",
+                            "type": "string"
+                          },
+                          "names": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "maxItems": 100,
+                            "minItems": 1,
+                            "type": "array"
+                          },
+                          "radius": {
+                            "exclusiveMinimum": 0,
+                            "maximum": 500,
+                            "type": "number"
+                          },
+                          "space": {
+                            "enum": [
+                              "subject",
+                              "mni"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "names",
+                          "radius",
+                          "space"
+                        ],
+                        "type": "object"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "subject",
+                  "roi"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Anatomy and selected binary target in a Tetravox scene",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "scene",
+                    "note"
+                  ],
+                  "properties": {
+                    "scene": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "note": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Input or cache escapes project jail"
+          },
+          "404": {
+            "description": "Subject anatomy, atlas or registration unavailable"
+          },
+          "409": {
+            "description": "No project bound"
+          },
+          "422": {
+            "description": "Invalid target or no subject overlap"
+          }
+        }
+      }
+    },
     "/api/scene/manifest": {
       "get": {
         "tags": [
@@ -11422,7 +11653,7 @@
         "additionalProperties": false
       },
       "AnalyzerConfig": {
-        "description": "Configuration for one analyzer run (single subject or group).\n\nAttributes\n----------\nmode : AnalysisMode\n    ``\"single\"`` (one subject, *subject_id*) or ``\"group\"`` (multiple\n    subjects, *subject_ids*).\nsubject_id : str or None\n    Subject identifier. Required when *mode* is ``\"single\"``.\nsubject_ids : list of str\n    Subject identifiers. Required (non-empty) when *mode* is\n    ``\"group\"``.\nsimulation : str\n    Simulation (montage) folder name.\nspace : AnalyzerSpace\n    ``\"mesh\"`` or ``\"voxel\"``.\ntissue_type : str\n    ``\"GM\"``, ``\"WM\"``, or ``\"both\"`` (voxel space only).\nanalysis_type : AnalysisType\n    ROI shape; see :class:`AnalysisType`.\nfield : str or None\n    Field to analyze (a name from ``constants.FIELD_REGISTRY``).\n    ``None`` resolves the TI_max/mTI_max envelope automatically.\ncenter : list of float or None\n    ``[x, y, z]`` sphere center in mm. Required for\n    ``analysis_type=\"spherical\"``.\nradius : float or None\n    Sphere radius in mm. Required for ``analysis_type=\"spherical\"``.\ncoordinate_space : AnalyzerCoordinateSpace\n    Space of *center* (spherical only).\natlas : str or None\n    Atlas name. Required for ``analysis_type=\"cortical\"``.\nregion : str or list of str or None\n    Region name(s) within *atlas*. Required for\n    ``analysis_type=\"cortical\"``.\noutput_dir : str or None\n    Override output directory. ``None`` derives it from PathManager.\nvisualize : bool\n    Generate visualization artifacts.\n\nRaises\n------\nValueError\n    If *mode* is ``\"single\"`` without *subject_id*, ``\"group\"`` without\n    *subject_ids*, if *analysis_type* is ``\"spherical\"`` without both\n    *center* and *radius*, or ``\"cortical\"`` without *atlas*.\n\nNotes\n-----\nTwo things this dataclass models but the runner does not (yet) honor,\nreported rather than silently patched into ``tit/analyzer/__main__.py``\n(owned by agent B4):\n\n- ``analysis_type=\"subcortical\"`` is accepted here (and by\n  :class:`AnalysisType`) but ``tit.analyzer.__main__._run_single`` only\n  branches on ``\"spherical\"`` and ``\"cortical\"`` -- a subcortical\n  request is silently a no-op today.\n- ``region`` is a single canonical field here; the runner reads\n  ``data.get(\"regions\") or data.get(\"region\")`` (two keys, ``\"regions\"``\n  preferred). Serializing this dataclass writes only ``\"region\"``, which\n  the runner already falls back to, so single-region submissions work\n  unchanged; only the plural alias is not reproduced.\n\nSee Also\n--------\ntit.analyzer.__main__ : The entry point whose accepted keys this\n    dataclass mirrors.",
+        "description": "Configuration for one analyzer run (single subject or group).\n\nAttributes\n----------\nmode : AnalysisMode\n    ``\"single\"`` (one subject, *subject_id*) or ``\"group\"`` (multiple\n    subjects, *subject_ids*).\nsubject_id : str or None\n    Subject identifier. Required when *mode* is ``\"single\"``.\nsubject_ids : list of str\n    Subject identifiers. Required (non-empty) when *mode* is\n    ``\"group\"``.\nsimulation : str\n    Simulation (montage) folder name.\nspace : AnalyzerSpace\n    ``\"mesh\"`` or ``\"voxel\"``.\ntissue_type : str\n    ``\"GM\"``, ``\"WM\"``, or ``\"both\"`` (voxel space only).\nanalysis_type : AnalysisType\n    ROI shape; see :class:`AnalysisType`.\nfield : str or None\n    Field to analyze (a name from ``constants.FIELD_REGISTRY``).\n    ``None`` resolves the TI_max/mTI_max envelope automatically.\ncenter : list of float or None\n    ``[x, y, z]`` sphere center in mm. Required for\n    ``analysis_type=\"spherical\"``.\nradius : float or None\n    Sphere radius in mm. Required for ``analysis_type=\"spherical\"``.\ncoordinate_space : AnalyzerCoordinateSpace\n    Space of *center* (spherical only).\natlas : str or None\n    Atlas name. Required for ``analysis_type=\"cortical\"``.\nregion : str or list of str or None\n    Region name(s) within *atlas*. Required for\n    ``analysis_type=\"cortical\"``.\nmask_path : str or None\n    NIfTI mask; positive voxels select the ROI in *coordinate_space*.\noutput_dir : str or None\n    Override output directory. ``None`` derives it from PathManager.\nvisualize : bool\n    Generate visualization artifacts.\n\nRaises\n------\nValueError\n    If *mode* is ``\"single\"`` without *subject_id*, ``\"group\"`` without\n    *subject_ids*, if *analysis_type* is ``\"spherical\"`` without both\n    *center* and *radius*, or ``\"cortical\"`` without *atlas*.\n\nNotes\n-----\nTwo things this dataclass models but the runner does not (yet) honor,\nreported rather than silently patched into ``tit/analyzer/__main__.py``\n(owned by agent B4):\n\n- ``analysis_type=\"subcortical\"`` is accepted here (and by\n  :class:`AnalysisType`) but ``tit.analyzer.__main__._run_single`` only\n  branches on ``\"spherical\"`` and ``\"cortical\"`` -- a subcortical\n  request is silently a no-op today.\n- ``region`` is a single canonical field here; the runner reads\n  ``data.get(\"regions\") or data.get(\"region\")`` (two keys, ``\"regions\"``\n  preferred). Serializing this dataclass writes only ``\"region\"``, which\n  the runner already falls back to, so single-region submissions work\n  unchanged; only the plural alias is not reproduced.\n\nSee Also\n--------\ntit.analyzer.__main__ : The entry point whose accepted keys this\n    dataclass mirrors.",
         "properties": {
           "mode": {
             "$ref": "#/components/schemas/AnalysisMode",
@@ -11554,6 +11785,18 @@
             "default": true,
             "title": "Visualize",
             "type": "boolean"
+          },
+          "mask_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Mask Path"
           }
         },
         "title": "AnalyzerConfig",
@@ -13230,7 +13473,8 @@
         "enum": [
           "spherical",
           "cortical",
-          "subcortical"
+          "subcortical",
+          "mask"
         ],
         "title": "AnalysisType",
         "type": "string"

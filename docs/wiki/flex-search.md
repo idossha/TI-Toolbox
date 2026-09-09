@@ -419,3 +419,9 @@ For positive margins, `avoid_landmark_regions=True` keeps fiducial-derived ear a
 <div class="image-container">
   <img src="{{ site.baseurl }}/assets/imgs/flex-search/valid_skin_region_margin_landmark_guarded.png" alt="Valid skin region margin comparison" style="width: 100%; max-width: 1200px;">
 </div>
+
+### Target preview
+
+The Scene pane follows the active job. Cortical regions remain clickable; masks, subcortical
+regions and spheres show a read-only target extent in subject space. Edit these targets in
+the job form. The preview shows geometry before search-specific tissue and mesh filtering.
