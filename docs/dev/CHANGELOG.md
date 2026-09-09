@@ -9,6 +9,12 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 ---
 ### v3.0.0 (Unreleased)
 
+- **Navigation follows the working order.** Optimizer precedes Simulator; Viewer and Results
+  precede Pipeline, Notebooks and Jobs. Extensions follow those pages. Number shortcuts follow the new order.
+- **Inputs need fewer clicks.** NIfTI masks accept file drops and editable server paths;
+  multi-select picker rows toggle their selection when clicked. Simulator job settings expose
+  tensor ratio and conductivity limits for anisotropic models.
+
 - **Analyzer accepts NIfTI masks.** Import Subject/MNI masks using the same picker as Optimizer;
   group masks are registered separately for each subject.
 - **Target previews follow the form.** Optimizer and Analyzer display non-surface targets as

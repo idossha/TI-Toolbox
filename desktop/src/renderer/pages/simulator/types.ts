@@ -48,6 +48,8 @@ export interface SelectedRow {
 /** Everything about a job that is not its subject, its electrodes' *positions* or its currents. */
 export interface JobSettings {
   conductivity: string;
+  anisoMaxratio?: number;
+  anisoMaxcond?: number;
   electrodeShape: "ellipse" | "rect";
   dimensions: [number, number];
   gelThickness: number;
@@ -59,6 +61,8 @@ export interface JobSettings {
 /** The page's own defaults, as they start: SimNIBS's own, and the one field 2.5.0 wrote. */
 export const DEFAULT_JOB_SETTINGS: JobSettings = {
   conductivity: "scalar",
+  anisoMaxratio: 10,
+  anisoMaxcond: 2,
   electrodeShape: "ellipse",
   dimensions: [8, 8],
   gelThickness: 4,
@@ -88,6 +92,10 @@ export function settingsSummary(settings: JobSettings, defaults: JobSettings): s
   }
   if (settings.gelThickness !== defaults.gelThickness) parts.push(`gel ${settings.gelThickness}`);
   if (settings.conductivity !== defaults.conductivity) parts.push(settings.conductivity);
+  if (settings.conductivity !== "scalar") {
+    if ((settings.anisoMaxratio ?? 10) !== (defaults.anisoMaxratio ?? 10)) parts.push(`max ratio ${settings.anisoMaxratio}`);
+    if ((settings.anisoMaxcond ?? 2) !== (defaults.anisoMaxcond ?? 2)) parts.push(`max conductivity ${settings.anisoMaxcond} S/m`);
+  }
   const overrides = Object.keys(settings.customConductivities).length;
   if (overrides !== Object.keys(defaults.customConductivities).length) {
     parts.push(`${overrides} tissue override${overrides === 1 ? "" : "s"}`);

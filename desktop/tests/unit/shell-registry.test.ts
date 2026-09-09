@@ -44,6 +44,12 @@ function def(over: Partial<PageDef> & Pick<PageDef, "id" | "navGroup">): PageDef
 }
 
 describe("the rail is NAV_ORDER, not a page's own navGroup (U7)", () => {
+  it("places extensions after the core workflow in the requested order", () => {
+    expect(pages.filter((page) => page.id.startsWith("panel-")).map((page) => page.id)).toEqual([
+      "panel-source", "panel-cluster-permutation", "panel-nifti-group-average",
+      "panel-nilearn-visuals", "panel-visual-exporter",
+    ]);
+  });
   it("a page in NAV_ORDER takes that slot; one in neither list is palette-only", () => {
     expect(navSlotOf("simulator")).toBe("simulator");
     expect(navSlotOf("settings")).toBe("settings");
@@ -109,16 +115,16 @@ describe("the shortcut map (DESIGN.md §9: ⌘0 Overview … ⌘9 Jobs; Settings
     expect(shortcutForSlot(null)).toBeUndefined();
   });
 
-  it("assigns them to today's page ids, with optimizer-flex holding ⌘3", () => {
+  it("assigns them to today's page ids, with optimizer-flex holding ⌘2", () => {
     expect(shortcutOf("overview")).toBe("0");
     expect(shortcutOf("preprocess")).toBe("1");
-    expect(shortcutOf("simulator")).toBe("2");
-    expect(shortcutOf("optimizer") ?? shortcutOf("optimizer-flex")).toBe("3");
+    expect(shortcutOf("simulator")).toBe("3");
+    expect(shortcutOf("optimizer") ?? shortcutOf("optimizer-flex")).toBe("2");
     expect(shortcutOf("analyzer")).toBe("4");
-    expect(shortcutOf("pipeline")).toBe("5");
-    expect(shortcutOf("notebooks")).toBe("6");
-    expect(shortcutOf("results")).toBe("7");
-    expect(shortcutOf("viewer")).toBe("8");
+    expect(shortcutOf("pipeline")).toBe("7");
+    expect(shortcutOf("notebooks")).toBe("8");
+    expect(shortcutOf("results")).toBe("6");
+    expect(shortcutOf("viewer")).toBe("5");
     expect(shortcutOf("jobs")).toBe("9");
     // Ten rows, ten digits, because the count starts at zero. Settings is not a rail
     // row, so it has no digit at all — ⌘, is its only chord.
@@ -242,11 +248,11 @@ describe("rail sub-items (PageDef.subNav)", () => {
     expect(pageById("viewer")?.shortcut).toBe(shortcutForSlot("viewer"));
     expect(pageById("viewer")?.shortcut).toBe(String(viewerIndex));
     // The row after the Viewer is one slot after it, not three.
-    expect(order.indexOf("jobs")).toBe(viewerIndex + 1);
+    expect(order.indexOf("results")).toBe(viewerIndex + 1);
   });
 
   it("the real Viewer page declares Menu then Tetravox, in that order", () => {
-    // Order is load-bearing: the first is where the page's row, ⌘8 and a bare /viewer all land.
+    // Order is load-bearing: the first is where the page's row, ⌘5 and a bare /viewer all land.
     expect(pageById("viewer")?.subNav?.map((s) => s.id)).toEqual(["menu", "tetravox"]);
     expect(pageById("viewer")?.subNav?.map((s) => s.title)).toEqual(["Menu", "Tetravox"]);
   });
@@ -255,7 +261,7 @@ describe("rail sub-items (PageDef.subNav)", () => {
     expect(pagePath({ id: "viewer", subNav: [{ id: "menu", title: "Menu" }] })).toBe("/viewer/menu");
     expect(pagePath({ id: "viewer", subNav: [] })).toBe("/viewer");
     expect(pagePath({ id: "jobs" })).toBe("/jobs");
-    // The real page, so the rail, ⌘8 and the palette cannot disagree with this test either.
+    // The real page, so the rail, ⌘5 and the palette cannot disagree with this test either.
     expect(pagePath(pageById("viewer")!)).toBe("/viewer/menu");
   });
 

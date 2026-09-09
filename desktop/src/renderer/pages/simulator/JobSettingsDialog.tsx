@@ -147,6 +147,27 @@ export function JobSettingsDialog({ row, defaults, onClose, onSave }: JobSetting
                   aria-label="Conductivity model"
                 />
               </Field>
+              {draft.conductivity !== "scalar" && <>
+                <Field label="Max ratio" help="Maximum eigenvalue ratio for conductivity tensors.">
+                  <NumberInput
+                    value={draft.anisoMaxratio ?? 10}
+                    onValueChange={(v) => setDraft({ ...draft, anisoMaxratio: v ?? 10 })}
+                    min={1}
+                    step={0.5}
+                    aria-label="Anisotropy max ratio"
+                  />
+                </Field>
+                <Field label="Max conductivity" help="Maximum conductivity for anisotropic tensors.">
+                  <NumberInput
+                    value={draft.anisoMaxcond ?? 2}
+                    onValueChange={(v) => setDraft({ ...draft, anisoMaxcond: v ?? 2 })}
+                    min={0.1}
+                    step={0.1}
+                    unit="S/m"
+                    aria-label="Anisotropy max conductivity"
+                  />
+                </Field>
+              </>}
               <Field label="Tissue values" help="Overrides SimNIBS's per-tissue defaults for this job only.">
                 <Button variant="secondary" onClick={() => setTissueOpen(true)}>
                   Edit values…

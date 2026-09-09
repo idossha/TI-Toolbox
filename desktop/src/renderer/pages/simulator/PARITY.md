@@ -30,6 +30,7 @@ per-card. Per-row state kept from the PyQt tab: currents (mA), editable per sele
 | "Add Montage" / "Remove Montage" buttons | — | — | Montage tab "New montage" button opens an inline creation panel (see gap #1 below for why it is not a `Dialog`) + row-level edit/delete icons (delete via `AlertDialog`) | done |
 | `AddMontageDialog` (uni/multi pair editors) | 2 pairs (U) / 4 pairs (M) | — | `ElectrodePairsEditor` (mode `net`) inside the inline montage panel, net-scoped electrode options | done |
 | Anisotropy combo: Isotropic / vn / dir / mc | Isotropic | — | "Conductivity model" select | done |
+| Anisotropic tensor limits | Max ratio 10; max conductivity 2 S/m | — | Job settings show both limits for vn / dir / mc and forward them per job | done |
 | "Change Default Cond." button -> `ConductivityEditorDialog` | SimNIBS literature defaults (12 tissues) | info label "double-click to edit" | `ConductivityDialog`: editable table, same 12 tissues/defaults/references, Reset to defaults | done, **with a reported backend gap** (below) |
 | Electrode Shape: Rectangle / Ellipse | Ellipse | — | `RadioGroup` | done |
 | Dimensions (mm, x,y) line edit | `8,8` | placeholder | two `NumberInput`s (width/height) | done |
@@ -38,7 +39,7 @@ per-card. Per-row state kept from the PyQt tab: currents (mA), editable per sele
 | "Some selected simulation outputs already exist" dialog (skip / replace-and-rerun / cancel) | — | — | Plan panel: per-job "exists" / "will overwrite" chips + `AlertDialog` "Overwrite and run" before submitting overwriting jobs | redesigned to the v3 Plan-panel idiom (single `overwrite` flag per job, not a 3-way skip/replace/cancel choice) |
 | Run / Stop buttons, console | — | — | Plan panel's "Run simulation" / "Queue N jobs" button; live output now lives in the Jobs rail (`app/jobs-rail/`), not an inline console, per `v3-build-plan.md` (R3: "anything long is a job") | done (console intentionally not rebuilt here — jobs rail owns it) |
 | `TI_normal` — always computed for 2-pair TI, not a checkbox | n/a | n/a | not offered as a selectable output field (matches `get_selectable_output_field_specs()`) | done |
-| `map_to_mni`, `map_to_fsavg`, `map_to_vol`, `open_in_gmsh`, `rubber_thickness`, `aniso_maxratio`, `aniso_maxcond`, `tissues_in_niftis` | schema defaults | n/a | **not exposed** — the PyQt tab does not expose them either (verified: no matching widgets in `simulator_tab.py`); left at `SimulationConfig` defaults by omission | matches PyQt (no widget), not a v3 gap |
+| `map_to_mni`, `map_to_fsavg`, `map_to_vol`, `open_in_gmsh`, `rubber_thickness`, `tissues_in_niftis` | schema defaults | n/a | **not exposed** — the PyQt tab does not expose them either (verified: no matching widgets in `simulator_tab.py`); left at `SimulationConfig` defaults by omission | matches PyQt (no widget), not a v3 gap |
 
 ## Free-hand table (new in v3; no direct PyQt equivalent)
 

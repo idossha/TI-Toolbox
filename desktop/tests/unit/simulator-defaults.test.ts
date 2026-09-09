@@ -63,6 +63,14 @@ const baseParams: GlobalParams = {
 };
 
 describe("Simulator page configs validate against contracts/generated/config.schema.json", () => {
+  it.each(["vn", "dir", "mc"])("forwards %s tensor limits per job and supplies defaults for older settings", async (conductivity) => {
+    const row: SelectedRow = { id: "anisotropic", subjectId: "ernie", source: "montage", name: "F3_F4", currents: "1,1", pairs: [["E24", "E124"]] };
+    const custom = buildSimulationConfig({ ...row, settings: { ...baseParams, conductivity, anisoMaxratio: 7, anisoMaxcond: 1.5 } }, baseParams);
+    expect(custom).toMatchObject({ conductivity, aniso_maxratio: 7, aniso_maxcond: 1.5 });
+    expect(await validate("SimulationConfig", custom)).toMatchObject({ valid: true, errors: {} });
+    expect(buildSimulationConfig(row, baseParams)).toMatchObject({ aniso_maxratio: 10, aniso_maxcond: 2 });
+  });
+
   it("maps only the job that opts in, including older saved settings without the flag", () => {
     const row: SelectedRow = { id: "mapping", subjectId: "ernie", source: "montage", name: "F3_F4", currents: "1,1", pairs: [["E24", "E124"]] };
     expect(buildSimulationConfig(row, baseParams).map_to_fsavg).toBe(false);

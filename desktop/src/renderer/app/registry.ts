@@ -98,15 +98,13 @@ export interface ResolvedPage extends PageDef {
 export const NAV_ORDER = [
   "overview",
   "preprocess",
-  "simulator",
   "optimizer",
+  "simulator",
   "analyzer",
-  "pipeline",
-  // NB lane: notebooks sit after the pipeline because that is the workflow order
-  // — the canvas exports a notebook, and this is where it lands and runs.
-  "notebooks",
-  "results",
   "viewer",
+  "results",
+  "pipeline",
+  "notebooks",
   "jobs",
 ] as const;
 
@@ -228,7 +226,7 @@ export function resolvePage(page: PageDef, known: ReadonlySet<string> = DISCOVER
 /**
  * The route a page's rail row, its ⌘-number and its palette entry all go to.
  *
- * A page with sub-items lands on the first one, so "click Viewer" and "press ⌘8" have one answer
+ * A page with sub-items lands on the first one, so "click Viewer" and "press ⌘5" have one answer
  * and it is a real route rather than a redirect the user can see happen.
  */
 export function pagePath(page: Pick<PageDef, "id" | "subNav">): string {

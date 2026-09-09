@@ -57,6 +57,8 @@ export function buildSimulationConfig(row: SelectedRow, defaults: GlobalParams):
     subject_id: row.subjectId,
     montages: [montage],
     conductivity: params.conductivity,
+    aniso_maxratio: params.anisoMaxratio ?? 10,
+    aniso_maxcond: params.anisoMaxcond ?? 2,
     intensities: parseIntensities(row.currents),
     electrode_shape: params.electrodeShape,
     electrode_dimensions: params.dimensions,

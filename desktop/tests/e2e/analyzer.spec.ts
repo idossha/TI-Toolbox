@@ -617,7 +617,7 @@ test("NIfTI masks import with explicit Subject and MNI space in the analysis con
       await picker.setInputFiles({ name, mimeType: "application/octet-stream", buffer: Buffer.from("mock NIfTI payload") });
       const path = `/mnt/project/m2m_ernie/masks/${name}`;
       await expect(dialog.getByRole("textbox", { name: "Imported mask" })).toHaveValue(path);
-      await expect(dialog.getByRole("textbox", { name: "Imported mask" })).toHaveAttribute("readonly", "");
+      await expect(dialog.getByRole("textbox", { name: "Imported mask" })).toBeEditable();
       await dialog.getByRole("radiogroup", { name: "Mask space" }).getByRole("radio", { name: space, exact: true }).click();
       await closeAnalysisTarget(page);
       await expect(analysisTargetText(row)).toHaveText(`NIfTI mask · ${name} · ${space}`);

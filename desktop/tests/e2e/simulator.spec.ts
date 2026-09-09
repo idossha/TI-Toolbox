@@ -389,11 +389,16 @@ test("a job's own electrodes reach its config, and its neighbour keeps the built
   const second = await addJobRow(page);
   await configureMontageJob(page, second, { subject: "ernie", net: "GSN-HydroCel-185", montage: "Thalamus_target · TI" });
 
-  // Customise the FIRST job: rectangle, 10x10, and TI_avg alongside TI_max.
+  // Customise the FIRST job: electrode geometry, tensor limits, and output fields.
   await first.locator('td[data-cell="actions"]').getByRole("button", { name: /^Job settings/ }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByTestId("job-settings-form")).toBeVisible();
   await expect(dialog).toContainText("ernie");
+  await expect(dialog.getByRole("spinbutton", { name: "Anisotropy max ratio", exact: true })).toHaveCount(0);
+  await dialog.getByRole("combobox", { name: "Conductivity model" }).click();
+  await page.getByRole("option", { name: "Anisotropic (mean conductivity)", exact: true }).click();
+  await dialog.getByRole("spinbutton", { name: "Anisotropy max ratio", exact: true }).fill("7");
+  await dialog.getByRole("spinbutton", { name: "Anisotropy max conductivity", exact: true }).fill("1.5");
   await dialog.getByRole("radio", { name: "Rectangle", exact: true }).click();
   await dialog.getByRole("spinbutton", { name: "Electrode width" }).fill("10");
   await dialog.getByRole("spinbutton", { name: "Electrode height" }).fill("10");
@@ -425,6 +430,11 @@ test("a job's own electrodes reach its config, and its neighbour keeps the built
   const plain = byMontage("Thalamus_target");
 
   // The customised job carries its own electrodes and fields...
+  expect(custom.conductivity).toBe("mc");
+  expect(custom.aniso_maxratio).toBe(7);
+  expect(custom.aniso_maxcond).toBe(1.5);
+  expect(plain.conductivity).toBe("scalar");
+  expect(plain.aniso_maxratio).toBe(10);
   expect(custom.electrode_shape).toBe("rect");
   expect(custom.electrode_dimensions).toEqual([10, 10]);
   expect(custom.output_fields).toEqual(["TI_max", "TI_avg"]);

@@ -177,8 +177,8 @@ test("keyboard shortcuts jump screens and toggle the jobs rail", async () => {
 
   const mod = MOD;
 
-  // DESIGN.md §9: ⌘0 Overview · ⌘1 Pre-processing · ⌘2 Simulator · ⌘3 Optimizer · ⌘4 Analyzer ·
-  // ⌘5 Pipeline · ⌘6 Notebooks · ⌘7 Results · ⌘8 Viewer · ⌘9 Jobs. The number is the page's index
+  // DESIGN.md §9: ⌘0 Overview · ⌘1 Pre-processing · ⌘2 Optimizer · ⌘3 Simulator · ⌘4 Analyzer ·
+  // ⌘5 Viewer · ⌘6 Results · ⌘7 Pipeline · ⌘8 Notebooks · ⌘9 Jobs. The number is the page's index
   // in `registry.ts`'s NAV_ORDER — counting from zero, so ten digits cover ten rows — which is why
   // the rail, the palette and the `?` sheet cannot disagree. Settings is not a rail row: ⌘, only.
   await jumpTo("pipeline");

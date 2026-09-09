@@ -23,6 +23,8 @@
  *   - **`All · None`** are the only bulk buttons — the one pair 2.5.0 had, not a menu,
  *   - an **always-on filter box**, and an `N of M selected` badge that is the whole status line.
  *
+ * Multi-select picker dialogs make every row click a toggle; Shift still extends a range.
+ *
  * Two shapes, one model:
  *   - `SelectionList` — the list itself, for a page that has room for it (subjects, participants,
  *     jobs, saved ROIs);
@@ -230,6 +232,8 @@ export interface SelectionListProps {
   value: string[];
   onChange: (value: string[]) => void;
   mode?: SelectionMode;
+  /** Picker rows toggle independently; page lists retain single-click replacement. */
+  toggleOnRowClick?: boolean;
   /** Names the listbox for assistive tech ("Subjects", "E1+ electrodes"). */
   label: string;
   /** Column headings. Omitted columns are still rendered — headerless. */
@@ -320,6 +324,7 @@ export function SelectionList({
   value,
   onChange,
   mode = "multi",
+  toggleOnRowClick = false,
   label,
   headers,
   columns,
@@ -372,9 +377,9 @@ export function SelectionList({
 
   const click = useCallback(
     (e: MouseEvent, id: string) => {
-      commit(applyClick({ value, anchor }, visible, id, { toggle: e.metaKey || e.ctrlKey, range: e.shiftKey }, mode));
+      commit(applyClick({ value, anchor }, visible, id, { toggle: toggleOnRowClick || e.metaKey || e.ctrlKey, range: e.shiftKey }, mode));
     },
-    [anchor, commit, mode, value, visible],
+    [anchor, commit, mode, toggleOnRowClick, value, visible],
   );
 
   const toggleOne = useCallback(
@@ -399,6 +404,8 @@ export function SelectionList({
 
   /* ---- keyboard ---- */
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>): void {
+    // Native checkbox keyboard activation already owns its toggle.
+    if ((e.target as HTMLElement).closest(".checkbox-root")) return;
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a") {
       e.preventDefault();
       if (mode !== "single") onChange(selectAllVisible(value, visible, excluded));
@@ -747,7 +754,7 @@ export function SelectionPicker({
           </Button>
         }
       >
-        <SelectionList {...list} idPrefix={idPrefix} escClears={false} maxHeight={list.maxHeight ?? 320} />
+        <SelectionList {...list} toggleOnRowClick={list.mode !== "single"} idPrefix={idPrefix} escClears={false} maxHeight={list.maxHeight ?? 320} />
       </Dialog>
     </>
   );

@@ -613,7 +613,7 @@ function MaskPanel({ value, onChange, disabled, subject, showTissues }: {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string>();
   async function importFile(file: File) {
-    if (!subject) return;
+    if (!subject || disabled || activeUpload.current) return;
     if (!/\.nii(?:\.gz)?$/i.test(file.name)) {
       setError("Choose a .nii or .nii.gz NIfTI mask.");
       return;
@@ -631,14 +631,31 @@ function MaskPanel({ value, onChange, disabled, subject, showTissues }: {
       setError(e instanceof Error ? e.message : "Could not import the mask.");
     } finally {
       if (!controller.signal.aborted) setUploading(false);
+      if (activeUpload.current === controller) activeUpload.current = null;
     }
   }
   return <div className="form-grid form-grid--single">
-    <Field label="NIfTI mask" required help="Positive voxels form the target. Import a local .nii or .nii.gz file so the server can access it.">
-      <div className="roi-mask-file">
-        <TextInput value={value.path} readOnly aria-label="Imported mask" placeholder="Import a NIfTI mask…" />
+    <Field label="NIfTI mask" required help="Positive voxels form the target. Drop or import a local .nii or .nii.gz file, or enter a path accessible to the server.">
+      <div className="roi-mask-file" onDragOver={(event) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = disabled || uploading || !subject ? "none" : "copy";
+      }} onDrop={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (disabled || uploading || !subject) return;
+        if (event.dataTransfer.files.length !== 1) {
+          setError("Drop one .nii or .nii.gz NIfTI mask.");
+          return;
+        }
+        const file = event.dataTransfer.files[0];
+        if (file) void importFile(file);
+      }}>
+        <TextInput value={value.path} disabled={disabled || uploading} aria-label="Imported mask" placeholder="Drop a NIfTI mask or enter its path…" onChange={(event) => {
+          setError(undefined);
+          onChange({ ...value, path: event.target.value });
+        }} />
         <Button disabled={disabled || uploading || !subject} onClick={() => input.current?.click()}>{uploading ? "Importing…" : "Import…"}</Button>
-        <input ref={input} type="file" accept=".nii,.gz,application/gzip,application/x-gzip" aria-label="Import NIfTI mask" hidden disabled={disabled || uploading} onChange={(event) => {
+        <input ref={input} type="file" accept=".nii,.gz,application/gzip,application/x-gzip" aria-label="Import NIfTI mask" hidden disabled={disabled || uploading || !subject} onChange={(event) => {
           const file = event.target.files?.[0];
           event.target.value = "";
           if (file) void importFile(file);

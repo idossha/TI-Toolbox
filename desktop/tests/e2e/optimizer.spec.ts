@@ -745,7 +745,7 @@ test("custom masks import and retain explicit space in Flex and Ex", async () =>
     await expect(filePicker).toHaveAttribute("accept", ".nii,.gz,application/gzip,application/x-gzip");
     await filePicker.setInputFiles({ name: method === "Flex" ? "custom.nii" : "custom.nii.gz", mimeType: "application/octet-stream", buffer: Buffer.from("mock NIfTI payload") });
     await expect(dialog.getByRole("textbox", { name: "Imported mask" })).toHaveValue("/mnt/project/m2m_ernie/masks/custom.nii.gz");
-    await expect(dialog.getByRole("textbox", { name: "Imported mask" })).toHaveAttribute("readonly", "");
+    await expect(dialog.getByRole("textbox", { name: "Imported mask" })).toBeEditable();
     await dialog.getByRole("radiogroup", { name: "Mask space" }).getByRole("radio", { name: "MNI", exact: true }).click();
     await closeOptEditor(page);
     await expect(optRowSummary(row)).toContainText("custom.nii.gz · MNI mask");
