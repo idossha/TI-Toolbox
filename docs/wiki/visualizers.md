@@ -31,7 +31,9 @@ data; it does not check whether a file was overwritten on disk.
 ## How to open a result
 
 The **Viewer** entry in the left rail has two rows indented under it, **Menu** and **Tetravox**.
-Clicking Viewer itself opens Menu.
+Clicking Viewer itself opens Menu. **Tetravox** opens the full viewer immediately, even without
+a scene. You can drag local `.nii`, `.nii.gz`, or mesh files directly onto it. Files opened this
+way stay in the viewer when you switch to Menu and back; they are not imported into the project.
 
 1. On **Menu**, pick a **subject** and a **space** (subject or MNI). Below them the page draws a
    tree of everything that subject has, in three branches:

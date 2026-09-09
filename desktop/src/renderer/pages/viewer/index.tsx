@@ -1116,7 +1116,7 @@ function ViewerPage() {
       <div className="viewer-sub viewer-sub-frame" data-testid="viewer-sub-viewer" data-active={sub === "tetravox" ? "true" : "false"}>
         <div className="viewer-strip" data-testid="viewer-strip">
           <span className="viewer-strip-name" data-testid="viewer-strip-name" title={loaded?.hostPath ?? undefined}>
-            {loaded === null ? "No scene open" : loaded.name}
+            {loaded === null ? "Tetravox" : loaded.name}
           </span>
           <div className="viewer-strip-spacer" />
           {sceneSaved !== null && (
@@ -1189,31 +1189,18 @@ function ViewerPage() {
           </Button>
         </div>
 
-        {loaded === null ? (
-          <div className="viewer-empty" data-testid="viewer-empty">
-            <p className="viewer-empty-title">Nothing is open yet</p>
-            <p className="viewer-empty-text">
-              Build a scene under <strong>Menu</strong> and press <strong>Open in viewer</strong>. It appears here, in this window — there
-              is nothing to install.
-            </p>
-            <Button variant="primary" size="sm" onClick={() => setSub("menu")} data-testid="viewer-empty-menu">
-              Go to the menu
-            </Button>
-          </div>
-        ) : (
-          <TetravoxFrame
-            className="viewer-embed"
-            embedVersion={embedVersion}
-            reloadToken={reloadToken}
-            onReload={() => {
-              // A full remount of the iframe, then the scene again — the recovery path for a frame
-              // that mounted and never answered. `Reload` in the strip is the cheap one (re-post
-              // only); this is the expensive one, and only the `no-embed` state offers it.
-              setReloadToken((t) => t + 1);
-              reloadScene();
-            }}
-          />
-        )}
+        <TetravoxFrame
+          className="viewer-embed"
+          embedVersion={embedVersion}
+          reloadToken={reloadToken}
+          onReload={() => {
+            // A full remount of the iframe, then the scene again — the recovery path for a frame
+            // that mounted and never answered. `Reload` in the strip is the cheap one (re-post
+            // only); this is the expensive one, and only the `no-embed` state offers it.
+            setReloadToken((t) => t + 1);
+            reloadScene();
+          }}
+        />
       </div>
     </PageLayout>
   );

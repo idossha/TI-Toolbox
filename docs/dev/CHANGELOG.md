@@ -9,6 +9,9 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 ---
 ### v3.0.0 (Unreleased)
 
+- **Tetravox opens immediately.** The Viewer displays its full UI before a scene is selected,
+  allowing local files to be dragged directly into it.
+
 - **FastSurfer uses available hardware.** Automatic device selection supports CUDA, native
   Apple MPS, or CPU in the selected Python environment. The bundled Docker image remains CPU-only.
 

@@ -194,6 +194,34 @@ test("one Open is one request, and it writes one scene file", async () => {
   await expect(page.getByTestId("viewer-opened")).toContainText(".tetravox.json");
 });
 
+test("Tetravox boots without a scene and retains its frame through Menu navigation", async () => {
+  await connect();
+  const seen = recordViewRequests();
+  await openViewer();
+  await gotoSub("tetravox");
+
+  await expect(page.getByTestId("viewer-empty")).toHaveCount(0);
+  await expect(page.getByTestId("viewer-strip-name")).toHaveText("Tetravox");
+  await expect(page.getByTestId("viewer-reload")).toBeDisabled();
+  const host = page.getByTestId("tetravox-host");
+  const frame = page.getByTestId("tetravox-frame");
+  await expect(host).toBeVisible();
+  await expect(frame).toBeVisible();
+  await expect(frame).toHaveAttribute("src", /\/tetravox\//);
+  // Renderer metadata arrives in the ready handshake even when no scene has loaded. The mock
+  // proves the embed is reachable, not that native file drag/drop or WebGL rendering works.
+  await expect(host).toHaveAttribute("data-renderer", /.+/, { timeout: 20_000 });
+  await frame.evaluate((node) => { node.setAttribute("data-e2e-identity", "empty-viewer"); });
+
+  await gotoSub("menu");
+  await expect(frame).toHaveCount(1);
+  await expect(frame).toBeHidden();
+  await gotoSub("tetravox");
+  await expect(frame).toBeVisible();
+  await expect(frame).toHaveAttribute("data-e2e-identity", "empty-viewer");
+  expect(opens(seen)).toHaveLength(0);
+});
+
 test("Open moves to the Viewer sub-page and shows the scene", async () => {
   // VE's brief, verbatim: "the user configures in the Menu, hits Open, is moved to the Viewer
   // where the Tetravox embed is". The frame is only proof if it actually answered — an iframe
@@ -204,13 +232,10 @@ test("Open moves to the Viewer sub-page and shows the scene", async () => {
   await openViewer();
   const seen = recordViewRequests();
 
-  // Before any Open the Viewer sub-page is honest about being empty, and frames nothing.
+  // The embed is available before Open; selecting a scene loads it into that same viewer.
   await gotoSub("tetravox");
-  await expect(page.getByTestId("viewer-empty")).toBeVisible();
-  await expect(page.getByTestId("viewer-empty-menu")).toBeVisible();
-  await expect(page.getByTestId("tetravox-frame")).toHaveCount(0);
-  await page.getByTestId("viewer-empty-menu").click();
-  await expectSub("menu");
+  await expect(page.getByTestId("tetravox-frame")).toBeVisible();
+  await gotoSub("menu");
 
   await draftSimulation();
   await pressOpen();
@@ -434,7 +459,7 @@ test("an incomplete selection is refused before the wire, and opens nothing", as
   expect(opens(seen)).toHaveLength(0);
   // Refused means the person is left where they were, with the mistake named in front of them.
   await expectSub("menu");
-  await expect(page.getByTestId("tetravox-frame")).toHaveCount(0);
+  await expect(page.getByTestId("viewer-strip-name")).toHaveText("Tetravox");
 });
 
 test("a deep link that asks to open, opens — exactly once, and fills the Menu behind it", async () => {
@@ -494,7 +519,7 @@ test("a failed Open names the failure and shows no scene", async () => {
   await pressOpen();
   await expect(page.getByTestId("viewer-view-error")).toBeVisible({ timeout: 15_000 });
   await expectSub("menu");
-  await expect(page.getByTestId("tetravox-frame")).toHaveCount(0);
+  await expect(page.getByTestId("viewer-strip-name")).toHaveText("Tetravox");
 });
 
 // ── layout ───────────────────────────────────────────────────────────────────────────────────
@@ -808,7 +833,7 @@ test("a preset saves the edited list and restores it without opening anything", 
   expect(opens(seen)).toHaveLength(0);
   expect(bodies).toHaveLength(0);
   await expectSub("menu");
-  await expect(page.getByTestId("tetravox-frame")).toHaveCount(0);
+  await expect(page.getByTestId("viewer-strip-name")).toHaveText("Tetravox");
 });
 
 test("the Recent list remembers what was opened and restores it", async () => {
