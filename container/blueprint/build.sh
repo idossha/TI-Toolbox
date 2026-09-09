@@ -5,6 +5,7 @@
 #   ./build.sh [--tag IMAGE:TAG] [--ref GIT-REF]
 #              [--tetravox-tgz URL --tetravox-sha256 HEX] [--no-cache]
 #              [--fastsurfer-checkpoints-tgz URL --fastsurfer-checkpoints-sha256 HEX]
+#              [--blender-archive URL]
 #
 #   --tag                image:tag to build (default idossha/ti-toolbox:<version>-dev)
 #   --ref                build from `git clone <REF>` of github.com/idossha/TI-Toolbox instead
@@ -77,6 +78,7 @@ TETRAVOX_TGZ=""
 TETRAVOX_SHA256=""
 FASTSURFER_CHECKPOINTS_TGZ=""
 FASTSURFER_CHECKPOINTS_SHA256=""
+BLENDER_ARCHIVE_URL=""
 NO_CACHE=""
 OBSOLETE=""
 
@@ -88,6 +90,7 @@ while [ $# -gt 0 ]; do
         --tetravox-sha256) TETRAVOX_SHA256="$2"; shift 2 ;;
         --fastsurfer-checkpoints-tgz) FASTSURFER_CHECKPOINTS_TGZ="$2"; shift 2 ;;
         --fastsurfer-checkpoints-sha256) FASTSURFER_CHECKPOINTS_SHA256="$2"; shift 2 ;;
+        --blender-archive) BLENDER_ARCHIVE_URL="$2"; shift 2 ;;
         --no-cache) NO_CACHE="--no-cache"; shift ;;
         # Retired flags, accepted so an old command line still builds.
         --layered|--from-scratch|--skip-ui-build) OBSOLETE="$OBSOLETE $1"; shift ;;
@@ -138,6 +141,11 @@ if [ -n "$FASTSURFER_CHECKPOINTS_TGZ" ] || [ -n "$FASTSURFER_CHECKPOINTS_SHA256"
         echo "build.sh: FastSurfer cache needs an http(s) --fastsurfer-checkpoints-tgz and a 64 lowercase hex --fastsurfer-checkpoints-sha256" >&2
         exit 2
     fi
+fi
+
+if [ -n "$BLENDER_ARCHIVE_URL" ] && ! printf '%s' "$BLENDER_ARCHIVE_URL" | grep -Eq '^https?://[^[:space:]]+$'; then
+    echo "build.sh: --blender-archive must be an http(s) URL; the recipe still verifies the fixed official checksum" >&2
+    exit 2
 fi
 
 # --- source: local checkout (default) or a pushed ref -------------------------------------
@@ -275,6 +283,9 @@ build_args=(
     --build-arg "FASTSURFER_CHECKPOINTS_TGZ=$FASTSURFER_CHECKPOINTS_TGZ"
     --build-arg "FASTSURFER_CHECKPOINTS_SHA256=$FASTSURFER_CHECKPOINTS_SHA256"
 )
+if [ -n "$BLENDER_ARCHIVE_URL" ]; then
+    build_args+=(--build-arg "BLENDER_ARCHIVE_URL=$BLENDER_ARCHIVE_URL")
+fi
 if [ -n "$NO_CACHE" ]; then
     build_args+=("$NO_CACHE")
 fi

@@ -39,9 +39,10 @@ FROM ubuntu:22.04 AS blender
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl xz-utils \
     && rm -rf /var/lib/apt/lists/*
 # Official Blender has its own Python/NumPy: installing bpy into SimNIBS downgrades NumPy2.
-# Archive digest is from Blender's official blender-4.4.3.sha256 manifest.
+# Archive digest is fixed to Blender's official manifest even when using a cached download.
+ARG BLENDER_ARCHIVE_URL=https://mirror.blender.org/release/Blender4.4/blender-4.4.3-linux-x64.tar.xz
 RUN mkdir -p /opt/blender \
-    && curl -fL --retry 3 https://mirror.blender.org/release/Blender4.4/blender-4.4.3-linux-x64.tar.xz -o /tmp/blender.tar.xz \
+    && curl -fL --retry 3 --retry-all-errors "$BLENDER_ARCHIVE_URL" -o /tmp/blender.tar.xz \
     && echo "8d3be07d2bc412b502c6bfe3cfe3e22195a4164076867da987ce148d73c27946  /tmp/blender.tar.xz" | sha256sum -c - \
     && tar -xJf /tmp/blender.tar.xz --strip-components=1 -C /opt/blender \
     && rm /tmp/blender.tar.xz

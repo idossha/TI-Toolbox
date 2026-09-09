@@ -102,6 +102,14 @@ separate-runtime fix in a disposable container. The verified cache and accepted 
 do not establish a valid baked image; final build and real-image acceptance remain pending, with
 executed evidence recorded in [BENCHMARKS.md](BENCHMARKS.md).
 
+### Optional Blender download cache
+
+`build.sh --blender-archive <http(s)-url>` changes only the transport for the pinned official
+Blender 4.4.3 Linux archive. The recipe still requires SHA-256
+`8d3be07d2bc412b502c6bfe3cfe3e22195a4164076867da987ce148d73c27946` before extraction.
+Use this when a verified local cache is available and the upstream transfer fails. Omitting the
+option uses the official mirror with TLS verification and bounded transfer retries.
+
 ### Local and colleague acceptance
 
 Use a copy of a representative project. Verify a final image without a development source/UI mount,
