@@ -29,7 +29,7 @@ and a BIDS project. Use a copied project for tests that create or replace output
 ```bash
 cd desktop
 npm install
-cp .env.dev.example .env.dev        # set TIT_DEV_PROJECT_DIR and TIT_DEV_IMAGE_TAG
+cp .env.dev.example .env.dev        # set TIT_DEV_PROJECT_DIR; image override is optional
 npm run dev:web                    # container + Vite at http://127.0.0.1:5173/
 # npm run dev                      # same backend + Electron
 # npm run dev:down                 # stops/removes this project's container

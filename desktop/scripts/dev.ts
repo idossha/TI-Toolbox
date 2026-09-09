@@ -97,13 +97,15 @@ async function main(argv: string[]): Promise<number> {
   for (const signal of ["SIGINT", "SIGTERM"] as const) {
     process.on(signal, () => child.kill(signal));
   }
-  return await new Promise<number>((settle) => {
+  const exitCode = await new Promise<number>((settle) => {
     child.on("exit", (code, signal) => settle(signal ? 0 : (code ?? 1)));
     child.on("error", (err) => {
       console.error(`[dev] could not run ${bin}: ${err.message}`);
       settle(1);
     });
   });
+  hostServer?.stop();
+  return exitCode;
 }
 
 void main(process.argv.slice(2)).then(
