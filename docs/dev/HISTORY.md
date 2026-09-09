@@ -859,3 +859,6 @@ Simulator montage selection now displays “No montages available” and disable
 when the selected net has no saved montages, instead of opening an empty dropdown.
 
 Per-core load gauges display the percent sign beside each reading.
+
+Local docs startup now resolves its own working directory, checks installed gems, explains
+port conflicts without stopping other servers, and defaults to loopback with analytics off.

@@ -1,61 +1,60 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# Run the documentation site from any working directory, without stopping other servers.
+set -euo pipefail
 
-# Temporal Interference Toolbox Documentation Local Server
-# This script helps you run the documentation website locally
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+port=4000
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --port)
+            [[ $# -ge 2 ]] || { echo "Missing value for --port." >&2; exit 2; }
+            port="$2"
+            shift 2
+            ;;
+        -h|--help)
+            echo "Usage: bash docs/serve.sh [--port PORT]"
+            echo "Serve the docs at http://127.0.0.1:4000/ (default). Ctrl+C stops the server."
+            exit 0
+            ;;
+        *) echo "Unknown option: $1. Use --help." >&2; exit 2 ;;
+    esac
+done
+case "$port" in ''|*[!0-9]*) echo "Port must be a number from 1 to 65535." >&2; exit 2 ;; esac
+if [[ ${#port} -gt 5 ]] || (( 10#$port < 1 || 10#$port > 65535 )); then
+    echo "Port must be a number from 1 to 65535." >&2
+    exit 2
+fi
 
-echo "🚀 Starting Temporal Interference Toolbox Documentation Server..."
-echo ""
-
-# Use Homebrew Ruby 3.3 (installed for compatibility with macOS 15)
-export PATH="/opt/homebrew/opt/ruby@3.3/bin:$PATH"
-
-# Check if Ruby is installed
-if ! command -v ruby &> /dev/null; then
-    echo "❌ Ruby is not installed. Please run: brew install ruby@3.3"
+# Prefer supported Homebrew Ruby on Apple Silicon or Intel Macs; otherwise use PATH.
+for ruby_bin in /opt/homebrew/opt/ruby@3.3/bin /usr/local/opt/ruby@3.3/bin; do
+    if [[ -x "$ruby_bin/ruby" ]]; then
+        export PATH="$ruby_bin:$PATH"
+        break
+    fi
+done
+if ! command -v ruby >/dev/null || ! ruby -e 'exit(Gem::Version.new(RUBY_VERSION) >= Gem::Version.new("3.3") ? 0 : 1)'; then
+    echo "Ruby 3.3 or newer is required. On macOS: brew install ruby@3.3" >&2
+    exit 1
+fi
+if ! command -v bundle >/dev/null; then
+    echo "Bundler is missing. Install it with: gem install bundler" >&2
     exit 1
 fi
 
-echo "📍 Using Ruby: $(ruby --version)"
-echo "📍 Using Ruby path: $(which ruby)"
-
-# Kill any existing Jekyll processes to avoid port conflicts
-echo "🔧 Checking for existing Jekyll processes..."
-if pgrep -f "jekyll serve" > /dev/null; then
-    echo "🛑 Killing existing Jekyll processes..."
-    pkill -f "jekyll serve"
-    sleep 2
+# Explain a busy port instead of killing an unrelated site or failing deep inside Jekyll.
+if ! ruby -rsocket -e 'TCPServer.new("127.0.0.1", Integer(ARGV[0], 10)).close' "$port" 2>/dev/null; then
+    echo "Cannot listen on 127.0.0.1:$port. Another server may be using this port." >&2
+    echo "Stop that server, or choose another port: bash docs/serve.sh --port 4001" >&2
+    exit 1
 fi
 
-# Check if Bundler is installed
-if ! command -v bundle &> /dev/null; then
-    echo "📦 Installing Bundler..."
-    gem install bundler
-fi
-
-# Install dependencies if needed
-if [ ! -f "Gemfile.lock" ]; then
-    echo "📦 Installing dependencies..."
+cd "$script_dir"
+# A lockfile specifies versions; bundle check verifies that the gems are actually installed.
+if ! bundle check; then
     bundle install
-else
-    echo "✅ Dependencies already installed"
 fi
-
-# Start the server
-echo ""
-echo "🌐 Starting Jekyll server..."
-echo "   Local URL: http://localhost:4000/"
-echo "   Press Ctrl+C to stop"
-echo ""
-echo "💡 Tip: Google Analytics is enabled by default. To disable, run:"
-echo "   ENABLE_ANALYTICS=false bash serve.sh"
-echo "   To enable live reload: bundle exec jekyll serve --livereload"
-echo ""
-
-# Check if analytics should be disabled
-if [ "$ENABLE_ANALYTICS" = "false" ]; then
-  echo "📊 Google Analytics disabled"
-  ENABLE_ANALYTICS=false bundle exec jekyll serve --baseurl ""
-else
-  echo "📊 Google Analytics enabled (default)"
-  bundle exec jekyll serve --baseurl ""
-fi
+export ENABLE_ANALYTICS="${ENABLE_ANALYTICS:-false}"
+echo "Docs: http://127.0.0.1:$port/"
+echo "Wait for 'Server running', then open the URL. Changes rebuild automatically; refresh your browser."
+echo "Press Ctrl+C to stop."
+exec bundle exec jekyll serve --host 127.0.0.1 --port "$port" --baseurl ""

@@ -36,6 +36,13 @@ version-specific DOI, listed on that page.
 Machine-readable metadata is in [`CITATION.cff`](CITATION.cff); GitHub renders it
 under "Cite this repository" in the sidebar.
 
+## Preview the documentation locally
+
+From this repository’s root, run `bash docs/serve.sh`, then open
+**http://127.0.0.1:4000/** once the server is ready. Stop it with **Ctrl+C**.
+See [local documentation setup](docs/README.md#open-the-docs-locally) for prerequisites
+and an alternative port.
+
 ## AI coding agents
 
 An installable plugin under [`agent-plugin/`](agent-plugin/) teaches Claude Code, Codex and any MCP client the toolbox (wiki, Python API, project layout) and ships a read-only MCP server that can inspect your project directory. In Claude Code:
