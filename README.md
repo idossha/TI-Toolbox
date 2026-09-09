@@ -16,11 +16,6 @@
 
 </div>
 
-**Development line: 3.0.0 (internal testing).** The current runtime version is recorded in
-[`desktop/package.json`](desktop/package.json) and [`tit/__init__.py`](tit/__init__.py).
-The release badge above tracks published releases; this branch has not been publicly released.
-For remaining work, see the [development roadmap](docs/dev/ROADMAP.md).
-
 Releases, guides, and wiki please see: [https://idossha.github.io/TI-Toolbox/](https://idossha.github.io/TI-Toolbox/)
 
 TI-Toolbox combines an Electron desktop application, one Docker image for the scientific environment, and the `tit` Python API. Start with the [installation guide](https://idossha.github.io/TI-Toolbox/installation/) and [desktop guide](https://idossha.github.io/TI-Toolbox/wiki/desktop-app/). For development, see [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -40,13 +35,6 @@ version-specific DOI, listed on that page.
 
 Machine-readable metadata is in [`CITATION.cff`](CITATION.cff); GitHub renders it
 under "Cite this repository" in the sidebar.
-
-## Preview the documentation locally
-
-From this repository’s root, run `bash docs/serve.sh`, then open
-**http://127.0.0.1:4000/** once the server is ready. Stop it with **Ctrl+C**.
-See [local documentation setup](docs/README.md#open-the-docs-locally) for prerequisites
-and an alternative port.
 
 ## AI coding agents
 
