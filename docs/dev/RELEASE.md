@@ -258,3 +258,13 @@ below remain tied to their original BENCHMARKS/decision entries rather than this
 An internal candidate is not production certification. Platform testing, signing and final scientific
 acceptance remain explicit. A mock pass, a healthy server or an artifact file alone proves none of
 the other legs. Record only executed commands and distinguish actual computation from start/cancel smoke.
+
+### Local montage dependency repair — 2026-09-09
+
+`idossha/ti-toolbox:internal-20260908.1` locally now resolves to
+`sha256:b67f879bd46e90007ba3a59a52a2419dd03750f1d44b5151318fb96af58eb758`.
+This is a repair layer over the tested b06 image, not a full source rebuild: ImageMagick,
+DejaVu fonts and the atomic montage renderer were added to both source and installed-package
+locations. Base build metadata remains b06. Receipt: `/tmp/tit-montage-image.log`.
+The original development container was repaired in place without a restart; the existing
+validation container retains its previous image. Docker Hub publication remains on hold.

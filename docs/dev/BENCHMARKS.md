@@ -749,3 +749,15 @@ The prior baked embed remains available as rollback; no container restart or pub
   reaches a successful viewer scene and the embedded viewer tab is active.
 - Typecheck, scoped ESLint, normal production build and Jekyll build passed (1.752 s docs).
   GUI checks used the hidden mock harness; no real scientific jobs were submitted.
+
+### 2026-09-09 — Montage overlay regression
+
+- Host tool/simulation utility tests: 53 passed, one real-pixel test skipped because host Pillow
+  is absent (`/tmp/tit-montage-tests.log`).
+- Running-container montage tests: 17 passed, including real PNG decoding and atomic-failure
+  behavior (`/tmp/tit-montage-container-tests.log`). Four Pillow deprecation warnings.
+- Independently sampled colored pixels near E022/E015/E006/E005: 2311/2178/2341/2357, all above
+  the 50-pixel acceptance threshold. A plain grayscale template cannot pass this check.
+- Confirmed blank images were byte-identical to the 214248-byte base template. Repaired outputs:
+  stam 348483 bytes, ernie/L_Insula 354555 bytes. Originals and old runtime renderer backed up
+  under `dist/internal/montage-repair/`; no simulations were rerun.

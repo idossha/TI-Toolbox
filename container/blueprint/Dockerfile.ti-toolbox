@@ -55,13 +55,16 @@ ENV DEBIAN_FRONTEND=noninteractive
 # No X11 server, no Qt/GTK. Mesa/EGL stay because bpy renders headlessly through them; the
 # libX*/libICE/libSM/libxkbcommon shared objects are `ldd` dependencies of bpy's own .so — not
 # a display. gnupg/lsb-release are for the docker-ce-cli repo below.
+# Montage PNG overlays use ImageMagick and an explicit DejaVu font; without convert the
+# simulator cannot annotate electrode positions.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        ca-certificates wget curl git tzdata fontconfig \
+        ca-certificates wget curl git tzdata fontconfig imagemagick fonts-dejavu-core \
         libglib2.0-0 \
         libgl1-mesa-glx libglu1-mesa libgl1-mesa-dri libglapi-mesa libosmesa6 libegl1-mesa libgbm1 \
         libxrender1 libxi6 libsm6 libice6 libxkbcommon0 \
         dcm2niix \
         gnupg lsb-release \
+    && convert -version \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # docker CLI for Docker-out-of-Docker (QSIPrep/QSIRecon still shell out — tit/pre/qsi/utils.py).

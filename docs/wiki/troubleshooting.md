@@ -306,3 +306,14 @@ For people scripting against `tit` or contributing code.
 ## Reporting something new
 
 Open a [Q&A discussion](https://github.com/idossha/TI-Toolbox/discussions/new?category=q-a) and include: OS + version, TI-Toolbox version (Help → About, or `docker images`), the exact command or GUI action, the full error text, and the relevant file from `<project>/derivatives/ti-toolbox/logs/`. Once the fix is confirmed, a maintainer adds it here and links the thread. Also see [Discord](https://discord.gg/KKdjJk8f) for quick questions.
+
+### Montage PNG contains the cap but no electrode overlays
+
+Check the simulation log for `No such file or directory: convert`. Montage diagrams require
+ImageMagick and the DejaVu font; both are included in the toolbox Docker image. Older internal
+images omitted ImageMagick and could leave the copied blank template behind. Updated rendering
+publishes the PNG only after every overlay and legend succeeds.
+
+Existing affected diagrams can be regenerated without rerunning simulation, using the saved
+`documentation/config.json` electrode pairs with `tit.tools.montage_visualizer.visualize_montage`.
+The running local development container and its local internal image were repaired on 2026-09-09.

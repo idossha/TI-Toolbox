@@ -19,6 +19,7 @@ tit.sim : Simulation pipeline that invokes the visualiser.
 import os
 import shutil
 import subprocess
+from tempfile import TemporaryDirectory
 
 from tit.paths import resolve_resource_path
 
@@ -209,6 +210,8 @@ def _draw_legend(image: str, n_pairs: int) -> None:
             "black",
             "-stroke",
             "none",
+            "-font",
+            "DejaVu-Sans",
             "-pointsize",
             "34",
             "-gravity",
@@ -265,6 +268,14 @@ def visualize_montage(
 
     coords = _load_coordinates(eeg_net)
 
+    if not electrode_pairs:
+        raise ValueError("No electrode pairs provided for montage visualization")
+    for pair in electrode_pairs:
+        if len(pair) != 2 or any(label not in coords for label in pair):
+            raise ValueError(
+                f"Electrode pair {pair!r} is not in the {eeg_net} coordinate map"
+            )
+
     # Cap centre: fallback arc target when a pair has no "other" channels.
     center = (
         sum(x for x, _ in coords.values()) / len(coords),
@@ -291,28 +302,23 @@ def visualize_montage(
     template = os.path.join(_RESOURCES_DIR, "GSN-256.png")
     os.makedirs(output_dir, exist_ok=True)
 
-    if sim_mode == "U":
-        out_image = os.path.join(
-            output_dir, get_expected_output_filename(montage_name, sim_mode)
+    final_image = os.path.join(
+        output_dir, get_expected_output_filename(montage_name, sim_mode)
+    )
+    # Publish only a fully annotated image. A missing renderer or failed drawing command must
+    # never leave a bare template at the successful-output path (or damage an existing image).
+    with TemporaryDirectory(prefix=".montage-", dir=output_dir) as staging:
+        out_image = os.path.join(staging, "montage.png")
+        source = (
+            final_image if sim_mode != "U" and os.path.exists(final_image) else template
         )
-        # shutil.copy2, not the "cp" binary (N0.6 spike): cp doesn't exist on Windows.
-        shutil.copy2(template, out_image)
-    else:
-        out_image = os.path.join(
-            output_dir, get_expected_output_filename(montage_name, sim_mode)
-        )
-        if not os.path.exists(out_image):
-            shutil.copy2(template, out_image)
-
-    for i, pair in enumerate(electrode_pairs):
-        e1, e2 = pair
-        color = _COLORS[i % len(_COLORS)]
-        ring = os.path.join(_RESOURCES_DIR, _RINGS[i % len(_RINGS)])
-        if e1 in coords:
+        shutil.copy2(source, out_image)
+        for i, pair in enumerate(electrode_pairs):
+            e1, e2 = pair
+            color = _COLORS[i % len(_COLORS)]
+            ring = os.path.join(_RESOURCES_DIR, _RINGS[i % len(_RINGS)])
             _overlay_ring(out_image, *coords[e1], color, ring)
-        if e2 in coords:
             _overlay_ring(out_image, *coords[e2], color, ring)
-        if e1 in coords and e2 in coords:
             _draw_arc(out_image, *coords[e1], *coords[e2], color, _partner_target(i))
-
-    _draw_legend(out_image, len(electrode_pairs))
+        _draw_legend(out_image, len(electrode_pairs))
+        os.replace(out_image, final_image)

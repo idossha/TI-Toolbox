@@ -847,3 +847,10 @@ the exact requested file in the returned scene. Sphere coordinate rows have vert
 
 Simulation Results shows channel labels in Channels and montage images only in Figures,
 avoiding duplicate pictures while preserving the figure lightbox.
+
+### 2026-09-09 — Restore montage electrode overlays
+
+Missing ImageMagick in the slim image caused a copied cap template to survive as if rendering
+had succeeded. Restore ImageMagick and DejaVu fonts; render to a temporary file and publish
+atomically. Empty or unrecognized electrode pairs fail explicitly. Repaired the two verified
+blank ernie diagrams (stam and L_Insula) using saved configs without rerunning simulation.
