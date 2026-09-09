@@ -63,6 +63,9 @@ def run_flex_search(config: FlexConfig) -> FlexResult:
     from tit.telemetry import track_operation
     from tit import constants as const
 
+    from tit.opt.masks import validate_mask_paths
+
+    validate_mask_paths(config)
     _validate_flex_inputs(config)
     with track_operation(const.TELEMETRY_OP_FLEX_SEARCH):
         return _run_flex_search_inner(config)

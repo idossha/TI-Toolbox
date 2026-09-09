@@ -49,3 +49,71 @@ def test_flex_whole_mask_and_complement_share_prepared_geometry(tmp_path, monkey
     assert roi.mask_path == complement.mask_path == ["/derived/binary.nii"]
     assert roi.mask_value == complement.mask_value == [1]
     assert complement.mask_operator == ["difference"]
+
+
+@pytest.mark.parametrize("kind,config_type", [("ex", ExConfig), ("mex", MExConfig)])
+def test_missing_mask_rejected_before_engine_creation(kind, config_type, monkeypatch):
+    import importlib
+
+    module = importlib.import_module(f"tit.opt.{kind}.{kind}")
+    engine = MagicMock()
+    monkeypatch.setattr(
+        module, "ExSearchEngine" if kind == "ex" else "MExSearchEngine", engine
+    )
+    config = SimpleNamespace(
+        roi_atlas=[config_type.AtlasROI("/host/Downloads/missing-mask.nii.gz")]
+    )
+    runner = (
+        module._run_ex_search_inner if kind == "ex" else module._run_m_ex_search_inner
+    )
+    with pytest.raises(ValueError, match="Import it through the NIfTI mask picker"):
+        runner(config)
+    engine.assert_not_called()
+
+
+@pytest.mark.parametrize("kind", ["ex", "mex"])
+def test_validation_and_plan_reject_host_only_masks(kind, tmp_path):
+    from fastapi import HTTPException
+    from tit.server.routes.validate import validate, ValidateRequest
+    from tit.server.routes.plan import plan, PlanRequest
+
+    data = {
+        "subject_id": "s",
+        "leadfield_hdf": "leadfield.hdf5",
+        "roi_name": "mask",
+        "roi_names": [],
+        "roi_atlas": [{"atlas_path": str(tmp_path / "absent.nii"), "label": None}],
+        "electrodes": {
+            "_type": "PoolElectrodes",
+            "electrodes": [f"E{i}" for i in range(8)],
+        },
+    }
+    result = validate(kind, ValidateRequest(config=data))
+    assert not result.ok
+    assert result.errors[0].path == "roi_atlas"
+    assert "not accessible in the container" in result.errors[0].message
+    with pytest.raises(HTTPException) as error:
+        plan(kind, PlanRequest(config=data))
+    assert error.value.status_code == 422
+    assert "not accessible in the container" in str(error.value.detail)
+
+
+def test_existing_container_mask_path_is_accepted(tmp_path):
+    from tit.opt.masks import validate_mask_paths
+
+    path = tmp_path / "mask.nii"
+    path.touch()
+    validate_mask_paths(SimpleNamespace(roi_atlas=[ExConfig.AtlasROI(str(path))]))
+
+
+@pytest.mark.parametrize("field", ["roi", "non_roi"])
+def test_flex_whole_mask_preflight_identifies_field(field):
+    from tit.opt.masks import validate_mask_paths
+
+    config = SimpleNamespace(
+        **{field: FlexConfig.SubcorticalROI("/host/absent.nii", None)}
+    )
+    with pytest.raises(
+        ValueError, match=field + r"\.atlas_path: mask is not accessible"
+    ):
+        validate_mask_paths(config)

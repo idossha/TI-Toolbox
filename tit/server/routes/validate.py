@@ -4,7 +4,8 @@ Deserializes ``config`` through :func:`tit.config_io.deserialize_config` for the
 *kind* maps to (see :func:`cls_for`), catching exactly what a config dataclass's own
 ``__post_init__`` (or a bad ``_type``/field shape) can raise, and reports it as
 ``{ok, errors: [{path, message}]}`` -- the UI never re-implements these rules (design rule R1);
-this route only surfaces them.
+this route only surfaces them. Exhaustive-search mask paths are also checked for
+accessibility before a plan or costly leadfield load can proceed.
 
 Kind -> config-class resolution
 --------------------------------
@@ -238,7 +239,11 @@ def validate(kind: str, body: ValidateRequest) -> ValidateResult:
 
     config = {k: v for k, v in body.config.items() if k not in ENVELOPE_KEYS}
     try:
-        deserialize_config(cls, config, strict=True)
+        parsed = deserialize_config(cls, config, strict=True)
+        if kind in {"ex", "mex", "flex", "flex_adaptive", "flex_pareto"}:
+            from tit.opt.masks import validate_mask_paths
+
+            validate_mask_paths(parsed)
     except (ValueError, TypeError, KeyError) as exc:
         return ValidateResult(
             ok=False,

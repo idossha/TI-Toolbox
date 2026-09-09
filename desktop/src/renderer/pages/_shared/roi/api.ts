@@ -46,7 +46,10 @@ export async function uploadMask(file: File, subject: string, signal?: AbortSign
   const response = await fetch(`/api/files/mask?name=${encodeURIComponent(file.name)}&subject=${encodeURIComponent(subject)}`, {
     method: "POST", signal, credentials: "same-origin", headers: { "Content-Type": "application/octet-stream" }, body: file,
   });
-  if (!response.ok) throw new Error(`Could not import mask (${response.status}). Check that it is a valid NIfTI file.`);
+  if (!response.ok) {
+    const error = await response.json().catch(() => null) as { detail?: unknown } | null;
+    throw new Error(typeof error?.detail === "string" ? error.detail : `Could not import mask (${response.status}).`);
+  }
   const result = await response.json() as { path: string };
   return result.path;
 }

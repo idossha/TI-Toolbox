@@ -58,7 +58,7 @@ The **Target** section offers three choices:
 
 - **Saved** uses saved spherical ROI CSVs, a radius, and Subject/MNI coordinates. “Combine selected ROIs into one target” unions the selected centers for a single Ex search.
 - **Subcortical** selects regions from a volumetric atlas.
-- **NIfTI mask** accepts a local `.nii` or `.nii.gz` file or a server-accessible path. Positive voxels define the target. Subject-space masks are used directly; MNI masks use the subject’s SimNIBS registration in `m2m_<subject>/toMNI`, with nearest-neighbor resampling. The conformation affine alone is not an MNI registration.
+- **NIfTI mask** imports a local `.nii` or `.nii.gz` file into the project. Positive voxels define the target. Subject-space masks are used directly; MNI masks use the subject’s SimNIBS registration in `m2m_<subject>/toMNI`, with nearest-neighbor resampling. The conformation affine alone is not an MNI registration.
 
 **Electrodes** is a separate section: choose four electrodes (TI) or eight (mTI), then configure the search space.
 

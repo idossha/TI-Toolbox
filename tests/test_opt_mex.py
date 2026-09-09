@@ -676,6 +676,8 @@ def _mex_pool_config(**overrides):
 @pytest.mark.unit
 class TestRunMExSearchAtlasAndMni:
     def _pm(self, tmp_path):
+        (tmp_path / "aseg.mgz").touch()
+        (tmp_path / "mask.nii.gz").touch()
         pm = MagicMock()
         pm.logs.return_value = str(tmp_path / "logs")
         pm.m_ex_search_run.return_value = str(tmp_path / "output")
@@ -701,14 +703,14 @@ class TestRunMExSearchAtlasAndMni:
         from tit.opt.mex.mex import run_m_ex_search
 
         config = _mex_pool_config(
-            roi_atlas=[{"atlas_path": "/atlas/aseg.mgz", "label": 53}]
+            roi_atlas=[{"atlas_path": str(tmp_path / "aseg.mgz"), "label": 53}]
         )
         run_m_ex_search(config)
 
         roi_arg = mock_engine_cls.call_args[0][1]
         assert roi_arg == [
             os.path.join(str(tmp_path / "rois"), "motor.csv"),
-            ("/atlas/aseg.mgz", 53),
+            (str(tmp_path / "aseg.mgz"), 53),
         ]
 
     @patch("tit.opt.mex.mex.process_and_save")
@@ -738,12 +740,12 @@ class TestRunMExSearchAtlasAndMni:
         config = _mex_pool_config(
             roi_name="Left-Hippocampus",
             roi_names=[],
-            roi_atlas=[{"atlas_path": "/atlas/aseg.mgz", "label": 17}],
+            roi_atlas=[{"atlas_path": str(tmp_path / "aseg.mgz"), "label": 17}],
         )
         run_m_ex_search(config)
 
         roi_arg = mock_engine_cls.call_args[0][1]
-        assert roi_arg == [("/atlas/aseg.mgz", 17)]
+        assert roi_arg == [(str(tmp_path / "aseg.mgz"), 17)]
         # the label still names the run, it just is not a file to read
         assert mock_engine_cls.call_args[0][2] == "Left-Hippocampus.csv"
 
@@ -772,13 +774,13 @@ class TestRunMExSearchAtlasAndMni:
         config = _mex_pool_config(
             roi_names=[],
             roi_coordinate_space="mni",
-            roi_atlas=[{"atlas_path": "/atlas/aseg.mgz", "label": 17}],
+            roi_atlas=[{"atlas_path": str(tmp_path / "aseg.mgz"), "label": 17}],
         )
         with patch("simnibs.mni2subject_coords") as mock_transform:
             run_m_ex_search(config)
 
         mock_transform.assert_not_called()
-        assert mock_engine_cls.call_args[0][1] == [("/atlas/aseg.mgz", 17)]
+        assert mock_engine_cls.call_args[0][1] == [(str(tmp_path / "aseg.mgz"), 17)]
 
     @patch("tit.opt.mex.mex.process_and_save")
     @patch("tit.opt.mex.mex.MExSearchEngine")
@@ -881,7 +883,9 @@ class TestInferSymmetryEegCsv:
         eeg_dir.mkdir()
         csv = eeg_dir / "EEG10-10_UI_Jurak_2007.csv"
         csv.write_text("Electrode,0,0,0,Cz\n")
-        monkeypatch.setattr(symmetry, "canonical_template_coord_path", lambda name: None)
+        monkeypatch.setattr(
+            symmetry, "canonical_template_coord_path", lambda name: None
+        )
 
         assert (
             symmetry.infer_symmetry_eeg_csv(
@@ -893,7 +897,9 @@ class TestInferSymmetryEegCsv:
     def test_unknown_naming_returns_none(self, tmp_path, monkeypatch):
         from tit.opt.ex import symmetry
 
-        monkeypatch.setattr(symmetry, "canonical_template_coord_path", lambda name: None)
+        monkeypatch.setattr(
+            symmetry, "canonical_template_coord_path", lambda name: None
+        )
         assert symmetry.infer_symmetry_eeg_csv("/lf/weird.hdf5", tmp_path) is None
 
     def test_explicit_symmetry_eeg_csv_wins(self, tmp_path):

@@ -747,11 +747,13 @@ def _mex_config(**overrides) -> dict:
 
 @pytest.mark.parametrize("last_bucket", [["E1"], ["E8"], ["E8", "E9"]])
 def test_plan_mex_counts_distinct_electrodes_without_reading_inputs(
-    client: TestClient, last_bucket: list[str]
+    client: TestClient, last_bucket: list[str], tmp_path: Path
 ) -> None:
     # Authored combinatorial fixture: seven fixed distinct electrodes leave one
     # free slot. E1 is already occupied, so only new labels make a candidate.
-    config = _mex_config()
+    atlas = tmp_path / "CHARM.nii.gz"
+    atlas.touch()
+    config = _mex_config(roi_atlas=[{"atlas_path": str(atlas), "label": 17}])
     config["electrodes"]["e4_minus"] = last_bucket
     resp = client.post("/api/plan/mex", json={"config": config}, headers=BEARER)
     assert resp.status_code == 200
@@ -766,14 +768,19 @@ def test_plan_mex_counts_distinct_electrodes_without_reading_inputs(
     assert not Path(job["output_dir"]).exists()
 
 
-def test_plan_mex_pool_uses_default_two_channel_symmetry(client: TestClient) -> None:
+def test_plan_mex_pool_uses_default_two_channel_symmetry(
+    client: TestClient, tmp_path: Path
+) -> None:
     from math import factorial
 
+    atlas = tmp_path / "CHARM.nii.gz"
+    atlas.touch()
     config = _mex_config(
+        roi_atlas=[{"atlas_path": str(atlas), "label": 17}],
         electrodes={
             "_type": "PoolElectrodes",
             "electrodes": [f"E{i}" for i in range(8)],
-        }
+        },
     )
     resp = client.post("/api/plan/mex", json={"config": config}, headers=BEARER)
     assert resp.status_code == 200
@@ -913,9 +920,7 @@ def _write_cap(project: Path, sid: str, net: str, n: int) -> None:
 
 
 def test_plan_cost_reports_the_machine_it_estimated_for(client: TestClient) -> None:
-    resp = client.post(
-        "/api/plan/sim", json={"config": _sim_config()}, headers=BEARER
-    )
+    resp = client.post("/api/plan/sim", json={"config": _sim_config()}, headers=BEARER)
     cost = resp.json()["cost"]
     assert cost["eta_minutes"] > 0
     assert cost["system"]["cpus"] >= 1
@@ -1036,15 +1041,15 @@ class TestPlanBlenderOutputDir:
     def test_subcortical_resolves_without_a_simulation(
         self, client: TestClient, project: Path
     ):
-        body = self._plan(
-            client, {"_type": "SubcorticalConfig", "subject_id": "001"}
-        )
+        body = self._plan(client, {"_type": "SubcorticalConfig", "subject_id": "001"})
         assert body["jobs"][0]["output_dir"] == (
             f"{project}/derivatives/ti-toolbox/visual_exports/sub-001/sub-cortical"
         )
         assert body["warnings"] == []
 
-    def test_an_explicit_output_dir_still_wins(self, client: TestClient, tmp_path: Path):
+    def test_an_explicit_output_dir_still_wins(
+        self, client: TestClient, tmp_path: Path
+    ):
         chosen = str(tmp_path / "somewhere-else")
         body = self._plan(
             client,

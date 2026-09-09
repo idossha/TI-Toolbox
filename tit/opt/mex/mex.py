@@ -11,9 +11,13 @@ from pathlib import Path
 
 
 from tit.logger import add_file_handler
+from tit.opt.masks import validate_mask_paths
 from tit.opt.config import MExConfig, MExResult
 from tit.opt.ex.results import process_and_save
-from tit.opt.ex.roi import atlas_roi_entries, mni_roi_files_to_subject_space
+from tit.opt.ex.roi import (
+    atlas_roi_entries,
+    mni_roi_files_to_subject_space,
+)
 from tit.opt.ex.symmetry import build_symmetry_mirror_map
 from tit.paths import get_path_manager
 
@@ -27,6 +31,7 @@ def run_m_ex_search(config: MExConfig) -> MExResult:
 
 
 def _run_m_ex_search_inner(config: MExConfig) -> MExResult:
+    validate_mask_paths(config)
     pm = get_path_manager()
 
     logs_dir = pm.logs(config.subject_id)

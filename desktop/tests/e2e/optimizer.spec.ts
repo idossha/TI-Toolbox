@@ -741,8 +741,11 @@ test("custom masks import and retain explicit space in Flex and Ex", async () =>
     await setOptCell(page, row, "method", method);
     const dialog = await openOptEditor(page, row);
     await dialog.getByRole("radio", { name: "NIfTI mask", exact: true }).click();
-    await dialog.getByLabel("Import NIfTI mask").setInputFiles({ name: "custom.nii.gz", mimeType: "application/octet-stream", buffer: Buffer.from("mock NIfTI payload") });
-    await expect(dialog.getByPlaceholder("Project mask path (.nii or .nii.gz)")).toHaveValue("/mnt/project/m2m_ernie/masks/custom.nii.gz");
+    const filePicker = dialog.getByLabel("Import NIfTI mask");
+    await expect(filePicker).toHaveAttribute("accept", ".nii,.nii.gz");
+    await filePicker.setInputFiles({ name: method === "Flex" ? "custom.nii" : "custom.nii.gz", mimeType: "application/octet-stream", buffer: Buffer.from("mock NIfTI payload") });
+    await expect(dialog.getByRole("textbox", { name: "Imported mask" })).toHaveValue("/mnt/project/m2m_ernie/masks/custom.nii.gz");
+    await expect(dialog.getByRole("textbox", { name: "Imported mask" })).toHaveAttribute("readonly", "");
     await dialog.getByRole("radiogroup", { name: "Mask space" }).getByRole("radio", { name: "MNI", exact: true }).click();
     await closeOptEditor(page);
     await expect(optRowSummary(row)).toContainText("custom.nii.gz · MNI mask");
@@ -752,5 +755,6 @@ test("custom masks import and retain explicit space in Flex and Ex", async () =>
   }
   expect(uploads).toHaveLength(2);
   for (const url of uploads) expect(new URL(url).searchParams.get("subject")).toBe("ernie");
+  expect(uploads.map((url) => new URL(url).searchParams.get("name"))).toEqual(["custom.nii", "custom.nii.gz"]);
   await page.unroute("**/api/files/mask?**");
 });

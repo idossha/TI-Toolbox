@@ -8,6 +8,7 @@ import os
 import time
 
 
+from tit.opt.masks import validate_mask_paths
 from tit.opt.config import ExConfig, ExResult
 from tit.paths import get_path_manager
 from tit.logger import add_file_handler
@@ -34,6 +35,7 @@ def run_ex_search(config: ExConfig) -> ExResult:
 
 def _run_ex_search_inner(config: ExConfig) -> ExResult:
     """Inner implementation of :func:`run_ex_search` (unwrapped)."""
+    validate_mask_paths(config)
     pm = get_path_manager()
 
     logs_dir = pm.logs(config.subject_id)

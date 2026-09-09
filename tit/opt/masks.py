@@ -69,3 +69,22 @@ def prepare_mask(
         destination.unlink(missing_ok=True)
         raise
     return str(destination)
+
+
+def validate_mask_paths(config) -> None:
+    """Check input accessibility before planning or loading expensive search data."""
+    paths = [
+        (f"roi_atlas[{i}].atlas_path", target.atlas_path)
+        for i, target in enumerate(getattr(config, "roi_atlas", None) or [])
+    ]
+    for field in ("roi", "non_roi"):
+        roi = getattr(config, field, None)
+        if roi is not None and getattr(roi, "label", "") is None:
+            paths.append((f"{field}.atlas_path", roi.atlas_path))
+    for field, path in paths:
+        if not Path(path).is_file():
+            raise ValueError(
+                f"{field}: mask is not accessible in the container: {path}. "
+                "Import it through the NIfTI mask picker, "
+                "or use an existing path inside the container."
+            )

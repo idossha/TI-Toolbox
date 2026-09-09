@@ -22,7 +22,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Compass, Info, Plus, Target, Trash2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { uploadMask } from "./api";
-import { PathInput } from "../../../ui/PathInput";
 import { Field, TextInput } from "../../../ui/Field";
 import { NumberInput } from "../../../ui/NumberInput";
 import { Select } from "../../../ui/Select";
@@ -629,9 +628,9 @@ function MaskPanel({ value, onChange, disabled, subject, showTissues }: {
     }
   }
   return <div className="form-grid form-grid--single">
-    <Field label="NIfTI mask" required help="Positive voxels form the target. Import a .nii or .nii.gz file, or enter a path inside the project.">
+    <Field label="NIfTI mask" required help="Positive voxels form the target. Import a local .nii or .nii.gz file so the server can access it.">
       <div className="roi-mask-file">
-        <PathInput value={value.path} onValueChange={(path) => onChange({ ...value, path })} disabled={disabled || uploading} placeholder="Project mask path (.nii or .nii.gz)" />
+        <TextInput value={value.path} readOnly aria-label="Imported mask" placeholder="Import a NIfTI mask…" />
         <Button disabled={disabled || uploading || !subject} onClick={() => input.current?.click()}>{uploading ? "Importing…" : "Import…"}</Button>
         <input ref={input} type="file" accept=".nii,.nii.gz" aria-label="Import NIfTI mask" hidden disabled={disabled || uploading} onChange={(event) => {
           const file = event.target.files?.[0];

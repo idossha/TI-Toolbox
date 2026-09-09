@@ -184,7 +184,9 @@ def _plan_cost(
     except ImportError:
         return PlanCost(cpus=1.0, mem_gb=2.0)
     cost = default_cost(kind, raw_config)
-    eta, system = _plan_eta(kind, raw_config, resolved=resolved, jobs=jobs, parallel=parallel)
+    eta, system = _plan_eta(
+        kind, raw_config, resolved=resolved, jobs=jobs, parallel=parallel
+    )
     return PlanCost(cpus=cost.cpus, mem_gb=cost.mem_gb, eta_minutes=eta, system=system)
 
 
@@ -202,7 +204,9 @@ def _plan_eta(
     except ImportError:  # pragma: no cover - tit.jobs is always importable in-tree
         return None, None
     profile = eta_model.detect_system()
-    system = PlanSystem(cpus=profile.cpus, emulated=profile.emulated, factor=profile.factor)
+    system = PlanSystem(
+        cpus=profile.cpus, emulated=profile.emulated, factor=profile.factor
+    )
     job_list = jobs or []
     if kind == "pre":
         # `_plan_pre`'s `resolved["stages"]` already has one entry per (subject, stage), so the
@@ -882,6 +886,10 @@ def plan(kind: str, body: PlanRequest) -> PlanResult:
 
     try:
         config = deserialize_config(cls, config_dict)
+        if kind in {"ex", "mex", "flex", "flex_adaptive", "flex_pareto"}:
+            from tit.opt.masks import validate_mask_paths
+
+            validate_mask_paths(config)
     except (ValueError, TypeError, KeyError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
