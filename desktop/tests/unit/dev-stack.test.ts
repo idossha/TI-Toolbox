@@ -17,7 +17,8 @@ import { describeMismatch, runningJobLabels } from "../../src/main/stack";
 
 const REPO = "/Users/dev/TI-toolbox";
 const devWant = { imageTag: "dev", repoDir: REPO, serverReload: true };
-const devState = { env: { TIT_REPO_DIR: REPO, TIT_SERVER_RELOAD: "1" } };
+const mounts = [{ Type: "bind", Source: REPO, Destination: "/ti-toolbox" }];
+const devState = { mounts, env: { TIT_REPO_DIR: REPO, TIT_SERVER_RELOAD: "1", PYTHONPATH: "/ti-toolbox" } };
 
 describe("describeMismatch", () => {
   it("accepts a container that already matches", () => {
@@ -31,12 +32,20 @@ describe("describeMismatch", () => {
   });
 
   it("reports a container that mounts a DIFFERENT checkout (two worktrees, one project)", () => {
-    const other = { env: { TIT_REPO_DIR: "/Users/dev/other-worktree", TIT_SERVER_RELOAD: "1" } };
+    const other = { ...devState, mounts: [{ Type: "bind", Source: "/Users/dev/other-worktree", Destination: "/ti-toolbox" }] };
     expect(describeMismatch(other, "idossha/ti-toolbox:dev", devWant)).toMatch(/other-worktree/);
   });
 
+  it("rejects a matching marker with no actual checkout mount", () => {
+    expect(describeMismatch({ env: devState.env }, "idossha/ti-toolbox:dev", devWant)).toMatch(/without the requested checkout bind/);
+  });
+
+  it("rejects a checkout that the installed package could shadow", () => {
+    expect(describeMismatch({ ...devState, env: { ...devState.env, PYTHONPATH: "/opt/package:/ti-toolbox" } }, "idossha/ti-toolbox:dev", devWant)).toMatch(/PYTHONPATH/);
+  });
+
   it("reports a container started without TIT_SERVER_RELOAD", () => {
-    const stale = { env: { TIT_REPO_DIR: REPO } };
+    const stale = { mounts, env: { TIT_REPO_DIR: REPO, PYTHONPATH: "/ti-toolbox" } };
     expect(describeMismatch(stale, "idossha/ti-toolbox:dev", devWant)).toMatch(/TIT_SERVER_RELOAD=\(none\).*wants 1/);
   });
 
@@ -51,7 +60,7 @@ describe("describeMismatch", () => {
 
   it("accepts a container already serving the same static dir", () => {
     const want = { ...devWant, staticDir: "/ti-toolbox/desktop/out/renderer" };
-    const state = { env: { ...devState.env, TIT_STATIC_DIR: "/ti-toolbox/desktop/out/renderer" } };
+    const state = { mounts, env: { ...devState.env, TIT_STATIC_DIR: "/ti-toolbox/desktop/out/renderer" } };
     expect(describeMismatch(state, "idossha/ti-toolbox:dev", want)).toBeNull();
   });
 
@@ -88,7 +97,7 @@ describe("describeMismatch", () => {
       repoDir: REPO,
       serverReload: true,
     });
-    expect(describeMismatch({ env }, "idossha/ti-toolbox:dev", devWant)).toBeNull();
+    expect(describeMismatch({ mounts, env: { ...env, PYTHONPATH: "/ti-toolbox" } }, "idossha/ti-toolbox:dev", devWant)).toBeNull();
   });
 
   it("a packaged-app env (no repo, no reload) mismatches a dev request, and vice versa", () => {
@@ -115,8 +124,7 @@ describe("describeMismatch", () => {
  * doing it under a running job kills that job (16 minutes for an emulated FEM solve on this
  * hardware) and logs out every other client holding the old token. This is the pure half of that
  * decision — what counts as "busy" in `GET /api/jobs`, and what to do with a body that is not a
- * job list at all (a proxy error page, an older server): report nothing, because a guard that
- * cannot read the server must not be the reason an unhealthy container can never be replaced.
+ * job list at all (a proxy error page, an older server): refuse recreation, because an unreadable response cannot prove the container is idle.
  */
 describe("runningJobLabels", () => {
   it("names every unfinished job and ignores the finished ones", () => {
@@ -130,10 +138,17 @@ describe("runningJobLabels", () => {
     expect(runningJobLabels(body)).toEqual(["sim a1", "pre b2"]);
   });
 
-  it("treats an unreadable body as no jobs", () => {
+  it("refuses to infer idle state from an unreadable body", () => {
     for (const body of [null, undefined, "<html>502</html>", { detail: "Unauthorized" }, 42]) {
-      expect(runningJobLabels(body)).toEqual([]);
+      expect(() => runningJobLabels(body)).toThrow(/job list/);
     }
+  });
+
+  it("treats new unfinished states as busy and malformed jobs as unverifiable", () => {
+    expect(runningJobLabels([{ id: "a", kind: "sim", state: "cancelling" }])).toEqual(["sim a"]);
+    expect(() => runningJobLabels([null])).toThrow(/Invalid job/);
+    expect(() => runningJobLabels([{}])).toThrow(/Invalid job/);
+    expect(runningJobLabels([])).toEqual([]);
   });
 
   it("survives a job with no id or kind rather than throwing inside the guard", () => {

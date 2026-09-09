@@ -106,9 +106,8 @@ export async function ensureDevStack(config: DevConfig, options: { forceRecreate
       imageTag: config.imageTag,
       repoDir: config.mountRepo ? REPO_DIR : undefined,
       serverReload: config.mountRepo,
-      // dev.ts sets this (the worktree's built bundle inside the container) before we are called;
-      // passing it explicitly is what makes it part of the attach-vs-recreate comparison.
-      ...(process.env.TIT_STATIC_DIR ? { staticDir: process.env.TIT_STATIC_DIR } : {}),
+      // Keep the selected UI independent of build timing and stray shell settings.
+      staticDir: config.mountRepo ? "/ti-toolbox/desktop/out/renderer" : "/opt/ti-toolbox/ui",
       requireMatch: true,
       forceRecreate: options.forceRecreate ?? false,
     });

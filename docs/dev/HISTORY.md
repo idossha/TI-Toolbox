@@ -880,3 +880,19 @@ The agent integration now documents direct stdio registration for Codex and othe
 separate Markdown skill discovery, and a plain-file fallback. Troubleshooting accepts inputs
 from the request rather than requiring a client-specific argument variable. Protocol smoke
 tests exercise the real process; native client sessions are not claimed as end-to-end tested.
+
+### Developer runtime and stale checkout cleanup — 2026-09-09
+
+The maintainer requested a simple real-container dev loop using all local edits and removal
+of obsolete containers, images, worktrees and branches. The prior development container bound
+`.claude/worktrees/v3-electron-gui`, not the primary release checkout. It was replaced after
+confirming no active jobs. The existing `pnpm dev:web` loop now uses the primary checkout;
+Python/Bash wrappers check the same mount and no longer silently select baked frontend files.
+
+Five obsolete TI-Toolbox containers and the old `dev`, `simnibs:v2.5.0` and toolbox-test images
+were removed. The repaired internal image, datasets, shared configuration and optional
+processing images were retained. All six secondary worktrees and seven merged local branches
+were removed, along with remote `codex/internal-testing`; unrelated unmerged feature branches
+remain. Dirty snapshots were archived before removal under
+`~/TI-toolbox-worktree-backups/20260909-023601/` (manifest, source archives and binary diffs;
+reinstallable dependencies/caches excluded).

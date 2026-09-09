@@ -13,7 +13,7 @@ overrides ``docker-compose.dev.yml`` next to this file documents, and nothing el
 
     TIT_REPO_DIR      this checkout, bind-mounted at /ti-toolbox
     TIT_SERVER_RELOAD 1, so uvicorn restarts on an edit under tit/
-    TIT_STATIC_DIR    this worktree's built renderer, when there is one
+    TIT_STATIC_DIR    this worktree's built renderer, never the image's baked UI
 
 **Where the dev loop lives.**  ``--web`` does not reimplement Vite: it execs
 ``npm run dev:web`` in ``desktop/``, which is ``desktop/scripts/dev.ts`` — the one
@@ -86,11 +86,18 @@ def main(argv: list[str] | None = None) -> int:
 
     repo_dir = "" if args.no_mount_repo else str(REPO)
     static_dir = ""
-    if repo_dir and (DESKTOP / "out" / "renderer" / "index.html").is_file():
-        # Mirrors desktop/scripts/dev.ts: with the worktree mounted, the freshly built
-        # renderer is already inside the container, so serve that rather than the
-        # (possibly months-old) bundle baked into the image.
+    if repo_dir:
         static_dir = "/ti-toolbox/desktop/out/renderer"
+        if (
+            not (args.status or args.logs or args.stop or args.no_open)
+            and not (DESKTOP / "out" / "renderer" / "index.html").is_file()
+        ):
+            sys.stderr.write(
+                "loader_dev.py: this checkout has no built renderer. Run "
+                "`npm --prefix desktop run build`, or use --web for Vite with live edits. "
+                "Use --no-open to start only the API server.\n"
+            )
+            return 2
     return launch_command(
         args,
         invocation="python dev/loader/loader_dev.py",
@@ -114,6 +121,15 @@ def build_image(image: str | None) -> int:
 
 def run_npm_dev_web(args) -> int:
     """Hand over to ``desktop/scripts/dev.ts`` — the one dev-loop implementation."""
+    from tit.launch import default_image
+
+    image = args.image or default_image()
+    if not image.startswith("idossha/ti-toolbox:") or "@" in image:
+        sys.stderr.write(
+            "loader_dev.py: --web supports tagged idossha/ti-toolbox images only. "
+            "Use the Python loader without --web for a custom repository or digest.\n"
+        )
+        return 2
     if not (DESKTOP / "node_modules").is_dir():
         sys.stderr.write(
             "loader_dev.py: --web needs the desktop dependencies. Run:\n"
@@ -125,10 +141,8 @@ def run_npm_dev_web(args) -> int:
         env["TIT_DEV_PROJECT_DIR"] = str(Path(args.project).expanduser().resolve())
     if args.port:
         env["TIT_DEV_PORT"] = str(args.port)
-    if args.image:
-        env["TIT_DEV_IMAGE_TAG"] = args.image.rsplit(":", 1)[-1]
-    if args.no_mount_repo:
-        env["TIT_DEV_MOUNT_REPO"] = "0"
+    env["TIT_DEV_IMAGE_TAG"] = image.rsplit(":", 1)[-1]
+    env["TIT_DEV_MOUNT_REPO"] = "0" if args.no_mount_repo else "1"
     print("[dev] npm run dev:web (desktop/scripts/dev.ts)")
     return subprocess.run(
         ["npm", "run", "dev:web"], cwd=str(DESKTOP), env=env

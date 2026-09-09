@@ -138,6 +138,8 @@ export interface ContainerState {
    * token has to be written to disk on the host at all.
    */
   env: Record<string, string>;
+  /** Actual Docker mounts; environment markers alone cannot prove checkout identity. */
+  mounts: { Type: string; Source: string; Destination: string }[];
 }
 
 interface InspectResponse {
@@ -145,6 +147,7 @@ interface InspectResponse {
   Name: string;
   State: { Status: string; Running: boolean; ExitCode: number; Health?: { Status?: string } };
   Config: { Image: string; Labels?: Record<string, string>; Env?: string[] };
+  Mounts?: ContainerState["mounts"];
   NetworkSettings?: { Ports?: Record<string, { HostIp: string; HostPort: string }[] | null> };
 }
 
@@ -215,6 +218,7 @@ export class StackApi {
       publishedPort: first ? Number(first.HostPort) : null,
       labels: res.Config.Labels ?? {},
       env,
+      mounts: res.Mounts ?? [],
     };
   }
 

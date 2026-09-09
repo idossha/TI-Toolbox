@@ -1476,3 +1476,13 @@ full-width or compact numeric sizing. This supersedes content-sized labels above
 **Decision.** Put ratio controls on one row, remove Solver’s nested Advanced disclosure and
 keep After the search open without a disclosure. **Why.** The maintainer requested fewer rows
 and direct access to these settings. Parameter values and submitted configs are unchanged.
+
+### 2026-09-09 — Verify the checkout before developer attach
+
+**Decision.** Keep the existing Node dev loop and Python/Bash wrappers, verify actual checkout
+mounts and Python import precedence, and use only the checkout renderer in mounted mode (§10).
+**Why.** The developer container still mounted an obsolete worktree; an environment marker or
+a baked UI could make local fixes appear ineffective. **Cost.** Python-only UI testing needs a
+local renderer build; Vite avoids that rebuild during frontend editing. A container whose jobs
+cannot be checked needs explicit intervention. **Revisit if.** Development moves to remote
+Docker hosts, where host-path identity needs a different contract.

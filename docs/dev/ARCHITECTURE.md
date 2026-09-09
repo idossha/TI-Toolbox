@@ -727,3 +727,10 @@ unchanged; the UI resolves a manual basename under the subject directory.
 Participant tables in Cluster permutation and NIfTI group averaging accept local CSV/TSV with
 explicit headers. Parsing and value validation finish before replacing rows; no partial import.
 Electron exports use the existing save-file bridge; web exports use browser downloads.
+
+**Mounted development runs use the launched checkout.** Attach checks Docker's actual bind
+source and Python import precedence, not just an environment marker. Mounted mode selects the
+checkout's renderer directory even before its first build; it never falls back to baked UI.
+Vite supplies live frontend edits, while the Python-only browser path requires a local build.
+Automatic replacement of mismatched containers requires a verified idle job list; unreadable
+status is not evidence that stopping the container is safe.

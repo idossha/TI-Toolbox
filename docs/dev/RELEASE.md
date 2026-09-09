@@ -272,3 +272,11 @@ DejaVu fonts and the atomic montage renderer were added to both source and insta
 locations. Base build metadata remains b06. Receipt: `/tmp/tit-montage-image.log`.
 The original development container was repaired in place without a restart; the existing
 validation container retains its previous image. Docker Hub publication remains on hold.
+
+### Current manual development loop — 2026-09-09
+
+The prior standalone validation containers have been retired. Manual development now uses
+the primary `release/3.0.0` checkout with the retained internal image through the
+[standard development loop](CONTRIBUTING.md#1-the-development-environment). Source-mounted
+testing validates local edits; it does not replace final acceptance of a rebuilt distributable.
+Docker Hub publication remains on hold.

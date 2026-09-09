@@ -647,6 +647,43 @@ def start(options: LaunchOptions) -> tuple[str, str]:
                 f"requires {image}. Wait for its jobs to finish, then stop this project's "
                 "container with --stop and launch again. The running container was left unchanged."
             )
+        if options.repo_dir:
+            running_env = dict(
+                pair.split("=", 1)
+                for pair in existing.get("Config", {}).get("Env", [])
+                if "=" in pair
+            )
+            repo_mount = next(
+                (
+                    mount
+                    for mount in existing.get("Mounts", [])
+                    if mount.get("Destination") == "/ti-toolbox"
+                ),
+                {},
+            )
+            mismatches = []
+            if (
+                repo_mount.get("Type") != "bind"
+                or not repo_mount.get("Source")
+                or os.path.realpath(repo_mount["Source"])
+                != os.path.realpath(options.repo_dir)
+            ):
+                mismatches.append(f"a bind mount of {options.repo_dir} at /ti-toolbox")
+            for key, wanted in (
+                ("TIT_SERVER_RELOAD", "1" if options.server_reload else ""),
+                ("TIT_STATIC_DIR", options.static_dir),
+            ):
+                if running_env.get(key, "") != wanted:
+                    mismatches.append(f"{key}={wanted or '(empty)'}")
+            if running_env.get("PYTHONPATH", "").split(":")[0] != "/ti-toolbox":
+                mismatches.append("PYTHONPATH with /ti-toolbox first")
+            if mismatches:
+                raise LaunchError(
+                    "the running container does not match this checkout's dev settings: "
+                    + "; ".join(mismatches)
+                    + ". Wait for its jobs to finish, then stop this project's container "
+                    "with --stop and launch again. The running container was left unchanged."
+                )
         origin, token = container_credentials(existing)
         echo(f"attached to {existing['Name'].lstrip('/')} at {origin}")
         wait_for_health(origin, timeout=60.0, echo=echo)

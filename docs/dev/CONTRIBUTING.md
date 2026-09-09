@@ -13,16 +13,27 @@ in this directory; start at [`README.md`](README.md).
 
 TI-Toolbox is three pieces: an **Electron app** on your host (`desktop/`), a **FastAPI server**
 (`tit/server`) inside a Docker container, and the **`tit` science core** the server runs jobs from.
-One command brings up all three.
+Use the real container with the current checkout for manual testing. The browser loop is the
+simplest starting point; the desktop loop uses the same backend.
 
 ```bash
 cd desktop
 npm install                       # Electron is downloaded from GitHub on install
 cp .env.dev.example .env.dev      # then set TIT_DEV_PROJECT_DIR to your BIDS project
-npm run dev                       # container + Vite (HMR) + Electron, already connected
-npm run dev:web                   # the same without Electron: http://127.0.0.1:5173/
+npm run dev:web                   # container + live UI: http://127.0.0.1:5173/
+# Or: npm run dev                 # same backend + Vite + Electron, already connected
 npm run dev:down                  # stop and remove *this project's* container only
 ```
+
+`pnpm dev:web` and `pnpm dev` run the same scripts if you use pnpm. Set
+`TIT_DEV_IMAGE_TAG` in `.env.dev` to the image you have installed; inspect available tags with
+`docker images idossha/ti-toolbox`. A missing local image must be built or obtained first.
+Use `npm run dev:web -- --project /path/to/project` for a one-run project override.
+
+**Which edits are live?** UI edits appear through Vite HMR. Python source is mounted from the
+checkout you launch, with `/ti-toolbox` first on the Python import path. Changes to Python
+dependencies, system packages or the container entrypoint still require an image rebuild;
+a source mount cannot install those dependencies.
 
 Four facts about this loop that are not obvious, and each of which has cost someone an afternoon:
 
@@ -45,7 +56,8 @@ Four facts about this loop that are not obvious, and each of which has cost some
   (§2.6, "Restart rule").
 
 `Ctrl-C` stops Vite and Electron and leaves the container running, so the next `npm run dev`
-attaches in well under a second.
+attaches after checking the container configuration. A stale checkout mount is a mismatch,
+not a successful attach; an unreadable job list prevents automatic replacement.
 
 **Without Node.** `dev/loader/loader_dev.py` (and `loader_dev.sh` beside it) start the same dev
 container from Python alone — same options as the root `loader.py`, plus `--build`, `--image` and
@@ -53,7 +65,11 @@ container from Python alone — same options as the root `loader.py`, plus `--bu
 and they set exactly the three overrides in `dev/loader/docker-compose.dev.yml`: the worktree
 mounted at `/ti-toolbox`, `TIT_SERVER_RELOAD=1`, and the locally built renderer. `--web` hands over
 to `npm run dev:web` rather than reimplementing the loop, so there is still one implementation of
-container + Vite + Electron. The stack itself is defined once, in the root `docker-compose.yml`.
+container + Vite + Electron. Prefer `python3 dev/loader/loader_dev.py --web` (or the Bash wrapper
+with `--web`) for live UI edits. Without `--web`, run `npm --prefix desktop run build` first and
+again after frontend edits: the Python-only path serves the built renderer, not Vite. It will
+not silently substitute the image’s old UI when a local build is missing. The stack itself
+is defined once, in the root `docker-compose.yml`.
 
 ---
 

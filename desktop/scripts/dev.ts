@@ -15,14 +15,14 @@
  * Ctrl-C stops Vite and Electron and leaves the container running, so the next `npm run dev`
  * attaches in a second or two. `npm run dev:down` is the one that stops it.
  */
-import { existsSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { join } from "node:path";
 import { DEV_ENV_EXAMPLE, DEV_ENV_FILE, DevConfigError, loadDevConfig } from "./devEnv";
 
-const USAGE = `Usage: tsx scripts/dev.ts [--web] [--down] [--force]
+const USAGE = `Usage: tsx scripts/dev.ts [--web] [--project PATH] [--down] [--force]
 
   --web    the renderer dev server only, no Electron window (http://127.0.0.1:5173/)
+  --project PATH  BIDS project directory (overrides .env.dev)
   --down   stop and remove this project's dev container, then exit
   --force  recreate a mismatched container even if it has jobs in flight (they are killed)
 
@@ -52,7 +52,10 @@ async function main(argv: string[]): Promise<number> {
 
   let config;
   try {
-    config = loadDevConfig(DESKTOP_DIR);
+    const projectIndex = argv.indexOf("--project");
+    const projectDir = projectIndex >= 0 ? argv[projectIndex + 1] : undefined;
+    if (projectIndex >= 0 && (!projectDir || projectDir.startsWith("--"))) throw new DevConfigError("--project requires a BIDS project directory");
+    config = loadDevConfig(DESKTOP_DIR, projectDir ? { ...process.env, TIT_DEV_PROJECT_DIR: projectDir } : process.env);
   } catch (err) {
     if (err instanceof DevConfigError) {
       console.error(`[dev] ${err.message}`);
@@ -72,18 +75,9 @@ async function main(argv: string[]): Promise<number> {
   console.log(`[dev] port      ${config.port}`);
   console.log(`[dev] repo      ${config.mountRepo ? `${REPO_DIR} -> /ti-toolbox (server runs with --reload)` : "not mounted (the image's own tit)"}`);
 
-  // The container's own UI bundle is the one baked into the image (`--static-dir /opt/ti-toolbox/ui`),
-  // which is whatever the last image build carried — not what this worktree has built. Anything that
-  // loads the page from the SERVER's origin rather than from Vite therefore tests stale renderer code:
-  // that is every `--project=real` Playwright run (the built Electron app has no ELECTRON_RENDERER_URL,
-  // so `connect()` loads `<server origin>/auth/session`), and it cost lane S2 a `docker cp` to work
-  // around. With the worktree mounted at /ti-toolbox the live bundle is already inside the container,
-  // so point the server at it — but only when it exists, since a missing --static-dir serves the
-  // "no UI bundle" fallback page to anyone who opens the port directly.
-  if (config.mountRepo && existsSync(join(DESKTOP_DIR, "out", "renderer", "index.html"))) {
-    process.env.TIT_STATIC_DIR ??= "/ti-toolbox/desktop/out/renderer";
-    console.log(`[dev] static    ${process.env.TIT_STATIC_DIR} (this worktree's npm run build output)`);
-  }
+  // Select the checkout even before its first build. Vite serves fresh clones immediately;
+  // the backend shows its missing-bundle page until `npm run build`, never an old baked UI.
+  if (config.mountRepo) console.log("[dev] static    /ti-toolbox/desktop/out/renderer (this checkout's build output)");
 
   // A clean clone has no image. `idossha/ti-toolbox:dev` is not a published tag — it is what
   // `container/blueprint/build.sh` writes locally — so the pull inside `ensureDevStack` fails with

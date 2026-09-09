@@ -37,7 +37,13 @@ def test_no_arguments_reach_launch_with_selected_settings(
     monkeypatch.setattr(
         cli, "launch_command", lambda args, **kw: calls.append((args, kw)) or 0
     )
-    assert load_script(script).main([]) == 0
+    loader = load_script(script)
+    if dev:
+        renderer = tmp_path / "desktop" / "out" / "renderer"
+        renderer.mkdir(parents=True)
+        (renderer / "index.html").write_text("fixture renderer")
+        monkeypatch.setattr(loader, "DESKTOP", tmp_path / "desktop")
+    assert loader.main([]) == 0
     args, kwargs = calls[0]
     assert (args.project, args.image, args.port, args.no_open, args.timeout) == (
         str(tmp_path),
@@ -226,3 +232,62 @@ def test_corrupt_remembered_path_still_prompts(monkeypatch, tmp_path):
     args = cli.launch_parser().parse_args([])
     assert cli.prepare_launch(args, []) is None
     assert args.project == str(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "flags,expected",
+    [([], 2), (["--no-open"], 0), (["--status"], 0), (["--logs"], 0), (["--stop"], 0)],
+)
+def test_dev_missing_renderer_never_selects_baked_ui(
+    monkeypatch, tmp_path, flags, expected
+):
+    loader = load_script("dev/loader/loader_dev.py")
+    monkeypatch.setattr(loader, "DESKTOP", tmp_path / "unbuilt-desktop")
+    calls = []
+    monkeypatch.setattr(cli, "launch_command", lambda args, **kw: calls.append(kw) or 0)
+    assert loader.main(["--project", str(tmp_path), *flags]) == expected
+    if expected == 0:
+        assert calls[0]["static_dir"] == "/ti-toolbox/desktop/out/renderer"
+    else:
+        assert calls == []
+
+
+@pytest.mark.parametrize(
+    "image",
+    [
+        None,
+        "idossha/ti-toolbox:explicit",
+        "other/tool:custom",
+        "idossha/ti-toolbox@sha256:abc",
+    ],
+)
+def test_dev_web_preserves_launch_settings_and_rejects_unsupported_images(
+    monkeypatch, tmp_path, image
+):
+    from types import SimpleNamespace
+    from tit import launch
+
+    loader = load_script("dev/loader/loader_dev.py")
+    (tmp_path / "node_modules").mkdir()
+    monkeypatch.setattr(loader, "DESKTOP", tmp_path)
+    monkeypatch.setattr(launch, "default_image", lambda: "idossha/ti-toolbox:current")
+    monkeypatch.setenv("TIT_DEV_MOUNT_REPO", "0")
+    calls = []
+    monkeypatch.setattr(
+        loader.subprocess,
+        "run",
+        lambda argv, **kw: calls.append((argv, kw)) or SimpleNamespace(returncode=0),
+    )
+    args = SimpleNamespace(
+        image=image, project=str(tmp_path), port=18888, no_mount_repo=False
+    )
+    unsupported = image is not None and (image.startswith("other/") or "@" in image)
+    assert loader.run_npm_dev_web(args) == (2 if unsupported else 0)
+    if unsupported:
+        assert calls == []
+    else:
+        env = calls[0][1]["env"]
+        assert env["TIT_DEV_IMAGE_TAG"] == ("explicit" if image else "current")
+        assert env["TIT_DEV_MOUNT_REPO"] == "1"
+        assert env["TIT_DEV_PORT"] == "18888"
+        assert env["TIT_DEV_PROJECT_DIR"] == str(tmp_path.resolve())

@@ -18,7 +18,7 @@ beforeEach(() => {
   writeFileSync(join(root, "docker-compose.yml"), "services:\n  tit:\n    image: idossha/ti-toolbox:${TIT_IMAGE_TAG:-internal-fixture}\n");
   vi.stubEnv("TIT_IMAGE_TAG", "");
   host = { isPackaged: true, appPath: join(root, "desktop"), log: vi.fn(), waitForHealth: vi.fn().mockResolvedValue(undefined), fetchJson: vi.fn() };
-  state = { Id: "existing", Name: "existing", image: "idossha/ti-toolbox:internal-fixture", running: true, status: "running", exitCode: 0, health: "healthy", publishedPort: 8765, labels: {}, env: { TIT_SERVER_TOKEN: "fixture-token", TIT_SERVER_PORT: "8765" } };
+  state = { Id: "existing", Name: "existing", image: "idossha/ti-toolbox:internal-fixture", running: true, status: "running", exitCode: 0, health: "healthy", publishedPort: 8765, labels: {}, mounts: [], env: { TIT_SERVER_TOKEN: "fixture-token", TIT_SERVER_PORT: "8765" } };
   vi.spyOn(discovery, "discover").mockResolvedValue({ available: true, connection: { kind: "unix", socketPath: "/unused" }, source: "fixture" });
   vi.spyOn(DockerEngineClient.prototype, "version").mockResolvedValue({ Version: "29.0.0", ApiVersion: "1.51", MinAPIVersion: "1.24", Os: "linux", Arch: "amd64" });
   vi.spyOn(StackApi.prototype, "listContainers").mockResolvedValue([{ Id: "existing", Names: ["/existing"], Image: "sha256:" + "a".repeat(64), State: "running", Status: "Up", Labels: { [LABEL_HOST_DIR]: root } }]);
@@ -67,5 +67,43 @@ describe("image pairing on attach", () => {
     state.image = "idossha/ti-toolbox@sha256:" + "b".repeat(64);
     writeFileSync(join(root, "docker-compose.yml"), `services:\n  tit:\n    image: ${state.image}\n`);
     expect(await new StackManager(host).start(root)).toMatchObject({ ok: true, attached: true });
+  });
+});
+
+
+describe("dev recreation preserves work", () => {
+  const options = { requireMatch: true, repoDir: "/current/checkout", serverReload: true };
+
+  it.each([
+    ["running", [{ id: "run", kind: "sim", state: "running" }]],
+    ["unknown state", [{ id: "run", kind: "sim", state: "cancelling" }]],
+    ["invalid body", { detail: "Unauthorized" }],
+    ["invalid job", [{}]],
+  ])("does not remove a mismatched container with %s", async (_name, body) => {
+    vi.mocked(host.fetchJson).mockResolvedValue(body);
+    expect(await new StackManager(host).start(root, options)).toMatchObject({ ok: false });
+    expect(StackApi.prototype.removeContainerById).not.toHaveBeenCalled();
+  });
+
+  it("does not remove a mismatched container when the jobs request times out", async () => {
+    vi.mocked(host.fetchJson).mockRejectedValue(new Error("timeout"));
+    expect(await new StackManager(host).start(root, options)).toMatchObject({ ok: false, error: expect.stringContaining("left unchanged") });
+    expect(StackApi.prototype.removeContainerById).not.toHaveBeenCalled();
+  });
+
+  it("does not remove a mismatched container when credentials are missing", async () => {
+    delete state.env.TIT_SERVER_TOKEN;
+    expect(await new StackManager(host).start(root, options)).toMatchObject({ ok: false, error: expect.stringContaining("left unchanged") });
+    expect(StackApi.prototype.removeContainerById).not.toHaveBeenCalled();
+    expect(host.fetchJson).not.toHaveBeenCalled();
+  });
+
+  it("recreates a stale checkout only after verifying it is idle", async () => {
+    vi.mocked(host.fetchJson).mockResolvedValue([]);
+    vi.mocked(StackApi.prototype.removeContainerById).mockResolvedValue(undefined);
+    vi.spyOn(StackApi.prototype, "imageExists").mockRejectedValue(new Error("stop before creation"));
+    await new StackManager(host).start(root, options);
+    expect(host.fetchJson).toHaveBeenCalled();
+    expect(StackApi.prototype.removeContainerById).toHaveBeenCalledWith("existing", true);
   });
 });

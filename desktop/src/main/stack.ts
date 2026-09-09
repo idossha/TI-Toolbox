@@ -332,7 +332,7 @@ export class StackManager {
       );
     }
     if (options.requireMatch) {
-      const mismatch = describeMismatch({ env: state.env }, state.image, options);
+      const mismatch = describeMismatch(state, state.image, options);
       if (mismatch) {
         if (!options.forceRecreate) {
           const port = state.publishedPort ?? Number(state.env.TIT_SERVER_PORT);
@@ -373,19 +373,16 @@ export class StackManager {
     return { ok: true, url: origin, token, attached: true };
   }
 
-  /**
-   * Jobs the running container is busy with, as short labels. A container that cannot be asked
-   * (unreachable, no token) reports none and the recreate proceeds — refusing on a server that
-   * cannot answer would make an unhealthy container impossible to replace, which is exactly the
-   * case a recreate exists for.
-   */
+  /** Fail closed: a busy or unreachable server must never be mistaken for an idle one. */
   private async runningJobs(origin: string, token: string): Promise<string[]> {
-    if (!token) return [];
     try {
+      if (!token) throw new Error("the running container has no server token");
       return runningJobLabels(await this.host.fetchJson(`${origin}/api/jobs`, { authorization: `Bearer ${token}` }));
-    } catch (err) {
-      this.host.log("warn", `[stack] could not read ${origin}/api/jobs before recreating: ${err instanceof Error ? err.message : String(err)}`);
-      return [];
+    } catch {
+      throw new StackStartError(
+        "unknown",
+        "Could not verify the running container's jobs. It was left unchanged. Check the server and wait for its jobs to finish before trying again.",
+      );
     }
   }
 
@@ -723,23 +720,24 @@ export function decideAttach(existing: ContainerSummary[], hostProjectDir: strin
 /**
  * Why a running container cannot serve this `start()`'s options, or `null` when it can.
  *
- * Reads the container's *own* recorded environment rather than a file on the host, for the same
- * reason attach-or-start reads its port and token there: the container is the source of truth.
- * `TIT_REPO_DIR` and `TIT_SERVER_RELOAD` are in the compose `environment:` block precisely so this
- * comparison is possible — the repo bind mount is interpolated from the same `${TIT_REPO_DIR}`, so
- * the recorded value *is* what was mounted, not a marker that could drift from it.
+ * Docker's actual mounts establish checkout identity; a stale TIT_REPO_DIR marker cannot.
+ * Environment inspection checks import precedence, reload and the selected UI directory.
  *
  * Pure and exported so `tests/unit/dev-stack.test.ts` can pin every branch without Docker.
  */
 export function describeMismatch(
-  state: { env: Record<string, string> },
+  state: { env: Record<string, string>; mounts?: { Type: string; Source: string; Destination: string }[] },
   image: string,
   want: Pick<StackStartOptions, "imageTag" | "repoDir" | "serverReload" | "staticDir">,
 ): string | null {
   const show = (value: string): string => value || "(none)";
   const wantRepo = want.repoDir ?? "";
-  const haveRepo = state.env.TIT_REPO_DIR ?? "";
-  if (haveRepo !== wantRepo) return `it mounts ${show(haveRepo)} at /ti-toolbox, this run wants ${show(wantRepo)}`;
+  const repoMount = state.mounts?.find((mount) => mount.Destination === "/ti-toolbox");
+  const haveRepo = repoMount?.Source ?? "";
+  if (wantRepo && repoMount?.Type !== "bind") return `it mounts ${show(haveRepo)} at /ti-toolbox without the requested checkout bind, this run wants ${wantRepo}`;
+  if (!sameHostDir(haveRepo, wantRepo) && haveRepo !== wantRepo) return `it mounts ${show(haveRepo)} at /ti-toolbox, this run wants ${show(wantRepo)}`;
+  if (wantRepo && state.env.PYTHONPATH?.split(":")[0] !== "/ti-toolbox")
+    return "its PYTHONPATH does not put /ti-toolbox first, so the installed package may shadow this checkout";
   const wantReload = want.serverReload ? "1" : "";
   const haveReload = state.env.TIT_SERVER_RELOAD ?? "";
   if (haveReload !== wantReload) return `it has TIT_SERVER_RELOAD=${show(haveReload)}, this run wants ${show(wantReload)}`;
@@ -757,17 +755,17 @@ export function describeMismatch(
   return null;
 }
 
-/**
- * `"<kind> <id>"` for every job in `GET /api/jobs` that is not finished. Pure and tolerant of a
- * body that is not the expected shape (a proxy error page, an older server): anything unreadable
- * is "no jobs", because this guard must never be the reason a stack cannot be replaced.
- */
+/** Names unfinished jobs; malformed replies cannot establish that recreation is safe. */
 export function runningJobLabels(body: unknown): string[] {
-  if (!Array.isArray(body)) return [];
-  const busy = new Set(["running", "queued", "pending", "starting"]);
-  return body
-    .filter((job): job is Record<string, unknown> => typeof job === "object" && job !== null && busy.has(String((job as Record<string, unknown>).state)))
-    .map((job) => `${String(job.kind ?? "job")} ${String(job.id ?? "?")}`);
+  if (!Array.isArray(body)) throw new Error("Expected a job list");
+  const finished = new Set(["succeeded", "failed", "cancelled"]);
+  return body.map((job: unknown) => {
+    if (typeof job !== "object" || job === null || !("state" in job) || typeof job.state !== "string")
+      throw new Error("Invalid job in server reply");
+    if (finished.has(job.state)) return null;
+    const record = job as Record<string, unknown>;
+    return `${String(record.kind ?? "job")} ${String(record.id ?? "?")}`;
+  }).filter((label): label is string => label !== null);
 }
 
 /** One manager per host process. Electron main uses `./stackHost.ts`'s; the dev script its own. */

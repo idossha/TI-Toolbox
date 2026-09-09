@@ -90,7 +90,7 @@ export function resolveDevConfig(vars: Record<string, string>, desktopDir: strin
   const projectRaw = (vars.TIT_DEV_PROJECT_DIR ?? "").trim();
   if (!projectRaw) {
     throw new DevConfigError(
-      `TIT_DEV_PROJECT_DIR is not set. Copy ${DEV_ENV_EXAMPLE} to ${DEV_ENV_FILE} and point it at a BIDS project directory.`,
+      `TIT_DEV_PROJECT_DIR is not set. Run npm run dev -- --project /path/to/project, or copy ${DEV_ENV_EXAMPLE} to ${DEV_ENV_FILE} and point it at a BIDS project directory.`,
     );
   }
   const projectDir = isAbsolute(projectRaw) ? resolve(projectRaw) : resolve(desktopDir, projectRaw);

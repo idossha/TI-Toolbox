@@ -771,3 +771,16 @@ The prior baked embed remains available as rollback; no container restart or pub
   passed (15 calls, including both project-config cases).
 - Codex CLI `mcp add` and `mcp list` succeeded against a disposable configuration directory.
   This validates registration, not a native client conversation; user configuration was untouched.
+
+### Developer checkout verification — 2026-09-09
+
+- Python launcher suites (`test_launch`, `test_launch_image`, `test_loader_interactive`):
+  **98 passed**; `/tmp/tit-dev-loader-tests.log`.
+- Desktop dev/stack focused tests: **66 passed**, plus typecheck and focused ESLint.
+- `npm run build`: passed; `/tmp/tit-dev-loop-build.log`.
+- `pnpm dev:web`: started the real internal image, current primary checkout mounted at
+  `/ti-toolbox`, reload enabled, frontend HTTP 200 on 5173 and proxied API health `ok`.
+- Container `tit.__file__` resolves `/ti-toolbox/tit/__init__.py`; montage renderer source
+  SHA256 matches the host checkout. Python and Bash dev loaders both attached successfully.
+- Existing development and validation containers were idle before cleanup. No scientific
+  pipeline was rerun as part of this launch verification.
