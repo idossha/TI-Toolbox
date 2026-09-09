@@ -672,3 +672,17 @@ no permanent develop branch. Required validation applies to both main and releas
 branch pushes never publish a release. Promotion retains tested commit ancestry through a merge
 commit, then a separate maintainer-approved version tag identifies the official release. This
 prevents untested branch state or documentation wording from becoming an implicit publication.
+
+
+### Terminal launcher setup
+
+The Python and Bash launchers, including their development equivalents, share one terminal
+setup flow in `tit.cli`. With no arguments they prompt before any Docker operation; explicit
+arguments remain scriptable. `--interactive` prompts only for the project, using the supplied
+or remembered path as its default. Image, port and other advanced settings stay flags.
+A missing terminal or cancelled input exits without launching, preventing unattended jobs
+from hanging or accidentally starting a guessed project. Both development modes preserve
+the existing checkout-mount default; `--no-mount-repo` selects baked-image operation.
+Interactive launches without an explicit image reconnect to the selected project's running
+session and identify its image; this resumes that session rather than certifying a new image.
+Explicit `--image` or `TIT_IMAGE_TAG` requests retain the image-mismatch guard.

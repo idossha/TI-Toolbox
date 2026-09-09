@@ -9,6 +9,10 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 ---
 ### v3.0.0 (Unreleased)
 
+- **Launch without memorizing flags.** Running either Python or Bash loader with no arguments
+  asks only for the project folder and remembers it for next time, including the development
+  loaders. Existing arguments remain supported; advanced settings do not require prompts.
+
 TI-Toolbox v3 replaces the PyQt5 GUI with an **Electron desktop application**, and the two-image
 Docker stack with a single streamlined image. There is no X11 anywhere, FastSurfer replaces
 `recon-all`, and viewing is [Tetravox]({{ site.baseurl }}/wiki/visualizers/) inside the app window
@@ -22,9 +26,7 @@ Those cover re-running affected statistics and geometry analyses, rescaling voxe
 and correcting sampled permutation p-values. No released 2.x montage requires an exposure
 metric rerun for SCI-07; SCI-08 requires no action.
 
-The stable public release remains [2.5.0]({{ site.baseurl }}/releases/v2.5.0/).
-Preview artifact details are tracked in the
-[internal installation handoff]({{ site.baseurl }}/installation/#internal-colleague-testing).
+See the [installation guide]({{ site.baseurl }}/installation/) for source and artifact availability.
 
 See [Desktop Application]({{ site.baseurl }}/wiki/desktop-app/) for how the pieces fit together,
 and the [Wiki]({{ site.baseurl }}/wiki/) for a page per workflow.

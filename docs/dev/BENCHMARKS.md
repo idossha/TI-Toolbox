@@ -675,3 +675,19 @@ Raw local receipts: `dist/internal/api-build-release-docs.log`,
 `dist/internal/site-build-release-docs.log`, `dist/internal/site-release-docs-receipt.json`.
 Generated tracked API files were not rewritten. These checks do not certify hosted security
 review, signed installers or production promotion.
+
+
+### Project-only loader checks — 2026-09-09
+
+| Check | Command / result |
+|---|---|
+| Host suite | `.venv/bin/python -m pytest tests/ -q` — 4,788 passed, 46 skipped, 21 deselected, 16 warnings in 113.87 s |
+| Final loader regression suite | `.venv/bin/python -m pytest tests/test_loader_interactive.py tests/test_launch.py tests/test_loader_bootstrap.py -q` — 86 passed in 8.20 s, including the final corrupt-settings recovery case |
+| Actual project reconnect | PTY invocation of `dev/loader/loader_dev.py --interactive --no-open`, selecting the maintainer's existing project — exit 0, attached to its running `:dev` session; no replacement, browser opening or job changes |
+| Docs build | `bundle exec jekyll build --baseurl "" --destination /tmp/tit-loader-docs-preview` from `docs/` — exit 0, 2.27 s |
+
+The loader suite exercises terminal startup and EOF cancellation for all four entry points,
+remembered paths, explicit defaults and image-override enforcement. Raw command logs are
+`/tmp/tit-loader-host-tests.log`, `/tmp/tit-loader-tests-final.log` and
+`/tmp/tit-loader-docs-build.log`. These host-launcher changes do not alter the baked image
+or claim a new science/UI acceptance run.

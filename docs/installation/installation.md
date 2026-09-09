@@ -66,7 +66,16 @@ it has a similar version number.
 
 ### 4. Open the interface
 
-**Browser:** from the repository root:
+**Browser:** from the repository root, choose a project in the terminal:
+
+```bash
+python3 loader.py
+# or
+bash loader.sh
+```
+
+Enter your project copy's path, or press Enter to reuse the displayed last project. To skip
+the prompt and set the image explicitly, supply arguments:
 
 ```bash
 python3 loader.py --project /path/to/project-copy --image "$TIT_IMAGE"

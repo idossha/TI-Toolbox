@@ -123,6 +123,19 @@ subprocess.CalledProcessError: Command '['docker', 'images', '--format', …]' r
 **Check progress:** open [Jobs]({{ site.baseurl }}/wiki/jobs/) to inspect the stage and live log. CHARM and FastSurfer can run for a long time, especially under emulation on Apple Silicon; a quiet interval alone does not establish that a job is stuck. The original discussion below concerns the historical FreeSurfer workflow.
 **Source:** [#93](https://github.com/idossha/TI-Toolbox/discussions/93).
 
+## Command-line launchers
+
+### No-argument loader exits with "no project directory given"
+
+**Applies to:** earlier loader revisions, including the initial `release/3.0.0` candidate.
+**Cause:** the launcher required an explicit project and had no terminal project prompt.
+**Fix:** update the source checkout. Running `loader.py`, `loader.sh`,
+`dev/loader/loader_dev.py`, or `dev/loader/loader_dev.sh` without arguments in a terminal
+now prompts only for the project and remembers the last selected path. For scripts or other
+noninteractive sessions, pass `--project` and any
+other settings explicitly. See the [launcher reference]({{ site.baseurl }}/installation/bash-cli/#launch)
+for `--interactive`, reconnect behavior, and advanced command-line options.
+
 ## Launching (historical v2)
 
 For the current launcher, use the [installation guide]({{ site.baseurl }}/installation/).

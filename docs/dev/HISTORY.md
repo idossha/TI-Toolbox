@@ -801,3 +801,14 @@ teaser. Installation owns the source/image pairing and its actual availability. 
 Apptainer recipe is identified as incompatible instead of offered as a working current setup.
 The maintainer explicitly deferred Docker Hub publication until after manual testing.
 No runtime, public version metadata, main merge or release publication changed in this pass.
+
+
+### Project-only terminal launch — 2026-09-09
+
+The maintainer reported the no-argument loader failure and requested the v2 interaction.
+All four root/development Python/Bash launchers now ask only for the project and remember
+the selected path. Advanced settings remain flags, including the v2 `--project-dir` alias.
+Interactive startup without a pinned image identifies and reconnects to the selected
+project's running session; explicit image requests retain the mismatch guard. The live
+check attached to the maintainer's existing dev session without replacing it or opening
+a browser. No image rebuild, registry publication or main merge was performed.

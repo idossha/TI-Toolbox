@@ -62,7 +62,7 @@ Without --web the dev container starts from Python alone: no Node, no Electron.
 
 def main(argv: list[str] | None = None) -> int:
     try:
-        from tit.cli import launch_command, launch_parser
+        from tit.cli import launch_command, launch_parser, prepare_launch
     except ImportError as err:  # pragma: no cover
         sys.stderr.write(f"loader_dev.py: could not import `tit` from {REPO} ({err})\n")
         return 2
@@ -73,7 +73,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--build", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--web", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--no-mount-repo", action="store_true", help=argparse.SUPPRESS)
-    args = parser.parse_args(argv if argv is not None else sys.argv[1:])
+    arguments = argv if argv is not None else sys.argv[1:]
+    args = parser.parse_args(arguments)
+    result = prepare_launch(args, arguments)
+    if result is not None:
+        return result
 
     if args.build:
         return build_image(args.image)
@@ -99,7 +103,9 @@ def main(argv: list[str] | None = None) -> int:
 def build_image(image: str | None) -> int:
     """``container/blueprint/build.sh --tag <image>`` — the only way to get a v3 image today."""
     if not BUILD_SH.is_file():
-        sys.stderr.write(f"loader_dev.py: {BUILD_SH} not found; is this a full checkout?\n")
+        sys.stderr.write(
+            f"loader_dev.py: {BUILD_SH} not found; is this a full checkout?\n"
+        )
         return 2
     tag = image or "idossha/ti-toolbox:dev"
     print(f"[dev] {BUILD_SH} --tag {tag}")
@@ -124,7 +130,9 @@ def run_npm_dev_web(args) -> int:
     if args.no_mount_repo:
         env["TIT_DEV_MOUNT_REPO"] = "0"
     print("[dev] npm run dev:web (desktop/scripts/dev.ts)")
-    return subprocess.run(["npm", "run", "dev:web"], cwd=str(DESKTOP), env=env).returncode
+    return subprocess.run(
+        ["npm", "run", "dev:web"], cwd=str(DESKTOP), env=env
+    ).returncode
 
 
 if __name__ == "__main__":

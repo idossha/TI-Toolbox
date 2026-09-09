@@ -39,6 +39,19 @@ Keep the loaders inside the selected checkout so they use that revision.
 
 ## Launch
 
+Run either loader without arguments in a terminal to choose a project:
+
+```bash
+python3 loader.py
+# or
+bash loader.sh
+```
+
+The prompt asks only for your project directory. The last selected directory is remembered
+in your user configuration and shared by the regular and development loaders; press Enter
+to accept the displayed path. Advanced settings remain command-line options. To start directly,
+pass arguments instead:
+
 ```bash
 python3 loader.py --project ~/datasets/000 --image "$TIT_IMAGE"
 ```
@@ -68,7 +81,8 @@ run `tit launch` again — it attaches in a second. `--stop` is what ends it.
 
 | Flag | Meaning |
 |---|---|
-| `--project DIR` | The BIDS project directory to open. Required (or set `TIT_PROJECT_DIR`). |
+| `--project DIR` | The BIDS project directory to open. Supply it with arguments, set `TIT_PROJECT_DIR`, or choose it at the prompt. |
+| `--interactive` | Prompt for the project even when arguments are supplied; use the supplied or remembered project as the default. |
 | `--port N` | First host port to try. Default 8765; the next free port is used if it is taken, and the launcher says so. |
 | `--image IMAGE:TAG` | Run a specific image instead of the default selected by this checkout. |
 | `--no-open` | Print the URL instead of opening a browser. What you want over SSH. |
@@ -82,6 +96,20 @@ python3 loader.py --project ~/datasets/000 --status
 python3 loader.py --project ~/datasets/000 --logs --follow
 python3 loader.py --project ~/datasets/000 --stop
 ```
+
+Arguments keep scripted invocations noninteractive unless you add `--interactive`:
+
+```bash
+python3 loader.py --interactive --project ~/datasets/000 --image "$TIT_IMAGE"
+```
+
+When launching through the project prompt without `--image` or `TIT_IMAGE_TAG`, the loader
+reconnects to that project's running session using its existing image and prints the image
+it selected. An explicit image selection must match the session. The loader does not stop
+or recreate an existing container automatically.
+
+The project prompt needs an interactive terminal. A no-argument invocation without one exits with
+instructions to pass explicit flags, rather than waiting for input in a script or job.
 
 ### Over SSH
 
@@ -158,7 +186,16 @@ Ctrl-C stops the renderer and the app but **leaves the container running**, so t
 #### Without Node
 
 `dev/loader/loader_dev.py` and `dev/loader/loader_dev.sh` are the developer's equivalents of
-the two loaders at the root, and they need no `npm install`:
+the two loaders at the root, and they need no `npm install`. Run either without arguments
+for the same project prompt:
+
+```bash
+python3 dev/loader/loader_dev.py
+# or
+bash dev/loader/loader_dev.sh
+```
+
+Or pass the settings directly:
 
 ```bash
 python3 dev/loader/loader_dev.py --project ~/datasets/000 --image "$TIT_IMAGE"
@@ -166,12 +203,13 @@ python3 dev/loader/loader_dev.py --build                    # build the image, t
 python3 dev/loader/loader_dev.py --web                      # hand over to `npm run dev:web`
 ```
 
-They take every option the user loaders take, and add exactly one thing to what the container
-gets: the three dev overrides collected in `dev/loader/docker-compose.dev.yml` — your checkout
+They take every option the user loaders take, including `--interactive`. By default they apply
+the three dev overrides collected in `dev/loader/docker-compose.dev.yml` — your checkout
 bind-mounted at `/ti-toolbox`, the server run with `--reload`, and your locally built renderer
 served instead of the image's when `desktop/out/renderer/index.html` exists. Otherwise the
 image's baked renderer is used. That file is *overrides only*; the service itself is defined
 once, in the root `docker-compose.yml`, so the two can never describe different containers.
+Pass `--no-mount-repo` to test the image's baked Python package and UI instead.
 
 `--web` does not reimplement the dev loop — it runs `npm run dev:web` for you, so there is one
 implementation of container + Vite + Electron and it is the one `npm run dev` uses.

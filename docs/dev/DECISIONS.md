@@ -1384,3 +1384,22 @@ BENCHMARKS; this decision itself does not declare publication or scientific acce
 
 **Revisit if.** Parallel supported release lines require a long-lived maintenance branch, or
 release integration becomes frequent enough to justify another persistent integration branch.
+
+
+### 2026-09-09 — Interactive setup for argument-free loaders
+
+**Decision.** All four root/development Python/Bash entry points prompt for launch settings
+when called without arguments: one project question, with the last path remembered, matching
+the v2 interaction. Advanced settings remain flags; `--interactive` forces the project prompt.
+The shared CLI owns input validation and cancellation before Docker dispatch. Interactive
+launches with no explicit image reconnect to the project's running session and identify it;
+explicit image requests retain the mismatch guard, and no running session is replaced.
+
+**Why.** The maintainer ran the dev loader without flags and encountered the missing-project
+error, then requested an interactive setup across all four entry points. The maintainer
+rejected a multi-question setup and asked to preserve the simple v2 behavior.
+
+**Cost.** Interactive setup requires terminal stdin. Scripts pass explicit flags; Bash
+continues forwarding to Python instead of maintaining a separate prompt implementation.
+
+**Revisit if.** A native folder chooser becomes a requirement for the terminal launchers.

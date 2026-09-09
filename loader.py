@@ -142,7 +142,7 @@ def main(argv: list[str] | None = None) -> int:
     if not bootstrap():
         return run_standalone(arguments)
     try:
-        from tit.cli import launch_command, launch_parser
+        from tit.cli import launch_command, launch_parser, prepare_launch
     except (
         ImportError
     ) as err:  # pragma: no cover - exercised by the message, not a test
@@ -155,6 +155,9 @@ def main(argv: list[str] | None = None) -> int:
     invocation = "python loader.py"
     parser = launch_parser(prog=invocation)
     args = parser.parse_args(arguments)
+    result = prepare_launch(args, arguments)
+    if result is not None:
+        return result
     return launch_command(args, invocation=invocation)
 
 
