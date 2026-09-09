@@ -338,6 +338,20 @@ def put_freehand(name: str, subject: str = Query(...), body: dict = Body(...)) -
         ) from exc
 
 
+@router.delete(
+    "/api/catalog/freehand/{name}",
+    status_code=204,
+    summary="Delete one saved free-hand electrode configuration",
+)
+def delete_freehand(name: str, subject: str = Query(...)) -> None:
+    try:
+        deleted = catalog.delete_freehand_config(_pm(), subject, name)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Unknown placement: {name}")
+
+
 # ── project-level: group, notes, subject-info ────────────────────────────────
 
 

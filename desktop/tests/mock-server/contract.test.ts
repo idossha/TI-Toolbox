@@ -224,6 +224,7 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     await call("/api/catalog/freehand/{name}", "PUT", "/api/catalog/freehand/contract_test?subject=ernie", {
       body: { type: "U", electrode_positions: [{ x: 1, y: 2, z: 3 }] },
     });
+    await call("/api/catalog/freehand/{name}", "DELETE", "/api/catalog/freehand/contract_test?subject=ernie");
     await call("/api/catalog/group", "GET", "/api/catalog/group");
     await call("/api/catalog/notes", "GET", "/api/catalog/notes");
     await call("/api/catalog/notes", "PUT", "/api/catalog/notes", { body: { text: "contract test note" } });

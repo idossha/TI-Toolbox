@@ -1861,6 +1861,22 @@ def put_freehand_config(pm: PathManager, sid: str, name: str, config: dict) -> d
     }
 
 
+def delete_freehand_config(pm: PathManager, sid: str, name: str) -> bool:
+    """Remove a saved placement definition, leaving simulation outputs intact."""
+    if not is_safe_name(name):
+        raise ValueError("name must match ^[A-Za-z0-9_-]{1,64}$")
+    if sid not in subject_ids(pm):
+        return False
+    path = os.path.join(pm.m2m(sid), "stim_configs", f"{name}.json")
+    if not _project_paths_safe(pm, path) or not os.path.isfile(path):
+        return False
+    try:
+        os.unlink(path)
+    except FileNotFoundError:
+        return False
+    return True
+
+
 # ── project-level: group catalog, notes, subject-info ──────────────────────
 
 

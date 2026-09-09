@@ -2089,6 +2089,14 @@ route("PUT", "/api/catalog/freehand/:name", async (ctx) => {
   freehand[subject].push(cfg);
   json(ctx.res, 200, cfg);
 });
+route("DELETE", "/api/catalog/freehand/:name", (ctx) => {
+  const subject = ctx.url.searchParams.get("subject");
+  if (!(subject in freehand)) return json(ctx.res, 404, { detail: "unknown subject" });
+  const index = freehand[subject].findIndex((entry) => entry.name === ctx.params.name);
+  if (index < 0) return json(ctx.res, 404, { detail: "unknown placement" });
+  freehand[subject].splice(index, 1);
+  noContent(ctx.res);
+});
 route("GET", "/api/catalog/group", (ctx) => json(ctx.res, 200, groupCatalog));
 // One group-statistics run's detail (`tit/catalog.py::group_stats_detail`). The `?empty=1` variant
 // is the failed-run state the Results pane must be able to explain: a directory holding nothing

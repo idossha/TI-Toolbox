@@ -512,3 +512,11 @@ subject-space binary volume. Keep cortical picking in the existing surface rende
 the form authoritative. **Why:** Reference anatomy cannot accurately show a subject-space mask.
 **Cost:** Previews need subject T1 and, for MNI targets, registration; geometric extent is shown
 before tissue or mesh filtering. The main Viewer remains mounted for direct file drops.
+
+## 2026-09-09 — Saved montage management
+
+**Decision:** Place confirmed deletion of net montages and subject-specific freehand definitions
+in Simulator's Manage montages dialog. Keep job removal separate and preserve simulation outputs.
+**Why:** Creation had a visible entry point while definition deletion did not. **Verification:**
+Catalog deletion tests cover subject/path boundaries; simulator UI tests cover cancel, confirm
+and clearing referencing job selections.

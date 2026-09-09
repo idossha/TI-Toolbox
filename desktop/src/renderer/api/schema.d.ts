@@ -1540,7 +1540,41 @@ export interface paths {
             };
         };
         post?: never;
-        delete?: never;
+        /**
+         * Delete one saved free-hand electrode configuration
+         * @description Removes the placement definition only; simulation results are preserved.
+         */
+        delete: {
+            parameters: {
+                query: {
+                    subject: string;
+                };
+                header?: never;
+                path: {
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Placement deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+                /** @description Invalid placement name */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;

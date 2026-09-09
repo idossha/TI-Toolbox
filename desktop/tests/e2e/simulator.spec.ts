@@ -585,3 +585,61 @@ test("records the jobs table (two subjects, mixed sources) as an artifact", asyn
   await page.keyboard.press(chord);
   await page.getByTestId("sim-jobs-table-container").screenshot({ path: "tests/e2e/artifacts/jobs-table-sim.png" });
 });
+
+for (const kind of ["montage", "placement"] as const) {
+  test(`Manage montages cancels and confirms deletion of a saved ${kind}`, async () => {
+    const name = `delete_${kind}_${RUN_ID}`;
+    const headers = { Authorization: `Bearer ${TOKEN}` };
+    const path = kind === "montage"
+      ? `/api/catalog/montages/GSN-HydroCel-185/uni_polar/${name}`
+      : `/api/catalog/freehand/${name}?subject=ernie`;
+    const data = kind === "montage"
+      ? { pairs: [["E37", "E18"], ["E87", "E102"]] }
+      : {
+          name, type: "M",
+          electrode_positions: [
+            { label: "E37", x: -68.1, y: -12.3, z: 22.5 },
+            { label: "E18", x: -55.4, y: 24.7, z: -8.1 },
+            { label: "E87", x: 30.2, y: -70.4, z: 41.9 },
+            { label: "E102", x: 42.6, y: 18.9, z: -15.2 },
+          ],
+        };
+    expect((await page.request.put(`${SERVER_URL}${path}`, { headers, data })).ok()).toBe(true);
+    await page.reload();
+    await gotoPage(page, "simulator", "Simulator");
+    // Wait for the page's initial subject/catalog hydration to seed its first job.
+    // Clearing before that effect runs races its automatic row against Add job.
+    await expect(montageRows().first()).toBeVisible();
+    await clearMontageRows();
+    const row = montageRows().first();
+    if (kind === "montage") {
+      await configureMontageJob(page, row, { subject: "ernie", net: "GSN-HydroCel-185", montage: `${name} · TI` });
+    } else {
+      await setJobSubject(page, row, "ernie");
+      await setJobSource(page, row, "Free-hand");
+      await setJobMontage(page, row, name);
+    }
+    const selection = row.getByRole("combobox", { name: kind === "montage" ? "Montage" : "Free-hand configuration", exact: true, includeHidden: true });
+    await expect(selection).toContainText(name);
+    await page.getByRole("button", { name: "Manage montages", exact: true }).click();
+    const manager = page.getByRole("dialog", { name: "Manage montages", exact: true });
+    const selector = manager.getByRole("combobox", { name: kind === "montage" ? "Managed EEG net" : "Managed placement subject", exact: true });
+    await selector.click();
+    await page.getByRole("option", { name: kind === "montage" ? "GSN-HydroCel-185" : "ernie", exact: true }).click();
+    const remove = manager.getByRole("button", { name: `Delete ${kind} ${name}`, exact: true });
+    await remove.click();
+    const confirmation = page.getByRole("alertdialog");
+    await expect(confirmation).toContainText(name);
+    await confirmation.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(remove).toBeVisible();
+    await expect(selection).toContainText(name);
+    await remove.click();
+    const deleted = page.waitForResponse((response) => response.request().method() === "DELETE" && response.url().includes(`/catalog/${kind === "montage" ? "montages/" : "freehand/"}`));
+    await confirmation.getByRole("button", { name: `Delete ${kind}`, exact: true }).click();
+    expect((await deleted).status()).toBe(204);
+    await expect(remove).toHaveCount(0);
+    await expect(selection).not.toContainText(name);
+    await page.keyboard.press("Escape");
+    await expect(manager).toHaveCount(0);
+  });
+}

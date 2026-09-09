@@ -9,6 +9,9 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 ---
 ### v3.0.0 (Unreleased)
 
+- **Saved montages can be removed.** Simulator’s **Manage montages** lists net-based montages
+  and subject-specific freehand placements with confirmed deletion. Existing results are kept.
+
 - **Navigation follows the working order.** Optimizer precedes Simulator; Viewer and Results
   precede Pipeline, Notebooks and Jobs. Extensions follow those pages. Number shortcuts follow the new order.
 - **Inputs need fewer clicks.** NIfTI masks accept file drops and editable server paths;

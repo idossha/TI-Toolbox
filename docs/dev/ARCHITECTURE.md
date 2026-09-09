@@ -385,6 +385,10 @@ raw logs and artifacts. There is no separate bottom status bar. System, Settings
 headers; workflow pages use their navigation context. [`registry.ts`](../../desktop/src/renderer/app/registry.ts)
 owns navigation order, gating, palette destinations and shortcuts, including Viewer subroutes.
 
+Simulator's saved-definition manager deletes montage or freehand definitions only. Confirmed
+deletion clears matching draft job selections, preserving completed simulation outputs. Freehand
+deletion is subject-scoped through `DELETE /api/catalog/freehand/{name}?subject=...`.
+
 ### Visual system and controls
 
 [`ui/`](../../desktop/src/renderer/ui/) owns layout, controls, selection, feedback and overlays;

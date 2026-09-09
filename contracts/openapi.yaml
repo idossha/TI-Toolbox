@@ -929,6 +929,29 @@ paths:
                 $ref: "#/components/schemas/FreehandConfig"
         "401":
           $ref: "#/components/responses/Unauthorized"
+    delete:
+      tags: [catalog]
+      summary: Delete one saved free-hand electrode configuration
+      description: Removes the placement definition only; simulation results are preserved.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema: { type: string }
+        - in: query
+          name: subject
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Placement deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          description: Invalid placement name
   /api/catalog/group:
     get:
       tags: [catalog]

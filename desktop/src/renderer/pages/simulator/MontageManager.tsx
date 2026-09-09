@@ -28,7 +28,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { Plus, Pencil, Trash2, X, Copy, SlidersHorizontal } from "lucide-react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, IconButton } from "../../ui/Button";
-import { AlertDialog } from "../../ui/Overlay";
+import { AlertDialog, Dialog } from "../../ui/Overlay";
 import { Field, TextInput } from "../../ui/Field";
 import { Select } from "../../ui/Select";
 import { SelectionPicker } from "../../ui/SelectionList";
@@ -38,7 +38,7 @@ import { ElectrodePairsEditor, type ElectrodePair } from "../../ui/ElectrodePair
 import { notify } from "../../ui/Toast";
 import { NumberInput } from "../../ui/NumberInput";
 import { channelCss } from "../_shared/scene/model";
-import { deleteMontage, getEegNets, getFlexMapping, getFlexRuns, getFreehand, getMontages, putMontage, type FlexRun, type FreehandConfig } from "./api";
+import { deleteFreehand, deleteMontage, getEegNets, getFlexMapping, getFlexRuns, getFreehand, getMontages, putMontage, type FlexRun, type FreehandConfig } from "./api";
 import { OPTIMIZED, placementsFor, type FlexPlacement } from "./FlexTab";
 import { FreehandEditor } from "./FreehandEditor";
 import { useFreehandDraft } from "./freehandDraft";
@@ -471,6 +471,12 @@ export function JobsTable({
 
   const editing = draft;
   const setEditing = onDraftChange;
+  const [manageOpen, setManageOpen] = useState(false);
+  const [managedNet, setManagedNet] = useState<string | undefined>();
+  const [managedSubject, setManagedSubject] = useState<string | undefined>();
+  const managementNet = managedNet ?? editorNet;
+  const managementSubject = managedSubject ?? usable[0];
+  const [deletePlacement, setDeletePlacement] = useState<{ subject: string; name: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CatalogMontage | null>(null);
   /*
    * Free-hand placements are authored from this same footer ("New placement"), not from a section
@@ -536,7 +542,7 @@ export function JobsTable({
       // Every row that pointed at it goes back to "pick a montage" rather than silently planning a
       // montage that no longer exists.
       onRowsChange(
-        rows.map((r) =>
+        rowsRef.current.map((r) =>
           r.source === "montage" && r.eegNet === m.net && r.kind === m.kind && r.name === m.name
             ? { ...r, name: "", kind: undefined, pairs: undefined }
             : r,
@@ -545,6 +551,19 @@ export function JobsTable({
       void queryClient.invalidateQueries({ queryKey: ["montages"] });
     },
     onError: (err: unknown) => notify.error("Could not delete the montage.", err instanceof Error ? err.message : undefined),
+  });
+
+  const removePlacement = useMutation({
+    mutationFn: ({ subject, name }: { subject: string; name: string }) => deleteFreehand(subject, name),
+    onSuccess: (_data, target) => {
+      notify.success(`Deleted placement "${target.name}".`);
+      setDeletePlacement(null);
+      onRowsChange(rowsRef.current.map((row) => row.source === "freehand" && row.subjectId === target.subject && row.name === target.name
+        ? { ...row, name: "", xyzPairs: undefined, pairs: undefined, kind: undefined }
+        : row));
+      void queryClient.invalidateQueries({ queryKey: ["freehand", target.subject] });
+    },
+    onError: (error: unknown) => notify.error("Could not delete the placement.", error instanceof Error ? error.message : undefined),
   });
 
   // The mapping fetch resolves after other edits may have landed; the continuation must patch the
@@ -1116,6 +1135,7 @@ export function JobsTable({
         <Button variant="secondary" icon={<Plus size={14} />} disabled={usable.length === 0} onClick={startNewFreehand}>
           New placement
         </Button>
+        <Button variant="secondary" onClick={() => setManageOpen(true)}>Manage montages</Button>
       </div>
 
       {freehandOpen && <FreehandEditor subjects={usable} onClose={() => setFreehandOpen(false)} />}
@@ -1206,6 +1226,37 @@ export function JobsTable({
           </CardBody>
         </Card>
       )}
+
+      <Dialog open={manageOpen} onOpenChange={setManageOpen} title="Manage montages"
+        description="Delete saved definitions. Existing simulation results are kept."
+        footer={<Button onClick={() => setManageOpen(false)}>Done</Button>}>
+        <div style={{ display: "grid", gap: "var(--space-4)" }}>
+          <section>
+            <h3 className="card-title">Montages</h3>
+            <Field label="EEG net"><Select aria-label="Managed EEG net" value={managementNet ?? ""} options={availableNets.map((net) => ({ value: net, label: net }))} onValueChange={setManagedNet} /></Field>
+            {montages.isPending ? <p>Loading montages…</p> : montages.isError ? <p>Could not load montages.</p> : montagesOf(managementNet).length === 0 ? <p className="field-help">No saved montages for this net.</p> : montagesOf(managementNet).map((montage) => (
+              <div key={`${montage.kind}:${montage.name}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-2)", paddingBlock: "var(--space-2)" }}>
+                <span style={{ overflowWrap: "anywhere" }}>{montage.name} · {polarityLabel(montage.kind)}</span>
+                <IconButton aria-label={`Delete montage ${montage.name}`} icon={<Trash2 size={16} />} disabled={removeMontage.isPending} onClick={() => setDeleteTarget(montage)} />
+              </div>
+            ))}
+          </section>
+          <section>
+            <h3 className="card-title">Freehand placements</h3>
+            <Field label="Subject"><Select aria-label="Managed placement subject" value={managementSubject ?? ""} options={usable.map((subject) => ({ value: subject, label: subject }))} onValueChange={setManagedSubject} /></Field>
+            {freehandQueries[usable.indexOf(managementSubject ?? "")]?.isPending ? <p>Loading placements…</p> : freehandQueries[usable.indexOf(managementSubject ?? "")]?.isError ? <p>Could not load placements.</p> : (freehandBySubject[managementSubject ?? ""] ?? []).length === 0 ? <p className="field-help">No saved placements for this subject.</p> : (freehandBySubject[managementSubject ?? ""] ?? []).map((placement) => (
+              <div key={placement.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-2)", paddingBlock: "var(--space-2)" }}>
+                <span style={{ overflowWrap: "anywhere" }}>{placement.name}</span>
+                <IconButton aria-label={`Delete placement ${placement.name}`} icon={<Trash2 size={16} />} disabled={removePlacement.isPending} onClick={() => setDeletePlacement({ subject: managementSubject!, name: placement.name })} />
+              </div>
+            ))}
+          </section>
+        </div>
+      </Dialog>
+      <AlertDialog open={deletePlacement !== null} onOpenChange={(open) => !open && setDeletePlacement(null)}
+        title={`Delete placement "${deletePlacement?.name ?? ""}"?`}
+        description="This removes the saved freehand definition for this subject. Existing simulation results are kept."
+        confirmLabel="Delete placement" onConfirm={() => { if (deletePlacement) removePlacement.mutate(deletePlacement); }} />
 
       <AlertDialog
         open={deleteTarget !== null}

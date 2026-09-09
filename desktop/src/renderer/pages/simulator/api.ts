@@ -87,6 +87,11 @@ export async function putFreehand(subject: string, name: string, config: Freehan
   );
 }
 
+export async function deleteFreehand(subject: string, name: string): Promise<void> {
+  const { response } = await api.DELETE("/api/catalog/freehand/{name}", { params: { query: { subject }, path: { name } } });
+  if (!response.ok) throw new Error(`Could not delete placement ${name} (HTTP ${response.status}).`);
+}
+
 export async function getSimulationsFor(subject: string): Promise<Simulation[]> {
   return unwrap(await api.GET("/api/catalog/simulations", { params: { query: { subject } } }), "/api/catalog/simulations").simulations;
 }

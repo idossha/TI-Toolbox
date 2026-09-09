@@ -1672,3 +1672,74 @@ def test_view_args_also_jails_layer_paths(client: TestClient) -> None:
 def test_view_unknown_subject_404(client: TestClient) -> None:
     r = client.get("/api/view/subject", params={"subject": "nope"}, headers=BEARER)
     assert r.status_code == 404
+
+
+def test_delete_freehand_preserves_results_and_other_subjects(client, project):
+    """Deleting a saved placement must not remove its simulation or another subject's copy."""
+    pm = get_path_manager()
+    original = Path(pm.m2m("ernie"), "stim_configs", "my_freehand.json")
+    other = Path(pm.m2m("other"), "stim_configs", "my_freehand.json")
+    other.parent.mkdir(parents=True)
+    other.write_bytes(original.read_bytes())
+    result = Path(pm.simulation("ernie", "my_freehand"), "result.msh")
+    result.parent.mkdir(parents=True)
+    result.write_bytes(b"saved simulation")
+    response = client.delete(
+        "/api/catalog/freehand/my_freehand", params={"subject": "ernie"}, headers=BEARER
+    )
+    assert response.status_code == 204
+    assert not original.exists()
+    assert other.exists()
+    assert result.read_bytes() == b"saved simulation"
+    assert (
+        client.get(
+            "/api/catalog/freehand", params={"subject": "ernie"}, headers=BEARER
+        ).json()
+        == []
+    )
+    assert (
+        client.delete(
+            "/api/catalog/freehand/my_freehand",
+            params={"subject": "ernie"},
+            headers=BEARER,
+        ).status_code
+        == 404
+    )
+
+
+@pytest.mark.parametrize(
+    "name,subject,status",
+    [
+        ("missing", "ernie", 404),
+        ("my_freehand", "missing", 404),
+        ("weird name", "ernie", 422),
+    ],
+)
+def test_delete_freehand_invalid_selection(client, name, subject, status):
+    assert (
+        client.delete(
+            f"/api/catalog/freehand/{name}", params={"subject": subject}, headers=BEARER
+        ).status_code
+        == status
+    )
+
+
+@pytest.mark.parametrize("parent_link", [False, True])
+def test_delete_freehand_rejects_outward_symlink(client, project, parent_link):
+    """Neither a linked config nor a linked stim_configs folder may escape the project."""
+    pm = get_path_manager()
+    directory = Path(pm.m2m("ernie"), "stim_configs")
+    outside = project.parent / f"{project.name}-outside-placements"
+    outside.mkdir()
+    protected = outside / "Boundary.json"
+    protected.write_text('{"electrode_positions": {}}')
+    if parent_link:
+        directory.rename(directory.with_name("original-configs"))
+        directory.symlink_to(outside, target_is_directory=True)
+    else:
+        (directory / "Boundary.json").symlink_to(protected)
+    response = client.delete(
+        "/api/catalog/freehand/Boundary", params={"subject": "ernie"}, headers=BEARER
+    )
+    assert response.status_code == 404
+    assert protected.read_text() == '{"electrode_positions": {}}'
