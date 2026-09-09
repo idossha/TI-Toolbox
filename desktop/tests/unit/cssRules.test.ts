@@ -141,7 +141,7 @@ describe("v2 density — geometry", () => {
   it("Field is a label-left grid row at --row-h", () => {
     const field = extractBlock(css, "\n.field {");
     expect(field).toMatch(/display:\s*grid/);
-    expect(field).toMatch(/grid-template-columns:\s*fit-content\(var\(--field-label-w\)\)\s+minmax\(0,\s*1fr\)/);
+    expect(field).toMatch(/grid-template-columns:\s*var\(--field-label-w\)\s+minmax\(0,\s*1fr\)/);
     expect(field).toMatch(/min-height:\s*var\(--row-h\)/);
   });
 

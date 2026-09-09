@@ -835,3 +835,6 @@ Source into each simulation job’s settings. Terminal and notebook mapping rema
 
 Automatic Flex run folders now agree between preview and submission, and CSV/TSV interchange
 supports Cluster permutation and NIfTI group averaging participant tables.
+
+Form alignment clarification: left-aligned labels now share a column so all controls start
+on the same vertical line.

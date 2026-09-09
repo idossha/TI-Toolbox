@@ -5,7 +5,7 @@ import { cn } from "./utils";
 /**
  * `layout` picks the row shape.
  *
- *  - `row` (default) — left-aligned label sized to its text (up to `--field-label-w`), with
+ *  - `row` (default) — left-aligned label in a shared `--field-label-w` column, with
  *    the control filling the remaining width, 28px tall.
  *    This is the density the whole app is tuned to: ten fields cost 280px, not 700px.
  *  - `stacked` — the v1 shape (label above control). The escape hatch for a row that needs the

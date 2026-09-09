@@ -248,10 +248,12 @@ test("Cluster Permutation panel switches between classification and correlation"
     const control = row.querySelector("input.control, .select-trigger");
     if (!label || !control) return null;
     return { left: label.getBoundingClientRect().left - row.getBoundingClientRect().left,
+      controlStart: control.getBoundingClientRect().left - row.getBoundingClientRect().left,
       align: getComputedStyle(label).textAlign,
       overflow: control.getBoundingClientRect().right - row.getBoundingClientRect().right };
   }).filter(Boolean));
   expect(fields.length).toBeGreaterThan(2);
+  expect(Math.max(...fields.map((field) => field!.controlStart)) - Math.min(...fields.map((field) => field!.controlStart))).toBeLessThan(1);
   for (const field of fields) {
     expect(field!.left).toBeLessThan(1);
     expect(field!.align).toBe("left");

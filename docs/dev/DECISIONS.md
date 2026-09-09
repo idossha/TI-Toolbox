@@ -1463,3 +1463,10 @@ Pinning the destination also prevents two simultaneous UI rows from sharing an a
 
 **Cost.** Flex planning makes a second lightweight request. Raw API callers omitting the output
 folder retain the existing warning because their destination has not been pinned.
+
+### 2026-09-09 — Align form control starting edges
+
+**Decision.** Keep labels left-aligned, but restore the shared `--field-label-w` column.
+**Why.** The maintainer clarified that control starts should align rather than stagger after
+individual labels. Long labels wrap inside the shared column; controls retain their existing
+full-width or compact numeric sizing. This supersedes content-sized labels above.

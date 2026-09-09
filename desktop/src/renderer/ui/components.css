@@ -288,9 +288,9 @@
  */
 .field {
   display: grid;
-  /* Size the label to its text so short labels leave room for the control. The cap keeps
-     long labels from crowding inputs; every row still finishes at the same right edge. */
-  grid-template-columns: fit-content(var(--field-label-w)) minmax(0, 1fr);
+  /* Share the label column width across rows so controls have one aligned starting edge.
+     Labels stay left-aligned; long labels wrap within the column. */
+  grid-template-columns: var(--field-label-w) minmax(0, 1fr);
   align-items: center;
   column-gap: var(--space-3);
   row-gap: 2px;
