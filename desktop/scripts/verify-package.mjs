@@ -32,6 +32,7 @@
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { isBuiltin } from "node:module";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -191,6 +192,7 @@ function main() {
   const unpackedDir = join(app.resourcesDir, "app");
   let pkg;
   let paths;
+  let readEntry;
   if (existsSync(asarPath)) {
     const { header, dataStart } = readAsarHeader(asarPath);
     paths = asarPaths(header);
@@ -202,6 +204,15 @@ function main() {
     }
     // Read package.json out of the archive by offset (offsets are strings in the header).
     const buf = readFileSync(asarPath);
+    readEntry = (name) => {
+      const entry = name.split("/").reduce((node, part) => node?.files?.[part], header);
+      if (!entry || entry.files || entry.unpacked) throw new Error(`Cannot inspect bundled entry ${name}`);
+      const start = dataStart + Number(entry.offset);
+      if (!Number.isSafeInteger(start) || start < dataStart || start + entry.size > buf.length) {
+        throw new Error(`Invalid archive bounds for ${name}`);
+      }
+      return buf.subarray(start, start + entry.size).toString("utf8");
+    };
     const node = header.files["package.json"];
     const at = dataStart + Number(node.offset);
     pkg = JSON.parse(buf.subarray(at, at + node.size).toString("utf8"));
@@ -215,6 +226,7 @@ function main() {
         return statSync(full).isDirectory() ? walk(full, rel) : [rel];
       });
     paths = walk(unpackedDir, "");
+    readEntry = (name) => readFileSync(join(unpackedDir, name), "utf8");
     pkg = JSON.parse(readFileSync(join(unpackedDir, "package.json"), "utf8"));
   } else {
     check("app.asar present", false, `neither ${asarPath} nor ${unpackedDir} exists`);
@@ -233,6 +245,18 @@ function main() {
   const mainRel = String(pkg.main ?? "").replace(/^\.\//, "");
   check("package.json declares a main entry", Boolean(mainRel), mainRel || "<missing>");
   check("main entry is bundled", paths.includes(mainRel), mainRel);
+
+  // Both emitted CommonJS entries must be self-contained: node_modules is deliberately
+  // excluded below. A source checkout can resolve YAML while the same packaged main crashes
+  // before offscreen handling installs, displaying Electron's native exception dialog.
+  const runtimeEntries = paths.filter((name) => /^out\/(main|preload)\/.*\.(c?js)$/.test(name));
+  check("runtime entries are available to inspect", runtimeEntries.length >= 2);
+  for (const entry of runtimeEntries) {
+    const external = [...readEntry(entry).matchAll(/\brequire\s*\(\s*(["'])([^"']+)\1\s*\)/g)]
+      .map((match) => match[2])
+      .filter((name) => name !== "electron" && !isBuiltin(name));
+    check(`runtime dependencies bundled: ${entry}`, external.length === 0, [...new Set(external)].join(", ") || "Electron/Node only");
+  }
 
   // --- 4. runtime-required files ---------------------------------------------------------------
   for (const req of REQUIRED_IN_ASAR) {

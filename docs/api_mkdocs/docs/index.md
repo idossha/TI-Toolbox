@@ -9,7 +9,7 @@ TI-Toolbox follows a structured pipeline with one-time preprocessing and an iter
 ```mermaid
 graph TD
     PRE["`**1. Preprocessing**
-    DICOM → NIfTI → CHARM → optional recon-all
+    DICOM → NIfTI → CHARM → optional FastSurfer segmentation
     *(one-time setup)*`"]
 
     OPT["`**2. Optimization**

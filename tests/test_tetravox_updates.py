@@ -282,8 +282,21 @@ def test_the_env_override_still_accepts_a_flat_mirror_index(
 
 def test_api_github_com_is_on_the_allowlist(monkeypatch):
     monkeypatch.delenv(install.ENV_ALLOWED_HOSTS, raising=False)
-    assert "api.github.com" in install.allowed_hosts()
     install.check_url(updates.GITHUB_RELEASES_URL)  # does not raise
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://api.github.com.evil.invalid/releases",
+        "https://evil.invalid/api.github.com/releases",
+        "https://api.github.com@evil.invalid/releases",
+    ],
+)
+def test_github_name_elsewhere_in_url_does_not_grant_download_access(monkeypatch, url):
+    monkeypatch.delenv(install.ENV_ALLOWED_HOSTS, raising=False)
+    with pytest.raises(install.InstallError):
+        install.check_url(url)
 
 
 def test_an_unreachable_index_is_a_sentence_not_a_traceback(root, monkeypatch):

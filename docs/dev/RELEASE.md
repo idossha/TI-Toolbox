@@ -123,6 +123,36 @@ Windows and Linux package validation remains a production requirement; one local
 prove the other platforms. User-facing setup and known limits are in
 [Installation](../installation/installation.md#internal-colleague-testing).
 
+### Local development testing
+
+From the saved checkout, use the existing Python development loader with an existing copy
+of a project and an available local image:
+
+```bash
+python3 dev/loader/loader_dev.py --project /path/to/project-copy \
+  --image idossha/ti-toolbox:internal-20260908.1
+python3 dev/loader/loader_dev.py --project /path/to/project-copy --status
+python3 dev/loader/loader_dev.py --project /path/to/project-copy --logs
+```
+
+Replace the project path before running. This route mounts checkout source and available
+local renderer output; it is a development check, not clean baked-image acceptance. Reuse an
+active development session and preserve shared containers. The latest source still needs its
+matching final image; the locally cached internal image above is an interim test environment.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for shared test/build ordering.
+
+For localhost documentation preview, with Ruby/Bundler and the existing gems installed:
+
+```bash
+cd docs
+ENABLE_ANALYTICS=false bundle exec jekyll serve --host 127.0.0.1 --port 4000 --baseurl ""
+```
+
+Open `http://127.0.0.1:4000/`. This serves the current wiki and existing generated API pages
+locally; it does not publish. The two-generator refresh procedure remains in
+[`docs/README.md`](../README.md). These are operator commands, not evidence that a new image
+or preview server was started during closeout.
+
 ### Public publication later
 
 Only a separate production decision may publish the stable release or move Docker `latest`.
@@ -137,17 +167,30 @@ and first launch must be measured before claiming them; Windows artifacts are un
 
 ## B. Current readiness and follow-ups
 
-Internal preparation is in progress. The cohort identity is `internal-20260908.1`, runtime
-`3.0.0-dev.1`. The clean image has been built locally from the recorded source, and the baked
-container has passed selected tests and Python/shell/installed-wheel launcher checks. Actual Flex
-fixture execution also completed; exact measurements and receipts are in
-[BENCHMARKS.md](BENCHMARKS.md#clean-baked-candidate-progress--2026-09-09).
-The earlier baked image completed its real-suite assertions, including pipeline and source
-workflows, but its native monitor was inconclusive and three specs were excluded. It predates
-the security fixes now pending commit. The new security-source host refresh has completed;
-its counts and the historical baked/CI results are in BENCHMARKS.md. The new mock run is in
-progress. Rebuild and acceptance of the security-source image, installers and package validation,
-CodeQL and hosted CI reruns, main merge and registry publication remain pending.
+**This round closes with development-branch consolidation.** Keep the work in the saved
+checkout on `develop`; code and verification receipts are consolidated there.
+Do not merge main or publish to Docker Hub in this round. No public release, tag or update
+notification is part of this closeout. Local testing may continue while final artifact
+acceptance remains open.
+
+**Current delivery: NOT READY.** The cohort name remains `internal-20260908.1`, runtime
+`3.0.0-dev.1`, but its final source/image/package identities are pending further fixes. The
+clean local security image from `6571d06b` has been built and exercised through actual Python,
+shell and installed-wheel launchers. Host, desktop and fresh mock assertions passed; native
+monitoring remains inconclusive. Baked security tests had two missing development-fixture
+failures; both passed after fixture copies, without relabeling the original run as successful.
+Exact identities, counts and raw receipts are in
+[BENCHMARKS.md](BENCHMARKS.md#interim-security-image-validation--2026-09-09).
+
+Hosted CodeQL still reports 205 new alerts and gates the PR. The subsequent pipeline, ViewSpec-cache, named-view, scene, montage-source and
+catalog/ETA boundary fixes are implemented and locally tested; the new revision still needs
+its own hosted analysis. The missing `yaml` runtime dependency caused the first unsigned packaged launch to fail.
+Its repaired dirty-source app subsequently passed actual Browse → Start against the clean
+`6571d06b` image, including cleanup; native attribution remained inconclusive. This interim
+functional pass does not validate the next final installer/source/image pairing. The earlier real suite passed against `e3bee214`, not the newer security
+source. Final image/package rebuilding, first launch, fresh security/artifact acceptance and
+hosted gates remain open. Main and Docker Hub have not been updated; no public notification
+has been issued.
 
 Concrete fixes cover atlas/hemi/sidecar/ROI/catalog-content containment, unknown WebSocket job
 subscriptions, pre-existing outward symlinks in metadata/notebook/saved-view storage, exclusive
@@ -159,7 +202,8 @@ algorithm changed, so this work adds no scientific-correction notice.
 
 CircleCI source job 853 failed a checkout-dependent fixture, now repaired and checked on host
 and container. Desktop job 854 stalled at an interactive service-restart prompt before e2e;
-noninteractive setup is now explicit and CLI-validated. Both hosted reruns remain required.
+noninteractive setup is now explicit and CLI-validated. Hosted source job 856 subsequently passed on `6571d06b` and uploaded coverage; desktop
+job 855 remains running. These results do not cover the subsequent security fixes.
 
 No public release or update announcement is authorized by this preparation.
 

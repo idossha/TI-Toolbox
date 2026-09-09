@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import secrets
 from typing import Any
 
 from fastapi import APIRouter, Body, HTTPException, Query, Request
@@ -50,7 +51,28 @@ _NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$")
 
 def _pipelines_dir() -> str:
     """``<project>/code/ti-toolbox/pipelines/`` (sibling of ``config/`` and ``jobs/``)."""
-    return os.path.join(os.path.dirname(get_path_manager().config_dir()), "pipelines")
+    return _checked_path(
+        os.path.join(os.path.dirname(get_path_manager().config_dir()), "pipelines")
+    )
+
+
+def _checked_path(path: str) -> str:
+    """Keep both an entry and its symlink target inside the project.
+
+    Retain the leaf so save/delete replace/unlink an alias, not its target.
+    """
+    project = get_path_manager().project_dir
+    if project:
+        root = os.path.realpath(project)
+        parent = os.path.realpath(os.path.dirname(path))
+        entry = os.path.abspath(os.path.join(parent, os.path.basename(path)))
+        if entry == root or entry.startswith(root.rstrip(os.sep) + os.sep):
+            target = os.path.realpath(entry)
+            if target == root or target.startswith(root.rstrip(os.sep) + os.sep):
+                return entry
+    raise HTTPException(
+        status_code=403, detail="Pipeline storage must remain inside the project"
+    )
 
 
 def _safe_path(name: str) -> str:
@@ -62,7 +84,7 @@ def _safe_path(name: str) -> str:
                 "and start with a letter or digit"
             ),
         )
-    return os.path.join(_pipelines_dir(), f"{name}.json")
+    return _checked_path(os.path.join(_pipelines_dir(), f"{name}.json"))
 
 
 def _readiness() -> Readiness | None:
@@ -136,10 +158,10 @@ def list_pipelines() -> list[dict[str, Any]]:
     for filename in sorted(os.listdir(directory)):
         if not filename.endswith(".json"):
             continue
-        path = os.path.join(directory, filename)
         try:
+            path = _checked_path(os.path.join(directory, filename))
             stat = os.stat(path)
-        except OSError:  # pragma: no cover - raced deletion
+        except (OSError, HTTPException):  # missing entry or outward symlink
             continue
         entry: dict[str, Any] = {
             "name": filename[: -len(".json")],
@@ -185,10 +207,22 @@ def save_pipeline(name: str, body: dict[str, Any] = Body(...)) -> dict[str, Any]
     doc.name = name
     path = _safe_path(name)
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    tmp = f"{path}.tmp"
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(doc.to_dict(), fh, indent=2)
-    os.replace(tmp, path)
+    temporary = None
+    try:
+        candidate = os.path.join(
+            os.path.dirname(path), f".pipeline-{secrets.token_hex(16)}.tmp"
+        )
+        # Exclusive creation refuses planted links and uses the normal process umask.
+        with open(candidate, "x", encoding="utf-8") as fh:
+            temporary = candidate
+            json.dump(doc.to_dict(), fh, indent=2)
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
     return {"name": name, "saved": True}
 
 

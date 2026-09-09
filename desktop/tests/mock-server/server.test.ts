@@ -61,6 +61,23 @@ async function sessionCookie(): Promise<string> {
   return `tit_session=${m[1]}`;
 }
 
+describe("mock server: deliberate pipeline validation diagnostics", () => {
+  it.each([
+    ["POST", "/api/pipelines/validate"],
+    ["POST", "/api/pipelines/run"],
+    ["POST", "/api/pipelines/export"],
+    ["PUT", "/api/pipelines/example"],
+  ])("preserves actionable 422 details for %s %s", async (method, path) => {
+    const response = await fetch(`${BASE}${path}`, {
+      method,
+      headers: { authorization: `Bearer ${TOKEN}`, "content-type": "application/json" },
+      body: JSON.stringify({ nodes: "not an array" }),
+    });
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual({ detail: "`nodes` and `edges` must be arrays" });
+  });
+});
+
 /** HTTP status of the /ws/system upgrade handshake; 101 means the socket was accepted. */
 function upgradeStatus(headers: Record<string, string>): Promise<number> {
   return new Promise((resolve, reject) => {

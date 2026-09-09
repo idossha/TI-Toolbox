@@ -29,8 +29,8 @@ strings are a subject id, a part name, a net *file name* and an atlas id, and
 each is checked against what the project actually contains
 (:func:`tit.catalog.subject_ids`, :data:`tit.scene.build.PART_TAGS`,
 ``PathManager.list_eeg_caps``, ``MeshAtlasManager.list_atlases``) before it
-reaches the filesystem -- a traversal segment can never survive a membership
-test against a listed directory.
+reaches the filesystem. Scene source helpers also resolve symlinks and require
+their targets inside the project; a listed filename alone cannot establish that.
 """
 
 from __future__ import annotations
@@ -137,7 +137,12 @@ def _scene_subject(pm, subject: str) -> str:
         # The gate builds ``m2m_<id>/`` paths below; a separator or a ``..``
         # segment must never reach the filesystem (routes/files.py's rule).
         raise _no_such_subject(pm, subject)
-    if os.path.isdir(pm.m2m(subject)):
+    directory = build.source_path(pm, pm.m2m(subject))
+    if directory is None:
+        raise HTTPException(
+            status_code=404, detail="Head model resolves outside the project"
+        )
+    if directory.is_dir():
         try:
             build.head_mesh_path(pm, subject)
         except build.SceneUnavailable as exc:
@@ -249,7 +254,12 @@ def _surface_ready(pm, subject: str, part: str, fmt: str = "tvsc") -> Callable[[
     fingerprint = build.surface_fingerprint(pm, subject)
 
     def ready() -> Any:
-        return cache.find_cached(pm.project_dir, subject, part, fingerprint, fmt)
+        try:
+            return cache.find_cached(pm.project_dir, subject, part, fingerprint, fmt)
+        except PermissionError as exc:
+            raise HTTPException(
+                status_code=403, detail="Scene cache escapes the project"
+            ) from exc
 
     return ready
 
@@ -266,7 +276,12 @@ def _labels_ready(pm, subject: str, atlas: str, fmt: str = "tvsc") -> Callable[[
     fingerprint = build.labels_fingerprint(pm, subject, atlas)
 
     def ready() -> Any:
-        return cache.find_cached(pm.project_dir, subject, key, fingerprint, fmt)
+        try:
+            return cache.find_cached(pm.project_dir, subject, key, fingerprint, fmt)
+        except PermissionError as exc:
+            raise HTTPException(
+                status_code=403, detail="Scene cache escapes the project"
+            ) from exc
 
     return ready
 
@@ -411,8 +426,8 @@ def manifest(
             }
         )
     volumes = []
-    labeling = pm.tissue_labeling(subject)
-    if labeling and os.path.isfile(labeling):
+    labeling = build.source_path(pm, pm.tissue_labeling(subject))
+    if labeling is not None and labeling.is_file():
         volumes.append(
             {
                 "id": "labeling",
@@ -602,7 +617,8 @@ def regions(
 def electrodes(subject: str = Query(...), net: str = Query(...)) -> dict:
     pm = _pm()
     _scene_subject(pm, subject)
-    if net not in pm.list_eeg_caps(subject):
+    directory = build.source_path(pm, pm.eeg_positions(subject))
+    if directory is None or net not in pm.list_eeg_caps(subject):
         raise HTTPException(
             status_code=404, detail=f"{subject} has no EEG net file {net!r}"
         )

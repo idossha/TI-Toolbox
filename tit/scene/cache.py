@@ -50,6 +50,8 @@ import threading
 from dataclasses import dataclass
 from pathlib import Path
 
+from tit.paths import is_within, validate_subject_id
+
 __all__ = [
     "BIDSIGNORE_LINE",
     "CachedArtifact",
@@ -82,14 +84,31 @@ class CachedArtifact:
     meta: dict
 
 
+def _cache_path(project_dir: str | os.PathLike[str], path: Path) -> Path:
+    """Check a resolved cache target while retaining its final replace/unlink entry."""
+    resolved = os.path.realpath(path)
+    parent = os.path.realpath(path.parent)
+    if (
+        not is_within(str(project_dir), parent)
+        or not is_within(str(project_dir), resolved)
+        or resolved == os.path.realpath(project_dir)
+    ):
+        raise PermissionError("Scene cache resolves outside the project")
+    return Path(parent) / path.name
+
+
 def cache_dir(project_dir: str | os.PathLike[str], subject_id: str) -> Path:
     """``<project>/derivatives/ti-toolbox/scene_cache/sub-<id>/``."""
-    return (
-        Path(project_dir)
-        / "derivatives"
-        / "ti-toolbox"
-        / "scene_cache"
-        / f"sub-{subject_id}"
+    validate_subject_id(subject_id)
+    return _cache_path(
+        project_dir,
+        (
+            Path(project_dir)
+            / "derivatives"
+            / "ti-toolbox"
+            / "scene_cache"
+            / f"sub-{subject_id}"
+        ),
     )
 
 
@@ -99,7 +118,10 @@ def ensure_bidsignore(project_dir: str | os.PathLike[str]) -> None:
     Idempotent, and appends without touching any existing line -- users curate
     that file by hand, so rewriting it would throw away their entries.
     """
-    target = Path(project_dir) / ".bidsignore"
+    try:
+        target = _cache_path(project_dir, Path(project_dir) / ".bidsignore")
+    except PermissionError:
+        return  # Bookkeeping is optional; an outward link must never be followed.
     try:
         existing = target.read_text(encoding="utf-8").splitlines()
     except OSError:
@@ -115,9 +137,7 @@ def ensure_bidsignore(project_dir: str | os.PathLike[str]) -> None:
         pass
 
 
-def fingerprint(
-    sources: list[str | os.PathLike[str]], version: str = ""
-) -> str:
+def fingerprint(sources: list[str | os.PathLike[str]], version: str = "") -> str:
     """16 hex chars over ``(basename, size, mtime_ns)`` of each source file.
 
     A missing source contributes ``"-"`` rather than raising, so a subject
@@ -170,9 +190,17 @@ def artifact_paths(
     two sidecars would be two answers to "how many triangles is this".
     """
     if ext not in FORMATS:
-        raise ValueError(f"unknown scene cache format {ext!r}; expected one of {FORMATS}")
+        raise ValueError(
+            f"unknown scene cache format {ext!r}; expected one of {FORMATS}"
+        )
+    for value in (key, fp):
+        if not value or value in (".", "..") or "/" in value or "\\" in value:
+            raise ValueError("Scene cache keys and fingerprints must be single entries")
     root = cache_dir(project_dir, subject_id)
-    return root / f"{key}.{fp}.{ext}", root / f"{key}.{fp}.json"
+    return (
+        _cache_path(project_dir, root / f"{key}.{fp}.{ext}"),
+        _cache_path(project_dir, root / f"{key}.{fp}.json"),
+    )
 
 
 def find_cached(
@@ -211,24 +239,28 @@ def publish(
 ) -> CachedArtifact:
     """Write ``blob``/``meta`` atomically and delete this key's stale entries."""
     root = cache_dir(project_dir, subject_id)
+    blob_path, sidecar_path = artifact_paths(project_dir, subject_id, key, fp, ext)
     root.mkdir(parents=True, exist_ok=True)
     ensure_bidsignore(project_dir)
-    blob_path, sidecar_path = artifact_paths(project_dir, subject_id, key, fp, ext)
-    stamp = f"{os.getpid()}-{os.urandom(4).hex()}"
+    stamp = f"{os.getpid()}-{os.urandom(16).hex()}"
     tmp_blob = blob_path.with_name(blob_path.name + f".tmp-{stamp}")
     tmp_sidecar = sidecar_path.with_name(sidecar_path.name + f".tmp-{stamp}")
     payload = dict(meta, bytes=len(blob), fingerprint=fp, key=key)
+    created: list[Path] = []
     try:
-        tmp_blob.write_bytes(blob)
-        tmp_sidecar.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        with tmp_blob.open("xb") as handle:
+            created.append(tmp_blob)
+            handle.write(blob)
+        with tmp_sidecar.open("x", encoding="utf-8") as handle:
+            created.append(tmp_sidecar)
+            handle.write(json.dumps(payload, indent=2) + "\n")
         # Sidecar first: a reader that sees the .tvsc must always find the
         # sidecar next to it (find_cached requires both), never the reverse.
         os.replace(tmp_sidecar, sidecar_path)
         os.replace(tmp_blob, blob_path)
     finally:
-        for leftover in (tmp_blob, tmp_sidecar):
-            if leftover.exists():
-                leftover.unlink(missing_ok=True)
+        for leftover in created:
+            leftover.unlink(missing_ok=True)
     prune_stale(project_dir, subject_id, key, fp)
     return CachedArtifact(path=blob_path, sidecar=sidecar_path, meta=payload)
 

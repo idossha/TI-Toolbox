@@ -747,3 +747,44 @@ Neither repair turns the earlier failed jobs into passes. The earlier baked runt
 its real assertions with an inconclusive native monitor; it predates the security source fixes
 and must not be presented as their rebuilt-image acceptance. Exact results and raw receipts
 remain in BENCHMARKS.md; rebuild, packaging and hosted reruns remain in RELEASE.md.
+
+
+The next clean local security image and wheel were built from `6571d06b` and exercised through
+all three launcher routes. Baked tests exposed missing development-only contract fixtures;
+the two affected cases passed after those fixtures were supplied, which does not erase the
+initial failed run. Fresh mock assertions also passed, with native attribution still
+inconclusive. Hosted CodeQL continued to gate the PR and further concrete pipeline/cache/view
+containment defects were found. The first unsigned packaged launch then failed on a missing
+`yaml` runtime dependency. Delivery remains not ready while those repairs, final artifact
+identities and fresh acceptance are pending; the earlier successful real suite tested the
+pre-security image. Main, Docker Hub and public notifications remain unchanged. See the
+interim measurements in BENCHMARKS.md and current blockers in RELEASE.md.
+
+
+The packaged dependency repair then passed an actual Browse → Start launch and owned-container
+cleanup. That app contained uncommitted fixes and ran against the prior clean security image,
+so it established the functional repair rather than final delivery acceptance. App visibility
+checks passed; native attribution remained inconclusive despite later identification of some
+short-lived processes as Spotlight. Final installer identities and acceptance remain pending;
+there is no reason to rerun solely to chase shared-host monitor attribution.
+
+
+The user then narrowed this round's closeout to consolidating the work on one logical
+development branch in the saved checkout. The lead owns the branch rename and final commit/check
+receipts. Main merge and Docker Hub publication are outside this round; no public release or
+update notification is planned. Development testing continues through the existing Python
+loader and localhost documentation preview commands in RELEASE.md. The source still requires
+its matching final image and installer acceptance; consolidation is not a final-candidate claim.
+
+### Development branch closeout — 2026-09-09
+
+The maintainer ended this round at `develop`, before main merge or registry publication.
+Additional path regressions covered pipeline documents, named views and statistics caches,
+scene inputs/cache, montage resolution and catalog/ETA metadata. The packaged app's missing
+YAML dependency was bundled into main and the artifact validator now rejects unresolved
+external runtime dependencies. Actual packaged Browse/Start then succeeded. An obsolete
+native-Python packaging spike was replaced with the current Docker-launcher startup contract,
+including packaged identity and hidden-window assertions. The clean API documentation build
+also exposed removed recon-all references; authored examples now use the current FastSurfer API.
+Measurements and the unresolved hosted/security/native-monitor limits remain in BENCHMARKS
+and RELEASE rather than being treated as a production approval.

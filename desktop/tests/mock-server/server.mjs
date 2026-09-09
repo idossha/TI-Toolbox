@@ -3229,19 +3229,28 @@ const PIPE_DYNAMIC = new Set(["montages", "leadfield", "simulation"]);
 const PIPE_PLACEHOLDER = { montages: ["montages", []], leadfield: ["leadfield_hdf", ""], simulation: ["simulation", ""] };
 const pipelineStore = new Map();
 
+// Only deliberate input-validation details belong in HTTP responses. Unexpected
+// exceptions retain their full diagnostics in the mock server's stderr.
+class PipelineValidationError extends Error {
+  constructor(detail) {
+    super(detail);
+    this.detail = detail;
+  }
+}
+
 function pipeDoc(body) {
   const raw = body && typeof body === "object" && body.pipeline ? body.pipeline : body;
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("pipeline document must be a JSON object");
-  if ((raw.version ?? 1) !== 1) throw new Error(`unsupported pipeline document version ${JSON.stringify(raw.version)}`);
-  if (!Array.isArray(raw.nodes) || (raw.edges !== undefined && !Array.isArray(raw.edges))) throw new Error("`nodes` and `edges` must be arrays");
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new PipelineValidationError("pipeline document must be a JSON object");
+  if ((raw.version ?? 1) !== 1) throw new PipelineValidationError(`unsupported pipeline document version ${JSON.stringify(raw.version)}`);
+  if (!Array.isArray(raw.nodes) || (raw.edges !== undefined && !Array.isArray(raw.edges))) throw new PipelineValidationError("`nodes` and `edges` must be arrays");
   const nodes = raw.nodes.map((n) => {
-    if (!n || typeof n.id !== "string" || !n.id) throw new Error("each node needs a non-empty string id");
-    if (!PIPE_KINDS.includes(n.kind)) throw new Error(`node ${n.id}: unknown kind ${JSON.stringify(n.kind)}`);
+    if (!n || typeof n.id !== "string" || !n.id) throw new PipelineValidationError("each node needs a non-empty string id");
+    if (!PIPE_KINDS.includes(n.kind)) throw new PipelineValidationError(`node ${n.id}: unknown kind ${JSON.stringify(n.kind)}`);
     return { id: n.id, kind: n.kind, label: n.label ?? null, config: n.config ?? {}, position: { x: Number(n.position?.x ?? 0), y: Number(n.position?.y ?? 0) } };
   });
   const edges = (raw.edges ?? []).map((e) => {
-    if (typeof e?.from !== "string" || typeof e?.to !== "string") throw new Error("each edge needs string `from` and `to` node ids");
-    if (!PIPE_PORT_TYPES.includes(e.port)) throw new Error(`edge ${e.from}->${e.to}: unknown port ${JSON.stringify(e.port)}`);
+    if (typeof e?.from !== "string" || typeof e?.to !== "string") throw new PipelineValidationError("each edge needs string `from` and `to` node ids");
+    if (!PIPE_PORT_TYPES.includes(e.port)) throw new PipelineValidationError(`edge ${e.from}->${e.to}: unknown port ${JSON.stringify(e.port)}`);
     return { from: e.from, to: e.to, port: e.port };
   });
   return { version: 1, name: typeof raw.name === "string" && raw.name ? raw.name : "pipeline", nodes, edges };
@@ -3460,14 +3469,20 @@ route("GET", "/api/pipelines/kinds", (ctx) =>
 route("GET", "/api/pipelines", (ctx) => json(ctx.res, 200, [...pipelineStore.entries()].map(([name, entry]) => ({ name, modified_at: entry.modified_at, size: JSON.stringify(entry.doc).length, nodes: (entry.doc.nodes ?? []).length, edges: (entry.doc.edges ?? []).length })).sort((a, b) => a.name.localeCompare(b.name))));
 route("POST", "/api/pipelines/validate", async (ctx) => {
   let doc;
-  try { doc = pipeDoc(await ctx.body()); } catch (err) { return json(ctx.res, 422, { detail: String(err.message ?? err) }); }
+  try { doc = pipeDoc(await ctx.body()); } catch (err) {
+    if (!(err instanceof PipelineValidationError)) throw err;
+    return json(ctx.res, 422, { detail: err.detail });
+  }
   const result = pipeValidate(doc);
   return json(ctx.res, 200, { ...result, jobs: (pipePlan(doc) ?? []).map(({ label, kind, subject_ids, after, tags }) => ({ label, kind, subject_ids, after, tags })) });
 });
 route("POST", "/api/pipelines/run", async (ctx) => {
   const body = await ctx.body();
   let doc;
-  try { doc = pipeDoc(body); } catch (err) { return json(ctx.res, 422, { detail: String(err.message ?? err) }); }
+  try { doc = pipeDoc(body); } catch (err) {
+    if (!(err instanceof PipelineValidationError)) throw err;
+    return json(ctx.res, 422, { detail: err.detail });
+  }
   const result = pipeValidate(doc);
   if (!result.ok) return json(ctx.res, 422, { detail: { message: "pipeline does not validate", issues: result.issues.filter((i) => i.level === "error") } });
   const planned = pipePlan(doc);
@@ -3485,7 +3500,10 @@ route("POST", "/api/pipelines/run", async (ctx) => {
 route("POST", "/api/pipelines/export", async (ctx) => {
   if ((ctx.url.searchParams.get("format") ?? "ipynb") !== "ipynb") return json(ctx.res, 422, { detail: "only format=ipynb is supported" });
   let doc;
-  try { doc = pipeDoc(await ctx.body()); } catch (err) { return json(ctx.res, 422, { detail: String(err.message ?? err) }); }
+  try { doc = pipeDoc(await ctx.body()); } catch (err) {
+    if (!(err instanceof PipelineValidationError)) throw err;
+    return json(ctx.res, 422, { detail: err.detail });
+  }
   const order = pipeTopo(doc) ?? doc.nodes.map((n) => n.id);
   const mermaid = ["graph LR", ...doc.nodes.map((n) => `  ${n.id}["${pipeName(n)}"]`), ...doc.edges.map((e) => `  ${e.from} -->|${e.port}| ${e.to}`)].join("\n");
   const cells = [
@@ -3511,7 +3529,10 @@ route("GET", "/api/pipelines/:name", (ctx) => {
 route("PUT", "/api/pipelines/:name", async (ctx) => {
   if (!PIPE_NAME_RE.test(ctx.params.name)) return json(ctx.res, 422, { detail: "illegal pipeline name" });
   let doc;
-  try { doc = pipeDoc(await ctx.body()); } catch (err) { return json(ctx.res, 422, { detail: String(err.message ?? err) }); }
+  try { doc = pipeDoc(await ctx.body()); } catch (err) {
+    if (!(err instanceof PipelineValidationError)) throw err;
+    return json(ctx.res, 422, { detail: err.detail });
+  }
   doc.name = ctx.params.name;
   pipelineStore.set(ctx.params.name, { doc, modified_at: Date.now() / 1000 });
   return json(ctx.res, 200, { name: ctx.params.name, saved: true });
@@ -4219,7 +4240,8 @@ const server = createServer(async (req, res) => {
     try {
       await r.handler(ctx);
     } catch (err) {
-      json(res, 500, { detail: String(err?.message ?? err) });
+      console.error("Mock request failed:", err);
+      json(res, 500, { detail: "Internal mock server error; see server stderr" });
     }
     return;
   }

@@ -57,6 +57,28 @@ __all__ = [
 ]
 
 
+def _source_name(name: str, field: str) -> str:
+    """Keep legacy spaces/dots, but require one filename component."""
+    if (
+        not isinstance(name, str)
+        or not name
+        or name in (".", "..")
+        or any(character in name for character in ("/", "\\", "\0"))
+    ):
+        raise ValueError(f"{field} must be a name, not a path")
+    return name
+
+
+def _source_path(pm: PathManager, path: str) -> str:
+    """Resolve project-owned montage inputs and mapping outputs before file I/O."""
+    if pm.project_dir:
+        root = os.path.realpath(pm.project_dir)
+        resolved = os.path.realpath(path)
+        if resolved == root or resolved.startswith(root.rstrip(os.sep) + os.sep):
+            return resolved
+    raise ValueError("Montage source paths must remain inside the project")
+
+
 def short_flex_run_id(subject_id: str, run_name: str) -> str:
     """Build a stable short id from the subject and flex-search run folder.
 
@@ -75,6 +97,7 @@ def flex_montage_name(run_name: str, run_id: str, electrode_type: str) -> str:
     sanitisation and length cap), so simulation output directories named
     from a flex-search source stay stable across the PyQt and v3 GUIs.
     """
+    run_id = _source_name(run_id, "run_id")
     safe_run_name = re.sub(r"[^A-Za-z0-9_]+", "_", str(run_name)).strip("_")
     safe_run_name = safe_run_name[:32] or "run"
     safe_type = re.sub(r"[^A-Za-z0-9_]+", "_", str(electrode_type)).strip("_")
@@ -98,12 +121,22 @@ def list_flex_run_options(pm: PathManager, subject_id: str) -> list[dict[str, An
         :func:`short_flex_run_id`).
     """
     options: list[dict[str, Any]] = []
+    try:
+        _source_path(pm, pm.flex_search(subject_id))
+    except ValueError:
+        return options
     for run_name in pm.list_flex_search_runs(subject_id):
+        try:
+            _source_name(run_name, "run_name")
+            positions_file = _source_path(
+                pm, pm.flex_electrode_positions(subject_id, run_name)
+            )
+        except ValueError:
+            continue
         run_id = short_flex_run_id(subject_id, run_name)
         options.append(
             {"run_name": run_name, "electrode_type": "mapped", "run_id": run_id}
         )
-        positions_file = pm.flex_electrode_positions(subject_id, run_name)
         if positions_file and os.path.isfile(positions_file):
             try:
                 with open(positions_file, "r") as f:
@@ -170,14 +203,17 @@ def resolve_flex_montage(
         first 4 are used for higher electrode counts, matching
         ``SimulatorTab``'s behavior).
     """
+    run_name = _source_name(run_name, "run_name")
     run_id = run_id or short_flex_run_id(subject_id, run_name)
     display_name = display_name or f"{run_name} | {run_id} | {electrode_type}"
     montage_name = flex_montage_name(run_name, run_id, electrode_type)
 
-    flex_search_dir = pm.flex_search_run(subject_id, run_name)
+    flex_search_dir = _source_path(pm, pm.flex_search_run(subject_id, run_name))
     if not flex_search_dir or not os.path.isdir(flex_search_dir):
         raise ValueError(f"Flex-search folder not found for {subject_id} | {run_name}")
-    positions_file = os.path.join(flex_search_dir, "electrode_positions.json")
+    positions_file = _source_path(
+        pm, os.path.join(flex_search_dir, "electrode_positions.json")
+    )
     if not os.path.isfile(positions_file):
         raise ValueError(f"electrode_positions.json not found: {positions_file}")
 
@@ -209,10 +245,18 @@ def resolve_flex_montage(
     if not eeg_net:
         raise ValueError("eeg_net is required when electrode_type='mapped'")
 
-    eeg_positions_dir = pm.eeg_positions(subject_id)
-    eeg_net_path = os.path.join(eeg_positions_dir or "", eeg_net)
+    eeg_net = _source_name(eeg_net, "eeg_net")
+    eeg_positions_dir = _source_path(pm, pm.eeg_positions(subject_id))
+    eeg_net_path = _source_path(pm, os.path.join(eeg_positions_dir, eeg_net))
     if not eeg_positions_dir or not os.path.isfile(eeg_net_path):
         raise ValueError(f"EEG net file not found: {eeg_net_path}")
+
+    mapping_file = _source_path(
+        pm,
+        os.path.join(
+            flex_search_dir, f'electrode_mapping_{eeg_net.replace(".csv", "")}.json'
+        ),
+    )
 
     from tit.tools.map_electrodes import (
         load_electrode_positions_json,
@@ -225,12 +269,7 @@ def resolve_flex_montage(
     net_pos, net_labels = read_csv_positions(eeg_net_path)
     result = map_electrodes_to_net(opt_pos, net_pos, net_labels, ch_arr_idx)
 
-    mapping_file = os.path.join(
-        flex_search_dir, f'electrode_mapping_{eeg_net.replace(".csv", "")}.json'
-    )
-    save_mapping_result(
-        result, mapping_file, eeg_net_name=os.path.basename(eeg_net_path)
-    )
+    save_mapping_result(result, mapping_file, eeg_net_name=eeg_net)
 
     mapped_labels = result.get("mapped_labels", [])
     if len(mapped_labels) < 4:
@@ -264,13 +303,19 @@ def list_freehand_configs(pm: PathManager, subject_id: str) -> list[str]:
     m2m_dir = pm.m2m(subject_id)
     if not m2m_dir or not os.path.isdir(m2m_dir):
         return names
-    stim_configs_dir = os.path.join(m2m_dir, "stim_configs")
+    try:
+        stim_configs_dir = _source_path(pm, os.path.join(m2m_dir, "stim_configs"))
+    except ValueError:
+        return names
     if not os.path.isdir(stim_configs_dir):
         return names
     for config_file in sorted(os.listdir(stim_configs_dir)):
         if not config_file.endswith(".json"):
             continue
-        config_path = os.path.join(stim_configs_dir, config_file)
+        try:
+            config_path = _source_path(pm, os.path.join(stim_configs_dir, config_file))
+        except ValueError:
+            continue
         try:
             with open(config_path, "r") as f:
                 config_data = json.load(f)
@@ -301,14 +346,17 @@ def resolve_freehand_montage(pm: PathManager, subject_id: str, name: str) -> Mon
     m2m_dir = pm.m2m(subject_id)
     if not m2m_dir:
         raise ValueError(f"No m2m directory for subject {subject_id}")
-    stim_configs_dir = os.path.join(m2m_dir, "stim_configs")
+    stim_configs_dir = _source_path(pm, os.path.join(m2m_dir, "stim_configs"))
     if not os.path.isdir(stim_configs_dir):
         raise ValueError(f"No stim_configs directory for subject {subject_id}")
 
     for config_file in sorted(os.listdir(stim_configs_dir)):
         if not config_file.endswith(".json"):
             continue
-        config_path = os.path.join(stim_configs_dir, config_file)
+        try:
+            config_path = _source_path(pm, os.path.join(stim_configs_dir, config_file))
+        except ValueError:
+            continue
         try:
             with open(config_path, "r") as f:
                 config_data = json.load(f)

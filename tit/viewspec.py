@@ -78,6 +78,7 @@ import json
 import math
 import os
 import re
+import secrets
 import threading
 from collections import OrderedDict
 from pathlib import Path
@@ -90,7 +91,7 @@ from tit.catalog import (
     surface_attachments,
 )
 from tit.atlas.constants import mni_resources_dir
-from tit.paths import get_path_manager
+from tit.paths import get_path_manager, is_within
 
 _VIEW_KINDS = ("subject", "simulation", "analysis", "group", "custom")
 
@@ -431,7 +432,7 @@ def _analysis_cursor(pm, sid: str, sim: str, analysis_name: str) -> list[float] 
             analysis_name,
             "analysis.json",
         )
-        if not os.path.isfile(config):
+        if not is_within(pm.project_dir, config) or not os.path.isfile(config):
             continue
         try:
             with open(config, encoding="utf-8") as f:
@@ -1203,7 +1204,10 @@ def _tree_node(
                 "available": available,
                 "reason": reason,
             }
-            for attachment in surface_attachments(path, extra_dirs=attachment_dirs)
+            for attachment in surface_attachments(
+                path, extra_dirs=attachment_dirs,
+                project_root=get_path_manager().project_dir,
+            )
         ]
     return node
 
@@ -1977,7 +1981,10 @@ def stats_cache_dir() -> str | None:
         return None
     if not project:
         return None
-    return os.path.join(str(project), "code", "ti-toolbox", "viewer", "cache")
+    directory = os.path.join(str(project), "code", "ti-toolbox", "viewer", "cache")
+    if not is_within(str(project), directory):
+        return None
+    return os.path.realpath(directory)
 
 
 def _stats_sidecar_path(path: str) -> str | None:
@@ -1991,7 +1998,14 @@ def _stats_sidecar_path(path: str) -> str | None:
     if directory is None:
         return None
     digest = hashlib.sha256(os.path.abspath(path).encode("utf-8")).hexdigest()[:32]
-    return os.path.join(directory, f"{digest}.stats.json")
+    target = os.path.join(directory, f"{digest}.stats.json")
+    project = get_path_manager().project_dir
+    if not project or not is_within(project, target):
+        return None
+    # Keep a checked leaf alias: replacement must replace the alias, not its target.
+    return os.path.join(
+        os.path.realpath(os.path.dirname(target)), os.path.basename(target)
+    )
 
 
 def _read_stats_sidecar(path: str, st: os.stat_result) -> dict[str, float] | None:
@@ -2025,7 +2039,9 @@ def _read_stats_sidecar(path: str, st: os.stat_result) -> dict[str, float] | Non
         return None
 
 
-def _write_stats_sidecar(path: str, st: os.stat_result, stats: dict[str, float]) -> None:
+def _write_stats_sidecar(
+    path: str, st: os.stat_result, stats: dict[str, float]
+) -> None:
     """Persist *stats* beside the project, best-effort.
 
     Best-effort on purpose: a read-only project, a full disk or a race with another process are
@@ -2042,14 +2058,24 @@ def _write_stats_sidecar(path: str, st: os.stat_result, stats: dict[str, float])
         "mtime_ns": st.st_mtime_ns,
         "stats": stats,
     }
+    temporary = None
     try:
         os.makedirs(os.path.dirname(target), exist_ok=True)
-        tmp = f"{target}.{os.getpid()}.partial"
-        with open(tmp, "w", encoding="utf-8") as handle:
+        candidate = os.path.join(
+            os.path.dirname(target), f".stats-{secrets.token_hex(16)}.partial"
+        )
+        with open(candidate, "x", encoding="utf-8") as handle:
+            temporary = candidate
             json.dump(document, handle)
-        os.replace(tmp, target)
+        os.replace(temporary, target)
     except OSError:
         return
+    finally:
+        if temporary is not None:
+            try:
+                os.unlink(temporary)
+            except OSError:
+                pass
 
 
 def _volume_stats(path: str) -> dict[str, float] | None:
@@ -2935,7 +2961,26 @@ def _finish(
     title: str | None = None,
     cursor: list[float] | None = None,
 ) -> dict[str, Any]:
-    spec: dict[str, Any] = {"space": space, "layers": layers}
+    # Named subject/simulation layers also come from untrusted project symlinks.
+    # Check them before percentiles or bounds touch the file, not after scene creation.
+    checked = []
+    for layer in layers:
+        path = resolve_jailed(layer["path"])
+        if path is None:
+            continue
+        layer = dict(layer, path=str(path))
+        if "attachments" in layer:
+            layer["attachments"] = [
+                str(resolved)
+                for raw in layer["attachments"]
+                if (resolved := resolve_jailed(raw)) is not None
+            ]
+        lut = layer.get("lut")
+        if lut and os.path.isabs(str(lut)):
+            resolved = resolve_jailed(str(lut))
+            layer["lut"] = str(resolved) if resolved is not None else None
+        checked.append(layer)
+    spec: dict[str, Any] = {"space": space, "layers": checked}
     resolve_percentiles(spec)
     return finish_spec(spec, title=title, cursor=cursor)
 
@@ -3049,8 +3094,8 @@ def resolve_jailed(raw_path: str) -> Path | None:
     for root in jail_roots():
         canonical_root = os.path.realpath(root)
         # Include the separator so a sibling such as project-copy cannot match.
-        if resolved == canonical_root or resolved.startswith(
-            canonical_root.rstrip(os.sep) + os.sep
-        ):
+        if resolved == canonical_root:
+            return Path(canonical_root) if os.path.isfile(canonical_root) else None
+        if resolved.startswith(canonical_root.rstrip(os.sep) + os.sep):
             return Path(resolved) if os.path.isfile(resolved) else None
     return None

@@ -66,7 +66,9 @@ def resolve_static_file(static_dir: str, path: str) -> Path | None:
     """File under *static_dir* for *path*, or ``None`` (missing / escapes the jail)."""
     root = os.path.realpath(static_dir)
     candidate = os.path.realpath(os.path.join(root, path or "index.html"))
-    if candidate == root or candidate.startswith(root.rstrip(os.sep) + os.sep):
+    if candidate == root:
+        return Path(root) if os.path.isfile(root) else None
+    if candidate.startswith(root.rstrip(os.sep) + os.sep):
         return Path(candidate) if os.path.isfile(candidate) else None
     return None
 
@@ -82,7 +84,9 @@ def resolve_tetravox_file(embed_dir: str, path: str) -> Path | None:
     root = os.path.realpath(embed_dir)
     target = "index.html" if path in ("", "index.html") else path
     candidate = os.path.realpath(os.path.join(root, target))
-    if candidate == root or candidate.startswith(root.rstrip(os.sep) + os.sep):
+    if candidate == root:
+        return Path(root) if os.path.isfile(root) else None
+    if candidate.startswith(root.rstrip(os.sep) + os.sep):
         return Path(candidate) if os.path.isfile(candidate) else None
     return None
 

@@ -159,7 +159,10 @@ def _mesh_path(subject_id: str | None) -> str | None:
     except Exception:  # pragma: no cover - no project configured
         return None
     try:
-        return os.path.join(pm.m2m(subject_id), f"{subject_id}.msh")
+        from tit.paths import is_within
+
+        path = os.path.join(pm.m2m(subject_id), f"{subject_id}.msh")
+        return path if pm.project_dir and is_within(pm.project_dir, path) else None
     except Exception:  # pragma: no cover - defensive
         return None
 
@@ -237,7 +240,12 @@ def electrode_count(subject_id: str | None, eeg_net: str | None) -> int | None:
 
         pm = get_path_manager()
         name = eeg_net if eeg_net.lower().endswith(".csv") else f"{eeg_net}.csv"
-        labels = _read_cap_electrode_labels(os.path.join(pm.eeg_positions(subject_id), name))
+        from tit.paths import is_within
+
+        path = os.path.join(pm.eeg_positions(subject_id), name)
+        if not pm.project_dir or not is_within(pm.project_dir, path):
+            return None
+        labels = _read_cap_electrode_labels(path)
     except Exception:
         return None
     return len(labels) or None
@@ -336,7 +344,9 @@ def eta_minutes(
         whose cap cannot be read.
     """
     config = config or {}
-    sid = subject_id or (config.get("subject_id") if isinstance(config.get("subject_id"), str) else None)
+    sid = subject_id or (
+        config.get("subject_id") if isinstance(config.get("subject_id"), str) else None
+    )
     sys_profile = system or detect_system()
     scale = mesh_scale(sid)
 

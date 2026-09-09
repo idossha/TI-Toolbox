@@ -113,8 +113,11 @@ function displayResults(results, query) {
     // DOM attributes prevent quote injection; reject executable URL schemes as well.
     try {
       const parsedUrl = new URL(resultUrl, window.location.href);
-      if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
-        link.setAttribute('href', resultUrl);
+      if ((parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') &&
+          parsedUrl.origin === window.location.origin) {
+        // Use the validated URL, not DOM-derived text, and keep indexed navigation
+        // on this documentation origin even if the index or base attribute is altered.
+        link.href = parsedUrl.href;
       }
     } catch {
       // Keep a malformed indexed URL's title readable without creating a broken link.

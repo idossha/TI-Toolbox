@@ -53,7 +53,7 @@ from typing import Any
 
 import numpy as np
 
-from tit.paths import PathManager
+from tit.paths import PathManager, is_within
 from tit.scene import cache, gifti, tvsc
 from tit.scene.simplify import simplify_to_budget
 
@@ -161,10 +161,22 @@ class SceneUnavailable(Exception):
 # ── source files ─────────────────────────────────────────────────────────────
 
 
+def source_path(pm: PathManager, path: str | Path) -> Path | None:
+    """A canonical project source, or None for an outward source link.
+
+    Scene builders serve project-derived HTTP payloads; standalone scientific readers
+    elsewhere retain their own input policy.
+    """
+    resolved = os.path.realpath(path)
+    if not pm.project_dir or not is_within(pm.project_dir, resolved):
+        return None
+    return Path(resolved)
+
+
 def head_mesh_path(pm: PathManager, sid: str) -> Path:
     """``m2m_<id>/<id>.msh``, or raise :class:`SceneUnavailable`."""
-    path = Path(pm.m2m(sid)) / f"{sid}.msh"
-    if not path.is_file():
+    path = source_path(pm, Path(pm.m2m(sid)) / f"{sid}.msh")
+    if path is None or not path.is_file():
         raise SceneUnavailable(
             f"No head model for {sid}: {path} does not exist (run charm first)"
         )
@@ -173,7 +185,10 @@ def head_mesh_path(pm: PathManager, sid: str) -> Path:
 
 def surface_sources(pm: PathManager, sid: str) -> list[str]:
     """Files whose size+mtime fingerprint the ``skin``/``gm`` payloads."""
-    return [str(Path(pm.m2m(sid)) / f"{sid}.msh")]
+    path = source_path(pm, Path(pm.m2m(sid)) / f"{sid}.msh")
+    if path is None:
+        raise SceneUnavailable("Head mesh resolves outside the project")
+    return [str(path)]
 
 
 def surface_fingerprint(pm: PathManager, sid: str) -> str:
@@ -209,25 +224,32 @@ def annot_paths(pm: PathManager, sid: str, atlas_id: str) -> dict[str, str]:
 
     if not is_safe_name(atlas_id):
         return {}
-    manager = MeshAtlasManager(os.path.join(pm.m2m(sid), "segmentation"))
+    directory = source_path(pm, os.path.join(pm.m2m(sid), "segmentation"))
+    if directory is None:
+        return {}
+    manager = MeshAtlasManager(str(directory))
     if atlas_id not in manager.list_atlases():
         return {}
     found: dict[str, str] = {}
     for hemi in ("lh", "rh"):
         path = manager.find_atlas_file(atlas_id, hemi)
-        if path and os.path.isfile(path):
-            found[hemi] = path
+        resolved = source_path(pm, path) if path else None
+        if resolved is not None and resolved.is_file():
+            found[hemi] = str(resolved)
     return found
 
 
 def central_surface_paths(pm: PathManager, sid: str) -> dict[str, str]:
     """``{"lh": path, "rh": path}`` for the central surfaces that exist."""
-    root = Path(pm.m2m(sid)) / "surfaces"
-    return {
-        hemi: str(root / f"{hemi}.central.gii")
-        for hemi in ("lh", "rh")
-        if (root / f"{hemi}.central.gii").is_file()
-    }
+    root = source_path(pm, Path(pm.m2m(sid)) / "surfaces")
+    if root is None:
+        return {}
+    found = {}
+    for hemi in ("lh", "rh"):
+        path = source_path(pm, root / f"{hemi}.central.gii")
+        if path is not None and path.is_file():
+            found[hemi] = str(path)
+    return found
 
 
 def label_sources(pm: PathManager, sid: str, atlas_id: str) -> list[str]:
@@ -238,8 +260,13 @@ def label_sources(pm: PathManager, sid: str, atlas_id: str) -> list[str]:
     labels file that survived it would be aligned to nothing.
     """
     sources = list(surface_sources(pm, sid))
-    sources += [annot_paths(pm, sid, atlas_id).get(h, f"{h}.missing.annot") for h in ("lh", "rh")]
-    sources += [central_surface_paths(pm, sid).get(h, f"{h}.missing.gii") for h in ("lh", "rh")]
+    sources += [
+        annot_paths(pm, sid, atlas_id).get(h, f"{h}.missing.annot")
+        for h in ("lh", "rh")
+    ]
+    sources += [
+        central_surface_paths(pm, sid).get(h, f"{h}.missing.gii") for h in ("lh", "rh")
+    ]
     return sources
 
 
@@ -882,8 +909,8 @@ def read_net(pm: PathManager, sid: str, net: str) -> dict:
     """
     if "/" in net or "\\" in net or net in ("", ".", ".."):
         raise SceneUnavailable(f"{net!r} is not a net file name")
-    path = Path(pm.eeg_positions(sid)) / net
-    if not path.is_file():
+    path = source_path(pm, Path(pm.eeg_positions(sid)) / net)
+    if path is None or not path.is_file():
         raise SceneUnavailable(f"{sid} has no EEG net file {net}")
     parsed = parse_electrode_csv(path.read_text(encoding="utf-8", errors="replace"))
     return {"net": net, "space": "subject-ras", **parsed}
@@ -893,7 +920,10 @@ def volume_legend(pm: PathManager, sid: str, volume_id: str = "labeling") -> dic
     """``{entries:[{id,name,color}]}`` for the subject's label volume."""
     if volume_id != "labeling":
         raise SceneUnavailable(f"unknown scene volume {volume_id!r}")
-    lut = Path(pm.m2m(sid)) / "segmentation" / "labeling_LUT.txt"
-    if not lut.is_file():
+    lut = source_path(pm, Path(pm.m2m(sid)) / "segmentation" / "labeling_LUT.txt")
+    if lut is None or not lut.is_file():
         raise SceneUnavailable(f"{sid} has no segmentation/labeling_LUT.txt")
-    return {"id": volume_id, "entries": parse_lut_text(lut.read_text(encoding="utf-8", errors="replace"))}
+    return {
+        "id": volume_id,
+        "entries": parse_lut_text(lut.read_text(encoding="utf-8", errors="replace")),
+    }

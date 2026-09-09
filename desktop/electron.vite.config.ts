@@ -25,7 +25,8 @@ const serveRendererSource = (req: { url?: string }): string | null =>
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    // The packaged app excludes node_modules; bundle the run-spec parser into main.
+    plugins: [externalizeDepsPlugin({ exclude: ["yaml"] })],
   },
   preload: {
     // Sandboxed preloads must be CJS and dependency-free; nothing is externalized so the

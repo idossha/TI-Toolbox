@@ -88,9 +88,11 @@ def _resolve_jailed(raw_path: str, roots: list[Path] | None = None) -> Path:
     for root in roots or jail_roots():
         canonical_root = os.path.realpath(root)
         # Include the separator so a sibling such as project-copy cannot match.
-        if resolved == canonical_root or resolved.startswith(
-            canonical_root.rstrip(os.sep) + os.sep
-        ):
+        if resolved == canonical_root:
+            if not os.path.isfile(canonical_root):
+                raise HTTPException(status_code=404, detail="Not found")
+            return Path(canonical_root)
+        if resolved.startswith(canonical_root.rstrip(os.sep) + os.sep):
             if not os.path.isfile(resolved):
                 raise HTTPException(status_code=404, detail="Not found")
             return Path(resolved)

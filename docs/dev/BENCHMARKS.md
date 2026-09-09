@@ -500,7 +500,8 @@ windows. The name-only focus record still prevents claiming a global quiet-check
 The clean local build records source `e3bee214cea67be1f0867b74aceaf9c718c9eaf3`, `dirty: false`,
 runtime `3.0.0-dev.1`, and tag `idossha/ti-toolbox:internal-20260908.1`. Image ID:
 `sha256:56faec6cecce2c1645a8895f75d01ff2125eb006abb6b9152e03704573e8b0c9`.
-Receipts: `dist/internal/image-receipt.json` and `dist/internal/baked-build-record.json`.
+Historical receipts: `dist/internal/image-receipt-before-security.json` and
+`dist/internal/baked-build-record-before-security.json`.
 A local `RepoDigests` entry is not proof of Docker Hub publication.
 
 | Check / command surface | Measured result | Receipt and limit |
@@ -561,7 +562,7 @@ committing them, rebuilding the image and rerunning CodeQL remain separate steps
 
 | Check / evidence | Result | Scope / limit |
 |---|---|---|
-| CodeQL PR 152, head `72af760fc43e253a57d02138825bf1a69ec3324c` | **218 new versus main**, **7 existing**, **225 total open on PR**; Python analysis includes **213 path-injection findings** | `codeql-alerts.json`, `codeql-python.sarif.json`, `codeql-javascript.sarif.json`; counts describe the earlier scan, not cleared alerts. Rerun required |
+| CodeQL PR 152, head `72af760fc43e253a57d02138825bf1a69ec3324c` | **218 new versus main**, **7 existing**, **225 total open on PR**; Python analysis includes **213 path-injection findings** | `codeql-alerts-72af760f.json`, `codeql-python.sarif.json`, `codeql-javascript.sarif.json`; counts describe the earlier scan, not cleared alerts. Rerun required |
 | Search DOM fixtures, `node --test docs/tests/search-results.test.mjs` | Before: **3 failed / 4 passed**; after: **7 passed / 0 skipped** | `search-dom-before.log`, `search-dom-final.log`; query/index markup remains text, executable links rejected, normal matching/empty states retained |
 | Filesystem red-first fixtures | Root-jail case **1 failed** before fix; static-index case **1 failed / 5 passed** before fix | `root-jail-red.log`, `static-jail-red.log`; deliberately recorded failing evidence, not current gate failures |
 | CircleCI source job 853 | **4,451 passed, 1 failed, 35 skipped, 21 deselected, 15 warnings, 361.06 s** | `circleci-853-failure.log`; checkout-path collision in mocked `isdir` fixture, not a passing hosted source job |
@@ -570,7 +571,69 @@ committing them, rebuilding the image and rerunning CodeQL remain separate steps
 | Security-source desktop checks | Typecheck and lint: **0 errors**, **3 known lint warnings**; Vitest: **1,498 passed / 117 files** | Final source checks reported by the implementing lane; does not replace pending security-source mock or image acceptance |
 | Security-source full host refresh | **4,658 passed, 46 skipped, 21 deselected, 16 warnings, 108.94 s** | `host-pytest-security.log`, completed when the documentation update read the receipt; host results do not validate a rebuilt image |
 
-The new mock run is in progress. Security-source image rebuild, package validation, CodeQL and
-hosted CI reruns remain pending. No concurrent-local-filesystem-race protection or sandboxed
+At that point, the mock run and security-image build were pending. Their subsequent interim
+results follow below; packaging and additional security fixes still prevent delivery. No concurrent-local-filesystem-race protection or sandboxed
 kernel execution is claimed. These source changes affect storage/path boundaries and search
 rendering, not numerical algorithms; no additional scientific-correction entry is required.
+
+
+### Interim security-image validation — 2026-09-09
+
+**Delivery NOT READY.** Source `6571d06b8591903d3fa7b8bb19f331cdfb1c2769` produced a clean
+(`dirty: false`) local image, ID
+`sha256:0b086e00247817d904ab23dda5f5692ca6f420f57b107b1c09c576b53d0f42e9`, under the still-local
+`internal-20260908.1` tag. Current receipts are `image-receipt.json` and
+`baked-build-record.json` in `dist/internal/`; the earlier `e3bee214` receipts are archived with
+`-before-security` names. The source and image are interim: further pipeline, ViewSpec-cache,
+named-view and scene-API outward-symlink containment fixes are in progress, and final delivery identities are pending.
+
+| Check / evidence | Result | Scope / limit |
+|---|---|---|
+| Security-source host and desktop | Host **4,658 passed / 46 skipped / 21 deselected**, **108.94 s**; Vitest **1,498 passed / 117 files** | Retains the source measurements above; neither is a fresh real-suite run against the security image |
+| Fresh mock suite | **363 passed, 2 skipped, 5.9 min**; command exit 0 | `mock-e2e-security.log`, `mock-e2e-security-receipt.json`; native monitor **exit 2**, 648 samples, **0 test-descendant failures**, inconclusive system/Roost ancestry. Skip reasons: no packaged app for native-launch smoke and no page-level collapsible fill section |
+| Baked security tests | **656 passed, 1 skipped, 2 failed**, 14 warnings, **95.31 s** | `baked-security-tests.log`; failures needed development contract fixtures absent from the image. This original run remains recorded as failed |
+| Missing-fixture follow-up | Both affected tests passed: **2 passed**, 1 warning, **1.06 s** | `baked-contract-fixture-check.log`; after copying `dev/contracts_check.py` and `contracts/` into the test container. This does not claim those fixtures were baked into the image or that the full selection was rerun |
+| Rebuilt wheel | **14,959,467 bytes**, SHA-256 `81680c631212141a560e7d9835f47e81101daf8fd98340c3dc91bd953f26af83` | `wheel-security-receipt.json`; source `6571d06b`. Actual Python, shell and installed-wheel launch routes used the new image; shell/wheel exits 0 |
+| CircleCI source job 856, source `6571d06b` | **4,669 passed, 35 skipped, 21 deselected, 15 warnings, 380.53 s**; coverage **81.55%** | Implementing lane confirmed exact-source hosted result and successful Codecov upload; desktop job **855 still running** |
+| Hosted CodeQL follow-up | **205 new alerts remain** | `codeql-alerts-6571d06b.json`; PR remains gated. Further concrete path defects are under repair; no all-alerts-cleared claim |
+| Unsigned packaged first launch | Package built, launch **failed: missing `yaml` runtime dependency** | `packaged-first-launch-run.log`; historical failure, followed by the interim acceptance below. A generated installer alone is not acceptance |
+
+The **42 passed / 35.8 min** real-suite result belongs to the earlier `e3bee214` image, not
+this security image or the next fixes. Main and Docker Hub have not been updated; no public
+update notification was issued. Additional source fixes, final image/package identities,
+scanner rerun and fresh artifact acceptance remain pending.
+
+
+The packaged `yaml` dependency repair subsequently passed actual **Browse → Start** acceptance
+with a dirty-source app and the clean `6571d06b` image (`0b086e…`), not the final delivery
+pairing. `dist/internal/packaged-acceptance-hjDQjk/receipt.json` records an owned container
+created, healthy and rendered at **1224 × 720**, **0 jobs**, and **no source/UI bind mounts**.
+App visibility sampling: **14 samples, 0 visible, 0 focused, 0 monitor errors**. The app closed
+and its owned project container was stopped; unrelated containers were left untouched.
+
+Native attribution recorded **22 samples with no violations**, but the wrapper exited **2
+(inconclusive)** because ancestry could not be resolved for **12 short-lived processes**.
+Ten were later identified as Spotlight; that later identification does not retroactively turn
+the monitor result into a pass. This is an interim packaged functional pass, not an overall
+quiet-check or final-installer pass. Final installers must match the next accepted source/image.
+Do not rerun the quiet check solely to replace inconclusive shared-host observations.
+
+## Development closeout checks — 2026-09-09
+
+These are local checks of the final boundary and packaging fixes on `develop`; they are
+not a production approval or a fresh hosted CodeQL result. Raw logs remain under `dist/internal/`.
+
+| Command / check | Result | Receipt |
+|---|---|---|
+| `.venv/bin/python -m pytest tests/ -q` | 4,769 passed, 46 skipped, 21 deselected, 16 warnings; 107.17 s | `host-pytest-develop-final.log` |
+| Desktop typecheck, lint, `npx vitest run` | Typecheck passed; lint 0 errors / 3 existing warnings; 1,516 tests across 119 files passed | `desktop-*-followup.log` |
+| New catalog, montage, pipeline, scene and viewer boundary tests in disposable Linux container | 107 passed before the final unset-project positive control; same read-only checkout, real Linux filesystem | `develop-linux-boundaries.log` |
+| Route and contract guards | 24 routes clean; 114 operations / 136 schemas served, 244 existing contract warnings | `routes-develop.log`, `contracts-develop.log` |
+| Fresh MkDocs API build | Passed after replacing stale FreeSurfer/recon-all references with current FastSurfer API; documentation warnings remain | `api-build-develop.log` |
+
+The first follow-up mock run passed 363 tests, skipped one, and failed the obsolete native-Python
+packaged-launch test because a Docker-backed package now existed. That original failure is
+preserved in `mock-e2e-followup-functional.log`; its replacement tests the current Docker launcher.
+The native macOS monitor could not acquire a baseline because of an unclassified WindowServer
+overlay, before launching any tests. Functional offscreen runs are recorded separately and do
+not turn this native measurement into a pass.

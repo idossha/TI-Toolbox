@@ -32,7 +32,7 @@ from typing import Any
 from tit.atlas.constants import VOXEL_ATLASES, mni_resources_dir
 from tit.atlas.mesh import MeshAtlasManager
 from tit.atlas.voxel import VoxelAtlasManager, parse_region_label
-from tit.paths import PathManager, is_within, natural_key
+from tit.paths import PathManager, is_valid_subject_id, is_within, natural_key
 
 # NOTE: tit.opt.ex.roi (used by list_rois) is imported lazily inside the
 # function that needs it, never at module level -- tit/opt/__init__.py
@@ -41,6 +41,43 @@ from tit.paths import PathManager, is_within, natural_key
 # imported at server startup by every route module, so a module-level
 # import here would make the whole server fail to boot outside a SimNIBS
 # environment (host dev tooling, --dump-openapi, CI without the container).
+
+
+def _metadata_names(root: str, project_root: str | None) -> list[str]:
+    """List only jailed children; outward links must not disclose metadata."""
+    if project_root and not is_within(project_root, root):
+        return []
+    try:
+        return sorted(
+            name
+            for name in os.listdir(root)
+            if not project_root or is_within(project_root, os.path.join(root, name))
+        )
+    except OSError:
+        return []
+
+
+def _project_isdir(pm: PathManager, path: str) -> bool:
+    return _project_paths_safe(pm, path) and os.path.isdir(path)
+
+
+def _simulation_names(pm: PathManager, sid: str) -> list[str]:
+    root = pm.simulations(sid)
+    return [
+        name
+        for name in _metadata_names(root, pm.project_dir)
+        if not name.startswith(".") and os.path.isdir(os.path.join(root, name))
+    ]
+
+
+def _metadata_glob(root: str, pattern: str, project_root: str | None) -> list[str]:
+    if project_root and not is_within(project_root, root):
+        return []
+    return [
+        path
+        for path in sorted(glob.glob(os.path.join(root, pattern)))
+        if not project_root or is_within(project_root, path)
+    ]
 
 
 def subject_ids(pm: PathManager) -> list[str]:
@@ -58,12 +95,25 @@ def subject_ids(pm: PathManager) -> list[str]:
     to see a not-yet-onboarded subject, :func:`list_subjects` /
     :func:`subject_detail`.
     """
-    ids = (
-        set(pm.list_bids_subjects())
-        | set(pm.list_fastsurfer_subjects())
-        | set(pm.list_freesurfer_subjects())
-        | set(pm.list_simnibs_subjects())
-    )
+    if not pm.project_dir:
+        return []
+    ids = set()
+    for root, needs_m2m in (
+        (pm.project_dir, False),
+        (pm.fastsurfer(), False),
+        (pm.freesurfer(), False),
+        (pm.simnibs(), True),
+    ):
+        if not root:
+            continue
+        for name in _metadata_names(root, pm.project_dir):
+            sid = name.removeprefix("sub-")
+            if not name.startswith("sub-") or not is_valid_subject_id(sid):
+                continue
+            if os.path.isdir(os.path.join(root, name)) and (
+                not needs_m2m or _project_isdir(pm, pm.m2m(sid))
+            ):
+                ids.add(sid)
     return sorted(ids, key=natural_key)
 
 
@@ -91,16 +141,16 @@ _DICOM_LIKE_EXTS = (
 def _has_sourcedata_raw(pm: PathManager, sid: str) -> bool:
     """``sourcedata/sub-<sid>/`` has a T1w or T2w series staged (any format)."""
     subj_dir = pm.sourcedata_subject(sid)
-    if not os.path.isdir(subj_dir):
+    if not _project_isdir(pm, subj_dir):
         return False
     for modality_dir in (
         os.path.join(subj_dir, "T1w"),
         os.path.join(subj_dir, "T2w"),
     ):
-        if not os.path.isdir(modality_dir):
+        if not _project_isdir(pm, modality_dir):
             continue
         try:
-            entries = os.listdir(modality_dir)
+            entries = _metadata_names(modality_dir, pm.project_dir)
         except OSError:
             continue
         if any(os.path.isdir(os.path.join(modality_dir, e)) for e in entries):
@@ -108,7 +158,9 @@ def _has_sourcedata_raw(pm: PathManager, sid: str) -> bool:
         if any(e.lower().endswith(_DICOM_LIKE_EXTS) for e in entries):
             return True
     try:
-        return any(f.endswith(".tgz") for f in os.listdir(subj_dir))
+        return any(
+            f.endswith(".tgz") for f in _metadata_names(subj_dir, pm.project_dir)
+        )
     except OSError:
         return False
 
@@ -127,7 +179,7 @@ def sourcedata_only_subject_ids(pm: PathManager) -> list[str]:
     if not pm.project_dir:
         return []
     try:
-        entries = os.listdir(pm.sourcedata())
+        entries = _metadata_names(pm.sourcedata(), pm.project_dir)
     except OSError:
         return []
     known = set(subject_ids(pm))
@@ -136,7 +188,7 @@ def sourcedata_only_subject_ids(pm: PathManager) -> list[str]:
         if not name.startswith("sub-"):
             continue
         sid = name[len("sub-") :]
-        if sid in known:
+        if not is_valid_subject_id(sid) or sid in known:
             continue
         if _has_sourcedata_raw(pm, sid):
             ids.append(sid)
@@ -165,11 +217,11 @@ def list_subjects(pm: PathManager) -> list[dict]:
     for sid in ids:
         row = {
             "id": sid,
-            "has_raw": os.path.isdir(pm.bids_subject(sid)),
-            "has_fastsurfer": os.path.isdir(pm.fastsurfer_subject(sid)),
-            "has_freesurfer": os.path.isdir(pm.freesurfer_subject(sid)),
-            "has_m2m": os.path.isdir(pm.m2m(sid)),
-            "n_simulations": len(pm.list_simulations(sid)),
+            "has_raw": _project_isdir(pm, pm.bids_subject(sid)),
+            "has_fastsurfer": _project_isdir(pm, pm.fastsurfer_subject(sid)),
+            "has_freesurfer": _project_isdir(pm, pm.freesurfer_subject(sid)),
+            "has_m2m": _project_isdir(pm, pm.m2m(sid)),
+            "n_simulations": len(_simulation_names(pm, sid)),
         }
         if _has_sourcedata_raw(pm, sid):
             row["has_sourcedata"] = True
@@ -182,12 +234,12 @@ def list_simulations(pm: PathManager, sid: str) -> list[dict] | None:
     if sid not in subject_ids(pm):
         return None
     items: list[dict] = []
-    for name in pm.list_simulations(sid):
+    for name in _simulation_names(pm, sid):
         item = {
             "name": name,
             "path": pm.simulation(sid, name),
-            "has_ti": os.path.isdir(os.path.dirname(pm.ti_mesh_dir(sid, name))),
-            "has_mti": os.path.isdir(os.path.dirname(pm.mti_mesh_dir(sid, name))),
+            "has_ti": _project_isdir(pm, os.path.dirname(pm.ti_mesh_dir(sid, name))),
+            "has_mti": _project_isdir(pm, os.path.dirname(pm.mti_mesh_dir(sid, name))),
         }
         # The v1 contract enriches every list item with the SimulationDetail keys (fields,
         # montages, niftis, meshes, ...); the v0 keys above always win. Found on real data:
@@ -283,10 +335,11 @@ def _dir_artifacts(
 def _has_ct(pm: PathManager, sid: str) -> bool:
     """CT as a local BIDS extension: ``anat/sub-<id>_ct.nii(.gz)``."""
     anat_dir = pm.bids_anat(sid)
-    if not os.path.isdir(anat_dir):
+    if not _project_isdir(pm, anat_dir):
         return False
     return any(
-        name.endswith(("_ct.nii.gz", "_ct.nii")) for name in os.listdir(anat_dir)
+        name.endswith(("_ct.nii.gz", "_ct.nii"))
+        for name in _metadata_names(anat_dir, pm.project_dir)
     )
 
 
@@ -455,7 +508,10 @@ VIEW_ATTACHMENT_KINDS = frozenset({"annotation", "morph", "surface-data"})
 
 
 def surface_attachments(
-    surface_path: str, *, extra_dirs: tuple[str, ...] = ()
+    surface_path: str,
+    *,
+    extra_dirs: tuple[str, ...] = (),
+    project_root: str | None = None,
 ) -> list[str]:
     """Every annotation / morph / data-GIfTI file that belongs on *surface_path*.
 
@@ -470,15 +526,15 @@ def surface_attachments(
     `m2m_<sid>/surfaces/` but writes the parcellations it made into `m2m_<sid>/segmentation/`,
     two directories apart, which is exactly why nothing offered them before.
     """
+    if project_root and not is_within(project_root, surface_path):
+        return []
     hemi = _hemi_split(os.path.basename(surface_path))
     if hemi is None:
         return []
     prefix = f"{hemi[0]}."
     found: list[str] = []
     for directory in (os.path.dirname(surface_path), *extra_dirs):
-        if not os.path.isdir(directory):
-            continue
-        for name in sorted(os.listdir(directory)):
+        for name in _metadata_names(directory, project_root):
             if not name.startswith(prefix):
                 continue
             candidate = os.path.join(directory, name)
@@ -504,35 +560,27 @@ def subject_detail(pm: PathManager, sid: str) -> dict | None:
     """
     if sid not in subject_ids(pm) and sid not in sourcedata_only_subject_ids(pm):
         return None
-    has_m2m = os.path.isdir(pm.m2m(sid))
+    has_m2m = _project_isdir(pm, pm.m2m(sid))
     # Only caps that carry electrodes: see :func:`_eeg_caps_with_electrodes`.
-    eeg_nets_list = [n for n, _ in _eeg_caps_with_electrodes(pm, sid)] if has_m2m else []
-    has_leadfields: list[str] = []
-    if has_m2m:
-        try:
-            from tit.opt.leadfield import LeadfieldGenerator
-
-            has_leadfields = sorted(
-                {
-                    f"{net}.csv"
-                    for net, _, _ in LeadfieldGenerator(subject_id=sid).list_leadfields(
-                        sid
-                    )
-                }
-            )
-        except OSError:
-            has_leadfields = []
+    eeg_nets_list = (
+        [n for n, _ in _eeg_caps_with_electrodes(pm, sid)] if has_m2m else []
+    )
+    has_leadfields = (
+        sorted({f"{item['net']}.csv" for item in (list_leadfields(pm, sid) or [])})
+        if has_m2m
+        else []
+    )
     return {
         "id": sid,
-        "has_raw": os.path.isdir(pm.bids_subject(sid)),
-        "has_fastsurfer": os.path.isdir(pm.fastsurfer_subject(sid)),
-        "has_freesurfer": os.path.isdir(pm.freesurfer_subject(sid)),
+        "has_raw": _project_isdir(pm, pm.bids_subject(sid)),
+        "has_fastsurfer": _project_isdir(pm, pm.fastsurfer_subject(sid)),
+        "has_freesurfer": _project_isdir(pm, pm.freesurfer_subject(sid)),
         "has_m2m": has_m2m,
-        "n_simulations": len(pm.list_simulations(sid)),
+        "n_simulations": len(_simulation_names(pm, sid)),
         "m2m_path": pm.m2m(sid) if has_m2m else None,
         "eeg_nets": eeg_nets_list,
         "has_leadfields": has_leadfields,
-        "has_dwi": os.path.isdir(pm.bids_dwi(sid)),
+        "has_dwi": _project_isdir(pm, pm.bids_dwi(sid)),
         "has_ct": _has_ct(pm, sid),
         "has_sourcedata": _has_sourcedata_raw(pm, sid),
     }
@@ -556,12 +604,10 @@ def _guess_field(rest: str) -> str:
     return tokens[-1] if tokens else stem
 
 
-def _mode_niftis(mode_dir: str) -> list[dict]:
+def _mode_niftis(mode_dir: str, *, project_root: str | None = None) -> list[dict]:
     niftis_dir = os.path.join(mode_dir, "niftis")
     out: list[dict] = []
-    if not os.path.isdir(niftis_dir):
-        return out
-    for path in sorted(glob.glob(os.path.join(niftis_dir, "*.nii*"))):
+    for path in _metadata_glob(niftis_dir, "*.nii*", project_root):
         basename = os.path.basename(path)
         if "TDCS" in basename:
             continue
@@ -573,19 +619,21 @@ def _mode_niftis(mode_dir: str) -> list[dict]:
     return out
 
 
-def _hf_niftis(hf_dir: str) -> list[dict]:
+def _hf_niftis(hf_dir: str, *, project_root: str | None = None) -> list[dict]:
     out = []
-    for path in sorted(glob.glob(os.path.join(hf_dir, "*_scalar_*magnE.nii.gz"))):
+    for path in _metadata_glob(hf_dir, "*_scalar_*magnE.nii.gz", project_root):
         basename = os.path.basename(path)
         space = "mni" if "_MNI" in basename else "subject"
         out.append({"path": path, "field": "magnE", "space": space, "tissue": None})
     return out
 
 
-def _dir_meshes(mesh_dir: str, kind: str) -> list[dict]:
+def _dir_meshes(
+    mesh_dir: str, kind: str, *, project_root: str | None = None
+) -> list[dict]:
     return [
         {"path": path, "kind": kind}
-        for path in sorted(glob.glob(os.path.join(mesh_dir, "*.msh")))
+        for path in _metadata_glob(mesh_dir, "*.msh", project_root)
     ]
 
 
@@ -603,13 +651,13 @@ def _report_ids_for_simulation(all_reports: list[dict], sim: str) -> list[str]:
 
 def simulation_detail(pm: PathManager, sid: str, sim: str) -> dict | None:
     """Full detail for one simulation, ``None`` if unknown."""
-    if sid not in subject_ids(pm) or sim not in pm.list_simulations(sid):
+    if sid not in subject_ids(pm) or sim not in _simulation_names(pm, sid):
         return None
     sim_dir = pm.simulation(sid, sim)
     if not _project_paths_safe(pm, sim_dir):
         return None
-    has_ti = os.path.isdir(os.path.dirname(pm.ti_mesh_dir(sid, sim)))
-    has_mti = os.path.isdir(os.path.dirname(pm.mti_mesh_dir(sid, sim)))
+    has_ti = _project_isdir(pm, os.path.dirname(pm.ti_mesh_dir(sid, sim)))
+    has_mti = _project_isdir(pm, os.path.dirname(pm.mti_mesh_dir(sid, sim)))
     config_path = os.path.join(sim_dir, "documentation", "config.json")
     config = (
         _read_json(config_path) if _project_paths_safe(pm, config_path) else None
@@ -620,18 +668,34 @@ def simulation_detail(pm: PathManager, sid: str, sim: str) -> dict | None:
     meshes: list[dict] = []
     for mode in _MODE_DIRS:
         mode_dir = os.path.join(sim_dir, mode)
-        if not os.path.isdir(mode_dir):
+        if not _project_isdir(pm, mode_dir):
             continue
-        niftis.extend(_mode_niftis(mode_dir))
-        meshes.extend(_dir_meshes(os.path.join(mode_dir, "mesh"), "field"))
+        niftis.extend(_mode_niftis(mode_dir, project_root=pm.project_dir))
         meshes.extend(
-            _dir_meshes(os.path.join(mode_dir, "mesh", "surfaces"), "surface")
+            _dir_meshes(
+                os.path.join(mode_dir, "mesh"), "field", project_root=pm.project_dir
+            )
+        )
+        meshes.extend(
+            _dir_meshes(
+                os.path.join(mode_dir, "mesh", "surfaces"),
+                "surface",
+                project_root=pm.project_dir,
+            )
         )
     hf_dir = os.path.join(sim_dir, "high_Frequency")
-    if os.path.isdir(os.path.join(hf_dir, "niftis")):
-        niftis.extend(_hf_niftis(os.path.join(hf_dir, "niftis")))
-    if os.path.isdir(os.path.join(hf_dir, "mesh")):
-        meshes.extend(_dir_meshes(os.path.join(hf_dir, "mesh"), "high_frequency"))
+    if _project_isdir(pm, os.path.join(hf_dir, "niftis")):
+        niftis.extend(
+            _hf_niftis(os.path.join(hf_dir, "niftis"), project_root=pm.project_dir)
+        )
+    if _project_isdir(pm, os.path.join(hf_dir, "mesh")):
+        meshes.extend(
+            _dir_meshes(
+                os.path.join(hf_dir, "mesh"),
+                "high_frequency",
+                project_root=pm.project_dir,
+            )
+        )
 
     fields = sorted({n["field"] for n in niftis if n["field"]})
     spaces = sorted({n["space"] for n in niftis})
@@ -663,7 +727,7 @@ def simulation_figures(pm: PathManager, sid: str, sim: str) -> list[dict] | None
     the same shape as :func:`electrode_overlays` above -- a small presence query beside the
     main read.
     """
-    if sid not in subject_ids(pm) or sim not in pm.list_simulations(sid):
+    if sid not in subject_ids(pm) or sim not in _simulation_names(pm, sid):
         return None
     sim_dir = pm.simulation(sid, sim)
     out: list[dict] = []
@@ -671,7 +735,7 @@ def simulation_figures(pm: PathManager, sid: str, sim: str) -> list[dict] | None
         path = os.path.join(
             sim_dir, mode, "montage_imgs", f"{sim}_highlighted_visualization.png"
         )
-        if os.path.isfile(path):
+        if _project_paths_safe(pm, path) and os.path.isfile(path):
             out.append(
                 {
                     "path": path,
@@ -695,7 +759,7 @@ def electrode_overlays(pm: PathManager, sid: str, sim: str) -> list[dict] | None
     whether that file is there yet (and its path), without a separate job
     kind or catalog change for the overlay-*building* side.
     """
-    if sid not in subject_ids(pm) or sim not in pm.list_simulations(sid):
+    if sid not in subject_ids(pm) or sim not in _simulation_names(pm, sid):
         return None
     sim_dir = pm.simulation(sid, sim)
     out = []
@@ -703,7 +767,13 @@ def electrode_overlays(pm: PathManager, sid: str, sim: str) -> list[dict] | None
         path = os.path.join(
             sim_dir, mode, "montage_imgs", "electrode_overlay_subject.nii.gz"
         )
-        out.append({"mode": mode, "path": path, "exists": os.path.isfile(path)})
+        out.append(
+            {
+                "mode": mode,
+                "path": path,
+                "exists": (_project_paths_safe(pm, path) and os.path.isfile(path)),
+            }
+        )
     return out
 
 
@@ -834,9 +904,11 @@ def atlases(
 
     if kind in (None, "cortical") and space == "subject":
         seg_dir = os.path.join(pm.m2m(sid), "segmentation")
-        mesh_mgr = MeshAtlasManager(seg_dir)
+        mesh_mgr = MeshAtlasManager(seg_dir if _project_paths_safe(pm, seg_dir) else "")
         for name in mesh_mgr.list_atlases():
             lh_path = mesh_mgr.find_atlas_file(name, "lh")
+            if lh_path and not _project_paths_safe(pm, lh_path):
+                continue
             out.append(
                 {
                     "id": name,
@@ -854,12 +926,24 @@ def atlases(
         else:
             seg_dir = os.path.join(pm.m2m(sid), "segmentation")
             voxel_mgr = VoxelAtlasManager(
-                fastsurfer_mri_dir=pm.fastsurfer_mri(sid),
-                freesurfer_mri_dir=pm.freesurfer_mri(sid),
-                seg_dir=seg_dir,
-                masks_dir=pm.masks(sid),
+                fastsurfer_mri_dir=(
+                    pm.fastsurfer_mri(sid)
+                    if _project_paths_safe(pm, pm.fastsurfer_mri(sid))
+                    else ""
+                ),
+                freesurfer_mri_dir=(
+                    pm.freesurfer_mri(sid)
+                    if _project_paths_safe(pm, pm.freesurfer_mri(sid))
+                    else ""
+                ),
+                seg_dir=seg_dir if _project_paths_safe(pm, seg_dir) else "",
+                masks_dir=(
+                    pm.masks(sid) if _project_paths_safe(pm, pm.masks(sid)) else ""
+                ),
             )
             for display_name, path in voxel_mgr.list_atlases():
+                if not _project_paths_safe(pm, path):
+                    continue
                 entry: dict = {"id": display_name, "name": display_name, "path": path}
                 hemi = VOXEL_ATLASES.get(display_name)
                 if hemi in ("lh", "rh"):
@@ -888,7 +972,7 @@ def atlas_regions(
         return None
     seg_dir = os.path.join(pm.m2m(sid), "segmentation")
 
-    mesh_mgr = MeshAtlasManager(seg_dir)
+    mesh_mgr = MeshAtlasManager(seg_dir if _project_paths_safe(pm, seg_dir) else "")
     if atlas_id in mesh_mgr.list_atlases():
         hemis = ("lh", "rh") if hemi in (None, "both") else (hemi,)
         out: list[dict] = []
@@ -905,10 +989,18 @@ def atlas_regions(
         return out
 
     voxel_mgr = VoxelAtlasManager(
-        fastsurfer_mri_dir=pm.fastsurfer_mri(sid),
-        freesurfer_mri_dir=pm.freesurfer_mri(sid),
-        seg_dir=seg_dir,
-        masks_dir=pm.masks(sid),
+        fastsurfer_mri_dir=(
+            pm.fastsurfer_mri(sid)
+            if _project_paths_safe(pm, pm.fastsurfer_mri(sid))
+            else ""
+        ),
+        freesurfer_mri_dir=(
+            pm.freesurfer_mri(sid)
+            if _project_paths_safe(pm, pm.freesurfer_mri(sid))
+            else ""
+        ),
+        seg_dir=seg_dir if _project_paths_safe(pm, seg_dir) else "",
+        masks_dir=pm.masks(sid) if _project_paths_safe(pm, pm.masks(sid)) else "",
     )
     atlas_path = dict(voxel_mgr.list_atlases()).get(atlas_id)
     atlas_root = pm.project_dir
@@ -1094,7 +1186,9 @@ def is_safe_name(name: Any) -> bool:
 
 def _project_paths_safe(pm: PathManager, *paths: str) -> bool:
     """Reject outward parent/leaf symlinks before any part of a catalog mutation."""
-    return bool(pm.project_dir) and all(is_within(pm.project_dir, path) for path in paths)
+    return bool(pm.project_dir) and all(
+        is_within(pm.project_dir, path) for path in paths
+    )
 
 
 def as_float(value: Any, field_name: str) -> float:
@@ -1217,10 +1311,24 @@ def list_leadfields(pm: PathManager, sid: str) -> list[dict] | None:
     """Precomputed leadfields for *sid*; ``None`` if the subject is unknown."""
     if sid not in subject_ids(pm):
         return None
-    from tit.opt.leadfield import LeadfieldGenerator
-
+    root = pm.leadfields(sid)
     out = []
-    for net, path, _size_gb in LeadfieldGenerator(subject_id=sid).list_leadfields(sid):
+    for name in _metadata_names(root, pm.project_dir):
+        if not name.endswith(".hdf5"):
+            continue
+        path = os.path.join(root, name)
+        # Match LeadfieldGenerator's established net naming without its unjailed stat.
+        stem = name[:-5]
+        net = (
+            stem.split("_leadfield_", 1)[-1]
+            if "_leadfield_" in stem
+            else stem.removesuffix("_leadfield")
+        )
+        for prefix in (f"{sid}_", sid):
+            if net.startswith(prefix):
+                net = net[len(prefix) :]
+                break
+        net = net.strip("_") or "unknown"
         try:
             size = os.path.getsize(path)
         except OSError:
@@ -1233,13 +1341,15 @@ def list_leadfields(pm: PathManager, sid: str) -> list[dict] | None:
                 "size_bytes": size,
             }
         )
-    return out
+    return sorted(out, key=lambda item: (item["net"], item["path"]))
 
 
 # ── flex-search runs ─────────────────────────────────────────────────────────
 
 
-def _pair_by_channel(electrodes: list, channel_array_indices: list | None) -> list[list]:
+def _pair_by_channel(
+    electrodes: list, channel_array_indices: list | None
+) -> list[list]:
     """Group *electrodes* into ``[a, b]`` pairs, one pair per stimulation channel.
 
     ``channel_array_indices`` is flex-search's own ``[[channel, array], ...]``
@@ -1261,7 +1371,9 @@ def _pair_by_channel(electrodes: list, channel_array_indices: list | None) -> li
         if ok:
             pairs = []
             for channel in sorted(by_channel):
-                members = [e for _, e in sorted(by_channel[channel], key=lambda t: t[0])]
+                members = [
+                    e for _, e in sorted(by_channel[channel], key=lambda t: t[0])
+                ]
                 if len(members) != 2:
                     pairs = []
                     break
@@ -1474,7 +1586,9 @@ def ex_run_results(pm: PathManager, sid: str, kind: str, run: str) -> dict | Non
 # ── analyses ─────────────────────────────────────────────────────────────────
 
 
-def _analysis_entry(path: str, name: str) -> dict | None:
+def _analysis_entry(
+    path: str, name: str, *, project_root: str | None = None
+) -> dict | None:
     json_path = os.path.join(path, "analysis.json")
     csv_path = os.path.join(path, "results.csv")
     if not (os.path.isfile(json_path) and os.path.isfile(csv_path)):
@@ -1486,12 +1600,14 @@ def _analysis_entry(path: str, name: str) -> dict | None:
     space = (
         "mni" if str(meta.get("coordinate_space") or "").lower() == "mni" else "subject"
     )
-    msh = next(iter(glob.glob(os.path.join(path, "*.msh"))), None)
+    msh = next(iter(_metadata_glob(path, "*.msh", project_root)), None)
     nifti = os.path.join(path, "roi_overlay.nii.gz")
-    if not os.path.isfile(nifti):
-        matches = glob.glob(os.path.join(path, "*.nii*"))
+    if (project_root and not is_within(project_root, nifti)) or not os.path.isfile(
+        nifti
+    ):
+        matches = _metadata_glob(path, "*.nii*", project_root)
         nifti = matches[0] if matches else None
-    pdf = next(iter(glob.glob(os.path.join(path, "*.pdf"))), None)
+    pdf = next(iter(_metadata_glob(path, "*.pdf", project_root)), None)
     return {
         "name": name,
         "space": space,
@@ -1576,13 +1692,13 @@ def _find_analysis_dirs(
 
 def analyses(pm: PathManager, sid: str, sim: str) -> list[dict] | None:
     """Analyzer runs for *sid*/*sim*; ``None`` if either is unknown."""
-    if sid not in subject_ids(pm) or sim not in pm.list_simulations(sid):
+    if sid not in subject_ids(pm) or sim not in _simulation_names(pm, sid):
         return None
     out = []
     for path, name, _standard in _find_analysis_dirs(
         pm.simulation(sid, sim), project_root=pm.project_dir
     ):
-        item = _analysis_entry(path, name)
+        item = _analysis_entry(path, name, project_root=pm.project_dir)
         if item:
             out.append(item)
     return out
@@ -1595,7 +1711,7 @@ def analysis_summary(pm: PathManager, sid: str, sim: str, name: str) -> dict | N
     to the simulation (``Analyses/Custom/run1``) resolves too, so the one string a script
     already has does not have to be translated into the listed form.
     """
-    if sid not in subject_ids(pm) or sim not in pm.list_simulations(sid):
+    if sid not in subject_ids(pm) or sim not in _simulation_names(pm, sid):
         return None
     sim_dir = pm.simulation(sid, sim)
     for path, found_name, _standard in _find_analysis_dirs(
@@ -2114,13 +2230,13 @@ def subject_info_matrix(pm: PathManager) -> dict:
         rows.append(
             [
                 sid,
-                os.path.isdir(pm.bids_subject(sid)),
-                os.path.isdir(pm.fastsurfer_subject(sid)),
-                os.path.isdir(pm.freesurfer_subject(sid)),
-                os.path.isdir(pm.m2m(sid)),
-                os.path.isdir(pm.bids_dwi(sid)),
+                _project_isdir(pm, pm.bids_subject(sid)),
+                _project_isdir(pm, pm.fastsurfer_subject(sid)),
+                _project_isdir(pm, pm.freesurfer_subject(sid)),
+                _project_isdir(pm, pm.m2m(sid)),
+                _project_isdir(pm, pm.bids_dwi(sid)),
                 _has_ct(pm, sid),
-                len(pm.list_simulations(sid)),
+                len(_simulation_names(pm, sid)),
             ]
         )
     return {"columns": columns, "rows": rows}

@@ -172,9 +172,8 @@ from tit.pre import run_pipeline
 exit_code = run_pipeline(
     subject_ids=["001", "002"],
     convert_dicom=True,
-    run_recon=True,
-    parallel_recon=True,
-    parallel_cores=4,
+    run_fastsurfer=True,
+    fastsurfer_threads=4,
     create_m2m=True,
     run_tissue_analysis=True,
 )
@@ -187,10 +186,9 @@ Each preprocessing step can also be called independently:
 ```python
 from tit.pre import (
     run_dicom_to_nifti,
-    run_recon_all,
+    run_fastsurfer,
     run_charm,
     run_tissue_analysis,
-    run_subcortical_segmentations,
     run_qsiprep,
     run_qsirecon,
     extract_dti_tensor,
@@ -198,12 +196,16 @@ from tit.pre import (
     check_m2m_exists,
 )
 
-# Discover subjects from sourcedata
-subjects = discover_subjects()
+# Discover subjects from a BIDS project
+import logging
+
+project = "/path/to/bids_project"
+logger = logging.getLogger("preprocessing")
+subjects = discover_subjects(project)
 
 # Check if head mesh already exists
-if not check_m2m_exists("001"):
-    run_charm("001")
+if not check_m2m_exists(project, "001"):
+    run_charm(project, "001", logger=logger)
 ```
 
 ## Report Generation
