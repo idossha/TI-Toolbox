@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
 import { expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
-import { addJobRow, configureMontageJob, jobBlank, jobDetail, jobPairs, jobRows, setJobMontage, setJobSource, setJobSubject } from "./_jobs";
+import { addJobRow, configureMontageJob, jobBlank, jobDetail, jobPairs, jobRows, setJobNet, setJobMontage, setJobSource, setJobSubject } from "./_jobs";
 
 /**
  * The Simulator's **Jobs table** as a *table*: how wide its columns are, that the user can change
@@ -417,4 +417,26 @@ test("records the jobs table", async () => {
     await container().screenshot({ path: `tests/e2e/artifacts/jobs-table-sim-v6-${width}.png` });
   }
   await page.setViewportSize({ width: 1280, height: 800 });
+});
+
+
+test("a net with no montages has a disabled, explicit empty state", async () => {
+  await page.route("**/api/catalog/montages", async (route) => {
+    const response = await route.fetch();
+    const catalog = await response.json();
+    for (const net of Object.values(catalog.nets) as Record<string, unknown>[]) {
+      net.uni_polar = {};
+      net.multi_polar = {};
+    }
+    await route.fulfill({ response, json: catalog });
+  });
+  await page.reload();
+  await gotoPage(page, "simulator", "Simulator");
+  await setJobSubject(page, montageRows().first(), "ernie");
+  await setJobNet(page, montageRows().first(), "GSN-HydroCel-185");
+  const montage = montageRows().first().getByRole("combobox", { name: "Montage", exact: true });
+  await expect(montage).toBeDisabled();
+  await expect(montage).toHaveText("No montages available");
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+  await page.unroute("**/api/catalog/montages");
 });

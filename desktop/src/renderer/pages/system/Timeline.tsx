@@ -229,7 +229,7 @@ function CoreGauge({ core }: { core: CoreRow }) {
       <div className="system-core-track">
         <CoreSpark values={core.history} />
         <div className="system-core-fill" style={{ height: `${level}%` }} />
-        <span className="system-core-pct tabular-nums">{Math.round(core.percent)}</span>
+        <span className="system-core-pct tabular-nums">{Math.round(core.percent)}%</span>
       </div>
       <span className="system-core-num text-caption tabular-nums">{core.index}</span>
     </div>

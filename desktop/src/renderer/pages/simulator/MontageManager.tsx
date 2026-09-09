@@ -880,14 +880,17 @@ export function JobsTable({
    */
   function renderQualifierCell(row: SelectedRow) {
     if (row.source === "montage") {
+      const options = montageOptions(row.eegNet);
+      const selected = row.name && row.kind ? montageOptionValue(row.kind, row.name) : undefined;
       return (
         // The polarity chip is on line 2, beside the pairs it describes: the select gets the whole
         // column, which is what a montage name needs to be readable (maintainer's "Ch…").
         <Select
-          value={row.name && row.kind ? montageOptionValue(row.kind, row.name) : undefined}
+          value={options.some((option) => option.value === selected) ? selected : undefined}
           onValueChange={(v) => setRowMontage(row, v)}
-          options={montageOptions(row.eegNet)}
-          placeholder="Choose a montage"
+          options={options}
+          placeholder={!row.eegNet ? "Choose a net first" : options.length === 0 ? "No montages available" : "Choose a montage"}
+          disabled={options.length === 0}
           aria-label="Montage"
         />
       );

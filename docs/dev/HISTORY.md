@@ -854,3 +854,8 @@ Missing ImageMagick in the slim image caused a copied cap template to survive as
 had succeeded. Restore ImageMagick and DejaVu fonts; render to a temporary file and publish
 atomically. Empty or unrecognized electrode pairs fail explicitly. Repaired the two verified
 blank ernie diagrams (stam and L_Insula) using saved configs without rerunning simulation.
+
+Simulator montage selection now displays “No montages available” and disables the selector
+when the selected net has no saved montages, instead of opening an empty dropdown.
+
+Per-core load gauges display the percent sign beside each reading.
