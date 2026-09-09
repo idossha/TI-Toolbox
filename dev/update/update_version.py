@@ -1,23 +1,14 @@
 #!/usr/bin/env python3
-"""
-Version Update Script for Temporal Interference Toolbox
+"""Update runtime versions without implicitly publishing release notes.
 
-Updates every place a version number is written, so a tag and the artifacts built from it agree.
-`release-v3.yml`'s `plan` job re-checks a subset of these and refuses to release when they drift,
-so a site missed here becomes a red release rather than a mislabelled artifact.
-
-Usage:
-    python dev/update/update_version.py                     # interactive, writes
-    python dev/update/update_version.py --version 3.0.0     # non-interactive, writes
-    python dev/update/update_version.py --version 3.0.0 --dry-run
-    python dev/update/update_version.py --dry-run           # asks for the version, writes nothing
-
---dry-run prints every file that WOULD change (and the substitutions it would make) and touches
-nothing on disk. It is the way to answer "did this script get taught about the new file?" without
-dirtying the tree.
+Internal: --version X.Y.Z-dev.N --development [--dry-run]
+Release metadata: --version X.Y.Z [--dry-run]
+Public docs (explicit): --version X.Y.Z --publish-notes --notes-file notes.md
+Existing authored version pages and changelog entries are preserved.
 """
 
 import argparse
+import json
 import os
 import re
 import sys
@@ -71,11 +62,14 @@ def update_version(new_version):
     files_to_update = {
         "version.py": [
             (r'__version__ = "[^"]*"', f'__version__ = "{new_version}"'),
-            (r'"version": "[^"]*"', f'"version": "{new_version}"'),
+            (
+                r'(TI_CSC_INFO = \{\s*"version": )"[^"]*"',
+                rf'\g<1>"{new_version}"',
+            ),
             (r'"release_date": "[^"]*"', f'"release_date": "{release_date}"'),
             (
-                r'"tag": "idossha/simnibs:[^"]*"',
-                f'"tag": "idossha/simnibs:v{new_version}"',
+                r'"tag": "idossha/(?:simnibs|ti-toolbox):[^"]*"',
+                f'"tag": "idossha/ti-toolbox:{new_version}"',
             ),
         ],
         "docs/_config.yml": [
@@ -99,12 +93,22 @@ def update_version(new_version):
                 f"image: idossha/ti-toolbox:${{TIT_IMAGE_TAG:-{new_version}}}",
             ),
         ],
+        # Installed wheels have no root compose file, so the fallback must move with it.
+        "tit/launch.py": [
+            (
+                r'(BUILTIN_SPEC = StackSpec\(\s*image="idossha/ti-toolbox:\$\{TIT_IMAGE_TAG:-)[^}]+',
+                rf"\g<1>{new_version}",
+            ),
+        ],
         # v3 desktop app (desktop/). This is the number electron-builder writes into the app
         # bundle, the DMG/EXE/AppImage file names, and `app.getVersion()`; the release workflow
         # refuses to build when it disagrees with the tag. `-dev`/`-rc` suffixes are matched too so
         # a pre-release version can be promoted.
         "desktop/package.json": [
-            (r'"version": "\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?"', f'"version": "{new_version}"'),
+            (
+                r'"version": "\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?"',
+                f'"version": "{new_version}"',
+            ),
         ],
         # Python package version
         "tit/__init__.py": [
@@ -116,11 +120,13 @@ def update_version(new_version):
         "CITATION.cff": [
             (r"\nversion: [^\n]*", f"\nversion: {new_version}"),
             (
-                r'\ndate-released: [^\n]*',
+                r"\ndate-released: [^\n]*",
                 f'\ndate-released: "{datetime.now().strftime("%Y-%m-%d")}"',
             ),
         ],
     }
+
+    update_desktop_lock(new_version)
 
     # Update dataset description JSON files
     update_dataset_descriptions(new_version)
@@ -136,18 +142,6 @@ def update_version(new_version):
     print(f"Updated {len(updated_files)} core files:")
     for file_path in updated_files:
         print(f"   • {file_path}")
-
-    print(f"\n Additional automated updates:")
-    print(f"   • Updated main releases page (docs/releases/releases.md)")
-    print(f"   • Updated changelog (docs/releases/changelog.md)")
-    print(f"   • Created individual release page (docs/releases/v{new_version}.md)")
-    print(f"   • Updated releases nav (docs/_data/nav.yml)")
-    print(f"   • Updated previous release titles")
-    print(
-        f"   • Updated dataset description JSON files with new SimNIBS Docker image version"
-    )
-    print(f"   • Updated the v3 desktop app version (desktop/package.json)")
-    print(f"   • Updated Python package version (tit/__init__.py)")
 
 
 def update_dataset_descriptions(new_version):
@@ -174,8 +168,8 @@ def update_dataset_descriptions(new_version):
         # Pattern to match Docker image tags in the JSON files
         patterns = [
             (
-                r'"Tag": "idossha/simnibs:[^"]*"',
-                f'"Tag": "idossha/simnibs:v{new_version}"',
+                r'"Tag": "idossha/(?:simnibs|ti-toolbox):[^"]*"',
+                f'"Tag": "idossha/ti-toolbox:{new_version}"',
             ),
         ]
 
@@ -222,7 +216,7 @@ def update_releases_page(version, release_notes, release_date):
 [Linux deb](https://github.com/idossha/TI-Toolbox/releases/latest/download/ti-toolbox_{version}_amd64.deb)
 
 **Other:**
-- Docker Image: `docker pull idossha/simnibs:latest`
+- Docker Image: `docker pull idossha/ti-toolbox:{version}`
 - Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
 
 For installation instructions, see the [Installation Guide]({{{{ site.baseurl }}}}/installation/)."""
@@ -246,7 +240,6 @@ For installation instructions, see the [Installation Guide]({{{{ site.baseurl }}
     print(f"Updated latest release in {releases_file}")
 
 
-
 def update_changelog_file(version, release_notes, release_date):
     """Update the changelog file"""
     changelog_file = "docs/releases/changelog.md"
@@ -267,7 +260,7 @@ def update_changelog_file(version, release_notes, release_date):
 [Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/ti-toolbox_{version}_amd64.deb)
 
 **Other:**
-- Docker Image: `docker pull idossha/simnibs:v{version}`
+- Docker Image: `docker pull idossha/ti-toolbox:{version}`
 - Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
 
 ---
@@ -276,18 +269,18 @@ def update_changelog_file(version, release_notes, release_date):
     with open(changelog_file, "r", encoding="utf-8") as f:
         content = f.read()
 
+    if re.search(rf"^### v{re.escape(version)}(?: |$)", content, re.M):
+        print(f"Preserved existing changelog entry: v{version}")
+        return
+
     # Remove "(Latest Release)" from the current latest version to demote it
-    content = re.sub(
-        r"### v(\d+\.\d+\.\d+) \(Latest Release\)", r"### v\1", content
-    )
+    content = re.sub(r"### v(\d+\.\d+\.\d+) \(Latest Release\)", r"### v\1", content)
 
     # Insert new release section after the front matter (after the first ---)
     lines = content.split("\n")
     insert_index = -1
     for i, line in enumerate(lines):
-        if (
-            line.strip() == "---" and i > 5
-        ):  # Find the first --- after the front matter
+        if line.strip() == "---" and i > 5:  # Find the first --- after the front matter
             insert_index = i + 1
             break
 
@@ -307,6 +300,10 @@ def update_changelog_file(version, release_notes, release_date):
 def create_individual_version_file(version, release_notes, release_date):
     """Create an individual version file for the release"""
     version_file = f"docs/releases/v{version}.md"
+
+    if Path(version_file).exists():
+        print(f"Preserved authored release page: {version_file}")
+        return
 
     version_content = f"""---
 layout: releases
@@ -333,7 +330,7 @@ sitemap: false
 [Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/ti-toolbox_{version}_amd64.deb)
 
 **Other:**
-- Docker Image: `docker pull idossha/simnibs:v{version}`
+- Docker Image: `docker pull idossha/ti-toolbox:{version}`
 - Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
 
 For installation instructions, see the [Installation Guide]({{{{ site.baseurl }}}}/installation/).
@@ -378,7 +375,6 @@ def update_navigation(version):
         content = "\n".join(lines)
 
     _write(nav_file, content)
-
 
 
 def update_previous_release_titles(version):
@@ -430,114 +426,77 @@ def update_previous_release_titles(version):
             print(f"Could not update {version_file}: {e}")
 
 
-def get_release_info():
-    """Interactive prompt to collect release information"""
-    print("\nRelease Information Collection")
-    print("=" * 50)
+def update_desktop_lock(version: str) -> None:
+    """Keep only the lockfile root package in step; dependency versions stay untouched."""
+    path = Path("desktop/package-lock.json")
+    lock = json.loads(path.read_text())
+    lock["version"] = version
+    lock["packages"][""]["version"] = version
+    content = json.dumps(lock, indent=2) + "\n"
+    if content != path.read_text():
+        _write(path, content)
 
-    while True:
-        version = input("\nEnter version number (e.g., 2.0.1): ").strip()
-        if re.match(r"^\d+\.\d+\.\d+$", version):
-            break
-        print("Invalid version format. Please use X.Y.Z format (e.g., 2.0.1)")
 
-    print("\n Additions (Enter each addition on a new line, press Enter twice when done):")
-    additions = []
-    while True:
-        line = input().strip()
-        if not line and additions:  # Empty line and we have at least one addition
-            break
-        if line:  # Only add non-empty lines
-            additions.append(line)
-
-    print("\n Fixes (Enter each fix on a new line, press Enter twice when done):")
-    fixes = []
-    while True:
-        line = input().strip()
-        if not line and fixes:  # Empty line and we have at least one fix
-            break
-        if line:  # Only add non-empty lines
-            fixes.append(line)
-
-    # Format the release notes
-    release_notes = []
-    release_notes.append("#### Additions")
-    release_notes.append("")
-    if additions:
-        release_notes.extend(f"- {add}" for add in additions)
-    else:
-        release_notes.append("- N/A")
-
-    release_notes.append("")
-    release_notes.append("#### Fixes")
-    release_notes.append("")
-    if fixes:
-        release_notes.extend(f"- {fix}" for fix in fixes)
-    else:
-        release_notes.append("- N/A")
-
-    return version, "\n".join(release_notes)
+def update_development_version(version: str) -> None:
+    """Stamp runtime packages without announcing a public release or changing image defaults."""
+    update_file_content(
+        "desktop/package.json", [(r'"version": "[^"]*"', f'"version": "{version}"')]
+    )
+    update_desktop_lock(version)
+    update_file_content(
+        "tit/__init__.py", [(r'__version__ = "[^"]*"', f'__version__ = "{version}"')]
+    )
 
 
 def main():
-    """Main function"""
+    """Separate runtime version changes from explicit public release documentation changes."""
     global DRY_RUN
-
-    parser = argparse.ArgumentParser(
-        description="Update the version number everywhere it is written.",
-        epilog=(
-            "With no --version the script prompts for the version and the release notes. "
-            "--dry-run writes nothing and prints every file it would touch."
-        ),
-    )
-    parser.add_argument("--version", help="new version, X.Y.Z (skips the interactive prompt)")
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="print what would change; do not write any file",
+        "--version", required=True, help="X.Y.Z, or X.Y.Z-dev.N with --development"
     )
+    parser.add_argument(
+        "--development",
+        action="store_true",
+        help="only runtime versions; preserve public release metadata",
+    )
+    parser.add_argument(
+        "--publish-notes",
+        action="store_true",
+        help="update public release landing page and navigation",
+    )
+    parser.add_argument(
+        "--notes-file",
+        type=Path,
+        help="authored Markdown notes, required with --publish-notes",
+    )
+    parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
+    pattern = r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)"
+    if args.development:
+        pattern += r"-dev\.(?:0|[1-9]\d*)"
+    if not re.fullmatch(pattern, args.version):
+        parser.error("expected X.Y.Z-dev.N for development or stable X.Y.Z for release")
+    if args.development and (args.publish_notes or args.notes_file):
+        parser.error("development mode cannot publish release notes")
+    if args.publish_notes != bool(args.notes_file):
+        parser.error("--publish-notes and --notes-file must be supplied together")
+    notes = args.notes_file.read_text(encoding="utf-8") if args.notes_file else None
+    if notes is not None and not notes.strip():
+        parser.error("release notes must not be empty")
     DRY_RUN = args.dry_run
-
-    # chdir first: every path in this module is relative to the repository root.
-    os.chdir(Path(__file__).parent.parent.parent)  # dev/update/ -> dev/ -> root
-
-    if args.version:
-        if not re.match(r"^\d+\.\d+\.\d+$", args.version):
-            parser.error(f"invalid version {args.version!r}; expected X.Y.Z")
-        new_version = args.version
-        # Non-interactive: the release-notes prompt would hang in CI. A dry run only needs to show
-        # which files move, and a real non-interactive run gets its notes from docs/releases/.
-        release_notes = "#### Additions\n\n- N/A\n\n#### Fixes\n\n- N/A"
+    os.chdir(Path(__file__).resolve().parents[2])
+    if args.development:
+        update_development_version(args.version)
     else:
-        new_version, release_notes = get_release_info()
-
-    if DRY_RUN:
-        print("\n*** DRY RUN — no file will be written ***\n")
-
-    update_version(new_version)
-
-    add_release_to_changelog(new_version, release_notes)
-
-    if DRY_RUN:
-        print("\nDry run complete. Nothing was written.")
-        return
-
-    print("\nNext steps (the full procedure is docs/dev/RELEASE.md):")
-    print(f"   1. Review all changes: git diff")
-    print(f"   2. Commit the changes: git commit -m 'chore: release v{new_version}'")
-    print(f"   3. Create a release tag: git tag v{new_version}")
-    print(f"   4. Push changes: git push && git push --tags")
-    print(f"   5. Watch .github/workflows/release-v3.yml — it builds and pushes the Docker image,")
-    print(f"      validates unsigned desktop artifacts, then signs, notarises and publishes them.")
-    print(f"\nRelease documentation automatically updated:")
-    print(f"   • Main releases page shows v{new_version} as latest")
-    print(f"   • Changelog includes full release history")
-    print(f"   • Releases sidebar updated with v{new_version} in version history")
-    print(f"   • Individual release page created with proper links")
-    print(f"   • Dataset description JSON files updated with new SimNIBS Docker image version")
-    print(f"   • Docker Compose files updated with new image tags")
-    print(f"   • v3 desktop app version updated (desktop/package.json)")
+        update_version(args.version)
+        if notes is not None:
+            add_release_to_changelog(args.version, notes)
+    print(
+        "Dry run complete; no writes."
+        if DRY_RUN
+        else "Review the version diff. No commit, tag or publication was performed."
+    )
 
 
 if __name__ == "__main__":

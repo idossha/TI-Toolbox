@@ -14,16 +14,17 @@ Docker stack with a single streamlined image. There is no X11 anywhere, FastSurf
 `recon-all`, and viewing is [Tetravox]({{ site.baseurl }}/wiki/visualizers/) inside the app window
 instead of Freeview and Gmsh as separate X11 programs.
 
-The science is the same code it always was — `tit` runs every job, in the desktop app and from a
-script alike — but **nine defects in the shared scientific core were found and fixed in this
-release**. If you have 2.x results: **re-run** cluster-based permutation analyses run with
-`two-sided` (the default) or `less`, and any group comparison with **one subject on one side**
-(every voxel of those came back `t = 0, p = 1`); **rescale** voxel `focality_*_area` by 1/10 and any reported
-`p = 0`; `hf_peak`/`hf_sar` are unchanged for positional montages (all 2.x montages); everything else,
-`TI_max`/`TI_avg`/`TI_normal` included, stands. Read the record before you reuse them:
-[Scientific corrections from v2.x to v3.0.0](https://github.com/idossha/TI-Toolbox/blob/main/docs/dev/SCIENTIFIC-CORRECTIONS.md),
-and the [Upgrading]({{ site.baseurl }}/releases/v3.0.0/#upgrading-from-2x) section of the
-[full release notes]({{ site.baseurl }}/releases/v3.0.0/).
+The desktop app and scripts use the same `tit` scientific core. **Nine scientific corrections**
+are recorded in the unreleased work. Before reusing 2.x results, consult the complete
+[correction table]({{ site.baseurl }}/releases/v3.0.0/#scientific-corrections) and
+[upgrade guidance]({{ site.baseurl }}/releases/v3.0.0/#upgrading-from-2x).
+Those cover re-running affected statistics and geometry analyses, rescaling voxel focality,
+and correcting sampled permutation p-values. No released 2.x montage requires an exposure
+metric rerun for SCI-07; SCI-08 requires no action.
+
+The stable public release remains [2.5.0]({{ site.baseurl }}/releases/v2.5.0/).
+Preview artifact details are tracked in the
+[internal installation handoff]({{ site.baseurl }}/installation/#internal-colleague-testing).
 
 See [Desktop Application]({{ site.baseurl }}/wiki/desktop-app/) for how the pieces fit together,
 and the [Wiki]({{ site.baseurl }}/wiki/) for a page per workflow.
@@ -43,13 +44,27 @@ and the [Wiki]({{ site.baseurl }}/wiki/) for a page per workflow.
 
 #### Additions (container and platform)
 
+- **Both standalone loaders can open the upcoming interface without a PyPI release** —
+  `loader.py` and `loader.sh` refresh the `main` source archive into a shared isolated cached
+  environment on each startup, so starting requires network access and the main integration.
+  Management commands `--stop`, `--status` and `--logs` use a working cached launcher offline
+  without refreshing source. A checkout loader uses its local source. Internal testing supplies the explicit
+  `idossha/ti-toolbox:internal-20260908.1` image; its publication and immutable digest remain
+  pending in the [handoff]({{ site.baseurl }}/installation/#internal-colleague-testing).
+  This route creates no public release or update notification; 2.5.0 remains the public release.
+- **Restarted servers settle interrupted jobs** — queued and interrupted running jobs become
+  failed instead of remaining indefinitely active; a recorded completed exit retains its
+  actual outcome. Jobs are not resumed or automatically resubmitted. See
+  [Jobs]({{ site.baseurl }}/wiki/jobs/#server-restart).
+- **mEx symmetry resolves standard leadfield filenames** — it now uses the shared symmetry
+  helper, removing the old parsing failure for `<subject>_leadfield_<net>.hdf5`.
+
 - **Single image, `idossha/ti-toolbox:<ver>`** — SimNIBS 4.6, FastSurfer (`--seg_only`, checkpoints pre-downloaded), the desktop UI, and the Tetravox Embed viewer are all baked into one image, with no `pip install` at container start.
 - **Image slimming** — gmsh, PyQt5, the TMS coil models, neovim and the build compilers are out of the image: **≈ 2.3 GB to download, ≈ 9 GB unpacked on disk** (2.32 GB content / 8.93 GB disk, measured 2026-09-07), down from 6.66 GB content / 21.3 GB before the pass, and from a 2.5.0 stack of `idossha/simnibs` (6.15 GB) plus `ti-toolbox_freesurfer` (21.9 GB).
 - **FastSurfer segmentation** — a new, much faster pre-processing stage (`run_fastsurfer`) producing a DKT-atlas parcellation in `derivatives/fastsurfer/`, replacing FreeSurfer `recon-all` for the segmentation this toolbox needs.
 - **Tetravox Embed viewer** — the 3D/volume viewer now renders inside the app's own window (WebGL2 + WASM on the host GPU, driven by a `postMessage` protocol), instead of launching Freeview/Gmsh as separate X11 applications.
 - **Docker Engine API stack** — the desktop app now drives Docker entirely through its Engine API (image pull with progress, container create/start, health check, log streaming, stop) instead of shelling out to the `docker compose` CLI; `docker context inspect` is the only remaining CLI use, for engine discovery.
-- **Three documented ways to run v3**, all landing on the same container-served UI: the **desktop app**; **`tit launch --project <dir>`** from a `pip install tit`, or `./loader.sh` in a clone, for servers and SSH sessions with no Electron; and **`npm run dev`** in `desktop/` to run unreleased code from source. See the [Installation Guide]({{ site.baseurl }}/installation/).
-- **A v3 release workflow** — `.github/workflows/release-v3.yml` builds and smokes the image, builds and verifies **unsigned** installers for macOS arm64/x64, Windows x64 and Linux x64, creates the GitHub Release only after that validation is green, and then publishes signed and notarised artifacts. A `plan` job hard-fails when `tit/__init__.py`, `version.py`, `desktop/package.json` and the compose image-tag default disagree with the pushed tag; a `dry_run` dispatch exercises the path without pushing an image or signing anything.
+- **Three documented ways to run v3**, all landing on the same container-served UI: the **desktop app**; **`tit launch --project <dir>`** from the matching tested source package, or `./loader.sh` in its checkout, for servers and SSH sessions with no Electron; and **`npm run dev`** in `desktop/` to run unreleased code from source. See the [Installation Guide]({{ site.baseurl }}/installation/).
 - **Offscreen end-to-end test harness** — Electron e2e tests run headless/offscreen by default, with a quiet-check wrapper that asserts no window reaches the screen, plus a browser-mode leg that drives the UI with no Electron bridge.
 
 #### Removals
@@ -735,6 +750,6 @@ We actively support and maintain versions 2.x.x and newer of the Temporal Interf
 If you encounter issues with any release:
 
 1. Check the [Installation Guide]({{ site.baseurl }}/installation/) for setup instructions
-2. Review the [Troubleshooting]({{ site.baseurl }}/installation/#troubleshooting) section
+2. Review the [Troubleshooting]({{ site.baseurl }}/installation/troubleshooting/) section
 3. Search [existing issues](https://github.com/idossha/TI-Toolbox/issues)
 4. Ask in [GitHub Discussions](https://github.com/idossha/TI-Toolbox/discussions)

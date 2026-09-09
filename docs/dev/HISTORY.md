@@ -685,3 +685,17 @@ survives of it, verified against the current source.
    so the canonical lookup misses and the fallback path does not exist. `tit/opt/leadfield.py`'s
    `list_leadfields` already has the right logic — split on `"_leadfield_"` first. **Still open**,
    verified in `tit/opt/mex/mex.py:118-128`.
+
+### 2026-09-08 — Internal distribution and local validation
+
+Continued the desktop implementation in the saved checkout. The generic build workflow now
+separates export, internal image delivery and public publication; development version preparation
+preserves authored notes and stable announcements. Both downloaded loaders bootstrap main in an
+isolated cache, while cached management commands remain available offline. The public site marks
+the desktop as upcoming and retains the full scientific-corrections guidance.
+
+Validation exposed stale real-test selectors and missing Dataset 000 derivatives rather than
+supporting the prior blanket real-green handoff. Real tests now require an explicit copied project
+root, and the Results preview's repeated section spacing was corrected without relaxing its density
+threshold. Host dependencies are declared by the test extra. Measurements and remaining real/image
+gates are recorded in BENCHMARKS.md and RELEASE.md, not a new release-specific ledger.

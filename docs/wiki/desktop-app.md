@@ -166,10 +166,14 @@ Tetravox's own `docs/EMBED.md` for the full protocol.
 
 ## Launch Workflow
 
+This describes the intended preview launcher behavior. A successful packaged first launch
+is **not yet verified here**; use the per-artifact
+[internal handoff]({{ site.baseurl }}/installation/#internal-colleague-testing).
+
 1. **User clicks "Launch TI-Toolbox"**
 2. **Docker discovery** — resolves the active Docker context and confirms the daemon answers
 3. **Project initialization** — creates the BIDS structure if this is a new project
-4. **Image pull** (first launch only) — `idossha/ti-toolbox:<ver>`, with progress reported to the launcher window
+4. **Image pull** (when the matching image is absent) — `idossha/ti-toolbox:<ver>`, with progress reported to the launcher window
 5. **Container start** — network/volume ensured, container created with the project mounted, the app's env map, and the right labels, then started
 6. **Health check** — polled against `/api/health`, raced against "did the container exit" so a crash on boot reports its exit code instead of a generic timeout
 7. **Window opens** on `http://127.0.0.1:<port>/`, the container's own served UI
@@ -260,8 +264,8 @@ npm run dev
 
 ## Performance
 
-- **Startup Time:** a few seconds once the image is pulled; the first launch downloads the
-  one image (≈ 2.3 GB to download, ≈ 9 GB unpacked on disk)
+- **Startup Time:** depends on image availability and host performance. Clean packaged
+  first-launch timing is unverified; a cached development launch is not equivalent.
 - **Memory Usage:** small for the app itself; the container needs whatever RAM the workload
   needs (16GB+ Docker allocation recommended, 32GB+ for large leadfields/FastSurfer — see
   [Dependencies]({{ site.baseurl }}/installation/dependencies/))

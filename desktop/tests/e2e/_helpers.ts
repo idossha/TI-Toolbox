@@ -1,6 +1,6 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join, parse } from "node:path";
 import { _electron as electron, expect, type ElectronApplication, type Locator, type Page } from "@playwright/test";
 
 /** The repository root Electron is pointed at (desktop/, whose package.json "main" is out/main). */
@@ -322,9 +322,24 @@ export function recordPayload(kind: string, body: unknown): void {
   writeFileSync(join(dir, `${kind}.json`), `${JSON.stringify(body, null, 2)}\n`);
 }
 
-/** The host path the shared dev container's `/mnt/000` project mount resolves to (see this lane's
- *  brief) — real specs build cleanup paths from it, never a literal elsewhere. */
-export const PROJECT_HOST_ROOT = "/Users/idohaber/datasets/000";
+/** Real specs may delete their outputs, so they must name the host project explicitly. */
+export function projectHostRoot(env: NodeJS.ProcessEnv = process.env): string {
+  const configured = env.TIT_E2E_PROJECT_HOST?.trim();
+  if (configured) {
+    if (!isAbsolute(configured)) throw new Error("TIT_E2E_PROJECT_HOST must be an absolute project directory");
+    const root = realpathSync(configured);
+    if (root === parse(root).root || !statSync(root).isDirectory()) {
+      throw new Error("TIT_E2E_PROJECT_HOST must name a project directory, not a filesystem root or file");
+    }
+    return root;
+  }
+  if (env.TIT_E2E_SERVER_URL && env.TIT_E2E_TOKEN !== "mock-token") {
+    throw new Error("Real e2e requires TIT_E2E_PROJECT_HOST to match the server's /mnt/000 mount; refusing implicit cleanup of the maintainer dataset");
+  }
+  return "/Users/idohaber/datasets/000";
+}
+
+export const PROJECT_HOST_ROOT = projectHostRoot();
 
 /**
  * For a page with no output-naming field visible in its own request body shape (its config carries

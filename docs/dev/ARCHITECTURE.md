@@ -614,3 +614,34 @@ accuracy and tensor reorientation are the two places to look first.
 
 Code: `tit/pre/qsi/{config,docker_builder,utils,qsiprep,qsirecon,dti_extractor}.py`, orchestrated by
 `tit/pre/structural.py`.
+
+## 10. Internal builds and public availability
+
+**An internal build is a distribution mode of the existing product, not a second release pipeline.**
+The maintainer's 2026-09-08 direction is to test the upcoming desktop locally, then let colleagues
+use loaders from `main` with a matching Docker Hub image. A build records its source revision,
+image identity and runtime version; the installer and both loaders must resolve the same image.
+An internal image tag is not overwritten after it has been shared. `TIT_IMAGE_TAG` remains an
+explicit override. This prevents one cohort silently running different science under one tag.
+
+**Preparing or distributing an internal build does not announce a public release.** It must not
+create a public GitHub Release, move the production Docker `latest` tag, rewrite the stable release
+landing page, or change the public release metadata in `version.py`. The Python package and desktop
+may identify themselves as a development version while that stable announcement metadata stays put.
+Public update checks use the published GitHub release; publishing a container alone is not an update
+notification. A later production publication remains a separate maintainer decision.
+
+**The site may describe upcoming functionality on main, with explicit availability wording.**
+Preview installation instructions distinguish internal artifacts from the stable public download.
+Scientific correction and migration advice remains visible and accurate before colleagues test it.
+There is no parallel documentation tree or release-specific task ledger to reconcile.
+
+The host-only `test` extra in `pyproject.toml` defines the Python test environment; it includes
+real SciPy because the statistics tests explicitly restore it. Runtime dependencies remain owned
+by the container to avoid changing SimNIBS pins.
+
+Verification: the existing packaging workflow checks build/internal/release behavior; launcher tests
+exercise checkout and downloaded entry points; the final image is tested without a development source
+mount. Results, including unexecuted platform checks, live in [BENCHMARKS.md](BENCHMARKS.md), and
+remaining work stays in [RELEASE.md](RELEASE.md). This section refines §§1 and 5; it does not authorize
+a public release or relax any scientific validation requirement.

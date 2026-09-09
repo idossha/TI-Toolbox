@@ -18,7 +18,7 @@
  *      the version inside the artifact did not match the tag it was published under.
  *
  * Usage:
- *   node scripts/verify-package.mjs <app-path> [--expect-version X.Y.Z] [--expect-runtime]
+ *   node scripts/verify-package.mjs <app-path> [--expect-version X.Y.Z] [--expect-image-tag TAG] [--expect-runtime]
  *
  * <app-path> is whatever electron-builder produced for the platform:
  *   macOS    .../mac-arm64/TI-Toolbox.app  (or the mac-arm64 directory itself)
@@ -161,12 +161,17 @@ function main() {
   const args = process.argv.slice(2);
   // --expect-version takes a value; everything else is a flag. Without skipping the value, an
   // invocation like `verify-package.mjs app --expect-version 3.0.0` looks like two positionals.
-  const positional = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--expect-version");
+  const positional = args.filter((a, i) => !a.startsWith("--") && !["--expect-version", "--expect-image-tag"].includes(args[i - 1]));
   if (positional.length !== 1) {
-    console.error("usage: node scripts/verify-package.mjs <app-path> [--expect-version X.Y.Z] [--expect-runtime]");
+    console.error("usage: node scripts/verify-package.mjs <app-path> [--expect-version X.Y.Z] [--expect-image-tag TAG] [--expect-runtime]");
     process.exit(2);
   }
   const expectRuntime = args.includes("--expect-runtime");
+  const imageTagArgIdx = args.indexOf("--expect-image-tag");
+  const expectImageTag = imageTagArgIdx >= 0 ? args[imageTagArgIdx + 1] : undefined;
+  if (imageTagArgIdx >= 0 && (!expectImageTag || expectImageTag.startsWith("--"))) {
+    throw new Error("--expect-image-tag requires a tag");
+  }
   const versionArgIdx = args.indexOf("--expect-version");
   let expectVersion = versionArgIdx >= 0 ? args[versionArgIdx + 1] : undefined;
   if (!expectVersion) {
@@ -279,6 +284,9 @@ function main() {
   // satisfy `existsSync` and still fail at runtime.
   const composePath = join(app.resourcesDir, "docker-compose.yml");
   const composeText = existsSync(composePath) ? readFileSync(composePath, "utf8") : "";
+  if (expectImageTag) {
+    check("packaged run spec uses this build's image", composeText.includes(`idossha/ti-toolbox:\${TIT_IMAGE_TAG:-${expectImageTag}}`), expectImageTag);
+  }
   check(
     "run spec staged at resources/docker-compose.yml",
     /^\s*tit:/m.test(composeText) && composeText.includes("idossha/ti-toolbox:"),

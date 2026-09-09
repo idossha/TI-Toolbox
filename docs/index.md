@@ -11,25 +11,19 @@ layout: home
 <p class="home-section__title">Quick start</p>
 <ol class="quickstart" markdown="1">
 <li markdown="1">
-**Install Docker Desktop.** It is the only prerequisite. No X11 server, no XQuartz, no VcXsrv — v3 removed all of it.
+**Use the stable public release.** The [2.5.0 release page]({{ site.baseurl }}/releases/v2.5.0/) provides its downloads; use the [stable installation guide]({{ site.baseurl }}/installation/#stable-public-installation-250) for version-specific setup. Its X11 and two-image requirements still apply.
 </li>
 <li markdown="1">
-**Install the TI-Toolbox desktop app.**<br>
-Download the installer for your platform from the [latest release](https://github.com/idossha/TI-toolbox/releases/latest) — `.dmg` (macOS), `.exe` (Windows), `.AppImage` or `.deb` (Linux). On first launch it pulls the toolbox image and starts the container for you.<br>
-Prefer the command line? `loader.py` + `docker-compose.yml` still start the same stack — see [Bash/CLI Usage]({{ site.baseurl }}/installation/bash-cli/).
+**Explore what is coming.** The screenshots below show the **unreleased desktop preview**, with an integrated viewer, jobs and pipelines. Read the [upcoming notes]({{ site.baseurl }}/releases/v3.0.0/) and the [scientific corrections]({{ site.baseurl }}/releases/v3.0.0/#scientific-corrections) before reusing 2.x results.
 </li>
 <li markdown="1">
-**Point it at a project folder.**
-Any [BIDS](https://bids.neuroimaging.io/) directory. The [Overview]({{ site.baseurl }}/wiki/overview/) page then tells you what each subject already has and what it is ready for. Example data ships with the toolbox, so you can get familiar with the software right away.
-</li>
-<li markdown="1">
-**Optional: connect your AI assistant** — install the [TI-Toolbox plugin]({{ site.baseurl }}/wiki/ai-assistant/) so Claude Code, Codex or Cursor can answer questions from the wiki, write scripts, and troubleshoot your project.
+**Testing with a colleague?** Follow the [internal installation instructions]({{ site.baseurl }}/installation/#internal-colleague-testing) using the maintainer's tested source revision and matching image. Public release downloads do not contain this preview.
 </li>
 </ol>
 </section>
 
 <section>
-<p class="home-section__title">Highlights</p>
+<p class="home-section__title">Upcoming desktop preview</p>
 <div class="carousel-container">
   <div class="carousel-wrapper">
     <div class="carousel-images">

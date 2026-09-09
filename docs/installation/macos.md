@@ -16,32 +16,31 @@ separate application.
 
 ## Option 1: Desktop App
 
-Download the pre-built desktop application for your Mac from the **[Latest Release](https://github.com/idossha/TI-toolbox/releases/latest)**:
-
-| Architecture | Download |
-|--------------|----------|
-| **Apple Silicon** | `TI-Toolbox-{version}-arm64.dmg` |
-| **Intel/AMD** | `TI-Toolbox-{version}.dmg` |
-
-Simply download, mount the DMG, and drag TI-Toolbox to your Applications folder — the app handles Docker management for you.
+The desktop preview is unreleased. Use the installer and checksum supplied in the
+**[internal testing handoff]({{ site.baseurl }}/installation/#internal-colleague-testing)**.
+Public [2.5.0 downloads]({{ site.baseurl }}/releases/v2.5.0/) use the older stack and their
+own setup instructions. A tested installer for this platform has not yet been identified here.
 
 <br>
 
 ## Option 2: Command Line
 
+Run from the maintainer-supplied tested source checkout; replace the image placeholder with
+the reference in the [internal handoff]({{ site.baseurl }}/installation/#internal-colleague-testing).
+The public Python package is not a way to obtain this unreleased launcher.
+
 The same interface, in your browser, with no Electron app. Needs Docker and CPython 3.11+
 (macOS ships 3.9, so install a newer one first — `brew install python@3.12`, or python.org).
 
 ```bash
-pip install tit
-tit launch --project ~/datasets/000
+python3 loader.py --image "<verified-image-reference>" --project ~/datasets/000
 ```
 
 It starts the container, waits for the server and opens your browser. Add `--status`, `--logs`,
 `--stop`, `--port` or `--no-open` as needed. Full reference:
 **[Command-line launcher]({{ site.baseurl }}/installation/bash-cli/)**.
 
-The first run downloads `idossha/ti-toolbox` (**≈ 2.3 GB to download, ≈ 9 GB unpacked on
+With a verified matching image available, the launcher downloads `idossha/ti-toolbox` (**≈ 2.3 GB to download, ≈ 9 GB unpacked on
 disk**) — a few minutes on a typical connection.
 
 <br>
@@ -64,9 +63,11 @@ for what the first run builds and how long it takes.
 ### Apple Silicon Compatibility
 - The image is built for `linux/amd64`; on Apple Silicon Docker Desktop runs it under Rosetta emulation
 - Expect slower FEM solves and FastSurfer segmentation on Apple Silicon than on a comparable x86 machine — see the [Pre-Processing]({{ site.baseurl }}/wiki/pre-processing/) page for the measured native-arm64 FastSurfer runtime and its emulated-amd64 status
-- All TI-Toolbox features work on both architectures
+- Workflow compatibility and packaged launch must be checked on each host architecture
 
-### Security & Notarization
-- **Apple Notarization**: The desktop app is notarized by Apple to ensure it's safe and hasn't been tampered with
-- **Gatekeeper Compatibility**: The app passes macOS Gatekeeper checks, so you won't see security warnings when opening it
-- **Hardened Runtime**: Uses macOS security features to protect against code injection and other exploits
+### Signing and first launch
+
+Signing, Apple notarization, Gatekeeper acceptance and clean first launch are **unverified
+for the internal installer until recorded in the handoff**. A local package build does not
+prove these properties. Report a blocked launch to the maintainer with the installer checksum
+and the exact message; this guide does not assert that macOS will accept it without warnings.

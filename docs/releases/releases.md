@@ -8,9 +8,13 @@ permalink: /releases/
 
 **Release Date**: unreleased — the installers and Docker image below are not published yet
 
-v3 replaces the PyQt5 GUI with an Electron desktop application, and the two-image Docker stack with a single ≈ 2.3 GB image (≈ 9 GB unpacked): no X11 anywhere, FastSurfer in place of FreeSurfer `recon-all`, and [Tetravox]({{ site.baseurl }}/wiki/visualizers/) rendering inside the app window instead of Freeview and Gmsh as separate X11 programs. New [Overview]({{ site.baseurl }}/wiki/overview/), [Jobs]({{ site.baseurl }}/wiki/jobs/), [Notebooks]({{ site.baseurl }}/wiki/notebooks/), [Pipeline]({{ site.baseurl }}/wiki/pipelines/) and [Results]({{ site.baseurl }}/wiki/results/) pages sit alongside per-job tables on the Simulator, Optimizer and Analyzer, free-hand electrode placement folded into the Simulator, and optional tools switched on per project. The science is the same `tit` code, but **eight defects in the shared scientific core were found and fixed**: re-run cluster-based permutation results computed with `two-sided` or `less`, rescale voxel `focality_*_area` and any `p = 0`, and recompute `hf_peak`/`hf_sar` for montages declaring `channels` — see the [scientific corrections](https://github.com/idossha/TI-Toolbox/blob/main/docs/dev/SCIENTIFIC-CORRECTIONS.md) and the [Upgrading]({{ site.baseurl }}/releases/v3.0.0/#upgrading-from-2x) notes before reusing 2.x results.
+v3 replaces the PyQt5 GUI with an Electron desktop application, and the two-image Docker stack with a single ≈ 2.3 GB image (≈ 9 GB unpacked): no X11 anywhere, FastSurfer in place of FreeSurfer `recon-all`, and [Tetravox]({{ site.baseurl }}/wiki/visualizers/) rendering inside the app window instead of Freeview and Gmsh as separate X11 programs. New [Overview]({{ site.baseurl }}/wiki/overview/), [Jobs]({{ site.baseurl }}/wiki/jobs/), [Notebooks]({{ site.baseurl }}/wiki/notebooks/), [Pipeline]({{ site.baseurl }}/wiki/pipelines/) and [Results]({{ site.baseurl }}/wiki/results/) pages sit alongside per-job tables on the Simulator, Optimizer and Analyzer, free-hand electrode placement folded into the Simulator, and optional tools switched on per project. The shared scientific core has **nine recorded corrections** in this unreleased work. Read the
+[complete correction table]({{ site.baseurl }}/releases/v3.0.0/#scientific-corrections) and
+[upgrade advice]({{ site.baseurl }}/releases/v3.0.0/#upgrading-from-2x) before reusing 2.x results.
+The stable public release remains [2.5.0]({{ site.baseurl }}/releases/v2.5.0/); preview artifacts
+are identified separately in the [internal handoff]({{ site.baseurl }}/installation/#internal-colleague-testing).
 
-Full notes: [Release v3.0.0]({{ site.baseurl }}/releases/v3.0.0/) · [Installation Guide]({{ site.baseurl }}/installation/)
+Full notes: [Upcoming v3.0.0 notes]({{ site.baseurl }}/releases/v3.0.0/) · [Installation Guide]({{ site.baseurl }}/installation/)
 
 ---
 

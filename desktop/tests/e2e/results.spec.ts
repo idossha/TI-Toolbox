@@ -360,6 +360,7 @@ test("hits its §12.3 numbers at 1280x800 and 1440x900, light and dark", async (
     ].join(" | ");
   });
   console.log("results geometry:", geometry);
+  console.log("results preview dead-space ratio:", columns.preview);
   console.log(
     "results dead space:",
     rows.map((r) => `${r.theme} ${r.width}x${r.height} ${(r.deadSpaceRatio * 100).toFixed(1)}%`).join(" · "),

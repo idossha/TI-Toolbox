@@ -332,15 +332,28 @@ def tool_read_changelog(args: Dict[str, Any]) -> Dict[str, Any]:
     text = _split_frontmatter(read_repo_file(CHANGELOG))["_body"]
     version = args.get("version")
     if version:
-        v = str(version).lstrip("v")
-        sec = None
-        for h in _headings(text):
-            if h.lstrip("# ").startswith(f"v{v}"):
-                sec = _extract_section(text, h.lstrip("# "))
-                break
-        if sec is None:
+        v = str(version).removeprefix("v")
+        base = v.split("-", 1)[0].split("+", 1)[0]
+        headings = [h.lstrip("# ") for h in _headings(text)]
+        heading = next((h for h in headings if h.split()[0] == f"v{v}"), None)
+        if heading is None and "-" in v:
+            # A development build shares the upcoming base notes, never a published release.
+            heading = next(
+                (
+                    h
+                    for h in headings
+                    if h.split()[0] == f"v{base}" and "unreleased" in h.lower()
+                ),
+                None,
+            )
+        if heading is None:
             raise ToolError(f"Version v{v} not found in changelog")
-        return {"version": f"v{v}", "content": _truncate(sec)}
+        return {
+            "version": heading.split()[0],
+            "requested_version": f"v{v}",
+            "status": "unreleased" if "unreleased" in heading.lower() else "released",
+            "content": _truncate(_extract_section(text, heading)),
+        }
     n = int(args.get("max_versions", 3))
     versions = [h for h in _headings(text) if h.lstrip("# ").startswith("v")]
     parts = [_extract_section(text, h.lstrip("# ")) for h in versions[:n]]
@@ -351,11 +364,7 @@ def tool_read_changelog(args: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def tool_get_toolbox_version(_: Dict[str, Any]) -> Dict[str, Any]:
-    """Python package version (tit/__init__.py) and Electron app version.
-
-    v3 keeps these in lockstep via ``dev/update/update_version.py --version X.Y.Z``;
-    a mismatch here means a release is half-applied, not that one of them is right.
-    """
+    """Report runtime versions and the configured image without implying publication."""
     text = read_repo_file(PY_VERSION_FILE, max_age_s=3600)
     m = re.search(r'__version__\s*=\s*"([^"]+)"', text)
     version = m.group(1) if m else "unknown"
@@ -367,15 +376,28 @@ def tool_get_toolbox_version(_: Dict[str, Any]) -> Dict[str, Any]:
     except (ToolError, json.JSONDecodeError):
         pass
 
-    base = version.split("-")[0]
-    desktop_base = (desktop_version or "").split("-")[0]
+    base = version.split("-", 1)[0].split("+", 1)[0]
+    docker_image = None
+    try:
+        compose = read_repo_file("docker-compose.yml", max_age_s=3600)
+        image = re.search(r"^\s+image:\s*[\"']?([^\s\"']+)", compose, re.MULTILINE)
+        if image:
+            docker_image = re.sub(
+                r"\$\{TIT_IMAGE_TAG:-([^}]+)\}", r"\1", image.group(1)
+            )
+    except ToolError:
+        pass
     return {
         "tit_version": version,
         "tit_version_file": PY_VERSION_FILE,
         "desktop_version": desktop_version,
         "desktop_version_file": DESKTOP_PACKAGE_JSON,
-        "in_lockstep": bool(desktop_version) and base == desktop_base,
-        "docker_image": f"idossha/ti-toolbox:v{version}" if m else None,
+        "in_lockstep": bool(desktop_version) and version == desktop_version,
+        "is_prerelease": "-" in version,
+        "changelog_version": f"v{base}" if m else None,
+        "changelog_url": f"{SITE_BASE}/releases/v{base}/" if m else None,
+        "docker_image": docker_image,
+        "docker_image_source": "docker-compose.yml (configured default; publication unverified)",
         "version_sites_doc": "docs/dev/RELEASE.md (section A) — every file a version bump touches",
         "bump_command": "python3 dev/update/update_version.py --version X.Y.Z [--dry-run]",
         "source": _source_label(),
@@ -1129,9 +1151,9 @@ TOOLS: List[Dict[str, Any]] = [
     {
         "name": "get_toolbox_version",
         "description": "Current versions: the tit package (tit/__init__.py) and the Electron "
-        "desktop app (desktop/package.json), whether they are in lockstep, and the matching "
-        "Docker image tag. v3 keeps every version site in lockstep via "
-        "dev/update/update_version.py.",
+        "desktop app (desktop/package.json), whether their full versions match, prerelease "
+        "status, upcoming changelog location, and the configured Docker image default. "
+        "Runtime versions and image configuration do not establish a public release.",
         "inputSchema": {
             "type": "object",
             "properties": {},

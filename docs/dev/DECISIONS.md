@@ -1301,3 +1301,25 @@ ones, so the effect can be *read* where it cannot be *tested*.
 quantity for `> 0` — `nan > 0` is `False`, and a guard written for zero will quietly take the zero
 branch on `nan`. `_safe_t` is the pattern to follow instead: let the IEEE value through and classify
 it explicitly.
+
+### 2026-09-08 — Internal distribution through the existing product pipeline
+
+**Decision.** Architecture §10 separates internal artifacts from public announcements. Continue the
+existing desktop implementation toward main, produce a matching image and loaders for local and
+colleague testing, and permit the public site to describe upcoming functionality as unavailable to
+the public. Reuse the existing workflow and documentation roster. Keep public release metadata and
+Docker `latest` unchanged until a later production decision.
+
+**Why.** The maintainer requested “an actual continuation of the things that we have”, “put the
+Docker container in Docker Hub without actually cutting a release”, and documentation that clearly
+says “what is coming and not yet available for the public”. A signed/public release is not a
+prerequisite for a controlled internal trial, but a matching container is.
+
+**Cost.** Development runtime versions and stable release announcement metadata have distinct owners.
+Every shared internal tag needs an immutable artifact receipt. Unsigned installers need explicit
+internal-test instructions, and full platform certification is still a production gate.
+
+**Revisit if.** The maintainer authorizes production publication or changes the internal distribution
+channel. Acceptance is command-based: same image from both loaders and desktop, package validation,
+real-container execution, unchanged public release/update state, and a built site with preview notices.
+Measured results belong in BENCHMARKS.md, not this decision.

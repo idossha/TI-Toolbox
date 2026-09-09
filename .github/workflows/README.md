@@ -1,17 +1,24 @@
 # GitHub Actions workflows
 
+The build and release procedure is [docs/dev/RELEASE.md](../../docs/dev/RELEASE.md).
+
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
-| `release-v3.yml` | `v*.*.*` tag push, or `workflow_dispatch` | The release pipeline: image build/push, unsigned per-platform validation, GitHub Release, signed publish. |
+| `release-build.yml` | Stable tag, manual dispatch, or reusable call | `build` exports image and unsigned installers; `internal` additionally pushes only an immutable internal image tag; `release` stages a draft and promotes it only after artifact verification. |
 | `deploy-docs.yml` | push to `main` touching `docs/**` | Builds and deploys the Jekyll documentation site. |
 | `code-ql-analysis.yml` | push / PR / schedule | CodeQL static analysis. |
 | `python-security.yml` | push / PR / schedule | Python dependency and code security scanning. |
 
-The release procedure — what to change before tagging, how to dry-run, what each job proves, and
-what only a real run can prove — is **[docs/dev/RELEASE.md](../../docs/dev/RELEASE.md)**. That is
-the document of record; this table only says which files exist.
+The generic build pipeline packages `desktop/` with Node 22.12.0. Internal builds do not
+create GitHub Releases, publish updater assets, change public version metadata or move Docker
+`latest`. Internal handoffs default to the prepared `internal-*` cohort in both source
+image defaults (`docker-compose.yml` and the installed-wheel fallback in `tit/launch.py`).
+An explicit differing tag fails: update and commit both defaults first, so main-source loaders
+pull the delivered image. Export-only `build` mode may instead use an explicit `internal-*`
+tag or default to `internal-<source SHA>`. Existing image tags are rejected.
+The image build still requires a compatible published Tetravox embed or a reachable tarball URL
+plus SHA256 pin. Local files cannot be used by a hosted runner.
 
-`release-build.yml` and `release_bk.yml` were deleted in the v3 release work. They built the
-legacy launcher under `package/` (pinned at v2.4.0) with Node 20, so a v3 tag would have published
-v2 artifacts under a v3 release title. `release-v3.yml` builds `desktop/` with Node 22 and refuses
-to run when the tag and the version sites in the tree disagree.
+Image tags are immutable, including stable version tags. If a later release job fails after the
+image push, rerun only the failed jobs; rerunning the entire workflow will reject the existing
+image tag. Recovery that replaces a tag remains a deliberate maintainer action.

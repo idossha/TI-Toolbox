@@ -72,9 +72,15 @@ knowing:
   It counts jobs, not subjects. Leave it at 1 unless you know the box can take it: two FEM-class
   jobs at once will contend for memory and finish later than they would in sequence.
 
-## Known limitation
+## Server restart
 
-Job re-adoption does not survive a **server** restart. If the container is restarted while work is
-running, a finished job can be left showing `running` or `stalled`; **Force** is the way to settle
-it. Restarting the desktop app alone is harmless — jobs keep running in the container and the app
-picks them back up.
+A server restart deliberately interrupts work; it does not resume or automatically resubmit
+jobs. Startup reconciliation marks queued jobs **failed**, with an interrupted-before-start
+reason. For a running job, it stops any verified surviving runner process tree and associated
+job containers, then marks the job **failed** as interrupted. If the runner has already exited
+and its saved events record a real exit, the job instead retains that actual **succeeded** or
+**failed** outcome. These transitions are persisted before the server accepts new requests.
+
+Review the job's outcome and outputs, then explicitly submit a new run if needed. Reopening a
+browser or reconnecting a client to a server that stayed running is different from restarting
+the server; client disconnection alone does not trigger this reconciliation.

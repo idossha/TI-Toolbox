@@ -25,18 +25,18 @@ computes with lives inside the image.
 
 ## Install
 
-```bash
-pip install tit          # or, to keep it out of your environment:
-pipx install tit
-```
-
-Or run it straight from a checkout, with no install at all:
+The browser launcher described here is **unreleased**. Do not assume `pip install tit`
+or a public release download contains it. Obtain the tested source revision and image from
+the [internal testing handoff]({{ site.baseurl }}/installation/#internal-colleague-testing).
+From that checkout, with Python 3.11+, replace the placeholder and run:
 
 ```bash
-git clone https://github.com/idossha/TI-Toolbox.git
-cd TI-Toolbox
-python loader.py --project ~/datasets/000     # or: ./loader.sh --project ~/datasets/000
+python3 loader.py --project ~/datasets/000 --image "<verified-image-reference>"
 ```
+
+The `tit launch` examples below describe the same interface when the matching source package
+has been installed in your environment. Keep the verified `--image` override on subsequent
+launch commands; the package version's default tag is not evidence of a published image.
 
 Two entry points sit at the root of the checkout, and they take the same options:
 
@@ -44,6 +44,13 @@ Two entry points sit at the root of the checkout, and they take the same options
 |---|---|
 | `loader.py` | For a host where you already know which Python to use. Standard library only. |
 | `loader.sh` | For one where finding it is the hard part: it locates a CPython ≥ 3.11 — one you installed, the checkout it is sitting in, or a virtualenv it creates in `~/.cache/ti-toolbox/venv` — and hands your arguments on. |
+
+Both also support standalone downloads: `python3 loader.py` when Python 3.11+ is available,
+or `./loader.sh` for Python discovery. Outside a checkout, each refreshes the `main` source
+archive into the shared isolated cache on startup; starting needs network access. The management
+options `--stop`, `--status` and `--logs` can use a working cached launcher offline, without a
+source refresh. Inside a checkout, both use the local source. Use the tested image reference
+from the [internal handoff]({{ site.baseurl }}/installation/#internal-colleague-testing).
 
 Both are bootstraps, not second launchers: every option is the option `tit launch` defines,
 and the work is done by the same code. There is one implementation of the container's run
@@ -221,9 +228,9 @@ emulation on Apple Silicon: the recipe installs SimNIBS 4.6 from scratch, builds
 own Node stage, and vendors FastSurfer with its checkpoints. It is a once-per-major-change
 cost, not a per-run one.
 
-If you only want the newest *interface* and not the newest Python, point the dev tag at a
-released image instead — `TIT_DEV_IMAGE_TAG=3.0.0 npm run dev` — and the renderer you build
-locally is served from your checkout while the container stays the released one.
+For internal testing, use only the maintainer-verified source and image pairing in the
+[handoff]({{ site.baseurl }}/installation/#internal-colleague-testing). The `dev` tag is a
+local development convention; `3.0.0` is not a verified public image download.
 
 ## Advanced: native, without Docker
 

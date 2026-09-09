@@ -71,11 +71,18 @@ npx vitest run                    # unit suite
 ### 2.2 Python tests on the host
 
 ```bash
-python3 -m pytest tests/ -q       # repo root
+python3.11 -m venv .venv
+.venv/bin/python -m pip install -e '.[test]'
+.venv/bin/python -m pytest tests/ -q
 ```
 
+An existing uv-managed environment can use `uv pip install --python .venv/bin/python -e '.[test]'`.
+The `test` extra is host-only; it does not alter the container's SimNIBS dependency environment.
+
 `tests/conftest.py` mocks SimNIBS, `bpy`, `matplotlib`, `scipy`, `nibabel`, `h5py`, `pandas`,
-`joblib` and `nilearn` (numpy is real), so this runs on a bare host in well under a minute.
+`joblib` and `nilearn`. NumPy is real, and several statistics tests explicitly restore SciPy;
+the host therefore needs the `test` extra rather than only pytest. Real-library numerical and
+SimNIBS checks still run in the container. Durations are recorded in BENCHMARKS.md.
 
 `tests/test_scene_guide.py` has one known order-dependent failure in a full run that passes
 standalone. Confirm it in isolation rather than reporting it as a red.
@@ -116,7 +123,7 @@ TIT_E2E_OFFSCREEN=1 npm run e2e:quiet        # full mock suite, serial, offscree
 Then the real-server subset against your dev container:
 
 ```bash
-TIT_E2E_SERVER_URL=http://127.0.0.1:8765 TIT_E2E_TOKEN=<token> TIT_E2E_OFFSCREEN=1 \
+TIT_E2E_PROJECT_HOST=/absolute/path/to/copied/project TIT_E2E_SERVER_URL=http://127.0.0.1:8765 TIT_E2E_TOKEN=<token> TIT_E2E_OFFSCREEN=1 \
   bash scripts/e2e-quiet-check.sh npx playwright test --project=real tests/e2e/real/<spec>.spec.ts
 ```
 

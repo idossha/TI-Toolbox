@@ -19,7 +19,7 @@
 
 Releases, guides, and wiki please see: [https://idossha.github.io/TI-Toolbox/](https://idossha.github.io/TI-Toolbox/)
 
-> **Note**: v3 needs no X11 server — Gmsh and FreeView are gone, so the GUI compatibility issues on the latest macOS versions (26/Tahoe+) no longer apply. See [installation docs](https://idossha.github.io/TI-Toolbox/installation/) for details.
+> **Upcoming desktop preview (unreleased):** this checkout documents the next desktop interface. The stable public release remains **2.5.0**; its downloads and setup are on the [2.5.0 release page](https://idossha.github.io/TI-Toolbox/releases/v2.5.0/). See the [preview installation notes](https://idossha.github.io/TI-Toolbox/installation/) for internal testing, and [CONTRIBUTING.md](CONTRIBUTING.md) for contributing.
 
 ## How to Cite
 

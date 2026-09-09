@@ -25,32 +25,31 @@ browser) — there is nothing X11-specific to install.
 
 ## Option 1: Desktop App
 
-Download the pre-built desktop application for your Linux distribution from the **[Latest Release](https://github.com/idossha/TI-toolbox/releases/latest)**:
-
-| Format | Download |
-|--------|----------|
-| **AppImage** | `TI-Toolbox-{version}.AppImage` |
-| **Debian/Ubuntu** | `ti-toolbox_{version}_amd64.deb` |
-
-Simply download and run the AppImage, or install the .deb package — the app handles Docker management for you.
+The desktop preview is unreleased. Use the installer and checksum supplied in the
+**[internal testing handoff]({{ site.baseurl }}/installation/#internal-colleague-testing)**.
+Public [2.5.0 downloads]({{ site.baseurl }}/releases/v2.5.0/) use the older stack and their
+own setup instructions. A tested installer for this platform has not yet been identified here.
 
 <br>
 
 ## Option 2: Command Line
 
+Run from the maintainer-supplied tested source checkout; replace the image placeholder with
+the reference in the [internal handoff]({{ site.baseurl }}/installation/#internal-colleague-testing).
+The public Python package is not a way to obtain this unreleased launcher.
+
 The same interface, in your browser, with no Electron app. Needs Docker and CPython 3.11+
 (`sudo apt install python3` on a current Ubuntu already gives you 3.11+).
 
 ```bash
-pip install tit
-tit launch --project ~/datasets/000
+python3 loader.py --image "<verified-image-reference>" --project ~/datasets/000
 ```
 
 It starts the container, waits for the server and opens your browser. Add `--status`, `--logs`,
 `--stop`, `--port` or `--no-open` as needed. Full reference:
 **[Command-line launcher]({{ site.baseurl }}/installation/bash-cli/)**.
 
-The first run downloads `idossha/ti-toolbox` (**≈ 2.3 GB to download, ≈ 9 GB unpacked on
+With a verified matching image available, the launcher downloads `idossha/ti-toolbox` (**≈ 2.3 GB to download, ≈ 9 GB unpacked on
 disk**) — a few minutes on a typical connection.
 
 <br>

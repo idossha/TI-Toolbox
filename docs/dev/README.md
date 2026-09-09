@@ -34,7 +34,7 @@ A new contributor can get through the first four in about an hour.
 | `HISTORY.md` | **What happened**: the maintainer's dated asks verbatim, then one section per program — the ask, what shipped, what was reversed, and the gotchas that exist nowhere else. Not a contract. |
 | `BENCHMARKS.md` | **Every measured number, once**, with the conditions it was measured under. A number quoted anywhere else should be a pointer to here. |
 | `SCIENTIFIC-CORRECTIONS.md` | **What v2.x got numerically wrong**, one section per correction: affected versions, which outputs move, and whether to re-run or rescale. The user-facing record. |
-| `RELEASE.md` | **§A** the version sites, the tag-to-publish pipeline and the dry run (`.github/workflows/release-v3.yml` is its executable form); **§B** what is still open, which is the list a release decision reads. |
+| `RELEASE.md` | **§A** the generic build, internal-image and public-release modes (`.github/workflows/release-build.yml`); **§B** current readiness and retained product follow-ups. |
 | `README.md` | this map. |
 
 ## Documentation that stays where it is

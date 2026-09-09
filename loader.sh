@@ -13,13 +13,11 @@
 # `tit launch` (tit/launch.py), which owns the run spec. That is deliberate — a `docker run`
 # written out again in bash would drift from the Electron app's container on the first change to
 # a label, a mount or an environment variable, and the two would stop being interchangeable.
-# All this file does is find a Python that can import `tit`, in this order:
-#
-#   1. $TIT_PYTHON, if set.
-#   2. This repository, if the script is running from a checkout — it execs `loader.py` beside it.
-#   3. A CPython >= 3.11 on PATH that can already import `tit` (a pip/pipx install).
-#   4. A cached virtualenv at ~/.cache/ti-toolbox/venv, created and pip-installed on first use
-#      (from the checkout when there is one, otherwise from PyPI).
+# A checkout always runs its own loader.py. A standalone or piped copy installs the main
+# source archive into a cached virtualenv, refreshing it for each start. Reinstalling is
+# intentional: unreleased commits can share a package version, and PyPI may still carry v2.
+# Stop, status and logs reuse a working cached launcher without requiring the network.
+# TIT_PYTHON selects the host interpreter; TIT_VENV_DIR selects the isolated cache.
 #
 # Requirements on the host: bash, CPython >= 3.11, and the `docker` CLI with a running daemon.
 # NOT required: SimNIBS, Node, Electron, or any Python package outside the standard library —
@@ -103,19 +101,27 @@ if [ -n "$REPO" ]; then
     exec "$PYTHON" "$REPO/loader.py" "$@"
 fi
 
-# 3. an installed `tit` (pip/pipx). `cd /` so the probe cannot be satisfied by the current
-# directory the way it can above.
-if (cd / && "$PYTHON" -c 'import tit.launch') >/dev/null 2>&1; then
-    exec "$PYTHON" -m tit.cli launch "$@"
+# Management operates on existing containers, so a network outage must not block stopping them.
+wants_management() {
+    local arg
+    for arg in "$@"; do
+        case "$arg" in --stop|--status|--logs) return 0 ;; esac
+    done
+    return 1
+}
+if wants_management "$@" && [ -x "$VENV_DIR/bin/python" ] && \
+    "$VENV_DIR/bin/python" -I -c 'from tit.cli import launch_command, launch_parser' >/dev/null 2>&1; then
+    exec "$VENV_DIR/bin/python" -I -m tit.cli launch "$@"
 fi
 
-# 4. a cached venv. Only reached when the script was piped from curl on a host with no `tit`
-# installed, which is the one case where writing to the user's disk is the only way forward.
+# A system installation may be an older release, so it cannot satisfy the main launcher.
+# Keep the virtualenv but refresh its source, even when the package version has not changed.
 if [ ! -x "$VENV_DIR/bin/python" ]; then
-    note "installing tit into $VENV_DIR (first run only)"
+    note "creating launcher environment at $VENV_DIR"
     "$PYTHON" -m venv "$VENV_DIR" || die "could not create a virtualenv at $VENV_DIR"
-    "$VENV_DIR/bin/python" -m pip install --quiet --upgrade pip
-    "$VENV_DIR/bin/python" -m pip install --quiet tit \
-        || die "could not install tit from PyPI. Clone the repository and run ./loader.sh from it instead."
 fi
-exec "$VENV_DIR/bin/python" -m tit.cli launch "$@"
+note "refreshing launcher from TI-Toolbox main"
+"$VENV_DIR/bin/python" -I -m pip install --quiet --upgrade --force-reinstall --no-deps \
+    https://github.com/idossha/TI-toolbox/archive/refs/heads/main.zip \
+    || die "could not refresh the launcher from main. Check your network, or clone the repository and run ./loader.sh from it."
+exec "$VENV_DIR/bin/python" -I -m tit.cli launch "$@"

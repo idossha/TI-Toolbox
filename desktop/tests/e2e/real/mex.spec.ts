@@ -2,13 +2,13 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Locator, type Page } from "@playwright/test";
+import { closeOptEditor, openOptEditor, optRowDetail, optRowSummary, optRows, setOptCell } from "../_jobs";
 import { cleanupSmokeOutputs, connectReal, expectPage, gotoPage, launchElectronApp, recordPayload, selectSubject, waitForJobTerminal, waitForJobTrace } from "../_helpers";
 
 /**
- * Optimizer / mEx, against the shared dev container. Same rationale as `ex.spec.ts` (not a §3 P4
- * "long kind" — runs to completion within its 600 s budget) and the same subcortical ROI
- * substitution for the mock's "saved" fixture targets, which do not exist on this project. mEx has
- * eight buckets (E1+..E4-) instead of Ex's four and no Combine control (`allowCombine` is Ex-only).
+ * A real mTI exhaustive search: configure an Ex job row with eight electrode buckets,
+ * assert its grouped submission, and verify completion and the Results entry.
+ * The real project uses a subcortical ROI because it has no saved mock ROI presets.
  */
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL as string;
 const TOKEN = process.env.TIT_E2E_TOKEN as string;
@@ -20,8 +20,8 @@ let page: Page;
 
 test.describe.configure({ mode: "serial" });
 
-function field(label: string): Locator {
-  return page.locator(".field", { hasText: label }).first();
+function field(label: string, root: Page | Locator = page): Locator {
+  return root.locator(".field", { hasText: label }).first();
 }
 
 test.beforeAll(async () => {
@@ -33,7 +33,6 @@ test.beforeAll(async () => {
   await selectSubject(page, "ernie");
   await gotoPage(page, "optimizer", "Optimizer");
   await expectPage(page, "optimizer");
-  await page.getByRole("radiogroup", { name: "Method" }).getByRole("radio", { name: "mEx", exact: true }).click();
 });
 
 test.afterAll(async () => {
@@ -44,20 +43,27 @@ test.afterAll(async () => {
 test("subcortical ROI, eight electrode buckets: accepted, started, and completed", async () => {
   test.setTimeout(700_000);
 
-  const strip = page.getByTestId("leadfield-strip");
-  await expect(strip).toBeVisible();
-  await expect(strip.locator(".chip")).toHaveText(/GB|MB/, { timeout: 15_000 });
+  const row = optRows(page).first();
+  await expect(row).toHaveAttribute("data-subject", "ernie");
+  await setOptCell(page, row, "method", "Ex");
+  await row.locator('td[data-cell="net"]').getByRole("combobox").click();
+  const ready = page.getByRole("option", { name: /EEG10-10_UI_Jurak_2007 · [\d.]+ [MG]B/ });
+  await expect(ready).toBeVisible({ timeout: 20_000 });
+  await ready.click();
+  await expect(row).toHaveAttribute("data-net", "EEG10-10_UI_Jurak_2007");
 
-  await field("Run name").getByRole("textbox").fill(RUN_NAME);
-
-  await page.getByTestId("page-work").getByRole("radio", { name: "Subcortical", exact: true }).click();
-  await field("Volume atlas").getByRole("button").click();
+  const dialog = await openOptEditor(page, row);
+  await dialog.locator(".optimizer-dialog-meta").getByRole("textbox").fill(RUN_NAME);
+  await field("Electrodes", dialog).getByRole("radio", { name: "8 electrodes (mTI)", exact: true }).click();
+  await expect(dialog.getByLabel("Combine selected ROIs into one target")).toHaveCount(0);
+  await dialog.getByRole("radio", { name: "Subcortical", exact: true }).click();
+  await field("Volume atlas", dialog).getByRole("button").click();
   await page.getByPlaceholder("Search atlases…").fill("DKTatlas");
   await page.getByRole("option", { name: /DKTatlas/ }).first().click();
-  await field("Region(s)").getByRole("combobox").click();
-  await page.getByPlaceholder("Search…").fill("Hippocampus");
+  await field("Region(s)", dialog).getByRole("combobox").click();
+  await page.getByPlaceholder(/Filter regions…|Search…/).fill("Hippocampus");
   await page.getByRole("option", { name: "Left-Hippocampus", exact: true }).click();
-  await page.keyboard.press("Escape");
+  await page.getByTestId("roi-region-done").click();
 
   const buckets = [
     ["E1+", "Fp1"],
@@ -70,26 +76,41 @@ test("subcortical ROI, eight electrode buckets: accepted, started, and completed
     ["E4-", "P4"],
   ] as const;
   for (const [bucket, electrode] of buckets) {
-    await field(bucket).locator(".multi-select").click();
-    await page.getByRole("option", { name: electrode, exact: true }).click();
-    await page.keyboard.press("Escape");
+    await field(bucket, dialog).getByRole("combobox").click();
+    const list = page.getByRole("dialog").filter({ hasText: `${bucket} — choose electrodes` });
+    await list.getByPlaceholder("Filter electrodes…").fill(electrode);
+    await list.getByRole("option", { name: electrode, exact: true }).click();
+    await list.getByRole("button", { name: "Done" }).click();
   }
 
-  const cell = page.locator('[data-testid^="plan-cell-ernie-"]').first();
+  await closeOptEditor(page);
+  await expect(row).toHaveAttribute("data-kind", "mex");
+  await expect(optRowSummary(row)).toHaveText(/Left-Hippocampus/);
+  await expect(optRowDetail(row)).toHaveText(/^8 electrodes \(mTI\) · 2 mA/);
+
+  const cell = page.getByTestId("plan-cell-ernie-mex");
   await expect(cell).toBeVisible({ timeout: 15_000 });
-  await expect(cell).toHaveText(/^(new|overwrite)$/);
+  await expect(cell).toHaveText(/^1 (new|overwrite)$/);
   await expect(page.getByTestId("run-button")).toBeEnabled();
 
-  const jobResponse = page.waitForResponse((r) => r.url().endsWith("/api/jobs") && r.request().method() === "POST");
-  const jobRequest = page.waitForRequest((r) => r.url().endsWith("/api/jobs") && r.method() === "POST");
+  const jobResponse = page.waitForResponse((r) => r.url().endsWith("/api/jobs/groups") && r.request().method() === "POST");
+  const jobRequest = page.waitForRequest((r) => r.url().endsWith("/api/jobs/groups") && r.method() === "POST");
   await page.getByTestId("run-button").click();
 
   const requestBody = (await jobRequest).postDataJSON() as {
     kind: string;
-    config: { roi_name: string; electrodes: Record<string, unknown> };
+    subject_ids: string[];
+    subject_configs: { subject_id: string; config: { run_name: string; leadfield_hdf: string; electrodes: Record<string, unknown> } }[];
   };
   expect(requestBody.kind).toBe("mex");
-  expect(requestBody.config.electrodes).toMatchObject({
+  expect(requestBody.subject_ids).toEqual(["ernie"]);
+  expect(requestBody.subject_configs).toHaveLength(1);
+  expect(requestBody.subject_configs[0]!.subject_id).toBe("ernie");
+  const config = requestBody.subject_configs[0]!.config;
+  expect(config.run_name).toBe(RUN_NAME);
+  expect(config.leadfield_hdf).toContain("sub-ernie");
+  expect(config.electrodes).toMatchObject({
+    _type: "BucketElectrodes",
     e1_plus: ["Fp1"],
     e1_minus: ["Fp2"],
     e2_plus: ["F3"],
@@ -101,14 +122,15 @@ test("subcortical ROI, eight electrode buckets: accepted, started, and completed
   });
   recordPayload("mex", requestBody);
 
-  const created = (await (await jobResponse).json()) as { id: string };
+  const created = (await (await jobResponse).json()) as { jobs: { id: string }[] };
+  expect(created.jobs).toHaveLength(1);
   await waitForJobTrace(page, "mex", { timeoutMs: 120_000 });
   const identity = page.getByTestId("job-terminal").getByTestId("job-terminal-identity");
   await expect(identity).toContainText("mex", { timeout: 120_000 });
   await expect(page.locator(".job-console-line").first()).toBeVisible({ timeout: 120_000 });
 
-  const finalJob = await waitForJobTerminal(page, { url: SERVER_URL, token: TOKEN, jobId: created.id, timeoutMs: 600_000 });
-  console.log(`real/mex: job ${created.id} state=${finalJob.state} artifacts=${finalJob.artifacts?.length ?? 0} run=${RUN_ID}`);
+  const finalJob = await waitForJobTerminal(page, { url: SERVER_URL, token: TOKEN, jobId: created.jobs[0]!.id, timeoutMs: 600_000 });
+  console.log(`real/mex: job ${created.jobs[0]!.id} state=${finalJob.state} artifacts=${finalJob.artifacts?.length ?? 0} run=${RUN_ID}`);
   expect(finalJob.state, JSON.stringify(finalJob.error)).toBe("succeeded");
   expect(finalJob.artifacts?.length ?? 0).toBeGreaterThan(0);
 

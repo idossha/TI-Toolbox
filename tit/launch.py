@@ -42,8 +42,6 @@ import webbrowser
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import tit
-
 __all__ = [
     "LABEL_HOST_DIR",
     "LABEL_PROJECT",
@@ -111,7 +109,7 @@ class StackSpec:
 #: Fallback used when the repository's ``docker-compose.yml`` is not on disk (an installed
 #: wheel).  Kept honest by ``tests/test_launch.py::test_builtin_spec_matches_compose``.
 BUILTIN_SPEC = StackSpec(
-    image="idossha/ti-toolbox:${TIT_IMAGE_TAG:-dev}",
+    image="idossha/ti-toolbox:${TIT_IMAGE_TAG:-internal-20260908.1}",
     working_dir="/ti-toolbox",
     init=True,
     volumes=(
@@ -348,20 +346,15 @@ def container_name(host_project_dir: str) -> str:
 
 
 def default_image() -> str:
-    """``idossha/ti-toolbox:<tag>``: ``TIT_IMAGE_TAG``, else this package's version, else ``dev``.
+    """Use the compose image default, or an explicit ``TIT_IMAGE_TAG`` override.
 
-    The published image is tagged with the release version, so an installed
-    ``tit`` should ask for the image that matches it.  Until v3.0.0 is cut the
-    package version still names a v2 release, for which no
-    ``idossha/ti-toolbox`` image exists at all — so a non-3.x version falls back
-    to ``dev``, the tag ``container/blueprint/build.sh`` and ``npm run dev``
-    both use.
+    Runtime package versions can be prereleases with no matching image. The compose
+    spec (and its wheel fallback) owns the image independently of that version.
     """
     tag = os.environ.get("TIT_IMAGE_TAG", "").strip()
-    if not tag:
-        version = getattr(tit, "__version__", "")
-        tag = version if version.split(".", 1)[0] == "3" else "dev"
-    return tag if "/" in tag else f"{IMAGE_REPO}:{tag}"
+    if tag:
+        return tag if "/" in tag else f"{IMAGE_REPO}:{tag}"
+    return interpolate(load_spec().image, {})
 
 
 def user_config_dir() -> Path:

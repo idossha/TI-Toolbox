@@ -351,9 +351,11 @@
   border-radius: var(--radius-card);
   overflow: hidden;
 }
+/* Keep dividers on the pane's eight-pixel rhythm: repeated larger gaps push the report
+ * below the viewport even when the summary and figures already fit compactly. */
 .results-preview-section + .results-preview-section {
   border-top: 1px solid var(--line);
-  padding-top: var(--space-3);
+  padding-top: var(--space-2);
 }
 /* A section heading is the same 20px `--surface-2` bar the outputs tree gives its groups. Beyond
  * the consistency it also stops the row from reading as dead space to `_metrics.ts` (a transparent

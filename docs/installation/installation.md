@@ -4,7 +4,17 @@ title: Installation
 permalink: /installation/
 ---
 
-TI-Toolbox ships as a single Docker image. Docker Desktop (macOS/Windows) or Docker Engine
+## Stable public installation (2.5.0)
+
+Use the [2.5.0 downloads]({{ site.baseurl }}/releases/v2.5.0/) and the
+[installation documentation frozen at the 2.5.0 tag](https://github.com/idossha/TI-Toolbox/tree/v2.5.0/docs/installation).
+Its platform-specific X11 setup and two-image stack still apply. When following that archived
+guide, obtain scripts and compose files from the **same `v2.5.0` tag**, even where an old link
+says `main`; current `main` may contain the upcoming launcher.
+
+## Upcoming desktop preview
+
+The upcoming desktop preview uses a single Docker image. Docker Desktop (macOS/Windows) or Docker Engine
 (Linux) is the only thing you install yourself — SimNIBS, FastSurfer, the TI-Toolbox UI and
 the built-in viewer are all baked into the image.
 
@@ -14,33 +24,66 @@ puts the same page in your browser instead of in a window. Pick the row that des
 
 | | You get | You need | Best for |
 |---|---|---|---|
-| **[1. Desktop app](#option-1-desktop-app)** | An application in your dock | Docker | Everyone. Start here. |
+| **[1. Desktop app](#option-1-desktop-app)** | An application in your dock | Docker | Colleagues with a verified preview installer. |
 | **[2. Command line](#option-2-command-line-no-electron)** | The UI in a browser tab | Docker, Python 3.11+ | Remote/SSH machines, lab servers, scripted setups |
 | **[3. From source](#option-3-run-the-latest-unreleased-version)** | The unreleased code | Docker, Node 22.12+, git | Trying a fix before it ships; contributing |
 
-The first launch downloads `idossha/ti-toolbox:{version}` — **≈ 2.3 GB to download, ≈ 9 GB unpacked on disk**. It is downloaded once and reused by all three options.
+When a matching image is available, the launcher is designed to download `idossha/ti-toolbox:{version}` — **≈ 2.3 GB to download, ≈ 9 GB unpacked on disk**. It is downloaded once and reused by all three options.
 
 <br>
 
+## Internal colleague testing
+
+This is preparation for internal use from `main` and a matching Docker Hub image, **not a
+public release**. No public tag, release announcement or updater notification is implied.
+Use a copy of a project so preview outputs do not replace the originals.
+
+The maintainer must fill this handoff before asking a colleague to launch:
+
+| Required value | Verification status |
+|---|---|
+| Tested `main` commit | **Pending — unverified** |
+| Intended Docker Hub image | `idossha/ti-toolbox:internal-20260908.1` — publication **pending** |
+| Immutable image digest | **Pending — unverified** |
+| Internal runtime / app version | `3.0.0-dev.1` — preview identifier, not a public release |
+| Tested host OS / architecture and Docker version | **Pending — unverified** |
+| Installer location and SHA-256, if using the desktop installer | **Pending — unverified** |
+| Signing / notarization and clean first-launch result, per installer | **Pending — unverified** |
+
+1. Install and start Docker Desktop, or Docker Engine on Linux. For the browser route,
+   also install Python 3.11+ and make the `docker` CLI available.
+2. Obtain the maintainer's tested `main` source revision and matching image reference.
+   Check `git rev-parse HEAD` against the supplied commit. Do not substitute `latest`, `dev`,
+   or a version-shaped image tag whose digest has not been verified.
+3. Run the [command-line route](#option-2-command-line-no-electron) from that checkout,
+   with the supplied image and a copy of your project. Alternatively, use the supplied
+   installer only after its platform-specific launch check is recorded above.
+4. Confirm the project opens, subjects appear, and the intended small example job completes
+   with readable outputs. Record the commit, image digest, OS, job type and outcome.
+   A successful launch alone does not validate every scientific workflow.
+5. Report any failure with the job ID and redacted log; exclude session URLs and tokens.
+   Consult [Troubleshooting]({{ site.baseurl }}/wiki/troubleshooting/) for known problems.
+
+The internal tag above is an integration identifier, **not evidence that a pull will work**.
+The source must reach `main` before a standalone loader can retrieve it. Both standalone
+`loader.py` and `loader.sh` refresh source from `main` into a shared isolated cached environment
+on each startup, so starting requires network access. Management commands `--stop`, `--status`
+and `--logs` use a working cached launcher offline without refreshing source. A loader run
+within a checkout uses that checkout instead.
+For a reproducible colleague run, prefer the tested checkout and recorded image digest.
+The Tetravox embed used in the internal image is also awaiting public asset publication;
+use the supplied complete image rather than assuming a public embed download is available.
+These pending values are intentionally not download links or executable image defaults.
+
 ## Option 1: Desktop App
 
-Download the pre-built desktop application for your platform from the
-**[Latest Release](https://github.com/idossha/TI-toolbox/releases/latest)**:
+The preview is **not available from the public release downloads**. Use only the installer
+identified in the [internal testing handoff](#internal-colleague-testing), with its matching
+image. Installer format alone does not establish signing, notarization, or successful first
+launch on your platform. Those checks are recorded per artifact.
 
-| Platform | Download |
-|----------|----------|
-| **macOS (Apple Silicon)** | `TI-Toolbox-{version}-arm64.dmg` |
-| **macOS (Intel)** | `TI-Toolbox-{version}.dmg` |
-| **Windows** | `TI-Toolbox.Setup.{version}.exe` |
-| **Linux** | `TI-Toolbox-{version}.AppImage` or `ti-toolbox_{version}_amd64.deb` |
-
-Install and launch. The app asks for a **project folder**, then talks to Docker directly over
-its Engine API — no Docker CLI and no `docker compose` on your machine — to pull the image,
-start the container and load the toolbox in its own window. Nothing else to configure: there
-is no X server to install and no separate FreeSurfer license for the core workflow.
-
-The container it starts is named `ti-toolbox-<hash>-tit-1` and stays running after you close
-the window, so the next launch attaches in a second or two. Settings → Docker stops it.
+The app is designed to select a project folder, pull the image and start its container.
+A packaged first launch must be verified before this is described as a tested install route.
 
 Per-platform notes: **[macOS]({{ site.baseurl }}/installation/macos/)** ·
 **[Windows]({{ site.baseurl }}/installation/windows/)** ·
@@ -54,9 +97,12 @@ The same UI, in your browser, driven by a small Python launcher. Useful when the
 is not an option: a machine you reach over SSH, a shared lab server, a container host, or a
 setup you want to script.
 
+Do not use `pip install tit` to obtain the unreleased launcher. Replace the placeholder below
+with the maintainer-supplied image reference before running.
+
 ```bash
-pip install tit                       # or: pipx install tit
-tit launch --project ~/datasets/000
+# From the tested source checkout, with the supplied matching image:
+python3 loader.py --project ~/datasets/000 --image "<verified-image-reference>"
 ```
 
 `tit launch` checks Docker, pulls the image if it is missing, starts the container, waits for
@@ -134,7 +180,7 @@ pulled as separate images on demand; put the license file where the [Diffusion
 Processing]({{ site.baseurl }}/wiki/diffusion-processing/) guide's QSIPrep section says to
 mount it (`$FS_LICENSE`, or the default path TI-Toolbox looks for).
 
-## Supported platforms
+## Target platforms (preview)
 
 | Platform | Support | Notes |
 |----------|---------|-------|
@@ -143,7 +189,7 @@ mount it (`$FS_LICENSE`, or the default path TI-Toolbox looks for).
 | **macOS (Apple Silicon)** | Emulated | The image is `linux/amd64`; Docker Desktop runs it under emulation. Measured FastSurfer runtime under this emulation has not yet been benchmarked — see the [Pre-Processing]({{ site.baseurl }}/wiki/pre-processing/) page for the native number and status. |
 | **macOS (Intel)** | Native | `linux/amd64`, same architecture as the image |
 
-The image is published for `linux/amd64` only; there is no native `arm64` build. On Apple
+The preview image targets `linux/amd64` only; there is no native `arm64` build. On Apple
 Silicon and any other non-x86_64 host, Docker Desktop emulates it — expect slower FEM
 solves and slower FastSurfer than on native x86_64 hardware.
 
@@ -163,7 +209,7 @@ built from the same SimNIBS base. `docker system df -v` breaks this into `SHARED
 `UNIQUE SIZE`, and `SHARED SIZE` goes away the moment nothing else on that host references
 those layers.
 
-## Supported container engines
+## Container engine targets (preview)
 
 | Engine | Support |
 |--------|---------|

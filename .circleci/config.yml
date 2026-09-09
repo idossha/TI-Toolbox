@@ -1,5 +1,16 @@
 version: 2.1
 
+parameters:
+  build_image:
+    type: boolean
+    default: false
+  tetravox_tgz:
+    type: string
+    default: ''
+  tetravox_sha256:
+    type: string
+    default: ''
+
 executors:
   vm-docker:
     machine:
@@ -24,31 +35,9 @@ commands:
 
 jobs:
 
-  # v3 image build + smoke (docs/dev/ARCHITECTURE.md; docs/dev/HISTORY.md 2026-09-03).
-  #
-  # KNOWN RUNTIME PROBLEM (VE, 2026-09-06, docs/dev/HISTORY.md 2026-09-06).
-  # This job used to build the *layered* recipe (Dockerfile.ti-toolbox.layered, FROM
-  # idossha/simnibs:v2.5.0) precisely so it would be CI-tractable: pull ~6 GB, build in
-  # minutes. The maintainer deleted that recipe, so `build.sh` now has one recipe and this
-  # job builds SimNIBS from scratch — 30-60+ minutes even on native hardware (see
-  # container/blueprint/Dockerfile.ti-toolbox's own header and
-  # container/blueprint/README.md), well past
-  # this job's 15m `no_output_timeout` and well past what the default `machine` resource
-  # class (2 vCPU / 8 GB) should absorb on every push. Nothing here has provisioned a
-  # `resource_class: large`/`xlarge` or self-hosted executor.
-  #
-  # This job is therefore EXPECTED TO TIME OUT until one of: a larger executor is
-  # provisioned, the job moves to a nightly/release trigger instead of every push, or a
-  # published base image is reintroduced to build from. It is left declared rather than
-  # deleted so the gap is visible in CI rather than only in a note. See
-  # docs/dev/HISTORY.md (2026-09-03, Docker streamline) for the original reasoning.
-  #
-  # `ubuntu-2204:current` is an x86_64 machine, so this build and its smoke run natively
-  # (no QEMU emulation) — unlike a build on Apple Silicon, this is a legitimate place to
-  # eventually measure a native-amd64 FastSurfer runtime (w2/w3b notes both flag that
-  # number as "not yet measured"); not attempted in this job to keep it fast (checkpoints
-  # are already baked into the image at build time — no download needed — but a full
-  # segmentation run adds several more minutes per subject).
+  # Full image verification is explicit: rebuilding SimNIBS takes 30-60+ minutes natively
+  # and the compatible embed currently requires a reachable URL+digest pin. Ordinary PRs
+  # keep source tests and desktop checks; they do not claim an image was built or verified.
   build-and-smoke-image:
     executor: vm-docker
     steps:
@@ -56,22 +45,19 @@ jobs:
 
       - run:
           name: Build idossha/ti-toolbox
-          no_output_timeout: 15m
+          no_output_timeout: 30m
+          environment:
+            TETRAVOX_TGZ: << pipeline.parameters.tetravox_tgz >>
+            TETRAVOX_SHA256: << pipeline.parameters.tetravox_sha256 >>
           command: |
             set -euo pipefail
-            # One recipe: --layered/--from-scratch/--skip-ui-build are gone with
-            # Dockerfile.ti-toolbox.layered, and the UI is built inside the image's own Node
-            # stage. See this job's header for why that makes this step over-long here.
-            # The embed release is resolved by build.sh from the GitHub Releases API; no
-            # version is pinned in this file.
-            #
-            # --ref: the clone path (the ref is pushed by definition here). It builds the
-            # branch/tag TIP, which is this commit unless a later push raced the job; the
-            # smoke steps below bind-mount the checkout over /ti-toolbox, so they test this
-            # commit either way. Dropping --ref would build from the checkout itself
-            # (build.sh's default, ~140 MB context) and record the exact sha instead.
-            ./container/blueprint/build.sh --tag idossha/ti-toolbox:ci \
-                --ref "${CIRCLE_TAG:-$CIRCLE_BRANCH}"
+            ARGS=(--tag idossha/ti-toolbox:ci)
+            if [ -n "$TETRAVOX_TGZ" ]; then
+              [ -n "$TETRAVOX_SHA256" ] || { echo "embed URL requires SHA256" >&2; exit 1; }
+              ARGS+=(--tetravox-tgz "$TETRAVOX_TGZ" --tetravox-sha256 "$TETRAVOX_SHA256")
+            fi
+            # Build the checked-out SHA. A moving --ref branch could race a later push.
+            ./container/blueprint/build.sh "${ARGS[@]}"
 
       - run:
           name: Start the container
@@ -83,7 +69,7 @@ jobs:
                 -e PROJECT_DIR_NAME=smoke \
                 -e TIT_SERVER_PORT=8765 \
                 -v /tmp/ti-toolbox-smoke-project:/mnt/smoke \
-                -v "$(pwd)":/ti-toolbox \
+                -v "$(pwd)":/workspace:ro \
                 -e PYTHONPATH=/ti-toolbox \
                 idossha/ti-toolbox:ci
             echo "Waiting for the container to become healthy..."
@@ -149,7 +135,7 @@ jobs:
           command: |
             set -euo pipefail
             docker exec tit-ci-smoke simnibs_python -m pip install --no-cache-dir --quiet pytest
-            docker exec -w /ti-toolbox tit-ci-smoke simnibs_python -m pytest -q \
+            docker exec -w /workspace tit-ci-smoke simnibs_python -m pytest -q \
                 tests/test_catalog_v1.py \
                 tests/test_server_skeleton.py \
                 tests/test_viewspec.py \
@@ -170,6 +156,9 @@ jobs:
     executor: vm-docker
     steps:
       - common-setup
+      - run:
+          name: Self-test build and version guards
+          command: python3 -m unittest discover -s tests -p test_internal_packaging.py -v
       - prepare-test-image
 
       - run:
@@ -326,11 +315,6 @@ jobs:
           command: npx vitest run
 
       - run:
-          name: Production build
-          working_directory: desktop
-          command: npm run build
-
-      - run:
           name: Install Xvfb + Playwright's Chromium OS deps
           command: |
             set -euo pipefail
@@ -350,6 +334,11 @@ jobs:
             export TIT_E2E_OFFSCREEN=1
             xvfb-run -a npm run e2e
 
+      - run:
+          name: Production build
+          working_directory: desktop
+          command: npm run build
+
       - store_artifacts:
           path: desktop/test-results
           destination: desktop-e2e-test-results
@@ -359,5 +348,9 @@ workflows:
   test_workflow:
     jobs:
       - build-and-run-tests
-      - build-and-smoke-image
       - desktop-checks
+
+  image_verification:
+    when: << pipeline.parameters.build_image >>
+    jobs:
+      - build-and-smoke-image
