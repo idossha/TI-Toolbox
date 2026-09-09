@@ -1,0 +1,3 @@
+# Preserve the NumPy ABI supplied by the official SimNIBS 4.6 installer.
+# Blender uses its own bundled Python/NumPy and must not enter this environment.
+numpy==2.3.5

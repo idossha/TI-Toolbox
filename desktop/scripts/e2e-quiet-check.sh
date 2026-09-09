@@ -69,8 +69,9 @@ int main(void) {
     long wid = 0; if (idn) CFNumberGetValue(idn, kCFNumberLongType, &wid);
     printf("id=%ld\tlayer=%d\towner=", wid, layer);
     put(CFDictionaryGetValue(w, kCGWindowOwnerName));
-    printf("\tbounds=%.0f,%.0f,%.0fx%.0f\ttitle=", r.origin.x, r.origin.y, r.size.width, r.size.height);
-    put(CFDictionaryGetValue(w, kCGWindowName));
+    CFNumberRef pn = CFDictionaryGetValue(w, kCGWindowOwnerPID);
+    int pid = 0; if (pn) CFNumberGetValue(pn, kCFNumberIntType, &pid);
+    printf("\tpid=%d\tbounds=%.0f,%.0f,%.0fx%.0f", pid, r.origin.x, r.origin.y, r.size.width, r.size.height);
     printf("\n");
   }
   return 0;

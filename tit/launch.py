@@ -634,9 +634,19 @@ def start(options: LaunchOptions) -> tuple[str, str]:
     echo = options.echo
     require_docker()
     host_project_dir = resolve_project(options.project)
+    image = options.image or default_image()
 
     existing = find_container(host_project_dir)
     if existing is not None and existing["State"]["Running"]:
+        # Compare the configured reference, not Docker's content ID. A running old cohort must
+        # not silently satisfy a new loader, and recreating it could kill active jobs.
+        running_image = existing.get("Config", {}).get("Image", "")
+        if running_image != image:
+            raise LaunchError(
+                f"the running container uses {running_image or '(unknown)'}, but this launcher "
+                f"requires {image}. Wait for its jobs to finish, then stop this project's "
+                "container with --stop and launch again. The running container was left unchanged."
+            )
         origin, token = container_credentials(existing)
         echo(f"attached to {existing['Name'].lstrip('/')} at {origin}")
         wait_for_health(origin, timeout=60.0, echo=echo)
@@ -645,7 +655,6 @@ def start(options: LaunchOptions) -> tuple[str, str]:
         echo(f"removing the stopped container {existing['Name'].lstrip('/')}")
         _docker("rm", "-f", existing["Id"])
 
-    image = options.image or default_image()
     ensure_image(image, echo=echo)
 
     port = find_free_port(options.port)

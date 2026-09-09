@@ -112,7 +112,7 @@ test("DK40 borders are crossed once, with no third region and no triangle-wide s
     // that row's editor and the dialog then closed to look at it.
     const dialog = await openOptEditor(page, optRows(page).first());
     await dialog.getByRole("radio", { name: "Cortical", exact: true }).click();
-    await dialog.locator(".field", { hasText: "Atlas" }).first().getByRole("button").click();
+    await dialog.locator(".field", { hasText: "Atlas" }).first().locator(".combobox-trigger").click();
     await page.getByPlaceholder("Search atlases…").fill("DK40");
     // Named by whatever the real subject's atlas list calls it — the filter has narrowed it to one.
     await page.getByRole("option").first().click();
@@ -121,6 +121,8 @@ test("DK40 borders are crossed once, with no third region and no triangle-wide s
     const panel = page.locator('[data-page-panel="optimizer"]');
     await expect(panel.getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready", { timeout: 60_000 });
     await settled(page);
+    expect(await page.evaluate(() => window.__scenePane?.subject)).toBeNull();
+    expect(await page.evaluate(() => window.__scenePane?.guide)).toBeTruthy();
 
     // The fix moved bytes (a rebuilt guide) and added an index rotation at upload; neither may cost
     // the pane its budget, so the number is logged and asserted on the same run as the borders.

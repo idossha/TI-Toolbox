@@ -70,8 +70,7 @@ What it does, in order:
    (including the `docker` group fix on Linux).
 2. **Attaches** to this project's container if one is already running — the desktop app's, or
    an earlier `tit launch`'s. It is the same container either way.
-3. **Pulls the image** if it is not already on the machine (≈ 2.3 GB; the first run takes a
-   while).
+3. **Pulls the image** if it is not already on the machine (final candidate size and download time are not yet measured).
 4. **Starts the container**, publishing the server on `127.0.0.1` only.
 5. **Waits for `/api/health`** to answer, up to `--timeout` seconds (180 by default; a cold
    start under emulation on Apple Silicon is slow).
@@ -258,6 +257,12 @@ Use it for server development and for hosts where Docker is not available at all
 everything else the container is the supported path.
 
 ## Troubleshooting
+
+**The running container uses a different image.** The preview launcher compares the requested
+image reference with the running project's configured image reference and refuses a mismatch.
+It leaves the container and its jobs unchanged. Wait for the jobs to finish, then use `--stop`
+for that project and launch with the intended image. This avoids silently reusing an older
+cohort or killing active work to replace it.
 
 **"Docker was not found on this machine."** Install Docker Desktop or Docker Engine; the
 launcher looks for the `docker` executable on your `PATH`.

@@ -67,21 +67,10 @@ test.beforeAll(async () => {
   await expectPage(page, "panel-source");
 });
 
-const JOB_TERMINAL_STATES = new Set(["succeeded", "failed", "cancelled", "skipped", "lost"]);
+const JOB_TERMINAL_STATES = new Set(["succeeded", "failed", "cancelled", "skipped"]);
 
-/**
- * Waits for the job to finish, or cancels it first, before anything below touches `FORWARD_DIR` —
- * fixing the other half of defect 2. Before this, a slow-but-still-writing job (the exact case a
- * too-tight `JOB_TIMEOUT_MS` produces: `waitForJobTerminal` throws, the test fails, `afterAll`
- * still runs) hit `rmSync(FORWARD_DIR, ...)` while `tit.source`'s real subprocess on the container
- * was still writing into it — measured by lane SUB (`sub-notes.md` §6 item 5): its own timeout left
- * a real forward-solution job running on the container, which SUB had to notice and cancel by hand
- * from outside the spec entirely so it would not hold the one-FEM slot. A short, bounded wait for
- * the job to reach ANY terminal state; if it has not by then, an explicit cancel and one more short
- * wait for that cancel to actually land (`cancelled` means the runner subprocess has been sent
- * SIGTERM and the mock/real server's own record reflects it — not merely that the HTTP call
- * returned) — only then is it safe to delete anything the job might still hold a file handle in.
- */
+/** Confirm the runner has stopped before removing its output. A failed status/cancel
+ * request is not proof of termination; afterAll retains output if this cannot confirm it. */
 async function ensureJobStopped(id: string): Promise<JobStatusLite | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10_000);
@@ -101,7 +90,7 @@ async function ensureJobStopped(id: string): Promise<JobStatusLite | null> {
 
   console.log(`real/source afterAll: job ${id} still ${current?.state ?? "unknown"} — cancelling before touching ${FORWARD_DIR}`);
   try {
-    await fetch(`${SERVER_URL}/api/jobs/${id}/cancel`, { method: "POST", headers: { Authorization: `Bearer ${TOKEN}` } });
+    await fetch(`${SERVER_URL}/api/jobs/${id}/cancel`, { method: "POST", headers: { Authorization: `Bearer ${TOKEN}` }, signal: AbortSignal.timeout(10_000) });
   } catch {
     /* waitForJobTerminal below still polls either way; a failed cancel POST is not fatal here */
   }
@@ -116,9 +105,18 @@ async function ensureJobStopped(id: string): Promise<JobStatusLite | null> {
 }
 
 test.afterAll(async () => {
-  if (jobId) await ensureJobStopped(jobId);
-  if (existsSync(FORWARD_DIR)) rmSync(FORWARD_DIR, { recursive: true, force: true });
-  await app?.close();
+  test.setTimeout(120_000);
+  try {
+    // No recorded job means we cannot claim ownership (including beforeAll failure).
+    if (!jobId) return;
+    const stopped = await ensureJobStopped(jobId);
+    if (!stopped || !JOB_TERMINAL_STATES.has(stopped.state)) {
+      throw new Error(`Preserving ${FORWARD_DIR}: job ${jobId} is ${stopped?.state ?? "unknown"}`);
+    }
+    if (existsSync(FORWARD_DIR)) rmSync(FORWARD_DIR, { recursive: true, force: true });
+  } finally {
+    await app?.close();
+  }
 });
 
 test("build forward solution for sub-101: accepted, started, and completed", async () => {

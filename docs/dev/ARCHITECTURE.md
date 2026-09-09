@@ -645,3 +645,18 @@ exercise checkout and downloaded entry points; the final image is tested without
 mount. Results, including unexecuted platform checks, live in [BENCHMARKS.md](BENCHMARKS.md), and
 remaining work stays in [RELEASE.md](RELEASE.md). This section refines §§1 and 5; it does not authorize
 a public release or relax any scientific validation requirement.
+
+### Runtime dependency boundaries
+
+SimNIBS and its compiled scientific dependencies retain the installer's NumPy 2.3.5.
+Blender montage scene creation runs in a background child process using the pinned official
+Blender distribution and its own Python/NumPy. Geometry extraction, atlas transformations,
+vector and region exports remain in the scientific process. The child receives prepared
+geometry and electrode data; it does not import SimNIBS. Existing job cancellation must
+terminate that child, and existing artifact reporting remains owned by the parent.
+This prevents installing Blender from silently downgrading the scientific environment.
+
+An optional FastSurfer checkpoint cache requires a SHA-256 digest before extraction and
+extracts only the three named VINN checkpoint files to fixed destinations. Recovery provenance
+must independently match the publisher's checksums and sizes. The default downloader retains
+TLS verification; an upstream certificate or availability failure never authorizes disabling it.

@@ -24,7 +24,8 @@ DEFAULT_COSTS: dict[str, Cost] = {
     "analyzer": Cost(cpus=1, mem_gb=4),
     "stats": Cost(cpus=1, mem_gb=4),
     "source": Cost(cpus=1, mem_gb=4),
-    "blender": Cost(cpus=1, mem_gb=2),
+    # The 183-electrode montage exceeds 12 GiB with its existing subdivision modifiers.
+    "blender": Cost(cpus=1, mem_gb=16),
     "nifti_average": Cost(cpus=1, mem_gb=2),
     "nilearn": Cost(cpus=1, mem_gb=2),
     "tools": Cost(cpus=1, mem_gb=1),
@@ -50,6 +51,13 @@ def default_cost(kind: str, config: dict[str, Any] | None = None) -> Cost:
     """
     config = config or {}
     base = DEFAULT_COSTS.get(kind, _FALLBACK)
+    if kind == "blender" and config.get("_type") in (
+        "VectorConfig",
+        "RegionConfig",
+        "SubcorticalConfig",
+    ):
+        # These geometry exports do not launch Blender or evaluate montage subdivision.
+        base = Cost(cpus=1, mem_gb=2)
     cpus = _num(config.get("cpus"))
     mem = _num(config.get("memory_gb"))
     if mem is None:

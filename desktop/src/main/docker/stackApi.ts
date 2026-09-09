@@ -122,6 +122,8 @@ export interface ContainerSummary {
 export interface ContainerState {
   Id: string;
   Name: string;
+  /** The reference supplied at creation (Config.Image), not the resolved image content ID. */
+  image: string;
   running: boolean;
   status: string;
   exitCode: number;
@@ -142,7 +144,7 @@ interface InspectResponse {
   Id: string;
   Name: string;
   State: { Status: string; Running: boolean; ExitCode: number; Health?: { Status?: string } };
-  Config: { Labels?: Record<string, string>; Env?: string[] };
+  Config: { Image: string; Labels?: Record<string, string>; Env?: string[] };
   NetworkSettings?: { Ports?: Record<string, { HostIp: string; HostPort: string }[] | null> };
 }
 
@@ -205,6 +207,7 @@ export class StackApi {
     return {
       Id: res.Id,
       Name: res.Name.replace(/^\//, ""),
+      image: res.Config.Image,
       running: res.State.Running,
       status: res.State.Status,
       exitCode: res.State.ExitCode,

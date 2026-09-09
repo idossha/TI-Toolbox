@@ -5,14 +5,21 @@ Montage publication asset builder.
 This module owns the Blender/montage-publication business logic.
 """
 
+import json
 import logging
 import os
-from dataclasses import dataclass
+import subprocess
+import tempfile
+from collections.abc import Iterator
+from pathlib import Path
+from dataclasses import asdict, dataclass
+
+import numpy as np
 
 from tit.paths import get_path_manager
 from tit import constants as const
 from tit.blender import utils as be_utils
-from tit.blender.io import write_binary_stl
+from tit.blender.io import read_binary_stl, write_binary_stl
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +80,7 @@ def _find_central_surface_mesh(
 
 
 def export_scalp_stl_from_sim(
-    sim_dir: str, *, output_stl: str, skin_tag: int = 1005
+    sim_dir: str, *, output_stl: str, skin_tag: int = 1005, mesh_path: str | None = None
 ) -> str:
     """Extract the scalp surface from a simulation mesh and write it as STL.
 
@@ -85,13 +92,15 @@ def export_scalp_stl_from_sim(
         Destination path for the binary STL file.
     skin_tag : int, optional
         Element tag identifying scalp tissue in the mesh (default 1005).
+    mesh_path : str or None
+        Canonical PathManager mesh when available; otherwise use legacy discovery.
 
     Returns
     -------
     str
         The *output_stl* path that was written.
     """
-    tetra_mesh = _find_tetrahedral_mesh(sim_dir)
+    tetra_mesh = mesh_path or _find_tetrahedral_mesh(sim_dir)
     vertices, faces = be_utils.extract_scalp_from_msh(tetra_mesh, skin_tag=skin_tag)
     os.makedirs(os.path.dirname(output_stl), exist_ok=True)
     write_binary_stl(output_stl, vertices, faces, header_text="TI-Toolbox Scalp Mesh")
@@ -178,81 +187,6 @@ class MontageResult:
     final_blend: str
 
 
-def _apply_scalp_material(scalp_obj) -> None:
-    """
-    Apply publication-ready scalp material.
-
-    Publication-standard material properties:
-    - Semi-transparent skin-tone appearance (alpha=0.4)
-    - HASHED blend method for proper transparency
-    - Subtle subsurface scattering for realism
-    """
-    import bpy
-
-    # Remove existing materials
-    scalp_obj.data.materials.clear()
-
-    # Create scalp material with publication-standard properties
-    mat = bpy.data.materials.new(name="ScalpMaterial")
-    mat.use_nodes = True
-    mat.blend_method = "HASHED"
-
-    bsdf = mat.node_tree.nodes.get("Principled BSDF")
-    if bsdf:
-        # Match the user's manual .blend (slightly translucent scalp)
-        bsdf.inputs["Base Color"].default_value = (0.24, 0.18, 0.13, 1.0)
-        bsdf.inputs["Alpha"].default_value = 0.4
-        bsdf.inputs["Metallic"].default_value = 0.0
-        bsdf.inputs["Roughness"].default_value = 0.35
-
-        # Match manual scalp shader details (if available on this Principled version)
-        try:
-            if "IOR" in bsdf.inputs:
-                bsdf.inputs["IOR"].default_value = 1.2
-            if "Subsurface Weight" in bsdf.inputs:
-                bsdf.inputs["Subsurface Weight"].default_value = 0.0
-            if "Subsurface Scale" in bsdf.inputs:
-                bsdf.inputs["Subsurface Scale"].default_value = 0.05
-            if "Subsurface Radius" in bsdf.inputs:
-                bsdf.inputs["Subsurface Radius"].default_value = (1.0, 0.2, 0.1)
-        except Exception:
-            pass
-
-    scalp_obj.data.materials.append(mat)
-    logger.debug("Applied scalp material (alpha=0.4, skin-tone with subsurface)")
-
-
-def _apply_gm_material(gm_obj) -> None:
-    """
-    Apply publication-ready GM material.
-
-    Publication-standard material properties:
-    - Semi-transparent blue-tinted color (alpha=0.45)
-    - HASHED blend method for proper transparency
-    """
-    import bpy
-
-    # Remove existing materials
-    gm_obj.data.materials.clear()
-
-    # Create GM material with publication-standard properties
-    mat = bpy.data.materials.new(name="GMMaterial")
-    mat.use_nodes = True
-    mat.blend_method = "HASHED"
-
-    nodes = mat.node_tree.nodes
-    bsdf = nodes.get("Principled BSDF")
-    if bsdf:
-        # Slightly brighter and a touch more opaque so it reads under scalp
-        bsdf.inputs["Base Color"].default_value = (0.36, 0.72, 0.80, 1.0)
-        bsdf.inputs["Alpha"].default_value = 0.45  # Semi-transparent
-        bsdf.inputs["Metallic"].default_value = 0.0
-        bsdf.inputs["Roughness"].default_value = 0.45
-
-    gm_obj.data.materials.append(mat)
-    logger.debug("Applied GM material (alpha=0.45, blue-tinted)")
-
-
 def run_montage(
     cfg: "MontageConfig",
     *,
@@ -315,8 +249,6 @@ def build_montage_publication_blend(
     MontageResult
         Dataclass with paths to all generated assets.
     """
-    import bpy
-
     pm = get_path_manager()
     sim_dir = pm.simulation(subject_id, simulation_name)
     if not sim_dir:
@@ -348,7 +280,12 @@ def build_montage_publication_blend(
     scalp_stl = os.path.join(output_dir, "scalp.stl")
     gm_stl = os.path.join(output_dir, "gm.stl")
 
-    export_scalp_stl_from_sim(sim_dir, output_stl=scalp_stl)
+    canonical_mesh = pm.ti_mesh(subject_id, simulation_name)
+    export_scalp_stl_from_sim(
+        sim_dir,
+        output_stl=scalp_stl,
+        mesh_path=canonical_mesh if os.path.isfile(canonical_mesh) else None,
+    )
     export_gm_stl_from_sim(
         sim_dir,
         subject_id=subject_id,
@@ -362,12 +299,7 @@ def build_montage_publication_blend(
     electrode_pairs = cfg.get("electrode_pairs") or []
 
     eeg_csv = _resolve_eeg_net_csv(subject_id=subject_id, eeg_net_name=str(eeg_net))
-    # Package-relative, not the container-only "/ti-toolbox/tit/blender/Electrode.blend"
-    # (N0.6 spike): Electrode.blend ships inside tit/blender/ itself (not resources/), so a
-    # plain sibling-of-this-file lookup works in a checkout unconditionally. A wheel install
-    # would additionally need this file declared as package data (pyproject.toml has no
-    # MANIFEST.in / package_data entry for it today) -- flagged as an N1 packaging follow-up,
-    # not fixed here.
+    # Packaged with tit.blender so source and installed API calls share the same template.
     electrode_template = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "Electrode.blend"
     )
@@ -378,7 +310,6 @@ def build_montage_publication_blend(
     subject_msh = os.path.join(subject_m2m, f"{subject_id}.msh")
 
     from tit.blender.electrode_placement import (
-        ElectrodePlacer,
         ElectrodePlacementConfig,
     )
 
@@ -400,127 +331,72 @@ def build_montage_publication_blend(
         show_full_net=show_full_net,
     )
 
-    placer = ElectrodePlacer(
-        ele_cfg, logger=logging.getLogger("tit.blender.electrode_placement")
-    )
-    ok, msg = placer.place_electrodes()
-    if not ok:
-        raise RuntimeError(msg)
-    electrodes_blend = ele_cfg.output_blend_path
-
-    # Compose final scene on the current scene produced by ElectrodePlacer
-    from tit.blender import scene_setup
-
-    logger.info("Composing final scene...")
-
-    # Get scalp object from ElectrodePlacer output
-    scalp_obj = bpy.data.objects.get("Scalp")
-    if not scalp_obj:
-        raise RuntimeError(
-            "Scalp object not found in scene (expected from ElectrodePlacer)"
+    # Preserve the old subject-MSH precedence and float64 coordinates. STL is an output,
+    # not the transport: an STL roundtrip would quantize vertices before placement.
+    if ele_cfg.subject_msh_path:
+        vertices, faces = be_utils.extract_scalp_from_msh(
+            ele_cfg.subject_msh_path, ele_cfg.skin_tag
         )
-
-    # Create Head collection and organize objects
-    head_coll = scene_setup.ensure_collection("Head")
-    gm_obj = scene_setup.import_stl(gm_stl, name="GM", collection=head_coll)
-    scene_setup.move_object_to_collection(
-        scalp_obj, collection=head_coll, unlink_from_others=True
-    )
-    scene_setup.move_object_to_collection(
-        gm_obj, collection=head_coll, unlink_from_others=True
-    )
-
-    # Apply publication-standard materials
-    logger.info("Applying materials...")
-    _apply_scalp_material(scalp_obj)
-    _apply_gm_material(gm_obj)
-
-    # Add GM wireframe (match manual .blend)
-    scene_setup.ensure_gm_wireframe(
-        gm_obj,
-        thickness=0.02,
-        offset=0.0,
-        use_replace=True,
-        use_even_offset=True,
-        use_boundary=False,
-        name="Wireframe",
-    )
-
-    # Set up world background (brighter ambient to avoid "dead" shadows)
-    logger.info("Configuring world and render settings...")
-    scene_setup.ensure_world_nodes(bg_color=(0.12, 0.12, 0.12, 1.0), strength=1.2)
-
-    # Configure render settings
-    scene_setup.configure_render_eevee(resolution=(2048, 2048), transparent_film=True)
-    scene_setup.configure_color_management_agx(
-        exposure=0.9, look="Medium High Contrast"
-    )
-    scene_setup.configure_eevee_publication_quality()
-
-    # Remove any prior lights/cameras to keep output deterministic across runs
-    logger.info("Setting up cameras and lighting...")
-    scene_setup.remove_objects_by_type(("LIGHT", "CAMERA"))
-
-    # Lighting: stronger key/fill + dedicated rim for depth/shape (less "tame")
-    scene_setup.add_sun_light(
-        location=(0.0, 0.0, 0.0),
-        rotation_euler=(0.55, -0.25, 0.35),
-        energy=3.5,
-        name="Sun",
-    )
-    scene_setup.add_area_light(
-        location=(260.0, -320.0, 320.0),
-        rotation_euler=(0.95, 0.0, 0.85),
-        energy=1800.0,
-        size=450.0,
-        name="Key",
-    )
-    scene_setup.add_area_light(
-        location=(-260.0, -220.0, 240.0),
-        rotation_euler=(0.85, 0.0, -0.65),
-        energy=750.0,
-        size=700.0,
-        name="Fill",
-    )
-    # Rim/back light: gives the scalp a crisp outline and makes electrodes pop
-    scene_setup.add_area_light(
-        location=(0.0, 420.0, 340.0),
-        rotation_euler=(-0.7, 0.0, 0.0),
-        energy=1400.0,
-        size=550.0,
-        name="Rim",
-    )
-
-    # Create 5 standard cameras that share lens/sensor and are auto-framed to the scene
-    # Names: top/left/right/front/back
-    cams = scene_setup.create_standard_cameras(
-        target_objects=[
-            o for o in bpy.context.scene.objects if o.type in {"MESH", "FONT"}
-        ],
-        lens=60.0,
-        margin=1.08,
-    )
-    # Bring back a diagonal "hero" camera (more compelling) and make it active
-    hero = scene_setup.create_hero_camera(
-        target_objects=[
-            o for o in bpy.context.scene.objects if o.type in {"MESH", "FONT"}
-        ],
-        lens=70.0,
-        margin=1.04,
-        name="hero",
-    )
-    bpy.context.scene.camera = hero
-
-    logger.info("Scene setup complete.")
-
+    else:
+        vertices, faces = read_binary_stl(scalp_stl)
+    electrodes = list(read_electrodes(eeg_csv))
     final_blend = os.path.join(
         output_dir, f"{subject_id}_{simulation_name}_montage_publication.blend"
     )
-    bpy.ops.wm.save_as_mainfile(filepath=final_blend)
+    with tempfile.TemporaryDirectory(prefix="tit-montage-") as temporary:
+        geometry = os.path.join(temporary, "scalp.npz")
+        np.savez(geometry, vertices=vertices, faces=faces)
+        placement = asdict(ele_cfg)
+        placement["subject_msh_path"] = None
+        manifest = {
+            "subject_id": subject_id,
+            "simulation_name": simulation_name,
+            "output_dir": output_dir,
+            "gm_stl": gm_stl,
+            "geometry": geometry,
+            "placement": placement,
+            "electrodes": electrodes,
+        }
+        manifest_path = os.path.join(temporary, "montage.json")
+        with open(manifest_path, "w", encoding="utf-8") as stream:
+            json.dump(manifest, stream, allow_nan=False)
+        renderer = Path(__file__).with_name("montage_scene.py")
+        executable = os.environ.get("TIT_BLENDER_BIN", "/opt/blender/blender")
+        env = {
+            key: value
+            for key, value in os.environ.items()
+            if key not in {"PYTHONPATH", "PYTHONHOME", "LD_LIBRARY_PATH"}
+        }
+        # Inherit the parent's process group: cancelling a job must also stop Blender.
+        subprocess.run(
+            [
+                executable,
+                "--background",
+                "--factory-startup",
+                "--python-exit-code",
+                "1",
+                "--python",
+                str(renderer),
+                "--",
+                manifest_path,
+            ],
+            check=True,
+            env=env,
+        )
+    for output in (ele_cfg.output_blend_path, final_blend):
+        if not Path(output).is_file() or Path(output).stat().st_size == 0:
+            raise RuntimeError(f"Blender did not create its expected output: {output}")
+    return MontageResult(scalp_stl, gm_stl, ele_cfg.output_blend_path, final_blend)
 
-    return MontageResult(
-        scalp_stl=scalp_stl,
-        gm_stl=gm_stl,
-        electrodes_blend=electrodes_blend,
-        final_blend=final_blend,
-    )
+
+def read_electrodes(csv_path: str) -> Iterator[list[str | float]]:
+    """Prepare exactly the electrode rows the prior Blender-side reader selected."""
+    from simnibs.utils.csv_reader import read_csv_positions
+
+    types, coordinates, _extra, names, _columns, _header = read_csv_positions(csv_path)
+    for kind, coordinate, name in zip(types, coordinates, names):
+        if kind in ("Electrode", "ReferenceElectrode"):
+            yield [
+                name if name else "Electrode",
+                *(float(value) for value in coordinate),
+            ]

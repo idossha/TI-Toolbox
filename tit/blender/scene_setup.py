@@ -145,7 +145,7 @@ def configure_render_eevee(
     import bpy
 
     scene = bpy.context.scene
-    scene.render.engine = "BLENDER_EEVEE"
+    scene.render.engine = "BLENDER_EEVEE_NEXT"
     scene.render.film_transparent = bool(transparent_film)
     scene.render.resolution_x = int(resolution[0])
     scene.render.resolution_y = int(resolution[1])
@@ -175,12 +175,8 @@ def configure_color_management_agx(
     vs.gamma = 1.0
     vs.use_curve_mapping = False
 
-    # AgX look names vary slightly across Blender builds; keep it simple and fail-soft.
-    try:
-        vs.look = look
-    except Exception:
-        # Fallback to default/none if the exact look name isn't available.
-        vs.look = "None"
+    # Blender 4.4 exposes AgX look identifiers with this prefix; invalid looks fail visibly.
+    vs.look = look if look == "None" or look.startswith("AgX - ") else f"AgX - {look}"
 
 
 def configure_eevee_publication_quality() -> None:
@@ -487,11 +483,11 @@ def create_principled_material(
 
     mat = bpy.data.materials.new(name=name)
     mat.use_nodes = True
-    try:
-        mat.blend_method = blend_method
-    except Exception:
-        # Blend method setting may fail in some Blender versions
-        pass
+    mat.surface_render_method = {
+        "HASHED": "DITHERED",
+        "BLEND": "BLENDED",
+        "OPAQUE": "DITHERED",
+    }[blend_method]
 
     nodes = mat.node_tree.nodes
     bsdf = nodes.get("Principled BSDF")

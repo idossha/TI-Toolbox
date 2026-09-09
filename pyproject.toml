@@ -48,6 +48,7 @@ include = ["tit*"]
 # a VCS plugin, and this project installs none. It is declared here explicitly so an installed
 # TI-Toolbox can serve /api/guide/* without a project on disk.
 [tool.setuptools.package-data]
+"tit.blender" = ["Electrode.blend"]
 "tit.scene" = [
   "guide/manifest.json",
   "guide/PROVENANCE.md",

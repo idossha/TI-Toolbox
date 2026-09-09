@@ -84,8 +84,8 @@ The `test` extra is host-only; it does not alter the container's SimNIBS depende
 the host therefore needs the `test` extra rather than only pytest. Real-library numerical and
 SimNIBS checks still run in the container. Durations are recorded in BENCHMARKS.md.
 
-`tests/test_scene_guide.py` has one known order-dependent failure in a full run that passes
-standalone. Confirm it in isolation rather than reporting it as a red.
+If `tests/test_scene_guide.py` fails only in the full run, use an isolated run to diagnose
+fixture or module-state leakage. An isolated pass does not turn a failing full suite green.
 
 ### 2.3 Numerical tests with the real libraries — in the container
 

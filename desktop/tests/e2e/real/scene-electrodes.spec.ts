@@ -1,6 +1,6 @@
 /**
- * The run-page pane against the **real** server, the real packaged guide and real electrode
- * positions — read out of the drawing buffer, not off a screenshot (NR gate, plan §3).
+ * The run-page pane against the **real** server: Simulator subject anatomy and Optimizer
+ * packaged guide, with real electrode positions — read out of the drawing buffer, not off a screenshot (NR gate, plan §3).
  *
  * Every number below is measured from pixels the GPU actually wrote:
  *
@@ -41,6 +41,24 @@ const delta = (a: number[], b: number[]): number =>
 
 async function settled(page: Page): Promise<void> {
   await page.waitForFunction(() => window.__scene?.camera.settled === true, null, { timeout: 30_000 });
+}
+
+/** A progressive pane can say ready after only one surface arrives. Pixel comparisons
+ * require the complete montage upload and ResizeObserver sizing, not merely a resting camera. */
+async function montageReady(page: Page): Promise<void> {
+  await page.waitForFunction((subject) => {
+    const scene = window.__scene;
+    const canvas = document.querySelector('[data-page-panel="simulator"] [data-testid="scene-canvas"]');
+    // Simulator initially shows the guide while its subject manifest loads. Waiting only
+    // for ready samples that temporary canvas immediately before it is replaced.
+    if (window.__scenePane?.subject !== subject || !scene?.ready || !scene.camera.settled || !canvas) return false;
+    const rect = canvas.getBoundingClientRect();
+    return ["gm", "skin"].every((id) => scene.parts.some((part) => part.id === id))
+      && scene.stats.triangles === scene.parts.reduce((sum, part) => sum + part.triangles, 0)
+      && scene.markers.length > 0 && scene.stats.markers === scene.markers.length
+      && Math.abs(scene.canvas.widthCss - rect.width) < 1
+      && Math.abs(scene.canvas.heightCss - rect.height) < 1;
+  }, process.env.TIT_E2E_SUBJECT ?? "ernie", { timeout: 60_000 });
 }
 
 /**
@@ -150,12 +168,33 @@ async function projectMarker(page: Page, id: string): Promise<{ x: number; y: nu
 
 /** RGBA at one canvas CSS point, from the drawing buffer of a freshly rendered frame. */
 async function pixelAt(page: Page, x: number, y: number, withMarkers = true): Promise<number[]> {
-  const read = await page.evaluate(
-    ([px, py, wm]) => window.__scene?.samplePixels([[px as number, py as number]], wm as boolean) ?? null,
+  const sample = await page.evaluate(
+    ([px, py, wm]) => {
+      const scene = window.__scene;
+      const read = scene?.samplePixels([[px as number, py as number]], wm as boolean) ?? null;
+      return {
+        read,
+        diagnostic: {
+          hookPresent: !!scene,
+          paneState: window.__scenePane?.state,
+          canvasCount: document.querySelectorAll('[data-testid="scene-canvas"]').length,
+          paneStates: [...document.querySelectorAll('[data-testid="scene-pane-host"]')].map((el) => el.getAttribute("data-state")),
+          url: location.pathname,
+          ready: scene?.ready,
+          contextLost: scene?.contextLost,
+          mode: scene?.mode,
+          frames: scene?.frames,
+          stats: scene?.stats,
+          withMarkers: wm,
+          x: px,
+          y: py,
+        },
+      };
+    },
     [x, y, withMarkers] as const,
   );
-  if (!read?.[0]) throw new Error("samplePixels returned nothing — is the renderer mounted?");
-  return read[0];
+  if (!sample.read?.[0]) throw new Error(`samplePixels returned nothing: ${JSON.stringify(sample.diagnostic)}`);
+  return sample.read[0];
 }
 
 /**
@@ -211,7 +250,7 @@ test("an electrode's colour is its whole state, and selecting it adds no ring", 
     await panel.locator("tr[data-job-row]").first().locator('td[data-cell="net"]').getByRole("combobox").click();
     await page.getByRole("option", { name: NET_LABEL, exact: true }).click();
     await expect(panel.getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready", { timeout: 60_000 });
-    await settled(page);
+    await montageReady(page);
 
     // Prime the pair editor with ONE electrode before measuring anything. Placing the first one
     // makes the channel legend appear above the pane, which shortens the canvas and reframes the
@@ -226,7 +265,7 @@ test("an electrode's colour is its whole state, and selecting it adds no ring", 
       timeout: 15_000,
     });
     await page.mouse.move(primingBox.x + 4, primingBox.y + 4);
-    await settled(page);
+    await montageReady(page);
 
     const marker = await frontMarker(page, [priming.id], true);
     const idle = await pixelAt(page, marker.x, marker.y);
@@ -302,6 +341,8 @@ test("a selected atlas region is painted in its own .annot colour, and the pane 
     await expect(panel.getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready", { timeout: 60_000 });
     await expect(panel.getByTestId("scene-pane-host")).toHaveAttribute("data-gesture", "region");
     await settled(page);
+    expect(await page.evaluate(() => window.__scenePane?.subject)).toBeNull();
+    expect(await page.evaluate(() => window.__scenePane?.guide)).toBeTruthy();
 
     // Warm: this pane is the second one this session to ask for the same immutable payloads, so
     // nothing here is a cold download. What is being budgeted is decode + upload + first frame.

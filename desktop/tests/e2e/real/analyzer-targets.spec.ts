@@ -75,7 +75,7 @@ test("two rows, two different targets, two jobs from one Run", async () => {
 
   const dialog = await openAnalysisTarget(page, second);
   await dialog.getByRole("radio", { name: "Cortical", exact: true }).click();
-  await dialog.locator(".field", { hasText: "Atlas" }).first().getByRole("button").click();
+  await dialog.locator(".field", { hasText: "Atlas" }).first().locator(".combobox-trigger").click();
   await page.getByRole("option", { name: /DK40/i }).first().click();
   await dialog.locator(".field", { hasText: "Region(s)" }).first().getByRole("combobox").click();
   const region = page.locator('[role="option"]').first();

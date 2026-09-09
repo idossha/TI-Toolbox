@@ -4,6 +4,7 @@
 # Usage:
 #   ./build.sh [--tag IMAGE:TAG] [--ref GIT-REF]
 #              [--tetravox-tgz URL --tetravox-sha256 HEX] [--no-cache]
+#              [--fastsurfer-checkpoints-tgz URL --fastsurfer-checkpoints-sha256 HEX]
 #
 #   --tag                image:tag to build (default idossha/ti-toolbox:<version>-dev)
 #   --ref                build from `git clone <REF>` of github.com/idossha/TI-Toolbox instead
@@ -21,6 +22,11 @@
 #                        release's own .tgz.sha256 asset, but a hand-given URL has no sidecar
 #                        to read, so the digest has to be given by hand too.
 #   --no-cache           pass --no-cache to docker build
+#   --fastsurfer-checkpoints-tgz / --fastsurfer-checkpoints-sha256
+#                        optional verified VINN cache (http(s), including a local server).
+#                        Archive must contain the three aparc_vinn_*_v2.0.0.pkl files at its
+#                        root. Digest is required and checked before extraction. Without it,
+#                        FastSurfer downloads its official checkpoints with TLS verification.
 #
 # There is one recipe. Dockerfile.ti-toolbox.layered (a fast local build FROM
 # idossha/simnibs:v2.5.0) was deleted, and with it --layered/--from-scratch/--skip-ui-build:
@@ -69,6 +75,8 @@ TAG=""
 TI_TOOLBOX_REF=""
 TETRAVOX_TGZ=""
 TETRAVOX_SHA256=""
+FASTSURFER_CHECKPOINTS_TGZ=""
+FASTSURFER_CHECKPOINTS_SHA256=""
 NO_CACHE=""
 OBSOLETE=""
 
@@ -78,6 +86,8 @@ while [ $# -gt 0 ]; do
         --ref|--ti-toolbox-ref) TI_TOOLBOX_REF="$2"; shift 2 ;;
         --tetravox-tgz) TETRAVOX_TGZ="$2"; shift 2 ;;
         --tetravox-sha256) TETRAVOX_SHA256="$2"; shift 2 ;;
+        --fastsurfer-checkpoints-tgz) FASTSURFER_CHECKPOINTS_TGZ="$2"; shift 2 ;;
+        --fastsurfer-checkpoints-sha256) FASTSURFER_CHECKPOINTS_SHA256="$2"; shift 2 ;;
         --no-cache) NO_CACHE="--no-cache"; shift ;;
         # Retired flags, accepted so an old command line still builds.
         --layered|--from-scratch|--skip-ui-build) OBSOLETE="$OBSOLETE $1"; shift ;;
@@ -119,6 +129,15 @@ fi
 if [ -n "$TETRAVOX_SHA256" ] && ! printf '%s' "$TETRAVOX_SHA256" | grep -Eq '^[0-9a-f]{64}$'; then
     echo "build.sh: --tetravox-sha256 must be 64 lowercase hex digits" >&2
     exit 2
+fi
+
+# A cache is an explicit pair, never an unverified replacement for the official weights.
+if [ -n "$FASTSURFER_CHECKPOINTS_TGZ" ] || [ -n "$FASTSURFER_CHECKPOINTS_SHA256" ]; then
+    if ! printf '%s' "$FASTSURFER_CHECKPOINTS_TGZ" | grep -Eq '^https?://[^[:space:]]+$' \
+        || ! printf '%s' "$FASTSURFER_CHECKPOINTS_SHA256" | grep -Eq '^[0-9a-f]{64}$'; then
+        echo "build.sh: FastSurfer cache needs an http(s) --fastsurfer-checkpoints-tgz and a 64 lowercase hex --fastsurfer-checkpoints-sha256" >&2
+        exit 2
+    fi
 fi
 
 # --- source: local checkout (default) or a pushed ref -------------------------------------
@@ -253,6 +272,8 @@ build_args=(
     --build-arg "CACHE_BUST=$(date +%s)"
     --build-arg "TETRAVOX_EMBED_TGZ=$TETRAVOX_TGZ"
     --build-arg "TETRAVOX_EMBED_SHA256=$TETRAVOX_SHA256"
+    --build-arg "FASTSURFER_CHECKPOINTS_TGZ=$FASTSURFER_CHECKPOINTS_TGZ"
+    --build-arg "FASTSURFER_CHECKPOINTS_SHA256=$FASTSURFER_CHECKPOINTS_SHA256"
 )
 if [ -n "$NO_CACHE" ]; then
     build_args+=("$NO_CACHE")

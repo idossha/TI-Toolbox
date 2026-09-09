@@ -33,6 +33,18 @@ RUN git clone --depth 1 --branch "${FASTSURFER_REF}" \
         https://github.com/Deep-MI/FastSurfer.git /opt/fastsurfer \
     && rm -rf /opt/fastsurfer/.git
 
+# Blender's download/extraction tools stay out of the final image and do not invalidate
+# the expensive SimNIBS installer layer when the renderer changes.
+FROM ubuntu:22.04 AS blender
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl xz-utils \
+    && rm -rf /var/lib/apt/lists/*
+# Official Blender has its own Python/NumPy: installing bpy into SimNIBS downgrades NumPy2.
+# Archive digest is from Blender's official blender-4.4.3.sha256 manifest.
+RUN mkdir -p /opt/blender \
+    && curl -fL --retry 3 https://mirror.blender.org/release/Blender4.4/blender-4.4.3-linux-x64.tar.xz -o /tmp/blender.tar.xz \
+    && echo "8d3be07d2bc412b502c6bfe3cfe3e22195a4164076867da987ce148d73c27946  /tmp/blender.tar.xz" | sha256sum -c - \
+    && tar -xJf /tmp/blender.tar.xz --strip-components=1 -C /opt/blender \
+    && rm /tmp/blender.tar.xz
 # =========================================================================================
 # Stage: final
 # =========================================================================================
@@ -94,25 +106,18 @@ RUN mkdir -p /simnibs \
 ENV PATH="/root/SimNIBS-4.6/bin:$PATH"
 ENV SIMNIBSDIR="/root/SimNIBS-4.6"
 
+COPY --from=blender /opt/blender /opt/blender
+ENV TIT_BLENDER_BIN=/opt/blender/blender
+
+COPY --from=source /ti-toolbox/container/blueprint/runtime-constraints.txt /opt/ti-runtime-constraints.txt
+ENV PIP_CONSTRAINT=/opt/ti-runtime-constraints.txt
+
 # Python deps tit/ imports. `mne>=1.5,<2` is a range on purpose (tit/source/_simnibs_compat.py
 # spans it); h5io is mne's HDF5 backend and is not pulled in by mne itself.
 RUN simnibs_python -m pip install --no-cache-dir \
-        meshio nilearn trimesh seaborn scikit-image numpy-stl click bpy psutil \
+        meshio nilearn trimesh seaborn scikit-image numpy-stl click psutil \
         "mne>=1.5,<2" h5io nbformat jupyter_client ipykernel \
         fastapi "uvicorn[standard]" pyyaml
-
-# --- TI-Toolbox: SimNIBS patches, extra EEG caps, the flex-optimisation replacement, tit ---
-COPY --from=source /ti-toolbox /ti-toolbox
-RUN mkdir -p $SIMNIBSDIR/resources/ElectrodeCaps_MNI/ \
-    && cp /ti-toolbox/resources/ElectrodeCaps_MNI/* $SIMNIBSDIR/resources/ElectrodeCaps_MNI/ \
-    && cp /ti-toolbox/resources/map-electrodes/tes_flex_optimization.py \
-          $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py \
-    && simnibs_python /ti-toolbox/resources/atlas2subject/patch_atlas2subject.py \
-    && simnibs_python /ti-toolbox/resources/patches/patch_nan_to_num.py \
-    && simnibs_python -m pip install --no-cache-dir /ti-toolbox
-
-# The kernel the in-app notebooks run on (tit/server/kernels.py starts it by name).
-RUN simnibs_python -m ipykernel install --name simnibs --display-name "SimNIBS + TI-Toolbox"
 
 # --- FastSurfer --seg_only. CPU torch pinned FIRST: a bare install of FastSurfer's
 # `torch==2.7.*` pulls the CUDA wheels (~2 GB) this GPU-less container cannot use, and PEP 440
@@ -127,7 +132,44 @@ RUN simnibs_python -m pip install --no-cache-dir \
 
 # --vinn only: the asegdkt checkpoints (67 MB). Production runs pass --no_cereb --no_hypothal
 # --no_cc, so CerebNet/HypVINN weights are never used. Needs torch, hence not in that stage.
-RUN simnibs_python "${FASTSURFER_HOME}/FastSurferCNN/download_checkpoints.py" --vinn
+# Optional cache for official-host outages (TLS-chain failure + Zenodo 504, 2026-09-09).
+# Verify bytes before reading the archive; extract only named members to fixed destinations,
+# never archive-controlled paths. The ordinary path remains the upstream TLS-verified downloader.
+ARG FASTSURFER_CHECKPOINTS_TGZ=""
+ARG FASTSURFER_CHECKPOINTS_SHA256=""
+RUN if [ -n "$FASTSURFER_CHECKPOINTS_TGZ" ]; then \
+        printf '%s' "$FASTSURFER_CHECKPOINTS_SHA256" | grep -Eq '^[0-9a-f]{64}$' \
+        && curl -fsSL "$FASTSURFER_CHECKPOINTS_TGZ" -o /tmp/fastsurfer-checkpoints.tgz \
+        && echo "$FASTSURFER_CHECKPOINTS_SHA256  /tmp/fastsurfer-checkpoints.tgz" | sha256sum -c - \
+        && mkdir -p "${FASTSURFER_HOME}/checkpoints" \
+        && for plane in axial coronal sagittal; do \
+            file="aparc_vinn_${plane}_v2.0.0.pkl"; \
+            tar -xzOf /tmp/fastsurfer-checkpoints.tgz "$file" > "${FASTSURFER_HOME}/checkpoints/$file" \
+                && test -s "${FASTSURFER_HOME}/checkpoints/$file" || exit 1; \
+        done \
+        && printf '%s\n' "$FASTSURFER_CHECKPOINTS_SHA256" > "${FASTSURFER_HOME}/checkpoints/cache-archive.sha256" \
+        && rm /tmp/fastsurfer-checkpoints.tgz; \
+    else \
+        test -z "$FASTSURFER_CHECKPOINTS_SHA256" \
+        && simnibs_python "${FASTSURFER_HOME}/FastSurferCNN/download_checkpoints.py" --vinn; \
+    fi
+
+# Scientific patches below affect transformations/flex, not FastSurfer installation.
+# --- TI-Toolbox: SimNIBS patches, extra EEG caps, the flex-optimisation replacement, tit ---
+COPY --from=source /ti-toolbox /ti-toolbox
+RUN mkdir -p $SIMNIBSDIR/resources/ElectrodeCaps_MNI/ \
+    && cp /ti-toolbox/resources/ElectrodeCaps_MNI/* $SIMNIBSDIR/resources/ElectrodeCaps_MNI/ \
+    && cp /ti-toolbox/resources/map-electrodes/tes_flex_optimization.py \
+          $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py \
+    && simnibs_python /ti-toolbox/resources/atlas2subject/patch_atlas2subject.py \
+    && simnibs_python /ti-toolbox/resources/patches/patch_nan_to_num.py \
+    && simnibs_python -m pip install --no-cache-dir /ti-toolbox
+
+# The kernel the in-app notebooks run on (tit/server/kernels.py starts it by name).
+RUN simnibs_python -m ipykernel install --name simnibs --display-name "SimNIBS + TI-Toolbox"
+
+# Fail on ABI/dependency drift after all installers have run, before exporting the image.
+RUN simnibs_python /ti-toolbox/container/blueprint/verify_runtime.py
 
 COPY --from=ui-builder /build/desktop/out/renderer /opt/ti-toolbox/ui
 

@@ -2,8 +2,8 @@
 
 This package generates publication-ready Blender scenes, vector-field
 PLY arrow files, and atlas-labelled cortical region meshes from
-SimNIBS simulation outputs.  It runs inside ``simnibs_python`` (which
-bundles a headless Blender ``bpy``).
+SimNIBS simulation outputs.  Scientific preparation runs inside ``simnibs_python``; montage scene creation
+runs in the standalone Blender background process.
 
 Modules
 -------
@@ -33,28 +33,26 @@ tit.sim : Simulation pipeline that produces the input meshes.
 tit.analyzer : Field analysis that consumes the exported surfaces.
 """
 
-from tit.blender.config import (
-    MontageConfig,
-    VectorConfig,
-    RegionConfig,
-    SubcorticalConfig,
-)
-from tit.blender.montage_publication import (
-    run_montage,
-    MontageResult,
-)
-from tit.blender.vector_field_exporter import run_vectors
-from tit.blender.region_exporter import run_regions
-from tit.blender.subcortical_exporter import run_subcortical
+from importlib import import_module
 
-__all__ = [
-    "MontageConfig",
-    "VectorConfig",
-    "RegionConfig",
-    "SubcorticalConfig",
-    "run_montage",
-    "MontageResult",
-    "run_vectors",
-    "run_regions",
-    "run_subcortical",
-]
+# Rendering imports must never pull SimNIBS/NumPy2 into Blender's bundled Python.
+_EXPORTS = {
+    "MontageConfig": "config",
+    "VectorConfig": "config",
+    "RegionConfig": "config",
+    "SubcorticalConfig": "config",
+    "MontageResult": "montage_publication",
+    "run_montage": "montage_publication",
+    "run_vectors": "vector_field_exporter",
+    "run_regions": "region_exporter",
+    "run_subcortical": "subcortical_exporter",
+}
+__all__ = list(_EXPORTS)
+
+
+def __getattr__(name: str):
+    if name not in _EXPORTS:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    value = getattr(import_module(f"{__name__}.{_EXPORTS[name]}"), name)
+    globals()[name] = value
+    return value

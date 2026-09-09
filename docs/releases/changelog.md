@@ -44,6 +44,20 @@ and the [Wiki]({{ site.baseurl }}/wiki/) for a page per workflow.
 
 #### Additions (container and platform)
 
+- **Montage rendering preserves the scientific Python environment** — upcoming/internal
+  builds run pinned Blender 4.4.3 as a separate background process, keeping the scientific
+  NumPy 2.3.5 environment intact. Canonical PathManager mesh lookup replaces the incorrect
+  montage mesh lookup. Full-net montage jobs now reserve 16 GiB as conservative headroom,
+  not a measured uncapped peak; other export modes retain 2 GiB reservations. See
+  [memory guidance]({{ site.baseurl }}/wiki/blender/#full-net-montage-memory).
+  Final baked-image acceptance remains pending.
+- **mEx planning no longer reads the removed `channels` field** — preview planning can count
+  the positional montage combinations without crashing on the obsolete configuration field.
+- **Starting with a different image leaves active jobs alone** — the loader refuses to attach
+  when a running project's configured image reference differs from the requested image.
+  Wait for its jobs to finish, explicitly stop that project's container, then start with the
+  intended image; the loader does not kill jobs or replace a running container automatically.
+
 - **Both standalone loaders can open the upcoming interface without a PyPI release** —
   `loader.py` and `loader.sh` refresh the `main` source archive into a shared isolated cached
   environment on each startup, so starting requires network access and the main integration.
@@ -60,7 +74,9 @@ and the [Wiki]({{ site.baseurl }}/wiki/) for a page per workflow.
   helper, removing the old parsing failure for `<subject>_leadfield_<net>.hdf5`.
 
 - **Single image, `idossha/ti-toolbox:<ver>`** — SimNIBS 4.6, FastSurfer (`--seg_only`, checkpoints pre-downloaded), the desktop UI, and the Tetravox Embed viewer are all baked into one image, with no `pip install` at container start.
-- **Image slimming** — gmsh, PyQt5, the TMS coil models, neovim and the build compilers are out of the image: **≈ 2.3 GB to download, ≈ 9 GB unpacked on disk** (2.32 GB content / 8.93 GB disk, measured 2026-09-07), down from 6.66 GB content / 21.3 GB before the pass, and from a 2.5.0 stack of `idossha/simnibs` (6.15 GB) plus `ti-toolbox_freesurfer` (21.9 GB).
+- **Image size is being remeasured** — the September 7 development image measured 2.32 GB
+  content / 8.93 GB disk. Those historical figures do not describe the current candidate,
+  which adds standalone Blender. Final candidate download/disk size is pending.
 - **FastSurfer segmentation** — a new, much faster pre-processing stage (`run_fastsurfer`) producing a DKT-atlas parcellation in `derivatives/fastsurfer/`, replacing FreeSurfer `recon-all` for the segmentation this toolbox needs.
 - **Tetravox Embed viewer** — the 3D/volume viewer now renders inside the app's own window (WebGL2 + WASM on the host GPU, driven by a `postMessage` protocol), instead of launching Freeview/Gmsh as separate X11 applications.
 - **Docker Engine API stack** — the desktop app now drives Docker entirely through its Engine API (image pull with progress, container create/start, health check, log streaming, stop) instead of shelling out to the `docker compose` CLI; `docker context inspect` is the only remaining CLI use, for engine discovery.

@@ -1323,3 +1323,35 @@ internal-test instructions, and full platform certification is still a productio
 channel. Acceptance is command-based: same image from both loaders and desktop, package validation,
 real-container execution, unchanged public release/update state, and a built site with preview notices.
 Measured results belong in BENCHMARKS.md, not this decision.
+
+### 2026-09-08 — Separate Blender rendering from scientific dependencies
+
+**Decision.** Preserve SimNIBS 4.6's NumPy 2.3.5 environment. Use a pinned official Blender
+background process for montage scene composition, passing prepared geometry and electrode
+data across that boundary. Keep the existing job, configuration and artifact interfaces.
+Vector, region and subcortical exports remain in the scientific environment.
+
+**Why.** Rebuilding the image exposed that installing `bpy` downgraded NumPy to 1.26.4,
+contradicting SimNIBS/SAMSEG requirements. A Blender 4.4 wheel with permissive metadata still
+reported NumPy ABI initialization failures with NumPy 2.3.5. Successful imports or a tiny
+render did not establish a supported shared environment. Geometry preparation therefore stays
+with SimNIBS and rendering stays with Blender's supported runtime.
+
+**Cost and verification.** The image carries a separate Blender runtime and a narrow prepared-data
+boundary. Preserve the scalp geometry used for electrode placement, the public return values,
+output names and job cancellation. Verify actual montage export and reopen the resulting scene,
+and verify the scientific environment independently. Measurements belong in BENCHMARKS.md.
+
+**Related build recovery.** The official FastSurfer checkpoint downloader failed on a TLS chain
+and its alternate host timed out. A cache is allowed only with an explicit archive digest and
+independent publisher checksum/size evidence for all three weights. Extract fixed filenames;
+do not relax TLS verification. This is an optional path in the existing builder.
+
+**Revisit if.** An upstream supported Blender and SimNIBS combination removes the ABI conflict,
+or the montage exporter gains additional scientific operations across this boundary.
+
+**Internal image identity enforcement.** A running project container may be reused only when its
+configured image reference matches the requested loader/desktop reference. A mismatch is an
+actionable refusal, never permission to kill active jobs or silently attach to an older cohort.
+Alternate aliases are not inferred to be equal. Registry existence-check and push operations are
+serialized by their resolved image tag, including runs from different source refs.

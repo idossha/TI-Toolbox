@@ -699,3 +699,24 @@ supporting the prior blanket real-green handoff. Real tests now require an expli
 root, and the Results preview's repeated section spacing was corrected without relaxing its density
 threshold. Host dependencies are declared by the test extra. Measurements and remaining real/image
 gates are recorded in BENCHMARKS.md and RELEASE.md, not a new release-specific ledger.
+
+### 2026-09-08 — Rebuild and colleague handoff verification
+
+The internal preparation audit rebuilt the runtime rather than relying on the old green development
+container. This exposed an actual NumPy dependency conflict: `bpy` installed into SimNIBS downgraded
+NumPy, so montage rendering now uses the official Blender background runtime while scientific
+preparation retains SimNIBS's NumPy. The prepared geometry preserves the existing subject mesh and
+float64 coordinates. Architecture §10 and DECISIONS record the boundary and verified checkpoint cache.
+
+Independent distribution review also found that a new loader could attach to a running old image,
+and concurrent workflows could resolve to the same internal tag. Loaders now refuse the image
+mismatch without disturbing jobs; image publication serializes by the resolved tag. Public release
+metadata remains unchanged. Existing real tests gained precise Help-versus-control selectors and
+safe cleanup guards; their measurements and outstanding reruns are in BENCHMARKS.
+
+Real mEx planning also exposed a reference to the removed `MExConfig.channels` field; the planner
+now uses the engine's actual topology and completes the real eight-electrode search. Actual montage
+verification found a legacy-only mesh filename lookup, now routed through PathManager. Full-net
+Blender scenes preserve the template's subdivision settings and require a larger memory reservation;
+lightweight non-render exports retain their prior estimate. These are runtime/planning fixes, not
+additional scientific-formula corrections.

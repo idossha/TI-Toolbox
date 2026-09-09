@@ -28,7 +28,7 @@ puts the same page in your browser instead of in a window. Pick the row that des
 | **[2. Command line](#option-2-command-line-no-electron)** | The UI in a browser tab | Docker, Python 3.11+ | Remote/SSH machines, lab servers, scripted setups |
 | **[3. From source](#option-3-run-the-latest-unreleased-version)** | The unreleased code | Docker, Node 22.12+, git | Trying a fix before it ships; contributing |
 
-When a matching image is available, the launcher is designed to download `idossha/ti-toolbox:{version}` — **≈ 2.3 GB to download, ≈ 9 GB unpacked on disk**. It is downloaded once and reused by all three options.
+When a matching image is available, the launcher is designed to download `idossha/ti-toolbox:{version}` — **final candidate download and disk sizes pending measurement**. It is downloaded once and reused by all three options.
 
 <br>
 
@@ -195,7 +195,7 @@ solves and slower FastSurfer than on native x86_64 hardware.
 
 ## Disk size
 
-One image, `idossha/ti-toolbox:<version>` — **≈ 2.3 GB to download, ≈ 9 GB unpacked on disk**.
+One image, `idossha/ti-toolbox:<version>` — **final candidate download and disk sizes pending measurement**.
 This replaces the previous two-image stack (`idossha/simnibs` plus a separate FreeSurfer
 image, together tens of GB); dropping FreeSurfer from the core product (see
 [Architecture]({{ site.baseurl }}/wiki/desktop-app/)) accounts for nearly all of the

@@ -9,6 +9,26 @@ The Blender extension was built to enable publication level visualization and pr
 <img src="{{ site.baseurl }}/assets/imgs/v3/panel-visual-exporter.png" alt="The 3D visual exporter panel" style="width: 100%; max-width: 1000px;">
 <em>The <strong>3D visual exporter</strong> panel. Switch it on in <strong>Settings &#9656; Optional tools</strong>; it then appears in the rail.</em>
 
+## Upcoming internal rendering changes
+
+Montage preparation runs in the scientific SimNIBS environment with NumPy 2.3.5. Scene
+creation and rendering use pinned standalone Blender 4.4.3 in a separate background process,
+so Blender's Python dependencies do not downgrade scientific NumPy. The montage mesh lookup
+now follows the canonical PathManager mesh location. The public release remains 2.5.0;
+these changes belong to the upcoming/internal candidate.
+
+### Full-net montage memory
+
+A full-net montage can need **about 16 GiB of available container memory**. Increase Docker
+Desktop's memory allocation accordingly and leave headroom for other running workloads.
+The scheduler reserves 16 GiB for montage jobs; this is a conservative reservation and
+headroom recommendation, **not an uncapped measured peak**. Vector, region and subcortical
+exports retain their separate 2 GiB reservations.
+
+Full-net validation preserves the existing visual subdivision. Actual demand depends on the
+scene; the allocation guidance does not impose a fixed peak-memory guarantee. Final candidate
+image size and baked-image acceptance remain pending.
+
 ## Overview
 
 - **Purpose**: Export 3D assets in formats compatible with Blender, CAD software, and other 3D modeling tools to enable better visualization and presentation of simulation results.

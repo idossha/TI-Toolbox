@@ -500,7 +500,7 @@ def _plan_mex(
             )
 
     n_combinations = count_multipolar_combinations(
-        buckets_or_pool, all_combinations=all_combinations, channels=config.channels
+        buckets_or_pool, all_combinations=all_combinations
     )
     return jobs, {"search_space": {"n_combinations": n_combinations}}
 

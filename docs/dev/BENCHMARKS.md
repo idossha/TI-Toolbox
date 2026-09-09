@@ -432,3 +432,68 @@ Carried forward from the lanes that measured them, not re-measured here (the rea
 
 The 16.4 s → 28 ms figure is a ~590× reduction and is the single largest latency change in the v3
 work; it is what makes the Menu a thing you edit rather than a form you submit.
+
+## 2026-09-08 — Internal distribution preparation
+
+Measurements below distinguish the existing development image from the rebuilt runtime.
+The validation project is an APFS copy at
+`/Users/idohaber/datasets/ti-toolbox-validation/000`; the original Dataset 000 and its development
+container were not recreated. Source work continues on `codex/internal-testing` from
+`feature/v3-electron-gui@54b935ba`, with distribution preparation committed as `f646d18f`.
+Local logs and artifact receipts are retained under ignored `dist/internal/`.
+
+| Check | Measured result | Scope / limitation |
+|---|---|---|
+| Host pytest, Python 3.11.14 test environment | 4,360 passed, 45 skipped, 21 deselected | Before subsequent Blender-boundary and attach-image regressions; `host-pytest-final.log` |
+| Desktop Vitest | 1,488 passed / 115 files; explicit project-root guard 4 passed separately | Initial source validation, before subsequent attach-image regressions |
+| Mock Electron suite | 362 passed, 1 failed, 2 skipped | Results divider spacing failed the unchanged density threshold |
+| Results regression after spacing fix | 13 passed; quiet check passed, 16 samples | Gap fraction 0.208974 → 0.171795; threshold remained 0.2 |
+| Selected real-container Python tests | 323 passed, 1 skipped | Existing development image with current source mount; not the final baked runtime |
+| Full real Electron suite | 35 passed, 8 failed, 2 did not run; 32.9 min | Includes stale selectors, missing Flex fixture and scene-sampling failure; corrected cases require rerun |
+| Real simulation → analyzer pipeline | Passed; 15.8 min | Existing image, copied dataset, completed group and actual outputs |
+| Real EEG forward solution | Passed; 700.8 s job time, 3 artifacts | 75 leadfield solves plus MNE assembly; existing image under emulation |
+| Jekyll site | Built in 2.725 s; 390 links / 10 routes, no unresolved local links | Preview availability notices rendered; not a public product release |
+| FastSurfer cache | All three weight sizes and publisher MD5 values match | Archive SHA-256 `07b31f1b9bf8e5aee2a79946e5964f93d9be8b49317dd76186088f28a57a3c2c`; six cache tests passed |
+
+The full real suite's global quiet monitor also reported an Electron window. Window-server ID
+173446 was independently mapped to PID 45952, the separate Roost development app, after the run.
+The monitor recorded owner names rather than process ancestry, so its focus report cannot be
+attributed to a test process. This is not recorded as a quiet-check pass; focused reruns retain
+the window/focus checks.
+
+The first image rebuild failed downloading FastSurfer checkpoints. Dependency inspection then
+found `bpy` had downgraded scientific NumPy to 1.26.4. The repaired runtime preserves NumPy 2.3.5
+and uses the official Blender 4.4.3 executable with its bundled NumPy 1.26.4. Its dedicated
+validation container passed compiled imports, an actual linear solve, MKL/TBB library loads,
+and a narrowly checked `pip check`; final baked-image and actual-subject export acceptance are
+recorded when completed below. Earlier real results do not prove the rebuilt environment.
+
+### Rebuild-specific verification
+
+- The standalone Blender boundary, job costs and related scheduler/planner tests passed
+  **327 tests**, with one explicitly gated real-Blender skip on the host. In the dedicated
+  restored-NumPy-2 container, **11 boundary tests passed**, including actual save/reopen.
+- Actual `ernie/L_Insula`, full 183-electrode net: export and reopen succeeded with **378 objects,
+  185 meshes, 668,092 base vertices and six cameras**. The final scene is **69,387,270 bytes**,
+  uses Eevee Next and AgX, and imports no scientific packages inside Blender. Existing subdivision
+  modifiers are preserved. Capped peak was **12 GiB RAM plus 1,073,737,728 bytes swap**; this is
+  not an uncapped peak. The conservative montage reservation is **16 GiB**; vector, region and
+  subcortical exports retain 2 GiB. The 3 and 8 GiB attempts were OOM-killed and are not passes.
+- The actual mEx planner failed on the obsolete `config.channels` field. Four HTTP regressions
+  failed before its removal; **89 planner/mEx tests passed** afterward. Real mEx then completed
+  in **56.7 s**, produced two artifacts, appeared in Results, and passed the quiet check.
+- The Simulator's scene test initially sampled its temporary guide before subject anatomy loaded.
+  Requiring the selected subject and complete GPU upload preserved all pixel thresholds and gave
+  **5/5 repeated passes**, identical 94-pixel color-change footprints, and a quiet-check pass.
+- Running-image identity tests and existing launch/packaging tests passed **75 Python tests**;
+  **41 desktop stack tests** passed. Typecheck, scoped lint and actionlint passed. These guards
+  refuse a mismatched running image without stopping it and serialize internal image pushes.
+
+The new image still requires a clean build and a test run without source or UI bind mounts.
+
+Before the clean image build, the complete host suite passed **4,412 tests**, with **46 skips and
+21 deselections**, in **97.81 s** (`host-pytest-candidate.log`). The full corrected real target
+passed **10/10 tests in 4.4 min** (`real-corrected-final.log`). Its global quiet monitor reported
+new Electron windows owned by Roost PID 2901, independently identified from the live executable
+path. None matched the eight recorded test Electron PIDs, which all reported hidden/unfocused
+windows. The name-only focus record still prevents claiming a global quiet-check pass.

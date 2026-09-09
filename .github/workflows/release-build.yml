@@ -412,6 +412,11 @@ jobs:
   image-push:
     needs: [plan, image, desktop-validate]
     if: needs.plan.outputs.mode != 'build'
+    # Different refs/blank overrides can resolve to the same prepared cohort. Serialize the
+    # existence check plus push by that resolved tag so two runs cannot both claim it is absent.
+    concurrency:
+      group: image-push-${{ needs.plan.outputs.image_tag }}
+      cancel-in-progress: false
     runs-on: ubuntu-24.04
     # Download/load/push a multi-GB image; 45m bounds a stalled registry (not yet measured in CI).
     timeout-minutes: 45

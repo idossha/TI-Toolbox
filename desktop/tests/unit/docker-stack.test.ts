@@ -125,6 +125,7 @@ describe("container lifecycle", () => {
     const p = plan();
     const created = await api.createContainer(p.body, { name: p.containerName });
     const state = await api.inspect(created.Id, p.containerPort);
+    expect(state.image).toBe(p.body.Image);
     expect(state.env.TIT_SERVER_TOKEN).toBe("sekret");
     expect(state.publishedPort).toBe(18765);
     expect(state.labels["tit.project"]).toBe(PROJECT);

@@ -720,6 +720,71 @@ def test_plan_ex_bucket_mode_count(client: TestClient, project: Path) -> None:
 
 
 # --------------------------------------------------------------------------
+# plan: multipolar exhaustive search
+# --------------------------------------------------------------------------
+
+
+def _mex_config(**overrides) -> dict:
+    data = {
+        "subject_id": "001",
+        "leadfield_hdf": "unused.hdf5",
+        "roi_name": "atlas-target",
+        "roi_names": [],
+        "roi_atlas": [{"atlas_path": "CHARM.nii.gz", "label": 17}],
+        "run_name": "planned-mex",
+        "electrodes": {
+            "_type": "BucketElectrodes",
+            **{
+                f"e{pair}_{polarity}": [f"E{2 * pair - offset}"]
+                for pair in range(1, 5)
+                for polarity, offset in (("plus", 1), ("minus", 0))
+            },
+        },
+    }
+    data.update(overrides)
+    return data
+
+
+@pytest.mark.parametrize("last_bucket", [["E1"], ["E8"], ["E8", "E9"]])
+def test_plan_mex_counts_distinct_electrodes_without_reading_inputs(
+    client: TestClient, last_bucket: list[str]
+) -> None:
+    # Authored combinatorial fixture: seven fixed distinct electrodes leave one
+    # free slot. E1 is already occupied, so only new labels make a candidate.
+    config = _mex_config()
+    config["electrodes"]["e4_minus"] = last_bucket
+    resp = client.post("/api/plan/mex", json={"config": config}, headers=BEARER)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["resolved"]["search_space"]["n_combinations"] == len(
+        set(last_bucket) - {f"E{i}" for i in range(1, 8)}
+    )
+    assert len(body["jobs"]) == 1
+    job = body["jobs"][0]
+    assert (job["kind"], job["subject"]) == ("mex", "001")
+    assert Path(job["output_dir"]).name == "planned-mex"
+    assert not Path(job["output_dir"]).exists()
+
+
+def test_plan_mex_pool_uses_default_two_channel_symmetry(client: TestClient) -> None:
+    from math import factorial
+
+    config = _mex_config(
+        electrodes={
+            "_type": "PoolElectrodes",
+            "electrodes": [f"E{i}" for i in range(8)],
+        }
+    )
+    resp = client.post("/api/plan/mex", json={"config": config}, headers=BEARER)
+    assert resp.status_code == 200
+    # Eight distinct labels have 8! arrangements. Independent two-channel mTI
+    # identifies 8 slot symmetries and 8 allowed polarity flips per class.
+    assert resp.json()["resolved"]["search_space"]["n_combinations"] == (
+        factorial(8) // (8 * 8)
+    )
+
+
+# --------------------------------------------------------------------------
 # plan: analyzer (group mode)
 # --------------------------------------------------------------------------
 

@@ -60,8 +60,8 @@ forwards localhost to Windows, so the tab opens in your normal Windows browser.
 Add `--status`, `--logs`, `--stop`, `--port` or `--no-open` as needed. Full reference:
 **[Command-line launcher]({{ site.baseurl }}/installation/bash-cli/)**.
 
-With a verified matching image available, the launcher downloads `idossha/ti-toolbox` (**≈ 2.3 GB to download, ≈ 9 GB unpacked on
-disk**) — a few minutes on a typical connection.
+With a verified matching image available, the launcher downloads `idossha/ti-toolbox` — final candidate download and disk sizes are pending measurement.
+Download time depends on the verified image and your connection.
 
 <br>
 

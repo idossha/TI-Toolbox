@@ -44,7 +44,8 @@ import {
   stackErrorMessage,
   type StackErrorKind,
 } from "../shared/compose";
-import { StackError, buildContainerPlan, parseComposeFile, type ContainerPlan } from "../shared/composeFile";
+import { StackError, buildContainerPlan, interpolate, parseComposeFile, type ContainerPlan } from "../shared/composeFile";
+import { parse as parseYaml } from "yaml";
 import { formatPullEvent, parseProgressLine } from "../shared/pullProgress";
 import { discover } from "./docker/discover";
 import { DockerEngineClient, DockerEngineError, type DockerVersionInfo } from "./docker/engine";
@@ -107,10 +108,10 @@ export interface StackHost {
 }
 
 /**
- * Per-start overrides. Empty (the packaged app's own call) reproduces the previous behaviour
- * exactly: port 8765 upwards, the compose file's default image tag, the repo mount only if the
- * environment asked for one by name, no `--reload`, and attach to any running container this
- * project owns.
+ * Per-start overrides. Empty (the packaged app's own call) uses port 8765 upwards, the compose
+ * file's default image tag, the repo mount only if the
+ * environment asked for one by name, no `--reload`, and attach only when this project's running
+ * container uses the requested image reference.
  */
 export interface StackStartOptions {
   /** First port to try when creating a container (default `DEFAULT_PORT`). */
@@ -315,8 +316,23 @@ export class StackManager {
 
     this.progress("Attaching to the running stack…");
     const state = await api.inspect(running.Id);
+    // Resolve only the image here: attach reuses the running container's mounts/port/token.
+    // The same YAML parser and interpolation rules drive fresh creation below.
+    const compose = parseYaml(readFileSync(resolveComposeFile(this.host), "utf8"));
+    const imageTemplate: unknown = compose?.services?.[SERVICE_NAME]?.image;
+    if (typeof imageTemplate !== "string" || !imageTemplate) throw new StackStartError("compose-invalid", "services.tit.image must be a nonempty string");
+    const expectedImage = interpolate(imageTemplate, { ...process.env, ...(options.imageTag ? { TIT_IMAGE_TAG: options.imageTag } : {}) }, "services.tit.image");
+    // Config.Image is the original tag/digest; Docker's image ID and list display are not.
+    // Even --force must not turn an image mismatch into an automatic job-killing replacement.
+    if (state.image !== expectedImage) {
+      throw new StackStartError(
+        "unknown",
+        `The running container uses ${state.image || "(unknown)"}, but this app requires ${expectedImage}. ` +
+          `Wait for its jobs to finish, then stop this project's container and launch again. The running container was left unchanged.`,
+      );
+    }
     if (options.requireMatch) {
-      const mismatch = describeMismatch({ env: state.env }, running.Image, options);
+      const mismatch = describeMismatch({ env: state.env }, state.image, options);
       if (mismatch) {
         if (!options.forceRecreate) {
           const port = state.publishedPort ?? Number(state.env.TIT_SERVER_PORT);
@@ -352,7 +368,7 @@ export class StackManager {
           `TIT_STACK_ATTACH_HEALTH_TIMEOUT_MS, or check "docker logs ${state.Name}"`,
       );
     }
-    this.current = { projectName, hostProjectDir, containerId: running.Id, containerName: state.Name, image: running.Image, origin, token, port };
+    this.current = { projectName, hostProjectDir, containerId: running.Id, containerName: state.Name, image: state.image, origin, token, port };
     this.emit({ type: "started", origin, port, attached: true });
     return { ok: true, url: origin, token, attached: true };
   }

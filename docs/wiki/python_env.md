@@ -35,7 +35,15 @@ If you want to add a package for a new feature, follow the steps below.
 
 ### Key Points
 
-- **Containerized Setup**: The v3 environment is defined in `container/blueprint/Dockerfile.ti-toolbox` (the v2 two-image stack used `Dockerfile.simnibs`), which installs SimNIBS v4.6.0 and additional Python packages required for TI-Toolbox functionality: meshio, nilearn, PyOpenGL-accelerate, trimesh, seaborn, scikit-image, numpy-stl, click, bpy (Blender 5), psutil, python-lsp-server, jupyterlab-lsp and `mne~=1.5`. The mne pin keeps numpy at 1.26.x — installing anything that upgrades numpy to 2.x breaks SimNIBS in this container.
+- **Containerized Setup**: The upcoming environment is defined in
+  `container/blueprint/Dockerfile.ti-toolbox`, with scientific dependency constraints in
+  `container/blueprint/runtime-constraints.txt`. Scientific preparation uses SimNIBS 4.6
+  with NumPy 2.3.5. Montage rendering runs pinned standalone Blender 4.4.3 in a background
+  process with its own Python environment; do not install `bpy` into SimNIBS or downgrade
+  scientific NumPy to satisfy Blender. See [Blender Integration]({{ site.baseurl }}/wiki/blender/).
+  Final candidate image acceptance remains pending; see the
+  [full-net montage memory guidance]({{ site.baseurl }}/wiki/blender/#full-net-montage-memory)
+  before allocating container resources.
 
 - **Script executions**: Inside the container, run scripts with `simnibs_python script.py`, not `python`.
 

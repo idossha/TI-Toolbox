@@ -62,6 +62,46 @@ the resolver requires compatible published embed assets and fails if none exist.
 bundle is version 0.4.0 / protocol 3 from Tetravox commit `3dd3955be40d792aec07781cc89e23f3f1ed4f0f`,
 SHA256 `0afbf2c5792cd32c02d4bb4e6672cc3c0b0234c321cebcea6ea155e723b98daf`.
 
+### Optional FastSurfer checkpoint cache
+
+The same `container/blueprint/build.sh` accepts a verified cache of the official FastSurfer
+VINN v2.0.0 weights. Use it when downloading the checkpoints inside the build is unreliable;
+it is not a different image recipe or permission to substitute unverified model weights.
+
+```bash
+container/blueprint/build.sh --tag "$INTERNAL_IMAGE_TAG" \
+  --tetravox-tgz "$TETRAVOX_TGZ" --tetravox-sha256 "$TETRAVOX_SHA256" \
+  --fastsurfer-checkpoints-tgz "$FASTSURFER_CACHE_URL" \
+  --fastsurfer-checkpoints-sha256 "$FASTSURFER_CACHE_SHA256"
+```
+
+Both cache flags are required together: the URL must be HTTP(S), reachable from the Docker
+build, and the SHA-256 must be 64 lowercase hexadecimal digits. The archive must contain
+`aparc_vinn_axial_v2.0.0.pkl`, `aparc_vinn_coronal_v2.0.0.pkl` and
+`aparc_vinn_sagittal_v2.0.0.pkl` at its root. The image recipe verifies the archive digest
+before extracting those three named, nonempty files and retains `cache-archive.sha256` beside
+the checkpoints. A local artifact server may be reached through `host.docker.internal`;
+hosted runners need their own reachable URL. Do not treat an ephemeral local port as a
+permanent artifact location.
+
+Verify checkpoint sizes and checksums against the official FastSurfer distribution metadata
+before making the archive, including when recovering cached files from an existing image.
+A matching archive hash proves transport integrity, not that the weights came from the
+intended upstream release. Keep the source image identity (if used), official metadata URL,
+per-file upstream checksums and SHA-256 values, archive name and archive SHA-256 in
+`dist/internal/fastsurfer-cache-provenance.json` with the build artifacts. The current cache
+receipt lives there; it is not a new documentation roster or proof of a completed image.
+
+Omit both flags to use FastSurfer's official checkpoint downloader with TLS verification.
+Do not disable TLS verification to get a build past a certificate or network failure; use a
+verified cache or fix the transport. Checkpoint verification does not validate the image's
+other dependencies or its scientific outputs.
+
+**Current real-image build: incomplete.** The NumPy/Blender dependency conflict has a verified
+separate-runtime fix in a disposable container. The verified cache and accepted build arguments
+do not establish a valid baked image; final build and real-image acceptance remain pending, with
+executed evidence recorded in [BENCHMARKS.md](BENCHMARKS.md).
+
 ### Local and colleague acceptance
 
 Use a copy of a representative project. Verify a final image without a development source/UI mount,

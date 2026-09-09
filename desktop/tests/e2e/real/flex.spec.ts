@@ -70,7 +70,7 @@ test("cortical ROI (DK40 · bankssts, list form): accepted, started, cancelled",
 
   const dialog = await openOptEditor(page, row);
   // Real catalog names the atlas "DK40" (not the mock fixture's friendlier "Desikan-Killiany").
-  await field("Atlas", dialog).getByRole("button").click();
+  await field("Atlas", dialog).locator(".combobox-trigger").click();
   await page.getByPlaceholder("Search atlases…").fill("DK40");
   await page.getByRole("option", { name: "DK40", exact: true }).click();
   await field("Region(s)", dialog).getByRole("combobox").click();

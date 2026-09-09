@@ -84,10 +84,21 @@ export async function launchElectronApp(
 ): Promise<ElectronApplication> {
   await resetMockJobs();
   const userDataDir = options.userDataDir ?? mkdtempSync(join(tmpdir(), "tit-e2e-"));
-  return electron.launch({
+  const app = await electron.launch({
     args: [APP_ROOT, ...(options.args ?? [])],
     env: { ...process.env, TIT_USER_DATA_DIR: userDataDir, ...offscreenEnv(), ...(options.env ?? {}) },
   });
+  if (process.env.TIT_E2E_DIAGNOSTICS === "1") {
+    await app.firstWindow();
+    console.log("electron visibility", await app.evaluate(({ BrowserWindow }) => ({
+      pid: process.pid,
+      offscreen: process.env.TIT_E2E_OFFSCREEN,
+      windows: BrowserWindow.getAllWindows().map((win) => ({
+        id: win.id, visible: win.isVisible(), focused: win.isFocused(),
+      })),
+    })));
+  }
+  return app;
 }
 
 export type Theme = "light" | "dark";

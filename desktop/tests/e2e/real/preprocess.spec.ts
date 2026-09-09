@@ -74,10 +74,10 @@ test("tissue analysis on sub-101: accepted, started, and completed with a real a
   await page.locator(".subject-picker-row", { hasText: "101" }).getByRole("checkbox").click();
 
   // Turn every default-on stage off, then turn on only Tissue analyzer.
-  await page.getByLabel("Convert DICOM to NIfTI").uncheck();
-  await page.getByLabel("SimNIBS charm (m2m + subject atlas)").uncheck();
-  await page.getByLabel("FastSurfer segmentation").uncheck();
-  await page.getByLabel("Tissue analyzer").check();
+  await page.getByRole("checkbox", { name: "Convert DICOM to NIfTI", exact: true }).uncheck();
+  await page.getByRole("checkbox", { name: "SimNIBS charm (m2m + subject atlas)", exact: true }).uncheck();
+  await page.getByRole("checkbox", { name: "FastSurfer segmentation", exact: true }).uncheck();
+  await page.getByRole("checkbox", { name: "Tissue analyzer", exact: true }).check();
 
   await setExistingOutputsPolicy(page, "Replace and rerun");
 
@@ -199,10 +199,10 @@ test("sub-102 DICOM onboarding: not converted -> plan -> run -> converted (lane 
     // 102, and plan only the DICOM stage — the fixture matrix's own `pre_dicom` row.
     await page.locator(".subject-picker-row", { hasText: "101" }).getByRole("checkbox").uncheck();
     await row102.getByRole("checkbox").check();
-    await page.getByLabel("Convert DICOM to NIfTI").check();
-    await page.getByLabel("SimNIBS charm (m2m + subject atlas)").uncheck();
-    await page.getByLabel("FastSurfer segmentation").uncheck();
-    await page.getByLabel("Tissue analyzer").uncheck();
+    await page.getByRole("checkbox", { name: "Convert DICOM to NIfTI", exact: true }).check();
+    await page.getByRole("checkbox", { name: "SimNIBS charm (m2m + subject atlas)", exact: true }).uncheck();
+    await page.getByRole("checkbox", { name: "FastSurfer segmentation", exact: true }).uncheck();
+    await page.getByRole("checkbox", { name: "Tissue analyzer", exact: true }).uncheck();
 
     await setExistingOutputsPolicy(page, "Skip existing outputs");
 
