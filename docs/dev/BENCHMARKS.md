@@ -761,3 +761,13 @@ The prior baked embed remains available as rollback; no container restart or pub
 - Confirmed blank images were byte-identical to the 214248-byte base template. Repaired outputs:
   stam 348483 bytes, ernie/L_Insula 354555 bytes. Originals and old runtime renderer backed up
   under `dist/internal/montage-repair/`; no simulations were rerun.
+
+### Agent integration portability — 2026-09-09
+
+- `python3 -m unittest discover -s agent-plugin/mcp -p 'test_*.py' -v`: 3 passed;
+  real subprocess, offline, outside checkout, automatic checkout discovery, initialize/list/call,
+  notification handling, rejected path traversal and unknown-tool recovery.
+- `TI_TOOLBOX_OFFLINE=1 python3 agent-plugin/mcp/server.py --selftest`: all 14 tools
+  passed (15 calls, including both project-config cases).
+- Codex CLI `mcp add` and `mcp list` succeeded against a disposable configuration directory.
+  This validates registration, not a native client conversation; user configuration was untouched.

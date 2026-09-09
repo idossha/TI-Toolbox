@@ -56,7 +56,7 @@ these are the facts that changed:
 - **`get_toolbox_version` reads `tit/__init__.py` and `desktop/package.json`** and
   reports whether they are in lockstep, instead of reading `version.py` alone.
 
-## Claude Code (recommended)
+## Claude Code
 
 ```text
 /plugin marketplace add idossha/TI-Toolbox
@@ -70,35 +70,72 @@ Developers working in a clone: `claude --plugin-dir ./agent-plugin` from the rep
 root (the server then reads your working tree, and `find_symbol`/`search_source`
 become available).
 
-## Codex CLI
+## Codex (CLI or desktop)
 
-Add the MCP server to `~/.codex/config.toml`:
+Register the stdio server with the CLI (replace the checkout path):
+
+```bash
+codex mcp add ti-toolbox -- python3 /absolute/path/to/TI-Toolbox/agent-plugin/mcp/server.py
+codex mcp list
+```
+
+Or add the equivalent configuration to `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.ti-toolbox]
 command = "python3"
-args = ["/path/to/TI-Toolbox/agent-plugin/mcp/server.py"]
-# env = { TI_TOOLBOX_ROOT = "/path/to/TI-Toolbox" }   # optional, for source search
+args = ["/absolute/path/to/TI-Toolbox/agent-plugin/mcp/server.py"]
 ```
 
-Then point Codex at the skills by adding to your `AGENTS.md` (project or `~/.codex/AGENTS.md`):
+The server detects the checkout from its own location; its working directory does
+not matter. Restart the client after configuration changes, then ask it to call
+`get_quick_facts` and `read_dev_doc` with `name: "README"`. A configuration listing
+alone does not prove the server connected. See the [official Codex MCP guide](https://learn.chatgpt.com/docs/extend/mcp?surface=cli).
 
-```markdown
-When working with TI-Toolbox, read /path/to/TI-Toolbox/agent-plugin/skills/ti-toolbox/SKILL.md
-and /path/to/TI-Toolbox/agent-plugin/skills/ti-scripting/SKILL.md first, and use the
-`ti-toolbox` MCP tools instead of guessing the API.
+Skills are installed separately from MCP. Copy or symlink each of the five folders
+under `agent-plugin/skills/` into your project's `.agents/skills/` or your personal
+`~/.agents/skills/`, preserving any existing folders. Codex supports both locations
+and symlinks; see the [official skill discovery guide](https://learn.chatgpt.com/docs/build-skills#where-codex-loads-local-skills).
+For example, from this checkout, to expose the orientation skill in this project:
+
+```bash
+mkdir -p .agents/skills
+ln -s ../../agent-plugin/skills/ti-toolbox .agents/skills/ti-toolbox
 ```
 
-If your Codex version supports skills directories, copy or symlink `skills/*` into
-it instead.
+Repeat for `ti-scripting`, `ti-domain`, `ti-codebase` and `troubleshoot-project` as
+needed. Do not overwrite an existing installation. Alternatively, tell the agent
+to read the appropriate `agent-plugin/skills/<name>/SKILL.md` directly; that works
+without automatic skill discovery.
 
-## Any other MCP client (Cursor, Windsurf, Continue, …)
+## Other agents and MCP clients
 
-Same stdio server definition:
+Use a **local stdio** connection, Python 3.9+ and an absolute script path. For
+clients using the `mcpServers` JSON format, merge this entry into their configuration:
 
 ```json
-{ "mcpServers": { "ti-toolbox": { "command": "python3", "args": ["/path/to/agent-plugin/mcp/server.py"] } } }
+{
+  "mcpServers": {
+    "ti-toolbox": {
+      "command": "python3",
+      "args": ["/absolute/path/to/TI-Toolbox/agent-plugin/mcp/server.py"]
+    }
+  }
+}
 ```
+
+Other clients may use different configuration keys; the command and arguments
+stay the same. HTTP-only clients cannot launch this stdio server directly. On
+Windows, use the installed Python executable and an absolute Windows script path.
+The server must run on a machine that can read the project directory being
+inspected; a host server needs the host path, not a container's `/mnt/...` path.
+
+The `.claude-plugin/` manifest and `${CLAUDE_PLUGIN_ROOT}` in `.mcp.json` are
+Claude Code packaging. Other agents use the direct command above. Skills are
+ordinary Markdown with `name` and `description` metadata: load them using your
+agent's skill support or read the files explicitly. Slash commands and optional
+frontmatter such as `user-invocable` are client conveniences, not requirements.
+For troubleshooting, supply the project root and optional subject in the request.
 
 ## Configuration
 
@@ -113,6 +150,7 @@ Same stdio server definition:
 
 ```bash
 python3 agent-plugin/mcp/server.py --selftest
+python3 -m unittest discover -s agent-plugin/mcp -p "test_*.py" -v
 ```
 
 This calls **every** registered tool once against the current checkout — including
@@ -120,6 +158,11 @@ This calls **every** registered tool once against the current checkout — inclu
 tree it builds in a temp directory — prints one line per tool, and exits non-zero
 if any tool errors or if a registered tool is missing from the matrix. Tools that
 need a local checkout are reported as `SKIP` (not a failure) when there is none.
+
+The separate stdio tests launch a real server process from a temporary working
+directory and verify initialization, notification handling, tool discovery and
+successful/error tool calls offline. These are protocol checks, not claims that
+Codex, Claude Code or every other client has been tested end to end.
 
 ## Tools
 
@@ -139,4 +182,6 @@ the path you pass them; source tools are restricted to `tit/`, `scripts/`, `docs
 
 `skills/ti-domain` and `skills/ti-codebase` are copies of the developer skills in
 `.claude/skills/`; update both when one changes. The wiki, the `docs/dev/`
-documents and the source are read live, so they never go stale.
+documents and source are read from the checkout or the configured GitHub ref.
+Remote reads use a 24-hour cache; pin `TI_TOOLBOX_REF` to match the toolbox
+version when using a standalone server.

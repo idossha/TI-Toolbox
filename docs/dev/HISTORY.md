@@ -875,3 +875,8 @@ Source comments and parity notes that cite `TODO §2.x` refer to the
 [original plan preserved in Git history](https://github.com/idossha/TI-Toolbox/blob/b6304f7fbae6d5ebd4f90881e8383ad728282b7e/TODO.md).
 Those section numbers describe historical intent, not the current contract; use
 [ARCHITECTURE.md](ARCHITECTURE.md) for current behavior and [DECISIONS.md](DECISIONS.md) for revisions.
+
+The agent integration now documents direct stdio registration for Codex and other MCP clients,
+separate Markdown skill discovery, and a plain-file fallback. Troubleshooting accepts inputs
+from the request rather than requiring a client-specific argument variable. Protocol smoke
+tests exercise the real process; native client sessions are not claimed as end-to-end tested.

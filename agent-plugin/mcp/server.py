@@ -530,7 +530,6 @@ def _check_source_path(rel: str) -> str:
             "AGENTS.md",
             "CONTRIBUTING.md",
             "SECURITY.md",
-            "TODO.md",
             "docker-compose.yml",
             "loader.py",
             "loader.sh",

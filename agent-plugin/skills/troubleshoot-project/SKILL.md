@@ -11,8 +11,8 @@ known problems. Match the user's error text against it first; only investigate
 further when nothing matches. If you find a new, confirmed cause, tell the user to
 report it in GitHub Discussions (Q&A) so it can be added.
 
-Arguments: `$ARGUMENTS` = `<project-root> [subject-id]`. If no project root is
-given, ask for it (inside the container it is `/mnt/<project>`; on the host it is
+Take `<project-root> [subject-id]` from the user request (or `$ARGUMENTS` in
+clients that provide it). If no project root is given, ask for it (inside the container it is `/mnt/<project>`; on the host it is
 the folder the desktop app or `--project` was pointed at).
 
 ## 1. Look before you diagnose
