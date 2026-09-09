@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 import hashlib
 import json
 import os
@@ -106,6 +107,21 @@ def _atlas(pm, subject, roi):
     return _input(pm, path)
 
 
+def _save_volume(image, destination):
+    """Publish a cache volume atomically, including on bind-mounted projects."""
+    import nibabel as nib
+
+    with tempfile.NamedTemporaryFile(
+        dir=destination.parent, suffix=".nii", delete=False
+    ) as handle:
+        temporary = Path(handle.name)
+    try:
+        nib.save(image, str(temporary))
+        os.replace(temporary, destination)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 @router.post(
     "/api/scene/target-preview",
     summary="Read-only subject-space target volume preview",
@@ -163,7 +179,7 @@ def target_preview(body: TargetPreviewRequest) -> dict:
     fingerprint = [(str(p), p.stat().st_size, p.stat().st_mtime_ns) for p in inputs]
     key = hashlib.sha256(
         json.dumps(
-            ["target-preview-v1", body.model_dump(), fingerprint], sort_keys=True
+            ["target-preview-v3", body.model_dump(), fingerprint], sort_keys=True
         ).encode()
     ).hexdigest()[:24]
     try:
@@ -172,27 +188,62 @@ def target_preview(body: TargetPreviewRequest) -> dict:
         destination = directory / f"target-{key}.nii"
         if build.source_path(pm, destination) is None:
             raise PermissionError("Target preview cache escapes project")
-        with cache.subject_lock(pm.project_dir, body.subject):
-            if not destination.is_file():
-                import nibabel as nib
-                from tit.scene.target_preview import target_image
+        anatomy_key = hashlib.sha256(
+            json.dumps(["preview-anatomy-v1", fingerprint[0]]).encode()
+        ).hexdigest()[:24]
+        display_anatomy = directory / f"preview-anatomy-{anatomy_key}.nii"
+        if build.source_path(pm, display_anatomy) is None:
+            raise PermissionError("Target preview cache escapes project")
+        # Cache files are published atomically. A warm request must not wait
+        # behind an unrelated cold target whose client may already have closed.
+        lock = (
+            nullcontext()
+            if destination.is_file() and display_anatomy.is_file()
+            else cache.subject_lock(pm.project_dir, body.subject)
+        )
+        with lock:
+            from tit.scene.target_preview import (
+                crop_target,
+                preview_anatomy,
+                preview_deformation,
+                target_image,
+            )
 
-                result = target_image(anatomy, roi, m2m, directory, source)
-                with tempfile.NamedTemporaryFile(
-                    dir=directory, suffix=".nii", delete=False
-                ) as handle:
-                    temporary = Path(handle.name)
-                try:
-                    nib.save(result, str(temporary))
-                    os.replace(temporary, destination)
-                finally:
-                    temporary.unlink(missing_ok=True)
+            if not display_anatomy.is_file():
+                _save_volume(preview_anatomy(anatomy), display_anatomy)
+            if not destination.is_file():
+                deformation = None
+                target_anatomy = anatomy
+                if roi.space == "mni" and roi.kind in ("mask", "subcortical"):
+                    # For volume ROIs, inputs are anatomy, source, then registration.
+                    # The warp depends on anatomy/registration, never target labels.
+                    warp_key = hashlib.sha256(
+                        json.dumps(
+                            ["preview-warp-v1", fingerprint[0], fingerprint[2:]]
+                        ).encode()
+                    ).hexdigest()[:24]
+                    deformation = directory / f"preview-warp-{warp_key}.nii"
+                    if build.source_path(pm, deformation) is None:
+                        raise PermissionError("Target preview cache escapes project")
+                    if not deformation.is_file():
+                        _save_volume(
+                            preview_deformation(m2m, display_anatomy), deformation
+                        )
+                    target_anatomy = display_anatomy
+                result = target_image(
+                    target_anatomy, roi, m2m, directory, source, deformation
+                )
+                _save_volume(crop_target(result), destination)
         from tit.viewspec import to_tetravox_viewspec
 
         scene = to_tetravox_viewspec(
             {
                 "layers": [
-                    {"path": str(anatomy), "colormap": "grayscale", "opacity": 1.0},
+                    {
+                        "path": str(display_anatomy),
+                        "colormap": "grayscale",
+                        "opacity": 1.0,
+                    },
                     {"path": str(destination), "colormap": "heat", "opacity": 0.65},
                 ]
             }
@@ -214,7 +265,7 @@ def target_preview(body: TargetPreviewRequest) -> dict:
             layer.update(pickable=False, showColorbar=False)
         return {
             "scene": scene,
-            "note": "Target extent in subject space; analysis/search applies its tissue and mesh settings.",
+            "note": "Lightweight target preview in subject space; MNI volumes use the display grid. Analysis/search uses the original target and its tissue and mesh settings.",
         }
     except PermissionError as exc:
         raise HTTPException(403, str(exc)) from exc

@@ -70,20 +70,32 @@ describe("target preview lifetime", () => {
   async function advance(ms: number) { await act(async () => vi.advanceTimersByTimeAsync(ms)); }
   function respond() { return new Response(JSON.stringify({ scene }), { status: 200 }); }
 
-  it("loads a private readonly viewport, and hides/disposes old geometry immediately on edit", async () => {
+  it("retains its private viewport across edits while hiding stale geometry", async () => {
     fetcher.mockResolvedValue(respond());
     await render(mask); await advance(260); await advance(1);
     expect(container.querySelector("iframe")?.getAttribute("src")).toContain("presentation=viewport");
     act(() => receive({ type: "ready", caps: { webgl2: true } } as EmbedMessage));
     expect(channels.post.mock.calls).toContainEqual([{ type: "setPickEvents", enabled: false }]);
-    expect(channels.post.mock.calls).toContainEqual([{ type: "load", scene }]);
+    expect(channels.post.mock.calls).toContainEqual([{ type: "load", scene, id: "target-1" }]);
+    act(() => receive({ type: "loaded", id: "target-1" } as EmbedMessage));
+    const frame = container.querySelector("iframe")!;
+    expect(frame.parentElement!.style.visibility).toBe("visible");
     const count = channels.post.mock.calls.length;
     act(() => receive({ type: "pick", label: { id: 9 } } as EmbedMessage));
     expect(channels.post).toHaveBeenCalledTimes(count);
     await render({ ...mask, path: "/other.nii" });
-    expect(container.querySelector("iframe")).toBeNull();
-    expect(channels.dispose).toHaveBeenCalledOnce();
+    expect(container.querySelector("iframe")).toBe(frame);
+    expect(frame.parentElement!.style.visibility).toBe("hidden");
+    expect(channels.dispose).not.toHaveBeenCalled();
     expect(fetcher).toHaveBeenCalledTimes(1);
+    fetcher.mockResolvedValue(new Response(JSON.stringify({ scene: { ...scene, marker: "new" } }), { status: 200 }));
+    await advance(260); await advance(1);
+    expect(channels.create).toHaveBeenCalledOnce();
+    expect(container.querySelector("iframe")).toBe(frame);
+    act(() => receive({ type: "loaded", id: "target-1" } as EmbedMessage));
+    expect(frame.parentElement!.style.visibility).toBe("hidden");
+    act(() => receive({ type: "loaded", id: "target-2" } as EmbedMessage));
+    expect(frame.parentElement!.style.visibility).toBe("visible");
   });
 
   it("cancels stale requests and never shows their response over an incomplete form", async () => {
@@ -94,7 +106,7 @@ describe("target preview lifetime", () => {
     await render({ ...mask, path: "" });
     expect(signal.aborted).toBe(true);
     await act(async () => finish(respond())); await advance(300);
-    expect(container.querySelector("iframe")).toBeNull();
+    expect(container.querySelector("iframe")?.parentElement?.style.visibility).toBe("hidden");
     expect(container.textContent).toContain("Complete the target");
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
@@ -108,6 +120,6 @@ describe("target preview lifetime", () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
     expect(JSON.parse(fetcher.mock.calls[0]![1]!.body as string).roi.spheres[0].center).toEqual([5, 2, 3]);
     expect(container.textContent).toContain("Subject T1 is missing");
-    expect(container.querySelector("iframe")).toBeNull();
+    expect(container.querySelector("iframe")?.parentElement?.style.visibility).toBe("hidden");
   });
 });

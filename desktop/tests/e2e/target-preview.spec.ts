@@ -46,6 +46,8 @@ for (const surface of ["analyzer", "optimizer"] as const) {
     const layers = previewFrame.getByTestId("fake-embed-layers");
     await expect(layers).toContainText("spherical-target.nii.gz");
     await expect(preview).toContainText("Read-only preview");
+    const targetFrame = preview.getByTestId("target-preview-frame");
+    await targetFrame.evaluate((node) => node.setAttribute("data-retained-preview", "warm-engine"));
     const sphereSummary = await summary.textContent();
     // Even an unsolicited embed pick must not change coordinates in the job's editor.
     await previewFrame.locator("body").evaluate(() => {
@@ -67,6 +69,7 @@ for (const surface of ["analyzer", "optimizer"] as const) {
     await closeEditor();
     await expect(layers).toContainText("mask-target.nii.gz");
     await expect(layers).not.toContainText("spherical-target.nii.gz");
+    await expect(targetFrame).toHaveAttribute("data-retained-preview", "warm-engine");
     await expect(viewerLayers.locator("li")).toHaveCount(0);
     await expect(viewerFrame).toHaveAttribute("data-e2e-identity", "independent-viewer");
     await expect(page.getByTestId("viewer-strip-name")).toHaveText("Tetravox");

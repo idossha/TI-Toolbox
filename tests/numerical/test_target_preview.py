@@ -117,6 +117,11 @@ def test_route_scene_binary_overlay_and_cache(tmp_path, monkeypatch):
     previews = list(tmp_path.rglob("target-*.nii"))
     assert len(previews) == 1
     before = previews[0].stat().st_mtime_ns
+
+    def forbidden_lock(*args):
+        raise AssertionError("Warm preview waited for the subject build lock")
+
+    monkeypatch.setattr(route.cache, "subject_lock", forbidden_lock)
     assert route.target_preview(body)["scene"] == response["scene"]
     assert previews[0].stat().st_mtime_ns == before
 
@@ -188,10 +193,204 @@ def test_saved_centers_union_and_csv_cache_invalidation(tmp_path, monkeypatch):
     route.target_preview(body)
     previews = list(tmp_path.rglob("target-*.nii"))
     assert len(previews) == 1
-    assert np.argwhere(nib.load(previews[0]).get_fdata()).tolist() == [
+    cached = nib.load(previews[0])
+    assert nib.affines.apply_affine(
+        cached.affine, np.argwhere(cached.get_fdata())
+    ).tolist() == [
         [2, 3, 4],
         [5, 6, 7],
     ]
     csv.write_text("x,y,z\n3,3,4\n")
     route.target_preview(body)
     assert len(list(tmp_path.rglob("target-*.nii"))) == 2
+
+
+def test_preview_anatomy_preserves_sample_world_coordinates(tmp_path):
+    """Only this case catches stride scaling that drops shear or translation."""
+    import nibabel as nib
+    import numpy as np
+    from tit.scene.target_preview import preview_anatomy
+
+    shape = (199, 11, 7)
+    affine = np.array([[1, 0.2, 0, -12], [0, 2, 0.5, 8], [0, 0, 3, -3], [0, 0, 0, 1.0]])
+    data = np.indices(shape)[0].astype(np.float32)
+    path = tmp_path / "T1.nii"
+    nib.save(nib.Nifti1Image(data, affine), path)
+    result = preview_anatomy(path)
+    assert result.shape == (100, 11, 7)
+    np.testing.assert_array_equal(result.get_fdata(), data[::2])
+    # Source voxel (198, 5, 4) and preview voxel (99, 5, 4) are the same sample.
+    np.testing.assert_allclose(result.affine @ [99, 5, 4, 1], affine @ [198, 5, 4, 1])
+    np.testing.assert_array_equal(nib.load(path).get_fdata(), data)
+
+
+def test_crop_target_preserves_world_selection():
+    """Only this case catches a cropped overlay retaining its old origin."""
+    import nibabel as nib
+    import numpy as np
+    from tit.scene.target_preview import crop_target
+
+    affine = np.array([[0, -2, 0.3, 10], [1.5, 0, 0, -4], [0, 0, 3, 7], [0, 0, 0, 1.0]])
+    data = np.zeros((13, 17, 19), dtype=np.uint8)
+    selected = np.array([[3, 5, 7], [4, 6, 9]])
+    data[tuple(selected.T)] = 1
+    result = crop_target(nib.Nifti1Image(data, affine))
+    assert result.shape == (4, 4, 5)
+    expected = nib.affines.apply_affine(affine, selected)
+    actual = nib.affines.apply_affine(result.affine, np.argwhere(result.get_fdata()))
+    np.testing.assert_allclose(actual, expected)
+
+
+def test_route_reuses_anatomy_for_changed_target(tmp_path, monkeypatch):
+    """Changed ROI geometry must not reread or republish the subject anatomy."""
+    import nibabel as nib
+    import numpy as np
+    from tit.server.routes import target_preview as route
+    from tit.scene import target_preview as geometry
+
+    anatomy = tmp_path / "T1.nii"
+    nib.save(nib.Nifti1Image(np.zeros((9, 11, 13)), np.eye(4)), anatomy)
+    pm = SimpleNamespace(
+        project_dir=str(tmp_path), t1=lambda sid: anatomy, m2m=lambda sid: tmp_path
+    )
+    monkeypatch.setattr(route, "get_path_manager", lambda: pm)
+    monkeypatch.setattr(route.catalog, "subject_ids", lambda pm: ["sample"])
+    body = route.TargetPreviewRequest(
+        subject="sample",
+        roi=route.SphereTarget(
+            kind="spherical",
+            space="subject",
+            spheres=[route.PreviewSphere(center=(4, 5, 6), radius=1)],
+        ),
+    )
+    route.target_preview(body)
+
+    def forbidden(*args):
+        raise AssertionError("Cached anatomy was regenerated")
+
+    monkeypatch.setattr(geometry, "preview_anatomy", forbidden)
+    body.roi.spheres[0].radius = 2
+    route.target_preview(body)
+    assert len(list(tmp_path.rglob("preview-anatomy-*.nii"))) == 1
+    assert len(list(tmp_path.rglob("target-*.nii"))) == 2
+
+
+def _run_with_real_simnibs(test_name):
+    """Preload SimNIBS in a child before the host conftest installs its mocks."""
+    import os
+    from pathlib import Path
+    import subprocess
+    import sys
+
+    if os.environ.get("TIT_REAL_PREVIEW_TEST") == test_name:
+        return False
+    code = (
+        "import importlib.util,sys; "
+        "sys.exit(77) if importlib.util.find_spec('simnibs') is None else None; "
+        "import simnibs,pytest; "
+        f"sys.exit(pytest.main([{str(Path(__file__).resolve())!r}, '-q', '-k', {test_name!r}]))"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        env={**os.environ, "TIT_REAL_PREVIEW_TEST": test_name},
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    if result.returncode == 77:
+        pytest.skip("real SimNIBS is unavailable; run in the SimNIBS container")
+    assert result.returncode == 0, result.stdout + result.stderr
+    return True
+
+
+def test_compact_mni_warp_and_nearest_mask_alignment(tmp_path, monkeypatch):
+    """An authored translation pins deformation direction and nearest-label lookup."""
+    if _run_with_real_simnibs("test_compact_mni_warp_and_nearest_mask_alignment"):
+        return
+    import nibabel as nib
+    import numpy as np
+    from simnibs.utils import file_finder
+    from tit.scene.target_preview import preview_deformation, target_image
+
+    warp_affine = np.eye(4)
+    warp_affine[:3, 3] = 10
+    # Authored subject-to-MNI map: MNI = subject + (3, -2, 1) mm.
+    indices = np.indices((14, 18, 22)).transpose(1, 2, 3, 0)
+    coordinates = (indices + 10 + [3, -2, 1]).astype(np.float32)
+    warp = tmp_path / "warp.nii"
+    nib.save(nib.Nifti1Image(coordinates, warp_affine), warp)
+    monkeypatch.setattr(
+        file_finder,
+        "SubjectFiles",
+        lambda **kwargs: SimpleNamespace(conf2mni_nonl=str(warp)),
+    )
+    affine = np.diag([2.0, 2.0, 2.0, 1.0])
+    affine[:3, 3] = 10
+    anatomy = tmp_path / "anatomy.nii"
+    nib.save(nib.Nifti1Image(np.zeros((7, 9, 11)), affine), anatomy)
+    compact = preview_deformation(tmp_path, anatomy)
+    np.testing.assert_allclose(compact.get_fdata()[2, 3, 4], [17, 14, 19])
+    compact_path = tmp_path / "compact.nii"
+    nib.save(compact, compact_path)
+    mask = np.zeros((40, 40, 40), dtype=np.uint8)
+    mask[17, 14, 19] = 1
+    source = tmp_path / "mask.nii"
+    nib.save(nib.Nifti1Image(mask, np.eye(4)), source)
+    roi = SimpleNamespace(kind="mask", space="mni")
+    result = target_image(anatomy, roi, tmp_path, tmp_path, source, compact_path)
+    assert np.argwhere(result.get_fdata()).tolist() == [[2, 3, 4]]
+    np.testing.assert_allclose(result.affine, affine)
+    # A positive target falling between display samples must explain this limit.
+    mask[17, 14, 19] = 0
+    mask[18, 14, 19] = 1
+    nib.save(nib.Nifti1Image(mask, np.eye(4)), source)
+    with pytest.raises(ValueError, match="too small for the lightweight preview grid"):
+        target_image(anatomy, roi, tmp_path, tmp_path, source, compact_path)
+
+
+def test_route_reuses_warp_and_invalidates_changed_registration(tmp_path, monkeypatch):
+    """ROI changes reuse a warp; registration changes must never reuse it."""
+    if _run_with_real_simnibs(
+        "test_route_reuses_warp_and_invalidates_changed_registration"
+    ):
+        return
+    import nibabel as nib
+    import numpy as np
+    from tit.server.routes import target_preview as route
+    from tit.scene import target_preview as geometry
+
+    anatomy = tmp_path / "T1.nii"
+    nib.save(nib.Nifti1Image(np.zeros((7, 9, 11)), np.eye(4)), anatomy)
+    registration = tmp_path / "toMNI"
+    registration.mkdir()
+    transform = registration / "transform.nii"
+    transform.write_bytes(b"registration-v1")
+    source = tmp_path / "source.nii"
+    data = np.zeros((30, 30, 30), dtype=np.uint8)
+    data[12:15, 12:15, 12:15] = 1
+    nib.save(nib.Nifti1Image(data, np.eye(4)), source)
+    pm = SimpleNamespace(
+        project_dir=str(tmp_path), t1=lambda sid: anatomy, m2m=lambda sid: tmp_path
+    )
+    monkeypatch.setattr(route, "get_path_manager", lambda: pm)
+    monkeypatch.setattr(route.catalog, "subject_ids", lambda pm: ["sample"])
+    calls = []
+
+    def warp(*args):
+        calls.append(args)
+        values = (np.indices((7, 9, 11)).transpose(1, 2, 3, 0) + 10).astype(np.float32)
+        return nib.Nifti1Image(values, np.eye(4))
+
+    monkeypatch.setattr(geometry, "preview_deformation", warp)
+    body = route.TargetPreviewRequest(
+        subject="sample",
+        roi=route.MaskTarget(kind="mask", path=str(source), space="mni"),
+    )
+    route.target_preview(body)
+    data[15, 15, 15] = 1
+    nib.save(nib.Nifti1Image(data, np.eye(4)), source)
+    route.target_preview(body)
+    assert len(calls) == 1
+    transform.write_bytes(b"changed-registration-v2")
+    route.target_preview(body)
+    assert len(calls) == 2

@@ -10,6 +10,32 @@ container under emulation and Dataset 000/sub-ernie. They are not current-build 
 native-platform predictions. Local ignored receipts may expire; retain the configuration when
 refreshing a benchmark. Never compare a warm cache with a first-ever load without labeling both.
 
+## Target preview preparation — 2026-09-09
+
+Dataset 000/sub-101, T1 grid 240×512×512 at 0.8×0.5×0.5 mm, same amd64 dev container
+under emulation. Baseline source `bd71ec02`; improved implementation uses compact display anatomy,
+cropped targets and a cached display-grid MNI deformation. These timings measure API preparation,
+not the time from opening the page to a rendered frame.
+
+| Request/cache state | Before | After |
+|---|---:|---:|
+| First subject-space sphere | 24.34 s | 2.62 s |
+| First MNI volume mask, uncached registration | 126.37 s | 17.22 s |
+| Different MNI mask, registration cached | — | 0.398 s |
+| Identical MNI mask, target cached | — | 0.005 s |
+
+Repeat authenticated `POST /api/scene/target-preview` requests with the same subject, mask and
+space, timing the first request separately from repeated requests and a second mask. Use a copied
+project with an empty target-preview cache for cold measurements. The first MNI request reads a
+417 MB compressed registration; later masks share its compact deformation. MNI previews sample
+the display grid; calculations retain the original mask and registration. A target below preview
+resolution reports that limitation instead of silently displaying an empty selection.
+
+A separate headless Chromium probe with the actual embed already initialized measured 1.27 s
+for a sphere request through `loaded`, then 0.28 s after changing radius from 10 to 11 mm.
+Anatomy was cached on disk, and the second load retained its dataset ID. This confirms reuse,
+not cold-start browser performance. The renderer remains alive between target edits.
+
 ## Progressive viewer loading — 2026-09-09
 
 One before/after observation on the same six-volume selection, 149.07 MB compressed:
