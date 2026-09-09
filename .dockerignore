@@ -18,6 +18,8 @@ desktop/release
 desktop/dist
 desktop/test-results
 desktop/tests
+# Host-only test monitoring is not part of the shipped renderer or runtime.
+desktop/scripts/e2e*
 desktop/*.tsbuildinfo
 desktop/.*
 # Inside container/: the v3 recipe needs blueprint/entrypoint.ti-toolbox.sh and config/ only.
