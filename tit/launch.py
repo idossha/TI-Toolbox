@@ -1,27 +1,7 @@
-"""``tit launch`` — start the TI-Toolbox v3 UI without Electron.
+"""Launch the TI-Toolbox container and open its browser UI.
 
-The desktop app (``desktop/``) is a shell around a container: it starts
-``idossha/ti-toolbox:<tag>``, which runs :mod:`tit.server`, which serves the
-same React bundle from ``/opt/ti-toolbox/ui``.  This module does the same job
-from Python and hands the user a URL instead of a window.  Everything the UI
-does over HTTP works identically in a browser; the handful of things that need
-the Electron bridge (reveal-in-file-manager, native notifications) already
-degrade with a message in the renderer (``desktop/src/renderer/env.ts``).
-
-Host requirements are deliberately tiny: CPython >= 3.11 and the ``docker``
-CLI.  Nothing here imports SimNIBS, numpy, requests or PyYAML — a host that can
-``pip install tit`` can launch the toolbox even though it could not run a
-simulation itself.
-
-**One run spec.**  The container this creates is the container the Electron app
-creates: same image, same mounts, same environment, same four labels, so
-``docker ps`` and the app's own attach-by-label logic
-(``desktop/src/main/stack.ts``) see one kind of container, not two.  The
-definition lives in the repository's one ``docker-compose.yml``; :func:`load_spec`
-reads it when the file is there (a repository checkout) and falls back to
-:data:`BUILTIN_SPEC` when it is not (an installed wheel, which cannot carry a
-file from outside the package).  ``tests/unit/test_launch.py`` asserts the two
-agree, so the fallback cannot drift from the file silently.
+Uses the same compose specification and container labels as Electron.
+Installed wheels use BUILTIN_SPEC; tests verify it matches docker-compose.yml.
 """
 
 from __future__ import annotations

@@ -1,15 +1,5 @@
 #!/usr/bin/env bash
-# dev/loader/loader_dev.sh — the bash equivalent of loader_dev.py, for a developer who
-# would rather type a shell script.
-#
-#   ./dev/loader/loader_dev.sh --project ~/datasets/000
-#   ./dev/loader/loader_dev.sh --project ~/datasets/000 --status | --logs | --stop
-#   ./dev/loader/loader_dev.sh --build
-#   ./dev/loader/loader_dev.sh --web
-#
-# Exactly like ../../loader.sh at the repository root, this is a BOOTSTRAP and not a third
-# launcher: it finds a CPython >= 3.11 and hands every argument to loader_dev.py, which
-# owns the dev overrides. Run it with --help for the options.
+# Find Python 3.11+ and forward all arguments to loader_dev.py.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

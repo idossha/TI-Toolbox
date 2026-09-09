@@ -1,26 +1,8 @@
 #!/usr/bin/env python3
-"""``loader.py`` — start the TI-Toolbox UI from a checkout or a standalone download.
+"""Start TI-Toolbox from a checkout or a cached standalone installation.
 
-    python loader.py --project ~/datasets/000
-    python loader.py --project ~/datasets/000 --status | --logs | --stop
-
-This is a BOOTSTRAP, not a second launcher.  Every option below is the option
-:mod:`tit.cli` defines for ``tit launch``, reused here through ``parents=`` rather
-than re-declared, and the work is done by :mod:`tit.launch` — which owns the run
-spec, read from the one ``docker-compose.yml`` beside this file.  A ``docker run``
-written out again here would drift from the Electron app's container on the first
-change to a label, a mount or an environment variable, and the two would stop being
-interchangeable.
-
-``tit`` is imported from this checkout when this file sits in one (no install, no
-virtualenv, nothing written anywhere). A standalone copy refreshes main into a cached
-virtualenv for each start, so an older system-installed package cannot redirect it
-back to the public release. ``TIT_VENV_DIR`` selects that cache, shared with ``loader.sh``;
-otherwise it lives under ``XDG_CACHE_HOME`` or ``~/.cache/ti-toolbox/venv``. Stop, status
-and logs use a working cached launcher without a network refresh.
-
-Standard library only.  The host needs CPython >= 3.11 and the ``docker`` CLI; it does
-not need SimNIBS, Node or Electron — the toolbox itself lives in the container.
+Requires Python 3.11+ and Docker. Run with --help for options.
+Standalone starts refresh the cache; management commands also work offline.
 """
 
 from __future__ import annotations

@@ -234,25 +234,6 @@ jobs:
           path: /tmp/coverage
           destination: coverage
 
-  # Desktop app checks (FX3 fix lane, qa-security-notes.md finding #2: "the desktop app has
-  # zero CI enforcement"). Every gate the Phase-A/B/C lane notes in
-  # the 2026-09-03 docker-streamline lanes cited as already passing in a developer's own session --
-  # typecheck, lint, unit tests, the production build, and the offscreen Electron e2e suite --
-  # re-run here on every push, so a later commit breaking one of them (the offscreen guarantee
-  # included) is caught instead of silently regressing until someone happens to run it by hand.
-  #
-  # Reuses `vm-docker` (not a lighter `docker:` executor) even though this job never touches
-  # Docker itself: it is the one executor type already proven to work on this project, and a
-  # real X11-capable Linux userspace (glib/gtk/nss/dbus/X libs) is exactly what Electron needs
-  # to start at all -- a minimal `docker:` image would need most of the same packages
-  # `playwright install-deps` already installs below, for no real savings.
-  #
-  # `npm run e2e:quiet` itself stays macOS-only by design (its own header:
-  # "macOS only -- it is the platform with the monitor to hijack (Linux CI runs under Xvfb)");
-  # this job runs the plain `npm run e2e` it wraps, under Xvfb -- Electron's Chromium backend
-  # needs a real X display to initialize even with `TIT_E2E_OFFSCREEN=1` (a window built but
-  # never shown is not the same as no window server existing at all), so `xvfb-run` supplies
-  # one rather than skipping the offscreen guarantee's own e2e suite in CI.
   desktop-checks:
     executor: vm-docker
     steps:

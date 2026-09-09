@@ -115,16 +115,7 @@ jobs:
             echo "RELEASE_NOTES_EOF"
           } >> "$GITHUB_OUTPUT"
 
-  # ---------------------------------------------------------------------------------------------
-  # The container image is the product; the desktop app is a shell that pulls it. It is built first
-  # so a failure here (most likely: no Tetravox embed release to resolve) stops the release before
-  # anything is signed or published.
-  #
-  # RUNTIME WARNING: container/blueprint/build.sh has one recipe and it installs SimNIBS from
-  # scratch — 30-60+ minutes on a native x86_64 runner, more on a small one (see
-  # docs/dev/RELEASE.md; hosted duration is not yet measured).
-  # The timeout below is generous on purpose; if this becomes the release's long pole the fix is a
-  # larger runner or a published base image, not a shorter timeout.
+  # Scientific dependency installation needs the longer build timeout.
   image:
     name: Build ${{ needs.plan.outputs.version }} image
     needs: plan
@@ -193,10 +184,6 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # ---------------------------------------------------------------------------------------------
-  # Unsigned builds, one per platform, each inspected before anything is signed or published.
-  # CSC_IDENTITY_AUTO_DISCOVERY=false guarantees these are unsigned even on a runner that somehow
-  # has a certificate: the point of this job is to check the CONTENTS of the artifact.
   desktop-validate:
     name: Validate unsigned ${{ matrix.name }}
     needs: plan
@@ -325,10 +312,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Fail closed. Without this, a missing CSC_LINK makes electron-builder produce an UNSIGNED
-      # artifact and publish it happily — the worst outcome, because it looks like a success.
-      # The Developer ID certificate in CSC_LINK expires 2027-02-01; a release after that date
-      # fails here (or at signing) until it is renewed and the secret replaced.
       - name: Signing secrets must be present
         if: runner.os == 'macOS'
         env:

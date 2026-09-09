@@ -1,25 +1,5 @@
-# dev/loader/docker-compose.dev.yml — the DEV OVERRIDES, and nothing else.
-#
-#   docker compose -f docker-compose.yml -f dev/loader/docker-compose.dev.yml up
-#
-# There is no second service definition here: the stack is defined once, in the root
-# `docker-compose.yml`, and this file only fills in the three variables that file already
-# exposes as `${TIT_REPO_DIR:-}`, `${TIT_SERVER_RELOAD:-}` and `${TIT_STATIC_DIR:-}`. That
-# is the whole difference between a user run and a developer run:
-#
-#   TIT_REPO_DIR       the checkout, bind-mounted at /ti-toolbox — the container then runs
-#                      this worktree's `tit` instead of the one baked into the image.
-#   TIT_SERVER_RELOAD  "1" — the entrypoint adds `--reload --reload-dir /ti-toolbox/tit`,
-#                      so an edit under tit/server/ or tit/jobs/ restarts the server.
-#   TIT_STATIC_DIR     this worktree's built renderer, so the page served is the one just
-#                      built rather than the bundle the image happens to carry.
-#
-# `dev/loader/loader_dev.py` sets exactly these three through `tit.launch` instead of
-# shelling out to `docker compose`; `tests/test_launch.py::test_dev_overrides_match_compose`
-# asserts the two agree, so this file cannot drift from the loader beside it.
-#
-# DEV_CODEBASE_DIR defaults to the checkout this file lives in, so the plain
-# `docker compose -f … -f …` form above needs no environment set up by hand.
+# Development overrides for the root compose specification.
+# The loader supplies the checkout path and optional built renderer.
 
 services:
   tit:

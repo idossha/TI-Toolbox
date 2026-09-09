@@ -1,28 +1,7 @@
 #!/usr/bin/env bash
-# loader.sh — start the TI-Toolbox UI in a browser, without Electron.
-#
-#   ./loader.sh --project ~/datasets/000
-#   ./loader.sh --project ~/datasets/000 --status | --logs | --stop
-#   curl -fsSL https://raw.githubusercontent.com/idossha/TI-Toolbox/main/loader.sh | bash -s -- --project ~/datasets/000
-#
-# The bash half of the pair at the repository root: `loader.py` for a host that already has a
-# Python you want to use, `loader.sh` for one where finding it is the hard part. Both end up in
-# the same place. (This file was `ti-toolbox.sh`; the name changed, nothing else did.)
-#
-# This script is a BOOTSTRAP, not a second launcher: every flag is passed straight through to
-# `tit launch` (tit/launch.py), which owns the run spec. That is deliberate — a `docker run`
-# written out again in bash would drift from the Electron app's container on the first change to
-# a label, a mount or an environment variable, and the two would stop being interchangeable.
-# A checkout always runs its own loader.py. A standalone or piped copy installs the main
-# source archive into a cached virtualenv, refreshing it for each start. Reinstalling is
-# intentional: unreleased commits can share a package version, and PyPI may still carry v2.
-# Stop, status and logs reuse a working cached launcher without requiring the network.
-# TIT_PYTHON selects the host interpreter; TIT_VENV_DIR selects the isolated cache.
-#
-# Requirements on the host: bash, CPython >= 3.11, and the `docker` CLI with a running daemon.
-# NOT required: SimNIBS, Node, Electron, or any Python package outside the standard library —
-# the toolbox itself lives in the container.
-
+# Launch the checkout loader, or refresh a cached standalone install.
+# Requires Python 3.11+ and Docker. Use --help for options.
+# TIT_PYTHON selects Python; TIT_VENV_DIR selects the cache.
 set -euo pipefail
 
 VENV_DIR="${TIT_VENV_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/ti-toolbox/venv}"

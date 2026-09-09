@@ -1,29 +1,7 @@
 #!/usr/bin/env python3
-"""``dev/loader/loader_dev.py`` — the developer's equivalent of the root ``loader.py``.
+"""Launch the current checkout with source mounts and automatic server reload.
 
-    python dev/loader/loader_dev.py --project ~/datasets/000
-    python dev/loader/loader_dev.py --project ~/datasets/000 --status | --logs | --stop
-    python dev/loader/loader_dev.py --build                 # build the image, then exit
-    python dev/loader/loader_dev.py --web                   # hand over to `npm run dev:web`
-
-Same options as ``loader.py`` (they come from the same
-:func:`tit.cli.launch_arguments`), plus the three a developer needs: ``--build``,
-``--image`` and ``--web``.  The difference in what it *starts* is exactly the three
-overrides ``docker-compose.dev.yml`` next to this file documents, and nothing else:
-
-    TIT_REPO_DIR      this checkout, bind-mounted at /ti-toolbox
-    TIT_SERVER_RELOAD 1, so uvicorn restarts on an edit under tit/
-    TIT_STATIC_DIR    this worktree's built renderer, never the image's baked UI
-
-**Where the dev loop lives.**  ``--web`` does not reimplement Vite: it execs
-``npm run dev:web`` in ``desktop/``, which is ``desktop/scripts/dev.ts`` — the one
-implementation of the container-plus-Vite-plus-Electron loop, driven by the same
-``StackManager`` the packaged app uses.  A second copy of that orchestration in Python
-would drift from it on the first change, and a developer would be testing a loop the
-product does not have.  What this file owns instead is the Node-free path: starting the
-dev container from Python alone, for a checkout with no ``npm install`` in it.
-
-Standard library only, like the root loader.
+Use --web for Vite development, --build to build the image, or --help for options.
 """
 
 from __future__ import annotations
