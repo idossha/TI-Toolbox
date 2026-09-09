@@ -132,4 +132,3 @@ Real publishing needs Docker Hub access and macOS `CSC_LINK`, `CSC_KEY_PASSWORD`
 `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`. Build-only rehearsal needs none of those secrets.
 Presence of a secret name does not prove its value works. macOS signing, Gatekeeper, notarization
 and first launch must be measured before claiming them; Windows artifacts are unsigned.
-
