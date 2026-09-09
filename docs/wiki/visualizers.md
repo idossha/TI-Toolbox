@@ -10,10 +10,20 @@ served by the container, and draws on your own machine's GPU inside the app wind
 nothing.** Full 3-D viewing of mesh (`.msh`) and volumetric (`.nii`/`.nii.gz`) results happens on
 the **Viewer** page. There is no Freeview and no Gmsh in TI-Toolbox v3, and no X11.
 
-The run pages (Simulator, Optimizer, Analyzer) have their own small 3-D pane for placing electrodes
-and picking atlas regions. That pane is part of the toolbox, is drawn by the toolbox's own renderer
-rather than by Tetravox, and is not a viewer — it draws packaged reference anatomy, never your
-subject's.
+The run pages have their own compact scene panes for selecting electrodes and atlas regions.
+They use reference anatomy where appropriate; free-hand placement and visual export can show
+the selected subject's own anatomy. The exporter's segmentation preview uses Tetravox.
+
+### Loading and changing the selection
+
+Datasets render as each finishes loading. You can return to the selection and add files:
+the viewer reuses files already loaded and fetches only the additions. Removing a file from
+the selection removes it from the scene. The camera is retained when data is reused.
+
+Progress rows name the file and distinguish reading from processing. If one file fails,
+successful layers remain visible alongside the error. Use **Reload** to deliberately reload
+all files—for example, after replacing data at the same path. Re-selection reuses in-memory
+data; it does not check whether a file was overwritten on disk.
 
 <img src="{{ site.baseurl }}/assets/imgs/v3/viewer.png" alt="A TI field open in the Tetravox viewer inside the app" style="width: 100%; max-width: 1000px;">
 <em>A simulation open on the <strong>Tetravox</strong> sub-page: layers and appearance on the left, the cursor read-out on the right, all inside the app window.</em>

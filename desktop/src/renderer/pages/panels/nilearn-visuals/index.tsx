@@ -18,6 +18,7 @@ import { ActionBar } from "../../../ui/Chrome";
 import { isPanelEnabled, panelDigest } from "../_shared";
 import "../panels.css";
 import { PlanSummary } from "../PlanSummary";
+import { ExtensionRunPanel, useExtensionJobs } from "../ExtensionRunPanel";
 import { createNilearnJob, getSimulationsFor, planNilearn, validateNilearn } from "./api";
 import { buildNilearnConfig, type NilearnPair } from "./config";
 
@@ -61,6 +62,7 @@ function useDebounced<T>(value: T, delayMs: number): T {
 function NilearnVisualsPanel() {
   const subjectsQuery = useQuery({ queryKey: ["subjects"], queryFn: () => getSubjects() });
   usePageScrollMemory();
+  const jobs = useExtensionJobs();
   const [pairs, setPairs] = usePageSession<Pair[]>("pairs", () => [newPair()]);
   const [subdir, setSubdir] = usePageSession("subdir", "");
   const [usePercentiles, setUsePercentiles] = usePageSession("usePercentiles", false);
@@ -141,7 +143,8 @@ function NilearnVisualsPanel() {
     if (!config) return;
     setSubmitting(true);
     try {
-      await createNilearnJob(config, subjectIds);
+      const job = await createNilearnJob(config, subjectIds);
+      jobs.trackJob(job);
       notify.success(`Queued: Nilearn visuals → nilearn_visuals/${config.subdir_name}`);
     } catch {
       notify.error("Could not queue the visualization job.");
@@ -154,6 +157,15 @@ function NilearnVisualsPanel() {
 
   return (
     <PageLayout
+      rightPane={<ExtensionRunPanel kind="nilearn" subjects={subjectIds} {...jobs} plan={
+        <PlanSummary
+              plan={planQuery.data}
+              loading={config !== null && (validateQuery.isPending || planQuery.isFetching)}
+              error={validateQuery.error || planQuery.error ? "Could not compute the plan." : undefined}
+              serverErrors={serverErrors}
+              idleMessage="Complete the configuration to see its plan."
+            />
+      } />}
       actionBar={
         <ActionBar
           digest={digest}
@@ -174,7 +186,7 @@ function NilearnVisualsPanel() {
         />
       }
     >
-      <div className="panel-page">
+      <div className="panel-page extension-inputs">
         <div className="panel-page-split">
           <div className="panel-page-col">
             <ParticipantsField
@@ -186,7 +198,6 @@ function NilearnVisualsPanel() {
               onAdd={addPair}
               addLabel="Add pair"
               onRemove={removePair}
-              fill
               loading={subjectsQuery.isPending}
               help={
                 <>
@@ -254,18 +265,7 @@ function NilearnVisualsPanel() {
             </CardBody>
           </Card>
 
-        <Card>
-          <CardHeader title="Plan" />
-          <CardBody>
-            <PlanSummary
-              plan={planQuery.data}
-              loading={config !== null && (validateQuery.isPending || planQuery.isFetching)}
-              error={planQuery.error ? "Could not compute the plan." : undefined}
-              serverErrors={serverErrors}
-              idleMessage="Complete the configuration above to see its plan."
-            />
-          </CardBody>
-        </Card>
+
           </div>
         </div>
       </div>

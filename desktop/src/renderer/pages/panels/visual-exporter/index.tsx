@@ -21,7 +21,7 @@ import { Boxes, Play } from "lucide-react";
 import type { PageDef } from "../../../app/registry";
 import { usePageSession } from "../../../app/pageSession";
 import { getSubjects } from "../../../api/client";
-import { Card, CardBody, CardHeader, PageLayout } from "../../../ui/Layout";
+import { Card, CardBody, CardHeader, PageLayout, PaneHeaderControls, usePaneController } from "../../../ui/Layout";
 import { usePageScrollMemory } from "../../_shared/session/usePageScrollMemory";
 import { Field, TextInput } from "../../../ui/Field";
 import { Select } from "../../../ui/Select";
@@ -36,6 +36,8 @@ import { ActionBar } from "../../../ui/Chrome";
 import { isPanelEnabled, panelDigest } from "../_shared";
 import "../panels.css";
 import { PlanSummary } from "../PlanSummary";
+import { ExtensionRunPanel, useExtensionJobs } from "../ExtensionRunPanel";
+import { ExportPreview } from "./ExportPreview";
 import { createBlenderJob, getAtlasRegions, getNiftiLabels, getSimulationsFor, planBlender, validateBlender, type BlenderConfig } from "./api";
 import {
   buildMontageConfig,
@@ -80,6 +82,8 @@ function useDebounced<T>(value: T, delayMs: number): T {
 
 function VisualExporterPanel() {
   usePageScrollMemory();
+  const jobs = useExtensionJobs();
+  const scenePane = usePaneController({ pageId: "panel-visual-exporter", name: "run" });
   const subjectsQuery = useQuery({ queryKey: ["subjects"], queryFn: () => getSubjects() });
 
   const [mode, setMode] = usePageSession<Mode>("mode", "regions");
@@ -285,7 +289,7 @@ function VisualExporterPanel() {
   async function run() {
     setSubmitting(true);
     try {
-      for (const config of configs) await createBlenderJob(config, [subjectId]);
+      for (const config of configs) jobs.trackJob(await createBlenderJob(config, [subjectId]));
       const n = configs.length;
       notify.success(`Queued: ${n === 1 ? "1 export" : `${n} exports`} → ${outputHint(mode, subjectId, simulationName)}`);
     } catch {
@@ -299,6 +303,32 @@ function VisualExporterPanel() {
 
   return (
     <PageLayout
+      variant="run"
+      rightPaneKind="run"
+      paneController={scenePane}
+      rightPane={
+        <ExtensionRunPanel
+          kind="blender"
+          subjects={subjectId ? [subjectId] : []}
+          {...jobs}
+          paneControls={<PaneHeaderControls controller={scenePane} />}
+          plan={<>
+            <PlanSummary plan={planQuery.data} loading={loading}
+              error={planQuery.error ? "Could not compute the plan." : undefined}
+              serverErrors={serverErrors} idleMessage="Choose a subject and export type to see the plan." />
+            {configs.length > 1 && <p className="field-help">Cortical exports queue STL and PLY jobs; both logs stay available here.</p>}
+          </>}
+          scene={<ExportPreview
+            mode={mode} subjectId={subjectId} simulationName={simulationName}
+            simulationPath={simulationsQuery.data?.find((simulation) => simulation.name === simulationName)?.path}
+            atlas={atlas} regions={regions} onRegionsChange={setRegions} onAtlasChange={setAtlas}
+            montageOnly={montageOnly} diameterMm={diameter ?? 10}
+            labels={subcorticalLabels} niftiPath={niftiPath}
+            onLabelsChange={(labels) => { setLabelIds(labels.map(String)); setLabelsText(labels.join(",")); }}
+            fieldName={mode === "subcortical" ? subcortField : regionField}
+          />}
+        />
+      }
       actionBar={
         <ActionBar
           digest={digest}
@@ -319,7 +349,7 @@ function VisualExporterPanel() {
       }
     >
       <div className="panel-page">
-        <div className="panel-page-split">
+        <div className="panel-page-col">
           <div className="panel-page-col">
             <Card>
               <CardHeader
@@ -338,6 +368,9 @@ function VisualExporterPanel() {
                         setSubjectId(v);
                         setSimulationName("");
                         setRegions([]);
+                        setLabelIds([]);
+                        setLabelsText("");
+                        setNiftiPath("");
                       }}
                       options={subjectOptions}
                       placeholder="Subject"
@@ -546,25 +579,7 @@ function VisualExporterPanel() {
             )}
           </div>
 
-          <div className="panel-page-col">
-            <Card>
-              <CardHeader title="Plan" />
-              <CardBody>
-                <PlanSummary
-                  plan={planQuery.data}
-                  loading={loading}
-                  error={planQuery.error ? "Could not compute the plan." : undefined}
-                  serverErrors={serverErrors}
-                  idleMessage="Choose a subject and a mode above to see the plan."
-                />
-                {configs.length > 1 && (
-                  <p className="field-help" style={{ marginTop: "var(--space-2)" }}>
-                    Cortical regions run twice — once for STL, once for PLY — exactly as the 2.5.0 extension did.
-                  </p>
-                )}
-              </CardBody>
-            </Card>
-          </div>
+
         </div>
       </div>
     </PageLayout>

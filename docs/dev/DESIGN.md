@@ -1584,3 +1584,12 @@ Not decoration — `_metrics.ts` and the layout specs fail without it.
 - `data-page` / `data-subject` on `[data-testid="shell-content"]` — the app runs a MemoryRouter, so
   `toHaveURL` can never see a route change (§8.1).
 - `data-status-cell` is **retired** with the status bar (§11).
+
+
+### Computational extensions
+
+Source, Cluster permutation, NIfTI group averaging, Nilearn visuals and 3D visual export
+use the run-page work/right-pane arrangement. Their plan may retain its concise summary
+vocabulary, but it is capped at 45% of the right pane and the terminal receives the rest.
+An idle terminal is intentional space for log output, not padding to fill with controls.
+The export page uses the same Scene/Terminal tabs and pane controls as the main run pages.

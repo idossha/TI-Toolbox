@@ -23,10 +23,13 @@ visuals]({{ site.baseurl }}/wiki/nilearn-visuals/), [Quick
 notes]({{ site.baseurl }}/wiki/quick-notes/) and the [3D visual
 exporter]({{ site.baseurl }}/wiki/blender/).
 
-Two things changed for all of them in v3. **Each runs as a real job** — it appears in
-[Jobs]({{ site.baseurl }}/wiki/jobs/), streams its log there, and can be cancelled; in 2.x several
-of them ran on the Qt main thread and froze the window. And each has a **plan card** stating what
-it will produce before you press Run, instead of a modal dialog after the fact.
+Computational tools use the same layout as the main run pages: **inputs on the left**, with
+the **plan and live terminal on the right**. Submitted jobs remain available in that terminal
+after completion and when you return to the page. Source has separate plans for forward
+solutions and field mapping. Quick Notes remains a note editor, not a job runner.
+
+The 3D visual exporter adds **Scene / Terminal** tabs. Its scene follows the selected export
+type; see the [export preview guide]({{ site.baseurl }}/wiki/blender/#preview-and-export).
 
 Two former extensions no longer exist as panels: **Electrode Placement** is now the Simulator's
 [free-hand mode]({{ site.baseurl }}/wiki/electrode-placement/), and **Subject Info** is the

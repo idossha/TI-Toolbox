@@ -17,6 +17,7 @@ import { ActionBar } from "../../../ui/Chrome";
 import { isPanelEnabled, panelDigest } from "../_shared";
 import "../panels.css";
 import { PlanSummary } from "../PlanSummary";
+import { ExtensionRunPanel, useExtensionJobs } from "../ExtensionRunPanel";
 import { createNiftiAverageJob, getSimulationsFor, planNiftiAverage, validateNiftiAverage } from "./api";
 import { buildNiftiAverageConfig, type NiftiAverageRow } from "./config";
 
@@ -60,6 +61,7 @@ function newRow(subjectId = "", group = "Group1"): Row {
 function NiftiGroupAveragePanel() {
   const subjectsQuery = useQuery({ queryKey: ["subjects"], queryFn: () => getSubjects() });
   usePageScrollMemory();
+  const jobs = useExtensionJobs();
   const [rows, setRows] = usePageSession<Row[]>("rows", () => [newRow(), newRow()]);
   const [outputName, setOutputName] = usePageSession("outputName", "");
   const [space, setSpace] = usePageSession<"subject" | "mni">("space", "mni");
@@ -141,7 +143,8 @@ function NiftiGroupAveragePanel() {
     if (!config) return;
     setSubmitting(true);
     try {
-      await createNiftiAverageJob(config, subjectIds);
+      const job = await createNiftiAverageJob(config, subjectIds);
+      jobs.trackJob(job);
       notify.success(`Queued: NIfTI group average "${config.output_name}"`);
       setConfirmOpen(false);
     } catch {
@@ -155,6 +158,15 @@ function NiftiGroupAveragePanel() {
 
   return (
     <PageLayout
+      rightPane={<ExtensionRunPanel kind="nifti_average" subjects={subjectIds} {...jobs} plan={
+        <PlanSummary
+                plan={planQuery.data}
+                loading={config !== null && (validateQuery.isPending || planQuery.isFetching)}
+                error={validateQuery.error || planQuery.error ? "Could not compute the plan." : undefined}
+                serverErrors={serverErrors}
+                idleMessage="Complete the analysis configuration to see its plan."
+              />
+      } />}
       actionBar={
         <ActionBar
           digest={digest}
@@ -175,7 +187,7 @@ function NiftiGroupAveragePanel() {
         />
       }
     >
-      <div className="panel-page">
+      <div className="panel-page extension-inputs">
         <div className="panel-page-split">
           <div className="panel-page-col">
             <ParticipantsField
@@ -186,7 +198,6 @@ function NiftiGroupAveragePanel() {
               note="one job over all subjects"
               onAdd={addRow}
               onRemove={removeRow}
-              fill
               loading={subjectsQuery.isPending}
               help={
                 <HelpIcon title="NIfTI group average" label="About this page" text="Compute group averages and differences of NIfTI files." />
@@ -246,18 +257,7 @@ function NiftiGroupAveragePanel() {
             </CardBody>
           </Card>
 
-          <Card>
-            <CardHeader title="Plan" />
-            <CardBody>
-              <PlanSummary
-                plan={planQuery.data}
-                loading={config !== null && (validateQuery.isPending || planQuery.isFetching)}
-                error={planQuery.error ? "Could not compute the plan." : undefined}
-                serverErrors={serverErrors}
-                idleMessage="Complete the analysis configuration above to see its plan."
-              />
-            </CardBody>
-          </Card>
+
           </div>
         </div>
       </div>

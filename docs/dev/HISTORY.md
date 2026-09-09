@@ -812,3 +812,18 @@ Interactive startup without a pinned image identifies and reconnects to the sele
 project's running session; explicit image requests retain the mismatch guard. The live
 check attached to the maintainer's existing dev session without replacing it or opening
 a browser. No image rebuild, registry publication or main merge was performed.
+
+
+### Extension previews and viewer load lifetime — 2026-09-09
+
+The maintainer requested the main run-page layout across computational extensions and a
+selection-aware visual export preview. The extension plan now sits above the shared live
+terminal; returned job IDs persist with the page session. Cortical, segmentation and
+recorded montage selections were checked against actual subject data.
+
+A reported viewer failure was no longer reproducible, but the supplied multi-volume case
+showed a real blank-until-complete delay and misleading progress entries. Tetravox's engine
+now adopts layers as datasets complete and reuses retained datasets when selections grow.
+TI corrects progress identity/units and leaves successful layers visible on partial failure.
+The new upstream commit was built and locally activated through the existing installer.
+Docker Hub publication and production promotion remain deferred.

@@ -143,10 +143,17 @@ export function TetravoxFrame({
       )}
 
       {status === "error" && error !== null && (
-        <div className="tvx-state" data-testid="viewer-error">
+        <div className="tvx-scene-error" data-testid="viewer-error" role="alert">
           <div className="tvx-state-body">
-            <p className="tvx-state-title">The viewer could not load this scene</p>
+            <p className="tvx-state-title">Some scene data could not be loaded</p>
             <p className="tvx-state-text">{error}</p>
+            {onReload && (
+              <div className="tvx-state-actions">
+                <Button variant="secondary" size="sm" onClick={onReload}>
+                  Retry scene
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       )}

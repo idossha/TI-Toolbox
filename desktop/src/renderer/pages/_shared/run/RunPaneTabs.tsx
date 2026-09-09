@@ -30,14 +30,13 @@ import { usePageSession } from "../../../app/pageSession";
 import { useJobsModel } from "../../../app/jobs-rail/model";
 import { RUNNING_STATES } from "../../../app/jobs-rail/model";
 import type { JobState } from "../../../ui/Status";
-import type { PlanKind } from "./planModel";
 import "./run.css";
 
 export type RunPaneTab = "terminal" | "scene";
 
 /** True when any job of `kinds` is queued or running — the signal that flips the default tab. */
-export function hasActiveJob(jobs: { kind: string; state: string }[], kinds: PlanKind[]): boolean {
-  return jobs.some((job) => kinds.includes(job.kind as PlanKind) && RUNNING_STATES.includes(job.state as JobState));
+export function hasActiveJob(jobs: { kind: string; state: string }[], kinds: string[]): boolean {
+  return jobs.some((job) => kinds.includes(job.kind) && RUNNING_STATES.includes(job.state as JobState));
 }
 
 /**
@@ -50,7 +49,7 @@ export function resolveTab(chosen: RunPaneTab | null, active: boolean): RunPaneT
 }
 
 export interface RunPaneTabsProps {
-  kinds: PlanKind[];
+  kinds: string[];
   terminal: ReactNode;
   scene: ReactNode;
   /** Reported upward so a page (or a spec) can assert which panel is showing. */

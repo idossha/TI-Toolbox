@@ -29,30 +29,10 @@ const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
 const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
 const ALL_PANELS = ["source", "cluster-permutation", "nifti-group-average", "nilearn-visuals", "quick-notes"];
 
-/** L5a's limit, applied to the pages L5 did not cover. */
+/** The idle terminal intentionally reserves room for live output. For run panels assert
+ * bounded plan / dominant terminal geometry, not the old whole-page ink-density target.
+ * Jobs retains its established table-fill metric. */
 const DEAD_SPACE_MAX = 0.45;
-/**
- * The Source panel's allowance, and the reason for it, stated rather than hidden in a lower global
- * limit: its left column IS the subject list, and the list no longer pads itself out with ground
- * rows (the maintainer's "just a simple list of subjects" — those horizontal lines below the last
- * subject were what met 45 % here). Three subjects are now three rows, so the column ends after
- * them and the room below is pane. Measured 78.0 % at 1280x800 on the 3-subject fixture; it falls
- * back towards the global limit as a real project's list grows. Every other panel is held to L5a.
- */
-/**
- * The two output-file panels' allowance, and the reason for it. Both sat just under 45 % while the
- * plan column carried a "problems" Callout listing what the run still needed; that callout was
- * removed on 2026-09-06 (a blocking reason now drives the disabled Run button alone, DESIGN.md
- * §6.3) and the ~2 % of the pane it filled became ground. Measured after the removal: NIfTI 45.8 %
- * at 1280x800 and 47.0 % at 1440x900, Nilearn 45.8 % / 46.9 %, identical in both themes. 48 % is
- * that worst case plus a point; neither panel's form changed, so this is the callout's footprint
- * and nothing else.
- */
-const DEAD_SPACE_BY_PAGE: Record<string, number> = {
-  "panel-source": 0.82,
-  "panel-nifti-group-average": 0.48,
-  "panel-nilearn-visuals": 0.48,
-};
 
 const SIZES = [
   { width: 1280, height: 800 },
@@ -220,12 +200,21 @@ for (const size of SIZES) {
 
         const overflow = await horizontalOverflow(page);
         expect.soft(overflow.page, `${id} ${theme} ${size.width}: the page scrolls horizontally`).toBe(0);
-        expect
-          .soft(
-            dead.ratio,
-            `${id} ${theme} ${size.width}x${size.height}: dead space ${(dead.ratio * 100).toFixed(1)} % of ${dead.samples} samples`,
-          )
-          .toBeLessThanOrEqual(DEAD_SPACE_BY_PAGE[id] ?? DEAD_SPACE_MAX);
+        if (id === "jobs") {
+          expect.soft(dead.ratio, "Jobs table fills its work area").toBeLessThanOrEqual(DEAD_SPACE_MAX);
+        } else {
+          const active = page.locator('[data-page-active="true"]');
+          const work = await active.getByTestId("page-work").boundingBox();
+          const right = await active.getByTestId("page-right-pane").boundingBox();
+          const plan = await active.getByTestId("extension-plan").boundingBox();
+          const terminal = await active.getByTestId("job-terminal").boundingBox();
+          expect(work).not.toBeNull(); expect(right).not.toBeNull();
+          expect(plan).not.toBeNull(); expect(terminal).not.toBeNull();
+          expect(right!.x).toBeGreaterThanOrEqual(work!.x + work!.width);
+          expect(terminal!.height).toBeGreaterThan(right!.height * 0.45);
+          expect(plan!.height).toBeLessThanOrEqual(right!.height * 0.46);
+          expect(terminal!.y).toBeGreaterThanOrEqual(plan!.y + plan!.height);
+        }
       }
     });
   }

@@ -19,6 +19,7 @@ import { notify } from "../../../ui/Toast";
 import { isPanelEnabled } from "../_shared";
 import "../panels.css";
 import { PlanSummary } from "../PlanSummary";
+import { ExtensionRunPanel, useExtensionJobs } from "../ExtensionRunPanel";
 import { createSourceJob, getSimulationsFor, getSubjectDetail, planSource, validateSource, type SourceConfig } from "./api";
 import { buildForwardConfig, buildFsavgConfig } from "./config";
 
@@ -84,7 +85,7 @@ function SourcePlan({ config, subjectIds }: { config: SourceConfig | null; subje
     <PlanSummary
       plan={plan.data}
       loading={validateQuery.isPending || plan.isFetching}
-      error={plan.error ? "Could not compute the plan." : undefined}
+      error={validateQuery.error || plan.error ? "Could not compute the plan." : undefined}
       serverErrors={serverErrors}
     />
   );
@@ -94,6 +95,7 @@ function SourcePanel() {
   const navigate = useNavigate();
   const subjectsQuery = useQuery({ queryKey: ["subjects"], queryFn: () => getSubjects() });
   usePageScrollMemory();
+  const jobs = useExtensionJobs();
   const [selected, setSelected] = usePageSession<string[]>("subjects", []);
 
   const allSubjects = useMemo(() => subjectsQuery.data ?? [], [subjectsQuery.data]);
@@ -145,7 +147,8 @@ function SourcePanel() {
     if (!forwardConfig) return;
     setFwdRunning(true);
     try {
-      await createSourceJob({ ...forwardConfig, forward: { ...forwardConfig.forward!, overwrite } }, selected, overwrite);
+      const job = await createSourceJob({ ...forwardConfig, forward: { ...forwardConfig.forward!, overwrite } }, selected, overwrite);
+      jobs.trackJob(job);
       notify.success(selected.length === 1 ? `Queued: forward solution for ${selected[0]}` : `Queued ${selected.length} forward-solution jobs`);
     } catch {
       notify.error("Could not queue the forward-solution job.");
@@ -190,7 +193,8 @@ function SourcePanel() {
     if (!fsavgConfig) return;
     setFsavgRunning(true);
     try {
-      await createSourceJob({ ...fsavgConfig, fsavg_map: { ...fsavgConfig.fsavg_map!, overwrite } }, pairs.map((p) => p.subject_id), overwrite);
+      const job = await createSourceJob({ ...fsavgConfig, fsavg_map: { ...fsavgConfig.fsavg_map!, overwrite } }, pairs.map((p) => p.subject_id), overwrite);
+      jobs.trackJob(job);
       notify.success(pairs.length === 1 ? `Queued: fsaverage mapping for ${pairs[0]!.subject_id}` : `Queued ${pairs.length} fsaverage-mapping jobs`);
     } catch {
       notify.error("Could not queue the fsaverage-mapping job.");
@@ -205,8 +209,21 @@ function SourcePanel() {
   }
 
   return (
-    <PageLayout>
-      <div className="panel-page">
+    <PageLayout rightPane={
+      <ExtensionRunPanel kind="source" subjects={selected} {...jobs} plan={
+        <>
+          <section aria-label="Forward solution plan">
+            <h3 className="card-title">Forward solution</h3>
+            <SourcePlan config={forwardConfig} subjectIds={selected} />
+          </section>
+          <section aria-label="Field mapping plan">
+            <h3 className="card-title">Map fields to fsaverage</h3>
+            <SourcePlan config={fsavgConfig} subjectIds={pairs.map((p) => p.subject_id)} />
+          </section>
+        </>
+      } />
+    }>
+      <div className="panel-page extension-inputs">
         <div className="panel-page-split">
           <div className="panel-page-col">
         {/* L1: Subjects is the page's first SECTION, not a card titled "Subjects" wrapped around a
@@ -222,7 +239,6 @@ function SourcePanel() {
             eligibility={eligibility}
             mode="per-subject"
             defaultOpen
-            fill
             loading={subjectsQuery.isPending}
           />
           {subjectsQuery.data && subjectsWithModel.length === 0 && (
@@ -249,7 +265,6 @@ function SourcePanel() {
                   <Field label="CPUs" htmlFor="source-fwd-cpus" help="SimNIBS FEM workers used while computing the leadfield.">
                     <NumberInput id="source-fwd-cpus" value={cpus} onValueChange={setCpus} min={1} step={1} />
                   </Field>
-                  <SourcePlan config={forwardConfig} subjectIds={selected} />
                   <Button variant="primary" size="lg" icon={<Play size={14} />} loading={fwdRunning} onClick={handleForwardClick} disabled={!!forwardBlocked} title={forwardBlocked ?? undefined}>
                     Build forward
                   </Button>
@@ -290,7 +305,6 @@ function SourcePanel() {
                   <Field label="Workers" htmlFor="source-fsavg-workers" help="Subjects projected in parallel (1 = serial).">
                     <NumberInput id="source-fsavg-workers" value={workers} onValueChange={setWorkers} min={1} step={1} />
                   </Field>
-                  <SourcePlan config={fsavgConfig} subjectIds={pairs.map((p) => p.subject_id)} />
                   <Button variant="primary" size="lg" icon={<Play size={14} />} loading={fsavgRunning} onClick={handleFsavgClick} disabled={!!fsavgBlocked} title={fsavgBlocked ?? undefined}>
                     Map to fsaverage
                   </Button>

@@ -62,6 +62,9 @@ const railLink = () => page.getByRole("link", { name: "3D visual exporter", exac
 async function openPanel(): Promise<void> {
   await railLink().click();
   await expectPage(page, "panel-visual-exporter");
+  await expect(page.getByTestId("page-right-pane").getByTestId("extension-plan")).toBeVisible();
+  await expect(page.getByTestId("page-right-pane").getByTestId("job-terminal")).toBeAttached();
+
 }
 
 async function chooseSubjectAndSimulation(): Promise<void> {

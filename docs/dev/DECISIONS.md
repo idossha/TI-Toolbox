@@ -1403,3 +1403,38 @@ rejected a multi-question setup and asked to preserve the simple v2 behavior.
 continues forwarding to Python instead of maintaining a separate prompt implementation.
 
 **Revisit if.** A native folder chooser becomes a requirement for the terminal launchers.
+
+
+### 2026-09-09 — Shared extension run layout and contextual export previews
+
+**Decision.** Move computational extension inputs left and their plan/live terminal right,
+using the existing run-page components. Add export-specific atlas, montage and volume
+previews with selection callbacks to the same export fields.
+
+**Why.** The maintainer requested the Pre-processing/Simulator layout for extensions and
+a useful visual selection surface for cortical, subcortical and montage exports.
+
+**Cost.** The idle terminal intentionally reserves space for output. Geometry tests now
+measure plan/terminal bounds instead of treating that space as missing form content.
+Subject previews may need scene preparation; missing data remains explicit.
+
+**Revisit if.** An export mode gains a final-geometry preview API; do not imply one exists
+by drawing a reference head or scalar field as its completed output.
+
+
+### 2026-09-09 — Progressive and incremental Tetravox scene loading
+
+**Decision.** Implement dataset concurrency, layer adoption as ready, and retained-dataset
+reuse in Tetravox's engine rather than duplicating its loader in TI-Toolbox. Reuse matches
+resolved URLs and sidecars within the current selection; explicit Reload clears the frame.
+TI-Toolbox reconciles progress by source name, keeps read-byte counts distinct from indexing
+work units, and displays partial failures without covering successful layers.
+
+**Why.** The maintainer showed a six-volume scene with blank panes and stale queued entries,
+requested incremental rendering, and requested that adding files not reload existing ones.
+
+**Cost.** Concurrent decoding increases peak work and memory. Re-selecting an unchanged URL
+reuses memory even if a file was overwritten; Reload is the explicit freshness boundary.
+
+**Revisit if.** Measured memory pressure calls for a bounded load queue or server-provided
+file revisions make automatic freshness detection reliable.

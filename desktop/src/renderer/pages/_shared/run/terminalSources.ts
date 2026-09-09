@@ -59,7 +59,7 @@ const RUNNING: JobState[] = ["running", "queued"];
  */
 export function resolveFollowedJob(
   jobs: FollowableJob[],
-  kinds: PlanKind[],
+  kinds: string[],
   subjects: string[],
   pinnedJobId?: string | null,
   startedJobIds?: readonly string[],
@@ -69,7 +69,7 @@ export function resolveFollowedJob(
     const pinned = byNewest.find((j) => j.id === pinnedJobId);
     if (pinned) return pinned;
   }
-  const running = byNewest.filter((j) => kinds.includes(j.kind as PlanKind) && RUNNING.includes(j.state));
+  const running = byNewest.filter((j) => kinds.includes(j.kind) && RUNNING.includes(j.state));
   const live = running.find((j) => j.subjects.some((s) => subjects.includes(s))) ?? running[0];
   if (live) return live;
   if (startedJobIds && startedJobIds.length > 0) {
@@ -78,7 +78,7 @@ export function resolveFollowedJob(
     // stage) settles on the LAST stage's log rather than the first one to finish.
     // Kind-filtered like every other rule: the started ids are this page's by construction, and
     // a stale id from another page's session bag must not put a foreign log in this pane.
-    const mine = byNewest.find((j) => started.has(j.id) && kinds.includes(j.kind as PlanKind));
+    const mine = byNewest.find((j) => started.has(j.id) && kinds.includes(j.kind));
     if (mine) return mine;
   }
   return null;

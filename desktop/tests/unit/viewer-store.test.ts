@@ -155,11 +155,46 @@ describe("loading a scene", () => {
     expect(row).toMatchObject({ phase: "read", done: 4_000_000, total: 13_109_495, bytes: 13_109_495 });
   });
 
+  it("keeps the read byte count when later phases report voxel counts", () => {
+    useViewerStore.getState().loadScene(scene);
+    fromEmbed({ tvx: 1, type: "progress", datasetId: "live", name: "T1.nii.gz", phase: "read", done: 400, total: 400 });
+    fromEmbed({ tvx: 1, type: "progress", datasetId: "live", name: "T1.nii.gz", phase: "index", done: 100, total: 100 });
+    expect(useViewerStore.getState().progress.find((p) => p.id === "live")).toMatchObject({ bytes: 400, done: 100, total: 100 });
+  });
+
+  it("matches new engine ids by filename instead of attributing progress to a different queued file", () => {
+    useViewerStore.getState().loadScene(scene);
+    fromEmbed({ tvx: 1, type: "progress", datasetId: "ds1", name: "T1.nii.gz", phase: "read", done: 10, total: 100 });
+    const rows = useViewerStore.getState().progress;
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({ id: "ds1", name: "T1.nii.gz", phase: "read" });
+    expect(rows[1]).toMatchObject({ name: "grey_Thalamus_TI.msh", phase: "queued" });
+  });
+
+  it("does not guess filenames when an older embed reports unnamed live datasets", () => {
+    useViewerStore.getState().loadScene(scene);
+    fromEmbed({ tvx: 1, type: "progress", datasetId: "ds1", name: "", phase: "inflate", done: 10, total: 0 });
+    expect(useViewerStore.getState().progress).toEqual([
+      { id: "ds1", name: "Dataset ds1", phase: "inflate", done: 10, total: 0, bytes: 0 },
+    ]);
+  });
+
   it("re-sends the scene when a reloaded frame says ready again", () => {
     useViewerStore.getState().loadScene(scene);
     posted.length = 0;
     fromEmbed({ tvx: 1, type: "ready", version: 1, caps: { webgl2: true } });
     expect(sent("load")).toMatchObject({ scene });
+  });
+
+  it("keeps completed layers usable when another concurrent dataset fails", () => {
+    useViewerStore.getState().connect(frame, ORIGIN, 50);
+    useViewerStore.getState().loadScene(scene);
+    fromEmbed({ tvx: 1, type: "layers", layers: [{ id: "live-t1", name: "T1", visible: true, opacity: 1 }] });
+    fromEmbed({ tvx: 1, type: "error", code: "io", message: "Mesh could not be read" });
+    expect(useViewerStore.getState().status).toBe("error");
+    expect(useViewerStore.getState().layers.map((layer) => layer.id)).toEqual(["live-t1"]);
+    useViewerStore.getState().setLayerOpacity("live-t1", 0.4);
+    expect(useViewerStore.getState().layers[0]?.opacity).toBe(0.4);
   });
 
   it("surfaces an embed error inline rather than throwing", () => {

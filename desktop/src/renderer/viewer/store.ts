@@ -223,15 +223,21 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
         set((s) => {
           const row: DatasetProgress = {
             id: message.datasetId,
-            name: message.name,
-            bytes: Math.max(message.total, 0),
+            name: message.name || `Dataset ${message.datasetId}`,
+            bytes: message.phase === "read" ? Math.max(message.total, 0) : 0,
             phase: message.phase,
             done: message.done,
             total: message.total,
           };
-          const index = s.progress.findIndex((p) => p.id === message.datasetId);
-          if (index < 0) return { progress: [...s.progress, row] };
-          const next = s.progress.slice();
+          // Engine ids are minted again on every load and may collide with a different scene
+          // ref. Match a queued name only when supplied; older embeds report no name until their
+          // worker finishes, so discard unmatchable placeholders rather than label the wrong file.
+          const next = message.name ? s.progress.slice() : s.progress.filter((p) => p.phase !== "queued");
+          let index = next.findIndex((p) => p.phase !== "queued" && p.id === message.datasetId);
+          if (index < 0 && message.name) index = next.findIndex((p) => p.phase === "queued" && p.name === message.name);
+          if (index < 0) return { progress: [...next, row] };
+          // Parse/index totals count samples, not bytes. Keep the size measured while reading.
+          if (message.phase !== "read") row.bytes = next[index]?.bytes ?? 0;
           next[index] = { ...next[index], ...row };
           return { progress: next };
         });
@@ -285,7 +291,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
       // brings the live ids and the byte counts the loader measured.
       datasets: datasets.map((d) => ({ id: d.id, name: d.name, kind: d.kind === "mesh" ? ("mesh" as const) : ("volume" as const) })),
       cursor: cannotRender ? null : cursorOf(scene),
-      progress: cannotRender ? [] : datasets.map((d) => ({ id: d.id, name: d.name, bytes: 0, phase: "queued", done: 0, total: 0 })),
+      progress: cannotRender ? [] : datasets.map((d) => ({ id: `queued:${d.id}`, name: d.name, bytes: 0, phase: "queued", done: 0, total: 0 })),
       error: null,
     });
     if (cannotRender) return;

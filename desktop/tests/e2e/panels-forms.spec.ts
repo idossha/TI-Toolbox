@@ -70,12 +70,29 @@ test.afterEach(async () => {
   await app?.close();
 });
 
+
+async function expectRunLayout(): Promise<void> {
+  const active = page.locator('[data-page-active="true"]');
+  const work = active.getByTestId("page-work");
+  const right = active.getByTestId("page-right-pane");
+  await expect(right.getByTestId("extension-plan")).toBeVisible();
+  await expect(right.getByTestId("job-terminal")).toBeVisible();
+  const leftBox = await work.boundingBox();
+  const rightBox = await right.boundingBox();
+  const terminalBox = await right.getByTestId("job-terminal").boundingBox();
+  expect(leftBox).not.toBeNull();
+  expect(rightBox).not.toBeNull();
+  expect(rightBox!.x).toBeGreaterThanOrEqual(leftBox!.x + leftBox!.width);
+  expect(terminalBox!.height).toBeGreaterThan(rightBox!.height * 0.45);
+}
+
 test("Source panel: selecting a subject produces a Plan for both pipelines", async () => {
   await connect();
   await page.getByRole("link", { name: "Source", exact: true }).click();
   // No page header outside Settings/Help (DESIGN.md §2.3, §12.4 item 2) — the panel identity is
   // the shell's own `data-page`, not an `<h1>`.
   await expectPage(page, "panel-source");
+  await expectRunLayout();
 
   // Scoped to the subject picker row, not a bare `getByText("ernie")` — the mock server
   // persists for the whole suite run, so an earlier spec's "ernie" job trace in the jobs rail
@@ -114,6 +131,7 @@ test("Source panel: selecting a subject produces a Plan for both pipelines", asy
   await setDark();
   await page.getByRole("link", { name: "Source", exact: true }).click();
   await expectPage(page, "panel-source");
+  await expectRunLayout();
   await page.screenshot({ path: join(ARTIFACTS, "panel-source-dark.png") });
 });
 
@@ -140,6 +158,7 @@ test("NIfTI Group Averaging panel renders its form", async () => {
   await connect();
   await page.getByRole("link", { name: "NIfTI group averaging", exact: true }).click();
   await expectPage(page, "panel-nifti-group-average");
+  await expectRunLayout();
   await expect(page.getByLabel("Analysis name")).toBeVisible();
 
   // Real assertion (not just visibility): entering a name actually unblocks the run. A blocking
@@ -159,6 +178,7 @@ test("NIfTI Group Averaging panel renders its form", async () => {
   await setDark();
   await page.getByRole("link", { name: "NIfTI group averaging", exact: true }).click();
   await expectPage(page, "panel-nifti-group-average");
+  await expectRunLayout();
   await page.screenshot({ path: join(ARTIFACTS, "panel-nifti-group-average-dark.png") });
 });
 
@@ -166,6 +186,7 @@ test("Nilearn Visuals panel renders its form", async () => {
   await connect();
   await page.getByRole("link", { name: "Nilearn visuals", exact: true }).click();
   await expectPage(page, "panel-nilearn-visuals");
+  await expectRunLayout();
   await expect(page.getByLabel("Sub-directory name")).toBeVisible();
 
   // Real assertion (not just visibility): entering a name actually unblocks the run — read off the
@@ -182,6 +203,7 @@ test("Nilearn Visuals panel renders its form", async () => {
   await setDark();
   await page.getByRole("link", { name: "Nilearn visuals", exact: true }).click();
   await expectPage(page, "panel-nilearn-visuals");
+  await expectRunLayout();
   await page.screenshot({ path: join(ARTIFACTS, "panel-nilearn-visuals-dark.png") });
 });
 
@@ -189,6 +211,7 @@ test("Cluster Permutation panel switches between classification and correlation"
   await connect();
   await page.getByRole("link", { name: "Cluster permutation", exact: true }).click();
   await expectPage(page, "panel-cluster-permutation");
+  await expectRunLayout();
   await expect(page.getByText("Test type")).toBeVisible();
 
   await page.getByRole("radio", { name: "Correlation" }).click();
@@ -198,5 +221,6 @@ test("Cluster Permutation panel switches between classification and correlation"
   await setDark();
   await page.getByRole("link", { name: "Cluster permutation", exact: true }).click();
   await expectPage(page, "panel-cluster-permutation");
+  await expectRunLayout();
   await page.screenshot({ path: join(ARTIFACTS, "panel-cluster-permutation-dark.png") });
 });

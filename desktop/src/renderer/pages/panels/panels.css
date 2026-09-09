@@ -46,14 +46,7 @@
   overflow: auto;
 }
 
-/* Two columns, both full height: who takes part on the left, how to analyse them on the right.
- *
- * Measured and rejected first (recorded so nobody retries it): moving the Plan into a `PageLayout`
- * right pane, the way the four run pages do. It improved the WORK pane (cluster-permutation 42.9
- * -> 40.4 % dead) and made the page worse — 46.9 -> 58.1 % — because a 360 px column holding one
- * short Plan card is 70 % ground, which is exactly the empty pane U1 forbids. The plan belongs
- * beside the form on a page whose plan is four lines long.
- */
+/* Legacy two-column inputs for panels without a dedicated run pane. */
 .panel-page-split {
   flex: 1;
   min-height: 0;
@@ -117,4 +110,24 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+
+/* Inputs scroll on the left; the dedicated run pane gives its remaining height to the log. */
+.extension-inputs { min-height: 0; }
+.extension-inputs .panel-page-split { grid-template-columns: minmax(0, 1fr); }
+.extension-inputs [data-tier="1"] { flex: none; }
+.extension-plan {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 45%;
+}
+.extension-plan-body {
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-2);
 }

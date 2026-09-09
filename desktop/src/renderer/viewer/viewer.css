@@ -72,7 +72,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* The no-WebGL2 / no-embed / error states replace the pane; they DO take pointer events. */
+/* An unavailable renderer replaces the pane; it cannot show any scene. */
 .tvx-state {
   position: absolute;
   inset: 0;
@@ -106,4 +106,19 @@
   display: flex;
   gap: var(--space-2);
   margin-top: var(--space-4);
+}
+
+/* A failed dataset must not hide the other datasets that finished successfully. */
+.tvx-scene-error {
+  position: absolute;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  max-width: min(480px, calc(100% - 2 * var(--space-3)));
+  max-height: 35%;
+  overflow: auto;
+  padding: var(--space-3);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-card);
+  background: rgba(11, 13, 16, 0.9);
+  overflow-wrap: anywhere;
 }

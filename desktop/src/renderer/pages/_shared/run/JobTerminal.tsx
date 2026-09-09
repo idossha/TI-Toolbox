@@ -20,7 +20,7 @@ import { JobConsole } from "../../../ui/Jobs";
 import { jobEventsToLogLines, mergeJobEvents } from "../../../app/jobs/logLines";
 import { JobStateChip, type JobState } from "../../../ui/Status";
 import { resolveFollowedJob, type FollowableJob, type RunStep, type TerminalSource } from "./terminalSources";
-import type { PlanKind, PlanModel } from "./planModel";
+import type { PlanModel } from "./planModel";
 import { subscribeJob, unsubscribeJob, useJobsStream } from "../../../app/jobs/useJobsStream";
 import { useJobsModel } from "../../../app/jobs-rail/model";
 import { elapsedLabel } from "../../../app/jobs-rail/format";
@@ -45,7 +45,7 @@ function toFollowable(job: JobStatus, now: number): FollowableJob {
 
 export interface JobTerminalProps {
   /** Kinds this terminal may follow, most specific first. */
-  kinds: PlanKind[];
+  kinds: string[];
   subjects: string[];
   pinnedJobId?: string | null;
   onPinJob?: (jobId: string | null) => void;

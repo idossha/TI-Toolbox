@@ -686,3 +686,28 @@ the existing checkout-mount default; `--no-mount-repo` selects baked-image opera
 Interactive launches without an explicit image reconnect to the selected project's running
 session and identify its image; this resumes that session rather than certifying a new image.
 Explicit `--image` or `TIT_IMAGE_TAG` requests retain the image-mismatch guard.
+
+
+### Extension run panes and export selection
+
+Computational extension pages keep inputs in the work pane and the existing shared live
+terminal below a bounded plan in the right pane. Returned job IDs belong to page-session
+state, including both cortical export formats and both Source actions. This prevents
+completed logs disappearing or one extension following unrelated job kinds.
+
+Visual export previews follow the selected subject/configuration: cortical picks write
+hemisphere-qualified export region names, montage markers come from recorded simulation
+metadata, and segmentation picks write label IDs into the export form. The label viewer
+owns an isolated embed channel so it cannot replace the main Viewer's scene. Preview
+geometry is context, not a claim that Blender's final mesh or vector generation has run.
+
+
+### Viewer load lifetime
+
+Tetravox owns concurrent decoding and adoption of ready layers. Scene changes reuse currently
+loaded datasets by resolved URL and sidecars, dispose deselected data, and preserve the camera
+when retaining data. Cancellation prevents stale loads from attaching layers. TI owns the
+host progress/error presentation, not a second dataset cache. Explicit Reload remounts the
+frame, releases workers, and re-reads changed files at unchanged paths. Successful layers
+remain visible after another dataset fails; a progress row's byte count comes from reading,
+not indexing sample counts.

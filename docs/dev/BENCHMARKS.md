@@ -691,3 +691,35 @@ remembered paths, explicit defaults and image-override enforcement. Raw command 
 `/tmp/tit-loader-host-tests.log`, `/tmp/tit-loader-tests-final.log` and
 `/tmp/tit-loader-docs-build.log`. These host-launcher changes do not alter the baked image
 or claim a new science/UI acceptance run.
+
+
+### Extension layouts and progressive viewer loading — 2026-09-09
+
+| Check | Result / command |
+|---|---|
+| TI frontend units | `npx vitest run --maxWorkers=2` — 1,546 passed / 121 files in 24.02 s |
+| Frontend static checks | `npm run typecheck` passed; `npm run lint`: 0 errors, 3 existing warnings |
+| Final hidden extension E2E | `TIT_E2E_OFFSCREEN=1 npx playwright test --project=default tests/e2e/panels-forms.spec.ts tests/e2e/visual-exporter.spec.ts tests/e2e/panels-shape.spec.ts` under `/tmp/tit-e2e.lock` — 15 passed in 25.7 s |
+| Subject preview checks | 217,011 triangles, 70 cortical regions; pixel-picked `rh.postcentral` updated export; montage 183 net positions reduced to 4 recorded electrodes; segmentation pick 49 updated form and engine selection; 0 page errors |
+| Tetravox units | `pnpm exec vitest run --maxWorkers=2` — 1,967 passed, 83 skipped / 113 passed files, 4 skipped files, 13.93 s; focused loading/controller checks 131 passed |
+| Old six-volume scene | First and final layers after 9.211 s from load; no earlier visible layer |
+| Updated six-volume scene | First layer at 4.124 s, final layer at 4.800 s; observed layer counts 1 through 6 |
+| Incremental selection | Two loaded volumes retained their dataset IDs; adding four caused exactly four new raw-file requests |
+| Partial failure | Missing-file error retained the successfully loaded T1 layer |
+| Docs | Jekyll build passed in 2.008 s |
+
+Timing is one local before/after observation on the same six-volume selection (149.07 MB
+compressed), not a controlled cross-platform benchmark. An initial fully parallel TI unit
+run timed out in an unchanged shell test under load; the complete bounded rerun passed.
+Initial extension E2E found test selectors missing the active-page scope and a whole-page
+ink-density assertion incompatible with an intentionally idle terminal. The replacement
+checks preserve overflow protection and measure left/right order, plan cap and log height.
+
+Evidence: `dist/internal/export-real-preview-receipt.json`,
+`dist/internal/tetravox-six-volume-baseline.json`,
+`dist/internal/tetravox-six-volume-progressive.json`,
+`dist/internal/tetravox-incremental-receipt.json`,
+`dist/internal/tetravox-partial-failure-receipt.json`. The installed local embed source is
+`3b16a47ec1235640f5f392f71a609cc80dce75ed`, archive SHA-256
+`298e9247e0ed55ec3e36780ceea7c0f5b2ed65760e6f46cc3e2390e5f8e37048`.
+The prior baked embed remains available as rollback; no container restart or publication occurred.

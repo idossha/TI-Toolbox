@@ -181,6 +181,15 @@ the image, not supplied by checkout mounts. The installed-wheel launcher also at
 The copied local test project is served on port 18767. Exact image/wheel identities and
 executed checks are in [BENCHMARKS.md](BENCHMARKS.md#development-closeout-checks--2026-09-09).
 
+**Subsequent UI/viewer testing.** The release branch now includes the extension run panes,
+contextual export previews and corrected viewer progress. The local frontend at
+`http://127.0.0.1:5173/` serves this checkout and proxies the existing dev backend. Tetravox
+`3b16a47ec1235640f5f392f71a609cc80dce75ed` was built and installed locally through the existing
+validated installer (0.4.0 / protocol 3); progressive and retained-dataset loading passed
+real-data checks. The baked image above is unchanged. A subsequent distributed image must
+include these frontend changes and the updated embed; local activation is not Docker Hub
+publication. Receipts are in BENCHMARKS.md.
+
 **Distribution and production gates remain open.** Main and Docker Hub are unchanged. The
 last hosted CodeQL result reported 205 new alerts on historical PR head `6571d06b`; it does
 not analyze the subsequent fixes on `release/3.0.0`, which still need hosted review. Native macOS

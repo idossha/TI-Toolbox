@@ -19,6 +19,7 @@ import { ActionBar } from "../../../ui/Chrome";
 import { isPanelEnabled, panelDigest } from "../_shared";
 import "../panels.css";
 import { PlanSummary } from "../PlanSummary";
+import { ExtensionRunPanel, useExtensionJobs } from "../ExtensionRunPanel";
 import { createStatsJob, getSimulationsFor, planStats, validateStats, type CorrelationConfig, type GroupComparisonConfig } from "./api";
 import { buildCorrelationConfig, buildGroupComparisonConfig, type SharedStatsFields } from "./config";
 
@@ -91,6 +92,7 @@ function rowEligibility(mode: Mode) {
 function ClusterPermutationPanel() {
   const subjectsQuery = useQuery({ queryKey: ["subjects"], queryFn: () => getSubjects() });
   usePageScrollMemory();
+  const jobs = useExtensionJobs();
   const [mode, setMode] = usePageSession<Mode>("mode", "classification");
   const [rows, setRows] = usePageSession<SubjectRow[]>("rows", () => [newRow(), newRow()]);
   const [analysisName, setAnalysisName] = usePageSession("analysisName", "");
@@ -216,7 +218,8 @@ function ClusterPermutationPanel() {
     if (!config) return;
     setSubmitting(true);
     try {
-      await createStatsJob(config, subjectIds);
+      const job = await createStatsJob(config, subjectIds);
+      jobs.trackJob(job);
       notify.success(`Queued: ${mode === "classification" ? "group comparison" : "correlation"} "${analysisName.trim()}"`);
     } catch {
       notify.error("Could not queue the analysis.");
@@ -229,6 +232,15 @@ function ClusterPermutationPanel() {
 
   return (
     <PageLayout
+      rightPane={<ExtensionRunPanel kind="stats" subjects={subjectIds} {...jobs} plan={
+        <PlanSummary
+            plan={planQuery.data}
+            loading={config !== null && (validateQuery.isPending || planQuery.isFetching)}
+            error={validateQuery.error || planQuery.error ? "Could not compute the plan." : undefined}
+            serverErrors={serverErrors}
+            idleMessage="Complete the analysis configuration to see its plan."
+          />
+      } />}
       actionBar={
         <ActionBar
           digest={digest}
@@ -249,7 +261,7 @@ function ClusterPermutationPanel() {
         />
       }
     >
-      <div className="panel-page">
+      <div className="panel-page extension-inputs">
         <Card>
           <CardBody>
             <Field label="Analysis type">
@@ -276,7 +288,6 @@ function ClusterPermutationPanel() {
               note="one job over all subjects"
               onAdd={addRow}
               onRemove={removeRow}
-              fill
               loading={subjectsQuery.isPending}
               help={
                 <HelpIcon title="Cluster permutation" label="About this page" text="Compare or correlate field intensities across subjects with permutation testing." />
@@ -439,18 +450,7 @@ function ClusterPermutationPanel() {
           </CardBody>
         </Card>
 
-      <Card>
-        <CardHeader title="Plan" />
-        <CardBody>
-          <PlanSummary
-            plan={planQuery.data}
-            loading={config !== null && (validateQuery.isPending || planQuery.isFetching)}
-            error={planQuery.error ? "Could not compute the plan." : undefined}
-            serverErrors={serverErrors}
-            idleMessage="Complete the analysis configuration above to see its plan."
-          />
-        </CardBody>
-      </Card>
+
           </div>
         </div>
       </div>
