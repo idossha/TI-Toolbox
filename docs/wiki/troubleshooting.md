@@ -177,7 +177,6 @@ The entry below records the old container layout.
 1. Install **XQuartz 2.7.7** (not newer), log out and back in, launch XQuartz.
 2. XQuartz → Preferences → Security → *Allow connections from network clients*.
 3. Launch with `python3 loader.py` — it sets `DISPLAY` and runs `xhost` for you. Never `docker run` by hand.
-4. If it still fails, run the legacy helper once: `bash dev/deprecated/config_sys.sh`, then relaunch.
 CLI tools work regardless of X11.
 **Source:** [#55](https://github.com/idossha/TI-Toolbox/discussions/55), [#70](https://github.com/idossha/TI-Toolbox/discussions/70).
 
