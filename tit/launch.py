@@ -109,7 +109,7 @@ class StackSpec:
 #: Fallback used when the repository's ``docker-compose.yml`` is not on disk (an installed
 #: wheel).  Kept honest by ``tests/test_launch.py::test_builtin_spec_matches_compose``.
 BUILTIN_SPEC = StackSpec(
-    image="idossha/ti-toolbox:${TIT_IMAGE_TAG:-internal-20260908.1}",
+    image="idossha/ti-toolbox:${TIT_IMAGE_TAG:-internal-20260909.1}",
     working_dir="/ti-toolbox",
     init=True,
     volumes=(
