@@ -262,21 +262,16 @@ test("a group-statistics run shows its inputs, its outcome, its clusters and its
   await expect(page.getByTestId("results-reveal-node")).toHaveCount(1);
 });
 
-test("a simulation's montage picture sits with its channel chips and in its figures", async () => {
+test("a simulation shows channel labels and a single montage figure", async () => {
   await openResults("ernie");
   await page.getByTestId("results-node-simulation:ernie:Thalamus").click();
 
-  // The chips name the montage in text; the picture shows where it is on the head.
   const channels = page.getByTestId("results-pair-chips");
   await expect(channels.getByText("F7 → P7")).toBeVisible();
-  await expect(channels.getByTestId("results-channel-figures")).toBeVisible();
-  const montage = channels.getByTestId("results-figure-Thalamus_highlighted_visualization.png");
-  await expect(montage).toBeVisible();
-
-  // And it is discoverable in the Figures grid too.
-  await expect(
-    page.getByTestId("results-figures").getByTestId("results-figure-Thalamus_highlighted_visualization.png"),
-  ).toHaveCount(1);
+  await expect(channels.locator("img")).toHaveCount(0);
+  const montage = page.getByTestId("results-figure-Thalamus_highlighted_visualization.png");
+  await expect(montage).toHaveCount(1);
+  await expect(page.getByTestId("results-figures").getByTestId("results-figure-Thalamus_highlighted_visualization.png")).toBeVisible();
 
   // Clicking it opens the same lightbox a flex-run PNG does.
   await montage.click();

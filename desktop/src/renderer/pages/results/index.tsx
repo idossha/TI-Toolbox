@@ -437,19 +437,11 @@ function Preview({
           message:
             "This run has no documentation/config.json; its settings were not recorded.",
         },
-      ((simSummary?.pairs.length ?? 0) > 0 || (simFigures.data?.length ?? 0) > 0) && {
+      (simSummary?.pairs.length ?? 0) > 0 && {
         kind: "custom" as const,
         title: "Channels",
         testid: "results-pair-chips",
-        content: (
-          <>
-            <PairChips pairs={simSummary?.pairs ?? []} />
-            {/* The montage picture belongs beside the chips that name the same montage in text:
-                the chips say F7 → P7, this shows where that is on the head. It is also in the
-                Figures grid below, where a reader browsing pictures will look for it. */}
-            <FigureGrid figures={simFigures.data ?? []} onOpen={setLightbox} testid="results-channel-figures" />
-          </>
-        ),
+        content: <PairChips pairs={simSummary?.pairs ?? []} />,
       },
       { kind: "figures", figures },
       filesSection(`Field files · ${files.length}`),

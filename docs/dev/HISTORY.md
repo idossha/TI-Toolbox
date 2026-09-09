@@ -844,3 +844,6 @@ options without nested disclosures.
 
 Results selection reopens a collapsed preview. Artifact-to-viewer regression coverage checks
 the exact requested file in the returned scene. Sphere coordinate rows have vertical padding.
+
+Simulation Results shows channel labels in Channels and montage images only in Figures,
+avoiding duplicate pictures while preserving the figure lightbox.
