@@ -862,3 +862,16 @@ Per-core load gauges display the percent sign beside each reading.
 
 Local docs startup now resolves its own working directory, checks installed gems, explains
 port conflicts without stopping other servers, and defaults to loopback with analytics off.
+
+### Retired root plan — 2026-09-09
+
+The root `TODO.md` was removed because its August implementation plan mixed completed work with
+superseded design choices and incorrectly described the public release as shipped. Its standing
+contributor invitations (tests and documentation) and OpenSSF follow-up are retained in the
+[development roadmap](RELEASE.md#b-current-readiness-and-follow-ups). The Electron migration and
+electrode-selection interface are implemented; their old unchecked boxes are not new work.
+
+Source comments and parity notes that cite `TODO §2.x` refer to the
+[original plan preserved in Git history](https://github.com/idossha/TI-Toolbox/blob/b6304f7fbae6d5ebd4f90881e8383ad728282b7e/TODO.md).
+Those section numbers describe historical intent, not the current contract; use
+[ARCHITECTURE.md](ARCHITECTURE.md) for current behavior and [DECISIONS.md](DECISIONS.md) for revisions.

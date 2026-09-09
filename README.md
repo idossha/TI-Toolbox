@@ -4,7 +4,7 @@
 
 # Temporal Interference Toolbox
 
-[![GitHub Release](https://img.shields.io/github/v/release/idossha/TI-toolbox?cacheSeconds=3600)](https://github.com/idossha/TI-toolbox/releases)
+[![Published Release](https://img.shields.io/github/v/release/idossha/TI-toolbox?label=published%20release&cacheSeconds=3600)](https://github.com/idossha/TI-toolbox/releases)
 [![GitHub License](https://img.shields.io/github/license/idossha/TI-toolbox?cacheSeconds=86400)](https://github.com/idossha/TI-toolbox/blob/main/LICENSE)
 [![codecov](https://codecov.io/gh/idossha/TI-toolbox/branch/main/graph/badge.svg)](https://codecov.io/gh/idossha/TI-toolbox)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/KKdjJk8f)
@@ -15,6 +15,11 @@
 [![Linux Support](https://img.shields.io/badge/Linux-Supported-success)](https://github.com/idossha/TI-toolbox/blob/main/docs/installation/linux.md)
 
 </div>
+
+**Development line: 3.0.0 (internal testing).** The current runtime version is recorded in
+[`desktop/package.json`](desktop/package.json) and [`tit/__init__.py`](tit/__init__.py).
+The release badge above tracks published releases; this branch has not been publicly released.
+For remaining work, see the [development roadmap](docs/dev/RELEASE.md#b-current-readiness-and-follow-ups).
 
 Releases, guides, and wiki please see: [https://idossha.github.io/TI-Toolbox/](https://idossha.github.io/TI-Toolbox/)
 
@@ -45,14 +50,10 @@ and an alternative port.
 
 ## AI coding agents
 
-An installable plugin under [`agent-plugin/`](agent-plugin/) teaches Claude Code, Codex and any MCP client the toolbox (wiki, Python API, project layout) and ships a read-only MCP server that can inspect your project directory. In Claude Code:
-
-```text
-/plugin marketplace add idossha/TI-Toolbox
-/plugin install ti-toolbox@ti-toolbox
-```
-
-See [`agent-plugin/README.md`](agent-plugin/README.md) for Codex and other clients.
+The [agent integration](agent-plugin/README.md) provides Markdown skills and a read-only MCP
+server for TI-Toolbox documentation, source lookup and project inspection. Use it from Codex,
+Claude Code or another client that supports local MCP servers; agents without MCP can read
+the skills directly. See the [setup instructions](agent-plugin/README.md) for each connection method.
 
 ## Contact
 

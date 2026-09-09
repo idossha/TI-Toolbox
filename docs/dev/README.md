@@ -55,7 +55,6 @@ Module-local on purpose, and the right place to look first when you are inside t
 | `../../dev/{telemetry,update,security}/**` | operational references for those subsystems |
 | `../../.circleci/README_CIRCLECI.md` | the CI image and job shape |
 | `../../docs/releases/changelog.md` | the user-facing changelog |
-| `../../TODO.md` | historical: the v3.0.0 plan of record, cited by section number from `desktop/src` and the `PARITY.md` files |
 
 ## Where a new fact goes
 
@@ -101,6 +100,6 @@ directory were folded into the nine above.
 | `docs/dev/known-issues-2026-08.md` | `HISTORY.md` § pre-v3 backend defect reports |
 | `dev/notes/**`, `dev/spikes/**` | the matching dated section of `HISTORY.md` |
 | `docs/{ARCHITECTURE,DECISIONS,ROADMAP,BENCHMARKS}.md`, `desktop/DESIGN.md`, `desktop/IMPLEMENTATION_PLAN.md` | this directory |
-| `TODO.md` as a to-do list | `RELEASE.md` §B for what is open, `HISTORY.md` for what shipped |
+| `TODO.md` | [Development roadmap](RELEASE.md#b-current-readiness-and-follow-ups) for open work; [historical plan](HISTORY.md#retired-root-plan--2026-09-09) for old section references |
 | `tit/gui/**` (the PyQt5 GUI, deleted in v3.0.0) | `desktop/`, with per-page `PARITY.md` checklists |
 | `package/` (the v2 Electron launcher) | `desktop/` |

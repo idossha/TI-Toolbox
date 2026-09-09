@@ -1,4 +1,4 @@
-# TI-Toolbox desktop (v3 walking skeleton)
+# TI-Toolbox desktop
 
 Electron shell + React renderer for TI-Toolbox v3. The renderer bundle (`out/renderer`) is what
 `tit.server` serves at `/`; every request it makes is origin-relative (`/api/...`, `/ws/system`),
@@ -6,8 +6,9 @@ so the same bundle works inside Electron, in the Vite dev server (proxied) and i
 The Electron main process only does host things: a local launcher page, a health poll, a
 navigation guard and a settings file. Science and path rules stay in Python (`tit`).
 
-Plan of record: `../docs/dev/HISTORY.md`, design contract: `DESIGN.md`, API contract:
-`../contracts/openapi.yaml` (see `../contracts/README.md`).
+Development guide: [CONTRIBUTING](../docs/dev/CONTRIBUTING.md), design contract:
+[DESIGN](../docs/dev/DESIGN.md), API contract: [OpenAPI](../contracts/openapi.yaml)
+(see [contract workflow](../contracts/README.md)).
 
 ## Layout
 
@@ -21,7 +22,7 @@ src/main/stack.ts         attach-or-start, electron-free (an injected StackHost)
 src/preload/              contextBridge `window.tit` (sandboxed, dependency-free)
 src/shared/tit-bridge.d.ts  the bridge's TypeScript surface (renderer + preload)
 src/renderer/
-  ui/          design system — tokens.css/base.css/components.css + every primitive (DESIGN.md §5);
+  ui/          design system — tokens.css/base.css/components.css + every primitive (docs/dev/DESIGN.md §5);
                pages import only from here, never a literal colour
   forms/       schema loader (/api/schema, cached), Ajv 2020-12 react-hook-form resolver, SchemaField,
                server-error -> field mapping (see forms/README.md)
@@ -165,7 +166,9 @@ TIT_E2E_SERVER_URL=http://127.0.0.1:8765 TIT_E2E_TOKEN=<token> npm run e2e
 
 Screenshots land in `tests/e2e/artifacts/` (git-ignored).
 
-## Security settings (`TODO.md` §2.8 — the historical v3 plan)
+## Security settings
+
+Historical rationale: [original plan §2.8](../docs/dev/HISTORY.md#retired-root-plan--2026-09-09).
 
 `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`, `webSecurity: true`;
 `will-navigate`/`will-redirect` allow only `app://launcher` and the connected server origin;

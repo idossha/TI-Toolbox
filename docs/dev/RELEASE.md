@@ -168,6 +168,10 @@ and first launch must be measured before claiming them; Windows artifacts are un
 
 ## B. Current readiness and follow-ups
 
+This section is the development roadmap: current acceptance work first, then product follow-ups.
+It replaces the root TODO list; historical plan references are explained in
+[HISTORY.md](HISTORY.md#retired-root-plan--2026-09-09).
+
 **Current candidate: `release/3.0.0`.** This branch holds the changes intended for main.
 Manual testing precedes Docker Hub publication, as requested by the maintainer. The branch
 rename preserves the development checkpoint and its runtime; it does not tag or publish a
