@@ -58,9 +58,10 @@ Two former extensions no longer exist as panels: **Electrode Placement** is now 
 
 ## Architecture (historical)
 
-> **Historical.** The Qt extension system below was removed with the PyQt GUI in
+> **V2 archive (deprecated).** The Qt extension system below was removed with the PyQt GUI in
 > v3.0.0. Panels now live in the [Desktop Application]({{ site.baseurl }}/wiki/desktop-app/)
 > (`desktop/src/renderer/pages/panels/`), each backed by a `tit` job runner.
+> These examples are retained for legacy developers; see the [v2 development archive]({{ site.baseurl }}/wiki/v2-development/).
 
 ```
 tit/gui/  (removed in v3.0.0)

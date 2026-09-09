@@ -10,7 +10,7 @@ Explore comprehensive visual examples and documentation for all TI-Toolbox modul
 
 ## Gallery Sections
 
-- **[User Interface](UI/)** - The v3 desktop application, page by page (with the v2 PyQt tabs kept for reference)
+- **[User Interface](UI/)** - The v3 desktop application, page by page
 - **[Pre-processing](pre-processing/)** - DICOM to NIfTI conversion and segmentation workflows
 - **[Flex-Search](flex-search/)** - Evolutionary electrode optimization and mapping results
 - **[Ex-Search](ex-search/)** - Exhaustive electrode combination search visualizations
@@ -19,6 +19,13 @@ Explore comprehensive visual examples and documentation for all TI-Toolbox modul
 - **[Blender](blender/)** - Blender montage creation and electrode placement visualization
 - **[Statistics](statistics/)** - Statistical analysis and group-level computations
 - **[Nilearn](nilearn/)** - Nilearn visualizations and brain imaging
-- **[Gmsh & Freeview](gmsh-freeview/)** - Mesh visualization in the classic CLI workflow (removed from the app in v3)
 
-Each gallery section contains detailed visual examples, step-by-step demonstrations, and interactive guides for the respective toolbox functionality. 
+Each gallery section contains detailed visual examples, step-by-step demonstrations, and interactive guides for the respective toolbox functionality.
+
+## V2 (deprecated)
+
+Screenshots and workflows retained for legacy users:
+
+- **[V2 User Interface](v2/)** - PyQt tabs, extensions, and electrode placement
+- **[Gmsh & Freeview](gmsh-freeview/)** - External viewers from the classic workflow
+- **[V2 Development & Testing](../wiki/v2-development/)** - Legacy developer documentation

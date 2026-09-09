@@ -52,13 +52,17 @@ wiki:
     - { title: Quick Notes, url: /wiki/quick-notes/ }
     - { title: NIfTI Group Averaging, url: /wiki/nifti-group-averaging/ }
     - { title: Nilearn Visuals, url: /wiki/nilearn-visuals/ }
-    - group: Development & Testing
-    - { title: Testing Pipeline, url: /wiki/testing-pipeline/ }
+    - group: Development & Testing (v3)
+    - { title: Testing Guide, url: https://github.com/idossha/TI-Toolbox/blob/main/docs/dev/TESTING.md, external: true }
     - { title: Python Environment, url: /wiki/python_env/ }
     - { title: Desktop Application, url: /wiki/desktop-app/ }
-    - { title: PyQt GUI (historical), url: /wiki/gui/ }
     - { title: Agent Plugin Internals, url: /wiki/agent-plugin/ }
     - { title: API Reference, url: /api/, external: true }
+    - group: V2 (Deprecated)
+    - { title: V2 Development Archive, url: /wiki/v2-development/ }
+    - { title: V2 Testing Pipeline, url: /wiki/testing-pipeline/ }
+    - { title: V2 PyQt GUI, url: /wiki/gui/ }
+    - { title: V2 Qt Extension API, url: /wiki/extension/#architecture-historical }
 
 releases:
   title: Releases
@@ -100,5 +104,7 @@ gallery:
     - { title: Blender, url: /gallery/blender/ }
     - { title: Statistics, url: /gallery/statistics/ }
     - { title: Nilearn, url: /gallery/nilearn/ }
-    - { title: Gmsh & Freeview (v2), url: /gallery/gmsh-freeview/ }
     - { title: User Interface, url: /gallery/UI/ }
+    - group: V2 (Deprecated)
+    - { title: V2 User Interface, url: /gallery/v2/ }
+    - { title: Gmsh & Freeview, url: /gallery/gmsh-freeview/ }

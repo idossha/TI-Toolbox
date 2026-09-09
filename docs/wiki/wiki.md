@@ -46,13 +46,22 @@ server fit together.
 - **[NIfTI Group Averaging](nifti-group-averaging)** - Group analysis and comparison tools
 - **[Tissue Analyzer](tissue-analyzer)** - Volume and thickness assessment for CSF, bone, and skin (part of pre-processing)
 
-### Development & Testing
-- **[Testing Pipeline](testing-pipeline)** - Comprehensive CI/CD testing pipeline with CircleCI integration
+### Development & Testing (v3)
+- **[Testing guide](https://github.com/idossha/TI-Toolbox/blob/main/docs/dev/TESTING.md)** - Current test strategy, commands, fixtures, and verification limits
 - **[Python Environment](python_env)** - Managing the SimNIBS Python environment and dependencies
 - **[Desktop Application](desktop-app)** - Electron app, container lifecycle and the server it talks to
 - **[Agent Plugin Internals](agent-plugin)** - Skills, MCP server architecture, and tests behind the AI assistant integration
 - **[API Reference](../api/)** - Complete Python API documentation (auto-generated from docstrings)
-- **[PyQt GUI (historical)](gui)** - The v2 tabbed Qt interface, removed in v3.0.0 and kept for reference
+
+### V2 (deprecated): Development & Testing
+
+These guides are preserved for developers maintaining v2 installations. Their Qt APIs and CI setup are historical and do not describe v3.
+
+- **[V2 Development Archive](v2-development)** - Entry point for legacy developer references
+- **[V2 Testing Pipeline](testing-pipeline)** - Archived pytest and CircleCI workflow
+- **[V2 PyQt GUI](gui)** - The tabbed Qt interface removed in v3.0.0
+- **[V2 Qt Extension API](extension/#architecture-historical)** - Legacy extension discovery and development
+- **[V2 Gallery](../gallery/v2/)** - Screenshots of the legacy interface
 
 ## Support
 

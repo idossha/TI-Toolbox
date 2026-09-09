@@ -11,57 +11,49 @@ layout: home
 <p class="home-section__title">Quick start</p>
 <ol class="quickstart" markdown="1">
 <li markdown="1">
-**Set up the toolbox.** Follow the [installation guide]({{ site.baseurl }}/installation/) for the desktop application and its matching Docker image.
+**Install Docker.** Install and start [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or Docker Engine on Linux).
 </li>
 <li markdown="1">
-**Open your project.** Use [Overview]({{ site.baseurl }}/wiki/overview/) to see each subject's inputs and outputs, then run simulations, optimization and analysis from the desktop application.
+**Load TI-Toolbox.** Follow the [installation guide]({{ site.baseurl }}/installation/) to load the matching image and launch the toolbox.
 </li>
 <li markdown="1">
-**Review existing results.** Read the [3.0.0 notes]({{ site.baseurl }}/releases/v3.0.0/) and [scientific corrections]({{ site.baseurl }}/releases/v3.0.0/#scientific-corrections) before reusing results produced by older versions.
+**Start working.** Open your project, then simulate, optimize and explore your results. The [wiki]({{ site.baseurl }}/wiki/) walks you through each tool.
 </li>
 </ol>
 </section>
 
 <section>
-<p class="home-section__title">The desktop application</p>
+<p class="home-section__title">Explore TI-Toolbox</p>
 <div class="carousel-container">
   <div class="carousel-wrapper">
     <div class="carousel-images">
       <div class="carousel-slide active">
-        <img src="{{ site.baseurl }}/assets/imgs/v3/overview.png" alt="The Overview page">
-        <p>Overview: what every subject in the project has, and what it is ready for</p>
-      </div>
-      <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/v3/simulator.png" alt="The Simulator page">
-        <p>Simulator: one row per job, with the montage drawn on the head beside it</p>
-      </div>
-      <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/v3/viewer.png" alt="The Viewer showing a TI field in Tetravox">
-        <p>The viewer is Tetravox, shipped in the image and drawn in the app window — no install, no X11</p>
+        <img src="{{ site.baseurl }}/assets/imgs/v3/simulator.png" alt="The Simulator page with a montage preview">
+        <p>Simulator: configure simulations and preview your electrode montage</p>
       </div>
       <div class="carousel-slide">
         <img src="{{ site.baseurl }}/assets/imgs/v3/optimizer.png" alt="The Optimizer page with an interactive atlas">
-        <p>Optimizer: flex and exhaustive electrode search, with the atlas you are targeting in front of you</p>
+        <p>Optimizer: search electrode configurations with your target atlas in view</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/v3/pipeline.png" alt="The Pipeline canvas">
-        <p>Pipeline: wire the steps into a graph, run it as one job group, or export it as a notebook</p>
+        <img src="{{ site.baseurl }}/assets/imgs/v3/viewer.png" alt="A TI electric field displayed in Tetravox">
+        <p>Tetravox: explore anatomy and electric fields in the integrated 3D viewer</p>
+      </div>
+      <div class="carousel-slide">
+        <img src="{{ site.baseurl }}/assets/imgs/v3/pipeline.png" alt="The Pipeline canvas connecting processing steps">
+        <p>Pipeline: connect your workflow, run it or export it as a notebook</p>
       </div>
       <div class="carousel-slide">
         <img src="{{ site.baseurl }}/assets/imgs/v3/notebooks.png" alt="A notebook with a plotted field and tables">
-        <p>Notebooks: Jupyter on the container&#39;s SimNIBS Python, with your project already resolved</p>
+        <p>Notebooks: work interactively with your project and SimNIBS Python</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/v3/jobs.png" alt="The Jobs page">
-        <p>Jobs: every run recorded — state, stage, logs, artifacts, cancel and rerun</p>
+        <img src="{{ site.baseurl }}/assets/imgs/blender/visual_exporter_vectors_close.png" alt="A close-up of electric field vectors showing direction and magnitude">
+        <p>High-resolution electric field visualization showing direction and magnitude</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/blender/visual_exporter_vectors_close.png" alt="Vector Field Visualization">
-        <p>High-resolution electric field vector visualization showing direction and magnitude</p>
-      </div>
-      <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/stats/stats_permutation_null_dist.png" alt="Cluster-Based Permutation Testing">
-        <p>Statistical analysis with cluster-based permutation testing for group-level inference</p>
+        <img src="{{ site.baseurl }}/assets/imgs/blender/blender_closeup.png" alt="A detailed close-up of a Blender visualization">
+        <p>Blender: a detailed close-up of the visualization</p>
       </div>
     </div>
     <button class="carousel-btn prev" onclick="changeSlide(this, -1)">&#10094;</button>
@@ -74,8 +66,6 @@ layout: home
       <span class="dot" onclick="currentSlide(this, 4)"></span>
       <span class="dot" onclick="currentSlide(this, 5)"></span>
       <span class="dot" onclick="currentSlide(this, 6)"></span>
-      <span class="dot" onclick="currentSlide(this, 7)"></span>
-      <span class="dot" onclick="currentSlide(this, 8)"></span>
     </div>
   </div>
 </div>
