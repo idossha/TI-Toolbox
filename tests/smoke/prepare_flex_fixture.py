@@ -29,7 +29,7 @@ import subprocess
 
 PREFLIGHT = """
 import json, os, sys
-from tests.smoke.client import SmokeClient
+import urllib.request
 from tit.config_io import deserialize_config
 from tit.opt.config import FlexConfig
 from tit.opt.flex.flex import _validate_flex_inputs
@@ -37,9 +37,13 @@ from tit.paths import get_path_manager
 config = json.load(sys.stdin)
 get_path_manager(config.pop('project_dir'))
 _validate_flex_inputs(deserialize_config(FlexConfig, config, strict=True))
-jobs = SmokeClient('http://127.0.0.1:8765', os.environ['TIT_SERVER_TOKEN']).jobs()
+port = int(os.environ.get('TIT_SERVER_PORT', '8765'))
+request = urllib.request.Request(f'http://127.0.0.1:{port}/api/jobs',
+    headers={'Authorization': 'Bearer ' + os.environ['TIT_SERVER_TOKEN']})
+with urllib.request.urlopen(request, timeout=10) as response:
+    jobs = json.load(response)
 active = [j['state'] for j in jobs
-          if j['state'] not in ('succeeded', 'failed', 'cancelled', 'skipped')]
+          if j['state'] not in ('succeeded', 'failed', 'cancelled', 'skipped', 'lost')]
 if active:
     raise RuntimeError('Heavy slot is not idle: ' + repr(active))
 print('Real-library input validation passed; server queue idle.')

@@ -72,8 +72,8 @@ npm run verify:package          # if you touched packaging
 npm run build                   # LAST, always
 ```
 
-`tests/test_scene_guide.py` has one known order-dependent failure in a full run that passes
-standalone; confirm it in isolation rather than reporting a red.
+Use isolated runs of `tests/test_scene_guide.py` to diagnose order-dependent failures;
+an isolated pass does not waive a failed full suite (see `docs/dev/CONTRIBUTING.md` §2.2).
 
 ## Working in a shared worktree
 
