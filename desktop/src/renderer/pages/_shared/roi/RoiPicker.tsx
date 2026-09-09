@@ -612,6 +612,10 @@ function MaskPanel({ value, onChange, disabled, subject, showTissues }: {
   const [error, setError] = useState<string>();
   async function importFile(file: File) {
     if (!subject) return;
+    if (!/\.nii(?:\.gz)?$/i.test(file.name)) {
+      setError("Choose a .nii or .nii.gz NIfTI mask.");
+      return;
+    }
     const controller = new AbortController();
     activeUpload.current = controller;
     setUploading(true);
@@ -632,7 +636,7 @@ function MaskPanel({ value, onChange, disabled, subject, showTissues }: {
       <div className="roi-mask-file">
         <TextInput value={value.path} readOnly aria-label="Imported mask" placeholder="Import a NIfTI mask…" />
         <Button disabled={disabled || uploading || !subject} onClick={() => input.current?.click()}>{uploading ? "Importing…" : "Import…"}</Button>
-        <input ref={input} type="file" accept=".nii,.nii.gz" aria-label="Import NIfTI mask" hidden disabled={disabled || uploading} onChange={(event) => {
+        <input ref={input} type="file" accept=".nii,.gz,application/gzip,application/x-gzip" aria-label="Import NIfTI mask" hidden disabled={disabled || uploading} onChange={(event) => {
           const file = event.target.files?.[0];
           event.target.value = "";
           if (file) void importFile(file);

@@ -20,6 +20,13 @@ The page has two parts. **Part 1** covers things outside the toolbox's control â
 
 ## Desktop application
 
+### A `.nii.gz` mask is grayed out in the file picker
+
+Early development builds filtered only `.nii` and the compound `.nii.gz` extension, which macOS
+may not recognize in its native chooser. The picker now includes gzip files and validates that
+the selected file is a `.nii` or `.nii.gz` NIfTI mask before importing. Refresh the updated UI
+and reopen the picker. Unrelated gzip archives are rejected.
+
 ### Switching tabs resets a draft or 3D camera
 
 **Applies to:** early 3.0.0 development builds.

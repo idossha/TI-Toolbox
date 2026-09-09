@@ -12,7 +12,7 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 - **FastSurfer uses available hardware.** Automatic device selection supports CUDA, native
   Apple MPS, or CPU in the selected Python environment. The bundled Docker image remains CPU-only.
 
-- **Custom NIfTI targets in Flex and Ex searches.** Choose a mask file and its Subject/MNI space;
+- **Custom NIfTI targets in Flex and Ex searches.** Import `.nii` or `.nii.gz` files (including through the macOS picker) and choose Subject/MNI space;
   MNI masks use the selected subject’s registration. Target and electrode settings are visually
   separated, and stacked scene/terminal panes use the available width on portrait screens.
 
