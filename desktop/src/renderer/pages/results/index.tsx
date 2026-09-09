@@ -781,6 +781,21 @@ function ResultsPage() {
           rows.findIndex((r) => r.type === "node" && r.node.id === selectedId),
         );
 
+  // U13: stretch / collapse / expand, from the shared primitive. `enabled` is "this subject has an
+  // output to preview", so a subject with nothing does not own ⌘⇧I and cannot be left in a
+  // collapsed state the pane it no longer renders would have to explain.
+  const hasPreview = !!(current && current.total > 0 && selected && subject);
+  const pane = // `minWidth: 320` — the preview is §2.1's `clamp(380px, 40%, 560px)` document pane and keeps its
+  // own floor; only the ceiling grew.
+  usePaneController({ pageId: "results", name: "preview", minWidth: 320, enabled: hasPreview });
+
+
+  const { mode: previewMode, restore: restorePreview } = pane;
+  const selectNode = useCallback((id: string) => {
+    setPickedId(id);
+    if (previewMode === "collapsed") restorePreview();
+  }, [setPickedId, previewMode, restorePreview]);
+
   const onTreeKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (rows.length === 0) return;
@@ -803,22 +818,15 @@ function ResultsPage() {
         toggleGroup(row.group.label);
       } else if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
-        if (row?.type === "node") setPickedId(row.node.id);
+        if (row?.type === "node") selectNode(row.node.id);
         else if (row?.type === "group") toggleGroup(row.group.label);
       }
     },
-    [rows, activeIndex, setActiveKey, setPickedId, toggleGroup],
+    [rows, activeIndex, setActiveKey, selectNode, toggleGroup],
   );
 
   const wide = useWideTree(treeRef);
 
-  // U13: stretch / collapse / expand, from the shared primitive. `enabled` is "this subject has an
-  // output to preview", so a subject with nothing does not own ⌘⇧I and cannot be left in a
-  // collapsed state the pane it no longer renders would have to explain.
-  const hasPreview = !!(current && current.total > 0 && selected && subject);
-  const pane = // `minWidth: 320` — the preview is §2.1's `clamp(380px, 40%, 560px)` document pane and keeps its
-  // own floor; only the ceiling grew.
-  usePaneController({ pageId: "results", name: "preview", minWidth: 320, enabled: hasPreview });
 
   const treePane = (
     <div className="results-tree-pane" data-testid="results-tree-pane">
@@ -906,7 +914,7 @@ function ResultsPage() {
                 title={row.node.path}
                 onClick={() => {
                   setActiveKey(row.key);
-                  setPickedId(row.node.id);
+                  selectNode(row.node.id);
                 }}
               >
                 <span className="results-node-label">{row.node.label}</span>
@@ -946,7 +954,7 @@ function ResultsPage() {
               subject={subject}
               node={selected}
               paneControls={<PaneHeaderControls controller={pane} />}
-              onSelectNode={setPickedId}
+              onSelectNode={selectNode}
             />
           ) : (
             <div className="results-preview" data-testid="results-preview">

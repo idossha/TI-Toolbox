@@ -183,7 +183,7 @@ export function ElectrodesSection({ form, onChange }: { form: FlexFormState; onC
         <Field label="Min distance">
           <NumberInput value={form.minElectrodeDistance} onValueChange={(v) => onChange({ minElectrodeDistance: v ?? 5 })} unit="mm" min={0} step={1} />
         </Field>
-        <Field label="Current ratio" help="Search the two-channel current split alongside electrode placement." className="optimizer-span">
+        <Field label="Current ratio" help="Search the two-channel current split alongside electrode placement.">
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
             <Checkbox checked={form.optimizeCurrentRatio} onCheckedChange={(v) => onChange({ optimizeCurrentRatio: v })} label="Optimize" />
             <NumberInput
@@ -213,42 +213,6 @@ export function SolverSection({ form, onChange, eegNets }: { form: FlexFormState
       title="Solver"
       collapsible
       summary={`DE · pop ${form.populationSize} · ${form.maxIterations} iter · tol ${form.tolerance}`}
-      advanced={
-        <>
-          <Field label="Anisotropy type">
-            <Select value={form.anisotropyType} onValueChange={(v) => onChange({ anisotropyType: v as FlexFormState["anisotropyType"] })} options={ANISOTROPY_OPTIONS} />
-          </Field>
-          <Field label="Anisotropy max ratio">
-            <NumberInput value={form.anisoMaxratio} onValueChange={(v) => onChange({ anisoMaxratio: v ?? 10 })} min={1} step={0.5} />
-          </Field>
-          <Field label="Anisotropy max conductivity" help="S/m">
-            <NumberInput value={form.anisoMaxcond} onValueChange={(v) => onChange({ anisoMaxcond: v ?? 2 })} min={0.1} step={0.1} />
-          </Field>
-          <Field label="Skin region margin" help="Signed valid-skin-region margin. Positive expands the region; negative constricts it.">
-            <NumberInput value={form.skinRegionMarginMm} onValueChange={(v) => onChange({ skinRegionMarginMm: v ?? 0 })} unit="mm" step={5} min={-20} max={40} />
-          </Field>
-          <Field label="Landmark exclusion">
-            <Checkbox checked={form.avoidLandmarkRegions} onCheckedChange={(v) => onChange({ avoidLandmarkRegions: v })} label="Avoid eye/ear landmarks" />
-          </Field>
-          <Field label="Skin visualization" help="Overlay valid and invalid electrodes from a net on the valid-skin-region visualization.">
-            <Checkbox
-              checked={form.visualizeSkinElectrodes}
-              onCheckedChange={(v) => onChange({ visualizeSkinElectrodes: v, skinVisualizationNet: v ? form.skinVisualizationNet : undefined })}
-              label="Plot EEG net electrodes"
-            />
-          </Field>
-          {form.visualizeSkinElectrodes && (
-            <Field label="Visualization EEG net" required>
-              <Select
-                value={form.skinVisualizationNet}
-                onValueChange={(v) => onChange({ skinVisualizationNet: v })}
-                options={eegNets.map((n) => ({ value: n.name, label: n.name }))}
-                placeholder="Select a net…"
-              />
-            </Field>
-          )}
-        </>
-      }
     >
       <>
         <Field label="Optimization runs" help="Higher values increase the chance of finding the global optimum but take longer.">
@@ -274,6 +238,38 @@ export function SolverSection({ form, onChange, eegNets }: { form: FlexFormState
           <NumberInput value={form.recombination} onValueChange={(v) => onChange({ recombination: v ?? 0.7 })} min={0} max={1} step={0.05} />
         </Field>
       </>
+      <Field label="Anisotropy type">
+        <Select value={form.anisotropyType} onValueChange={(v) => onChange({ anisotropyType: v as FlexFormState["anisotropyType"] })} options={ANISOTROPY_OPTIONS} />
+      </Field>
+      <Field label="Anisotropy max ratio">
+        <NumberInput value={form.anisoMaxratio} onValueChange={(v) => onChange({ anisoMaxratio: v ?? 10 })} min={1} step={0.5} />
+      </Field>
+      <Field label="Anisotropy max conductivity" help="S/m">
+        <NumberInput value={form.anisoMaxcond} onValueChange={(v) => onChange({ anisoMaxcond: v ?? 2 })} min={0.1} step={0.1} />
+      </Field>
+      <Field label="Skin region margin" help="Signed valid-skin-region margin. Positive expands the region; negative constricts it.">
+        <NumberInput value={form.skinRegionMarginMm} onValueChange={(v) => onChange({ skinRegionMarginMm: v ?? 0 })} unit="mm" step={5} min={-20} max={40} />
+      </Field>
+      <Field label="Landmark exclusion">
+        <Checkbox checked={form.avoidLandmarkRegions} onCheckedChange={(v) => onChange({ avoidLandmarkRegions: v })} label="Avoid eye/ear landmarks" />
+      </Field>
+      <Field label="Skin visualization" help="Overlay valid and invalid electrodes from a net on the valid-skin-region visualization.">
+        <Checkbox
+          checked={form.visualizeSkinElectrodes}
+          onCheckedChange={(v) => onChange({ visualizeSkinElectrodes: v, skinVisualizationNet: v ? form.skinVisualizationNet : undefined })}
+          label="Plot EEG net electrodes"
+        />
+      </Field>
+      {form.visualizeSkinElectrodes && (
+        <Field label="Visualization EEG net" required>
+          <Select
+            value={form.skinVisualizationNet}
+            onValueChange={(v) => onChange({ skinVisualizationNet: v })}
+            options={eegNets.map((n) => ({ value: n.name, label: n.name }))}
+            placeholder="Select a net…"
+          />
+        </Field>
+      )}
       <p className="optimizer-cost optimizer-span" data-testid="optimizer-cost-flex">
         {cost.line}
       </p>
@@ -283,9 +279,8 @@ export function SolverSection({ form, onChange, eegNets }: { form: FlexFormState
 
 /** Simulations the search runs for you once it has a winner. */
 export function PostRunSection({ form, onChange, eegNets }: { form: FlexFormState; onChange: FlexPatch; eegNets: EegNet[] }) {
-  const on = [form.runFinalElectrodeSimulation && "final montage", form.enableMapping && "mapped electrodes"].filter(Boolean);
   return (
-    <FormSection title="After the search" collapsible defaultOpen={false} summary={on.length ? on.join(" · ") : "off"}>
+    <FormSection title="After the search">
       <>
         <Field label="Simulate" className="optimizer-span">
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>

@@ -72,11 +72,11 @@ pane is the shared `RunPanel` (lane B2) with `kind` following the segment and
       cores (ARCHITECTURE.md §8), so the field bought nothing. The renderer sends no `cpus` key;
       the Python default `None` stays for scripting users.
 - [~] Anisotropy type / max ratio / max conductivity, skin-region margin, landmark exclusion, skin
-      visualization + its net → **Solver ▸ Advanced**. (Was "Basic parameters ▸ Advanced" and
+      visualization + its net → **Solver** (always exposed within the section). (Was "Basic parameters ▸ Advanced" and
       "Hyper parameters ▸ Advanced"; two Advanced disclosures for one solver was one too many.)
       Anisotropy is still `scalar`/`vn` only — see gap 5.
 - [x] Run final electrode simulation, run simulation with mapped electrodes + EEG net →
-      **After the search** (collapsible, closed by default).
+      **After the search** (always exposed).
 - [x] `POST /api/validate/{kind}` before submit; errors render in a `Callout` in the work pane
       (was: inside the plan card, which §4.5 reserves for the plan's own warnings).
 

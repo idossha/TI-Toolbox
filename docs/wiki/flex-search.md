@@ -12,6 +12,11 @@ permalink: /wiki/flex-search/
 
 - [Haber, I., Jackson, A., Thielscher, A., Hai, A., & Tononi, G. TI-Toolbox: An Open-Source Software for Temporal Interference Stimulation Research. Brain Stimulation](<https://www.brainstimjrnl.com/article/S1935-861X(25)00418-8/fulltext>)
 
+## Job settings
+
+Current ratio and Ratio total current sit together in the Electrode settings. Solver options
+are directly exposed, and After the search shows its options without opening a disclosure.
+
 ## Run names
 
 Leave the run name blank to use the current date and time. The application resolves one

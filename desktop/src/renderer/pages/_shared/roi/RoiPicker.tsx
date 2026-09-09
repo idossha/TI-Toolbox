@@ -336,7 +336,7 @@ function SphericalPanel({
         )}
       </div>
       <div className="scroll-x">
-        <table className="data-table">
+        <table className="data-table roi-sphere-table">
           <thead>
             <tr>
               <th>X (mm)</th>

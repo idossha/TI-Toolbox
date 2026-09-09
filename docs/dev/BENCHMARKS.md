@@ -739,3 +739,13 @@ The prior baked embed remains available as rollback; no container restart or pub
   earlier 24-test extension/simulator run (`/tmp/tit-touchup-e2e.log`).
 - Jekyll build passed, 2.151 s (`/tmp/tit-touchup-docs.log`). No scientific runs submitted to
   either maintainer container; all job-submission checks used the mock server.
+
+### 2026-09-09 — Optimizer visibility, sphere spacing and Results selection
+
+- Hidden Optimizer suite: 13 passed, 11.9 s (`/tmp/tit-optimizer-open-e2e.log`).
+- Final targeted regressions: 3 passed, 13.5 s (`/tmp/tit-results-optimizer-final.log`):
+  ratio controls share a row; Solver/post-search controls are exposed; sphere inputs have
+  at least 7 px vertical separation; collapsed Results preview reopens; exact artifact path
+  reaches a successful viewer scene and the embedded viewer tab is active.
+- Typecheck, scoped ESLint, normal production build and Jekyll build passed (1.752 s docs).
+  GUI checks used the hidden mock harness; no real scientific jobs were submitted.

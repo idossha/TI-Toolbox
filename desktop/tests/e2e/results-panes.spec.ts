@@ -303,3 +303,19 @@ test("a group-statistics run that wrote only a log says why, instead of showing 
   await expect(notice).toContainText("zero within-group variance");
   await expect(page.getByTestId("results-files")).toContainText("log");
 });
+
+
+test("selecting a result restores its collapsed preview for pointer and keyboard", async () => {
+  await openResults("ernie");
+  const simulation = page.getByTestId("results-node-simulation:ernie:Thalamus");
+  await simulation.click();
+  await expect(page.getByTestId("results-preview")).toBeVisible();
+  await page.getByRole("button", { name: "Collapse the preview pane", exact: true }).click();
+  await expect(page.getByTestId("results-preview")).toBeHidden();
+  await simulation.click();
+  await expect(page.getByTestId("results-preview")).toBeVisible();
+  await page.getByRole("button", { name: "Collapse the preview pane", exact: true }).click();
+  await page.getByTestId("results-tree").focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("results-preview")).toBeVisible();
+});

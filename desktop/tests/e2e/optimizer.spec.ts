@@ -265,6 +265,21 @@ test("Flex: the row's editor holds the target and the form, and one flex job rea
   for (const section of ["Objective", "Electrodes", "Solver", "After the search"]) {
     await expect(dialog.locator(".form-section-title", { hasText: section }).first()).toHaveCount(1);
   }
+  await expect(dialog.getByText("Anisotropy type", { exact: true })).toBeVisible();
+  await expect(dialog.getByRole("checkbox", { name: "Run final electrode simulation", exact: true })).toBeVisible();
+  const ratio = dialog.locator(".field").filter({ has: page.locator(".field-label-text", { hasText: /^Current ratio$/ }) });
+  const total = dialog.locator(".field").filter({ has: page.locator(".field-label-text", { hasText: /^Ratio total current$/ }) });
+  const ratioBox = (await ratio.boundingBox())!;
+  const totalBox = (await total.boundingBox())!;
+  expect(Math.abs(ratioBox.y - totalBox.y)).toBeLessThan(1);
+  expect(totalBox.x).toBeGreaterThan(ratioBox.x);
+  await dialog.getByRole("radio", { name: "Spherical", exact: true }).click();
+  await dialog.getByRole("button", { name: "Add sphere", exact: true }).click();
+  const firstSphere = (await dialog.getByRole("spinbutton", { name: "Sphere 1 X", exact: true }).boundingBox())!;
+  const secondSphere = (await dialog.getByRole("spinbutton", { name: "Sphere 2 X", exact: true }).boundingBox())!;
+  expect(secondSphere.y - firstSphere.y - firstSphere.height).toBeGreaterThanOrEqual(7);
+  await dialog.getByRole("radio", { name: "Cortical", exact: true }).click();
+
   // The header line is the same structure as the Ex editor's — the two dialogs match: the subject
   // and the run name on one line under the title, and no Run name row in the body.
   const meta = dialog.locator(".optimizer-dialog-meta");

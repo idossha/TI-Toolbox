@@ -797,7 +797,18 @@ test("Open in Tetravox is offered on the mesh and on nothing else", async () => 
   await expect(detail.getByTestId("job-artifact-tetravox-roi_overlay.msh")).toHaveCount(1);
   await expect(detail.getByTestId("job-artifact-tetravox-roi_overlay.msh.opt")).toHaveCount(0);
 
-  // …and it opens the viewer rather than filling in its Menu.
+  // The exact artifact must reach scene construction, not merely navigate to the Viewer.
+  const artifactPath = await tetravox.locator("..").locator("[title]").first().getAttribute("title");
+  expect(artifactPath).toMatch(/\/roi_overlay\.msh$/);
+  const written = page.waitForResponse((response) => {
+    if (!response.url().includes("/api/view/open") || response.request().method() !== "POST") return false;
+    return response.request().postDataJSON().dry_run !== true;
+  });
   await tetravox.click();
+  const response = await written;
+  expect(response.ok()).toBe(true);
+  expect(response.request().postDataJSON()).toMatchObject({ kind: "custom", files: [artifactPath] });
+  const payload = await response.json();
+  expect(payload.scene.datasets.map((dataset: { path: string }) => dataset.path)).toContain(artifactPath);
   await expect(page.getByTestId("viewer-sub-viewer")).toHaveAttribute("data-active", "true", { timeout: 20_000 });
 });

@@ -1470,3 +1470,9 @@ folder retain the existing warning because their destination has not been pinned
 **Why.** The maintainer clarified that control starts should align rather than stagger after
 individual labels. Long labels wrap inside the shared column; controls retain their existing
 full-width or compact numeric sizing. This supersedes content-sized labels above.
+
+### 2026-09-09 — Expose Optimizer settings directly
+
+**Decision.** Put ratio controls on one row, remove Solver’s nested Advanced disclosure and
+keep After the search open without a disclosure. **Why.** The maintainer requested fewer rows
+and direct access to these settings. Parameter values and submitted configs are unchanged.

@@ -838,3 +838,9 @@ supports Cluster permutation and NIfTI group averaging participant tables.
 
 Form alignment clarification: left-aligned labels now share a column so all controls start
 on the same vertical line.
+
+Optimizer settings now pair the current-ratio controls and expose Solver and post-search
+options without nested disclosures.
+
+Results selection reopens a collapsed preview. Artifact-to-viewer regression coverage checks
+the exact requested file in the returned scene. Sphere coordinate rows have vertical padding.

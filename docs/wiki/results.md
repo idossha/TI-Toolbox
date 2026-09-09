@@ -13,6 +13,10 @@ here, and every "Open" from here is an in-app navigation to the
 <img src="{{ site.baseurl }}/assets/imgs/v3/results.png" alt="The Results page: subject list, outputs tree and preview pane" style="width: 100%; max-width: 1000px;">
 <em>Subject list, outputs tree with type badges, and the preview pane.</em>
 
+Selecting an output opens its details on the right, including when that pane was collapsed.
+The job artifact action **Open in Tetravox** opens the selected supported file directly in
+the embedded viewer.
+
 ## Three columns
 
 1. **Subjects** (200 px) — every subject with its output count.

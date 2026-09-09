@@ -75,11 +75,8 @@
 .page-optimizer .form-grid {
   --field-label-w: 128px;
 }
-/* Two controls wide: "Dimensions (x, y)" is two number inputs and "Current ratio" is a checkbox
-   plus one. Un-spanning them at 1280 (a 389px column does hold 160 + 12 + 2x110) was measured and
-   REJECTED: the section's dead space went UP, from 45.5 % to 47.2 % of the content box, because
-   two 826px rows became four 389px cells of which the extra two were empty, and the number inputs
-   lost the room that kept them off each other. The span stays. */
+/* Wide compound controls span both columns. Current ratio fits one column so its
+   total current can sit beside it. */
 .page-optimizer .optimizer-span {
   grid-column: 1 / -1;
 }

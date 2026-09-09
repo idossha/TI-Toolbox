@@ -20,3 +20,8 @@
 .roi-saved-row:hover {
   background: var(--surface-2);
 }
+
+/* Separate editable sphere coordinates without changing other dense data tables. */
+.data-table.roi-sphere-table tbody td {
+  padding-block: var(--space-1);
+}

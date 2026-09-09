@@ -1593,3 +1593,7 @@ use the run-page work/right-pane arrangement. Their plan may retain its concise 
 vocabulary, but it is capped at 45% of the right pane and the terminal receives the rest.
 An idle terminal is intentional space for log output, not padding to fill with controls.
 The export page uses the same Scene/Terminal tabs and pane controls as the main run pages.
+
+Optimizer Flex settings place Current ratio and Ratio total current side by side when the
+form has two columns. Solver settings have no Advanced disclosure, and After the search is
+always exposed. Narrow forms retain their responsive one-column layout.
