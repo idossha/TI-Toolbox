@@ -97,10 +97,11 @@ Do not disable TLS verification to get a build past a certificate or network fai
 verified cache or fix the transport. Checkpoint verification does not validate the image's
 other dependencies or its scientific outputs.
 
-**Current real-image build: incomplete.** The NumPy/Blender dependency conflict has a verified
-separate-runtime fix in a disposable container. The verified cache and accepted build arguments
-do not establish a valid baked image; final build and real-image acceptance remain pending, with
-executed evidence recorded in [BENCHMARKS.md](BENCHMARKS.md).
+**Current real-image build: completed locally; acceptance remains in progress.** The clean
+candidate now contains the separate Blender runtime and has run selected tests and all three
+source/wheel launcher routes without source/UI bind mounts. Image identity, local reported
+sizes and receipts are in [BENCHMARKS.md](BENCHMARKS.md#clean-baked-candidate-progress--2026-09-09).
+These results do not establish registry availability, installer acceptance or overall readiness.
 
 ### Optional Blender download cache
 
@@ -137,8 +138,15 @@ and first launch must be measured before claiming them; Windows artifacts are un
 ## B. Current readiness and follow-ups
 
 Internal preparation is in progress. The cohort identity is `internal-20260908.1`, runtime
-`3.0.0-dev.1`. Local image build, package verification, isolated real UI gates, hosted CI, registry
-publication and merge evidence must be recorded in BENCHMARKS.md before closing those steps.
+`3.0.0-dev.1`. The clean image has been built locally from the recorded source, and the baked
+container has passed selected tests and Python/shell/installed-wheel launcher checks. Actual Flex
+fixture execution also completed; exact measurements and receipts are in
+[BENCHMARKS.md](BENCHMARKS.md#clean-baked-candidate-progress--2026-09-09).
+The full mock suite passed its tests, but the native quiet monitor was inconclusive; it is not
+an overall quiet-check pass. The refreshed full host suite completed with 4,441 passing tests; exact counts and timing
+are in BENCHMARKS.md. The final full real suite remains pending. Installers have not yet been built. Packaging, hosted CI, main merge and
+registry publication remain unverified; no acceptance gate is closed by source or selected-test
+success alone.
 No public release or update announcement is authorized by this preparation.
 
 Two previously listed blockers were stale: startup reconciliation deliberately interrupts old jobs

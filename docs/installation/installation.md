@@ -218,6 +218,15 @@ those layers.
 | **Colima / OrbStack** | Best-effort — not actively tested |
 | **Podman** | Not supported |
 
+## Troubleshooting
+
+For known problems and verified fixes, start with the
+[maintained Troubleshooting Archive]({{ site.baseurl }}/wiki/troubleshooting/).
+For Docker and launcher setup, see
+[installation troubleshooting]({{ site.baseurl }}/installation/troubleshooting/).
+Check whether you are following the stable 2.5.0 instructions or the upcoming preview
+instructions before applying a version-specific fix.
+
 ## Docker access is a trust boundary
 
 The server authenticates with a bearer token, generated fresh per launch and passed to the

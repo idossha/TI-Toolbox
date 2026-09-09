@@ -22,17 +22,12 @@ are labelled where it matters.
 | Native pip runtime, no bpy (spike, parked) | 2.0 GB | — | 2026-09-03 |
 | Native Electron `.app`, minimal runtime (spike, parked) | 468 MB (175 MB runtime + 286 MB Electron) | — | 2026-09-03 |
 
-`docker images` prints non-deduplicated *disk usage*. Always cite content size —
-it is the fresh-pull cost and it is stable.
-
-The 2026-09-07 row is the image after the Dockerfile slimming pass (gmsh, PyQt5,
-TMS coil models, neovim and the build compilers removed): `docker image inspect
---format '{{.Size}}'` reports 2.32 GB, `docker images` / `docker system df`
-report 8.93 GB for the same id. The documentation site states both, as
-"≈ 2.3 GB to download, ≈ 9 GB unpacked on disk" (`docs/about/about.md`), because a
-reader planning disk space needs the second number and a reader planning a pull
-needs the first. The 2026-09-03 row is kept so the two measurements are not read
-as a contradiction.
+The older rows retain their original local size labels and measurements. Docker's local
+`inspect .Size`, image-list size and storage accounting are different metrics; none alone
+establishes compressed registry transfer size. The September 7 figures previously appeared
+on the site as download/disk estimates, but no longer describe the current candidate with
+standalone Blender. Its measured local values are recorded in the clean baked candidate
+section below; a registry transfer measurement remains pending.
 
 Largest packages in a native runtime: simnibs 384 M (219 M of it atlases),
 torch 345 M, PyQt5 136 M, llvmlite 113 M, scipy 100 M, sympy 77 M, pandas 73 M,
@@ -489,7 +484,8 @@ recorded when completed below. Earlier real results do not prove the rebuilt env
   **41 desktop stack tests** passed. Typecheck, scoped lint and actionlint passed. These guards
   refuse a mismatched running image without stopping it and serialize internal image pushes.
 
-The new image still requires a clean build and a test run without source or UI bind mounts.
+At that stage, the new image still required a clean build and tests without source or UI
+bind mounts; the subsequent baked-candidate measurements below supersede that pending status.
 
 Before the clean image build, the complete host suite passed **4,412 tests**, with **46 skips and
 21 deselections**, in **97.81 s** (`host-pytest-candidate.log`). The full corrected real target
@@ -497,3 +493,57 @@ passed **10/10 tests in 4.4 min** (`real-corrected-final.log`). Its global quiet
 new Electron windows owned by Roost PID 2901, independently identified from the live executable
 path. None matched the eight recorded test Electron PIDs, which all reported hidden/unfocused
 windows. The name-only focus record still prevents claiming a global quiet-check pass.
+
+
+### Clean baked candidate progress — 2026-09-09
+
+The clean local build records source `e3bee214cea67be1f0867b74aceaf9c718c9eaf3`, `dirty: false`,
+runtime `3.0.0-dev.1`, and tag `idossha/ti-toolbox:internal-20260908.1`. Image ID:
+`sha256:56faec6cecce2c1645a8895f75d01ff2125eb006abb6b9152e03704573e8b0c9`.
+Receipts: `dist/internal/image-receipt.json` and `dist/internal/baked-build-record.json`.
+A local `RepoDigests` entry is not proof of Docker Hub publication.
+
+| Check / command surface | Measured result | Receipt and limit |
+|---|---|---|
+| `docker image inspect idossha/ti-toolbox:internal-20260908.1` | `.Size = 2403717605` bytes | `image-receipt.json`; local reported size, not compressed registry transfer |
+| `docker image ls idossha/ti-toolbox:internal-20260908.1` | 9.27 GB displayed locally | Local Docker accounting; not a registry transfer measurement |
+| Python loader start, shell loader and installed-wheel launcher attach | All used `ti-toolbox-606b810e-tit-1`; no source/UI bind mounts | `python-loader-baked.log`, `shell-loader-baked.log`, `wheel-launcher-baked.log`; proves these launch routes against this local image, not an installer |
+| Final Jekyll build and rendered-site validation | **1.859 s** build; **83 non-API pages / 3,473 local links / 0 unresolved**; **113 API pages / 37,193 local links / 0 unresolved**; **898 API resource references / 0 missing**; existing asset check passed | `site-final.log`, `site-assets-final.log`, `site-api-links-final.log`, `site-api-assets-final.log`; separate buckets include the restored `_common` API page. Local targets/anchors/resources checked, not external URLs or runtime browser behavior |
+| Final host pytest refresh | **4,441 passed, 46 skipped, 21 deselected, 16 warnings, 103.35 s** | `dist/internal/host-pytest-baked.log`; host suite, not real-library or packaged-app acceptance |
+| `python3 dev/route_import_guard.py` | **24 modules clean** | Final source guard refresh |
+| `python3 dev/contracts_check.py` | Up to date: **114 operations, 136 schemas**, **244 acknowledged warnings** | Final contract refresh; warnings are retained, not treated as zero |
+| `actionlint` | Exit **0** | Final workflow static check |
+| Selected baked-container pytest | **244 passed**, 14 warnings, **69.81 s** | `baked-numerical-tests.log`; selected scientific corrections, planner, mEx, Blender/process and kernel tests, not the full host suite |
+| Full mock suite via `TIT_E2E_OFFSCREEN=1 npm run e2e:quiet` | **363 passed, 2 skipped, 5.7 min**; test command exit 0 | `mock-e2e-final.log`; native monitor exit **2 (inconclusive)** due to unrelated newly reparented Roost processes and WindowServer overlays; no test-descendant FAIL reported. Not an overall quiet-check pass |
+| Actual Flex fixture execution | Objective **−0.1273302510172551**, four finite XYZ positions, two electrode pairs | `flex-fixture-execution.log`; completed `smoke-flex-fixture-20260909`, not a mocked or start/cancel run |
+
+The baked pytest selection, recoverable from the log, was
+`tests/numerical/test_sci01_cluster_sign.py`, `test_sci02_grid_consistency.py`,
+`test_sci03_sci05_analyzer_geometry.py`, `test_sci04_sci06_pvalues_degenerate.py`,
+`test_sci07_exposure_channels.py`, `test_sci09_singleton_group.py` (all under `tests/numerical/`),
+plus `tests/test_plan_routes.py`, `tests/test_opt_mex.py`, `tests/test_blender_process_boundary.py`,
+`tests/test_jobs_processes.py` and `tests/test_kernels.py`, run with `simnibs_python -m pytest`
+inside the baked container.
+
+**Still pending:** final full real-suite result (running), installers
+and package validation, hosted CI, main merge and registry publication. The earlier real-suite
+failures and monitor limitations above remain historical evidence; this selected baked pass
+does not relabel them or establish overall readiness.
+
+
+The final docs build used Homebrew Ruby 3.3 and, from `docs/`,
+`ENABLE_ANALYTICS=false bundle exec jekyll build --source . --destination /tmp/tit-docs-internal-preview`.
+Asset validation ran `python3 docs/tests/check_assets.py /tmp/tit-docs-internal-preview` from
+the repository root. The local link/anchor and API resource audits ran
+`python3 /tmp/tit-docs-link-check.py /tmp/tit-docs-internal-preview`,
+`python3 /tmp/tit-docs-api-link-check.py /tmp/tit-docs-internal-preview` and
+`python3 /tmp/tit-docs-api-assets-check.py /tmp/tit-docs-internal-preview`; their retained outputs
+are the `site-*-final.log` receipts above. These were audit scripts, not a new repository gate.
+
+Before the source configuration fix, the API bucket had 112 rendered pages, 10 broken local
+links and 114 missing resource references. Jekyll 3.9 omitted `_common/` and
+`_mkdocstrings.css` because their basenames start with underscores. The narrow `include`
+entries in `docs/_config.yml` restore exactly these existing generated outputs: both were
+compared byte-for-byte with their sources, and `api_mkdocs/` and `dev/` remain excluded.
+No generated HTML was edited. The canonical installation Troubleshooting section separately
+restored the destination for 19 historical release links without rewriting those release pages.
