@@ -137,8 +137,9 @@ python3 dev/loader/loader_dev.py --project /path/to/project-copy --logs
 
 Replace the project path before running. This route mounts checkout source and available
 local renderer output; it is a development check, not clean baked-image acceptance. Reuse an
-active development session and preserve shared containers. The latest source still needs its
-matching final image; the locally cached internal image above is an interim test environment.
+active development session and preserve shared containers. The local image now matches the code at `b06b4493`; add `--no-mount-repo` to use its baked
+code and UI instead of checkout mounts. Use `--port 18767` to keep the existing port-8765
+development session untouched.
 See [CONTRIBUTING.md](CONTRIBUTING.md) for shared test/build ordering.
 
 For localhost documentation preview, with Ruby/Bundler and the existing gems installed:
@@ -173,24 +174,26 @@ Do not merge main or publish to Docker Hub in this round. No public release, tag
 notification is part of this closeout. Local testing may continue while final artifact
 acceptance remains open.
 
-**Current delivery: NOT READY.** The cohort name remains `internal-20260908.1`, runtime
-`3.0.0-dev.1`, but its final source/image/package identities are pending further fixes. The
-clean local security image from `6571d06b` has been built and exercised through actual Python,
-shell and installed-wheel launchers. Host, desktop and fresh mock assertions passed; native
-monitoring remains inconclusive. Baked security tests had two missing development-fixture
-failures; both passed after fixture copies, without relabeling the original run as successful.
-Exact identities, counts and raw receipts are in
-[BENCHMARKS.md](BENCHMARKS.md#interim-security-image-validation--2026-09-09).
+**Local development: ready for human testing.** The clean local image
+`idossha/ti-toolbox:internal-20260908.1` contains source
+`b06b4493bea5aa4834c107fe60301fcd9075afe1` and runs as `3.0.0-dev.1`.
+The Python development loader started it with `--no-mount-repo`: code and UI are baked into
+the image, not supplied by checkout mounts. The installed-wheel launcher also attached.
+The copied local test project is served on port 18767. Exact image/wheel identities and
+executed checks are in [BENCHMARKS.md](BENCHMARKS.md#development-closeout-checks--2026-09-09).
 
-Hosted CodeQL still reports 205 new alerts and gates the PR. The subsequent pipeline, ViewSpec-cache, named-view, scene, montage-source and
-catalog/ETA boundary fixes are implemented and locally tested; the new revision still needs
-its own hosted analysis. The missing `yaml` runtime dependency caused the first unsigned packaged launch to fail.
-Its repaired dirty-source app subsequently passed actual Browse → Start against the clean
-`6571d06b` image, including cleanup; native attribution remained inconclusive. This interim
-functional pass does not validate the next final installer/source/image pairing. The earlier real suite passed against `e3bee214`, not the newer security
-source. Final image/package rebuilding, first launch, fresh security/artifact acceptance and
-hosted gates remain open. Main and Docker Hub have not been updated; no public notification
-has been issued.
+**Distribution and production gates remain open.** Main and Docker Hub are unchanged. The
+last hosted CodeQL result reported 205 new alerts on historical PR head `6571d06b`; it does
+not analyze the subsequent fixes on `develop`, which still need hosted review. Native macOS
+screen attribution could not establish a baseline; functional offscreen assertions passed.
+The earlier full real suite passed against `e3bee214`; it was not repeated in this closeout.
+No signing, cross-platform acceptance, public tag, release or user update notification is claimed.
+
+The missing `yaml` dependency was repaired and actual packaged Browse → Start succeeded
+against the preceding clean image. The current packaged-launch regression also passed.
+Installers were not regenerated in this closeout: rejected DMG/ZIP files and their generated
+update manifest were moved to `dist/internal/rejected-packages/before-yaml-fix/`. Use the
+Python loader for this handoff, not those archived installers.
 
 Concrete fixes cover atlas/hemi/sidecar/ROI/catalog-content containment, unknown WebSocket job
 subscriptions, pre-existing outward symlinks in metadata/notebook/saved-view storage, exclusive
@@ -203,7 +206,8 @@ algorithm changed, so this work adds no scientific-correction notice.
 CircleCI source job 853 failed a checkout-dependent fixture, now repaired and checked on host
 and container. Desktop job 854 stalled at an interactive service-restart prompt before e2e;
 noninteractive setup is now explicit and CLI-validated. Hosted source job 856 subsequently passed on `6571d06b` and uploaded coverage; desktop
-job 855 remains running. These results do not cover the subsequent security fixes.
+job 855 was still running at the last observation. These historical results do not certify
+the subsequent `develop` fixes.
 
 No public release or update announcement is authorized by this preparation.
 

@@ -637,3 +637,22 @@ preserved in `mock-e2e-followup-functional.log`; its replacement tests the curre
 The native macOS monitor could not acquire a baseline because of an unclassified WindowServer
 overlay, before launching any tests. Functional offscreen runs are recorded separately and do
 not turn this native measurement into a pass.
+
+Final closeout receipts for code `b06b4493bea5aa4834c107fe60301fcd9075afe1`:
+
+| Check | Result | Receipt |
+|---|---|---|
+| Full functional mock suite, including current packaged launcher | 364 passed, 1 skipped, 0 failed; 6.1 min | `mock-e2e-current-contract.log` |
+| Baked-image numerical + new boundary + Blender-boundary tests | 223 passed, 1 skipped, 13 warnings; 61.68 s | `baked-develop-tests.log` |
+| Final unset-project metadata control on Linux | 17 passed | `catalog-linux-develop-final.log` |
+| Python dev loader with `--no-mount-repo` | Healthy container on port 18767; no application source/UI mounts | `dev-loader-develop-receipt.json` |
+| Clean installed-wheel launcher | Attached successfully, exit 0 | `wheel-develop-receipt.json` |
+| Local website homepage, wiki, API index and current preprocessing API | HTTP 200; expected content present | `site-preview-develop-receipt.json` |
+
+Image ID: `sha256:01d66ed257f0341f8467e31e9cd4d1dc3197cefb448812ded00e05931fffa5b6`.
+Wheel SHA256: `3e740a7b7253576856e70797fc825163e8365e6803086551ea0a98c6729f6f56`
+(14,962,142 bytes). Neither image nor installers were published in this round. The image
+records a clean code commit; later handoff-documentation commits do not change its runtime.
+
+The last host UI phase was a plain production `npm run build` under the shared lock; it
+passed (`desktop-production-develop.log`) and replaced the test-hook renderer output.
