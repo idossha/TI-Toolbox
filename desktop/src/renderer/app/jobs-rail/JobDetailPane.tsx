@@ -14,6 +14,7 @@ import { ApiError } from "../../api/client";
 import { Button, IconButton } from "../../ui/Button";
 import { Callout, DefinitionList, EmptyState, InlineError, Skeleton } from "../../ui/Feedback";
 import { Cluster, Stack, Tabs } from "../../ui/Layout";
+import { ExistingOutputsDialog } from "../../pages/_shared/run/ExistingOutputsDialog";
 import { AlertDialog } from "../../ui/Overlay";
 import { Chip, JobStateChip, LivenessBadge } from "../../ui/Status";
 import { notify } from "../../ui/Toast";
@@ -24,6 +25,8 @@ import {
   forceJob,
   getJobLog,
   rerunJob,
+  prepareJobRerun,
+  type RerunSpec,
   TERMINAL_STATES,
   type JobStatus,
 } from "./api";
@@ -53,6 +56,8 @@ export interface JobDetailPaneProps {
 
 export function JobDetailPane({ job, allowUnsafeOverrides, onOpenJob, density = "page", headerControls }: JobDetailPaneProps) {
   const queryClient = useQueryClient();
+  const [rerunDecision, setRerunDecision] = useState<{ id: string; spec: RerunSpec; existing: number } | null>(null);
+  const [checkingRerun, setCheckingRerun] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmKind | null>(null);
   const [tab, setTab] = useState("summary");
   const [now, setNow] = useState(() => Date.now());
@@ -64,6 +69,7 @@ export function JobDetailPane({ job, allowUnsafeOverrides, onOpenJob, density = 
   if (jobId !== resetForJobId) {
     setResetForJobId(jobId);
     setTab("summary");
+    setRerunDecision(null);
   }
 
   useEffect(() => {
@@ -96,13 +102,24 @@ export function JobDetailPane({ job, allowUnsafeOverrides, onOpenJob, density = 
     onError: (e) => notify.error("Could not stop the job.", e instanceof ApiError ? e.message : String(e)),
   });
   const rerun = useMutation({
-    mutationFn: () => rerunJob(jobId!),
+    mutationFn: ({ spec, overwrite }: { spec: RerunSpec; overwrite: boolean }) => rerunJob(spec, overwrite),
     onSuccess: (status) => {
       notify.success(`Queued: rerun of ${status.kind} for ${status.subject_ids.join(", ") || "the project"}.`);
       invalidateJobs();
     },
     onError: (e) => notify.error("Could not rerun the job.", e instanceof ApiError ? e.message : String(e)),
   });
+  async function checkRerun() {
+    if (!jobId) return;
+    setCheckingRerun(true);
+    try {
+      const prepared = await prepareJobRerun(jobId);
+      if (prepared.existing > 0) setRerunDecision({ id: jobId, ...prepared });
+      else rerun.mutate({ spec: prepared.spec, overwrite: false });
+    } catch (error) {
+      notify.error("Could not check outputs before rerunning.", error instanceof Error ? error.message : String(error));
+    } finally { setCheckingRerun(false); }
+  }
   const force = useMutation({
     mutationFn: () => forceJob(jobId!),
     onSuccess: () => {
@@ -203,7 +220,7 @@ export function JobDetailPane({ job, allowUnsafeOverrides, onOpenJob, density = 
           </Button>
         )}
         {isTerminal && (
-          <Button variant="secondary" size="sm" icon={<RotateCw size={14} />} loading={rerun.isPending} onClick={() => rerun.mutate()}>
+          <Button variant="secondary" size="sm" icon={<RotateCw size={14} />} loading={rerun.isPending || checkingRerun} onClick={() => void checkRerun()}>
             Rerun
           </Button>
         )}
@@ -291,6 +308,20 @@ export function JobDetailPane({ job, allowUnsafeOverrides, onOpenJob, density = 
         </div>
       </div>
 
+      <ExistingOutputsDialog
+        open={rerunDecision?.id === jobId}
+        onOpenChange={(open) => { if (!open) setRerunDecision(null); }}
+        existing={rerunDecision?.existing ?? 0}
+        total={rerunDecision?.existing ?? 0}
+        noun="output for this rerun"
+        busy={rerun.isPending}
+        onDecide={(decision) => {
+          const selected = rerunDecision;
+          setRerunDecision(null);
+          if (selected && decision === "replace") rerun.mutate({ spec: selected.spec, overwrite: true });
+          else notify.success("Rerun skipped. No job was queued.");
+        }}
+      />
       <AlertDialog
         open={confirm === "stop"}
         onOpenChange={(open) => !open && setConfirm(null)}

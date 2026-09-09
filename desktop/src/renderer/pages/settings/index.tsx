@@ -282,7 +282,7 @@ function SettingsPage() {
           <CardBody>
             {/* User-level, not per page (2026-09-06): the default answer to the existing-outputs
                 question and the scheduler-enforced `Subjects in parallel` cap every run uses. */}
-            <ExecutionCard />
+            <ExecutionCard allowUnsafeOverrides={settingsQuery.data?.allow_unsafe_overrides === true} />
           </CardBody>
         </Card>
 
@@ -346,7 +346,7 @@ function SettingsPage() {
                   <span className="text-body">Allow unsafe overrides</span>
                 </div>
                 {form.allow_unsafe_overrides && (
-                  <Callout kind="warning">Lets a job be queued despite non-critical validation findings. May produce invalid or unusable results.</Callout>
+                  <Callout kind="warning">Allows replacing existing job outputs after confirmation and queuing jobs despite non-critical validation findings. Applies to this project. May produce invalid or unusable results.</Callout>
                 )}
               </div>
             )}
@@ -441,7 +441,7 @@ const page: PageDef = {
 
 export default page;
 
-function ExecutionCard() {
+function ExecutionCard({ allowUnsafeOverrides }: { allowUnsafeOverrides: boolean }) {
   const existingOutputs = useExecutionPrefs((s) => s.existingOutputs);
   const parallelSubjects = useExecutionPrefs((s) => s.parallelSubjects);
   const setExecutionPrefs = useExecutionPrefs((s) => s.setExecutionPrefs);
@@ -449,11 +449,11 @@ function ExecutionCard() {
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
       <Field label="Existing outputs" help="What a run does when a subject already has this output. You are still asked before a run that would touch existing outputs.">
         <SegmentedControl
-          value={existingOutputs}
+          value={allowUnsafeOverrides ? existingOutputs : "skip"}
           onValueChange={(v) => setExecutionPrefs({ existingOutputs: v as ExistingOutputPolicy })}
           options={[
             { value: "skip", label: "Skip existing outputs" },
-            { value: "replace", label: "Replace and rerun" },
+            { value: "replace", label: "Replace and rerun", disabled: !allowUnsafeOverrides, title: !allowUnsafeOverrides ? "Enable Allow unsafe overrides for this project first." : undefined },
           ]}
           aria-label="Existing outputs"
         />

@@ -784,3 +784,22 @@ The prior baked embed remains available as rollback; no container restart or pub
   SHA256 matches the host checkout. Python and Bash dev loaders both attached successfully.
 - Existing development and validation containers were idle before cleanup. No scientific
   pipeline was rerun as part of this launch verification.
+
+### Overwrite confirmation handoff — 2026-09-09
+
+- `python3 -m pytest tests/test_jobs_manager.py tests/test_jobs_routes.py tests/test_pipeline_routes.py tests/test_plan_routes.py tests/test_sim_pipeline.py tests/test_sim_utils.py -q`: **221 passed**, one warning, 21.43 s. Log `/tmp/tit-overwrite-integrated.log`.
+- Container `simnibs_python -m pytest tests/numerical/test_sim_overwrite.py -q`: **1 passed**, 8.95 s. Real SESSION existence guard; temporary fixture with stubbed FEM work, not a full numerical simulation. Log `/tmp/tit-overwrite-real.log`.
+- `python3 dev/route_import_guard.py`: **24 route modules clean**.
+- Live development server: project permission was already true; submitting the affected
+  simulation without confirmation returned **409** before creating a job. Project settings
+  were not changed by this check.
+
+- Final frontend focused units: **44 passed**; selection Electron e2e: **7 passed**.
+  Typecheck, focused ESLint and final plain renderer build passed. The quiet monitor
+  exited 2 because short-lived process attribution remained unresolved (20 samples);
+  no window/focus violation was reported, but visibility certification is **unverified**.
+- Jekyll documentation build passed (`/tmp/tit-overwrite-docs.log`).
+
+- Final rerun/dialog/pipeline policy checks: **17 passed** after closing the Jobs detail
+  shortcut; typecheck, targeted lint and another final plain build passed. Rerun clears old
+  confirmation flags and explicitly submits the current choice; reports keep safe rerun support.

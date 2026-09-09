@@ -73,8 +73,35 @@ export async function cancelJob(id: string): Promise<JobStatus> {
   return unwrap(await api.POST("/api/jobs/{id}/cancel", { params: { path: { id } } }), `/api/jobs/${id}/cancel`);
 }
 
-export async function rerunJob(id: string): Promise<JobStatus> {
-  return unwrap(await api.POST("/api/jobs/{id}/rerun", { params: { path: { id } } }), `/api/jobs/${id}/rerun`);
+export type RerunSpec = components["schemas"]["JobSpec"];
+
+/** Read the old spec, but never inherit its destructive decision or execution dependencies. */
+export function withRerunPolicy(spec: RerunSpec, overwrite: boolean): RerunSpec {
+  function config(value: unknown): unknown {
+    if (Array.isArray(value)) return value.map(config);
+    if (!value || typeof value !== "object") return value;
+    return Object.fromEntries(Object.entries(value).map(([key, field]) => [key,
+      ["overwrite", "replace_existing_outputs"].includes(key) ? overwrite
+        : key === "skip_existing_outputs" ? !overwrite : config(field),
+    ]));
+  }
+  return { kind: spec.kind, config: config(spec.config) as RerunSpec["config"], subject_ids: spec.subject_ids, tags: spec.tags, overwrite };
+}
+
+export async function prepareJobRerun(id: string, client = api): Promise<{ spec: RerunSpec; existing: number }> {
+  const detail = unwrap(await client.GET("/api/jobs/{id}", { params: { path: { id } } }), `/api/jobs/${id}`);
+  const spec = withRerunPolicy(detail.spec as unknown as RerunSpec, false);
+  // Reports write into their new job directory; they have no shared output plan.
+  if (spec.kind === "report") return { spec, existing: 0 };
+  if (spec.kind === "project_init" || spec.kind === "tools") throw new Error("This job has no output preview. Use its original run page to start it again.");
+  const plan = unwrap(await client.POST("/api/plan/{kind}", {
+    params: { path: { kind: spec.kind } }, body: { config: spec.config, subject_ids: spec.subject_ids, overwrite: false },
+  }), `/api/plan/${spec.kind}`);
+  return { spec, existing: plan.jobs.filter((job) => job.exists).length };
+}
+
+export async function rerunJob(spec: RerunSpec, overwrite: boolean, client = api): Promise<JobStatus> {
+  return unwrap(await client.POST("/api/jobs", { body: withRerunPolicy(spec, overwrite) }), "/api/jobs");
 }
 
 export async function forceJob(id: string): Promise<JobStatus> {

@@ -14,6 +14,7 @@ import { Select } from "../../../ui/Select";
 import { Button } from "../../../ui/Button";
 import { HelpIcon } from "../../../ui/HelpPopover";
 import { AlertDialog } from "../../../ui/Overlay";
+import { ExistingOutputsDialog } from "../../_shared/run/ExistingOutputsDialog";
 import { notify } from "../../../ui/Toast";
 import { ActionBar } from "../../../ui/Chrome";
 import { isPanelEnabled, panelDigest } from "../_shared";
@@ -70,6 +71,8 @@ function NiftiGroupAveragePanel() {
   const [pattern, setPattern] = usePageSession("pattern", "grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz");
   const [diffPairs, setDiffPairs] = usePageSession("diffPairs", "");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [existingCount, setExistingCount] = useState(0);
+  const [existingOpen, setExistingOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const simQueries = useQueries({ queries: rows.map((r) => ({ queryKey: ["simulations", r.subjectId], queryFn: () => getSimulationsFor(r.subjectId), enabled: !!r.subjectId })) });
@@ -141,11 +144,28 @@ function NiftiGroupAveragePanel() {
     setConfirmOpen(true);
   }
 
-  async function run() {
+  async function checkExisting() {
     if (!config) return;
     setSubmitting(true);
     try {
-      const job = await createNiftiAverageJob(config, subjectIds);
+      const plan = await planNiftiAverage(config, subjectIds);
+      const existing = plan.jobs.filter((job) => job.exists).length;
+      setConfirmOpen(false);
+      setExistingCount(existing);
+      if (existing > 0) setExistingOpen(true);
+      else await run(false);
+    } catch {
+      notify.error("Could not check existing group averages. Try again before running.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function run(overwrite = false) {
+    if (!config) return;
+    setSubmitting(true);
+    try {
+      const job = await createNiftiAverageJob(config, subjectIds, overwrite);
       jobs.trackJob(job);
       notify.success(`Queued: NIfTI group average "${config.output_name}"`);
       setConfirmOpen(false);
@@ -270,6 +290,15 @@ function NiftiGroupAveragePanel() {
         </div>
       </div>
 
+      <ExistingOutputsDialog
+        open={existingOpen}
+        onOpenChange={setExistingOpen}
+        existing={existingCount}
+        total={planQuery.data?.jobs.length ?? 1}
+        noun="group average output"
+        busy={submitting}
+        onDecide={(decision) => { setExistingOpen(false); void run(decision === "replace"); }}
+      />
       <AlertDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
@@ -277,7 +306,7 @@ function NiftiGroupAveragePanel() {
         description={`Groups: ${[...groupsSummary.entries()].map(([g, n]) => `${g} (${n} subjects)`).join(", ")}. Analysis name: ${outputName.trim()}.`}
         confirmLabel="Run analysis"
         confirmVariant="primary"
-        onConfirm={() => void run()}
+        onConfirm={() => void checkExisting()}
       />
     </PageLayout>
   );

@@ -13,7 +13,7 @@ import { Select } from "../../../ui/Select";
 import { NumberInput } from "../../../ui/NumberInput";
 import { Button } from "../../../ui/Button";
 import { EmptyState } from "../../../ui/Feedback";
-import { AlertDialog } from "../../../ui/Overlay";
+import { ExistingOutputsDialog } from "../../_shared/run/ExistingOutputsDialog";
 import { notify } from "../../../ui/Toast";
 import { isPanelEnabled } from "../_shared";
 import "../panels.css";
@@ -127,12 +127,25 @@ function SourcePanel() {
       ? "Select at least one subject first."
       : "No EEG net available for the selected subject.";
 
-  function handleForwardClick() {
+  const [existingForward, setExistingForward] = useState(0);
+
+  async function handleForwardClick() {
     if (!forwardConfig) {
       notify.error(selected.length === 0 ? "Select at least one subject first." : "No EEG net available for the selected subject.");
       return;
     }
-    setFwdConfirm(true);
+    setFwdRunning(true);
+    try {
+      const plan = await planSource(forwardConfig, selected, false);
+      const existing = plan.jobs.filter((job) => job.exists).length;
+      setExistingForward(existing);
+      if (existing > 0) setFwdConfirm(true);
+      else await runForward(false);
+    } catch {
+      notify.error("Could not check existing forward solutions. Try again before running.");
+    } finally {
+      setFwdRunning(false);
+    }
   }
 
   async function runForward(overwrite: boolean) {
@@ -211,14 +224,14 @@ function SourcePanel() {
         </div>
       </div>
 
-      <AlertDialog
+      <ExistingOutputsDialog
         open={fwdConfirm}
         onOpenChange={setFwdConfirm}
-        title="Build forward solution?"
-        description="If a forward solution already exists for a selected subject, it will be overwritten."
-        confirmLabel="Build forward"
-        confirmVariant="primary"
-        onConfirm={() => void runForward(true)}
+        existing={existingForward}
+        total={selected.length}
+        noun="forward solution"
+        busy={fwdRunning}
+        onDecide={(decision) => void runForward(decision === "replace")}
       />
     </PageLayout>
   );

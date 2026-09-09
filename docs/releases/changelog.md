@@ -9,6 +9,10 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 ---
 ### v3.0.0 (Unreleased)
 
+- **Confirmed simulation replacement reaches SimNIBS.** Reruns no longer fail merely because
+  the previous session marker exists. Existing-output replacement requires the project's
+  **Allow unsafe overrides** setting and a fresh confirmation; Skip and Cancel remain available.
+
 - **Extension inputs, plans and logs stay together.** Computational tools use inputs on the
   left and a plan/live terminal on the right. The 3D exporter previews the selected subject's
   atlas, segmentation labels, recorded montage or field context.

@@ -21,6 +21,7 @@
  * next render put it straight back from the document, and an edge could not be selected at all —
  * which made Delete on a wire a no-op. Both paths now end in `commit`.
  */
+import { ExistingOutputsDialog } from "../_shared/run/ExistingOutputsDialog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -78,6 +79,7 @@ import {
   listPipelines,
   loadPipeline,
   runPipeline,
+  planPipelineOutputs,
   savePipeline,
   validatePipeline,
   type PipelineValidation,
@@ -495,8 +497,20 @@ function PipelineCanvas() {
   );
 
   // ---- run / save / export --------------------------------------------------------------------
+  const [outputDecision, setOutputDecision] = useState<{ existing: number; total: number; complete: boolean } | null>(null);
+  const [checkingOutputs, setCheckingOutputs] = useState(false);
+  async function checkOutputs() {
+    setCheckingOutputs(true);
+    try {
+      const outputs = await planPipelineOutputs(doc);
+      if (outputs.existing > 0) setOutputDecision(outputs);
+      else run.mutate(false);
+    } catch {
+      notify.error("Could not check pipeline outputs. Try again before running.");
+    } finally { setCheckingOutputs(false); }
+  }
   const run = useMutation({
-    mutationFn: () => runPipeline(doc, session.parallel),
+    mutationFn: (overwrite: boolean) => runPipeline(doc, session.parallel, { overwrite }),
     onSuccess: (result) => {
       const labels = validation.data?.jobs ?? [];
       const jobNodes: Record<string, string> = {};
@@ -595,7 +609,7 @@ function PipelineCanvas() {
   );
 
   const errors = issues.filter((i) => i.level === "error");
-  const runnable = doc.nodes.length > 0 && validation.data?.ok === true && !run.isPending;
+  const runnable = doc.nodes.length > 0 && validation.data?.ok === true && !run.isPending && !checkingOutputs;
   // Whichever subject this project has already run something for, else the documentation's own.
   const sampleSubject = jobs.all.find((j) => j.subject_ids?.length)?.subject_ids?.[0] ?? "ernie";
 
@@ -696,7 +710,7 @@ function PipelineCanvas() {
                 ? `${errors.length} problem${errors.length === 1 ? "" : "s"} to fix — see the receipt.`
                 : undefined
           }
-          onClick={() => run.mutate()}
+          onClick={() => void checkOutputs()}
           data-testid="pipeline-run"
         >
           <Play size={14} aria-hidden /> Run pipeline
@@ -952,6 +966,17 @@ function PipelineCanvas() {
           }}
         />
       )}
+    <ExistingOutputsDialog
+        open={outputDecision !== null}
+        onOpenChange={(open) => { if (!open) setOutputDecision(null); }}
+        existing={outputDecision?.existing ?? 0}
+        total={outputDecision?.total ?? 0}
+        noun="pipeline output"
+        skipWholeBatch
+        replaceDisabledReason={outputDecision && !outputDecision.complete ? "Some pipeline outputs depend on unfinished steps and cannot be checked yet. Skip existing outputs or cancel." : undefined}
+        busy={run.isPending}
+        onDecide={(decision) => { setOutputDecision(null); if (decision === "replace") run.mutate(true); else notify.success("Pipeline skipped. No jobs were queued."); }}
+      />
     </PageLayout>
   );
 }

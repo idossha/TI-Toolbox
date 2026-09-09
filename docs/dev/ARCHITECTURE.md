@@ -734,3 +734,10 @@ checkout's renderer directory even before its first build; it never falls back t
 Vite supplies live frontend edits, while the Python-only browser path requires a local build.
 Automatic replacement of mismatched containers requires a verified idle job list; unreadable
 status is not evidence that stopping the container is safe.
+
+**Overwrite permission is project-scoped and default-off.** The shared existing-output
+dialog requires a fresh decision, including after a previous replacement. Submission routes
+enforce the same project setting before single jobs, groups, pipelines or reruns create jobs.
+The persisted simulation overwrite bit reaches the subprocess and native SimNIBS session;
+ordinary runs retain the native existence guard. No permission is inferred from an old
+confirmation or a caller-supplied process environment.

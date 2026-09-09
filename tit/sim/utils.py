@@ -880,6 +880,8 @@ def run_simulation(
     config: SimulationConfig,
     logger=None,
     progress_callback: Callable[[int, int, str], None] | None = None,
+    *,
+    overwrite: bool = False,
 ) -> list[dict]:
     """Run TI or mTI simulations for every montage in *config*.
 
@@ -911,6 +913,10 @@ def run_simulation(
         ``callback(current_index, total, montage_name)`` and once more
         with ``(total, total, "Complete")`` when finished.
 
+    overwrite : bool, optional
+        Explicitly allow SimNIBS to rerun in the montage output directory. Defaults
+        to False; existing-result protection stays enabled unless confirmed.
+
     Returns
     -------
     list[dict]
@@ -932,7 +938,9 @@ def run_simulation(
     _tel_op = const.TELEMETRY_OP_SIM_MTI if has_mti else const.TELEMETRY_OP_SIM_TI
 
     with track_operation(_tel_op):
-        return _run_simulation_inner(config, logger, progress_callback)
+        return _run_simulation_inner(
+            config, logger, progress_callback, overwrite=overwrite
+        )
 
 
 def _validate_simulation_inputs(config: SimulationConfig) -> None:
@@ -984,6 +992,8 @@ def _run_simulation_inner(
     config: SimulationConfig,
     logger,
     progress_callback: Callable[[int, int, str], None] | None,
+    *,
+    overwrite: bool = False,
 ) -> list[dict]:
     """Inner implementation of :func:`run_simulation` (unwrapped)."""
     if logger is None:
@@ -1015,7 +1025,12 @@ def _run_simulation_inner(
             if montage.simulation_mode == SimulationMode.TI
             else mTISimulation
         )
-        results.append(cls(config, montage, logger).run(simulation_dir))
+        simulation = cls(config, montage, logger)
+        results.append(
+            simulation.run(simulation_dir, overwrite=True)
+            if overwrite
+            else simulation.run(simulation_dir)
+        )
         if config.map_to_fsavg:
             _project_montage_to_fsaverage(config, montage, logger)
     if progress_callback:

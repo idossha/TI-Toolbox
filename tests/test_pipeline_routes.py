@@ -362,3 +362,16 @@ def test_export_refuses_an_unknown_format(client: TestClient) -> None:
         "/api/pipelines/export?format=pdf", headers=BEARER, json={"pipeline": four_node()}
     )
     assert response.status_code == 422
+
+
+def test_pipeline_overwrite_conflict_rejects_whole_group(client, tmp_path):
+    doc = four_node()
+    doc["nodes"][1]["config"].update(
+        replace_existing_outputs=True, skip_existing_outputs=True
+    )
+    response = client.post("/api/pipelines/run", headers=BEARER, json={"pipeline": doc})
+    assert response.status_code == 403, response.text
+    assert client.get("/api/jobs", headers=BEARER).json() == []
+    assert (
+        tmp_path / "derivatives" / "SimNIBS" / "sub-ernie" / "m2m_ernie" / "ernie.msh"
+    ).is_file()

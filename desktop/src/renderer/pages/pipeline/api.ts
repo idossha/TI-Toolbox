@@ -8,7 +8,7 @@
  */
 import { api, unwrap, ApiError } from "../../api/client";
 import type { components } from "../../api/schema";
-import type { PipelineDoc } from "./graph";
+import { subjectsOf, type PipelineDoc } from "./graph";
 
 export type PipelineValidation = components["schemas"]["PipelineValidation"];
 export type PipelineIssue = components["schemas"]["PipelineIssue"];
@@ -54,6 +54,38 @@ export async function validatePipeline(doc: PipelineDoc, client = api): Promise<
   return unwrap(await client.POST("/api/pipelines/validate", { body: wire(doc) }), "/api/pipelines/validate");
 }
 
+/** Apply this press's decision to nested runner flags, never a saved destructive default. */
+export function pipelineWithOverwrite(doc: PipelineDoc, overwrite: boolean): PipelineDoc {
+  function config(value: unknown): unknown {
+    if (Array.isArray(value)) return value.map(config);
+    if (!value || typeof value !== "object") return value;
+    return Object.fromEntries(Object.entries(value).map(([key, field]) => [key,
+      ["overwrite", "replace_existing_outputs"].includes(key) ? overwrite
+        : key === "skip_existing_outputs" ? !overwrite : config(field),
+    ]));
+  }
+  return { ...doc, nodes: doc.nodes.map((node) => ({ ...node, config: config(node.config) as Record<string, unknown> })) };
+}
+
+/** Only the server resolves output paths. Dynamic input bindings cannot be previewed here. */
+export async function planPipelineOutputs(doc: PipelineDoc, client = api): Promise<{ existing: number; total: number; complete: boolean }> {
+  let existing = 0;
+  let total = 0;
+  let complete = true;
+  for (const node of doc.nodes) {
+    if (node.kind === "subjects") continue;
+    if (doc.edges.some((edge) => edge.to === node.id && edge.port !== "subjects")) { complete = false; continue; }
+    const result = await client.POST("/api/plan/{kind}", {
+      params: { path: { kind: node.kind } },
+      body: { config: node.config as components["schemas"]["PipelineConfig"], subject_ids: subjectsOf(doc, node.id), overwrite: false },
+    });
+    if (!result.response.ok || !result.data) { complete = false; continue; }
+    existing += result.data.jobs.filter((job) => job.exists).length;
+    total += result.data.jobs.length;
+  }
+  return { existing, total, complete };
+}
+
 export async function runPipeline(
   doc: PipelineDoc,
   parallelSubjects: number,
@@ -62,7 +94,7 @@ export async function runPipeline(
 ): Promise<PipelineRunResult> {
   const result = await client.POST("/api/pipelines/run", {
     body: {
-      pipeline: wire(doc),
+      pipeline: wire(pipelineWithOverwrite(doc, options.overwrite === true)),
       parallel_subjects: Math.max(1, parallelSubjects),
       ...(options.overwrite ? { overwrite: true } : {}),
       ...(options.tags?.length ? { tags: options.tags } : {}),

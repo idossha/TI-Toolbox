@@ -143,5 +143,7 @@ describe("SettingsPage with a pre-warmed [\"settings\"] query cache", () => {
     expect(bodyText).toContain("Send anonymous usage data");
     expect(bodyText).toContain("Feature panels");
     expect(bodyText).toContain("Source");
+    const replace = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Replace and rerun");
+    expect(replace?.disabled).toBe(true);
   });
 });

@@ -13,6 +13,8 @@
  * re-pressed Run finish a partly-completed batch). `onDecide` hands the page a policy rather than a
  * boolean, so the page's own submit call keeps deciding what "replace" means for its job kind.
  */
+import { useQuery } from "@tanstack/react-query";
+import { getSettings } from "../../settings/api";
 import { Button } from "../../../ui/Button";
 import { Dialog } from "../../../ui/Overlay";
 
@@ -29,6 +31,8 @@ export function ExistingOutputsDialog({
   noun = "output",
   onDecide,
   busy,
+  replaceDisabledReason,
+  skipWholeBatch = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -37,7 +41,11 @@ export function ExistingOutputsDialog({
   noun?: string;
   onDecide: (decision: ExistingOutputsDecision) => void;
   busy?: boolean;
+  replaceDisabledReason?: string;
+  skipWholeBatch?: boolean;
 }) {
+  const settings = useQuery({ queryKey: ["settings"], queryFn: getSettings, enabled: open });
+  const canReplace = !replaceDisabledReason && !settings.isError && settings.data?.allow_unsafe_overrides === true;
   const rest = Math.max(0, total - existing);
   return (
     <Dialog
@@ -47,23 +55,25 @@ export function ExistingOutputsDialog({
       description={
         `${existing} of ${total} planned job${total === 1 ? "" : "s"} already ${existing === 1 ? "has" : "have"} ` +
         `${noun} on disk.` +
-        (rest > 0 ? ` The other ${rest} ${rest === 1 ? "job" : "jobs"} will run either way.` : "")
+        (!skipWholeBatch && rest > 0 ? ` The other ${rest} ${rest === 1 ? "job" : "jobs"} will run either way.` : "")
       }
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)} data-testid="existing-outputs-cancel">
             Cancel
           </Button>
-          <Button variant="secondary" loading={busy} onClick={() => onDecide("replace")} data-testid="existing-outputs-replace">
+          <Button variant="secondary" loading={busy} disabled={!canReplace} onClick={() => { if (canReplace) onDecide("replace"); }} data-testid="existing-outputs-replace">
             Replace and rerun
           </Button>
           {/* The default: it is the safe answer, and it is what finishes a partly-completed batch. */}
           <Button variant="primary" loading={busy} onClick={() => onDecide("skip")} data-testid="existing-outputs-skip">
-            {rest > 0 ? `Skip ${existing}, run ${rest}` : "Skip them"}
+            {skipWholeBatch ? "Skip pipeline" : rest > 0 ? `Skip ${existing}, run ${rest}` : "Skip them"}
           </Button>
         </>
       }
     >
+      {!canReplace && <p className="field-help">{replaceDisabledReason ?? "Replacing outputs requires Allow unsafe overrides in this project’s Settings. Skip or cancel to keep existing outputs."}</p>}
+      {skipWholeBatch && <p className="field-help">Skipping queues no pipeline jobs. Its dependent steps cannot be partially skipped here.</p>}
       <p className="field-help" data-testid="existing-outputs-detail">
         Skipping leaves the existing {noun} untouched. Replacing overwrites {existing === 1 ? "it" : "them"}; this cannot be
         undone.

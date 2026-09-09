@@ -256,7 +256,28 @@ test("the shared existing-outputs dialog is one question with three answers", as
   await expect(dialog.getByTestId("existing-outputs-skip")).toBeVisible();
   await expect(dialog.getByTestId("existing-outputs-replace")).toHaveText("Replace and rerun");
   await expect(dialog.getByTestId("existing-outputs-cancel")).toHaveText("Cancel");
-  // Cancel queues nothing.
+  await expect(dialog.getByTestId("existing-outputs-replace")).toBeDisabled();
+  // Cancel queues nothing; saving the project permission still requires a fresh confirmation.
   await dialog.getByTestId("existing-outputs-cancel").click();
   await expect(dialog).toHaveCount(0);
+  await gotoPage(page, "settings", "Settings");
+  await page.getByRole("switch", { name: "Allow unsafe overrides" }).click();
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Save changes", exact: true })).toBeDisabled();
+  await gotoPage(page, "preprocess", "Pre-processing");
+  let submissions = 0;
+  const observe = (request: import("@playwright/test").Request) => {
+    if (request.method() === "POST" && /\/api\/jobs(?:\/groups)?$/.test(new URL(request.url()).pathname)) submissions++;
+  };
+  page.on("request", observe);
+  await page.locator('[data-page-active="true"]').getByTestId("run-button").click();
+  await expect(dialog.getByTestId("existing-outputs-replace")).toBeEnabled();
+  expect(submissions).toBe(0);
+  await dialog.getByTestId("existing-outputs-cancel").click();
+  await page.locator('[data-page-active="true"]').getByTestId("run-button").click();
+  await expect(dialog.getByTestId("existing-outputs-replace")).toBeEnabled();
+  expect(submissions).toBe(0);
+  await dialog.getByTestId("existing-outputs-replace").click();
+  await expect.poll(() => submissions).toBe(1);
+  page.off("request", observe);
 });

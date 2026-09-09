@@ -217,7 +217,7 @@ function PreprocessPage() {
   );
 
   const parallelSubjects = useExecutionPrefs((s) => s.parallelSubjects);
-  const policy = useExecutionPrefs((s) => s.existingOutputs);
+  const policy: ExistingOutputPolicy = "skip";
   const [qsiPrepOpen, setQsiPrepOpen] = useState(false);
   const [qsiReconOpen, setQsiReconOpen] = useState(false);
   const [existingOpen, setExistingOpen] = useState(false);
@@ -258,7 +258,7 @@ function PreprocessPage() {
 
   const planQuery = useQuery({
     queryKey: ["plan-pre", debouncedPlanKey],
-    queryFn: () => planPre(submitConfig, selected, policy === "replace"),
+    queryFn: () => planPre(submitConfig, selected, false),
     enabled: selected.length > 0 && steps.length > 0,
   });
 

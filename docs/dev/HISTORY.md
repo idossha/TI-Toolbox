@@ -896,3 +896,16 @@ were removed, along with remote `codex/internal-testing`; unrelated unmerged fea
 remain. Dirty snapshots were archived before removal under
 `~/TI-toolbox-worktree-backups/20260909-023601/` (manifest, source archives and binary diffs;
 reinstallable dependencies/caches excluded).
+
+### Confirmed overwrite did not reach SimNIBS — 2026-09-09
+
+Job `16ed861993ed4e29` recorded replacement of ernie/L_Insula, but the job manager
+never forwarded `JobSpec.overwrite` to the simulation runner. Native SimNIBS refused the
+existing `high_Frequency/simnibs_simulation*.mat` marker. The runner now receives the
+persisted flag and uses SESSION's supported `allow_multiple_runs` option only when confirmed.
+No marker deletion or numerical-method change is involved.
+
+The maintainer also requested project-wide permission gating. Shared dialogs default to
+Skip, disable Replace without the existing project setting, and never remember a prior
+confirmation as permission to replace again. Server submission paths enforce that setting.
+Verification used temporary fixtures; existing user simulation outputs were not rerun.

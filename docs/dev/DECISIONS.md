@@ -1486,3 +1486,12 @@ a baked UI could make local fixes appear ineffective. **Cost.** Python-only UI t
 local renderer build; Vite avoids that rebuild during frontend editing. A container whose jobs
 cannot be checked needs explicit intervention. **Revisit if.** Development moves to remote
 Docker hosts, where host-path identity needs a different contract.
+
+### 2026-09-09 — Project permission and per-run overwrite confirmation
+
+**Decision.** Retain the existing project-scoped `allow_unsafe_overrides` setting, default
+false, and gate existing-output replacement in shared dialogs and submission routes.
+**Why.** Confirmation was offered without the setting, and the simulation job's recorded
+overwrite flag was never delivered to SimNIBS. **Cost.** Scripts submitting destructive jobs
+through the server must opt in for that project; a successful earlier confirmation cannot
+suppress the next one. **Revisit if.** The server gains authenticated per-user roles.

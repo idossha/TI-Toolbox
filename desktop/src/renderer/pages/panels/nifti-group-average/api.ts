@@ -40,6 +40,6 @@ export async function planNiftiAverage(config: NiftiAverageConfig, subjectIds: s
   );
 }
 
-export async function createNiftiAverageJob(config: NiftiAverageConfig, subjectIds: string[]): Promise<JobStatus> {
-  return unwrap(await api.POST("/api/jobs", { body: { kind: "nifti_average", config: asPipelineConfig(config), subject_ids: subjectIds } }), "/api/jobs");
+export async function createNiftiAverageJob(config: NiftiAverageConfig, subjectIds: string[], overwrite = false): Promise<JobStatus> {
+  return unwrap(await api.POST("/api/jobs", { body: { kind: "nifti_average", config: asPipelineConfig(config), subject_ids: subjectIds, overwrite } }), "/api/jobs");
 }

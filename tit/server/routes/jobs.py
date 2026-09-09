@@ -21,6 +21,7 @@ from tit.jobs.config_check import check_job_config
 from tit.jobs.manager import JobManager
 from tit.jobs.spec import JOB_KINDS, JOB_STATES
 from tit.paths import is_valid_subject_id
+from tit.server.overwrite_policy import check_overwrite_permission
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +89,9 @@ def submit_job(request: Request, body: dict[str, Any] = Body(...)) -> dict[str, 
         check_job_config(kind, config)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    check_overwrite_permission(
+        kind, config, subject_ids, overwrite=bool(body.get("overwrite", False))
+    )
     try:
         return _manager(request).submit(
             kind,
@@ -158,6 +162,10 @@ def submit_group(request: Request, body: dict[str, Any] = Body(...)) -> dict[str
         planned = _plan_pre_group(config, subject_ids)
     else:
         planned = _plan_generic_group(kind, config, subject_ids, body, tags, overwrite)
+    for job in planned:
+        check_overwrite_permission(
+            job.kind, job.config, job.subject_ids, overwrite=job.overwrite
+        )
     return _manager(request).submit_plan(
         planned, created_by="gui", group_cap=parallel_subjects
     )
@@ -315,6 +323,15 @@ async def cancel_job(request: Request, job_id: str) -> dict[str, Any]:
     summary="Submit a new job with the same spec as a finished one",
 )
 def rerun_job(request: Request, job_id: str) -> dict[str, Any]:
+    detail = _manager(request).get_detail(job_id)
+    if detail is not None:
+        spec = detail["spec"]
+        check_overwrite_permission(
+            spec["kind"],
+            spec["config"],
+            spec["subject_ids"],
+            overwrite=bool(spec.get("overwrite", False)),
+        )
     status = _manager(request).rerun(job_id)
     if status is None:
         raise HTTPException(status_code=404, detail=f"unknown job: {job_id}")

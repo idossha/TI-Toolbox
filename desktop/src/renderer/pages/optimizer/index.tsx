@@ -146,7 +146,6 @@ function OptimizerPage() {
   // throw away.
   const [rows, setRows] = usePageSession<OptimizerRow[]>("jobRows", []);
   const [activeRowId, setActiveRowId] = usePageSession<string | null>("activeRow", null);
-  const [overwrite, setOverwrite] = usePageSession("overwrite", false);
   const [pinnedJobId, setPinnedJobId] = usePageSession<string | null>("pinnedJob", null);
   // The jobs this Run press started: they keep their log and final status line in the terminal
   // after they finish, instead of the pane emptying itself the moment the run succeeds
@@ -226,23 +225,22 @@ function OptimizerPage() {
   const jobs = runnableRows.flatMap((row) => jobsForRow(row, { atlas: atlasFor, leadfield: leadfieldFor }));
   const jobsSig = JSON.stringify(jobs);
   const debouncedSig = useDebounced(jobsSig, 400);
-  const debouncedOverwrite = useDebounced(overwrite, 400);
   const debouncedJobs = useMemo(() => JSON.parse(debouncedSig) as OptimizerJobSpec[], [debouncedSig]);
 
   // One `POST /api/plan/{kind}` per job, exactly as the Simulator plans one per (subject, montage)
   // row: a job's config is its own, so it is the only thing that can be planned.
   const planQueries = useQueries({
     queries: debouncedJobs.map((job) => ({
-      queryKey: ["plan", job.kind, job.rowId, job.subject, JSON.stringify(job.config), debouncedOverwrite],
+      queryKey: ["plan", job.kind, job.rowId, job.subject, JSON.stringify(job.config), false],
       queryFn: async () => {
-        if (job.stage !== "flex") return { plan: await planFor(job.kind, job.config, [job.subject], debouncedOverwrite), config: job.config };
+        if (job.stage !== "flex") return { plan: await planFor(job.kind, job.config, [job.subject], false), config: job.config };
         const config = job.config as Record<string, unknown>;
         // Ask the server for this subject's root, then plan the exact destination we will submit.
         const base = await planFor(job.kind, { ...config, output_folder: null }, [job.subject], false);
         const folder = base.jobs[0]?.output_dir;
         if (!folder) throw new Error("The server did not resolve the run folder.");
         const resolved = { ...config, output_folder: flexOutputFolder(folder, String(config.output_folder ?? ""), automaticRunName(job.rowId)) };
-        return { plan: await planFor(job.kind, resolved, [job.subject], debouncedOverwrite), config: resolved };
+        return { plan: await planFor(job.kind, resolved, [job.subject], false), config: resolved };
       },
     })),
   });
@@ -386,11 +384,11 @@ function OptimizerPage() {
       return;
     }
     // The one existing-outputs question (C3), unchanged.
-    if (!overwrite && counts.existing > 0) {
+    if (counts.existing > 0) {
       setConfirmOverwrite(true);
       return;
     }
-    submit.mutate(overwrite);
+    submit.mutate(false);
   }
   useRunShortcut(handleRunClick);
 
@@ -568,7 +566,6 @@ function OptimizerPage() {
         busy={submit.isPending}
         onDecide={(decision) => {
           setConfirmOverwrite(false);
-          if (decision === "replace") setOverwrite(true);
           submit.mutate(decision === "replace");
         }}
       />

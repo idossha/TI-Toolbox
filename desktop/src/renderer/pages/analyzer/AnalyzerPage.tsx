@@ -148,7 +148,6 @@ export function AnalyzerPage() {
   const [rows, setRows] = usePageSession<AnalyzerRow[]>("jobRows", []);
   const [group, setGroup] = usePageSession("group", false);
   const [activeRowId, setActiveRowId] = usePageSession<string | null>("activeRow", null);
-  const [overwrite, setOverwrite] = usePageSession("overwrite", false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [running, setRunning] = useState(false);
   /**
@@ -274,14 +273,13 @@ export function AnalyzerPage() {
    */
   const specsKey = useDebounced(JSON.stringify(jobSpecs), 400);
   const debouncedSpecs = useMemo(() => JSON.parse(specsKey) as AnalyzerJobSpec[], [specsKey]);
-  const debouncedOverwrite = useDebounced(overwrite, 400);
   const plan = useQuery({
-    queryKey: ["analyzer-plan", specsKey, debouncedOverwrite],
-    queryFn: () => planAnalyzerBatch(debouncedSpecs, debouncedOverwrite),
+    queryKey: ["analyzer-plan", specsKey, false],
+    queryFn: () => planAnalyzerBatch(debouncedSpecs, false),
     enabled: debouncedSpecs.length > 0,
   });
 
-  async function runNow(replace = overwrite) {
+  async function runNow(replace = false) {
     setRunning(true);
     try {
       const tag = newAnalysisTag();
@@ -316,7 +314,7 @@ export function AnalyzerPage() {
     }
     // The one existing-outputs question (C3) — this page used to have none of its own wording at
     // all past a two-button overwrite alert, and no way to run only the new jobs.
-    if (!overwrite && counts.existing > 0) {
+    if (counts.existing > 0) {
       setConfirmOpen(true);
       return;
     }
@@ -501,7 +499,6 @@ export function AnalyzerPage() {
         busy={running}
         onDecide={(decision) => {
           setConfirmOpen(false);
-          if (decision === "replace") setOverwrite(true);
           void runNow(decision === "replace");
         }}
       />

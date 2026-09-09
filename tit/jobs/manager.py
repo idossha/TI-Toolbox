@@ -893,6 +893,8 @@ class JobManager:
             subject_ids=list(spec.subject_ids),
         )
         env.update(spec.env)
+        # The persisted confirmation owns this flag, never a caller-supplied environment.
+        env["TIT_JOB_OVERWRITE"] = "1" if spec.overwrite else "0"
         request = RunRequest(
             job_id=spec.id,
             argv=argv,

@@ -311,6 +311,12 @@ def run_pipeline_route(
     except PipelinePlanError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    from tit.server.overwrite_policy import check_overwrite_permission
+
+    for job in planned:
+        check_overwrite_permission(
+            job.kind, job.config, job.subject_ids, overwrite=job.overwrite
+        )
     submitted = get_manager(request.app).submit_plan(
         planned, created_by="gui", group_cap=parallel_subjects
     )

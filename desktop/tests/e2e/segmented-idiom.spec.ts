@@ -155,14 +155,12 @@ test("Settings' existing-output policy and theme are segments", async () => {
   await gotoPage(page, "settings", "Settings");
   await expectPage(page, "settings");
 
-  // The existing-output policy is a user-level setting (Settings ▸ Execution, 2026-09-06).
+  // Replace remains a project-gated choice even when the local execution preference exists.
   const policy = page.locator('[data-page-active="true"] .segmented[aria-label="Existing outputs"]');
   await expect(policy).toBeVisible();
   expect(await policy.getByRole("radio").allTextContents()).toEqual(["Skip existing outputs", "Replace and rerun"]);
   await expect(policy.getByRole("radio", { name: "Skip existing outputs", exact: true })).toBeChecked();
-  await policy.getByRole("radio", { name: "Replace and rerun", exact: true }).click();
-  await expect(policy.getByRole("radio", { name: "Replace and rerun", exact: true })).toBeChecked();
-  await policy.getByRole("radio", { name: "Skip existing outputs", exact: true }).click();
+  await expect(policy.getByRole("radio", { name: "Replace and rerun", exact: true })).toBeDisabled();
   await noRadioGroup();
 
   await gotoPage(page, "settings", "Settings");

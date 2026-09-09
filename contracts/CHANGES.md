@@ -1017,3 +1017,11 @@ figures trustworthy:
 Verified against `du -sk` on a real project: total 20.02 GB both ways, head
 models 4.64 GB both ways, leadfields 3.72 GB both ways, and `du`'s
 Simulations 7.02 GB = our Simulations 6.66 + Analyses 0.36.
+
+## 2026-09-09 — Project overwrite permission enforcement
+
+Existing-output replacement through single/group jobs, pipeline runs and reruns now enforces
+`Settings.allow_unsafe_overrides` (project-specific, default false). Disabled replacements
+return 403 before creating jobs. Existing simulation output also requires explicit
+`overwrite: true`; enabled permission alone returns 409 without that confirmation.
+Request and response fields are unchanged.

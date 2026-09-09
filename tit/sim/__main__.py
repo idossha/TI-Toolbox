@@ -68,7 +68,11 @@ def main() -> None:
                     100.0 * idx / total_montages if total_montages else 100.0
                 )
 
-            results = run_simulation(config, progress_callback=_progress)
+            results = run_simulation(
+                config,
+                progress_callback=_progress,
+                overwrite=os.environ.get("TIT_JOB_OVERWRITE") == "1",
+            )
             for r in results:
                 mesh = r.get("output_mesh")
                 if mesh:

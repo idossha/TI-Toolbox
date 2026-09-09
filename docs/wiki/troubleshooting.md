@@ -317,3 +317,16 @@ publishes the PNG only after every overlay and legend succeeds.
 Existing affected diagrams can be regenerated without rerunning simulation, using the saved
 `documentation/config.json` electrode pairs with `tit.tools.montage_visualizer.visualize_montage`.
 The running local development container and its local internal image were repaired on 2026-09-09.
+
+### Simulation fails on existing results after confirming overwrite
+
+**Symptom:** `Found already existing simulation results in directory` names the montage's
+`high_Frequency` directory even after choosing **Replace and rerun**. The job's stored
+`overwrite` confirmation previously stopped at the scheduler and never reached SimNIBS.
+Updated runners pass that confirmation to SimNIBS's supported repeated-run option; there
+is no need to delete `simnibs_simulation*.mat` files manually.
+
+In **Settings**, enable **Allow unsafe overrides** for this project, then run again and
+confirm **Replace and rerun**. The permission is off by default, applies across job pages,
+and does not suppress subsequent confirmations. When disabled, choose **Skip** or **Cancel**.
+Use the current checkout with the development loader, or an image containing this fix.

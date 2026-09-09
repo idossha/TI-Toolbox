@@ -570,6 +570,34 @@ class TestRunSimulation:
             assert results[0]["montage_name"] == "m1"
             assert results[1]["montage_name"] == "m2"
 
+    @pytest.mark.parametrize("overwrite", [False, True])
+    def test_job_confirmation_reaches_each_simulation(
+        self, tmp_path, monkeypatch, overwrite
+    ):
+        import importlib
+        import json
+        import sys
+        from contextlib import nullcontext
+
+        entry = importlib.import_module("tit.sim.__main__")
+        config = _make_sim_config(montages=[_make_ti_montage("m1")])
+        payload = tmp_path / "config.json"
+        payload.write_text(json.dumps({"project_dir": str(tmp_path)}))
+        monkeypatch.setattr(sys, "argv", ["tit.sim", str(payload)])
+        monkeypatch.setenv("TIT_JOB_OVERWRITE", "1" if overwrite else "0")
+        monkeypatch.setattr(entry, "get_path_manager", lambda _: None)
+        monkeypatch.setattr(entry, "deserialize_config", lambda *args: config)
+        monkeypatch.setattr(entry, "_hold_locks", lambda *args: nullcontext())
+        monkeypatch.setattr(entry, "run_simulation", _utils_mod.run_simulation)
+        with self._patch_run_sim() as (_, mock_ti_cls, _):
+            mock_ti_cls.return_value.run.return_value = {"status": "completed"}
+            with pytest.raises(SystemExit) as result:
+                entry.main()
+            assert result.value.code == 0
+            assert mock_ti_cls.return_value.run.call_args.kwargs == (
+                {"overwrite": True} if overwrite else {}
+            )
+
     def test_calls_progress_callback(self):
         with self._patch_run_sim() as (mock_pm, mock_ti_cls, mock_mti_cls):
             mock_ti_cls.return_value.run.return_value = {

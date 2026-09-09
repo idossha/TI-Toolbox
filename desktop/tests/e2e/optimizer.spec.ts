@@ -108,6 +108,12 @@ test.beforeAll(async () => {
   const userDataDir = mkdtempSync(join(tmpdir(), "tit-e2e-"));
   app = await launchElectronApp({ userDataDir });
   page = await app.firstWindow();
+  // These replacement scenarios explicitly opt in; the application default stays disabled.
+  await page.route("**/api/settings", async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    await route.fulfill({ response, json: { ...await response.json(), allow_unsafe_overrides: true } });
+  });
   await page.setViewportSize({ width: 1280, height: 800 });
   await expect(page).toHaveURL(/^app:\/\/launcher\//);
   await page.fill("#server-url", SERVER_URL);

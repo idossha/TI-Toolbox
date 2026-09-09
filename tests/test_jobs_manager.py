@@ -1335,3 +1335,31 @@ def test_report_failure_never_fails_its_parent_job(manager, monkeypatch):
     failed = [a for a in status["artifacts"] if a["kind"] == "report_failed"]
     assert len(failed) == 1
     assert "no figures on disk" in failed[0]["label"]
+
+
+@pytest.mark.parametrize("overwrite", [False, True])
+def test_runner_receives_persisted_overwrite_confirmation(tmp_path, overwrite):
+    def command(kind, config, path):
+        return [
+            sys.executable,
+            "-c",
+            "import os; print('overwrite=' + os.environ['TIT_JOB_OVERWRITE'])",
+        ]
+
+    m = JobManager(
+        str(tmp_path), runner_cwd=str(tmp_path), poll_interval=0.02, command_for=command
+    )
+    m.start()
+    try:
+        job = m.submit(
+            "sim",
+            {},
+            ["fixture"],
+            overwrite=overwrite,
+            env={"TIT_JOB_OVERWRITE": "0" if overwrite else "1"},
+        )
+        wait_until(lambda: m.get(job["id"])["state"] == "succeeded")
+        with open(stdout_path(str(tmp_path), job["id"])) as stream:
+            assert "overwrite=" + ("1" if overwrite else "0") in stream.read()
+    finally:
+        m.shutdown()

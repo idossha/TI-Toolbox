@@ -84,3 +84,15 @@ and its saved events record a real exit, the job instead retains that actual **s
 Review the job's outcome and outputs, then explicitly submit a new run if needed. Reopening a
 browser or reconnecting a client to a server that stayed running is different from restarting
 the server; client disconnection alone does not trigger this reconciliation.
+
+## Replacing existing outputs
+
+Existing outputs require a fresh confirmation each time you run. **Replace and rerun**
+is available only when **Settings → Allow unsafe overrides** is enabled for the current
+project; it is disabled by default. **Skip** keeps existing results and runs only missing
+work; **Cancel** submits nothing. The permission is project-specific so another dataset
+does not inherit it, and API submissions are checked too.
+
+A pipeline's **Skip pipeline** option submits no jobs: its dependent steps cannot be
+partially skipped safely. Replacement is unavailable when dependent outputs cannot yet
+be previewed.
