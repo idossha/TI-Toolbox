@@ -1304,6 +1304,9 @@ it explicitly.
 
 ### 2026-09-08 — Internal distribution through the existing product pipeline
 
+**Documentation presentation superseded 2026-09-09** by the current-product/branch-lifecycle
+decision below. Artifact identity and explicit publication boundaries remain in force.
+
 **Decision.** Architecture §10 separates internal artifacts from public announcements. Continue the
 existing desktop implementation toward main, produce a matching image and loaders for local and
 colleague testing, and permit the public site to describe upcoming functionality as unavailable to
@@ -1355,3 +1358,29 @@ configured image reference matches the requested loader/desktop reference. A mis
 actionable refusal, never permission to kill active jobs or silently attach to an older cohort.
 Alternate aliases are not inferred to be equal. Registry existence-check and push operations are
 serialized by their resolved image tag, including runs from different source refs.
+
+### 2026-09-09 — Current-product documentation and release stabilization branches
+
+**Decision.** Describe the Electron/Docker application directly, as the documentation that will
+be merged into main. Remove preview/teaser and stable-version detours from active guides; retain
+historical releases and scientific-correction records. Keep current artifact availability on the
+installation page. Rename `develop` to `release/3.0.0` and use the general branch lifecycle in
+CONTRIBUTING: protected production main, short-lived topic branches, bounded release branches,
+and immutable version tags after promotion. No permanent develop branch is required.
+
+**Why.** The maintainer asked to “treat it as what it will become” and to use production, feature,
+fix and release branches before merging to main. One guide avoids divergent instructions for
+colleagues and experienced Git users. The subsequent explicit answer was to wait until after
+manual testing before publishing the Docker image.
+
+**Cost.** Release-targeted PRs need the same validation as main. Hotfixes must reach active
+release branches, and the availability note changes when an artifact is actually published.
+Documentation can be merge-prepared while security and manual acceptance gates remain open.
+
+**Verification.** Check release-branch identity and unchanged commit ancestry, workflow event
+filters and actionlint, absence of teaser/stable detours in active guides, and both documentation
+builds. Keep runtime/public version metadata and Docker Hub unchanged. Results belong in
+BENCHMARKS; this decision itself does not declare publication or scientific acceptance.
+
+**Revisit if.** Parallel supported release lines require a long-lived maintenance branch, or
+release integration becomes frequent enough to justify another persistent integration branch.

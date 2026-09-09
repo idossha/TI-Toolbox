@@ -82,27 +82,54 @@ We are committed to providing a welcoming and inclusive environment. Please be r
 
 All contributions must follow this workflow:
 
-### 1. Create a Feature Branch
+### 1. Choose the branch and pull-request target
 
-**Always work on a separate branch** - never commit directly to `main`.
+`main` is the protected production branch. Work in short-lived branches and merge through
+reviewed pull requests with passing required checks. Official versions are immutable `vX.Y.Z`
+tags on `main`; creating or pushing a branch never cuts a release.
+
+| Branch | Purpose | Start from / PR target |
+|---|---|---|
+| `main` | Reviewed production code | Release and completed topic PRs |
+| `feature/<description>` | New functionality | `main`, or the active release when explicitly in its scope |
+| `fix/<description>` | Bug correction | The branch containing the bug and receiving the fix |
+| `docs/<description>`, `refactor/<description>`, `test/<description>`, `chore/<description>` | Focused maintenance | The branch being maintained |
+| `hotfix/<description>` | Urgent production correction | `main`; propagate the merged fix to active release branches |
+| `release/X.Y.Z` | Integrate and stabilize a planned version for testing | Cut from `main`; merge back to `main` after acceptance |
+
+Use lowercase, descriptive, hyphen-separated topic names. This project keeps no permanent
+`develop` branch: a release branch supplies a bounded integration/testing window. The current
+release branch is `release/3.0.0`; future versions follow the same `release/X.Y.Z` pattern.
+
+For normal work in your fork (where `upstream` names this repository):
 
 ```bash
-# Update your local main branch
-git checkout main
-git pull upstream main
-
-# Create a new branch (use descriptive names)
-git checkout -b feature/your-feature-name    # For new features
-git checkout -b fix/bug-description          # For bug fixes
-git checkout -b docs/what-you-are-documenting  # For documentation
+git fetch upstream
+git switch -c feature/electrode-search upstream/main
 ```
 
-**Branch naming conventions:**
-- `feature/` - New features
-- `fix/` - Bug fixes
-- `docs/` - Documentation updates
-- `refactor/` - Code refactoring
-- `test/` - Adding or updating tests
+For a correction to the version undergoing testing:
+
+```bash
+git fetch upstream
+git switch -c fix/electrode-search upstream/release/3.0.0
+# Open the PR against release/3.0.0, not main.
+```
+
+In a direct clone, use `origin` instead of `upstream`. In a shared checkout, coordinate the
+switch with its other users and preserve uncommitted work; never force-switch or stash others' edits.
+Topic PRs may use the repository's normal merge method. Release promotion uses a merge commit
+so the tested commits remain in `main`'s ancestry. Merge production hotfixes into every affected
+active release; do not leave a second copy of the defect there. Remove completed topic branches
+after their work is merged; retire a release branch after promotion and any follow-up fixes.
+Do not rewrite published branch history or move published version tags.
+
+The release owner freezes new features once stabilization starts. Required CI, security review,
+manual acceptance and matching artifact verification precede promotion; a branch name or a docs
+change is not evidence those gates passed. The operator procedure is
+[Building and releasing](docs/dev/RELEASE.md). This lightweight workflow adapts
+[GitHub flow](https://docs.github.com/en/get-started/using-github/github-flow) with explicit release
+stabilization branches; it does not require the full Gitflow branch hierarchy.
 
 ### 2. Make Your Changes
 
@@ -131,10 +158,10 @@ server or the scientific core, run the full gate in
 Write clear, descriptive commit messages:
 
 ```bash
-git add .
-git commit -m "Add feature: brief description of what was added"
+git add path/to/changed-file
+git commit -m "feat(sim): support custom electrode configurations"
 # or
-git commit -m "Fix: brief description of what was fixed"
+git commit -m "fix(analyzer): preserve voxel intensity units"
 ```
 
 **Good commit messages:**
@@ -157,6 +184,7 @@ git push origin your-branch-name
 4. Link any related issues
 5. Wait for CI/CD tests to pass
 6. Address any review feedback
+7. Confirm the PR base matches the production or release branch being maintained
 
 ## Testing Requirements
 

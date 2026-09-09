@@ -2,14 +2,15 @@ name: "Python Security Scan"
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "release/**" ]
     paths:
       - 'tit/**'
       - 'tests/**'
       - 'pyproject.toml'
       - '.github/workflows/python-security.yml'
   pull_request:
-    branches: [ "main" ]
+    # Preserve path scoping while checking PRs into release candidates too.
+    branches: [ "main", "release/**" ]
     paths:
       - 'tit/**'
       - 'tests/**'

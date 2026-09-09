@@ -207,7 +207,7 @@ any more.
 > `run_fastsurfer` (with a logged warning); the other three legacy keys are dropped with a
 > warning and have no replacement (see "What changed from FreeSurfer" above for why).
 
-When launching from the GUI, TI-Toolbox checks for existing outputs before
+When running preprocessing from the desktop application, TI-Toolbox checks for existing outputs before
 starting the selected preprocessing steps. If DICOM, CHARM, FastSurfer,
 QSIPrep, QSIRecon, or DTI tensor outputs already exist, the GUI asks whether
 to cancel, skip the existing outputs, or replace them and rerun. In scripts,

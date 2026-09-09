@@ -7,14 +7,6 @@ layout: null
   <body class="layout-{{ page.layout }}">
     {%- include header.html -%}
     <main class="site-main" aria-label="Content">
-      {% if page.layout == 'home' or page.layout == 'wiki' or page.layout == 'installation' or page.url == '/releases/v3.0.0/' or page.url == '/releases/changelog/' or page.url == '/releases/' %}
-      <aside class="container" aria-label="Documentation version">
-        <p><strong>Upcoming desktop preview — unreleased.</strong> These guides include the next interface.
-        The stable public release remains <a href="{{ '/releases/v2.5.0/' | relative_url }}">2.5.0</a>.
-        <a href="{{ '/installation/#internal-colleague-testing' | relative_url }}">Internal testing instructions</a>
-        identify the artifact details still awaiting verification.</p>
-      </aside>
-      {% endif %}
       {{ content }}
     </main>
     {%- include footer.html -%}

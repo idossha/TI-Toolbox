@@ -4,33 +4,26 @@ title: Dependencies
 permalink: /installation/dependencies/
 ---
 
-**Docker** is the only dependency for running TI-Toolbox. There is no X server to install and
-no separate FreeSurfer license needed for the core workflow (SimNIBS, pre-processing,
-simulation, optimization, analysis, and the built-in viewer) — everything runs and renders
-inside the desktop app itself.
+The [installation guide]({{ site.baseurl }}/installation/#system-requirements) owns hardware
+requirements and the source/image setup procedure. Docker runs SimNIBS, FastSurfer, the
+scientific Python dependencies, and the viewer in one image.
 
-Windows/macOS: Install [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+## Host tools
 
-Linux: Install [Docker Engine](https://docs.docker.com/engine/install/) using your distribution's package manager.
+| Launch route | Host requirements |
+|---|---|
+| Packaged desktop app | Docker Desktop on Windows/macOS, or Docker Engine on Linux |
+| Browser from checkout | Docker, Python 3.11+, git |
+| Electron from checkout | Docker, Node 22.12+, git |
 
-Post-Installation Configuration:
-- Open Docker Desktop settings
-- Go to "Resources" 
-- Allocate at least **16GB RAM** (32GB+ recommended for large leadfields and FastSurfer segmentation)
-- Ensure you have at sufficient free disk space
+No X11 server or separate FreeSurfer license is required for the core workflow. Additional
+QSIPrep/QSIRecon workflows have their own requirements in the
+[diffusion guide]({{ site.baseurl }}/wiki/diffusion-processing/).
 
-![Docker Settings on Apple]({{ site.baseurl }}/assets/imgs/installation/docker_resource.png){:style="max-width: 350px;"}
+Configure Docker's memory and disk allocation for the workload using the installation
+requirements. Docker Desktop exposes these settings under **Resources**.
 
----
-
-## System Requirements
-
-### Minimum Requirements
-- **RAM**: 16GB minimum, 32GB+ recommended
-- **Storage**: the `idossha/ti-toolbox` image is **final candidate download and disk sizes pending measurement**, plus your project outputs — plan for 30GB+ free for a comfortable working set
-- **Docker Desktop** 4.0+ (or Docker Engine with a daemon exposing the standard Engine API on Linux); port 8888 free if you use JupyterLab
-- **Administrative privileges**: Required for initial setup
-
+![Docker resource settings]({{ site.baseurl }}/assets/imgs/installation/docker_resource.png){:style="max-width: 350px;"}
 
 ## Verification
 

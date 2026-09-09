@@ -4,105 +4,41 @@ title: Windows Installation
 permalink: /installation/windows/
 ---
 
-## Prerequisites
+Use the [installation procedure]({{ site.baseurl }}/installation/) for the selected source
+ref, matching image, and launch commands. This page explains Windows Docker and path setup.
 
-### Ubuntu from Microsoft Store
+## Docker Desktop and WSL2
 
-1. **Install Ubuntu from Microsoft Store**:
-   - Search for "Ubuntu" in the Microsoft Store
-   - Install the latest Ubuntu version (this automatically sets up WSL2)
-2. **Launch Ubuntu** from Start Menu and complete initial setup
-3. **Update Ubuntu** (first time setup):
-   ```bash
-   sudo apt update && sudo apt upgrade -y
-   ```
+Install Docker Desktop with its WSL2 backend and an Ubuntu WSL distribution. Start Docker
+Desktop, open **Settings → Resources → WSL Integration**, and enable your Ubuntu distribution.
+Open Ubuntu and check that `docker version` can reach the engine.
 
-### Docker Desktop Integration
-1. **Install Docker Desktop** for Windows
-2. **Enable Ubuntu integration**:
-   - Open Docker Desktop settings
-   - Go to "Resources" > "WSL Integration"
-   - Enable integration with your Ubuntu distribution
+![Docker settings on Windows]({{ site.baseurl }}/assets/imgs/installation/docker_windows.png){:style="max-width: 800px;"}
 
-![Docker Settings on Windows]({{ site.baseurl }}/assets/imgs/installation/docker_windows.png){:style="max-width: 800px;"}
+No VcXsrv or X11 forwarding is required for the toolbox interface.
 
-3. **Restart Docker Desktop** after enabling integration
+## Browser from a source checkout
 
-No X server is required — the toolbox UI and viewer both run inside the desktop app's own
-window, not a separate X11 client.
+Run the shared installation commands inside Ubuntu/WSL2, with Python 3.11+ and git installed
+there. Use WSL paths for projects: `C:\Users\YourName\datasets\project-copy` becomes
+`/mnt/c/Users/YourName/datasets/project-copy`. The same path is used for the Docker bind mount.
 
-## Option 1: Desktop App
+The launcher prints an authenticated URL at `http://127.0.0.1:<port>/auth/session?...`.
+Open that URL in your Windows browser; if the browser does not open automatically, pass
+`--no-open` and use the printed URL. Do not share its session token.
 
-The desktop preview is unreleased. Use the installer and checksum supplied in the
-**[internal testing handoff]({{ site.baseurl }}/installation/#internal-colleague-testing)**.
-Public [2.5.0 downloads]({{ site.baseurl }}/releases/v2.5.0/) use the older stack and their
-own setup instructions. A tested installer for this platform has not yet been identified here.
+## Electron on Windows
 
-<br>
+The native desktop app talks to Docker Desktop through its Windows named pipe. For Electron
+source development, use a Windows checkout with Node 22.12+, git, and native Windows project
+paths in `desktop/.env.dev`. Follow the same source-ref and image pairing procedure; do not
+mix a WSL project path into the native Windows app configuration.
 
-## Option 2: Command Line
-
-Run from the maintainer-supplied tested source checkout; replace the image placeholder with
-the reference in the [internal handoff]({{ site.baseurl }}/installation/#internal-colleague-testing).
-The public Python package is not a way to obtain this unreleased launcher.
-
-The same interface, in your browser, with no Electron app. Run it **from inside Ubuntu/WSL2**,
-where the `docker` CLI reaches Docker Desktop through WSL integration:
-
-```bash
-python3 loader.py --image "<verified-image-reference>" --project /mnt/c/Users/YourName/datasets/000
-```
-
-Use the WSL path (`/mnt/c/...`), not the Windows one — that is the path Docker will bind-mount.
-The launcher opens your browser at `http://127.0.0.1:<port>/auth/session?token=…`; WSL2
-forwards localhost to Windows, so the tab opens in your normal Windows browser.
-
-Add `--status`, `--logs`, `--stop`, `--port` or `--no-open` as needed. Full reference:
-**[Command-line launcher]({{ site.baseurl }}/installation/bash-cli/)**.
-
-With a verified matching image available, the launcher downloads `idossha/ti-toolbox` — final candidate download and disk sizes are pending measurement.
-Download time depends on the verified image and your connection.
-
-<br>
-
-## Option 3: Run the latest unreleased version
-
-From inside Ubuntu/WSL2, with Node 22.12+ installed there:
-
-```bash
-git clone https://github.com/idossha/TI-Toolbox.git
-cd TI-Toolbox/desktop
-cp .env.dev.example .env.dev     # edit TIT_DEV_PROJECT_DIR (a /mnt/c/... path)
-npm ci && npm run dev
-```
-
-See **[Run the latest unreleased version]({{ site.baseurl }}/installation/bash-cli/#run-the-latest-unreleased-version)**
-for what the first run builds and how long it takes.
-
-## File Mounting Considerations
-
-### Accessing Windows Files from Ubuntu
-- Windows drives are mounted under `/mnt/` in Ubuntu
-- `C:\Users\YourName\Desktop\` → `/mnt/c/Users/YourName/Desktop/`
-- Use Ubuntu paths when running commands in the terminal
-
-### Project Data Location
-- Store your TI-Toolbox project data in your Windows filesystem
-- Access via Ubuntu paths (e.g., `/mnt/c/{project-name}`)
-- Docker containers will inherit Ubuntu's access to Windows files
+An EXE is the packaged desktop format. Artifact availability is listed on the installation
+page. If Docker Desktop was just installed or updated, restart it before launching the app.
 
 ## Troubleshooting
 
-### Docker Integration Issues
-- **WSL integration not enabled**: Check Docker Desktop settings under "Resources" > "WSL Integration"
-- **Docker daemon not accessible**: Restart Docker Desktop and ensure WSL integration is active
-- **Windows named pipe**: the desktop app talks to Docker over its Engine API; if Docker
-  Desktop was just installed or updated, restart it once so its named pipe is available
-  before launching TI-Toolbox.
-
----
-
-**Next Steps**:
-- [Dependencies](../dependencies/) - If you need to revisit dependency setup
-- [Troubleshooting]({{ site.baseurl }}/wiki/troubleshooting/) - For common issues and solutions
-- [Quick Start](../) - Return to main installation guide 
+If the Ubuntu launcher cannot reach Docker, check WSL Integration and restart Docker Desktop.
+For job and application problems, use the
+[troubleshooting archive]({{ site.baseurl }}/wiki/troubleshooting/).

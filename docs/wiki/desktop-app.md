@@ -47,7 +47,7 @@ right volumes/env, wait for it to answer a health check, then point a `BrowserWi
 | **UI** | PyQt5, rendered by the container over X11 forwarding to a host X server | HTML/JS served by the container, rendered by Electron (a normal browser-engine renderer process) — no X server anywhere |
 | **Viewer** | Freeview and Gmsh, launched as separate X11 processes inside the container | Tetravox Embed: WebGL2 + WASM, running on the **host** GPU inside an `<iframe>` in the same window, driven by a `postMessage` protocol. The run pages' own small 3-D panes are drawn separately by the app's own WebGL2 renderer |
 | **Docker orchestration** | `dockerode` for health checks/log streaming + the `docker compose` CLI shelled out to for starting/stopping services | A dependency-free Docker Engine API client only — no CLI subprocess at all, except `docker context inspect` to discover the active context |
-| **Images** | Two: `idossha/simnibs` (~19 GB) + a separate FreeSurfer image (~67 GB) | One: `idossha/ti-toolbox:<ver>` (final candidate download and disk sizes pending measurement), SimNIBS + FastSurfer + the UI + the viewer baked in |
+| **Images** | Two: `idossha/simnibs` (~19 GB) + a separate FreeSurfer image (~67 GB) | One: `idossha/ti-toolbox:<ver>`, SimNIBS + FastSurfer + the UI + the viewer baked in |
 | **X11 host setup** | XQuartz (macOS) / VcXsrv (Windows) / native X11 (Linux), `xhost` permission juggling on every launch | None |
 | **Compose's role** | Read by both the app (for its own bookkeeping) and shelled out to via the `docker compose` CLI | Still the stack *definition* (one `tit` service, the root `docker-compose.yml`), but the app parses the YAML itself and realizes it purely through Engine API calls — `docker compose` is never invoked |
 
@@ -166,9 +166,8 @@ Tetravox's own `docs/EMBED.md` for the full protocol.
 
 ## Launch Workflow
 
-This describes the intended preview launcher behavior. A successful packaged first launch
-is **not yet verified here**; use the per-artifact
-[internal handoff]({{ site.baseurl }}/installation/#internal-colleague-testing).
+The launcher connects the desktop application to its matching scientific image. See the
+[installation guide]({{ site.baseurl }}/installation/) for setup and artifact availability.
 
 1. **User clicks "Launch TI-Toolbox"**
 2. **Docker discovery** — resolves the active Docker context and confirms the daemon answers
@@ -264,12 +263,13 @@ npm run dev
 
 ## Performance
 
-- **Startup Time:** depends on image availability and host performance. Clean packaged
-  first-launch timing is unverified; a cached development launch is not equivalent.
+- **Startup Time:** depends on image availability and host performance. Loading an image
+  for the first time takes longer than starting a cached one.
 - **Memory Usage:** small for the app itself; the container needs whatever RAM the workload
   needs (16GB+ Docker allocation recommended, 32GB+ for large leadfields/FastSurfer — see
   [Dependencies]({{ site.baseurl }}/installation/dependencies/))
-- **Disk Space:** final candidate download and disk sizes pending measurement, plus your project outputs
+- **Disk Space:** allow space for the image, working data and project outputs; see the
+  [installation guide]({{ site.baseurl }}/installation/) for the selected image.
 
 ## Troubleshooting
 

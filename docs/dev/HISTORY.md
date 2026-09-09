@@ -788,3 +788,16 @@ including packaged identity and hidden-window assertions. The clean API document
 also exposed removed recon-all references; authored examples now use the current FastSurfer API.
 Measurements and the unresolved hosted/security/native-monitor limits remain in BENCHMARKS
 and RELEASE rather than being treated as a production approval.
+
+
+### Release branch and current-product documentation — 2026-09-09
+
+The maintainer requested normal product documentation for the impending main integration.
+The local and GitHub `develop` branches were renamed to `release/3.0.0` without rewriting
+history. Root CONTRIBUTING now owns production, topic, hotfix and release branch policy;
+CodeQL and the existing path-scoped Python security scan include release branches and PR
+targets. Documentation no longer sends readers to v2.5.0 or presents the interface as a
+teaser. Installation owns the source/image pairing and its actual availability. The legacy
+Apptainer recipe is identified as incompatible instead of offered as a working current setup.
+The maintainer explicitly deferred Docker Hub publication until after manual testing.
+No runtime, public version metadata, main merge or release publication changed in this pass.

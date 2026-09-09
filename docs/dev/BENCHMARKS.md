@@ -656,3 +656,22 @@ records a clean code commit; later handoff-documentation commits do not change i
 
 The last host UI phase was a plain production `npm run build` under the shared lock; it
 passed (`desktop-production-develop.log`) and replaced the test-hook renderer output.
+
+
+### Release-branch documentation checks — 2026-09-09
+
+Documentation and workflow-filter changes only; the runtime remains the previously tested
+`b06b4493` image. No repeated science or GUI suite is claimed for this pass.
+
+| Check | Command / result |
+|---|---|
+| API build | `.venv/bin/mkdocs build -f docs/api_mkdocs/mkdocs.yml --site-dir /tmp/tit-api-release-preview` — exit 0, 13.56 s; existing duplicate-autoreference warnings remain |
+| Website build | `bundle exec jekyll build --baseurl "" --destination /tmp/tit-docs-internal-preview` from `docs/` with analytics disabled — exit 0, 1.792 s |
+| Local generated routes and assets | stdlib HTMLParser inspection: 314 HTML pages, 12,184 local href/src references, 0 missing files; API 404 deployment prefix adapted only in temporary localhost output |
+| HTTP smoke | Homepage, installation, desktop guide, API index and API getting-started: 5/5 HTTP 200 on port 4000 |
+| Workflow syntax | `actionlint .github/workflows/code-ql-analysis.yml .github/workflows/python-security.yml` — exit 0 |
+
+Raw local receipts: `dist/internal/api-build-release-docs.log`,
+`dist/internal/site-build-release-docs.log`, `dist/internal/site-release-docs-receipt.json`.
+Generated tracked API files were not rewritten. These checks do not certify hosted security
+review, signed installers or production promotion.

@@ -618,8 +618,8 @@ Code: `tit/pre/qsi/{config,docker_builder,utils,qsiprep,qsirecon,dti_extractor}.
 ## 10. Internal builds and public availability
 
 **An internal build is a distribution mode of the existing product, not a second release pipeline.**
-The maintainer's 2026-09-08 direction is to test the upcoming desktop locally, then let colleagues
-use loaders from `main` with a matching Docker Hub image. A build records its source revision,
+Source checkouts and published installers run the same desktop/server product. Colleagues
+use a selected source ref with a matching Docker image. A build records its source revision,
 image identity and runtime version; the installer and both loaders must resolve the same image.
 An internal image tag is not overwritten after it has been shared. `TIT_IMAGE_TAG` remains an
 explicit override. This prevents one cohort silently running different science under one tag.
@@ -631,8 +631,10 @@ may identify themselves as a development version while that stable announcement 
 Public update checks use the published GitHub release; publishing a container alone is not an update
 notification. A later production publication remains a separate maintainer decision.
 
-**The site may describe upcoming functionality on main, with explicit availability wording.**
-Preview installation instructions distinguish internal artifacts from the stable public download.
+**Documentation describes the current product in the present tense.**
+The same guides serve release branches and main, without teaser banners or redirects to old
+versions. Artifact availability has one owner: the installation page. Its publication status must
+remain factual; a documentation edit does not manufacture a downloadable image or installer.
 Scientific correction and migration advice remains visible and accurate before colleagues test it.
 There is no parallel documentation tree or release-specific task ledger to reconcile.
 
@@ -660,3 +662,13 @@ An optional FastSurfer checkpoint cache requires a SHA-256 digest before extract
 extracts only the three named VINN checkpoint files to fixed destinations. Recovery provenance
 must independently match the publisher's checksums and sizes. The default downloader retains
 TLS verification; an upstream certificate or availability failure never authorizes disabling it.
+
+### Branch lifecycle
+
+`main` is production; `release/X.Y.Z` is a bounded integration and stabilization branch.
+Short-lived feature, fix, hotfix and maintenance branches use the target-selection policy in
+[root CONTRIBUTING](../../CONTRIBUTING.md#1-choose-the-branch-and-pull-request-target). There is
+no permanent develop branch. Required validation applies to both main and release targets;
+branch pushes never publish a release. Promotion retains tested commit ancestry through a merge
+commit, then a separate maintainer-approved version tag identifies the official release. This
+prevents untested branch state or documentation wording from becoming an implicit publication.

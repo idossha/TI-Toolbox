@@ -4,73 +4,35 @@ title: Linux Installation
 permalink: /installation/linux/
 ---
 
-## Prerequisites
+Use the [installation procedure]({{ site.baseurl }}/installation/) for the source checkout,
+matching Docker image, and launch commands. This page covers Linux engine access.
 
-### Docker Engine
-1. **Install Docker Engine** following the [official installation guide](https://docs.docker.com/engine/install/)
-2. **Start Docker service**:
-   ```bash
-   sudo systemctl start docker
-   sudo systemctl enable docker
-   ```
-3. **Add user to docker group** (optional, avoids using sudo):
-   ```bash
-   sudo usermod -aG docker $USER
-   ```
-   *Log out and back in for changes to take effect*
+## Docker Engine
 
-No X server is required. The toolbox UI and 3D/volume viewer both run inside the desktop
-app's own window (or, for the CLI route, are served over HTTP and opened in your regular
-browser) — there is nothing X11-specific to install.
-
-## Option 1: Desktop App
-
-The desktop preview is unreleased. Use the installer and checksum supplied in the
-**[internal testing handoff]({{ site.baseurl }}/installation/#internal-colleague-testing)**.
-Public [2.5.0 downloads]({{ site.baseurl }}/releases/v2.5.0/) use the older stack and their
-own setup instructions. A tested installer for this platform has not yet been identified here.
-
-<br>
-
-## Option 2: Command Line
-
-Run from the maintainer-supplied tested source checkout; replace the image placeholder with
-the reference in the [internal handoff]({{ site.baseurl }}/installation/#internal-colleague-testing).
-The public Python package is not a way to obtain this unreleased launcher.
-
-The same interface, in your browser, with no Electron app. Needs Docker and CPython 3.11+
-(`sudo apt install python3` on a current Ubuntu already gives you 3.11+).
+Install [Docker Engine](https://docs.docker.com/engine/install/) for your distribution, then
+start the service:
 
 ```bash
-python3 loader.py --image "<verified-image-reference>" --project ~/datasets/000
+sudo systemctl enable --now docker
+docker version
 ```
 
-It starts the container, waits for the server and opens your browser. Add `--status`, `--logs`,
-`--stop`, `--port` or `--no-open` as needed. Full reference:
-**[Command-line launcher]({{ site.baseurl }}/installation/bash-cli/)**.
-
-With a verified matching image available, the launcher downloads `idossha/ti-toolbox` — final candidate download and disk sizes are pending measurement.
-Download time depends on the verified image and your connection.
-
-<br>
-
-## Option 3: Run the latest unreleased version
+The launcher needs access to the engine socket. On a workstation where your account is
+trusted to administer Docker, add it to the Docker group and log out and back in:
 
 ```bash
-git clone https://github.com/idossha/TI-Toolbox.git
-cd TI-Toolbox/desktop
-cp .env.dev.example .env.dev     # edit TIT_DEV_PROJECT_DIR
-npm ci && npm run dev
+sudo usermod -aG docker "$USER"
 ```
 
-Needs Node 22.12+ (nodejs.org, or `nvm install 22`). See
-**[Run the latest unreleased version]({{ site.baseurl }}/installation/bash-cli/#run-the-latest-unreleased-version)**
-for what the first run builds and how long it takes.
+Docker group access gives control of the host; see the
+[shared-host boundary]({{ site.baseurl }}/installation/#docker-access-is-a-trust-boundary).
 
-## Distribution-Specific Notes
+## Launch choices
 
-### Ubuntu/Debian
-- Follow standard Docker installation instructions — this is the primary tested distribution
+The browser launcher needs Python 3.11+ and git. The Electron development app additionally
+needs Node 22.12+ and a desktop session. Use an absolute Linux project path in the shared
+installation procedure. TI-Toolbox needs no X11 forwarding into the container.
 
-
-*Currently tested primarily on Ubuntu. Please submit an issue if you encounter problems on other distributions.*
+Linux x86_64 matches the image's architecture. AppImage and DEB are the desktop package
+formats; package availability is listed on the installation page. For remote machines,
+use the [SSH browser route]({{ site.baseurl }}/installation/bash-cli/#over-ssh).

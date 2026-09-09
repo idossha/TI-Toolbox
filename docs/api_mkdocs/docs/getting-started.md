@@ -4,19 +4,23 @@ This guide covers the core APIs you'll interact with most frequently.
 
 ## Setup
 
-All scripting happens inside the SimNIBS container. Three ways to develop:
+Start the container using the [installation guide](https://idossha.github.io/TI-Toolbox/installation/).
+The desktop app and browser interface both offer **Notebooks**, using the image's
+**SimNIBS + TI-Toolbox** Python kernel. Open the supplied example to work with your project.
+For standalone scripts inside the container, run `simnibs_python my_script.py`.
 
-- **JupyterLab**: Type `NOTEBOOK` at the container shell, then open [http://localhost:8888](http://localhost:8888). Select the **"SimNIBS + TI-Toolbox"** kernel.
-- **Neovim**: `nvim my_script.py` — LSP autocompletion is pre-configured.
-- **Plain scripts**: `simnibs_python my_script.py`
-
-Just import — logging and path resolution are automatic. No initialization call is needed.
+Use the container-visible project path when initializing a script:
 
 ```python
+from tit import get_path_manager, setup_logging
 from tit.sim import SimulationConfig, run_simulation
+
+pm = get_path_manager("/mnt/project")  # replace with your mounted project path
+setup_logging()
 ```
 
-Importing any `tit` module configures the `tit` logger hierarchy and attaches a stdout handler at INFO level. Path resolution is handled internally via `PathManager`, which auto-detects the project directory from environment variables inside Docker containers.
+The launcher sets the project environment for the server and its notebook kernel. Explicit
+initialization makes scripts portable to other container sessions.
 
 ## Running Simulations
 

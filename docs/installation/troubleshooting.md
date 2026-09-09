@@ -4,7 +4,7 @@ title: Troubleshooting
 permalink: /installation/troubleshooting/
 ---
 
-All known problems and their verified fixes — Docker, launcher, X11/GUI display, preprocessing, diffusion, optimization, analysis — live in one place:
+All known problems and their verified fixes — Docker, launcher, desktop interface, preprocessing, diffusion, optimization, analysis — live in one place:
 
 ## → [Troubleshooting Archive]({{ site.baseurl }}/wiki/troubleshooting/)
 
@@ -14,7 +14,11 @@ It is maintained from [GitHub Discussions](https://github.com/idossha/TI-Toolbox
 
 Include: OS and version, TI-Toolbox version, the exact command or GUI action, the full error text, and the relevant log from `<project>/derivatives/ti-toolbox/logs/`.
 
+From your selected checkout, inspect the project's container without guessing its name:
+
 ```bash
-uname -a; docker --version; docker compose version
-docker ps -a; docker logs --tail 50 simnibs_container
+python3 loader.py --project /path/to/project --status
+python3 loader.py --project /path/to/project --logs
 ```
+
+Remove session tokens and private project data before sharing logs.

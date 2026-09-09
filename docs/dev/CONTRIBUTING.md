@@ -2,14 +2,16 @@
 
 The working manual for anyone (human or agent) writing code in this repository. Process for
 outside contributors — branches, discussions, pull requests — is the top-level
-[`CONTRIBUTING.md`](../../CONTRIBUTING.md). Everything about *how the software is built and why* is
+[`CONTRIBUTING.md`](../../CONTRIBUTING.md#1-choose-the-branch-and-pull-request-target).
+Use `release/X.Y.Z` for stabilization and short-lived topic branches for changes; that policy
+owns branch names and PR targets. Everything about *how the software is built and why* is
 in this directory; start at [`README.md`](README.md).
 
 ---
 
 ## 1. The development environment
 
-v3 is three pieces: an **Electron app** on your host (`desktop/`), a **FastAPI server**
+TI-Toolbox is three pieces: an **Electron app** on your host (`desktop/`), a **FastAPI server**
 (`tit/server`) inside a Docker container, and the **`tit` science core** the server runs jobs from.
 One command brings up all three.
 

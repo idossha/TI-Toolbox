@@ -4,145 +4,117 @@ title: Installation
 permalink: /installation/
 ---
 
-## Stable public installation (2.5.0)
+TI-Toolbox runs its scientific tools and interface in one Docker image. Open that interface
+in the Electron desktop app or your browser. This page owns installation and artifact
+availability; [launcher options]({{ site.baseurl }}/installation/bash-cli/) and the platform
+pages cover configuration details.
 
-Use the [2.5.0 downloads]({{ site.baseurl }}/releases/v2.5.0/) and the
-[installation documentation frozen at the 2.5.0 tag](https://github.com/idossha/TI-Toolbox/tree/v2.5.0/docs/installation).
-Its platform-specific X11 setup and two-image stack still apply. When following that archived
-guide, obtain scripts and compose files from the **same `v2.5.0` tag**, even where an old link
-says `main`; current `main` may contain the upcoming launcher.
+<a id="internal-colleague-testing"></a>
 
-## Upcoming desktop preview
+## Artifact availability
 
-The upcoming desktop preview uses a single Docker image. Docker Desktop (macOS/Windows) or Docker Engine
-(Linux) is the only thing you install yourself — SimNIBS, FastSurfer, the TI-Toolbox UI and
-the built-in viewer are all baked into the image.
+The current source ref is `release/3.0.0`; the matching image is
+`idossha/ti-toolbox:internal-20260908.1`. **The image is local only. Docker Hub publication
+will follow manual testing.** Another machine needs a supplied image archive loaded into Docker,
+or the published image once available. There is no image-archive download or public desktop
+installer advertised here yet. The app, source revision, and image must match.
 
-There are three ways to run it, and **they all land on the same interface**. The UI is served
-by the container; the desktop application is a shell around it, and the command-line launcher
-puts the same page in your browser instead of in a window. Pick the row that describes you:
+## Install from source
 
-| | You get | You need | Best for |
-|---|---|---|---|
-| **[1. Desktop app](#option-1-desktop-app)** | An application in your dock | Docker | Colleagues with a verified preview installer. |
-| **[2. Command line](#option-2-command-line-no-electron)** | The UI in a browser tab | Docker, Python 3.11+ | Remote/SSH machines, lab servers, scripted setups |
-| **[3. From source](#option-3-run-the-latest-unreleased-version)** | The unreleased code | Docker, Node 22.12+, git | Trying a fix before it ships; contributing |
+### 1. Install Docker and choose a project
 
-When a matching image is available, the launcher is designed to download `idossha/ti-toolbox:{version}` — **final candidate download and disk sizes pending measurement**. It is downloaded once and reused by all three options.
+Install and start [Docker Desktop](https://www.docker.com/products/docker-desktop/) on macOS
+or Windows, or [Docker Engine](https://docs.docker.com/engine/install/) on Linux. For the
+browser launcher, install Python 3.11+ and git. The Electron development app additionally
+needs Node 22.12+. SimNIBS, FastSurfer, Python science dependencies, and the viewer are in the
+image; no X11 server is needed.
 
-<br>
+Use a copy of your project when evaluating a new version. Platform setup:
+[macOS]({{ site.baseurl }}/installation/macos/) ·
+[Windows]({{ site.baseurl }}/installation/windows/) ·
+[Linux]({{ site.baseurl }}/installation/linux/).
 
-## Internal colleague testing
+### 2. Check out the selected source ref
 
-This is preparation for internal use from `main` and a matching Docker Hub image, **not a
-public release**. No public tag, release announcement or updater notification is implied.
-Use a copy of a project so preview outputs do not replace the originals.
-
-The maintainer must fill this handoff before asking a colleague to launch:
-
-| Required value | Verification status |
-|---|---|
-| Tested `main` commit | **Pending — unverified** |
-| Intended Docker Hub image | `idossha/ti-toolbox:internal-20260908.1` — publication **pending** |
-| Immutable image digest | **Pending — unverified** |
-| Internal runtime / app version | `3.0.0-dev.1` — preview identifier, not a public release |
-| Tested host OS / architecture and Docker version | **Pending — unverified** |
-| Installer location and SHA-256, if using the desktop installer | **Pending — unverified** |
-| Signing / notarization and clean first-launch result, per installer | **Pending — unverified** |
-
-1. Install and start Docker Desktop, or Docker Engine on Linux. For the browser route,
-   also install Python 3.11+ and make the `docker` CLI available.
-2. Obtain the maintainer's tested `main` source revision and matching image reference.
-   Check `git rev-parse HEAD` against the supplied commit. Do not substitute `latest`, `dev`,
-   or a version-shaped image tag whose digest has not been verified.
-3. Run the [command-line route](#option-2-command-line-no-electron) from that checkout,
-   with the supplied image and a copy of your project. Alternatively, use the supplied
-   installer only after its platform-specific launch check is recorded above.
-4. Confirm the project opens, subjects appear, and the intended small example job completes
-   with readable outputs. Record the commit, image digest, OS, job type and outcome.
-   A successful launch alone does not validate every scientific workflow.
-5. Report any failure with the job ID and redacted log; exclude session URLs and tokens.
-   Consult [Troubleshooting]({{ site.baseurl }}/wiki/troubleshooting/) for known problems.
-
-The internal tag above is an integration identifier, **not evidence that a pull will work**.
-The source must reach `main` before a standalone loader can retrieve it. Both standalone
-`loader.py` and `loader.sh` refresh source from `main` into a shared isolated cached environment
-on each startup, so starting requires network access. Management commands `--stop`, `--status`
-and `--logs` use a working cached launcher offline without refreshing source. A loader run
-within a checkout uses that checkout instead.
-For a reproducible colleague run, prefer the tested checkout and recorded image digest.
-The Tetravox embed used in the internal image is also awaiting public asset publication;
-use the supplied complete image rather than assuming a public embed download is available.
-These pending values are intentionally not download links or executable image defaults.
-
-## Option 1: Desktop App
-
-The preview is **not available from the public release downloads**. Use only the installer
-identified in the [internal testing handoff](#internal-colleague-testing), with its matching
-image. Installer format alone does not establish signing, notarization, or successful first
-launch on your platform. Those checks are recorded per artifact.
-
-The app is designed to select a project folder, pull the image and start its container.
-A packaged first launch must be verified before this is described as a tested install route.
-
-Per-platform notes: **[macOS]({{ site.baseurl }}/installation/macos/)** ·
-**[Windows]({{ site.baseurl }}/installation/windows/)** ·
-**[Linux]({{ site.baseurl }}/installation/linux/)**.
-
-<br>
-
-## Option 2: Command Line (no Electron)
-
-The same UI, in your browser, driven by a small Python launcher. Useful when the desktop app
-is not an option: a machine you reach over SSH, a shared lab server, a container host, or a
-setup you want to script.
-
-Do not use `pip install tit` to obtain the unreleased launcher. Replace the placeholder below
-with the maintainer-supplied image reference before running.
+Choose the branch or tag paired with your image. The commands work with a release branch,
+a release tag, or `main` after the corresponding change is merged:
 
 ```bash
-# From the tested source checkout, with the supplied matching image:
-python3 loader.py --project ~/datasets/000 --image "<verified-image-reference>"
+TIT_SOURCE_REF=release/3.0.0
+git clone --branch "$TIT_SOURCE_REF" git@github.com:idossha/TI-toolbox.git TI-Toolbox
+cd TI-Toolbox
+git rev-parse HEAD
 ```
 
-`tit launch` checks Docker, pulls the image if it is missing, starts the container, waits for
-the server, then prints and opens a URL. Full options, the `loader.py` / `loader.sh` bootstraps and the
-advanced "already have SimNIBS on this host" path are on the
-**[Command-line launcher]({{ site.baseurl }}/installation/bash-cli/)** page.
+Record the printed commit for reproducibility. Run the following commands inside this checkout;
+its root `loader.py` uses the selected source without installing a different package revision.
 
-The launcher needs only CPython 3.11+ and the `docker` CLI — **not** SimNIBS, numpy or Node.
-The toolbox itself lives in the container.
+### 3. Make the matching image available
 
-<br>
-
-## Option 3: Run the latest unreleased version
-
-Build the app from a checkout to get changes that have not been released yet. One command
-brings up the whole system — container, renderer dev server and the app window, already
-connected:
+Set the image reference supplied with your selected source revision. For the current pairing:
 
 ```bash
-git clone https://github.com/idossha/TI-Toolbox.git
-cd TI-Toolbox/desktop
-cp .env.dev.example .env.dev          # edit TIT_DEV_PROJECT_DIR
+TIT_IMAGE=idossha/ti-toolbox:internal-20260908.1
+docker image inspect "$TIT_IMAGE" --format {% raw %}'{{json .RepoTags}}'{% endraw %}
+```
+
+If the image is absent and you have received an image archive, load that archive with
+`docker load --input /path/to/supplied-image.tar`, then repeat the inspection. For a published
+image, use `docker pull "$TIT_IMAGE"`. See [Artifact availability](#artifact-availability)
+for which distribution route currently exists. Do not substitute another image solely because
+it has a similar version number.
+
+### 4. Open the interface
+
+**Browser:** from the repository root:
+
+```bash
+python3 loader.py --project /path/to/project-copy --image "$TIT_IMAGE"
+```
+
+The launcher starts or attaches to the project's container and opens the authenticated UI.
+The browser route runs the image's baked application. See the
+[command-line reference]({{ site.baseurl }}/installation/bash-cli/) for SSH, logs, and stop.
+
+**Electron from source:** configure the selected checkout's desktop app:
+
+```bash
+cd desktop
+cp .env.dev.example .env.dev
+```
+
+Edit `.env.dev`: set `TIT_DEV_PROJECT_DIR` to your project path and `TIT_DEV_IMAGE_TAG` to
+the tag portion of the matching image. Set `TIT_DEV_MOUNT_REPO=0` to run the image's Python
+package, or `1` when developing Python changes in this checkout. Then run:
+
+```bash
 npm ci
 npm run dev
 ```
 
-Requirements and what to expect on the first run — including building the image, which takes
-30–60+ minutes — are on the
-**[Command-line launcher]({{ site.baseurl }}/installation/bash-cli/#run-the-latest-unreleased-version)**
-page.
+This starts the container, Vite, and Electron together. The development renderer comes from
+your checkout; keep that checkout paired with the selected image. Close with Ctrl-C; the
+container remains running until you stop it. Configuration details and image-building
+instructions are in [Develop from source]({{ site.baseurl }}/installation/bash-cli/#develop-from-source).
 
-<br>
+### 5. Verify the project
 
-## Option 4: HPC (Apptainer/Singularity)
+Confirm that subjects appear, open an existing output in the viewer, and complete a small
+simulation or analysis used in your work. Record the source commit, image reference, host OS,
+and job ID when reporting a problem. Existing-result guidance lives in the
+[scientific corrections record](https://github.com/idossha/TI-toolbox/blob/release/3.0.0/docs/dev/SCIENTIFIC-CORRECTIONS.md).
 
-For high-performance computing clusters where Docker is unavailable. Users build the `.sif`
-image from the definition file — see
-**[HPC / Apptainer]({{ site.baseurl }}/installation/hpc-apptainer/)**.
+## Desktop installers
 
-<br>
+The packaged Electron app selects a project folder and manages its Docker container. Use an
+installer paired with the same image; [Artifact availability](#artifact-availability) records
+what can be obtained. macOS uses a DMG, Windows an EXE, and Linux an AppImage or DEB.
+Platform-specific launch notes are on the pages linked above.
+
+## HPC (Apptainer/Singularity)
+
+For clusters where Docker is unavailable, see
+[HPC deployment]({{ site.baseurl }}/installation/hpc-apptainer/).
 
 ## System requirements
 
@@ -165,7 +137,7 @@ fixes are on **[Troubleshooting]({{ site.baseurl }}/installation/troubleshooting
 
 `idossha/ti-toolbox:<version>` is one image containing:
 
-- **SimNIBS 4.6** (`simnibs_python`, `charm`, `gmsh`) — head modeling and FEM solves
+- **SimNIBS 4.6** (`simnibs_python`, `charm`) — head modeling and FEM solves
 - **FastSurfer**, `--seg_only` mode, with its checkpoints pre-downloaded — fast cortical/
   subcortical segmentation, replacing FreeSurfer `recon-all` (see [Pre-Processing]({{ site.baseurl }}/wiki/pre-processing/))
 - **Tetravox Embed** — the in-window 3D/volume viewer (see [Viewer]({{ site.baseurl }}/wiki/visualizers/))
@@ -180,7 +152,7 @@ pulled as separate images on demand; put the license file where the [Diffusion
 Processing]({{ site.baseurl }}/wiki/diffusion-processing/) guide's QSIPrep section says to
 mount it (`$FS_LICENSE`, or the default path TI-Toolbox looks for).
 
-## Target platforms (preview)
+## Platforms
 
 | Platform | Support | Notes |
 |----------|---------|-------|
@@ -189,7 +161,7 @@ mount it (`$FS_LICENSE`, or the default path TI-Toolbox looks for).
 | **macOS (Apple Silicon)** | Emulated | The image is `linux/amd64`; Docker Desktop runs it under emulation. Measured FastSurfer runtime under this emulation has not yet been benchmarked — see the [Pre-Processing]({{ site.baseurl }}/wiki/pre-processing/) page for the native number and status. |
 | **macOS (Intel)** | Native | `linux/amd64`, same architecture as the image |
 
-The preview image targets `linux/amd64` only; there is no native `arm64` build. On Apple
+The image targets `linux/amd64` only; there is no native `arm64` build. On Apple
 Silicon and any other non-x86_64 host, Docker Desktop emulates it — expect slower FEM
 solves and slower FastSurfer than on native x86_64 hardware.
 
@@ -209,7 +181,7 @@ built from the same SimNIBS base. `docker system df -v` breaks this into `SHARED
 `UNIQUE SIZE`, and `SHARED SIZE` goes away the moment nothing else on that host references
 those layers.
 
-## Container engine targets (preview)
+## Container engines
 
 | Engine | Support |
 |--------|---------|
@@ -224,8 +196,6 @@ For known problems and verified fixes, start with the
 [maintained Troubleshooting Archive]({{ site.baseurl }}/wiki/troubleshooting/).
 For Docker and launcher setup, see
 [installation troubleshooting]({{ site.baseurl }}/installation/troubleshooting/).
-Check whether you are following the stable 2.5.0 instructions or the upcoming preview
-instructions before applying a version-specific fix.
 
 ## Docker access is a trust boundary
 

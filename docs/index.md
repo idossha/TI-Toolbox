@@ -11,19 +11,19 @@ layout: home
 <p class="home-section__title">Quick start</p>
 <ol class="quickstart" markdown="1">
 <li markdown="1">
-**Use the stable public release.** The [2.5.0 release page]({{ site.baseurl }}/releases/v2.5.0/) provides its downloads; use the [stable installation guide]({{ site.baseurl }}/installation/#stable-public-installation-250) for version-specific setup. Its X11 and two-image requirements still apply.
+**Set up the toolbox.** Follow the [installation guide]({{ site.baseurl }}/installation/) for the desktop application and its matching Docker image.
 </li>
 <li markdown="1">
-**Explore what is coming.** The screenshots below show the **unreleased desktop preview**, with an integrated viewer, jobs and pipelines. Read the [upcoming notes]({{ site.baseurl }}/releases/v3.0.0/) and the [scientific corrections]({{ site.baseurl }}/releases/v3.0.0/#scientific-corrections) before reusing 2.x results.
+**Open your project.** Use [Overview]({{ site.baseurl }}/wiki/overview/) to see each subject's inputs and outputs, then run simulations, optimization and analysis from the desktop application.
 </li>
 <li markdown="1">
-**Testing with a colleague?** Follow the [internal installation instructions]({{ site.baseurl }}/installation/#internal-colleague-testing) using the maintainer's tested source revision and matching image. Public release downloads do not contain this preview.
+**Review existing results.** Read the [3.0.0 notes]({{ site.baseurl }}/releases/v3.0.0/) and [scientific corrections]({{ site.baseurl }}/releases/v3.0.0/#scientific-corrections) before reusing results produced by older versions.
 </li>
 </ol>
 </section>
 
 <section>
-<p class="home-section__title">Upcoming desktop preview</p>
+<p class="home-section__title">The desktop application</p>
 <div class="carousel-container">
   <div class="carousel-wrapper">
     <div class="carousel-images">

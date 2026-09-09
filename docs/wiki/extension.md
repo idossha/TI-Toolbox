@@ -4,7 +4,9 @@ title: Extension System
 permalink: /wiki/extension/
 ---
 
-Optional tools extend TI-Toolbox without changing the core. In v3 they are panels in the desktop application, each backed by a `tit` job runner; in v2 they were self-contained PyQt5 scripts discovered at start-up. Both are described below.
+Optional tools extend TI-Toolbox through panels in the desktop application. Computational
+panels run through the job server; see [Jobs]({{ site.baseurl }}/wiki/jobs/) for tracking runs.
+The removed Qt extension API is retained at the end of this page as historical reference.
 
 ## Optional tools in v3
 
@@ -33,7 +35,6 @@ Two former extensions no longer exist as panels: **Electrode Placement** is now 
 ---
 
 ## Architecture (historical)
-## Architecture
 
 > **Historical.** The Qt extension system below was removed with the PyQt GUI in
 > v3.0.0. Panels now live in the [Desktop Application]({{ site.baseurl }}/wiki/desktop-app/)

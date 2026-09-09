@@ -4,7 +4,6 @@
 
 # Temporal Interference Toolbox
 
-[![Docker Pulls](https://img.shields.io/docker/pulls/idossha/simnibs?cacheSeconds=86400)](https://hub.docker.com/r/idossha/simnibs)
 [![GitHub Release](https://img.shields.io/github/v/release/idossha/TI-toolbox?cacheSeconds=3600)](https://github.com/idossha/TI-toolbox/releases)
 [![GitHub License](https://img.shields.io/github/license/idossha/TI-toolbox?cacheSeconds=86400)](https://github.com/idossha/TI-toolbox/blob/main/LICENSE)
 [![codecov](https://codecov.io/gh/idossha/TI-toolbox/branch/main/graph/badge.svg)](https://codecov.io/gh/idossha/TI-toolbox)
@@ -19,7 +18,7 @@
 
 Releases, guides, and wiki please see: [https://idossha.github.io/TI-Toolbox/](https://idossha.github.io/TI-Toolbox/)
 
-> **Upcoming desktop preview (unreleased):** this checkout documents the next desktop interface. The stable public release remains **2.5.0**; its downloads and setup are on the [2.5.0 release page](https://idossha.github.io/TI-Toolbox/releases/v2.5.0/). See the [preview installation notes](https://idossha.github.io/TI-Toolbox/installation/) for internal testing, and [CONTRIBUTING.md](CONTRIBUTING.md) for contributing.
+TI-Toolbox combines an Electron desktop application, one Docker image for the scientific environment, and the `tit` Python API. Start with the [installation guide](https://idossha.github.io/TI-Toolbox/installation/) and [desktop guide](https://idossha.github.io/TI-Toolbox/wiki/desktop-app/). For development, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## How to Cite
 

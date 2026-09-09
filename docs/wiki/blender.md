@@ -4,18 +4,17 @@ title: Blender Integration
 permalink: /wiki/blender/
 ---
 
-The Blender extension was built to enable publication level visualization and presentation of simulation results using other 3D modeling software in general, and specifically Blender. It provides a convenient interface for exporting cortical surfaces, field vectors, electrode placements, skin surfaces, and sub-cortical structures in formats compatible with Blender, CAD software, and other 3D visualization tools. Use it when you want a guided workflow from the GUI, or call the underlying Python scripts directly for batch jobs and automation.
+The Blender extension was built to enable publication level visualization and presentation of simulation results using other 3D modeling software in general, and specifically Blender. It provides a convenient interface for exporting cortical surfaces, field vectors, electrode placements, skin surfaces, and sub-cortical structures in formats compatible with Blender, CAD software, and other 3D visualization tools. Use it when you want a guided workflow from the desktop application, or call the underlying Python scripts directly for batch jobs and automation.
 
 <img src="{{ site.baseurl }}/assets/imgs/v3/panel-visual-exporter.png" alt="The 3D visual exporter panel" style="width: 100%; max-width: 1000px;">
 <em>The <strong>3D visual exporter</strong> panel. Switch it on in <strong>Settings &#9656; Optional tools</strong>; it then appears in the rail.</em>
 
-## Upcoming internal rendering changes
+## Rendering environment
 
 Montage preparation runs in the scientific SimNIBS environment with NumPy 2.3.5. Scene
 creation and rendering use pinned standalone Blender 4.4.3 in a separate background process,
 so Blender's Python dependencies do not downgrade scientific NumPy. The montage mesh lookup
-now follows the canonical PathManager mesh location. The public release remains 2.5.0;
-these changes belong to the upcoming/internal candidate.
+follows the canonical project mesh location.
 
 ### Full-net montage memory
 
@@ -26,8 +25,7 @@ headroom recommendation, **not an uncapped measured peak**. Vector, region and s
 exports retain their separate 2 GiB reservations.
 
 Full-net validation preserves the existing visual subdivision. Actual demand depends on the
-scene; the allocation guidance does not impose a fixed peak-memory guarantee. Final candidate
-image size and baked-image acceptance remain pending.
+scene; the allocation guidance does not impose a fixed peak-memory guarantee.
 
 ## Overview
 
@@ -257,7 +255,7 @@ run_regions(config)
 
 - **Environment**: Run the commands from within the TI-Toolbox environment. The scripts handle SimNIBS dependencies automatically.
 - **Large vector clouds**: Start with smaller `--count` values or enable `--top-percent` to reduce file sizes before ramping up density.
-- **Atlas updates**: If you add a new atlas, ensure the `m2m_*` directory contains the matching label files before launching the GUI.
+- **Atlas updates**: If you add a new atlas, ensure the `m2m_*` directory contains the matching label files before opening the exporter.
 - **Label extraction**: When extracting specific labels, use comma-separated values (e.g., "10,49" for left/right thalamus). Check FreeSurfer's label lookup table for anatomical region codes.
 - **Error logs**: The extension console mirrors stdout/stderr from the scripts. Copy the failing command and re-run in a terminal to investigate with additional flags (for example `--verbose`).
 

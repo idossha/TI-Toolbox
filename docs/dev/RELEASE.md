@@ -154,7 +154,7 @@ locally; it does not publish. The two-generator refresh procedure remains in
 [`docs/README.md`](../README.md). These are operator commands, not evidence that a new image
 or preview server was started during closeout.
 
-### Public publication later
+### Production promotion
 
 Only a separate production decision may publish the stable release or move Docker `latest`.
 Public toolbox update checks read GitHub's latest published release; internal image publication
@@ -168,11 +168,10 @@ and first launch must be measured before claiming them; Windows artifacts are un
 
 ## B. Current readiness and follow-ups
 
-**This round closes with development-branch consolidation.** Keep the work in the saved
-checkout on `develop`; code and verification receipts are consolidated there.
-Do not merge main or publish to Docker Hub in this round. No public release, tag or update
-notification is part of this closeout. Local testing may continue while final artifact
-acceptance remains open.
+**Current candidate: `release/3.0.0`.** This branch holds the changes intended for main.
+Manual testing precedes Docker Hub publication, as requested by the maintainer. The branch
+rename preserves the development checkpoint and its runtime; it does not tag or publish a
+release. Follow the branch lifecycle in [CONTRIBUTING](../../CONTRIBUTING.md#1-choose-the-branch-and-pull-request-target).
 
 **Local development: ready for human testing.** The clean local image
 `idossha/ti-toolbox:internal-20260908.1` contains source
@@ -184,7 +183,7 @@ executed checks are in [BENCHMARKS.md](BENCHMARKS.md#development-closeout-checks
 
 **Distribution and production gates remain open.** Main and Docker Hub are unchanged. The
 last hosted CodeQL result reported 205 new alerts on historical PR head `6571d06b`; it does
-not analyze the subsequent fixes on `develop`, which still need hosted review. Native macOS
+not analyze the subsequent fixes on `release/3.0.0`, which still need hosted review. Native macOS
 screen attribution could not establish a baseline; functional offscreen assertions passed.
 The earlier full real suite passed against `e3bee214`; it was not repeated in this closeout.
 No signing, cross-platform acceptance, public tag, release or user update notification is claimed.
@@ -207,7 +206,7 @@ CircleCI source job 853 failed a checkout-dependent fixture, now repaired and ch
 and container. Desktop job 854 stalled at an interactive service-restart prompt before e2e;
 noninteractive setup is now explicit and CLI-validated. Hosted source job 856 subsequently passed on `6571d06b` and uploaded coverage; desktop
 job 855 was still running at the last observation. These historical results do not certify
-the subsequent `develop` fixes.
+the subsequent release-branch fixes.
 
 No public release or update announcement is authorized by this preparation.
 

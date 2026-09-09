@@ -18,7 +18,7 @@ The page has two parts. **Part 1** covers things outside the toolbox's control �
 
 # Part 1 — Environment problems (Docker, display, machine, upstream tools)
 
-## Developing desktop v3
+## Desktop application
 
 ### Switching tabs resets a draft or 3D camera
 
@@ -53,9 +53,11 @@ scene now waits for the required atlas instead of racing a temporary anatomy sce
 
 ## Docker
 
-### Docker image store is corrupted — `blob sha256:… not found`
+### Docker image store is corrupted — `blob sha256:… not found` (historical recovery record)
 
-**Applies to:** any OS; seen on Ubuntu / EC2.
+**Historical v2 recovery record:** seen on Ubuntu / EC2. The image names, disk estimates
+and FreeSurfer volume below belong to that version. For the current image, follow the
+[installation guide]({{ site.baseurl }}/installation/).
 **Situation:** launching the toolbox (or any `docker images` call) after an interrupted pull, a full disk, or a reboot mid-download.
 **Error:**
 ```
@@ -75,7 +77,7 @@ subprocess.CalledProcessError: Command '['docker', 'images', '--format', …]' r
    then relaunch; images are re-pulled and the FreeSurfer volume is re-seeded.
 **Source:** maintainer-verified, 2026-08-26.
 
-### `Error: simnibs service is not running. Please check your docker-compose.yml and container logs.`
+### `Error: simnibs service is not running. Please check your docker-compose.yml and container logs.` (historical v2)
 
 **Applies to:** any OS, `python3 loader.py`.
 **Situation:** images pull fine, "Starting services…", then this line.
@@ -94,7 +96,7 @@ subprocess.CalledProcessError: Command '['docker', 'images', '--format', …]' r
 **Fix:** Docker Desktop → Settings → Resources → WSL Integration → enable your distro → Apply & Restart; verify with `docker compose version`. The desktop app is unaffected.
 **Source:** [#65](https://github.com/idossha/TI-Toolbox/discussions/65).
 
-### FreeSurfer container stuck in a `Restarting` loop / `nu_correct: Command not found` (Windows)
+### FreeSurfer container stuck in a `Restarting` loop / `nu_correct: Command not found` (Windows) (historical v2)
 
 **Applies to:** Windows 11, WSL2, Docker Desktop.
 **Situation:** `simnibs_container` runs but `freesurfer_container` restarts forever; the desktop launcher times out after 300 s.
@@ -105,8 +107,8 @@ subprocess.CalledProcessError: Command '['docker', 'images', '--format', …]' r
 ### Docker not running / images not downloading / first launch takes very long
 
 **Applies to:** any OS, first run of a new version.
-**Cause:** the SimNIBS image is 5–10 GB and is pulled on the first launch of every new version; a Docker daemon that is not running, or a slow connection, looks like a hang.
-**Fix:** start Docker Desktop (`sudo systemctl start docker` on Linux) and wait for it to be green; watch the pull in Docker Desktop → Images; ensure ≥20 GB free disk; pull manually with `docker pull idossha/simnibs:<version>` if needed. A window that only appears after several minutes on a first launch is normal ([#118](https://github.com/idossha/TI-Toolbox/discussions/118)).
+**Cause:** a missing image must be loaded before the server starts. A Docker daemon that is not running, limited disk space or a slow image download can delay startup.
+**Fix:** start Docker Desktop (`sudo systemctl start docker` on Linux), confirm the daemon is ready, and check the launcher progress and Docker disk usage. Follow the [installation guide]({{ site.baseurl }}/installation/) for the matching image.
 
 ### CHARM killed / simulations slow — insufficient Docker memory
 
@@ -118,10 +120,13 @@ subprocess.CalledProcessError: Command '['docker', 'images', '--format', …]' r
 
 ### Preprocessing appears frozen for many hours
 
-**Expected runtimes:** CHARM ≈ 1–1.5 h, recon-all ≈ 4 h+ (longer under emulation on Apple Silicon). Check the System Monitor tab and `<project>/derivatives/ti-toolbox/logs/`. If it really is stuck, test with the bundled `ernie` NIfTI to rule out a bad input volume.
+**Check progress:** open [Jobs]({{ site.baseurl }}/wiki/jobs/) to inspect the stage and live log. CHARM and FastSurfer can run for a long time, especially under emulation on Apple Silicon; a quiet interval alone does not establish that a job is stuck. The original discussion below concerns the historical FreeSurfer workflow.
 **Source:** [#93](https://github.com/idossha/TI-Toolbox/discussions/93).
 
-## Launching
+## Launching (historical v2)
+
+For the current launcher, use the [installation guide]({{ site.baseurl }}/installation/).
+The entry below records the old container layout.
 
 ### Container cannot find the project / subject not listed in the GUI (Linux terminal)
 
@@ -130,13 +135,12 @@ subprocess.CalledProcessError: Command '['docker', 'images', '--format', …]' r
 **Fix:** always launch with `python3 loader.py` (repository root — `loader.sh` no longer exists) and point it at the project; verify inside the container with `echo $PROJECT_DIR_NAME` and `ls /mnt/`. One project per session — relaunch to switch. Jupyter: open `http://localhost:8888` in the host browser.
 **Source:** [#95](https://github.com/idossha/TI-Toolbox/discussions/95), [#84](https://github.com/idossha/TI-Toolbox/discussions/84).
 
-## GUI display (X11)
+## GUI display (X11, historical v2)
 
-> **v3 note:** the desktop app no longer uses X11 at all — the toolbox UI and the built-in
-> viewer (Tetravox Embed) both render inside the Electron window itself. Everything in this
-> section applies only to the classic `python3 loader.py` + `docker-compose.yml` CLI
-> workflow (see [Bash/CLI Usage]({{ site.baseurl }}/installation/bash-cli/)), which still
-> uses a PyQt5 GUI over X11 forwarding.
+> **Historical v2 instructions.** The current desktop application and command-line launcher
+> use the same single-image server and browser UI, with no Qt or X11. This section records
+> fixes for the removed v2 GUI; it does not apply to the
+> [current command-line launcher]({{ site.baseurl }}/installation/bash-cli/).
 
 ### No GUI on macOS — Qt XCB / `could not connect to display` / Qt5Agg error
 
@@ -233,7 +237,9 @@ By design — `TI_normal` only exists on the cortical surface. Select *Space = m
 
 # Part 2 — Toolbox bugs already fixed: upgrade
 
-If you see one of these, you are on an old version. *main* = fixed on the main branch, ships in the next release (v2.4.1). Older-version workarounds are given only where they are easy.
+These entries record fixes to older versions. The historical *main* label means the fix
+was on the main branch when the entry was recorded. Older-version workarounds are retained
+for reference; use the [installation guide]({{ site.baseurl }}/installation/) for current setup.
 
 | Symptom | Fixed in | Note / workaround on older versions | Source |
 |---|---|---|---|
