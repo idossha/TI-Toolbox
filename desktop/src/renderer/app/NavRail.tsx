@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactElement } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { ChevronDown, ChevronRight } from "lucide-react";
-import { pageById, pagePath, useNavSections } from "./registry";
+import { ChevronDown, ChevronRight, Puzzle } from "lucide-react";
+import { pageById, pagePath, useNavSections, type ResolvedPage } from "./registry";
 import { isMac } from "./keyboard";
 import { Tooltip } from "../ui/Overlay";
 
@@ -49,19 +49,9 @@ function useLabelledRail(): boolean {
 }
 
 /**
- * The v3 rail (DESIGN.md §9, program U7): **flat and workflow-ordered** — Subjects ·
- * Pre-processing · Simulator · Optimizer · Analyzer · Results · Viewer · Jobs, then a spacer, then
- * Settings and Help. No group headers, no subject-id label, no subject scoping.
- *
- * Three things v2 had that are gone: the `Kbd` badge on every row (19 pieces of chrome for
- * something needed twice — shortcuts live in ⌘K and the `?` sheet), the group labels, and the
- * "Subject" heading that printed a subject id above pages the subject did not own.
- */
-
-/**
  * Which groups the user has collapsed, remembered per browser.
  *
- * A per-viewer convenience, so `localStorage` is the right home and a throw is not worth a state:
+ * A navigation convenience, so `localStorage` is the right home and a throw is not worth a state:
  * a private window, cleared site data or a browser that blocks storage just means every group
  * starts expanded, which is the default anyway.
  */
@@ -88,6 +78,77 @@ function writeCollapsed(ids: string[]): void {
 function ariaShortcut(shortcut: string | undefined): string | undefined {
   if (!shortcut) return undefined;
   return `${isMac ? "Meta" : "Control"}+${shortcut}`;
+}
+
+/** Presentation-only grouping: extension routes and retained page ownership stay unchanged. */
+function ExtensionsNav({
+  pages,
+  icons,
+  collapsed,
+  onToggle,
+  activePageId,
+}: {
+  pages: ResolvedPage[];
+  icons: boolean;
+  collapsed: boolean;
+  onToggle: () => void;
+  activePageId: string;
+}) {
+  if (pages.length === 0) return null;
+  const containsActive = pages.some((page) => page.id === activePageId);
+  const heading = (
+    <button
+      type="button"
+      className="nav-item"
+      aria-label="Extensions"
+      aria-expanded={!collapsed}
+      aria-controls="nav-subitems-extensions"
+      data-testid="nav-item-extensions"
+      data-contains-active={containsActive ? "true" : undefined}
+      onClick={onToggle}
+    >
+      <Puzzle size={16} aria-hidden />
+      <span className="nav-label">Extensions</span>
+      {!icons &&
+        (collapsed ? (
+          <ChevronRight size={14} aria-hidden />
+        ) : (
+          <ChevronDown size={14} aria-hidden />
+        ))}
+    </button>
+  );
+  return (
+    <div className="nav-row">
+      {icons ? <Tooltip label="Extensions">{heading}</Tooltip> : heading}
+      <div
+        className="nav-subitems"
+        id="nav-subitems-extensions"
+        hidden={collapsed}
+      >
+        {pages.map((page) => {
+          const Icon = page.icon;
+          const row = (
+            <NavLink
+              to={pagePath(page)}
+              className={icons ? "nav-item nav-extension-icon" : "nav-subitem"}
+              aria-label={page.title}
+              data-testid={`nav-item-${page.id}`}
+            >
+              {icons && <Icon size={16} aria-hidden />}
+              <span className="nav-label">{page.title}</span>
+            </NavLink>
+          );
+          return icons ? (
+            <Tooltip key={page.id} label={page.title}>
+              {row}
+            </Tooltip>
+          ) : (
+            <div key={page.id}>{row}</div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export function NavRail() {
@@ -132,7 +193,7 @@ export function NavRail() {
         <div key={section.id} className={section.pinned ? "nav-section-pinned" : undefined}>
           {section.pinned && <div className="nav-divider" role="separator" />}
           <div className="nav-section">
-            {section.pages.map((page) => {
+            {section.pages.filter((page) => page.navGroup !== "panels").map((page) => {
               const Icon = page.icon;
               const hasSubs = !icons && (page.subNav?.length ?? 0) > 0;
               const containsActive = hasSubs && page.id === activePageId;
@@ -227,6 +288,13 @@ export function NavRail() {
                 </div>
               );
             })}
+            <ExtensionsNav
+              pages={section.pages.filter((page) => page.navGroup === "panels")}
+              icons={icons}
+              collapsed={collapsed.includes("extensions")}
+              onToggle={() => toggleCollapsed("extensions")}
+              activePageId={activePageId}
+            />
           </div>
         </div>
       ))}

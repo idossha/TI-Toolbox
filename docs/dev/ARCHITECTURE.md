@@ -384,10 +384,14 @@ in the page or palette. The jobs rail remains available throughout the app, with
 raw logs and artifacts. There is no separate bottom status bar. System, Settings and Help have page
 headers; workflow pages use their navigation context. [`registry.ts`](../../desktop/src/renderer/app/registry.ts)
 owns navigation order, gating, palette destinations and shortcuts, including Viewer subroutes.
+Enabled extension pages are grouped under a collapsible Extensions item; grouping does not change
+their routes or retained page instances.
 
 Simulator's saved-definition manager deletes montage or freehand definitions only. Confirmed
 deletion clears matching draft job selections, preserving completed simulation outputs. Freehand
 deletion is subject-scoped through `DELETE /api/catalog/freehand/{name}?subject=...`.
+The manager uses a fixed-height scroll region. Bulk deletion reports partial success and leaves
+failed definitions selected for retry rather than claiming the entire selection was deleted.
 
 ### Visual system and controls
 

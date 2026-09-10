@@ -46,6 +46,18 @@ function field(label: string, root: Page | Locator = page): Locator {
   return root.locator(".field", { hasText: label }).first();
 }
 
+async function expectAlignedElectrodePairs(dialog: Locator, pairs: number): Promise<void> {
+  let previousY = -Infinity;
+  for (let pair = 1; pair <= pairs; pair++) {
+    const plus = (await field(`E${pair}+`, dialog).getByRole("combobox").boundingBox())!;
+    const minus = (await field(`E${pair}-`, dialog).getByRole("combobox").boundingBox())!;
+    expect(Math.abs(plus.y - minus.y)).toBeLessThan(1);
+    expect(minus.x).toBeGreaterThan(plus.x + plus.width);
+    expect(plus.y).toBeGreaterThan(previousY);
+    previousY = plus.y;
+  }
+}
+
 /** Picks a cortical DK40 region inside an open row editor — the flex target gesture. */
 async function pickCorticalTarget(dialog: Locator, region = "L · bankssts"): Promise<void> {
   await field("Atlas", dialog).locator(".combobox-trigger").click();
@@ -454,6 +466,10 @@ test("Ex: the Leadfield cell lists what a subject has, and names the refusal whe
   const electrodeSection = dialog.locator('[data-fill-section="Electrodes"]');
   await expect(targetSection.locator('.form-section-header')).toBeVisible();
   await expect(electrodeSection.getByRole("radiogroup", { name: "Electrode count" })).toBeVisible();
+  await expectAlignedElectrodePairs(dialog, 2);
+  const searchSpace = (await field("Search space", dialog).boundingBox())!;
+  const firstElectrode = (await field("E1+", dialog).boundingBox())!;
+  expect(firstElectrode.y).toBeGreaterThanOrEqual(searchSpace.y + searchSpace.height);
   expect((await electrodeSection.boundingBox())!.y).toBeGreaterThan(
     (await targetSection.boundingBox())!.y + (await targetSection.boundingBox())!.height,
   );
@@ -499,7 +515,7 @@ test("mEx is Ex with eight electrodes: the count decides the kind", async () => 
   await expect(row.locator('td[data-cell="goal"]')).toHaveText("—");
 
   let dialog = await openOptEditor(page, row);
-  await field("Electrodes", dialog).getByRole("radio", { name: "8 electrodes (mTI)", exact: true }).click();
+  await field("Count", dialog).getByRole("radio", { name: "8 electrodes (mTI)", exact: true }).click();
   await closeOptEditor(page);
   await expect(row).toHaveAttribute("data-kind", "mex");
   await expect(optRowDetail(row)).toHaveText(/^8 electrodes \(mTI\) · 2 mA · /);
@@ -510,6 +526,7 @@ test("mEx is Ex with eight electrodes: the count decides the kind", async () => 
   for (const bucket of ["E1+", "E1-", "E2+", "E2-", "E3+", "E3-", "E4+", "E4-"]) {
     await expect(field(bucket, dialog)).toBeVisible();
   }
+  await expectAlignedElectrodePairs(dialog, 4);
   await expect(dialog.getByTestId("optimizer-cost-mex")).toHaveText(/0 electrodes · 4 pairs · 0 combinations/);
   await expect(dialog.locator(".form-section-title", { hasText: "Carriers" })).toBeVisible();
   await closeOptEditor(page);
@@ -521,7 +538,7 @@ test("mEx is Ex with eight electrodes: the count decides the kind", async () => 
 
   // Back to four electrodes, and the row is an `ex` search again — with the buckets it already had.
   dialog = await openOptEditor(page, row);
-  await field("Electrodes", dialog).getByRole("radio", { name: "4 electrodes (TI)", exact: true }).click();
+  await field("Count", dialog).getByRole("radio", { name: "4 electrodes (TI)", exact: true }).click();
   await closeOptEditor(page);
   await expect(row).toHaveAttribute("data-kind", "ex");
 });

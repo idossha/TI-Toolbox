@@ -477,3 +477,15 @@
   flex-direction: column;
   gap: var(--space-3);
 }
+
+/* Keep extension children distinguishable in the compact rail as well. */
+.nav-rail-icons .nav-extension-icon {
+  width: 32px;
+  margin-left: 8px;
+  border-left: 1px solid var(--line);
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+}
+
+.nav-subitems[hidden] {
+  display: none;
+}

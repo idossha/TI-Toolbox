@@ -195,7 +195,7 @@ export function ExElectrodesSection({
   return (
     <FormSection title="Electrodes">
       {countControl && <div className="optimizer-span">{countControl}</div>}
-      <Field label="Search space">
+      <Field label="Search space" className="optimizer-span">
         <SegmentedControl
           value={form.electrodeMode}
           onValueChange={(v) => onChange({ electrodeMode: v as "bucketed" | "all" })}

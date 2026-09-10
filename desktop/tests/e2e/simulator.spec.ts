@@ -643,3 +643,121 @@ for (const kind of ["montage", "placement"] as const) {
     await expect(manager).toHaveCount(0);
   });
 }
+
+test("Manage montages scrolls at a fixed height and deletes only checked definitions after confirmation", async () => {
+  const headers = { Authorization: `Bearer ${TOKEN}` };
+  const names = Array.from({ length: 20 }, (_, index) => `bulk_${RUN_ID}_${String(index).padStart(2, "0")}`);
+  const placement = `bulk_placement_${RUN_ID}`;
+  const paths = names.map((name) => `/api/catalog/montages/GSN-HydroCel-185/uni_polar/${name}`);
+  const placementPath = `/api/catalog/freehand/${placement}?subject=ernie`;
+  try {
+    for (const path of paths) {
+      expect((await page.request.put(`${SERVER_URL}${path}`, {
+        headers, data: { pairs: [["E37", "E18"], ["E87", "E102"]] },
+      })).ok()).toBe(true);
+    }
+    expect((await page.request.put(`${SERVER_URL}${placementPath}`, {
+      headers,
+      data: {
+        name: placement, type: "M",
+        electrode_positions: [
+          { label: "E37", x: -68.1, y: -12.3, z: 22.5 },
+          { label: "E18", x: -55.4, y: 24.7, z: -8.1 },
+          { label: "E87", x: 30.2, y: -70.4, z: 41.9 },
+          { label: "E102", x: 42.6, y: 18.9, z: -15.2 },
+        ],
+      },
+    })).ok()).toBe(true);
+    await page.reload();
+    await gotoPage(page, "simulator", "Simulator");
+    await page.getByRole("button", { name: "Manage montages", exact: true }).click();
+    const manager = page.getByRole("dialog", { name: "Manage montages", exact: true });
+    await manager.getByRole("combobox", { name: "Managed EEG net", exact: true }).click();
+    await page.getByRole("option", { name: "GSN-HydroCel-185", exact: true }).click();
+    await manager.getByRole("combobox", { name: "Managed placement subject", exact: true }).click();
+    await page.getByRole("option", { name: "ernie", exact: true }).click();
+    const scroll = manager.getByTestId("montage-manager-scroll");
+    await expect(manager.getByRole("checkbox", { name: `Select montage ${names[19]}`, exact: true })).toBeAttached();
+    const geometry = await scroll.evaluate((element) => ({
+      height: element.clientHeight, content: element.scrollHeight,
+      overflow: getComputedStyle(element).overflowY,
+    }));
+    expect(geometry.content).toBeGreaterThan(geometry.height);
+    expect(geometry.overflow).toMatch(/auto|scroll/);
+    const height = await manager.evaluate((element) => element.getBoundingClientRect().height);
+    expect(height).toBeLessThan(800);
+    await expect(manager.getByRole("button", { name: "Delete selected (0)", exact: true })).toBeDisabled();
+    for (const name of names.slice(0, 2)) {
+      await manager.getByRole("checkbox", { name: `Select montage ${name}`, exact: true }).check();
+    }
+    await manager.getByRole("checkbox", { name: `Select placement ${placement}`, exact: true }).check();
+    const remove = manager.getByRole("button", { name: "Delete selected (3)", exact: true });
+    await expect(remove).toBeInViewport();
+    await remove.click();
+    const confirmation = page.getByRole("alertdialog");
+    await expect(confirmation).toContainText("Delete 3 selected definitions?");
+    await confirmation.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(manager.getByRole("checkbox", { name: `Select montage ${names[0]}`, exact: true })).toBeChecked();
+    await expect(manager.getByRole("checkbox", { name: `Select placement ${placement}`, exact: true })).toBeChecked();
+    await remove.click();
+    await confirmation.getByRole("button", { name: "Delete selected", exact: true }).click();
+    for (const name of names.slice(0, 2)) {
+      await expect(manager.getByRole("checkbox", { name: `Select montage ${name}`, exact: true })).toHaveCount(0);
+    }
+    await expect(manager.getByRole("checkbox", { name: `Select placement ${placement}`, exact: true })).toHaveCount(0);
+    for (const name of names.slice(2)) {
+      await expect(manager.getByRole("checkbox", { name: `Select montage ${name}`, exact: true })).toBeAttached();
+    }
+    await expect(manager.getByRole("button", { name: "Delete selected (0)", exact: true })).toBeDisabled();
+    expect(await manager.evaluate((element) => element.getBoundingClientRect().height)).toBeCloseTo(height, 0);
+    await manager.getByRole("button", { name: "Done", exact: true }).click();
+  } finally {
+    for (const path of [...paths, placementPath]) {
+      await page.request.delete(`${SERVER_URL}${path}`, { headers });
+    }
+  }
+});
+
+test("Manage montages keeps failed bulk deletions selected for retry", async () => {
+  const headers = { Authorization: `Bearer ${TOKEN}` };
+  const names = [`bulk_ok_${RUN_ID}`, `bulk_retry_${RUN_ID}`];
+  const paths = names.map((name) => `/api/catalog/montages/GSN-HydroCel-185/uni_polar/${name}`);
+  const failedUrl = `${SERVER_URL}${paths[1]}`;
+  try {
+    for (const path of paths) {
+      expect((await page.request.put(`${SERVER_URL}${path}`, {
+        headers, data: { pairs: [["E37", "E18"], ["E87", "E102"]] },
+      })).ok()).toBe(true);
+    }
+    await page.reload();
+    await gotoPage(page, "simulator", "Simulator");
+    await page.getByRole("button", { name: "Manage montages", exact: true }).click();
+    const manager = page.getByRole("dialog", { name: "Manage montages", exact: true });
+    await manager.getByRole("combobox", { name: "Managed EEG net", exact: true }).click();
+    await page.getByRole("option", { name: "GSN-HydroCel-185", exact: true }).click();
+    for (const name of names) {
+      await manager.getByRole("checkbox", { name: `Select montage ${name}`, exact: true }).check();
+    }
+    await page.route(failedUrl, async (route) => {
+      if (route.request().method() === "DELETE") {
+        await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ detail: "Temporarily unavailable" }) });
+      } else {
+        await route.continue();
+      }
+    });
+    await manager.getByRole("button", { name: "Delete selected (2)", exact: true }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Delete selected", exact: true }).click();
+    await expect(manager.getByRole("checkbox", { name: `Select montage ${names[0]}`, exact: true })).toHaveCount(0);
+    await expect(manager.getByRole("checkbox", { name: `Select montage ${names[1]}`, exact: true })).toBeChecked();
+    await expect(page.getByText("1 definition could not be deleted. They remain selected so you can retry.", { exact: true })).toBeVisible();
+    await page.unroute(failedUrl);
+    await manager.getByRole("button", { name: "Delete selected (1)", exact: true }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Delete selected", exact: true }).click();
+    await expect(manager.getByRole("checkbox", { name: `Select montage ${names[1]}`, exact: true })).toHaveCount(0);
+    await expect(manager.getByRole("button", { name: "Delete selected (0)", exact: true })).toBeDisabled();
+    await manager.getByRole("button", { name: "Done", exact: true }).click();
+  } finally {
+    await page.unroute(failedUrl);
+    for (const path of paths) await page.request.delete(`${SERVER_URL}${path}`, { headers });
+  }
+});

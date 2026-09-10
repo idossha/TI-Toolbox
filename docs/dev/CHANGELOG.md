@@ -10,7 +10,12 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 ### v3.0.0 (Unreleased)
 
 - **Saved montages can be removed.** Simulator’s **Manage montages** lists net-based montages
-  and subject-specific freehand placements with confirmed deletion. Existing results are kept.
+  and subject-specific freehand placements in a fixed-height scrolling list with confirmed
+  individual or multi-selection deletion. Existing results are kept; failed deletions stay selected for retry.
+- **Extension pages share one navigation group.** Expand **Extensions** to access Source,
+  Cluster permutation, NIfTI group averaging, Nilearn visuals and 3D visual exporter.
+- **Ex-search electrode pairs align.** Search-space controls occupy their own row, keeping
+  positive and negative electrode selectors paired in TI and mTI modes.
 
 - **Navigation follows the working order.** Optimizer precedes Simulator; Viewer and Results
   precede Pipeline, Notebooks and Jobs. Extensions follow those pages. Number shortcuts follow the new order.

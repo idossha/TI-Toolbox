@@ -27,6 +27,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Pencil, Trash2, X, Copy, SlidersHorizontal } from "lucide-react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Checkbox } from "../../ui/Toggle";
 import { Button, IconButton } from "../../ui/Button";
 import { AlertDialog, Dialog } from "../../ui/Overlay";
 import { Field, TextInput } from "../../ui/Field";
@@ -72,6 +73,12 @@ export interface CatalogMontage {
   name: string;
   pairs: [string, string][];
 }
+
+type SavedDefinition = { type: "montage"; net: string; kind: MontageKind; name: string } | { type: "placement"; subject: string; name: string };
+const definitionKey = (item: SavedDefinition) => JSON.stringify(item.type === "montage" ? [item.type, item.net, item.kind, item.name] : [item.type, item.subject, item.name]);
+const matchesDefinition = (row: SelectedRow, item: SavedDefinition) => item.type === "montage"
+  ? row.source === "montage" && row.eegNet === item.net && row.kind === item.kind && row.name === item.name
+  : row.source === "freehand" && row.subjectId === item.subject && row.name === item.name;
 
 /** `${kind}:${name}` — the montage `Select`'s option value, since one name can exist in both
  *  buckets of the same net. */
@@ -472,6 +479,11 @@ export function JobsTable({
   const editing = draft;
   const setEditing = onDraftChange;
   const [manageOpen, setManageOpen] = useState(false);
+  const [selectedDefinitions, setSelectedDefinitions] = useState<SavedDefinition[]>([]);
+  const [bulkTargets, setBulkTargets] = useState<SavedDefinition[] | null>(null);
+  function selectDefinition(item: SavedDefinition, selected: boolean) {
+    setSelectedDefinitions((items) => selected ? [...items.filter((value) => definitionKey(value) !== definitionKey(item)), item] : items.filter((value) => definitionKey(value) !== definitionKey(item)));
+  }
   const [managedNet, setManagedNet] = useState<string | undefined>();
   const [managedSubject, setManagedSubject] = useState<string | undefined>();
   const managementNet = managedNet ?? editorNet;
@@ -539,6 +551,7 @@ export function JobsTable({
     onSuccess: (_data, m) => {
       notify.success(`Deleted montage "${m.name}".`);
       setDeleteTarget(null);
+      selectDefinition({ type: "montage", ...m }, false);
       // Every row that pointed at it goes back to "pick a montage" rather than silently planning a
       // montage that no longer exists.
       onRowsChange(
@@ -558,6 +571,7 @@ export function JobsTable({
     onSuccess: (_data, target) => {
       notify.success(`Deleted placement "${target.name}".`);
       setDeletePlacement(null);
+      selectDefinition({ type: "placement", ...target }, false);
       onRowsChange(rowsRef.current.map((row) => row.source === "freehand" && row.subjectId === target.subject && row.name === target.name
         ? { ...row, name: "", xyzPairs: undefined, pairs: undefined, kind: undefined }
         : row));
@@ -565,6 +579,23 @@ export function JobsTable({
     },
     onError: (error: unknown) => notify.error("Could not delete the placement.", error instanceof Error ? error.message : undefined),
   });
+
+  const removeSelected = useMutation({
+    mutationFn: async (targets: SavedDefinition[]) => {
+      const results = await Promise.allSettled(targets.map((item) => item.type === "montage"
+        ? deleteMontage(item.net, item.kind, item.name) : deleteFreehand(item.subject, item.name)));
+      return { deleted: targets.filter((_, index) => results[index]?.status === "fulfilled"), failed: targets.filter((_, index) => results[index]?.status === "rejected") };
+    },
+    onSuccess: ({ deleted, failed }) => {
+      onRowsChange(rowsRef.current.map((row) => deleted.some((item) => matchesDefinition(row, item)) ? { ...row, name: "", kind: undefined, pairs: undefined, xyzPairs: undefined } : row));
+      setSelectedDefinitions(failed);
+      void queryClient.invalidateQueries({ queryKey: ["montages"] });
+      void queryClient.invalidateQueries({ queryKey: ["freehand"] });
+      if (deleted.length) notify.success(`Deleted ${deleted.length} saved definition${deleted.length === 1 ? "" : "s"}.`);
+      if (failed.length) notify.error(`${failed.length} definition${failed.length === 1 ? "" : "s"} could not be deleted. They remain selected so you can retry.`);
+    },
+  });
+  const deletingDefinitions = removeSelected.isPending || removeMontage.isPending || removePlacement.isPending;
 
   // The mapping fetch resolves after other edits may have landed; the continuation must patch the
   // rows as they are then, not as they were when the request went out.
@@ -1135,7 +1166,7 @@ export function JobsTable({
         <Button variant="secondary" icon={<Plus size={14} />} disabled={usable.length === 0} onClick={startNewFreehand}>
           New placement
         </Button>
-        <Button variant="secondary" onClick={() => setManageOpen(true)}>Manage montages</Button>
+        <Button variant="secondary" onClick={() => { setSelectedDefinitions([]); setManageOpen(true); }}>Manage montages</Button>
       </div>
 
       {freehandOpen && <FreehandEditor subjects={usable} onClose={() => setFreehandOpen(false)} />}
@@ -1229,30 +1260,34 @@ export function JobsTable({
 
       <Dialog open={manageOpen} onOpenChange={setManageOpen} title="Manage montages"
         description="Delete saved definitions. Existing simulation results are kept."
-        footer={<Button onClick={() => setManageOpen(false)}>Done</Button>}>
-        <div style={{ display: "grid", gap: "var(--space-4)" }}>
+        footer={<><Button variant="destructive" disabled={selectedDefinitions.length === 0 || deletingDefinitions} onClick={() => setBulkTargets([...selectedDefinitions])}>{removeSelected.isPending ? "Deleting…" : `Delete selected (${selectedDefinitions.length})`}</Button><Button onClick={() => setManageOpen(false)}>Done</Button></>}>
+        <div data-testid="montage-manager-scroll" style={{ display: "grid", alignContent: "start", gap: "var(--space-4)", height: "min(440px, 55vh)", overflowY: "auto", paddingRight: "var(--space-2)" }}>
           <section>
             <h3 className="card-title">Montages</h3>
-            <Field label="EEG net"><Select aria-label="Managed EEG net" value={managementNet ?? ""} options={availableNets.map((net) => ({ value: net, label: net }))} onValueChange={setManagedNet} /></Field>
+            <Field label="EEG net"><Select aria-label="Managed EEG net" value={managementNet ?? ""} options={availableNets.map((net) => ({ value: net, label: net }))} disabled={deletingDefinitions} onValueChange={(value) => { setManagedNet(value); setSelectedDefinitions([]); }} /></Field>
             {montages.isPending ? <p>Loading montages…</p> : montages.isError ? <p>Could not load montages.</p> : montagesOf(managementNet).length === 0 ? <p className="field-help">No saved montages for this net.</p> : montagesOf(managementNet).map((montage) => (
               <div key={`${montage.kind}:${montage.name}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-2)", paddingBlock: "var(--space-2)" }}>
-                <span style={{ overflowWrap: "anywhere" }}>{montage.name} · {polarityLabel(montage.kind)}</span>
-                <IconButton aria-label={`Delete montage ${montage.name}`} icon={<Trash2 size={16} />} disabled={removeMontage.isPending} onClick={() => setDeleteTarget(montage)} />
+                <Checkbox aria-label={`Select montage ${montage.name}`} label={`${montage.name} · ${polarityLabel(montage.kind)}`} disabled={deletingDefinitions} checked={selectedDefinitions.some((item) => definitionKey(item) === definitionKey({ type: "montage", ...montage }))} onCheckedChange={(checked) => selectDefinition({ type: "montage", ...montage }, checked)} />
+                <IconButton aria-label={`Delete montage ${montage.name}`} icon={<Trash2 size={16} />} disabled={deletingDefinitions} onClick={() => setDeleteTarget(montage)} />
               </div>
             ))}
           </section>
           <section>
             <h3 className="card-title">Freehand placements</h3>
-            <Field label="Subject"><Select aria-label="Managed placement subject" value={managementSubject ?? ""} options={usable.map((subject) => ({ value: subject, label: subject }))} onValueChange={setManagedSubject} /></Field>
+            <Field label="Subject"><Select aria-label="Managed placement subject" value={managementSubject ?? ""} options={usable.map((subject) => ({ value: subject, label: subject }))} disabled={deletingDefinitions} onValueChange={(value) => { setManagedSubject(value); setSelectedDefinitions([]); }} /></Field>
             {freehandQueries[usable.indexOf(managementSubject ?? "")]?.isPending ? <p>Loading placements…</p> : freehandQueries[usable.indexOf(managementSubject ?? "")]?.isError ? <p>Could not load placements.</p> : (freehandBySubject[managementSubject ?? ""] ?? []).length === 0 ? <p className="field-help">No saved placements for this subject.</p> : (freehandBySubject[managementSubject ?? ""] ?? []).map((placement) => (
               <div key={placement.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-2)", paddingBlock: "var(--space-2)" }}>
-                <span style={{ overflowWrap: "anywhere" }}>{placement.name}</span>
-                <IconButton aria-label={`Delete placement ${placement.name}`} icon={<Trash2 size={16} />} disabled={removePlacement.isPending} onClick={() => setDeletePlacement({ subject: managementSubject!, name: placement.name })} />
+                <Checkbox aria-label={`Select placement ${placement.name}`} label={placement.name} disabled={deletingDefinitions} checked={selectedDefinitions.some((item) => definitionKey(item) === definitionKey({ type: "placement", subject: managementSubject!, name: placement.name }))} onCheckedChange={(checked) => selectDefinition({ type: "placement", subject: managementSubject!, name: placement.name }, checked)} />
+                <IconButton aria-label={`Delete placement ${placement.name}`} icon={<Trash2 size={16} />} disabled={deletingDefinitions} onClick={() => setDeletePlacement({ subject: managementSubject!, name: placement.name })} />
               </div>
             ))}
           </section>
         </div>
       </Dialog>
+      <AlertDialog open={bulkTargets !== null} onOpenChange={(open) => !open && setBulkTargets(null)}
+        title={`Delete ${bulkTargets?.length ?? 0} selected definitions?`}
+        description="This removes the selected saved montages and placements. Existing simulation results are kept."
+        confirmLabel="Delete selected" onConfirm={() => { if (bulkTargets) { setEditing(null); removeSelected.mutate(bulkTargets); } }} />
       <AlertDialog open={deletePlacement !== null} onOpenChange={(open) => !open && setDeletePlacement(null)}
         title={`Delete placement "${deletePlacement?.name ?? ""}"?`}
         description="This removes the saved freehand definition for this subject. Existing simulation results are kept."

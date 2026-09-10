@@ -520,3 +520,10 @@ in Simulator's Manage montages dialog. Keep job removal separate and preserve si
 **Why:** Creation had a visible entry point while definition deletion did not. **Verification:**
 Catalog deletion tests cover subject/path boundaries; simulator UI tests cover cancel, confirm
 and clearing referencing job selections.
+
+## 2026-09-09 — Compact management and extension navigation
+
+**Decision:** Bound the montage manager's list height, support confirmed multi-selection deletion,
+and group enabled extension links beneath Extensions. **Why:** Long catalogs expanded the dialog
+beyond a useful size and flat extension links crowded the workflow rail. **Compatibility:** Keep
+the existing deletion endpoints and extension routes; partial deletion failures remain selected.
