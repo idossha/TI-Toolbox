@@ -22,6 +22,7 @@
   min-height: 0;
   gap: var(--space-2);
   padding: var(--space-2);
+  overflow-y: auto;
 }
 
 /* ---------------------------------------------------------------- coverage strip */
@@ -116,7 +117,8 @@
  * makes the legend hug it: three rows and the table is three rows tall with the legend under them,
  * thirty and the table takes the pane and scrolls. */
 .overview-table {
-  flex: 0 1 auto;
+  flex: none;
+  max-height: min(420px, 50vh);
   min-height: 0;
   overflow: auto;
   display: flex;

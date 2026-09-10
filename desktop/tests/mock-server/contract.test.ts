@@ -230,6 +230,7 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     await call("/api/catalog/notes", "PUT", "/api/catalog/notes", { body: { text: "contract test note" } });
     await call("/api/catalog/subject-info", "GET", "/api/catalog/subject-info");
     await call("/api/catalog/overview", "GET", "/api/catalog/overview");
+    await call("/api/catalog/project-summary", "GET", "/api/catalog/project-summary");
 
     // scene (v1) -- the six routes the run pages' 3D panes read (plan of record §2.1). `surface`
     // and `labels` answer `application/octet-stream`, so `call` only checks their declared status;

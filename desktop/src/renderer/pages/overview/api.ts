@@ -1,16 +1,4 @@
-/**
- * The Overview page's one catalog read.
- *
- * R1 (`docs/dev/HISTORY.md § 2026-09-05`): a single `GET /api/catalog/overview` owns every display
- * fact this page renders — presence per subject, EEG nets and leadfields, output counts, and
- * workflow readiness — so the page's request count does not grow with the project. What it
- * replaced was one `/api/catalog/subjects/{id}` per subject plus five output lists per subject
- * plus one analyses list per simulation, capped in the renderer at 25 subjects, which meant a
- * larger project rendered no counts at all.
- *
- * Detailed output discovery stays lazy and stays in Results (`pages/results/useOutputs.ts`): this
- * page carries counts, never trees or previews.
- */
+/** Aggregate subject presence and output counts; project identity/storage load separately. */
 import { api, unwrap } from "../../api/client";
 import type { components } from "../../api/schema";
 

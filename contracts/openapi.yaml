@@ -1009,6 +1009,28 @@ paths:
                 $ref: "#/components/schemas/TableData"
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /api/catalog/project-summary:
+    get:
+      tags:
+      - catalog
+      summary: Project identity, asynchronous storage scan and retained job activity
+      description: Apparent regular-file sizes exclude symlinks. Storage scans run in
+        background, cached for five minutes; incomplete or timed-out scans report error.
+        Activity counts retained jobs once by UTC creation date, not historical file
+        operations. Last activity includes job start and finish times. Project creation
+        time is unknown unless recorded.
+      security:
+      - cookieAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/catalog/overview:
     get:
       tags: [catalog]
@@ -5490,3 +5512,156 @@ components:
         - $ref: "#/components/schemas/SubcorticalConfig"
         - $ref: "#/components/schemas/NiftiAverageConfig"
         - $ref: "#/components/schemas/NilearnConfig"
+
+    ActivityDay:
+      properties:
+        date:
+          title: Date
+          type: string
+        count:
+          title: Count
+          type: integer
+      required:
+      - date
+      - count
+      title: ActivityDay
+      type: object
+    DerivativeStorage:
+      properties:
+        name:
+          title: Name
+          type: string
+        bytes:
+          title: Bytes
+          type: integer
+      required:
+      - name
+      - bytes
+      title: DerivativeStorage
+      type: object
+    ProjectActivity:
+      properties:
+        days:
+          items:
+            $ref: '#/components/schemas/ActivityDay'
+          title: Days
+          type: array
+        recent:
+          items:
+            $ref: '#/components/schemas/RecentProjectJob'
+          title: Recent
+          type: array
+        last_activity_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Activity At
+        history_since:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: History Since
+      required:
+      - days
+      - recent
+      - last_activity_at
+      - history_since
+      title: ProjectActivity
+      type: object
+    ProjectIdentity:
+      properties:
+        name:
+          title: Name
+          type: string
+        path:
+          title: Path
+          type: string
+        created_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Created At
+      required:
+      - name
+      - path
+      - created_at
+      title: ProjectIdentity
+      type: object
+    SummaryStorage:
+      properties:
+        state:
+          enum:
+          - scanning
+          - ready
+          - error
+          title: State
+          type: string
+        total_bytes:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Total Bytes
+        derivatives:
+          items:
+            $ref: '#/components/schemas/DerivativeStorage'
+          title: Derivatives
+          type: array
+        other_bytes:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Other Bytes
+        scanned_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Scanned At
+      required:
+      - state
+      - total_bytes
+      - derivatives
+      - other_bytes
+      - scanned_at
+      title: SummaryStorage
+      type: object
+    RecentProjectJob:
+      properties:
+        id:
+          title: Id
+          type: string
+        kind:
+          title: Kind
+          type: string
+        state:
+          title: State
+          type: string
+        subject_ids:
+          items:
+            type: string
+          title: Subject Ids
+          type: array
+        created_at:
+          title: Created At
+          type: string
+      required:
+      - id
+      - kind
+      - state
+      - subject_ids
+      - created_at
+      title: RecentProjectJob
+      type: object
+    ProjectSummary:
+      properties:
+        identity:
+          $ref: '#/components/schemas/ProjectIdentity'
+        storage:
+          $ref: '#/components/schemas/SummaryStorage'
+        activity:
+          $ref: '#/components/schemas/ProjectActivity'
+      required:
+      - identity
+      - storage
+      - activity
+      title: ProjectSummary
+      type: object

@@ -527,3 +527,10 @@ and clearing referencing job selections.
 and group enabled extension links beneath Extensions. **Why:** Long catalogs expanded the dialog
 beyond a useful size and flat extension links crowded the workflow rail. **Compatibility:** Keep
 the existing deletion endpoints and extension routes; partial deletion failures remain selected.
+
+## 2026-09-09 — Overview project context
+
+**Decision:** Load identity, cached file-size totals and retained job activity through a separate
+project-summary endpoint. **Why:** Recursive storage scans must not delay the subject matrix.
+The calendar counts job submissions by UTC day; filesystem timestamps do not establish project
+creation or access history. File-size totals are distinct from System's allocated disk usage.

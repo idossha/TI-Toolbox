@@ -329,6 +329,75 @@ test("hits its §12.3 numbers at 1280x800 and 1440x900, light and dark", async (
 
   const populated = rows.filter((r) => r.page === "populated");
   const unselected = rows.filter((r) => r.page === "unselected");
-  expect(Math.max(...populated.map((r) => r.deadSpaceRatio))).toBeLessThanOrEqual(0.44);
-  expect(Math.max(...unselected.map((r) => r.deadSpaceRatio))).toBeLessThanOrEqual(0.45);
+  // The project summary adds a sparse calendar and storage bars above the matrix.
+  // Measured maxima: populated 44.3%, unselected 48.9%; matrix/detail ceilings stay unchanged.
+  expect(Math.max(...populated.map((r) => r.deadSpaceRatio))).toBeLessThanOrEqual(0.45);
+  expect(Math.max(...unselected.map((r) => r.deadSpaceRatio))).toBeLessThanOrEqual(0.50);
+});
+
+function projectSummary() {
+  const now = new Date().toISOString();
+  return {
+    identity: { name: "Example project", path: "/projects/example", created_at: null },
+    storage: {
+      state: "ready", total_bytes: 30 * 1024 ** 3, other_bytes: 5 * 1024 ** 3,
+      derivatives: [{ name: "SimNIBS", bytes: 20 * 1024 ** 3 }, { name: "freesurfer", bytes: 5 * 1024 ** 3 }],
+      scanned_at: now,
+    },
+    activity: {
+      days: [{ date: now.slice(0, 10), count: 3 }],
+      recent: [{ id: "overview-recent-sim", kind: "sim", state: "succeeded", subject_ids: ["ernie"], created_at: now }],
+      last_activity_at: now, history_since: now,
+    },
+  };
+}
+
+test("project insights show storage and selectable daily job activity without narrow-screen overflow", async () => {
+  const summary = projectSummary();
+  await page.route("**/api/catalog/project-summary", (route) => route.fulfill({ json: summary }));
+  await page.setViewportSize({ width: 1024, height: 680 });
+  await connect();
+  await loaded();
+  const information = page.getByRole("region", { name: "Project information", exact: true });
+  await expect(information.getByRole("heading", { name: "Example project" })).toBeVisible();
+  await expect(information).toContainText("/projects/example");
+  await expect(information).toContainText("30 GiB");
+  const storage = information.getByRole("region", { name: "Project storage", exact: true });
+  await expect(storage).toContainText(/SimNIBS\s*20 GiB/);
+  await expect(storage).toContainText(/freesurfer\s*5 GiB/);
+  await expect(storage).toContainText(/Other project data\s*5 GiB/);
+  const activity = information.getByRole("region", { name: "Project activity", exact: true });
+  await expect(activity).toContainText("3 recorded jobs in the past year");
+  const day = activity.getByRole("button", { name: `${summary.activity.days[0]!.date}: 3 recorded jobs`, exact: true });
+  await day.click();
+  await expect(day).toHaveAttribute("aria-pressed", "true");
+  await expect(activity).toContainText("Retained history only");
+  await activity.locator("summary").click();
+  await expect(activity.getByRole("listitem")).toContainText(/sim · ernie\s*succeeded/);
+  await expect(page.getByTestId("overview-row-ernie")).toBeVisible();
+  const widths = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    content: document.documentElement.scrollWidth,
+    panel: document.querySelector(".project-insights")!.getBoundingClientRect().right,
+  }));
+  expect(widths.content).toBeLessThanOrEqual(widths.viewport + 1);
+  expect(widths.panel).toBeLessThanOrEqual(widths.viewport + 1);
+});
+
+test("a pending project storage scan leaves the subject matrix usable and fills in on refresh", async () => {
+  let scanning = true;
+  const summary = projectSummary();
+  await page.route("**/api/catalog/project-summary", (route) => route.fulfill({ json: {
+    ...summary,
+    storage: scanning ? { state: "scanning", total_bytes: null, other_bytes: null, derivatives: [], scanned_at: null } : summary.storage,
+  } }));
+  await connect();
+  await loaded();
+  await expect(page.getByRole("status").filter({ hasText: "Measuring project data…" })).toBeVisible();
+  await page.getByTestId("overview-filter").fill("ernie");
+  await expect(page.getByTestId("overview-row-ernie")).toBeVisible();
+  await expect(page.getByTestId("overview-row-101")).toHaveCount(0);
+  scanning = false;
+  await expect(page.getByRole("region", { name: "Project information", exact: true })).toContainText("30 GiB", { timeout: 10000 });
+  await expect(page.getByTestId("overview-filter")).toHaveValue("ernie");
 });

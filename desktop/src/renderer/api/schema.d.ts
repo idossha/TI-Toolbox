@@ -1712,6 +1712,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/catalog/project-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Project identity, asynchronous storage scan and retained job activity
+         * @description Apparent regular-file sizes exclude symlinks. Storage scans run in background, cached for five minutes; incomplete or timed-out scans report error. Activity counts retained jobs once by UTC creation date, not historical file operations. Last activity includes job start and finish times. Project creation time is unknown unless recorded.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProjectSummary"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/catalog/overview": {
         parameters: {
             query?: never;
@@ -8576,6 +8615,75 @@ export interface components {
         };
         /** @description Union of every config dataclass a job/validate/plan "config" body can carry. The real discriminant is the `kind`/path parameter alongside it, not a field on the object itself; this union exists so generated TS types cover every shape before dev/build_contract.py replaces each placeholder member with its generated schema. */
         PipelineConfig: components["schemas"]["SimulationConfig"] | components["schemas"]["Montage"] | components["schemas"]["FlexConfig"] | components["schemas"]["ExConfig"] | components["schemas"]["MExConfig"] | components["schemas"]["AnalyzerConfig"] | components["schemas"]["PreprocessConfig"] | components["schemas"]["QSIPrepConfig"] | components["schemas"]["QSIReconConfig"] | components["schemas"]["GroupComparisonConfig"] | components["schemas"]["CorrelationConfig"] | components["schemas"]["SourceConfig"] | components["schemas"]["LeadfieldConfig"] | components["schemas"]["MontageConfig"] | components["schemas"]["VectorConfig"] | components["schemas"]["RegionConfig"] | components["schemas"]["SubcorticalConfig"] | components["schemas"]["NiftiAverageConfig"] | components["schemas"]["NilearnConfig"];
+        /** ActivityDay */
+        ActivityDay: {
+            /** Date */
+            date: string;
+            /** Count */
+            count: number;
+        };
+        /** DerivativeStorage */
+        DerivativeStorage: {
+            /** Name */
+            name: string;
+            /** Bytes */
+            bytes: number;
+        };
+        /** ProjectActivity */
+        ProjectActivity: {
+            /** Days */
+            days: components["schemas"]["ActivityDay"][];
+            /** Recent */
+            recent: components["schemas"]["RecentProjectJob"][];
+            /** Last Activity At */
+            last_activity_at: string | null;
+            /** History Since */
+            history_since: string | null;
+        };
+        /** ProjectIdentity */
+        ProjectIdentity: {
+            /** Name */
+            name: string;
+            /** Path */
+            path: string;
+            /** Created At */
+            created_at: string | null;
+        };
+        /** SummaryStorage */
+        SummaryStorage: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "scanning" | "ready" | "error";
+            /** Total Bytes */
+            total_bytes: number | null;
+            /** Derivatives */
+            derivatives: components["schemas"]["DerivativeStorage"][];
+            /** Other Bytes */
+            other_bytes: number | null;
+            /** Scanned At */
+            scanned_at: string | null;
+        };
+        /** RecentProjectJob */
+        RecentProjectJob: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** State */
+            state: string;
+            /** Subject Ids */
+            subject_ids: string[];
+            /** Created At */
+            created_at: string;
+        };
+        /** ProjectSummary */
+        ProjectSummary: {
+            identity: components["schemas"]["ProjectIdentity"];
+            storage: components["schemas"]["SummaryStorage"];
+            activity: components["schemas"]["ProjectActivity"];
+        };
         /**
          * MontageMode
          * @description How electrode positions are specified.

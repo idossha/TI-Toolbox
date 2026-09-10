@@ -12,6 +12,18 @@ project at once: *what does each subject already have, and what is it ready for?
 <img src="{{ site.baseurl }}/assets/imgs/v3/overview.png" alt="The Overview page: a presence matrix with one row per subject" style="width: 100%; max-width: 1000px;">
 <em>One row per subject; one dot per artefact. The counts on the right are simulations, optimizations and analyses.</em>
 
+## Project information
+
+The header shows the project name and host path. Storage is measured in the background,
+with a breakdown for each derivative directory and the remaining project data. These are
+file sizes (symlinks excluded), refreshed at most every five minutes; System reports
+allocated disk usage, which can differ. An incomplete scan is shown as unavailable.
+
+The activity calendar counts retained jobs by submission date over the past year, in UTC.
+Select a day to see its count, or expand **Recent activity** for the latest jobs and their
+states. Deleted job records are not included. Last activity reflects recorded job events;
+project creation and opening dates are not inferred from file timestamps.
+
 ## The presence matrix
 
 Each row is a subject, each column an artefact the rest of the toolbox depends on:

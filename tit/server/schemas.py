@@ -720,3 +720,47 @@ class KernelStopped(BaseModel):
 class KernelInterrupted(BaseModel):
     id: str
     interrupted: bool
+
+class ProjectIdentity(BaseModel):
+    name: str
+    path: str
+    created_at: str | None
+
+
+class DerivativeStorage(BaseModel):
+    name: str
+    bytes: int
+
+
+class SummaryStorage(BaseModel):
+    state: Literal["scanning", "ready", "error"]
+    total_bytes: int | None
+    derivatives: list[DerivativeStorage]
+    other_bytes: int | None
+    scanned_at: str | None
+
+
+class ActivityDay(BaseModel):
+    date: str
+    count: int
+
+
+class RecentProjectJob(BaseModel):
+    id: str
+    kind: str
+    state: str
+    subject_ids: list[str]
+    created_at: str
+
+
+class ProjectActivity(BaseModel):
+    days: list[ActivityDay]
+    recent: list[RecentProjectJob]
+    last_activity_at: str | None
+    history_since: str | None
+
+
+class ProjectSummary(BaseModel):
+    identity: ProjectIdentity
+    storage: SummaryStorage
+    activity: ProjectActivity

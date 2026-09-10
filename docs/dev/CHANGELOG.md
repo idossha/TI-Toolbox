@@ -9,6 +9,9 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 ---
 ### v3.0.0 (Unreleased)
 
+- **Overview shows project context.** Project name/path, background storage totals by derivative,
+  a yearly activity calendar and recent jobs accompany the subject matrix.
+
 - **Saved montages can be removed.** Simulator’s **Manage montages** lists net-based montages
   and subject-specific freehand placements in a fixed-height scrolling list with confirmed
   individual or multi-selection deletion. Existing results are kept; failed deletions stay selected for retry.

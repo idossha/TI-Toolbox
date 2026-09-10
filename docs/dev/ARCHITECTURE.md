@@ -103,7 +103,11 @@ absent. This review requirement does not imply that every platform or runtime ga
 
 ## 6. Project overview, batch execution, the shared terminal, the guide and the Viewer
 
-**Overview is an aggregate, not a client fan-out.** `GET /api/catalog/overview` supplies project-wide
+**Overview is an aggregate, not a client fan-out.**
+`GET /api/catalog/project-summary` independently supplies identity, a background file-size scan
+cached for five minutes, and retained job activity. Storage never blocks the subject matrix;
+calendar days count job submissions in UTC, not file modifications or project visits.
+`GET /api/catalog/overview` supplies project-wide
 counts and readiness. Disk evidence wins; job state supplies pending or failed status only while the
 artifact is absent. The vocabulary is `present`, `absent`, `partial`, `pending`, `failed`. Detailed
 output browsing belongs to Results. Sources: [`catalog.py`](../../tit/catalog.py),

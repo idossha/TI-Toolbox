@@ -2129,6 +2129,15 @@ route("GET", "/api/catalog/subject-info", (ctx) => json(ctx.res, 200, subjectInf
 // R1: the Overview page's one aggregate read. Deliberately the ONLY route this page needs -- a
 // spec counting requests here is counting the whole page.
 route("GET", "/api/catalog/overview", (ctx) => json(ctx.res, 200, overview));
+route("GET", "/api/catalog/project-summary", (ctx) => {
+  const now = new Date().toISOString();
+  json(ctx.res, 200, {
+    identity: { name: "Example project", path: "/projects/example", created_at: null },
+    storage: { state: "ready", total_bytes: 30 * 1024 ** 3, derivatives: [{ name: "SimNIBS", bytes: 20 * 1024 ** 3 }, { name: "freesurfer", bytes: 5 * 1024 ** 3 }], other_bytes: 5 * 1024 ** 3, scanned_at: now },
+    activity: { days: [{ date: now.slice(0, 10), count: 3 }], recent: [{ id: "overview-recent", kind: "sim", state: "succeeded", subject_ids: ["ernie"], created_at: now }], last_activity_at: now, history_since: now },
+  });
+});
+
 
 // ---------------------------------------------------------------------------------- scene (v1)
 // The six `GET /api/scene/*` routes (plan of record `docs/dev/HISTORY.md § 2026-09-04 (scene service)` §2.1). They

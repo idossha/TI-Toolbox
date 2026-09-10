@@ -1,29 +1,4 @@
-/**
- * Overview — the project's eagle-eye page and the app's front door (R1,
- * `docs/dev/HISTORY.md § 2026-09-05`; DESIGN.md §2 shape B).
- *
- * It began as the Subjects page and keeps everything that page answered well — the coverage strip,
- * the presence matrix, the filters, the per-subject workflow verbs — but it asks the question at
- * project scale: *what is on disk across this project, and what can run next?*
- *
- * The readiness board of four stage cards is gone (Sep 2026). It restated the matrix one chip at a
- * time and its four chip wells, mostly empty, owned the lower half of the page; the matrix now
- * takes that height, and a workflow is reached from the rail or from the detail pane's verbs.
- *
- * Two things changed with the rename:
- *
- * - **One request.** Every fact here comes from `GET /api/catalog/overview`. The page used to fan
- *   out one detail read per subject plus five output lists per subject plus one analyses list per
- *   simulation, capped at 25 subjects — so a bigger project rendered blank count columns. The
- *   server aggregates instead, and the request count no longer grows with the project.
- * - **Five presence states, not two.** `present · partial · pending · failed · absent` (U6's
- *   chips, extended): staged-but-unconverted raw data, a job running right now, and a job that
- *   failed are three different answers that "missing" used to swallow.
- *
- * What it deliberately does not do is browse outputs: the detail pane **links into Results** (Q3)
- * rather than listing runs, because two lists of the same outputs are two answers to one question.
- * The detail pane is not rendered with no row selected, so the table takes its 360 px back (U1).
- */
+/** Project summary and subject presence matrix, fetched independently without per-subject fan-out. */
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -48,6 +23,7 @@ import {
   presenceCells,
   readyFor,
 } from "./model";
+import { ProjectInsights } from "./ProjectInsights";
 import "./overview.css";
 
 /**
@@ -202,7 +178,7 @@ function OverviewPage() {
   if (data && rows.length === 0) {
     return (
       <PageLayout variant="browse">
-        <EmptyState icon={<LayoutGrid size={24} />} message="This project has no subjects yet." />
+        <div className="overview-page"><ProjectInsights /><EmptyState icon={<LayoutGrid size={24} />} message="This project has no subjects yet." /></div>
       </PageLayout>
     );
   }
@@ -210,6 +186,7 @@ function OverviewPage() {
   return (
     <PageLayout variant="browse" rightPaneKind="preview" rightPaneWidth={360} rightPane={detail}>
       <div className="overview-page" style={{ ["--overview-cols" as string]: COLUMNS }}>
+        <ProjectInsights />
         {overviewQuery.error && <Callout kind="danger">Could not load this project's overview.</Callout>}
         {overviewQuery.isPending && <Skeleton rows={4} />}
 
