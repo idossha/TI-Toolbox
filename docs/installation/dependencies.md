@@ -5,7 +5,7 @@ permalink: /installation/dependencies/
 ---
 
 The [installation guide]({{ site.baseurl }}/installation/#system-requirements) owns hardware
-requirements and the source/image setup procedure. Docker runs SimNIBS, FastSurfer, the
+requirements and launch instructions. Docker runs SimNIBS, FastSurfer, the
 scientific Python dependencies, and the viewer in one image.
 
 ## Host tools
@@ -15,7 +15,6 @@ scientific Python dependencies, and the viewer in one image.
 | Packaged desktop app | Docker Desktop on Windows/macOS, or Docker Engine on Linux |
 | Browser via Bash | Docker + Compose, curl, git for a checkout; no Python |
 | Browser via Python | Docker, Python 3.11+, git for a checkout |
-| Electron from checkout | Docker, Node 22.12+, git |
 
 No X11 server or separate FreeSurfer license is required for the core workflow. Additional
 QSIPrep/QSIRecon workflows have their own requirements in the

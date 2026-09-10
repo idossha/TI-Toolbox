@@ -8,16 +8,11 @@ The [installation guide]({{ site.baseurl }}/installation/) describes the support
 runtime. An Apptainer deployment is a separate integration: the desktop app's Docker engine
 management does not launch a SIF image.
 
-## Existing recipe
+## Availability
 
-The repository contains `container/blueprint/apptainer.def` and
-`container/blueprint/apptainer_run.sh` for an earlier combined SimNIBS/FreeSurfer environment.
-That recipe is not equivalent to the current Docker image's FastSurfer, server, and embedded
-viewer stack. It needs migration and validation before it can be offered as an installation
-path for the current application.
+The existing Apptainer recipe is for an older environment and is **not validated for v3**.
+Use the [SSH browser launcher]({{ site.baseurl }}/installation/bash-cli/#over-ssh) on remote
+machines that allow Docker.
 
-Cluster administrators evaluating this route should work from the selected source checkout,
-confirm the cluster's container policy, and validate their scientific workloads in the resulting
-runtime. Do not combine a recipe fetched independently from `main` with another source ref.
-For a remote machine that allows Docker, use the
-[SSH browser launcher]({{ site.baseurl }}/installation/bash-cli/#over-ssh).
+Cluster administrators evaluating Apptainer should see the
+[developer deployment notes]({{ site.baseurl }}/wiki/development/#apptainer-and-clusters).

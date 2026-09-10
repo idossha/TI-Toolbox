@@ -4,8 +4,8 @@ title: Windows Installation
 permalink: /installation/windows/
 ---
 
-Use the [installation procedure]({{ site.baseurl }}/installation/) for the selected source
-ref, matching image, and launch commands. This page explains Windows Docker and path setup.
+Start with the [quick start]({{ site.baseurl }}/installation/) to choose the desktop app or
+command-line launcher. This page covers Windows setup.
 
 ## Docker Desktop and WSL2
 
@@ -17,10 +17,10 @@ Open Ubuntu and check that `docker version` can reach the engine.
 
 No VcXsrv or X11 forwarding is required for the toolbox interface.
 
-## Browser from a source checkout
+## Command-line launcher
 
-Run the shared installation commands inside Ubuntu/WSL2, with Docker Compose, curl and git installed (Python 3.11+ only for `loader.py`)
-there. Use WSL paths for projects: `C:\Users\YourName\datasets\project-copy` becomes
+Run the [command-line launcher]({{ site.baseurl }}/installation/bash-cli/) inside Ubuntu/WSL2.
+Bash needs Docker Compose and curl; `loader.py` needs Python 3.11+. Use WSL paths for projects: `C:\Users\YourName\datasets\project-copy` becomes
 `/mnt/c/Users/YourName/datasets/project-copy`. The same path is used for the Docker bind mount.
 
 The launcher prints an authenticated URL at `http://127.0.0.1:<port>/auth/session?...`.
@@ -29,10 +29,8 @@ Open that URL in your Windows browser; if the browser does not open automaticall
 
 ## Electron on Windows
 
-The native desktop app talks to Docker Desktop through its Windows named pipe. For Electron
-source development, use a Windows checkout with Node 22.12+, git, and native Windows project
-paths in the Overview project field. Run `npm run dev` from `desktop/`; `.env.dev` is optional. Follow the same source-ref and image pairing procedure; do not
-mix a WSL project path into the native Windows app configuration.
+Use native Windows project paths in the desktop app, such as
+`C:\Users\YourName\datasets\project-copy`; do not use WSL paths.
 
 An EXE is the packaged desktop format. Artifact availability is listed on the installation
 page. If Docker Desktop was just installed or updated, restart it before launching the app.
