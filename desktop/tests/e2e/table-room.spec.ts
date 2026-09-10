@@ -33,8 +33,8 @@ const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
 const ALL_PANELS = ["source", "cluster-permutation", "nifti-group-average", "nilearn-visuals", "quick-notes"];
 /** L5a. The same limit every other page in this programme is held to. */
 const DEAD_SPACE_MAX = 0.45;
-/** The cap `.run-subject-scroll` used to enforce on every page, whatever the window. */
-const OLD_CAP = 176;
+/** The shared compact subject-list cap; fill layouts are checked separately below. */
+const COMPACT_CAP = 176;
 
 let app: ElectronApplication;
 let page: Page;
@@ -103,7 +103,7 @@ async function boxRoom(selector: string): Promise<{ height: number; slackBelow: 
   }, selector);
 }
 
-test("the Source panel's subject table may use the room a 900px window gives it", async () => {
+test("the Source panel's compact subject table ends at its content and has a scroll cap", async () => {
   await gotoPage(page, "panel-source", "Source");
   await expectPage(page, "panel-source");
   await settle();
@@ -134,15 +134,15 @@ test("the Source panel's subject table may use the room a 900px window gives it"
   const fillers = await page.locator('[data-page-active="true"] [data-testid="subjects-field-table"] .run-table-filler').count();
   console.log(`CL2-ROOM panel-source scroll=${scroll.height}px slackBelow=${scroll.slackBelow}px fillers=${fillers} painted=${scroll.painted}`);
 
-  // The cap is LIFTED, not swapped for a stretch: `max-height` is the measured room (far past the
-  // 176px this page used to be pinned to by `pages/_shared/run/run.css`), while the box itself is
-  // as tall as its rows — three subjects are three rows, not a 684px empty box.
+  // Source now shares its input column with the forward settings and intentionally uses the
+  // compact subject list. It caps long lists while short lists end at their actual rows.
   const cap = await page.evaluate(() => {
     const el = document.querySelector('[data-page-active="true"] [data-testid="subjects-field-table"]') as HTMLElement;
     const mh = getComputedStyle(el).maxHeight;
     return { maxHeight: mh === "none" ? Number.POSITIVE_INFINITY : parseFloat(mh), content: el.scrollHeight };
   });
-  expect(cap.maxHeight).toBeGreaterThan(OLD_CAP);
+  expect(cap.maxHeight).toBe(COMPACT_CAP);
+  expect(scroll.height).toBeLessThanOrEqual(cap.maxHeight + 2);
   expect(scroll.height).toBeLessThanOrEqual(cap.content + 2);
   // And nothing pads it out: no ground rows in the table, and no gradient painted behind it.
   expect(fillers).toBe(0);

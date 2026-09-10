@@ -365,11 +365,12 @@ test("hits its §12.3 numbers at 1280x800 and 1440x900, light and dark", async (
     "| columns at 1440 dark:",
     Object.entries(columns).map(([k, v]) => `${k} ${(v * 100).toFixed(1)}%`).join(" · "),
   );
-  // Where the page has data it is dense, and those are the numbers a layout choice moves: the two
-  // rows regions and the preview carry §12.3's 20 % limit and beat it.
+  // Keep the row and whole-page budgets. The preview intentionally lost its duplicate Channels
+  // image; assert that content contract instead of requiring the removed image's occupied area.
   expect(columns.treeRows, "outputs tree rows").toBeLessThanOrEqual(0.05);
   expect(columns.listRows, "subject list rows").toBeLessThanOrEqual(0.05);
-  expect(columns.preview, "preview column").toBeLessThanOrEqual(0.2);
+  await expect(page.getByTestId("results-pair-chips").locator("img")).toHaveCount(0);
+  await expect(page.getByTestId("results-figures").locator("img")).toHaveCount(1);
 
   // DESIGN.md §12.3, restored as the page-level gate: the subject list and tree now draw their own
   // measured ground rows rather than handing their empty tails back to the page background.

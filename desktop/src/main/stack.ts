@@ -405,7 +405,7 @@ export class StackManager {
       await api.ensureVolume(volume);
     }
 
-    await this.ensureImage(client, api, plan, !Boolean(options.repoDir ?? resolveRepoDir(process.env, this.host.isPackaged)));
+    await this.ensureImage(client, api, plan, !(options.repoDir ?? resolveRepoDir(process.env, this.host.isPackaged)));
 
     this.progress("Creating the container…");
     await this.removeByName(api, plan.containerName);

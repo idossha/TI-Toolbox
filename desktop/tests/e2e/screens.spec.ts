@@ -64,7 +64,7 @@ test.afterAll(async () => {
 /** The rail's page ids, in rail order — the app's own statement of which pages exist. */
 async function railPages(target: Page): Promise<string[]> {
   return target.evaluate(() =>
-    Array.from(document.querySelectorAll<HTMLElement>('[data-testid^="nav-item-"]')).map((el) =>
+    Array.from(document.querySelectorAll<HTMLElement>('a[data-testid^="nav-item-"]')).map((el) =>
       (el.dataset.testid ?? el.getAttribute("data-testid") ?? "").replace(/^nav-item-/, ""),
     ),
   );
@@ -75,6 +75,12 @@ for (const size of SIZES) {
     test(`screens — ${theme} at ${size.width}x${size.height}`, async () => {
       test.setTimeout(300_000);
       await page.setViewportSize(size);
+      // Extensions is a disclosure, not a route. Expand it so its actual page links are
+      // captured too, then enumerate only links rather than every nav-item test id.
+      const extensions = page.getByTestId("nav-item-extensions");
+      if (await extensions.count() && await extensions.getAttribute("aria-expanded") === "false") {
+        await extensions.click();
+      }
       const ids = await railPages(page);
       expect(ids.length).toBeGreaterThan(0);
 

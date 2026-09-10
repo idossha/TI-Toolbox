@@ -20,8 +20,8 @@
  * can click on the surface of the skin"*). A free-hand placement IS a subject-RAS millimetre, so
  * the page that collects one has to draw the subject it belongs to — which is exactly the
  * condition R4's last clause states, read the other way round. Everything below is therefore
- * asserted on the **Optimizer**, whose target is a name or a sphere and which still draws the
- * guide; the Simulator's own behaviour is `simulator-placement.spec.ts`.
+ * asserted on the **Optimizer**, whose atlas targets draw the guide and whose spheres use a
+ * read-only subject preview; the Simulator's own behaviour is `simulator-placement.spec.ts`.
  */
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -214,13 +214,9 @@ test("an electrode pick writes a NAME into the montage form", async () => {
   });
 });
 
-test("a guide click can never update a subject-RAS coordinate", async () => {
+test("switching from the guide to a sphere preview keeps subject-RAS coordinates read-only", async () => {
   await gotoPage(page, "optimizer", "Optimizer");
   await expectPage(page, "optimizer");
-  // The jobs table (2026-09-06): the target is a job ROW's, edited in that row's dialog, and the
-  // pane draws the ACTIVE row. The sphere's coordinate inputs live in the dialog, so it stays OPEN
-  // for this test — the click under assertion is on the pane behind it, which is the whole point:
-  // a guide click must not reach a subject-RAS field wherever that field is.
   const row = optRows(page).first();
   const editor = await openOptEditor(page, row, "settings");
   await editor.locator(".roi-picker .segmented").first().getByRole("radio", { name: "Spherical", exact: true }).click();
@@ -228,32 +224,30 @@ test("a guide click can never update a subject-RAS coordinate", async () => {
   await expect(row).toHaveAttribute("data-active", "true");
   await expectRunPaneTab(page, "scene");
   const panel = page.locator('[data-page-panel="optimizer"]');
-  await expect(panel.getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready", { timeout: 20_000 });
+  const preview = panel.getByTestId("target-preview");
+  await expect(preview).toContainText("Complete the target in the job editor to preview it.");
+  await expect(panel.getByTestId("scene-pane-host")).toHaveCount(0);
 
-  // The gesture the pane offered in spherical mode used to be "sphere": a click placed a centre in
-  // the SUBJECT's RAS millimetres. On the guide those millimetres belong to another head, so the
-  // gesture does not exist — not "exists and is approximately transformed". `SceneGesture` no
-  // longer contains the word at all, which is what makes this checkable by attribute.
-  await expect(panel.getByTestId("scene-pane-host")).not.toHaveAttribute("data-gesture", "sphere");
-  // The sphere's own X/Y/Z inputs, read where they live: inside the row's editor. Reading only the
-  // pane's own numbers would assert nothing — the pane has none — so the dialog is opened, its
-  // values recorded, and closed again around the click.
-  const sphereValues = async (): Promise<string[]> => {
-    const dialog = await openOptEditor(page, row, "settings");
-    const values = await dialog
-      .locator("input[type=number]")
-      .evaluateAll((nodes) => nodes.map((n) => (n as HTMLInputElement).value));
-    await closeOptEditor(page);
-    return values;
-  };
-  const before = await sphereValues();
-  expect(before.length, "the spherical panel has coordinate inputs to protect").toBeGreaterThan(0);
+  // Spheres use a subject-space volumetric preview, replacing the interactive atlas guide.
+  // Complete the actual coordinate fields so this test exercises a loaded preview, not an
+  // empty pane that cannot emit a pick in the first place.
+  const values = { X: "10", Y: "20", Z: "30", radius: "8" };
+  const sphereEditor = await openOptEditor(page, row, "settings");
+  for (const [label, value] of Object.entries(values)) {
+    await sphereEditor.getByLabel(`Sphere 1 ${label}`, { exact: true }).fill(value);
+  }
+  await closeOptEditor(page);
+  const frame = page.frameLocator('[data-page-panel="optimizer"] [data-testid="target-preview-frame"]');
+  await expect(frame.getByTestId("fake-embed-layers")).toContainText("spherical-target.nii.gz");
+  await expect(preview.getByTestId("target-preview-frame")).toBeVisible();
+  await expect(preview).toContainText("Read-only.");
 
-  const box = await panel.getByTestId("scene-canvas").boundingBox();
-  if (!box) throw new Error("the scene canvas has no bounding box");
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-  await page.waitForTimeout(500);
-
-  const after = await sphereValues();
-  expect(after).toEqual(before);
+  // The fake embed emits both cursor and pick events on a body click. Coordinates must stay
+  // unchanged even if an embed sends these events despite picking being disabled by the host.
+  await frame.locator("body").click({ position: { x: 4, y: 4 } });
+  const checked = await openOptEditor(page, row, "settings");
+  for (const [label, value] of Object.entries(values)) {
+    await expect(checked.getByLabel(`Sphere 1 ${label}`, { exact: true })).toHaveValue(value);
+  }
+  await closeOptEditor(page);
 });

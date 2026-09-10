@@ -69,7 +69,7 @@ reason. This is the CI/release path (`.circleci/config.yml` passes
 Either way the image records what it was built from in **`/etc/ti-toolbox-build.json`**:
 
 ```json
-{"version":"2.4.0","sha":"<40 hex>","short":"<8 hex>","dirty":true,"source":"local","ref":"","date":"2026-09-07T01:08:58Z"}
+{"version":"3.0.0","sha":"<40 hex>","short":"<8 hex>","dirty":true,"source":"local","ref":"","date":"2026-09-07T01:08:58Z"}
 ```
 
 `dirty` is whether tracked files had uncommitted changes in the tree that was copied (a

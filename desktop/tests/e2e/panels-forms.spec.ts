@@ -116,7 +116,8 @@ test("Source panel: selecting a subject shows the forward workflow", async () =>
   // Real UI-to-contract round trip: what actually reached the server, not just a toast.
   const jobRequest = page.waitForRequest((r) => r.url().endsWith("/api/jobs") && r.method() === "POST");
   await page.getByRole("button", { name: "Build forward" }).click();
-  await page.getByRole("alertdialog").getByRole("button", { name: "Build forward" }).click();
+  // This plan has no existing forward solution, so it submits directly. Only an overwrite
+  // requires confirmation; an unconditional confirmation here would stall a new run.
   const jobBody = (await jobRequest).postDataJSON() as {
     kind: string;
     subject_ids: string[];
@@ -126,6 +127,7 @@ test("Source panel: selecting a subject shows the forward workflow", async () =>
   expect(jobBody.subject_ids).toEqual(["ernie"]);
   expect(jobBody.config.mode).toBe("forward");
   expect(jobBody.config.forward.eeg_net).toBeTruthy();
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
 
   await setDark();
   await page.getByRole("link", { name: "Source", exact: true }).click();

@@ -45,9 +45,13 @@ That distinction must remain visible in test evidence: source CI is not an image
 
 ### Runtime version preparation
 
+The main-branch preparation uses runtime/package version `3.0.0` while `version.py` remains
+at `2.5.0`. Do not run the public version updater, create a release tag, or publish a GitHub
+Release during this preparation. The public update source stays unchanged.
+
 ```bash
-python3 dev/update/update_version.py --development --version 3.0.0-dev.1 --dry-run
-python3 dev/update/update_version.py --development --version 3.0.0-dev.1
+python3 dev/update/update_version.py --development --version X.Y.Z-dev.N --dry-run
+python3 dev/update/update_version.py --development --version X.Y.Z-dev.N
 ```
 
 Development mode updates the runtime package and desktop/lock version only. Public `version.py`,

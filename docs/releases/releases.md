@@ -6,7 +6,7 @@ permalink: /releases/
 
 ### v3.0.0 (Unreleased)
 
-**Release Date**: unreleased — the v3 installers and final release image are not published yet
+**Release Date**: unreleased — final installers and the GitHub release are not published yet. The mutable `idossha/ti-toolbox:v3.0.0` image is available for testing.
 
 v3 replaces the PyQt5 GUI with an Electron desktop application, and the two-image Docker stack with a single core image (final candidate size pending measurement): no X11 anywhere, FastSurfer recommended by default, optional FreeSurfer reconstruction and thalamic or hippocampal/amygdala subregions in temporary workers, and [Tetravox]({{ site.baseurl }}/wiki/visualizers/) rendering inside the app window instead of Freeview and Gmsh as separate X11 programs. New [Overview]({{ site.baseurl }}/wiki/overview/), [Jobs]({{ site.baseurl }}/wiki/jobs/), [Notebooks]({{ site.baseurl }}/wiki/notebooks/), [Pipeline]({{ site.baseurl }}/wiki/pipelines/) and [Results]({{ site.baseurl }}/wiki/results/) pages sit alongside per-job tables on the Simulator, Optimizer and Analyzer, free-hand electrode placement folded into the Simulator, and optional tools switched on per project. The shared scientific core has **nine recorded corrections** in this unreleased work. Read the
 [complete correction table]({{ site.baseurl }}/releases/v3.0.0/#scientific-corrections) and

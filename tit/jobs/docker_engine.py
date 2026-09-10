@@ -3,7 +3,7 @@
 The Node-side twin of this module is ``desktop/src/main/docker/engine.ts``; both talk the same
 Docker Engine REST API subset directly over the Unix socket, never the ``docker`` CLI and never
 the third-party ``docker`` PyPI package (r5-docker-integration.md §5 — that package is not
-installed in ``idossha/simnibs:v2.5.0`` today, and adding it would only grow a 19 GB image
+installed in ``idossha/ti-toolbox:v3.0.0`` today, and adding it would only grow a 19 GB image
 further for something ~15 lines of stdlib already does).
 
 **Scope, and why it is narrower than the TypeScript client**: this module is used from *inside*

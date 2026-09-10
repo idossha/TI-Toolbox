@@ -43,7 +43,7 @@ for (const surface of ["analyzer", "optimizer"] as const) {
     const previewFrame = page.frameLocator(`[data-page-panel="${surface}"] [data-testid="target-preview-frame"]`);
     const layers = previewFrame.getByTestId("fake-embed-layers");
     await expect(layers).toContainText("spherical-target.nii.gz");
-    await expect(preview).toContainText("Read-only preview");
+    await expect(preview).toContainText("Read-only.");
     const targetFrame = preview.getByTestId("target-preview-frame");
     await targetFrame.evaluate((node) => node.setAttribute("data-retained-preview", "warm-engine"));
     const sphereSummary = await summary.textContent();

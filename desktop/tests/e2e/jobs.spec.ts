@@ -624,8 +624,10 @@ test("hits its density numbers with the detail pane open, at 1280x800 and 1440x9
   await openJobs();
   const table = page.getByTestId("jobs-table");
   await expect(table.getByText("sim", { exact: true }).first()).toBeVisible({ timeout: 10_000 });
-  await table.getByRole("row", { name: /ernie/ }).first().click();
+  // Pick the oldest simulation: the newest repeated subject is still queued and has no log.
+  await table.getByRole("row", { name: /sim.*101/ }).last().click();
   await expect(page.getByTestId("job-detail")).toBeVisible();
+  await expect(page.getByTestId("job-detail-console").locator("pre")).toBeVisible();
 
   const rows: PageMetrics[] = [];
   for (const size of [

@@ -78,7 +78,7 @@ test("defect 1: the ROI type is the same control on the Optimizer and the Analyz
   await expect(picker.locator(".segmented").first()).toBeVisible();
   await expect(picker.locator(".radio-group, .radio-group-cards")).toHaveCount(0);
   const optimizerModes = await picker.locator(".segmented").first().getByRole("radio").allTextContents();
-  expect(optimizerModes).toEqual(["Cortical", "Subcortical", "Spherical"]);
+  expect(optimizerModes).toEqual(["Cortical", "Subcortical", "Spherical", "NIfTI mask"]);
 
   // Spherical and subcortical each carry a Subject/MNI "Space" choice — the same small exclusive
   // choice, and the place the two idioms used to sit 40 px apart inside one component.
@@ -86,7 +86,7 @@ test("defect 1: the ROI type is the same control on the Optimizer and the Analyz
   await expect(picker.locator(".radio-group, .radio-group-cards")).toHaveCount(0);
   await expect(field("Space", picker).locator(".segmented")).toHaveCount(1);
 
-  // Ex/mEx's saved-ROI mode: the fourth option of the same control, same idiom.
+  // Ex/mEx offer saved, subcortical and mask targets through the same control.
   await closeOptEditor(page);
   await pickMethod("Ex");
   dialog = await openOptEditor(page, optRows(page).first());
@@ -94,6 +94,7 @@ test("defect 1: the ROI type is the same control on the Optimizer and the Analyz
   await expect(exPicker.locator(".segmented").first().getByRole("radio")).toHaveText([
     "Saved",
     "Subcortical",
+    "NIfTI mask",
   ]);
   await expect(exPicker.locator(".radio-group, .radio-group-cards")).toHaveCount(0);
   await closeOptEditor(page);
@@ -111,7 +112,7 @@ test("defect 1: the ROI type is the same control on the Optimizer and the Analyz
   const analyzerPicker = targetDialog.locator(".roi-picker");
   await expect(analyzerPicker).toHaveCount(1);
   const analyzerModes = await analyzerPicker.locator(".segmented").first().getByRole("radio").allTextContents();
-  expect(analyzerModes).toEqual(["Cortical", "Subcortical", "Spherical"]);
+  expect(analyzerModes).toEqual(["Cortical", "Subcortical", "Spherical", "NIfTI mask"]);
   // The Analyzer's own spherical rows carried the last `RadioGroup` on the page (LAY's request).
   await analyzerPicker.locator(".segmented").first().getByRole("radio", { name: "Spherical", exact: true }).click();
   await expect(field("Space", analyzerPicker).locator(".segmented")).toHaveCount(1);

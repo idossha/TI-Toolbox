@@ -56,12 +56,12 @@ test.describe("packaged Docker launcher", () => {
     const identity = await app.evaluate(({ app }) => ({ packaged: app.isPackaged, version: app.getVersion(), userData: app.getPath("userData") }));
     expect(identity).toEqual({ packaged: true, version: expectedVersion, userData });
     await expect(page).toHaveURL(/^app:\/\/launcher\//);
-    await expect(page.getByRole("heading", { name: "TI-Toolbox", exact: true })).toBeVisible();
-    await expect(page.getByLabel("Server URL")).toBeEditable();
-    await expect(page.getByLabel("Token", { exact: true })).toBeEditable();
-    await expect(page.getByLabel("Token", { exact: true })).toHaveValue("");
-    await expect(page.getByRole("button", { name: "Connect", exact: true })).toBeEnabled();
-    const start = page.getByRole("button", { name: "Start the Docker stack", exact: true });
+    await expect(page.getByRole("heading", { name: "Welcome to TI-Toolbox", exact: true })).toBeVisible();
+    await expect(page.getByTestId("shell-content")).toHaveAttribute("data-page", "overview");
+    await expect(page.getByLabel("Project directory")).toBeEditable();
+    await expect(page.getByLabel("Server URL")).toHaveCount(0);
+    await expect(page.getByLabel("Token", { exact: true })).toHaveCount(0);
+    const start = page.getByRole("button", { name: "Open project", exact: true });
     await expect(start).toBeDisabled();
     await app.evaluate(({ dialog }, directory) => {
       dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [directory] });
@@ -69,7 +69,9 @@ test.describe("packaged Docker launcher", () => {
     await page.getByRole("button", { name: "Browse…", exact: true }).click();
     await expect(page.getByLabel("Project directory")).toHaveValue(project);
     await expect(start).toBeEnabled();
-    await expect(page.locator("#footer")).toContainText(`desktop ${expectedVersion}`);
+    // The native picker and renderer bridge work in the package. Do not submit: opening
+    // the project would start a real Docker computation outside this test's ownership.
+    await expect(page).toHaveURL(/^app:\/\/launcher\//);
 
     // Visibility assertions read native Electron windows, not merely DOM visibility.
     for (let sample = 0; sample < 3; sample++) {

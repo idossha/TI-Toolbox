@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import { app, BrowserWindow, Notification, dialog, ipcMain, net, protocol, session, shell } from "electron";
 import { initLog, log } from "./log";
 import { readSettings, updateSettings } from "./settings";
-import { LAUNCHER_ORIGIN } from "./launcher";
+import { LAUNCHER_ORIGIN, resolveRendererDir } from "./launcher";
 import { checkToken, waitForHealth } from "./health";
 import { nativeRuntime, resolveRuntime } from "./nativeRuntime";
 import { stack } from "./stackHost";
@@ -145,16 +145,7 @@ async function connect(win: BrowserWindow, args: TitConnectArgs): Promise<TitCon
  * unpacked-dir e2e leg).
  */
 function resolveNativeStaticDir(): string | undefined {
-  const candidates = [
-    process.resourcesPath ? join(process.resourcesPath, "renderer") : null,
-    // electron-vite's layout: this file is out/main/index.js, the renderer is out/renderer. Anchored
-    // on __dirname rather than app.getAppPath() because the latter is whatever was handed to the
-    // electron binary — `electron .` gives the package dir, `electron out/main/index.js` gives
-    // out/main — and the second spelling used to send the server off without a UI bundle.
-    join(__dirname, "..", "renderer"),
-    join(app.getAppPath(), "out", "renderer"),
-  ].filter((c): c is string => Boolean(c));
-  return candidates.find((c) => existsSync(c));
+  return resolveRendererDir(process.resourcesPath, __dirname, app.getAppPath());
 }
 
 /**
@@ -761,7 +752,8 @@ void app.whenReady().then(async () => {
   protocol.handle("app", async (request) => {
     const url = new URL(request.url);
     if (url.host !== "launcher") return new Response("not found", { status: 404 });
-    const root = resolve(__dirname, "../renderer");
+    const root = resolveNativeStaticDir();
+    if (!root) return new Response("not found", { status: 404 });
     const asset = resolve(root, `.${decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname)}`);
     if (!asset.startsWith(`${root}${sep}`) || !existsSync(asset)) return new Response("not found", { status: 404 });
     const response = await net.fetch(pathToFileURL(asset).href);

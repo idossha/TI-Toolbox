@@ -140,12 +140,12 @@ for (const theme of ["light", "dark"] as const) {
     await testInfo.attach("control-geometry", { path: metricsPath, contentType: "application/json" });
     await page.screenshot({ path: testInfo.outputPath(`analyzer-controls-${theme}.png`) });
 
-    // Source submits from inside its two workflow cards, not an action bar. Those primary
-    // buttons must opt into the same 32px size instead of falling back to ordinary 28px controls.
+    // Source submits from its forward-solution card, not an action bar. Its primary button
+    // must use the same 32px size instead of falling back to ordinary 28px controls.
     await gotoPage(page, "panel-source", "Source");
     await expectPage(page, "panel-source");
     const sourceHeights: Record<string, number> = {};
-    for (const name of ["Build forward", "Map to fsaverage"]) {
+    for (const name of ["Build forward"]) {
       const primary = activePage().getByRole("button", { name, exact: true });
       await expect(primary).toBeVisible();
       const height = await primary.evaluate((element) => element.getBoundingClientRect().height);

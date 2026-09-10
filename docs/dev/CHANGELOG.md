@@ -9,6 +9,8 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 ---
 ### v3.0.0 (Unreleased)
 
+- Packaged desktop launches load the Overview from bundled renderer resources instead of showing a blank “not found” page.
+
 - Launchers use the updatable `idossha/ti-toolbox:v3.0.0` image; optional FreeSurfer uses a separate dated worker image.
 
 - **Download only the launch files.** Keep a loader and `docker-compose.yml` in one folder;

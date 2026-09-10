@@ -10,7 +10,7 @@
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -50,6 +50,12 @@ const CONNECTED = { status: "connected" as const, degraded: false, label: "conne
 describe("AppContextBar", () => {
   let container: HTMLDivElement;
   let root: Root;
+  let AppContextBar: typeof import("../../src/renderer/app/AppContextBar").AppContextBar;
+
+  // Transform shared UI imports during setup, outside each behavior test's timeout.
+  beforeAll(async () => {
+    ({ AppContextBar } = await import("../../src/renderer/app/AppContextBar"));
+  }, 30_000);
 
   afterEach(() => {
     act(() => root.unmount());
@@ -57,7 +63,6 @@ describe("AppContextBar", () => {
   });
 
   async function render(props: Partial<{ runningJobs: number; onToggleJobsRail: () => void; onOpenPalette: () => void }> = {}) {
-    const { AppContextBar } = await import("../../src/renderer/app/AppContextBar");
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     container = document.createElement("div");
     document.body.appendChild(container);

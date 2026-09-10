@@ -1,6 +1,6 @@
 {
   "name": "ti-toolbox-desktop",
-  "version": "3.0.0-dev.1",
+  "version": "3.0.0",
   "description": "TI-Toolbox v3 desktop shell (Electron) and web UI served by tit.server",
   "private": true,
   "main": "./out/main/index.js",
