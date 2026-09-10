@@ -169,7 +169,7 @@ def test_workflow_breakdown_and_future_derivatives(tmp_path):
         "derivatives/SimNIBS/sub-101/flex-search/run/result": ("Flex search", b"flex"),
         "derivatives/SimNIBS/sub-101/ex-search/run/result": ("Ex search", b"ex"),
         "derivatives/SimNIBS/sub-101/Simulations/run/Analyses/result": (
-            "Analyses",
+            "Other",
             b"analysis",
         ),
         "derivatives/future-extension/result": ("future-extension", b"new"),
@@ -181,7 +181,7 @@ def test_workflow_breakdown_and_future_derivatives(tmp_path):
     result = scan_storage(tmp_path, tmp_path / "derivatives")
     assert result.state == "ready"
     groups = {row.name: row for row in result.derivatives}
-    assert set(groups) == {"SimNIBS", "future-extension"}
+    assert set(groups) == {"SimNIBS"}
     assert {row.name: row.bytes for row in groups["SimNIBS"].children} == {
         label: len(content)
         for name, (label, content) in paths.items()
@@ -190,6 +190,27 @@ def test_workflow_breakdown_and_future_derivatives(tmp_path):
     assert groups["SimNIBS"].bytes == sum(
         row.bytes for row in groups["SimNIBS"].children
     )
-    assert groups["future-extension"].bytes == 3
     assert result.total_bytes == sum(len(content) for _, content in paths.values())
-    assert result.other_bytes == 0
+    assert result.other_bytes == 3
+
+
+def test_clean_groups_merge_inputs_and_hide_internal_storage(tmp_path):
+    files = [
+        "sub-101/anat/T1.nii",
+        "sourcedata/input.dcm",
+        "code/ti-toolbox/viewer/scene.json",
+        "derivatives/ti-toolbox/state.json",
+        "derivatives/freesurfer/sub-101/surface",
+        "derivatives/future/output",
+    ]
+    for name in files:
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"1234")
+    result = scan_storage(tmp_path, tmp_path / "derivatives")
+    assert {row.name: row.bytes for row in result.derivatives} == {
+        "Input data": 8,
+        "FreeSurfer / FastSurfer": 4,
+    }
+    assert result.other_bytes == 12
+    assert result.total_bytes == 24

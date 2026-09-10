@@ -366,7 +366,7 @@ test("project insights show storage and selectable daily job activity without na
   const storage = information.getByRole("region", { name: "Project storage", exact: true });
   await expect(storage).toContainText(/SimNIBS\s*20 GiB/);
   await expect(storage).toContainText(/freesurfer\s*5 GiB/);
-  await expect(storage).toContainText(/Other project data\s*5 GiB/);
+  await expect(storage).toContainText(/Other\s*5 GiB/);
   const activity = information.getByRole("region", { name: "Project activity", exact: true });
   await expect(activity).toContainText("3 recorded jobs in the past year");
   const day = activity.getByRole("button", { name: `${summary.activity.days[0]!.date}: 3 recorded jobs`, exact: true });

@@ -90,7 +90,7 @@ export function ProjectInsights() {
   const rows = [
     ...storage.derivatives,
     ...(storage.other_bytes !== null
-      ? [{ name: "Other project data", bytes: storage.other_bytes }]
+      ? [{ name: "Other", bytes: storage.other_bytes }]
       : []),
   ];
   return (

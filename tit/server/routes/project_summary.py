@@ -31,7 +31,7 @@ def scan_storage(root: Path, derivatives: Path) -> SummaryStorage:
     try:
         root = root.resolve()
         derivatives = derivatives.resolve()
-        from tit.storage import KIND_LABELS, classify, kind_prefixes
+        from tit.storage import classify, kind_prefixes
 
         prefixes = kind_prefixes(PathManager(str(root)))
         stack = [root]
@@ -59,23 +59,19 @@ def scan_storage(root: Path, derivatives: Path) -> SummaryStorage:
                             and len(path.relative_to(derivatives).parts) > 1
                         ):
                             folder = path.relative_to(derivatives).parts[0]
-                            group = {
-                                "freesurfer": "FreeSurfer / FastSurfer",
-                                "fastsurfer": "FastSurfer",
-                                "ti-toolbox": "TI-Toolbox",
-                                ".qsiprep_work": "QSIPrep working data",
-                                ".qsirecon_work": "QSIRecon working data",
-                            }.get(folder, folder)
-                            counts[group] += size
                             if folder == "SimNIBS":
-                                label = (
-                                    KIND_LABELS.get(kind, "Other SimNIBS data")
-                                    if kind != "other"
-                                    else "Other SimNIBS data"
-                                )
-                                children.setdefault(group, Counter())[label] += size
-                        elif kind != "other":
-                            counts[KIND_LABELS[kind]] += size
+                                counts["SimNIBS"] += size
+                                label = {
+                                    "head_models": "Head models",
+                                    "flex_search": "Flex search",
+                                    "ex_search": "Ex search",
+                                    "simulations": "Simulations",
+                                }.get(kind, "Other")
+                                children.setdefault("SimNIBS", Counter())[label] += size
+                            elif folder in ("freesurfer", "fastsurfer"):
+                                counts["FreeSurfer / FastSurfer"] += size
+                        elif kind in ("raw", "sourcedata"):
+                            counts["Input data"] += size
 
     except (OSError, RuntimeError):
         logger.warning("Project storage scan incomplete", exc_info=True)
@@ -104,8 +100,7 @@ def scan_storage(root: Path, derivatives: Path) -> SummaryStorage:
                                 "Flex search": 1,
                                 "Ex search": 2,
                                 "Simulations": 3,
-                                "Analyses": 4,
-                                "Leadfields": 5,
+                                "Other": 4,
                             }.get(item[0], 6),
                             item[0],
                         ),

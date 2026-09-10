@@ -15,10 +15,9 @@ project at once: *what does each subject already have, and what is it ready for?
 ## Project information
 
 The header shows the project name and host path. Storage is measured in the background,
-with top-level derivative totals. SimNIBS expands into indented head models, Flex/Ex searches,
-simulations, analyses and leadfields. Analyses are separate from the simulation subtotal.
-Reconstruction folders appear as separate FreeSurfer/FastSurfer groups.
-Unrecognized derivative folders retain their own labels; remaining files appear as other project data.
+with SimNIBS workflow subtotals (head models, Flex/Ex searches and simulations),
+a FreeSurfer/FastSurfer group, and combined raw/source **Input data**.
+Remaining data is grouped as **Other**, including internal state and viewer scenes.
 The list shows a scrollbar when its contents exceed the available height. These are
 file sizes (symlinks excluded), refreshed at most every five minutes; System reports
 allocated disk usage, which can differ. An incomplete scan is shown as unavailable.

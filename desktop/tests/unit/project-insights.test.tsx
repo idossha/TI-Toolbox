@@ -86,7 +86,7 @@ describe("project information", () => {
     expect(container.textContent).toContain("3 KiB");
     expect(container.textContent).toContain("SimNIBS");
     expect(container.querySelectorAll(".project-storage-child")).toHaveLength(2);
-    expect(container.textContent).toContain("Other project data");
+    expect(container.textContent).toContain("Other");
     expect(container.textContent).not.toContain("Created");
     const days = container.querySelectorAll(".project-calendar-day");
     expect(days).toHaveLength(365);
