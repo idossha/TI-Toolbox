@@ -206,10 +206,14 @@ def check_tool_args(module: str, args: list[str], project_dir: str | None) -> No
         if rule == "subjects":
             for sid in value.split(","):
                 if sid and not is_valid_subject_id(sid):
-                    raise KindError(f"tools job: {where} has an invalid subject id {sid!r}")
+                    raise KindError(
+                        f"tools job: {where} has an invalid subject id {sid!r}"
+                    )
             return
         if rule == "root":
-            if not project_dir or os.path.realpath(value) != os.path.realpath(project_dir):
+            if not project_dir or os.path.realpath(value) != os.path.realpath(
+                project_dir
+            ):
                 raise KindError(
                     f"tools job: {where} must be this server's project directory"
                 )
@@ -260,10 +264,15 @@ def _string_list(value: Any) -> list[str]:
 # -- Docker sibling containers -----------------------------------------------------------------
 
 #: ``tit.pre`` stage flags whose stages spawn sibling containers via Docker-outside-of-Docker:
-#: QSIPrep, QSIRecon and the DTI tensor extraction that runs inside a QSIRecon-family image
-#: (``tit/pre/qsi/*``). Nothing else in the toolbox runs ``docker`` at all -- every other kind
+#: QSIPrep, QSIRecon, DTI tensor extraction and optional FreeSurfer workers.
+#: Every other kind
 #: (sim, flex, ex, analyzer, stats, tools, ...) is a plain in-container process.
-DOCKER_SIBLING_STAGE_FLAGS = ("run_qsiprep", "run_qsirecon", "extract_dti")
+DOCKER_SIBLING_STAGE_FLAGS = (
+    "run_qsiprep",
+    "run_qsirecon",
+    "extract_dti",
+    "run_freesurfer",
+)
 
 
 def may_spawn_docker_siblings(kind: str | None, config: Any = None) -> bool:

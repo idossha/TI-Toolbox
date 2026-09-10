@@ -18,27 +18,19 @@ Legend: [x] built · [~] built, adapted for the v3 job-per-subject model (see no
 ## Processing options (checkboxes → `Checkbox` rows, tooltips → visible help text)
 
 - [x] "Convert DICOM files to NIfTI" (default **on**, matching Qt) → `convert_dicom`.
-- [x] "Run FastSurfer segmentation" (default **on**), tooltip → `run_fastsurfer`. FreeSurfer
-      `recon-all` and the thalamic-nuclei/hippocampal-subfield subcortical segmentations were
-      removed with the FreeSurfer container (D2, `docs/dev/DECISIONS.md § 2026-09-03 (Docker streamline)`);
-      `tit.pre.config.migrate_legacy_keys` still reads an old config's `run_recon` and maps it onto
-      `run_fastsurfer` with a warning, so a saved v2 config keeps working. Existing
-      `derivatives/freesurfer` output on disk is unaffected — every atlas reader still discovers
-      it (chip label unchanged, see the subject-selection row above).
+- [x] "Run FastSurfer segmentation" (default **on**) → `run_fastsurfer`.
+- [x] "FreeSurfer (optional)" (default **off**) → `run_freesurfer`. Exposes full recon-all,
+      thalamic nuclei and hippocampal/amygdala subregions plus an optional thread count.
+      Subregion-only runs require an existing complete reconstruction. The stage runs in a
+      temporary container and keeps outputs under the selected project's `derivatives/freesurfer`.
 - [x] "FastSurfer threads" `NumberInput`, nested under the checkbox and disabled when it is off →
       `fastsurfer_threads` (`int | null`). Qt's `pre_process_tab.py` defaults this spinbox to
       `min(DEFAULT_THREADS, multiprocessing.cpu_count())` because it can read the host's core count
       directly; this page has no such reading (no `window.tit` method surfaces it, and no v1
       contract endpoint does either — same gap as gap 2 below), so it defaults to blank/`null` and
       lets the server apply `tit.pre.fastsurfer.DEFAULT_THREADS`.
-- [~] "Run recon-all in parallel" + cores spinbox → **removed, not just unexposed.** The v2 Qt-era
-      flag (and the `parallel_recon`/`parallel_cores` fields it drove) no longer exist in
-      `PreprocessConfig` at all — FastSurfer's `--seg_only` inference is single-process per subject
-      with its own `fastsurfer_threads` above, not FreeSurfer's OpenMP-parallel `recon-all`. Cross-
-      subject concurrency is still "Subjects running in parallel" below
-      (`JobGroupRequest.parallel_subjects`), which is what actually governed this in v3's job-per-
-      subject model even before the removal (`len(subject_list) == 1` inside each job's
-      `run_pipeline` call, so the Qt-era flag had already stopped doing anything meaningful there).
+- [x] FreeSurfer threads → `freesurfer_threads` (`int | null`); cross-subject concurrency
+      remains `JobGroupRequest.parallel_subjects`.
 - [x] "Create SimNIBS m2m folder" (default **on**), tooltip → `create_m2m`. Labelled "charm +
       subject atlas" because `PreprocessConfig` has no separate subject-atlas flag — `create_m2m`
       always runs both (`tit/pre/structural.py`: `run_charm` then `run_subject_atlas`).

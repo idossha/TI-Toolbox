@@ -70,6 +70,30 @@ def list_jobs(
     )
 
 
+def _check_freesurfer_inputs(
+    kind: str, config: dict[str, Any], subject_ids: list[str]
+) -> None:
+    """Reject unavailable optional FreeSurfer inputs before queuing a computation."""
+    if kind != "pre" or not config.get("run_freesurfer"):
+        return
+    from tit.paths import get_path_manager
+    from tit.pre.preflight import find_missing_preprocessing_inputs
+
+    problems = find_missing_preprocessing_inputs(
+        get_path_manager().project_dir,
+        subject_ids or config.get("subject_ids", []),
+        run_freesurfer=True,
+        freesurfer_recon_all=config.get("freesurfer_recon_all", True),
+        freesurfer_subregions=config.get("freesurfer_subregions", []),
+        convert_dicom=config.get("convert_dicom", False),
+        skip_existing_outputs=config.get("skip_existing_outputs", False),
+    )
+    if problems:
+        raise HTTPException(
+            status_code=422, detail="; ".join(p.message for p in problems)
+        )
+
+
 @router.post("/api/jobs", status_code=201, summary="Submit one job")
 def submit_job(request: Request, body: dict[str, Any] = Body(...)) -> dict[str, Any]:
     kind = body.get("kind")
@@ -89,6 +113,7 @@ def submit_job(request: Request, body: dict[str, Any] = Body(...)) -> dict[str, 
         check_job_config(kind, config)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    _check_freesurfer_inputs(kind, config, subject_ids)
     check_overwrite_permission(
         kind, config, subject_ids, overwrite=bool(body.get("overwrite", False))
     )
@@ -160,6 +185,7 @@ def submit_group(request: Request, body: dict[str, Any] = Body(...)) -> dict[str
 
     if kind == "pre":
         planned = _plan_pre_group(config, subject_ids)
+        _check_freesurfer_inputs(kind, config, subject_ids)
     else:
         planned = _plan_generic_group(kind, config, subject_ids, body, tags, overwrite)
     for job in planned:
@@ -326,6 +352,7 @@ def rerun_job(request: Request, job_id: str) -> dict[str, Any]:
     detail = _manager(request).get_detail(job_id)
     if detail is not None:
         spec = detail["spec"]
+        _check_freesurfer_inputs(spec["kind"], spec["config"], spec["subject_ids"])
         check_overwrite_permission(
             spec["kind"],
             spec["config"],

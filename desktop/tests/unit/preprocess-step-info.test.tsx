@@ -25,6 +25,7 @@ const STAGE_IDS = [
   "convert_dicom",
   "create_m2m",
   "run_fastsurfer",
+  "run_freesurfer",
   "run_tissue_analysis",
   "run_qsiprep",
   "run_qsirecon",
@@ -40,7 +41,7 @@ const SECTION_IDS = ["structural", "dwi"] as const;
  * `m2m_<id>/`. A leading `…` or `<tissue>` continues the entry above it.
  */
 const REAL_PATH =
-  /^(sourcedata\/sub-<id>\/|sub-<id>\/(anat|dwi)\/|derivatives\/(SimNIBS|fastsurfer|qsiprep|qsirecon|ti-toolbox|\.qsiprep_work)|m2m_<id>\/|…|<tissue>_)/;
+  /^(sourcedata\/sub-<id>\/|sub-<id>\/(anat|dwi)\/|derivatives\/(SimNIBS|fastsurfer|freesurfer|qsiprep|qsirecon|ti-toolbox|\.qsiprep_work)|m2m_<id>\/|…|<tissue>_)/;
 
 describe("STEP_INFO", () => {
   it("covers every stage row and both section headers, and nothing else", () => {
@@ -76,7 +77,7 @@ describe("STEP_INFO", () => {
     }
   });
 
-  it.each(STAGE_IDS)("%s: carries its G-stage tag and a duration from tit/jobs/eta.py", (id) => {
+  it.each(STAGE_IDS.filter((id) => id !== "run_freesurfer"))("%s: carries its G-stage tag and a duration from tit/jobs/eta.py", (id) => {
     const info = STEP_INFO[id]!;
     expect(info.stage).toMatch(/^G[1-6][ab]?$/);
     expect(info.nativeMinutes).toBeGreaterThan(0);
@@ -86,6 +87,11 @@ describe("STEP_INFO", () => {
       Math.round(info.nativeMinutes! * EMULATION_FACTOR),
       6,
     );
+  });
+
+  it("FreeSurfer has no unmeasured duration estimate", () => {
+    expect(STEP_INFO.run_freesurfer!.stage).toBe("G2c");
+    expect(STEP_INFO.run_freesurfer!.nativeMinutes).toBeUndefined();
   });
 
   it("section headers have no duration — they are not jobs", () => {

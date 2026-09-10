@@ -7469,6 +7469,15 @@ export interface components {
          *         Thread count for FastSurfer inference. ``None`` uses
          *         :data:`tit.pre.fastsurfer.DEFAULT_THREADS` (or
          *         ``$TIT_FASTSURFER_THREADS``).
+         *     run_freesurfer : bool
+         *         Run optional FreeSurfer in a disposable project-bound container.
+         *     freesurfer_recon_all : bool
+         *         Run full recon-all before selected subregions.
+         *     freesurfer_subregions : list of str
+         *         Optional thalamus and hippo-amygdala segmentations. Without recon-all,
+         *         a completed FreeSurfer reconstruction must already exist.
+         *     freesurfer_threads : int or None
+         *         Worker CPU limit; None uses two threads, capped by available resources.
          *     create_m2m : bool
          *         Run SimNIBS ``charm`` (also runs ``subject_atlas``).
          *     run_tissue_analysis : bool
@@ -7501,8 +7510,9 @@ export interface components {
          *     **Deprecated keys.** ``run_recon`` (FreeSurfer ``recon-all``),
          *     ``parallel_recon``, ``parallel_cores`` and
          *     ``run_subcortical_segmentations`` (thalamic nuclei / hippocampal
-         *     subfields, MATLAB-runtime binaries) were removed with the FreeSurfer
-         *     container. :func:`tit.pre.config.migrate_legacy_keys` still reads them
+         *     subfields, MATLAB-runtime binaries) were removed with the old FreeSurfer
+         *     container. The optional worker uses the explicit ``run_freesurfer`` fields;
+         *     it does not reinterpret these legacy flags. :func:`tit.pre.config.migrate_legacy_keys` still reads them
          *     off an old config JSON: ``run_recon`` maps onto ``run_fastsurfer`` with
          *     a warning, the other three are dropped with a warning. Existing
          *     ``derivatives/freesurfer`` output on disk keeps working -- every atlas
@@ -7544,6 +7554,23 @@ export interface components {
              * @default null
              */
             fastsurfer_threads: number | null;
+            /**
+             * Run Freesurfer
+             * @default false
+             */
+            run_freesurfer: boolean;
+            /**
+             * Freesurfer Recon All
+             * @default true
+             */
+            freesurfer_recon_all: boolean;
+            /** Freesurfer Subregions */
+            freesurfer_subregions?: ("thalamus" | "hippo-amygdala")[];
+            /**
+             * Freesurfer Threads
+             * @default null
+             */
+            freesurfer_threads: number | null;
             /**
              * Create M2M
              * @default false

@@ -586,3 +586,12 @@ limits in TESTING, and open work in ROADMAP. **Why:** The maintainer requires
 one authoritative home per topic; accumulating dated request files duplicates current behavior and
 leaves superseded proposals looking actionable. Dates remain useful within the decision log rather
 than as a parallel development-document hierarchy.
+
+## 2026-09-10 — Optional disposable FreeSurfer workers
+
+**Decision:** Retain FastSurfer as default and restore explicit FreeSurfer reconstruction and
+T1 subregion operations through on-demand sibling containers. This reverses the earlier
+removal of all FreeSurfer execution, while keeping it out of the core image. **Why:** Some
+projects need full reconstruction or finer nuclei/subfields. Project bind mounts preserve
+results without a persistent service or named volume; job labels and cleanup cover cancellation.
+Subregion-only execution requires completed recon-all and must preserve that reconstruction.

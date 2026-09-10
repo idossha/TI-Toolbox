@@ -59,7 +59,7 @@ Each row is a subject, each column an artefact the rest of the toolbox depends o
 |---|---|
 | **RAW** | A staged/converted anatomical image exists under `sourcedata/` or the BIDS root |
 | **FAST** | FastSurfer segmentation (`derivatives/fastsurfer/sub-<id>`) |
-| **FREE** | A legacy FreeSurfer `recon-all` output — still read, never produced by v3 |
+| **FREE** | FreeSurfer `recon-all` output from the optional preprocessing stage or an earlier run |
 | **M2M** | A SimNIBS head model, `derivatives/SimNIBS/sub-<id>/m2m_<id>` |
 | **DWI** / **CT** | Diffusion or CT data present |
 | **LF** | A leadfield matrix, and which EEG net it was built for |

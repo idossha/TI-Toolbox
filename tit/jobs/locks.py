@@ -332,6 +332,7 @@ _PRE_STAGE_FLAGS: tuple[tuple[str, str], ...] = (
     ("convert_dicom", "dicom"),
     ("create_m2m", "charm"),
     ("run_fastsurfer", "fastsurfer"),
+    ("run_freesurfer", "freesurfer"),
     ("run_tissue_analysis", "tissue"),
     ("run_qsiprep", "qsiprep"),
     ("run_qsirecon", "qsirecon"),

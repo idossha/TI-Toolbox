@@ -47,11 +47,14 @@ def _var(node_id: str) -> str:
 
 def _lit(value: Any) -> str:
     """A Python literal for *value* -- JSON is a subset of Python for these shapes."""
-    return json.dumps(value, indent=None, ensure_ascii=False).replace(
-        "true", "True"
-    ).replace("false", "False").replace("null", "None") if isinstance(
-        value, (dict, list)
-    ) else repr(value)
+    return (
+        json.dumps(value, indent=None, ensure_ascii=False)
+        .replace("true", "True")
+        .replace("false", "False")
+        .replace("null", "None")
+        if isinstance(value, (dict, list))
+        else repr(value)
+    )
 
 
 def mermaid_graph(doc: PipelineDocument) -> str:
@@ -85,6 +88,7 @@ def _cell_pre(doc: PipelineDocument, node: Any) -> str:
         for key in (
             "convert_dicom",
             "run_fastsurfer",
+            "run_freesurfer",
             "create_m2m",
             "run_tissue_analysis",
             "run_qsiprep",
@@ -94,6 +98,14 @@ def _cell_pre(doc: PipelineDocument, node: Any) -> str:
         if node.config.get(key)
     }
     args = "".join(f",\n    {k}=True" for k in flags) or ",\n    create_m2m=True"
+    if node.config.get("run_freesurfer"):
+        for key in (
+            "freesurfer_recon_all",
+            "freesurfer_subregions",
+            "freesurfer_threads",
+        ):
+            if key in node.config:
+                args += f",\n    {key}={_lit(node.config[key])}"
     return (
         f"{_var(node.id)}_subjects = {_subjects_expr(doc, node.id)}\n"
         f"run_pipeline(\n    subject_ids={_var(node.id)}_subjects{args},\n)"
@@ -101,7 +113,9 @@ def _cell_pre(doc: PipelineDocument, node: Any) -> str:
 
 
 def _cell_flex(doc: PipelineDocument, node: Any, func: str, cls: str) -> str:
-    config = {k: v for k, v in node.config.items() if k not in ("subject_id", "subject_ids")}
+    config = {
+        k: v for k, v in node.config.items() if k not in ("subject_id", "subject_ids")
+    }
     return (
         f"{_var(node.id)}_subjects = {_subjects_expr(doc, node.id)}\n"
         f"{_var(node.id)}_results = []\n"
@@ -249,7 +263,9 @@ def _setup_code(doc: PipelineDocument, project_dir: str | None) -> str:
     )
 
 
-def notebook_json(doc: PipelineDocument, *, project_dir: str | None = None) -> dict[str, Any]:
+def notebook_json(
+    doc: PipelineDocument, *, project_dir: str | None = None
+) -> dict[str, Any]:
     """The notebook as a plain dict (``nbformat`` v4), ready for ``nbformat.validate``."""
     order = topological_order(doc) or [n.id for n in doc.nodes]
     cells: list[dict[str, Any]] = []
@@ -298,7 +314,9 @@ def notebook_json(doc: PipelineDocument, *, project_dir: str | None = None) -> d
             if doc.node(e.source) is not None
         ]
         bindings = ("\n\nInputs: " + ", ".join(upstream)) if upstream else ""
-        markdown(f"## {node.label or title}\n\n*Node `{node.id}` — kind `{node.kind}`.*{bindings}")
+        markdown(
+            f"## {node.label or title}\n\n*Node `{node.id}` — kind `{node.kind}`.*{bindings}"
+        )
         code(_node_code(doc, node))
 
     markdown("## Run everything")

@@ -39,12 +39,17 @@ class TestVoxelAtlases:
         from tit.atlas.constants import (
             FASTSURFER_ATLASES,
             LEGACY_FREESURFER_ATLASES,
+            FREESURFER_SUBREGION_ATLASES,
         )
 
         assert "aparc.DKTatlas+aseg.deep.mgz" in FASTSURFER_ATLASES
         assert "aparc.DKTatlas+aseg.deep.nii.gz" in FASTSURFER_ATLASES
         assert len(LEGACY_FREESURFER_ATLASES) == 5
-        assert VOXEL_ATLASES == {**FASTSURFER_ATLASES, **LEGACY_FREESURFER_ATLASES}
+        assert VOXEL_ATLASES == {
+            **FASTSURFER_ATLASES,
+            **LEGACY_FREESURFER_ATLASES,
+            **FREESURFER_SUBREGION_ATLASES,
+        }
 
     def test_flat_list_matches_dict_keys(self):
         assert VOXEL_ATLAS_FILES == list(VOXEL_ATLASES)
@@ -203,3 +208,23 @@ class TestMniAtlasDirResolution:
         from tit.paths import resolve_resource_path
 
         assert MNI_ATLAS_DIR == resolve_resource_path("atlas")
+
+
+def test_optional_subregion_outputs_are_discovered_after_legacy(tmp_path):
+    from tit.atlas.voxel import VoxelAtlasManager
+
+    names = [
+        "ThalamicNuclei.v13.T1.mgz",
+        "ThalamicNuclei.mgz",
+        "lh.hippoAmygLabels.mgz",
+        "rh.hippoAmygLabels.mgz",
+    ]
+    for name in names:
+        (tmp_path / name).touch()
+    found = VoxelAtlasManager(freesurfer_mri_dir=str(tmp_path)).list_atlases()
+    found_names = [name for name, _ in found]
+    assert set(found_names) == set(names)
+    assert found_names[0] == names[0]
+    assert VOXEL_ATLASES["lh.hippoAmygLabels.mgz"] == "lh"
+    assert VOXEL_ATLASES["rh.hippoAmygLabels.mgz"] == "rh"
+    assert VOXEL_ATLASES["ThalamicNuclei.mgz"] == "both"

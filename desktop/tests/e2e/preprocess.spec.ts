@@ -478,3 +478,42 @@ test("records the charm and the DWI flows in both themes", async () => {
   }
   await setTheme(page, "light");
 });
+
+test("optional FreeSurfer plans and submits selected operations and retains them across navigation", async () => {
+  // Earlier serial tests submit groups; reset only this mock server's jobs before planning.
+  expect(TOKEN).toBe("mock-token");
+  const reset = await page.request.post(`${SERVER_URL}/api/__mock/reset`, {
+    headers: { authorization: `Bearer ${TOKEN}` },
+  });
+  expect(reset.ok()).toBe(true);
+  const toggle = page.getByRole("checkbox", { name: "FreeSurfer (optional)", exact: true });
+  await expect(toggle).not.toBeChecked();
+  await expect(page.getByRole("group", { name: "FreeSurfer operations" })).toHaveCount(0);
+  await toggle.check();
+  const operations = page.getByRole("group", { name: "FreeSurfer operations" });
+  await expect(operations.getByRole("checkbox", { name: "Full reconstruction (recon-all)", exact: true })).toBeChecked();
+  await operations.getByRole("checkbox", { name: "Full reconstruction (recon-all)", exact: true }).uncheck();
+  await operations.getByRole("checkbox", { name: "Thalamic nuclei", exact: true }).check();
+  await operations.getByRole("checkbox", { name: "Hippocampal / amygdala subregions", exact: true }).check();
+  await gotoPage(page, "overview", "Overview");
+  await gotoPage(page, "preprocess", "Pre-processing");
+  await expect(toggle).toBeChecked();
+  await expect(operations.getByRole("checkbox", { name: "Thalamic nuclei", exact: true })).toBeChecked();
+  await expect(operations.getByRole("checkbox", { name: "Full reconstruction (recon-all)", exact: true })).not.toBeChecked();
+  for (const label of ["Convert DICOM to NIfTI", "SimNIBS charm (m2m + subject atlas)", "FastSurfer segmentation"]) {
+    await page.getByRole("checkbox", { name: label, exact: true }).uncheck();
+  }
+  await expect(page.getByTestId("plan-cell-ernie-G2c")).toHaveText("new");
+  await expect(page.getByTestId("plan-grid").locator("thead")).toContainText("freesurfer");
+  const request = page.waitForRequest((r) => r.url().endsWith("/api/jobs/groups") && r.method() === "POST");
+  const response = page.waitForResponse((r) => r.url().endsWith("/api/jobs/groups") && r.request().method() === "POST");
+  await page.getByTestId("run-button").click();
+  const body = (await request).postDataJSON();
+  expect(body.config.run_freesurfer).toBe(true);
+  expect(body.config.run_fastsurfer).toBe(false);
+  expect(body.config.freesurfer_recon_all).toBe(false);
+  expect(body.config.freesurfer_subregions).toEqual(["thalamus", "hippo-amygdala"]);
+  const submitted = await (await response).json();
+  expect(submitted.jobs).toHaveLength(body.subject_ids.length);
+  await toggle.uncheck();
+});

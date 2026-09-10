@@ -101,6 +101,7 @@ const PRE_STAGE_LABELS: Record<string, string> = {
   G1: "dicom",
   G2a: "charm",
   G2b: "fastsurfer",
+  G2c: "freesurfer",
   G3: "tissue",
   G4: "qsiprep",
   G5: "qsirecon",

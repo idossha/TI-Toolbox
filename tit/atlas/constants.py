@@ -15,8 +15,8 @@ BUILTIN_ATLASES = ["DK40", "a2009s", "HCP_MMP1"]
 #
 # FastSurfer's own output ships both an .mgz and the .nii.gz copy
 # tit.pre.fastsurfer writes beside it; readers that cannot open MGH pick the
-# NIfTI. Everything below it is legacy FreeSurfer recon-all output, still
-# discovered for projects that carry it (TI-Toolbox no longer produces it).
+# NIfTI. FreeSurfer lists retain the established names first, followed by
+# the optional worker's segment_subregions default output names.
 FASTSURFER_ATLASES = {
     "aparc.DKTatlas+aseg.deep.mgz": "both",
     "aparc.DKTatlas+aseg.deep.nii.gz": "both",
@@ -30,12 +30,23 @@ LEGACY_FREESURFER_ATLASES = {
     "ThalamicNuclei.v13.T1.mgz": "both",
 }
 
-VOXEL_ATLASES = {**FASTSURFER_ATLASES, **LEGACY_FREESURFER_ATLASES}
+FREESURFER_SUBREGION_ATLASES = {
+    "lh.hippoAmygLabels.mgz": "lh",
+    "rh.hippoAmygLabels.mgz": "rh",
+    "ThalamicNuclei.mgz": "both",
+}
+
+VOXEL_ATLASES = {
+    **FASTSURFER_ATLASES,
+    **LEGACY_FREESURFER_ATLASES,
+    **FREESURFER_SUBREGION_ATLASES,
+}
 
 # Flat lists for callers that only need filenames, in search order:
 # FastSurfer first, then legacy FreeSurfer.
 FASTSURFER_ATLAS_FILES = list(FASTSURFER_ATLASES)
 LEGACY_FREESURFER_ATLAS_FILES = list(LEGACY_FREESURFER_ATLASES)
+FREESURFER_ATLAS_FILES = [*LEGACY_FREESURFER_ATLASES, *FREESURFER_SUBREGION_ATLASES]
 VOXEL_ATLAS_FILES = list(VOXEL_ATLASES)
 
 # Custom per-subject masks live in m2m_{subject}/masks/. Any integer label

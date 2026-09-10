@@ -350,6 +350,15 @@ def eta_minutes(
     sys_profile = system or detect_system()
     scale = mesh_scale(sid)
 
+    if kind == "pre" and (
+        config.get("run_freesurfer")
+        or any(
+            isinstance(stage, dict) and "G2c" in _as_list(stage.get("tags"))
+            for stage in _as_list((resolved or {}).get("stages"))
+        )
+    ):
+        # No measured FreeSurfer calibration yet; do not reuse FastSurfer's estimate.
+        return None
     if kind == "pre":
         per_job = _pre_minutes(resolved)
         scale = 1.0  # pre-processing BUILDS the mesh; there is nothing to measure yet.

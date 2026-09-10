@@ -13,6 +13,7 @@ import {
   defaultConfig,
   describePreStageDir,
   plannedSteps,
+  plannedStageIds,
   runLabelFor,
   stageLabelFor,
   toSubmitConfig,
@@ -164,5 +165,28 @@ describe("preprocess page defaults validate against contracts/generated/config.s
       "QSIRecon",
       "Extract DTI tensor for SimNIBS",
     ]);
+  });
+});
+
+
+describe("optional FreeSurfer", () => {
+  it("keeps FastSurfer enabled and FreeSurfer disabled by default", () => {
+    const config = defaultConfig();
+    expect(config.run_fastsurfer).toBe(true);
+    expect(config.run_freesurfer).toBe(false);
+    expect(plannedStageIds(config)).not.toContain("G2c");
+  });
+  it("serializes subregion-only work and includes its plan stage", async () => {
+    const config = toSubmitConfig({
+      ...defaultConfig(), convert_dicom: false, create_m2m: false, run_fastsurfer: false,
+      run_freesurfer: true, freesurfer_recon_all: false,
+      freesurfer_subregions: ["thalamus", "hippo-amygdala"], freesurfer_threads: 2,
+    }, ["ernie"], "skip");
+    expect(plannedStageIds(config)).toEqual(["G2c"]);
+    expect(plannedSteps(config)).toEqual(["FreeSurfer reconstruction / subregions"]);
+    expect(config.freesurfer_subregions).toEqual(["thalamus", "hippo-amygdala"]);
+    expect(config.freesurfer_recon_all).toBe(false);
+    expect(config.freesurfer_threads).toBe(2);
+    expect((await validatePreprocessConfig(config as unknown as Record<string, unknown>)).errors).toEqual({});
   });
 });

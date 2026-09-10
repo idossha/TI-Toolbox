@@ -28,6 +28,15 @@ Tetravox Embed on the host GPU; surface run previews use the application's WebGL
 Dependency versions belong in the package manifests, lockfile and container blueprint, not prose
 copies. Replacing these boundaries or adding a dependency is an architecture decision.
 
+### Optional FreeSurfer preprocessing
+
+FastSurfer remains the default. Explicit FreeSurfer jobs run recon-all and/or T1 thalamic
+and hippocampal/amygdala subregions in disposable sibling containers. Subregions require a
+completed FreeSurfer reconstruction; FastSurfer segmentation-only output is insufficient.
+Workers bind the selected project, retain results under `derivatives/freesurfer`, share the
+job resource budget and cancellation lifecycle, and use no named data volume. The image may
+remain cached; the worker and temporary license mount are removed after execution.
+
 ### Launch modes
 
 Regular `loader.py` and Python-free `loader.sh` open the browser by default; explicit `--desktop`

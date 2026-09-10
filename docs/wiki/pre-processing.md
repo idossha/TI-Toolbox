@@ -174,20 +174,20 @@ enforced by the toolbox itself.
 
 #### What changed from FreeSurfer
 
-FastSurfer's `--seg_only` mode replaces FreeSurfer `recon-all` for the segmentation this
-toolbox needs, at a large speed win (~5 minutes vs. 6–10 hours) and no separate FreeSurfer
-license or image. Two things it does **not** produce, with no replacement stage in the
-toolbox:
+FastSurfer `--seg_only` remains the default segmentation option. Enable **FreeSurfer**
+in Pre-processing when you need full **recon-all**, **Thalamic nuclei**, or
+**Hippocampal/amygdala subregions**. Select recon-all together with subregions for a new
+subject, or run subregions alone after a completed FreeSurfer reconstruction. FastSurfer's
+segmentation-only output does not satisfy that prerequisite. A FreeSurfer license is required.
 
-- **Thalamic nuclei** (`ThalamicNuclei.v13.T1.mgz`)
-- **Hippocampal/amygdala subfields** (`lh/rh.hippoAmygLabels-T1.v22.mgz`)
+FreeSurfer runs in a temporary worker and stores results in `derivatives/freesurfer/sub-<id>`.
+The worker is removed when it finishes; project results remain. The first run downloads the
+optional image. Subsequent runs reuse the cached image. Thread settings respect the job budget.
 
-Whole-thalamus / whole-hippocampus / whole-amygdala remain available from CHARM's own
-`segmentation/labeling.nii.gz`, independent of both FastSurfer and FreeSurfer. **Existing
-`derivatives/freesurfer/` outputs from a previous run keep working** — the atlas manager and
-subject catalog still discover and list them (as `has_freesurfer`), searched after FastSurfer
-outputs for the same atlas name — but nothing in the toolbox produces new `recon-all` output
-any more.
+The T1-only subregion implementation uses FreeSurfer's
+[Python subregion tools](https://surfer.nmr.mgh.harvard.edu/fswiki/SubregionSegmentation),
+which upstream describes as beta and which can differ from the older MATLAB implementation.
+CHARM still provides whole-thalamus, whole-hippocampus and whole-amygdala labels independently.
 
 ## Orchestration Script
 
@@ -202,6 +202,10 @@ any more.
 | `convert_dicom` | Include DICOM conversion stage | Optional |
 | `create_m2m` | Include SimNIBS head model creation (also runs `subject_atlas` for `.annot` files) | Optional |
 | `run_fastsurfer` | Run FastSurfer `--seg_only` segmentation | Optional |
+| `run_freesurfer` | Enable optional FreeSurfer execution | Optional |
+| `freesurfer_recon_all` | Run full reconstruction (default true when FreeSurfer is enabled) | Optional |
+| `freesurfer_subregions` | `thalamus` and/or `hippo-amygdala` | Optional |
+| `freesurfer_threads` | Maximum FreeSurfer threads | Optional |
 | `fastsurfer_threads` | Thread count for FastSurfer (default 2) | Optional |
 | `run_tissue_analysis` | Run tissue segmentation analysis | Optional |
 | `run_qsiprep` | Run QSIPrep DWI preprocessing via Docker | Optional |
@@ -214,7 +218,7 @@ any more.
 > `run_subcortical_segmentations` are replaced by `run_fastsurfer`/`fastsurfer_threads`. An
 > old JSON config sending `run_recon` still works — it is read as a deprecated alias for
 > `run_fastsurfer` (with a logged warning); the other three legacy keys are dropped with a
-> warning and have no replacement (see "What changed from FreeSurfer" above for why).
+> warning. Use the explicit FreeSurfer fields above for new reconstruction jobs.
 
 When running preprocessing from the desktop application, TI-Toolbox checks for existing outputs before
 starting the selected preprocessing steps. If DICOM, CHARM, FastSurfer,
@@ -269,7 +273,7 @@ project_root/
     │           ├── aparc.DKTatlas+aseg.deep.mgz
     │           ├── aparc.DKTatlas+aseg.deep.nii.gz
     │           └── aparc.DKTatlas+aseg.deep_labels.txt
-    ├── freesurfer/                 # Legacy: read if present, never written by new runs
+    ├── freesurfer/                 # Optional FreeSurfer reconstruction and subregions
     │   └── sub-101/
     │       ├── mri/
     │       ├── surf/

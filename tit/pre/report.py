@@ -70,6 +70,7 @@ _STEPS: tuple[tuple[str, str, str], ...] = (
         "FastSurfer segmentation",
         "Deep-learning cortical and subcortical parcellation",
     ),
+    ("run_freesurfer", "FreeSurfer", "Selected reconstruction and subregion steps"),
     ("run_tissue_analysis", "Tissue Analysis", "Tissue segmentation and analysis"),
     ("run_qsiprep", "QSIPrep", "Diffusion MRI preprocessing"),
     ("run_qsirecon", "QSIRecon", "Diffusion MRI reconstruction"),

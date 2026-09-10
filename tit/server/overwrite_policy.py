@@ -41,6 +41,9 @@ def check_overwrite_permission(
         )
 
         steps = selected_preprocessing_steps(
+            run_freesurfer=bool(config.get("run_freesurfer", False)),
+            freesurfer_recon_all=bool(config.get("freesurfer_recon_all", True)),
+            freesurfer_subregions=config.get("freesurfer_subregions", []),
             **{
                 flag: bool(config.get(flag, False))
                 for flag in (
@@ -51,7 +54,7 @@ def check_overwrite_permission(
                     "run_qsirecon",
                     "extract_dti",
                 )
-            }
+            },
         )
         conflicts = [
             str(output.path)

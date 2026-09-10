@@ -626,6 +626,7 @@ def _pre_stage_output_dir(pm: PathManager, sid: str, stage: str) -> str:
         "G1": pm.bids_anat(sid),
         "G2a": pm.m2m(sid),
         "G2b": pm.fastsurfer_subject(sid),
+        "G2c": pm.freesurfer_subject(sid),
         "G3": pm.tissue_analysis_output(sid),
         "G4": pm.qsiprep_subject(sid),
         "G5": pm.qsirecon_subject(sid),
@@ -665,6 +666,18 @@ def _plan_pre(
         stage = planned_job.tags[0] if planned_job.tags else planned_job.kind
         output_dir = _pre_stage_output_dir(pm, sid, stage) if sid else ""
         exists = _dir_exists(output_dir)
+        if stage == "G2c":
+            from tit.pre.preflight import find_existing_preprocessing_outputs
+
+            exists = bool(
+                find_existing_preprocessing_outputs(
+                    pm.project_dir,
+                    [sid],
+                    run_freesurfer=True,
+                    freesurfer_recon_all=config.freesurfer_recon_all,
+                    freesurfer_subregions=config.freesurfer_subregions,
+                )
+            )
         will_overwrite = exists and not config.skip_existing_outputs
         jobs.append(
             PlanJob(

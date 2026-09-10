@@ -9,6 +9,8 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 ---
 ### v3.0.0 (Unreleased)
 
+- Optional FreeSurfer preprocessing supports reconstruction and T1 thalamic or hippocampal/amygdala subregions in temporary workers. FastSurfer remains the default.
+
 - **Preview the desktop launcher before packaging.** `npm run dev` opens the actual
   Overview project picker from a local build, with automatic session startup disabled.
 

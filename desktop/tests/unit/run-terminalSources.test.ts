@@ -55,6 +55,19 @@ describe("the estimate", () => {
     expect(plan.stats.etaMinutes).toBeNull();
   });
 
+  it("does not estimate an unmeasured FreeSurfer stage from the remaining known stages", () => {
+    expect(estimateMinutes(stepsFor("pre", ["G2c"]), null)).toBeNull();
+    expect(estimateMinutes(stepsFor("pre", ["G1", "G2c"]), null)).toBeNull();
+    expect(estimateLabel(null)).toBe("Duration unavailable");
+  });
+
+  it("uses a server estimate even when the local FreeSurfer estimate is unknown", () => {
+    const plan = planModelFrom("pre", {
+      jobs: [], lock_conflicts: [], cost: { cpus: 4, mem_gb: 16, eta_minutes: 180 }, warnings: [],
+    } as PlanResult, ["ernie"]);
+    expect(estimateMinutes(stepsFor("pre", ["G2c"]), plan)).toBe(180);
+  });
+
   it("names the machine an estimate was made for", () => {
     expect(estimateLabel(85, { emulated: true })).toBe("≈ 1 h 25 m on this machine");
     expect(estimateLabel(6, null)).toBe("≈ 6 m");
@@ -87,7 +100,7 @@ describe("stepsFor", () => {
       expect(steps.length, kind).toBeGreaterThan(0);
       for (const s of steps) {
         expect(s.detail.length, `${kind}/${s.id}`).toBeGreaterThan(20);
-        expect(s.minutes, `${kind}/${s.id}`).toBeGreaterThan(0);
+        if (s.minutes !== null) expect(s.minutes, `${kind}/${s.id}`).toBeGreaterThan(0);
       }
     }
   });

@@ -60,7 +60,7 @@ export interface StepInfo {
   /** The `PreprocessConfig` flag this row toggles, or the section id for a header. */
   id: string;
   /** The `G1`-`G6` tag `tit/jobs/plans.py` emits. Absent on the two section headers. */
-  stage?: "G1" | "G2a" | "G2b" | "G3" | "G4" | "G5" | "G6";
+  stage?: "G1" | "G2a" | "G2b" | "G2c" | "G3" | "G4" | "G5" | "G6";
   title: string;
   /** Mini-markdown (see `ui/HelpPopover`): one or two sentences on what the step does. */
   text: string;
@@ -185,6 +185,16 @@ export const STEP_INFO: Record<string, StepInfo> = {
     ],
     nativeMinutes: native("G2b"),
     docsHref: `${PRE_DOCS}#stage-3-fastsurfer-segmentation-optional`,
+  },
+  run_freesurfer: {
+    id: "run_freesurfer",
+    stage: "G2c",
+    title: "FreeSurfer (optional)",
+    text: "Runs a full **recon-all**, thalamic nuclei, or hippocampal/amygdala subregions. Subregions require a completed recon-all, either already in the project or selected in this run. FastSurfer remains the default segmentation tool.",
+    inputs: [{ label: "T1w image / existing reconstruction", path: "sub-<id>/anat/sub-<id>_T1w.nii.gz" }],
+    process: [{ label: "FreeSurfer reconstruction / subregions" }],
+    outputs: [{ label: "Reconstruction and subregion labels", path: "derivatives/freesurfer/sub-<id>/" }],
+    docsHref: PRE_DOCS,
   },
   run_tissue_analysis: {
     id: "run_tissue_analysis",

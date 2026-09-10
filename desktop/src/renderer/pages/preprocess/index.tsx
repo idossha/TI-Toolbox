@@ -62,6 +62,10 @@ export function defaultConfig(): PreprocessConfig {
     // schema default (false) — see PARITY.md.
     convert_dicom: true,
     run_fastsurfer: true,
+    run_freesurfer: false,
+    freesurfer_recon_all: true,
+    freesurfer_subregions: [],
+    freesurfer_threads: null,
     // The Qt tab defaults this to `min(DEFAULT_THREADS, multiprocessing.cpu_count())` because it
     // can read the host's core count directly; this page has no such reading available, so it
     // leaves the field blank and lets the server apply `tit.pre.fastsurfer.DEFAULT_THREADS` (or
@@ -105,6 +109,7 @@ export function plannedStageIds(v: PreprocessConfig): string[] {
   if (v.convert_dicom) ids.push("G1");
   if (v.create_m2m) ids.push("G2a");
   if (v.run_fastsurfer) ids.push("G2b");
+  if (v.run_freesurfer) ids.push("G2c");
   if (v.run_tissue_analysis) ids.push("G3");
   if (v.run_qsiprep) ids.push("G4");
   if (v.run_qsirecon) ids.push("G5");
@@ -119,6 +124,7 @@ const PRE_STAGE_HEADING: Record<string, string> = {
   G1: "dicom",
   G2a: "charm",
   G2b: "fastsurfer",
+  G2c: "freesurfer",
   G3: "tissue",
   G4: "qsiprep",
   G5: "qsirecon",
@@ -130,6 +136,7 @@ export function plannedSteps(v: PreprocessConfig): string[] {
   if (v.convert_dicom) steps.push("Convert DICOM to NIfTI");
   if (v.create_m2m) steps.push("SimNIBS charm + subject atlas");
   if (v.run_fastsurfer) steps.push("FastSurfer segmentation");
+  if (v.run_freesurfer) steps.push("FreeSurfer reconstruction / subregions");
   if (v.run_tissue_analysis) steps.push("Tissue analysis");
   if (v.run_qsiprep) steps.push("QSIPrep");
   if (v.run_qsirecon) steps.push("QSIRecon");
@@ -149,7 +156,7 @@ export function describePreStageDir(dir: string): string {
   if (/qsirecon/i.test(dir)) return "QSIRecon";
   if (/qsiprep/i.test(dir)) return "QSIPrep";
   if (/fastsurfer/i.test(dir)) return "FastSurfer segmentation";
-  if (/freesurfer/i.test(dir)) return "Structural segmentation (legacy)";
+  if (/freesurfer/i.test(dir)) return "FreeSurfer reconstruction / subregions";
   if (/m2m_/i.test(dir)) return "SimNIBS m2m (charm / atlas / DTI)";
   if (/nifti|dicom|sourcedata/i.test(dir)) return "DICOM to NIfTI";
   return "Output";
@@ -236,7 +243,7 @@ function PreprocessPage() {
   const { read: readConfig, write: writeConfig } = usePageSessionRef<PreprocessConfig>("config");
   const form = useForm<PreprocessConfig>({
     resolver: createAjvResolver<PreprocessConfig>("PreprocessConfig"),
-    defaultValues: readConfig() ?? defaultConfig(),
+    defaultValues: { ...defaultConfig(), ...readConfig() },
   });
   const values = form.watch();
   useEffect(() => {
@@ -266,7 +273,10 @@ function PreprocessPage() {
   // its own second clause. A sourcedata-only subject stays eligible — the DICOM stage is exactly
   // what onboards it (lane FX5) — so this page passes no `eligibility` and can only ever be
   // blocked by an empty selection.
-  const blockedReason = subjectsBlockedReason(selected, []) ?? (steps.length === 0 ? "Select at least one processing step." : null);
+  const blockedReason = subjectsBlockedReason(selected, [])
+    ?? (steps.length === 0 ? "Select at least one processing step." : null)
+    ?? (values.run_freesurfer && !values.freesurfer_recon_all && !values.freesurfer_subregions?.length
+      ? "Select at least one FreeSurfer operation." : null);
 
   const plan: PlanModel | null = useMemo(() => {
     if (blockedReason) return null;
@@ -423,6 +433,41 @@ function PreprocessPage() {
                 disabled={!values.run_fastsurfer}
               />
             </Field>
+            <div className="run-checkbox-row preprocess-step-row">
+              <Checkbox
+                checked={values.run_freesurfer}
+                onCheckedChange={(v) => form.setValue("run_freesurfer", v)}
+                label="FreeSurfer (optional)"
+              />
+              <StepHelpIcon id="run_freesurfer" />
+            </div>
+            {values.run_freesurfer && (
+              <div className="preprocess-freesurfer-options" role="group" aria-label="FreeSurfer operations">
+                <Checkbox
+                  checked={values.freesurfer_recon_all}
+                  onCheckedChange={(v) => form.setValue("freesurfer_recon_all", v)}
+                  label="Full reconstruction (recon-all)"
+                />
+                {([
+                  ["thalamus", "Thalamic nuclei"],
+                  ["hippo-amygdala", "Hippocampal / amygdala subregions"],
+                ] as const).map(([region, label]) => (
+                  <Checkbox
+                    key={region}
+                    checked={values.freesurfer_subregions?.includes(region) ?? false}
+                    onCheckedChange={(checked) => form.setValue("freesurfer_subregions",
+                      checked ? [...(values.freesurfer_subregions ?? []), region]
+                        : (values.freesurfer_subregions ?? []).filter((item) => item !== region))}
+                    label={label}
+                  />
+                ))}
+                <p className="text-muted">Subregions require a completed recon-all, from this run or an existing reconstruction.</p>
+                <Field label="FreeSurfer threads" help="Leave blank to use the server's default thread count.">
+                  <NumberInput value={values.freesurfer_threads ?? undefined}
+                    onValueChange={(v) => form.setValue("freesurfer_threads", v ?? null)} min={1} step={1} />
+                </Field>
+              </div>
+            )}
             <div className="run-checkbox-row preprocess-step-row">
               <Checkbox
                 checked={values.run_tissue_analysis}

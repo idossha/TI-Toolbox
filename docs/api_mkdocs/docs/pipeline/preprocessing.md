@@ -46,8 +46,9 @@ exit_code = run_pipeline(
 !!! tip "Selective Steps"
     Each boolean flag controls a specific step. For example, enable only `create_m2m=True`
     for CHARM and its automatic `subject_atlas` step, or only `run_fastsurfer=True` for
-    DKT deep segmentation. FastSurfer uses `--seg_only`; it does not recreate the removed
-    recon-all surface, thalamic-nuclei or hippocampal-subfield workflows.
+    DKT deep segmentation. FastSurfer uses `--seg_only`. Enable `run_freesurfer=True` for
+    optional recon-all and `freesurfer_subregions=["thalamus", "hippo-amygdala"]` for T1
+    subregions. Subregions alone require a completed FreeSurfer reconstruction.
 
 ## Individual Steps
 

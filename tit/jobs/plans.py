@@ -129,6 +129,7 @@ def plan_per_subject(
 _STAGE_FLAGS = (
     "convert_dicom",
     "run_fastsurfer",
+    "run_freesurfer",
     "create_m2m",
     "run_tissue_analysis",
     "run_qsiprep",
@@ -158,6 +159,7 @@ def plan_preprocessing(
     - ``G2b`` = FastSurfer ``--seg_only`` deep segmentation (``run_fastsurfer``), after
       ``G1`` -- it reads the raw BIDS T1w, so it needs nothing from ``G2a`` and the two
       run in parallel
+    - ``G2c`` = optional FreeSurfer recon-all/subregions, after ``G1``
     - ``G3`` = tissue-volume/thickness analysis (``run_tissue_analysis``), after ``G2a``
     - ``G4`` = QSIPrep (``run_qsiprep``), after ``G1``
     - ``G5`` = QSIRecon (``run_qsirecon``), after ``G4``
@@ -237,6 +239,18 @@ def plan_preprocessing(
                 tags=["G2b", "fastsurfer"],
             )
             subject_jobs.append(g2b)
+
+        if config.run_freesurfer:
+            subject_jobs.append(
+                PlannedJob(
+                    label=f"{subject_id}:G2c",
+                    kind="pre",
+                    config=_stage_config(config, subject_id, run_freesurfer=True),
+                    subject_ids=[subject_id],
+                    after_labels=[g1.label] if g1 else [],
+                    tags=["G2c", "freesurfer"],
+                )
+            )
 
         g3 = None
         if config.run_tissue_analysis:

@@ -18,6 +18,7 @@ tit.pre.structural.run_pipeline : Consumes them (as plain keyword arguments,
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
 
 from tit import constants as const
 
@@ -263,6 +264,15 @@ class PreprocessConfig:
         Thread count for FastSurfer inference. ``None`` uses
         :data:`tit.pre.fastsurfer.DEFAULT_THREADS` (or
         ``$TIT_FASTSURFER_THREADS``).
+    run_freesurfer : bool
+        Run optional FreeSurfer in a disposable project-bound container.
+    freesurfer_recon_all : bool
+        Run full recon-all before selected subregions.
+    freesurfer_subregions : list of str
+        Optional thalamus and hippo-amygdala segmentations. Without recon-all,
+        a completed FreeSurfer reconstruction must already exist.
+    freesurfer_threads : int or None
+        Worker CPU limit; None uses two threads, capped by available resources.
     create_m2m : bool
         Run SimNIBS ``charm`` (also runs ``subject_atlas``).
     run_tissue_analysis : bool
@@ -295,8 +305,9 @@ class PreprocessConfig:
     **Deprecated keys.** ``run_recon`` (FreeSurfer ``recon-all``),
     ``parallel_recon``, ``parallel_cores`` and
     ``run_subcortical_segmentations`` (thalamic nuclei / hippocampal
-    subfields, MATLAB-runtime binaries) were removed with the FreeSurfer
-    container. :func:`tit.pre.config.migrate_legacy_keys` still reads them
+    subfields, MATLAB-runtime binaries) were removed with the old FreeSurfer
+    container. The optional worker uses the explicit ``run_freesurfer`` fields;
+    it does not reinterpret these legacy flags. :func:`tit.pre.config.migrate_legacy_keys` still reads them
     off an old config JSON: ``run_recon`` maps onto ``run_fastsurfer`` with
     a warning, the other three are dropped with a warning. Existing
     ``derivatives/freesurfer`` output on disk keeps working -- every atlas
@@ -326,6 +337,12 @@ class PreprocessConfig:
     convert_dicom: bool = False
     run_fastsurfer: bool = False
     fastsurfer_threads: int | None = None
+    run_freesurfer: bool = False
+    freesurfer_recon_all: bool = True
+    freesurfer_subregions: list[Literal["thalamus", "hippo-amygdala"]] = field(
+        default_factory=list
+    )
+    freesurfer_threads: int | None = None
     create_m2m: bool = False
     run_tissue_analysis: bool = False
     run_qsiprep: bool = False
@@ -339,3 +356,22 @@ class PreprocessConfig:
     def __post_init__(self) -> None:
         if not self.subject_ids:
             raise ValueError("subject_ids must be non-empty")
+        if self.freesurfer_threads is not None and (
+            isinstance(self.freesurfer_threads, bool)
+            or not isinstance(self.freesurfer_threads, int)
+            or self.freesurfer_threads < 1
+        ):
+            raise ValueError("freesurfer_threads must be a positive integer")
+        if not isinstance(self.freesurfer_subregions, list) or any(
+            item not in ("thalamus", "hippo-amygdala")
+            for item in self.freesurfer_subregions
+        ):
+            raise ValueError(
+                "freesurfer_subregions must contain thalamus or hippo-amygdala"
+            )
+        if (
+            self.run_freesurfer
+            and not self.freesurfer_recon_all
+            and not self.freesurfer_subregions
+        ):
+            raise ValueError("Select recon-all or at least one FreeSurfer subregion")

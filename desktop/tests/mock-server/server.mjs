@@ -830,6 +830,8 @@ function preStageOutputDir(tag, subject) {
     case "G2a":
       return `${derivs}/SimNIBS/sub-${subject}/m2m_${subject}`;
     case "G2b":
+      return `${derivs}/fastsurfer/sub-${subject}`;
+    case "G2c":
       return `${derivs}/freesurfer/sub-${subject}`;
     case "G3":
       return `${derivs}/ti-toolbox/tissue_analysis/sub-${subject}`;
@@ -3132,7 +3134,7 @@ route("POST", "/api/jobs", async (ctx) => {
 // each stage is only planned when its PreprocessConfig flag is set, every stage job's config is
 // the group's config with every step flag but its own forced False, and a subject with any stage
 // job gets its consolidated report as an attachment of its last stage job, never as a job.
-const PRE_STAGE_FLAGS = ["convert_dicom", "create_m2m", "run_fastsurfer", "run_tissue_analysis", "run_qsiprep", "run_qsirecon", "extract_dti"];
+const PRE_STAGE_FLAGS = ["convert_dicom", "create_m2m", "run_fastsurfer", "run_freesurfer", "run_tissue_analysis", "run_qsiprep", "run_qsirecon", "extract_dti"];
 function planPreprocessingStages(config) {
   const cfg = config && typeof config === "object" ? config : {};
   const stages = [];
@@ -3141,6 +3143,9 @@ function planPreprocessingStages(config) {
   if (cfg.create_m2m) stages.push({ tag: "G2a", flags: { create_m2m: true }, after: has("G1") ? ["G1"] : [] });
   if (cfg.run_fastsurfer) {
     stages.push({ tag: "G2b", flags: { run_fastsurfer: true }, after: has("G1") ? ["G1"] : [] });
+  }
+  if (cfg.run_freesurfer) {
+    stages.push({ tag: "G2c", flags: { run_freesurfer: true }, after: has("G1") ? ["G1"] : [] });
   }
   if (cfg.run_tissue_analysis) stages.push({ tag: "G3", flags: { run_tissue_analysis: true }, after: has("G2a") ? ["G2a"] : [] });
   if (cfg.run_qsiprep) stages.push({ tag: "G4", flags: { run_qsiprep: true }, after: has("G1") ? ["G1"] : [] });

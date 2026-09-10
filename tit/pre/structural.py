@@ -28,6 +28,7 @@ from tit.paths import get_path_manager, validate_subject_id
 from .charm import run_charm, run_subject_atlas
 from .dicom2nifti import run_dicom_to_nifti
 from .fastsurfer import run_fastsurfer
+from .freesurfer import run_freesurfer as run_freesurfer_worker
 from .qsi import extract_dti_tensor, run_qsiprep, run_qsirecon
 from .tissue_analyzer import run_tissue_analysis
 from .preflight import (
@@ -35,6 +36,8 @@ from .preflight import (
     STEP_DICOM,
     STEP_DTI,
     STEP_FASTSURFER,
+    STEP_FREESURFER,
+    FREESURFER_SUBREGION_STEPS,
     STEP_QSIPREP,
     STEP_QSIRECON,
     existing_outputs_for_step,
@@ -165,6 +168,10 @@ def _run_subject_pipeline(
     convert_dicom: bool = False,
     run_fastsurfer_step: bool = False,
     fastsurfer_threads: int | None = None,
+    run_freesurfer: bool = False,
+    freesurfer_recon_all: bool = True,
+    freesurfer_subregions: list[str] | None = None,
+    freesurfer_threads: int | None = None,
     create_m2m: bool = False,
     run_tissue: bool = False,
     run_qsiprep_step: bool = False,
@@ -271,6 +278,44 @@ def _run_subject_pipeline(
             )
         else:
             durations["FastSurfer segmentation"] = None
+
+    if run_freesurfer:
+        do_recon = freesurfer_recon_all and _should_run_output_step(
+            project_dir,
+            subject_id,
+            STEP_FREESURFER,
+            logger=logger,
+            skip_existing_outputs=skip_existing_outputs,
+            replace_existing_outputs=replace_existing_outputs,
+        )
+        targets = [
+            target
+            for target in dict.fromkeys(freesurfer_subregions or [])
+            if _should_run_output_step(
+                project_dir,
+                subject_id,
+                FREESURFER_SUBREGION_STEPS[target],
+                logger=logger,
+                skip_existing_outputs=skip_existing_outputs,
+                replace_existing_outputs=replace_existing_outputs,
+            )
+        ]
+        durations["FreeSurfer"] = (
+            _run_step(
+                "FreeSurfer",
+                lambda: run_freesurfer_worker(
+                    subject_id,
+                    recon_all=do_recon,
+                    subregions=targets,
+                    threads=freesurfer_threads,
+                    runner=runner,
+                    logger=logger,
+                ),
+                logger,
+            )
+            if do_recon or targets
+            else None
+        )
 
     if run_tissue:
         durations["Tissue Analysis"] = _run_step(
@@ -385,6 +430,10 @@ def run_pipeline(
     convert_dicom: bool = False,
     run_fastsurfer: bool = False,
     fastsurfer_threads: int | None = None,
+    run_freesurfer: bool = False,
+    freesurfer_recon_all: bool = True,
+    freesurfer_subregions: list[str] | None = None,
+    freesurfer_threads: int | None = None,
     create_m2m: bool = False,
     run_tissue_analysis: bool = False,
     run_qsiprep: bool = False,
@@ -482,6 +531,9 @@ def run_pipeline(
         convert_dicom=convert_dicom,
         create_m2m=create_m2m,
         run_fastsurfer=run_fastsurfer,
+        run_freesurfer=run_freesurfer,
+        freesurfer_recon_all=freesurfer_recon_all,
+        freesurfer_subregions=freesurfer_subregions or [],
         run_qsiprep=run_qsiprep,
         run_qsirecon=run_qsirecon,
         extract_dti=extract_dti,
@@ -496,6 +548,10 @@ def run_pipeline(
             convert_dicom=convert_dicom,
             run_fastsurfer=run_fastsurfer,
             fastsurfer_threads=fastsurfer_threads,
+            run_freesurfer=run_freesurfer,
+            freesurfer_recon_all=freesurfer_recon_all,
+            freesurfer_subregions=freesurfer_subregions,
+            freesurfer_threads=freesurfer_threads,
             create_m2m=create_m2m,
             run_tissue_analysis=run_tissue_analysis,
             run_qsiprep=run_qsiprep,
@@ -517,6 +573,10 @@ def _run_pipeline_inner(
     convert_dicom=False,
     run_fastsurfer=False,
     fastsurfer_threads=None,
+    run_freesurfer=False,
+    freesurfer_recon_all=True,
+    freesurfer_subregions=None,
+    freesurfer_threads=None,
     create_m2m=False,
     run_tissue_analysis=False,
     run_qsiprep=False,
@@ -547,6 +607,8 @@ def _run_pipeline_inner(
     datasets = {"root", "ti-toolbox"}
     if run_fastsurfer:
         datasets.add("fastsurfer")
+    if run_freesurfer:
+        datasets.add("freesurfer")
     if create_m2m:
         datasets.add("simnibs")
     ensure_dataset_descriptions(project_dir, datasets)
@@ -566,6 +628,10 @@ def _run_pipeline_inner(
 
     common = dict(
         fastsurfer_threads=fastsurfer_threads,
+        run_freesurfer=run_freesurfer,
+        freesurfer_recon_all=freesurfer_recon_all,
+        freesurfer_subregions=freesurfer_subregions,
+        freesurfer_threads=freesurfer_threads,
         qsiprep_config=qsiprep_config,
         qsi_recon_config=qsi_recon_config,
         runner=runner,
@@ -631,6 +697,14 @@ def _run_pipeline_inner(
                 description="Deep-learning cortical and subcortical parcellation",
                 status=_report_status(durations, "FastSurfer segmentation"),
                 duration=durations.get("FastSurfer segmentation"),
+            )
+
+        if run_freesurfer:
+            report_gen.add_processing_step(
+                step_name="FreeSurfer",
+                description="Selected reconstruction and subregion steps",
+                status=_report_status(durations, "FreeSurfer"),
+                duration=durations.get("FreeSurfer"),
             )
 
         if run_tissue_analysis:

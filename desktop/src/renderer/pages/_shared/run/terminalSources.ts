@@ -92,8 +92,8 @@ export interface RunStep {
   label: string;
   /** One line the user can read: what the step does, not how. */
   detail: string;
-  /** Rough wall-clock minutes for ONE subject on a typical workstation. */
-  minutes: number;
+  /** Rough wall-clock minutes for ONE subject; null when no estimate is available. */
+  minutes: number | null;
 }
 
 /**
@@ -108,16 +108,18 @@ export interface RunStep {
  *
  * Either way it is an estimate and the UI labels it as one.
  */
-export function estimateMinutes(steps: RunStep[], plan: PlanModel | null, parallel = 1): number {
+export function estimateMinutes(steps: RunStep[], plan: PlanModel | null, parallel = 1): number | null {
   const server = plan?.stats.etaMinutes;
   if (typeof server === "number" && server > 0) return Math.round(server);
-  const perSubject = steps.reduce((n, s) => n + s.minutes, 0);
+  if (steps.some((step) => step.minutes === null)) return null;
+  const perSubject = steps.reduce((n, s) => n + (s.minutes ?? 0), 0);
   const rows = Math.max(1, plan?.subjects.length ?? 1);
   return Math.round((perSubject * rows) / Math.max(1, parallel));
 }
 
 /** "≈ 48 m on this machine" — the estimate with the caveat the number cannot carry alone. */
-export function estimateLabel(minutes: number, system?: { emulated?: boolean } | null): string {
+export function estimateLabel(minutes: number | null, system?: { emulated?: boolean } | null): string {
+  if (minutes === null) return "Duration unavailable";
   const where = system ? " on this machine" : "";
   return `≈ ${durationLabel(minutes)}${where}`;
 }
@@ -142,6 +144,7 @@ export const RUN_STEPS: Record<PlanKind, RunStep[]> = {
     { id: "G1", label: "Convert DICOM to NIfTI", detail: "dcm2niix over sourcedata/, writing BIDS anat/ and dwi/ with sidecars.", minutes: 2 },
     { id: "G2a", label: "SimNIBS charm", detail: "Head segmentation and tetrahedral mesh; writes m2m_<subject>/ and the subject atlases.", minutes: 45 },
     { id: "G2b", label: "FastSurfer segmentation", detail: "Deep-learning cortical parcellation; the slowest step, and CPU-bound without a GPU.", minutes: 90 },
+    { id: "G2c", label: "FreeSurfer", detail: "Reconstruction and selected thalamic or hippocampal/amygdala subregions.", minutes: null },
     { id: "G3", label: "Tissue analyzer", detail: "Per-tissue volume and conductivity report for the finished head model.", minutes: 3 },
     { id: "G4", label: "QSIPrep", detail: "Dockerised diffusion preprocessing: denoise, distortion and motion correction.", minutes: 120 },
     { id: "G5", label: "QSIRecon", detail: "Dockerised reconstruction of the preprocessed DWI into scalar maps.", minutes: 60 },

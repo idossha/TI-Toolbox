@@ -5,7 +5,7 @@ import re
 
 from tit.atlas.constants import (
     FASTSURFER_ATLAS_FILES,
-    LEGACY_FREESURFER_ATLAS_FILES,
+    FREESURFER_ATLAS_FILES,
     MNI_ATLAS_FILES,
     MASK_EXTENSIONS,
 )
@@ -51,9 +51,8 @@ class VoxelAtlasManager:
     holds both offers the current pipeline's output first.
 
     Args:
-        freesurfer_mri_dir: Path to a legacy FreeSurfer ``mri/`` directory
-            (``derivatives/freesurfer/sub-<id>/mri``). Read-only: nothing in
-            the toolbox writes there any more.
+        freesurfer_mri_dir: Path to a FreeSurfer ``mri/`` directory
+            (``derivatives/freesurfer/sub-<id>/mri``).
         fastsurfer_mri_dir: Path to the FastSurfer ``mri/`` directory
             (``derivatives/fastsurfer/sub-<id>/mri``).
         seg_dir: Path to m2m_{subject}/segmentation/ directory.
@@ -89,7 +88,7 @@ class VoxelAtlasManager:
 
         for mri_dir, names in (
             (self.fastsurfer_mri_dir, FASTSURFER_ATLAS_FILES),
-            (self.freesurfer_mri_dir, LEGACY_FREESURFER_ATLAS_FILES),
+            (self.freesurfer_mri_dir, FREESURFER_ATLAS_FILES),
         ):
             if not mri_dir or not os.path.isdir(mri_dir):
                 continue
