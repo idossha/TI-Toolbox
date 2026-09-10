@@ -9,6 +9,8 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 ---
 ### v3.0.0 (Unreleased)
 
+- Documentation captions and atlas highlights render text safely; search navigation stays on the documentation origin. Mask imports reject filenames too long for their saved collision suffix.
+
 - Packaged desktop launches load the Overview from bundled renderer resources instead of showing a blank “not found” page.
 
 - Launchers use the updatable `idossha/ti-toolbox:v3.0.0` image; optional FreeSurfer uses a separate dated worker image.

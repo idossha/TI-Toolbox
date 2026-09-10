@@ -80,3 +80,18 @@ def test_symlinked_mask_directory_is_rejected(client, tmp_path):
     Path(get_path_manager().masks("s")).symlink_to(outside, target_is_directory=True)
     assert post(client).status_code == 403
     assert not list(outside.iterdir())
+
+
+def test_upload_filename_limit_reserves_collision_suffix(client):
+    response = post(client, name="a" * 238 + ".nii")
+    assert response.status_code == 201
+    assert len(Path(response.json()["path"]).name) == 255
+    assert post(client, name="a" * 239 + ".nii").status_code == 422
+
+
+def test_upload_rejects_oversized_filename_before_validation(client, monkeypatch):
+    def unexpected_validation(path):
+        pytest.fail("Oversized names must be rejected before mask validation")
+
+    monkeypatch.setattr("tit.opt.masks.validate_mask", unexpected_validation)
+    assert post(client, name="0" * 10000 + ".nii").status_code == 422

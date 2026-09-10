@@ -350,7 +350,10 @@ async def upload_mask(
 
     from starlette.concurrency import run_in_threadpool
 
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_. -]*\.nii(?:\.gz)?", name):
+    # Reserve 13 bytes for the collision-avoidance suffix within a 255-byte filename.
+    if len(name) > 242 or not re.fullmatch(
+        r"[A-Za-z0-9][A-Za-z0-9_. -]*\.nii(?:\.gz)?", name
+    ):
         raise HTTPException(422, "Choose a .nii or .nii.gz file with a simple filename")
     pm = get_path_manager()
     if subject not in catalog.subject_ids(pm):

@@ -4,7 +4,7 @@
     var container = img.closest('.image-container, .image-container-natural');
     if (container) {
       var em = container.querySelector('em');
-      if (em) return em.innerHTML;
+      if (em) return em.textContent;
     }
 
     // Convention in wiki pages: an image sits alone in its own <p>, and the
@@ -13,7 +13,7 @@
     if (p && p.nextElementSibling && p.nextElementSibling.tagName === 'P') {
       var firstChild = p.nextElementSibling.firstElementChild;
       if (firstChild && (firstChild.tagName === 'STRONG' || firstChild.tagName === 'B')) {
-        return p.nextElementSibling.innerHTML;
+        return p.nextElementSibling.textContent;
       }
     }
 
@@ -49,7 +49,7 @@
     function open(img) {
       overlayImg.src = img.currentSrc || img.src;
       overlayImg.alt = img.getAttribute('alt') || '';
-      overlayCaption.innerHTML = getCaption(img);
+      overlayCaption.textContent = getCaption(img);
       overlay.classList.add('active');
       document.body.style.overflow = 'hidden';
     }

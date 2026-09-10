@@ -219,11 +219,22 @@
   }
 
   function highlightText(text, query) {
+    var fragment = document.createDocumentFragment();
     if (!query) {
-      return text;
+      fragment.append(document.createTextNode(text));
+      return fragment;
     }
     var regex = new RegExp('(' + escapeRegex(query) + ')', 'gi');
-    return text.replace(regex, '<mark>$1</mark>');
+    text.split(regex).forEach(function (part, index) {
+      if (index % 2 === 1) {
+        var mark = document.createElement('mark');
+        mark.textContent = part;
+        fragment.append(mark);
+      } else {
+        fragment.append(document.createTextNode(part));
+      }
+    });
+    return fragment;
   }
 
   function wireFilter(inputEl, tableEl, countEl) {
@@ -249,7 +260,7 @@
           shown++;
         }
         if (nameCells[i]) {
-          nameCells[i].innerHTML = highlightText(originalNames[i], query);
+          nameCells[i].replaceChildren(highlightText(originalNames[i], query));
         }
       }
       if (countEl) {

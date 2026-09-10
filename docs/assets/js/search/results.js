@@ -155,7 +155,10 @@ function displayNoResults() {
  */
 function navigateToSearch(query) {
   if (query) {
-    window.location.href = `${BASE_URL}/search/?q=${encodeURIComponent(query)}`;
+    const destination = new URL('/search/', window.location.origin);
+    destination.pathname = `${BASE_URL}/search/`;
+    destination.searchParams.set('q', query);
+    window.location.href = destination.href;
   }
 }
 
