@@ -102,3 +102,14 @@
   flex: 1 1 auto;
   min-height: 0;
 }
+
+/* SelectionList adds a checkbox before State; rail table column offsets do not apply. */
+.jobs-page .jobs-table .selection-table { min-width: 760px; }
+.jobs-page .jobs-table .selection-table :is(th, td):nth-child(1) { width: 32px; }
+.jobs-page .jobs-table .selection-table :is(th, td):nth-child(2) { width: 108px; }
+.jobs-page .jobs-table .selection-table :is(th, td):nth-child(3) { width: 120px; }
+.jobs-page .jobs-table .selection-table :is(th, td):nth-child(4) { width: 180px; }
+.jobs-page .jobs-table .selection-table :is(th, td):nth-child(5) { width: auto; }
+.jobs-page .jobs-table .selection-table :is(th, td):nth-child(6) { width: 88px; }
+.jobs-page .jobs-table .selection-table :is(th, td):nth-child(7) { width: 76px; }
+.jobs-page .jobs-table .selection-table :is(th, td):nth-child(8) { width: 92px; }

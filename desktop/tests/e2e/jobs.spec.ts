@@ -170,6 +170,10 @@ test("the full page lists a running job, opens its detail pane, and stops it", a
   await expect(table.getByText("sim", { exact: true }).first()).toBeVisible({ timeout: 10_000 });
   await expect(table.getByText(/queued|running/).first()).toBeVisible({ timeout: 10_000 });
 
+  const widths = await table.locator("thead th").evaluateAll((cells) => cells.map((cell) => cell.getBoundingClientRect().width));
+  expect(widths[0]).toBeLessThan(45);
+  expect(widths[3]).toBeLessThanOrEqual(200);
+  expect(widths[4]).toBeGreaterThan(200);
   await page.screenshot({ path: join(ARTIFACTS, "jobs-light.png") });
 
   // Selecting a row fills the detail PANE beside the table — not a modal over it, so the table

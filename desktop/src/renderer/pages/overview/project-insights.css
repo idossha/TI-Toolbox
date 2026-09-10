@@ -3,7 +3,8 @@
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: var(--radius-card);
-  padding: var(--space-3);
+  padding: var(--space-4);
+  min-height: 300px;
   color: var(--ink);
   background: var(--surface);
 }
@@ -62,15 +63,14 @@
   min-width: 0;
 }
 .project-storage-list {
-  max-height: 108px;
-  overflow-y: auto;
+  overflow: visible;
 }
 .project-storage-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 3px var(--space-2);
-  margin-bottom: var(--space-2);
-  font-size: 11px;
+  gap: 5px var(--space-2);
+  margin-bottom: var(--space-3);
+  font-size: 12px;
 }
 .project-storage-row > span:first-child {
   overflow: hidden;
@@ -135,30 +135,6 @@
 }
 .project-insights .project-insights-caption {
   margin-top: var(--space-2);
-}
-.project-recent {
-  margin-top: var(--space-2);
-  font-size: 11px;
-}
-.project-recent summary {
-  cursor: pointer;
-  color: var(--ink-2);
-}
-.project-recent ul {
-  padding: 0;
-  margin: var(--space-2) 0;
-  list-style: none;
-  max-height: 160px;
-  overflow: auto;
-}
-.project-recent li {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: var(--space-2);
-  padding: 3px 0;
-}
-.project-recent li > span:first-child {
-  overflow-wrap: anywhere;
 }
 @media (max-width: 850px) {
   .project-insights-grid {

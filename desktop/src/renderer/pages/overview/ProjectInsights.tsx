@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
 import type { components } from "../../api/schema";
 import "./project-insights.css";
 
@@ -194,35 +193,7 @@ export function ProjectInsights() {
               ? ` · Since ${activity.history_since.slice(0, 10)}`
               : ""}
           </p>
-          <details className="project-recent">
-            <summary>
-              Recent activity
-              {activity.last_activity_at
-                ? ` · ${timestamp(activity.last_activity_at)} UTC`
-                : ""}
-            </summary>
-            {activity.recent.length ? (
-              <ul>
-                {activity.recent.slice(0, 10).map((job) => (
-                  <li key={job.id}>
-                    <span>
-                      {job.kind}
-                      {job.subject_ids.length
-                        ? ` · ${job.subject_ids.join(", ")}`
-                        : ""}
-                    </span>
-                    <span>{job.state}</span>
-                    <time dateTime={job.created_at}>
-                      {timestamp(job.created_at)}
-                    </time>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="project-insights-caption">No recorded jobs yet.</p>
-            )}
-            <Link to="/jobs">Open Jobs</Link>
-          </details>
+
         </section>
       </div>
     </section>

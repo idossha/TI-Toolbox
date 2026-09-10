@@ -95,7 +95,8 @@ describe("project information", () => {
     act(() => today.click());
     expect(today.getAttribute("aria-pressed")).toBe("true");
     expect(container.textContent).toContain("2026-09-09: 3 recorded jobs.");
-    expect(container.querySelector("a")?.getAttribute("href")).toBe("/jobs");
+    expect(container.querySelector("details")).toBeNull();
+    expect(container.textContent).not.toContain("Recent activity");
   });
   it("polls a pending scan and replaces unknown storage with measured data", async () => {
     const fetcher = vi

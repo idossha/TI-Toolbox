@@ -20,8 +20,7 @@ file sizes (symlinks excluded), refreshed at most every five minutes; System rep
 allocated disk usage, which can differ. An incomplete scan is shown as unavailable.
 
 The activity calendar counts retained jobs by submission date over the past year, in UTC.
-Select a day to see its count, or expand **Recent activity** for the latest jobs and their
-states. Deleted job records are not included. Last activity reflects recorded job events;
+Select a day to see its count. Job details remain on the **Jobs** page. Deleted job records are not included. Last activity reflects recorded job events;
 project creation and opening dates are not inferred from file timestamps.
 
 ## The presence matrix

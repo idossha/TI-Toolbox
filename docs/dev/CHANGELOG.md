@@ -9,8 +9,9 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 ---
 ### v3.0.0 (Unreleased)
 
+- **Jobs columns fit their content.** Status and resource columns stay compact while Stage uses the remaining space.
 - **Overview shows project context.** Project name/path, background storage totals by derivative,
-  a yearly activity calendar and recent jobs accompany the subject matrix.
+  a yearly activity calendar accompany the subject matrix. Storage categories remain fully visible.
 
 - **Saved montages can be removed.** Simulator’s **Manage montages** lists net-based montages
   and subject-specific freehand placements in a fixed-height scrolling list with confirmed
