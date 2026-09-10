@@ -18,4 +18,4 @@ checkout; historical commands and paths are not a guide to the current applicati
 
 For v3, start with the [Desktop Application]({{ site.baseurl }}/wiki/desktop-app/),
 the [Python environment]({{ site.baseurl }}/wiki/python_env/), and the
-[current testing guide](https://github.com/idossha/TI-Toolbox/blob/main/docs/dev/TESTING.md).
+[current testing guide]({{ site.baseurl }}/wiki/development/).

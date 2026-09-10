@@ -26,10 +26,11 @@ What it covers:
 6. Plotting the result inline with nilearn / matplotlib
 7. A batch loop over subjects
 
-**How to run it yourself:** start the toolbox, open a shell in the container
-(`docker exec -it simnibs_container bash`), run `NOTEBOOK`, open <http://localhost:8888>,
-upload this file and pick the *SimNIBS + TI-Toolbox* kernel. Change `PROJECT` and `SUBJECT`
-to match your data. The simulation cell takes a few minutes on a single core.
+**How to run it yourself:** open your project, go to **Notebooks**, and choose **Import .ipynb**.
+Use the *SimNIBS + TI-Toolbox* kernel. Change `PROJECT` to your project's container path
+(`/mnt/<project-name>`) and `SUBJECT` to match your data before running cells. The saved outputs
+below record the example execution; your subject list, paths, timings and numerical results
+will depend on your dataset and toolbox version.
 
 ## 1. Project and subjects
 

@@ -230,15 +230,15 @@ This can be incoporated into other visualization to produce images and animation
 
 ## Running from the GUI
 
-1. Launch TI-Toolbox and click the **Extensions** button in the top-right corner of the window.
-2. Select **3D Visual Exporter** and click **Launch**.
+1. Open your project and enable **3D visual exporter** in **Settings → Optional tools**.
+2. Select **3D visual exporter** under **Extensions** in the sidebar.
 3. Pick a subject and simulation from the dropdowns. 
 4. Choose **Cortical Regions**, **Field Vectors**, **Montage Visualizer**, or **Sub-cortical** mode.
 5. Configure atlas, region filters, formats, and output directory options (for regions), sampling and styling parameters (for vectors), EEG montage and electrode settings (for electrode placement), or NIfTI file and label extraction settings (for sub-cortical structures).
 6. Click **Run Export**. The console panel shows the exact commands executed and live progress.
 7. Review artifacts in `derivatives/ti-toolbox/visual_exports/sub-<id>/` once the export completes.
 
-The **Stop** button terminates the active subprocess if you need to cancel a long export.
+To cancel an export, select its job in **Jobs** and choose **Stop**. The job server handles cancellation.
 
 ## Python API
 

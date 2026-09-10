@@ -563,8 +563,8 @@ $$
 #### Download Links
 
 - Docker Image: `docker pull idossha/simnibs:v2.2.0`
-- **[loader.sh](https://github.com/idossha/TI-toolbox/blob/main/loader.sh)** - Main launch script
-- **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)** - Docker configuration
+- **[loader.sh](https://github.com/idossha/TI-toolbox/blob/v2.2.0/loader.sh)** - Main launch script
+- **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/v2.2.0/docker-compose.yml)** - Docker configuration
 
 ---
 

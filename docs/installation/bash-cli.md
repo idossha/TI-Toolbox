@@ -4,15 +4,27 @@ title: Command-line launcher
 permalink: /installation/bash-cli/
 ---
 
-`tit launch` runs TI-Toolbox **without the desktop application**. It starts the same container
-the app starts and gives you the same interface — in a browser tab instead of a window.
+Regular `python3 loader.py` and `bash loader.sh` open the browser interface.
+Use `--desktop` to open Electron instead.
+Electron owns the selected Docker session. Closing the app stops/removes its container and
+exits Electron. **Switch project** in Overview lets you enter or browse to a different directory,
+then confirms the change before stopping the current session and opening the new project.
+Use `--no-open` for an SSH/headless session.
+Developer loaders continue to use browser mode by default.
 
-Use it when the desktop app is not the right shape: a machine you reach over SSH, a shared lab
-server, a container host, a scripted setup, or simply a preference for the terminal.
+## Existing containers
 
-> Everything the interface does goes over HTTP to the server in the container, so browser mode
-> is not a reduced version of the app. The only differences are the few things that need the
-> operating system directly — see [What is different in a browser](#what-is-different-in-a-browser).
+Every Docker launch checks for running TI-Toolbox containers, including other projects.
+Choose a numbered container if several exist, then choose **Recreate** (Enter) or **Attach**.
+TI-Toolbox image references (repository and version) are shown above a separate Available actions section. Ctrl-C cancels without changing containers.
+Attach uses that container's existing project, image and source mounts. Recreate stops/removes
+only the selected container (interrupting its jobs), then creates the requested project session
+from the Compose YAML. Cancel leaves containers unchanged. A legacy v2 container may be listed
+but cannot attach to the v3 HTTP interface; explicitly replace it if you intend to migrate.
+
+For automation, supply `--existing attach|recreate` and `--container NAME` when selection is
+ambiguous. These flags are explicit authorization for the selected action; a noninteractive
+browser/dev launch without a decision refuses to reuse a running container.
 
 ## Requirements
 
@@ -20,7 +32,10 @@ server, a container host, a scripted setup, or simply a preference for the termi
 - Bash loader: **Docker Compose and curl**, no host Python.
 - Python loader: **CPython 3.11 or newer**.
 
-Neither launcher needs host SimNIBS, numpy or Node. The scientific tools run inside the image.
+Neither launcher needs host SimNIBS or numpy. The optional `--desktop` mode needs an installed Electron
+executable (`TIT_ELECTRON_EXECUTABLE`) or the checkout's built desktop app (`npm ci` and
+`npm run build` in `desktop/`). Explicit browser/developer loaders do not need Node.
+The scientific tools run inside the image.
 
 ## Setup
 
@@ -56,26 +71,14 @@ pass arguments instead:
 python3 loader.py --project ~/datasets/000 --image "$TIT_IMAGE"
 ```
 
-What it does, in order:
+With `--desktop`, launch hands control to Electron before any container is created. If Electron is
+unavailable it fails with setup instructions; it does not silently switch to browser mode.
 
-1. **Checks Docker** — installed, running, and reachable. Each failure prints its own remedy
-   (including the `docker` group fix on Linux).
-2. **Attaches** to this project's container if one is already running — the desktop app's, or
-   an earlier `tit launch`'s. It is the same container either way.
-3. **Pulls the image** if it is not already on the machine (when that image is published).
-4. **Starts the container**, publishing the server on `127.0.0.1` only.
-5. **Waits for `/api/health`** to answer, up to `--timeout` seconds (180 by default; a cold
-   start under emulation on Apple Silicon is slow).
-6. **Prints a URL and opens your browser.**
-
-The launcher prints the chosen container and port, followed by a session URL. Open that
-URL to authenticate; treat its token as a secret when sharing logs.
-
-Opening that URL trades the token for an `HttpOnly` session cookie and redirects to the app,
-so the token does not stay in your address bar or your browser history's query strings.
-
-**The container keeps running after the command exits.** Close the tab, come back tomorrow,
-run `tit launch` again — it attaches in a second. `--stop` is what ends it.
+In default browser mode, the loader checks Docker, asks how to handle existing sessions,
+starts the YAML-defined container when needed, waits for health, then opens its authenticated URL.
+The browser container stays running when its tab closes. Use `--stop` to end that project session.
+For Electron, closing the app stops/removes its session and exits;
+named volumes and project files remain.
 
 ## Options
 
@@ -85,7 +88,11 @@ run `tit launch` again — it attaches in a second. `--stop` is what ends it.
 | `--interactive` | Prompt for the project even when arguments are supplied; use the supplied or remembered project as the default. |
 | `--port N` | First host port to try. Default 8765; the next free port is used if it is taken, and the launcher says so. |
 | `--image IMAGE:TAG` | Run a specific image instead of the default selected by this checkout. |
-| `--no-open` | Print the URL instead of opening a browser. What you want over SSH. |
+| `--browser` | Open the browser interface (the default). |
+| `--desktop` | Open Electron; closing the app or quitting returns to the terminal. |
+| `--no-open` | Start/select a headless session and print its URL (for SSH). |
+| `--existing attach\|recreate` | Explicitly attach to or replace a running session. |
+| `--container NAME` | Select a running container by name or ID. |
 | `--timeout SECONDS` | How long to wait for the server. Default 180. |
 | `--status` | Name, state, health, image and URL of this project's container. |
 | `--logs` / `--logs --follow` | The container's log, once or streaming. |
@@ -103,10 +110,9 @@ Arguments keep scripted invocations noninteractive unless you add `--interactive
 python3 loader.py --interactive --project ~/datasets/000 --image "$TIT_IMAGE"
 ```
 
-When launching through the project prompt without `--image` or `TIT_IMAGE_TAG`, the loader
-reconnects to that project's running session using its existing image and prints the image
-it selected. An explicit image selection must match the session. The loader does not stop
-or recreate an existing container automatically.
+The selected running session is never reused implicitly. Attach deliberately retains its image
+and configuration; Recreate uses the requested settings. Use `--status` to inspect a project session
+when you need more detail than the prompt's image reference.
 
 The project prompt needs an interactive terminal. A no-argument invocation without one exits with
 instructions to pass explicit flags, rather than waiting for input in a script or job.
@@ -158,30 +164,44 @@ asserts exactly that (`desktop/tests/e2e/browser-mode.spec.ts`).
 ## Develop from source
 
 Use the [source setup]({{ site.baseurl }}/installation/#install-from-source) to pair your
-checkout and image, then run `npm run dev` in `desktop/`. It starts the container, Vite,
-and Electron. For Python edits, set `TIT_DEV_MOUNT_REPO=1`; for the baked Python package,
-set it to `0`.
+checkout and image. In `desktop/`, run:
 
-`.env.dev` has four settings and one of them is required:
+```bash
+npm ci
+npm run dev
+```
+
+This builds and opens the Electron welcome Overview, with the full sidebar visible and
+project tools disabled until you open a project. Type a project path or use **Browse**, then
+open it. No `.env.dev` file or running container is needed to see the welcome screen; Docker
+is needed when opening the project. Use **Switch project** in Overview to choose another
+directory. The current project is retained if you cancel or the destination fails validation;
+a confirmed switch stops its container and jobs, then loads the new project's data.
+
+Rerun `npm run dev` after UI changes. It tests the desktop experience without packaging an
+installer. `npm run dev:launcher` remains an alias; no separate launcher command is needed.
+New desktop development sessions mount this checkout and enable server reload. Attach retains
+the existing container's configuration.
+
+Optional defaults can go in `desktop/.env.dev` (copy `.env.dev.example`) or your shell:
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `TIT_DEV_PROJECT_DIR` | *(none — you must set it)* | The project directory to open. |
-| `TIT_DEV_IMAGE_TAG` | `dev` | Which `idossha/ti-toolbox:<tag>` to run. |
-| `TIT_DEV_PORT` | `8765` | Host port. A second checkout needs a second port. |
-| `TIT_DEV_MOUNT_REPO` | `1` | Mount the checkout at `/ti-toolbox`, so your Python edits are what the container runs, and restart the server on change. Set `0` to test the image's own `tit`. |
+| `TIT_DEV_PROJECT_DIR` | Last project in desktop; required for web mode unless supplied with `--project` | Prefills the desktop project field; selects the browser development project. |
+| `TIT_DEV_IMAGE_TAG` | Root Compose image tag | Which `idossha/ti-toolbox:<tag>` to run. |
+| `TIT_DEV_PORT` | `8765` | Preferred host port. |
+| `TIT_DEV_MOUNT_REPO` | `1` | **Web mode only:** mount the checkout and reload Python changes. Set `0` to test the image's baked Python package. Desktop development always mounts the checkout. |
 
-Any of them can be overridden for a single run: `TIT_DEV_PORT=8766 npm run dev`.
-
-Other commands:
+For live renderer reload in a browser:
 
 ```bash
-npm run dev:web    # the same, without the Electron window — open http://127.0.0.1:5173/
-npm run dev:down   # stop and remove this project's dev container
+npm run dev:web -- --project /path/to/project  # open http://127.0.0.1:5173/
+npm run dev:down -- --project /path/to/project # stop and remove that project's dev container
 ```
 
-Ctrl-C stops the renderer and the app but **leaves the container running**, so the next
-`npm run dev` attaches in a second or two.
+Closing Electron stops/removes its adopted container and exits the app. Browser-only
+`dev:web` retains the container after the tab closes or Ctrl-C stops Vite; use `dev:down` to
+stop it. The next browser launch asks Recreate or Attach again.
 
 #### Without Node
 
@@ -212,7 +232,7 @@ once, in the root `docker-compose.yml`, so the two can never describe different 
 Pass `--no-mount-repo` to test the image's baked Python package and UI instead.
 
 `--web` does not reimplement the dev loop — it runs `npm run dev:web` for you, so there is one
-implementation of container + Vite + Electron and it is the one `npm run dev` uses.
+implementation of the browser development server and its container setup.
 
 ### Build a development image
 
@@ -228,10 +248,9 @@ in `container/blueprint/build.sh --help`. Its default resolver uses compatible G
 assets. The [release guide](https://github.com/idossha/TI-toolbox/blob/release/3.0.0/docs/dev/RELEASING.md)
 explains the embed and image-build requirements.
 
-Expect **30–60+ minutes** on native x86_64 hardware and considerably longer under amd64
-emulation on Apple Silicon: the recipe installs SimNIBS 4.6 from scratch, builds the UI in its
-own Node stage, and vendors FastSurfer with its checkpoints. It is a once-per-major-change
-cost, not a per-run one.
+Image builds are substantial and take longer under amd64 emulation on Apple Silicon. The
+recipe installs SimNIBS 4.6, builds the UI in its own Node stage, and vendors FastSurfer with
+its checkpoints. Build once for the source revision you intend to test, then reuse that image.
 
 ## Advanced: native, without Docker
 
@@ -250,8 +269,8 @@ because it comes from the image rather than from `tit`:
 - **FastSurfer** segmentation — not installed by SimNIBS, and the pre-processing pipeline will
   say so rather than run it.
 - **Blender / `bpy`** rendering for the montage visualiser.
-- **The UI bundle and the viewer** — pass `--static-dir` at a renderer build you produced
-  yourself (`desktop/out/renderer`), or the server serves a "no UI bundle" page.
+- **The UI bundle and the viewer** — pass `--static-dir desktop/out/renderer` for a renderer build you produced
+  yourself, or the server serves a "no UI bundle" page.
 - **QSIPrep/QSIRecon** for diffusion, which are spawned as sibling containers and therefore
   need Docker anyway.
 
@@ -260,11 +279,10 @@ everything else the container is the supported path.
 
 ## Troubleshooting
 
-**The running container uses a different image.** The launcher compares the requested
-image reference with the running project's configured image reference and refuses a mismatch.
-It leaves the container and its jobs unchanged. Wait for the jobs to finish, then use `--stop`
-for that project and launch with the intended image. This avoids silently reusing an older
-cohort or killing active work to replace it.
+**The running container uses a different image or project.** Attach deliberately uses that
+existing session unchanged. Choose Recreate to stop/remove the selected session and start the
+requested YAML configuration. Other running containers are not removed. Enter chooses Recreate;
+Ctrl-C cancels without changing containers.
 
 **"Docker was not found on this machine."** Install Docker Desktop or Docker Engine; the
 launcher looks for the `docker` executable on your `PATH`.
@@ -287,6 +305,6 @@ one it used; pass `--port` to steer it.
 
 More on the [Troubleshooting]({{ site.baseurl }}/installation/troubleshooting/) page.
 
-For a Docker-free local API and frontend, use `pnpm dev:host --project /path/to/project` from
+For a Docker-free local API and frontend, use `npm run dev:host -- --project /path/to/project` from
 `desktop/` after the [host setup](https://github.com/idossha/TI-Toolbox/blob/release/3.0.0/CONTRIBUTING.md#development-environment).
 Scientific tools must then be available on the host.

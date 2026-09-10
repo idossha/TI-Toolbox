@@ -41,7 +41,7 @@ Leadfields are generated with `tissues=[1, 2]` (white + grey matter).
 
 <div class="image-container">
   <img src="{{ site.baseurl }}/assets/imgs/v3/optimizer.png" alt="The Optimizer page, where Ex is a method" style="width: 100%; max-width: 1000px;">
-  <em>Ex-search is the <strong>Ex</strong> method on the Optimizer page (⌘3), not a page of its own.</em>
+  <em>Ex-search is the <strong>Ex</strong> method on the Optimizer page (⌘2), not a page of its own.</em>
 </div>
 
 The interface provides controls for:
@@ -198,14 +198,15 @@ _`intensity_vs_focality_scatter.png`: every evaluation plotted as ROI mean inten
 
 Set **Search Mode** to _mTI (4-pair)_ to run a multipolar exhaustive search (mex-search) instead of the standard two-channel one. `tit/opt/mex/` extends ex-search to four channels (eight electrodes), scored with the same verified `get_TI_vectors` envelope used by the simulator — explicitly **not** a recursive envelope-of-envelopes (see [Envelope Math]({{ site.baseurl }}/wiki/analyzer/#envelope-math-and-critical-values) on the Analyzer page for the $$K$$-carrier modulation-depth math, and [Multipolar Mode on the Simulator page]({{ site.baseurl }}/wiki/simulator/#multipolar-mode-mti) for how mTI montages are detected and simulated). The public API is `run_m_ex_search(config: MExConfig) -> MExResult`, re-exported from `tit.opt` alongside `run_ex_search`/`run_flex_search`.
 
-### mTI GUI
+### mTI in the Optimizer
 
-The Ex-Search tab hosts both TI and mTI search behind a single **Search Mode** combo: "TI (2-pair)" (default) and "mTI (4-pair)" — the labels' "pair" means channel. Selecting mTI:
+Choose the **Ex** method for a job row, open its settings and select **8 electrodes (mTI)**
+under **Electrodes → Count**. The default **4 electrodes (TI)** uses two channels. Selecting mTI:
 
-- Hides the Bucketed/All Combinations radio buttons and switches the electrode panel to eight free-text fields, **E1+ .. E4-** (2 columns x 4 rows). mTI is bucket-only — there is no all-combinations page, since pool permutations over eight positions are combinatorially far larger than TI's four.
+- Uses eight electrode-bucket selectors, **E1+ .. E4-**, populated from the selected EEG net. mTI is bucket-only; all-combinations mode is available for TI only.
 - Switches the current-configuration panel to a **Pair Current (mA)** spinbox — the per-channel current (range 0.1-10.0, default 2.0, step 0.1) — and a **Force left/right symmetry** checkbox (unchecked by default) that enables a symmetry-pairing combo — "Within each pair" / "Cross pairs (E1<->E3, E2<->E4)" — once checked.
-- Disables the **Combine ROIs** checkbox only. Both ROI types are available: `MExConfig` carries `roi_names` and `roi_atlas` exactly as `ExConfig` does, so an mTI run can target a sphere, an atlas region, or an atlas region alone. Combining stays TI-only because the multipolar run path processes selected spheres one at a time.
-- Retitles the box "mTI Configuration" and relabels the run/stop buttons "Run mTI Search"/"Stop mTI Search".
+- Disables the **Combine ROIs** checkbox only. Saved spherical, atlas-region and imported-mask targets remain available: `MExConfig` carries `roi_names` and `roi_atlas` exactly as `ExConfig` does, so an mTI run can target a sphere, an atlas region, or an atlas region alone. Combining stays TI-only because the multipolar run path processes selected spheres one at a time.
+- Submits a `mex` job through the shared run controls. Follow its Terminal log or stop it from Jobs.
 
 ### Candidate enumeration
 

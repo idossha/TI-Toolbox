@@ -55,7 +55,8 @@ GitHub Actions (`.github/workflows/deploy-docs.yml`) runs on every push to `main
 2. **Build Jekyll** site from `docs/` (which now includes the fresh API docs)
 3. **Deploy** the combined artifact to GitHub Pages via `actions/deploy-pages`
 
-No build artifacts are committed to the repo. GitHub Pages source is set to **GitHub Actions** (not legacy branch-based).
+The repository currently includes a generated `docs/api/` snapshot for local preview; deployment
+regenerates it from the API sources and current `tit` code. Do not edit generated API HTML by hand. GitHub Pages source is set to **GitHub Actions** (not legacy branch-based).
 
 ## Site Theme
 

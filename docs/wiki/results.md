@@ -6,7 +6,7 @@ permalink: /wiki/results/
 
 # Results
 
-**Results** (⌘7) is the only outputs browser in the app. Everything a job wrote for a subject is
+**Results** (⌘6) is the only outputs browser in the app. Everything a job wrote for a subject is
 here, and every "Open" from here is an in-app navigation to the
 [Viewer]({{ site.baseurl }}/wiki/visualizers/) — nothing launches an external program.
 

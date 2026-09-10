@@ -6,7 +6,7 @@ permalink: /wiki/ai-assistant/
 
 TI-Toolbox ships a small, free plugin that teaches AI coding assistants — **Claude Code**, **OpenAI Codex**, **Cursor**, or any tool that speaks the Model Context Protocol (MCP) — how the toolbox works. Once installed, your assistant can answer questions from this wiki, write correct `tit` scripts, and look at your project folder to tell you what is missing, instead of guessing.
 
-> Everything the plugin does is **read-only**. It never modifies your data, never uploads it anywhere, and the only network access is fetching the public documentation/source from GitHub when you don't have a local copy of the repository.
+> Everything the plugin does is **read-only**. It does not modify your data. Its network access fetches public documentation/source from GitHub when you do not have a local checkout. Tool results, including project names and requested configuration text, are passed to your chosen assistant; that assistant's own data policies apply.
 
 ## What it does
 
@@ -34,7 +34,7 @@ Inside a Claude Code session, run:
 /plugin install ti-toolbox@ti-toolbox
 ```
 
-That's it. Skills load on demand and the MCP server starts with each session. Python 3.9+ must be on your PATH (it is on macOS and every Linux distribution).
+That's it. Skills load on demand and the MCP server starts with each session. Python 3.9+ must be installed and available on your PATH.
 
 Try:
 
@@ -84,13 +84,13 @@ Then reference the skill files above in your project's rules/instructions file s
 - **Give it your project path.** `inspect_project` needs the absolute path of your BIDS project (the folder you point the desktop app at). On the host that is e.g. `/Users/you/Studies/my_project`; inside the container it is `/mnt/my_project`.
 - **Ask it to check, not assume.** Prompts like *"read the wiki page before answering"* or *"verify the config fields in the source"* make it use the tools.
 - **Scripts still run in the container.** The assistant writes code; you run it with `simnibs_python` inside the SimNIBS container (see [Scripting]({{ site.baseurl }}/wiki/scripting/)). The assistant knows this and will remind you.
-- **Versions.** The plugin reads documentation from the `main` branch by default. If you run an older release, ask the assistant to call `get_toolbox_version` / `read_changelog` and mention your version, or set `TI_TOOLBOX_REF=v2.4.0` in the server's environment.
+- **Versions.** With a local checkout the plugin reads that checkout. Without one it reads `main` by default. Ask it to call `get_toolbox_version` and state your installed version; use a matching checkout, or set `TI_TOOLBOX_REF=v2.5.0` for remote legacy documentation.
 
 ## Privacy and safety
 
 - All tools are read-only; there is no tool that writes, deletes, or runs anything.
 - Project inspection only lists directory and file names — it never opens imaging data.
-- Source/doc access is restricted to the public `tit/`, `docs/`, `scripts/`, `tests/`, `container/`, `dev/` trees of the repository.
+- Source/doc access is restricted to approved repository trees and manifests, including `tit/`, `desktop/src/`, `desktop/tests/`, `contracts/`, `agent-plugin/`, docs and scripts.
 - Set `TI_TOOLBOX_OFFLINE=1` to forbid network access entirely (requires a local clone).
 
 ## Troubleshooting

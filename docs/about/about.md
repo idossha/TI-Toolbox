@@ -18,12 +18,14 @@ The toolbox covers the full modeling pipeline in one place:
 - **Pipelines and notebooks** — wire the steps into a graph and run it as one job, or drive the same API from a Jupyter notebook running on the container's own Python.
 
 The scientific environment runs inside one Docker image, driven by an Electron desktop
-application on macOS, Linux, and Windows.
+application on macOS, Linux, and Windows, or the same interface in your browser.
 
 ### Requirements & what's inside
 
-The only thing you install is the desktop app and **Docker Desktop** (or a Docker Engine). Everything
-scientific lives in one image, `idossha/ti-toolbox:<version>`, which the app runs for you.
+Install **Docker Desktop** (or Docker Engine), then choose the desktop app or a terminal loader.
+The desktop app opens a welcome Overview where you can type or pick a project directory and
+switch projects later. The regular Python and Bash loaders open the browser interface. Everything
+scientific lives in one image, `idossha/ti-toolbox:<version>`.
 Step-by-step instructions per platform are in the
 [Installation guide]({{ site.baseurl }}/installation/) and
 [Dependencies]({{ site.baseurl }}/installation/dependencies/).
@@ -51,7 +53,9 @@ Step-by-step instructions per platform are in the
 | **Not included** | Gmsh, Qt/PyQt5, any X server, FreeSurfer `recon-all`, the MATLAB Runtime |
 
 The image is **amd64**; on Apple Silicon it runs under emulation, which is correct but slower.
-The server listens on `127.0.0.1` only, and the app authenticates to it with a per-container token.
+The loaders publish the server on host `127.0.0.1` by default, and the app authenticates with a
+per-container token. Closing Electron stops its container; closing a browser tab leaves its
+container running. See the [launch options]({{ site.baseurl }}/installation/) for lifecycle details.
 
 ### Philosophy
 

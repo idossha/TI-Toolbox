@@ -11,11 +11,11 @@ permalink: /gallery/ex-search/
   <div class="gallery-grid">
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/ex-search/ex-search_ex-search_selection.png" alt="Ex-Search Selection" onclick="openLightbox(this)" />
-      <p>Electrode selection interface required for exhaustive search optimization.</p>
+      <p>Legacy v2 electrode-selection interface. In v3, configure exhaustive searches on the Optimizer page.</p>
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/ex-search/ex-search_ex-search_combos.png" alt="Ex-Search Combinations" onclick="openLightbox(this)" />
-      <p>All electrode combinations to be searched through \(n^4\) combinations.</p>
+      <p>Example candidate electrode combinations; the search size depends on buckets, constraints and current splits.</p>
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/ex-search/ex-search_distribution.png" alt="Ex-Search Distribution" onclick="openLightbox(this)" />

@@ -20,25 +20,25 @@ own machine's GPU inside the app window. It can also update itself without a TI-
 ```
 Host                                                          idossha/ti-toolbox:<ver> (amd64)
 ┌─ Electron shell ───────────────────────────────┐            ┌────────────────────────────────────────────┐
-│ main: Engine-API client ─ compose.v3.yml ──────┼─ socket ──▶│ entrypoint → simnibs_python -m tit.server   │
+│ main: Engine-API client ─ docker-compose.yml ──────┼─ socket ──▶│ entrypoint → simnibs_python -m tit.server   │
 │ renderer (served by the container, :port) ─────┼─ http ────▶│   /            → /opt/ti-toolbox/ui         │
 │   ├─ run-page 3-D panes: own WebGL2 renderer   │            │   /tetravox/   → the active embed (own CSP) │
 │   └─ Viewer page ▸ Viewer sub-page:            │            │   /api/scene/*  → surfaces, electrodes, atlas│
 │        <iframe src=/tetravox/> WebGL2+WASM     │◀─ files ──▶│   /api/files/raw/{path}  (jailed stream)    │
 │        on the host GPU, postMessage: load/…    │            │   /api/view/open → the scene, twice over:   │
 │                                                │            │     into the iframe, and onto disk at       │
-└────────────────────────────────────────────────┘            │     <project>/code/ti-toolbox/viewer/*.json │
+└────────────────────────────────────────────────┘            │     <project>/code/ti-toolbox/viewer/*.tetravox.json │
                                                               │ jobs: charm · subject_atlas · FastSurfer    │
       docker.sock mounted for DWI (QSIPrep/QSIRecon)          │       seg_only · tit.sim/opt/analyzer/stats │
                                                               └────────────────────────────────────────────┘
 ```
 
-Everything the user sees — the tabbed UI, dialogs, the 3D/volume viewer — is HTML/JS served
-by the container over plain HTTP and rendered by Electron's own renderer process, the same
-way a browser would. The Electron **main** process's only job is to get that container
-running: talk to Docker over its Engine API, pull the image, start the container with the
-right volumes/env, wait for it to answer a health check, then point a `BrowserWindow` at
-`http://127.0.0.1:<port>/`.
+Before a project is open, Electron serves the welcome Overview from its bundled UI; no
+container is needed to see the welcome page and full sidebar. Opening a project starts or
+attaches to its container, then loads the same application from `http://127.0.0.1:<port>/`.
+The connected UI and viewer are HTML/JS rendered on the host, as in a browser. Electron's
+main process owns Docker discovery, image pull, project selection, confirmed project
+switching, health checks and shutdown.
 
 ## What changed from v2
 
@@ -57,7 +57,7 @@ right volumes/env, wait for it to answer a health check, then point a `BrowserWi
 
 #### **Renderer Process** (Frontend)
 
-The window's content is the container's own served UI — the renderer process is a normal
+After a project opens, the window's content is the container's own served UI — the renderer process is a normal
 web page (HTML/CSS/JS built from the toolbox's TypeScript sources) loaded from
 `http://127.0.0.1:<port>/`, exactly like visiting the app in a browser. The run pages' small 3-D
 panes are drawn by the app's own WebGL2 renderer. Full viewing is the Viewer page's Viewer
@@ -109,7 +109,7 @@ and you move between them by clicking those rows. Clicking Viewer itself opens M
   scene it is showing. To go back, click **Menu** in the rail; the picture is not thrown away —
   tinker with the list, press Open again, and the new scene replaces the old one in the same frame.
 
-In a narrow window (below 1440 px) the rail shows icons only and the two sub-rows are not drawn.
+Once a project is open, in a narrow window (below 1440 px) the rail shows icons only and the two sub-rows are not drawn. The welcome Overview keeps the full labeled sidebar visible before project selection.
 Reach them from the command palette instead, which lists both by name (`Viewer · Menu`,
 `Viewer · Tetravox`).
 
@@ -166,38 +166,37 @@ Tetravox's own `docs/EMBED.md` for the full protocol.
 
 ## Launch Workflow
 
-The launcher connects the desktop application to its matching scientific image. See the
+The welcome Overview connects the desktop application to its matching scientific image. See the
 [installation guide]({{ site.baseurl }}/installation/) for setup and artifact availability.
 
-1. **User clicks "Launch TI-Toolbox"**
+1. **Open a project from Overview** — type a project directory or use Browse, then click Open project
 2. **Docker discovery** — resolves the active Docker context and confirms the daemon answers
-3. **Project initialization** — creates the BIDS structure if this is a new project
-4. **Image pull** (when the matching image is absent) — `idossha/ti-toolbox:<ver>`, with progress reported to the launcher window
+3. **Existing session choice** — if any TI-Toolbox container is running, select it and choose Attach or Replace. Attach retains its actual project and configuration; Replace uses the requested project and YAML.
+4. **Image pull** (when the matching image is absent) — `idossha/ti-toolbox:<ver>`, with progress reported in Overview
 5. **Container start** — network/volume ensured, container created with the project mounted, the app's env map, and the right labels, then started
 6. **Health check** — polled against `/api/health`, raced against "did the container exit" so a crash on boot reports its exit code instead of a generic timeout
-7. **Window opens** on `http://127.0.0.1:<port>/`, the container's own served UI
+7. **Same window connects** to `http://127.0.0.1:<port>/`, the container's own served UI
 8. **Active session** — the user interacts with the UI; full 3-D viewing, when needed, is the Viewer page's own Viewer sub-page, drawn by the embed on the host GPU
-9. **Cleanup** — on quit, the container is stopped and removed (named volumes are kept)
+9. **Switch or quit** — Switch project opens a directory form, then confirms and replaces the current session with the selected project. Closing the window or choosing Quit stops/removes the container and exits Electron. Named volumes are kept.
 
-## Running the same stack without the app
+## Command-line and development launch
 
-The application is a shell around the container, so it is not the only way in. Two others reach
-the identical container — same image, same mounts, same environment, same `tit.*` labels, same
-`ti-toolbox-<hash of the project directory>-tit-1` name — and can hand a session back and forth
-with it:
+The regular CLI opens the browser by default. Use `--desktop` to give Electron ownership of
+the selected session. Developer browser mode remains convenient for fast iteration.
 
-| | Command | What it gives you |
-|---|---|---|
-| **Python/bash launcher** | `tit launch --project <dir>`, or `python loader.py` / `./loader.sh` from a checkout | The UI in a browser. Needs only Python 3.11+ and the `docker` CLI. `--status`, `--logs`, `--stop`. |
-| **From source** | `npm run dev` in `desktop/` | The whole system from a checkout, for unreleased code. |
+| Entry point | Interface and lifetime |
+|---|---|
+| `python3 loader.py` / `bash loader.sh` | Browser by default; explicit `--stop` ends the session. |
+| Either loader with `--desktop` | Electron UI; closing the app stops/removes its container and exits. |
+| `dev/loader/loader_dev.py` / `dev/loader/loader_dev.sh` | Browser with checkout mounts for newly created sessions. |
+| `npm run dev` in `desktop/` | Builds and opens welcome Overview; select a project in Electron. Closing stops its container. |
+| `npm run dev:web` | Browser with Vite; container remains until `npm run dev:down`. |
 
-There is one run specification — the `docker-compose.yml` at the root of the repository — and
-all three read it: the app and `npm run dev` through `shared/composeFile.ts` and the Engine
-API, `tit launch` (and the `loader.py` / `loader.sh` wrappers over it) through `tit/launch.py`,
-whose built-in fallback for an installed wheel is pinned to that file by a test. It lives at
-the root rather than under `desktop/` precisely because the app is not its only reader; a
-packaged build carries a copy at `Resources/docker-compose.yml`. That is why `tit launch --status` can report on a container the app started, and why
-the app can attach to one `tit launch` created.
+All Docker starts use the shared root Compose specification (packaged apps carry their copy).
+Every route requires an explicit choice before reusing a running session. Attach may select a
+session from another project; the displayed project remains that session's actual project.
+Replacement affects only the selected container. See the
+[launcher reference]({{ site.baseurl }}/installation/bash-cli/) for flags and prerequisites.
 
 In a browser there is no Electron bridge (`window.tit`), so reveal-in-file-manager, native
 notifications, the Settings → Docker card and the project picker are absent — each with a
@@ -208,8 +207,8 @@ message or a fallback rather than a failure. See
 
 Every long-running operation — pre-processing, a simulation, flex/ex/mex-search, the
 analyzer, group statistics — is a **job**: the UI POSTs a JSON config to `tit.server`, which
-runs it as a tracked background process inside the container (a `tit.job_id` label
-distinguishes concurrent runs) and streams status/logs back to the UI over the same HTTP
+runs it as a tracked background process inside the container (a job ID
+distinguishes concurrent runs; separately launched job containers carry a `tit.job_id` label) and streams status/logs back to the UI over the same HTTP
 connection the rest of the app already uses. This is unchanged in shape from v2's
 subprocess-per-tab pattern (`simnibs_python -m tit.<pipeline> config.json`) — what changed is
 *where* it runs: inside the one always-running container, driven over HTTP, rather than a
@@ -248,8 +247,9 @@ npm run dev
 ## Security
 
 - **Docker Access:** the main process holds a direct, unmediated handle to the host's Docker
-  socket; `stack.start`/`stack.stop` are reachable only from the launcher window, not from
-  every renderer.
+  socket. Initial `stack.start` is restricted to the local welcome page. The connected main
+  window may stop its own session; switching to another host directory requires native
+  confirmation of the exact destination before the new mount is created.
 - **No X11 permissions:** there is nothing to grant or revert on launch/exit — removed
   entirely along with X11 itself.
 - **Tetravox Embed's CSP:** the `/tetravox/` route serves its own Content-Security-Policy

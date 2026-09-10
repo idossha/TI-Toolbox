@@ -20,6 +20,20 @@ The page has two parts. **Part 1** covers things outside the toolbox's control �
 
 ## Desktop application
 
+### What should happen when I close the app or switch projects?
+
+Closing the desktop app stops the project's container and exits Electron. To change projects
+without quitting, use Switch project in Overview, type a path or browse, and confirm the new project.
+Terminal loaders open the browser by default, so they return after opening the page. With explicit
+`--desktop`, the terminal waits until Electron exits, then prints “TI-Toolbox closed.” on success.
+
+### Quit warns about active jobs when none are running
+
+An early v3 development build counted historical `skipped` and `lost` jobs as active during
+shutdown. Both are terminal states. The quit check now counts only `running` and `queued` jobs,
+matching the job model; an idle session closes without a job warning. Rebuild/relaunch the updated
+desktop application. No job records need to be deleted or changed.
+
 ### A `.nii.gz` mask is grayed out in the file picker
 
 Early development builds filtered only `.nii` and the compound `.nii.gz` extension, which macOS
@@ -33,7 +47,7 @@ and reopen the picker. Unrelated gzip archives are rejected.
 **Cause:** route navigation unmounted pages and their embedded renderers; a shared subject selection
 also changed hidden workflows. The September 4 polishing update retains visited pages and gives
 each tab its own subject context. Closing/switching projects intentionally starts a new session.
-**Fix:** restart the updated desktop client once. In development, use `pnpm run dev` from `desktop/`.
+**Fix:** restart the updated desktop client once. In development, use `npm run dev` from `desktop/`.
 The Simulator, Optimizer and Analyzer previews also require the viewport-capable Tetravox bundle;
 an older protocol-2 bundle can still show its full application chrome.
 
@@ -308,18 +322,18 @@ For people scripting against `tit` or contributing code.
 
 | Symptom | Cause / Fix |
 |---|---|
-| Script works on the host, fails in the container (or vice-versa) | The container is Python 3.11, numpy 1.26, case-sensitive FS; the host is not. **Verify in the container**: `docker run --rm -v "$PWD:/ti-toolbox" -w /ti-toolbox idossha/ti-toolbox-test:latest sh -c 'simnibs_python -m pytest tests -q'`. |
+| Script works on the host, fails in the container (or vice-versa) | The v3 scientific runtime uses SimNIBS Python and NumPy 2.3.5 on a case-sensitive filesystem; the host may differ. Verify against the current runtime with the [testing guide]({{ site.baseurl }}/wiki/development/), including real numerical tests when relevant. |
 | `pytest` INTERNALERROR `Read-only file system: tests/logs/pytest.log` | `pytest.ini` writes a log; mount the repo **writable** (not `:ro`). |
 | `python: not found` in the test container | Use `simnibs_python`. |
 | Test container is very slow on Apple Silicon | It is amd64 under emulation; expect ~1 min for the suite, minutes for real SimNIBS scenarios. |
 | `nibabel` `save()` to `.nii.gz` fails on a Docker bind mount | Write the `.nii` then gzip with the stdlib `gzip` module. |
 | `ModuleNotFoundError: fsl / ants` | The SimNIBS container ships **no FSL and no ANTs** — only Python, nibabel, numpy, scipy (+ SimpleITK). |
-| `mne` missing in the container | Not installed by default; pin `mne~=1.5` (numpy 1.26 compatible) in `container/blueprint/Dockerfile.simnibs`. |
-| `if some_combo and …` guard silently skips | PyQt5 `QComboBox.__len__` makes an empty combo falsy; use `is not None`. |
+| `mne` missing in a v3 container | The current image installs `mne>=1.5,<2` and `h5io`. Verify you are using the selected v3 image and `simnibs_python`, not another interpreter or a legacy image. |
+| **V2 only:** `if some_combo and …` guard silently skips | PyQt5 `QComboBox.__len__` makes an empty combo falsy; use `is not None`. |
 | `dcm2niix` produced zero NIfTIs | `-r` means **rename**, not recurse; recursion depth is `-d 9`. |
 | Math does not render on the docs site | Kramdown only parses `$$…$$` (inline and display); single `$…$` is ignored. No bare `\|` inside math in a table cell. |
 | NiiVue label atlas renders grayscale / washes the slice | `colormapLabel` as a load option is ignored — call `vol.setColormapLabel(cm)` and set `vol.alphaThreshold = true`, then `updateGLVolume()`. |
-| Release script left `dev/loader/docker-compose.dev.yml` on the old tag | `dev/update/update_version.py` does not know that file; bump its `idossha/simnibs:vX` tag by hand. |
+| **V2 only:** release script left `dev/loader/docker-compose.dev.yml` on the old tag | `dev/update/update_version.py` does not know that file; bump its `idossha/simnibs:vX` tag by hand. |
 
 ---
 

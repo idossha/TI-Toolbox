@@ -6,7 +6,7 @@ permalink: /wiki/testing-pipeline/
 
 > **V2 archive (deprecated).** This page preserves the v2 testing and CircleCI setup for legacy
 > developers. Commands, paths, image contents, and test counts below describe v2 and may not apply to v3.
-> For current development, use the [v3 testing guide](https://github.com/idossha/TI-Toolbox/blob/main/docs/dev/TESTING.md).
+> For current development, use the [v3 testing guide]({{ site.baseurl }}/wiki/development/).
 > See the [v2 development archive]({{ site.baseurl }}/wiki/v2-development/) for related legacy guides.
 
 ## Overview

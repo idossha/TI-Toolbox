@@ -66,7 +66,7 @@ image; similar version numbers do not guarantee matching code.
 
 ### 4. Open the interface
 
-**Browser:** from the repository root, choose a project in the terminal:
+**Browser (default):** from the repository root, choose a project in the terminal:
 
 ```bash
 python3 loader.py
@@ -81,30 +81,35 @@ the prompt and set the image explicitly, supply arguments:
 python3 loader.py --project /path/to/project-copy --image "$TIT_IMAGE"
 ```
 
-The launcher starts or attaches to the project's container and opens the authenticated UI.
-The browser route runs the image's baked application. See the
+The launcher asks Recreate (the Enter default) or Attach if a TI-Toolbox container is already running, then opens
+its browser interface. Closing the browser leaves the container running; use `--stop` to stop it.
+Use `--desktop` for Electron. Overview provides project opening and switching. Closing the
+window or choosing Quit stops its container and exits the application.
+Desktop mode needs an installed executable selected with `TIT_ELECTRON_EXECUTABLE`, or the
+checkout's desktop app built with `npm ci` and `npm run build` in `desktop/`. See the
 [command-line reference]({{ site.baseurl }}/installation/bash-cli/) for SSH, logs, and stop.
 
-**Electron from source:** configure the selected checkout's desktop app:
+**Electron from source:** open the desktop welcome screen without building a release installer:
 
 ```bash
 cd desktop
-cp .env.dev.example .env.dev
-```
-
-Edit `.env.dev`: set `TIT_DEV_PROJECT_DIR` to your project path and `TIT_DEV_IMAGE_TAG` to
-the tag portion of the matching image. Set `TIT_DEV_MOUNT_REPO=0` to run the image's Python
-package, or `1` when developing Python changes in this checkout. Then run:
-
-```bash
 npm ci
 npm run dev
 ```
 
-This starts the container, Vite, and Electron together. The development renderer comes from
-your checkout; keep that checkout paired with the selected image. Close with Ctrl-C; the
-container remains running until you stop it. Configuration details and image-building
-instructions are in [Develop from source]({{ site.baseurl }}/installation/bash-cli/#develop-from-source).
+Overview shows the full sidebar and a project field with **Browse**. No `.env.dev` or project
+selection is required before starting the app. Enter or select your project, then open it;
+the app starts Docker's project container after checking for existing sessions.
+
+Use **Switch project** in Overview to enter or select a different directory. Confirming stops
+the current container and its jobs before loading the new project's data. Cancelling or an
+invalid destination leaves the current project open. Closing Electron stops its container and
+exits. Project files and named volumes are preserved.
+
+Rerun `npm run dev` after UI changes. New desktop development containers mount the checkout
+and reload Python changes; Attach retains the selected session's existing configuration.
+Optional `.env.dev` image/path defaults and browser development with live renderer reload are
+covered in [Develop from source]({{ site.baseurl }}/installation/bash-cli/#develop-from-source).
 
 ### 5. Verify the project
 
@@ -136,7 +141,7 @@ For clusters where Docker is unavailable, see
 The image is built for `linux/amd64`. On Apple Silicon Docker Desktop runs it under emulation,
 which works but is markedly slower for FEM solves and segmentation.
 
-Detailed per-tool versions are on the
+Host dependency requirements are on the
 **[Dependencies]({{ site.baseurl }}/installation/dependencies/)** page; problems and their
 fixes are on **[Troubleshooting]({{ site.baseurl }}/installation/troubleshooting/)**.
 
@@ -208,10 +213,9 @@ For Docker and launcher setup, see
 
 ## Docker access is a trust boundary
 
-The server authenticates with a bearer token, generated fresh per launch and passed to the
-container only as an environment variable — nothing writes it to a file on the host. This is
-true of all three launch paths: the desktop app, `tit launch` and `npm run dev` each generate
-one and read it back out of the container when they re-attach.
+The server authenticates with a bearer token, generated for each new container and passed to the
+container as an environment variable. The desktop app and command-line loaders reuse the
+selected container's token only after an explicit Attach choice.
 
 That token is readable by anything with access to the Docker socket: {% raw %}`docker inspect
 <container> --format '{{range .Config.Env}}{{println .}}{{end}}'`{% endraw %}, `docker exec

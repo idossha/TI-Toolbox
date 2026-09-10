@@ -56,9 +56,9 @@ results = run_simulation(config)
 ### Simulation Types
 
 - **TI (2-pair)**: Standard temporal interference with 2 electrode pairs
-- **mTI (4+ pairs)**: Multi-channel TI with N electrode pairs (binary-tree combination)
+- **mTI (4+ even pairs)**: Multi-channel TI with N electrode pairs (binary-tree combination)
 
-Mode is auto-detected from the montage: 2 pairs -> TI, 4+ pairs -> mTI.
+Mode is auto-detected from the montage: 2 pairs -> TI, 4+ even pairs -> mTI.
 
 ## Analyzing Results
 
@@ -223,6 +223,7 @@ and preprocessing runs.
 from tit.reporting import SimulationReportGenerator
 
 report = SimulationReportGenerator(
+    project_dir="/mnt/project",  # container-visible project path
     simulation_session_id="motor_cortex",
     subject_id="001",
 )
@@ -249,6 +250,7 @@ from tit.reporting import create_flex_search_report
 
 # Generate from optimization data dict
 output_path = create_flex_search_report(
+    project_dir="/mnt/project",  # container-visible project path
     subject_id="001",
     data=optimization_data,  # dict with optimization results
     output_path="/data/my_project/derivatives/ti-toolbox/reports/flex_report.html",
@@ -261,6 +263,7 @@ output_path = create_flex_search_report(
 from tit.reporting import create_preprocessing_report
 
 output_path = create_preprocessing_report(
+    project_dir="/mnt/project",  # container-visible project path
     subject_id="001",
     processing_steps=[],  # auto-populated if auto_scan=True
     output_path=None,     # auto-generates BIDS-compliant path
@@ -330,7 +333,7 @@ All paths are managed by `PathManager`, which enforces a BIDS-compliant director
 ### Field Types
 - **TI_max**: Maximum TI envelope magnitude (2-pair simulations)
 - **TI_normal**: TI field component normal to the cortical surface
-- **mTI_max**: Multi-channel TI maximum envelope (4-pair mTI simulations, from binary-tree combination)
+- **mTI_max**: Multi-channel TI maximum envelope (4+ even-pair mTI simulations, from binary-tree combination)
 
 ### Coordinate Spaces
 - **Subject space**: Native coordinates aligned to the individual's head mesh

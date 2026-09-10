@@ -6,12 +6,14 @@ permalink: /gallery/pre-processing/
 
 <link rel="stylesheet" href="{{ '/assets/css/lightbox.css' | relative_url }}">
 
+The anatomy examples below include legacy FreeSurfer outputs, which remain readable. V3 uses FastSurfer for new segmentation; see [Pre-processing]({{ site.baseurl }}/wiki/pre-processing/).
+
 <div class="gallery-section">
-  <h3>DICOM to NIfTI Conversion & FreeSurfer Segmentation</h3>
+  <h3>Imaging Input & Head-Model Preparation</h3>
   <div class="gallery-grid">
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/pre_process/pre-process_dicom.png" alt="DICOM Processing" onclick="openLightbox(this)" />
-      <p>DICOM files serve as the only require input data to start the pipeline. Required T1w and optional T2w.</p>
+      <p>Start from DICOM or an existing NIfTI dataset: T1w is required for head-model creation; T2w is optional.</p>
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/pre_process/pre-process_nifti.png" alt="NIfTI Conversion" onclick="openLightbox(this)" />

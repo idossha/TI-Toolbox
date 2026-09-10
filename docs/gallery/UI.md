@@ -6,6 +6,10 @@ permalink: /gallery/UI/
 
 <link rel="stylesheet" href="{{ '/assets/css/lightbox.css' | relative_url }}">
 
+V3 interface examples. Desktop users open and switch projects from Overview; browser sessions
+use the project selected by their loader. See [Overview]({{ site.baseurl }}/wiki/overview/) for the
+current project workflow. The captures below illustrate tools within an open project.
+
 <div class="gallery-section">
   <h3>The TI-Toolbox desktop application (v3)</h3>
   <div class="gallery-grid">

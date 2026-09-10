@@ -31,7 +31,7 @@ Open that URL in your Windows browser; if the browser does not open automaticall
 
 The native desktop app talks to Docker Desktop through its Windows named pipe. For Electron
 source development, use a Windows checkout with Node 22.12+, git, and native Windows project
-paths in `desktop/.env.dev`. Follow the same source-ref and image pairing procedure; do not
+paths in the Overview project field. Run `npm run dev` from `desktop/`; `.env.dev` is optional. Follow the same source-ref and image pairing procedure; do not
 mix a WSL project path into the native Windows app configuration.
 
 An EXE is the packaged desktop format. Artifact availability is listed on the installation

@@ -63,7 +63,8 @@ test('ordinary matches preserve casing, literal regex characters, count and link
   assert.equal(doc.querySelector('#search-stats').textContent, 'Found 2 results for "TI+"');
   assert.deepEqual(Array.from(doc.querySelectorAll('mark'), node => node.textContent), ['TI+', 'ti+', 'Ti+', 'TI+']);
   assert.deepEqual(Array.from(doc.querySelectorAll('.search-result-link'), node => node.href),
-    ['https://example.test/TI-Toolbox/wiki/ti/', 'https://reference.test/ti/']);
+    ['https://example.test/TI-Toolbox/wiki/ti/', '']);
+  assert.equal(doc.querySelectorAll('.search-result-link')[1].hasAttribute('href'), false);
   assert.equal(doc.querySelector('#no-results').style.display, 'none');
 });
 
@@ -73,7 +74,7 @@ test('snippet length and singular statistics stay unchanged', async t => {
   const doc = window.document;
   assert.equal(doc.querySelector('#search-stats').textContent, 'Found 1 result for "match"');
   assert.equal(doc.querySelector('.search-result-content').textContent, content.slice(0, 250) + '...');
-  assert.equal(doc.querySelector('a').getAttribute('href'), '/TI-Toolbox/wiki/a/');
+  assert.equal(doc.querySelector('a').href, 'https://example.test/TI-Toolbox/wiki/a/');
 });
 
 test('no matches and whitespace query clear previous results', async t => {

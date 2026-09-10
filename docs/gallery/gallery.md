@@ -20,7 +20,8 @@ Explore comprehensive visual examples and documentation for all TI-Toolbox modul
 - **[Statistics](statistics/)** - Statistical analysis and group-level computations
 - **[Nilearn](nilearn/)** - Nilearn visualizations and brain imaging
 
-Each gallery section contains detailed visual examples, step-by-step demonstrations, and interactive guides for the respective toolbox functionality.
+The UI gallery shows v3. Scientific output galleries also retain examples from earlier versions;
+legacy interfaces and external viewers are labeled where they appear.
 
 ## V2 (deprecated)
 

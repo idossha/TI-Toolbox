@@ -141,7 +141,7 @@ Both modes accept `analysis_space = "mni"` (volumetric, default) or `"fsaverage"
 
 ### Classification Analysis: Responder vs Non-Responder
 
-1. **Launch Extension**: Extensions button → "Permutation Analysis"
+1. **Open tool**: enable **Cluster permutation** in **Settings → Optional tools**, then select it under **Extensions** in the sidebar
 2. **Select Mode**: Choose "Classification" mode
 3. **Configure Subjects**:
    - Subject 001: Simulation "HIPP_L", Responder
@@ -155,7 +155,7 @@ Both modes accept `analysis_space = "mni"` (volumetric, default) or `"fsaverage"
 
 ### Correlation Analysis: Dose-Response Relationship
 
-1. **Launch Extension**: Extensions button → "Permutation Analysis"
+1. **Open tool**: enable **Cluster permutation** in **Settings → Optional tools**, then select it under **Extensions** in the sidebar
 2. **Select Mode**: Choose "Correlation" mode
 3. **Configure Subjects**:
    - Subject 001: Simulation "HIPP_L", Effect Size: 0.85

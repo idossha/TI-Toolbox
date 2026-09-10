@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
     
     
       
@@ -883,6 +883,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#tit.sim.base--see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#tit.sim.base.BaseSimulation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -895,6 +906,39 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#tit.sim.base.BaseSimulation--parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.sim.base.BaseSimulation--attributes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Attributes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.sim.base.BaseSimulation--see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#tit.sim.base.BaseSimulation.run" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -902,6 +946,45 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="run">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tit.sim.base.BaseSimulation.run--parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.sim.base.BaseSimulation.run--returns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Returns
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.sim.base.BaseSimulation.run--see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -962,13 +1045,8 @@
   
     
     
-      
-  
-  
-    
-    
       <li class="md-path__item">
-        <a href="../../analyzer/analyzer/" class="md-path__link">
+        <a href="../../_mti_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -982,22 +1060,14 @@
     
   
 
-    
-  
-
       
         
   
   
     
     
-      
-  
-  
-    
-    
       <li class="md-path__item">
-        <a href="../../analyzer/analyzer/" class="md-path__link">
+        <a href="../../_mti_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1005,9 +1075,6 @@
 
         </a>
       </li>
-    
-  
-
     
   
 
@@ -1058,25 +1125,29 @@
     <div class="doc doc-contents first">
 
         <p>Base simulation class with shared logic for TI and mTI simulations.</p>
-<p>BaseSimulation factors out the identical code shared by TISimulation and
-mTISimulation:
-  - <strong>init</strong> (config, montage, logger, path manager, m2m_dir)
-  - _apply_tissue_conductivities (env-var overrides)
-  - run() template method (setup dirs, viz, build session, post-process)
-  - _init_session() (common SESSION setup: subpath, tensor, eeg_cap, flags)
-  - _add_electrode_pair() (electrode creation on a TDCS list)</p>
-
-
-<details class="subclasses-implement" open>
-  <summary>Subclasses implement</summary>
-  <ul>
-<li>_simulation_mode      (property returning SimulationMode.TI or .MTI)</li>
-<li>_montage_type_label   (property returning "TI" or "mTI")</li>
-<li>_montage_imgs_key     (property returning dirs key for montage images)</li>
-<li>_build_session()      (electrode-pair-specific session construction)</li>
-<li>_post_process()       (field computation and file organization)</li>
+<p><code>BaseSimulation</code> factors out the identical code shared by
+<code>TISimulation</code> and <code>mTISimulation</code>:</p>
+<ul>
+<li><code>__init__</code> -- config, montage, logger, path manager, m2m_dir</li>
+<li><code>_apply_tissue_conductivities</code> -- env-var conductivity overrides</li>
+<li><code>run</code> -- template method (setup dirs, viz, build session, post-process)</li>
+<li><code>_init_session</code> -- common SESSION setup (subpath, tensor, eeg_cap, flags)</li>
+<li><code>_add_electrode_pair</code> -- electrode creation on a TDCS list</li>
 </ul>
-</details>
+<p>Subclasses implement the following abstract interface:</p>
+<ul>
+<li><code>_simulation_mode</code> -- property returning <code>SimulationMode.TI</code> or <code>.MTI</code></li>
+<li><code>_montage_type_label</code> -- property returning <code>"TI"</code> or <code>"mTI"</code></li>
+<li><code>_montage_imgs_key</code> -- property returning dirs key for montage images</li>
+<li><code>_build_session</code> -- electrode-pair-specific session construction</li>
+<li><code>_post_process</code> -- field computation and file organization</li>
+</ul>
+<h4 id="tit.sim.base--see-also">See Also<a class="headerlink" href="#tit.sim.base--see-also" title="Permanent link">&para;</a></h4>
+<p>TISimulation : 2-pair TI implementation.
+mTISimulation : N-pair mTI implementation.
+SimulationConfig : Configuration consumed by simulations.
+run_simulation : Top-level orchestration entry point.</p>
+
 
 
 
@@ -1103,7 +1174,9 @@ mTISimulation:
 
 
 <a href="#tit.sim.base.BaseSimulation" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">BaseSimulation</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.sim.config.SimulationConfig" href="../../../../pipeline/simulation/#tit.sim.config.SimulationConfig">SimulationConfig</a></span><span class="p">,</span> <span class="n">montage</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.sim.config.Montage" href="../../../../pipeline/simulation/#tit.sim.config.Montage">Montage</a></span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">BaseSimulation</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.sim.config.SimulationConfig" href="../../../../pipeline/simulation/#tit.sim.config.SimulationConfig">SimulationConfig</a></span><span class="p">,</span> <span class="n">montage</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.sim.config.Montage" href="../../../../pipeline/simulation/#tit.sim.config.Montage">Montage</a></span><span class="p">,</span> <span class="n">logger</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1112,9 +1185,30 @@ mTISimulation:
 
 
         <p>Abstract base class for TI/mTI simulations.</p>
-<p>Subclasses must implement :pyattr:<code>_simulation_mode</code>,
-:pyattr:<code>_montage_type_label</code>, :pyattr:<code>_montage_imgs_key</code>,
-:meth:<code>_build_session</code>, and :meth:<code>_post_process</code>.</p>
+<p>Provides the template-method <code>run</code> pipeline that subclasses
+customise by implementing <code>_build_session</code> and <code>_post_process</code>.</p>
+<h5 id="tit.sim.base.BaseSimulation--parameters">Parameters<a class="headerlink" href="#tit.sim.base.BaseSimulation--parameters" title="Permanent link">&para;</a></h5>
+<p>config : SimulationConfig
+    Fully specified simulation configuration.
+montage : Montage
+    The electrode montage to simulate.
+logger : logging.Logger
+    Logger instance for status and diagnostic messages.</p>
+<h5 id="tit.sim.base.BaseSimulation--attributes">Attributes<a class="headerlink" href="#tit.sim.base.BaseSimulation--attributes" title="Permanent link">&para;</a></h5>
+<p>config : SimulationConfig
+    Simulation configuration supplied at construction.
+montage : Montage
+    Electrode montage supplied at construction.
+logger : logging.Logger
+    Logger instance used throughout the pipeline.
+pm : tit.paths.PathManager
+    Singleton path manager for BIDS path resolution.
+m2m_dir : str
+    Absolute path to the subject's <code>m2m_&lt;subject&gt;</code> directory.</p>
+<h5 id="tit.sim.base.BaseSimulation--see-also">See Also<a class="headerlink" href="#tit.sim.base.BaseSimulation--see-also" title="Permanent link">&para;</a></h5>
+<p>TISimulation : Concrete 2-pair TI subclass.
+mTISimulation : Concrete N-pair mTI subclass.
+run_simulation : Orchestrates <code>BaseSimulation.run</code> across montages.</p>
 
 
 
@@ -1124,17 +1218,17 @@ mTISimulation:
 
                   <details class="quote">
                     <summary>Source code in <code>tit/sim/base.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-44">44</a></span>
-<span class="normal"><a href="#__codelineno-0-45">45</a></span>
-<span class="normal"><a href="#__codelineno-0-46">46</a></span>
-<span class="normal"><a href="#__codelineno-0-47">47</a></span>
-<span class="normal"><a href="#__codelineno-0-48">48</a></span>
-<span class="normal"><a href="#__codelineno-0-49">49</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-44" name="__codelineno-0-44"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">SimulationConfig</span><span class="p">,</span> <span class="n">montage</span><span class="p">:</span> <span class="n">Montage</span><span class="p">,</span> <span class="n">logger</span><span class="p">):</span>
-<a id="__codelineno-0-45" name="__codelineno-0-45"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">config</span>
-<a id="__codelineno-0-46" name="__codelineno-0-46"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">montage</span> <span class="o">=</span> <span class="n">montage</span>
-<a id="__codelineno-0-47" name="__codelineno-0-47"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logger</span>
-<a id="__codelineno-0-48" name="__codelineno-0-48"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
-<a id="__codelineno-0-49" name="__codelineno-0-49"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">m2m_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pm</span><span class="o">.</span><span class="n">m2m</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">)</span>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-79">79</a></span>
+<span class="normal"><a href="#__codelineno-0-80">80</a></span>
+<span class="normal"><a href="#__codelineno-0-81">81</a></span>
+<span class="normal"><a href="#__codelineno-0-82">82</a></span>
+<span class="normal"><a href="#__codelineno-0-83">83</a></span>
+<span class="normal"><a href="#__codelineno-0-84">84</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-79" name="__codelineno-0-79"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">SimulationConfig</span><span class="p">,</span> <span class="n">montage</span><span class="p">:</span> <span class="n">Montage</span><span class="p">,</span> <span class="n">logger</span><span class="p">):</span>
+<a id="__codelineno-0-80" name="__codelineno-0-80"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">config</span>
+<a id="__codelineno-0-81" name="__codelineno-0-81"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">montage</span> <span class="o">=</span> <span class="n">montage</span>
+<a id="__codelineno-0-82" name="__codelineno-0-82"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logger</span>
+<a id="__codelineno-0-83" name="__codelineno-0-83"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
+<a id="__codelineno-0-84" name="__codelineno-0-84"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">m2m_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pm</span><span class="o">.</span><span class="n">m2m</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 
@@ -1158,85 +1252,151 @@ mTISimulation:
 
 
 <a href="#tit.sim.base.BaseSimulation.run" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run</span><span class="p">(</span><span class="n">simulation_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">simulation_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Execute the full simulation pipeline. Returns a result dict.</p>
+        <p>Execute the full simulation pipeline for one montage.</p>
+<p>This template method orchestrates directory setup, montage
+visualisation, SimNIBS FEM execution, and subclass-specific
+post-processing.</p>
+<h6 id="tit.sim.base.BaseSimulation.run--parameters">Parameters<a class="headerlink" href="#tit.sim.base.BaseSimulation.run--parameters" title="Permanent link">&para;</a></h6>
+<p>simulation_dir : str
+    Root simulations directory for the subject.</p>
+<h6 id="tit.sim.base.BaseSimulation.run--returns">Returns<a class="headerlink" href="#tit.sim.base.BaseSimulation.run--returns" title="Permanent link">&para;</a></h6>
+<p>dict
+    Result dictionary with keys <code>montage_name</code>, <code>montage_type</code>,
+    <code>status</code>, and <code>output_mesh</code>.</p>
+<h6 id="tit.sim.base.BaseSimulation.run--see-also">See Also<a class="headerlink" href="#tit.sim.base.BaseSimulation.run--see-also" title="Permanent link">&para;</a></h6>
+<p>run_simulation : Calls <code>run</code> for each montage in a config.</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/sim/base.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-78"> 78</a></span>
-<span class="normal"><a href="#__codelineno-0-79"> 79</a></span>
-<span class="normal"><a href="#__codelineno-0-80"> 80</a></span>
-<span class="normal"><a href="#__codelineno-0-81"> 81</a></span>
-<span class="normal"><a href="#__codelineno-0-82"> 82</a></span>
-<span class="normal"><a href="#__codelineno-0-83"> 83</a></span>
-<span class="normal"><a href="#__codelineno-0-84"> 84</a></span>
-<span class="normal"><a href="#__codelineno-0-85"> 85</a></span>
-<span class="normal"><a href="#__codelineno-0-86"> 86</a></span>
-<span class="normal"><a href="#__codelineno-0-87"> 87</a></span>
-<span class="normal"><a href="#__codelineno-0-88"> 88</a></span>
-<span class="normal"><a href="#__codelineno-0-89"> 89</a></span>
-<span class="normal"><a href="#__codelineno-0-90"> 90</a></span>
-<span class="normal"><a href="#__codelineno-0-91"> 91</a></span>
-<span class="normal"><a href="#__codelineno-0-92"> 92</a></span>
-<span class="normal"><a href="#__codelineno-0-93"> 93</a></span>
-<span class="normal"><a href="#__codelineno-0-94"> 94</a></span>
-<span class="normal"><a href="#__codelineno-0-95"> 95</a></span>
-<span class="normal"><a href="#__codelineno-0-96"> 96</a></span>
-<span class="normal"><a href="#__codelineno-0-97"> 97</a></span>
-<span class="normal"><a href="#__codelineno-0-98"> 98</a></span>
-<span class="normal"><a href="#__codelineno-0-99"> 99</a></span>
-<span class="normal"><a href="#__codelineno-0-100">100</a></span>
-<span class="normal"><a href="#__codelineno-0-101">101</a></span>
-<span class="normal"><a href="#__codelineno-0-102">102</a></span>
-<span class="normal"><a href="#__codelineno-0-103">103</a></span>
-<span class="normal"><a href="#__codelineno-0-104">104</a></span>
-<span class="normal"><a href="#__codelineno-0-105">105</a></span>
-<span class="normal"><a href="#__codelineno-0-106">106</a></span>
-<span class="normal"><a href="#__codelineno-0-107">107</a></span>
-<span class="normal"><a href="#__codelineno-0-108">108</a></span>
-<span class="normal"><a href="#__codelineno-0-109">109</a></span>
-<span class="normal"><a href="#__codelineno-0-110">110</a></span>
-<span class="normal"><a href="#__codelineno-0-111">111</a></span>
-<span class="normal"><a href="#__codelineno-0-112">112</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-78" name="__codelineno-0-78"></a><span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">simulation_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<a id="__codelineno-0-79" name="__codelineno-0-79"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Execute the full simulation pipeline. Returns a result dict.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-80" name="__codelineno-0-80"></a>    <span class="n">montage_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pm</span><span class="o">.</span><span class="n">simulation</span><span class="p">(</span>
-<a id="__codelineno-0-81" name="__codelineno-0-81"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">,</span>
-<a id="__codelineno-0-82" name="__codelineno-0-82"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
-<a id="__codelineno-0-83" name="__codelineno-0-83"></a>    <span class="p">)</span>
-<a id="__codelineno-0-84" name="__codelineno-0-84"></a>    <span class="n">dirs</span> <span class="o">=</span> <span class="n">setup_montage_directories</span><span class="p">(</span><span class="n">montage_dir</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_simulation_mode</span><span class="p">)</span>
-<a id="__codelineno-0-85" name="__codelineno-0-85"></a>    <span class="n">create_simulation_config_file</span><span class="p">(</span>
-<a id="__codelineno-0-86" name="__codelineno-0-86"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="p">,</span> <span class="n">dirs</span><span class="p">[</span><span class="s2">&quot;documentation&quot;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span>
-<a id="__codelineno-0-87" name="__codelineno-0-87"></a>    <span class="p">)</span>
-<a id="__codelineno-0-88" name="__codelineno-0-88"></a>
-<a id="__codelineno-0-89" name="__codelineno-0-89"></a>    <span class="n">viz_pairs</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">is_xyz</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">electrode_pairs</span>
-<a id="__codelineno-0-90" name="__codelineno-0-90"></a>
-<a id="__codelineno-0-91" name="__codelineno-0-91"></a>    <span class="n">run_montage_visualization</span><span class="p">(</span>
-<a id="__codelineno-0-92" name="__codelineno-0-92"></a>        <span class="n">montage_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
-<a id="__codelineno-0-93" name="__codelineno-0-93"></a>        <span class="n">simulation_mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_simulation_mode</span><span class="p">,</span>
-<a id="__codelineno-0-94" name="__codelineno-0-94"></a>        <span class="n">eeg_net</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">eeg_net</span><span class="p">,</span>
-<a id="__codelineno-0-95" name="__codelineno-0-95"></a>        <span class="n">output_dir</span><span class="o">=</span><span class="n">dirs</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_montage_imgs_key</span><span class="p">],</span>
-<a id="__codelineno-0-96" name="__codelineno-0-96"></a>        <span class="n">logger</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="p">,</span>
-<a id="__codelineno-0-97" name="__codelineno-0-97"></a>        <span class="n">electrode_pairs</span><span class="o">=</span><span class="n">viz_pairs</span><span class="p">,</span>
-<a id="__codelineno-0-98" name="__codelineno-0-98"></a>    <span class="p">)</span>
-<a id="__codelineno-0-99" name="__codelineno-0-99"></a>
-<a id="__codelineno-0-100" name="__codelineno-0-100"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;SimNIBS simulation: Started&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-101" name="__codelineno-0-101"></a>    <span class="n">run_simnibs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_build_session</span><span class="p">(</span><span class="n">dirs</span><span class="p">[</span><span class="s2">&quot;hf_dir&quot;</span><span class="p">]))</span>
-<a id="__codelineno-0-102" name="__codelineno-0-102"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;SimNIBS simulation: </span><span class="se">\u2713</span><span class="s2"> Complete&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-103" name="__codelineno-0-103"></a>
-<a id="__codelineno-0-104" name="__codelineno-0-104"></a>    <span class="n">output_mesh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_post_process</span><span class="p">(</span><span class="n">dirs</span><span class="p">)</span>
-<a id="__codelineno-0-105" name="__codelineno-0-105"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\u2713</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> complete&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-106" name="__codelineno-0-106"></a>
-<a id="__codelineno-0-107" name="__codelineno-0-107"></a>    <span class="k">return</span> <span class="p">{</span>
-<a id="__codelineno-0-108" name="__codelineno-0-108"></a>        <span class="s2">&quot;montage_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
-<a id="__codelineno-0-109" name="__codelineno-0-109"></a>        <span class="s2">&quot;montage_type&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_montage_type_label</span><span class="p">,</span>
-<a id="__codelineno-0-110" name="__codelineno-0-110"></a>        <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;completed&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-111" name="__codelineno-0-111"></a>        <span class="s2">&quot;output_mesh&quot;</span><span class="p">:</span> <span class="n">output_mesh</span><span class="p">,</span>
-<a id="__codelineno-0-112" name="__codelineno-0-112"></a>    <span class="p">}</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-113">113</a></span>
+<span class="normal"><a href="#__codelineno-0-114">114</a></span>
+<span class="normal"><a href="#__codelineno-0-115">115</a></span>
+<span class="normal"><a href="#__codelineno-0-116">116</a></span>
+<span class="normal"><a href="#__codelineno-0-117">117</a></span>
+<span class="normal"><a href="#__codelineno-0-118">118</a></span>
+<span class="normal"><a href="#__codelineno-0-119">119</a></span>
+<span class="normal"><a href="#__codelineno-0-120">120</a></span>
+<span class="normal"><a href="#__codelineno-0-121">121</a></span>
+<span class="normal"><a href="#__codelineno-0-122">122</a></span>
+<span class="normal"><a href="#__codelineno-0-123">123</a></span>
+<span class="normal"><a href="#__codelineno-0-124">124</a></span>
+<span class="normal"><a href="#__codelineno-0-125">125</a></span>
+<span class="normal"><a href="#__codelineno-0-126">126</a></span>
+<span class="normal"><a href="#__codelineno-0-127">127</a></span>
+<span class="normal"><a href="#__codelineno-0-128">128</a></span>
+<span class="normal"><a href="#__codelineno-0-129">129</a></span>
+<span class="normal"><a href="#__codelineno-0-130">130</a></span>
+<span class="normal"><a href="#__codelineno-0-131">131</a></span>
+<span class="normal"><a href="#__codelineno-0-132">132</a></span>
+<span class="normal"><a href="#__codelineno-0-133">133</a></span>
+<span class="normal"><a href="#__codelineno-0-134">134</a></span>
+<span class="normal"><a href="#__codelineno-0-135">135</a></span>
+<span class="normal"><a href="#__codelineno-0-136">136</a></span>
+<span class="normal"><a href="#__codelineno-0-137">137</a></span>
+<span class="normal"><a href="#__codelineno-0-138">138</a></span>
+<span class="normal"><a href="#__codelineno-0-139">139</a></span>
+<span class="normal"><a href="#__codelineno-0-140">140</a></span>
+<span class="normal"><a href="#__codelineno-0-141">141</a></span>
+<span class="normal"><a href="#__codelineno-0-142">142</a></span>
+<span class="normal"><a href="#__codelineno-0-143">143</a></span>
+<span class="normal"><a href="#__codelineno-0-144">144</a></span>
+<span class="normal"><a href="#__codelineno-0-145">145</a></span>
+<span class="normal"><a href="#__codelineno-0-146">146</a></span>
+<span class="normal"><a href="#__codelineno-0-147">147</a></span>
+<span class="normal"><a href="#__codelineno-0-148">148</a></span>
+<span class="normal"><a href="#__codelineno-0-149">149</a></span>
+<span class="normal"><a href="#__codelineno-0-150">150</a></span>
+<span class="normal"><a href="#__codelineno-0-151">151</a></span>
+<span class="normal"><a href="#__codelineno-0-152">152</a></span>
+<span class="normal"><a href="#__codelineno-0-153">153</a></span>
+<span class="normal"><a href="#__codelineno-0-154">154</a></span>
+<span class="normal"><a href="#__codelineno-0-155">155</a></span>
+<span class="normal"><a href="#__codelineno-0-156">156</a></span>
+<span class="normal"><a href="#__codelineno-0-157">157</a></span>
+<span class="normal"><a href="#__codelineno-0-158">158</a></span>
+<span class="normal"><a href="#__codelineno-0-159">159</a></span>
+<span class="normal"><a href="#__codelineno-0-160">160</a></span>
+<span class="normal"><a href="#__codelineno-0-161">161</a></span>
+<span class="normal"><a href="#__codelineno-0-162">162</a></span>
+<span class="normal"><a href="#__codelineno-0-163">163</a></span>
+<span class="normal"><a href="#__codelineno-0-164">164</a></span>
+<span class="normal"><a href="#__codelineno-0-165">165</a></span>
+<span class="normal"><a href="#__codelineno-0-166">166</a></span>
+<span class="normal"><a href="#__codelineno-0-167">167</a></span>
+<span class="normal"><a href="#__codelineno-0-168">168</a></span>
+<span class="normal"><a href="#__codelineno-0-169">169</a></span>
+<span class="normal"><a href="#__codelineno-0-170">170</a></span>
+<span class="normal"><a href="#__codelineno-0-171">171</a></span>
+<span class="normal"><a href="#__codelineno-0-172">172</a></span>
+<span class="normal"><a href="#__codelineno-0-173">173</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-113" name="__codelineno-0-113"></a><span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">simulation_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<a id="__codelineno-0-114" name="__codelineno-0-114"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Execute the full simulation pipeline for one montage.</span>
+<a id="__codelineno-0-115" name="__codelineno-0-115"></a>
+<a id="__codelineno-0-116" name="__codelineno-0-116"></a><span class="sd">    This template method orchestrates directory setup, montage</span>
+<a id="__codelineno-0-117" name="__codelineno-0-117"></a><span class="sd">    visualisation, SimNIBS FEM execution, and subclass-specific</span>
+<a id="__codelineno-0-118" name="__codelineno-0-118"></a><span class="sd">    post-processing.</span>
+<a id="__codelineno-0-119" name="__codelineno-0-119"></a>
+<a id="__codelineno-0-120" name="__codelineno-0-120"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-121" name="__codelineno-0-121"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-122" name="__codelineno-0-122"></a><span class="sd">    simulation_dir : str</span>
+<a id="__codelineno-0-123" name="__codelineno-0-123"></a><span class="sd">        Root simulations directory for the subject.</span>
+<a id="__codelineno-0-124" name="__codelineno-0-124"></a>
+<a id="__codelineno-0-125" name="__codelineno-0-125"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-126" name="__codelineno-0-126"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-127" name="__codelineno-0-127"></a><span class="sd">    dict</span>
+<a id="__codelineno-0-128" name="__codelineno-0-128"></a><span class="sd">        Result dictionary with keys ``montage_name``, ``montage_type``,</span>
+<a id="__codelineno-0-129" name="__codelineno-0-129"></a><span class="sd">        ``status``, and ``output_mesh``.</span>
+<a id="__codelineno-0-130" name="__codelineno-0-130"></a>
+<a id="__codelineno-0-131" name="__codelineno-0-131"></a><span class="sd">    See Also</span>
+<a id="__codelineno-0-132" name="__codelineno-0-132"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-133" name="__codelineno-0-133"></a><span class="sd">    run_simulation : Calls ``run`` for each montage in a config.</span>
+<a id="__codelineno-0-134" name="__codelineno-0-134"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-135" name="__codelineno-0-135"></a>    <span class="n">montage_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pm</span><span class="o">.</span><span class="n">simulation</span><span class="p">(</span>
+<a id="__codelineno-0-136" name="__codelineno-0-136"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">,</span>
+<a id="__codelineno-0-137" name="__codelineno-0-137"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+<a id="__codelineno-0-138" name="__codelineno-0-138"></a>    <span class="p">)</span>
+<a id="__codelineno-0-139" name="__codelineno-0-139"></a>    <span class="n">dirs</span> <span class="o">=</span> <span class="n">setup_montage_directories</span><span class="p">(</span><span class="n">montage_dir</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_simulation_mode</span><span class="p">)</span>
+<a id="__codelineno-0-140" name="__codelineno-0-140"></a>    <span class="n">create_simulation_config_file</span><span class="p">(</span>
+<a id="__codelineno-0-141" name="__codelineno-0-141"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="p">,</span> <span class="n">dirs</span><span class="p">[</span><span class="s2">&quot;documentation&quot;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span>
+<a id="__codelineno-0-142" name="__codelineno-0-142"></a>    <span class="p">)</span>
+<a id="__codelineno-0-143" name="__codelineno-0-143"></a>
+<a id="__codelineno-0-144" name="__codelineno-0-144"></a>    <span class="n">viz_pairs</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">is_xyz</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">electrode_pairs</span>
+<a id="__codelineno-0-145" name="__codelineno-0-145"></a>
+<a id="__codelineno-0-146" name="__codelineno-0-146"></a>    <span class="n">run_montage_visualization</span><span class="p">(</span>
+<a id="__codelineno-0-147" name="__codelineno-0-147"></a>        <span class="n">montage_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+<a id="__codelineno-0-148" name="__codelineno-0-148"></a>        <span class="n">simulation_mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_simulation_mode</span><span class="p">,</span>
+<a id="__codelineno-0-149" name="__codelineno-0-149"></a>        <span class="n">eeg_net</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">eeg_net</span><span class="p">,</span>
+<a id="__codelineno-0-150" name="__codelineno-0-150"></a>        <span class="n">output_dir</span><span class="o">=</span><span class="n">dirs</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_montage_imgs_key</span><span class="p">],</span>
+<a id="__codelineno-0-151" name="__codelineno-0-151"></a>        <span class="n">logger</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="p">,</span>
+<a id="__codelineno-0-152" name="__codelineno-0-152"></a>        <span class="n">electrode_pairs</span><span class="o">=</span><span class="n">viz_pairs</span><span class="p">,</span>
+<a id="__codelineno-0-153" name="__codelineno-0-153"></a>    <span class="p">)</span>
+<a id="__codelineno-0-154" name="__codelineno-0-154"></a>
+<a id="__codelineno-0-155" name="__codelineno-0-155"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;SimNIBS simulation: Started&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-156" name="__codelineno-0-156"></a>    <span class="n">session</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_session</span><span class="p">(</span><span class="n">dirs</span><span class="p">[</span><span class="s2">&quot;hf_dir&quot;</span><span class="p">])</span>
+<a id="__codelineno-0-157" name="__codelineno-0-157"></a>    <span class="k">if</span> <span class="n">overwrite</span><span class="p">:</span>
+<a id="__codelineno-0-158" name="__codelineno-0-158"></a>        <span class="c1"># run_simnibs does not expose this supported SESSION option. Keep the</span>
+<a id="__codelineno-0-159" name="__codelineno-0-159"></a>        <span class="c1"># native existence guard for ordinary runs; never delete marker files.</span>
+<a id="__codelineno-0-160" name="__codelineno-0-160"></a>        <span class="n">session</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">allow_multiple_runs</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-161" name="__codelineno-0-161"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-162" name="__codelineno-0-162"></a>        <span class="n">run_simnibs</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+<a id="__codelineno-0-163" name="__codelineno-0-163"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;SimNIBS simulation: </span><span class="se">\u2713</span><span class="s2"> Complete&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-164" name="__codelineno-0-164"></a>
+<a id="__codelineno-0-165" name="__codelineno-0-165"></a>    <span class="n">output_mesh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_post_process</span><span class="p">(</span><span class="n">dirs</span><span class="p">)</span>
+<a id="__codelineno-0-166" name="__codelineno-0-166"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\u2713</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> complete&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-167" name="__codelineno-0-167"></a>
+<a id="__codelineno-0-168" name="__codelineno-0-168"></a>    <span class="k">return</span> <span class="p">{</span>
+<a id="__codelineno-0-169" name="__codelineno-0-169"></a>        <span class="s2">&quot;montage_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+<a id="__codelineno-0-170" name="__codelineno-0-170"></a>        <span class="s2">&quot;montage_type&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_montage_type_label</span><span class="p">,</span>
+<a id="__codelineno-0-171" name="__codelineno-0-171"></a>        <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;completed&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-172" name="__codelineno-0-172"></a>        <span class="s2">&quot;output_mesh&quot;</span><span class="p">:</span> <span class="n">output_mesh</span><span class="p">,</span>
+<a id="__codelineno-0-173" name="__codelineno-0-173"></a>    <span class="p">}</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

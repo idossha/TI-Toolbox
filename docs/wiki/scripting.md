@@ -11,8 +11,8 @@ TI-Toolbox exposes the same functionality the interface offers as a **Python scr
 | The interface | Scripting |
 |-----|-----------|
 | Interactive, visual feedback | Reproducible, version-controlled |
-| One subject at a time | Batch processing across subjects |
-| Fixed parameter sets | Programmatic parameter sweeps |
+| Configure job rows and subject batches visually | Generate batches programmatically |
+| Set parameters in forms | Programmatic parameter sweeps |
 | Point-and-click | Integrates with your own analysis code |
 
 Both call the same underlying code. Everything you can do in the interface can be done in a script — the interface itself writes a JSON config and runs the same module you would.
@@ -22,16 +22,14 @@ Both call the same underlying code. Everything you can do in the interface can b
 All scripting happens **inside the container** — that is where SimNIBS and `tit` live. Your
 project is mounted at `/mnt/<project_name>/`, and everything is pre-installed; just import and go.
 
-Three ways in, in order of convenience:
+Two ways in:
 
 **1. The Notebooks page, in the app.** Open it and start typing. The kernel is already in the
 container, with the project mounted, `tit` importable and completions working. This is the
 normal way in v3, and it works the same whether you launched from the desktop app or from
 `tit launch` in a browser.
 
-**2. The terminal pane**, on any run page — a shell in the container without leaving the app.
-
-**3. `docker exec`**, from your own terminal:
+**2. `docker exec`**, from your own terminal (the app's **Terminal** pane is a read-only job log, not a shell):
 
 ```bash
 tit launch --project ~/datasets/000 --status   # prints the container's name
@@ -96,7 +94,7 @@ Write a `.py` file and run it directly:
 simnibs_python my_script.py
 ```
 
-All `tit` modules auto-initialize logging and path resolution on import. No boilerplate needed.
+Importing `tit` initializes logging. Initialize path resolution with `get_path_manager(project_root)` before calling APIs that use the active project.
 
 ## Import Quick Reference
 

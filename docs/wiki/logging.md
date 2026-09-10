@@ -8,11 +8,11 @@ The TI-Toolbox logging system (`tit/logger.py`) is intentionally minimal. On imp
 
 ## Architecture
 
-The logging module exposes four public functions:
+The main scripting helpers are:
 
 | Function | Purpose |
 |----------|---------|
-| `setup_logging(level)` | Set log level on the `tit` logger; adds NO handlers itself (called automatically on import) |
+| `setup_logging(level)` | Set log level; attaches a JSON event handler when the server supplies `TIT_EVENTS_FILE` (called automatically on import) |
 | `add_stream_handler(logger_name, level)` | Attach a stdout `StreamHandler` (called on import for `tit` at INFO) |
 | `add_file_handler(log_file)` | Attach a `FileHandler` to a named logger |
 | `get_file_only_logger(name, log_file)` | Return a standalone logger that writes only to a file |
@@ -32,7 +32,7 @@ This does three things:
 2. Sets the log level (defaults to `INFO`)
 3. Sets `propagate = False` so messages never bubble to the root logger
 
-Third-party loggers (`matplotlib`, `PIL`) are silenced to `ERROR` level.
+Third-party loggers (`matplotlib`, `PIL`) are silenced to `ERROR` level. When `TIT_EVENTS_FILE` is set by the job runner, setup also attaches a JSON event handler to `tit` and `simnibs`; log records share the job’s ordered event stream with stage, progress, artifact and exit events.
 
 ### `add_file_handler(log_file, level, logger_name)`
 
@@ -82,7 +82,7 @@ The desktop app streams job logs over the HTTP API (`tit.server`) rather than th
 
 ### `__main__.py` Subprocess Entry Points
 
-Modules invoked as subprocesses (`simnibs_python -m tit.analyzer config.json`) use `print()` for progress output. This is intentional: `BaseProcessThread` in the GUI captures stdout from subprocesses and displays it in the console widget. A stdlib logger with a `StreamHandler(sys.stdout)` is used in some entry points (e.g., `tit.sim.__main__`) for structured output that still reaches the GUI.
+Modules invoked as subprocesses (`simnibs_python -m tit.analyzer config.json`) write logs and progress from inside the container. The job runner captures stdout and stderr to the job log; structured events and logging records are streamed to the UI through the server. The removed v2 `BaseProcessThread` and Qt console are no longer involved.
 
 ### Library Usage
 
@@ -110,7 +110,7 @@ Previous versions (~v2.2.3 and earlier) had ~750 lines of custom logging infrast
 - `TI_LOG_FILE`, `PROJECT_DIR`, `SUBJECT_ID` environment variables
 - Debug toggles in the GUI
 
-All of this has been replaced by the four functions described above. There are no environment variables and no debug toggles.
+The old GUI logging infrastructure is removed. Current server jobs use `TIT_EVENTS_FILE` for their structured event sink; ordinary scripts use the helper functions above.
 
 ## Best Practices
 

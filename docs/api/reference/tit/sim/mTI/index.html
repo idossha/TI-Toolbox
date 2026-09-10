@@ -16,14 +16,14 @@
         <link rel="prev" href="../config/">
       
       
-        <link rel="next" href="../utils/">
+        <link rel="next" href="../montage_sources/">
       
       
         
       
       
       <link rel="icon" href="../../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
     
     
       
@@ -883,6 +883,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#tit.sim.mTI--see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#tit.sim.mTI.mTISimulation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -890,6 +901,34 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="mTISimulation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tit.sim.mTI.mTISimulation--pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pipeline
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.sim.mTI.mTISimulation--see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -945,13 +984,8 @@
   
     
     
-      
-  
-  
-    
-    
       <li class="md-path__item">
-        <a href="../../analyzer/analyzer/" class="md-path__link">
+        <a href="../../_mti_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -965,22 +999,14 @@
     
   
 
-    
-  
-
       
         
   
   
     
     
-      
-  
-  
-    
-    
       <li class="md-path__item">
-        <a href="../../analyzer/analyzer/" class="md-path__link">
+        <a href="../../_mti_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -988,9 +1014,6 @@
 
         </a>
       </li>
-    
-  
-
     
   
 
@@ -1041,13 +1064,31 @@
     <div class="doc doc-contents first">
 
         <p>N-pair Multi-channel Temporal Interference (mTI) simulation.</p>
-<p>Supports arbitrary even numbers of electrode pairs (4, 6, 8, ...):
-  - Each pair produces one HF E-field via SimNIBS TDCS
-  - Adjacent pairs are combined via binary-tree TI recursion
-  - Intermediate TI vector fields are saved for inspection</p>
-<p>Example with 4 pairs (A/B/C/D):
-  - TI_AB = TI(E_A, E_B),  TI_CD = TI(E_C, E_D)
-  - mTI   = TI(TI_AB, TI_CD)</p>
+<p>Implements :class:<code>mTISimulation</code>, the concrete <code>BaseSimulation</code> subclass
+for multi-channel TI stimulation with an arbitrary even number of electrode
+pairs (4, 6, 8, ...):</p>
+<ul>
+<li>Each pair produces one HF E-field via SimNIBS TDCS.</li>
+<li>Adjacent pairs are combined into intermediate 2-pair TI vector fields,
+  saved for inspection only.</li>
+<li>The final mTI envelope is the verified multi-carrier modulation-depth
+  envelope (:func:<code>tit.calc.get_TI_vectors</code>) over all N channel fields
+  jointly -- <em>not</em> a recursive TI-of-TI combination of the intermediate
+  fields above (that approximation is physically invalid).</li>
+<li>Channels are paired positionally: each two consecutive channels share
+  a carrier and beat against each other (A&amp;B on the first carrier, C&amp;D
+  on the second, and so on).</li>
+</ul>
+<p>Example with 4 channels (A/B/C/D)::</p>
+<div class="highlight"><pre><span></span><code>TI_AB = TI(E_A, E_B)                       # intermediate, inspection only
+TI_CD = TI(E_C, E_D)                       # intermediate, inspection only
+mTI   = get_TI_vectors([E_A, E_B, E_C, E_D])
+</code></pre></div>
+<h4 id="tit.sim.mTI--see-also">See Also<a class="headerlink" href="#tit.sim.mTI--see-also" title="Permanent link">&para;</a></h4>
+<p>BaseSimulation : Abstract base class providing the <code>run</code> template.
+TISimulation : Standard 2-pair TI variant.
+SimulationConfig : Configuration consumed by the simulation.
+run_simulation : Top-level orchestration that dispatches to this class.</p>
 
 
 
@@ -1075,7 +1116,9 @@
 
 
 <a href="#tit.sim.mTI.mTISimulation" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">mTISimulation</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.sim.config.SimulationConfig" href="../../../../pipeline/simulation/#tit.sim.config.SimulationConfig">SimulationConfig</a></span><span class="p">,</span> <span class="n">montage</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.sim.config.Montage" href="../../../../pipeline/simulation/#tit.sim.config.Montage">Montage</a></span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">mTISimulation</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.sim.config.SimulationConfig" href="../../../../pipeline/simulation/#tit.sim.config.SimulationConfig">SimulationConfig</a></span><span class="p">,</span> <span class="n">montage</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.sim.config.Montage" href="../../../../pipeline/simulation/#tit.sim.config.Montage">Montage</a></span><span class="p">,</span> <span class="n">logger</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1083,20 +1126,24 @@
               Bases: <code><a class="autorefs autorefs-internal" title="tit.sim.base.BaseSimulation" href="../../../../pipeline/simulation/#tit.sim.base.BaseSimulation">BaseSimulation</a></code></p>
 
 
-        <p>Runs a single N-pair mTI simulation (N &gt;= 4, even).</p>
-
-
-<details class="pipeline" open>
-  <summary>Pipeline</summary>
-  <ol>
-<li>Set up BIDS output directory structure</li>
-<li>Visualize electrode placement</li>
-<li>Build SimNIBS SESSION (N TDCS lists), run FEM</li>
-<li>Compute intermediate TI vector fields via binary-tree pairing</li>
-<li>Compute final mTI_max from the combined TI field</li>
-<li>Extract GM/WM, convert to NIfTI, organize outputs</li>
+        <p>Run a single N-pair mTI simulation (N &gt;= 4, even).</p>
+<h5 id="tit.sim.mTI.mTISimulation--pipeline">Pipeline<a class="headerlink" href="#tit.sim.mTI.mTISimulation--pipeline" title="Permanent link">&para;</a></h5>
+<ol>
+<li>Set up BIDS output directory structure.</li>
+<li>Visualize electrode placement.</li>
+<li>Build SimNIBS SESSION (N TDCS lists), run FEM.</li>
+<li>Compute intermediate 2-pair TI vector fields (adjacent pairings,
+   saved for inspection only).</li>
+<li>Compute final <code>mTI_max</code> from the verified multi-carrier
+   modulation-depth envelope over all N channel fields jointly, plus
+   its orientation-averaged companion <code>TI_avg</code> and the <code>hf_peak</code>/
+   <code>hf_sar</code> kHz-exposure safety maps (always over all N fields).</li>
+<li>Extract GM/WM meshes, convert to NIfTI, organize outputs.</li>
 </ol>
-</details>
+<h5 id="tit.sim.mTI.mTISimulation--see-also">See Also<a class="headerlink" href="#tit.sim.mTI.mTISimulation--see-also" title="Permanent link">&para;</a></h5>
+<p>BaseSimulation : Parent class with shared setup and template <code>run</code>.
+TISimulation : Standard 2-pair variant.</p>
+
 
 
 
@@ -1105,17 +1152,17 @@
 
                   <details class="quote">
                     <summary>Source code in <code>tit/sim/base.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-44">44</a></span>
-<span class="normal"><a href="#__codelineno-0-45">45</a></span>
-<span class="normal"><a href="#__codelineno-0-46">46</a></span>
-<span class="normal"><a href="#__codelineno-0-47">47</a></span>
-<span class="normal"><a href="#__codelineno-0-48">48</a></span>
-<span class="normal"><a href="#__codelineno-0-49">49</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-44" name="__codelineno-0-44"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">SimulationConfig</span><span class="p">,</span> <span class="n">montage</span><span class="p">:</span> <span class="n">Montage</span><span class="p">,</span> <span class="n">logger</span><span class="p">):</span>
-<a id="__codelineno-0-45" name="__codelineno-0-45"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">config</span>
-<a id="__codelineno-0-46" name="__codelineno-0-46"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">montage</span> <span class="o">=</span> <span class="n">montage</span>
-<a id="__codelineno-0-47" name="__codelineno-0-47"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logger</span>
-<a id="__codelineno-0-48" name="__codelineno-0-48"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
-<a id="__codelineno-0-49" name="__codelineno-0-49"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">m2m_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pm</span><span class="o">.</span><span class="n">m2m</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">)</span>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-79">79</a></span>
+<span class="normal"><a href="#__codelineno-0-80">80</a></span>
+<span class="normal"><a href="#__codelineno-0-81">81</a></span>
+<span class="normal"><a href="#__codelineno-0-82">82</a></span>
+<span class="normal"><a href="#__codelineno-0-83">83</a></span>
+<span class="normal"><a href="#__codelineno-0-84">84</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-79" name="__codelineno-0-79"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">SimulationConfig</span><span class="p">,</span> <span class="n">montage</span><span class="p">:</span> <span class="n">Montage</span><span class="p">,</span> <span class="n">logger</span><span class="p">):</span>
+<a id="__codelineno-0-80" name="__codelineno-0-80"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">config</span>
+<a id="__codelineno-0-81" name="__codelineno-0-81"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">montage</span> <span class="o">=</span> <span class="n">montage</span>
+<a id="__codelineno-0-82" name="__codelineno-0-82"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logger</span>
+<a id="__codelineno-0-83" name="__codelineno-0-83"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
+<a id="__codelineno-0-84" name="__codelineno-0-84"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">m2m_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pm</span><span class="o">.</span><span class="n">m2m</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 

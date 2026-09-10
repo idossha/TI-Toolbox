@@ -8,7 +8,7 @@ permalink: /wiki/jobs/
 
 Everything long-running in TI-Toolbox v3 is a **job**: pre-processing, a simulation, a search, an
 analysis, a report, a group statistic, a Blender export. A page never runs work in its own process,
-so a page never has a Stop button and never has a console of its own. Both live here.
+and its process is owned by the server. The Jobs page centralizes status and cancellation; run pages also show their submitted jobs in a live Terminal pane.
 
 <img src="{{ site.baseurl }}/assets/imgs/v3/jobs.png" alt="The Jobs page: a filterable table of every job the server knows about" style="width: 100%; max-width: 1000px;">
 <em>The Jobs page (⌘9). One row per job: state, kind, subjects, stage, elapsed time, CPU and memory.</em>
@@ -34,7 +34,7 @@ be watched and cancelled as one thing.
 
 | Column | Notes |
 |---|---|
-| **State** | `queued · running · succeeded · failed · cancelled` |
+| **State** | `queued · running · succeeded · failed · cancelled · skipped · lost` |
 | **Kind** | `pre · sim · flex · flex_adaptive · flex_pareto · ex · mex · analyzer · source · stats · report · nilearn · nifti_average · blender` |
 | **Subjects** | Every subject the job covers |
 | **Stage** | The runner's own current stage and its percentage, e.g. `DICOM conversion · 40 %` |

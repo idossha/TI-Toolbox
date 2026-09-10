@@ -13,7 +13,7 @@ The v3 desktop app is one window with a workflow-ordered rail. These pages descr
 of that rail does; see [Desktop Application](desktop-app) for how the app, the container and the
 server fit together.
 
-- **[Overview](overview)** - The project at a glance: what every subject has, and what it is ready for
+- **[Overview](overview)** - Welcome, project opening and switching, then the project at a glance
 - **[Pre-Processing](pre-processing)** - Structural MRI preparation and head-model generation
 - **[Diffusion Processing](diffusion-processing)** - QSIPrep/QSIRecon integration for DTI-based anisotropic simulations
 - **[Simulator](simulator)** - One row per simulation job, with free-hand electrode placement on the subject's own scalp
@@ -38,16 +38,16 @@ server fit together.
 
 ### Extensions
 - **[Optional Tools](extension)** - The panels you switch on in **Settings > Optional tools**
-- **[3D Visual Exporter](blender)** - PLY/GLB/Blender exports: PLY/GLB/Blender exports of regions, vectors and montages
+- **[3D Visual Exporter](blender)** - PLY/GLB/Blender exports of regions, vectors and montages
 - **[Free Electrode Placement](electrode-placement)** - Clicking electrodes onto the scalp, now part of the Simulator
 - **[Nilearn Visuals](nilearn-visuals)** - Publication-ready brain visualizations
 - **[Cluster-Based Permutation Testing](cluster-permutation-testing)** - Non-parametric statistical analysis (the *Permutation Analysis* extension)
-- **[Quick Notes](quick-notes)** - Timestamped note-taking during analysis sessions
+- **[Quick Notes](quick-notes)** - An autosaving project notepad with optional timestamps
 - **[NIfTI Group Averaging](nifti-group-averaging)** - Group analysis and comparison tools
 - **[Tissue Analyzer](tissue-analyzer)** - Volume and thickness assessment for CSF, bone, and skin (part of pre-processing)
 
 ### Development & Testing (v3)
-- **[Testing guide](https://github.com/idossha/TI-Toolbox/blob/main/docs/dev/TESTING.md)** - Current test strategy, commands, fixtures, and verification limits
+- **[Testing guide]({{ site.baseurl }}/wiki/development/)** - Current test strategy, commands, fixtures, and verification limits
 - **[Python Environment](python_env)** - Managing the SimNIBS Python environment and dependencies
 - **[Desktop Application](desktop-app)** - Electron app, container lifecycle and the server it talks to
 - **[Agent Plugin Internals](agent-plugin)** - Skills, MCP server architecture, and tests behind the AI assistant integration

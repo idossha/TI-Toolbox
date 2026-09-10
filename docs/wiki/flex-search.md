@@ -40,7 +40,7 @@ Flex Search uses differential evolution optimization to determine the best elect
 
 ## In the application
 
-Flex-search is the **Flex** method on the **Optimizer** page (⌘3).
+Flex-search is the **Flex** method on the **Optimizer** page (⌘2).
 
 
 <img src="{{ site.baseurl }}/assets/imgs/v3/optimizer.png" alt="The Optimizer page, with the Flex method selected" style="width: 100%; max-width: 1000px;">
@@ -58,9 +58,9 @@ The interface provides comprehensive controls for:
 
 The ROI picker (`desktop/src/renderer/pages/_shared/roi/`, backed by `tit/opt/roi_spec.py`) is shared across flex-search, ex-search, and the analyzer. In flex-search it appears twice -- once for the ROI, once for the optional "Specific Region" non-ROI described [below](#non-roi-definition-methods) -- as a radio row with four modes:
 
-- **Cortical** (default): pick regions from a FreeSurfer `.annot` atlas. An Atlas combo selects the parcellation, and "List Regions" opens a finder that lists regions from both hemispheres by name. Selected regions become removable chips keyed by hemisphere-prefixed name (e.g. `lh.precentral`) -- there is no separate hemisphere selector, so a single target can span both hemispheres from this one page.
-- **Subcortical**: pick regions from a volumetric atlas. A Subject/MNI "Atlas Space" radio pair (Subject default) selects the coordinate space, a Tissue Type combo (GM / WM / GM+WM) sets the tissue restriction, and a Volume Atlas combo selects the atlas. "List Regions" adds selections as removable chips keyed by integer label id.
-- **Spherical**: a Subject/MNI coordinate-space radio pair (Subject default), a multi-row sphere table (X/Y/Z in -150 to 150 mm, radius 1 to 50 mm, default 10.0 mm), Add Sphere / Duplicate Selected / Remove Selected buttons, and the 3-D pane beside the form to look up coordinates against the guide anatomy. A Volumetric checkbox enables a Tissue combo (GM / WM / GM+WM); unchecked, the sphere(s) are evaluated on the cortical surface instead.
+- **Cortical** (default): pick regions from a FreeSurfer `.annot` atlas. An Atlas combo selects the parcellation, and the region selector opens a searchable finder that lists regions from both hemispheres by name. Selected regions become removable chips keyed by hemisphere-prefixed name (e.g. `lh.precentral`) -- there is no separate hemisphere selector, so a single target can span both hemispheres from this one page.
+- **Subcortical**: pick regions from a volumetric atlas. A Subject/MNI "Atlas Space" radio pair (Subject default) selects the coordinate space, a Tissue Type combo (GM / WM / GM+WM) sets the tissue restriction, and a Volume Atlas combo selects the atlas. the region selector adds selections keyed by integer label id.
+- **Spherical**: a Subject/MNI coordinate-space radio pair (Subject default), a multi-row sphere table with X/Y/Z and radius in millimeters, an **Add sphere** button and a remove control on each row, and the 3-D pane beside the form for anatomical orientation. The guide is not the selected subject; enter coordinates in the explicitly selected coordinate space. A Volumetric checkbox enables a Tissue combo (GM / WM / GM+WM); unchecked, the sphere(s) are evaluated on the cortical surface instead.
 
 - **NIfTI mask**: import a local `.nii` or `.nii.gz` file; it is copied into the project for the server. Positive voxels define the target; choose Subject or MNI space and the tissue restriction. Subject-space masks are used directly. MNI masks use the subject’s SimNIBS registration in `m2m_<subject>/toMNI`, with nearest-neighbor resampling to preserve the mask. The conformation affine alone is not an MNI registration.
 

@@ -27,7 +27,7 @@ rows unchanged. Import checks table structure and values; dataset files are chec
 
 ### Basic Group Analysis
 
-1. **Launch Extension**: Extensions button → "NIfTI Group Averaging"
+1. **Open tool**: enable **NIfTI group averaging** in **Settings → Optional tools**, then select it under **Extensions** in the sidebar
 2. **Configure Subjects**:
    - Subject 001: Simulation "stim_A", Group "Treatment"
    - Subject 002: Simulation "stim_A", Group "Treatment"

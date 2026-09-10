@@ -39,8 +39,9 @@ tests/test_agent_plugin_mcp.py
 |------|-------|
 | `get_quick_facts` | Static orientation blob; agents are told to call it first |
 | `list_wiki_pages`, `read_wiki_page`, `search_wiki` | Parse `docs/wiki/*.md` front matter; `read_wiki_page` can return a single `##` section |
-| `read_changelog`, `get_toolbox_version` | `docs/dev/CHANGELOG.md`, `version.py` |
-| `list_source_dir`, `read_source_file` | Restricted to `tit/ scripts/ docs/ tests/ container/ dev/` + top-level manifests; text extensions only; path traversal rejected |
+| `read_changelog`, `get_toolbox_version` | `docs/dev/CHANGELOG.md`, `tit/__init__.py`, `desktop/package.json` |
+| `list_source_dir`, `read_source_file` | Restricted to approved source trees, including `tit/`, `desktop/src/`, `desktop/tests/`, `contracts/`, `agent-plugin/`, scripts and docs, plus selected manifests; text extensions only; path traversal rejected |
+| `read_dev_doc`, `list_launch_paths` | Read current developer references and launch-entry-point guidance |
 | `find_symbol`, `search_source` | Local checkout only (regex over the tree) |
 | `inspect_project`, `read_project_config` | Walk a user's BIDS project using the same directory conventions as `tit/paths.py`; names only, no file contents except `code/ti-toolbox/config/*.json` |
 
@@ -58,7 +59,7 @@ Skills are Markdown with YAML front matter. `user-invocable: false` marks backgr
 
 ```bash
 python3 agent-plugin/mcp/server.py --selftest            # smoke test, local or remote mode
-pytest tests/test_agent_plugin_mcp.py -q                  # 15 tests: tools, path guards, fake BIDS project, stdio round-trip
+pytest tests/test_agent_plugin_mcp.py -q                  # tools, path guards, fake BIDS project, stdio round-trip
 claude plugin validate agent-plugin                       # manifest check
 claude plugin validate .claude-plugin/marketplace.json
 claude --plugin-dir ./agent-plugin                        # run Claude Code with the working-tree plugin

@@ -38,6 +38,9 @@ include:
   - dev/CHANGELOG.md
   - _mkdocstrings.css
   - _common
+  - _mti_kernel
+  - _prepare_forward
+  - _simnibs_compat
 
 # Exclude files
 exclude:
@@ -46,7 +49,11 @@ exclude:
   - README.md
   - vendor/
   - .bundle/
-  - build-docs.sh 
+  - build-docs.sh
+  - build-api.sh
+  - serve.sh
+  - tests/
+  - requirements/
   # MkDocs sources for API docs (the built site is committed to `docs/api/`)
   - api_mkdocs/
   # Developer references stay private to the checkout; the changelog is included above.

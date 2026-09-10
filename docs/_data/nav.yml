@@ -53,7 +53,7 @@ wiki:
     - { title: NIfTI Group Averaging, url: /wiki/nifti-group-averaging/ }
     - { title: Nilearn Visuals, url: /wiki/nilearn-visuals/ }
     - group: Development & Testing (v3)
-    - { title: Testing Guide, url: https://github.com/idossha/TI-Toolbox/blob/main/docs/dev/TESTING.md, external: true }
+    - { title: Development & Testing, url: /wiki/development/ }
     - { title: Python Environment, url: /wiki/python_env/ }
     - { title: Desktop Application, url: /wiki/desktop-app/ }
     - { title: Agent Plugin Internals, url: /wiki/agent-plugin/ }

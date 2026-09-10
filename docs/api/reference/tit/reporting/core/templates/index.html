@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
     
     
       
@@ -883,6 +883,28 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#tit.reporting.core.templates--public-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Public API
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.reporting.core.templates--see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#tit.reporting.core.templates.get_html_template" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -890,6 +912,34 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="get_html_template">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tit.reporting.core.templates.get_html_template--parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.reporting.core.templates.get_html_template--returns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Returns
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -945,13 +995,8 @@
   
     
     
-      
-  
-  
-    
-    
       <li class="md-path__item">
-        <a href="../../../analyzer/analyzer/" class="md-path__link">
+        <a href="../../../_mti_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -965,22 +1010,14 @@
     
   
 
-    
-  
-
       
         
   
   
     
     
-      
-  
-  
-    
-    
       <li class="md-path__item">
-        <a href="../../../analyzer/analyzer/" class="md-path__link">
+        <a href="../../../_mti_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -988,9 +1025,6 @@
 
         </a>
       </li>
-    
-  
-
     
   
 
@@ -1067,7 +1101,19 @@
     <div class="doc doc-contents first">
 
         <p>CSS and JavaScript templates for TI-Toolbox reports.</p>
-<p>This module contains the default styling and interactivity for generated reports.</p>
+<p>Contains the default styling and interactivity for generated reports.
+Templates are consumed by <code>ReportAssembler.render_html</code> to produce a
+self-contained HTML document.</p>
+<h4 id="tit.reporting.core.templates--public-api">Public API<a class="headerlink" href="#tit.reporting.core.templates--public-api" title="Permanent link">&para;</a></h4>
+<p>DEFAULT_CSS_STYLES : str
+    Complete CSS stylesheet for TI-Toolbox reports.
+DEFAULT_JS_SCRIPTS : str
+    JavaScript for copy-to-clipboard, section toggling, and
+    scroll-tracking.
+get_html_template
+    Render a complete HTML document from content fragments.</p>
+<h4 id="tit.reporting.core.templates--see-also">See Also<a class="headerlink" href="#tit.reporting.core.templates--see-also" title="Permanent link">&para;</a></h4>
+<p>tit.reporting.core.assembler : Uses <code>get_html_template</code> during rendering.</p>
 
 
 
@@ -1095,323 +1141,217 @@
 
 
 <a href="#tit.reporting.core.templates.get_html_template" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_html_template</span><span class="p">(</span><span class="n">title</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">content</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">toc_html</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">metadata_html</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">footer_html</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">custom_css</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">custom_js</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_html_template</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">title</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">content</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">toc_html</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">metadata_html</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">footer_html</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">custom_css</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">custom_js</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Generate a complete HTML document with the report content.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>title</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The report title</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>content</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The main HTML content</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>toc_html</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Table of contents HTML</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;&#39;</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>metadata_html</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Header metadata HTML</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;&#39;</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>footer_html</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Footer HTML</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;&#39;</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>custom_css</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Additional CSS styles</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;&#39;</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>custom_js</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Additional JavaScript</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;&#39;</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Complete HTML document as a string</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+<h5 id="tit.reporting.core.templates.get_html_template--parameters">Parameters<a class="headerlink" href="#tit.reporting.core.templates.get_html_template--parameters" title="Permanent link">&para;</a></h5>
+<p>title : str
+    The report title (used in <code>&lt;title&gt;</code> and the header <code>&lt;h1&gt;</code>).
+content : str
+    The main HTML content (rendered sections).
+toc_html : str, optional
+    Table of contents HTML fragment.
+metadata_html : str, optional
+    Header metadata HTML fragment.
+footer_html : str, optional
+    Footer HTML.  Defaults to a TI-Toolbox credit line.
+custom_css : str, optional
+    Additional CSS appended after the default styles.
+custom_js : str, optional
+    Additional JavaScript appended after the default scripts.</p>
+<h5 id="tit.reporting.core.templates.get_html_template--returns">Returns<a class="headerlink" href="#tit.reporting.core.templates.get_html_template--returns" title="Permanent link">&para;</a></h5>
+<p>str
+    Complete HTML document as a string.</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/reporting/core/templates.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-713">713</a></span>
-<span class="normal"><a href="#__codelineno-0-714">714</a></span>
-<span class="normal"><a href="#__codelineno-0-715">715</a></span>
-<span class="normal"><a href="#__codelineno-0-716">716</a></span>
-<span class="normal"><a href="#__codelineno-0-717">717</a></span>
-<span class="normal"><a href="#__codelineno-0-718">718</a></span>
-<span class="normal"><a href="#__codelineno-0-719">719</a></span>
-<span class="normal"><a href="#__codelineno-0-720">720</a></span>
-<span class="normal"><a href="#__codelineno-0-721">721</a></span>
-<span class="normal"><a href="#__codelineno-0-722">722</a></span>
-<span class="normal"><a href="#__codelineno-0-723">723</a></span>
-<span class="normal"><a href="#__codelineno-0-724">724</a></span>
-<span class="normal"><a href="#__codelineno-0-725">725</a></span>
-<span class="normal"><a href="#__codelineno-0-726">726</a></span>
-<span class="normal"><a href="#__codelineno-0-727">727</a></span>
-<span class="normal"><a href="#__codelineno-0-728">728</a></span>
-<span class="normal"><a href="#__codelineno-0-729">729</a></span>
-<span class="normal"><a href="#__codelineno-0-730">730</a></span>
-<span class="normal"><a href="#__codelineno-0-731">731</a></span>
-<span class="normal"><a href="#__codelineno-0-732">732</a></span>
-<span class="normal"><a href="#__codelineno-0-733">733</a></span>
-<span class="normal"><a href="#__codelineno-0-734">734</a></span>
-<span class="normal"><a href="#__codelineno-0-735">735</a></span>
-<span class="normal"><a href="#__codelineno-0-736">736</a></span>
-<span class="normal"><a href="#__codelineno-0-737">737</a></span>
-<span class="normal"><a href="#__codelineno-0-738">738</a></span>
-<span class="normal"><a href="#__codelineno-0-739">739</a></span>
-<span class="normal"><a href="#__codelineno-0-740">740</a></span>
-<span class="normal"><a href="#__codelineno-0-741">741</a></span>
-<span class="normal"><a href="#__codelineno-0-742">742</a></span>
-<span class="normal"><a href="#__codelineno-0-743">743</a></span>
-<span class="normal"><a href="#__codelineno-0-744">744</a></span>
-<span class="normal"><a href="#__codelineno-0-745">745</a></span>
-<span class="normal"><a href="#__codelineno-0-746">746</a></span>
-<span class="normal"><a href="#__codelineno-0-747">747</a></span>
-<span class="normal"><a href="#__codelineno-0-748">748</a></span>
-<span class="normal"><a href="#__codelineno-0-749">749</a></span>
-<span class="normal"><a href="#__codelineno-0-750">750</a></span>
-<span class="normal"><a href="#__codelineno-0-751">751</a></span>
-<span class="normal"><a href="#__codelineno-0-752">752</a></span>
-<span class="normal"><a href="#__codelineno-0-753">753</a></span>
-<span class="normal"><a href="#__codelineno-0-754">754</a></span>
-<span class="normal"><a href="#__codelineno-0-755">755</a></span>
-<span class="normal"><a href="#__codelineno-0-756">756</a></span>
-<span class="normal"><a href="#__codelineno-0-757">757</a></span>
-<span class="normal"><a href="#__codelineno-0-758">758</a></span>
-<span class="normal"><a href="#__codelineno-0-759">759</a></span>
-<span class="normal"><a href="#__codelineno-0-760">760</a></span>
-<span class="normal"><a href="#__codelineno-0-761">761</a></span>
-<span class="normal"><a href="#__codelineno-0-762">762</a></span>
-<span class="normal"><a href="#__codelineno-0-763">763</a></span>
-<span class="normal"><a href="#__codelineno-0-764">764</a></span>
-<span class="normal"><a href="#__codelineno-0-765">765</a></span>
-<span class="normal"><a href="#__codelineno-0-766">766</a></span>
-<span class="normal"><a href="#__codelineno-0-767">767</a></span>
-<span class="normal"><a href="#__codelineno-0-768">768</a></span>
-<span class="normal"><a href="#__codelineno-0-769">769</a></span>
-<span class="normal"><a href="#__codelineno-0-770">770</a></span>
-<span class="normal"><a href="#__codelineno-0-771">771</a></span>
-<span class="normal"><a href="#__codelineno-0-772">772</a></span>
-<span class="normal"><a href="#__codelineno-0-773">773</a></span>
-<span class="normal"><a href="#__codelineno-0-774">774</a></span>
-<span class="normal"><a href="#__codelineno-0-775">775</a></span>
-<span class="normal"><a href="#__codelineno-0-776">776</a></span>
-<span class="normal"><a href="#__codelineno-0-777">777</a></span>
-<span class="normal"><a href="#__codelineno-0-778">778</a></span>
-<span class="normal"><a href="#__codelineno-0-779">779</a></span>
-<span class="normal"><a href="#__codelineno-0-780">780</a></span>
-<span class="normal"><a href="#__codelineno-0-781">781</a></span>
-<span class="normal"><a href="#__codelineno-0-782">782</a></span>
-<span class="normal"><a href="#__codelineno-0-783">783</a></span>
-<span class="normal"><a href="#__codelineno-0-784">784</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-784">784</a></span>
 <span class="normal"><a href="#__codelineno-0-785">785</a></span>
 <span class="normal"><a href="#__codelineno-0-786">786</a></span>
 <span class="normal"><a href="#__codelineno-0-787">787</a></span>
 <span class="normal"><a href="#__codelineno-0-788">788</a></span>
 <span class="normal"><a href="#__codelineno-0-789">789</a></span>
 <span class="normal"><a href="#__codelineno-0-790">790</a></span>
-<span class="normal"><a href="#__codelineno-0-791">791</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-713" name="__codelineno-0-713"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_html_template</span><span class="p">(</span>
-<a id="__codelineno-0-714" name="__codelineno-0-714"></a>    <span class="n">title</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-715" name="__codelineno-0-715"></a>    <span class="n">content</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-716" name="__codelineno-0-716"></a>    <span class="n">toc_html</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-717" name="__codelineno-0-717"></a>    <span class="n">metadata_html</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-718" name="__codelineno-0-718"></a>    <span class="n">footer_html</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-719" name="__codelineno-0-719"></a>    <span class="n">custom_css</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-720" name="__codelineno-0-720"></a>    <span class="n">custom_js</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-721" name="__codelineno-0-721"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<a id="__codelineno-0-722" name="__codelineno-0-722"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-723" name="__codelineno-0-723"></a><span class="sd">    Generate a complete HTML document with the report content.</span>
-<a id="__codelineno-0-724" name="__codelineno-0-724"></a>
-<a id="__codelineno-0-725" name="__codelineno-0-725"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-726" name="__codelineno-0-726"></a><span class="sd">        title: The report title</span>
-<a id="__codelineno-0-727" name="__codelineno-0-727"></a><span class="sd">        content: The main HTML content</span>
-<a id="__codelineno-0-728" name="__codelineno-0-728"></a><span class="sd">        toc_html: Table of contents HTML</span>
-<a id="__codelineno-0-729" name="__codelineno-0-729"></a><span class="sd">        metadata_html: Header metadata HTML</span>
-<a id="__codelineno-0-730" name="__codelineno-0-730"></a><span class="sd">        footer_html: Footer HTML</span>
-<a id="__codelineno-0-731" name="__codelineno-0-731"></a><span class="sd">        custom_css: Additional CSS styles</span>
-<a id="__codelineno-0-732" name="__codelineno-0-732"></a><span class="sd">        custom_js: Additional JavaScript</span>
-<a id="__codelineno-0-733" name="__codelineno-0-733"></a>
-<a id="__codelineno-0-734" name="__codelineno-0-734"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-735" name="__codelineno-0-735"></a><span class="sd">        Complete HTML document as a string</span>
-<a id="__codelineno-0-736" name="__codelineno-0-736"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-737" name="__codelineno-0-737"></a>    <span class="n">css</span> <span class="o">=</span> <span class="n">DEFAULT_CSS_STYLES</span>
-<a id="__codelineno-0-738" name="__codelineno-0-738"></a>    <span class="k">if</span> <span class="n">custom_css</span><span class="p">:</span>
-<a id="__codelineno-0-739" name="__codelineno-0-739"></a>        <span class="n">css</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">/* Custom Styles */</span><span class="se">\n</span><span class="si">{</span><span class="n">custom_css</span><span class="si">}</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-740" name="__codelineno-0-740"></a>
-<a id="__codelineno-0-741" name="__codelineno-0-741"></a>    <span class="n">js</span> <span class="o">=</span> <span class="n">DEFAULT_JS_SCRIPTS</span>
-<a id="__codelineno-0-742" name="__codelineno-0-742"></a>    <span class="k">if</span> <span class="n">custom_js</span><span class="p">:</span>
-<a id="__codelineno-0-743" name="__codelineno-0-743"></a>        <span class="n">js</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">// Custom Scripts</span><span class="se">\n</span><span class="si">{</span><span class="n">custom_js</span><span class="si">}</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-744" name="__codelineno-0-744"></a>
-<a id="__codelineno-0-745" name="__codelineno-0-745"></a>    <span class="n">nav_html</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
-<a id="__codelineno-0-746" name="__codelineno-0-746"></a>    <span class="k">if</span> <span class="n">toc_html</span><span class="p">:</span>
-<a id="__codelineno-0-747" name="__codelineno-0-747"></a>        <span class="n">nav_html</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-748" name="__codelineno-0-748"></a><span class="s2">        &lt;nav class=&quot;report-nav&quot;&gt;</span>
-<a id="__codelineno-0-749" name="__codelineno-0-749"></a><span class="s2">            &lt;h2&gt;Contents&lt;/h2&gt;</span>
-<a id="__codelineno-0-750" name="__codelineno-0-750"></a><span class="s2">            </span><span class="si">{</span><span class="n">toc_html</span><span class="si">}</span>
-<a id="__codelineno-0-751" name="__codelineno-0-751"></a><span class="s2">        &lt;/nav&gt;</span>
-<a id="__codelineno-0-752" name="__codelineno-0-752"></a><span class="s2">        &quot;&quot;&quot;</span>
-<a id="__codelineno-0-753" name="__codelineno-0-753"></a>
-<a id="__codelineno-0-754" name="__codelineno-0-754"></a>    <span class="n">footer</span> <span class="o">=</span> <span class="n">footer_html</span> <span class="ow">or</span> <span class="s2">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-755" name="__codelineno-0-755"></a><span class="s2">        &lt;footer class=&quot;report-footer&quot;&gt;</span>
-<a id="__codelineno-0-756" name="__codelineno-0-756"></a><span class="s2">            &lt;p&gt;Generated by &lt;a href=&quot;https://github.com/idossha/TI-toolbox&quot; target=&quot;_blank&quot;&gt;TI-Toolbox&lt;/a&gt;&lt;/p&gt;</span>
-<a id="__codelineno-0-757" name="__codelineno-0-757"></a><span class="s2">        &lt;/footer&gt;</span>
-<a id="__codelineno-0-758" name="__codelineno-0-758"></a><span class="s2">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-759" name="__codelineno-0-759"></a>
-<a id="__codelineno-0-760" name="__codelineno-0-760"></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;&lt;!DOCTYPE html&gt;</span>
-<a id="__codelineno-0-761" name="__codelineno-0-761"></a><span class="s2">&lt;html lang=&quot;en&quot;&gt;</span>
-<a id="__codelineno-0-762" name="__codelineno-0-762"></a><span class="s2">&lt;head&gt;</span>
-<a id="__codelineno-0-763" name="__codelineno-0-763"></a><span class="s2">    &lt;meta charset=&quot;UTF-8&quot;&gt;</span>
-<a id="__codelineno-0-764" name="__codelineno-0-764"></a><span class="s2">    &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;</span>
-<a id="__codelineno-0-765" name="__codelineno-0-765"></a><span class="s2">    &lt;title&gt;</span><span class="si">{</span><span class="n">title</span><span class="si">}</span><span class="s2">&lt;/title&gt;</span>
-<a id="__codelineno-0-766" name="__codelineno-0-766"></a><span class="s2">    &lt;style&gt;</span>
-<a id="__codelineno-0-767" name="__codelineno-0-767"></a><span class="si">{</span><span class="n">css</span><span class="si">}</span>
-<a id="__codelineno-0-768" name="__codelineno-0-768"></a><span class="s2">    &lt;/style&gt;</span>
-<a id="__codelineno-0-769" name="__codelineno-0-769"></a><span class="s2">&lt;/head&gt;</span>
-<a id="__codelineno-0-770" name="__codelineno-0-770"></a><span class="s2">&lt;body&gt;</span>
-<a id="__codelineno-0-771" name="__codelineno-0-771"></a><span class="s2">    &lt;div class=&quot;report-container&quot;&gt;</span>
-<a id="__codelineno-0-772" name="__codelineno-0-772"></a><span class="s2">        &lt;header class=&quot;report-header&quot;&gt;</span>
-<a id="__codelineno-0-773" name="__codelineno-0-773"></a><span class="s2">            &lt;h1&gt;</span><span class="si">{</span><span class="n">title</span><span class="si">}</span><span class="s2">&lt;/h1&gt;</span>
-<a id="__codelineno-0-774" name="__codelineno-0-774"></a><span class="s2">            </span><span class="si">{</span><span class="n">metadata_html</span><span class="si">}</span>
-<a id="__codelineno-0-775" name="__codelineno-0-775"></a><span class="s2">        &lt;/header&gt;</span>
-<a id="__codelineno-0-776" name="__codelineno-0-776"></a>
-<a id="__codelineno-0-777" name="__codelineno-0-777"></a><span class="s2">        </span><span class="si">{</span><span class="n">nav_html</span><span class="si">}</span>
-<a id="__codelineno-0-778" name="__codelineno-0-778"></a>
-<a id="__codelineno-0-779" name="__codelineno-0-779"></a><span class="s2">        &lt;main class=&quot;report-main&quot;&gt;</span>
-<a id="__codelineno-0-780" name="__codelineno-0-780"></a><span class="s2">            </span><span class="si">{</span><span class="n">content</span><span class="si">}</span>
-<a id="__codelineno-0-781" name="__codelineno-0-781"></a><span class="s2">        &lt;/main&gt;</span>
-<a id="__codelineno-0-782" name="__codelineno-0-782"></a>
-<a id="__codelineno-0-783" name="__codelineno-0-783"></a><span class="s2">        </span><span class="si">{</span><span class="n">footer</span><span class="si">}</span>
-<a id="__codelineno-0-784" name="__codelineno-0-784"></a><span class="s2">    &lt;/div&gt;</span>
-<a id="__codelineno-0-785" name="__codelineno-0-785"></a>
-<a id="__codelineno-0-786" name="__codelineno-0-786"></a><span class="s2">    &lt;script&gt;</span>
-<a id="__codelineno-0-787" name="__codelineno-0-787"></a><span class="si">{</span><span class="n">js</span><span class="si">}</span>
-<a id="__codelineno-0-788" name="__codelineno-0-788"></a><span class="s2">    &lt;/script&gt;</span>
-<a id="__codelineno-0-789" name="__codelineno-0-789"></a><span class="s2">&lt;/body&gt;</span>
-<a id="__codelineno-0-790" name="__codelineno-0-790"></a><span class="s2">&lt;/html&gt;</span>
-<a id="__codelineno-0-791" name="__codelineno-0-791"></a><span class="s2">&quot;&quot;&quot;</span>
+<span class="normal"><a href="#__codelineno-0-791">791</a></span>
+<span class="normal"><a href="#__codelineno-0-792">792</a></span>
+<span class="normal"><a href="#__codelineno-0-793">793</a></span>
+<span class="normal"><a href="#__codelineno-0-794">794</a></span>
+<span class="normal"><a href="#__codelineno-0-795">795</a></span>
+<span class="normal"><a href="#__codelineno-0-796">796</a></span>
+<span class="normal"><a href="#__codelineno-0-797">797</a></span>
+<span class="normal"><a href="#__codelineno-0-798">798</a></span>
+<span class="normal"><a href="#__codelineno-0-799">799</a></span>
+<span class="normal"><a href="#__codelineno-0-800">800</a></span>
+<span class="normal"><a href="#__codelineno-0-801">801</a></span>
+<span class="normal"><a href="#__codelineno-0-802">802</a></span>
+<span class="normal"><a href="#__codelineno-0-803">803</a></span>
+<span class="normal"><a href="#__codelineno-0-804">804</a></span>
+<span class="normal"><a href="#__codelineno-0-805">805</a></span>
+<span class="normal"><a href="#__codelineno-0-806">806</a></span>
+<span class="normal"><a href="#__codelineno-0-807">807</a></span>
+<span class="normal"><a href="#__codelineno-0-808">808</a></span>
+<span class="normal"><a href="#__codelineno-0-809">809</a></span>
+<span class="normal"><a href="#__codelineno-0-810">810</a></span>
+<span class="normal"><a href="#__codelineno-0-811">811</a></span>
+<span class="normal"><a href="#__codelineno-0-812">812</a></span>
+<span class="normal"><a href="#__codelineno-0-813">813</a></span>
+<span class="normal"><a href="#__codelineno-0-814">814</a></span>
+<span class="normal"><a href="#__codelineno-0-815">815</a></span>
+<span class="normal"><a href="#__codelineno-0-816">816</a></span>
+<span class="normal"><a href="#__codelineno-0-817">817</a></span>
+<span class="normal"><a href="#__codelineno-0-818">818</a></span>
+<span class="normal"><a href="#__codelineno-0-819">819</a></span>
+<span class="normal"><a href="#__codelineno-0-820">820</a></span>
+<span class="normal"><a href="#__codelineno-0-821">821</a></span>
+<span class="normal"><a href="#__codelineno-0-822">822</a></span>
+<span class="normal"><a href="#__codelineno-0-823">823</a></span>
+<span class="normal"><a href="#__codelineno-0-824">824</a></span>
+<span class="normal"><a href="#__codelineno-0-825">825</a></span>
+<span class="normal"><a href="#__codelineno-0-826">826</a></span>
+<span class="normal"><a href="#__codelineno-0-827">827</a></span>
+<span class="normal"><a href="#__codelineno-0-828">828</a></span>
+<span class="normal"><a href="#__codelineno-0-829">829</a></span>
+<span class="normal"><a href="#__codelineno-0-830">830</a></span>
+<span class="normal"><a href="#__codelineno-0-831">831</a></span>
+<span class="normal"><a href="#__codelineno-0-832">832</a></span>
+<span class="normal"><a href="#__codelineno-0-833">833</a></span>
+<span class="normal"><a href="#__codelineno-0-834">834</a></span>
+<span class="normal"><a href="#__codelineno-0-835">835</a></span>
+<span class="normal"><a href="#__codelineno-0-836">836</a></span>
+<span class="normal"><a href="#__codelineno-0-837">837</a></span>
+<span class="normal"><a href="#__codelineno-0-838">838</a></span>
+<span class="normal"><a href="#__codelineno-0-839">839</a></span>
+<span class="normal"><a href="#__codelineno-0-840">840</a></span>
+<span class="normal"><a href="#__codelineno-0-841">841</a></span>
+<span class="normal"><a href="#__codelineno-0-842">842</a></span>
+<span class="normal"><a href="#__codelineno-0-843">843</a></span>
+<span class="normal"><a href="#__codelineno-0-844">844</a></span>
+<span class="normal"><a href="#__codelineno-0-845">845</a></span>
+<span class="normal"><a href="#__codelineno-0-846">846</a></span>
+<span class="normal"><a href="#__codelineno-0-847">847</a></span>
+<span class="normal"><a href="#__codelineno-0-848">848</a></span>
+<span class="normal"><a href="#__codelineno-0-849">849</a></span>
+<span class="normal"><a href="#__codelineno-0-850">850</a></span>
+<span class="normal"><a href="#__codelineno-0-851">851</a></span>
+<span class="normal"><a href="#__codelineno-0-852">852</a></span>
+<span class="normal"><a href="#__codelineno-0-853">853</a></span>
+<span class="normal"><a href="#__codelineno-0-854">854</a></span>
+<span class="normal"><a href="#__codelineno-0-855">855</a></span>
+<span class="normal"><a href="#__codelineno-0-856">856</a></span>
+<span class="normal"><a href="#__codelineno-0-857">857</a></span>
+<span class="normal"><a href="#__codelineno-0-858">858</a></span>
+<span class="normal"><a href="#__codelineno-0-859">859</a></span>
+<span class="normal"><a href="#__codelineno-0-860">860</a></span>
+<span class="normal"><a href="#__codelineno-0-861">861</a></span>
+<span class="normal"><a href="#__codelineno-0-862">862</a></span>
+<span class="normal"><a href="#__codelineno-0-863">863</a></span>
+<span class="normal"><a href="#__codelineno-0-864">864</a></span>
+<span class="normal"><a href="#__codelineno-0-865">865</a></span>
+<span class="normal"><a href="#__codelineno-0-866">866</a></span>
+<span class="normal"><a href="#__codelineno-0-867">867</a></span>
+<span class="normal"><a href="#__codelineno-0-868">868</a></span>
+<span class="normal"><a href="#__codelineno-0-869">869</a></span>
+<span class="normal"><a href="#__codelineno-0-870">870</a></span>
+<span class="normal"><a href="#__codelineno-0-871">871</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-784" name="__codelineno-0-784"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_html_template</span><span class="p">(</span>
+<a id="__codelineno-0-785" name="__codelineno-0-785"></a>    <span class="n">title</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-786" name="__codelineno-0-786"></a>    <span class="n">content</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-787" name="__codelineno-0-787"></a>    <span class="n">toc_html</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-788" name="__codelineno-0-788"></a>    <span class="n">metadata_html</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-789" name="__codelineno-0-789"></a>    <span class="n">footer_html</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-790" name="__codelineno-0-790"></a>    <span class="n">custom_css</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-791" name="__codelineno-0-791"></a>    <span class="n">custom_js</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-792" name="__codelineno-0-792"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-793" name="__codelineno-0-793"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Generate a complete HTML document with the report content.</span>
+<a id="__codelineno-0-794" name="__codelineno-0-794"></a>
+<a id="__codelineno-0-795" name="__codelineno-0-795"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-796" name="__codelineno-0-796"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-797" name="__codelineno-0-797"></a><span class="sd">    title : str</span>
+<a id="__codelineno-0-798" name="__codelineno-0-798"></a><span class="sd">        The report title (used in ``&lt;title&gt;`` and the header ``&lt;h1&gt;``).</span>
+<a id="__codelineno-0-799" name="__codelineno-0-799"></a><span class="sd">    content : str</span>
+<a id="__codelineno-0-800" name="__codelineno-0-800"></a><span class="sd">        The main HTML content (rendered sections).</span>
+<a id="__codelineno-0-801" name="__codelineno-0-801"></a><span class="sd">    toc_html : str, optional</span>
+<a id="__codelineno-0-802" name="__codelineno-0-802"></a><span class="sd">        Table of contents HTML fragment.</span>
+<a id="__codelineno-0-803" name="__codelineno-0-803"></a><span class="sd">    metadata_html : str, optional</span>
+<a id="__codelineno-0-804" name="__codelineno-0-804"></a><span class="sd">        Header metadata HTML fragment.</span>
+<a id="__codelineno-0-805" name="__codelineno-0-805"></a><span class="sd">    footer_html : str, optional</span>
+<a id="__codelineno-0-806" name="__codelineno-0-806"></a><span class="sd">        Footer HTML.  Defaults to a TI-Toolbox credit line.</span>
+<a id="__codelineno-0-807" name="__codelineno-0-807"></a><span class="sd">    custom_css : str, optional</span>
+<a id="__codelineno-0-808" name="__codelineno-0-808"></a><span class="sd">        Additional CSS appended after the default styles.</span>
+<a id="__codelineno-0-809" name="__codelineno-0-809"></a><span class="sd">    custom_js : str, optional</span>
+<a id="__codelineno-0-810" name="__codelineno-0-810"></a><span class="sd">        Additional JavaScript appended after the default scripts.</span>
+<a id="__codelineno-0-811" name="__codelineno-0-811"></a>
+<a id="__codelineno-0-812" name="__codelineno-0-812"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-813" name="__codelineno-0-813"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-814" name="__codelineno-0-814"></a><span class="sd">    str</span>
+<a id="__codelineno-0-815" name="__codelineno-0-815"></a><span class="sd">        Complete HTML document as a string.</span>
+<a id="__codelineno-0-816" name="__codelineno-0-816"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-817" name="__codelineno-0-817"></a>    <span class="n">css</span> <span class="o">=</span> <span class="n">DEFAULT_CSS_STYLES</span>
+<a id="__codelineno-0-818" name="__codelineno-0-818"></a>    <span class="k">if</span> <span class="n">custom_css</span><span class="p">:</span>
+<a id="__codelineno-0-819" name="__codelineno-0-819"></a>        <span class="n">css</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">/* Custom Styles */</span><span class="se">\n</span><span class="si">{</span><span class="n">custom_css</span><span class="si">}</span><span class="s2">&quot;</span>
+<a id="__codelineno-0-820" name="__codelineno-0-820"></a>
+<a id="__codelineno-0-821" name="__codelineno-0-821"></a>    <span class="n">js</span> <span class="o">=</span> <span class="n">DEFAULT_JS_SCRIPTS</span>
+<a id="__codelineno-0-822" name="__codelineno-0-822"></a>    <span class="k">if</span> <span class="n">custom_js</span><span class="p">:</span>
+<a id="__codelineno-0-823" name="__codelineno-0-823"></a>        <span class="n">js</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">// Custom Scripts</span><span class="se">\n</span><span class="si">{</span><span class="n">custom_js</span><span class="si">}</span><span class="s2">&quot;</span>
+<a id="__codelineno-0-824" name="__codelineno-0-824"></a>
+<a id="__codelineno-0-825" name="__codelineno-0-825"></a>    <span class="n">nav_html</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+<a id="__codelineno-0-826" name="__codelineno-0-826"></a>    <span class="k">if</span> <span class="n">toc_html</span><span class="p">:</span>
+<a id="__codelineno-0-827" name="__codelineno-0-827"></a>        <span class="n">nav_html</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-828" name="__codelineno-0-828"></a><span class="s2">        &lt;nav class=&quot;report-nav&quot;&gt;</span>
+<a id="__codelineno-0-829" name="__codelineno-0-829"></a><span class="s2">            &lt;h2&gt;Contents&lt;/h2&gt;</span>
+<a id="__codelineno-0-830" name="__codelineno-0-830"></a><span class="s2">            </span><span class="si">{</span><span class="n">toc_html</span><span class="si">}</span>
+<a id="__codelineno-0-831" name="__codelineno-0-831"></a><span class="s2">        &lt;/nav&gt;</span>
+<a id="__codelineno-0-832" name="__codelineno-0-832"></a><span class="s2">        &quot;&quot;&quot;</span>
+<a id="__codelineno-0-833" name="__codelineno-0-833"></a>
+<a id="__codelineno-0-834" name="__codelineno-0-834"></a>    <span class="n">footer</span> <span class="o">=</span> <span class="n">footer_html</span> <span class="ow">or</span> <span class="s2">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-835" name="__codelineno-0-835"></a><span class="s2">        &lt;footer class=&quot;report-footer&quot;&gt;</span>
+<a id="__codelineno-0-836" name="__codelineno-0-836"></a><span class="s2">            &lt;p&gt;Generated by &lt;a href=&quot;https://github.com/idossha/TI-toolbox&quot; target=&quot;_blank&quot;&gt;TI-Toolbox&lt;/a&gt;&lt;/p&gt;</span>
+<a id="__codelineno-0-837" name="__codelineno-0-837"></a><span class="s2">        &lt;/footer&gt;</span>
+<a id="__codelineno-0-838" name="__codelineno-0-838"></a><span class="s2">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-839" name="__codelineno-0-839"></a>
+<a id="__codelineno-0-840" name="__codelineno-0-840"></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;&lt;!DOCTYPE html&gt;</span>
+<a id="__codelineno-0-841" name="__codelineno-0-841"></a><span class="s2">&lt;html lang=&quot;en&quot;&gt;</span>
+<a id="__codelineno-0-842" name="__codelineno-0-842"></a><span class="s2">&lt;head&gt;</span>
+<a id="__codelineno-0-843" name="__codelineno-0-843"></a><span class="s2">    &lt;meta charset=&quot;UTF-8&quot;&gt;</span>
+<a id="__codelineno-0-844" name="__codelineno-0-844"></a><span class="s2">    &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;</span>
+<a id="__codelineno-0-845" name="__codelineno-0-845"></a><span class="s2">    &lt;title&gt;</span><span class="si">{</span><span class="n">title</span><span class="si">}</span><span class="s2">&lt;/title&gt;</span>
+<a id="__codelineno-0-846" name="__codelineno-0-846"></a><span class="s2">    &lt;style&gt;</span>
+<a id="__codelineno-0-847" name="__codelineno-0-847"></a><span class="si">{</span><span class="n">css</span><span class="si">}</span>
+<a id="__codelineno-0-848" name="__codelineno-0-848"></a><span class="s2">    &lt;/style&gt;</span>
+<a id="__codelineno-0-849" name="__codelineno-0-849"></a><span class="s2">&lt;/head&gt;</span>
+<a id="__codelineno-0-850" name="__codelineno-0-850"></a><span class="s2">&lt;body&gt;</span>
+<a id="__codelineno-0-851" name="__codelineno-0-851"></a><span class="s2">    &lt;div class=&quot;report-container&quot;&gt;</span>
+<a id="__codelineno-0-852" name="__codelineno-0-852"></a><span class="s2">        &lt;header class=&quot;report-header&quot;&gt;</span>
+<a id="__codelineno-0-853" name="__codelineno-0-853"></a><span class="s2">            &lt;h1&gt;</span><span class="si">{</span><span class="n">title</span><span class="si">}</span><span class="s2">&lt;/h1&gt;</span>
+<a id="__codelineno-0-854" name="__codelineno-0-854"></a><span class="s2">            </span><span class="si">{</span><span class="n">metadata_html</span><span class="si">}</span>
+<a id="__codelineno-0-855" name="__codelineno-0-855"></a><span class="s2">        &lt;/header&gt;</span>
+<a id="__codelineno-0-856" name="__codelineno-0-856"></a>
+<a id="__codelineno-0-857" name="__codelineno-0-857"></a><span class="s2">        </span><span class="si">{</span><span class="n">nav_html</span><span class="si">}</span>
+<a id="__codelineno-0-858" name="__codelineno-0-858"></a>
+<a id="__codelineno-0-859" name="__codelineno-0-859"></a><span class="s2">        &lt;main class=&quot;report-main&quot;&gt;</span>
+<a id="__codelineno-0-860" name="__codelineno-0-860"></a><span class="s2">            </span><span class="si">{</span><span class="n">content</span><span class="si">}</span>
+<a id="__codelineno-0-861" name="__codelineno-0-861"></a><span class="s2">        &lt;/main&gt;</span>
+<a id="__codelineno-0-862" name="__codelineno-0-862"></a>
+<a id="__codelineno-0-863" name="__codelineno-0-863"></a><span class="s2">        </span><span class="si">{</span><span class="n">footer</span><span class="si">}</span>
+<a id="__codelineno-0-864" name="__codelineno-0-864"></a><span class="s2">    &lt;/div&gt;</span>
+<a id="__codelineno-0-865" name="__codelineno-0-865"></a>
+<a id="__codelineno-0-866" name="__codelineno-0-866"></a><span class="s2">    &lt;script&gt;</span>
+<a id="__codelineno-0-867" name="__codelineno-0-867"></a><span class="si">{</span><span class="n">js</span><span class="si">}</span>
+<a id="__codelineno-0-868" name="__codelineno-0-868"></a><span class="s2">    &lt;/script&gt;</span>
+<a id="__codelineno-0-869" name="__codelineno-0-869"></a><span class="s2">&lt;/body&gt;</span>
+<a id="__codelineno-0-870" name="__codelineno-0-870"></a><span class="s2">&lt;/html&gt;</span>
+<a id="__codelineno-0-871" name="__codelineno-0-871"></a><span class="s2">&quot;&quot;&quot;</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

@@ -59,7 +59,7 @@ The mode is **derived from the number of pairs** — there is no separate switch
 
 ## What is saved, and where
 
-**Save placement** writes `stim_configs/<name>.json` in your project. From then on it appears in a
+**Save placement** writes `derivatives/SimNIBS/sub-<id>/m2m_<id>/stim_configs/<name>.json` in your project. From then on it appears in a
 Simulator job row when the **Source** column is set to **Free-hand**, alongside the montages that
 came from EEG nets and the results that came from an [optimizer]({{ site.baseurl }}/wiki/flex-search/).
 

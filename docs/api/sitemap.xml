@@ -2,450 +2,946 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/getting-started/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/pipeline/analysis/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/pipeline/atlas/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/pipeline/core/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/pipeline/optimization/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/pipeline/plotting/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/pipeline/preprocessing/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/pipeline/reporting/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/pipeline/simulation/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/pipeline/statistics/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/pipeline/tools/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/SUMMARY/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/_mti_kernel/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/calc/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/catalog/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/cli/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/config_io/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/constants/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/fields/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/launch/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/logger/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/paths/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/storage/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/telemetry/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/viewspec/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/analyzer/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/analyzer/analyzer/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/analyzer/config/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/analyzer/field_selector/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/analyzer/group/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/analyzer/masks/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/analyzer/spheres/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/analyzer/visualizer/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/atlas/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/atlas/constants/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/atlas/mesh/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/atlas/overlap/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/atlas/segstats/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/atlas/voxel/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/jobs/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/jobs/api/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/jobs/bindings/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/jobs/bootstrap/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/jobs/client/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/jobs/config_check/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/jobs/costs/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/jobs/docker_engine/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/jobs/eta/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/jobs/events/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/jobs/kinds/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/jobs/locks/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/jobs/manager/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/jobs/plans/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/jobs/processes/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/jobs/registry/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/jobs/runner/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/jobs/scheduler/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/jobs/spec/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/jobs/tailer/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/config/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/leadfield/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/leadfield_config/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/leadfield_runner/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/masks/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/roi_spec/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/ex/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/ex/buckets/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/ex/engine/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/ex/ex/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/ex/logic/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/ex/parallel/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/ex/results/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/ex/roi/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/ex/symmetry/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/flex/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/flex/builder/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/flex/drivers/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/flex/flex/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/flex/manifest/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/flex/objectives/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/flex/pareto/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/flex/skin_visualization/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/flex/utils/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/mex/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/mex/engine/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/mex/logic/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/mex/mex/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pipeline/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pipeline/document/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pipeline/notebook/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pipeline/plan/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pipeline/validate/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/plotting/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/plotting/_common/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/plotting/dti_qc/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/plotting/focality/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/plotting/static_overlay/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/plotting/stats/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/plotting/ti_metrics/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/plotting/nilearn/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/plotting/nilearn/config/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/plotting/nilearn/cutoffs/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/plotting/nilearn/html_report/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/plotting/nilearn/img_glass/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/plotting/nilearn/img_slices/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/plotting/nilearn/surface/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/plotting/nilearn/visualizer/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pre/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pre/charm/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pre/config/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pre/dicom2nifti/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pre/recon_all/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pre/fastsurfer/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pre/preflight/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pre/report/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pre/structural/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pre/tissue_analyzer/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pre/utils/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pre/qsi/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pre/qsi/config/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pre/qsi/docker_builder/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pre/qsi/dti_extractor/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pre/qsi/qsiprep/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pre/qsi/qsirecon/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pre/qsi/utils/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/project_init/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/project_init/example_data_manager/</loc>
-         <lastmod>2026-03-23</lastmod>
-    </url>
-    <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/project_init/first_time_user/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/project_init/initializer/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/core/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/core/assembler/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/core/base/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/core/protocols/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/core/templates/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/generators/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/generators/base_generator/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/generators/dti_qc/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/generators/flex_search/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/generators/preprocessing/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/generators/simulation/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/reportlets/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/reportlets/images/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/reportlets/metadata/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/reportlets/references/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/reporting/reportlets/text/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/scene/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/scene/build/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/scene/cache/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/scene/gifti/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/scene/guide/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/scene/guide_build/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/scene/simplify/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/scene/target_preview/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/scene/tvsc/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/access_log/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/app/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/auth/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/host_path/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/kernels/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/notebooks/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/overwrite_policy/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/schemas/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/settings/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/static/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/ws/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/capabilities/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/catalog/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/catalog_v1/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/files/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/guide/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/health/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/jobs/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/kernels/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/notebooks/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/openapi/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/overview/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/pipelines/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/plan/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/project/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/project_summary/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/scene/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/schema/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/settings/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/system/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/target_preview/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/tetravox/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/validate/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/version/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/viewer_library/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/viewers/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/ws_jobs/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/sim/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/sim/TI/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/sim/base/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/sim/config/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/sim/mTI/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/sim/montage_sources/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/sim/utils/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/source/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/source/_prepare_forward/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/source/_simnibs_compat/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/source/config/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/source/forward/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/source/fsaverage/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/stats/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/stats/config/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/stats/engine/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/stats/io_utils/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/stats/nifti/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/stats/nifti_average/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/stats/nifti_average_config/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/stats/permutation/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/stats/reporting/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/stats/surface/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/stats/visualization/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/tetravox/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/tetravox/install/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/tetravox/protocol/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/tetravox/store/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/tetravox/updates/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/tools/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/tools/check_for_update/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/tools/electrode_overlay/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/tools/extract_labels/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/tools/field_extract/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/tools/gmsh_opt/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/tools/map_electrodes/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/tools/mesh2nii/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/tools/montage_visualizer/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/tools/nifti_to_mesh/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/tools/pipeline_resolve/</loc>
+         <lastmod>2026-09-10</lastmod>
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/tools/read_annot/</loc>
-         <lastmod>2026-03-23</lastmod>
+         <lastmod>2026-09-10</lastmod>
     </url>
 </urlset>

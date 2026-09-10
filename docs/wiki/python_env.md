@@ -13,7 +13,7 @@ optimization and analysis runs under it.
 | | How to get there | What it is |
 |---|---|---|
 | **Notebooks, in the app** | The **Notebooks** page | JupyterLab-style notebooks running against a kernel *inside the container*, so `import tit` works with no setup. This is the normal way to script the toolbox in v3. |
-| **Terminal, in the app** | The terminal pane on any run page | A shell inside the container. `simnibs_python -m tit.sim config.json` and friends. |
+| **Terminal, on a run page** | Select a submitted job | A read-only live job log, not an interactive shell. Use Notebooks or `docker exec` to run your own code. |
 | **`docker exec`** | `docker exec -it ti-toolbox-<hash>-tit-1 bash` | The same shell from your own terminal. `tit launch --status` prints the container's name. |
 | **Your host** | `pip install tit` | **Only the launcher.** `tit launch` starts the container; the science needs SimNIBS, which is in the image, not on your host. |
 
@@ -84,7 +84,7 @@ from tit.stats import run_correlation, CorrelationConfig
 from tit.pre import run_pipeline
 ```
 
-All imports are eager — SimNIBS and nibabel are always available in the Docker environment.
+Scientific modules import their scientific dependencies when used. The Docker image supplies SimNIBS and nibabel; importing the top-level `tit` package on the host does not load every scientific module.
 
 ### JSON Config Modules
 

@@ -16,14 +16,14 @@
         <link rel="prev" href="../config_io/">
       
       
-        <link rel="next" href="../logger/">
+        <link rel="next" href="../fields/">
       
       
         
       
       
       <link rel="icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
     
     
       
@@ -879,6 +879,162 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="constants">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tit.constants--sections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sections
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.constants--see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.constants.FieldSpec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FieldSpec
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="FieldSpec">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tit.constants.FieldSpec--attributes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Attributes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.constants.get_field_names" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_field_names
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="get_field_names">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tit.constants.get_field_names--parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.constants.get_fields_by_kind" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_fields_by_kind
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.constants.output_fields_help_text" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        output_fields_help_text
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.constants.get_selectable_output_field_specs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_selectable_output_field_specs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.constants.get_field_spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_field_spec
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="get_field_spec">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tit.constants.get_field_spec--raises" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Raises
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.constants.is_valid_pair_count" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        is_valid_pair_count
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -928,13 +1084,8 @@
   
     
     
-      
-  
-  
-    
-    
       <li class="md-path__item">
-        <a href="../analyzer/analyzer/" class="md-path__link">
+        <a href="../_mti_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -948,22 +1099,14 @@
     
   
 
-    
-  
-
       
         
   
   
     
     
-      
-  
-  
-    
-    
       <li class="md-path__item">
-        <a href="../analyzer/analyzer/" class="md-path__link">
+        <a href="../_mti_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -971,9 +1114,6 @@
 
         </a>
       </li>
-    
-  
-
     
   
 
@@ -1005,9 +1145,51 @@
 
     <div class="doc doc-contents first">
 
-        <p>TI-Toolbox Constants
-Centralized constants for the entire TI-Toolbox codebase.
-This module contains all hardcoded values, magic numbers, and configuration constants.</p>
+        <p>Project-wide constants for TI-Toolbox.</p>
+<p>Centralises all hard-coded values, magic numbers, and configuration defaults
+used across the TI-Toolbox codebase.  Constants are grouped by domain:</p>
+<h4 id="tit.constants--sections">Sections<a class="headerlink" href="#tit.constants--sections" title="Permanent link">&para;</a></h4>
+<p>Directory Names
+    BIDS-compliant directory structure names (<code>DIR_*</code>).
+File Names and Extensions
+    Configuration filenames (<code>FILE_*</code>), NIfTI filenames, and common
+    extensions (<code>EXT_*</code>).
+Subject and Naming Patterns
+    BIDS prefixes (<code>PREFIX_*</code>).
+Environment Variables
+    Expected <code>os.environ</code> keys (<code>ENV_*</code>).
+Docker and Mount Paths
+    Container-specific path constants.
+Analysis Constants
+    Field names (<code>FIELD_*</code>), default percentiles, and focality cutoffs.
+Simulation Constants
+    Simulation types (<code>SIM_TYPE_*</code>), modes, electrode shapes, and default
+    electrode parameters.
+Atlas Names
+    Cortical (<code>ATLAS_DK40</code>, <code>ATLAS_A2009S</code>) and subcortical atlas
+    identifiers.
+Logging Constants
+    Log levels (<code>LOG_LEVEL_*</code>) and format strings (<code>LOG_FORMAT_*</code>).
+Numerical Constants
+    Floating-point tolerances and tissue conductivities (S/m) with
+    literature references.
+Tissue Conductivity Table
+    <code>TISSUE_PROPERTIES</code> lookup list mapping SimNIBS tissue tag numbers
+    to names, conductivities, and references.
+GUI Constants
+    Window dimensions, tab names, and console buffer sizes.
+QSI Integration
+    QSIPrep / QSIRecon Docker images, recon specs, atlases, and resource
+    defaults.
+Validation Bounds
+    Min/max ranges for frontend and API input validation.
+Default Parameters
+    <code>DEFAULT_ELECTRODE</code>, <code>DEFAULT_OPTIMIZATION</code>,
+    <code>DEFAULT_STATISTICS</code> dictionaries.
+Telemetry Constants
+    GA4 Measurement Protocol settings and operation event names.</p>
+<h4 id="tit.constants--see-also">See Also<a class="headerlink" href="#tit.constants--see-also" title="Permanent link">&para;</a></h4>
+<p>tit.paths : Uses many of these constants for BIDS path resolution.</p>
 
 
 
@@ -1026,6 +1208,346 @@ This module contains all hardcoded values, magic numbers, and configuration cons
 
 
 
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="tit.constants.FieldSpec" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">FieldSpec</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#tit.constants.FieldSpec" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">FieldSpec</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">label</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">units</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">description</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+
+        <p>Metadata for one output field quantity (mesh/NIfTI field name).</p>
+<h5 id="tit.constants.FieldSpec--attributes">Attributes<a class="headerlink" href="#tit.constants.FieldSpec--attributes" title="Permanent link">&para;</a></h5>
+<p>name : str
+    Exact on-disk / in-mesh field name (matches a <code>FIELD_*</code> constant).
+label : str
+    Short label for UI widgets (checkboxes, combo boxes).
+kind : str
+    <code>FIELD_KIND_FUNCTIONAL</code> or <code>FIELD_KIND_SAFETY</code>.
+units : str
+    Physical units of the field values.
+description : str
+    One-line tooltip text.</p>
+
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.constants.get_field_names" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">get_field_names</span>
+
+
+<a href="#tit.constants.get_field_names" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_field_names</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Return registered field names in registry order.</p>
+<h5 id="tit.constants.get_field_names--parameters">Parameters<a class="headerlink" href="#tit.constants.get_field_names--parameters" title="Permanent link">&para;</a></h5>
+<p>kind : str, optional
+    If given, restrict to <code>FIELD_KIND_FUNCTIONAL</code> or <code>FIELD_KIND_SAFETY</code>.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/constants.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-262">262</a></span>
+<span class="normal"><a href="#__codelineno-0-263">263</a></span>
+<span class="normal"><a href="#__codelineno-0-264">264</a></span>
+<span class="normal"><a href="#__codelineno-0-265">265</a></span>
+<span class="normal"><a href="#__codelineno-0-266">266</a></span>
+<span class="normal"><a href="#__codelineno-0-267">267</a></span>
+<span class="normal"><a href="#__codelineno-0-268">268</a></span>
+<span class="normal"><a href="#__codelineno-0-269">269</a></span>
+<span class="normal"><a href="#__codelineno-0-270">270</a></span>
+<span class="normal"><a href="#__codelineno-0-271">271</a></span>
+<span class="normal"><a href="#__codelineno-0-272">272</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-262" name="__codelineno-0-262"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_field_names</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<a id="__codelineno-0-263" name="__codelineno-0-263"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return registered field names in registry order.</span>
+<a id="__codelineno-0-264" name="__codelineno-0-264"></a>
+<a id="__codelineno-0-265" name="__codelineno-0-265"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-266" name="__codelineno-0-266"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-267" name="__codelineno-0-267"></a><span class="sd">    kind : str, optional</span>
+<a id="__codelineno-0-268" name="__codelineno-0-268"></a><span class="sd">        If given, restrict to ``FIELD_KIND_FUNCTIONAL`` or ``FIELD_KIND_SAFETY``.</span>
+<a id="__codelineno-0-269" name="__codelineno-0-269"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-270" name="__codelineno-0-270"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-271" name="__codelineno-0-271"></a>        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">spec</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">spec</span> <span class="ow">in</span> <span class="n">FIELD_REGISTRY</span><span class="p">)</span>
+<a id="__codelineno-0-272" name="__codelineno-0-272"></a>    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">spec</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">spec</span> <span class="ow">in</span> <span class="n">FIELD_REGISTRY</span> <span class="k">if</span> <span class="n">spec</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="n">kind</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.constants.get_fields_by_kind" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">get_fields_by_kind</span>
+
+
+<a href="#tit.constants.get_fields_by_kind" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_fields_by_kind</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.constants.FieldSpec" href="#tit.constants.FieldSpec">FieldSpec</a></span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Return all :class:<code>FieldSpec</code> entries with the given <code>kind</code>.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/constants.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-275">275</a></span>
+<span class="normal"><a href="#__codelineno-0-276">276</a></span>
+<span class="normal"><a href="#__codelineno-0-277">277</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-275" name="__codelineno-0-275"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_fields_by_kind</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">FieldSpec</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<a id="__codelineno-0-276" name="__codelineno-0-276"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return all :class:`FieldSpec` entries with the given ``kind``.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-277" name="__codelineno-0-277"></a>    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">spec</span> <span class="k">for</span> <span class="n">spec</span> <span class="ow">in</span> <span class="n">FIELD_REGISTRY</span> <span class="k">if</span> <span class="n">spec</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="n">kind</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.constants.output_fields_help_text" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">output_fields_help_text</span>
+
+
+<a href="#tit.constants.output_fields_help_text" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">output_fields_help_text</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Compose the output-field help popup text.</p>
+<p>States each field's definition, equation and reference. Deliberately does
+not group the fields into "functional" and "safety" -- which of them bear
+on efficacy and which on exposure is still debated, so the popup gives the
+definitions and leaves the interpretation to the reader.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/constants.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-331">331</a></span>
+<span class="normal"><a href="#__codelineno-0-332">332</a></span>
+<span class="normal"><a href="#__codelineno-0-333">333</a></span>
+<span class="normal"><a href="#__codelineno-0-334">334</a></span>
+<span class="normal"><a href="#__codelineno-0-335">335</a></span>
+<span class="normal"><a href="#__codelineno-0-336">336</a></span>
+<span class="normal"><a href="#__codelineno-0-337">337</a></span>
+<span class="normal"><a href="#__codelineno-0-338">338</a></span>
+<span class="normal"><a href="#__codelineno-0-339">339</a></span>
+<span class="normal"><a href="#__codelineno-0-340">340</a></span>
+<span class="normal"><a href="#__codelineno-0-341">341</a></span>
+<span class="normal"><a href="#__codelineno-0-342">342</a></span>
+<span class="normal"><a href="#__codelineno-0-343">343</a></span>
+<span class="normal"><a href="#__codelineno-0-344">344</a></span>
+<span class="normal"><a href="#__codelineno-0-345">345</a></span>
+<span class="normal"><a href="#__codelineno-0-346">346</a></span>
+<span class="normal"><a href="#__codelineno-0-347">347</a></span>
+<span class="normal"><a href="#__codelineno-0-348">348</a></span>
+<span class="normal"><a href="#__codelineno-0-349">349</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-331" name="__codelineno-0-331"></a><span class="k">def</span><span class="w"> </span><span class="nf">output_fields_help_text</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-332" name="__codelineno-0-332"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Compose the output-field help popup text.</span>
+<a id="__codelineno-0-333" name="__codelineno-0-333"></a>
+<a id="__codelineno-0-334" name="__codelineno-0-334"></a><span class="sd">    States each field&#39;s definition, equation and reference. Deliberately does</span>
+<a id="__codelineno-0-335" name="__codelineno-0-335"></a><span class="sd">    not group the fields into &quot;functional&quot; and &quot;safety&quot; -- which of them bear</span>
+<a id="__codelineno-0-336" name="__codelineno-0-336"></a><span class="sd">    on efficacy and which on exposure is still debated, so the popup gives the</span>
+<a id="__codelineno-0-337" name="__codelineno-0-337"></a><span class="sd">    definitions and leaves the interpretation to the reader.</span>
+<a id="__codelineno-0-338" name="__codelineno-0-338"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-339" name="__codelineno-0-339"></a>    <span class="n">body</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+<a id="__codelineno-0-340" name="__codelineno-0-340"></a>        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> [</span><span class="si">{</span><span class="n">units</span><span class="si">}</span><span class="s2">]</span><span class="se">\n</span><span class="si">{</span><span class="n">definition</span><span class="si">}</span><span class="se">\n</span><span class="s2">Equation: </span><span class="si">{</span><span class="n">equation</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+<a id="__codelineno-0-341" name="__codelineno-0-341"></a>        <span class="sa">f</span><span class="s2">&quot;Reference: </span><span class="si">{</span><span class="n">reference</span><span class="si">}</span><span class="s2">&quot;</span>
+<a id="__codelineno-0-342" name="__codelineno-0-342"></a>        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">units</span><span class="p">,</span> <span class="n">definition</span><span class="p">,</span> <span class="n">equation</span><span class="p">,</span> <span class="n">reference</span> <span class="ow">in</span> <span class="n">OUTPUT_FIELD_DEFINITIONS</span>
+<a id="__codelineno-0-343" name="__codelineno-0-343"></a>    <span class="p">)</span>
+<a id="__codelineno-0-344" name="__codelineno-0-344"></a>    <span class="k">return</span> <span class="p">(</span>
+<a id="__codelineno-0-345" name="__codelineno-0-345"></a>        <span class="s2">&quot;Which volume fields to compute and write for each simulation.</span><span class="se">\n\n</span><span class="s2">&quot;</span>
+<a id="__codelineno-0-346" name="__codelineno-0-346"></a>        <span class="o">+</span> <span class="n">body</span>
+<a id="__codelineno-0-347" name="__codelineno-0-347"></a>        <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n\n</span><span class="s2">Cost: TI_avg adds a direction sweep; hf_peak and hf_sar are &quot;</span>
+<a id="__codelineno-0-348" name="__codelineno-0-348"></a>        <span class="s2">&quot;effectively free alongside a field that is already being computed.&quot;</span>
+<a id="__codelineno-0-349" name="__codelineno-0-349"></a>    <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.constants.get_selectable_output_field_specs" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">get_selectable_output_field_specs</span>
+
+
+<a href="#tit.constants.get_selectable_output_field_specs" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_selectable_output_field_specs</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.constants.FieldSpec" href="#tit.constants.FieldSpec">FieldSpec</a></span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Return :class:<code>FieldSpec</code> entries for the four selectable output fields.</p>
+<p>Order matches :data:<code>SELECTABLE_OUTPUT_FIELDS</code> (registry order). Used by
+the GUI to build output-field checkboxes without hardcoding labels.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/constants.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-352">352</a></span>
+<span class="normal"><a href="#__codelineno-0-353">353</a></span>
+<span class="normal"><a href="#__codelineno-0-354">354</a></span>
+<span class="normal"><a href="#__codelineno-0-355">355</a></span>
+<span class="normal"><a href="#__codelineno-0-356">356</a></span>
+<span class="normal"><a href="#__codelineno-0-357">357</a></span>
+<span class="normal"><a href="#__codelineno-0-358">358</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-352" name="__codelineno-0-352"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_selectable_output_field_specs</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">FieldSpec</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<a id="__codelineno-0-353" name="__codelineno-0-353"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return :class:`FieldSpec` entries for the four selectable output fields.</span>
+<a id="__codelineno-0-354" name="__codelineno-0-354"></a>
+<a id="__codelineno-0-355" name="__codelineno-0-355"></a><span class="sd">    Order matches :data:`SELECTABLE_OUTPUT_FIELDS` (registry order). Used by</span>
+<a id="__codelineno-0-356" name="__codelineno-0-356"></a><span class="sd">    the GUI to build output-field checkboxes without hardcoding labels.</span>
+<a id="__codelineno-0-357" name="__codelineno-0-357"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-358" name="__codelineno-0-358"></a>    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">get_field_spec</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">SELECTABLE_OUTPUT_FIELDS</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.constants.get_field_spec" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">get_field_spec</span>
+
+
+<a href="#tit.constants.get_field_spec" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_field_spec</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.constants.FieldSpec" href="#tit.constants.FieldSpec">FieldSpec</a></span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Look up a :class:<code>FieldSpec</code> by its exact field name.</p>
+<h5 id="tit.constants.get_field_spec--raises">Raises<a class="headerlink" href="#tit.constants.get_field_spec--raises" title="Permanent link">&para;</a></h5>
+<p>KeyError
+    If <code>name</code> is not in :data:<code>FIELD_REGISTRY</code>.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/constants.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-361">361</a></span>
+<span class="normal"><a href="#__codelineno-0-362">362</a></span>
+<span class="normal"><a href="#__codelineno-0-363">363</a></span>
+<span class="normal"><a href="#__codelineno-0-364">364</a></span>
+<span class="normal"><a href="#__codelineno-0-365">365</a></span>
+<span class="normal"><a href="#__codelineno-0-366">366</a></span>
+<span class="normal"><a href="#__codelineno-0-367">367</a></span>
+<span class="normal"><a href="#__codelineno-0-368">368</a></span>
+<span class="normal"><a href="#__codelineno-0-369">369</a></span>
+<span class="normal"><a href="#__codelineno-0-370">370</a></span>
+<span class="normal"><a href="#__codelineno-0-371">371</a></span>
+<span class="normal"><a href="#__codelineno-0-372">372</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-361" name="__codelineno-0-361"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_field_spec</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FieldSpec</span><span class="p">:</span>
+<a id="__codelineno-0-362" name="__codelineno-0-362"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Look up a :class:`FieldSpec` by its exact field name.</span>
+<a id="__codelineno-0-363" name="__codelineno-0-363"></a>
+<a id="__codelineno-0-364" name="__codelineno-0-364"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-365" name="__codelineno-0-365"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-366" name="__codelineno-0-366"></a><span class="sd">    KeyError</span>
+<a id="__codelineno-0-367" name="__codelineno-0-367"></a><span class="sd">        If ``name`` is not in :data:`FIELD_REGISTRY`.</span>
+<a id="__codelineno-0-368" name="__codelineno-0-368"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-369" name="__codelineno-0-369"></a>    <span class="k">for</span> <span class="n">spec</span> <span class="ow">in</span> <span class="n">FIELD_REGISTRY</span><span class="p">:</span>
+<a id="__codelineno-0-370" name="__codelineno-0-370"></a>        <span class="k">if</span> <span class="n">spec</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">name</span><span class="p">:</span>
+<a id="__codelineno-0-371" name="__codelineno-0-371"></a>            <span class="k">return</span> <span class="n">spec</span>
+<a id="__codelineno-0-372" name="__codelineno-0-372"></a>    <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown field name: </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.constants.is_valid_pair_count" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">is_valid_pair_count</span>
+
+
+<a href="#tit.constants.is_valid_pair_count" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">is_valid_pair_count</span><span class="p">(</span><span class="n">n</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Is <em>n</em> an allowed electrode-pair (channel) count?</p>
+<p><code>True</code> for even counts of at least <code>MIN_ELECTRODE_PAIRS</code>: 2, 4, 6, 8, …
+Odd counts leave a channel with nothing to beat against, and a single
+pair is tACS, not TI.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/constants.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-437">437</a></span>
+<span class="normal"><a href="#__codelineno-0-438">438</a></span>
+<span class="normal"><a href="#__codelineno-0-439">439</a></span>
+<span class="normal"><a href="#__codelineno-0-440">440</a></span>
+<span class="normal"><a href="#__codelineno-0-441">441</a></span>
+<span class="normal"><a href="#__codelineno-0-442">442</a></span>
+<span class="normal"><a href="#__codelineno-0-443">443</a></span>
+<span class="normal"><a href="#__codelineno-0-444">444</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-437" name="__codelineno-0-437"></a><span class="k">def</span><span class="w"> </span><span class="nf">is_valid_pair_count</span><span class="p">(</span><span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<a id="__codelineno-0-438" name="__codelineno-0-438"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Is *n* an allowed electrode-pair (channel) count?</span>
+<a id="__codelineno-0-439" name="__codelineno-0-439"></a>
+<a id="__codelineno-0-440" name="__codelineno-0-440"></a><span class="sd">    ``True`` for even counts of at least `MIN_ELECTRODE_PAIRS`: 2, 4, 6, 8, …</span>
+<a id="__codelineno-0-441" name="__codelineno-0-441"></a><span class="sd">    Odd counts leave a channel with nothing to beat against, and a single</span>
+<a id="__codelineno-0-442" name="__codelineno-0-442"></a><span class="sd">    pair is tACS, not TI.</span>
+<a id="__codelineno-0-443" name="__codelineno-0-443"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-444" name="__codelineno-0-444"></a>    <span class="k">return</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="n">MIN_ELECTRODE_PAIRS</span> <span class="ow">and</span> <span class="n">n</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
 
 
 

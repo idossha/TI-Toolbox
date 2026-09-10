@@ -13,11 +13,11 @@ graph TD
     *(one-time setup)*`"]
 
     OPT["`**2. Optimization**
-    Flex-search · Ex-search
+    Flex-search · Ex-search · mEx-search
     *(find optimal electrodes)*`"]
 
     SIM["`**3. Simulation**
-    TI (2-pair) · mTI (4-pair)
+    TI (2-pair) · mTI (4+ even pairs)
     *(run FEM simulations)*`"]
 
     ANA["`**4. Analysis**
@@ -51,10 +51,14 @@ graph TD
 ## Quick Start
 
 ```python
+from tit import get_path_manager
 from tit.sim import SimulationConfig, Montage
 from tit.sim import run_simulation, load_montages
 from tit.analyzer import Analyzer
 from tit.opt import FlexConfig, run_flex_search
+
+# Initialize with the container-visible project path
+get_path_manager("/mnt/project")
 
 # Run a simulation
 montages = load_montages(["my_montage"], "GSN-HydroCel-185")
@@ -79,8 +83,8 @@ For a full walkthrough, see the [Getting Started](getting-started.md) guide.
 
 | Step | Module | Description | Guide |
 |------|--------|-------------|-------|
-| 1. Preprocessing | [`tit.pre`](reference/tit/pre/index.md) | DICOM conversion, CHARM head mesh, optional FreeSurfer recon-all | [Preprocessing](pipeline/preprocessing.md) |
-| 2. Optimization | [`tit.opt`](reference/tit/opt/index.md) | Flex-search (differential evolution) and exhaustive search | [Optimization](pipeline/optimization.md) |
+| 1. Preprocessing | [`tit.pre`](reference/tit/pre/index.md) | DICOM conversion, CHARM head mesh, optional FastSurfer deep segmentation | [Preprocessing](pipeline/preprocessing.md) |
+| 2. Optimization | [`tit.opt`](reference/tit/opt/index.md) | Flex-search (differential evolution), exhaustive TI and multipolar exhaustive search | [Optimization](pipeline/optimization.md) |
 | 3. Simulation | [`tit.sim`](reference/tit/sim/index.md) | TI and multi-channel TI (mTI) simulation engine | [Simulation](pipeline/simulation.md) |
 | 4. Analysis | [`tit.analyzer`](reference/tit/analyzer/index.md) | Field analysis with spherical and cortical ROIs | [Analysis](pipeline/analysis.md) |
 | 5. Reporting | [`tit.reporting`](reference/tit/reporting/index.md) | HTML report generation and visualization | [Reporting](pipeline/reporting.md) |

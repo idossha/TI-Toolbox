@@ -6,7 +6,7 @@ permalink: /wiki/notebooks/
 
 # Notebooks
 
-**Notebooks** (⌘6) is a Jupyter environment inside the app, running on **the container's SimNIBS
+**Notebooks** (⌘8) is a Jupyter environment inside the app, running on **the container's SimNIBS
 Python** — the same interpreter every job runs in. `import simnibs`, `from tit import
 get_path_manager`, `from tit.sim import SimulationConfig` all work in a cell with nothing to
 install and nothing to configure.

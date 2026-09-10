@@ -4,7 +4,7 @@ title: Video Tutorials
 permalink: /wiki/video-tutorials/
 ---
 
-Welcome to our collection of video tutorials for the TI-Toolbox. These videos provide step-by-step guidance on using various features and workflows.
+These videos were recorded with v2 and retain useful workflow background, but their interface and launch steps differ from v3. For current setup use [Installation]({{ site.baseurl }}/installation/); for the current app start with [Overview]({{ site.baseurl }}/wiki/overview/).
 
 ## Getting Started
 

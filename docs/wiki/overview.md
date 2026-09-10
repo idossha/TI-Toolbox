@@ -12,6 +12,30 @@ project at once: *what does each subject already have, and what is it ready for?
 <img src="{{ site.baseurl }}/assets/imgs/v3/overview.png" alt="The Overview page: a presence matrix with one row per subject" style="width: 100%; max-width: 1000px;">
 <em>One row per subject; one dot per artefact. The counts on the right are simulations, optimizations and analyses.</em>
 
+## Open and switch projects in Electron
+
+<img src="{{ site.baseurl }}/assets/imgs/v3/welcome.png" alt="The desktop welcome Overview with project directory entry, Browse and the full workflow sidebar" style="width: 100%; max-width: 1000px;">
+<em>Choose a project from the same app shell used for the connected workspace. Project tools become available after opening a project.</em>
+
+The desktop app opens on a welcome Overview with the full labeled workflow sidebar already
+visible. Project tools stay disabled until a project is open. Type your project directory or
+choose **Browse…**, then **Open project**. The welcome page shows launch progress and errors;
+Docker must be running before you open the project.
+
+Once connected, **Switch project** opens a directory form in Overview. Enter or browse to the
+next project, then choose **Switch to project**. Your current project stays open until you
+confirm the switch in the native dialog. Switching stops its container and loads the new
+project's subjects, results, jobs and settings in a fresh session. Save notebook edits and
+wait for notes to finish saving first; unsaved page drafts do not move between projects.
+
+If another TI-Toolbox container is already running, explicitly choose whether to attach to
+that session or recreate it for the requested project. Closing Electron stops/removes its
+container and exits. Browser sessions opened from the CLI remain tied to their running
+container; change projects through the CLI. See [launch options]({{ site.baseurl }}/installation/bash-cli/).
+
+To try the desktop welcome and project switching from source, run `npm run dev` in `desktop/`;
+no executable packaging is required.
+
 ## Project information
 
 The header shows the project name and host path. Storage is measured in the background,
@@ -34,7 +58,7 @@ Each row is a subject, each column an artefact the rest of the toolbox depends o
 | Column | What it means |
 |---|---|
 | **RAW** | A staged/converted anatomical image exists under `sourcedata/` or the BIDS root |
-| **FAST** | FastSurfer segmentation (`derivatives/freesurfer/sub-<id>` written by FastSurfer) |
+| **FAST** | FastSurfer segmentation (`derivatives/fastsurfer/sub-<id>`) |
 | **FREE** | A legacy FreeSurfer `recon-all` output — still read, never produced by v3 |
 | **M2M** | A SimNIBS head model, `derivatives/SimNIBS/sub-<id>/m2m_<id>` |
 | **DWI** / **CT** | Diffusion or CT data present |

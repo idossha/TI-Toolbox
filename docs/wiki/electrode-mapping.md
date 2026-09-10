@@ -10,7 +10,7 @@ The `map_electrodes.py` tool maps optimized electrode positions to the nearest a
 
 ## Usage
 
-The **Flex-Search** montage source and mapping to an EEG net is selected. The same four functions can be used from a script:
+In the Simulator, choose a **Flex** montage source and enable mapping to an EEG net. The same mapping helpers can be used from a script:
 
 ```python
 import os
@@ -122,18 +122,13 @@ This module is called when a flex-search result is simulated with electrodes map
 ## Example Workflow
 
 1. Run flex-search optimization to generate `electrode_positions.json`
-2. Use this tool to map to your specific EEG net:
-   ```bash
-   simnibs_python map_electrodes.py \
-     -i output/electrode_positions.json \
-     -n path/to/your/EEG_net.csv \
-     -o output/electrode_mapping.json \
-     -v
-   ```
+2. Save the Python example above in a script, replace its input/output paths, and run it with
+   `simnibs_python your_mapping_script.py`. The mapping module exposes Python functions; it
+   does not provide `-i` / `-n` / `-o` command-line flags.
 3. Use the mapped positions for simulation or analysis
 
 ## Notes
 
-- If there are more optimized electrodes than available net positions, only the first N electrodes (where N = number of net positions) will be optimally mapped. Extra optimized electrodes will be ignored.
+- If there are more optimized electrodes than available net positions, the assignment can cover only as many electrodes as there are net positions. Inspect the returned indices and ensure every required electrode is mapped before simulation; the selected subset is not necessarily the first N electrodes.
 - Distances are reported in millimeters
 - The tool preserves the channel and array indices from the optimization for downstream processing

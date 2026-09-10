@@ -10,8 +10,8 @@ The removed Qt extension API is retained at the end of this page as historical r
 
 ## Optional tools in v3
 
-Every optional tool is a **panel** you switch on per project in **Settings &#9656; Optional tools**.
-An enabled panel gets its own row in the nav rail; a disabled one is not loaded at all.
+Computational optional tools are **panels** you switch on per project in **Settings &#9656; Optional tools**.
+An enabled panel gets its own row under Extensions in the nav rail. Quick notes is a global drawer opened from the command palette or its shortcut.
 
 <img src="{{ site.baseurl }}/assets/imgs/v3/settings.png" alt="Settings, with the Optional tools card" style="width: 100%; max-width: 1000px;">
 <em>Settings (&#8984;,). Optional tools is a checkbox per panel; the Viewer engine card below it updates Tetravox without updating the toolbox.</em>
@@ -19,13 +19,12 @@ An enabled panel gets its own row in the nav rail; a disabled one is not loaded 
 The panels are [Source]({{ site.baseurl }}/wiki/extension/), [Cluster
 permutation]({{ site.baseurl }}/wiki/cluster-permutation-testing/), [NIfTI group
 averaging]({{ site.baseurl }}/wiki/nifti-group-averaging/), [Nilearn
-visuals]({{ site.baseurl }}/wiki/nilearn-visuals/), [Quick
-notes]({{ site.baseurl }}/wiki/quick-notes/) and the [3D visual
+visuals]({{ site.baseurl }}/wiki/nilearn-visuals/) and the [3D visual
 exporter]({{ site.baseurl }}/wiki/blender/).
 
 Computational tools use the same layout as the main run pages: **inputs on the left**, with
 the **plan and live terminal on the right**. Submitted jobs remain available in that terminal
-after completion and when you return to the page. Source builds EEG forward solutions. Field mapping is an opt-in in each Simulator job’s settings. Quick Notes remains a note editor, not a job runner.
+after completion and when you return to the page. Source builds EEG forward solutions. Field mapping is an opt-in in each Simulator job’s settings. [Quick notes]({{ site.baseurl }}/wiki/quick-notes/) remains an autosaving note drawer, not a job runner.
 
 The 3D visual exporter adds **Scene / Terminal** tabs. Its scene follows the selected export
 type; see the [export preview guide]({{ site.baseurl }}/wiki/blender/#preview-and-export).
@@ -60,7 +59,7 @@ Two former extensions no longer exist as panels: **Electrode Placement** is now 
 
 > **V2 archive (deprecated).** The Qt extension system below was removed with the PyQt GUI in
 > v3.0.0. Panels now live in the [Desktop Application]({{ site.baseurl }}/wiki/desktop-app/)
-> (`desktop/src/renderer/pages/panels/`), each backed by a `tit` job runner.
+> (`desktop/src/renderer/pages/panel-*/`), each backed by a `tit` job runner.
 > These examples are retained for legacy developers; see the [v2 development archive]({{ site.baseurl }}/wiki/v2-development/).
 
 ```

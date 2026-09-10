@@ -3,6 +3,10 @@ site_description: Python API reference for the Temporal Interference Toolbox
 site_url: https://idossha.github.io/TI-Toolbox/api/
 site_dir: ../api
 
+# Generator code is an input, not a downloadable API page.
+exclude_docs: |
+  scripts/
+
 theme:
   name: material
   features:

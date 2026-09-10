@@ -6,7 +6,7 @@ permalink: /wiki/pipelines/
 
 # Pipelines
 
-The **Pipeline** page (⌘5) is a canvas: you place the steps you already run — pre-processing, an
+The **Pipeline** page (⌘7) is a canvas: you place the steps you already run — pre-processing, an
 optimizer, the simulator, the analyzer — wire one step's output into the next step's input, and press
 Run once. The whole graph is submitted as **one job group**, so it appears in Jobs as one thing you
 can watch and cancel as one thing. The same graph exports to a Jupyter notebook that runs the same
@@ -211,7 +211,7 @@ The exported notebook is a real script: run it with **Run All Cells**, or
 jupyter nbconvert --to notebook --execute my-pipeline.ipynb
 ```
 
-Notebook export needs `nbformat`. Both container images bake it in; a bare `pip install tit` needs
+Notebook export needs `nbformat`. The TI-Toolbox image includes it; a bare `pip install tit` needs
 `pip install "tit[pipeline]"`.
 
 ## From Python

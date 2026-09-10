@@ -9,7 +9,7 @@ The Simulator computes the full FEM temporal interference field. It sits between
 ## In the application
 
 <img src="{{ site.baseurl }}/assets/imgs/v3/simulator.png" alt="The Simulator page: one row per simulation job" style="width: 100%; max-width: 1000px;">
-<em>The Simulator (⌘2). One row is one job; the pane beside it draws that montage on the selected subject.</em>
+<em>The Simulator (⌘3). One row is one job; the pane beside it draws that montage on the selected subject.</em>
 
 - **Subject Selection**: Choose from available pre-processed subjects; multiple subjects can be queued for batch processing
 - **Montage Source**: Per-job drop-down — `Montage`, `Flex-Search`, or `Freehand` (see [Montage Sources](#montage-sources))
@@ -47,7 +47,7 @@ Automatic integration with the flex-search optimizer.
 Mode that allows exploration of untraditional montages
 
 - **Flexible Positioning**: Manual electrode placement for specialized protocols
-- **Extension**: Open up the `electrode placement` extension to freely place electrodes on subjects
+- **New placement**: Use the Simulator’s built-in [placement editor]({{ site.baseurl }}/wiki/electrode-placement/) to place electrodes on the subject’s scalp
 
 ### Available EEG Nets
 
@@ -63,9 +63,9 @@ The TI-Toolbox automatically co-registers these EEG electrode nets to head model
 
 ### Unipolar Mode
 
-- **Configuration**: Single active electrode with dedicated return path
-- **Current Settings**: Two current inputs (active and return electrodes)
-- **Applications**: Focal stimulation with clear current flow direction
+- **Configuration**: Two electrode pairs (four electrodes), forming two channels whose slightly different frequencies produce the TI envelope
+- **Current Settings**: One current magnitude per channel; each channel has an active and return electrode
+- **Applications**: Standard two-channel temporal interference stimulation
 - **Montage Compatibility**: Works with unipolar montage collections
 
 ### Multipolar Mode (mTI)
