@@ -183,9 +183,12 @@ def test_workflow_breakdown_and_future_derivatives(tmp_path):
     groups = {row.name: row for row in result.derivatives}
     assert set(groups) == {"SimNIBS"}
     assert {row.name: row.bytes for row in groups["SimNIBS"].children} == {
-        label: len(content)
-        for name, (label, content) in paths.items()
-        if "/SimNIBS/" in name
+        "Leadfields": 0,
+        **{
+            label: len(content)
+            for name, (label, content) in paths.items()
+            if "/SimNIBS/" in name
+        },
     }
     assert groups["SimNIBS"].bytes == sum(
         row.bytes for row in groups["SimNIBS"].children
@@ -214,3 +217,27 @@ def test_clean_groups_merge_inputs_and_hide_internal_storage(tmp_path):
     }
     assert result.other_bytes == 12
     assert result.total_bytes == 24
+
+
+def test_leadfields_and_diffusion_groups_include_working_data(tmp_path):
+    (tmp_path / "derivatives/SimNIBS/sub-101/m2m_101").mkdir(parents=True)
+    for name in [
+        "derivatives/SimNIBS/sub-101/leadfields/field.hdf5",
+        "derivatives/qsiprep/output",
+        "derivatives/.qsiprep_work/temp",
+        "derivatives/qsirecon/output",
+        "derivatives/.qsirecon_work/temp",
+    ]:
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"1234")
+    result = scan_storage(tmp_path, tmp_path / "derivatives")
+    groups = {row.name: row for row in result.derivatives}
+    assert groups["QSIPrep"].bytes == 8
+    assert groups["QSIRecon"].bytes == 8
+    assert {row.name: row.bytes for row in groups["SimNIBS"].children} == {
+        "Leadfields": 4,
+        "Flex search": 0,
+    }
+    assert result.total_bytes == 20
+    assert result.other_bytes == 0

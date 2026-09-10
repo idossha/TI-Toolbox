@@ -11,7 +11,7 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 
 - **Jobs columns fit their content.** Status and resource columns stay compact while Stage uses the remaining space.
 - **Overview shows project context.** Project name/path, background storage totals by derivative,
-  a yearly activity calendar accompany the subject matrix. Storage shows SimNIBS workflow subtotals, reconstruction, merged input data and Other, with a visible scrollbar for longer lists. The activity calendar fills its column.
+  a yearly activity calendar accompany the subject matrix. Storage shows SimNIBS workflow subtotals, leadfields, reconstruction, QSIPrep/QSIRecon, merged input data and Other, with a visible scrollbar for longer lists. The activity calendar fills its column.
 
 - **Saved montages can be removed.** Simulator’s **Manage montages** lists net-based montages
   and subject-specific freehand placements in a fixed-height scrolling list with confirmed

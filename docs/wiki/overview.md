@@ -15,8 +15,9 @@ project at once: *what does each subject already have, and what is it ready for?
 ## Project information
 
 The header shows the project name and host path. Storage is measured in the background,
-with SimNIBS workflow subtotals (head models, Flex/Ex searches and simulations),
-a FreeSurfer/FastSurfer group, and combined raw/source **Input data**.
+with SimNIBS workflow subtotals (head models, Flex/Ex searches, simulations and leadfields),
+FreeSurfer/FastSurfer, QSIPrep and QSIRecon groups, and combined raw/source **Input data**.
+Diffusion totals include their working directories.
 Remaining data is grouped as **Other**, including internal state and viewer scenes.
 The list shows a scrollbar when its contents exceed the available height. These are
 file sizes (symlinks excluded), refreshed at most every five minutes; System reports

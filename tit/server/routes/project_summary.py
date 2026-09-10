@@ -66,8 +66,16 @@ def scan_storage(root: Path, derivatives: Path) -> SummaryStorage:
                                     "flex_search": "Flex search",
                                     "ex_search": "Ex search",
                                     "simulations": "Simulations",
+                                    "leadfields": "Leadfields",
                                 }.get(kind, "Other")
-                                children.setdefault("SimNIBS", Counter())[label] += size
+                                children.setdefault(
+                                    "SimNIBS",
+                                    Counter({"Flex search": 0, "Leadfields": 0}),
+                                )[label] += size
+                            elif folder in ("qsiprep", ".qsiprep_work"):
+                                counts["QSIPrep"] += size
+                            elif folder in ("qsirecon", ".qsirecon_work"):
+                                counts["QSIRecon"] += size
                             elif folder in ("freesurfer", "fastsurfer"):
                                 counts["FreeSurfer / FastSurfer"] += size
                         elif kind in ("raw", "sourcedata"):
@@ -100,7 +108,8 @@ def scan_storage(root: Path, derivatives: Path) -> SummaryStorage:
                                 "Flex search": 1,
                                 "Ex search": 2,
                                 "Simulations": 3,
-                                "Other": 4,
+                                "Leadfields": 4,
+                                "Other": 5,
                             }.get(item[0], 6),
                             item[0],
                         ),
