@@ -15,7 +15,9 @@ project at once: *what does each subject already have, and what is it ready for?
 ## Project information
 
 The header shows the project name and host path. Storage is measured in the background,
-with a breakdown for each derivative directory and the remaining project data. These are
+with workflow categories including head models, simulations, Flex/Ex searches and analyses.
+Unrecognized derivative folders retain their own labels; remaining files appear as other project data.
+The list shows a scrollbar when its contents exceed the available height. These are
 file sizes (symlinks excluded), refreshed at most every five minutes; System reports
 allocated disk usage, which can differ. An incomplete scan is shown as unavailable.
 

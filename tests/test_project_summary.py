@@ -10,7 +10,7 @@ import threading
 from tit.server.routes.project_summary import scan_storage, build_activity, StorageCache
 
 
-def test_storage_sizes_exclude_links_and_include_empty_derivatives(tmp_path):
+def test_storage_sizes_exclude_links_and_omit_empty_derivatives(tmp_path):
     derivatives = tmp_path / "derivatives"
     (derivatives / "SimNIBS").mkdir(parents=True)
     (derivatives / "empty").mkdir()
@@ -26,7 +26,6 @@ def test_storage_sizes_exclude_links_and_include_empty_derivatives(tmp_path):
     assert result.other_bytes == len(raw)
     assert {item.name: item.bytes for item in result.derivatives} == {
         "SimNIBS": len(output),
-        "empty": 0,
     }
 
 
@@ -158,3 +157,27 @@ def test_route_identity_auth_and_single_job_read(tmp_path, monkeypatch):
     )
     assert response.json()["activity"]["history_since"] is None
     assert calls == [1]
+
+
+def test_workflow_breakdown_and_future_derivatives(tmp_path):
+    paths = {
+        "derivatives/SimNIBS/sub-101/m2m_101/head.msh": ("Head models", b"head"),
+        "derivatives/SimNIBS/sub-101/Simulations/run/field.msh": (
+            "Simulations",
+            b"field",
+        ),
+        "derivatives/SimNIBS/sub-101/flex-search/run/result": ("Flex search", b"flex"),
+        "derivatives/SimNIBS/sub-101/ex-search/run/result": ("Ex search", b"ex"),
+        "derivatives/future-extension/result": ("future-extension", b"new"),
+    }
+    for name, (_, content) in paths.items():
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+    result = scan_storage(tmp_path, tmp_path / "derivatives")
+    assert result.state == "ready"
+    assert {row.name: row.bytes for row in result.derivatives} == {
+        label: len(content) for label, content in paths.values()
+    }
+    assert result.total_bytes == sum(len(content) for _, content in paths.values())
+    assert result.other_bytes == 0

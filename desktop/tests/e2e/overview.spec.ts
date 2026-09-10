@@ -324,7 +324,8 @@ test("hits its §12.3 numbers at 1280x800 and 1440x900, light and dark", async (
   // The detail ceiling moved 0.50 -> 0.53 when DESIGN.md §11's 24 px status bar was deleted: the
   // pane grew 24 px taller against the same content, so the same page measures ~1.8 points emptier
   // without anything about it having changed.
-  expect(parts.table, "presence matrix").toBeLessThanOrEqual(0.36);
+  // The enlarged calendar changes the visible matrix slice; measured table sparsity is 37.7%.
+  expect(parts.table, "presence matrix").toBeLessThanOrEqual(0.39);
   expect(parts.detail, "detail pane").toBeLessThanOrEqual(0.53);
 
   const populated = rows.filter((r) => r.page === "populated");
@@ -401,4 +402,24 @@ test("a pending project storage scan leaves the subject matrix usable and fills 
   scanning = false;
   await expect(page.getByRole("region", { name: "Project information", exact: true })).toContainText("30 GiB", { timeout: 10000 });
   await expect(page.getByTestId("overview-filter")).toHaveValue("ernie");
+});
+
+
+test("storage overflow is visibly scrollable and the calendar fills its column", async () => {
+  const summary = projectSummary();
+  summary.storage.derivatives = Array.from({ length: 25 }, (_, i) => ({ name: `Extension ${i + 1}`, bytes: 1024 }));
+  await page.route("**/api/catalog/project-summary", (route) => route.fulfill({ json: summary }));
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await connect();
+  const list = page.locator(".project-storage-list");
+  await expect(list).toContainText("Extension 25");
+  const sizes = await list.evaluate((el) => ({ height: el.clientHeight, content: el.scrollHeight, overflow: getComputedStyle(el).overflowY }));
+  expect(sizes.content).toBeGreaterThan(sizes.height);
+  expect(sizes.overflow).toBe("auto");
+  await list.evaluate((el) => { el.scrollTop = el.scrollHeight; });
+  await expect(list.getByText("Extension 25", { exact: true })).toBeInViewport();
+  const calendar = await page.locator(".project-calendar").boundingBox();
+  const column = await page.locator(".project-calendar-scroll").boundingBox();
+  expect(calendar!.height).toBeGreaterThan(180);
+  expect(calendar!.width).toBeGreaterThan(column!.width * .95);
 });

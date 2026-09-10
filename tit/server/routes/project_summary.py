@@ -13,7 +13,7 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 
-from tit.paths import get_path_manager
+from tit.paths import PathManager, get_path_manager
 from tit.server.routes.project import project
 from tit.server.schemas import ProjectSummary, SummaryStorage
 
@@ -30,6 +30,9 @@ def scan_storage(root: Path, derivatives: Path) -> SummaryStorage:
     try:
         root = root.resolve()
         derivatives = derivatives.resolve()
+        from tit.storage import KIND_LABELS, classify, kind_prefixes
+
+        prefixes = kind_prefixes(PathManager(str(root)))
         stack = [root]
         while stack:
             if time.monotonic() > deadline:
@@ -45,13 +48,14 @@ def scan_storage(root: Path, derivatives: Path) -> SummaryStorage:
                         continue
                     path = Path(entry.path)
                     if entry.is_dir(follow_symlinks=False):
-                        if path.parent == derivatives:
-                            counts[path.name] += 0
                         stack.append(path)
                     elif entry.is_file(follow_symlinks=False):
                         size = entry.stat(follow_symlinks=False).st_size
                         total += size
-                        if path.is_relative_to(derivatives):
+                        kind = classify(str(path), prefixes)
+                        if kind != "other":
+                            counts[KIND_LABELS[kind]] += size
+                        elif path.is_relative_to(derivatives):
                             relative = path.relative_to(derivatives)
                             if len(relative.parts) > 1:
                                 counts[relative.parts[0]] += size
