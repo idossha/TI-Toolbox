@@ -16,7 +16,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import { expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
+import { connectLauncher, expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
 import { expectRunPaneTab, showRunPaneTab } from "./_runPane";
 import { configureMontageJob, jobRows, setJobMontage } from "./_jobs";
 
@@ -33,9 +33,7 @@ test.beforeAll(async () => {
   page = await app.firstWindow();
   await page.setViewportSize({ width: 1280, height: 900 });
   await expect(page).toHaveURL(/^app:\/\/launcher\//);
-  await page.fill("#server-url", SERVER_URL);
-  await page.fill("#token", TOKEN);
-  await page.click("#connect");
+  await connectLauncher(page, SERVER_URL, TOKEN);
   await expect(page.getByTestId("nav-rail")).toBeVisible({ timeout: 20_000 });
   await openPalette(page);
   await page.getByTestId("palette-input").fill("ernie");

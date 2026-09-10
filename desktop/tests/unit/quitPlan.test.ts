@@ -3,7 +3,7 @@
  * "stop" answer cancels them and waits for the server to acknowledge before the runtime dies.
  */
 import { describe, expect, it, vi } from "vitest";
-import { runQuitPlan, type QuitDialog, type QuitPlanDeps } from "../../src/shared/quitPlan";
+import { activeJobIds, runQuitPlan, type QuitDialog, type QuitPlanDeps } from "../../src/shared/quitPlan";
 
 function deps(overrides: Partial<QuitPlanDeps> = {}): QuitPlanDeps & { dialogs: QuitDialog[] } {
   const dialogs: QuitDialog[] = [];
@@ -16,7 +16,6 @@ function deps(overrides: Partial<QuitPlanDeps> = {}): QuitPlanDeps & { dialogs: 
     cancelJob: vi.fn().mockResolvedValue(undefined),
     stopDocker: vi.fn().mockResolvedValue(undefined),
     stopNative: vi.fn().mockResolvedValue(undefined),
-    noteStackLeftRunning: vi.fn(),
     sleep: vi.fn().mockResolvedValue(undefined),
     now: () => 0,
     ...overrides,
@@ -96,16 +95,16 @@ describe("runQuitPlan — the native runtime warns about running jobs too (UI-04
   });
 });
 
-describe("runQuitPlan — the Docker branch keeps its three answers", () => {
+describe("runQuitPlan — Docker shuts down on every approved close", () => {
   it("Cancel keeps the app up", async () => {
     const d = deps({ listRunningJobs: vi.fn().mockResolvedValue(["j1"]), confirm: vi.fn().mockResolvedValue(2) });
     expect(await runQuitPlan({ docker: true, native: false }, d)).toBe(false);
     expect(d.stopDocker).not.toHaveBeenCalled();
   });
 
-  it("keeping the containers running leaves the jobs alone", async () => {
+  it("cancel leaves the jobs alone", async () => {
     const d = deps({ listRunningJobs: vi.fn().mockResolvedValue(["j1"]), confirm: vi.fn().mockResolvedValue(0) });
-    expect(await runQuitPlan({ docker: true, native: false }, d)).toBe(true);
+    expect(await runQuitPlan({ docker: true, native: false }, d)).toBe(false);
     expect(d.cancelJob).not.toHaveBeenCalled();
     expect(d.stopDocker).not.toHaveBeenCalled();
   });
@@ -118,9 +117,60 @@ describe("runQuitPlan — the Docker branch keeps its three answers", () => {
     expect(d.stopDocker).toHaveBeenCalled();
   });
 
-  it("nothing running: the containers are left up and the user is told", async () => {
+  it("nothing running: the container is stopped without a question", async () => {
     const d = deps();
     expect(await runQuitPlan({ docker: true, native: false }, d)).toBe(true);
-    expect(d.noteStackLeftRunning).toHaveBeenCalled();
+    expect(d.stopDocker).toHaveBeenCalled();
+    expect(d.dialogs).toHaveLength(0);
+  });
+});
+
+it("does not approve quitting after a Docker stop error", async () => {
+  const d = deps({ stopDocker: vi.fn().mockRejectedValue(new Error("Docker unavailable")) });
+  await expect(runQuitPlan({ docker: true, native: false }, d)).rejects.toThrow("Docker unavailable");
+});
+
+
+describe("quit job classification", () => {
+  it("counts only running and queued jobs across every API job state", () => {
+    const states = ["queued", "running", "succeeded", "failed", "cancelled", "skipped", "lost"];
+    expect(activeJobIds(states.map((state) => ({ id: state, state })))).toEqual(["queued", "running"]);
+  });
+
+  it("closes without a job warning when the history contains skipped and lost jobs", async () => {
+    const history = ["skipped", "lost", "lost", "skipped", "lost"].map((state, i) => ({ id: String(i), state }));
+    const d = deps({ listRunningJobs: vi.fn().mockResolvedValue(activeJobIds(history)) });
+    expect(await runQuitPlan({ docker: true, native: false }, d)).toBe(true);
+    expect(d.dialogs).toHaveLength(0);
+    expect(d.cancelJob).not.toHaveBeenCalled();
+    expect(d.stopDocker).toHaveBeenCalledOnce();
+  });
+
+  it("rejects malformed responses rather than treating them as an idle server", () => {
+    expect(() => activeJobIds({ jobs: [] })).toThrow("Invalid jobs response");
+    expect(() => activeJobIds([null])).toThrow("Invalid job");
+  });
+});
+
+// The unavailable API fixture pins recovery when a crashed server cannot answer the quit check.
+describe("quit with unavailable job status", () => {
+  it.each([false, true])("explicit approval stops the owned runtime (native=%s)", async (native) => {
+    const d = deps({ listRunningJobs: vi.fn().mockRejectedValue(new Error("connection refused")), confirm: vi.fn().mockResolvedValue(1) });
+    expect(await runQuitPlan({ docker: !native, native }, d)).toBe(true);
+    expect(d.dialogs).toHaveLength(1);
+    expect(d.dialogs[0]).toMatchObject({ message: "Job status is unavailable", defaultId: 0, cancelId: 0 });
+    expect(native ? d.stopNative : d.stopDocker).toHaveBeenCalledOnce();
+    expect(d.cancelJob).not.toHaveBeenCalled();
+  });
+
+  it("cancel preserves the runtime when the job check fails", async () => {
+    const d = deps({ listRunningJobs: vi.fn().mockRejectedValue(new Error("HTTP 500")), confirm: vi.fn().mockResolvedValue(0) });
+    expect(await runQuitPlan({ docker: true, native: false }, d)).toBe(false);
+    expect(d.stopDocker).not.toHaveBeenCalled();
+  });
+
+  it("does not approve quitting when the fallback stop fails", async () => {
+    const d = deps({ listRunningJobs: vi.fn().mockRejectedValue(new Error("connection refused")), confirm: vi.fn().mockResolvedValue(1), stopDocker: vi.fn().mockRejectedValue(new Error("Docker unavailable")) });
+    await expect(runQuitPlan({ docker: true, native: false }, d)).rejects.toThrow("Docker unavailable");
   });
 });

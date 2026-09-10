@@ -19,7 +19,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import { MOD, expectPage, expectSubject, gotoPage, launchElectronApp, openPalette } from "./_helpers";
+import { connectLauncher, MOD, expectPage, expectSubject, gotoPage, launchElectronApp, openPalette } from "./_helpers";
 import { captureScreen, deadSpaceRatio, paneWidths, type PageMetrics } from "./_metrics";
 
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
@@ -58,9 +58,7 @@ async function launchApp(): Promise<void> {
 
 async function connect(): Promise<void> {
   await expect(page).toHaveURL(/^app:\/\/launcher\//);
-  await page.fill("#server-url", SERVER_URL);
-  await page.fill("#token", TOKEN);
-  await page.click("#connect");
+  await connectLauncher(page, SERVER_URL, TOKEN);
   await expect(page).toHaveURL(new URL("/", SERVER_URL).href, { timeout: 20_000 });
   await expect(page.getByTestId("overview-table")).toBeVisible({ timeout: 20_000 });
 }
@@ -306,6 +304,25 @@ test("hits its §12.3 numbers at 1280x800 and 1440x900, light and dark", async (
     }
   }
 
+  // Component density must sample the whole component on screen: elementFromPoint cannot
+  // measure rows clipped below the Overview scroller. The first-screen metrics above deliberately
+  // remain at scrollTop=0; only this separate matrix measurement brings its full box into view.
+  await page.getByTestId("overview-table").scrollIntoViewIfNeeded();
+  const tableVisibility = await page.getByTestId("overview-table").evaluate((table) => {
+    const rect = table.getBoundingClientRect();
+    let top = 0;
+    let bottom = window.innerHeight;
+    for (let ancestor = table.parentElement; ancestor; ancestor = ancestor.parentElement) {
+      if (/(auto|scroll|hidden|clip)/.test(getComputedStyle(ancestor).overflowY)) {
+        const bounds = ancestor.getBoundingClientRect();
+        top = Math.max(top, bounds.top + ancestor.clientTop);
+        bottom = Math.min(bottom, bounds.top + ancestor.clientTop + ancestor.clientHeight);
+      }
+    }
+    return { top: rect.top, bottom: rect.bottom, clipTop: top, clipBottom: bottom };
+  });
+  expect(tableVisibility.top, "matrix top is within its visible clipping bounds").toBeGreaterThanOrEqual(tableVisibility.clipTop);
+  expect(tableVisibility.bottom, "matrix bottom is within its visible clipping bounds").toBeLessThanOrEqual(tableVisibility.clipBottom);
   const parts = {
     table: (await deadSpaceRatio(page, '[data-testid="overview-table"]')).ratio,
     detail: (await deadSpaceRatio(page, '[data-testid="overview-detail"]')).ratio,
@@ -324,7 +341,7 @@ test("hits its §12.3 numbers at 1280x800 and 1440x900, light and dark", async (
   // The detail ceiling moved 0.50 -> 0.53 when DESIGN.md §11's 24 px status bar was deleted: the
   // pane grew 24 px taller against the same content, so the same page measures ~1.8 points emptier
   // without anything about it having changed.
-  // The enlarged calendar changes the visible matrix slice; measured table sparsity is 37.7%.
+  // Measure the full visible matrix independently of the height of the project summary above it.
   expect(parts.table, "presence matrix").toBeLessThanOrEqual(0.39);
   expect(parts.detail, "detail pane").toBeLessThanOrEqual(0.53);
 

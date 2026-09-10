@@ -9,6 +9,29 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 ---
 ### v3.0.0 (Unreleased)
 
+- **Preview the desktop launcher before packaging.** `npm run dev` opens the actual
+  Overview project picker from a local build, with automatic session startup disabled.
+
+- **Interactive loaders welcome users before setup.** A short introduction restores the
+  toolbox context and UW–Madison attribution before asking for a project directory.
+
+- **Container prompts are simpler.** Terminal launchers show image references and a separate actions section offering Recreate
+  (the Enter default) or Attach, without Docker IDs or generated container names.
+
+- **Open and switch projects from Overview.** The desktop app embeds the project path and folder
+  picker in a welcoming Overview. The full labeled navigation is visible before opening a
+  project, with project tools disabled until connected. Switch project lets you select the next directory before
+  confirming shutdown, then refreshes the app with that project’s data;
+  closing the app stops its container and exits Electron.
+
+- **Quit warnings count only running and queued jobs.** Historical skipped or lost jobs no longer
+  trigger a false active-job warning when closing the desktop app. If the server cannot report jobs,
+  an explicit stop-and-quit choice still lets users close its runtime.
+
+- **Launchers ask before reusing a container.** Choose a running TI-Toolbox session and explicitly
+  attach or replace it using the requested project configuration. Regular CLI opens the browser by default; use `--desktop` for Electron.
+  Closing Electron stops its session.
+
 - **Jobs columns fit their content.** Status and resource columns stay compact while Stage uses the remaining space.
 - **Overview shows project context.** Project name/path, background storage totals by derivative,
   a yearly activity calendar accompany the subject matrix. Storage shows SimNIBS workflow subtotals, leadfields, reconstruction, QSIPrep/QSIRecon, merged input data and Other, with a visible scrollbar for longer lists. The activity calendar fills its column.

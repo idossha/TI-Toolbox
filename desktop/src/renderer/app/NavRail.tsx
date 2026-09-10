@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import { ChevronDown, ChevronRight, Puzzle } from "lucide-react";
 import { pageById, pagePath, useNavSections, type ResolvedPage } from "./registry";
 import { isMac } from "./keyboard";
+import { isProjectHome } from "../env";
 import { Tooltip } from "../ui/Overlay";
 
 /**
@@ -127,7 +128,13 @@ function ExtensionsNav({
       >
         {pages.map((page) => {
           const Icon = page.icon;
-          const row = (
+          const row = isProjectHome ? (
+            <span role="link" aria-disabled="true" title="Open a project to use this tool"
+              className={icons ? "nav-item nav-extension-icon" : "nav-subitem"} data-testid={`nav-item-${page.id}`}>
+              {icons && <Icon size={16} aria-hidden />}
+              <span className="nav-label">{page.title}</span>
+            </span>
+          ) : (
             <NavLink
               to={pagePath(page)}
               className={icons ? "nav-item nav-extension-icon" : "nav-subitem"}
@@ -161,7 +168,7 @@ export function NavRail() {
   // A page may still force the icon rail where labels would fit (`PageDef.railMode`); nothing does
   // today, and the width rule above is why.
   const forced = pageById(location.pathname.replace(/^\//, "").split("/")[0] ?? "")?.railMode === "icons";
-  const icons = forced || !labelled;
+  const icons = !isProjectHome && (forced || !labelled);
   const activePageId = location.pathname.replace(/^\//, "").split("/")[0] ?? "";
 
   const [collapsed, setCollapsed] = useState<string[]>(readCollapsed);
@@ -205,7 +212,13 @@ export function NavRail() {
               // the user is on "Menu", so two rows would be lit for one page. The group is not the
               // page — it is the thing the page is inside. It gets `data-contains-active`, which
               // `shell.css` renders as a quiet mark, and never the page highlight.
-              const row: ReactElement = hasSubs ? (
+              const row: ReactElement = isProjectHome && page.id !== "overview" ? (
+                <span role="link" aria-disabled="true" title="Open a project to use this tool"
+                  className="nav-item" aria-label={page.title} data-testid={`nav-item-${page.id}`}>
+                  <Icon size={16} aria-hidden />
+                  <span className="nav-label">{page.title}</span>
+                </span>
+              ) : hasSubs ? (
                 <Link
                   to={pagePath(page)}
                   className="nav-item"
@@ -239,7 +252,12 @@ export function NavRail() {
               // reached from the page itself and from the palette, which both still list them.
               const subs = hasSubs ? (
                 <div className="nav-subitems" id={listId} key={`${page.id}-subs`} hidden={isCollapsed}>
-                  {page.subNav!.map((sub) => (
+                  {page.subNav!.map((sub) => isProjectHome ? (
+                    <span key={sub.id} role="link" aria-disabled="true" title="Open a project to use this tool"
+                      className="nav-subitem" data-testid={`nav-subitem-${page.id}-${sub.id}`}>
+                      <span className="nav-label">{sub.title}</span>
+                    </span>
+                  ) : (
                     <NavLink
                       key={sub.id}
                       to={`/${page.id}/${sub.id}`}

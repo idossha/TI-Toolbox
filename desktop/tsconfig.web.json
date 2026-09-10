@@ -45,6 +45,7 @@
     // directly in tests/unit/docker-stack.test.ts — same reason again, plus its two remaining
     // main/-local imports.
     "src/main/stack.ts",
+    "src/main/launcher.ts",
     "src/main/hostInfo.ts",
     // viewer.ts (V2/V3) is unit-tested directly (tests/unit/viewer-launch.test.ts) — its exported
     // helpers are pure and import nothing from "electron", same rationale as window.ts above.

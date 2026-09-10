@@ -28,11 +28,11 @@ function Unauthenticated() {
       <h2 className="text-section">Not authenticated</h2>
       <p className="text-body" style={{ color: "var(--ink-2)" }}>
         The server rejected the session.{" "}
-        {isElectron ? "Return to the launcher and connect again with a valid token." : "Open the tokenized URL printed by the server."}
+        {isElectron ? "Return to Overview and open your project again." : "Open the tokenized URL printed by the server."}
       </p>
       {isElectron && (
         <Button variant="primary" onClick={() => void window.tit!.connect()}>
-          Back to launcher
+          Back to Overview
         </Button>
       )}
     </div>

@@ -28,7 +28,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import { gotoPage, launchElectronApp } from "./_helpers";
+import { connectLauncher, gotoPage, launchElectronApp } from "./_helpers";
 
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
 const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
@@ -71,9 +71,7 @@ let page: Page;
 
 async function connect(target: Page): Promise<void> {
   await expect(target).toHaveURL(/^app:\/\/launcher\//);
-  await target.fill("#server-url", SERVER_URL);
-  await target.fill("#token", TOKEN);
-  await target.click("#connect");
+  await connectLauncher(target, SERVER_URL, TOKEN);
   await expect(target).toHaveURL(new URL("/", SERVER_URL).href, { timeout: 20_000 });
   await expect(target.getByTestId("nav-rail")).toBeVisible({ timeout: 20_000 });
 }

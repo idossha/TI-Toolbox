@@ -77,3 +77,6 @@ dev/telemetry/dashboard/.env
 
 # Installed JavaScript dependencies are rebuilt locally, never committed.
 node_modules/
+
+# Local review surfaces are transient; durable decisions belong in docs/dev.
+.lavish/

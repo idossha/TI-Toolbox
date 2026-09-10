@@ -23,18 +23,14 @@ if (REPO / "tit" / "launch.py").is_file() and str(REPO) not in sys.path:
 DEV_EPILOG = """\
 examples:
   python dev/loader/loader_dev.py --project ~/datasets/000     start (or attach), open the UI
-  python dev/loader/loader_dev.py --project ~/datasets/000 --status | --logs | --stop
   python dev/loader/loader_dev.py --build                      build the image, then exit
   python dev/loader/loader_dev.py --web                        hand over to `npm run dev:web`
 
 developer options (the user loader has none of these):
   --build          build idossha/ti-toolbox:<tag> from this checkout, then exit
-                   (container/blueprint/build.sh; 30-60+ min, longer under emulation)
-  --web            container + Vite with HMR at http://127.0.0.1:5173/, via
-                   `npm run dev:web`. Needs `npm --prefix desktop install` first.
+  --web            container + Vite with HMR at http://127.0.0.1:5173/, via `npm run dev:web`.
   --no-mount-repo  run the image's own `tit` instead of this worktree's
-
-Without --web the dev container starts from Python alone: no Node, no Electron.
+Without --web: browser UI, Python and Docker only.
 """
 
 
@@ -53,6 +49,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-mount-repo", action="store_true", help=argparse.SUPPRESS)
     arguments = argv if argv is not None else sys.argv[1:]
     args = parser.parse_args(arguments)
+    args.dev_loader = True
     result = prepare_launch(args, arguments)
     if result is not None:
         return result
@@ -120,6 +117,8 @@ def run_npm_dev_web(args) -> int:
     if args.port:
         env["TIT_DEV_PORT"] = str(args.port)
     env["TIT_DEV_IMAGE_TAG"] = image.rsplit(":", 1)[-1]
+    env["TIT_LAUNCH_EXISTING"] = args.existing or ""
+    env["TIT_LAUNCH_CONTAINER"] = args.container or ""
     env["TIT_DEV_MOUNT_REPO"] = "0" if args.no_mount_repo else "1"
     print("[dev] npm run dev:web (desktop/scripts/dev.ts)")
     return subprocess.run(

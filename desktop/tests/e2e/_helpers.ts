@@ -3,6 +3,14 @@ import { tmpdir } from "node:os";
 import { isAbsolute, join, parse } from "node:path";
 import { _electron as electron, expect, type ElectronApplication, type Locator, type Page } from "@playwright/test";
 
+import type { TitConnectResult } from "../../src/shared/tit-bridge";
+
+/** Connect test servers through the existing launcher IPC without adding developer fields to the UI. */
+export async function connectLauncher(page: Page, url: string, token: string): Promise<TitConnectResult> {
+  await page.locator("#project-dir").waitFor({ state: "visible" });
+  return page.evaluate(({ url, token }) => window.tit!.connect({ url, token }), { url, token });
+}
+
 /** The repository root Electron is pointed at (desktop/, whose package.json "main" is out/main). */
 const APP_ROOT = join(__dirname, "..", "..");
 
@@ -235,8 +243,7 @@ export async function expectSubject(page: Page, id: string): Promise<void> {
 
 /**
  * Connects the launcher to a real (non-mock) server and waits for the shell to render subjects.
- * Every real spec starts here so the connect dance (`launcher.spec.ts`'s own inline version)
- * exists exactly once — a change to the launcher's field ids only needs updating here.
+ * Every real spec starts here; authentication uses the same IPC as the desktop launcher.
  */
 export async function connectReal(page: Page, opts: { url?: string; token?: string } = {}): Promise<void> {
   const url = opts.url ?? process.env.TIT_E2E_SERVER_URL;
@@ -245,9 +252,7 @@ export async function connectReal(page: Page, opts: { url?: string; token?: stri
     throw new Error("connectReal needs TIT_E2E_SERVER_URL and TIT_E2E_TOKEN (or url/token options)");
   }
   await expect(page).toHaveURL(/^app:\/\/launcher\//);
-  await page.fill("#server-url", url);
-  await page.fill("#token", token);
-  await page.click("#connect");
+  await connectLauncher(page, url, token);
   await expect(page).toHaveURL(new URL("/", url).href, { timeout: 30_000 });
   await expect(page.getByTestId("nav-rail")).toBeVisible({ timeout: 30_000 });
 }

@@ -110,7 +110,7 @@ export async function startFakeEngineApi(opts = {}) {
     const server = createServer((req, res) => {
       const url = new URL(req.url, "http://127.0.0.1");
       if (url.pathname === "/api/health") return writeJson(res, 200, { status: "ok", uptime_s: 1 });
-      if (url.pathname === "/api/jobs") return writeJson(res, 200, []);
+      if (url.pathname === "/api/jobs") return writeJson(res, 200, opts.jobs ?? []);
       if (url.pathname === "/api/version") {
         if ((req.headers.authorization || "") !== `Bearer ${token}`) return writeJson(res, 401, { detail: "Unauthorized" });
         return writeJson(res, 200, { tit_version: "fake", server_api: "v1", schema_hash: "", python: "fake", simnibs: "fake" });

@@ -1,12 +1,12 @@
 /** Actual StackManager attach branch against synthetic Docker replies; no Docker or window. */
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as discovery from "../../src/main/docker/discover";
 import { DockerEngineClient } from "../../src/main/docker/engine";
 import { StackApi, type ContainerState } from "../../src/main/docker/stackApi";
-import { StackManager, type StackHost } from "../../src/main/stack";
+import { StackManager, isToolboxContainer, type StackHost } from "../../src/main/stack";
 import { LABEL_HOST_DIR } from "../../src/shared/compose";
 
 let root: string;
@@ -33,77 +33,78 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
-describe("image pairing on attach", () => {
-  it("uses Config.Image rather than the list's resolved image ID", async () => {
-    const manager = new StackManager(host);
-    expect(await manager.start(root)).toMatchObject({ ok: true, attached: true });
-    expect(manager.getCurrent()?.image).toBe(state.image);
+describe("explicit running-container selection", () => {
+  it("invalid replacement YAML leaves the selected container running", async () => {
+    host.chooseRunningContainer = vi.fn().mockResolvedValue({ action: "replace", containerId: "existing" });
+    writeFileSync(join(root, "docker-compose.yml"), "services: [invalid");
+    const stop = vi.spyOn(DockerEngineClient.prototype, "stopContainer");
+    expect(await new StackManager(host).start(root)).toMatchObject({ ok: false });
+    expect(stop).not.toHaveBeenCalled();
     expect(StackApi.prototype.removeContainerById).not.toHaveBeenCalled();
   });
 
-  it.each([{}, { requireMatch: true, forceRecreate: true }])("refuses an old cohort without removing it, options %j", async (options) => {
-    state.image = "idossha/ti-toolbox:internal-old";
-    const result = await new StackManager(host).start(root, options);
-    expect(result).toMatchObject({ ok: false, error: expect.stringContaining("requires idossha/ti-toolbox:internal-fixture") });
-    expect(result).toMatchObject({ error: expect.stringContaining("Wait for its jobs to finish") });
+  it("cancels without inspecting, removing or reconnecting", async () => {
+    host.chooseRunningContainer = vi.fn().mockResolvedValue(null);
+    expect(await new StackManager(host).start(root)).toMatchObject({ ok: false, error: expect.stringContaining("cancelled") });
+    expect(StackApi.prototype.inspect).not.toHaveBeenCalled();
     expect(StackApi.prototype.removeContainerById).not.toHaveBeenCalled();
-    expect(StackApi.prototype.createContainer).not.toHaveBeenCalled();
     expect(host.waitForHealth).not.toHaveBeenCalled();
   });
 
-  it("accepts an explicit dev tag and preserves the existing dev attachment", async () => {
-    state.image = "idossha/ti-toolbox:dev";
-    expect(await new StackManager(host).start(root, { imageTag: "dev", requireMatch: true })).toMatchObject({ ok: true, attached: true });
+  it("requires a choice even when no host prompt is configured", async () => {
+    expect(await new StackManager(host).start(root)).toMatchObject({ ok: false });
     expect(StackApi.prototype.removeContainerById).not.toHaveBeenCalled();
   });
 
-  it("honours ambient image override in the same way as fresh creation", async () => {
-    vi.stubEnv("TIT_IMAGE_TAG", "dev");
-    state.image = "idossha/ti-toolbox:dev";
-    expect(await new StackManager(host).start(root)).toMatchObject({ ok: true, attached: true });
+  it("attaches the explicitly selected different project and image without replacement", async () => {
+    host.chooseRunningContainer = vi.fn().mockResolvedValue({ action: "attach", containerId: "existing" });
+    state.image = "idossha/ti-toolbox:older";
+    state.labels[LABEL_HOST_DIR] = "/other/project";
+    const manager = new StackManager(host);
+    expect(await manager.start(root, { requireMatch: true, forceRecreate: true })).toMatchObject({ ok: true, attached: true });
+    expect(manager.getCurrent()).toMatchObject({ image: state.image, hostProjectDir: "/other/project" });
+    expect(StackApi.prototype.listContainers).toHaveBeenCalledWith({});
+    expect(StackApi.prototype.removeContainerById).not.toHaveBeenCalled();
   });
 
-  it("accepts an exact digest reference configured in compose", async () => {
-    state.image = "idossha/ti-toolbox@sha256:" + "b".repeat(64);
-    writeFileSync(join(root, "docker-compose.yml"), `services:\n  tit:\n    image: ${state.image}\n`);
-    expect(await new StackManager(host).start(root)).toMatchObject({ ok: true, attached: true });
+  it("only removes the explicitly selected candidate on replacement", async () => {
+    host.chooseRunningContainer = vi.fn().mockResolvedValue({ action: "replace", containerId: "existing" });
+    vi.mocked(StackApi.prototype.listContainers).mockResolvedValue([
+      { Id: "other", Names: ["/ti-toolbox-other"], Image: "idossha/ti-toolbox:dev", State: "running", Status: "Up", Labels: {} },
+      { Id: "existing", Names: ["/ti-toolbox-selected"], Image: "idossha/ti-toolbox:dev", State: "running", Status: "Up", Labels: {} },
+    ]);
+    writeFileSync(join(root, "docker-compose.yml"), readFileSync(join(__dirname, "../../../docker-compose.yml")));
+    vi.spyOn(DockerEngineClient.prototype, "stopContainer").mockResolvedValue(undefined);
+    await new StackManager(host).start(root);
+    expect(DockerEngineClient.prototype.stopContainer).toHaveBeenCalledExactlyOnceWith("existing", 10);
+    expect(StackApi.prototype.removeContainerById).toHaveBeenCalledExactlyOnceWith("existing");
+    expect(host.waitForHealth).not.toHaveBeenCalled();
+  });
+
+  it("leaves a legacy container unchanged when it has no server credentials", async () => {
+    host.chooseRunningContainer = vi.fn().mockResolvedValue({ action: "attach", containerId: "existing" });
+    delete state.env.TIT_SERVER_TOKEN;
+    expect(await new StackManager(host).start(root)).toMatchObject({ ok: false, error: expect.stringContaining("port and token") });
+    expect(StackApi.prototype.removeContainerById).not.toHaveBeenCalled();
+  });
+
+  it("adopts an already selected dev container without a second prompt", async () => {
+    host.chooseRunningContainer = vi.fn();
+    const manager = new StackManager(host);
+    expect(await manager.adopt("existing")).toMatchObject({ ok: true, attached: true });
+    expect(manager.getCurrent()?.containerId).toBe("existing");
+    expect(host.chooseRunningContainer).not.toHaveBeenCalled();
   });
 });
 
+it("does not offer sibling preprocessing services even when they carry project labels", () => {
+  expect(isToolboxContainer({ Id: "sibling", Names: ["/ti-toolbox-qsiprep"], Image: "pennlinc/qsiprep", State: "running", Status: "Up", Labels: { [LABEL_HOST_DIR]: root, "tit.service": "qsiprep" } })).toBe(false);
+});
 
-describe("dev recreation preserves work", () => {
-  const options = { requireMatch: true, repoDir: "/current/checkout", serverReload: true };
-
-  it.each([
-    ["running", [{ id: "run", kind: "sim", state: "running" }]],
-    ["unknown state", [{ id: "run", kind: "sim", state: "cancelling" }]],
-    ["invalid body", { detail: "Unauthorized" }],
-    ["invalid job", [{}]],
-  ])("does not remove a mismatched container with %s", async (_name, body) => {
-    vi.mocked(host.fetchJson).mockResolvedValue(body);
-    expect(await new StackManager(host).start(root, options)).toMatchObject({ ok: false });
-    expect(StackApi.prototype.removeContainerById).not.toHaveBeenCalled();
-  });
-
-  it("does not remove a mismatched container when the jobs request times out", async () => {
-    vi.mocked(host.fetchJson).mockRejectedValue(new Error("timeout"));
-    expect(await new StackManager(host).start(root, options)).toMatchObject({ ok: false, error: expect.stringContaining("left unchanged") });
-    expect(StackApi.prototype.removeContainerById).not.toHaveBeenCalled();
-  });
-
-  it("does not remove a mismatched container when credentials are missing", async () => {
-    delete state.env.TIT_SERVER_TOKEN;
-    expect(await new StackManager(host).start(root, options)).toMatchObject({ ok: false, error: expect.stringContaining("left unchanged") });
-    expect(StackApi.prototype.removeContainerById).not.toHaveBeenCalled();
-    expect(host.fetchJson).not.toHaveBeenCalled();
-  });
-
-  it("recreates a stale checkout only after verifying it is idle", async () => {
-    vi.mocked(host.fetchJson).mockResolvedValue([]);
-    vi.mocked(StackApi.prototype.removeContainerById).mockResolvedValue(undefined);
-    vi.spyOn(StackApi.prototype, "imageExists").mockRejectedValue(new Error("stop before creation"));
-    await new StackManager(host).start(root, options);
-    expect(host.fetchJson).toHaveBeenCalled();
-    expect(StackApi.prototype.removeContainerById).toHaveBeenCalledWith("existing", true);
-  });
+it("keeps container ownership when Docker cannot stop it", async () => {
+  const manager = new StackManager(host);
+  await manager.adopt("existing");
+  vi.spyOn(DockerEngineClient.prototype, "stopContainer").mockRejectedValue(new Error("engine unavailable"));
+  expect(await manager.stop()).toMatchObject({ ok: false });
+  expect(manager.getCurrent()?.containerId).toBe("existing");
 });

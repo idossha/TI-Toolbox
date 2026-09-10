@@ -51,6 +51,8 @@ export interface FakeEngineApiOptions {
   autoExit?: boolean;
   /** Listen on the started container's own `TIT_SERVER_PORT` and answer like `tit.server`. */
   serveTitServer?: boolean;
+  /** Job states exposed by the fake server for shutdown confirmation scenarios. */
+  jobs?: Array<{ id: string; state: string }>;
   /** Report a Podman-flavoured `/version` (the unsupported-engine path). */
   podman?: boolean;
   /** Override the reported `ApiVersion` (the too-old-engine path). */

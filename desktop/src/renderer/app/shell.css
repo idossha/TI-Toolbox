@@ -489,3 +489,9 @@
 .nav-subitems[hidden] {
   display: none;
 }
+
+/* Welcome shows the tool map before a project is open, without enabling backend routes. */
+.nav-item[aria-disabled="true"], .nav-subitem[aria-disabled="true"] {
+  color: var(--ink-2);
+  cursor: default;
+}

@@ -14,7 +14,7 @@
  * worth drawing and the form entirely usable, so it is a sentence under the stage, not a state.
  */
 import { expect, test, type Page } from "@playwright/test";
-import { gotoPage, launchElectronApp, selectSubject } from "./_helpers";
+import { connectLauncher, gotoPage, launchElectronApp, selectSubject } from "./_helpers";
 
 const SERVER = process.env.TIT_E2E_SERVER_URL!;
 const TOKEN = process.env.TIT_E2E_TOKEN!;
@@ -33,9 +33,7 @@ for (const endpoint of ["manifest", "surface"] as const) {
         if (allowSuccess) return route.continue();
         return route.fulfill({ status: 500, json: { detail: `Synthetic ${endpoint} read failed` } });
       });
-      await page.fill("#server-url", SERVER);
-      await page.fill("#token", TOKEN);
-      await page.click("#connect");
+      await connectLauncher(page, SERVER, TOKEN);
       await expect(page.getByTestId("nav-rail")).toBeVisible();
       await selectSubject(page, "ernie");
       await gotoPage(page, "optimizer");

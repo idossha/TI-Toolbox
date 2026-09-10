@@ -534,3 +534,55 @@ the existing deletion endpoints and extension routes; partial deletion failures 
 project-summary endpoint. **Why:** Recursive storage scans must not delay the subject matrix.
 The calendar counts job submissions by UTC day; filesystem timestamps do not establish project
 creation or access history. File-size totals are distinct from System's allocated disk usage.
+
+
+## 2026-09-09 — Explicit container selection and browser-first terminal launch
+
+**Decision:** Terminal loaders open the browser by default; `--desktop` explicitly delegates to
+Electron. Every Docker launcher asks before using a running TI-Toolbox session, including another
+project's session. Attach preserves its actual project/image/mounts; Recreate replaces only the
+selected session from the requested Compose configuration. Noninteractive calls require an explicit
+decision and an unambiguous selection. **Why:** Implicit reconnect and idle configuration replacement
+hide consequential session choices. The initially proposed Electron CLI default was reversed because
+terminal users can use the same scientific backend through their browser. This supersedes implicit
+reuse/recreation in “Explicit loader and development modes”; source mounts and Python-free Bash remain.
+
+**Prompt:** Display image repository/version references with a separate actions section, Recreate as
+the Enter default and Attach second. This incorporates the later display refinement from generated
+container names to image references. EOF, Ctrl-C and invalid input do not authorize replacement.
+A short introduction precedes setup, and the consequence line explains that recreation stops jobs.
+Executable coverage is mapped in [TESTING](TESTING.md#launcher-lifecycle-checks).
+
+## 2026-09-09 — Overview owns project selection and desktop lifetime
+
+**Decision:** Welcome Overview contains the editable path, native picker and Open action within the
+normal app shell, including the full navigation with disconnected project tools disabled. There is
+no separate user-facing launcher or server/token form. Switch project collects and validates the
+new path and Compose plan before native confirmation and shutdown; cancellation preserves the
+current project. Navigation to the new session clears project state while preserving machine
+preferences. **Why:** One application gives users context before opening data and lets them change
+projects without an intermediate launcher. This supersedes the earlier separate-launcher and
+close-to-launcher proposals and the initial return-home switch flow.
+
+Electron stops/removes the session it started or explicitly adopted when its window closes or Quit
+is chosen, then exits on every OS; it does not stop manually connected remote servers. Failed shutdown
+keeps the app open with an error. Named volumes and project files remain. Browser sessions remain
+persistent until explicitly stopped. Successful CLI desktop completion returns the shell with a
+closure message; errors preserve failure status. See [ARCHITECTURE](ARCHITECTURE.md#launch-modes)
+for the current contract and [TESTING](TESTING.md#launcher-lifecycle-checks) for its coverage limits.
+
+## 2026-09-09 — Desktop development uses the same welcome flow
+
+**Decision:** `npm run dev` builds and opens welcome Overview without requiring project configuration
+or starting Docker. A failed build prevents launch. `dev:web` retains Vite hot reload and
+`dev:launcher` remains an alias. **Why:** Developers must be able to test the desktop project workflow
+before packaging through the ordinary development command. See [CONTRIBUTING](../../CONTRIBUTING.md)
+for commands; real packaged lifecycle acceptance remains in [ROADMAP](ROADMAP.md).
+
+## 2026-09-09 — Consolidate development records by purpose
+
+**Decision:** Accepted requirements live in ARCHITECTURE, rationale in this log, verification and
+limits in TESTING, and open work in ROADMAP. **Why:** The maintainer requires
+one authoritative home per topic; accumulating dated request files duplicates current behavior and
+leaves superseded proposals looking actionable. Dates remain useful within the decision log rather
+than as a parallel development-document hierarchy.

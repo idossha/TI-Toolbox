@@ -2,7 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import { gotoPage, launchElectronApp } from "./_helpers";
+import { connectLauncher, gotoPage, launchElectronApp } from "./_helpers";
 import { showRunPaneTab } from "./_runPane";
 
 let app: ElectronApplication;
@@ -12,9 +12,7 @@ test.beforeEach(async () => {
   app = await launchElectronApp({ userDataDir: mkdtempSync(join(tmpdir(), "tit-portrait-")) });
   page = await app.firstWindow();
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.fill("#server-url", process.env.TIT_E2E_SERVER_URL!);
-  await page.fill("#token", process.env.TIT_E2E_TOKEN!);
-  await page.click("#connect");
+  await connectLauncher(page, process.env.TIT_E2E_SERVER_URL!, process.env.TIT_E2E_TOKEN!);
   await expect(page.getByTestId("overview-table")).toBeVisible();
   await gotoPage(page, "optimizer", "Optimizer");
 });

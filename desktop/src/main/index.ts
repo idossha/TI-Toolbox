@@ -1,10 +1,11 @@
 import { existsSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { stat, writeFile } from "node:fs/promises";
+import { basename, isAbsolute, join, resolve, sep } from "node:path";
+import { pathToFileURL } from "node:url";
 import { app, BrowserWindow, Notification, dialog, ipcMain, net, protocol, session, shell } from "electron";
 import { initLog, log } from "./log";
 import { readSettings, updateSettings } from "./settings";
-import { LAUNCHER_HTML, LAUNCHER_JS, LAUNCHER_ORIGIN } from "./launcher";
+import { LAUNCHER_ORIGIN } from "./launcher";
 import { checkToken, waitForHealth } from "./health";
 import { nativeRuntime, resolveRuntime } from "./nativeRuntime";
 import { stack } from "./stackHost";
@@ -19,7 +20,7 @@ import {
   type ProjectMount,
 } from "../shared/paths";
 import { createQuitGate } from "../shared/quitGate";
-import { runQuitPlan } from "../shared/quitPlan";
+import { activeJobIds, runQuitPlan } from "../shared/quitPlan";
 import { mayShowSystemUi, windowMode } from "./window";
 import type {
   TitConnectArgs,
@@ -121,8 +122,9 @@ async function connect(win: BrowserWindow, args: TitConnectArgs): Promise<TitCon
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
   updateSettings({ lastServerUrl: url.origin });
+  delete process.env.TIT_DEV_PROJECT_DIR;
   // In dev the page comes from Vite (HMR) which proxies /api, /auth and /ws to the server.
-  const pageOrigin = process.env.ELECTRON_RENDERER_URL ? new URL(process.env.ELECTRON_RENDERER_URL).origin : url.origin;
+  const pageOrigin = process.env.ELECTRON_RENDERER_URL && !(!app.isPackaged && process.env.TIT_DEV_LAUNCHER === "1") ? new URL(process.env.ELECTRON_RENDERER_URL).origin : url.origin;
   serverOrigin = pageOrigin;
   activeSession = { origin: url.origin, token: args.token };
   projectRootCache = null; // A new session may point at a different project.
@@ -164,6 +166,7 @@ function resolveNativeStaticDir(): string | undefined {
  * suite) this is a no-op and `showLauncher` runs exactly as before, Docker button included.
  */
 async function tryNativeAutoStart(win: BrowserWindow): Promise<boolean> {
+  if (!app.isPackaged && process.env.TIT_DEV_LAUNCHER === "1") return false;
   const projectDir = process.env.TIT_NATIVE_PROJECT_DIR;
   if (!projectDir) return false;
   if (!resolveRuntime().ok) return false;
@@ -182,16 +185,33 @@ async function tryNativeAutoStart(win: BrowserWindow): Promise<boolean> {
 
 /**
  * `npm run dev` (scripts/dev.ts) has already brought the container up, recovered its token and
- * started Vite with that token stamped onto every proxied request. The launcher form's whole job is
- * to ask for a URL and a token — both of which are in this process's environment — so showing it
- * would mean the developer typing in what their own dev script just worked out (P2). Connect
- * straight away instead.
+ * started Vite with that token stamped onto every proxied request. Explicit host/dev handoffs
+ * connect directly; the default desktop development mode opens Overview first.
  *
  * Unpackaged only. A packaged app must never be steerable into an arbitrary server by an
  * environment variable a user's shell happens to carry, and `TIT_DEV_SERVER_URL` is a name a
  * developer might well leave exported.
  */
 async function tryDevAutoConnect(win: BrowserWindow): Promise<boolean> {
+  if (!app.isPackaged && process.env.TIT_DEV_LAUNCHER === "1") return false;
+  const containerId = process.env.TIT_LAUNCH_CONTAINER_ID;
+  const projectDir = process.env.TIT_LAUNCH_PROJECT_DIR;
+  if (containerId || projectDir) {
+    try {
+      const result = containerId ? await stack.adopt(containerId) : await stack.start(projectDir!, { ...(process.env.TIT_LAUNCH_IMAGE ? { image: process.env.TIT_LAUNCH_IMAGE } : {}), ...(process.env.TIT_LAUNCH_PORT ? { preferredPort: Number(process.env.TIT_LAUNCH_PORT) } : {}) });
+      if (!result.ok) throw new Error(result.error);
+      const connected = await connect(win, { url: result.url, token: result.token });
+      if (!connected.ok) throw new Error(connected.error);
+      return true;
+    } catch (error) {
+      log("error", `Could not open TI-Toolbox: ${String(error)}`);
+      if (mayShowSystemUi(WINDOW_MODE)) await dialog.showMessageBox(win, { type: "error", message: "Could not open TI-Toolbox", detail: String(error) });
+      return false;
+    } finally {
+      // CLI selection applies only to this handoff, never later project switches.
+      for (const key of ["TIT_LAUNCH_CONTAINER_ID", "TIT_LAUNCH_PROJECT_DIR", "TIT_LAUNCH_EXISTING", "TIT_LAUNCH_CONTAINER"]) delete process.env[key];
+    }
+  }
   if (app.isPackaged) return false;
   const url = process.env.TIT_DEV_SERVER_URL;
   const token = process.env.TIT_DEV_SERVER_TOKEN;
@@ -205,12 +225,26 @@ async function tryDevAutoConnect(win: BrowserWindow): Promise<boolean> {
   return true;
 }
 
-function showLauncher(win: BrowserWindow): void {
+async function clearProjectMirrors(win: BrowserWindow): Promise<void> {
+  if (activeSession) {
+    // These are project data mirrors; retain theme, layout and editor preferences.
+    try {
+      await win.webContents.executeJavaScript(`(() => {
+        for (const key of Object.keys(localStorage)) {
+          if (["tit.viewer.recents", "tit-enabled-panels", "tit-enabled-panels-synced"].includes(key) || key.startsWith("tit-subject:")) localStorage.removeItem(key);
+        }
+      })()`);
+    } catch (error) { log("warn", `Could not clear project selection mirrors: ${String(error)}`); }
+  }
+}
+
+async function showLauncher(win: BrowserWindow, error?: string): Promise<void> {
+  await clearProjectMirrors(win);
   serverOrigin = null;
   activeSession = null;
   projectRootCache = null;
   stopNotifyingJobCompletions();
-  void win.loadURL(`${LAUNCHER_ORIGIN}/`);
+  void win.loadURL(`${LAUNCHER_ORIGIN}/${error ? `?error=${encodeURIComponent(error)}` : ""}`);
 }
 
 /** Narrows `process.platform` (which also allows aix/freebsd/...) to the three `paths.ts` handles. */
@@ -313,17 +347,16 @@ async function resolveContainerPathForBrowse(hostPath: string): Promise<string |
 async function getRunningJobIds(): Promise<string[]> {
   if (!activeSession) return [];
   try {
-    const res = await net.fetch(`${activeSession.origin}/api/jobs?state=running`, {
+    const res = await net.fetch(`${activeSession.origin}/api/jobs`, {
       headers: { authorization: `Bearer ${activeSession.token}` },
       signal: AbortSignal.timeout(5000),
     });
-    if (!res.ok) return [];
+    if (!res.ok) throw new Error(`Jobs request failed: HTTP ${res.status}`);
     const jobs = (await res.json()) as unknown;
-    if (!Array.isArray(jobs)) return [];
-    return jobs.map((job) => (job as { id?: unknown }).id).filter((id): id is string => typeof id === "string");
+    return activeJobIds(jobs);
   } catch (err) {
     log("warn", `could not check running jobs before quit: ${err instanceof Error ? err.message : String(err)}`);
-    return [];
+    throw err;
   }
 }
 
@@ -341,28 +374,6 @@ async function cancelJobOnQuit(id: string): Promise<void> {
 }
 
 const QUIT_WATCHDOG_MS = 4000;
-
-/**
- * Quitting with a stack up and nothing running does not stop the container — that is the whole
- * point of attach-or-start (the next launch reconnects in seconds instead of booting an amd64
- * image again). What it used to do was leave it running *silently*: nothing on screen, nothing in
- * the log, no in-app way to reverse it (QA engineer finding 6). Say so, on the way out — a native
- * notification where one may be shown, and always a log line, since a notification fired
- * milliseconds before the process exits is best-effort by nature. Non-blocking on purpose: this
- * must never turn a quit into a question.
- */
-function noteStackLeftRunning(containerName: string): void {
-  log("info", `quitting with the Docker stack still up: container ${containerName} is left running (Settings -> Docker stops it)`);
-  if (!mayShowSystemUi(WINDOW_MODE) || !Notification.isSupported()) return;
-  try {
-    new Notification({
-      title: "TI-Toolbox is still running in Docker",
-      body: `The container ${containerName} was left running so the next launch reconnects instantly. Stop it from Settings.`,
-    }).show();
-  } catch (err) {
-    log("warn", `could not show the background-stack notification: ${String(err)}`);
-  }
-}
 
 /**
  * `app.quit()`, with a hard `app.exit(0)` fallback if the process is still alive after
@@ -383,53 +394,99 @@ function quitWithWatchdog(): void {
   app.quit();
 }
 
-/**
- * TODO §2.5/§2.9 "keep containers running in the background?" — asked once, on real app quit,
- * and only when this app itself owns a backend: a Docker stack it started, or the bundled native
- * runtime it spawned. A manually-typed external server connection is not ours to stop, so
- * quitting never blocks on it (which also keeps every existing E2E test, none of which start a
- * backend, on the fast no-dialog path).
- *
- * The decision itself lives in `shared/quitPlan.ts` so it can be unit-tested; what stays here is
- * the Electron wiring. Audit UI-04: this used to ask the question on the Docker branch only, so
- * quitting with the native runtime killed a running job's process group without a word.
- *
- * `proceed` is how the caller actually ends things once we're done deciding: the window's own
- * "close" handler re-closes just that window (macOS convention: closing the window does not quit
- * a dock-resident app), while `before-quit` (Cmd+Q, or Electron/Playwright's own `app.quit()`)
- * must actually call `app.quit()` again — closing only the window there would leave the process
- * running with no window on macOS, which is also exactly why a naive version of this hung every
- * `electronApp.close()` in Playwright for the full test timeout (`window.close()` doesn't end the
- * process on macOS; the harness waits for the process to actually exit).
- */
-async function handleQuitRequest(triggerWindow: BrowserWindow | null, proceed: () => void): Promise<void> {
+/** Stop the selected Docker/native runtime before closing; failures keep the window open. */
+async function handleQuitRequest(triggerWindow: BrowserWindow | null, proceed: () => void, closeProject = false, confirmedSwitch = false): Promise<void> {
   const current = stack.getCurrent();
   const owner = triggerWindow ?? mainWindow ?? undefined;
-  const mayQuit = await runQuitPlan(
+  let mayQuit: boolean;
+  try { mayQuit = await runQuitPlan(
     { docker: current !== null && current !== undefined, native: nativeRuntime.getCurrent() !== null },
     {
       listRunningJobs: getRunningJobIds,
       cancelJob: cancelJobOnQuit,
       confirm: async (dialogSpec) => {
-        const options: Electron.MessageBoxOptions = { type: "question", ...dialogSpec };
+        if (confirmedSwitch) return 1; // The destination dialog already authorizes stopping jobs.
+        const options: Electron.MessageBoxOptions = {
+          type: "question", ...dialogSpec,
+          ...(closeProject ? {
+            buttons: dialogSpec.buttons.map((label) => label === "Stop jobs and quit" ? "Stop jobs and close project" : label),
+            detail: "Closing this project stops its container and cancels running and queued jobs, then returns to Overview so you can choose another project. Project files and named volumes are preserved.",
+          } : {}),
+        };
         const result = owner ? await dialog.showMessageBox(owner, options) : await dialog.showMessageBox(options);
         return result.response;
       },
       stopDocker: async () => {
-        await stack.stop().catch((err) => log("error", `stack.stop on quit failed: ${String(err)}`));
+        const result = await stack.stop();
+        if (!result.ok) throw new Error(result.error);
       },
       stopNative: () => nativeRuntime.stop().catch((err) => log("error", `nativeRuntime.stop on quit failed: ${String(err)}`)),
-      noteStackLeftRunning: () => {
-        if (current) noteStackLeftRunning(current.containerName);
-      },
       sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
       now: () => Date.now(),
     },
   );
+  } catch (error) {
+    log("error", `Could not shut down: ${String(error)}`);
+    const options: Electron.MessageBoxOptions = { type: "error", message: "Could not stop TI-Toolbox", detail: `${String(error)}. The app remains open; retry closing after resolving the error.` };
+    if (owner) await dialog.showMessageBox(owner, options); else await dialog.showMessageBox(options);
+    return;
+  }
   if (!mayQuit) return;
   stopNotifyingJobCompletions();
   quitGate.approve();
   proceed();
+}
+
+function desktopStartOptions() {
+  if (app.isPackaged || process.env.TIT_DEV_LAUNCHER !== "1") return {};
+  const port = Number(process.env.TIT_DEV_PORT || 8765);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("TIT_DEV_PORT must be a port number from 1 to 65535.");
+  return {
+    ...(process.env.TIT_DEV_IMAGE_TAG ? { imageTag: process.env.TIT_DEV_IMAGE_TAG } : {}),
+    ...(process.env.TIT_DEV_PORT ? { preferredPort: Number(process.env.TIT_DEV_PORT) } : {}),
+    serverReload: true,
+  };
+}
+
+let switchingProject = false;
+async function switchProject(target?: string): Promise<TitStackStopResult> {
+  if (!mainWindow || switchingProject) return { ok: false, error: "A project transition is already in progress." };
+  switchingProject = true;
+  let switched = false;
+  try {
+    if (target !== undefined) {
+      target = target.trim();
+      if (!isAbsolute(target)) return { ok: false, error: "Enter an absolute project directory path." };
+      try {
+        if (!(await stat(target)).isDirectory()) return { ok: false, error: "Select a project directory, not a file." };
+      } catch { return { ok: false, error: `Project directory does not exist: ${target}` }; }
+      try { await stack.validateStart(target, desktopStartOptions()); }
+      catch (error) { return { ok: false, error: error instanceof Error ? error.message : String(error) }; }
+      // A server-rendered page cannot silently request a new host mount. The native dialog
+      // confirms the exact destination before granting that capability.
+      const choice = await dialog.showMessageBox(mainWindow, {
+        type: "question", message: "Switch project?",
+        detail: `Open ${target}\n\nThe current project's container and any running or queued jobs will stop. Project files are preserved.`,
+        buttons: ["Cancel", "Switch project"], defaultId: 1, cancelId: 0,
+      });
+      if (choice.response !== 1) return { ok: false, error: "Project switch cancelled." };
+    }
+    await handleQuitRequest(mainWindow, () => { quitGate.reset(); switched = true; }, true, target !== undefined);
+    if (!switched) return { ok: false, error: "Project switch cancelled or the container could not be stopped." };
+    if (target === undefined) {
+      void showLauncher(mainWindow);
+      return { ok: true };
+    }
+    await clearProjectMirrors(mainWindow);
+    updateSettings({ lastProjectDir: target });
+    const result = await stack.start(target, desktopStartOptions());
+    if (!result.ok) { void showLauncher(mainWindow, result.error); return result; }
+    const connected = await connect(mainWindow, { url: result.url, token: result.token });
+    if (!connected.ok) { void showLauncher(mainWindow, connected.error); return connected; }
+    return { ok: true };
+  } finally {
+    switchingProject = false;
+  }
 }
 
 /**
@@ -505,7 +562,7 @@ function createWindow(): BrowserWindow {
   win.on("close", (event) => {
     if (quitGate.isApproved()) return;
     event.preventDefault();
-    void handleQuitRequest(win, () => win.close());
+    void handleQuitRequest(win, quitWithWatchdog);
   });
   win.on("closed", () => {
     mainWindow = null;
@@ -543,12 +600,12 @@ function registerIpc(): void {
    * Restricts a handler to the local launcher page (`app://launcher`), never the server-served
    * page loaded into the same window after `connect()` (ra_14 finding 4). `tit:connect` already
    * did this for the manual-connect path; the same check now also covers everything that can
-   * mount an arbitrary host directory + docker.sock (`stack:start`), pick a host path
-   * (`selectDirectory` — the *project* picker; unlike `selectFile`, its result is never mapped
-   * into the current project, so a server-served page getting it back would be a raw, unjailed
-   * host path) or seed the next launch's defaults (`setSettings`, e.g. `lastProjectDir`). A
+   * mount an arbitrary host directory + docker.sock (`stack:start`)
+   * or seed the next launch's defaults (`setSettings`, e.g. `lastProjectDir`). A
    * server-served page may still call `getSettings`, `openExternal`, `openPath`,
    * `showItemInFolder`, `notify`, `platform`, `appVersion`, `stack:status` and `stack:stop`.
+   * Project switching additionally permits the native directory picker; a destination mount
+   * requires native confirmation of the exact path before shutdown/start.
    *
    * `stack:stop` is deliberately NOT launcher-only (unlike `stack:start`). The page that can call
    * it is served *by the container it would stop*, so the only thing it can reach is its own
@@ -567,19 +624,22 @@ function registerIpc(): void {
   ipcMain.handle("tit:connect", async (e, args: unknown): Promise<TitConnectResult> => {
     if (!fromMainWindow(e) || !mainWindow) return { ok: false, error: "unknown sender" };
     if (args === null || args === undefined) {
-      showLauncher(mainWindow);
-      return { ok: true };
+      return switchProject();
     }
     // Only the local launcher page may initiate a connection (it is the only page holding a token).
     if (!isLauncherUrl(e.senderFrame?.url ?? "")) return { ok: false, error: "connect is only allowed from the launcher" };
     const a = args as Partial<TitConnectArgs>;
     return connect(mainWindow, { url: String(a.url ?? ""), token: String(a.token ?? "") });
   });
-  ipcMain.handle("tit:getSettings", (e) => (fromMainWindow(e) ? readSettings() : {}));
+  ipcMain.handle("tit:getSettings", (e) => {
+    if (!fromMainWindow(e)) return {};
+    const settings = readSettings();
+    return !app.isPackaged && process.env.TIT_DEV_PROJECT_DIR ? { ...settings, lastProjectDir: process.env.TIT_DEV_PROJECT_DIR } : settings;
+  });
   ipcMain.handle("tit:setSettings", (e, partial: unknown) => (fromLauncherWindow(e) ? updateSettings(partial) : {}));
 
   ipcMain.handle("tit:selectDirectory", async (e): Promise<string | undefined> => {
-    if (!fromLauncherWindow(e) || !mainWindow) return undefined;
+    if (!fromMainWindow(e) || !mainWindow) return undefined;
     const result = await dialog.showOpenDialog(mainWindow, { properties: ["openDirectory", "createDirectory"] });
     if (result.canceled || result.filePaths.length === 0) return undefined;
     void updateSettings({ lastProjectDir: result.filePaths[0] });
@@ -651,11 +711,16 @@ function registerIpc(): void {
 
   ipcMain.handle("tit:stack:start", async (e, hostProjectDir: unknown): Promise<TitStackStartResult> => {
     if (!fromLauncherWindow(e) || !mainWindow) return { ok: false, error: "unknown sender" };
-    const result = await stack.start(String(hostProjectDir ?? ""));
+    const result = await stack.start(String(hostProjectDir ?? ""), desktopStartOptions());
     if (!result.ok) return result;
     const connected = await connect(mainWindow, { url: result.url, token: result.token });
     if (!connected.ok) return connected;
     return { ok: true, attached: result.attached };
+  });
+  ipcMain.handle("tit:stack:switchProject", async (e, target: unknown): Promise<TitStackStopResult> => {
+    if (!fromMainWindow(e) || !mainWindow) return { ok: false, error: "unknown sender" };
+    if (target !== undefined && typeof target !== "string") return { ok: false, error: "Invalid project directory." };
+    return switchProject(target);
   });
   ipcMain.handle("tit:stack:stop", async (e): Promise<TitStackStopResult> => {
     if (!fromMainWindow(e)) return { ok: false, error: "unknown sender" };
@@ -693,13 +758,16 @@ void app.whenReady().then(async () => {
   process.on("uncaughtException", (err) => log("error", `uncaughtException: ${err.stack ?? err.message}`));
   process.on("unhandledRejection", (reason) => log("error", `unhandledRejection: ${String(reason)}`));
 
-  protocol.handle("app", (request) => {
+  protocol.handle("app", async (request) => {
     const url = new URL(request.url);
     if (url.host !== "launcher") return new Response("not found", { status: 404 });
-    if (url.pathname === "/launcher.js") {
-      return new Response(LAUNCHER_JS, { headers: { "content-type": "text/javascript; charset=utf-8" } });
-    }
-    return new Response(LAUNCHER_HTML, { headers: { "content-type": "text/html; charset=utf-8" } });
+    const root = resolve(__dirname, "../renderer");
+    const asset = resolve(root, `.${decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname)}`);
+    if (!asset.startsWith(`${root}${sep}`) || !existsSync(asset)) return new Response("not found", { status: 404 });
+    const response = await net.fetch(pathToFileURL(asset).href);
+    const headers = new Headers(response.headers);
+    headers.set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'");
+    return new Response(response.body, { status: response.status, headers });
   });
 
   // The UI never needs device/notification permissions in the skeleton; deny everything.
@@ -732,7 +800,9 @@ app.on("web-contents-created", (_e, contents) => {
 app.on("window-all-closed", () => {
   // The window's own "close" handler above already ran the running-jobs check before this fires
   // (every window is destroyed by the time "window-all-closed" fires — too late to prevent).
-  if (process.platform !== "darwin") quitWithWatchdog();
+  // The last window owns the session lifetime on every OS, including macOS.
+  // Staying dock-resident would keep CLI launchers waiting after Docker has stopped.
+  quitWithWatchdog();
 });
 
 app.on("before-quit", (event) => {

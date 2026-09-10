@@ -47,6 +47,13 @@ async function launchApp(options: { engine?: FakeEngineApiOptions | null; env?: 
     args: [join(__dirname, "..", "..")],
     env: {
       ...process.env,
+      TIT_LAUNCH_IMAGE: "",
+      TIT_LAUNCH_PROJECT_DIR: "",
+      TIT_LAUNCH_CONTAINER_ID: "",
+      TIT_LAUNCH_EXISTING: "",
+      TIT_LAUNCH_CONTAINER: "",
+      TIT_DEV_SERVER_URL: "",
+      TIT_DEV_SERVER_TOKEN: "",
       TIT_USER_DATA_DIR: userDataDir,
       TIT_COMPOSE_FILE: FIXTURE_COMPOSE,
       ...(dockerHost ? { DOCKER_HOST: dockerHost } : {}),
@@ -55,6 +62,7 @@ async function launchApp(options: { engine?: FakeEngineApiOptions | null; env?: 
     },
   });
   page = await app.firstWindow();
+  if (!options.env?.TIT_LAUNCH_PROJECT_DIR) await expect(page.locator("#project-dir")).toBeVisible();
 }
 
 test.beforeEach(() => {
@@ -112,7 +120,7 @@ test("starts a fresh stack through the Engine API and loads the session", async 
   expect(lifecycle.indexOf("POST /images/create")).toBeLessThan(lifecycle.indexOf("POST /containers/create"));
 });
 
-test("a second start for the same project attaches to the running container", async () => {
+test("a second start asks before attaching to the running container", async () => {
   await launchApp();
   const first = await page.evaluate((dir) => window.tit!.stack.start(dir), projectDir);
   expect(first).toEqual({ ok: true, attached: false });
@@ -120,11 +128,19 @@ test("a second start for the same project attaches to the running container", as
   expect(fake.containers.size).toBe(1);
   const firstId = [...fake.containers.keys()][0];
 
-  // stack.start is launcher-only (ra_14 finding 4) — return to the launcher first, exactly as the
-  // real launcher UI does (it never re-invokes stack.start from server-served content).
-  await page.evaluate(() => window.tit!.connect());
+  // Simulate arriving at project selection with an independently running session. A real Switch
+  // project would stop it, so navigate through the test's main-process fixture instead.
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.loadURL("app://launcher/"));
+  await expect(page.locator("#project-dir")).toBeVisible();
   await expect(page).toHaveURL(/^app:\/\/launcher\//, { timeout: 15_000 });
 
+  await app.evaluate(({ dialog }) => {
+    dialog.showMessageBox = async (...args: unknown[]) => {
+      const options = args.at(-1) as { buttons: string[] };
+      if (!options.buttons.includes("Attach") || !options.buttons.includes("Recreate")) throw new Error("Expected explicit running-container decision");
+      return { response: 0, checkboxChecked: false };
+    };
+  });
   const second = await page.evaluate((dir) => window.tit!.stack.start(dir), projectDir);
   expect(second).toEqual({ ok: true, attached: true });
   await expect(page.getByTestId("fake-server-home")).toBeVisible({ timeout: 15_000 });
@@ -139,16 +155,13 @@ test("stop removes the container and keeps the named volume", async () => {
   await page.evaluate((dir) => window.tit!.stack.start(dir), projectDir);
   await expect(page.getByTestId("fake-server-home")).toBeVisible({ timeout: 15_000 });
 
-  // Stop from the launcher, the path the launcher's own Stop button takes.
-  await page.evaluate(() => window.tit!.connect());
-  await expect(page).toHaveURL(/^app:\/\/launcher\//, { timeout: 15_000 });
-
   const stopResult = await page.evaluate(() => window.tit!.stack.stop());
   expect(stopResult).toEqual({ ok: true });
   expect(fake.containers.size).toBe(0);
   // The volume holds cached derivatives; tearing the container down must not take it with it.
   expect([...fake.volumes.keys()]).toHaveLength(1);
 
+  await expect(page.locator("#project-dir")).toBeVisible();
   const status = await page.evaluate(() => window.tit!.stack.status());
   expect(status).toEqual({ running: false });
 });
@@ -170,27 +183,26 @@ test("an already-pulled image is not pulled again (an offline start of a pulled 
   expect(fake.containers.size).toBe(1);
 });
 
-test("stack:start/setSettings/selectDirectory refuse a server-served page (ra_14 finding 4)", async () => {
+test("connected pages cannot directly start stacks or change settings but can pick a switch directory", async () => {
   await launchApp();
   await page.evaluate((dir) => window.tit!.stack.start(dir), projectDir);
   await expect(page.getByTestId("fake-server-home")).toBeVisible({ timeout: 15_000 });
-  // Now on the container's page, not the launcher — every launcher-only call must be refused.
-  // `stack.stop` is deliberately NOT in this list any more (QA engineer finding 6): the page that
-  // can call it is served by the container it stops, so it can only end its own session. It is
-  // exercised in its own test below.
+  // Picking a destination is allowed, but starting a stack still requires the local home or
+  // switchProject's main-process confirmation. The native picker is mocked to stay offscreen.
+  await app.evaluate(({ dialog }, dir) => {
+    dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
+  }, projectDir);
   const results = await page.evaluate(async (dir) => {
     const [start, settings] = await Promise.all([
       window.tit!.stack.start(dir),
       window.tit!.setSettings({ lastProjectDir: "/should/not/persist" }),
-      // selectDirectory would pop a native dialog Playwright can't drive, but it must return
-      // `undefined` immediately (before ever showing one) — awaiting it here is safe.
     ]);
     const dir2 = await window.tit!.selectDirectory();
     return { start, settings, dir2 };
   }, projectDir);
   expect(results.start).toEqual({ ok: false, error: "unknown sender" });
   expect(results.settings).toEqual({});
-  expect(results.dir2).toBeUndefined();
+  expect(results.dir2).toBe(projectDir);
 
   // The stack is still running and status is still readable (not launcher-gated) — the refusals
   // above did not tear anything down as a side effect.
@@ -275,26 +287,166 @@ test("a container that exits while starting reports that, not a health timeout",
   expect(result).toEqual({ ok: false, error: expect.stringContaining("exit code 3") });
 });
 
-test("the launcher UI's Browse + Start the Docker stack buttons drive the same flow", async () => {
+test("Overview Browse selects a directory and opens its project", async () => {
   await launchApp();
   await expect(page.locator("#start-stack")).toBeDisabled();
-
-  // selectDirectory opens a native dialog Playwright cannot drive. The real Browse handler sets
-  // both the input's value and the button's disabled state in one step (src/main/launcher.ts); do
-  // the same here directly so the click below targets an actionable (enabled) button.
-  await page.evaluate((dir) => {
-    (document.getElementById("project-dir") as HTMLInputElement).value = dir;
-    (document.getElementById("start-stack") as HTMLButtonElement).disabled = false;
+  await app.evaluate(({ dialog }, dir) => {
+    dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
   }, projectDir);
+  await page.locator("#browse").click();
+  await expect(page.locator("#project-dir")).toHaveValue(projectDir);
   await page.locator("#start-stack").click();
-
-  // The progress text moves through several real states (Looking for Docker…, Downloading the
-  // image with per-layer percentages, Creating the container…, Waiting for the server…) before
-  // landing on "Docker stack is up…" — match broadly rather than pin one instant, since which
-  // state is visible when this polls depends on machine speed.
-  await expect(page.locator("#status")).toContainText(
-    /Looking for Docker|Starting the Docker stack|Downloading|Creating the|Starting the container|Waiting for the server|Docker stack is up|Pull complete/,
-    { timeout: 15_000 },
-  );
   await expect(page.getByTestId("fake-server-home")).toBeVisible({ timeout: 20_000 });
+});
+
+
+test("switching projects returns to Overview; closing the connected app exits Electron", async () => {
+  await launchApp();
+  await page.locator("#project-dir").fill(projectDir);
+  await page.locator("#start-stack").click();
+  await expect(page.getByTestId("fake-server-home")).toBeVisible();
+  const id = [...fake.containers.keys()][0]!;
+  await page.evaluate(() => {
+    localStorage.setItem("tit-subject:sim", "old-subject");
+    localStorage.setItem("tit.viewer.recents", "old-files");
+    localStorage.setItem("tit.theme", "dark");
+  });
+  const previousOrigin = new URL(page.url()).origin;
+  await page.evaluate(() => window.tit!.stack.switchProject());
+  await expect.poll(() => fake.containers.size).toBe(0);
+  await expect(page).toHaveURL(/^app:\/\/launcher\//);
+  expect(fake.requests).toContain(`POST /containers/${id}/stop`);
+  expect(fake.requests).toContain(`DELETE /containers/${id}`);
+  expect([...fake.volumes.keys()]).toHaveLength(1);
+  const nextProject = mkdtempSync(join(tmpdir(), "tit-next-project-"));
+  await page.locator("#project-dir").fill(nextProject);
+  await page.locator("#project-dir").press("Enter");
+  await expect(page.getByTestId("fake-server-home")).toBeVisible();
+  expect(await page.evaluate(() => window.tit!.stack.status())).toMatchObject({ hostProjectDir: nextProject });
+  expect(new URL(page.url()).origin).toBe(previousOrigin);
+  expect(await page.evaluate(() => ({ subject: localStorage.getItem("tit-subject:sim"), recents: localStorage.getItem("tit.viewer.recents"), theme: localStorage.getItem("tit.theme") })))
+    .toEqual({ subject: null, recents: null, theme: "dark" });
+  const electronProcess = app.process();
+  await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.close(); });
+  await expect.poll(() => fake.containers.size).toBe(0);
+  await expect.poll(() => electronProcess.exitCode).toBe(0);
+});
+
+test("regular CLI project handoff opens Electron and owns container shutdown", async () => {
+  await launchApp({ env: { TIT_LAUNCH_PROJECT_DIR: projectDir, TIT_LAUNCH_IMAGE: "registry.example.org/research/ti-toolbox:custom", TIT_LAUNCH_EXISTING: "recreate", TIT_LAUNCH_CONTAINER: "" } });
+  await expect(page.getByTestId("fake-server-home")).toBeVisible({ timeout: 15_000 });
+  const status = await page.evaluate(() => window.tit!.stack.status());
+  expect(status).toMatchObject({ running: true, hostProjectDir: projectDir, image: "registry.example.org/research/ti-toolbox:custom" });
+  expect(await app.evaluate(() => ({ action: process.env.TIT_LAUNCH_EXISTING ?? null, container: process.env.TIT_LAUNCH_CONTAINER ?? null }))).toEqual({ action: null, container: null });
+  const id = [...fake.containers.keys()][0]!;
+  const electronProcess = app.process();
+  await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.close(); });
+  await expect.poll(() => fake.containers.size).toBe(0);
+  await expect.poll(() => electronProcess.exitCode).toBe(0);
+  expect(fake.requests).toContain(`POST /containers/${id}/stop`);
+});
+
+
+test("disconnected Overview renders without contacting a job server", async () => {
+  await launchApp();
+  const backendRequests: string[] = [];
+  page.on("request", (request) => {
+    if (/\/(api|auth)\//.test(request.url())) backendRequests.push(request.url());
+  });
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.reload();
+  await expect(page.locator("#project-dir")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Open a project", exact: true })).toBeVisible();
+  await page.locator("#project-dir").fill(projectDir);
+  await expect(page.locator("#start-stack")).toBeEnabled();
+  await expect(page.getByTestId("nav-rail")).toHaveAttribute("data-rail-mode", "labels");
+  for (const id of ["preprocess", "optimizer", "simulator", "analyzer", "viewer", "results", "pipeline", "notebooks", "jobs"]) {
+    await expect(page.getByTestId(`nav-item-${id}`)).toBeVisible();
+    await expect(page.getByTestId(`nav-item-${id}`)).toHaveAttribute("aria-disabled", "true");
+  }
+  await page.getByTestId("nav-item-simulator").dispatchEvent("click");
+  await expect(page.locator("#project-dir")).toBeVisible();
+  expect(backendRequests).toEqual([]);
+  expect(errors).toEqual([]);
+  expect(fake.containers.size).toBe(0);
+  const electronProcess = app.process();
+  await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.close(); });
+  await expect.poll(() => electronProcess.exitCode).toBe(0);
+});
+
+
+test("cancelling an active-job project switch keeps its session running", async () => {
+  const jobs = [{ id: "active-job", state: "running" }];
+  await launchApp({ engine: { jobs } });
+  await page.locator("#project-dir").fill(projectDir);
+  await page.locator("#start-stack").click();
+  await expect(page.getByTestId("fake-server-home")).toBeVisible();
+  const connectedUrl = page.url();
+  const id = [...fake.containers.keys()][0]!;
+  await app.evaluate(({ dialog }) => {
+    dialog.showMessageBox = async (...args: unknown[]) => {
+      const options = args.at(-1) as { buttons: string[]; message: string };
+      if (!options.message.includes("1 active job") || !options.buttons.includes("Stop jobs and close project")) throw new Error("Missing active-job switch confirmation");
+      return { response: options.buttons.indexOf("Cancel"), checkboxChecked: false };
+    };
+  });
+  expect(await page.evaluate(() => window.tit!.stack.switchProject())).toMatchObject({ ok: false });
+  await expect(page).toHaveURL(connectedUrl);
+  expect(fake.containers.get(id)?.running).toBe(true);
+  expect(fake.requests).not.toContain(`POST /containers/${id}/stop`);
+  expect(fake.requests).not.toContain(`DELETE /containers/${id}`);
+  jobs.length = 0; // The fixture job completes before normal test teardown.
+});
+
+
+test("a confirmed destination switches directly to the next project", async () => {
+  await launchApp();
+  await page.locator("#project-dir").fill(projectDir);
+  await page.locator("#start-stack").click();
+  await expect(page.getByTestId("fake-server-home")).toBeVisible();
+  const oldId = [...fake.containers.keys()][0]!;
+  const nextProject = mkdtempSync(join(tmpdir(), "tit-next-project-"));
+  await app.evaluate(({ dialog }, target) => {
+    dialog.showMessageBox = async (...args: unknown[]) => {
+      const options = args.at(-1) as { buttons: string[]; detail: string };
+      if (!options.detail.includes(target)) throw new Error("Destination missing from native confirmation");
+      return { response: options.buttons.findIndex((label) => /switch/i.test(label)), checkboxChecked: false };
+    };
+  }, nextProject);
+  expect(await page.evaluate((dir) => window.tit!.stack.switchProject(dir), nextProject)).toMatchObject({ ok: true });
+  await expect(page.getByTestId("fake-server-home")).toBeVisible();
+  await expect.poll(async () => page.evaluate(() => window.tit!.stack.status())).toMatchObject({ running: true, hostProjectDir: nextProject });
+  expect(fake.containers.has(oldId)).toBe(false);
+  expect(fake.containers.size).toBe(1);
+  expect(fake.requests).toContain(`POST /containers/${oldId}/stop`);
+  expect(fake.requests).toContain(`DELETE /containers/${oldId}`);
+});
+
+test("invalid or cancelled destinations leave the current project running", async () => {
+  await launchApp();
+  await page.locator("#project-dir").fill(projectDir);
+  await page.locator("#start-stack").click();
+  await expect(page.getByTestId("fake-server-home")).toBeVisible();
+  const oldUrl = page.url();
+  const oldId = [...fake.containers.keys()][0]!;
+  expect(await page.evaluate((dir) => window.tit!.stack.switchProject(dir), join(projectDir, "missing"))).toMatchObject({ ok: false });
+  const nextProject = mkdtempSync(join(tmpdir(), "tit-cancel-project-"));
+  const invalidCompose = composeVariant("invalid-switch.yml", () => "services: {}\n");
+  await app.evaluate((_electron, path) => { process.env.TIT_COMPOSE_FILE = path; }, invalidCompose);
+  expect(await page.evaluate((dir) => window.tit!.stack.switchProject(dir), nextProject)).toMatchObject({ ok: false });
+  expect(fake.containers.get(oldId)?.running).toBe(true);
+  await app.evaluate((_electron, path) => { process.env.TIT_COMPOSE_FILE = path; }, FIXTURE_COMPOSE);
+  await app.evaluate(({ dialog }, target) => {
+    dialog.showMessageBox = async (...args: unknown[]) => {
+      const options = args.at(-1) as { buttons: string[]; detail: string };
+      if (!options.detail.includes(target)) throw new Error("Destination missing from native confirmation");
+      return { response: options.buttons.indexOf("Cancel"), checkboxChecked: false };
+    };
+  }, nextProject);
+  expect(await page.evaluate((dir) => window.tit!.stack.switchProject(dir), nextProject)).toMatchObject({ ok: false });
+  await expect(page).toHaveURL(oldUrl);
+  expect(fake.containers.get(oldId)?.running).toBe(true);
+  expect(fake.requests).not.toContain(`POST /containers/${oldId}/stop`);
+  expect(fake.requests).not.toContain(`DELETE /containers/${oldId}`);
 });

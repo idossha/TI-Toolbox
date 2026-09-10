@@ -16,6 +16,8 @@ import argparse
 import os
 from pathlib import Path
 import sys
+import subprocess
+import shutil
 
 import tit
 from tit.launch import (
@@ -38,9 +40,8 @@ examples:
   tit launch --project ~/datasets/000 --logs --follow
   tit launch --project ~/datasets/000 --stop
 
-The UI runs in your browser and is the same one the desktop app shows. Everything
-that talks to the server works identically; the few Electron-only conveniences
-(reveal a file in your file manager, native notifications) say so when used.
+Regular launches open the browser; its container persists after closing the tab.
+Use --desktop to open Electron and stop its container on app close.
 """
 
 
@@ -78,9 +79,27 @@ def launch_arguments() -> argparse.ArgumentParser:
         help=f"container image to run (default: {default_image()})",
     )
     parent.add_argument(
+        "--desktop",
+        action="store_true",
+        help="open Electron and stop its container on app close",
+    )
+    parent.add_argument(
         "--no-open",
         action="store_true",
         help="print the URL instead of opening a browser",
+    )
+    parent.add_argument(
+        "--browser",
+        action="store_true",
+        help="explicitly use the browser UI instead of Electron",
+    )
+    parent.add_argument(
+        "--existing",
+        choices=("attach", "recreate"),
+        help="explicit existing-container decision; recreate stops jobs and removes it",
+    )
+    parent.add_argument(
+        "--container", help="running container name or full ID to select"
     )
     parent.add_argument(
         "--timeout",
@@ -126,6 +145,10 @@ def prompt_launch(args: argparse.Namespace, *, requested: bool) -> None:
         raise LaunchError(
             "interactive setup needs a terminal; pass --project /path/to/project and any other options explicitly"
         )
+    print("\nWelcome to TI-Toolbox")
+    print("Center for Sleep and Consciousness · UW–Madison")
+    print("Simulate, optimize and analyze temporal interference stimulation.")
+    print("\nChoose your project directory to get started.\n")
     saved_path = user_config_dir() / "last-project.txt"
     default = args.project
     if not default:
@@ -163,6 +186,11 @@ def prompt_launch(args: argparse.Namespace, *, requested: bool) -> None:
 
 def prepare_launch(args: argparse.Namespace, argv: list[str]) -> int | None:
     """Return an exit code on cancelled/unavailable input, otherwise prepare the options."""
+    if args.desktop and (args.browser or args.no_open):
+        print(
+            "--desktop cannot be combined with --browser or --no-open", file=sys.stderr
+        )
+        return 2
     try:
         prompt_launch(args, requested=not argv or args.interactive)
     except EOFError:
@@ -223,7 +251,7 @@ def launch_command(
             server_reload=server_reload,
             static_dir=static_dir,
         )
-    except LaunchError as err:
+    except (LaunchError, OSError) as err:
         print(f"{invocation}: {err}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:
@@ -258,32 +286,80 @@ def _dispatch(
     if args.logs:
         return launch_logs(args.project, follow=args.follow)
 
-    if getattr(args, "resume_session", False):
-        info = launch_status(args.project)
-        if info is not None and info["state"] == "running":
-            args.image = info["image"]
-            print(f"Reconnecting to this project's running session ({args.image}).")
+    if args.desktop and not getattr(args, "dev_loader", False):
+        helper = Path(__file__).resolve().parent.parent / "dev" / "launch-electron.sh"
+        executable = os.environ.get("TIT_ELECTRON_EXECUTABLE", "")
+        if not executable and not helper.is_file():
+            candidates = [
+                Path("/Applications/TI-Toolbox.app/Contents/MacOS/TI-Toolbox"),
+                Path.home() / "Applications/TI-Toolbox.app/Contents/MacOS/TI-Toolbox",
+            ]
+            executable = next((str(path) for path in candidates if path.is_file()), "")
+            executable = executable or shutil.which("ti-toolbox") or ""
+        if not executable and not helper.is_file():
+            raise LaunchError(
+                "Electron launcher is unavailable in this installation. Run loader.py from "
+                "a full checkout, install the desktop app, or explicitly pass --browser."
+            )
+        env = dict(os.environ)
+        for key in (
+            "ELECTRON_RUN_AS_NODE",
+            "ELECTRON_RENDERER_URL",
+            "TIT_LAUNCH_CONTAINER_ID",
+            "TIT_DEV_SERVER_URL",
+            "TIT_DEV_SERVER_TOKEN",
+            "TIT_DEV_PROJECT_DIR",
+            "TIT_DEV_REPO_DIR",
+            "TIT_REPO_DIR",
+            "TIT_SERVER_RELOAD",
+            "TIT_STATIC_DIR",
+        ):
+            env.pop(key, None)
+        from tit.launch import resolve_project
 
-    origin, token = start(
-        LaunchOptions(
-            project=args.project,
-            port=args.port,
-            image=args.image,
-            open_browser=not args.no_open,
-            timeout=args.timeout,
-            repo_dir=repo_dir,
-            server_reload=server_reload,
-            static_dir=static_dir,
-        )
+        env["TIT_LAUNCH_PROJECT_DIR"] = resolve_project(args.project)
+        env["TIT_LAUNCH_PORT"] = str(args.port)
+        env["TIT_LAUNCH_TIMEOUT"] = str(args.timeout)
+        env["TIT_LAUNCH_IMAGE"] = args.image or default_image()
+        env.pop("TIT_IMAGE_TAG", None)
+        env["TIT_LAUNCH_EXISTING"] = args.existing or ""
+        env["TIT_LAUNCH_CONTAINER"] = args.container or ""
+        command = [executable] if executable else ["bash", str(helper)]
+        if not shutil.which(command[0]):
+            raise LaunchError(
+                "Electron launcher executable is unavailable; set TIT_ELECTRON_EXECUTABLE "
+                "to the installed desktop executable or explicitly use --browser."
+            )
+        returncode = subprocess.run(command, env=env, check=False).returncode
+        if returncode == 0 and executable:
+            print("TI-Toolbox closed.")
+        return returncode
+
+    options = LaunchOptions(
+        project=args.project,
+        port=args.port,
+        image=args.image,
+        open_browser=not args.no_open,
+        timeout=args.timeout,
+        repo_dir=repo_dir,
+        server_reload=server_reload,
+        static_dir=static_dir,
+        existing=args.existing,
+        container=args.container,
     )
+    origin, token = start(options)
     url = session_url(origin, token)
     print()
     print(f"TI-Toolbox is running at {origin}")
     print(f"Open this URL to sign in (it is single-use per session):\n  {url}")
     print()
     print("The container keeps running after this command exits.")
-    print(f"  {invocation} --project {args.project} --status   state and URL")
-    print(f"  {invocation} --project {args.project} --stop     shut it down")
+    print(
+        f"  {invocation} --project {options.session_project or args.project} --status   state and URL"
+    )
+    print(
+        f"  {invocation} --project {options.session_project or args.project} --stop     shut it down"
+    )
     if not args.no_open:
         open_in_browser(url)
     return 0

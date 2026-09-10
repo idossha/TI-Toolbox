@@ -1,13 +1,5 @@
-/**
- * `ensureDevStack` — attach to, recreate, or start the dev container, using the *same*
- * `StackManager` the packaged app uses (`src/main/stack.ts`), under a plain-Node `StackHost`.
- *
- * One implementation, deliberately. A `docker run` in a shell script would have been ten lines,
- * and would have drifted from the app's own container on the first change to labels, mounts, env
- * or the health wait — leaving the developer testing a container the product never creates. What
- * the app does and what `npm run dev` does is now the same code path, with dev passing four extra
- * options (`preferredPort`, `imageTag`, `repoDir`, `serverReload`) and `requireMatch: true`.
- */
+/** Docker development uses the same explicit attach/replace selection as the desktop app. */
+import { createInterface } from "node:readline/promises";
 import { join, resolve } from "node:path";
 import { LABEL_HOST_DIR, LABEL_PROJECT, computeProjectName } from "../src/shared/compose";
 import { discover } from "../src/main/docker/discover";
@@ -67,6 +59,30 @@ export async function waitForHealth(origin: string, timeoutMs: number): Promise<
  * would double every line of the start-up transcript.
  */
 export const nodeStackHost: StackHost = {
+  async chooseRunningContainer(containers) {
+    const action = process.env.TIT_LAUNCH_EXISTING;
+    const selector = process.env.TIT_LAUNCH_CONTAINER;
+    if (action) {
+      if (!["attach", "recreate"].includes(action)) throw new Error("TIT_LAUNCH_EXISTING must be attach or recreate.");
+      const matches = selector ? containers.filter((c) => c.Id === selector || c.Names.some((name) => name.replace(/^\//, "") === selector)) : containers;
+      if (matches.length !== 1) throw new Error("Select exactly one running container with TIT_LAUNCH_CONTAINER.");
+      return { action: action === "attach" ? "attach" : "replace", containerId: matches[0]!.Id };
+    }
+    if (!process.stdin.isTTY) throw new Error("A running TI-Toolbox container requires an interactive attach/replace choice.");
+    const prompt = createInterface({ input: process.stdin, output: process.stdout });
+    try {
+      console.log("\nRunning TI-Toolbox containers");
+      containers.forEach((c, i) => console.log(`  ${i + 1}. ${c.Image}`));
+      const selected = containers.length === 1 ? 0 : Number(await prompt.question("Select container number: ")) - 1;
+      const container = containers[selected];
+      if (!container) return null;
+      console.log("\nAvailable actions\n-----------------\n  1. Recreate (default)\n  2. Attach\n\nRecreate stops this container and its jobs.");
+      const answer = (await prompt.question("Choose [1]: ")).trim().toLowerCase();
+      if (["", "1", "r", "recreate"].includes(answer)) return { action: "replace", containerId: container.Id };
+      if (["2", "a", "attach"].includes(answer)) return { action: "attach", containerId: container.Id };
+      return null;
+    } finally { prompt.close(); }
+  },
   isPackaged: false,
   appPath: DESKTOP_DIR,
   resourcesPath: undefined,
@@ -82,18 +98,13 @@ export const nodeStackHost: StackHost = {
 };
 
 export interface DevStackResult {
+  containerId?: string;
   origin: string;
   token: string;
   attached: boolean;
 }
 
-/**
- * Credentials for the dev container: attached to the running one when it already matches this
- * config, recreated (with the reason printed) when it does not, started when there is none.
- *
- * The token is returned, never written: it comes out of the container's own environment on attach
- * and is generated into it on start, so nothing on the host filesystem ever holds it (P2).
- */
+/** Return credentials and ownership for the explicitly selected or freshly created dev container. */
 export async function ensureDevStack(config: DevConfig, options: { forceRecreate?: boolean } = {}): Promise<DevStackResult> {
   const stack = createStackManager(nodeStackHost);
   const off = stack.onEvent((event: StackEvent) => {
@@ -117,7 +128,7 @@ export async function ensureDevStack(config: DevConfig, options: { forceRecreate
     // why their configured port is not the one in the printed URL.
     const actual = Number(new URL(result.url).port);
     if (actual !== config.port) console.log(`[dev] port ${config.port} was taken; the container publishes ${actual}`);
-    return { origin: result.url, token: result.token, attached: result.attached };
+    return { origin: result.url, token: result.token, attached: result.attached, containerId: stack.getCurrent()?.containerId };
   } finally {
     off();
   }

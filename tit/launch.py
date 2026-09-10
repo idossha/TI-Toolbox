@@ -112,7 +112,7 @@ BUILTIN_SPEC = StackSpec(
         ("TIT_HOST_OS_VERSION", "${TIT_HOST_OS_VERSION:-unknown}"),
         ("TIT_HOST_ARCH", "${TIT_HOST_ARCH:-unknown}"),
     ),
-    ports=('127.0.0.1:${TIT_SERVER_PORT:-8765}:${TIT_SERVER_PORT:-8765}',),
+    ports=("127.0.0.1:${TIT_SERVER_PORT:-8765}:${TIT_SERVER_PORT:-8765}",),
     healthcheck=(
         "CMD",
         "curl",
@@ -185,7 +185,11 @@ def parse_compose(text: str) -> StackSpec:
         if inline:
             scalars[key] = _unquote(_strip_comment(inline))
         elif body and body[0].lstrip().startswith("- "):
-            lists[key] = [_unquote(_strip_comment(m.group("value"))) for m in (_ITEM.match(line) for line in body) if m]
+            lists[key] = [
+                _unquote(_strip_comment(m.group("value")))
+                for m in (_ITEM.match(line) for line in body)
+                if m
+            ]
         else:
             maps[key] = [
                 (k, _unquote(_strip_comment(v)))
@@ -219,12 +223,18 @@ def _parse_flow_list(raw: str) -> tuple[str, ...]:
 
 def _block(lines: list[str], path: list[str]) -> list[str]:
     """The indented body under ``path`` (``["services", "tit"]``), comments removed."""
-    body = [line for line in lines if line.strip() and not line.lstrip().startswith("#")]
+    body = [
+        line for line in lines if line.strip() and not line.lstrip().startswith("#")
+    ]
     for key in path:
         found = None
         for index, line in enumerate(body):
             match = _KEY.match(line)
-            if match and match.group("key") == key and len(match.group("indent")) == _base_indent(body):
+            if (
+                match
+                and match.group("key") == key
+                and len(match.group("indent")) == _base_indent(body)
+            ):
                 found = index
                 break
         if found is None:
@@ -259,7 +269,10 @@ def _entries(body: list[str]) -> list[tuple[str, list[str], str | None]]:
         inline = match.group("value") or None
         sub: list[str] = []
         index += 1
-        while index < len(body) and (len(body[index]) - len(body[index].lstrip())) > indent:
+        while (
+            index < len(body)
+            and (len(body[index]) - len(body[index].lstrip())) > indent
+        ):
             sub.append(body[index])
             index += 1
         out.append((key, sub, inline))
@@ -311,7 +324,9 @@ def hash8(text: str) -> str:
         code = ord(char)
         h1 = imul(h1 ^ code, 2654435761)
         h2 = imul(h2 ^ code, 1597334677)
-    h1 = imul(h1 ^ ((h1 & mask) >> 16), 2246822507) ^ imul(h2 ^ ((h2 & mask) >> 13), 3266489909)
+    h1 = imul(h1 ^ ((h1 & mask) >> 16), 2246822507) ^ imul(
+        h2 ^ ((h2 & mask) >> 13), 3266489909
+    )
     return format(h1 & mask, "08x")
 
 
@@ -379,7 +394,9 @@ def build_env(
     }
 
 
-def build_run_argv(spec: StackSpec, env: dict[str, str], *, host_project_dir: str, image: str) -> list[str]:
+def build_run_argv(
+    spec: StackSpec, env: dict[str, str], *, host_project_dir: str, image: str
+) -> list[str]:
     """The full ``docker run`` argv for one stack — pure, so it can be asserted in a test.
 
     Every volume whose source interpolates to empty is dropped rather than
@@ -388,10 +405,15 @@ def build_run_argv(spec: StackSpec, env: dict[str, str], *, host_project_dir: st
     """
     name = container_name(host_project_dir)
     argv = [
-        "docker", "run", "--detach",
-        "--name", name,
-        "--platform", PLATFORM,
-        "--workdir", spec.working_dir,
+        "docker",
+        "run",
+        "--detach",
+        "--name",
+        name,
+        "--platform",
+        PLATFORM,
+        "--workdir",
+        spec.working_dir,
     ]
     if spec.init:
         argv.append("--init")
@@ -414,11 +436,16 @@ def build_run_argv(spec: StackSpec, env: dict[str, str], *, host_project_dir: st
         argv += ["--publish", interpolate(entry, env)]
     if spec.healthcheck and spec.healthcheck[0] == "CMD":
         argv += [
-            "--health-cmd", " ".join(interpolate(part, env) for part in spec.healthcheck[1:]),
-            "--health-interval", "10s",
-            "--health-timeout", "3s",
-            "--health-start-period", "20s",
-            "--health-retries", "6",
+            "--health-cmd",
+            " ".join(interpolate(part, env) for part in spec.healthcheck[1:]),
+            "--health-interval",
+            "10s",
+            "--health-timeout",
+            "3s",
+            "--health-start-period",
+            "20s",
+            "--health-retries",
+            "6",
         ]
     argv.append(image)
     return argv
@@ -465,7 +492,10 @@ def _docker(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
         )
     result = subprocess.run(["docker", *args], capture_output=True, text=True)
     if check and result.returncode != 0:
-        raise LaunchError((result.stderr or result.stdout).strip() or f"docker {' '.join(args)} failed")
+        raise LaunchError(
+            (result.stderr or result.stdout).strip()
+            or f"docker {' '.join(args)} failed"
+        )
     return result
 
 
@@ -493,17 +523,103 @@ def find_container(host_project_dir: str) -> dict | None:
     alone could attach one project's UI to another project's container.
     """
     result = _docker(
-        "ps", "--all",
-        "--filter", f"label={LABEL_PROJECT}={project_name(host_project_dir)}",
-        "--format", "{{.ID}}",
+        "ps",
+        "--all",
+        "--filter",
+        f"label={LABEL_PROJECT}={project_name(host_project_dir)}",
+        "--format",
+        "{{.ID}}",
     )
     for cid in result.stdout.split():
         info = json.loads(_docker("inspect", cid).stdout)[0]
         labels = info["Config"].get("Labels") or {}
         recorded = labels.get(LABEL_HOST_DIR)
-        if recorded and os.path.realpath(recorded) == os.path.realpath(host_project_dir):
+        if recorded and os.path.realpath(recorded) == os.path.realpath(
+            host_project_dir
+        ):
             return info
     return None
+
+
+def find_running_containers() -> list[dict]:
+    """Discover current and legacy toolbox sessions, including other projects."""
+    result = _docker("ps", "--format", "{{.ID}}")
+    containers = []
+    for cid in result.stdout.split():
+        info = json.loads(_docker("inspect", cid).stdout)[0]
+        config = info.get("Config", {})
+        labels = config.get("Labels") or {}
+        name = info.get("Name", "").lstrip("/").lower()
+        image = config.get("Image", "").lower()
+        if labels.get(LABEL_SERVICE) not in (None, "", SERVICE_NAME):
+            continue
+        if (
+            labels.get(LABEL_STACK)
+            or labels.get(LABEL_PROJECT)
+            or re.match(r"^ti[-_]toolbox(?:[-_]|$)", name)
+            or re.search(r"(?:^|/)ti[-_]toolbox(?::|@|$)", image)
+        ):
+            containers.append(info)
+    return containers
+
+
+def choose_existing(containers: list[dict], options: LaunchOptions) -> tuple[dict, str]:
+    """Require a deliberate session and action; never infer consent from matching config."""
+    options.echo("\nRunning TI-Toolbox containers")
+    for index, info in enumerate(containers, 1):
+        options.echo(f"  {index}. {info.get('Config', {}).get('Image', 'TI-Toolbox')}")
+    selected = None
+    if options.container:
+        selected = next(
+            (
+                info
+                for info in containers
+                if options.container in (info["Id"], info["Name"].lstrip("/"))
+            ),
+            None,
+        )
+        if selected is None:
+            raise LaunchError(
+                "--container does not identify a running TI-Toolbox container"
+            )
+    elif len(containers) == 1:
+        selected = containers[0]
+    elif sys.stdin.isatty():
+        try:
+            index = int(input("Select container number: "))
+            if 1 <= index <= len(containers):
+                selected = containers[index - 1]
+        except (ValueError, EOFError):
+            pass
+    if selected is None:
+        raise LaunchError(
+            "select a running session with --container NAME (multiple containers found)"
+        )
+    action = options.existing
+    if action is None and sys.stdin.isatty():
+        options.echo(
+            "\nAvailable actions\n-----------------\n  1. Recreate (default)\n  2. Attach"
+        )
+        options.echo("\nRecreate stops this container and its jobs.")
+        try:
+            answer = input("Choose [1]: ").strip().lower()
+            action = {
+                "": "recreate",
+                "1": "recreate",
+                "r": "recreate",
+                "recreate": "recreate",
+                "2": "attach",
+                "a": "attach",
+                "attach": "attach",
+            }.get(answer)
+        except EOFError:
+            action = None
+    if action not in ("attach", "recreate"):
+        raise LaunchError(
+            "existing container left unchanged; choose --existing attach or "
+            "--existing recreate (stops jobs and removes the selected container)"
+        )
+    return selected, action
 
 
 def container_credentials(info: dict) -> tuple[str, str]:
@@ -536,7 +652,9 @@ def ensure_image(image: str, *, echo=print) -> None:
         raise LaunchError(
             f"could not download {image}.\n"
             "  - If you are on a pre-release checkout, no such tag is published yet: build it\n"
-            "    with `container/blueprint/build.sh --tag " + image + "` (30-60+ minutes), or\n"
+            "    with `container/blueprint/build.sh --tag "
+            + image
+            + "` (30-60+ minutes), or\n"
             "    pass --image with a tag you already have (`docker images idossha/ti-toolbox`).\n"
             "  - Otherwise check your internet connection and registry access."
         )
@@ -558,7 +676,12 @@ def wait_for_health(origin: str, timeout: float = 180.0, *, echo=print) -> None:
             if body.get("status") == "ok":
                 return
             last = f"health status {body.get('status')!r}"
-        except (urllib.error.URLError, OSError, ValueError, json.JSONDecodeError) as err:
+        except (
+            urllib.error.URLError,
+            OSError,
+            ValueError,
+            json.JSONDecodeError,
+        ) as err:
             last = str(err)
         time.sleep(0.5)
     raise LaunchError(
@@ -594,6 +717,10 @@ class LaunchOptions:
     repo_dir: str = ""
     server_reload: bool = False
     static_dir: str = ""
+    existing: str | None = None
+    container: str | None = None
+    session_container: str = ""
+    session_project: str = ""
 
 
 def resolve_project(raw: str | None) -> str:
@@ -610,67 +737,51 @@ def resolve_project(raw: str | None) -> str:
 
 
 def start(options: LaunchOptions) -> tuple[str, str]:
-    """Attach to this project's container or create one; return ``(origin, token)``."""
+    """Ask before reusing or replacing any running toolbox container; return ``(origin, token)``."""
     echo = options.echo
     require_docker()
     host_project_dir = resolve_project(options.project)
     image = options.image or default_image()
 
-    existing = find_container(host_project_dir)
-    if existing is not None and existing["State"]["Running"]:
-        # Compare the configured reference, not Docker's content ID. A running old cohort must
-        # not silently satisfy a new loader, and recreating it could kill active jobs.
-        running_image = existing.get("Config", {}).get("Image", "")
-        if running_image != image:
+    running = find_running_containers()
+    if running:
+        selected, action = choose_existing(running, options)
+        if action == "attach":
+            origin, token = container_credentials(selected)
+            options.session_container = selected["Id"]
+            options.session_project = (selected["Config"].get("Labels") or {}).get(
+                LABEL_HOST_DIR, ""
+            )
+            echo(
+                f"attached to {selected['Name'].lstrip('/')} at {origin}; using its existing configuration"
+            )
+            wait_for_health(origin, timeout=60.0, echo=echo)
+            return origin, token
+        owner = find_container(host_project_dir)
+        if (
+            owner is not None
+            and owner["State"]["Running"]
+            and owner["Id"] != selected["Id"]
+        ):
             raise LaunchError(
-                f"the running container uses {running_image or '(unknown)'}, but this launcher "
-                f"requires {image}. Wait for its jobs to finish, then stop this project's "
-                "container with --stop and launch again. The running container was left unchanged."
+                "another running container owns the requested project; select it explicitly"
             )
-        if options.repo_dir:
-            running_env = dict(
-                pair.split("=", 1)
-                for pair in existing.get("Config", {}).get("Env", [])
-                if "=" in pair
-            )
-            repo_mount = next(
-                (
-                    mount
-                    for mount in existing.get("Mounts", [])
-                    if mount.get("Destination") == "/ti-toolbox"
-                ),
-                {},
-            )
-            mismatches = []
-            if (
-                repo_mount.get("Type") != "bind"
-                or not repo_mount.get("Source")
-                or os.path.realpath(repo_mount["Source"])
-                != os.path.realpath(options.repo_dir)
-            ):
-                mismatches.append(f"a bind mount of {options.repo_dir} at /ti-toolbox")
-            for key, wanted in (
-                ("TIT_SERVER_RELOAD", "1" if options.server_reload else ""),
-                ("TIT_STATIC_DIR", options.static_dir),
-            ):
-                if running_env.get(key, "") != wanted:
-                    mismatches.append(f"{key}={wanted or '(empty)'}")
-            if running_env.get("PYTHONPATH", "").split(":")[0] != "/ti-toolbox":
-                mismatches.append("PYTHONPATH with /ti-toolbox first")
-            if mismatches:
-                raise LaunchError(
-                    "the running container does not match this checkout's dev settings: "
-                    + "; ".join(mismatches)
-                    + ". Wait for its jobs to finish, then stop this project's container "
-                    "with --stop and launch again. The running container was left unchanged."
-                )
-        origin, token = container_credentials(existing)
-        echo(f"attached to {existing['Name'].lstrip('/')} at {origin}")
-        wait_for_health(origin, timeout=60.0, echo=echo)
-        return origin, token
+        load_spec()  # Validate the requested YAML before stopping an existing session.
+        ensure_image(image, echo=echo)
+        _docker("stop", selected["Id"])
+        _docker("rm", selected["Id"])
+    elif options.container or options.existing == "attach":
+        raise LaunchError(
+            "no selected running TI-Toolbox container is available to attach"
+        )
+    existing = find_container(host_project_dir)
     if existing is not None:
+        if existing["State"]["Running"]:
+            raise LaunchError(
+                "another running container owns the requested project; select it explicitly"
+            )
         echo(f"removing the stopped container {existing['Name'].lstrip('/')}")
-        _docker("rm", "-f", existing["Id"])
+        _docker("rm", existing["Id"])
 
     ensure_image(image, echo=echo)
 
@@ -688,16 +799,22 @@ def start(options: LaunchOptions) -> tuple[str, str]:
         static_dir=options.static_dir,
         server_reload=options.server_reload,
     )
-    argv = build_run_argv(load_spec(), env, host_project_dir=host_project_dir, image=image)
+    argv = build_run_argv(
+        load_spec(), env, host_project_dir=host_project_dir, image=image
+    )
     echo(f"starting {container_name(host_project_dir)} on port {port}…")
-    _docker(*argv[1:])
+    created = _docker(*argv[1:])
+    options.session_container = created.stdout.strip()
+    options.session_project = host_project_dir
 
     origin = f"http://127.0.0.1:{port}"
     echo("waiting for the server to answer…")
     try:
         wait_for_health(origin, timeout=options.timeout, echo=echo)
     except LaunchError:
-        logs = _docker("logs", "--tail", "20", container_name(host_project_dir), check=False)
+        logs = _docker(
+            "logs", "--tail", "20", container_name(host_project_dir), check=False
+        )
         raise LaunchError(
             f"the container did not become healthy. Last log lines:\n{logs.stdout}{logs.stderr}"
         ) from None
@@ -722,7 +839,9 @@ def status(project: str) -> dict | None:
     info = find_container(resolve_project(project))
     if info is None:
         return None
-    env = dict(pair.split("=", 1) for pair in info["Config"].get("Env", []) if "=" in pair)
+    env = dict(
+        pair.split("=", 1) for pair in info["Config"].get("Env", []) if "=" in pair
+    )
     return {
         "name": info["Name"].lstrip("/"),
         "state": info["State"]["Status"],
@@ -737,7 +856,9 @@ def logs(project: str, *, follow: bool = False, tail: str = "200") -> int:
     require_docker()
     info = find_container(resolve_project(project))
     if info is None:
-        raise LaunchError("no TI-Toolbox container is running for that project directory")
+        raise LaunchError(
+            "no TI-Toolbox container is running for that project directory"
+        )
     argv = ["docker", "logs", "--tail", tail]
     if follow:
         argv.append("--follow")

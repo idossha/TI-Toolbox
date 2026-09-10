@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import { expectPage, launchElectronApp } from "./_helpers";
+import { connectLauncher, expectPage, launchElectronApp } from "./_helpers";
 
 /**
  * 3D Visual Exporter — the whole migration path in one file: the Settings toggle turns the panel
@@ -50,9 +50,7 @@ async function launchApp(enablePanel: boolean): Promise<void> {
 
 async function connect(): Promise<void> {
   await expect(page).toHaveURL(/^app:\/\/launcher\//);
-  await page.fill("#server-url", SERVER_URL);
-  await page.fill("#token", TOKEN);
-  await page.click("#connect");
+  await connectLauncher(page, SERVER_URL, TOKEN);
   await expect(page).toHaveURL(new URL("/", SERVER_URL).href, { timeout: 45_000 });
   await expect(page.getByTestId("overview-table")).toBeVisible({ timeout: 45_000 });
 }

@@ -9,7 +9,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import { expectPage, expectSubject, gotoPage, launchElectronApp } from "./_helpers";
+import { connectLauncher, expectPage, expectSubject, gotoPage, launchElectronApp } from "./_helpers";
 import { captureScreen, deadSpaceRatio, paneWidths, type PageMetrics } from "./_metrics";
 
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
@@ -28,9 +28,7 @@ async function launchApp(): Promise<void> {
 
 async function connect(): Promise<void> {
   await expect(page).toHaveURL(/^app:\/\/launcher\//);
-  await page.fill("#server-url", SERVER_URL);
-  await page.fill("#token", TOKEN);
-  await page.click("#connect");
+  await connectLauncher(page, SERVER_URL, TOKEN);
   await expect(page).toHaveURL(new URL("/", SERVER_URL).href, { timeout: 20_000 });
   await expect(page.getByTestId("overview-table")).toBeVisible({ timeout: 20_000 });
 }

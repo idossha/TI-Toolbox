@@ -2,7 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import { gotoPage, launchElectronApp } from "./_helpers";
+import { connectLauncher, gotoPage, launchElectronApp } from "./_helpers";
 
 /**
  * One rule, swept across the app: **an (i) icon opens on click, never on hover.**
@@ -40,9 +40,7 @@ test.beforeAll(async () => {
   page = await app.firstWindow();
   await page.setViewportSize({ width: 1440, height: 900 });
   await expect(page).toHaveURL(/^app:\/\/launcher\//);
-  await page.fill("#server-url", SERVER_URL);
-  await page.fill("#token", TOKEN);
-  await page.click("#connect");
+  await connectLauncher(page, SERVER_URL, TOKEN);
   await expect(page).toHaveURL(new URL("/", SERVER_URL).href, { timeout: 45_000 });
   await expect(page.getByTestId("nav-rail")).toBeVisible({ timeout: 45_000 });
 });

@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import { MOD, expectPage, expectSubject, gotoPage, launchElectronApp, openPalette } from "./_helpers";
+import { connectLauncher, MOD, expectPage, expectSubject, gotoPage, launchElectronApp, openPalette } from "./_helpers";
 /**
  * The ⌘-number for a rail row, read from the row itself rather than typed here.
  *
@@ -61,9 +61,7 @@ async function launchApp(): Promise<void> {
 
 async function connectFromLauncher(serverUrl: string, token: string): Promise<void> {
   await expect(page).toHaveURL(/^app:\/\/launcher\//);
-  await page.fill("#server-url", serverUrl);
-  await page.fill("#token", token);
-  await page.click("#connect");
+  await connectLauncher(page, serverUrl, token);
 }
 
 /** End the cookie session from inside the page (the HttpOnly cookie is sent automatically). */
@@ -320,11 +318,11 @@ test("the command palette carries pages, subjects and actions", async () => {
 });
 
 test("a wrong token stays in the launcher with an error", async () => {
-  await connectFromLauncher(SERVER_URL, "definitely-wrong");
-  await expect(page.locator("#status")).toHaveText(/rejected the token/, { timeout: 20_000 });
+  const result = await connectLauncher(page, SERVER_URL, "definitely-wrong");
+  expect(result.ok).toBe(false);
+  if (!result.ok) expect(result.error).toMatch(/rejected the token/);
   await expect(page).toHaveURL(/^app:\/\/launcher\//);
-  await expect(page.locator("#connect")).toBeEnabled();
-  await expect(page.locator("#token")).toHaveValue("");
+  await expect(page.locator("#project-dir")).toBeVisible();
 });
 
 test("navigation outside the server origin is blocked", async () => {
@@ -358,7 +356,7 @@ test("a lost session shows the 401 state and returns to the launcher", async () 
   await loseSession();
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
   await page.screenshot({ path: join(ARTIFACTS, "unauthenticated.png") });
-  await page.getByRole("button", { name: "Back to launcher" }).click();
+  await page.getByRole("button", { name: "Back to Overview" }).click();
   await expect(page).toHaveURL(/^app:\/\/launcher\//, { timeout: 10_000 });
 });
 
@@ -376,4 +374,20 @@ test("sign out posts /auth/logout and returns to the launcher", async () => {
   expect(await logoutFromPage()).toBe(401);
   const cookieNames = (await app.evaluate(({ session }) => session.defaultSession.cookies.get({ name: "tit_session" }))).map((c) => c.name);
   expect(cookieNames).toEqual([]);
+});
+
+
+test("Overview selects the next project inline and can cancel without leaving its session", async () => {
+  await connectFromLauncher(SERVER_URL, TOKEN);
+  await expect(page.getByTestId("overview-table")).toBeVisible({ timeout: 20_000 });
+  const currentUrl = page.url();
+  await page.getByTestId("switch-project").click();
+  await expect(page.locator("#switch-project-dir")).toBeVisible();
+  await page.locator("#switch-project-dir").fill("/different/project");
+  await expect(page.getByTestId("overview-table")).toBeVisible();
+  await expect(page).toHaveURL(currentUrl);
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.locator("#switch-project-dir")).toHaveCount(0);
+  await expect(page.getByTestId("overview-table")).toBeVisible();
+  await expect(page).toHaveURL(currentUrl);
 });

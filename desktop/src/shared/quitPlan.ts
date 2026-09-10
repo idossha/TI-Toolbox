@@ -13,6 +13,19 @@
  * waits (bounded) for the server to acknowledge before the runtime is torn down.
  */
 
+/** Only queued/running jobs can be interrupted; skipped/lost are terminal too. */
+export function activeJobIds(jobs: unknown): string[] {
+  if (!Array.isArray(jobs)) throw new Error("Invalid jobs response");
+  const ids: string[] = [];
+  for (const job of jobs) {
+    if (!job || typeof job !== "object" || typeof job.state !== "string" || typeof job.id !== "string") {
+      throw new Error("Invalid job in jobs response");
+    }
+    if (job.state === "running" || job.state === "queued") ids.push(job.id);
+  }
+  return ids;
+}
+
 export interface QuitBackends {
   /** This app started the Docker stack (something a later launch could reattach to). */
   docker: boolean;
@@ -39,8 +52,6 @@ export interface QuitPlanDeps {
   stopDocker: () => Promise<void>;
   /** Stop the native runtime this app spawned. */
   stopNative: () => Promise<void>;
-  /** Tell the user the containers were deliberately left up. */
-  noteStackLeftRunning: () => void;
   /** Injected so the ack wait is instant under fake timers. */
   sleep: (ms: number) => Promise<void>;
   now: () => number;
@@ -51,7 +62,7 @@ export const CANCEL_ACK_TIMEOUT_MS = 5000;
 const CANCEL_POLL_MS = 200;
 
 function plural(n: number): string {
-  return `${n} job${n === 1 ? "" : "s"} still running`;
+  return `${n} active job${n === 1 ? "" : "s"} (running or queued)`;
 }
 
 /**
@@ -61,48 +72,31 @@ function plural(n: number): string {
 export async function runQuitPlan(backends: QuitBackends, deps: QuitPlanDeps): Promise<boolean> {
   if (!backends.docker && !backends.native) return true;
 
-  const running = await deps.listRunningJobs();
-
-  if (running.length === 0) {
-    if (backends.docker) deps.noteStackLeftRunning();
-    if (backends.native) await deps.stopNative();
-    return true;
+  let running: string[];
+  try {
+    running = await deps.listRunningJobs();
+  } catch {
+    // A crashed server cannot report jobs, but the user must still be able to close its runtime.
+    const choice = await deps.confirm({
+      buttons: ["Cancel", "Stop jobs and quit"],
+      message: "Job status is unavailable",
+      detail: "The server could not report its jobs. Closing stops its runtime and interrupts any running or queued jobs. Project files and named volumes are preserved.",
+      defaultId: 0, cancelId: 0,
+    });
+    if (choice !== 1) return false;
+    running = [];
   }
 
-  // Docker keeps its three-way question: leaving containers up is a real option there, because a
-  // later launch reattaches to them and the jobs simply keep running. The native runtime has no
-  // such option — nothing survives this process — so its question is the two honest answers.
-  const dialog: QuitDialog = backends.docker
-    ? {
-        buttons: ["Keep running in the background", "Stop containers and quit", "Cancel"],
-        message: plural(running.length),
-        detail:
-          "Keep the Docker containers running in the background and reopen the app later, or stop everything now.",
-        defaultId: 0,
-        cancelId: 2,
-      }
-    : {
-        buttons: ["Cancel", "Stop jobs and quit"],
-        message: plural(running.length),
-        detail:
-          "TI-Toolbox is running these jobs itself, so quitting ends them — nothing keeps running in the background. They will be cancelled before the app closes.",
-        defaultId: 0,
-        cancelId: 0,
-      };
-  const choice = await deps.confirm(dialog);
-
-  if (backends.docker) {
-    if (choice === 2) return false; // Cancel — do not quit.
-    if (choice === 1) {
-      await cancelAndWait(running, deps);
-      await deps.stopDocker();
-    }
-  } else if (choice !== 1) {
-    return false; // Cancel — do not quit.
-  } else {
+  if (running.length > 0) {
+    const choice = await deps.confirm({
+      buttons: ["Cancel", "Stop jobs and quit"], message: plural(running.length),
+      detail: "Closing the app stops its container and cancels running and queued jobs. Project files and named volumes are preserved.",
+      defaultId: 0, cancelId: 0,
+    });
+    if (choice !== 1) return false;
     await cancelAndWait(running, deps);
   }
-
+  if (backends.docker) await deps.stopDocker();
   if (backends.native) await deps.stopNative();
   return true;
 }

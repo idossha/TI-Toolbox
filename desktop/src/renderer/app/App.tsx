@@ -1,3 +1,6 @@
+import { isProjectHome } from "../env";
+import { NavRail } from "./NavRail";
+import { OpenProject } from "../pages/overview/ProjectControls";
 import { MemoryRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Shell } from "./Shell";
 import { ToastHost } from "../ui/Toast";
@@ -16,6 +19,27 @@ import { useTetravoxUpdated } from "./useTetravoxUpdated";
 const firstPage = landingPage();
 
 export function App() {
+  return isProjectHome ? <ProjectHome /> : <ConnectedApp />;
+}
+
+function ProjectHome() {
+  return (
+    <MemoryRouter initialEntries={["/overview"]}>
+      <ToastHost />
+      <div className="shell">
+        <NavRail />
+        <div className="shell-main">
+          <header className="overview-home-header">Overview <span>No project open</span></header>
+          <div className="shell-content" data-testid="shell-content" data-page="overview">
+            <OpenProject />
+          </div>
+        </div>
+      </div>
+    </MemoryRouter>
+  );
+}
+
+function ConnectedApp() {
   // Live, not the static `enabledPages`: a route must exist for a panel the moment NavRail shows
   // it (see `registry.ts`'s `useEnabledPages` doc comment) — otherwise a freshly toggled-on
   // panel would appear in the nav but 404 into the catch-all redirect when clicked.

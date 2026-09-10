@@ -12,7 +12,7 @@ The internal image is published on Docker Hub; manual acceptance continues. No s
 |---|---|
 | Manual workflow testing | Colleagues exercise representative copied projects and report output/result behavior |
 | Rebuild the distribution candidate | Bake current source, renderer and compatible Tetravox embed; record immutable identities |
-| Clean image and loader acceptance | Test without checkout mounts; verify Python/Bash launchers and fresh installer first launch |
+| Clean image and loader acceptance | Test without checkout mounts; verify Python/Bash launchers, packaged cross-project Attach/Recreate, project switching and Electron close-stop on each supported host |
 | Hosted review | Run CI/security review on the actual candidate head; older results do not cover later fixes |
 | Platform and publication checks | Verify intended platforms, macOS signing/notarization and registry access before public promotion |
 | Viewer update delivery | Verify compatible published Tetravox assets and update/rollback through the real release index |

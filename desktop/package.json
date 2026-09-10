@@ -11,6 +11,7 @@
   },
   "scripts": {
     "dev": "tsx scripts/dev.ts",
+    "dev:launcher": "npm run dev",
     "dev:web": "tsx scripts/dev.ts --web",
     "dev:host": "tsx scripts/dev.ts --host --web",
     "dev:down": "tsx scripts/dev.ts --down",

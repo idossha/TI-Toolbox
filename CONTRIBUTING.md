@@ -29,27 +29,35 @@ and a BIDS project. Use a copied project for tests that create or replace output
 ```bash
 cd desktop
 npm install
-cp .env.dev.example .env.dev        # set TIT_DEV_PROJECT_DIR; image override is optional
-npm run dev:web                    # container + Vite at http://127.0.0.1:5173/
-# npm run dev                      # same backend + Electron
+# .env.dev is optional for desktop; choose the project in Overview
+npm run dev                        # welcome Overview; choose a project in the app
+# npm run dev:web                  # container + Vite at http://127.0.0.1:5173/
 # npm run dev:down                 # stops/removes this project's container
 ```
+
+To develop and manually test the desktop Overview before packaging, run `npm run dev`
+from `desktop/`. It builds the local app and opens Overview without starting Docker or
+automatically connecting. Type a project path or use Browse, open a project, then use Switch project
+to choose the next directory before confirming the switch. Closing the app stops its container and exits.
+This uses the built UI rather than Vite hot reload; rerun after source changes.
 
 `pnpm dev:web` / `pnpm dev` use the same scripts. Inspect locally available image tags with
 `docker images idossha/ti-toolbox`; obtain or build a missing image first using
 [RELEASING](docs/dev/RELEASING.md). For one run, use
-`npm run dev:web -- --project /absolute/path/to/project`.
+`npm run dev:web -- --project /absolute/path/to/project`. For persistent browser-development
+defaults, copy `desktop/.env.dev.example` to `desktop/.env.dev` and set `TIT_DEV_PROJECT_DIR`.
 
-Vite supplies frontend HMR and authenticates proxied API/WebSocket requests; no token copying is
+With `dev:web`, Vite supplies frontend HMR and authenticates proxied API/WebSocket requests; no token copying is
 needed. By default the launched checkout is mounted at `/ti-toolbox`, first on the Python import
 path, and changes under `tit/` trigger server reload. Python dependency, system-package and
-entrypoint changes require an image rebuild. `TIT_DEV_MOUNT_REPO=0` tests baked scientific code.
+entrypoint changes require an image rebuild. With `dev:web`, `TIT_DEV_MOUNT_REPO=0` tests baked scientific code.
 The container's own browser URL serves `desktop/out/renderer`, so frontend edits there require
 a fresh build; Vite on port 5173 serves live frontend source.
 
-Ctrl-C closes Vite/Electron and leaves the container available for the next attach. Attach verifies
-the actual checkout and runtime settings. A mismatch with active or uninspectable jobs prevents
-automatic replacement. Check jobs before backend changes: reload can interrupt work. A container
+Close the Electron window to stop its container and exit. Ctrl-C in browser development stops
+Vite and leaves the container available for the next attach. Every running TI-Toolbox session
+requires an explicit Attach or Recreate choice; Attach keeps its existing project, image and
+mounts unchanged. Configuration differences never authorize automatic replacement. Check jobs before backend changes: reload can interrupt work. A container
 recreate changes its token; a plain restart preserves the token but still interrupts its processes.
 
 Choose the execution mode explicitly:
@@ -58,13 +66,16 @@ Choose the execution mode explicitly:
 |---|---|---|
 | Run the built image | `bash loader.sh` or `python3 loader.py` | Image contents |
 | Develop inside Docker | `bash dev/loader/loader_dev.sh` or `python3 dev/loader/loader_dev.py` | The launched checkout/worktree mounted at `/ti-toolbox` |
-| Docker + live frontend | From `desktop/`: `pnpm dev` or `pnpm dev:web` | Mounted backend + Vite frontend |
-| Host-only development | From `desktop/`: `pnpm dev --host` or `pnpm dev:host` | Local Python API + Vite; no container |
+| Desktop development | From `desktop/`: `npm run dev` | Local Electron/renderer build + mounted backend after project selection |
+| Docker + live frontend | From `desktop/`: `npm run dev:web` | Mounted backend + Vite frontend |
+| Host-only development | From `desktop/`: `npm run dev:host` | Local Python API + Vite browser; no container |
 
 Both Bash entry points require Docker Compose and curl, **not host Python**. Both Python entry
-points require Python 3.11+. With no arguments the loaders ask only for a project; explicit
+points require Python 3.11+. With no arguments the loaders ask for a project and, when a TI-Toolbox container is running,
+an Attach/Recreate decision; explicit
 `--project`, `--image`, `--port`, `--no-open`, `--status`, `--logs` and `--stop` stay scriptable.
-Dev loaders always use their own checkout, including a branch or worktree. Build its frontend
+New sessions created by dev loaders use their own checkout, including a branch or worktree;
+Attach preserves the selected session instead. Build the checkout frontend
 with `npm --prefix desktop run build` after edits, or use Vite for live changes. A missing local
 bundle never silently falls back to the image's UI.
 
@@ -168,6 +179,8 @@ or rescaling guidance in the relevant [release note](docs/releases/v3.0.0.md#sci
 
 Update the relevant user guide for behavior changes and the architecture/decision record for
 consequential design changes. [AGENTS.md](AGENTS.md) assigns document ownership; avoid duplicating
-facts or adding session logs. Use [Discussions](https://github.com/idossha/TI-Toolbox/discussions)
+facts or adding session logs. Consolidate accepted requirements into ARCHITECTURE, decisions into
+DECISIONS, verification limits into TESTING and remaining work into ROADMAP; do not add dated
+requirement files or duplicate development plans. Use [Discussions](https://github.com/idossha/TI-Toolbox/discussions)
 for design/help and GitHub issues for reproducible defects. Sensitive reports can go to
 `ihaber@wisc.edu`.

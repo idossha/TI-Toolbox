@@ -1,6 +1,6 @@
 import { writeFileSync } from "node:fs";
 import { expect, test, type ElectronApplication, type Locator, type Page } from "@playwright/test";
-import { expectPage, gotoPage, launchElectronApp, openPalette, setTheme } from "./_helpers";
+import { connectLauncher, expectPage, gotoPage, launchElectronApp, openPalette, setTheme } from "./_helpers";
 
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
 const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
@@ -24,9 +24,7 @@ test.beforeEach(async () => {
   app = await launchElectronApp();
   page = await app.firstWindow();
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.fill("#server-url", SERVER_URL);
-  await page.fill("#token", TOKEN);
-  await page.click("#connect");
+  await connectLauncher(page, SERVER_URL, TOKEN);
   await expect(page.getByTestId("nav-rail")).toBeVisible();
   await openPalette(page);
   await page.getByTestId("palette-input").fill("ernie");

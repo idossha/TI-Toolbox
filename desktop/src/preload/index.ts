@@ -29,6 +29,7 @@ const tit: TitBridge = {
   showItemInFolder: (path: string) => ipcRenderer.invoke("tit:showItemInFolder", String(path)),
   notify: (title: string, body?: string) => ipcRenderer.invoke("tit:notify", String(title), body ? String(body) : undefined),
   stack: {
+    switchProject: (hostProjectDir?: string): Promise<TitStackStopResult> => ipcRenderer.invoke("tit:stack:switchProject", hostProjectDir),
     start: (hostProjectDir: string): Promise<TitStackStartResult> => ipcRenderer.invoke("tit:stack:start", String(hostProjectDir)),
     stop: (): Promise<TitStackStopResult> => ipcRenderer.invoke("tit:stack:stop"),
     status: (): Promise<TitStackStatus> => ipcRenderer.invoke("tit:stack:status"),

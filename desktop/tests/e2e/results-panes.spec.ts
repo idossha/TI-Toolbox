@@ -14,7 +14,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Locator, type Page } from "@playwright/test";
-import { expectPage, gotoPage, launchElectronApp } from "./_helpers";
+import { connectLauncher, expectPage, gotoPage, launchElectronApp } from "./_helpers";
 
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
 const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
@@ -28,9 +28,7 @@ test.beforeEach(async () => {
   page = await app.firstWindow();
   await page.setViewportSize({ width: 1440, height: 900 });
   await expect(page).toHaveURL(/^app:\/\/launcher\//);
-  await page.fill("#server-url", SERVER_URL);
-  await page.fill("#token", TOKEN);
-  await page.click("#connect");
+  await connectLauncher(page, SERVER_URL, TOKEN);
   await expect(page.getByTestId("overview-table")).toBeVisible({ timeout: 20_000 });
 });
 test.afterEach(async () => {

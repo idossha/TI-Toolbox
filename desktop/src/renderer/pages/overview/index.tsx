@@ -23,6 +23,7 @@ import {
   presenceCells,
   readyFor,
 } from "./model";
+import { SwitchProject } from "./ProjectControls";
 import { ProjectInsights } from "./ProjectInsights";
 import "./overview.css";
 
@@ -178,7 +179,7 @@ function OverviewPage() {
   if (data && rows.length === 0) {
     return (
       <PageLayout variant="browse">
-        <div className="overview-page"><ProjectInsights /><EmptyState icon={<LayoutGrid size={24} />} message="This project has no subjects yet." /></div>
+        <div className="overview-page"><SwitchProject /><ProjectInsights /><EmptyState icon={<LayoutGrid size={24} />} message="This project has no subjects yet." /></div>
       </PageLayout>
     );
   }
@@ -186,7 +187,7 @@ function OverviewPage() {
   return (
     <PageLayout variant="browse" rightPaneKind="preview" rightPaneWidth={360} rightPane={detail}>
       <div className="overview-page" style={{ ["--overview-cols" as string]: COLUMNS }}>
-        <ProjectInsights />
+        <SwitchProject /><ProjectInsights />
         {overviewQuery.error && <Callout kind="danger">Could not load this project's overview.</Callout>}
         {overviewQuery.isPending && <Skeleton rows={4} />}
 

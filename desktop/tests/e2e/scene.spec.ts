@@ -24,7 +24,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import { gotoPage, launchElectronApp } from "./_helpers";
+import { connectLauncher, gotoPage, launchElectronApp } from "./_helpers";
 import {
   ORBIT_RAD_PER_PX,
   cameraBasis,
@@ -87,9 +87,7 @@ async function readScene(target: Page): Promise<SceneState> {
 
 async function connect(target: Page): Promise<void> {
   await expect(target).toHaveURL(/^app:\/\/launcher\//);
-  await target.fill("#server-url", SERVER_URL);
-  await target.fill("#token", TOKEN);
-  await target.click("#connect");
+  await connectLauncher(target, SERVER_URL, TOKEN);
   await expect(target).toHaveURL(new URL("/", SERVER_URL).href, { timeout: 20_000 });
   // `nav-rail`, not the old `subjects-table`: the Overview's subject table was replaced during
   // the 2026-09 UI work, and this helper only needs to know the shell is up.

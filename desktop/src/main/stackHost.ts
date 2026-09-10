@@ -9,7 +9,7 @@
  * with a `TypeError: Cannot read properties of undefined (reading 'isPackaged')` — a plain Node
  * `require("electron")` returns the *path to the binary*, not the API surface.
  */
-import { app, net } from "electron";
+import { app, net, dialog } from "electron";
 import { waitForHealth } from "./health";
 import { log } from "./log";
 import { createStackManager, type StackHost } from "./stack";
@@ -25,6 +25,30 @@ export const electronStackHost: StackHost = {
   },
   get resourcesPath() {
     return process.resourcesPath;
+  },
+  async chooseRunningContainer(containers, composeFile) {
+    const action = process.env.TIT_LAUNCH_EXISTING;
+    const selector = process.env.TIT_LAUNCH_CONTAINER;
+    if (action) {
+      if (!["attach", "recreate"].includes(action)) throw new Error("TIT_LAUNCH_EXISTING must be attach or recreate.");
+      const matches = selector ? containers.filter((c) => c.Id === selector || c.Names.some((name) => name.replace(/^\//, "") === selector)) : containers;
+      if (matches.length !== 1) throw new Error("Select exactly one running container with TIT_LAUNCH_CONTAINER.");
+      return { action: action === "attach" ? "attach" : "replace", containerId: matches[0]!.Id };
+    }
+    const selected = containers.length === 1 ? 0 : (await dialog.showMessageBox({
+      type: "question", message: "Select a running TI-Toolbox container",
+      detail: "Choose the container to attach to or replace. Other containers remain unchanged.",
+      buttons: [...containers.map((c) => `${c.Image} — ${c.Labels["tit.host_project_dir"] || c.Names[0]?.replace(/^\//, "")}`), "Cancel"],
+      cancelId: containers.length, defaultId: containers.length,
+    })).response;
+    if (selected >= containers.length) return null;
+    const container = containers[selected]!;
+    const { response } = await dialog.showMessageBox({
+      type: "question", message: `${container.Image} is already running`,
+      detail: `Current project: ${container.Labels["tit.host_project_dir"] || "unknown (legacy session)"}\nImage: ${container.Image}\n\nAttach using its current project and configuration, or stop and remove it (interrupting its jobs) and create a new container from ${composeFile}. Project files and named volumes are preserved.`,
+      buttons: ["Attach", "Recreate", "Cancel"], defaultId: 1, cancelId: 2,
+    });
+    return response === 2 ? null : { action: response === 0 ? "attach" : "replace", containerId: container.Id };
   },
   log,
   waitForHealth,

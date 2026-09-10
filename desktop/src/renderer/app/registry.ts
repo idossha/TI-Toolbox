@@ -1,3 +1,4 @@
+import { isProjectHome } from "../env";
 /**
  * Pages are discovered, never listed by hand: every `pages/<name>/index.tsx` default-exports a
  * `PageDef`, and `import.meta.glob` finds them at build time. Adding a screen means adding a
@@ -269,9 +270,10 @@ function isPanelPageEnabled(page: PageDef, enabledPanelIds: string[]): boolean {
  * default, itself seeded from a `localStorage` mirror) until the first `/api/settings` response.
  */
 export function useEnabledPages(): ResolvedPage[] {
-  const settingsQuery = useQuery({ queryKey: ["settings"], queryFn: getSettings });
+  const settingsQuery = useQuery({ queryKey: ["settings"], queryFn: getSettings, enabled: !isProjectHome });
   const panelIds = settingsQuery.data?.panels;
   return useMemo(() => {
+    if (isProjectHome) return enabledPages;
     if (!panelIds) return enabledPages;
     return pages.filter((p) => isPanelPageEnabled(p, panelIds));
   }, [panelIds]);

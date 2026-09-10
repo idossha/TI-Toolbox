@@ -9,13 +9,9 @@
  * and starts the container with this app's own labels and env, streams its log lines while it
  * comes up, waits for `/api/health`, and hands back `{url, token}`.
  *
- * Attach-or-start is by label, not by a file on disk: every container this app creates carries
- * `tit.project=<project name>` *and* `tit.host_project_dir=<the directory it was opened for>`, and
- * a later `start()` for the same directory finds it, checks both, reads its port and bearer token
- * straight out of the container's own environment, and reconnects. Both labels are needed: the
- * project name is a 32-bit hash, so it alone would let a collision attach one project's UI to
- * another project's container. That is why there is no `stacks.json` any more — the container is
- * the source of truth, and the token never has to be written to the host filesystem at all.
+ * Every launch discovers running TI-Toolbox containers across projects and requires an explicit
+ * selection: attach to the selected container's actual session, or replace that one from YAML.
+ * Credentials remain inside Docker and process memory. Closing Electron stops its selected stack.
  *
  * X11 is gone (decision D3): no `DISPLAY`, no `xhost`, no XQuartz, nothing to revert on quit.
  * The FreeSurfer service and its named volume are gone with it (D2).
@@ -44,8 +40,7 @@ import {
   stackErrorMessage,
   type StackErrorKind,
 } from "../shared/compose";
-import { StackError, buildContainerPlan, interpolate, parseComposeFile, type ContainerPlan } from "../shared/composeFile";
-import { parse as parseYaml } from "yaml";
+import { StackError, buildContainerPlan, parseComposeFile, type ContainerPlan } from "../shared/composeFile";
 import { formatPullEvent, parseProgressLine } from "../shared/pullProgress";
 import { discover } from "./docker/discover";
 import { DockerEngineClient, DockerEngineError, type DockerVersionInfo } from "./docker/engine";
@@ -59,7 +54,7 @@ const SERVICE_NAME = "tit";
 /** `POST /containers/create?platform=` — the whole reason an amd64 image runs on an arm64 host. */
 const MIN_API_VERSION = "1.41";
 /** How long a freshly started container has to answer `/api/health`; a cold amd64 start is slow. */
-const START_HEALTH_TIMEOUT_MS = Number(process.env.TIT_STACK_HEALTH_TIMEOUT_MS ?? 120_000);
+const START_HEALTH_TIMEOUT_MS = Number(process.env.TIT_STACK_HEALTH_TIMEOUT_MS ?? (Number(process.env.TIT_LAUNCH_TIMEOUT || 120) * 1000));
 /**
  * How long an already-running container has to answer `/api/health` before `start()` gives up on
  * attaching to it. It used to be 10 s, on the premise that "a running stack answers immediately or
@@ -93,7 +88,10 @@ export type StackEvent =
  * With the four host-shaped needs behind this object, Electron main passes `electronStackHost`
  * (`./stackHost.ts`) and `scripts/dev.ts` passes a plain Node one; the code between them is one copy.
  */
+export interface RunningContainerChoice { action: "attach" | "replace"; containerId: string }
+
 export interface StackHost {
+  chooseRunningContainer?: (containers: ContainerSummary[], composeFile: string) => Promise<RunningContainerChoice | null>;
   /** `app.isPackaged`. Always false under the dev script — it is a checkout, by definition. */
   isPackaged: boolean;
   /** `app.getAppPath()` — the base for the `docker-compose.yml` lookup (see `resolveComposeFile`). */
@@ -118,6 +116,8 @@ export interface StackStartOptions {
   preferredPort?: number;
   /** `${TIT_IMAGE_TAG}` for the compose image reference (default: the compose file's own). */
   imageTag?: string;
+  /** Complete CLI image reference; replaces the YAML image without treating it as a tag. */
+  image?: string;
   /** Host repo to bind-mount at `/ti-toolbox` (dev only; see `resolveRepoDir`). */
   repoDir?: string | undefined;
   /** `TIT_SERVER_RELOAD=1` — the entrypoint then runs uvicorn `--reload --reload-dir /ti-toolbox/tit`. */
@@ -130,20 +130,9 @@ export interface StackStartOptions {
    * `process.env.TIT_STATIC_DIR`.
    */
   staticDir?: string;
-  /**
-   * Attach only to a running container whose own recorded state already matches the options above;
-   * one that differs is removed and recreated, with the reason emitted as a progress line. Off by
-   * default: the packaged app has no dev requirements to match, and silently recreating a user's
-   * running stack because a field it never sets differs would kill their running jobs.
-   */
+  /** @deprecated Retained for callers; attachment always requires an explicit choice. */
   requireMatch?: boolean;
-  /**
-   * Recreate a mismatched container even when it has work in flight. Off by default, and the
-   * default is the point: a recreate stops the container and mints a NEW bearer token, so doing it
-   * under a running job kills that job (a FEM solve is 16 minutes on this hardware) and logs out
-   * every other client that knew the old token. `npm run dev --force` is the deliberate override;
-   * `npm run dev:down` first is the other way.
-   */
+  /** @deprecated Never bypasses the explicit running-container choice. */
   forceRecreate?: boolean;
 }
 
@@ -231,6 +220,11 @@ export class StackManager {
     return this.current;
   }
 
+  /** Validate a replacement's compose plan before ending the current session. */
+  async validateStart(hostProjectDir: string, options: StackStartOptions = {}): Promise<void> {
+    await this.prepareFresh(computeProjectName(resolve(hostProjectDir)), resolve(hostProjectDir), options);
+  }
+
   async start(hostProjectDirRaw: string, options: StackStartOptions = {}): Promise<StackStartResult> {
     if (this.starting) return { ok: false, error: "A stack is already starting." };
     this.starting = true;
@@ -286,73 +280,36 @@ export class StackManager {
     const api = new StackApi(found.connection, version.ApiVersion);
     const projectName = computeProjectName(hostProjectDir);
 
-    const attached = await this.tryAttach(api, projectName, hostProjectDir, options);
+    const attached = await this.tryAttach(client, api, projectName, hostProjectDir, options);
     if (attached) return attached;
 
     return this.startFresh(client, api, projectName, hostProjectDir, options);
   }
 
-  /**
-   * Attach to this project's already-running container, if there is one — the "attach, don't kill"
-   * rule (TODO §2.7). Its port and token come out of its own environment, so this works across app
-   * restarts with nothing persisted on the host. A container that exists but is not running is
-   * removed here so the fresh start below can reuse its name.
-   */
-  private async tryAttach(api: StackApi, projectName: string, hostProjectDir: string, options: StackStartOptions): Promise<StackStartResult | null> {
-    const existing = await api.listContainers({ [LABEL_PROJECT]: projectName });
-    const decision = decideAttach(existing, hostProjectDir);
-    if (decision.kind === "none") return null;
-    if (decision.kind === "refuse") throw new StackStartError("unknown", decision.reason);
-    for (const warning of decision.warnings) this.host.log("warn", `[stack] ${warning}`);
-    if (decision.kind === "recreate") {
-      // Stopped containers hold the name the fresh start below needs, whichever directory they
-      // were opened for. Removing one destroys nothing: named volumes are kept, and the project
-      // data lives on the host.
-      this.progress("Removing this project's stopped container…");
-      for (const c of existing) await api.removeContainerById(c.Id).catch((err) => this.host.log("warn", `could not remove ${c.Id}: ${String(err)}`));
+  /** Ask before attaching or replacing any running toolbox container, including other projects. */
+  private async tryAttach(client: DockerEngineClient, api: StackApi, projectName: string, hostProjectDir: string, options: StackStartOptions): Promise<StackStartResult | null> {
+    const existing = (await api.listContainers({})).filter(isToolboxContainer);
+    const candidates = existing.filter((container) => container.State === "running");
+    if (!candidates.length) {
+      if (process.env.TIT_LAUNCH_EXISTING === "attach" || process.env.TIT_LAUNCH_CONTAINER) throw new StackStartError("unknown", "No selected running TI-Toolbox container exists.");
       return null;
     }
-    const running = decision.container;
-
-    this.progress("Attaching to the running stack…");
-    const state = await api.inspect(running.Id);
-    // Resolve only the image here: attach reuses the running container's mounts/port/token.
-    // The same YAML parser and interpolation rules drive fresh creation below.
-    const compose = parseYaml(readFileSync(resolveComposeFile(this.host), "utf8"));
-    const imageTemplate: unknown = compose?.services?.[SERVICE_NAME]?.image;
-    if (typeof imageTemplate !== "string" || !imageTemplate) throw new StackStartError("compose-invalid", "services.tit.image must be a nonempty string");
-    const expectedImage = interpolate(imageTemplate, { ...process.env, ...(options.imageTag ? { TIT_IMAGE_TAG: options.imageTag } : {}) }, "services.tit.image");
-    // Config.Image is the original tag/digest; Docker's image ID and list display are not.
-    // Even --force must not turn an image mismatch into an automatic job-killing replacement.
-    if (state.image !== expectedImage) {
-      throw new StackStartError(
-        "unknown",
-        `The running container uses ${state.image || "(unknown)"}, but this app requires ${expectedImage}. ` +
-          `Wait for its jobs to finish, then stop this project's container and launch again. The running container was left unchanged.`,
-      );
-    }
-    if (options.requireMatch) {
-      const mismatch = describeMismatch(state, state.image, options);
-      if (mismatch) {
-        if (!options.forceRecreate) {
-          const port = state.publishedPort ?? Number(state.env.TIT_SERVER_PORT);
-          const busy = await this.runningJobs(`http://127.0.0.1:${port}`, state.env.TIT_SERVER_TOKEN ?? "");
-          if (busy.length) {
-            throw new StackStartError(
-              "unknown",
-              `${mismatch}, but it has ${busy.length} job(s) in flight (${busy.join(", ")}). Recreating would kill them and change the server token. ` +
-                `Wait for them, or stop the container yourself (npm run dev:down), or re-run with --force`,
-            );
-          }
-        }
-        // One printed line, then a recreate: a dev container that is missing the repo mount or the
-        // reload flag looks healthy and serves the image's baked-in Python, so "attached" with no
-        // explanation is how an afternoon goes into editing files nothing reads.
-        this.progress(`Recreating the container — ${mismatch}`);
-        for (const c of existing) await api.removeContainerById(c.Id, true).catch((err) => this.host.log("warn", `could not remove ${c.Id}: ${String(err)}`));
-        return null;
+    const choice = await this.host.chooseRunningContainer?.(candidates, resolveComposeFile(this.host));
+    if (!choice) throw new StackStartError("unknown", "Launch cancelled; running containers were left unchanged.");
+    const running = candidates.find((container) => container.Id === choice.containerId);
+    if (!running) throw new StackStartError("unknown", "The selected container is no longer available.");
+    if (choice.action === "replace") {
+      const { plan } = await this.prepareFresh(projectName, hostProjectDir, options);
+      if (candidates.some((c) => c.Id !== running.Id && c.Names.some((name) => name.replace(/^\//, "") === plan.containerName))) {
+        throw new StackStartError("unknown", "Another running container owns the requested YAML container name. Select that container to replace; nothing was changed.");
       }
+      this.progress(`Stopping and removing ${running.Names[0] ?? running.Id}…`);
+      await client.stopContainer(running.Id, 10);
+      await api.removeContainerById(running.Id);
+      return null;
     }
+    this.progress("Attaching to the selected container; its existing configuration is retained…");
+    const state = await api.inspect(running.Id);
     const port = state.publishedPort ?? Number(state.env.TIT_SERVER_PORT);
     const token = state.env.TIT_SERVER_TOKEN;
     if (!port || !token) throw new StackStartError("unknown", "the running container does not carry a server port and token");
@@ -368,31 +325,29 @@ export class StackManager {
           `TIT_STACK_ATTACH_HEALTH_TIMEOUT_MS, or check "docker logs ${state.Name}"`,
       );
     }
-    this.current = { projectName, hostProjectDir, containerId: running.Id, containerName: state.Name, image: state.image, origin, token, port };
+    this.current = { projectName, hostProjectDir: state.labels[LABEL_HOST_DIR] || hostProjectDir, containerId: running.Id, containerName: state.Name, image: state.image, origin, token, port };
     this.emit({ type: "started", origin, port, attached: true });
     return { ok: true, url: origin, token, attached: true };
   }
 
-  /** Fail closed: a busy or unreachable server must never be mistaken for an idle one. */
-  private async runningJobs(origin: string, token: string): Promise<string[]> {
-    try {
-      if (!token) throw new Error("the running container has no server token");
-      return runningJobLabels(await this.host.fetchJson(`${origin}/api/jobs`, { authorization: `Bearer ${token}` }));
-    } catch {
-      throw new StackStartError(
-        "unknown",
-        "Could not verify the running container's jobs. It was left unchanged. Check the server and wait for its jobs to finish before trying again.",
-      );
-    }
+  /** Adopt a container already selected by the dev launcher, without asking twice. */
+  async adopt(containerId: string): Promise<StackStartResult> {
+    const found = await discover();
+    if (!found.available) return { ok: false, error: found.message };
+    const client = new DockerEngineClient(found.connection);
+    const api = new StackApi(found.connection, (await client.version()).ApiVersion);
+    const state = await api.inspect(containerId);
+    const port = state.publishedPort ?? Number(state.env.TIT_SERVER_PORT);
+    const token = state.env.TIT_SERVER_TOKEN;
+    if (!state.running || !port || !token) return { ok: false, error: "Selected container has no running TI-Toolbox server." };
+    const origin = `http://127.0.0.1:${port}`;
+    await this.host.waitForHealth(origin, ATTACH_HEALTH_TIMEOUT_MS);
+    const hostProjectDir = state.labels[LABEL_HOST_DIR] || state.env.LOCAL_PROJECT_DIR || "";
+    this.current = { projectName: state.labels[LABEL_PROJECT] || "", hostProjectDir, containerId: state.Id, containerName: state.Name, image: state.image, origin, token, port };
+    return { ok: true, url: origin, token, attached: true };
   }
 
-  private async startFresh(
-    client: DockerEngineClient,
-    api: StackApi,
-    projectName: string,
-    hostProjectDir: string,
-    options: StackStartOptions,
-  ): Promise<StackStartResult> {
+  private async prepareFresh(projectName: string, hostProjectDir: string, options: StackStartOptions): Promise<{ plan: ContainerPlan; token: string }> {
     this.progress("Finding a free port…");
     const port = await findFreePort(options.preferredPort ?? DEFAULT_PORT);
     const token = generateToken();
@@ -416,6 +371,12 @@ export class StackManager {
 
     const composeFile = resolveComposeFile(this.host);
     const stack = parseComposeFile(readFileSync(composeFile, "utf8"), { ...process.env, ...env });
+    if (options.image !== undefined) {
+      if (!/^[A-Za-z0-9][A-Za-z0-9._/:@-]*$/.test(options.image)) throw new StackStartError("compose-invalid", "Invalid container image reference.");
+      const service = stack.services[SERVICE_NAME];
+      if (!service) throw new StackStartError("compose-invalid", "services.tit is required.");
+      service.image = options.image;
+    }
     const plan = buildContainerPlan(stack, {
       serviceName: SERVICE_NAME,
       projectName,
@@ -430,6 +391,11 @@ export class StackManager {
       throw new StackStartError("compose-invalid", `services.${SERVICE_NAME}.ports must publish \${TIT_SERVER_PORT} (got ${plan.hostPort}, expected ${port})`);
     }
 
+    return { plan, token };
+  }
+
+  private async startFresh(client: DockerEngineClient, api: StackApi, projectName: string, hostProjectDir: string, options: StackStartOptions): Promise<StackStartResult> {
+    const { plan, token } = await this.prepareFresh(projectName, hostProjectDir, options);
     if (plan.networkName) {
       this.progress("Creating the Docker network…");
       await api.ensureNetwork(plan.networkName, plan.networkDriver);
@@ -481,7 +447,8 @@ export class StackManager {
   private async removeByName(api: StackApi, containerName: string): Promise<void> {
     try {
       const state = await api.inspect(containerName);
-      await api.removeContainerById(state.Id, true);
+      if (state.running) throw new Error(`Container ${containerName} started during launch; retry to select it explicitly.`);
+      await api.removeContainerById(state.Id);
     } catch (err) {
       if (err instanceof DockerEngineError && err.kind === "not-found") return;
       throw err;
@@ -566,7 +533,6 @@ export class StackManager {
       // this method exists to reach, so it is a success, not an error.
       if (!(err instanceof DockerEngineError && err.kind === "not-found")) {
         const message = this.describe(err);
-        this.current = null;
         this.emit({ type: "error", message });
         return { ok: false, error: message };
       }
@@ -771,4 +737,13 @@ export function runningJobLabels(body: unknown): string[] {
 /** One manager per host process. Electron main uses `./stackHost.ts`'s; the dev script its own. */
 export function createStackManager(host: StackHost): StackManager {
   return new StackManager(host);
+}
+
+/** Identify current and legacy toolbox containers without matching unrelated Docker services. */
+export function isToolboxContainer(container: ContainerSummary): boolean {
+  const service = container.Labels?.[LABEL_SERVICE] || container.Labels?.["com.docker.compose.service"];
+  if (service && !["tit", "ti-toolbox", "simnibs"].includes(service)) return false;
+  return Boolean(container.Labels?.[LABEL_STACK] === STACK_ID || container.Labels?.[LABEL_PROJECT] || container.Labels?.[LABEL_HOST_DIR]
+    || /^idossha\/ti-toolbox(?::|@|$)/.test(container.Image)
+    || container.Names.some((name) => /^\/?ti[-_]toolbox(?:[-_]|$)/i.test(name)));
 }

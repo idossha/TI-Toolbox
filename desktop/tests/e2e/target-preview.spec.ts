@@ -2,7 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication } from "@playwright/test";
-import { gotoPage, launchElectronApp, openPalette } from "./_helpers";
+import { connectLauncher, gotoPage, launchElectronApp, openPalette } from "./_helpers";
 import { showRunPaneTab } from "./_runPane";
 import { analysisRows, analysisTargetText, closeAnalysisTarget, openAnalysisTarget, openOptEditor, closeOptEditor, optRows, optRowSummary } from "./_jobs";
 
@@ -14,9 +14,7 @@ for (const surface of ["analyzer", "optimizer"] as const) {
     app = await launchElectronApp({ userDataDir: mkdtempSync(join(tmpdir(), "tit-target-preview-")) });
     const page = await app.firstWindow();
     await page.setViewportSize({ width: 1500, height: 900 });
-    await page.fill("#server-url", process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790");
-    await page.fill("#token", process.env.TIT_E2E_TOKEN ?? "mock-token");
-    await page.click("#connect");
+    await connectLauncher(page, process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790", process.env.TIT_E2E_TOKEN ?? "mock-token");
     await expect(page.getByTestId("nav-rail")).toBeVisible({ timeout: 20_000 });
     await openPalette(page);
     await page.getByTestId("palette-input").fill("ernie");

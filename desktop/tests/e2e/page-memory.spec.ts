@@ -29,7 +29,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import { expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
+import { connectLauncher, expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
 import { activePage as activePageOf, fingerprint, settle, useThePage } from "./_pageMemory";
 import { waitForScene } from "./_runPane";
 
@@ -86,9 +86,7 @@ test.beforeAll(async () => {
     }, ALL_PANELS);
   }
   await expect(page).toHaveURL(/^app:\/\/launcher\//);
-  await page.fill("#server-url", SERVER_URL);
-  await page.fill("#token", TOKEN);
-  await page.click("#connect");
+  await connectLauncher(page, SERVER_URL, TOKEN);
   await expect(page.getByTestId("nav-rail")).toBeVisible({ timeout: 20_000 });
   // A page measured with no subject is measuring its empty state, which has no sections to
   // remember — the same reason `layout.spec.ts` picks a subject before it measures anything.

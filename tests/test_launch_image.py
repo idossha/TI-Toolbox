@@ -1,122 +1,222 @@
-"""Image pairing on attach: synthetic Docker inspect replies, no live Docker (2026-09-09).
+"""Container decisions against authored Docker responses; no live Docker.
 
-Run ``python3 -m pytest tests/test_launch_image.py -q``. Config.Image is authored input;
-the expected outcome is refusal without mutation, or reuse of the matching container.
+Run python3 -m pytest tests/test_launch_image.py -q. These cases pin cross-project
+selection, explicit consent, and stop-before-remove ordering. UI is tested elsewhere.
 """
 
+import json
+import subprocess
 from unittest.mock import Mock
 
 import pytest
-
 from tit import launch
 
 
 @pytest.fixture
-def running(monkeypatch):
-    container = {
-        "Name": "/existing",
-        "State": {"Running": True},
-        "Image": "sha256:" + "a" * 64,
-        "Config": {"Image": "idossha/ti-toolbox:internal-fixture"},
-    }
-    monkeypatch.setattr(launch, "require_docker", lambda: None)
-    monkeypatch.setattr(launch, "resolve_project", lambda _: "/fixture/project")
-    monkeypatch.setattr(launch, "find_container", lambda _: container)
-    monkeypatch.setattr(
-        launch, "default_image", lambda: "idossha/ti-toolbox:internal-fixture"
-    )
-    monkeypatch.setattr(
-        launch,
-        "container_credentials",
-        lambda _: ("http://localhost:8765", "fixture-token"),
-    )
-    monkeypatch.setattr(launch, "wait_for_health", lambda *a, **k: None)
-    mutations = Mock(side_effect=AssertionError("attach must not mutate Docker"))
-    monkeypatch.setattr(launch, "_docker", mutations)
-    monkeypatch.setattr(launch, "ensure_image", mutations)
-    return container, mutations
+def docker(monkeypatch, tmp_path):
+    running = [
+        {
+            "Id": "other-id",
+            "Name": "/ti-toolbox-other",
+            "State": {"Running": True},
+            "Config": {
+                "Image": "idossha/ti-toolbox:old",
+                "Labels": {"tit.host_project_dir": "/other"},
+                "Env": ["TIT_SERVER_TOKEN=secret", "TIT_SERVER_PORT=8888"],
+            },
+        }
+    ]
+    commands = []
 
-
-@pytest.mark.parametrize("explicit", [None, "idossha/ti-toolbox:internal-fixture"])
-def test_matching_configured_reference_attaches_despite_content_id(running, explicit):
-    _, mutations = running
-    assert launch.start(
-        launch.LaunchOptions(
-            project="/fixture/project", image=explicit, echo=lambda _: None
-        )
-    ) == ("http://localhost:8765", "fixture-token")
-    mutations.assert_not_called()
-
-
-@pytest.mark.parametrize("explicit", [None, "idossha/ti-toolbox:internal-new"])
-def test_old_container_refused_for_default_or_explicit_image(running, explicit):
-    container, mutations = running
-    container["Config"]["Image"] = "idossha/ti-toolbox:internal-old"
-    with pytest.raises(launch.LaunchError, match="Wait for its jobs to finish.*--stop"):
-        launch.start(launch.LaunchOptions(project="/fixture/project", image=explicit))
-    mutations.assert_not_called()
-
-
-def test_exact_digest_reference_is_supported(running):
-    container, _ = running
-    digest = "idossha/ti-toolbox@sha256:" + "b" * 64
-    container["Config"]["Image"] = digest
-    assert (
-        launch.start(
-            launch.LaunchOptions(
-                project="/fixture/project", image=digest, echo=lambda _: None
+    def call(*args, **kwargs):
+        commands.append(args)
+        stdout = ""
+        if args[:2] == ("ps", "--format"):
+            stdout = "\n".join(item["Id"] for item in running)
+        elif args[0] == "inspect":
+            stdout = json.dumps(
+                [next(item for item in running if item["Id"] == args[1])]
             )
-        )[0]
-        == "http://localhost:8765"
+        elif args[0] == "rm":
+            running[:] = [item for item in running if item["Id"] != args[1]]
+        elif args[0] == "run":
+            stdout = "new-id"
+        return subprocess.CompletedProcess(args, 0, stdout, "")
+
+    monkeypatch.setattr(launch, "_docker", call)
+    monkeypatch.setattr(launch.sys.stdin, "isatty", lambda: False)
+    monkeypatch.setattr(launch, "wait_for_health", lambda *a, **k: None)
+    monkeypatch.setattr(launch, "find_free_port", lambda _: 8765)
+    monkeypatch.setattr(launch, "user_config_dir", lambda: tmp_path)
+    return running, commands, tmp_path
+
+
+def test_running_other_project_requires_decision_without_mutation(docker):
+    _, commands, project = docker
+    with pytest.raises(launch.LaunchError, match="choose --existing"):
+        launch.start(launch.LaunchOptions(project=str(project)))
+    assert not any(cmd[0] in ("stop", "rm", "run") for cmd in commands)
+
+
+def test_explicit_attach_uses_running_session_despite_requested_image(docker):
+    _, commands, project = docker
+    options = launch.LaunchOptions(
+        project=str(project), image="different:new", existing="attach"
     )
+    assert launch.start(options) == ("http://127.0.0.1:8888", "secret")
+    assert options.session_container == "other-id"
+    assert options.session_project == "/other"
+    assert not any(cmd[0] in ("stop", "rm", "run") for cmd in commands)
 
 
-def test_unknown_configured_reference_fails_closed(running):
-    container, mutations = running
-    container["Config"] = {}
-    with pytest.raises(launch.LaunchError, match="uses \\(unknown\\)"):
-        launch.start(launch.LaunchOptions(project="/fixture/project"))
-    mutations.assert_not_called()
+def test_recreate_stops_then_removes_selected_and_uses_requested_yaml_project(docker):
+    _, commands, project = docker
+    options = launch.LaunchOptions(
+        project=str(project), image="requested:new", existing="recreate"
+    )
+    launch.start(options)
+    mutations = [cmd for cmd in commands if cmd[0] in ("stop", "rm", "run")]
+    assert mutations[:2] == [("stop", "other-id"), ("rm", "other-id")]
+    assert mutations[2][-1] == "requested:new"
+    assert str(project) + ":/mnt/" + project.name in mutations[2]
+    assert options.session_container == "new-id"
+
+
+def test_multiple_sessions_require_named_selection(docker):
+    running, commands, project = docker
+    running.append({**running[0], "Id": "second-id", "Name": "/ti-toolbox-second"})
+    with pytest.raises(launch.LaunchError, match="multiple containers"):
+        launch.start(launch.LaunchOptions(project=str(project), existing="attach"))
+    options = launch.LaunchOptions(
+        project=str(project), existing="attach", container="ti-toolbox-second"
+    )
+    launch.start(options)
+    assert options.session_container == "second-id"
+
+
+def test_unrelated_container_does_not_trigger_prompt(docker):
+    running, _, project = docker
+    running[0]["Name"] = "/postgres"
+    running[0]["Config"]["Image"] = "postgres:17"
+    launch.start(launch.LaunchOptions(project=str(project)))
+
+
+def test_interactive_attach_requires_answer(docker, monkeypatch):
+    _, _, project = docker
+    monkeypatch.setattr(launch.sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda _: "attach")
+    assert launch.start(launch.LaunchOptions(project=str(project)))[0].endswith(":8888")
+
+
+def test_regular_cli_hands_off_before_docker(docker, monkeypatch):
+    from tit import cli
+
+    _, commands, project = docker
+    monkeypatch.setenv("TIT_ELECTRON_EXECUTABLE", "/installed/electron")
+    for key in (
+        "ELECTRON_RUN_AS_NODE",
+        "ELECTRON_RENDERER_URL",
+        "TIT_LAUNCH_CONTAINER_ID",
+        "TIT_DEV_SERVER_URL",
+        "TIT_DEV_SERVER_TOKEN",
+        "TIT_DEV_PROJECT_DIR",
+    ):
+        monkeypatch.setenv(key, "stale-session")
+    monkeypatch.setattr(cli.shutil, "which", lambda _: "/installed/electron")
+    run = Mock(return_value=subprocess.CompletedProcess([], 0))
+    monkeypatch.setattr(cli.subprocess, "run", run)
+    args = cli.launch_parser().parse_args(
+        [
+            "--desktop",
+            "--project",
+            str(project),
+            "--existing",
+            "attach",
+            "--container",
+            "other-id",
+        ]
+    )
+    assert cli.launch_command(args) == 0
+    assert commands == []
+    assert run.call_args.args[0] == ["/installed/electron"]
+    assert "stale-session" not in run.call_args.kwargs["env"].values()
+    assert run.call_args.kwargs["env"]["TIT_LAUNCH_IMAGE"].startswith(
+        "idossha/ti-toolbox:"
+    )
+    assert "TIT_IMAGE_TAG" not in run.call_args.kwargs["env"]
+    assert run.call_args.kwargs["env"]["TIT_LAUNCH_CONTAINER"] == "other-id"
+    assert run.call_args.kwargs["env"]["TIT_LAUNCH_EXISTING"] == "attach"
+
+
+def test_project_collision_refuses_before_stopping_selected(docker, monkeypatch):
+    running, commands, project = docker
+    owner = {**running[0], "Id": "project-owner"}
+    monkeypatch.setattr(launch, "find_container", lambda _: owner)
+    with pytest.raises(launch.LaunchError, match="another running container owns"):
+        launch.start(launch.LaunchOptions(project=str(project), existing="recreate"))
+    assert not any(cmd[0] in ("stop", "rm", "run") for cmd in commands)
+
+
+def test_cached_install_discovers_path_executable_before_docker(docker, monkeypatch):
+    from tit import cli
+
+    _, commands, project = docker
+    monkeypatch.delenv("TIT_ELECTRON_EXECUTABLE", raising=False)
+    monkeypatch.setattr(cli, "__file__", str(project / "tit" / "cli.py"))
+    monkeypatch.setattr(cli.shutil, "which", lambda _: "/installed/ti-toolbox")
+    run = Mock(return_value=subprocess.CompletedProcess([], 0))
+    monkeypatch.setattr(cli.subprocess, "run", run)
+    args = cli.launch_parser().parse_args(["--desktop", "--project", str(project)])
+    assert cli.launch_command(args) == 0
+    assert commands == []
+    assert run.call_args.args[0][0] != "bash"
 
 
 @pytest.mark.parametrize(
-    "mismatch", [None, "missing", "other-checkout", "volume", "reload", "static", "pythonpath"]
+    "answer, expected",
+    [("", "recreate"), ("1", "recreate"), ("2", "attach"), ("attach", "attach")],
 )
-def test_dev_attach_requires_actual_checkout_mount_and_dev_settings(running, mismatch):
-    container, mutations = running
-    container["Config"]["Env"] = [
-        "TIT_REPO_DIR=/fixture/checkout",  # A marker alone is not proof of a mount.
-        "TIT_SERVER_RELOAD=1",
-        "TIT_STATIC_DIR=/ti-toolbox/desktop/out/renderer",
-        "PYTHONPATH=/ti-toolbox",
-    ]
-    container["Mounts"] = [
-        {"Type": "bind", "Source": "/fixture/checkout", "Destination": "/ti-toolbox"}
-    ]
-    if mismatch == "missing":
-        container["Mounts"] = []
-    elif mismatch == "other-checkout":
-        container["Mounts"][0]["Source"] = "/fixture/old-checkout"
-    elif mismatch == "volume":
-        container["Mounts"][0]["Type"] = "volume"
-    elif mismatch == "reload":
-        container["Config"]["Env"][1] = "TIT_SERVER_RELOAD="
-    elif mismatch == "static":
-        container["Config"]["Env"][2] = "TIT_STATIC_DIR=/opt/baked-ui"
-    if mismatch == "pythonpath":
-        container["Config"]["Env"][3] = "PYTHONPATH=/opt/old:/ti-toolbox"
-    options = launch.LaunchOptions(
-        project="/fixture/project",
-        repo_dir="/fixture/checkout",
-        server_reload=True,
-        static_dir="/ti-toolbox/desktop/out/renderer",
-        echo=lambda _: None,
+def test_clean_interactive_choice_defaults_to_recreate(monkeypatch, answer, expected):
+    output = []
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda prompt: answer)
+    info = {
+        "Id": "private-id",
+        "Name": "/ti-toolbox-example",
+        "Config": {"Image": "idossha/ti-toolbox:test"},
+    }
+    selected, action = launch.choose_existing(
+        [info], launch.LaunchOptions(project="/project", echo=output.append)
     )
-    if mismatch:
-        with pytest.raises(
-            launch.LaunchError, match="dev settings.*Wait for its jobs.*--stop"
-        ):
-            launch.start(options)
-    else:
-        assert launch.start(options) == ("http://localhost:8765", "fixture-token")
-    mutations.assert_not_called()
+    assert selected is info
+    assert action == expected
+    rendered = "\n".join(output)
+    assert "idossha/ti-toolbox:test" in rendered and "Recreate (default)" in rendered
+    assert "private-id" not in rendered and "ti-toolbox-example" not in rendered
+    assert "Available actions\n-----------------" in rendered
+
+
+def test_interactive_eof_does_not_accept_recreate_default(monkeypatch):
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+
+    def eof(prompt):
+        raise EOFError
+
+    monkeypatch.setattr("builtins.input", eof)
+    with pytest.raises(launch.LaunchError):
+        launch.choose_existing(
+            [{"Id": "id", "Name": "/ti-toolbox-test"}],
+            launch.LaunchOptions(project="/project", echo=lambda _: None),
+        )
+
+
+def test_discovery_ignores_unrelated_similarly_named_containers(docker):
+    running, _, _ = docker
+    running.append(
+        {
+            "Id": "unrelated",
+            "Name": "/not-ti-toolbox-backup",
+            "Config": {"Image": "example/not-ti-toolbox:latest", "Labels": {}},
+        }
+    )
+    assert [item["Id"] for item in launch.find_running_containers()] == ["other-id"]

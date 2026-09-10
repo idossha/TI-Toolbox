@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import { expectPage, gotoPage, launchElectronApp, openPalette, setTheme } from "./_helpers";
+import { connectLauncher, expectPage, gotoPage, launchElectronApp, openPalette, setTheme } from "./_helpers";
 
 // Screenshots the design-system gallery and the Subjects page in both themes, for design QA
 // (DESIGN.md §8: "one Playwright screenshot per screen in both themes ... committed to
@@ -26,9 +26,7 @@ test.beforeEach(async () => {
   page = await app.firstWindow();
   await page.setViewportSize({ width: 1280, height: 900 });
   await expect(page).toHaveURL(/^app:\/\/launcher\//);
-  await page.fill("#server-url", SERVER_URL);
-  await page.fill("#token", TOKEN);
-  await page.click("#connect");
+  await connectLauncher(page, SERVER_URL, TOKEN);
   await expect(page).toHaveURL(new URL("/", SERVER_URL).href, { timeout: 20_000 });
   await expect(page.getByTestId("overview-table")).toBeVisible({ timeout: 20_000 });
 });

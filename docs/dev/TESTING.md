@@ -21,6 +21,24 @@ a local success does not establish hosted CI, security review or artifact accept
 | Real e2e and smoke matrix | Actual container/API jobs and produced artifacts | Other datasets/platforms, or completion when only start/cancel ran |
 | Packaged acceptance | Runtime assets and actual installer launch | A different source/image/package pairing |
 
+## Launcher lifecycle checks
+
+`tests/test_launch_image.py`, `test_loader_interactive.py`, `test_bash_loader_lifecycle.py`
+and `test_electron_loader_handoff.py` use synthetic Docker records and recording executables.
+They pin explicit cross-project selection, cancellation without mutation, replacement preflight,
+and CLI-to-Electron environment handoff. Desktop `stack-image-attach`, `dev-stack-start` and
+`quitPlan` unit suites cover the matching Engine API and shutdown rules, including explicit
+stop/quit confirmation when job status is unavailable and preservation after cancellation or stop failure. `launcher.test.ts`
+covers typed/picked paths, inline destination cancellation, duplicate-start prevention and failed
+starts. `dev-entry.test.ts` pins build-before-Electron, optional defaults and failure propagation.
+
+`desktop/tests/e2e/launcher.spec.ts` runs the built Electron app against a fake Docker Engine
+socket: it checks session choice, CLI startup and clearing its one-shot selection, window-close stop/remove, the disconnected navigation
+and absence of backend requests, direct cross-project switching, and preservation of the old session
+when a destination is invalid or confirmation is cancelled. Run it under the
+same offscreen lock and quiet wrapper described below. These tests do not validate installed
+executables against a real Docker engine; packaged host acceptance remains in the roadmap.
+
 ## Commands
 
 Run from the repository root unless a command says otherwise. Use the host environment installed

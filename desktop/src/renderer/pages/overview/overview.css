@@ -344,3 +344,43 @@
   font-size: 11px;
   color: var(--ink-3);
 }
+
+.overview-home-header {
+  min-height: 48px;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid var(--line);
+  font-weight: 600;
+}
+.overview-home-header span { color: var(--ink-2); font-size: 12px; font-weight: 400; }
+.overview-welcome { width: min(100%, 1040px); margin: 0 auto; padding: clamp(24px, 4vw, 56px); color: var(--ink); }
+.overview-welcome-heading { margin-bottom: 32px; }
+.overview-welcome-heading h1 { font-size: clamp(24px, 3vw, 32px); letter-spacing: -0.025em; margin: 10px 0; }
+.overview-welcome p { color: var(--ink-2); line-height: 1.6; }
+.overview-welcome-heading p { max-width: 620px; margin: 0; }
+.overview-open-project { padding: 24px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.overview-open-heading { display: flex; align-items: flex-start; gap: 14px; }
+.overview-open-heading > svg { color: var(--accent); margin-top: 2px; flex: 0 0 auto; }
+.overview-open-heading h2, .overview-switch-project h2 { font-size: 17px; margin: 0; }
+.overview-open-heading p { margin: 4px 0 0; font-size: 13px; }
+.overview-project-form { display: grid; gap: 12px; margin-top: 24px; }
+.overview-project-form label { font-weight: 600; font-size: 13px; }
+.overview-project-path { display: flex; gap: 8px; min-width: 0; }
+.overview-project-path input { flex: 1; min-width: 0; padding: 9px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); font: inherit; }
+.overview-project-path input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.overview-project-hint { margin: 0; font-size: 12px; color: var(--ink-2); line-height: 1.6; }
+.overview-project-actions { display: flex; gap: 8px; margin-top: 4px; }
+.overview-project-progress { overflow-wrap: anywhere; margin: 0; color: var(--ink-2); }
+.overview-project-controls { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; }
+.overview-switch-project { width: 100%; padding: 20px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.overview-workflows { margin-top: 36px; }
+.overview-workflows > h2 { font-size: 14px; margin: 0 0 22px; }
+.overview-workflow-list { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 22px; }
+.overview-workflow svg { color: var(--accent); }
+.overview-workflow h3 { margin: 10px 0 6px; font-size: 13px; }
+.overview-workflow p { margin: 0; font-size: 12px; }
+@media (max-width: 800px) {
+  .overview-workflow-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

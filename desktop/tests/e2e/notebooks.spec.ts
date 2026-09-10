@@ -2,7 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import { expectPage, gotoPage, launchElectronApp } from "./_helpers";
+import { connectLauncher, expectPage, gotoPage, launchElectronApp } from "./_helpers";
 
 /**
  * The Notebooks page against the mock server's fake kernel.
@@ -22,9 +22,7 @@ let page: Page;
 
 async function connect(): Promise<void> {
   await expect(page).toHaveURL(/^app:\/\/launcher\//);
-  await page.fill("#server-url", SERVER_URL);
-  await page.fill("#token", TOKEN);
-  await page.click("#connect");
+  await connectLauncher(page, SERVER_URL, TOKEN);
   await expect(page).toHaveURL(new URL("/", SERVER_URL).href, { timeout: 45_000 });
   await expect(page.getByTestId("overview-table")).toBeVisible({ timeout: 45_000 });
 }

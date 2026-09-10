@@ -27,7 +27,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import { expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
+import { connectLauncher, expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
 import { expectRunPaneTab } from "./_runPane";
 import { closeOptEditor, openOptEditor, optRows } from "./_jobs";
 
@@ -53,9 +53,7 @@ test.beforeAll(async () => {
     if (url.pathname.startsWith("/api/guide/")) guideRequests.push(url.pathname + url.search);
   });
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.fill("#server-url", SERVER_URL);
-  await page.fill("#token", TOKEN);
-  await page.click("#connect");
+  await connectLauncher(page, SERVER_URL, TOKEN);
   await expect(page.getByTestId("nav-rail")).toBeVisible({ timeout: 20_000 });
   await openPalette(page);
   await page.getByTestId("palette-input").fill("ernie");

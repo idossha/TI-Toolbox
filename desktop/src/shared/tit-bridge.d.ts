@@ -107,6 +107,8 @@ export type TitStackEvent =
   | { type: "error"; message: string };
 
 export interface TitStackBridge {
+  /** Confirm and open a destination; without one, end the session and return to Overview. */
+  switchProject(hostProjectDir?: string): Promise<TitStackStopResult>;
   /**
    * Discover-or-start the Docker stack for `hostProjectDir` and load its session (attach-or-start).
    * Launcher-only (ra_14 finding 4) — a server-served page must not be able to mount an arbitrary
@@ -141,8 +143,8 @@ export interface TitBridge {
   /** Launcher-only (ra_14 finding 4) — see the numbered list above. */
   setSettings(partial: Partial<TitSettings>): Promise<TitSettings>;
   /**
-   * Host directory picker for the launcher's *project* picker only. Launcher-only (ra_14
-   * finding 4); its result is a raw host path (`stack.start` needs one), never mapped into a
+   * Host directory picker for project selection, including switching. Requires an explicit native
+   * picker selection; its result is a raw host path (`stack.start` needs one), never mapped into a
    * project — unlike `selectFile`, below.
    */
   selectDirectory(): Promise<string | undefined>;

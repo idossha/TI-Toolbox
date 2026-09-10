@@ -30,12 +30,26 @@ copies. Replacing these boundaries or adding a dependency is an architecture dec
 
 ### Launch modes
 
-`loader.py` uses the host Python standard library; `loader.sh` is Python-free and runs Docker
-Compose directly. Both consume the root compose specification and share the project hash and
-labels with Electron. Their development variants mount the launched checkout/worktree, including
-the locally built UI, without replacing scientific dependencies. `pnpm dev` uses that container
-with Vite; explicit `--host` runs the Python API locally on loopback and stops it on exit.
-Host-only execution depends on locally installed tools and is not an image acceptance test.
+Regular `loader.py` and Python-free `loader.sh` open the browser by default; explicit `--desktop`
+delegates to Electron before starting Docker.
+Explicit browser/headless modes and development wrappers use the same Compose service and
+container identity. All Docker launch paths require an explicit Attach or Replace decision when
+any TI-Toolbox container is running, including another project's session. Multiple sessions require
+selection; only that selected session may be replaced. Attach keeps its actual project and image;
+Replace uses the requested project and YAML. This prevents accidental reuse or job interruption.
+
+Electron owns its started or explicitly adopted Docker session. Closing the window or choosing Quit stops/removes that session and exits Electron.
+Overview embeds the project path and folder picker when disconnected, served locally without
+backend queries. The full labeled navigation is visible, with project tools disabled until connected.
+Switch project first collects a new directory inline. Native confirmation grants the new host
+mount and warns that jobs stop; the app validates the destination and Compose plan before
+shutdown, then starts the new session and reloads its data. Cancel or an invalid destination retains
+the current session; a failure after shutdown returns to welcome with a visible error. Named volumes
+and project files survive session shutdown. Only running and queued jobs count as active;
+shutdown errors cannot silently approve closure. Manually connected remote servers are not adopted
+as local Docker sessions. Browser-only development remains persistent until
+explicitly stopped. Development mounts the launched checkout; explicit `--host` runs the API
+locally and stops it on exit. Host-only execution is not an image acceptance test.
 
 ## 2. Project and tab lifetime
 
@@ -320,15 +334,16 @@ maintainer-controlled action.
 
 ### Terminal launcher setup
 
-Python and Bash launchers share [`tit/cli.py`](../../tit/cli.py) setup. Interactive mode asks for the
-project; explicit arguments remain scriptable. Missing or cancelled terminal input launches nothing.
-Implicit interactive reconnect can resume the project's existing session; an explicit image request
-must match. Advanced settings remain flags rather than a questionnaire.
+Terminal setup asks for the project, then opens a browser session by default. `--desktop` selects
+Electron explicitly. Container discovery
+must precede any automatic reuse. Attach/Replace/Cancel is explicit; noninteractive invocation
+requires an explicit decision and, when ambiguous, a container identifier. Missing or cancelled
+input launches nothing. Selected existing project/image information must remain visible.
 
-Mounted development uses the launched checkout for Python and UI. Attach verifies the actual Docker
-bind and import precedence; mounted UI never falls back to baked assets. Automatic container
-replacement requires a verified idle job list. Sources: [`dev.ts`](../../desktop/scripts/dev.ts),
-[`stack.ts`](../../desktop/src/main/stack.ts).
+Mounted development uses the launched checkout for Python and UI when creating a new session.
+Choosing Attach intentionally uses the selected session unchanged; an incompatible legacy server
+must fail clearly without replacement. Configuration mismatches no longer authorize automatic idle
+recreation. See [TESTING.md](TESTING.md#launcher-lifecycle-checks) for executable lifecycle coverage.
 
 ### Extension run panes and export selection
 
@@ -479,3 +494,17 @@ no contentless detail pane. Executable thresholds belong to the tests, not copie
 Preserve work/right-pane test IDs, `data-tier="1"`, user-touched disclosure markers and chosen pane
 tab markers. Shell `data-page`/`data-subject` identify active context because MemoryRouter navigation
 is not described by the browser URL alone. Tests distinguish active content from hidden retained pages.
+
+
+### Terminal container prompt
+
+Interactive terminal prompts list TI-Toolbox image references (repository and version), numbered when selection
+is needed. Recreate is the default accepted by Enter; Attach is the second choice. EOF, Ctrl-C and
+invalid answers do not authorize replacement. Noninteractive launches still require explicit flags.
+A short line states that recreation stops the selected container and its jobs, without exposing
+Docker IDs, generated container names or YAML paths in the choice UI.
+
+Default `npm run dev` builds and opens the same welcome Overview as desktop users; it waits for
+project selection before starting Docker. `dev:web` retains Vite hot reload. The connected page
+may invoke a native project picker, but arbitrary `stack.start` stays restricted to the local
+origin; switching destinations requires native confirmation.

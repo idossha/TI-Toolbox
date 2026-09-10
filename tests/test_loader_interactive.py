@@ -191,12 +191,12 @@ def test_real_terminal_opens_wizard_and_eof_cancels(script, tmp_path):
 @pytest.mark.parametrize(
     "explicit,env_tag,expected",
     [
-        (None, "", "example/tool:existing"),
+        (None, "", None),
         ("example/tool:requested", "", "example/tool:requested"),
         (None, "pinned", None),
     ],
 )
-def test_reconnect_only_when_interactive_image_is_unspecified(
+def test_interactive_setup_does_not_silently_adopt_running_image(
     monkeypatch, tmp_path, explicit, env_tag, expected
 ):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
@@ -209,8 +209,9 @@ def test_reconnect_only_when_interactive_image_is_unspecified(
     assert cli.prepare_launch(args, ["--interactive", "--no-open"]) is None
 
     def status(_):
-        assert not explicit and not env_tag
-        return {"state": "running", "image": "example/tool:existing"}
+        raise AssertionError(
+            "interactive setup must not adopt an existing image silently"
+        )
 
     monkeypatch.setattr(cli, "launch_status", status)
     calls = []
@@ -279,7 +280,12 @@ def test_dev_web_preserves_launch_settings_and_rejects_unsupported_images(
         lambda argv, **kw: calls.append((argv, kw)) or SimpleNamespace(returncode=0),
     )
     args = SimpleNamespace(
-        image=image, project=str(tmp_path), port=18888, no_mount_repo=False
+        image=image,
+        project=str(tmp_path),
+        port=18888,
+        no_mount_repo=False,
+        existing="attach",
+        container="selected-id",
     )
     unsupported = image is not None and (image.startswith("other/") or "@" in image)
     assert loader.run_npm_dev_web(args) == (2 if unsupported else 0)
