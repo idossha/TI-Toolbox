@@ -116,7 +116,8 @@ export function ProjectInsights() {
           <h3>Storage</h3>
           <div className="project-storage-list">
             {rows.map((row) => (
-              <div className="project-storage-row" key={row.name}>
+              <div className="project-storage-group" key={row.name}>
+              <div className="project-storage-row">
                 <span title={row.name}>{row.name}</span>
                 <span>{formatStorage(row.bytes)}</span>
                 <div className="project-storage-track" aria-hidden="true">
@@ -126,6 +127,12 @@ export function ProjectInsights() {
                     }}
                   />
                 </div>
+              </div>
+              {("children" in row ? row.children ?? [] : []).map((child) => (
+                <div className="project-storage-child" key={child.name}>
+                  <span>{child.name}</span><span>{formatStorage(child.bytes)}</span>
+                </div>
+              ))}
               </div>
             ))}
           </div>

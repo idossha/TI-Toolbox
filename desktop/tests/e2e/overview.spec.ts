@@ -342,7 +342,7 @@ function projectSummary() {
     identity: { name: "Example project", path: "/projects/example", created_at: null },
     storage: {
       state: "ready", total_bytes: 30 * 1024 ** 3, other_bytes: 5 * 1024 ** 3,
-      derivatives: [{ name: "SimNIBS", bytes: 20 * 1024 ** 3 }, { name: "freesurfer", bytes: 5 * 1024 ** 3 }, ...["qsiprep", "qsirecon", "ti-toolbox"].map((name) => ({ name, bytes: 0 }))],
+      derivatives: [{ name: "SimNIBS", bytes: 20 * 1024 ** 3, children: [{ name: "Head models", bytes: 15 * 1024 ** 3 }, { name: "Simulations", bytes: 5 * 1024 ** 3 }] }, { name: "freesurfer", bytes: 5 * 1024 ** 3 }, ...["qsiprep", "qsirecon", "ti-toolbox"].map((name) => ({ name, bytes: 0 }))],
       scanned_at: now,
     },
     activity: {
@@ -375,7 +375,8 @@ test("project insights show storage and selectable daily job activity without na
   await expect(activity).toContainText("Retained history only");
   await expect(activity.locator("details")).toHaveCount(0);
   const storageSize = await storage.locator(".project-storage-list").evaluate((el) => ({ height: el.clientHeight, content: el.scrollHeight }));
-  expect(storageSize.content).toBeLessThanOrEqual(storageSize.height + 1);
+  expect(storageSize.height).toBeLessThanOrEqual(300);
+  await expect(storage.locator(".project-storage-group").filter({ hasText: "SimNIBS" }).locator(".project-storage-child")).toHaveCount(2);
   await expect(page.getByTestId("overview-row-ernie")).toBeVisible();
   const widths = await page.evaluate(() => ({
     viewport: document.documentElement.clientWidth,

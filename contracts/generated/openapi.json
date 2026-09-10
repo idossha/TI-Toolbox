@@ -12990,6 +12990,24 @@
         "title": "ActivityDay",
         "type": "object"
       },
+      "StoragePart": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "bytes": {
+            "title": "Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "bytes"
+        ],
+        "title": "StoragePart",
+        "type": "object"
+      },
       "DerivativeStorage": {
         "properties": {
           "name": {
@@ -12999,6 +13017,12 @@
           "bytes": {
             "title": "Bytes",
             "type": "integer"
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StoragePart"
+            }
           }
         },
         "required": [

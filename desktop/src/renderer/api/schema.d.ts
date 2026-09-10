@@ -8622,12 +8622,20 @@ export interface components {
             /** Count */
             count: number;
         };
+        /** StoragePart */
+        StoragePart: {
+            /** Name */
+            name: string;
+            /** Bytes */
+            bytes: number;
+        };
         /** DerivativeStorage */
         DerivativeStorage: {
             /** Name */
             name: string;
             /** Bytes */
             bytes: number;
+            children?: components["schemas"]["StoragePart"][];
         };
         /** ProjectActivity */
         ProjectActivity: {

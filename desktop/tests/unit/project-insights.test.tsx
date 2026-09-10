@@ -19,7 +19,7 @@ const summary: ProjectSummary = {
   storage: {
     state: "ready",
     total_bytes: 3072,
-    derivatives: [{ name: "SimNIBS", bytes: 2048 }],
+    derivatives: [{ name: "SimNIBS", bytes: 2048, children: [{ name: "Head models", bytes: 1024 }, { name: "Simulations", bytes: 1024 }] }],
     other_bytes: 1024,
     scanned_at: "2026-09-09T12:00:00Z",
   },
@@ -85,6 +85,7 @@ describe("project information", () => {
     expect(container.textContent).toContain("/mnt/study");
     expect(container.textContent).toContain("3 KiB");
     expect(container.textContent).toContain("SimNIBS");
+    expect(container.querySelectorAll(".project-storage-child")).toHaveLength(2);
     expect(container.textContent).toContain("Other project data");
     expect(container.textContent).not.toContain("Created");
     const days = container.querySelectorAll(".project-calendar-day");

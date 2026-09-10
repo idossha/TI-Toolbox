@@ -727,9 +727,13 @@ class ProjectIdentity(BaseModel):
     created_at: str | None
 
 
-class DerivativeStorage(BaseModel):
+class StoragePart(BaseModel):
     name: str
     bytes: int
+
+
+class DerivativeStorage(StoragePart):
+    children: list[StoragePart] = Field(default_factory=list)
 
 
 class SummaryStorage(BaseModel):

@@ -25,6 +25,7 @@ _CACHE_LOCK = threading.Lock()
 def scan_storage(root: Path, derivatives: Path) -> SummaryStorage:
     """Count regular-file apparent bytes, excluding symlinks and incomplete scans."""
     counts: Counter[str] = Counter()
+    children: dict[str, Counter[str]] = {}
     total = 0
     deadline = time.monotonic() + 60
     try:
@@ -53,12 +54,29 @@ def scan_storage(root: Path, derivatives: Path) -> SummaryStorage:
                         size = entry.stat(follow_symlinks=False).st_size
                         total += size
                         kind = classify(str(path), prefixes)
-                        if kind != "other":
+                        if (
+                            path.is_relative_to(derivatives)
+                            and len(path.relative_to(derivatives).parts) > 1
+                        ):
+                            folder = path.relative_to(derivatives).parts[0]
+                            group = {
+                                "freesurfer": "FreeSurfer / FastSurfer",
+                                "fastsurfer": "FastSurfer",
+                                "ti-toolbox": "TI-Toolbox",
+                                ".qsiprep_work": "QSIPrep working data",
+                                ".qsirecon_work": "QSIRecon working data",
+                            }.get(folder, folder)
+                            counts[group] += size
+                            if folder == "SimNIBS":
+                                label = (
+                                    KIND_LABELS.get(kind, "Other SimNIBS data")
+                                    if kind != "other"
+                                    else "Other SimNIBS data"
+                                )
+                                children.setdefault(group, Counter())[label] += size
+                        elif kind != "other":
                             counts[KIND_LABELS[kind]] += size
-                        elif path.is_relative_to(derivatives):
-                            relative = path.relative_to(derivatives)
-                            if len(relative.parts) > 1:
-                                counts[relative.parts[0]] += size
+
     except (OSError, RuntimeError):
         logger.warning("Project storage scan incomplete", exc_info=True)
         return SummaryStorage(
@@ -73,7 +91,30 @@ def scan_storage(root: Path, derivatives: Path) -> SummaryStorage:
         total_bytes=total,
         other_bytes=total - sum(counts.values()),
         derivatives=[
-            {"name": name, "bytes": size} for name, size in sorted(counts.items())
+            {
+                "name": name,
+                "bytes": size,
+                "children": [
+                    {"name": label, "bytes": value}
+                    for label, value in sorted(
+                        children.get(name, {}).items(),
+                        key=lambda item: (
+                            {
+                                "Head models": 0,
+                                "Flex search": 1,
+                                "Ex search": 2,
+                                "Simulations": 3,
+                                "Analyses": 4,
+                                "Leadfields": 5,
+                            }.get(item[0], 6),
+                            item[0],
+                        ),
+                    )
+                ],
+            }
+            for name, size in sorted(
+                counts.items(), key=lambda item: (item[0] != "SimNIBS", item[0])
+            )
         ],
         scanned_at=datetime.now(timezone.utc).isoformat(),
     )

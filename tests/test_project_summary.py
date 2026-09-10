@@ -168,6 +168,10 @@ def test_workflow_breakdown_and_future_derivatives(tmp_path):
         ),
         "derivatives/SimNIBS/sub-101/flex-search/run/result": ("Flex search", b"flex"),
         "derivatives/SimNIBS/sub-101/ex-search/run/result": ("Ex search", b"ex"),
+        "derivatives/SimNIBS/sub-101/Simulations/run/Analyses/result": (
+            "Analyses",
+            b"analysis",
+        ),
         "derivatives/future-extension/result": ("future-extension", b"new"),
     }
     for name, (_, content) in paths.items():
@@ -176,8 +180,16 @@ def test_workflow_breakdown_and_future_derivatives(tmp_path):
         path.write_bytes(content)
     result = scan_storage(tmp_path, tmp_path / "derivatives")
     assert result.state == "ready"
-    assert {row.name: row.bytes for row in result.derivatives} == {
-        label: len(content) for label, content in paths.values()
+    groups = {row.name: row for row in result.derivatives}
+    assert set(groups) == {"SimNIBS", "future-extension"}
+    assert {row.name: row.bytes for row in groups["SimNIBS"].children} == {
+        label: len(content)
+        for name, (label, content) in paths.items()
+        if "/SimNIBS/" in name
     }
+    assert groups["SimNIBS"].bytes == sum(
+        row.bytes for row in groups["SimNIBS"].children
+    )
+    assert groups["future-extension"].bytes == 3
     assert result.total_bytes == sum(len(content) for _, content in paths.values())
     assert result.other_bytes == 0
