@@ -87,6 +87,7 @@ if not check_m2m_exists(project, "001"):
 | CHARM head mesh | `run_charm()` | Creates SimNIBS-compatible head mesh from T1/T2 images |
 | Subject atlas | `run_subject_atlas()` | Creates atlas-based parcellations (a2009s, DK40, HCP_MMP1); runs automatically after CHARM in the pipeline |
 | FastSurfer segmentation | `run_fastsurfer()` | Optional DKT deep segmentation from the raw BIDS T1w image (`--seg_only`) |
+| FreeSurfer reconstruction / subregions | `run_freesurfer()` | Optional recon-all, thalamic nuclei and hippocampal/amygdala subregions; requires a license and at least 16 GiB available container memory |
 | Tissue analysis | `run_tissue_analysis()` | Analyzes tissue thickness and volume (bone, CSF, skin) from the head mesh |
 
 

@@ -1455,16 +1455,22 @@ skip_odf_reports : bool
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">convert_dicom</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">run_fastsurfer</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">fastsurfer_threads</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">create_m2m</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">run_tissue_analysis</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">run_qsiprep</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">run_qsirecon</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">qsiprep_config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.pre.config.QSIPrepSettings" href="#tit.pre.config.QSIPrepSettings">QSIPrepSettings</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">qsi_recon_config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.pre.config.QSIReconSettings" href="#tit.pre.config.QSIReconSettings">QSIReconSettings</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">extract_dti</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">skip_existing_outputs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="n">replace_existing_outputs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="p">)</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">run_freesurfer</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">freesurfer_recon_all</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">freesurfer_subregions</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        <span class="n"><a class="autorefs autorefs-external" title="typing.Literal" href="https://docs.python.org/3/library/typing.html#typing.Literal">Literal</a></span><span class="p">[</span><span class="s2">&quot;thalamus&quot;</span><span class="p">,</span> <span class="s2">&quot;hippo-amygdala&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="p">]</span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">(),</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">freesurfer_threads</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">create_m2m</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">run_tissue_analysis</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="n">run_qsiprep</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="n">run_qsirecon</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="n">qsiprep_config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.pre.config.QSIPrepSettings" href="#tit.pre.config.QSIPrepSettings">QSIPrepSettings</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="n">qsi_recon_config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.pre.config.QSIReconSettings" href="#tit.pre.config.QSIReconSettings">QSIReconSettings</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="n">extract_dti</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    <span class="n">skip_existing_outputs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    <span class="n">replace_existing_outputs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1487,6 +1493,15 @@ fastsurfer_threads : int or None
     Thread count for FastSurfer inference. <code>None</code> uses
     :data:<code>tit.pre.fastsurfer.DEFAULT_THREADS</code> (or
     <code>$TIT_FASTSURFER_THREADS</code>).
+run_freesurfer : bool
+    Run optional FreeSurfer in a disposable project-bound container.
+freesurfer_recon_all : bool
+    Run full recon-all before selected subregions.
+freesurfer_subregions : list of str
+    Optional thalamus and hippo-amygdala segmentations. Without recon-all,
+    a completed FreeSurfer reconstruction must already exist.
+freesurfer_threads : int or None
+    Worker CPU limit; None uses two threads, capped by available resources.
 create_m2m : bool
     Run SimNIBS <code>charm</code> (also runs <code>subject_atlas</code>).
 run_tissue_analysis : bool
@@ -1515,8 +1530,9 @@ replace_existing_outputs : bool
 <p><strong>Deprecated keys.</strong> <code>run_recon</code> (FreeSurfer <code>recon-all</code>),
 <code>parallel_recon</code>, <code>parallel_cores</code> and
 <code>run_subcortical_segmentations</code> (thalamic nuclei / hippocampal
-subfields, MATLAB-runtime binaries) were removed with the FreeSurfer
-container. :func:<code>tit.pre.config.migrate_legacy_keys</code> still reads them
+subfields, MATLAB-runtime binaries) were removed with the old FreeSurfer
+container. The optional worker uses the explicit <code>run_freesurfer</code> fields;
+it does not reinterpret these legacy flags. :func:<code>tit.pre.config.migrate_legacy_keys</code> still reads them
 off an old config JSON: <code>run_recon</code> maps onto <code>run_fastsurfer</code> with
 a warning, the other three are dropped with a warning. Existing
 <code>derivatives/freesurfer</code> output on disk keeps working -- every atlas
@@ -1609,8 +1625,7 @@ warnings : list[str] or None, optional
 
             <details class="quote">
               <summary>Source code in <code>tit/pre/config.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-175">175</a></span>
-<span class="normal"><a href="#__codelineno-0-176">176</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-176">176</a></span>
 <span class="normal"><a href="#__codelineno-0-177">177</a></span>
 <span class="normal"><a href="#__codelineno-0-178">178</a></span>
 <span class="normal"><a href="#__codelineno-0-179">179</a></span>
@@ -1675,73 +1690,74 @@ warnings : list[str] or None, optional
 <span class="normal"><a href="#__codelineno-0-238">238</a></span>
 <span class="normal"><a href="#__codelineno-0-239">239</a></span>
 <span class="normal"><a href="#__codelineno-0-240">240</a></span>
-<span class="normal"><a href="#__codelineno-0-241">241</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-175" name="__codelineno-0-175"></a><span class="k">def</span><span class="w"> </span><span class="nf">migrate_legacy_keys</span><span class="p">(</span>
-<a id="__codelineno-0-176" name="__codelineno-0-176"></a>    <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">logger</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">warnings</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-177" name="__codelineno-0-177"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<a id="__codelineno-0-178" name="__codelineno-0-178"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return *data* with pre-FastSurfer keys translated, warning on each.</span>
-<a id="__codelineno-0-179" name="__codelineno-0-179"></a>
-<a id="__codelineno-0-180" name="__codelineno-0-180"></a><span class="sd">    Reads a config JSON written before the FreeSurfer stage was removed:</span>
-<a id="__codelineno-0-181" name="__codelineno-0-181"></a><span class="sd">    ``run_recon`` becomes ``run_fastsurfer`` (unless the caller already set</span>
-<a id="__codelineno-0-182" name="__codelineno-0-182"></a><span class="sd">    it), and ``parallel_recon`` / ``parallel_cores`` /</span>
-<a id="__codelineno-0-183" name="__codelineno-0-183"></a><span class="sd">    ``run_subcortical_segmentations`` are dropped. The input dict is not</span>
-<a id="__codelineno-0-184" name="__codelineno-0-184"></a><span class="sd">    mutated.</span>
-<a id="__codelineno-0-185" name="__codelineno-0-185"></a>
-<a id="__codelineno-0-186" name="__codelineno-0-186"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-187" name="__codelineno-0-187"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-188" name="__codelineno-0-188"></a><span class="sd">    data : dict</span>
-<a id="__codelineno-0-189" name="__codelineno-0-189"></a><span class="sd">        Raw config mapping, as read from JSON.</span>
-<a id="__codelineno-0-190" name="__codelineno-0-190"></a><span class="sd">    logger : logging.Logger or None, optional</span>
-<a id="__codelineno-0-191" name="__codelineno-0-191"></a><span class="sd">        Logger for the deprecation warnings. Defaults to the ``tit.pre``</span>
-<a id="__codelineno-0-192" name="__codelineno-0-192"></a><span class="sd">        logger.</span>
-<a id="__codelineno-0-193" name="__codelineno-0-193"></a><span class="sd">    warnings : list[str] or None, optional</span>
-<a id="__codelineno-0-194" name="__codelineno-0-194"></a><span class="sd">        When given, each deprecation message is also appended here (in</span>
-<a id="__codelineno-0-195" name="__codelineno-0-195"></a><span class="sd">        addition to the log line) -- lets a caller such as</span>
-<a id="__codelineno-0-196" name="__codelineno-0-196"></a><span class="sd">        ``POST /api/plan/pre`` surface the migration in its own HTTP</span>
-<a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="sd">        response instead of only the server log, since a caller still on</span>
-<a id="__codelineno-0-198" name="__codelineno-0-198"></a><span class="sd">        the pre-v3 JSON shape has no other way to see it (QA researcher</span>
-<a id="__codelineno-0-199" name="__codelineno-0-199"></a><span class="sd">        finding, ``qa-neuro-researcher-notes.md`` #5).</span>
-<a id="__codelineno-0-200" name="__codelineno-0-200"></a>
-<a id="__codelineno-0-201" name="__codelineno-0-201"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-202" name="__codelineno-0-202"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-203" name="__codelineno-0-203"></a><span class="sd">    dict</span>
-<a id="__codelineno-0-204" name="__codelineno-0-204"></a><span class="sd">        A copy with only current keys.</span>
-<a id="__codelineno-0-205" name="__codelineno-0-205"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-206" name="__codelineno-0-206"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">key</span> <span class="ow">in</span> <span class="n">data</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">LEGACY_KEYS</span><span class="p">):</span>
-<a id="__codelineno-0-207" name="__codelineno-0-207"></a>        <span class="k">return</span> <span class="n">data</span>
-<a id="__codelineno-0-208" name="__codelineno-0-208"></a>
-<a id="__codelineno-0-209" name="__codelineno-0-209"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
-<a id="__codelineno-0-210" name="__codelineno-0-210"></a>
-<a id="__codelineno-0-211" name="__codelineno-0-211"></a>    <span class="n">log</span> <span class="o">=</span> <span class="n">logger</span> <span class="ow">or</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;tit.pre&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-212" name="__codelineno-0-212"></a>
-<a id="__codelineno-0-213" name="__codelineno-0-213"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">warn</span><span class="p">(</span><span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-214" name="__codelineno-0-214"></a>        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
-<a id="__codelineno-0-215" name="__codelineno-0-215"></a>        <span class="k">if</span> <span class="n">warnings</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-216" name="__codelineno-0-216"></a>            <span class="n">warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
-<a id="__codelineno-0-217" name="__codelineno-0-217"></a>
-<a id="__codelineno-0-218" name="__codelineno-0-218"></a>    <span class="n">migrated</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-<a id="__codelineno-0-219" name="__codelineno-0-219"></a>    <span class="k">for</span> <span class="n">old_key</span><span class="p">,</span> <span class="n">new_key</span> <span class="ow">in</span> <span class="n">LEGACY_KEYS</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-<a id="__codelineno-0-220" name="__codelineno-0-220"></a>        <span class="k">if</span> <span class="n">old_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">migrated</span><span class="p">:</span>
-<a id="__codelineno-0-221" name="__codelineno-0-221"></a>            <span class="k">continue</span>
-<a id="__codelineno-0-222" name="__codelineno-0-222"></a>        <span class="n">value</span> <span class="o">=</span> <span class="n">migrated</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">old_key</span><span class="p">)</span>
-<a id="__codelineno-0-223" name="__codelineno-0-223"></a>        <span class="k">if</span> <span class="n">new_key</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-224" name="__codelineno-0-224"></a>            <span class="n">warn</span><span class="p">(</span>
-<a id="__codelineno-0-225" name="__codelineno-0-225"></a>                <span class="sa">f</span><span class="s2">&quot;Preprocessing config key </span><span class="si">{</span><span class="n">old_key</span><span class="si">!r}</span><span class="s2"> is no longer supported &quot;</span>
-<a id="__codelineno-0-226" name="__codelineno-0-226"></a>                <span class="s2">&quot;(FreeSurfer recon-all and the MATLAB-runtime subfield &quot;</span>
-<a id="__codelineno-0-227" name="__codelineno-0-227"></a>                <span class="s2">&quot;segmentations were removed); ignoring it.&quot;</span>
-<a id="__codelineno-0-228" name="__codelineno-0-228"></a>            <span class="p">)</span>
-<a id="__codelineno-0-229" name="__codelineno-0-229"></a>            <span class="k">continue</span>
-<a id="__codelineno-0-230" name="__codelineno-0-230"></a>        <span class="k">if</span> <span class="n">new_key</span> <span class="ow">in</span> <span class="n">migrated</span><span class="p">:</span>
-<a id="__codelineno-0-231" name="__codelineno-0-231"></a>            <span class="n">warn</span><span class="p">(</span>
-<a id="__codelineno-0-232" name="__codelineno-0-232"></a>                <span class="sa">f</span><span class="s2">&quot;Preprocessing config key </span><span class="si">{</span><span class="n">old_key</span><span class="si">!r}</span><span class="s2"> is deprecated; &quot;</span>
-<a id="__codelineno-0-233" name="__codelineno-0-233"></a>                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">new_key</span><span class="si">!r}</span><span class="s2"> is already set, ignoring the old key.&quot;</span>
-<a id="__codelineno-0-234" name="__codelineno-0-234"></a>            <span class="p">)</span>
-<a id="__codelineno-0-235" name="__codelineno-0-235"></a>            <span class="k">continue</span>
-<a id="__codelineno-0-236" name="__codelineno-0-236"></a>        <span class="n">warn</span><span class="p">(</span>
-<a id="__codelineno-0-237" name="__codelineno-0-237"></a>            <span class="sa">f</span><span class="s2">&quot;Preprocessing config key </span><span class="si">{</span><span class="n">old_key</span><span class="si">!r}</span><span class="s2"> is deprecated; reading it &quot;</span>
-<a id="__codelineno-0-238" name="__codelineno-0-238"></a>            <span class="sa">f</span><span class="s2">&quot;as </span><span class="si">{</span><span class="n">new_key</span><span class="si">!r}</span><span class="s2"> (FastSurfer --seg_only replaces recon-all).&quot;</span>
-<a id="__codelineno-0-239" name="__codelineno-0-239"></a>        <span class="p">)</span>
-<a id="__codelineno-0-240" name="__codelineno-0-240"></a>        <span class="n">migrated</span><span class="p">[</span><span class="n">new_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
-<a id="__codelineno-0-241" name="__codelineno-0-241"></a>    <span class="k">return</span> <span class="n">migrated</span>
+<span class="normal"><a href="#__codelineno-0-241">241</a></span>
+<span class="normal"><a href="#__codelineno-0-242">242</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-176" name="__codelineno-0-176"></a><span class="k">def</span><span class="w"> </span><span class="nf">migrate_legacy_keys</span><span class="p">(</span>
+<a id="__codelineno-0-177" name="__codelineno-0-177"></a>    <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">logger</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">warnings</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-178" name="__codelineno-0-178"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<a id="__codelineno-0-179" name="__codelineno-0-179"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return *data* with pre-FastSurfer keys translated, warning on each.</span>
+<a id="__codelineno-0-180" name="__codelineno-0-180"></a>
+<a id="__codelineno-0-181" name="__codelineno-0-181"></a><span class="sd">    Reads a config JSON written before the FreeSurfer stage was removed:</span>
+<a id="__codelineno-0-182" name="__codelineno-0-182"></a><span class="sd">    ``run_recon`` becomes ``run_fastsurfer`` (unless the caller already set</span>
+<a id="__codelineno-0-183" name="__codelineno-0-183"></a><span class="sd">    it), and ``parallel_recon`` / ``parallel_cores`` /</span>
+<a id="__codelineno-0-184" name="__codelineno-0-184"></a><span class="sd">    ``run_subcortical_segmentations`` are dropped. The input dict is not</span>
+<a id="__codelineno-0-185" name="__codelineno-0-185"></a><span class="sd">    mutated.</span>
+<a id="__codelineno-0-186" name="__codelineno-0-186"></a>
+<a id="__codelineno-0-187" name="__codelineno-0-187"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-188" name="__codelineno-0-188"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-189" name="__codelineno-0-189"></a><span class="sd">    data : dict</span>
+<a id="__codelineno-0-190" name="__codelineno-0-190"></a><span class="sd">        Raw config mapping, as read from JSON.</span>
+<a id="__codelineno-0-191" name="__codelineno-0-191"></a><span class="sd">    logger : logging.Logger or None, optional</span>
+<a id="__codelineno-0-192" name="__codelineno-0-192"></a><span class="sd">        Logger for the deprecation warnings. Defaults to the ``tit.pre``</span>
+<a id="__codelineno-0-193" name="__codelineno-0-193"></a><span class="sd">        logger.</span>
+<a id="__codelineno-0-194" name="__codelineno-0-194"></a><span class="sd">    warnings : list[str] or None, optional</span>
+<a id="__codelineno-0-195" name="__codelineno-0-195"></a><span class="sd">        When given, each deprecation message is also appended here (in</span>
+<a id="__codelineno-0-196" name="__codelineno-0-196"></a><span class="sd">        addition to the log line) -- lets a caller such as</span>
+<a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="sd">        ``POST /api/plan/pre`` surface the migration in its own HTTP</span>
+<a id="__codelineno-0-198" name="__codelineno-0-198"></a><span class="sd">        response instead of only the server log, since a caller still on</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a><span class="sd">        the pre-v3 JSON shape has no other way to see it (QA researcher</span>
+<a id="__codelineno-0-200" name="__codelineno-0-200"></a><span class="sd">        finding, ``qa-neuro-researcher-notes.md`` #5).</span>
+<a id="__codelineno-0-201" name="__codelineno-0-201"></a>
+<a id="__codelineno-0-202" name="__codelineno-0-202"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-203" name="__codelineno-0-203"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-204" name="__codelineno-0-204"></a><span class="sd">    dict</span>
+<a id="__codelineno-0-205" name="__codelineno-0-205"></a><span class="sd">        A copy with only current keys.</span>
+<a id="__codelineno-0-206" name="__codelineno-0-206"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-207" name="__codelineno-0-207"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">key</span> <span class="ow">in</span> <span class="n">data</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">LEGACY_KEYS</span><span class="p">):</span>
+<a id="__codelineno-0-208" name="__codelineno-0-208"></a>        <span class="k">return</span> <span class="n">data</span>
+<a id="__codelineno-0-209" name="__codelineno-0-209"></a>
+<a id="__codelineno-0-210" name="__codelineno-0-210"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<a id="__codelineno-0-211" name="__codelineno-0-211"></a>
+<a id="__codelineno-0-212" name="__codelineno-0-212"></a>    <span class="n">log</span> <span class="o">=</span> <span class="n">logger</span> <span class="ow">or</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;tit.pre&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-213" name="__codelineno-0-213"></a>
+<a id="__codelineno-0-214" name="__codelineno-0-214"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">warn</span><span class="p">(</span><span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-215" name="__codelineno-0-215"></a>        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+<a id="__codelineno-0-216" name="__codelineno-0-216"></a>        <span class="k">if</span> <span class="n">warnings</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-217" name="__codelineno-0-217"></a>            <span class="n">warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+<a id="__codelineno-0-218" name="__codelineno-0-218"></a>
+<a id="__codelineno-0-219" name="__codelineno-0-219"></a>    <span class="n">migrated</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<a id="__codelineno-0-220" name="__codelineno-0-220"></a>    <span class="k">for</span> <span class="n">old_key</span><span class="p">,</span> <span class="n">new_key</span> <span class="ow">in</span> <span class="n">LEGACY_KEYS</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+<a id="__codelineno-0-221" name="__codelineno-0-221"></a>        <span class="k">if</span> <span class="n">old_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">migrated</span><span class="p">:</span>
+<a id="__codelineno-0-222" name="__codelineno-0-222"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-223" name="__codelineno-0-223"></a>        <span class="n">value</span> <span class="o">=</span> <span class="n">migrated</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">old_key</span><span class="p">)</span>
+<a id="__codelineno-0-224" name="__codelineno-0-224"></a>        <span class="k">if</span> <span class="n">new_key</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-225" name="__codelineno-0-225"></a>            <span class="n">warn</span><span class="p">(</span>
+<a id="__codelineno-0-226" name="__codelineno-0-226"></a>                <span class="sa">f</span><span class="s2">&quot;Preprocessing config key </span><span class="si">{</span><span class="n">old_key</span><span class="si">!r}</span><span class="s2"> is no longer supported &quot;</span>
+<a id="__codelineno-0-227" name="__codelineno-0-227"></a>                <span class="s2">&quot;(FreeSurfer recon-all and the MATLAB-runtime subfield &quot;</span>
+<a id="__codelineno-0-228" name="__codelineno-0-228"></a>                <span class="s2">&quot;segmentations were removed); ignoring it.&quot;</span>
+<a id="__codelineno-0-229" name="__codelineno-0-229"></a>            <span class="p">)</span>
+<a id="__codelineno-0-230" name="__codelineno-0-230"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-231" name="__codelineno-0-231"></a>        <span class="k">if</span> <span class="n">new_key</span> <span class="ow">in</span> <span class="n">migrated</span><span class="p">:</span>
+<a id="__codelineno-0-232" name="__codelineno-0-232"></a>            <span class="n">warn</span><span class="p">(</span>
+<a id="__codelineno-0-233" name="__codelineno-0-233"></a>                <span class="sa">f</span><span class="s2">&quot;Preprocessing config key </span><span class="si">{</span><span class="n">old_key</span><span class="si">!r}</span><span class="s2"> is deprecated; &quot;</span>
+<a id="__codelineno-0-234" name="__codelineno-0-234"></a>                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">new_key</span><span class="si">!r}</span><span class="s2"> is already set, ignoring the old key.&quot;</span>
+<a id="__codelineno-0-235" name="__codelineno-0-235"></a>            <span class="p">)</span>
+<a id="__codelineno-0-236" name="__codelineno-0-236"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-237" name="__codelineno-0-237"></a>        <span class="n">warn</span><span class="p">(</span>
+<a id="__codelineno-0-238" name="__codelineno-0-238"></a>            <span class="sa">f</span><span class="s2">&quot;Preprocessing config key </span><span class="si">{</span><span class="n">old_key</span><span class="si">!r}</span><span class="s2"> is deprecated; reading it &quot;</span>
+<a id="__codelineno-0-239" name="__codelineno-0-239"></a>            <span class="sa">f</span><span class="s2">&quot;as </span><span class="si">{</span><span class="n">new_key</span><span class="si">!r}</span><span class="s2"> (FastSurfer --seg_only replaces recon-all).&quot;</span>
+<a id="__codelineno-0-240" name="__codelineno-0-240"></a>        <span class="p">)</span>
+<a id="__codelineno-0-241" name="__codelineno-0-241"></a>        <span class="n">migrated</span><span class="p">[</span><span class="n">new_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+<a id="__codelineno-0-242" name="__codelineno-0-242"></a>    <span class="k">return</span> <span class="n">migrated</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

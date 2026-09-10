@@ -83,7 +83,7 @@ For a full walkthrough, see the [Getting Started](getting-started.md) guide.
 
 | Step | Module | Description | Guide |
 |------|--------|-------------|-------|
-| 1. Preprocessing | [`tit.pre`](reference/tit/pre/index.md) | DICOM conversion, CHARM head mesh, optional FastSurfer deep segmentation | [Preprocessing](pipeline/preprocessing.md) |
+| 1. Preprocessing | [`tit.pre`](reference/tit/pre/index.md) | DICOM conversion, CHARM head mesh, recommended FastSurfer segmentation or optional FreeSurfer reconstruction/subregions | [Preprocessing](pipeline/preprocessing.md) |
 | 2. Optimization | [`tit.opt`](reference/tit/opt/index.md) | Flex-search (differential evolution), exhaustive TI and multipolar exhaustive search | [Optimization](pipeline/optimization.md) |
 | 3. Simulation | [`tit.sim`](reference/tit/sim/index.md) | TI and multi-channel TI (mTI) simulation engine | [Simulation](pipeline/simulation.md) |
 | 4. Analysis | [`tit.analyzer`](reference/tit/analyzer/index.md) | Field analysis with spherical and cortical ROIs | [Analysis](pipeline/analysis.md) |

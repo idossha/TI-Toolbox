@@ -746,9 +746,8 @@ QSI_FALLBACK_TOTAL_READOUT_TIME = 0.05
 # QSI environment variables
 ENV_LOCAL_PROJECT_DIR = "LOCAL_PROJECT_DIR"
 
-# FreeSurfer license. Only QSIPrep/QSIRecon need one (their own ACT recon
-# specs run FreeSurfer inside the pennlinc images); TI-Toolbox itself no
-# longer ships or requires FreeSurfer. Override with $FS_LICENSE -- see
+# License for optional FreeSurfer and QSI workflows that require it.
+# The core FastSurfer workflow needs none. Override with $FS_LICENSE; see
 # tit.pre.qsi.docker_builder.resolve_fs_license_path.
 FS_LICENSE_PATH = "/usr/local/freesurfer/license.txt"
 

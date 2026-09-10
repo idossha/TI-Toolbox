@@ -5,7 +5,7 @@ The atlas module provides unified atlas discovery, region listing, and overlap a
 ```mermaid
 graph LR
     SEG([Segmentation Dir]) --> MESH[MeshAtlasManager]
-    FS([FastSurfer / legacy FreeSurfer mri/]) --> VOXEL[VoxelAtlasManager]
+    FS([FastSurfer / FreeSurfer mri/]) --> VOXEL[VoxelAtlasManager]
     MESH --> REGIONS([Region Lists])
     VOXEL --> REGIONS
     SIG([Significant Mask]) --> OVERLAP[atlas_overlap_analysis]
@@ -48,14 +48,14 @@ all_atlases = manager.find_all_atlases("lh")
 
 ## Volumetric (Voxel) Atlases
 
-`VoxelAtlasManager` discovers current FastSurfer outputs, existing legacy FreeSurfer outputs, SimNIBS segmentation, and custom label masks. Region labels are read with nibabel and NumPy and cached; no FreeSurfer executable is needed.
+`VoxelAtlasManager` discovers current FastSurfer outputs, optional or existing FreeSurfer outputs, SimNIBS segmentation, and custom label masks. Region labels are read with nibabel and NumPy and cached; no FreeSurfer executable is needed.
 
 ```python
 from tit.atlas import VoxelAtlasManager
 
 manager = VoxelAtlasManager(
     fastsurfer_mri_dir="/data/my_project/derivatives/fastsurfer/sub-001/mri",
-    freesurfer_mri_dir="/data/my_project/derivatives/freesurfer/sub-001/mri",  # optional legacy data
+    freesurfer_mri_dir="/data/my_project/derivatives/freesurfer/sub-001/mri",  # optional FreeSurfer data
     masks_dir="/data/my_project/derivatives/SimNIBS/sub-001/m2m_001/masks",
     seg_dir="/data/my_project/derivatives/SimNIBS/sub-001/m2m_001/segmentation",
 )
@@ -125,8 +125,9 @@ Current FastSurfer segmentation is discovered from `derivatives/fastsurfer/sub-<
 |------|-------------|
 | `aparc.DKTatlas+aseg.deep.mgz` or `.nii.gz` | DKT cortical and subcortical deep segmentation |
 
-The following **legacy FreeSurfer outputs** remain readable when already present under
-`derivatives/freesurfer/sub-<id>/mri/`. TI-Toolbox v3 does not generate them:
+The following **FreeSurfer outputs** are discovered under
+`derivatives/freesurfer/sub-<id>/mri/`. Optional recon-all produces the cortical parcellations;
+subregions require an additional operation after reconstruction. Existing legacy outputs remain readable:
 
 | File | Hemisphere | Description |
 |------|------------|-------------|

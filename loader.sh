@@ -104,7 +104,10 @@ if [ "$mode" != start ]; then
     exit 0
 fi
 command -v curl >/dev/null || die 'install curl first'
-spec="$script_dir/docker-compose.yml"
+spec="${TIT_COMPOSE_FILE-$script_dir/docker-compose.yml}"
+if [ "${TIT_COMPOSE_FILE+x}" = x ] && [ ! -f "$spec" ]; then
+    die "container specification not found: $spec"
+fi
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 if [ ! -f "$spec" ]; then

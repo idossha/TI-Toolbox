@@ -123,13 +123,19 @@ BUILTIN_SPEC = StackSpec(
 
 
 def compose_path() -> Path | None:
-    """The repository's root ``docker-compose.yml`` when this is a checkout, else ``None``.
+    """Resolve an explicit compose file, the checkout copy, or the built-in fallback.
 
-    ``tit/launch.py`` -> ``tit/`` -> the repository root, where the one run spec lives (it
-    used to be ``desktop/docker/docker-compose.v3.yml``, reachable only from the Electron
-    app without a ``..``).  An installed wheel has no repository above it, so this returns
-    ``None`` and :data:`BUILTIN_SPEC` stands in.
+    Standalone loaders pass their adjacent YAML through ``TIT_COMPOSE_FILE``.
+    An invalid explicit path fails instead of silently starting a different spec.
     """
+    override = os.environ.get("TIT_COMPOSE_FILE")
+    if override:
+        candidate = Path(override).expanduser().resolve()
+        if not candidate.is_file():
+            raise LaunchError(
+                f"Compose file does not exist or is not a file: {candidate}"
+            )
+        return candidate
     candidate = Path(__file__).resolve().parent.parent / "docker-compose.yml"
     return candidate if candidate.is_file() else None
 

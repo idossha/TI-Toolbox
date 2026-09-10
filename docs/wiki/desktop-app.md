@@ -5,10 +5,10 @@ permalink: /wiki/desktop-app/
 ---
 
 The TI-Toolbox Desktop Application is an Electron shell around a single Docker container:
-`idossha/ti-toolbox:<version>` computes and serves everything (SimNIBS, FastSurfer, the toolbox
+`idossha/ti-toolbox:<version>` provides the core workflow (SimNIBS, FastSurfer, the toolbox
 UI and the [Tetravox](https://github.com/idossha/tetravox) Embed viewer), the host renders it.
-There is no X11 anywhere in this design, and no second container to manage — one image, one
-container, driven entirely through Docker's own Engine API.
+There is no X11 setup. The app manages the core container; optional FreeSurfer and diffusion
+workflows start their own workers when needed.
 
 **You install no viewer.** 3-D viewing is the Tetravox Embed: a browser build of the Tetravox
 engine that ships inside the image, is served by the container at `/tetravox/`, and runs on your
@@ -47,7 +47,7 @@ switching, health checks and shutdown.
 | **UI** | PyQt5, rendered by the container over X11 forwarding to a host X server | HTML/JS served by the container, rendered by Electron (a normal browser-engine renderer process) — no X server anywhere |
 | **Viewer** | Freeview and Gmsh, launched as separate X11 processes inside the container | Tetravox Embed: WebGL2 + WASM, running on the **host** GPU inside an `<iframe>` in the same window, driven by a `postMessage` protocol. The run pages' own small 3-D panes are drawn separately by the app's own WebGL2 renderer |
 | **Docker orchestration** | `dockerode` for health checks/log streaming + the `docker compose` CLI shelled out to for starting/stopping services | A dependency-free Docker Engine API client only — no CLI subprocess at all, except `docker context inspect` to discover the active context |
-| **Images** | Two: `idossha/simnibs` (~19 GB) + a separate FreeSurfer image (~67 GB) | One: `idossha/ti-toolbox:<ver>`, SimNIBS + FastSurfer + the UI + the viewer baked in |
+| **Images** | Two: `idossha/simnibs` (~19 GB) + a separate FreeSurfer image (~67 GB) | One core image: `idossha/ti-toolbox:<ver>`, SimNIBS + FastSurfer + the UI + viewer; optional FreeSurfer runs in a temporary worker |
 | **X11 host setup** | XQuartz (macOS) / VcXsrv (Windows) / native X11 (Linux), `xhost` permission juggling on every launch | None |
 | **Compose's role** | Read by both the app (for its own bookkeeping) and shelled out to via the `docker compose` CLI | Still the stack *definition* (one `tit` service, the root `docker-compose.yml`), but the app parses the YAML itself and realizes it purely through Engine API calls — `docker compose` is never invoked |
 

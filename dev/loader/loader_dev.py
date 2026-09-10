@@ -13,7 +13,11 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-REPO = HERE.parent.parent
+REPO = (
+    Path(os.environ.get("TIT_DEV_REPO_DIR", str(HERE.parent.parent)))
+    .expanduser()
+    .resolve()
+)
 DESKTOP = REPO / "desktop"
 BUILD_SH = REPO / "container" / "blueprint" / "build.sh"
 
@@ -35,6 +39,14 @@ Without --web: browser UI, Python and Docker only.
 
 
 def main(argv: list[str] | None = None) -> int:
+    if not (REPO / "tit" / "launch.py").is_file():
+        sys.stderr.write(
+            f"loader_dev.py: not a TI-Toolbox checkout: {REPO}. "
+            "Set TIT_DEV_REPO_DIR to your local checkout.\n"
+        )
+        return 2
+    if "TIT_COMPOSE_FILE" not in os.environ and (HERE / "docker-compose.yml").is_file():
+        os.environ["TIT_COMPOSE_FILE"] = str(HERE / "docker-compose.yml")
     try:
         from tit.cli import launch_command, launch_parser, prepare_launch
     except ImportError as err:  # pragma: no cover

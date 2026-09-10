@@ -493,39 +493,51 @@ def test_python_m_tit_cli_is_runnable():
     assert "--project" in result.stdout, "python -m tit.cli produced no help output"
 
 
-@pytest.mark.parametrize('script', [LOADER_SH, LOADER_DEV_SH])
+@pytest.mark.parametrize("script", [LOADER_SH, LOADER_DEV_SH])
 def test_shell_help_does_not_need_python(tmp_path, script):
-    bin_dir = tmp_path / 'bin'
+    bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
-    for name in ('cat', 'dirname', 'bash'):
+    for name in ("cat", "dirname", "bash"):
         (bin_dir / name).symlink_to(shutil.which(name))
-    result = subprocess.run(['/bin/bash', str(script), '--help'], env=dict(os.environ, PATH=str(bin_dir)), capture_output=True, text=True)
+    result = subprocess.run(
+        ["/bin/bash", str(script), "--help"],
+        env=dict(os.environ, PATH=str(bin_dir)),
+        capture_output=True,
+        text=True,
+    )
     assert result.returncode == 0, result.stderr
-    assert '--project' in result.stdout
-    assert 'no host Python' in result.stdout
+    assert "--project" in result.stdout
+    assert "no host Python" in result.stdout
 
 
-@pytest.mark.parametrize('operation', ['--stop', '--status', '--logs'])
+@pytest.mark.parametrize("operation", ["--stop", "--status", "--logs"])
 def test_standalone_shell_management_needs_no_download_or_python(tmp_path, operation):
-    script = tmp_path / 'loader.sh'
+    script = tmp_path / "loader.sh"
     script.write_text(LOADER_SH.read_text())
-    docker = tmp_path / 'docker'
-    docker.write_text('#!/bin/sh\ncase "$1" in info) exit 0;; ps) echo fixture;; stop|rm|logs|inspect) exit 0;; *) exit 99;; esac\n')
+    docker = tmp_path / "docker"
+    docker.write_text(
+        '#!/bin/sh\ncase "$1" in info) exit 0;; ps) echo fixture;; stop|rm|logs|inspect) exit 0;; *) exit 99;; esac\n'
+    )
     docker.chmod(0o755)
     # A minimal PATH has neither Python, curl nor a package installer.
-    (tmp_path / 'awk').symlink_to(shutil.which('awk'))
-    result = subprocess.run(['/bin/bash', str(script), operation, '--project', str(tmp_path)], env=dict(os.environ, PATH=str(tmp_path)), capture_output=True, text=True)
+    (tmp_path / "awk").symlink_to(shutil.which("awk"))
+    result = subprocess.run(
+        ["/bin/bash", str(script), operation, "--project", str(tmp_path)],
+        env=dict(os.environ, PATH=str(tmp_path)),
+        capture_output=True,
+        text=True,
+    )
     assert result.returncode == 0, result.stderr
 
 
-@pytest.mark.parametrize('dev', [False, True])
+@pytest.mark.parametrize("dev", [False, True])
 def test_shell_start_uses_shared_compose_and_project_identity(tmp_path, dev):
-    bin_dir = tmp_path / 'bin'
+    bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
-    trace = tmp_path / 'args'
-    copied_spec = tmp_path / 'compose.yml'
-    docker = bin_dir / 'docker'
-    docker.write_text('''#!/bin/sh
+    trace = tmp_path / "args"
+    copied_spec = tmp_path / "compose.yml"
+    docker = bin_dir / "docker"
+    docker.write_text("""#!/bin/sh
 case "$1" in
  info|image) exit 0;;
  ps) exit 0;;
@@ -540,26 +552,85 @@ case "$1" in
    echo fixture;;
  *) exit 99;;
 esac
-''')
+""")
     docker.chmod(0o755)
-    curl = bin_dir / 'curl'
-    curl.write_text('#!/bin/sh\nexit 0\n')
+    curl = bin_dir / "curl"
+    curl.write_text("#!/bin/sh\nexit 0\n")
     curl.chmod(0o755)
-    for name in ('awk', 'cat', 'cp', 'dirname', 'mktemp', 'rm', 'sed', 'od', 'tr', 'uname', 'mkdir', 'bash'):
+    for name in (
+        "awk",
+        "cat",
+        "cp",
+        "dirname",
+        "mktemp",
+        "rm",
+        "sed",
+        "od",
+        "tr",
+        "uname",
+        "mkdir",
+        "bash",
+    ):
         (bin_dir / name).symlink_to(shutil.which(name))
-    project = tmp_path / 'project space'
+    project = tmp_path / "project space"
     project.mkdir()
-    env_trace = tmp_path / 'dev-env'
-    env = dict(os.environ, PATH=str(bin_dir), TRACE=str(trace), COPIED_SPEC=str(copied_spec), DEV_ENV_TRACE=str(env_trace), XDG_CONFIG_HOME=str(tmp_path / 'config'))
-    env.pop('TIT_DEV_REPO_DIR', None)
-    env.pop('TIT_IMAGE_TAG', None)
-    result = subprocess.run(['/bin/bash', str(LOADER_DEV_SH if dev else LOADER_SH), '--project', str(project), '--port', '54321', '--no-open'], env=env, capture_output=True, text=True)
+    env_trace = tmp_path / "dev-env"
+    env = dict(
+        os.environ,
+        PATH=str(bin_dir),
+        TRACE=str(trace),
+        COPIED_SPEC=str(copied_spec),
+        DEV_ENV_TRACE=str(env_trace),
+        XDG_CONFIG_HOME=str(tmp_path / "config"),
+    )
+    env.pop("TIT_DEV_REPO_DIR", None)
+    env.pop("TIT_IMAGE_TAG", None)
+    result = subprocess.run(
+        [
+            "/bin/bash",
+            str(LOADER_DEV_SH if dev else LOADER_SH),
+            "--project",
+            str(project),
+            "--port",
+            "54321",
+            "--no-open",
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+    )
     assert result.returncode == 0, result.stderr
     args = trace.read_text().splitlines()
-    assert args[args.index('--name') + 1] == launch.container_name(str(project.resolve()))
-    assert f'tit.host_project_dir={project.resolve()}' in args
-    assert '--service-ports' in args
+    assert args[args.index("--name") + 1] == launch.container_name(
+        str(project.resolve())
+    )
+    assert f"tit.host_project_dir={project.resolve()}" in args
+    assert "--service-ports" in args
     spec = launch.parse_compose(copied_spec.read_text())
     assert spec.image == launch.default_image()
-    assert ('${TIT_REPO_DIR:-}:/ti-toolbox' in spec.volumes) == dev
-    assert env_trace.read_text().splitlines() == ([str(REPO_ROOT), '/ti-toolbox/desktop/out/renderer', '1'] if dev else ['', '', ''])
+    assert ("${TIT_REPO_DIR:-}:/ti-toolbox" in spec.volumes) == dev
+    assert env_trace.read_text().splitlines() == (
+        [str(REPO_ROOT), "/ti-toolbox/desktop/out/renderer", "1"]
+        if dev
+        else ["", "", ""]
+    )
+
+
+def test_compose_override_controls_loaded_image(tmp_path, monkeypatch):
+    """User-downloaded YAML overrides both checkout and installed defaults."""
+    compose = tmp_path / "downloaded.yml"
+    compose.write_text(
+        "services:\n  tit:\n    image: idossha/ti-toolbox:user-version\n"
+    )
+    monkeypatch.setenv("TIT_COMPOSE_FILE", str(compose))
+    assert launch.load_spec().image == "idossha/ti-toolbox:user-version"
+
+
+@pytest.mark.parametrize("kind", ["missing", "directory"])
+def test_invalid_explicit_compose_does_not_fall_back(tmp_path, monkeypatch, kind):
+    path = tmp_path / "missing.yml" if kind == "missing" else tmp_path
+    monkeypatch.setenv("TIT_COMPOSE_FILE", str(path))
+    with pytest.raises(
+        launch.LaunchError, match="Compose file does not exist or is not a file"
+    ):
+        launch.load_spec()

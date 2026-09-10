@@ -29,11 +29,12 @@ your project files are preserved.
 
 ### CLI
 
-Download [loader.py](https://raw.githubusercontent.com/idossha/TI-Toolbox/release/3.0.0/loader.py) or the [loader.sh](https://raw.githubusercontent.com/idossha/TI-Toolbox/release/3.0.0/loader.sh) based on your preference and the [docker-compose.yml](https://raw.githubusercontent.com/idossha/TI-Toolbox/release/3.0.0/docker-compose.yml).
-
-Save these files in the **same folder**, keeping their filenames unchanged.
-
-If a link opens as text, use **Save As** (without adding `.txt`). You do not need the full repository.
+Download **one launcher** — [loader.py](https://raw.githubusercontent.com/idossha/TI-Toolbox/release/3.0.0/loader.py)
+or [loader.sh](https://raw.githubusercontent.com/idossha/TI-Toolbox/release/3.0.0/loader.sh) — plus
+[docker-compose.yml](https://raw.githubusercontent.com/idossha/TI-Toolbox/release/3.0.0/docker-compose.yml).
+Keep these **two files in the same folder**, with their filenames unchanged. If a link opens as text,
+use **Save As** (without adding `.txt`). No repository checkout is needed: regular launches use
+the code already inside the image and mount your project data without replacing that code.
 
 Open a terminal in that folder and run **one** launcher:
 
@@ -59,6 +60,9 @@ for stopping it.
 Allow at least **32 GB RAM**, **4 CPU cores**, and **20 GB free disk space**, plus space for your
 project. We recommend 64 GB RAM and 8 or more cores. Apple Silicon runs the scientific container
 under emulation, so processing is slower than on an x86_64 machine.
+
+FastSurfer is the recommended default for segmentation. Optional FreeSurfer provides full reconstruction,
+thalamic nuclei, and hippocampal/amygdala subregions; see [Pre-processing]({{ site.baseurl }}/wiki/pre-processing/).
 
 See [Dependencies]({{ site.baseurl }}/installation/dependencies/) for supported systems and optional tools.
 

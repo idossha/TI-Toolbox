@@ -232,11 +232,11 @@ CLI tools work regardless of X11.
 **Cause:** the container filesystem is case-sensitive; macOS and Windows are not, so two spellings that look like one folder on your machine are two folders in the container.
 **Fix:** keep exactly one spelling per modality folder, matching the [pre-processing layout]({{ site.baseurl }}/wiki/pre-processing/).
 
-### `recon-all` fails with `ERROR! FOV=282.000 > 256` (legacy FreeSurfer derivatives)
+### `recon-all` fails with `ERROR! FOV=282.000 > 256`
 
-**Applies to:** projects with existing `derivatives/freesurfer/` output from before v3, or the legacy CLI path.
+**Applies to:** optional FreeSurfer reconstruction, including resumed legacy projects.
 **Cause:** FreeSurfer's 256 mm field-of-view limit — typical for templates such as MNI152 or large-FOV clinical scans.
-**Fix:** v3 no longer runs `recon-all` at all (FastSurfer replaces it — see [Pre-Processing]({{ site.baseurl }}/wiki/pre-processing/)), so this error only affects existing legacy output or the CLI path. Disable recon-all for templates, or crop/conform the volume first.
+**Fix:** use an appropriately cropped/conformed input for FreeSurfer, preserving the intended anatomy. If your workflow does not need full reconstruction or subregions, select the recommended FastSurfer segmentation instead; see [Pre-processing]({{ site.baseurl }}/wiki/pre-processing/).
 **Source:** [#94](https://github.com/idossha/TI-Toolbox/discussions/94).
 
 ### DWI has no `.bval`/`.bvec`, or the pre-flight rejects it

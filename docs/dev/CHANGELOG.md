@@ -9,6 +9,11 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 ---
 ### v3.0.0 (Unreleased)
 
+- **Download only the launch files.** Keep a loader and `docker-compose.yml` in one folder;
+  no manual repository checkout is required. Standalone Python uses the v3 launcher and the
+  adjacent configuration, matching the Bash workflow. Developer launchers can live separately
+  from the checkout selected by `TIT_DEV_REPO_DIR`.
+
 - Optional FreeSurfer preprocessing supports reconstruction and T1 thalamic or hippocampal/amygdala subregions in temporary workers. FastSurfer remains the default.
 
 - **Preview the desktop launcher before packaging.** `npm run dev` opens the actual
@@ -152,7 +157,7 @@ and the [Wiki]({{ site.baseurl }}/wiki/) for a page per workflow.
 - **Image size is being remeasured** — the September 7 development image measured 2.32 GB
   content / 8.93 GB disk. Those historical figures do not describe the current candidate,
   which adds standalone Blender. Final candidate download/disk size is pending.
-- **FastSurfer segmentation** — a new, much faster pre-processing stage (`run_fastsurfer`) producing a DKT-atlas parcellation in `derivatives/fastsurfer/`, replacing FreeSurfer `recon-all` for the segmentation this toolbox needs.
+- **FastSurfer segmentation** — a new, much faster pre-processing stage (`run_fastsurfer`) producing a DKT-atlas parcellation in `derivatives/fastsurfer/`, recommended by default for segmentation. Optional FreeSurfer remains available for full reconstruction and detailed subregions.
 - **Tetravox Embed viewer** — the 3D/volume viewer now renders inside the app's own window (WebGL2 + WASM on the host GPU, driven by a `postMessage` protocol), instead of launching Freeview/Gmsh as separate X11 applications.
 - **Docker Engine API stack** — the desktop app now drives Docker entirely through its Engine API (image pull with progress, container create/start, health check, log streaming, stop) instead of shelling out to the `docker compose` CLI; `docker context inspect` is the only remaining CLI use, for engine discovery.
 - **Three documented ways to run v3**, all landing on the same container-served UI: the **desktop app**; **`tit launch --project <dir>`** from the matching tested source package, or `./loader.sh` in its checkout, for servers and SSH sessions with no Electron; and **`npm run dev`** in `desktop/` to run unreleased code from source. See the [Installation Guide]({{ site.baseurl }}/installation/).
@@ -161,7 +166,7 @@ and the [Wiki]({{ site.baseurl }}/wiki/) for a page per workflow.
 #### Removals
 
 - **X11 everywhere** — no `/tmp/.X11-unix`/`.Xauthority` mounts, no `DISPLAY`, no `xhost`, no XQuartz/VcXsrv setup on any platform.
-- **The separate FreeSurfer image** — `recon-all`, the thalamic-nuclei and hippocampal-subfield segmentation stages, the `freesurfer` compose service, the `freesurfer_data` volume, and the FreeSurfer license plumbing for the core workflow are all removed. Existing `derivatives/freesurfer/` outputs on disk keep working — readers accept both FastSurfer and legacy FreeSurfer outputs.
+- **The persistent FreeSurfer service** — the old `freesurfer` Compose service and `freesurfer_data` volume are removed. Optional FreeSurfer now runs full reconstruction and thalamic or hippocampal/amygdala subregions in temporary workers with a FreeSurfer license. Results remain in the project after the worker exits.
 - **Freeview and Gmsh launchers** — including the `/api/viewers/{freeview,gmsh}` server routes and their `_require_x11` capability gate. **gmsh is no longer in the image.**
 - **`dockerode` and CLI-driven Docker orchestration** in the desktop app, replaced by the dependency-free Engine API client above.
 - **The PyQt5 GUI (`tit/gui/`)** — deleted, along with its extension framework, its Qt dialogs and the `GUI` shell command. The container ships no Qt at all: PyQt5, `simnibs_gui` and gmsh are stripped from the image. The [historical page]({{ site.baseurl }}/wiki/gui/) is kept for reference.
@@ -185,6 +190,7 @@ and the [Wiki]({{ site.baseurl }}/wiki/) for a page per workflow.
 - **Tabs preserve your work** — switching between Pre-processing, Simulator, Optimizer, Analyzer and Viewer retains each tab's draft, subject selection, section state, scroll and live 3D view for the open project session. Returning to a tab no longer rebuilds its viewer or resets its camera. Project switching starts a fresh session.
 - **Preview failures stay readable** — a missing or failed 3D renderer no longer loops through silent reloads; retry is explicit and retains your surface-opacity settings.
 - **Cortical atlas previews load again** — fixed a mesh-index lookup that prevented the atlas surface from building. Server build errors now remain readable until you explicitly retry, instead of appearing to build indefinitely.
+
 ---
 ### v2.5.0 (Latest Release)
 

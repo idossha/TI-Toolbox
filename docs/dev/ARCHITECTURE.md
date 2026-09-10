@@ -41,6 +41,12 @@ remain cached; the worker and temporary license mount are removed after executio
 
 Regular `loader.py` and Python-free `loader.sh` open the browser by default; explicit `--desktop`
 delegates to Electron before starting Docker.
+Standalone downloads keep the loader and `docker-compose.yml` together. Regular users need no checkout.
+Developer wrappers can live outside the source tree: `TIT_DEV_REPO_DIR` selects the checkout
+mounted at `/ti-toolbox`, independently of the project data path. An adjacent YAML or explicit
+`TIT_COMPOSE_FILE` selects the launch specification. Python bootstraps its
+launcher in a cache from the matching release branch and forwards the adjacent YAML via
+`TIT_COMPOSE_FILE`; an invalid explicit path fails rather than selecting a different configuration.
 Explicit browser/headless modes and development wrappers use the same Compose service and
 container identity. All Docker launch paths require an explicit Attach or Replace decision when
 any TI-Toolbox container is running, including another project's session. Multiple sessions require

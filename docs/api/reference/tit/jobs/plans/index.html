@@ -1353,6 +1353,7 @@ overwrite : bool, optional
 <li><code>G2b</code> = FastSurfer <code>--seg_only</code> deep segmentation (<code>run_fastsurfer</code>), after
   <code>G1</code> -- it reads the raw BIDS T1w, so it needs nothing from <code>G2a</code> and the two
   run in parallel</li>
+<li><code>G2c</code> = optional FreeSurfer recon-all/subregions, after <code>G1</code></li>
 <li><code>G3</code> = tissue-volume/thickness analysis (<code>run_tissue_analysis</code>), after <code>G2a</code></li>
 <li><code>G4</code> = QSIPrep (<code>run_qsiprep</code>), after <code>G1</code></li>
 <li><code>G5</code> = QSIRecon (<code>run_qsirecon</code>), after <code>G4</code></li>
@@ -1390,8 +1391,7 @@ subject_ids : list of str
 
             <details class="quote">
               <summary>Source code in <code>tit/jobs/plans.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-148">148</a></span>
-<span class="normal"><a href="#__codelineno-0-149">149</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-149">149</a></span>
 <span class="normal"><a href="#__codelineno-0-150">150</a></span>
 <span class="normal"><a href="#__codelineno-0-151">151</a></span>
 <span class="normal"><a href="#__codelineno-0-152">152</a></span>
@@ -1536,153 +1536,180 @@ subject_ids : list of str
 <span class="normal"><a href="#__codelineno-0-291">291</a></span>
 <span class="normal"><a href="#__codelineno-0-292">292</a></span>
 <span class="normal"><a href="#__codelineno-0-293">293</a></span>
-<span class="normal"><a href="#__codelineno-0-294">294</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-148" name="__codelineno-0-148"></a><span class="k">def</span><span class="w"> </span><span class="nf">plan_preprocessing</span><span class="p">(</span>
-<a id="__codelineno-0-149" name="__codelineno-0-149"></a>    <span class="n">config</span><span class="p">:</span> <span class="n">PreprocessConfig</span><span class="p">,</span> <span class="n">subject_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
-<a id="__codelineno-0-150" name="__codelineno-0-150"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">PlannedJob</span><span class="p">]:</span>
-<a id="__codelineno-0-151" name="__codelineno-0-151"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Build the per-subject preprocessing job DAG.</span>
-<a id="__codelineno-0-152" name="__codelineno-0-152"></a>
-<a id="__codelineno-0-153" name="__codelineno-0-153"></a><span class="sd">    Stage groups, in dependency order per subject (a stage is only planned when its</span>
-<a id="__codelineno-0-154" name="__codelineno-0-154"></a><span class="sd">    ``PreprocessConfig`` flag is set):</span>
-<a id="__codelineno-0-155" name="__codelineno-0-155"></a>
-<a id="__codelineno-0-156" name="__codelineno-0-156"></a><span class="sd">    - ``G1`` = DICOM-to-NIfTI conversion (``convert_dicom``)</span>
-<a id="__codelineno-0-157" name="__codelineno-0-157"></a><span class="sd">    - ``G2a`` = SimNIBS ``charm`` + ``subject_atlas`` (``create_m2m``), after ``G1``</span>
-<a id="__codelineno-0-158" name="__codelineno-0-158"></a><span class="sd">    - ``G2b`` = FastSurfer ``--seg_only`` deep segmentation (``run_fastsurfer``), after</span>
-<a id="__codelineno-0-159" name="__codelineno-0-159"></a><span class="sd">      ``G1`` -- it reads the raw BIDS T1w, so it needs nothing from ``G2a`` and the two</span>
-<a id="__codelineno-0-160" name="__codelineno-0-160"></a><span class="sd">      run in parallel</span>
-<a id="__codelineno-0-161" name="__codelineno-0-161"></a><span class="sd">    - ``G3`` = tissue-volume/thickness analysis (``run_tissue_analysis``), after ``G2a``</span>
-<a id="__codelineno-0-162" name="__codelineno-0-162"></a><span class="sd">    - ``G4`` = QSIPrep (``run_qsiprep``), after ``G1``</span>
-<a id="__codelineno-0-163" name="__codelineno-0-163"></a><span class="sd">    - ``G5`` = QSIRecon (``run_qsirecon``), after ``G4``</span>
-<a id="__codelineno-0-164" name="__codelineno-0-164"></a><span class="sd">    - ``G6`` = DTI tensor extraction (``extract_dti``), after ``G5`` and ``G2a``</span>
-<a id="__codelineno-0-165" name="__codelineno-0-165"></a><span class="sd">    A report is **not** a stage and never a job of its own. Every stage job writes its</span>
-<a id="__codelineno-0-166" name="__codelineno-0-166"></a><span class="sd">    own HTML report as a side effect of :func:`tit.pre.structural.run_pipeline`, and the</span>
-<a id="__codelineno-0-167" name="__codelineno-0-167"></a><span class="sd">    job manager folds the group&#39;s stages into one consolidated per-subject report as a</span>
-<a id="__codelineno-0-168" name="__codelineno-0-168"></a><span class="sd">    post-success attachment of the last stage job to finish for that subject (see</span>
-<a id="__codelineno-0-169" name="__codelineno-0-169"></a><span class="sd">    :meth:`tit.jobs.manager.JobManager._attach_pre_report`) -- with no job record, no</span>
-<a id="__codelineno-0-170" name="__codelineno-0-170"></a><span class="sd">    plan row, no cost and no ETA line of its own.</span>
-<a id="__codelineno-0-171" name="__codelineno-0-171"></a>
-<a id="__codelineno-0-172" name="__codelineno-0-172"></a><span class="sd">    Each stage job&#39;s config is *config* with every step flag except its own forced to</span>
-<a id="__codelineno-0-173" name="__codelineno-0-173"></a><span class="sd">    ``False`` and ``subject_ids`` narrowed to the one subject -- consistent with</span>
-<a id="__codelineno-0-174" name="__codelineno-0-174"></a><span class="sd">    :func:`tit.pre.structural.run_pipeline` accepting exactly these flags, and letting</span>
-<a id="__codelineno-0-175" name="__codelineno-0-175"></a><span class="sd">    ``G1``/``G2a``/``G2b``/``G4`` (all four have no unmet dependency once ``G1`` is done, or</span>
-<a id="__codelineno-0-176" name="__codelineno-0-176"></a><span class="sd">    none at all) run in parallel once the scheduler admits them. ``skip_existing_outputs`` /</span>
-<a id="__codelineno-0-177" name="__codelineno-0-177"></a><span class="sd">    ``replace_existing_outputs`` are global policy flags, not stage flags, and are carried</span>
-<a id="__codelineno-0-178" name="__codelineno-0-178"></a><span class="sd">    onto every stage&#39;s config unchanged.</span>
-<a id="__codelineno-0-179" name="__codelineno-0-179"></a>
-<a id="__codelineno-0-180" name="__codelineno-0-180"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-181" name="__codelineno-0-181"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-182" name="__codelineno-0-182"></a><span class="sd">    config : PreprocessConfig</span>
-<a id="__codelineno-0-183" name="__codelineno-0-183"></a><span class="sd">        The full multi-flag request as built by the UI or a notebook. Its own</span>
-<a id="__codelineno-0-184" name="__codelineno-0-184"></a><span class="sd">        ``subject_ids`` is not read -- see *subject_ids* below.</span>
-<a id="__codelineno-0-185" name="__codelineno-0-185"></a><span class="sd">    subject_ids : list of str</span>
-<a id="__codelineno-0-186" name="__codelineno-0-186"></a><span class="sd">        Subjects to plan for. Kept separate from ``config.subject_ids`` so a caller can</span>
-<a id="__codelineno-0-187" name="__codelineno-0-187"></a><span class="sd">        plan for a batch chosen after the rest of *config* is built (e.g. a group picked</span>
-<a id="__codelineno-0-188" name="__codelineno-0-188"></a><span class="sd">        in the UI).</span>
-<a id="__codelineno-0-189" name="__codelineno-0-189"></a>
-<a id="__codelineno-0-190" name="__codelineno-0-190"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-191" name="__codelineno-0-191"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-192" name="__codelineno-0-192"></a><span class="sd">    list of PlannedJob</span>
-<a id="__codelineno-0-193" name="__codelineno-0-193"></a><span class="sd">        Flattened across every subject, most-upstream stage first. Empty for a subject</span>
-<a id="__codelineno-0-194" name="__codelineno-0-194"></a><span class="sd">        with no step flags set at all (no jobs, no report).</span>
-<a id="__codelineno-0-195" name="__codelineno-0-195"></a>
-<a id="__codelineno-0-196" name="__codelineno-0-196"></a><span class="sd">    See Also</span>
-<a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="sd">    --------</span>
-<a id="__codelineno-0-198" name="__codelineno-0-198"></a><span class="sd">    tit.jobs.spec.PlannedJob : ``label``/``after_labels`` are plan-scoped; the real job</span>
-<a id="__codelineno-0-199" name="__codelineno-0-199"></a><span class="sd">        manager resolves them to job ids at submission time.</span>
-<a id="__codelineno-0-200" name="__codelineno-0-200"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-201" name="__codelineno-0-201"></a>    <span class="n">jobs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">PlannedJob</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-202" name="__codelineno-0-202"></a>
-<a id="__codelineno-0-203" name="__codelineno-0-203"></a>    <span class="k">for</span> <span class="n">subject_id</span> <span class="ow">in</span> <span class="n">subject_ids</span><span class="p">:</span>
-<a id="__codelineno-0-204" name="__codelineno-0-204"></a>        <span class="n">subject_jobs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">PlannedJob</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-205" name="__codelineno-0-205"></a>
-<a id="__codelineno-0-206" name="__codelineno-0-206"></a>        <span class="n">g1</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-207" name="__codelineno-0-207"></a>        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">convert_dicom</span><span class="p">:</span>
-<a id="__codelineno-0-208" name="__codelineno-0-208"></a>            <span class="n">g1</span> <span class="o">=</span> <span class="n">PlannedJob</span><span class="p">(</span>
-<a id="__codelineno-0-209" name="__codelineno-0-209"></a>                <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">:G1&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-210" name="__codelineno-0-210"></a>                <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;pre&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-211" name="__codelineno-0-211"></a>                <span class="n">config</span><span class="o">=</span><span class="n">_stage_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">convert_dicom</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-<a id="__codelineno-0-212" name="__codelineno-0-212"></a>                <span class="n">subject_ids</span><span class="o">=</span><span class="p">[</span><span class="n">subject_id</span><span class="p">],</span>
-<a id="__codelineno-0-213" name="__codelineno-0-213"></a>                <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;G1&quot;</span><span class="p">,</span> <span class="s2">&quot;dicom&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-214" name="__codelineno-0-214"></a>            <span class="p">)</span>
-<a id="__codelineno-0-215" name="__codelineno-0-215"></a>            <span class="n">subject_jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">g1</span><span class="p">)</span>
-<a id="__codelineno-0-216" name="__codelineno-0-216"></a>
-<a id="__codelineno-0-217" name="__codelineno-0-217"></a>        <span class="n">g2a</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-218" name="__codelineno-0-218"></a>        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">create_m2m</span><span class="p">:</span>
-<a id="__codelineno-0-219" name="__codelineno-0-219"></a>            <span class="n">g2a</span> <span class="o">=</span> <span class="n">PlannedJob</span><span class="p">(</span>
-<a id="__codelineno-0-220" name="__codelineno-0-220"></a>                <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">:G2a&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-221" name="__codelineno-0-221"></a>                <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;pre&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-222" name="__codelineno-0-222"></a>                <span class="n">config</span><span class="o">=</span><span class="n">_stage_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">create_m2m</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-<a id="__codelineno-0-223" name="__codelineno-0-223"></a>                <span class="n">subject_ids</span><span class="o">=</span><span class="p">[</span><span class="n">subject_id</span><span class="p">],</span>
-<a id="__codelineno-0-224" name="__codelineno-0-224"></a>                <span class="n">after_labels</span><span class="o">=</span><span class="p">[</span><span class="n">g1</span><span class="o">.</span><span class="n">label</span><span class="p">]</span> <span class="k">if</span> <span class="n">g1</span> <span class="k">else</span> <span class="p">[],</span>
-<a id="__codelineno-0-225" name="__codelineno-0-225"></a>                <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;G2a&quot;</span><span class="p">,</span> <span class="s2">&quot;charm&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-226" name="__codelineno-0-226"></a>            <span class="p">)</span>
-<a id="__codelineno-0-227" name="__codelineno-0-227"></a>            <span class="n">subject_jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">g2a</span><span class="p">)</span>
-<a id="__codelineno-0-228" name="__codelineno-0-228"></a>
-<a id="__codelineno-0-229" name="__codelineno-0-229"></a>        <span class="n">g2b</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-230" name="__codelineno-0-230"></a>        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">run_fastsurfer</span><span class="p">:</span>
-<a id="__codelineno-0-231" name="__codelineno-0-231"></a>            <span class="n">g2b</span> <span class="o">=</span> <span class="n">PlannedJob</span><span class="p">(</span>
-<a id="__codelineno-0-232" name="__codelineno-0-232"></a>                <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">:G2b&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-233" name="__codelineno-0-233"></a>                <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;pre&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-234" name="__codelineno-0-234"></a>                <span class="n">config</span><span class="o">=</span><span class="n">_stage_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">run_fastsurfer</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-<a id="__codelineno-0-235" name="__codelineno-0-235"></a>                <span class="n">subject_ids</span><span class="o">=</span><span class="p">[</span><span class="n">subject_id</span><span class="p">],</span>
-<a id="__codelineno-0-236" name="__codelineno-0-236"></a>                <span class="n">after_labels</span><span class="o">=</span><span class="p">[</span><span class="n">g1</span><span class="o">.</span><span class="n">label</span><span class="p">]</span> <span class="k">if</span> <span class="n">g1</span> <span class="k">else</span> <span class="p">[],</span>
-<a id="__codelineno-0-237" name="__codelineno-0-237"></a>                <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;G2b&quot;</span><span class="p">,</span> <span class="s2">&quot;fastsurfer&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-238" name="__codelineno-0-238"></a>            <span class="p">)</span>
-<a id="__codelineno-0-239" name="__codelineno-0-239"></a>            <span class="n">subject_jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">g2b</span><span class="p">)</span>
-<a id="__codelineno-0-240" name="__codelineno-0-240"></a>
-<a id="__codelineno-0-241" name="__codelineno-0-241"></a>        <span class="n">g3</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-242" name="__codelineno-0-242"></a>        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">run_tissue_analysis</span><span class="p">:</span>
-<a id="__codelineno-0-243" name="__codelineno-0-243"></a>            <span class="n">g3</span> <span class="o">=</span> <span class="n">PlannedJob</span><span class="p">(</span>
-<a id="__codelineno-0-244" name="__codelineno-0-244"></a>                <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">:G3&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-245" name="__codelineno-0-245"></a>                <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;pre&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-246" name="__codelineno-0-246"></a>                <span class="n">config</span><span class="o">=</span><span class="n">_stage_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">run_tissue_analysis</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-<a id="__codelineno-0-247" name="__codelineno-0-247"></a>                <span class="n">subject_ids</span><span class="o">=</span><span class="p">[</span><span class="n">subject_id</span><span class="p">],</span>
-<a id="__codelineno-0-248" name="__codelineno-0-248"></a>                <span class="n">after_labels</span><span class="o">=</span><span class="p">[</span><span class="n">g2a</span><span class="o">.</span><span class="n">label</span><span class="p">]</span> <span class="k">if</span> <span class="n">g2a</span> <span class="k">else</span> <span class="p">[],</span>
-<a id="__codelineno-0-249" name="__codelineno-0-249"></a>                <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;G3&quot;</span><span class="p">,</span> <span class="s2">&quot;tissue&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-250" name="__codelineno-0-250"></a>            <span class="p">)</span>
-<a id="__codelineno-0-251" name="__codelineno-0-251"></a>            <span class="n">subject_jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">g3</span><span class="p">)</span>
-<a id="__codelineno-0-252" name="__codelineno-0-252"></a>
-<a id="__codelineno-0-253" name="__codelineno-0-253"></a>        <span class="n">g4</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-254" name="__codelineno-0-254"></a>        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">run_qsiprep</span><span class="p">:</span>
-<a id="__codelineno-0-255" name="__codelineno-0-255"></a>            <span class="n">g4</span> <span class="o">=</span> <span class="n">PlannedJob</span><span class="p">(</span>
-<a id="__codelineno-0-256" name="__codelineno-0-256"></a>                <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">:G4&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-257" name="__codelineno-0-257"></a>                <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;pre&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-258" name="__codelineno-0-258"></a>                <span class="n">config</span><span class="o">=</span><span class="n">_stage_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">run_qsiprep</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-<a id="__codelineno-0-259" name="__codelineno-0-259"></a>                <span class="n">subject_ids</span><span class="o">=</span><span class="p">[</span><span class="n">subject_id</span><span class="p">],</span>
-<a id="__codelineno-0-260" name="__codelineno-0-260"></a>                <span class="n">after_labels</span><span class="o">=</span><span class="p">[</span><span class="n">g1</span><span class="o">.</span><span class="n">label</span><span class="p">]</span> <span class="k">if</span> <span class="n">g1</span> <span class="k">else</span> <span class="p">[],</span>
-<a id="__codelineno-0-261" name="__codelineno-0-261"></a>                <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;G4&quot;</span><span class="p">,</span> <span class="s2">&quot;qsiprep&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-262" name="__codelineno-0-262"></a>            <span class="p">)</span>
-<a id="__codelineno-0-263" name="__codelineno-0-263"></a>            <span class="n">subject_jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">g4</span><span class="p">)</span>
-<a id="__codelineno-0-264" name="__codelineno-0-264"></a>
-<a id="__codelineno-0-265" name="__codelineno-0-265"></a>        <span class="n">g5</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-266" name="__codelineno-0-266"></a>        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">run_qsirecon</span><span class="p">:</span>
-<a id="__codelineno-0-267" name="__codelineno-0-267"></a>            <span class="n">g5</span> <span class="o">=</span> <span class="n">PlannedJob</span><span class="p">(</span>
-<a id="__codelineno-0-268" name="__codelineno-0-268"></a>                <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">:G5&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-269" name="__codelineno-0-269"></a>                <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;pre&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-270" name="__codelineno-0-270"></a>                <span class="n">config</span><span class="o">=</span><span class="n">_stage_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">run_qsirecon</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-<a id="__codelineno-0-271" name="__codelineno-0-271"></a>                <span class="n">subject_ids</span><span class="o">=</span><span class="p">[</span><span class="n">subject_id</span><span class="p">],</span>
-<a id="__codelineno-0-272" name="__codelineno-0-272"></a>                <span class="n">after_labels</span><span class="o">=</span><span class="p">[</span><span class="n">g4</span><span class="o">.</span><span class="n">label</span><span class="p">]</span> <span class="k">if</span> <span class="n">g4</span> <span class="k">else</span> <span class="p">[],</span>
-<a id="__codelineno-0-273" name="__codelineno-0-273"></a>                <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;G5&quot;</span><span class="p">,</span> <span class="s2">&quot;qsirecon&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-274" name="__codelineno-0-274"></a>            <span class="p">)</span>
-<a id="__codelineno-0-275" name="__codelineno-0-275"></a>            <span class="n">subject_jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">g5</span><span class="p">)</span>
-<a id="__codelineno-0-276" name="__codelineno-0-276"></a>
-<a id="__codelineno-0-277" name="__codelineno-0-277"></a>        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">extract_dti</span><span class="p">:</span>
-<a id="__codelineno-0-278" name="__codelineno-0-278"></a>            <span class="n">after</span> <span class="o">=</span> <span class="p">[</span><span class="n">j</span><span class="o">.</span><span class="n">label</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="p">(</span><span class="n">g5</span><span class="p">,</span> <span class="n">g2a</span><span class="p">)</span> <span class="k">if</span> <span class="n">j</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">]</span>
-<a id="__codelineno-0-279" name="__codelineno-0-279"></a>            <span class="n">g6</span> <span class="o">=</span> <span class="n">PlannedJob</span><span class="p">(</span>
-<a id="__codelineno-0-280" name="__codelineno-0-280"></a>                <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">:G6&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-281" name="__codelineno-0-281"></a>                <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;pre&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-282" name="__codelineno-0-282"></a>                <span class="n">config</span><span class="o">=</span><span class="n">_stage_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">extract_dti</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-<a id="__codelineno-0-283" name="__codelineno-0-283"></a>                <span class="n">subject_ids</span><span class="o">=</span><span class="p">[</span><span class="n">subject_id</span><span class="p">],</span>
-<a id="__codelineno-0-284" name="__codelineno-0-284"></a>                <span class="n">after_labels</span><span class="o">=</span><span class="n">after</span><span class="p">,</span>
-<a id="__codelineno-0-285" name="__codelineno-0-285"></a>                <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;G6&quot;</span><span class="p">,</span> <span class="s2">&quot;dti&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-286" name="__codelineno-0-286"></a>            <span class="p">)</span>
-<a id="__codelineno-0-287" name="__codelineno-0-287"></a>            <span class="n">subject_jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">g6</span><span class="p">)</span>
-<a id="__codelineno-0-288" name="__codelineno-0-288"></a>
-<a id="__codelineno-0-289" name="__codelineno-0-289"></a>        <span class="c1"># No trailing report job: the consolidated per-subject report is an attachment</span>
-<a id="__codelineno-0-290" name="__codelineno-0-290"></a>        <span class="c1"># the job manager produces after the last stage job for this subject succeeds</span>
-<a id="__codelineno-0-291" name="__codelineno-0-291"></a>        <span class="c1"># (JobManager._attach_pre_report), not a job of its own.</span>
-<a id="__codelineno-0-292" name="__codelineno-0-292"></a>        <span class="n">jobs</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">subject_jobs</span><span class="p">)</span>
-<a id="__codelineno-0-293" name="__codelineno-0-293"></a>
-<a id="__codelineno-0-294" name="__codelineno-0-294"></a>    <span class="k">return</span> <span class="n">jobs</span>
+<span class="normal"><a href="#__codelineno-0-294">294</a></span>
+<span class="normal"><a href="#__codelineno-0-295">295</a></span>
+<span class="normal"><a href="#__codelineno-0-296">296</a></span>
+<span class="normal"><a href="#__codelineno-0-297">297</a></span>
+<span class="normal"><a href="#__codelineno-0-298">298</a></span>
+<span class="normal"><a href="#__codelineno-0-299">299</a></span>
+<span class="normal"><a href="#__codelineno-0-300">300</a></span>
+<span class="normal"><a href="#__codelineno-0-301">301</a></span>
+<span class="normal"><a href="#__codelineno-0-302">302</a></span>
+<span class="normal"><a href="#__codelineno-0-303">303</a></span>
+<span class="normal"><a href="#__codelineno-0-304">304</a></span>
+<span class="normal"><a href="#__codelineno-0-305">305</a></span>
+<span class="normal"><a href="#__codelineno-0-306">306</a></span>
+<span class="normal"><a href="#__codelineno-0-307">307</a></span>
+<span class="normal"><a href="#__codelineno-0-308">308</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-149" name="__codelineno-0-149"></a><span class="k">def</span><span class="w"> </span><span class="nf">plan_preprocessing</span><span class="p">(</span>
+<a id="__codelineno-0-150" name="__codelineno-0-150"></a>    <span class="n">config</span><span class="p">:</span> <span class="n">PreprocessConfig</span><span class="p">,</span> <span class="n">subject_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<a id="__codelineno-0-151" name="__codelineno-0-151"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">PlannedJob</span><span class="p">]:</span>
+<a id="__codelineno-0-152" name="__codelineno-0-152"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Build the per-subject preprocessing job DAG.</span>
+<a id="__codelineno-0-153" name="__codelineno-0-153"></a>
+<a id="__codelineno-0-154" name="__codelineno-0-154"></a><span class="sd">    Stage groups, in dependency order per subject (a stage is only planned when its</span>
+<a id="__codelineno-0-155" name="__codelineno-0-155"></a><span class="sd">    ``PreprocessConfig`` flag is set):</span>
+<a id="__codelineno-0-156" name="__codelineno-0-156"></a>
+<a id="__codelineno-0-157" name="__codelineno-0-157"></a><span class="sd">    - ``G1`` = DICOM-to-NIfTI conversion (``convert_dicom``)</span>
+<a id="__codelineno-0-158" name="__codelineno-0-158"></a><span class="sd">    - ``G2a`` = SimNIBS ``charm`` + ``subject_atlas`` (``create_m2m``), after ``G1``</span>
+<a id="__codelineno-0-159" name="__codelineno-0-159"></a><span class="sd">    - ``G2b`` = FastSurfer ``--seg_only`` deep segmentation (``run_fastsurfer``), after</span>
+<a id="__codelineno-0-160" name="__codelineno-0-160"></a><span class="sd">      ``G1`` -- it reads the raw BIDS T1w, so it needs nothing from ``G2a`` and the two</span>
+<a id="__codelineno-0-161" name="__codelineno-0-161"></a><span class="sd">      run in parallel</span>
+<a id="__codelineno-0-162" name="__codelineno-0-162"></a><span class="sd">    - ``G2c`` = optional FreeSurfer recon-all/subregions, after ``G1``</span>
+<a id="__codelineno-0-163" name="__codelineno-0-163"></a><span class="sd">    - ``G3`` = tissue-volume/thickness analysis (``run_tissue_analysis``), after ``G2a``</span>
+<a id="__codelineno-0-164" name="__codelineno-0-164"></a><span class="sd">    - ``G4`` = QSIPrep (``run_qsiprep``), after ``G1``</span>
+<a id="__codelineno-0-165" name="__codelineno-0-165"></a><span class="sd">    - ``G5`` = QSIRecon (``run_qsirecon``), after ``G4``</span>
+<a id="__codelineno-0-166" name="__codelineno-0-166"></a><span class="sd">    - ``G6`` = DTI tensor extraction (``extract_dti``), after ``G5`` and ``G2a``</span>
+<a id="__codelineno-0-167" name="__codelineno-0-167"></a><span class="sd">    A report is **not** a stage and never a job of its own. Every stage job writes its</span>
+<a id="__codelineno-0-168" name="__codelineno-0-168"></a><span class="sd">    own HTML report as a side effect of :func:`tit.pre.structural.run_pipeline`, and the</span>
+<a id="__codelineno-0-169" name="__codelineno-0-169"></a><span class="sd">    job manager folds the group&#39;s stages into one consolidated per-subject report as a</span>
+<a id="__codelineno-0-170" name="__codelineno-0-170"></a><span class="sd">    post-success attachment of the last stage job to finish for that subject (see</span>
+<a id="__codelineno-0-171" name="__codelineno-0-171"></a><span class="sd">    :meth:`tit.jobs.manager.JobManager._attach_pre_report`) -- with no job record, no</span>
+<a id="__codelineno-0-172" name="__codelineno-0-172"></a><span class="sd">    plan row, no cost and no ETA line of its own.</span>
+<a id="__codelineno-0-173" name="__codelineno-0-173"></a>
+<a id="__codelineno-0-174" name="__codelineno-0-174"></a><span class="sd">    Each stage job&#39;s config is *config* with every step flag except its own forced to</span>
+<a id="__codelineno-0-175" name="__codelineno-0-175"></a><span class="sd">    ``False`` and ``subject_ids`` narrowed to the one subject -- consistent with</span>
+<a id="__codelineno-0-176" name="__codelineno-0-176"></a><span class="sd">    :func:`tit.pre.structural.run_pipeline` accepting exactly these flags, and letting</span>
+<a id="__codelineno-0-177" name="__codelineno-0-177"></a><span class="sd">    ``G1``/``G2a``/``G2b``/``G4`` (all four have no unmet dependency once ``G1`` is done, or</span>
+<a id="__codelineno-0-178" name="__codelineno-0-178"></a><span class="sd">    none at all) run in parallel once the scheduler admits them. ``skip_existing_outputs`` /</span>
+<a id="__codelineno-0-179" name="__codelineno-0-179"></a><span class="sd">    ``replace_existing_outputs`` are global policy flags, not stage flags, and are carried</span>
+<a id="__codelineno-0-180" name="__codelineno-0-180"></a><span class="sd">    onto every stage&#39;s config unchanged.</span>
+<a id="__codelineno-0-181" name="__codelineno-0-181"></a>
+<a id="__codelineno-0-182" name="__codelineno-0-182"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-183" name="__codelineno-0-183"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-184" name="__codelineno-0-184"></a><span class="sd">    config : PreprocessConfig</span>
+<a id="__codelineno-0-185" name="__codelineno-0-185"></a><span class="sd">        The full multi-flag request as built by the UI or a notebook. Its own</span>
+<a id="__codelineno-0-186" name="__codelineno-0-186"></a><span class="sd">        ``subject_ids`` is not read -- see *subject_ids* below.</span>
+<a id="__codelineno-0-187" name="__codelineno-0-187"></a><span class="sd">    subject_ids : list of str</span>
+<a id="__codelineno-0-188" name="__codelineno-0-188"></a><span class="sd">        Subjects to plan for. Kept separate from ``config.subject_ids`` so a caller can</span>
+<a id="__codelineno-0-189" name="__codelineno-0-189"></a><span class="sd">        plan for a batch chosen after the rest of *config* is built (e.g. a group picked</span>
+<a id="__codelineno-0-190" name="__codelineno-0-190"></a><span class="sd">        in the UI).</span>
+<a id="__codelineno-0-191" name="__codelineno-0-191"></a>
+<a id="__codelineno-0-192" name="__codelineno-0-192"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-193" name="__codelineno-0-193"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-194" name="__codelineno-0-194"></a><span class="sd">    list of PlannedJob</span>
+<a id="__codelineno-0-195" name="__codelineno-0-195"></a><span class="sd">        Flattened across every subject, most-upstream stage first. Empty for a subject</span>
+<a id="__codelineno-0-196" name="__codelineno-0-196"></a><span class="sd">        with no step flags set at all (no jobs, no report).</span>
+<a id="__codelineno-0-197" name="__codelineno-0-197"></a>
+<a id="__codelineno-0-198" name="__codelineno-0-198"></a><span class="sd">    See Also</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-200" name="__codelineno-0-200"></a><span class="sd">    tit.jobs.spec.PlannedJob : ``label``/``after_labels`` are plan-scoped; the real job</span>
+<a id="__codelineno-0-201" name="__codelineno-0-201"></a><span class="sd">        manager resolves them to job ids at submission time.</span>
+<a id="__codelineno-0-202" name="__codelineno-0-202"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-203" name="__codelineno-0-203"></a>    <span class="n">jobs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">PlannedJob</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-204" name="__codelineno-0-204"></a>
+<a id="__codelineno-0-205" name="__codelineno-0-205"></a>    <span class="k">for</span> <span class="n">subject_id</span> <span class="ow">in</span> <span class="n">subject_ids</span><span class="p">:</span>
+<a id="__codelineno-0-206" name="__codelineno-0-206"></a>        <span class="n">subject_jobs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">PlannedJob</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-207" name="__codelineno-0-207"></a>
+<a id="__codelineno-0-208" name="__codelineno-0-208"></a>        <span class="n">g1</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-209" name="__codelineno-0-209"></a>        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">convert_dicom</span><span class="p">:</span>
+<a id="__codelineno-0-210" name="__codelineno-0-210"></a>            <span class="n">g1</span> <span class="o">=</span> <span class="n">PlannedJob</span><span class="p">(</span>
+<a id="__codelineno-0-211" name="__codelineno-0-211"></a>                <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">:G1&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-212" name="__codelineno-0-212"></a>                <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;pre&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-213" name="__codelineno-0-213"></a>                <span class="n">config</span><span class="o">=</span><span class="n">_stage_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">convert_dicom</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+<a id="__codelineno-0-214" name="__codelineno-0-214"></a>                <span class="n">subject_ids</span><span class="o">=</span><span class="p">[</span><span class="n">subject_id</span><span class="p">],</span>
+<a id="__codelineno-0-215" name="__codelineno-0-215"></a>                <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;G1&quot;</span><span class="p">,</span> <span class="s2">&quot;dicom&quot;</span><span class="p">],</span>
+<a id="__codelineno-0-216" name="__codelineno-0-216"></a>            <span class="p">)</span>
+<a id="__codelineno-0-217" name="__codelineno-0-217"></a>            <span class="n">subject_jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">g1</span><span class="p">)</span>
+<a id="__codelineno-0-218" name="__codelineno-0-218"></a>
+<a id="__codelineno-0-219" name="__codelineno-0-219"></a>        <span class="n">g2a</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-220" name="__codelineno-0-220"></a>        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">create_m2m</span><span class="p">:</span>
+<a id="__codelineno-0-221" name="__codelineno-0-221"></a>            <span class="n">g2a</span> <span class="o">=</span> <span class="n">PlannedJob</span><span class="p">(</span>
+<a id="__codelineno-0-222" name="__codelineno-0-222"></a>                <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">:G2a&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-223" name="__codelineno-0-223"></a>                <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;pre&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-224" name="__codelineno-0-224"></a>                <span class="n">config</span><span class="o">=</span><span class="n">_stage_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">create_m2m</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+<a id="__codelineno-0-225" name="__codelineno-0-225"></a>                <span class="n">subject_ids</span><span class="o">=</span><span class="p">[</span><span class="n">subject_id</span><span class="p">],</span>
+<a id="__codelineno-0-226" name="__codelineno-0-226"></a>                <span class="n">after_labels</span><span class="o">=</span><span class="p">[</span><span class="n">g1</span><span class="o">.</span><span class="n">label</span><span class="p">]</span> <span class="k">if</span> <span class="n">g1</span> <span class="k">else</span> <span class="p">[],</span>
+<a id="__codelineno-0-227" name="__codelineno-0-227"></a>                <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;G2a&quot;</span><span class="p">,</span> <span class="s2">&quot;charm&quot;</span><span class="p">],</span>
+<a id="__codelineno-0-228" name="__codelineno-0-228"></a>            <span class="p">)</span>
+<a id="__codelineno-0-229" name="__codelineno-0-229"></a>            <span class="n">subject_jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">g2a</span><span class="p">)</span>
+<a id="__codelineno-0-230" name="__codelineno-0-230"></a>
+<a id="__codelineno-0-231" name="__codelineno-0-231"></a>        <span class="n">g2b</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-232" name="__codelineno-0-232"></a>        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">run_fastsurfer</span><span class="p">:</span>
+<a id="__codelineno-0-233" name="__codelineno-0-233"></a>            <span class="n">g2b</span> <span class="o">=</span> <span class="n">PlannedJob</span><span class="p">(</span>
+<a id="__codelineno-0-234" name="__codelineno-0-234"></a>                <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">:G2b&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-235" name="__codelineno-0-235"></a>                <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;pre&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-236" name="__codelineno-0-236"></a>                <span class="n">config</span><span class="o">=</span><span class="n">_stage_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">run_fastsurfer</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+<a id="__codelineno-0-237" name="__codelineno-0-237"></a>                <span class="n">subject_ids</span><span class="o">=</span><span class="p">[</span><span class="n">subject_id</span><span class="p">],</span>
+<a id="__codelineno-0-238" name="__codelineno-0-238"></a>                <span class="n">after_labels</span><span class="o">=</span><span class="p">[</span><span class="n">g1</span><span class="o">.</span><span class="n">label</span><span class="p">]</span> <span class="k">if</span> <span class="n">g1</span> <span class="k">else</span> <span class="p">[],</span>
+<a id="__codelineno-0-239" name="__codelineno-0-239"></a>                <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;G2b&quot;</span><span class="p">,</span> <span class="s2">&quot;fastsurfer&quot;</span><span class="p">],</span>
+<a id="__codelineno-0-240" name="__codelineno-0-240"></a>            <span class="p">)</span>
+<a id="__codelineno-0-241" name="__codelineno-0-241"></a>            <span class="n">subject_jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">g2b</span><span class="p">)</span>
+<a id="__codelineno-0-242" name="__codelineno-0-242"></a>
+<a id="__codelineno-0-243" name="__codelineno-0-243"></a>        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">run_freesurfer</span><span class="p">:</span>
+<a id="__codelineno-0-244" name="__codelineno-0-244"></a>            <span class="n">subject_jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+<a id="__codelineno-0-245" name="__codelineno-0-245"></a>                <span class="n">PlannedJob</span><span class="p">(</span>
+<a id="__codelineno-0-246" name="__codelineno-0-246"></a>                    <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">:G2c&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-247" name="__codelineno-0-247"></a>                    <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;pre&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-248" name="__codelineno-0-248"></a>                    <span class="n">config</span><span class="o">=</span><span class="n">_stage_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">run_freesurfer</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+<a id="__codelineno-0-249" name="__codelineno-0-249"></a>                    <span class="n">subject_ids</span><span class="o">=</span><span class="p">[</span><span class="n">subject_id</span><span class="p">],</span>
+<a id="__codelineno-0-250" name="__codelineno-0-250"></a>                    <span class="n">after_labels</span><span class="o">=</span><span class="p">[</span><span class="n">g1</span><span class="o">.</span><span class="n">label</span><span class="p">]</span> <span class="k">if</span> <span class="n">g1</span> <span class="k">else</span> <span class="p">[],</span>
+<a id="__codelineno-0-251" name="__codelineno-0-251"></a>                    <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;G2c&quot;</span><span class="p">,</span> <span class="s2">&quot;freesurfer&quot;</span><span class="p">],</span>
+<a id="__codelineno-0-252" name="__codelineno-0-252"></a>                <span class="p">)</span>
+<a id="__codelineno-0-253" name="__codelineno-0-253"></a>            <span class="p">)</span>
+<a id="__codelineno-0-254" name="__codelineno-0-254"></a>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a>        <span class="n">g3</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a>        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">run_tissue_analysis</span><span class="p">:</span>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a>            <span class="n">g3</span> <span class="o">=</span> <span class="n">PlannedJob</span><span class="p">(</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a>                <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">:G3&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-259" name="__codelineno-0-259"></a>                <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;pre&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-260" name="__codelineno-0-260"></a>                <span class="n">config</span><span class="o">=</span><span class="n">_stage_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">run_tissue_analysis</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+<a id="__codelineno-0-261" name="__codelineno-0-261"></a>                <span class="n">subject_ids</span><span class="o">=</span><span class="p">[</span><span class="n">subject_id</span><span class="p">],</span>
+<a id="__codelineno-0-262" name="__codelineno-0-262"></a>                <span class="n">after_labels</span><span class="o">=</span><span class="p">[</span><span class="n">g2a</span><span class="o">.</span><span class="n">label</span><span class="p">]</span> <span class="k">if</span> <span class="n">g2a</span> <span class="k">else</span> <span class="p">[],</span>
+<a id="__codelineno-0-263" name="__codelineno-0-263"></a>                <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;G3&quot;</span><span class="p">,</span> <span class="s2">&quot;tissue&quot;</span><span class="p">],</span>
+<a id="__codelineno-0-264" name="__codelineno-0-264"></a>            <span class="p">)</span>
+<a id="__codelineno-0-265" name="__codelineno-0-265"></a>            <span class="n">subject_jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">g3</span><span class="p">)</span>
+<a id="__codelineno-0-266" name="__codelineno-0-266"></a>
+<a id="__codelineno-0-267" name="__codelineno-0-267"></a>        <span class="n">g4</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-268" name="__codelineno-0-268"></a>        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">run_qsiprep</span><span class="p">:</span>
+<a id="__codelineno-0-269" name="__codelineno-0-269"></a>            <span class="n">g4</span> <span class="o">=</span> <span class="n">PlannedJob</span><span class="p">(</span>
+<a id="__codelineno-0-270" name="__codelineno-0-270"></a>                <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">:G4&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-271" name="__codelineno-0-271"></a>                <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;pre&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-272" name="__codelineno-0-272"></a>                <span class="n">config</span><span class="o">=</span><span class="n">_stage_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">run_qsiprep</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+<a id="__codelineno-0-273" name="__codelineno-0-273"></a>                <span class="n">subject_ids</span><span class="o">=</span><span class="p">[</span><span class="n">subject_id</span><span class="p">],</span>
+<a id="__codelineno-0-274" name="__codelineno-0-274"></a>                <span class="n">after_labels</span><span class="o">=</span><span class="p">[</span><span class="n">g1</span><span class="o">.</span><span class="n">label</span><span class="p">]</span> <span class="k">if</span> <span class="n">g1</span> <span class="k">else</span> <span class="p">[],</span>
+<a id="__codelineno-0-275" name="__codelineno-0-275"></a>                <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;G4&quot;</span><span class="p">,</span> <span class="s2">&quot;qsiprep&quot;</span><span class="p">],</span>
+<a id="__codelineno-0-276" name="__codelineno-0-276"></a>            <span class="p">)</span>
+<a id="__codelineno-0-277" name="__codelineno-0-277"></a>            <span class="n">subject_jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">g4</span><span class="p">)</span>
+<a id="__codelineno-0-278" name="__codelineno-0-278"></a>
+<a id="__codelineno-0-279" name="__codelineno-0-279"></a>        <span class="n">g5</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-280" name="__codelineno-0-280"></a>        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">run_qsirecon</span><span class="p">:</span>
+<a id="__codelineno-0-281" name="__codelineno-0-281"></a>            <span class="n">g5</span> <span class="o">=</span> <span class="n">PlannedJob</span><span class="p">(</span>
+<a id="__codelineno-0-282" name="__codelineno-0-282"></a>                <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">:G5&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-283" name="__codelineno-0-283"></a>                <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;pre&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-284" name="__codelineno-0-284"></a>                <span class="n">config</span><span class="o">=</span><span class="n">_stage_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">run_qsirecon</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+<a id="__codelineno-0-285" name="__codelineno-0-285"></a>                <span class="n">subject_ids</span><span class="o">=</span><span class="p">[</span><span class="n">subject_id</span><span class="p">],</span>
+<a id="__codelineno-0-286" name="__codelineno-0-286"></a>                <span class="n">after_labels</span><span class="o">=</span><span class="p">[</span><span class="n">g4</span><span class="o">.</span><span class="n">label</span><span class="p">]</span> <span class="k">if</span> <span class="n">g4</span> <span class="k">else</span> <span class="p">[],</span>
+<a id="__codelineno-0-287" name="__codelineno-0-287"></a>                <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;G5&quot;</span><span class="p">,</span> <span class="s2">&quot;qsirecon&quot;</span><span class="p">],</span>
+<a id="__codelineno-0-288" name="__codelineno-0-288"></a>            <span class="p">)</span>
+<a id="__codelineno-0-289" name="__codelineno-0-289"></a>            <span class="n">subject_jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">g5</span><span class="p">)</span>
+<a id="__codelineno-0-290" name="__codelineno-0-290"></a>
+<a id="__codelineno-0-291" name="__codelineno-0-291"></a>        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">extract_dti</span><span class="p">:</span>
+<a id="__codelineno-0-292" name="__codelineno-0-292"></a>            <span class="n">after</span> <span class="o">=</span> <span class="p">[</span><span class="n">j</span><span class="o">.</span><span class="n">label</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="p">(</span><span class="n">g5</span><span class="p">,</span> <span class="n">g2a</span><span class="p">)</span> <span class="k">if</span> <span class="n">j</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">]</span>
+<a id="__codelineno-0-293" name="__codelineno-0-293"></a>            <span class="n">g6</span> <span class="o">=</span> <span class="n">PlannedJob</span><span class="p">(</span>
+<a id="__codelineno-0-294" name="__codelineno-0-294"></a>                <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">:G6&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a>                <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;pre&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-296" name="__codelineno-0-296"></a>                <span class="n">config</span><span class="o">=</span><span class="n">_stage_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">extract_dti</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+<a id="__codelineno-0-297" name="__codelineno-0-297"></a>                <span class="n">subject_ids</span><span class="o">=</span><span class="p">[</span><span class="n">subject_id</span><span class="p">],</span>
+<a id="__codelineno-0-298" name="__codelineno-0-298"></a>                <span class="n">after_labels</span><span class="o">=</span><span class="n">after</span><span class="p">,</span>
+<a id="__codelineno-0-299" name="__codelineno-0-299"></a>                <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;G6&quot;</span><span class="p">,</span> <span class="s2">&quot;dti&quot;</span><span class="p">],</span>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a>            <span class="p">)</span>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a>            <span class="n">subject_jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">g6</span><span class="p">)</span>
+<a id="__codelineno-0-302" name="__codelineno-0-302"></a>
+<a id="__codelineno-0-303" name="__codelineno-0-303"></a>        <span class="c1"># No trailing report job: the consolidated per-subject report is an attachment</span>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a>        <span class="c1"># the job manager produces after the last stage job for this subject succeeds</span>
+<a id="__codelineno-0-305" name="__codelineno-0-305"></a>        <span class="c1"># (JobManager._attach_pre_report), not a job of its own.</span>
+<a id="__codelineno-0-306" name="__codelineno-0-306"></a>        <span class="n">jobs</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">subject_jobs</span><span class="p">)</span>
+<a id="__codelineno-0-307" name="__codelineno-0-307"></a>
+<a id="__codelineno-0-308" name="__codelineno-0-308"></a>    <span class="k">return</span> <span class="n">jobs</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

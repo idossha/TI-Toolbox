@@ -595,3 +595,12 @@ removal of all FreeSurfer execution, while keeping it out of the core image. **W
 projects need full reconstruction or finer nuclei/subfields. Project bind mounts preserve
 results without a persistent service or named volume; job labels and cleanup cover cancellation.
 Subregion-only execution requires completed recon-all and must preserve that reconstruction.
+
+## 2026-09-10 — Downloaded launch files and independent development checkouts
+
+**Decision:** Regular users need one launcher and its YAML, without a manual checkout.
+Developer wrappers may live elsewhere and select a local source checkout through
+`TIT_DEV_REPO_DIR`, independently of the project data directory. Direct CLI starts honor
+adjacent YAML or explicit `TIT_COMPOSE_FILE`; invalid explicit paths fail. **Why:** Download
+location should not determine which code or data is mounted. Standalone Python uses the
+matching v3 launcher rather than silently bootstrapping the older default branch.

@@ -45,7 +45,7 @@ These methods take no arguments and return top-level directories or files:
 | `pm.sourcedata()` | `<project>/sourcedata` |
 | `pm.simnibs()` | `<project>/derivatives/SimNIBS` |
 | `pm.fastsurfer()` | `<project>/derivatives/fastsurfer` |
-| `pm.freesurfer()` (legacy data) | `<project>/derivatives/freesurfer` |
+| `pm.freesurfer()` | `<project>/derivatives/freesurfer` |
 | `pm.ti_toolbox()` | `<project>/derivatives/ti-toolbox` |
 | `pm.config_dir()` | `<project>/code/ti-toolbox/config` |
 | `pm.montage_config()` | `<project>/code/ti-toolbox/config/montage_list.json` |

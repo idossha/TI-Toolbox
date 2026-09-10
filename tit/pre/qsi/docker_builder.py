@@ -69,16 +69,12 @@ class DockerPaths:
 def resolve_fs_license_path() -> Path | None:
     """Return a readable FreeSurfer license file, or ``None``.
 
-    The only FreeSurfer license consumer left in the toolbox: QSIPrep and
-    QSIRecon run FreeSurfer *inside their own* pennlinc images for the
-    anatomically-constrained recon specs, and refuse to start without a
-    license. TI-Toolbox's own pipeline needs none.
+    Used by optional FreeSurfer reconstruction/subregions and by QSI workflows
+    whose images require FreeSurfer. The core FastSurfer workflow needs none.
 
-    Resolution order: ``$FS_LICENSE`` (what FreeSurfer itself reads, so a
-    user who already has one set needs no extra configuration), then
-    :data:`tit.constants.FS_LICENSE_PATH`. A missing file is not an error --
-    the caller simply omits the license mount, and only ACT recon specs
-    fail, with QSIPrep's own message.
+    Resolution order: ``$FS_LICENSE``, then :data:`tit.constants.FS_LICENSE_PATH`.
+    Paths are resolved in the server environment. Callers decide whether a
+    missing license is an error for the requested workflow.
     """
     candidates = [os.environ.get("FS_LICENSE"), const.FS_LICENSE_PATH]
     for candidate in candidates:

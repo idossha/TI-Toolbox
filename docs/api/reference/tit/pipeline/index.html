@@ -1589,19 +1589,19 @@ as a chip on the node's own card and open the editor at that field instead of pa
 
             <details class="quote">
               <summary>Source code in <code>tit/pipeline/notebook.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-328">328</a></span>
-<span class="normal"><a href="#__codelineno-0-329">329</a></span>
-<span class="normal"><a href="#__codelineno-0-330">330</a></span>
-<span class="normal"><a href="#__codelineno-0-331">331</a></span>
-<span class="normal"><a href="#__codelineno-0-332">332</a></span>
-<span class="normal"><a href="#__codelineno-0-333">333</a></span>
-<span class="normal"><a href="#__codelineno-0-334">334</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-328" name="__codelineno-0-328"></a><span class="k">def</span><span class="w"> </span><span class="nf">export_notebook</span><span class="p">(</span><span class="n">doc</span><span class="p">:</span> <span class="n">PipelineDocument</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<a id="__codelineno-0-329" name="__codelineno-0-329"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;The notebook as a JSON string, normalised and validated by ``nbformat``.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-330" name="__codelineno-0-330"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">nbformat</span>
-<a id="__codelineno-0-331" name="__codelineno-0-331"></a>
-<a id="__codelineno-0-332" name="__codelineno-0-332"></a>    <span class="n">notebook</span> <span class="o">=</span> <span class="n">nbformat</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">notebook_json</span><span class="p">(</span><span class="n">doc</span><span class="p">,</span> <span class="n">project_dir</span><span class="o">=</span><span class="n">project_dir</span><span class="p">))</span>
-<a id="__codelineno-0-333" name="__codelineno-0-333"></a>    <span class="n">nbformat</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">notebook</span><span class="p">)</span>
-<a id="__codelineno-0-334" name="__codelineno-0-334"></a>    <span class="k">return</span> <span class="n">nbformat</span><span class="o">.</span><span class="n">writes</span><span class="p">(</span><span class="n">notebook</span><span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-346">346</a></span>
+<span class="normal"><a href="#__codelineno-0-347">347</a></span>
+<span class="normal"><a href="#__codelineno-0-348">348</a></span>
+<span class="normal"><a href="#__codelineno-0-349">349</a></span>
+<span class="normal"><a href="#__codelineno-0-350">350</a></span>
+<span class="normal"><a href="#__codelineno-0-351">351</a></span>
+<span class="normal"><a href="#__codelineno-0-352">352</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-346" name="__codelineno-0-346"></a><span class="k">def</span><span class="w"> </span><span class="nf">export_notebook</span><span class="p">(</span><span class="n">doc</span><span class="p">:</span> <span class="n">PipelineDocument</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-347" name="__codelineno-0-347"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;The notebook as a JSON string, normalised and validated by ``nbformat``.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-348" name="__codelineno-0-348"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">nbformat</span>
+<a id="__codelineno-0-349" name="__codelineno-0-349"></a>
+<a id="__codelineno-0-350" name="__codelineno-0-350"></a>    <span class="n">notebook</span> <span class="o">=</span> <span class="n">nbformat</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">notebook_json</span><span class="p">(</span><span class="n">doc</span><span class="p">,</span> <span class="n">project_dir</span><span class="o">=</span><span class="n">project_dir</span><span class="p">))</span>
+<a id="__codelineno-0-351" name="__codelineno-0-351"></a>    <span class="n">nbformat</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">notebook</span><span class="p">)</span>
+<a id="__codelineno-0-352" name="__codelineno-0-352"></a>    <span class="k">return</span> <span class="n">nbformat</span><span class="o">.</span><span class="n">writes</span><span class="p">(</span><span class="n">notebook</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1626,25 +1626,25 @@ as a chip on the node's own card and open the editor at that field instead of pa
 
             <details class="quote">
               <summary>Source code in <code>tit/pipeline/notebook.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-57">57</a></span>
-<span class="normal"><a href="#__codelineno-0-58">58</a></span>
-<span class="normal"><a href="#__codelineno-0-59">59</a></span>
-<span class="normal"><a href="#__codelineno-0-60">60</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-60">60</a></span>
 <span class="normal"><a href="#__codelineno-0-61">61</a></span>
 <span class="normal"><a href="#__codelineno-0-62">62</a></span>
 <span class="normal"><a href="#__codelineno-0-63">63</a></span>
 <span class="normal"><a href="#__codelineno-0-64">64</a></span>
 <span class="normal"><a href="#__codelineno-0-65">65</a></span>
-<span class="normal"><a href="#__codelineno-0-66">66</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-57" name="__codelineno-0-57"></a><span class="k">def</span><span class="w"> </span><span class="nf">mermaid_graph</span><span class="p">(</span><span class="n">doc</span><span class="p">:</span> <span class="n">PipelineDocument</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<a id="__codelineno-0-58" name="__codelineno-0-58"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;The pipeline as a Mermaid ``graph LR`` block body (no fence).&quot;&quot;&quot;</span>
-<a id="__codelineno-0-59" name="__codelineno-0-59"></a>    <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;graph LR&quot;</span><span class="p">]</span>
-<a id="__codelineno-0-60" name="__codelineno-0-60"></a>    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">doc</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
-<a id="__codelineno-0-61" name="__codelineno-0-61"></a>        <span class="n">title</span> <span class="o">=</span> <span class="n">_KIND_TITLE</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">kind</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">kind</span><span class="p">)</span>
-<a id="__codelineno-0-62" name="__codelineno-0-62"></a>        <span class="n">label</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">label</span> <span class="ow">or</span> <span class="n">title</span>
-<a id="__codelineno-0-63" name="__codelineno-0-63"></a>        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;  </span><span class="si">{</span><span class="n">_var</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">id</span><span class="p">)</span><span class="si">}</span><span class="s1">[&quot;</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s1">&lt;br/&gt;&lt;i&gt;</span><span class="si">{</span><span class="n">node</span><span class="o">.</span><span class="n">kind</span><span class="si">}</span><span class="s1">&lt;/i&gt;&quot;]&#39;</span><span class="p">)</span>
-<a id="__codelineno-0-64" name="__codelineno-0-64"></a>    <span class="k">for</span> <span class="n">edge</span> <span class="ow">in</span> <span class="n">doc</span><span class="o">.</span><span class="n">edges</span><span class="p">:</span>
-<a id="__codelineno-0-65" name="__codelineno-0-65"></a>        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">_var</span><span class="p">(</span><span class="n">edge</span><span class="o">.</span><span class="n">source</span><span class="p">)</span><span class="si">}</span><span class="s2"> --&gt;|</span><span class="si">{</span><span class="n">edge</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2">| </span><span class="si">{</span><span class="n">_var</span><span class="p">(</span><span class="n">edge</span><span class="o">.</span><span class="n">target</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-66" name="__codelineno-0-66"></a>    <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-66">66</a></span>
+<span class="normal"><a href="#__codelineno-0-67">67</a></span>
+<span class="normal"><a href="#__codelineno-0-68">68</a></span>
+<span class="normal"><a href="#__codelineno-0-69">69</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-60" name="__codelineno-0-60"></a><span class="k">def</span><span class="w"> </span><span class="nf">mermaid_graph</span><span class="p">(</span><span class="n">doc</span><span class="p">:</span> <span class="n">PipelineDocument</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-61" name="__codelineno-0-61"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;The pipeline as a Mermaid ``graph LR`` block body (no fence).&quot;&quot;&quot;</span>
+<a id="__codelineno-0-62" name="__codelineno-0-62"></a>    <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;graph LR&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-63" name="__codelineno-0-63"></a>    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">doc</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
+<a id="__codelineno-0-64" name="__codelineno-0-64"></a>        <span class="n">title</span> <span class="o">=</span> <span class="n">_KIND_TITLE</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">kind</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">kind</span><span class="p">)</span>
+<a id="__codelineno-0-65" name="__codelineno-0-65"></a>        <span class="n">label</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">label</span> <span class="ow">or</span> <span class="n">title</span>
+<a id="__codelineno-0-66" name="__codelineno-0-66"></a>        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;  </span><span class="si">{</span><span class="n">_var</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">id</span><span class="p">)</span><span class="si">}</span><span class="s1">[&quot;</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s1">&lt;br/&gt;&lt;i&gt;</span><span class="si">{</span><span class="n">node</span><span class="o">.</span><span class="n">kind</span><span class="si">}</span><span class="s1">&lt;/i&gt;&quot;]&#39;</span><span class="p">)</span>
+<a id="__codelineno-0-67" name="__codelineno-0-67"></a>    <span class="k">for</span> <span class="n">edge</span> <span class="ow">in</span> <span class="n">doc</span><span class="o">.</span><span class="n">edges</span><span class="p">:</span>
+<a id="__codelineno-0-68" name="__codelineno-0-68"></a>        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">_var</span><span class="p">(</span><span class="n">edge</span><span class="o">.</span><span class="n">source</span><span class="p">)</span><span class="si">}</span><span class="s2"> --&gt;|</span><span class="si">{</span><span class="n">edge</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2">| </span><span class="si">{</span><span class="n">_var</span><span class="p">(</span><span class="n">edge</span><span class="o">.</span><span class="n">target</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-69" name="__codelineno-0-69"></a>    <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1671,21 +1671,7 @@ as a chip on the node's own card and open the editor at that field instead of pa
 
             <details class="quote">
               <summary>Source code in <code>tit/pipeline/notebook.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-252">252</a></span>
-<span class="normal"><a href="#__codelineno-0-253">253</a></span>
-<span class="normal"><a href="#__codelineno-0-254">254</a></span>
-<span class="normal"><a href="#__codelineno-0-255">255</a></span>
-<span class="normal"><a href="#__codelineno-0-256">256</a></span>
-<span class="normal"><a href="#__codelineno-0-257">257</a></span>
-<span class="normal"><a href="#__codelineno-0-258">258</a></span>
-<span class="normal"><a href="#__codelineno-0-259">259</a></span>
-<span class="normal"><a href="#__codelineno-0-260">260</a></span>
-<span class="normal"><a href="#__codelineno-0-261">261</a></span>
-<span class="normal"><a href="#__codelineno-0-262">262</a></span>
-<span class="normal"><a href="#__codelineno-0-263">263</a></span>
-<span class="normal"><a href="#__codelineno-0-264">264</a></span>
-<span class="normal"><a href="#__codelineno-0-265">265</a></span>
-<span class="normal"><a href="#__codelineno-0-266">266</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-266">266</a></span>
 <span class="normal"><a href="#__codelineno-0-267">267</a></span>
 <span class="normal"><a href="#__codelineno-0-268">268</a></span>
 <span class="normal"><a href="#__codelineno-0-269">269</a></span>
@@ -1744,80 +1730,102 @@ as a chip on the node's own card and open the editor at that field instead of pa
 <span class="normal"><a href="#__codelineno-0-322">322</a></span>
 <span class="normal"><a href="#__codelineno-0-323">323</a></span>
 <span class="normal"><a href="#__codelineno-0-324">324</a></span>
-<span class="normal"><a href="#__codelineno-0-325">325</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-252" name="__codelineno-0-252"></a><span class="k">def</span><span class="w"> </span><span class="nf">notebook_json</span><span class="p">(</span><span class="n">doc</span><span class="p">:</span> <span class="n">PipelineDocument</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<a id="__codelineno-0-253" name="__codelineno-0-253"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;The notebook as a plain dict (``nbformat`` v4), ready for ``nbformat.validate``.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-254" name="__codelineno-0-254"></a>    <span class="n">order</span> <span class="o">=</span> <span class="n">topological_order</span><span class="p">(</span><span class="n">doc</span><span class="p">)</span> <span class="ow">or</span> <span class="p">[</span><span class="n">n</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">doc</span><span class="o">.</span><span class="n">nodes</span><span class="p">]</span>
-<a id="__codelineno-0-255" name="__codelineno-0-255"></a>    <span class="n">cells</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-256" name="__codelineno-0-256"></a>
-<a id="__codelineno-0-257" name="__codelineno-0-257"></a>    <span class="c1"># nbformat 4.5 requires a per-cell `id`; a deterministic one also makes the export</span>
-<a id="__codelineno-0-258" name="__codelineno-0-258"></a>    <span class="c1"># byte-stable, so re-exporting an unchanged pipeline produces an identical file.</span>
-<a id="__codelineno-0-259" name="__codelineno-0-259"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">markdown</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-260" name="__codelineno-0-260"></a>        <span class="n">cells</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-<a id="__codelineno-0-261" name="__codelineno-0-261"></a>            <span class="p">{</span>
-<a id="__codelineno-0-262" name="__codelineno-0-262"></a>                <span class="s2">&quot;cell_type&quot;</span><span class="p">:</span> <span class="s2">&quot;markdown&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-263" name="__codelineno-0-263"></a>                <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;cell-</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">cells</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-264" name="__codelineno-0-264"></a>                <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="p">{},</span>
-<a id="__codelineno-0-265" name="__codelineno-0-265"></a>                <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="n">text</span><span class="p">,</span>
-<a id="__codelineno-0-266" name="__codelineno-0-266"></a>            <span class="p">}</span>
-<a id="__codelineno-0-267" name="__codelineno-0-267"></a>        <span class="p">)</span>
-<a id="__codelineno-0-268" name="__codelineno-0-268"></a>
-<a id="__codelineno-0-269" name="__codelineno-0-269"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">code</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-270" name="__codelineno-0-270"></a>        <span class="n">cells</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-<a id="__codelineno-0-271" name="__codelineno-0-271"></a>            <span class="p">{</span>
-<a id="__codelineno-0-272" name="__codelineno-0-272"></a>                <span class="s2">&quot;cell_type&quot;</span><span class="p">:</span> <span class="s2">&quot;code&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-273" name="__codelineno-0-273"></a>                <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;cell-</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">cells</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-274" name="__codelineno-0-274"></a>                <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="p">{},</span>
-<a id="__codelineno-0-275" name="__codelineno-0-275"></a>                <span class="s2">&quot;execution_count&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-276" name="__codelineno-0-276"></a>                <span class="s2">&quot;outputs&quot;</span><span class="p">:</span> <span class="p">[],</span>
-<a id="__codelineno-0-277" name="__codelineno-0-277"></a>                <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="n">text</span><span class="p">,</span>
-<a id="__codelineno-0-278" name="__codelineno-0-278"></a>            <span class="p">}</span>
-<a id="__codelineno-0-279" name="__codelineno-0-279"></a>        <span class="p">)</span>
-<a id="__codelineno-0-280" name="__codelineno-0-280"></a>
-<a id="__codelineno-0-281" name="__codelineno-0-281"></a>    <span class="n">markdown</span><span class="p">(</span>
-<a id="__codelineno-0-282" name="__codelineno-0-282"></a>        <span class="sa">f</span><span class="s2">&quot;# </span><span class="si">{</span><span class="n">doc</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="se">\n\n</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-283" name="__codelineno-0-283"></a>        <span class="s2">&quot;Exported from the TI-Toolbox pipeline canvas. Each cell below is one node of the graph, &quot;</span>
-<a id="__codelineno-0-284" name="__codelineno-0-284"></a>        <span class="s2">&quot;in dependency order, written against the public `tit` scripting API.</span><span class="se">\n\n</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-285" name="__codelineno-0-285"></a>        <span class="sa">f</span><span class="s2">&quot;```mermaid</span><span class="se">\n</span><span class="si">{</span><span class="n">mermaid_graph</span><span class="p">(</span><span class="n">doc</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s2">```</span><span class="se">\n</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-286" name="__codelineno-0-286"></a>    <span class="p">)</span>
-<a id="__codelineno-0-287" name="__codelineno-0-287"></a>    <span class="n">markdown</span><span class="p">(</span><span class="s2">&quot;## Setup&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-288" name="__codelineno-0-288"></a>    <span class="n">code</span><span class="p">(</span><span class="n">_setup_code</span><span class="p">(</span><span class="n">doc</span><span class="p">,</span> <span class="n">project_dir</span><span class="p">))</span>
-<a id="__codelineno-0-289" name="__codelineno-0-289"></a>
-<a id="__codelineno-0-290" name="__codelineno-0-290"></a>    <span class="k">for</span> <span class="n">node_id</span> <span class="ow">in</span> <span class="n">order</span><span class="p">:</span>
-<a id="__codelineno-0-291" name="__codelineno-0-291"></a>        <span class="n">node</span> <span class="o">=</span> <span class="n">doc</span><span class="o">.</span><span class="n">node</span><span class="p">(</span><span class="n">node_id</span><span class="p">)</span>
-<a id="__codelineno-0-292" name="__codelineno-0-292"></a>        <span class="k">if</span> <span class="n">node</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
-<a id="__codelineno-0-293" name="__codelineno-0-293"></a>            <span class="k">continue</span>
-<a id="__codelineno-0-294" name="__codelineno-0-294"></a>        <span class="n">title</span> <span class="o">=</span> <span class="n">_KIND_TITLE</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">kind</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">kind</span><span class="p">)</span>
-<a id="__codelineno-0-295" name="__codelineno-0-295"></a>        <span class="n">upstream</span> <span class="o">=</span> <span class="p">[</span>
-<a id="__codelineno-0-296" name="__codelineno-0-296"></a>            <span class="sa">f</span><span class="s2">&quot;`</span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2">` from **</span><span class="si">{</span><span class="n">doc</span><span class="o">.</span><span class="n">node</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">source</span><span class="p">)</span><span class="o">.</span><span class="n">display_name</span><span class="si">}</span><span class="s2">**&quot;</span>
-<a id="__codelineno-0-297" name="__codelineno-0-297"></a>            <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">doc</span><span class="o">.</span><span class="n">incoming</span><span class="p">(</span><span class="n">node_id</span><span class="p">)</span>
-<a id="__codelineno-0-298" name="__codelineno-0-298"></a>            <span class="k">if</span> <span class="n">doc</span><span class="o">.</span><span class="n">node</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">source</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-<a id="__codelineno-0-299" name="__codelineno-0-299"></a>        <span class="p">]</span>
-<a id="__codelineno-0-300" name="__codelineno-0-300"></a>        <span class="n">bindings</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;</span><span class="se">\n\n</span><span class="s2">Inputs: &quot;</span> <span class="o">+</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">upstream</span><span class="p">))</span> <span class="k">if</span> <span class="n">upstream</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
-<a id="__codelineno-0-301" name="__codelineno-0-301"></a>        <span class="n">markdown</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;## </span><span class="si">{</span><span class="n">node</span><span class="o">.</span><span class="n">label</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="n">title</span><span class="si">}</span><span class="se">\n\n</span><span class="s2">*Node `</span><span class="si">{</span><span class="n">node</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">` — kind `</span><span class="si">{</span><span class="n">node</span><span class="o">.</span><span class="n">kind</span><span class="si">}</span><span class="s2">`.*</span><span class="si">{</span><span class="n">bindings</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-302" name="__codelineno-0-302"></a>        <span class="n">code</span><span class="p">(</span><span class="n">_node_code</span><span class="p">(</span><span class="n">doc</span><span class="p">,</span> <span class="n">node</span><span class="p">))</span>
-<a id="__codelineno-0-303" name="__codelineno-0-303"></a>
-<a id="__codelineno-0-304" name="__codelineno-0-304"></a>    <span class="n">markdown</span><span class="p">(</span><span class="s2">&quot;## Run everything&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-305" name="__codelineno-0-305"></a>    <span class="n">finished</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">_var</span><span class="p">(</span><span class="n">n</span><span class="p">)</span><span class="si">}</span><span class="s2">_subjects&quot;</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">order</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;nothing&quot;</span>
-<a id="__codelineno-0-306" name="__codelineno-0-306"></a>    <span class="n">code</span><span class="p">(</span>
-<a id="__codelineno-0-307" name="__codelineno-0-307"></a>        <span class="s2">&quot;# Every cell above is one node, in dependency order: &#39;Run All Cells&#39; in Jupyter (or</span><span class="se">\n</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-308" name="__codelineno-0-308"></a>        <span class="s2">&quot;# `jupyter nbconvert --to notebook --execute &lt;this file&gt;`) runs the whole pipeline.</span><span class="se">\n</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-309" name="__codelineno-0-309"></a>        <span class="sa">f</span><span class="s2">&quot;print(</span><span class="si">{</span><span class="n">doc</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2">, &#39;finished:&#39;, </span><span class="si">{</span><span class="n">finished</span><span class="si">}</span><span class="s2">)&quot;</span>
-<a id="__codelineno-0-310" name="__codelineno-0-310"></a>    <span class="p">)</span>
-<a id="__codelineno-0-311" name="__codelineno-0-311"></a>
-<a id="__codelineno-0-312" name="__codelineno-0-312"></a>    <span class="k">return</span> <span class="p">{</span>
-<a id="__codelineno-0-313" name="__codelineno-0-313"></a>        <span class="s2">&quot;cells&quot;</span><span class="p">:</span> <span class="n">cells</span><span class="p">,</span>
-<a id="__codelineno-0-314" name="__codelineno-0-314"></a>        <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="p">{</span>
-<a id="__codelineno-0-315" name="__codelineno-0-315"></a>            <span class="s2">&quot;kernelspec&quot;</span><span class="p">:</span> <span class="p">{</span>
-<a id="__codelineno-0-316" name="__codelineno-0-316"></a>                <span class="s2">&quot;display_name&quot;</span><span class="p">:</span> <span class="s2">&quot;Python 3&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-317" name="__codelineno-0-317"></a>                <span class="s2">&quot;language&quot;</span><span class="p">:</span> <span class="s2">&quot;python&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-318" name="__codelineno-0-318"></a>                <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;python3&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-319" name="__codelineno-0-319"></a>            <span class="p">},</span>
-<a id="__codelineno-0-320" name="__codelineno-0-320"></a>            <span class="s2">&quot;language_info&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;python&quot;</span><span class="p">},</span>
-<a id="__codelineno-0-321" name="__codelineno-0-321"></a>            <span class="s2">&quot;ti_toolbox&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;pipeline&quot;</span><span class="p">:</span> <span class="n">doc</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()},</span>
-<a id="__codelineno-0-322" name="__codelineno-0-322"></a>        <span class="p">},</span>
-<a id="__codelineno-0-323" name="__codelineno-0-323"></a>        <span class="s2">&quot;nbformat&quot;</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span>
-<a id="__codelineno-0-324" name="__codelineno-0-324"></a>        <span class="s2">&quot;nbformat_minor&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
-<a id="__codelineno-0-325" name="__codelineno-0-325"></a>    <span class="p">}</span>
+<span class="normal"><a href="#__codelineno-0-325">325</a></span>
+<span class="normal"><a href="#__codelineno-0-326">326</a></span>
+<span class="normal"><a href="#__codelineno-0-327">327</a></span>
+<span class="normal"><a href="#__codelineno-0-328">328</a></span>
+<span class="normal"><a href="#__codelineno-0-329">329</a></span>
+<span class="normal"><a href="#__codelineno-0-330">330</a></span>
+<span class="normal"><a href="#__codelineno-0-331">331</a></span>
+<span class="normal"><a href="#__codelineno-0-332">332</a></span>
+<span class="normal"><a href="#__codelineno-0-333">333</a></span>
+<span class="normal"><a href="#__codelineno-0-334">334</a></span>
+<span class="normal"><a href="#__codelineno-0-335">335</a></span>
+<span class="normal"><a href="#__codelineno-0-336">336</a></span>
+<span class="normal"><a href="#__codelineno-0-337">337</a></span>
+<span class="normal"><a href="#__codelineno-0-338">338</a></span>
+<span class="normal"><a href="#__codelineno-0-339">339</a></span>
+<span class="normal"><a href="#__codelineno-0-340">340</a></span>
+<span class="normal"><a href="#__codelineno-0-341">341</a></span>
+<span class="normal"><a href="#__codelineno-0-342">342</a></span>
+<span class="normal"><a href="#__codelineno-0-343">343</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-266" name="__codelineno-0-266"></a><span class="k">def</span><span class="w"> </span><span class="nf">notebook_json</span><span class="p">(</span>
+<a id="__codelineno-0-267" name="__codelineno-0-267"></a>    <span class="n">doc</span><span class="p">:</span> <span class="n">PipelineDocument</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-268" name="__codelineno-0-268"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<a id="__codelineno-0-269" name="__codelineno-0-269"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;The notebook as a plain dict (``nbformat`` v4), ready for ``nbformat.validate``.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-270" name="__codelineno-0-270"></a>    <span class="n">order</span> <span class="o">=</span> <span class="n">topological_order</span><span class="p">(</span><span class="n">doc</span><span class="p">)</span> <span class="ow">or</span> <span class="p">[</span><span class="n">n</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">doc</span><span class="o">.</span><span class="n">nodes</span><span class="p">]</span>
+<a id="__codelineno-0-271" name="__codelineno-0-271"></a>    <span class="n">cells</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-272" name="__codelineno-0-272"></a>
+<a id="__codelineno-0-273" name="__codelineno-0-273"></a>    <span class="c1"># nbformat 4.5 requires a per-cell `id`; a deterministic one also makes the export</span>
+<a id="__codelineno-0-274" name="__codelineno-0-274"></a>    <span class="c1"># byte-stable, so re-exporting an unchanged pipeline produces an identical file.</span>
+<a id="__codelineno-0-275" name="__codelineno-0-275"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">markdown</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-276" name="__codelineno-0-276"></a>        <span class="n">cells</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+<a id="__codelineno-0-277" name="__codelineno-0-277"></a>            <span class="p">{</span>
+<a id="__codelineno-0-278" name="__codelineno-0-278"></a>                <span class="s2">&quot;cell_type&quot;</span><span class="p">:</span> <span class="s2">&quot;markdown&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-279" name="__codelineno-0-279"></a>                <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;cell-</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">cells</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-280" name="__codelineno-0-280"></a>                <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="p">{},</span>
+<a id="__codelineno-0-281" name="__codelineno-0-281"></a>                <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="n">text</span><span class="p">,</span>
+<a id="__codelineno-0-282" name="__codelineno-0-282"></a>            <span class="p">}</span>
+<a id="__codelineno-0-283" name="__codelineno-0-283"></a>        <span class="p">)</span>
+<a id="__codelineno-0-284" name="__codelineno-0-284"></a>
+<a id="__codelineno-0-285" name="__codelineno-0-285"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">code</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-286" name="__codelineno-0-286"></a>        <span class="n">cells</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+<a id="__codelineno-0-287" name="__codelineno-0-287"></a>            <span class="p">{</span>
+<a id="__codelineno-0-288" name="__codelineno-0-288"></a>                <span class="s2">&quot;cell_type&quot;</span><span class="p">:</span> <span class="s2">&quot;code&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-289" name="__codelineno-0-289"></a>                <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;cell-</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">cells</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-290" name="__codelineno-0-290"></a>                <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="p">{},</span>
+<a id="__codelineno-0-291" name="__codelineno-0-291"></a>                <span class="s2">&quot;execution_count&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-292" name="__codelineno-0-292"></a>                <span class="s2">&quot;outputs&quot;</span><span class="p">:</span> <span class="p">[],</span>
+<a id="__codelineno-0-293" name="__codelineno-0-293"></a>                <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="n">text</span><span class="p">,</span>
+<a id="__codelineno-0-294" name="__codelineno-0-294"></a>            <span class="p">}</span>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a>        <span class="p">)</span>
+<a id="__codelineno-0-296" name="__codelineno-0-296"></a>
+<a id="__codelineno-0-297" name="__codelineno-0-297"></a>    <span class="n">markdown</span><span class="p">(</span>
+<a id="__codelineno-0-298" name="__codelineno-0-298"></a>        <span class="sa">f</span><span class="s2">&quot;# </span><span class="si">{</span><span class="n">doc</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="se">\n\n</span><span class="s2">&quot;</span>
+<a id="__codelineno-0-299" name="__codelineno-0-299"></a>        <span class="s2">&quot;Exported from the TI-Toolbox pipeline canvas. Each cell below is one node of the graph, &quot;</span>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a>        <span class="s2">&quot;in dependency order, written against the public `tit` scripting API.</span><span class="se">\n\n</span><span class="s2">&quot;</span>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a>        <span class="sa">f</span><span class="s2">&quot;```mermaid</span><span class="se">\n</span><span class="si">{</span><span class="n">mermaid_graph</span><span class="p">(</span><span class="n">doc</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s2">```</span><span class="se">\n</span><span class="s2">&quot;</span>
+<a id="__codelineno-0-302" name="__codelineno-0-302"></a>    <span class="p">)</span>
+<a id="__codelineno-0-303" name="__codelineno-0-303"></a>    <span class="n">markdown</span><span class="p">(</span><span class="s2">&quot;## Setup&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a>    <span class="n">code</span><span class="p">(</span><span class="n">_setup_code</span><span class="p">(</span><span class="n">doc</span><span class="p">,</span> <span class="n">project_dir</span><span class="p">))</span>
+<a id="__codelineno-0-305" name="__codelineno-0-305"></a>
+<a id="__codelineno-0-306" name="__codelineno-0-306"></a>    <span class="k">for</span> <span class="n">node_id</span> <span class="ow">in</span> <span class="n">order</span><span class="p">:</span>
+<a id="__codelineno-0-307" name="__codelineno-0-307"></a>        <span class="n">node</span> <span class="o">=</span> <span class="n">doc</span><span class="o">.</span><span class="n">node</span><span class="p">(</span><span class="n">node_id</span><span class="p">)</span>
+<a id="__codelineno-0-308" name="__codelineno-0-308"></a>        <span class="k">if</span> <span class="n">node</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+<a id="__codelineno-0-309" name="__codelineno-0-309"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-310" name="__codelineno-0-310"></a>        <span class="n">title</span> <span class="o">=</span> <span class="n">_KIND_TITLE</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">kind</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">kind</span><span class="p">)</span>
+<a id="__codelineno-0-311" name="__codelineno-0-311"></a>        <span class="n">upstream</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-0-312" name="__codelineno-0-312"></a>            <span class="sa">f</span><span class="s2">&quot;`</span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2">` from **</span><span class="si">{</span><span class="n">doc</span><span class="o">.</span><span class="n">node</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">source</span><span class="p">)</span><span class="o">.</span><span class="n">display_name</span><span class="si">}</span><span class="s2">**&quot;</span>
+<a id="__codelineno-0-313" name="__codelineno-0-313"></a>            <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">doc</span><span class="o">.</span><span class="n">incoming</span><span class="p">(</span><span class="n">node_id</span><span class="p">)</span>
+<a id="__codelineno-0-314" name="__codelineno-0-314"></a>            <span class="k">if</span> <span class="n">doc</span><span class="o">.</span><span class="n">node</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">source</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+<a id="__codelineno-0-315" name="__codelineno-0-315"></a>        <span class="p">]</span>
+<a id="__codelineno-0-316" name="__codelineno-0-316"></a>        <span class="n">bindings</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;</span><span class="se">\n\n</span><span class="s2">Inputs: &quot;</span> <span class="o">+</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">upstream</span><span class="p">))</span> <span class="k">if</span> <span class="n">upstream</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+<a id="__codelineno-0-317" name="__codelineno-0-317"></a>        <span class="n">markdown</span><span class="p">(</span>
+<a id="__codelineno-0-318" name="__codelineno-0-318"></a>            <span class="sa">f</span><span class="s2">&quot;## </span><span class="si">{</span><span class="n">node</span><span class="o">.</span><span class="n">label</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="n">title</span><span class="si">}</span><span class="se">\n\n</span><span class="s2">*Node `</span><span class="si">{</span><span class="n">node</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">` — kind `</span><span class="si">{</span><span class="n">node</span><span class="o">.</span><span class="n">kind</span><span class="si">}</span><span class="s2">`.*</span><span class="si">{</span><span class="n">bindings</span><span class="si">}</span><span class="s2">&quot;</span>
+<a id="__codelineno-0-319" name="__codelineno-0-319"></a>        <span class="p">)</span>
+<a id="__codelineno-0-320" name="__codelineno-0-320"></a>        <span class="n">code</span><span class="p">(</span><span class="n">_node_code</span><span class="p">(</span><span class="n">doc</span><span class="p">,</span> <span class="n">node</span><span class="p">))</span>
+<a id="__codelineno-0-321" name="__codelineno-0-321"></a>
+<a id="__codelineno-0-322" name="__codelineno-0-322"></a>    <span class="n">markdown</span><span class="p">(</span><span class="s2">&quot;## Run everything&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-323" name="__codelineno-0-323"></a>    <span class="n">finished</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">_var</span><span class="p">(</span><span class="n">n</span><span class="p">)</span><span class="si">}</span><span class="s2">_subjects&quot;</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">order</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;nothing&quot;</span>
+<a id="__codelineno-0-324" name="__codelineno-0-324"></a>    <span class="n">code</span><span class="p">(</span>
+<a id="__codelineno-0-325" name="__codelineno-0-325"></a>        <span class="s2">&quot;# Every cell above is one node, in dependency order: &#39;Run All Cells&#39; in Jupyter (or</span><span class="se">\n</span><span class="s2">&quot;</span>
+<a id="__codelineno-0-326" name="__codelineno-0-326"></a>        <span class="s2">&quot;# `jupyter nbconvert --to notebook --execute &lt;this file&gt;`) runs the whole pipeline.</span><span class="se">\n</span><span class="s2">&quot;</span>
+<a id="__codelineno-0-327" name="__codelineno-0-327"></a>        <span class="sa">f</span><span class="s2">&quot;print(</span><span class="si">{</span><span class="n">doc</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2">, &#39;finished:&#39;, </span><span class="si">{</span><span class="n">finished</span><span class="si">}</span><span class="s2">)&quot;</span>
+<a id="__codelineno-0-328" name="__codelineno-0-328"></a>    <span class="p">)</span>
+<a id="__codelineno-0-329" name="__codelineno-0-329"></a>
+<a id="__codelineno-0-330" name="__codelineno-0-330"></a>    <span class="k">return</span> <span class="p">{</span>
+<a id="__codelineno-0-331" name="__codelineno-0-331"></a>        <span class="s2">&quot;cells&quot;</span><span class="p">:</span> <span class="n">cells</span><span class="p">,</span>
+<a id="__codelineno-0-332" name="__codelineno-0-332"></a>        <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-0-333" name="__codelineno-0-333"></a>            <span class="s2">&quot;kernelspec&quot;</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-0-334" name="__codelineno-0-334"></a>                <span class="s2">&quot;display_name&quot;</span><span class="p">:</span> <span class="s2">&quot;Python 3&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-335" name="__codelineno-0-335"></a>                <span class="s2">&quot;language&quot;</span><span class="p">:</span> <span class="s2">&quot;python&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-336" name="__codelineno-0-336"></a>                <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;python3&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-337" name="__codelineno-0-337"></a>            <span class="p">},</span>
+<a id="__codelineno-0-338" name="__codelineno-0-338"></a>            <span class="s2">&quot;language_info&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;python&quot;</span><span class="p">},</span>
+<a id="__codelineno-0-339" name="__codelineno-0-339"></a>            <span class="s2">&quot;ti_toolbox&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;pipeline&quot;</span><span class="p">:</span> <span class="n">doc</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()},</span>
+<a id="__codelineno-0-340" name="__codelineno-0-340"></a>        <span class="p">},</span>
+<a id="__codelineno-0-341" name="__codelineno-0-341"></a>        <span class="s2">&quot;nbformat&quot;</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span>
+<a id="__codelineno-0-342" name="__codelineno-0-342"></a>        <span class="s2">&quot;nbformat_minor&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
+<a id="__codelineno-0-343" name="__codelineno-0-343"></a>    <span class="p">}</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

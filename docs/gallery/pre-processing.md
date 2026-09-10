@@ -6,7 +6,7 @@ permalink: /gallery/pre-processing/
 
 <link rel="stylesheet" href="{{ '/assets/css/lightbox.css' | relative_url }}">
 
-The anatomy examples below include legacy FreeSurfer outputs, which remain readable. V3 uses FastSurfer for new segmentation; see [Pre-processing]({{ site.baseurl }}/wiki/pre-processing/).
+The anatomy examples below include legacy FreeSurfer outputs, which remain readable. V3 recommends FastSurfer for segmentation and also offers optional FreeSurfer reconstruction, thalamic nuclei and hippocampal/amygdala subregions; see [Pre-processing]({{ site.baseurl }}/wiki/pre-processing/).
 
 <div class="gallery-section">
   <h3>Imaging Input & Head-Model Preparation</h3>

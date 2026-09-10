@@ -21,6 +21,7 @@ def run_loader(
     invalid_spec=False,
     running=True,
     terminal_input=None,
+    compose_file=None,
 ):
     """Record subprocess side effects using an isolated command boundary."""
     bin_dir = tmp_path / "bin"
@@ -52,7 +53,10 @@ case "$1" in
  stop|rm) exit 0 ;;
  compose)
    if [ "$2" = version ]; then exit 0; fi
-   if [[ "$*" == *'config --quiet'* ]]; then exit "$INVALID_SPEC"; fi
+   if [[ "$*" == *'config --quiet'* ]]; then
+     for arg in "$@"; do if [ -f "$arg" ]; then cat "$arg" >> "$DOCKER_LOG"; fi; done
+     exit "$INVALID_SPEC"
+   fi
    exit 9 ;;
  image) exit 0 ;;
 esac
@@ -72,6 +76,9 @@ esac
         INVALID_SPEC=str(int(invalid_spec)),
         XDG_CONFIG_HOME=str(tmp_path / "config"),
     )
+    env.pop("TIT_COMPOSE_FILE", None)
+    if compose_file is not None:
+        env["TIT_COMPOSE_FILE"] = str(compose_file)
     master = slave = None
     if terminal_input is not None:
         master, slave = pty.openpty()
@@ -296,4 +303,23 @@ def test_unrelated_container_cannot_be_selected(tmp_path):
     )
     assert result.returncode != 0
     assert "not a running TI-Toolbox container" in result.stderr
+    assert "stop " not in calls and "rm " not in calls
+
+
+def test_explicit_missing_yaml_does_not_fall_back(tmp_path):
+    result, calls = run_loader(tmp_path, [], compose_file=tmp_path / "missing.yml")
+    assert result.returncode != 0
+    assert "container specification not found" in result.stderr
+    assert "compose " not in calls
+    assert "stop " not in calls and "rm " not in calls
+
+
+def test_explicit_yaml_is_used_for_recreate(tmp_path):
+    compose = tmp_path / "custom.yml"
+    compose.write_text((ROOT / "docker-compose.yml").read_text() + "\n# portable-yaml-fixture\n")
+    result, calls = run_loader(
+        tmp_path, ["--existing", "recreate"], compose_file=compose, invalid_spec=True
+    )
+    assert "invalid container specification" in result.stderr
+    assert "portable-yaml-fixture" in calls
     assert "stop " not in calls and "rm " not in calls

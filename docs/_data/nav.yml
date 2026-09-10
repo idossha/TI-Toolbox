@@ -13,6 +13,7 @@ installation:
     - group: Additional Guides
     - { title: Command-line launcher, url: /installation/bash-cli/ }
     - { title: HPC (Apptainer), url: /installation/hpc-apptainer/ }
+    - { title: Developer setup, url: /wiki/development/ }
     - { title: Troubleshooting, url: /wiki/troubleshooting/ }
 
 wiki:

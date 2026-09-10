@@ -4,7 +4,7 @@ title: Pre-processing Pipeline
 permalink: /wiki/pre-processing/
 ---
 
-The TI-Toolbox pre-processing pipeline prepares anatomical MRI data for TI simulations by converting DICOM files to BIDS-compliant NIfTI format and creating SimNIBS head models. FastSurfer segmentation, diffusion processing, tissue analysis are optional add-on stages for workflows that need those outputs.
+The TI-Toolbox pre-processing pipeline prepares anatomical MRI data for TI simulations by converting DICOM files to BIDS-compliant NIfTI format and creating SimNIBS head models. FastSurfer (recommended for segmentation), optional FreeSurfer reconstruction and subregions, diffusion processing, and tissue analysis are add-on stages for workflows that need those outputs.
 
 <img src="{{ site.baseurl }}/assets/imgs/v3/preprocess.png" alt="The Pre-processing page" style="width: 100%; max-width: 1000px;">
 <em>Pre-processing (&#8984;1): pick the subjects, tick the stages, and the plan on the right says what will run for each one.</em>
@@ -15,7 +15,7 @@ The pre-processing pipeline consists of several stages (each individually toggle
 
 1. **DICOM to NIfTI Conversion** - Convert raw DICOM files to BIDS-compliant NIfTI format
 2. **SimNIBS charm** - Head model creation for electromagnetic simulations (also generates atlas `.annot` files via `subject_atlas`)
-3. **FastSurfer segmentation** - Optional fast cortical/subcortical segmentation, runs in parallel with charm
+3. **Segmentation** - FastSurfer is recommended for fast cortical/subcortical segmentation; optional FreeSurfer provides full recon-all, thalamic nuclei and hippocampal/amygdala subregions
 4. **Tissue Analysis** - Optional tissue segmentation quality checks
 5. **QSIPrep / QSIRecon** - Optional diffusion-weighted imaging preprocessing and reconstruction
 6. **DTI Tensor Extraction** - Optional extraction of DTI tensors for SimNIBS anisotropic conductivity
@@ -182,7 +182,8 @@ segmentation-only output does not satisfy that prerequisite. A FreeSurfer licens
 
 FreeSurfer runs in a temporary worker and stores results in `derivatives/freesurfer/sub-<id>`.
 The worker is removed when it finishes; project results remain. The first run downloads the
-optional image. Subsequent runs reuse the cached image. Thread settings respect the job budget.
+optional image. Subsequent runs reuse the cached image. Allow at least 16 GiB of available
+container memory. Thread settings respect the job budget.
 
 The T1-only subregion implementation uses FreeSurfer's
 [Python subregion tools](https://surfer.nmr.mgh.harvard.edu/fswiki/SubregionSegmentation),

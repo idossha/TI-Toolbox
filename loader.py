@@ -11,9 +11,10 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from urllib.parse import quote
 
 HERE = Path(__file__).resolve().parent
-MAIN_ARCHIVE = "https://github.com/idossha/TI-toolbox/archive/refs/heads/main.zip"
+DEFAULT_SOURCE_REF = "release/3.0.0"
 
 
 def bootstrap() -> bool:
@@ -58,6 +59,12 @@ def cached_management_available(python: Path, argv: list[str]) -> bool:
 
 def run_standalone(argv: list[str]) -> int:
     """Refresh and run the main launcher in an isolated environment, without science dependencies."""
+    source_ref = os.environ.get("TIT_SOURCE_REF") or DEFAULT_SOURCE_REF
+    archive = f"https://github.com/idossha/TI-toolbox/archive/{quote(source_ref, safe='')}.zip"
+    child_env = os.environ.copy()
+    adjacent_compose = HERE / "docker-compose.yml"
+    if not child_env.get("TIT_COMPOSE_FILE") and adjacent_compose.is_file():
+        child_env["TIT_COMPOSE_FILE"] = str(adjacent_compose.resolve())
     cache_root = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
     environment = (
         Path(os.environ.get("TIT_VENV_DIR") or cache_root / "ti-toolbox" / "venv")
@@ -79,7 +86,9 @@ def run_standalone(argv: list[str]) -> int:
                 timeout=120,
             )
         if not use_cached:
-            sys.stderr.write("loader.py: refreshing launcher from TI-Toolbox main\n")
+            sys.stderr.write(
+                f"loader.py: refreshing launcher from TI-Toolbox {source_ref}\n"
+            )
             subprocess.run(
                 [
                     str(python),
@@ -93,7 +102,7 @@ def run_standalone(argv: list[str]) -> int:
                     "--upgrade",
                     "--force-reinstall",
                     "--no-deps",
-                    MAIN_ARCHIVE,
+                    archive,
                 ],
                 check=True,
                 capture_output=True,
@@ -102,14 +111,16 @@ def run_standalone(argv: list[str]) -> int:
             )
     except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
         sys.stderr.write(
-            "loader.py: could not prepare the launcher from main. Check your network and "
+            "loader.py: could not prepare the launcher. Check your network and "
             "cache-directory permissions, and ensure Python includes venv/pip. "
             "Alternatively, clone TI-Toolbox and run loader.py from the checkout.\n"
         )
         return 2
     try:
         return subprocess.run(
-            [str(python), "-I", "-m", "tit.cli", "launch", *argv], check=False
+            [str(python), "-I", "-m", "tit.cli", "launch", *argv],
+            check=False,
+            env=child_env,
         ).returncode
     except OSError as err:
         sys.stderr.write(f"loader.py: could not start the cached launcher: {err}\n")

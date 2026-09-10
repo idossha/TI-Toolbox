@@ -51,7 +51,7 @@ def test_standalone_creates_isolated_environment_and_passes_argv_verbatim(standa
     assert "--force-reinstall" in install.args[0]
     assert (
         install.args[0][-1]
-        == "https://github.com/idossha/TI-toolbox/archive/refs/heads/main.zip"
+        == "https://github.com/idossha/TI-toolbox/archive/release%2F3.0.0.zip"
     )
     assert launch.args[0][1:] == ["-I", "-m", "tit.cli", "launch", *args]
     assert all(call.kwargs.get("shell") is not True for call in run.call_args_list)
@@ -160,3 +160,34 @@ def test_management_repairs_unusable_cache_before_launch(standalone):
         assert loader.main(["--stop"]) == 0
     assert "pip" in run.call_args_list[1].args[0]
     assert "tit.cli" in run.call_args_list[2].args[0]
+
+
+def test_standalone_uses_adjacent_yaml_even_from_another_directory(
+    standalone, monkeypatch, tmp_path
+):
+    """A downloaded YAML must reach the installed launcher, not its built-in spec."""
+    loader.HERE.mkdir()
+    compose = loader.HERE / "docker-compose.yml"
+    compose.write_text("services:\n  tit:\n    image: idossha/ti-toolbox:custom\n")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("TIT_COMPOSE_FILE", raising=False)
+    with patch.object(
+        loader.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)
+    ) as run:
+        assert loader.main([]) == 0
+    assert run.call_args.kwargs["env"]["TIT_COMPOSE_FILE"] == str(compose.resolve())
+
+
+def test_standalone_preserves_explicit_source_and_compose(standalone, monkeypatch):
+    """Explicit source and YAML settings survive the isolated subprocess boundary."""
+    monkeypatch.setenv("TIT_SOURCE_REF", "v3.0.0")
+    monkeypatch.setenv("TIT_COMPOSE_FILE", "/custom/compose.yml")
+    with patch.object(
+        loader.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)
+    ) as run:
+        assert loader.main([]) == 0
+    assert (
+        run.call_args_list[1].args[0][-1]
+        == "https://github.com/idossha/TI-toolbox/archive/v3.0.0.zip"
+    )
+    assert run.call_args.kwargs["env"]["TIT_COMPOSE_FILE"] == "/custom/compose.yml"

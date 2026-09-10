@@ -13,10 +13,12 @@ scientific Python dependencies, and the viewer in one image.
 | Launch route | Host requirements |
 |---|---|
 | Packaged desktop app | Docker Desktop on Windows/macOS, or Docker Engine on Linux |
-| Browser via Bash | Docker + Compose, curl, git for a checkout; no Python |
-| Browser via Python | Docker, Python 3.11+, git for a checkout |
+| Browser via Bash | Docker + Compose and curl; no Python or repository download |
+| Browser via Python | Docker and Python 3.11+; no repository download |
 
-No X11 server or separate FreeSurfer license is required for the core workflow. Additional
+No X11 server or FreeSurfer license is required for the core FastSurfer workflow. Optional
+[FreeSurfer reconstruction and subregions]({{ site.baseurl }}/wiki/pre-processing/#what-changed-from-freesurfer)
+require a license, an additional image download and at least 16 GiB of available container memory. Additional
 QSIPrep/QSIRecon workflows have their own requirements in the
 [diffusion guide]({{ site.baseurl }}/wiki/diffusion-processing/).
 
