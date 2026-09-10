@@ -5,7 +5,7 @@
  * `shared/composeFile.ts` — but nothing here shells out to `docker compose` (or to `docker` at
  * all, beyond the one `docker context inspect` inside `docker/discover.ts`). `start()` discovers
  * the engine, checks its API version, reads the compose file, ensures the network and named
- * volumes exist, pulls the image if it is missing (streaming progress to the launcher), creates
+ * volumes exist, refreshes the release image (streaming progress to the launcher), creates
  * and starts the container with this app's own labels and env, streams its log lines while it
  * comes up, waits for `/api/health`, and hands back `{url, token}`.
  *
@@ -405,7 +405,7 @@ export class StackManager {
       await api.ensureVolume(volume);
     }
 
-    await this.ensureImage(client, api, plan);
+    await this.ensureImage(client, api, plan, !Boolean(options.repoDir ?? resolveRepoDir(process.env, this.host.isPackaged)));
 
     this.progress("Creating the container…");
     await this.removeByName(api, plan.containerName);
@@ -427,19 +427,24 @@ export class StackManager {
     return { ok: true, url: origin, token, attached: false };
   }
 
-  /** Pulls only when the image is genuinely absent, so an offline start of an already-pulled image works. */
-  private async ensureImage(client: DockerEngineClient, api: StackApi, plan: ContainerPlan): Promise<void> {
-    if (await api.imageExists(plan.image)) {
+  /** Refresh the mutable release tag, retaining cached images for offline/dev starts. */
+  private async ensureImage(client: DockerEngineClient, api: StackApi, plan: ContainerPlan, refresh: boolean): Promise<void> {
+    const cached = await api.imageExists(plan.image);
+    if (cached && !(refresh && plan.image === "idossha/ti-toolbox:v3.0.0")) {
       this.progress(`Image ${plan.image} is already present.`);
       return;
     }
-    this.progress(`Downloading ${plan.image} — the first run can take a while…`);
+    this.progress(cached ? `Checking for updates to ${plan.image}…` : `Downloading ${plan.image} — the first run can take a while…`);
     try {
       await client.pullImage(plan.imageName, plan.imageTag, (event) => {
         const parsed = formatPullEvent(event);
         if (parsed.message) this.emit({ type: "progress", stage: "pull", message: parsed.message });
       });
     } catch (err) {
+      if (cached) {
+        this.progress(`Warning: could not refresh ${plan.image}; using the cached image.`);
+        return;
+      }
       throw new StackStartError("image-pull-failed", err instanceof Error ? err.message : String(err));
     }
   }

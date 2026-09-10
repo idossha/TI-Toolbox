@@ -9,6 +9,8 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 ---
 ### v3.0.0 (Unreleased)
 
+- Launchers use the updatable `idossha/ti-toolbox:v3.0.0` image; optional FreeSurfer uses a separate dated worker image.
+
 - **Download only the launch files.** Keep a loader and `docker-compose.yml` in one folder;
   no manual repository checkout is required. Standalone Python uses the v3 launcher and the
   adjacent configuration, matching the Bash workflow. Developer launchers can live separately

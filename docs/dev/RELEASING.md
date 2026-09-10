@@ -4,24 +4,35 @@ Versioning, packaging and publication procedure. [ROADMAP.md](ROADMAP.md) owns c
 acceptance priorities; [TESTING.md](TESTING.md) owns validation. Workflow triggers and recovery
 are documented in [AUTOMATION.md](AUTOMATION.md).
 
+## Docker distribution tags
+
+The application image is `idossha/ti-toolbox:v3.0.0`. Small v3.0.0 patches rebuild and
+republish this same mutable tag. Record the source commit and image digest for each push;
+the tag alone does not identify an exact build. Fresh launcher starts check for updates,
+while attaching to a running session preserves its image and computations.
+
+The optional worker is `idossha/ti-toolbox:freesurfer-20260910`, mirroring upstream
+FreeSurfer 7.4.1. Keep this dated tag fixed; publish a new dated worker tag only when its
+contents change and update `tit/pre/freesurfer.py` together. No persistent worker is needed.
+Superseded internal application tags can be removed after verifying the replacement.
+
+
 ## A. Build and distribution modes
 
 A usable desktop build is a **matching image and installer**. The source loaders use the same
 root `docker-compose.yml`; an installed Python wheel has the fallback in `tit/launch.py`.
-The runtime/app version identifies the code; an internal image tag identifies the exact build.
-Prefer immutable internal image tags. During a maintainer-directed testing round, an explicitly
-reused internal tag must be pulled again; record its registry digest and source SHA with each
-build so reports identify the actual artifact. Stable release tags remain immutable.
+The runtime/app version identifies the release line; the source SHA and registry digest identify
+the exact build published under its mutable Docker tag.
 
 The existing `.github/workflows/release-build.yml` has three explicit modes:
 
 | Mode | Image | Desktop | Public announcement |
 |---|---|---|---|
 | `build` (default) | Build, inspect, export | Unsigned packages and package validation | None |
-| `internal` | Same checks, then push immutable `internal-*` tag | Unsigned workflow artifacts | No GitHub Release; no Docker `latest` change |
-| `release` | Stable version tag, then production promotion after verification | Draft assets; macOS signing/notarization and artifact inventory | Explicit stable tag only; publish after all legs pass |
+| `internal` | Same checks, then push the application `vX.Y.Z` tag | Unsigned workflow artifacts | No GitHub Release; no Docker `latest` change |
+| `release` | Application `vX.Y.Z` tag, then explicit production promotion | Draft assets; macOS signing/notarization and artifact inventory | Explicit stable tag only; publish after all legs pass |
 
-Use `image_tag` to name a cohort, or omit it for `internal-<full source SHA>`. CI stages the
+The image tag follows the application release line, including development builds. CI stages the
 matching image default into the packaged compose file and checks it with `verify-package.mjs`.
 An exported image can be transferred and loaded with `docker load`; unsigned installers alone
 cannot start on a clean machine if their image is neither preloaded nor available in a registry.

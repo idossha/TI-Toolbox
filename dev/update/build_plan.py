@@ -11,7 +11,7 @@ import re
 def build_plan(
     root: Path, mode: str, ref: str, sha: str, image_tag: str = ""
 ) -> dict[str, str]:
-    """Require a matching stable tag for publication; internal tags identify source."""
+    """Resolve the reusable version image; public releases still require a stable tag."""
     if mode not in {"build", "internal", "release"}:
         raise ValueError("mode must be build, internal or release")
     if not re.fullmatch(r"[0-9a-f]{40}", sha):
@@ -33,6 +33,14 @@ def build_plan(
         raise ValueError(
             f"runtime package and lock versions must agree: {runtime_versions}"
         )
+    image_version = version.split("-", 1)[0]
+    if not re.fullmatch(
+        r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)", image_version
+    ):
+        raise ValueError("runtime version must start with X.Y.Z")
+    expected_image = f"v{image_version}"
+    if image_tag and image_tag != expected_image:
+        raise ValueError(f"application image tag must be {expected_image}")
     if mode in {"internal", "release"}:
         compose = re.search(
             r"image: idossha/ti-toolbox:\$\{TIT_IMAGE_TAG:-([^}]+)\}",
@@ -57,8 +65,6 @@ def build_plan(
             version,
             python_version[1],
             metadata_version[1] if metadata_version else None,
-            compose[1] if compose else None,
-            wheel_image[1] if wheel_image else None,
             lock.get("version"),
             lock.get("packages", {}).get("", {}).get("version"),
         ]
@@ -68,28 +74,18 @@ def build_plan(
             )
         if not (root / f"docs/releases/v{version}.md").is_file():
             raise ValueError("release requires authored docs/releases/vX.Y.Z.md")
-    if mode == "internal":
-        prepared_tag = compose[1] if compose else ""
-        if (
-            not re.fullmatch(r"internal-[A-Za-z0-9][A-Za-z0-9.-]{0,110}", prepared_tag)
-            or wheel_image is None
-            or wheel_image[1] != prepared_tag
-            or (image_tag and image_tag != prepared_tag)
-        ):
+    if mode in {"internal", "release"}:
+        if (compose[1] if compose else None) != expected_image or (
+            wheel_image[1] if wheel_image else None
+        ) != expected_image:
             raise ValueError(
-                "internal handoff requires the selected image tag to match both docker-compose.yml and tit/launch.py BUILTIN_SPEC; prepare and commit the same internal-* cohort tag in both source defaults first"
+                f"compose and installed-wheel image defaults must both equal {expected_image}"
             )
-        image_tag = prepared_tag
-    if image_tag and (
-        mode == "release"
-        or not re.fullmatch(r"internal-[A-Za-z0-9][A-Za-z0-9.-]{0,110}", image_tag)
-    ):
-        raise ValueError("image tag override is only allowed for internal-* builds")
     return {
         "mode": mode,
         "version": version,
         "python_version": python_version[1],
-        "image_tag": version if mode == "release" else image_tag or f"internal-{sha}",
+        "image_tag": expected_image,
         "sha": sha,
     }
 

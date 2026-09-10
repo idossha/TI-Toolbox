@@ -36,7 +36,7 @@ its root `loader.py` uses the selected source without installing a different pac
 Set the image reference supplied with your selected source revision. For the current pairing:
 
 ```bash
-TIT_IMAGE=idossha/ti-toolbox:internal-20260909.1
+TIT_IMAGE=idossha/ti-toolbox:v3.0.0
 docker pull "$TIT_IMAGE"
 docker image inspect "$TIT_IMAGE" --format {% raw %}'{{json .RepoTags}}'{% endraw %}
 ```

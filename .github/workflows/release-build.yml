@@ -9,12 +9,12 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'build exports artifacts; internal also pushes only the source-tagged image; release requires a stable tag.'
+        description: 'build exports artifacts; internal also pushes the version image; release requires a stable tag.'
         type: choice
         options: [build, internal, release]
         default: build
       image_tag:
-        description: 'Internal: must match prepared source defaults (default). Build-only: optional tag, default internal-<SHA>.'
+        description: 'Optional version image tag; must match vX.Y.Z derived from the runtime version.'
         type: string
         default: ''
       tetravox_tgz:
@@ -90,8 +90,8 @@ jobs:
         id: v
         env:
           BUILD_MODE: ${{ inputs.mode || 'release' }}
-          INTERNAL_IMAGE_TAG: ${{ inputs.image_tag }}
-        run: python3 dev/update/build_plan.py --mode "$BUILD_MODE" --ref "$GITHUB_REF" --sha "$GITHUB_SHA" --image-tag "$INTERNAL_IMAGE_TAG"
+          BUILD_IMAGE_TAG: ${{ inputs.image_tag }}
+        run: python3 dev/update/build_plan.py --mode "$BUILD_MODE" --ref "$GITHUB_REF" --sha "$GITHUB_SHA" --image-tag "$BUILD_IMAGE_TAG"
 
       - name: Extract release notes
         id: notes
@@ -223,8 +223,8 @@ jobs:
       - name: Stage the packaged image default
         env:
           BUILD_MODE: ${{ needs.plan.outputs.mode }}
-          INTERNAL_IMAGE_TAG: ${{ inputs.image_tag }}
-        run: python3 dev/update/build_plan.py --mode "$BUILD_MODE" --ref "$GITHUB_REF" --sha "$GITHUB_SHA" --image-tag "$INTERNAL_IMAGE_TAG" --stage-compose
+          BUILD_IMAGE_TAG: ${{ inputs.image_tag }}
+        run: python3 dev/update/build_plan.py --mode "$BUILD_MODE" --ref "$GITHUB_REF" --sha "$GITHUB_SHA" --image-tag "$BUILD_IMAGE_TAG" --stage-compose
         shell: bash
 
       - name: Package (unsigned)
@@ -416,13 +416,6 @@ jobs:
           set -euo pipefail
           gzip -dc ti-toolbox-image.tar.gz | docker load
           TAG="${IMAGE_REPO}:${{ needs.plan.outputs.image_tag }}"
-          if docker manifest inspect "$TAG" > /dev/null 2> manifest-error.txt; then
-            echo "::error::Image tag already exists; choose a new immutable tag: $TAG"
-            exit 1
-          elif ! grep -Eq 'manifest unknown|no such manifest' manifest-error.txt; then
-            cat manifest-error.txt >&2
-            exit 1
-          fi
           docker push "$TAG"
 
   finalize:
@@ -431,7 +424,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
-    # Small API reads and manifest promotion; 10m bounds registry/API hangs (unmeasured).
+    # Small API reads; 10m bounds API hangs (unmeasured).
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -443,16 +436,10 @@ jobs:
           set -euo pipefail
           gh release view "v$RELEASE_VERSION" --json isDraft,assets > release-assets.json
           python3 dev/update/verify_release_assets.py "$RELEASE_VERSION" release-assets.json
-      - uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - uses: docker/setup-buildx-action@v3
-      - name: Promote validated image and publish complete draft
+      - name: Publish complete draft
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_VERSION: ${{ needs.plan.outputs.version }}
         run: |
           set -euo pipefail
-          docker buildx imagetools create --tag "${IMAGE_REPO}:latest" "${IMAGE_REPO}:$RELEASE_VERSION"
           gh release edit "v$RELEASE_VERSION" --draft=false --latest

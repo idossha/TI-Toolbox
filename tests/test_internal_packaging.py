@@ -45,11 +45,11 @@ class InternalPackagingTests(unittest.TestCase):
         self.write("tit/__init__.py", '__version__ = "3.0.0"\n')
         self.write(
             "tit/launch.py",
-            'BUILTIN_SPEC = StackSpec(\n    image="idossha/ti-toolbox:${TIT_IMAGE_TAG:-3.0.0}",\n)\n',
+            'BUILTIN_SPEC = StackSpec(\n    image="idossha/ti-toolbox:${TIT_IMAGE_TAG:-v3.0.0}",\n)\n',
         )
         self.write("version.py", '__version__ = "3.0.0"\n')
         self.write(
-            "docker-compose.yml", "image: idossha/ti-toolbox:${TIT_IMAGE_TAG:-3.0.0}\n"
+            "docker-compose.yml", "image: idossha/ti-toolbox:${TIT_IMAGE_TAG:-v3.0.0}\n"
         )
         self.write(
             "docs/releases/v3.0.0.md",
@@ -72,7 +72,9 @@ class InternalPackagingTests(unittest.TestCase):
             os.chdir(self.root)
             update.update_changelog_file("3.0.0", "Authored new notes.", "2026-09-09")
             first = path.read_text()
-            update.update_changelog_file("3.0.0", "Must not replace notes.", "2026-09-09")
+            update.update_changelog_file(
+                "3.0.0", "Must not replace notes.", "2026-09-09"
+            )
         finally:
             os.chdir(old)
         self.assertIn("Authored new notes.", first)
@@ -93,7 +95,7 @@ class InternalPackagingTests(unittest.TestCase):
             plan.build_plan(self.root, "release", "refs/tags/v3.0.0", self.sha)[
                 "image_tag"
             ],
-            "3.0.0",
+            "v3.0.0",
         )
 
     def test_release_refuses_version_drift(self):
@@ -142,9 +144,36 @@ class InternalPackagingTests(unittest.TestCase):
             for keyword in tree.body[0].value.keywords
             if keyword.arg == "image"
         )
-        self.assertEqual(image, "idossha/ti-toolbox:${TIT_IMAGE_TAG:-3.1.0}")
+        self.assertEqual(image, "idossha/ti-toolbox:${TIT_IMAGE_TAG:-v3.1.0}")
         self.assertEqual(
             (self.root / "docker-compose.yml").read_text().strip(), "image: " + image
+        )
+
+    def test_version_update_preserves_dated_freesurfer_image(self):
+        self.write(
+            "version.py",
+            '__version__ = "3.0.0"\nIMAGES = [{"tag": "idossha/ti-toolbox:v3.0.0"}, {"tag": "idossha/ti-toolbox:freesurfer-20260910"}]\n',
+        )
+        self.write(
+            "resources/dataset_descriptions/freesurfer.json",
+            '{"Tag": "idossha/ti-toolbox:freesurfer-20260910"}',
+        )
+        old = os.getcwd()
+        try:
+            os.chdir(self.root)
+            update.update_version("3.1.0")
+        finally:
+            os.chdir(old)
+        self.assertIn(
+            "idossha/ti-toolbox:v3.1.0", (self.root / "version.py").read_text()
+        )
+        self.assertIn(
+            "idossha/ti-toolbox:freesurfer-20260910",
+            (self.root / "version.py").read_text(),
+        )
+        self.assertEqual(
+            (self.root / "resources/dataset_descriptions/freesurfer.json").read_text(),
+            '{"Tag": "idossha/ti-toolbox:freesurfer-20260910"}',
         )
 
     def test_release_refuses_stale_wheel_fallback(self):
@@ -155,41 +184,23 @@ class InternalPackagingTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             plan.build_plan(self.root, "release", "refs/tags/v3.0.0", self.sha)
 
-    def test_internal_uses_prepared_cohort_without_public_version_lockstep(
-        self,
-    ):
-        self.write(
-            "docker-compose.yml",
-            "image: idossha/ti-toolbox:${TIT_IMAGE_TAG:-internal-20260908.1}\n",
-        )
-        self.write(
-            "tit/launch.py",
-            'BUILTIN_SPEC = StackSpec(\n    image="idossha/ti-toolbox:${TIT_IMAGE_TAG:-internal-20260908.1}",\n)\n',
-        )
+    def test_internal_reuses_version_tag_without_public_metadata_lockstep(self):
         self.write("version.py", '__version__ = "2.5.0"\n')
-        result = plan.build_plan(self.root, "internal", "refs/heads/main", self.sha)
-        self.assertEqual(result["image_tag"], "internal-20260908.1")
-        self.assertEqual(
-            plan.build_plan(
-                self.root,
-                "internal",
-                "refs/heads/main",
-                self.sha,
-                "internal-20260908.1",
-            )["image_tag"],
-            "internal-20260908.1",
-        )
-        for tag in ("latest", "3.0.0", "internal-x\nlatest", "internal-$(touch bad)"):
-            with self.subTest(tag=tag), self.assertRaises(ValueError):
-                plan.build_plan(self.root, "internal", "refs/heads/main", self.sha, tag)
+        for mode in ("internal", "build"):
+            for sha in (self.sha, "b" * 40):
+                self.assertEqual(
+                    plan.build_plan(self.root, mode, "refs/heads/main", sha)[
+                        "image_tag"
+                    ],
+                    "v3.0.0",
+                )
+            for tag in ("latest", "3.0.0", "internal-old", "v3.1.0", "v3.0.0\nlatest"):
+                with self.subTest(mode=mode, tag=tag), self.assertRaises(ValueError):
+                    plan.build_plan(self.root, mode, "refs/heads/main", self.sha, tag)
 
-    def test_internal_refuses_unprepared_or_different_source_image_defaults(self):
-        for compose_tag, wheel_tag, selected in (
-            ("3.0.0", "3.0.0", ""),
-            ("internal-one", "internal-two", ""),
-            ("internal-one", "internal-one", "internal-other"),
-        ):
-            with self.subTest(compose=compose_tag, wheel=wheel_tag, selected=selected):
+    def test_internal_refuses_different_source_image_defaults(self):
+        for compose_tag, wheel_tag in (("3.0.0", "v3.0.0"), ("v3.0.0", "internal-old")):
+            with self.subTest(compose=compose_tag, wheel=wheel_tag):
                 self.write(
                     "docker-compose.yml",
                     f"image: idossha/ti-toolbox:${{TIT_IMAGE_TAG:-{compose_tag}}}\n",
@@ -198,28 +209,32 @@ class InternalPackagingTests(unittest.TestCase):
                     "tit/launch.py",
                     f'BUILTIN_SPEC = StackSpec(\n    image="idossha/ti-toolbox:${{TIT_IMAGE_TAG:-{wheel_tag}}}",\n)\n',
                 )
-                with self.assertRaisesRegex(ValueError, "prepare and commit"):
-                    plan.build_plan(
-                        self.root, "internal", "refs/heads/main", self.sha, selected
-                    )
+                with self.assertRaisesRegex(ValueError, "defaults must both equal"):
+                    plan.build_plan(self.root, "internal", "refs/heads/main", self.sha)
 
-    def test_export_only_build_can_use_source_sha_tag(self):
+    def test_development_runtime_uses_stable_base_image(self):
+        old = os.getcwd()
+        try:
+            os.chdir(self.root)
+            update.update_development_version("3.0.0-dev.2")
+        finally:
+            os.chdir(old)
         self.assertEqual(
-            plan.build_plan(self.root, "build", "refs/heads/main", self.sha)[
+            plan.build_plan(self.root, "internal", "refs/heads/main", self.sha)[
                 "image_tag"
             ],
-            "internal-" + self.sha,
+            "v3.0.0",
         )
 
     def test_packaged_default_is_bound_to_its_build_image(self):
         source = "image: idossha/ti-toolbox:${TIT_IMAGE_TAG:-dev}\n"
         self.assertEqual(
-            plan.stage_compose(source, "internal-cohort.1"),
-            "image: idossha/ti-toolbox:${TIT_IMAGE_TAG:-internal-cohort.1}\n",
+            plan.stage_compose(source, "v3.0.0"),
+            "image: idossha/ti-toolbox:${TIT_IMAGE_TAG:-v3.0.0}\n",
         )
         for content in ("", "services: {}", source + source):
             with self.assertRaises(ValueError):
-                plan.stage_compose(content, "internal-cohort.1")
+                plan.stage_compose(content, "v3.0.0")
 
     def test_empty_or_unknown_plan_input_fails(self):
         for mode, sha in (("", self.sha), ("publish", self.sha), ("build", "")):

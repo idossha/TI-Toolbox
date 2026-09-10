@@ -604,3 +604,11 @@ Developer wrappers may live elsewhere and select a local source checkout through
 adjacent YAML or explicit `TIT_COMPOSE_FILE`; invalid explicit paths fail. **Why:** Download
 location should not determine which code or data is mounted. Standalone Python uses the
 matching v3 launcher rather than silently bootstrapping the older default branch.
+
+## 2026-09-10 — Stable application tag and dated FreeSurfer worker
+
+**Decision:** Publish patch builds to mutable `idossha/ti-toolbox:v3.0.0` and the optional
+worker to `idossha/ti-toolbox:freesurfer-20260910`. Replace the internal launcher default.
+**Why:** The maintainer distributes small patches under the same application tag; the
+rarely changing worker keeps a dated identity. Digests and source commits identify exact
+builds. Fresh starts refresh the application image; Attach never replaces a running session.

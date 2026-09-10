@@ -3,7 +3,7 @@
 
 services:
   tit:
-    image: idossha/ti-toolbox:${TIT_IMAGE_TAG:-internal-20260909.1}
+    image: idossha/ti-toolbox:${TIT_IMAGE_TAG:-v3.0.0}
     init: true # reap zombie processes under uvicorn's worker/reload subprocesses
     working_dir: /ti-toolbox
     volumes:

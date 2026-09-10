@@ -15,9 +15,12 @@ metadata and image defaults. Stable mode updates release metadata but does not w
 pages unless both documentation flags are supplied. Existing authored version pages and
 changelog entries are preserved. The helper never commits, tags or publishes.
 
-`build_plan.py` validates the generic `release-build.yml` inputs. Internal handoffs use the same prepared
-`internal-*` cohort tag in compose and the wheel fallback; an explicit differing tag is
-rejected. Export-only builds may use source-SHA tags; stable release mode
-requires a matching `vX.Y.Z` tag and consistent package, lock, metadata, compose and installed-wheel fallback versions. Every mode requires agreement among Python runtime, desktop package and both lockfile root versions; development builds preserve public metadata.
+`build_plan.py` validates the generic `release-build.yml` inputs. Every mode uses the reusable
+`vX.Y.Z` application image tag; `internal` pushes it without creating a GitHub release.
+Compose and the installed-wheel fallback must agree with the runtime version's base image tag.
+Stable release mode additionally requires a matching Git tag and consistent public metadata.
+Every mode requires agreement among Python runtime, desktop package and both lockfile root
+versions. Development builds preserve public metadata. Updating the application version leaves
+the separately dated FreeSurfer image unchanged.
 `verify_release_assets.py` requires all seven nonempty installer/archive assets while the
 GitHub Release is still a draft.

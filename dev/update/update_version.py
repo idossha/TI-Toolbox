@@ -68,36 +68,25 @@ def update_version(new_version):
             ),
             (r'"release_date": "[^"]*"', f'"release_date": "{release_date}"'),
             (
-                r'"tag": "idossha/(?:simnibs|ti-toolbox):[^"]*"',
-                f'"tag": "idossha/ti-toolbox:{new_version}"',
+                r'"tag": "idossha/(?:simnibs|ti-toolbox):(?!freesurfer-)[^"]*"',
+                f'"tag": "idossha/ti-toolbox:v{new_version}"',
             ),
         ],
         "docs/_config.yml": [
             (r'version: "[^"]*"', f'version: "{new_version}"'),
         ],
-        # THE run spec, and the only compose file in the repository (it moved here from
-        # desktop/docker/docker-compose.v3.yml; the v2 two-service root compose it replaced is
-        # gone, which is why there is no longer an idossha/simnibs bump here — nor in
-        # dev/loader/docker-compose.dev.yml, which now carries dev *overrides* only and names no
-        # image at all).
-        #
-        # v3 streamlined stack (docs/dev/ARCHITECTURE.md; docs/dev/HISTORY.md 2026-09-03): one image,
-        # idossha/ti-toolbox:<ver>, tagged independently of idossha/simnibs (the v3 image bundles a
-        # specific SimNIBS build, it does not share its version number).
-        # The `:-dev` default is deliberately for local iteration only — bump it on every
-        # release so a fresh `docker-compose.yml` pull with no TIT_IMAGE_TAG override resolves to
-        # the version being released, not last release's dev tag.
+        # Keep source and installed-wheel launchers on the reusable version image.
         "docker-compose.yml": [
             (
                 r"image: idossha/ti-toolbox:\$\{TIT_IMAGE_TAG:-[^}]*\}",
-                f"image: idossha/ti-toolbox:${{TIT_IMAGE_TAG:-{new_version}}}",
+                f"image: idossha/ti-toolbox:${{TIT_IMAGE_TAG:-v{new_version}}}",
             ),
         ],
         # Installed wheels have no root compose file, so the fallback must move with it.
         "tit/launch.py": [
             (
                 r'(BUILTIN_SPEC = StackSpec\(\s*image="idossha/ti-toolbox:\$\{TIT_IMAGE_TAG:-)[^}]+',
-                rf"\g<1>{new_version}",
+                rf"\g<1>v{new_version}",
             ),
         ],
         # v3 desktop app (desktop/). This is the number electron-builder writes into the app
@@ -168,8 +157,8 @@ def update_dataset_descriptions(new_version):
         # Pattern to match Docker image tags in the JSON files
         patterns = [
             (
-                r'"Tag": "idossha/(?:simnibs|ti-toolbox):[^"]*"',
-                f'"Tag": "idossha/ti-toolbox:{new_version}"',
+                r'"Tag": "idossha/(?:simnibs|ti-toolbox):(?!freesurfer-)[^"]*"',
+                f'"Tag": "idossha/ti-toolbox:v{new_version}"',
             ),
         ]
 
@@ -216,7 +205,7 @@ def update_releases_page(version, release_notes, release_date):
 [Linux deb](https://github.com/idossha/TI-Toolbox/releases/latest/download/ti-toolbox_{version}_amd64.deb)
 
 **Other:**
-- Docker Image: `docker pull idossha/ti-toolbox:{version}`
+- Docker Image: `docker pull idossha/ti-toolbox:v{version}`
 - Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
 
 For installation instructions, see the [Installation Guide]({{{{ site.baseurl }}}}/installation/)."""
@@ -260,7 +249,7 @@ def update_changelog_file(version, release_notes, release_date):
 [Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/ti-toolbox_{version}_amd64.deb)
 
 **Other:**
-- Docker Image: `docker pull idossha/ti-toolbox:{version}`
+- Docker Image: `docker pull idossha/ti-toolbox:v{version}`
 - Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
 
 ---
@@ -330,7 +319,7 @@ sitemap: false
 [Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/ti-toolbox_{version}_amd64.deb)
 
 **Other:**
-- Docker Image: `docker pull idossha/ti-toolbox:{version}`
+- Docker Image: `docker pull idossha/ti-toolbox:v{version}`
 - Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
 
 For installation instructions, see the [Installation Guide]({{{{ site.baseurl }}}}/installation/).

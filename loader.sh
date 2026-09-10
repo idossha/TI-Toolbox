@@ -189,7 +189,14 @@ if [ -n "$running_ids" ] && [ "$running_action" = attach ]; then
     [ -n "$token" ] && [ -n "$port" ] || die 'container has no session credentials; stop and relaunch it'
 else
     docker compose version >/dev/null 2>&1 || die 'install the Docker Compose plugin'
-    docker image inspect "$image" >/dev/null 2>&1 || docker pull --platform linux/amd64 "$image"
+    cached=0
+    docker image inspect "$image" >/dev/null 2>&1 && cached=1
+    if [ "$cached" = 0 ] || { [ "$image" = idossha/ti-toolbox:v3.0.0 ] && [ -z "$repo" ]; }; then
+        if ! docker pull --platform linux/amd64 "$image"; then
+            [ "$cached" = 1 ] || die "could not download $image"
+            printf 'Warning: could not refresh %s; using the cached image.\n' "$image" >&2
+        fi
+    fi
     first_port="$port"
     while (: >"/dev/tcp/127.0.0.1/$port") >/dev/null 2>&1; do
         port=$((port+1)); [ "$port" -le 65535 ] && [ "$port" -lt $((first_port+64)) ] || die 'no free port found'

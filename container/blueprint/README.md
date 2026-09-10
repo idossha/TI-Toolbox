@@ -41,7 +41,7 @@ required — the build fails rather than shipping an image with no viewer).
 ### Build
 
 ```bash
-./build.sh                                   # this checkout -> idossha/ti-toolbox:<version>-dev
+./build.sh                                   # this checkout -> idossha/ti-toolbox:v<version>
 ./build.sh --tag idossha/ti-toolbox:dev      # same, tagged :dev
 ./build.sh --ref v3.0.0                      # a pushed ref, cloned from GitHub (CI/release)
 ./build.sh --tetravox-tgz http://host.docker.internal:8798/tetravox-embed-0.3.11.tgz \

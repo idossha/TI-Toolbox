@@ -15,7 +15,7 @@ from .qsi.docker_builder import resolve_fs_license_path
 from .qsi.utils import get_inherited_dood_resources, format_memory_limit
 from .utils import CommandRunner, PreprocessError, _find_anat_files
 
-IMAGE = "freesurfer/freesurfer:7.4.1"
+IMAGE = "idossha/ti-toolbox:freesurfer-20260910"
 SUBREGIONS = frozenset({"thalamus", "hippo-amygdala"})
 
 

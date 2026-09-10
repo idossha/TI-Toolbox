@@ -7,7 +7,7 @@
 #              [--fastsurfer-checkpoints-tgz URL --fastsurfer-checkpoints-sha256 HEX]
 #              [--blender-archive URL]
 #
-#   --tag                image:tag to build (default idossha/ti-toolbox:<version>-dev)
+#   --tag                image:tag to build (default idossha/ti-toolbox:v<version>)
 #   --ref                build from `git clone <REF>` of github.com/idossha/TI-Toolbox instead
 #                        of the local checkout (the CI/release path; the ref must be pushed).
 #                        Default: no ref -- the repository root is the build context and the
@@ -121,7 +121,7 @@ if [ -z "$VERSION" ]; then
     exit 1
 fi
 if [ -z "$TAG" ]; then
-    TAG="idossha/ti-toolbox:${VERSION}-dev"
+    TAG="idossha/ti-toolbox:v${VERSION%%-*}"
 fi
 
 if [ -n "$TETRAVOX_TGZ" ] && [ -z "$TETRAVOX_SHA256" ]; then

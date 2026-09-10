@@ -44,6 +44,9 @@ def docker(monkeypatch, tmp_path):
         return subprocess.CompletedProcess(args, 0, stdout, "")
 
     monkeypatch.setattr(launch, "_docker", call)
+    monkeypatch.setattr(
+        launch.subprocess, "run", Mock(return_value=subprocess.CompletedProcess([], 0))
+    )
     monkeypatch.setattr(launch.sys.stdin, "isatty", lambda: False)
     monkeypatch.setattr(launch, "wait_for_health", lambda *a, **k: None)
     monkeypatch.setattr(launch, "find_free_port", lambda _: 8765)
@@ -220,3 +223,43 @@ def test_discovery_ignores_unrelated_similarly_named_containers(docker):
         }
     )
     assert [item["Id"] for item in launch.find_running_containers()] == ["other-id"]
+
+
+@pytest.mark.parametrize(
+    "cached,refresh,image,pulls",
+    [
+        (True, True, "idossha/ti-toolbox:v3.0.0", True),
+        (True, False, "idossha/ti-toolbox:v3.0.0", False),
+        (True, True, "custom:dev", False),
+        (False, False, "custom:dev", True),
+    ],
+)
+def test_image_refresh_policy(monkeypatch, cached, refresh, image, pulls):
+    monkeypatch.setattr(
+        launch,
+        "_docker",
+        Mock(return_value=subprocess.CompletedProcess([], 0 if cached else 1)),
+    )
+    pull = Mock(return_value=subprocess.CompletedProcess([], 0))
+    monkeypatch.setattr(launch.subprocess, "run", pull)
+    launch.ensure_image(image, refresh=refresh, echo=lambda _: None)
+    assert pull.called is pulls
+
+
+@pytest.mark.parametrize("cached", [True, False])
+def test_failed_refresh_only_falls_back_when_cached(monkeypatch, cached):
+    monkeypatch.setattr(
+        launch,
+        "_docker",
+        Mock(return_value=subprocess.CompletedProcess([], 0 if cached else 1)),
+    )
+    monkeypatch.setattr(
+        launch.subprocess, "run", Mock(return_value=subprocess.CompletedProcess([], 1))
+    )
+    messages = []
+    if cached:
+        launch.ensure_image("idossha/ti-toolbox:v3.0.0", echo=messages.append)
+        assert "Warning:" in messages[-1] and "cached image" in messages[-1]
+    else:
+        with pytest.raises(launch.LaunchError, match="could not download"):
+            launch.ensure_image("idossha/ti-toolbox:v3.0.0", echo=messages.append)

@@ -108,3 +108,31 @@ it("keeps container ownership when Docker cannot stop it", async () => {
   expect(await manager.stop()).toMatchObject({ ok: false });
   expect(manager.getCurrent()?.containerId).toBe("existing");
 });
+
+it.each([
+  [true, true, "idossha/ti-toolbox:v3.0.0", true],
+  [true, false, "idossha/ti-toolbox:v3.0.0", false],
+  [true, true, "custom:dev", false],
+  [false, false, "custom:dev", true],
+])("refreshes cached release images without replacing dev images (%s, %s, %s)", async (cached, refresh, image, pulls) => {
+  writeFileSync(join(root, "docker-compose.yml"), readFileSync(join(__dirname, "../../../docker-compose.yml")));
+  const { plan } = await new StackManager(host)["prepareFresh"]("test", root, { image });
+  const connection = { kind: "unix" as const, socketPath: "/unused" };
+  vi.spyOn(StackApi.prototype, "imageExists").mockResolvedValue(cached);
+  const pull = vi.spyOn(DockerEngineClient.prototype, "pullImage").mockResolvedValue(undefined);
+  await new StackManager(host)["ensureImage"](new DockerEngineClient(connection), new StackApi(connection, "1.51"), plan, refresh);
+  expect(pull.mock.calls.length).toBe(pulls ? 1 : 0);
+});
+
+it("warns and uses the cached release image when refresh fails", async () => {
+  writeFileSync(join(root, "docker-compose.yml"), readFileSync(join(__dirname, "../../../docker-compose.yml")));
+  const { plan } = await new StackManager(host)["prepareFresh"]("test", root, { image: "idossha/ti-toolbox:v3.0.0" });
+  const connection = { kind: "unix" as const, socketPath: "/unused" };
+  vi.spyOn(StackApi.prototype, "imageExists").mockResolvedValue(true);
+  vi.spyOn(DockerEngineClient.prototype, "pullImage").mockRejectedValue(new Error("offline"));
+  const manager = new StackManager(host);
+  const events: unknown[] = [];
+  manager.onEvent((event) => events.push(event));
+  await expect(manager["ensureImage"](new DockerEngineClient(connection), new StackApi(connection, "1.51"), plan, true)).resolves.toBeUndefined();
+  expect(events).toContainEqual(expect.objectContaining({ message: expect.stringContaining("using the cached image") }));
+});

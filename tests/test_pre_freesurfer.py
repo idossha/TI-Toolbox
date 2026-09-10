@@ -67,7 +67,7 @@ def test_reconstruction_mounts_and_cleanup(project):
         assert "tit.job_id=job-123" in argv
         assert f"/host/project:{pm.project_dir}" in argv
         assert argv[argv.index("--cpus") + 1] == "2"
-        assert "freesurfer/freesurfer:7.4.1" in argv
+        assert "idossha/ti-toolbox:freesurfer-20260910" in argv
     assert "-i" in commands[0]
     assert commands[1][commands[1].index("segment_subregions") :] == [
         "segment_subregions",

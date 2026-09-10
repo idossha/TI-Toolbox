@@ -22,6 +22,9 @@ def run_loader(
     running=True,
     terminal_input=None,
     compose_file=None,
+    cached=True,
+    pull_ok=True,
+    dev_repo="",
 ):
     """Record subprocess side effects using an isolated command boundary."""
     bin_dir = tmp_path / "bin"
@@ -58,7 +61,8 @@ case "$1" in
      exit "$INVALID_SPEC"
    fi
    exit 9 ;;
- image) exit 0 ;;
+ image) exit "$IMAGE_STATUS" ;;
+ pull) exit "$PULL_STATUS" ;;
 esac
 """)
     docker.chmod(0o755)
@@ -74,6 +78,9 @@ esac
         RUNNING=str(int(running)),
         PROJECT_CONTAINER=project_container,
         INVALID_SPEC=str(int(invalid_spec)),
+        IMAGE_STATUS=str(int(not cached)),
+        PULL_STATUS=str(int(not pull_ok)),
+        TIT_DEV_REPO_DIR=dev_repo,
         XDG_CONFIG_HOME=str(tmp_path / "config"),
     )
     env.pop("TIT_COMPOSE_FILE", None)
@@ -108,7 +115,7 @@ def test_running_container_requires_explicit_decision(tmp_path):
     result, calls = run_loader(tmp_path, [])
     assert result.returncode != 0
     assert "--existing attach" in result.stderr
-    assert "stop " not in calls and "rm " not in calls
+    assert not any(line.startswith(("stop ", "rm ")) for line in calls.splitlines())
 
 
 def test_attach_uses_other_project_running_session(tmp_path):
@@ -152,7 +159,7 @@ def test_recreate_multiple_requires_selection_before_mutation(tmp_path):
     result, calls = run_loader(tmp_path, ["--existing", "recreate"], multiple=True)
     assert result.returncode != 0
     assert "--container ID" in result.stderr
-    assert "stop " not in calls and "rm " not in calls
+    assert not any(line.startswith(("stop ", "rm ")) for line in calls.splitlines())
 
 
 def test_regular_loader_hands_off_before_docker(tmp_path):
@@ -197,14 +204,14 @@ def test_recreate_refuses_project_collision_before_stopping_selected(tmp_path):
     )
     assert result.returncode != 0
     assert "another running container" in result.stderr
-    assert "stop " not in calls and "rm " not in calls
+    assert not any(line.startswith(("stop ", "rm ")) for line in calls.splitlines())
 
 
 def test_invalid_compose_preserves_running_container(tmp_path):
     result, calls = run_loader(tmp_path, ["--existing", "recreate"], invalid_spec=True)
     assert result.returncode != 0
     assert "invalid container specification" in result.stderr
-    assert "stop " not in calls and "rm " not in calls
+    assert not any(line.startswith(("stop ", "rm ")) for line in calls.splitlines())
 
 
 def test_standalone_loader_launches_explicit_executable_with_clean_environment(
@@ -287,14 +294,14 @@ def test_terminal_number_selects_only_named_container(tmp_path):
 def test_terminal_eof_leaves_container_unchanged(tmp_path):
     result, calls = run_loader(tmp_path, [], terminal_input="\x04")
     assert result.returncode != 0
-    assert "stop " not in calls and "rm " not in calls
+    assert not any(line.startswith(("stop ", "rm ")) for line in calls.splitlines())
 
 
 def test_terminal_invalid_selection_leaves_containers_unchanged(tmp_path):
     result, calls = run_loader(tmp_path, [], multiple=True, terminal_input="3\n")
     assert result.returncode != 0
     assert "invalid container number" in result.stderr
-    assert "stop " not in calls and "rm " not in calls
+    assert not any(line.startswith(("stop ", "rm ")) for line in calls.splitlines())
 
 
 def test_unrelated_container_cannot_be_selected(tmp_path):
@@ -303,7 +310,7 @@ def test_unrelated_container_cannot_be_selected(tmp_path):
     )
     assert result.returncode != 0
     assert "not a running TI-Toolbox container" in result.stderr
-    assert "stop " not in calls and "rm " not in calls
+    assert not any(line.startswith(("stop ", "rm ")) for line in calls.splitlines())
 
 
 def test_explicit_missing_yaml_does_not_fall_back(tmp_path):
@@ -311,15 +318,44 @@ def test_explicit_missing_yaml_does_not_fall_back(tmp_path):
     assert result.returncode != 0
     assert "container specification not found" in result.stderr
     assert "compose " not in calls
-    assert "stop " not in calls and "rm " not in calls
+    assert not any(line.startswith(("stop ", "rm ")) for line in calls.splitlines())
 
 
 def test_explicit_yaml_is_used_for_recreate(tmp_path):
     compose = tmp_path / "custom.yml"
-    compose.write_text((ROOT / "docker-compose.yml").read_text() + "\n# portable-yaml-fixture\n")
+    compose.write_text(
+        (ROOT / "docker-compose.yml").read_text() + "\n# portable-yaml-fixture\n"
+    )
     result, calls = run_loader(
         tmp_path, ["--existing", "recreate"], compose_file=compose, invalid_spec=True
     )
     assert "invalid container specification" in result.stderr
     assert "portable-yaml-fixture" in calls
-    assert "stop " not in calls and "rm " not in calls
+    assert not any(line.startswith(("stop ", "rm ")) for line in calls.splitlines())
+
+
+def test_release_start_refreshes_cached_image(tmp_path):
+    _, calls = run_loader(tmp_path, [], running=False)
+    assert "pull --platform linux/amd64 idossha/ti-toolbox:v3.0.0" in calls
+
+
+def test_release_attach_does_not_refresh_image(tmp_path):
+    _, calls = run_loader(tmp_path, ["--existing", "attach"])
+    assert not any(line.startswith("pull ") for line in calls.splitlines())
+
+
+def test_dev_start_preserves_cached_image(tmp_path):
+    _, calls = run_loader(tmp_path, [], running=False, dev_repo=str(ROOT))
+    assert not any(line.startswith("pull ") for line in calls.splitlines())
+
+
+def test_offline_start_warns_and_uses_cache(tmp_path):
+    result, calls = run_loader(tmp_path, [], running=False, pull_ok=False)
+    assert "using the cached image" in result.stderr
+    assert "compose --project-name" in calls
+
+
+def test_offline_start_without_cache_fails_before_creation(tmp_path):
+    result, calls = run_loader(tmp_path, [], running=False, cached=False, pull_ok=False)
+    assert "could not download" in result.stderr
+    assert "compose --project-name" not in calls
