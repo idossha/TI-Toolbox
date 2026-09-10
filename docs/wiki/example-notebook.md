@@ -10,7 +10,7 @@ permalink: /wiki/example-notebook/
 <a href="https://github.com/idossha/TI-Toolbox/blob/main/docs/assets/notebooks/example_workflow.ipynb">View on GitHub</a>
 </p>
 
-This page is a Jupyter notebook that was executed inside the TI-Toolbox container against Dataset 000 and exported as-is. Every output, table and figure below is real. Download the `.ipynb`, drop it into the container's JupyterLab (`NOTEBOOK`, then <http://localhost:8888>) and run it against your own project.
+This page is a Jupyter notebook that was executed inside the TI-Toolbox container against Dataset 000 and exported as-is. Every output, table and figure below is real. Download the `.ipynb` and import it on the app's [Notebooks]({{ site.baseurl }}/wiki/notebooks/) page (**Import .ipynb**) to run it against your own project — the kernel there is the container's SimNIBS Python, so nothing needs installing.
 
 An end-to-end example of the `tit` Python API, run against the public **Dataset 000** (`sub-ernie`)
 inside the TI-Toolbox container. Every cell below was executed for real; the outputs are the
@@ -26,10 +26,11 @@ What it covers:
 6. Plotting the result inline with nilearn / matplotlib
 7. A batch loop over subjects
 
-**How to run it yourself:** start the toolbox, open a shell in the container
-(`docker exec -it simnibs_container bash`), run `NOTEBOOK`, open <http://localhost:8888>,
-upload this file and pick the *SimNIBS + TI-Toolbox* kernel. Change `PROJECT` and `SUBJECT`
-to match your data. The simulation cell takes a few minutes on a single core.
+**How to run it yourself:** open your project, go to **Notebooks**, and choose **Import .ipynb**.
+Use the *SimNIBS + TI-Toolbox* kernel. Change `PROJECT` to your project's container path
+(`/mnt/<project-name>`) and `SUBJECT` to match your data before running cells. The saved outputs
+below record the example execution; your subject list, paths, timings and numerical results
+will depend on your dataset and toolbox version.
 
 ## 1. Project and subjects
 
@@ -85,7 +86,7 @@ print(montage.name, montage.simulation_mode, montage.electrode_pairs)
 
 ## 3. Run a TI simulation
 
-`SimulationConfig` holds everything the GUI's Simulator tab asks for. Two electrode pairs
+`SimulationConfig` holds everything the Simulator page asks for. Two electrode pairs
 → standard TI; four or more → mTI, detected automatically. `map_to_mni=True` also writes
 MNI-space NIfTIs so we can overlay the result on a template later.
 

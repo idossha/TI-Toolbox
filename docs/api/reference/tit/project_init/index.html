@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
     
     
       
@@ -879,6 +879,185 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="project_init">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tit.project_init.initialize_project_structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        initialize_project_structure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="initialize_project_structure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tit.project_init.initialize_project_structure--parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.project_init.is_new_project" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        is_new_project
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="is_new_project">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tit.project_init.is_new_project--parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.project_init.is_new_project--returns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Returns
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.project_init.load_project_status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        load_project_status
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="load_project_status">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tit.project_init.load_project_status--parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.project_init.setup_example_data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        setup_example_data
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="setup_example_data">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tit.project_init.setup_example_data--parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.project_init.setup_example_data--returns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Returns
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.project_init.update_project_status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        update_project_status
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="update_project_status">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tit.project_init.update_project_status--parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.project_init.update_project_status--returns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Returns
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -928,13 +1107,8 @@
   
     
     
-      
-  
-  
-    
-    
       <li class="md-path__item">
-        <a href="../analyzer/analyzer/" class="md-path__link">
+        <a href="../_mti_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -948,22 +1122,14 @@
     
   
 
-    
-  
-
       
         
   
   
     
     
-      
-  
-  
-    
-    
       <li class="md-path__item">
-        <a href="../analyzer/analyzer/" class="md-path__link">
+        <a href="../_mti_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -971,9 +1137,6 @@
 
         </a>
       </li>
-    
-  
-
     
   
 
@@ -1006,6 +1169,8 @@
     <div class="doc doc-contents first">
 
         <p>Project initialization helpers for TI-Toolbox.</p>
+<p>Provides utilities for detecting new projects, scaffolding BIDS-compliant
+directory structures, and copying bundled example data into a fresh project.</p>
 
 
 
@@ -1024,6 +1189,464 @@
 
 
 
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.project_init.initialize_project_structure" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">initialize_project_structure</span>
+
+
+<a href="#tit.project_init.initialize_project_structure" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">initialize_project_structure</span><span class="p">(</span><span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Scaffold a full BIDS-compliant directory structure for a new project.</p>
+<h5 id="tit.project_init.initialize_project_structure--parameters">Parameters<a class="headerlink" href="#tit.project_init.initialize_project_structure--parameters" title="Permanent link">&para;</a></h5>
+<p>project_dir : Path
+    Root directory of the new project.  Directories, metadata files,
+    README, and an initialization marker are created idempotently.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/project_init/initializer.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-289">289</a></span>
+<span class="normal"><a href="#__codelineno-0-290">290</a></span>
+<span class="normal"><a href="#__codelineno-0-291">291</a></span>
+<span class="normal"><a href="#__codelineno-0-292">292</a></span>
+<span class="normal"><a href="#__codelineno-0-293">293</a></span>
+<span class="normal"><a href="#__codelineno-0-294">294</a></span>
+<span class="normal"><a href="#__codelineno-0-295">295</a></span>
+<span class="normal"><a href="#__codelineno-0-296">296</a></span>
+<span class="normal"><a href="#__codelineno-0-297">297</a></span>
+<span class="normal"><a href="#__codelineno-0-298">298</a></span>
+<span class="normal"><a href="#__codelineno-0-299">299</a></span>
+<span class="normal"><a href="#__codelineno-0-300">300</a></span>
+<span class="normal"><a href="#__codelineno-0-301">301</a></span>
+<span class="normal"><a href="#__codelineno-0-302">302</a></span>
+<span class="normal"><a href="#__codelineno-0-303">303</a></span>
+<span class="normal"><a href="#__codelineno-0-304">304</a></span>
+<span class="normal"><a href="#__codelineno-0-305">305</a></span>
+<span class="normal"><a href="#__codelineno-0-306">306</a></span>
+<span class="normal"><a href="#__codelineno-0-307">307</a></span>
+<span class="normal"><a href="#__codelineno-0-308">308</a></span>
+<span class="normal"><a href="#__codelineno-0-309">309</a></span>
+<span class="normal"><a href="#__codelineno-0-310">310</a></span>
+<span class="normal"><a href="#__codelineno-0-311">311</a></span>
+<span class="normal"><a href="#__codelineno-0-312">312</a></span>
+<span class="normal"><a href="#__codelineno-0-313">313</a></span>
+<span class="normal"><a href="#__codelineno-0-314">314</a></span>
+<span class="normal"><a href="#__codelineno-0-315">315</a></span>
+<span class="normal"><a href="#__codelineno-0-316">316</a></span>
+<span class="normal"><a href="#__codelineno-0-317">317</a></span>
+<span class="normal"><a href="#__codelineno-0-318">318</a></span>
+<span class="normal"><a href="#__codelineno-0-319">319</a></span>
+<span class="normal"><a href="#__codelineno-0-320">320</a></span>
+<span class="normal"><a href="#__codelineno-0-321">321</a></span>
+<span class="normal"><a href="#__codelineno-0-322">322</a></span>
+<span class="normal"><a href="#__codelineno-0-323">323</a></span>
+<span class="normal"><a href="#__codelineno-0-324">324</a></span>
+<span class="normal"><a href="#__codelineno-0-325">325</a></span>
+<span class="normal"><a href="#__codelineno-0-326">326</a></span>
+<span class="normal"><a href="#__codelineno-0-327">327</a></span>
+<span class="normal"><a href="#__codelineno-0-328">328</a></span>
+<span class="normal"><a href="#__codelineno-0-329">329</a></span>
+<span class="normal"><a href="#__codelineno-0-330">330</a></span>
+<span class="normal"><a href="#__codelineno-0-331">331</a></span>
+<span class="normal"><a href="#__codelineno-0-332">332</a></span>
+<span class="normal"><a href="#__codelineno-0-333">333</a></span>
+<span class="normal"><a href="#__codelineno-0-334">334</a></span>
+<span class="normal"><a href="#__codelineno-0-335">335</a></span>
+<span class="normal"><a href="#__codelineno-0-336">336</a></span>
+<span class="normal"><a href="#__codelineno-0-337">337</a></span>
+<span class="normal"><a href="#__codelineno-0-338">338</a></span>
+<span class="normal"><a href="#__codelineno-0-339">339</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-289" name="__codelineno-0-289"></a><span class="k">def</span><span class="w"> </span><span class="nf">initialize_project_structure</span><span class="p">(</span><span class="n">project_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-290" name="__codelineno-0-290"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Scaffold a full BIDS-compliant directory structure for a new project.</span>
+<a id="__codelineno-0-291" name="__codelineno-0-291"></a>
+<a id="__codelineno-0-292" name="__codelineno-0-292"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-293" name="__codelineno-0-293"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-294" name="__codelineno-0-294"></a><span class="sd">    project_dir : Path</span>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a><span class="sd">        Root directory of the new project.  Directories, metadata files,</span>
+<a id="__codelineno-0-296" name="__codelineno-0-296"></a><span class="sd">        README, and an initialization marker are created idempotently.</span>
+<a id="__codelineno-0-297" name="__codelineno-0-297"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-298" name="__codelineno-0-298"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-299" name="__codelineno-0-299"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  New project detected: </span><span class="si">{</span><span class="n">project_dir</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  Initializing BIDS-compliant structure...&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-302" name="__codelineno-0-302"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-303" name="__codelineno-0-303"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a>
+<a id="__codelineno-0-305" name="__codelineno-0-305"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Creating directory structure...&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-306" name="__codelineno-0-306"></a>    <span class="p">(</span><span class="n">project_dir</span> <span class="o">/</span> <span class="s2">&quot;code&quot;</span> <span class="o">/</span> <span class="s2">&quot;ti-toolbox&quot;</span> <span class="o">/</span> <span class="s2">&quot;config&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-307" name="__codelineno-0-307"></a>    <span class="p">(</span><span class="n">project_dir</span> <span class="o">/</span> <span class="s2">&quot;derivatives&quot;</span> <span class="o">/</span> <span class="s2">&quot;freesurfer&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-308" name="__codelineno-0-308"></a>    <span class="p">(</span><span class="n">project_dir</span> <span class="o">/</span> <span class="s2">&quot;derivatives&quot;</span> <span class="o">/</span> <span class="s2">&quot;SimNIBS&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-309" name="__codelineno-0-309"></a>    <span class="p">(</span><span class="n">project_dir</span> <span class="o">/</span> <span class="s2">&quot;sourcedata&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-310" name="__codelineno-0-310"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  ✓ Directories created&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-311" name="__codelineno-0-311"></a>
+<a id="__codelineno-0-312" name="__codelineno-0-312"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Creating BIDS metadata files...&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-313" name="__codelineno-0-313"></a>    <span class="n">initialize_readme</span><span class="p">(</span><span class="n">project_dir</span><span class="p">)</span>
+<a id="__codelineno-0-314" name="__codelineno-0-314"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  ✓ README created&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-315" name="__codelineno-0-315"></a>
+<a id="__codelineno-0-316" name="__codelineno-0-316"></a>    <span class="n">initialize_dataset_description</span><span class="p">(</span><span class="n">project_dir</span><span class="p">)</span>
+<a id="__codelineno-0-317" name="__codelineno-0-317"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  ✓ Root dataset_description.json created&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-318" name="__codelineno-0-318"></a>
+<a id="__codelineno-0-319" name="__codelineno-0-319"></a>    <span class="n">initialize_derivative_dataset_description</span><span class="p">(</span><span class="n">project_dir</span><span class="p">,</span> <span class="s2">&quot;ti-toolbox&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-320" name="__codelineno-0-320"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  ✓ ti-toolbox dataset_description.json created&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-321" name="__codelineno-0-321"></a>
+<a id="__codelineno-0-322" name="__codelineno-0-322"></a>    <span class="n">initialize_derivative_dataset_description</span><span class="p">(</span><span class="n">project_dir</span><span class="p">,</span> <span class="s2">&quot;freesurfer&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-323" name="__codelineno-0-323"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  ✓ freesurfer dataset_description.json created&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-324" name="__codelineno-0-324"></a>
+<a id="__codelineno-0-325" name="__codelineno-0-325"></a>    <span class="n">initialize_derivative_dataset_description</span><span class="p">(</span><span class="n">project_dir</span><span class="p">,</span> <span class="s2">&quot;SimNIBS&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-326" name="__codelineno-0-326"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  ✓ SimNIBS dataset_description.json created&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-327" name="__codelineno-0-327"></a>
+<a id="__codelineno-0-328" name="__codelineno-0-328"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Creating project configuration...&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-329" name="__codelineno-0-329"></a>    <span class="n">initialize_project_status</span><span class="p">(</span><span class="n">project_dir</span><span class="p">)</span>
+<a id="__codelineno-0-330" name="__codelineno-0-330"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  ✓ Project status file created&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-331" name="__codelineno-0-331"></a>
+<a id="__codelineno-0-332" name="__codelineno-0-332"></a>    <span class="p">(</span><span class="n">project_dir</span> <span class="o">/</span> <span class="s2">&quot;code&quot;</span> <span class="o">/</span> <span class="s2">&quot;ti-toolbox&quot;</span> <span class="o">/</span> <span class="s2">&quot;config&quot;</span> <span class="o">/</span> <span class="s2">&quot;.initialized&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">touch</span><span class="p">()</span>
+<a id="__codelineno-0-333" name="__codelineno-0-333"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  ✓ Initialization marker created&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-334" name="__codelineno-0-334"></a>
+<a id="__codelineno-0-335" name="__codelineno-0-335"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-336" name="__codelineno-0-336"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-337" name="__codelineno-0-337"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  ✓ Project initialization complete!&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-338" name="__codelineno-0-338"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-339" name="__codelineno-0-339"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.project_init.is_new_project" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">is_new_project</span>
+
+
+<a href="#tit.project_init.is_new_project" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">is_new_project</span><span class="p">(</span><span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Return <code>True</code> if <em>project_dir</em> exists and contains no project data.</p>
+<h5 id="tit.project_init.is_new_project--parameters">Parameters<a class="headerlink" href="#tit.project_init.is_new_project--parameters" title="Permanent link">&para;</a></h5>
+<p>project_dir : Path
+    Root directory of the project.</p>
+<h5 id="tit.project_init.is_new_project--returns">Returns<a class="headerlink" href="#tit.project_init.is_new_project--returns" title="Permanent link">&para;</a></h5>
+<p>bool
+    <code>True</code> when the directory is empty of project data and markers.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/project_init/initializer.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-76">76</a></span>
+<span class="normal"><a href="#__codelineno-0-77">77</a></span>
+<span class="normal"><a href="#__codelineno-0-78">78</a></span>
+<span class="normal"><a href="#__codelineno-0-79">79</a></span>
+<span class="normal"><a href="#__codelineno-0-80">80</a></span>
+<span class="normal"><a href="#__codelineno-0-81">81</a></span>
+<span class="normal"><a href="#__codelineno-0-82">82</a></span>
+<span class="normal"><a href="#__codelineno-0-83">83</a></span>
+<span class="normal"><a href="#__codelineno-0-84">84</a></span>
+<span class="normal"><a href="#__codelineno-0-85">85</a></span>
+<span class="normal"><a href="#__codelineno-0-86">86</a></span>
+<span class="normal"><a href="#__codelineno-0-87">87</a></span>
+<span class="normal"><a href="#__codelineno-0-88">88</a></span>
+<span class="normal"><a href="#__codelineno-0-89">89</a></span>
+<span class="normal"><a href="#__codelineno-0-90">90</a></span>
+<span class="normal"><a href="#__codelineno-0-91">91</a></span>
+<span class="normal"><a href="#__codelineno-0-92">92</a></span>
+<span class="normal"><a href="#__codelineno-0-93">93</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-76" name="__codelineno-0-76"></a><span class="k">def</span><span class="w"> </span><span class="nf">is_new_project</span><span class="p">(</span><span class="n">project_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<a id="__codelineno-0-77" name="__codelineno-0-77"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return ``True`` if *project_dir* exists and contains no project data.</span>
+<a id="__codelineno-0-78" name="__codelineno-0-78"></a>
+<a id="__codelineno-0-79" name="__codelineno-0-79"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-80" name="__codelineno-0-80"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-81" name="__codelineno-0-81"></a><span class="sd">    project_dir : Path</span>
+<a id="__codelineno-0-82" name="__codelineno-0-82"></a><span class="sd">        Root directory of the project.</span>
+<a id="__codelineno-0-83" name="__codelineno-0-83"></a>
+<a id="__codelineno-0-84" name="__codelineno-0-84"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-85" name="__codelineno-0-85"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-86" name="__codelineno-0-86"></a><span class="sd">    bool</span>
+<a id="__codelineno-0-87" name="__codelineno-0-87"></a><span class="sd">        ``True`` when the directory is empty of project data and markers.</span>
+<a id="__codelineno-0-88" name="__codelineno-0-88"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-89" name="__codelineno-0-89"></a>    <span class="k">return</span> <span class="p">(</span>
+<a id="__codelineno-0-90" name="__codelineno-0-90"></a>        <span class="n">project_dir</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span>
+<a id="__codelineno-0-91" name="__codelineno-0-91"></a>        <span class="ow">and</span> <span class="n">project_dir</span><span class="o">.</span><span class="n">is_dir</span><span class="p">()</span>
+<a id="__codelineno-0-92" name="__codelineno-0-92"></a>        <span class="ow">and</span> <span class="ow">not</span> <span class="n">has_project_data_or_markers</span><span class="p">(</span><span class="n">project_dir</span><span class="p">)</span>
+<a id="__codelineno-0-93" name="__codelineno-0-93"></a>    <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.project_init.load_project_status" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">load_project_status</span>
+
+
+<a href="#tit.project_init.load_project_status" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_project_status</span><span class="p">(</span><span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Read <code>project_status.json</code> and return its contents.</p>
+<p>Returns an <strong>empty dict</strong> when the file is missing or unreadable.
+This function never writes to disk.</p>
+<h5 id="tit.project_init.load_project_status--parameters">Parameters<a class="headerlink" href="#tit.project_init.load_project_status--parameters" title="Permanent link">&para;</a></h5>
+<p>project_dir : Path
+    Root directory of the project.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/project_init/initializer.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-197">197</a></span>
+<span class="normal"><a href="#__codelineno-0-198">198</a></span>
+<span class="normal"><a href="#__codelineno-0-199">199</a></span>
+<span class="normal"><a href="#__codelineno-0-200">200</a></span>
+<span class="normal"><a href="#__codelineno-0-201">201</a></span>
+<span class="normal"><a href="#__codelineno-0-202">202</a></span>
+<span class="normal"><a href="#__codelineno-0-203">203</a></span>
+<span class="normal"><a href="#__codelineno-0-204">204</a></span>
+<span class="normal"><a href="#__codelineno-0-205">205</a></span>
+<span class="normal"><a href="#__codelineno-0-206">206</a></span>
+<span class="normal"><a href="#__codelineno-0-207">207</a></span>
+<span class="normal"><a href="#__codelineno-0-208">208</a></span>
+<span class="normal"><a href="#__codelineno-0-209">209</a></span>
+<span class="normal"><a href="#__codelineno-0-210">210</a></span>
+<span class="normal"><a href="#__codelineno-0-211">211</a></span>
+<span class="normal"><a href="#__codelineno-0-212">212</a></span>
+<span class="normal"><a href="#__codelineno-0-213">213</a></span>
+<span class="normal"><a href="#__codelineno-0-214">214</a></span>
+<span class="normal"><a href="#__codelineno-0-215">215</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_project_status</span><span class="p">(</span><span class="n">project_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<a id="__codelineno-0-198" name="__codelineno-0-198"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Read ``project_status.json`` and return its contents.</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a>
+<a id="__codelineno-0-200" name="__codelineno-0-200"></a><span class="sd">    Returns an **empty dict** when the file is missing or unreadable.</span>
+<a id="__codelineno-0-201" name="__codelineno-0-201"></a><span class="sd">    This function never writes to disk.</span>
+<a id="__codelineno-0-202" name="__codelineno-0-202"></a>
+<a id="__codelineno-0-203" name="__codelineno-0-203"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-204" name="__codelineno-0-204"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-205" name="__codelineno-0-205"></a><span class="sd">    project_dir : Path</span>
+<a id="__codelineno-0-206" name="__codelineno-0-206"></a><span class="sd">        Root directory of the project.</span>
+<a id="__codelineno-0-207" name="__codelineno-0-207"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-208" name="__codelineno-0-208"></a>    <span class="n">status_file</span> <span class="o">=</span> <span class="n">_status_file_path</span><span class="p">(</span><span class="n">project_dir</span><span class="p">)</span>
+<a id="__codelineno-0-209" name="__codelineno-0-209"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">status_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+<a id="__codelineno-0-210" name="__codelineno-0-210"></a>        <span class="k">return</span> <span class="p">{}</span>
+<a id="__codelineno-0-211" name="__codelineno-0-211"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-212" name="__codelineno-0-212"></a>        <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">status_file</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
+<a id="__codelineno-0-213" name="__codelineno-0-213"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-0-214" name="__codelineno-0-214"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Could not read </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">status_file</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+<a id="__codelineno-0-215" name="__codelineno-0-215"></a>        <span class="k">return</span> <span class="p">{}</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.project_init.setup_example_data" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">setup_example_data</span>
+
+
+<a href="#tit.project_init.setup_example_data" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">setup_example_data</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">toolbox_root</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span> <span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Copy bundled example data into <em>project_dir</em>.</p>
+<h5 id="tit.project_init.setup_example_data--parameters">Parameters<a class="headerlink" href="#tit.project_init.setup_example_data--parameters" title="Permanent link">&para;</a></h5>
+<p>toolbox_root : Path
+    Root of the TI-Toolbox installation (contains example data).
+project_dir : Path
+    Target project directory.</p>
+<h5 id="tit.project_init.setup_example_data--returns">Returns<a class="headerlink" href="#tit.project_init.setup_example_data--returns" title="Permanent link">&para;</a></h5>
+<p>bool
+    <code>True</code> on success, <code>False</code> on failure.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/project_init/initializer.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-342">342</a></span>
+<span class="normal"><a href="#__codelineno-0-343">343</a></span>
+<span class="normal"><a href="#__codelineno-0-344">344</a></span>
+<span class="normal"><a href="#__codelineno-0-345">345</a></span>
+<span class="normal"><a href="#__codelineno-0-346">346</a></span>
+<span class="normal"><a href="#__codelineno-0-347">347</a></span>
+<span class="normal"><a href="#__codelineno-0-348">348</a></span>
+<span class="normal"><a href="#__codelineno-0-349">349</a></span>
+<span class="normal"><a href="#__codelineno-0-350">350</a></span>
+<span class="normal"><a href="#__codelineno-0-351">351</a></span>
+<span class="normal"><a href="#__codelineno-0-352">352</a></span>
+<span class="normal"><a href="#__codelineno-0-353">353</a></span>
+<span class="normal"><a href="#__codelineno-0-354">354</a></span>
+<span class="normal"><a href="#__codelineno-0-355">355</a></span>
+<span class="normal"><a href="#__codelineno-0-356">356</a></span>
+<span class="normal"><a href="#__codelineno-0-357">357</a></span>
+<span class="normal"><a href="#__codelineno-0-358">358</a></span>
+<span class="normal"><a href="#__codelineno-0-359">359</a></span>
+<span class="normal"><a href="#__codelineno-0-360">360</a></span>
+<span class="normal"><a href="#__codelineno-0-361">361</a></span>
+<span class="normal"><a href="#__codelineno-0-362">362</a></span>
+<span class="normal"><a href="#__codelineno-0-363">363</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-342" name="__codelineno-0-342"></a><span class="k">def</span><span class="w"> </span><span class="nf">setup_example_data</span><span class="p">(</span><span class="n">toolbox_root</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">project_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<a id="__codelineno-0-343" name="__codelineno-0-343"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Copy bundled example data into *project_dir*.</span>
+<a id="__codelineno-0-344" name="__codelineno-0-344"></a>
+<a id="__codelineno-0-345" name="__codelineno-0-345"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-346" name="__codelineno-0-346"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-347" name="__codelineno-0-347"></a><span class="sd">    toolbox_root : Path</span>
+<a id="__codelineno-0-348" name="__codelineno-0-348"></a><span class="sd">        Root of the TI-Toolbox installation (contains example data).</span>
+<a id="__codelineno-0-349" name="__codelineno-0-349"></a><span class="sd">    project_dir : Path</span>
+<a id="__codelineno-0-350" name="__codelineno-0-350"></a><span class="sd">        Target project directory.</span>
+<a id="__codelineno-0-351" name="__codelineno-0-351"></a>
+<a id="__codelineno-0-352" name="__codelineno-0-352"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-353" name="__codelineno-0-353"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-354" name="__codelineno-0-354"></a><span class="sd">    bool</span>
+<a id="__codelineno-0-355" name="__codelineno-0-355"></a><span class="sd">        ``True`` on success, ``False`` on failure.</span>
+<a id="__codelineno-0-356" name="__codelineno-0-356"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-357" name="__codelineno-0-357"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-358" name="__codelineno-0-358"></a>        <span class="n">success</span><span class="p">,</span> <span class="n">_subjects</span> <span class="o">=</span> <span class="n">example_data_manager</span><span class="o">.</span><span class="n">setup_example_data</span><span class="p">(</span>
+<a id="__codelineno-0-359" name="__codelineno-0-359"></a>            <span class="nb">str</span><span class="p">(</span><span class="n">toolbox_root</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">project_dir</span><span class="p">)</span>
+<a id="__codelineno-0-360" name="__codelineno-0-360"></a>        <span class="p">)</span>
+<a id="__codelineno-0-361" name="__codelineno-0-361"></a>        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">success</span><span class="p">)</span>
+<a id="__codelineno-0-362" name="__codelineno-0-362"></a>    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+<a id="__codelineno-0-363" name="__codelineno-0-363"></a>        <span class="k">return</span> <span class="kc">False</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.project_init.update_project_status" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">update_project_status</span>
+
+
+<a href="#tit.project_init.update_project_status" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">update_project_status</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span> <span class="n">updates</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Merge <em>updates</em> into <code>project_status.json</code> and write back.</p>
+<p>Performs a recursive (deep) merge so that nested keys such as
+<code>user_preferences.show_welcome</code> can be updated without clobbering
+sibling keys.  Automatically sets <code>last_updated</code>.</p>
+<p>If the file does not yet exist a warning is logged and the function
+returns <code>False</code> — the file should have been created by
+:func:<code>initialize_project_status</code>.</p>
+<h5 id="tit.project_init.update_project_status--parameters">Parameters<a class="headerlink" href="#tit.project_init.update_project_status--parameters" title="Permanent link">&para;</a></h5>
+<p>project_dir : Path
+    Root directory of the project.
+updates : dict
+    Fields to merge into the existing status.</p>
+<h5 id="tit.project_init.update_project_status--returns">Returns<a class="headerlink" href="#tit.project_init.update_project_status--returns" title="Permanent link">&para;</a></h5>
+<p>bool
+    <code>True</code> on success.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/project_init/initializer.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-218">218</a></span>
+<span class="normal"><a href="#__codelineno-0-219">219</a></span>
+<span class="normal"><a href="#__codelineno-0-220">220</a></span>
+<span class="normal"><a href="#__codelineno-0-221">221</a></span>
+<span class="normal"><a href="#__codelineno-0-222">222</a></span>
+<span class="normal"><a href="#__codelineno-0-223">223</a></span>
+<span class="normal"><a href="#__codelineno-0-224">224</a></span>
+<span class="normal"><a href="#__codelineno-0-225">225</a></span>
+<span class="normal"><a href="#__codelineno-0-226">226</a></span>
+<span class="normal"><a href="#__codelineno-0-227">227</a></span>
+<span class="normal"><a href="#__codelineno-0-228">228</a></span>
+<span class="normal"><a href="#__codelineno-0-229">229</a></span>
+<span class="normal"><a href="#__codelineno-0-230">230</a></span>
+<span class="normal"><a href="#__codelineno-0-231">231</a></span>
+<span class="normal"><a href="#__codelineno-0-232">232</a></span>
+<span class="normal"><a href="#__codelineno-0-233">233</a></span>
+<span class="normal"><a href="#__codelineno-0-234">234</a></span>
+<span class="normal"><a href="#__codelineno-0-235">235</a></span>
+<span class="normal"><a href="#__codelineno-0-236">236</a></span>
+<span class="normal"><a href="#__codelineno-0-237">237</a></span>
+<span class="normal"><a href="#__codelineno-0-238">238</a></span>
+<span class="normal"><a href="#__codelineno-0-239">239</a></span>
+<span class="normal"><a href="#__codelineno-0-240">240</a></span>
+<span class="normal"><a href="#__codelineno-0-241">241</a></span>
+<span class="normal"><a href="#__codelineno-0-242">242</a></span>
+<span class="normal"><a href="#__codelineno-0-243">243</a></span>
+<span class="normal"><a href="#__codelineno-0-244">244</a></span>
+<span class="normal"><a href="#__codelineno-0-245">245</a></span>
+<span class="normal"><a href="#__codelineno-0-246">246</a></span>
+<span class="normal"><a href="#__codelineno-0-247">247</a></span>
+<span class="normal"><a href="#__codelineno-0-248">248</a></span>
+<span class="normal"><a href="#__codelineno-0-249">249</a></span>
+<span class="normal"><a href="#__codelineno-0-250">250</a></span>
+<span class="normal"><a href="#__codelineno-0-251">251</a></span>
+<span class="normal"><a href="#__codelineno-0-252">252</a></span>
+<span class="normal"><a href="#__codelineno-0-253">253</a></span>
+<span class="normal"><a href="#__codelineno-0-254">254</a></span>
+<span class="normal"><a href="#__codelineno-0-255">255</a></span>
+<span class="normal"><a href="#__codelineno-0-256">256</a></span>
+<span class="normal"><a href="#__codelineno-0-257">257</a></span>
+<span class="normal"><a href="#__codelineno-0-258">258</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-218" name="__codelineno-0-218"></a><span class="k">def</span><span class="w"> </span><span class="nf">update_project_status</span><span class="p">(</span><span class="n">project_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">updates</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<a id="__codelineno-0-219" name="__codelineno-0-219"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Merge *updates* into ``project_status.json`` and write back.</span>
+<a id="__codelineno-0-220" name="__codelineno-0-220"></a>
+<a id="__codelineno-0-221" name="__codelineno-0-221"></a><span class="sd">    Performs a recursive (deep) merge so that nested keys such as</span>
+<a id="__codelineno-0-222" name="__codelineno-0-222"></a><span class="sd">    ``user_preferences.show_welcome`` can be updated without clobbering</span>
+<a id="__codelineno-0-223" name="__codelineno-0-223"></a><span class="sd">    sibling keys.  Automatically sets ``last_updated``.</span>
+<a id="__codelineno-0-224" name="__codelineno-0-224"></a>
+<a id="__codelineno-0-225" name="__codelineno-0-225"></a><span class="sd">    If the file does not yet exist a warning is logged and the function</span>
+<a id="__codelineno-0-226" name="__codelineno-0-226"></a><span class="sd">    returns ``False`` — the file should have been created by</span>
+<a id="__codelineno-0-227" name="__codelineno-0-227"></a><span class="sd">    :func:`initialize_project_status`.</span>
+<a id="__codelineno-0-228" name="__codelineno-0-228"></a>
+<a id="__codelineno-0-229" name="__codelineno-0-229"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-230" name="__codelineno-0-230"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-231" name="__codelineno-0-231"></a><span class="sd">    project_dir : Path</span>
+<a id="__codelineno-0-232" name="__codelineno-0-232"></a><span class="sd">        Root directory of the project.</span>
+<a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="sd">    updates : dict</span>
+<a id="__codelineno-0-234" name="__codelineno-0-234"></a><span class="sd">        Fields to merge into the existing status.</span>
+<a id="__codelineno-0-235" name="__codelineno-0-235"></a>
+<a id="__codelineno-0-236" name="__codelineno-0-236"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-237" name="__codelineno-0-237"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-238" name="__codelineno-0-238"></a><span class="sd">    bool</span>
+<a id="__codelineno-0-239" name="__codelineno-0-239"></a><span class="sd">        ``True`` on success.</span>
+<a id="__codelineno-0-240" name="__codelineno-0-240"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-241" name="__codelineno-0-241"></a>    <span class="n">status_file</span> <span class="o">=</span> <span class="n">_status_file_path</span><span class="p">(</span><span class="n">project_dir</span><span class="p">)</span>
+<a id="__codelineno-0-242" name="__codelineno-0-242"></a>    <span class="n">current</span> <span class="o">=</span> <span class="n">load_project_status</span><span class="p">(</span><span class="n">project_dir</span><span class="p">)</span>
+<a id="__codelineno-0-243" name="__codelineno-0-243"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">current</span><span class="p">:</span>
+<a id="__codelineno-0-244" name="__codelineno-0-244"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+<a id="__codelineno-0-245" name="__codelineno-0-245"></a>            <span class="s2">&quot;project_status.json does not exist at </span><span class="si">%s</span><span class="s2"> — skipping update&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-246" name="__codelineno-0-246"></a>            <span class="n">status_file</span><span class="p">,</span>
+<a id="__codelineno-0-247" name="__codelineno-0-247"></a>        <span class="p">)</span>
+<a id="__codelineno-0-248" name="__codelineno-0-248"></a>        <span class="k">return</span> <span class="kc">False</span>
+<a id="__codelineno-0-249" name="__codelineno-0-249"></a>
+<a id="__codelineno-0-250" name="__codelineno-0-250"></a>    <span class="n">_deep_merge</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">updates</span><span class="p">)</span>
+<a id="__codelineno-0-251" name="__codelineno-0-251"></a>    <span class="n">current</span><span class="p">[</span><span class="s2">&quot;last_updated&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2">T%H:%M:%S&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-252" name="__codelineno-0-252"></a>
+<a id="__codelineno-0-253" name="__codelineno-0-253"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-254" name="__codelineno-0-254"></a>        <span class="n">status_file</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a>        <span class="k">return</span> <span class="kc">True</span>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Failed to write </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">status_file</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a>        <span class="k">return</span> <span class="kc">False</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
 
 
 

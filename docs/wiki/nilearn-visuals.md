@@ -44,7 +44,7 @@ Configure which subjects and simulations to include in the group average:
 
 ### Basic Group Visualization
 
-1. **Launch Extension**: Extensions button → "Nilearn Visuals"
+1. **Open tool**: enable **Nilearn visuals** in **Settings → Optional tools**, then select it under **Extensions** in the sidebar
 2. **Configure Subjects**: Add subject-simulation pairs for averaging
 3. **Set Parameters**:
    - Output directory: `hippocampus_stimulation`

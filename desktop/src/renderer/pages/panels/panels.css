@@ -1,0 +1,133 @@
+/* Shared geometry for the job-submitting panels (fix round, lane FIX-D, defect 4).
+ *
+ * The measurement these rules answer: at 1280x800 with nothing chosen, `panel-source` was 82.3 %
+ * dead, `panel-nilearn-visuals` 71.1 %, `panel-cluster-permutation` 74.4 % and
+ * `panel-nifti-group-average` 65.3 % — a single 826-px-wide column of cards in a 1224 x 704 box,
+ * with the whole lower half of the page ground. Two rules fix most of it, and neither is padding:
+ * the page uses the width it was given, and the page's own primary lives in the action bar every
+ * other run screen puts it in, so the bottom of the pane is the bar rather than nothing.
+ */
+
+.panel-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  /* The page fills the scrollport it is in, so a column that says "grow" has something to grow
+     into. Without this the split is only as tall as its tallest card and the rest of the pane is
+     ground — 35-40 % of the page height, measured. */
+  min-height: 100%;
+}
+
+/* One row of cards that reflows, rather than a stack that ignores 400-600 px of width.
+   `minmax(340px, 1fr)` is the width below which a label-left `Field` row stops being honest
+   (DESIGN.md §4.2's 760 px two-up rule, halved: these cards hold single-column fields), so a
+   1224 px pane fits three and an 826 px one fits two. `min-width: 0` on the children is what keeps
+   a wide table inside its own scroll container instead of pushing the page sideways (§4.3). */
+.panel-page-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: var(--space-3);
+  align-items: start;
+}
+.panel-page-columns > * {
+  min-width: 0;
+}
+
+/* The Plan lives in the right pane, exactly where the four run pages put it — so the page reads
+   the same way (Subjects, then what will run, then the plan beside it, then the action bar) and
+   the 360 px column carries content instead of the page's own bottom third being ground. */
+.panel-plan-pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* Legacy two-column inputs for panels without a dedicated run pane. */
+.panel-page-split {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  gap: var(--space-3);
+  align-items: stretch;
+}
+/* One column below the width where the right column would stop holding a label-left field row
+   (DESIGN.md §4.2's two-up rule), mirroring the shell's own stacking step. */
+@media (max-width: 1099px) {
+  .panel-page-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.panel-page-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
+}
+/* The participants table is the column's growing child; its ground rows reach the bottom of the
+   box (`fill`), so the page ends where the pane ends instead of two rows down. */
+.panel-page-col > .participants-field {
+  flex: 1;
+  min-height: 0;
+}
+.participants-scroll[data-fill="true"] {
+  flex: 1;
+  min-height: 0;
+}
+
+/* A browse table that stops a quarter of the way down the page reads as broken, not as a short
+ * list. The ground rows are `ui/DataTable`'s own now (`fill`) — this file used to paint the same
+ * repeating gradient behind the table, and `jobs-page.css` carried an identical copy of the rule.
+ * What is left here is only the page's part: give the card the height, and let the table fill it. */
+.panel-fill-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.panel-fill-card > .card-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The Source panel keeps its vertical stack (Subjects, then the two pipelines), so the growing
+ * child is the subject table itself: `[data-tier="1"]` becomes the column it grows in. The two
+ * overrides that used to live here — lifting `.run-subject-scroll`'s 176px cap and painting ground
+ * rows behind the table because the rows belong to `SubjectsField` — are gone: the control takes
+ * `fill` (`pages/_shared/subjects/types.ts`), measures the room and draws real rows into it, so
+ * one control's geometry is no longer decided in another page's stylesheet.
+ */
+.panel-page [data-tier="1"] {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* Inputs scroll on the left; the dedicated run pane gives its remaining height to the log. */
+.extension-inputs { min-height: 0; }
+.extension-inputs .panel-page-split { grid-template-columns: minmax(0, 1fr); }
+.extension-inputs [data-tier="1"] { flex: none; }
+.extension-plan {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 45%;
+}
+.extension-plan-body {
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-2);
+}

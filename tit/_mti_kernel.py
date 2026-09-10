@@ -39,10 +39,15 @@ except Exception:  # noqa: BLE001 - any import failure means "no kernel"
 
 @njit(cache=True, inline="always")
 def _envelope(P, Q):
-    # Same operation order as tit.calc._envelope_from_PQ.
-    smin = np.sqrt(max(P - Q, 0.0) * 2.0)
-    smax = np.sqrt(max(P + Q, 0.0) * 2.0)
-    return smax - smin
+    # Same conjugate-multiplied form as tit.calc._envelope_from_PQ: the naive
+    # sqrt(2(P+Q)) - sqrt(2(P-Q)) cancels catastrophically for Q << P (every
+    # off-target voxel), so use MD = 2*sqrt(2)*Q / (sqrt(P+Q) + sqrt(P-Q)).
+    smin = np.sqrt(max(P - Q, 0.0))
+    smax = np.sqrt(max(P + Q, 0.0))
+    denom = smax + smin
+    if denom <= 0.0:
+        return 0.0
+    return 2.0 * np.sqrt(2.0) * Q / denom
 
 
 @njit(cache=True, inline="always")

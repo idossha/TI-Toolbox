@@ -190,11 +190,13 @@ class mTISimulation(BaseSimulation):
             mti_avg = get_TI_avg(e_fields)
             mout.add_element_field(mti_avg, const.FIELD_TI_AVG)
         if const.FIELD_HF_PEAK in selected:
-            # Carrier-exposure safety map (Cassarà 2025): peak carrier field,
-            # over all N per-pair carrier fields.
+            # Carrier-exposure safety map (Cassarà 2025 Part I, Eq. 3): peak
+            # carrier field. Wiring is positional, so one channel field is one
+            # carrier; the worst-case sign enumeration runs over all N of them.
             mout.add_element_field(hf_peak(*e_fields), const.FIELD_HF_PEAK)
         if const.FIELD_HF_SAR in selected:
-            # Carrier-exposure safety map (Cassarà 2025): heating driver.
+            # Carrier-exposure safety map: heating driver. Power (incoherent)
+            # sum across the N carriers -- Cassarà 2025 Part II, p. 8.
             mout.add_element_field(hf_sar(*e_fields), const.FIELD_HF_SAR)
 
         view_field = (

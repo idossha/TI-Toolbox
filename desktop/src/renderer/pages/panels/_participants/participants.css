@@ -1,0 +1,142 @@
+/* The participants grammar's geometry.
+ *
+ * Every declaration below is `pages/_shared/subjects/subjects.css`'s, on a row list instead of a
+ * set — same 28px `--surface-2` header band, same summary line, same table metrics, same warning
+ * reason. It is written out rather than imported because a class must name what it styles (defect
+ * 2's rule), and `tests/unit/participants-field.test.tsx` compares the two stylesheets declaration
+ * by declaration so the two cannot drift apart silently.
+ */
+
+.participants-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.participants-field-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+  min-height: var(--section-header-h);
+  background: var(--surface-2);
+  min-width: 0;
+  /* Adding rows must not move the Add action into the conditional selection toolbar. */
+  flex-wrap: nowrap;
+}
+.participants-field-head > button {
+  flex-shrink: 0;
+}
+.participants-field-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  background: var(--surface-2);
+  min-width: 0;
+}
+.participants-field-title {
+  flex: none;
+}
+.participants-field-summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ink-2);
+}
+.participants-field-summary .mono {
+  font-family: var(--font-mono);
+  color: var(--ink);
+}
+
+/* The table itself: `.run-subject-table`'s metrics, which live in `pages/_shared/run/run.css` and
+   are not loaded on a panel route. */
+.participants-scroll {
+  overflow: auto;
+  border-bottom: 1px solid var(--line);
+}
+.participants-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  line-height: 16px;
+  table-layout: fixed;
+}
+.participants-table th,
+.participants-table td {
+  padding: 2px var(--space-2);
+  text-align: left;
+  vertical-align: middle;
+}
+.participants-table thead th {
+  height: var(--row-h);
+  padding-top: 0;
+  padding-bottom: 0;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  font-weight: 500;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.participants-table tbody tr:hover {
+  background: var(--accent-soft);
+}
+/* A populated cell whose only content is a control still has to read as content to the dead-space
+   probe, which credits a leaf element or a small coloured one (DESIGN.md §12.1) — the same blind
+   spot `jobs-page.css` documents for `.data-table tbody td`. */
+.participants-table tbody td {
+  background-color: var(--surface);
+}
+.participants-index {
+  width: 28px;
+  color: var(--ink-2);
+}
+.participants-remove {
+  width: 32px;
+}
+
+/* The reason a row cannot take part: 12px, warning, never truncated to a tooltip — the same
+   sentence the page's blocked callout prints, shown where the user is deciding. */
+.participants-reason {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--warning);
+  white-space: nowrap;
+}
+
+/* Ground rows, so a three-row table does not end in a hard edge halfway up the pane
+   (`.run-table-filler`'s device, which is also not loaded on a panel route). */
+.participants-filler td {
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  height: var(--row-h);
+}
+
+/* The one selection grammar over rows (plan C1). The cells are live controls, so the checkbox
+   column — not the row — is the gesture; it is 24px, exactly as `ui/selection.css` sets it. */
+.participants-table .participants-check {
+  width: 24px;
+  padding-right: 0;
+}
+.participants-filter {
+  flex: none;
+  width: 120px;
+}
+.participants-bulk {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+.participants-table tr[data-selected="true"] {
+  background: var(--accent-soft);
+}

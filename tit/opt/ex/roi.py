@@ -82,7 +82,9 @@ def mni_roi_files_to_subject_space(
     return subject_files
 
 
-def atlas_roi_entries(config) -> list:
+def atlas_roi_entries(
+    config, m2m_path: str | None = None, output_dir: str | None = None
+) -> list:
     """Build engine ``roi_file`` entries from a config's ``roi_atlas`` targets.
 
     Parameters
@@ -99,7 +101,16 @@ def atlas_roi_entries(config) -> list:
     """
     if not getattr(config, "roi_atlas", None):
         return []
-    return [
-        target.atlas_path if target.label is None else (target.atlas_path, target.label)
-        for target in config.roi_atlas
-    ]
+    entries = []
+    for target in config.roi_atlas:
+        path = target.atlas_path
+        if target.atlas_space == "mni":
+            if not m2m_path or not output_dir:
+                raise ValueError(
+                    "MNI masks require the subject m2m and output directories"
+                )
+            from tit.opt.masks import prepare_mask
+
+            path = prepare_mask(path, "mni", m2m_path, output_dir)
+        entries.append(path if target.label is None else (path, target.label))
+    return entries

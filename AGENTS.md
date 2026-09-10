@@ -1,212 +1,149 @@
 # AGENTS.md — TI-Toolbox
 
-Context for any AI coding agent (Claude Code, Codex, Cursor, Copilot, ...) working on TI-Toolbox.
-Install the [agent plugin](agent-plugin/README.md) for skills + an MCP server that reads the wiki/source and inspects projects.
+Entry point for any AI coding agent working in this repository. Read this fully before your first
+edit. Everything else is in the documentation map below — link to it, never restate it.
 
-## Project Overview
+## What this is
 
-**TI-Toolbox** (Temporal Interference Toolbox) is a neuroscience research platform for brain stimulation simulation, optimization, and analysis. It enables researchers to simulate temporal interference (TI) stimulation, optimize electrode placements, and analyze electromagnetic field distributions in the brain.
+**TI-Toolbox** is a research platform for temporal-interference (TI) brain-stimulation simulation,
+optimization and analysis, built on SimNIBS. As of **v3.0.0** it is three pieces:
 
-- **Package Name**: `tit` (import as `from tit.module import ...`)
-- **Version**: 2.2.x
-- **Repository**: https://github.com/idossha/TI-toolbox
-- **Python Version**: 3.9+
-- **Primary Environment**: Docker containers (SimNIBS, FreeSurfer)
+- an **Electron desktop app** on the host (`desktop/`, React + TypeScript strict + Vite),
+- a **FastAPI job server** (`tit/server`) inside one Docker image (`idossha/ti-toolbox`), owning the
+  job model — queue, dependencies, locks, budget, live events, cancellation,
+- the **`tit` Python package** — the only place scientific logic lives, still usable from scripts.
 
-## Architecture at a Glance
+The PyQt5 GUI (`tit/gui/`) was **deleted** in v3.0.0. `tit` imports no Qt; the core image ships no
+X11 and no FreeSurfer. Wire contract: `contracts/openapi.yaml`.
+
+## Repo map
 
 ```
-TI-Toolbox
-├── package/          # Electron desktop app (Docker orchestration, X11)
-├── tit/              # Python package (all scientific code)
-│   ├── paths.py      # PathManager singleton (BIDS path resolution)
-│   ├── constants.py  # Project-wide constants
-│   ├── errors.py     # Custom exception classes
-│   ├── logger.py     # Logging setup (setup_logging, add_file_handler)
-│   ├── pre/          # Preprocessing (DICOM, FreeSurfer, CHARM)
-│   ├── sim/          # TI/mTI simulation engine
-│   ├── opt/          # Optimization (flex-search, exhaustive)
-│   ├── analyzer/     # Field analysis and ROI statistics
-│   ├── stats/        # Permutation testing, group analysis
-│   ├── gui/          # PyQt5 GUI (runs in Docker)
-│   ├── <module>/__main__.py  # JSON-config runners: simnibs_python -m tit.<module> config.json
-│   ├── reporting/    # HTML report generation
-│   ├── plotting/     # Visualization utilities
-└── docs/             # MkDocs API documentation
+desktop/        Electron main/preload + React renderer; the UI bundle tit.server serves
+tit/            the science core (paths, sim, opt, analyzer, stats, calc, fields, pre, reporting)
+tit/server/     FastAPI app + routes; tit/jobs/ is the job engine
+contracts/      openapi.yaml is the one hand-written contract; generated/ is build output (npm run gen)
+tests/          host pytest (heavy libs mocked); tests/numerical/ runs the real ones
+dev/            scripts only: build_contracts (+build_schema/build_contract), contracts_check, route_import_guard, smoke.sh
+container/      image blueprints and build.sh
+docs/dev/       how this software is built and why — current developer references
+docs/wiki/      the user-facing site (published); docs/wiki/gui.md is deprecated
+agent-plugin/   installable skills + a read-only MCP server for AI clients
 ```
 
-## Critical Files to Know
+## Where things are written down
 
-| File | Purpose |
-|------|---------|
-| `tit/paths.py` | BIDS-compliant path resolution singleton |
-| `tit/sim/simulator.py` | Main simulation entry point |
-| `tit/analyzer/analyzer.py` | Primary analysis tool (unified Analyzer class) |
-| `tit/opt/flex/flex.py` | Differential evolution optimization |
-| `tit/opt/ex/ex_search.py` | Exhaustive search optimization |
-| `tit/gui/main.py` | GUI application main window |
-| `tit/config_io.py` | JSON config (de)serialisation used by all `__main__` runners |
-| `docker-compose.yml` | Multi-container orchestration |
-| `pyproject.toml` | Package configuration |
+This is the documentation map. Keep each topic in its designated file and link rather than copy.
 
-## Key Patterns
+| File | Owns |
+|---|---|
+| [README.md](README.md) | Introduction, quick start and documentation links |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Contributor setup and development workflow |
+| [SECURITY.md](SECURITY.md) | Vulnerability reporting and security policy |
+| [ARCHITECTURE.md](docs/dev/ARCHITECTURE.md) | Structure, interfaces, constraints and UI design |
+| [DECISIONS.md](docs/dev/DECISIONS.md) | Dated decisions, alternatives, rationale and milestones |
+| [TESTING.md](docs/dev/TESTING.md) | Test strategy, commands, fixtures and gaps |
+| [RELEASING.md](docs/dev/RELEASING.md) | Versioning, packaging and release procedure |
+| [BENCHMARKS.md](docs/dev/BENCHMARKS.md) | Reproducible performance measurements |
+| [ROADMAP.md](docs/dev/ROADMAP.md) | Priorities, planned work and completion criteria |
+| [CHANGELOG.md](docs/dev/CHANGELOG.md) | User-visible changes by release |
+| [AUTOMATION.md](docs/dev/AUTOMATION.md) | CI, scripts, deployment, monitoring, backups and recovery |
 
-### PathManager (Singleton)
-All path operations go through PathManager for BIDS compliance:
-```python
-from tit import get_path_manager
-pm = get_path_manager(project_root, subject_id)
-mesh_path = pm.get_head_mesh()
+Revise current-state references in place. Append significant decisions/milestones and release
+entries; mark reversals explicitly. Routine test runs and agent handoffs are not permanent work logs.
+Numerical migration guidance belongs in the relevant release page, linked from the changelog.
+Developer references are excluded from the site except CHANGELOG, which retains its public URL.
+
+## The gate
+
+Run checks appropriate to the change, and the full gate for a release candidate. Report actual results. Exact commands and their caveats:
+[TESTING.md](docs/dev/TESTING.md).
+
+```
+cd desktop && npm run typecheck && npm run lint && npx vitest run
+python3 -m pytest tests/ -q                                  # repo root, heavy libs mocked
+docker exec -w /ti-toolbox <c> simnibs_python -m pytest tests/numerical -q   # real libraries
+python3 dev/route_import_guard.py && python3 dev/contracts_check.py
+cd desktop && TIT_E2E_OFFSCREEN=1 npm run e2e:quiet          # full mock suite, under the lock
+cd desktop && npx playwright test --project=real …           # against the dev container
+actionlint                      # if you touched .github/workflows
+npm run verify:package          # if you touched packaging
+npm run build                   # LAST, always
 ```
 
-### JSON Config Runners
-Every pipeline module exposes `python -m tit.<module> config.json` (`sim`, `opt.flex`,
-`opt.ex`, `opt.mex`, `analyzer`, `stats`, `pre`). The GUI builds the config dataclass,
-serialises it with `tit/config_io.py`, and runs that command in the container.
+Use isolated runs of `tests/test_scene_guide.py` to diagnose order-dependent failures;
+an isolated pass does not waive a failed full suite (see `docs/dev/TESTING.md`).
 
-### Dataclass Configuration
-Configuration uses typed dataclasses throughout:
-```python
-@dataclass
-class SimulationConfig:
-    subject: str
-    montage: str
-    intensity: float = 1.0
+## Working in a shared worktree
+
+Several agents may be in one worktree at once. Each of these cost a lane real work.
+
+- **Stage only your own files.** `git add -A` swept another lane's uncommitted work into the wrong
+  commit three times in one day.
+- **Never `git stash`.** It takes every other lane's work with it.
+- **Never revert or discard someone else's working-tree changes.**
+- **One Playwright run at a time**, guarded by `/tmp/tit-e2e.lock` — runs share the mock server on
+  8790 and one `out/`. Never `pkill -f "playwright test"`; it kills whoever else is mid-gate.
+- **`pnpm run pree2e` before any scene spec** (`VITE_SCENE_HOOKS=1`), and a plain `npm run build`
+  **last**: the dev container serves `desktop/out/renderer` straight from the worktree, so a plain
+  build dropped mid-session makes another lane's specs time out 30 s later with no hint why.
+- **Never recreate the maintainer's dev container.** It bind-mounts the worktree for both `tit` and
+  the UI bundle; a recreated one serves the image's baked copies and mints a new token that
+  invalidates every other lane's session. A plain `docker restart` keeps the token.
+
+## Science integrity
+
+A change to numerical behavior in `tit/stats`, `tit/analyzer`, `tit/calc`, `tit/fields` or `tit/sim` needs:
+
+1. a test in `tests/numerical/` running against the **real** libraries (the host `tests/conftest.py`
+   mocks scipy/nibabel/…), asserting the claim independently rather than retyping the
+   implementation; and
+2. if any published result moves, an entry in the applicable `docs/releases/` page — what was
+   wrong, which versions, which outputs move and by how much, how a user spots an affected result,
+   and whether to re-run or rescale.
+
+## Gotchas that cost us
+
+- **Never run two FEM simulations in parallel** under emulation. The smoke harness enforces it
+  itself: any `heavy` row blocks on `GET /api/jobs` until nothing is running or queued.
+- **nibabel's gzip save fails on bind mounts** in the container. Write a plain `.nii` and gzip it
+  with the standard library.
+- **Verify path and filesystem behaviour in the container** (Python 3.11, case-sensitive), never on
+  the macOS host. It is the only place a path bug reproduces honestly.
+- **The Viewer's scene file suffix is `.tetravox.json`**, written to
+  `<project>/code/ti-toolbox/viewer/<kind>.tetravox.json`. Not `.json`.
+- **Guide coordinates are not subject coordinates.** Optimizer/Analyzer use reference anatomy;
+  Simulator subject-space placement requires its subject-specific geometry. Never save guide picks
+  as subject coordinates.
+- **`--project=real`, not `--project real`** — Playwright's flag is variadic and swallows the spec
+  path. And never `npm run e2e` for a real-server run: `pree2e` force-rebuilds `out/`.
+- **`electron-vite build` ignores `--mode`**; it hardcodes `NODE_ENV=production`, so
+  `import.meta.env.DEV` is always false in a build. That is why gallery and scene hooks are gated
+  by `VITE_INCLUDE_GALLERY` / `VITE_SCENE_HOOKS` instead.
+- The maintainer-verified list of user-visible problems and fixes is
+  [`docs/wiki/troubleshooting.md`](docs/wiki/troubleshooting.md). Consult it before diagnosing a
+  reported error; add an entry when a new one is confirmed.
+
+## Conventions
+
+- `black tit/` before committing Python; type hints and Google-style docstrings on public APIs.
+- Custom exceptions from `tit/errors.py`; `logging.getLogger(__name__)` per module, and
+  `setup_logging()` only at entry points (it adds no handlers of its own).
+- Every pipeline module exposes `simnibs_python -m tit.<module> config.json` (`sim`, `opt.flex`,
+  `opt.ex`, `opt.mex`, `analyzer`, `stats`, `pre`), with `tit/config_io.py` doing the
+  (de)serialisation via `_type` discriminators. All paths go through
+  `get_path_manager(project_root, subject_id)` — never hand-built.
+- Commit titles state the defect or the new truth, not the activity:
+  `fix(analyzer): voxel focality volumes in cm^3, geometry from the affine`.
+
+## The agent plugin
+
+An installable plugin under [`agent-plugin/`](agent-plugin/README.md) gives Claude Code, Codex and
+any MCP client five skills (orientation, scripting API, TI domain knowledge, codebase conventions)
+plus a read-only MCP server that searches the wiki, reads `tit` source, finds symbols and inspects
+a user's project directory. In Claude Code:
+
+```text
+/plugin marketplace add idossha/TI-Toolbox
+/plugin install ti-toolbox@ti-toolbox
 ```
-
-### Code Formatting
-```bash
-black tit/
-```
-
-### Adding a New Runner
-1. Add a `__main__.py` to the module that loads the config via `tit/config_io.py`
-2. Wire the GUI tab to write the same JSON and call `simnibs_python -m tit.<module>`
-
-### Adding a New Report Generator
-1. Create generator in `tit/reporting/generators/`
-2. Inherit from `BaseReportGenerator`
-3. Use reportlets from `tit/reporting/reportlets/`
-
-## Data Flow
-
-### BIDS-Compliant Project Structure
-```
-project_root/
-├── sourcedata/              # Raw DICOM
-├── sub-{subject}/
-│   └── anat/               # Anatomical NIfTI
-├── derivatives/
-│   ├── SimNIBS/sub-{subject}/
-│   │   ├── m2m_{subject}/  # Head mesh
-│   │   └── Simulations/    # TI outputs
-│   ├── freesurfer/         # recon-all outputs
-│   └── ti-toolbox/
-│       ├── reports/        # HTML reports
-│       └── analysis/       # Results
-└── code/ti-toolbox/config/ # Metadata
-```
-
-### Simulation Pipeline
-1. Input: m2m directory + montage config + intensities
-2. Process: Run SimNIBS (pair1, pair2, [pair3, pair4])
-3. Post-process: Calculate TI_max, TI_normal, mTI fields
-4. Output: Mesh files, NIfTI, surface overlays
-
-### Analysis Pipeline
-1. Input: Field mesh/NIfTI + atlas + ROI spec
-2. Process: Extract values, calculate statistics
-3. Output: CSV, histograms, visualizations
-
-## Simulation Types
-
-- **TI (2-pair)**: Standard temporal interference with 2 electrode pairs
-- **mTI (4-pair)**: Multi-channel TI with 4 electrode pairs
-- Auto-detection based on montage configuration
-
-## GUI Architecture
-
-The GUI runs inside Docker with X11 forwarding:
-- **Main Window**: `tit/gui/main.py` - Tab container
-- **Large Tabs**: analyzer_tab.py (147KB), flex_search_tab.py (145KB)
-- **Components**: Reusable widgets in `tit/gui/components/`
-- **Extensions**: Plugin system in `tit/gui/extensions/`
-
-## Docker Containers
-
-| Container | Purpose |
-|-----------|---------|
-| `idossha/simnibs:v2.2.x` | SimNIBS + GUI + tools |
-| `idossha/ti-toolbox_freesurfer:v7.4.1` | FreeSurfer only |
-| `idossha/ti-toolbox-test:latest` | Static test environment |
-
-## Important Conventions
-
-1. **Black formatting** - Run `black` before committing
-2. **Type hints** - Use throughout, especially in public APIs
-3. **Docstrings** - Google style for public functions
-4. **Error handling** - Use custom exceptions from `tit/errors.py`
-5. **Logging** - Use stdlib `logging` with `getLogger(__name__)` in each module; call `setup_logging()` at entry points only
-
-## Common Pitfalls
-
-The maintainer-verified list of known problems, causes and fixes is `docs/wiki/troubleshooting.md` (published at https://idossha.github.io/TI-Toolbox/wiki/troubleshooting/). Consult it before diagnosing a user-reported error, and add an entry there when a new one is confirmed.
-
-1. **PathManager initialization** - Must be initialized before use
-2. **Docker context** - Most heavy computation happens in containers
-3. **X11 forwarding** - GUI requires proper display setup
-4. **SimNIBS imports** - Use lazy loading pattern in opt/
-5. **Large tab files** - GUI tabs are monolithic; careful with changes
-
-## External Dependencies
-
-- **SimNIBS 4.5+** - Finite element simulation
-- **FreeSurfer 7.4+** - Cortical reconstruction
-- **dcm2niix** - DICOM conversion
-- **QSIPrep/QSIRecon** - Diffusion preprocessing
-- **Gmsh** - Mesh generation
-
-## Quick Reference: Module Imports
-
-```python
-# Core
-from tit import get_path_manager
-from tit import setup_logging, add_file_handler
-from tit import paths, constants
-
-# Simulation
-from tit.sim import SimulationConfig, run_simulation, load_montages
-
-# Analysis
-from tit.analyzer import Analyzer, run_group_analysis
-
-# Optimization
-from tit.opt import FlexConfig, SphericalROI, run_flex_search
-
-# Statistics
-from tit.stats import run_group_comparison, GroupComparisonConfig
-
-# Preprocessing
-from tit.pre import run_pipeline
-
-# Reporting
-from tit.reporting import ReportAssembler
-from tit.reporting.generators import SimulationReportGenerator
-```
-
-## Development Workflow
-
-1. **Feature development**: Discuss in issue before implementing
-4. **Documentation**: Update relevant README if behavior changes
-5. **Version bumps**: Update `pyproject.toml` and changelog
-
-## CI/CD
-
-- **CircleCI** - Automatic test runs on PR
-- **codecov** - Coverage tracking
-- **Docker Hub** - Container registry at `idossha/`
-
-## Getting Help
-
-- Check module-specific READMEs in each directory
-- API docs in `docs/api_mkdocs/`

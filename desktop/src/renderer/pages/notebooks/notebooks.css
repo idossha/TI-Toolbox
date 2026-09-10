@@ -1,0 +1,739 @@
+/* Notebooks (pages/notebooks) — DESIGN.md §3 tokens only; no colour is spelled
+   here that is not a token, so the page follows the theme like every other.
+   Structure adapted from SUNA's notebook.css (github.com/idossha/SUNA). */
+
+.nb-page__split {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  height: 100%;
+  min-height: 0;
+}
+
+.nb-page__side {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.nb-page__main {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.nb-page__blank {
+  flex: 1;
+  justify-content: center;
+}
+
+.nb-page__error {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--line);
+  color: var(--danger);
+  font-size: 12px;
+}
+
+/* ---- the notebook list -------------------------------------------------- */
+
+.nb-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.nb-list__actions {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+
+.nb-list__file {
+  display: none;
+}
+
+.nb-list__empty {
+  margin: 0;
+  padding: var(--space-3);
+  color: var(--ink-3);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.nb-list__items {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-1) 0;
+  overflow-y: auto;
+}
+
+.nb-list__items li {
+  display: flex;
+  align-items: center;
+}
+
+.nb-list__item {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: var(--space-1) var(--space-3);
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.nb-list__item:hover {
+  background: var(--surface-2);
+}
+
+.nb-list__item--open {
+  background: var(--accent-soft);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.nb-list__name {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nb-list__meta {
+  font-size: 10px;
+  color: var(--ink-3);
+}
+
+.nb-list__delete {
+  display: flex;
+  align-items: center;
+  padding: var(--space-1);
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.nb-list__items li:hover .nb-list__delete {
+  opacity: 1;
+}
+
+.nb-list__delete:hover {
+  color: var(--danger);
+}
+
+/* ---- the notebook ------------------------------------------------------- */
+
+.nb {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.nb-empty {
+  padding: var(--space-6);
+  color: var(--ink-3);
+  font-size: 12px;
+}
+
+.nb__cells {
+  flex: 1;
+  overflow: auto;
+  padding: var(--space-2) 0 40vh; /* the last cell can scroll to the top */
+}
+
+.nb__cells:focus,
+.nb__cells:focus-visible {
+  /* the scroller takes focus in command mode; the selected cell already says
+     where you are, so the browser's ring would only be noise */
+  outline: none;
+}
+
+/* ---- toolbar ------------------------------------------------------------ */
+
+.nb-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.nb-toolbar__spacer {
+  flex: 1;
+}
+
+.nb-toolbar__divider {
+  width: 1px;
+  height: 14px;
+  margin: 0 var(--space-1);
+  background: var(--line);
+}
+
+.nb-toolbar__kernel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+/* ---- the kernel fault banner -------------------------------------------- */
+
+.nb-fault {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--danger-soft);
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.nb-fault__title {
+  color: var(--danger);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.nb-fault__message {
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* ---- cells -------------------------------------------------------------- */
+
+.nb-cell {
+  position: relative;
+  display: flex;
+  gap: var(--space-1);
+  padding: 3px var(--space-3) 3px 0;
+  border-left: 2px solid transparent;
+}
+
+.nb-cell--selected {
+  border-left-color: var(--accent);
+  background: var(--surface-2);
+}
+
+.nb-cell__gutter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  width: 52px;
+  padding-top: 4px;
+}
+
+.nb-cell__run {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0 0 0 1px;
+  border: 0;
+  border-radius: var(--radius-chip);
+  background: none;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+.nb-cell:hover .nb-cell__run,
+.nb-cell__run:hover {
+  color: var(--success);
+  background: var(--surface);
+}
+
+.nb-cell__count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-3);
+}
+
+.nb-cell__count--running {
+  color: var(--accent);
+}
+
+.nb-cell__body {
+  flex: 1;
+  min-width: 0; /* long output lines scroll rather than stretching the page */
+}
+
+/* A code cell's editor is a CodeMirror; its chrome and its Python palette are
+   `editor.ts`, built from these same tokens so the theme switch is free. This
+   only has to give it somewhere to live. */
+.nb-cell__editor {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.nb-cell__editor .cm-editor {
+  max-height: 60vh;
+}
+
+/* A markdown cell has nothing to highlight, so it stays a textarea. */
+.nb-cell__editor--plain {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--nb-font-size, 12px);
+  line-height: 1.5;
+  resize: none;
+  overflow: hidden;
+}
+
+.nb-cell__editor--plain:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: -1px;
+}
+
+.nb-cell--markdown .nb-cell__prose {
+  padding: 2px var(--space-2);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.nb-cell__prose > :first-child {
+  margin-top: 0;
+}
+
+.nb-cell__prose code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--surface-2);
+  border-radius: 3px;
+  padding: 0 3px;
+}
+
+.nb-cell__prose pre {
+  padding: var(--space-2);
+  background: var(--surface-2);
+  border-radius: var(--radius-control);
+  overflow-x: auto;
+}
+
+.nb-cell__empty {
+  padding: 2px var(--space-2);
+  margin: 0;
+  color: var(--ink-3);
+  font-size: 12px;
+  font-style: italic;
+}
+
+.nb-cell__actions {
+  position: absolute;
+  top: 2px;
+  right: var(--space-2);
+  display: none;
+  gap: 2px;
+  z-index: 1;
+}
+
+.nb-cell:hover .nb-cell__actions,
+.nb-cell--selected .nb-cell__actions {
+  display: flex;
+}
+
+.nb-cell__action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+.nb-cell__action:hover {
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+.nb-cell__action--delete:hover {
+  color: var(--danger);
+}
+
+/* ---- outputs ------------------------------------------------------------ */
+
+.nb-output {
+  padding: var(--space-1) var(--space-2) var(--space-2);
+}
+
+.nb-output__text {
+  margin: 0;
+  font-family: var(--font-mono);
+  /* Output follows the editor's font size: reading a traceback next to the
+     code that raised it in two different sizes is its own small friction. */
+  font-size: var(--nb-font-size, 12px);
+  line-height: 1.45;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.nb-output__text--stderr {
+  color: var(--warning);
+}
+
+.nb-output__error {
+  padding: var(--space-1) var(--space-2);
+  border-left: 2px solid var(--danger);
+  background: var(--danger-soft);
+  overflow-x: auto;
+}
+
+.nb-output__image,
+.nb-output__svg svg {
+  max-width: 100%;
+  height: auto;
+  /* Figures are authored on white; a dark theme must not invert them into
+     something the paper will never look like. */
+  background: #fff;
+  border-radius: 2px;
+}
+
+.nb-output__html {
+  overflow-x: auto;
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.nb-output__html table {
+  border-collapse: collapse;
+}
+
+.nb-output__html th,
+.nb-output__html td {
+  padding: 2px var(--space-2);
+  border: 1px solid var(--line);
+  text-align: right;
+}
+
+.nb-output__unsupported {
+  color: var(--ink-3);
+  font-size: 11px;
+  font-style: italic;
+}
+
+/* ---- ANSI palette (ansi.ts) --------------------------------------------- */
+
+.ansi-bold {
+  font-weight: 600;
+}
+.ansi-black,
+.ansi-bright-black {
+  color: var(--ink-3);
+}
+.ansi-red,
+.ansi-bright-red {
+  color: var(--danger);
+}
+.ansi-green,
+.ansi-bright-green {
+  color: var(--success);
+}
+.ansi-yellow,
+.ansi-bright-yellow {
+  color: var(--warning);
+}
+.ansi-blue,
+.ansi-bright-blue {
+  color: var(--accent);
+}
+.ansi-magenta,
+.ansi-bright-magenta {
+  color: var(--lost);
+}
+.ansi-cyan,
+.ansi-bright-cyan {
+  color: var(--field);
+}
+.ansi-white,
+.ansi-bright-white {
+  color: var(--ink);
+}
+
+/* ---- rendered markdown (markdown.ts) --------------------------------------
+   DESIGN §4 typography: prose is the sans face at 13px/1.6, code and maths keep
+   the mono face, and every rule is a §3 token. Headings step down by ratio
+   rather than by browser default, so a cell's h1 does not shout over the page. */
+
+.nb-cell__prose h1,
+.nb-cell__prose h2,
+.nb-cell__prose h3,
+.nb-cell__prose h4,
+.nb-cell__prose h5,
+.nb-cell__prose h6 {
+  margin: var(--space-4) 0 var(--space-2);
+  color: var(--ink);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.nb-cell__prose h1 {
+  font-size: 20px;
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--line);
+}
+.nb-cell__prose h2 {
+  font-size: 16px;
+}
+.nb-cell__prose h3 {
+  font-size: 14px;
+}
+.nb-cell__prose h4,
+.nb-cell__prose h5,
+.nb-cell__prose h6 {
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.nb-cell__prose p {
+  margin: 0 0 var(--space-3);
+}
+
+.nb-cell__prose ul,
+.nb-cell__prose ol {
+  margin: 0 0 var(--space-3);
+  padding-left: var(--space-6);
+}
+
+.nb-cell__prose li {
+  margin-bottom: 2px;
+}
+
+.nb-cell__prose a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.nb-cell__prose strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.nb-cell__prose hr {
+  margin: var(--space-4) 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.nb-cell__prose blockquote {
+  margin: 0 0 var(--space-3);
+  padding: 0 var(--space-3);
+  border-left: 2px solid var(--line-strong);
+  color: var(--ink-2);
+}
+
+/* A fenced block keeps the mono face and its own ground — the one thing a
+   reader must be able to tell apart from prose at a glance. */
+.nb-cell__prose pre.nb-code {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  overflow-x: auto;
+}
+
+.nb-cell__prose pre.nb-code code {
+  padding: 0;
+  background: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.nb-cell__prose table {
+  margin: 0 0 var(--space-3);
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.nb-cell__prose th,
+.nb-cell__prose td {
+  padding: 3px var(--space-2);
+  border: 1px solid var(--line);
+  text-align: left;
+}
+
+.nb-cell__prose th {
+  background: var(--surface-2);
+  font-weight: 600;
+}
+
+.nb-cell__prose img {
+  max-width: 100%;
+}
+
+/* KaTeX inherits the page ink; a display equation is centred in its own band. */
+.nb-cell__prose .katex {
+  font-size: 1.02em;
+  color: var(--ink);
+}
+
+.nb-cell__prose .nb-math-block {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) 0;
+  overflow-x: auto;
+}
+
+.nb-cell__prose .nb-math-block .katex-display {
+  margin: 0;
+}
+
+/* TeX that did not parse says so, rather than borrowing KaTeX's red — which in
+   a notebook is indistinguishable from a deliberately red equation. */
+.nb-cell__prose .nb-math-error {
+  color: var(--danger);
+  background: var(--danger-soft);
+  font-family: var(--font-mono);
+}
+
+/* The seeded example is reference material, not the author's own work: it sits
+   below their notebooks and says what it is where a date would otherwise be. */
+.nb-list__item[data-example] .nb-list__meta {
+  font-style: italic;
+}
+
+/* ---- the settings popover (SettingsPopover.tsx) --------------------------- */
+
+.nb-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 320px;
+  padding: var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-2);
+  z-index: 40;
+}
+
+.nb-settings__title {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.nb-settings__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  cursor: pointer;
+}
+
+.nb-settings__row--stacked {
+  align-items: center;
+  cursor: default;
+}
+
+.nb-settings__label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.nb-settings__hint {
+  color: var(--ink-3);
+  font-size: 10px;
+  line-height: 1.4;
+  font-weight: 400;
+}
+
+.nb-settings__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--line);
+}
+
+/* ---- signature help (signature.ts) ---------------------------------------
+   The kernel's own `?` output, cut to a signature and one paragraph. It sits
+   above the open paren, so it must not be tall: a tooltip that covers the code
+   it describes is worse than no tooltip. */
+
+.nb-signature {
+  max-width: 46em;
+  padding: var(--space-1) var(--space-2);
+}
+
+.nb-signature__sig {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.nb-signature__doc {
+  margin-top: 3px;
+  padding-top: 3px;
+  border-top: 1px solid var(--line);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+/* The kernel pill is a button: status, and the one action a dead kernel needs. */
+.nb-toolbar__kernel {
+  border: 1px solid transparent;
+  border-radius: var(--radius-chip);
+  padding: 2px var(--space-2);
+  background: none;
+  cursor: pointer;
+}
+
+.nb-toolbar__kernel:hover:not(:disabled) {
+  border-color: var(--line);
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+
+.nb-toolbar__kernel:disabled {
+  cursor: default;
+}
+
+.nb-toolbar__kernel--dead {
+  color: var(--danger);
+}

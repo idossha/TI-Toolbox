@@ -35,8 +35,21 @@ class TestBuiltinAtlasesConstant:
 class TestVoxelAtlases:
     """Tests for the VOXEL_ATLASES dict and derived VOXEL_ATLAS_FILES list."""
 
-    def test_has_five_atlases(self):
-        assert len(VOXEL_ATLASES) == 5
+    def test_fastsurfer_and_legacy_names_present(self):
+        from tit.atlas.constants import (
+            FASTSURFER_ATLASES,
+            LEGACY_FREESURFER_ATLASES,
+            FREESURFER_SUBREGION_ATLASES,
+        )
+
+        assert "aparc.DKTatlas+aseg.deep.mgz" in FASTSURFER_ATLASES
+        assert "aparc.DKTatlas+aseg.deep.nii.gz" in FASTSURFER_ATLASES
+        assert len(LEGACY_FREESURFER_ATLASES) == 5
+        assert VOXEL_ATLASES == {
+            **FASTSURFER_ATLASES,
+            **LEGACY_FREESURFER_ATLASES,
+            **FREESURFER_SUBREGION_ATLASES,
+        }
 
     def test_flat_list_matches_dict_keys(self):
         assert VOXEL_ATLAS_FILES == list(VOXEL_ATLASES)
@@ -146,7 +159,7 @@ class TestMeshAtlasManager:
 class TestParseRegionLabel:
     """Parsing the label out of ``VoxelAtlasManager.list_regions()`` output.
 
-    Lives here rather than in the GUI tests so it runs without PyQt5; the
+    Lives here rather than with the UI tests; the
     ex-search tab imports it to turn a picked region into an AtlasROI label.
     """
 
@@ -177,3 +190,41 @@ class TestParseRegionLabel:
         for bad in ("Hippocampus", "Hippocampus (17)", "Hippocampus (ID: x)", ""):
             with pytest.raises(ValueError, match="Could not parse"):
                 parse_region_label(bad)
+
+
+class TestMniAtlasDirResolution:
+    """MNI_ATLAS_DIR used to be a hard-coded "/ti-toolbox/resources/atlas" -- only ever real
+    inside the Docker image (N0.6 spike). On this dev host it must resolve to the real
+    checkout-relative resources/atlas/ directory via tit.paths.resolve_resource_path."""
+
+    def test_points_at_a_real_directory_on_this_host(self):
+        from tit.atlas.constants import MNI_ATLAS_DIR
+
+        assert os.path.isdir(MNI_ATLAS_DIR)
+        assert MNI_ATLAS_DIR.endswith(os.path.join("resources", "atlas"))
+
+    def test_matches_resolve_resource_path(self):
+        from tit.atlas.constants import MNI_ATLAS_DIR
+        from tit.paths import resolve_resource_path
+
+        assert MNI_ATLAS_DIR == resolve_resource_path("atlas")
+
+
+def test_optional_subregion_outputs_are_discovered_after_legacy(tmp_path):
+    from tit.atlas.voxel import VoxelAtlasManager
+
+    names = [
+        "ThalamicNuclei.v13.T1.mgz",
+        "ThalamicNuclei.mgz",
+        "lh.hippoAmygLabels.mgz",
+        "rh.hippoAmygLabels.mgz",
+    ]
+    for name in names:
+        (tmp_path / name).touch()
+    found = VoxelAtlasManager(freesurfer_mri_dir=str(tmp_path)).list_atlases()
+    found_names = [name for name, _ in found]
+    assert set(found_names) == set(names)
+    assert found_names[0] == names[0]
+    assert VOXEL_ATLASES["lh.hippoAmygLabels.mgz"] == "lh"
+    assert VOXEL_ATLASES["rh.hippoAmygLabels.mgz"] == "rh"
+    assert VOXEL_ATLASES["ThalamicNuclei.mgz"] == "both"

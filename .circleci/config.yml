@@ -1,5 +1,16 @@
 version: 2.1
 
+parameters:
+  build_image:
+    type: boolean
+    default: false
+  tetravox_tgz:
+    type: string
+    default: ''
+  tetravox_sha256:
+    type: string
+    default: ''
+
 executors:
   vm-docker:
     machine:
@@ -24,10 +35,130 @@ commands:
 
 jobs:
 
+  # Full image verification is explicit: rebuilding SimNIBS takes 30-60+ minutes natively
+  # and the compatible embed currently requires a reachable URL+digest pin. Ordinary PRs
+  # keep source tests and desktop checks; they do not claim an image was built or verified.
+  build-and-smoke-image:
+    executor: vm-docker
+    steps:
+      - common-setup
+
+      - run:
+          name: Build idossha/ti-toolbox
+          no_output_timeout: 30m
+          environment:
+            TETRAVOX_TGZ: << pipeline.parameters.tetravox_tgz >>
+            TETRAVOX_SHA256: << pipeline.parameters.tetravox_sha256 >>
+          command: |
+            set -euo pipefail
+            ARGS=(--tag idossha/ti-toolbox:ci)
+            if [ -n "$TETRAVOX_TGZ" ]; then
+              [ -n "$TETRAVOX_SHA256" ] || { echo "embed URL requires SHA256" >&2; exit 1; }
+              ARGS+=(--tetravox-tgz "$TETRAVOX_TGZ" --tetravox-sha256 "$TETRAVOX_SHA256")
+            fi
+            # Build the checked-out SHA. A moving --ref branch could race a later push.
+            ./container/blueprint/build.sh "${ARGS[@]}"
+
+      - run:
+          name: Start the container
+          command: |
+            set -euo pipefail
+            mkdir -p /tmp/ti-toolbox-smoke-project
+            docker run -d --name tit-ci-smoke \
+                -p 127.0.0.1:18765:8765 \
+                -e PROJECT_DIR_NAME=smoke \
+                -e TIT_SERVER_PORT=8765 \
+                -v /tmp/ti-toolbox-smoke-project:/mnt/smoke \
+                -v "$(pwd)":/workspace:ro \
+                -e PYTHONPATH=/ti-toolbox \
+                idossha/ti-toolbox:ci
+            echo "Waiting for the container to become healthy..."
+            for i in $(seq 1 30); do
+              status="$(docker inspect tit-ci-smoke --format '{{.State.Health.Status}}' 2>/dev/null || echo starting)"
+              if [ "$status" = "healthy" ]; then
+                echo "healthy after ${i}0s"
+                break
+              fi
+              if [ "$status" = "unhealthy" ] || [ "$(docker inspect tit-ci-smoke --format '{{.State.Running}}')" != "true" ]; then
+                echo "Container did not become healthy (status=$status):"
+                docker logs tit-ci-smoke
+                exit 1
+              fi
+              sleep 10
+            done
+
+      - run:
+          name: Smoke test the image
+          command: |
+            set -euo pipefail
+
+            echo "-- /api/health --"
+            code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18765/api/health)"
+            [ "$code" = "200" ] || { echo "expected 200, got $code"; exit 1; }
+
+            echo "-- / (UI or status page) --"
+            code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18765/)"
+            [ "$code" = "200" ] || { echo "expected 200, got $code"; exit 1; }
+
+            # The viewer ships in the image and this server serves it (VE). Assert the route,
+            # the manifest and the embed's own CSP -- an index.html answered by the SPA
+            # catch-all would pass a bare status check and mean the bundle is not there.
+            echo "-- /tetravox/ serves the embed --"
+            code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18765/tetravox/)"
+            [ "$code" = "200" ] || { echo "expected 200 at /tetravox/, got $code"; exit 1; }
+            body="$(curl -sD /tmp/tvx.h http://127.0.0.1:18765/tetravox/manifest.json)"
+            case "$body" in
+                *'"protocol"'*) : ;;
+                *) echo "/tetravox/manifest.json is not a manifest: $body"; exit 1 ;;
+            esac
+            grep -qi 'wasm-unsafe-eval' /tmp/tvx.h \
+                || { echo "the embed CSP is missing from /tetravox/"; exit 1; }
+            rm -f /tmp/tvx.h
+
+            echo "-- /etc/ti-toolbox-build.json (which source the image was built from) --"
+            docker exec tit-ci-smoke cat /etc/ti-toolbox-build.json
+            docker exec tit-ci-smoke sh -c 'grep -q "\"sha\":\"[0-9a-f]\{40\}\"" /etc/ti-toolbox-build.json' \
+                || { echo "the build record has no full sha"; exit 1; }
+
+            echo "-- FastSurfer --help --"
+            docker exec tit-ci-smoke bash -lc \
+                'cd "$FASTSURFER_HOME" && ./run_fastsurfer.sh --help | head -5'
+
+            echo "-- SimNIBS / FastAPI / torch import --"
+            docker exec tit-ci-smoke simnibs_python -c \
+                "import simnibs, fastapi, torch; print(simnibs.__version__, fastapi.__version__, torch.__version__)"
+            docker exec tit-ci-smoke simnibs_python -c \
+                "import simnibs.segmentation, brainnet; print('charm imports OK')"
+
+      - run:
+          name: Container pytest subset (server + viewspec + catalog + files routes)
+          command: |
+            set -euo pipefail
+            docker exec tit-ci-smoke simnibs_python -m pip install --no-cache-dir --quiet pytest
+            docker exec -w /workspace tit-ci-smoke simnibs_python -m pytest -q \
+                tests/test_catalog_v1.py \
+                tests/test_server_skeleton.py \
+                tests/test_viewspec.py \
+                tests/test_viewspec_scene.py \
+                tests/test_files_raw.py \
+                tests/test_files_routes.py \
+                tests/test_pre_fastsurfer.py
+
+      - run:
+          name: Stop and remove the container
+          when: always
+          command: |
+            docker logs tit-ci-smoke || true
+            docker stop tit-ci-smoke || true
+            docker rm tit-ci-smoke || true
+
   build-and-run-tests:
     executor: vm-docker
     steps:
       - common-setup
+      - run:
+          name: Self-test build and version guards
+          command: python3 -m unittest discover -s tests -p test_internal_packaging.py -v
       - prepare-test-image
 
       - run:
@@ -103,7 +234,109 @@ jobs:
           path: /tmp/coverage
           destination: coverage
 
+  desktop-checks:
+    executor: vm-docker
+    steps:
+      - common-setup
+
+      - run:
+          name: "Install Node 22 (package.json engines: >=22.12.0)"
+          command: |
+            set -euo pipefail
+            export NVM_DIR="$HOME/.nvm"
+            # ubuntu-2204:current ships nvm; install/select 22 explicitly rather than trust
+            # whatever LTS the image defaults to today.
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            nvm install 22
+            nvm alias default 22
+            {
+              echo 'export NVM_DIR="$HOME/.nvm"'
+              echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"'
+              # Each `run` step is a fresh shell that only sources $BASH_ENV -- sourcing
+              # nvm.sh alone does not select a version, so activate "default" explicitly
+              # rather than depend on this image's own bashrc doing it.
+              echo 'nvm use default >/dev/null'
+            } >> "$BASH_ENV"
+            node --version
+            npm --version
+
+      - restore_cache:
+          keys:
+            - desktop-npm-cache-v1-{{ checksum "desktop/package-lock.json" }}
+            - desktop-npm-cache-v1-
+
+      - run:
+          name: npm ci
+          working_directory: desktop
+          command: |
+            set -euo pipefail
+            # `npm ci` always wipes and reinstalls node_modules by design, so what actually
+            # benefits from caching is npm's own download cache (~/.npm), not node_modules
+            # itself -- restored/saved below keyed on package-lock.json's checksum.
+            npm ci
+
+      - save_cache:
+          key: desktop-npm-cache-v1-{{ checksum "desktop/package-lock.json" }}
+          paths:
+            - ~/.npm
+
+      - run:
+          name: Typecheck
+          working_directory: desktop
+          command: npm run typecheck
+
+      - run:
+          name: Lint
+          working_directory: desktop
+          command: npm run lint
+
+      - run:
+          name: Unit tests (vitest)
+          working_directory: desktop
+          command: npx vitest run
+
+      - run:
+          name: Install Xvfb + Playwright's Chromium OS deps
+          command: |
+            set -euo pipefail
+            # needrestart otherwise waits at a service-restart dialog until CI times out.
+            sudo env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+            sudo env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y xvfb
+            # Electron bundles Chromium, so the OS libraries Playwright's own Chromium needs
+            # (nss, gtk3, dbus, atk, ...) are the same ones Electron needs to start at all --
+            # this installs them without downloading a browser binary this project never
+            # launches directly (only Electron, via `_electron.launch`).
+            cd desktop
+            # Start Playwright as root with the selected Node PATH so its apt child
+            # inherits these settings instead of losing them at an internal sudo hop.
+            sudo env "PATH=$PATH" DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
+              npx playwright install-deps chromium
+
+      - run:
+          name: E2E (Electron, offscreen, under Xvfb)
+          command: |
+            set -euo pipefail
+            cd desktop
+            export TIT_E2E_OFFSCREEN=1
+            xvfb-run -a npm run e2e
+
+      - run:
+          name: Production build
+          working_directory: desktop
+          command: npm run build
+
+      - store_artifacts:
+          path: desktop/test-results
+          destination: desktop-e2e-test-results
+          when: always
+
 workflows:
   test_workflow:
     jobs:
       - build-and-run-tests
+      - desktop-checks
+
+  image_verification:
+    when: << pipeline.parameters.build_image >>
+    jobs:
+      - build-and-smoke-image

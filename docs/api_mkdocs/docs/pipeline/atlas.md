@@ -5,7 +5,7 @@ The atlas module provides unified atlas discovery, region listing, and overlap a
 ```mermaid
 graph LR
     SEG([Segmentation Dir]) --> MESH[MeshAtlasManager]
-    FS([FreeSurfer mri/]) --> VOXEL[VoxelAtlasManager]
+    FS([FastSurfer / FreeSurfer mri/]) --> VOXEL[VoxelAtlasManager]
     MESH --> REGIONS([Region Lists])
     VOXEL --> REGIONS
     SIG([Significant Mask]) --> OVERLAP[atlas_overlap_analysis]
@@ -48,19 +48,21 @@ all_atlases = manager.find_all_atlases("lh")
 
 ## Volumetric (Voxel) Atlases
 
-`VoxelAtlasManager` discovers volumetric atlas files from FreeSurfer's `mri/` directory and the SimNIBS segmentation directory. It uses `mri_segstats` to extract region labels on first access, then caches the result.
+`VoxelAtlasManager` discovers current FastSurfer outputs, optional or existing FreeSurfer outputs, SimNIBS segmentation, and custom label masks. Region labels are read with nibabel and NumPy and cached; no FreeSurfer executable is needed.
 
 ```python
 from tit.atlas import VoxelAtlasManager
 
 manager = VoxelAtlasManager(
-    freesurfer_mri_dir="/data/my_project/derivatives/freesurfer/sub-001/mri",
+    fastsurfer_mri_dir="/data/my_project/derivatives/fastsurfer/sub-001/mri",
+    freesurfer_mri_dir="/data/my_project/derivatives/freesurfer/sub-001/mri",  # optional FreeSurfer data
+    masks_dir="/data/my_project/derivatives/SimNIBS/sub-001/m2m_001/masks",
     seg_dir="/data/my_project/derivatives/SimNIBS/sub-001/m2m_001/segmentation",
 )
 
 # Discover available voxel atlases
 atlases = manager.list_atlases()
-# [('aparc.DKTatlas+aseg.mgz', '/path/to/aparc.DKTatlas+aseg.mgz'), ...]
+# [('aparc.DKTatlas+aseg.deep.mgz', '/path/to/aparc.DKTatlas+aseg.deep.mgz'), ...]
 
 # List regions in a specific atlas
 regions = manager.list_regions(atlases[0][1])
@@ -91,8 +93,8 @@ reference_img = nib.load("/path/to/subject_field.nii.gz")
 # Run overlap analysis against multiple atlases
 results = atlas_overlap_analysis(
     sig_mask=sig_mask,
-    atlas_files=["aparc.DKTatlas+aseg.mgz", "ThalamicNuclei.v13.T1.mgz"],
-    data_dir="/data/my_project/derivatives/freesurfer/sub-001/mri",
+    atlas_files=["aparc.DKTatlas+aseg.deep.mgz"],
+    data_dir="/data/my_project/derivatives/fastsurfer/sub-001/mri",
     reference_img=reference_img,
 )
 
@@ -117,7 +119,15 @@ These are always available after running `subject_atlas` during preprocessing (C
 
 ### Voxel (Volumetric) Atlases
 
-Discovered from FreeSurfer's `mri/` directory:
+Current FastSurfer segmentation is discovered from `derivatives/fastsurfer/sub-<id>/mri/`:
+
+| File | Description |
+|------|-------------|
+| `aparc.DKTatlas+aseg.deep.mgz` or `.nii.gz` | DKT cortical and subcortical deep segmentation |
+
+The following **FreeSurfer outputs** are discovered under
+`derivatives/freesurfer/sub-<id>/mri/`. Optional recon-all produces the cortical parcellations;
+subregions require an additional operation after reconstruction. Existing legacy outputs remain readable:
 
 | File | Hemisphere | Description |
 |------|------------|-------------|

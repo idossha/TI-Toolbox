@@ -1,0 +1,5 @@
+2026-08-28 14:02:11 INFO tit.sim: started simulation for sub-ernie
+2026-08-28 14:03:04 INFO mesh: loaded m2m_ernie head model
+2026-08-28 14:07:32 INFO fem: solved pair P1/P2
+2026-08-28 14:11:48 INFO ti: computed TI_max and TI_normal fields
+2026-08-28 14:12:05 INFO tit.sim: wrote simulation outputs

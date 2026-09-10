@@ -1,0 +1,67 @@
+{
+  "subject_id": "ernie",
+  "simulation_name": "Thalamus",
+  "simulation_display_name": null,
+  "simulation_mode": "TI",
+  "montage_mode": "net",
+  "eeg_net": "EEG10-10_Cutini_2011.csv",
+  "conductivity": "scalar",
+  "electrode_pairs": [
+    [
+      "F7",
+      "P7"
+    ],
+    [
+      "F8",
+      "P8"
+    ]
+  ],
+  "is_xyz_montage": false,
+  "electrode_coordinates": [
+    [
+      -64.87523487465111,
+      72.99193321180685,
+      11.843046618821026
+    ],
+    [
+      -70.65187203313374,
+      -48.87113934860305,
+      -0.023597381979861387
+    ],
+    [
+      69.97293721393476,
+      76.50045470703361,
+      10.765516051665246
+    ],
+    [
+      69.11383246558832,
+      -44.448026427794844,
+      0.30364087026225317
+    ]
+  ],
+  "electrode_coordinate_source": "eeg_positions/EEG10-10_Cutini_2011.csv",
+  "intensities": [
+    1.0,
+    1.0
+  ],
+  "electrode_geometry": {
+    "shape": "ellipse",
+    "dimensions": [
+      8.0,
+      8.0
+    ],
+    "gel_thickness": 4.0,
+    "rubber_thickness": 2.0
+  },
+  "mapping_options": {
+    "map_to_surf": true,
+    "map_to_vol": false,
+    "map_to_mni": false,
+    "map_to_fsavg": true
+  },
+  "tissues_in_niftis": "all",
+  "aniso_maxratio": 10.0,
+  "aniso_maxcond": 2.0,
+  "open_in_gmsh": false,
+  "created_at": "2026-07-06T18:48:57.594187"
+}

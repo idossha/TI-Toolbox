@@ -86,12 +86,15 @@ class TestSetupLogging:
         assert logger.level == logging.DEBUG
 
     def test_clears_existing_handlers(self):
+        # Counted as a delta, not an absolute: a test run with pytest's logging plugin
+        # attaching its own handler must still be measuring what this test is about.
         logger = logging.getLogger("tit")
+        before = len(logger.handlers)
         logger.addHandler(logging.StreamHandler())
         logger.addHandler(logging.StreamHandler())
-        assert len(logger.handlers) == 2
+        assert len(logger.handlers) == before + 2
         setup_logging()
-        assert len(logger.handlers) == 0
+        assert logger.handlers == []
 
     def test_sets_propagate_false(self):
         setup_logging()

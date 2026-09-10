@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>tetravox-embed (fake)</title>
+<style>
+  body { font: 12px/1.4 system-ui, sans-serif; margin: 0; padding: 8px; background: #111; color: #eee; }
+  ul { margin: 4px 0 0; padding-left: 16px; }
+  #status { opacity: 0.7; }
+</style>
+</head>
+<body>
+<p id="status">idle</p>
+<ul id="layers" data-testid="fake-embed-layers"></ul>
+<!-- One row per inline point of the first points layer, so a spec can read exactly what the last
+     `setPoints` delivered (state + colour + name) and can pick a NAMED electrode by clicking its
+     row, rather than being limited to whichever point happens to be first. -->
+<ul id="points" data-testid="fake-embed-points"></ul>
+<!-- External script, not inline: both tit/server/static.py's and tests/mock-server/server.mjs's
+     TETRAVOX_CSP serve `script-src 'self' 'wasm-unsafe-eval'`, which Chromium refuses for an
+     inline block. See fake-embed.js's own header. -->
+<script src="./fake-embed.js"></script>
+</body>
+</html>

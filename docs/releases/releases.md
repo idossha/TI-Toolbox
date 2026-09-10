@@ -1,10 +1,24 @@
 ---
 layout: releases
-title: Latest Release
+title: Releases
 permalink: /releases/
 ---
 
-### v2.5.0 (Latest Release)
+### v3.0.0 (Unreleased)
+
+**Release Date**: unreleased — final installers and the GitHub release are not published yet. The mutable `idossha/ti-toolbox:v3.0.0` image is available for testing.
+
+v3 replaces the PyQt5 GUI with an Electron desktop application, and the two-image Docker stack with a single core image (final candidate size pending measurement): no X11 anywhere, FastSurfer recommended by default, optional FreeSurfer reconstruction and thalamic or hippocampal/amygdala subregions in temporary workers, and [Tetravox]({{ site.baseurl }}/wiki/visualizers/) rendering inside the app window instead of Freeview and Gmsh as separate X11 programs. New [Overview]({{ site.baseurl }}/wiki/overview/), [Jobs]({{ site.baseurl }}/wiki/jobs/), [Notebooks]({{ site.baseurl }}/wiki/notebooks/), [Pipeline]({{ site.baseurl }}/wiki/pipelines/) and [Results]({{ site.baseurl }}/wiki/results/) pages sit alongside per-job tables on the Simulator, Optimizer and Analyzer, free-hand electrode placement folded into the Simulator, and optional tools switched on per project. The shared scientific core has **nine recorded corrections** in this unreleased work. Read the
+[complete correction table]({{ site.baseurl }}/releases/v3.0.0/#scientific-corrections) and
+[upgrade advice]({{ site.baseurl }}/releases/v3.0.0/#upgrading-from-2x) before reusing 2.x results.
+The stable public release remains [2.5.0]({{ site.baseurl }}/releases/v2.5.0/); preview artifacts
+are identified separately in the [internal handoff]({{ site.baseurl }}/installation/#internal-colleague-testing).
+
+Full notes: [Upcoming v3.0.0 notes]({{ site.baseurl }}/releases/v3.0.0/) · [Installation Guide]({{ site.baseurl }}/installation/)
+
+---
+
+### v2.5.0 (Stable V2 release)
 
 **Release Date**: August 31, 2026
 
@@ -53,18 +67,19 @@ The analyzer's grid check compared shape only, so an atlas with matching dimensi
 
 #### Download Links
 
-**Desktop App (latest):**
-[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.5.0.dmg) ·
-[macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.5.0-arm64.dmg) ·
-[Windows](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox.Setup.2.5.0.exe) ·
-[Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.5.0.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-Toolbox/releases/latest/download/ti-toolbox_2.5.0_amd64.deb)
+**Desktop App (v2.5.0, legacy interface):**
+[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/download/v2.5.0/TI-Toolbox-2.5.0.dmg) ·
+[macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/download/v2.5.0/TI-Toolbox-2.5.0-arm64.dmg) ·
+[Windows](https://github.com/idossha/TI-Toolbox/releases/download/v2.5.0/TI-Toolbox.Setup.2.5.0.exe) ·
+[Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.5.0/TI-Toolbox-2.5.0.AppImage) ·
+[Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v2.5.0/ti-toolbox_2.5.0_amd64.deb)
 
 **Other:**
-- Docker Image: `docker pull idossha/simnibs:latest`
+- Docker Image: `docker pull idossha/simnibs:2.5.0`
 - Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
 
-For installation instructions, see the [Installation Guide]({{ site.baseurl }}/installation/).
+These downloads use the deprecated v2 interface. For current setup and v3 preview availability,
+see the [Installation Guide]({{ site.baseurl }}/installation/).
 
 ---
 

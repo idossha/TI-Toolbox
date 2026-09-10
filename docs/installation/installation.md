@@ -4,93 +4,77 @@ title: Installation
 permalink: /installation/
 ---
 
-## Option 1: Desktop App
+Install Docker, open TI-Toolbox, and choose your project. Use the **Desktop app** or the **CLI** below.
 
-Download the pre-built desktop application for your platform from the **[Latest Release](https://github.com/idossha/TI-toolbox/releases/latest)**:
+## 1. Install Docker
 
-| Platform | Download |
-|----------|----------|
-| **macOS (Intel)** | `TI-Toolbox-{version}.dmg` |
-| **macOS (Apple Silicon)** | `TI-Toolbox-{version}-arm64.dmg` |
-| **Windows** | `TI-Toolbox.Setup.{version}.exe` |
-| **Linux** | `TI-Toolbox-{version}.AppImage` or `ti-toolbox_{version}_amd64.deb` |
+Install and start [Docker Desktop](https://www.docker.com/products/docker-desktop/) on macOS or Windows,
+or [Docker Engine](https://docs.docker.com/engine/install/) on Linux.
+TI-Toolbox includes its scientific tools; you do not need to install SimNIBS or an X11 server separately.
 
-Simply download, install, and launch — the app handles Docker management for you.
+Platform help: [macOS]({{ site.baseurl }}/installation/macos/) ·
+[Windows]({{ site.baseurl }}/installation/windows/) ·
+[Linux]({{ site.baseurl }}/installation/linux/).
 
-<br>
+## 2. Open TI-Toolbox
 
-## Option 2: Command Line (Bash)
+### Desktop
 
-**Download the required files:**
-- **[loader.py](https://github.com/idossha/TI-toolbox/blob/main/loader.py)** - Main launch script
-- **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)** - Docker configuration
+1. Download the installer for your system from the [release page]({{ site.baseurl }}/releases/).
+2. Open **TI-Toolbox**.
+3. Enter your project directory or select it with **Browse**, then choose **Open project**.
 
-<br>
+Use **Switch project** in Overview to open another project. Closing the app stops its container;
+your project files are preserved.
 
-## Option 3: HPC (Apptainer/Singularity)
+### CLI
 
-For high-performance computing clusters where Docker is unavailable. Users build the `.sif` image from the definition file.
+Download **one launcher** — [loader.py](https://raw.githubusercontent.com/idossha/TI-Toolbox/release/3.0.0/loader.py)
+or [loader.sh](https://raw.githubusercontent.com/idossha/TI-Toolbox/release/3.0.0/loader.sh) — plus
+[docker-compose.yml](https://raw.githubusercontent.com/idossha/TI-Toolbox/release/3.0.0/docker-compose.yml).
+Keep these **two files in the same folder**, with their filenames unchanged. If a link opens as text,
+use **Save As** (without adding `.txt`). No repository checkout is needed: regular launches use
+the code already inside the image and mount your project data without replacing that code.
 
-**[Full HPC Deployment Guide]({{ site.baseurl }}/installation/hpc-apptainer/)**
+Open a terminal in that folder and run **one** launcher:
 
-Quick start:
 ```bash
-# 1. Get the definition file
-curl -O https://raw.githubusercontent.com/idossha/TI-toolbox/main/container/blueprint/apptainer.def
-curl -O https://raw.githubusercontent.com/idossha/TI-toolbox/main/container/blueprint/apptainer_run.sh
-chmod +x apptainer_run.sh
-
-# 2. Build the SIF (30-60 min, requires fakeroot or root)
-apptainer build ti-toolbox.sif apptainer.def
-
-# 3. Run interactively
-./apptainer_run.sh --sif ti-toolbox.sif --project-dir /data/my_study
+python3 loader.py
 ```
 
-<br>
+or, on macOS/Linux:
 
-## Optional: AI Assistant Plugin
-
-If you use an AI coding assistant, install the TI-Toolbox plugin so it can answer questions from the wiki, write correct scripts, and inspect your project folder. In Claude Code:
-
-```text
-/plugin marketplace add idossha/TI-Toolbox
-/plugin install ti-toolbox@ti-toolbox
+```bash
+bash loader.sh
 ```
 
-Codex, Cursor and other MCP clients: see the **[AI Assistant guide]({{ site.baseurl }}/wiki/ai-assistant/)**.
+Enter your project directory when prompted; TI-Toolbox opens in your browser.
+Python needs version 3.11+; Bash needs curl and Docker Compose.
 
-<br>
+If asked, choose **Recreate** (default) or **Attach** to an existing session.
+Closing the browser leaves it running; see the [CLI guide]({{ site.baseurl }}/installation/bash-cli/#stop-or-check-a-session)
+for stopping it.
 
----
+## System requirements
 
-## Supported Operating Systems
+Allow at least **32 GB RAM**, **4 CPU cores**, and **20 GB free disk space**, plus space for your
+project. We recommend 64 GB RAM and 8 or more cores. Apple Silicon runs the scientific container
+under emulation, so processing is slower than on an x86_64 machine.
 
-| Operating System | Support Level | Testing Status | Notes |
-|------------------|---------------|----------------|--------|
-| **Windows** | ✅ Full Support | ✅ Active Testing | Via WSL2 + Ubuntu |
-| **Linux (Ubuntu)** | ✅ Full Support | ✅ Active Testing | Primary development platform |
-| **macOS (Apple Silicon)** | ✅ Full Support | ✅ Active Testing | Native ARM64 support |
-| **macOS (Intel)** | ✅ Built each release | ⚠️ Not actively tested | Intel `.dmg` is still published |
+FastSurfer is the recommended default for segmentation. Optional FreeSurfer provides full reconstruction,
+thalamic nuclei, and hippocampal/amygdala subregions; see [Pre-processing]({{ site.baseurl }}/wiki/pre-processing/).
 
-### Known Issues
-- **macOS 26 (Tahoe)**: Potential compatibility issues with Gmsh and FreeView (X11/OpenGL)
+See [Dependencies]({{ site.baseurl }}/installation/dependencies/) for supported systems and optional tools.
 
+## Troubleshooting
 
----
+See [installation troubleshooting]({{ site.baseurl }}/installation/troubleshooting/) or the
+[known issues and fixes]({{ site.baseurl }}/wiki/troubleshooting/).
+For a cluster without Docker, see the [HPC guide]({{ site.baseurl }}/installation/hpc-apptainer/).
 
-## Prerequisites
+<a id="internal-colleague-testing"></a>
 
-**Options 1 & 2 (Desktop / CLI):**
-- **Docker**: [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows/macOS) or [Docker Engine](https://docs.docker.com/engine/install/) (Linux)
-- **X Server**: XQuartz (macOS), VcXsrv (Windows), or X11 (Linux - usually pre-installed)
+## Install from source
 
-**Option 3 (HPC):**
-- **Apptainer** 1.1+ (or Singularity 3.8+) — typically provided by your cluster's module system
-- **FreeSurfer License**: Free from [FreeSurfer registration](https://surfer.nmr.mgh.harvard.edu/registration.html)
-
----
-<br>
-⚠️ **Security Notice**: Only run bash scripts and download applications from official sources. 
-
-For detailed, step-by-step instructions for your platform, use the sidebar navigation.
+Building or testing v3? Follow the [developer setup]({{ site.baseurl }}/wiki/development/#source-setup)
+for the checkout, matching image, and build commands.

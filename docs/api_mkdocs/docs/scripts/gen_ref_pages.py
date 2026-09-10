@@ -6,9 +6,8 @@ nav = mkdocs_gen_files.Nav()
 root = Path(__file__).parent.parent.parent.parent.parent  # -> project root (TI-toolbox/)
 src = root / "tit"
 
-# Modules to skip (GUI has heavy Qt deps, tools are standalone scripts)
-SKIP_DIRS = {"gui", "blender", "__pycache__"}
-SKIP_FILES = {"__main__.py"}
+# Exclude Blender-only helpers and interpreter caches from the Python reference.
+SKIP_DIRS = {"blender", "__pycache__"}
 
 for path in sorted(src.rglob("*.py")):
     # Skip unwanted directories

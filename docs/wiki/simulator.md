@@ -6,11 +6,10 @@ permalink: /wiki/simulator/
 
 The Simulator computes the full FEM temporal interference field. It sits between the optimizers and the analyzer: take a montage from the montage list or from a [flex-search]({{ site.baseurl }}/wiki/flex-search/) or [ex-search]({{ site.baseurl }}/wiki/ex-search/) result, or placed by hand and simulate it here. Then, quantify the resulting field with the [Analyzer]({{ site.baseurl }}/wiki/analyzer/). It can be invoked programmatically via `run_simulation()` or through a JSON config entrypoint.
 
-## User Interface
+## In the application
 
-<div class="image-container">
-  <img src="{{ site.baseurl }}/assets/imgs/UI/UI_sim.png" alt="Simulator User Interface" style="width: 100%; max-width: 600px;">
-</div>
+<img src="{{ site.baseurl }}/assets/imgs/v3/simulator.png" alt="The Simulator page: one row per simulation job" style="width: 100%; max-width: 1000px;">
+<em>The Simulator (⌘3). One row is one job; the pane beside it draws that montage on the selected subject.</em>
 
 - **Subject Selection**: Choose from available pre-processed subjects; multiple subjects can be queued for batch processing
 - **Montage Source**: Per-job drop-down — `Montage`, `Flex-Search`, or `Freehand` (see [Montage Sources](#montage-sources))
@@ -48,7 +47,7 @@ Automatic integration with the flex-search optimizer.
 Mode that allows exploration of untraditional montages
 
 - **Flexible Positioning**: Manual electrode placement for specialized protocols
-- **Extension**: Open up the `electrode placement` extension to freely place electrodes on subjects
+- **New placement**: Use the Simulator’s built-in [placement editor]({{ site.baseurl }}/wiki/electrode-placement/) to place electrodes on the subject’s scalp
 
 ### Available EEG Nets
 
@@ -64,9 +63,9 @@ The TI-Toolbox automatically co-registers these EEG electrode nets to head model
 
 ### Unipolar Mode
 
-- **Configuration**: Single active electrode with dedicated return path
-- **Current Settings**: Two current inputs (active and return electrodes)
-- **Applications**: Focal stimulation with clear current flow direction
+- **Configuration**: Two electrode pairs (four electrodes), forming two channels whose slightly different frequencies produce the TI envelope
+- **Current Settings**: One current magnitude per channel; each channel has an active and return electrode
+- **Applications**: Standard two-channel temporal interference stimulation
 - **Montage Compatibility**: Works with unipolar montage collections
 
 ### Multipolar Mode (mTI)
@@ -113,7 +112,7 @@ data["nets"][eeg_net]["uni_polar_montages"][name]   = [[e1,e2],[e3,e4]]
 
 The assignment is always positional: each two consecutive electrodes in the montage compose a channel, and each two consecutive channels compose a carrier. For an 8-electrode montage that means channels A & B share the first carrier and channels C & D the second — there is no wiring choice to make.
 
-The kHz-exposure safety metrics `hf_peak`/`hf_sar` always sum over every channel's field, independent of the carrier structure. Their math lives under [Safety Metrics on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#safety-metrics).
+The kHz-exposure safety metrics `hf_peak`/`hf_sar` include every channel field under the shipped positional wiring (one field per carrier). Their math lives under [Safety Metrics on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#safety-metrics).
 
 #### Simulator Behavior for mTI
 
@@ -123,7 +122,7 @@ On disk, the mTI mesh spells the modulation-depth field `mTI_max` -- the same qu
 
 **TI_normal is computed for mTI too.** Standard TI derives it from SimNIBS's 2-field `TI.get_dirTI`; mTI evaluates the same $$K$$-carrier envelope at a _fixed_ direction — the cortical surface normal — via `tit.calc.get_TI_dir` over all N channel overlays, and writes it as `{montage}_mTI_normal.msh` in `mTI/mesh/`.
 
-**fsaverage projection covers mTI.** `SimulationConfig.map_to_fsavg` defaults to `True` and runs for both modes; for mTI it reads the modulation depth from the mTI central surface (field `mTI_max`) and derives `hf_peak`/`hf_sar` from all N channel volume meshes.
+**fsaverage projection covers mTI.** Enable **Map fields to fsaverage** in each job’s settings to project its fields after simulation. New UI jobs start with mapping off; new rows inherit the last configured job settings. The Python `SimulationConfig.map_to_fsavg` default remains `True` for existing scripts. Projection runs for both modes; for mTI it reads the modulation depth from the mTI central surface (field `mTI_max`) and derives `hf_peak`/`hf_sar` from all N channel volume meshes.
 
 mTI supports an arbitrary even number of channels, **capped at 26** (A-Z channel labelling); more than 26 channels raises `ValueError`. Post-processing:
 
@@ -177,7 +176,7 @@ For complete DTI processing instructions, see the [Diffusion Processing]({{ site
   <img src="{{ site.baseurl }}/assets/imgs/simulator/dti_spinal.png" alt="DTI Eigen Vectors - Spinal Cord" style="width: 80%; max-width: 500px;">
 </div>
 
-<em>Gmsh visualizations showing white and gray matter with overlaid eigen vectors that scale conductivity in anisotropic simulations. Top: Corpus callosum region showing organized fiber directions. Bottom: Spinal cord region with longitudinal fiber orientation.</em>
+<em>White and gray matter with overlaid eigen vectors that scale conductivity in anisotropic simulations. Top: Corpus callosum region showing organized fiber directions. Bottom: Spinal cord region with longitudinal fiber orientation.</em>
 
 ---
 

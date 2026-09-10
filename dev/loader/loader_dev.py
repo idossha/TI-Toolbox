@@ -1,376 +1,142 @@
 #!/usr/bin/env python3
+"""Launch the current checkout with source mounts and automatic server reload.
+
+Use --web for Vite development, --build to build the image, or --help for options.
+"""
+
 from __future__ import annotations
 
 import argparse
-import json
 import os
-import platform
-import re
-import shutil
 import subprocess
 import sys
-import time
 from pathlib import Path
-from typing import Optional
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-DEFAULT_PATHS_FILE = SCRIPT_DIR / ".default_paths.dev"
-DOCKER_COMPOSE_FILE = SCRIPT_DIR / "docker-compose.dev.yml"
-FREESURFER_VOLUME_PREFIX = "ti-toolbox_freesurfer_data"
-TOOLBOX_ROOT = (SCRIPT_DIR / ".." / "..").resolve()
-STATUS_RELATIVE_PATH = Path("code/ti-toolbox/config/project_status.json")
-SYSTEM_INFO_RELATIVE_DIR = Path("derivatives/ti-toolbox/.ti-toolbox-info")
+HERE = Path(__file__).resolve().parent
+REPO = (
+    Path(os.environ.get("TIT_DEV_REPO_DIR", str(HERE.parent.parent)))
+    .expanduser()
+    .resolve()
+)
+DESKTOP = REPO / "desktop"
+BUILD_SH = REPO / "container" / "blueprint" / "build.sh"
 
+if (REPO / "tit" / "launch.py").is_file() and str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
 
-def run(
-    cmd: list[str],
-    *,
-    check: bool = True,
-    env: Optional[dict[str, str]] = None,
-    capture_output: bool = False,
-) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        cmd,
-        check=check,
-        env=env,
-        stdout=subprocess.PIPE if capture_output else None,
-        stderr=subprocess.PIPE if capture_output else None,
-        text=True,
-    )
+DEV_EPILOG = """\
+examples:
+  python dev/loader/loader_dev.py --project ~/datasets/000     start (or attach), open the UI
+  python dev/loader/loader_dev.py --build                      build the image, then exit
+  python dev/loader/loader_dev.py --web                        hand over to `npm run dev:web`
 
-
-def capture(cmd: list[str]) -> str:
-    return subprocess.check_output(cmd, text=True).strip()
+developer options (the user loader has none of these):
+  --build          build idossha/ti-toolbox:<tag> from this checkout, then exit
+  --web            container + Vite with HMR at http://127.0.0.1:5173/, via `npm run dev:web`.
+  --no-mount-repo  run the image's own `tit` instead of this worktree's
+Without --web: browser UI, Python and Docker only.
+"""
 
 
-def load_default_paths() -> tuple[str, str]:
-    if not DEFAULT_PATHS_FILE.exists():
-        return "", ""
-    content = DEFAULT_PATHS_FILE.read_text(errors="ignore")
-    local_match = re.search(r'LOCAL_PROJECT_DIR="([^"]*)"', content)
-    dev_match = re.search(r'DEV_CODEBASE_DIR="([^"]*)"', content)
-    return (
-        local_match.group(1) if local_match else "",
-        dev_match.group(1) if dev_match else "",
-    )
-
-
-def save_default_paths(project_dir: str, dev_codebase_dir: str) -> None:
-    DEFAULT_PATHS_FILE.write_text(
-        f'LOCAL_PROJECT_DIR="{project_dir}"\nDEV_CODEBASE_DIR="{dev_codebase_dir}"\n'
-    )
-
-
-def prompt_dir(label: str, prompt: str, current: str) -> Path:
-    while True:
-        if current:
-            print(f"Current {label}: {current}")
-            new_val = input(
-                "Press Enter to use this directory or enter a new path:\n"
-            ).strip()
-            if new_val:
-                current = new_val
-        else:
-            current = input(f"{prompt}\n").strip()
-
-        current = os.path.expanduser(current)
-        if not current:
-            print("Please provide a valid directory path.")
-            continue
-        path = Path(current)
-        if path.is_dir():
-            return path
-        print("Invalid directory. Please provide a valid path.")
-
-
-def allow_network_clients() -> None:
-    run(
-        [
-            "defaults",
-            "write",
-            "org.macosforge.xquartz.X11",
-            "nolisten_tcp",
-            "-bool",
-            "false",
-        ],
-        check=False,
-    )
-    if not is_process_running("XQuartz"):
-        print("WARNING: XQuartz is NOT running. Start XQuartz if you need GUI support.")
-
-
-def set_display_env() -> None:
-    if platform.system() == "Linux":
-        os.environ.setdefault("DISPLAY", ":0")
-    else:
-        os.environ["DISPLAY"] = "host.docker.internal:0"
-
-
-def write_system_info(project_dir: Path) -> None:
-    info_dir = project_dir / SYSTEM_INFO_RELATIVE_DIR
-    info_dir.mkdir(parents=True, exist_ok=True)
-    info_file = info_dir / "system_info.txt"
-    lines = [
-        "# TI-Toolbox System Info",
-        f"Date: {time.ctime()}",
-        f"User: {os.getenv('USER', '')}",
-        f"Host: {platform.node()}",
-        f"OS: {platform.platform()}",
-        "",
-        "## DISPLAY",
-        os.environ.get("DISPLAY", ""),
-        "",
-    ]
-    docker_version = capture(["docker", "--version"])
-    lines += ["## Docker Version", docker_version, ""]
-    info_file.write_text("\n".join(lines))
-
-
-def read_toolbox_version() -> str:
-    version_file = TOOLBOX_ROOT / "version.py"
-    if not version_file.exists():
-        return "unknown"
-    match = re.search(r'__version__\s*=\s*"([^"]+)"', version_file.read_text())
-    return match.group(1) if match else "unknown"
-
-
-def update_project_status(project_dir: Path) -> None:
-    status_file = project_dir / STATUS_RELATIVE_PATH
-    status_file.parent.mkdir(parents=True, exist_ok=True)
-    now = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
-    payload = {
-        "project_created": now,
-        "last_updated": now,
-        "config_created": True,
-        "example_data_copied": False,
-        "user_preferences": {"show_welcome": True},
-        "project_metadata": {
-            "name": project_dir.name,
-            "path": str(project_dir),
-            "version": read_toolbox_version(),
-        },
-    }
-    if status_file.exists():
-        try:
-            existing = json.loads(status_file.read_text())
-            payload.update(existing)
-        except Exception:
-            pass
-        payload["last_updated"] = now
-    status_file.write_text(json.dumps(payload, indent=2))
-
-
-def initialize_project_structure(project_dir: Path) -> None:
-    # The loader runs with the host's plain python3, where ``tit`` is not
-    # installed; import it from the checkout this script lives in.
-    if str(TOOLBOX_ROOT) not in sys.path:
-        sys.path.insert(0, str(TOOLBOX_ROOT))
-    from tit.project_init import initializer
-
-    initializer.initialize_project_structure(project_dir)
-    initializer.setup_example_data(str(TOOLBOX_ROOT), project_dir)
-
-
-def get_freesurfer_volume_name() -> Optional[str]:
-    """Versioned FreeSurfer volume name from the compose image tag.
-
-    Returns ``None`` if the image tag cannot be parsed. Callers must then leave
-    ``FREESURFER_VOLUME`` unset (so compose's versioned default seeds the correct
-    volume) and skip pruning, rather than falling back to the bare prefix.
-    """
-    for line in DOCKER_COMPOSE_FILE.read_text().splitlines():
-        match = re.match(r"^\s*image:\s*\S*ti-toolbox_freesurfer:(\S+)\s*$", line)
-        if match:
-            return f"{FREESURFER_VOLUME_PREFIX}_{match.group(1)}"
-    return None
-
-
-def prune_old_freesurfer_volumes(current_name: Optional[str]) -> None:
-    """Remove stale older-version FreeSurfer volumes (best-effort).
-
-    A ``None`` ``current_name`` means the active version is unknown (tag parse
-    failed); pruning is skipped so a good versioned volume is never destroyed.
-    """
-    if not current_name:
-        return
+def main(argv: list[str] | None = None) -> int:
+    if not (REPO / "tit" / "launch.py").is_file():
+        sys.stderr.write(
+            f"loader_dev.py: not a TI-Toolbox checkout: {REPO}. "
+            "Set TIT_DEV_REPO_DIR to your local checkout.\n"
+        )
+        return 2
+    if "TIT_COMPOSE_FILE" not in os.environ and (HERE / "docker-compose.yml").is_file():
+        os.environ["TIT_COMPOSE_FILE"] = str(HERE / "docker-compose.yml")
     try:
-        names = capture(["docker", "volume", "ls", "--format", "{{.Name}}"]).split()
-    except Exception:
-        return
-    for name in names:
-        is_versioned = name.startswith(f"{FREESURFER_VOLUME_PREFIX}_")
-        is_legacy = name == FREESURFER_VOLUME_PREFIX
-        if (is_versioned or is_legacy) and name != current_name:
-            subprocess.run(
-                ["docker", "volume", "rm", name],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+        from tit.cli import launch_command, launch_parser, prepare_launch
+    except ImportError as err:  # pragma: no cover
+        sys.stderr.write(f"loader_dev.py: could not import `tit` from {REPO} ({err})\n")
+        return 2
+
+    parser = launch_parser(prog="python dev/loader/loader_dev.py")
+    parser.epilog = DEV_EPILOG
+    # Described in the epilog above rather than listed twice in the options block.
+    parser.add_argument("--build", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--web", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--no-mount-repo", action="store_true", help=argparse.SUPPRESS)
+    arguments = argv if argv is not None else sys.argv[1:]
+    args = parser.parse_args(arguments)
+    args.dev_loader = True
+    result = prepare_launch(args, arguments)
+    if result is not None:
+        return result
+
+    if args.build:
+        return build_image(args.image)
+    if args.web:
+        return run_npm_dev_web(args)
+
+    repo_dir = "" if args.no_mount_repo else str(REPO)
+    static_dir = ""
+    if repo_dir:
+        static_dir = "/ti-toolbox/desktop/out/renderer"
+        if (
+            not (args.status or args.logs or args.stop or args.no_open)
+            and not (DESKTOP / "out" / "renderer" / "index.html").is_file()
+        ):
+            sys.stderr.write(
+                "loader_dev.py: this checkout has no built renderer. Run "
+                "`npm --prefix desktop run build`, or use --web for Vite with live edits. "
+                "Use --no-open to start only the API server.\n"
             )
-
-
-def get_compose_images() -> list[str]:
-    images: list[str] = []
-    for line in DOCKER_COMPOSE_FILE.read_text().splitlines():
-        match = re.match(r"^\s*image:\s*(\S+)\s*$", line)
-        if match:
-            images.append(match.group(1))
-    return images
-
-
-def ensure_images_pulled(env: dict[str, str]) -> None:
-    images = get_compose_images()
-    if not images:
-        return
-    existing = set(
-        capture(
-            ["docker", "images", "--format", "{{.Repository}}:{{.Tag}}"]
-        ).splitlines()
-    )
-    missing = [image for image in images if image not in existing]
-    if not missing:
-        return
-    print("Pulling required Docker images...")
-    subprocess.run(
-        ["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "pull"], env=env
+            return 2
+    return launch_command(
+        args,
+        invocation="python dev/loader/loader_dev.py",
+        repo_dir=repo_dir,
+        server_reload=bool(repo_dir),
+        static_dir=static_dir,
     )
 
 
-def run_docker_compose(env: dict[str, str], dev_codebase_dir: Path) -> None:
-    print("Starting services...")
-    subprocess.run(
-        ["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "up", "-d"], env=env
-    )
-
-    print("Waiting for services to initialize...")
-    time.sleep(3)
-
-    print("Copying development codebase to container...")
-    if dev_codebase_dir.is_dir():
-        subprocess.run(
-            ["docker", "cp", f"{dev_codebase_dir}/.", "simnibs_container:/ti-toolbox/"],
-            check=False,
+def build_image(image: str | None) -> int:
+    """``container/blueprint/build.sh --tag <image>`` — the only way to get a v3 image today."""
+    if not BUILD_SH.is_file():
+        sys.stderr.write(
+            f"loader_dev.py: {BUILD_SH} not found; is this a full checkout?\n"
         )
-        print("✓ Development codebase copied to container")
-    else:
-        print(f"Warning: Development codebase directory {dev_codebase_dir} not found")
-
-    print("Attaching to the simnibs_container...")
-    if sys.stdin.isatty():
-        subprocess.run(["docker", "exec", "-ti", "simnibs_container", "bash"])
-    else:
-        subprocess.run(["docker", "exec", "-i", "simnibs_container", "bash"])
-
-    subprocess.run(
-        ["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "down"], env=env
-    )
+        return 2
+    tag = image or "idossha/ti-toolbox:dev"
+    print(f"[dev] {BUILD_SH} --tag {tag}")
+    return subprocess.run([str(BUILD_SH), "--tag", tag], cwd=str(REPO)).returncode
 
 
-def display_welcome() -> None:
-    print("Welcome to the TI toolbox from the Center for Sleep and Consciousness")
-    print("Developed by Ido Haber as a wrapper around modified SimNIBS")
-    print("")
-    print("#####################################################################")
-    print("")
+def run_npm_dev_web(args) -> int:
+    """Hand over to ``desktop/scripts/dev.ts`` — the one dev-loop implementation."""
+    from tit.launch import default_image
 
-
-def _get_user_config_dir() -> str:
-    """Return the host-side user config directory for TI-Toolbox.
-
-    Mirrors the logic in ``tit.paths.PathManager.user_config_dir()`` and
-    ``package/src/backend/env.js:getUserConfigDir()``.
-    """
-    system = platform.system()
-    if system == "Darwin":
-        base = Path.home() / ".config"
-    elif system == "Windows":
-        base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
-    else:
-        base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
-    config_dir = base / "ti-toolbox"
-    config_dir.mkdir(parents=True, exist_ok=True)
-    return str(config_dir)
-
-
-def is_process_running(name: str) -> bool:
-    output = capture(["ps", "aux"])
-    return name.lower() in output.lower()
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="TI-Toolbox dev loader (Python)")
-    parser.add_argument("--project-dir", help="Path to the local project directory")
-    parser.add_argument("--dev-codebase-dir", help="Path to the dev codebase directory")
-    return parser.parse_args()
-
-
-def main() -> None:
-    if not DOCKER_COMPOSE_FILE.exists():
-        print(f"Error: docker-compose.dev.yml not found in {SCRIPT_DIR}")
-        sys.exit(1)
-
-    args = parse_args()
-    display_welcome()
-
-    default_project, default_dev = load_default_paths()
-    project_dir = (
-        Path(os.path.expanduser(args.project_dir)).resolve()
-        if args.project_dir
-        else prompt_dir(
-            "project directory", "Give path to local project dir:", default_project
+    image = args.image or default_image()
+    if not image.startswith("idossha/ti-toolbox:") or "@" in image:
+        sys.stderr.write(
+            "loader_dev.py: --web supports tagged idossha/ti-toolbox images only. "
+            "Use the Python loader without --web for a custom repository or digest.\n"
         )
-    )
-    dev_codebase_dir = (
-        Path(os.path.expanduser(args.dev_codebase_dir)).resolve()
-        if args.dev_codebase_dir
-        else prompt_dir(
-            "development codebase directory",
-            "Enter path to development codebase:",
-            default_dev,
+        return 2
+    if not (DESKTOP / "node_modules").is_dir():
+        sys.stderr.write(
+            "loader_dev.py: --web needs the desktop dependencies. Run:\n"
+            "    npm --prefix desktop install\n"
         )
-    )
-
-    if platform.system() == "Darwin":
-        allow_network_clients()
-
-    set_display_env()
-
-    save_default_paths(str(project_dir), str(dev_codebase_dir))
-
-    initialize_project_structure(project_dir)
-    update_project_status(project_dir)
-
-    write_system_info(project_dir)
-
-    env = os.environ.copy()
-    env["LOCAL_PROJECT_DIR"] = str(project_dir)
-    env["PROJECT_DIR_NAME"] = project_dir.name
-    env["TZ"] = capture(["date", "+%Z"])
-    env["DEV_CODEBASE_DIR"] = str(dev_codebase_dir)
-    env["DEV_CODEBASE_NAME"] = dev_codebase_dir.name
-    env["TIT_USER_CONFIG"] = _get_user_config_dir()
-    env["TIT_HOST_OS"] = platform.system().lower()  # darwin, linux, windows
-    env["TIT_HOST_OS_VERSION"] = platform.release()
-    env["TIT_HOST_ARCH"] = platform.machine()  # x86_64, arm64
-
-    freesurfer_volume = get_freesurfer_volume_name()
-    if freesurfer_volume:
-        env["FREESURFER_VOLUME"] = freesurfer_volume
-
-    # Bring any containers from a previous (older-image) run down first so they
-    # release the old FreeSurfer volume; otherwise the prune below fails with
-    # "volume is in use" and the stale volume lingers.
-    subprocess.run(
-        ["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "down"],
-        env=env,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        check=False,
-    )
-    prune_old_freesurfer_volumes(freesurfer_volume)
-
-    ensure_images_pulled(env)
-    run_docker_compose(env, dev_codebase_dir)
+        return 2
+    env = dict(os.environ)
+    if args.project:
+        env["TIT_DEV_PROJECT_DIR"] = str(Path(args.project).expanduser().resolve())
+    if args.port:
+        env["TIT_DEV_PORT"] = str(args.port)
+    env["TIT_DEV_IMAGE_TAG"] = image.rsplit(":", 1)[-1]
+    env["TIT_LAUNCH_EXISTING"] = args.existing or ""
+    env["TIT_LAUNCH_CONTAINER"] = args.container or ""
+    env["TIT_DEV_MOUNT_REPO"] = "0" if args.no_mount_repo else "1"
+    print("[dev] npm run dev:web (desktop/scripts/dev.ts)")
+    return subprocess.run(
+        ["npm", "run", "dev:web"], cwd=str(DESKTOP), env=env
+    ).returncode
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

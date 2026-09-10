@@ -1,18 +1,40 @@
 """Carrier-derived high-frequency field metrics — single source of truth.
 
-Safety metrics computed from *N* per-pair carrier E-field vector arrays
-(shape ``(..., 3)`` each, one per electrode pair), following Cassarà et al.
-2025, *Safety Recommendations for Temporal Interference Stimulation in the
-Brain, Part I* (Bioelectromagnetics 46(2), doi:10.1002/bem.22542):
+Safety metrics computed from per-pair carrier E-field vector arrays (shape
+``(..., 3)`` each), following Cassarà et al. 2025, *Recommendations for the
+Safe Application of Temporal Interference Stimulation in the Human Brain*
+Part I (Bioelectromagnetics 46(2), e22542) and Part II (46(1), e22536).
 
-``hf_peak(*fields)`` — peak carrier field.  Carriers run at mutually
+The governing rule is Part II, p. 8: *"In the presence of multiple currents
+(e.g., TIS channels), coherent field superposition was used for identical
+frequencies, and incoherent superposition (i.e., SAR addition) was used when
+the frequencies differed."*  Fields at one frequency are summed **as vectors
+first**; only then do distinct carriers combine — in power for time-averaged
+quantities, and by worst-case relative phase for the peak.
+
+Which fields share a frequency is fixed by the montage, and since v2.5.0 the
+toolbox has exactly one wiring: **positional**.  ``electrode_pairs`` are taken
+two at a time, each pair driven at its own carrier frequency, so *one field is
+one carrier* and the coherent sum within a frequency is the identity.  (The
+optional Lee-2022 style ``channels`` grouping, where several pairs shared one
+carrier, was removed on ``main`` — see ``7a5ee2dd``, ``d4706e5a``,
+``b19a1c26``.  If it ever returns, the coherent pre-sum goes here.)  These
+functions therefore take the carrier fields positionally and sum them
+incoherently.
+
+``hf_peak(*fields)`` — peak carrier field.  Distinct carriers run at mutually
 incommensurate frequencies, so every relative phase combination occurs over
-time; the true worst-case instantaneous magnitude is the max over sign
-choices, ``max_s |sum_i s_i * E_i|`` for ``s_i in {+1,-1}``.  At N=2 this is
-exactly ``max(|E1+E2|, |E1-E2|)`` (Cassarà Eq. 3).
+time; the worst-case instantaneous magnitude is the max over sign choices,
+``max_s |sum_c s_c * E_c|`` over *carriers* ``c``.  At two carriers this is
+exactly ``max(|E1+E2|, |E1-E2|)`` (Cassarà Part I, Eq. 3, p. 11: the worst
+case is "in-phase, spatially aligned fields").
 
-``hf_sar(*fields)`` — heating driver, proportional to SAR: carriers are
-incoherent, so power adds rather than amplitude, giving ``sum_i |E_i|^2``.
+``hf_sar(*fields)`` — heating driver, proportional to SAR.  Distinct carriers
+are incoherent, so power adds rather than amplitude: ``sum_c |E_c|^2``
+(Cassarà Part I, p. 11: "the SAR distributions from the two channels, rather
+than the E-fields themselves, must be summed"; Part II, p. 16: total power
+deposition "is equal to the summed combination from all channels (incoherent
+field superposition)").
 
 Both are distinct from the stimulation-relevant modulation envelope
 (``TI_max`` / ``TI_normal``), computed in :mod:`tit.calc`.
@@ -159,15 +181,38 @@ def _hf_peak_sweep(stack: np.ndarray) -> np.ndarray:
     return out
 
 
-def hf_peak(*fields) -> np.ndarray:
-    """Peak carrier field: max over sign choices of the vector sum (Cassarà 2025, Eq. 3).
+def hf_peak_is_exact(n_fields: int) -> bool:
+    """Is :func:`hf_peak` exact for this many carriers, or a lower bound?
 
-    Exact sign enumeration (``2**(N-1)`` combinations) is used up to
-    `EXACT_SIGN_ENUM_MAX_FIELDS` fields. Above that, a Fibonacci-sphere
+    ``True`` up to `EXACT_SIGN_ENUM_MAX_FIELDS` carriers, where every one of
+    the ``2**(C-1)`` sign patterns is enumerated.  Above that the direction
+    sweep tries only the sign patterns implied by sampled directions, so the
+    result is a **lower bound** on the true worst-case peak and is therefore
+    slightly non-conservative as a safety metric.  Callers that record or
+    display ``hf_peak`` should carry this flag alongside the value.
+
+    With the positional wiring one field is one carrier, so *n_fields* is the
+    carrier count.
+    """
+    return int(n_fields) <= EXACT_SIGN_ENUM_MAX_FIELDS
+
+
+def hf_peak(*fields) -> np.ndarray:
+    """Peak carrier field: max over sign choices of the carrier vector sum.
+
+    Each field is one carrier (positional wiring).  Carriers combine at their
+    worst-case relative phase, which for incommensurate frequencies is
+    realised over time:
+    ``max_s |sum_c s_c E_c|``.  At two carriers this is Cassarà et al. 2025
+    Part I, Eq. 3 (p. 11), ``max(|E1+E2|, |E1-E2|)``.
+
+    Exact sign enumeration (``2**(C-1)`` combinations over ``C`` carriers) is
+    used up to `EXACT_SIGN_ENUM_MAX_FIELDS`. Above that, a Fibonacci-sphere
     direction sweep picks the best-sampled direction and evaluates the exact,
     realizable vector sum for the sign pattern it implies -- tighter than a
     raw support-function value, but still a lower bound (hence slightly
     non-conservative) since only sampled directions' sign patterns are tried.
+    Query :func:`hf_peak_is_exact` for which path a montage takes.
 
     Parameters
     ----------
@@ -190,12 +235,21 @@ def hf_peak(*fields) -> np.ndarray:
 
 
 def hf_sar(*fields) -> np.ndarray:
-    """Incoherent carrier heating driver, proportional to SAR: ``sum_i |E_i|^2``.
+    """Incoherent carrier heating driver, proportional to SAR: ``sum_c |E_c|^2``.
 
-    Carriers sit at different, incommensurate frequencies, so their SAR/power
-    adds rather than their amplitudes. This is a field-domain proxy in
-    ``(V/m)^2``, **not** calibrated SAR: the latter is ``(sigma / 2 rho) *
-    hf_sar`` and needs per-tissue conductivity and density.
+    Each field is one carrier (positional wiring), and the carriers sit at
+    different, incommensurate frequencies, so their SAR/power adds rather
+    than their amplitudes — Cassarà et al. 2025 Part II, p. 8: *"coherent
+    field superposition was used for identical frequencies, and incoherent
+    superposition (i.e., SAR addition) was used when the frequencies
+    differed."*
+
+    This is a field-domain proxy in ``(V/m)^2``, **not** calibrated SAR.
+    With ``E_c`` the sinusoidal *amplitude* (peak, as the paper's thresholds
+    are stated), the time-averaged SAR of Part II Eq. 1 is
+    ``(sigma / 2 rho) * hf_sar`` — the ``1/2`` being the sinusoid's
+    time-average, applied once here and nowhere else in the toolbox.
+    Equivalently the RMS-squared carrier field is ``hf_sar / 2``.
 
     Parameters
     ----------
@@ -206,7 +260,7 @@ def hf_sar(*fields) -> np.ndarray:
     Returns
     -------
     numpy.ndarray, shape ``(...,)``
-        ``sum_i |E_i|^2`` in ``(V/m)^2`` — proportional to tissue heating.
+        ``sum_c |E_c|^2`` in ``(V/m)^2`` — proportional to tissue heating.
     """
     stack, shape = _stack_fields(fields)
     flat = np.sum(np.linalg.norm(stack, axis=-1) ** 2, axis=0)

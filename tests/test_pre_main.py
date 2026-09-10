@@ -57,9 +57,8 @@ class TestMain:
             "project_dir": "/proj",
             "subject_ids": ["001", "002"],
             "convert_dicom": True,
-            "run_recon": True,
-            "parallel_recon": True,
-            "parallel_cores": 4,
+            "run_fastsurfer": True,
+            "fastsurfer_threads": 4,
             "create_m2m": True,
             "run_tissue_analysis": True,
             "run_qsiprep": True,
@@ -67,7 +66,6 @@ class TestMain:
             "qsiprep_config": {"key": "val"},
             "qsi_recon_config": {"specs": ["dki"]},
             "extract_dti": True,
-            "run_subcortical_segmentations": True,
             "skip_existing_outputs": True,
             "replace_existing_outputs": False,
         }
@@ -78,8 +76,8 @@ class TestMain:
 
         call_kwargs = mock_pipeline.call_args
         assert call_kwargs.kwargs["convert_dicom"] is True
-        assert call_kwargs.kwargs["run_recon"] is True
-        assert call_kwargs.kwargs["parallel_recon"] is True
+        assert call_kwargs.kwargs["run_fastsurfer"] is True
+        assert call_kwargs.kwargs["fastsurfer_threads"] == 4
         assert call_kwargs.kwargs["create_m2m"] is True
         assert call_kwargs.kwargs["skip_existing_outputs"] is True
         assert call_kwargs.kwargs["replace_existing_outputs"] is False
@@ -102,6 +100,6 @@ class TestMain:
 
         call_kwargs = mock_pipeline.call_args
         assert call_kwargs.kwargs["convert_dicom"] is False
-        assert call_kwargs.kwargs["run_recon"] is False
+        assert call_kwargs.kwargs["run_fastsurfer"] is False
         assert call_kwargs.kwargs["skip_existing_outputs"] is False
         assert call_kwargs.kwargs["replace_existing_outputs"] is False

@@ -1,0 +1,245 @@
+/**
+ * Design tokens — DESIGN.md section 3 and section 7 (theme mechanics).
+ *
+ * Light is the base palette on bare :root. Dark values are redefined twice: once under
+ * `prefers-color-scheme: dark` guarded by `:root:not([data-theme="light"])` (theme = "system"),
+ * and again under `:root[data-theme="dark"]` (explicit user choice) so the toggle always wins.
+ * Never give a token its only definition inside one of those blocks — components must be able to
+ * resolve every token from bare :root alone.
+ */
+
+:root {
+  /* Narrowed per theme below (ra_12 #16) — "light dark" here would tell the browser it may pick
+   * either native-chrome rendering (scrollbars, checkbox/radio chrome) regardless of which
+   * palette this page is actually painting, so choosing Settings -> Light on a dark-OS host (or
+   * vice versa) left native chrome mismatched with the token colours around it. */
+  color-scheme: light;
+
+  /* Surfaces */
+  --bg: #f5f7fa;
+  --surface: #ffffff;
+  --surface-2: #eef2f6;
+  --line: #d8dee6;
+  --line-strong: #b9c3cf;
+
+  /* Text */
+  --ink: #161d26;
+  --ink-2: #4b5865;
+  /* Placeholders and disabled text ONLY (DESIGN.md §3's own "use" column) — never real,
+   * always-visible copy. #7a8794 (the original value) was 3.7:1 on --surface, below the 4.5:1
+   * text floor, yet was in real use for empty-state hints and elapsed-time labels (ra_12 #12).
+   * Darkened to clear 4.5:1 against white/--surface; still below floor against bare --bg, which
+   * is exactly why the restriction to placeholder/disabled matters more than the exact hex — a
+   * disabled control or a `::placeholder` is not required to hit the same-as-content bar. Prefer
+   * --ink-2 for any text a user is meant to actually read. */
+  --ink-3: #6b7784;
+
+  /* Accent */
+  --accent: #1f5bd7;
+  --accent-hover: #1948ae;
+  --accent-soft: #e6eefc;
+  /* Text/icon colour for content placed *on* a solid --accent fill (btn-primary, filled chips,
+   * Badge) — NOT the same as --ink on --accent-soft. Needed as its own token because dark mode's
+   * --accent (#7fa6ff) is a light, low-contrast blue: white text on it is 2.4:1 (fails the 4.5:1
+   * floor), so this cannot simply be "#fff" everywhere the way it was before ra_12 #3. Contrast
+   * verified in tests/unit/tokenContrast.test.ts. */
+  --on-accent: #ffffff;
+
+  /* Semantic */
+  --success: #177a47;
+  --success-soft: #e1f3ea;
+  /* Darkened from #9a6412 (4.42:1 on --warning-soft, a hair under the 4.5:1 floor — see
+   * tests/unit/tokenContrast.test.ts's soft-chip pairs) to clear it with margin; dark mode
+   * (#f0b95b, 7.62:1) already passed and is untouched. */
+  --warning: #835410;
+  --warning-soft: #fbf0da;
+  --danger: #b42318;
+  --danger-soft: #fae3e0;
+  /* Same reasoning as --on-accent, for --danger fills (btn-destructive and any filled danger
+   * chip) — dark mode's --danger (#f28b7d) is a light salmon. */
+  --on-danger: #ffffff;
+
+  /* Field semantics only — TI_max/mTI chips, field markers. Never for actions. Darkened from
+   * #e25b22 (3.11:1 on --field-soft, below the 4.5:1 text floor) to clear it with margin; dark
+   * mode (#ff8a5b, 6.58:1) already passed and is untouched. */
+  --field: #a53d0c;
+  --field-soft: #fce9e0;
+
+  /* Job state: lost */
+  --lost: #7c3aed;
+  --lost-soft: #ede4fd;
+
+  --focus: #1f5bd7;
+
+  --shadow-1: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-2: 0 4px 12px -4px rgba(16, 24, 40, 0.16);
+
+  /* Type */
+  --font-sans: "IBM Plex Sans", system-ui, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+
+  /* Space (4px grid) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  /* Shape */
+  --radius-control: 4px;
+  --radius-card: 6px;
+  --radius-chip: 999px;
+
+  /*
+   * Density (DESIGN.md §3, v2). One shipped density — there is no user switch, because two
+   * densities means two sets of screenshots and two sets of bugs. `--control-h` / `--row-h` are
+   * the canonical names; `--control-height` / `--row-height` are kept as aliases so every page
+   * written against the v1 names keeps compiling and picks the new numbers up for free.
+   */
+  --control-h: 28px;
+  --control-h-sm: 24px;
+  --control-h-lg: 32px;
+  --row-h: 28px;
+  --section-header-h: 28px;
+  /* The label column of a label-left `Field` row. 160px holds "Electrode dimensions" at 12px
+   * without truncating; it is a token so a dense page can narrow it locally. */
+  --field-label-w: 160px;
+  /* Body padding of a flush section — replaces the v1 `.card-body` 16px. */
+  --pane-pad: 12px;
+
+  --row-height: var(--row-h);
+  --control-height: var(--control-h);
+  --control-height-sm: var(--control-h-sm);
+  --control-height-lg: var(--control-h-lg);
+
+  /*
+   * Shell chrome heights and widths. The shell owns the elements; the design system owns the
+   * numbers, so a page can reserve space for a sticky action bar (or measure the viewport left
+   * under the chrome) without hard-coding a pixel value that only the shell knows.
+   */
+  --context-bar-h: 40px;
+  --action-bar-h: 44px;
+  --nav-w: 216px;
+  --nav-w-icons: 56px;
+  --inspector-w: 300px;
+  /* The shell's content-box padding, and its narrow-window step-down. A full-bleed page negates
+   * exactly this, so the two numbers can never drift apart. */
+  --page-pad: var(--space-6);
+  --page-pad-sm: var(--space-4);
+
+  /*
+   * Ground inversion (DESIGN.md §3). The app ground is `--surface`: panes are delineated by 1px
+   * `--line` rules, not by floating white rectangles on a grey field. `--bg` survives only as the
+   * gutter behind resizable dividers, the jobs rail and the nav rail. Consumers use these two
+   * aliases so the inversion is one edit, not a hunt through every stylesheet.
+   */
+  --app-ground: var(--surface);
+  --gutter: var(--bg);
+
+  /*
+   * Render surfaces (Tetravox canvas and any future viewport) are dark in BOTH themes — imaging
+   * convention: a light viewport changes what a greyscale T1 and a heat overlay look like. This
+   * is deliberately defined once, on bare :root, and never overridden in a theme block.
+   */
+  --canvas: #0b0d10;
+  --on-canvas: #e6ebf1;
+
+  /* Motion */
+  --duration-fast: 150ms;
+  --duration-pulse: 1.6s;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /*
+   * Stacking order. A Dialog's overlay/content must sit above the page, but a Select/Combobox/
+   * Dropdown/Popover opened *from inside* a Dialog must still sit above the Dialog's own content
+   * (previously not true: overlay/content were 80/90 while select/popover/dropdown content was
+   * 60, so a Select inside a Dialog rendered its options behind the dialog and was unclickable —
+   * see the Gallery's "Select inside a Dialog" example, `pages/simulator/MontageManager.tsx`'s
+   * documented workaround). Tooltips outrank all of those (a tooltip can be triggered from
+   * within an open popover); toasts outrank everything (a save can complete while a dialog is
+   * still open).
+   */
+  --z-overlay: 80;
+  --z-dialog: 90;
+  --z-popover: 100;
+  --z-tooltip: 110;
+  --z-toast: 120;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0f1419;
+    --surface: #161c24;
+    --surface-2: #1e2630;
+    --line: #2a3441;
+    --line-strong: #3a4653;
+
+    --ink: #e6ebf1;
+    --ink-2: #a7b3bf;
+    --ink-3: #7d8a97;
+
+    --accent: #7fa6ff;
+    --accent-hover: #9dbbff;
+    --accent-soft: #1b2a4a;
+    --on-accent: #0f1419;
+
+    --success: #5bcb8a;
+    --success-soft: #12301f;
+    --warning: #f0b95b;
+    --warning-soft: #3a2c10;
+    --danger: #f28b7d;
+    --danger-soft: #3b1714;
+    --on-danger: #0f1419;
+
+    --field: #ff8a5b;
+    --field-soft: #3a1e12;
+
+    --lost: #b794f6;
+    --lost-soft: #2c2145;
+
+    --focus: #7fa6ff;
+
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-2: 0 6px 20px -6px rgba(0, 0, 0, 0.7);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f1419;
+  --surface: #161c24;
+  --surface-2: #1e2630;
+  --line: #2a3441;
+  --line-strong: #3a4653;
+
+  --ink: #e6ebf1;
+  --ink-2: #a7b3bf;
+  --ink-3: #7d8a97;
+
+  --accent: #7fa6ff;
+  --accent-hover: #9dbbff;
+  --accent-soft: #1b2a4a;
+  --on-accent: #0f1419;
+
+  --success: #5bcb8a;
+  --success-soft: #12301f;
+  --warning: #f0b95b;
+  --warning-soft: #3a2c10;
+  --danger: #f28b7d;
+  --danger-soft: #3b1714;
+  --on-danger: #0f1419;
+
+  --field: #ff8a5b;
+  --field-soft: #3a1e12;
+
+  --lost: #b794f6;
+  --lost-soft: #2c2145;
+
+  --focus: #7fa6ff;
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-2: 0 6px 20px -6px rgba(0, 0, 0, 0.7);
+}

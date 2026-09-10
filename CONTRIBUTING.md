@@ -1,332 +1,186 @@
 # Contributing to TI-Toolbox
 
-Thank you for your interest in contributing to TI-Toolbox! This document provides guidelines and instructions for contributing to the project.
+This guide owns contributor setup, daily development and pull requests. See
+[TESTING](docs/dev/TESTING.md) for verification, [ARCHITECTURE](docs/dev/ARCHITECTURE.md) for
+system constraints, [RELEASING](docs/dev/RELEASING.md) for shipping, and
+[AGENTS.md](AGENTS.md) for the documentation map and shared-checkout rules.
 
-## Table of Contents
+## Propose a change
 
-- [Code of Conduct](#code-of-conduct)
-- [Getting Started](#getting-started)
-- [Types of Contributions](#types-of-contributions)
-  - [New Features](#new-features)
-  - [Bug Fixes](#bug-fixes)
-- [Development Workflow](#development-workflow)
-- [Testing Requirements](#testing-requirements)
-- [Pull Request Process](#pull-request-process)
-- [Coding Standards](#coding-standards)
-- [Documentation](#documentation)
-- [Getting Help](#getting-help)
+Discuss substantial new features with the maintainers before implementation to avoid duplicate
+work and incompatible designs. Bug fixes can proceed directly: describe expected/actual behavior,
+reproduction steps, environment and relevant logs in the issue or PR. Keep interactions respectful.
+Do not include credentials or private subject data in reports.
 
-## Code of Conduct
-
-We are committed to providing a welcoming and inclusive environment. Please be respectful and professional in all interactions.
-
-## Getting Started
-
-1. **Fork the repository** on GitHub
-2. **Clone your fork** locally:
-   ```bash
-   git clone https://github.com/YOUR-USERNAME/TI-Toolbox.git
-   cd TI-Toolbox
-   ```
-3. **Add upstream remote**:
-   ```bash
-   git remote add upstream https://github.com/idossha/TI-Toolbox.git
-   ```
-4. **Set up your development environment** following the [installation guide](https://idossha.github.io/TI-Toolbox/installation/)
-
-## Types of Contributions
-
-### New Features
-
-**Before starting development** on a new feature:
-
-1. **Open a Discussion** on GitHub to propose your feature
-2. **Explain the use case** and how it benefits the project
-3. **Wait for maintainer feedback** to ensure the feature is:
-   - Within the project scope
-   - Aligned with project goals
-   - A desirable addition
-4. **Get approval** before starting development
-
-> ⚠️ **Important**: Feature PRs submitted without prior discussion may be declined, even if well-implemented. Starting a discussion first saves everyone time and effort.
-
-**Why we require discussion for new features:**
-- Ensures feature aligns with project roadmap
-- Prevents duplicate work
-- Allows design feedback before implementation
-- Helps maintain project coherence and quality
-
-### Bug Fixes
-
-**Bug fixes do NOT require prior discussion**, but please:
-
-1. **Document the bug** clearly:
-   - What is the expected behavior?
-   - What is the actual (weird/incorrect) behavior?
-   - Steps to reproduce
-   - System information (OS, Docker version, SimNIBS version, etc.)
-   - Error messages or logs (if applicable)
-
-2. **Open an Issue** describing the bug before submitting the PR (or include the description in the PR if urgent)
-
-3. **Include test cases** that demonstrate the bug is fixed
-
-## Development Workflow
-
-All contributions must follow this workflow:
-
-### 1. Create a Feature Branch
-
-**Always work on a separate branch** - never commit directly to `main`.
+Fork the repository and clone over SSH:
 
 ```bash
-# Update your local main branch
-git checkout main
-git pull upstream main
-
-# Create a new branch (use descriptive names)
-git checkout -b feature/your-feature-name    # For new features
-git checkout -b fix/bug-description          # For bug fixes
-git checkout -b docs/what-you-are-documenting  # For documentation
+git clone git@github.com:YOUR-USERNAME/TI-Toolbox.git
+cd TI-Toolbox
+git remote add upstream git@github.com:idossha/TI-Toolbox.git
 ```
 
-**Branch naming conventions:**
-- `feature/` - New features
-- `fix/` - Bug fixes
-- `docs/` - Documentation updates
-- `refactor/` - Code refactoring
-- `test/` - Adding or updating tests
+## Development environment
 
-### 2. Make Your Changes
-
-- Write clear, readable code
-- Follow existing code style and patterns
-- Add or update tests as needed
-- Update documentation if necessary
-- Keep commits focused and atomic
-
-### 3. Test Locally
-
-**All tests must pass before submitting a PR.**
+The host runs Electron/Vite; Docker runs FastAPI and the SimNIBS scientific environment. Install
+Docker and Node matching `desktop/package.json` (currently Node ≥22.12), then use a local image
+and a BIDS project. Use a copied project for tests that create or replace outputs.
 
 ```bash
-# Run quick unit tests during development
-./tests/test.sh --unit-only
-
-# Run full test suite before creating PR
-./tests/test.sh --verbose
+cd desktop
+npm install
+# .env.dev is optional for desktop; choose the project in Overview
+npm run dev                        # welcome Overview; choose a project in the app
+# npm run dev:web                  # container + Vite at http://127.0.0.1:5173/
+# npm run dev:down                 # stops/removes this project's container
 ```
 
-See the [Testing Guide](tests/README_TESTING.md) for detailed information.
+To develop and manually test the desktop Overview before packaging, run `npm run dev`
+from `desktop/`. It builds the local app and opens Overview without starting Docker or
+automatically connecting. Type a project path or use Browse, open a project, then use Switch project
+to choose the next directory before confirming the switch. Closing the app stops its container and exits.
+This uses the built UI rather than Vite hot reload; rerun after source changes.
 
-### 4. Commit Your Changes
+`pnpm dev:web` / `pnpm dev` use the same scripts. Inspect locally available image tags with
+`docker images idossha/ti-toolbox`; obtain or build a missing image first using
+[RELEASING](docs/dev/RELEASING.md). For one run, use
+`npm run dev:web -- --project /absolute/path/to/project`. For persistent browser-development
+defaults, copy `desktop/.env.dev.example` to `desktop/.env.dev` and set `TIT_DEV_PROJECT_DIR`.
 
-Write clear, descriptive commit messages:
+With `dev:web`, Vite supplies frontend HMR and authenticates proxied API/WebSocket requests; no token copying is
+needed. By default the launched checkout is mounted at `/ti-toolbox`, first on the Python import
+path, and changes under `tit/` trigger server reload. Python dependency, system-package and
+entrypoint changes require an image rebuild. With `dev:web`, `TIT_DEV_MOUNT_REPO=0` tests baked scientific code.
+The container's own browser URL serves `desktop/out/renderer`, so frontend edits there require
+a fresh build; Vite on port 5173 serves live frontend source.
+
+Close the Electron window to stop its container and exit. Ctrl-C in browser development stops
+Vite and leaves the container available for the next attach. Every running TI-Toolbox session
+requires an explicit Attach or Recreate choice; Attach keeps its existing project, image and
+mounts unchanged. Configuration differences never authorize automatic replacement. Check jobs before backend changes: reload can interrupt work. A container
+recreate changes its token; a plain restart preserves the token but still interrupts its processes.
+
+Choose the execution mode explicitly:
+
+| Mode | Command | Code used |
+|---|---|---|
+| Run the built image | `bash loader.sh` or `python3 loader.py` | Image contents |
+| Develop inside Docker | `bash dev/loader/loader_dev.sh` or `python3 dev/loader/loader_dev.py` | The launched checkout/worktree mounted at `/ti-toolbox` |
+| Desktop development | From `desktop/`: `npm run dev` | Local Electron/renderer build + mounted backend after project selection |
+| Docker + live frontend | From `desktop/`: `npm run dev:web` | Mounted backend + Vite frontend |
+| Host-only development | From `desktop/`: `npm run dev:host` | Local Python API + Vite browser; no container |
+
+Both Bash entry points require Docker Compose and curl, **not host Python**. Both Python entry
+points require Python 3.11+. With no arguments the loaders ask for a project and, when a TI-Toolbox container is running,
+an Attach/Recreate decision; explicit
+`--project`, `--image`, `--port`, `--no-open`, `--status`, `--logs` and `--stop` stay scriptable.
+New sessions created by dev loaders use their own checkout, including a branch or worktree;
+Attach preserves the selected session instead. Build the checkout frontend
+with `npm --prefix desktop run build` after edits, or use Vite for live changes. A missing local
+bundle never silently falls back to the image's UI.
+
+Host-only setup, from the repository root:
 
 ```bash
-git add .
-git commit -m "Add feature: brief description of what was added"
-# or
-git commit -m "Fix: brief description of what was fixed"
+python3.11 -m venv .venv
+.venv/bin/python -m pip install -e '.[test]'
+cd desktop
+pnpm install
+pnpm dev:host --project /absolute/path/to/project
 ```
 
-**Good commit messages:**
-- `Add support for custom electrode configurations`
-- `Fix incorrect voxel intensity calculations in mesh analyzer`
-- `Update documentation for flex-search parameters`
-- `Refactor group analyzer for better performance`
+Host mode uses `.venv` when present, otherwise `python3`; `TIT_DEV_PYTHON` overrides the interpreter.
+The API binds to localhost, selects a free port, and stops with Ctrl-C. It is useful for UI/API
+work; scientific jobs require the relevant tools installed on the host. Docker remains the
+reproducible scientific environment. The test extra must not replace the image's SimNIBS pins.
 
-### 5. Push to Your Fork
+## Development workflow
+
+### 1. Choose the branch and pull-request target
+
+`main` is the protected production branch. Work in short-lived branches and merge through
+reviewed pull requests with passing required checks. Official versions are immutable `vX.Y.Z`
+tags on `main`; creating or pushing a branch never cuts a release.
+
+| Branch | Purpose | Start from / PR target |
+|---|---|---|
+| `main` | Reviewed production code | Release and completed topic PRs |
+| `feature/<description>` | New functionality | `main`, or the active release when explicitly in its scope |
+| `fix/<description>` | Bug correction | The branch containing the bug and receiving the fix |
+| `docs/<description>`, `refactor/<description>`, `test/<description>`, `chore/<description>` | Focused maintenance | The branch being maintained |
+| `hotfix/<description>` | Urgent production correction | `main`; propagate the merged fix to active release branches |
+| `release/X.Y.Z` | Integrate and stabilize a planned version for testing | Cut from `main`; merge back to `main` after acceptance |
+
+Use lowercase, descriptive, hyphen-separated topic names. This project keeps no permanent
+`develop` branch: a release branch supplies a bounded integration/testing window. The current
+release branch is `release/3.0.0`; future versions follow the same `release/X.Y.Z` pattern.
+
+For normal work in your fork (where `upstream` names this repository):
 
 ```bash
+git fetch upstream
+git switch -c feature/electrode-search upstream/main
+```
+
+For a correction to the version undergoing testing:
+
+```bash
+git fetch upstream
+git switch -c fix/electrode-search upstream/release/3.0.0
+# Open the PR against release/3.0.0, not main.
+```
+
+In a direct clone, use `origin` instead of `upstream`. In a shared checkout, coordinate the
+switch with its other users and preserve uncommitted work; never force-switch or stash others' edits.
+Topic PRs may use the repository's normal merge method. Release promotion uses a merge commit
+so the tested commits remain in `main`'s ancestry. Merge production hotfixes into every affected
+active release; do not leave a second copy of the defect there. Remove completed topic branches
+after their work is merged; retire a release branch after promotion and any follow-up fixes.
+Do not rewrite published branch history or move published version tags.
+
+The release owner freezes new features once stabilization starts. Required CI, security review,
+manual acceptance and matching artifact verification precede promotion; a branch name or a docs
+change is not evidence those gates passed. The operator procedure is
+[Building and releasing](docs/dev/RELEASING.md). This lightweight workflow adapts
+[GitHub flow](https://docs.github.com/en/get-started/using-github/github-flow) with explicit release
+stabilization branches; it does not require the full Gitflow branch hierarchy.
+
+### Make, verify and submit the change
+
+Keep changes scoped, preserve existing conventions and add independent regression coverage.
+Run the relevant [TESTING](docs/dev/TESTING.md) layers; a release candidate requires the full gate.
+Report actual counts, failures, skips and unrun checks. Do not push or merge failing work.
+
+Stage only files you own. Never stash, discard another contributor's edits, force-switch branches
+or kill shared test processes. GUI runs share build output and ports: coordinate and serialize
+them under `/tmp/tit-e2e.lock` as described in TESTING. Restore a plain renderer build after e2e.
+
+Use commit titles describing the defect or new behavior, without AI co-author trailers:
+
+```bash
+git add path/to/changed-file
+git commit -m "fix(analyzer): preserve voxel intensity units"
 git push origin your-branch-name
 ```
 
-### 6. Submit a Pull Request
+Open a focused PR against the branch being maintained. Explain the problem, final behavior,
+validation and material limitations; link the issue and fill the repository template. Address
+review feedback and required checks before merge. A PR does not itself authorize publication.
 
-1. Go to your fork on GitHub
-2. Click "Compare & pull request"
-3. Fill out the PR template completely
-4. Link any related issues
-5. Wait for CI/CD tests to pass
-6. Address any review feedback
+## Code and documentation conventions
 
-## Testing Requirements
+Python uses type hints, Google-style public API docstrings, project exceptions from `tit/errors.py`
+and module loggers. Run `black` on changed Python files. Scientific logic stays in `tit`; paths go
+through PathManager. Use existing shared frontend controls and strict TypeScript.
 
-### Local Testing
+Changes to `tit/stats`, `tit/analyzer`, `tit/calc`, `tit/fields` or `tit/sim` require real-library
+numerical coverage. If published outputs change, document affected workflows/versions and rerun
+or rescaling guidance in the relevant [release note](docs/releases/v3.0.0.md#scientific-corrections).
 
-**Before submitting a PR, ensure all tests pass locally:**
-
-```bash
-# Quick validation (recommended during development)
-./tests/test.sh --unit-only
-
-# Full test suite (REQUIRED before PR submission)
-./tests/test.sh
-```
-
-### Continuous Integration
-
-- **CircleCI** automatically runs all tests on every PR
-- All tests must pass before the PR can be merged
-- Test results appear on your PR page on GitHub
-
-### Writing New Tests
-
-When adding new features or fixing bugs:
-
-1. **Add unit tests** in the appropriate `tests/test_*.py` file
-2. **Add integration tests** if the feature requires end-to-end testing
-3. **Ensure tests are deterministic** (no random failures)
-4. **Follow existing test patterns** in the codebase
-
-## Pull Request Process
-
-1. **Ensure all tests pass** locally before submitting
-2. **Fill out the PR template** completely
-3. **Link related issues** using GitHub keywords (e.g., "Fixes #123")
-4. **Keep PRs focused** - one feature or fix per PR
-5. **Respond to feedback** promptly and professionally
-6. **Update your PR** if requested by maintainers
-7. **Wait for approval** - a maintainer will review your PR
-
-### PR Checklist
-
-Before submitting, verify:
-
-- [ ] Tests pass locally (`./tests/test.sh`)
-- [ ] Code follows project style and conventions
-- [ ] Documentation is updated (if applicable)
-- [ ] Commit messages are clear and descriptive
-- [ ] PR description explains what and why
-- [ ] Related issues are linked
-- [ ] No merge conflicts with main branch
-
-## Coding Standards
-
-### Python Code
-
-- **Follow PEP 8** style guidelines
-- **Use meaningful variable names**
-- **Add docstrings** to functions and classes
-- **Keep functions focused** (single responsibility)
-- **Avoid magic numbers** (use named constants)
-
-Example:
-```python
-def calculate_field_intensity(mesh_data, electrode_positions):
-    """
-    Calculate electromagnetic field intensity at each mesh point.
-    
-    Parameters
-    ----------
-    mesh_data : dict
-        Mesh data containing node positions and field values
-    electrode_positions : np.ndarray
-        Array of electrode coordinates in MNI space
-        
-    Returns
-    -------
-    np.ndarray
-        Field intensity values at each mesh node
-    """
-    # Implementation here
-    pass
-```
-
-### Shell Scripts
-
-- **Use bash shebang**: `#!/bin/bash`
-- **Add error handling**: `set -euo pipefail`
-- **Add help messages**: `-h` or `--help` flags
-- **Use meaningful variable names**
-- **Add comments** for complex sections
-
-### General Guidelines
-
-- **DRY Principle**: Don't Repeat Yourself
-- **KISS Principle**: Keep It Simple, Stupid
-- **Write self-documenting code**: Code should be readable without comments
-- **Add comments only when necessary**: Explain "why", not "what"
-- **Test edge cases**: Consider boundary conditions and error cases
-
-## Documentation
-
-Documentation updates are highly valued! When contributing:
-
-### Code Documentation
-
-- Add docstrings to all public functions and classes
-- Update inline comments when changing complex logic
-- Include usage examples in docstrings
-
-### User Documentation
-
-Documentation lives in the `docs/` directory and is published at [https://idossha.github.io/TI-Toolbox/](https://idossha.github.io/TI-Toolbox/)
-
-When adding features:
-- Update relevant wiki pages
-- Add examples to the gallery if applicable
-- Update the appropriate markdown files in `docs/`
-
-### README Updates
-
-Update the main README.md or module-specific READMEs when:
-- Adding new command-line tools
-- Changing default behavior
-- Adding new dependencies
-- Modifying installation procedures
-
-## Getting Help
-
-If you need assistance:
-
-1. **Check existing documentation**:
-   - [Project Wiki](https://idossha.github.io/TI-Toolbox/)
-   - [Testing Guide](tests/README_TESTING.md)
-   - Existing issues and discussions
-
-2. **Search for similar issues** on GitHub
-
-3. **Open a Discussion** on GitHub for:
-   - Feature proposals
-   - Design questions
-   - General help
-
-4. **Open an Issue** for:
-   - Bug reports
-   - Documentation errors
-   - Build problems
-
-5. **Contact the maintainer**:
-   - Email: ihaber@wisc.edu
-   - For sensitive topics or specific questions
-
-## Thank You!
-
-Your contributions make TI-Toolbox better for everyone. We appreciate your time and effort in improving this project!
-
----
-
-## Quick Reference
-
-### For New Features:
-1. **Open Discussion** → Get approval
-2. Create branch → Develop → Test locally
-3. Submit PR → Address feedback → Merge
-
-### For Bug Fixes:
-1. Document bug → Create branch
-2. Fix bug → Add tests → Test locally
-3. Submit PR → Address feedback → Merge
-
-### Testing:
-```bash
-./tests/test.sh --unit-only    # Quick tests
-./tests/test.sh                # Full tests before PR
-```
-
-### Questions?
-- Open a [Discussion](https://github.com/idossha/TI-Toolbox/discussions)
-- Email: ihaber@wisc.edu
-
+Update the relevant user guide for behavior changes and the architecture/decision record for
+consequential design changes. [AGENTS.md](AGENTS.md) assigns document ownership; avoid duplicating
+facts or adding session logs. Consolidate accepted requirements into ARCHITECTURE, decisions into
+DECISIONS, verification limits into TESTING and remaining work into ROADMAP; do not add dated
+requirement files or duplicate development plans. Use [Discussions](https://github.com/idossha/TI-Toolbox/discussions)
+for design/help and GitHub issues for reproducible defects. Sensitive reports can go to
+`ihaber@wisc.edu`.

@@ -13,7 +13,10 @@
   function navigateToSearch(query) {
     if (query) {
       const base = document.documentElement.getAttribute('data-baseurl') || '';
-      window.location.href = `${base}/search/?q=${encodeURIComponent(query)}`;
+      const destination = new URL('/search/', window.location.origin);
+      destination.pathname = `${base}/search/`;
+      destination.searchParams.set('q', query);
+      window.location.href = destination.href;
     }
   }
 

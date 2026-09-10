@@ -3,9 +3,9 @@
 Tests for tit/pre/structural.py — run_pipeline coverage.
 
 Covers:
-- parallel_recon path (lines 296-392)
+- report generation
 - Report generation loop (lines 432-505)
-- Individual step flags: run_qsiprep, run_qsirecon, extract_dti, run_subcortical
+- Individual step flags: run_fastsurfer, run_qsiprep, run_qsirecon, extract_dti
 - Runner stop_event reassignment (line 296)
 """
 
@@ -96,12 +96,11 @@ def pipeline_mocks():
         patch(f"{STRUCTURAL}.run_dicom_to_nifti") as mock_dicom,
         patch(f"{STRUCTURAL}.run_charm") as mock_charm,
         patch(f"{STRUCTURAL}.run_subject_atlas") as mock_atlas,
-        patch(f"{STRUCTURAL}.run_recon_all") as mock_recon,
+        patch(f"{STRUCTURAL}.run_fastsurfer") as mock_fastsurfer,
         patch(f"{STRUCTURAL}.run_tissue_analysis") as mock_tissue,
         patch(f"{STRUCTURAL}.run_qsiprep") as mock_qsiprep,
         patch(f"{STRUCTURAL}.run_qsirecon") as mock_qsirecon,
         patch(f"{STRUCTURAL}.extract_dti_tensor") as mock_dti,
-        patch(f"{STRUCTURAL}.run_subcortical_segmentations") as mock_subcort,
         patch(
             f"{STRUCTURAL}.existing_outputs_for_step", return_value=[]
         ) as mock_existing,
@@ -115,12 +114,11 @@ def pipeline_mocks():
             "dicom": mock_dicom,
             "charm": mock_charm,
             "atlas": mock_atlas,
-            "recon": mock_recon,
+            "fastsurfer": mock_fastsurfer,
             "tissue": mock_tissue,
             "qsiprep": mock_qsiprep,
             "qsirecon": mock_qsirecon,
             "dti": mock_dti,
-            "subcort": mock_subcort,
             "existing": mock_existing,
         }
 
@@ -166,6 +164,33 @@ class TestRunStep:
         with pytest.raises(RuntimeError, match="boom"):
             _run_step("Failing Step", func, logger)
 
+    def test_emits_a_stage_event_per_step(self, tmp_path, monkeypatch):
+        """Orchestration-only finer progress: each named step reports its own
+        `stage` event (a no-op unless $TIT_EVENTS_FILE is set) -- see
+        tit.jobs.events."""
+        import json
+
+        import tit.logger as logger_mod
+        from tit.jobs import events as events_mod
+
+        events_path = tmp_path / "events.jsonl"
+        monkeypatch.setenv("TIT_EVENTS_FILE", str(events_path))
+        logger_mod._event_sinks.clear()
+        events_mod._reset_state()
+        try:
+            _run_step("SimNIBS charm", MagicMock(), MagicMock())
+            lines = [
+                json.loads(line)
+                for line in events_path.read_text().splitlines()
+                if line.strip()
+            ]
+            assert any(
+                e["type"] == "stage" and e["stage"] == "SimNIBS charm" for e in lines
+            )
+        finally:
+            logger_mod._event_sinks.clear()
+            events_mod._reset_state()
+
 
 # ---------------------------------------------------------------------------
 # _run_subject_pipeline — individual step flags
@@ -178,8 +203,7 @@ class TestRunSubjectPipeline:
     def _call(self, mocks, **overrides):
         defaults = dict(
             convert_dicom=False,
-            run_recon=False,
-            parallel_recon=False,
+            run_fastsurfer_step=False,
             create_m2m=False,
             run_tissue=False,
             run_qsiprep_step=False,
@@ -187,7 +211,6 @@ class TestRunSubjectPipeline:
             qsiprep_config=None,
             qsi_recon_config=None,
             extract_dti_step=False,
-            run_subcortical=False,
             runner=MagicMock(),
             callback=None,
             skip_existing_outputs=False,
@@ -208,22 +231,23 @@ class TestRunSubjectPipeline:
         self._call(pipeline_mocks, extract_dti_step=True)
         pipeline_mocks["dti"].assert_called_once()
 
-    def test_subcortical_step(self, pipeline_mocks):
-        self._call(pipeline_mocks, run_subcortical=True)
-        pipeline_mocks["subcort"].assert_called_once()
-
-    def test_recon_only_path(self, pipeline_mocks):
-        """run_recon=True without convert_dicom or create_m2m runs only recon."""
-        self._call(pipeline_mocks, run_recon=True)
-        pipeline_mocks["recon"].assert_called_once()
+    def test_fastsurfer_only_path(self, pipeline_mocks):
+        """FastSurfer alone runs neither conversion nor charm."""
+        self._call(pipeline_mocks, run_fastsurfer_step=True)
+        pipeline_mocks["fastsurfer"].assert_called_once()
         pipeline_mocks["dicom"].assert_not_called()
         pipeline_mocks["charm"].assert_not_called()
 
-    def test_dicom_and_recon(self, pipeline_mocks):
-        """convert_dicom=True with run_recon=True runs both, conversion first."""
-        self._call(pipeline_mocks, convert_dicom=True, run_recon=True)
+    def test_dicom_and_fastsurfer(self, pipeline_mocks):
+        """Conversion and FastSurfer both run, conversion first."""
+        self._call(pipeline_mocks, convert_dicom=True, run_fastsurfer_step=True)
         pipeline_mocks["dicom"].assert_called_once()
-        pipeline_mocks["recon"].assert_called_once()
+        pipeline_mocks["fastsurfer"].assert_called_once()
+
+    def test_fastsurfer_threads_forwarded(self, pipeline_mocks):
+        """fastsurfer_threads reaches run_fastsurfer as a keyword."""
+        self._call(pipeline_mocks, run_fastsurfer_step=True, fastsurfer_threads=6)
+        assert pipeline_mocks["fastsurfer"].call_args.kwargs["threads"] == 6
 
     def test_create_m2m_runs_charm_and_atlas(self, pipeline_mocks):
         self._call(pipeline_mocks, create_m2m=True)
@@ -294,117 +318,6 @@ class TestRunSubjectPipeline:
         assert not output_dir.exists()
         pipeline_mocks["charm"].assert_called_once()
         pipeline_mocks["atlas"].assert_called_once()
-
-
-# ---------------------------------------------------------------------------
-# run_pipeline — parallel_recon path (lines 298-409)
-# ---------------------------------------------------------------------------
-
-
-class TestRunPipelineParallelRecon:
-    """Tests for the parallel_recon=True branch of run_pipeline."""
-
-    def _setup_executor(self, mock_executor_cls, mock_as_completed, n_subjects=2):
-        mock_ctx = MagicMock()
-        mock_executor_cls.return_value.__enter__ = MagicMock(return_value=mock_ctx)
-        mock_executor_cls.return_value.__exit__ = MagicMock(return_value=False)
-        mock_future = MagicMock()
-        mock_future.result.return_value = {}
-        mock_ctx.submit.return_value = mock_future
-        mock_as_completed.return_value = [mock_future] * n_subjects
-        return mock_ctx
-
-    def test_parallel_recon_dispatches_phases(self, pipeline_mocks, dummy_report):
-        """parallel_recon=True with 2 subjects uses ThreadPoolExecutor."""
-        with (
-            patch(f"{STRUCTURAL}.ThreadPoolExecutor") as mock_exec,
-            patch(f"{STRUCTURAL}.as_completed") as mock_ac,
-            patch(f"{REPORTING}.PreprocessingReportGenerator", dummy_report),
-        ):
-            self._setup_executor(mock_exec, mock_ac)
-            result = run_pipeline(
-                ["001", "002"],
-                run_recon=True,
-                parallel_recon=True,
-                runner=_make_runner(),
-            )
-        assert result == 0
-        assert mock_exec.called
-
-    def test_parallel_recon_with_tissue_analysis(self, pipeline_mocks, dummy_report):
-        """Tissue analysis runs after parallel recon."""
-        with (
-            patch(f"{STRUCTURAL}.ThreadPoolExecutor") as mock_exec,
-            patch(f"{STRUCTURAL}.as_completed") as mock_ac,
-            patch(f"{REPORTING}.PreprocessingReportGenerator", dummy_report),
-        ):
-            self._setup_executor(mock_exec, mock_ac)
-            result = run_pipeline(
-                ["001", "002"],
-                run_recon=True,
-                parallel_recon=True,
-                run_tissue_analysis=True,
-                runner=_make_runner(),
-            )
-        assert result == 0
-        pipeline_mocks["tissue"].assert_called()
-
-    def test_parallel_recon_with_qsi_steps(self, pipeline_mocks, dummy_report):
-        """QSI steps run after parallel recon."""
-        with (
-            patch(f"{STRUCTURAL}.ThreadPoolExecutor") as mock_exec,
-            patch(f"{STRUCTURAL}.as_completed") as mock_ac,
-            patch(f"{REPORTING}.PreprocessingReportGenerator", dummy_report),
-        ):
-            self._setup_executor(mock_exec, mock_ac)
-            result = run_pipeline(
-                ["001", "002"],
-                run_recon=True,
-                parallel_recon=True,
-                run_qsiprep=True,
-                run_qsirecon=True,
-                extract_dti=True,
-                runner=_make_runner(),
-            )
-        assert result == 0
-        pipeline_mocks["qsiprep"].assert_called()
-        pipeline_mocks["qsirecon"].assert_called()
-        pipeline_mocks["dti"].assert_called()
-
-    def test_parallel_recon_with_subcortical(self, pipeline_mocks, dummy_report):
-        """Subcortical segmentations run after parallel recon."""
-        with (
-            patch(f"{STRUCTURAL}.ThreadPoolExecutor") as mock_exec,
-            patch(f"{STRUCTURAL}.as_completed") as mock_ac,
-            patch(f"{REPORTING}.PreprocessingReportGenerator", dummy_report),
-        ):
-            self._setup_executor(mock_exec, mock_ac)
-            result = run_pipeline(
-                ["001", "002"],
-                run_recon=True,
-                parallel_recon=True,
-                run_subcortical_segmentations=True,
-                runner=_make_runner(),
-            )
-        assert result == 0
-        pipeline_mocks["subcort"].assert_called()
-
-    def test_parallel_recon_uses_parallel_cores(self, pipeline_mocks, dummy_report):
-        """parallel_cores caps ThreadPoolExecutor workers."""
-        with (
-            patch(f"{STRUCTURAL}.ThreadPoolExecutor") as mock_exec,
-            patch(f"{STRUCTURAL}.as_completed") as mock_ac,
-            patch(f"{REPORTING}.PreprocessingReportGenerator", dummy_report),
-        ):
-            self._setup_executor(mock_exec, mock_ac)
-            run_pipeline(
-                ["001", "002"],
-                run_recon=True,
-                parallel_recon=True,
-                parallel_cores=2,
-                runner=_make_runner(),
-            )
-        mock_exec.assert_called_once_with(max_workers=2)
 
 
 # ---------------------------------------------------------------------------
@@ -503,24 +416,22 @@ class TestRunPipelineReports:
                 ["001"],
                 convert_dicom=True,
                 create_m2m=True,
-                run_recon=True,
+                run_fastsurfer=True,
                 run_tissue_analysis=True,
                 run_qsiprep=True,
                 run_qsirecon=True,
                 extract_dti=True,
-                run_subcortical_segmentations=True,
                 runner=_make_runner(),
             )
         step_names = [s["step_name"] for s in dummy_report.instances[0].steps]
         assert "DICOM Conversion" in step_names
         assert "SimNIBS charm" in step_names
         assert "Subject Atlas Segmentation" in step_names
-        assert "FreeSurfer recon-all" in step_names
+        assert "FastSurfer segmentation" in step_names
         assert "Tissue Analysis" in step_names
         assert "QSIPrep" in step_names
         assert "QSIRecon" in step_names
         assert "DTI Tensor Extraction" in step_names
-        assert "Subcortical Segmentations" in step_names
 
     @patch(f"{STRUCTURAL}._run_subject_pipeline")
     @patch(f"{STRUCTURAL}.ensure_dataset_descriptions")

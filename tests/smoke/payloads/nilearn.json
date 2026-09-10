@@ -1,0 +1,22 @@
+{
+  "kind": "nilearn",
+  "config": {
+    "subject_simulation_pairs": [
+      {
+        "subject_id": "101",
+        "simulation_name": "L_Insula"
+      }
+    ],
+    "subdir_name": "smoke-ui-6519",
+    "use_percentiles": false,
+    "min_cutoff": 0.3,
+    "max_cutoff": 5,
+    "atlas_name": "harvard_oxford_sub",
+    "selected_regions": null,
+    "create_glass_brain": true,
+    "glass_brain_cmap": "hot"
+  },
+  "subject_ids": [
+    "101"
+  ]
+}

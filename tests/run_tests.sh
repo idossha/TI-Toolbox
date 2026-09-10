@@ -3,8 +3,8 @@
 # Inner test runner — executed INSIDE the Docker container.
 # Called by tests/test.sh (the host-side wrapper).
 #
-# Uses simnibs_python (SimNIBS's bundled Python) which has all
-# required packages pre-installed (pytest, pytest-cov, etc.)
+# Uses simnibs_python (SimNIBS's bundled Python) for installation and tests,
+# so the source checkout's test requirements augment the cached image.
 
 set -euo pipefail
 
@@ -22,8 +22,8 @@ for arg in "$@"; do
 done
 
 # ── Install tit package in editable mode ─────────────────────────────────────
-echo "Installing tit package (editable) into simnibs_python..."
-simnibs_python -m pip install -e /ti-toolbox --quiet 2>/dev/null || simnibs_python -m pip install -e /ti-toolbox
+echo "Installing tit package and test dependencies into simnibs_python..."
+simnibs_python -m pip install -e '/ti-toolbox[test]'
 
 # ── Build pytest command ─────────────────────────────────────────────────────
 CMD=(simnibs_python -m pytest)

@@ -1,0 +1,331 @@
+/*
+ * The jobs table's geometry.
+ *
+ * Every column is a FIXED width (`table-layout: fixed` + an explicit `<colgroup>`), because this
+ * table is a form: changing a row's net, its montage, or its polarity must not move any other cell
+ * on the page.
+ *
+ * A job is **two lines** (2026-09-06 redesign): line 1 is what it is — subject, source, EEG net,
+ * montage or run — across the four columns; line 2 is what it will do — a flex row's placement,
+ * the electrode pairs *in full* (wrapping, never an ellipsis), one current per pair. Line 2 is one
+ * `colspan` cell with its own flex layout, which is what lets the pairs be complete without
+ * starving the selects above them.
+ */
+.montage-table {
+  table-layout: fixed;
+}
+
+.montage-table th,
+.montage-table tbody tr[data-job-row] > td {
+  overflow: hidden;
+}
+
+/* Line 1 is one 28px control plus air; line 2 is a fixed 30px, so every job in the table is
+   exactly 64px tall whether or not it is configured and nothing jumps when a montage is picked. */
+.montage-table tbody tr[data-job-row] {
+  height: 34px;
+}
+.montage-table tbody tr[data-job-detail] {
+  height: 30px; /* a floor: a job with more pairs than fit grows instead of clipping them */
+}
+.montage-table tbody td {
+  vertical-align: middle;
+  height: auto;
+}
+/* The actions cell spans both lines; its buttons stay centred on line 1. */
+.montage-table tbody td.montage-actions {
+  vertical-align: top;
+}
+/* One hairline per JOB, between line 2 and the next job's line 1 — not between the two lines of
+   one job, and no vertical rule anywhere. */
+.montage-table tbody tr[data-job-detail] > td {
+  border-top: none;
+  border-left: none;
+  padding-top: 0;
+  padding-bottom: 6px;
+}
+.montage-table tbody tr[data-job-row] > td {
+  border-bottom: none;
+  border-left: none;
+  padding-top: 6px;
+}
+
+/* The table never scrolls sideways: percentage columns (MontageManager) plus cells that clip. */
+.montage-table {
+  width: 100%;
+}
+
+/* Half the shared --space-2: five columns of controls in a 608px work column cannot afford 16px
+   of padding per cell. The controls inside still carry their own. */
+.montage-table th,
+.data-table.sim-jobs-table tbody td,
+.montage-table tbody td {
+  padding: 0 4px;
+}
+
+/* Compact triggers: the default select spends 40px per control on padding, gap and chevron, which
+   at the 608px this table gets is the difference between `GSN-HydroCel-185` and `GSN-HydroCel-1…`.
+   Halving the padding and the gap buys 12px per column and truncates nothing. */
+.sim-jobs-table .select-trigger,
+.sim-jobs-table .combobox-trigger,
+.sim-jobs-table .selection-trigger {
+  padding: 0 4px;
+  gap: 2px;
+  max-width: none;
+}
+
+/* The value takes every pixel the trigger is not spending on its chevron: without this the label
+   box stops at its own preferred width and ellipses a name the column had room for. */
+.sim-jobs-table .picker-value {
+  flex: 1 1 auto;
+}
+
+/* Icon-only, 28px, right-aligned — three of them plus their gaps are exactly the 96px the
+   actions column reserves (ACTIONS_W in MontageManager). There is no slack column after it. */
+/* The cell spans both lines of the job (`rowSpan=2`) and stays a real table cell, so its
+   background fills the whole job — a `display: flex` cell sized itself to one line's content and
+   left the bottom-right corner of an active row unpainted. The buttons are a row inside it. */
+.montage-table td.montage-actions {
+  vertical-align: top;
+  padding-top: 6px;
+  height: auto;
+}
+
+.montage-actions-row {
+  display: flex;
+  gap: 2px;
+  justify-content: flex-end;
+  align-items: center;
+  height: 28px;
+}
+
+.montage-table td > * {
+  vertical-align: middle;
+}
+
+/* Chips sit in fixed-width slots that are present even when empty, so a warning appearing (or a
+   polarity changing from TI to mTI) never shifts what is beside it. Used by the montage editor's
+   polarity line. */
+.montage-chip-slot {
+  flex: 0 0 var(--slot, 40px);
+  width: var(--slot, 40px);
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.montage-chip-slot > .chip {
+  width: 100%;
+  justify-content: center;
+}
+
+.montage-cell {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-width: 0;
+}
+
+.montage-cell > .select-trigger {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/*
+ * Line 2. `[chip] [placement · pairs] …… [currents] mA`, laid out on line 1's own columns: the chip
+ * sits in the Source column, the placement and pairs in the EEG-net column, and the currents are
+ * right-aligned to the Montage column's right edge. Nothing is clipped — the pairs wrap inside
+ * their cell rather than ellipsing, and no cell on this line hides its overflow.
+ */
+.montage-table tbody tr[data-job-detail] > td {
+  overflow: visible;
+  white-space: normal;
+}
+
+/* `[placement] [pairs] …… [currents] mA` on one line where it fits, and the currents wrapping to a
+   second line — still right-aligned — where it does not (an mTI job's four inputs plus its four
+   pairs are wider than the two columns this cell spans at 1280). Nothing truncates, nothing
+   overflows the cell. */
+.job-line2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px var(--space-2);
+  /* The same floor as the empty-state line, so a job is the same height before and after a montage
+     is picked. */
+  min-height: 28px;
+}
+
+/* One channel: its colour, its pair, its own current. The current input sits against the pair it
+   drives — the whole point of the group. */
+.job-channel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.job-channel-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.job-channel-pair {
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.job-channel .number-input {
+  width: 46px;
+  min-width: 0;
+  max-width: none;
+}
+
+/* A job that does not use the page's defaults says so, quietly, at the start of line 2. */
+.job-custom-chip {
+  color: var(--text-secondary);
+  font-size: 11px;
+  padding: 0 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  white-space: nowrap;
+}
+
+/* The per-job settings dialog: the page's three sections, one under the other. */
+.job-settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: min(460px, 70vw);
+}
+
+.job-settings-form .field-row-inline {
+  flex-wrap: wrap;
+}
+
+.job-settings-form h4 {
+  margin: 0 0 var(--space-2);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.job-polarity {
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-transform: none;
+}
+
+.job-line2 > .select-trigger {
+  flex: 0 0 auto;
+  max-width: 160px;
+}
+
+.job-line2-empty {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.job-channel .number-input input {
+  min-width: 0;
+  padding-left: 2px;
+}
+
+/*
+ * The active row: what the 3-D pane is drawing.
+ *
+ * The tint has to be set on the CELLS, not on the <tr>. `.data-table tbody td` paints every cell
+ * `--surface` on purpose (a cell is a surface, not a hole in the page), which painted straight over
+ * the row's own background — the reason the row the viewer was showing looked exactly like every
+ * other row. `--accent-soft` plus a 2px `--accent` bar on the first cell; both are theme tokens, so
+ * dark gets the dark pair, and neither is a job-state colour.
+ */
+.montage-table tbody tr[data-active="true"] > td,
+.montage-table tbody tr[data-job-row][data-active="true"] > td.montage-actions {
+  background-color: var(--accent-soft);
+}
+.montage-table tbody tr[data-job-detail][data-active="true"] > td {
+  background-color: var(--accent-soft);
+}
+/* The wash covers the whole job, the spanning actions cell included — no white notch at the right
+   edge of an active row. */
+.montage-table tbody tr[data-job-row][data-active="true"] > td.montage-actions {
+  background-color: var(--accent-soft);
+}
+.montage-table tbody tr[data-active="true"] > td:first-child {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* Hover is the usual quiet wash, and loses to the active row. Mixed against --surface rather than
+   left transparent, for the same reason: the cell under it is opaque. */
+.montage-table tbody tr:hover > td {
+  background-color: color-mix(in srgb, var(--accent-soft) 40%, var(--surface));
+}
+.montage-table tbody tr[data-active="true"]:hover > td {
+  background-color: var(--accent-soft);
+}
+
+/* ---------- Resizable columns ---------- */
+
+.montage-table thead th {
+  position: relative;
+}
+
+/* The boundary between two header cells. The same gesture as the pane divider (pointer capture +
+   arrow keys); 7px of target on a 1px rule, which is what makes it grabbable without drawing a
+   second line down the header. */
+.montage-col-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 8px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: col-resize;
+  z-index: 2;
+  touch-action: none;
+}
+.montage-col-handle::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  right: 0;
+  width: 1px;
+  background: var(--line);
+}
+.montage-col-handle:hover::after,
+.montage-col-handle:focus-visible::after {
+  background: var(--accent);
+  top: 0;
+  bottom: 0;
+  width: 2px;
+}
+
+.montage-col-handle:focus-visible {
+  outline: none;
+}
+
+.montage-table tbody tr[data-montage-row]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Gel thickness carries a "mm" suffix inside the control, so it needs a little more room than the
+   72px the bare w/h boxes take (`--control-w`, ui/components.css `.field-row-inline`). */
+.sim-gel-field {
+  --control-w: 88px;
+}
+
+/* The unit in a header that is otherwise uppercased: "CURRENTS (MA)" is not a unit, "mA" is. */
+.montage-unit {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+}

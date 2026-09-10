@@ -1,0 +1,15 @@
+node_modules/
+out/
+dist/
+tests/e2e/artifacts/
+playwright-report/
+test-results/
+.e2e-user-data/
+*.tsbuildinfo
+# electron-builder output (N0.4 packaging spike) and its staged runtime input (scripts/stage-runtime.sh)
+release/
+.runtime-staging/
+
+# `npm run dev`'s own configuration: it names a project directory on one machine, so it is local.
+# .env.dev.example is committed and is the single place the variables and defaults are documented.
+.env.dev

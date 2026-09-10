@@ -74,18 +74,6 @@ From: ubuntu:22.04
         libxft2 \
         libice6 \
         libsm6 \
-        libqt5widgets5 \
-        libqt5gui5 \
-        libqt5core5a \
-        libqt5svg5 \
-        libqt5opengl5 \
-        libqt5network5 \
-        libqt5xml5 \
-        qtbase5-dev \
-        qtbase5-dev-tools \
-        qtchooser \
-        qttools5-dev-tools \
-        libqt5x11extras5 \
         libgtk2.0-0 \
         bc \
         jq \
@@ -205,7 +193,6 @@ export FS_LICENSE=${FS_LICENSE:-$FREESURFER_HOME/license.txt}
 export PATH="$FREESURFER_HOME/bin:$FREESURFER_HOME/fsfast/bin:$FREESURFER_HOME/tktools:$FREESURFER_HOME/mni/bin:/opt/SimNIBS-4.6/bin:/ti-toolbox/tit/cli:$PATH"
 export LD_LIBRARY_PATH="$FREESURFER_HOME/lib:$FREESURFER_HOME/lib/vtk:$FREESURFER_HOME/mni/lib:${LD_LIBRARY_PATH:-}"
 
-alias GUI='simnibs_python -m tit.gui.main'
 alias analyzer='simnibs_python -m tit.cli.analyzer'
 alias ex_search='simnibs_python -m tit.cli.ex_search'
 alias flex_search='simnibs_python -m tit.cli.flex_search'

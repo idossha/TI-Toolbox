@@ -1,0 +1,496 @@
+/*
+ * The run pane (DESIGN.md v3 §4.5, §4.6): a Plan grid over a Terminal, in the 360/400px right
+ * pane of every run page. Every colour here is a token — the chip vocabulary comes from
+ * `ui/Status.tsx`'s `Chip`, so nothing in this file paints a semantic colour of its own.
+ *
+ * Lives beside the components (as `pages/viewer/viewer-page.css` and `app/jobs-rail/jobs-rail.css`
+ * do) rather than in `ui/components.css`: this is page-shared furniture, not a design primitive.
+ */
+
+/* The `.page-layout-panel[data-pane-kind="run"]` stretch rule this file used to carry as a
+ * stopgap now lives in `ui/components.css` beside the other `.page-layout-panel` rules (FXU1). */
+
+.run-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  height: 100%;
+  min-height: 0;
+}
+
+/* ---------- Plan grid ---------- */
+
+.plan-grid {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  /* §4.6 "Height": the grid takes at most 45% of the pane and scrolls internally past that, so a
+     twelve-subject plan can never squeeze the terminal below its 180px floor. */
+  max-height: 45%;
+  flex: none;
+}
+.plan-grid-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  height: 24px;
+  flex: none;
+  border-bottom: 1px solid var(--line);
+}
+.plan-grid-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  overflow: auto;
+  min-height: 0;
+}
+
+.plan-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+  flex: none;
+}
+.plan-stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  height: 40px;
+  padding: 0 var(--space-2);
+  background: var(--surface-2);
+  border-radius: var(--radius-control);
+}
+.plan-stat-label {
+  font-size: 11px;
+  line-height: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.plan-stat-value {
+  font-size: 16px;
+  line-height: 18px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.plan-stat-value-warning {
+  color: var(--warning);
+}
+
+.plan-matrix-scroll {
+  overflow-x: auto;
+  min-width: 0;
+}
+.plan-matrix {
+  width: 100%;
+  /* One geometry for every mode (maintainer, 2026-09-06): the subject is a fixed narrow column and
+     the remaining columns split the rest EQUALLY — the stage columns of Pre-processing and the
+     Analyzer just as much as the Simulator's and the Optimizer's counts. `table-layout: fixed` is
+     what makes them equal: with only the first column's width given, the remainder is divided
+     evenly between the columns that have none, instead of the first hugging the subject while the
+     last floats at the far right. */
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 12px;
+  line-height: 16px;
+}
+.plan-matrix th,
+.plan-matrix td {
+  height: 24px;
+  padding: 0 var(--space-1);
+  text-align: left;
+  white-space: nowrap;
+}
+/* An analyzer run name is the whole configuration ("THALAMUS_SPHERE_X-10_Y-18_Z9_R10_TI_MAX"), so
+   a column heading truncates and keeps the full string in its tooltip rather than pushing the
+   matrix into a horizontal scroll on a 360px pane. */
+.plan-matrix thead th {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  line-height: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  font-weight: 500;
+  border-bottom: 1px solid var(--line);
+}
+.plan-matrix tbody th {
+  font-weight: 400;
+  color: var(--ink);
+  padding-right: var(--space-2);
+}
+.plan-matrix-subject-head,
+.plan-matrix-subject {
+  width: 96px;
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The gap the subject column owes the first stage: the subject text ends well inside its 96px and
+   every other cell is indented, so no chip or count ever sits against a subject id. */
+.plan-matrix thead th:not(.plan-matrix-subject-head),
+.plan-matrix tbody td {
+  padding-left: var(--space-3);
+  max-width: none;
+}
+.plan-matrix tbody tr:hover {
+  background: var(--accent-soft);
+}
+.plan-cell-button {
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+/* A summary cell ("2 new · 1 skip"): the counts sit on one line and never wrap a column open. */
+.plan-cell-counts {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+/* The popover a multi-job summary cell opens: one row per job, click to pin the terminal to it. */
+.plan-cell-jobs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 180px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.plan-cell-job {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  background: none;
+  border: 0;
+  padding: var(--space-1) var(--space-2);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  border-radius: var(--radius-control);
+}
+
+.plan-cell-job:hover {
+  background: var(--surface-2);
+}
+
+.plan-cell-job-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-cell-none {
+  color: var(--ink-3);
+  font-size: 12px;
+}
+
+/* One muted 12px line under the grid naming only the chips the matrix contains (FXU1). The v3.0
+   build printed all five chips in a row, which read as data rather than as a key. */
+.plan-legend {
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ink-2);
+  flex: none;
+}
+.plan-legend-sep {
+  color: var(--ink-3);
+}
+
+/* An empty plan is two readable lines, never a blank strip. */
+.plan-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  line-height: 16px;
+}
+.plan-empty-message {
+  color: var(--ink);
+}
+.plan-empty-hint {
+  color: var(--ink-2);
+}
+.plan-warnings {
+  flex: none;
+}
+
+/* ---------- Terminal ---------- */
+
+.job-terminal {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 180px;
+}
+.job-terminal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  height: 24px;
+  flex: none;
+  border-bottom: 1px solid var(--line);
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--ink-2);
+}
+.job-terminal-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow: hidden;
+}
+.job-terminal-eyebrow {
+  flex: none;
+}
+.job-terminal-identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  overflow: hidden;
+}
+.job-terminal-kind {
+  color: var(--ink);
+}
+.job-terminal-subject {
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+}
+.job-terminal-sep {
+  color: var(--ink-3);
+}
+.job-terminal-elapsed {
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.job-terminal-body {
+  flex: 1;
+  min-height: 0;
+  padding-top: var(--space-2);
+  display: flex;
+}
+.job-terminal-body > * {
+  flex: 1;
+  min-width: 0;
+}
+.job-terminal-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ink-2);
+}
+
+/* ---------- Work-pane furniture shared by the three run pages ---------- */
+
+/* The run pages' work pane is a stack of flush sections with no outer card and no width cap.
+ * "Flush" is DESIGN.md §4.2 rule 4's word, and a 12px gap between every pair of sections was not
+ * it: five sections cost 48px of pure ground, and the sections stopped reading as one stack. The
+ * 4px that remains is what a non-section child (the Subjects row, an EmptyState) needs to not
+ * collide with the section band above it. */
+.run-work {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  /* `.form-grid`'s `@container (max-width: 760px)` rule needs a sized ancestor to query, and the
+     two-up threshold is measured on the PANE, not the window (DESIGN.md §2.1). */
+  container-type: inline-size;
+}
+
+/* A compact multi-select table: Pre-processing keeps one because batch selection is its job. */
+.run-subject-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  line-height: 16px;
+}
+/* Measured, not guessed: pinning the id column to its content (`width: 1%`) pushed the presence
+   chips left and left the row's right half bare — 304 dead sample points against 266 with the
+   even split. The even split stays. */
+.run-subject-table th,
+.run-subject-table td {
+  height: var(--row-h);
+  padding: 0 var(--space-2);
+  text-align: left;
+  white-space: nowrap;
+}
+.run-subject-table thead th {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  font-weight: 500;
+  border-bottom: 1px solid var(--line);
+}
+.run-subject-table tbody tr:hover {
+  background: var(--accent-soft);
+}
+.run-subject-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.run-presence {
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+/* Pre-processing's subject table scrolls inside its own box past ~8 rows, so a 40-subject
+   project cannot push the processing steps off the first screen (checklist item 7). */
+/* 176px is the DEFAULT — about five rows — so a 40-subject project cannot push a run page's own
+   sections off the first screen. It is not a ceiling: a page whose job IS choosing subjects says
+   `fill` on `SubjectsField`, and the control then measures the room it has and draws ground rows
+   to the bottom of it. Before that prop existed, `pages/panels/panels.css` lifted this cap for the
+   Source panel from the outside and painted its own ground rows behind the table — one control's
+   geometry decided in another page's stylesheet, and the same ground-row rule written twice. */
+.run-subject-scroll {
+  max-height: 176px;
+  overflow: auto;
+  border-bottom: 1px solid var(--line);
+}
+.run-subject-scroll[data-fill="true"] {
+  max-height: none;
+  flex: 1;
+  min-height: 0;
+}
+.run-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+
+/* ---------- Two-up threshold on the run shape (FXU1) ---------- */
+
+/* `.form-grid`'s shared collapse is `@container (max-width: 760px)`, and the run work pane
+   measures 770 px at 1440x900 *before* a page adds any padding of its own — B3 measured the
+   Optimizer's own container at ~722 and went single-column at the size DESIGN.md §2.1 calls the
+   two-up one. The run shape therefore states its own, honest threshold: a label-left row is 160 px
+   of label plus a 240 px control plus the gutter, which fits twice from 720 px up. Higher
+   specificity than the shared rule, so it wins wherever it applies and nowhere else. */
+@container (min-width: 720px) {
+  .run-work .form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ---------- Tables inside the work pane ---------- */
+
+/* A table row is a surface. Empty cells are drawn as ground rather than as holes, which is what
+   lets a table keep a minimum row count without the extra rows reading as a rendering bug. */
+.run-table-min-rows tbody tr {
+  height: var(--row-h);
+}
+.run-table-filler td {
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  height: var(--row-h);
+}
+
+/* ---------- Section body padding on the run shape ---------- */
+
+/* 8px, not the shared 12px `--pane-pad`. Five sections spend that padding ten times down the page;
+   on a form that already overflows its pane (the Optimizer at 1280x800 needs 767px of a 628px
+   scrollport) every 4px is a row of the Solver section that is not on screen. Horizontal padding
+   matches the header band above it so the two align. */
+.run-work .form-section .card-body {
+  padding: var(--space-2);
+}
+
+/* ---------- Toggle rows are checklist rows ---------- */
+
+/* Pre-processing's Structural and DWI sections, and every other "which steps run" group, are
+   checklists — not sentences with a box in front. A bare `.checkbox-label-row` in a 389px grid
+   column used ~180px of it and left the rest as ground (measured 64–80 % empty per row), and its
+   hit target was the text, not the row. Given the row it sits in, a toggle becomes a 28px surface
+   with a real target, which is the same object §4.3 already defines for a table row. Scoped to the
+   run pages' work pane so a checkbox inside a dialog or a table cell is untouched. */
+.run-work .form-grid > .checkbox-label-row,
+.run-work .run-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--row-h);
+  padding: 0 var(--space-2);
+  background: var(--surface-2);
+  border-radius: var(--radius-control);
+}
+.run-work .run-checkbox-row > .checkbox-label-row {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  padding: 0;
+}
+
+/* An exclusive choice among a few short options gets the same row surface, for the same two
+   reasons: the option, not its four-letter word, is the target, and a bare radio row used ~300px
+   of an 826px pane and left the rest as ground (measured 71–73 % empty). It also brings
+   `RadioGroup` and `SegmentedControl` — which express the identical idea on neighbouring pages —
+   into one visual language instead of two. */
+.run-work .radio-group > .radio-item-row {
+  min-height: var(--row-h);
+  padding: 0 var(--space-2);
+  background: var(--surface-2);
+  border-radius: var(--radius-control);
+}
+
+/* ---------- Terminal · Scene tabs (plan of record S7) ---------- */
+
+/* The tab host takes the pane's remaining height and gives it to whichever panel is shown; both
+   panels stay mounted (see `RunPaneTabs.tsx`), so the hidden one must contribute no height. */
+.run-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1 1 auto;
+  min-height: 180px;
+}
+.run-tabs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  height: 24px;
+  flex: none;
+}
+.run-tabs-body {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+.run-tabs-panel {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.run-tabs-panel[hidden] {
+  display: none;
+}

@@ -1,0 +1,269 @@
+{
+ "guide": {
+  "id": "ernie",
+  "label": "Ernie (SimNIBS example head)"
+ },
+ "guide_version": 1,
+ "builder_version": "4",
+ "space": "guide-ras",
+ "bbox": [
+  -84.437,
+  -92.398,
+  -128.861,
+  83.398,
+  136.157,
+  99.952
+ ],
+ "focus_bbox": [
+  -84.437,
+  -92.398,
+  -50.713,
+  83.398,
+  136.157,
+  99.952
+ ],
+ "parts": [
+  {
+   "id": "skin",
+   "kind": "surface",
+   "triangles": 77032,
+   "vertices": 38952,
+   "bytes": 1391840,
+   "fingerprint": "guide-1-skin",
+   "url": "/api/guide/surface?part=skin",
+   "simplified": false,
+   "within_budget": true,
+   "max_deviation_mm": 0.0,
+   "bbox": [
+    -84.437,
+    -92.398,
+    -128.861,
+    83.398,
+    136.157,
+    99.952
+   ],
+   "focus_bbox": [
+    -84.437,
+    -92.398,
+    -50.701,
+    83.398,
+    136.157,
+    99.952
+   ],
+   "files": {
+    "tvsc": "surfaces/skin.tvsc",
+    "tvsc_meta": {
+     "bytes": 1391840,
+     "sha256": "e60199d4626d1fd7b661e263cd3879c5cbd932cac9e1a2ac07d71a6b7517097e"
+    },
+    "gii": "surfaces/skin.gii",
+    "gii_meta": {
+     "bytes": 1299239,
+     "sha256": "0da67c024d0f00c1d583db95aba952d7efbc51d22fee4dd2db7dd1400646145f"
+    }
+   }
+  },
+  {
+   "id": "gm",
+   "kind": "surface",
+   "triangles": 145402,
+   "vertices": 70586,
+   "bytes": 2591888,
+   "fingerprint": "guide-1-gm",
+   "url": "/api/guide/surface?part=gm",
+   "simplified": true,
+   "within_budget": true,
+   "max_deviation_mm": 5.2661,
+   "bbox": [
+    -65.294,
+    -80.341,
+    -50.713,
+    69.288,
+    103.157,
+    82.479
+   ],
+   "focus_bbox": [
+    -65.294,
+    -80.341,
+    -50.713,
+    69.288,
+    103.157,
+    82.479
+   ],
+   "files": {
+    "tvsc": "surfaces/gm.tvsc",
+    "tvsc_meta": {
+     "bytes": 2591888,
+     "sha256": "09ef0d03963f0f2baa16e208113adebbe318289a68f0300388ba731afd94d206"
+    },
+    "gii": "surfaces/gm.gii",
+    "gii_meta": {
+     "bytes": 2444872,
+     "sha256": "f21234aa215733cb02ce5f4f3a6e4b41e4213df7097cb57e8927c66104826070"
+    }
+   }
+  }
+ ],
+ "nets": [
+  {
+   "name": "EEG10-10_Cutini_2011.csv",
+   "electrodes": 60,
+   "url": "/api/guide/electrodes?net=EEG10-10_Cutini_2011.csv",
+   "file": "nets/EEG10-10_Cutini_2011.csv.json",
+   "bytes": 6982,
+   "sha256": "8e0f8c867702b81173409da46099129274380af7a507331b08a08d7a936ae0b1"
+  },
+  {
+   "name": "EEG10-10_Neuroelectrics.csv",
+   "electrodes": 62,
+   "url": "/api/guide/electrodes?net=EEG10-10_Neuroelectrics.csv",
+   "file": "nets/EEG10-10_Neuroelectrics.csv.json",
+   "bytes": 7217,
+   "sha256": "3a40666d904d77aaa90885c72bbbf84dbf09168025e0057a29e777a43d0ba6c2"
+  },
+  {
+   "name": "EEG10-10_UI_Jurak_2007.csv",
+   "electrodes": 75,
+   "url": "/api/guide/electrodes?net=EEG10-10_UI_Jurak_2007.csv",
+   "file": "nets/EEG10-10_UI_Jurak_2007.csv.json",
+   "bytes": 8747,
+   "sha256": "85fac785e49db3f64c816e9fa57884b7fcb608e53459804a57b37897286f372c"
+  },
+  {
+   "name": "EEG10-20_Okamoto_2004.csv",
+   "electrodes": 18,
+   "url": "/api/guide/electrodes?net=EEG10-20_Okamoto_2004.csv",
+   "file": "nets/EEG10-20_Okamoto_2004.csv.json",
+   "bytes": 2141,
+   "sha256": "16aba0c8110855ae433761f41db8d03b288dae95597dc9a179e398ff7450f2ff"
+  },
+  {
+   "name": "EEG10-20_extended_SPM12.csv",
+   "electrodes": 342,
+   "url": "/api/guide/electrodes?net=EEG10-20_extended_SPM12.csv",
+   "file": "nets/EEG10-20_extended_SPM12.csv.json",
+   "bytes": 40052,
+   "sha256": "5766c9ad40a4d90ecdc9bf547f86c62d4034e8b402c7d15667b7d72cf3dfd10d"
+  },
+  {
+   "name": "GSN-HydroCel-185.csv",
+   "electrodes": 183,
+   "url": "/api/guide/electrodes?net=GSN-HydroCel-185.csv",
+   "file": "nets/GSN-HydroCel-185.csv.json",
+   "bytes": 21452,
+   "sha256": "5e580b6ad65b1453535b781bc78c86f51ea6af9d9e3f2a80c834670d6916e9df"
+  },
+  {
+   "name": "GSN-HydroCel-256.csv",
+   "electrodes": 256,
+   "url": "/api/guide/electrodes?net=GSN-HydroCel-256.csv",
+   "file": "nets/GSN-HydroCel-256.csv.json",
+   "bytes": 30015,
+   "sha256": "73052d3d80af3419f57e344c7ce21b277860313e18670cba58dd133bf56781cb"
+  },
+  {
+   "name": "easycap_BC_TMS64_X21.csv",
+   "electrodes": 63,
+   "url": "/api/guide/electrodes?net=easycap_BC_TMS64_X21.csv",
+   "file": "nets/easycap_BC_TMS64_X21.csv.json",
+   "bytes": 7304,
+   "sha256": "9a46018196a4fffa96c52512f81828d69cbe4a555a4740f196d21425b0b788d5"
+  }
+ ],
+ "atlases": [
+  {
+   "id": "DK40",
+   "hemispheres": [
+    "lh",
+    "rh"
+   ],
+   "regions": 70,
+   "url": "/api/guide/regions?atlas=DK40",
+   "files": {
+    "tvsc": "labels/DK40.tvsc",
+    "tvsc_meta": {
+     "bytes": 988236,
+     "sha256": "be3ff6169f54309d5874b71d40d6504893f7e4ad26feb357ea14bb8e4bcb7cb2"
+    },
+    "gii": "labels/DK40.gii",
+    "gii_meta": {
+     "bytes": 2495397,
+     "sha256": "815687f19b52ed374dc70e01cbffb12ed8f9fee7da5f68e7cd3cb166a60128d7"
+    }
+   },
+   "legend_file": "legends/DK40.json",
+   "legend_meta": {
+    "bytes": 7590,
+    "sha256": "75df233c105c574dc84cedcd6c56133d8155b4072da4fd00f902b3445ff8d095"
+   }
+  },
+  {
+   "id": "HCP_MMP1",
+   "hemispheres": [
+    "lh",
+    "rh"
+   ],
+   "regions": 362,
+   "url": "/api/guide/regions?atlas=HCP_MMP1",
+   "files": {
+    "tvsc": "labels/HCP_MMP1.tvsc",
+    "tvsc_meta": {
+     "bytes": 988236,
+     "sha256": "dadaf83d8902298bd6865486af0623e01fda7a46c24a56d3f129dff43f06449c"
+    },
+    "gii": "labels/HCP_MMP1.gii",
+    "gii_meta": {
+     "bytes": 2552792,
+     "sha256": "7c4f16659126d068c8a822d80296b3158bf236a16074f77aa503c5b17db43ba5"
+    }
+   },
+   "legend_file": "legends/HCP_MMP1.json",
+   "legend_meta": {
+    "bytes": 35074,
+    "sha256": "34d45657aaea871f50397f5d0ec5d9aaa824e4982a654fec8541ab1161e89307"
+   }
+  },
+  {
+   "id": "a2009s",
+   "hemispheres": [
+    "lh",
+    "rh"
+   ],
+   "regions": 152,
+   "url": "/api/guide/regions?atlas=a2009s",
+   "files": {
+    "tvsc": "labels/a2009s.tvsc",
+    "tvsc_meta": {
+     "bytes": 988236,
+     "sha256": "dc9de50a2e6b487fd74860e38bd0b1456f7a594ef62dce036a41fe1a6516fc7c"
+    },
+    "gii": "labels/a2009s.gii",
+    "gii_meta": {
+     "bytes": 2517102,
+     "sha256": "012a56b1d15f122f9072755f3ae19d2d188fd1d846de77731986a73c9be5e25a"
+    }
+   },
+   "legend_file": "legends/a2009s.json",
+   "legend_meta": {
+    "bytes": 16806,
+    "sha256": "43731b6857c234aaa5bab609fbe675683a7fc5633fa4417324b5b840df3d938f"
+   }
+  }
+ ],
+ "volumes": [],
+ "cache": {
+  "state": "ready",
+  "built_ms": 0.0
+ },
+ "provenance": {
+  "source": "SimNIBS example dataset, subject 'ernie'",
+  "source_url": "https://github.com/simnibs/example-dataset",
+  "license": "GPL-3.0-or-later",
+  "notes": "See tit/scene/guide/PROVENANCE.md."
+ },
+ "generated": {
+  "subject": "ernie",
+  "generator": "tit.scene.guide_build",
+  "seconds": 21.1
+ }
+}

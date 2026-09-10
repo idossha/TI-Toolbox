@@ -13,15 +13,17 @@
         <link rel="canonical" href="https://idossha.github.io/TI-Toolbox/api/reference/tit/tools/read_annot/">
       
       
-        <link rel="prev" href="../nifti_to_mesh/">
+        <link rel="prev" href="../pipeline_resolve/">
       
+      
+        <link rel="next" href="../../viewspec/">
       
       
         
       
       
       <link rel="icon" href="../../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
     
     
       
@@ -877,6 +879,51 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="read_annot">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tit.tools.read_annot--usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.tools.read_annot.read_annot_file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        read_annot_file
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="read_annot_file">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tit.tools.read_annot.read_annot_file--parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -926,13 +973,8 @@
   
     
     
-      
-  
-  
-    
-    
       <li class="md-path__item">
-        <a href="../../analyzer/analyzer/" class="md-path__link">
+        <a href="../../_mti_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -946,22 +988,14 @@
     
   
 
-    
-  
-
       
         
   
   
     
     
-      
-  
-  
-    
-    
       <li class="md-path__item">
-        <a href="../../analyzer/analyzer/" class="md-path__link">
+        <a href="../../_mti_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -969,9 +1003,6 @@
 
         </a>
       </li>
-    
-  
-
     
   
 
@@ -1021,6 +1052,13 @@
 
     <div class="doc doc-contents first">
 
+        <p>Read and display FreeSurfer <code>.annot</code> annotation files.</p>
+<p>Prints region names, RGBA colour table entries, and (optionally) the
+region membership of a single vertex.</p>
+<h4 id="tit.tools.read_annot--usage">Usage<a class="headerlink" href="#tit.tools.read_annot--usage" title="Permanent link">&para;</a></h4>
+<p>$ python -m tit.tools.read_annot lh.aparc.annot
+$ python -m tit.tools.read_annot lh.aparc.annot --vertex 12345</p>
+
 
 
 
@@ -1038,6 +1076,104 @@
 
 
 
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.tools.read_annot.read_annot_file" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">read_annot_file</span>
+
+
+<a href="#tit.tools.read_annot.read_annot_file" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">read_annot_file</span><span class="p">(</span><span class="n">annot_path</span><span class="p">,</span> <span class="n">vertex_id</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Read a FreeSurfer annotation and print its contents.</p>
+<h5 id="tit.tools.read_annot.read_annot_file--parameters">Parameters<a class="headerlink" href="#tit.tools.read_annot.read_annot_file--parameters" title="Permanent link">&para;</a></h5>
+<p>annot_path : str
+    Path to the <code>.annot</code> file.
+vertex_id : int, optional
+    If given, also print the region label for this vertex.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/tools/read_annot.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-16">16</a></span>
+<span class="normal"><a href="#__codelineno-0-17">17</a></span>
+<span class="normal"><a href="#__codelineno-0-18">18</a></span>
+<span class="normal"><a href="#__codelineno-0-19">19</a></span>
+<span class="normal"><a href="#__codelineno-0-20">20</a></span>
+<span class="normal"><a href="#__codelineno-0-21">21</a></span>
+<span class="normal"><a href="#__codelineno-0-22">22</a></span>
+<span class="normal"><a href="#__codelineno-0-23">23</a></span>
+<span class="normal"><a href="#__codelineno-0-24">24</a></span>
+<span class="normal"><a href="#__codelineno-0-25">25</a></span>
+<span class="normal"><a href="#__codelineno-0-26">26</a></span>
+<span class="normal"><a href="#__codelineno-0-27">27</a></span>
+<span class="normal"><a href="#__codelineno-0-28">28</a></span>
+<span class="normal"><a href="#__codelineno-0-29">29</a></span>
+<span class="normal"><a href="#__codelineno-0-30">30</a></span>
+<span class="normal"><a href="#__codelineno-0-31">31</a></span>
+<span class="normal"><a href="#__codelineno-0-32">32</a></span>
+<span class="normal"><a href="#__codelineno-0-33">33</a></span>
+<span class="normal"><a href="#__codelineno-0-34">34</a></span>
+<span class="normal"><a href="#__codelineno-0-35">35</a></span>
+<span class="normal"><a href="#__codelineno-0-36">36</a></span>
+<span class="normal"><a href="#__codelineno-0-37">37</a></span>
+<span class="normal"><a href="#__codelineno-0-38">38</a></span>
+<span class="normal"><a href="#__codelineno-0-39">39</a></span>
+<span class="normal"><a href="#__codelineno-0-40">40</a></span>
+<span class="normal"><a href="#__codelineno-0-41">41</a></span>
+<span class="normal"><a href="#__codelineno-0-42">42</a></span>
+<span class="normal"><a href="#__codelineno-0-43">43</a></span>
+<span class="normal"><a href="#__codelineno-0-44">44</a></span>
+<span class="normal"><a href="#__codelineno-0-45">45</a></span>
+<span class="normal"><a href="#__codelineno-0-46">46</a></span>
+<span class="normal"><a href="#__codelineno-0-47">47</a></span>
+<span class="normal"><a href="#__codelineno-0-48">48</a></span>
+<span class="normal"><a href="#__codelineno-0-49">49</a></span>
+<span class="normal"><a href="#__codelineno-0-50">50</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-16" name="__codelineno-0-16"></a><span class="k">def</span><span class="w"> </span><span class="nf">read_annot_file</span><span class="p">(</span><span class="n">annot_path</span><span class="p">,</span> <span class="n">vertex_id</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Read a FreeSurfer annotation and print its contents.</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18"></a>
+<a id="__codelineno-0-19" name="__codelineno-0-19"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21"></a><span class="sd">    annot_path : str</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22"></a><span class="sd">        Path to the ``.annot`` file.</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23"></a><span class="sd">    vertex_id : int, optional</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24"></a><span class="sd">        If given, also print the region label for this vertex.</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26"></a>    <span class="c1"># Load annotation data</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27"></a>    <span class="n">labels</span><span class="p">,</span> <span class="n">ctab</span><span class="p">,</span> <span class="n">names</span> <span class="o">=</span> <span class="n">fsio</span><span class="o">.</span><span class="n">read_annot</span><span class="p">(</span><span class="n">annot_path</span><span class="p">)</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28"></a>
+<a id="__codelineno-0-29" name="__codelineno-0-29"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Loaded .annot file: </span><span class="si">{</span><span class="n">annot_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Number of vertices: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Number of regions: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-32" name="__codelineno-0-32"></a>
+<a id="__codelineno-0-33" name="__codelineno-0-33"></a>    <span class="c1"># Print all region names and their colors</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Regions and RGBA colors:&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-35" name="__codelineno-0-35"></a>    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">names</span><span class="p">):</span>
+<a id="__codelineno-0-36" name="__codelineno-0-36"></a>        <span class="n">color</span> <span class="o">=</span> <span class="n">ctab</span><span class="p">[</span><span class="n">i</span><span class="p">][:</span><span class="mi">4</span><span class="p">]</span>  <span class="c1"># R, G, B, A</span>
+<a id="__codelineno-0-37" name="__codelineno-0-37"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">i</span><span class="si">:</span><span class="s2">2d</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">name</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2"> | Color: </span><span class="si">{</span><span class="n">color</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-38" name="__codelineno-0-38"></a>
+<a id="__codelineno-0-39" name="__codelineno-0-39"></a>    <span class="c1"># If a specific vertex is given, show its label</span>
+<a id="__codelineno-0-40" name="__codelineno-0-40"></a>    <span class="k">if</span> <span class="n">vertex_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-41" name="__codelineno-0-41"></a>        <span class="k">if</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">vertex_id</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">):</span>
+<a id="__codelineno-0-42" name="__codelineno-0-42"></a>            <span class="n">label_val</span> <span class="o">=</span> <span class="n">labels</span><span class="p">[</span><span class="n">vertex_id</span><span class="p">]</span>
+<a id="__codelineno-0-43" name="__codelineno-0-43"></a>            <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-44" name="__codelineno-0-44"></a>                <span class="n">index</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">ctab</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">label_val</span><span class="p">)</span>
+<a id="__codelineno-0-45" name="__codelineno-0-45"></a>                <span class="n">region_name</span> <span class="o">=</span> <span class="n">names</span><span class="p">[</span><span class="n">index</span><span class="p">]</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-46" name="__codelineno-0-46"></a>                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Vertex </span><span class="si">{</span><span class="n">vertex_id</span><span class="si">}</span><span class="s2"> belongs to region: </span><span class="si">{</span><span class="n">region_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-47" name="__codelineno-0-47"></a>            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+<a id="__codelineno-0-48" name="__codelineno-0-48"></a>                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Vertex </span><span class="si">{</span><span class="n">vertex_id</span><span class="si">}</span><span class="s2"> has an unknown label value: </span><span class="si">{</span><span class="n">label_val</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-49" name="__codelineno-0-49"></a>        <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-50" name="__codelineno-0-50"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Vertex ID </span><span class="si">{</span><span class="n">vertex_id</span><span class="si">}</span><span class="s2"> is out of range (0 to </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
 
 
 

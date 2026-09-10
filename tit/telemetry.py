@@ -35,8 +35,6 @@ track_operation
     Context manager that sends ``start`` + ``success`` / ``error`` events.
 consent_prompt_cli
     Show first-run consent prompt in a terminal.
-consent_prompt_gui
-    Show first-run consent dialog in the PyQt5 GUI.
 set_enabled
     Programmatically enable or disable telemetry.
 
@@ -500,7 +498,13 @@ def track_event(
         ],
     }
 
-    thread = threading.Thread(target=_send_ga4, args=(payload,), daemon=True)
+    # Named so tests can join *only* telemetry sender threads (see
+    # tests/test_telemetry.py::_wait_for_telemetry_threads) instead of every
+    # daemon thread in the process — joining unrelated long-lived daemons
+    # (e.g. the JobManager poll loop) there used to cost seconds per test.
+    thread = threading.Thread(
+        target=_send_ga4, args=(payload,), name="tit-telemetry", daemon=True
+    )
     thread.start()
     if _blocking:
         thread.join(timeout=const.TELEMETRY_TIMEOUT_S + 1)
@@ -626,45 +630,3 @@ def consent_prompt_cli() -> None:
         print("  ✓ Telemetry enabled. Thank you!\n")
     else:
         print("  ✗ Telemetry disabled. No data will be sent.\n")
-
-
-def consent_prompt_gui(parent: Any = None) -> None:
-    """Show a one-time consent dialog in the PyQt5 GUI.
-
-    Only runs when ``consent_shown`` is ``False``.  Uses a lazy import
-    of ``PyQt5.QtWidgets`` so that non-GUI code never pulls in Qt.
-
-    Parameters
-    ----------
-    parent : QWidget, optional
-        Parent widget for the dialog.
-    """
-    cfg = _get_config()
-    if cfg.consent_shown:
-        return
-
-    from PyQt5 import QtWidgets
-
-    msg = QtWidgets.QMessageBox(parent)
-    msg.setWindowTitle("TI-Toolbox — Usage Data")
-    msg.setIcon(QtWidgets.QMessageBox.Question)
-    msg.setText(
-        "<b>Usage Data</b><br><br>"
-        "TI-Toolbox can send anonymous usage data to help us "
-        "identify issues and improve stability.<br><br>"
-        "This includes which operations ran and whether they "
-        "succeeded or failed. No personal data, file paths, or "
-        "scientific results are collected.<br><br>"
-        "You can disable this at any time in Settings → Privacy."
-    )
-    msg.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
-    msg.setDefaultButton(QtWidgets.QMessageBox.Yes)
-    msg.button(QtWidgets.QMessageBox.Yes).setText("Enable")
-    msg.button(QtWidgets.QMessageBox.No).setText("No Thanks")
-
-    result = msg.exec_()
-
-    cfg.enabled = result == QtWidgets.QMessageBox.Yes
-    cfg.consent_shown = True
-    save_config(cfg)
-    _invalidate_cache()

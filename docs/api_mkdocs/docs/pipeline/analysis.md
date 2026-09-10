@@ -122,10 +122,10 @@ Each analysis returns an `AnalysisResult` dataclass with these fields:
 | `percentile_95` | 95th percentile of field intensity (area/volume-weighted) |
 | `percentile_99` | 99th percentile of field intensity |
 | `percentile_99_9` | 99.9th percentile of field intensity |
-| `focality_50_area` | Area/volume (cm^2) above 50% of 99.9th percentile |
-| `focality_75_area` | Area/volume (cm^2) above 75% of 99.9th percentile |
-| `focality_90_area` | Area/volume (cm^2) above 90% of 99.9th percentile |
-| `focality_95_area` | Area/volume (cm^2) above 95% of 99.9th percentile |
+| `focality_50_area` | Area (cm^2, mesh) or volume (cm^3, voxel) above 50% of 99.9th percentile |
+| `focality_75_area` | Area (cm^2, mesh) or volume (cm^3, voxel) above 75% of 99.9th percentile |
+| `focality_90_area` | Area (cm^2, mesh) or volume (cm^3, voxel) above 90% of 99.9th percentile |
+| `focality_95_area` | Area (cm^2, mesh) or volume (cm^3, voxel) above 95% of 99.9th percentile |
 | `n_elements` | Number of mesh nodes or voxels in the ROI |
 | `total_area_or_volume` | Total area (mm^2, mesh) or volume (mm^3, voxel) of the ROI |
 

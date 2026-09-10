@@ -11,25 +11,30 @@ installation:
     - { title: macOS, url: /installation/macos/ }
     - { title: Linux, url: /installation/linux/ }
     - group: Additional Guides
-    - { title: Bash/CLI Usage, url: /installation/bash-cli/ }
+    - { title: Command-line launcher, url: /installation/bash-cli/ }
     - { title: HPC (Apptainer), url: /installation/hpc-apptainer/ }
+    - { title: Developer setup, url: /wiki/development/ }
     - { title: Troubleshooting, url: /wiki/troubleshooting/ }
 
 wiki:
   title: Wiki Guides
   items:
-    - { title: Overview, url: /wiki/ }
+    - { title: Wiki Home, url: /wiki/ }
     - { title: Video Tutorials, url: /wiki/video-tutorials/ }
     - { title: Troubleshooting Archive, url: /wiki/troubleshooting/ }
-    - group: Core Functionality
+    - group: The Application
+    - { title: Overview, url: /wiki/overview/ }
     - { title: Pre-Processing, url: /wiki/pre-processing/ }
     - { title: Diffusion Processing, url: /wiki/diffusion-processing/ }
+    - { title: Simulator, url: /wiki/simulator/ }
     - { title: Flex Search, url: /wiki/flex-search/ }
     - { title: Ex Search, url: /wiki/ex-search/ }
-    - { title: Simulator, url: /wiki/simulator/ }
     - { title: Analyzer, url: /wiki/analyzer/ }
-    - { title: Visualizers, url: /wiki/visualizers/ }
-    - { title: GUI, url: /wiki/gui/ }
+    - { title: Pipeline, url: /wiki/pipelines/ }
+    - { title: Notebooks, url: /wiki/notebooks/ }
+    - { title: Results, url: /wiki/results/ }
+    - { title: Viewer, url: /wiki/visualizers/ }
+    - { title: Jobs, url: /wiki/jobs/ }
     - { title: Scripting, url: /wiki/scripting/ }
     - { title: Example Notebook, url: /wiki/example-notebook/ }
     - { title: AI Assistant, url: /wiki/ai-assistant/ }
@@ -39,21 +44,26 @@ wiki:
     - { title: Brain Atlases, url: /wiki/atlases/ }
     - { title: Montage Visualizer, url: /wiki/montage_visualizer/ }
     - { title: Electrode Mapping, url: /wiki/electrode-mapping/ }
-    - group: Extensions
-    - { title: Extension System, url: /wiki/extension/ }
+    - group: Optional Tools
+    - { title: Optional Tools, url: /wiki/extension/ }
     - { title: Tissue Analyzer, url: /wiki/tissue-analyzer/ }
-    - { title: Blender Integration, url: /wiki/blender/ }
+    - { title: 3D Visual Exporter, url: /wiki/blender/ }
     - { title: Cluster-Based Permutation Testing, url: /wiki/cluster-permutation-testing/ }
     - { title: Free Electrode Placement, url: /wiki/electrode-placement/ }
     - { title: Quick Notes, url: /wiki/quick-notes/ }
     - { title: NIfTI Group Averaging, url: /wiki/nifti-group-averaging/ }
     - { title: Nilearn Visuals, url: /wiki/nilearn-visuals/ }
-    - group: Development & Testing
-    - { title: Testing Pipeline, url: /wiki/testing-pipeline/ }
+    - group: Development & Testing (v3)
+    - { title: Development & Testing, url: /wiki/development/ }
     - { title: Python Environment, url: /wiki/python_env/ }
     - { title: Desktop Application, url: /wiki/desktop-app/ }
     - { title: Agent Plugin Internals, url: /wiki/agent-plugin/ }
     - { title: API Reference, url: /api/, external: true }
+    - group: V2 (Deprecated)
+    - { title: V2 Development Archive, url: /wiki/v2-development/ }
+    - { title: V2 Testing Pipeline, url: /wiki/testing-pipeline/ }
+    - { title: V2 PyQt GUI, url: /wiki/gui/ }
+    - { title: V2 Qt Extension API, url: /wiki/extension/#architecture-historical }
 
 releases:
   title: Releases
@@ -61,6 +71,7 @@ releases:
     - { title: Latest (v2.5.0), url: /releases/ }
     - { title: Changelog, url: /releases/changelog/ }
     - group: Version History
+    - { title: v3.0.0 (unreleased), url: /releases/v3.0.0/ }
     - { title: v2.5.0, url: /releases/v2.5.0/ }
     - { title: v2.4.0, url: /releases/v2.4.0/ }
     - { title: v2.3.2, url: /releases/v2.3.2/ }
@@ -94,5 +105,7 @@ gallery:
     - { title: Blender, url: /gallery/blender/ }
     - { title: Statistics, url: /gallery/statistics/ }
     - { title: Nilearn, url: /gallery/nilearn/ }
-    - { title: Gmsh Freeview, url: /gallery/gmsh-freeview/ }
     - { title: User Interface, url: /gallery/UI/ }
+    - group: V2 (Deprecated)
+    - { title: V2 User Interface, url: /gallery/v2/ }
+    - { title: Gmsh & Freeview, url: /gallery/gmsh-freeview/ }

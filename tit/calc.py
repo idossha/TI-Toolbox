@@ -28,6 +28,8 @@ import os
 
 import numpy as np
 
+from tit.constants import is_valid_pair_count
+
 
 def _get_TI_vectors_k1(E1_org, E2_org):
     """Compute the TI modulation-amplitude vectors for two electric fields.
@@ -291,12 +293,16 @@ def _mti_modulation_depth(
 def _validate_field_list(fields):
     """Validate a field list: even length >= 2, identical (N, 3) shapes.
 
+    One field per electrode pair (one current channel), and the allowed
+    counts are exactly `tit.constants.is_valid_pair_count`'s -- the same rule
+    the montage config validates (2 = TI, 4+ even = mTI).
+
     Ported from ``alba/ex-search-multipolar`` (see module docstring
     "Attribution").
     """
     arrs = [np.asarray(field, dtype=np.float64) for field in fields]
     n = len(arrs)
-    if n < 2 or n % 2 != 0:
+    if not is_valid_pair_count(n):
         raise ValueError(f"mTI requires an even number of fields >= 2, got {n}")
     ref_shape = arrs[0].shape
     if len(ref_shape) != 2 or ref_shape[1] != 3:
@@ -446,18 +452,38 @@ def _envelope_at_quadratics(P6, Q6, D6):
 
 
 def _envelope_from_PQ(P, Q):
-    """MD = sqrt(2) * (sqrt(P+Q) - sqrt(P-Q)), clamped against negative
-    round-off inside the square roots."""
+    r"""Modulation depth from the direction's quadratic forms ``P``, ``Q``.
+
+    Mathematically ``MD = sqrt(2(P+Q)) - sqrt(2(P-Q))``.  Evaluated that way
+    it cancels catastrophically in the **weak-modulation** regime ``Q << P``,
+    where the two square roots converge: the subtraction leaves an absolute
+    error of order ``eps * sqrt(P)`` however small the true depth is, so the
+    relative error grows without bound and the result is exactly ``0`` once
+    ``Q / P`` drops below ~1e-16.  That regime is not exotic -- it is every
+    off-target voxel, which is where a focality ratio has its denominator.
+    Multiplying by the conjugate gives the algebraically identical but
+    well-conditioned form used here:
+
+    .. math::
+
+        \mathrm{MD} = \frac{2\sqrt{2}\,Q}{\sqrt{P+Q} + \sqrt{P-Q}}
+
+    -- a quotient of two additions, with no subtraction of near-equal terms.
+    Both roots are still clamped against negative round-off, and a zero
+    denominator (``P = Q = 0``, a null field) yields ``0``.  The opposite
+    extreme ``Q -> P`` is benign in either form (``sqrt(P-Q)`` just goes to
+    zero) and is pinned as unchanged.
+    """
     smin = P - Q
     np.maximum(smin, 0.0, out=smin)
-    smin *= 2.0
     np.sqrt(smin, out=smin)
     smax = P + Q
     np.maximum(smax, 0.0, out=smax)
-    smax *= 2.0
     np.sqrt(smax, out=smax)
-    smax -= smin
-    return smax
+    denom = smax
+    denom += smin
+    num = 2.0 * np.sqrt(2.0) * Q
+    return np.divide(num, denom, out=np.zeros_like(denom), where=denom > 0.0)
 
 
 def _k1_exact_envelope(E1, E2):

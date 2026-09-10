@@ -8,6 +8,7 @@ import os
 import time
 
 
+from tit.opt.masks import validate_mask_paths
 from tit.opt.config import ExConfig, ExResult
 from tit.paths import get_path_manager
 from tit.logger import add_file_handler
@@ -34,6 +35,7 @@ def run_ex_search(config: ExConfig) -> ExResult:
 
 def _run_ex_search_inner(config: ExConfig) -> ExResult:
     """Inner implementation of :func:`run_ex_search` (unwrapped)."""
+    validate_mask_paths(config)
     pm = get_path_manager()
 
     logs_dir = pm.logs(config.subject_id)
@@ -106,7 +108,9 @@ def _run_ex_search_inner(config: ExConfig) -> ExResult:
     if len(roi_files) > 1:
         logger.info(f"Combining {len(roi_files)} ROIs into one target: {roi_names}")
 
-    atlas_entries = atlas_roi_entries(config)
+    atlas_entries = atlas_roi_entries(
+        config, pm.m2m(config.subject_id), os.path.join(output_dir, "masks")
+    )
     if atlas_entries:
         logger.info(f"Adding {len(atlas_entries)} atlas ROI target(s)")
         roi_files = roi_files + atlas_entries

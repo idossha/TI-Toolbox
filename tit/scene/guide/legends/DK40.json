@@ -1,0 +1,501 @@
+{
+ "atlas": "DK40",
+ "space": "guide-ras",
+ "aligned_to": "gm",
+ "vertices": 70586,
+ "radius_mm": 3.0,
+ "labelled_fraction": 0.875,
+ "legend": [
+  {
+   "label": 1,
+   "id": 1,
+   "hemi": "lh",
+   "name": "bankssts",
+   "color": "#196428"
+  },
+  {
+   "label": 2,
+   "id": 2,
+   "hemi": "lh",
+   "name": "caudalanteriorcingulate",
+   "color": "#7d64a0"
+  },
+  {
+   "label": 3,
+   "id": 3,
+   "hemi": "lh",
+   "name": "caudalmiddlefrontal",
+   "color": "#641900"
+  },
+  {
+   "label": 4,
+   "id": 4,
+   "hemi": "lh",
+   "name": "corpuscallosum",
+   "color": "#784632"
+  },
+  {
+   "label": 5,
+   "id": 5,
+   "hemi": "lh",
+   "name": "cuneus",
+   "color": "#dc1464"
+  },
+  {
+   "label": 6,
+   "id": 6,
+   "hemi": "lh",
+   "name": "entorhinal",
+   "color": "#dc140a"
+  },
+  {
+   "label": 7,
+   "id": 7,
+   "hemi": "lh",
+   "name": "fusiform",
+   "color": "#b4dc8c"
+  },
+  {
+   "label": 8,
+   "id": 8,
+   "hemi": "lh",
+   "name": "inferiorparietal",
+   "color": "#dc3cdc"
+  },
+  {
+   "label": 9,
+   "id": 9,
+   "hemi": "lh",
+   "name": "inferiortemporal",
+   "color": "#b42878"
+  },
+  {
+   "label": 10,
+   "id": 10,
+   "hemi": "lh",
+   "name": "isthmuscingulate",
+   "color": "#8c148c"
+  },
+  {
+   "label": 11,
+   "id": 11,
+   "hemi": "lh",
+   "name": "lateraloccipital",
+   "color": "#141e8c"
+  },
+  {
+   "label": 12,
+   "id": 12,
+   "hemi": "lh",
+   "name": "lateralorbitofrontal",
+   "color": "#234b32"
+  },
+  {
+   "label": 13,
+   "id": 13,
+   "hemi": "lh",
+   "name": "lingual",
+   "color": "#e18c8c"
+  },
+  {
+   "label": 14,
+   "id": 14,
+   "hemi": "lh",
+   "name": "medialorbitofrontal",
+   "color": "#c8234b"
+  },
+  {
+   "label": 15,
+   "id": 15,
+   "hemi": "lh",
+   "name": "middletemporal",
+   "color": "#a06432"
+  },
+  {
+   "label": 16,
+   "id": 16,
+   "hemi": "lh",
+   "name": "parahippocampal",
+   "color": "#14dc3c"
+  },
+  {
+   "label": 17,
+   "id": 17,
+   "hemi": "lh",
+   "name": "paracentral",
+   "color": "#3cdc3c"
+  },
+  {
+   "label": 18,
+   "id": 18,
+   "hemi": "lh",
+   "name": "parsopercularis",
+   "color": "#dcb48c"
+  },
+  {
+   "label": 19,
+   "id": 19,
+   "hemi": "lh",
+   "name": "parsorbitalis",
+   "color": "#146432"
+  },
+  {
+   "label": 20,
+   "id": 20,
+   "hemi": "lh",
+   "name": "parstriangularis",
+   "color": "#dc3c14"
+  },
+  {
+   "label": 21,
+   "id": 21,
+   "hemi": "lh",
+   "name": "pericalcarine",
+   "color": "#78643c"
+  },
+  {
+   "label": 22,
+   "id": 22,
+   "hemi": "lh",
+   "name": "postcentral",
+   "color": "#dc1414"
+  },
+  {
+   "label": 23,
+   "id": 23,
+   "hemi": "lh",
+   "name": "posteriorcingulate",
+   "color": "#dcb4dc"
+  },
+  {
+   "label": 24,
+   "id": 24,
+   "hemi": "lh",
+   "name": "precentral",
+   "color": "#3c14dc"
+  },
+  {
+   "label": 25,
+   "id": 25,
+   "hemi": "lh",
+   "name": "precuneus",
+   "color": "#a08cb4"
+  },
+  {
+   "label": 26,
+   "id": 26,
+   "hemi": "lh",
+   "name": "rostralanteriorcingulate",
+   "color": "#50148c"
+  },
+  {
+   "label": 27,
+   "id": 27,
+   "hemi": "lh",
+   "name": "rostralmiddlefrontal",
+   "color": "#4b327d"
+  },
+  {
+   "label": 28,
+   "id": 28,
+   "hemi": "lh",
+   "name": "superiorfrontal",
+   "color": "#14dca0"
+  },
+  {
+   "label": 29,
+   "id": 29,
+   "hemi": "lh",
+   "name": "superiorparietal",
+   "color": "#14b48c"
+  },
+  {
+   "label": 30,
+   "id": 30,
+   "hemi": "lh",
+   "name": "superiortemporal",
+   "color": "#8cdcdc"
+  },
+  {
+   "label": 31,
+   "id": 31,
+   "hemi": "lh",
+   "name": "supramarginal",
+   "color": "#50a014"
+  },
+  {
+   "label": 32,
+   "id": 32,
+   "hemi": "lh",
+   "name": "frontalpole",
+   "color": "#640064"
+  },
+  {
+   "label": 33,
+   "id": 33,
+   "hemi": "lh",
+   "name": "temporalpole",
+   "color": "#4614aa"
+  },
+  {
+   "label": 34,
+   "id": 34,
+   "hemi": "lh",
+   "name": "transversetemporal",
+   "color": "#9696c8"
+  },
+  {
+   "label": 35,
+   "id": 35,
+   "hemi": "lh",
+   "name": "insula",
+   "color": "#ffc020"
+  },
+  {
+   "label": 36,
+   "id": 1,
+   "hemi": "rh",
+   "name": "bankssts",
+   "color": "#196428"
+  },
+  {
+   "label": 37,
+   "id": 2,
+   "hemi": "rh",
+   "name": "caudalanteriorcingulate",
+   "color": "#7d64a0"
+  },
+  {
+   "label": 38,
+   "id": 3,
+   "hemi": "rh",
+   "name": "caudalmiddlefrontal",
+   "color": "#641900"
+  },
+  {
+   "label": 39,
+   "id": 4,
+   "hemi": "rh",
+   "name": "corpuscallosum",
+   "color": "#784632"
+  },
+  {
+   "label": 40,
+   "id": 5,
+   "hemi": "rh",
+   "name": "cuneus",
+   "color": "#dc1464"
+  },
+  {
+   "label": 41,
+   "id": 6,
+   "hemi": "rh",
+   "name": "entorhinal",
+   "color": "#dc140a"
+  },
+  {
+   "label": 42,
+   "id": 7,
+   "hemi": "rh",
+   "name": "fusiform",
+   "color": "#b4dc8c"
+  },
+  {
+   "label": 43,
+   "id": 8,
+   "hemi": "rh",
+   "name": "inferiorparietal",
+   "color": "#dc3cdc"
+  },
+  {
+   "label": 44,
+   "id": 9,
+   "hemi": "rh",
+   "name": "inferiortemporal",
+   "color": "#b42878"
+  },
+  {
+   "label": 45,
+   "id": 10,
+   "hemi": "rh",
+   "name": "isthmuscingulate",
+   "color": "#8c148c"
+  },
+  {
+   "label": 46,
+   "id": 11,
+   "hemi": "rh",
+   "name": "lateraloccipital",
+   "color": "#141e8c"
+  },
+  {
+   "label": 47,
+   "id": 12,
+   "hemi": "rh",
+   "name": "lateralorbitofrontal",
+   "color": "#234b32"
+  },
+  {
+   "label": 48,
+   "id": 13,
+   "hemi": "rh",
+   "name": "lingual",
+   "color": "#e18c8c"
+  },
+  {
+   "label": 49,
+   "id": 14,
+   "hemi": "rh",
+   "name": "medialorbitofrontal",
+   "color": "#c8234b"
+  },
+  {
+   "label": 50,
+   "id": 15,
+   "hemi": "rh",
+   "name": "middletemporal",
+   "color": "#a06432"
+  },
+  {
+   "label": 51,
+   "id": 16,
+   "hemi": "rh",
+   "name": "parahippocampal",
+   "color": "#14dc3c"
+  },
+  {
+   "label": 52,
+   "id": 17,
+   "hemi": "rh",
+   "name": "paracentral",
+   "color": "#3cdc3c"
+  },
+  {
+   "label": 53,
+   "id": 18,
+   "hemi": "rh",
+   "name": "parsopercularis",
+   "color": "#dcb48c"
+  },
+  {
+   "label": 54,
+   "id": 19,
+   "hemi": "rh",
+   "name": "parsorbitalis",
+   "color": "#146432"
+  },
+  {
+   "label": 55,
+   "id": 20,
+   "hemi": "rh",
+   "name": "parstriangularis",
+   "color": "#dc3c14"
+  },
+  {
+   "label": 56,
+   "id": 21,
+   "hemi": "rh",
+   "name": "pericalcarine",
+   "color": "#78643c"
+  },
+  {
+   "label": 57,
+   "id": 22,
+   "hemi": "rh",
+   "name": "postcentral",
+   "color": "#dc1414"
+  },
+  {
+   "label": 58,
+   "id": 23,
+   "hemi": "rh",
+   "name": "posteriorcingulate",
+   "color": "#dcb4dc"
+  },
+  {
+   "label": 59,
+   "id": 24,
+   "hemi": "rh",
+   "name": "precentral",
+   "color": "#3c14dc"
+  },
+  {
+   "label": 60,
+   "id": 25,
+   "hemi": "rh",
+   "name": "precuneus",
+   "color": "#a08cb4"
+  },
+  {
+   "label": 61,
+   "id": 26,
+   "hemi": "rh",
+   "name": "rostralanteriorcingulate",
+   "color": "#50148c"
+  },
+  {
+   "label": 62,
+   "id": 27,
+   "hemi": "rh",
+   "name": "rostralmiddlefrontal",
+   "color": "#4b327d"
+  },
+  {
+   "label": 63,
+   "id": 28,
+   "hemi": "rh",
+   "name": "superiorfrontal",
+   "color": "#14dca0"
+  },
+  {
+   "label": 64,
+   "id": 29,
+   "hemi": "rh",
+   "name": "superiorparietal",
+   "color": "#14b48c"
+  },
+  {
+   "label": 65,
+   "id": 30,
+   "hemi": "rh",
+   "name": "superiortemporal",
+   "color": "#8cdcdc"
+  },
+  {
+   "label": 66,
+   "id": 31,
+   "hemi": "rh",
+   "name": "supramarginal",
+   "color": "#50a014"
+  },
+  {
+   "label": 67,
+   "id": 32,
+   "hemi": "rh",
+   "name": "frontalpole",
+   "color": "#640064"
+  },
+  {
+   "label": 68,
+   "id": 33,
+   "hemi": "rh",
+   "name": "temporalpole",
+   "color": "#4614aa"
+  },
+  {
+   "label": 69,
+   "id": 34,
+   "hemi": "rh",
+   "name": "transversetemporal",
+   "color": "#9696c8"
+  },
+  {
+   "label": 70,
+   "id": 35,
+   "hemi": "rh",
+   "name": "insula",
+   "color": "#ffc020"
+  }
+ ],
+ "url": "/api/guide/labels?atlas=DK40"
+}

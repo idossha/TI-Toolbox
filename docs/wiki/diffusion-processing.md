@@ -119,8 +119,10 @@ An automated QC report is generated after extraction:
 ### Full Pipeline
 
 ```python
+from tit import get_path_manager
 from tit.pre import run_pipeline
 
+get_path_manager("/mnt/my_project")  # Your project path inside the container.
 run_pipeline(
     subject_ids=["001"],
     run_qsiprep=True,

@@ -1,15 +1,18 @@
-# Security Policy
+# Security policy
 
-## Supported Versions
+Report vulnerabilities privately using the process below. For development and release practices,
+see [AUTOMATION](docs/dev/AUTOMATION.md) and [RELEASING](docs/dev/RELEASING.md).
 
-Still in development.
+## Reporting a vulnerability
 
-| Version | Supported          |
-| ------- | ------------------ |
-| x.x.x   | :white_check_mark: |
+Email **ihaber@wisc.edu** with the affected version or commit, environment, impact and a short,
+self-contained reproduction. Do not post vulnerability details in a public GitHub issue or include
+private research data or credentials in the report.
 
-## Reporting a Vulnerability
+The usual response target is one week. TI-Toolbox does not offer vulnerability bounties.
 
-TI-Toolbox is software for temporal interference research. It is not expected that using TI-Toolbox will lead to security vulnerabilities under normal use cases. However, if you think you have found a security vulnerability in TI-Toolbox, please do not report it as a GitHub issue, in order to keep the vulnerability confidential. Instead, please report it to ihaber@wisc.edu and include a description and proof-of-concept that is short and self-contained.
+## Version scope
 
-Generally you will receive a response within one week. TI-Toolbox does not award bounties for security vulnerabilities.
+Include the exact source and image versions, including internal candidates. The project does not
+currently publish a version-by-version security maintenance window; reporting an issue does not
+imply that a particular older release will receive a backport.

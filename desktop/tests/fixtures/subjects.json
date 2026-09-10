@@ -1,0 +1,7 @@
+{
+  "subjects": [
+    { "id": "ernie", "has_raw": true, "has_fastsurfer": true, "has_freesurfer": true, "has_m2m": true, "n_simulations": 3 },
+    { "id": "101", "has_raw": true, "has_fastsurfer": false, "has_freesurfer": false, "has_m2m": true, "n_simulations": 1 },
+    { "id": "MNI152", "has_raw": false, "has_fastsurfer": true, "has_freesurfer": false, "has_m2m": true, "n_simulations": 0 }
+  ]
+}

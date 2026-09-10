@@ -19,7 +19,6 @@ tit.analyzer.field_selector : Automatic field file resolution.
 
 import hashlib
 import logging
-import subprocess
 import tempfile
 import time
 from dataclasses import asdict, dataclass
@@ -28,6 +27,7 @@ from pathlib import Path
 import numpy as np
 
 from tit.analyzer.field_selector import select_field_file
+from tit.atlas.segstats import compute_segstats, resolve_lut_for_atlas
 from tit.analyzer.visualizer import (
     save_analysis_metadata,
     save_histogram,
@@ -39,6 +39,40 @@ from tit.logger import add_file_handler
 from tit.paths import get_path_manager
 
 logger = logging.getLogger(__name__)
+
+
+def voxel_volume_mm3(affine: np.ndarray) -> float:
+    """Volume of one voxel in mm^3 from the image affine.
+
+    ``|det(A)|`` of the 3x3 direction block is the exact volume of the
+    parallelepiped one voxel maps to.  The header zooms are the *column norms*
+    of ``A``; their product equals ``|det(A)|`` only when the voxel axes are
+    mutually orthogonal in world space, and overestimates the volume for any
+    sheared (non-orthogonal) affine.
+    """
+    return float(abs(np.linalg.det(np.asarray(affine, dtype=np.float64)[:3, :3])))
+
+
+def _world_distance_grid(
+    affine: np.ndarray,
+    voxel_center: np.ndarray,
+    shape: tuple[int, int, int],
+) -> np.ndarray:
+    """Euclidean world-space distance (mm) from *voxel_center* to every voxel.
+
+    The correct metric is ``||A (v - c)||`` with ``A = affine[:3, :3]``, not
+    ``sqrt(sum_k (zoom_k * (v_k - c_k))^2)``: the latter assumes the voxel axes
+    are orthogonal in world space and is wrong for any sheared affine, so a
+    "spherical" ROI came out as the wrong ellipsoid.
+    """
+    a = np.asarray(affine, dtype=np.float64)[:3, :3]
+    grids = np.ogrid[: shape[0], : shape[1], : shape[2]]
+    deltas = [g - c for g, c in zip(grids, np.asarray(voxel_center, dtype=np.float64))]
+    dist_sq = 0.0
+    for row in a:  # each world axis is a linear combination of voxel deltas
+        component = row[0] * deltas[0] + row[1] * deltas[1] + row[2] * deltas[2]
+        dist_sq = dist_sq + component**2
+    return np.sqrt(dist_sq)
 
 
 # ---------------------------------------------------------------------------
@@ -393,6 +427,89 @@ class Analyzer:
             dispatch = {"mesh": self._cortex_mesh, "voxel": self._cortex_voxel}
             return dispatch[self.space](atlas, region, visualize)
 
+    def analyze_mask(
+        self,
+        mask_path: str,
+        coordinate_space: str = "subject",
+        visualize: bool = False,
+    ) -> AnalysisResult:
+        """Analyze positive NIfTI voxels sampled onto subject geometry.
+
+        MNI masks use the optimizer's nonlinear m2m registration. Nearest-neighbour
+        sampling preserves binary membership; mesh results remain GM surface-area
+        statistics and voxel results retain the selected tissue and volume units.
+        """
+        import tempfile
+        import nibabel as nib
+        from nibabel.processing import resample_from_to
+        from scipy.ndimage import map_coordinates
+        from tit.opt.masks import prepare_mask
+        from tit.analyzer.masks import mask_region_name
+        from tit import constants as const
+        from tit.telemetry import track_operation
+
+        coordinate_space = coordinate_space.lower()
+        region_name = mask_region_name(mask_path, coordinate_space)
+        with (
+            track_operation(const.TELEMETRY_OP_ANALYSIS),
+            tempfile.TemporaryDirectory() as scratch,
+        ):
+            prepared = prepare_mask(
+                mask_path, coordinate_space, str(self.m2m_path), scratch, binary=True
+            )
+            mask_img = nib.load(prepared)
+            if self.space == "mesh":
+                surface = self._load_surface_mesh()
+                coords = nib.affines.apply_affine(
+                    np.linalg.inv(mask_img.affine), surface.nodes.node_coord
+                )
+                mask = (
+                    map_coordinates(
+                        mask_img.get_fdata(), coords.T, order=0, mode="constant", cval=0
+                    )
+                    > 0
+                )
+                if not mask.any():
+                    raise ValueError("Mask does not overlap the gray-matter surface")
+                return self._analyze_mesh_roi(
+                    surface,
+                    self._field_values(surface),
+                    self._node_areas(surface),
+                    mask,
+                    region_name=region_name,
+                    analysis_type="mask",
+                    visualize=visualize,
+                )
+            img = nib.load(str(self.field_path))
+            field_arr = self._squeeze_4d(img.get_fdata())
+            sampled = (
+                resample_from_to(
+                    mask_img,
+                    (field_arr.shape[:3], img.affine),
+                    order=0,
+                    mode="constant",
+                    cval=0,
+                ).get_fdata()
+                > 0
+            )
+            analysis_mask = (field_arr > 0) & self._voxel_tissue_mask(
+                img, field_arr.shape[:3], img.affine
+            )
+            roi_mask = sampled & analysis_mask
+            if not roi_mask.any():
+                raise ValueError(
+                    "Mask does not overlap positive field values in the selected tissue"
+                )
+            return self._analyze_voxel_roi(
+                field_arr,
+                roi_mask,
+                analysis_mask,
+                img.affine,
+                region_name=region_name,
+                analysis_type="mask",
+                visualize=visualize,
+            )
+
     # ------------------------------------------------------------------
     # Mesh: spherical
     # ------------------------------------------------------------------
@@ -520,22 +637,18 @@ class Analyzer:
         img = nib.load(str(self.field_path))
         field_arr = self._squeeze_4d(img.get_fdata())
         affine = img.affine
-        voxel_size = np.array(img.header.get_zooms()[:3])
 
         shape = field_arr.shape
-        gx, gy, gz = np.ogrid[: shape[0], : shape[1], : shape[2]]
         inv_affine = np.linalg.inv(affine)
 
+        # Union of the requested spheres. The distance metric is world-space
+        # ||A (v - c)|| (SCI-05): the header-zoom form assumes orthogonal voxel
+        # axes and yields the wrong ellipsoid for any sheared affine.
         sphere_mask = np.zeros(shape[:3], dtype=bool)
         for cx, cy, cz, radius in spheres:
             center_arr = self._maybe_transform_coords((cx, cy, cz), coordinate_space)
             voxel_center = np.dot(inv_affine, np.append(center_arr, 1))[:3]
-            dist = np.sqrt(
-                ((gx - voxel_center[0]) * voxel_size[0]) ** 2
-                + ((gy - voxel_center[1]) * voxel_size[1]) ** 2
-                + ((gz - voxel_center[2]) * voxel_size[2]) ** 2
-            )
-            sphere_mask |= dist <= radius
+            sphere_mask |= _world_distance_grid(affine, voxel_center, shape) <= radius
 
         if len(spheres) > 1:
             logger.info(
@@ -554,7 +667,6 @@ class Analyzer:
             roi_mask,
             analysis_mask,
             affine,
-            voxel_size,
             region_name=self._sphere_region_name(spheres),
             analysis_type="spherical",
             spheres=spheres,
@@ -577,7 +689,6 @@ class Analyzer:
         img = nib.load(str(self.field_path))
         field_arr = self._squeeze_4d(img.get_fdata())
         affine = img.affine
-        voxel_size = np.array(img.header.get_zooms()[:3])
 
         atlas_path = self._resolve_voxel_atlas(atlas)
         atlas_img = nib.load(str(atlas_path))
@@ -609,7 +720,6 @@ class Analyzer:
             roi_mask,
             analysis_mask,
             affine,
-            voxel_size,
             region_name=region_name,
             analysis_type="cortical",
             atlas=atlas,
@@ -732,7 +842,6 @@ class Analyzer:
         roi_mask: np.ndarray,
         analysis_mask: np.ndarray,
         affine: np.ndarray,
-        voxel_size: np.ndarray,
         *,
         region_name: str,
         analysis_type: str,
@@ -741,7 +850,7 @@ class Analyzer:
     ) -> AnalysisResult:
         roi_values = field_arr[roi_mask]
         tissue_values = field_arr[analysis_mask]
-        voxel_vol = float(np.prod(voxel_size))
+        voxel_vol = voxel_volume_mm3(affine)
 
         roi_mean = float(np.mean(roi_values))
         roi_max = float(np.max(roi_values))
@@ -751,7 +860,12 @@ class Analyzer:
         roi_focality = roi_mean / tissue_mean
 
         tissue_weights = np.full(len(tissue_values), voxel_vol)
-        focality = self._compute_focality_metrics(tissue_values, tissue_weights)
+        # Voxel weights are mm^3, so the cm^3 divisor is 1000 (a mesh ROI
+        # weights by mm^2 and divides by 100).  v2.x used 100 for both, making
+        # every voxel focality volume 10x too large.
+        focality = self._compute_focality_metrics(
+            tissue_values, tissue_weights, weight_to_cm=1000.0
+        )
 
         out_dir = self._resolve_output_dir(
             analysis_type=analysis_type,
@@ -883,12 +997,22 @@ class Analyzer:
         self,
         values: np.ndarray,
         weights: np.ndarray,
+        weight_to_cm: float = 100.0,
     ) -> dict:
         """Compute percentile and area/volume focality metrics.
 
         Returns a dict with keys matching the optional fields on
         ``AnalysisResult``: ``percentile_95``, ``percentile_99``,
         ``percentile_99_9``, ``focality_50_area`` ... ``focality_95_area``.
+
+        Parameters
+        ----------
+        weight_to_cm : float
+            Divisor converting the summed *weights* to centimetre units:
+            ``100`` for mesh node areas (mm^2 -> cm^2) and ``1000`` for voxel
+            volumes (mm^3 -> cm^3).  It must track the unit of *weights*; v2.x
+            hard-coded ``100`` and so reported voxel focality volumes 10x too
+            large.
         """
         valid = ~np.isnan(values)
         data = values[valid]
@@ -918,7 +1042,7 @@ class Analyzer:
         for cutoff in focality_cutoffs:
             threshold = (cutoff / 100.0) * ref
             above = data >= threshold
-            area = float(np.sum(sizes[above])) / 100.0  # mm^2 -> cm^2
+            area = float(np.sum(sizes[above])) / weight_to_cm
             foc_values.append(area)
 
         return {
@@ -1038,9 +1162,7 @@ class Analyzer:
     @staticmethod
     def _sphere_region_name(spheres) -> str:
         """Name a spherical ROI: one sphere keeps the classic name."""
-        parts = [
-            f"sphere_x{x:.2f}_y{y:.2f}_z{z:.2f}_r{r}" for x, y, z, r in spheres
-        ]
+        parts = [f"sphere_x{x:.2f}_y{y:.2f}_z{z:.2f}_r{r}" for x, y, z, r in spheres]
         return "+".join(parts)
 
     def _resolve_output_dir(
@@ -1218,14 +1340,19 @@ class Analyzer:
         if Path(atlas).is_file():
             return Path(atlas)
 
-        fs_mri = Path(self._pm.freesurfer_mri(self.subject_id))
+        fs_mri = Path(self._pm.fastsurfer_mri(self.subject_id))
+        legacy_mri = Path(self._pm.freesurfer_mri(self.subject_id))
         seg_dir = Path(self._pm.segmentation(self.subject_id))
         candidates = [
             fs_mri / atlas,
+            legacy_mri / atlas,
             seg_dir / atlas,
             fs_mri / f"{atlas}.mgz",
             fs_mri / f"{atlas}.nii.gz",
             fs_mri / f"{atlas}.nii",
+            legacy_mri / f"{atlas}.mgz",
+            legacy_mri / f"{atlas}.nii.gz",
+            legacy_mri / f"{atlas}.nii",
             seg_dir / f"{atlas}.nii.gz",
             seg_dir / f"{atlas}.nii",
         ]
@@ -1233,7 +1360,9 @@ class Analyzer:
             if path.exists():
                 return path
 
-        raise FileNotFoundError(f"Atlas {atlas!r} not found in {fs_mri} or {seg_dir}")
+        raise FileNotFoundError(
+            f"Atlas {atlas!r} not found in {fs_mri}, {legacy_mri}, or {seg_dir}"
+        )
 
     @staticmethod
     def _resample_if_needed(
@@ -1340,6 +1469,7 @@ class Analyzer:
             return None
 
         import nibabel as nib
+        from nibabel.processing import resample_from_to
 
         try:
             arr = np.asanyarray(nib.load(str(cached_path)).dataobj)
@@ -1364,9 +1494,7 @@ class Analyzer:
         return arr
 
     @staticmethod
-    def _cache_resample(
-        arr: np.ndarray, affine: np.ndarray, cached_path: Path
-    ) -> None:
+    def _cache_resample(arr: np.ndarray, affine: np.ndarray, cached_path: Path) -> None:
         """Write the resample cache; never raise.
 
         Written via a temporary directory and copied into place: nibabel's
@@ -1401,38 +1529,25 @@ class Analyzer:
         atlas_path: Path,
         region: str,
     ) -> int:
-        """Resolve a region name to its integer label in the atlas volume."""
+        """Resolve a region name to its integer label in the atlas volume.
+
+        Pure-Python replacement for shelling out to ``mri_segstats``: labels
+        actually present in the volume (:func:`~tit.atlas.segstats.compute_segstats`)
+        are named via :func:`~tit.atlas.segstats.resolve_lut_for_atlas` and the
+        first substring match (by ascending label id, matching
+        ``mri_segstats``'s own row order) wins -- identical matching
+        semantics to the subprocess it replaces.
+        """
         region_stripped = region.strip()
         if region_stripped.isdigit():
             return int(region_stripped)
 
-        with tempfile.NamedTemporaryFile(suffix=".txt", delete=False, mode="w") as tf:
-            stats_path = tf.name
-
-        cmd = [
-            "mri_segstats",
-            "--seg",
-            str(atlas_path),
-            "--excludeid",
-            "0",
-            "--ctab-default",
-            "--sum",
-            stats_path,
-        ]
-        subprocess.run(cmd, check=True, capture_output=True)
+        lut = resolve_lut_for_atlas(str(atlas_path))
+        stats = compute_segstats(str(atlas_path), lut)
 
         region_lower = region.lower()
-        with open(stats_path) as fh:
-            for line in fh:
-                if line.startswith("#"):
-                    continue
-                parts = line.strip().split()
-                if len(parts) >= 5:
-                    seg_id = int(parts[1])
-                    name = " ".join(parts[4:])
-                    if region_lower in name.lower():
-                        Path(stats_path).unlink()
-                        return seg_id
+        for stat in stats:
+            if region_lower in stat.name.lower():
+                return stat.seg_id
 
-        Path(stats_path).unlink()
         raise ValueError(f"Region '{region}' not found in atlas {atlas_path}")

@@ -1,0 +1,868 @@
+/**
+ * Viewer page — two rail sub-items, one page (DESIGN.md §10, VM2 + VE).
+ *
+ *   **Menu**     a source card and an editable file list, in a centred 880 px column on the app's
+ *                own surface. VM replaced this with a composition panel and the answer was "too
+ *                much"; what is left is the two things the page is for — where the scene comes
+ *                from, and which files it contains.
+ *   **Tetravox** a slim strip and, below it, the embed filling every remaining pixel.
+ *
+ * The rail draws the two rows (`app/shell.css`'s `.nav-subitem`); this file styles the two panes.
+ *
+ * **The inactive sub-page is `display: none`, never unmounted.** That is load-bearing rather than
+ * an optimisation: the embed carries a wasm heap, its dataset workers and the camera the person
+ * set, and none of it survives the iframe being taken out of the document. Hiding keeps the frame
+ * in the same DOM node, so returning from the Menu shows exactly the scene that was there.
+ *
+ * The dark `--canvas` ground is back on the Viewer sub-page only, where there is a frame that can
+ * be slow to paint its first picture. Behind a form it was just a black rectangle.
+ */
+
+/* The two sub-pages.
+ *
+ * `height: 100%`, not `flex: 1`. The parent is `.page-layout-main-scroll`
+ * (`ui/components.css`), which is `display: block` with a definite height -- so a flex child rule
+ * here does nothing at all, and the pane shrink-wraps its own content. That is not hypothetical:
+ * the first version of this file used `flex: 1 1 auto` and the Tetravox pane came out **1224x0** --
+ * strip visible, iframe mounted, handshake completed, `data-viewer-status="ready"`, and nothing on
+ * screen. Every assertion but a visibility check passed. `toBeVisible()` on `tetravox-host` in
+ * `viewer.spec.ts` is what caught it and is what keeps it caught.
+ */
+.viewer-sub {
+  height: 100%;
+  min-height: 0;
+}
+
+.viewer-sub[data-active="false"] {
+  display: none;
+}
+
+.viewer-sub-frame {
+  display: flex;
+  flex-direction: column;
+  background: var(--canvas, #101114);
+}
+
+.viewer-sub-frame[data-active="false"] {
+  display: none;
+}
+
+/* The strip: what is open, put it back, go edit it. Nothing about how a layer looks — that is the
+   embed's own inspector, which has the whole surface below this line. */
+.viewer-strip {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg);
+}
+
+.viewer-strip-name {
+  font: var(--text-sm);
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.viewer-strip-spacer {
+  flex: 1 1 auto;
+}
+
+.viewer-embed {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+
+
+.viewer-scroll {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+.viewer-panel {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-5) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ------------------------------------------------- head */
+
+.viewer-panel-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.viewer-panel-title {
+  margin: 0;
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+.viewer-panel-lede {
+  margin: 0;
+  max-width: 66ch;
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--ink-2);
+}
+
+.viewer-panel-lede strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* ------------------------------------------------- the two cards */
+
+.viewer-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-controls);
+  background: var(--surface);
+}
+
+.viewer-card-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-height: 24px;
+}
+
+.viewer-card-title {
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.viewer-card-note {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ink-2);
+}
+
+/**
+ * The window the field overlay will open at — `p95–p99.9 · 0.25–3.34 V/m`.
+ *
+ * Tabular figures because the two numbers change as the reader steps through Field, and digits
+ * that shift width make a changing value read as a moving one.
+ */
+.viewer-card-window {
+  flex: 0 0 auto;
+  font-size: 11px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  padding: 1px var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/**
+ * The card is showing the *previous* selection's list while the current one resolves.
+ *
+ * Dimmed rather than replaced: the rows are still true of something, and a person who has just
+ * changed Field is looking at a list that is about to change by one or two entries. Blanking it
+ * made a 10 ms resolve look like a reload. `transition` on the way in only — coming back to full
+ * opacity should be instant, because that is the moment the list became correct again.
+ */
+.viewer-card[data-stale="true"] .viewer-files {
+  opacity: 0.45;
+  transition: opacity 120ms ease-out;
+}
+
+.viewer-card-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.viewer-link {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ink-2);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.viewer-link:hover {
+  color: var(--ink);
+}
+
+/* ------------------------------------------------- source */
+
+/* Two columns of selectors: the source is six short fields at most, and one 880 px-wide column of
+   them is a lot of white space between a label and its control. */
+.viewer-source-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2) var(--space-5);
+}
+
+.viewer-row {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 28px;
+  min-width: 0;
+}
+
+.viewer-row-label {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.viewer-row-control {
+  min-width: 0;
+}
+
+.viewer-source-item .select-trigger,
+.viewer-source-path {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .viewer-source-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ------------------------------------------------- the file list */
+
+.viewer-files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.viewer-file {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) 56px 72px 22px 22px 24px;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px 0;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.viewer-file:first-child {
+  border-top: 0;
+}
+
+.viewer-file[data-dragging="true"] {
+  opacity: 0.5;
+}
+
+.viewer-file-grip {
+  color: var(--ink-3, var(--ink-2));
+  cursor: grab;
+  display: inline-flex;
+}
+
+.viewer-file-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.viewer-file-kind,
+.viewer-file-size {
+  color: var(--ink-2);
+}
+
+.viewer-file-size {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.viewer-file-move,
+.viewer-file-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-controls);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.viewer-file-move:hover:not(:disabled),
+.viewer-file-remove:hover {
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.viewer-file-move:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.viewer-opened {
+  margin: 0;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--ink-2);
+  word-break: break-all;
+}
+
+.viewer-empty {
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--ink-2);
+}
+
+/* ------------------------------------------------- the "+ Add…" picker */
+
+.viewer-add {
+  width: 340px;
+}
+
+.viewer-add-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.viewer-add-group-title {
+  margin: 0 0 2px;
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.viewer-add-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  padding: 3px var(--space-2);
+  border: 0;
+  border-radius: var(--radius-controls);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.viewer-add-item:hover {
+  background: var(--bg);
+}
+
+.viewer-add-item-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--ink);
+}
+
+.viewer-add-item-meta {
+  flex: 0 0 auto;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.viewer-add-path {
+  display: flex;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--line);
+}
+
+.viewer-add-path > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ------------------------------------------------- footer, callouts, popovers */
+
+.viewer-panel-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-top: var(--space-1, 4px);
+}
+
+.viewer-foot-spacer {
+  flex: 1 1 auto;
+}
+
+.viewer-callout {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-controls);
+  background: var(--surface);
+}
+
+.viewer-callout-title {
+  margin: 0;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.viewer-callout-text {
+  margin: 0;
+  max-width: 62ch;
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--ink-2);
+}
+
+.viewer-popover {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 240px;
+}
+
+.viewer-popover-title {
+  margin: 0;
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.viewer-preset-list,
+.viewer-recent-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.viewer-preset {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.viewer-preset-restore,
+.viewer-preset-forget,
+.viewer-recent-item {
+  border: 0;
+  background: transparent;
+  padding: 4px var(--space-2);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-controls);
+}
+
+.viewer-preset-restore,
+.viewer-recent-item {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.viewer-preset-restore:hover,
+.viewer-recent-item:hover {
+  background: var(--bg);
+}
+
+.viewer-preset-forget {
+  flex: 0 0 auto;
+  color: var(--ink-2);
+}
+
+/* ------------------------------------------------- the failed-Open strip */
+
+.viewer-load-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-controls);
+  background: var(--danger-bg, var(--surface));
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.viewer-load-error-title {
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.viewer-load-error-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--ink-2);
+}
+
+/* ── saved scenes (2026-09-07) ──────────────────────────────────────────────────────────────
+ *
+ * A list of scene *names* is a list nobody can choose from — every one of them is
+ * `<subject>_<sim>_<field>_<date>` and they differ in the middle. The thumbnail is what makes the
+ * row identifiable at a glance, so it leads, and the text is secondary to it.
+ */
+.viewer-scene-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.viewer-scene-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.viewer-scene-item:hover,
+.viewer-scene-item:focus-visible {
+  border-color: var(--line);
+  background: var(--surface-2);
+}
+
+.viewer-scene-thumb {
+  flex: 0 0 auto;
+  width: 64px;
+  height: 42px;
+  border-radius: var(--radius-sm);
+  /* The scenes are dark; a light letterbox around one reads as a rendering fault rather than a
+   * thumbnail that does not fill its box. */
+  background: #0f1116;
+  object-fit: cover;
+}
+
+.viewer-scene-thumb-empty {
+  border: 1px dashed var(--line);
+  background: none;
+}
+
+.viewer-scene-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.viewer-scene-name,
+.viewer-scene-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-scene-name {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.viewer-scene-meta {
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--ink-2);
+}
+
+/* The confirmation after a save. Sits in the strip rather than as a toast: the person is looking
+ * at the strip (they just pressed the button in it), and it names the file so they can find it. */
+.viewer-strip-saved {
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--ink-2);
+  margin-right: var(--space-2);
+  white-space: nowrap;
+}
+
+.viewer-popover-error {
+  margin: var(--space-1) 0 0;
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--danger);
+}
+
+/* ── the composition tree (2026-09-07) ──────────────────────────────────────────────────────
+ *
+ * Replaces the source card's two-column grid of dropdowns. The shape is the point: three branches
+ * a person reads top to bottom in the order the work was done — anatomy, then what was simulated
+ * on it, then what was analysed from that — with the indent carrying the "belongs to" relation so
+ * no row has to repeat its parent's name.
+ *
+ * Rows are 24 px and dense on purpose. A subject with three simulations and their outputs is
+ * forty-odd rows, and at comfortable spacing that is three screens of scrolling to answer "what is
+ * in my scene" — which is the question the whole card exists to answer at a glance.
+ */
+.viewer-compose-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2) var(--space-5);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+
+@media (max-width: 900px) {
+  .viewer-compose-head {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.viewer-tree {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.viewer-tree-branch-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 28px;
+}
+
+.viewer-tree-disclose {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+.viewer-tree-disclose:hover {
+  color: var(--ink);
+}
+
+.viewer-tree-chevron {
+  transition: transform 120ms ease-out;
+}
+
+.viewer-tree-branch[data-open="true"] > .viewer-tree-branch-head .viewer-tree-chevron {
+  transform: rotate(90deg);
+}
+
+.viewer-tree-branch-title {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* The count is the whole value of a *collapsed* branch — "3 simulations · 2 selected" answers
+ * "is any of this in my scene" without expanding anything. */
+.viewer-tree-branch-count {
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The indent is the relation. A left rule rather than padding alone, so a long branch still reads
+ * as one group once its header has scrolled away. */
+.viewer-tree-branch-body {
+  margin-left: 8px;
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--line);
+}
+
+.viewer-tree-group {
+  padding: var(--space-1) 0;
+}
+
+.viewer-tree-group-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0 0 2px;
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.viewer-tree-group-meta {
+  margin-left: auto;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.viewer-tree-dot {
+  color: var(--ink-3);
+}
+
+.viewer-tree-nodes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.viewer-tree-node {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 24px;
+  padding: 1px 0;
+}
+
+.viewer-tree-node-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-tree-node-meta {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A `.msh` is 24–420 MB, a volume 13–80 MB, a cortical sheet ~8 MB. The chip is not decoration:
+ * it is the difference between a row that costs a moment to open and one that costs a minute —
+ * and, since 2026-09-07, between a tetrahedral FEM domain and a triangulated 2-D surface, which
+ * one word for both had been hiding. */
+.viewer-tree-tag {
+  padding: 0 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* The two geometries are told apart at a glance, because that is the whole point: a MESH row is
+ * a wait and a SURFACE row is not. The attachment chips stay unaccented — they are sub-rows, and
+ * three accented chips in a stack would read as three separate choices rather than one. */
+.viewer-tree-tag[data-kind="mesh"] {
+  border-color: var(--accent-line, var(--line));
+  color: var(--ink-2);
+}
+
+.viewer-tree-tag[data-kind="surface"] {
+  border-style: dashed;
+  color: var(--ink-2);
+}
+
+.viewer-tree-tag[data-kind="annotation"],
+.viewer-tree-tag[data-kind="morph"],
+.viewer-tree-tag[data-kind="surface-data"] {
+  border-color: transparent;
+  color: var(--ink-3);
+}
+
+/* An attachment is indented under its surface, and reads a size smaller: it is not a thing you
+ * can open on its own, it is something you hang on the row above. */
+.viewer-tree-node[data-depth="1"] {
+  padding-left: calc(var(--space-4));
+  min-height: 22px;
+}
+
+.viewer-tree-node[data-depth="1"] .viewer-tree-node-label {
+  font-size: 11px;
+  color: var(--ink-2);
+}
+
+/* Unavailable: greyed and disabled, but still *there*, with the reason where the size would be.
+ * A missing input a person can see is a question they can answer. */
+.viewer-tree-node[data-available="false"] .viewer-tree-node-label {
+  color: var(--ink-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--line);
+}
+
+.viewer-tree-reason {
+  color: var(--ink-3);
+  font-style: italic;
+}
+
+.viewer-tree-note {
+  margin: var(--space-1) 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ink-3);
+}

@@ -1,0 +1,19 @@
+{
+  "kind": "source",
+  "config": {
+    "mode": "forward",
+    "subject_ids": [
+      "101"
+    ],
+    "forward": {
+      "eeg_net": "EEG10-10_UI_Jurak_2007",
+      "fsaverage_spacing": 5,
+      "cpus": 1,
+      "overwrite": true
+    }
+  },
+  "subject_ids": [
+    "101"
+  ],
+  "overwrite": true
+}

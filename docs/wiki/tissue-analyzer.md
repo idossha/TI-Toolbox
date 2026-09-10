@@ -97,7 +97,7 @@ output_directory/
 derivatives/
 └── SimNIBS/
     └── sub-XX/
-        └── m2m_sub-XX/
+        └── m2m_XX/
             ├── segmentation/
             │   ├── labeling.nii.gz      # Input segmentation (CHARM output)
             │   └── labeling_LUT.txt     # Label mapping (optional)

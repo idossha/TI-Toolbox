@@ -1,0 +1,86 @@
+{
+  "kind": "ex",
+  "config": {
+    "subject_id": "101",
+    "leadfield_hdf": "/mnt/000/derivatives/SimNIBS/sub-101/leadfields/101_leadfield_EEG10-10_UI_Jurak_2007.hdf5",
+    "roi_name": "labeling.nii.gz_1region",
+    "electrodes": {
+      "e1_plus": [
+        "Fp1"
+      ],
+      "e1_minus": [
+        "Fp2"
+      ],
+      "e2_plus": [
+        "F3"
+      ],
+      "e2_minus": [
+        "F4"
+      ],
+      "_type": "BucketElectrodes"
+    },
+    "total_current": 2,
+    "current_step": 0.2,
+    "channel_limit": 1.6,
+    "roi_radius": 3,
+    "roi_names": [],
+    "roi_atlas": [
+      {
+        "atlas_path": "/mnt/000/derivatives/SimNIBS/sub-101/m2m_101/segmentation/labeling.nii.gz",
+        "label": 17
+      }
+    ],
+    "roi_coordinate_space": "subject",
+    "run_name": "smoke-ui-1145-ex",
+    "n_jobs": -1,
+    "symmetric_bucket": false,
+    "symmetry_eeg_csv": null,
+    "symmetry_pairing": "within_pairs"
+  },
+  "subject_ids": [
+    "101"
+  ],
+  "parallel_subjects": 1,
+  "subject_configs": [
+    {
+      "subject_id": "101",
+      "config": {
+        "subject_id": "101",
+        "leadfield_hdf": "/mnt/000/derivatives/SimNIBS/sub-101/leadfields/101_leadfield_EEG10-10_UI_Jurak_2007.hdf5",
+        "roi_name": "labeling.nii.gz_1region",
+        "electrodes": {
+          "e1_plus": [
+            "Fp1"
+          ],
+          "e1_minus": [
+            "Fp2"
+          ],
+          "e2_plus": [
+            "F3"
+          ],
+          "e2_minus": [
+            "F4"
+          ],
+          "_type": "BucketElectrodes"
+        },
+        "total_current": 2,
+        "current_step": 0.2,
+        "channel_limit": 1.6,
+        "roi_radius": 3,
+        "roi_names": [],
+        "roi_atlas": [
+          {
+            "atlas_path": "/mnt/000/derivatives/SimNIBS/sub-101/m2m_101/segmentation/labeling.nii.gz",
+            "label": 17
+          }
+        ],
+        "roi_coordinate_space": "subject",
+        "run_name": "smoke-ui-1145-ex",
+        "n_jobs": -1,
+        "symmetric_bucket": false,
+        "symmetry_eeg_csv": null,
+        "symmetry_pairing": "within_pairs"
+      }
+    }
+  ]
+}

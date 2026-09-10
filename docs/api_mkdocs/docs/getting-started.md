@@ -4,19 +4,23 @@ This guide covers the core APIs you'll interact with most frequently.
 
 ## Setup
 
-All scripting happens inside the SimNIBS container. Three ways to develop:
+Start the container using the [installation guide](https://idossha.github.io/TI-Toolbox/installation/).
+The desktop app and browser interface both offer **Notebooks**, using the image's
+**SimNIBS + TI-Toolbox** Python kernel. Open the supplied example to work with your project.
+For standalone scripts inside the container, run `simnibs_python my_script.py`.
 
-- **JupyterLab**: Type `NOTEBOOK` at the container shell, then open [http://localhost:8888](http://localhost:8888). Select the **"SimNIBS + TI-Toolbox"** kernel.
-- **Neovim**: `nvim my_script.py` — LSP autocompletion is pre-configured.
-- **Plain scripts**: `simnibs_python my_script.py`
-
-Just import — logging and path resolution are automatic. No initialization call is needed.
+Use the container-visible project path when initializing a script:
 
 ```python
+from tit import get_path_manager, setup_logging
 from tit.sim import SimulationConfig, run_simulation
+
+pm = get_path_manager("/mnt/project")  # replace with your mounted project path
+setup_logging()
 ```
 
-Importing any `tit` module configures the `tit` logger hierarchy and attaches a stdout handler at INFO level. Path resolution is handled internally via `PathManager`, which auto-detects the project directory from environment variables inside Docker containers.
+The launcher sets the project environment for the server and its notebook kernel. Explicit
+initialization makes scripts portable to other container sessions.
 
 ## Running Simulations
 
@@ -52,9 +56,9 @@ results = run_simulation(config)
 ### Simulation Types
 
 - **TI (2-pair)**: Standard temporal interference with 2 electrode pairs
-- **mTI (4+ pairs)**: Multi-channel TI with N electrode pairs (binary-tree combination)
+- **mTI (4+ even pairs)**: Multi-channel TI with N electrode pairs (binary-tree combination)
 
-Mode is auto-detected from the montage: 2 pairs -> TI, 4+ pairs -> mTI.
+Mode is auto-detected from the montage: 2 pairs -> TI, 4+ even pairs -> mTI.
 
 ## Analyzing Results
 
@@ -172,9 +176,8 @@ from tit.pre import run_pipeline
 exit_code = run_pipeline(
     subject_ids=["001", "002"],
     convert_dicom=True,
-    run_recon=True,
-    parallel_recon=True,
-    parallel_cores=4,
+    run_fastsurfer=True,
+    fastsurfer_threads=4,
     create_m2m=True,
     run_tissue_analysis=True,
 )
@@ -187,10 +190,9 @@ Each preprocessing step can also be called independently:
 ```python
 from tit.pre import (
     run_dicom_to_nifti,
-    run_recon_all,
+    run_fastsurfer,
     run_charm,
     run_tissue_analysis,
-    run_subcortical_segmentations,
     run_qsiprep,
     run_qsirecon,
     extract_dti_tensor,
@@ -198,12 +200,16 @@ from tit.pre import (
     check_m2m_exists,
 )
 
-# Discover subjects from sourcedata
-subjects = discover_subjects()
+# Discover subjects from a BIDS project
+import logging
+
+project = "/path/to/bids_project"
+logger = logging.getLogger("preprocessing")
+subjects = discover_subjects(project)
 
 # Check if head mesh already exists
-if not check_m2m_exists("001"):
-    run_charm("001")
+if not check_m2m_exists(project, "001"):
+    run_charm(project, "001", logger=logger)
 ```
 
 ## Report Generation
@@ -217,6 +223,7 @@ and preprocessing runs.
 from tit.reporting import SimulationReportGenerator
 
 report = SimulationReportGenerator(
+    project_dir="/mnt/project",  # container-visible project path
     simulation_session_id="motor_cortex",
     subject_id="001",
 )
@@ -243,6 +250,7 @@ from tit.reporting import create_flex_search_report
 
 # Generate from optimization data dict
 output_path = create_flex_search_report(
+    project_dir="/mnt/project",  # container-visible project path
     subject_id="001",
     data=optimization_data,  # dict with optimization results
     output_path="/data/my_project/derivatives/ti-toolbox/reports/flex_report.html",
@@ -255,6 +263,7 @@ output_path = create_flex_search_report(
 from tit.reporting import create_preprocessing_report
 
 output_path = create_preprocessing_report(
+    project_dir="/mnt/project",  # container-visible project path
     subject_id="001",
     processing_steps=[],  # auto-populated if auto_scan=True
     output_path=None,     # auto-generates BIDS-compliant path
@@ -324,7 +333,7 @@ All paths are managed by `PathManager`, which enforces a BIDS-compliant director
 ### Field Types
 - **TI_max**: Maximum TI envelope magnitude (2-pair simulations)
 - **TI_normal**: TI field component normal to the cortical surface
-- **mTI_max**: Multi-channel TI maximum envelope (4-pair mTI simulations, from binary-tree combination)
+- **mTI_max**: Multi-channel TI maximum envelope (4+ even-pair mTI simulations, from binary-tree combination)
 
 ### Coordinate Spaces
 - **Subject space**: Native coordinates aligned to the individual's head mesh

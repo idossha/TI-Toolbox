@@ -339,6 +339,33 @@ class TestSimulationConfig:
         assert len(config.montages) == 1
         assert config.montages[0].name == "test"
 
+    def test_tissue_conductivities_default_none(self):
+        config = SimulationConfig(subject_id="001", montages=[])
+        assert config.tissue_conductivities is None
+
+    def test_tissue_conductivities_int_keys_preserved(self):
+        config = SimulationConfig(
+            subject_id="001", montages=[], tissue_conductivities={1: 0.126, 3: 1.654}
+        )
+        assert config.tissue_conductivities == {1: 0.126, 3: 1.654}
+
+    def test_tissue_conductivities_string_keys_coerced_to_int(self):
+        """A config built with JSON-shaped string keys (as deserialize_config would
+        pass through before its own coercion) is normalised the same way."""
+        config = SimulationConfig(
+            subject_id="001",
+            montages=[],
+            tissue_conductivities={"1": 0.126, "3": 1.654},
+        )
+        assert config.tissue_conductivities == {1: 0.126, 3: 1.654}
+        assert all(isinstance(k, int) for k in config.tissue_conductivities)
+
+    def test_tissue_conductivities_non_positive_rejected(self):
+        with pytest.raises(ValueError, match="must be > 0"):
+            SimulationConfig(
+                subject_id="001", montages=[], tissue_conductivities={1: 0.0}
+            )
+
 
 # -- get_TI_vectors field-count tests --
 

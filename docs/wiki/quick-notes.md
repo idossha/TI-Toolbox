@@ -4,102 +4,39 @@ title: Quick Notes
 permalink: /wiki/quick-notes/
 ---
 
-The Quick Notes extension provides a simple note-taking tool for documenting observations, decisions, and insights during sessions. Notes are automatically timestamped and persistently stored in the project directory.
+Quick notes is a project notepad that opens beside your work. Use **⌘⇧N** on macOS
+(**Ctrl⇧N** on Windows/Linux), or find **Quick notes** in the command palette. It opens a
+right-hand drawer, so you can keep the current workflow visible while writing.
 
+## Write and save
 
-## Key Features
+Type directly in the notepad. Edits save automatically after a short pause; the status changes
+from **Unsaved changes** to **Saving…** and then **Saved** with the time. Wait for the saved
+status before closing the app or switching projects. If saving fails, the drawer keeps the
+edits visible and reports the error.
 
-- **Automatic Timestamping**: Every note includes precise timestamp with timezone information
-- **Persistent Storage**: Notes saved to project directory following BIDS conventions
-- **Session Continuity**: Notes persist across TI-Toolbox restarts
-- **Copy to Clipboard**: Easy export of notes for reports or presentations
-- **Clean Formatting**: Structured display with separators and chronological ordering
+- **Insert timestamp** appends the current date and time in your browser or desktop locale.
+  Timestamps are optional; typing does not add one automatically.
+- **Copy** copies all notes to the clipboard.
+- **Clear** asks for confirmation before removing all notes in the project notepad.
 
+## Storage
 
-### Note Format
+The server saves plain text in your active project:
 
-Each note follows a consistent structure:
-
-```
-[2026-08-01 14:30:45 EST]
-This is my observation about the hippocampal stimulation results.
-The field strength appears optimal at 2.3 V/m for this electrode configuration.
-
-----------------------------------------------------------------------
-```
-
-## Usage Workflow
-
-### Basic Note-Taking
-
-1. **Launch Extension**: Extensions button → "Quick Notes"
-2. **Compose Note**: Type observations in the input area
-3. **Add Note**: Click "Add Note" to timestamp and save
-4. **Review History**: Scroll through previous notes in the display area
-
-## Technical Details
-
-### Storage Location
-
-Notes are saved following BIDS derivatives structure:
-
-```
-project_dir/
-└── derivatives/
-    └── ti-toolbox/
-        └── notes.txt
+```text
+<project>/derivatives/ti-toolbox/notes.txt
 ```
 
-This ensures notes are:
-- **Project-specific**: Associated with the correct dataset
-- **Backup-compatible**: Included in standard data backup procedures
-- **Collaboration-friendly**: Accessible to all researchers working on the project
-
-### Timestamp Format
-
-Notes use a human-readable local timestamp with the timezone abbreviation:
-
-```
-YYYY-MM-DD HH:MM:SS TZ
-```
-
-**Examples:**
-- `2026-08-01 14:30:45 EST` (Eastern Standard Time)
-- `2026-08-01 19:30:45 UTC` (Coordinated Universal Time)
-- `2026-08-01 11:30:45 PST` (Pacific Standard Time)
-
-### Timezone Handling
-
-The extension automatically detects the host system's timezone:
-
-```python
-tz_name = os.environ.get("TZ", "UTC")            # set by the loader from the host clock
-zone = tz_name if "/" in tz_name else _ABBREV_TO_IANA.get(tz_name.upper(), "UTC")
-```
+Notes remain with the dataset across restarts and are included when you back up that file.
+Switching projects opens the next project's own notes. This is a shared plain-text notepad,
+not a revision history; clearing notes removes its contents.
 
 ## Troubleshooting
 
-### Common Issues
+If notes cannot load or save, confirm that the project's server is connected and the project
+directory is writable. Copy any unsaved text before closing or switching projects. For a
+clipboard error, select the text and use your system's normal copy command.
 
-**"No project directory detected"**
-- Ensure TI-Toolbox is properly initialized with a project directory
-- Check that the project follows BIDS structure
-- Verify write permissions to the derivatives directory
-
-**Timezone display issues**
-- Check system timezone settings
-- Extension falls back to UTC if timezone detection fails
-- Notes remain functional regardless of timezone display
-
-**File access errors**
-- Verify write permissions to project directory
-- Check for file locking by other applications
-- Ensure sufficient disk space for notes file
-
-### Data Recovery
-
-**Notes File Location:**
-- Primary: `project/derivatives/ti-toolbox/notes.txt`
-- Backup: Check TI-Toolbox log files for any error messages
-- Recovery: Notes are plain text and can be edited manually if needed
-
+> **V2 difference:** Quick Notes used to be a separate extension with an **Add Note** button
+> and automatic timestamps. In v3 it is an autosaving drawer with optional timestamp insertion.

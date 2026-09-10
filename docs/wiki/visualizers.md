@@ -1,122 +1,155 @@
 ---
 layout: wiki
-title: Visualizers
+title: Viewer
 permalink: /wiki/visualizers/
 ---
 
-The TI-Toolbox provides integrated visualization tools for examining simulation results in both mesh and NIfTI formats. Two primary visualization applications are available: **Gmsh** for mesh visualization and **Freeview** for NIfTI volume visualization.
+TI-Toolbox's viewer is **[Tetravox](https://github.com/idossha/tetravox)**, and it ships with the
+toolbox: a browser build of the Tetravox engine (the "embed") lives inside the Docker image, is
+served by the container, and draws on your own machine's GPU inside the app window. **You install
+nothing.** Full 3-D viewing of mesh (`.msh`) and volumetric (`.nii`/`.nii.gz`) results happens on
+the **Viewer** page. There is no Freeview and no Gmsh in TI-Toolbox v3, and no X11.
 
-## Gmsh Mesh Visualizer
+The run pages have their own compact scene panes for selecting electrodes and atlas regions.
+They use reference anatomy where appropriate; free-hand placement and visual export can show
+the selected subject's own anatomy. The exporter's segmentation preview uses Tetravox.
 
-Gmsh is used to visualize tetrahedral mesh files (.msh) generated during finite element simulations. It provides 3D visualization of:
+### Loading and changing the selection
 
-- Mesh geometry and tetrahedral elements
-- Electric field distributions on mesh surfaces
-- Tissue boundaries and material interfaces
-- Electrode positions and configurations
+Datasets render as each finishes loading. You can return to the selection and add files:
+the viewer reuses files already loaded and fetches only the additions. Removing a file from
+the selection removes it from the scene. The camera is retained when data is reused.
 
-### How to Use Gmsh
+Progress rows name the file and distinguish reading from processing. If one file fails,
+successful layers remain visible alongside the error. Use **Reload** to deliberately reload
+all files—for example, after replacing data at the same path. Re-selection reuses in-memory
+data; it does not check whether a file was overwritten on disk.
 
-1. **From the Analyzer Tab**: Navigate to the **Analyzer** tab in the main TI-Toolbox GUI
-2. **Select Subject**: Choose the subject you want to visualize from the dropdown
-3. **Select Simulation**: Choose the simulation containing the analysis results
-4. **Select Analysis**: Choose the specific analysis
-5. **Launch Gmsh**: Click the **"Launch Gmsh"** button
+<img src="{{ site.baseurl }}/assets/imgs/v3/viewer.png" alt="A TI field open in the Tetravox viewer inside the app" style="width: 100%; max-width: 1000px;">
+<em>A simulation open on the <strong>Tetravox</strong> sub-page: layers and appearance on the left, the cursor read-out on the right, all inside the app window.</em>
 
-The system will automatically:
+## How to open a result
 
-- Locate the .msh file under `derivatives/SimNIBS/sub-{ID}/Simulations/{sim}/Analyses/Mesh/{analysis}/`
-- Launch Gmsh with the correct file path
-- Display the mesh with electric field data
+The **Viewer** entry in the left rail has two rows indented under it, **Menu** and **Tetravox**.
+Clicking Viewer itself opens Menu. **Tetravox** opens the full viewer immediately, even without
+a scene. You can drag local `.nii`, `.nii.gz`, or mesh files directly onto it. Files opened this
+way stay in the viewer when you switch to Menu and back; they are not imported into the project.
 
-![Gmsh Launching]({{ site.baseurl }}/assets/imgs/visualizers/gmsh_launching.png)
-\_Gmsh launching with mesh visualization*
+1. On **Menu**, pick a **subject** and a **space** (subject or MNI). Below them the page draws a
+   tree of everything that subject has, in three branches:
 
-### Gmsh Interface and Tools
+   - **Anatomy** — grouped by what each file *is*: **Volumes** (T1, T2), **Label volumes
+     (atlases)**, **Surfaces** and **Meshes**.
+   - **Simulations** — one row per simulation; expand one to see its fields (TI_max, TI_normal,
+     the high-frequency magnitudes…), its surfaces, its meshes and its electrode overlay.
+   - **Analyses** — the analyzer runs under the simulations you have expanded, and their outputs.
 
-Gmsh provides several menu options for enhanced visualization:
-![Gmsh Tools Menu]({{ site.baseurl }}/assets/imgs/visualizers/gmsh_tools_menu.png)
-\_Gmsh tools menu. Useful for clipping mesh, changing visibility of elements and manipulating general options.*
+   Every row wears a chip saying which of those it is, because **a mesh and a surface are not the
+   same thing**:
 
-![Gmsh Options Menu]({{ site.baseurl }}/assets/imgs/visualizers/gmsh_options_menu.png)
-\_Gmsh options menu for view controls. Useful for changing color schemes, visualization cutoffs, mesh settings and more*
+   - **MESH** is a tetrahedral finite-element mesh (`.msh`) — the volume SimNIBS actually solved
+     the field on, 24–420 MB. Opening one takes a moment.
+   - **SURFACE** is a triangulated 2-D sheet (`.gii`, or a FreeSurfer `lh.pial`-style file) — the
+     cortical ribbon, a few MB, and no field data of its own.
+   - **VOLUME** is a NIfTI/MGZ grid of numbers; **LABELS** is one whose numbers are region ids,
+     drawn through a lookup table.
 
-### Gmsh Tips
+   A **surface** expands to show the things you can hang on it — the `.annot` parcellations
+   SimNIBS wrote for it, morphometry curves like `lh.thickness`, and per-vertex data GIfTIs —
+   matched to it by hemisphere. Tick one and the surface is coloured by it; a parcellation wins
+   over a curve if you tick both, and the curve stays attached for you to switch to inside
+   Tetravox. This needs a Tetravox embed of **0.4.0 or newer**; on an older one the surface rows
+   are shown greyed with that as the reason, rather than being opened as if they were meshes.
 
-- **Navigation**: Use mouse to rotate, zoom, and pan the 3D view
-- **Field Visualization**: Electric field magnitude is typically displayed as surface colors
-- **Mesh Quality**: You can inspect mesh element quality and density
-- **Export**: Gmsh allows exporting images and animations for reports
+   Tick whatever belongs in the scene. You can tick outputs from **more than one simulation** —
+   ticking a branch's own box takes the whole branch on or off, and a half-filled box means part of
+   it is in the scene. Anything that is not on disk is shown greyed with the reason rather than
+   hidden, so a missing mesh is a question you can answer instead of a row that never appears.
 
-For more information please visit the following resources:
+   **One subject per scene.** Changing the subject drops any rows belonging to the previous one
+   and tells you how many went; shared files (the MNI template, the bundled atlases) stay. A scene
+   mixing two subjects is refused outright, because one person's field over another's anatomy
+   renders as a perfectly ordinary-looking picture.
+2. Nothing loads while you are choosing — the **"What will open"** list below the tree is the scene,
+   in order, with each file's size, and it is the same list the tick boxes drive. Edit it directly
+   too: remove a file, add one from any path in the project, drag to reorder (that is the layer
+   order). **Reset** puts the source's own set back. The chip beside it says the window the field
+   overlay will open at, so you can see the defaults before opening anything.
+3. Press **Open in viewer**. You are moved to **Tetravox**, and the scene is drawn there
+   full-bleed.
 
-- [SimNIBS Gmsh Explanation](https://simnibs.github.io/simnibs/build/html/tutorial/visualization.html)
-- [Gmsh Website](https://gmsh.info/)
+The Tetravox row's strip carries the scene's name and **Reload**, which re-sends the scene it is
+showing. To go back, click **Menu** in the rail — the picture is kept, so you can change the list,
+press Open again, and the new scene replaces the old one.
+
+If the window is narrow (below 1440 px) the rail shows icons only and the two sub-rows are hidden;
+open the command palette and pick `Viewer · Menu` or `Viewer · Tetravox` instead.
+
+Layer visibility and opacity, the shared 3-D cursor, the slice/3-D layouts, screenshots and saving a
+modified scene are all the viewer's own controls, in its own panels. TI-Toolbox's side of the
+boundary ends at deciding which files belong together.
+
+## The scene file
+
+Opening also writes the scene into your project at `code/ti-toolbox/viewer/<type>.tetravox.json`.
+It is an ordinary file — a few kilobytes, because every layer refers to a dataset by its path
+rather than copying it — in `ViewSpec` v2, Tetravox's own format; TI-Toolbox invents no scene format
+of its own. Keep it, archive it with the results it describes, or hand it to a Tetravox desktop
+application if you have one installed (**File ▸ Open Scene…**). Nothing in TI-Toolbox requires you
+to.
+
+## Saving what you chose, and saving what you saw
+
+Two different things are worth keeping, and the Viewer keeps them separately because they answer
+different questions.
+
+**Save selection…** (under the list) writes a *composition* to
+`code/ti-toolbox/viewer/compositions/<name>.json`: the subject, the space, and the inputs you
+ticked, recorded by file name. It is small and readable, and it does not freeze the data — loading
+it next month re-resolves those same choices against whatever is in the project then, and tells you
+what has since gone missing rather than failing. Use it when the question is *"show me the same
+thing, from the current data"* — the reproducibility artefact you would put next to a manuscript.
+
+**Save scene** (in the **Tetravox** sub-page, once something is open) writes what you are actually
+looking at to `code/ti-toolbox/viewer/scenes/<name>.tetravox.json`: the camera, the layout, and
+every layer's window, threshold, colormap and opacity, exactly as you left them after adjusting
+them in the viewer. A PNG thumbnail is written beside it, which is what the **Saved scenes** list
+in the Menu shows, so you can pick a picture out of a list rather than a filename. Use it when the
+question is *"show me exactly this picture again"* — a figure you have finished composing.
+
+Scene names default to `<subject>_<simulation>_<field>_<date>`, and both kinds of file live inside
+the project, so they travel with it when you copy or archive it. A saved scene is an ordinary
+Tetravox scene: a standalone Tetravox desktop application opens it directly.
+
+## Keeping the viewer current
+
+The viewer can be updated without updating the toolbox. **Settings ▸ Viewer** shows which bundle is
+active, its version and protocol, and whether it came from the image or was installed later. Updates
+are checked in the background at most once a day (you can turn that off), every download is verified
+against its published sha256 before it is unpacked, and rolling back to the version baked into the
+image is one click — nothing is deleted to go back. An offline or air-gapped machine keeps the
+bundle the image shipped and needs no network at all.
+
+## No-WebGL2 state
+
+Both the run pages' pane and the viewer need WebGL2. On a host GPU/driver combination without it,
+each says so explicitly rather than showing a blank canvas — on the run pages the rest of the page
+keeps working, and every choice the pane offers (electrodes, atlas regions) is also available from
+the form beside it. This is a host capability check, not a container one: it depends on what the
+Electron renderer's GPU process can do on your machine. Chromium 137 removed the automatic software
+fallback, so there is nothing to switch on.
 
 ---
 
-## Freeview NIfTI Visualizer
+## Electrode Placement Overlay
 
-Freeview is used to visualize volumetric NIfTI files (.nii/.nii.gz) and provides comprehensive brain imaging capabilities including:
+For simulations with saved electrode coordinates in `documentation/config.json`, pre-processing
+can create a single binary label-mask NIfTI that shows where electrodes were placed on the
+subject anatomy, and load it as one of the viewer's layers.
 
-- Anatomical MRI visualization
-- Electric field overlays on brain anatomy
-- Atlas-based region of interest (ROI) visualization
-- Multi-subject comparison views
-- Statistical overlay maps
-
-The TI-Toolbox's NIfTI Viewer tab automates multi-layer visualization with sensible defaults including percentile-based thresholding (95th-99.9th percentile), opacity controls (70% default), automatic loading of anatomical atlases, and optional electrode-placement overlays.
-
-### How to Use Freeview
-
-1. **Navigate to NIfTI Viewer**: Click on the **"NIfTI Viewer"** tab in the main TI-Toolbox GUI
-2. **Select Visualization Mode**:
-   - **Single Subject**: Visualize one subject at a time
-   - **Group Mode**: Compare multiple subjects simultaneously in MNI space
-
-#### Single Subject Mode
-
-1. **Select Subject**: Choose from available subjects
-2. **Select Simulation**: Choose the simulation to visualize
-3. **Select Analysis**: Choose the analysis type (e.g., E-field magnitude)
-4. **Configure Visualization**:
-   - **Colormap**: Choose color scheme (e.g., heat, jet, plasma)
-   - **Thresholds**: Set minimum and maximum values for display
-   - **Opacity**: Control overlay transparency
-   - **Atlas Overlay**: Add anatomical atlas labels
-   - **Electrode Overlay**: Create or load the selected simulation's electrode-placement label mask
-5. **Launch Freeview**: Click **"Launch Freeview"**
-
-![Freeview Menu]({{ site.baseurl }}/assets/imgs/visualizers/freeview_menu.png)
-\_Freeview menu showing overlay controls and atlas options*
-
-![Freeview Example]({{ site.baseurl }}/assets/imgs/visualizers/freeview_example.png)
-\_Freeview displaying E-field overlay on anatomical MRI*
-
-![MRI ROI with Field]({{ site.baseurl }}/assets/imgs/visualizers/visualizer_MRI_ROI_field.png)
-\_MRI ROI with field data overlay*
-
-### Freeview Tips
-
-- **Navigation**: Use mouse controls to navigate 3D brain space
-- **Slices**: Toggle between axial, coronal, and sagittal views
-- **ROI Analysis**: Use atlas overlays to identify brain regions
-- **Measurements**: Freeview provides tools for measuring distances and volumes
-- **Screenshots**: Capture images for documentation and reports
-- **Multi-Layer Control**: Use the overlay panel to toggle visibility and adjust opacity of different data layers
-
----
-
-### Electrode Placement NIfTI Overlay
-
-The NIfTI Viewer can create a single binary label-mask NIfTI that shows where electrodes were placed on the subject anatomy. The overlay is loaded automatically when it already exists for the selected simulation.
-
-- **UI location**: Single Subject mode, under the atlas controls in the Subject Configuration box.
-- **Create/refresh**: Click **Create Electrode Overlay** or **Refresh Electrode Overlay**.
 - **Source of truth**: The overlay reads electrode coordinates, channel grouping, dimensions, and simulation mode from the saved simulation config.
 - **Coloring**: Labels are channel-based, not electrode-based. Unipolar simulations use two channel colors; multipolar simulations use four channel colors. The color order matches the montage PNG overlay: blue, red, green, purple, then the remaining montage colors if needed.
 - **Output path**: `Simulations/{simulation}/TI/montage_imgs/electrode_overlay_subject.nii.gz` for TI/unipolar runs, or `Simulations/{simulation}/mTI/montage_imgs/electrode_overlay_subject.nii.gz` for mTI/multipolar runs.
-- **Lookup table**: A matching `electrode_overlay_subject.lut` is saved next to the NIfTI so Freeview can show the channel colors.
 
 ---
 
@@ -124,83 +157,49 @@ The NIfTI Viewer can create a single binary label-mask NIfTI that shows where el
 
 ### Mesh Files (.msh)
 
-- **Location**: `derivatives/SimNIBS/sub-{ID}/Simulations/{sim_name}/Analyses/Mesh/{analysis_name}/`
-- **Content**: Tetrahedral mesh with embedded field data
-- **Visualizer**: Gmsh
+- **Location**: `derivatives/SimNIBS/sub-{ID}/Simulations/{sim_name}/Analyses/Mesh/{analysis_name}/`,
+  and the head model itself at `derivatives/SimNIBS/sub-{ID}/m2m_{ID}/{ID}.msh`
+- **Content**: Tetrahedral mesh with embedded field data — the FEM domain, 24–420 MB
+
+### Surface Files (.gii, FreeSurfer binaries)
+
+- **Location**: `derivatives/SimNIBS/sub-{ID}/m2m_{ID}/surfaces/` (`lh.central.gii`, `lh.pial.gii`,
+  `lh.white.gii` and the right-hemisphere pair), and `derivatives/freesurfer/sub-{ID}/surf/`
+- **Content**: A triangulated 2-D sheet — vertices and faces, and nothing else. Not a mesh: there
+  are no tetrahedra and no field on it.
+
+### Surface Attachments (.annot, morph curves, data GIfTI)
+
+- **Location**: `derivatives/SimNIBS/sub-{ID}/m2m_{ID}/segmentation/` (`lh.{ID}_DK40.annot`,
+  `lh.{ID}_HCP_MMP1.annot`, `lh.{ID}_a2009s.annot` and their right-hemisphere pairs), and
+  `derivatives/freesurfer/sub-{ID}/surf/` (`lh.thickness`, `lh.curv`, `lh.sulc`, `lh.area`)
+- **Content**: One value per vertex of the surfaces of the same hemisphere — a region id for an
+  `.annot`, a number for a morph curve. They carry no geometry, so they are only ever opened
+  *attached to* a surface, never on their own.
 
 ### NIfTI Files (.nii/.nii.gz)
 
 - **Location**: `derivatives/SimNIBS/sub-{ID}/Simulations/{sim_name}/Analyses/Voxel/{analysis_name}/`
 - **Content**: Volumetric data in standard neuroimaging format
-- **Visualizer**: Freeview
 
-### Electrode Overlay Files (.nii/.nii.gz + .lut)
-
+### Electrode Overlay Files (.nii/.nii.gz)
 - **Location**: `derivatives/SimNIBS/sub-{ID}/Simulations/{sim_name}/{TI|mTI}/montage_imgs/electrode_overlay_subject.nii.gz`
-- **Content**: Channel-labeled electrode placement mask plus a Freeview LUT
-- **Visualizer**: Freeview
-
----
-
-## Quick CLI Commands
-
-For users who prefer command-line access or need to integrate visualization into scripts, you can launch the visualizers directly:
-
-### Gmsh CLI
-
-```bash
-# Basic mesh visualization
-gmsh path/to/your/mesh.msh
-
-# Examples with typical TI-Toolbox paths:
-gmsh derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/TI/mesh/L_Insula_TI.msh
-gmsh derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/Analyses/Mesh/insula_roi/L_Insula_TI_insula_roi.msh
-```
-
-### Freeview CLI
-
-```bash
-# Basic NIfTI visualization
-freeview path/to/your/file.nii.gz
-
-# Multiple files with overlay options
-freeview anatomical.nii.gz field_overlay.nii.gz:colormap=heat:opacity=0.7 atlas.nii.gz:lut=atlas_labels.txt
-
-# Examples with typical TI-Toolbox paths:
-freeview derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/TI/niftis/L_Insula_TI_subject_TI_max.nii.gz:colormap=plasma:opacity=0.8
-freeview derivatives/SimNIBS/sub-ernie/m2m_ernie/T1.nii.gz derivatives/SimNIBS/sub-ernie/Simulations/L_Insula/TI/niftis/L_Insula_TI_subject_TI_max.nii.gz:colormap=heat:opacity=0.7:percentile=1
-```
-
-**Note**: Freeview supports advanced options like colormaps, opacity, thresholds, and atlas overlays. Use `:colormap=heat`, `:opacity=0.7`, `:percentile=1`, etc.
+- **Content**: Channel-labeled electrode placement mask
 
 ---
 
 ## Troubleshooting
 
-### Gmsh Issues
+**Scene doesn't load / stays blank**
+- Check the "No-WebGL2 state" note above — the viewer reports this explicitly rather than showing a blank canvas.
+- Confirm the analysis actually completed and produced the expected mesh/NIfTI outputs.
 
-**No mesh files found**
-
-- Ensure the analysis has been run and completed
-- Check that the analysis output includes mesh visualization files
-
-### Freeview Issues
-
-**Empty or incorrect visualization**
-
-- Check that NIfTI files exist in the expected location
-- Verify analysis parameters and thresholds are appropriate
-- Ensure atlas files are available if using atlas overlays
+**Layer missing from the inspector**
+- The `ViewSpec` only lists layers for datasets that exist on disk at load time — an analysis that skipped a field (see [Simulator]({{ site.baseurl }}/wiki/simulator/)'s selectable output fields) will not have a layer for it.
 
 ## Integration with Analysis Pipeline
 
-Both visualizers are designed to work seamlessly with the TI-Toolbox analysis pipeline:
-
 1. **Run Simulations**: Use Flex Search or Ex Search to generate simulation parameters
 2. **Execute Analysis**: Run the analyzer to generate field distributions
-3. **Visualize Results**: Launch appropriate visualizer based on data type (mesh vs. voxel)
+3. **Visualize Results**: Open the result in the viewer directly from the Analyzer/Results page
 4. **Iterate**: Use visualization insights to refine simulation parameters
-
----
-
-_Note: Both Gmsh (bundled with SimNIBS) and Freeview (bundled with FreeSurfer) ship inside the TI-Toolbox container; the toolbox launches them for you. If you run the `tit` package outside the container you must install them yourself._

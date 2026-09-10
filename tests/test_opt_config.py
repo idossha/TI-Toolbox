@@ -420,6 +420,122 @@ class TestFlexConfigDetailedResults:
 
 
 # ---------------------------------------------------------------------------
+# FlexConfig.mode / AdaptiveFocalityConfig / ParetoSweepConfig
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestFlexConfigAdaptiveFocalityConfig:
+    """FlexConfig.AdaptiveFocalityConfig's own percentage validation."""
+
+    def test_defaults(self):
+        cfg = FlexConfig.AdaptiveFocalityConfig()
+        assert cfg.roi_percentage == 80.0
+        assert cfg.nonroi_percentage == 20.0
+
+    @pytest.mark.parametrize("value", [0.0, -1.0, 100.0, 101.0])
+    def test_out_of_range_rejected(self, value):
+        with pytest.raises(ValueError, match=r"must be in \(0, 100\)"):
+            FlexConfig.AdaptiveFocalityConfig(roi_percentage=value)
+
+    def test_nonroi_must_be_less_than_roi(self):
+        with pytest.raises(ValueError, match="nonroi_percentage must be less than"):
+            FlexConfig.AdaptiveFocalityConfig(
+                roi_percentage=50.0, nonroi_percentage=50.0
+            )
+
+
+@pytest.mark.unit
+class TestFlexConfigParetoSweepConfig:
+    """FlexConfig.ParetoSweepConfig's grid validation."""
+
+    def test_defaults(self):
+        cfg = FlexConfig.ParetoSweepConfig()
+        assert cfg.roi_pcts == [80.0]
+        assert cfg.nonroi_pcts == [20.0, 30.0, 40.0]
+
+    def test_empty_list_rejected(self):
+        with pytest.raises(ValueError, match="must be non-empty"):
+            FlexConfig.ParetoSweepConfig(roi_pcts=[])
+
+    def test_out_of_range_value_rejected(self):
+        with pytest.raises(ValueError, match="out of range"):
+            FlexConfig.ParetoSweepConfig(roi_pcts=[150.0])
+
+    def test_invalid_pair_rejected(self):
+        with pytest.raises(ValueError, match="invalid pairs"):
+            FlexConfig.ParetoSweepConfig(roi_pcts=[50.0], nonroi_pcts=[60.0])
+
+    def test_scalar_values_broadcast_to_lists(self):
+        cfg = FlexConfig.ParetoSweepConfig(roi_pcts=80.0, nonroi_pcts=20.0)
+        assert cfg.roi_pcts == [80.0]
+        assert cfg.nonroi_pcts == [20.0]
+
+
+@pytest.mark.unit
+class TestFlexConfigMode:
+    """FlexConfig.mode dispatch field and its interaction with goal/adaptive/pareto."""
+
+    def test_default_mode_is_flex(self):
+        cfg = _make_flex_config()
+        assert cfg.mode is FlexConfig.Mode.FLEX
+        assert cfg.adaptive is None
+        assert cfg.pareto is None
+
+    def test_mode_coerced_from_string(self):
+        cfg = _make_flex_config(goal="focality", mode="flex_adaptive", thresholds=None)
+        assert cfg.mode is FlexConfig.Mode.FLEX_ADAPTIVE
+
+    def test_flex_adaptive_defaults_adaptive_config_when_absent(self):
+        cfg = _make_flex_config(goal="focality", mode="flex_adaptive")
+        assert cfg.adaptive == FlexConfig.AdaptiveFocalityConfig()
+        assert cfg.pareto is None
+
+    def test_flex_pareto_defaults_pareto_config_when_absent(self):
+        cfg = _make_flex_config(goal="focality", mode="flex_pareto")
+        assert cfg.pareto == FlexConfig.ParetoSweepConfig()
+        assert cfg.adaptive is None
+
+    def test_adaptive_dict_coerced_to_dataclass(self):
+        cfg = _make_flex_config(
+            goal="focality",
+            mode="flex_adaptive",
+            adaptive={"roi_percentage": 90.0, "nonroi_percentage": 10.0},
+        )
+        assert cfg.adaptive == FlexConfig.AdaptiveFocalityConfig(
+            roi_percentage=90.0, nonroi_percentage=10.0
+        )
+
+    def test_pareto_dict_coerced_to_dataclass(self):
+        cfg = _make_flex_config(
+            goal="focality",
+            mode="flex_pareto",
+            pareto={"roi_pcts": [90.0], "nonroi_pcts": [10.0]},
+        )
+        assert cfg.pareto == FlexConfig.ParetoSweepConfig(
+            roi_pcts=[90.0], nonroi_pcts=[10.0]
+        )
+
+    @pytest.mark.parametrize("mode", ["flex_adaptive", "flex_pareto"])
+    def test_non_focality_goal_rejected(self, mode):
+        with pytest.raises(ValueError, match="requires goal='focality'"):
+            _make_flex_config(goal="mean", mode=mode)
+
+    def test_focality_tf_also_rejected(self):
+        """focality_tf needs no thresholds at all, so the driver workflows --
+        which exist purely to compute thresholds -- don't apply to it."""
+        with pytest.raises(ValueError, match="requires goal='focality'"):
+            _make_flex_config(goal="focality_tf", mode="flex_adaptive")
+
+    def test_explicit_adaptive_config_not_overridden(self):
+        custom = FlexConfig.AdaptiveFocalityConfig(
+            roi_percentage=95.0, nonroi_percentage=5.0
+        )
+        cfg = _make_flex_config(goal="focality", mode="flex_adaptive", adaptive=custom)
+        assert cfg.adaptive is custom
+
+
+# ---------------------------------------------------------------------------
 # ExConfig validation
 # ---------------------------------------------------------------------------
 
@@ -543,7 +659,11 @@ class TestExConfigAtlasRoiAndCoordinateSpace:
     def test_roi_atlas_dict_converted_to_dataclass(self):
         cfg = self._cfg(
             roi_atlas=[
-                {"atlas_path": "/atlas/aseg.mgz", "label": 17},
+                {
+                    "atlas_path": "/atlas/aseg.mgz",
+                    "label": 17,
+                    "atlas_space": "subject",
+                },
                 {"atlas_path": "/mask.nii.gz"},
             ]
         )
@@ -600,7 +720,11 @@ class TestMExConfigAtlasRoiAndCoordinateSpace:
         assert cfg.roi_coordinate_space == "subject"
 
     def test_roi_atlas_dict_converted_to_dataclass(self):
-        cfg = self._cfg(roi_atlas=[{"atlas_path": "/atlas/aseg.mgz", "label": 53}])
+        cfg = self._cfg(
+            roi_atlas=[
+                {"atlas_path": "/atlas/aseg.mgz", "label": 53, "atlas_space": "subject"}
+            ]
+        )
         assert isinstance(cfg.roi_atlas[0], MExConfig.AtlasROI)
         assert cfg.roi_atlas[0].label == 53
 
@@ -635,7 +759,7 @@ class TestAtlasRoiConfigIORoundtrip:
             electrodes=ExConfig.PoolElectrodes(electrodes=_pool_electrodes(2)),
             roi_atlas=[
                 ExConfig.AtlasROI(atlas_path="/atlas/aseg.mgz", label=17),
-                ExConfig.AtlasROI(atlas_path="/mask.nii.gz"),
+                ExConfig.AtlasROI(atlas_path="/mask.nii.gz", atlas_space="mni"),
             ],
             roi_coordinate_space="mni",
         )
@@ -643,8 +767,12 @@ class TestAtlasRoiConfigIORoundtrip:
         try:
             data = read_config_json(path)
             assert data["roi_atlas"] == [
-                {"atlas_path": "/atlas/aseg.mgz", "label": 17},
-                {"atlas_path": "/mask.nii.gz", "label": None},
+                {
+                    "atlas_path": "/atlas/aseg.mgz",
+                    "label": 17,
+                    "atlas_space": "subject",
+                },
+                {"atlas_path": "/mask.nii.gz", "label": None, "atlas_space": "mni"},
             ]
             assert data["roi_coordinate_space"] == "mni"
 
@@ -674,7 +802,9 @@ class TestAtlasRoiConfigIORoundtrip:
         path = write_config_json(config, prefix="mex_atlas_test")
         try:
             data = read_config_json(path)
-            assert data["roi_atlas"] == [{"atlas_path": "/atlas/aseg.mgz", "label": 53}]
+            assert data["roi_atlas"] == [
+                {"atlas_path": "/atlas/aseg.mgz", "label": 53, "atlas_space": "subject"}
+            ]
             assert data["roi_coordinate_space"] == "mni"
 
             data.pop("project_dir")
@@ -811,8 +941,8 @@ class TestExResult:
 class TestSearchModeBackend:
     """The TI/mTI mode -> backend mapping.
 
-    Lives in ``tit.opt.config`` rather than the GUI so the wiring is testable
-    without a display; PyQt5 is absent from the host test environment.
+    Lives in ``tit.opt.config`` rather than in the desktop app so the wiring is
+    testable without a UI.
     """
 
     def test_ti_mode_selects_ex_backend(self):

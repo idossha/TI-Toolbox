@@ -1,0 +1,58 @@
+# A stand-in for the root `docker-compose.yml`, so the e2e fake engine has a spec of its own.
+#
+# It mirrors the shipped file's *keys* exactly — the subset `src/shared/composeFile.ts` implements
+# (plan of record §1) — so `tests/unit/composeFile.test.ts` and `tests/e2e/launcher.spec.ts` both
+# exercise the real parse-and-create path against a file this repo controls. `TIT_COMPOSE_FILE`
+# points the app at it (`main/stack.ts#resolveComposeFile`).
+#
+# What it deliberately does NOT have, and the shipped file must not either (decisions D2/D3):
+# no `freesurfer` service, no `freesurfer_data` volume, no `/tmp/.X11-unix` or `.Xauthority`
+# mount, no `DISPLAY`/`FS_LICENSE` environment.
+#
+# When the shipped file lands, `composeFile.test.ts` parses it too and asserts the same shape.
+
+services:
+  tit:
+    image: idossha/ti-toolbox:v3.0.0-dev
+    platform: linux/amd64
+    init: true
+    working_dir: /ti-toolbox
+    restart: unless-stopped
+    volumes:
+      - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
+      - ${TIT_USER_CONFIG}:/root/.config/ti-toolbox
+      - /var/run/docker.sock:/var/run/docker.sock
+      - tit_cache:/opt/ti-toolbox/cache
+      # Optional dev-repo mount, exactly as the shipped file spells it: empty => no bind at all.
+      - ${TIT_REPO_DIR:-}:/ti-toolbox
+    environment:
+      LOCAL_PROJECT_DIR: ${LOCAL_PROJECT_DIR}
+      PROJECT_DIR_NAME: ${PROJECT_DIR_NAME}
+      TZ: ${TZ}
+      TIT_HOST_OS: ${TIT_HOST_OS:-unknown}
+      TIT_HOST_OS_VERSION: ${TIT_HOST_OS_VERSION:-unknown}
+      TIT_HOST_ARCH: ${TIT_HOST_ARCH:-unknown}
+      KMP_AFFINITY: "disabled"
+      TI_TOOLBOX_VERSION: "v3.0.0-dev"
+      TIT_SERVER_TOKEN: ${TIT_SERVER_TOKEN}
+      TIT_SERVER_PORT: ${TIT_SERVER_PORT}
+      TIT_STATIC_DIR: ${TIT_STATIC_DIR:-/opt/ti-toolbox/ui}
+    ports:
+      - "127.0.0.1:${TIT_SERVER_PORT}:${TIT_SERVER_PORT}"
+    labels:
+      org.ti-toolbox.service: "tit"
+    networks:
+      - ti_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:${TIT_SERVER_PORT}/api/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
+networks:
+  ti_network:
+    driver: bridge
+
+volumes:
+  tit_cache:

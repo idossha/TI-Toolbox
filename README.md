@@ -4,8 +4,7 @@
 
 # Temporal Interference Toolbox
 
-[![Docker Pulls](https://img.shields.io/docker/pulls/idossha/simnibs?cacheSeconds=86400)](https://hub.docker.com/r/idossha/simnibs)
-[![GitHub Release](https://img.shields.io/github/v/release/idossha/TI-toolbox?cacheSeconds=3600)](https://github.com/idossha/TI-toolbox/releases)
+[![Published Release](https://img.shields.io/github/v/release/idossha/TI-toolbox?label=published%20release&cacheSeconds=3600)](https://github.com/idossha/TI-toolbox/releases)
 [![GitHub License](https://img.shields.io/github/license/idossha/TI-toolbox?cacheSeconds=86400)](https://github.com/idossha/TI-toolbox/blob/main/LICENSE)
 [![codecov](https://codecov.io/gh/idossha/TI-toolbox/branch/main/graph/badge.svg)](https://codecov.io/gh/idossha/TI-toolbox)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/KKdjJk8f)
@@ -19,7 +18,9 @@
 
 Releases, guides, and wiki please see: [https://idossha.github.io/TI-Toolbox/](https://idossha.github.io/TI-Toolbox/)
 
-> **Note**: Latest macOS versions (26/Tahoe+) may have GUI compatibility issues with Gmsh and FreeView. See [installation docs](https://idossha.github.io/TI-Toolbox/installation/) for details.
+The source tree is **v3.0.0 (unreleased)**. The published release remains v2.5.0 until publication is explicitly enabled.
+
+TI-Toolbox combines an Electron desktop application, one Docker image for the scientific environment, and the `tit` Python API. Start with the [installation guide](https://idossha.github.io/TI-Toolbox/installation/) and [desktop guide](https://idossha.github.io/TI-Toolbox/wiki/desktop-app/). For development, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## How to Cite
 
@@ -39,17 +40,16 @@ under "Cite this repository" in the sidebar.
 
 ## AI coding agents
 
-An installable plugin under [`agent-plugin/`](agent-plugin/) teaches Claude Code, Codex and any MCP client the toolbox (wiki, Python API, project layout) and ships a read-only MCP server that can inspect your project directory. In Claude Code:
-
-```text
-/plugin marketplace add idossha/TI-Toolbox
-/plugin install ti-toolbox@ti-toolbox
-```
-
-See [`agent-plugin/README.md`](agent-plugin/README.md) for Codex and other clients.
+The [agent integration](agent-plugin/README.md) provides Markdown skills and a read-only MCP
+server for TI-Toolbox documentation, source lookup and project inspection. Use it from Codex,
+Claude Code or another client that supports local MCP servers; agents without MCP can read
+the skills directly. See the [setup instructions](agent-plugin/README.md) for each connection method.
 
 ## Contact
 
 The TI-Toolbox goes through rapid development and we appreciate any feedback from our users.
 
 Known problems and verified fixes are collected in the [Troubleshooting Archive](https://idossha.github.io/TI-Toolbox/wiki/troubleshooting/) — check it first. Otherwise contact us via our [GitHub Issues](https://github.com/idossha/TI-toolbox/issues), [GitHub Discussions](https://github.com/idossha/TI-toolbox/discussions), [Discord](https://discord.gg/KKdjJk8f), or [email](mailto:ihaber@wisc.edu).
+
+See [CONTRIBUTING](CONTRIBUTING.md) for development, [AGENTS](AGENTS.md#where-things-are-written-down)
+for the documentation map, and [CHANGELOG](docs/dev/CHANGELOG.md) for changes by release.

@@ -1,0 +1,4 @@
+2026-08-30 15:00:00 INFO tit.opt.mex: started multi-pair exhaustive search for sub-ernie
+2026-08-30 15:04:12 INFO leadfield: loaded EGI256 leadfield
+2026-08-30 15:18:23 INFO search: evaluated 4096 electrode triples
+2026-08-30 15:30:05 INFO tit.opt.mex: wrote ranked multi-pair table

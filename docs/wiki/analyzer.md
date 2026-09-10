@@ -11,8 +11,8 @@ This page is also where the toolbox's field quantities are defined once for ever
 ## Overview
 
 <div class="image-container">
-  <img src="{{ site.baseurl }}/assets/imgs/UI/UI_ana.png" alt="Analyzer User Interface" style="width: 100%; max-width: 600px;">
-  <em>The Analyzer tab: pick a subject and simulation, choose mesh or voxel analysis, and define the target as a spherical, cortical, or subcortical ROI</em>
+  <img src="{{ site.baseurl }}/assets/imgs/v3/analyzer.png" alt="The Analyzer page: one row per analysis job" style="width: 100%; max-width: 1000px;">
+  <em>The Analyzer (⌘4). One row is one analysis, and each row owns its own target.</em>
 </div>
 
 ---
@@ -137,7 +137,7 @@ $$
 
 This is a field-domain heating proxy, **not** calibrated SAR: the actual calibration is $$\tfrac{\sigma}{2\rho} \cdot \mathrm{hf\_sar}$$, requiring the per-tissue conductivity $$\sigma$$ and density $$\rho$$ that the toolbox does not apply.
 
-Both metrics always sum over **every** channel field -- kHz exposure does not depend on the carrier structure -- and both are **opt-in**: neither is in `SimulationConfig.output_fields`'s default (`["TI_max"]`), so a run must explicitly request `hf_peak`/`hf_sar` to get them written.
+Under the shipped positional wiring, each field is one carrier, so both metrics include **every** channel field. Shared-frequency fields would require coherent vector summation first. Both metrics are **opt-in**: neither is in `SimulationConfig.output_fields`'s default (`["TI_max"]`), so a run must explicitly request `hf_peak`/`hf_sar` to get them written.
 
 ### Spatial domain: how the analyzer summarises a field
 
@@ -174,7 +174,7 @@ An analysis needs a target region. The same ROI picker used by the optimizers of
 - Analyze one or more atlas regions as a single combined ROI — passing more than one region name unions their masks into one target, and the result's region name is the selected names joined with `+`
 - **Combine regions into one ROI** (GUI, on by default): untick it to run one separate analysis per selected region instead of a union. Group analysis requires the combined form when more than one region is selected
 - In mesh space, a bare region name (e.g. `cuneus`) expands to both hemispheres (`lh.cuneus` + `rh.cuneus`)
-- Mesh atlases: `DK40`, `a2009s`, `HCP_MMP1`. Voxel atlases: `aparc.DKTatlas+aseg.mgz`, `aparc.a2009s+aseg.mgz`, `lh.hippoAmygLabels-T1.v22.mgz`, `rh.hippoAmygLabels-T1.v22.mgz`, `ThalamicNuclei.v13.T1.mgz`, plus the subject's own `segmentation/labeling.nii.gz`
+- Mesh atlases: `DK40`, `a2009s`, `HCP_MMP1`. Voxel atlases: `aparc.DKTatlas+aseg.deep.mgz` (the cortical DKT parcellation FastSurfer's `--seg_only` produces when optional FastSurfer segmentation is run), plus the subject's own `segmentation/labeling.nii.gz` (charm; also gives whole-thalamus/-hippocampus/-amygdala). Five more voxel atlases only ever exist for a subject with **`derivatives/freesurfer/` output from a FreeSurfer `recon-all` run** — `aparc.DKTatlas+aseg.mgz`, `aparc.a2009s+aseg.mgz`, `lh.hippoAmygLabels-T1.v22.mgz`, `rh.hippoAmygLabels-T1.v22.mgz`, `ThalamicNuclei.v13.T1.mgz` — and are absent for a FastSurfer-only subject, with optional FreeSurfer subregion processing available separately; see [Pre-processing]({{ site.baseurl }}/wiki/pre-processing/#what-changed-from-freesurfer) for what changed and why
 - The four bundled MNI atlases (used elsewhere for subcortical ROI targeting) are not offered by the analyzer
 
 **Tissue Selection**
@@ -259,6 +259,10 @@ Every analysis call returns an `AnalysisResult` dataclass. Its statistics are ex
 - `total_area_or_volume`: ROI area (mesh, $$\mathrm{mm}^2$$) or volume (voxel, $$\mathrm{mm}^3$$)
 - The `normal_*` fields are `None` in voxel space, and for runs that predate `TI_normal` support for their mode -- see [mTI Analyses](#mti-analyses)
 
+> **Voxel-space `focality_*_area` values written by v2.3.0-v2.5.0 are 10x too large** --
+> they were computed in "cm^2" from a volume. v3.0.0 reports them in $$\mathrm{cm}^3$$;
+> see [release notes]({{ site.baseurl }}/releases/v3.0.0/#scientific-corrections) (SCI-03) for whether to re-run or rescale.
+
 ---
 
 ## mTI Analyses
@@ -300,3 +304,49 @@ Group analysis supports **arbitrary combinations** of subjects and montages:
 - **Multiple subjects x Different montages**: Full factorial design comparing both subject variability and montage effects
 
 MNI coordinates are transformed to each subject's native space automatically, and every run produces cross-subject comparisons, rankings, and visualizations with consolidated logging.
+
+---
+
+## Looking at a mesh analysis
+
+When an analysis finishes, open it from [Results]({{ site.baseurl }}/wiki/results/) — the mesh and
+the NIfTI outputs both open in the [Viewer]({{ site.baseurl }}/wiki/visualizers/), in the
+application window. Both mesh-based analysis types are supported:
+
+- Spherical ROI analyses with generated mesh overlays
+- Cortical region analyses with atlas-based parcellations
+
+> **What's new in v3.** 2.x launched **Gmsh** as a separate X11 program to inspect a mesh result,
+> and **Freeview** for a NIfTI one. Both are gone — the container ships neither, and there is no
+> X11 anywhere. Viewing is Tetravox, in the app.
+>
+> Two more changes to the Analyzer itself: **each row of the jobs table owns its own target**, so
+> one submission can analyse different ROIs across subjects; and a **group** run is refused unless
+> every row agrees on simulation, space, field and target, with the disagreement named — it is
+> never silently resolved to the first row.
+>
+> Full list: [the v3.0.0 release notes]({{ site.baseurl }}/releases/v3.0.0/).
+
+There is no separate "whole head" analysis type — the Analyzer supports only `analysis_type` `spherical` and `cortical`. A whole-head field-distribution histogram is generated as a by-product of every analysis (mesh or voxel), alongside the ROI-specific outputs.
+
+
+## Custom NIfTI mask targets
+
+Choose **NIfTI mask** in a job's Target editor and import a `.nii` or `.nii.gz` file.
+All positive voxels belong to the target. Declare **Subject** or **MNI** explicitly:
+subject masks retain their coordinates, while MNI masks use the subject's nonlinear m2m
+registration and nearest-neighbor sampling. Group analysis requires an MNI mask, registered
+separately for each subject.
+
+Mesh analysis samples the mask at gray-matter surface nodes and reports surface-area statistics.
+Voxel analysis samples it onto the subject field grid and intersects it with the tissue selected
+in the job settings, retaining volume statistics. An empty overlap fails with a clear error.
+The script equivalent is `analyzer.analyze_mask(mask_path, coordinate_space="mni")`;
+job JSON uses `analysis_type="mask"`, `mask_path`, and `coordinate_space`.
+
+### Target preview
+
+The Scene pane follows the active job. Cortical atlas regions remain clickable. Masks,
+subcortical regions and spheres show a read-only target extent on subject anatomy; edit the
+target in its form. This previews the geometry, before the analysis applies its tissue and
+mesh settings. Incomplete targets or unavailable registration show an explanatory message.

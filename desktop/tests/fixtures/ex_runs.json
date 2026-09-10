@@ -1,0 +1,31 @@
+{
+  "ernie": {
+    "ex": [
+      {
+        "run_name": "ex_L_Insula_20260812_090000",
+        "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/ex-search/ex_L_Insula_20260812_090000",
+        "eeg_net": "GSN-HydroCel-185",
+        "created": "2026-08-12T09:00:00Z",
+        "best": { "montage": "F7_P7 <> F3_P3_I1-1.0mA_I2-1.0mA", "score": 0.3723 },
+        "artifacts": [
+          { "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/ex-search/ex_L_Insula_20260812_090000/final_output.csv", "kind": "csv", "label": "Final output" },
+          { "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/ex-search/ex_L_Insula_20260812_090000/ex_search_ranked.png", "kind": "png", "label": "Ranked montages plot" }
+        ]
+      }
+    ],
+    "mex": [
+      {
+        "run_name": "mex_Thalamus_20260814_140000",
+        "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/mex-search/mex_Thalamus_20260814_140000",
+        "eeg_net": "GSN-HydroCel-185",
+        "created": "2026-08-14T14:00:00Z",
+        "best": { "montage": "E24_E124 & E67_E77", "score": 1.1021 },
+        "artifacts": [
+          { "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/mex-search/mex_Thalamus_20260814_140000/final_output.csv", "kind": "csv", "label": "Final output" }
+        ]
+      }
+    ]
+  },
+  "101": { "ex": [], "mex": [] },
+  "MNI152": { "ex": [], "mex": [] }
+}

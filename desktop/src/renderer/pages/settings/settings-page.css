@@ -1,0 +1,13 @@
+/**
+ * U1 (DESIGN.md §2): the run-page work pane has no max width, but a naive `width: 100%` on a
+ * stack of Cards would just stretch every control to the pane's width, which is not what "use the
+ * real estate" means for a settings form. A CSS multi-column flow lets each Card keep its own
+ * height and pack tightly per column (see `index.tsx`'s inline `columnWidth`); this file only adds
+ * what a multi-column flow needs that `.card` (`ui/components.css`, not owned by this lane) does
+ * not already provide — a card must not itself be split across the column break, and consecutive
+ * cards in one column need the gap `gridTemplateColumns` would have given them for free.
+ */
+.settings-columns > .card {
+  break-inside: avoid;
+  margin-bottom: var(--space-4);
+}

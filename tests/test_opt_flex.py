@@ -381,3 +381,76 @@ class TestValidateFlexInputs:
         )
         with pytest.raises(ValueError, match="ROI atlas file not found"):
             _validate_flex_inputs(config)
+
+    @patch("tit.opt.flex.flex.get_path_manager")
+    def test_accepts_list_form_atlas_roi_union(self, mock_gpm, tmp_path):
+        """Regression for job c45cb53b0e864d02: the UI emits ``atlas_path`` as a
+        list (one entry per unioned region, PR #130), repeating the same file for
+        several labels in one hemisphere -- ``Path(list)`` used to raise
+        ``TypeError: expected str, bytes or os.PathLike object, not list`` before
+        any real file check ran (tit/opt/flex/flex.py::_validate_roi_input)."""
+        pm = MagicMock()
+        pm.m2m.return_value = str(tmp_path / "m2m")
+        (tmp_path / "m2m").mkdir()
+        (tmp_path / "m2m" / "001.msh").touch()
+        annot = tmp_path / "lh.001_DK40.annot"
+        annot.touch()
+        mock_gpm.return_value = pm
+
+        from tit.opt.flex.flex import _validate_flex_inputs
+
+        config = _make_config(
+            roi=FlexConfig.AtlasROI(
+                atlas_path=[str(annot), str(annot), str(annot)],
+                label=[4, 7, 10],
+                hemisphere=["lh", "lh", "lh"],
+            )
+        )
+        _validate_flex_inputs(config)  # must not raise
+
+    @patch("tit.opt.flex.flex.get_path_manager")
+    def test_list_form_atlas_roi_missing_file_still_reported(self, mock_gpm, tmp_path):
+        """A union where one of several distinct atlas files is missing is still
+        caught (not silently accepted because the first path in the list exists)."""
+        pm = MagicMock()
+        pm.m2m.return_value = str(tmp_path / "m2m")
+        (tmp_path / "m2m").mkdir()
+        (tmp_path / "m2m" / "001.msh").touch()
+        lh_annot = tmp_path / "lh.001_DK40.annot"
+        lh_annot.touch()
+        rh_annot = tmp_path / "rh.001_DK40.annot"  # deliberately not created
+        mock_gpm.return_value = pm
+
+        from tit.opt.flex.flex import _validate_flex_inputs
+
+        config = _make_config(
+            roi=FlexConfig.AtlasROI(
+                atlas_path=[str(lh_annot), str(rh_annot)],
+                label=[4, 4],
+                hemisphere=["lh", "rh"],
+            )
+        )
+        with pytest.raises(ValueError, match="ROI atlas file not found"):
+            _validate_flex_inputs(config)
+
+    @patch("tit.opt.flex.flex.get_path_manager")
+    def test_accepts_list_form_subcortical_roi_union(self, mock_gpm, tmp_path):
+        """SubcorticalROI's atlas_path is also ``str | list[str]`` (a scalar path
+        shared across several unioned labels is the common case, but a list is
+        equally valid) -- same TypeError class as the AtlasROI case above."""
+        pm = MagicMock()
+        pm.m2m.return_value = str(tmp_path / "m2m")
+        (tmp_path / "m2m").mkdir()
+        (tmp_path / "m2m" / "001.msh").touch()
+        atlas = tmp_path / "aseg.nii.gz"
+        atlas.touch()
+        mock_gpm.return_value = pm
+
+        from tit.opt.flex.flex import _validate_flex_inputs
+
+        config = _make_config(
+            roi=FlexConfig.SubcorticalROI(
+                atlas_path=[str(atlas), str(atlas)], label=[17, 53]
+            )
+        )
+        _validate_flex_inputs(config)  # must not raise

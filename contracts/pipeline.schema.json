@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ti-toolbox.org/contracts/pipeline.schema.json",
+  "title": "TI-Toolbox pipeline document",
+  "description": "A pipeline is a DAG whose **source** is a `subjects` node naming the cohort, and whose other nodes are existing job kinds carrying exactly the config the matching v3 page already builds. Edges are typed bindings between one node's named output and another's same-named input; an edge carries the named port and **nothing else** — a node is never configured from the node upstream of it. Whether a wire may be drawn is two questions: the port types must match, and every subject reaching the target must already have what that kind requires (`tit.pipeline.validate.KIND_READINESS`, served at `GET /api/pipelines/ports`). This file is the standalone schema for the document as saved under `<project>/code/ti-toolbox/pipelines/<name>.json` and as carried in an exported notebook's `metadata.ti_toolbox.pipeline`; the same shapes appear in `contracts/openapi.yaml` as `Pipeline`/`PipelineNode`/`PipelineEdge`. Implemented by `tit/pipeline/document.py`.",
+  "type": "object",
+  "required": ["version", "nodes"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Document version. A reader that does not know this number refuses the file rather than guessing."
+    },
+    "name": {
+      "type": "string",
+      "description": "The pipeline's name; also its file name under `pipelines/` and the notebook's title."
+    },
+    "nodes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Node" }
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Edge" }
+    }
+  },
+  "$defs": {
+    "Node": {
+      "type": "object",
+      "required": ["id", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Canvas-scoped, unique within the document. Also the prefix of every job label the node produces (`<id>:<n>`), which is how a job traces back to its node."
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["subjects", "pre", "leadfield", "flex", "ex", "mex", "sim", "analyzer", "source", "stats"],
+          "description": "`subjects` is the cohort node: it runs nothing, it names who the graph is about in its `config.subject_ids`, and it is the only source. Every other kind is an existing `tit.jobs.spec.JOB_KINDS` entry — a pipeline introduces no new job kind."
+        },
+        "label": { "type": "string", "description": "User-visible name; defaults to the kind." },
+        "config": {
+          "type": "object",
+          "description": "For `subjects`, just `{\"subject_ids\": [...]}`. For every other kind, exactly the config the matching page's builder produces, validated server-side against its dataclass (`tit.config_io.deserialize_config`) — **the node's own**, never inherited from the node upstream of it. A port bound by an edge may be absent here; the subject list always is, because it arrives over the `subjects` wire."
+        },
+        "position": {
+          "type": "object",
+          "description": "Canvas coordinates. Carried through untouched by the server; it never affects what runs.",
+          "additionalProperties": false,
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" }
+          }
+        }
+      }
+    },
+    "Edge": {
+      "type": "object",
+      "required": ["from", "to", "port"],
+      "additionalProperties": false,
+      "properties": {
+        "from": { "type": "string", "description": "Producer node id." },
+        "to": { "type": "string", "description": "Consumer node id." },
+        "port": {
+          "type": "string",
+          "enum": ["subjects", "montages", "simulation", "roi", "leadfield"],
+          "description": "The value this wire carries, and the only thing it carries. `subjects` and `roi` are resolved from the producer's config at submit time; `montages`, `leadfield` and a `simulation` whose montages are themselves optimized only exist once the producer has run, so a small `tools` resolve job is planned between producer and consumer. A `subjects` edge is additionally gated on readiness: it may only be drawn when every subject on it has what the target kind requires, which is why `Subjects(raw only) -> Simulator` is refused while `Subjects(raw only) -> Pre-processing -> Simulator` is not."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,1075 @@
+{
+ "atlas": "a2009s",
+ "space": "guide-ras",
+ "aligned_to": "gm",
+ "vertices": 70586,
+ "radius_mm": 3.0,
+ "labelled_fraction": 0.8748,
+ "legend": [
+  {
+   "label": 1,
+   "id": 0,
+   "hemi": "lh",
+   "name": "Unknown",
+   "color": "#000000"
+  },
+  {
+   "label": 2,
+   "id": 1,
+   "hemi": "lh",
+   "name": "G_and_S_frontomargin",
+   "color": "#17dc3c"
+  },
+  {
+   "label": 3,
+   "id": 2,
+   "hemi": "lh",
+   "name": "G_and_S_occipital_inf",
+   "color": "#173cb4"
+  },
+  {
+   "label": 4,
+   "id": 3,
+   "hemi": "lh",
+   "name": "G_and_S_paracentral",
+   "color": "#3f643c"
+  },
+  {
+   "label": 5,
+   "id": 4,
+   "hemi": "lh",
+   "name": "G_and_S_subcentral",
+   "color": "#3f14dc"
+  },
+  {
+   "label": 6,
+   "id": 5,
+   "hemi": "lh",
+   "name": "G_and_S_transv_frontopol",
+   "color": "#0d00fa"
+  },
+  {
+   "label": 7,
+   "id": 6,
+   "hemi": "lh",
+   "name": "G_and_S_cingul-Ant",
+   "color": "#1a3c00"
+  },
+  {
+   "label": 8,
+   "id": 7,
+   "hemi": "lh",
+   "name": "G_and_S_cingul-Mid-Ant",
+   "color": "#1a3c4b"
+  },
+  {
+   "label": 9,
+   "id": 8,
+   "hemi": "lh",
+   "name": "G_and_S_cingul-Mid-Post",
+   "color": "#1a3c96"
+  },
+  {
+   "label": 10,
+   "id": 9,
+   "hemi": "lh",
+   "name": "G_cingul-Post-dorsal",
+   "color": "#193cfa"
+  },
+  {
+   "label": 11,
+   "id": 10,
+   "hemi": "lh",
+   "name": "G_cingul-Post-ventral",
+   "color": "#3c1919"
+  },
+  {
+   "label": 12,
+   "id": 11,
+   "hemi": "lh",
+   "name": "G_cuneus",
+   "color": "#b41414"
+  },
+  {
+   "label": 13,
+   "id": 12,
+   "hemi": "lh",
+   "name": "G_front_inf-Opercular",
+   "color": "#dc1464"
+  },
+  {
+   "label": 14,
+   "id": 13,
+   "hemi": "lh",
+   "name": "G_front_inf-Orbital",
+   "color": "#8c3c3c"
+  },
+  {
+   "label": 15,
+   "id": 14,
+   "hemi": "lh",
+   "name": "G_front_inf-Triangul",
+   "color": "#b4dc8c"
+  },
+  {
+   "label": 16,
+   "id": 15,
+   "hemi": "lh",
+   "name": "G_front_middle",
+   "color": "#8c64b4"
+  },
+  {
+   "label": 17,
+   "id": 16,
+   "hemi": "lh",
+   "name": "G_front_sup",
+   "color": "#b4148c"
+  },
+  {
+   "label": 18,
+   "id": 17,
+   "hemi": "lh",
+   "name": "G_Ins_lg_and_S_cent_ins",
+   "color": "#170a0a"
+  },
+  {
+   "label": 19,
+   "id": 18,
+   "hemi": "lh",
+   "name": "G_insular_short",
+   "color": "#e18c8c"
+  },
+  {
+   "label": 20,
+   "id": 19,
+   "hemi": "lh",
+   "name": "G_occipital_middle",
+   "color": "#b43cb4"
+  },
+  {
+   "label": 21,
+   "id": 20,
+   "hemi": "lh",
+   "name": "G_occipital_sup",
+   "color": "#14dc3c"
+  },
+  {
+   "label": 22,
+   "id": 21,
+   "hemi": "lh",
+   "name": "G_oc-temp_lat-fusifor",
+   "color": "#3c148c"
+  },
+  {
+   "label": 23,
+   "id": 22,
+   "hemi": "lh",
+   "name": "G_oc-temp_med-Lingual",
+   "color": "#dcb48c"
+  },
+  {
+   "label": 24,
+   "id": 23,
+   "hemi": "lh",
+   "name": "G_oc-temp_med-Parahip",
+   "color": "#416414"
+  },
+  {
+   "label": 25,
+   "id": 24,
+   "hemi": "lh",
+   "name": "G_orbital",
+   "color": "#dc3c14"
+  },
+  {
+   "label": 26,
+   "id": 25,
+   "hemi": "lh",
+   "name": "G_pariet_inf-Angular",
+   "color": "#143cdc"
+  },
+  {
+   "label": 27,
+   "id": 26,
+   "hemi": "lh",
+   "name": "G_pariet_inf-Supramar",
+   "color": "#64643c"
+  },
+  {
+   "label": 28,
+   "id": 27,
+   "hemi": "lh",
+   "name": "G_parietal_sup",
+   "color": "#dcb4dc"
+  },
+  {
+   "label": 29,
+   "id": 28,
+   "hemi": "lh",
+   "name": "G_postcentral",
+   "color": "#14b48c"
+  },
+  {
+   "label": 30,
+   "id": 29,
+   "hemi": "lh",
+   "name": "G_precentral",
+   "color": "#3c8cb4"
+  },
+  {
+   "label": 31,
+   "id": 30,
+   "hemi": "lh",
+   "name": "G_precuneus",
+   "color": "#19148c"
+  },
+  {
+   "label": 32,
+   "id": 31,
+   "hemi": "lh",
+   "name": "G_rectus",
+   "color": "#143c64"
+  },
+  {
+   "label": 33,
+   "id": 32,
+   "hemi": "lh",
+   "name": "G_subcallosal",
+   "color": "#3cdc14"
+  },
+  {
+   "label": 34,
+   "id": 33,
+   "hemi": "lh",
+   "name": "G_temp_sup-G_T_transv",
+   "color": "#3c3cdc"
+  },
+  {
+   "label": 35,
+   "id": 34,
+   "hemi": "lh",
+   "name": "G_temp_sup-Lateral",
+   "color": "#dc3cdc"
+  },
+  {
+   "label": 36,
+   "id": 35,
+   "hemi": "lh",
+   "name": "G_temp_sup-Plan_polar",
+   "color": "#41dc3c"
+  },
+  {
+   "label": 37,
+   "id": 36,
+   "hemi": "lh",
+   "name": "G_temp_sup-Plan_tempo",
+   "color": "#198c14"
+  },
+  {
+   "label": 38,
+   "id": 37,
+   "hemi": "lh",
+   "name": "G_temporal_inf",
+   "color": "#dcdc64"
+  },
+  {
+   "label": 39,
+   "id": 38,
+   "hemi": "lh",
+   "name": "G_temporal_middle",
+   "color": "#b43c3c"
+  },
+  {
+   "label": 40,
+   "id": 39,
+   "hemi": "lh",
+   "name": "Lat_Fis-ant-Horizont",
+   "color": "#3d14dc"
+  },
+  {
+   "label": 41,
+   "id": 40,
+   "hemi": "lh",
+   "name": "Lat_Fis-ant-Vertical",
+   "color": "#3d143c"
+  },
+  {
+   "label": 42,
+   "id": 41,
+   "hemi": "lh",
+   "name": "Lat_Fis-post",
+   "color": "#3d3c64"
+  },
+  {
+   "label": 43,
+   "id": 42,
+   "hemi": "lh",
+   "name": "Medial_wall",
+   "color": "#191919"
+  },
+  {
+   "label": 44,
+   "id": 43,
+   "hemi": "lh",
+   "name": "Pole_occipital",
+   "color": "#8c143c"
+  },
+  {
+   "label": 45,
+   "id": 44,
+   "hemi": "lh",
+   "name": "Pole_temporal",
+   "color": "#dcb414"
+  },
+  {
+   "label": 46,
+   "id": 45,
+   "hemi": "lh",
+   "name": "S_calcarine",
+   "color": "#3fb4b4"
+  },
+  {
+   "label": 47,
+   "id": 46,
+   "hemi": "lh",
+   "name": "S_central",
+   "color": "#dd140a"
+  },
+  {
+   "label": 48,
+   "id": 47,
+   "hemi": "lh",
+   "name": "S_cingul-Marginalis",
+   "color": "#dd1464"
+  },
+  {
+   "label": 49,
+   "id": 48,
+   "hemi": "lh",
+   "name": "S_circular_insula_ant",
+   "color": "#dd3c8c"
+  },
+  {
+   "label": 50,
+   "id": 49,
+   "hemi": "lh",
+   "name": "S_circular_insula_inf",
+   "color": "#dd14dc"
+  },
+  {
+   "label": 51,
+   "id": 50,
+   "hemi": "lh",
+   "name": "S_circular_insula_sup",
+   "color": "#3ddcdc"
+  },
+  {
+   "label": 52,
+   "id": 51,
+   "hemi": "lh",
+   "name": "S_collat_transv_ant",
+   "color": "#64c8c8"
+  },
+  {
+   "label": 53,
+   "id": 52,
+   "hemi": "lh",
+   "name": "S_collat_transv_post",
+   "color": "#0ac8c8"
+  },
+  {
+   "label": 54,
+   "id": 53,
+   "hemi": "lh",
+   "name": "S_front_inf",
+   "color": "#dddc14"
+  },
+  {
+   "label": 55,
+   "id": 54,
+   "hemi": "lh",
+   "name": "S_front_middle",
+   "color": "#8d1464"
+  },
+  {
+   "label": 56,
+   "id": 55,
+   "hemi": "lh",
+   "name": "S_front_sup",
+   "color": "#3ddc64"
+  },
+  {
+   "label": 57,
+   "id": 56,
+   "hemi": "lh",
+   "name": "S_interm_prim-Jensen",
+   "color": "#8d3c14"
+  },
+  {
+   "label": 58,
+   "id": 57,
+   "hemi": "lh",
+   "name": "S_intrapariet_and_P_trans",
+   "color": "#8f14dc"
+  },
+  {
+   "label": 59,
+   "id": 58,
+   "hemi": "lh",
+   "name": "S_oc_middle_and_Lunatus",
+   "color": "#653cdc"
+  },
+  {
+   "label": 60,
+   "id": 59,
+   "hemi": "lh",
+   "name": "S_oc_sup_and_transversal",
+   "color": "#15148c"
+  },
+  {
+   "label": 61,
+   "id": 60,
+   "hemi": "lh",
+   "name": "S_occipital_ant",
+   "color": "#3d14b4"
+  },
+  {
+   "label": 62,
+   "id": 61,
+   "hemi": "lh",
+   "name": "S_oc-temp_lat",
+   "color": "#dd8c14"
+  },
+  {
+   "label": 63,
+   "id": 62,
+   "hemi": "lh",
+   "name": "S_oc-temp_med_and_Lingual",
+   "color": "#8d64dc"
+  },
+  {
+   "label": 64,
+   "id": 63,
+   "hemi": "lh",
+   "name": "S_orbital_lateral",
+   "color": "#dd6414"
+  },
+  {
+   "label": 65,
+   "id": 64,
+   "hemi": "lh",
+   "name": "S_orbital_med-olfact",
+   "color": "#b5c814"
+  },
+  {
+   "label": 66,
+   "id": 65,
+   "hemi": "lh",
+   "name": "S_orbital-H_Shaped",
+   "color": "#651414"
+  },
+  {
+   "label": 67,
+   "id": 66,
+   "hemi": "lh",
+   "name": "S_parieto_occipital",
+   "color": "#6564b4"
+  },
+  {
+   "label": 68,
+   "id": 67,
+   "hemi": "lh",
+   "name": "S_pericallosal",
+   "color": "#b5dc14"
+  },
+  {
+   "label": 69,
+   "id": 68,
+   "hemi": "lh",
+   "name": "S_postcentral",
+   "color": "#158cc8"
+  },
+  {
+   "label": 70,
+   "id": 69,
+   "hemi": "lh",
+   "name": "S_precentral-inf-part",
+   "color": "#1514f0"
+  },
+  {
+   "label": 71,
+   "id": 70,
+   "hemi": "lh",
+   "name": "S_precentral-sup-part",
+   "color": "#1514c8"
+  },
+  {
+   "label": 72,
+   "id": 71,
+   "hemi": "lh",
+   "name": "S_suborbital",
+   "color": "#15143c"
+  },
+  {
+   "label": 73,
+   "id": 72,
+   "hemi": "lh",
+   "name": "S_subparietal",
+   "color": "#653c3c"
+  },
+  {
+   "label": 74,
+   "id": 73,
+   "hemi": "lh",
+   "name": "S_temporal_inf",
+   "color": "#15b4b4"
+  },
+  {
+   "label": 75,
+   "id": 74,
+   "hemi": "lh",
+   "name": "S_temporal_sup",
+   "color": "#dfdc3c"
+  },
+  {
+   "label": 76,
+   "id": 75,
+   "hemi": "lh",
+   "name": "S_temporal_transverse",
+   "color": "#dd3c3c"
+  },
+  {
+   "label": 77,
+   "id": 0,
+   "hemi": "rh",
+   "name": "Unknown",
+   "color": "#000000"
+  },
+  {
+   "label": 78,
+   "id": 1,
+   "hemi": "rh",
+   "name": "G_and_S_frontomargin",
+   "color": "#17dc3c"
+  },
+  {
+   "label": 79,
+   "id": 2,
+   "hemi": "rh",
+   "name": "G_and_S_occipital_inf",
+   "color": "#173cb4"
+  },
+  {
+   "label": 80,
+   "id": 3,
+   "hemi": "rh",
+   "name": "G_and_S_paracentral",
+   "color": "#3f643c"
+  },
+  {
+   "label": 81,
+   "id": 4,
+   "hemi": "rh",
+   "name": "G_and_S_subcentral",
+   "color": "#3f14dc"
+  },
+  {
+   "label": 82,
+   "id": 5,
+   "hemi": "rh",
+   "name": "G_and_S_transv_frontopol",
+   "color": "#0d00fa"
+  },
+  {
+   "label": 83,
+   "id": 6,
+   "hemi": "rh",
+   "name": "G_and_S_cingul-Ant",
+   "color": "#1a3c00"
+  },
+  {
+   "label": 84,
+   "id": 7,
+   "hemi": "rh",
+   "name": "G_and_S_cingul-Mid-Ant",
+   "color": "#1a3c4b"
+  },
+  {
+   "label": 85,
+   "id": 8,
+   "hemi": "rh",
+   "name": "G_and_S_cingul-Mid-Post",
+   "color": "#1a3c96"
+  },
+  {
+   "label": 86,
+   "id": 9,
+   "hemi": "rh",
+   "name": "G_cingul-Post-dorsal",
+   "color": "#193cfa"
+  },
+  {
+   "label": 87,
+   "id": 10,
+   "hemi": "rh",
+   "name": "G_cingul-Post-ventral",
+   "color": "#3c1919"
+  },
+  {
+   "label": 88,
+   "id": 11,
+   "hemi": "rh",
+   "name": "G_cuneus",
+   "color": "#b41414"
+  },
+  {
+   "label": 89,
+   "id": 12,
+   "hemi": "rh",
+   "name": "G_front_inf-Opercular",
+   "color": "#dc1464"
+  },
+  {
+   "label": 90,
+   "id": 13,
+   "hemi": "rh",
+   "name": "G_front_inf-Orbital",
+   "color": "#8c3c3c"
+  },
+  {
+   "label": 91,
+   "id": 14,
+   "hemi": "rh",
+   "name": "G_front_inf-Triangul",
+   "color": "#b4dc8c"
+  },
+  {
+   "label": 92,
+   "id": 15,
+   "hemi": "rh",
+   "name": "G_front_middle",
+   "color": "#8c64b4"
+  },
+  {
+   "label": 93,
+   "id": 16,
+   "hemi": "rh",
+   "name": "G_front_sup",
+   "color": "#b4148c"
+  },
+  {
+   "label": 94,
+   "id": 17,
+   "hemi": "rh",
+   "name": "G_Ins_lg_and_S_cent_ins",
+   "color": "#170a0a"
+  },
+  {
+   "label": 95,
+   "id": 18,
+   "hemi": "rh",
+   "name": "G_insular_short",
+   "color": "#e18c8c"
+  },
+  {
+   "label": 96,
+   "id": 19,
+   "hemi": "rh",
+   "name": "G_occipital_middle",
+   "color": "#b43cb4"
+  },
+  {
+   "label": 97,
+   "id": 20,
+   "hemi": "rh",
+   "name": "G_occipital_sup",
+   "color": "#14dc3c"
+  },
+  {
+   "label": 98,
+   "id": 21,
+   "hemi": "rh",
+   "name": "G_oc-temp_lat-fusifor",
+   "color": "#3c148c"
+  },
+  {
+   "label": 99,
+   "id": 22,
+   "hemi": "rh",
+   "name": "G_oc-temp_med-Lingual",
+   "color": "#dcb48c"
+  },
+  {
+   "label": 100,
+   "id": 23,
+   "hemi": "rh",
+   "name": "G_oc-temp_med-Parahip",
+   "color": "#416414"
+  },
+  {
+   "label": 101,
+   "id": 24,
+   "hemi": "rh",
+   "name": "G_orbital",
+   "color": "#dc3c14"
+  },
+  {
+   "label": 102,
+   "id": 25,
+   "hemi": "rh",
+   "name": "G_pariet_inf-Angular",
+   "color": "#143cdc"
+  },
+  {
+   "label": 103,
+   "id": 26,
+   "hemi": "rh",
+   "name": "G_pariet_inf-Supramar",
+   "color": "#64643c"
+  },
+  {
+   "label": 104,
+   "id": 27,
+   "hemi": "rh",
+   "name": "G_parietal_sup",
+   "color": "#dcb4dc"
+  },
+  {
+   "label": 105,
+   "id": 28,
+   "hemi": "rh",
+   "name": "G_postcentral",
+   "color": "#14b48c"
+  },
+  {
+   "label": 106,
+   "id": 29,
+   "hemi": "rh",
+   "name": "G_precentral",
+   "color": "#3c8cb4"
+  },
+  {
+   "label": 107,
+   "id": 30,
+   "hemi": "rh",
+   "name": "G_precuneus",
+   "color": "#19148c"
+  },
+  {
+   "label": 108,
+   "id": 31,
+   "hemi": "rh",
+   "name": "G_rectus",
+   "color": "#143c64"
+  },
+  {
+   "label": 109,
+   "id": 32,
+   "hemi": "rh",
+   "name": "G_subcallosal",
+   "color": "#3cdc14"
+  },
+  {
+   "label": 110,
+   "id": 33,
+   "hemi": "rh",
+   "name": "G_temp_sup-G_T_transv",
+   "color": "#3c3cdc"
+  },
+  {
+   "label": 111,
+   "id": 34,
+   "hemi": "rh",
+   "name": "G_temp_sup-Lateral",
+   "color": "#dc3cdc"
+  },
+  {
+   "label": 112,
+   "id": 35,
+   "hemi": "rh",
+   "name": "G_temp_sup-Plan_polar",
+   "color": "#41dc3c"
+  },
+  {
+   "label": 113,
+   "id": 36,
+   "hemi": "rh",
+   "name": "G_temp_sup-Plan_tempo",
+   "color": "#198c14"
+  },
+  {
+   "label": 114,
+   "id": 37,
+   "hemi": "rh",
+   "name": "G_temporal_inf",
+   "color": "#dcdc64"
+  },
+  {
+   "label": 115,
+   "id": 38,
+   "hemi": "rh",
+   "name": "G_temporal_middle",
+   "color": "#b43c3c"
+  },
+  {
+   "label": 116,
+   "id": 39,
+   "hemi": "rh",
+   "name": "Lat_Fis-ant-Horizont",
+   "color": "#3d14dc"
+  },
+  {
+   "label": 117,
+   "id": 40,
+   "hemi": "rh",
+   "name": "Lat_Fis-ant-Vertical",
+   "color": "#3d143c"
+  },
+  {
+   "label": 118,
+   "id": 41,
+   "hemi": "rh",
+   "name": "Lat_Fis-post",
+   "color": "#3d3c64"
+  },
+  {
+   "label": 119,
+   "id": 42,
+   "hemi": "rh",
+   "name": "Medial_wall",
+   "color": "#191919"
+  },
+  {
+   "label": 120,
+   "id": 43,
+   "hemi": "rh",
+   "name": "Pole_occipital",
+   "color": "#8c143c"
+  },
+  {
+   "label": 121,
+   "id": 44,
+   "hemi": "rh",
+   "name": "Pole_temporal",
+   "color": "#dcb414"
+  },
+  {
+   "label": 122,
+   "id": 45,
+   "hemi": "rh",
+   "name": "S_calcarine",
+   "color": "#3fb4b4"
+  },
+  {
+   "label": 123,
+   "id": 46,
+   "hemi": "rh",
+   "name": "S_central",
+   "color": "#dd140a"
+  },
+  {
+   "label": 124,
+   "id": 47,
+   "hemi": "rh",
+   "name": "S_cingul-Marginalis",
+   "color": "#dd1464"
+  },
+  {
+   "label": 125,
+   "id": 48,
+   "hemi": "rh",
+   "name": "S_circular_insula_ant",
+   "color": "#dd3c8c"
+  },
+  {
+   "label": 126,
+   "id": 49,
+   "hemi": "rh",
+   "name": "S_circular_insula_inf",
+   "color": "#dd14dc"
+  },
+  {
+   "label": 127,
+   "id": 50,
+   "hemi": "rh",
+   "name": "S_circular_insula_sup",
+   "color": "#3ddcdc"
+  },
+  {
+   "label": 128,
+   "id": 51,
+   "hemi": "rh",
+   "name": "S_collat_transv_ant",
+   "color": "#64c8c8"
+  },
+  {
+   "label": 129,
+   "id": 52,
+   "hemi": "rh",
+   "name": "S_collat_transv_post",
+   "color": "#0ac8c8"
+  },
+  {
+   "label": 130,
+   "id": 53,
+   "hemi": "rh",
+   "name": "S_front_inf",
+   "color": "#dddc14"
+  },
+  {
+   "label": 131,
+   "id": 54,
+   "hemi": "rh",
+   "name": "S_front_middle",
+   "color": "#8d1464"
+  },
+  {
+   "label": 132,
+   "id": 55,
+   "hemi": "rh",
+   "name": "S_front_sup",
+   "color": "#3ddc64"
+  },
+  {
+   "label": 133,
+   "id": 56,
+   "hemi": "rh",
+   "name": "S_interm_prim-Jensen",
+   "color": "#8d3c14"
+  },
+  {
+   "label": 134,
+   "id": 57,
+   "hemi": "rh",
+   "name": "S_intrapariet_and_P_trans",
+   "color": "#8f14dc"
+  },
+  {
+   "label": 135,
+   "id": 58,
+   "hemi": "rh",
+   "name": "S_oc_middle_and_Lunatus",
+   "color": "#653cdc"
+  },
+  {
+   "label": 136,
+   "id": 59,
+   "hemi": "rh",
+   "name": "S_oc_sup_and_transversal",
+   "color": "#15148c"
+  },
+  {
+   "label": 137,
+   "id": 60,
+   "hemi": "rh",
+   "name": "S_occipital_ant",
+   "color": "#3d14b4"
+  },
+  {
+   "label": 138,
+   "id": 61,
+   "hemi": "rh",
+   "name": "S_oc-temp_lat",
+   "color": "#dd8c14"
+  },
+  {
+   "label": 139,
+   "id": 62,
+   "hemi": "rh",
+   "name": "S_oc-temp_med_and_Lingual",
+   "color": "#8d64dc"
+  },
+  {
+   "label": 140,
+   "id": 63,
+   "hemi": "rh",
+   "name": "S_orbital_lateral",
+   "color": "#dd6414"
+  },
+  {
+   "label": 141,
+   "id": 64,
+   "hemi": "rh",
+   "name": "S_orbital_med-olfact",
+   "color": "#b5c814"
+  },
+  {
+   "label": 142,
+   "id": 65,
+   "hemi": "rh",
+   "name": "S_orbital-H_Shaped",
+   "color": "#651414"
+  },
+  {
+   "label": 143,
+   "id": 66,
+   "hemi": "rh",
+   "name": "S_parieto_occipital",
+   "color": "#6564b4"
+  },
+  {
+   "label": 144,
+   "id": 67,
+   "hemi": "rh",
+   "name": "S_pericallosal",
+   "color": "#b5dc14"
+  },
+  {
+   "label": 145,
+   "id": 68,
+   "hemi": "rh",
+   "name": "S_postcentral",
+   "color": "#158cc8"
+  },
+  {
+   "label": 146,
+   "id": 69,
+   "hemi": "rh",
+   "name": "S_precentral-inf-part",
+   "color": "#1514f0"
+  },
+  {
+   "label": 147,
+   "id": 70,
+   "hemi": "rh",
+   "name": "S_precentral-sup-part",
+   "color": "#1514c8"
+  },
+  {
+   "label": 148,
+   "id": 71,
+   "hemi": "rh",
+   "name": "S_suborbital",
+   "color": "#15143c"
+  },
+  {
+   "label": 149,
+   "id": 72,
+   "hemi": "rh",
+   "name": "S_subparietal",
+   "color": "#653c3c"
+  },
+  {
+   "label": 150,
+   "id": 73,
+   "hemi": "rh",
+   "name": "S_temporal_inf",
+   "color": "#15b4b4"
+  },
+  {
+   "label": 151,
+   "id": 74,
+   "hemi": "rh",
+   "name": "S_temporal_sup",
+   "color": "#dfdc3c"
+  },
+  {
+   "label": 152,
+   "id": 75,
+   "hemi": "rh",
+   "name": "S_temporal_transverse",
+   "color": "#dd3c3c"
+  }
+ ],
+ "url": "/api/guide/labels?atlas=a2009s"
+}

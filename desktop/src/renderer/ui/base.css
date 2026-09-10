@@ -1,0 +1,169 @@
+/*
+ * Self-hosted fonts (no CDN — the renderer is served with no internet). The `latin-*` subset
+ * files only, not the bare `400.css` etc — those pull every unicode-range subset (cyrillic,
+ * greek, vietnamese, ...), ~20x the font weight of this UI's actual (English) character set.
+ */
+@import "@fontsource/ibm-plex-sans/latin-400.css";
+@import "@fontsource/ibm-plex-sans/latin-500.css";
+@import "@fontsource/ibm-plex-sans/latin-600.css";
+@import "@fontsource/ibm-plex-mono/latin-400.css";
+@import "@fontsource/ibm-plex-mono/latin-500.css";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  /* Ground inversion (DESIGN.md §3): the app ground is `--surface`, not `--bg`. `--bg` is the
+   * gutter colour only (nav rail, jobs rail, resize dividers). */
+  background: var(--app-ground);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+}
+
+code,
+pre,
+kbd,
+.tabular,
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* Numbers are first-class citizens: every number in the app is tabular. */
+.tabular-nums,
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+h1,
+h2,
+h3,
+p,
+dl,
+dd,
+figure {
+  margin: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: var(--accent);
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+/*
+ * Type scale (DESIGN.md §3, v2) — six steps: 11/14 · 12/16 · 13/18 (base) · 14/20 · 16/22 · 20/26.
+ *
+ * 11px is the chip/eyebrow step ONLY. The 12px floor applies to anything a user is meant to read,
+ * and 11px must never be combined with `--ink-3` (placeholder/disabled ink) — that pair is below
+ * every legibility floor this app claims. `tests/unit/cssRules.test.ts` enforces it as a static
+ * scan of this file family.
+ *
+ * The class names are unchanged from v1 so every existing page keeps compiling; what changed is
+ * the number behind each name, one step down, plus two new names for the steps that had none.
+ */
+.text-micro {
+  font-size: 11px;
+  line-height: 14px;
+}
+.text-caption {
+  font-size: 12px;
+  line-height: 16px;
+}
+.text-dense {
+  font-size: 13px;
+  line-height: 18px;
+}
+.text-body {
+  font-size: 13px;
+  line-height: 18px;
+}
+/* Running prose only — Help, About, a Callout's paragraph. Never a form. */
+.text-prose {
+  font-size: 14px;
+  line-height: 20px;
+}
+.text-emphasis {
+  font-size: 16px;
+  line-height: 22px;
+}
+.text-section {
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+}
+.text-page-title {
+  font-size: 20px;
+  line-height: 26px;
+  font-weight: 600;
+}
+.text-eyebrow {
+  font-size: 11px;
+  line-height: 14px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
+/* Every interactive element gets a visible focus ring on keyboard focus. */
+:focus {
+  outline: none;
+}
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-control);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Scrollable containers never let the page itself scroll sideways. */
+.scroll-x {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

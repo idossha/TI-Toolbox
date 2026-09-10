@@ -1,0 +1,497 @@
+/* App shell chrome (plan §1, DESIGN.md §2). Tokens only. */
+
+.shell {
+  display: flex;
+  height: 100vh;
+  min-height: 680px;
+  min-width: 1024px;
+  /* Ground inversion (DESIGN.md §3.1): the app ground is --surface; --bg survives only in the
+   * gutters (the nav rail, the jobs rail). Panes are delineated by 1px rules, not by white
+   * rectangles floating on grey. */
+  background: var(--app-ground);
+  color: var(--ink);
+  /* DESIGN.md §2.1: the content box's padding is 16px below 1440 and 24px at or above it — the
+   * one breakpoint the work-pane arithmetic depends on (1064 - 2x16 - 360 - 6 = 666 at 1280;
+   * 1224 - 2x24 - 400 - 6 = 770 at 1440). Set on `.shell` rather than in `tokens.css` so the
+   * token keeps its single definition and every consumer of `var(--page-pad)` — including the
+   * flush shapes' negative-margin negation — inherits the resolved value. */
+  --page-pad: var(--space-4);
+}
+@media (min-width: 1440px) {
+  .shell {
+    --page-pad: var(--space-6);
+  }
+}
+
+/* ---------- Nav rail ---------- */
+.nav-rail {
+  width: var(--nav-w);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2);
+  border-right: 1px solid var(--line);
+  background: var(--gutter);
+  overflow-y: auto;
+}
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: var(--space-2);
+}
+/* Base (labelled rail): show the full wordmark, hide the monogram. The `.nav-rail-icons` overrides
+ * below win on specificity (two classes to one), which is what v2's source-order dance was for —
+ * a media block whose override was outranked by a later unconditional `display: none` on the same
+ * class was the bug the mark shipped with (ra_12 #6). Specificity does not depend on order. */
+.nav-brand-mark {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.nav-brand-text {
+  white-space: nowrap;
+}
+/* The icon rail. v2 drove this from a `max-width: 1280px` media query; v3 drives it from a class
+ * the rail sets itself (`NavRail.tsx`), because the mode now has two inputs — the >=1440px label
+ * breakpoint (program Q1: every page gains the 160px below 1440, so the Viewer's embed needs no
+ * special case) and `PageDef.railMode: "icons"`, which a page may force at any width. One class,
+ * one source of truth, and no media query that can disagree with what React rendered. */
+.nav-rail-icons {
+  width: var(--nav-w-icons);
+  align-items: center;
+}
+.nav-rail-icons .nav-label {
+  display: none;
+}
+.nav-rail-icons .nav-item {
+  justify-content: center;
+  width: 40px;
+}
+.nav-rail-icons .nav-brand {
+  justify-content: center;
+  padding: var(--space-2) 0;
+}
+.nav-rail-icons .nav-brand-mark {
+  display: flex;
+}
+.nav-rail-icons .nav-brand-text {
+  display: none;
+}
+.nav-rail-icons .nav-divider {
+  width: 24px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.nav-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+/* Jobs / Settings / Help sit at the bottom of the rail, always in the same place. */
+.nav-section-pinned {
+  margin-top: auto;
+}
+.nav-divider {
+  height: 1px;
+  background: var(--line);
+  margin: var(--space-3) 0;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2);
+  border: none;
+  background: none;
+  border-radius: var(--radius-control);
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+}
+.nav-item:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.nav-item[aria-current="page"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* The group row: the link takes the width, the chevron sits at its end. */
+.nav-group-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.nav-group-row .nav-item {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* "Contains the active page", NOT "is the active page".
+ *
+ * The group row is not a page — it is the thing a page is inside — so it must never carry the
+ * `aria-current` highlight while one of its sub-items does. Two lit rows for one screen is a rail
+ * that cannot be read at a glance. What it gets instead is weight: the label goes semibold and
+ * takes the ink colour, and nothing else changes. */
+.nav-item[data-contains-active="true"] {
+  color: var(--ink);
+}
+.nav-item[data-contains-active="true"] .nav-label {
+  font-weight: 600;
+}
+
+.nav-chevron {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: var(--radius-control);
+  color: var(--ink-3, var(--ink-2));
+  cursor: pointer;
+}
+.nav-chevron:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.nav-chevron:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* ---------- Rail sub-items (the Viewer's Menu / Tetravox) ----------
+   Indented under their page's row, same height so the rail keeps one rhythm, one step quieter so
+   the page rows still read as the workflow and these read as being inside one of them. The active
+   one is highlighted exactly like a page, because it is what is on screen. */
+.nav-subitems {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 1px;
+}
+.nav-subitem {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  /* 16px icon + 8px gap = the page label's own left edge, so a sub-item reads as hanging off the
+     row above rather than as a shorter page row. */
+  padding: var(--space-2) var(--space-2) var(--space-2) calc(var(--space-2) + 24px);
+  border-radius: var(--radius-control);
+  color: var(--ink-3, var(--ink-2));
+  font-size: 12px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.nav-subitem:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.nav-subitem[aria-current="page"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* ---------- Context bar (the 40px strip; U11 — global chrome, not scope) ---------- */
+.context-bar-connection {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.palette-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-h-sm);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: 12px;
+  cursor: pointer;
+}
+.palette-trigger:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+/* U11: the search field takes the space the project crumb used to occupy — wide, not a small
+ * button — with the label flexing so the ⌘K hint stays pinned to the field's right edge. */
+.palette-trigger-wide {
+  width: 340px;
+  max-width: min(420px, 40%);
+}
+.palette-trigger-label {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.jobs-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-chip);
+  padding: 2px var(--space-2);
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--ink-2);
+}
+.jobs-indicator:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+/* Disconnected posture (DESIGN.md §4.4): a strip, not a toast. */
+.connection-strip {
+  flex: none;
+  padding: var(--space-1) var(--space-4);
+  font-size: 12px;
+  color: var(--warning);
+  background: var(--warning-soft);
+  border-bottom: 1px solid var(--line);
+}
+
+/* ---------- Shell main / content ---------- */
+.shell-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+/* The content box is the app's only scroller at the shell level, and its padding is the exact
+ * token `PageLayout variant="full-bleed"` negates — change one and the other follows. */
+.shell-content {
+  flex: 1;
+  overflow: auto;
+  padding: var(--page-pad);
+  min-height: 0;
+}
+.retained-page {
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+}
+.retained-page[hidden] {
+  display: none;
+}
+@media (max-width: 899px) {
+  .shell-content {
+    padding: var(--page-pad-sm);
+  }
+}
+
+/* ---------- Jobs rail ---------- */
+.jobs-rail {
+  flex: none;
+  border-top: 1px solid var(--line);
+  background: var(--gutter);
+}
+.jobs-rail-collapsed {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+}
+.jobs-rail-traces {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.jobs-rail-empty {
+  /* "No jobs running" is real, always-visible copy, not a placeholder or disabled state — ink-2
+   * per the tokens.css usage restriction (ra_12 #12). */
+  color: var(--ink-2);
+  font-size: 12px;
+  padding: 0 var(--space-2);
+}
+.jobs-rail-expanded {
+  height: 280px;
+  display: flex;
+  flex-direction: column;
+}
+.jobs-rail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-1) var(--space-3);
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+.jobs-rail-body {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ---------- Command palette (cmdk) ---------- */
+.palette-dialog-content {
+  position: fixed;
+  top: 96px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(640px, calc(100vw - 96px));
+  /* Above `.overlay`, which is `--z-overlay` (80). A hard-coded 60 here put the scrim on top of
+     the panel: every palette item resolved, looked right and swallowed its own click. Use the
+     token the stack already defines for a dialog rather than another bare number. */
+  z-index: var(--z-dialog);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-2);
+  overflow: hidden;
+}
+.palette {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.palette-input {
+  height: 40px;
+  width: 100%;
+  padding: 0 var(--space-3);
+  border: none;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+.palette-input::placeholder {
+  color: var(--ink-3);
+}
+.palette-list {
+  max-height: 360px;
+  overflow: auto;
+  padding: var(--space-1);
+}
+.palette-group [cmdk-group-heading] {
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.palette-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  height: var(--row-h);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-control);
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.palette-item[data-selected="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.palette-item-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.palette-item-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  font-size: 11px;
+  color: var(--ink-2);
+}
+.palette-empty {
+  padding: var(--space-3) var(--space-2);
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+/* ---------- Keyboard sheet ---------- */
+.keyboard-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.keyboard-sheet-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.keyboard-sheet-list {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+}
+.keyboard-sheet-row {
+  display: contents;
+}
+.keyboard-sheet-row dt {
+  text-align: right;
+}
+.keyboard-sheet-row dd {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+/* ---------- Unauthenticated ---------- */
+.unauthenticated {
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Keep extension children distinguishable in the compact rail as well. */
+.nav-rail-icons .nav-extension-icon {
+  width: 32px;
+  margin-left: 8px;
+  border-left: 1px solid var(--line);
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+}
+
+.nav-subitems[hidden] {
+  display: none;
+}
+
+/* Welcome shows the tool map before a project is open, without enabling backend routes. */
+.nav-item[aria-disabled="true"], .nav-subitem[aria-disabled="true"] {
+  color: var(--ink-2);
+  cursor: default;
+}

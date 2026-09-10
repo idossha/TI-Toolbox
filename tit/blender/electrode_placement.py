@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from .utils import clear_blender_scene
+from .scene_setup import clear_scene as clear_blender_scene
 from tit.blender.io import (
     read_binary_stl,
     write_binary_stl as _write_binary_stl_io,
@@ -189,10 +189,17 @@ class ElectrodePlacer:
     """
 
     def __init__(
-        self, config: ElectrodePlacementConfig, logger: logging.Logger | None = None
+        self,
+        config: ElectrodePlacementConfig,
+        logger: logging.Logger | None = None,
+        *,
+        prepared_geometry: tuple[np.ndarray | list, np.ndarray | list] | None = None,
+        prepared_electrodes: list[list[str | float]] | None = None,
     ):
         """Initialize ElectrodePlacer."""
         self.config = config
+        self.prepared_geometry = prepared_geometry
+        self.prepared_electrodes = prepared_electrodes
         self.logger = logger or logging.getLogger(__name__)
 
         # Validate configuration
@@ -383,6 +390,9 @@ class ElectrodePlacer:
 
     def _read_electrodes(self):
         """Read electrode positions from CSV file using SimNIBS utilities."""
+        if self.prepared_electrodes is not None:
+            yield from self.prepared_electrodes
+            return
         from simnibs.utils.csv_reader import read_csv_positions
 
         self.logger.info(f"Reading electrodes: {self.config.electrode_csv_path}")
@@ -589,7 +599,10 @@ class ElectrodePlacer:
 
         try:
             # Get scalp geometry
-            if self.config.subject_msh_path:
+            if self.prepared_geometry is not None:
+                vertices, faces = self.prepared_geometry
+                self._write_stl(vertices, faces, self.config.output_scalp_stl_path)
+            elif self.config.subject_msh_path:
                 vertices, faces = self._extract_scalp_from_msh()
                 # Save STL for reference
                 self._write_stl(vertices, faces, self.config.output_scalp_stl_path)
@@ -597,7 +610,7 @@ class ElectrodePlacer:
                 vertices, faces = self._load_scalp_stl()
 
             # Clear scene and create scalp mesh
-            clear_blender_scene()
+            clear_blender_scene(remove_collections=False)
             scalp = self._create_scalp_mesh(vertices, faces)
             self._mm_to_blender_units = self._infer_mm_to_blender_units(scalp)
 

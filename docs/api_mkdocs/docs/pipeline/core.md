@@ -44,6 +44,7 @@ These methods take no arguments and return top-level directories or files:
 | `pm.derivatives()` | `<project>/derivatives` |
 | `pm.sourcedata()` | `<project>/sourcedata` |
 | `pm.simnibs()` | `<project>/derivatives/SimNIBS` |
+| `pm.fastsurfer()` | `<project>/derivatives/fastsurfer` |
 | `pm.freesurfer()` | `<project>/derivatives/freesurfer` |
 | `pm.ti_toolbox()` | `<project>/derivatives/ti-toolbox` |
 | `pm.config_dir()` | `<project>/code/ti-toolbox/config` |
@@ -76,6 +77,8 @@ Methods that accept a subject ID (`sid`) string without the `sub-` prefix:
 | `pm.bids_subject("001")` | `<project>/sub-001` |
 | `pm.bids_anat("001")` | `<project>/sub-001/anat` |
 | `pm.bids_dwi("001")` | `<project>/sub-001/dwi` |
+| `pm.fastsurfer_subject("001")` | `<fastsurfer>/sub-001` |
+| `pm.fastsurfer_mri("001")` | `<fastsurfer>/sub-001/mri` |
 | `pm.freesurfer_subject("001")` | `<freesurfer>/sub-001` |
 | `pm.freesurfer_mri("001")` | `<freesurfer>/sub-001/mri` |
 | `pm.sourcedata_subject("001")` | `<sourcedata>/sub-001` |
@@ -125,7 +128,7 @@ pm.ensure("/some/path")  # creates directory (with parents) and returns the path
 
 ## Logging
 
-TI-Toolbox logging is file-first. The `tit` logger hierarchy has `propagate=False`, so nothing reaches the terminal unless you explicitly opt in.
+The `tit` logger hierarchy has `propagate=False`, isolating it from the root logger. Importing `tit` attaches its own stdout handler; pipeline modules additionally attach file handlers. Calling `setup_logging()` alone does not add handlers.
 
 | Function | Purpose |
 |----------|---------|
@@ -202,7 +205,7 @@ const.TISSUE_PROPERTIES    # [{"number": 1, "name": "White Matter", ...}, ...]
 
 ## Config IO
 
-The `tit.config_io` module serializes typed config dataclasses to JSON for CLI subprocesses. This is the mechanism the GUI uses to pass configurations to optimizer and analyzer processes.
+The `tit.config_io` module serializes typed config dataclasses to JSON for CLI subprocesses. The job server uses this mechanism to pass configurations to pipeline subprocesses.
 
 ```python
 from tit.config_io import write_config_json, read_config_json
@@ -236,10 +239,11 @@ Custom exceptions are defined in domain-specific modules:
 | `DockerBuildError` | `tit.pre.qsi.docker_builder` | `Exception` | Docker command construction fails |
 
 ```python
+from tit.pre import run_pipeline
 from tit.pre.utils import PreprocessError, PreprocessCancelled
 
 try:
-    run_pipeline(config)
+    run_pipeline(subject_ids=["001"], create_m2m=True)
 except PreprocessCancelled:
     print("Pipeline was cancelled")
 except PreprocessError as e:

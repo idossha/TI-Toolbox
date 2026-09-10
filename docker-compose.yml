@@ -1,57 +1,34 @@
-services:
-  freesurfer:
-    image: idossha/ti-toolbox_freesurfer:v7.4.1
-    platform: linux/amd64
-    container_name: freesurfer_container
-    volumes:
-      - freesurfer_data:/usr/local/freesurfer/
-    networks:
-      - ti_network
-    restart: unless-stopped
+# Shared container specification for Bash, Python and Electron launchers.
+# Supported keys and development setup: docs/dev/ARCHITECTURE.md and CONTRIBUTING.md.
 
-  simnibs:
-    platform: linux/amd64
-    image: idossha/simnibs:v2.5.0
-    container_name: simnibs_container
+services:
+  tit:
+    image: idossha/ti-toolbox:${TIT_IMAGE_TAG:-v3.0.0}
+    init: true # reap zombie processes under uvicorn's worker/reload subprocesses
+    working_dir: /ti-toolbox
     volumes:
-      - freesurfer_data:/usr/local/freesurfer/
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw # X11 socket mount for GUI
       - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
-      - ${TIT_USER_CONFIG}:/root/.config/ti-toolbox # User-level config (telemetry, prefs)
-      - /var/run/docker.sock:/var/run/docker.sock # Docker socket for DooD (QSIPrep/QSIRecon)
-      - ${HOME}/.Xauthority:/root/.Xauthority:rw # X11 auth for remote displays
+      - ${TIT_USER_CONFIG}:/root/.config/ti-toolbox # user-level config (telemetry, prefs)
+      - /var/run/docker.sock:/var/run/docker.sock # DooD for QSIPrep/QSIRecon (DWI)
+      - ${TIT_REPO_DIR:-}:/ti-toolbox # dev mount; omitted when empty
     environment:
-      USER: root
-      DISPLAY: ${DISPLAY}
-      FREESURFER_HOME: /usr/local/freesurfer
-      SUBJECTS_DIR: /usr/local/freesurfer/subjects
-      FS_LICENSE: /usr/local/freesurfer/license.txt
-      LOCAL_PROJECT_DIR: ${LOCAL_PROJECT_DIR}
       PROJECT_DIR_NAME: ${PROJECT_DIR_NAME}
-      TZ: ${TZ}
+      LOCAL_PROJECT_DIR: ${LOCAL_PROJECT_DIR} # host path for sibling QSIPrep/QSIRecon mounts
+      TIT_SERVER_TOKEN: ${TIT_SERVER_TOKEN}
+      TIT_SERVER_PORT: ${TIT_SERVER_PORT:-8765}
+      TIT_STATIC_DIR: ${TIT_STATIC_DIR:-} # dev override; empty = the image's baked-in UI bundle
+      PYTHONPATH: /ti-toolbox # only matters when the dev repo mount above is active
+      TIT_REPO_DIR: ${TIT_REPO_DIR:-}
+      TIT_SERVER_RELOAD: ${TIT_SERVER_RELOAD:-}
+      TZ: ${TZ:-UTC}
       TIT_HOST_OS: ${TIT_HOST_OS:-unknown}
       TIT_HOST_OS_VERSION: ${TIT_HOST_OS_VERSION:-unknown}
       TIT_HOST_ARCH: ${TIT_HOST_ARCH:-unknown}
-      KMP_AFFINITY: "disabled"
-      TI_TOOLBOX_VERSION: "v2.5.0"
     ports:
-      - "8888:8888"
-    networks:
-      - ti_network
-    depends_on:
-      - freesurfer
-    tty: true
-    stdin_open: true
-    working_dir: /ti-toolbox
-    restart: unless-stopped
-    command: ["tail", "-f", "/dev/null"]
-
-networks:
-  ti_network:
-    driver: bridge
-
-volumes:
-  freesurfer_data:
-    # Versioned name (must match the freesurfer image tag) so a FreeSurfer bump
-    # re-seeds a fresh volume. Launchers override FREESURFER_VOLUME.
-    name: ${FREESURFER_VOLUME:-ti-toolbox_freesurfer_data_v7.4.1}
+      - "127.0.0.1:${TIT_SERVER_PORT:-8765}:${TIT_SERVER_PORT:-8765}"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:${TIT_SERVER_PORT:-8765}/api/health"]
+      interval: 10s
+      timeout: 3s
+      start_period: 20s
+      retries: 6

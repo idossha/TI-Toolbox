@@ -30,10 +30,12 @@ from datetime import date
 from pathlib import Path
 from typing import Iterable, Sequence
 
-from tit.paths import get_path_manager
+from tit.paths import get_path_manager, is_within, validate_subject_id
 
 DATASET_TEMPLATES = {
     "root": "root.dataset_description.json",
+    "fastsurfer": "fastsurfer.dataset_description.json",
+    # Legacy: only written for projects that still hold recon-all output.
     "freesurfer": "freesurfer.dataset_description.json",
     "simnibs": "simnibs.dataset_description.json",
     "ti-toolbox": "ti-toolbox.dataset_description.json",
@@ -228,14 +230,26 @@ def ensure_subject_dirs(project_dir: str, subject_id: str) -> None:
 
     Scaffolds a ``dicom/`` folder for every supported modality so the drop
     location for each one is discoverable without reading the docs.
+
+    Raises ``ValueError`` for a subject id that is not one
+    (:func:`tit.paths.validate_subject_id`). This function *creates directories*
+    from an id that may have come from a config file or a script argument, and a
+    ``../../..`` id used to scaffold ``anat/`` outside the project entirely.
     """
     from .dicom2nifti import MODALITIES
 
+    validate_subject_id(subject_id)
     pm = get_path_manager(project_dir)
-    for modality, _datatype in MODALITIES:
-        pm.ensure(pm.sourcedata_dicom(subject_id, modality))
-    pm.ensure(pm.bids_anat(subject_id))
-    pm.ensure(pm.sub(subject_id))
+    created = [pm.sourcedata_dicom(subject_id, m) for m, _dt in MODALITIES]
+    created += [pm.bids_anat(subject_id), pm.sub(subject_id)]
+    for path in created:
+        # Belt and braces behind the grammar: nothing this scaffolds may land outside
+        # the project, whatever a future path helper is composed of.
+        if not is_within(project_dir, path):
+            raise ValueError(
+                f"refusing to create {path!r} for subject {subject_id!r}: outside {project_dir!r}"
+            )
+        pm.ensure(path)
     pm.ensure(pm.ti_toolbox())
 
 
@@ -261,13 +275,8 @@ def _dataset_description_target(project_dir: str, dataset: str) -> Path:
     """Return the target path for a dataset_description.json file."""
     if dataset == "root":
         return Path(project_dir) / "dataset_description.json"
-    if dataset == "freesurfer":
-        return (
-            Path(project_dir)
-            / "derivatives"
-            / "freesurfer"
-            / "dataset_description.json"
-        )
+    if dataset in ("fastsurfer", "freesurfer"):
+        return Path(project_dir) / "derivatives" / dataset / "dataset_description.json"
     if dataset == "simnibs":
         return (
             Path(project_dir) / "derivatives" / "SimNIBS" / "dataset_description.json"
@@ -458,7 +467,12 @@ class CommandRunner:
         output_tail: deque[str] = deque(maxlen=20)
         self.last_output_lines = []
 
-        preexec_fn = os.setsid if os.name != "nt" else None
+        # start_new_session=True (not preexec_fn=os.setsid): preexec_fn runs
+        # after fork() but before exec(), which is unsafe in a process that
+        # may have other threads alive (only async-signal-safe calls are
+        # allowed there) -- start_new_session asks the C library to call
+        # setsid() itself, giving the same "own process group" result
+        # _terminate_process's os.killpg(...) needs, without that hazard.
         proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
@@ -467,7 +481,7 @@ class CommandRunner:
             bufsize=1,
             cwd=cwd,
             env=env,
-            preexec_fn=preexec_fn,
+            start_new_session=(os.name != "nt"),
         )
 
         with self._lock:

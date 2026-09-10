@@ -3,10 +3,9 @@
 Preprocessing pipeline orchestration.
 
 This module contains the top-level ``run_pipeline`` function that drives
-all preprocessing steps for one or more subjects, including DICOM
-conversion, FreeSurfer recon-all, SimNIBS CHARM, tissue analysis, DWI
-preprocessing (QSIPrep/QSIRecon), DTI tensor extraction, and subcortical
-segmentation.
+all preprocessing steps for one or more subjects: DICOM conversion,
+SimNIBS CHARM, FastSurfer deep segmentation, tissue analysis, DWI
+preprocessing (QSIPrep/QSIRecon), and DTI tensor extraction.
 
 Public API
 ----------
@@ -18,26 +17,29 @@ See Also
 tit.pre : Package-level overview and convenience re-exports.
 """
 
-import os
+import signal
+import threading
 import time
 from collections.abc import Callable, Iterable
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from tit import constants as const
-from tit.paths import get_path_manager
+from tit.paths import get_path_manager, validate_subject_id
 
 from .charm import run_charm, run_subject_atlas
 from .dicom2nifti import run_dicom_to_nifti
+from .fastsurfer import run_fastsurfer
+from .freesurfer import run_freesurfer as run_freesurfer_worker
 from .qsi import extract_dti_tensor, run_qsiprep, run_qsirecon
-from .recon_all import run_recon_all, run_subcortical_segmentations
 from .tissue_analyzer import run_tissue_analysis
 from .preflight import (
     STEP_CHARM,
     STEP_DICOM,
     STEP_DTI,
+    STEP_FASTSURFER,
+    STEP_FREESURFER,
+    FREESURFER_SUBREGION_STEPS,
     STEP_QSIPREP,
     STEP_QSIRECON,
-    STEP_RECON_ALL,
     existing_outputs_for_step,
     find_missing_preprocessing_inputs,
     remove_preprocessing_output,
@@ -53,14 +55,51 @@ from .utils import (
 )
 
 
+def _install_sigterm_handler(runner: "CommandRunner") -> None:
+    """Terminate *runner*'s process tree on SIGTERM.
+
+    ``run_pipeline`` owns *runner* (the only thing holding references to the
+    live subprocesses), so it is the one place that can act on a job-manager
+    cancellation: ``tit.jobs`` (B1) SIGTERMs the runner process, and this
+    handler forwards that into ``CommandRunner.terminate_all()`` so
+    charm/FastSurfer/QSIPrep children (each in their own session, see
+    :func:`tit.pre.utils.CommandRunner.run`) are not orphaned.
+
+    A no-op outside the main thread: ``signal.signal`` only works there, and
+    ``run_pipeline`` may also be called from a worker thread (e.g. today's
+    GUI ``QThread`` callers) where the process's own signal handling is
+    someone else's responsibility.
+    """
+    if threading.current_thread() is not threading.main_thread():
+        return
+
+    def _handle_sigterm(signum, frame) -> None:
+        runner.terminate_all()
+
+    try:
+        signal.signal(signal.SIGTERM, _handle_sigterm)
+    except (ValueError, OSError):
+        pass
+
+
 def _run_step(label: str, func, logger) -> float:
     """Execute a single pipeline step with logging.
+
+    Emits a ``stage`` event (a no-op unless ``$TIT_EVENTS_FILE`` is set, see
+    :mod:`tit.jobs.events`) so a job driving one or more subjects through
+    ``run_pipeline`` reports which named step (DICOM conversion, SimNIBS
+    charm, FastSurfer, ...) is currently running -- orchestration only, the
+    step function itself (``run_charm``, ``run_fastsurfer``, ...) is
+    unchanged.
 
     Returns
     -------
     float
         Wall-clock duration of the step in seconds.
     """
+    from tit.jobs import events
+
+    events.emit_stage(label)
     logger.info(f"{label}: Started")
     t0 = time.time()
     func()
@@ -127,8 +166,12 @@ def _run_subject_pipeline(
     *,
     runner: CommandRunner,
     convert_dicom: bool = False,
-    run_recon: bool = False,
-    parallel_recon: bool = False,
+    run_fastsurfer_step: bool = False,
+    fastsurfer_threads: int | None = None,
+    run_freesurfer: bool = False,
+    freesurfer_recon_all: bool = True,
+    freesurfer_subregions: list[str] | None = None,
+    freesurfer_threads: int | None = None,
     create_m2m: bool = False,
     run_tissue: bool = False,
     run_qsiprep_step: bool = False,
@@ -136,7 +179,6 @@ def _run_subject_pipeline(
     qsiprep_config: dict | None = None,
     qsi_recon_config: dict | None = None,
     extract_dti_step: bool = False,
-    run_subcortical: bool = False,
     callback: Callable | None = None,
     skip_existing_outputs: bool = False,
     replace_existing_outputs: bool = False,
@@ -214,28 +256,66 @@ def _run_subject_pipeline(
             durations["SimNIBS charm"] = None
             durations["Subject Atlas Segmentation"] = None
 
-    if run_recon:
+    if run_fastsurfer_step:
         if _should_run_output_step(
             project_dir,
             subject_id,
-            STEP_RECON_ALL,
+            STEP_FASTSURFER,
             logger=logger,
             skip_existing_outputs=skip_existing_outputs,
             replace_existing_outputs=replace_existing_outputs,
         ):
-            durations["FreeSurfer recon-all"] = _run_step(
-                "FreeSurfer recon-all",
-                lambda: run_recon_all(
+            durations["FastSurfer segmentation"] = _run_step(
+                "FastSurfer segmentation",
+                lambda: run_fastsurfer(
                     project_dir,
                     subject_id,
                     logger=logger,
-                    parallel=not parallel_recon,
                     runner=runner,
+                    threads=fastsurfer_threads,
                 ),
                 logger,
             )
         else:
-            durations["FreeSurfer recon-all"] = None
+            durations["FastSurfer segmentation"] = None
+
+    if run_freesurfer:
+        do_recon = freesurfer_recon_all and _should_run_output_step(
+            project_dir,
+            subject_id,
+            STEP_FREESURFER,
+            logger=logger,
+            skip_existing_outputs=skip_existing_outputs,
+            replace_existing_outputs=replace_existing_outputs,
+        )
+        targets = [
+            target
+            for target in dict.fromkeys(freesurfer_subregions or [])
+            if _should_run_output_step(
+                project_dir,
+                subject_id,
+                FREESURFER_SUBREGION_STEPS[target],
+                logger=logger,
+                skip_existing_outputs=skip_existing_outputs,
+                replace_existing_outputs=replace_existing_outputs,
+            )
+        ]
+        durations["FreeSurfer"] = (
+            _run_step(
+                "FreeSurfer",
+                lambda: run_freesurfer_worker(
+                    subject_id,
+                    recon_all=do_recon,
+                    subregions=targets,
+                    threads=freesurfer_threads,
+                    runner=runner,
+                    logger=logger,
+                ),
+                logger,
+            )
+            if do_recon or targets
+            else None
+        )
 
     if run_tissue:
         durations["Tissue Analysis"] = _run_step(
@@ -340,18 +420,6 @@ def _run_subject_pipeline(
         else:
             durations["DTI Tensor Extraction"] = None
 
-    if run_subcortical:
-        durations["Subcortical Segmentations"] = _run_step(
-            "Subcortical segmentations",
-            lambda: run_subcortical_segmentations(
-                project_dir,
-                subject_id,
-                logger=logger,
-                runner=runner,
-            ),
-            logger,
-        )
-
     logger.info(f"Pre-processing completed successfully for subject: {subject_id}")
     return durations
 
@@ -360,9 +428,12 @@ def run_pipeline(
     subject_ids: Iterable[str],
     *,
     convert_dicom: bool = False,
-    run_recon: bool = False,
-    parallel_recon: bool = False,
-    parallel_cores: int | None = None,
+    run_fastsurfer: bool = False,
+    fastsurfer_threads: int | None = None,
+    run_freesurfer: bool = False,
+    freesurfer_recon_all: bool = True,
+    freesurfer_subregions: list[str] | None = None,
+    freesurfer_threads: int | None = None,
     create_m2m: bool = False,
     run_tissue_analysis: bool = False,
     run_qsiprep: bool = False,
@@ -370,7 +441,6 @@ def run_pipeline(
     qsiprep_config: dict | None = None,
     qsi_recon_config: dict | None = None,
     extract_dti: bool = False,
-    run_subcortical_segmentations: bool = False,
     skip_existing_outputs: bool = False,
     replace_existing_outputs: bool = False,
     stop_event: object | None = None,
@@ -379,10 +449,10 @@ def run_pipeline(
 ) -> int:
     """Run the preprocessing pipeline for one or more subjects.
 
-    Orchestrates DICOM conversion, FreeSurfer recon-all, SimNIBS CHARM,
-    tissue analysis, QSIPrep/QSIRecon DWI preprocessing, DTI tensor
-    extraction, and subcortical segmentation.  Steps are enabled via
-    boolean flags; disabled steps are skipped.
+    Orchestrates DICOM conversion, SimNIBS CHARM, FastSurfer deep
+    segmentation, tissue analysis, QSIPrep/QSIRecon DWI preprocessing and
+    DTI tensor extraction.  Steps are enabled via boolean flags; disabled
+    steps are skipped.
 
     Parameters
     ----------
@@ -390,12 +460,10 @@ def run_pipeline(
         Subject identifiers without the ``sub-`` prefix.
     convert_dicom : bool, optional
         Run DICOM-to-NIfTI conversion.
-    run_recon : bool, optional
-        Run FreeSurfer ``recon-all``.
-    parallel_recon : bool, optional
-        Run ``recon-all`` in parallel across subjects.
-    parallel_cores : int or None, optional
-        Maximum number of parallel subjects for ``recon-all``.
+    run_fastsurfer : bool, optional
+        Run FastSurfer ``--seg_only`` deep segmentation.
+    fastsurfer_threads : int or None, optional
+        Thread count for FastSurfer inference.
     create_m2m : bool, optional
         Run SimNIBS ``charm`` (also runs ``subject_atlas`` for ``.annot``
         files).
@@ -411,8 +479,6 @@ def run_pipeline(
         Extra configuration passed to ``run_qsirecon``.
     extract_dti : bool, optional
         Extract DTI tensor for SimNIBS anisotropic conductivity.
-    run_subcortical_segmentations : bool, optional
-        Run thalamic-nuclei and hippocampal-subfield segmentations.
     skip_existing_outputs : bool, optional
         Skip selected preprocessing steps when their output already exists.
     replace_existing_outputs : bool, optional
@@ -439,7 +505,7 @@ def run_pipeline(
     See Also
     --------
     run_dicom_to_nifti : DICOM-to-NIfTI conversion step.
-    run_recon_all : FreeSurfer recon-all step.
+    run_fastsurfer : FastSurfer deep-segmentation step.
     run_charm : SimNIBS CHARM head-mesh step.
     run_tissue_analysis : Tissue analysis step.
     run_qsiprep : QSIPrep DWI preprocessing step.
@@ -464,7 +530,10 @@ def run_pipeline(
         subject_list,
         convert_dicom=convert_dicom,
         create_m2m=create_m2m,
-        run_recon=run_recon,
+        run_fastsurfer=run_fastsurfer,
+        run_freesurfer=run_freesurfer,
+        freesurfer_recon_all=freesurfer_recon_all,
+        freesurfer_subregions=freesurfer_subregions or [],
         run_qsiprep=run_qsiprep,
         run_qsirecon=run_qsirecon,
         extract_dti=extract_dti,
@@ -477,9 +546,12 @@ def run_pipeline(
         return _run_pipeline_inner(
             subject_list,
             convert_dicom=convert_dicom,
-            run_recon=run_recon,
-            parallel_recon=parallel_recon,
-            parallel_cores=parallel_cores,
+            run_fastsurfer=run_fastsurfer,
+            fastsurfer_threads=fastsurfer_threads,
+            run_freesurfer=run_freesurfer,
+            freesurfer_recon_all=freesurfer_recon_all,
+            freesurfer_subregions=freesurfer_subregions,
+            freesurfer_threads=freesurfer_threads,
             create_m2m=create_m2m,
             run_tissue_analysis=run_tissue_analysis,
             run_qsiprep=run_qsiprep,
@@ -487,7 +559,6 @@ def run_pipeline(
             qsiprep_config=qsiprep_config,
             qsi_recon_config=qsi_recon_config,
             extract_dti=extract_dti,
-            run_subcortical_segmentations=run_subcortical_segmentations,
             skip_existing_outputs=skip_existing_outputs,
             replace_existing_outputs=replace_existing_outputs,
             stop_event=stop_event,
@@ -500,9 +571,12 @@ def _run_pipeline_inner(
     subject_ids,
     *,
     convert_dicom=False,
-    run_recon=False,
-    parallel_recon=False,
-    parallel_cores=None,
+    run_fastsurfer=False,
+    fastsurfer_threads=None,
+    run_freesurfer=False,
+    freesurfer_recon_all=True,
+    freesurfer_subregions=None,
+    freesurfer_threads=None,
     create_m2m=False,
     run_tissue_analysis=False,
     run_qsiprep=False,
@@ -510,7 +584,6 @@ def _run_pipeline_inner(
     qsiprep_config=None,
     qsi_recon_config=None,
     extract_dti=False,
-    run_subcortical_segmentations=False,
     skip_existing_outputs=False,
     replace_existing_outputs=False,
     stop_event=None,
@@ -519,6 +592,11 @@ def _run_pipeline_inner(
 ) -> int:
     """Inner implementation of :func:`run_pipeline`."""
     subject_list = list(subject_ids)
+    # One grammar, checked at the entrypoint: `run_pipeline` is reachable from a script and
+    # from `simnibs_python -m tit.pre config.json`, neither of which came through the API's
+    # own check (tit.server.routes.jobs).
+    for sid in subject_list:
+        validate_subject_id(sid)
 
     pm = get_path_manager()
     project_dir = pm._root()
@@ -527,7 +605,9 @@ def _run_pipeline_inner(
         ensure_subject_dirs(project_dir, sid)
 
     datasets = {"root", "ti-toolbox"}
-    if run_recon:
+    if run_fastsurfer:
+        datasets.add("fastsurfer")
+    if run_freesurfer:
         datasets.add("freesurfer")
     if create_m2m:
         datasets.add("simnibs")
@@ -539,13 +619,19 @@ def _run_pipeline_inner(
     elif stop_event is not None and runner.stop_event is not stop_event:
         runner.stop_event = stop_event
 
+    _install_sigterm_handler(runner)
+
     # Collect step durations per subject for reporting
     all_durations: dict[str, dict[str, float | None]] = {
         sid: {} for sid in subject_list
     }
 
     common = dict(
-        parallel_recon=parallel_recon,
+        fastsurfer_threads=fastsurfer_threads,
+        run_freesurfer=run_freesurfer,
+        freesurfer_recon_all=freesurfer_recon_all,
+        freesurfer_subregions=freesurfer_subregions,
+        freesurfer_threads=freesurfer_threads,
         qsiprep_config=qsiprep_config,
         qsi_recon_config=qsi_recon_config,
         runner=runner,
@@ -554,73 +640,24 @@ def _run_pipeline_inner(
         replace_existing_outputs=replace_existing_outputs,
     )
 
-    if parallel_recon and run_recon and len(subject_list) > 1:
-        # Phase 1: per-subject prerequisites, sequential.
-        if convert_dicom or create_m2m:
-            for sid in subject_list:
-                d = _run_subject_pipeline(
-                    project_dir,
-                    sid,
-                    convert_dicom=convert_dicom,
-                    create_m2m=create_m2m,
-                    **common,
-                )
-                all_durations[sid].update(d)
-
-        # Phase 2: recon-all across subjects in parallel.
-        max_workers = parallel_cores or os.cpu_count() or 1
-        max_workers = min(max_workers, len(subject_list))
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {
-                executor.submit(
-                    _run_subject_pipeline,
-                    project_dir,
-                    sid,
-                    run_recon=True,
-                    **common,
-                ): sid
-                for sid in subject_list
-            }
-            for future in as_completed(futures):
-                sid = futures[future]
-                all_durations[sid].update(future.result())
-
-        # Phase 3: per-subject post-recon steps, sequential.
-        if (
-            run_tissue_analysis
-            or run_qsiprep
-            or run_qsirecon
-            or extract_dti
-            or run_subcortical_segmentations
-        ):
-            for sid in subject_list:
-                d = _run_subject_pipeline(
-                    project_dir,
-                    sid,
-                    run_tissue=run_tissue_analysis,
-                    run_qsiprep_step=run_qsiprep,
-                    run_qsirecon_step=run_qsirecon,
-                    extract_dti_step=extract_dti,
-                    run_subcortical=run_subcortical_segmentations,
-                    **common,
-                )
-                all_durations[sid].update(d)
-    else:
-        for sid in subject_list:
-            d = _run_subject_pipeline(
-                project_dir,
-                sid,
-                convert_dicom=convert_dicom,
-                run_recon=run_recon,
-                create_m2m=create_m2m,
-                run_tissue=run_tissue_analysis,
-                run_qsiprep_step=run_qsiprep,
-                run_qsirecon_step=run_qsirecon,
-                extract_dti_step=extract_dti,
-                run_subcortical=run_subcortical_segmentations,
-                **common,
-            )
-            all_durations[sid].update(d)
+    # One subject at a time: FastSurfer peaks at ~4.8 GiB RSS per subject
+    # (docs/dev/HISTORY.md § 2026-09-03), so parallelism across subjects
+    # is the job scheduler's memory-budgeted decision (tit.jobs), not a
+    # thread pool inside this loop.
+    for sid in subject_list:
+        d = _run_subject_pipeline(
+            project_dir,
+            sid,
+            convert_dicom=convert_dicom,
+            run_fastsurfer_step=run_fastsurfer,
+            create_m2m=create_m2m,
+            run_tissue=run_tissue_analysis,
+            run_qsiprep_step=run_qsiprep,
+            run_qsirecon_step=run_qsirecon,
+            extract_dti_step=extract_dti,
+            **common,
+        )
+        all_durations[sid].update(d)
 
     # Generate HTML reports for each subject
     from tit.reporting import PreprocessingReportGenerator
@@ -654,12 +691,20 @@ def _run_pipeline_inner(
                 duration=durations.get("Subject Atlas Segmentation"),
             )
 
-        if run_recon:
+        if run_fastsurfer:
             report_gen.add_processing_step(
-                step_name="FreeSurfer recon-all",
-                description="Cortical surface reconstruction",
-                status=_report_status(durations, "FreeSurfer recon-all"),
-                duration=durations.get("FreeSurfer recon-all"),
+                step_name="FastSurfer segmentation",
+                description="Deep-learning cortical and subcortical parcellation",
+                status=_report_status(durations, "FastSurfer segmentation"),
+                duration=durations.get("FastSurfer segmentation"),
+            )
+
+        if run_freesurfer:
+            report_gen.add_processing_step(
+                step_name="FreeSurfer",
+                description="Selected reconstruction and subregion steps",
+                status=_report_status(durations, "FreeSurfer"),
+                duration=durations.get("FreeSurfer"),
             )
 
         if run_tissue_analysis:
@@ -692,14 +737,6 @@ def _run_pipeline_inner(
                 description="Extract DTI tensors for anisotropic conductivity",
                 status=_report_status(durations, "DTI Tensor Extraction"),
                 duration=durations.get("DTI Tensor Extraction"),
-            )
-
-        if run_subcortical_segmentations:
-            report_gen.add_processing_step(
-                step_name="Subcortical Segmentations",
-                description="Thalamic nuclei and hippocampal subfield segmentations",
-                status=_report_status(durations, "Subcortical Segmentations"),
-                duration=durations.get("Subcortical Segmentations"),
             )
 
         report_gen.scan_for_data()

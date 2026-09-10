@@ -1,57 +1,111 @@
 ---
 layout: installation
-title: Python Loader / CLI Entrypoint
+title: Command-line launcher
 permalink: /installation/bash-cli/
 ---
 
-The Python loader is the command-line way to start the TI-Toolbox containers. It is the same
-Docker stack the [desktop application]({{ site.baseurl }}/wiki/desktop-app/) launches, without the
-launcher window.
+Open TI-Toolbox in your browser from a terminal. Install and start Docker first.
 
-## Installation Steps
+## Requirements
 
-### Step 1: Download Required Files
+- **Bash:** Docker, Docker Compose and curl. No host Python is needed.
+- **Python:** Docker and Python 3.11 or newer.
 
-Download both files into the **same folder**:
+The scientific tools run inside Docker; you do not need to install SimNIBS separately.
 
-- **[loader.py](https://github.com/idossha/TI-toolbox/blob/main/loader.py)** — launch script (Python 3, standard library only)
-- **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)** — Docker service definitions (`idossha/simnibs:v2.4.0` and `idossha/ti-toolbox_freesurfer:v7.4.1`)
+## Launch
 
-`loader.py` refuses to start if `docker-compose.yml` is not next to it.
+Download **one launcher** — [loader.py](https://raw.githubusercontent.com/idossha/TI-Toolbox/release/3.0.0/loader.py)
+or [loader.sh](https://raw.githubusercontent.com/idossha/TI-Toolbox/release/3.0.0/loader.sh) — plus
+[docker-compose.yml](https://raw.githubusercontent.com/idossha/TI-Toolbox/release/3.0.0/docker-compose.yml).
+Keep these **two files in the same folder**, with their filenames unchanged. If a link opens as text,
+use **Save As** (without adding `.txt`). No repository checkout is needed: regular launches use
+the code already inside the image and mount your project data without replacing that code.
 
-## Usage
-
-### Basic Launch
+Open a terminal in that folder and run **one** launcher:
 
 ```bash
 python3 loader.py
-# or skip the project-directory prompt:
-python3 loader.py --project-dir /path/to/my_project
 ```
 
-`--project-dir` is the only command-line option. The script then:
-
-1. **Checks the host** — Docker is installed, the daemon is running, and Docker Compose v2 is available. On macOS it also checks XQuartz/`xhost`; on Windows it reminds you to start an X server (VcXsrv) with "Disable access control" checked.
-2. **Asks for the project directory** — the folder that will be mounted into the container as `/mnt/<project_name>`. The answer is remembered in `.default_paths.user` next to `loader.py`, so the next launch only asks you to confirm it. An empty folder is initialised as a new BIDS project.
-3. **Pulls the Docker images** on first run (several GB) and starts the services with `docker compose up -d`. Older FreeSurfer data volumes from previous image versions are pruned automatically.
-4. **Initialises the project inside the container** (creates `code/ti-toolbox/config/`, `sourcedata/`, `derivatives/SimNIBS/` and `derivatives/freesurfer/`).
-5. **Attaches you to a shell** inside `simnibs_container`. When you `exit` that shell, the loader runs `docker compose down` and stops both containers.
-
-### Inside the container
-
-You land in `bash` as root. Your project is at `/mnt/<project_name>` and SimNIBS 4.6 (`simnibs_python`, gmsh), FreeSurfer 7.4.1, dcm2niix, Blender (as the `bpy` Python module) and the `tit` package are available.
-
-Two shell aliases are defined:
+or, on macOS/Linux:
 
 ```bash
-GUI        # simnibs_python -m tit.gui.main   → the main TI-Toolbox window (needs an X server)
-NOTEBOOK   # JupyterLab on http://localhost:8888 (no token; served from /mnt)
+bash loader.sh
 ```
 
-### Attaching a second terminal
+Enter your project directory when prompted; TI-Toolbox opens in your browser.
+Python needs version 3.11+; Bash needs curl and Docker Compose.
 
-The loader keeps the containers running only while its shell is open. To open another shell in parallel (for example to run a script while the GUI is up):
+These downloads are the v3 preview. The first launch needs an internet connection to prepare
+the launcher and download the toolbox image. To choose a project directly:
 
 ```bash
-docker exec -it simnibs_container bash
+python3 loader.py --project /path/to/project
 ```
+
+## Existing containers
+
+If a TI-Toolbox container is already running, select it and choose:
+
+- **Recreate (default):** stop and remove the selected container, then start your requested
+  project. Any jobs in that container stop; project files are preserved.
+- **Attach:** open the existing container with its current project and version.
+
+Press Ctrl-C to cancel without changing anything. Legacy v2 containers cannot attach to
+the v3 interface.
+
+## Stop or check a session
+
+Closing the browser **leaves the container running**. To stop it:
+
+```bash
+python3 loader.py --project /path/to/project --stop
+```
+
+Use `--status` to check the session or `--logs` to see its log:
+
+```bash
+python3 loader.py --project /path/to/project --status
+python3 loader.py --project /path/to/project --logs
+```
+
+The Bash launcher accepts the same options. For all options, run `python3 loader.py --help`
+or `bash loader.sh --help`.
+
+## Over SSH
+
+On the remote host, start without opening a browser:
+
+```bash
+python3 loader.py --project /path/to/project --no-open
+```
+
+Forward the printed port from your computer (8765 in this example):
+
+```bash
+ssh -N -L 8765:127.0.0.1:8765 you@remote-host
+```
+
+Open the launcher's authenticated URL locally using `127.0.0.1:8765`. Keep its session
+token private.
+
+## What is different in a browser
+
+The browser has the same scientific tools, jobs, notebooks and viewer. File exports use
+browser downloads, and notifications appear in the app. Choose the project through the
+loader; native folder picking, project switching and file-manager integration are available
+in the desktop app.
+
+## Troubleshooting
+
+Check that Docker is running. If startup fails, inspect `--logs` and visit the
+[troubleshooting guide]({{ site.baseurl }}/installation/troubleshooting/).
+
+<a id="run-the-latest-unreleased-version"></a>
+<a id="develop-from-source"></a>
+<a id="build-a-development-image"></a>
+<a id="advanced-native-without-docker"></a>
+
+Source builds, developer loaders, custom images and automation are covered in
+[Development & Testing]({{ site.baseurl }}/wiki/development/).

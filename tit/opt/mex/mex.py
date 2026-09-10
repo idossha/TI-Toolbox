@@ -11,9 +11,13 @@ from pathlib import Path
 
 
 from tit.logger import add_file_handler
+from tit.opt.masks import validate_mask_paths
 from tit.opt.config import MExConfig, MExResult
 from tit.opt.ex.results import process_and_save
-from tit.opt.ex.roi import atlas_roi_entries, mni_roi_files_to_subject_space
+from tit.opt.ex.roi import (
+    atlas_roi_entries,
+    mni_roi_files_to_subject_space,
+)
 from tit.opt.ex.symmetry import build_symmetry_mirror_map
 from tit.paths import get_path_manager
 
@@ -27,6 +31,7 @@ def run_m_ex_search(config: MExConfig) -> MExResult:
 
 
 def _run_m_ex_search_inner(config: MExConfig) -> MExResult:
+    validate_mask_paths(config)
     pm = get_path_manager()
 
     logs_dir = pm.logs(config.subject_id)
@@ -80,9 +85,7 @@ def _run_m_ex_search_inner(config: MExConfig) -> MExResult:
             symmetry_mirror_map=symmetry_mirror_map,
             symmetry_pairing=config.symmetry_pairing,
         )
-        raise ValueError(
-            f"m-ex-search has no candidate montages to evaluate: {reason}"
-        )
+        raise ValueError(f"m-ex-search has no candidate montages to evaluate: {reason}")
     logger.info("Candidate montages: %d", n_candidates)
 
     os.makedirs(output_dir, exist_ok=True)
@@ -102,7 +105,9 @@ def _run_m_ex_search_inner(config: MExConfig) -> MExResult:
     if len(roi_files) > 1:
         logger.info("Combining %d ROIs into one target: %s", len(roi_files), roi_names)
 
-    atlas_entries = atlas_roi_entries(config)
+    atlas_entries = atlas_roi_entries(
+        config, pm.m2m(config.subject_id), os.path.join(output_dir, "masks")
+    )
     if atlas_entries:
         logger.info("Adding %d atlas ROI target(s)", len(atlas_entries))
         roi_files = roi_files + atlas_entries
@@ -112,9 +117,7 @@ def _run_m_ex_search_inner(config: MExConfig) -> MExResult:
         pm.leadfields(config.subject_id), config.leadfield_hdf
     )
 
-    engine = MExSearchEngine(
-        leadfield_path, roi_target, config.roi_name, logger
-    )
+    engine = MExSearchEngine(leadfield_path, roi_target, config.roi_name, logger)
     engine.initialize(roi_radius=config.roi_radius)
     results = engine.run(
         buckets_or_pool,

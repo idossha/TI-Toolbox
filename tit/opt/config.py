@@ -177,6 +177,19 @@ class FlexConfig:
     avoid_landmark_regions : bool
         If True, positive skin-region margins keep fiducial-derived
         ear and orbital exclusion regions invalid.
+    mode : Mode
+        Which driver runs this config: a single run (``"flex"``, the
+        default), :func:`tit.opt.flex.drivers.run_adaptive_focality`
+        (``"flex_adaptive"``), or :func:`tit.opt.flex.drivers.run_pareto_sweep`
+        (``"flex_pareto"``). Set by the job kind
+        (``tit.jobs.kinds.MODULE_FOR_KIND``); ``tit.opt.flex.__main__``
+        dispatches on it.
+    adaptive : AdaptiveFocalityConfig or None
+        Threshold percentages for ``mode="flex_adaptive"``. Defaulted when
+        left ``None`` under that mode.
+    pareto : ParetoSweepConfig or None
+        Threshold percentage grid for ``mode="flex_pareto"``. Defaulted
+        when left ``None`` under that mode.
 
     Raises
     ------
@@ -187,9 +200,11 @@ class FlexConfig:
         *ratio_levels* is below 2 while *optimize_current_ratio* is True,
         if *ratio_total_mA* is set but not positive, if
         *optimize_current_ratio* is combined with ``goal="focality"``
-        without explicit *thresholds*, or if *detailed_results* is
+        without explicit *thresholds*, if *detailed_results* is
         combined with a callable-goal configuration
-        (``goal="focality_tf"`` or *optimize_current_ratio*).
+        (``goal="focality_tf"`` or *optimize_current_ratio*), or if *mode*
+        is ``"flex_adaptive"``/``"flex_pareto"`` while *goal* is not
+        ``"focality"``.
 
     See Also
     --------
@@ -256,6 +271,123 @@ class FlexConfig:
 
         EVERYTHING_ELSE = "everything_else"
         SPECIFIC = "specific"
+
+    class Mode(StrEnum):
+        """Which flex-search driver runs this config (``tit.jobs.kinds.MODULE_FOR_KIND``
+        maps ``flex``/``flex_adaptive``/``flex_pareto`` job kinds to this same module;
+        ``tit.opt.flex.__main__`` dispatches on this field to pick the driver).
+
+        Attributes
+        ----------
+        FLEX : str
+            A single :func:`~tit.opt.flex.flex.run_flex_search` run (any goal).
+        FLEX_ADAPTIVE : str
+            Two-step adaptive focality: a ``"mean"`` run to find the achievable ROI
+            intensity, then a ``"focality"`` run with thresholds derived from
+            :attr:`FlexConfig.adaptive`. Requires ``goal="focality"``.
+        FLEX_PARETO : str
+            A ``"mean"`` calibration run followed by a grid of ``"focality"`` runs
+            over :attr:`FlexConfig.pareto`'s threshold percentages. Requires
+            ``goal="focality"``.
+        """
+
+        FLEX = "flex"
+        FLEX_ADAPTIVE = "flex_adaptive"
+        FLEX_PARETO = "flex_pareto"
+
+    # ── Nested driver configs (adaptive / Pareto sweep) ────────────────
+
+    @dataclass
+    class AdaptiveFocalityConfig:
+        """Thresholds for :func:`tit.opt.flex.drivers.run_adaptive_focality`.
+
+        Both percentages are applied to the achievable mean ROI intensity found by
+        the driver's own step-1 ``"mean"`` optimization run -- never to a value the
+        caller supplies directly, since that intensity is subject- and ROI-specific
+        and cannot be known ahead of time.
+
+        Attributes
+        ----------
+        roi_percentage : float
+            ROI focality threshold, as a percentage (0-100 exclusive) of the
+            achievable mean ROI intensity.
+        nonroi_percentage : float
+            Non-ROI focality threshold, as a percentage (0-100 exclusive) of the
+            same achievable intensity. Must be strictly less than
+            *roi_percentage*.
+
+        Raises
+        ------
+        ValueError
+            If either percentage is outside ``(0, 100)``, or if
+            *nonroi_percentage* is not strictly less than *roi_percentage*.
+        """
+
+        roi_percentage: float = 80.0
+        nonroi_percentage: float = 20.0
+
+        def __post_init__(self):
+            self.roi_percentage = float(self.roi_percentage)
+            self.nonroi_percentage = float(self.nonroi_percentage)
+            for name, value in (
+                ("roi_percentage", self.roi_percentage),
+                ("nonroi_percentage", self.nonroi_percentage),
+            ):
+                if not (0.0 < value < 100.0):
+                    raise ValueError(f"{name} must be in (0, 100) (was {value})")
+            if self.nonroi_percentage >= self.roi_percentage:
+                raise ValueError(
+                    "nonroi_percentage must be less than roi_percentage (got "
+                    f"nonroi_percentage={self.nonroi_percentage}, "
+                    f"roi_percentage={self.roi_percentage})"
+                )
+
+    @dataclass
+    class ParetoSweepConfig:
+        """Threshold grid for :func:`tit.opt.flex.drivers.run_pareto_sweep`.
+
+        The driver runs one ``"focality"`` optimization per (roi_pct, nonroi_pct)
+        combination in the Cartesian product of *roi_pcts* and *nonroi_pcts| --
+        ``len(roi_pcts) * len(nonroi_pcts)`` runs total, in addition to the single
+        step-1 ``"mean"`` calibration run. See
+        :func:`tit.opt.flex.pareto.compute_sweep_grid`.
+
+        Attributes
+        ----------
+        roi_pcts : list of float
+            ROI threshold percentages to sweep (each in ``(0, 100)``).
+        nonroi_pcts : list of float
+            Non-ROI threshold percentages to sweep (each in ``(0, 100)``).
+
+        Raises
+        ------
+        ValueError
+            If either list is empty, if any value falls outside ``(0, 100)``,
+            or if any ``(roi_pct, nonroi_pct)`` combination has
+            ``nonroi_pct >= roi_pct``.
+        """
+
+        roi_pcts: list[float] = field(default_factory=lambda: [80.0])
+        nonroi_pcts: list[float] = field(default_factory=lambda: [20.0, 30.0, 40.0])
+
+        def __post_init__(self):
+            self.roi_pcts = [float(v) for v in _as_list(self.roi_pcts)]
+            self.nonroi_pcts = [float(v) for v in _as_list(self.nonroi_pcts)]
+            for name, values in (
+                ("roi_pcts", self.roi_pcts),
+                ("nonroi_pcts", self.nonroi_pcts),
+            ):
+                if not values:
+                    raise ValueError(f"{name} must be non-empty")
+                for v in values:
+                    if not (0.0 < v < 100.0):
+                        raise ValueError(f"{name} value {v} out of range (0, 100)")
+            bad = [(r, n) for r in self.roi_pcts for n in self.nonroi_pcts if n >= r]
+            if bad:
+                raise ValueError(
+                    "nonroi_pcts must be strictly less than roi_pcts for every "
+                    f"combination; invalid pairs: {bad}"
+                )
 
     # ── Nested ROI types ──────────────────────────────────────────────
 
@@ -387,7 +519,7 @@ class FlexConfig:
         atlas_path : str or list of str
             Path(s) to the volumetric atlas NIfTI file(s).
         label : int or list of int
-            Integer label index/indices within the volumetric atlas.
+            Integer label index/indices, or None to select all positive mask voxels.
         tissues : str
             Tissue compartments to include.  One of ``"GM"``, ``"WM"``,
             or ``"both"``.
@@ -403,11 +535,13 @@ class FlexConfig:
         """
 
         atlas_path: str | list[str]
-        label: int | list[int]
+        label: int | list[int] | None
         tissues: str = "GM"  # "GM", "WM", or "both"
         atlas_space: Literal["subject", "mni"] = "subject"
 
         def __post_init__(self):
+            if self.label is None and not isinstance(self.atlas_path, str):
+                raise ValueError("A whole-file mask requires one atlas_path")
             n = len(_as_list(self.label))
             if n == 0:
                 raise ValueError("SubcorticalROI label must be non-empty")
@@ -490,6 +624,11 @@ class FlexConfig:
     skin_region_margin_mm: float = 0.0
     avoid_landmark_regions: bool = True
 
+    # ── driver dispatch (tit.opt.flex.__main__ / tit.opt.flex.drivers) ──
+    mode: Mode = Mode.FLEX
+    adaptive: "FlexConfig.AdaptiveFocalityConfig | None" = None
+    pareto: "FlexConfig.ParetoSweepConfig | None" = None
+
     def __post_init__(self):
         if isinstance(self.goal, str):
             self.goal = FlexConfig.OptGoal(self.goal)
@@ -497,6 +636,23 @@ class FlexConfig:
             self.postproc = FlexConfig.FieldPostproc(self.postproc)
         if isinstance(self.non_roi_method, str):
             self.non_roi_method = FlexConfig.NonROIMethod(self.non_roi_method)
+        if isinstance(self.mode, str):
+            self.mode = FlexConfig.Mode(self.mode)
+        if isinstance(self.adaptive, dict):
+            self.adaptive = FlexConfig.AdaptiveFocalityConfig(**self.adaptive)
+        if isinstance(self.pareto, dict):
+            self.pareto = FlexConfig.ParetoSweepConfig(**self.pareto)
+        if self.mode is not FlexConfig.Mode.FLEX:
+            if self.goal is not FlexConfig.OptGoal.FOCALITY:
+                raise ValueError(
+                    f"mode={self.mode.value!r} requires goal='focality' (the "
+                    "ROC threshold-based goal both driver workflows compute "
+                    f"thresholds for); got goal={self.goal.value!r}"
+                )
+            if self.mode is FlexConfig.Mode.FLEX_ADAPTIVE and self.adaptive is None:
+                self.adaptive = FlexConfig.AdaptiveFocalityConfig()
+            if self.mode is FlexConfig.Mode.FLEX_PARETO and self.pareto is None:
+                self.pareto = FlexConfig.ParetoSweepConfig()
         # Any focality goal (ROC or threshold-free) needs a non-ROI region; default to
         # "everything else" so a config that omits the method still runs.
         if self.is_focality and self.non_roi_method is None:
@@ -655,7 +811,7 @@ class ExConfig:
         Space of the *roi_name*/*roi_names* CSV centers -- ``"subject"``
         (default) or ``"mni"``.  MNI centers are transformed to subject
         space with ``simnibs.mni2subject_coords`` before the search runs.
-        Does not affect *roi_atlas*, which is always subject space.
+        Does not affect *roi_atlas*, which declares its own atlas_space.
     electrodes : BucketElectrodes or PoolElectrodes
         Electrode specification, either a single shared pool
         (:class:`PoolElectrodes`) or separate per-channel buckets
@@ -721,6 +877,11 @@ class ExConfig:
 
         atlas_path: str
         label: int | None = None
+        atlas_space: Literal["subject", "mni"] = "subject"
+
+        def __post_init__(self):
+            if self.atlas_space not in ("subject", "mni"):
+                raise ValueError("atlas_space must be subject or mni")
 
     # ── Nested electrode types ─────────────────────────────────────────
     @dataclass
@@ -905,7 +1066,7 @@ class MExConfig:
         Space of the *roi_name* CSV center -- ``"subject"`` (default) or
         ``"mni"``.  An MNI center is transformed to subject space with
         ``simnibs.mni2subject_coords`` before the search runs.  Does not
-        affect *roi_atlas*, which is always subject space.
+        affect *roi_atlas*, which declares its own atlas_space.
     run_name : str or None
         Optional name for this run.  Defaults to a datetime stamp.
     n_jobs : int
@@ -958,6 +1119,11 @@ class MExConfig:
 
         atlas_path: str
         label: int | None = None
+        atlas_space: Literal["subject", "mni"] = "subject"
+
+        def __post_init__(self):
+            if self.atlas_space not in ("subject", "mni"):
+                raise ValueError("atlas_space must be subject or mni")
 
     # ── Nested electrode types ─────────────────────────────────────────
     @dataclass
@@ -1091,6 +1257,7 @@ class MExResult:
 #: Exhaustive-search modes. ``TI`` searches two bipolar pairs, ``mTI`` four.
 SEARCH_MODE_TI = "TI"
 SEARCH_MODE_MTI = "mTI"
+
 
 def search_backend_for_mode(mode):
     """Return ``(module path, config class)`` for an exhaustive-search mode.

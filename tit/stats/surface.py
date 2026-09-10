@@ -35,7 +35,14 @@ from tit.source.config import VALID_FSAVG_FIELDS
 from tit.source.fsaverage import _output_path
 
 from .config import CorrelationResult, GroupComparisonResult
-from .engine import correlation, pval_from_histogram, ttest_ind, ttest_rel
+from .engine import (
+    correlation,
+    pval_from_histogram,
+    tail_from_alternative,
+    tail_statistic,
+    ttest_ind,
+    ttest_rel,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -115,21 +122,85 @@ def _faces_to_adjacency(faces: np.ndarray, n_nodes: int):
     return adj
 
 
+def _load_fsaverage_mesh_bundled(spacing: int):
+    """Load lh/rh (coords, faces) from the vendored ``resources/fsaverage/``.
+
+    Returns ``None`` (never raises) when the bundled directory is absent, so
+    :func:`build_fsaverage_adjacency` can fall through to the nilearn
+    download -- e.g. a dev checkout that hasn't vendored the resource.
+    """
+    import os
+
+    import nibabel as nib
+
+    from tit.paths import resolve_resource_path
+
+    mesh_dir = resolve_resource_path("fsaverage", str(spacing))
+    lh_path = os.path.join(mesh_dir, "lh.central.gii")
+    rh_path = os.path.join(mesh_dir, "rh.central.gii")
+    if not (os.path.isfile(lh_path) and os.path.isfile(rh_path)):
+        return None
+
+    lh = nib.load(lh_path)
+    rh = nib.load(rh_path)
+    coords_l, faces_l = lh.darrays[0].data, lh.darrays[1].data
+    coords_r, faces_r = rh.darrays[0].data, rh.darrays[1].data
+    return coords_l, faces_l, coords_r, faces_r
+
+
+def _load_fsaverage_mesh_nilearn(spacing: int):
+    """Load lh/rh (coords, faces) via nilearn's runtime-downloaded fsaverage.
+
+    Fallback for a host without the vendored ``resources/fsaverage/``
+    directory (see :func:`_load_fsaverage_mesh_bundled`). Requires nilearn
+    and network access on first call (nilearn caches the download under
+    ``~/nilearn_data/`` after that).
+    """
+    from nilearn import datasets, surface
+
+    fs = datasets.fetch_surf_fsaverage(f"fsaverage{spacing}")
+    coords_l, faces_l = surface.load_surf_mesh(fs["pial_left"])
+    coords_r, faces_r = surface.load_surf_mesh(fs["pial_right"])
+    return coords_l, faces_l, coords_r, faces_r
+
+
 def build_fsaverage_adjacency(spacing: int):
     """Block-diagonal lh+rh fsaverage vertex adjacency (cached per spacing).
 
     No edges cross the hemisphere boundary, so a slow-wave cluster can never
     bridge the two hemispheres through a spurious midline edge -- matching the
     ``[lh; rh]`` node ordering the field caches are written in.
+
+    Mesh source, tried in order (see ``resources/fsaverage/README.md`` for
+    why the bundled source is preferred on correctness grounds, not just to
+    avoid a download): the vendored ``resources/fsaverage/{spacing}/`` GIFTI
+    surfaces (SimNIBS's own bundled fsaverage -- the same source
+    :func:`tit.source.fsaverage._compute_fields` projects each subject's
+    fields onto, via SimNIBS's ``cross_subject_map``); then nilearn's
+    ``fetch_surf_fsaverage`` (a runtime download, the previous sole
+    behavior); a :class:`RuntimeError` naming both failed sources if
+    neither is available.
     """
     if spacing in _ADJ_CACHE:
         return _ADJ_CACHE[spacing]
-    from nilearn import datasets, surface
     from scipy import sparse
 
-    fs = datasets.fetch_surf_fsaverage(f"fsaverage{spacing}")
-    coords_l, faces_l = surface.load_surf_mesh(fs["pial_left"])
-    coords_r, faces_r = surface.load_surf_mesh(fs["pial_right"])
+    mesh = _load_fsaverage_mesh_bundled(spacing)
+    source = "bundled resources/fsaverage"
+    if mesh is None:
+        try:
+            mesh = _load_fsaverage_mesh_nilearn(spacing)
+            source = "nilearn fetch_surf_fsaverage"
+        except Exception as exc:
+            raise RuntimeError(
+                f"No fsaverage{spacing} mesh available: bundled "
+                f"resources/fsaverage/{spacing}/ is missing, and the "
+                f"nilearn fallback failed ({exc!r}). Vendor the resource "
+                "(see resources/fsaverage/README.md) or ensure network "
+                "access for nilearn's one-time download."
+            ) from exc
+
+    coords_l, faces_l, coords_r, faces_r = mesh
     adj = sparse.block_diag(
         [
             _faces_to_adjacency(faces_l, len(coords_l)),
@@ -139,7 +210,7 @@ def build_fsaverage_adjacency(spacing: int):
     if adj.shape[0] != _FSAVG_NODES[spacing]:
         raise ValueError(
             f"fsaverage{spacing} adjacency has {adj.shape[0]} nodes, "
-            f"expected {_FSAVG_NODES[spacing]}"
+            f"expected {_FSAVG_NODES[spacing]} (mesh source: {source})"
         )
     _ADJ_CACHE[spacing] = adj
     return adj
@@ -158,25 +229,45 @@ def _label_graph(mask: np.ndarray, adjacency):
     return labels, n_comp
 
 
+def _label_graph_signed(mask, t_full, adjacency, alternative):
+    """Surface twin of :func:`tit.stats.engine.label_signed`.
+
+    Two touching supra-threshold patches of opposite ``t`` sign are two
+    clusters, not one: fusing them makes the signed mass their difference.
+    """
+    if alternative == "greater":
+        return _label_graph(mask & (t_full > 0), adjacency)
+    if alternative == "less":
+        return _label_graph(mask & (t_full < 0), adjacency)
+    pos, n_pos = _label_graph(mask & (t_full > 0), adjacency)
+    neg, n_neg = _label_graph(mask & (t_full < 0), adjacency)
+    if n_neg:
+        sel = neg > 0
+        pos[sel] = neg[sel] + n_pos
+    return pos, n_pos + n_neg
+
+
 def _cluster_sizes_masses(labels, n, t_full):
     sizes = np.bincount(labels, minlength=n + 1)[1:]
     masses = np.bincount(labels, weights=t_full, minlength=n + 1)[1:]
     return sizes, masses
 
 
-def _max_cluster_stat(labels, n, t_full, cluster_stat):
-    """Max stat over multi-vertex clusters (singletons ignored, like the engine)."""
+def _max_cluster_stat(labels, n, t_full, cluster_stat, tail=0):
+    """Max *oriented* stat over multi-vertex clusters (singletons ignored).
+
+    Mirrors the engine: the null is a distribution of maxima, so the statistic
+    must be monotone in extremeness (see
+    :func:`tit.stats.engine.tail_statistic`).
+    """
     if n == 0:
         return 0.0
     sizes, masses = _cluster_sizes_masses(labels, n, t_full)
     multi = sizes > 1
     if not np.any(multi):
         return 0.0
-    return (
-        float(sizes[multi].max())
-        if cluster_stat == "size"
-        else float(masses[multi].max())
-    )
+    stats = tail_statistic(sizes, masses, cluster_stat, tail)
+    return float(stats[multi].max())
 
 
 def _null_threshold(null, alpha, n_permutations):
@@ -186,15 +277,6 @@ def _null_threshold(null, alpha, n_permutations):
     sorted_null = np.sort(null)[::-1]
     ti = max(1, min(int(alpha * n_permutations), len(sorted_null)))
     return float(sorted_null[ti - 1])
-
-
-def _forming_mask(t_full, p_full, valid_mask, threshold, alternative):
-    mask = (p_full < threshold) & valid_mask
-    if alternative == "greater":
-        mask &= t_full > 0
-    elif alternative == "less":
-        mask &= t_full < 0
-    return mask
 
 
 def _identify_surface_clusters(
@@ -210,8 +292,8 @@ def _identify_surface_clusters(
     r_full=None,
 ):
     """Surface twin of engine._identify_significant_clusters."""
-    mask = _forming_mask(t_full, p_full, valid_mask, threshold, alternative)
-    labels, n = _label_graph(mask, adjacency)
+    mask = (p_full < threshold) & valid_mask
+    labels, n = _label_graph_signed(mask, t_full, adjacency, alternative)
     sig_mask = np.zeros(t_full.shape[0], dtype=int)
     if n == 0:
         return sig_mask, [], []
@@ -229,9 +311,17 @@ def _identify_surface_clusters(
     if not info:
         return sig_mask, [], []
 
-    stat_values = np.array([sv for _, _, sv in info])
-    tail = {"greater": 1, "less": -1}.get(alternative, 0)
-    pvals = pval_from_histogram(stat_values, null_stats, tail=tail)
+    tail = tail_from_alternative(alternative)
+    tail_stats = np.array(
+        [
+            float(tail_statistic([size], [sv], "mass", tail)[0])
+            if cluster_stat != "size"
+            else float(size)
+            for _, size, sv in info
+        ]
+    )
+    # ``null_stats`` already holds oriented maxima -> always right-tailed.
+    pvals = pval_from_histogram(tail_stats, null_stats, tail=1)
 
     all_observed = [
         {"id": cid, "size": size, "stat_value": sv, "p_value": float(p)}
@@ -366,11 +456,10 @@ def run_surface_correlation(
             raise KeyboardInterrupt("stopped")
         order = rng.permutation(len(ids))
         _, pt, pp = _maps(effect[order], None if weights is None else weights[order])
-        labels, n = _label_graph(
-            _forming_mask(pt, pp, valid_mask, config.cluster_threshold, "two-sided"),
-            adjacency,
+        labels, n = _label_graph_signed(
+            (pp < config.cluster_threshold) & valid_mask, pt, adjacency, "two-sided"
         )
-        null[i] = _max_cluster_stat(labels, n, pt, config.cluster_stat.value)
+        null[i] = _max_cluster_stat(labels, n, pt, config.cluster_stat.value, tail=0)
 
     sig_mask, sig_clusters, observed = _identify_surface_clusters(
         t_full,
@@ -484,11 +573,12 @@ def run_surface_group_comparison(
         else:
             perm = data_valid[:, rng.permutation(n_total)]
         pt, pp = _maps(perm)
-        labels, n = _label_graph(
-            _forming_mask(pt, pp, valid_mask, config.cluster_threshold, alt),
-            adjacency,
+        labels, n = _label_graph_signed(
+            (pp < config.cluster_threshold) & valid_mask, pt, adjacency, alt
         )
-        null[i] = _max_cluster_stat(labels, n, pt, config.cluster_stat.value)
+        null[i] = _max_cluster_stat(
+            labels, n, pt, config.cluster_stat.value, tail=tail_from_alternative(alt)
+        )
 
     sig_mask, sig_clusters, observed = _identify_surface_clusters(
         t_full,

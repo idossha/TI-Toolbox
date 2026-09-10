@@ -1,0 +1,5 @@
+2026-08-27 09:00:00 INFO tit.jobs.runner starting job
+2026-08-27 09:00:01 INFO tit.sim.simulator loading mesh ernie.msh
+2026-08-27 09:00:04 INFO tit.sim.simulator FEM solve pair 1/1
+2026-08-27 09:00:12 INFO tit.sim.simulator writing TI_max overlays
+2026-08-27 09:00:13 INFO tit.jobs.runner job finished exit_code=0

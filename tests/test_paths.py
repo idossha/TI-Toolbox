@@ -275,6 +275,18 @@ class TestSubjectLevelPaths:
             root, "derivatives", "freesurfer", "sub-001", "mri"
         )
 
+    def test_fastsurfer_subject(self, pm):
+        p, root = pm
+        assert p.fastsurfer_subject("001") == os.path.join(
+            root, "derivatives", "fastsurfer", "sub-001"
+        )
+
+    def test_fastsurfer_mri(self, pm):
+        p, root = pm
+        assert p.fastsurfer_mri("001") == os.path.join(
+            root, "derivatives", "fastsurfer", "sub-001", "mri"
+        )
+
     def test_qsiprep_subject(self, pm):
         p, root = pm
         assert p.qsiprep_subject("001") == os.path.join(
@@ -737,3 +749,188 @@ class TestListOSErrorBranches:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+# ---------------------------------------------------------------------------
+# list_bids_subjects / list_freesurfer_subjects — sub-* dirs, natural sort
+# ---------------------------------------------------------------------------
+
+
+class TestListBidsAndFreesurferSubjects:
+    def test_bids_subjects_natural_sort_and_ignores_files(self, tmp_path):
+        root = _make_project(tmp_path)
+        for sid in ("10", "2", "1"):
+            (pathlib.Path(root) / f"sub-{sid}" / "anat").mkdir(parents=True)
+        (pathlib.Path(root) / "sub-file").write_text("not a dir")
+        (pathlib.Path(root) / "dataset_description.json").write_text("{}")
+        pm = PathManager(project_dir=root)
+        assert pm.list_bids_subjects() == ["1", "2", "10"]
+
+    def test_freesurfer_subjects_ignore_fsaverage(self, tmp_path):
+        root = _make_project(tmp_path)
+        fs = pathlib.Path(root) / "derivatives" / "freesurfer"
+        (fs / "sub-002" / "mri").mkdir(parents=True)
+        (fs / "sub-001").mkdir()
+        (fs / "fsaverage").mkdir()
+        pm = PathManager(project_dir=root)
+        assert pm.list_freesurfer_subjects() == ["001", "002"]
+
+    def test_fastsurfer_subjects_natural_sort(self, tmp_path):
+        root = _make_project(tmp_path)
+        fs = pathlib.Path(root) / "derivatives" / "fastsurfer"
+        (fs / "sub-010" / "mri").mkdir(parents=True)
+        (fs / "sub-2").mkdir()
+        pm = PathManager(project_dir=root)
+        assert pm.list_fastsurfer_subjects() == ["2", "010"]
+
+    def test_fastsurfer_and_freesurfer_listings_are_independent(self, tmp_path):
+        """A legacy recon-all project lists under freesurfer only, and vice versa."""
+        root = _make_project(tmp_path)
+        (pathlib.Path(root) / "derivatives" / "freesurfer" / "sub-old").mkdir(
+            parents=True
+        )
+        (pathlib.Path(root) / "derivatives" / "fastsurfer" / "sub-new").mkdir(
+            parents=True
+        )
+        pm = PathManager(project_dir=root)
+        assert pm.list_freesurfer_subjects() == ["old"]
+        assert pm.list_fastsurfer_subjects() == ["new"]
+
+    def test_empty_when_dirs_missing_or_project_unset(self, tmp_path):
+        root = tmp_path / "bare"
+        root.mkdir()
+        pm = PathManager(project_dir=str(root))
+        assert pm.list_bids_subjects() == []
+        assert pm.list_freesurfer_subjects() == []
+        assert pm.list_fastsurfer_subjects() == []
+        assert pm.list_simnibs_subjects() == []
+        unset = PathManager()
+        unset._project_dir = None
+        assert unset.list_bids_subjects() == []
+        assert unset.list_freesurfer_subjects() == []
+        assert unset.list_fastsurfer_subjects() == []
+
+
+# ---------------------------------------------------------------------------
+# resolve_resources_dir / resolve_resource_path (N0.6 spike)
+# ---------------------------------------------------------------------------
+
+from tit import paths as _paths_module  # noqa: E402
+from tit.paths import resolve_resource_path, resolve_resources_dir  # noqa: E402
+
+
+class TestResolveResourcesDir:
+    def test_checkout_relative_fallback_is_the_real_repo_resources_dir(
+        self, monkeypatch
+    ):
+        """No env override and no container layout: resolution must land on this checkout's own
+        resources/ directory, which genuinely exists on disk -- not just a plausible-looking
+        string.
+
+        The absence of /ti-toolbox is asserted as a *premise*, not inherited from the host: inside
+        the Docker image that directory really exists (the baked copy of the checkout), and the
+        rule under test is the third candidate, which only applies when the second is absent.
+        """
+        real_isdir = os.path.isdir
+
+        def no_container_layout(path):
+            if path == "/ti-toolbox/resources":
+                return False
+            return real_isdir(path)
+
+        monkeypatch.setattr(_paths_module.os.path, "isdir", no_container_layout)
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("TIT_RESOURCES_DIR", None)
+            resolved = resolve_resources_dir()
+        # In CI the checkout itself is /ti-toolbox, so the fallback and masked
+        # container candidate coincide. Verify existence with the real filesystem.
+        assert real_isdir(resolved)
+        assert os.path.basename(resolved) == "resources"
+        # Two levels above tit/paths.py is the repo root.
+        repo_root = os.path.dirname(
+            os.path.dirname(os.path.abspath(_paths_module.__file__))
+        )
+        assert resolved == os.path.join(repo_root, "resources")
+
+    def test_env_override_wins_when_set_and_a_real_directory(
+        self, tmp_path, monkeypatch
+    ):
+        monkeypatch.setenv("TIT_RESOURCES_DIR", str(tmp_path))
+        assert resolve_resources_dir() == str(tmp_path)
+
+    def test_env_override_ignored_when_it_does_not_exist(self, tmp_path, monkeypatch):
+        """A stale/typo'd TIT_RESOURCES_DIR must not silently win over a real directory --
+        falls through to the next candidate instead of returning a nonexistent path."""
+        monkeypatch.setenv("TIT_RESOURCES_DIR", str(tmp_path / "does-not-exist"))
+        resolved = resolve_resources_dir()
+        assert resolved != str(tmp_path / "does-not-exist")
+        assert os.path.isdir(resolved)
+
+    def test_container_layout_wins_over_checkout_when_present(
+        self, tmp_path, monkeypatch
+    ):
+        """Simulates the Docker image's own /ti-toolbox/resources layout by monkeypatching
+        os.path.isdir rather than requiring root to actually create /ti-toolbox on this host.
+        """
+        monkeypatch.delenv("TIT_RESOURCES_DIR", raising=False)
+        real_isdir = os.path.isdir
+
+        def fake_isdir(path):
+            if path == "/ti-toolbox/resources":
+                return True
+            return real_isdir(path)
+
+        monkeypatch.setattr(_paths_module.os.path, "isdir", fake_isdir)
+        assert resolve_resources_dir() == "/ti-toolbox/resources"
+
+    def test_resolve_resource_path_joins_onto_the_resources_dir(
+        self, monkeypatch, tmp_path
+    ):
+        monkeypatch.setenv("TIT_RESOURCES_DIR", str(tmp_path))
+        assert resolve_resource_path("amv", "GSN-256.csv") == os.path.join(
+            str(tmp_path), "amv", "GSN-256.csv"
+        )
+
+
+class TestSubjectIdGrammar:
+    """RUN-05: one documented grammar, enforced wherever an id becomes a path component."""
+
+    def test_accepts_the_ids_real_datasets_use(self, tmp_path):
+        pm = PathManager(str(tmp_path))
+        for sid in ("001", "01", "ernie", "sub-01", "P_01", "ernie_extended", "1a"):
+            assert pm.sub(sid).endswith(f"sub-{sid}")
+            assert pm.bids_anat(sid).endswith(os.path.join(f"sub-{sid}", "anat"))
+
+    def test_rejects_separators_traversal_and_non_strings(self, tmp_path):
+        pm = PathManager(str(tmp_path))
+        for bad in ("../../../outside", "..", "a/b", "a\\b", "", " ", "001 ", ".hidden",
+                    "a" * 65, None, 7, ["001"]):
+            with pytest.raises(ValueError, match="subject id"):
+                pm.sub(bad)
+
+    def test_every_subject_path_helper_is_guarded(self, tmp_path):
+        pm = PathManager(str(tmp_path))
+        helpers = [
+            pm.sub, pm.m2m, pm.bids_subject, pm.bids_anat, pm.bids_dwi,
+            pm.sourcedata_subject, pm.fastsurfer_subject, pm.freesurfer_subject,
+            pm.qsiprep_subject, pm.qsirecon_subject, pm.logs, pm.tissue_analysis_output,
+        ]
+        for helper in helpers:
+            with pytest.raises(ValueError, match="subject id"):
+                helper("../../evil")
+
+    def test_a_guarded_path_can_never_leave_the_project(self, tmp_path):
+        from tit.paths import is_within
+
+        pm = PathManager(str(tmp_path))
+        assert is_within(str(tmp_path), pm.bids_anat("001"))
+        assert not is_within(str(tmp_path), str(tmp_path.parent / "outside"))
+
+
+def test_containment_accepts_filesystem_root_and_rejects_sibling_prefix(tmp_path):
+    from tit.paths import is_within
+
+    filesystem_root = pathlib.Path(tmp_path.anchor)
+    assert is_within(str(filesystem_root), str(tmp_path))
+    assert is_within(str(filesystem_root), str(filesystem_root))
+    assert not is_within(str(tmp_path), str(tmp_path.with_name(tmp_path.name + "-other")))

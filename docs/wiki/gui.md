@@ -4,6 +4,11 @@ title: Graphical User Interface
 permalink: /wiki/gui/
 ---
 
+> **Deprecated.** The PyQt5 GUI described on this page was removed in v3.0.0 —
+> `tit/gui/` no longer exists and the container ships no Qt. The interface it
+> describes has been replaced by the [Desktop Application]({{ site.baseurl }}/wiki/desktop-app/).
+> This page is kept for historical reference only.
+
 The TI-Toolbox GUI provides a graphical interface for running TI-Toolbox workflows without command-line interaction. Built with PyQt5, it offers an intuitive tabbed interface for all major TI-Toolbox functionalities.
 
 ## Interface Screenshots
@@ -62,5 +67,4 @@ To launch the GUI:
 GUI
 ```
 
-The GUI and [scripting workflows](scripting) share the same underlying TI-Toolbox APIs.
-
+The GUI and [scripting workflows]({{ site.baseurl }}/wiki/scripting/) share the same underlying TI-Toolbox APIs.

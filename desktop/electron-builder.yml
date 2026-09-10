@@ -1,0 +1,132 @@
+# electron-builder config for the v3 desktop app — the RELEASE config, driven by
+# .github/workflows/release-build.yml and by `npm run package` / `package:dir` locally.
+# The release path this file serves is written up in docs/dev/RELEASE.md.
+#
+# It replaces the N0.4 native-packaging spike config that used to live here (docs/dev/HISTORY.md § 2026-09-03;
+# docs/dev/HISTORY.md § 2026-09-03 (native desktop research)). Three things changed, each because
+# the spike config could not have produced a shippable artifact:
+#
+#   1. The run spec ships. `src/main/stack.ts#resolveComposeFile` reads a `docker-compose.yml` at
+#      every stack start; the spike config shipped only `out/**` and `package.json`, so every
+#      packaged build died on first launch with `compose-invalid: docker-compose.yml not found`.
+#      It is an `extraResources` entry rather than a `files:` one because the file lives at the
+#      REPOSITORY ROOT (`../docker-compose.yml`) — one spec read by the app, `tit launch`,
+#      `loader.py` and `loader.sh` alike — and `files:` globs cannot reach outside the app
+#      directory. `extraResources` lands it in `Resources/`, which is exactly the second
+#      candidate `resolveComposeFile` looks at. Proven by `scripts/verify-package.mjs` against a
+#      `--dir` build, which is why that script now runs in the release workflow's validation job
+#      before anything is signed.
+#   2. The `.runtime-staging/darwin-arm64 -> runtime/darwin-arm64` extraResources entry is gone.
+#      The shipping app is Docker-backed: `tit.server` runs inside `idossha/ti-toolbox:<ver>`, so
+#      there is no bundled Python runtime to stage, and an entry pointing at a directory that only
+#      exists after `scripts/stage-runtime.sh` made the config unbuildable without a multi-GB
+#      python-build-standalone tree on the machine. Reviving the parked native-runtime path means
+#      adding that entry back plus `--expect-runtime` to verify-package.mjs; `scripts/stage-runtime.sh`
+#      is kept for that.
+#   3. `mac.identity: null` is gone. A hard "never sign" in the config cannot be lifted by the
+#      release workflow, so a signed/notarised build was impossible with this file. Signing is
+#      controlled by the environment instead: the validation job exports
+#      `CSC_IDENTITY_AUTO_DISCOVERY=false` (as do the `package`/`package:dir` npm scripts, so a
+#      developer's own Developer ID in the login keychain is never picked up by accident), and the
+#      publish job supplies `CSC_LINK`/`CSC_KEY_PASSWORD` + the notarization credentials and fails
+#      closed if they are absent.
+#
+# TARGETS ARE WHAT CI ACTUALLY BUILDS AND VERIFIES — nothing is advertised here that
+# release-build.yml does not produce and run verify-package.mjs against. macOS x64 is built as a
+# Rosetta-compatible Intel artifact of the Electron shell only; unlike the parked native-runtime
+# path there is no Intel-Mac Python/SimNIBS wheel problem here, because none of that ships in the
+# app (r4 §4.1-§4.3's finding applies to the runtime, not to this shell).
+#
+# Artifact file names are electron-builder's defaults on purpose: `TI-Toolbox-<ver>.dmg` (x64),
+# `TI-Toolbox-<ver>-arm64.dmg`, `TI-Toolbox-<ver>.exe`, `TI-Toolbox-<ver>.AppImage`,
+# `TI-Toolbox-<ver>.deb` — exactly the names `dev/update/update_version.py` writes into the docs
+# download links. Changing `artifactName` here breaks those links silently.
+appId: edu.wisc.ti-toolbox.desktop
+productName: TI-Toolbox
+copyright: TI-Toolbox contributors
+
+directories:
+  output: release
+  buildResources: build
+
+# electron-vite already bundles the renderer/main/preload into out/**; nothing under node_modules
+# needs to ship (the bundler inlines every renderer dependency, and main/preload are bundled too via
+# electron-vite's own esbuild step).
+#
+files:
+  - out/**
+  - package.json
+  - '!node_modules/**'
+
+# The renderer bundle, staged as a real directory beside the asar (not inside it): a natively
+# spawned `tit.server` child process is a plain OS process with no asar access, so
+# `src/main/index.ts`'s `resolveNativeStaticDir` needs a real `--static-dir` path. In the normal
+# Docker-backed run the window loads the UI over http from the container instead and this copy is
+# unused; it costs a few MB and keeps the native path from being a packaging cliff.
+extraResources:
+  - from: out/renderer
+    to: renderer
+    filter:
+      - '**/*'
+  # The stack definition the app parses at runtime (see the header, item 1). One small YAML file,
+  # taken from the repository root because that is where the single run spec lives; it lands at
+  # `Resources/docker-compose.yml`, which `src/main/stack.ts#resolveComposeFile` looks for and
+  # `scripts/verify-package.mjs` asserts is present.
+  - from: ../docker-compose.yml
+    to: docker-compose.yml
+
+asar: true
+npmRebuild: false
+
+icon: build/icon.icns
+
+mac:
+  category: public.app-category.medical
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # Notarization is requested here but only actually happens when the publish job supplies
+  # APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID; with CSC_IDENTITY_AUTO_DISCOVERY=false
+  # and no credentials (the validation job) electron-builder skips signing and notarizing and
+  # produces an unsigned artifact, which is exactly what that job wants to inspect.
+  notarize: true
+
+linux:
+  artifactName: TI-Toolbox-${version}.${ext}
+  category: Science
+  icon: build/icon.png
+  executableName: ti-toolbox
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
+
+win:
+  artifactName: TI-Toolbox-${version}.${ext}
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+
+# Publishing is decided per-invocation (`--publish never` in validation, `--publish always` in the
+# publish job), not by this file; declaring the provider here keeps the release URL in one place.
+publish:
+  - provider: github
+    owner: idossha
+    repo: TI-Toolbox
+    releaseType: draft
+
+deb:
+  artifactName: ti-toolbox_${version}_amd64.${ext}

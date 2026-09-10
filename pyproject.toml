@@ -9,7 +9,30 @@ description = "TI-Toolbox (Python package: tit)"
 readme = "README.md"
 requires-python = ">=3.11"
 dynamic = ["version"]
+# Deliberately empty: every runtime dependency is baked into the container image
+# (container/blueprint/Dockerfile.ti-toolbox*), and `tit` is installed into SimNIBS's own
+# interpreter, where an unpinned resolve would fight SimNIBS's pins.
 dependencies = []
+
+# `nbformat` is needed only by the pipeline canvas's notebook export
+# (tit.pipeline.notebook.export_notebook). Both container recipes' pip lines install it, so the
+# desktop app always has it; a bare `pip install tit` gets an honest 501 from
+# POST /api/pipelines/export until this extra is installed. It is an extra rather than a hard
+# dependency so the empty-`dependencies` policy above still holds.
+[project.optional-dependencies]
+pipeline = ["nbformat>=5.1.4"]
+# Host tests restore real scipy in stats modules; the container remains the real SimNIBS gate.
+test = [
+  "pytest>=8", "pytest-cov>=5", "numpy>=1.26", "scipy>=1.11", "nibabel>=5",
+  "fastapi>=0.110", "uvicorn>=0.30", "httpx>=0.27", "PyYAML>=6", "requests>=2.31",
+  "psutil>=5.9", "nbformat>=5.1.4", "jsonschema>=4", "websocket-client>=1.7",
+]
+
+[project.scripts]
+# `tit launch` — the no-Electron launcher (tit/launch.py). Deliberately the only console
+# script: everything else in this package needs SimNIBS's interpreter, while this one is
+# stdlib-plus-docker-CLI and is meant to work on a bare host.
+tit = "tit.cli:main"
 
 [project.urls]
 Repository = "https://github.com/idossha/TI-toolbox"
@@ -19,6 +42,21 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 include = ["tit*"]
+
+# The packaged guide scene (tit/scene/guide/) is binary data, not source, so `include-package-data`
+# alone does not carry it into a wheel — setuptools only auto-includes data files it can see through
+# a VCS plugin, and this project installs none. It is declared here explicitly so an installed
+# TI-Toolbox can serve /api/guide/* without a project on disk.
+[tool.setuptools.package-data]
+"tit.blender" = ["Electrode.blend"]
+"tit.scene" = [
+  "guide/manifest.json",
+  "guide/PROVENANCE.md",
+  "guide/surfaces/*",
+  "guide/labels/*",
+  "guide/legends/*",
+  "guide/nets/*",
+]
 
 [tool.setuptools.dynamic]
 version = {attr = "tit.__version__"}

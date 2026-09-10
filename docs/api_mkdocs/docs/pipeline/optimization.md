@@ -1,6 +1,6 @@
 # Optimization
 
-TI-Toolbox provides two optimization strategies for finding optimal electrode placements: **flex-search** (differential evolution) for continuous optimization and **exhaustive search** for discrete combinatorial search.
+TI-Toolbox provides **flex-search** (differential evolution) for continuous electrode-position optimization, **exhaustive search** for two-pair TI, and **multipolar exhaustive search** for four-pair mTI.
 
 ```mermaid
 graph LR
@@ -24,7 +24,7 @@ graph LR
 
 ## Flex-Search (Differential Evolution)
 
-Flex-search uses differential evolution to find optimal electrode positions on the EEG cap. It explores the continuous space of all possible electrode combinations.
+Flex-search uses differential evolution to find optimal electrode positions on the EEG cap. It optimizes continuous scalp positions; the EEG net can be used to map the resulting positions to physical electrodes.
 
 ```python
 from tit.opt import FlexConfig, run_flex_search
@@ -51,7 +51,8 @@ print(f"Output: {result.output_folder}")
 |------|-------------|
 | `"mean"` | Maximize mean field intensity within the ROI |
 | `"max"` | Maximize peak field intensity within the ROI |
-| `"focality"` | Maximize the ratio of ROI intensity to whole-brain intensity |
+| `"focality"` | Optimize the threshold-based ROI-to-non-ROI ROC measure |
+| `"focality_tf"` | Optimize threshold-free contrast: `mean(E_ROI) ** (1 + intensity_weight) / p95(E_nonROI)` |
 
 ### ROI Types
 
@@ -86,7 +87,7 @@ print(f"Output: {result.output_folder}")
     ```
 
 !!! tip "Multi-start"
-    Use `n_multistart` to run multiple optimization restarts with different initial conditions. This helps avoid local optima. A value of 3-5 is usually sufficient.
+    Use `n_multistart` to run multiple optimization restarts with different initial conditions. This helps avoid local optima. Choose the restart count for your computational budget and assess convergence across runs.
 
 ## Exhaustive Search
 
@@ -125,6 +126,14 @@ config = ExConfig(
 
 !!! note "Leadfield Prerequisite"
     Exhaustive search requires a pre-computed leadfield matrix. Generate one using `tit.opt.leadfield` before running the search.
+
+## Multipolar Exhaustive Search
+
+Use `MExConfig` and `run_m_ex_search` from `tit.opt` for a four-pair search.
+Like two-pair exhaustive search, it requires a precomputed leadfield and target ROI.
+`MExConfig.PoolElectrodes` draws all eight electrode positions from a shared pool;
+`MExConfig.BucketElectrodes` provides separate pair buckets. `current_mA` sets the
+fixed current delivered by each pair. See the generated API below for configuration.
 
 ## Leadfield Generation
 
@@ -203,6 +212,21 @@ electrodes = generator.get_electrode_names()
       show_root_heading: true
 
 ::: tit.opt.config.ExResult
+    options:
+      show_root_heading: true
+
+### Multipolar Exhaustive Search
+
+::: tit.opt.config.MExConfig
+    options:
+      show_root_heading: true
+      members_order: source
+
+::: tit.opt.config.MExResult
+    options:
+      show_root_heading: true
+
+::: tit.opt.mex.mex.run_m_ex_search
     options:
       show_root_heading: true
 

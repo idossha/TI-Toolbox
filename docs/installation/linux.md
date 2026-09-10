@@ -4,74 +4,35 @@ title: Linux Installation
 permalink: /installation/linux/
 ---
 
-## Prerequisites
+Start with the [quick start]({{ site.baseurl }}/installation/) to choose the desktop app or
+command-line launcher. This page covers Linux setup.
 
-### Docker Engine
-1. **Install Docker Engine** following the [official installation guide](https://docs.docker.com/engine/install/)
-2. **Start Docker service**:
-   ```bash
-   sudo systemctl start docker
-   sudo systemctl enable docker
-   ```
-3. **Add user to docker group** (optional, avoids using sudo):
-   ```bash
-   sudo usermod -aG docker $USER
-   ```
-   *Log out and back in for changes to take effect*
+## Docker Engine
 
-### X Server
-Most Linux distributions come with X11 pre-installed. If you need to install it:
-- **Ubuntu/Debian**: `sudo apt install xorg`
-- **Fedora/RHEL**: `sudo dnf install xorg-x11-server-Xorg` (or yum)
-- **Arch**: `sudo pacman -S xorg-server`
+Install [Docker Engine](https://docs.docker.com/engine/install/) for your distribution, then
+start the service:
 
-## Option 1: Desktop App
+```bash
+sudo systemctl enable --now docker
+docker version
+```
 
-Download the pre-built desktop application for your Linux distribution from the **[Latest Release](https://github.com/idossha/TI-toolbox/releases/latest)**:
+The launcher needs access to the engine socket. On a workstation where your account is
+trusted to administer Docker, add it to the Docker group and log out and back in:
 
-| Format | Download |
-|--------|----------|
-| **AppImage** | `TI-Toolbox-{version}.AppImage` |
-| **Debian/Ubuntu** | `ti-toolbox_{version}_amd64.deb` |
+```bash
+sudo usermod -aG docker "$USER"
+```
 
-Simply download and run the AppImage, or install the .deb package — the app handles Docker management for you.
+Docker group access gives control of the host; see the
+[shared-host guidance]({{ site.baseurl }}/wiki/development/#shared-host-docker-access).
 
-<br>
+## Launch choices
 
-## Option 2: Command Line
+The Bash launcher needs Docker Compose and curl; the Python launcher needs Python 3.11+.
+Use an absolute Linux project path, such as `/home/you/datasets/project`.
+TI-Toolbox needs no X11 forwarding into the container.
 
-### Setup Steps
-
-### Step 1: Download Required Files
-
-Download these files to your preferred location (e.g., `~/TI-Toolbox/`):
-- **[loader.py](https://github.com/idossha/TI-toolbox/blob/main/loader.py)**
-- **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)**
-
-### Step 2: Launch TI-Toolbox
-
-1. **Open Terminal**
-2. **Navigate to your download location**:
-   ```bash
-   cd ~/TI-Toolbox/
-   ```
-3. **Ensure Docker is running**:
-   ```bash
-   sudo systemctl status docker
-   ```
-4. **Launch TI-Toolbox**:
-   ```bash
-   python3 loader.py
-   ```
-5. **First run will download the two Docker images (~28GB download; they unpack to roughly 85GB on disk)** - this may take 30+ minutes
-
-The loader runs `xhost +local:` so the container can open windows on your X display.
-
-## Distribution-Specific Notes
-
-### Ubuntu/Debian
-- Follow standard Docker installation instructions
-- X11 is usually pre-installed
-
-
-*Currently tested primarily on Ubuntu. Please submit an issue if you encounter problems on other distributions.* 
+Linux x86_64 matches the image's architecture. AppImage and DEB are the desktop package
+formats; package availability is listed on the installation page. For remote machines,
+use the [SSH browser route]({{ site.baseurl }}/installation/bash-cli/#over-ssh).

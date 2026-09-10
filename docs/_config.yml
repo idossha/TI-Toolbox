@@ -31,6 +31,17 @@ kramdown:
 # Google Analytics (enabled by default, disabled only when ENABLE_ANALYTICS=false is set)
 google_analytics: G-YMJPLLDT3Q
 
+# Jekyll otherwise drops these underscore-prefixed MkDocs outputs, breaking API styling
+# and navigation. Jekyll 3.9 filters static entries by basename; these names occur only
+# in the generated API output. Source trees remain excluded below.
+include:
+  - dev/CHANGELOG.md
+  - _mkdocstrings.css
+  - _common
+  - _mti_kernel
+  - _prepare_forward
+  - _simnibs_compat
+
 # Exclude files
 exclude:
   - Gemfile
@@ -38,7 +49,19 @@ exclude:
   - README.md
   - vendor/
   - .bundle/
-  - build-docs.sh 
+  - build-docs.sh
+  - build-api.sh
+  - serve.sh
+  - tests/
+  - requirements/
   # MkDocs sources for API docs (the built site is committed to `docs/api/`)
   - api_mkdocs/
+  # Developer references stay private to the checkout; the changelog is included above.
+  - dev/ARCHITECTURE.md
+  - dev/DECISIONS.md
+  - dev/TESTING.md
+  - dev/RELEASING.md
+  - dev/BENCHMARKS.md
+  - dev/ROADMAP.md
+  - dev/AUTOMATION.md
 

@@ -1,0 +1,148 @@
+/*
+ * Pre-processing's own rules. One thing lives here: the stage rows that carry a help (i).
+ *
+ * `.run-work .run-checkbox-row > .checkbox-label-row` is `flex: 1` with no background of its own,
+ * so on a row whose only other child is a 24px icon button the label stretches across the whole
+ * row and the tail — most of the row — is covered by a transparent element. That reads as dead
+ * ground to `tests/e2e/_metrics.ts`'s probe (which resolves each sample to its innermost element),
+ * and it measured: preprocess went from 66 % to 67.4 % at 1440x900 the moment the icons landed.
+ *
+ * Letting the label size to its text fixes both halves at once: the tinted `.run-checkbox-row`
+ * itself is then the topmost element over the tail, and the (i) sits next to the step name it
+ * explains rather than marooned at the far right of the row.
+ */
+.run-work .run-checkbox-row.preprocess-step-row > .checkbox-label-row {
+  flex: none;
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * The step flow: inputs → [process] → outputs as connected boxes (see stepInfo.tsx).
+ *
+ * A grid, so the picture actually lines up: equal-width columns separated by fixed arrow gutters,
+ * captions on a shared first row starting at their column's left edge, every box the same height,
+ * and every arrow on one horizontal line through the centre of every stack.
+ * ------------------------------------------------------------------------------------------- */
+.step-flow {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-items: center;
+  row-gap: 6px;
+  margin: 12px 0 4px;
+}
+/*
+ * One rule per shape: N columns and N-1 gutters. Three (input → process → output) through five
+ * (the DWI section's QSIPrep → QSIRecon → extract tensor). The gutter is a single fixed width
+ * everywhere, so no arrow is longer than another; 24px rather than the 16 of a normal column gap
+ * because the gutter has to hold a shaft and an arrowhead and still read at 11px type.
+ */
+.step-flow[data-cols="3"] {
+  grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr) 24px minmax(0, 1fr);
+}
+.step-flow[data-cols="4"] {
+  grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr) 24px minmax(0, 1fr) 24px minmax(0, 1fr);
+}
+.step-flow[data-cols="5"] {
+  grid-template-columns:
+    minmax(0, 1fr) 24px minmax(0, 1fr) 24px minmax(0, 1fr)
+    24px minmax(0, 1fr) 24px minmax(0, 1fr);
+}
+.flow-col {
+  display: flex;
+  flex-direction: column;
+  /* Centred as a stack, which is what puts every column's middle on the arrows' line. */
+  justify-content: center;
+  gap: 12px;
+  min-width: 0;
+}
+.flow-caption {
+  font-size: 9px;
+  line-height: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-2);
+}
+.flow-node {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  /* Fixed, so a file box and a tool box are the same object at a glance. Both lines are always
+     rendered (the path line is empty on a process box), and both are single-line and ellipsised,
+     so nothing can push a box taller than its neighbours. */
+  height: 46px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+}
+.flow-node-process {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.flow-node-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.flow-node-glyph {
+  flex: none;
+  color: var(--ink-2);
+}
+.flow-node-process .flow-node-glyph {
+  color: var(--accent);
+}
+.flow-node-label {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.flow-node-path {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 12px;
+  /* Held open even when empty, so a process box is exactly as tall as a file box. */
+  min-height: 12px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.flow-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+.flow-arrow svg {
+  width: 24px;
+  height: 10px;
+  overflow: visible;
+}
+.flow-arrow path {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+  fill: none;
+}
+.flow-arrow .flow-arrow-head {
+  fill: var(--line-strong);
+  stroke: none;
+}
+
+.preprocess-freesurfer-options {
+  display: grid;
+  gap: 10px;
+  margin: 8px 0 16px;
+  padding: 12px 16px;
+  border-left: 2px solid var(--line);
+}
+.preprocess-freesurfer-options p {
+  margin: 0;
+}

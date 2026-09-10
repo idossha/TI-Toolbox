@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://idossha.github.io/TI-Toolbox/api/reference/tit/tools/">
       
       
-        <link rel="prev" href="../stats/visualization/">
+        <link rel="prev" href="../tetravox/updates/">
       
       
         <link rel="next" href="check_for_update/">
@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
     
     
       
@@ -879,6 +879,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="tools">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tit.tools--modules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Modules
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -928,13 +945,8 @@
   
     
     
-      
-  
-  
-    
-    
       <li class="md-path__item">
-        <a href="../analyzer/analyzer/" class="md-path__link">
+        <a href="../_mti_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -948,22 +960,14 @@
     
   
 
-    
-  
-
       
         
   
   
     
     
-      
-  
-  
-    
-    
       <li class="md-path__item">
-        <a href="../analyzer/analyzer/" class="md-path__link">
+        <a href="../_mti_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -971,9 +975,6 @@
 
         </a>
       </li>
-    
-  
-
     
   
 
@@ -1005,10 +1006,32 @@
 
     <div class="doc doc-contents first">
 
-        <p>TI-Toolbox tools — standalone utilities for mesh/field manipulation.</p>
-<p>These tools are typically invoked as scripts or from the CLI.
-Heavy dependencies (SimNIBS, nibabel) are imported inside each module,
-so importing this package is lightweight.</p>
+        <p>Standalone utilities for mesh, field, and electrode manipulation.</p>
+<p>This package collects lightweight helper scripts that are typically
+invoked from the command line or called by higher-level pipeline
+stages.  Heavy dependencies (SimNIBS, nibabel, scipy) are imported
+lazily inside each module so that <code>import tit.tools</code> remains fast.</p>
+<h4 id="tit.tools--modules">Modules<a class="headerlink" href="#tit.tools--modules" title="Permanent link">&para;</a></h4>
+<p>check_for_update
+    Query the GitHub API for new TI-Toolbox releases.
+extract_labels
+    Extract specific label values from a NIfTI segmentation.
+field_extract
+    Crop grey- and white-matter meshes from a SimNIBS head mesh.
+gmsh_opt
+    Generate Gmsh <code>.opt</code> visualization option files.
+map_electrodes
+    Map optimised electrode positions to the nearest EEG net electrodes.
+mesh2nii
+    Convert SimNIBS meshes to subject- and MNI-space NIfTI volumes.
+electrode_overlay
+    Create NIfTI label overlays for XYZ electrode placements.
+montage_visualizer
+    Render PNG images of electrode montages on an EEG cap template.
+nifti_to_mesh
+    Convert a NIfTI segmentation/mask to an STL or Gmsh surface mesh.
+read_annot
+    Read and display FreeSurfer <code>.annot</code> annotation files.</p>
 
 
 

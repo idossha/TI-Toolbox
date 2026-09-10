@@ -570,6 +570,34 @@ class TestRunSimulation:
             assert results[0]["montage_name"] == "m1"
             assert results[1]["montage_name"] == "m2"
 
+    @pytest.mark.parametrize("overwrite", [False, True])
+    def test_job_confirmation_reaches_each_simulation(
+        self, tmp_path, monkeypatch, overwrite
+    ):
+        import importlib
+        import json
+        import sys
+        from contextlib import nullcontext
+
+        entry = importlib.import_module("tit.sim.__main__")
+        config = _make_sim_config(montages=[_make_ti_montage("m1")])
+        payload = tmp_path / "config.json"
+        payload.write_text(json.dumps({"project_dir": str(tmp_path)}))
+        monkeypatch.setattr(sys, "argv", ["tit.sim", str(payload)])
+        monkeypatch.setenv("TIT_JOB_OVERWRITE", "1" if overwrite else "0")
+        monkeypatch.setattr(entry, "get_path_manager", lambda _: None)
+        monkeypatch.setattr(entry, "deserialize_config", lambda *args: config)
+        monkeypatch.setattr(entry, "_hold_locks", lambda *args: nullcontext())
+        monkeypatch.setattr(entry, "run_simulation", _utils_mod.run_simulation)
+        with self._patch_run_sim() as (_, mock_ti_cls, _):
+            mock_ti_cls.return_value.run.return_value = {"status": "completed"}
+            with pytest.raises(SystemExit) as result:
+                entry.main()
+            assert result.value.code == 0
+            assert mock_ti_cls.return_value.run.call_args.kwargs == (
+                {"overwrite": True} if overwrite else {}
+            )
+
     def test_calls_progress_callback(self):
         with self._patch_run_sim() as (mock_pm, mock_ti_cls, mock_mti_cls):
             mock_ti_cls.return_value.run.return_value = {
@@ -732,28 +760,32 @@ class TestOutputFieldSelection:
 
 @pytest.mark.unit
 class TestOutputFieldsSurviveDeserialization:
-    """``_build_sim_config`` reads an explicit key list, so a new field is
-    dropped unless added there -- the class of bug that silently loses a
-    new Montage field on the GUI -> JSON -> subprocess path."""
+    """``deserialize_config(SimulationConfig, ...)`` must not drop a field on
+    the GUI -> JSON -> subprocess path (the bug this class is named for used
+    to live in a hand-rolled ``tit.sim.__main__._build_sim_config`` that read
+    an explicit key list; ``tit.sim.__main__`` now uses
+    ``tit.config_io.deserialize_config`` directly, which reads every field
+    off the dataclass itself, but the round-trip guarantee still holds)."""
 
     @staticmethod
     def _rebuild(**overrides):
         import json as _json
-        from tit.config_io import serialize_config
-        from tit.sim.__main__ import _build_sim_config
+        from tit.config_io import deserialize_config, serialize_config
+        from tit.sim.config import SimulationConfig
 
         cfg = _make_sim_config(montages=[_make_ti_montage()], **overrides)
-        return _build_sim_config(_json.loads(_json.dumps(serialize_config(cfg))))
+        data = _json.loads(_json.dumps(serialize_config(cfg)))
+        data.pop("project_dir", None)
+        return deserialize_config(SimulationConfig, data)
 
     def test_selection_survives_round_trip(self):
         back = self._rebuild(output_fields=[const.FIELD_TI_MAX, const.FIELD_HF_SAR])
         assert back.output_fields == [const.FIELD_TI_MAX, const.FIELD_HF_SAR]
 
     def test_absent_key_defaults_to_ti_max(self):
-        from tit.sim.__main__ import _build_sim_config
-
         import json as _json
-        from tit.config_io import serialize_config
+        from tit.config_io import deserialize_config, serialize_config
+        from tit.sim.config import SimulationConfig
 
         data = _json.loads(
             _json.dumps(
@@ -761,4 +793,7 @@ class TestOutputFieldsSurviveDeserialization:
             )
         )
         data.pop("output_fields", None)
-        assert _build_sim_config(data).output_fields == [const.FIELD_TI_MAX]
+        data.pop("project_dir", None)
+        assert deserialize_config(SimulationConfig, data).output_fields == [
+            const.FIELD_TI_MAX
+        ]

@@ -1,242 +1,445 @@
-name: Build and Release Electron App
+# Generic build/export, internal image delivery, and tagged release pipeline.
+# Publication stays draft until all platform jobs and the asset inventory pass.
+name: Build and release
 
 on:
   push:
     tags:
-      - 'v*.*.*'  # Only run on version tag pushes
-  workflow_dispatch:  # Allow manual trigger for testing
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'build exports artifacts; internal also pushes the version image; release requires a stable tag.'
+        type: choice
+        options: [build, internal, release]
+        default: build
+      image_tag:
+        description: 'Optional version image tag; must match vX.Y.Z derived from the runtime version.'
+        type: string
+        default: ''
+      tetravox_tgz:
+        description: 'Optional: pin the Tetravox embed tarball URL instead of resolving the newest compatible release.'
+        type: string
+        default: ''
+      tetravox_sha256:
+        description: 'sha256 of tetravox_tgz (required when it is set).'
+        type: string
+        default: ''
+
+  workflow_call:
+    inputs:
+      mode:
+        type: string
+        default: build
+      image_tag:
+        type: string
+        default: ''
+      tetravox_tgz:
+        type: string
+        default: ''
+      tetravox_sha256:
+        type: string
+        default: ''
+    secrets:
+      DOCKERHUB_USERNAME:
+        required: false
+      DOCKERHUB_TOKEN:
+        required: false
+      CSC_LINK:
+        required: false
+      CSC_KEY_PASSWORD:
+        required: false
+      APPLE_ID:
+        required: false
+      APPLE_APP_SPECIFIC_PASSWORD:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release-build-${{ inputs.image_tag || github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '22.12.0'
+  IMAGE_REPO: idossha/ti-toolbox
 
 jobs:
-  create-release:
-    name: Create GitHub Release
-    runs-on: ubuntu-latest
+  # ---------------------------------------------------------------------------------------------
+  plan:
+    name: Plan and version consistency
+    runs-on: ubuntu-24.04
+    # Guard-only job; 10m bounds checkout/API stalls (CI duration not yet measured).
+    timeout-minutes: 10
     outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-      version: ${{ steps.extract_version.outputs.version }}
+      version: ${{ steps.v.outputs.version }}
+      mode: ${{ steps.v.outputs.mode }}
+      image_tag: ${{ steps.v.outputs.image_tag }}
+      python_version: ${{ steps.v.outputs.python_version }}
+      release_notes: ${{ steps.notes.outputs.release_notes }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Extract version and release notes
-        id: extract_version
+      - name: Self-test build and version guards
+        run: python3 -m unittest discover -s tests -p test_internal_packaging.py -v
+
+      - name: Resolve version and mode
+        id: v
+        env:
+          BUILD_MODE: ${{ inputs.mode || 'release' }}
+          BUILD_IMAGE_TAG: ${{ inputs.image_tag }}
+        run: python3 dev/update/build_plan.py --mode "$BUILD_MODE" --ref "$GITHUB_REF" --sha "$GITHUB_SHA" --image-tag "$BUILD_IMAGE_TAG"
+
+      - name: Extract release notes
+        id: notes
+        if: steps.v.outputs.mode == 'release'
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-          # Try to read release notes from docs/releases/v$VERSION.md
-          RELEASE_NOTES_FILE="docs/releases/v$VERSION.md"
-          if [ -f "$RELEASE_NOTES_FILE" ]; then
-            # Strip Jekyll front matter before publishing to GitHub Releases.
-            RELEASE_NOTES=$(awk '
-              NR == 1 && $0 == "---" { in_front_matter = 1; next }
-              in_front_matter && $0 == "---" { in_front_matter = 0; next }
-              !in_front_matter { print }
-            ' "$RELEASE_NOTES_FILE")
+          set -euo pipefail
+          FILE="docs/releases/v${{ steps.v.outputs.version }}.md"
+          if [ -f "$FILE" ]; then
+            NOTES=$(awk '
+              NR == 1 && $0 == "---" { fm = 1; next }
+              fm && $0 == "---" { fm = 0; next }
+              !fm { print }
+            ' "$FILE")
           else
-            # Fallback to latest commit message
-            RELEASE_NOTES=$(git log -1 --pretty=%B)
+            echo "::warning::$FILE not found; falling back to the tagged commit message"
+            NOTES=$(git log -1 --pretty=%B)
+          fi
+          {
+            echo "release_notes<<RELEASE_NOTES_EOF"
+            echo "$NOTES"
+            echo "RELEASE_NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+  # Scientific dependency installation needs the longer build timeout.
+  image:
+    name: Build ${{ needs.plan.outputs.version }} image
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate the Tetravox pin
+        env:
+          TETRAVOX_TGZ: ${{ inputs.tetravox_tgz }}
+          TETRAVOX_SHA256: ${{ inputs.tetravox_sha256 }}
+        run: |
+          set -euo pipefail
+          TGZ="$TETRAVOX_TGZ"
+          SHA="$TETRAVOX_SHA256"
+          if [ -n "$TGZ" ] && [ -z "$SHA" ]; then
+            echo "::error::tetravox_tgz was given without tetravox_sha256; the image verifies the digest before unpacking"
+            exit 1
+          fi
+          if [ -z "$TGZ" ]; then
+            echo "No pin given — build.sh will resolve the newest Tetravox release whose embed"
+            echo "manifest protocol is inside the range tit/tetravox/protocol.py supports."
+            echo "This FAILS the build if no such release exists (Tetravox PR #35 must be released"
+            echo "first). That is deliberate: the baked embed is the offline floor the app falls"
+            echo "back to, and an image with a placeholder viewer is worse than no image."
           fi
 
-          echo "release_notes<<EOF" >> $GITHUB_OUTPUT
-          echo "$RELEASE_NOTES" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Create GitHub Release
-        id: create_release
-        uses: softprops/action-gh-release@v2
+      - name: Build the image
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: Version ${{ steps.extract_version.outputs.version }}
-          body: ${{ steps.extract_version.outputs.release_notes }}
-          draft: false
-          prerelease: false
+          TETRAVOX_TGZ: ${{ inputs.tetravox_tgz }}
+          TETRAVOX_SHA256: ${{ inputs.tetravox_sha256 }}
+        run: |
+          set -euo pipefail
+          TAG="${IMAGE_REPO}:${{ needs.plan.outputs.image_tag }}"
+          ARGS=(--tag "$TAG") # checkout is the exact workflow SHA, never a moving branch clone
+          if [ -n "${TETRAVOX_TGZ}" ]; then
+            ARGS+=(--tetravox-tgz "${TETRAVOX_TGZ}" --tetravox-sha256 "${TETRAVOX_SHA256}")
+          fi
+          ./container/blueprint/build.sh "${ARGS[@]}"
 
-  build-mac:
-    name: Build macOS - ${{ matrix.arch }}
-    needs: create-release
-    runs-on: macos-latest
-    # Notarization can take time, especially first time (up to 30+ min)
-    timeout-minutes: 60
-    
+      - name: Smoke the image
+        run: |
+          set -euo pipefail
+          TAG="${IMAGE_REPO}:${{ needs.plan.outputs.image_tag }}"
+          # The image records what it was built from; a release image built from a dirty tree or an
+          # unexpected sha is not the release.
+          docker run --rm --entrypoint cat "$TAG" /etc/ti-toolbox-build.json > provenance.json
+          python3 -c 'import json,os; p=json.load(open("provenance.json")); assert p["sha"] == os.environ["GITHUB_SHA"] and p["dirty"] is False, p'
+          docker run --rm --entrypoint python3 "$TAG" -c 'import tit; print("tit", tit.__version__)'
+          docker run --rm --entrypoint test "$TAG" -f /opt/tetravox/embed/index.html
+          VER=$(docker run --rm --entrypoint python3 "$TAG" -c 'import tit; print(tit.__version__)')
+          if [ "$VER" != "${{ needs.plan.outputs.python_version }}" ]; then
+            echo "::error::image ships tit ${VER}, release is ${{ needs.plan.outputs.version }}"
+            exit 1
+          fi
+
+      - name: Export the validated image
+        run: docker save "${IMAGE_REPO}:${{ needs.plan.outputs.image_tag }}" | gzip > ti-toolbox-image.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: container-image
+          path: ti-toolbox-image.tar.gz
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 7
+
+  desktop-validate:
+    name: Validate unsigned ${{ matrix.name }}
+    needs: plan
+    runs-on: ${{ matrix.os }}
+    # Cross-platform packaging allowance; 45m bounds stalled downloads (unmeasured in CI).
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
         include:
-          - arch: x64
-            name: macOS-Intel
-          - arch: arm64
-            name: macOS-Silicon
-
+          - os: macos-14
+            name: macOS
+            builder_args: --mac --arm64 --x64
+          - os: windows-2022
+            name: Windows
+            builder_args: --win --x64
+          - os: ubuntu-24.04
+            name: Linux
+            builder_args: --linux --x64
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
 
-      - name: Install dependencies
-        working-directory: package
-        run: |
-          npm ci
-          # Ensure latest electron-builder and notarize for best compatibility
-          npm install --save-dev electron-builder@latest @electron/notarize@latest
+      - name: Install
+        working-directory: desktop
+        run: npm ci
 
-      - name: Build, Sign, and Notarize
-        working-directory: package
+      - name: Build renderer/main/preload
+        working-directory: desktop
+        run: npm run build
+
+      - name: Stage the packaged image default
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Code signing
+          BUILD_MODE: ${{ needs.plan.outputs.mode }}
+          BUILD_IMAGE_TAG: ${{ inputs.image_tag }}
+        run: python3 dev/update/build_plan.py --mode "$BUILD_MODE" --ref "$GITHUB_REF" --sha "$GITHUB_SHA" --image-tag "$BUILD_IMAGE_TAG" --stage-compose
+        shell: bash
+
+      - name: Package (unsigned)
+        working-directory: desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder ${{ matrix.builder_args }} --config electron-builder.yml --publish never
+
+      - name: Verify the packaged app (macOS, both arches)
+        if: runner.os == 'macOS'
+        working-directory: desktop
+        run: |
+          set -euo pipefail
+          node scripts/verify-package.mjs "release/mac-arm64/TI-Toolbox.app" --expect-version "${{ needs.plan.outputs.version }}" --expect-image-tag "${{ needs.plan.outputs.image_tag }}"
+          node scripts/verify-package.mjs "release/mac/TI-Toolbox.app" --expect-version "${{ needs.plan.outputs.version }}" --expect-image-tag "${{ needs.plan.outputs.image_tag }}"
+
+      - name: Verify the packaged app
+        if: runner.os != 'macOS'
+        working-directory: desktop
+        shell: bash
+        run: |
+          set -euo pipefail
+          DIR=$([ "${{ runner.os }}" = "Windows" ] && echo release/win-unpacked || echo release/linux-unpacked)
+          node scripts/verify-package.mjs "$DIR" --expect-version "${{ needs.plan.outputs.version }}" --expect-image-tag "${{ needs.plan.outputs.image_tag }}"
+
+      - name: Upload unsigned artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-${{ matrix.name }}
+          path: |
+            desktop/release/*.dmg
+            desktop/release/*.zip
+            desktop/release/*.exe
+            desktop/release/*.AppImage
+            desktop/release/*.deb
+          if-no-files-found: error
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------------------------
+  create-release:
+    name: Create draft GitHub Release
+    permissions:
+      contents: write
+    needs: [plan, image-push, desktop-validate]
+    if: needs.plan.outputs.mode == 'release'
+    runs-on: ubuntu-24.04
+    # Single release API operation; 10m bounds API stalls (unmeasured).
+    timeout-minutes: 10
+    steps:
+      - uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: v${{ needs.plan.outputs.version }}
+          body: ${{ needs.plan.outputs.release_notes }}
+          draft: true
+          prerelease: false
+
+  # ---------------------------------------------------------------------------------------------
+  # Signed + notarised, uploaded to the release. Everything that could be checked unsigned already
+  # was, so a failure here is a credential or notarisation failure, not a packaging one.
+  desktop-publish:
+    name: Stage release ${{ matrix.name }}
+    permissions:
+      contents: write
+    needs: [plan, image-push, desktop-validate, create-release]
+    if: needs.plan.outputs.mode == 'release'
+    runs-on: ${{ matrix.os }}
+    # Notarisation is a round trip to Apple and can take 30+ minutes on a first submission.
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            name: macOS
+            builder_args: --mac --arm64 --x64
+          - os: windows-2022
+            name: Windows
+            builder_args: --win --x64
+          - os: ubuntu-24.04
+            name: Linux
+            builder_args: --linux --x64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Signing secrets must be present
+        if: runner.os == 'macOS'
+        env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          # Notarization
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: 3BMY24SA43
-        run: npx electron-builder --mac --${{ matrix.arch }}
-
-      - name: Verify Code Signature and Notarization
-        working-directory: package
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        shell: bash
         run: |
-          echo "=== Verifying Code Signature ==="
-          APP_PATH=$(find dist -name "*.app" -type d | head -1)
-          if [ -n "$APP_PATH" ]; then
-            echo "Checking: $APP_PATH"
-            codesign -dv --verbose=4 "$APP_PATH" 2>&1 || true
-            echo ""
-            echo "=== Verifying Gatekeeper Assessment ==="
-            spctl -a -vvv -t install "$APP_PATH" 2>&1 || true
-            echo ""
-            echo "=== Checking Notarization Staple ==="
-            stapler validate "$APP_PATH" 2>&1 || true
+          set -euo pipefail
+          MISSING=""
+          for name in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            if [ -z "${!name:-}" ]; then MISSING="$MISSING $name"; fi
+          done
+          if [ -n "$MISSING" ]; then
+            echo "::error::macOS publish refuses to run unsigned; missing secrets:$MISSING"
+            exit 1
           fi
 
-      - name: Upload macOS DMG artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/setup-node@v4
         with:
-          name: ${{ matrix.name }}-dmg
-          path: |
-            package/dist/*.dmg
-            package/dist/*.dmg.blockmap
-          retention-days: 5
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
 
-  build-windows:
-    name: Build Windows
-    needs: create-release
-    runs-on: windows-latest
-    timeout-minutes: 30
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
-        working-directory: package
+      - name: Install
+        working-directory: desktop
         run: npm ci
 
-      - name: Build Electron app
-        working-directory: package
+      - name: Build renderer/main/preload
+        working-directory: desktop
+        run: npm run build
+
+      - name: Stage the packaged image default
+        env:
+          BUILD_MODE: ${{ needs.plan.outputs.mode }}
+        run: python3 dev/update/build_plan.py --mode "$BUILD_MODE" --ref "$GITHUB_REF" --sha "$GITHUB_SHA" --stage-compose
+        shell: bash
+
+      - name: Package, sign and stage draft artifacts
+        working-directory: desktop
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx electron-builder --win --x64
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: npx electron-builder ${{ matrix.builder_args }} --config electron-builder.yml --publish always
 
-      - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: Windows
-          path: |
-            package/dist/*.exe
-            package/dist/*.exe.blockmap
-          retention-days: 5
+      - name: Verify the rebuilt release app
+        working-directory: desktop
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            node scripts/verify-package.mjs release/mac-arm64/TI-Toolbox.app --expect-version "$RELEASE_VERSION" --expect-image-tag "$RELEASE_VERSION"
+            node scripts/verify-package.mjs release/mac/TI-Toolbox.app --expect-version "$RELEASE_VERSION" --expect-image-tag "$RELEASE_VERSION"
+          else
+            DIR=$([ "$RUNNER_OS" = "Windows" ] && echo release/win-unpacked || echo release/linux-unpacked)
+            node scripts/verify-package.mjs "$DIR" --expect-version "$RELEASE_VERSION" --expect-image-tag "$RELEASE_VERSION"
+          fi
 
-  build-linux:
-    name: Build Linux
-    needs: create-release
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+      - name: Verify signature, Gatekeeper and staple
+        if: runner.os == 'macOS'
+        working-directory: desktop
+        run: |
+          set -euo pipefail
+          for APP in release/mac-arm64/TI-Toolbox.app release/mac/TI-Toolbox.app; do
+            echo "=== $APP ==="
+            codesign -dv --verbose=4 "$APP"
+            codesign --verify --deep --strict --verbose=2 "$APP"
+            spctl -a -vvv -t exec "$APP"
+            xcrun stapler validate "$APP"
+          done
 
+  # Only validated artifacts can escape CI storage; internal mode never touches latest or Releases.
+  image-push:
+    needs: [plan, image, desktop-validate]
+    if: needs.plan.outputs.mode != 'build'
+    # Different refs/blank overrides can resolve to the same prepared cohort. Serialize the
+    # existence check plus push by that resolved tag so two runs cannot both claim it is absent.
+    concurrency:
+      group: image-push-${{ needs.plan.outputs.image_tag }}
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    # Download/load/push a multi-GB image; 45m bounds a stalled registry (not yet measured in CI).
+    timeout-minutes: 45
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/download-artifact@v4
         with:
-          node-version: '20'
+          name: container-image
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Load and push the explicit image tag
+        run: |
+          set -euo pipefail
+          gzip -dc ti-toolbox-image.tar.gz | docker load
+          TAG="${IMAGE_REPO}:${{ needs.plan.outputs.image_tag }}"
+          docker push "$TAG"
 
-      - name: Install dependencies
-        working-directory: package
-        run: npm ci
-
-      - name: Build Electron app
-        working-directory: package
+  finalize:
+    needs: [plan, image-push, desktop-publish]
+    if: needs.plan.outputs.mode == 'release'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    # Small API reads; 10m bounds API hangs (unmeasured).
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify every release artifact is attached
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx electron-builder --linux --x64
-
-      - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: Linux
-          path: |
-            package/dist/*.AppImage
-            package/dist/*.deb
-          retention-days: 5
-
-  release:
-    name: Upload to Release
-    needs: [create-release, build-mac, build-windows, build-linux]
-    if: always() && needs.create-release.result == 'success'
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Display structure of downloaded files
-        run: ls -R artifacts
-
-      - name: Upload macOS Intel DMG to release
-        if: needs.build-mac.result == 'success'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: artifacts/macOS-Intel-dmg/*
+          RELEASE_VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          set -euo pipefail
+          gh release view "v$RELEASE_VERSION" --json isDraft,assets > release-assets.json
+          python3 dev/update/verify_release_assets.py "$RELEASE_VERSION" release-assets.json
+      - name: Publish complete draft
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload macOS Silicon DMG to release
-        if: needs.build-mac.result == 'success'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: artifacts/macOS-Silicon-dmg/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Windows to release
-        if: needs.build-windows.result == 'success'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: artifacts/Windows/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Linux to release
-        if: needs.build-linux.result == 'success'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: artifacts/Linux/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          set -euo pipefail
+          gh release edit "v$RELEASE_VERSION" --draft=false --latest

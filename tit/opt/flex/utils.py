@@ -425,13 +425,26 @@ def _resolve_roi_tissues(config: FlexConfig) -> list:
     return _resolve_tissues(roi_spec.tissues)
 
 
-def _subcortical_mask_lists(roi_spec: FlexConfig.SubcorticalROI):
+def _subcortical_mask_lists(roi_spec: FlexConfig.SubcorticalROI, config=None):
     """Return parallel ``(mask_space, mask_path, mask_value)`` lists.
 
     A single shared *atlas_space* applies to the whole union; *atlas_path* may
     be shared (broadcast) or one path per label.  Every atlas path is verified
     to exist.
     """
+    if roi_spec.label is None:
+        from tit import get_path_manager
+        from tit.opt.masks import prepare_mask
+
+        pm = get_path_manager()
+        path = prepare_mask(
+            roi_spec.atlas_path,
+            roi_spec.atlas_space,
+            pm.m2m(config.subject_id),
+            os.path.join(pm.masks(config.subject_id), ".prepared"),
+            binary=True,
+        )
+        return ["subject"], [path], [1]
     labels = _as_list(roi_spec.label)
     n = len(labels)
     paths = _broadcast(roi_spec.atlas_path, n)
@@ -450,7 +463,9 @@ def _configure_subcortical_roi(opt, config: FlexConfig) -> None:
 
     roi = opt.add_roi()
     roi.method = "volume"
-    roi.mask_space, roi.mask_path, roi.mask_value = _subcortical_mask_lists(roi_spec)
+    roi.mask_space, roi.mask_path, roi.mask_value = _subcortical_mask_lists(
+        roi_spec, config
+    )
     _apply_union_operator(roi)
     roi.tissues = tissues
 
@@ -469,7 +484,7 @@ def _configure_subcortical_roi(opt, config: FlexConfig) -> None:
         else:
             non_roi_spec: FlexConfig.SubcorticalROI = config.non_roi  # type: ignore[assignment]
             non_roi.mask_space, non_roi.mask_path, non_roi.mask_value = (
-                _subcortical_mask_lists(non_roi_spec)
+                _subcortical_mask_lists(non_roi_spec, config)
             )
             _apply_union_operator(non_roi)
             non_roi.weight = -1

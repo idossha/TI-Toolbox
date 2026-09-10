@@ -13,17 +13,17 @@
         <link rel="canonical" href="https://idossha.github.io/TI-Toolbox/api/reference/tit/pre/dicom2nifti/">
       
       
-        <link rel="prev" href="../charm/">
+        <link rel="prev" href="../config/">
       
       
-        <link rel="next" href="../qsi/">
+        <link rel="next" href="../fastsurfer/">
       
       
         
       
       
       <link rel="icon" href="../../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
     
     
       
@@ -883,6 +883,28 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#tit.pre.dicom2nifti--public-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Public API
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.pre.dicom2nifti--see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#tit.pre.dicom2nifti.run_dicom_to_nifti" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -890,6 +912,45 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="run_dicom_to_nifti">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tit.pre.dicom2nifti.run_dicom_to_nifti--parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.pre.dicom2nifti.run_dicom_to_nifti--raises" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Raises
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.pre.dicom2nifti.run_dicom_to_nifti--see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -945,13 +1006,8 @@
   
     
     
-      
-  
-  
-    
-    
       <li class="md-path__item">
-        <a href="../../analyzer/analyzer/" class="md-path__link">
+        <a href="../../_mti_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -965,22 +1021,14 @@
     
   
 
-    
-  
-
       
         
   
   
     
     
-      
-  
-  
-    
-    
       <li class="md-path__item">
-        <a href="../../analyzer/analyzer/" class="md-path__link">
+        <a href="../../_mti_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -988,9 +1036,6 @@
 
         </a>
       </li>
-    
-  
-
     
   
 
@@ -1040,7 +1085,18 @@
 
     <div class="doc doc-contents first">
 
-        <p>DICOM to NIfTI conversion with BIDS-compliant naming.</p>
+        <p>Source-image ingestion with BIDS-compliant naming.</p>
+<p>Converts each modality found under <code>sourcedata/sub-{id}/</code> into a
+BIDS-named NIfTI (<code>sub-{id}_{suffix}.nii.gz</code>). DICOM series are
+converted with <code>dcm2niix</code>; a modality folder that already holds a
+NIfTI is copied into place instead.</p>
+<h4 id="tit.pre.dicom2nifti--public-api">Public API<a class="headerlink" href="#tit.pre.dicom2nifti--public-api" title="Permanent link">&para;</a></h4>
+<p>run_dicom_to_nifti
+    Ingest every supported modality for a subject.
+MODALITIES
+    Supported modalities and their BIDS datatype directories.</p>
+<h4 id="tit.pre.dicom2nifti--see-also">See Also<a class="headerlink" href="#tit.pre.dicom2nifti--see-also" title="Permanent link">&para;</a></h4>
+<p>tit.pre.structural.run_pipeline : Full preprocessing pipeline.</p>
 
 
 
@@ -1068,61 +1124,181 @@
 
 
 <a href="#tit.pre.dicom2nifti.run_dicom_to_nifti" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_dicom_to_nifti</span><span class="p">(</span><span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">logger</span><span class="p">,</span> <span class="n">runner</span><span class="p">:</span> <span class="n"><span title="tit.pre.utils.CommandRunner">CommandRunner</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_dicom_to_nifti</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">logger</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">runner</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.pre.utils.CommandRunner" href="../utils/#tit.pre.utils.CommandRunner">CommandRunner</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Convert DICOMs to BIDS-compliant NIfTI for a subject.</p>
+        <p>Ingest a subject's source images into BIDS-named NIfTI files.</p>
+<p>Looks for a <code>T1w</code>, <code>T2w</code>, <code>ct</code>, and <code>dwi</code> folder under
+<code>sourcedata/sub-{subject_id}/</code> (folder names are matched
+case-insensitively) and ingests each one that exists. Anatomical images
+and CT go to the subject's <code>anat/</code> folder, diffusion images to <code>dwi/</code>
+(with their <code>.bval</code>/<code>.bvec</code> sidecars).</p>
+<p>Each modality folder is searched recursively. Supported archives
+(<code>.zip</code>, <code>.tar</code>, <code>.tar.gz</code>, <code>.tgz</code>) are safely extracted to
+<code>extracted_archives/</code> first. DICOM files (<code>.dcm</code>/<code>.dicom</code>) are then
+converted with <code>dcm2niix</code>; if the folder holds no DICOMs but does hold a
+NIfTI, that file is copied into place instead (compressing a bare <code>.nii</code>
+on the way). Dotfiles are ignored throughout.</p>
+<p>CT is written as <code>anat/sub-{id}_ct.nii.gz</code>. This is a local convention,
+not BIDS -- see :data:<code>MODALITIES</code>.</p>
+<h5 id="tit.pre.dicom2nifti.run_dicom_to_nifti--parameters">Parameters<a class="headerlink" href="#tit.pre.dicom2nifti.run_dicom_to_nifti--parameters" title="Permanent link">&para;</a></h5>
+<p>project_dir : str
+    BIDS project root directory.
+subject_id : str
+    Subject identifier without the <code>sub-</code> prefix.
+logger : logging.Logger
+    Logger for progress messages.
+runner : CommandRunner or None, optional
+    Subprocess runner for streaming output.</p>
+<h5 id="tit.pre.dicom2nifti.run_dicom_to_nifti--raises">Raises<a class="headerlink" href="#tit.pre.dicom2nifti.run_dicom_to_nifti--raises" title="Permanent link">&para;</a></h5>
+<p>PreprocessError
+    If an output NIfTI already exists for a modality.</p>
+<h5 id="tit.pre.dicom2nifti.run_dicom_to_nifti--see-also">See Also<a class="headerlink" href="#tit.pre.dicom2nifti.run_dicom_to_nifti--see-also" title="Permanent link">&para;</a></h5>
+<p>run_pipeline : Full preprocessing pipeline.
+MODALITIES : Supported modalities and their BIDS datatype directories.</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/pre/dicom2nifti.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-54">54</a></span>
-<span class="normal"><a href="#__codelineno-0-55">55</a></span>
-<span class="normal"><a href="#__codelineno-0-56">56</a></span>
-<span class="normal"><a href="#__codelineno-0-57">57</a></span>
-<span class="normal"><a href="#__codelineno-0-58">58</a></span>
-<span class="normal"><a href="#__codelineno-0-59">59</a></span>
-<span class="normal"><a href="#__codelineno-0-60">60</a></span>
-<span class="normal"><a href="#__codelineno-0-61">61</a></span>
-<span class="normal"><a href="#__codelineno-0-62">62</a></span>
-<span class="normal"><a href="#__codelineno-0-63">63</a></span>
-<span class="normal"><a href="#__codelineno-0-64">64</a></span>
-<span class="normal"><a href="#__codelineno-0-65">65</a></span>
-<span class="normal"><a href="#__codelineno-0-66">66</a></span>
-<span class="normal"><a href="#__codelineno-0-67">67</a></span>
-<span class="normal"><a href="#__codelineno-0-68">68</a></span>
-<span class="normal"><a href="#__codelineno-0-69">69</a></span>
-<span class="normal"><a href="#__codelineno-0-70">70</a></span>
-<span class="normal"><a href="#__codelineno-0-71">71</a></span>
-<span class="normal"><a href="#__codelineno-0-72">72</a></span>
-<span class="normal"><a href="#__codelineno-0-73">73</a></span>
-<span class="normal"><a href="#__codelineno-0-74">74</a></span>
-<span class="normal"><a href="#__codelineno-0-75">75</a></span>
-<span class="normal"><a href="#__codelineno-0-76">76</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-54" name="__codelineno-0-54"></a><span class="k">def</span><span class="w"> </span><span class="nf">run_dicom_to_nifti</span><span class="p">(</span>
-<a id="__codelineno-0-55" name="__codelineno-0-55"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-56" name="__codelineno-0-56"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-57" name="__codelineno-0-57"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-58" name="__codelineno-0-58"></a>    <span class="n">logger</span><span class="p">,</span>
-<a id="__codelineno-0-59" name="__codelineno-0-59"></a>    <span class="n">runner</span><span class="p">:</span> <span class="n">CommandRunner</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-60" name="__codelineno-0-60"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-61" name="__codelineno-0-61"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert DICOMs to BIDS-compliant NIfTI for a subject.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-62" name="__codelineno-0-62"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">(</span><span class="n">project_dir</span><span class="p">)</span>
-<a id="__codelineno-0-63" name="__codelineno-0-63"></a>    <span class="n">sourcedata_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">sourcedata_subject</span><span class="p">(</span><span class="n">subject_id</span><span class="p">))</span>
-<a id="__codelineno-0-64" name="__codelineno-0-64"></a>    <span class="n">bids_anat_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">bids_anat</span><span class="p">(</span><span class="n">subject_id</span><span class="p">))</span>
-<a id="__codelineno-0-65" name="__codelineno-0-65"></a>    <span class="n">bids_anat_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-0-66" name="__codelineno-0-66"></a>
-<a id="__codelineno-0-67" name="__codelineno-0-67"></a>    <span class="n">converted</span> <span class="o">=</span> <span class="kc">False</span>
-<a id="__codelineno-0-68" name="__codelineno-0-68"></a>    <span class="k">for</span> <span class="n">modality</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;T1w&quot;</span><span class="p">,</span> <span class="s2">&quot;T2w&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-69" name="__codelineno-0-69"></a>        <span class="n">dicom_dir</span> <span class="o">=</span> <span class="n">sourcedata_dir</span> <span class="o">/</span> <span class="n">modality</span> <span class="o">/</span> <span class="s2">&quot;dicom&quot;</span>
-<a id="__codelineno-0-70" name="__codelineno-0-70"></a>        <span class="k">if</span> <span class="n">_convert_modality</span><span class="p">(</span>
-<a id="__codelineno-0-71" name="__codelineno-0-71"></a>            <span class="n">dicom_dir</span><span class="p">,</span> <span class="n">bids_anat_dir</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">modality</span><span class="p">,</span> <span class="n">logger</span><span class="p">,</span> <span class="n">runner</span>
-<a id="__codelineno-0-72" name="__codelineno-0-72"></a>        <span class="p">):</span>
-<a id="__codelineno-0-73" name="__codelineno-0-73"></a>            <span class="n">converted</span> <span class="o">=</span> <span class="kc">True</span>
-<a id="__codelineno-0-74" name="__codelineno-0-74"></a>
-<a id="__codelineno-0-75" name="__codelineno-0-75"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">converted</span><span class="p">:</span>
-<a id="__codelineno-0-76" name="__codelineno-0-76"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No DICOM files found or converted&quot;</span><span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-436">436</a></span>
+<span class="normal"><a href="#__codelineno-0-437">437</a></span>
+<span class="normal"><a href="#__codelineno-0-438">438</a></span>
+<span class="normal"><a href="#__codelineno-0-439">439</a></span>
+<span class="normal"><a href="#__codelineno-0-440">440</a></span>
+<span class="normal"><a href="#__codelineno-0-441">441</a></span>
+<span class="normal"><a href="#__codelineno-0-442">442</a></span>
+<span class="normal"><a href="#__codelineno-0-443">443</a></span>
+<span class="normal"><a href="#__codelineno-0-444">444</a></span>
+<span class="normal"><a href="#__codelineno-0-445">445</a></span>
+<span class="normal"><a href="#__codelineno-0-446">446</a></span>
+<span class="normal"><a href="#__codelineno-0-447">447</a></span>
+<span class="normal"><a href="#__codelineno-0-448">448</a></span>
+<span class="normal"><a href="#__codelineno-0-449">449</a></span>
+<span class="normal"><a href="#__codelineno-0-450">450</a></span>
+<span class="normal"><a href="#__codelineno-0-451">451</a></span>
+<span class="normal"><a href="#__codelineno-0-452">452</a></span>
+<span class="normal"><a href="#__codelineno-0-453">453</a></span>
+<span class="normal"><a href="#__codelineno-0-454">454</a></span>
+<span class="normal"><a href="#__codelineno-0-455">455</a></span>
+<span class="normal"><a href="#__codelineno-0-456">456</a></span>
+<span class="normal"><a href="#__codelineno-0-457">457</a></span>
+<span class="normal"><a href="#__codelineno-0-458">458</a></span>
+<span class="normal"><a href="#__codelineno-0-459">459</a></span>
+<span class="normal"><a href="#__codelineno-0-460">460</a></span>
+<span class="normal"><a href="#__codelineno-0-461">461</a></span>
+<span class="normal"><a href="#__codelineno-0-462">462</a></span>
+<span class="normal"><a href="#__codelineno-0-463">463</a></span>
+<span class="normal"><a href="#__codelineno-0-464">464</a></span>
+<span class="normal"><a href="#__codelineno-0-465">465</a></span>
+<span class="normal"><a href="#__codelineno-0-466">466</a></span>
+<span class="normal"><a href="#__codelineno-0-467">467</a></span>
+<span class="normal"><a href="#__codelineno-0-468">468</a></span>
+<span class="normal"><a href="#__codelineno-0-469">469</a></span>
+<span class="normal"><a href="#__codelineno-0-470">470</a></span>
+<span class="normal"><a href="#__codelineno-0-471">471</a></span>
+<span class="normal"><a href="#__codelineno-0-472">472</a></span>
+<span class="normal"><a href="#__codelineno-0-473">473</a></span>
+<span class="normal"><a href="#__codelineno-0-474">474</a></span>
+<span class="normal"><a href="#__codelineno-0-475">475</a></span>
+<span class="normal"><a href="#__codelineno-0-476">476</a></span>
+<span class="normal"><a href="#__codelineno-0-477">477</a></span>
+<span class="normal"><a href="#__codelineno-0-478">478</a></span>
+<span class="normal"><a href="#__codelineno-0-479">479</a></span>
+<span class="normal"><a href="#__codelineno-0-480">480</a></span>
+<span class="normal"><a href="#__codelineno-0-481">481</a></span>
+<span class="normal"><a href="#__codelineno-0-482">482</a></span>
+<span class="normal"><a href="#__codelineno-0-483">483</a></span>
+<span class="normal"><a href="#__codelineno-0-484">484</a></span>
+<span class="normal"><a href="#__codelineno-0-485">485</a></span>
+<span class="normal"><a href="#__codelineno-0-486">486</a></span>
+<span class="normal"><a href="#__codelineno-0-487">487</a></span>
+<span class="normal"><a href="#__codelineno-0-488">488</a></span>
+<span class="normal"><a href="#__codelineno-0-489">489</a></span>
+<span class="normal"><a href="#__codelineno-0-490">490</a></span>
+<span class="normal"><a href="#__codelineno-0-491">491</a></span>
+<span class="normal"><a href="#__codelineno-0-492">492</a></span>
+<span class="normal"><a href="#__codelineno-0-493">493</a></span>
+<span class="normal"><a href="#__codelineno-0-494">494</a></span>
+<span class="normal"><a href="#__codelineno-0-495">495</a></span>
+<span class="normal"><a href="#__codelineno-0-496">496</a></span>
+<span class="normal"><a href="#__codelineno-0-497">497</a></span>
+<span class="normal"><a href="#__codelineno-0-498">498</a></span>
+<span class="normal"><a href="#__codelineno-0-499">499</a></span>
+<span class="normal"><a href="#__codelineno-0-500">500</a></span>
+<span class="normal"><a href="#__codelineno-0-501">501</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-436" name="__codelineno-0-436"></a><span class="k">def</span><span class="w"> </span><span class="nf">run_dicom_to_nifti</span><span class="p">(</span>
+<a id="__codelineno-0-437" name="__codelineno-0-437"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-438" name="__codelineno-0-438"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-439" name="__codelineno-0-439"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-440" name="__codelineno-0-440"></a>    <span class="n">logger</span><span class="p">,</span>
+<a id="__codelineno-0-441" name="__codelineno-0-441"></a>    <span class="n">runner</span><span class="p">:</span> <span class="n">CommandRunner</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-442" name="__codelineno-0-442"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-443" name="__codelineno-0-443"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Ingest a subject&#39;s source images into BIDS-named NIfTI files.</span>
+<a id="__codelineno-0-444" name="__codelineno-0-444"></a>
+<a id="__codelineno-0-445" name="__codelineno-0-445"></a><span class="sd">    Looks for a ``T1w``, ``T2w``, ``ct``, and ``dwi`` folder under</span>
+<a id="__codelineno-0-446" name="__codelineno-0-446"></a><span class="sd">    ``sourcedata/sub-{subject_id}/`` (folder names are matched</span>
+<a id="__codelineno-0-447" name="__codelineno-0-447"></a><span class="sd">    case-insensitively) and ingests each one that exists. Anatomical images</span>
+<a id="__codelineno-0-448" name="__codelineno-0-448"></a><span class="sd">    and CT go to the subject&#39;s ``anat/`` folder, diffusion images to ``dwi/``</span>
+<a id="__codelineno-0-449" name="__codelineno-0-449"></a><span class="sd">    (with their ``.bval``/``.bvec`` sidecars).</span>
+<a id="__codelineno-0-450" name="__codelineno-0-450"></a>
+<a id="__codelineno-0-451" name="__codelineno-0-451"></a><span class="sd">    Each modality folder is searched recursively. Supported archives</span>
+<a id="__codelineno-0-452" name="__codelineno-0-452"></a><span class="sd">    (``.zip``, ``.tar``, ``.tar.gz``, ``.tgz``) are safely extracted to</span>
+<a id="__codelineno-0-453" name="__codelineno-0-453"></a><span class="sd">    ``extracted_archives/`` first. DICOM files (``.dcm``/``.dicom``) are then</span>
+<a id="__codelineno-0-454" name="__codelineno-0-454"></a><span class="sd">    converted with ``dcm2niix``; if the folder holds no DICOMs but does hold a</span>
+<a id="__codelineno-0-455" name="__codelineno-0-455"></a><span class="sd">    NIfTI, that file is copied into place instead (compressing a bare ``.nii``</span>
+<a id="__codelineno-0-456" name="__codelineno-0-456"></a><span class="sd">    on the way). Dotfiles are ignored throughout.</span>
+<a id="__codelineno-0-457" name="__codelineno-0-457"></a>
+<a id="__codelineno-0-458" name="__codelineno-0-458"></a><span class="sd">    CT is written as ``anat/sub-{id}_ct.nii.gz``. This is a local convention,</span>
+<a id="__codelineno-0-459" name="__codelineno-0-459"></a><span class="sd">    not BIDS -- see :data:`MODALITIES`.</span>
+<a id="__codelineno-0-460" name="__codelineno-0-460"></a>
+<a id="__codelineno-0-461" name="__codelineno-0-461"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-462" name="__codelineno-0-462"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-463" name="__codelineno-0-463"></a><span class="sd">    project_dir : str</span>
+<a id="__codelineno-0-464" name="__codelineno-0-464"></a><span class="sd">        BIDS project root directory.</span>
+<a id="__codelineno-0-465" name="__codelineno-0-465"></a><span class="sd">    subject_id : str</span>
+<a id="__codelineno-0-466" name="__codelineno-0-466"></a><span class="sd">        Subject identifier without the ``sub-`` prefix.</span>
+<a id="__codelineno-0-467" name="__codelineno-0-467"></a><span class="sd">    logger : logging.Logger</span>
+<a id="__codelineno-0-468" name="__codelineno-0-468"></a><span class="sd">        Logger for progress messages.</span>
+<a id="__codelineno-0-469" name="__codelineno-0-469"></a><span class="sd">    runner : CommandRunner or None, optional</span>
+<a id="__codelineno-0-470" name="__codelineno-0-470"></a><span class="sd">        Subprocess runner for streaming output.</span>
+<a id="__codelineno-0-471" name="__codelineno-0-471"></a>
+<a id="__codelineno-0-472" name="__codelineno-0-472"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-473" name="__codelineno-0-473"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-474" name="__codelineno-0-474"></a><span class="sd">    PreprocessError</span>
+<a id="__codelineno-0-475" name="__codelineno-0-475"></a><span class="sd">        If an output NIfTI already exists for a modality.</span>
+<a id="__codelineno-0-476" name="__codelineno-0-476"></a>
+<a id="__codelineno-0-477" name="__codelineno-0-477"></a><span class="sd">    See Also</span>
+<a id="__codelineno-0-478" name="__codelineno-0-478"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-479" name="__codelineno-0-479"></a><span class="sd">    run_pipeline : Full preprocessing pipeline.</span>
+<a id="__codelineno-0-480" name="__codelineno-0-480"></a><span class="sd">    MODALITIES : Supported modalities and their BIDS datatype directories.</span>
+<a id="__codelineno-0-481" name="__codelineno-0-481"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-482" name="__codelineno-0-482"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.telemetry</span><span class="w"> </span><span class="kn">import</span> <span class="n">track_operation</span>
+<a id="__codelineno-0-483" name="__codelineno-0-483"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit</span><span class="w"> </span><span class="kn">import</span> <span class="n">constants</span> <span class="k">as</span> <span class="n">_const</span>
+<a id="__codelineno-0-484" name="__codelineno-0-484"></a>
+<a id="__codelineno-0-485" name="__codelineno-0-485"></a>    <span class="k">with</span> <span class="n">track_operation</span><span class="p">(</span><span class="n">_const</span><span class="o">.</span><span class="n">TELEMETRY_OP_PRE_DICOM</span><span class="p">):</span>
+<a id="__codelineno-0-486" name="__codelineno-0-486"></a>        <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">(</span><span class="n">project_dir</span><span class="p">)</span>
+<a id="__codelineno-0-487" name="__codelineno-0-487"></a>        <span class="n">sourcedata_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">sourcedata_subject</span><span class="p">(</span><span class="n">subject_id</span><span class="p">))</span>
+<a id="__codelineno-0-488" name="__codelineno-0-488"></a>
+<a id="__codelineno-0-489" name="__codelineno-0-489"></a>        <span class="n">converted</span> <span class="o">=</span> <span class="kc">False</span>
+<a id="__codelineno-0-490" name="__codelineno-0-490"></a>        <span class="k">for</span> <span class="n">modality</span><span class="p">,</span> <span class="n">datatype</span> <span class="ow">in</span> <span class="n">MODALITIES</span><span class="p">:</span>
+<a id="__codelineno-0-491" name="__codelineno-0-491"></a>            <span class="n">modality_dir</span> <span class="o">=</span> <span class="n">_modality_source_dir</span><span class="p">(</span><span class="n">sourcedata_dir</span><span class="p">,</span> <span class="n">modality</span><span class="p">)</span>
+<a id="__codelineno-0-492" name="__codelineno-0-492"></a>            <span class="k">if</span> <span class="ow">not</span> <span class="n">modality_dir</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+<a id="__codelineno-0-493" name="__codelineno-0-493"></a>                <span class="k">continue</span>
+<a id="__codelineno-0-494" name="__codelineno-0-494"></a>            <span class="n">output_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">bids_datatype</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">datatype</span><span class="p">))</span>
+<a id="__codelineno-0-495" name="__codelineno-0-495"></a>            <span class="k">if</span> <span class="n">_ingest_modality</span><span class="p">(</span>
+<a id="__codelineno-0-496" name="__codelineno-0-496"></a>                <span class="n">modality_dir</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">modality</span><span class="p">,</span> <span class="n">logger</span><span class="p">,</span> <span class="n">runner</span>
+<a id="__codelineno-0-497" name="__codelineno-0-497"></a>            <span class="p">):</span>
+<a id="__codelineno-0-498" name="__codelineno-0-498"></a>                <span class="n">converted</span> <span class="o">=</span> <span class="kc">True</span>
+<a id="__codelineno-0-499" name="__codelineno-0-499"></a>
+<a id="__codelineno-0-500" name="__codelineno-0-500"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">converted</span><span class="p">:</span>
+<a id="__codelineno-0-501" name="__codelineno-0-501"></a>            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No DICOM or NIfTI files found or converted&quot;</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

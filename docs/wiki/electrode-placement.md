@@ -1,95 +1,84 @@
 ---
 layout: wiki
-title: Electrode Placement
+title: Free Electrode Placement
 permalink: /wiki/electrode-placement/
 ---
 
-The Electrode Placement extension provides an interactive 3D tool for freely placing electrode on head surfaces. This tool is designed for precise and flexible electrode positioning and is heavily inspired by SimNIBS's GUI apporach. 
+# Free electrode placement
 
-## Key Features
+Not every montage comes from an EEG net. **Free-hand placement** lets you put electrodes wherever
+you want on a subject's scalp by clicking them into place, and then run a simulation from that
+configuration like any other montage.
 
-- **3D Surface Visualization**: Fast loading and rendering of head surfaces from SimNIBS m2m directories
-- **Interactive Placement**: Double-click to place electrode markers directly on the 3D surface
-- **EEG Cap Integration**: Load and visualize EEG electrode positions from CSV files
-- **Color-Coded Pairs**: Automatic electrode pair coloring (E1±, E2±, E3±, etc.) for easy identification
-- **Real-time Editing**: Modify electrode coordinates numerically with live 3D updates
-- **Export Functionality**: Save electrode configurations to JSON for stimulation planning
-- **OpenGL Rendering**: Smooth 3D manipulation with rotation, zoom, and translation controls
+> **What's new in v3.** This was the *Electrode Placement* extension in 2.x — a separate window you
+> opened from the Extensions menu. It is now part of the [Simulator]({{ site.baseurl }}/wiki/simulator/):
+> the same 3-D pane the page already draws is the one you click on, and a saved placement is
+> immediately a **Source** you can pick in a job row.
+>
+> Full list: [the v3.0.0 release notes]({{ site.baseurl }}/releases/v3.0.0/).
 
-## Usage Workflow
+<img src="{{ site.baseurl }}/assets/imgs/v3/simulator-placement.png" alt="The free-hand placement editor with two electrodes on the head" style="width: 100%; max-width: 1000px;">
+<em>Two positions placed. The selected row is named in the pane, and its dot carries a ring.</em>
 
-### Getting Started
+## Placing electrodes
 
-1. **Launch Extension**: Extensions button → "Electrode Placement"
-2. **Select Subject**: Choose from available subjects in your project directory
-3. **Load Surface**: The extension automatically loads the head mesh from the subject's m2m directory
-4. **Optional: Load EEG Cap**: Import reference electrode positions from CSV files
+1. On the Simulator, press **New placement**. The editor opens with four rows already named
+   `E1+`, `E1-`, `E2+`, `E2-` — the plan, before anything is clicked.
+2. Choose the **subject** and give the configuration a **name**.
+3. **Select a row**, then **click the head** in the pane. That row takes the point you clicked, in
+   that subject's own millimetres. Clicking again *moves* it rather than adding another.
+4. Select the next row and click again. Each row has its own colour, and each dot is labelled.
 
-### Electrode Placement
+Selection comes first, always: a click with no row selected places nothing. It is never ambiguous
+which electrode you are manipulating — the selected row's swatch is the checked one, hovering a row
+lights its dot, and clicking a dot selects its row instead of dropping a second electrode on top of
+it.
 
-1. **Navigate**: Use mouse controls to rotate, zoom, and translate the 3D view
-2. **Place Markers**: Double-click on the head surface to place electrode markers
-3. **Automatic Naming**: Electrodes are automatically named with polarity (E1+, E1-, E2+, E2-, etc.)
-4. **Color Coding**: Each electrode pair receives a distinct color for visual organization
+**Add electrode pair** appends two more rows; the trash icon removes a row and its dot together —
+the table and the scalp are one state, never two that can disagree.
 
-![Freehand Electrode Placement]({{ site.baseurl }}/assets/imgs/electrode-placement/freehand.png)
+## Coordinates are the subject's
 
-*Figure: Interactive 3D electrode placement interface showing freehand positioning on head surface*
+The Simulator's pane is the **only** pane in the app that draws the selected subject. Every other
+3-D pane (Optimizer, Analyzer) draws a fixed packaged guide head, and a click there names an
+electrode or an atlas region — never a coordinate. That is deliberate: the guide's space is no
+research subject's space, and a guide coordinate must never be written into a configuration that
+runs on a different head.
 
-### Coordinate Management
+You can also type coordinates directly into the X/Y/Z fields, to 0.1 mm. That is the way to enter a
+position you already know — from a paper, from a previous study, or from a neuronavigation system.
 
-1. **View Coordinates**: All placed electrodes appear in the table with X, Y, Z coordinates
-2. **Edit Coordinates**: Double-click coordinate cells to modify positions numerically
-3. **Delete Electrodes**: Use checkboxes to select and delete multiple electrodes
-4. **Real-time Updates**: Changes in the table immediately update the 3D visualization
+## How many positions
 
-## Data Formats
+| Positions | Mode |
+|---|---|
+| 4 (2 pairs) | Standard TI |
+| 8 or more, in steps of 2 | [Multipolar TI (mTI)]({{ site.baseurl }}/wiki/simulator/#multipolar-mode-mti) |
 
-### EEG Cap CSV Format
+The mode is **derived from the number of pairs** — there is no separate switch to forget.
 
-The extension supports EEG cap files in CSV format with the following structure:
+## What is saved, and where
 
-```csv
-electrode_type,X,Y,Z,electrode_name
-EEG,85.2,-12.8,45.6,Fp1
-EEG,92.1,15.3,42.8,Fp2
-EEG,78.9,-45.2,38.1,C3
-```
+**Save placement** writes `derivatives/SimNIBS/sub-<id>/m2m_<id>/stim_configs/<name>.json` in your project. From then on it appears in a
+Simulator job row when the **Source** column is set to **Free-hand**, alongside the montages that
+came from EEG nets and the results that came from an [optimizer]({{ site.baseurl }}/wiki/flex-search/).
 
-**Requirements:**
-- Comma or tab-separated values
-- Columns: electrode_type, X, Y, Z, electrode_name
-- Coordinates in millimeters (SimNIBS coordinate system)
-- A header row is optional (detected automatically)
+Because it is a plain JSON file, it is also readable from a
+[script or notebook]({{ site.baseurl }}/wiki/scripting/), and it travels with the project.
 
-### Export Configuration JSON
+## Choosing positions well
 
-Electrode configurations are exported in a structured JSON format:
+- **Use the pairs, not the electrodes, as the unit.** TI is generated by the interaction of two
+  carriers; the geometry that matters is where the two pairs cross.
+- **Watch the skin opacity slider.** Turning the scalp translucent lets you see the cortex under
+  the point you are about to click; the grey matter stays opaque so the anatomy under your cursor
+  is never a blend of two surfaces.
+- **Anatomical plausibility is on you.** Nothing checks that a position is reachable on a real
+  head, that it clears an ear, or that two electrodes do not overlap. If you want positions the
+  method chose rather than positions you chose, use
+  [flex-search]({{ site.baseurl }}/wiki/flex-search/).
 
-```json
-{
-  "name": "custom_electrode_config",
-  "type": "U",
-  "electrode_positions": {
-    "E1+": [85.2, -12.8, 45.6],
-    "E1-": [92.1, 15.3, 42.8],
-    "E2+": [78.9, -45.2, 38.1],
-    "E2-": [88.4, -38.7, 41.3]
-  }
-}
-```
+## Known limitation
 
-**Fields:**
-- `name`: Configuration identifier
-- `type`: Stimulation type ("U" for unipolar, "M" for multipolar)
-- `electrode_positions`: Dictionary mapping electrode names to [X, Y, Z] coordinates
-
-
-### File Structure
-
-```
-m2m_{subject_id}/
-├── {subject_id}.msh         # Head mesh file (loaded automatically)
-└── stim_configs/
-    └── electrode_config.json # Exported configurations
-```
+A dot on the far side of the head is not hidden by the head, so a placement can look like it is on
+the near surface when it is not. Rotate before you trust an overlapping pair.

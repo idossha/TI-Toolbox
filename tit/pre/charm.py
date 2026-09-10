@@ -15,7 +15,7 @@ run_subject_atlas
 
 See Also
 --------
-tit.pre.recon_all : FreeSurfer ``recon-all`` cortical reconstruction.
+tit.pre.fastsurfer : FastSurfer ``--seg_only`` deep segmentation.
 tit.pre.structural.run_pipeline : Full preprocessing pipeline.
 """
 
@@ -75,7 +75,7 @@ def run_charm(
     See Also
     --------
     run_subject_atlas : Create atlas ``.annot`` files after CHARM.
-    run_recon_all : FreeSurfer cortical reconstruction.
+    run_fastsurfer : FastSurfer deep segmentation.
     """
     from tit.telemetry import track_operation
     from tit import constants as _const

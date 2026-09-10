@@ -47,7 +47,7 @@ import csv
 from datetime import datetime
 from typing import Callable
 
-from tit.paths import get_path_manager
+from tit.paths import PathManager, get_path_manager
 from tit import constants as const
 from tit.sim.config import (
     Montage,
@@ -59,13 +59,13 @@ from tit.sim.config import (
 # ── Montage file I/O ────────────────────────────────────────────────────────────────
 
 
-def _montage_list_path() -> str:
+def _montage_list_path(pm: PathManager | None = None) -> str:
     """Return the absolute path to ``montage_list.json``."""
-    pm = get_path_manager()
+    pm = pm if pm is not None else get_path_manager()
     return os.path.join(pm.config_dir(), const.FILE_MONTAGE_LIST)
 
 
-def ensure_montage_file() -> str:
+def ensure_montage_file(*, pm: PathManager | None = None) -> str:
     """Return the path to ``montage_list.json``, creating it if absent.
 
     If the file does not exist, creates it with the default schema
@@ -81,7 +81,7 @@ def ensure_montage_file() -> str:
     load_montage_data : Read the file returned by this function.
     save_montage_data : Write data to the file returned by this function.
     """
-    path = _montage_list_path()
+    path = _montage_list_path(pm)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     if not os.path.exists(path):
         with open(path, "w") as f:
@@ -89,7 +89,7 @@ def ensure_montage_file() -> str:
     return path
 
 
-def load_montage_data() -> dict:
+def load_montage_data(*, pm: PathManager | None = None) -> dict:
     """Load the full ``montage_list.json`` as a dict.
 
     Returns
@@ -103,11 +103,11 @@ def load_montage_data() -> dict:
     save_montage_data : Write the dict back to disk.
     ensure_montage_file : Guarantees the file exists before reading.
     """
-    with open(ensure_montage_file()) as f:
+    with open(ensure_montage_file(pm=pm)) as f:
         return json.load(f)
 
 
-def save_montage_data(data: dict) -> None:
+def save_montage_data(data: dict, *, pm: PathManager | None = None) -> None:
     """Write *data* to ``montage_list.json``, overwriting the file.
 
     Parameters
@@ -119,7 +119,7 @@ def save_montage_data(data: dict) -> None:
     --------
     load_montage_data : Read the data back after saving.
     """
-    with open(ensure_montage_file(), "w") as f:
+    with open(ensure_montage_file(pm=pm), "w") as f:
         json.dump(data, f, indent=4)
 
 
@@ -151,6 +151,7 @@ def upsert_montage(
     montage_name: str,
     electrode_pairs: list[list[str]],
     mode: str,
+    pm: PathManager | None = None,
 ) -> None:
     """Insert or update a montage definition in ``montage_list.json``.
 
@@ -174,13 +175,13 @@ def upsert_montage(
     list_montage_names : List montage names after upserting.
     load_montages : Load upserted montages as ``Montage`` objects.
     """
-    data = load_montage_data()
+    data = load_montage_data(pm=pm)
     net = data["nets"].setdefault(
         eeg_net, {"uni_polar_montages": {}, "multi_polar_montages": {}}
     )
     key = "uni_polar_montages" if mode.upper() == "U" else "multi_polar_montages"
     net[key][montage_name] = electrode_pairs
-    save_montage_data(data)
+    save_montage_data(data, pm=pm)
 
 
 def list_montage_names(eeg_net: str, *, mode: str) -> list[str]:
@@ -879,6 +880,8 @@ def run_simulation(
     config: SimulationConfig,
     logger=None,
     progress_callback: Callable[[int, int, str], None] | None = None,
+    *,
+    overwrite: bool = False,
 ) -> list[dict]:
     """Run TI or mTI simulations for every montage in *config*.
 
@@ -910,6 +913,10 @@ def run_simulation(
         ``callback(current_index, total, montage_name)`` and once more
         with ``(total, total, "Complete")`` when finished.
 
+    overwrite : bool, optional
+        Explicitly allow SimNIBS to rerun in the montage output directory. Defaults
+        to False; existing-result protection stays enabled unless confirmed.
+
     Returns
     -------
     list[dict]
@@ -931,7 +938,9 @@ def run_simulation(
     _tel_op = const.TELEMETRY_OP_SIM_MTI if has_mti else const.TELEMETRY_OP_SIM_TI
 
     with track_operation(_tel_op):
-        return _run_simulation_inner(config, logger, progress_callback)
+        return _run_simulation_inner(
+            config, logger, progress_callback, overwrite=overwrite
+        )
 
 
 def _validate_simulation_inputs(config: SimulationConfig) -> None:
@@ -983,6 +992,8 @@ def _run_simulation_inner(
     config: SimulationConfig,
     logger,
     progress_callback: Callable[[int, int, str], None] | None,
+    *,
+    overwrite: bool = False,
 ) -> list[dict]:
     """Inner implementation of :func:`run_simulation` (unwrapped)."""
     if logger is None:
@@ -1014,7 +1025,12 @@ def _run_simulation_inner(
             if montage.simulation_mode == SimulationMode.TI
             else mTISimulation
         )
-        results.append(cls(config, montage, logger).run(simulation_dir))
+        simulation = cls(config, montage, logger)
+        results.append(
+            simulation.run(simulation_dir, overwrite=True)
+            if overwrite
+            else simulation.run(simulation_dir)
+        )
         if config.map_to_fsavg:
             _project_montage_to_fsaverage(config, montage, logger)
     if progress_callback:

@@ -6,6 +6,23 @@ permalink: /wiki/cluster-permutation-testing/
 
 The Cluster-Based Permutation Testing extension performs non-parametric statistical analysis to identify brain regions with significant relationships between temporal interference (TI) stimulation fields and behavioral/clinical outcomes. This method provides robust control of family-wise error rates for both **group comparison** (binary outcomes) and **correlation analysis** (continuous outcomes).
 
+## Import and export participant rows
+
+Use **Import CSV/TSV**, **Export CSV**, or **Export TSV** below the Subjects header.
+Export the current table for an editable template. The required header and an example CSV row are:
+
+```csv
+subject_id,simulation_name,response,effect_size,weight
+101,L_Insula,1,,1
+```
+
+For TSV, use tabs instead of commas. Columns may be reordered, but all headers must be present
+with exactly these names. Subject IDs omit `sub-`; simulation names match the project catalog.
+`response` is 0 or 1. `effect_size` may be blank or a finite number; `weight` may be blank or a positive finite number. Quoted fields, embedded separators, UTF-8 BOM and Windows line endings are supported.
+An import replaces the table only after every row validates. A malformed file leaves existing
+rows unchanged. Import checks table structure and values; dataset files are checked by the job workflow.
+
+
 ## Key Features
 
 - **Dual Analysis Modes**: Group comparison (responders vs non-responders) and correlation analysis (continuous outcomes)
@@ -16,6 +33,14 @@ The Cluster-Based Permutation Testing extension performs non-parametric statisti
 - **Parallel Processing**: Multi-core support for fast computation
 - **Comprehensive Output**: Statistical maps, cluster analysis, and detailed reports
 
+> **Results produced with v2.2.3 – v2.5.0 should be re-run.** Three defects in the cluster
+> machinery were fixed in v3.0.0: opposite-sign clusters that touch were merged into one, the
+> permutation null for two-sided and left-tailed tests was built with the *least* extreme
+> cluster instead of the most extreme one, and the sampled p-value could return exactly 0.
+> Right-tailed (`alternative="greater"`) analyses are unaffected. See the maintainer note
+> [release notes]({{ site.baseurl }}/releases/v3.0.0/#scientific-corrections) (SCI-01, SCI-04, SCI-06) for how to tell whether a
+> given result is affected and what changes.
+
 ## Theoretical Background
 
 ### Why Cluster-Based Permutation Testing?
@@ -24,7 +49,7 @@ Traditional voxelwise statistical tests performed at each brain voxel create a m
 
 Cluster-based permutation testing addresses this by:
 1. Performing voxelwise statistics (t-values or correlations)
-2. Forming clusters of adjacent significant voxels
+2. Forming clusters of adjacent significant voxels **of the same sign**
 3. Using cluster statistics (mass or size) instead of individual voxels
 4. Building null distributions through data permutations
 5. Controlling family-wise error at the cluster level
@@ -54,7 +79,7 @@ Both methods follow the Maris & Oostenveld (2007) framework with method-specific
 #### Group Comparison Workflow:
 1. **Voxelwise Testing**: Compute t-statistics comparing group means
 2. **Cluster Formation**: Threshold at p < cluster_threshold to form clusters
-3. **Cluster Statistics**: Calculate mass (sum of t-values) or size (voxel count)
+3. **Cluster Statistics**: Calculate mass (signed sum of t-values within a sign-homogeneous cluster) or size (voxel count)
 4. **Permutation Testing**: Randomly reassign subjects to groups 1,000+ times
 5. **Null Distribution**: Build distribution of maximum cluster statistics under null
 6. **Significance Testing**: Compare observed clusters to null distribution
@@ -62,7 +87,7 @@ Both methods follow the Maris & Oostenveld (2007) framework with method-specific
 #### Correlation Analysis Workflow:
 1. **Voxelwise Testing**: Compute correlation coefficients between E-field and outcome
 2. **Cluster Formation**: Threshold at p < cluster_threshold to form clusters
-3. **Cluster Statistics**: Calculate mass (sum of t-values) or size (voxel count)
+3. **Cluster Statistics**: Calculate mass (signed sum of t-values within a sign-homogeneous cluster) or size (voxel count)
 4. **Permutation Testing**: Randomly shuffle outcome measures across subjects 1,000+ times
 5. **Null Distribution**: Build distribution of maximum cluster statistics under null
 6. **Significance Testing**: Compare observed clusters to null distribution
@@ -116,7 +141,7 @@ Both modes accept `analysis_space = "mni"` (volumetric, default) or `"fsaverage"
 
 ### Classification Analysis: Responder vs Non-Responder
 
-1. **Launch Extension**: Extensions button → "Permutation Analysis"
+1. **Open tool**: enable **Cluster permutation** in **Settings → Optional tools**, then select it under **Extensions** in the sidebar
 2. **Select Mode**: Choose "Classification" mode
 3. **Configure Subjects**:
    - Subject 001: Simulation "HIPP_L", Responder
@@ -130,7 +155,7 @@ Both modes accept `analysis_space = "mni"` (volumetric, default) or `"fsaverage"
 
 ### Correlation Analysis: Dose-Response Relationship
 
-1. **Launch Extension**: Extensions button → "Permutation Analysis"
+1. **Open tool**: enable **Cluster permutation** in **Settings → Optional tools**, then select it under **Extensions** in the sidebar
 2. **Select Mode**: Choose "Correlation" mode
 3. **Configure Subjects**:
    - Subject 001: Simulation "HIPP_L", Effect Size: 0.85
@@ -202,6 +227,24 @@ correlation/hippocampus_effect_size_correlation/
 - **File Pattern**: Default `grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz`
 - **Data Type**: Electric field magnitude values
 - **Analysis Types**: Both classification and correlation approaches supported
+
+### How many subjects you need
+
+A permutation test can only be as fine-grained as the number of ways the labels can be
+rearranged, and with a handful of subjects that number is tiny. In a group comparison with
+**three subjects** split 2-vs-1 there are exactly `C(3,1) = 3` relabellings, so the null
+distribution has three members — one of which is your own data. The smallest cluster
+p-value the design can ever produce is therefore `1/3` (about `0.33`), and the estimator the
+toolbox actually uses is one notch more conservative still. No cluster can clear
+`p < 0.05`, whatever the effect size.
+
+So **zero significant clusters from three subjects is the correct answer, not a failure.**
+The run is still worth doing — the `t_statistics` and `p_values` maps are real and show you
+where and how large the effect is — but cluster-level inference needs more subjects. As a
+rule of thumb, a two-sided test at `α = 0.05` needs at least `1/0.05 = 20` distinct
+relabellings, which a balanced group comparison first reaches at **three per group**
+(`C(6,3) = 20`); six or more per group is where the null becomes finely enough resolved to
+be informative.
 
 ### CSV-Based Configuration
 

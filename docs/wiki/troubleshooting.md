@@ -18,11 +18,81 @@ The page has two parts. **Part 1** covers things outside the toolbox's control �
 
 # Part 1 — Environment problems (Docker, display, machine, upstream tools)
 
+## Desktop application
+
+### What should happen when I close the app or switch projects?
+
+Closing the desktop app stops the project's container and exits Electron. To change projects
+without quitting, use Switch project in Overview, type a path or browse, and confirm the new project.
+Terminal loaders open the browser by default, so they return after opening the page. With explicit
+`--desktop`, the terminal waits until Electron exits, then prints “TI-Toolbox closed.” on success.
+
+### Quit warns about active jobs when none are running
+
+An early v3 development build counted historical `skipped` and `lost` jobs as active during
+shutdown. Both are terminal states. The quit check now counts only `running` and `queued` jobs,
+matching the job model; an idle session closes without a job warning. Rebuild/relaunch the updated
+desktop application. No job records need to be deleted or changed.
+
+### A `.nii.gz` mask is grayed out in the file picker
+
+Early development builds filtered only `.nii` and the compound `.nii.gz` extension, which macOS
+may not recognize in its native chooser. The picker now includes gzip files and validates that
+the selected file is a `.nii` or `.nii.gz` NIfTI mask before importing. Refresh the updated UI
+and reopen the picker. Unrelated gzip archives are rejected.
+
+### Switching tabs resets a draft or 3D camera
+
+**Applies to:** early 3.0.0 development builds.
+**Cause:** route navigation unmounted pages and their embedded renderers; a shared subject selection
+also changed hidden workflows. The September 4 polishing update retains visited pages and gives
+each tab its own subject context. Closing/switching projects intentionally starts a new session.
+**Fix:** restart the updated desktop client once. In development, use `npm run dev` from `desktop/`.
+The Simulator, Optimizer and Analyzer previews also require the viewport-capable Tetravox bundle;
+an older protocol-2 bundle can still show its full application chrome.
+
+### A 3D preview never leaves "Loading"
+
+**Cause:** older builds removed a failed iframe, cleared its error during cleanup, and immediately
+loaded it again. A missing/unusable embed bundle could therefore appear to load forever.
+**Fix:** the updated preview keeps the error visible and offers **Retry 3D preview**. A locally built
+embed must use the installed layout: `index.html`, `assets/` and the generated `manifest.json` in
+one served directory. Raw Vite `dist/` output lacks the manifest; the release installer flattens
+the packaged `dist/` correctly. Do not fabricate a manifest for an unknown build.
+
+### Analyzer stays at "Building … scene" with repeated atlas errors
+
+**Cause:** the atlas builder accessed `TvscPayload.triangles`, but decoded meshes expose `indices`.
+The frontend then retried the server's one-shot HTTP 500, starting another build; stale HTTP 202
+data kept the preview at "Building". This is not evidence of a corrupt subject or a slow mesh.
+**Fix:** the updated builder uses the decoded index array. Manifest/atlas failures now stop polling,
+show the server's message and offer **Retry 3D preview**. Do not delete head models or cached surfaces
+to work around this development defect.
+
+If a cold atlas preview shows duplicate skin/cortex surfaces, update the desktop as well: its first
+scene now waits for the required atlas instead of racing a temporary anatomy scene against it.
+
+### Simulator shows a guide instead of the selected subject's EEG net
+
+**Cause:** an early internal build failed to encode the tissue-label path in a subject scene
+manifest. The preview fell back to reference anatomy, whose packaged nets are limited.
+**Fix:** pull the rebuilt internal image and restart it, or refresh the updated development app.
+Subject nets are read from the existing head model; regenerating the model is unnecessary.
+
+### Viewer fails only for some mixed mesh/volume selections
+
+**Cause:** a solid mesh's saved `field: null` value reached controls expecting an absent field.
+If that mesh loaded first, the controls crashed and cancelled the remaining scene load.
+**Fix:** use the rebuilt internal image with the compatible viewer bundle. New scenes omit the
+empty field and the viewer accepts older scenes containing it; source files need no repair.
+
 ## Docker
 
-### Docker image store is corrupted — `blob sha256:… not found`
+### Docker image store is corrupted — `blob sha256:… not found` (historical recovery record)
 
-**Applies to:** any OS; seen on Ubuntu / EC2.
+**Historical v2 recovery record:** seen on Ubuntu / EC2. The image names, disk estimates
+and FreeSurfer volume below belong to that version. For the current image, follow the
+[installation guide]({{ site.baseurl }}/installation/).
 **Situation:** launching the toolbox (or any `docker images` call) after an interrupted pull, a full disk, or a reboot mid-download.
 **Error:**
 ```
@@ -42,7 +112,7 @@ subprocess.CalledProcessError: Command '['docker', 'images', '--format', …]' r
    then relaunch; images are re-pulled and the FreeSurfer volume is re-seeded.
 **Source:** maintainer-verified, 2026-08-26.
 
-### `Error: simnibs service is not running. Please check your docker-compose.yml and container logs.`
+### `Error: simnibs service is not running. Please check your docker-compose.yml and container logs.` (historical v2)
 
 **Applies to:** any OS, `python3 loader.py`.
 **Situation:** images pull fine, "Starting services…", then this line.
@@ -61,7 +131,7 @@ subprocess.CalledProcessError: Command '['docker', 'images', '--format', …]' r
 **Fix:** Docker Desktop → Settings → Resources → WSL Integration → enable your distro → Apply & Restart; verify with `docker compose version`. The desktop app is unaffected.
 **Source:** [#65](https://github.com/idossha/TI-Toolbox/discussions/65).
 
-### FreeSurfer container stuck in a `Restarting` loop / `nu_correct: Command not found` (Windows)
+### FreeSurfer container stuck in a `Restarting` loop / `nu_correct: Command not found` (Windows) (historical v2)
 
 **Applies to:** Windows 11, WSL2, Docker Desktop.
 **Situation:** `simnibs_container` runs but `freesurfer_container` restarts forever; the desktop launcher times out after 300 s.
@@ -72,8 +142,8 @@ subprocess.CalledProcessError: Command '['docker', 'images', '--format', …]' r
 ### Docker not running / images not downloading / first launch takes very long
 
 **Applies to:** any OS, first run of a new version.
-**Cause:** the SimNIBS image is 5–10 GB and is pulled on the first launch of every new version; a Docker daemon that is not running, or a slow connection, looks like a hang.
-**Fix:** start Docker Desktop (`sudo systemctl start docker` on Linux) and wait for it to be green; watch the pull in Docker Desktop → Images; ensure ≥20 GB free disk; pull manually with `docker pull idossha/simnibs:<version>` if needed. A window that only appears after several minutes on a first launch is normal ([#118](https://github.com/idossha/TI-Toolbox/discussions/118)).
+**Cause:** a missing image must be loaded before the server starts. A Docker daemon that is not running, limited disk space or a slow image download can delay startup.
+**Fix:** start Docker Desktop (`sudo systemctl start docker` on Linux), confirm the daemon is ready, and check the launcher progress and Docker disk usage. Follow the [installation guide]({{ site.baseurl }}/installation/) for the matching image.
 
 ### CHARM killed / simulations slow — insufficient Docker memory
 
@@ -85,10 +155,26 @@ subprocess.CalledProcessError: Command '['docker', 'images', '--format', …]' r
 
 ### Preprocessing appears frozen for many hours
 
-**Expected runtimes:** CHARM ≈ 1–1.5 h, recon-all ≈ 4 h+ (longer under emulation on Apple Silicon). Check the System Monitor tab and `<project>/derivatives/ti-toolbox/logs/`. If it really is stuck, test with the bundled `ernie` NIfTI to rule out a bad input volume.
+**Check progress:** open [Jobs]({{ site.baseurl }}/wiki/jobs/) to inspect the stage and live log. CHARM and FastSurfer can run for a long time, especially under emulation on Apple Silicon; a quiet interval alone does not establish that a job is stuck. The original discussion below concerns the historical FreeSurfer workflow.
 **Source:** [#93](https://github.com/idossha/TI-Toolbox/discussions/93).
 
-## Launching
+## Command-line launchers
+
+### No-argument loader exits with "no project directory given"
+
+**Applies to:** earlier loader revisions, including the initial `release/3.0.0` candidate.
+**Cause:** the launcher required an explicit project and had no terminal project prompt.
+**Fix:** update the source checkout. Running `loader.py`, `loader.sh`,
+`dev/loader/loader_dev.py`, or `dev/loader/loader_dev.sh` without arguments in a terminal
+now prompts only for the project and remembers the last selected path. For scripts or other
+noninteractive sessions, pass `--project` and any
+other settings explicitly. See the [launcher reference]({{ site.baseurl }}/installation/bash-cli/#launch)
+for `--interactive`, reconnect behavior, and advanced command-line options.
+
+## Launching (historical v2)
+
+For the current launcher, use the [installation guide]({{ site.baseurl }}/installation/).
+The entry below records the old container layout.
 
 ### Container cannot find the project / subject not listed in the GUI (Linux terminal)
 
@@ -97,7 +183,12 @@ subprocess.CalledProcessError: Command '['docker', 'images', '--format', …]' r
 **Fix:** always launch with `python3 loader.py` (repository root — `loader.sh` no longer exists) and point it at the project; verify inside the container with `echo $PROJECT_DIR_NAME` and `ls /mnt/`. One project per session — relaunch to switch. Jupyter: open `http://localhost:8888` in the host browser.
 **Source:** [#95](https://github.com/idossha/TI-Toolbox/discussions/95), [#84](https://github.com/idossha/TI-Toolbox/discussions/84).
 
-## GUI display (X11)
+## GUI display (X11, historical v2)
+
+> **Historical v2 instructions.** The current desktop application and command-line launcher
+> use the same single-image server and browser UI, with no Qt or X11. This section records
+> fixes for the removed v2 GUI; it does not apply to the
+> [current command-line launcher]({{ site.baseurl }}/installation/bash-cli/).
 
 ### No GUI on macOS — Qt XCB / `could not connect to display` / Qt5Agg error
 
@@ -107,7 +198,6 @@ subprocess.CalledProcessError: Command '['docker', 'images', '--format', …]' r
 1. Install **XQuartz 2.7.7** (not newer), log out and back in, launch XQuartz.
 2. XQuartz → Preferences → Security → *Allow connections from network clients*.
 3. Launch with `python3 loader.py` — it sets `DISPLAY` and runs `xhost` for you. Never `docker run` by hand.
-4. If it still fails, run the legacy helper once: `bash dev/deprecated/config_sys.sh`, then relaunch.
 CLI tools work regardless of X11.
 **Source:** [#55](https://github.com/idossha/TI-Toolbox/discussions/55), [#70](https://github.com/idossha/TI-Toolbox/discussions/70).
 
@@ -144,8 +234,9 @@ CLI tools work regardless of X11.
 
 ### `recon-all` fails with `ERROR! FOV=282.000 > 256`
 
+**Applies to:** optional FreeSurfer reconstruction, including resumed legacy projects.
 **Cause:** FreeSurfer's 256 mm field-of-view limit — typical for templates such as MNI152 or large-FOV clinical scans.
-**Fix:** recon-all is optional (it only adds FreeSurfer atlases); disable it for templates, or crop/conform the volume first.
+**Fix:** use an appropriately cropped/conformed input for FreeSurfer, preserving the intended anatomy. If your workflow does not need full reconstruction or subregions, select the recommended FastSurfer segmentation instead; see [Pre-processing]({{ site.baseurl }}/wiki/pre-processing/).
 **Source:** [#94](https://github.com/idossha/TI-Toolbox/discussions/94).
 
 ### DWI has no `.bval`/`.bvec`, or the pre-flight rejects it
@@ -193,7 +284,9 @@ By design — `TI_normal` only exists on the cortical surface. Select *Space = m
 
 # Part 2 — Toolbox bugs already fixed: upgrade
 
-If you see one of these, you are on an old version. *main* = fixed on the main branch, ships in the next release (v2.4.1). Older-version workarounds are given only where they are easy.
+These entries record fixes to older versions. The historical *main* label means the fix
+was on the main branch when the entry was recorded. Older-version workarounds are retained
+for reference; use the [installation guide]({{ site.baseurl }}/installation/) for current setup.
 
 | Symptom | Fixed in | Note / workaround on older versions | Source |
 |---|---|---|---|
@@ -229,21 +322,45 @@ For people scripting against `tit` or contributing code.
 
 | Symptom | Cause / Fix |
 |---|---|
-| Script works on the host, fails in the container (or vice-versa) | The container is Python 3.11, numpy 1.26, case-sensitive FS; the host is not. **Verify in the container**: `docker run --rm -v "$PWD:/ti-toolbox" -w /ti-toolbox idossha/ti-toolbox-test:latest sh -c 'simnibs_python -m pytest tests -q'`. |
+| Script works on the host, fails in the container (or vice-versa) | The v3 scientific runtime uses SimNIBS Python and NumPy 2.3.5 on a case-sensitive filesystem; the host may differ. Verify against the current runtime with the [testing guide]({{ site.baseurl }}/wiki/development/), including real numerical tests when relevant. |
 | `pytest` INTERNALERROR `Read-only file system: tests/logs/pytest.log` | `pytest.ini` writes a log; mount the repo **writable** (not `:ro`). |
 | `python: not found` in the test container | Use `simnibs_python`. |
 | Test container is very slow on Apple Silicon | It is amd64 under emulation; expect ~1 min for the suite, minutes for real SimNIBS scenarios. |
 | `nibabel` `save()` to `.nii.gz` fails on a Docker bind mount | Write the `.nii` then gzip with the stdlib `gzip` module. |
 | `ModuleNotFoundError: fsl / ants` | The SimNIBS container ships **no FSL and no ANTs** — only Python, nibabel, numpy, scipy (+ SimpleITK). |
-| `mne` missing in the container | Not installed by default; pin `mne~=1.5` (numpy 1.26 compatible) in `container/blueprint/Dockerfile.simnibs`. |
-| `if some_combo and …` guard silently skips | PyQt5 `QComboBox.__len__` makes an empty combo falsy; use `is not None`. |
+| `mne` missing in a v3 container | The current image installs `mne>=1.5,<2` and `h5io`. Verify you are using the selected v3 image and `simnibs_python`, not another interpreter or a legacy image. |
+| **V2 only:** `if some_combo and …` guard silently skips | PyQt5 `QComboBox.__len__` makes an empty combo falsy; use `is not None`. |
 | `dcm2niix` produced zero NIfTIs | `-r` means **rename**, not recurse; recursion depth is `-d 9`. |
 | Math does not render on the docs site | Kramdown only parses `$$…$$` (inline and display); single `$…$` is ignored. No bare `\|` inside math in a table cell. |
 | NiiVue label atlas renders grayscale / washes the slice | `colormapLabel` as a load option is ignored — call `vol.setColormapLabel(cm)` and set `vol.alphaThreshold = true`, then `updateGLVolume()`. |
-| Release script left `dev/loader/docker-compose.dev.yml` on the old tag | `dev/update/update_version.py` does not know that file; bump its `idossha/simnibs:vX` tag by hand. |
+| **V2 only:** release script left `dev/loader/docker-compose.dev.yml` on the old tag | `dev/update/update_version.py` does not know that file; bump its `idossha/simnibs:vX` tag by hand. |
 
 ---
 
 ## Reporting something new
 
 Open a [Q&A discussion](https://github.com/idossha/TI-Toolbox/discussions/new?category=q-a) and include: OS + version, TI-Toolbox version (Help → About, or `docker images`), the exact command or GUI action, the full error text, and the relevant file from `<project>/derivatives/ti-toolbox/logs/`. Once the fix is confirmed, a maintainer adds it here and links the thread. Also see [Discord](https://discord.gg/KKdjJk8f) for quick questions.
+
+### Montage PNG contains the cap but no electrode overlays
+
+Check the simulation log for `No such file or directory: convert`. Montage diagrams require
+ImageMagick and the DejaVu font; both are included in the toolbox Docker image. Older internal
+images omitted ImageMagick and could leave the copied blank template behind. Updated rendering
+publishes the PNG only after every overlay and legend succeeds.
+
+Existing affected diagrams can be regenerated without rerunning simulation, using the saved
+`documentation/config.json` electrode pairs with `tit.tools.montage_visualizer.visualize_montage`.
+The running local development container and its local internal image were repaired on 2026-09-09.
+
+### Simulation fails on existing results after confirming overwrite
+
+**Symptom:** `Found already existing simulation results in directory` names the montage's
+`high_Frequency` directory even after choosing **Replace and rerun**. The job's stored
+`overwrite` confirmation previously stopped at the scheduler and never reached SimNIBS.
+Updated runners pass that confirmation to SimNIBS's supported repeated-run option; there
+is no need to delete `simnibs_simulation*.mat` files manually.
+
+In **Settings**, enable **Allow unsafe overrides** for this project, then run again and
+confirm **Replace and rerun**. The permission is off by default, applies across job pages,
+and does not suppress subsequent confirmations. When disabled, choose **Skip** or **Cancel**.
+Use the current checkout with the development loader, or an image containing this fix.

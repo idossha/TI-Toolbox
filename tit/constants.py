@@ -136,8 +136,7 @@ ENV_ROI_NAME = "ROI_NAME"
 ENV_TI_LOG_FILE = "TI_LOG_FILE"
 ENV_FLEX_MONTAGES_FILE = "FLEX_MONTAGES_FILE"
 
-# Display and system variables
-ENV_DISPLAY = "DISPLAY"
+# System variables
 ENV_HOST_IP = "HOST_IP"
 
 # ============================================================================
@@ -281,8 +280,9 @@ def get_fields_by_kind(kind: str) -> tuple[FieldSpec, ...]:
 #: Definitions for the output-field help popup, as
 #: ``(name, units, definition, equation, reference)``. Equations match the
 #: implementations in :mod:`tit.calc` and :mod:`tit.fields`; ``E_i`` is the
-#: field from electrode pair *i* and ``n`` a unit direction. Kept here rather
-#: than in the GUI module so it is verifiable without PyQt5.
+#: field from electrode pair *i* and ``n`` a unit direction. Kept in the
+#: package (not in the desktop app) so it is verifiable by the test suite and
+#: served to the UI over the HTTP contract.
 OUTPUT_FIELD_DEFINITIONS: tuple[tuple[str, str, str, str, str], ...] = (
     (
         FIELD_TI_MAX,
@@ -416,6 +416,40 @@ DEFAULT_RADIUS_MM = 5.0
 # ============================================================================
 # SIMULATION CONSTANTS
 # ============================================================================
+
+# ----------------------------------------------------------------------------
+# Electrode-pair (channel) counts
+# ----------------------------------------------------------------------------
+# One electrode pair is one current channel. The engine is quasi-static: each
+# FEM field is a phasor amplitude vector, and every channel must be paired with
+# another to form a beat, so the pair count is always **even**. Two pairs is
+# standard TI (one beat); four or more even pairs is mTI (2, 4, 6, 8, 12, 16 …).
+# This is the single rule -- the config validators, tit.calc's field-list
+# validation and the montage editors all state it in terms of these constants.
+
+#: Fewest electrode pairs a montage can have (standard TI).
+MIN_ELECTRODE_PAIRS = 2
+
+#: Electrode-pair count that means standard TI rather than mTI.
+TI_ELECTRODE_PAIRS = 2
+
+
+def is_valid_pair_count(n: int) -> bool:
+    """Is *n* an allowed electrode-pair (channel) count?
+
+    ``True`` for even counts of at least `MIN_ELECTRODE_PAIRS`: 2, 4, 6, 8, …
+    Odd counts leave a channel with nothing to beat against, and a single
+    pair is tACS, not TI.
+    """
+    return n >= MIN_ELECTRODE_PAIRS and n % 2 == 0
+
+
+#: Human-readable form of `is_valid_pair_count`, for error messages.
+PAIR_COUNT_RULE = (
+    f"an even number of electrode pairs, at least {MIN_ELECTRODE_PAIRS} "
+    f"({TI_ELECTRODE_PAIRS} = TI, 4 or more = mTI)"
+)
+
 
 # Simulation types
 SIM_TYPE_TI = "TI"
@@ -712,7 +746,9 @@ QSI_FALLBACK_TOTAL_READOUT_TIME = 0.05
 # QSI environment variables
 ENV_LOCAL_PROJECT_DIR = "LOCAL_PROJECT_DIR"
 
-# FreeSurfer license (always present in SimNIBS container)
+# License for optional FreeSurfer and QSI workflows that require it.
+# The core FastSurfer workflow needs none. Override with $FS_LICENSE; see
+# tit.pre.qsi.docker_builder.resolve_fs_license_path.
 FS_LICENSE_PATH = "/usr/local/freesurfer/license.txt"
 
 # ============================================================================
@@ -894,7 +930,7 @@ TELEMETRY_OP_GROUP_ANALYSIS = "group_analysis"
 # -- Preprocessing --
 TELEMETRY_OP_PRE_PIPELINE = "pre_pipeline"
 TELEMETRY_OP_PRE_CHARM = "pre_charm"
-TELEMETRY_OP_PRE_RECON_ALL = "pre_recon_all"
+TELEMETRY_OP_PRE_FASTSURFER = "pre_fastsurfer"
 TELEMETRY_OP_PRE_DICOM = "pre_dicom"
 TELEMETRY_OP_PRE_QSIPREP = "pre_qsiprep"
 TELEMETRY_OP_PRE_QSIRECON = "pre_qsirecon"

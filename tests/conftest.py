@@ -8,6 +8,7 @@ and provides BIDS-compliant temporary project structures.
 import gzip
 import json
 import math
+import os
 import struct
 import sys
 import types
@@ -15,6 +16,15 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+
+# Belt: the suite must never phone home to Google Analytics. tit.telemetry
+# honours this env var in is_enabled(); set it before anything imports tit so
+# every test starts from a disabled-by-default state. Some tests (notably
+# tests/test_telemetry.py, which exercises the env-var mechanism itself)
+# deliberately unset this for a single test — the session-wide _send_ga4
+# patch below (suspenders) is what actually blocks the network call in that
+# case. See ra_11 finding 2.
+os.environ.setdefault("TIT_NO_TELEMETRY", "1")
 
 # ============================================================================
 # Mock unavailable dependencies before any tit imports
@@ -51,7 +61,9 @@ _MOCK_PACKAGES = [
     "mne.datasets",
     "bpy",
     "scipy",
+    "scipy.ndimage",
     "scipy.optimize",
+    "scipy.stats",
     "scipy.spatial",
     "scipy.spatial.transform",
     "nibabel",
@@ -110,6 +122,106 @@ def _reset_path_manager():
     from tit.paths import reset_path_manager
 
     reset_path_manager()
+
+
+# ============================================================================
+# Telemetry — never let the suite make a real network call
+# ============================================================================
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _block_real_telemetry():
+    """Suspenders on top of the ``TIT_NO_TELEMETRY`` belt (see top of file).
+
+    ``tit.constants.GA4_MEASUREMENT_ID``/``GA4_API_SECRET`` are real, live
+    credentials (not placeholders), so any test that flips telemetry on
+    without also blocking the send — or that clears ``TIT_NO_TELEMETRY`` to
+    exercise the env var itself — would otherwise POST to production Google
+    Analytics (ra_11 finding 2). Patching ``_send_ga4`` at the module level
+    for the whole session makes that impossible regardless of what any
+    individual test does to the config or the env var.
+
+    Tests that want to capture what *would* have been sent (most of
+    ``tests/test_telemetry.py``) still work: they locally
+    ``unittest.mock.patch("tit.telemetry._send_ga4", ...)`` as a context
+    manager, which nests on top of this patch and restores back to this
+    no-op afterwards — never to the real network call.
+    """
+    import tit.telemetry as telemetry
+
+    mp = pytest.MonkeyPatch()
+    mp.setattr(telemetry, "_send_ga4", lambda payload: None)
+    yield
+    mp.undo()
+
+
+# ============================================================================
+# Tetravox install root — never read the developer's own ~/.config/ti-toolbox
+# ============================================================================
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _isolate_tetravox_install_root(tmp_path_factory):
+    """Point ``TIT_TETRAVOX_INSTALL_ROOT`` at a tmp dir for the whole session.
+
+    ``tit.tetravox.store.install_root()`` otherwise defaults to
+    ``<user config>/tetravox/embed`` -- which on a developer's machine is the
+    very directory the container mounts (``~/.config/ti-toolbox``). A suite that
+    read it would pass or fail depending on which embed bundles that developer
+    happened to have installed, and ``test_capabilities_shape`` (which asserts
+    no embed is available) would break the moment anyone used the feature for
+    real. Individual tests still override this with their own tmp roots.
+    """
+    root = tmp_path_factory.mktemp("tetravox-install-root")
+    mp = pytest.MonkeyPatch()
+    mp.setenv("TIT_TETRAVOX_INSTALL_ROOT", str(root))
+    yield
+    mp.undo()
+
+
+# ============================================================================
+# JobManager — never let its poll thread leak across test modules
+# ============================================================================
+
+
+def _reset_job_manager() -> None:
+    """Tear down the process-wide JobManager singleton, if one exists.
+
+    Several test modules build a real ``JobManager`` via
+    ``tit.jobs.bootstrap.get_manager()``, which starts a background poll
+    thread that runs until explicitly shut down. Left alive across modules
+    it both leaks and, before the telemetry thread was named (see
+    ``tit/telemetry.py``), used to get erroneously joined by
+    ``tests/test_telemetry.py``'s "wait for any daemon thread" helper
+    (ra_11 finding 1). Prefers ``bootstrap.shutdown()``; falls back to the
+    older ``reset_manager()`` name if that hasn't landed yet. A no-op when
+    no manager was ever created.
+    """
+    try:
+        from tit.jobs import bootstrap
+    except ImportError:
+        return
+    shutdown = getattr(bootstrap, "shutdown", None)
+    if shutdown is not None:
+        shutdown()
+        return
+    reset_manager = getattr(bootstrap, "reset_manager", None)
+    if reset_manager is not None:
+        reset_manager()
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _reset_job_manager_per_module():
+    """Shut down any JobManager a test module created before the next one runs."""
+    yield
+    _reset_job_manager()
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _reset_job_manager_at_session_end():
+    """Final safety net: no JobManager poll thread should outlive the run."""
+    yield
+    _reset_job_manager()
 
 
 # ============================================================================

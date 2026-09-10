@@ -4,102 +4,39 @@ title: Windows Installation
 permalink: /installation/windows/
 ---
 
-## Prerequisites
+Start with the [quick start]({{ site.baseurl }}/installation/) to choose the desktop app or
+command-line launcher. This page covers Windows setup.
 
-### Ubuntu from Microsoft Store
+## Docker Desktop and WSL2
 
-1. **Install Ubuntu from Microsoft Store**:
-   - Search for "Ubuntu" in the Microsoft Store
-   - Install the latest Ubuntu version (this automatically sets up WSL2)
-2. **Launch Ubuntu** from Start Menu and complete initial setup
-3. **Update Ubuntu** (first time setup):
-   ```bash
-   sudo apt update && sudo apt upgrade -y
-   ```
+Install Docker Desktop with its WSL2 backend and an Ubuntu WSL distribution. Start Docker
+Desktop, open **Settings → Resources → WSL Integration**, and enable your Ubuntu distribution.
+Open Ubuntu and check that `docker version` can reach the engine.
 
-### Docker Desktop Integration
-1. **Install Docker Desktop** for Windows
-2. **Enable Ubuntu integration**:
-   - Open Docker Desktop settings
-   - Go to "Resources" > "WSL Integration"
-   - Enable integration with your Ubuntu distribution
+![Docker settings on Windows]({{ site.baseurl }}/assets/imgs/installation/docker_windows.png){:style="max-width: 800px;"}
 
-![Docker Settings on Windows]({{ site.baseurl }}/assets/imgs/installation/docker_windows.png){:style="max-width: 800px;"}
+No VcXsrv or X11 forwarding is required for the toolbox interface.
 
-3. **Restart Docker Desktop** after enabling integration
+## Command-line launcher
 
-### X Server for GUI
-Install [VcXsrv](https://sourceforge.net/projects/vcxsrv/) for GUI display and start it (XLaunch) with:
-- **Multiple windows** mode
-- **Disable access control** checked
-- Windows Firewall allowing connections to VcXsrv
+Run the [command-line launcher]({{ site.baseurl }}/installation/bash-cli/) inside Ubuntu/WSL2.
+Bash needs Docker Compose and curl; `loader.py` needs Python 3.11+. Use WSL paths for projects: `C:\Users\YourName\datasets\project-copy` becomes
+`/mnt/c/Users/YourName/datasets/project-copy`. The same path is used for the Docker bind mount.
 
-The loader pauses until you confirm the X server is configured.
+The launcher prints an authenticated URL at `http://127.0.0.1:<port>/auth/session?...`.
+Open that URL in your Windows browser; if the browser does not open automatically, pass
+`--no-open` and use the printed URL. Do not share its session token.
 
-## Option 1: Desktop App
+## Electron on Windows
 
-Download the pre-built desktop application for Windows from the **[Latest Release](https://github.com/idossha/TI-toolbox/releases/latest)**:
+Use native Windows project paths in the desktop app, such as
+`C:\Users\YourName\datasets\project-copy`; do not use WSL paths.
 
-| Platform | Download |
-|----------|----------|
-| **Windows** | `TI-Toolbox.Setup.{version}.exe` |
-
-Simply download and run the installer — the app handles Docker management and WSL2 setup for you.
-
-<br>
-
-## Option 2: Command Line
-
-## Setup Steps
-
-### Step 1: Download Required Files
-
-Download these files to your **Windows filesystem**:
-- **[loader.py](https://github.com/idossha/TI-toolbox/blob/main/loader.py)**
-- **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)**
-
-**Recommended**: Create a dedicated folder like `C:\TI-Toolbox\` for these files.
-
-### Step 2: Launch from Ubuntu
-
-1. **Open Ubuntu** (search for "Ubuntu" in Windows Start menu)
-2. **Navigate to your files** using WSL path format:
-   ```bash
-   cd /mnt/c/TI-Toolbox/
-   ```
-   *(Note: Windows `C:\TI-Toolbox\` becomes `/mnt/c/TI-Toolbox/` in WSL)*
-3. **Ensure Docker Desktop is running** on Windows
-4. **Launch TI-Toolbox**:
-   ```bash
-   python3 loader.py
-   ```
-5. **First run will download the two Docker images (~28GB download; they unpack to roughly 85GB on disk)** - this may take 30+ minutes
-
-## File Mounting Considerations
-
-### Accessing Windows Files from Ubuntu
-- Windows drives are mounted under `/mnt/` in Ubuntu
-- `C:\Users\YourName\Desktop\` → `/mnt/c/Users/YourName/Desktop/`
-- Use Ubuntu paths when running commands in the terminal
-
-### Project Data Location
-- Store your TI-Toolbox project data in your Windows filesystem
-- Access via Ubuntu paths (e.g., `/mnt/c/{project-name}`)
-- Docker containers will inherit Ubuntu's access to Windows files
+An EXE is the packaged desktop format. Artifact availability is listed on the installation
+page. If Docker Desktop was just installed or updated, restart it before launching the app.
 
 ## Troubleshooting
 
-### Docker Integration Issues
-- **WSL integration not enabled**: Check Docker Desktop settings under "Resources" > "WSL Integration"
-- **Docker daemon not accessible**: Restart Docker Desktop and ensure WSL integration is active
-
-### X Server (VcXsrv) Issues
-- **GUI not appearing**: Ensure VcXsrv is running and "Disable access control" is checked
-- **Connection refused**: Configure VcXsrv to allow connections from WSL2 (default settings usually work)
-
----
-
-**Next Steps**:
-- [Dependencies](../dependencies/) - If you need to revisit dependency setup
-- [Troubleshooting]({{ site.baseurl }}/wiki/troubleshooting/) - For common issues and solutions
-- [Quick Start](../) - Return to main installation guide 
+If the Ubuntu launcher cannot reach Docker, check WSL Integration and restart Docker Desktop.
+For job and application problems, use the
+[troubleshooting archive]({{ site.baseurl }}/wiki/troubleshooting/).

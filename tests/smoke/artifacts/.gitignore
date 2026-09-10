@@ -1,0 +1,3 @@
+# Per-run manifests written by tests/smoke/conftest.py; evidence for one run, not source.
+*
+!.gitignore

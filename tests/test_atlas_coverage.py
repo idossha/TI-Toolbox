@@ -522,39 +522,39 @@ class TestVoxelAtlasManagerListAtlases:
     def test_discovers_voxel_atlas_files(self, tmp_path):
         """Discovers atlas files from VOXEL_ATLAS_FILES list."""
         from tit.atlas.voxel import VoxelAtlasManager
-        from tit.atlas.constants import VOXEL_ATLAS_FILES
+        from tit.atlas.constants import LEGACY_FREESURFER_ATLAS_FILES
 
         mri_dir = tmp_path / "mri"
         mri_dir.mkdir()
 
         # Create two atlas files
-        (mri_dir / VOXEL_ATLAS_FILES[0]).touch()
-        (mri_dir / VOXEL_ATLAS_FILES[1]).touch()
+        (mri_dir / LEGACY_FREESURFER_ATLAS_FILES[0]).touch()
+        (mri_dir / LEGACY_FREESURFER_ATLAS_FILES[1]).touch()
 
         mgr = VoxelAtlasManager(freesurfer_mri_dir=str(mri_dir))
         results = mgr.list_atlases()
 
         assert len(results) == 2
         names = [name for name, _ in results]
-        assert VOXEL_ATLAS_FILES[0] in names
-        assert VOXEL_ATLAS_FILES[1] in names
+        assert LEGACY_FREESURFER_ATLAS_FILES[0] in names
+        assert LEGACY_FREESURFER_ATLAS_FILES[1] in names
 
     def test_returns_tuples_of_name_and_path(self, tmp_path):
         """Each result is a (display_name, full_path) tuple."""
         from tit.atlas.voxel import VoxelAtlasManager
-        from tit.atlas.constants import VOXEL_ATLAS_FILES
+        from tit.atlas.constants import LEGACY_FREESURFER_ATLAS_FILES
 
         mri_dir = tmp_path / "mri"
         mri_dir.mkdir()
-        (mri_dir / VOXEL_ATLAS_FILES[0]).touch()
+        (mri_dir / LEGACY_FREESURFER_ATLAS_FILES[0]).touch()
 
         mgr = VoxelAtlasManager(freesurfer_mri_dir=str(mri_dir))
         results = mgr.list_atlases()
 
         assert len(results) == 1
         name, path = results[0]
-        assert name == VOXEL_ATLAS_FILES[0]
-        assert path == os.path.join(str(mri_dir), VOXEL_ATLAS_FILES[0])
+        assert name == LEGACY_FREESURFER_ATLAS_FILES[0]
+        assert path == os.path.join(str(mri_dir), LEGACY_FREESURFER_ATLAS_FILES[0])
 
     def test_discovers_labeling_file(self, tmp_path):
         """Discovers labeling.nii.gz in seg_dir."""
@@ -585,13 +585,13 @@ class TestVoxelAtlasManagerListAtlases:
         assert results == []
 
     def test_both_dirs_combined(self, tmp_path):
-        """Results combine FreeSurfer and segmentation atlases."""
+        """Results combine legacy FreeSurfer and segmentation atlases."""
         from tit.atlas.voxel import VoxelAtlasManager
-        from tit.atlas.constants import VOXEL_ATLAS_FILES
+        from tit.atlas.constants import LEGACY_FREESURFER_ATLAS_FILES
 
         mri_dir = tmp_path / "mri"
         mri_dir.mkdir()
-        (mri_dir / VOXEL_ATLAS_FILES[0]).touch()
+        (mri_dir / LEGACY_FREESURFER_ATLAS_FILES[0]).touch()
 
         seg_dir = tmp_path / "seg"
         seg_dir.mkdir()
@@ -605,8 +605,33 @@ class TestVoxelAtlasManagerListAtlases:
 
         assert len(results) == 2
         names = [n for n, _ in results]
-        assert VOXEL_ATLAS_FILES[0] in names
+        assert LEGACY_FREESURFER_ATLAS_FILES[0] in names
         assert "labeling.nii.gz" in names
+
+    def test_fastsurfer_dir_searched_before_freesurfer(self, tmp_path):
+        """FastSurfer output is listed first; both trees are discovered."""
+        from tit.atlas.voxel import VoxelAtlasManager
+        from tit.atlas.constants import (
+            FASTSURFER_ATLAS_FILES,
+            LEGACY_FREESURFER_ATLAS_FILES,
+        )
+
+        fs_dir = tmp_path / "fastsurfer" / "mri"
+        fs_dir.mkdir(parents=True)
+        (fs_dir / FASTSURFER_ATLAS_FILES[0]).touch()
+
+        legacy_dir = tmp_path / "freesurfer" / "mri"
+        legacy_dir.mkdir(parents=True)
+        (legacy_dir / LEGACY_FREESURFER_ATLAS_FILES[0]).touch()
+
+        mgr = VoxelAtlasManager(
+            fastsurfer_mri_dir=str(fs_dir),
+            freesurfer_mri_dir=str(legacy_dir),
+        )
+        names = [n for n, _ in mgr.list_atlases()]
+
+        assert names[0] == FASTSURFER_ATLAS_FILES[0]
+        assert LEGACY_FREESURFER_ATLAS_FILES[0] in names
 
     def test_no_atlas_files_present(self, tmp_path):
         """Empty mri dir returns no FreeSurfer atlases."""
@@ -684,47 +709,82 @@ class TestVoxelAtlasManagerListRegions:
 
         assert "Thalamus (ID: 10)" in regions
 
-    def test_runs_mri_segstats_when_no_cache(self, tmp_path):
-        """When labels file does not exist, mri_segstats is called."""
+    def test_computes_via_nibabel_when_no_cache(self, tmp_path):
+        """No cached labels file: labels come from nibabel+numpy, not a subprocess."""
         from tit.atlas.voxel import VoxelAtlasManager
 
         atlas_path = str(tmp_path / "test.mgz")
         labels_file = tmp_path / "test_labels.txt"
 
-        mgr = VoxelAtlasManager()
+        atlas_img = MagicMock()
+        atlas_img.dataobj = np.array([[[0, 42], [42, 0]]], dtype=np.int32)
+        atlas_img.affine = np.eye(4)  # 1 mm^3 voxels
 
-        def fake_subprocess_run(cmd, check, capture_output):
-            # Write labels file as mri_segstats would
-            labels_file.write_text("# header\n" " 1   42   800   40.0  Putamen\n")
+        with patch(
+            "tit.atlas.voxel.resolve_lut_for_atlas", return_value={42: "Putamen"}
+        ):
+            with patch("nibabel.load", return_value=atlas_img):
+                mgr = VoxelAtlasManager()
+                regions = mgr.list_regions(atlas_path)
 
-        with patch("tit.atlas.voxel.subprocess.run", side_effect=fake_subprocess_run):
-            regions = mgr.list_regions(atlas_path)
+        assert regions == ["Putamen (ID: 42)"]
+        assert labels_file.is_file()  # cached for next call
 
-        assert "Putamen (ID: 42)" in regions
-
-    def test_mri_segstats_called_with_correct_args(self, tmp_path):
-        """Verify the exact command passed to subprocess.run."""
+    def test_computes_segstats_only_once_then_caches(self, tmp_path):
+        """A second call reads the cache instead of recomputing via nibabel."""
         from tit.atlas.voxel import VoxelAtlasManager
 
         atlas_path = str(tmp_path / "brain.mgz")
-        labels_file = tmp_path / "brain_labels.txt"
 
-        mgr = VoxelAtlasManager()
+        atlas_img = MagicMock()
+        atlas_img.dataobj = np.array([[[1]]], dtype=np.int32)
+        atlas_img.affine = np.eye(4)
 
-        def fake_run(cmd, check, capture_output):
-            labels_file.write_text("# header\n 1 1 100 10.0 Region1\n")
+        with patch(
+            "tit.atlas.voxel.resolve_lut_for_atlas", return_value={1: "Region1"}
+        ):
+            with patch("nibabel.load", return_value=atlas_img) as mock_load:
+                mgr = VoxelAtlasManager()
+                first = mgr.list_regions(atlas_path)
+                second = mgr.list_regions(atlas_path)
 
-        with patch("tit.atlas.voxel.subprocess.run", side_effect=fake_run) as mock_run:
-            mgr.list_regions(atlas_path)
-            mock_run.assert_called_once()
-            call_cmd = mock_run.call_args[0][0]
-            assert call_cmd[0] == "mri_segstats"
-            assert "--seg" in call_cmd
-            assert atlas_path in call_cmd
-            assert "--excludeid" in call_cmd
-            assert "0" in call_cmd
-            assert "--ctab-default" in call_cmd
-            assert "--sum" in call_cmd
+        assert first == ["Region1 (ID: 1)"] == second
+        mock_load.assert_called_once()  # second call hit the cache, no nibabel
+
+    def test_no_cache_writes_mri_segstats_sum_format(self, tmp_path):
+        """The freshly written cache uses mri_segstats --sum's own column layout.
+
+        Other modules (tit/opt/roi_spec.py, tit/viewspec.py) parse this exact
+        sidecar filename/layout, so the
+        pure-Python computation must keep writing it -- not just return the
+        right region list.
+        """
+        from tit.atlas.voxel import VoxelAtlasManager
+
+        atlas_path = str(tmp_path / "atlas.mgz")
+        labels_file = tmp_path / "atlas_labels.txt"
+
+        atlas_img = MagicMock()
+        atlas_img.dataobj = np.array([[[7]]], dtype=np.int32)
+        atlas_img.affine = np.eye(4)
+
+        with patch(
+            "tit.atlas.voxel.resolve_lut_for_atlas", return_value={7: "Hippocampus"}
+        ):
+            with patch("nibabel.load", return_value=atlas_img):
+                VoxelAtlasManager().list_regions(atlas_path)
+
+        text = labels_file.read_text()
+        assert "# ColHeaders Index SegId NVoxels Volume_mm3 StructName" in text
+        data_lines = [
+            line
+            for line in text.splitlines()
+            if line.strip() and not line.startswith("#")
+        ]
+        assert len(data_lines) == 1
+        parts = data_lines[0].split()
+        assert parts[1] == "7"  # SegId column
+        assert parts[4] == "Hippocampus"
 
     def test_empty_labels_file(self, tmp_path):
         """An empty labels file (all headers) returns empty list."""
@@ -986,17 +1046,19 @@ class TestMeshListRegions:
 class TestMeshListAnnotRegions:
     """Tests for MeshAtlasManager.list_annot_regions (lines 99-112)."""
 
-    def test_bytes_names(self, tmp_path):
+    def test_bytes_names(self, tmp_path, monkeypatch):
         """Bytes region names are decoded to str."""
         import sys
 
         from tit.atlas.mesh import MeshAtlasManager
 
-        # Ensure nibabel.freesurfer.io is in sys.modules
         nfs_mock = sys.modules["nibabel.freesurfer"]
         fsio_mock = MagicMock()
-        sys.modules["nibabel.freesurfer.io"] = fsio_mock
-        setattr(nfs_mock, "io", fsio_mock)
+        # monkeypatch (not a bare assignment) so the shared conftest mock is
+        # restored after the test -- a direct assignment leaked into every
+        # later test in the process and made test ordering matter.
+        monkeypatch.setitem(sys.modules, "nibabel.freesurfer.io", fsio_mock)
+        monkeypatch.setattr(nfs_mock, "io", fsio_mock, raising=False)
 
         fsio_mock.read_annot.return_value = (
             None,  # labels
@@ -1014,7 +1076,7 @@ class TestMeshListAnnotRegions:
         ]
         fsio_mock.read_annot.assert_called_once_with("/fake/path/lh.aparc.annot")
 
-    def test_str_names(self, tmp_path):
+    def test_str_names(self, tmp_path, monkeypatch):
         """String region names are passed through via str()."""
         import sys
 
@@ -1022,8 +1084,11 @@ class TestMeshListAnnotRegions:
 
         nfs_mock = sys.modules["nibabel.freesurfer"]
         fsio_mock = MagicMock()
-        sys.modules["nibabel.freesurfer.io"] = fsio_mock
-        setattr(nfs_mock, "io", fsio_mock)
+        # monkeypatch (not a bare assignment) so the shared conftest mock is
+        # restored after the test -- a direct assignment leaked into every
+        # later test in the process and made test ordering matter.
+        monkeypatch.setitem(sys.modules, "nibabel.freesurfer.io", fsio_mock)
+        monkeypatch.setattr(nfs_mock, "io", fsio_mock, raising=False)
 
         fsio_mock.read_annot.return_value = (
             None,
@@ -1036,7 +1101,7 @@ class TestMeshListAnnotRegions:
 
         assert result == [(0, "regionA"), (1, "regionB")]
 
-    def test_returns_correct_index_tuples(self, tmp_path):
+    def test_returns_correct_index_tuples(self, tmp_path, monkeypatch):
         """Indices match enumeration order of names list."""
         import sys
 
@@ -1044,8 +1109,11 @@ class TestMeshListAnnotRegions:
 
         nfs_mock = sys.modules["nibabel.freesurfer"]
         fsio_mock = MagicMock()
-        sys.modules["nibabel.freesurfer.io"] = fsio_mock
-        setattr(nfs_mock, "io", fsio_mock)
+        # monkeypatch (not a bare assignment) so the shared conftest mock is
+        # restored after the test -- a direct assignment leaked into every
+        # later test in the process and made test ordering matter.
+        monkeypatch.setitem(sys.modules, "nibabel.freesurfer.io", fsio_mock)
+        monkeypatch.setattr(nfs_mock, "io", fsio_mock, raising=False)
 
         names = [b"alpha", b"beta", b"gamma", b"delta"]
         fsio_mock.read_annot.return_value = (None, None, names)
@@ -1058,7 +1126,7 @@ class TestMeshListAnnotRegions:
             assert idx == i
             assert name == names[i].decode("utf-8")
 
-    def test_empty_names_list(self, tmp_path):
+    def test_empty_names_list(self, tmp_path, monkeypatch):
         """Empty names list returns empty result."""
         import sys
 
@@ -1066,8 +1134,11 @@ class TestMeshListAnnotRegions:
 
         nfs_mock = sys.modules["nibabel.freesurfer"]
         fsio_mock = MagicMock()
-        sys.modules["nibabel.freesurfer.io"] = fsio_mock
-        setattr(nfs_mock, "io", fsio_mock)
+        # monkeypatch (not a bare assignment) so the shared conftest mock is
+        # restored after the test -- a direct assignment leaked into every
+        # later test in the process and made test ordering matter.
+        monkeypatch.setitem(sys.modules, "nibabel.freesurfer.io", fsio_mock)
+        monkeypatch.setattr(nfs_mock, "io", fsio_mock, raising=False)
 
         fsio_mock.read_annot.return_value = (None, None, [])
 

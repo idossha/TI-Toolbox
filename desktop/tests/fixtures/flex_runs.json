@@ -1,0 +1,115 @@
+{
+  "ernie": [
+    {
+      "name": "flex_Thalamus_20260810_101500",
+      "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/flex-search/flex_Thalamus_20260810_101500",
+      "goal": "focality_tf",
+      "roi": {
+        "type": "spherical",
+        "space": "subject",
+        "x": -12.4,
+        "y": -18.2,
+        "z": 7.9,
+        "radius": 5.0
+      },
+      "created": "2026-08-10T10:15:00Z",
+      "manifest": {
+        "version": 1,
+        "created": "2026-08-10T10:15:00",
+        "subject_id": "ernie",
+        "goal": "focality_tf",
+        "postproc": "max_TI",
+        "current_mA": 2.0,
+        "electrode": {
+          "shape": "ellipse",
+          "dimensions": [
+            8.0,
+            8.0
+          ],
+          "gel_thickness": 4.0
+        },
+        "roi": {
+          "type": "spherical",
+          "space": "subject",
+          "x": -12.4,
+          "y": -18.2,
+          "z": 7.9,
+          "radius": 5.0
+        },
+        "non_roi": null,
+        "non_roi_method": "everything_else",
+        "thresholds": "0.1,0.2",
+        "n_pairs": 2,
+        "n_multistart": 2,
+        "min_electrode_distance": 5.0,
+        "result": {
+          "success": true,
+          "best_value": -91.5566569075475,
+          "best_run_index": 0,
+          "all_values": [
+            -91.5566569075475,
+            -84.39278350962034
+          ]
+        },
+        "pareto": null,
+        "label": "focality_maxTI_subcortical-labeling-17",
+        "eeg_net": "GSN-HydroCel-185.csv"
+      },
+      "mappings": [
+        {
+          "eeg_net": "GSN-HydroCel-185.csv",
+          "pairs": [
+            [
+              "E020",
+              "E074"
+            ],
+            [
+              "E101",
+              "E133"
+            ]
+          ]
+        }
+      ],
+      "optimized": [
+        [
+          [
+            81.0,
+            13.3,
+            38.1
+          ],
+          [
+            -74.4,
+            43.7,
+            6.1
+          ]
+        ],
+        [
+          [
+            -77.2,
+            11.8,
+            3.9
+          ],
+          [
+            80.8,
+            14.2,
+            3.8
+          ]
+        ]
+      ],
+      "artifacts": [
+        {
+          "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/flex-search/flex_Thalamus_20260810_101500/convergence.png",
+          "kind": "png",
+          "label": "Convergence plot"
+        },
+        {
+          "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/flex-search/flex_Thalamus_20260810_101500/manifest.json",
+          "kind": "manifest",
+          "label": "Run manifest"
+        }
+      ]
+    }
+  ],
+  "101": [],
+  "MNI152": []
+}

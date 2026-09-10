@@ -1,0 +1,7 @@
+/*
+ * Tailwind utilities are kept available for any future page code (e.g. `display: contents`
+ * layout helpers, quick one-off spacing) — but colour, type, and every design-system component
+ * come from ui/tokens.css + ui/base.css + ui/components.css (imported directly by main.tsx), not
+ * from Tailwind's default palette. Nothing here overrides tokens.
+ */
+@import "tailwindcss";

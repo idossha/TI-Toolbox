@@ -171,10 +171,11 @@ log_mapping_summary(mapping)
 Check GitHub for newer TI-Toolbox releases:
 
 ```python
+from tit import __version__
 from tit.tools.check_for_update import check_for_new_version
 
 newer = check_for_new_version(
-    current_version="2.2.0",
+    current_version=__version__,
     repo="idossha/TI-Toolbox",  # default
     timeout=2.0,                # seconds, default
 )

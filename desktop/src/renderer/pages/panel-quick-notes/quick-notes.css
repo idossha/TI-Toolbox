@@ -1,0 +1,39 @@
+/*
+ * Quick notes drawer. The drawer shell (420px, right side, elevation) is `ui/Overlay.tsx`'s
+ * `Drawer`; this is only what is inside it.
+ */
+.quick-notes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  height: 100%;
+  min-height: 0;
+}
+.quick-notes-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--row-h);
+}
+.quick-notes-hint {
+  color: var(--ink-2);
+  margin-right: auto;
+}
+/* `.control` (shared with the single-line TextInput) sets a fixed height, which wins over the
+ * `rows` attribute's natural sizing — override it here rather than in the shared stylesheet,
+ * since this is the app's only multi-line textarea. */
+.quick-notes-field {
+  flex: 1;
+  min-height: 240px;
+  height: auto;
+  width: 100%;
+  padding: var(--space-2);
+  line-height: 1.5;
+  resize: none;
+}
+.quick-notes-status {
+  flex: none;
+  color: var(--ink-2);
+  margin: 0;
+}

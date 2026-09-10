@@ -6,11 +6,28 @@ permalink: /wiki/nifti-group-averaging/
 
 The NIfTI Group Averaging extension provides comprehensive tools for computing group averages and statistical comparisons of NIfTI files organized by experimental groups. This extension is particularly useful for temporal interference (TI) stimulation studies where researchers need to compare field distributions across multiple subjects and experimental conditions.
 
+## Import and export participant rows
+
+Use **Import CSV/TSV**, **Export CSV**, or **Export TSV** below the Subjects header.
+Export the current table for an editable template. The required header and an example CSV row are:
+
+```csv
+subject_id,simulation_name,group
+101,L_Insula,Group1
+```
+
+For TSV, use tabs instead of commas. Columns may be reordered, but all headers must be present
+with exactly these names. Subject IDs omit `sub-`; simulation names match the project catalog.
+`group` is a required group name. Quoted fields, embedded separators, UTF-8 BOM and Windows line endings are supported.
+An import replaces the table only after every row validates. A malformed file leaves existing
+rows unchanged. Import checks table structure and values; dataset files are checked by the job workflow.
+
+
 ## Workflow Example
 
 ### Basic Group Analysis
 
-1. **Launch Extension**: Extensions button → "NIfTI Group Averaging"
+1. **Open tool**: enable **NIfTI group averaging** in **Settings → Optional tools**, then select it under **Extensions** in the sidebar
 2. **Configure Subjects**:
    - Subject 001: Simulation "stim_A", Group "Treatment"
    - Subject 002: Simulation "stim_A", Group "Treatment"

@@ -11,64 +11,49 @@ layout: home
 <p class="home-section__title">Quick start</p>
 <ol class="quickstart" markdown="1">
 <li markdown="1">
-**Install Dependencies** Docker required for running the toolbox environment and optional X11 server.
+**Install Docker.** Install and start [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or Docker Engine on Linux).
 </li>
 <li markdown="1">
-**Install TI-Toolbox:**<br>
-A. Desktop Executable:
-Download and run the executable version of the latest release [here](https://github.com/idossha/TI-toolbox/releases/latest).<br>
-B. CLI Entry:
-Download the two files below to a designated directory.
-- **[loader.py](https://github.com/idossha/TI-toolbox/blob/main/loader.py)** - Main launch script
-- **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)** - Docker configuration
-
-```bash
-python3 loader.py            # or: python3 loader.py --project-dir /path/to/project
-```
-The loader starts the containers and drops you into a shell inside `simnibs_container`; type `GUI` to open the graphical interface (see [Bash/CLI Usage]({{ site.baseurl }}/installation/bash-cli/)).
+**Load TI-Toolbox.** Follow the [installation guide]({{ site.baseurl }}/installation/) to load the matching image and launch the toolbox.
 </li>
 <li markdown="1">
-**Set up your project directory**
-- Point the toolbox at a project folder. Example data ships with the toolbox, so you can get familiar with the software right away.
-</li>
-<li markdown="1">
-**Optional: connect your AI assistant** — install the [TI-Toolbox plugin]({{ site.baseurl }}/wiki/ai-assistant/) so Claude Code, Codex or Cursor can answer questions from the wiki, write scripts, and troubleshoot your project.
+**Start working.** Open your project, then simulate, optimize and explore your results. The [wiki]({{ site.baseurl }}/wiki/) walks you through each tool.
 </li>
 </ol>
 </section>
 
 <section>
-<p class="home-section__title">Highlights</p>
+<p class="home-section__title">Explore TI-Toolbox</p>
 <div class="carousel-container">
   <div class="carousel-wrapper">
     <div class="carousel-images">
       <div class="carousel-slide active">
-        <img src="{{ site.baseurl }}/assets/imgs/blender/visual_exporter_vectors_close.png" alt="Vector Field Visualization">
-        <p>High-resolution electric field vector visualization showing direction and magnitude</p>
+        <img src="{{ site.baseurl }}/assets/imgs/v3/simulator.png" alt="The Simulator page with a montage preview">
+        <p>Simulator: configure simulations and preview your electrode montage</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/blender/blender_closeup.png" alt="3D Blender Visualization">
-        <p>Advanced 3D visualization of temporal interference fields using Blender integration</p>
+        <img src="{{ site.baseurl }}/assets/imgs/v3/optimizer.png" alt="The Optimizer page with an interactive atlas">
+        <p>Optimizer: search electrode configurations with your target atlas in view</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/development/testing_graphical_abstract_revised.png" alt="TI-Toolbox Tech Stack">
-        <p>Complete TI-Toolbox technology stack: BIDS-compatible, Docker-based, end-to-end pipeline</p>
+        <img src="{{ site.baseurl }}/assets/imgs/v3/viewer.png" alt="A TI electric field displayed in Tetravox">
+        <p>Tetravox: explore anatomy and electric fields in the integrated 3D viewer</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/ex-search/ex-search_ex-search_selection.png" alt="Electrode Selection">
-        <p>Exhaustive search for optimal electrode placement across standard EEG montages</p>
+        <img src="{{ site.baseurl }}/assets/imgs/v3/pipeline.png" alt="The Pipeline canvas connecting processing steps">
+        <p>Pipeline: connect your workflow, run it or export it as a notebook</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_mapping.png" alt="Flex-Search Mapping">
-        <p>Flexible search extension mapping genetic algorithm output to registered EEG positions</p>
+        <img src="{{ site.baseurl }}/assets/imgs/v3/notebooks.png" alt="A notebook with a plotted field and tables">
+        <p>Notebooks: work interactively with your project and SimNIBS Python</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/UI/UI_sim.png" alt="Simulation GUI">
-        <p>User-friendly GUI for configuring and running temporal interference simulations</p>
+        <img src="{{ site.baseurl }}/assets/imgs/blender/visual_exporter_vectors_close.png" alt="A close-up of electric field vectors showing direction and magnitude">
+        <p>High-resolution electric field visualization showing direction and magnitude</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/stats/stats_permutation_null_dist.png" alt="Cluster-Based Permutation Testing">
-        <p>Statistical analysis with cluster-based permutation testing for group-level inference</p>
+        <img src="{{ site.baseurl }}/assets/imgs/blender/blender_closeup.png" alt="A detailed close-up of a Blender visualization">
+        <p>Blender: a detailed close-up of the visualization</p>
       </div>
     </div>
     <button class="carousel-btn prev" onclick="changeSlide(this, -1)">&#10094;</button>

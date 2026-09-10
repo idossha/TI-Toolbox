@@ -1,0 +1,23 @@
+{
+  "ernie": {
+    "m2m_path": "/mnt/example/derivatives/SimNIBS/sub-ernie/m2m_ernie",
+    "eeg_nets": ["GSN-HydroCel-185", "EGI_template"],
+    "has_leadfields": ["GSN-HydroCel-185"],
+    "has_dwi": true,
+    "has_ct": false
+  },
+  "101": {
+    "m2m_path": "/mnt/example/derivatives/SimNIBS/sub-101/m2m_101",
+    "eeg_nets": ["GSN-HydroCel-185"],
+    "has_leadfields": [],
+    "has_dwi": false,
+    "has_ct": true
+  },
+  "MNI152": {
+    "m2m_path": "/mnt/example/derivatives/SimNIBS/sub-MNI152/m2m_MNI152",
+    "eeg_nets": ["GSN-HydroCel-185", "EGI_template"],
+    "has_leadfields": [],
+    "has_dwi": false,
+    "has_ct": false
+  }
+}

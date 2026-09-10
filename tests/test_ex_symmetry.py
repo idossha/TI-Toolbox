@@ -180,7 +180,7 @@ class TestExConfigSymmetry:
 
     def test_json_passthrough_builds_config(self):
         """The plain fields survive the __main__ JSON -> ExConfig path."""
-        from tit.opt.ex.__main__ import _build_electrodes
+        from tit.config_io import deserialize_config
 
         data = {
             "subject_id": "001",
@@ -194,8 +194,7 @@ class TestExConfigSymmetry:
             "symmetry_pairing": "cross_pairs",
             "symmetry_eeg_csv": "/x.csv",
         }
-        electrodes = _build_electrodes(data.pop("electrodes"))
-        cfg = ExConfig(electrodes=electrodes, **data)
+        cfg = deserialize_config(ExConfig, data)
         assert cfg.symmetric_bucket and cfg.symmetry_pairing == "cross_pairs"
 
 
@@ -349,7 +348,10 @@ class TestZeroCombinationsFailFast:
             "subject_id": "001",
             "leadfield_hdf": "/lf/001_leadfield_net.hdf5",
             "roi_name": "roi.csv",
-            "electrodes": {"e1_plus": ["A"], "e1_minus": [], "e2_plus": ["B"], "e2_minus": ["C"]},
+            "electrodes": {
+                "_type": "BucketElectrodes",
+                "e1_plus": ["A"], "e1_minus": [], "e2_plus": ["B"], "e2_minus": ["C"],
+            },
         }
         path = tmp_path / "cfg.json"
         path.write_text(json.dumps(config))

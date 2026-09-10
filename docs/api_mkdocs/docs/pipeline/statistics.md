@@ -1,6 +1,6 @@
 # Statistics
 
-The statistics module performs cluster-based permutation testing on MNI-space NIfTI volumes produced by the simulation pipeline. It supports two analysis types: **group comparison** (responders vs non-responders) and **correlation** (voxelwise correlation with a continuous outcome measure, ACES-style).
+The statistics module performs cluster-based permutation testing on MNI-space NIfTI volumes or fsaverage surface caches produced by the simulation pipeline. It supports two analysis types: **group comparison** (responders vs non-responders) and **correlation** (voxelwise correlation with a continuous outcome measure, ACES-style).
 
 ```mermaid
 graph LR
@@ -152,9 +152,17 @@ The `tissue_type` field determines which NIfTI files are loaded from each subjec
 
 Set `nifti_file_pattern` to override the auto-resolved pattern.
 
+## Surface Analysis
+
+Both configuration classes accept `space="fsaverage"` to analyze cortical surface
+caches instead of MNI volumes. `fsaverage_field` selects the cached field (default
+`"TI_max"`) and `fsaverage_spacing` selects ico spacing 5, 6, or 7 (default 5).
+The corresponding caches must exist for every input simulation. NIfTI patterns
+and tissue-mask options apply to the default `space="mni"` workflow only.
+
 ## Output
 
-Results are saved to `derivatives/ti-toolbox/stats/<analysis_type>/<analysis_name>/` within the project directory. Both analysis types produce the following:
+Results are saved to `derivatives/ti-toolbox/stats/<analysis_type>/<analysis_name>/` within the project directory. For MNI-volume analysis, both analysis types produce the following:
 
 | File | Description |
 |------|-------------|

@@ -386,6 +386,8 @@ class TestEngineUnion:
 @pytest.mark.unit
 class TestRunExSearchAtlasRoi:
     def _pm(self, tmp_path):
+        (tmp_path / "aseg.mgz").touch()
+        (tmp_path / "mask.nii.gz").touch()
         pm = MagicMock()
         pm.logs.return_value = str(tmp_path / "logs")
         pm.ex_search_run.return_value = str(tmp_path / "output")
@@ -411,8 +413,8 @@ class TestRunExSearchAtlasRoi:
 
         config = _make_ex_config(
             roi_atlas=[
-                {"atlas_path": "/atlas/aseg.mgz", "label": 17},
-                {"atlas_path": "/mask.nii.gz"},
+                {"atlas_path": str(tmp_path / "aseg.mgz"), "label": 17},
+                {"atlas_path": str(tmp_path / "mask.nii.gz")},
             ]
         )
         run_ex_search(config)
@@ -420,8 +422,8 @@ class TestRunExSearchAtlasRoi:
         roi_files = mock_engine_cls.call_args[0][1]
         assert roi_files == [
             os.path.join(str(tmp_path / "rois"), "motor.csv"),
-            ("/atlas/aseg.mgz", 17),
-            "/mask.nii.gz",
+            (str(tmp_path / "aseg.mgz"), 17),
+            str(tmp_path / "mask.nii.gz"),
         ]
 
     @patch("tit.opt.ex.ex.process_and_save")

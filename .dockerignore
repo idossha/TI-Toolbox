@@ -1,0 +1,32 @@
+# Build context for container/blueprint/Dockerfile.ti-toolbox when build.sh builds from the
+# local checkout (the default). Allow-list: everything is excluded, then only what the image
+# COPYs is let back in. The v2 recipes (Dockerfile.simnibs etc.) use container/blueprint as
+# their context and are unaffected by this file.
+*
+!tit
+!resources
+!contracts
+!container
+!desktop
+!pyproject.toml
+!README.md
+!LICENSE
+# Inside desktop/: only what `npm ci && npm run build` needs.
+desktop/node_modules
+desktop/out
+desktop/release
+desktop/dist
+desktop/test-results
+desktop/tests
+# Host-only test monitoring is not part of the shipped renderer or runtime.
+desktop/scripts/e2e*
+desktop/*.tsbuildinfo
+desktop/.*
+# Inside container/: the v3 recipe needs blueprint/entrypoint.ti-toolbox.sh and config/ only.
+container/blueprint/*.def
+# Noise
+**/__pycache__
+**/*.pyc
+**/.DS_Store
+**/.pytest_cache
+**/.mypy_cache

@@ -110,7 +110,7 @@ class BaseSimulation(ABC):
 
     # ── Template method ─────────────────────────────────────────────────
 
-    def run(self, simulation_dir: str) -> dict:
+    def run(self, simulation_dir: str, *, overwrite: bool = False) -> dict:
         """Execute the full simulation pipeline for one montage.
 
         This template method orchestrates directory setup, montage
@@ -153,7 +153,13 @@ class BaseSimulation(ABC):
         )
 
         self.logger.info("SimNIBS simulation: Started")
-        run_simnibs(self._build_session(dirs["hf_dir"]))
+        session = self._build_session(dirs["hf_dir"])
+        if overwrite:
+            # run_simnibs does not expose this supported SESSION option. Keep the
+            # native existence guard for ordinary runs; never delete marker files.
+            session.run(allow_multiple_runs=True)
+        else:
+            run_simnibs(session)
         self.logger.info("SimNIBS simulation: \u2713 Complete")
 
         output_mesh = self._post_process(dirs)

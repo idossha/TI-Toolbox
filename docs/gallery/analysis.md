@@ -6,17 +6,19 @@ permalink: /gallery/analysis/
 
 <link rel="stylesheet" href="{{ '/assets/css/lightbox.css' | relative_url }}">
 
-Comprehensive analysis and visualization of TI simulation results, field distributions, and statistical metrics.
+Examples of TI simulation results, field distributions, and statistical metrics. The Gmsh and
+Freeview views below are retained output examples; v3 uses the integrated
+[Tetravox viewer]({{ site.baseurl }}/wiki/visualizers/).
 
 <div class="gallery-section">
-  <h3>Field Analysis & Visualization in mesh space (Gmsh Integration)</h3>
+  <h3>Mesh-Space Field Analysis (Legacy Gmsh Views)</h3>
   <div class="gallery-grid">
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_TI_max.png" alt="Maximum TI Field" onclick="openLightbox(this)" />
       <p>TImax (norm, modulation depth) field distribution showing intensity map in the cortical ROI (Left Insula).</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_TI_normal.png" alt="Normalized TI Field" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_TI_normal.png" alt="Normal component of the TI field" onclick="openLightbox(this)" />
       <p>Normal component of the TImax field distribution showing intensity map in the cortical ROI (Left Insula)</p>
     </div>
     <div class="gallery-item">
@@ -27,7 +29,7 @@ Comprehensive analysis and visualization of TI simulation results, field distrib
 </div>
 
 <div class="gallery-section">
-  <h3>Field Analysis & Visualization in voxel space (Freesurfer Integration)</h3>
+  <h3>Voxel-Space Field Analysis (Legacy Freeview Views)</h3>
   <div class="gallery-grid">
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_voxel_montage_1.png" alt="TImax field in ROI (Right Hippocampus), montage A" onclick="openLightbox(this)" />

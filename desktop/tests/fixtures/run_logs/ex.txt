@@ -1,0 +1,4 @@
+2026-08-30 09:00:00 INFO tit.opt.ex: started exhaustive search for sub-ernie
+2026-08-30 09:02:15 INFO leadfield: loaded EGI256 leadfield
+2026-08-30 09:10:40 INFO search: evaluated 1536 electrode pairs
+2026-08-30 09:22:40 INFO tit.opt.ex: wrote ranked output table

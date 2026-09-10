@@ -1,0 +1,217 @@
+/*
+ * The DOM around the embedded Tetravox scene on a run page: the stage that gives the iframe a
+ * sized box, the one readable line every non-ready state renders, and the hint that says what a
+ * click does.
+ */
+
+.scene-pane-host {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 0;
+  min-width: 0;
+  height: 100%;
+}
+
+.scene-pane-stage {
+  flex: 1 1 auto;
+  min-height: 180px;
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-card);
+  background: var(--surface-2);
+}
+
+.scene-pane-embed {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 180px;
+  border: 0;
+  background: var(--canvas);
+}
+
+.scene-pane-opacity {
+  flex: none;
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-top: 1px solid var(--line);
+}
+
+.scene-pane-opacity-row {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: 11px;
+  color: var(--ink-2);
+}
+
+.scene-pane-opacity-row .slider-row {
+  min-width: 0;
+}
+
+.scene-pane-placeholder {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-2);
+  height: 100%;
+  min-height: 180px;
+  padding: var(--space-3);
+  border-radius: var(--radius-card);
+  background: var(--surface-2);
+}
+
+.scene-pane-overlay {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--surface-2) 82%, transparent);
+  pointer-events: none;
+}
+
+.scene-pane-message {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ink-2);
+}
+
+.scene-pane-retry {
+  align-self: flex-start;
+  pointer-events: auto;
+}
+
+.scene-pane-hint {
+  margin: 0;
+  flex: none;
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/*
+ * One 24 px row above the stage: the "Showing:" chip first, the channel legend's chips immediately
+ * to its right, sharing a vertical centre. It wraps only when the pane is narrower than the two
+ * together, and then it is the legend that moves to the second line — the "Showing" claim stays
+ * first because it names what everything else in the row is about.
+ */
+.scene-pane-head {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 24px;
+  min-width: 0;
+}
+
+/*
+ * The channel legend (`ui/ChannelLegend.tsx`, plan B4). One row of chips above the stage; it is
+ * the only place the pane spells out which hue is which pair, so it never scrolls out of view —
+ * it wraps instead, which is what a 4-pair mTI montage needs.
+ */
+
+.channel-legend {
+  flex: 0 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.channel-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: 11px;
+  line-height: 14px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.channel-chip:hover {
+  color: var(--ink-1);
+  border-color: var(--line-strong);
+}
+
+/* The active pair is the one the next click in the scene fills, so it is stated twice: the ring
+   (which a colour-blind reader gets) and the ink weight. The chip's own hue is never the only
+   signal of "active", because the hues are already saying which pair this is. */
+.channel-chip[data-active="true"] {
+  color: var(--ink-1);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.channel-chip-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.channel-chip-name {
+  white-space: nowrap;
+}
+
+/*
+ * "Showing: <montage> · <net>" — the pane's half of the Simulator's active-row highlight.
+ *
+ * The tokens are the same two the montage table tints its active row with (simulator-page.css):
+ * `--accent-soft` ground, a 2px `--accent` bar on the leading edge. Both are theme tokens, so the
+ * dark pair applies without a second rule, and the user reads one accent for one claim: this row,
+ * this scene.
+ */
+.scene-pane-showing {
+  margin: 0;
+  /* Shrinks (to its ellipsis) before the pair chips are pushed onto a second line: the row reads
+     as one line for as long as the pane can hold the chips at all. */
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 4px var(--space-2);
+  border-left: 2px solid var(--accent);
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.scene-pane-showing strong {
+  font-weight: 600;
+}
+
+/* The atlas selector and the hovered region's name, above the stage: N3's "hover names the
+   region". A highlight with no name leaves the user guessing which of 70 atlas rows lit up. */
+.scene-pane-atlas {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px 6px;
+  min-width: 0;
+}
+
+.scene-pane-hovered {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}

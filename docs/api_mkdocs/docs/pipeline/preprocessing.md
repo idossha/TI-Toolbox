@@ -7,7 +7,7 @@ graph LR
     A([DICOM]) -->|dcm2niix| B([NIfTI T1/T2])
     B -->|CHARM| C([Head Mesh])
     C -->|subject_atlas| D([Atlas Parcellations])
-    B -->|recon-all| E([FreeSurfer Surfaces])
+    B -->|FastSurfer seg_only| E([DKT Segmentation])
     C -->|tissue analysis| F([Tissue Report])
     B -->|QSIPrep| G([DWI Preprocessed])
     G -->|QSIRecon| H([DTI Tensors])
@@ -26,25 +26,29 @@ graph LR
 Run all preprocessing steps with a single call:
 
 ```python
+from tit import get_path_manager
 from tit.pre import run_pipeline
 
+get_path_manager("/path/to/bids_project")
 exit_code = run_pipeline(
     subject_ids=["001", "002"],
     convert_dicom=True,
-    run_recon=True,
-    parallel_recon=True,
-    parallel_cores=4,
+    run_fastsurfer=True,
+    fastsurfer_threads=4,
     create_m2m=True,
     run_tissue_analysis=True,
     run_qsiprep=False,
     run_qsirecon=False,
     extract_dti=False,
-    run_subcortical_segmentations=False,
 )
 ```
 
 !!! tip "Selective Steps"
-    Each boolean flag controls a specific step. Set only the ones you need — for example, if FreeSurfer `recon-all` is already done, set `run_recon=False` and `create_m2m=True` to run only CHARM (which also runs `subject_atlas` automatically).
+    Each boolean flag controls a specific step. For example, enable only `create_m2m=True`
+    for CHARM and its automatic `subject_atlas` step, or only `run_fastsurfer=True` for
+    DKT deep segmentation. FastSurfer uses `--seg_only`. Enable `run_freesurfer=True` for
+    optional recon-all and `freesurfer_subregions=["thalamus", "hippo-amygdala"]` for T1
+    subregions. Subregions alone require a completed FreeSurfer reconstruction.
 
 ## Individual Steps
 
@@ -53,10 +57,9 @@ Each preprocessing step can be called independently for finer control:
 ```python
 from tit.pre import (
     run_dicom_to_nifti,
-    run_recon_all,
+    run_fastsurfer,
     run_charm,
     run_tissue_analysis,
-    run_subcortical_segmentations,
     run_qsiprep,
     run_qsirecon,
     extract_dti_tensor,
@@ -64,12 +67,16 @@ from tit.pre import (
     check_m2m_exists,
 )
 
-# Discover subjects from sourcedata/
-subjects = discover_subjects()
+# Discover subjects from a BIDS project
+import logging
+
+project = "/path/to/bids_project"
+logger = logging.getLogger("preprocessing")
+subjects = discover_subjects(project)
 
 # Check if head mesh already exists
-if not check_m2m_exists("001"):
-    run_charm("001")
+if not check_m2m_exists(project, "001"):
+    run_charm(project, "001", logger=logger)
 ```
 
 ### Step Details
@@ -79,12 +86,15 @@ if not check_m2m_exists("001"):
 | DICOM to NIfTI | `run_dicom_to_nifti()` | Converts DICOM files to NIfTI format using `dcm2niix` |
 | CHARM head mesh | `run_charm()` | Creates SimNIBS-compatible head mesh from T1/T2 images |
 | Subject atlas | `run_subject_atlas()` | Creates atlas-based parcellations (a2009s, DK40, HCP_MMP1); runs automatically after CHARM in the pipeline |
-| FreeSurfer recon-all | `run_recon_all()` | Optional full cortical reconstruction and subcortical segmentation (takes 6-12 hours per subject) |
+| FastSurfer segmentation | `run_fastsurfer()` | Optional DKT deep segmentation from the raw BIDS T1w image (`--seg_only`) |
+| FreeSurfer reconstruction / subregions | `run_freesurfer()` | Optional recon-all, thalamic nuclei and hippocampal/amygdala subregions; requires a license and at least 16 GiB available container memory |
 | Tissue analysis | `run_tissue_analysis()` | Analyzes tissue thickness and volume (bone, CSF, skin) from the head mesh |
-| Subcortical segmentation | `run_subcortical_segmentations()` | Runs thalamic nuclei and hippocampal subfield segmentations standalone (also runs automatically at the end of `run_recon_all`) |
 
-!!! warning "Compute Time"
-    FreeSurfer `recon-all` is optional and is the most time-consuming step when enabled (6-12 hours per subject). Use `parallel_recon=True` with `parallel_cores` to process multiple subjects simultaneously via Python `ThreadPoolExecutor`; sequential mode lets one subject use FreeSurfer internal parallelism.
+
+!!! note "Resources"
+    `fastsurfer_threads` controls the FastSurfer CPU thread count. The preprocessing
+    pipeline processes subjects sequentially; the removed `parallel_recon` and
+    `parallel_cores` arguments are not accepted. Runtime depends on the host and input.
 
 ## DTI / Diffusion Pipeline
 
@@ -125,7 +135,7 @@ project_root/
     ├── SimNIBS/sub-001/
     │   └── m2m_001/         # Head mesh (simulation-ready)
     │       └── segmentation/ # Atlas parcellations
-    ├── freesurfer/sub-001/  # optional recon-all outputs
+    ├── fastsurfer/sub-001/  # optional DKT deep segmentation
     ├── qsiprep/sub-001/     # QSIPrep DWI outputs (if run)
     └── qsirecon/sub-001/    # QSIRecon tensor outputs (if run)
 ```
@@ -149,11 +159,11 @@ project_root/
     options:
       show_root_heading: true
 
-::: tit.pre.recon_all.run_recon_all
+::: tit.pre.fastsurfer.run_fastsurfer
     options:
       show_root_heading: true
 
-::: tit.pre.recon_all.run_subcortical_segmentations
+::: tit.pre.fastsurfer.fastsurfer_available
     options:
       show_root_heading: true
 

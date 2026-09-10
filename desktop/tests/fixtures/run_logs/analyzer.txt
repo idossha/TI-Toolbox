@@ -1,0 +1,5 @@
+2026-08-31 11:20:00 INFO tit.analyzer: started analysis for sub-ernie / Thalamus
+2026-08-31 11:20:12 INFO load: opened TI_max mesh field
+2026-08-31 11:20:26 INFO roi: built thalamus mask in subject space
+2026-08-31 11:20:41 INFO stats: mean=0.42 V/m p95=0.88 V/m
+2026-08-31 11:20:48 INFO tit.analyzer: wrote analysis report and CSV

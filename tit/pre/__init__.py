@@ -2,13 +2,13 @@
 Preprocessing APIs for TI-Toolbox.
 
 This package provides standalone, reusable functions for every stage of the
-TI-Toolbox preprocessing pipeline: DICOM conversion, FreeSurfer cortical
-reconstruction, SimNIBS head-mesh generation (CHARM), tissue analysis, and
+TI-Toolbox preprocessing pipeline: DICOM conversion, SimNIBS head-mesh
+generation (CHARM), FastSurfer deep segmentation, tissue analysis, and
 diffusion-weighted imaging (DWI) preprocessing via QSIPrep/QSIRecon.
 
-All heavy computation runs inside Docker containers (SimNIBS, FreeSurfer,
-QSIPrep/QSIRecon). The functions in this package orchestrate those containers
-and manage BIDS-compliant file layouts.
+Structural work runs in the TI-Toolbox image itself (SimNIBS + FastSurfer);
+only the DWI stages spawn sibling containers (QSIPrep/QSIRecon). The
+functions here orchestrate those and manage BIDS-compliant file layouts.
 
 Public API
 ----------
@@ -16,10 +16,10 @@ run_pipeline
     Full preprocessing pipeline orchestrator (sequential or parallel).
 run_dicom_to_nifti
     Convert DICOM series to BIDS-compliant NIfTI files.
-run_recon_all
-    Run FreeSurfer ``recon-all`` cortical reconstruction.
-run_subcortical_segmentations
-    Run thalamic-nuclei and hippocampal-subfield segmentations.
+run_fastsurfer
+    Run FastSurfer ``--seg_only`` deep segmentation.
+fastsurfer_available
+    Probe for a runnable FastSurfer install.
 run_charm
     Generate a SimNIBS head mesh via the ``charm`` command.
 run_tissue_analysis
@@ -43,7 +43,7 @@ tit.sim : Simulation engine that consumes preprocessing outputs.
 
 from .structural import run_pipeline
 from .dicom2nifti import run_dicom_to_nifti
-from .recon_all import run_recon_all, run_subcortical_segmentations
+from .fastsurfer import fastsurfer_available, run_fastsurfer
 from .charm import run_charm
 from .tissue_analyzer import run_tissue_analysis
 from .qsi import run_qsiprep, run_qsirecon, extract_dti_tensor
@@ -59,8 +59,8 @@ from .preflight import (
 __all__ = [
     "run_pipeline",
     "run_dicom_to_nifti",
-    "run_recon_all",
-    "run_subcortical_segmentations",
+    "run_fastsurfer",
+    "fastsurfer_available",
     "run_charm",
     "run_tissue_analysis",
     "run_qsiprep",

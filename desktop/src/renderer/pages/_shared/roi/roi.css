@@ -1,0 +1,30 @@
+/* The shared ROI picker's own geometry. Tokens only — no colour is spelled out here.
+ *
+ * `.roi-saved-row` used to be `.subject-picker-row`, borrowed from the (now deleted) subject
+ * picker because the shape was the same. The failure that cost: `.subject-picker-row` is the class
+ * every mock and real spec locates a *subject* row by, so an unscoped count on the Optimizer or
+ * the Analyzer silently included the saved-ROI list — measured by lane SUB on the real project as
+ * 5 subjects + 1 saved ROI = 6 rows, and reproducible on the mock as 3 rows on a page with the
+ * subject table closed. A class names what the row IS; a row that borrows another control's class
+ * is a locator that lies.
+ */
+.roi-saved-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px var(--space-2);
+  border-radius: var(--radius-control);
+  font-size: 13px;
+  cursor: pointer;
+}
+.roi-saved-row:hover {
+  background: var(--surface-2);
+}
+
+/* Separate editable sphere coordinates without changing other dense data tables. */
+.data-table.roi-sphere-table tbody td {
+  padding-block: var(--space-1);
+}
+
+.roi-mask-file { display: flex; gap: var(--space-2); min-width: 0; }
+.roi-mask-file .path-input { flex: 1; min-width: 0; }

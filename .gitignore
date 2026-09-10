@@ -10,7 +10,7 @@ __pycache__/
 *.egg-info/
 dist/
 build/
-!package/build/
+!desktop/build/
 *.egg
 
 # Virtual environments
@@ -74,3 +74,9 @@ dev/telemetry/dashboard/.env
 !dev/telemetry/dashboard/.env.example
 
 .playwright-mcp/
+
+# Installed JavaScript dependencies are rebuilt locally, never committed.
+node_modules/
+
+# Local review surfaces are transient; durable decisions belong in docs/dev.
+.lavish/

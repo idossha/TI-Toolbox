@@ -19,8 +19,9 @@ stats
     Permutation testing and group-level comparisons.
 pre
     Preprocessing pipelines (DICOM conversion, FreeSurfer, CHARM).
-gui
-    PyQt5 desktop interface (runs inside Docker with X11).
+server
+    FastAPI HTTP server the v3 desktop app (``desktop/``) drives; it
+    replaced the former PyQt5 interface.
 cli
     Command-line tools built on a shared ``BaseCLI`` base class.
 reporting
@@ -54,7 +55,7 @@ INFO level) and exposes ``get_path_manager`` for BIDS path resolution.
 No additional setup is required for typical usage.
 """
 
-__version__ = "2.5.0"
+__version__ = "3.0.0"
 __author__ = "TI-Toolbox Team"
 
 from . import paths, constants

@@ -1,0 +1,10 @@
+{
+  "ernie": [
+    { "net": "GSN-HydroCel-185", "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/leadfields/GSN-HydroCel-185/leadfield.hdf5", "exists": true, "size_bytes": 2147483648 },
+    { "net": "EGI_template", "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/leadfields/EGI_template/leadfield.hdf5", "exists": false, "size_bytes": 0 }
+  ],
+  "101": [
+    { "net": "GSN-HydroCel-185", "path": "/mnt/example/derivatives/SimNIBS/sub-101/leadfields/GSN-HydroCel-185/leadfield.hdf5", "exists": false, "size_bytes": 0 }
+  ],
+  "MNI152": []
+}

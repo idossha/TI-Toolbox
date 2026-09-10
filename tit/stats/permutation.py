@@ -63,6 +63,21 @@ def _setup_logger(output_dir: str, analysis_type: str, callback_handler=None):
     return log, log_file
 
 
+def _log_failure(analysis_type: str, exc: BaseException) -> None:
+    """Record a run-ending exception in the run's OWN log file, then let it propagate.
+
+    ``_setup_logger`` attaches a file handler to ``tit.stats.<analysis_type>`` inside the output
+    directory, so a run that raises after that point leaves a log that stops mid-sentence: the
+    2-vs-1 e2e wrote 1.5 kB ending on a WARNING about degenerate voxels and never said that the
+    analysis had died, or why. The traceback went to the job's stderr, which the Results pane does
+    not read and which nothing keeps beside the outputs. This puts the reason where the output
+    directory can carry it.
+    """
+    logging.getLogger(f"tit.stats.{analysis_type}").error(
+        "Analysis failed: %s", exc, exc_info=exc
+    )
+
+
 def _resolve_output_dir(analysis_type: str, analysis_name: str) -> str:
     pm = get_path_manager()
     return pm.ensure(pm.stats_output(analysis_type, analysis_name))
@@ -107,11 +122,19 @@ def run_group_comparison(
     from tit import constants as _const
 
     with track_operation(_const.TELEMETRY_OP_STATS):
-        if config.space == GroupComparisonConfig.AnalysisSpace.FSAVERAGE:
-            from tit.stats.surface import run_surface_group_comparison
+        try:
+            if config.space == GroupComparisonConfig.AnalysisSpace.FSAVERAGE:
+                from tit.stats.surface import run_surface_group_comparison
 
-            return run_surface_group_comparison(config, callback_handler, stop_callback)
-        return _run_group_comparison_inner(config, callback_handler, stop_callback)
+                return run_surface_group_comparison(
+                    config, callback_handler, stop_callback
+                )
+            return _run_group_comparison_inner(config, callback_handler, stop_callback)
+        except KeyboardInterrupt:
+            raise
+        except Exception as exc:
+            _log_failure("group_comparison", exc)
+            raise
 
 
 def _run_group_comparison_inner(config, callback_handler=None, stop_callback=None):
@@ -194,9 +217,12 @@ def _run_group_comparison_inner(config, callback_handler=None, stop_callback=Non
         log=log,
     )
 
+    # `ttest_voxelwise` guarantees a non-empty mask (it raises otherwise), so this reduction
+    # cannot be over an empty array.
     log.info(
-        "Min p=%.2e, p<0.05: %d  (%.1fs)",
+        "Min p=%.2e over %d testable voxel(s), p<0.05: %d  (%.1fs)",
         np.min(p_values[valid_mask]),
+        int(np.count_nonzero(valid_mask)),
         np.sum((p_values < 0.05) & valid_mask),
         time.time() - step,
     )
@@ -348,6 +374,25 @@ def _run_group_comparison_inner(config, callback_handler=None, stop_callback=Non
 
 
 def run_correlation(
+    config: CorrelationConfig,
+    callback_handler=None,
+    stop_callback=None,
+) -> CorrelationResult:
+    """Run cluster-based permutation testing for correlation (ACES-style).
+
+    Thin wrapper over :func:`_run_correlation_inner` that records a run-ending exception in the
+    run's own log file (see :func:`_log_failure`) before re-raising it.
+    """
+    try:
+        return _run_correlation_inner(config, callback_handler, stop_callback)
+    except KeyboardInterrupt:
+        raise
+    except Exception as exc:
+        _log_failure("correlation", exc)
+        raise
+
+
+def _run_correlation_inner(
     config: CorrelationConfig,
     callback_handler=None,
     stop_callback=None,

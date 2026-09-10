@@ -6,6 +6,9 @@ permalink: /gallery/simulations/
 
 <link rel="stylesheet" href="{{ '/assets/css/lightbox.css' | relative_url }}">
 
+These output examples include external-viewer captures from earlier versions. For the current
+interface, see the [v3 UI gallery]({{ site.baseurl }}/gallery/UI/); v3 displays meshes and volumes in Tetravox.
+
 <div class="gallery-section">
   <h3>Temporal Interference Field Simulation</h3>
   <div class="gallery-grid">
@@ -33,7 +36,7 @@ permalink: /gallery/simulations/
   <div class="gallery-grid">
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/simulator/dti_CC.png" alt="DTI Eigen Vectors - Corpus Callosum" onclick="openLightbox(this)" />
-      <p>Gmsh visualization of white and gray matter with eigen vectors in the corpus callosum region, showing organized fiber directions for anisotropic conductivity modeling.</p>
+      <p>Legacy Gmsh visualization of white and gray matter with eigen vectors in the corpus callosum region, showing organized fiber directions for anisotropic conductivity modeling.</p>
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/simulator/dti_spinal.png" alt="DTI Eigen Vectors - Spinal Cord" onclick="openLightbox(this)" />

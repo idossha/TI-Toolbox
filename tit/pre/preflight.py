@@ -17,7 +17,14 @@ from .utils import _find_nifti
 
 STEP_DICOM = "dicom"
 STEP_CHARM = "charm"
-STEP_RECON_ALL = "recon_all"
+STEP_FASTSURFER = "fastsurfer"
+STEP_FREESURFER = "freesurfer"
+STEP_FREESURFER_THALAMUS = "freesurfer_thalamus"
+STEP_FREESURFER_HIPPO = "freesurfer_hippo_amygdala"
+FREESURFER_SUBREGION_STEPS = {
+    "thalamus": STEP_FREESURFER_THALAMUS,
+    "hippo-amygdala": STEP_FREESURFER_HIPPO,
+}
 STEP_QSIPREP = "qsiprep"
 STEP_QSIRECON = "qsirecon"
 STEP_DTI = "dti"
@@ -25,7 +32,10 @@ STEP_DTI = "dti"
 STEP_LABELS = {
     STEP_DICOM: "DICOM conversion",
     STEP_CHARM: "SimNIBS charm",
-    STEP_RECON_ALL: "FreeSurfer recon-all",
+    STEP_FASTSURFER: "FastSurfer segmentation",
+    STEP_FREESURFER: "FreeSurfer recon-all",
+    STEP_FREESURFER_THALAMUS: "FreeSurfer thalamic nuclei",
+    STEP_FREESURFER_HIPPO: "FreeSurfer hippocampus/amygdala",
     STEP_QSIPREP: "QSIPrep",
     STEP_QSIRECON: "QSIRecon",
     STEP_DTI: "DTI tensor extraction",
@@ -69,7 +79,7 @@ def missing_inputs_for_step(
 ) -> list[PreprocessingInputProblem]:
     """Return missing required inputs for one subject and preprocessing step."""
     pm = get_path_manager(project_dir)
-    if step in (STEP_CHARM, STEP_RECON_ALL) and not _has_bids_t1(
+    if step in (STEP_CHARM, STEP_FASTSURFER, STEP_FREESURFER) and not _has_bids_t1(
         project_dir, subject_id
     ):
         return [
@@ -85,6 +95,22 @@ def missing_inputs_for_step(
                 path=Path(pm.bids_anat(subject_id)),
             )
         ]
+    if step in FREESURFER_SUBREGION_STEPS.values():
+        from .freesurfer import validate_reconstruction
+        from .utils import PreprocessError
+
+        try:
+            validate_reconstruction(subject_id)
+        except PreprocessError as exc:
+            return [
+                PreprocessingInputProblem(
+                    subject_id,
+                    step,
+                    STEP_LABELS[step],
+                    str(exc),
+                    Path(pm.freesurfer_subject(subject_id)),
+                )
+            ]
     if step == STEP_QSIPREP:
         problems: list[PreprocessingInputProblem] = []
         # QSIPrep needs an anatomical reference (default --anat-modality T1w);
@@ -146,20 +172,27 @@ def find_missing_preprocessing_inputs(
     steps: Sequence[str] | None = None,
     convert_dicom: bool = False,
     create_m2m: bool = False,
-    run_recon: bool = False,
+    run_fastsurfer: bool = False,
+    run_freesurfer: bool = False,
+    freesurfer_recon_all: bool = True,
+    freesurfer_subregions: Sequence[str] = (),
     run_qsiprep: bool = False,
     run_qsirecon: bool = False,
     extract_dti: bool = False,
     skip_existing_outputs: bool = False,
 ) -> list[PreprocessingInputProblem]:
     """Return missing inputs that can be detected before running subprocesses."""
+    subject_ids = list(subject_ids)
     selected_steps = (
         list(steps)
         if steps is not None
         else selected_preprocessing_steps(
             convert_dicom=convert_dicom,
             create_m2m=create_m2m,
-            run_recon=run_recon,
+            run_fastsurfer=run_fastsurfer,
+            run_freesurfer=run_freesurfer,
+            freesurfer_recon_all=freesurfer_recon_all,
+            freesurfer_subregions=freesurfer_subregions,
             run_qsiprep=run_qsiprep,
             run_qsirecon=run_qsirecon,
             extract_dti=extract_dti,
@@ -180,10 +213,36 @@ def find_missing_preprocessing_inputs(
             subject_steps = [
                 step
                 for step in selected_steps
-                if step not in (STEP_CHARM, STEP_RECON_ALL, STEP_QSIPREP)
+                if step
+                not in (STEP_CHARM, STEP_FASTSURFER, STEP_FREESURFER, STEP_QSIPREP)
             ]
+        if STEP_FREESURFER in selected_steps and (
+            not skip_existing_outputs
+            or not existing_outputs_for_step(project_dir, subject_id, STEP_FREESURFER)
+        ):
+            # This job's recon-all supplies the subregion prerequisites.
+            subject_steps = [
+                s for s in subject_steps if s not in FREESURFER_SUBREGION_STEPS.values()
+            ]
+        if skip_existing_outputs and existing_outputs_for_step(
+            project_dir, subject_id, STEP_FREESURFER
+        ):
+            subject_steps = [s for s in subject_steps if s != STEP_FREESURFER]
         for step in subject_steps:
             problems.extend(missing_inputs_for_step(project_dir, subject_id, step))
+    if run_freesurfer or any(s.startswith("freesurfer") for s in selected_steps):
+        from .qsi.docker_builder import resolve_fs_license_path
+
+        if resolve_fs_license_path() is None:
+            problems.append(
+                PreprocessingInputProblem(
+                    next(iter(subject_ids), ""),
+                    STEP_FREESURFER,
+                    "FreeSurfer",
+                    "FreeSurfer requires a configured license before running.",
+                    Path(const.FS_LICENSE_PATH),
+                )
+            )
     return problems
 
 
@@ -225,7 +284,7 @@ def _single_path_output(
     path: Path,
 ) -> list[PreprocessingOutput]:
     # An empty directory is not a real output (older releases pre-created
-    # empty per-subject freesurfer dirs in existing projects).
+    # empty per-subject derivative dirs in existing projects).
     if not path.exists() or (path.is_dir() and not any(path.iterdir())):
         return []
     return [
@@ -249,9 +308,54 @@ def existing_outputs_for_step(
         return _single_path_output(
             project_dir, subject_id, step, Path(pm.m2m(subject_id))
         )
-    if step == STEP_RECON_ALL:
+    if step == STEP_FASTSURFER:
+        return _single_path_output(
+            project_dir, subject_id, step, Path(pm.fastsurfer_subject(subject_id))
+        )
+    if step == STEP_FREESURFER:
         return _single_path_output(
             project_dir, subject_id, step, Path(pm.freesurfer_subject(subject_id))
+        )
+    if step in FREESURFER_SUBREGION_STEPS.values():
+        subject = Path(pm.freesurfer_subject(subject_id))
+        # FreeSurfer 7.4.1 segment_subregions, default suffix: exact output names
+        # preserve legacy runs and every recon-all input during subset reruns.
+        names = (
+            [
+                "ThalamicNuclei.mgz",
+                "ThalamicNuclei.FSvoxelSpace.mgz",
+                "ThalamicNuclei.volumes.txt",
+            ]
+            if step == STEP_FREESURFER_THALAMUS
+            else [
+                f"{hemi}.hippoAmygLabels{suffix}.mgz"
+                for hemi in ("lh", "rh")
+                for suffix in (
+                    "",
+                    ".FSvoxelSpace",
+                    ".HBT",
+                    ".HBT.FSvoxelSpace",
+                    ".FS60",
+                    ".FS60.FSvoxelSpace",
+                    ".CA",
+                    ".CA.FSvoxelSpace",
+                )
+            ]
+            + [
+                f"{hemi}.{stem}.txt"
+                for hemi in ("lh", "rh")
+                for stem in ("hippoSfVolumes", "amygNucVolumes")
+            ]
+        )
+        paths = tuple(
+            subject / "mri" / name
+            for name in names
+            if (subject / "mri" / name).is_file()
+        )
+        return (
+            [PreprocessingOutput(subject_id, step, STEP_LABELS[step], paths[0], paths)]
+            if paths
+            else []
         )
     if step == STEP_QSIPREP:
         return _single_path_output(
@@ -275,7 +379,10 @@ def selected_preprocessing_steps(
     *,
     convert_dicom: bool = False,
     create_m2m: bool = False,
-    run_recon: bool = False,
+    run_fastsurfer: bool = False,
+    run_freesurfer: bool = False,
+    freesurfer_recon_all: bool = True,
+    freesurfer_subregions: Sequence[str] = (),
     run_qsiprep: bool = False,
     run_qsirecon: bool = False,
     extract_dti: bool = False,
@@ -286,8 +393,15 @@ def selected_preprocessing_steps(
         steps.append(STEP_DICOM)
     if create_m2m:
         steps.append(STEP_CHARM)
-    if run_recon:
-        steps.append(STEP_RECON_ALL)
+    if run_fastsurfer:
+        steps.append(STEP_FASTSURFER)
+    if run_freesurfer:
+        if freesurfer_recon_all:
+            steps.append(STEP_FREESURFER)
+        steps.extend(
+            FREESURFER_SUBREGION_STEPS[item]
+            for item in dict.fromkeys(freesurfer_subregions)
+        )
     if run_qsiprep:
         steps.append(STEP_QSIPREP)
     if run_qsirecon:
@@ -304,7 +418,10 @@ def find_existing_preprocessing_outputs(
     steps: Sequence[str] | None = None,
     convert_dicom: bool = False,
     create_m2m: bool = False,
-    run_recon: bool = False,
+    run_fastsurfer: bool = False,
+    run_freesurfer: bool = False,
+    freesurfer_recon_all: bool = True,
+    freesurfer_subregions: Sequence[str] = (),
     run_qsiprep: bool = False,
     run_qsirecon: bool = False,
     extract_dti: bool = False,
@@ -316,7 +433,10 @@ def find_existing_preprocessing_outputs(
         else selected_preprocessing_steps(
             convert_dicom=convert_dicom,
             create_m2m=create_m2m,
-            run_recon=run_recon,
+            run_fastsurfer=run_fastsurfer,
+            run_freesurfer=run_freesurfer,
+            freesurfer_recon_all=freesurfer_recon_all,
+            freesurfer_subregions=freesurfer_subregions,
             run_qsiprep=run_qsiprep,
             run_qsirecon=run_qsirecon,
             extract_dti=extract_dti,

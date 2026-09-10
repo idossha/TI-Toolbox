@@ -16,13 +16,13 @@ TI_CSC_INFO = {
 DOCKER_IMAGES = {
     "core": {
         "version": "2.5.0",
-        "tag": "idossha/simnibs:v2.5.0",
+        "tag": "idossha/ti-toolbox:v3.0.0",
         "description": "Core SimNIBS image with TI tools",
         "size": "~9GB",
     },
     "FreeSurfer": {
         "version": "2.5.0",
-        "tag": "freesurfer/freesurfer:7.4.1",
+        "tag": "idossha/ti-toolbox:freesurfer-20260910",
         "description": "FreeSurfer - Brain Analysis and Segmentation",
         "size": "~9GB",
     },

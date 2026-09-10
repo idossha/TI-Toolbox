@@ -50,9 +50,23 @@ from tit.opt.config import (
     MExConfig,
     MExResult,
 )
-from tit.opt.ex.ex import run_ex_search
-from tit.opt.flex.flex import run_flex_search
-from tit.opt.mex.mex import run_m_ex_search
+
+
+def __getattr__(name: str):
+    """Load scientific runners only when called for, not for config or mask imports."""
+    from importlib import import_module
+
+    modules = {
+        "run_ex_search": "tit.opt.ex.ex",
+        "run_flex_search": "tit.opt.flex.flex",
+        "run_m_ex_search": "tit.opt.mex.mex",
+    }
+    if name not in modules:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    value = getattr(import_module(modules[name]), name)
+    globals()[name] = value
+    return value
+
 
 __all__ = [
     # Config classes

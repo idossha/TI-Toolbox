@@ -6,6 +6,7 @@ functions) and end-to-end over stdio as an MCP client would use it.
 
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -116,11 +117,66 @@ class TestWikiTools:
 
     def test_changelog_and_version(self, srv):
         err, v = _call(srv, "get_toolbox_version")
-        assert not err and v["version"].count(".") == 2
-        err, out = _call(srv, "read_changelog", version=v["version"])
-        assert not err and out["version"] == f"v{v['version']}"
+        assert not err and re.fullmatch(
+            r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?", v["tit_version"]
+        )
+        assert v["desktop_version"] and v["in_lockstep"] is (
+            v["tit_version"] == v["desktop_version"]
+        )
+        err, out = _call(srv, "read_changelog", version=v["tit_version"])
+        assert not err and out["version"] == v["changelog_version"]
+        assert out["requested_version"] == f"v{v['tit_version']}"
+        if v["is_prerelease"]:
+            assert out["status"] == "unreleased"
         err, out = _call(srv, "read_changelog", max_versions=2)
-        assert not err and out["versions_available"][0] == f"v{v['version']}"
+        assert not err and v["changelog_version"] in out["versions_available"]
+
+
+class TestPrereleaseVersions:
+    def test_development_build_uses_upcoming_notes_and_configured_image(
+        self, srv, monkeypatch
+    ):
+        files = {
+            srv.PY_VERSION_FILE: '__version__ = "3.0.0-dev.1"',
+            srv.DESKTOP_PACKAGE_JSON: '{"version": "3.0.0-dev.1"}',
+            "docker-compose.yml": 'services:\n  tit:\n    image: "idossha/ti-toolbox:${TIT_IMAGE_TAG:-internal-fixture}"',
+            srv.CHANGELOG: "### v3.0.0 (Unreleased)\nUpcoming desktop.\n### v2.5.0\nStable release.",
+        }
+        monkeypatch.setattr(srv, "read_repo_file", lambda path, **kwargs: files[path])
+        err, version = _call(srv, "get_toolbox_version")
+        assert not err
+        assert version["tit_version"] == "3.0.0-dev.1"
+        assert version["is_prerelease"] is True
+        assert version["in_lockstep"] is True
+        assert version["docker_image"] == "idossha/ti-toolbox:internal-fixture"
+        assert "publication unverified" in version["docker_image_source"]
+        assert version["changelog_version"] == "v3.0.0"
+        assert version["changelog_url"].endswith("/releases/v3.0.0/")
+        err, notes = _call(srv, "read_changelog", version="3.0.0-dev.1")
+        assert not err
+        assert notes["version"] == "v3.0.0"
+        assert notes["requested_version"] == "v3.0.0-dev.1"
+        assert notes["status"] == "unreleased"
+        assert "Upcoming desktop." in notes["content"]
+        assert "Stable release." not in notes["content"]
+        files[srv.DESKTOP_PACKAGE_JSON] = '{"version": "3.0.0-dev.2"}'
+        assert _call(srv, "get_toolbox_version")[1]["in_lockstep"] is False
+
+    def test_version_lookup_is_exact_and_never_maps_a_prerelease_to_published_notes(
+        self, srv, monkeypatch
+    ):
+        monkeypatch.setattr(
+            srv,
+            "read_repo_file",
+            lambda *args, **kwargs: "### v3.0.01\nDifferent version.\n### v3.0.0\nPublished notes.",
+        )
+        err, notes = _call(srv, "read_changelog", version="3.0.0")
+        assert not err
+        assert notes["status"] == "released"
+        assert "Published notes." in notes["content"]
+        assert "Different version." not in notes["content"]
+        err, message = _call(srv, "read_changelog", version="3.0.0-dev.1")
+        assert err and "not found" in message
 
 
 class TestSourceTools:

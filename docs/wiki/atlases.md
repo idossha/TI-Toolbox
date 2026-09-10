@@ -9,7 +9,7 @@ permalink: /wiki/atlases/
 Atlases reach TI-Toolbox two different ways, and the distinction matters when you define an ROI:
 
 - **[MNI-space atlases](#mni-space-atlases)** are _shipped with the toolbox_ as ready-to-use NIfTI volumes in `resources/atlas/`. They are the same four volumes for every user, and SimNIBS transforms a selected label into your subject's space at run time.
-- **[Subject-space atlases](#subject-space-atlases)** are _generated per subject_ during preprocessing by SimNIBS `charm` and FreeSurfer `recon-all`. Nothing is shipped — they only exist once you have run the pipeline on a head model. The browser below uses the `ernie` example subject so you can see what they look like.
+- **[Subject-space atlases](#subject-space-atlases)** are _generated per subject_ during preprocessing by SimNIBS `charm`/`subject_atlas` and FastSurfer or optional FreeSurfer. Existing FreeSurfer outputs are also read. Nothing is shipped — they only exist once you have run the pipeline on a head model. The browser below uses the `ernie` example subject so you can see what they look like.
 
 Both families are queried through the same ROI picker used in flex-search, ex-search, and the analyzer.
 
@@ -192,7 +192,10 @@ Glasser MF, Coalson TS, Robinson EC, et al. A multi-modal parcellation of human 
 These are **not shipped**. They are produced for each subject during preprocessing, and live under that subject's own derivatives:
 
 - **SimNIBS `charm`** writes the tissue segmentation `m2m_{subject}/segmentation/labeling.nii.gz`, plus the surface parcellations `lh/rh.{subject}_DK40.annot`, `_a2009s.annot` and `_HCP_MMP1.annot`.
-- **FreeSurfer `recon-all`** writes the volumetric parcellations `aparc.DKTatlas+aseg.mgz`, `aparc.a2009s+aseg.mgz`, `aparc+aseg.mgz` and `aseg.mgz`, along with the finer `ThalamicNuclei.v13.T1.mgz` and `lh/rh.hippoAmygLabels-T1.v22.mgz` segmentations.
+- **FastSurfer `--seg_only` (v3)** writes `aparc.DKTatlas+aseg.deep.mgz`. It does not produce thalamic nuclei or hippocampal/amygdala subregion atlases. See [pre-processing]({{ site.baseurl }}/wiki/pre-processing/#what-changed-from-freesurfer).
+- **Optional FreeSurfer `recon-all`** produces the volumetric parcellations `aparc.DKTatlas+aseg.mgz`, `aparc.a2009s+aseg.mgz`, `aparc+aseg.mgz` and `aseg.mgz`, with finer thalamic nuclei and hippocampal/amygdala subregions available as additional operations after reconstruction. Existing `ThalamicNuclei.v13.T1.mgz` and `lh/rh.hippoAmygLabels-T1.v22.mgz` outputs remain readable.
+
+The gallery includes legacy FreeSurfer atlases for reference; their presence here does not mean a new v3 FastSurfer run produces them.
 
 The viewer below uses the **`ernie` example subject** that ships with SimNIBS, so the anatomy is a real head model rather than a template average. The surface `.annot` parcellations are not shown — they are cortical surface files, not volumes, and cannot be overlaid on a NIfTI.
 

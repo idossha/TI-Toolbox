@@ -1,0 +1,5 @@
+region,hemi,n_voxels,mean,max,min,std
+Thalamus,both,842,0.412,0.981,0.045,0.187
+bankssts,lh,120,0.201,0.512,0.020,0.098
+insula,lh,301,0.356,0.877,0.033,0.145
+insula,rh,298,0.349,0.844,0.031,0.140

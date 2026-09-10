@@ -1,0 +1,53 @@
+{
+  "subject_id": "ernie",
+  "roi_name": "L_Insula_MNI.csv",
+  "roi_radius": 5.0,
+  "leadfield_hdf": "/mnt/example/derivatives/SimNIBS/sub-ernie/leadfields/ernie_leadfield_EEG10-10_UI_Jurak_2007.hdf5",
+  "electrode_mode": "bucket",
+  "electrodes": {
+    "e1_plus": [
+      "F7",
+      "FT7",
+      "T7",
+      "F5",
+      "FC5",
+      "AF7",
+      "F3"
+    ],
+    "e1_minus": [
+      "F8",
+      "FT8",
+      "T8",
+      "F6",
+      "FC6",
+      "AF8",
+      "F4"
+    ],
+    "e2_plus": [
+      "P7",
+      "TP7",
+      "CP5",
+      "P5",
+      "CP3",
+      "PO7",
+      "P3"
+    ],
+    "e2_minus": [
+      "P8",
+      "TP8",
+      "CP6",
+      "P6",
+      "CP4",
+      "PO8",
+      "P4"
+    ]
+  },
+  "n_combinations": 343,
+  "run_name": "docs_ex_symmetric",
+  "total_current_mA": 2.0,
+  "current_step_mA": 0.25,
+  "channel_limit_mA": null,
+  "symmetric_bucket": true,
+  "symmetry_pairing": "within_pairs",
+  "symmetry_eeg_csv": null
+}

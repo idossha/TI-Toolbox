@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from tit import constants as const
 from tit.pre.qsi.docker_builder import (
     DockerBuildError,
     DockerCommandBuilder,
@@ -325,3 +326,78 @@ class TestBuildQsireconCmd:
             v_args = [cmd[i + 1] for i, x in enumerate(cmd) if x == "-v"]
             assert not any("license" in v for v in v_args)
             assert "--fs-license-file" not in cmd
+
+
+class TestDockerLabels:
+    """tit.job_id / tit.kind --label flags (N0.6 spike).
+
+    Before this change, no ``--label`` was ever emitted, so
+    ``tit/jobs/runner.py``'s ``stop_docker_siblings(job_id)`` -- which filters
+    ``docker ps --filter label=tit.job_id=<id>`` -- always matched zero containers for a
+    QSIPrep/QSIRecon job: cancellation had no real container handle (r6 §3,
+    skeptic-3 claim #3, ``docker_builder.py``'s own ``--label`` count was 0).
+    """
+
+    @staticmethod
+    def _label_pairs(cmd: list[str]) -> list[str]:
+        return [cmd[i + 1] for i, x in enumerate(cmd) if x == "--label"]
+
+    @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
+    def test_qsiprep_always_labels_kind(self, mock_resources, builder, monkeypatch):
+        monkeypatch.delenv("TIT_JOB_ID", raising=False)
+        config = QSIPrepConfig(subject_id="001")
+        cmd = builder.build_qsiprep_cmd(config)
+        assert "tit.kind=qsiprep" in self._label_pairs(cmd)
+
+    @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
+    def test_qsirecon_always_labels_kind(self, mock_resources, builder, monkeypatch):
+        monkeypatch.delenv("TIT_JOB_ID", raising=False)
+        config = QSIReconConfig(subject_id="001")
+        cmd = builder.build_qsirecon_cmd(config, "dipy_dki")
+        assert "tit.kind=qsirecon" in self._label_pairs(cmd)
+
+    @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
+    def test_no_job_id_label_when_env_var_unset(
+        self, mock_resources, builder, monkeypatch
+    ):
+        monkeypatch.delenv("TIT_JOB_ID", raising=False)
+        config = QSIPrepConfig(subject_id="001")
+        cmd = builder.build_qsiprep_cmd(config)
+        assert not any(
+            label.startswith("tit.job_id=") for label in self._label_pairs(cmd)
+        )
+
+    @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
+    def test_job_id_label_matches_env_var_qsiprep(
+        self, mock_resources, builder, monkeypatch
+    ):
+        """Mirrors what tit/jobs/manager.py's cancel() actually passes to
+        stop_docker_siblings(job_id): the exact TIT_JOB_ID this container's own job process was
+        spawned with (tit/jobs/runner.py's runner_env sets this env var; the QSI docker builder
+        runs inside that same job process, so os.environ carries it through)."""
+        monkeypatch.setenv("TIT_JOB_ID", "job-abc123")
+        config = QSIPrepConfig(subject_id="001")
+        cmd = builder.build_qsiprep_cmd(config)
+        assert "tit.job_id=job-abc123" in self._label_pairs(cmd)
+
+    @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
+    def test_job_id_label_matches_env_var_qsirecon(
+        self, mock_resources, builder, monkeypatch
+    ):
+        monkeypatch.setenv("TIT_JOB_ID", "job-xyz789")
+        config = QSIReconConfig(subject_id="001")
+        cmd = builder.build_qsirecon_cmd(config, "dipy_dki")
+        assert "tit.job_id=job-xyz789" in self._label_pairs(cmd)
+
+    @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
+    def test_labels_appear_before_image_name(
+        self, mock_resources, builder, monkeypatch
+    ):
+        """--label must be a docker-run *option*, not accidentally emitted after the image name
+        (where Docker would treat it as a positional arg to the entrypoint instead)."""
+        monkeypatch.setenv("TIT_JOB_ID", "job-1")
+        config = QSIPrepConfig(subject_id="001")
+        cmd = builder.build_qsiprep_cmd(config)
+        image_idx = cmd.index(f"{const.QSI_QSIPREP_IMAGE}:{config.image_tag}")
+        label_idx = cmd.index("--label")
+        assert label_idx < image_idx

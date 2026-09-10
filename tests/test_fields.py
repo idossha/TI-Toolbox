@@ -231,3 +231,13 @@ class TestHfSar:
     def test_requires_matching_shapes(self):
         with pytest.raises(ValueError):
             hf_sar(np.zeros((5, 3)), np.zeros((6, 3)))
+
+
+@pytest.mark.unit
+def test_hf_peak_exactness_flag_tracks_the_enumeration_limit():
+    """Audit item: N > EXACT_SIGN_ENUM_MAX_FIELDS gives a lower bound."""
+    from tit.fields import hf_peak_is_exact
+
+    assert hf_peak_is_exact(2)
+    assert hf_peak_is_exact(EXACT_SIGN_ENUM_MAX_FIELDS)
+    assert not hf_peak_is_exact(EXACT_SIGN_ENUM_MAX_FIELDS + 1)

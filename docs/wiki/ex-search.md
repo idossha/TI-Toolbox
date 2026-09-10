@@ -40,7 +40,8 @@ Leadfields are generated with `tissues=[1, 2]` (white + grey matter).
 ## User Interface
 
 <div class="image-container">
-  <img src="{{ site.baseurl }}/assets/imgs/UI/UI_ex.png" alt="Ex-Search Interface" style="width: 80%; max-width: 700px;">
+  <img src="{{ site.baseurl }}/assets/imgs/v3/optimizer.png" alt="The Optimizer page, where Ex is a method" style="width: 100%; max-width: 1000px;">
+  <em>Ex-search is the <strong>Ex</strong> method on the Optimizer page (⌘2), not a page of its own.</em>
 </div>
 
 The interface provides controls for:
@@ -53,10 +54,13 @@ The interface provides controls for:
 
 ## Defining the Target (ROI)
 
-A ROI Type toggle picks between two alternative targeting mechanisms, not companions:
+The **Target** section offers three choices:
 
-- **Sphere** (default) uses one or more spherical ROI CSVs (centers, default radius 3 mm, set by the ROI Radius spinbox), with a Coordinate Space toggle (Subject / MNI. MNI coordinates are transformed to the subject automatically). The "Combine selected ROIs into one target" checkbox that unions the selected ROIs into a single search (output named by joining the ROI names with `+`).
-- **Atlas** targets a volumetric subcortical atlas region on its own page. Atlas ROI targets are always resolved in the subject's own space.
+- **Saved** uses saved spherical ROI CSVs, a radius, and Subject/MNI coordinates. “Combine selected ROIs into one target” unions the selected centers for a single Ex search.
+- **Subcortical** selects regions from a volumetric atlas.
+- **NIfTI mask** imports a local `.nii` or `.nii.gz` file into the project. Positive voxels define the target. Subject-space masks are used directly; MNI masks use the subject’s SimNIBS registration in `m2m_<subject>/toMNI`, with nearest-neighbor resampling. The conformation affine alone is not an MNI registration.
+
+**Electrodes** is a separate section: choose four electrodes (TI) or eight (mTI), then configure the search space.
 
 Under the hood, ROI resolution OR-folds a mixed list of CSV centers, whole NIfTI/MGZ masks (voxel value > 0), and `(path, label)` atlas-region selections (voxel value == label) into a single region.
 
@@ -194,14 +198,15 @@ _`intensity_vs_focality_scatter.png`: every evaluation plotted as ROI mean inten
 
 Set **Search Mode** to _mTI (4-pair)_ to run a multipolar exhaustive search (mex-search) instead of the standard two-channel one. `tit/opt/mex/` extends ex-search to four channels (eight electrodes), scored with the same verified `get_TI_vectors` envelope used by the simulator — explicitly **not** a recursive envelope-of-envelopes (see [Envelope Math]({{ site.baseurl }}/wiki/analyzer/#envelope-math-and-critical-values) on the Analyzer page for the $$K$$-carrier modulation-depth math, and [Multipolar Mode on the Simulator page]({{ site.baseurl }}/wiki/simulator/#multipolar-mode-mti) for how mTI montages are detected and simulated). The public API is `run_m_ex_search(config: MExConfig) -> MExResult`, re-exported from `tit.opt` alongside `run_ex_search`/`run_flex_search`.
 
-### mTI GUI
+### mTI in the Optimizer
 
-The Ex-Search tab hosts both TI and mTI search behind a single **Search Mode** combo: "TI (2-pair)" (default) and "mTI (4-pair)" — the labels' "pair" means channel. Selecting mTI:
+Choose the **Ex** method for a job row, open its settings and select **8 electrodes (mTI)**
+under **Electrodes → Count**. The default **4 electrodes (TI)** uses two channels. Selecting mTI:
 
-- Hides the Bucketed/All Combinations radio buttons and switches the electrode panel to eight free-text fields, **E1+ .. E4-** (2 columns x 4 rows). mTI is bucket-only — there is no all-combinations page, since pool permutations over eight positions are combinatorially far larger than TI's four.
+- Uses eight electrode-bucket selectors, **E1+ .. E4-**, populated from the selected EEG net. mTI is bucket-only; all-combinations mode is available for TI only.
 - Switches the current-configuration panel to a **Pair Current (mA)** spinbox — the per-channel current (range 0.1-10.0, default 2.0, step 0.1) — and a **Force left/right symmetry** checkbox (unchecked by default) that enables a symmetry-pairing combo — "Within each pair" / "Cross pairs (E1<->E3, E2<->E4)" — once checked.
-- Disables the **Combine ROIs** checkbox only. Both ROI types are available: `MExConfig` carries `roi_names` and `roi_atlas` exactly as `ExConfig` does, so an mTI run can target a sphere, an atlas region, or an atlas region alone. Combining stays TI-only because the multipolar run path processes selected spheres one at a time.
-- Retitles the box "mTI Configuration" and relabels the run/stop buttons "Run mTI Search"/"Stop mTI Search".
+- Disables the **Combine ROIs** checkbox only. Saved spherical, atlas-region and imported-mask targets remain available: `MExConfig` carries `roi_names` and `roi_atlas` exactly as `ExConfig` does, so an mTI run can target a sphere, an atlas region, or an atlas region alone. Combining stays TI-only because the multipolar run path processes selected spheres one at a time.
+- Submits a `mex` job through the shared run controls. Follow its Terminal log or stop it from Jobs.
 
 ### Candidate enumeration
 
@@ -301,3 +306,10 @@ JSON config keys: `project_dir`, `subject_id`, `leadfield_hdf`, `roi_name`, `ele
 ```
 
 _The multipolar exhaustive search combination logic (`tit/opt/mex/logic.py`) and the generalized electrode-bucket loader (`tit/opt/ex/buckets.py`) were ported from collaborator Larissa Albantakis's branch `alba/ex-search-multipolar`._
+
+### Target preview
+
+The Scene pane displays the selected mask, subcortical regions, or saved ROI spheres in
+subject space. It is read-only: edit targets in the job form. Multiple saved ROIs are shown
+together; the Combine setting still determines whether they run together or separately.
+The preview shows target extent before search-specific tissue and mesh filtering.

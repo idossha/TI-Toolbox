@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  N0.4 packaging spike. The same four entitlements the legacy TI-Toolbox launcher's
+  `package/build/entitlements.mac.plist` already ships, verified by r4-python-in-electron.md §1.2/
+  §3.2 as exactly what a hardened-runtime app bundling a Python runtime needs:
+    - allow-jit / allow-unsigned-executable-memory: numba/llvmlite JIT-compile and execute machine
+      code at runtime (the full SimNIBS runtime, not this spike's minimal one — kept here anyway so
+      this file does not need to change when N0.1's runtime replaces this spike's).
+    - disable-library-validation: the bundled interpreter loads its own dylibs/.so extensions, not
+      ones signed by this app's own Team ID — hardened runtime otherwise refuses to dlopen them.
+    - allow-dyld-environment-variables: a relocated interpreter's own launch shims/entrypoints rely
+      on DYLD_* environment variables surviving into the process (conda-pack's `fix_entrypoints.py`
+      precedent, r4 §1.3).
+  Real signing is out of scope for this spike (`identity: null` in electron-builder.yml) — this file
+  exists so the *shape* of a real signed build is already correct, not because it does anything with
+  no signing identity applied.
+-->
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+</dict>
+</plist>

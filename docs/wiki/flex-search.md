@@ -12,6 +12,19 @@ permalink: /wiki/flex-search/
 
 - [Haber, I., Jackson, A., Thielscher, A., Hai, A., & Tononi, G. TI-Toolbox: An Open-Source Software for Temporal Interference Stimulation Research. Brain Stimulation](<https://www.brainstimjrnl.com/article/S1935-861X(25)00418-8/fulltext>)
 
+## Job settings
+
+Current ratio and Ratio total current sit together in the Electrode settings. Solver options
+are directly exposed, and After the search shows its options without opening a disclosure.
+
+## Run names
+
+Leave the run name blank to use the current date and time. The application resolves one
+folder for both the preview and submission; simultaneous rows receive distinct suffixes.
+After submission, the next automatic run gets a fresh name. Enter a name to use that folder
+under the subject’s `flex-search` directory instead. Existing-output checks still apply.
+
+
 ## Overview
 
 Flex Search uses differential evolution optimization to determine the best electrode positions for TI stimulation. The public API is `run_flex_search(config: FlexConfig) -> FlexResult`, with all configuration expressed through type-safe dataclasses and enums.
@@ -25,27 +38,31 @@ Flex Search uses differential evolution optimization to determine the best elect
 - **Multi-start Optimization**: Run multiple optimization iterations and automatically select the best result
 - **Structured Output**: Every run writes a `flex_meta.json` manifest for downstream consumption
 
-## User Interface
+## In the application
 
-<div class="image-container">
-  <img src="{{ site.baseurl }}/assets/imgs/UI/UI_flex.png" alt="Flex Search Interface" style="width: 80%; max-width: 700px;">
-</div>
+Flex-search is the **Flex** method on the **Optimizer** page (⌘2).
+
+
+<img src="{{ site.baseurl }}/assets/imgs/v3/optimizer.png" alt="The Optimizer page, with the Flex method selected" style="width: 100%; max-width: 1000px;">
+<em>The Optimizer. Flex is a <strong>method</strong> in a job row, not a page of its own; the atlas in the pane is the ROI you are choosing.</em>
 
 The interface provides comprehensive controls for:
 
 - **Basic Parameters**: Subject selection, optimization goal, and post-processing method
 - **Electrode Parameters**: Radius and current settings
-- **ROI Definition**: A shared ROI picker with three modes -- Cortical, Subcortical, and Spherical -- used for both the ROI and the optional non-ROI; see [Defining the ROI](#defining-the-roi) below
+- **ROI Definition**: A shared ROI picker with four modes -- Cortical, Subcortical, Spherical, and NIfTI mask -- used for both the ROI and the optional non-ROI; see [Defining the ROI](#defining-the-roi) below
 - **Stability Options**: Iteration limits, population size, and CPU utilization
 - **Mapping Options**: EEG net electrode mapping capabilities
 
 ### Defining the ROI
 
-The ROI picker (`ROIPickerWidget`, `tit/gui/components/roi_picker.py`) is shared across flex-search, ex-search, and the analyzer. In flex-search it appears twice -- once for the ROI, once for the optional "Specific Region" non-ROI described [below](#non-roi-definition-methods) -- as a radio row with three modes:
+The ROI picker (`desktop/src/renderer/pages/_shared/roi/`, backed by `tit/opt/roi_spec.py`) is shared across flex-search, ex-search, and the analyzer. In flex-search it appears twice -- once for the ROI, once for the optional "Specific Region" non-ROI described [below](#non-roi-definition-methods) -- as a radio row with four modes:
 
-- **Cortical** (default): pick regions from a FreeSurfer `.annot` atlas. An Atlas combo selects the parcellation, and "List Regions" opens a finder that lists regions from both hemispheres by name. Selected regions become removable chips keyed by hemisphere-prefixed name (e.g. `lh.precentral`) -- there is no separate hemisphere selector, so a single target can span both hemispheres from this one page.
-- **Subcortical**: pick regions from a volumetric atlas. A Subject/MNI "Atlas Space" radio pair (Subject default) selects the coordinate space, a Tissue Type combo (GM / WM / GM+WM) sets the tissue restriction, and a Volume Atlas combo selects the atlas. "List Regions" adds selections as removable chips keyed by integer label id.
-- **Spherical**: a Subject/MNI coordinate-space radio pair (Subject default), a multi-row sphere table (X/Y/Z in -150 to 150 mm, radius 1 to 50 mm, default 10.0 mm), Add Sphere / Duplicate Selected / Remove Selected buttons, and a "View T1 in Freeview" button (relabeled "View MNI Template" in MNI mode) to look up coordinates. A Volumetric checkbox enables a Tissue combo (GM / WM / GM+WM); unchecked, the sphere(s) are evaluated on the cortical surface instead.
+- **Cortical** (default): pick regions from a FreeSurfer `.annot` atlas. An Atlas combo selects the parcellation, and the region selector opens a searchable finder that lists regions from both hemispheres by name. Selected regions become removable chips keyed by hemisphere-prefixed name (e.g. `lh.precentral`) -- there is no separate hemisphere selector, so a single target can span both hemispheres from this one page.
+- **Subcortical**: pick regions from a volumetric atlas. A Subject/MNI "Atlas Space" radio pair (Subject default) selects the coordinate space, a Tissue Type combo (GM / WM / GM+WM) sets the tissue restriction, and a Volume Atlas combo selects the atlas. the region selector adds selections keyed by integer label id.
+- **Spherical**: a Subject/MNI coordinate-space radio pair (Subject default), a multi-row sphere table with X/Y/Z and radius in millimeters, an **Add sphere** button and a remove control on each row, and the 3-D pane beside the form for anatomical orientation. The guide is not the selected subject; enter coordinates in the explicitly selected coordinate space. A Volumetric checkbox enables a Tissue combo (GM / WM / GM+WM); unchecked, the sphere(s) are evaluated on the cortical surface instead.
+
+- **NIfTI mask**: import a local `.nii` or `.nii.gz` file; it is copied into the project for the server. Positive voxels define the target; choose Subject or MNI space and the tissue restriction. Subject-space masks are used directly. MNI masks use the subject’s SimNIBS registration in `m2m_<subject>/toMNI`, with nearest-neighbor resampling to preserve the mask. The conformation affine alone is not an MNI registration.
 
 Whichever mode is used, the picker serializes to one of three dataclasses nested under `FlexConfig`. Every field on all three accepts either a single value or a list -- a list unions several regions into one combined target: N spheres, cross-hemisphere cortical labels (e.g. `lh.insula` + `rh.insula`), or e.g. subcortical labels `17` and `53` for both hippocampi at once.
 
@@ -76,7 +93,7 @@ Always evaluated on the cortical central surface -- `AtlasROI` has no `tissues` 
 | Field         | Type               | Default     | Notes                                                                                  |
 | ------------- | ------------------ | ----------- | -------------------------------------------------------------------------------------- |
 | `atlas_path`  | `str \| list[str]` | required    | Path(s) to volumetric atlas NIfTI file(s); a scalar broadcasts to the number of labels |
-| `label`       | `int \| list[int]` | required    | Integer label index/indices; must be non-empty                                         |
+| `label`       | `int \| list[int] \| None` | required | Integer label(s), or `None` for all positive voxels                                         |
 | `tissues`     | `str`              | `"GM"`      | `"GM"`, `"WM"`, or `"both"` -- applies to the whole union                              |
 | `atlas_space` | `str`              | `"subject"` | `"subject"` or `"mni"` -- applies to the whole union                                   |
 
@@ -255,7 +272,7 @@ By default the two TI channels carry equal current. The `optimize_current_ratio`
 
 ### What Each Channel Carries
 
-Holding the _total_ fixed means the _per-channel_ current necessarily moves. Over the 1:3 to 3:1 grid each channel spans a quarter to three quarters of the total -- that is, **0.5x to 1.5x the configured `current_mA`** (the GUI's _Electrode Current_). With the default total of `2 x current_mA` and `current_mA = 2.0`, a channel is driven anywhere between `1.0 mA` and `3.0 mA`, with the pair always summing to `4.0 mA`. `current_mA` is therefore the center of the searched range, not a per-channel ceiling: choose it (or set `ratio_total_mA` directly) so that the 1.5x end is still within the dose you intend to deliver.
+Holding the _total_ fixed means the _per-channel_ current necessarily moves. Over the 1:3 to 3:1 grid each channel spans a quarter to three quarters of the total -- that is, **0.5x to 1.5x the configured `current_mA`** (the Optimizer's _Electrode Current_). With the default total of `2 x current_mA` and `current_mA = 2.0`, a channel is driven anywhere between `1.0 mA` and `3.0 mA`, with the pair always summing to `4.0 mA`. `current_mA` is therefore the center of the searched range, not a per-channel ceiling: choose it (or set `ratio_total_mA` directly) so that the 1.5x end is still within the dose you intend to deliver.
 
 The grid always contains the balanced 1:1 split -- `ratio_levels` is rounded up to the next odd number so the midpoint of the sweep is the exact even split. Enabling the ratio search therefore cannot return a worse solution than the equal-current montage it would otherwise have used.
 
@@ -402,3 +419,9 @@ For positive margins, `avoid_landmark_regions=True` keeps fiducial-derived ear a
 <div class="image-container">
   <img src="{{ site.baseurl }}/assets/imgs/flex-search/valid_skin_region_margin_landmark_guarded.png" alt="Valid skin region margin comparison" style="width: 100%; max-width: 1200px;">
 </div>
+
+### Target preview
+
+The Scene pane follows the active job. Cortical regions remain clickable; masks, subcortical
+regions and spheres show a read-only target extent in subject space. Edit these targets in
+the job form. The preview shows geometry before search-specific tissue and mesh filtering.

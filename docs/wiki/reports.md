@@ -120,4 +120,4 @@ Passing empty electrode pairs leaves nothing to disagree with, so the report is 
 ---
 
 _Last Updated: August 2026_
-_Compatible with: TI-Toolbox v2.4.0, Modern Web Browsers_
+_The embedded example was generated with v2.4.0; current reports are available in the v3 Results page and open in modern browsers._
