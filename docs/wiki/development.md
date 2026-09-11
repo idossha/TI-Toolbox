@@ -4,8 +4,6 @@ title: Development & Testing
 permalink: /wiki/development/
 ---
 
-# Development & testing (v3)
-
 Build and test TI-Toolbox from a source checkout here. For everyday use, follow the
 [installation guide]({{ site.baseurl }}/installation/).
 The checkout's `CONTRIBUTING.md` owns contributor environment setup and
@@ -68,12 +66,12 @@ the existing container's configuration.
 
 Optional defaults can go in `desktop/.env.dev` (copy `.env.dev.example`) or your shell:
 
-| Variable | Default | Meaning |
-|---|---|---|
-| `TIT_DEV_PROJECT_DIR` | Last project in desktop; required for web mode unless supplied with `--project` | Prefills the desktop project field; selects the browser development project. |
-| `TIT_DEV_IMAGE_TAG` | Root Compose image tag | Which `idossha/ti-toolbox:<tag>` to run. |
-| `TIT_DEV_PORT` | `8765` | Preferred host port. |
-| `TIT_DEV_MOUNT_REPO` | `1` | **Web mode only:** mount the checkout and reload Python changes. Set `0` to test the image's baked Python package. Desktop development always mounts the checkout. |
+| Variable              | Default                                                                         | Meaning                                                                                                                                                            |
+| --------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `TIT_DEV_PROJECT_DIR` | Last project in desktop; required for web mode unless supplied with `--project` | Prefills the desktop project field; selects the browser development project.                                                                                       |
+| `TIT_DEV_IMAGE_TAG`   | Root Compose image tag                                                          | Which `idossha/ti-toolbox:<tag>` to run.                                                                                                                           |
+| `TIT_DEV_PORT`        | `8765`                                                                          | Preferred host port.                                                                                                                                               |
+| `TIT_DEV_MOUNT_REPO`  | `1`                                                                             | **Web mode only:** mount the checkout and reload Python changes. Set `0` to test the image's baked Python package. Desktop development always mounts the checkout. |
 
 For live renderer reload in a browser:
 
@@ -139,7 +137,7 @@ its checkpoints. Build once for the source revision you intend to test, then reu
 
 ## Advanced: native, without Docker
 
-If you already have SimNIBS 4.6 installed on the host and `tit` installed into *its*
+If you already have SimNIBS 4.6 installed on the host and `tit` installed into _its_
 interpreter, you can run the server directly:
 
 ```bash
@@ -206,13 +204,13 @@ consistent source revision and confirm the cluster's container policy before ada
 
 ## Choose checks that prove the change
 
-| Check | What it covers |
-|---|---|
-| Desktop types, lint and unit tests | UI logic, types and code conventions |
-| Host Python tests | Server, jobs, configuration and path logic with heavy scientific libraries mocked |
-| Container numerical tests | Numerical behavior against real libraries |
-| Hidden Electron tests | Actual UI interactions against controlled mock services |
-| Real workflow and packaged acceptance | Scientific outputs and the distributed app/image pairing |
+| Check                                 | What it covers                                                                    |
+| ------------------------------------- | --------------------------------------------------------------------------------- |
+| Desktop types, lint and unit tests    | UI logic, types and code conventions                                              |
+| Host Python tests                     | Server, jobs, configuration and path logic with heavy scientific libraries mocked |
+| Container numerical tests             | Numerical behavior against real libraries                                         |
+| Hidden Electron tests                 | Actual UI interactions against controlled mock services                           |
+| Real workflow and packaged acceptance | Scientific outputs and the distributed app/image pairing                          |
 
 From the repository root, after installing the contributor Python environment:
 
@@ -251,8 +249,3 @@ hooks and quiet-monitor limitations. An inconclusive visibility monitor is not a
 After tests, run `npm run build` from `desktop/` to restore the normal UI bundle. Release
 acceptance additionally checks the actual packaged executable and matching scientific image;
 a source build alone does not validate a release artifact.
-
-## Legacy development
-
-The [v2 development archive]({{ site.baseurl }}/wiki/v2-development/) retains the old Qt and
-CircleCI instructions. They describe legacy v2 installations and do not apply to the v3 stack.
