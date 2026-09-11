@@ -23,11 +23,19 @@ const ACKNOWLEDGMENTS: { title: string; content: string }[] = [
       "Grossman N, Bono D, Dedic N, Kodandaramaiah SB, Rudenko A, Suk HJ, Cassara AM, Neufeld E, Kuster N, Tsai LH, Pascual-Leone A, Boyden ES. Noninvasive Deep Brain Stimulation via Temporally Interfering Electric Fields. Cell. 2017 Jun 1;169(6):1029-1041.e16. doi: 10.1016/j.cell.2017.05.024. PMID: 28575667; PMCID: PMC5520675.",
   },
   {
+    title: "FastSurfer",
+    content: "Hoffmann M, et al. FastSurfer: A fast and accurate deep learning based neuroimaging pipeline. NeuroImage. 2023; 270:119987. https://doi.org/10.1016/j.neuroimage.2023.119987. TI-Toolbox uses FastSurfer as its default surface segmentation tool; https://github.com/Deep-MI/FastSurfer",
+  },
+  {
     title: "FreeSurfer",
     content: "Fischl B. FreeSurfer. Neuroimage. 2012 Aug 15;62(2):774-81. https://doi.org/10.1016/j.neuroimage.2012.01.021.",
   },
   {
-    title: "FSL",
+    title: "QSIPrep and QSIRecon",
+    content: "Cieslak M, et al. QSIPrep: an integrative platform for preprocessing diffusion MRI data. Nature Methods. 2021;18:775–778. https://doi.org/10.1038/s41592-021-01185-5. QSIRecon provides reconstruction workflows built on the QSIPrep derivatives; https://qsiprep.readthedocs.io/",
+  },
+  {
+    title: "FSL (used by diffusion workflows)",
     content:
       "M.W. Woolrich, S. Jbabdi, B. Patenaude, M. Chappell, S. Makni, T. Behrens, C. Beckmann, M. Jenkinson, S.M. Smith. Bayesian analysis of neuroimaging data in FSL. NeuroImage, 45:S173-86, 2009\n\n" +
       "S.M. Smith, M. Jenkinson, M.W. Woolrich, C.F. Beckmann, T.E.J. Behrens, H. Johansen-Berg, P.R. Bannister, M. De Luca, I. Drobnjak, D.E. Flitney, R. Niazy, J. Saunders, J. Vickers, Y. Zhang, N. De Stefano, J.M. Brady, and P.M. Matthews. Advances in functional and structural MR image analysis and implementation as FSL. NeuroImage, 23(S1):208-19, 2004\n\n" +
@@ -42,6 +50,10 @@ const ACKNOWLEDGMENTS: { title: string; content: string }[] = [
     title: "BIDS",
     content:
       "Gorgolewski, K., Auer, T., Calhoun, V. et al. The brain imaging data structure, a format for organizing and describing outputs of neuroimaging experiments. Sci Data 3, 160044 (2016). https://doi.org/10.1038/sdata.2016.44",
+  },
+  {
+    title: "Tetravox",
+    content: "TI-Toolbox integrates Tetravox for interactive 3D visualization of surfaces and electric fields; https://github.com/idossha/tetravox",
   },
   {
     title: "Docker",
