@@ -133,6 +133,7 @@ export function JobDetailPane({ job, allowUnsafeOverrides, onOpenJob, density = 
     onSuccess: () => {
       notify.success("Job deleted.");
       invalidateJobs();
+      queryClient.removeQueries({ queryKey: ["job", jobId] });
       onOpenJob(null);
     },
     onError: (e) => notify.error("Could not delete the job.", e instanceof ApiError ? e.message : String(e)),

@@ -2098,6 +2098,38 @@ paths:
           $ref: "#/components/responses/NotFound"
 
   # ----------------------------------------------------------------------------------- settings (v1)
+  /api/surfer-settings:
+    get:
+      tags: [settings]
+      summary: User-wide reconstruction resource preferences
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          description: Preferences and available computation threads
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SurferSettings"
+    put:
+      tags: [settings]
+      summary: Replace user-wide reconstruction resource preferences
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SurferPreferences"
+      responses:
+        "200":
+          description: Saved preferences and effective thread counts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SurferSettings"
+        "422":
+          description: Invalid thread preferences
+
   /api/settings:
     get:
       tags: [settings]
@@ -5377,6 +5409,201 @@ components:
       properties:
         consented: { type: boolean }
         enabled: { type: boolean }
+    QSIPrepPreferences:
+      additionalProperties: false
+      description: User defaults for processing, separate from resource allocation.
+      properties:
+        output_resolution:
+          exclusiveMinimum: 0
+          title: Output Resolution
+          type: number
+        image_tag:
+          pattern: ^[\w][\w.-]{0,127}$
+          title: Image Tag
+          type: string
+        skip_bids_validation:
+          title: Skip Bids Validation
+          type: boolean
+        denoise_method:
+          enum:
+          - dwidenoise
+          - patch2self
+          - none
+          title: Denoise Method
+          type: string
+        unringing_method:
+          enum:
+          - mrdegibbs
+          - rpg
+          - none
+          title: Unringing Method
+          type: string
+      title: QSIPrepPreferences
+      type: object
+    QSIReconPreferences:
+      additionalProperties: false
+      description: User defaults for reconstruction, separate from resource allocation.
+      properties:
+        recon_specs:
+          items:
+            type: string
+          minItems: 1
+          title: Recon Specs
+          type: array
+        atlases:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Atlases
+        use_gpu:
+          title: Use Gpu
+          type: boolean
+        image_tag:
+          pattern: ^[\w][\w.-]{0,127}$
+          title: Image Tag
+          type: string
+        skip_odf_reports:
+          title: Skip Odf Reports
+          type: boolean
+      title: QSIReconPreferences
+      type: object
+    SurferPreferences:
+      type: object
+      additionalProperties: false
+      properties:
+        charm_options:
+          type: [object, "null"]
+          additionalProperties: false
+          properties:
+            denoise: {type: [boolean, "null"]}
+            segmentation_final_resolution: {type: [number, "null"], minimum: 0.5, maximum: 2}
+            skin_facet_size: {type: [number, "null"], minimum: 0.5, maximum: 10}
+        qsiprep_config:
+          $ref: "#/components/schemas/QSIPrepPreferences"
+        qsi_recon_config:
+          $ref: "#/components/schemas/QSIReconPreferences"
+        charm_threads:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 4096
+        qsiprep_threads:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 4096
+        qsirecon_threads:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 4096
+        qsiprep_memory_gb:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 4096
+        qsirecon_memory_gb:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 4096
+        qsiprep_omp_threads:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 4096
+        qsirecon_omp_threads:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 4096
+        freesurfer_recon_all:
+          type: boolean
+        freesurfer_subregions:
+          type: array
+          items:
+            type: string
+            enum: [thalamus, hippo-amygdala]
+        fastsurfer_threads:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 4096
+          description: Null uses 80% of available CPUs.
+        freesurfer_threads:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 4096
+          description: Null uses 80% of available CPUs.
+    SurferSettings:
+      type: object
+      required: [charm_options, qsiprep_config, qsi_recon_config, fastsurfer_threads, freesurfer_threads, charm_threads, qsiprep_threads, qsirecon_threads, qsiprep_memory_gb, qsirecon_memory_gb, qsiprep_omp_threads, qsirecon_omp_threads, freesurfer_recon_all, freesurfer_subregions, available_threads, default_threads, effective_fastsurfer_threads, effective_freesurfer_threads, effective_charm_threads, effective_qsiprep_threads, effective_qsirecon_threads]
+      properties:
+        charm_options:
+          type: [object, "null"]
+          additionalProperties: false
+          properties:
+            denoise: {type: [boolean, "null"]}
+            segmentation_final_resolution: {type: [number, "null"], minimum: 0.5, maximum: 2}
+            skin_facet_size: {type: [number, "null"], minimum: 0.5, maximum: 10}
+        qsiprep_config:
+          allOf:
+            - $ref: "#/components/schemas/QSIPrepPreferences"
+          required: [output_resolution, image_tag, skip_bids_validation, denoise_method, unringing_method]
+        qsi_recon_config:
+          allOf:
+            - $ref: "#/components/schemas/QSIReconPreferences"
+          required: [recon_specs, atlases, use_gpu, image_tag, skip_odf_reports]
+        charm_threads:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 4096
+        qsiprep_threads:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 4096
+        qsirecon_threads:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 4096
+        qsiprep_memory_gb:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 4096
+        qsirecon_memory_gb:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 4096
+        qsiprep_omp_threads:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 4096
+        qsirecon_omp_threads:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 4096
+        freesurfer_recon_all:
+          type: boolean
+          default: true
+        freesurfer_subregions:
+          type: array
+          items:
+            type: string
+            enum: [thalamus, hippo-amygdala]
+          default: [thalamus, hippo-amygdala]
+        fastsurfer_threads:
+          type: [integer, "null"]
+        freesurfer_threads:
+          type: [integer, "null"]
+        effective_charm_threads:
+          type: integer
+        effective_qsiprep_threads:
+          type: integer
+        effective_qsirecon_threads:
+          type: integer
+        available_threads:
+          type: integer
+        default_threads:
+          type: integer
+        effective_fastsurfer_threads:
+          type: integer
+        effective_freesurfer_threads:
+          type: integer
+
     Settings:
       type: object
       required: [telemetry, panels, allow_unsafe_overrides, theme]

@@ -167,6 +167,8 @@ def _run_subject_pipeline(
     runner: CommandRunner,
     convert_dicom: bool = False,
     run_fastsurfer_step: bool = False,
+    charm_threads: int | None = None,
+    charm_options: dict | None = None,
     fastsurfer_threads: int | None = None,
     run_freesurfer: bool = False,
     freesurfer_recon_all: bool = True,
@@ -237,6 +239,8 @@ def _run_subject_pipeline(
                 lambda: run_charm(
                     project_dir,
                     subject_id,
+                    threads=charm_threads,
+                    options=charm_options,
                     logger=logger,
                     runner=runner,
                 ),
@@ -429,6 +433,8 @@ def run_pipeline(
     *,
     convert_dicom: bool = False,
     run_fastsurfer: bool = False,
+    charm_threads: int | None = None,
+    charm_options: dict | None = None,
     fastsurfer_threads: int | None = None,
     run_freesurfer: bool = False,
     freesurfer_recon_all: bool = True,
@@ -547,6 +553,8 @@ def run_pipeline(
             subject_list,
             convert_dicom=convert_dicom,
             run_fastsurfer=run_fastsurfer,
+            charm_threads=charm_threads,
+            charm_options=charm_options,
             fastsurfer_threads=fastsurfer_threads,
             run_freesurfer=run_freesurfer,
             freesurfer_recon_all=freesurfer_recon_all,
@@ -572,6 +580,8 @@ def _run_pipeline_inner(
     *,
     convert_dicom=False,
     run_fastsurfer=False,
+    charm_threads=None,
+    charm_options=None,
     fastsurfer_threads=None,
     run_freesurfer=False,
     freesurfer_recon_all=True,
@@ -627,6 +637,8 @@ def _run_pipeline_inner(
     }
 
     common = dict(
+        charm_threads=charm_threads,
+        charm_options=charm_options,
         fastsurfer_threads=fastsurfer_threads,
         run_freesurfer=run_freesurfer,
         freesurfer_recon_all=freesurfer_recon_all,

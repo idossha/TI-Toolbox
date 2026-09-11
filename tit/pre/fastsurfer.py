@@ -38,6 +38,7 @@ tit.atlas.segstats : The LUT/label-listing code reused for the sidecar.
 from __future__ import annotations
 
 import gzip
+import json
 import os
 import re
 import subprocess
@@ -48,6 +49,7 @@ from pathlib import Path
 from tit.paths import get_path_manager
 
 from .utils import CommandRunner, PreprocessError, _find_anat_files
+from .native_fastsurfer import run_native_fastsurfer
 
 #: Environment variable naming the FastSurfer checkout.
 ENV_FASTSURFER_HOME = "FASTSURFER_HOME"
@@ -79,12 +81,6 @@ SEG_NIFTI_FILENAME = "aparc.DKTatlas+aseg.deep.nii.gz"
 #: (:meth:`tit.atlas.voxel.VoxelAtlasManager.list_regions` derives exactly
 #: this name from either atlas filename).
 SEG_LABELS_FILENAME = "aparc.DKTatlas+aseg.deep_labels.txt"
-
-#: Threads used when neither the caller nor the environment says otherwise.
-#: FastSurfer peaks at ~4.8 GiB regardless of thread count; the ``pre`` job
-#: kind's FastSurfer budget is 2 cpus / 8 GB (:mod:`tit.jobs.costs`), so 2 is
-#: the honest default and callers with a bigger budget pass it explicitly.
-DEFAULT_THREADS = 2
 
 
 def fastsurfer_home() -> Path:
@@ -118,22 +114,10 @@ def fastsurfer_python() -> str:
 
 
 def resolve_threads(threads: int | None = None) -> int:
-    """Return the thread count for one FastSurfer run.
+    """Resolve explicit, environment, or user-wide automatic thread settings."""
+    from tit.surfer_settings import effective_threads
 
-    Precedence: explicit *threads* argument (the job's own cpu budget),
-    then ``$TIT_FASTSURFER_THREADS``, then :data:`DEFAULT_THREADS`. Values
-    below 1 are clamped up to 1.
-    """
-    if threads is None:
-        env_value = os.environ.get(ENV_FASTSURFER_THREADS)
-        if env_value:
-            try:
-                threads = int(env_value)
-            except ValueError:
-                threads = None
-    if threads is None:
-        threads = DEFAULT_THREADS
-    return max(1, int(threads))
+    return effective_threads("fastsurfer", threads)
 
 
 def resolve_device() -> str:
@@ -153,39 +137,77 @@ def inference_environment() -> dict[str, str]:
     return env
 
 
-def _validate_device(device: str, env: dict[str, str]) -> None:
-    if device in ("auto", "cpu"):
-        return
-    probe = (
-        "import sys, torch; d=sys.argv[1]; "
-        "ok=(torch.cuda.is_available() and "
-        "(int(d.split(':')[1]) if ':' in d else 0)<torch.cuda.device_count()) "
-        "if d.startswith('cuda') else "
-        "(hasattr(torch.backends,'mps') and torch.backends.mps.is_available()); "
-        "sys.exit(0 if ok else 1)"
-    )
+# Run with FastSurfer's interpreter, not the server's potentially different torch.
+_DEVICE_PROBE = """
+import json, sys, torch
+requested = sys.argv[1]
+candidates = ["cuda", "mps"] if requested == "auto" else [requested]
+failures = []
+for device in candidates:
+    try:
+        if device.startswith("cuda"):
+            if not torch.cuda.is_available():
+                raise RuntimeError("CUDA is not accessible (check host NVIDIA driver and Docker GPU access)")
+        elif not (hasattr(torch.backends, "mps") and torch.backends.mps.is_available()):
+            raise RuntimeError("Metal is not accessible in this runtime")
+        # Availability alone can pass with incompatible drivers or GPU kernels.
+        x = torch.ones((1, 1, 8, 8), device=device)
+        kernel = torch.ones((1, 1, 3, 3), device=device)
+        value = torch.nn.functional.conv2d(x, kernel).sum().item()
+        if value != 324:
+            raise RuntimeError("GPU computation returned an unexpected result")
+        print(json.dumps({"device": device, "reason": "GPU computation probe passed"}))
+        break
+    except Exception as error:
+        failures.append(device + ": " + str(error))
+else:
+    print(json.dumps({"device": "cpu", "reason": "; ".join(failures)}))
+"""
+
+
+def _probe_device(device: str, env: dict[str, str]) -> tuple[str, str]:
+    """Select an executable accelerator, reporting why CPU is necessary."""
+    if device == "cpu":
+        return "cpu", "CPU explicitly requested"
     try:
         result = subprocess.run(
-            [fastsurfer_python(), "-c", probe, device],
+            [fastsurfer_python(), "-c", _DEVICE_PROBE, device],
             env=env,
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=60,
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise PreprocessError(
-            f"Cannot check FastSurfer device {device} using {fastsurfer_python()}. "
+            f"Cannot check FastSurfer device using {fastsurfer_python()}. "
             f"Check {ENV_FASTSURFER_PYTHON}."
         ) from exc
-    if result.returncode:
+    try:
+        if result.returncode:
+            raise ValueError(result.stderr[-2000:])
+        selection = json.loads(result.stdout.strip().splitlines()[-1])
+        selected, reason = selection["device"], selection["reason"]
+        if not isinstance(reason, str) or not isinstance(selected, str):
+            raise ValueError("invalid device probe response")
+        if not re.fullmatch(r"cpu|mps|cuda(?::[0-9]+)?", selected):
+            raise ValueError("invalid selected device")
+    except (ValueError, KeyError, IndexError, TypeError) as exc:
         raise PreprocessError(
-            f"FastSurfer device {device} is unavailable in {fastsurfer_python()}. "
-            f"Use {ENV_FASTSURFER_DEVICE}=auto or cpu, or configure a compatible "
-            "PyTorch environment with access to the requested GPU. "
-            "The standard TI-Toolbox Docker image uses CPU-only PyTorch; "
-            "Apple MPS requires native macOS execution."
+            f"FastSurfer GPU probe failed in {fastsurfer_python()}: {exc}"
+        ) from exc
+    if device != "auto" and selected != device:
+        raise PreprocessError(
+            f"FastSurfer device {device} is unavailable: {reason}. "
+            "Check the host GPU driver, Docker GPU permissions, and PyTorch compatibility. "
+            "Apple Metal requires native macOS execution."
         )
+    return selected, reason
+
+
+def _validate_device(device: str, env: dict[str, str]) -> None:
+    """Validate an explicitly selected accelerator before science starts."""
+    _probe_device(device, env)
 
 
 def _missing_fastsurfer_error() -> PreprocessError:
@@ -305,7 +327,7 @@ def run_fastsurfer(
         Subprocess runner used to stream output and honour cancellation.
     threads : int or None, optional
         Thread count for the inference. Defaults to
-        ``$TIT_FASTSURFER_THREADS``, else :data:`DEFAULT_THREADS`.
+        ``$TIT_FASTSURFER_THREADS``, else the user-wide preference (automatic: all available CPUs except one for the host).
 
     Raises
     ------
@@ -335,10 +357,6 @@ def run_fastsurfer(
             write_derived_outputs(mri_dir, logger=logger)
             return
 
-        script = fastsurfer_script()
-        if script is None:
-            raise _missing_fastsurfer_error()
-
         t1_file, _t2_file = _find_anat_files(subject_id)
         if not t1_file:
             bids_anat_dir = Path(pm.bids_anat(subject_id))
@@ -348,9 +366,44 @@ def run_fastsurfer(
         subjects_root.mkdir(parents=True, exist_ok=True)
 
         n_threads = resolve_threads(threads)
-        device = resolve_device()
+        if runner is None:
+            runner = CommandRunner()
+        requested_device = resolve_device()
         env = inference_environment()
-        _validate_device(device, env)
+        device, reason = (
+            ("cpu", "Native Metal explicitly requested")
+            if requested_device == "mps"
+            else _probe_device(requested_device, env)
+        )
+        if (
+            requested_device in ("auto", "mps")
+            and device == "cpu"
+            and run_native_fastsurfer(
+                project_dir,
+                subject_id,
+                t1_file,
+                threads=n_threads,
+                logger=logger,
+                stop_event=runner.stop_event,
+            )
+        ):
+            write_derived_outputs(mri_dir, logger=logger)
+            return
+
+        if requested_device == "mps":
+            device, reason = _probe_device("mps", env)
+        script = fastsurfer_script()
+        if script is None:
+            raise _missing_fastsurfer_error()
+        if device == "cpu" and requested_device == "auto":
+            logger.warning(
+                "FastSurfer will use CPU because no accessible GPU passed its computation "
+                "probe: %s. On Apple Silicon, enable Apple GPU in the desktop app "
+                "to use the project-scoped native runtime.",
+                reason,
+            )
+        else:
+            logger.info("FastSurfer selected %s: %s", device, reason)
         cmd = [
             str(script),
             "--seg_only",
@@ -370,6 +423,11 @@ def run_fastsurfer(
             str(t1_file),
             "--device",
             device,
+            # CPU aggregation avoids large prediction buffers exhausting GPU memory.
+            "--viewagg_device",
+            "cpu",
+            "--batch",
+            "1",
             "--threads",
             str(n_threads),
             "--py",
@@ -380,8 +438,6 @@ def run_fastsurfer(
             f"Running FastSurfer seg_only for subject {subject_id} "
             f"({n_threads} threads, device={device})"
         )
-        if runner is None:
-            runner = CommandRunner()
         exit_code = runner.run(cmd, logger=logger, env=env)
 
         if exit_code != 0:

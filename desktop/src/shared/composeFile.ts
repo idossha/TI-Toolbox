@@ -405,6 +405,7 @@ export function parseComposeFile(text: string, env: Record<string, string | unde
 /** The `POST /containers/create` body, as far as this app fills it in. */
 export interface ContainerCreateBody {
   Image: string;
+  Entrypoint?: string[];
   Cmd?: string[];
   Env: string[];
   Labels: Record<string, string>;
@@ -413,6 +414,7 @@ export interface ContainerCreateBody {
   ExposedPorts: Record<string, Record<string, never>>;
   HostConfig: {
     Binds: string[];
+    DeviceRequests?: { Driver: string; Count: number; Capabilities: string[][] }[];
     Init?: boolean;
     NetworkMode?: string;
     RestartPolicy?: { Name: string; MaximumRetryCount?: number };

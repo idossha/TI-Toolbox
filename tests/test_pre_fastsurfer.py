@@ -78,7 +78,9 @@ class TestThreadResolution:
 
     def test_garbage_env_falls_back_to_the_default(self, monkeypatch):
         monkeypatch.setenv(fs.ENV_FASTSURFER_THREADS, "many")
-        assert fs.resolve_threads() == fs.DEFAULT_THREADS
+        from tit.surfer_settings import effective_threads
+
+        assert fs.resolve_threads() == effective_threads("fastsurfer")
 
     def test_zero_is_clamped_to_one(self, monkeypatch):
         monkeypatch.delenv(fs.ENV_FASTSURFER_THREADS, raising=False)
@@ -111,6 +113,12 @@ def _runner(exit_code=0, on_run=None):
 
 
 class TestRunFastsurfer:
+    @pytest.fixture(autouse=True)
+    def cpu_probe(self, monkeypatch):
+        monkeypatch.setattr(
+            fs, "_probe_device", lambda *args: ("cpu", "No GPU fixture")
+        )
+
     def test_clear_error_when_fastsurfer_is_absent(
         self, project, tmp_path, monkeypatch
     ):
@@ -159,7 +167,9 @@ class TestRunFastsurfer:
         assert "--no_cereb" in cmd
         assert "--no_hypothal" in cmd
         assert cmd[cmd.index("--sid") + 1] == "sub-001"
-        assert cmd[cmd.index("--device") + 1] == "auto"
+        assert cmd[cmd.index("--device") + 1] == "cpu"
+        assert cmd[cmd.index("--viewagg_device") + 1] == "cpu"
+        assert cmd[cmd.index("--batch") + 1] == "1"
         assert cmd[cmd.index("--threads") + 1] == "5"
         assert cmd[cmd.index("--py") + 1] == "simnibs_python"
 
@@ -278,15 +288,26 @@ def test_mps_fallback_is_child_only_and_preserves_override(monkeypatch):
     assert fs.inference_environment()["PYTORCH_ENABLE_MPS_FALLBACK"] == "0"
 
 
-def test_unavailable_explicit_device_explains_cpu_image(monkeypatch):
-    monkeypatch.setattr(fs.subprocess, "run", lambda *a, **kw: MagicMock(returncode=1))
-    with pytest.raises(PreprocessError, match="CPU-only"):
+def test_unavailable_explicit_device_explains_access(monkeypatch):
+    monkeypatch.setattr(
+        fs.subprocess,
+        "run",
+        lambda *a, **kw: MagicMock(
+            returncode=0, stdout='{"device":"cpu","reason":"driver unavailable"}'
+        ),
+    )
+    with pytest.raises(PreprocessError, match="Docker GPU permissions"):
         fs._validate_device("cuda", fs.inference_environment())
 
 
 def test_probe_uses_selected_interpreter_and_device(monkeypatch):
     monkeypatch.setenv(fs.ENV_FASTSURFER_PYTHON, "/native/fastsurfer/python")
-    run = MagicMock(return_value=MagicMock(returncode=0))
+    run = MagicMock(
+        return_value=MagicMock(
+            returncode=0,
+            stdout='{"device":"mps","reason":"GPU computation probe passed"}',
+        )
+    )
     monkeypatch.setattr(fs.subprocess, "run", run)
     env = fs.inference_environment()
     fs._validate_device("mps", env)
@@ -295,12 +316,39 @@ def test_probe_uses_selected_interpreter_and_device(monkeypatch):
     assert run.call_args.kwargs["env"] is env
 
 
-@pytest.mark.parametrize("device", ["auto", "cpu"])
-def test_default_devices_do_not_probe_torch_in_server(monkeypatch, device):
+def test_explicit_cpu_does_not_probe(monkeypatch):
     run = MagicMock()
     monkeypatch.setattr(fs.subprocess, "run", run)
-    fs._validate_device(device, fs.inference_environment())
+    assert fs._probe_device("cpu", fs.inference_environment())[0] == "cpu"
     run.assert_not_called()
+
+
+@pytest.mark.parametrize("device", ["cuda", "cpu"])
+def test_auto_reports_selected_device(monkeypatch, device):
+    import json
+
+    run = MagicMock(
+        return_value=MagicMock(
+            returncode=0,
+            stdout=json.dumps({"device": device, "reason": "authored runtime result"}),
+        )
+    )
+    monkeypatch.setattr(fs.subprocess, "run", run)
+    assert fs._probe_device("auto", fs.inference_environment()) == (
+        device,
+        "authored runtime result",
+    )
+    assert run.call_args.args[0][-1] == "auto"
+
+
+def test_broken_probe_does_not_silently_choose_cpu(monkeypatch):
+    monkeypatch.setattr(
+        fs.subprocess,
+        "run",
+        lambda *a, **kw: MagicMock(returncode=1, stderr="torch import failed"),
+    )
+    with pytest.raises(PreprocessError, match="torch import failed"):
+        fs._probe_device("auto", fs.inference_environment())
 
 
 @pytest.mark.parametrize(
@@ -312,9 +360,118 @@ def test_default_devices_do_not_probe_torch_in_server(monkeypatch, device):
         ({"run_fastsurfer": True, "mem_gb": 10}, 10),
     ],
 )
-def test_fastsurfer_memory_budget_only_changes_its_stage(config, memory):
+def test_fastsurfer_memory_budget_only_changes_its_stage(config, memory, monkeypatch):
+    from tit import surfer_settings
+
+    monkeypatch.setattr(surfer_settings, "available_threads", lambda: 10)
+    monkeypatch.setattr(
+        surfer_settings,
+        "load_preferences",
+        surfer_settings.default_preferences,
+    )
+    monkeypatch.delenv("TIT_FASTSURFER_THREADS", raising=False)
     from tit.jobs.costs import default_cost
 
     cost = default_cost("pre", config)
     assert cost.mem_gb == memory
-    assert cost.cpus == 2
+    assert cost.cpus == 9  # FastSurfer and CHARM both use the user resource default.
+
+
+def test_gpu_probe_exercises_a_kernel_before_accepting_cuda(monkeypatch, capsys):
+    """Authored torch double pins actual execution, not an availability-only check."""
+    import json
+    import sys
+
+    torch = MagicMock()
+    torch.cuda.is_available.return_value = True
+    torch.nn.functional.conv2d.return_value.sum.return_value.item.return_value = 324
+    monkeypatch.setitem(sys.modules, "torch", torch)
+    monkeypatch.setattr(sys, "argv", ["probe", "auto"])
+    exec(fs._DEVICE_PROBE, {})
+    assert json.loads(capsys.readouterr().out)["device"] == "cuda"
+    torch.nn.functional.conv2d.assert_called_once()
+    assert all(call.kwargs["device"] == "cuda" for call in torch.ones.call_args_list)
+
+
+def test_gpu_available_but_kernel_denied_is_not_selected(monkeypatch, capsys):
+    import json
+    import sys
+
+    torch = MagicMock()
+    torch.cuda.is_available.return_value = True
+    torch.backends.mps.is_available.return_value = False
+    torch.nn.functional.conv2d.side_effect = RuntimeError("kernel permission denied")
+    monkeypatch.setitem(sys.modules, "torch", torch)
+    monkeypatch.setattr(sys, "argv", ["probe", "auto"])
+    exec(fs._DEVICE_PROBE, {})
+    response = json.loads(capsys.readouterr().out)
+    assert response["device"] == "cpu"
+    assert "kernel permission denied" in response["reason"]
+
+
+@pytest.mark.parametrize("device", ["cuda", "cpu"])
+def test_explicit_container_device_bypasses_native_worker(
+    project, fake_home, monkeypatch, device
+):
+    monkeypatch.setenv(fs.ENV_FASTSURFER_DEVICE, device)
+    monkeypatch.setattr(fs, "_probe_device", lambda *args: (device, "requested"))
+    native = MagicMock()
+    monkeypatch.setattr(fs, "run_native_fastsurfer", native)
+    runner = _runner(exit_code=5)
+    with pytest.raises(PreprocessError, match="exit 5"):
+        fs.run_fastsurfer(str(project), "001", logger=MagicMock(), runner=runner)
+    native.assert_not_called()
+    assert runner.run.call_count == 1  # Never retry failed GPU inference on CPU.
+    cmd = runner.run.call_args.args[0]
+    assert cmd[cmd.index("--device") + 1] == device
+
+
+def test_auto_prefers_container_gpu_over_native(project, fake_home, monkeypatch):
+    monkeypatch.delenv(fs.ENV_FASTSURFER_DEVICE, raising=False)
+    monkeypatch.setattr(fs, "_probe_device", lambda *args: ("cuda", "probe passed"))
+    native = MagicMock()
+    monkeypatch.setattr(fs, "run_native_fastsurfer", native)
+    with pytest.raises(PreprocessError, match="exit 5"):
+        fs.run_fastsurfer(
+            str(project), "001", logger=MagicMock(), runner=_runner(exit_code=5)
+        )
+    native.assert_not_called()
+
+
+def test_cpu_fallback_warns_with_reason(project, fake_home, monkeypatch):
+    monkeypatch.delenv(fs.ENV_FASTSURFER_DEVICE, raising=False)
+    monkeypatch.setattr(
+        fs, "_probe_device", lambda *args: ("cpu", "NVIDIA driver inaccessible")
+    )
+    monkeypatch.setattr(fs, "run_native_fastsurfer", lambda *a, **kw: False)
+    logger = MagicMock()
+    with pytest.raises(PreprocessError, match="exit 5"):
+        fs.run_fastsurfer(
+            str(project), "001", logger=logger, runner=_runner(exit_code=5)
+        )
+    assert "no accessible GPU" in logger.warning.call_args.args[0]
+    assert logger.warning.call_args.args[1] == "NVIDIA driver inaccessible"
+
+
+def test_command_flags_are_accepted_by_upstream_shell(project, monkeypatch):
+    """Run upstream's real option parser; --help prevents scientific computation."""
+    import subprocess
+
+    home = os.environ.get(fs.ENV_FASTSURFER_HOME)
+    if not home or not (Path(home) / fs.RUN_SCRIPT).is_file():
+        pytest.skip("requires a FastSurfer checkout at $FASTSURFER_HOME")
+    monkeypatch.setattr(fs, "_probe_device", lambda *a: ("cuda", "fixture"))
+    monkeypatch.setattr(fs, "write_derived_outputs", lambda *a, **kw: None)
+
+    def parse(cmd):
+        result = subprocess.run(
+            ["bash", *cmd, "--help"], capture_output=True, text=True, check=False
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        mri = Path(get_path_manager(str(project)).fastsurfer_mri("001"))
+        mri.mkdir(parents=True)
+        (mri / fs.SEG_FILENAME).write_bytes(b"parser-only fixture")
+
+    fs.run_fastsurfer(
+        str(project), "001", logger=MagicMock(), runner=_runner(on_run=parse)
+    )

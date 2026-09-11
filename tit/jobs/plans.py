@@ -143,7 +143,9 @@ def _stage_config(config: PreprocessConfig, subject_id: str, **flags: bool) -> d
     overrides = dict.fromkeys(_STAGE_FLAGS, False)
     overrides.update(flags)
     stage_config = replace(config, subject_ids=[subject_id], **overrides)
-    return serialize_config(stage_config)
+    from tit.surfer_settings import resolve_job_threads
+
+    return resolve_job_threads(serialize_config(stage_config))
 
 
 def plan_preprocessing(

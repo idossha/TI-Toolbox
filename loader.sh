@@ -109,7 +109,8 @@ if [ "${TIT_COMPOSE_FILE+x}" = x ] && [ ! -f "$spec" ]; then
     die "container specification not found: $spec"
 fi
 work="$(mktemp -d)"
-trap 'rm -rf "$work"' EXIT
+gpu_probe=''
+trap '[ -z "$gpu_probe" ] || docker rm --force "$gpu_probe" >/dev/null 2>&1; rm -rf "$work"' EXIT
 if [ ! -f "$spec" ]; then
     curl -fsSL "https://raw.githubusercontent.com/idossha/TI-Toolbox/${TIT_SOURCE_REF:-main}/docker-compose.yml" -o "$work/source.yml" || die 'could not download the container specification'
     spec="$work/source.yml"
@@ -197,6 +198,24 @@ else
             printf 'Warning: could not refresh %s; using the cached image.\n' "$image" >&2
         fi
     fi
+    gpu=0
+    gpu_probe="ti-gpu-probe-$(od -An -N8 -tx1 /dev/urandom | tr -d ' \n')"
+    cuda_probe="import torch; assert torch.cuda.is_available(); x=torch.ones((32,32),device='cuda'); y=x@x; torch.cuda.synchronize(); assert y[0,0].item()==32"
+    if docker run --detach --name "$gpu_probe" --network none --platform linux/amd64 --gpus all --env NVIDIA_DRIVER_CAPABILITIES=compute,utility --entrypoint simnibs_python "$image" -c "$cuda_probe" >"$work/gpu.out" 2>"$work/gpu.err"; then
+        gpu_deadline=$((SECONDS+60))
+        while [ "$(docker inspect --format '{{.State.Running}}' "$gpu_probe" 2>/dev/null)" = true ] && [ "$SECONDS" -lt "$gpu_deadline" ]; do sleep 1; done
+        gpu_state="$(docker inspect --format '{{.State.Status}}:{{.State.ExitCode}}' "$gpu_probe" 2>/dev/null || true)"
+        [ "$gpu_state" != exited:0 ] || gpu=1
+    fi
+    if [ "$gpu" = 0 ] && [ ! -s "$work/gpu.err" ]; then docker logs --tail 4 "$gpu_probe" >"$work/gpu.err" 2>&1 || true; fi
+    docker rm --force "$gpu_probe" >/dev/null 2>&1 || true
+    gpu_probe=''
+    if [ "$gpu" = 1 ]; then
+        printf 'CUDA GPU verified; GPU access enabled for FastSurfer.\n'
+    else
+        printf 'Container GPU unavailable. CPU remains available; Apple Silicon users can enable native Apple GPU in Pre-processing.\n'
+        cat "$work/gpu.err" >&2
+    fi
     first_port="$port"
     while (: >"/dev/tcp/127.0.0.1/$port") >/dev/null 2>&1; do
         port=$((port+1)); [ "$port" -le 65535 ] && [ "$port" -lt $((first_port+64)) ] || die 'no free port found'
@@ -217,8 +236,11 @@ else
     TIT_HOST_OS="$(uname -s | tr '[:upper:]' '[:lower:]')"; TIT_HOST_OS_VERSION="$(uname -r)"; TIT_HOST_ARCH="$(uname -m)"
     export TIT_HOST_OS TIT_HOST_OS_VERSION TIT_HOST_ARCH
     export DOCKER_DEFAULT_PLATFORM=linux/amd64
-    awk -v image="$image" -v mount="$repo" '
-        /^[[:space:]]*image:/ {$0="    image: " image}
+    awk -v image="$image" -v mount="$repo" -v gpu="$gpu" '
+        /^[[:space:]]*image:/ {
+            $0="    image: " image
+            if (gpu==1) $0=$0 "\n    deploy:\n      resources:\n        reservations:\n          devices:\n            - driver: nvidia\n              count: all\n              capabilities: [gpu]"
+        }
         /\$\{TIT_REPO_DIR:-\}:\/ti-toolbox/ && mount=="" {next}
         {print}
     ' "$spec" > "$work/compose.yml"

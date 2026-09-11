@@ -158,6 +158,28 @@ test("with no job ever submitted, the page is the table it is waiting for", asyn
   await expectPage(page, "preprocess");
 });
 
+test("deletes a selected terminal job after confirmation and removes it from the list", async () => {
+  const subject = "delete-regression";
+  const created = await submitJob({ kind: "sim", config: seedConfig("sim", subject), subject_ids: [subject], tags: ["e2e-delete"] });
+  const cancel = await page.request.post(`${SERVER_URL}/api/jobs/${created.id}/cancel`, {
+    headers: { Authorization: `Bearer ${TOKEN}` },
+  });
+  expect(cancel.ok()).toBeTruthy();
+
+  await connect();
+  await openJobs();
+  const row = page.getByTestId("jobs-table").getByRole("row", { name: new RegExp(subject) });
+  await expect(row).toBeVisible();
+  await row.click();
+  await page.getByTestId("job-detail").getByRole("button", { name: "Delete", exact: true }).click();
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog).toContainText("Removes this job from the list permanently");
+  await dialog.getByRole("button", { name: "Delete job", exact: true }).click();
+
+  await expect(row).toHaveCount(0);
+  await expect(page.getByTestId("page-right-pane")).toHaveCount(0);
+});
+
 test("the full page lists a running job, opens its detail pane, and stops it", async () => {
   const job = await submitJob({ kind: "sim", config: seedConfig("sim", "ernie"), subject_ids: ["ernie"], tags: ["e2e"] });
 
@@ -461,14 +483,13 @@ test("uses the width: no pane exists without content, and the detail column hold
   expect(deadUnselected.ratio, `jobs dead space with nothing selected: ${JSON.stringify(deadUnselected)}`).toBeLessThanOrEqual(0.3);
   await page.screenshot({ path: join(ARTIFACTS, "jobs-density-unselected-light.png") });
 
-  // Select a row: the detail pane appears at the design's fixed width (360 below 1440, DESIGN.md
-  // §2.1) and the table stays on screen (it is a pane, not a modal).
+  // Select a row: the detail pane opens at the 45vw reading width and the table stays on screen.
   await table.getByRole("row", { name: /ernie/ }).first().click();
   await expect(page.getByTestId("page-right-pane")).toBeVisible();
   await expect(page.getByTestId("job-detail")).toBeVisible();
   const selected = await paneWidths(page);
-  expect(selected.right).toBe(360);
-  expect(selected.work).toBeGreaterThanOrEqual(660);
+  expect(selected.right).toBe(576);
+  expect(selected.work).toBeGreaterThanOrEqual(440);
   const deadSelected = await deadSpaceRatio(page);
   // DESIGN.md §12.3's target for "populated" is <=25%. This used to fail well above that (up to
   // 85%, whatever job was selected): `JobDetailPane`'s "Summary" tab was a fixed ~8-row
@@ -503,7 +524,7 @@ test("at 1440 wide the detail column widens to 400px, per the design's numbers",
   await table.getByRole("row", { name: /ernie/ }).first().click();
   await expect(page.getByTestId("page-right-pane")).toBeVisible();
   const panes = await paneWidths(page);
-  expect(panes.right).toBe(400);
+  expect(panes.right).toBe(648);
 
   const dead = await deadSpaceRatio(page);
   expect(dead.ratio, `jobs dead space at 1440 with a job selected: ${JSON.stringify(dead)}`).toBeLessThanOrEqual(0.3);
@@ -526,7 +547,7 @@ test("the detail pane stretches, collapses, expands and remembers its width", as
   await expect(page.getByTestId("page-right-pane")).toBeVisible();
 
   const before = await paneWidths(page);
-  expect(before.right, "the design's default column at 1280").toBe(360);
+  expect(before.right, "the design's default column at 1280").toBe(576);
   // The split row, not the content box: this page keeps the shell's 16px padding (it is not the
   // browse shape, which negates it), so `content` is 32px wider than the row the panes divide.
   const row = before.work + before.gap + before.right;
@@ -649,7 +670,7 @@ test("hits its density numbers with the detail pane open, at 1280x800 and 1440x9
         }),
       );
       // The pane keeps the design's default column until someone drags it (§2.1).
-      expect(rows.at(-1)!.panes.right).toBe(size.width >= 1440 ? 400 : 360);
+      expect(rows.at(-1)!.panes.right).toBe(Math.round(size.width * 0.45));
       expect(rows.at(-1)!.pageHeaderHeight).toBe(0);
     }
   }

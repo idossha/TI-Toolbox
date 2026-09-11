@@ -187,10 +187,12 @@ function OverviewPage() {
   return (
     <PageLayout variant="browse" rightPaneKind="preview" rightPaneWidth={360} rightPane={detail}>
       <div className="overview-page" style={{ ["--overview-cols" as string]: COLUMNS }}>
-        <SwitchProject /><ProjectInsights />
+        <SwitchProject />
         {overviewQuery.error && <Callout kind="danger">Could not load this project's overview.</Callout>}
         {overviewQuery.isPending && <Skeleton rows={4} />}
 
+        <div className="overview-main">
+        <div className="overview-matrix">
         <div className="overview-coverage" data-testid="overview-coverage">
           {(data?.totals.coverage ?? []).map((t) => (
             <div key={t.id} className="overview-tile">
@@ -304,6 +306,9 @@ function OverviewPage() {
             </span>
           ))}
         </p>
+        </div>
+        <ProjectInsights />
+        </div>
       </div>
     </PageLayout>
   );

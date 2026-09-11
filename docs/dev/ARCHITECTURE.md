@@ -523,3 +523,20 @@ Default `npm run dev` builds and opens the same welcome Overview as desktop user
 project selection before starting Docker. `dev:web` retains Vite hot reload. The connected page
 may invoke a native project picker, but arbitrary `stack.start` stays restricted to the local
 origin; switching destinations requires native confirmation.
+
+## 12. Optional native FastSurfer
+
+An explicitly approved Apple Silicon desktop session can install FastSurfer in the app's user-data `runtimes` directory. The installer pins and verifies the upstream source, bootstrap tool and checkpoints, uses upstream pinned Python requirements, and checks MPS availability before marking the runtime ready. No global Python or administrator installation is used.
+
+The Docker job server remains the owner of scheduling, project locks and derived outputs. A session-specific mailbox within the verified mounted project transports only a subject, relative input and thread count to the host. No executable, environment or output path comes from a request. The host runs the fixed segmentation workflow with MPS inference and CPU aggregation. A macOS sandbox confines data access to the project and runtime/system dependencies, writes to job output/mailbox/temporary paths, and denies networking.
+
+Apple GPU consent is a persistent user preference in the desktop user settings. On a verified local connection, an enabled preference resumes an already-installed runtime for that project. Switching or quitting stops the worker without clearing the preference; disabling clears it. Each worker remains scoped to its active project. Missing or broken installations require explicit setup again rather than background downloads. Host and requester heartbeats prevent a crashed client from leaving orphan computation. Auto selection first probes actual CUDA computation in the container, then uses an enabled native mailbox, then logs a CPU fallback. An explicit device override is respected; a stale mailbox fails visibly rather than silently selecting CPU. Remote connections and browser-only launchers do not install or invoke a local runtime.
+
+Requirements: [native FastSurfer](../requirements/2026-09-10-native-fastsurfer.md).
+
+The image ships CUDA 12.6-enabled PyTorch 2.7.1 and its user-space runtime. Host NVIDIA drivers and Docker GPU integration remain host prerequisites. Launchers probe GPU computation in a temporary, mount-free container before requesting GPUs on the project container. CPU-only hosts can still launch. Requirements: [GPU preference](../requirements/2026-09-10-gpu-preference.md).
+
+FastSurfer and FreeSurfer thread preferences live in the shared user configuration, not project settings. Automatic defaults use floor(80% of available computation CPUs), at least one, respecting container limits. Plans and new jobs resolve these defaults consistently; explicit scripting overrides remain available. The Pre-processing UI routes users to Settings → Pre-processing and does not keep per-project thread overrides.
+
+
+Settings groups project preferences, preprocessing defaults, extensions, viewer management, and server details into horizontal tabs. Inactive panels retain unsaved drafts. The preprocessing page selects stages; FreeSurfer operation defaults and reconstruction/QSI resources are edited in Settings and resolved into each submitted configuration.

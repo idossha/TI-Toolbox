@@ -86,3 +86,12 @@ export async function activateTetravox(version: string): Promise<TetravoxState> 
 export async function removeTetravox(version: string): Promise<TetravoxState> {
   return unwrapDetail(await api.DELETE("/api/tetravox/{version}", { params: { path: { version } } }), "/api/tetravox/{version}");
 }
+
+export type SurferPreferences = components["schemas"]["SurferPreferences"];
+export type SurferSettings = components["schemas"]["SurferSettings"];
+export async function getSurferSettings(): Promise<SurferSettings> {
+  return unwrap(await api.GET("/api/surfer-settings"), "/api/surfer-settings");
+}
+export async function putSurferSettings(settings: SurferPreferences): Promise<SurferSettings> {
+  return unwrap(await api.PUT("/api/surfer-settings", { body: settings }), "/api/surfer-settings");
+}

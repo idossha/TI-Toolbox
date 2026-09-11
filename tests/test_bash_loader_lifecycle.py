@@ -25,6 +25,7 @@ def run_loader(
     cached=True,
     pull_ok=True,
     dev_repo="",
+    gpu=False,
 ):
     """Record subprocess side effects using an isolated command boundary."""
     bin_dir = tmp_path / "bin"
@@ -35,6 +36,7 @@ def run_loader(
 printf '%s\\n' "$*" >> "$DOCKER_LOG"
 case "$1" in
  info) exit 0 ;;
+ run) [ "$GPU" = 1 ] && echo probe && exit 0; exit 125 ;;
  ps)
    if [[ "$*" == *--format* ]]; then
      [ "$RUNNING" = 1 ] || exit 0
@@ -49,7 +51,8 @@ case "$1" in
      '{{.Config.Image}}') echo 'idossha/ti-toolbox:test' ;;
      '{{.Id}}') echo "$4" ;;
      '{{.Name}}') if [ "$4" = unrelated ]; then echo '/not-ti-toolbox-backup'; elif [ "$4" = def ]; then echo '/legacy'; else echo '/ti-toolbox-other'; fi ;;
-     '{{.State.Running}}') echo true ;;
+     '{{.State.Running}}') if [[ "$4" == ti-gpu-probe-* ]]; then echo false; else echo true; fi ;;
+     '{{.State.Status}}:{{.State.ExitCode}}') echo exited:0 ;;
      *host_project_dir*) echo "$TEST_PROJECT" ;;
      *) echo 'abc /ti-toolbox-other (idossha/ti-toolbox:test)' ;;
    esac ;;
@@ -75,6 +78,7 @@ esac
         DOCKER_LOG=str(log),
         TEST_PROJECT=str(tmp_path),
         MULTIPLE=str(int(multiple)),
+        GPU=str(int(gpu)),
         RUNNING=str(int(running)),
         PROJECT_CONTAINER=project_container,
         INVALID_SPEC=str(int(invalid_spec)),
@@ -108,7 +112,7 @@ esac
     if master is not None:
         os.close(master)
         os.close(slave)
-    return result, log.read_text()
+    return result, "\n".join(line for line in log.read_text().splitlines() if not line.startswith("rm --force ti-gpu-probe-"))
 
 
 def test_running_container_requires_explicit_decision(tmp_path):
@@ -359,3 +363,16 @@ def test_offline_start_without_cache_fails_before_creation(tmp_path):
     result, calls = run_loader(tmp_path, [], running=False, cached=False, pull_ok=False)
     assert "could not download" in result.stderr
     assert "compose --project-name" not in calls
+
+
+def test_cuda_success_requests_gpu_in_compose(tmp_path):
+    result, calls = run_loader(tmp_path, [], running=False, gpu=True)
+    assert "CUDA GPU verified" in result.stdout
+    assert "capabilities: [gpu]" in calls
+    assert "--network none" in calls
+
+
+def test_cuda_failure_keeps_cpu_launch_available(tmp_path):
+    result, calls = run_loader(tmp_path, [], running=False)
+    assert "Container GPU unavailable" in result.stdout
+    assert "capabilities: [gpu]" not in calls

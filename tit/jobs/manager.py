@@ -376,6 +376,10 @@ class JobManager:
                 f"unknown job id in 'after': {', '.join(sorted(unknown))}"
             )
         job_id = new_job_id()
+        if kind == "pre":
+            from tit.surfer_settings import resolve_job_threads
+
+            config = resolve_job_threads(config)
         cost = default_cost(kind, config)
         lock_requests = locks.keys_for(kind, subject_ids, config)
         spec = JobSpec(

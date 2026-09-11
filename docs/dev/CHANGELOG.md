@@ -4,10 +4,17 @@ title: Changelog
 permalink: /releases/changelog/
 ---
 
-Complete changelog for all versions of the Temporal Interference Toolbox.
+Detailed technical changelog for all versions of the Temporal Interference Toolbox. Entries include implementation changes, compatibility notes, and fixes. For a condensed, user-facing summary, see [Version History]({{ site.baseurl }}/releases/) and the latest release page.
 
 ---
 ### v3.0.0 (Unreleased)
+
+- Settings is organized into Project, Pre-processing, Extensions, Viewer, and Server tabs. User-wide preprocessing preferences include CHARM/QSI resources and FreeSurfer operations; new FreeSurfer preferences enable reconstruction and both supported subregion pipelines. Thread fields display available capacity and GPU consent remains discoverable in browser settings.
+
+- QSIPrep fields no longer overlap, and QSIRecon uses a bounded scrolling dialog with persistent action buttons. Processing choices are saved across projects and shared with Settings → Pre-processing. Structural preprocessing groups GPU and configuration links beneath their respective tools.
+- CHARM offers optional denoising, final segmentation resolution, and scalp mesh facet size in Settings → Pre-processing. Unset options preserve the installed SimNIBS INI defaults.
+- Settings → Pre-processing owns persistent, user-wide Apple GPU enablement and FastSurfer/FreeSurfer thread preferences. Automatic allocation uses 80% of available CPUs; queued jobs retain their submitted CPU allocation.
+- Apple Silicon users can approve a managed native FastSurfer installation. The preference persists across local projects while each worker remains sandboxed to its active project. Setup details are in the [FastSurfer guide]({{ site.baseurl }}/wiki/fastsurfer/).
 
 - Documentation captions and atlas highlights render text safely; search navigation stays on the documentation origin. Mask imports reject filenames too long for their saved collision suffix.
 
@@ -73,7 +80,7 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
   allowing local files to be dragged directly into it.
 
 - **FastSurfer uses available hardware.** Automatic device selection supports CUDA, native
-  Apple MPS, or CPU in the selected Python environment. The bundled Docker image remains CPU-only.
+  Apple MPS, or CPU. The Docker image includes CUDA-enabled PyTorch; NVIDIA execution requires compatible host drivers and GPU access.
 
 - **Custom NIfTI targets in Flex and Ex searches.** Import `.nii` or `.nii.gz` files (including through the macOS picker) and choose Subject/MNI space;
   MNI masks use the selected subject’s registration. Target and electrode settings are visually

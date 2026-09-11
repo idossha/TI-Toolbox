@@ -25,6 +25,7 @@ wiki:
     - group: The Application
     - { title: Overview, url: /wiki/overview/ }
     - { title: Pre-Processing, url: /wiki/pre-processing/ }
+    - { title: FastSurfer / FreeSurfer settings, url: /wiki/fastsurfer/ }
     - { title: Diffusion Processing, url: /wiki/diffusion-processing/ }
     - { title: Simulator, url: /wiki/simulator/ }
     - { title: Flex Search, url: /wiki/flex-search/ }

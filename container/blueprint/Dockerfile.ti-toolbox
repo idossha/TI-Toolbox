@@ -123,15 +123,13 @@ RUN simnibs_python -m pip install --no-cache-dir \
         "mne>=1.5,<2" h5io nbformat jupyter_client ipykernel \
         fastapi "uvicorn[standard]" pyyaml
 
-# --- FastSurfer --seg_only. CPU torch pinned FIRST: a bare install of FastSurfer's
-# `torch==2.7.*` pulls the CUDA wheels (~2 GB) this GPU-less container cannot use, and PEP 440
-# prefix-matching accepts the already-installed 2.7.1+cpu. ---
+# CUDA libraries ship with PyTorch; NVIDIA host drivers are supplied by the container runtime.
 ENV FASTSURFER_HOME=/opt/fastsurfer
 COPY --from=fastsurfer /opt/fastsurfer /opt/fastsurfer
 RUN simnibs_python -m pip install --no-cache-dir \
-        --index-url https://download.pytorch.org/whl/cpu "torch==2.7.1" "torchvision==0.22.1" \
+        --index-url https://download.pytorch.org/whl/cu126 "torch==2.7.1+cu126" "torchvision==0.22.1+cu126" \
     && simnibs_python -m pip install --no-cache-dir -e "${FASTSURFER_HOME}" \
-    && simnibs_python -c "import torch; assert '+cpu' in torch.__version__, torch.__version__" \
+    && simnibs_python -c "import torch; assert torch.version.cuda == '12.6', torch.__version__" \
     && simnibs_python -c "import simnibs.segmentation, brainnet"
 
 # --vinn only: the asegdkt checkpoints (67 MB). Production runs pass --no_cereb --no_hypothal

@@ -18,6 +18,19 @@ The page has two parts. **Part 1** covers things outside the toolbox's control â
 
 # Part 1 â€” Environment problems (Docker, display, machine, upstream tools)
 
+
+## Dev desktop shows the image's old UI
+
+An early v3 Electron launcher handoff cleared the requested checkout before starting Docker.
+The container could therefore serve its baked UI despite starting through a dev loader.
+
+Use the updated `dev/loader/loader_dev.sh --desktop --project /path/to/project`.
+Development launches now preserve the checkout mount and serve its built renderer.
+If an existing container was started with the old configuration, finish its jobs before stopping
+it and starting the corrected loader. Rebuild local frontend changes with
+`npm --prefix desktop run build`.
+
+
 ## Desktop application
 
 ### What should happen when I close the app or switch projects?

@@ -42,6 +42,7 @@ import {
 } from "../shared/compose";
 import { StackError, buildContainerPlan, parseComposeFile, type ContainerPlan } from "../shared/composeFile";
 import { formatPullEvent, parseProgressLine } from "../shared/pullProgress";
+import { GPU_REQUEST, probeContainerGpu } from "./docker/gpu";
 import { discover } from "./docker/discover";
 import { DockerEngineClient, DockerEngineError, type DockerVersionInfo } from "./docker/engine";
 import { StackApi, type ContainerSummary } from "./docker/stackApi";
@@ -406,6 +407,16 @@ export class StackManager {
     }
 
     await this.ensureImage(client, api, plan, !(options.repoDir ?? resolveRepoDir(process.env, this.host.isPackaged)));
+
+    this.progress("Checking container GPU access…");
+    const gpu = await probeContainerGpu(api, client, plan.image, plan.platform);
+    if (gpu.available) {
+      plan.body.HostConfig.DeviceRequests = [GPU_REQUEST];
+      plan.body.Env.push("NVIDIA_DRIVER_CAPABILITIES=compute,utility");
+      this.progress("CUDA GPU verified; GPU access enabled for FastSurfer.");
+    } else {
+      this.progress(`Container GPU unavailable (${gpu.reason}). CPU remains available; Apple Silicon users can enable native Apple GPU in Pre-processing.`);
+    }
 
     this.progress("Creating the container…");
     await this.removeByName(api, plan.containerName);

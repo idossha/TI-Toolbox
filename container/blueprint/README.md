@@ -9,7 +9,7 @@ for a `--ref` clone).
 One image (D1; `../../docs/dev/DECISIONS.md`, 2026-09-03): SimNIBS 4.6 + `tit` + `tit.server`
 + fastapi/uvicorn/pyyaml/psutil baked in (no pip install at container start) + the built
 desktop UI at `/opt/ti-toolbox/ui` + the **Tetravox Embed** at `/opt/tetravox/embed` +
-FastSurfer `--seg_only` at `/opt/fastsurfer` with checkpoints pre-downloaded. No FreeSurfer
+FastSurfer `--seg_only` at `/opt/fastsurfer` with checkpoints pre-downloaded and CUDA 12.6-enabled PyTorch. Host NVIDIA drivers and Docker GPU access are prerequisites; the image does not install host drivers. No FreeSurfer
 (D2 — dropped from the core image entirely), no X11 (D3 — no display libraries, no
 `xhost`/`.Xauthority`, no `DISPLAY`).
 
@@ -18,7 +18,7 @@ FastSurfer `--seg_only` at `/opt/fastsurfer` with checkpoints pre-downloaded. No
 WASM module — served by `tit.server` at `/tetravox/` and drawn by the Electron renderer on the
 **host's** GPU. Nothing in this image draws anything; D3 still holds. Installing the Tetravox
 *desktop application* into the image remains rejected for the same reason: a container with no
-display and no GPU has nothing for an Electron app to draw on, and since Chromium 137 there is
+display has nothing for an Electron app to draw on, and since Chromium 137 there is
 no software-WebGL fallback to stand in for one. Installing it on the *host* was tried on
 2026-09-06 and reversed by the maintainer the same day: "The Dockerfile should contain Tetravox.
 We should not install Tetravox on the host machine — forbidden."

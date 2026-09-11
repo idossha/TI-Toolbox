@@ -19,6 +19,10 @@ tit.pre.fastsurfer : FastSurfer ``--seg_only`` deep segmentation.
 tit.pre.structural.run_pipeline : Full preprocessing pipeline.
 """
 
+import configparser
+import json
+import os
+import tempfile
 from pathlib import Path
 
 import nibabel as nib
@@ -43,12 +47,44 @@ def _get_form_flag(nifti_path: Path) -> str:
 ATLASES = ["a2009s", "DK40", "HCP_MMP1"]
 
 
+def _write_thread_settings(
+    destination: Path, threads: int, options: dict | None = None
+) -> None:
+    """Copy installed settings, applying only explicit, validated overrides."""
+    from simnibs import SIMNIBSDIR
+    from tit.charm_options import validate_charm_options
+
+    options = validate_charm_options(options) or {}
+
+    parser = configparser.ConfigParser(interpolation=None)
+    with (Path(SIMNIBSDIR) / "charm.ini").open() as stream:
+        parser.read_file(stream)
+    parser["general"]["threads"] = str(threads)
+    if "denoise" in options:
+        parser["preprocess"]["denoise"] = json.dumps(options["denoise"])
+    if "segmentation_final_resolution" in options:
+        targets = json.loads(parser["segment"]["downsampling_targets"])
+        resolution = options["segmentation_final_resolution"]
+        if not isinstance(targets, list) or len(targets) < 2 or resolution > targets[0]:
+            raise PreprocessError(
+                "Final segmentation resolution cannot exceed the installed coarse resolution"
+            )
+        targets[-1] = resolution
+        parser["segment"]["downsampling_targets"] = json.dumps(targets)
+    if "skin_facet_size" in options:
+        parser["mesh"]["skin_facet_size"] = json.dumps(options["skin_facet_size"])
+    with destination.open("w") as stream:
+        parser.write(stream)
+
+
 def run_charm(
     project_dir: str,
     subject_id: str,
     *,
     logger,
     runner: CommandRunner | None = None,
+    threads: int | None = None,
+    options: dict | None = None,
 ) -> None:
     """Run SimNIBS ``charm`` to generate a head mesh for a subject.
 
@@ -103,10 +139,24 @@ def run_charm(
         if t2_file:
             cmd.append(str(t2_file))
 
+        from tit.surfer_settings import effective_threads
+
+        thread_count = effective_threads("charm", threads)
         logger.info(f"Running SimNIBS charm for subject {subject_id}")
         if runner is None:
             runner = CommandRunner()
-        exit_code = runner.run(cmd, logger=logger, cwd=str(simnibs_subject_dir))
+        with tempfile.TemporaryDirectory(prefix="tit-charm-") as temporary:
+            settings_file = Path(temporary) / "charm.ini"
+            _write_thread_settings(settings_file, thread_count, options)
+            cmd.extend(["--usesettings", str(settings_file)])
+            env = {
+                **os.environ,
+                "OMP_NUM_THREADS": str(thread_count),
+                "ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS": str(thread_count),
+            }
+            exit_code = runner.run(
+                cmd, logger=logger, cwd=str(simnibs_subject_dir), env=env
+            )
 
         if exit_code != 0:
             raise PreprocessError(

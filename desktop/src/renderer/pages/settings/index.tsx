@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import * as TabsPrimitive from "@radix-ui/react-tabs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { SlidersHorizontal } from "lucide-react";
 import type { TitStackStatus } from "../../../shared/tit-bridge";
@@ -20,6 +22,7 @@ import { readEnabledPanels, writeEnabledPanels, type PanelId } from "../panels/_
 import { usePageScrollMemory } from "../_shared/session/usePageScrollMemory";
 import { TetravoxCard } from "./TetravoxCard";
 import "./settings-page.css";
+import { SurferSettingsCard } from "./SurferSettingsCard";
 
 /**
  * Settings and Help are the two pages DESIGN.md §2.3 still allows a header — the orchestrator's
@@ -37,6 +40,14 @@ function PageEyebrow({ title }: { title: string }) {
     </div>
   );
 }
+
+const SETTINGS_TABS = [
+  { id: "project", label: "Project" },
+  { id: "preprocessing", label: "Pre-processing" },
+  { id: "extensions", label: "Extensions" },
+  { id: "viewer", label: "Viewer" },
+  { id: "server", label: "Server" },
+];
 
 const PANEL_INFO: { id: PanelId; label: string; description: string }[] = [
   { id: "source", label: "Source", description: "Build EEG forward solutions and map simulation fields to fsaverage." },
@@ -125,6 +136,15 @@ function SettingsPage() {
   const theme = useThemeStore((s) => s.theme);
   const setTheme = useThemeStore((s) => s.setTheme);
   usePageScrollMemory();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [savedTab, setSavedTab] = usePageSession<string>("settings-tab", "project");
+  const requestedTab = location.hash.slice(1);
+  const tab = requestedTab === "system" ? "preprocessing" : SETTINGS_TABS.some((item) => item.id === requestedTab) ? requestedTab : savedTab;
+  function selectTab(value: string) {
+    setSavedTab(value);
+    navigate({ pathname: location.pathname, hash: `#${value}` }, { replace: true });
+  }
 
   const [form, setForm] = usePageSession<Settings | null>("form", null);
 
@@ -214,7 +234,7 @@ function SettingsPage() {
 
   const loading = settingsQuery.isPending || projectQuery.isPending;
 
-  // The banners (load error, stale-panels notice) sit above the columns, full width.
+  // Keep errors visible regardless of the selected category.
   const banners = (settingsQuery.error || staleNotice) && (
     <div style={{ breakInside: "avoid", marginBottom: "var(--space-4)", display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
       {settingsQuery.error && <Callout kind="danger">Could not load settings.</Callout>}
@@ -231,15 +251,13 @@ function SettingsPage() {
 
   return (
     <PageLayout header={<PageEyebrow title="Settings" />}>
-      {/* U1 (DESIGN.md §2): a run page's work pane has no max width. A CSS multi-column flow (not a
-          grid) uses it: cards keep their own natural height and pack top-to-bottom per column, so
-          a short card (Telemetry) next to a tall one (Feature panels) does not leave a grid-row's
-          worth of blank space under it — a Cards' own `break-inside: avoid` keeps a card whole
-          rather than split across the column break; the fixed `.settings-columns` class does that
-          for the ones this file doesn't build inline (see components.css). */}
-      <div className="settings-columns" style={{ columnWidth: 440, columnGap: "var(--space-4)" }}>
+      <div className="settings-page">
         {banners}
-
+        <TabsPrimitive.Root value={tab} onValueChange={selectTab}>
+          <TabsPrimitive.List className="tabs-list settings-tab-rail" aria-label="Settings categories">
+            {SETTINGS_TABS.map((item) => <TabsPrimitive.Trigger key={item.id} value={item.id} className="tabs-trigger">{item.label}</TabsPrimitive.Trigger>)}
+          </TabsPrimitive.List>
+          <TabsPrimitive.Content value="project" forceMount className="settings-panel">
         <Card>
           <CardHeader title="Project" />
           <CardBody>
@@ -259,7 +277,7 @@ function SettingsPage() {
                   <TextInput
                     id="settings-image-tag"
                     value={form.image_tag ?? ""}
-                    placeholder="e.g. idossha/simnibs:v2.3.1"
+                    placeholder="e.g. idossha/ti-toolbox:v3.0.0"
                     onChange={(e) => patch({ image_tag: e.target.value.trim() === "" ? null : e.target.value })}
                   />
                 </Field>
@@ -287,6 +305,27 @@ function SettingsPage() {
         </Card>
 
         <Card>
+          <CardHeader title="Output safety" />
+          <CardBody>
+            {form && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+                  <Switch
+                    checked={form.allow_unsafe_overrides}
+                    onCheckedChange={(allow_unsafe_overrides) => patch({ allow_unsafe_overrides })}
+                    aria-label="Allow unsafe overrides"
+                  />
+                  <span className="text-body">Allow unsafe overrides</span>
+                </div>
+                {form.allow_unsafe_overrides && (
+                  <Callout kind="warning">Allows replacing existing job outputs after confirmation and queuing jobs despite non-critical validation findings. Applies to this project. May produce invalid or unusable results.</Callout>
+                )}
+              </div>
+            )}
+
+          </CardBody>
+        </Card>
+        <Card>
           <CardHeader title="Telemetry" />
           <CardBody>
             {form && (
@@ -308,6 +347,12 @@ function SettingsPage() {
           </CardBody>
         </Card>
 
+
+          </TabsPrimitive.Content>
+          <TabsPrimitive.Content value="preprocessing" forceMount className="settings-panel">
+            <SurferSettingsCard />
+          </TabsPrimitive.Content>
+          <TabsPrimitive.Content value="extensions" forceMount className="settings-panel">
         <Card>
           <CardHeader title="Feature panels" />
           <CardBody>
@@ -333,33 +378,13 @@ function SettingsPage() {
         </Card>
 
         <Card>
-          <CardHeader title="Advanced" />
+          <CardHeader title="Jupyter" />
           <CardBody>
-            {form && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-                  <Switch
-                    checked={form.allow_unsafe_overrides}
-                    onCheckedChange={(allow_unsafe_overrides) => patch({ allow_unsafe_overrides })}
-                    aria-label="Allow unsafe overrides"
-                  />
-                  <span className="text-body">Allow unsafe overrides</span>
-                </div>
-                {form.allow_unsafe_overrides && (
-                  <Callout kind="warning">Allows replacing existing job outputs after confirmation and queuing jobs despite non-critical validation findings. Applies to this project. May produce invalid or unusable results.</Callout>
-                )}
-              </div>
-            )}
-
-            <div style={{ marginTop: "var(--space-4)" }}>
-              <span className="text-body" style={{ fontWeight: 500, display: "block", marginBottom: "var(--space-1)" }}>
-                Jupyter
-              </span>
+            <div>
               {capsQuery.data ? (
                 capsQuery.data.jupyter ? (
                   <Callout kind="info">
-                    Available in this environment. Start it from the container with the <code className="mono">NOTEBOOK</code> alias — there is no
-                    in-app start control yet (no endpoint for it in the current server contract).
+                    Available in this environment. Start it from the container with the <code className="mono">NOTEBOOK</code> command.
                   </Callout>
                 ) : (
                   <p className="field-help">Not available in this environment.</p>
@@ -370,13 +395,12 @@ function SettingsPage() {
             </div>
           </CardBody>
         </Card>
-
-        {/* The viewer bundle is updatable at runtime (E1-E4), so its card carries its own state
-            and mutations rather than joining the Save-changes form above. */}
-        <TetravoxCard />
-
-        {isElectron && <DockerCard />}
-
+          </TabsPrimitive.Content>
+          <TabsPrimitive.Content value="viewer" forceMount className="settings-panel">
+            <TetravoxCard />
+          </TabsPrimitive.Content>
+          <TabsPrimitive.Content value="server" forceMount className="settings-panel">
+            {isElectron && <DockerCard />}
         <Card>
           <CardHeader title="About the server" actions={<SlidersHorizontal size={14} aria-hidden style={{ color: "var(--ink-3)" }} />} />
           <CardBody>
@@ -417,7 +441,10 @@ function SettingsPage() {
           </CardBody>
         </Card>
 
-        <div style={{ gridColumn: "1 / -1" }}>
+          </TabsPrimitive.Content>
+        </TabsPrimitive.Root>
+
+        <div className="settings-save">
           <Button variant="primary" disabled={!dirty} loading={saveMutation.isPending} onClick={handleSave}>
             Save changes
           </Button>
@@ -430,7 +457,7 @@ function SettingsPage() {
 const page: PageDef = {
   id: "settings",
   title: "Settings",
-  purpose: "Project, appearance, telemetry, and optional panels for this install.",
+  purpose: "Project, pre-processing, extensions, viewer, and server preferences.",
   navGroup: "system",
   order: 90,
   icon: SlidersHorizontal,

@@ -1,3 +1,4 @@
+import { defaultQsiPrepConfig as prepDefaults, defaultQsiReconConfig as reconDefaults, qsiPrepPreferences, qsiReconPreferences } from "../../src/renderer/pages/preprocess/qsi";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -180,13 +181,14 @@ describe("optional FreeSurfer", () => {
     const config = toSubmitConfig({
       ...defaultConfig(), convert_dicom: false, create_m2m: false, run_fastsurfer: false,
       run_freesurfer: true, freesurfer_recon_all: false,
-      freesurfer_subregions: ["thalamus", "hippo-amygdala"], freesurfer_threads: 2,
-    }, ["ernie"], "skip");
+      freesurfer_subregions: ["thalamus", "hippo-amygdala"], freesurfer_threads: 2, fastsurfer_threads: 3,
+    }, ["ernie"], "skip", { charm_options: null, qsiprep_config: qsiPrepPreferences(prepDefaults()), qsi_recon_config: qsiReconPreferences(reconDefaults()), charm_threads: null, qsiprep_threads: null, qsirecon_threads: null, qsiprep_memory_gb: null, qsirecon_memory_gb: null, qsiprep_omp_threads: null, qsirecon_omp_threads: null, effective_charm_threads: 9, effective_qsiprep_threads: 9, effective_qsirecon_threads: 9, freesurfer_recon_all: false, freesurfer_subregions: ["thalamus", "hippo-amygdala"], fastsurfer_threads: null, freesurfer_threads: null, available_threads: 12, default_threads: 9, effective_fastsurfer_threads: 9, effective_freesurfer_threads: 9 });
     expect(plannedStageIds(config)).toEqual(["G2c"]);
     expect(plannedSteps(config)).toEqual(["FreeSurfer reconstruction / subregions"]);
     expect(config.freesurfer_subregions).toEqual(["thalamus", "hippo-amygdala"]);
     expect(config.freesurfer_recon_all).toBe(false);
-    expect(config.freesurfer_threads).toBe(2);
+    expect(config.freesurfer_threads).toBeNull();
+    expect(config.fastsurfer_threads).toBeNull();
     expect((await validatePreprocessConfig(config as unknown as Record<string, unknown>)).errors).toEqual({});
   });
 });

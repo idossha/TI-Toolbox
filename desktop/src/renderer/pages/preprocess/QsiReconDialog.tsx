@@ -1,7 +1,7 @@
 import { useState } from "react";
+import "./qsi-dialogs.css";
 import { Button } from "../../ui/Button";
 import { Field, TextInput } from "../../ui/Field";
-import { NumberInput } from "../../ui/NumberInput";
 import { Checkbox } from "../../ui/Toggle";
 import { Dialog } from "../../ui/Overlay";
 import type { QsiReconSettings } from "./api";
@@ -128,100 +128,75 @@ export function QsiReconDialog({
         </>
       }
     >
-      <p className="text-eyebrow" style={{ marginBottom: "var(--space-2)" }}>
-        Reconstruction specifications
-      </p>
-      <CategoryChecklist
-        categories={SPEC_CATEGORIES}
-        selected={specs}
-        onToggle={toggleSpec}
-      />
-
-      <p
-        className="text-eyebrow"
-        style={{ margin: "var(--space-4) 0 var(--space-1)" }}
-      >
-        Atlases for connectivity (optional)
-      </p>
-      <p className="field-help" style={{ marginBottom: "var(--space-2)" }}>
-        Not required for the DTI-to-SimNIBS workflow.
-      </p>
-      <CategoryChecklist
-        categories={ATLAS_CATEGORIES}
-        selected={atlases}
-        onToggle={toggleAtlas}
-      />
-
-      <div style={{ marginTop: "var(--space-4)" }}>
+      <div className="qsi-dialog-body qsi-recon-body">
         <p className="text-eyebrow" style={{ marginBottom: "var(--space-2)" }}>
-          Resource settings
+          Reconstruction specifications
         </p>
-        <div className="form-grid">
-          <Field
-            label="CPUs"
-            help="Blank uses the container's inherited limit."
-          >
-            <NumberInput
-              value={draft.cpus ?? undefined}
-              onValueChange={(v) =>
-                setDraft((d) => ({ ...d, cpus: v ?? null }))
-              }
-              min={1}
-              placeholder="auto"
-            />
-          </Field>
-          <Field
-            label="Memory"
-            help="Blank uses the container's inherited limit."
-          >
-            <NumberInput
-              value={draft.memory_gb ?? undefined}
-              onValueChange={(v) =>
-                setDraft((d) => ({ ...d, memory_gb: v ?? null }))
-              }
-              unit="GB"
-              min={4}
-              placeholder="auto"
-            />
-          </Field>
-        </div>
-      </div>
+        <CategoryChecklist
+          categories={SPEC_CATEGORIES}
+          selected={specs}
+          onToggle={toggleSpec}
+        />
 
-      <div style={{ marginTop: "var(--space-4)" }}>
-        <p className="text-eyebrow" style={{ marginBottom: "var(--space-2)" }}>
-          Options
-        </p>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "var(--space-2)",
-          }}
+        <p
+          className="text-eyebrow"
+          style={{ margin: "var(--space-4) 0 var(--space-1)" }}
         >
-          <Checkbox
-            checked={draft.use_gpu}
-            onCheckedChange={(v) => setDraft((d) => ({ ...d, use_gpu: v }))}
-            label="Use GPU (requires NVIDIA Docker runtime)"
-          />
-          <Checkbox
-            checked={draft.skip_odf_reports}
-            onCheckedChange={(v) =>
-              setDraft((d) => ({ ...d, skip_odf_reports: v }))
-            }
-            label="Skip ODF report generation"
-          />
-        </div>
-      </div>
+          Atlases for connectivity (optional)
+        </p>
+        <p className="field-help" style={{ marginBottom: "var(--space-2)" }}>
+          Not required for the DTI-to-SimNIBS workflow.
+        </p>
+        <CategoryChecklist
+          categories={ATLAS_CATEGORIES}
+          selected={atlases}
+          onToggle={toggleAtlas}
+        />
 
-      <div style={{ marginTop: "var(--space-4)" }}>
-        <Field label="Image tag" help="Docker image tag for QSIRecon.">
-          <TextInput
-            value={draft.image_tag}
-            onChange={(e) =>
-              setDraft((d) => ({ ...d, image_tag: e.target.value }))
-            }
-          />
-        </Field>
+        <p className="field-help">
+          CPU, memory, and OpenMP defaults are configured in Settings →
+          Pre-processing.
+        </p>
+
+        <div style={{ marginTop: "var(--space-4)" }}>
+          <p
+            className="text-eyebrow"
+            style={{ marginBottom: "var(--space-2)" }}
+          >
+            Options
+          </p>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "var(--space-2)",
+            }}
+          >
+            <Checkbox
+              checked={draft.use_gpu}
+              onCheckedChange={(v) => setDraft((d) => ({ ...d, use_gpu: v }))}
+              label="Use GPU (requires NVIDIA Docker runtime)"
+            />
+            <Checkbox
+              checked={draft.skip_odf_reports}
+              onCheckedChange={(v) =>
+                setDraft((d) => ({ ...d, skip_odf_reports: v }))
+              }
+              label="Skip ODF report generation"
+            />
+          </div>
+        </div>
+
+        <div style={{ marginTop: "var(--space-4)" }}>
+          <Field label="Image tag" help="Docker image tag for QSIRecon.">
+            <TextInput
+              value={draft.image_tag}
+              onChange={(e) =>
+                setDraft((d) => ({ ...d, image_tag: e.target.value }))
+              }
+            />
+          </Field>
+        </div>
       </div>
     </Dialog>
   );

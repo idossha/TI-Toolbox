@@ -190,7 +190,7 @@ export const STEP_INFO: Record<string, StepInfo> = {
     id: "run_freesurfer",
     stage: "G2c",
     title: "FreeSurfer (optional)",
-    text: "Runs a full **recon-all**, thalamic nuclei, or hippocampal/amygdala subregions. Subregions require a completed recon-all, either already in the project or selected in this run. FastSurfer remains the default segmentation tool.",
+    text: "By default runs **full reconstruction (recon-all)**, **thalamic nuclei**, and **hippocampal/amygdala subregions**. Choose which operations to run in **Settings → Pre-processing**. Subregions require a completed recon-all, either already in the project or selected in this run. FastSurfer remains the default segmentation tool.",
     inputs: [{ label: "T1w image / existing reconstruction", path: "sub-<id>/anat/sub-<id>_T1w.nii.gz" }],
     process: [{ label: "FreeSurfer reconstruction / subregions" }],
     outputs: [{ label: "Reconstruction and subregion labels", path: "derivatives/freesurfer/sub-<id>/" }],

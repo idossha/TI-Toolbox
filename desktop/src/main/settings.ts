@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, renameSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { app } from "electron";
 import type { TitSettings } from "../shared/tit-bridge";
@@ -15,6 +15,7 @@ export function readSettings(): TitSettings {
     const out: TitSettings = {};
     if (typeof raw.lastServerUrl === "string") out.lastServerUrl = raw.lastServerUrl;
     if (typeof raw.lastProjectDir === "string") out.lastProjectDir = raw.lastProjectDir;
+    if (typeof raw.appleGpuEnabled === "boolean") out.appleGpuEnabled = raw.appleGpuEnabled;
     return out;
   } catch {
     return {};
@@ -30,8 +31,19 @@ export function updateSettings(partial: unknown): TitSettings {
       if (typeof p[key] === "string") current[key] = p[key] as string;
     }
   }
+  return writeSettings(current);
+}
+
+/** Only the native consent handler can change this preference. */
+export function setAppleGpuEnabled(enabled: boolean): TitSettings {
+  return writeSettings({ ...readSettings(), appleGpuEnabled: enabled });
+}
+
+function writeSettings(current: TitSettings): TitSettings {
   const file = settingsPath();
   mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, JSON.stringify(current, null, 2) + "\n");
+  const temporary = `${file}.${process.pid}.tmp`;
+  writeFileSync(temporary, JSON.stringify(current, null, 2) + "\n", { mode: 0o600 });
+  renameSync(temporary, file);
   return current;
 }

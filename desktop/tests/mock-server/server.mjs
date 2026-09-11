@@ -4087,6 +4087,25 @@ function rawHandler(headOnly) {
 route("GET", "/api/files/raw/*path", rawHandler(false));
 route("HEAD", "/api/files/raw/*path", rawHandler(true));
 
+let surferSettings = { charm_options: null, qsiprep_config: { output_resolution: 2, image_tag: "26.0.0", skip_bids_validation: true, denoise_method: "dwidenoise", unringing_method: "mrdegibbs" }, qsi_recon_config: { recon_specs: ["dsi_studio_gqi"], atlases: null, use_gpu: false, image_tag: "26.0.0", skip_odf_reports: true }, charm_threads: null, qsiprep_threads: null, qsirecon_threads: null, qsiprep_memory_gb: null, qsirecon_memory_gb: null, qsiprep_omp_threads: null, qsirecon_omp_threads: null, fastsurfer_threads: null, freesurfer_threads: null, freesurfer_recon_all: true, freesurfer_subregions: ["thalamus", "hippo-amygdala"] };
+const surferSettingsResponse = () => ({
+  ...surferSettings, available_threads: 12, default_threads: 9,
+  effective_charm_threads: Math.min(12, surferSettings.charm_threads ?? 9), effective_qsiprep_threads: Math.min(12, surferSettings.qsiprep_threads ?? 9), effective_qsirecon_threads: Math.min(12, surferSettings.qsirecon_threads ?? 9),
+  effective_fastsurfer_threads: Math.min(12, surferSettings.fastsurfer_threads ?? 9),
+  effective_freesurfer_threads: Math.min(12, surferSettings.freesurfer_threads ?? 9),
+});
+route("GET", "/api/surfer-settings", (ctx) => json(ctx.res, 200, surferSettingsResponse()));
+route("PUT", "/api/surfer-settings", async (ctx) => {
+  const body = await ctx.body();
+  for (const key of ["fastsurfer_threads", "freesurfer_threads"]) {
+    if (body[key] !== null && (!Number.isInteger(body[key]) || body[key] < 1 || body[key] > 4096)) {
+      return json(ctx.res, 422, { detail: "Threads must be null or an integer from 1 to 4096." });
+    }
+  }
+  surferSettings = { ...surferSettings, ...body };
+  json(ctx.res, 200, surferSettingsResponse());
+});
+
 // --- settings (v1) ---
 route("GET", "/api/settings", (ctx) => json(ctx.res, 200, settingsStore));
 route("PUT", "/api/settings", async (ctx) => {

@@ -60,6 +60,8 @@ requires an explicit Attach or Recreate choice; Attach keeps its existing projec
 mounts unchanged. Configuration differences never authorize automatic replacement. Check jobs before backend changes: reload can interrupt work. A container
 recreate changes its token; a plain restart preserves the token but still interrupts its processes.
 
+The standard manual test entry point is `bash dev/loader/loader_dev.sh`. It mounts the present checkout over the container code. The Bash dev loader opens Electron by default so Apple GPU consent is available; use `--browser` explicitly for browser testing. Browser sessions cannot install host software.
+
 Choose the execution mode explicitly:
 
 | Mode | Command | Code used |

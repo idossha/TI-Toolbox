@@ -19,6 +19,7 @@ import time
 import urllib.error
 import urllib.request
 import webbrowser
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -505,6 +506,64 @@ def _docker(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
     return result
 
 
+CUDA_PROBE = (
+    "import torch; assert torch.cuda.is_available(); "
+    "x=torch.ones((32,32),device='cuda'); y=x@x; "
+    "torch.cuda.synchronize(); assert y[0,0].item()==32"
+)
+
+
+def probe_container_gpu(image: str, echo: Callable[[str], None] = print) -> bool:
+    """Exercise CUDA in the selected image without any project mounts."""
+    name = "ti-gpu-probe-" + secrets.token_hex(8)
+    try:
+        result = subprocess.run(
+            [
+                "docker",
+                "run",
+                "--name",
+                name,
+                "--rm",
+                "--network",
+                "none",
+                "--platform",
+                PLATFORM,
+                "--gpus",
+                "all",
+                "--env",
+                "NVIDIA_DRIVER_CAPABILITIES=compute,utility",
+                "--entrypoint",
+                "simnibs_python",
+                image,
+                "-c",
+                CUDA_PROBE,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+        if result.returncode == 0:
+            echo("CUDA GPU verified; GPU access enabled for FastSurfer.")
+            return True
+        reason = (result.stderr or result.stdout).strip().splitlines()
+        detail = reason[0] if reason else "CUDA computation failed"
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        detail = str(exc)
+    finally:
+        subprocess.run(
+            ["docker", "rm", "--force", name],
+            capture_output=True,
+            timeout=15,
+            check=False,
+        )
+    echo(
+        f"Container GPU unavailable ({detail}). CPU remains available; "
+        "Apple Silicon users can enable native Apple GPU in Pre-processing."
+    )
+    return False
+
+
 def require_docker() -> None:
     """Fail with the remedy, not a traceback, when the daemon is unreachable."""
     result = _docker("version", "--format", "{{.Server.APIVersion}}", check=False)
@@ -815,6 +874,13 @@ def start(options: LaunchOptions) -> tuple[str, str]:
     argv = build_run_argv(
         load_spec(), env, host_project_dir=host_project_dir, image=image
     )
+    if probe_container_gpu(image, echo):
+        argv[2:2] = [
+            "--gpus",
+            "all",
+            "--env",
+            "NVIDIA_DRIVER_CAPABILITIES=compute,utility",
+        ]
     echo(f"starting {container_name(host_project_dir)} on port {port}…")
     created = _docker(*argv[1:])
     options.session_container = created.stdout.strip()

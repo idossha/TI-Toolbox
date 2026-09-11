@@ -1,4 +1,5 @@
 import { useState } from "react";
+import "./qsi-dialogs.css";
 import { Button } from "../../ui/Button";
 import { Field, TextInput } from "../../ui/Field";
 import { NumberInput } from "../../ui/NumberInput";
@@ -67,108 +68,87 @@ export function QsiPrepDialog({
         </>
       }
     >
-      <div className="form-grid">
-        <Field label="Output resolution" help="Target output resolution in mm.">
-          <NumberInput
-            value={draft.output_resolution}
-            onValueChange={(v) =>
-              setDraft((d) => ({ ...d, output_resolution: v ?? 2.0 }))
-            }
-            unit="mm"
-            min={0.5}
-            max={3.0}
-            step={0.5}
-          />
-        </Field>
-        <Field label="Image tag" help="Docker image tag for QSIPrep.">
-          <TextInput
-            value={draft.image_tag}
-            onChange={(e) =>
-              setDraft((d) => ({ ...d, image_tag: e.target.value }))
-            }
-          />
-        </Field>
-      </div>
-
-      <div style={{ marginTop: "var(--space-4)" }}>
-        <p className="text-eyebrow" style={{ marginBottom: "var(--space-2)" }}>
-          Resource settings
-        </p>
-        <div className="form-grid">
+      <div className="qsi-dialog-body qsi-prep-body">
+        <div className="qsi-fields">
           <Field
-            label="CPUs"
-            help="Blank uses the container's inherited limit."
+            layout="stacked"
+            label="Output resolution"
+            help="Target output resolution in mm."
           >
             <NumberInput
-              value={draft.cpus ?? undefined}
+              value={draft.output_resolution}
               onValueChange={(v) =>
-                setDraft((d) => ({ ...d, cpus: v ?? null }))
+                setDraft((d) => ({ ...d, output_resolution: v ?? 2.0 }))
               }
-              min={1}
-              placeholder="auto"
+              unit="mm"
+              min={0.5}
+              max={3.0}
+              step={0.5}
             />
           </Field>
           <Field
-            label="Memory"
-            help="Blank uses the container's inherited limit."
+            layout="stacked"
+            label="Image tag"
+            help="Docker image tag for QSIPrep."
           >
-            <NumberInput
-              value={draft.memory_gb ?? undefined}
-              onValueChange={(v) =>
-                setDraft((d) => ({ ...d, memory_gb: v ?? null }))
+            <TextInput
+              value={draft.image_tag}
+              onChange={(e) =>
+                setDraft((d) => ({ ...d, image_tag: e.target.value }))
               }
-              unit="GB"
-              min={4}
-              placeholder="auto"
-            />
-          </Field>
-          <Field label="OMP threads" help="OpenMP threads (ANTs, MRtrix, ...).">
-            <NumberInput
-              value={draft.omp_threads}
-              onValueChange={(v) =>
-                setDraft((d) => ({ ...d, omp_threads: v ?? 8 }))
-              }
-              min={1}
             />
           </Field>
         </div>
-      </div>
 
-      <div style={{ marginTop: "var(--space-4)" }}>
-        <p className="text-eyebrow" style={{ marginBottom: "var(--space-2)" }}>
-          Processing options
+        <p className="field-help">
+          CPU, memory, and OpenMP defaults are configured in Settings →
+          Pre-processing.
         </p>
-        <div className="form-grid">
-          <Field
-            label="Denoise method"
-            help="Denoising method applied to DWI data."
+
+        <div style={{ marginTop: "var(--space-4)" }}>
+          <p
+            className="text-eyebrow"
+            style={{ marginBottom: "var(--space-2)" }}
           >
-            <Select
-              value={draft.denoise_method}
-              onValueChange={(v) =>
-                setDraft((d) => ({ ...d, denoise_method: v }))
+            Processing options
+          </p>
+          <div className="qsi-fields">
+            <Field
+              layout="stacked"
+              label="Denoise method"
+              help="Denoising method applied to DWI data."
+            >
+              <Select
+                value={draft.denoise_method}
+                onValueChange={(v) =>
+                  setDraft((d) => ({ ...d, denoise_method: v }))
+                }
+                options={asOptions(DENOISE_METHODS)}
+              />
+            </Field>
+            <Field
+              layout="stacked"
+              label="Unringing method"
+              help="Gibbs ringing removal method."
+            >
+              <Select
+                value={draft.unringing_method}
+                onValueChange={(v) =>
+                  setDraft((d) => ({ ...d, unringing_method: v }))
+                }
+                options={asOptions(UNRINGING_METHODS)}
+              />
+            </Field>
+          </div>
+          <div style={{ marginTop: "var(--space-3)" }}>
+            <Checkbox
+              checked={draft.skip_bids_validation}
+              onCheckedChange={(v) =>
+                setDraft((d) => ({ ...d, skip_bids_validation: v }))
               }
-              options={asOptions(DENOISE_METHODS)}
+              label="Skip BIDS validation (useful for non-BIDS datasets)"
             />
-          </Field>
-          <Field label="Unringing method" help="Gibbs ringing removal method.">
-            <Select
-              value={draft.unringing_method}
-              onValueChange={(v) =>
-                setDraft((d) => ({ ...d, unringing_method: v }))
-              }
-              options={asOptions(UNRINGING_METHODS)}
-            />
-          </Field>
-        </div>
-        <div style={{ marginTop: "var(--space-3)" }}>
-          <Checkbox
-            checked={draft.skip_bids_validation}
-            onCheckedChange={(v) =>
-              setDraft((d) => ({ ...d, skip_bids_validation: v }))
-            }
-            label="Skip BIDS validation (useful for non-BIDS datasets)"
-          />
+          </div>
         </div>
       </div>
     </Dialog>

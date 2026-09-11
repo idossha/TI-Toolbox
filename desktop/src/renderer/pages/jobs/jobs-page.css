@@ -27,15 +27,18 @@
 /* DESIGN.md §2.1's 360/400px column is the DEFAULT, not the only width: `--jobs-pane-w` is set
  * inline by `usePaneController` once the user drags the separator, and persists per page id. */
 .jobs-page-right {
-  flex: 0 0 var(--jobs-pane-w, 360px);
-  width: var(--jobs-pane-w, 360px);
+  /* Jobs detail is the primary reading surface in the screenshots: give it the same
+   * 45vw default as the other full-height inspectors, while preserving the user's
+   * persisted drag width in --jobs-pane-w. */
+  flex: 0 0 var(--jobs-pane-w, 45vw);
+  width: var(--jobs-pane-w, 45vw);
   min-height: 0;
   padding-left: var(--space-2);
 }
 @media (min-width: 1440px) {
   .jobs-page-right {
-    flex-basis: var(--jobs-pane-w, 400px);
-    width: var(--jobs-pane-w, 400px);
+    flex-basis: var(--jobs-pane-w, 45vw);
+    width: var(--jobs-pane-w, 45vw);
   }
 }
 /* Expanded (U13): the detail pane is the page. The table is not rendered while this holds, so
