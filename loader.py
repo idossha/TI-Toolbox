@@ -14,7 +14,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 HERE = Path(__file__).resolve().parent
-DEFAULT_SOURCE_REF = "release/3.0.0"
+DEFAULT_SOURCE_REF = "main"
 
 
 def bootstrap() -> bool:

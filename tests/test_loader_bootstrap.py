@@ -51,7 +51,7 @@ def test_standalone_creates_isolated_environment_and_passes_argv_verbatim(standa
     assert "--force-reinstall" in install.args[0]
     assert (
         install.args[0][-1]
-        == "https://github.com/idossha/TI-toolbox/archive/release%2F3.0.0.zip"
+        == "https://github.com/idossha/TI-toolbox/archive/main.zip"
     )
     assert launch.args[0][1:] == ["-I", "-m", "tit.cli", "launch", *args]
     assert all(call.kwargs.get("shell") is not True for call in run.call_args_list)

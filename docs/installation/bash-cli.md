@@ -15,9 +15,9 @@ The scientific tools run inside Docker; you do not need to install SimNIBS separ
 
 ## Launch
 
-Download **one launcher** — [loader.py](https://raw.githubusercontent.com/idossha/TI-Toolbox/release/3.0.0/loader.py)
-or [loader.sh](https://raw.githubusercontent.com/idossha/TI-Toolbox/release/3.0.0/loader.sh) — plus
-[docker-compose.yml](https://raw.githubusercontent.com/idossha/TI-Toolbox/release/3.0.0/docker-compose.yml).
+Download **one launcher** — [loader.py](https://raw.githubusercontent.com/idossha/TI-Toolbox/main/loader.py)
+or [loader.sh](https://raw.githubusercontent.com/idossha/TI-Toolbox/main/loader.sh) — plus
+[docker-compose.yml](https://raw.githubusercontent.com/idossha/TI-Toolbox/main/docker-compose.yml).
 Keep these **two files in the same folder**, with their filenames unchanged. If a link opens as text,
 use **Save As** (without adding `.txt`). No repository checkout is needed: regular launches use
 the code already inside the image and mount your project data without replacing that code.
