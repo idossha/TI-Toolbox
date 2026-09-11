@@ -43,14 +43,21 @@ it("preprocessing links to system settings without installation controls", async
   expect(container.querySelector("a")?.getAttribute("href")).toBe("/settings#preprocessing");
   expect(container.querySelector("button")).toBeNull(); expect(enable).not.toHaveBeenCalled();
 });
-it("explains setup before requesting native consent and allows user-wide disabling", async () => {
+it("requires a single explicit consent before enabling and allows user-wide disabling", async () => {
   enable.mockResolvedValue({ ...available, installed: true, enabled: true, preferenceEnabled: true });
   await render(<AppleGpuSettings />); act(() => button("Enable Apple GPU").click()); await settle();
   expect(enable).not.toHaveBeenCalled();
   const dialog = document.querySelector('[role="dialog"]')!;
   expect(dialog.textContent).toContain("across your projects"); expect(dialog.querySelector('svg[role="img"]')).not.toBeNull();
-  expect(dialog.querySelector("a")?.href).toBe("https://idossha.github.io/TI-Toolbox/wiki/fastsurfer/");
-  act(() => button("Continue").click()); await settle(); expect(enable).toHaveBeenCalledOnce();
+  expect(dialog.textContent).toContain("third-party scientific software");
+  expect(dialog.textContent).toContain("pinned official FastSurfer release");
+  expect(dialog.textContent).toContain("validating outputs");
+  expect([...dialog.querySelectorAll("a")].map((a) => a.href)).toEqual([
+    "https://idossha.github.io/TI-Toolbox/wiki/fastsurfer/#enable-apple-gpu",
+    "https://idossha.github.io/TI-Toolbox/wiki/fastsurfer/#permissions",
+    "https://github.com/Deep-MI/FastSurfer/releases",
+  ]);
+  act(() => [...dialog.querySelectorAll("button")].find((item) => item.textContent === "Enable Apple GPU")!.click()); await settle(); expect(enable).toHaveBeenCalledOnce();
   disable.mockResolvedValue({ ...available, installed: true });
   act(() => button("Disable Apple GPU").click()); await settle(); expect(disable).toHaveBeenCalledOnce();
 });
@@ -92,6 +99,6 @@ it("keeps GPU explanation discoverable in browser settings without allowing inst
   await render(<AppleGpuSettings />);
   act(() => button("Enable Apple GPU").click()); await settle();
   expect(document.querySelector('[role="dialog"]')?.textContent).toContain("desktop app");
-  expect(button("Continue").disabled).toBe(true);
+  expect([...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find((item) => item.textContent === "Enable Apple GPU")!.disabled).toBe(true);
   expect(enable).not.toHaveBeenCalled();
 });

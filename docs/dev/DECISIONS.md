@@ -640,3 +640,15 @@ configuration links attached below their owning tools.
 CHARM exposes only validated denoising, final segmentation resolution, and scalp facet size.
 The runner copies the installed INI and changes explicit values, preserving all other installed
 settings. It does not synthesize a new meshing profile or modify the installed file.
+
+
+### 2026-09-10 — Consolidate v3 development on main
+
+Retire `release/3.0.0` after merging its accepted work into `main`. Development continues on
+`main` until the official release; this reverses the active release-branch arrangement above.
+Do not create a release tag or change the notification version (`version.py`, 2.5.0) as part of
+this consolidation. Resume isolated topic work after the official release.
+
+Apple GPU setup now uses the Settings dialog as its single consent surface, including source,
+permissions and third-party notices. Remove the duplicate native dialog while retaining sender
+validation, local-project checks and project-change cancellation in the main process.

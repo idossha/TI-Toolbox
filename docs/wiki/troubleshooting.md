@@ -377,3 +377,11 @@ In **Settings**, enable **Allow unsafe overrides** for this project, then run ag
 confirm **Replace and rerun**. The permission is off by default, applies across job pages,
 and does not suppress subsequent confirmations. When disabled, choose **Skip** or **Cancel**.
 Use the current checkout with the development loader, or an image containing this fix.
+
+
+### A deleted job remains in the Jobs list
+
+Early v3 builds refreshed the REST list but retained the deleted job in the live UI store.
+Update and reload the desktop app. Confirmed deletion now clears both stores and the selection;
+older queued updates cannot restore the row. A filesystem deletion failure is reported so you
+can resolve access permissions and retry, rather than receiving a false success notification.

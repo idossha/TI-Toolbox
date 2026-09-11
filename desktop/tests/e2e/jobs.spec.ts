@@ -177,6 +177,7 @@ test("deletes a selected terminal job after confirmation and removes it from the
   await dialog.getByRole("button", { name: "Delete job", exact: true }).click();
 
   await expect(row).toHaveCount(0);
+  await expect(page.getByText("None of 0 selected", { exact: true })).toBeVisible();
   await expect(page.getByTestId("page-right-pane")).toHaveCount(0);
 });
 
@@ -836,4 +837,40 @@ test("Open in Tetravox is offered on the mesh and on nothing else", async () => 
   const payload = await response.json();
   expect(payload.scene.datasets.map((dataset: { path: string }) => dataset.path)).toContain(artifactPath);
   await expect(page.getByTestId("viewer-sub-viewer")).toHaveAttribute("data-active", "true", { timeout: 20_000 });
+});
+
+
+test("preprocessing documentation is grouped and long leadfields remain compact", async () => {
+  await page.route("**/api/catalog/overview", async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.subjects[0].leadfields = ["A_very_long_electrode_network_name_that_must_truncate.csv", "Second.csv", "Third.csv"];
+    await route.fulfill({ response, json: body });
+  });
+  await connect();
+  const net = page.locator(".overview-net").first();
+  await expect(net).toContainText("+2");
+  const geometry = await net.evaluate((el) => {
+    const name = el.querySelector(".overview-leadfield-name")!;
+    const count = el.querySelector(".overview-leadfield-count")!;
+    return { size: parseFloat(getComputedStyle(name).fontSize), truncates: name.scrollWidth > name.clientWidth,
+      fits: count.getBoundingClientRect().right <= el.getBoundingClientRect().right + 1 };
+  });
+  expect(geometry.size).toBeLessThanOrEqual(11);
+  expect(geometry.truncates).toBe(true);
+  expect(geometry.fits).toBe(true);
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await page.getByRole("tab", { name: "Pre-processing", exact: true }).click();
+  const groups = page.locator(".preprocessing-doc-links");
+  await expect(groups).toHaveCount(5);
+  for (const group of await groups.all()) {
+    const box = await group.evaluate((el) => {
+      const links = [...el.children].map((a) => a.getBoundingClientRect());
+      const header = el.parentElement!.getBoundingClientRect();
+      return { gap: links[1]!.left - links[0]!.right, right: header.right - links[1]!.right };
+    });
+    expect(box.gap).toBeGreaterThanOrEqual(0);
+    expect(box.gap).toBeLessThan(24);
+    expect(box.right).toBeLessThan(30);
+  }
 });

@@ -45,3 +45,21 @@
   display: grid;
   gap: var(--space-3);
 }
+
+.preprocessing-preferences .card-header {
+  flex-wrap: wrap;
+}
+
+.preprocessing-doc-links {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-left: auto;
+  min-width: 0;
+}
+
+.preprocessing-doc-links a {
+  white-space: nowrap;
+}

@@ -100,52 +100,20 @@ reproducible scientific environment. The test extra must not replace the image's
 
 ### 1. Choose the branch and pull-request target
 
-`main` is the protected production branch. Work in short-lived branches and merge through
-reviewed pull requests with passing required checks. Official versions are immutable `vX.Y.Z`
-tags on `main`; creating or pushing a branch never cuts a release.
-
-| Branch | Purpose | Start from / PR target |
-|---|---|---|
-| `main` | Reviewed production code | Release and completed topic PRs |
-| `feature/<description>` | New functionality | `main`, or the active release when explicitly in its scope |
-| `fix/<description>` | Bug correction | The branch containing the bug and receiving the fix |
-| `docs/<description>`, `refactor/<description>`, `test/<description>`, `chore/<description>` | Focused maintenance | The branch being maintained |
-| `hotfix/<description>` | Urgent production correction | `main`; propagate the merged fix to active release branches |
-| `release/X.Y.Z` | Integrate and stabilize a planned version for testing | Cut from `main`; merge back to `main` after acceptance |
-
-Use lowercase, descriptive, hyphen-separated topic names. This project keeps no permanent
-`develop` branch: a release branch supplies a bounded integration/testing window. The current
-release branch is `release/3.0.0`; future versions follow the same `release/X.Y.Z` pattern.
-
-For normal work in your fork (where `upstream` names this repository):
+Create a short-lived topic branch in your fork from `upstream/main`. Use a descriptive,
+lowercase name such as `feature/electrode-search`, `fix/job-deletion`, or `docs/setup-guide`.
+Submit a pull request against `main`, unless a maintainer requests another target.
 
 ```bash
 git fetch upstream
 git switch -c feature/electrode-search upstream/main
 ```
 
-For a correction to the version undergoing testing:
+You can use a separate worktree to isolate concurrent changes. Preserve uncommitted work when
+switching branches, and coordinate with anyone sharing your checkout. Do not rewrite published
+history. Remove your topic branch after its pull request is merged.
 
-```bash
-git fetch upstream
-git switch -c fix/electrode-search upstream/release/3.0.0
-# Open the PR against release/3.0.0, not main.
-```
-
-In a direct clone, use `origin` instead of `upstream`. In a shared checkout, coordinate the
-switch with its other users and preserve uncommitted work; never force-switch or stash others' edits.
-Topic PRs may use the repository's normal merge method. Release promotion uses a merge commit
-so the tested commits remain in `main`'s ancestry. Merge production hotfixes into every affected
-active release; do not leave a second copy of the defect there. Remove completed topic branches
-after their work is merged; retire a release branch after promotion and any follow-up fixes.
-Do not rewrite published branch history or move published version tags.
-
-The release owner freezes new features once stabilization starts. Required CI, security review,
-manual acceptance and matching artifact verification precede promotion; a branch name or a docs
-change is not evidence those gates passed. The operator procedure is
-[Building and releasing](docs/dev/RELEASING.md). This lightweight workflow adapts
-[GitHub flow](https://docs.github.com/en/get-started/using-github/github-flow) with explicit release
-stabilization branches; it does not require the full Gitflow branch hierarchy.
+For release procedures, see [Building and releasing](docs/dev/RELEASING.md).
 
 ### Make, verify and submit the change
 

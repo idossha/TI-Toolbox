@@ -223,7 +223,10 @@ function JobsPage() {
                 job={selected}
                 density="page"
                 allowUnsafeOverrides={settingsQuery.data?.allow_unsafe_overrides ?? false}
-                onOpenJob={select}
+                onOpenJob={(id) => {
+                  if (id === null) setSelectedIds((ids) => ids.filter((item) => item !== selectedId));
+                  select(id);
+                }}
                 headerControls={<PaneHeaderControls controller={pane} />}
               />
             </div>

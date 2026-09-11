@@ -82,7 +82,7 @@ current project workflow. The captures below illustrate tools within an open pro
 
 ## V2 gallery (deprecated)
 
-The [v2 gallery]({{ site.baseurl }}/gallery/v2/) preserves the PyQt tabs and electrode-placement screenshots for legacy users.
+For the retired PyQt interface, see [Legacy v2 users]({{ site.baseurl }}/wiki/legacy-v2/).
 
 <!-- Lightbox Modal -->
 <div id="lightbox" class="lightbox" onclick="closeLightbox()">

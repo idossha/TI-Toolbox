@@ -69,3 +69,8 @@ export function useJobsStream(): JobsStreamState {
   }, []);
   return useSyncExternalStore(subscribe, getJobsState);
 }
+
+/** Forget a job only after the server confirms deletion. */
+export function forgetJob(jobId: string): void {
+  shared?.forgetJob(jobId);
+}

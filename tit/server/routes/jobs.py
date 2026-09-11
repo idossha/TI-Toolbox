@@ -295,7 +295,13 @@ def get_job(request: Request, job_id: str) -> dict[str, Any]:
     summary="Forget a finished job (queued/running jobs must be cancelled first)",
 )
 def delete_job(request: Request, job_id: str) -> None:
-    result = _manager(request).delete(job_id)
+    try:
+        result = _manager(request).delete(job_id)
+    except OSError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="Could not remove the job from disk; retry after checking filesystem access.",
+        ) from exc
     if result == "not_found":
         raise HTTPException(status_code=404, detail=f"unknown job: {job_id}")
     if result == "not_terminal":

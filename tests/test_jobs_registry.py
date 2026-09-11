@@ -94,7 +94,8 @@ def test_registry_ignores_outward_job_link_and_keeps_valid_jobs(tmp_path):
     registry.create(_spec("local"), JobStatus.queued(_spec("local")))
     assert registry.list_ids() == ["local"]
     assert registry.read_spec("foreign") is None
-    assert registry.delete("foreign") is False
+    with pytest.raises(PermissionError):
+        registry.delete("foreign")
     assert external.read_spec("foreign") is not None
 
 
@@ -136,7 +137,9 @@ def test_job_file_path_refuses_outward_config_symlink(tmp_path):
     assert outside.read_text() == "outside sentinel"
 
 
-@pytest.mark.parametrize("filename", ["spec.json", "status.json", "events.jsonl", "stdout.log"])
+@pytest.mark.parametrize(
+    "filename", ["spec.json", "status.json", "events.jsonl", "stdout.log"]
+)
 def test_registry_reopen_skips_outward_metadata_link(tmp_path, filename):
     project = tmp_path / "project"
     project.mkdir()
@@ -409,3 +412,34 @@ def test_event_tailer_start_seq_for_reattach(tmp_path):
         fh.write(json.dumps({"type": "log", "msg": "new"}) + "\n")
     events = tailer.poll()
     assert [e["seq"] for e in events] == [3]
+
+
+def test_delete_does_not_hide_filesystem_errors(tmp_path, monkeypatch):
+    from tit.jobs.registry import JobRegistry
+
+    registry = JobRegistry(str(tmp_path))
+    from tit.jobs.registry import job_dir
+    from pathlib import Path
+
+    Path(job_dir(str(tmp_path), "failure")).mkdir(parents=True)
+
+    def fail(*args, **kwargs):
+        raise PermissionError("read only")
+
+    monkeypatch.setattr("tit.jobs.registry.shutil.rmtree", fail)
+    with pytest.raises(PermissionError):
+        registry.delete("failure")
+
+
+@pytest.mark.parametrize("failure", ["path", "stat"])
+def test_delete_propagates_access_errors(tmp_path, monkeypatch, failure):
+    registry = JobRegistry(str(tmp_path))
+    spec = _spec("inaccessible")
+    registry.create(spec, JobStatus.queued(spec))
+    def denied(*args, **kwargs):
+        raise PermissionError("access denied")
+    with monkeypatch.context() as patch:
+        patch.setattr("tit.jobs.registry.job_dir" if failure == "path" else "tit.jobs.registry.os.lstat", denied)
+        with pytest.raises(PermissionError):
+            registry.delete("inaccessible")
+    assert registry.read_spec("inaccessible") is not None

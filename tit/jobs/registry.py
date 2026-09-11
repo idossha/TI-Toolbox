@@ -12,6 +12,7 @@ import json
 import logging
 import os
 import shutil
+import stat
 import time
 from typing import Any
 
@@ -196,16 +197,17 @@ class JobRegistry:
     # -- delete / retention ------------------------------------------------------------------
 
     def delete(self, job_id: str) -> bool:
+        path = job_dir(self.project_dir, job_id)
         try:
-            path = job_dir(self.project_dir, job_id)
-        except OSError:
+            mode = os.lstat(path).st_mode
+        except FileNotFoundError:
             return False
-        if not os.path.isdir(path):
-            return False
-        if os.path.islink(path):
+        if stat.S_ISLNK(mode):
             os.unlink(path)
-            return True
-        shutil.rmtree(path, ignore_errors=True)
+        elif stat.S_ISDIR(mode):
+            shutil.rmtree(path)
+        else:
+            raise NotADirectoryError(path)
         return True
 
     def prune(

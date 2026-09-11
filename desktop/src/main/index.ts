@@ -669,13 +669,9 @@ function registerIpc(): void {
     if (!before.supported || !before.project || fastSurferInstalling) return before;
     const project = before.project;
     const generation = fastSurferGeneration;
-    const confirmation = await dialog.showMessageBox(mainWindow, {
-      type: "question", title: "Enable Apple GPU FastSurfer",
-      message: before.installed ? "Enable Apple GPU for your TI-Toolbox user?" : "Install FastSurfer and enable Apple GPU?",
-      detail: `FastSurfer will use your Mac’s GPU. Setup is stored in your TI-Toolbox user folder and does not require administrator access.\n\nThis preference applies across your local projects. Each job can access only the active project and its required runtime files. Computation has no network access. You can turn this off in Settings at any time.\n\nInstallation folder:\n${before.directory}`,
-      buttons: ["Enable Apple GPU", "Cancel"], defaultId: 1, cancelId: 1,
-    });
-    if (confirmation.response !== 0 || generation !== fastSurferGeneration || localFastSurferProject() !== project || fastSurferInstalling) return fastSurferStatus();
+    // The Settings dialog is the single consent surface; IPC still enforces sender,
+    // local-project scope, and cancellation when the project changes during setup.
+    if (generation !== fastSurferGeneration || localFastSurferProject() !== project || fastSurferInstalling) return fastSurferStatus();
     fastSurferInstalling = true;
     fastSurferError = undefined;
     try {

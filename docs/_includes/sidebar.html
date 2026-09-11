@@ -14,6 +14,13 @@
            {%- if item.external %} target="_blank" rel="noopener"{% endif %}>
           {{ item.title }}{% if item.external %} <span class="sidebar-nav__ext" aria-hidden="true">↗</span>{% endif %}
         </a>
+        {%- if item.children -%}
+        <ul class="sidebar-nav__children">
+          {%- for child in item.children -%}
+          <li><a href="{{ child.url | relative_url }}"{% if page.url == child.url %} class="is-active" aria-current="page"{% endif %}>{{ child.title }}</a></li>
+          {%- endfor -%}
+        </ul>
+        {%- endif -%}
       </li>
     {%- endif -%}
   {%- endfor -%}

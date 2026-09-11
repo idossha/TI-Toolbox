@@ -285,8 +285,8 @@ function OverviewPage() {
                   </span>
                 ))}
               </span>
-              <span className="overview-net">
-                {r.leadfields.length ? <Chip kind="success">{r.leadfields[0]}</Chip> : <span className="text-caption">none</span>}
+              <span className="overview-net" title={r.leadfields.join("\n")}>
+                {r.leadfields.length ? <><Chip kind="success"><span className="overview-leadfield-name">{r.leadfields[0]}</span></Chip>{r.leadfields.length > 1 && <span className="overview-leadfield-count">+{r.leadfields.length - 1}</span>}</> : <span className="text-caption">none</span>}
               </span>
               <span className="overview-num">{r.counts.simulations}</span>
               <span className="overview-num">{r.counts.optimizations}</span>

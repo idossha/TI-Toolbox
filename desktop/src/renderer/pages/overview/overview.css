@@ -384,3 +384,8 @@
 @media (max-width: 800px) {
   .overview-workflow-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+.overview-net { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }
+.overview-net > .chip { min-width: 0; max-width: 100%; font-size: 11px; }
+.overview-leadfield-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.overview-leadfield-count { flex-shrink: 0; font-size: 11px; }

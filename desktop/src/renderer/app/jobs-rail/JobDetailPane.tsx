@@ -35,6 +35,7 @@ import { JobRawLog } from "./JobRawLog";
 import { reveal } from "./reveal";
 import { FileList } from "../../pages/results/preview/views";
 import { useOpenInViewer } from "../openInViewer";
+import { forgetJob } from "../jobs/useJobsStream";
 import { jobFolder, viewerLinkForArtifact } from "./artifacts";
 
 type ConfirmKind = "stop" | "force" | "delete";
@@ -129,12 +130,17 @@ export function JobDetailPane({ job, allowUnsafeOverrides, onOpenJob, density = 
     onError: (e) => notify.error("Could not force the job.", e instanceof ApiError ? e.message : String(e)),
   });
   const del = useMutation({
-    mutationFn: () => deleteJob(jobId!),
-    onSuccess: () => {
+    mutationFn: (id: string) => deleteJob(id),
+    onSuccess: async (_, id) => {
+      // Cancel stale REST responses before removing the confirmed deletion from both stores.
+      await queryClient.cancelQueries({ queryKey: ["jobs"] });
+      forgetJob(id);
+      queryClient.setQueriesData<JobStatus[]>({ queryKey: ["jobs"], exact: true }, (jobs) => jobs?.filter((item) => item.id !== id));
+      queryClient.removeQueries({ queryKey: ["job", id] });
+      queryClient.removeQueries({ queryKey: ["job-log", id] });
+      if (jobId === id) onOpenJob(null);
       notify.success("Job deleted.");
-      invalidateJobs();
-      queryClient.removeQueries({ queryKey: ["job", jobId] });
-      onOpenJob(null);
+      void invalidateJobs();
     },
     onError: (e) => notify.error("Could not delete the job.", e instanceof ApiError ? e.message : String(e)),
   });
@@ -231,7 +237,7 @@ export function JobDetailPane({ job, allowUnsafeOverrides, onOpenJob, density = 
           </Button>
         )}
         {isTerminal && (
-          <Button variant="destructive" size="sm" icon={<Trash2 size={14} />} onClick={() => setConfirm("delete")}>
+          <Button variant="destructive" size="sm" icon={<Trash2 size={14} />} loading={del.isPending} onClick={() => setConfirm("delete")}>
             Delete
           </Button>
         )}
@@ -353,7 +359,7 @@ export function JobDetailPane({ job, allowUnsafeOverrides, onOpenJob, density = 
         confirmLabel="Delete job"
         onConfirm={() => {
           setConfirm(null);
-          del.mutate();
+          if (jobId) del.mutate(jobId);
         }}
       />
     </div>
