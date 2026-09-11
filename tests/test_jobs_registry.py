@@ -436,10 +436,31 @@ def test_delete_propagates_access_errors(tmp_path, monkeypatch, failure):
     registry = JobRegistry(str(tmp_path))
     spec = _spec("inaccessible")
     registry.create(spec, JobStatus.queued(spec))
+
     def denied(*args, **kwargs):
         raise PermissionError("access denied")
+
     with monkeypatch.context() as patch:
-        patch.setattr("tit.jobs.registry.job_dir" if failure == "path" else "tit.jobs.registry.os.lstat", denied)
+        patch.setattr(
+            (
+                "tit.jobs.registry.job_dir"
+                if failure == "path"
+                else "tit.jobs.registry.os.lstat"
+            ),
+            denied,
+        )
         with pytest.raises(PermissionError):
             registry.delete("inaccessible")
     assert registry.read_spec("inaccessible") is not None
+
+
+def test_delete_rejects_resolved_path_outside_job_store(tmp_path, monkeypatch):
+    registry = JobRegistry(str(tmp_path))
+    protected = tmp_path / "unrelated"
+    protected.mkdir()
+    marker = protected / "keep.txt"
+    marker.write_text("keep")
+    monkeypatch.setattr("tit.jobs.registry.job_dir", lambda *args: str(protected))
+    with pytest.raises(PermissionError, match="job store"):
+        registry.delete("unrelated")
+    assert marker.read_text() == "keep"

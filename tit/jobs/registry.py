@@ -197,7 +197,11 @@ class JobRegistry:
     # -- delete / retention ------------------------------------------------------------------
 
     def delete(self, job_id: str) -> bool:
-        path = job_dir(self.project_dir, job_id)
+        path = os.path.abspath(job_dir(self.project_dir, job_id))
+        root = os.path.realpath(jobs_root(self.project_dir))
+        # Deletion must stay below the job store, not merely inside the project.
+        if not path.startswith(root + os.sep):
+            raise PermissionError("Job deletion path escapes the job store")
         try:
             mode = os.lstat(path).st_mode
         except FileNotFoundError:
