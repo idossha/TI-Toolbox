@@ -10,7 +10,7 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 ### v3.0.0 (Unreleased)
 
 - Canvas edits preserve complete saved scientific configurations. Montage selection uses real catalog definitions; invalid drafts block actions, and undo/redo restores matching forms.
-- Notebook export uses the same plan and existing job runners, preserving full inputs. Dynamic bindings use specific producer results per subject and isolated run files instead of historical output scans.
+- Notebook export writes ordered calls to existing scientific functions with full inputs. Canvas dynamic bindings use specific producer results per subject and isolated run files instead of historical output scans.
 
 - Canvas validation reports invalid node configurations before Run, and submission errors retain their specific explanation.
 
@@ -83,6 +83,8 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
   Cluster permutation, NIfTI group averaging, Nilearn visuals and 3D visual exporter.
 - **Ex-search electrode pairs align.** Search-space controls occupy their own row, keeping
   positive and negative electrode selectors paired in TI and mTI modes.
+
+- Canvas settings reuse the dedicated processing controls. Notebook exports contain ordered scientific function calls and are saved into project Notebooks without overwriting earlier exports.
 
 - **Navigation follows the working order.** Optimizer precedes Simulator; Viewer and Results
   precede Pipeline, Notebooks and Jobs. Extensions follow those pages. Number shortcuts follow the new order.

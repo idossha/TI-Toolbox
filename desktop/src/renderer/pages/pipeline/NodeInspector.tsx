@@ -13,19 +13,24 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Dialog } from "../../ui/Overlay";
-import { Field } from "../../ui/Field";
-import { Select } from "../../ui/Select";
 import { Switch } from "../../ui/Toggle";
-import { NumberInput } from "../../ui/NumberInput";
+import { Field } from "../../ui/Field";
 import { SegmentedControl } from "../../ui/SegmentedControl";
 import { FormSection } from "../../ui/Layout";
 import { Callout } from "../../ui/Feedback";
-import { ObjectiveSection, ElectrodesSection } from "../optimizer/FlexSections";
+import { ObjectiveSection, ElectrodesSection, SolverSection, PostRunSection } from "../optimizer/FlexSections";
 import { RoiPicker, emptyRoi, getAtlases, type Atlas, type AtlasLookup, type RoiValue } from "../_shared/roi";
 import { getAtlasRegions } from "../_shared/roi/api";
 import { MontageSelection } from "./MontageSelection";
 import type { FlexFormState } from "../optimizer/flexConfig";
-import { PRE_STAGES, type NodeEditor } from "./editors";
+import { ExNodeSettings } from "./ExNodeSettings";
+import { PreNodeSettings } from "./PreNodeSettings";
+import { SimulationSettings } from "../simulator/SimulationSettings";
+import { getEegNets } from "../simulator/api";
+import { AnalysisFieldSelect } from "../analyzer/AnalysisFieldSelect";
+import { AnalyzerSettings } from "../analyzer/AnalyzerSettings";
+import { type TissueKind } from "../_shared/roi";
+import { analyzerEditorTarget, analyzerNodeTargets, type NodeEditor } from "./editors";
 import { SubjectsEditor } from "./SubjectsEditor";
 import {
   KIND_TITLE,
@@ -73,6 +78,7 @@ export function NodeInspector({
   // ask the catalog which atlases *a* subject has, so a form can list regions.
   const subjects = subjectsOf(doc, node.id);
   const body = useRef<HTMLDivElement>(null);
+  const eegNets = useQuery({queryKey:["eeg-nets", subjects[0]],queryFn:()=>getEegNets(subjects[0]!),enabled:editor.kind === "flex" && !!subjects[0]});
   const analyzerAtlas = editor.kind === "analyzer" && (editor.roi.mode === "cortical" || editor.roi.mode === "subcortical") ? editor.roi : undefined;
   const atlasRegions = useQuery({queryKey:["pipeline-atlas-regions",subjects[0],analyzerAtlas?.atlas], queryFn:()=>getAtlasRegions(subjects[0]!,analyzerAtlas!.atlas!,"both"), enabled:!!subjects[0] && !!analyzerAtlas?.atlas});
   const analyzerRoi = analyzerAtlas ? {...analyzerAtlas,regions:analyzerAtlas.regions.map((selected)=>{
@@ -157,23 +163,9 @@ export function NodeInspector({
           </FormSection>
         )}
 
-        {editor.kind === "pre" && (
-          <FormSection title="Stages">
-            <>
-              {PRE_STAGES.map((stage) => (
-                <Field key={stage.key} label={stage.label}>
-                  <Switch
-                    checked={editor.stages[stage.key] === true}
-                    onCheckedChange={(checked: boolean) =>
-                      onEditorChange({ ...editor, stages: { ...editor.stages, [stage.key]: checked } })
-                    }
-                    aria-label={stage.label}
-                  />
-                </Field>
-              ))}
-            </>
-          </FormSection>
-        )}
+        {editor.kind === "pre" && <div className="pipeline-span"><PreNodeSettings editor={editor} onChange={onEditorChange}/></div>}
+
+        {(editor.kind === "ex" || editor.kind === "mex") && <ExNodeSettings editor={editor} subjects={subjects} leadfieldBound={wired.some((edge)=>edge.port === "leadfield")} onChange={onEditorChange}/>}
 
         {editor.kind === "flex" && (
           <>
@@ -188,6 +180,8 @@ export function NodeInspector({
               form={editor.form}
               onChange={(patch: Partial<FlexFormState>) => onEditorChange({ ...editor, form: { ...editor.form, ...patch } })}
             />
+            <SolverSection form={editor.form} onChange={(patch) => onEditorChange({...editor,form:{...editor.form,...patch}})} eegNets={eegNets.data ?? []}/>
+            <PostRunSection form={editor.form} onChange={(patch) => onEditorChange({...editor,form:{...editor.form,...patch}})} eegNets={eegNets.data ?? []}/>
             <FormSection title="Target">
               <div className="pipeline-span">
                 {(editor.roi.mode === "cortical" || editor.roi.mode === "subcortical") && editor.roi.atlas?.startsWith("/") && <Callout kind="info">Saved target: {editor.roi.atlas}. Selected labels: {editor.roi.regions.map((r) => r.id).join(", ")}. Choose an atlas to replace this saved target.</Callout>}
@@ -214,19 +208,7 @@ export function NodeInspector({
                   aria-label="Currents"
                 />
               </Field>
-              <Field label="Conductivity">
-                <Select
-                  aria-label="Conductivity"
-                  value={editor.params.conductivity}
-                  onValueChange={(v) => onEditorChange({ ...editor, params: { ...editor.params, conductivity: v } })}
-                  options={[
-                    { value: "scalar", label: "scalar" },
-                    { value: "vn", label: "vn" },
-                    { value: "dir", label: "dir" },
-                    { value: "mc", label: "mc" },
-                  ]}
-                />
-              </Field>
+              <div className="pipeline-span"><SimulationSettings value={editor.params} onChange={(params)=>onEditorChange({...editor,params:{...params,customConductivities:params.customConductivities ?? {}}})}/></div>
             </>
           </FormSection>
         )}
@@ -235,6 +217,9 @@ export function NodeInspector({
           <>
             <FormSection title="Analysis">
               <>
+                <Field label="Combine into one group analysis" className="pipeline-span">
+                  <Switch checked={editor.mode === "group"} onCheckedChange={(group) => onEditorChange({ ...editor, mode: group ? "group" : "single" })} aria-label="Combine into one group analysis" />
+                </Field>
                 <Field
                   label="Simulation"
                   help={
@@ -256,7 +241,7 @@ export function NodeInspector({
                 <Field label="Space">
                   <SegmentedControl
                     value={editor.space}
-                    onValueChange={(v) => onEditorChange({ ...editor, space: v as typeof editor.space })}
+                    onValueChange={(v) => onEditorChange({ ...editor, space: v as typeof editor.space, field: v === "voxel" && editor.field === "TI_normal" ? "__auto__" : editor.field })}
                     options={[
                       { value: "mesh", label: "Mesh" },
                       { value: "voxel", label: "Voxel" },
@@ -264,58 +249,14 @@ export function NodeInspector({
                     aria-label="Analysis space"
                   />
                 </Field>
-                <Field label="Target">
-                  <Select
-                    value={editor.analysisType}
-                    onValueChange={(v) => onEditorChange({ ...editor, analysisType: v as typeof editor.analysisType, roi: emptyRoi(v as "spherical" | "cortical" | "subcortical" | "mask") })}
-                    options={[
-                      { value: "spherical", label: "Spherical" },
-                      { value: "cortical", label: "Cortical" },
-                      { value: "subcortical", label: "Subcortical" },
-                      { value: "mask", label: "NIfTI mask" },
-                    ]}
-                  />
-                </Field>
+                <Field label="Field"><AnalysisFieldSelect value={editor.field} space={editor.space} onChange={(field)=>onEditorChange({...editor,field})}/></Field>
               </>
             </FormSection>
-            {editor.analysisType === "spherical" ? (
-              <FormSection title="Sphere">
-                <>
-                  {(["x", "y", "z", "radius"] as const).map((key) => (
-                    <Field key={key} label={key === "radius" ? "Radius" : key.toUpperCase()}>
-                      <NumberInput
-                        value={editor.sphere[key]}
-                        onValueChange={(v) => onEditorChange({ ...editor, sphere: { ...editor.sphere, [key]: v } })}
-                        unit="mm"
-                        aria-label={key}
-                      />
-                    </Field>
-                  ))}
-                  <Field label="Coordinate space">
-                    <SegmentedControl
-                      value={editor.coordinateSpace}
-                      onValueChange={(v) => onEditorChange({ ...editor, coordinateSpace: v as "subject" | "mni" })}
-                      options={[
-                        { value: "subject", label: "Subject" },
-                        { value: "mni", label: "MNI" },
-                      ]}
-                      aria-label="Coordinate space"
-                    />
-                  </Field>
-                </>
-              </FormSection>
-            ) : (
-              <FormSection title="Region">
-                <div className="pipeline-span">
-                  <RoiPicker
-                    value={analyzerRoi ?? editor.roi}
-                    onChange={(roi) => onEditorChange({ ...editor, roi })}
-                    modes={[editor.analysisType]}
-                    subject={subjects[0]}
-                  />
-                </div>
-              </FormSection>
-            )}
+            <div className="pipeline-span">
+              <AnalyzerSettings row={{id:node.id,subjectId:subjects[0] ?? "",simulation:editor.simulation,space:editor.space,field:editor.field,tissue:editor.tissueType as TissueKind,roi:analyzerRoi ?? editor.roi,combine:editor.combine ?? true}}
+                onChange={(patch)=>onEditorChange({...analyzerEditorTarget(editor,patch.roi ?? editor.roi,patch.combine ?? editor.combine ?? true),...(patch.tissue ? {tissueType:patch.tissue}: {})})}/>
+              {analyzerNodeTargets(editor).length > 1 && <Callout kind="info">Creates {analyzerNodeTargets(editor).length} analysis steps when this editor closes, one per target.</Callout>}
+            </div>
           </>
         )}
 

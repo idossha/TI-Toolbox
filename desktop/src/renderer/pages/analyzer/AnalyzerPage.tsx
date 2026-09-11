@@ -49,7 +49,7 @@ import {
 import { EMPTY_SPHERE } from "./SphereRows";
 import { viewerSearch } from "../results";
 import {
-  buildConfig,
+  buildConfig, rowTargets,
   type AnalysisType,
 } from "./buildConfig";
 import {
@@ -132,15 +132,7 @@ export function groupMismatchReason(rows: AnalyzerRow[]): string | null {
  * analyses (`build_single_analysis_commands`, never a union); and with "Combine regions into one
  * ROI" unchecked, each selected region is its own analysis.
  */
-export function rowTargets(row: AnalyzerRow): RoiValue[] {
-  const roi = row.roi;
-  if (roi.mode === "spherical") return roi.spheres.map((s) => ({ ...roi, spheres: [s] }));
-  if (roi.mode === "cortical" || roi.mode === "subcortical") {
-    if (row.combine || roi.regions.length <= 1) return [roi];
-    return roi.regions.map((r) => ({ ...roi, regions: [r] }));
-  }
-  return [roi];
-}
+export { rowTargets } from "./buildConfig";
 
 export function AnalyzerPage() {
   const navigate = useNavigate();

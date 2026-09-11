@@ -668,3 +668,21 @@ behaviors with incremental local tests; see [the scoped intent](canvas-intent-20
 as the underlying jobs. Unsupported bindings must report an error rather than guess an output.
 
 **Revisit if:** a new job kind needs a binding the existing job functions cannot represent.
+
+
+### 2026-09-11 — Plain notebook calls and shared processing forms
+
+**Decision:** exported notebook cells are ordered calls to existing scientific functions with
+explicit configurations. Canvas inspectors reuse the dedicated pages' settings components.
+
+**Why:** the maintainer clarified that notebook readers want the functions and inputs, not an
+embedded graph or execution framework, and that nodes need the same options as their pages.
+This supersedes the notebook adapter mechanism introduced with the earlier canvas fidelity change;
+full configuration preservation and exact producer bindings remain required. See
+[the clarified intent](canvas-functions-intent-2026-09-11.md).
+
+**Cost:** export tests must exercise the emitted direct calls and compare complete inputs. Shared
+form tests must prove settings survive page and node edits without duplicate state or submission.
+
+**Revisit if:** an existing scientific function cannot express a supported job configuration;
+report that limitation rather than creating notebook-specific science.

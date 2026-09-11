@@ -138,7 +138,7 @@ export function exTargets(
       {
         roiName: `${roi.atlas}_${n}region${n === 1 ? "" : "s"}`,
         roiNames: [],
-        roiAtlas: roi.regions.map((r) => ({ atlas_path: atlas.path, label: r.id })),
+        roiAtlas: roi.regions.map((r) => ({ atlas_path: atlas.path, label: r.id, atlas_space: roi.atlasSpace })),
         radius: 3.0,
         space: roi.atlasSpace,
       },

@@ -249,7 +249,59 @@ def test_roi_wire_copies_single_sphere_coordinates_and_refuses_atlas_guessing():
 
 @pytest.mark.parametrize("kind", ["ex", "mex"])
 def test_search_result_requires_explicit_montage_selection(kind):
-    graph = build([("search", kind, {"subject_id": "101"}), ("sim", "sim", {})],
-                  [("search", "sim", "subjects"), ("search", "sim", "montages")])
-    with pytest.raises(PipelinePlanError, match="automatic .* montage binding is unsupported"):
+    graph = build(
+        [("search", kind, {"subject_id": "101"}), ("sim", "sim", {})],
+        [("search", "sim", "subjects"), ("search", "sim", "montages")],
+    )
+    with pytest.raises(
+        PipelinePlanError, match="automatic .* montage binding is unsupported"
+    ):
         plan_pipeline(graph)
+
+
+@pytest.mark.parametrize("kind", ["ex", "mex"])
+def test_multi_subject_search_requires_per_subject_leadfield_binding(kind):
+    from tit.config_io import serialize_config
+    from tit.opt.config import ExConfig, MExConfig
+
+    cls = ExConfig if kind == "ex" else MExConfig
+    config = serialize_config(
+        cls(
+            subject_id="ernie",
+            leadfield_hdf="/project/sub-ernie/leadfield.hdf5",
+            roi_name="target",
+            electrodes=cls.PoolElectrodes(
+                electrodes=["F3", "F4", "P3", "P4", "C3", "C4", "T7", "T8"]
+            ),
+        )
+    )
+    graph = build(
+        [
+            ("cohort", "subjects", {"subject_ids": ["ernie", "101"]}),
+            ("search", kind, config),
+        ],
+        [("cohort", "search", "subjects")],
+    )
+    with pytest.raises(
+        PipelinePlanError, match="static leadfield belongs to one subject"
+    ):
+        plan_pipeline(graph)
+    graph.node("cohort").config["subject_ids"] = ["ernie"]
+    jobs = plan_pipeline(graph)
+    assert len(jobs) == 1
+    assert jobs[0].config["leadfield_hdf"] == "/project/sub-ernie/leadfield.hdf5"
+    wired = build(
+        [
+            ("cohort", "subjects", {"subject_ids": ["ernie", "101"]}),
+            ("lf", "leadfield", {"eeg_net": "GSN-HydroCel-185"}),
+            ("search", kind, config),
+        ],
+        [
+            ("cohort", "lf", "subjects"),
+            ("cohort", "search", "subjects"),
+            ("lf", "search", "leadfield"),
+        ],
+    )
+    searches = [job for job in plan_pipeline(wired) if job.kind == kind]
+    assert [job.subject_ids for job in searches] == [["ernie"], ["101"]]
+    assert all("_pipeline_bindings" in job.config for job in searches)

@@ -11,7 +11,7 @@
  * to select — with the whole contract suite green. So this file is the other half. Every test
  * here is a gesture: click, drag, wire, delete, undo, type, save. Offscreen like every spec here.
  */
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
@@ -218,9 +218,9 @@ test("double-click opens the step's own form — the real one, not a placeholder
   await expect(dialog).toBeVisible();
   // Pre-processing's real stage switches, from the page's own list — and no Subjects field, since
   // the cohort belongs to the cohort node and reaches this one over the wire.
-  await expect(dialog.getByLabel("SimNIBS head model (charm)")).toBeVisible();
+  await expect(dialog.getByRole("checkbox", { name: "SimNIBS charm (m2m + subject atlas)", exact: true })).toBeVisible();
   await expect(dialog.getByLabel("Subjects", { exact: true })).toHaveCount(0);
-  await dialog.getByLabel("Tissue analysis").click();
+  await dialog.getByRole("checkbox", { name: "Tissue analyzer", exact: true }).click();
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("pipeline-node-pre1")).toBeVisible();
 });
@@ -337,26 +337,24 @@ test("Import JSON… reads a document off disk", async () => {
   await expect(page.getByTestId("pipeline-node-pre1")).toContainText("1 subject");
 });
 
-test("Export notebook writes a real .ipynb through the Electron save dialog", async () => {
+test("Export notebook saves into project Notebooks and preserves previous exports", async () => {
   await freshCanvas();
   await page.getByTestId("pipeline-sample").click();
-
-  // Stub the *main process* dialog, so the bridge, the IPC handler and the file write are all
-  // real — only the modal the OS would draw is replaced.
-  const target = join(scratch, "exported.ipynb");
-  await app.evaluate(({ dialog }, path) => {
-    (dialog as unknown as { showSaveDialog: unknown }).showSaveDialog = async () => ({ canceled: false, filePath: path });
-  }, target);
-
+  const exported = page.waitForResponse((response) => response.url().endsWith("/api/notebooks") && response.request().method() === "POST");
   await page.getByTestId("pipeline-export").click();
-  await expect(page.getByText(/Notebook written to/)).toBeVisible({ timeout: 10_000 });
-
-  const notebook = JSON.parse(readFileSync(target, "utf8")) as {
-    nbformat: number;
-    metadata: { ti_toolbox: { pipeline: { nodes: { id: string }[] } } };
-  };
-  expect(notebook.nbformat).toBe(4);
-  expect(notebook.metadata.ti_toolbox.pipeline.nodes.map((n) => n.id)).toEqual(["sub1", "pre1", "flex1", "sim1", "an1"]);
+  const response = await exported;
+  expect(response.ok()).toBe(true);
+  const notebook = await response.json();
+  expect(notebook.content.nbformat).toBe(4);
+  expect(notebook.content.metadata.ti_toolbox.pipeline.nodes.map((node: { id: string }) => node.id)).toEqual(["sub1", "pre1", "flex1", "sim1", "an1"]);
+  await expect(page.getByText(`Notebook saved to project Notebooks: ${notebook.name}`)).toBeVisible();
+  const repeated = page.waitForResponse((response) => response.url().endsWith("/api/notebooks") && response.request().method() === "POST");
+  await page.getByTestId("pipeline-export").click();
+  const second = await (await repeated).json();
+  expect(second.name).not.toBe(notebook.name);
+  await page.getByRole("link", { name: "Notebooks", exact: true }).click();
+  await expect(page.getByText(notebook.name, { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(second.name, { exact: true }).first()).toBeVisible();
 });
 
 // ------------------------------------------------------------------------------- keyboard ------
@@ -748,8 +746,8 @@ test("editing a reloaded simulator preserves its science configuration through s
   await page.getByRole("link", { name: "Pipeline", exact: true }).click();
   await page.getByTestId("pipeline-saved-science untouched").click();
   await page.getByTestId("pipeline-node-sim1").dblclick();
-  await page.getByRole("dialog").getByRole("combobox", { name: "Conductivity", exact: true }).click();
-  await page.getByRole("option", { name: "mc", exact: true }).click();
+  await page.getByRole("dialog").getByRole("combobox", { name: "Conductivity model", exact: true }).click();
+  await page.getByRole("option", { name: "Anisotropic (mean conductivity)", exact: true }).click();
   await page.keyboard.press("Escape");
   const edited = await saveAndRead("science edited");
   const expectedConfig = { ...config, conductivity: "mc" };
@@ -757,15 +755,41 @@ test("editing a reloaded simulator preserves its science configuration through s
   expect(edited.nodes.find((node) => node.id === "subjects1")!.config).toEqual({ subject_ids: ["ernie"] });
   expect(edited.edges).toEqual(original.edges);
 
-  const target = join(scratch, "preserved-science.ipynb");
-  await app.evaluate(({ dialog }, path) => {
-    (dialog as unknown as { showSaveDialog: unknown }).showSaveDialog = async () => ({ canceled: false, filePath: path });
-  }, target);
+  const exported = page.waitForResponse((response) => response.url().endsWith("/api/notebooks") && response.request().method() === "POST");
   await page.getByTestId("pipeline-export").click();
-  await expect.poll(() => {
-    try { return JSON.parse(readFileSync(target, "utf8")); } catch { return null; }
-  }).not.toBeNull();
-  const notebook = JSON.parse(readFileSync(target, "utf8")) as { metadata: { ti_toolbox: { pipeline: typeof original } } };
+  const savedNotebook = await (await exported).json();
+  const notebook = savedNotebook.content as { metadata: { ti_toolbox: { pipeline: typeof original } } };
   expect(notebook.metadata.ti_toolbox.pipeline.nodes.find((node) => node.id === "sim1")!.config).toEqual(expectedConfig);
   expect(notebook.metadata.ti_toolbox.pipeline.edges).toEqual(original.edges);
+});
+
+test("shared Analyzer sphere controls create explicit analysis steps with preserved inputs", async () => {
+  await freshCanvas();
+  const original = { version: 1, name: "two targets", nodes: [
+    { id: "subjects1", kind: "subjects", config: { subject_ids: ["ernie"] }, position: { x: 0, y: 0 } },
+    { id: "an1", kind: "analyzer", config: { simulation: "demo", mode: "single", space: "mesh", analysis_type: "spherical", center: [1, 2, 3], radius: 5, coordinate_space: "subject", visualize: false }, position: { x: 300, y: 0 } },
+  ], edges: [{ from: "subjects1", to: "an1", port: "subjects" }] };
+  const path = join(scratch, "two-targets.json");
+  writeFileSync(path, JSON.stringify(original));
+  await page.locator('input[type="file"]').setInputFiles(path);
+  await page.getByTestId("pipeline-node-an1").dblclick();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Add sphere", exact: true }).click();
+  for (const [field, value] of [["X", "4"], ["Y", "5"], ["Z", "6"], ["radius", "8"]]) {
+    await dialog.getByLabel(`Sphere 2 ${field}`).fill(value!);
+  }
+  await expect(dialog.getByText(/Creates 2 analysis steps/)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator('[data-testid^="pipeline-node-"]')).toHaveCount(3);
+  await page.getByTestId("pipeline-save").click();
+  await page.getByTestId("pipeline-save-name").fill("two targets");
+  const saved = page.waitForResponse((response) => response.url().includes("/api/pipelines/two%20targets") && response.request().method() === "PUT");
+  await page.getByTestId("pipeline-save-confirm").click();
+  expect((await saved).ok()).toBe(true);
+  const document = await page.evaluate(async () => (await fetch("/api/pipelines/two%20targets")).json());
+  const analyses = document.nodes.filter((node: { kind: string }) => node.kind === "analyzer");
+  expect(analyses.map((node: { config: unknown }) => node.config)).toEqual([
+    expect.objectContaining({ center: [1, 2, 3], radius: 5, visualize: false }),
+    expect.objectContaining({ center: [4, 5, 6], radius: 8, visualize: false }),
+  ]);
 });

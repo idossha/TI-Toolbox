@@ -1,11 +1,10 @@
-"""Execute exported cells through the real planner/adapter, capturing only scientific subprocesses.
+"""Execute exported cells with real config classes and captured public scientific functions.
 
 Expected configs are authored explicit settings, not copies of emitted source. No FEM is run.
 """
 
 from __future__ import annotations
 import json
-import subprocess
 from pathlib import Path
 import pytest
 from tit.pipeline.document import PipelineDocument
@@ -57,34 +56,98 @@ def test_notebook_is_valid_deterministic_and_preserves_document():
     notebook = nbformat.reads(first, as_version=4)
     nbformat.validate(notebook)
     assert notebook.metadata.ti_toolbox.pipeline == doc.to_dict()
-    assert (
-        len([c for c in notebook.cells if c.cell_type == "code"]) == len(doc.nodes) + 2
-    )
+    code = "\n".join(c.source for c in notebook.cells if c.cell_type == "code")
+    for forbidden in (
+        "tit.pipeline",
+        "execute_job",
+        "PIPELINE_DATA",
+        "PlannedJob",
+        "subprocess",
+        "RUN_ID",
+    ):
+        assert forbidden not in code
+    assert "run_pipeline(" in code
+    assert "run_simulation(" in code
+    assert ".analyze_mask(" in code
 
 
-def test_all_cells_execute_exact_configs_in_dependency_order(tmp_path, monkeypatch):
-    import tit.pipeline.execution as execution
-    from tit.jobs import kinds
+def capture_science(monkeypatch):
+    from tit.config_io import serialize_config
+    import tit.pre
+    import tit.sim
+    import tit.analyzer
+    import tit.source
+    import tit.opt.leadfield
 
     calls = []
-    monkeypatch.setattr(
-        kinds, "command_for", lambda kind, config, path, **_: [kind, path]
-    )
 
-    def run(argv, *, env, check):
-        assert check is True
-        config = json.loads(Path(argv[1]).read_text())
-        calls.append((argv[0], config))
-        Path(env["TIT_EVENTS_FILE"]).write_text(
-            json.dumps({"type": "result", "outputs": {"recorded": argv[0]}}) + "\n"
+    def pre(**kwargs):
+        calls.append(("pre", kwargs))
+        return 0
+
+    def sim(config, *, overwrite=False):
+        calls.append(("sim", serialize_config(config)))
+        return [{"status": "success"}]
+
+    class Analyzer:
+        def __init__(self, **kwargs):
+            self.config = kwargs
+
+        def analyze_mask(self, **kwargs):
+            calls.append(("analyzer", {**self.config, **kwargs}))
+
+        def analyze_sphere(self, **kwargs):
+            calls.append(("analyzer", {**self.config, **kwargs}))
+
+        def analyze_cortex(self, **kwargs):
+            calls.append(("analyzer", {**self.config, **kwargs}))
+
+    def source(subject, config):
+        calls.append(
+            ("source", {"subject_ids": [subject], "forward": serialize_config(config)})
         )
+        return ("forward", "surface", "morph")
 
-    monkeypatch.setattr(execution.subprocess, "run", run)
+    class Leadfield:
+        def __init__(self, subject, electrode_cap):
+            self.subject = subject
+            self.net = electrode_cap
+
+        def list_leadfields(self):
+            return []
+
+        def generate(self, *, tissues):
+            calls.append(
+                (
+                    "leadfield",
+                    {
+                        "subject_id": self.subject,
+                        "tissues": tissues,
+                        "eeg_net": self.net,
+                    },
+                )
+            )
+            return "/result/leadfield.hdf5"
+
+    monkeypatch.setattr(tit.pre, "run_pipeline", pre)
+    monkeypatch.setattr(tit.sim, "run_simulation", sim)
+    monkeypatch.setattr(tit.analyzer, "Analyzer", Analyzer)
+    monkeypatch.setattr(tit.source, "prepare_forward", source)
+    monkeypatch.setattr(tit.opt.leadfield, "LeadfieldGenerator", Leadfield)
+    return calls
+
+
+def execute_cells(doc, project):
     scope = {}
-    notebook = notebook_json(document(), project_dir=str(tmp_path))
-    for cell in notebook["cells"]:
+    for cell in notebook_json(doc, project_dir=str(project))["cells"]:
         if cell["cell_type"] == "code":
             exec(compile(cell["source"], "exported-notebook", "exec"), scope)
+    return scope
+
+
+def test_all_cells_call_public_functions_with_complete_inputs(tmp_path, monkeypatch):
+    calls = capture_science(monkeypatch)
+    execute_cells(document(), tmp_path)
     assert [kind for kind, _ in calls] == [
         "pre",
         "pre",
@@ -98,8 +161,10 @@ def test_all_cells_execute_exact_configs_in_dependency_order(tmp_path, monkeypat
         "leadfield",
     ]
     for kind, config in calls:
-        assert config["project_dir"] == str(tmp_path)
-        if kind == "sim":
+        if kind == "pre":
+            assert config["create_m2m"] is True
+            assert config["freesurfer_threads"] == 3
+        elif kind == "sim":
             assert config["montages"][0]["name"] == "true_false_null"
             assert config["montages"][0]["electrode_pairs"] == [
                 ["E010", "E011"],
@@ -115,26 +180,174 @@ def test_all_cells_execute_exact_configs_in_dependency_order(tmp_path, monkeypat
             assert config["forward"]["cpus"] == 3
         elif kind == "leadfield":
             assert config["tissues"] == [2]
-    assert len(scope["completed"]) == len(calls)
-    assert all(record["events"] for record in scope["completed"].values())
 
 
-def test_failed_or_repeated_job_cannot_supply_stale_results(tmp_path, monkeypatch):
-    from tit.pipeline.execution import execute_job
-    from tit.jobs.spec import PlannedJob
-    from tit.jobs import kinds
+def test_failed_preprocessing_stops_before_simulation(tmp_path, monkeypatch):
+    import tit.pre
 
-    monkeypatch.setattr(kinds, "command_for", lambda *args, **kw: ["fake"])
+    calls = capture_science(monkeypatch)
+    monkeypatch.setattr(tit.pre, "run_pipeline", lambda **kwargs: 2)
+    with pytest.raises(RuntimeError, match="Preprocessing failed"):
+        execute_cells(document(), tmp_path)
+    assert calls == []
 
-    def fail(*args, **kwargs):
-        raise subprocess.CalledProcessError(1, ["fake"])
 
-    monkeypatch.setattr(subprocess, "run", fail)
-    completed = {}
-    job = PlannedJob(label="sim:0", kind="sim", config={}, subject_ids=["101"])
-    with pytest.raises(subprocess.CalledProcessError):
-        execute_job(job, completed, project_dir=str(tmp_path), run_id="run123")
-    assert completed == {}
-    completed[job.label] = {"prior": True}
-    with pytest.raises(ValueError, match="rerun Setup"):
-        execute_job(job, completed, project_dir=str(tmp_path), run_id="run123")
+def test_custom_conductivity_is_applied_and_restored_even_on_failure(
+    tmp_path, monkeypatch
+):
+    import os
+    import tit.sim
+
+    graph = build(
+        [("sim", "sim", sim_config(["M"], tissue_conductivities={1: 0.123, 2: 0.456}))]
+    )
+    monkeypatch.setenv("TISSUE_COND_1", "prior")
+    monkeypatch.delenv("TISSUE_COND_2", raising=False)
+
+    def run(config, *, overwrite):
+        assert os.environ["TISSUE_COND_1"] == "0.123"
+        assert os.environ["TISSUE_COND_2"] == "0.456"
+        raise ValueError("simulation failure")
+
+    monkeypatch.setattr(tit.sim, "run_simulation", run)
+    with pytest.raises(ValueError, match="simulation failure"):
+        execute_cells(graph, tmp_path)
+    assert os.environ["TISSUE_COND_1"] == "prior"
+    assert "TISSUE_COND_2" not in os.environ
+
+
+@pytest.mark.parametrize("kind", ["ex", "mex", "stats"])
+def test_search_and_statistics_export_executes_existing_function(
+    kind, tmp_path, monkeypatch
+):
+    from types import SimpleNamespace
+    from tit.config_io import serialize_config
+    import tit.opt
+    import tit.stats
+
+    config = {
+        "subject_id": "101",
+        "leadfield_hdf": "/data/exact.hdf5",
+        "roi_name": "target.csv",
+        "electrodes": {
+            "_type": "PoolElectrodes",
+            "electrodes": [f"E{i}" for i in range(8)],
+        },
+        "roi_radius": 4.5,
+    }
+    if kind == "stats":
+        config = {
+            "analysis_name": "true_false_null",
+            "subject_ids": ["101", "102"],
+            "subjects": [
+                {"subject_id": "101", "simulation_name": "M", "response": 1},
+                {"subject_id": "102", "simulation_name": "N", "response": 0},
+            ],
+            "n_permutations": 17,
+        }
+    captured = []
+
+    def run(config):
+        captured.append(serialize_config(config))
+        return SimpleNamespace(success=True)
+
+    module = tit.stats if kind == "stats" else tit.opt
+    function = {
+        "ex": "run_ex_search",
+        "mex": "run_m_ex_search",
+        "stats": "run_group_comparison",
+    }[kind]
+    monkeypatch.setattr(module, function, run)
+    execute_cells(build([("step", kind, config)]), tmp_path)
+    assert len(captured) == 1
+    if kind == "stats":
+        assert captured[0]["n_permutations"] == 17
+        assert captured[0]["subjects"] == config["subjects"]
+    else:
+        assert captured[0]["leadfield_hdf"] == "/data/exact.hdf5"
+        assert captured[0]["roi_radius"] == 4.5
+
+
+@pytest.mark.parametrize(
+    "mode,function",
+    [
+        ("flex", "run_flex_search"),
+        ("flex_adaptive", "run_adaptive_focality"),
+        ("flex_pareto", "run_pareto_sweep"),
+    ],
+)
+def test_flex_modes_call_the_selected_public_driver(
+    mode, function, tmp_path, monkeypatch
+):
+    from types import SimpleNamespace
+    from tests.test_pipeline_plan import flex_config
+    import tit.opt
+    import tit.opt.flex.drivers
+
+    config = flex_config()
+    config["mode"] = mode
+    if mode != "flex":
+        config["goal"] = "focality"
+    called = []
+
+    def run(config):
+        called.append(config)
+        return SimpleNamespace(success=True)
+
+    monkeypatch.setattr(
+        tit.opt if mode == "flex" else tit.opt.flex.drivers, function, run
+    )
+    execute_cells(build([("optimizer", "flex", config)]), tmp_path)
+    assert len(called) == 1
+    assert called[0].mode.value == mode
+
+
+def test_group_analysis_exports_one_direct_call_with_complete_cohort(
+    tmp_path, monkeypatch
+):
+    import tit.analyzer
+    from tit.pipeline.plan import plan_pipeline
+
+    graph = build(
+        [
+            ("subjects", "subjects", {"subject_ids": ["101", "102"]}),
+            (
+                "analysis",
+                "analyzer",
+                {
+                    "mode": "group",
+                    "simulation": "M",
+                    "analysis_type": "spherical",
+                    "center": [1, 2, 3],
+                    "radius": 6,
+                    "field": "TI_max",
+                    "visualize": False,
+                },
+            ),
+        ],
+        [("subjects", "analysis", "subjects")],
+    )
+    planned = plan_pipeline(graph)
+    assert len(planned) == 1
+    assert planned[0].subject_ids == ["101", "102"]
+    assert planned[0].config["subject_ids"] == ["101", "102"]
+    assert planned[0].config["subject_id"] is None
+    calls = []
+    monkeypatch.setattr(
+        tit.analyzer, "run_group_analysis", lambda **kwargs: calls.append(kwargs)
+    )
+    execute_cells(graph, tmp_path)
+    assert len(calls) == 1
+    assert calls[0]["subject_ids"] == ["101", "102"]
+    assert calls[0]["simulation"] == "M"
+    assert calls[0]["center"] == [1, 2, 3]
+    assert calls[0]["radius"] == 6
+    assert calls[0]["field"] == "TI_max"
+    markdown = "\n".join(
+        cell["source"]
+        for cell in notebook_json(graph)["cells"]
+        if cell["cell_type"] == "markdown"
+    )
+    assert "mermaid" not in markdown
+    assert "— kind" not in markdown
+    assert "*Node" not in markdown

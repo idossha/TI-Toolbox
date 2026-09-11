@@ -1,5 +1,5 @@
 /**
- * `/api/pipelines*` — the only place the canvas talks to the server.
+ * Canvas pipeline requests and project notebook export storage.
  *
  * Everything here goes through the generated contract types, so a schema change breaks the build
  * rather than a screen. Note what is *not* here: there is no per-node submit. Running a pipeline
@@ -126,4 +126,17 @@ export async function exportNotebook(doc: PipelineDoc, client = api): Promise<st
   });
   if (!result.response.ok) throw new ApiError(result.response.status, "/api/pipelines/export");
   return (result.data as unknown as string) ?? "";
+}
+
+/** Store exports alongside the project's other notebooks, without replacing user edits. */
+export async function exportNotebookToProject(doc: PipelineDoc, client = api): Promise<string> {
+  const content = JSON.parse(await exportNotebook(doc, client)) as Record<string, never>;
+  const listing = unwrap(await client.GET("/api/notebooks"), "/api/notebooks");
+  const existing = new Set(listing.notebooks.map((entry) => entry.name));
+  const base = (doc.name || "pipeline").replace(/[^A-Za-z0-9 ._-]/g, "-").replace(/^[^A-Za-z0-9]+/, "").slice(0, 110) || "pipeline";
+  let name = `${base}.ipynb`;
+  let suffix = 2;
+  while (existing.has(name)) name = `${base}-${suffix++}.ipynb`;
+  const saved = unwrap(await client.POST("/api/notebooks", { body: { name, content } }), "/api/notebooks");
+  return saved.name;
 }

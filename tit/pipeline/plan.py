@@ -383,13 +383,45 @@ def plan_pipeline(
 
         node_configs[node_id] = config
         subjects = resolve_subjects(doc, node_id, subject_cache)
+        if (
+            node.kind in {"ex", "mex"}
+            and len(subjects) > 1
+            and "leadfield" not in dynamic_ports
+        ):
+            raise PipelinePlanError(
+                f"{node.display_name}: a static leadfield belongs to one subject; "
+                "wire a Leadfield node for per-subject outputs, or use one search node per subject",
+                node_id,
+            )
         if not subjects and node.kind != "stats":
             raise PipelinePlanError(f"{node.display_name} has no subjects to run on")
 
         simulations = _bound_simulations(doc, node_id)
         labels: list[str] = []
 
-        if node.kind in COHORT_KINDS:
+        if node.kind == "analyzer" and config.get("mode") == "group":
+            for index, simulation in enumerate(simulations or [None]):
+                entry = {**config, "subject_id": None, "subject_ids": list(subjects)}
+                if simulation is not None:
+                    entry["simulation"] = simulation
+                cohort_config = _round_trip(node.kind, entry, node_id)
+                _attach_bindings(
+                    cohort_config, doc.name, node_id, dynamic_ports, subjects
+                )
+                label = f"{node_id}:{index}"
+                planned.append(
+                    PlannedJob(
+                        label=label,
+                        kind=node.kind,
+                        config=cohort_config,
+                        subject_ids=list(subjects),
+                        after_labels=sorted(set(upstream_labels)),
+                        tags=[*base_tags, f"pipeline:{doc.name}", f"node:{node_id}"],
+                        overwrite=overwrite,
+                    )
+                )
+                labels.append(label)
+        elif node.kind in COHORT_KINDS:
             rows = config.get("subjects", [])
             configured = {
                 row.get("subject_id") for row in rows if isinstance(row, dict)

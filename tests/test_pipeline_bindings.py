@@ -344,10 +344,10 @@ def test_notebook_dynamic_chain_passes_real_montage_to_simulation_and_analysis(
     tmp_path, monkeypatch
 ):
     from pathlib import Path
+    from types import SimpleNamespace
     from tit import get_path_manager
-    from tit.jobs import kinds
-    from tit.pipeline.notebook import notebook_json
-    import tit.pipeline.execution as execution
+    import tit.opt
+    from tests.test_pipeline_notebook import capture_science, execute_cells
 
     graph = build(
         [
@@ -365,38 +365,21 @@ def test_notebook_dynamic_chain_passes_real_montage_to_simulation_and_analysis(
         ],
     )
     pm = get_path_manager(str(tmp_path))
-    captured = []
-    monkeypatch.setattr(
-        kinds, "command_for", lambda kind, config, path, **_: [kind, path]
-    )
+    captured = capture_science(monkeypatch)
 
-    def run(argv, *, env, check):
-        config = json.loads(Path(argv[1]).read_text())
-        captured.append((argv[0], config))
-        outputs = {}
-        if argv[0] == "flex":
-            folder = Path(pm.flex_search(config["subject_id"])) / "exact_run"
-            folder.mkdir(parents=True)
-            offset = 1 if config["subject_id"] == "101" else 100
-            (folder / "electrode_positions.json").write_text(
-                json.dumps(
-                    {
-                        "optimized_positions": [
-                            [offset + i, i + 2, i + 3] for i in range(4)
-                        ]
-                    }
-                )
+    def run_flex(config):
+        folder = Path(pm.flex_search(config.subject_id)) / "exact_run"
+        folder.mkdir(parents=True)
+        offset = 1 if config.subject_id == "101" else 100
+        (folder / "electrode_positions.json").write_text(
+            json.dumps(
+                {"optimized_positions": [[offset + i, i + 2, i + 3] for i in range(4)]}
             )
-            outputs = {"output_folder": str(folder)}
-        Path(env["TIT_EVENTS_FILE"]).write_text(
-            json.dumps({"type": "result", "outputs": outputs}) + "\n"
         )
+        return SimpleNamespace(success=True, output_folder=str(folder))
 
-    monkeypatch.setattr(execution.subprocess, "run", run)
-    scope = {}
-    for cell in notebook_json(graph, project_dir=str(tmp_path))["cells"]:
-        if cell["cell_type"] == "code":
-            exec(cell["source"], scope)
+    monkeypatch.setattr(tit.opt, "run_flex_search", run_flex)
+    execute_cells(graph, tmp_path)
     simulations = {c["subject_id"]: c for kind, c in captured if kind == "sim"}
     assert simulations["101"]["montages"][0]["electrode_pairs"][0][0] == [1, 2, 3]
     assert simulations["102"]["montages"][0]["electrode_pairs"][0][0] == [100, 2, 3]

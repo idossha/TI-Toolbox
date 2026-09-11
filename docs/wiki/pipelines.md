@@ -195,14 +195,14 @@ outputs stop the dependent job with an explanation; historical results are not s
 Pipelines are saved in your project, at `code/ti-toolbox/pipelines/<name>.json`, and appear in the
 palette's **Saved** list. **Import JSON…** reads the same file from anywhere.
 
-**Save** asks for a name and writes the file; **Export notebook** opens a save dialog and writes an
-`.ipynb` with:
+**Export notebook** writes an `.ipynb` under
+`code/ti-toolbox/notebooks/`, where the Notebooks page discovers it automatically. Repeated exports
+receive a numbered name so an earlier notebook, including your edits, is preserved. It contains:
 
-- a title cell carrying the graph as a Mermaid diagram;
-- a setup cell with the project path and complete editable configuration;
-- one markdown + code cell pair per node, using the same planner and existing job runners as the
-  canvas, in dependency order;
-- explicit completed-job records for passing the selected producer's results to its consumers;
+- a title and readable processing-step headings;
+- a setup cell with the project path;
+- ordered calls to existing scientific functions, with complete editable input configurations;
+- ordinary result variables passing the selected producer's output to the next function;
 - the pipeline document itself in `metadata.ti_toolbox.pipeline`, so the canvas can be restored from
   the notebook without parsing Python.
 
@@ -213,9 +213,13 @@ job server are not required. Set `PROJECT_DIR`, then run **Run All Cells**, or
 jupyter nbconvert --to notebook --execute my-pipeline.ipynb
 ```
 
-Re-run the setup cell to start a fresh execution before rerunning completed steps. Saving or editing
-a node preserves settings its form does not expose. Invalid configuration drafts must be corrected
-before saving, exporting or running.
+The executable cells contain no graph or job scheduler. Run them in order. Node settings reuse the
+dedicated processing pages' controls, and edits preserve untouched configuration values. Multiple
+Analyzer targets become ordinary analysis steps, each with its own input. Invalid configuration
+drafts must be corrected before saving, exporting or running.
+
+Subcortical atlas analysis is not implemented by the current Analyzer function and is refused on
+export; exporting cannot add a scientific operation that the underlying function lacks.
 
 Notebook export needs `nbformat`. The TI-Toolbox image includes it; a bare `pip install tit` needs
 `pip install "tit[pipeline]"`.

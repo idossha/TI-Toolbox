@@ -4,7 +4,7 @@ Priorities and completion criteria live here; [RELEASING.md](RELEASING.md) owns 
 procedure and [TESTING.md](TESTING.md) owns validation strategy and gaps. Remove completed
 work; retain consequential rationale in [DECISIONS.md](DECISIONS.md).
 
-Status reviewed 2026-09-09. Candidate branch: `release/3.0.0`.
+Development continues on `main` until the official release.
 The current checkout is available for manual testing through the standard development loader.
 The internal image is published on Docker Hub; manual acceptance continues. No stable tag or public release is implied.
 
@@ -31,7 +31,7 @@ source before scheduling them; remove a row when it ships.
 | Optimizer | Ex symmetric-bucket controls; consistent naming for Flex `output_folder` and Ex `run_name`; mixed-kind group submission |
 | Analyzer | Expose Python multi-sphere ROI union in the config and UI |
 | Jobs | Running-job ETA and bulk retry; current elapsed time and single-job Rerun remain available |
-| Pipelines | Restore saved configs into forms; replace JSON-only editors where useful; notebook import round trip |
+| Pipelines | Share complete processing settings with dedicated pages; plain-function notebook export; notebook import round trip |
 | Notebooks | Detect outdated seeded examples without overwriting user edits; variable explorer and interactive plots |
 | Viewer | Decide whether unused per-layer overrides need a client; assess reference-scene marker visibility |
 | Test harness | Avoid tracked smoke-payload churn while preserving UI/HTTP replay equivalence |

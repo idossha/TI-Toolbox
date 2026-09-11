@@ -109,3 +109,17 @@ describe("Optimizer Ex/mEx defaults validate against contracts/generated/config.
     expect(validate("LeadfieldConfig", config as unknown as Record<string, unknown>)).toEqual([]);
   });
 });
+
+
+describe("subcortical target coordinate space", () => {
+  it.each(["subject", "mni"] as const)("retains %s space on every Ex/mEx atlas entry", (space) => {
+    const target = atlasTarget("CIT168", "/atlases/CIT168.nii.gz", [10, 11], space);
+    const expected = [10, 11].map((label) => ({ atlas_path: "/atlases/CIT168.nii.gz", label, atlas_space: space }));
+    const ex = buildExConfig("ernie", "/leadfield.hdf5", defaultExFormState(), target, "");
+    const mex = buildMExConfig("ernie", "/leadfield.hdf5", defaultMExFormState(), target, "");
+    expect(ex.roi_atlas).toEqual(expected);
+    expect(mex.roi_atlas).toEqual(expected);
+    expect(ex.roi_coordinate_space).toBe(space);
+    expect(mex.roi_coordinate_space).toBe(space);
+  });
+});

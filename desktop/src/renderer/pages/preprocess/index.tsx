@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
-import { Link } from "react-router-dom";
 import { getSurferSettings, putSurferSettings, type SurferSettings } from "../settings/api";
 import { Workflow } from "lucide-react";
 import { getSubjects, type Subject } from "../../api/client";
@@ -12,9 +11,8 @@ import { usePageSession, usePageSessionRef } from "../../app/pageSession";
 import { createAjvResolver } from "../../forms/ajvResolver";
 import { Button } from "../../ui/Button";
 import { ActionBar } from "../../ui/Chrome";
-import { Checkbox } from "../../ui/Toggle";
 import { InlineError } from "../../ui/Feedback";
-import { FormSection, PageLayout } from "../../ui/Layout";
+import { PageLayout } from "../../ui/Layout";
 import { notify } from "../../ui/Toast";
 import { SubjectsField, notConvertedColumn, presenceColumns, subjectsBlockedReason } from "../_shared/subjects";
 import {
@@ -41,8 +39,8 @@ import {
 import { defaultQsiPrepConfig, defaultQsiReconConfig, qsiPrepPreferences, qsiReconPreferences } from "./qsi";
 import { QsiPrepDialog } from "./QsiPrepDialog";
 import { QsiReconDialog } from "./QsiReconDialog";
-import { StepHelpIcon } from "./stepInfo";
-import { NativeFastSurfer } from "./NativeFastSurfer";
+import { PreprocessSteps } from "./PreprocessSteps";
+import { defaultConfig } from "./config";
 import "./preprocess.css";
 
 export type ExistingOutputPolicy = "skip" | "replace";
@@ -56,31 +54,7 @@ type SubjectRow = Subject & { has_dwi?: boolean; has_ct?: boolean };
  */
 const PRE_COLUMNS = [...presenceColumns<SubjectRow>({ dwi: true, ct: true }), notConvertedColumn<SubjectRow>()];
 
-export function defaultConfig(): PreprocessConfig {
-  return {
-    subject_ids: [],
-    // These match `pre_process_tab.py`'s Qt defaults (checked out of the box), not the bare
-    // schema default (false) — see PARITY.md.
-    convert_dicom: true,
-    run_fastsurfer: true,
-    run_freesurfer: false,
-    freesurfer_recon_all: true,
-    freesurfer_subregions: ["thalamus", "hippo-amygdala"],
-    freesurfer_threads: null,
-    charm_options: null,
-    charm_threads: null,
-    fastsurfer_threads: null,
-    create_m2m: true,
-    run_tissue_analysis: false,
-    run_qsiprep: false,
-    run_qsirecon: false,
-    qsiprep_config: null,
-    qsi_recon_config: null,
-    extract_dti: false,
-    skip_existing_outputs: true,
-    replace_existing_outputs: false,
-  };
-}
+export { defaultConfig } from "./config";
 
 export function toSubmitConfig(
   values: PreprocessConfig,
@@ -408,52 +382,7 @@ function PreprocessPage() {
           )}
         </div>
 
-        <div data-tier="1">
-          <FormSection
-            title="Structural"
-            helpSlot={<StepHelpIcon id="structural" />}
-          >
-            <div className="structural-columns">
-              <div className="structural-column">
-                <div className="run-checkbox-row preprocess-step-row"><Checkbox checked={values.convert_dicom} onCheckedChange={(v) => form.setValue("convert_dicom", v)} label="Convert DICOM to NIfTI" /><StepHelpIcon id="convert_dicom" /></div><div className="run-checkbox-row preprocess-step-row"><Checkbox checked={values.create_m2m} onCheckedChange={(v) => form.setValue("create_m2m", v)} label="SimNIBS charm (m2m + subject atlas)" /><StepHelpIcon id="create_m2m" /></div><div className="run-checkbox-row preprocess-step-row"><Checkbox checked={values.run_tissue_analysis} onCheckedChange={(v) => form.setValue("run_tissue_analysis", v)} label="Tissue analyzer" /><StepHelpIcon id="run_tissue_analysis" /></div>
-              </div>
-              <div className="structural-column">
-                <div><div className="run-checkbox-row preprocess-step-row"><Checkbox checked={values.run_fastsurfer} onCheckedChange={(v) => form.setValue("run_fastsurfer", v)} label="FastSurfer segmentation" /><StepHelpIcon id="run_fastsurfer" /></div><div className="structural-child"><span aria-hidden="true">↳</span><NativeFastSurfer /></div></div>
-                <div><div className="run-checkbox-row preprocess-step-row"><Checkbox checked={values.run_freesurfer} onCheckedChange={(v) => form.setValue("run_freesurfer", v)} label="FreeSurfer (optional)" /><StepHelpIcon id="run_freesurfer" /></div><div className="structural-child"><span aria-hidden="true">↳</span><Link to="/settings#preprocessing">Configure FreeSurfer</Link></div></div>
-              </div>
-            </div>
-          </FormSection>
-        </div>
-
-        <div data-tier="1">
-          <FormSection
-            title="DWI (docker)"
-            helpSlot={<StepHelpIcon id="dwi" />}
-          >
-            <div className="run-checkbox-row preprocess-step-row">
-              <Checkbox checked={values.run_qsiprep} onCheckedChange={(v) => form.setValue("run_qsiprep", v)} label="QSIPrep" />
-              <Button size="sm" variant="secondary" onClick={() => setQsiPrepOpen(true)} data-testid="open-qsiprep-config">
-                Configure…
-              </Button>
-              <StepHelpIcon id="run_qsiprep" />
-            </div>
-            <div className="run-checkbox-row preprocess-step-row">
-              <Checkbox checked={values.run_qsirecon} onCheckedChange={(v) => form.setValue("run_qsirecon", v)} label="QSIRecon" />
-              <Button size="sm" variant="secondary" onClick={() => setQsiReconOpen(true)} data-testid="open-qsirecon-config">
-                Configure…
-              </Button>
-              <StepHelpIcon id="run_qsirecon" />
-            </div>
-            <div className="run-checkbox-row preprocess-step-row">
-              <Checkbox
-                checked={values.extract_dti}
-                onCheckedChange={(v) => form.setValue("extract_dti", v)}
-                label="Extract DTI tensor"
-              />
-              <StepHelpIcon id="extract_dti" />
-            </div>
-          </FormSection>
-        </div>
+        <PreprocessSteps values={values} onChange={(patch) => Object.entries(patch).forEach(([key,value]) => form.setValue(key as keyof PreprocessConfig, value))} onQsiPrep={() => setQsiPrepOpen(true)} onQsiRecon={() => setQsiReconOpen(true)} />
 
       </RunWork>
 

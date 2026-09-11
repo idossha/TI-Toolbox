@@ -1,3 +1,5 @@
+import { AnalysisFieldSelect } from "./AnalysisFieldSelect";
+import { AnalyzerSettings } from "./AnalyzerSettings";
 /**
  * The Analyzer's **Jobs table** — one row per analysis job, and the row owns its inputs.
  *
@@ -28,13 +30,11 @@ import { useMemo, useState } from "react";
 import { Copy, Info, Plus, SlidersHorizontal, Target as TargetIcon, X } from "lucide-react";
 import { Button, IconButton } from "../../ui/Button";
 import { Dialog, Popover } from "../../ui/Overlay";
-import { Switch, Checkbox } from "../../ui/Toggle";
+import { Switch } from "../../ui/Toggle";
 import { Select } from "../../ui/Select";
-import { Field } from "../../ui/Field";
 import { SelectionPicker } from "../../ui/SelectionList";
-import { RoiPicker, emptyRoi, isRoiComplete, type RoiRegion, type RoiValue, type TissueKind } from "../_shared/roi";
+import { emptyRoi, isRoiComplete, type RoiRegion, type RoiValue, type TissueKind } from "../_shared/roi";
 import { AUTO_FIELD, type Space } from "./buildConfig";
-import { FIELD_REGISTRY } from "./fields";
 import "./analyzer-page.css";
 
 /**
@@ -236,22 +236,6 @@ export function AnalyzerJobRows({
     return subjects.find((s) => s.id === subjectId)?.simulations ?? [];
   }
 
-  function fieldOptions(row: AnalyzerRow) {
-    const available = fieldsFor(row.subjectId, row.simulation);
-    const names = available.length > 0 ? available : FIELD_REGISTRY.map((f) => f.name);
-    return [
-      // Radix Select reserves value="" for "no selection shown", so "Auto" needs a real sentinel.
-      { value: AUTO_FIELD, label: "Auto" },
-      ...names.map((name) => ({
-        value: name,
-        // TI_normal is a surface field and is not exported to NIfTI. The reason travels with the
-        // option now that the page-level note under the global Tissue field is gone.
-        label: row.space === "voxel" && name === "TI_normal" ? `${name} (mesh only)` : name,
-        disabled: row.space === "voxel" && name === "TI_normal",
-      })),
-    ];
-  }
-
   function addRow() {
     const last = rows[rows.length - 1];
     const seed = last ?? { subjectId: subjects.find((s) => !s.blockedReason)?.id };
@@ -419,12 +403,7 @@ export function AnalyzerJobRows({
                     />
                   </td>
                   <td data-cell="field">
-                    <Select
-                      value={row.field}
-                      onValueChange={(v) => patch(row.id, { field: v })}
-                      options={fieldOptions(row)}
-                      aria-label="Field"
-                    />
+                    <AnalysisFieldSelect value={row.field} space={row.space} available={fieldsFor(row.subjectId,row.simulation)} onChange={(field)=>patch(row.id,{field})}/>
                   </td>
                   <td data-cell="actions" className="montage-actions">
                     <IconButton aria-label={`Duplicate row ${i + 1}`} icon={<Copy size={14} />} onClick={() => duplicate(row)} />
@@ -551,69 +530,7 @@ export function AnalyzerJobRows({
         }
       >
         {targetRow && (
-          <div className="analysis-target-editor" data-testid="analysis-target-editor" data-row={targetRow.id}>
-            <RoiPicker
-              value={targetRow.roi}
-              onChange={(roi) => patch(targetRow.id, { roi })}
-              modes={[...ANALYZER_ROI_MODES]}
-              showMaskTissues={false}
-              subject={targetRow.subjectId || undefined}
-              space={targetRow.space === "voxel" ? "mni" : "subject"}
-              onOpenViewer={onOpenViewer}
-            />
-            {(targetRow.roi.mode === "cortical" || targetRow.roi.mode === "subcortical") && (
-              /* One line, not two: the checkbox and the (i) that explains it, the same shape as
-                 the Combine switch on the table's footer. The paragraph this replaces said in two
-                 sentences what the target line now says in one word ("combined"). */
-              <div className="analysis-target-combine" data-testid="analysis-target-combine">
-                <Checkbox
-                  checked={targetRow.combine}
-                  onCheckedChange={(on) => patch(targetRow.id, { combine: on })}
-                  label="Combine regions into one ROI"
-                />
-                <Popover
-                  trigger={
-                    <button type="button" className="field-help-trigger" aria-label="Help">
-                      <Info size={12} aria-hidden />
-                    </button>
-                  }
-                >
-                  <div className="field-help-popover">
-                    <div className="field-help-popover-title">Combine regions into one ROI</div>
-                    On, the selected regions are measured together as one ROI. Off, each region is its own
-                    analysis — one job per region.
-                  </div>
-                </Popover>
-              </div>
-            )}
-
-            {/* Space options — the last page-level section the Analyzer had, now the row's.
-                `AnalyzerConfig.tissue_type` is "voxel space only" (`tit/analyzer/config.py`) and
-                the runner overwrites it with GM in mesh (`analyzer.py`), so a mesh row states the
-                value it will actually run with and says why it cannot be changed. */}
-            <section className="analysis-settings-group" data-testid="analysis-space-options">
-              <h4 className="text-eyebrow">Space options</h4>
-              <Field
-                label="Tissue"
-                help="The compartment a voxel analysis measures in."
-                /* A disabled control's reason is stated ON the form, not behind an (i) the user
-                   would have to think to open (DESIGN.md §4.2 rule 8's shape). */
-                note={
-                  targetRow.space === "mesh"
-                    ? "Mesh analyses are gray matter — tissue applies to voxel space."
-                    : undefined
-                }
-              >
-                <Select
-                  value={targetRow.space === "voxel" ? targetRow.tissue : "GM"}
-                  onValueChange={(v) => patch(targetRow.id, { tissue: v as TissueKind })}
-                  options={TISSUE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
-                  disabled={targetRow.space === "mesh"}
-                  aria-label="Tissue"
-                />
-              </Field>
-            </section>
-          </div>
+          <AnalyzerSettings row={targetRow} onChange={(changes)=>patch(targetRow.id,changes)} onOpenViewer={onOpenViewer}/>
         )}
       </Dialog>
     </div>

@@ -89,3 +89,13 @@ export function sphereComplete(s: Sphere): boolean {
     s.radius > 0
   );
 }
+
+export function rowTargets(row: {roi: RoiValue; combine: boolean}): RoiValue[] {
+  const roi = row.roi;
+  if (roi.mode === "spherical") return roi.spheres.map((s) => ({ ...roi, spheres: [s] }));
+  if (roi.mode === "cortical" || roi.mode === "subcortical") {
+    if (row.combine || roi.regions.length <= 1) return [roi];
+    return roi.regions.map((r) => ({ ...roi, regions: [r] }));
+  }
+  return [roi];
+}

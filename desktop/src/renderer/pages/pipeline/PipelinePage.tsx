@@ -57,7 +57,8 @@ import { NodeInspector, useAtlasLookup } from "./NodeInspector";
 import { NodeCard, type CardData } from "./NodeCard";
 import { Palette, NODE_DRAG_TYPE } from "./Palette";
 import { Receipt } from "./Receipt";
-import { configFor, defaultEditor, editorFromNode, editorError, type NodeEditor } from "./editors";
+import { expandAnalysisTargets } from "./expandAnalysis";
+import { analyzerNodeTargets, configFor, defaultEditor, editorFromNode, editorError, type NodeEditor } from "./editors";
 import { useOverviewReadiness } from "./SubjectsEditor";
 import {
   NODE_KINDS,
@@ -75,7 +76,7 @@ import {
   type PortType,
 } from "./graph";
 import {
-  exportNotebook,
+  exportNotebookToProject,
   listPipelines,
   loadPipeline,
   runPipeline,
@@ -549,32 +550,10 @@ function PipelineCanvas() {
   });
 
   const exportNb = useMutation({
-    mutationFn: async () => {
-      const text = await exportNotebook(doc);
-      const name = `${doc.name || "pipeline"}.ipynb`;
-      // In the desktop shell the save dialog is the only thing that can write a file: an
-      // `<a download>` on a blob: URL — which is what this used to do — needs a download handler
-      // this app does not install, so the click did nothing at all and still said "exported".
-      // In a plain browser (the web build, and the dev server) the anchor is the real path.
-      if (window.tit?.saveFile) {
-        const result = await window.tit.saveFile(text, {
-          defaultName: name,
-          filters: [{ name: "Jupyter notebook", extensions: ["ipynb"] }],
-        });
-        if (!result.ok && "canceled" in result && result.canceled) return null;
-        if (!result.ok) throw new Error("reason" in result ? result.reason : "could not write the file");
-        return result.path;
-      }
-      const url = URL.createObjectURL(new Blob([text], { type: "application/x-ipynb+json" }));
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = name;
-      anchor.click();
-      URL.revokeObjectURL(url);
-      return name;
-    },
-    onSuccess: (where) => {
-      if (where) notify.success(`Notebook written to ${where}`);
+    mutationFn: () => exportNotebookToProject(doc),
+    onSuccess: async (name) => {
+      await queryClient.invalidateQueries({ queryKey: ["notebooks"] });
+      notify.success(`Notebook saved to project Notebooks: ${name}`);
     },
     onError: (error: unknown) => notify.error(`Could not export: ${String((error as Error)?.message ?? error)}`),
   });
@@ -727,7 +706,7 @@ function PipelineCanvas() {
           <Button variant="ghost" onClick={() => setSaveAs(doc.name === "untitled" ? "" : doc.name)} disabled={doc.nodes.length === 0 || draftIssues.length > 0} data-testid="pipeline-save">
             <Save size={14} aria-hidden /> Save
           </Button>
-          <Button variant="ghost" onClick={() => exportNb.mutate()} disabled={doc.nodes.length === 0 || draftIssues.length > 0} data-testid="pipeline-export">
+          <Button variant="ghost" onClick={() => exportNb.mutate()} disabled={doc.nodes.length === 0 || draftIssues.length > 0 || exportNb.isPending} data-testid="pipeline-export">
             <Download size={14} aria-hidden /> Export notebook
           </Button>
           <IconButton
@@ -967,6 +946,14 @@ function PipelineCanvas() {
             patch({ doc: { ...doc, nodes: doc.nodes.map((n) => (n.id === inspectedNode.id ? { ...n, label } : n)) } })
           }
           onClose={() => {
+            if (inspectedEditor.kind === "analyzer" && !editorError(inspectedEditor)) {
+              const targets = analyzerNodeTargets(inspectedEditor);
+              if (targets.length > 1) {
+                const configs = targets.map((target) => configFor(target, atlasLookup, inspectedNode.config, inspectedSubjects, inspectedEditor));
+                const next = expandAnalysisTargets(doc, inspectedNode.id, configs);
+                commit(next, Object.fromEntries(next.nodes.map((node) => [node.id, editorFromNode(node)])));
+              }
+            }
             setInspecting(null);
             setInspectField(null);
           }}

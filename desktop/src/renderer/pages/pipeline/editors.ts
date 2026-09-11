@@ -1,7 +1,10 @@
+import { defaultExNodeEditor, editorFromExNode, buildExNodeConfig, exNodeError, type ExNodeEditor } from "./exNodeEditor";
 /** Node configs stay authoritative; shared page builders apply only explicitly edited fields. */
+import { defaultConfig as defaultPreConfig } from "../preprocess/config";
+import type { PreprocessConfig } from "../preprocess/api";
 import { defaultFlexFormState, buildFlexConfig, type FlexFormState } from "../optimizer/flexConfig";
 import { buildSimulationConfig, type GlobalParams } from "../simulator/buildConfig";
-import { buildConfig as buildAnalyzerConfig, type AnalysisType, type Space } from "../analyzer/buildConfig";
+import { buildConfig as buildAnalyzerConfig, rowTargets, type AnalysisType, type Space } from "../analyzer/buildConfig";
 import { emptyRoi, roiToConfig, type AtlasLookup, type RoiValue } from "../_shared/roi";
 import { EMPTY_SPHERE, type Sphere } from "../analyzer/SphereRows";
 import type { SelectedRow } from "../simulator/types";
@@ -11,6 +14,7 @@ import type { NodeKind } from "./graph";
 export const PRE_STAGES: { key: string; label: string }[] = [
   { key: "convert_dicom", label: "Convert DICOM" },
   { key: "run_fastsurfer", label: "FastSurfer segmentation" },
+  { key: "run_freesurfer", label: "FreeSurfer" },
   { key: "create_m2m", label: "SimNIBS head model (charm)" },
   { key: "run_tissue_analysis", label: "Tissue analysis" },
   { key: "run_qsiprep", label: "QSIPrep" },
@@ -27,6 +31,7 @@ export interface SubjectsEditor {
 export interface PreEditor {
   kind: "pre";
   stages: Record<string, boolean>;
+  settings?: PreprocessConfig;
 }
 
 export interface FlexEditor {
@@ -47,9 +52,11 @@ export interface SimEditor {
 
 export interface AnalyzerEditor {
   kind: "analyzer";
+  mode?: "single" | "group";
   simulation: string;
   space: Space;
   analysisType: AnalysisType;
+  combine?: boolean;
   field: string;
   tissueType: string;
   coordinateSpace: "subject" | "mni";
@@ -69,7 +76,7 @@ export interface JsonEditor {
   text: string;
 }
 
-export type NodeEditor = SubjectsEditor | PreEditor | FlexEditor | SimEditor | AnalyzerEditor | JsonEditor;
+export type NodeEditor = SubjectsEditor | PreEditor | FlexEditor | SimEditor | AnalyzerEditor | JsonEditor | ExNodeEditor;
 
 const SIM_PARAMS: GlobalParams = {
   conductivity: "scalar",
@@ -82,10 +89,12 @@ const SIM_PARAMS: GlobalParams = {
 
 export function defaultEditor(kind: NodeKind): NodeEditor {
   switch (kind) {
+    case "ex":
+    case "mex": return defaultExNodeEditor(kind);
     case "subjects":
       return { kind: "subjects", subjects: [] };
     case "pre":
-      return { kind: "pre", stages: { create_m2m: true } };
+      return { kind: "pre", stages: Object.fromEntries(PRE_STAGES.map(({key}) => [key, defaultPreConfig()[key as keyof PreprocessConfig] === true])), settings: defaultPreConfig() };
     case "flex":
       return { kind: "flex", form: defaultFlexFormState(), roi: emptyRoi("subcortical") };
     case "sim":
@@ -100,7 +109,7 @@ export function defaultEditor(kind: NodeKind): NodeEditor {
         tissueType: "GM",
         coordinateSpace: "subject",
         sphere: { ...EMPTY_SPHERE },
-        roi: emptyRoi("cortical"),
+        roi: emptyRoi("spherical"),
       };
     default:
       return { kind: "json", nodeKind: kind, text: "{}" };
@@ -109,18 +118,20 @@ export function defaultEditor(kind: NodeKind): NodeEditor {
 
 /** Restore visible fields; raw config remains authoritative for everything not edited. */
 export function editorFromNode(node: { kind: NodeKind; config?: Record<string, unknown> }): NodeEditor {
+  if (node.kind === "ex" || node.kind === "mex") return editorFromExNode({kind:node.kind,config:node.config});
   const config = node.config ?? {};
   const base = defaultEditor(node.kind);
   switch (base.kind) {
     case "subjects": return { ...base, subjects: Array.isArray(config.subject_ids) ? config.subject_ids.map(String) : [] };
-    case "pre": return { ...base, stages: Object.fromEntries(PRE_STAGES.map(({ key }) => [key, config[key] === true])) };
+    case "pre": return { ...base, settings: { ...defaultPreConfig(), ...config } as PreprocessConfig, stages: Object.fromEntries(PRE_STAGES.map(({ key }) => [key, config[key] === true])) };
     case "flex": {
       const form = { ...base.form };
       const fields: Partial<Record<keyof FlexFormState, string>> = {
         goal: "goal", postproc: "postproc", anisotropyType: "anisotropy_type", anisoMaxratio: "aniso_maxratio", anisoMaxcond: "aniso_maxcond", currentMA: "current_mA", minElectrodeDistance: "min_electrode_distance",
-        optimizeCurrentRatio: "optimize_current_ratio", ratioLevels: "ratio_levels", ratioTotalMA: "ratio_total_mA", nonRoiMethod: "non_roi_method", intensityWeight: "intensity_weight", manualThresholds: "thresholds", nMultistart: "n_multistart", maxIterations: "max_iterations", populationSize: "population_size", tolerance: "tolerance", recombination: "recombination", skinRegionMarginMm: "skin_region_margin_mm", avoidLandmarkRegions: "avoid_landmark_regions", runFinalElectrodeSimulation: "run_final_electrode_simulation", enableMapping: "enable_mapping", eegNet: "eeg_net",
+        optimizeCurrentRatio: "optimize_current_ratio", ratioLevels: "ratio_levels", ratioTotalMA: "ratio_total_mA", nonRoiMethod: "non_roi_method", intensityWeight: "intensity_weight", manualThresholds: "thresholds", nMultistart: "n_multistart", maxIterations: "max_iterations", populationSize: "population_size", tolerance: "tolerance", recombination: "recombination", skinRegionMarginMm: "skin_region_margin_mm", avoidLandmarkRegions: "avoid_landmark_regions", runFinalElectrodeSimulation: "run_final_electrode_simulation", enableMapping: "enable_mapping", eegNet: "eeg_net", skinVisualizationNet: "skin_visualization_net",
       };
       for (const [field, key] of Object.entries(fields)) if (config[key] !== undefined && config[key] !== null) Object.assign(form, { [field]: config[key] });
+      form.visualizeSkinElectrodes = typeof config.skin_visualization_net === "string" && !!config.skin_visualization_net;
       const electrode = object(config.electrode);
       if (typeof electrode.shape === "string") form.electrodeShape = electrode.shape as FlexFormState["electrodeShape"];
       if (Array.isArray(electrode.dimensions)) [form.dimensionWidth, form.dimensionHeight] = electrode.dimensions as [number, number];
@@ -143,12 +154,14 @@ export function editorFromNode(node: { kind: NodeKind; config?: Record<string, u
       return { ...base, definitions: montages, montages: montages.map((m) => String(m.name ?? "")).join(", "), eegNet: nets.length === 1 ? nets[0]! : "", currents: Array.isArray(config.intensities) ? config.intensities.join(", ") : base.currents, params };
     }
     case "analyzer": {
-      const analysisType = ["spherical", "cortical", "subcortical", "nifti_mask"].includes(String(config.analysis_type)) ? (config.analysis_type === "nifti_mask" ? "mask" : config.analysis_type) as AnalysisType : base.analysisType;
+      const analysisType = ["spherical", "cortical", "subcortical", "mask", "nifti_mask"].includes(String(config.analysis_type)) ? (config.analysis_type === "nifti_mask" ? "mask" : config.analysis_type) as AnalysisType : base.analysisType;
       const center = Array.isArray(config.center) ? config.center : [];
       const roi = analysisType === "mask" ? { mode: "mask" as const, path: String(config.mask_path ?? ""), space: config.coordinate_space === "mni" ? "mni" as const : "subject" as const, tissues: "GM" as const }
-        : analysisType === "cortical" || analysisType === "subcortical" ? { ...emptyRoi(analysisType), atlas: typeof config.atlas === "string" ? config.atlas : undefined, regions: (Array.isArray(config.region) ? config.region : config.region ? [config.region] : []).map((name, index) => ({ id: -index - 1, name: String(name) })) } as RoiValue : base.roi;
-      return { ...base, simulation: String(config.simulation ?? ""), space: config.space === "voxel" ? "voxel" : "mesh", analysisType, field: typeof config.field === "string" ? config.field : "__auto__", tissueType: String(config.tissue_type ?? "GM"), coordinateSpace: config.coordinate_space === "mni" ? "mni" : "subject", sphere: { x: center[0] as number | undefined, y: center[1] as number | undefined, z: center[2] as number | undefined, radius: typeof config.radius === "number" ? config.radius : undefined }, roi };
+        : analysisType === "cortical" || analysisType === "subcortical" ? { ...emptyRoi(analysisType), atlas: typeof config.atlas === "string" ? config.atlas : undefined, regions: (Array.isArray(config.region) ? config.region : config.region ? [config.region] : []).map((name, index) => ({ id: -index - 1, name: String(name) })) } as RoiValue : {mode:"spherical",spheres:[{x:center[0],y:center[1],z:center[2],radius:config.radius}],space:config.coordinate_space === "mni" ? "mni" : "subject",volumetric:false,tissues:"GM"} as RoiValue;
+      return { ...base, mode: config.mode === "group" ? "group" : "single", simulation: String(config.simulation ?? ""), space: config.space === "voxel" ? "voxel" : "mesh", analysisType, field: typeof config.field === "string" ? config.field : "__auto__", tissueType: String(config.tissue_type ?? "GM"), coordinateSpace: config.coordinate_space === "mni" ? "mni" : "subject", sphere: { x: center[0] as number | undefined, y: center[1] as number | undefined, z: center[2] as number | undefined, radius: typeof config.radius === "number" ? config.radius : undefined }, roi };
     }
+    case "ex":
+    case "mex": return editorFromExNode({kind:base.kind,config});
     case "json": return { ...base, text: JSON.stringify(config, null, 2) };
   }
 }
@@ -217,11 +230,14 @@ function buildEditorConfig(
   const representative = cohort[0] ?? "";
 
   switch (editor.kind) {
+    case "ex":
+    case "mex": return buildExNodeConfig(editor,atlasLookup,cohort);
     case "subjects":
       // The one node that owns a subject list. Nothing else about it is configurable.
       return { subject_ids: [...editor.subjects] };
     case "pre": {
-      const flags: Record<string, unknown> = {};
+      const flags: Record<string, unknown> = { ...editor.settings };
+      delete flags.subject_ids;
       for (const stage of PRE_STAGES) flags[stage.key] = editor.stages[stage.key] === true;
       return flags;
     }
@@ -243,8 +259,8 @@ function buildEditorConfig(
     }
     case "analyzer": {
       const config = buildAnalyzerConfig({
-        mode: "single",
-        subjectId: representative,
+        mode: editor.mode ?? "single",
+        subjectId: editor.mode === "group" ? null : representative,
         subjectIds: cohort,
         simulation: editor.simulation,
         space: editor.space,
@@ -302,7 +318,7 @@ function applyChangedFields(saved: Record<string, unknown>, before: Record<strin
     if (JSON.stringify(before[key]) === JSON.stringify(after[key])) continue;
     if (!(key in after)) { delete result[key]; continue; }
     const oldObject = object(before[key]), newObject = object(after[key]);
-    result[key] = Object.keys(oldObject).length && Object.keys(newObject).length && oldObject._type === newObject._type
+    result[key] = Object.keys(oldObject).length && Object.keys(newObject).length && oldObject._type === newObject._type && object(saved[key])._type === oldObject._type
       ? applyChangedFields(object(saved[key]), oldObject, newObject) : after[key];
   }
   return result;
@@ -310,7 +326,16 @@ function applyChangedFields(saved: Record<string, unknown>, before: Record<strin
 
 /** Invalid drafts must not masquerade as the last valid document. */
 export function editorError(editor: NodeEditor): string | null {
+  if (editor.kind === "ex" || editor.kind === "mex") return exNodeError(editor);
   if (editor.kind !== "json") return null;
   try { const value: unknown = JSON.parse(editor.text); return value && typeof value === "object" && !Array.isArray(value) ? null : "Config must be a JSON object."; }
   catch { return "Config contains invalid JSON. Reopen the step to correct it."; }
+}
+
+/** Expand targets with the Analyzer page's own one-job-per-target rules. */
+export function analyzerNodeTargets(editor: AnalyzerEditor): AnalyzerEditor[] {
+  return rowTargets({roi:editor.roi,combine:editor.combine ?? true}).map((roi)=>analyzerEditorTarget(editor,roi,true));
+}
+export function analyzerEditorTarget(editor: AnalyzerEditor, roi: RoiValue, combine = editor.combine ?? true): AnalyzerEditor {
+  return {...editor,roi,combine,analysisType:roi.mode as AnalysisType, sphere:roi.mode === "spherical" ? roi.spheres[0] ?? {...EMPTY_SPHERE} : editor.sphere,coordinateSpace:roi.mode === "spherical" || roi.mode === "mask" ? roi.space : roi.mode === "subcortical" ? roi.atlasSpace : "subject"};
 }
