@@ -100,11 +100,13 @@ describe("useSubjectSpine — URL and localStorage", () => {
   let root: Root;
   let location: { pathname: string; search: string } = { pathname: "", search: "" };
   let historyLength = 0;
+  let hash = "";
 
   function Probe() {
     useSubjectSpine();
     const l = useLocation();
     location = { pathname: l.pathname, search: l.search };
+    hash = l.hash;
     historyLength += 1;
     return null;
   }
@@ -160,6 +162,13 @@ describe("useSubjectSpine — URL and localStorage", () => {
     expect(location).toEqual({ pathname: "/simulator", search: "?subject=bert" });
     expect(readStoredSubject("example")).toBe("bert");
     expect(readStoredSubject("other-project")).toBeNull();
+  });
+
+  it("preserves the requested Settings tab when publishing the remembered subject", async () => {
+    window.localStorage.setItem("tit-subject:example", "bert");
+    await mount("/settings#preprocessing");
+    expect(location.search).toBe("?subject=bert");
+    expect(hash).toBe("#preprocessing");
   });
 
   it("keeps any other search parameter the page put there", async () => {

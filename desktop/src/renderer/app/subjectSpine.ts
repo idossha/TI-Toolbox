@@ -72,9 +72,9 @@ export function useSubjectSpine(): void {
     else next.delete(SUBJECT_PARAM);
     const search = next.size ? `?${next.toString()}` : "";
     publishedLocation.current = `${location.pathname}${search}`;
-    navigate({ pathname: location.pathname, search }, {
+    navigate({ pathname: location.pathname, search, hash: location.hash }, {
       replace: true,
       state: { ...location.state, [SUBJECT_SYNC_STATE]: true },
     });
-  }, [subjectId, pageId, projectName, location.pathname, location.search, location.state, navigate]);
+  }, [subjectId, pageId, projectName, location.pathname, location.search, location.hash, location.state, navigate]);
 }

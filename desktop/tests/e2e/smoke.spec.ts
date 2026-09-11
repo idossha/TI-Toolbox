@@ -148,11 +148,13 @@ test("launcher connects and the shell renders its chrome around the landing page
   // maintainer reversed that ("We should not install Tetravox on the host machine — forbidden");
   // the viewer is an `<iframe src="/tetravox/">` served by this app's own server again, opening a
   // scene is not a host action, and the entry went with it. ADR row 14's budget is 13, and this
-  // list is what holds a fourteenth to an ADR line.
+  // list enforces the boundary. Native FastSurfer adds the explicitly consented host runtime
+  // API described in the Apple GPU decision; it does not restore host Tetravox installation.
   const bridgeKeys = await page.evaluate(() => Object.keys((window as unknown as { tit: object }).tit).sort());
   expect(bridgeKeys).toEqual([
     "appVersion",
     "connect",
+    "fastsurfer",
     "getSettings",
     "notify",
     "openExternal",

@@ -300,6 +300,17 @@ test("hits its §12.3 numbers at 1280x800 and 1440x900, light and dark", async (
         expect(row.pageHeaderHeight).toBe(0);
         expect(row.panes.right).toBe(selection ? 360 : 0);
         expect(row.panes.work).toBeGreaterThanOrEqual(704);
+        const information = page.getByRole("region", { name: "Project information", exact: true });
+        await expect(information.getByRole("heading", { name: "Example project", exact: true })).toBeInViewport();
+        await expect(information.getByRole("heading", { name: "Storage", exact: true })).toBeInViewport();
+        await expect(information.getByRole("heading", { name: "Activity", exact: true })).toBeInViewport();
+        await expect(information.locator(".project-calendar")).toBeInViewport();
+        const matrixBox = (await page.locator(".overview-matrix").boundingBox())!;
+        const informationBox = (await information.boundingBox())!;
+        expect(informationBox.x, "project insights sit beside the matrix without overlap")
+          .toBeGreaterThanOrEqual(matrixBox.x + matrixBox.width);
+        expect(Math.abs(informationBox.y - matrixBox.y), "matrix and insights share their top edge").toBeLessThanOrEqual(1);
+        expect(informationBox.x + informationBox.width, "project insights stay inside the viewport").toBeLessThanOrEqual(size.width);
       }
     }
   }
@@ -347,10 +358,12 @@ test("hits its §12.3 numbers at 1280x800 and 1440x900, light and dark", async (
 
   const populated = rows.filter((r) => r.page === "populated");
   const unselected = rows.filter((r) => r.page === "unselected");
-  // The intentionally roomier project summary keeps storage rows visible without scrolling.
-  // Measured maxima: populated 50.8%, unselected 55.1%; matrix/detail ceilings stay unchanged.
-  expect(Math.max(...populated.map((r) => r.deadSpaceRatio))).toBeLessThanOrEqual(0.52);
-  expect(Math.max(...unselected.map((r) => r.deadSpaceRatio))).toBeLessThanOrEqual(0.56);
+  // The approved side-by-side matrix and storage/activity layout leaves more first-screen
+  // space around sparse project insights than the former full-width top summary. Measured
+  // maxima: populated 60.4%, unselected 67.4%; matrix/detail ceilings stay unchanged, and
+  // the geometry checks above guard the intended two-column layout in every capture.
+  expect(Math.max(...populated.map((r) => r.deadSpaceRatio))).toBeLessThanOrEqual(0.62);
+  expect(Math.max(...unselected.map((r) => r.deadSpaceRatio))).toBeLessThanOrEqual(0.69);
 });
 
 function projectSummary() {

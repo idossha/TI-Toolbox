@@ -75,6 +75,14 @@ const DEAD_SPACE_MAX = 0.45;
  * ground rows, the removed receipt strip). The profile above shows that attribution was wrong,
  * which is why four lanes in turn disowned the red: the number moved with the pane, not the
  * column.
+ *
+ * Re-measured 2026-09-10 after the approved Structural two-column layout and relocation of
+ * reconstruction/resource defaults to Settings (docs/dev/DECISIONS.md, "Persistent QSI and
+ * scoped CHARM overrides"; docs/dev/ARCHITECTURE.md, preprocessing preferences): 62.5 % at
+ * 1280x800 and 67.5 % at 1440x900, with work=45.2 % and right=82.4 % at the larger size.
+ * The additional space is in the simplified work column; the idle Terminal is unchanged.
+ * Allow 0.69 for this intentionally smaller stage-selection surface. The first-screen and
+ * hit-test gates still require every Tier-1 control (26 in this fixture) visible and unobstructed.
  */
 /**
  * The Analyzer's allowance, same rule — stated, not hidden in a lower global limit. The
@@ -114,7 +122,7 @@ const DEAD_SPACE_MAX = 0.45;
  * placement editor is on screen, which is the state a user runs in. Budget set at 0.56, the
  * measurement plus headroom.
  */
-const DEAD_SPACE_BY_PAGE: Record<string, number> = { preprocess: 0.66, analyzer: 0.55, optimizer: 0.58, simulator: 0.56 };
+const DEAD_SPACE_BY_PAGE: Record<string, number> = { preprocess: 0.69, analyzer: 0.55, optimizer: 0.58, simulator: 0.56 };
 
 const SUBJECT = "ernie";
 

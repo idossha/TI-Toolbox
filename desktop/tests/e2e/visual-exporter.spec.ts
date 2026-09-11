@@ -88,6 +88,7 @@ test("Settings toggles the panel into (and out of) the nav rail", async () => {
   await expect(railLink()).toHaveCount(0);
 
   await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await page.getByRole("tab", { name: "Extensions", exact: true }).click();
   // The toggle exists and is off — the maintainer's own requirement ("in the settings we should be
   // able to toggle them on and off to form the left side menu bar").
   const toggle = page.getByRole("checkbox").filter({ has: page.locator("xpath=..") }).nth(0);

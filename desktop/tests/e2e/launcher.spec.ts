@@ -97,6 +97,9 @@ test("starts a fresh stack through the Engine API and loads the session", async 
   const containers = [...fake.containers.values()];
   expect(containers).toHaveLength(1);
   const container = containers[0]!;
+  // The finite GPU probe must finish and be removed even though the fake server stays running.
+  expect(container.Labels["tit.gpu-probe"]).toBeUndefined();
+  expect(container.HostConfig?.DeviceRequests).toEqual([{ Driver: "nvidia", Count: -1, Capabilities: [["gpu"]] }]);
   expect(container.Labels["tit.project"]).toMatch(/^ti-toolbox-[0-9a-f]{8}$/);
   expect(container.Labels["tit.stack"]).toBe("ti-toolbox-v3");
   expect(container.Labels["tit.host_project_dir"]).toBe(projectDir);

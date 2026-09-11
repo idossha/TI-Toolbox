@@ -33,6 +33,7 @@
  *   `autoExit`       — default true: a started container exits after `fixture.execDelayMs` (40ms),
  *                      which is what the job-runner tests want. A stack test passes `false` so the
  *                      container stays up like a real server, unless its own label asks otherwise.
+ *                      GPU probes always finish: they run a finite computation, not a server.
  *   `serveTitServer` — on container start, listen on the container's own `TIT_SERVER_PORT` and
  *                      answer `/api/health`, `/api/version`, `/api/jobs`, `/auth/session` and `/`
  *                      the way `tit.server` does, using its `TIT_SERVER_TOKEN`. This is what makes
@@ -137,7 +138,8 @@ export async function startFakeEngineApi(opts = {}) {
 
   function scheduleExit(container) {
     const declared = container.Labels?.["fixture.execDelayMs"];
-    if (!autoExit && declared === undefined) return; // stays up, like a real server
+    const gpuProbe = container.Labels?.["tit.gpu-probe"] === "true";
+    if (!autoExit && declared === undefined && !gpuProbe) return; // stays up, like a real server
     const delay = Number(declared ?? 40);
     const exitCode = Number(container.Labels?.["fixture.exitCode"] ?? 0);
     setTimeout(() => {
