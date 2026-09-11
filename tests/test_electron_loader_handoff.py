@@ -149,3 +149,34 @@ def test_python_browser_no_open_remain_compatible(tmp_path):
     argv = ["--project", str(tmp_path), "--browser", "--no-open"]
     args = cli.launch_parser().parse_args(argv)
     assert cli.prepare_launch(args, argv) is None
+
+
+def test_dev_handoff_preserves_checkout_and_renderer(tmp_path):
+    executable = tmp_path / "electron-fixture"
+    executable.write_text(
+        '#!/bin/bash\nprintf "%s|%s" "$TIT_DEV_REPO_DIR" "$TIT_STATIC_DIR"\n'
+    )
+    executable.chmod(0o755)
+    result = subprocess.run(
+        ["bash", str(HELPER)],
+        env={**os.environ, "TIT_ELECTRON_EXECUTABLE": str(executable),
+             "TIT_DEV_REPO_DIR": str(tmp_path)},
+        capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == f"{tmp_path}|/ti-toolbox/desktop/out/rendererTI-Toolbox closed.\n"
+
+
+def test_bash_dev_loader_defaults_to_desktop(tmp_path):
+    root = HELPER.parent.parent
+    (tmp_path / "tit").mkdir()
+    (tmp_path / "tit" / "launch.py").touch()
+    (tmp_path / "loader.sh").write_text('#!/bin/bash\nprintf "%s" "$TIT_LAUNCH_UI"\n')
+    env = {**os.environ, "TIT_DEV_REPO_DIR": str(tmp_path)}
+    env.pop("TIT_LAUNCH_UI", None)
+    result = subprocess.run(
+        ["bash", str(root / "dev/loader/loader_dev.sh")],
+        env=env, capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "desktop"

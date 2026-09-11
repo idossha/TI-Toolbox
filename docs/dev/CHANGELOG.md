@@ -4,10 +4,28 @@ title: Changelog
 permalink: /releases/changelog/
 ---
 
-Complete changelog for all versions of the Temporal Interference Toolbox.
+Detailed technical changelog for all versions of the Temporal Interference Toolbox. Entries include implementation changes, compatibility notes, and fixes. For a condensed, user-facing summary, see [Version History]({{ site.baseurl }}/releases/) and the latest release page.
 
 ---
 ### v3.0.0 (Unreleased)
+
+- Overview removes the redundant LF and NET status columns.
+
+- Settings links retain their requested tab when the selected subject is added to the URL.
+
+- Apple GPU setup uses one consent dialog with direct setup/permissions links, installation location, and an official-release third-party software notice.
+
+- Pre-processing documentation groups its surfer and QSI subguides under one workflow overview. Deprecated v2 developer guides are replaced by a minimal legacy notice and version-tagged documentation link.
+
+- Confirmed job deletion clears the REST and live UI stores, including stale in-flight updates. Filesystem removal failures are reported and retain the job for retry.
+- Pre-processing documentation links are grouped on the right and point to tool configuration references. Overview leadfields use compact, truncated names and a count for additional matrices.
+
+- Settings is organized into Project, Pre-processing, Extensions, Viewer, and Server tabs. User-wide preprocessing preferences include CHARM/QSI resources and FreeSurfer operations; new FreeSurfer preferences enable reconstruction and both supported subregion pipelines. Thread fields display available capacity and GPU consent remains discoverable in browser settings.
+
+- QSIPrep fields no longer overlap, and QSIRecon uses a bounded scrolling dialog with persistent action buttons. Processing choices are saved across projects and shared with Settings → Pre-processing. Structural preprocessing groups GPU and configuration links beneath their respective tools.
+- CHARM offers optional denoising, final segmentation resolution, and scalp mesh facet size in Settings → Pre-processing. Unset options preserve the installed SimNIBS INI defaults.
+- Settings → Pre-processing owns persistent, user-wide Apple GPU enablement and FastSurfer/FreeSurfer thread preferences. Automatic allocation uses 80% of available CPUs; queued jobs retain their submitted CPU allocation.
+- Apple Silicon users can approve a managed native FastSurfer installation. The preference persists across local projects while each worker remains sandboxed to its active project. Setup details are in the [FastSurfer guide]({{ site.baseurl }}/wiki/fastsurfer/).
 
 - Documentation captions and atlas highlights render text safely; search navigation stays on the documentation origin. Mask imports reject filenames too long for their saved collision suffix.
 
@@ -73,7 +91,7 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
   allowing local files to be dragged directly into it.
 
 - **FastSurfer uses available hardware.** Automatic device selection supports CUDA, native
-  Apple MPS, or CPU in the selected Python environment. The bundled Docker image remains CPU-only.
+  Apple MPS, or CPU. The Docker image includes CUDA-enabled PyTorch; NVIDIA execution requires compatible host drivers and GPU access.
 
 - **Custom NIfTI targets in Flex and Ex searches.** Import `.nii` or `.nii.gz` files (including through the macOS picker) and choose Subject/MNI space;
   MNI masks use the selected subject’s registration. Target and electrode settings are visually
@@ -175,7 +193,7 @@ and the [Wiki]({{ site.baseurl }}/wiki/) for a page per workflow.
 - **The persistent FreeSurfer service** — the old `freesurfer` Compose service and `freesurfer_data` volume are removed. Optional FreeSurfer now runs full reconstruction and thalamic or hippocampal/amygdala subregions in temporary workers with a FreeSurfer license. Results remain in the project after the worker exits.
 - **Freeview and Gmsh launchers** — including the `/api/viewers/{freeview,gmsh}` server routes and their `_require_x11` capability gate. **gmsh is no longer in the image.**
 - **`dockerode` and CLI-driven Docker orchestration** in the desktop app, replaced by the dependency-free Engine API client above.
-- **The PyQt5 GUI (`tit/gui/`)** — deleted, along with its extension framework, its Qt dialogs and the `GUI` shell command. The container ships no Qt at all: PyQt5, `simnibs_gui` and gmsh are stripped from the image. The [historical page]({{ site.baseurl }}/wiki/gui/) is kept for reference.
+- **The PyQt5 GUI (`tit/gui/`)** — deleted, along with its extension framework, its Qt dialogs and the `GUI` shell command. The container ships no Qt at all: PyQt5, `simnibs_gui` and gmsh are stripped from the image. The [legacy notice]({{ site.baseurl }}/wiki/legacy-v2/) links to version-specific documentation.
 - **The legacy 2.x launcher** — replaced by the desktop app and by `tit launch`.
 - **The Subject Info panel** — its facts are the [Overview]({{ site.baseurl }}/wiki/overview/) page's; an existing project `settings.json` that still names it still loads.
 - **The standalone Electrode Placement extension** — folded into the Simulator (see above).

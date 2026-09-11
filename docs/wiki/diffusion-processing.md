@@ -1,6 +1,6 @@
 ---
 layout: wiki
-title: Diffusion Processing
+title: QSIPrep / QSIRecon
 permalink: /wiki/diffusion-processing/
 ---
 
@@ -116,6 +116,9 @@ An automated QC report is generated after extraction:
 
 ## Usage
 
+Set processing choices with **Configure QSIPrep** or **Configure QSIRecon**. For saving defaults
+and resource allocation, see [Pre-processing settings]({{ site.baseurl }}/wiki/pre-processing/#pre-processing-settings).
+
 ### Full Pipeline
 
 ```python
@@ -140,7 +143,7 @@ Once extracted, the tensor is automatically available for anisotropic simulation
 
 ## Docker & Resources
 
-QSIPrep and QSIRecon run as **sibling Docker containers** spawned from the SimNIBS container via Docker-out-of-Docker (DooD). CPU and memory limits are inherited from the parent container.
+QSIPrep and QSIRecon run as **sibling Docker containers** spawned from the SimNIBS container via Docker-out-of-Docker (DooD). Resource defaults are managed in the linked Pre-processing settings section.
 
 Resource requirements vary widely with acquisition (number of directions, resolution) and hardware; expect QSIPrep to take one to several hours per subject and to need 16 GB+ of RAM.
 

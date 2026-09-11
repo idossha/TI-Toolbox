@@ -18,6 +18,19 @@ The page has two parts. **Part 1** covers things outside the toolbox's control â
 
 # Part 1 â€” Environment problems (Docker, display, machine, upstream tools)
 
+
+## Dev desktop shows the image's old UI
+
+An early v3 Electron launcher handoff cleared the requested checkout before starting Docker.
+The container could therefore serve its baked UI despite starting through a dev loader.
+
+Use the updated `dev/loader/loader_dev.sh --desktop --project /path/to/project`.
+Development launches now preserve the checkout mount and serve its built renderer.
+If an existing container was started with the old configuration, finish its jobs before stopping
+it and starting the corrected loader. Rebuild local frontend changes with
+`npm --prefix desktop run build`.
+
+
 ## Desktop application
 
 ### What should happen when I close the app or switch projects?
@@ -364,3 +377,11 @@ In **Settings**, enable **Allow unsafe overrides** for this project, then run ag
 confirm **Replace and rerun**. The permission is off by default, applies across job pages,
 and does not suppress subsequent confirmations. When disabled, choose **Skip** or **Cancel**.
 Use the current checkout with the development loader, or an image containing this fix.
+
+
+### A deleted job remains in the Jobs list
+
+Early v3 builds refreshed the REST list but retained the deleted job in the live UI store.
+Update and reload the desktop app. Confirmed deletion now clears both stores and the selection;
+older queued updates cannot restore the row. A filesystem deletion failure is reported so you
+can resolve access permissions and retry, rather than receiving a false success notification.

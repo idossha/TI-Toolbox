@@ -174,7 +174,14 @@ test("an electrode pick writes a NAME into the montage form", async () => {
   await gotoPage(page, "simulator", "Simulator");
   await expectPage(page, "simulator");
   await expectRunPaneTab(page, "scene");
-  await page.waitForFunction(() => window.__scene?.camera.settled === true, null, { timeout: 20_000 });
+  const simulator = page.locator('[data-page-panel="simulator"]');
+  await expect(simulator.getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready");
+  // A retained pane can publish a settled fallback camera before its renderer and net finish
+  // loading. Wait for the selected 185-electrode net and a rendered frame before projecting it.
+  await page.waitForFunction(() =>
+    window.__scenePane?.mode === "montage" && window.__scene?.ready === true &&
+    window.__scene.markers.length === 185 && window.__scene.camera.settled === true,
+  null, { timeout: 20_000 });
 
   // Aimed by the renderer's OWN projection of the marker nearest the eye — an electrode round the
   // back of the head is behind the scalp by design and clicking where it projects selects nothing.
@@ -205,7 +212,7 @@ test("an electrode pick writes a NAME into the montage form", async () => {
   });
   // Scoped to the Simulator's own pane: the Optimizer's is retained and mounted by the tests
   // above, and both canvases carry the same testid.
-  const box = await page.locator('[data-page-panel="simulator"]').getByTestId("scene-canvas").boundingBox();
+  const box = await simulator.getByTestId("scene-canvas").boundingBox();
   if (!box) throw new Error("the scene canvas has no bounding box");
   await page.mouse.click(box.x + aim.x, box.y + aim.y);
 

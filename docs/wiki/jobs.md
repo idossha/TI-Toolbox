@@ -4,9 +4,7 @@ title: Jobs
 permalink: /wiki/jobs/
 ---
 
-# Jobs
-
-Everything long-running in TI-Toolbox v3 is a **job**: pre-processing, a simulation, a search, an
+Everything in TI-Toolbox v3 is a **job**: pre-processing, a simulation, a search, an
 analysis, a report, a group statistic, a Blender export. A page never runs work in its own process,
 and its process is owned by the server. The Jobs page centralizes status and cancellation; run pages also show their submitted jobs in a live Terminal pane.
 
@@ -28,17 +26,17 @@ and its process is owned by the server. The Jobs page centralizes status and can
 ## The table
 
 Filters for **state**, **kind** and **subject**, a free-text filter, and a **grouping toggle**: the
-same list rendered either flat (one row per job) or as a tree of *group → subject → stage*. A
+same list rendered either flat (one row per job) or as a tree of _group → subject → stage_. A
 batch you submitted from a run page, and a whole pipeline run, are each **one group**, so they can
 be watched and cancelled as one thing.
 
-| Column | Notes |
-|---|---|
-| **State** | `queued · running · succeeded · failed · cancelled · skipped · lost` |
-| **Kind** | `pre · sim · flex · flex_adaptive · flex_pareto · ex · mex · analyzer · source · stats · report · nilearn · nifti_average · blender` |
-| **Subjects** | Every subject the job covers |
-| **Stage** | The runner's own current stage and its percentage, e.g. `DICOM conversion · 40 %` |
-| **Elapsed / CPU / RSS** | Live from the server, not estimated |
+| Column                  | Notes                                                                                                                                |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **State**               | `queued · running · succeeded · failed · cancelled · skipped · lost`                                                                 |
+| **Kind**                | `pre · sim · flex · flex_adaptive · flex_pareto · ex · mex · analyzer · source · stats · report · nilearn · nifti_average · blender` |
+| **Subjects**            | Every subject the job covers                                                                                                         |
+| **Stage**               | The runner's own current stage and its percentage, e.g. `DICOM conversion · 40 %`                                                    |
+| **Elapsed / CPU / RSS** | Live from the server, not estimated                                                                                                  |
 
 ## The detail pane
 
@@ -53,11 +51,11 @@ Select a row — in the panel or on the page — and the pane on the right opens
   is one of these; browse reports in **Results**.
 - **Actions** — Stop, Rerun, Force and Delete, in the pane's header row.
 
-When a job fails, the pane names *which kind* of failure it was rather than only printing a
+When a job fails, the pane names _which kind_ of failure it was rather than only printing a
 traceback: `preflight`, `lock_wait`, `budget_wait`, `runner_failed`, `oom_suspected`, `cancelled`,
 `skipped`, `lost`, `docker_unavailable` — plus the last 20 lines of the log.
 
-**Clear** on any console is a per-view watermark. It hides what you have already read in *that*
+**Clear** on any console is a per-view watermark. It hides what you have already read in _that_
 view; it never deletes a server event and never truncates a log file on disk.
 
 ## Batches, groups and parallelism
@@ -66,8 +64,8 @@ A run page submits its whole table as **one request** (`POST /api/jobs/groups`) 
 template config plus per-subject overrides, and gets one `group_id` back. Two consequences worth
 knowing:
 
-- A table that mixes two job kinds becomes **one group per kind**, and the page says so — *"Queued
-  3 searches in 2 groups (ex, flex)"* — rather than implying an atomic batch.
+- A table that mixes two job kinds becomes **one group per kind**, and the page says so — _"Queued
+  3 searches in 2 groups (ex, flex)"_ — rather than implying an atomic batch.
 - **Subjects running in parallel** (on Pre-processing) is a scheduler admission cap on that group.
   It counts jobs, not subjects. Leave it at 1 unless you know the box can take it: two FEM-class
   jobs at once will contend for memory and finish later than they would in sequence.

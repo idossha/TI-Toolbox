@@ -66,6 +66,7 @@ export class JobsStream {
   private socket: WebSocketLike | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private stopped = true;
+  private readonly deleted = new Set<string>();
   /** Jobs the app currently wants events for (job id -> next seq to resume from). Re-sent as one
    * `subscribe` message on every (re)connect, since the server does not remember subscriptions
    * across a dropped socket. */
@@ -137,6 +138,15 @@ export class JobsStream {
     this.set({ eventsByJob });
   }
 
+  /** Remove a confirmed deletion and reject older queued messages/snapshots for its id. */
+  forgetJob(jobId: string): void {
+    this.deleted.add(jobId);
+    this.unsubscribeJob(jobId);
+    const jobs = { ...this.state.jobs };
+    delete jobs[jobId];
+    this.set({ jobs });
+  }
+
   private send(msg: JobsWsClientMessage): void {
     if (this.socket && this.socket.readyState === OPEN) this.socket.send(JSON.stringify(msg));
   }
@@ -170,9 +180,11 @@ export class JobsStream {
         return;
       }
       if (msg.type === "job") {
+        if (this.deleted.has(msg.job.id)) return;
         this.liveSinceSeed?.add(msg.job.id);
         this.set({ jobs: { ...this.state.jobs, [msg.job.id]: msg.job } });
       } else if (msg.type === "event") {
+        if (this.deleted.has(msg.job_id)) return;
         const existing = this.state.eventsByJob[msg.job_id] ?? [];
         const events = [...existing, msg.event];
         if (events.length > this.maxEventsPerJob) events.splice(0, events.length - this.maxEventsPerJob);
@@ -203,7 +215,7 @@ export class JobsStream {
       if (this.liveSinceSeed === live) this.liveSinceSeed = null;
     }
     const jobs: Record<string, JobStatus> = {};
-    for (const job of fetched) jobs[job.id] = job;
+    for (const job of fetched) if (!this.deleted.has(job.id)) jobs[job.id] = job;
     // A job the stream reported while the request was in flight is newer than the snapshot,
     // whether or not the snapshot mentions it (it may have been submitted after the query ran).
     for (const id of live) {

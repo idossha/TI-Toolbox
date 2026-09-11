@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
+import { Link } from "react-router-dom";
+import { getSurferSettings, putSurferSettings, type SurferSettings } from "../settings/api";
 import { Workflow } from "lucide-react";
 import { getSubjects, type Subject } from "../../api/client";
 import type { PageDef } from "../../app/registry";
@@ -10,8 +12,6 @@ import { usePageSession, usePageSessionRef } from "../../app/pageSession";
 import { createAjvResolver } from "../../forms/ajvResolver";
 import { Button } from "../../ui/Button";
 import { ActionBar } from "../../ui/Chrome";
-import { Field } from "../../ui/Field";
-import { NumberInput } from "../../ui/NumberInput";
 import { Checkbox } from "../../ui/Toggle";
 import { InlineError } from "../../ui/Feedback";
 import { FormSection, PageLayout } from "../../ui/Layout";
@@ -38,10 +38,11 @@ import {
   type QsiPrepSettings,
   type QsiReconSettings,
 } from "./api";
-import { defaultQsiPrepConfig, defaultQsiReconConfig } from "./qsi";
+import { defaultQsiPrepConfig, defaultQsiReconConfig, qsiPrepPreferences, qsiReconPreferences } from "./qsi";
 import { QsiPrepDialog } from "./QsiPrepDialog";
 import { QsiReconDialog } from "./QsiReconDialog";
 import { StepHelpIcon } from "./stepInfo";
+import { NativeFastSurfer } from "./NativeFastSurfer";
 import "./preprocess.css";
 
 export type ExistingOutputPolicy = "skip" | "replace";
@@ -64,12 +65,10 @@ export function defaultConfig(): PreprocessConfig {
     run_fastsurfer: true,
     run_freesurfer: false,
     freesurfer_recon_all: true,
-    freesurfer_subregions: [],
+    freesurfer_subregions: ["thalamus", "hippo-amygdala"],
     freesurfer_threads: null,
-    // The Qt tab defaults this to `min(DEFAULT_THREADS, multiprocessing.cpu_count())` because it
-    // can read the host's core count directly; this page has no such reading available, so it
-    // leaves the field blank and lets the server apply `tit.pre.fastsurfer.DEFAULT_THREADS` (or
-    // `$TIT_FASTSURFER_THREADS`) — see PARITY.md.
+    charm_options: null,
+    charm_threads: null,
     fastsurfer_threads: null,
     create_m2m: true,
     run_tissue_analysis: false,
@@ -87,12 +86,19 @@ export function toSubmitConfig(
   values: PreprocessConfig,
   subjectIds: string[],
   policy: ExistingOutputPolicy,
+  preferences?: SurferSettings,
 ): PreprocessConfig {
   return {
     ...values,
     subject_ids: subjectIds,
-    qsiprep_config: values.run_qsiprep ? (values.qsiprep_config ?? defaultQsiPrepConfig()) : null,
-    qsi_recon_config: values.run_qsirecon ? (values.qsi_recon_config ?? defaultQsiReconConfig()) : null,
+    fastsurfer_threads: null,
+    freesurfer_threads: null,
+    charm_threads: null,
+    charm_options: preferences?.charm_options ?? null,
+    freesurfer_recon_all: preferences?.freesurfer_recon_all ?? true,
+    freesurfer_subregions: preferences?.freesurfer_subregions ?? ["thalamus", "hippo-amygdala"],
+    qsiprep_config: values.run_qsiprep ? { ...(preferences?.qsiprep_config ?? values.qsiprep_config ?? defaultQsiPrepConfig()), cpus: preferences?.effective_qsiprep_threads ?? null, memory_gb: preferences?.qsiprep_memory_gb ?? null, omp_threads: preferences?.qsiprep_omp_threads ?? preferences?.effective_qsiprep_threads ?? 1 } : null,
+    qsi_recon_config: values.run_qsirecon ? { ...(preferences?.qsi_recon_config ?? values.qsi_recon_config ?? defaultQsiReconConfig()), cpus: preferences?.effective_qsirecon_threads ?? null, memory_gb: preferences?.qsirecon_memory_gb ?? null, omp_threads: preferences?.qsirecon_omp_threads ?? preferences?.effective_qsirecon_threads ?? 1 } : null,
     skip_existing_outputs: policy === "skip",
     replace_existing_outputs: policy === "replace",
   };
@@ -245,13 +251,19 @@ function PreprocessPage() {
     resolver: createAjvResolver<PreprocessConfig>("PreprocessConfig"),
     defaultValues: { ...defaultConfig(), ...readConfig() },
   });
+  const preferences = useQuery({ queryKey: ["surfer-settings"], queryFn: getSurferSettings });
+  const queryClient = useQueryClient();
+  const saveQsi = useMutation({ mutationFn: putSurferSettings,
+    onSuccess: (next) => queryClient.setQueryData(["surfer-settings"], next),
+    onError: (error) => notify.error(error.message),
+  });
   const values = form.watch();
   useEffect(() => {
     const sub = form.watch((v) => writeConfig(v as PreprocessConfig));
     return () => sub.unsubscribe();
   }, [form, writeConfig]);
 
-  const submitConfig = useMemo(() => toSubmitConfig(values, selected, policy), [values, selected, policy]);
+  const submitConfig = useMemo(() => toSubmitConfig(values, selected, policy, preferences.data), [values, selected, policy, preferences.data]);
   const steps = useMemo(() => plannedSteps(values), [values]);
   const stageIds = useMemo(() => plannedStageIds(values), [values]);
   // Columns = every stage this configuration runs, in run order — not only the ones the plan
@@ -275,7 +287,8 @@ function PreprocessPage() {
   // blocked by an empty selection.
   const blockedReason = subjectsBlockedReason(selected, [])
     ?? (steps.length === 0 ? "Select at least one processing step." : null)
-    ?? (values.run_freesurfer && !values.freesurfer_recon_all && !values.freesurfer_subregions?.length
+    ?? (preferences.isPending ? "Loading pre-processing preferences…" : preferences.error ? "Could not load pre-processing preferences." : null)
+    ?? (values.run_freesurfer && !submitConfig.freesurfer_recon_all && !submitConfig.freesurfer_subregions?.length
       ? "Select at least one FreeSurfer operation." : null);
 
   const plan: PlanModel | null = useMemo(() => {
@@ -290,7 +303,7 @@ function PreprocessPage() {
     // existing-outputs dialog is what the user just answered, and pressing "Replace and rerun"
     // there has to mean replace even if the segmented control below still says skip.
     mutationFn: (decision: ExistingOutputPolicy) =>
-      submitPreGroup(toSubmitConfig(values, selected, decision), selected, parallelSubjects),
+      submitPreGroup(toSubmitConfig(values, selected, decision, preferences.data), selected, parallelSubjects),
     onSuccess: (result) => {
       // `result.jobs.length` is not one-per-subject: the mock (and the real `plan_preprocessing`
       // DAG it mirrors) expands each subject into one job per configured stage (the subject
@@ -400,81 +413,14 @@ function PreprocessPage() {
             title="Structural"
             helpSlot={<StepHelpIcon id="structural" />}
           >
-            <div className="run-checkbox-row preprocess-step-row">
-              <Checkbox
-                checked={values.convert_dicom}
-                onCheckedChange={(v) => form.setValue("convert_dicom", v)}
-                label="Convert DICOM to NIfTI"
-              />
-              <StepHelpIcon id="convert_dicom" />
-            </div>
-            <div className="run-checkbox-row preprocess-step-row">
-              <Checkbox
-                checked={values.create_m2m}
-                onCheckedChange={(v) => form.setValue("create_m2m", v)}
-                label="SimNIBS charm (m2m + subject atlas)"
-              />
-              <StepHelpIcon id="create_m2m" />
-            </div>
-            <div className="run-checkbox-row preprocess-step-row">
-              <Checkbox
-                checked={values.run_fastsurfer}
-                onCheckedChange={(v) => form.setValue("run_fastsurfer", v)}
-                label="FastSurfer segmentation"
-              />
-              <StepHelpIcon id="run_fastsurfer" />
-            </div>
-            <Field label="FastSurfer threads" help="Leave blank to use the server's default thread count.">
-              <NumberInput
-                value={values.fastsurfer_threads ?? undefined}
-                onValueChange={(v) => form.setValue("fastsurfer_threads", v ?? null)}
-                min={1}
-                step={1}
-                disabled={!values.run_fastsurfer}
-              />
-            </Field>
-            <div className="run-checkbox-row preprocess-step-row">
-              <Checkbox
-                checked={values.run_freesurfer}
-                onCheckedChange={(v) => form.setValue("run_freesurfer", v)}
-                label="FreeSurfer (optional)"
-              />
-              <StepHelpIcon id="run_freesurfer" />
-            </div>
-            {values.run_freesurfer && (
-              <div className="preprocess-freesurfer-options" role="group" aria-label="FreeSurfer operations">
-                <Checkbox
-                  checked={values.freesurfer_recon_all}
-                  onCheckedChange={(v) => form.setValue("freesurfer_recon_all", v)}
-                  label="Full reconstruction (recon-all)"
-                />
-                {([
-                  ["thalamus", "Thalamic nuclei"],
-                  ["hippo-amygdala", "Hippocampal / amygdala subregions"],
-                ] as const).map(([region, label]) => (
-                  <Checkbox
-                    key={region}
-                    checked={values.freesurfer_subregions?.includes(region) ?? false}
-                    onCheckedChange={(checked) => form.setValue("freesurfer_subregions",
-                      checked ? [...(values.freesurfer_subregions ?? []), region]
-                        : (values.freesurfer_subregions ?? []).filter((item) => item !== region))}
-                    label={label}
-                  />
-                ))}
-                <p className="text-muted">Subregions require a completed recon-all, from this run or an existing reconstruction.</p>
-                <Field label="FreeSurfer threads" help="Leave blank to use the server's default thread count.">
-                  <NumberInput value={values.freesurfer_threads ?? undefined}
-                    onValueChange={(v) => form.setValue("freesurfer_threads", v ?? null)} min={1} step={1} />
-                </Field>
+            <div className="structural-columns">
+              <div className="structural-column">
+                <div className="run-checkbox-row preprocess-step-row"><Checkbox checked={values.convert_dicom} onCheckedChange={(v) => form.setValue("convert_dicom", v)} label="Convert DICOM to NIfTI" /><StepHelpIcon id="convert_dicom" /></div><div className="run-checkbox-row preprocess-step-row"><Checkbox checked={values.create_m2m} onCheckedChange={(v) => form.setValue("create_m2m", v)} label="SimNIBS charm (m2m + subject atlas)" /><StepHelpIcon id="create_m2m" /></div><div className="run-checkbox-row preprocess-step-row"><Checkbox checked={values.run_tissue_analysis} onCheckedChange={(v) => form.setValue("run_tissue_analysis", v)} label="Tissue analyzer" /><StepHelpIcon id="run_tissue_analysis" /></div>
               </div>
-            )}
-            <div className="run-checkbox-row preprocess-step-row">
-              <Checkbox
-                checked={values.run_tissue_analysis}
-                onCheckedChange={(v) => form.setValue("run_tissue_analysis", v)}
-                label="Tissue analyzer"
-              />
-              <StepHelpIcon id="run_tissue_analysis" />
+              <div className="structural-column">
+                <div><div className="run-checkbox-row preprocess-step-row"><Checkbox checked={values.run_fastsurfer} onCheckedChange={(v) => form.setValue("run_fastsurfer", v)} label="FastSurfer segmentation" /><StepHelpIcon id="run_fastsurfer" /></div><div className="structural-child"><span aria-hidden="true">↳</span><NativeFastSurfer /></div></div>
+                <div><div className="run-checkbox-row preprocess-step-row"><Checkbox checked={values.run_freesurfer} onCheckedChange={(v) => form.setValue("run_freesurfer", v)} label="FreeSurfer (optional)" /><StepHelpIcon id="run_freesurfer" /></div><div className="structural-child"><span aria-hidden="true">↳</span><Link to="/settings#preprocessing">Configure FreeSurfer</Link></div></div>
+              </div>
             </div>
           </FormSection>
         </div>
@@ -514,14 +460,14 @@ function PreprocessPage() {
       <QsiPrepDialog
         open={qsiPrepOpen}
         onOpenChange={setQsiPrepOpen}
-        initial={values.qsiprep_config ?? defaultQsiPrepConfig()}
-        onSave={(cfg: QsiPrepSettings) => form.setValue("qsiprep_config", cfg)}
+        initial={{ ...defaultQsiPrepConfig(), ...(preferences.data?.qsiprep_config ?? values.qsiprep_config) }}
+        onSave={(cfg: QsiPrepSettings) => saveQsi.mutate({ qsiprep_config: qsiPrepPreferences(cfg) })}
       />
       <QsiReconDialog
         open={qsiReconOpen}
         onOpenChange={setQsiReconOpen}
-        initial={values.qsi_recon_config ?? defaultQsiReconConfig()}
-        onSave={(cfg: QsiReconSettings) => form.setValue("qsi_recon_config", cfg)}
+        initial={{ ...defaultQsiReconConfig(), ...(preferences.data?.qsi_recon_config ?? values.qsi_recon_config) }}
+        onSave={(cfg: QsiReconSettings) => saveQsi.mutate({ qsi_recon_config: qsiReconPreferences(cfg) })}
       />
       <ExistingOutputsDialog
         open={existingOpen}

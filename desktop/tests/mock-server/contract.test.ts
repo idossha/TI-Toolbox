@@ -84,6 +84,7 @@ function jsType(v: unknown): string {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function assertRequired(schema: any, value: unknown, label: string, depth = 0): void {
   if (!schema || depth > 4) return;
+  if (value === null && Array.isArray(schema.type) && schema.type.includes("null")) return;
   if (schema.$ref) return assertRequired(resolveRef(schema.$ref), value, label, depth);
   if (schema["x-tit-config"]) {
     expect(typeof value, `${label}: expected an object (x-tit-config placeholder)`).toBe("object");
@@ -424,6 +425,8 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     });
 
     // settings (v1)
+    await call("/api/surfer-settings", "GET", "/api/surfer-settings");
+    await call("/api/surfer-settings", "PUT", "/api/surfer-settings", { body: { fastsurfer_threads: 4, freesurfer_threads: null } });
     await call("/api/settings", "GET", "/api/settings");
     await call("/api/settings", "PUT", "/api/settings", { body: { theme: "dark", panels: [], allow_unsafe_overrides: false, telemetry: { consented: true, enabled: false } } });
 

@@ -6,6 +6,7 @@
  * `QSIReconSettings` shapes (B4, landed mid-build): no `subject_id`, resource fields flat
  * (`cpus`/`memory_gb`/`omp_threads` directly on the object, not nested under `resources`).
  */
+import type { SurferSettings } from "../settings/api";
 import type { QsiPrepSettings, QsiReconSettings } from "./api";
 
 export interface CategoryItem {
@@ -304,3 +305,14 @@ export function defaultQsiReconConfig(): QsiReconSettings {
 
 export const DENOISE_METHODS = ["dwidenoise", "patch2self", "none"];
 export const UNRINGING_METHODS = ["mrdegibbs", "rpg", "none"];
+
+export function qsiPrepPreferences(config: QsiPrepSettings): SurferSettings["qsiprep_config"] {
+  const { output_resolution, image_tag, skip_bids_validation, denoise_method, unringing_method } = config;
+  if (denoise_method !== "dwidenoise" && denoise_method !== "patch2self" && denoise_method !== "none") throw new Error("Unsupported denoise method");
+  if (unringing_method !== "mrdegibbs" && unringing_method !== "rpg" && unringing_method !== "none") throw new Error("Unsupported unringing method");
+  return { output_resolution, image_tag, skip_bids_validation, denoise_method, unringing_method };
+}
+export function qsiReconPreferences(config: QsiReconSettings): SurferSettings["qsi_recon_config"] {
+  const { recon_specs, atlases, use_gpu, image_tag, skip_odf_reports } = config;
+  return { recon_specs: recon_specs ?? [DEFAULT_RECON_SPEC], atlases, use_gpu, image_tag, skip_odf_reports };
+}

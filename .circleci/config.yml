@@ -296,21 +296,22 @@ jobs:
           command: npx vitest run
 
       - run:
-          name: Install Xvfb + Playwright's Chromium OS deps
+          name: Install Xvfb + Playwright Chromium and OS deps
           command: |
             set -euo pipefail
             # needrestart otherwise waits at a service-restart dialog until CI times out.
             sudo env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
             sudo env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y xvfb
-            # Electron bundles Chromium, so the OS libraries Playwright's own Chromium needs
-            # (nss, gtk3, dbus, atk, ...) are the same ones Electron needs to start at all --
-            # this installs them without downloading a browser binary this project never
-            # launches directly (only Electron, via `_electron.launch`).
+            # Electron and the browser-mode specs need the same Chromium OS libraries.
             cd desktop
             # Start Playwright as root with the selected Node PATH so its apt child
             # inherits these settings instead of losing them at an internal sudo hop.
             sudo env "PATH=$PATH" DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
               npx playwright install-deps chromium
+            # Browser-mode specs use Playwright's page fixture, not Electron's bundled
+            # browser. Install as the test user so fixture setup finds the binary in
+            # that user's cache instead of failing before the browser test bodies.
+            npx playwright install chromium
 
       - run:
           name: E2E (Electron, offscreen, under Xvfb)

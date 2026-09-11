@@ -28,6 +28,11 @@ const tit: TitBridge = {
   openPath: (path: string) => ipcRenderer.invoke("tit:openPath", String(path)),
   showItemInFolder: (path: string) => ipcRenderer.invoke("tit:showItemInFolder", String(path)),
   notify: (title: string, body?: string) => ipcRenderer.invoke("tit:notify", String(title), body ? String(body) : undefined),
+  fastsurfer: {
+    status: () => ipcRenderer.invoke("tit:fastsurfer:status"),
+    enable: () => ipcRenderer.invoke("tit:fastsurfer:enable"),
+    disable: () => ipcRenderer.invoke("tit:fastsurfer:disable"),
+  },
   stack: {
     switchProject: (hostProjectDir?: string): Promise<TitStackStopResult> => ipcRenderer.invoke("tit:stack:switchProject", hostProjectDir),
     start: (hostProjectDir: string): Promise<TitStackStartResult> => ipcRenderer.invoke("tit:stack:start", String(hostProjectDir)),

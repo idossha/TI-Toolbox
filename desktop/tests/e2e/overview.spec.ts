@@ -27,7 +27,7 @@ const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
 const RUN_ID = process.env.TIT_E2E_RUN_ID ?? "overview";
 
 /** Every column the page defines — the gate's "every defined presence/count column". */
-const PRESENCE_COLUMNS = ["raw", "fast", "free", "m2m", "dwi", "ct", "lf", "net"];
+const PRESENCE_COLUMNS = ["raw", "fast", "free", "m2m", "dwi", "ct"];
 const COUNT_COLUMNS = ["Sim", "Opt", "Anly"];
 
 let app: ElectronApplication;
@@ -94,14 +94,13 @@ test("is the coverage strip and the presence matrix — no readiness board, no p
   expect(tiles).toContain("m2m 3/3");
   expect(tiles).toContain("leadfield 1/3");
 
-  // Presence: eight dots per row, each labelled — this page is the only place they appear (U6).
+  // Presence: six dots per row, each labelled — this page is the only place they appear (U6).
   const ernie = page.getByTestId("overview-row-ernie");
   await expect(ernie.getByRole("img")).toHaveCount(PRESENCE_COLUMNS.length);
   await expect(ernie.getByRole("img", { name: "m2m present" })).toBeVisible();
   await expect(ernie.getByRole("img", { name: "ct missing" })).toBeVisible();
-  // `partial` is its own reading, not a second word for "missing" — ernie has a leadfield for one
-  // of its two nets.
-  await expect(ernie.getByRole("img", { name: "leadfield partial" })).toBeVisible();
+  // Redundant leadfield and net status dots are excluded from the matrix.
+  await expect(ernie.getByRole("img", { name: /^(leadfield|eeg_net) / })).toHaveCount(0);
   await expect(page.getByTestId("overview-row-101").getByRole("img", { name: "fastsurfer missing" })).toBeVisible();
 
   // The readiness board of four stage cards is gone: it restated the matrix one chip at a time and
@@ -300,6 +299,17 @@ test("hits its §12.3 numbers at 1280x800 and 1440x900, light and dark", async (
         expect(row.pageHeaderHeight).toBe(0);
         expect(row.panes.right).toBe(selection ? 360 : 0);
         expect(row.panes.work).toBeGreaterThanOrEqual(704);
+        const information = page.getByRole("region", { name: "Project information", exact: true });
+        await expect(information.getByRole("heading", { name: "Example project", exact: true })).toBeInViewport();
+        await expect(information.getByRole("heading", { name: "Storage", exact: true })).toBeInViewport();
+        await expect(information.getByRole("heading", { name: "Activity", exact: true })).toBeInViewport();
+        await expect(information.locator(".project-calendar")).toBeInViewport();
+        const matrixBox = (await page.locator(".overview-matrix").boundingBox())!;
+        const informationBox = (await information.boundingBox())!;
+        expect(informationBox.x, "project insights sit beside the matrix without overlap")
+          .toBeGreaterThanOrEqual(matrixBox.x + matrixBox.width);
+        expect(Math.abs(informationBox.y - matrixBox.y), "matrix and insights share their top edge").toBeLessThanOrEqual(1);
+        expect(informationBox.x + informationBox.width, "project insights stay inside the viewport").toBeLessThanOrEqual(size.width);
       }
     }
   }
@@ -347,10 +357,12 @@ test("hits its §12.3 numbers at 1280x800 and 1440x900, light and dark", async (
 
   const populated = rows.filter((r) => r.page === "populated");
   const unselected = rows.filter((r) => r.page === "unselected");
-  // The intentionally roomier project summary keeps storage rows visible without scrolling.
-  // Measured maxima: populated 50.8%, unselected 55.1%; matrix/detail ceilings stay unchanged.
-  expect(Math.max(...populated.map((r) => r.deadSpaceRatio))).toBeLessThanOrEqual(0.52);
-  expect(Math.max(...unselected.map((r) => r.deadSpaceRatio))).toBeLessThanOrEqual(0.56);
+  // The approved side-by-side matrix and storage/activity layout leaves more first-screen
+  // space around sparse project insights than the former full-width top summary. Measured
+  // maxima: populated 60.4%, unselected 67.4%; matrix/detail ceilings stay unchanged, and
+  // the geometry checks above guard the intended two-column layout in every capture.
+  expect(Math.max(...populated.map((r) => r.deadSpaceRatio))).toBeLessThanOrEqual(0.62);
+  expect(Math.max(...unselected.map((r) => r.deadSpaceRatio))).toBeLessThanOrEqual(0.69);
 });
 
 function projectSummary() {

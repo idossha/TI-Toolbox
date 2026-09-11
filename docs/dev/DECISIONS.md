@@ -612,3 +612,43 @@ worker to `idossha/ti-toolbox:freesurfer-20260910`. Replace the internal launche
 **Why:** The maintainer distributes small patches under the same application tag; the
 rarely changing worker keeps a dated identity. Digests and source commits identify exact
 builds. Fresh starts refresh the application image; Attach never replaces a running session.
+
+## 2026-09-10: Optional managed Apple Silicon FastSurfer
+
+Use a consented, user-owned native runtime for local Apple Silicon FastSurfer, with project-scoped file transport and a sandboxed worker. Linux containers cannot expose Metal; copying macOS code into the core image would not provide GPU access. Keep Docker job ownership and standard derivative generation. CPU aggregation avoids the high-resolution Metal buffer limit observed in the maintainer benchmark. FreeSurfer stays an explicit alternative, not an automatic fallback. Pins and checksum sources are recorded in `desktop/src/main/fastsurferInstall.ts`; upstream pinned requirements control the native Python environment. See ARCHITECTURE §12 and the testing guidance in TESTING.md for verification boundaries.
+
+### 2026-09-10 — Prefer accessible GPUs for FastSurfer
+
+Replace CPU-only PyTorch packaging with CUDA 12.6-enabled wheels. A same-image launcher probe checks access before adding Docker GPU requests; FastSurfer validates computation at job time. Native Apple Silicon remains consent-based, and CPU fallback is explicit in logs. This reverses the image-size-driven CPU-only choice because it prevented usable NVIDIA hardware from accelerating segmentation. Host drivers remain outside the image. See ARCHITECTURE §12 and TESTING.md for the verification boundary.
+
+### 2026-09-10 — User-wide reconstruction preferences
+
+Move Apple GPU setup and FastSurfer/FreeSurfer thread controls to Settings → System. Apple GPU approval persists for the desktop user while filesystem permissions remain per active project. New sessions resume an installed runtime without asking again. Shared user configuration owns thread preferences; automatic defaults use 80% of available CPUs. This replaces session-only GPU consent and per-project UI thread inputs to reduce repeated setup and keep Pre-processing focused on pipeline selection.
+
+
+### 2026-09-10 — Group Settings by workflow
+
+Settings uses horizontal Project, Pre-processing, Extensions, Viewer, and Server tabs. Pre-processing owns user-wide reconstruction operations and resource defaults, including CHARM and QSI. FreeSurfer defaults to reconstruction plus both supported subregion pipelines; its run-page checkbox selects the tool, not its configuration. GPU setup remains discoverable in browser sessions, but native installation consent requires Electron. Mounted tab panels preserve unsaved drafts.
+
+### 2026-09-10 — Persistent QSI and scoped CHARM overrides
+
+QSI processing choices share user preferences between Settings and run-page dialogs; resources
+remain separate. Dialogs use stacked labels and a bounded scrolling body to prevent overlap
+and keep actions visible. Structural stages are grouped in two columns, with reconstruction
+configuration links attached below their owning tools.
+
+CHARM exposes only validated denoising, final segmentation resolution, and scalp facet size.
+The runner copies the installed INI and changes explicit values, preserving all other installed
+settings. It does not synthesize a new meshing profile or modify the installed file.
+
+
+### 2026-09-10 — Consolidate v3 development on main
+
+Retire `release/3.0.0` after merging its accepted work into `main`. Development continues on
+`main` until the official release; this reverses the active release-branch arrangement above.
+Do not create a release tag or change the notification version (`version.py`, 2.5.0) as part of
+this consolidation. Resume isolated topic work after the official release.
+
+Apple GPU setup now uses the Settings dialog as its single consent surface, including source,
+permissions and third-party notices. Remove the duplicate native dialog while retaining sender
+validation, local-project checks and project-change cancellation in the main process.

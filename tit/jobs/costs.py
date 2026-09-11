@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from tit.jobs.spec import Cost
+from tit.surfer_settings import effective_threads
 
 # kind -> Cost.
 DEFAULT_COSTS: dict[str, Cost] = {
@@ -53,9 +54,38 @@ def default_cost(kind: str, config: dict[str, Any] | None = None) -> Cost:
     base = DEFAULT_COSTS.get(kind, _FALLBACK)
     if kind == "pre" and config.get("run_fastsurfer"):
         # Upstream minimum system memory for segmentation; keep other pre stages unchanged.
-        base = Cost(cpus=base.cpus, mem_gb=8)
+        base = Cost(
+            cpus=effective_threads("fastsurfer", config.get("fastsurfer_threads")),
+            mem_gb=8,
+        )
     if kind == "pre" and config.get("run_freesurfer"):
-        base = Cost(cpus=_num(config.get("freesurfer_threads")) or 2, mem_gb=16)
+        base = Cost(
+            cpus=max(
+                base.cpus,
+                effective_threads("freesurfer", config.get("freesurfer_threads")),
+            ),
+            mem_gb=16,
+        )
+    if kind == "pre" and config.get("create_m2m"):
+        base = Cost(
+            cpus=max(
+                base.cpus, effective_threads("charm", config.get("charm_threads"))
+            ),
+            mem_gb=base.mem_gb,
+        )
+    if kind == "pre":
+        for tool, field in (
+            ("qsiprep", "qsiprep_config"),
+            ("qsirecon", "qsi_recon_config"),
+        ):
+            if config.get(f"run_{tool}"):
+                resources = config.get(field) or {}
+                base = Cost(
+                    cpus=max(base.cpus, effective_threads(tool, resources.get("cpus"))),
+                    mem_gb=max(
+                        base.mem_gb, _num(resources.get("memory_gb")) or base.mem_gb
+                    ),
+                )
     if kind == "blender" and config.get("_type") in (
         "VectorConfig",
         "RegionConfig",

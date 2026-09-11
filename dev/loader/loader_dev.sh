@@ -12,5 +12,5 @@ export TIT_DEV_REPO_DIR="$(cd "$REPO" && pwd -P)"
 if [ -z "${TIT_COMPOSE_FILE+x}" ] && [ -f "$HERE/docker-compose.yml" ]; then
     export TIT_COMPOSE_FILE="$HERE/docker-compose.yml"
 fi
-export TIT_LAUNCH_UI=browser
+export TIT_LAUNCH_UI="${TIT_LAUNCH_UI:-desktop}"
 exec bash "$TIT_DEV_REPO_DIR/loader.sh" "$@"

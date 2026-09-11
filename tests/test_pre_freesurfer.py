@@ -181,6 +181,14 @@ def test_cleanup_errors_do_not_hide_job_error(project):
 
 
 def test_default_limits_match_reserved_job_budget(project, monkeypatch):
+    from tit import surfer_settings
+
+    monkeypatch.setattr(surfer_settings, "available_threads", lambda: 10)
+    monkeypatch.setattr(
+        surfer_settings,
+        "load_preferences",
+        lambda: {"fastsurfer_threads": None, "freesurfer_threads": None},
+    )
     complete(project[0])
     monkeypatch.setattr(fs, "get_inherited_dood_resources", lambda: (32, 128))
     runner = Mock()
@@ -189,9 +197,9 @@ def test_default_limits_match_reserved_job_budget(project, monkeypatch):
         "001", recon_all=False, subregions=["thalamus"], runner=runner, logger=Mock()
     )
     argv = runner.run.call_args.args[0]
-    assert argv[argv.index("--cpus") + 1] == "2"
+    assert argv[argv.index("--cpus") + 1] == "9"
     assert argv[argv.index("--memory") + 1] == "16g"
-    assert argv[-2:] == ["--threads", "2"]
+    assert argv[-2:] == ["--threads", "9"]
 
 
 def test_container_requires_host_project_mapping(project, monkeypatch):

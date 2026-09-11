@@ -47,7 +47,7 @@ export interface FakeEngineApiOptions {
   socketPath?: string;
   /** Image references that already exist locally; anything else must be pulled. */
   images?: string[];
-  /** Default true: a started container exits shortly after start. False keeps it up. */
+  /** Default true: a started container exits shortly after start. False keeps servers up; GPU probes still finish. */
   autoExit?: boolean;
   /** Listen on the started container's own `TIT_SERVER_PORT` and answer like `tit.server`. */
   serveTitServer?: boolean;

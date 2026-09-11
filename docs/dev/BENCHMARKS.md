@@ -104,3 +104,11 @@ an EEG forward job in 727.9 s. Receipt: `dist/internal/real-final-baked-receipt.
 Repeat the corresponding `pipeline.spec.ts` and `source.spec.ts` real specs with a copied project,
 the same recorded configuration and an idle queue. Run one FEM workload at a time under emulation.
 These are workflow durations, not latency guarantees or certification of later security changes.
+
+## Native Apple Silicon FastSurfer acceptance — 2026-09-10
+
+The managed FastSurfer 2.5.4 runtime completed a Docker-owned preprocessing job on the maintainer's Apple Silicon Mac in 80.1 seconds, including native handoff and derived NIfTI conversion. This used a 1 mm resampling of subject 101's T1 (193 × 257 × 257 input), MPS inference, CPU aggregation, batch size 1 and 10 threads. It is an integration fixture timing, not a full-resolution performance claim.
+
+Job `fce5d3e9307d48b5` used the isolated `tit-native-acceptance` container and the current source checkout. The hidden Electron test declined then accepted native consent and reran managed installation before submission. Output under `derivatives/fastsurfer/sub-nativeMetalSmokeB20260910` was readable on both host and container: 256³ voxels, 96 label values and 1,285,285 nonzero voxels. Container-side comparison verified exact voxel equality and matching affine between MGZ and derived NIfTI. The generated label sidecar was present. These checks validate transport and conversion, not anatomical segmentation quality.
+
+Reproduce with the opt-in script in [TESTING](TESTING.md#native-fastsurfer-acceptance), a new test subject and `TIT_NATIVE_TEST_INPUT` set to the same resampled fixture. Test inputs and receipts are retained in the project. A separate full-resolution cancellation run verified termination of the native process group after the Docker requester stopped.

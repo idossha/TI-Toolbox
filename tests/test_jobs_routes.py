@@ -67,7 +67,10 @@ def settings(project: Path) -> ServerSettings:
 
 
 @pytest.fixture()
-def client(project: Path, settings: ServerSettings) -> TestClient:
+def client(project: Path, settings: ServerSettings, monkeypatch) -> TestClient:
+    # Match the fixed test budget, independently of this machine or saved user preferences.
+    monkeypatch.setattr("tit.surfer_settings.available_threads", lambda: 8)
+    monkeypatch.setattr("tit.surfer_settings.settings_path", lambda: project / "preferences.json")
     get_path_manager(str(project))
     manager = JobManager(
         str(project),
@@ -881,3 +884,12 @@ def test_pre_dti_replacement_does_not_confuse_existing_head_with_tensor(client):
         },
     )
     assert response.status_code == 201, response.text
+
+
+def test_delete_reports_disk_failure(client, monkeypatch):
+    def fail(*args):
+        raise PermissionError("read only")
+    monkeypatch.setattr(JobManager, "delete", fail)
+    response = client.delete("/api/jobs/example", headers=BEARER)
+    assert response.status_code == 500
+    assert "Could not remove the job from disk" in response.json()["detail"]

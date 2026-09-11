@@ -1,0 +1,44 @@
+.dialog-content:has(> .qsi-dialog-body) {
+  width: min(640px, calc(100vw - 32px));
+  max-height: min(720px, 78dvh);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dialog-content:has(> .qsi-dialog-body) > .dialog-title,
+.dialog-content:has(> .qsi-dialog-body) > .dialog-description,
+.dialog-content:has(> .qsi-dialog-body) > .dialog-footer {
+  flex-shrink: 0;
+}
+
+.dialog-content:has(> .qsi-dialog-body) > .dialog-footer {
+  flex-wrap: wrap;
+}
+
+.qsi-dialog-body {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  padding-right: var(--space-2);
+}
+
+.qsi-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.qsi-fields > .field {
+  min-width: 0;
+}
+
+.qsi-prep-body > .field-help {
+  margin-top: var(--space-3);
+}
+
+@media (max-width: 520px) {
+  .qsi-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

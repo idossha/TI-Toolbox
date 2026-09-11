@@ -157,3 +157,27 @@ describe("JobsStream — the seed is an authoritative snapshot, not a gap-filler
     stream.stop();
   });
 });
+
+
+describe("confirmed job deletion", () => {
+  it("drops live state and events, and cannot be resurrected by an in-flight seed or queued message", async () => {
+    let resolveSeed!: (jobs: JobStatus[]) => void;
+    const stream = new JobsStream({ url: "ws://x/ws/jobs", WebSocketImpl: FakeSocket,
+      seed: () => new Promise((resolve) => { resolveSeed = resolve; }) });
+    stream.start();
+    const ws = FakeSocket.instances.at(-1)!;
+    ws.open();
+    ws.message({ type: "job", job: job("deleted", "succeeded") });
+    stream.subscribeJob("deleted");
+    stream.forgetJob("deleted");
+    ws.message({ type: "job", job: job("deleted", "succeeded") });
+    ws.message({ type: "event", job_id: "deleted", event: { seq: 1, ts: 0, type: "log" } });
+    resolveSeed([job("deleted", "succeeded"), job("keep")]);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(Object.keys(stream.getState().jobs)).toEqual(["keep"]);
+    expect(stream.getState().eventsByJob.deleted).toBeUndefined();
+    expect(ws.sent).toContain(JSON.stringify({ unsubscribe: ["deleted"] }));
+    stream.stop();
+  });
+});

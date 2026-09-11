@@ -262,8 +262,8 @@ class PreprocessConfig:
         T1w image; the UI offers it checked whenever one exists.
     fastsurfer_threads : int or None
         Thread count for FastSurfer inference. ``None`` uses
-        :data:`tit.pre.fastsurfer.DEFAULT_THREADS` (or
-        ``$TIT_FASTSURFER_THREADS``).
+        the user preference (automatic: all available CPUs except one for the host), with
+        ``$TIT_FASTSURFER_THREADS`` taking precedence.
     run_freesurfer : bool
         Run optional FreeSurfer in a disposable project-bound container.
     freesurfer_recon_all : bool
@@ -272,7 +272,8 @@ class PreprocessConfig:
         Optional thalamus and hippo-amygdala segmentations. Without recon-all,
         a completed FreeSurfer reconstruction must already exist.
     freesurfer_threads : int or None
-        Worker CPU limit; None uses two threads, capped by available resources.
+        Worker CPU limit; None uses the user preference (automatic: all
+        available CPUs except one for the host), capped by available resources.
     create_m2m : bool
         Run SimNIBS ``charm`` (also runs ``subject_atlas``).
     run_tissue_analysis : bool
@@ -336,6 +337,8 @@ class PreprocessConfig:
 
     convert_dicom: bool = False
     run_fastsurfer: bool = False
+    charm_threads: int | None = None
+    charm_options: dict | None = None
     fastsurfer_threads: int | None = None
     run_freesurfer: bool = False
     freesurfer_recon_all: bool = True
@@ -356,6 +359,13 @@ class PreprocessConfig:
     def __post_init__(self) -> None:
         if not self.subject_ids:
             raise ValueError("subject_ids must be non-empty")
+        from tit.charm_options import validate_charm_options
+
+        self.charm_options = validate_charm_options(self.charm_options)
+        if self.charm_threads is not None and (
+            type(self.charm_threads) is not int or self.charm_threads < 1
+        ):
+            raise ValueError("charm_threads must be a positive integer")
         if self.freesurfer_threads is not None and (
             isinstance(self.freesurfer_threads, bool)
             or not isinstance(self.freesurfer_threads, int)

@@ -15,7 +15,8 @@ server fit together.
 
 - **[Overview](overview)** - Welcome, project opening and switching, then the project at a glance
 - **[Pre-Processing](pre-processing)** - Structural MRI preparation and head-model generation
-- **[Diffusion Processing](diffusion-processing)** - QSIPrep/QSIRecon integration for DTI-based anisotropic simulations
+  - **[FastSurfer / FreeSurfer](fastsurfer)** - Segmentation, reconstruction and GPU setup
+  - **[QSIPrep / QSIRecon](diffusion-processing)** - Diffusion processing and conductivity tensors
 - **[Simulator](simulator)** - One row per simulation job, with free-hand electrode placement on the subject's own scalp
 - **[Flex Search](flex-search)** - The Optimizer's *Flex* method: differential-evolution electrode optimization
 - **[Ex Search](ex-search)** - The Optimizer's *Ex* method: exhaustive search over a leadfield matrix
@@ -53,16 +54,7 @@ server fit together.
 - **[Agent Plugin Internals](agent-plugin)** - Skills, MCP server architecture, and tests behind the AI assistant integration
 - **[API Reference](../api/)** - Complete Python API documentation (auto-generated from docstrings)
 
-### V2 (deprecated): Development & Testing
+### Legacy versions
 
-These guides are preserved for developers maintaining v2 installations. Their Qt APIs and CI setup are historical and do not describe v3.
-
-- **[V2 Development Archive](v2-development)** - Entry point for legacy developer references
-- **[V2 Testing Pipeline](testing-pipeline)** - Archived pytest and CircleCI workflow
-- **[V2 PyQt GUI](gui)** - The tabbed Qt interface removed in v3.0.0
-- **[V2 Qt Extension API](extension/#architecture-historical)** - Legacy extension discovery and development
-- **[V2 Gallery](../gallery/v2/)** - Screenshots of the legacy interface
-
-## Support
-
-For additional help, installation instructions, and development resources, check the links in the sidebar or visit our [GitHub repository](https://github.com/idossha/TI-Toolbox). 
+Still using v2? See the brief [legacy-version notice]({{ site.baseurl }}/wiki/legacy-v2/)
+for version-specific documentation and migration information.

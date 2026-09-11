@@ -23,10 +23,6 @@ Explore comprehensive visual examples and documentation for all TI-Toolbox modul
 The UI gallery shows v3. Scientific output galleries also retain examples from earlier versions;
 legacy interfaces and external viewers are labeled where they appear.
 
-## V2 (deprecated)
+## Legacy versions
 
-Screenshots and workflows retained for legacy users:
-
-- **[V2 User Interface](v2/)** - PyQt tabs, extensions, and electrode placement
-- **[Gmsh & Freeview](gmsh-freeview/)** - External viewers from the classic workflow
-- **[V2 Development & Testing](../wiki/v2-development/)** - Legacy developer documentation
+For the retired v2 interface, see [Legacy v2 users]({{ site.baseurl }}/wiki/legacy-v2/).

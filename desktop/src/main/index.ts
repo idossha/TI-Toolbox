@@ -4,10 +4,12 @@ import { basename, isAbsolute, join, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { app, BrowserWindow, Notification, dialog, ipcMain, net, protocol, session, shell } from "electron";
 import { initLog, log } from "./log";
-import { readSettings, updateSettings } from "./settings";
+import { readSettings, updateSettings, setAppleGpuEnabled } from "./settings";
 import { LAUNCHER_ORIGIN, resolveRendererDir } from "./launcher";
 import { checkToken, waitForHealth } from "./health";
 import { nativeRuntime, resolveRuntime } from "./nativeRuntime";
+import { FastSurferWorker } from "./fastsurferWorker";
+import { installFastSurfer, probeFastSurfer, runtimePaths } from "./fastsurferInstall";
 import { stack } from "./stackHost";
 import { notifyJobCompletions, stopNotifyingJobCompletions } from "./jobsNotifier";
 import {
@@ -54,6 +56,51 @@ let activeSession: { origin: string; token: string } | null = null;
  * than a plain boolean (rb_12 NEW issue: macOS `activate` reopening a window after the first
  * window's quit was approved must not inherit that approval). */
 const quitGate = createQuitGate();
+const fastSurferWorker = new FastSurferWorker();
+let fastSurferInstalling = false;
+let fastSurferInstalled: boolean | undefined;
+let fastSurferProject: string | undefined;
+let fastSurferError: string | undefined;
+let fastSurferGeneration = 0;
+
+function localFastSurferProject(): string | undefined {
+  const current = stack.getCurrent();
+  return current && activeSession?.origin === current.origin ? current.hostProjectDir : undefined;
+}
+
+async function fastSurferStatus() {
+  const project = localFastSurferProject();
+  const supported = process.platform === "darwin" && process.arch === "arm64" && !!project;
+  if (fastSurferInstalled === undefined) fastSurferInstalled = supported && await probeFastSurfer(app.getPath("userData"));
+  return { supported, preferenceEnabled: readSettings().appleGpuEnabled === true, installed: fastSurferInstalled, enabled: !!project && project === fastSurferProject && fastSurferWorker.status().running,
+    installing: fastSurferInstalling, directory: runtimePaths(app.getPath("userData")).directory, project,
+    error: fastSurferError ?? fastSurferWorker.status().error ?? undefined };
+}
+
+async function stopFastSurferWorker() {
+  fastSurferGeneration++;
+  await fastSurferWorker.stop();
+  fastSurferProject = undefined;
+}
+
+
+async function resumeFastSurferWorker() {
+  const project = localFastSurferProject();
+  const generation = fastSurferGeneration;
+  if (!project || !readSettings().appleGpuEnabled || process.platform !== "darwin" || process.arch !== "arm64") return;
+  try {
+    const ready = await probeFastSurfer(app.getPath("userData"));
+    if (generation !== fastSurferGeneration || localFastSurferProject() !== project || !readSettings().appleGpuEnabled) return;
+    fastSurferInstalled = ready;
+    if (!ready) throw new Error("Apple GPU setup needs attention. Open Settings to enable it again.");
+    await fastSurferWorker.start(project, runtimePaths(app.getPath("userData")));
+    if (generation !== fastSurferGeneration || localFastSurferProject() !== project || !readSettings().appleGpuEnabled) return;
+    fastSurferProject = project;
+    fastSurferError = undefined;
+  } catch (error) {
+    if (generation === fastSurferGeneration) fastSurferError = error instanceof Error ? error.message : String(error);
+  }
+}
 
 function isSameOrigin(url: string, origin: string | null): boolean {
   if (!origin) return false;
@@ -121,6 +168,8 @@ async function connect(win: BrowserWindow, args: TitConnectArgs): Promise<TitCon
     log("warn", err instanceof Error ? err.message : String(err));
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
+  await stopFastSurferWorker();
+  fastSurferInstalled = undefined;
   updateSettings({ lastServerUrl: url.origin });
   delete process.env.TIT_DEV_PROJECT_DIR;
   // In dev the page comes from Vite (HMR) which proxies /api, /auth and /ws to the server.
@@ -128,6 +177,7 @@ async function connect(win: BrowserWindow, args: TitConnectArgs): Promise<TitCon
   serverOrigin = pageOrigin;
   activeSession = { origin: url.origin, token: args.token };
   projectRootCache = null; // A new session may point at a different project.
+  void resumeFastSurferWorker();
   notifyJobCompletions(url.origin, args.token);
   log("info", `connected to ${url.origin}; loading session from ${pageOrigin}`);
   // The server sets the HttpOnly cookie and 303s to "/"; the token is in this URL exactly once.
@@ -189,7 +239,7 @@ async function tryDevAutoConnect(win: BrowserWindow): Promise<boolean> {
   const projectDir = process.env.TIT_LAUNCH_PROJECT_DIR;
   if (containerId || projectDir) {
     try {
-      const result = containerId ? await stack.adopt(containerId) : await stack.start(projectDir!, { ...(process.env.TIT_LAUNCH_IMAGE ? { image: process.env.TIT_LAUNCH_IMAGE } : {}), ...(process.env.TIT_LAUNCH_PORT ? { preferredPort: Number(process.env.TIT_LAUNCH_PORT) } : {}) });
+      const result = containerId ? await stack.adopt(containerId) : await stack.start(projectDir!, { ...desktopStartOptions(), ...(process.env.TIT_LAUNCH_IMAGE ? { image: process.env.TIT_LAUNCH_IMAGE } : {}), ...(process.env.TIT_LAUNCH_PORT ? { preferredPort: Number(process.env.TIT_LAUNCH_PORT) } : {}) });
       if (!result.ok) throw new Error(result.error);
       const connected = await connect(win, { url: result.url, token: result.token });
       if (!connected.ok) throw new Error(connected.error);
@@ -423,12 +473,14 @@ async function handleQuitRequest(triggerWindow: BrowserWindow | null, proceed: (
     return;
   }
   if (!mayQuit) return;
+  await stopFastSurferWorker();
   stopNotifyingJobCompletions();
   quitGate.approve();
   proceed();
 }
 
 function desktopStartOptions() {
+  if (process.env.TIT_DEV_REPO_DIR) return { repoDir: process.env.TIT_DEV_REPO_DIR, staticDir: "/ti-toolbox/desktop/out/renderer", serverReload: true };
   if (app.isPackaged || process.env.TIT_DEV_LAUNCHER !== "1") return {};
   const port = Number(process.env.TIT_DEV_PORT || 8765);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("TIT_DEV_PORT must be a port number from 1 to 65535.");
@@ -607,6 +659,40 @@ function registerIpc(): void {
    */
   const fromLauncherWindow = (e: Electron.IpcMainInvokeEvent) => fromMainWindow(e) && isLauncherUrl(e.senderFrame?.url ?? "");
 
+  ipcMain.handle("tit:fastsurfer:status", async (e) => {
+    if (!fromMainWindow(e)) return { supported: false, preferenceEnabled: false, installed: false, enabled: false, installing: false };
+    return fastSurferStatus();
+  });
+  ipcMain.handle("tit:fastsurfer:enable", async (e) => {
+    if (!fromMainWindow(e) || !mainWindow) return { supported: false, preferenceEnabled: false, installed: false, enabled: false, installing: false };
+    const before = await fastSurferStatus();
+    if (!before.supported || !before.project || fastSurferInstalling) return before;
+    const project = before.project;
+    const generation = fastSurferGeneration;
+    // The Settings dialog is the single consent surface; IPC still enforces sender,
+    // local-project scope, and cancellation when the project changes during setup.
+    if (generation !== fastSurferGeneration || localFastSurferProject() !== project || fastSurferInstalling) return fastSurferStatus();
+    fastSurferInstalling = true;
+    fastSurferError = undefined;
+    try {
+      const runtime = await installFastSurfer(app.getPath("userData"), (text) => log("info", `[fastsurfer-install] ${text.trim()}`));
+      fastSurferInstalled = true;
+      if (generation !== fastSurferGeneration || localFastSurferProject() !== project) throw new Error("Native FastSurfer approval ended during installation. Enable it again for the current project.");
+      await fastSurferWorker.start(project, runtime);
+      if (generation !== fastSurferGeneration || localFastSurferProject() !== project) { await stopFastSurferWorker(); throw new Error("Native FastSurfer approval ended during startup."); }
+      setAppleGpuEnabled(true);
+      fastSurferProject = project;
+    } catch (error) { fastSurferError = error instanceof Error ? error.message : String(error); }
+    finally { fastSurferInstalling = false; }
+    return fastSurferStatus();
+  });
+  ipcMain.handle("tit:fastsurfer:disable", async (e) => {
+    if (!fromMainWindow(e)) return { supported: false, preferenceEnabled: false, installed: false, enabled: false, installing: false };
+    setAppleGpuEnabled(false);
+    await stopFastSurferWorker();
+    fastSurferError = undefined;
+    return fastSurferStatus();
+  });
   ipcMain.handle("tit:appVersion", () => app.getVersion());
   ipcMain.handle("tit:openExternal", (e, url: unknown) => {
     if (!fromMainWindow(e)) return;
@@ -716,6 +802,7 @@ function registerIpc(): void {
   ipcMain.handle("tit:stack:stop", async (e): Promise<TitStackStopResult> => {
     if (!fromMainWindow(e)) return { ok: false, error: "unknown sender" };
     const fromLauncher = isLauncherUrl(e.senderFrame?.url ?? "");
+    await stopFastSurferWorker();
     const result = await stack.stop();
     // Stopping from Settings kills the server that served the page making the call, so the window
     // is left showing a page whose backend no longer exists. Send it home rather than leaving the

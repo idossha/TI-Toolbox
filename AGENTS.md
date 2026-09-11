@@ -76,6 +76,8 @@ an isolated pass does not waive a failed full suite (see `docs/dev/TESTING.md`).
 
 ## Working in a shared worktree
 
+Use `bash dev/loader/loader_dev.sh` for manual developer testing of the current checkout; it opens Electron for native Apple GPU setup (`--browser` opts into browser testing). Verify the served renderer and Python come from the checkout, not the image, before reporting UI changes ready. See [CONTRIBUTING.md](CONTRIBUTING.md) for frontend rebuilds and live reload.
+
 Several agents may be in one worktree at once. Each of these cost a lane real work.
 
 - **Stage only your own files.** `git add -A` swept another lane's uncommitted work into the wrong

@@ -55,6 +55,15 @@ def main() -> int:
     ):
         importlib.import_module(module)
         print(f"IMPORT {module} OK", flush=True)
+    import torch
+
+    if torch.version.cuda != "12.6":
+        raise RuntimeError(
+            "image requires CUDA 12.6-enabled PyTorch, not CPU-only wheels"
+        )
+    print(
+        f"PYTORCH {torch.__version__} / CUDA runtime {torch.version.cuda}", flush=True
+    )
     np.testing.assert_allclose(
         np.linalg.solve(np.diag([2.0, 3.0]), [4.0, 9.0]), [2.0, 3.0]
     )

@@ -262,7 +262,9 @@ class JobManager:
         if pid is not None and create_time is not None and is_alive(pid, create_time):
             terminated = True
             logger.warning(
-                "job %s: runner pid %s outlived the previous server; terminating it", job_id, pid
+                "job %s: runner pid %s outlived the previous server; terminating it",
+                job_id,
+                pid,
             )
             await terminate_tree(pid, create_time)
         if may_spawn_docker_siblings(
@@ -273,7 +275,11 @@ class JobManager:
                 job_id, timeout_s=DOCKER_RECONCILE_TIMEOUT_S
             )
         self._finalize_interrupted(
-            job_id, status, note=RESTART_NOTE, use_events=True, trust_exit=not terminated
+            job_id,
+            status,
+            note=RESTART_NOTE,
+            use_events=True,
+            trust_exit=not terminated,
         )
 
     def _finalize_interrupted(
@@ -336,9 +342,7 @@ class JobManager:
                 error = JobError(
                     type="lost", message=note, last_lines=self._log_tail(job_id)
                 )
-            self._finalize_locked(
-                status, state=state, exit_code=exit_code, error=error
-            )
+            self._finalize_locked(status, state=state, exit_code=exit_code, error=error)
         locks.release_job(self.project_dir, job_id)
 
     # -- submission ---------------------------------------------------------------------------
@@ -372,10 +376,12 @@ class JobManager:
             # satisfied, so a typo'd dependency ran immediately and unordered. Caught here,
             # before anything is persisted, so the caller gets a 422 rather than a job that
             # quietly ignores its own precondition.
-            raise ValueError(
-                f"unknown job id in 'after': {', '.join(sorted(unknown))}"
-            )
+            raise ValueError(f"unknown job id in 'after': {', '.join(sorted(unknown))}")
         job_id = new_job_id()
+        if kind == "pre":
+            from tit.surfer_settings import resolve_job_threads
+
+            config = resolve_job_threads(config)
         cost = default_cost(kind, config)
         lock_requests = locks.keys_for(kind, subject_ids, config)
         spec = JobSpec(
@@ -690,11 +696,12 @@ class JobManager:
                 return "not_found"
             if status.state not in TERMINAL_STATES:
                 return "not_terminal"
+            # Keep the in-memory record if persistent deletion fails, so it can be retried.
+            self.registry.delete(job_id)
             del self._status[job_id]
             self._specs.pop(job_id, None)
             self._tailers.pop(job_id, None)
             self._event_subs.pop(job_id, None)
-        self.registry.delete(job_id)
         return "deleted"
 
     # -- pub/sub (for /ws/jobs) -------------------------------------------------------------------

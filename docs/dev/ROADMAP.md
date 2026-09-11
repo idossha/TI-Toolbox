@@ -38,3 +38,7 @@ source before scheduling them; remove a row when it ships.
 | Maintenance | Assess OpenSSF practices and extend integration coverage for selected colleague workflows |
 
 For older implementation plans and retired TODO references, see [DECISIONS.md](DECISIONS.md).
+
+### Native Apple GPU preprocessing
+
+Managed installation, project-session consent and sandboxed FastSurfer execution are implemented for local Apple Silicon desktop sessions. Keep native execution opt-in while collecting cross-machine installation and segmentation-quality evidence. Linux/Windows GPU workers and browser-only native host integration are outside this increment.

@@ -490,16 +490,21 @@ test("optional FreeSurfer plans and submits selected operations and retains them
   await expect(toggle).not.toBeChecked();
   await expect(page.getByRole("group", { name: "FreeSurfer operations" })).toHaveCount(0);
   await toggle.check();
+  // The run page selects the stage; user-wide operations now live in Settings.
+  await page.getByRole("link", { name: "Configure FreeSurfer", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "Pre-processing", exact: true })).toHaveAttribute("data-state", "active");
   const operations = page.getByRole("group", { name: "FreeSurfer operations" });
   await expect(operations.getByRole("checkbox", { name: "Full reconstruction (recon-all)", exact: true })).toBeChecked();
   await operations.getByRole("checkbox", { name: "Full reconstruction (recon-all)", exact: true }).uncheck();
   await operations.getByRole("checkbox", { name: "Thalamic nuclei", exact: true }).check();
   await operations.getByRole("checkbox", { name: "Hippocampal / amygdala subregions", exact: true }).check();
+  const preferencesSaved = page.waitForResponse((r) => r.url().endsWith("/api/surfer-settings") && r.request().method() === "PUT");
+  await page.getByRole("button", { name: "Save pre-processing preferences", exact: true }).click();
+  expect((await preferencesSaved).ok()).toBe(true);
   await gotoPage(page, "overview", "Overview");
   await gotoPage(page, "preprocess", "Pre-processing");
   await expect(toggle).toBeChecked();
-  await expect(operations.getByRole("checkbox", { name: "Thalamic nuclei", exact: true })).toBeChecked();
-  await expect(operations.getByRole("checkbox", { name: "Full reconstruction (recon-all)", exact: true })).not.toBeChecked();
+  await expect(operations).not.toBeVisible();
   for (const label of ["Convert DICOM to NIfTI", "SimNIBS charm (m2m + subject atlas)", "FastSurfer segmentation"]) {
     await page.getByRole("checkbox", { name: label, exact: true }).uncheck();
   }
@@ -516,4 +521,12 @@ test("optional FreeSurfer plans and submits selected operations and retains them
   const submitted = await (await response).json();
   expect(submitted.jobs).toHaveLength(body.subject_ids.length);
   await toggle.uncheck();
+  // Reload proves the saved operations survive beyond the mounted Settings draft.
+  await page.reload();
+  await gotoPage(page, "settings", "Settings");
+  await page.getByRole("tab", { name: "Pre-processing", exact: true }).click();
+  await expect(operations.getByRole("checkbox", { name: "Thalamic nuclei", exact: true })).toBeChecked();
+  await expect(operations.getByRole("checkbox", { name: "Hippocampal / amygdala subregions", exact: true })).toBeChecked();
+  await expect(operations.getByRole("checkbox", { name: "Full reconstruction (recon-all)", exact: true })).not.toBeChecked();
+
 });

@@ -110,7 +110,9 @@ def run_freesurfer(
         commands.append(args)
     cpus, memory = get_inherited_dood_resources()
     # Match the scheduler's FreeSurfer reservation, not the whole server budget.
-    cpus = min(cpus, max(1, int(threads))) if threads is not None else min(cpus, 2)
+    from tit.surfer_settings import effective_threads
+
+    cpus = min(cpus, effective_threads("freesurfer", threads))
     if memory < 16:
         raise PreprocessError(
             "FreeSurfer requires at least 16 GiB of available container memory."

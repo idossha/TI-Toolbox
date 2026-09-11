@@ -55,6 +55,14 @@ def wait_until(predicate, timeout=10.0, interval=0.02):
     raise AssertionError(f"condition not met within {timeout}s (last value: {last!r})")
 
 
+@pytest.fixture(autouse=True)
+def isolated_resource_preferences(tmp_path, monkeypatch):
+    # These managers have an eight-CPU test budget; host/user settings must not
+    # reserve more CPUs than that and leave fake preprocessing jobs queued forever.
+    monkeypatch.setattr("tit.surfer_settings.available_threads", lambda: 8)
+    monkeypatch.setattr("tit.surfer_settings.settings_path", lambda: tmp_path / "preferences.json")
+
+
 @pytest.fixture()
 def manager(tmp_path):
     m = make_manager(tmp_path)
@@ -376,12 +384,24 @@ def test_two_jobs_needing_one_exclusive_lock_never_both_start(tmp_path):
     try:
         first = manager.submit(
             "leadfield",
-            {"__fake": {"duration_s": 0.6, "hold_locks": True, "project_dir": str(tmp_path)}},
+            {
+                "__fake": {
+                    "duration_s": 0.6,
+                    "hold_locks": True,
+                    "project_dir": str(tmp_path),
+                }
+            },
             ["001"],
         )
         second = manager.submit(
             "leadfield",
-            {"__fake": {"duration_s": 0.05, "hold_locks": True, "project_dir": str(tmp_path)}},
+            {
+                "__fake": {
+                    "duration_s": 0.05,
+                    "hold_locks": True,
+                    "project_dir": str(tmp_path),
+                }
+            },
             ["001"],
         )
         wait_until(
@@ -417,13 +437,20 @@ def test_shared_read_locks_still_run_in_parallel(tmp_path):
         jobs = [
             manager.submit(
                 "flex",
-                {"__fake": {"duration_s": 0.5, "hold_locks": True, "project_dir": str(tmp_path)}},
+                {
+                    "__fake": {
+                        "duration_s": 0.5,
+                        "hold_locks": True,
+                        "project_dir": str(tmp_path),
+                    }
+                },
                 ["001"],
             )
             for _ in range(2)
         ]
         wait_until(
-            lambda: all(manager.get(j["id"])["state"] == "running" for j in jobs) or None
+            lambda: all(manager.get(j["id"])["state"] == "running" for j in jobs)
+            or None
         )
         for job in jobs:
             wait_until(
@@ -461,7 +488,13 @@ def test_a_failed_spawn_releases_the_resource_it_reserved(tmp_path):
         )
         ok = manager.submit(
             "leadfield",
-            {"__fake": {"duration_s": 0.05, "hold_locks": True, "project_dir": str(tmp_path)}},
+            {
+                "__fake": {
+                    "duration_s": 0.05,
+                    "hold_locks": True,
+                    "project_dir": str(tmp_path),
+                }
+            },
             ["001"],
         )
         final = wait_until(
@@ -477,7 +510,9 @@ def test_a_failed_spawn_releases_the_resource_it_reserved(tmp_path):
 def test_submit_rejects_an_after_naming_a_job_that_does_not_exist(manager):
     """RUN-04: caught before anything is persisted, so the route answers 422."""
     with pytest.raises(ValueError, match="unknown job id in 'after'"):
-        manager.submit("tools", {"__fake": {"duration_s": 0.01}}, ["001"], after=["ghost"])
+        manager.submit(
+            "tools", {"__fake": {"duration_s": 0.01}}, ["001"], after=["ghost"]
+        )
     assert manager.list_jobs() == []
 
 
@@ -838,7 +873,7 @@ def test_restart_fails_a_stranded_running_job_whose_pid_is_dead(tmp_path):
 
 
 def test_restart_fails_a_queued_job_and_never_resubmits_it(tmp_path):
-    """"a restart should not automatically keep running jobs" -- including starting one that
+    """ "a restart should not automatically keep running jobs" -- including starting one that
     had not started yet."""
     manager1 = make_manager(tmp_path)
     status = manager1.submit("tools", {"__fake": {"duration_s": 0.05}}, [])
@@ -963,7 +998,8 @@ def test_restart_never_signals_pid_1_or_the_servers_own_pid(tmp_path):
 
 def test_restart_pid_reuse_guard_leaves_the_unrelated_process_alone(tmp_path):
     """A live pid whose create_time does *not* match the record is a different process that
-    merely inherited the number -- reconciliation must fail the job without signalling it."""
+    merely inherited the number -- reconciliation must fail the job without signalling it.
+    """
     victim = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
     manager1 = make_manager(tmp_path)
     try:
@@ -993,7 +1029,9 @@ def test_restart_pid_reuse_guard_leaves_the_unrelated_process_alone(tmp_path):
         victim.wait()
 
 
-def test_restart_stops_sibling_containers_of_a_stranded_docker_job(tmp_path, monkeypatch):
+def test_restart_stops_sibling_containers_of_a_stranded_docker_job(
+    tmp_path, monkeypatch
+):
     """QSIPrep/QSIRecon siblings can outlive the runner; reconciliation stops them by label,
     through the bounded Engine-API client (never the docker CLI)."""
     import tit.jobs.manager as jobs_manager
@@ -1295,10 +1333,7 @@ def test_succeeded_pre_job_attaches_the_report_as_an_artifact(manager, monkeypat
     )
     reports = wait_until(
         lambda: [
-            a
-            for i in ids
-            for a in manager.get(i)["artifacts"]
-            if a["kind"] == "report"
+            a for i in ids for a in manager.get(i)["artifacts"] if a["kind"] == "report"
         ]
         or None
     )
@@ -1363,3 +1398,21 @@ def test_runner_receives_persisted_overwrite_confirmation(tmp_path, overwrite):
             assert "overwrite=" + ("1" if overwrite else "0") in stream.read()
     finally:
         m.shutdown()
+
+
+def test_delete_disk_failure_keeps_job_for_retry(manager, monkeypatch):
+    status = manager.submit("tools", {"__fake": {"duration_s": 0.01}}, [])
+    job_id = status["id"]
+    wait_until(lambda: manager.get(job_id)["state"] == "succeeded")
+    original = manager.registry.delete
+
+    def fail(_):
+        raise PermissionError("read only")
+
+    monkeypatch.setattr(manager.registry, "delete", fail)
+    with pytest.raises(PermissionError):
+        manager.delete(job_id)
+    assert manager.get(job_id) is not None
+    monkeypatch.setattr(manager.registry, "delete", original)
+    assert manager.delete(job_id) == "deleted"
+    assert manager.get(job_id) is None

@@ -188,3 +188,94 @@ class TestRunSubjectAtlas:
         run_subject_atlas("/proj", "001", logger=MagicMock())
 
         mock_runner_cls.assert_called_once()
+
+
+@pytest.fixture(autouse=True)
+def installed_charm_settings(monkeypatch, tmp_path):
+    import simnibs
+
+    (tmp_path / "charm.ini").write_text(
+        '[general]\nthreads = 0\n[samseg]\natlas_name = "unchanged"\n'
+    )
+    monkeypatch.setattr(simnibs, "SIMNIBSDIR", str(tmp_path), raising=False)
+
+
+def test_thread_override_preserves_other_installed_settings(tmp_path):
+    import configparser
+    from tit.pre.charm import _write_thread_settings
+
+    destination = tmp_path / "custom.ini"
+    _write_thread_settings(destination, 7)
+    config = configparser.ConfigParser()
+    config.read(destination)
+    assert config["general"]["threads"] == "7"
+    assert config["samseg"]["atlas_name"] == '"unchanged"'
+
+
+def test_explicit_settings_override_only_requested_values(tmp_path):
+    import configparser
+    import json
+    from tit.pre.charm import _write_thread_settings
+
+    # Authored INI fixture: non-default unrelated values expose accidental resets.
+    source = tmp_path / "charm.ini"
+    source.write_text(
+        "[general]\nthreads=3\n[preprocess]\ndenoise=false\n"
+        "[segment]\ndownsampling_targets=[2.0, 1.0]\nmesh_stiffness=0.17\n"
+        '[mesh]\nskin_facet_size=2.0\nelem_sizes={"standard":{"range":[1,5],"slope":1}}\n'
+    )
+    original = configparser.ConfigParser(interpolation=None)
+    original.read(source)
+    output = tmp_path / "output.ini"
+    _write_thread_settings(output, 7, None)
+    parsed = configparser.ConfigParser(interpolation=None)
+    parsed.read(output)
+    original["general"]["threads"] = "7"
+    assert {s: dict(parsed[s]) for s in parsed.sections()} == {
+        s: dict(original[s]) for s in original.sections()
+    }
+    _write_thread_settings(
+        output,
+        7,
+        {"denoise": True, "segmentation_final_resolution": 0.5, "skin_facet_size": 1.5},
+    )
+    parsed.read(output)
+    assert json.loads(parsed["preprocess"]["denoise"]) is True
+    assert json.loads(parsed["segment"]["downsampling_targets"]) == [2.0, 0.5]
+    assert json.loads(parsed["mesh"]["skin_facet_size"]) == 1.5
+    assert parsed["segment"]["mesh_stiffness"] == "0.17"
+    assert parsed["mesh"]["elem_sizes"] == original["mesh"]["elem_sizes"]
+    assert source.read_text().startswith("[general]\nthreads=3")
+
+
+def test_rejects_final_resolution_coarser_than_installed_stage(tmp_path):
+    from tit.pre.charm import _write_thread_settings
+
+    (tmp_path / "charm.ini").write_text(
+        "[general]\nthreads=3\n[segment]\ndownsampling_targets=[1.5,1.0]\n"
+    )
+    with pytest.raises(PreprocessError, match="coarse resolution"):
+        _write_thread_settings(
+            tmp_path / "out.ini", 2, {"segmentation_final_resolution": 2}
+        )
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"unknown": 2},
+        {"denoise": 1},
+        {"skin_facet_size": float("nan")},
+        {"skin_facet_size": float("inf")},
+        {"skin_facet_size": True},
+        {"segmentation_final_resolution": 0.1},
+        {"segmentation_final_resolution": 3},
+        {"skin_facet_size": 11},
+        [],
+    ],
+)
+def test_invalid_charm_options_rejected(options):
+    from tit.charm_options import validate_charm_options
+
+    with pytest.raises(ValueError):
+        validate_charm_options(options)

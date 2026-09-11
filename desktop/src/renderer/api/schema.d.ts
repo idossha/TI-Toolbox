@@ -3420,6 +3420,73 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/surfer-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** User-wide reconstruction resource preferences */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Preferences and available computation threads */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SurferSettings"];
+                    };
+                };
+            };
+        };
+        /** Replace user-wide reconstruction resource preferences */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SurferPreferences"];
+                };
+            };
+            responses: {
+                /** @description Saved preferences and effective thread counts */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SurferSettings"];
+                    };
+                };
+                /** @description Invalid thread preferences */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings": {
         parameters: {
             query?: never;
@@ -6483,6 +6550,100 @@ export interface components {
             consented: boolean;
             enabled: boolean;
         };
+        /**
+         * QSIPrepPreferences
+         * @description User defaults for processing, separate from resource allocation.
+         */
+        QSIPrepPreferences: {
+            /** Output Resolution */
+            output_resolution?: number;
+            /** Image Tag */
+            image_tag?: string;
+            /** Skip Bids Validation */
+            skip_bids_validation?: boolean;
+            /**
+             * Denoise Method
+             * @enum {string}
+             */
+            denoise_method?: "dwidenoise" | "patch2self" | "none";
+            /**
+             * Unringing Method
+             * @enum {string}
+             */
+            unringing_method?: "mrdegibbs" | "rpg" | "none";
+        };
+        /**
+         * QSIReconPreferences
+         * @description User defaults for reconstruction, separate from resource allocation.
+         */
+        QSIReconPreferences: {
+            /** Recon Specs */
+            recon_specs?: string[];
+            /** Atlases */
+            atlases?: string[] | null;
+            /** Use Gpu */
+            use_gpu?: boolean;
+            /** Image Tag */
+            image_tag?: string;
+            /** Skip Odf Reports */
+            skip_odf_reports?: boolean;
+        };
+        SurferPreferences: {
+            charm_options?: {
+                denoise?: boolean | null;
+                segmentation_final_resolution?: number | null;
+                skin_facet_size?: number | null;
+            } | null;
+            qsiprep_config?: components["schemas"]["QSIPrepPreferences"];
+            qsi_recon_config?: components["schemas"]["QSIReconPreferences"];
+            charm_threads?: number | null;
+            qsiprep_threads?: number | null;
+            qsirecon_threads?: number | null;
+            qsiprep_memory_gb?: number | null;
+            qsirecon_memory_gb?: number | null;
+            qsiprep_omp_threads?: number | null;
+            qsirecon_omp_threads?: number | null;
+            freesurfer_recon_all?: boolean;
+            freesurfer_subregions?: ("thalamus" | "hippo-amygdala")[];
+            /** @description Null uses 80% of available CPUs. */
+            fastsurfer_threads?: number | null;
+            /** @description Null uses 80% of available CPUs. */
+            freesurfer_threads?: number | null;
+        };
+        SurferSettings: {
+            charm_options: {
+                denoise?: boolean | null;
+                segmentation_final_resolution?: number | null;
+                skin_facet_size?: number | null;
+            } | null;
+            qsiprep_config: WithRequired<components["schemas"]["QSIPrepPreferences"], "output_resolution" | "image_tag" | "skip_bids_validation" | "denoise_method" | "unringing_method">;
+            qsi_recon_config: WithRequired<components["schemas"]["QSIReconPreferences"], "recon_specs" | "atlases" | "use_gpu" | "image_tag" | "skip_odf_reports">;
+            charm_threads: number | null;
+            qsiprep_threads: number | null;
+            qsirecon_threads: number | null;
+            qsiprep_memory_gb: number | null;
+            qsirecon_memory_gb: number | null;
+            qsiprep_omp_threads: number | null;
+            qsirecon_omp_threads: number | null;
+            /** @default true */
+            freesurfer_recon_all: boolean;
+            /**
+             * @default [
+             *       "thalamus",
+             *       "hippo-amygdala"
+             *     ]
+             */
+            freesurfer_subregions: ("thalamus" | "hippo-amygdala")[];
+            fastsurfer_threads: number | null;
+            freesurfer_threads: number | null;
+            effective_charm_threads: number;
+            effective_qsiprep_threads: number;
+            effective_qsirecon_threads: number;
+            available_threads: number;
+            default_threads: number;
+            effective_fastsurfer_threads: number;
+            effective_freesurfer_threads: number;
+        };
         Settings: {
             telemetry: components["schemas"]["Telemetry"];
             /** @description enabled optional panels (Source, Cluster Permutation, NIfTI Group Average, Nilearn Visuals, Quick Notes) */
@@ -7467,8 +7628,8 @@ export interface components {
          *         T1w image; the UI offers it checked whenever one exists.
          *     fastsurfer_threads : int or None
          *         Thread count for FastSurfer inference. ``None`` uses
-         *         :data:`tit.pre.fastsurfer.DEFAULT_THREADS` (or
-         *         ``$TIT_FASTSURFER_THREADS``).
+         *         the user preference (automatic: all available CPUs except one for the host), with
+         *         ``$TIT_FASTSURFER_THREADS`` taking precedence.
          *     run_freesurfer : bool
          *         Run optional FreeSurfer in a disposable project-bound container.
          *     freesurfer_recon_all : bool
@@ -7477,7 +7638,8 @@ export interface components {
          *         Optional thalamus and hippo-amygdala segmentations. Without recon-all,
          *         a completed FreeSurfer reconstruction must already exist.
          *     freesurfer_threads : int or None
-         *         Worker CPU limit; None uses two threads, capped by available resources.
+         *         Worker CPU limit; None uses the user preference (automatic: all
+         *         available CPUs except one for the host), capped by available resources.
          *     create_m2m : bool
          *         Run SimNIBS ``charm`` (also runs ``subject_atlas``).
          *     run_tissue_analysis : bool
@@ -7549,6 +7711,18 @@ export interface components {
              * @default false
              */
             run_fastsurfer: boolean;
+            /**
+             * Charm Threads
+             * @default null
+             */
+            charm_threads: number | null;
+            /**
+             * Charm Options
+             * @default null
+             */
+            charm_options: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Fastsurfer Threads
              * @default null
@@ -9779,4 +9953,7 @@ export interface components {
     pathItems: never;
 }
 export type $defs = Record<string, never>;
+type WithRequired<T, K extends keyof T> = T & {
+    [P in K]-?: T[P];
+};
 export type operations = Record<string, never>;

@@ -28,10 +28,12 @@ import { ProjectInsights } from "./ProjectInsights";
 import "./overview.css";
 
 /**
- * The matrix owns the page now, so the presence block — eight columns of one dot — is the part
+ * The matrix owns the page now, so the presence block — six columns of one dot — is the part
  * that grows, and the subject id takes the width an id needs rather than a share of the surplus.
  */
-const COLUMNS = "minmax(140px, 260px) minmax(300px, 440px) minmax(140px, 1fr) 52px 52px 52px";
+const COLUMNS = "minmax(140px, 260px) minmax(240px, 330px) minmax(140px, 1fr) 52px 52px 52px";
+
+const isMatrixColumn = (key: string) => key !== "leadfield" && key !== "eeg_net";
 
 type Scope = "all" | "ready" | "incomplete";
 
@@ -187,10 +189,12 @@ function OverviewPage() {
   return (
     <PageLayout variant="browse" rightPaneKind="preview" rightPaneWidth={360} rightPane={detail}>
       <div className="overview-page" style={{ ["--overview-cols" as string]: COLUMNS }}>
-        <SwitchProject /><ProjectInsights />
+        <SwitchProject />
         {overviewQuery.error && <Callout kind="danger">Could not load this project's overview.</Callout>}
         {overviewQuery.isPending && <Skeleton rows={4} />}
 
+        <div className="overview-main">
+        <div className="overview-matrix">
         <div className="overview-coverage" data-testid="overview-coverage">
           {(data?.totals.coverage ?? []).map((t) => (
             <div key={t.id} className="overview-tile">
@@ -248,7 +252,7 @@ function OverviewPage() {
           <div className="overview-row overview-head" role="row">
             <span role="columnheader">Subject</span>
             <span role="columnheader" className="overview-presence overview-presence-head">
-              {PRESENCE_COLUMNS.map((key) => (
+              {PRESENCE_COLUMNS.filter(isMatrixColumn).map((key) => (
                 <span key={key} title={COLUMN_TITLE[key]}>
                   {COLUMN_LABEL[key]}
                 </span>
@@ -277,14 +281,14 @@ function OverviewPage() {
             >
               <span className="overview-id">{r.id}</span>
               <span className="overview-presence">
-                {presenceCells(r).map((p) => (
+                {presenceCells(r).filter((p) => isMatrixColumn(p.key)).map((p) => (
                   <span key={p.key}>
                     <StatusDot kind={p.kind} pulse={p.pulse} title={p.title} />
                   </span>
                 ))}
               </span>
-              <span className="overview-net">
-                {r.leadfields.length ? <Chip kind="success">{r.leadfields[0]}</Chip> : <span className="text-caption">none</span>}
+              <span className="overview-net" title={r.leadfields.join("\n")}>
+                {r.leadfields.length ? <><Chip kind="success"><span className="overview-leadfield-name">{r.leadfields[0]}</span></Chip>{r.leadfields.length > 1 && <span className="overview-leadfield-count">+{r.leadfields.length - 1}</span>}</> : <span className="text-caption">none</span>}
               </span>
               <span className="overview-num">{r.counts.simulations}</span>
               <span className="overview-num">{r.counts.optimizations}</span>
@@ -304,6 +308,9 @@ function OverviewPage() {
             </span>
           ))}
         </p>
+        </div>
+        <ProjectInsights />
+        </div>
       </div>
     </PageLayout>
   );

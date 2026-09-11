@@ -54,3 +54,15 @@ migration or destructive testing; container images and Git history do not back u
 Keep the image/source identities with a recovery copy. Validate recovery by opening a copied
 project and checking required inputs and outputs before running jobs. Test cleanup uses its
 manifest and must not be substituted for general-purpose project deletion.
+
+### Managed native FastSurfer
+
+In Electron Settings → System on Apple Silicon, **Enable Apple GPU** explains setup and asks for user-wide consent. The runtime lives under the Electron user-data directory in `runtimes/fastsurfer-2.5.4-arm64`. Downloads and Python setup require network access; computation is offline and sandboxed. Closing the desktop or changing projects ends native access. The browser launcher and remote servers retain container execution.
+
+Installation readiness requires the source, checkpoints and an arm64 Python with working MPS. Failed downloads can be retried. Do not move the managed virtual environment; its interpreter paths are installation-specific. Standard outputs remain under `derivatives/fastsurfer/sub-<id>` and the container creates the NIfTI/labels sidecars.
+
+### FastSurfer GPU selection
+
+The image includes CUDA-enabled PyTorch; NVIDIA drivers must be installed on the host and exposed by Docker (NVIDIA Container Toolkit on Linux, supported Docker Desktop/WSL GPU integration on Windows). Launchers probe the selected image before requesting GPU access. Auto jobs prefer usable container CUDA, then an approved native Apple Silicon worker, then log CPU fallback. Explicit `TIT_FASTSURFER_DEVICE=cpu` remains available; an explicit unavailable GPU fails. Recreate a stopped container through the launcher to change its GPU device requests; restarting an old CPU-only container cannot add them.
+
+Apple GPU is a persistent desktop-user preference. New local project sessions resume the installed worker automatically; disabling it stops the worker and clears the preference. FastSurfer/FreeSurfer thread limits are saved in the shared user configuration, with automatic defaults at 80% of available computation CPUs. See the [user guide](../wiki/fastsurfer.md).

@@ -460,6 +460,13 @@ table {
   }
 }
 
+.sidebar-nav .sidebar-nav__children {
+  margin: 2px 0 6px 18px;
+  padding-left: 8px;
+  border-left: 1px solid var(--color-border);
+  font-size: 0.85rem;
+}
+
 .sidebar-nav__title {
   margin: 0 0 8px 10px;
   font-size: 0.75rem;

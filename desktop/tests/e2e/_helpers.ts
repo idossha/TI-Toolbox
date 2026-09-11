@@ -92,8 +92,13 @@ export async function launchElectronApp(
 ): Promise<ElectronApplication> {
   await resetMockJobs();
   const userDataDir = options.userDataDir ?? mkdtempSync(join(tmpdir(), "tit-e2e-"));
+  // Linux CI has Xvfb but no GPU. Explicit SwiftShader keeps WebGL2 canvas assertions
+  // exercising the renderer instead of timing out against its unavailable-preview fallback.
+  const graphicsArgs = process.platform === "linux" && process.env.CI
+    ? ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]
+    : [];
   const app = await electron.launch({
-    args: [APP_ROOT, ...(options.args ?? [])],
+    args: [...graphicsArgs, APP_ROOT, ...(options.args ?? [])],
     env: { ...process.env, TIT_USER_DATA_DIR: userDataDir, ...offscreenEnv(), ...(options.env ?? {}) },
   });
   if (process.env.TIT_E2E_DIAGNOSTICS === "1") {

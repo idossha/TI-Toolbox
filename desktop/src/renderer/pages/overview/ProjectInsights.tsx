@@ -113,7 +113,18 @@ export function ProjectInsights() {
       </header>
       <div className="project-insights-grid">
         <section aria-label="Project storage">
-          <h3>Storage</h3>
+          <div className="project-storage-heading">
+            <h3>Storage</h3>
+            <p className="project-insights-caption" role="status">
+              {storage.state === "scanning"
+                ? "Measuring project data…"
+                : storage.state === "error"
+                  ? "Storage scan unavailable."
+                  : storage.scanned_at
+                    ? `Measured ${timestamp(storage.scanned_at)} UTC`
+                    : "No storage measurement yet."}
+            </p>
+          </div>
           <div className="project-storage-list">
             {rows.map((row) => (
               <div className="project-storage-group" key={row.name}>
@@ -136,18 +147,6 @@ export function ProjectInsights() {
               </div>
             ))}
           </div>
-          <p className="project-insights-caption" role="status">
-            {storage.state === "scanning"
-              ? "Measuring project data…"
-              : storage.state === "error"
-                ? "Storage scan unavailable."
-                : storage.scanned_at
-                  ? `Measured ${timestamp(storage.scanned_at)} UTC`
-                  : "No storage measurement yet."}
-          </p>
-          <p className="project-insights-caption">
-            File sizes; symlinks excluded.
-          </p>
           {identity.created_at && (
             <p className="project-insights-caption">
               Created {timestamp(identity.created_at)} UTC

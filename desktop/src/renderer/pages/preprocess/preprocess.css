@@ -146,3 +146,9 @@
 .preprocess-freesurfer-options p {
   margin: 0;
 }
+
+.structural-columns { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-4); }
+.structural-column { display: grid; align-content: start; gap: var(--space-2); min-width: 0; }
+.structural-child { display: flex; align-items: baseline; gap: var(--space-2); padding: var(--space-2) 0 var(--space-2) var(--space-3); color: var(--ink-2); font-size: var(--text-sm); }
+.structural-child p { margin: 0; }
+@media (max-width: 760px) { .structural-columns { grid-template-columns: minmax(0, 1fr); } }

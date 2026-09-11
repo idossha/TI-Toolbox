@@ -52,6 +52,7 @@ test("changes theme, toggles a panel, and sees it appear in the nav after saving
   // settings.panels into localStorage (pages/panels/_shared.ts) — Nilearn Visuals in particular
   // is off by default in the mock's fixture, so it must still be absent here.
   await expect(page.getByRole("link", { name: "Nilearn visuals" })).toHaveCount(0);
+  await page.getByRole("tab", { name: "Extensions", exact: true }).click();
 
   // The mock's seeded panels (Settings.panels fixture) are already checked once Settings loads.
   // Scope to the Feature panels card, not just any "Source" text — the nav rail link is also
@@ -63,12 +64,14 @@ test("changes theme, toggles a panel, and sees it appear in the nav after saving
   await page.screenshot({ path: join(ARTIFACTS, "settings-light.png") });
 
   // Change theme -> applies immediately, independent of Save.
+  await page.getByRole("tab", { name: "Project", exact: true }).click();
   await setTheme(page, "dark", () => page.getByRole("radio", { name: "Dark" }).click());
   await page.screenshot({ path: join(ARTIFACTS, "settings-dark.png") });
 
   // Toggle Nilearn Visuals on (idempotent: click only if it isn't already checked, so this test
   // doesn't depend on no earlier run having left the long-lived mock's settings.panels mutated),
   // then save.
+  await page.getByRole("tab", { name: "Extensions", exact: true }).click();
   const nilearnCheckbox = page.locator("label", { hasText: "Nilearn visuals" }).getByRole("checkbox");
   if ((await nilearnCheckbox.getAttribute("data-state")) !== "checked") await nilearnCheckbox.click();
   await expect(nilearnCheckbox).toHaveAttribute("data-state", "checked");
@@ -101,6 +104,7 @@ test("installs a viewer bundle from the release index, then rolls back to the ba
   await openSettings();
 
   const card = page.getByTestId("tetravox-card");
+  await page.getByRole("tab", { name: "Viewer", exact: true }).click();
   await expect(card).toBeVisible();
   await expect(page.getByTestId("tetravox-active-version")).toHaveText("v0.3.4 · protocol 1");
   await expect(card).toContainText("Baked into the image");
@@ -122,9 +126,11 @@ test("installs a viewer bundle from the release index, then rolls back to the ba
   await expect(card).toContainText("pinned to installed 0.4.0");
   // `capabilities.tetravox_embed` is the active bundle, so the About card's "Viewer bundle" row
   // moved with it. It is a server capability again — the row VX deleted.
+  await page.getByRole("tab", { name: "Server", exact: true }).click();
   await expect(page.locator(".card", { hasText: "About the server" })).toContainText("Viewer bundle");
   await expect(page.locator(".card", { hasText: "About the server" })).toContainText("v0.4.0 · protocol 3 · installed");
 
+  await page.getByRole("tab", { name: "Viewer", exact: true }).click();
   await page.getByTestId("tetravox-activate-baked").click();
   await expect(page.getByTestId("tetravox-active-version")).toHaveText("v0.3.4 · protocol 1");
   // Rollback pins, never deletes: 0.4.0 is still there to go forward to.
@@ -140,6 +146,7 @@ test("turns automatic viewer updates off, and still shows a bundle it can instal
   // whole policy surface, and it is persisted server-side, not in this window.
   await connect();
   await openSettings();
+  await page.getByRole("tab", { name: "Viewer", exact: true }).click();
 
   await expect(page.getByTestId("tetravox-card")).toBeVisible();
   const toggle = page.locator("#tetravox-auto-update");

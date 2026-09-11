@@ -184,3 +184,15 @@ windowlessness measurement is inconclusive despite passing behavior tests. The r
 monitor passed. Host numerical mocks and skips do not replace container checks; the overwrite
 regression stubs FEM and does not prove a complete simulation. Final installer/platform,
 hosted security and manual acceptance remain in [ROADMAP](ROADMAP.md).
+
+### Native FastSurfer acceptance
+
+`npx vitest run src/main/fastsurferWorker.test.ts src/main/fastsurferInstall.test.ts tests/unit/native-fastsurfer-ui.test.tsx` covers the installer digest gate, UI states, real macOS sandbox restrictions, fixed arguments, cancellation and lost leases. macOS-only cases skip on other hosts.
+
+The opt-in `desktop/scripts/test-native-fastsurfer.mjs` uses a hidden Electron window and the actual mounted Docker project. Set `TIT_NATIVE_TEST_PROJECT`, `TIT_NATIVE_TEST_CONTAINER` and a new alphanumeric `TIT_NATIVE_TEST_SUBJECT`; run under the shared e2e lock. It copies subject 101's T1 (or `TIT_NATIVE_TEST_INPUT`) to the new test subject, exercises consent responses, submits a real preprocessing job and checks standard outputs. The native dialog response is supplied by the test harness under maintainer authorization. Test inputs, job records and outputs are retained for inspection. This test performs a full segmentation and must not run alongside another heavy job.
+
+Verified on 2026-09-10: 20 focused desktop tests and 54 backend tests passed (one upstream-checkout test skipped); typecheck, lint and production build passed. Lint retained three existing React Compiler warnings. A hidden Electron install/consent and real Docker-to-Metal completion run passed; measured fixture and output checks are in [BENCHMARKS](BENCHMARKS.md#native-apple-silicon-fastsurfer-acceptance--2026-09-10).
+
+### GPU-preferred container acceptance
+
+Run `python3 -m pytest tests/test_launch_gpu.py tests/test_launch.py tests/test_bash_loader_lifecycle.py tests/test_pre_fastsurfer.py tests/test_native_fastsurfer.py -q` for launcher and job selection. Desktop GPU probe cases are in `src/main/docker/gpu.test.ts`. The image's `verify_runtime.py` rejects CPU-only PyTorch and validates the scientific ABI. A build-time CUDA version assertion proves packaging only: an NVIDIA host must also run the same-image launcher probe and a real FastSurfer job to prove GPU execution. Apple Silicon validates the unavailable-CUDA and native fallback routes.

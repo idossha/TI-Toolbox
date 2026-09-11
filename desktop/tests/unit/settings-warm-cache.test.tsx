@@ -8,6 +8,7 @@
  * panels / Advanced cards silently never rendered their controls (no error, no skeleton — just
  * gone). See settings.spec.ts:55 for the E2E symptom.
  */
+import { MemoryRouter } from "react-router-dom";
 import React, { act, StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
@@ -25,6 +26,8 @@ const SETTINGS_FIXTURE = {
 };
 
 vi.mock("../../src/renderer/pages/settings/api", () => ({
+  getSurferSettings: vi.fn(async () => ({ available_threads: 12, default_threads: 9, fastsurfer_threads: null, freesurfer_threads: null, effective_fastsurfer_threads: 9, effective_freesurfer_threads: 9 })),
+  putSurferSettings: vi.fn(),
   getSettings: vi.fn(async () => SETTINGS_FIXTURE),
   putSettings: vi.fn(async (s: unknown) => s),
   getProject: vi.fn(async () => ({ name: "example", container_path: "/mnt/example", host_path: null })),
@@ -122,10 +125,10 @@ describe("SettingsPage with a pre-warmed [\"settings\"] query cache", () => {
     expect(queryClient.getQueryData(["settings"])).toEqual(SETTINGS_FIXTURE);
     act(() => warmerRoot.unmount());
 
-    const { container } = mount(
+    const { container, root } = mount(
       <StrictMode>
         <QueryClientProvider client={queryClient}>
-          <Component />
+          <MemoryRouter><Component /></MemoryRouter>
         </QueryClientProvider>
       </StrictMode>,
     );
@@ -145,5 +148,37 @@ describe("SettingsPage with a pre-warmed [\"settings\"] query cache", () => {
     expect(bodyText).toContain("Source");
     const replace = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Replace and rerun");
     expect(replace?.disabled).toBe(true);
+
+    const tabs = [...container.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+    expect(tabs.map((button) => button.textContent)).toEqual(["Project", "Pre-processing", "Extensions", "Viewer", "Server"]);
+    expect(container.querySelectorAll('[role="tabpanel"][data-state="active"]')).toHaveLength(1);
+    const select = (label: string) => act(() => {
+      tabs.find((button) => button.textContent === label)!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
+    });
+    act(() => (telemetrySwitch as HTMLButtonElement).click());
+    expect(telemetrySwitch?.getAttribute("aria-checked")).toBe("true");
+    select("Extensions");
+    expect(container.querySelector('[role="tabpanel"][data-state="active"]')?.textContent).toContain("Feature panels");
+    expect(container.querySelector('[role="tabpanel"][data-state="active"]')?.textContent).not.toContain("Send anonymous usage data");
+    select("Project");
+    expect(container.querySelector('[aria-label="Send anonymous usage data"]')?.getAttribute("aria-checked")).toBe("true");
+    act(() => root.unmount());
+    queryClient.clear();
   });
+  it("opens the pre-processing tab through the legacy system link", async () => {
+    const { default: page } = await import("../../src/renderer/pages/settings/index");
+    const Component = page.Component;
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { root, container } = mount(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/settings#system"]}><Component /></MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    expect(container.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe("Pre-processing");
+    expect(container.querySelector('[role="tabpanel"][data-state="active"]')?.textContent).toContain("FastSurfer");
+    act(() => root.unmount());
+    queryClient.clear();
+  });
+
 });
