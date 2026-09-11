@@ -652,3 +652,19 @@ this consolidation. Resume isolated topic work after the official release.
 Apple GPU setup now uses the Settings dialog as its single consent surface, including source,
 permissions and third-party notices. Remove the duplicate native dialog while retaining sender
 validation, local-project checks and project-change cancellation in the main process.
+
+
+### 2026-09-11 — Canvas fidelity to existing jobs
+
+**Decision:** preserve complete node configurations through edits, resolve explicit producer outputs,
+and make exported notebooks faithfully execute existing job functions. The canvas remains a visual
+composition layer, not a second scientific implementation.
+
+**Why:** the audit reproduced lost scientific settings after loaded-node edits, incomplete notebook
+configurations, and validation that hid planner errors. The maintainer authorized correcting these
+behaviors with incremental local tests; see [the scoped intent](canvas-intent-2026-09-11.md).
+
+**Cost:** configuration round-trip and notebook execution tests must cover the same non-default inputs
+as the underlying jobs. Unsupported bindings must report an error rather than guess an output.
+
+**Revisit if:** a new job kind needs a binding the existing job functions cannot represent.

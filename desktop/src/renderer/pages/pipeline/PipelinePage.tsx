@@ -57,7 +57,7 @@ import { NodeInspector, useAtlasLookup } from "./NodeInspector";
 import { NodeCard, type CardData } from "./NodeCard";
 import { Palette, NODE_DRAG_TYPE } from "./Palette";
 import { Receipt } from "./Receipt";
-import { configFor, defaultEditor, editorFromNode, type NodeEditor } from "./editors";
+import { configFor, defaultEditor, editorFromNode, editorError, type NodeEditor } from "./editors";
 import { useOverviewReadiness } from "./SubjectsEditor";
 import {
   NODE_KINDS,
@@ -191,14 +191,16 @@ function PipelineCanvas() {
     if (!past.length) return;
     setPast(past.slice(0, -1));
     setFuture([doc, ...future]);
-    patch({ doc: past[past.length - 1]! });
+    const next = past[past.length - 1]!;
+    patch({ doc: next, editors: Object.fromEntries(next.nodes.map((n) => [n.id, editorFromNode(n)])) });
   }, [past, future, doc, patch]);
 
   const redo = useCallback(() => {
     if (!future.length) return;
     setFuture(future.slice(1));
     setPast([...past, doc]);
-    patch({ doc: future[0]! });
+    const next = future[0]!;
+    patch({ doc: next, editors: Object.fromEntries(next.nodes.map((n) => [n.id, editorFromNode(n)])) });
   }, [past, future, doc, patch]);
 
   // ---- validation is the receipt: the server is the authority on what Run will submit ---------
@@ -207,7 +209,8 @@ function PipelineCanvas() {
     queryFn: () => validatePipeline(doc),
     enabled: doc.nodes.length > 0,
   });
-  const issues = useMemo(() => validation.data?.issues ?? [], [validation.data]);
+  const draftIssues = useMemo<PipelineValidation["issues"]>(() => doc.nodes.flatMap((node) => { const error = editors[node.id] && editorError(editors[node.id]!); return error ? [{ node_id: node.id, level: "error" as const, message: error }] : []; }), [doc.nodes, editors]);
+  const issues = useMemo(() => [...(validation.data?.issues ?? []), ...draftIssues], [validation.data, draftIssues]);
 
   const saved = useQuery({ queryKey: ["pipelines"], queryFn: () => listPipelines() });
 
@@ -261,10 +264,13 @@ function PipelineCanvas() {
   const inspectedEditor = inspecting ? editors[inspecting] : undefined;
   // Which subjects reach the node being edited — from the graph, not from the node.
   const inspectedSubjects = inspecting ? subjectsOf(doc, inspecting) : [];
-  const atlasLookup = useAtlasLookup(
+  const targetAtlasLookup = useAtlasLookup(
     inspectedSubjects[0],
     inspectedEditor && "roi" in inspectedEditor ? inspectedEditor.roi : undefined,
   );
+
+  const nonRoiAtlasLookup = useAtlasLookup(inspectedSubjects[0], inspectedEditor?.kind === "flex" ? inspectedEditor.nonRoi : undefined);
+  const atlasLookup = useCallback((atlas: string) => targetAtlasLookup(atlas) ?? nonRoiAtlasLookup(atlas), [targetAtlasLookup, nonRoiAtlasLookup]);
 
   /** Add a step. `at` is a flow-space position (a drop); without one it lands in view centre. */
   const addNode = useCallback(
@@ -330,7 +336,7 @@ function PipelineCanvas() {
       doc: {
         ...doc,
         nodes: doc.nodes.map((n) =>
-          n.id === id ? { ...n, config: configFor(next, atlasLookup, n.config, subjectsOf(doc, id)) } : n,
+          n.id === id ? { ...n, config: configFor(next, atlasLookup, n.config, subjectsOf(doc, id), editors[id] ?? editorFromNode(n)) } : n,
         ),
       },
     });
@@ -609,7 +615,7 @@ function PipelineCanvas() {
   );
 
   const errors = issues.filter((i) => i.level === "error");
-  const runnable = doc.nodes.length > 0 && validation.data?.ok === true && !run.isPending && !checkingOutputs;
+  const runnable = doc.nodes.length > 0 && validation.data?.ok === true && draftIssues.length === 0 && !run.isPending && !checkingOutputs;
   // Whichever subject this project has already run something for, else the documentation's own.
   const sampleSubject = jobs.all.find((j) => j.subject_ids?.length)?.subject_ids?.[0] ?? "ernie";
 
@@ -718,10 +724,10 @@ function PipelineCanvas() {
       }
       secondary={
         <>
-          <Button variant="ghost" onClick={() => setSaveAs(doc.name === "untitled" ? "" : doc.name)} disabled={doc.nodes.length === 0} data-testid="pipeline-save">
+          <Button variant="ghost" onClick={() => setSaveAs(doc.name === "untitled" ? "" : doc.name)} disabled={doc.nodes.length === 0 || draftIssues.length > 0} data-testid="pipeline-save">
             <Save size={14} aria-hidden /> Save
           </Button>
-          <Button variant="ghost" onClick={() => exportNb.mutate()} disabled={doc.nodes.length === 0} data-testid="pipeline-export">
+          <Button variant="ghost" onClick={() => exportNb.mutate()} disabled={doc.nodes.length === 0 || draftIssues.length > 0} data-testid="pipeline-export">
             <Download size={14} aria-hidden /> Export notebook
           </Button>
           <IconButton

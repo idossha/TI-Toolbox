@@ -43,9 +43,9 @@ two ports of the same type — the canvas refuses anything else while you are dr
 | **Subjects** (`subjects`) | — | subjects |
 | Pre-processing (`pre`) | subjects | subjects |
 | Leadfield (`leadfield`) | subjects | subjects, leadfield |
-| Flex-search (`flex`) | subjects, ROI | subjects, montage names, ROI |
-| Ex-search (`ex`) / mEx-search (`mex`) | subjects, ROI, leadfield | subjects, montage names, ROI |
-| Simulator (`sim`) | subjects, montage names | subjects, simulation name |
+| Flex-search (`flex`) | subjects, ROI | subjects, montages, ROI |
+| Ex-search (`ex`) / mEx-search (`mex`) | subjects, ROI, leadfield | subjects, montages, ROI |
+| Simulator (`sim`) | subjects, montages | subjects, simulation name |
 | Analyzer (`analyzer`) | subjects, simulation name, ROI | subjects |
 | Source model (`source`) | subjects | subjects |
 | Group statistics (`stats`) | subjects | — |
@@ -54,13 +54,17 @@ The five port types:
 
 - **Subjects** — the subject set flows down the graph. Wire `pre → flex → sim → analyzer` on
   subjects and you set the cohort once; every downstream node runs on exactly those subjects.
-- **Montage names** — an optimizer's result. "Optimizer → Simulator" means *simulate the montage the
+- **Montages** — an optimizer's complete electrode configuration. "Optimizer → Simulator" means *simulate the montage the
   optimizer found*, not "simulate something, separately".
 - **Simulation name** — a Simulator's output. "Simulator → Analyzer" fans out to one analysis per
   simulation the Simulator writes.
 - **ROI** — the target an optimizer aimed at, carried into a downstream node so the analysis and the
   optimization are talking about the same region.
 - **Leadfield** — the `.hdf5` an ex/mEx search needs.
+
+Automatic Ex/mEx montage handoff is not supported; select a saved montage explicitly instead.
+Flex-to-Analyzer ROI transfer supports a single spherical target. Atlas and multiple-target
+conversions are rejected rather than changed into a different scientific target.
 
 An input that is not wired is not an error: it just has to be filled in on the node's own form. A
 Simulator whose montages you picked by hand is fine. A step that is wired to nothing at all is not
@@ -176,17 +180,15 @@ Values that only exist *after* an upstream job has run — the name an optimizer
 directory, a leadfield file, a simulation name whose montages were themselves optimized — get one
 extra small step planned between the producer and its consumer. It shows up in Jobs as a `tools` job
 tagged `resolve`, and it records what it found under
-`code/ti-toolbox/pipelines/runs/<pipeline>/<node>.<port>.json`. The consumer reads that file back
+a directory isolated to this pipeline run. The consumer reads that file back
 the moment it starts, so an optimized montage reaches the Simulator without you retyping it.
 
 Bindings whose value is knowable up front — subjects, ROI, and a simulation name coming from a
 Simulator whose montages you named yourself — never need the extra step: they are resolved when the
 pipeline is submitted.
 
-> **If the resolve step finds nothing** — the optimizer wrote no run for that subject — the
-> consumer keeps whatever the canvas set, which for an unbound field is empty. The job then fails
-> the way it would if you had left the field blank on the page, with the same message. It does not
-> guess.
+Bindings use only the selected producer's results for the matching subject. Missing or ambiguous
+outputs stop the dependent job with an explanation; historical results are not substitutes.
 
 ## Saving, loading and exporting
 
@@ -197,19 +199,23 @@ palette's **Saved** list. **Import JSON…** reads the same file from anywhere.
 `.ipynb` with:
 
 - a title cell carrying the graph as a Mermaid diagram;
-- one markdown + code cell pair per node, in dependency order, written against the public
-  [`tit` scripting API]({{ site.baseurl }}/wiki/scripting/) — `run_pipeline`, `FlexConfig`/`run_flex_search`,
-  `SimulationConfig`/`run_simulation`, `Analyzer`;
-- bindings as plain Python variables passed from one cell to the next
-  (`sim1_subjects = pre1_subjects`, `montage_names=flex1_montages`);
+- a setup cell with the project path and complete editable configuration;
+- one markdown + code cell pair per node, using the same planner and existing job runners as the
+  canvas, in dependency order;
+- explicit completed-job records for passing the selected producer's results to its consumers;
 - the pipeline document itself in `metadata.ti_toolbox.pipeline`, so the canvas can be restored from
   the notebook without parsing Python.
 
-The exported notebook is a real script: run it with **Run All Cells**, or
+Use a TI-Toolbox scientific Python environment with the required tools installed; the desktop and
+job server are not required. Set `PROJECT_DIR`, then run **Run All Cells**, or
 
 ```bash
 jupyter nbconvert --to notebook --execute my-pipeline.ipynb
 ```
+
+Re-run the setup cell to start a fresh execution before rerunning completed steps. Saving or editing
+a node preserves settings its form does not expose. Invalid configuration drafts must be corrected
+before saving, exporting or running.
 
 Notebook export needs `nbformat`. The TI-Toolbox image includes it; a bare `pip install tit` needs
 `pip install "tit[pipeline]"`.

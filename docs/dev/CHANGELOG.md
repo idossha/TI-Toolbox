@@ -9,6 +9,9 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 ---
 ### v3.0.0 (Unreleased)
 
+- Canvas edits preserve complete saved scientific configurations. Montage selection uses real catalog definitions; invalid drafts block actions, and undo/redo restores matching forms.
+- Notebook export uses the same plan and existing job runners, preserving full inputs. Dynamic bindings use specific producer results per subject and isolated run files instead of historical output scans.
+
 - Canvas validation reports invalid node configurations before Run, and submission errors retain their specific explanation.
 
 - Optimizer subjects remain selectable before a leadfield exists, with generation available in the Goal cell and a disabled progress indicator while it runs. Completed generation refreshes the row automatically; Ex/mEx searches still require a completed leadfield.

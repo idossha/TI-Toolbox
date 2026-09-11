@@ -235,6 +235,13 @@ test("a JSON-edited kind opens, refuses bad JSON out loud, and saves good JSON",
   await json.fill("{ not json");
   await expect(page.getByRole("dialog")).toContainText("Not valid JSON");
 
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("pipeline-problem-leadfield1")).toContainText("invalid JSON");
+  await expect(page.getByTestId("pipeline-save")).toBeDisabled();
+  await expect(page.getByTestId("pipeline-export")).toBeDisabled();
+  await expect(page.getByTestId("pipeline-run")).toBeDisabled();
+  await page.getByTestId("pipeline-node-leadfield1").dblclick();
+
   await json.fill('{"subject_ids": ["ernie"], "eeg_net": "GSN-HydroCel-185.csv"}');
   await expect(page.getByRole("dialog")).not.toContainText("Not valid JSON");
   await page.keyboard.press("Escape");
@@ -654,7 +661,7 @@ test("a simulator configuration rejection names the node before Run", async () =
     await expect(page.getByTestId("pipeline-problem-sim1")).toContainText("missing montages");
     await expect(page.getByTestId("pipeline-run")).toBeDisabled();
     await page.getByTestId("pipeline-node-sim1").dblclick();
-    await expect(page.getByRole("dialog").getByRole("textbox", { name: "Montages", exact: true })).toBeVisible();
+    await expect(page.getByRole("dialog").getByRole("group", { name: "Montages", exact: true })).toBeVisible();
     await page.keyboard.press("Escape");
   } finally {
     await page.unroute("**/api/pipelines/validate");
@@ -681,4 +688,84 @@ test("a late run rejection keeps its useful server detail", async () => {
     await page.getByTestId("pipeline-run").click();
     await expect(page.getByText("Could not run the pipeline: Simulate it needs a montage", { exact: true })).toBeVisible();
   } finally { await page.unroute("**/api/pipelines/run"); await page.unroute("**/api/plan/*"); }
+});
+
+test("editing a reloaded simulator preserves its science configuration through save and notebook export", async () => {
+  await freshCanvas();
+  const config = {
+    _type: "SimulationConfig",
+    conductivity: "vn",
+    aniso_maxratio: 6,
+    aniso_maxcond: 1.8,
+    intensities: [1.3, 1.7],
+    electrode_shape: "rect",
+    electrode_dimensions: [12, 9],
+    gel_thickness: 5,
+    output_fields: ["TI_max", "hf_sar"],
+    map_to_fsavg: true,
+    montages: [{
+      _type: "Montage", name: "L_Insula", mode: "net", eeg_net: "GSN-HydroCel-185.csv",
+      electrode_pairs: [["E034", "E020"], ["E095", "E070"]],
+    }],
+  };
+  const original = {
+    version: 1,
+    name: "preserved science",
+    nodes: [
+      { id: "subjects1", kind: "subjects", config: { subject_ids: ["ernie"] }, position: { x: 30, y: 60 } },
+      { id: "sim1", kind: "sim", config, position: { x: 330, y: 60 } },
+    ],
+    edges: [{ from: "subjects1", to: "sim1", port: "subjects" }],
+  };
+  const source = join(scratch, "preserved-science.json");
+  writeFileSync(source, JSON.stringify(original));
+  await page.getByTestId("pipeline-import-input").setInputFiles(source);
+  await expect(page.getByTestId("pipeline-node-sim1")).toBeVisible();
+
+  async function saveAndRead(name: string) {
+    await page.getByTestId("pipeline-save").click();
+    await page.getByTestId("pipeline-save-name").fill(name);
+    await page.getByTestId("pipeline-save-confirm").click();
+    await expect(page.getByTestId(`pipeline-saved-${name}`)).toBeVisible();
+    return page.evaluate(async (entry) => {
+      const response = await fetch(`/api/pipelines/${encodeURIComponent(entry)}`);
+      if (!response.ok) throw new Error(`Loading saved pipeline failed: ${response.status}`);
+      return response.json();
+    }, name) as Promise<typeof original>;
+  }
+
+  // Merely inspecting a saved form must not replace its config with UI defaults.
+  await page.getByTestId("pipeline-node-sim1").dblclick();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("textbox", { name: "Currents", exact: true })).toHaveValue("1.3, 1.7");
+  await page.keyboard.press("Escape");
+  const untouched = await saveAndRead("science untouched");
+  expect(untouched.nodes.find((node) => node.id === "sim1")!.config).toEqual(config);
+  expect(untouched.edges).toEqual(original.edges);
+
+  // The document is the authority after a real reload; a one-field edit changes only that field.
+  await page.reload();
+  await page.getByRole("link", { name: "Pipeline", exact: true }).click();
+  await page.getByTestId("pipeline-saved-science untouched").click();
+  await page.getByTestId("pipeline-node-sim1").dblclick();
+  await page.getByRole("dialog").getByRole("combobox", { name: "Conductivity", exact: true }).click();
+  await page.getByRole("option", { name: "mc", exact: true }).click();
+  await page.keyboard.press("Escape");
+  const edited = await saveAndRead("science edited");
+  const expectedConfig = { ...config, conductivity: "mc" };
+  expect(edited.nodes.find((node) => node.id === "sim1")!.config).toEqual(expectedConfig);
+  expect(edited.nodes.find((node) => node.id === "subjects1")!.config).toEqual({ subject_ids: ["ernie"] });
+  expect(edited.edges).toEqual(original.edges);
+
+  const target = join(scratch, "preserved-science.ipynb");
+  await app.evaluate(({ dialog }, path) => {
+    (dialog as unknown as { showSaveDialog: unknown }).showSaveDialog = async () => ({ canceled: false, filePath: path });
+  }, target);
+  await page.getByTestId("pipeline-export").click();
+  await expect.poll(() => {
+    try { return JSON.parse(readFileSync(target, "utf8")); } catch { return null; }
+  }).not.toBeNull();
+  const notebook = JSON.parse(readFileSync(target, "utf8")) as { metadata: { ti_toolbox: { pipeline: typeof original } } };
+  expect(notebook.metadata.ti_toolbox.pipeline.nodes.find((node) => node.id === "sim1")!.config).toEqual(expectedConfig);
+  expect(notebook.metadata.ti_toolbox.pipeline.edges).toEqual(original.edges);
 });

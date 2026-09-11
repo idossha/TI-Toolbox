@@ -130,7 +130,13 @@ def test_a_partial_presence_is_not_ready_except_for_leadfields() -> None:
     """
     overview = {
         "subjects": [
-            {"id": "a", "raw": "partial", "m2m": "partial", "leadfield": "partial", "counts": {}}
+            {
+                "id": "a",
+                "raw": "partial",
+                "m2m": "partial",
+                "leadfield": "partial",
+                "counts": {},
+            }
         ]
     }
     assert readiness_from_overview(overview) == {"a": {"leadfield"}}
@@ -149,7 +155,7 @@ def test_a_cohorts_capabilities_are_the_projects_facts_about_it() -> None:
 
 def test_a_node_confers_what_it_produces_on_everything_downstream() -> None:
     graph = doc(
-        [cohort("102"), ("p1", "pre", {}), ("m1", "sim", {})],
+        [cohort("102"), ("p1", "pre", {"create_m2m": True}), ("m1", "sim", {})],
         [("s1", "p1", "subjects"), ("p1", "m1", "subjects")],
     )
     # 102 arrives at the Simulator with a head model it did not have at the cohort, because
@@ -227,7 +233,9 @@ def test_a_search_says_leadfield_when_the_head_model_is_already_there() -> None:
 
 def test_the_receipt_and_the_drag_refuse_for_the_same_reason() -> None:
     """Same table, same sentence -- the canvas cannot promise what the server will not run."""
-    graph = doc([cohort("ernie", "102"), ("a1", "analyzer", {})], [("s1", "a1", "subjects")])
+    graph = doc(
+        [cohort("ernie", "102"), ("a1", "analyzer", {})], [("s1", "a1", "subjects")]
+    )
     errors = [i for i in validate(graph, PROJECT).errors if i.code == "not_ready"]
     assert len(errors) == 1
     assert errors[0].node_id == "a1"
@@ -243,10 +251,22 @@ def test_without_readiness_the_graph_is_checked_for_shape_only() -> None:
     graph = doc([cohort("102"), ("a1", "analyzer", {})], [("s1", "a1", "subjects")])
     assert validate(graph).ok
     assert not validate(graph, PROJECT).ok
-    assert can_connect(graph, "s1", "a1", "subjects") == (False, "Subjects is already wired from this node")
+    assert can_connect(graph, "s1", "a1", "subjects") == (
+        False,
+        "Subjects is already wired from this node",
+    )
 
 
 def test_a_subject_the_project_does_not_know_has_nothing() -> None:
     graph = doc([cohort("ghost"), ("m1", "sim", {})])
     ok, reason = can_connect(graph, "s1", "m1", "subjects", PROJECT)
     assert not ok and reason == "ghost has no head model"
+
+
+def test_dicom_only_preprocessing_does_not_promise_a_head_model():
+    graph = doc(
+        [cohort("102"), ("p1", "pre", {"convert_dicom": True}), ("sim", "sim", {})],
+        [("s1", "p1", "subjects"), ("p1", "sim", "subjects")],
+    )
+    assert capabilities_at(graph, "sim", PROJECT)["102"] == {"raw"}
+    assert unmet("sim", capabilities_at(graph, "sim", PROJECT)) == [("m2m", ["102"])]

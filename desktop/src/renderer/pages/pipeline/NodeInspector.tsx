@@ -21,7 +21,9 @@ import { SegmentedControl } from "../../ui/SegmentedControl";
 import { FormSection } from "../../ui/Layout";
 import { Callout } from "../../ui/Feedback";
 import { ObjectiveSection, ElectrodesSection } from "../optimizer/FlexSections";
-import { RoiPicker, getAtlases, type Atlas, type AtlasLookup, type RoiValue } from "../_shared/roi";
+import { RoiPicker, emptyRoi, getAtlases, type Atlas, type AtlasLookup, type RoiValue } from "../_shared/roi";
+import { getAtlasRegions } from "../_shared/roi/api";
+import { MontageSelection } from "./MontageSelection";
 import type { FlexFormState } from "../optimizer/flexConfig";
 import { PRE_STAGES, type NodeEditor } from "./editors";
 import { SubjectsEditor } from "./SubjectsEditor";
@@ -71,6 +73,13 @@ export function NodeInspector({
   // ask the catalog which atlases *a* subject has, so a form can list regions.
   const subjects = subjectsOf(doc, node.id);
   const body = useRef<HTMLDivElement>(null);
+  const analyzerAtlas = editor.kind === "analyzer" && (editor.roi.mode === "cortical" || editor.roi.mode === "subcortical") ? editor.roi : undefined;
+  const atlasRegions = useQuery({queryKey:["pipeline-atlas-regions",subjects[0],analyzerAtlas?.atlas], queryFn:()=>getAtlasRegions(subjects[0]!,analyzerAtlas!.atlas!,"both"), enabled:!!subjects[0] && !!analyzerAtlas?.atlas});
+  const analyzerRoi = analyzerAtlas ? {...analyzerAtlas,regions:analyzerAtlas.regions.map((selected)=>{
+    const match=atlasRegions.data?.find((region)=>region.name===selected.name);
+    return match ? {...selected,id:match.id,...(match.hemi ? {hemi:match.hemi}: {})} : selected;
+  })} : editor.kind === "analyzer" ? editor.roi : undefined;
+
 
   const jsonError = useMemo(() => {
     if (editor.kind !== "json") return null;
@@ -171,8 +180,8 @@ export function NodeInspector({
             <ObjectiveSection
               form={editor.form}
               onChange={(patch: Partial<FlexFormState>) => onEditorChange({ ...editor, form: { ...editor.form, ...patch } })}
-              nonRoi={editor.roi}
-              onNonRoiChange={() => undefined}
+              nonRoi={editor.nonRoi ?? emptyRoi("subcortical")}
+              onNonRoiChange={(nonRoi) => onEditorChange({ ...editor, nonRoi })}
               subject={subjects[0]}
             />
             <ElectrodesSection
@@ -181,10 +190,11 @@ export function NodeInspector({
             />
             <FormSection title="Target">
               <div className="pipeline-span">
+                {(editor.roi.mode === "cortical" || editor.roi.mode === "subcortical") && editor.roi.atlas?.startsWith("/") && <Callout kind="info">Saved target: {editor.roi.atlas}. Selected labels: {editor.roi.regions.map((r) => r.id).join(", ")}. Choose an atlas to replace this saved target.</Callout>}
                 <RoiPicker
                   value={editor.roi}
                   onChange={(roi) => onEditorChange({ ...editor, roi })}
-                  modes={["spherical", "cortical", "subcortical"]}
+                  modes={["spherical", "cortical", "subcortical", "mask"]}
                   subject={subjects[0]}
                 />
               </div>
@@ -195,34 +205,7 @@ export function NodeInspector({
         {editor.kind === "sim" && (
           <FormSection title="Simulation">
             <>
-              <Field
-                label="Montages"
-                help={
-                  wired.some((e) => e.port === "montages")
-                    ? "Wired from an optimizer — the names come from its finished run."
-                    : "Comma-separated montage names from montage_list.json."
-                }
-                className="pipeline-span"
-              >
-                <input
-                  className="input"
-                  value={editor.montages}
-                  data-port="montages"
-                  disabled={wired.some((e) => e.port === "montages")}
-                  placeholder="L_Insula, R_Insula"
-                  onChange={(e) => onEditorChange({ ...editor, montages: e.target.value })}
-                  aria-label="Montages"
-                />
-              </Field>
-              <Field label="EEG net">
-                <input
-                  className="input"
-                  value={editor.eegNet}
-                  placeholder="GSN-HydroCel-185.csv"
-                  onChange={(e) => onEditorChange({ ...editor, eegNet: e.target.value })}
-                  aria-label="EEG net"
-                />
-              </Field>
+              <MontageSelection editor={editor} disabled={wired.some((e) => e.port === "montages")} onChange={onEditorChange} />
               <Field label="Currents (mA)">
                 <input
                   className="input"
@@ -233,6 +216,7 @@ export function NodeInspector({
               </Field>
               <Field label="Conductivity">
                 <Select
+                  aria-label="Conductivity"
                   value={editor.params.conductivity}
                   onValueChange={(v) => onEditorChange({ ...editor, params: { ...editor.params, conductivity: v } })}
                   options={[
@@ -283,11 +267,12 @@ export function NodeInspector({
                 <Field label="Target">
                   <Select
                     value={editor.analysisType}
-                    onValueChange={(v) => onEditorChange({ ...editor, analysisType: v as typeof editor.analysisType })}
+                    onValueChange={(v) => onEditorChange({ ...editor, analysisType: v as typeof editor.analysisType, roi: emptyRoi(v as "spherical" | "cortical" | "subcortical" | "mask") })}
                     options={[
                       { value: "spherical", label: "Spherical" },
                       { value: "cortical", label: "Cortical" },
                       { value: "subcortical", label: "Subcortical" },
+                      { value: "mask", label: "NIfTI mask" },
                     ]}
                   />
                 </Field>
@@ -323,7 +308,7 @@ export function NodeInspector({
               <FormSection title="Region">
                 <div className="pipeline-span">
                   <RoiPicker
-                    value={editor.roi}
+                    value={analyzerRoi ?? editor.roi}
                     onChange={(roi) => onEditorChange({ ...editor, roi })}
                     modes={[editor.analysisType]}
                     subject={subjects[0]}

@@ -352,6 +352,7 @@ def export_pipeline(
     if format != "ipynb":
         raise HTTPException(status_code=422, detail="only format=ipynb is supported")
     from tit.pipeline.notebook import export_notebook
+    from tit.pipeline.plan import PipelinePlanError
 
     doc = _document(body)
     try:
@@ -360,6 +361,8 @@ def export_pipeline(
         project_dir = None
     try:
         return export_notebook(doc, project_dir=project_dir)
+    except PipelinePlanError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except ImportError as exc:
         raise HTTPException(
             status_code=501,

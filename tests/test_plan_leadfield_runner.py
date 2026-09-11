@@ -36,6 +36,10 @@ def _reset_pm():
 
 
 def test_generates_and_prints_expected_hdf5_path(tmp_path, monkeypatch, capsys):
+    from tit.jobs import events
+
+    emitted = MagicMock()
+    monkeypatch.setattr(events, "emit_result", emitted)
     project_dir = str(tmp_path)
     expected = str(tmp_path / "leadfields" / "001_leadfield_GSN-HydroCel-185.hdf5")
 
@@ -57,11 +61,16 @@ def test_generates_and_prints_expected_hdf5_path(tmp_path, monkeypatch, capsys):
     fake_generator.generate.assert_called_once_with(tissues=[1, 2])
     assert get_path_manager().project_dir == project_dir
     assert expected in capsys.readouterr().out
+    emitted.assert_called_once_with({"leadfield_hdf": expected})
 
 
 def test_skips_generation_when_leadfield_exists_and_overwrite_false(
     tmp_path, monkeypatch, capsys
 ):
+    from tit.jobs import events
+
+    emitted = MagicMock()
+    monkeypatch.setattr(events, "emit_result", emitted)
     existing_path = str(tmp_path / "leadfields" / "001_leadfield_GSN-HydroCel-185.hdf5")
     fake_generator = MagicMock()
     fake_generator.list_leadfields.return_value = [
@@ -80,6 +89,7 @@ def test_skips_generation_when_leadfield_exists_and_overwrite_false(
 
     fake_generator.generate.assert_not_called()
     assert "already exists" in capsys.readouterr().out
+    emitted.assert_called_once_with({"leadfield_hdf": existing_path, "skipped": True})
 
 
 def test_regenerates_when_overwrite_true_even_if_existing(tmp_path, monkeypatch):

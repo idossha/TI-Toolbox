@@ -225,7 +225,7 @@ describe("the readiness table gates a subjects wire, with the same sentence as t
     // Subjects(raw) -> Pre -> Simulator: `pre` makes the head model the Simulator needs, so by the
     // time the wire reaches it those subjects have one. This is the whole point of `produces`.
     const graph = doc(
-      [cohort("102"), ["p1", "pre", {}], ["m1", "sim", {}]],
+      [cohort("102"), ["p1", "pre", { create_m2m: true }], ["m1", "sim", {}]],
       [["s1", "p1", "subjects"]],
     );
     expect(canConnect(graph, "p1", "m1", "subjects", PROJECT as never).ok).toBe(true);
@@ -283,5 +283,22 @@ describe("a node card states what it has, never what the node upstream configure
       ],
     );
     expect(nodeSummary(wired, wired.nodes[2]!)).toContain("montages from optimizer");
+  });
+});
+
+describe("configured readiness production", () => {
+  it("does not grant a head model after DICOM-only preprocessing",()=>{
+    const graph=doc([["s1","subjects",{subject_ids:["102"]}],["p1","pre",{convert_dicom:true}],["m1","sim",{}]],[["s1","p1","subjects"]]);
+    expect(canConnect(graph,"p1","m1","subjects",{"102":["raw"]}).ok).toBe(false);
+  });
+  it("does not grant simulations from an empty unbound simulator",()=>{
+    const graph=doc([["s1","subjects",{subject_ids:["ernie"]}],["m1","sim",{}],["a1","analyzer",{}]],[["s1","m1","subjects"]]);
+    expect(canConnect(graph,"m1","a1","subjects",{ernie:["raw","m2m"]}).ok).toBe(false);
+    graph.nodes.find((n)=>n.id==="m1")!.config.montages=[{name:"test"}];
+    expect(canConnect(graph,"m1","a1","subjects",{ernie:["raw","m2m"]}).ok).toBe(true);
+  });
+  it("grants simulations when the simulator has an optimizer montage wire",()=>{
+    const graph=doc([["s1","subjects",{subject_ids:["ernie"]}],["f1","flex",{}],["m1","sim",{}],["a1","analyzer",{}]],[["s1","m1","subjects"],["f1","m1","montages"]]);
+    expect(canConnect(graph,"m1","a1","subjects",{ernie:["raw","m2m"]}).ok).toBe(true);
   });
 });

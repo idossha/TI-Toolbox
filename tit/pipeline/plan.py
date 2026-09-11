@@ -27,8 +27,7 @@ The write-back closes the loop: the consumer job carries :data:`tit.jobs.binding
 naming the file each of its resolve steps will write, and
 :meth:`tit.jobs.manager.JobManager._runner_config_path` merges the resolved value into the
 runner's ``config.json`` at **admission** -- which happens only after every job the consumer waits
-on has finished, i.e. exactly when the file exists.  A resolve step that found nothing leaves the
-field as the canvas set it, so the failure mode is the form asking for the value, not a crash.
+on has finished, i.e. exactly when the file exists.  A resolve step without an exact producer output fails, preventing the consumer from using stale or unrelated values.
 """
 
 from __future__ import annotations
@@ -96,7 +95,9 @@ def _is_dynamic(doc: PipelineDocument, edge: Any) -> bool:
         return False
     if edge.port == "simulation":
         producer = doc.node(edge.source)
-        return not _simulation_names(producer.config if producer else {})
+        return any(
+            e.port == "montages" for e in doc.incoming(edge.source)
+        ) or not _simulation_names(producer.config if producer else {})
     return True
 
 
@@ -162,6 +163,15 @@ def _config_subjects(config: dict[str, Any]) -> list[str]:
         out = [str(s).strip() for s in raw if str(s).strip()]
         if out:
             return out
+    rows = config.get("subjects") or config.get("pairs")
+    if isinstance(rows, list):
+        ids = [
+            str(row.get("subject_id", "")).strip()
+            for row in rows
+            if isinstance(row, dict)
+        ]
+        if any(ids):
+            return list(dict.fromkeys(s for s in ids if s))
     single = str(config.get("subject_id") or "").strip()
     return [single] if single else []
 
@@ -188,22 +198,30 @@ def _roi_fields(
     (an unbound ROI is a validation warning, never a silently wrong config).
     """
     roi = producer_config.get("roi")
-    if consumer_kind in {"flex", "ex", "mex"} and roi not in (None, {}, []):
+    if producer_kind == "flex" and consumer_kind == "flex" and isinstance(roi, dict):
         return {"roi": roi}
-    if consumer_kind == "analyzer" and isinstance(roi, dict):
-        out: dict[str, Any] = {}
-        # A cortical/subcortical FlexConfig ROI carries the atlas the analyzer also reads.
-        if roi.get("atlas") or roi.get("atlas_path"):
-            out["atlas"] = roi.get("atlas") or roi.get("atlas_path")
-        if roi.get("region") is not None:
-            out["region"] = roi.get("region")
-        if roi.get("center") is not None:
-            out["center"] = roi.get("center")
-            out["radius"] = roi.get("radius")
-        return out
     if consumer_kind in {"ex", "mex"} and producer_kind in {"ex", "mex"}:
         return {k: v for k, v in producer_config.items() if k.startswith("roi_")}
-    return {}
+    if (
+        consumer_kind == "analyzer"
+        and producer_kind == "flex"
+        and isinstance(roi, dict)
+    ):
+        if all(key in roi for key in ("x", "y", "z")):
+            values = [roi[key] for key in ("x", "y", "z")] + [roi.get("radius", 10.0)]
+            if all(not isinstance(value, list) or len(value) == 1 for value in values):
+                x, y, z, radius = [
+                    value[0] if isinstance(value, list) else value for value in values
+                ]
+                return {
+                    "analysis_type": "spherical",
+                    "center": [x, y, z],
+                    "radius": radius,
+                    "coordinate_space": "mni" if roi.get("use_mni") else "subject",
+                }
+    raise PipelinePlanError(
+        f"Cannot transfer this {producer_kind} ROI to {consumer_kind} without changing its meaning; configure the consumer ROI explicitly and remove the ROI wire"
+    )
 
 
 def _round_trip(kind: str, config: dict[str, Any], node_id: str) -> dict[str, Any]:
@@ -265,6 +283,7 @@ def plan_pipeline(
     bindings_dir = bindings_dir_name(doc.name)
     subject_cache: dict[str, list[str]] = {}
     node_labels: dict[str, list[str]] = {}
+    node_configs: dict[str, dict[str, Any]] = {}
     planned: list[Any] = []
 
     for node_id in result.order:
@@ -340,9 +359,29 @@ def plan_pipeline(
                 producer = doc.node(edge.source)
                 if producer is not None:
                     config.update(
-                        _roi_fields(producer.kind, producer.config, node.kind)
+                        _roi_fields(
+                            producer.kind,
+                            node_configs.get(producer.id, producer.config),
+                            node.kind,
+                        )
                     )
 
+        if node.kind == "sim" and "montages" not in dynamic_ports:
+            montages = config.get("montages")
+            if (
+                not isinstance(montages, list)
+                or not montages
+                or any(
+                    not isinstance(m, dict) or not m.get("electrode_pairs")
+                    for m in montages
+                )
+            ):
+                raise PipelinePlanError(
+                    f"{node.display_name}: select complete montages with electrode pairs, or bind an optimizer output",
+                    node_id,
+                )
+
+        node_configs[node_id] = config
         subjects = resolve_subjects(doc, node_id, subject_cache)
         if not subjects and node.kind != "stats":
             raise PipelinePlanError(f"{node.display_name} has no subjects to run on")
@@ -351,6 +390,18 @@ def plan_pipeline(
         labels: list[str] = []
 
         if node.kind in COHORT_KINDS:
+            rows = config.get("subjects", [])
+            configured = {
+                row.get("subject_id") for row in rows if isinstance(row, dict)
+            }
+            if set(subjects) - configured:
+                raise PipelinePlanError(
+                    f"{node.display_name}: configure statistics group/response and simulation for every bound subject",
+                    node_id,
+                )
+            config["subjects"] = [
+                row for row in rows if row.get("subject_id") in subjects
+            ]
             cohort_config = _round_trip(
                 node.kind, {**config, "subject_ids": subjects}, node_id
             )
@@ -373,8 +424,14 @@ def plan_pipeline(
             for subject_id in subjects:
                 for simulation in simulations or [None]:
                     entry = {**config, "subject_id": subject_id}
-                    if node.kind == "pre":
+                    if node.kind in {"pre", "source"}:
                         entry["subject_ids"] = [subject_id]
+                        if node.kind == "source" and "pairs" in entry:
+                            entry["pairs"] = [
+                                pair
+                                for pair in entry["pairs"]
+                                if pair.get("subject_id") == subject_id
+                            ]
                     else:
                         entry.pop("subject_ids", None)
                     if simulation is not None:
@@ -442,5 +499,5 @@ def _bound_simulations(doc: PipelineDocument, node_id: str) -> list[str]:
         if producer is None:
             continue
         # Empty means "resolved at run time by the resolve step planned for this edge".
-        return _simulation_names(producer.config)
+        return [] if _is_dynamic(doc, edge) else _simulation_names(producer.config)
     return []

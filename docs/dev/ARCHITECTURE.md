@@ -234,11 +234,18 @@ transfers only its named binding. Readiness checks propagate required and produc
 name subjects that cannot proceed. Shape validation returns structured issues; malformed documents
 are request errors.
 
+Saved node configurations are authoritative. Editing an exposed field preserves untouched and
+unexposed scientific values; partial form defaults must not rebuild the whole configuration.
+Bindings refer to the selected producer's outputs, not unrelated historical results. Validation
+checks runner-compatible configurations before enabling submission. The canvas adds no scientific
+algorithms or independent execution semantics.
+
 One pipeline run uses one job group and the existing scheduler, cancellation and events. Static
 bindings resolve during planning. Dynamic bindings use intermediate resolve jobs and are merged into
 consumer configuration at admission, when producer files can exist. Pipeline execution introduces
-no separate retry, conditional or scheduling engine. Notebook export calls the public scripting API
-and preserves the document in metadata.
+no separate retry, conditional or scheduling engine. Notebook export uses the same planned job configurations and established runners without requiring
+the desktop or a running server, and preserves the document in metadata. It does not maintain
+separate per-kind scientific recipes.
 
 The UI previews independently resolvable destinations. Partial previews cannot enable replacement;
 Skip on a conflicting pipeline queues no jobs because dependencies cannot be partially skipped there.

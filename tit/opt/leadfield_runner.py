@@ -34,6 +34,7 @@ from tit.paths import get_path_manager
 def main() -> None:
     """Run leadfield generation from a JSON config passed as the first CLI argument."""
     from tit.logger import setup_logging, add_stream_handler
+    from tit.jobs import events
 
     setup_logging()
     add_stream_handler("tit.opt.leadfield")
@@ -48,15 +49,23 @@ def main() -> None:
     generator = LeadfieldGenerator(config.subject_id, electrode_cap=config.eeg_net)
 
     if not config.overwrite:
-        existing_nets = {net for net, _, _ in generator.list_leadfields()}
-        if config.eeg_net in existing_nets:
+        existing = {net: path for net, path, _ in generator.list_leadfields()}
+        if config.eeg_net in existing:
             print(
                 f"Leadfield already exists for {config.subject_id}/{config.eeg_net}; "
                 "skipping (overwrite=False)"
             )
+            events.emit_artifact(
+                existing[config.eeg_net], kind="hdf5", label="leadfield"
+            )
+            events.emit_result(
+                {"leadfield_hdf": existing[config.eeg_net], "skipped": True}
+            )
             sys.exit(0)
 
     hdf5_path = generator.generate(tissues=config.tissues)
+    events.emit_artifact(str(hdf5_path), kind="hdf5", label="leadfield")
+    events.emit_result({"leadfield_hdf": str(hdf5_path)})
     print(f"Leadfield ready: {hdf5_path}")
     sys.exit(0)
 

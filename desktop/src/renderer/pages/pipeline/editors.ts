@@ -1,18 +1,4 @@
-/**
- * Node editor state, and the one function that turns it into the node's config.
- *
- * **The config a node carries is the config its page already builds.** Nothing here re-derives a
- * `FlexConfig` or a `SimulationConfig` by hand: `buildFlexConfig`, `buildSimulationConfig` and the
- * Analyzer's `buildConfig` are imported from their own pages and called with the same inputs those
- * pages give them. A node is therefore exactly one job of that page, not a second implementation of
- * it that can drift.
- *
- * The editor *state* (form state, ROI value) lives on the page keyed by node id, while the
- * document stores only the built config — which is what the server validates, runs and exports.
- * The consequence, and today's known limitation: loading a saved pipeline restores every node's
- * config (so it validates, runs and exports correctly) but opens its form at that kind's defaults,
- * because no v3 page has a config -> form-state reader. See the lane note's open items.
- */
+/** Node configs stay authoritative; shared page builders apply only explicitly edited fields. */
 import { defaultFlexFormState, buildFlexConfig, type FlexFormState } from "../optimizer/flexConfig";
 import { buildSimulationConfig, type GlobalParams } from "../simulator/buildConfig";
 import { buildConfig as buildAnalyzerConfig, type AnalysisType, type Space } from "../analyzer/buildConfig";
@@ -47,11 +33,13 @@ export interface FlexEditor {
   kind: "flex";
   form: FlexFormState;
   roi: RoiValue;
+  nonRoi?: RoiValue;
 }
 
 export interface SimEditor {
   kind: "sim";
   montages: string;
+  definitions?: Record<string, unknown>[];
   eegNet: string;
   currents: string;
   params: GlobalParams;
@@ -119,64 +107,72 @@ export function defaultEditor(kind: NodeKind): NodeEditor {
   }
 }
 
-/**
- * The best editor state a *saved* node's config can be read back into.
- *
- * The document stores each node's **built** config, which is what validates, runs and exports; the
- * form state that produced it is page session state and is not saved. No v3 page has a full
- * `config -> form state` reader (PC.md open item 2), so this is deliberately partial: it recovers
- * the fields a user is most likely to want to see and change again — the cohort, the montage
- * names, the simulation, the pre stages, the analyzer's space and target — and leaves the rest at
- * that kind's defaults.
- *
- * The important part is what it does **not** do. It never invents a config: opening a loaded node
- * and closing it again without touching anything leaves the document's config alone, and only an
- * actual edit rebuilds it. And for the JSON-edited kinds it seeds the textarea with the node's own
- * config rather than `{}`, which is the difference between "edit this step" and "silently replace
- * this step with an empty object".
- */
+/** Restore visible fields; raw config remains authoritative for everything not edited. */
 export function editorFromNode(node: { kind: NodeKind; config?: Record<string, unknown> }): NodeEditor {
   const config = node.config ?? {};
   const base = defaultEditor(node.kind);
-
   switch (base.kind) {
-    case "subjects": {
-      const list = config.subject_ids;
-      return {
-        ...base,
-        subjects: Array.isArray(list) ? list.map((s) => String(s).trim()).filter(Boolean) : [],
+    case "subjects": return { ...base, subjects: Array.isArray(config.subject_ids) ? config.subject_ids.map(String) : [] };
+    case "pre": return { ...base, stages: Object.fromEntries(PRE_STAGES.map(({ key }) => [key, config[key] === true])) };
+    case "flex": {
+      const form = { ...base.form };
+      const fields: Partial<Record<keyof FlexFormState, string>> = {
+        goal: "goal", postproc: "postproc", anisotropyType: "anisotropy_type", anisoMaxratio: "aniso_maxratio", anisoMaxcond: "aniso_maxcond", currentMA: "current_mA", minElectrodeDistance: "min_electrode_distance",
+        optimizeCurrentRatio: "optimize_current_ratio", ratioLevels: "ratio_levels", ratioTotalMA: "ratio_total_mA", nonRoiMethod: "non_roi_method", intensityWeight: "intensity_weight", manualThresholds: "thresholds", nMultistart: "n_multistart", maxIterations: "max_iterations", populationSize: "population_size", tolerance: "tolerance", recombination: "recombination", skinRegionMarginMm: "skin_region_margin_mm", avoidLandmarkRegions: "avoid_landmark_regions", runFinalElectrodeSimulation: "run_final_electrode_simulation", enableMapping: "enable_mapping", eegNet: "eeg_net",
       };
+      for (const [field, key] of Object.entries(fields)) if (config[key] !== undefined && config[key] !== null) Object.assign(form, { [field]: config[key] });
+      const electrode = object(config.electrode);
+      if (typeof electrode.shape === "string") form.electrodeShape = electrode.shape as FlexFormState["electrodeShape"];
+      if (Array.isArray(electrode.dimensions)) [form.dimensionWidth, form.dimensionHeight] = electrode.dimensions as [number, number];
+      if (typeof electrode.gel_thickness === "number") form.gelThickness = electrode.gel_thickness;
+      if (typeof config.mutation === "string") [form.mutationMin, form.mutationMax] = config.mutation.split(",").map(Number) as [number, number];
+      form.focalityMode = config.pareto ? "pareto" : config.adaptive ? "adaptive" : "manual";
+      const adaptive = object(config.adaptive), pareto = object(config.pareto);
+      if (typeof adaptive.non_roi_pct === "number") form.adaptiveNonRoiPct = adaptive.non_roi_pct;
+      if (typeof adaptive.roi_pct === "number") form.adaptiveRoiPct = adaptive.roi_pct;
+      if (Array.isArray(pareto.roi_pcts)) form.paretoRoiPcts = pareto.roi_pcts.join(",");
+      if (Array.isArray(pareto.nonroi_pcts)) form.paretoNonRoiPcts = pareto.nonroi_pcts.join(",");
+      return { ...base, form, roi: restoreRoi(config.roi) ?? base.roi, nonRoi: restoreRoi(config.non_roi) };
     }
-    case "pre": {
-      const stages: Record<string, boolean> = {};
-      for (const stage of PRE_STAGES) if (config[stage.key] === true) stages[stage.key] = true;
-      return { ...base, stages: Object.keys(stages).length ? stages : base.stages };
-    }
-    case "flex":
-      return base;
     case "sim": {
-      const montages = Array.isArray(config.montages)
-        ? config.montages.map((m) => String((m as { name?: unknown })?.name ?? "")).filter(Boolean).join(", ")
-        : "";
-      return {
-        ...base,
-        montages,
-        eegNet: String(config.eeg_net ?? "") || base.eegNet,
-        params: { ...base.params, conductivity: String(config.conductivity ?? base.params.conductivity) },
-      };
+      const montages = Array.isArray(config.montages) ? config.montages.map(object) : [];
+      const params = { ...base.params };
+      const map = { conductivity: "conductivity", electrodeShape: "electrode_shape", dimensions: "electrode_dimensions", gelThickness: "gel_thickness", outputFields: "output_fields", anisoMaxratio: "aniso_maxratio", anisoMaxcond: "aniso_maxcond", mapToFsavg: "map_to_fsavg", customConductivities: "tissue_conductivities" };
+      for (const [field, key] of Object.entries(map)) if (config[key] !== undefined && config[key] !== null) Object.assign(params, { [field]: config[key] });
+      const nets = [...new Set(montages.map((m) => m.eeg_net).filter((n): n is string => typeof n === "string"))];
+      return { ...base, definitions: montages, montages: montages.map((m) => String(m.name ?? "")).join(", "), eegNet: nets.length === 1 ? nets[0]! : "", currents: Array.isArray(config.intensities) ? config.intensities.join(", ") : base.currents, params };
     }
-    case "analyzer":
-      return {
-        ...base,
-        simulation: String(config.simulation ?? ""),
-        space: config.space === "voxel" ? "voxel" : base.space,
-        analysisType: ["spherical", "cortical", "subcortical"].includes(String(config.analysis_type))
-          ? (String(config.analysis_type) as typeof base.analysisType)
-          : base.analysisType,
-      };
-    case "json":
-      return { ...base, text: JSON.stringify(config, null, 2) };
+    case "analyzer": {
+      const analysisType = ["spherical", "cortical", "subcortical", "nifti_mask"].includes(String(config.analysis_type)) ? (config.analysis_type === "nifti_mask" ? "mask" : config.analysis_type) as AnalysisType : base.analysisType;
+      const center = Array.isArray(config.center) ? config.center : [];
+      const roi = analysisType === "mask" ? { mode: "mask" as const, path: String(config.mask_path ?? ""), space: config.coordinate_space === "mni" ? "mni" as const : "subject" as const, tissues: "GM" as const }
+        : analysisType === "cortical" || analysisType === "subcortical" ? { ...emptyRoi(analysisType), atlas: typeof config.atlas === "string" ? config.atlas : undefined, regions: (Array.isArray(config.region) ? config.region : config.region ? [config.region] : []).map((name, index) => ({ id: -index - 1, name: String(name) })) } as RoiValue : base.roi;
+      return { ...base, simulation: String(config.simulation ?? ""), space: config.space === "voxel" ? "voxel" : "mesh", analysisType, field: typeof config.field === "string" ? config.field : "__auto__", tissueType: String(config.tissue_type ?? "GM"), coordinateSpace: config.coordinate_space === "mni" ? "mni" : "subject", sphere: { x: center[0] as number | undefined, y: center[1] as number | undefined, z: center[2] as number | undefined, radius: typeof config.radius === "number" ? config.radius : undefined }, roi };
+    }
+    case "json": return { ...base, text: JSON.stringify(config, null, 2) };
   }
+}
+
+function object(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function restoreRoi(value: unknown): RoiValue | undefined {
+  const roi = object(value);
+  const list = (v: unknown): unknown[] => Array.isArray(v) ? v : v === undefined ? [] : [v];
+  const tissues = roi.tissues === "WM" || roi.tissues === "both" ? roi.tissues : "GM";
+  if (roi._type === "SphericalROI" || roi.x !== undefined) {
+    const ys = list(roi.y), zs = list(roi.z), radii = list(roi.radius);
+    return { mode: "spherical", spheres: list(roi.x).map((x, i) => ({ x: Number(x), y: Number(ys[i] ?? ys[0]), z: Number(zs[i] ?? zs[0]), radius: Number(radii[i] ?? radii[0]) })), space: roi.use_mni ? "mni" : "subject", volumetric: roi.volumetric === true, tissues };
+  }
+  if (roi._type === "SubcorticalROI" && roi.label === null && typeof roi.atlas_path === "string") return { mode: "mask", path: roi.atlas_path, space: roi.atlas_space === "mni" ? "mni" : "subject", tissues };
+  if (roi._type === "AtlasROI" || roi._type === "SubcorticalROI") {
+    const atlas = String(list(roi.atlas_path)[0] ?? "");
+    const hemis = list(roi.hemisphere);
+    const regions = list(roi.label).map((id, i) => ({ id: Number(id), name: String(id), ...(roi._type === "AtlasROI" ? { hemi: (hemis[i] ?? hemis[0] ?? "lh") as "lh" | "rh" } : {}) }));
+    return roi._type === "AtlasROI" ? { mode: "cortical", atlas, regions } : { mode: "subcortical", atlas, regions, atlasSpace: roi.atlas_space === "mni" ? "mni" : "subject", tissues };
+  }
+  return undefined;
 }
 
 export function parseSubjects(text: string): string[] {
@@ -206,7 +202,7 @@ function simRow(subjectId: string, name: string, editor: SimEditor): SelectedRow
  * copied into the config at all, it stays on the `subjects` node and reaches this one over the
  * wire, so a document has exactly one place that says who takes part.
  */
-export function configFor(
+function buildEditorConfig(
   editor: NodeEditor,
   atlasLookup: (atlas: string) => AtlasLookup | undefined,
   previous?: Record<string, unknown>,
@@ -231,7 +227,7 @@ export function configFor(
     }
     case "flex": {
       const roi = roiToConfig(editor.roi, atlasLookup);
-      const config = buildFlexConfig(representative, editor.form, roi ?? ({} as never), undefined) as unknown as Record<string, unknown>;
+      const config = buildFlexConfig(representative, editor.form, roi ?? ({} as never), editor.nonRoi ? roiToConfig(editor.nonRoi, atlasLookup) ?? undefined : undefined) as unknown as Record<string, unknown>;
       return config;
     }
     case "sim": {
@@ -240,7 +236,7 @@ export function configFor(
       // out per subject, and each montage becomes one simulation name a downstream Analyzer binds.
       const montages = names.map((name) => {
         const row = simRow(representative, name, editor);
-        return (buildSimulationConfig(row, editor.params).montages as unknown[])[0];
+        return editor.definitions?.find((m) => m.name === name) ?? (buildSimulationConfig(row, editor.params).montages as unknown[])[0];
       });
       const base = buildSimulationConfig(simRow(representative, names[0] ?? "", editor), editor.params);
       return { ...base, montages };
@@ -279,4 +275,42 @@ export function configFor(
       return previous ?? {};
     }
   }
+}
+
+
+/** Apply changes generated by the shared page builder, retaining every untouched saved field. */
+export function configFor(editor: NodeEditor, atlasLookup: (atlas: string) => AtlasLookup | undefined, previous?: Record<string, unknown>, cohort: string[] = [], previousEditor?: NodeEditor): Record<string, unknown> {
+  if (!previous || editor.kind === "json") return buildEditorConfig(editor, atlasLookup, previous, cohort);
+  const before = previousEditor ?? editorFromNode({ kind: editor.kind, config: previous });
+  const lookup = (atlas: string) => atlasLookup(atlas) ?? (atlas.startsWith("/") ? { path: atlas } : undefined);
+  const oldBuilt = buildEditorConfig(before, lookup, previous, cohort);
+  const newBuilt = buildEditorConfig(editor, lookup, previous, cohort);
+  const merged = applyChangedFields(previous, oldBuilt, newBuilt);
+  if (editor.kind === "sim" && before.kind === "sim" && (editor.montages !== before.montages || editor.eegNet !== before.eegNet || editor.definitions !== before.definitions)) {
+    const saved = Array.isArray(previous.montages) ? previous.montages.map(object) : [];
+    merged.montages = (newBuilt.montages as Record<string, unknown>[]).map((m) => {
+      const original = saved.find((entry) => entry.name === m.name);
+      return original && editor.definitions === before.definitions ? original : m;
+    });
+  }
+  return merged;
+}
+
+function applyChangedFields(saved: Record<string, unknown>, before: Record<string, unknown>, after: Record<string, unknown>): Record<string, unknown> {
+  const result = { ...saved };
+  for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
+    if (JSON.stringify(before[key]) === JSON.stringify(after[key])) continue;
+    if (!(key in after)) { delete result[key]; continue; }
+    const oldObject = object(before[key]), newObject = object(after[key]);
+    result[key] = Object.keys(oldObject).length && Object.keys(newObject).length && oldObject._type === newObject._type
+      ? applyChangedFields(object(saved[key]), oldObject, newObject) : after[key];
+  }
+  return result;
+}
+
+/** Invalid drafts must not masquerade as the last valid document. */
+export function editorError(editor: NodeEditor): string | null {
+  if (editor.kind !== "json") return null;
+  try { const value: unknown = JSON.parse(editor.text); return value && typeof value === "object" && !Array.isArray(value) ? null : "Config must be a JSON object."; }
+  catch { return "Config contains invalid JSON. Reopen the step to correct it."; }
 }

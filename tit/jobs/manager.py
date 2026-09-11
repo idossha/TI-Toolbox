@@ -870,7 +870,7 @@ class JobManager:
         # exist when the group is submitted -- only after that edge's `tit.tools.pipeline_resolve`
         # step ran.  The consumer carries the descriptor; this is the moment the value exists,
         # because admission happens after every `after` job finished.  Inert for every other job.
-        merge_pipeline_bindings(payload, self.project_dir)
+        merge_pipeline_bindings(payload, self.project_dir, run_id=spec.group_id)
         if spec.kind == "pre" and "subject_ids" not in payload:
             payload["subject_ids"] = list(spec.subject_ids)
         path = job_file_path(self.project_dir, spec.id, "config.json")

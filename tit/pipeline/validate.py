@@ -230,7 +230,9 @@ def satisfied_by_config(kind: str, port: str, config: dict[str, Any]) -> bool:
     return False  # pragma: no cover - PORT_TYPES is closed
 
 
-def subjects_at(doc: PipelineDocument, node_id: str, _seen: set[str] | None = None) -> list[str]:
+def subjects_at(
+    doc: PipelineDocument, node_id: str, _seen: set[str] | None = None
+) -> list[str]:
     """The subject ids reaching *node_id*: its bound upstream cohort, else its own config.
 
     Under the ``subjects``-source model the second half is only ever true of a ``subjects`` node
@@ -285,7 +287,19 @@ def capabilities_at(
         return {s: set(readiness.get(s, set())) for s in _config_subjects(node.config)}
 
     inherited = capabilities_at(doc, upstream, readiness, seen)
-    produced = KIND_READINESS.get(doc.node(upstream).kind if doc.node(upstream) else "", _KindReadiness()).produces
+    produced = KIND_READINESS.get(
+        doc.node(upstream).kind if doc.node(upstream) else "", _KindReadiness()
+    ).produces
+    producer = doc.node(upstream)
+    if producer and producer.kind == "pre" and not producer.config.get("create_m2m"):
+        produced = ()
+    if (
+        producer
+        and producer.kind == "sim"
+        and not producer.config.get("montages")
+        and not any(e.port == "montages" for e in doc.incoming(producer.id))
+    ):
+        produced = ()
     return {sid: caps | set(produced) for sid, caps in inherited.items()}
 
 
@@ -296,7 +310,9 @@ def unmet(
     needed = KIND_READINESS.get(kind, _KindReadiness()).requires
     out: list[tuple[str, list[str]]] = []
     for capability in needed:
-        missing = sorted(s for s, caps in caps_by_subject.items() if capability not in caps)
+        missing = sorted(
+            s for s, caps in caps_by_subject.items() if capability not in caps
+        )
         if missing:
             out.append((capability, missing))
     return out
@@ -364,7 +380,9 @@ def can_connect(
             edges=[*doc.edges, Edge(source=source, target=target, port=port)],
             name=doc.name,
         )
-        reason = readiness_reason(dst.kind, capabilities_at(hypothetical, target, readiness))
+        reason = readiness_reason(
+            dst.kind, capabilities_at(hypothetical, target, readiness)
+        )
         if reason:
             return False, reason
     return True, None
@@ -408,7 +426,9 @@ def topological_order(doc: PipelineDocument) -> list[str] | None:
     return order if len(order) == len(ids) else None
 
 
-def validate(doc: PipelineDocument, readiness: Readiness | None = None) -> ValidationResult:
+def validate(
+    doc: PipelineDocument, readiness: Readiness | None = None
+) -> ValidationResult:
     """Every reason this pipeline cannot run, plus a topological order when it can.
 
     Pass *readiness* (subject -> capabilities, from :func:`readiness_from_overview`) to also check
@@ -419,12 +439,21 @@ def validate(doc: PipelineDocument, readiness: Readiness | None = None) -> Valid
     ids = [n.id for n in doc.nodes]
 
     if not doc.nodes:
-        issues.append(Issue("error", "a pipeline needs at least one node", code="empty"))
+        issues.append(
+            Issue("error", "a pipeline needs at least one node", code="empty")
+        )
 
     seen: set[str] = set()
     for node_id in ids:
         if node_id in seen:
-            issues.append(Issue("error", f"duplicate node id: {node_id}", node_id=node_id, code="duplicate_id"))
+            issues.append(
+                Issue(
+                    "error",
+                    f"duplicate node id: {node_id}",
+                    node_id=node_id,
+                    code="duplicate_id",
+                )
+            )
         seen.add(node_id)
 
     # -- edges ---------------------------------------------------------------------------------
@@ -446,7 +475,9 @@ def validate(doc: PipelineDocument, readiness: Readiness | None = None) -> Valid
         dst = doc.node(edge.target)
         assert src is not None and dst is not None  # guarded by `known` above
         if edge.source == edge.target:
-            issues.append(Issue("error", "a node cannot feed itself", edge=wire, code="self_edge"))
+            issues.append(
+                Issue("error", "a node cannot feed itself", edge=wire, code="self_edge")
+            )
             continue
         if edge.port not in node_outputs(src.kind):
             issues.append(
@@ -466,6 +497,18 @@ def validate(doc: PipelineDocument, readiness: Readiness | None = None) -> Valid
                     f"{dst.display_name} does not take {port_label(edge.port)}",
                     edge=wire,
                     code="bad_input",
+                    port=edge.port,
+                )
+            )
+            continue
+        if edge.port == "montages" and src.kind in {"ex", "mex"}:
+            issues.append(
+                Issue(
+                    "error",
+                    f"{src.display_name}: select and save a montage from the search results before simulating; automatic {src.kind} montage binding is unsupported",
+                    node_id=dst.id,
+                    edge=wire,
+                    code="bad_output",
                     port=edge.port,
                 )
             )

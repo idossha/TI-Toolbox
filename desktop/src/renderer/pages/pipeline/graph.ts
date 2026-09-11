@@ -103,7 +103,7 @@ export const NODE_KINDS: NodeKind[] = ["subjects", "pre", "leadfield", "flex", "
 
 export const PORT_LABEL: Record<PortType, string> = {
   subjects: "Subjects",
-  montages: "Montage names",
+  montages: "Montages",
   simulation: "Simulation name",
   roi: "ROI",
   leadfield: "Leadfield",
@@ -212,7 +212,10 @@ export function capabilitiesAt(
   }
 
   const inherited = capabilitiesAt(doc, upstream, readiness, seen);
-  const produced = READINESS[nodeById(doc, upstream)?.kind ?? "subjects"]?.produces ?? [];
+  const producer = nodeById(doc, upstream);
+  let produced = READINESS[producer?.kind ?? "subjects"]?.produces ?? [];
+  if (producer?.kind === "pre" && !producer.config.create_m2m) produced = [];
+  if (producer?.kind === "sim" && !(Array.isArray(producer.config.montages) && producer.config.montages.length) && !incoming(doc, producer.id).some((edge) => edge.port === "montages")) produced = [];
   const out: Record<string, Set<Capability>> = {};
   for (const [subject, caps] of Object.entries(inherited)) out[subject] = new Set([...caps, ...produced]);
   return out;

@@ -86,7 +86,12 @@ FOUR_NODE = build(
         (
             "an1",
             "analyzer",
-            {"space": "mesh", "analysis_type": "spherical", "radius": 5.0, "center": [1, 2, 3]},
+            {
+                "space": "mesh",
+                "analysis_type": "spherical",
+                "radius": 5.0,
+                "center": [1, 2, 3],
+            },
         ),
     ],
     [
@@ -203,7 +208,7 @@ def test_a_config_that_does_not_fit_its_kind_refuses_to_plan() -> None:
     assert "banana" in str(excinfo.value)
 
 
-def test_a_simulator_with_no_montages_falls_back_to_a_runtime_resolve() -> None:
+def test_a_simulator_with_no_montages_refuses_to_run() -> None:
     doc = build(
         [
             ("sim1", "sim", sim_config(["M"])),
@@ -212,7 +217,39 @@ def test_a_simulator_with_no_montages_falls_back_to_a_runtime_resolve() -> None:
         [("sim1", "an1", "subjects"), ("sim1", "an1", "simulation")],
     )
     doc.node("sim1").config["montages"] = []
-    labels = [j.label for j in plan_pipeline(doc)]
-    # No literal montage name to bind, so the edge falls back to a run-time resolve step
-    # rather than silently analysing nothing.
-    assert "an1:resolve:simulation" in labels
+    with pytest.raises(PipelinePlanError, match="complete montages"):
+        plan_pipeline(doc)
+
+
+def test_roi_wire_copies_single_sphere_coordinates_and_refuses_atlas_guessing():
+    config = flex_config()
+    config["roi"] = {
+        "_type": "SphericalROI",
+        "x": [-12],
+        "y": [3],
+        "z": [45],
+        "radius": 7,
+        "use_mni": True,
+    }
+    graph = build(
+        [
+            ("flex", "flex", config),
+            ("analysis", "analyzer", {**ANALYZER, "simulation": "known"}),
+        ],
+        [("flex", "analysis", "subjects"), ("flex", "analysis", "roi")],
+    )
+    output = next(job.config for job in plan_pipeline(graph) if job.kind == "analyzer")
+    assert output["center"] == [-12, 3, 45]
+    assert output["radius"] == 7
+    assert output["coordinate_space"] == "mni"
+    graph.node("flex").config["roi"] = flex_config()["roi"]
+    with pytest.raises(PipelinePlanError, match="without changing its meaning"):
+        plan_pipeline(graph)
+
+
+@pytest.mark.parametrize("kind", ["ex", "mex"])
+def test_search_result_requires_explicit_montage_selection(kind):
+    graph = build([("search", kind, {"subject_id": "101"}), ("sim", "sim", {})],
+                  [("search", "sim", "subjects"), ("search", "sim", "montages")])
+    with pytest.raises(PipelinePlanError, match="automatic .* montage binding is unsupported"):
+        plan_pipeline(graph)

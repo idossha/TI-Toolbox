@@ -87,6 +87,28 @@ def test_the_resolve_tool_writes_where_the_consumer_looks(
     )
     run_dir.mkdir(parents=True)
 
+    (run_dir / "electrode_positions.json").write_text(
+        json.dumps(
+            {"optimized_positions": [[1, 2, 3], [4, 5, 6], [-1, -2, -3], [-4, -5, -6]]}
+        )
+    )
+    monkeypatch.setattr(
+        pipeline_resolve,
+        "producer_records",
+        lambda _: (
+            [
+                {
+                    "kind": "flex",
+                    "subject_ids": ["ernie"],
+                    "config": {},
+                    "events": [
+                        {"type": "result", "outputs": {"output_folder": str(run_dir)}}
+                    ],
+                }
+            ],
+            "run123",
+        ),
+    )
     monkeypatch.setenv("TI_PROJECT_DIR", str(project))
     assert (
         pipeline_resolve.main(
@@ -110,11 +132,22 @@ def test_the_resolve_tool_writes_where_the_consumer_looks(
 
     jobs = {j.label: j for j in plan_pipeline(flex_to_sim())}
     descriptor = jobs["sim1:0"].config[BINDINGS_KEY][0]
-    written = json.loads((project / descriptor["path"]).read_text())
-    assert written["values"] == {"ernie": ["L_Insula_mean"]}
+    from tit.jobs.bindings import binding_path
+
+    written = json.loads(
+        open(binding_path(str(project), descriptor["path"], run_id="run123")).read()
+    )
+    montage = written["values"]["ernie"][0]
+    assert montage["electrode_pairs"] == [
+        [[1, 2, 3], [4, 5, 6]],
+        [[-1, -2, -3], [-4, -5, -6]],
+    ]
+    assert montage["mode"] == "flex_free"
 
 
-def test_the_resolve_tool_refuses_a_traversing_pipeline_or_node(tmp_path, monkeypatch) -> None:
+def test_the_resolve_tool_refuses_a_traversing_pipeline_or_node(
+    tmp_path, monkeypatch
+) -> None:
     """RUN-06: --pipeline and --node become path components of the file it writes."""
     from tit.tools import pipeline_resolve
 
@@ -122,7 +155,11 @@ def test_the_resolve_tool_refuses_a_traversing_pipeline_or_node(tmp_path, monkey
     (project / "code").mkdir(parents=True)
     monkeypatch.setenv("TI_PROJECT_DIR", str(project))
     base = ["--port", "montages", "--subjects", "ernie", "--project-dir", str(project)]
-    for pipeline, node in (("../../../escape", "sim1"), ("demo", "../../escape"), ("/abs", "sim1")):
+    for pipeline, node in (
+        ("../../../escape", "sim1"),
+        ("demo", "../../escape"),
+        ("/abs", "sim1"),
+    ):
         with pytest.raises(SystemExit):
             pipeline_resolve.main(["--pipeline", pipeline, "--node", node, *base])
     assert not list(tmp_path.glob("*.json"))
@@ -138,8 +175,16 @@ def test_the_resolve_tool_refuses_an_invalid_subject_id(tmp_path, monkeypatch) -
     assert (
         pipeline_resolve.main(
             [
-                "--pipeline", "demo", "--node", "sim1", "--port", "montages",
-                "--subjects", "../../evil", "--project-dir", str(project),
+                "--pipeline",
+                "demo",
+                "--node",
+                "sim1",
+                "--port",
+                "montages",
+                "--subjects",
+                "../../evil",
+                "--project-dir",
+                str(project),
             ]
         )
         == 2
@@ -178,7 +223,7 @@ def test_the_manager_merges_the_resolved_value_into_the_runners_config(
     assert written["project_dir"] == project
 
 
-def test_a_resolve_step_that_found_nothing_leaves_the_field_alone(tmp_path) -> None:
+def test_a_missing_or_unreadable_binding_refuses_admission(tmp_path) -> None:
     """The honest degradation: no crash, and the form's own value survives."""
     payload = {
         "montages": [],
@@ -192,22 +237,25 @@ def test_a_resolve_step_that_found_nothing_leaves_the_field_alone(tmp_path) -> N
         ],
     }
     # File absent entirely.
-    assert merge_pipeline_bindings(dict(payload), str(tmp_path)) == {"montages": []}
+    with pytest.raises(ValueError, match="binding"):
+        merge_pipeline_bindings(dict(payload), str(tmp_path))
 
     # File present, but the search wrote no run for this subject.
     target = os.path.join(str(tmp_path), payload[BINDINGS_KEY][0]["path"])
     os.makedirs(os.path.dirname(target), exist_ok=True)
     with open(target, "w", encoding="utf-8") as fh:
         json.dump({"values": {"ernie": []}}, fh)
-    assert merge_pipeline_bindings(dict(payload), str(tmp_path)) == {"montages": []}
+    with pytest.raises(ValueError, match="binding"):
+        merge_pipeline_bindings(dict(payload), str(tmp_path))
 
     # And a file that is not JSON at all.
     with open(target, "w", encoding="utf-8") as fh:
         fh.write("not json")
-    assert merge_pipeline_bindings(dict(payload), str(tmp_path)) == {"montages": []}
+    with pytest.raises(ValueError, match="binding"):
+        merge_pipeline_bindings(dict(payload), str(tmp_path))
 
 
-def test_a_scalar_port_takes_the_newest_name(tmp_path) -> None:
+def test_a_scalar_port_refuses_ambiguous_outputs(tmp_path) -> None:
     """``leadfield`` and ``simulation`` are one value; the resolve tool writes newest last."""
     payload = {
         "leadfield_hdf": "",
@@ -222,11 +270,139 @@ def test_a_scalar_port_takes_the_newest_name(tmp_path) -> None:
     }
     with open(os.path.join(str(tmp_path), "b.json"), "w", encoding="utf-8") as fh:
         json.dump({"values": {"ernie": ["/old.hdf5", "/new.hdf5"]}}, fh)
-    merged = merge_pipeline_bindings(dict(payload), str(tmp_path))
-    assert merged == {"leadfield_hdf": "/new.hdf5"}
+    with pytest.raises(ValueError, match="exactly one"):
+        merge_pipeline_bindings(dict(payload), str(tmp_path))
 
 
 def test_an_ordinary_job_is_untouched(tmp_path) -> None:
     """Every non-pipeline job goes through this hook too; it must cost them nothing."""
     payload = {"subject_id": "ernie", "montages": ["hand-made"]}
     assert merge_pipeline_bindings(dict(payload), str(tmp_path)) == payload
+
+
+def test_dynamic_bindings_use_only_named_producer_results_per_subject(tmp_path):
+    from tit import get_path_manager
+    from tit.tools.pipeline_resolve import resolve_from_producers
+
+    pm = get_path_manager(str(tmp_path))
+    # A historical file and another subject must never influence the binding.
+    historical = tmp_path / "unrelated.hdf5"
+    historical.write_bytes(b"old")
+    records = [
+        {
+            "kind": "leadfield",
+            "subject_ids": ["101"],
+            "config": {},
+            "events": [
+                {"type": "result", "outputs": {"leadfield_hdf": "/expected/101.hdf5"}}
+            ],
+        },
+        {
+            "kind": "leadfield",
+            "subject_ids": ["102"],
+            "config": {},
+            "events": [
+                {"type": "result", "outputs": {"leadfield_hdf": "/expected/102.hdf5"}}
+            ],
+        },
+    ]
+    assert resolve_from_producers(pm, "leadfield", "leadfield", ["101"], records) == {
+        "101": ["/expected/101.hdf5"]
+    }
+    with pytest.raises(ValueError, match="No leadfield producer"):
+        resolve_from_producers(pm, "leadfield", "leadfield", ["103"], records)
+
+
+def test_same_pipeline_runs_cannot_share_binding_files(tmp_path):
+    from pathlib import Path
+    from tit.jobs.bindings import binding_path
+
+    relative = bindings_relpath("same", "sim", "montages")
+    for run, name in [("run1", "first"), ("run2", "second")]:
+        path = Path(binding_path(str(tmp_path), relative, run_id=run))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"values": {"101": [{"name": name}]}}))
+    payload = {
+        BINDINGS_KEY: [
+            {
+                "path": relative,
+                "field": "montages",
+                "port": "montages",
+                "subject_ids": ["101"],
+            }
+        ]
+    }
+    assert merge_pipeline_bindings(dict(payload), str(tmp_path), run_id="run1")[
+        "montages"
+    ] == [{"name": "first"}]
+    assert merge_pipeline_bindings(dict(payload), str(tmp_path), run_id="run2")[
+        "montages"
+    ] == [{"name": "second"}]
+
+
+def test_notebook_dynamic_chain_passes_real_montage_to_simulation_and_analysis(
+    tmp_path, monkeypatch
+):
+    from pathlib import Path
+    from tit import get_path_manager
+    from tit.jobs import kinds
+    from tit.pipeline.notebook import notebook_json
+    import tit.pipeline.execution as execution
+
+    graph = build(
+        [
+            ("subjects", "subjects", {"subject_ids": ["101", "102"]}),
+            ("flex", "flex", flex_config()),
+            ("sim", "sim", {}),
+            ("an", "analyzer", ANALYZER),
+        ],
+        [
+            ("subjects", "flex", "subjects"),
+            ("flex", "sim", "subjects"),
+            ("flex", "sim", "montages"),
+            ("sim", "an", "subjects"),
+            ("sim", "an", "simulation"),
+        ],
+    )
+    pm = get_path_manager(str(tmp_path))
+    captured = []
+    monkeypatch.setattr(
+        kinds, "command_for", lambda kind, config, path, **_: [kind, path]
+    )
+
+    def run(argv, *, env, check):
+        config = json.loads(Path(argv[1]).read_text())
+        captured.append((argv[0], config))
+        outputs = {}
+        if argv[0] == "flex":
+            folder = Path(pm.flex_search(config["subject_id"])) / "exact_run"
+            folder.mkdir(parents=True)
+            offset = 1 if config["subject_id"] == "101" else 100
+            (folder / "electrode_positions.json").write_text(
+                json.dumps(
+                    {
+                        "optimized_positions": [
+                            [offset + i, i + 2, i + 3] for i in range(4)
+                        ]
+                    }
+                )
+            )
+            outputs = {"output_folder": str(folder)}
+        Path(env["TIT_EVENTS_FILE"]).write_text(
+            json.dumps({"type": "result", "outputs": outputs}) + "\n"
+        )
+
+    monkeypatch.setattr(execution.subprocess, "run", run)
+    scope = {}
+    for cell in notebook_json(graph, project_dir=str(tmp_path))["cells"]:
+        if cell["cell_type"] == "code":
+            exec(cell["source"], scope)
+    simulations = {c["subject_id"]: c for kind, c in captured if kind == "sim"}
+    assert simulations["101"]["montages"][0]["electrode_pairs"][0][0] == [1, 2, 3]
+    assert simulations["102"]["montages"][0]["electrode_pairs"][0][0] == [100, 2, 3]
+    for kind, config in captured:
+        if kind == "analyzer":
+            assert (
+                config["simulation"]
+                == simulations[config["subject_id"]]["montages"][0]["name"]
+            )
