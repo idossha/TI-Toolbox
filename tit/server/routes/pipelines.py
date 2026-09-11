@@ -242,20 +242,28 @@ def delete_pipeline(name: str) -> None:
 def validate_pipeline(body: dict[str, Any] = Body(...)) -> dict[str, Any]:
     doc = _document(body)
     result = validate(doc, _readiness()).to_dict()
-    result["jobs"] = _job_preview(doc) if result["ok"] else []
+    from tit.pipeline.plan import PipelinePlanError
+
+    try:
+        result["jobs"] = _job_preview(doc) if result["ok"] else []
+    except PipelinePlanError as exc:
+        result["ok"] = False
+        result["jobs"] = []
+        result["issues"].append(
+            {
+                "level": "error",
+                "message": str(exc),
+                **({"node_id": exc.node_id} if exc.node_id else {}),
+            }
+        )
     return result
 
 
 def _job_preview(doc: PipelineDocument) -> list[dict[str, Any]]:
     """The receipt: what Run would submit, without submitting it."""
-    from tit.pipeline.plan import PipelinePlanError, plan_pipeline
+    from tit.pipeline.plan import plan_pipeline
 
-    try:
-        planned = plan_pipeline(doc)
-    except PipelinePlanError:
-        # A config that does not fit its dataclass is a *validation* answer, not a 500; the
-        # graph-level issues are already in the response and this preview is best-effort.
-        return []
+    planned = plan_pipeline(doc)
     return [
         {
             "label": job.label,

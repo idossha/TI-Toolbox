@@ -375,3 +375,51 @@ def test_pipeline_overwrite_conflict_rejects_whole_group(client, tmp_path):
     assert (
         tmp_path / "derivatives" / "SimNIBS" / "sub-ernie" / "m2m_ernie" / "ernie.msh"
     ).is_file()
+
+
+def test_validate_refuses_unplannable_simulation_before_run(client: TestClient) -> None:
+    """A connected graph is not runnable when its simulator has no montage config."""
+    doc = {
+        "version": 1,
+        "name": "missing montage",
+        "nodes": [
+            {
+                "id": "subjects",
+                "kind": "subjects",
+                "config": {"subject_ids": ["ernie"]},
+            },
+            {"id": "head", "kind": "pre", "config": {"create_m2m": True}},
+            {
+                "id": "sim",
+                "kind": "sim",
+                "label": "Simulate it",
+                "config": {"conductivity": "scalar"},
+            },
+            {
+                "id": "analysis",
+                "kind": "analyzer",
+                "config": {
+                    "space": "mesh",
+                    "analysis_type": "spherical",
+                    "center": [1, 2, 3],
+                    "radius": 5,
+                },
+            },
+        ],
+        "edges": [
+            {"from": "subjects", "to": "head", "port": "subjects"},
+            {"from": "head", "to": "sim", "port": "subjects"},
+            {"from": "sim", "to": "analysis", "port": "subjects"},
+            {"from": "sim", "to": "analysis", "port": "simulation"},
+        ],
+    }
+    run = client.post("/api/pipelines/run", headers=BEARER, json={"pipeline": doc})
+    assert run.status_code == 422
+    assert "montages" in str(run.json()["detail"])
+    checked = client.post("/api/pipelines/validate", headers=BEARER, json=doc).json()
+    assert checked["ok"] is False
+    assert checked["jobs"] == []
+    assert any(
+        i.get("node_id") == "sim" and "montages" in i["message"]
+        for i in checked["issues"]
+    )

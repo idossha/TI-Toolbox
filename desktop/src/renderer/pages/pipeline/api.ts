@@ -100,6 +100,17 @@ export async function runPipeline(
       ...(options.tags?.length ? { tags: options.tags } : {}),
     },
   });
+  if (!result.response.ok) {
+    const detail = (result.error as { detail?: unknown } | undefined)?.detail;
+    let message: string | undefined;
+    if (typeof detail === "string") message = detail;
+    else if (detail && typeof detail === "object") {
+      const problem = detail as { message?: unknown; issues?: { message?: unknown }[] };
+      const issues = Array.isArray(problem.issues) ? problem.issues.map((issue) => issue.message).filter((value): value is string => typeof value === "string") : [];
+      message = issues.length ? issues.join("; ") : typeof problem.message === "string" ? problem.message : undefined;
+    }
+    throw new ApiError(result.response.status, "/api/pipelines/run", message);
+  }
   return unwrap(result, "/api/pipelines/run");
 }
 

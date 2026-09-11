@@ -103,6 +103,10 @@ def _is_dynamic(doc: PipelineDocument, edge: Any) -> bool:
 class PipelinePlanError(ValueError):
     """The document is valid JSON but cannot be turned into jobs (unbound input, bad config)."""
 
+    def __init__(self, message: str, node_id: str | None = None):
+        super().__init__(message)
+        self.node_id = node_id
+
 
 def bindings_dir_name(pipeline_name: str) -> str:
     """Filesystem-safe directory name for a pipeline's run-time binding files."""
@@ -202,7 +206,7 @@ def _roi_fields(
     return {}
 
 
-def _round_trip(kind: str, config: dict[str, Any]) -> dict[str, Any]:
+def _round_trip(kind: str, config: dict[str, Any], node_id: str) -> dict[str, Any]:
     """Deserialize+reserialize *config* through its dataclass, so a job can only carry a shape
     the runner actually accepts. Unregistered kinds pass through unchanged."""
     class_name = KIND_CONFIG_CLASS.get(kind)
@@ -216,7 +220,7 @@ def _round_trip(kind: str, config: dict[str, Any]) -> dict[str, Any]:
         return serialize_config(deserialize_config(cls, config))
     except Exception as exc:
         raise PipelinePlanError(
-            f"node config is not a valid {class_name}: {exc}"
+            f"{node_id}: config is not a valid {class_name}: {exc}", node_id=node_id
         ) from exc
 
 
@@ -347,7 +351,9 @@ def plan_pipeline(
         labels: list[str] = []
 
         if node.kind in COHORT_KINDS:
-            cohort_config = _round_trip(node.kind, {**config, "subject_ids": subjects})
+            cohort_config = _round_trip(
+                node.kind, {**config, "subject_ids": subjects}, node_id
+            )
             _attach_bindings(cohort_config, doc.name, node_id, dynamic_ports, subjects)
             label = f"{node_id}:0"
             planned.append(
@@ -373,7 +379,7 @@ def plan_pipeline(
                         entry.pop("subject_ids", None)
                     if simulation is not None:
                         entry["simulation"] = simulation
-                    resolved = _round_trip(node.kind, entry)
+                    resolved = _round_trip(node.kind, entry, node_id)
                     _attach_bindings(
                         resolved, doc.name, node_id, dynamic_ports, [subject_id]
                     )

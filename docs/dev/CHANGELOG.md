@@ -9,6 +9,8 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 ---
 ### v3.0.0 (Unreleased)
 
+- Canvas validation reports invalid node configurations before Run, and submission errors retain their specific explanation.
+
 - Optimizer subjects remain selectable before a leadfield exists, with generation available in the Goal cell and a disabled progress indicator while it runs. Completed generation refreshes the row automatically; Ex/mEx searches still require a completed leadfield.
 - Clicking a job in the expanded bottom panel opens its full Jobs page details.
 - Log Follow catches up when enabled and continues following new output, including when the log buffer is full.

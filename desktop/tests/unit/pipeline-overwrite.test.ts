@@ -56,3 +56,14 @@ describe("pipeline overwrite policy", () => {
     expect(await planPipelineOutputs(doc, client)).toEqual({ existing: 0, total: 0, complete: false });
   });
 });
+
+
+describe("pipeline run errors", () => {
+  it.each([
+    ["sim: config is missing montages", "sim: config is missing montages"],
+    [{ message: "pipeline does not validate", issues: [{ node_id: "sim", message: "Simulator needs montages" }] }, "Simulator needs montages"],
+  ])("shows the server's actionable rejection", async (detail, message) => {
+    const POST = vi.fn().mockResolvedValue({ error: { detail }, response: { ok: false, status: 422 } });
+    await expect(runPipeline(doc, 1, {}, { POST } as unknown as typeof api)).rejects.toThrow(message as string);
+  });
+});

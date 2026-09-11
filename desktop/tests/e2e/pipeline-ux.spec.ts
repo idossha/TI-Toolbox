@@ -642,3 +642,43 @@ test("a processing node is never configured from the node upstream of it", async
   expect(carryingSubjects.map((n) => n.kind)).toEqual(["subjects"]);
   expect(carryingSubjects[0]!.config.subject_ids).toEqual(["ernie"]);
 });
+
+
+test("a simulator configuration rejection names the node before Run", async () => {
+  await freshCanvas();
+  await page.route("**/api/pipelines/validate", async (route) => {
+    await route.fulfill({ json: { ok: false, order: ["sim1"], jobs: [], issues: [{ level: "error", node_id: "sim1", message: "sim1: config is not a valid SimulationConfig: missing montages" }] } });
+  });
+  try {
+    await page.getByTestId("pipeline-sample").click();
+    await expect(page.getByTestId("pipeline-problem-sim1")).toContainText("missing montages");
+    await expect(page.getByTestId("pipeline-run")).toBeDisabled();
+    await page.getByTestId("pipeline-node-sim1").dblclick();
+    await expect(page.getByRole("dialog").getByRole("textbox", { name: "Montages", exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
+  } finally {
+    await page.unroute("**/api/pipelines/validate");
+  }
+});
+
+test("a late run rejection keeps its useful server detail", async () => {
+  await freshCanvas();
+  await page.getByTestId("pipeline-sample").click();
+  // A distinct document avoids reusing the intentionally rejected validation response above.
+  await page.getByTestId("pipeline-node-sim1").dblclick();
+  await page.getByRole("textbox", { name: "Node name", exact: true }).fill("Late simulation");
+  await page.keyboard.press("Escape");
+  await page.route("**/api/pipelines/run", async (route) => route.fulfill({ status: 422, json: { detail: { message: "pipeline does not validate", issues: [{ message: "Simulate it needs a montage", node_id: "sim1" }] } } }));
+  // This case reaches admission; existing-output confirmation has separate coverage.
+  await page.route("**/api/plan/*", async (route) => {
+    const response = await route.fetch();
+    const data = await response.json();
+    if (Array.isArray(data.jobs)) for (const job of data.jobs) job.exists = false;
+    await route.fulfill({ response, json: data });
+  });
+  try {
+    await expect(page.getByTestId("pipeline-run")).toBeEnabled();
+    await page.getByTestId("pipeline-run").click();
+    await expect(page.getByText("Could not run the pipeline: Simulate it needs a montage", { exact: true })).toBeVisible();
+  } finally { await page.unroute("**/api/pipelines/run"); await page.unroute("**/api/plan/*"); }
+});
