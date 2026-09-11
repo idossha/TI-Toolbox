@@ -16,6 +16,10 @@ def user_settings(tmp_path, monkeypatch):
         prefs.PathManager, "user_config_dir", staticmethod(lambda: str(tmp_path))
     )
     monkeypatch.setattr(prefs.os, "cpu_count", lambda: 12)
+    # Keep CI worker affinity from shrinking the synthetic 12-CPU host.
+    monkeypatch.setattr(
+        prefs.os, "sched_getaffinity", lambda pid: set(range(12)), raising=False
+    )
     monkeypatch.setattr(prefs, "get_container_resource_limits", lambda: (None, None))
     monkeypatch.delenv("TIT_FASTSURFER_THREADS", raising=False)
 
