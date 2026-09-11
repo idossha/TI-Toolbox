@@ -1,5 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useRef, type CSSProperties, type ReactNode } from "react";
+import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { cn } from "./utils";
 
 /**
@@ -42,28 +42,24 @@ export function VirtualList<T>({
     overscan: 12,
   });
 
-  const atBottomRef = useRef(true);
-  if (followTail && atBottomRef.current) {
-    // Scroll after the DOM commits; rAF avoids fighting the virtualizer's own measurement pass.
-    // `scrollToIndex` parks the box horizontally as well as vertically, which would snap a reader
-    // back to column 0 of a long log line on every appended row. Follow tail is about the bottom,
-    // not about the left edge, so the horizontal offset is restored.
-    requestAnimationFrame(() => {
-      const left = parentRef.current?.scrollLeft ?? 0;
-      virtualizer.scrollToIndex(items.length - 1, { align: "end" });
-      if (parentRef.current && left > 0) parentRef.current.scrollLeft = left;
-    });
-  }
+  useLayoutEffect(() => {
+    if (followTail && parentRef.current) scrollToBottom(parentRef.current);
+  }, [followTail, items, rowHeight]);
+
+  useLayoutEffect(() => {
+    const viewport = parentRef.current;
+    if (!followTail || !viewport) return;
+    // A resized pane can move the tail out of view without changing the transcript.
+    const observer = new ResizeObserver(() => scrollToBottom(viewport));
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, [followTail]);
 
   return (
     <div
       ref={parentRef}
       className={cn("virtual-list", className)}
       style={style}
-      onScroll={(e) => {
-        const el = e.currentTarget;
-        atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < rowHeight;
-      }}
     >
       <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
         {virtualizer.getVirtualItems().map((row) => (
@@ -84,4 +80,10 @@ export function VirtualList<T>({
       </div>
     </div>
   );
+}
+
+/** Follow is explicit: new output follows even if a prior scroll moved away from the tail. */
+function scrollToBottom(viewport: HTMLDivElement): void {
+  // Assign only the vertical offset; long log lines must keep their horizontal position.
+  viewport.scrollTop = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
 }

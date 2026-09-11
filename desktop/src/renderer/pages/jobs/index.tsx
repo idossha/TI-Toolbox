@@ -24,9 +24,9 @@
  *
  * Parity source: `TODO.md` §2.5 (there is no PyQt equivalent — 2.x had no job registry).
  */
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ListChecks } from "lucide-react";
 import { Button } from "../../ui/Button";
 import { RefetchBar } from "../../ui/Chrome";
@@ -71,6 +71,7 @@ function Filter({
 function JobsPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const location = useLocation();
   const model = useJobsModel();
   const { selectedId, select, filters, setFilter, grouped, setGrouped } = useJobsUi();
 
@@ -108,6 +109,13 @@ function JobsPage() {
   const pane = // `minWidth: 320` — the detail column is DESIGN.md §2.1's fixed 360/400 px column, not the run
   // shape's 45 vw document pane, so it keeps the narrower floor while gaining the 70 vw ceiling.
   usePaneController({ pageId: "jobs", name: "job detail", minWidth: 320, enabled: !!selected });
+  const restorePane = pane.restore;
+  useEffect(() => {
+    if (location.pathname === "/jobs" && typeof location.state?.openJobId === "string") {
+      restorePane();
+    }
+  }, [location.key, location.pathname, location.state, restorePane]);
+
 
   // Empty state (fix round, lane FIX-D, defect 4). It used to be DESIGN.md §4.4's *whole-page*
   // row: one centred `EmptyState` and no filter strip. Measured at 1280x800 that page was **99.1 %

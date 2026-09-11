@@ -34,6 +34,7 @@ import type { PageDef } from "../../app/registry";
 import { useSubject } from "../../app/subjectContext";
 import { useExecutionPrefs } from "../../app/executionPrefs";
 import { usePageSession } from "../../app/pageSession";
+import { useJobsStream } from "../../app/jobs/useJobsStream";
 import { PageLayout, FormSection, PaneHeaderControls, usePaneController } from "../../ui/Layout";
 import { ActionBar } from "../../ui/Chrome";
 import { Button, IconButton } from "../../ui/Button";
@@ -141,11 +142,20 @@ function OptimizerPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { id: shellSubject, subjects: projectSubjects } = useSubject();
+  const jobsStream = useJobsStream();
+  const completedLeadfields = Object.values(jobsStream.jobs)
+    .filter((job) => job.kind === "leadfield" && job.state === "succeeded")
+    .map((job) => job.id).sort().join(",");
+  useEffect(() => {
+    if (completedLeadfields) void queryClient.invalidateQueries({ queryKey: ["leadfields"] });
+  }, [completedLeadfields, queryClient]);
+
 
   // `usePageSession` for everything the user decided (lane N2): the page unmounts on every
   // navigation, and a table of assembled jobs is exactly the thing a step onto Results must not
   // throw away.
   const [rows, setRows] = usePageSession<OptimizerRow[]>("jobRows", []);
+  const [leadfieldJobs, setLeadfieldJobs] = usePageSession<Record<string, string>>("leadfieldJobs", {});
   const [activeRowId, setActiveRowId] = usePageSession<string | null>("activeRow", null);
   const [pinnedJobId, setPinnedJobId] = usePageSession<string | null>("pinnedJob", null);
   // The jobs this Run press started: they keep their log and final status line in the terminal
@@ -318,12 +328,25 @@ function OptimizerPage() {
 
   const generateLeadfield = useMutation({
     mutationFn: ({ subject, net }: { subject: string; net: string }) => submitLeadfieldJob(subject, net),
-    onSuccess: (_d, { subject, net }) => {
+    onSuccess: (job, { subject, net }) => {
+      setLeadfieldJobs((previous) => ({ ...previous, [JSON.stringify([subject, net])]: job.id }));
       notify.success(`Queued: leadfield generation for ${net}`);
       void queryClient.invalidateQueries({ queryKey: ["leadfields", subject] });
     },
     onError: () => notify.error("Could not queue the leadfield job."),
   });
+
+  function leadfieldGenerationState(subject: string, net: string | null): string | null {
+    if (!net) return null;
+    if (generateLeadfield.isPending && generateLeadfield.variables?.subject === subject && generateLeadfield.variables.net === net) return "Queuing…";
+    const id = leadfieldJobs[JSON.stringify([subject, net])];
+    if (!id) return null;
+    const state = jobsStream.jobs[id]?.state;
+    if (!state || state === "queued") return "Queued…";
+    if (state === "running") return "Generating…";
+    if (state === "succeeded" && !leadfieldFor(subject, net)) return "Finishing…";
+    return null;
+  }
 
   const submit = useMutation({
     mutationFn: async (overwriteFlag: boolean) => {
@@ -526,7 +549,7 @@ function OptimizerPage() {
                   activeRowId={activeRowId}
                   onActiveRowChange={setActiveRowId}
                   onGenerateLeadfield={(subject, net) => generateLeadfield.mutate({ subject, net })}
-                  generatingLeadfield={generateLeadfield.isPending}
+                  leadfieldGenerationState={leadfieldGenerationState}
                   onOpenViewer={openViewer}
                 />
               )}

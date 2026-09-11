@@ -2,8 +2,9 @@
  * Height 2 of 3: the 260px panel behind ⌘J. Tabs [Jobs][Host] as a `SegmentedControl` (one 28px
  * row, not a 44px tab strip) — see `store.ts`'s `JOBS_PANEL_TABS` for why Console and Report are
  * gone — and Jobs is a master–detail split: the table on the left, the selected job's detail and
- * actions in a pane on the right, inside the panel. Nothing here opens a modal.
+ * actions in a pane on the right. Clicking a job opens its detail on the full Jobs page.
  */
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { IconButton } from "../../ui/Button";
@@ -17,7 +18,16 @@ import { JOBS_PANEL_TABS, useJobsUi } from "./store";
 import type { JobsModel } from "./model";
 
 export function JobsPanel({ model, onCollapse }: { model: JobsModel; onCollapse: () => void }) {
-  const { selectedId, select, tab, setTab } = useJobsUi();
+  const { selectedId, select, tab, setTab, clearFilters, setGrouped } = useJobsUi();
+  const navigate = useNavigate();
+  function openJob(id: string | null) {
+    select(id);
+    if (id === null) return;
+    clearFilters();
+    setGrouped(false);
+    onCollapse();
+    navigate("/jobs", { state: { openJobId: id } });
+  }
   const settings = useQuery({ queryKey: ["jobs-settings"], queryFn: getSettings });
   const selected = selectedId ? model.all.find((j) => j.id === selectedId) : undefined;
 
@@ -46,7 +56,7 @@ export function JobsPanel({ model, onCollapse }: { model: JobsModel; onCollapse:
                 now={model.now}
                 density="panel"
                 selectedId={selectedId}
-                onSelect={select}
+                onSelect={openJob}
                 loading={model.isLoading}
                 error={model.error}
                 onRetry={model.refetch}
@@ -58,7 +68,7 @@ export function JobsPanel({ model, onCollapse }: { model: JobsModel; onCollapse:
                 job={selected}
                 density="panel"
                 allowUnsafeOverrides={settings.data?.allow_unsafe_overrides ?? false}
-                onOpenJob={select}
+                onOpenJob={openJob}
               />
             }
           />

@@ -435,28 +435,44 @@ test("the flex variants are DERIVED from the focality mode, not chosen as method
   await expect(row).toHaveAttribute("data-kind", "flex");
 });
 
-test("Ex: the Leadfield cell lists what a subject has, and names the refusal when it has none", async () => {
+test("Ex: subjects remain selectable and missing leadfields can be generated before running", async () => {
   await clearOptRows(page);
   const row = await addOptRow(page);
   await setOptSubject(page, row, "ernie");
   await setOptCell(page, row, "method", "Ex");
 
   // The cell states the fact — a 2 GB matrix, from tests/fixtures/leadfields.json — and offers the
-  // net that has none as a refusal rather than an option that silently fails.
+  // nets without a matrix for explicit generation.
   const cell = row.locator('td[data-cell="net"]').getByRole("combobox");
   await cell.click();
   await expect(page.getByRole("option", { name: /^GSN-HydroCel-185 · 2\.0 GB$/ })).toBeVisible();
-  await expect(page.getByRole("option", { name: "EGI_template — no leadfield" })).toBeDisabled();
+  await expect(page.getByRole("option", { name: "EGI_template — no leadfield" })).toBeEnabled();
   await page.getByRole("option", { name: /^GSN-HydroCel-185 · 2\.0 GB$/ }).click();
   await expect(row).toHaveAttribute("data-net", "GSN-HydroCel-185");
 
-  // …and the subject picker refuses a subject that has no leadfield at all, by name (J3): the
+  // Subjects without leadfields stay selectable, with preparation guidance. The
   // fixture gives `101` an entry with `exists: false` and MNI152 none.
   await row.locator('td[data-cell="subject"]').getByRole("combobox").click();
   const picker = page.getByRole("dialog");
   await expect(picker.getByRole("option", { name: "101" })).toContainText("no leadfield — create one first");
-  await expect(picker.getByRole("option", { name: "101" })).toBeDisabled();
+  await expect(picker.getByRole("option", { name: "101" })).toBeEnabled();
   await picker.getByRole("button", { name: "Done", exact: true }).click();
+
+  await setOptSubject(page, row, "101");
+  await cell.click();
+  await page.getByRole("option", { name: "GSN-HydroCel-185 — no leadfield" }).click();
+  await expect(row.locator('td[data-cell="goal"]').getByRole("button", { name: "Generate leadfield" })).toBeEnabled();
+  expect((await row.boundingBox())!.height).toBeLessThanOrEqual(65);
+  await expect(row.locator('td[data-cell="net"]').getByRole("button", { name: "Generate leadfield" })).toHaveCount(0);
+  const generation = page.waitForRequest((r) => r.method() === "POST" && r.url().endsWith("/api/jobs"));
+  await row.getByRole("button", { name: "Generate leadfield" }).focus();
+  await page.keyboard.press("Enter");
+  const payload = (await generation).postDataJSON();
+  expect(payload.kind).toBe("leadfield");
+  expect(payload.subject_ids).toEqual(["101"]);
+  await setOptSubject(page, row, "ernie");
+  await cell.click();
+  await page.getByRole("option", { name: /^GSN-HydroCel-185 · 2\.0 GB$/ }).click();
 
   // Two uncombined saved ROIs are two runs — 2.5.0's own expansion, kept.
   const dialog = await openOptEditor(page, row);
@@ -480,6 +496,15 @@ test("Ex: the Leadfield cell lists what a subject has, and names the refusal whe
   await closeOptEditor(page);
   await expect(optRowSummary(row)).toHaveText("Thalamus_target + L_Insula_target");
   await expect(optRowDetail(row)).toHaveText("4 electrodes (TI) · 2 mA · 7 splits · 7 combinations");
+
+  // Even a fully configured target cannot run against an absent leadfield.
+  await setOptSubject(page, row, "101");
+  await cell.click();
+  await page.getByRole("option", { name: "GSN-HydroCel-185 — no leadfield" }).click();
+  await expect(page.getByTestId("run-button")).toBeDisabled();
+  await setOptSubject(page, row, "ernie");
+  await cell.click();
+  await page.getByRole("option", { name: /^GSN-HydroCel-185 · 2\.0 GB$/ }).click();
 
   await expect(page.getByTestId("plan-cell-ernie-ex")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId("run-button")).toHaveText("Run 2 searches");
@@ -772,4 +797,42 @@ test("custom masks import and retain explicit space in Flex and Ex", async () =>
   for (const url of uploads) expect(new URL(url).searchParams.get("subject")).toBe("ernie");
   expect(uploads.map((url) => new URL(url).searchParams.get("name"))).toEqual(["custom.nii", "custom.nii.gz"]);
   await page.unroute("**/api/files/mask?**");
+});
+
+
+test("leadfield completion refreshes the goal cell without changing row height", async () => {
+  await clearOptRows(page);
+  const row = await addOptRow(page);
+  await setOptSubject(page, row, "101");
+  await setOptCell(page, row, "method", "Ex");
+  await row.locator('td[data-cell="net"]').getByRole("combobox").click();
+  await page.getByRole("option", { name: "GSN-HydroCel-185 — no leadfield" }).click();
+  const goal = row.locator('td[data-cell="goal"]');
+  const height = (await row.boundingBox())!.height;
+  let generatedId: string | undefined;
+  const catalogRoute = /\/api\/catalog\/leadfields\?subject=101$/;
+  await page.route(catalogRoute, async (route) => {
+    const response = await route.fetch();
+    const data = await response.json();
+    if (generatedId) {
+      const job = await page.request.get(`${SERVER_URL}/api/jobs/${generatedId}`, { headers: { Authorization: `Bearer ${TOKEN}` } });
+      expect(job.ok()).toBeTruthy();
+      const status = (await job.json()).status.state;
+      if (status === "succeeded") {
+        for (const leadfield of data) { leadfield.exists = true; leadfield.size_bytes = 2147483648; }
+      }
+    }
+    await route.fulfill({ response, json: data });
+  });
+  try {
+    const response = page.waitForResponse((r) => r.request().method() === "POST" && r.url().endsWith("/api/jobs"));
+    await goal.getByRole("button", { name: "Generate leadfield" }).click();
+    generatedId = (await (await response).json()).id;
+    await expect(goal.getByRole("button", { name: /Queued…|Generating…/ })).toBeDisabled();
+    await expect(goal).toHaveText("—", { timeout: 15000 });
+    await expect(goal.getByRole("button", { name: "Generate leadfield" })).toHaveCount(0);
+    expect(Math.abs((await row.boundingBox())!.height - height)).toBeLessThan(1);
+  } finally {
+    await page.unroute(catalogRoute);
+  }
 });

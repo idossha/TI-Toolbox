@@ -126,7 +126,7 @@ export function OptimizerJobRows({
   activeRowId,
   onActiveRowChange,
   onGenerateLeadfield,
-  generatingLeadfield,
+  leadfieldGenerationState,
   onOpenViewer,
 }: {
   subjects: OptimizerSubject[];
@@ -140,7 +140,7 @@ export function OptimizerJobRows({
   onActiveRowChange: (id: string) => void;
   /** Queues leadfield generation for (subject, net) — the "create one" the refusal offers. */
   onGenerateLeadfield: (subject: string, net: string) => void;
-  generatingLeadfield: boolean;
+  leadfieldGenerationState: (subject: string, net: string | null) => string | null;
   onOpenViewer?: () => void;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -158,7 +158,7 @@ export function OptimizerJobRows({
    */
   function onTableKeyDown(e: React.KeyboardEvent<HTMLTableElement>): void {
     if (rows.length === 0) return;
-    const inControl = (e.target as HTMLElement).closest("input, textarea, [role='combobox'], [role='dialog']");
+    const inControl = (e.target as HTMLElement).closest("button, input, textarea, [role='combobox'], [role='dialog']");
     if (e.key === "Enter") {
       if (inControl) return;
       const id = activeRowId ?? rows[0]?.id;
@@ -178,11 +178,11 @@ export function OptimizerJobRows({
 
   const editing = rows.find((r) => r.id === editingId) ?? null;
 
-  /** Subject options for one row: the whole project, blocked ones listed with their reason. */
+  /** Every subject remains selectable; preparation requirements explain why a run may be blocked. */
   function subjectItems(row: OptimizerRow) {
     return subjects.map((s) => {
       const reason = s.blockedReason ?? leadfieldReason(row, s.id);
-      return { id: s.id, label: s.id, reason, disabled: !!reason };
+      return { id: s.id, label: s.id, reason, disabled: false };
     });
   }
 
@@ -206,16 +206,14 @@ export function OptimizerJobRows({
         ...(nets ?? []).map((n) => ({ value: netKey(n.name), label: netKey(n.name) })),
       ];
     }
-    // Ex/mEx: the leadfields this subject actually has, then the nets it does not — listed with
-    // the reason, unselectable, so "there is no leadfield for GSN-HydroCel-185" is a fact the cell
-    // states rather than an option that silently fails.
+    // Ex/mEx: existing leadfields and EEG nets available for generation.
     const ready = (lfs ?? []).filter((lf) => lf.exists);
     const readyKeys = new Set(ready.map((lf) => netKey(lf.net)));
     return [
       ...ready.map((lf) => ({ value: netKey(lf.net), label: `${netKey(lf.net)} · ${formatBytes(lf.size_bytes)}` })),
       ...netOptions(lfs, nets)
         .filter((o) => !readyKeys.has(o.value))
-        .map((o) => ({ value: o.value, label: `${o.label} — no leadfield`, disabled: true })),
+        .map((o) => ({ value: o.value, label: `${o.label} — no leadfield` })),
     ];
   }
 
@@ -278,6 +276,8 @@ export function OptimizerJobRows({
             const detail = optimizerMethodSummary(row);
             const line2 = `${target} · ${detail}`;
             const active = activeRowId === row.id;
+            const preparation = subjects.find((s) => s.id === row.subjectId)?.blockedReason;
+            const generationState = leadfieldGenerationState(row.subjectId, row.net);
             const claim = (e: React.MouseEvent) => {
               if ((e.target as HTMLElement).closest("button, input, [role='combobox'], [role='dialog']")) return;
               onActiveRowChange(row.id);
@@ -329,7 +329,7 @@ export function OptimizerJobRows({
                         patch(row.id, { subjectId: next, net: keeps ? row.net : null });
                       }}
                       placeholder="Subject"
-                      headers={{ label: "Subject", reason: "Why not" }}
+                      headers={{ label: "Subject", reason: "Preparation needed" }}
                       hideBulk
                       idPrefix={`opt-subject-${row.id}`}
                       triggerTestId={`opt-subject-${row.id}`}
@@ -348,13 +348,25 @@ export function OptimizerJobRows({
                       value={netCellValue(row)}
                       onValueChange={(v) => patch(row.id, { net: v === OPTIMISED ? null : v })}
                       options={netCellOptions(row)}
-                      placeholder={row.subjectId ? (isFlexMethod(row.method) ? "Optimised positions" : "No leadfield — create one") : "Pick a subject"}
+                      placeholder={row.subjectId ? (isFlexMethod(row.method) ? "Optimised positions" : "Select EEG net for leadfield") : "Pick a subject"}
                       disabled={!row.subjectId || netCellOptions(row).length === 0}
                       aria-label={isFlexMethod(row.method) ? "EEG net" : "Leadfield"}
                     />
                   </td>
                   <td data-cell="goal">
-                    {goal === null ? (
+                    {!isFlexMethod(row.method) && row.subjectId && row.net && !leadfieldPathFor(leadfieldsBySubject[row.subjectId], row.net) ? (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={!!preparation}
+                        loading={!!generationState}
+                        title={preparation ?? "Generate the selected EEG net's leadfield"}
+                        onClick={() => row.net && onGenerateLeadfield(row.subjectId, row.net)}
+                      >
+                        {generationState ?? "Generate leadfield"}
+                      </Button>
+                    ) : goal === null ? (
+
                       // Ex/mEx enumerate montages and rank them by the ROI field; there is no goal
                       // to choose, so the cell says so rather than offering a dead control.
                       <span className="opt-goal-na" title="Ex and mEx rank every montage by the ROI field — there is no optimisation goal to choose.">
@@ -439,7 +451,7 @@ export function OptimizerJobRows({
         nets={editing ? (netsBySubject[editing.subjectId] ?? []) : []}
         leadfields={editing ? leadfieldsBySubject[editing.subjectId] : undefined}
         onGenerateLeadfield={onGenerateLeadfield}
-        generatingLeadfield={generatingLeadfield}
+        generatingLeadfield={editing ? !!leadfieldGenerationState(editing.subjectId, editing.net) : false}
         onOpenViewer={onOpenViewer}
       />
     </div>
@@ -450,9 +462,11 @@ export function OptimizerJobRows({
  *  reserves `value=""` for "nothing selected", so the absence needs a real value. */
 const OPTIMISED = "__optimised__";
 
-function netCellValue(row: OptimizerRow): string | undefined {
+function netCellValue(row: OptimizerRow): string {
   if (isFlexMethod(row.method)) return row.net ?? OPTIMISED;
-  return row.net ?? undefined;
+  // Keep Radix controlled when switching to a subject without this leadfield.
+  // Undefined retains its previous internal selection and suppresses choosing that net again.
+  return row.net ?? "";
 }
 
 /**

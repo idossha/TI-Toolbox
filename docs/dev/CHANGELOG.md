@@ -9,6 +9,10 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 ---
 ### v3.0.0 (Unreleased)
 
+- Optimizer subjects remain selectable before a leadfield exists, with generation available in the Goal cell and a disabled progress indicator while it runs. Completed generation refreshes the row automatically; Ex/mEx searches still require a completed leadfield.
+- Clicking a job in the expanded bottom panel opens its full Jobs page details.
+- Log Follow catches up when enabled and continues following new output, including when the log buffer is full.
+
 - Overview removes the redundant LF and NET status columns.
 
 - Settings links retain their requested tab when the selected subject is added to the URL.

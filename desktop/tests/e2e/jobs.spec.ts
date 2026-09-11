@@ -327,6 +327,16 @@ test("the panel opens at 260px with exactly two tabs: Jobs and Host", async () =
   const job = await submitJob({ kind: "sim", config: seedConfig("sim", "ernie"), subject_ids: ["ernie"], tags: ["e2e-panel"] });
 
   await connect();
+  // Previously retained filters and grouping must not hide a job opened from the panel.
+  await openJobs();
+  await page.getByTestId("jobs-table").getByRole("row", { name: /ernie/ }).first().click();
+  await expect(page.getByTestId("job-detail").getByText(`id ${job.id}`)).toBeVisible();
+  await page.getByTestId("pane-collapse").click();
+  await expect(page.getByTestId("page-right-pane")).toHaveCount(0);
+  await page.getByRole("combobox", { name: "Kind" }).click();
+  await page.getByRole("option", { name: "analyzer", exact: true }).click();
+  await page.getByTestId("jobs-toolbar").getByRole("radio", { name: "Groups", exact: true }).click();
+  await page.getByTestId("nav-item-overview").click();
   await openJobsPanel();
 
   const rail = page.locator(".jobs-rail-expanded");
@@ -337,10 +347,14 @@ test("the panel opens at 260px with exactly two tabs: Jobs and Host", async () =
   const tabs = page.getByRole("radiogroup", { name: "Jobs panel" });
   await expect(tabs.getByRole("radio")).toHaveText(["Jobs", "Host"]);
 
-  // Jobs tab: master-detail inside the panel.
+  // A panel job opens the full Jobs page with that same job selected.
   const panelTable = page.getByTestId("jobs-panel-table");
   await expect(panelTable).toBeVisible({ timeout: 10_000 });
   await panelTable.getByRole("row", { name: /ernie/ }).first().click();
+  await expectPage(page, "jobs");
+  await expect(page.getByRole("combobox", { name: "Kind" })).toContainText("All kinds");
+  await expect(page.getByTestId("jobs-toolbar").getByRole("radio", { name: "All jobs", exact: true })).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByTestId("jobs-table").getByRole("row", { name: /ernie/ }).first()).toBeVisible();
   const detail = page.getByTestId("job-detail");
   await expect(detail.getByText(`id ${job.id}`)).toBeVisible();
   await page.screenshot({ path: join(ARTIFACTS, "jobs-panel-expanded.png") });
@@ -354,8 +368,8 @@ test("the panel opens at 260px with exactly two tabs: Jobs and Host", async () =
   // …and what the Report tab used to be is an artifact of the job, in the Artifacts tab.
   await expect(detail.getByRole("tab", { name: /^Artifacts/ })).toBeVisible();
 
-  // ⌘J closes it again.
-  await page.keyboard.press(process.platform === "darwin" ? "Meta+j" : "Control+j");
+  await expectPage(page, "jobs");
+  // Navigation collapses the bottom panel.
   await expect(page.locator(".jobs-rail-expanded")).toHaveCount(0);
 });
 
