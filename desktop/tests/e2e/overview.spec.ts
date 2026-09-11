@@ -27,7 +27,7 @@ const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
 const RUN_ID = process.env.TIT_E2E_RUN_ID ?? "overview";
 
 /** Every column the page defines — the gate's "every defined presence/count column". */
-const PRESENCE_COLUMNS = ["raw", "fast", "free", "m2m", "dwi", "ct", "lf", "net"];
+const PRESENCE_COLUMNS = ["raw", "fast", "free", "m2m", "dwi", "ct"];
 const COUNT_COLUMNS = ["Sim", "Opt", "Anly"];
 
 let app: ElectronApplication;
@@ -94,14 +94,13 @@ test("is the coverage strip and the presence matrix — no readiness board, no p
   expect(tiles).toContain("m2m 3/3");
   expect(tiles).toContain("leadfield 1/3");
 
-  // Presence: eight dots per row, each labelled — this page is the only place they appear (U6).
+  // Presence: six dots per row, each labelled — this page is the only place they appear (U6).
   const ernie = page.getByTestId("overview-row-ernie");
   await expect(ernie.getByRole("img")).toHaveCount(PRESENCE_COLUMNS.length);
   await expect(ernie.getByRole("img", { name: "m2m present" })).toBeVisible();
   await expect(ernie.getByRole("img", { name: "ct missing" })).toBeVisible();
-  // `partial` is its own reading, not a second word for "missing" — ernie has a leadfield for one
-  // of its two nets.
-  await expect(ernie.getByRole("img", { name: "leadfield partial" })).toBeVisible();
+  // Redundant leadfield and net status dots are excluded from the matrix.
+  await expect(ernie.getByRole("img", { name: /^(leadfield|eeg_net) / })).toHaveCount(0);
   await expect(page.getByTestId("overview-row-101").getByRole("img", { name: "fastsurfer missing" })).toBeVisible();
 
   // The readiness board of four stage cards is gone: it restated the matrix one chip at a time and
