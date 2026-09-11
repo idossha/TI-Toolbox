@@ -195,7 +195,7 @@ test("deletes a selected terminal job after confirmation and removes it from the
 });
 
 test("the full page lists a running job, opens its detail pane, and stops it", async () => {
-  const job = await submitJob({ kind: "sim", config: seedConfig("sim", "ernie"), subject_ids: ["ernie"], tags: ["e2e"] });
+  const job = await submitJob({ kind: "sim", config: { ...seedConfig("sim", "ernie"), __mock_hold: true }, subject_ids: ["ernie"], tags: ["e2e"] });
 
   await connect();
   await openJobs();

@@ -1499,7 +1499,8 @@ function runTimeline(job) {
       setTimeout(() => emitEvent(job, { type: "log", level: "info", logger: loggerFor(job.status.kind), msg: `${stage}: complete for ${subjectLabel}` }), stageStart + perStage * 0.9),
     );
   });
-  timers.push(setTimeout(() => finishJob(job), totalMs + 100));
+  // Cancellation tests control the terminal transition instead of racing CI startup speed.
+  if (cfg.__mock_hold !== true) timers.push(setTimeout(() => finishJob(job), totalMs + 100));
   job.timers = timers;
 }
 // group_id -> parallel_subjects cap (JobGroupRequest.parallel_subjects): at most this many of the
