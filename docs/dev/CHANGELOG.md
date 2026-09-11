@@ -9,6 +9,8 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 ---
 ### v3.0.0 (Unreleased)
 
+- Overview removes the redundant LF and NET status columns.
+
 - Settings links retain their requested tab when the selected subject is added to the URL.
 
 - Apple GPU setup uses one consent dialog with direct setup/permissions links, installation location, and an official-release third-party software notice.

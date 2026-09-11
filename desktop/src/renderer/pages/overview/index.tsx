@@ -28,10 +28,12 @@ import { ProjectInsights } from "./ProjectInsights";
 import "./overview.css";
 
 /**
- * The matrix owns the page now, so the presence block — eight columns of one dot — is the part
+ * The matrix owns the page now, so the presence block — six columns of one dot — is the part
  * that grows, and the subject id takes the width an id needs rather than a share of the surplus.
  */
-const COLUMNS = "minmax(140px, 260px) minmax(300px, 440px) minmax(140px, 1fr) 52px 52px 52px";
+const COLUMNS = "minmax(140px, 260px) minmax(240px, 330px) minmax(140px, 1fr) 52px 52px 52px";
+
+const isMatrixColumn = (key: string) => key !== "leadfield" && key !== "eeg_net";
 
 type Scope = "all" | "ready" | "incomplete";
 
@@ -250,7 +252,7 @@ function OverviewPage() {
           <div className="overview-row overview-head" role="row">
             <span role="columnheader">Subject</span>
             <span role="columnheader" className="overview-presence overview-presence-head">
-              {PRESENCE_COLUMNS.map((key) => (
+              {PRESENCE_COLUMNS.filter(isMatrixColumn).map((key) => (
                 <span key={key} title={COLUMN_TITLE[key]}>
                   {COLUMN_LABEL[key]}
                 </span>
@@ -279,7 +281,7 @@ function OverviewPage() {
             >
               <span className="overview-id">{r.id}</span>
               <span className="overview-presence">
-                {presenceCells(r).map((p) => (
+                {presenceCells(r).filter((p) => isMatrixColumn(p.key)).map((p) => (
                   <span key={p.key}>
                     <StatusDot kind={p.kind} pulse={p.pulse} title={p.title} />
                   </span>

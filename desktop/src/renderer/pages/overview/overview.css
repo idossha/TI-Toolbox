@@ -180,7 +180,7 @@
  * of six over eight dots (what this was) put every label under the wrong column. */
 .overview-presence {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   align-items: center;
 }
 
