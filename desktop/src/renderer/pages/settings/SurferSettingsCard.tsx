@@ -76,11 +76,11 @@ export function SurferSettingsCard() {
   return <section className="preprocessing-preferences" aria-label="Pre-processing preferences" style={{ display: "grid", gap: "var(--space-4)" }}>
     <p className="field-help">Your defaults across projects. Automatic thread allocation uses all available CPUs except one for the host.</p>
     {settings.isPending && <Skeleton height={64} />}
-    <Card><CardHeader title="FastSurfer" actions={<a className="field-help" href="https://idossha.github.io/TI-Toolbox/wiki/fastsurfer/" target="_blank" rel="noreferrer">Guide ↗</a>} /><CardBody>
+    <Card><CardHeader title="FastSurfer" actions={<a className="field-help" href="https://idossha.github.io/TI-Toolbox/wiki/fastsurfer/" target="_blank" rel="noreferrer">TI-Toolbox docs ↗</a> <a className="field-help" href="https://github.com/Deep-MI/FastSurfer" target="_blank" rel="noreferrer">Upstream ↗</a>} /><CardBody>
       <AppleGpuSettings />
       {threads("fastsurfer_threads", "FastSurfer threads")}
     </CardBody></Card>
-    <Card><CardHeader title="FreeSurfer" actions={<a className="field-help" href="https://idossha.github.io/TI-Toolbox/wiki/pre-processing/" target="_blank" rel="noreferrer">Guide ↗</a>} /><CardBody>
+    <Card><CardHeader title="FreeSurfer" actions={<a className="field-help" href="https://idossha.github.io/TI-Toolbox/wiki/pre-processing/" target="_blank" rel="noreferrer">TI-Toolbox docs ↗</a> <a className="field-help" href="https://surfer.nmr.mgh.harvard.edu/" target="_blank" rel="noreferrer">Upstream ↗</a>} /><CardBody>
       {threads("freesurfer_threads", "FreeSurfer threads")}
       {values && <div role="group" aria-label="FreeSurfer operations" style={{ display: "grid", gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
         <Checkbox label="Full reconstruction (recon-all)" checked={values.freesurfer_recon_all ?? true} onCheckedChange={(value) => patch({ freesurfer_recon_all: value })} />
@@ -90,22 +90,22 @@ export function SurferSettingsCard() {
         <p className="field-help">Subregions require a completed reconstruction, from this run or an existing result.</p>
       </div>}
     </CardBody></Card>
-    <Card><CardHeader title="SimNIBS CHARM" actions={<a className="field-help" href="https://idossha.github.io/TI-Toolbox/wiki/pre-processing/" target="_blank" rel="noreferrer">Guide ↗</a>} /><CardBody>
+    <Card><CardHeader title="SimNIBS CHARM" actions={<a className="field-help" href="https://idossha.github.io/TI-Toolbox/wiki/pre-processing/" target="_blank" rel="noreferrer">TI-Toolbox docs ↗</a> <a className="field-help" href="https://simnibs.github.io/simnibs/build/html/tutorial/segmentation.html" target="_blank" rel="noreferrer">SimNIBS docs ↗</a>} /><CardBody>
       {threads("charm_threads", "CHARM threads")}
       {values && <details><summary>Advanced segmentation and mesh settings</summary>
         <div style={{ display: "grid", gap: "var(--space-3)", marginTop: "var(--space-3)" }}>
           <p className="field-help">Leave values at Default to use this SimNIBS installation’s settings. Changing resolution affects the resulting head model and computation time.</p>
           <Field label="Denoise anatomy"><div style={{ width: 280, maxWidth: "100%" }}><Select value={values.charm_options?.denoise == null ? "default" : String(values.charm_options.denoise)} options={[{ value: "default", label: "Default (enabled)" }, { value: "true", label: "Enabled" }, { value: "false", label: "Disabled" }]} onValueChange={(value) => patch({ charm_options: { ...values.charm_options, denoise: value === "default" ? null : value === "true" } })} /></div></Field>
           <Field label="Segmentation resolution" help="Final segmentation sampling resolution in mm. Smaller values require more computation.">
-            <div style={{ width: 180, maxWidth: "100%" }}><NumberInput aria-label="CHARM segmentation resolution" min={0.5} max={2} step={0.1} unit="mm" placeholder="Default (1.0)" value={values.charm_options?.segmentation_final_resolution ?? undefined} onValueChange={(value) => patch({ charm_options: { ...values.charm_options, segmentation_final_resolution: value ?? null } })} /></div>
+            <div style={{ width: 180, maxWidth: "100%" }}><NumberInput aria-label="CHARM segmentation resolution" min={0.5} max={2} step={0.1} unit="mm" placeholder="1.0" value={values.charm_options?.segmentation_final_resolution ?? undefined} onValueChange={(value) => patch({ charm_options: { ...values.charm_options, segmentation_final_resolution: value ?? null } })} /><span className="field-help">Default: 1.0 mm</span></div>
           </Field>
           <Field label="Scalp triangle size" help="Target scalp surface triangle size in mm. This is not the size of every volume element.">
-            <div style={{ width: 180, maxWidth: "100%" }}><NumberInput aria-label="CHARM scalp triangle size" min={0.5} max={10} step={0.1} unit="mm" placeholder="Default (2.0)" value={values.charm_options?.skin_facet_size ?? undefined} onValueChange={(value) => patch({ charm_options: { ...values.charm_options, skin_facet_size: value ?? null } })} /></div>
+            <div style={{ width: 180, maxWidth: "100%" }}><NumberInput aria-label="CHARM scalp triangle size" min={0.5} max={10} step={0.1} unit="mm" placeholder="2.0" value={values.charm_options?.skin_facet_size ?? undefined} onValueChange={(value) => patch({ charm_options: { ...values.charm_options, skin_facet_size: value ?? null } })} /><span className="field-help">Default: 2.0 mm</span></div>
           </Field>
         </div>
       </details>}
     </CardBody></Card>
-    {(["qsiprep", "qsirecon"] as const).map((tool) => <Card key={tool}><CardHeader title={tool === "qsiprep" ? "QSIPrep" : "QSIRecon"} actions={<a className="field-help" href="https://idossha.github.io/TI-Toolbox/wiki/pre-processing/" target="_blank" rel="noreferrer">Guide ↗</a>} /><CardBody>
+    {(["qsiprep", "qsirecon"] as const).map((tool) => <Card key={tool}><CardHeader title={tool === "qsiprep" ? "QSIPrep" : "QSIRecon"} actions={<a className="field-help" href="https://idossha.github.io/TI-Toolbox/wiki/pre-processing/" target="_blank" rel="noreferrer">TI-Toolbox docs ↗</a> <a className="field-help" href="https://qsiprep.readthedocs.io/" target="_blank" rel="noreferrer">QSIPrep docs ↗</a>} /><CardBody>
       <div><Button size="sm" onClick={() => setQsiOpen(tool)}>Configure {tool === "qsiprep" ? "QSIPrep" : "QSIRecon"}…</Button></div>
       {threads(`${tool}_threads`, "CPU threads")}
       {threads(`${tool}_omp_threads`, "OpenMP threads")}
