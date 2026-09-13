@@ -62,7 +62,7 @@ import {
 } from "../_shared/run";
 import { ScenePane } from "../_shared/scene";
 import { TargetPreview } from "../_shared/scene/TargetPreview";
-import { viewerSearch } from "../results";
+import { useOpenInViewer } from "../../app/openInViewer";
 import { getEegNets, getLeadfields, planFor, submitLeadfieldJob, validateFor, type EegNet, type Leadfield } from "./api";
 import { leadfieldPathFor } from "./nets";
 import { OptimizerJobRows, type OptimizerSubject } from "./JobRows";
@@ -140,6 +140,7 @@ function useAtlasResolver(keys: AtlasKey[]): (subject: string, roi: RoiValue) =>
 
 function OptimizerPage() {
   const navigate = useNavigate();
+  const launchViewer = useOpenInViewer();
   const queryClient = useQueryClient();
   const { id: shellSubject, subjects: projectSubjects } = useSubject();
   const jobsStream = useJobsStream();
@@ -438,7 +439,7 @@ function OptimizerPage() {
   function openViewer(): void {
     const subject = activeRow?.subjectId;
     if (!subject) return;
-    navigate({ pathname: "/viewer", search: viewerSearch({ subject, kind: "subject" }) });
+    launchViewer({ subject, kind: "subject" });
   }
 
   return (

@@ -250,22 +250,16 @@ describe("rail sub-items (PageDef.subNav)", () => {
     expect(order.indexOf("results")).toBe(viewerIndex + 1);
   });
 
-  it("the real Viewer page declares Menu then Tetravox, in that order", () => {
-    // Order is load-bearing: the first is where the page's row, ⌘5 and a bare /viewer all land.
-    expect(pageById("viewer")?.subNav?.map((s) => s.id)).toEqual(["menu", "tetravox"]);
-    expect(pageById("viewer")?.subNav?.map((s) => s.title)).toEqual(["Menu", "Tetravox"]);
-  });
-
   it("pagePath sends a page with sub-items to its first one, and any other page to itself", () => {
     expect(pagePath({ id: "viewer", subNav: [{ id: "menu", title: "Menu" }] })).toBe("/viewer/menu");
     expect(pagePath({ id: "viewer", subNav: [] })).toBe("/viewer");
     expect(pagePath({ id: "jobs" })).toBe("/jobs");
     // The real page, so the rail, ⌘5 and the palette cannot disagree with this test either.
-    expect(pagePath(pageById("viewer")!)).toBe("/viewer/menu");
+    expect(pagePath(pageById("viewer")!)).toBe("/viewer");
   });
 
-  it("no page but the Viewer has sub-items — the rail is otherwise flat", () => {
+  it("pages use a flat rail, including Viewer", () => {
     const withSubs = pages.filter((p) => (p.subNav?.length ?? 0) > 0).map((p) => p.id);
-    expect(withSubs).toEqual(["viewer"]);
+    expect(withSubs).toEqual([]);
   });
 });

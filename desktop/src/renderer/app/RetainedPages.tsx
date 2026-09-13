@@ -6,7 +6,7 @@ import { PageIdContext } from "./pageSession";
 import type { PageDef } from "./registry";
 
 /**
- * Qt's tab lifecycle: visit once, then hide/show the same component and iframe instances.
+ * Qt's tab lifecycle: visit once, then hide/show the same component instances.
  * Each page also keeps its last route context, so a hidden Viewer cannot consume another
  * page's search parameters. A project change replaces this entire host from Shell.
  */
@@ -37,7 +37,7 @@ export function RetainedPages({ pages }: { pages: readonly PageDef[] }) {
           <PageActivityContext.Provider value={active}>
             <Routes location={route}>
               <Route
-                // `/*`: sub-item routes (`/viewer/menu`, `/viewer/tetravox`) belong to this one
+                // `/*`: nested routes and legacy links belong to this one
                 // page and must not fall through to the catch-all.
                 path={`/${page.id}/*`}
                 element={<PageErrorBoundary pageId={page.id}><page.Component /></PageErrorBoundary>}

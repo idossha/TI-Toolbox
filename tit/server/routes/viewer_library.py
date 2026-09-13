@@ -242,6 +242,117 @@ def _thumbnail_bytes(data_url: Any) -> bytes | None:
     return raw
 
 
+def _scene_health(path: str) -> dict[str, Any]:
+    """Check bounded scene metadata and project references without reading dataset contents."""
+    from tit.paths import get_path_manager
+    from tit.server.host_path import host_project_dir
+    from tit.server.routes.viewers import _container_path_from_raw_url
+
+    def result(status: str, message: str, missing: int = 0) -> dict[str, Any]:
+        return {"health": status, "health_message": message, "missing_count": missing}
+
+    try:
+        with open(checked_viewer_path(path), "rb") as handle:
+            raw = handle.read(_MAX_SCENE_BYTES + 1)
+        if len(raw) > _MAX_SCENE_BYTES:
+            return result("invalid", "Scene document exceeds the size limit")
+        scene = json.loads(raw)
+        if not isinstance(scene, dict):
+            raise ValueError("Scene must be an object")
+        datasets, layers = scene.get("datasets"), scene.get("layers")
+        if not isinstance(datasets, list) or not isinstance(layers, list):
+            raise ValueError("Scene datasets and layers must be lists")
+        ids = {
+            d["id"]
+            for d in datasets
+            if isinstance(d, dict) and isinstance(d.get("id"), str)
+        }
+        if len(ids) != len(datasets) or any(
+            not isinstance(layer, dict)
+            or ("datasetId" in layer and layer["datasetId"] not in ids)
+            for layer in layers
+        ):
+            raise ValueError("Scene contains a broken dataset reference")
+        if any(
+            not (dataset.get("path") or dataset.get("absPath")) for dataset in datasets
+        ):
+            raise ValueError("Scene dataset has no file reference")
+        references: set[tuple[str, ...]] = set()
+        stack = [(dataset, True) for dataset in datasets]
+        while stack:
+            item, is_dataset = stack.pop()
+            if isinstance(item, list):
+                stack.extend((value, False) for value in item)
+            elif isinstance(item, dict):
+                alternatives = []
+                for key, value in item.items():
+                    if key in ("path", "absPath"):
+                        if not isinstance(value, str) or not value or "\x00" in value:
+                            raise ValueError("Scene contains an invalid file path")
+                        alternatives.append(value)
+                    elif isinstance(value, (dict, list)):
+                        stack.append((value, False))
+                if alternatives:
+                    # A dataset or sidecar's absPath is a fallback for its path.
+                    if is_dataset and item.get("path"):
+                        # Native relocation also tries a dataset beside the scene.
+                        basename = os.path.basename(item["path"].replace("\\", "/"))
+                        if basename:
+                            alternatives.append(
+                                os.path.join(os.path.dirname(path), basename)
+                            )
+                    references.add(tuple(alternatives))
+        if datasets and not references:
+            raise ValueError("Scene datasets have no file references")
+    except (OSError, ValueError, TypeError, RecursionError, HTTPException):
+        return result("invalid", "Scene is unreadable or contains invalid references")
+
+    root = os.path.abspath(get_path_manager().project_dir or "")
+    host = (host_project_dir(root) or "").replace("\\", "/").rstrip("/")
+    missing = unchecked = unsafe = 0
+    for alternatives in references:
+        available = outside = False
+        for value in alternatives:
+            candidate = _container_path_from_raw_url(value) or value.replace("\\", "/")
+            if host and candidate.startswith(host + "/"):
+                candidate = root + candidate[len(host) :]
+            elif "://" in candidate or re.match(r"^[A-Za-z]:", candidate):
+                outside = True
+                continue
+            if not os.path.isabs(candidate):
+                candidate = os.path.join(os.path.dirname(path), candidate)
+            candidate = os.path.abspath(candidate)
+            # Check the lexical boundary before resolving symlinks: never stat arbitrary paths.
+            if os.path.commonpath([root, candidate]) != root:
+                outside = True
+                continue
+            real = os.path.realpath(candidate)
+            if os.path.commonpath([os.path.realpath(root), real]) != os.path.realpath(
+                root
+            ):
+                unsafe += 1
+            elif os.path.isfile(real):
+                available = True
+        if not available and outside:
+            unchecked += 1
+        elif not available:
+            missing += 1
+    if unsafe:
+        return result(
+            "invalid", "A file reference escapes the project through a symlink", missing
+        )
+    if missing:
+        suffix = "; external references could not be checked" if unchecked else ""
+        return result(
+            "missing", f"{missing} referenced file(s) missing" + suffix, missing
+        )
+    if unchecked:
+        return result(
+            "unchecked", "References outside this project could not be checked"
+        )
+    return result("valid", "All referenced project files are available")
+
+
 @router.get("/api/viewer/scenes", summary="Saved Tetravox scenes")
 def list_scenes() -> dict[str, Any]:
     """Every saved scene, newest first, with whether it has a thumbnail.
@@ -276,6 +387,7 @@ def list_scenes() -> dict[str, Any]:
                 "simulation": meta.get("simulation"),
                 "field": meta.get("field"),
                 "has_thumbnail": _has_thumbnail(os.path.join(directory, f"{stem}.png")),
+                **_scene_health(path),
             }
         )
     out.sort(key=lambda row: (row.get("saved_at") or "", row["slug"]), reverse=True)
@@ -379,12 +491,20 @@ def delete_scene(name: str) -> dict[str, Any]:
     target = paths[0]
     if not os.path.isfile(target):
         raise HTTPException(status_code=404, detail=f"No saved scene named {name!r}")
-    for path in paths:
+    # Remove optional companions first, then the scene. Failures must never masquerade
+    # as a successful delete while the primary scene still appears in the library.
+    for path in [*paths[1:], target]:
         try:
             os.remove(path)
-        except OSError:
-            # The thumbnail and the metadata are optional; only the scene had to exist.
-            pass
+        except FileNotFoundError:
+            if path == target:
+                raise HTTPException(
+                    status_code=404, detail=f"No saved scene named {name!r}"
+                )
+        except OSError as exc:
+            raise HTTPException(
+                status_code=500, detail="Could not delete the saved scene"
+            ) from exc
     return {"name": name, "deleted": True}
 
 

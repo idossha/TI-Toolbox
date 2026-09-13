@@ -5051,6 +5051,13 @@ export interface components {
             field?: string | null;
             space?: string | null;
             has_thumbnail?: boolean;
+            /**
+             * @description Project file availability; external references are never probed.
+             * @enum {string}
+             */
+            health?: "valid" | "missing" | "invalid" | "unchecked";
+            missing_count?: number;
+            health_message?: string;
         };
         /** @description VM/VM2. One saved Viewer selection -- the source and, when the person edited it, the file list, exactly as POST /api/view/open takes them, so restoring a preset is replaying a request rather than reconstructing one. `extras`/`overrides` are still accepted for a preset saved by the VM panel that briefly exposed them. */
         ViewerPreset: {

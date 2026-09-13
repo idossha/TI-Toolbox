@@ -160,18 +160,17 @@ surface budget remains 3 MB and 150,000 triangles per packaged surface. Subject 
 separately from guide availability.
 
 **Viewer opening is a command.** `POST /api/view/open` resolves once and returns URL-addressed data
-as host-addressed native scene data. Selection-only links prepare the Menu; explicit Open in viewer actions load the selected artifact. Optional atlas selection retains the server default when absent or unavailable. See §7.1.
+as host-addressed native scene data. Selection-only links prepare the Viewer; explicit Open in viewer actions load the selected artifact. Optional atlas selection retains the server default when absent or unavailable. See §7.1.
 
 ## 7. The viewer, the run-page renderer and the selection grammar
 
 ### 7.1 Native TetraVox is installed for the host user
 
-TI-Toolbox manages a pinned official native TetraVox release under the host user's application-data
-runtime directory. Main owns platform selection, checksum validation before extraction, installation
+TI-Toolbox discovers compatible TetraVox installations in conventional host locations and reuses their normal profile. When none is available, it manages a pinned official native release under the host user's application-data runtime directory. Main owns platform selection, checksum validation before extraction, installation
 status, consent and executable launch. No viewer bundle, iframe protocol or updater runs in Docker.
 Downloads use bounded streaming and failed installs remain unready and retryable.
 
-Viewer Menu and its catalogue build a native `.tetravox.json` scene. Main resolves the returned
+The Viewer page and its catalogue build a native `.tetravox.json` scene. Main resolves the returned
 container scene path against the active project and checks its real path before launching the known
 executable. Scene dataset paths are host-addressed; packaged reference assets are staged into the
 project when needed. A remote project without local filesystem access cannot be opened natively;
@@ -181,6 +180,10 @@ TetraVox owns camera, layer editing, file dialogs and native scene saving. TI's 
 records its input selections, not later edits made in the other application's window. The managed
 app uses a dedicated user profile and single-instance delivery. A user-directory installation is
 not a filesystem sandbox; TetraVox has normal user permissions. No new live-control bridge is added.
+
+Scene handoffs are serialized and require confirmation when the selected app is running or its process state cannot be checked. Cancellation never launches the scene. Blank launches only open/focus the app. If only the managed copy is running, it is reused instead of starting a system copy. System discovery does not modify existing installation or updater ownership. Optional status source/executable fields extend the desktop bridge; callers without them retain their previous rendering behavior.
+
+The Viewer is one bounded workspace: independently scrolling builder on the left, launch and saved-scene library on the right. Saved-scene deletion reports filesystem errors and removes no dataset. Optional scene health fields describe reference availability, not numerical validity; older API responses without them display no checked-health claim. External references are not probed by the server.
 
 Sources: [`native installer`](../../desktop/src/main/tetravoxNative.ts),
 [`scene export`](../../tit/server/routes/viewers.py),

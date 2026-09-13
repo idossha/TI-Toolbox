@@ -5,23 +5,24 @@ permalink: /wiki/visualizers/
 ---
 
 TI-Toolbox uses **[TetraVox](https://github.com/idossha/tetravox)** for full viewing in a separate
-native host window. Install the pinned viewer from **Settings → Viewer**. The Docker container
+native host window. An existing compatible installation is reused; otherwise install the pinned viewer from **Settings → Viewer**. The Docker container
 prepares scenes; the native application reads their datasets from the host filesystem.
 
 The Simulator, Optimizer and Analyzer retain the toolbox's own WebGL2 surface panes. Volume,
 target and segmentation previews provide an explicit native-opening action. Guide anatomy remains
 reference anatomy: subject-space placement must use the selected subject's geometry.
 
-Opening a changed selection replaces the scene in TetraVox. Camera and appearance edits happen
+Opening a changed selection asks before replacing the scene when TetraVox is already running. Camera and appearance edits happen
 in that window and are saved with TetraVox's own scene controls.
 
 ## How to open a result
 
-Use **Viewer → Menu** to prepare a scene. The **Tetravox** sub-page offers native installation
-and opening controls. You can also open native TetraVox without a prepared scene and drag files
-into its own window; those files are not imported into the project.
+Use the left-hand scene builder in **Viewer** to prepare a scene, or click a saved scene on the right.
+The builder and saved-scene library scroll independently; native launch controls stay above the library. **Launch TetraVox** opens or focuses the
+native window for importing or dropping files directly; those files are not imported into the project.
+Opening a result or job artifact launches TetraVox directly and keeps the current TI-Toolbox page open.
 
-1. On **Menu**, pick a **subject** and a **space** (subject or MNI). Below them the page draws a
+1. On **Viewer**, pick a **subject** and a **space** (subject or MNI). Below them the page draws a
    tree of everything that subject has, in three branches:
 
    - **Anatomy** — grouped by what each file *is*: **Volumes** (T1, T2), **Label volumes
@@ -63,9 +64,8 @@ into its own window; those files are not imported into the project.
 3. Press **Open in viewer** to prepare the scene and open the native TetraVox window. If it is
    not installed, use the installation control or **Settings → Viewer**, then open the scene.
 
-Return to **Menu** to change the selection. The **Tetravox** sub-page can reopen the prepared
-scene; subsequent opens replace the native window's current scene. In a narrow window, use the
-command palette to reach `Viewer · Menu` or `Viewer · Tetravox`.
+The scene composer stays visible after opening. Change the selection and open again to replace
+the native window's current scene.
 
 Layer visibility and opacity, the shared 3-D cursor, the slice/3-D layouts, screenshots and saving a
 modified scene are all the viewer's own controls, in its own panels. TI-Toolbox's side of the
@@ -91,8 +91,12 @@ it next month re-resolves those same choices against whatever is in the project 
 what has since gone missing rather than failing. Use it when the question is *"show me the same
 thing, from the current data"* — the reproducibility artefact you would put next to a manuscript.
 
-**Save scene** (in the **Tetravox** sub-page) writes the prepared composition to
+**Save scene** (in **Saved scenes**) writes the prepared composition to
 `code/ti-toolbox/viewer/scenes/<name>.tetravox.json`. **Saved scenes** reopens these project files.
+The library shows whether referenced files are available, missing, invalid, or could not be checked.
+Use **Refresh** after repairing or moving files. Delete removes only the saved scene and its preview
+metadata; it does not delete the datasets referenced by the scene.
+
 This action does not capture the camera or appearance edits made afterward in the native window,
 and it does not capture a thumbnail from that window.
 
@@ -102,8 +106,7 @@ alongside the scene when archiving or moving it.
 
 ## Installing and updating the viewer
 
-**Settings → Viewer** shows installation state and provides **Install TetraVox** and **Open
-TetraVox**. TI-Toolbox installs the official **0.4.0** platform package in its per-user runtime
+**Settings → Viewer** shows the detected installation and provides **Launch TetraVox**. When no compatible installation is found, **Install TetraVox** installs the official **0.4.0** platform package in its per-user runtime
 directory after SHA256 verification. The first installation needs network access; later launches
 use the installed copy. There is no viewer bundle in the Docker image.
 

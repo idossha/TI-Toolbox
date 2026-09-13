@@ -47,7 +47,7 @@ import {
   type AnalyzerSubject,
 } from "./JobRows";
 import { EMPTY_SPHERE } from "./SphereRows";
-import { viewerSearch } from "../results";
+import { useOpenInViewer } from "../../app/openInViewer";
 import {
   buildConfig, rowTargets,
   type AnalysisType,
@@ -136,6 +136,7 @@ export { rowTargets } from "./buildConfig";
 
 export function AnalyzerPage() {
   const navigate = useNavigate();
+  const launchViewer = useOpenInViewer();
   const { id: shellSubject, subjects } = useSubject();
   /*
    * 2026-09-06 jobs rework (maintainer): "we need a list of jobs in a table that allows users
@@ -322,16 +323,8 @@ export function AnalyzerPage() {
   }
 
   function openInViewer() {
-    // D3: Freeview is gone; this deep-links into the embedded Tetravox viewer instead,
-    // reusing pages/results' ViewerLink query-key convention (kind/subject/simulation/field
-    // only -- unlike the old Freeview call, there is no `space` query key to request the MNI
-    // template directly, so an MNI-coordinate spherical target opens the same subject-space
-    // scene the viewer's own space toggle can switch from there).
     if (!primarySubjectId) return;
-    navigate({
-      pathname: "/viewer",
-      search: viewerSearch({ subject: primarySubjectId, kind: "subject" }),
-    });
+    launchViewer({ subject: primarySubjectId, kind: "subject" });
   }
 
   const runLabel = configs.length > 1 ? `Queue ${configs.length} jobs` : "Run analysis";

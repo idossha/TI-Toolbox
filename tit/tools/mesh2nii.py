@@ -258,7 +258,13 @@ def _collect_tasks(
 
     os.makedirs(output_dir, exist_ok=True)
 
-    msh_files = sorted(f for f in os.listdir(mesh_dir) if f.endswith(".msh"))
+    msh_files = sorted(
+        f
+        for f in os.listdir(mesh_dir)
+        if f.endswith(".msh")
+        and not f.startswith("._")  # AppleDouble metadata is not a mesh.
+        and os.path.isfile(os.path.join(mesh_dir, f))
+    )
     if not msh_files:
         logger.warning("No .msh files found in %s", mesh_dir)
         return [], []

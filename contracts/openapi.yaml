@@ -3520,6 +3520,12 @@ components:
         field: { type: [string, "null"] }
         space: { type: [string, "null"] }
         has_thumbnail: { type: boolean }
+        health:
+          type: string
+          enum: [valid, missing, invalid, unchecked]
+          description: Project file availability; external references are never probed.
+        missing_count: { type: integer, minimum: 0 }
+        health_message: { type: string }
     ViewerPreset:
       type: object
       required: [name]

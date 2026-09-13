@@ -1,8 +1,8 @@
 /** Build project scenes and open them in native TetraVox. */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLocation, useNavigate } from "react-router-dom";
-import { Camera, Clock, Eye, GripVertical, Plus, Save, X } from "lucide-react";
+import { useLocation } from "react-router-dom";
+import { Camera, Clock, Eye, GripVertical, Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
 import { ApiError, getSubjects } from "../../api/client";
 import type { PageDef } from "../../app/registry";
 import { usePageSession } from "../../app/pageSession";
@@ -17,6 +17,7 @@ import { Select, type SelectOption } from "../../ui/Select";
 import { TextInput } from "../../ui/Field";
 import {
   deleteComposition,
+  deleteSavedScene,
   getCandidates,
   getCompositions,
   getTree,
@@ -63,15 +64,6 @@ import "./viewer-page.css";
 export { readDeepLink } from "./lib";
 export type { ViewerDeepLink, ViewerSelection } from "./lib";
 
-
-/** The two rail sub-items. The id is the last path segment: `/viewer/menu`, `/viewer/tetravox`. */
-type SubPage = "menu" | "tetravox";
-
-/** What the rail draws under "Viewer". The first is where the page's own row and ⌘8 land. */
-const SUB_NAV = [
-  { id: "menu", title: "Menu" },
-  { id: "tetravox", title: "Tetravox" },
-] as const;
 
 /** Prepared scene retained for native opening and project saving. */
 interface LoadedScene {
@@ -189,12 +181,6 @@ function ViewerPage() {
   // ---------------------------------------------------------------------------------------------
   const subjects = useQuery({ queryKey: ["subjects"], queryFn: () => getSubjects() });
 
-  // Which sub-page is on screen is the *route*, not state: the rail rows are real links, so the
-  // rail's highlight and what is on screen are the same fact rather than two that can drift. A
-  // path that names neither sub-item (a bare `/viewer`, or a `/viewer?...` deep link) is the Menu.
-  const navigate = useNavigate();
-  const sub: SubPage = location.pathname.endsWith("/tetravox") ? "tetravox" : "menu";
-  const setSub = useCallback((next: SubPage) => navigate(`/viewer/${next}`), [navigate]);
   // Last composition prepared for the native app.
   const [loaded, setLoaded] = useState<LoadedScene | null>(null);
   // ---------------------------------------------------------------------------------------------
@@ -409,47 +395,23 @@ function ViewerPage() {
       setRecents(pushRecent({ key: `${key}|${(chosenFiles ?? []).join(",")}`, label: selectionLabel(attempt), selection: attempt, files: chosenFiles }));
       setLoaded({ key, name: written.name, hostPath: written.host_path, path: written.path, view: written.scene });
       setOpened({ key, hostPath: written.host_path, name: written.name });
-      setSub("tetravox");
       if (window.tit?.openNativeTetravox) await openNativeScene(written.path);
     } catch (error) {
       const notFound = error instanceof ApiError && error.status === 404;
       setFailure({
         key,
-        title: notFound ? "Nothing found for this selection" : "Could not build the scene",
+        title: notFound ? "Nothing found for this selection" : "Could not open the scene",
         text: notFound
           ? "The server has nothing to show for this selection."
-          : "POST /api/view/open could not build a scene for this selection. Check the server logs, or try again.",
+          : error instanceof Error ? error.message : "Could not open this scene. Try again.",
       });
     } finally {
       setBusy(false);
     }
-  }, [draft, files, setSub]);
+  }, [draft, files]);
 
 
-  // A deep link (Results ▸ "Open in viewer", Jobs ▸ "Open in Tetravox") re-prefills the draft, and
-  // with `?open=1` it also *opens*.
-  //
-  // Pre-filling alone was the reported defect: clicking a result put you on the Menu with the
-  // controls set and an Open button still to press, which is not what "open in viewer" means. So
-  // the link carries the intent, and the same `open()` the Open button calls runs here — one path,
-  // one `POST /api/view/open`, one set of `build_view` rules per kind. The draft is still set, so
-  // going back to the Menu shows the selection the scene was built from.
-  //
-  // Declared *after* `open` deliberately: `open` is a `const`, and naming it in a dependency array
-  // above its own declaration is a temporal-dead-zone ReferenceError during render.
-  //
-  // The base is the page's own default, not the draft in state. A deep link is somebody asking for
-  // a *specific* thing, and every one of them carries at least a kind and a subject; folding it
-  // onto whatever selection happened to be sitting in the Menu would let a stale `field` or `roi`
-  // from a previous visit ride into a scene nobody asked for. It also keeps this effect out of
-  // `draft`'s dependency list, which would otherwise re-run it on every edit.
-  //
-  // `open` is held in a ref rather than named as a dependency. It is a `useCallback` over `draft`,
-  // so depending on it makes this effect run again the moment it calls `setDraft` — and since the
-  // selection is a fresh object every time, that never converges: the page re-rendered without
-  // pause and `setSub("tetravox")` never landed. The ref is written from its own effect (writing
-  // one during render is what `react-hooks/refs` catches) declared *above* this one, so it is
-  // already current on the commit a new deep link arrives.
+  // Legacy deep links still prepare and open once per navigation.
   const openRef = useRef(open);
   useEffect(() => {
     openRef.current = open;
@@ -520,16 +482,25 @@ function ViewerPage() {
   });
 
   /** Localize saved scenes for the native app without changing the original. */
-  const openSavedScene = useCallback(
-    async (row: SavedScene) => {
+  const openSavedScene = useMutation({
+    mutationFn: async (row: SavedScene) => {
       const scene = await readSavedScene(row.name);
       const path = await exportNativeScene(scene, `saved-${row.slug}`);
       setLoaded({ key: `saved:${row.slug}`, name: `${row.slug}.tetravox.json`, hostPath: row.host_path ?? null, path, view: scene });
       if (window.tit?.openNativeTetravox) await openNativeScene(path);
-      setSub("tetravox");
     },
-    [setSub],
-  );
+  });
+
+  const [deletingScene, setDeletingScene] = useState<SavedScene | null>(null);
+  const deleteSceneMutation = useMutation({
+    mutationFn: (row: SavedScene) => deleteSavedScene(row.name),
+    onSuccess: async (_, row) => {
+      setDeletingScene(null);
+      setSceneSaved(null);
+      if (loaded?.key === `saved:${row.slug}`) setLoaded(null);
+      await queryClient.invalidateQueries({ queryKey: ["viewer-saved-scenes"] });
+    },
+  });
 
   // ---------------------------------------------------------------------------------------------
   // Presets and recents. A preset is a selection someone chose to keep, and it lives in the
@@ -543,7 +514,7 @@ function ViewerPage() {
     // A **composition**, not a scene: ids, not resolved layers. It records what was chosen, so
     // loading it next month re-resolves those choices against whatever is in the project then and
     // reports what has gone missing — "show me the same thing, from the current data". The scene
-    // (what it looked like) is the other artefact, saved from the Tetravox sub-page.
+    // (what it looked like) is the other artefact, saved alongside the selection.
     //
     // `selection` rides along beside `inputs` so a load can restore the draft exactly — which
     // field the window chip describes, which simulations were expanded. The server keeps keys it
@@ -598,19 +569,19 @@ function ViewerPage() {
   const canOpen = complete && rows.length > 0;
 
   return (
-    <PageLayout variant="bleed" className="viewer-page" data-sub={sub}>
-      {/* Retain the composition while switching between Menu and native launch status. */}
-      <div className="viewer-sub" data-testid="viewer-sub-menu" data-active={sub === "menu" ? "true" : "false"}>
+    <PageLayout variant="bleed" className="viewer-page">
       <div className="viewer-scroll">
         <div className="viewer-panel" data-testid="viewer-panel">
           <header className="viewer-panel-head">
-            <h1 className="viewer-panel-title">Open in viewer</h1>
+            <h1 className="viewer-panel-title">Viewer</h1>
             <p className="viewer-panel-lede">
               Tick what belongs in the scene — anatomy, a simulation’s outputs, an analysis — then <strong>Open in viewer</strong>. The
-              scene opens in the native TetraVox app. If needed, install TetraVox from the Viewer setup panel.
+              scene opens directly in native TetraVox.
             </p>
           </header>
 
+          <div className="viewer-workspace">
+          <div className="viewer-builder" data-testid="viewer-builder-pane">
           {showFailure && (
             <div className="viewer-load-error" role="alert" data-testid="viewer-view-error">
               <span className="viewer-load-error-title">{failure.title}</span>
@@ -624,7 +595,7 @@ function ViewerPage() {
           {/* ── Compose ────────────────────────────────────────────────────────────────────
               Replaces the `Type / Subject / Simulation / Field / Space` card (2026-09-07). See
               `Tree.tsx` for why the type went away and why the tree owns no selection of its own. */}
-          <section className="viewer-card" data-testid="viewer-section-source">
+          <section className="viewer-card viewer-compose" data-testid="viewer-section-source">
             <div className="viewer-card-head">
               <span className="viewer-card-title text-eyebrow">Compose</span>
               <span className="viewer-card-note">Tick what belongs in the scene. Everything here is a file this subject already has.</span>
@@ -670,6 +641,7 @@ function ViewerPage() {
               </label>
             </div>
 
+            <div className="viewer-builder-scroll" data-testid="viewer-builder-scroll" tabIndex={0} aria-label="Scene inputs">
             <CompositionTree
               tree={tree.data}
               loading={tree.isFetching}
@@ -679,11 +651,12 @@ function ViewerPage() {
               onExpandedChange={setExpandedSims}
               onFieldPicked={pickField}
             />
+            </div>
           </section>
 
           {/* ── What will open ─────────────────────────────────────────────────────────────── */}
           <section
-            className="viewer-card"
+            className="viewer-card viewer-plan"
             data-testid="viewer-plan"
             /* The list on screen belongs to an earlier selection (kept, greyed) — drives the CSS. */
             data-stale={stale ? "true" : undefined}
@@ -781,6 +754,7 @@ function ViewerPage() {
               </div>
             </div>
 
+            <div className="viewer-plan-scroll" tabIndex={0} aria-label="Selected scene files">
             {!complete ? (
               <p className="viewer-empty" data-testid="viewer-nothing-selected">
                 Choose a source above and the files it resolves to appear here.
@@ -857,9 +831,10 @@ function ViewerPage() {
               </ul>
             )}
 
+            </div>
             {opened !== null && (
               <p className="viewer-opened" data-testid="viewer-opened">
-                {`Open in the Viewer tab. The scene was also written to ${opened.hostPath ?? opened.name}.`}
+                {`Scene prepared at ${opened.hostPath ?? opened.name}.`}
               </p>
             )}
           </section>
@@ -948,57 +923,6 @@ function ViewerPage() {
               </div>
             </Popover>
 
-            {/* Saved scenes — a picture someone kept, reopened in one click. Distinct from
-                Recent (a footprint of what was opened) and from a preset (a selection): this is
-                the scene as it looked, camera and windows included. */}
-            <Popover
-              trigger={
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  icon={<Camera size={14} />}
-                  disabled={(savedScenes.data ?? []).length === 0}
-                  data-testid="viewer-saved-scenes-open"
-                >
-                  Saved scenes
-                </Button>
-              }
-            >
-              <div className="viewer-popover">
-                <p className="viewer-popover-title">Saved scenes</p>
-                <ul className="viewer-scene-list" data-testid="viewer-saved-scenes">
-                  {(savedScenes.data ?? []).map((row) => (
-                    <li key={row.slug}>
-                      <button
-                        type="button"
-                        className="viewer-scene-item"
-                        data-testid={`viewer-saved-scene-${row.slug}`}
-                        onClick={() => void openSavedScene(row)}
-                        title={row.path}
-                      >
-                        {row.has_thumbnail ? (
-                          <img
-                            className="viewer-scene-thumb"
-                            /* Served by the same jailed file route every dataset comes through. */
-                            src={`/api/files/raw${row.path.replace(/\.tetravox\.json$/, ".png")}`}
-                            alt=""
-                          />
-                        ) : (
-                          <span className="viewer-scene-thumb viewer-scene-thumb-empty" aria-hidden />
-                        )}
-                        <span className="viewer-scene-text">
-                          <span className="viewer-scene-name">{row.name}</span>
-                          <span className="viewer-scene-meta">
-                            {[row.subject, row.simulation, row.field].filter(Boolean).join(" · ") || "scene"}
-                          </span>
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </Popover>
-
             <div className="viewer-foot-spacer" />
 
             <Button
@@ -1013,22 +937,18 @@ function ViewerPage() {
               {busy ? "Opening…" : "Open in viewer"}
             </Button>
           </footer>
-        </div>
-      </div>
-      </div>
+          </div>
+          <aside className="viewer-library" data-testid="viewer-library-pane">
+          <section className="viewer-card viewer-native-launch" aria-label="Native TetraVox">
+            <p className="viewer-empty">Launch TetraVox to import or drop files directly into its window, or build a scene on the left.</p>
+            <NativeTetravox compact />
+          </section>
 
-      {/* Native app launch and saved composition. */}
-      <div className="viewer-sub viewer-sub-frame" data-testid="viewer-sub-viewer" data-active={sub === "tetravox" ? "true" : "false"}>
-        <div className="viewer-strip" data-testid="viewer-strip">
-          <span className="viewer-strip-name" data-testid="viewer-strip-name" title={loaded?.hostPath ?? undefined}>
-            {loaded === null ? "Tetravox" : loaded.name}
-          </span>
-          <div className="viewer-strip-spacer" />
-          {sceneSaved !== null && (
-            <span className="viewer-strip-saved" data-testid="viewer-scene-saved">
-              Saved {sceneSaved}.tetravox.json
-            </span>
-          )}
+          <section className="viewer-card viewer-saved-scenes-card" aria-label="Saved scenes" data-testid="viewer-saved-scenes-section">
+            <div className="viewer-card-head">
+              <h2 className="viewer-card-title text-eyebrow">Saved scenes</h2>
+              <span className="viewer-card-note">Click a scene to open it in TetraVox.</span>
+              <Button variant="ghost" size="sm" icon={<RefreshCw size={14} />} aria-label="Refresh saved scenes" title="Recheck saved scenes and file paths" disabled={savedScenes.isFetching} onClick={() => void savedScenes.refetch()} data-testid="viewer-refresh-scenes" />
           <Popover
             open={sceneSaveOpen}
             onOpenChange={(open) => {
@@ -1080,10 +1000,69 @@ function ViewerPage() {
               </div>
             </div>
           </Popover>
-        </div>
+            </div>
+          {sceneSaved !== null && (
+            <span className="viewer-strip-saved" data-testid="viewer-scene-saved">
+              Saved {sceneSaved}.tetravox.json
+            </span>
+          )}
 
-        <NativeTetravox path={loaded?.path} />
+            <div className="viewer-saved-scenes-scroll" data-testid="viewer-saved-scenes-scroll" tabIndex={0} aria-label="Saved scenes list">
+            {savedScenes.isPending && <p className="viewer-empty">Loading saved scenes…</p>}
+            {savedScenes.error && <p role="alert" className="viewer-popover-error">{savedScenes.error.message}</p>}
+            {savedScenes.data?.length === 0 && <p className="viewer-empty">No saved scenes yet. Open a selection, then save its scene here.</p>}
+            {openSavedScene.error && <p role="alert" className="viewer-popover-error">{openSavedScene.error.message}</p>}
+                <ul className="viewer-scene-list" data-testid="viewer-saved-scenes">
+                  {(savedScenes.data ?? []).map((row) => (
+                    <li key={row.slug} className="viewer-scene-row">
+                      <button
+                        type="button"
+                        className="viewer-scene-item"
+                        data-testid={`viewer-saved-scene-${row.slug}`}
+                        onClick={() => openSavedScene.mutate(row)}
+                        disabled={openSavedScene.isPending || deleteSceneMutation.isPending || deletingScene?.slug === row.slug}
+                        title={row.path}
+                      >
+                        {row.has_thumbnail ? (
+                          <img
+                            className="viewer-scene-thumb"
+                            /* Served by the same jailed file route every dataset comes through. */
+                            src={`/api/files/raw${row.path.replace(/\.tetravox\.json$/, ".png")}`}
+                            alt=""
+                          />
+                        ) : (
+                          <span className="viewer-scene-thumb viewer-scene-thumb-empty" aria-hidden />
+                        )}
+                        <span className="viewer-scene-text">
+                          <span className="viewer-scene-name">{openSavedScene.isPending && openSavedScene.variables?.slug === row.slug ? "Opening…" : row.name}</span>
+                          <span className="viewer-scene-meta">
+                            {[row.subject, row.simulation, row.field].filter(Boolean).join(" · ") || "scene"}
+                          </span>
+                          <span className="viewer-scene-health" data-health={row.health ?? "unchecked"} title={row.health_message ?? "File paths have not been checked."} data-testid={`viewer-scene-health-${row.slug}`}>
+                            {row.health === "valid" ? "Files available" : row.health === "missing" ? `${row.missing_count ?? 1} missing file${row.missing_count === 1 ? "" : "s"}` : row.health === "invalid" ? "Invalid scene" : "Paths not verified"}
+                          </span>
+                        </span>
+                      </button>
+                      <Button variant="ghost" size="sm" icon={<Trash2 size={14} />} aria-label={`Delete scene ${row.name}`} title="Delete saved scene" data-testid={`viewer-delete-scene-${row.slug}`} disabled={deleteSceneMutation.isPending || openSavedScene.isPending} onClick={() => { deleteSceneMutation.reset(); setDeletingScene(row); }} />
+                      {deletingScene?.slug === row.slug && <div className="viewer-scene-delete-confirm" role="group" aria-label={`Delete ${row.name}`}>
+                        <p>Delete this saved scene? Source data will be kept.</p>
+                        {deleteSceneMutation.error && <p role="alert">{deleteSceneMutation.error.message}</p>}
+                        <div className="viewer-card-actions">
+                          <Button variant="secondary" size="sm" disabled={deleteSceneMutation.isPending} onClick={() => setDeletingScene(null)}>Cancel</Button>
+                          <Button variant="destructive" size="sm" disabled={deleteSceneMutation.isPending} onClick={() => deleteSceneMutation.mutate(row)} data-testid={`viewer-confirm-delete-${row.slug}`}>{deleteSceneMutation.isPending ? "Deleting…" : "Delete scene"}</Button>
+                        </div>
+                      </div>}
+                    </li>
+                  ))}
+                </ul>
+            </div>
+            {!window.tit?.openNativeTetravox && loaded && <a href={`/api/files/raw${loaded.path.split("/").map(encodeURIComponent).join("/")}`} download>Download prepared scene for TetraVox</a>}
+          </section>
+          </aside>
+          </div>
+        </div>
       </div>
+
     </PageLayout>
   );
 }
@@ -1099,7 +1078,6 @@ const page: PageDef = {
   Component: ViewerPage,
   enabled: true,
   layout: "full-bleed",
-  subNav: SUB_NAV,
 };
 
 export default page;

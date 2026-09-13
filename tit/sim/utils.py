@@ -833,6 +833,8 @@ def convert_t1_to_mni(m2m_dir: str, subject_id: str, logger) -> None:
 def safe_move(src: str, dest: str) -> None:
     """Move a file or directory from *src* to *dest*.
 
+    Ignore a missing AppleDouble sidecar only after its data file has moved.
+
     Parameters
     ----------
     src : str
@@ -844,6 +846,18 @@ def safe_move(src: str, dest: str) -> None:
     --------
     shutil.move : Underlying implementation.
     """
+    name = os.path.basename(src)
+    target = os.path.join(dest, name) if os.path.isdir(dest) else dest
+    target_name = os.path.basename(target)
+    # macOS may move ._ metadata with its data file, leaving a stale listdir entry.
+    if (
+        name.startswith("._")
+        and target_name.startswith("._")
+        and not os.path.lexists(src)
+        and not os.path.lexists(os.path.join(os.path.dirname(src), name[2:]))
+        and os.path.isfile(os.path.join(os.path.dirname(target), target_name[2:]))
+    ):
+        return
     shutil.move(src, dest)
 
 

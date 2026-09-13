@@ -31,7 +31,7 @@ export type NavSectionId = "workflow" | "pinned";
  * iframe alive — when the user moves between them.
  */
 export interface SubNavItem {
-  /** Last path segment: `/viewer/menu`. */
+  /** Last path segment for a nested page route. */
   id: string;
   title: string;
 }

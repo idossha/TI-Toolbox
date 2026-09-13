@@ -9,94 +9,22 @@ The TI-Toolbox Desktop Application manages the scientific workflow in
 diffusion workflows start their own workers when needed. There is no X11 setup.
 
 Full viewing opens **[TetraVox](https://github.com/idossha/tetravox)** in a separate native window.
-**Settings → Viewer** installs the supported official release into TI-Toolbox's per-user runtime
-directory. The container builds scene files; the desktop opens their host paths in TetraVox.
+TI-Toolbox first checks standard application locations for a compatible TetraVox installation
+(version 0.4.0 or later in the 0.x series) and reuses its normal profile. It does not replace or
+update that installation. Custom portable locations and AppImages are not discovered automatically.
+Settings and the Viewer identify when an existing installation is being used.
 
-## Architecture Overview
+If none is found, **Settings → Viewer** offers the pinned official **TetraVox 0.4.0** package.
+The download's SHA256 is checked before installation. Files live under TI-Toolbox's per-user
+application-data folder in `runtimes/tetravox-0.4.0-<platform>-<architecture>`, with a separate
+profile. Managed downloads cover macOS arm64/x64 and Linux x64; Windows can reuse an installed
+TetraVox, but managed Windows setup awaits a verified portable release package.
 
-The container owns scientific computation, job records and project outputs. TI-Toolbox Desktop
-owns Docker discovery, project selection and native viewer installation/launch. TetraVox reads the
-project's scene and datasets directly from the host filesystem and renders with its WebGL2 engine.
-The run pages retain their own small WebGL2 surface panes.
-
-Before a project is open, Electron serves the welcome Overview from its bundled UI. Opening a
-project starts or attaches to its container, then loads the application from
-`http://127.0.0.1:<port>/`. TetraVox's window is independent of this connection.
-
-## What changed from v2
-
-| | v2 | v3 |
-|---|---|---|
-| **UI** | PyQt5, rendered by the container over X11 forwarding to a host X server | HTML/JS served by the container, rendered by Electron (a normal browser-engine renderer process) — no X server anywhere |
-| **Viewer** | Freeview and Gmsh, launched as separate X11 processes inside the container | Native TetraVox: WebGL2 + WASM in its own host window. Run-page surface panes retain the toolbox's own WebGL2 renderer |
-| **Docker orchestration** | `dockerode` for health checks/log streaming + the `docker compose` CLI shelled out to for starting/stopping services | A dependency-free Docker Engine API client only — no CLI subprocess at all, except `docker context inspect` to discover the active context |
-| **Images** | Two: `idossha/simnibs` (~19 GB) + a separate FreeSurfer image (~67 GB) | One core image: `idossha/ti-toolbox:<ver>`, SimNIBS + FastSurfer + the UI; optional FreeSurfer runs in a temporary worker |
-| **X11 host setup** | XQuartz (macOS) / VcXsrv (Windows) / native X11 (Linux), `xhost` permission juggling on every launch | None |
-| **Compose's role** | Read by both the app (for its own bookkeeping) and shelled out to via the `docker compose` CLI | Still the stack *definition* (one `tit` service, the root `docker-compose.yml`), but the app parses the YAML itself and realizes it purely through Engine API calls — `docker compose` is never invoked |
-
-## Components
-
-### Electron Application
-
-#### **Renderer Process** (Frontend)
-
-After a project opens, the window's content is the container's own served UI — the renderer process is a normal
-web page (HTML/CSS/JS built from the toolbox's TypeScript sources) loaded from
-`http://127.0.0.1:<port>/`, exactly like visiting the app in a browser. The run pages' small 3-D
-panes are drawn by the app's own WebGL2 renderer. Volume and target previews offer an explicit
-**Open in TetraVox** action; full scenes open in the native viewer window.
-
-#### **Main Process** (Backend)
-
-The Node.js process that gets the container running and stays out of the way once it is:
-
-- **Docker discovery** (`desktop/src/main/docker/discover.ts`) — resolves the active Docker
-  context (`DOCKER_HOST`, then `docker context inspect`, then well-known socket paths). This
-  is the *only* place the app still shells out to the `docker` CLI.
-- **Stack orchestration** (`desktop/src/main/stack.ts`) — reads the root `docker-compose.yml`,
-  interpolates its `${VAR}` placeholders from the app's own environment map, and drives the
-  whole lifecycle (network, volume, image pull with progress, container create/start, health
-  check, attach-by-label, stop+remove) through the Engine API client under
-  `desktop/src/main/docker/`. There is no `stacks.json` on disk any more: attach-or-start
-  works by inspecting the running container's own labels and environment, so it survives a
-  cleared `userData` directory.
-- **IPC** — the renderer and main processes talk over Electron's IPC exactly as before
-  (project selection, launch/stop, log streaming).
-
-### Docker integration
-
-The app's `main` process is a single dependency-free Engine API client (`desktop/src/main/
-docker/`) talking to the Docker daemon's own HTTP-over-socket API — no `dockerode`, no
-`docker compose` subprocess. Compose stays the **stack definition** (`services.tit.{image,
-environment, volumes, ports, labels, healthcheck, command, working_dir, init}`, plus
-`networks`/`volumes` — anything else is a startup error naming the key); the app's own parser
-reads it and turns it into Engine API calls: pull with progress, create/start the container,
-stream logs, health-check, and stop+remove on quit. Named volumes are kept across restarts.
-
-Supported engines: **Docker Desktop** and **Docker Engine**. Colima/OrbStack are best-effort
-(same Engine API, not actively tested); Podman is not supported (its `/version` response is
-detected and refused by name).
-
-### Opening a result in the viewer
-
-Use **Viewer → Menu** to choose the subject, space and files, then press **Open in viewer**.
-TI-Toolbox prepares a `.tetravox.json` scene and opens it in native TetraVox. The **Tetravox**
-sub-page provides installation and reopening controls; it no longer contains a rendered iframe.
-Change the selection in Menu and open it again to replace the scene in the native window.
-
-Scene files are written to `<project>/code/ti-toolbox/viewer/<kind>.tetravox.json`, with dataset
-paths resolved for the host. Keep these ordinary TetraVox files with the results they describe.
-Use TetraVox's own controls to adjust layers, camera and appearance, and save those edits there.
-TI-Toolbox's **Save scene** saves the prepared composition; it does not read changes back from the
-native window. See [Viewer]({{ site.baseurl }}/wiki/visualizers/) for selection and saved-scene details.
-
-### Installing and managing the viewer
-
-**Settings → Viewer** installs the pinned official **TetraVox 0.4.0** release. The download's
-SHA256 is checked before installation. Files live under TI-Toolbox's per-user application-data
-folder in `runtimes/tetravox-0.4.0-<platform>-<architecture>`; a separate TetraVox profile keeps it
-independent of a standalone installation. Supported packages cover macOS arm64/x64 and Linux or
-Windows x64. The first installation needs network access; subsequent launches use that copy.
+Opening a scene while TetraVox is running asks before replacing its current view. Cancel leaves
+the window untouched. TI-Toolbox cannot inspect unsaved viewer state, so it asks even if the open
+window might be empty; save any edits in TetraVox first. **Launch TetraVox** without a scene only
+opens or focuses the app. If only the managed copy is running, TI-Toolbox reuses it rather than
+starting the system copy alongside it.
 
 TetraVox is a regular native application launched with the user's host permissions. TI-Toolbox
 does not wrap it in an additional operating-system sandbox. Its renderer still uses Chromium's

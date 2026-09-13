@@ -3,16 +3,10 @@
  * `api/client.ts` (owned across many pages; every lane needing catalog v1/viewer/jobs endpoints
  * would otherwise collide editing the same file) — mirrors `pages/simulator/api.ts`.
  *
- * v3 (D3, `docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)`): `POST /api/viewers/{freeview,gmsh}` are gone
- * from the server along with X11 itself.
- *
- * VE (`docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)`): `openView` resolves the scene once and
- * answers with both addressings of it — `view`, whose dataset paths are `/api/files/raw/...` URLs
- * and which is what the page posts into the embed's iframe, and `scene`, whose paths are the
- * host's and which is the document written to disk. There is no launch and no bridge: the viewer
- * is served by the same origin that served this page.
+ * `openView` resolves a selection and saves a native scene in the project. The desktop main
+ * process maps its container path to the host and launches TetraVox separately.
  */
-import { api, unwrap } from "../../api/client";
+import { api, ApiError, unwrap } from "../../api/client";
 import type { components } from "../../api/schema";
 
 export type Subject = components["schemas"]["Subject"];
@@ -50,9 +44,8 @@ export async function getView(kind: ViewKind, query: ViewQuery): Promise<ViewSpe
 /**
  * Resolve this selection into a scene, and write the scene file beside the project.
  *
- * `view` is posted to the iframe; `scene` and `host_path` describe the file on disk, which is the
- * export path and the sentence the page shows a person. Both come from one resolution, so the
- * picture on screen and the file cannot describe different sets of datasets.
+ * `scene` uses native file paths; `path` identifies the saved scene inside the container and
+ * `host_path` identifies it on the host. Native launches use `path` through the desktop bridge.
  */
 export interface OpenOptions {
   /**
@@ -214,7 +207,12 @@ export async function saveScene(name: string, body: SaveSceneBody): Promise<Save
 }
 
 export async function deleteSavedScene(name: string): Promise<void> {
-  await api.DELETE("/api/viewer/scenes/{name}", { params: { path: { name } } });
+  const result = await api.DELETE("/api/viewer/scenes/{name}", { params: { path: { name } } });
+  if (!result.response.ok) {
+    const error: unknown = result.error;
+    const detail = error && typeof error === "object" && "detail" in error && typeof error.detail === "string" ? error.detail : "Could not delete the saved scene. Try again.";
+    throw new ApiError(result.response.status, `/api/viewer/scenes/${name}`, detail);
+  }
 }
 
 /** `<subject>_<sim>_<field>_<date>` — what the Save field is pre-filled with. */

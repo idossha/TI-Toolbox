@@ -15,6 +15,10 @@ describe("native TetraVox handoff", () => {
     vi.stubGlobal("window",{});
     await expect(openNativeScene("/mnt/scene.tetravox.json")).rejects.toThrow("TI-Toolbox Desktop");
   });
+  it("treats replacement cancellation as a quiet no-op", async () => {
+    vi.stubGlobal("window", { tit: { openNativeTetravox: vi.fn().mockResolvedValue({ ok: false, cancelled: true }) } });
+    await expect(openNativeScene("/mnt/scene.tetravox.json")).resolves.toBeUndefined();
+  });
   it("exports the prepared scene before launching its native file",async()=>{
     const fetch = vi.fn().mockResolvedValue({ok:true,json:async()=>({scene_path:"/mnt/project/target.tetravox.json"})});
     vi.stubGlobal("fetch",fetch);

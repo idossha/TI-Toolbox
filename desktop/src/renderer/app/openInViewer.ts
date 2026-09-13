@@ -1,25 +1,8 @@
-/**
- * "Open in viewer" — the ONE way anywhere in the app asks the Viewer to show something.
- *
- * A deep link to the Viewer page, not a launch: D3 removed X11 from the runtime, so there is no
- * Freeview and no Gmsh to hand a file to. The query goes on the ROUTER's URL — the app is a
- * `MemoryRouter`, so that is the only query the Viewer page can read from a navigation — and the
- * subject also rides in the router state so the shell's subject switcher re-scopes with it.
- *
- * It lives in `app/` rather than in `pages/results/` because the jobs rail uses it too, and a
- * shell component importing a page module would pull that whole page into the shell's chunk.
- * `pages/results/index.tsx` re-exports it, so its existing importers are unchanged.
- *
- * **`open`** is the part that makes the link mean what it says. Without it the Viewer only
- * pre-filled its Menu and left an Open button to press — the maintainer's report, *"Open in viewer
- * sends me to the Menu but doesn't actually select the correct items"*. With `open: true` the
- * Viewer runs the same `open()` its own button runs (`POST /api/view/open`, `build_view`'s rules
- * per kind) and lands on the Tetravox sub-page with the Menu pre-filled behind it. It is opt-in:
- * Optimizer's and Analyzer's "go to the viewer for this subject" gestures are navigation, not a
- * request to render something, and they say so by leaving it unset.
- */
-import { useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+/** Shared native viewer action; URL helpers remain available for saved deep links. */
+import { useCallback, useRef } from "react";
+import { openView } from "../pages/viewer/api";
+import { openNativeScene } from "../viewer/native";
+import { notify } from "../ui/Toast";
 
 export interface ViewerLink {
   subject: string;
@@ -28,7 +11,7 @@ export interface ViewerLink {
   kind?: "subject" | "simulation" | "analysis" | "group" | "custom";
   /** One file, when the caller is opening a specific artifact rather than a whole result. */
   path?: string;
-  /** Build and show the scene on arrival, rather than only pre-filling the Menu. */
+  /** For saved deep links: build the scene on arrival. Direct native actions always open. */
   open?: boolean;
 }
 
@@ -43,11 +26,25 @@ export function viewerSearch(link: ViewerLink): string {
   return `?${params.toString()}`;
 }
 
+/** Open the requested scene without changing the current page or subject selection. */
 export function useOpenInViewer(): (link: ViewerLink) => void {
-  const navigate = useNavigate();
-  return useCallback(
-    (link: ViewerLink) =>
-      navigate({ pathname: "/viewer", search: viewerSearch(link) }, { state: { subject: link.subject } }),
-    [navigate],
-  );
+  const pending = useRef(new Set<string>());
+  return useCallback((link: ViewerLink) => {
+    const { subject, simulation, field, path } = link;
+    const kind = link.kind ?? (path ? "custom" : simulation ? "simulation" : "subject");
+    const key = JSON.stringify([kind, subject, simulation, field, path]);
+    if (pending.current.has(key)) return;
+    const requests = pending.current;
+    requests.add(key);
+    void (async () => {
+      try {
+        const written = await openView(kind, { subject, simulation, field, path }, path ? { files: [path] } : {});
+        await openNativeScene(written.path);
+      } catch (error) {
+        notify.error(`Could not open TetraVox: ${error instanceof Error ? error.message : String(error)}`);
+      } finally {
+        requests.delete(key);
+      }
+    })();
+  }, []);
 }

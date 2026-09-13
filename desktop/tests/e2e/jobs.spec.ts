@@ -820,6 +820,13 @@ test("the Artifacts tab has no View and no per-row Open, and one Open folder at 
 });
 
 test("Open in Tetravox is offered on the mesh and on nothing else", async () => {
+  await app.evaluate(({ ipcMain }) => {
+    ipcMain.removeHandler("tit:tetravox:open");
+    ipcMain.handle("tit:tetravox:open", (_event, path: string) => {
+      (globalThis as unknown as { launchedScene: string }).launchedScene = path;
+      return { ok: true };
+    });
+  });
   await submitJob({ kind: "analyzer", config: {}, subject_ids: ["ernie"], tags: ["e2e-artifacts-tvx"] });
   await connect();
   await openJobs();
@@ -849,7 +856,8 @@ test("Open in Tetravox is offered on the mesh and on nothing else", async () => 
   expect(response.request().postDataJSON()).toMatchObject({ kind: "custom", files: [artifactPath] });
   const payload = await response.json();
   expect(payload.scene.datasets.map((dataset: { path: string }) => dataset.path)).toContain(artifactPath);
-  await expect(page.getByTestId("viewer-sub-viewer")).toHaveAttribute("data-active", "true", { timeout: 20_000 });
+  await expect.poll(() => app.evaluate(() => (globalThis as unknown as { launchedScene: string }).launchedScene)).toBe(payload.scene_path ?? payload.path);
+  await expect(detail).toBeVisible();
 });
 
 

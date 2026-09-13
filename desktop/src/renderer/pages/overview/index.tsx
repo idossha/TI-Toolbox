@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Eye, LayoutGrid, Search } from "lucide-react";
 import type { PageDef } from "../../app/registry";
 import { useSubjectContext } from "../../app/subjectContext";
+import { useOpenInViewer } from "../../app/openInViewer";
 import { Button } from "../../ui/Button";
 import { Callout, EmptyState, Skeleton } from "../../ui/Feedback";
 import { PageLayout } from "../../ui/Layout";
@@ -39,6 +40,7 @@ type Scope = "all" | "ready" | "incomplete";
 
 function OverviewPage() {
   const navigate = useNavigate();
+  const openInViewer = useOpenInViewer();
   const overviewQuery = useQuery({ queryKey: ["overview"], queryFn: getOverview });
   const setSubject = useSubjectContext((s) => s.setSubject);
   const [selected, setSelected] = useState<string | null>(null);
@@ -164,13 +166,7 @@ function OverviewPage() {
           icon={<Eye size={14} />}
           data-testid="overview-open-in-viewer"
           disabled={selectedRow.m2m !== "present"}
-          onClick={() => {
-            setSubject(selectedRow.id);
-            navigate(
-              { pathname: "/viewer", search: `?kind=subject&subject=${encodeURIComponent(selectedRow.id)}` },
-              { state: { subject: selectedRow.id } },
-            );
-          }}
+          onClick={() => openInViewer({ subject: selectedRow.id, kind: "subject" })}
         >
           Open in viewer
         </Button>

@@ -1038,3 +1038,10 @@ endpoints, their Canvas-specific OpenAPI schemas, and `pipeline.schema.json`. Th
 and its dynamic binding resolver are no longer shipped. Existing job groups, dependency plans,
 `PipelineConfig` (the scientific config union), and notebook APIs remain supported. Previously saved
 project files are left on disk; this change performs no project-data migration or deletion.
+
+## 2026-09-13 — Saved-scene reference health
+
+`SavedScene` gains optional `health` (`valid`, `missing`, `invalid`, `unchecked`),
+`missing_count`, and `health_message`. Existing clients may ignore them; absent fields
+must not be interpreted as verified paths. Scene deletion now reports filesystem
+failures instead of claiming success while the scene remains present.

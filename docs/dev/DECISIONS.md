@@ -734,3 +734,13 @@ datasets must be reachable from the viewing host. TI-Toolbox saves prepared scen
 TetraVox saves camera and appearance changes made in its own window. The pinned 0.4.0 release
 predates TetraVox's new external-manager updater refusal, so that protection is not claimed for
 currently downloaded artifacts. An upstream release containing it is needed before relying on it.
+
+### 2026-09-13 — Bounded Viewer workspace and scene reference checks
+
+Viewer uses a scene builder on the left and native launch controls above a saved-scene library on the right. Each panel owns its scrolling so a growing library cannot stretch the page. Scene deletion removes only the saved document and its thumbnail/metadata; filesystem failures remain visible for retry. The scene-list API adds optional reference-health metadata from bounded JSON reads and project-local file checks, without loading scientific datasets or probing arbitrary external paths. External references are explicitly unchecked rather than reported as available. These checks describe file availability, not scientific validity or native rendering success.
+
+### 2026-09-13 — Reuse installed native viewers and confirm scene replacement
+
+Compatible system installations take precedence over creating a managed copy; the sole running managed copy is reused instead when applicable. Discovery checks package identity and version in conventional locations without executing candidates. System launches keep the normal profile and updater ownership; managed launches retain their separate profile. This amends the earlier always-managed native installation decision.
+
+TetraVox exposes second-instance file handoff but no public query for unsaved scene state. TI-Toolbox therefore confirms scene replacement whenever the selected application is running or process inspection is unavailable. It serializes requests, freezes the selected executable for consent and launch, and revalidates project access after confirmation. Blank launches only focus/open the application. A successful process handoff is not proof of completed scene rendering; an external application launch racing the final process check remains outside this coordination.

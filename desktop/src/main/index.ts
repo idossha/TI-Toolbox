@@ -8,7 +8,8 @@ import { readSettings, updateSettings, setAppleGpuEnabled } from "./settings";
 import { LAUNCHER_ORIGIN, resolveRendererDir } from "./launcher";
 import { checkToken, waitForHealth } from "./health";
 import { nativeRuntime, resolveRuntime } from "./nativeRuntime";
-import { checkViewerScene, installNativeViewer, nativeViewerStatus, openNativeViewer } from "./tetravoxNative";
+import { createViewerHandoff } from "./viewerHandoff";
+import { checkViewerScene, installNativeViewer, nativeViewerStatus, nativeViewerRunning, openNativeViewer } from "./tetravoxNative";
 import { FastSurferWorker } from "./fastsurferWorker";
 import { installFastSurfer, probeFastSurfer, runtimePaths } from "./fastsurferInstall";
 import { stack } from "./stackHost";
@@ -677,6 +678,7 @@ function registerIpc(): void {
     try { return await installNativeViewer(app.getPath("userData")); }
     catch { return nativeViewerStatus(app.getPath("userData")); }
   });
+  const viewerHandoff = createViewerHandoff();
   ipcMain.handle("tit:tetravox:open", async (e, path: unknown) => {
     if (!fromMainWindow(e) || typeof path !== "string") return { ok: false, reason: "Untrusted viewer request." };
     try {
@@ -688,8 +690,37 @@ function registerIpc(): void {
         if (!root) return { ok: false, reason: "Native viewing requires a locally accessible project." };
         scene = await checkViewerScene(mapped.path, root);
       }
-      await openNativeViewer(app.getPath("userData"), scene);
-      return { ok: true };
+      const userData = app.getPath("userData");
+      let selectedViewer: Awaited<ReturnType<typeof nativeViewerStatus>> | undefined;
+      return await viewerHandoff({
+        hasScene: !!scene,
+        running: async () => {
+          try {
+            selectedViewer = await nativeViewerStatus(userData);
+            return await nativeViewerRunning(userData, selectedViewer);
+          }
+          catch { return true; } // Unknown process state must still require consent.
+        },
+        confirm: async () => {
+          if (!mainWindow || !fromMainWindow(e)) return false;
+          const answer = await dialog.showMessageBox(mainWindow, {
+            type: "question", title: "Replace the open TetraVox scene?",
+            message: "TetraVox may already be open. Replace the current scene?",
+            detail: "The current view may contain unsaved changes. Save them in TetraVox before continuing. This loads the selected scene into the existing instance; it does not overwrite saved scene files.",
+            buttons: ["Cancel", "Replace scene"], defaultId: 0, cancelId: 0,
+          });
+          return answer.response === 1;
+        },
+        launch: async () => {
+          if (!fromMainWindow(e)) throw new Error("The viewer request is no longer active.");
+          if (scene) {
+            const currentRoot = stack.getCurrent()?.hostProjectDir ?? (await getProjectRoot())?.hostPath;
+            if (!currentRoot) throw new Error("The project is no longer connected.");
+            await checkViewerScene(scene, currentRoot);
+          }
+          await openNativeViewer(userData, scene, selectedViewer);
+        },
+      });
     } catch (error) { return { ok: false, reason: error instanceof Error ? error.message : String(error) }; }
   });
 

@@ -2,6 +2,7 @@
 export async function openNativeScene(path: string): Promise<void> {
   if (!window.tit?.openNativeTetravox) throw new Error("Open TI-Toolbox Desktop to launch native TetraVox.");
   const result = await window.tit.openNativeTetravox(path);
+  if (result.cancelled) return;
   if (!result.ok) throw new Error(result.reason ?? "TetraVox could not be opened.");
 }
 
