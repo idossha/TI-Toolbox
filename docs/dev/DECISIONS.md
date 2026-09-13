@@ -686,3 +686,14 @@ form tests must prove settings survive page and node edits without duplicate sta
 
 **Revisit if:** an existing scientific function cannot express a supported job configuration;
 report that limitation rather than creating notebook-specific science.
+
+
+## 2026-09-13 — Reusable EEG and array analysis (architecture §13)
+
+**Decision:** Extract array statistics, EEG preparation, inverse-window reconstruction and surface projection/atlas utilities from sleepTI into callable `tit` modules. Keep the published study's explicit policies and all cohort/outcome/figure logic downstream. Reuse existing modeling and simulation APIs in notebooks.
+
+**Why:** Future EEG studies can share tested calculations without inheriting a sleep protocol. Explicit compatibility prevents a code move from silently becoming a scientific reanalysis.
+
+**Cost:** The downstream study depends on a pinned toolbox revision and retains thin compatibility adapters. Real-library numerical tests supplement host mocks. Full FEM and participant-data reproduction require the approved dataset and a compatible runtime.
+
+**Revisit if:** Another study needs a genuinely different data model, or a deliberate reanalysis replaces a published policy. Avoid expanding these modules into a new study framework.

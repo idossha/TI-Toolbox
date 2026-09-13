@@ -552,3 +552,14 @@ FastSurfer and FreeSurfer thread preferences live in the shared user configurati
 
 
 Settings groups project preferences, preprocessing defaults, extensions, viewer management, and server details into horizontal tabs. Inactive panels retain unsaved drafts. The preprocessing page selects stages; FreeSurfer operation defaults and reconstruction/QSI resources are edited in Settings and resolved into each submitted configuration.
+
+
+## 13. Reusable EEG and array analysis
+
+Generic EEG processing lives in `tit.eeg` and `tit.source.reconstruction`; forward construction accepts explicit recording Info or a head-to-MRI transform. Explicit paths support external dataset layouts. Cohorts, slow-wave definitions, outcomes, contrasts, and figure composition stay in downstream study repositories.
+
+`tit.stats.graph`, `associations`, `effects` and `robustness` accept participant-by-feature arrays and sparse adjacency without importing FEM, plotting or EEG packages. The graph default keeps opposite signs separate. Published compatibility policies are explicit parameters; a migrated study must retain its original thresholds, seeds, mass, rank-score and sampling policies until a separately reviewed reanalysis.
+
+`tit.fields.carrier_metrics` computes carrier and normal-envelope quantities in native space before scalar cortical morphing. `tit.source.fsaverage` supports explicit mesh/head-model paths and canonical left-then-right outputs. `tit.atlas.surface` aligns explicit vertex identities and reduces parcels with a declared weighting/NaN policy. Projection cache reuse requires matching input fingerprints, settings and all requested fields; pre-provenance caches are regenerated.
+
+Notebooks call these Python functions and existing head-model/simulation APIs. They do not introduce a parallel orchestration framework. Synthetic validation and participant/FEM reproduction are distinct gates; see [requirements](../requirements/2026-09-13-eeg-study-consolidation.md).

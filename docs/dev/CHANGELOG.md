@@ -9,6 +9,11 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 ---
 ### v3.0.0 (Unreleased)
 
+- EEG and other graph-based studies can call shared channel/event preparation, inverse-window reconstruction, seeded cluster inference, associations, robustness, and parcel reduction functions from Python notebooks. Published downstream statistical choices remain explicit.
+- Forward construction accepts recording fiducials or an explicit transform. Completed carrier simulations can be projected through explicit mesh/head-model paths, calculating nonlinear metrics before scalar morphing.
+- Cortical projection caches require matching input fingerprints, runtime versions, settings and requested fields. Older, partial or interrupted caches are recomputed rather than silently reused.
+- New array statistics treat fully explained partial correlations as undefined, ignore stored zero graph edges, and mark singular moderation bootstrap draws invalid with a reported valid fraction. Downstream published bootstrap behavior requires an explicit compatibility policy.
+
 - Canvas edits preserve complete saved scientific configurations. Montage selection uses real catalog definitions; invalid drafts block actions, and undo/redo restores matching forms.
 - Notebook export writes ordered calls to existing scientific functions with full inputs. Canvas dynamic bindings use specific producer results per subject and isolated run files instead of historical output scans.
 

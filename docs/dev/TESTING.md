@@ -196,3 +196,22 @@ Verified on 2026-09-10: 20 focused desktop tests and 54 backend tests passed (on
 ### GPU-preferred container acceptance
 
 Run `python3 -m pytest tests/test_launch_gpu.py tests/test_launch.py tests/test_bash_loader_lifecycle.py tests/test_pre_fastsurfer.py tests/test_native_fastsurfer.py -q` for launcher and job selection. Desktop GPU probe cases are in `src/main/docker/gpu.test.ts`. The image's `verify_runtime.py` rejects CPU-only PyTorch and validates the scientific ABI. A build-time CUDA version assertion proves packaging only: an NVIDIA host must also run the same-image launcher probe and a real FastSurfer job to prove GPU execution. Apple Silicon validates the unavailable-CUDA and native fallback routes.
+
+
+## EEG consolidation
+
+Independent small-array tests are in `tests/numerical/test_eeg_array_stats.py`, `test_eeg_fields.py`, and `test_eeg_source.py`. Run them with a real NumPy/SciPy/MNE stack:
+
+```sh
+python -m pytest tests/numerical/test_eeg_array_stats.py tests/numerical/test_eeg_fields.py tests/numerical/test_eeg_source.py -q
+```
+
+The source tests isolate MNE from host-suite mocks in a subprocess; `TIT_EEG_TEST_PYTHON` selects a compatible real-MNE interpreter. They compare actual MNE operations, authored array/graph expectations and exhaustive or independently generated permutation cases. Downstream snapshot parity reads the pre-migration Git tag rather than distributing private source snapshots.
+
+Native macOS checks do not establish Linux container path behavior. The installed SimNIBS 4.6 interpreter currently combines MNE 1.5 with NumPy 2; some MNE covariance/coregistration paths fail in that combination. The source numerical leg passes with the study's real MNE 1.12.1 interpreter. No participant-data or FEM rerun is claimed; the study drive was unavailable during extraction. The synthetic notebook demonstrates API execution only.
+
+2026-09-13 branch verification: 4,886 host tests passed, 48 environment-dependent
+skips; 40 EEG numerical/parity tests passed with both study tags supplied.
+The route import guard passed all 27 routes, and contracts_check passed with
+247 existing schema warnings. These counts cover the extraction on this branch;
+they do not establish hosted CI or a new container image.

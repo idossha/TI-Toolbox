@@ -278,14 +278,27 @@ def project_subject(
     """
     pm = get_path_manager()
     out_path = _output_path(pm, subject_id, sim, cfg.fsaverage_spacing)
-    if out_path.exists() and not cfg.overwrite:
+    from tit.source.cache import read_array_cache, write_array_cache
+
+    try:
+        metadata = _projection_metadata(pm, subject_id, sim, cfg)
+    except (OSError, ValueError) as exc:
+        return subject_id, "failed", repr(exc)
+    if (
+        not cfg.overwrite
+        and read_array_cache(out_path, metadata, cfg.fields) is not None
+    ):
         return subject_id, "cached", out_path.name
     try:
         maps = _compute_fields(pm, subject_id, sim, cfg)
     except Exception as exc:  # noqa: BLE001 - record per-subject and continue
         return subject_id, "failed", repr(exc)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez_compressed(out_path, subject_id=subject_id, simulation=sim, **maps)
+    write_array_cache(
+        out_path,
+        dict(subject_id=np.asarray(subject_id), simulation=np.asarray(sim), **maps),
+        metadata,
+    )
     medians = ", ".join(f"{k} med={np.median(v):.3f}" for k, v in maps.items())
     return subject_id, "ok", f"{medians} -> {out_path.name}"
 
@@ -334,3 +347,120 @@ def _log_result(result: tuple[str, str, str]) -> None:
     subject_id, status, msg = result
     tag = {"ok": "✓", "cached": "CACHED", "failed": "✗ FAILED"}.get(status, status)
     print(f"[{tag}] {subject_id}: {msg}", flush=True)
+
+
+def _subject_geometry(head_model_dir: str | Path, spacing: int):
+    from simnibs.mesh_tools import mesh_io
+    from simnibs.utils.file_finder import SubjectFiles
+    from simnibs.utils.transformations import cross_subject_map
+
+    if spacing not in _FSAVG_NODES:
+        raise ValueError(f"Unsupported fsaverage spacing: {spacing}")
+    subject = SubjectFiles(subpath=str(head_model_dir))
+    central = mesh_io.load_subject_surfaces(subject, "central")
+    hemispheres = ("lh", "rh")
+    morph = cross_subject_map(subject, "fsaverage", subsampling_to=spacing)
+    return central, morph, hemispheres
+
+
+def project_carrier_fields(
+    carrier_meshes: list[str | Path], head_model_dir: str | Path, *, spacing: int = 5
+) -> dict[str, np.ndarray]:
+    """Project carrier summaries from explicit FEM inputs onto fsaverage.
+
+    Each carrier is first interpolated onto the same native central surface.
+    Vector operations and normal projections happen there, before scalar maps
+    are morphed. Outputs follow left-then-right hemisphere vertex order. This
+    accepts arbitrary dataset layouts and writes no files.
+    """
+    from tit.fields import carrier_metrics
+
+    if len(carrier_meshes) < 2:
+        raise ValueError("At least two carrier meshes are required")
+    central, morph, hemispheres = _subject_geometry(head_model_dir, spacing)
+    n_lh, n_rh = central["lh"].nodes.nr, central["rh"].nodes.nr
+    vectors = []
+    for path in carrier_meshes:
+        mesh, gm = _load_carrier_mesh(Path(path))
+        vectors.append(_interp_to_central(mesh, gm, "E", central, hemispheres))
+    normals = np.concatenate(
+        [
+            np.asarray(central[hemi].nodes_normals().value, dtype=float)
+            for hemi in hemispheres
+        ]
+    )
+    result = {
+        name: _morph_split(value, n_lh, n_rh, morph, hemispheres)
+        for name, value in carrier_metrics(vectors, normals).items()
+    }
+    for name, value in result.items():
+        if value.shape != (_FSAVG_NODES[spacing],):
+            raise ValueError(f"{name}: unexpected fsaverage shape {value.shape}")
+    return result
+
+
+def project_scalar_field(
+    mesh_path: str | Path,
+    head_model_dir: str | Path,
+    field_name: str,
+    *,
+    spacing: int = 5,
+) -> np.ndarray:
+    """Interpolate a GM scalar field to the central surface and then fsaverage.
+
+    Explicit paths support post-hoc projection of already completed simulations.
+    No participant's mesh is used as an implicit template for another.
+    """
+    central, morph, hemispheres = _subject_geometry(head_model_dir, spacing)
+    mesh, gm = _load_carrier_mesh(Path(mesh_path))
+    native = _interp_to_central(mesh, gm, field_name, central, hemispheres)
+    if native.ndim != 1:
+        raise ValueError("project_scalar_field requires a scalar mesh field")
+    result = _morph_split(
+        native, central["lh"].nodes.nr, central["rh"].nodes.nr, morph, hemispheres
+    )
+    if result.shape != (_FSAVG_NODES[spacing],):
+        raise ValueError(f"Unexpected fsaverage shape: {result.shape}")
+    return result
+
+
+def _projection_metadata(pm, subject_id: str, sim: str, cfg: FsavgMapConfig) -> dict:
+    from tit.source.cache import input_fingerprints
+    from importlib.metadata import PackageNotFoundError, version
+
+    runtime = {}
+    for package in ("simnibs", "cortech", "numpy", "scipy"):
+        try:
+            runtime[package] = version(package)
+        except PackageNotFoundError:
+            runtime[package] = "unavailable"
+
+    inputs: list[Path] = []
+    missing: list[str] = []
+    resolvers = []
+    if "TI_max" in cfg.fields:
+        resolvers.append(lambda: [_ti_max_overlay(pm, subject_id, sim)[0]])
+    if "TI_normal" in cfg.fields:
+        resolvers.append(lambda: [_ti_normal_overlay(pm, subject_id, sim)])
+    if {"hf_peak", "hf_sar"}.intersection(cfg.fields):
+        resolvers.append(lambda: list(_carrier_volume_meshes(pm, subject_id, sim)))
+    for resolve in resolvers:
+        try:
+            inputs.extend(resolve())
+        except FileNotFoundError as exc:
+            missing.append(str(exc))
+    surface_dir = Path(pm.m2m(subject_id)) / "surfaces"
+    inputs.extend(sorted(surface_dir.glob("*central*.gii")))
+    inputs.extend(sorted(surface_dir.glob("*sphere*.gii")))
+    return {
+        "schema": 1,
+        "runtime": runtime,
+        "calculation": "native-scalar-then-morph-v1",
+        "subject": subject_id,
+        "simulation": sim,
+        "spacing": cfg.fsaverage_spacing,
+        "fields": list(cfg.fields),
+        "vertex_order": "hemisphere-native-morph",
+        "inputs": input_fingerprints(sorted(set(inputs))),
+        "missing_inputs": missing,
+    }

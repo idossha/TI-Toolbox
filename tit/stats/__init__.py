@@ -32,7 +32,16 @@ from tit.stats.config import (
     GroupComparisonConfig,
     GroupComparisonResult,
 )
-from tit.stats.permutation import run_correlation, run_group_comparison
+
+
+def __getattr__(name: str):
+    # Array statistics should not import NIfTI, plotting or FEM dependencies.
+    if name in {"run_correlation", "run_group_comparison"}:
+        from tit.stats import permutation
+
+        return getattr(permutation, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "run_group_comparison",
