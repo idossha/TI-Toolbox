@@ -215,3 +215,10 @@ skips; 40 EEG numerical/parity tests passed with both study tags supplied.
 The route import guard passed all 27 routes, and contracts_check passed with
 247 existing schema warnings. These counts cover the extraction on this branch;
 they do not establish hosted CI or a new container image.
+
+CircleCI desktop run 985 exposed a pre-existing stale atlas-target assertion:
+the unchanged optimizer returns the declared `atlas_space`, but the fixture
+omitted it. The failure reproduced locally on the identical baseline desktop
+tree. After correcting that assertion, all 1,739 desktop unit tests passed
+locally (146 files). This is a test-only correction; the pinned scientific
+implementation remains commit `2124ba401ba93badaafce57bacfaff5138306436`.
