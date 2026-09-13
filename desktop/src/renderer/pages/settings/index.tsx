@@ -416,9 +416,7 @@ function SettingsPage() {
               />
             )}
             {capsQuery.data && (
-              // Named entries, not a raw `Object.entries` dump: `Capabilities.tetravox_embed` is an
-              // object, not a boolean, and blindly stringifying every key risked resurfacing the
-              // retired X11/Freeview/Gmsh capability flags the server no longer even reports (D3).
+              // Keep server capabilities explicit; native viewer availability belongs to the host.
               <div style={{ marginTop: "var(--space-3)" }}>
                 <DefinitionList
                   entries={[
@@ -426,14 +424,6 @@ function SettingsPage() {
                     ["Blender (bpy)", capsQuery.data.bpy ? "yes" : "no"],
                     ["FastSurfer", capsQuery.data.fastsurfer ? "yes" : "no"],
                     ["Jupyter", capsQuery.data.jupyter ? "yes" : "no"],
-                    [
-                      "Viewer bundle",
-                      capsQuery.data.tetravox_embed.available
-                        ? `v${capsQuery.data.tetravox_embed.version ?? "?"} · protocol ${capsQuery.data.tetravox_embed.protocol ?? "?"} · ${
-                            capsQuery.data.tetravox_embed.source ?? "unknown source"
-                          }`
-                        : "none",
-                    ],
                   ]}
                 />
               </div>

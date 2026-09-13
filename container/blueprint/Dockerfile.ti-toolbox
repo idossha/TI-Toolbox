@@ -175,21 +175,6 @@ RUN simnibs_python /ti-toolbox/container/blueprint/verify_runtime.py
 
 COPY --from=ui-builder /build/desktop/out/renderer /opt/ti-toolbox/ui
 
-# --- Tetravox embed: the offline floor tit.server serves at /tetravox/. build.sh resolves the
-# tarball and its published digest; the digest is checked before the archive is opened. ---
-ARG TETRAVOX_EMBED_TGZ
-ARG TETRAVOX_EMBED_SHA256
-RUN test -n "$TETRAVOX_EMBED_TGZ" && test -n "$TETRAVOX_EMBED_SHA256" \
-    && curl -fsSL "$TETRAVOX_EMBED_TGZ" -o /tmp/embed.tgz \
-    && echo "$TETRAVOX_EMBED_SHA256  /tmp/embed.tgz" | sha256sum -c - \
-    && mkdir -p /tmp/tvx /opt/tetravox/embed \
-    && tar -xzf /tmp/embed.tgz -C /tmp/tvx --strip-components=1 \
-    && cp -r /tmp/tvx/dist/. /opt/tetravox/embed/ \
-    && cp /tmp/tvx/manifest.json /opt/tetravox/embed/manifest.json \
-    && cp /tmp/tvx/LICENSE /tmp/tvx/EMBED.md /tmp/tvx/*.schema.json /opt/tetravox/ \
-    && test -f /opt/tetravox/embed/index.html \
-    && rm -rf /tmp/tvx /tmp/embed.tgz
-
 COPY --from=source /ti-toolbox/container/blueprint/entrypoint.ti-toolbox.sh /usr/local/bin/entrypoint.ti-toolbox.sh
 RUN chmod +x /usr/local/bin/entrypoint.ti-toolbox.sh
 

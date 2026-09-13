@@ -14,6 +14,9 @@ import type {
 } from "../shared/tit-bridge";
 
 const tit: TitBridge = {
+  nativeTetravoxStatus: () => ipcRenderer.invoke("tit:tetravox:status"),
+  installNativeTetravox: () => ipcRenderer.invoke("tit:tetravox:install"),
+  openNativeTetravox: (path: string) => ipcRenderer.invoke("tit:tetravox:open", path),
   platform: () => process.platform,
   appVersion: () => ipcRenderer.invoke("tit:appVersion"),
   openExternal: (url: string) => ipcRenderer.invoke("tit:openExternal", String(url)),

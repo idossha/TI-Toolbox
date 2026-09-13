@@ -29,7 +29,6 @@ import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
 import { connectLauncher, expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
 import { expectRunPaneTab } from "./_runPane";
-import { closeOptEditor, openOptEditor, optRows } from "./_jobs";
 
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
 const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
@@ -219,42 +218,4 @@ test("an electrode pick writes a NAME into the montage form", async () => {
   await expect(page.locator(".electrode-pair-row").first().getByRole("combobox").first()).toContainText(aim.id, {
     timeout: 10_000,
   });
-});
-
-test("switching from the guide to a sphere preview keeps subject-RAS coordinates read-only", async () => {
-  await gotoPage(page, "optimizer", "Optimizer");
-  await expectPage(page, "optimizer");
-  const row = optRows(page).first();
-  const editor = await openOptEditor(page, row, "settings");
-  await editor.locator(".roi-picker .segmented").first().getByRole("radio", { name: "Spherical", exact: true }).click();
-  await closeOptEditor(page);
-  await expect(row).toHaveAttribute("data-active", "true");
-  await expectRunPaneTab(page, "scene");
-  const panel = page.locator('[data-page-panel="optimizer"]');
-  const preview = panel.getByTestId("target-preview");
-  await expect(preview).toContainText("Complete the target in the job editor to preview it.");
-  await expect(panel.getByTestId("scene-pane-host")).toHaveCount(0);
-
-  // Spheres use a subject-space volumetric preview, replacing the interactive atlas guide.
-  // Complete the actual coordinate fields so this test exercises a loaded preview, not an
-  // empty pane that cannot emit a pick in the first place.
-  const values = { X: "10", Y: "20", Z: "30", radius: "8" };
-  const sphereEditor = await openOptEditor(page, row, "settings");
-  for (const [label, value] of Object.entries(values)) {
-    await sphereEditor.getByLabel(`Sphere 1 ${label}`, { exact: true }).fill(value);
-  }
-  await closeOptEditor(page);
-  const frame = page.frameLocator('[data-page-panel="optimizer"] [data-testid="target-preview-frame"]');
-  await expect(frame.getByTestId("fake-embed-layers")).toContainText("spherical-target.nii.gz");
-  await expect(preview.getByTestId("target-preview-frame")).toBeVisible();
-  await expect(preview).toContainText("Read-only.");
-
-  // The fake embed emits both cursor and pick events on a body click. Coordinates must stay
-  // unchanged even if an embed sends these events despite picking being disabled by the host.
-  await frame.locator("body").click({ position: { x: 4, y: 4 } });
-  const checked = await openOptEditor(page, row, "settings");
-  for (const [label, value] of Object.entries(values)) {
-    await expect(checked.getByLabel(`Sphere 1 ${label}`, { exact: true })).toHaveValue(value);
-  }
-  await closeOptEditor(page);
 });

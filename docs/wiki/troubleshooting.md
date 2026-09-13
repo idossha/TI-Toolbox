@@ -61,17 +61,28 @@ and reopen the picker. Unrelated gzip archives are rejected.
 also changed hidden workflows. The September 4 polishing update retains visited pages and gives
 each tab its own subject context. Closing/switching projects intentionally starts a new session.
 **Fix:** restart the updated desktop client once. In development, use `npm run dev` from `desktop/`.
-The Simulator, Optimizer and Analyzer previews also require the viewport-capable Tetravox bundle;
-an older protocol-2 bundle can still show its full application chrome.
+Run-page surface panes now use the toolbox's own renderer; volume and target previews open native
+TetraVox explicitly.
 
-### A 3D preview never leaves "Loading"
+### Native TetraVox is not installed or does not open
 
-**Cause:** older builds removed a failed iframe, cleared its error during cleanup, and immediately
-loaded it again. A missing/unusable embed bundle could therefore appear to load forever.
-**Fix:** the updated preview keeps the error visible and offers **Retry 3D preview**. A locally built
-embed must use the installed layout: `index.html`, `assets/` and the generated `manifest.json` in
-one served directory. Raw Vite `dist/` output lacks the manifest; the release installer flattens
-the packaged `dist/` correctly. Do not fabricate a manifest for an unknown build.
+Use **Settings → Viewer → Install TetraVox**, then retry opening the scene. The first installation
+needs access to the official GitHub release. A checksum mismatch means nothing was installed;
+retry the verified download instead of unpacking an unknown archive into the runtime directory.
+Unsupported architectures report that no native package is configured.
+
+Browser-only sessions cannot start native applications. Download the prepared scene and open it
+manually in TetraVox on a machine where its dataset paths exist. A remote server's scene file does
+not copy the underlying volumes or meshes to your computer.
+
+Older development builds used an iframe and could loop forever after a missing bundle error.
+That integration is removed; installing an embed manifest is no longer a repair step.
+
+### TetraVox offers to update its managed copy
+
+The pinned official **0.4.0** release predates the new external-manager updater protection.
+Keep the TI-Toolbox-managed installation at the pinned version; do not replace it using TetraVox's
+own updater. A future compatible native release must include that protection before relying on it.
 
 ### Analyzer stays at "Building … scene" with repeated atlas errors
 
@@ -96,7 +107,7 @@ Subject nets are read from the existing head model; regenerating the model is un
 
 **Cause:** a solid mesh's saved `field: null` value reached controls expecting an absent field.
 If that mesh loaded first, the controls crashed and cancelled the remaining scene load.
-**Fix:** use the rebuilt internal image with the compatible viewer bundle. New scenes omit the
+**Fix:** use the updated TI-Toolbox scene exporter and its pinned native TetraVox release. New scenes omit the
 empty field and the viewer accepts older scenes containing it; source files need no repair.
 
 ## Docker

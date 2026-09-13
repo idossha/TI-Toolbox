@@ -1127,14 +1127,6 @@ def viewer_candidates(
 #: Stable id for a node: the container path. Not an index and not a display name -- a composition
 #: saved today has to resolve against a project that has since gained or lost files, and the only
 #: thing that survives that is what the file is called.
-#: Why a surface row is disabled when the installed embed is too old to draw one.
-#:
-#: Named as a *capability*, not as a version comparison the UI performs: `tit/tetravox/protocol.py`
-#: explains why every host here asks for a feature name. The sentence still carries the version,
-#: because "needs a newer embed" is not something a person can act on and "0.4.0" is.
-SURFACE_UNSUPPORTED_REASON = "needs Tetravox embed >= 0.4.0 (surfaces)"
-
-
 def _size_or_none(path: str) -> int | None:
     try:
         return os.path.getsize(path)
@@ -1148,7 +1140,6 @@ def _tree_node(
     label: str | None = None,
     default_on: bool = False,
     attachment_dirs: tuple[str, ...] = (),
-    surfaces_supported: bool = True,
 ) -> dict[str, Any]:
     """One row of the tree, with the *kind* every menu now reads rather than re-derives.
 
@@ -1162,10 +1153,6 @@ def _tree_node(
     and data GIfTIs that share its hemisphere. They are sub-rows, not siblings, because that is
     what they are -- a ``.annot`` on its own is a colour table with nowhere to go.
 
-    *surfaces_supported* is the one capability switch (E1, :mod:`tit.tetravox.protocol`). When the
-    installed embed cannot draw a surface as its own kind, the row is listed and **disabled with
-    the reason** rather than hidden or -- much worse -- silently sent as a mesh, which would make
-    an 8 MB cortical sheet arrive as a claim about a 400 MB FEM volume.
     """
     try:
         size: int | None = os.path.getsize(path)
@@ -1174,8 +1161,6 @@ def _tree_node(
     except OSError:
         size, available, reason = None, False, "file is missing"
     kind = classify_view_file(path) or "volume"
-    if kind == "surface" and not surfaces_supported and available:
-        available, reason = False, SURFACE_UNSUPPORTED_REASON
     node = {
         "id": path,
         "name": os.path.basename(path),
@@ -1213,7 +1198,7 @@ def _tree_node(
 
 
 def _anatomy_branch(
-    pm, subject: str, space: str, *, surfaces_supported: bool = True
+    pm, subject: str, space: str
 ) -> list[dict[str, Any]]:
     """T1, T2, the head mesh, the reconstruction surfaces and the atlases.
 
@@ -1258,7 +1243,6 @@ def _anatomy_branch(
                     path,
                     label=_scene_stem(os.path.basename(path)),
                     attachment_dirs=(segmentation,),
-                    surfaces_supported=surfaces_supported,
                 )
             )
 
@@ -1282,7 +1266,7 @@ def _anatomy_branch(
 
 
 def _simulation_branch(
-    pm, subject: str, simulation: str, space: str, *, surfaces_supported: bool = True
+    pm, subject: str, simulation: str, space: str
 ) -> dict[str, Any]:
     """One simulation's own outputs, split into what a person picks between.
 
@@ -1318,7 +1302,6 @@ def _simulation_branch(
                 node = _tree_node(
                     path,
                     attachment_dirs=(os.path.dirname(path),),
-                    surfaces_supported=surfaces_supported,
                 )
                 # A `.gii` written into `mesh/` is still a sheet; the directory it landed in is
                 # SimNIBS's filing, not a claim about the geometry.
@@ -1361,7 +1344,7 @@ def _in_space(name: str, space: str, *, is_mesh: bool) -> bool:
 
 
 def _analysis_branch(
-    pm, subject: str, simulation: str, *, surfaces_supported: bool = True
+    pm, subject: str, simulation: str
 ) -> list[dict[str, Any]]:
     """The analyzer outputs under one simulation: ROI masks, spheres, group and statistic maps."""
     sim_dir = pm.simulation(subject, simulation)
@@ -1373,7 +1356,7 @@ def _analysis_branch(
                 continue
             nodes = [
                 _tree_node(
-                    path, attachment_dirs=(run,), surfaces_supported=surfaces_supported
+                    path, attachment_dirs=(run,)
                 )
                 for path in sorted(glob.glob(os.path.join(run, "*")))
                 if os.path.isfile(path)
@@ -1395,8 +1378,6 @@ def viewer_tree(
     subject: str | None = None,
     space: str | None = None,
     simulations: list[str] | None = None,
-    *,
-    surfaces_supported: bool = True,
 ) -> dict[str, Any]:
     """What the Menu's composition tree draws, for one subject.
 
@@ -1427,7 +1408,7 @@ def viewer_tree(
     chosen = set(simulations or [])
     all_sims = pm.list_simulations(subject) or []
     sims = [
-        _simulation_branch(pm, subject, name, space, surfaces_supported=surfaces_supported)
+        _simulation_branch(pm, subject, name, space)
         for name in sorted(all_sims)
     ]
     analyses: list[dict[str, Any]] = []
@@ -1435,14 +1416,14 @@ def viewer_tree(
         if chosen and name not in chosen:
             continue
         analyses.extend(
-            _analysis_branch(pm, subject, name, surfaces_supported=surfaces_supported)
+            _analysis_branch(pm, subject, name)
         )
 
     return {
         "subject": subject,
         "space": space,
         "anatomy": _anatomy_branch(
-            pm, subject, space, surfaces_supported=surfaces_supported
+            pm, subject, space
         ),
         "simulations": sims,
         "analyses": analyses,
@@ -1689,16 +1670,8 @@ def resolve_percentiles(spec: dict[str, Any]) -> dict[str, Any]:
 #    the client MAY re-fit after ``loaded`` if it wants to. This is a known
 #    v1 limitation, not an oversight.
 #
-# `DatasetRef.path`/`.absPath` are both set to the *same* origin-relative
-# `/api/files/raw/...` URL string (never a container filesystem path): the
-# embed is served from this same server at `/tetravox/`, so from inside its
-# iframe an absolute-path URL (leading `/`, no scheme/host) is directly
-# fetchable -- no client-side rewriting is needed, and
-# `scene/serialize.ts`'s own path-joining (`joinPath`/`relativePath`) treats
-# any string starting with `/` as already-absolute and passes it through
-# unchanged regardless of which of `path`/`absPath` a host's `resolve`
-# callback happens to prefer. `fingerprint` is always ``''`` (§4.6: computing
-# one needs the file bytes, which only the loader's WASM worker ever reads).
+# Intermediate dataset paths use the raw-file API format. Native export validates and
+# rewrites them to host filesystem paths, staging bundled reference assets when needed.
 
 RAW_ROUTE_PREFIX = "/api/files/raw/"
 

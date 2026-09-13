@@ -1,59 +1,8 @@
-/**
- * Viewer screen — **a source, a file list, and Open** (V1 · VM · VM2,
- * `docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer){VX,VM,VM2}.md`).
- *
- * V1's brief: *"the viewer tab only acts as the data selection and it actually opens up everything
- * in [an external window] like we have in 2.5.0."* VM read that as room for a composition panel —
- * per-layer cards, a layout, a camera, a background, extras — and the maintainer's verdict on the
- * screenshots was **"too much"**. VM2 is the correction, and it is a better page than either:
- *
- *   **The list of files that will open is the whole scene, and it is editable.**
- *
- * Remove a row and that dataset is not in the scene. Add one — from everything the subject and
- * simulation offer, or any path in the project — and it is, at the end. Drag to reorder and that
- * is the layer order. Reset puts the view type's own set back. Open writes exactly those files,
- * in that order.
- *
- * **What this page deliberately does not offer is how each file should look.** Opacity, colormap,
- * threshold, layout, camera: all of that is a judgement about the data — a percentile window on a
- * TI field, a LUT and `nearest` on a label volume, a mesh hidden because the file is 64 MB — and
- * it lives in `tit/viewspec.py` with the rest of the scene's defaults. A file this page adds
- * arrives with the server's default for a file of that shape; a file the view type produced keeps
- * exactly the settings that view type gave it. Tetravox has an inspector, its own window and a
- * person's full attention; this page has a list.
- *
- * **The page is two rail sub-items** (VE, 2026-09-06). The maintainer: *"In the Viewer, the left
- * menu has two subsections: the Menu, and below it the actual Viewer. The user configures in the
- * Menu, hits Open, is moved to the Viewer where the Tetravox embed is; they can go back to the
- * Menu, tinker, and reload a different setup."*
- *
- *   **Menu** (`/viewer/menu`) — the source, the file list, presets and Recent. `Open in viewer`.
- *   **Tetravox** (`/viewer/tetravox`) — a full-bleed `<iframe src="/tetravox/">`
- *   (`renderer/viewer/TetravoxFrame`) with a slim strip above it: which scene is loaded, `Reload`.
- *
- * They are rows in the nav rail (`PageDef.subNav`, `app/NavRail.tsx`) and **one page**: two routes
- * under one `PageDef`, one mounted component, both panes always in the DOM with the inactive one
- * `display: none`. That is what makes the retention rule true by construction — moving between
- * them never unmounts the iframe, so the scene, the camera and the engine's wasm heap survive a
- * trip back to the Menu. Two `PageDef`s would have been two components and two iframes, and
- * "go back to the Menu, tinker, and reload a different setup" would have meant reloading the
- * engine every time.
- *
- * Going back is therefore just pressing **Menu** in the rail; the strip carries no Back button,
- * because a second control for a thing the rail already does is a second thing to keep in step.
- *
- * **R5's draft → command grammar is unchanged.** Editing anything — a selector, a row — edits the
- * draft. The only request drafting costs is the list's own `dry_run`, which writes no file and
- * shows nothing. Open is the one place a scene is committed: **one** `POST /api/view/open`, which
- * resolves the scene once and answers with both addressings of it — `view` (datasets as
- * `/api/files/raw/…` URLs) posted to the iframe as **one** `load` message, and `scene` (host
- * paths) written to `<project>/code/ti-toolbox/viewer/<kind>.tetravox.json` for export. One
- * request, one message.
- */
+/** Build project scenes and open them in native TetraVox. */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Camera, Clock, Eye, GripVertical, Plus, RefreshCw, Save, X } from "lucide-react";
+import { Camera, Clock, Eye, GripVertical, Plus, Save, X } from "lucide-react";
 import { ApiError, getSubjects } from "../../api/client";
 import type { PageDef } from "../../app/registry";
 import { usePageSession } from "../../app/pageSession";
@@ -106,8 +55,8 @@ import {
   type ViewSceneLayer,
 } from "./lib";
 import { CompositionTree } from "./Tree";
-import { TetravoxFrame, useViewerStore } from "../../viewer";
-import { getCapabilities } from "../settings/api";
+import { NativeTetravox } from "../../viewer/NativeTetravox";
+import { exportNativeScene, openNativeScene } from "../../viewer/native";
 import { usePageScrollMemory } from "../_shared/session/usePageScrollMemory";
 import "./viewer-page.css";
 
@@ -124,11 +73,12 @@ const SUB_NAV = [
   { id: "tetravox", title: "Tetravox" },
 ] as const;
 
-/** The scene the embed is showing, kept so the strip can name it and `Reload` can re-post it. */
+/** Prepared scene retained for native opening and project saving. */
 interface LoadedScene {
   key: string;
   name: string;
   hostPath: string | null;
+  path: string;
   view: Record<string, unknown>;
 }
 
@@ -245,19 +195,8 @@ function ViewerPage() {
   const navigate = useNavigate();
   const sub: SubPage = location.pathname.endsWith("/tetravox") ? "tetravox" : "menu";
   const setSub = useCallback((next: SubPage) => navigate(`/viewer/${next}`), [navigate]);
-  // What the embed is actually showing, so the Viewer strip can name it and `Reload` can re-post
-  // it. Held here rather than read back off the store because the store's `scene` is the document
-  // *after* the embed rewrote its layer ids on load.
+  // Last composition prepared for the native app.
   const [loaded, setLoaded] = useState<LoadedScene | null>(null);
-  const loadScene = useViewerStore((s) => s.loadScene);
-  const serializeScene = useViewerStore((s) => s.serializeScene);
-  const screenshot = useViewerStore((s) => s.screenshot);
-  const embedStatus = useViewerStore((s) => s.status);
-  const [reloadToken, setReloadToken] = useState(0);
-  // The bundle's version, for the `no-embed` state's sentence only. A read; never gates Open.
-  const caps = useQuery({ queryKey: ["capabilities"], queryFn: getCapabilities, retry: false });
-  const embedVersion = caps.data?.tetravox_embed?.version ?? null;
-
   // ---------------------------------------------------------------------------------------------
   // The list.
   //
@@ -468,14 +407,10 @@ function ViewerPage() {
     try {
       const written = await openView(attempt.kind, viewQuery(attempt) as ViewQuery, { files: chosenFiles ?? undefined });
       setRecents(pushRecent({ key: `${key}|${(chosenFiles ?? []).join(",")}`, label: selectionLabel(attempt), selection: attempt, files: chosenFiles }));
-      // One message. `written.view` is the embed's addressing of the same resolution that produced
-      // the file on disk, so what the iframe draws and what the scene file describes cannot
-      // disagree. The store holds it until the frame says `ready`, which is what lets Open work on
-      // the very first visit, before the iframe has finished its handshake.
-      loadScene(written.view as never);
-      setLoaded({ key, name: written.name, hostPath: written.host_path, view: written.view });
+      setLoaded({ key, name: written.name, hostPath: written.host_path, path: written.path, view: written.scene });
       setOpened({ key, hostPath: written.host_path, name: written.name });
       setSub("tetravox");
+      if (window.tit?.openNativeTetravox) await openNativeScene(written.path);
     } catch (error) {
       const notFound = error instanceof ApiError && error.status === 404;
       setFailure({
@@ -488,7 +423,7 @@ function ViewerPage() {
     } finally {
       setBusy(false);
     }
-  }, [draft, files, loadScene, setSub]);
+  }, [draft, files, setSub]);
 
 
   // A deep link (Results ▸ "Open in viewer", Jobs ▸ "Open in Tetravox") re-prefills the draft, and
@@ -532,35 +467,19 @@ function ViewerPage() {
     setFiles(only);
     setDraft(next);
     // Once per navigation. Without the guard, any re-render of an active page would re-post the
-    // scene and reload the embed under a person who is using it.
+    // scene while a person is using the native app.
     if (deepLink.open && autoOpened.current !== location.key) {
       autoOpened.current = location.key;
       void openRef.current(next, only ?? undefined);
     }
   }, [active, location.key, location.state, deepLink, linkCarriesControls, subjectId, setDraft, setFiles]);
 
-  /** Re-post the scene that is already loaded. Not a new resolution and not a new request. */
-  const reloadScene = useCallback(() => {
-    if (loaded === null) return;
-    loadScene(loaded.view as never);
-  }, [loadScene, loaded]);
-
   // ---------------------------------------------------------------------------------------------
   // Save scene (2026-09-07). The maintainer: *"we should be integrating scene saving where users
   // can essentially save scenes — not only the input selection but also the scene for the user —
   // and we should be very opinionated about that and save it in the Tetravox [scene format]."*
   //
-  // Opinionated is the operative word, and it decides three things:
-  //
-  //  * **What is saved is what the embed has**, not the document the server built. Everything
-  //    worth saving about a scene is what changed after it loaded — the camera someone flew to,
-  //    the window they widened. So this asks the embed to `serialize` and stores that verbatim.
-  //  * **A picture comes with it.** A list of scene names is a list a person cannot choose from;
-  //    the embed's `screenshot` is one message and makes the list browsable. If it fails the save
-  //    still happens, because a scene is worth keeping without its thumbnail.
-  //  * **No dialog beyond a name.** The name is pre-filled by the server
-  //    (`<subject>_<sim>_<field>_<date>`) so the common case is press-and-done.
-  // ---------------------------------------------------------------------------------------------
+  // Save the prepared composition; native camera edits are saved in TetraVox.
   const savedScenes = useQuery({ queryKey: ["viewer-saved-scenes"], queryFn: getSavedScenes, retry: false });
   const [sceneName, setSceneName] = useState("");
   const [sceneSaveOpen, setSceneSaveOpen] = useState(false);
@@ -581,16 +500,11 @@ function ViewerPage() {
 
   const saveSceneMutation = useMutation({
     mutationFn: async (name: string) => {
-      const scene = await serializeScene();
-      if (scene === null) {
-        // A plain Error, not an ApiError: nothing failed over HTTP. The embed did not answer, and
-        // saying so is more use to the person than a status code that would have to be invented.
-        throw new Error("The viewer did not answer with its scene, so there is nothing to save.");
-      }
-      const thumbnail = await screenshot({ width: 480, height: 320 });
+      if (!loaded) throw new Error("Open a scene first.");
+      const scene = loaded.view;
       return saveScene(name, {
         scene: scene as unknown as Record<string, unknown>,
-        thumbnail,
+        thumbnail: null,
         subject: draft.subject ?? null,
         simulation: draft.simulation ?? null,
         field: draft.field ?? null,
@@ -605,15 +519,16 @@ function ViewerPage() {
     },
   });
 
-  /** Re-open a scene someone saved: the document, straight into the embed. */
+  /** Localize saved scenes for the native app without changing the original. */
   const openSavedScene = useCallback(
     async (row: SavedScene) => {
       const scene = await readSavedScene(row.name);
-      setLoaded({ key: `saved:${row.slug}`, name: `${row.slug}.tetravox.json`, hostPath: row.host_path ?? null, view: scene });
-      loadScene(scene as never);
+      const path = await exportNativeScene(scene, `saved-${row.slug}`);
+      setLoaded({ key: `saved:${row.slug}`, name: `${row.slug}.tetravox.json`, hostPath: row.host_path ?? null, path, view: scene });
+      if (window.tit?.openNativeTetravox) await openNativeScene(path);
       setSub("tetravox");
     },
-    [loadScene, setSub],
+    [setSub],
   );
 
   // ---------------------------------------------------------------------------------------------
@@ -674,8 +589,6 @@ function ViewerPage() {
   const subjectOptions: SelectOption[] = (subjects.data ?? []).map((s) => ({ value: s.id, label: s.id }));
 
 
-  // Nothing to install and nothing to find: the viewer is served by the same origin that served
-  // this page. The only thing that can stop an Open is an incomplete selection or an empty list.
   const showFailure = failure !== null && failure.key === draftKey;
   const openTitle = !complete
     ? (validateSelection(draft) ?? undefined)
@@ -686,10 +599,7 @@ function ViewerPage() {
 
   return (
     <PageLayout variant="bleed" className="viewer-page" data-sub={sub}>
-      {/* Two routes, one page. Both panes are always mounted: hiding the inactive one with
-          `display:none` (viewer-page.css) keeps the iframe's document, its wasm heap and its
-          camera exactly as the person left them, which is what "go back to the Menu, tinker, and
-          reload a different setup" requires. Unmounting would silently reload the engine. */}
+      {/* Retain the composition while switching between Menu and native launch status. */}
       <div className="viewer-sub" data-testid="viewer-sub-menu" data-active={sub === "menu" ? "true" : "false"}>
       <div className="viewer-scroll">
         <div className="viewer-panel" data-testid="viewer-panel">
@@ -697,8 +607,7 @@ function ViewerPage() {
             <h1 className="viewer-panel-title">Open in viewer</h1>
             <p className="viewer-panel-lede">
               Tick what belongs in the scene — anatomy, a simulation’s outputs, an analysis — then <strong>Open in viewer</strong>. The
-              scene is drawn under <strong>Tetravox</strong> in the rail, by the engine that ships inside the toolbox image. Nothing to
-              install.
+              scene opens in the native TetraVox app. If needed, install TetraVox from the Viewer setup panel.
             </p>
           </header>
 
@@ -1108,11 +1017,7 @@ function ViewerPage() {
       </div>
       </div>
 
-      {/* ── Viewer ───────────────────────────────────────────────────────────────────────────
-          Full-bleed, and deliberately almost empty of chrome: layer appearance, the camera and
-          the crosshair belong to the embed's own inspector, which has the whole surface and the
-          reader's attention. What is left here is the three things the embed cannot answer —
-          which scene this is, put it back the way it was, and go edit it. */}
+      {/* Native app launch and saved composition. */}
       <div className="viewer-sub viewer-sub-frame" data-testid="viewer-sub-viewer" data-active={sub === "tetravox" ? "true" : "false"}>
         <div className="viewer-strip" data-testid="viewer-strip">
           <span className="viewer-strip-name" data-testid="viewer-strip-name" title={loaded?.hostPath ?? undefined}>
@@ -1135,10 +1040,10 @@ function ViewerPage() {
                 variant="secondary"
                 size="sm"
                 icon={<Camera size={14} />}
-                /* The embed has to be showing something before there is a scene to serialize. */
-                disabled={loaded === null || embedStatus !== "ready"}
+                /* A prepared composition is required. */
+                disabled={loaded === null}
                 data-testid="viewer-scene-save-open"
-                title="Save the camera, layout and windows exactly as they are now"
+                title="Save the prepared scene composition"
               >
                 Save scene
               </Button>
@@ -1147,8 +1052,7 @@ function ViewerPage() {
             <div className="viewer-popover">
               <p className="viewer-popover-title">Save this scene</p>
               <p className="viewer-popover-text">
-                Keeps the picture as it is now — camera, layout, and every layer’s window — as a Tetravox scene in the project, with a
-                thumbnail. The standalone Tetravox app opens it directly.
+                Saves the prepared scene composition in the project. Save camera and appearance changes from the native TetraVox window.
               </p>
               <TextInput
                 value={sceneName}
@@ -1176,31 +1080,9 @@ function ViewerPage() {
               </div>
             </div>
           </Popover>
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<RefreshCw size={14} />}
-            onClick={reloadScene}
-            disabled={loaded === null}
-            data-testid="viewer-reload"
-            title="Re-send this scene to the viewer"
-          >
-            Reload
-          </Button>
         </div>
 
-        <TetravoxFrame
-          className="viewer-embed"
-          embedVersion={embedVersion}
-          reloadToken={reloadToken}
-          onReload={() => {
-            // A full remount of the iframe, then the scene again — the recovery path for a frame
-            // that mounted and never answered. `Reload` in the strip is the cheap one (re-post
-            // only); this is the expensive one, and only the `no-embed` state offers it.
-            setReloadToken((t) => t + 1);
-            reloadScene();
-          }}
-        />
+        <NativeTetravox path={loaded?.path} />
       </div>
     </PageLayout>
   );
@@ -1209,7 +1091,7 @@ function ViewerPage() {
 const page: PageDef = {
   id: "viewer",
   title: "Viewer",
-  purpose: "Build a scene from the subject's files, then view it in the app's own Tetravox.",
+  purpose: "Build a scene from the subject's files, then open it in native TetraVox.",
   navGroup: "explore",
   order: 60,
   icon: Eye,

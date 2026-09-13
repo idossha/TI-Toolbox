@@ -42,7 +42,7 @@ export interface ProxyEventSink {
 }
 
 export interface DevProxyInput {
-  /** Where `/api`, `/auth`, `/ws` and `/tetravox` are forwarded, e.g. `http://127.0.0.1:8765`. */
+  /** Where `/api`, `/auth` and `/ws` are forwarded, e.g. `http://127.0.0.1:8765`. */
   target: string;
   /** Bearer token to inject. Empty string injects no `Authorization` header at all. */
   token: string;
@@ -69,15 +69,7 @@ export function attachDevAuth(proxy: ProxyEventSink, target: string, token: stri
   proxy.on("proxyReqWs", stamp);
 }
 
-/**
- * The four proxy entries `electron.vite.config.ts` installs on the renderer's dev server.
- *
- * `/tetravox` is the Viewer's embed (U12, `docs/dev/HISTORY.md § 2026-09-03 (pipelines program)` §6): the page mounts
- * an iframe at the origin-relative `/tetravox/index.html?embed=1`, which under Vite fell through to
- * the SPA fallback and rendered TI-Toolbox inside itself. The embed's own `/api/files/raw/...`
- * dataset fetches are origin-relative too, so they ride the `/api` entry's bearer like everything
- * else.
- */
+/** Authenticated API and WebSocket proxies for the renderer dev server. */
 export function createDevProxy(input: DevProxyInput): Record<string, ProxyOptions> {
   const entry = (ws: boolean): ProxyOptions => ({
     target: input.target,
@@ -86,5 +78,5 @@ export function createDevProxy(input: DevProxyInput): Record<string, ProxyOption
     ...(input.bypass ? { bypass: input.bypass } : {}),
     configure: (proxy) => attachDevAuth(proxy as unknown as ProxyEventSink, input.target, input.token),
   });
-  return { "/api": entry(false), "/auth": entry(false), "/ws": entry(true), "/tetravox": entry(false) };
+  return { "/api": entry(false), "/auth": entry(false), "/ws": entry(true) };
 }

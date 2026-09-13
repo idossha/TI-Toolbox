@@ -1,5 +1,9 @@
 # Schema changes
 
+## Native Tetravox viewing
+
+Removed embedded bundle installation/update routes, `/ws/tetravox`, and the server `tetravox_embed` capability. Native viewer availability is determined on the host. `POST /api/view/export` writes an explicit ViewSpec with host-addressed file references and returns `scene_path`; existing scene construction and saved-scene storage remain available.
+
 Dated log of changes to the config dataclasses registered in
 `tit.config_io.CONFIG_CLASS_REGISTRY`, and the resulting regeneration of
 `contracts/generated/config.schema.json` / `contracts/generated/openapi.json` /

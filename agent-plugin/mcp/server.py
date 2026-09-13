@@ -871,7 +871,7 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
             "wire_contract": "contracts/openapi.yaml (frozen interface — a change needs "
             "the contract edit and a DECISIONS.md entry in the same commit)",
             "origin": "http://127.0.0.1:8765 — HTTP + WebSockets (/ws/system, /ws/jobs, "
-            "/ws/tetravox, /ws/kernels/{id}). Bearer token lives only in the container's env.",
+            "/ws/kernels/{id}). Bearer token lives only in the container's env.",
         },
         "runtime": "Everything scientific runs inside the Docker image idossha/ti-toolbox "
         "(SimNIBS 4.x, Python 3.11, numpy 1.26; no FSL, no ANTs, no X11, no FreeSurfer). "
@@ -905,8 +905,7 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
             "produce an empty git diff.",
             "tit/scene": "Builds skin / grey-matter / electrode / region-label scene "
             "payloads from a subject's real files, plus the packaged subject-free guide.",
-            "tit/tetravox": "The Tetravox Embed (WebGL2 + WASM viewer) install/update "
-            "channel. Coupling is a PROTOCOL RANGE, never a version; ask by feature name.",
+
             "tit/viewspec.py": "build_view(kind, ...) is a pure function returning a "
             "ViewSpec. The server resolves what to show; the client renders it.",
             "tit/catalog.py": "Subject/simulation discovery for the UI, built only on "

@@ -264,39 +264,6 @@ describe("POST /api/view/open", () => {
   });
 });
 
-// D1/D3 (docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)): /tetravox/ serves the embed bundle -- the
-// deterministic fake-embed fixture by default (TIT_MOCK_EMBED_DIR unset) -- unauthenticated,
-// with its own CSP, never falling back to the renderer's index.html.
-describe("GET /tetravox/*", () => {
-  it("serves the fake embed's index.html at /tetravox and /tetravox/, unauthenticated", async () => {
-    for (const path of ["/tetravox", "/tetravox/", "/tetravox/index.html"]) {
-      const res = await fetch(`${BASE}${path}`);
-      expect(res.status).toBe(200);
-      expect(await res.text()).toContain("tetravox-embed (fake)");
-      expect(res.headers.get("content-security-policy")).toContain("wasm-unsafe-eval");
-    }
-  });
-
-  it("serves manifest.json with the embed's own CSP", async () => {
-    const res = await fetch(`${BASE}/tetravox/manifest.json`);
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body).toMatchObject({ name: "tetravox-embed-fake", protocol: 2 });
-    expect(res.headers.get("content-security-policy")).toContain("wasm-unsafe-eval");
-  });
-
-  it("404s an unknown asset rather than falling back to index.html", async () => {
-    const res = await fetch(`${BASE}/tetravox/does-not-exist.js`);
-    expect(res.status).toBe(404);
-    expect(await res.text()).not.toContain("tetravox-embed (fake)");
-  });
-
-  it("never falls through to the renderer bundle's SPA route", async () => {
-    const res = await fetch(`${BASE}/tetravox/`);
-    expect(await res.text()).not.toContain("Renderer not built");
-  });
-});
-
 // Defect 1 (docs/dev/HISTORY.md § 2026-09-04 (scene service) §5a/§7.2, fix-round lane FIX-C): one
 // `server.mjs` process backs a whole `npx playwright test` invocation (`playwright.config.ts`'s
 // `webServer`), so a job an earlier spec FILE created and never itself drove to a terminal state

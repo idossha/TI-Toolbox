@@ -93,7 +93,21 @@ export interface TitFastSurferBridge {
   disable(): Promise<TitFastSurferStatus>;
 }
 
+export interface TitNativeTetravoxStatus {
+  supported: boolean;
+  installed: boolean;
+  installing: boolean;
+  version: string;
+  directory: string;
+  error?: string;
+}
+
 export interface TitBridge {
+  nativeTetravoxStatus?(): Promise<TitNativeTetravoxStatus>;
+  installNativeTetravox?(): Promise<TitNativeTetravoxStatus>;
+  /** Container scene path in the active project, or empty to open the application. */
+  openNativeTetravox?(path: string): Promise<{ ok: boolean; reason?: string }>;
+
   /** `process.platform` of the host. */
   platform(): NodeJS.Platform;
   /** Version of the desktop shell (package.json), not of the toolbox image. */

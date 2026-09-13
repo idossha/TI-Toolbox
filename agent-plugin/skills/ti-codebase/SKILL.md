@@ -72,7 +72,6 @@ v3 application layer
                  static.py, ws.py, auth.py, settings.py
   tit.jobs       the job engine (see below)
   tit.scene      scene payloads from a subject's real files + the packaged guide
-  tit.tetravox   Tetravox Embed install/update channel + protocol range
   tit.viewspec   build_view(kind, ...) -> ViewSpec (a pure function)
   tit.catalog    subject/simulation discovery for the UI
   tit.launch     `tit launch` — the run spec reader
@@ -134,14 +133,9 @@ States: `queued running succeeded failed cancelled skipped lost`.
   (`segmentation/*.annot` + `surfaces/*.central.gii`) from the subject's real
   files, plus a packaged subject-free guide served with an ETag of the file's
   SHA-256. A guide coordinate is never written into a configuration.
-- **`tit/tetravox/`** — the Tetravox Embed is a browser build drawn in a
-  same-origin iframe on the host GPU; nothing is installed on the user's machine
-  and there is no X11 anywhere. **The coupling is a protocol range, never a
-  version**: ask `embedCan(caps.tetravox_embed, "markers")` — a feature name, not
-  a number. `install.py`'s order *is* the security property: allowlist re-checked
-  per redirect hop → download outside the install root → sha256 verified **before
-  the archive is opened** → traversal-safe extraction → protocol check → one
-  atomic rename.
+- **Native TetraVox** — desktop main installs a pinned official release for the host user;
+  server scene exports map project paths for its native application. The image has no viewer bundle.
+
 - **`tit/viewspec.py`** — `build_view` is a pure function returning a JSON-able
   `ViewSpec`. The server resolves what to show; the client renders it. **The viewer
   never assembles paths.**

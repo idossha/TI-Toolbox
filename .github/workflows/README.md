@@ -17,5 +17,4 @@ fallback must agree with it. The source SHA is retained in image labels.
 `internal` is an unsigned delivery mode: it does not create GitHub Releases, publish updater
 assets, or change public version metadata. No mode promotes a Docker `latest` tag.
 Only `release` on a stable Git tag publishes a GitHub release after artifact verification.
-The image build requires a compatible published Tetravox embed or a reachable tarball URL
-plus SHA256 pin. Local files cannot be used by a hosted runner.
+TetraVox is installed separately on the user host; the image build contains no viewer bundle.

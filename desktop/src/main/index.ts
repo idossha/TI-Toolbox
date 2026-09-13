@@ -8,6 +8,7 @@ import { readSettings, updateSettings, setAppleGpuEnabled } from "./settings";
 import { LAUNCHER_ORIGIN, resolveRendererDir } from "./launcher";
 import { checkToken, waitForHealth } from "./health";
 import { nativeRuntime, resolveRuntime } from "./nativeRuntime";
+import { checkViewerScene, installNativeViewer, nativeViewerStatus, openNativeViewer } from "./tetravoxNative";
 import { FastSurferWorker } from "./fastsurferWorker";
 import { installFastSurfer, probeFastSurfer, runtimePaths } from "./fastsurferInstall";
 import { stack } from "./stackHost";
@@ -658,6 +659,39 @@ function registerIpc(): void {
    * remedy was `docker stop` in a terminal.
    */
   const fromLauncherWindow = (e: Electron.IpcMainInvokeEvent) => fromMainWindow(e) && isLauncherUrl(e.senderFrame?.url ?? "");
+
+  ipcMain.handle("tit:tetravox:status", async (e) => {
+    if (!fromMainWindow(e)) throw new Error("Untrusted viewer request.");
+    return nativeViewerStatus(app.getPath("userData"));
+  });
+  ipcMain.handle("tit:tetravox:install", async (e) => {
+    if (!fromMainWindow(e) || !mainWindow) throw new Error("Untrusted viewer request.");
+    const status = await nativeViewerStatus(app.getPath("userData"));
+    if (status.installed || status.installing || !status.supported) return status;
+    const consent = await dialog.showMessageBox(mainWindow, {
+      type: "question", title: "Install native TetraVox", buttons: ["Cancel", "Install TetraVox"], defaultId: 1, cancelId: 0,
+      message: "Install TetraVox for your TI-Toolbox user?",
+      detail: `TI-Toolbox downloads a verified official TetraVox release into ${status.directory}. No administrator installation is requested. TetraVox runs as a separate desktop application with your normal user file permissions. It is not restricted to a project sandbox.`,
+    });
+    if (consent.response !== 1) return status;
+    try { return await installNativeViewer(app.getPath("userData")); }
+    catch { return nativeViewerStatus(app.getPath("userData")); }
+  });
+  ipcMain.handle("tit:tetravox:open", async (e, path: unknown) => {
+    if (!fromMainWindow(e) || typeof path !== "string") return { ok: false, reason: "Untrusted viewer request." };
+    try {
+      let scene = "";
+      if (path) {
+        const mapped = await resolveHostPathStrict(path);
+        if (!mapped.ok) return { ok: false, reason: mapped.reason };
+        const root = stack.getCurrent()?.hostProjectDir ?? (await getProjectRoot())?.hostPath;
+        if (!root) return { ok: false, reason: "Native viewing requires a locally accessible project." };
+        scene = await checkViewerScene(mapped.path, root);
+      }
+      await openNativeViewer(app.getPath("userData"), scene);
+      return { ok: true };
+    } catch (error) { return { ok: false, reason: error instanceof Error ? error.message : String(error) }; }
+  });
 
   ipcMain.handle("tit:fastsurfer:status", async (e) => {
     if (!fromMainWindow(e)) return { supported: false, preferenceEnabled: false, installed: false, enabled: false, installing: false };

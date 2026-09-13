@@ -1,25 +1,14 @@
-"""``GET /api/capabilities`` — what this runtime can do (UI greys out the rest).
-
-D3 (``docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)``): X11/Freeview/Gmsh/FreeSurfer
-are gone from this runtime entirely -- viewing is the Tetravox embed
-(``tetravox_embed``, served at ``/tetravox/`` by :mod:`tit.server.static`) and
-voxel-space cortical parcellation is FastSurfer ``--seg_only`` (``fastsurfer``).
-"""
+"""Cheap capability probes for the scientific server runtime."""
 
 from __future__ import annotations
 
 import importlib.util
 import os
 import sys
-from types import SimpleNamespace
-from typing import Any
 
 from fastapi import APIRouter, Request
 
-from tit.server.schemas import Capabilities, ProtocolRange, TetravoxEmbedCapability
-from tit.server.settings import DEFAULT_TETRAVOX_EMBED_DIR
-from tit.tetravox import protocol as tvx_protocol
-from tit.tetravox import store as tvx_store
+from tit.server.schemas import Capabilities
 
 router = APIRouter()
 
@@ -45,50 +34,8 @@ def _fastsurfer_home() -> str | None:
     return None
 
 
-def _probe_tetravox_embed(settings: Any) -> TetravoxEmbedCapability:
-    """The **active** bundle, resolved the same way ``/tetravox/`` resolves it.
-
-    ``available=False`` (never an exception) for every failure mode -- no
-    directory, no manifest, unreadable, malformed JSON -- so a dev checkout
-    with no embed installed just greys the viewer out instead of failing
-    ``GET /api/capabilities`` outright.
-
-    E1: the answer carries ``protocol``, the named ``features`` that protocol
-    provides, the ``supported`` range this build can host and whether the two
-    agree -- so a pane asks "can this embed do markers" and never "is this
-    version >= x". ``source`` is what the Settings page shows the user (baked
-    into the image / installed / dev override).
-    """
-    supported = ProtocolRange(**tvx_protocol.supported_range())
-    release = tvx_store.resolve_from_settings(settings).release
-    if release is None:
-        return TetravoxEmbedCapability(available=False, supported=supported)
-    return TetravoxEmbedCapability(
-        available=True,
-        version=release.version,
-        protocol=release.protocol,
-        source=release.source,
-        features=list(release.features),
-        compatible=release.compatible,
-        supported=supported,
-    )
-
-
-def probe_capabilities(
-    tetravox_embed_dir: str | None = None, *, settings: Any = None
-) -> Capabilities:
-    """Cheap filesystem/env probes only — nothing heavy is imported.
-
-    *settings* is a ``ServerSettings``; without one, *tetravox_embed_dir* is
-    treated as the baked floor (defaulting to the image's own path) so a direct
-    call from a test or a script still probes something real.
-    """
-    if settings is None:
-        settings = SimpleNamespace(
-            tetravox_embed_dir=tetravox_embed_dir or DEFAULT_TETRAVOX_EMBED_DIR,
-            tetravox_embed_override=None,
-            tetravox_install_root=None,
-        )
+def probe_capabilities() -> Capabilities:
+    """Probe server dependencies; native viewer availability belongs to the host."""
     return Capabilities(
         docker_socket=os.path.exists(DOCKER_SOCKET),
         bpy=_module_available("bpy"),
@@ -99,7 +46,6 @@ def probe_capabilities(
         # (ra_13 finding 3e; there is no in-app start control yet, see
         # `pages/settings/index.tsx`'s Jupyter card).
         jupyter=_module_available("jupyter"),
-        tetravox_embed=_probe_tetravox_embed(settings),
         fastsurfer=_fastsurfer_home() is not None,
     )
 
@@ -110,4 +56,4 @@ def probe_capabilities(
     summary="What this runtime can do (used to grey out UI)",
 )
 def capabilities(request: Request) -> Capabilities:
-    return probe_capabilities(settings=request.app.state.settings)
+    return probe_capabilities()

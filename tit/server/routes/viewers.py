@@ -61,7 +61,7 @@ import secrets
 from typing import Any
 from urllib.parse import unquote
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Body, HTTPException, Query, Request
 
 from tit import viewspec
 from tit.catalog import classify_view_file
@@ -342,6 +342,102 @@ def localise_scene_paths(
     return out
 
 
+def native_scene(scene: dict[str, Any]) -> dict[str, Any]:
+    """Resolve scene data into host paths, staging bundled resources in the project."""
+    from pathlib import Path
+    import hashlib
+    from tit.paths import get_path_manager, is_within
+    from tit.server.host_path import host_project_dir
+    from tit.server.routes.files import _resolve_jailed
+
+    root = get_path_manager().project_dir or ""
+    host = host_project_dir(root)
+    out = copy.deepcopy(scene)
+    datasets = out.get("datasets", [])
+    if not isinstance(datasets, list):
+        raise HTTPException(status_code=422, detail="Scene datasets must be a list")
+
+    def resolve(value: Any) -> str:
+        if not isinstance(value, str) or not value:
+            raise HTTPException(
+                status_code=422, detail="Scene file paths must be nonempty strings"
+            )
+        path = _container_path_from_raw_url(value) or value
+        # A scene previously saved for this host can be exported again.
+        if host:
+            normal_host = host.replace("\\", "/").rstrip("/")
+            normal_path = path.replace("\\", "/")
+            if normal_path.startswith(normal_host + "/"):
+                path = root.rstrip("/") + normal_path[len(normal_host) :]
+        resolved = _resolve_jailed(path, roots=viewspec.raw_jail_roots())
+        if not is_within(root, str(resolved)):
+            # References shipped inside the image are not mounted on the host. Copy only
+            # allowed reference files beside exported scenes, with collision-safe names.
+            key = hashlib.sha256(str(resolved).encode()).hexdigest()[:16]
+            target = checked_viewer_path(
+                os.path.join(viewer_scene_dir(), "assets", key, resolved.name)
+            )
+            atomic_viewer_write(target, resolved.read_bytes())
+            resolved = Path(target)
+        return _to_host(str(resolved), root, host) if host else str(resolved)
+
+    for dataset in datasets:
+        if not isinstance(dataset, dict):
+            raise HTTPException(
+                status_code=422, detail="Scene datasets must be objects"
+            )
+        sources = [dataset]
+        sidecars = dataset.get("sidecars") or {}
+        if not isinstance(sidecars, dict):
+            raise HTTPException(
+                status_code=422, detail="Scene sidecars must be objects"
+            )
+        sources.extend(sidecars.values())
+        for source in sources:
+            if not isinstance(source, dict):
+                raise HTTPException(
+                    status_code=422, detail="Scene file references must be objects"
+                )
+            for key in ("path", "absPath"):
+                if key in source:
+                    source[key] = resolve(source[key])
+    return out
+
+
+@router.post(
+    "/api/view/export",
+    summary="Write a native Tetravox scene from an explicit ViewSpec",
+)
+def export_scene(body: dict[str, Any] | None = Body(None)) -> dict[str, Any]:
+    """Preserve camera/layers and write host-addressed files for the native viewer."""
+    from tit.paths import get_path_manager
+    from tit.server.host_path import host_project_dir
+    from tit.server.routes.viewer_library import _slug, _MAX_SCENE_BYTES
+
+    payload = body or {}
+    scene = payload.get("scene")
+    if not isinstance(scene, dict) or not scene.get("layers"):
+        raise HTTPException(
+            status_code=422, detail="A ViewSpec with at least one layer is required"
+        )
+    if len(json.dumps(scene).encode()) > _MAX_SCENE_BYTES:
+        raise HTTPException(
+            status_code=413, detail="Scene document is implausibly large"
+        )
+    localised = native_scene(scene)
+    name = _slug(payload.get("name", "preview")) + _SCENE_SUFFIX
+    target = checked_viewer_path(os.path.join(viewer_scene_dir(), name))
+    atomic_viewer_write(target, json.dumps(localised, indent=1).encode())
+    root = get_path_manager().project_dir or ""
+    host = host_project_dir(root)
+    return {
+        "scene_path": target,
+        "path": target,
+        "host_path": _to_host(target, root, host) if host else None,
+        "scene": localised,
+    }
+
+
 def _scene_files(
     spec: dict[str, Any], localised: dict[str, Any]
 ) -> list[dict[str, Any]]:
@@ -429,42 +525,6 @@ def _refuse_a_scene_that_spans_two_subjects(files: list[Any]) -> None:
         )
 
 
-def _refuse_a_surface_this_embed_cannot_draw(
-    request: Request | None, files: list[Any]
-) -> None:  # noqa: D401
-    """422 rather than send a cortical sheet as if it were a tetrahedral FEM mesh.
-
-    Degrading to `kind: "mesh"` is the tempting alternative and it is the wrong one. A sheet sent
-    as a mesh loads (it is a triangle-only mesh, and the engine will take it), so nothing fails --
-    it simply comes back with a mesh's defaults: filled in 2D instead of outlined, capped clip
-    planes for an object with no interior, and no way to attach the parcellation that was the
-    reason for ticking it. The person gets a picture and no reason to doubt it.
-
-    The Menu already disables these rows (`tit.viewspec._tree_node`), so a client that reads the
-    tree never reaches this. It exists for the ones that do not: a saved composition from a newer
-    embed, a deep link, a script.
-    """
-    from tit.server.routes.viewer_library import surfaces_supported
-
-    # No request means no app to probe -- a direct call from a test or a script. Those are not the
-    # caller this guard is for, and refusing them would be refusing on no evidence.
-    if request is None or surfaces_supported(request):
-        return
-    offered = [
-        raw
-        for raw in files
-        if isinstance(raw, str) and classify_view_file(raw) == "surface"
-    ]
-    if offered:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                f"{viewspec.SURFACE_UNSUPPORTED_REASON}: "
-                + ", ".join(sorted({os.path.basename(p) for p in offered}))
-            ),
-        )
-
-
 @router.post(
     "/api/view/open",
     summary="Resolve a scene once: the embed ViewSpec, and the scene file on disk",
@@ -514,7 +574,6 @@ def view_open(
     files = payload.get("files")
     if isinstance(files, list):
         _refuse_a_scene_that_spans_two_subjects(files)
-        _refuse_a_surface_this_embed_cannot_draw(request, files)
     spec = viewspec.build_view(
         kind,
         subject=payload.get("subject"),
@@ -541,7 +600,11 @@ def view_open(
 
     container_root = get_path_manager().project_dir or ""
     host_root = host_project_dir(container_root)
-    localised = localise_scene_paths(scene, container_root, host_root)
+    localised = (
+        native_scene(scene)
+        if not payload.get("dry_run")
+        else localise_scene_paths(scene, container_root, host_root)
+    )
 
     directory = viewer_scene_dir()
     name = f"{_SCENE_NAMES[kind]}{_SCENE_SUFFIX}"
@@ -553,6 +616,7 @@ def view_open(
     return {
         "name": name,
         "path": target,
+        "scene_path": target,
         "host_path": (
             _to_host(target, container_root, host_root) if host_root else None
         ),

@@ -3,7 +3,6 @@
 #
 # Usage:
 #   ./build.sh [--tag IMAGE:TAG] [--ref GIT-REF]
-#              [--tetravox-tgz URL --tetravox-sha256 HEX] [--no-cache]
 #              [--fastsurfer-checkpoints-tgz URL --fastsurfer-checkpoints-sha256 HEX]
 #              [--blender-archive URL]
 #
@@ -13,13 +12,10 @@
 #                        Default: no ref -- the repository root is the build context and the
 #                        image is built from the working tree as it is, committed or not.
 #                        `--ti-toolbox-ref` is the same option under its old name.
-#   --tetravox-tgz       bake this exact `tetravox-embed-<ver>.tgz` (an http(s) URL; from a
 #                        build stage on Docker Desktop, http://host.docker.internal:<port>/...
 #                        reaches a server on this machine). Default: the newest compatible
 #                        release, resolved from the GitHub Releases API at build time (see
 #                        "Which Tetravox gets baked" below).
-#   --tetravox-sha256    the tarball's sha256, verified in the image before it is unpacked.
-#                        Required with --tetravox-tgz: the resolver reads the digest from the
 #                        release's own .tgz.sha256 asset, but a hand-given URL has no sidecar
 #                        to read, so the digest has to be given by hand too.
 #   --no-cache           pass --no-cache to docker build
@@ -48,25 +44,6 @@
 # With --ref, the context is an empty staging directory and the `source-clone` stage clones
 # the ref from GitHub; the sha is taken from `git ls-remote`.
 #
-# ## Which Tetravox gets baked
-#
-# The image bakes the Tetravox **embed** at /opt/tetravox/embed — the browser build tit.server
-# serves at /tetravox/ and the app frames in the Viewer page. Not the desktop app, and not a
-# headless CLI: the container has no display, and the embed is the only Tetravox that draws
-# inside this app.
-#
-# With no --tetravox-tgz, `resolve_tetravox_tgz` below asks the GitHub Releases API for the
-# newest non-draft, non-prerelease release of idossha/tetravox whose embed manifest declares a
-# protocol inside the range THIS checkout supports. So "cut a new image and it ships whatever
-# Tetravox is current" needs no edit to this script or to the Dockerfile — and no version
-# number lives in either.
-#
-# Until a Tetravox release carries the embed assets, build one from a Tetravox checkout
-# (`pnpm --filter @tetravox/embed build && pnpm --filter @tetravox/embed pack:embed`), serve
-# its dist-pkg/ directory (`python3 -m http.server 8799`) and pass
-#   --tetravox-tgz http://host.docker.internal:8799/tetravox-embed-<v>.tgz \
-#   --tetravox-sha256 "$(shasum -a 256 tetravox-embed-<v>.tgz | cut -d' ' -f1)"
-
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -74,8 +51,6 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 TAG=""
 TI_TOOLBOX_REF=""
-TETRAVOX_TGZ=""
-TETRAVOX_SHA256=""
 FASTSURFER_CHECKPOINTS_TGZ=""
 FASTSURFER_CHECKPOINTS_SHA256=""
 BLENDER_ARCHIVE_URL=""
@@ -86,8 +61,6 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --tag) TAG="$2"; shift 2 ;;
         --ref|--ti-toolbox-ref) TI_TOOLBOX_REF="$2"; shift 2 ;;
-        --tetravox-tgz) TETRAVOX_TGZ="$2"; shift 2 ;;
-        --tetravox-sha256) TETRAVOX_SHA256="$2"; shift 2 ;;
         --fastsurfer-checkpoints-tgz) FASTSURFER_CHECKPOINTS_TGZ="$2"; shift 2 ;;
         --fastsurfer-checkpoints-sha256) FASTSURFER_CHECKPOINTS_SHA256="$2"; shift 2 ;;
         --blender-archive) BLENDER_ARCHIVE_URL="$2"; shift 2 ;;
@@ -122,16 +95,6 @@ if [ -z "$VERSION" ]; then
 fi
 if [ -z "$TAG" ]; then
     TAG="idossha/ti-toolbox:v${VERSION%%-*}"
-fi
-
-if [ -n "$TETRAVOX_TGZ" ] && [ -z "$TETRAVOX_SHA256" ]; then
-    echo "build.sh: --tetravox-tgz needs --tetravox-sha256 (the image verifies the digest before" >&2
-    echo "build.sh:   unpacking; a URL given by hand has no .sha256 sidecar to read it from)" >&2
-    exit 2
-fi
-if [ -n "$TETRAVOX_SHA256" ] && ! printf '%s' "$TETRAVOX_SHA256" | grep -Eq '^[0-9a-f]{64}$'; then
-    echo "build.sh: --tetravox-sha256 must be 64 lowercase hex digits" >&2
-    exit 2
 fi
 
 # A cache is an explicit pair, never an unverified replacement for the official weights.
@@ -191,83 +154,6 @@ fi
 
 echo "build.sh: tag=$TAG version=$VERSION source=$SOURCE ref=${TI_TOOLBOX_REF:-<local>} sha=$VCS_SHA dirty=$VCS_DIRTY"
 
-# --- the same rule as the runtime updater, in bash + python3 stdlib -------------------------
-# The baked bundle is the *floor* the runtime can always fall back to (E2), so a build that
-# cannot resolve one fails rather than shipping an image with no viewer.
-# Resolving it here uses exactly the rule tit/tetravox/updates.py uses at runtime: the newest
-# non-draft, non-prerelease release of idossha/tetravox carrying tetravox-embed-<ver>.tgz plus
-# its .tgz.sha256 and .manifest.json sidecars, whose manifest `protocol` is inside the range
-# this checkout supports (read from tit/tetravox/protocol.py -- one source of truth, not a
-# number copied into this script). curl + python3 stdlib only: no jq, no pip install, nothing
-# this script may assume is on a maintainer's machine.
-#
-# It prints "<url> <sha256>": the digest is the release's own .tgz.sha256 asset, and the
-# Dockerfile verifies it before opening the archive.
-#
-# Failure here is fatal: the caller either passes --tetravox-tgz/--tetravox-sha256 or the
-# resolver finds a release.
-resolve_tetravox_tgz() {
-    local min max
-    min="$(grep -m1 '^SUPPORTED_PROTOCOL_MIN' "$REPO_ROOT/tit/tetravox/protocol.py" | sed -E 's/[^0-9]*([0-9]+).*/\1/')"
-    max="$(grep -m1 '^SUPPORTED_PROTOCOL_MAX' "$REPO_ROOT/tit/tetravox/protocol.py" | sed -E 's/[^0-9]*([0-9]+).*/\1/')"
-    [ -n "$min" ] && [ -n "$max" ] || return 1
-    local body
-    body="$(curl -fsSL -H "Accept: application/vnd.github+json" \
-        "https://api.github.com/repos/idossha/tetravox/releases" 2>/dev/null)" || return 1
-    printf '%s' "$body" | python3 -c '
-import json, re, sys, urllib.request
-
-MIN, MAX = int(sys.argv[1]), int(sys.argv[2])
-TGZ = re.compile(r"^tetravox-embed-(.+)\.tgz$")
-try:
-    releases = json.load(sys.stdin)
-except ValueError:
-    sys.exit(1)
-for release in releases if isinstance(releases, list) else []:
-    if release.get("draft") or release.get("prerelease"):
-        continue
-    assets = {a.get("name"): a.get("browser_download_url") for a in release.get("assets") or []}
-    tgz = next((n for n in assets if TGZ.match(n or "")), None)
-    if not tgz:
-        continue
-    version = TGZ.match(tgz).group(1)
-    manifest_url = assets.get(f"tetravox-embed-{version}.manifest.json")
-    sha_url = assets.get(f"{tgz}.sha256")
-    if not manifest_url or not sha_url:
-        continue
-    try:
-        with urllib.request.urlopen(manifest_url, timeout=30) as fh:
-            protocol = json.load(fh).get("protocol")
-    except Exception:
-        continue
-    if not (isinstance(protocol, int) and MIN <= protocol <= MAX):
-        continue
-    try:
-        with urllib.request.urlopen(sha_url, timeout=30) as fh:
-            # The asset is `sha256sum` output: "<digest>  <filename>".
-            digest = fh.read().decode("utf-8", "replace").split()[0]
-    except Exception:
-        continue
-    if not re.fullmatch(r"[0-9a-f]{64}", digest or ""):
-        continue
-    print(assets[tgz], digest)
-    sys.exit(0)
-sys.exit(1)
-' "$min" "$max"
-}
-
-if [ -z "$TETRAVOX_TGZ" ]; then
-    echo "build.sh: resolving the newest compatible Tetravox embed release..."
-    if resolved="$(resolve_tetravox_tgz)" && [ -n "$resolved" ]; then
-        TETRAVOX_TGZ="${resolved%% *}"
-        TETRAVOX_SHA256="${resolved##* }"
-    else
-        echo "build.sh: no compatible Tetravox embed release found (or GitHub unreachable); pass --tetravox-tgz with --tetravox-sha256 to bake a tarball you built yourself." >&2
-        exit 1
-    fi
-fi
-echo "build.sh: baking $TETRAVOX_TGZ (sha256 ${TETRAVOX_SHA256:0:12}...)"
-
 build_args=(
     --platform linux/amd64
     --build-arg "TI_TOOLBOX_VERSION=$VERSION"
@@ -278,8 +164,6 @@ build_args=(
     --build-arg "TI_TOOLBOX_SOURCE=$SOURCE"
     --build-arg "TI_TOOLBOX_REF=$TI_TOOLBOX_REF"
     --build-arg "CACHE_BUST=$(date +%s)"
-    --build-arg "TETRAVOX_EMBED_TGZ=$TETRAVOX_TGZ"
-    --build-arg "TETRAVOX_EMBED_SHA256=$TETRAVOX_SHA256"
     --build-arg "FASTSURFER_CHECKPOINTS_TGZ=$FASTSURFER_CHECKPOINTS_TGZ"
     --build-arg "FASTSURFER_CHECKPOINTS_SHA256=$FASTSURFER_CHECKPOINTS_SHA256"
 )

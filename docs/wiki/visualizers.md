@@ -4,36 +4,22 @@ title: Viewer
 permalink: /wiki/visualizers/
 ---
 
-TI-Toolbox's viewer is **[Tetravox](https://github.com/idossha/tetravox)**, and it ships with the
-toolbox: a browser build of the Tetravox engine (the "embed") lives inside the Docker image, is
-served by the container, and draws on your own machine's GPU inside the app window. **You install
-nothing.** Full 3-D viewing of mesh (`.msh`) and volumetric (`.nii`/`.nii.gz`) results happens on
-the **Viewer** page. There is no Freeview and no Gmsh in TI-Toolbox v3, and no X11.
+TI-Toolbox uses **[TetraVox](https://github.com/idossha/tetravox)** for full viewing in a separate
+native host window. Install the pinned viewer from **Settings → Viewer**. The Docker container
+prepares scenes; the native application reads their datasets from the host filesystem.
 
-The run pages have their own compact scene panes for selecting electrodes and atlas regions.
-They use reference anatomy where appropriate; free-hand placement and visual export can show
-the selected subject's own anatomy. The exporter's segmentation preview uses Tetravox.
+The Simulator, Optimizer and Analyzer retain the toolbox's own WebGL2 surface panes. Volume,
+target and segmentation previews provide an explicit native-opening action. Guide anatomy remains
+reference anatomy: subject-space placement must use the selected subject's geometry.
 
-### Loading and changing the selection
-
-Datasets render as each finishes loading. You can return to the selection and add files:
-the viewer reuses files already loaded and fetches only the additions. Removing a file from
-the selection removes it from the scene. The camera is retained when data is reused.
-
-Progress rows name the file and distinguish reading from processing. If one file fails,
-successful layers remain visible alongside the error. Use **Reload** to deliberately reload
-all files—for example, after replacing data at the same path. Re-selection reuses in-memory
-data; it does not check whether a file was overwritten on disk.
-
-<img src="{{ site.baseurl }}/assets/imgs/v3/viewer.png" alt="A TI field open in the Tetravox viewer inside the app" style="width: 100%; max-width: 1000px;">
-<em>A simulation open on the <strong>Tetravox</strong> sub-page: layers and appearance on the left, the cursor read-out on the right, all inside the app window.</em>
+Opening a changed selection replaces the scene in TetraVox. Camera and appearance edits happen
+in that window and are saved with TetraVox's own scene controls.
 
 ## How to open a result
 
-The **Viewer** entry in the left rail has two rows indented under it, **Menu** and **Tetravox**.
-Clicking Viewer itself opens Menu. **Tetravox** opens the full viewer immediately, even without
-a scene. You can drag local `.nii`, `.nii.gz`, or mesh files directly onto it. Files opened this
-way stay in the viewer when you switch to Menu and back; they are not imported into the project.
+Use **Viewer → Menu** to prepare a scene. The **Tetravox** sub-page offers native installation
+and opening controls. You can also open native TetraVox without a prepared scene and drag files
+into its own window; those files are not imported into the project.
 
 1. On **Menu**, pick a **subject** and a **space** (subject or MNI). Below them the page draws a
    tree of everything that subject has, in three branches:
@@ -58,8 +44,7 @@ way stay in the viewer when you switch to Menu and back; they are not imported i
    SimNIBS wrote for it, morphometry curves like `lh.thickness`, and per-vertex data GIfTIs —
    matched to it by hemisphere. Tick one and the surface is coloured by it; a parcellation wins
    over a curve if you tick both, and the curve stays attached for you to switch to inside
-   Tetravox. This needs a Tetravox embed of **0.4.0 or newer**; on an older one the surface rows
-   are shown greyed with that as the reason, rather than being opened as if they were meshes.
+   TetraVox. The pinned native **0.4.0** release supports these surface attachments.
 
    Tick whatever belongs in the scene. You can tick outputs from **more than one simulation** —
    ticking a branch's own box takes the whole branch on or off, and a half-filled box means part of
@@ -75,15 +60,12 @@ way stay in the viewer when you switch to Menu and back; they are not imported i
    too: remove a file, add one from any path in the project, drag to reorder (that is the layer
    order). **Reset** puts the source's own set back. The chip beside it says the window the field
    overlay will open at, so you can see the defaults before opening anything.
-3. Press **Open in viewer**. You are moved to **Tetravox**, and the scene is drawn there
-   full-bleed.
+3. Press **Open in viewer** to prepare the scene and open the native TetraVox window. If it is
+   not installed, use the installation control or **Settings → Viewer**, then open the scene.
 
-The Tetravox row's strip carries the scene's name and **Reload**, which re-sends the scene it is
-showing. To go back, click **Menu** in the rail — the picture is kept, so you can change the list,
-press Open again, and the new scene replaces the old one.
-
-If the window is narrow (below 1440 px) the rail shows icons only and the two sub-rows are hidden;
-open the command palette and pick `Viewer · Menu` or `Viewer · Tetravox` instead.
+Return to **Menu** to change the selection. The **Tetravox** sub-page can reopen the prepared
+scene; subsequent opens replace the native window's current scene. In a narrow window, use the
+command palette to reach `Viewer · Menu` or `Viewer · Tetravox`.
 
 Layer visibility and opacity, the shared 3-D cursor, the slice/3-D layouts, screenshots and saving a
 modified scene are all the viewer's own controls, in its own panels. TI-Toolbox's side of the
@@ -95,8 +77,7 @@ Opening also writes the scene into your project at `code/ti-toolbox/viewer/<type
 It is an ordinary file — a few kilobytes, because every layer refers to a dataset by its path
 rather than copying it — in `ViewSpec` v2, Tetravox's own format; TI-Toolbox invents no scene format
 of its own. Keep it, archive it with the results it describes, or hand it to a Tetravox desktop
-application if you have one installed (**File ▸ Open Scene…**). Nothing in TI-Toolbox requires you
-to.
+application through **File ▸ Open Scene…**. Dataset paths must resolve on that host machine.
 
 ## Saving what you chose, and saving what you saw
 
@@ -110,25 +91,26 @@ it next month re-resolves those same choices against whatever is in the project 
 what has since gone missing rather than failing. Use it when the question is *"show me the same
 thing, from the current data"* — the reproducibility artefact you would put next to a manuscript.
 
-**Save scene** (in the **Tetravox** sub-page, once something is open) writes what you are actually
-looking at to `code/ti-toolbox/viewer/scenes/<name>.tetravox.json`: the camera, the layout, and
-every layer's window, threshold, colormap and opacity, exactly as you left them after adjusting
-them in the viewer. A PNG thumbnail is written beside it, which is what the **Saved scenes** list
-in the Menu shows, so you can pick a picture out of a list rather than a filename. Use it when the
-question is *"show me exactly this picture again"* — a figure you have finished composing.
+**Save scene** (in the **Tetravox** sub-page) writes the prepared composition to
+`code/ti-toolbox/viewer/scenes/<name>.tetravox.json`. **Saved scenes** reopens these project files.
+This action does not capture the camera or appearance edits made afterward in the native window,
+and it does not capture a thumbnail from that window.
 
-Scene names default to `<subject>_<simulation>_<field>_<date>`, and both kinds of file live inside
-the project, so they travel with it when you copy or archive it. A saved scene is an ordinary
-Tetravox scene: a standalone Tetravox desktop application opens it directly.
+To preserve the view you adjusted, use **Save Scene** in native TetraVox and choose a location
+inside the project. Scene files reference datasets rather than copying them, so keep the data
+alongside the scene when archiving or moving it.
 
-## Keeping the viewer current
+## Installing and updating the viewer
 
-The viewer can be updated without updating the toolbox. **Settings ▸ Viewer** shows which bundle is
-active, its version and protocol, and whether it came from the image or was installed later. Updates
-are checked in the background at most once a day (you can turn that off), every download is verified
-against its published sha256 before it is unpacked, and rolling back to the version baked into the
-image is one click — nothing is deleted to go back. An offline or air-gapped machine keeps the
-bundle the image shipped and needs no network at all.
+**Settings → Viewer** shows installation state and provides **Install TetraVox** and **Open
+TetraVox**. TI-Toolbox installs the official **0.4.0** platform package in its per-user runtime
+directory after SHA256 verification. The first installation needs network access; later launches
+use the installed copy. There is no viewer bundle in the Docker image.
+
+The pinned release predates TetraVox's new externally managed updater protection. Keep this copy
+at TI-Toolbox's pinned version rather than updating it from TetraVox's own menu. See
+[Desktop Application]({{ site.baseurl }}/wiki/desktop-app/#installing-and-managing-the-viewer)
+for platform support, host permissions and browser-only operation.
 
 ## No-WebGL2 state
 
@@ -136,8 +118,8 @@ Both the run pages' pane and the viewer need WebGL2. On a host GPU/driver combin
 each says so explicitly rather than showing a blank canvas — on the run pages the rest of the page
 keeps working, and every choice the pane offers (electrodes, atlas regions) is also available from
 the form beside it. This is a host capability check, not a container one: it depends on what the
-Electron renderer's GPU process can do on your machine. Chromium 137 removed the automatic software
-fallback, so there is nothing to switch on.
+Electron renderer's GPU process can do on your machine. Native TetraVox reports its own GPU
+availability separately; launching natively does not guarantee WebGL2 support on every driver.
 
 ---
 

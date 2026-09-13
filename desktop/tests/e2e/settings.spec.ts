@@ -92,89 +92,15 @@ test("changes theme, toggles a panel, and sees it appear in the nav after saving
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });
 
-test("installs a viewer bundle from the release index, then rolls back to the baked one", async () => {
-  // docs/dev/HISTORY.md § 2026-09-04 (embed convergence) E1-E4: the whole point is that a Tetravox update does
-  // not need a TI-Toolbox release. This drives the loop a user actually performs — see what is
-  // running, check the index, install, roll back — against the mock's in-memory install root.
-  //
-  // (VX briefly replaced this card with a host-app one — a resolved `Tetravox.app` path, a
-  // version read off its Info.plist, a download link. The maintainer reversed that: the viewer is
-  // the embed again, TI-Toolbox installs it, and the card's subject is the *bundle*.)
-  await connect();
-  await openSettings();
-
-  const card = page.getByTestId("tetravox-card");
-  await page.getByRole("tab", { name: "Viewer", exact: true }).click();
-  await expect(card).toBeVisible();
-  await expect(page.getByTestId("tetravox-active-version")).toHaveText("v0.3.4 · protocol 1");
-  await expect(card).toContainText("Baked into the image");
-  await expect(card).toContainText("protocol 1–3");
-
-  // The cached answer is on screen without any check being asked for (A3): the server's own
-  // background pass wrote it, so opening Settings costs no GitHub request.
-  await expect(page.getByTestId("tetravox-last-checked")).toContainText("Last checked:");
-  await page.getByTestId("tetravox-check").click();
-  const updates = page.getByTestId("tetravox-updates");
-  await expect(updates).toBeVisible();
-  // The digest the server will verify before unpacking is on screen, not hidden behind trust.
-  await expect(updates).toContainText("sha256 bbbbbbbbbbbb…");
-  // A bundle needing a protocol this app cannot host is listed, and not installable.
-  await expect(updates).toContainText("needs a newer app");
-
-  await page.getByTestId("tetravox-install-0.4.0").click();
-  await expect(page.getByTestId("tetravox-active-version")).toHaveText("v0.4.0 · protocol 3");
-  await expect(card).toContainText("pinned to installed 0.4.0");
-  // `capabilities.tetravox_embed` is the active bundle, so the About card's "Viewer bundle" row
-  // moved with it. It is a server capability again — the row VX deleted.
-  await page.getByRole("tab", { name: "Server", exact: true }).click();
-  await expect(page.locator(".card", { hasText: "About the server" })).toContainText("Viewer bundle");
-  await expect(page.locator(".card", { hasText: "About the server" })).toContainText("v0.4.0 · protocol 3 · installed");
-
-  await page.getByRole("tab", { name: "Viewer", exact: true }).click();
-  await page.getByTestId("tetravox-activate-baked").click();
-  await expect(page.getByTestId("tetravox-active-version")).toHaveText("v0.3.4 · protocol 1");
-  // Rollback pins, never deletes: 0.4.0 is still there to go forward to.
-  await expect(page.getByTestId("tetravox-activate-0.4.0")).toBeVisible();
-
-  // Leave the (long-lived, cross-spec) mock server as this test found it.
-  await page.getByTestId("tetravox-remove-0.4.0").click();
-  await expect(card).toContainText("Nothing installed yet");
-});
-
-test("turns automatic viewer updates off, and still shows a bundle it can install", async () => {
-  // A3: off means the server stops *installing*, not that it stops *knowing*. The switch is the
-  // whole policy surface, and it is persisted server-side, not in this window.
-  await connect();
-  await openSettings();
-  await page.getByRole("tab", { name: "Viewer", exact: true }).click();
-
-  await expect(page.getByTestId("tetravox-card")).toBeVisible();
-  const toggle = page.locator("#tetravox-auto-update");
-  await expect(toggle).toHaveAttribute("data-state", "checked");
-  await expect(page.getByTestId("tetravox-last-checked")).toContainText("checks for a newer viewer at startup and every 24 hours");
-
-  await toggle.click();
-  await expect(toggle).toHaveAttribute("data-state", "unchecked");
-  await expect(page.getByTestId("tetravox-last-checked")).toContainText("Automatic installs are off");
-  // What was found is still offered, with an explicit Install.
-  await page.getByTestId("tetravox-check").click();
-  await expect(page.getByTestId("tetravox-install-0.4.0")).toBeVisible();
-
-  // Leave the long-lived mock as found.
-  await toggle.click();
-  await expect(toggle).toHaveAttribute("data-state", "checked");
-});
-
-test("shows one toast when the server replaces the viewer bundle under the app", async () => {
-  // The event the auto-update publishes on /ws/tetravox. Triggered here through the mock's
-  // __mock hook rather than by waiting 24 h or installing anything.
-  await connect();
-  await page.evaluate(async () => {
-    await fetch("/api/__mock/tetravox-updated", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ version: "0.3.12", protocol: 2 }),
-    });
+test("Viewer settings show native installation status", async () => {
+  await app.evaluate(({ ipcMain }) => {
+    ipcMain.removeHandler("tit:tetravox:status");
+    ipcMain.handle("tit:tetravox:status", () => ({ supported: true, installed: false, installing: false, version: null, directory: "/tmp/tetravox" }));
   });
-  await expect(page.getByText("Tetravox 0.3.12 installed and active")).toBeVisible({ timeout: 15_000 });
+  await connect();
+  await openSettings();
+  await page.getByRole("tab", { name: "Viewer", exact: true }).click();
+  await expect(page.getByTestId("native-tetravox")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Install TetraVox", exact: true })).toBeEnabled();
+  await expect(page.getByText("TetraVox opens in its own native window.")).toBeVisible();
 });

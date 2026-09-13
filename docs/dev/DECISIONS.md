@@ -713,3 +713,24 @@ execution path. Retaining graph import/export would preserve the same maintenanc
 **Compatibility:** existing graph files are not migrated or deleted from user projects. They are no
 longer executable by the application. Existing notebooks remain ordinary editable Python notebooks.
 React Flow is removed with its only consumer; notebook dependencies remain for standalone notebooks.
+
+
+### 2026-09-13 — Replace browser embedding with managed native TetraVox
+
+**Decision:** remove the browser viewer transport, bundle installation/update service and iframe
+presentation. Full scenes and volume/target previews open native TetraVox explicitly; the run pages'
+existing WebGL2 surface renderer remains. The desktop installs the official pinned 0.4.0 platform
+package into its per-user runtime directory after SHA256 verification, then opens project scene
+paths with a separate viewer profile. TetraVox runs with host-user permissions, without an
+additional TI-Toolbox operating-system sandbox. No new live external control channel is introduced.
+
+**Why:** the maintainer requested native-only viewing and removal of the duplicate integration
+surface. This reverses the September 4 embed-convergence/protocol-range/update policy and later
+iframe viewport decisions. Scene generation, scientific coordinate distinctions and project-native
+selection/scene storage remain useful independently.
+
+**Compatibility:** browser sessions can prepare/download scenes but cannot launch host software;
+datasets must be reachable from the viewing host. TI-Toolbox saves prepared scene compositions;
+TetraVox saves camera and appearance changes made in its own window. The pinned 0.4.0 release
+predates TetraVox's new external-manager updater refusal, so that protection is not claimed for
+currently downloaded artifacts. An upstream release containing it is needed before relying on it.

@@ -41,7 +41,7 @@
     },
     {
       "name": "viewers",
-      "description": "build a declarative ViewSpec (as a real Tetravox ViewSpec v2 `scene` document, served client-side by the embedded viewer at /tetravox/ -- see the `capabilities.tetravox_embed` and `/api/files/raw/{path}` entries) for something to view, and write the same document to disk with host paths so it can be exported (401/403/404 implied globally -- see the auth/jail note in this document's top-level description). D3 (docs/dev/HISTORY.md \u00a7 2026-09-03 (Docker streamline)): the external Freeview/Gmsh launch routes this tag used to also cover are removed -- there is no X11 in this runtime any more."
+      "description": "build a declarative ViewSpec (as a real Tetravox ViewSpec v2 `scene` document, served for the native desktop viewer) for something to view, and write the same document to disk with host paths so it can be exported (401/403/404 implied globally -- see the auth/jail note in this document's top-level description). D3 (docs/dev/HISTORY.md \u00a7 2026-09-03 (Docker streamline)): the external Freeview/Gmsh launch routes this tag used to also cover are removed -- there is no X11 in this runtime any more."
     },
     {
       "name": "files",
@@ -50,10 +50,6 @@
     {
       "name": "settings",
       "description": "server/project settings and app-level preferences (401/403/404 implied globally -- see the auth/jail note in this document's top-level description)"
-    },
-    {
-      "name": "tetravox",
-      "description": "install, activate and remove the embedded viewer bundle served at /tetravox/ (401/403/404 implied globally -- see the auth/jail note in this document's top-level description). docs/dev/HISTORY.md \u00a7 2026-09-04 (embed convergence) decisions E1-E4: the app pins a protocol *range* and named features rather than a viewer version, so a Tetravox release no longer implies a TI-Toolbox release."
     },
     {
       "name": "scene",
@@ -544,31 +540,6 @@
         "responses": {
           "101": {
             "description": "switching protocols"
-          }
-        }
-      }
-    },
-    "/ws/tetravox": {
-      "get": {
-        "tags": [
-          "system"
-        ],
-        "summary": "WebSocket; app-level events (today only tetravox.updated)",
-        "description": "Silent until the Tetravox embed bundle is replaced under the app by the auto-update policy (A3). One message shape: {\"type\": \"tetravox.updated\", version, protocol, message}. Same handshake rules as /ws/system: cookie, Bearer or ?token=, and a present Origin must match Host. This is deliberately not on /ws/jobs (a stream about jobs) or /ws/system (a stream of one snapshot shape), and deliberately not in contracts/events.schema.json, which describes one line of a job's events.jsonl.",
-        "security": [
-          {
-            "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "101": {
-            "description": "switching protocols"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
           }
         }
       }
@@ -2797,6 +2768,86 @@
         }
       }
     },
+    "/api/view/export": {
+      "post": {
+        "tags": [
+          "viewers"
+        ],
+        "summary": "Write a native Tetravox scene from an explicit ViewSpec",
+        "description": "Preserves layer and camera settings. Project files become host paths; allowed bundled reference assets are copied into project viewer storage. Native availability and launch belong to the host.",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "scene"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "default": "preview"
+                  },
+                  "scene": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Scene written for the native viewer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "scene_path",
+                    "path",
+                    "host_path",
+                    "scene"
+                  ],
+                  "properties": {
+                    "scene_path": {
+                      "type": "string",
+                      "description": "Container path accepted by the native host bridge"
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "host_path": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "scene": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
     "/api/view/open": {
       "post": {
         "tags": [
@@ -4187,281 +4238,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Settings"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          }
-        }
-      }
-    },
-    "/api/tetravox": {
-      "get": {
-        "tags": [
-          "tetravox"
-        ],
-        "summary": "The active embed bundle, everything installed, and the supported protocol range",
-        "security": [
-          {
-            "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TetravoxState"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          }
-        }
-      }
-    },
-    "/api/tetravox/updates": {
-      "get": {
-        "tags": [
-          "tetravox"
-        ],
-        "summary": "Check the release index for installable embed bundles",
-        "description": "The index is the GitHub Releases API of idossha/tetravox (A2, docs/dev/HISTORY.md \u00a7 2026-09-05/06 (Tetravox auto-update, selection, pipeline canvas)): non-draft, non-prerelease releases carrying tetravox-embed-<ver>.tgz plus its .tgz.sha256 and .manifest.json sidecars, the protocol read from the manifest asset so the check never downloads a bundle. TIT_TETRAVOX_RELEASE_INDEX overrides it for a mirror and accepts either that JSON or a flat {\"releases\": [...]} index. Answers 200 with available=false and a readable message when the index cannot be reached or GitHub rate-limits it: being offline is a state the Settings page renders, not an error to retry. The answer comes from the cache the background check writes unless refresh=true.",
-        "security": [
-          {
-            "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "in": "query",
-            "name": "refresh",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false
-            },
-            "description": "ask the index again instead of answering from the cache (\"Check now\"). Unauthenticated GitHub allows 60 requests per hour per IP, so a plain render never spends one."
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TetravoxUpdates"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          }
-        }
-      }
-    },
-    "/api/tetravox/policy": {
-      "post": {
-        "tags": [
-          "tetravox"
-        ],
-        "summary": "Turn automatic viewer updates on or off",
-        "description": "A3. With auto_update on (the default) the server checks the release index at startup and every 24 h and installs a newer bundle **only** when its protocol is inside the supported range; a release past the range is reported as needing a TI-Toolbox update and is never installed. Off means check and report, not stop knowing. Persisted in <install root>/policy.json.",
-        "security": [
-          {
-            "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "auto_update"
-                ],
-                "properties": {
-                  "auto_update": {
-                    "type": "boolean"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TetravoxState"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "auto_update is not a boolean"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          }
-        }
-      }
-    },
-    "/api/tetravox/install": {
-      "post": {
-        "tags": [
-          "tetravox"
-        ],
-        "summary": "Download, verify and activate an embed bundle",
-        "description": "Either {url, sha256}, or {version} resolved from the release index. The digest is verified before the archive is opened; extraction is traversal-safe; the manifest's protocol must be inside the supported range; activation is a single os.replace, so a half-extracted install is never served (E3).",
-        "security": [
-          {
-            "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "url": {
-                    "type": "string"
-                  },
-                  "sha256": {
-                    "type": "string"
-                  },
-                  "version": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TetravoxState"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "bad digest, bad manifest, unsupported protocol, or a host off the allowlist"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "502": {
-            "description": "the download or the release index could not be reached"
-          }
-        }
-      }
-    },
-    "/api/tetravox/activate": {
-      "post": {
-        "tags": [
-          "tetravox"
-        ],
-        "summary": "Activate an installed version, or \"baked\" to roll back to the image's copy",
-        "security": [
-          {
-            "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "version"
-                ],
-                "properties": {
-                  "version": {
-                    "type": "string",
-                    "description": "an installed version, or \"baked\" to roll back to the image's copy"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TetravoxState"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "no version given"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          }
-        }
-      }
-    },
-    "/api/tetravox/{version}": {
-      "delete": {
-        "tags": [
-          "tetravox"
-        ],
-        "summary": "Remove an installed embed bundle",
-        "security": [
-          {
-            "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "version",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TetravoxState"
                 }
               }
             }
@@ -6783,7 +6559,6 @@
           "docker_socket",
           "bpy",
           "jupyter",
-          "tetravox_embed",
           "fastsurfer"
         ],
         "properties": {
@@ -6796,334 +6571,9 @@
           "jupyter": {
             "type": "boolean"
           },
-          "tetravox_embed": {
-            "type": "object",
-            "required": [
-              "available",
-              "version",
-              "protocol",
-              "source",
-              "features",
-              "compatible",
-              "supported"
-            ],
-            "description": "the *active* embed bundle at /tetravox/, resolved the way tit/server/static.py resolves it (dev override -> pinned/newest installed -> baked into the image), from its manifest.json. E1: `features` and `supported` are what let a host ask \"can this embed do markers\" instead of comparing version numbers.",
-            "properties": {
-              "available": {
-                "type": "boolean"
-              },
-              "version": {
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "protocol": {
-                "type": [
-                  "integer",
-                  "null"
-                ]
-              },
-              "source": {
-                "type": [
-                  "string",
-                  "null"
-                ],
-                "description": "one of override, installed, baked; null when no bundle is available"
-              },
-              "features": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "description": "derived from the protocol, or taken verbatim from the manifest's own `features` array when it has one -- so a future embed can name a feature this build has never heard of"
-              },
-              "compatible": {
-                "type": "boolean"
-              },
-              "supported": {
-                "$ref": "#/components/schemas/ProtocolRange"
-              }
-            }
-          },
           "fastsurfer": {
             "type": "boolean",
             "description": "FASTSURFER_HOME (or /opt/fastsurfer) has run_fastsurfer.sh"
-          }
-        }
-      },
-      "ProtocolRange": {
-        "type": "object",
-        "required": [
-          "min",
-          "max"
-        ],
-        "description": "the inclusive embed-protocol range this build can host (tit/tetravox/protocol.py)",
-        "properties": {
-          "min": {
-            "type": "integer"
-          },
-          "max": {
-            "type": "integer"
-          }
-        }
-      },
-      "TetravoxRelease": {
-        "type": "object",
-        "required": [
-          "version",
-          "protocol",
-          "source",
-          "path",
-          "features",
-          "compatible",
-          "active"
-        ],
-        "properties": {
-          "version": {
-            "type": "string"
-          },
-          "protocol": {
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "source": {
-            "type": "string",
-            "enum": [
-              "override",
-              "installed",
-              "baked"
-            ]
-          },
-          "path": {
-            "type": "string"
-          },
-          "name": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "sha": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "features": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "compatible": {
-            "type": "boolean",
-            "description": "its protocol is inside ProtocolRange"
-          },
-          "active": {
-            "type": "boolean",
-            "description": "this is the bundle /tetravox/ currently serves"
-          }
-        }
-      },
-      "TetravoxState": {
-        "type": "object",
-        "required": [
-          "reason",
-          "installed",
-          "supported",
-          "install_root",
-          "index_url",
-          "auto_update"
-        ],
-        "properties": {
-          "active": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/TetravoxRelease"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "reason": {
-            "type": "string",
-            "description": "one line saying why that bundle is the active one"
-          },
-          "installed": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TetravoxRelease"
-            }
-          },
-          "baked": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/TetravoxRelease"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "supported": {
-            "$ref": "#/components/schemas/ProtocolRange"
-          },
-          "install_root": {
-            "type": "string",
-            "description": "<user config>/tetravox/embed unless TIT_TETRAVOX_INSTALL_ROOT says otherwise"
-          },
-          "index_url": {
-            "type": "string"
-          },
-          "auto_update": {
-            "type": "boolean",
-            "description": "A3: the server checks at startup and every 24 h and installs a newer *compatible* bundle on its own. Persisted in <install root>/policy.json; POST /api/tetravox/policy"
-          }
-        }
-      },
-      "TetravoxUpdate": {
-        "type": "object",
-        "required": [
-          "version",
-          "url",
-          "sha256",
-          "compatible",
-          "installed"
-        ],
-        "properties": {
-          "version": {
-            "type": "string"
-          },
-          "protocol": {
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "url": {
-            "type": "string"
-          },
-          "sha256": {
-            "type": "string"
-          },
-          "notes": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "published": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "compatible": {
-            "type": "boolean",
-            "description": "protocol inside the supported range, i.e. installable by this build"
-          },
-          "installed": {
-            "type": "boolean"
-          }
-        }
-      },
-      "TetravoxUpdates": {
-        "type": "object",
-        "required": [
-          "available",
-          "index_url",
-          "releases"
-        ],
-        "properties": {
-          "available": {
-            "type": "boolean",
-            "description": "false with a `message` when the index could not be reached"
-          },
-          "message": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "index_url": {
-            "type": "string"
-          },
-          "releases": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TetravoxUpdate"
-            }
-          },
-          "auto_update": {
-            "type": "boolean",
-            "description": "the persisted policy (A3); see TetravoxState"
-          },
-          "checked_at": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "description": "unix seconds of the check this answer comes from (cached or fresh)"
-          },
-          "from_cache": {
-            "type": "boolean",
-            "description": "this answer came from the cache rather than a request just made -- GitHub allows 60 unauthenticated requests per hour per IP"
-          },
-          "last_outcome": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/TetravoxUpdateOutcome"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        }
-      },
-      "TetravoxUpdateOutcome": {
-        "type": "object",
-        "required": [
-          "action",
-          "message"
-        ],
-        "description": "what the last automatic pass decided (A3). `installed` = a newer compatible bundle is now active; `available` = there is one and automatic updates are off; `current`; `unsupported` = its protocol is past this build's range, so it was reported and never installed (A1); `failed` = offline, rate-limited, or a digest that did not match.",
-        "properties": {
-          "action": {
-            "type": "string",
-            "enum": [
-              "installed",
-              "available",
-              "current",
-              "unsupported",
-              "failed"
-            ]
-          },
-          "message": {
-            "type": "string"
-          },
-          "version": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "protocol": {
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "at": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "description": "unix seconds"
           }
         }
       },
@@ -7136,7 +6586,7 @@
           "scene",
           "view"
         ],
-        "description": "One resolution of POST /api/view/open, in both addressings. `view` is the ViewSpec the **embed** is given: every dataset and sidecar path an /api/files/raw/... URL fetched back through this origin, and it is what the Viewer page posts into the iframe at /tetravox/. `scene` is the same document with every path re-rooted onto the host, and is what was written to <project>/code/ti-toolbox/viewer/<kind>.tetravox.json so the selection can be exported or opened outside this app. Both come from a single tit.viewspec.build_view call: two resolutions could differ (a job finishing between them is enough) and then the file list, the file on disk and the picture on screen would disagree with nothing to say which was right. `path` is inside the container; `host_path` is that same file as the *host* sees it (tit/server/host_path.py), or null when this server cannot know its project's host root.",
+        "description": "The exported scene uses host paths. The source view retains raw file URLs for callers inspecting the original resolution. scene_path and path identify the same exported file inside the container; host_path is its host equivalent.",
         "properties": {
           "name": {
             "type": "string",
@@ -7145,6 +6595,10 @@
           "path": {
             "type": "string",
             "description": "absolute container path, under <project>/code/ti-toolbox/viewer/"
+          },
+          "scene_path": {
+            "type": "string",
+            "description": "Container scene path accepted by the native host bridge"
           },
           "host_path": {
             "type": [
@@ -7160,14 +6614,14 @@
           "view": {
             "type": "object",
             "additionalProperties": true,
-            "description": "the same scene as the embed is given it: every dataset/sidecar path an /api/files/raw/... URL. Validated by contracts/tetravox-viewspec-v2.schema.json."
+            "description": "Source ViewSpec before native path localisation"
           },
           "files": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ViewerSceneFile"
             },
-            "description": "VM. One row per dataset the scene references, so the Viewer page can show what a selection resolves to -- and how big it is -- before another application's window opens on top of someone's work."
+            "description": "One row per dataset, including host path, container path, kind, and size."
           },
           "dry_run": {
             "type": "boolean",

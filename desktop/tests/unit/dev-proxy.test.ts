@@ -60,10 +60,9 @@ describe("attachDevAuth", () => {
 });
 
 describe("createDevProxy", () => {
-  it("covers exactly /api, /auth, /ws and /tetravox, and only /ws upgrades", () => {
+  it("covers exactly /api, /auth, /ws, and only /ws upgrades", () => {
     const proxy = createDevProxy({ target: "http://127.0.0.1:8765", token: "t" });
-    expect(Object.keys(proxy).sort()).toEqual(["/api", "/auth", "/tetravox", "/ws"]);
-    expect(proxy["/tetravox"]?.ws).toBeUndefined();
+    expect(Object.keys(proxy).sort()).toEqual(["/api", "/auth", "/ws"]);
     expect(proxy["/ws"]?.ws).toBe(true);
     expect(proxy["/api"]?.ws).toBeUndefined();
   });
@@ -73,7 +72,7 @@ describe("createDevProxy", () => {
     // leaves the page mounting nothing (electron.vite.config.ts#serveRendererSource).
     const bypass = (): string | null => "/api/client.ts";
     const proxy = createDevProxy({ target: "http://127.0.0.1:8765", token: "t", bypass });
-    for (const key of ["/api", "/auth", "/ws", "/tetravox"]) {
+    for (const key of ["/api", "/auth", "/ws"]) {
       expect(proxy[key]?.changeOrigin).toBe(true);
       expect(proxy[key]?.bypass).toBe(bypass);
     }
@@ -81,7 +80,7 @@ describe("createDevProxy", () => {
 
   it("installs the stamps through each entry's configure hook", () => {
     const proxy = createDevProxy({ target: "http://127.0.0.1:8765", token: "tok" });
-    for (const key of ["/api", "/auth", "/ws", "/tetravox"]) {
+    for (const key of ["/api", "/auth", "/ws"]) {
       const fake = fakeProxy();
       const configure = proxy[key]?.configure;
       expect(configure).toBeTypeOf("function");

@@ -433,15 +433,9 @@ def test_version_schema_hash_changes_when_schema_json_changes(
 def test_capabilities_shape(client: TestClient) -> None:
     body = client.get("/api/capabilities", headers=BEARER).json()
     # D3 (docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)): x11_display/freeview/gmsh/freesurfer are gone
-    # from this runtime; `tetravox_embed` and `fastsurfer` are what replaced them. VE reversed V4's
-    # brief removal of `tetravox_embed`: the viewer is served by this server, at /tetravox/, from a
-    # bundle in this image -- which makes it exactly the kind of thing a capability describes.
     booleans = {"docker_socket", "bpy", "jupyter", "fastsurfer"}
-    assert set(body) == booleans | {"tetravox_embed"}
-    assert all(isinstance(body[k], bool) for k in booleans)
-    # An object, not a boolean: a host asks "can this embed do markers", never "is it available".
-    assert set(body["tetravox_embed"]) >= {"available", "supported", "features", "compatible"}
-    assert set(body["tetravox_embed"]["supported"]) == {"min", "max"}
+    assert set(body) == booleans
+    assert all(isinstance(body[key], bool) for key in booleans)
 
 
 def test_project_shape(client: TestClient, project: Path, monkeypatch) -> None:
@@ -1092,7 +1086,9 @@ def test_reload_settings_file_survives_a_removed_field(tmp_path, monkeypatch) ->
     from tit.server.settings import ENV_SETTINGS_FILE
 
     stale = json.loads(
-        ServerSettings(project_dir="/p", token="t", port=9001, allow_hosts=("node01",)).to_json()
+        ServerSettings(
+            project_dir="/p", token="t", port=9001, allow_hosts=("node01",)
+        ).to_json()
     )
     stale["a_field_this_build_never_had"] = "/opt/somewhere"
     stale["another_one"] = 17

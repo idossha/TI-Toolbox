@@ -362,16 +362,7 @@ describe("contract coverage: every openapi.yaml path+method", () => {
       "/api/files/raw/mnt/example/derivatives/SimNIBS/sub-ernie/m2m_ernie/T1.nii.gz",
     );
 
-    // tetravox (v1) -- dynamic embed delivery (docs/dev/HISTORY.md § 2026-09-04 (embed convergence) E1-E4).
-    // Ordered so the state machine is exercised in full: read, index, install by version,
-    // roll back to the baked bundle, forward again, remove.
-    await call("/api/tetravox", "GET", "/api/tetravox");
-    await call("/api/tetravox/updates", "GET", "/api/tetravox/updates");
-    await call("/api/tetravox/policy", "POST", "/api/tetravox/policy", { body: { auto_update: true } });
-    await call("/api/tetravox/install", "POST", "/api/tetravox/install", { body: { version: "0.4.0" } });
-    await call("/api/tetravox/activate", "POST", "/api/tetravox/activate", { body: { version: "baked" } });
-    await call("/api/tetravox/activate", "POST", "/api/tetravox/activate", { body: { version: "0.4.0" } });
-    await call("/api/tetravox/{version}", "DELETE", "/api/tetravox/0.4.0");
+    await call("/api/view/export", "POST", "/api/view/export", { body: { scene: { version: 2, datasets: [], layers: [] }, name: "contract" } });
 
     // notebooks and kernels (v1) -- NB lane, ARCHITECTURE §7.6. The order is the
     // lifecycle: create a notebook, read it, save it, start a kernel, drive it,
@@ -415,7 +406,6 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     // Real WebSocket upgrades aren't plain fetch()able; covered by the dedicated tests below.
     declared.delete("GET /ws/system");
     declared.delete("GET /ws/jobs");
-    declared.delete("GET /ws/tetravox");
     declared.delete("GET /ws/kernels/{kernel_id}");
     expect([...exercised].sort()).toEqual([...declared].sort());
   }, 20_000);
@@ -495,12 +485,10 @@ describe("contract: WebSocket upgrades", () => {
       req.end();
     });
   }
-  it("/ws/system, /ws/jobs and /ws/tetravox all switch protocols for an authenticated request", async () => {
+  it("/ws/system and /ws/jobs both switch protocols for an authenticated request", async () => {
     expect(declaredStatuses("/ws/system", "GET")).toContain(101);
     expect(declaredStatuses("/ws/jobs", "GET")).toContain(101);
-    expect(declaredStatuses("/ws/tetravox", "GET")).toContain(101);
     expect(await upgradeStatus("/ws/system", { authorization: `Bearer ${TOKEN}` })).toBe(101);
     expect(await upgradeStatus("/ws/jobs", { authorization: `Bearer ${TOKEN}` })).toBe(101);
-    expect(await upgradeStatus("/ws/tetravox", { authorization: `Bearer ${TOKEN}` })).toBe(101);
   });
 });

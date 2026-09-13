@@ -37,13 +37,7 @@ export default defineConfig({
     // Served by tit.server at "/" (and by the mock server): asset URLs must be relative.
     base: "./",
     plugins: [react(), tailwindcss()],
-    // No Tetravox settings here any more (D3, docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)): the viewer
-    // is a released embed bundle served by tit.server at /tetravox/ and mounted in an <iframe>, so
-    // its engine, its module workers and its wasm binary are built and shipped by the tetravox
-    // repo and never enter this bundle's module graph. What that removed: an `optimizeDeps.exclude`
-    // for the three `@tetravox/*` file: deps, `worker.format: "es"` (nothing here spawns a module
-    // worker), and the `assetsInlineLimit: 0` that existed to keep the 848 KB wasm binary a real
-    // emitted file.
+    // TetraVox is a managed native application, outside this renderer bundle.
     server: {
       host: "127.0.0.1",
       // The three entries, the bearer/Origin stamping and why each exists: scripts/devProxy.ts.

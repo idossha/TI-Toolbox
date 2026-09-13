@@ -406,24 +406,6 @@ def test_a_surface_carries_its_attachments_matched_by_hemisphere(pm: PathManager
     assert "attachments" not in volume
 
 
-def test_an_old_embed_disables_surfaces_with_the_reason(pm: PathManager) -> None:
-    """Listed and greyed with a reason, never hidden and never sent as a mesh.
-
-    Sending it as a mesh is the failure worth naming: an 8 MB cortical sheet would arrive as a
-    claim about a 400 MB FEM volume, and the person would learn otherwise at Open.
-    """
-    tree = viewspec.viewer_tree("ernie", "subject", surfaces_supported=False)
-    surfaces = [node for node in tree["anatomy"] if node["kind"] == "surface"]
-    assert surfaces, "the fixture has surfaces to disable"
-    for node in surfaces:
-        assert node["available"] is False
-        assert node["reason"] == viewspec.SURFACE_UNSUPPORTED_REASON
-        assert node["kind"] == "surface"
-        assert all(item["available"] is False for item in node["attachments"])
-    # Everything that is not a surface is untouched by the switch.
-    head_mesh = next(node for node in tree["anatomy"] if node["name"] == "ernie.msh")
-    assert head_mesh["available"] is True and head_mesh["reason"] is None
-
 
 def test_an_unknown_subject_says_why_rather_than_returning_an_empty_tree(pm: PathManager) -> None:
     """"No head model" and "no simulations" are different problems, and the Menu must say which."""

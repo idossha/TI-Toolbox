@@ -86,7 +86,9 @@ def _paths(pm: PathManager, sid: str) -> SimpleNamespace:
 def test_a_bare_surface_is_a_solid_surface_layer(pm: PathManager) -> None:
     p = _paths(pm, "ernie")
     scene = _scene(pm, p.t1, p.lh)
-    layer = next(layer for layer in scene["layers"] if layer["name"] == "lh.central.gii")
+    layer = next(
+        layer for layer in scene["layers"] if layer["name"] == "lh.central.gii"
+    )
     assert layer["kind"] == "surface"
     assert layer["colorMode"] == "solid"
     # Freeview yellow, which is what Tetravox's own `defaultSurfaceLayer` seeds.
@@ -142,7 +144,9 @@ def test_an_annotation_becomes_a_sidecar_field_and_the_colour_source(
     fields = dataset["sidecars"]["fields"]
     # Relative to the surface's own directory, and `{path}` alone. SimNIBS keeps the parcellations
     # a directory across from the geometry, so this really is a `../`.
-    assert fields == [{"path": os.path.join("..", "segmentation", "lh.ernie_DK40.annot")}]
+    assert fields == [
+        {"path": os.path.join("..", "segmentation", "lh.ernie_DK40.annot")}
+    ]
 
     layer = scene["layers"][0]
     assert layer["colorMode"] == "annotation"
@@ -213,71 +217,6 @@ def test_layers_and_datasets_stay_the_same_length(pm: PathManager) -> None:
 
 
 # ── the capability switch, both ways ─────────────────────────────────────────
-
-
-def _request(features: list[str] | None) -> SimpleNamespace:
-    """An app whose `/api/capabilities` would report an embed with these features."""
-    embed = SimpleNamespace(available=features is not None, features=features or [])
-    caps = SimpleNamespace(tetravox_embed=embed)
-    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(settings=None)))
-    return request, caps
-
-
-def test_an_embed_with_surfaces_opens_them(pm: PathManager, monkeypatch) -> None:
-    request, caps = _request(["volumes", "meshes", "surfaces"])
-    monkeypatch.setattr(
-        "tit.server.routes.viewer_library.probe_capabilities", lambda **_kw: caps
-    )
-    p = _paths(pm, "ernie")
-    result = viewers.view_open(
-        {"kind": "subject", "subject": "ernie", "files": [p.t1, p.lh], "dry_run": True},
-        request,
-    )
-    kinds = [layer["kind"] for layer in result["view"]["layers"]]
-    assert "surface" in kinds
-
-
-def test_an_embed_without_surfaces_refuses_rather_than_degrading(
-    pm: PathManager, monkeypatch
-) -> None:
-    request, caps = _request(["volumes", "meshes"])
-    monkeypatch.setattr(
-        "tit.server.routes.viewer_library.probe_capabilities", lambda **_kw: caps
-    )
-    p = _paths(pm, "ernie")
-    with pytest.raises(HTTPException) as excinfo:
-        viewers.view_open(
-            {
-                "kind": "subject",
-                "subject": "ernie",
-                "files": [p.t1, p.lh],
-                "dry_run": True,
-            },
-            request,
-        )
-    assert excinfo.value.status_code == 422
-    assert "0.4.0" in excinfo.value.detail
-    assert "lh.central.gii" in excinfo.value.detail
-    # The volume beside it is not the problem and is not named.
-    assert "T1.nii.gz" not in excinfo.value.detail
-
-
-def test_an_embed_without_surfaces_still_opens_volumes_and_meshes(
-    pm: PathManager, monkeypatch
-) -> None:
-    request, caps = _request(["volumes", "meshes"])
-    monkeypatch.setattr(
-        "tit.server.routes.viewer_library.probe_capabilities", lambda **_kw: caps
-    )
-    p = _paths(pm, "ernie")
-    result = viewers.view_open(
-        {"kind": "subject", "subject": "ernie", "files": [p.t1, p.msh], "dry_run": True},
-        request,
-    )
-    assert {layer["kind"] for layer in result["view"]["layers"]} == {"volume", "mesh"}
-
-
-# ── one subject per scene ────────────────────────────────────────────────────
 
 
 def test_a_scene_spanning_two_subjects_is_refused_naming_both(pm: PathManager) -> None:

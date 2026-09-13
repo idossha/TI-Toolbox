@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { ScenePane } from "../../_shared/scene";
 import {
   useSceneElectrodes,
@@ -8,10 +7,8 @@ import {
 import { markersFromElectrodes } from "../../_shared/scene/model";
 import { getTextFile } from "../../results/api";
 import { openView } from "../../viewer/api";
-import "../../../viewer/viewer.css";
-import { EmbedFrame } from "../../../viewer/EmbedFrame";
-import { createChannel, type EmbedChannel } from "../../../viewer/channel";
-import { normalizeLayers, type EmbedViewSpec } from "../../../viewer/protocol";
+import { Button } from "../../../ui/Button";
+import { openNativeScene, exportNativeScene } from "../../../viewer/native";
 import { getAtlasRegions } from "./api";
 import type { Mode } from "./config";
 import {
@@ -39,120 +36,6 @@ export interface ExportPreviewProps {
 }
 
 /** Each preview owns its channel: opening an export must not replace the retained Viewer scene. */
-function VolumeFrame({
-  scene,
-  labels,
-  onLabelsChange,
-}: {
-  scene: EmbedViewSpec;
-  labels: number[];
-  onLabelsChange?: (labels: number[]) => void;
-}) {
-  const latest = useRef({ labels, onLabelsChange });
-  useEffect(() => {
-    latest.current = { labels, onLabelsChange };
-  }, [labels, onLabelsChange]);
-  const layerIds = useRef<string[]>([]);
-  const channel = useRef<EmbedChannel | null>(null);
-  const [status, setStatus] = useState("Loading preview…");
-  const connect = useCallback(
-    (frame: HTMLIFrameElement, origin: string, timeout: number) => {
-      channel.current = createChannel(
-        frame,
-        origin,
-        (message) => {
-          if (message.type === "ready") {
-            if (!message.caps.webgl2) {
-              setStatus("3D preview requires WebGL2.");
-              return;
-            }
-            channel.current?.post({
-              type: "setPickEvents",
-              enabled: !!latest.current.onLabelsChange,
-            });
-            channel.current?.post({ type: "load", scene });
-          } else if (message.type === "loaded") {
-            setStatus("");
-            layerIds.current = normalizeLayers(message.layers)
-              .filter((layer) => layer.kind === "volume")
-              .map((layer) => layer.id);
-            if (latest.current.onLabelsChange)
-              for (const layerId of layerIds.current)
-                channel.current?.post({
-                  type: "updateLayer",
-                  layerId,
-                  patch: {
-                    selectedLabels: latest.current.labels,
-                    showIn3D: true,
-                  },
-                });
-          } else if (
-            message.type === "pick" &&
-            message.label &&
-            latest.current.onLabelsChange
-          ) {
-            const id = message.label.id;
-            if (id > 0)
-              latest.current.onLabelsChange(
-                latest.current.labels.includes(id)
-                  ? latest.current.labels.filter((value) => value !== id)
-                  : [...latest.current.labels, id],
-              );
-          } else if (message.type === "error") setStatus(message.message);
-          else if (message.type === "progress")
-            setStatus(`${message.name}: ${message.phase}`);
-        },
-        timeout,
-        () =>
-          setStatus(
-            "The viewer did not answer. Check that the container includes Tetravox.",
-          ),
-      );
-    },
-    [scene],
-  );
-  useEffect(() => {
-    if (onLabelsChange)
-      for (const layerId of layerIds.current)
-        channel.current?.post({
-          type: "updateLayer",
-          layerId,
-          patch: { selectedLabels: labels },
-        });
-  }, [labels, onLabelsChange]);
-  const disconnect = useCallback(() => {
-    channel.current?.post({ type: "reset" });
-    channel.current?.dispose();
-    channel.current = null;
-  }, []);
-  return (
-    <div
-      style={{
-        height: "100%",
-        minHeight: 280,
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      {status && (
-        <p className="field-help" role="status">
-          {status}
-        </p>
-      )}
-      <div style={{ position: "relative", flex: 1, minHeight: 240 }}>
-        <EmbedFrame
-          connect={connect}
-          disconnect={disconnect}
-          title="Export volume preview"
-          presentation="viewport"
-          testId="export-volume-frame"
-          className="tvx-frame"
-        />
-      </div>
-    </div>
-  );
-}
-
 export function ExportPreview(props: ExportPreviewProps) {
   const {
     mode,
@@ -165,7 +48,6 @@ export function ExportPreview(props: ExportPreviewProps) {
     onAtlasChange,
     montageOnly,
     niftiPath,
-    labels,
     fieldName,
   } = props;
   const manifest = useSceneManifest(subjectId || null);
@@ -195,43 +77,16 @@ export function ExportPreview(props: ExportPreviewProps) {
     (defaultVolume?.startsWith("/api/files/raw/")
       ? decodeURIComponent(defaultVolume.slice("/api/files/raw".length))
       : "");
-  const volume = useQuery({
-    queryKey: [
-      "export-volume",
-      mode,
-      subjectId,
-      simulationName,
-      volumePath,
-      fieldName,
-    ],
-    queryFn: ({ signal }) =>
-      mode === "subcortical"
-        ? openView(
-            "custom",
-            { subject: subjectId, path: volumePath },
-            { files: [volumePath], dry_run: true, signal },
-          ).then((result) => ({
-            ...result,
-            view: segmentationPreviewScene(
-              result.view as unknown as EmbedViewSpec,
-            ),
-          }))
-        : openView(
-            "simulation",
-            {
-              subject: subjectId,
-              simulation: simulationName,
-              space: "subject",
-              field: fieldName,
-            },
-            { dry_run: true, signal },
-          ),
-    enabled:
-      !!subjectId &&
-      ((mode === "subcortical" && !!volumePath) ||
-        (mode === "vectors" && !!simulationName)),
-    retry: false,
-  });
+  const volume = useMutation({mutationFn: async () => {
+    const scene = mode === "subcortical"
+      ? await openView("custom", { subject: subjectId, path: volumePath }, { files: [volumePath] })
+      : await openView("simulation", { subject: subjectId, simulation: simulationName, space: "subject", field: fieldName });
+    if (mode === "subcortical") {
+      const prepared = segmentationPreviewScene(scene.view as { layers: Record<string, unknown>[] });
+      prepared.layers = prepared.layers.map((layer) => layer.kind === "volume" ? { ...layer, selectedLabels: props.labels } : layer);
+      await openNativeScene(await exportNativeScene(prepared, "export-preview"));
+    } else await openNativeScene(scene.path);
+  }});
 
   if (!subjectId)
     return (
@@ -251,43 +106,14 @@ export function ExportPreview(props: ExportPreviewProps) {
       return (
         <p className="field-help">Choose a simulation to preview its field.</p>
       );
-    if (volume.error)
-      return (
-        <p className="field-help" role="status">
-          Preview unavailable: {volume.error.message}
-        </p>
-      );
-    return (
-      <div
-        style={{
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-          minHeight: 0,
-        }}
-      >
-        <p className="field-help">
-          {mode === "subcortical"
-            ? `Segmentation volume · ${labels.length ? `export labels ${labels.join(", ")}` : "export whole volume"}. Pick labelled regions in the preview or the form; selected labels are outlined within the full atlas.`
-            : `Field context for ${simulationName}. Vector arrows and their sampling are generated during export.`}
-        </p>
-        {volume.data ? (
-          <VolumeFrame
-            key={`${mode}:${subjectId}:${simulationName}:${volumePath}:${fieldName}`}
-            scene={volume.data.view as unknown as EmbedViewSpec}
-            labels={labels}
-            onLabelsChange={
-              mode === "subcortical" ? props.onLabelsChange : undefined
-            }
-          />
-        ) : (
-          <p className="field-help" role="status">
-            Resolving preview…
-          </p>
-        )}
-      </div>
-    );
+    return <div>
+      <p className="field-help">Open the export inputs in native TetraVox. Selected export labels and vector settings remain controlled here.</p>
+      <Button onClick={() => volume.mutate()} disabled={volume.isPending || !window.tit?.openNativeTetravox}>{volume.isPending ? "Preparing scene…" : "Open inputs in TetraVox"}</Button>
+      {!window.tit?.openNativeTetravox && <p className="field-help">Use TI-Toolbox Desktop to open the native viewer.</p>}
+      {volume.error && <p role="alert">{volume.error.message}</p>}
+    </div>;
   }
+
   if (manifest.error)
     return (
       <p className="field-help" role="status">

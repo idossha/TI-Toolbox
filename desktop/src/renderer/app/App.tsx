@@ -5,7 +5,6 @@ import { MemoryRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Shell } from "./Shell";
 import { ToastHost } from "../ui/Toast";
 import { landingPage, useEnabledPages } from "./registry";
-import { useTetravoxUpdated } from "./useTetravoxUpdated";
 
 // Only the very first paint's initial route: MemoryRouter's `initialEntries` is read once, at
 // construction, so it must be a plain value computed before the QueryClient has any data — the
@@ -44,8 +43,6 @@ function ConnectedApp() {
   // it (see `registry.ts`'s `useEnabledPages` doc comment) — otherwise a freshly toggled-on
   // panel would appear in the nav but 404 into the catch-all redirect when clicked.
   const pages = useEnabledPages();
-  // One toast when the server installs a newer Tetravox embed under us (A3).
-  useTetravoxUpdated();
   return (
     <MemoryRouter initialEntries={firstPage ? [`/${firstPage.id}`] : ["/"]}>
       <ToastHost />
@@ -55,7 +52,6 @@ function ConnectedApp() {
             <Route
               // `/*`: a page may own routes beneath its own id (the Viewer's `menu`/`tetravox`
               // sub-items). They are one page and one mounted component -- which is what keeps
-              // the embed's iframe, its wasm heap and its camera alive across the two.
               key={page.id}
               path={`/${page.id}/*`}
               element={null}

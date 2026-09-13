@@ -31,7 +31,7 @@ these are the facts that changed:
 - **New subsystems the skills now cover**: `tit/jobs` (kinds, the pure scheduler,
   the on-disk job store, the ETA model in `tit/jobs/eta.py`, the ten-value failure
   taxonomy including *"Lost (server restarted mid-run)"*),
-  `tit/server/kernels.py` and notebooks, `tit/scene`, `tit/tetravox`,
+  `tit/server/kernels.py` and notebooks, `tit/scene`,
   `tit/viewspec.py`, `tit/catalog.py`, `tit/launch.py`.
 - **The UI is a ten-row rail counting from ⌘0** (Overview … Jobs at ⌘9); Settings
   is not a rail row and answers only to `⌘,`.

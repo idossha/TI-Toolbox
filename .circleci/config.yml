@@ -4,12 +4,6 @@ parameters:
   build_image:
     type: boolean
     default: false
-  tetravox_tgz:
-    type: string
-    default: ''
-  tetravox_sha256:
-    type: string
-    default: ''
 
 executors:
   vm-docker:
@@ -36,7 +30,7 @@ commands:
 jobs:
 
   # Full image verification is explicit: rebuilding SimNIBS takes 30-60+ minutes natively
-  # and the compatible embed currently requires a reachable URL+digest pin. Ordinary PRs
+  # so ordinary PRs
   # keep source tests and desktop checks; they do not claim an image was built or verified.
   build-and-smoke-image:
     executor: vm-docker
@@ -46,16 +40,9 @@ jobs:
       - run:
           name: Build idossha/ti-toolbox
           no_output_timeout: 30m
-          environment:
-            TETRAVOX_TGZ: << pipeline.parameters.tetravox_tgz >>
-            TETRAVOX_SHA256: << pipeline.parameters.tetravox_sha256 >>
           command: |
             set -euo pipefail
             ARGS=(--tag idossha/ti-toolbox:ci)
-            if [ -n "$TETRAVOX_TGZ" ]; then
-              [ -n "$TETRAVOX_SHA256" ] || { echo "embed URL requires SHA256" >&2; exit 1; }
-              ARGS+=(--tetravox-tgz "$TETRAVOX_TGZ" --tetravox-sha256 "$TETRAVOX_SHA256")
-            fi
             # Build the checked-out SHA. A moving --ref branch could race a later push.
             ./container/blueprint/build.sh "${ARGS[@]}"
 
@@ -99,21 +86,6 @@ jobs:
             echo "-- / (UI or status page) --"
             code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18765/)"
             [ "$code" = "200" ] || { echo "expected 200, got $code"; exit 1; }
-
-            # The viewer ships in the image and this server serves it (VE). Assert the route,
-            # the manifest and the embed's own CSP -- an index.html answered by the SPA
-            # catch-all would pass a bare status check and mean the bundle is not there.
-            echo "-- /tetravox/ serves the embed --"
-            code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18765/tetravox/)"
-            [ "$code" = "200" ] || { echo "expected 200 at /tetravox/, got $code"; exit 1; }
-            body="$(curl -sD /tmp/tvx.h http://127.0.0.1:18765/tetravox/manifest.json)"
-            case "$body" in
-                *'"protocol"'*) : ;;
-                *) echo "/tetravox/manifest.json is not a manifest: $body"; exit 1 ;;
-            esac
-            grep -qi 'wasm-unsafe-eval' /tmp/tvx.h \
-                || { echo "the embed CSP is missing from /tetravox/"; exit 1; }
-            rm -f /tmp/tvx.h
 
             echo "-- /etc/ti-toolbox-build.json (which source the image was built from) --"
             docker exec tit-ci-smoke cat /etc/ti-toolbox-build.json

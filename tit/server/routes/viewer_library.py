@@ -14,7 +14,7 @@ re-run of the pipeline — reloading it next month re-resolves today's choices a
 disk then, and reports what has gone missing rather than failing. This is the reproducibility
 artefact: "show me the same thing, from the current data".
 
-**A scene** (``scenes/<slug>.tetravox.json``) is *what a person was looking at*: the embed's own
+**A scene** (``scenes/<slug>.tetravox.json``) is *what a person was looking at*: the native viewer's
 serialized ``ViewSpec`` — camera, layout, per-layer window, threshold, colormap, opacity, cursor —
 after they had adjusted it. It names concrete files. This is the record artefact: "show me exactly
 this picture again". It is written in the app's own format, suffix and all, so the standalone
@@ -44,12 +44,12 @@ from typing import Any
 from fastapi import APIRouter, Body, HTTPException, Query, Request
 
 from tit import viewspec
-from tit.server.routes.capabilities import probe_capabilities
 from tit.server.routes.viewers import (
     _SCENE_SUFFIX,
     viewer_scene_dir,
     checked_viewer_path,
     atomic_viewer_write,
+    native_scene,
 )
 
 router = APIRouter()
@@ -132,23 +132,6 @@ def _now() -> str:
 # ── the composition tree ─────────────────────────────────────────────────────
 
 
-def surfaces_supported(request: Request) -> bool:
-    """Can the **installed** embed draw a surface as its own layer kind?
-
-    Asked as a feature name and never as a version comparison, which is the whole point of E1
-    (:mod:`tit.tetravox.protocol`): an embed installed through Settings after this build shipped
-    can declare ``surfaces`` in its own manifest and be believed.
-
-    ``True`` when there is no embed at all. A dev checkout with nothing installed should draw the
-    tree it will draw once one is, rather than a tree with every surface greyed out for a reason
-    that is not the reason.
-    """
-    embed = probe_capabilities(settings=request.app.state.settings).tetravox_embed
-    if not embed.available:
-        return True
-    return "surfaces" in (embed.features or [])
-
-
 @router.get(
     "/api/viewer/tree", summary="What one subject offers the Menu's composition tree"
 )
@@ -166,14 +149,12 @@ def viewer_tree(
 
     Each node carries the ``kind`` :func:`tit.catalog.classify_view_file` decided -- ``volume``,
     ``label-volume``, ``surface``, ``mesh`` -- and a surface carries its ``attachments``. Surface
-    rows are disabled with a reason when the installed embed is too old to draw one
-    (:func:`surfaces_supported`); they are never re-labelled as meshes to get them through.
+    rows retain their surface kind; they are never re-labelled as meshes.
     """
     return viewspec.viewer_tree(
         subject,
         space,
         list(simulations) if simulations else None,
-        surfaces_supported=surfaces_supported(request),
     )
 
 
@@ -323,7 +304,7 @@ def read_scene(name: str) -> dict[str, Any]:
 def save_scene(name: str, body: dict[str, Any] | None = Body(None)) -> dict[str, Any]:
     """Write *body*'s ``scene`` as ``scenes/<slug>.tetravox.json``, plus a thumbnail and metadata.
 
-    ``scene`` is the embed's own ``serialize`` reply — the live ``ViewSpec``, with the camera the
+    ``scene`` is the native viewer's ``serialize`` reply — the live ``ViewSpec``, with the camera the
     person left it at and every layer's current window. It is written **verbatim**: the whole point
     of saving a scene rather than a composition is that it is a record of a picture, and a server
     that re-derived any part of it would be recording something else.
@@ -337,8 +318,9 @@ def save_scene(name: str, body: dict[str, Any] | None = Body(None)) -> dict[str,
     if not isinstance(scene, dict) or not scene.get("layers"):
         raise HTTPException(
             status_code=422,
-            detail="A scene must be the embed's serialized ViewSpec, with at least one layer",
+            detail="A scene must be a ViewSpec, with at least one layer",
         )
+    scene = native_scene(scene)
     encoded = json.dumps(scene)
     if len(encoded.encode("utf-8")) > _MAX_SCENE_BYTES:
         raise HTTPException(
@@ -379,6 +361,7 @@ def save_scene(name: str, body: dict[str, Any] | None = Body(None)) -> dict[str,
     return {
         **meta,
         "path": target,
+        "scene_path": target,
         "host_path": host_path,
         "has_thumbnail": thumbnail is not None,
         "bytes": len(encoded.encode("utf-8")),

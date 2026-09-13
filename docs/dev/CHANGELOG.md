@@ -9,6 +9,8 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 ---
 ### v3.0.0 (Unreleased)
 
+- **Native TetraVox viewing** — full scenes, volume and target previews open the managed native viewer in its own window. Settings → Viewer installs the official pinned 0.4.0 package in the per-user runtime directory after checksum verification. The browser embed and container bundle updater are removed; run-page surface panes retain their existing renderer. Native camera/appearance edits are saved from TetraVox. Browser sessions can download scenes for manual opening. The pinned release predates external-manager updater protection.
+
 - **Pipeline canvas removed** — use the dedicated processing pages or standalone Notebooks. Saved graph files are no longer opened or executed; existing notebooks, jobs and results remain available.
 
 

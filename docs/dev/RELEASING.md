@@ -59,23 +59,13 @@ citation metadata and release announcements stay unchanged. Stable version prepa
 authored notes are preserved, and public-note generation requires explicit `--publish-notes` plus
 `--notes-file`. See `dev/update/README.md`. Do not promote the public release just to build locally.
 
-### Tetravox dependency
+### TetraVox dependency
 
-TI embeds the browser bundle, not the Tetravox desktop executable. At the 2026-09-08 dependency review, the required protocol-3
-embed was supplied by Tetravox PR #35 rather than published v0.4.0 assets. Recheck upstream
-availability before the next distribution build. This is why a verified branch artifact is temporarily needed; it is not a permanent
-fork requirement.
-
-For local/internal builds, `container/blueprint/build.sh` accepts an exact tarball URL and SHA256:
-
-```bash
-container/blueprint/build.sh --tag "$INTERNAL_IMAGE_TAG" \
-  --tetravox-tgz "$TETRAVOX_TGZ" --tetravox-sha256 "$TETRAVOX_SHA256"
-```
-
-Serve only the artifact directory locally; Docker Desktop can reach it through
-`host.docker.internal`. A hosted CI build needs a URL reachable from its runner. Without a pin,
-the resolver requires compatible published embed assets and fails if none exist. Record the bundle commit, version, protocol and digest with each build receipt.
+The image no longer includes a browser viewer bundle. Desktop installs the pinned official native
+release defined in `desktop/src/main/tetravoxNative.ts`, verifying the recorded SHA256 before
+extraction. Changing that pin requires OS-specific installation and packaged render checks.
+The native-only TetraVox source changes must be released upstream before selecting their new artifact;
+a local source build is not an official downloadable release.
 
 ### Optional FastSurfer checkpoint cache
 
@@ -85,7 +75,6 @@ it is not a different image recipe or permission to substitute unverified model 
 
 ```bash
 container/blueprint/build.sh --tag "$INTERNAL_IMAGE_TAG" \
-  --tetravox-tgz "$TETRAVOX_TGZ" --tetravox-sha256 "$TETRAVOX_SHA256" \
   --fastsurfer-checkpoints-tgz "$FASTSURFER_CACHE_URL" \
   --fastsurfer-checkpoints-sha256 "$FASTSURFER_CACHE_SHA256"
 ```

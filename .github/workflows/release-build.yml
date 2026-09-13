@@ -17,14 +17,6 @@ on:
         description: 'Optional version image tag; must match vX.Y.Z derived from the runtime version.'
         type: string
         default: ''
-      tetravox_tgz:
-        description: 'Optional: pin the Tetravox embed tarball URL instead of resolving the newest compatible release.'
-        type: string
-        default: ''
-      tetravox_sha256:
-        description: 'sha256 of tetravox_tgz (required when it is set).'
-        type: string
-        default: ''
 
   workflow_call:
     inputs:
@@ -32,12 +24,6 @@ on:
         type: string
         default: build
       image_tag:
-        type: string
-        default: ''
-      tetravox_tgz:
-        type: string
-        default: ''
-      tetravox_sha256:
         type: string
         default: ''
     secrets:
@@ -124,37 +110,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate the Tetravox pin
-        env:
-          TETRAVOX_TGZ: ${{ inputs.tetravox_tgz }}
-          TETRAVOX_SHA256: ${{ inputs.tetravox_sha256 }}
-        run: |
-          set -euo pipefail
-          TGZ="$TETRAVOX_TGZ"
-          SHA="$TETRAVOX_SHA256"
-          if [ -n "$TGZ" ] && [ -z "$SHA" ]; then
-            echo "::error::tetravox_tgz was given without tetravox_sha256; the image verifies the digest before unpacking"
-            exit 1
-          fi
-          if [ -z "$TGZ" ]; then
-            echo "No pin given — build.sh will resolve the newest Tetravox release whose embed"
-            echo "manifest protocol is inside the range tit/tetravox/protocol.py supports."
-            echo "This FAILS the build if no such release exists (Tetravox PR #35 must be released"
-            echo "first). That is deliberate: the baked embed is the offline floor the app falls"
-            echo "back to, and an image with a placeholder viewer is worse than no image."
-          fi
-
       - name: Build the image
-        env:
-          TETRAVOX_TGZ: ${{ inputs.tetravox_tgz }}
-          TETRAVOX_SHA256: ${{ inputs.tetravox_sha256 }}
         run: |
           set -euo pipefail
           TAG="${IMAGE_REPO}:${{ needs.plan.outputs.image_tag }}"
           ARGS=(--tag "$TAG") # checkout is the exact workflow SHA, never a moving branch clone
-          if [ -n "${TETRAVOX_TGZ}" ]; then
-            ARGS+=(--tetravox-tgz "${TETRAVOX_TGZ}" --tetravox-sha256 "${TETRAVOX_SHA256}")
-          fi
           ./container/blueprint/build.sh "${ARGS[@]}"
 
       - name: Smoke the image
@@ -166,7 +126,6 @@ jobs:
           docker run --rm --entrypoint cat "$TAG" /etc/ti-toolbox-build.json > provenance.json
           python3 -c 'import json,os; p=json.load(open("provenance.json")); assert p["sha"] == os.environ["GITHUB_SHA"] and p["dirty"] is False, p'
           docker run --rm --entrypoint python3 "$TAG" -c 'import tit; print("tit", tit.__version__)'
-          docker run --rm --entrypoint test "$TAG" -f /opt/tetravox/embed/index.html
           VER=$(docker run --rm --entrypoint python3 "$TAG" -c 'import tit; print(tit.__version__)')
           if [ "$VER" != "${{ needs.plan.outputs.python_version }}" ]; then
             echo "::error::image ships tit ${VER}, release is ${{ needs.plan.outputs.version }}"

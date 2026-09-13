@@ -24,7 +24,7 @@ manager. [`contracts/openapi.yaml`](../../contracts/openapi.yaml) is the hand-wr
 generated schemas and renderer types are build outputs.
 
 The core container has no Qt GUI, X11 display or FreeSurfer installation. Dedicated viewing uses
-Tetravox Embed on the host GPU; surface run previews use the application's WebGL2 renderer and volumetric previews use Tetravox (§7).
+native TetraVox on the host GPU; surface run previews use the application's WebGL2 renderer and volumetric previews open in TetraVox (§7).
 Dependency versions belong in the package manifests, lockfile and container blueprint, not prose
 copies. Replacing these boundaries or adding a dependency is an architecture decision.
 
@@ -160,41 +160,31 @@ surface budget remains 3 MB and 150,000 triangles per packaged surface. Subject 
 separately from guide availability.
 
 **Viewer opening is a command.** `POST /api/view/open` resolves once and returns URL-addressed data
-for the embed and host-addressed scene data for export. Selection-only links prepare the Menu; explicit Open in viewer actions load the selected artifact. Optional atlas selection retains the server default when absent or unavailable. See §7.1.
+as host-addressed native scene data. Selection-only links prepare the Menu; explicit Open in viewer actions load the selected artifact. Optional atlas selection retains the server default when absent or unavailable. See §7.1.
 
 ## 7. The viewer, the run-page renderer and the selection grammar
 
-### 7.1 The viewer is the Tetravox embed, and it ships in the image
+### 7.1 Native TetraVox is installed for the host user
 
-Tetravox Embed runs in a same-origin iframe served at `/tetravox/`; no separate host installation is
-required. The image's bundle is the offline floor. Runtime-installed bundles and an explicit override
-may supersede it; absence is reported as a capability state. The viewer route owns its WASM/worker CSP
-exceptions without extending them to the application's top-level page.
+TI-Toolbox manages a pinned official native TetraVox release under the host user's application-data
+runtime directory. Main owns platform selection, checksum validation before extraction, installation
+status, consent and executable launch. No viewer bundle, iframe protocol or updater runs in Docker.
+Downloads use bounded streaming and failed installs remain unready and retryable.
 
-Compatibility is a supported protocol range plus named capabilities, not a TI-to-Tetravox version
-pair. The server and renderer declarations are checked together. Unsupported surface capabilities
-must be reported, never approximated by treating a cortical surface as a tetrahedral mesh.
+Viewer Menu and its catalogue build a native `.tetravox.json` scene. Main resolves the returned
+container scene path against the active project and checks its real path before launching the known
+executable. Scene dataset paths are host-addressed; packaged reference assets are staged into the
+project when needed. A remote project without local filesystem access cannot be opened natively;
+the browser can download the scene but cannot install or launch a host application.
 
-Downloads are checksum-verified before extraction. Archives cannot escape their destination through
-absolute paths, traversal or links; activation is atomic. The update policy is server-owned and
-checks outside the rendering path. Pins, including the baked bundle, support rollback. Runtime
-capabilities describe the active bundle rather than a build-time assumption.
+TetraVox owns camera, layer editing, file dialogs and native scene saving. TI's saved composition
+records its input selections, not later edits made in the other application's window. The managed
+app uses a dedicated user profile and single-instance delivery. A user-directory installation is
+not a filesystem sandbox; TetraVox has normal user permissions. No new live-control bridge is added.
 
-The Viewer has Menu and Tetravox subroutes within one retained page. Its embed mounts before a
-scene is selected, allowing direct local file drops. Open resolves the editable
-composition once. Scenes contain one research subject; shared templates and atlases are exempt.
-Layer names are file basenames. A composition stores input choices and re-resolves current data;
-a saved `.tetravox.json` scene stores the embed's serialized view, including camera and layer state.
-
-Tetravox owns dataset decoding, URL/sidecar reuse and disposal. Cancelled loads cannot adopt stale
-layers, and a failed dataset does not discard successful ones. TI owns load/error presentation.
-Explicit Reload remounts the iframe, releases workers and re-reads files at unchanged paths.
-
-Sources: [`tit/tetravox/`](../../tit/tetravox/),
-[`embedProtocol.ts`](../../desktop/src/renderer/viewer/embedProtocol.ts),
-[`static.py`](../../tit/server/static.py), [`viewspec.py`](../../tit/viewspec.py),
-[`viewer library`](../../tit/server/routes/viewer_library.py),
-[`TetravoxFrame.tsx`](../../desktop/src/renderer/viewer/TetravoxFrame.tsx).
+Sources: [`native installer`](../../desktop/src/main/tetravoxNative.ts),
+[`scene export`](../../tit/server/routes/viewers.py),
+[`viewer library`](../../tit/server/routes/viewer_library.py).
 
 ### 7.2 Run-page surface selection and volumetric previews
 
@@ -208,9 +198,9 @@ Electrode color expresses availability and channel membership, with no additiona
 The form, channel legend and preview share one palette and one selection model. Atlas clicks and ROI
 chips edit the same region list. Coordinate picking remains constrained by §3.
 
-Non-surface targets use a private Tetravox channel, separate from the retained Viewer.
+Non-surface targets open explicitly in the native TetraVox application.
 `POST /api/scene/target-preview` caches a binary target extent on the subject T1 grid for masks,
-subcortical labels, spheres and saved ROI centers. Preview events never change the form;
+subcortical labels, spheres and saved ROI centers. Native previews do not change the form;
 incomplete requests and errors clear old geometry. Tissue and mesh filtering remain downstream.
 
 Optimizer mask targets explicitly declare Subject or MNI space. Subject masks retain their
@@ -346,8 +336,7 @@ recreation. See [TESTING.md](TESTING.md#launcher-lifecycle-checks) for executabl
 ### Extension run panes and export selection
 
 Extensions retain returned job IDs and share the live terminal beneath a bounded plan. Export previews
-follow their selected subject and configuration; isolated embed channels cannot replace the main
-Viewer scene. Preview geometry is context, not proof that export computation completed.
+follow their selected subject and configuration; volume inspection opens explicitly in native TetraVox. Preview geometry is context, not proof that export computation completed.
 Participant CSV/TSV import validates all rows before replacing any; exports use the existing host
 save-file bridge or browser download.
 
@@ -463,12 +452,10 @@ matches prose warnings because the wire plan lacks structured per-cell blockers;
 limitation, not server admission authority. The terminal header identifies the actual job and state.
 
 The Viewer Menu's subject/space tree and editable composition share selection. Meshes, surfaces,
-volumes and attachments retain server-classified kinds, filenames and size. The embed owns detailed
-camera/layer controls; TI provides a slim scene/reload strip and distinguishes missing bundle,
-handshake timeout, rendering unavailability and dataset failure. See the
-[Viewer page](../../desktop/src/renderer/pages/viewer/index.tsx) and §7.1 for load and retention rules.
-Settings reports the active bundle, compatibility, source and verified digest; opening it does not
-itself fetch a remote release index. Project overwrite permission is separate from machine preferences.
+volumes and attachments retain server-classified kinds, filenames and size. Native TetraVox owns
+camera/layer controls. TI reports installation and launch errors; opening Settings checks the local
+managed installation without fetching a release index. Project overwrite permission is separate
+from machine preferences. See §7.1 for the native scene handoff boundary.
 
 Notebooks place the file list beside a single cell scroller. Execution controls and kernel state
 remain visible, with recovery actions. CodeMirror completion uses the existing kernel; editor
@@ -517,3 +504,12 @@ FastSurfer and FreeSurfer thread preferences live in the shared user configurati
 
 
 Settings groups project preferences, preprocessing defaults, extensions, viewer management, and server details into horizontal tabs. Inactive panels retain unsaved drafts. The preprocessing page selects stages; FreeSurfer operation defaults and reconstruction/QSI resources are edited in Settings and resolved into each submitted configuration.
+
+
+### Native viewer release boundary
+
+The initial managed package is official TetraVox 0.4.0. The native-only source and managed-updater
+protection require an upstream release before its artifact can replace that pin. Windows private
+installation requires a verified official ZIP; the NSIS installer is intentionally not used because
+it can replace another TetraVox install through its shared registry identity. Linux x64 and macOS
+arm64/x64 have configured archives. Only macOS was runtime-render verified for this change.
