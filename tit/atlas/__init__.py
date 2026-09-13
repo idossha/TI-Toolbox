@@ -14,7 +14,16 @@ from tit.atlas.constants import (
     VOXEL_ATLAS_FILES,
 )
 from tit.atlas.mesh import MeshAtlasManager
-from tit.atlas.overlap import atlas_overlap_analysis, check_and_resample_atlas
+
+
+def __getattr__(name: str):
+    if name in {"atlas_overlap_analysis", "check_and_resample_atlas"}:
+        from tit.atlas import overlap
+
+        return getattr(overlap, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 from tit.atlas.voxel import VoxelAtlasManager
 
 __all__ = [

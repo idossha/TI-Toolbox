@@ -39,6 +39,8 @@ import sys
 from pathlib import Path
 
 import mne
+import mne.coreg
+import mne.transforms
 import numpy as np
 
 from tit.paths import get_path_manager
@@ -95,6 +97,9 @@ def _read_simnibs_montage(
 def _build_montage_info(
     electrodes: dict[str, np.ndarray],
     fiducials: dict[str, np.ndarray],
+    *,
+    info: mne.Info | None = None,
+    trans: mne.transforms.Transform | None = None,
 ) -> tuple[mne.Info, mne.transforms.Transform]:
     """Build an MNE ``Info`` + head<->MRI ``trans`` from net positions.
 
@@ -102,7 +107,9 @@ def _build_montage_info(
     define the MNE *head* frame directly from the same fiducials.  The resulting
     head<->MRI transform is therefore (near-)identity: the forward is built with
     electrodes at their true subject-space locations, with no dependency on an
-    actual EEG recording.
+    actual EEG recording. Supplying ``info`` instead uses the recording's
+    fiducials, preserving its head frame. An explicit head-to-MRI ``trans``
+    takes precedence and is never re-estimated.
     """
     # An Info whose montage carries the net's own fiducials, used only to derive
     # the head frame that coregister_fiducials aligns to the MRI fiducials.
@@ -121,7 +128,12 @@ def _build_montage_info(
         {"ident": 2, "kind": 1, "r": fiducials["Nz"], "coord_frame": 5},
         {"ident": 3, "kind": 1, "r": fiducials["RPA"], "coord_frame": 5},
     ]
-    trans = mne.coreg.coregister_fiducials(seed_info, fid_list, tol=1e-1)
+    if trans is None:
+        trans = mne.coreg.coregister_fiducials(
+            seed_info if info is None else info, fid_list, tol=1e-1
+        )
+    elif trans["from"] != 4 or trans["to"] != 5:
+        raise ValueError("trans must map MNE head coordinates to MRI coordinates")
     mri_to_head = mne.transforms.invert_transform(trans)
 
     ch_names = list(electrodes)
@@ -300,6 +312,10 @@ def prepare_forward(
     cfg: ForwardConfig,
     *,
     output_dir: str | Path | None = None,
+    head_model_dir: str | Path | None = None,
+    info: mne.Info | None = None,
+    trans: mne.transforms.Transform | None = None,
+    output_stem: str | None = None,
 ) -> tuple[Path, Path, Path]:
     """Rebuild one subject's forward, source-space, and fsaverage morph files.
 
@@ -312,14 +328,23 @@ def prepare_forward(
     output_dir : str or pathlib.Path or None
         Destination directory.  Defaults to ``pm.forward(subject_id)``
         (``derivatives/SimNIBS/sub-<id>/forward/``).
+    head_model_dir : str or pathlib.Path or None
+        Explicit SimNIBS m2m directory; bypasses project discovery when supplied
+        together with output_dir (for external study layouts).
+    info : mne.Info or None
+        Recording Info whose digitized fiducials define the EEG head frame.
+    trans : mne.transforms.Transform or None
+        Explicit head-to-MRI transform; takes precedence over Info fiducials.
+    output_stem : str or None
+        Existing study cache prefix to preserve; must be a filename, not a path.
 
     Returns
     -------
     tuple of pathlib.Path
         ``(fwd_path, src_path, morph_path)``.
     """
-    pm = get_path_manager()
-    m2m_dir = Path(pm.m2m(subject_id))
+    pm = get_path_manager() if head_model_dir is None or output_dir is None else None
+    m2m_dir = Path(pm.m2m(subject_id) if head_model_dir is None else head_model_dir)
     if not m2m_dir.is_dir():
         raise FileNotFoundError(f"m2m directory not found: {m2m_dir}")
 
@@ -330,13 +355,23 @@ def prepare_forward(
     )
     forward_dir.mkdir(parents=True, exist_ok=True)
 
-    stem = f"sub-{subject_id}_net-{cfg.eeg_net}"
+    stem = output_stem or f"sub-{subject_id}_net-{cfg.eeg_net}"
+    if Path(stem).name != stem or stem in (".", ".."):
+        raise ValueError("output_stem must be a filename prefix, not a path")
     expected = (
         forward_dir / f"{stem}-fwd.fif",
         forward_dir / f"{stem}-src.fif",
         forward_dir / f"{stem}-morph.h5",
     )
-    if not cfg.overwrite and _forward_outputs_valid(*expected):
+    # Explicit recording geometry must reach assembly even when a readable cache
+    # exists: the old transform may describe different fiducials. The FEM
+    # leadfield is still reused below; only the MNE coordinate metadata is rebuilt.
+    if (
+        info is None
+        and trans is None
+        and not cfg.overwrite
+        and _forward_outputs_valid(*expected)
+    ):
         logger.info("Forward outputs already present for %s; skipping.", subject_id)
         return expected
 
@@ -354,7 +389,12 @@ def prepare_forward(
     # SimNIBS's assembly asserts `info["ch_names"] == forward["ch_names"]` element by
     # element, and the leadfield does not use the net CSV's order (below).
     electrodes = _in_leadfield_order(electrodes, leadfield_hdf5)
-    montage_info, trans = _build_montage_info(electrodes, fiducials)
+    if info is None and trans is None:
+        montage_info, trans = _build_montage_info(electrodes, fiducials)
+    else:
+        montage_info, trans = _build_montage_info(
+            electrodes, fiducials, info=info, trans=trans
+        )
 
     info_path = forward_dir / f"{stem}-info.fif"
     trans_path = forward_dir / f"{stem}-trans.fif"

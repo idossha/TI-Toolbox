@@ -265,3 +265,41 @@ def hf_sar(*fields) -> np.ndarray:
     stack, shape = _stack_fields(fields)
     flat = np.sum(np.linalg.norm(stack, axis=-1) ** 2, axis=0)
     return flat.reshape(shape[:-1])
+
+
+def carrier_metrics(
+    fields: list[np.ndarray], normals: np.ndarray | None = None
+) -> dict[str, np.ndarray]:
+    """Summarize carrier vectors on one common geometry before interpolation.
+
+    Returns peak exposure, heating driver, carrier magnitudes and their loose
+    sum bound. With unit normals, also returns absolute normal components and
+    the absolute normal vector sum. Two fields additionally define TI_normal.
+    Units are V/m, except hf_sar (V²/m²). Normal components are sign-invariant.
+    """
+    _stack_fields(tuple(fields))  # validates shared vector shape
+    arrays = [np.asarray(value, dtype=float) for value in fields]
+    if not all(np.isfinite(value).all() for value in arrays):
+        raise ValueError("Carrier vectors must be finite")
+    out = {"hf_peak": hf_peak(*arrays), "hf_sar": hf_sar(*arrays)}
+    magnitudes = [np.linalg.norm(value, axis=-1) for value in arrays]
+    out["carrier_sum"] = np.sum(magnitudes, axis=0)
+    for index, value in enumerate(magnitudes, 1):
+        out[f"carrier_{index}"] = value
+    if normals is not None:
+        normals = np.asarray(normals, dtype=float)
+        if normals.shape != arrays[0].shape or not np.isfinite(normals).all():
+            raise ValueError("Normals must be finite and match the vector field shape")
+        if not np.allclose(np.linalg.norm(normals, axis=-1), 1.0, atol=1e-6, rtol=0):
+            raise ValueError(
+                "Supply unit normals in the same coordinate frame as fields"
+            )
+        projected = [np.sum(value * normals, axis=-1) for value in arrays]
+        for index, value in enumerate(projected, 1):
+            out[f"carrier_normal_{index}"] = np.abs(value)
+        out["carrier_normal_sum"] = np.abs(np.sum(projected, axis=0))
+        if len(arrays) == 2:
+            out["TI_normal"] = 2.0 * np.minimum(
+                np.abs(projected[0]), np.abs(projected[1])
+            )
+    return out

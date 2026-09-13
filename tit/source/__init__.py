@@ -18,8 +18,25 @@ tit.source.config : ``ForwardConfig`` and ``FsavgMapConfig`` dataclasses.
 """
 
 from tit.source.config import ForwardConfig, FsavgMapConfig
-from tit.source.fsaverage import project_fields_to_fsaverage, project_subject
-from tit.source.forward import prepare_forward
+
+
+def __getattr__(name: str):
+    # Loading inverse/array utilities must not import the SimNIBS forward stack.
+    if name == "prepare_forward":
+        from tit.source.forward import prepare_forward
+
+        return prepare_forward
+    if name in {
+        "project_fields_to_fsaverage",
+        "project_subject",
+        "project_carrier_fields",
+        "project_scalar_field",
+    }:
+        from tit.source import fsaverage
+
+        return getattr(fsaverage, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "ForwardConfig",
@@ -27,4 +44,6 @@ __all__ = [
     "prepare_forward",
     "project_fields_to_fsaverage",
     "project_subject",
+    "project_carrier_fields",
+    "project_scalar_field",
 ]

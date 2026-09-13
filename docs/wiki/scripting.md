@@ -452,3 +452,28 @@ Config files are generated programmatically via `tit.config_io.write_config_json
 Full guide: [AI Assistant]({{ site.baseurl }}/wiki/ai-assistant/).
 
 If you write scripts with an AI assistant (Claude Code, Codex, Cursor, ...), install the [TI-Toolbox agent plugin](https://github.com/idossha/TI-Toolbox/tree/main/agent-plugin). It gives the assistant this wiki, the `tit` source and a read-only view of your project directory through an MCP server, so it stops guessing API fields. In Claude Code: `/plugin marketplace add idossha/TI-Toolbox` then `/plugin install ti-toolbox@ti-toolbox`.
+
+## EEG and graph-analysis notebooks
+
+The [EEG workflow notebook]({{ site.baseurl }}/assets/notebooks/eeg_workflow.ipynb)
+contains a data-free numerical example followed by explicit head-model, simulation,
+projection and source calls. Copy it into your project's
+`code/ti-toolbox/notebooks/` directory to open it in the toolbox Notebooks page.
+The real-data section requires external configurations and prepared recordings.
+Use a compatible MNE/SimNIBS kernel; MNE 1.12.1 is the validated numerical stack
+for the new reconstruction functions. No private dataset is bundled.
+
+| Task | Python API |
+|---|---|
+| Channels, event pairs and interval construction | `tit.eeg` |
+| Covariance, inverse windows, graph smoothing | `tit.source.reconstruction` |
+| Recording-aligned forward/FEM preparation | `tit.source.prepare_forward` |
+| Native carrier metrics and cortical projection | `tit.fields.carrier_metrics`, `tit.source.project_carrier_fields` |
+| Atlas labels and parcel means | `tit.atlas.surface` |
+| Seeded sensor/source graph inference | `tit.stats.graph` |
+| Partial correlations, declared FDR families, rank moderation | `tit.stats.associations` |
+| Effect intervals and participant influence | `tit.stats.effects`, `tit.stats.robustness` |
+
+Array functions do not choose your cohort, outcome, contrasts or correction family.
+A study migrating earlier code should retain its explicit compatibility policies;
+see [architecture §13](https://github.com/idossha/TI-Toolbox/blob/main/docs/dev/ARCHITECTURE.md#13-reusable-eeg-and-array-analysis).

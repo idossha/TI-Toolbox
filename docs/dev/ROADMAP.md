@@ -10,6 +10,7 @@ The internal image is published on Docker Hub; manual acceptance continues. No s
 
 | Remaining acceptance work | Completion criterion |
 |---|---|
+| EEG consolidation reproduction | Run notebook modeling/projection/source stages on approved data in the compatible container; compare manuscript tables before promoting the migration |
 | Manual workflow testing | Colleagues exercise representative copied projects and report output/result behavior |
 | Rebuild the distribution candidate | Bake current source, renderer and compatible Tetravox embed; record immutable identities |
 | Clean image and loader acceptance | Test without checkout mounts; verify Python/Bash launchers, packaged cross-project Attach/Recreate, project switching and Electron close-stop on each supported host |
