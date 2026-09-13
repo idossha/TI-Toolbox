@@ -62,15 +62,6 @@ describe("existing output permission", () => {
     expect(decide).toHaveBeenCalledTimes(2);
   });
 
-  it("explains whole-pipeline Skip and blocks replacement of unresolved outputs", () => {
-    client.setQueryData(["settings"], { allow_unsafe_overrides: true });
-    render(true, { skipWholeBatch: true, replaceDisabledReason: "Dynamic outputs cannot be previewed." });
-    expect(button("replace").disabled).toBe(true);
-    expect(button("skip").textContent).toBe("Skip pipeline");
-    expect(document.body.textContent).toContain("Skipping queues no pipeline jobs.");
-    expect(document.body.textContent).not.toContain("will run either way");
-  });
-
   it("disables Replace when saved project settings revoke permission while open", async () => {
     client.setQueryData(["settings"], { allow_unsafe_overrides: true });
     render();

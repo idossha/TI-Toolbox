@@ -1,10 +1,7 @@
 /**
  * What each pre-processing stage does, what it eats, and what it leaves behind.
  *
- * One module, because three places want the same answer: the checkbox rows on this page, the two
- * section headers, and (TODO) the pipeline canvas node inspector — `pages/pipeline/NodeInspector`
- * has no per-node help affordance yet; when it grows one it should read `STEP_INFO` by stage id
- * rather than restating any of this.
+ * Shared stage descriptions for checkbox rows and section headers.
  *
  * The picture is a **node flow**, not a directory listing: every input, every process and every
  * output is a box with a human label (`T1w DICOM series`), the concrete path underneath it in

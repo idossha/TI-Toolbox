@@ -22,7 +22,7 @@ export interface TitSelectFileOptions {
 }
 
 export interface TitSaveFileOptions {
-  /** Suggested file name, e.g. `"my pipeline.ipynb"`. Basename only; any directory is stripped. */
+  /** Suggested file name, e.g. `"participants.tsv"`. Basename only; any directory is stripped. */
   defaultName?: string;
   filters?: { name: string; extensions: string[] }[];
 }
@@ -127,7 +127,7 @@ export interface TitBridge {
    * Save renderer-produced **text** to a host file the user picks.
    *
    * This exists because a renderer cannot save a file on its own here: an `<a download>` on a
-   * `blob:` URL — which is how the Pipeline page's "Export notebook" was written — needs a
+   * `blob:` URL needs a
    * download handler, and this app has none, so the click did nothing at all and reported
    * success. The dialog is the *only* thing that decides where the bytes land: the renderer names
    * a suggested basename and never a directory, so this cannot be used to write to a path of the

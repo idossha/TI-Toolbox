@@ -71,7 +71,6 @@ v3 application layer
   tit.server     FastAPI app; routes/ auto-discovered; kernels.py, notebooks.py,
                  static.py, ws.py, auth.py, settings.py
   tit.jobs       the job engine (see below)
-  tit.pipeline   DAG documents: document / plan / validate / notebook
   tit.scene      scene payloads from a subject's real files + the packaged guide
   tit.tetravox   Tetravox Embed install/update channel + protocol range
   tit.viewspec   build_view(kind, ...) -> ViewSpec (a pure function)
@@ -119,14 +118,6 @@ States: `queued running succeeded failed cancelled skipped lost`.
 
 ## Other v3 subsystems worth knowing before you touch them
 
-- **`tit/pipeline/`** — a pipeline is a DAG whose source is a `subjects` node.
-  Two rules do most of the work: **a pipeline introduces no job kind** (every
-  node kind but `subjects` is in `JOB_KINDS`), and **a pipeline run is one job
-  group** (exactly one `submit_plan`; no second executor, no client-side
-  sequencing). `POST /api/pipelines/validate` *answers*, it does not throw: 200
-  with `ok: false` and one issue per problem; refusals name the subjects, never a
-  count. Port types are a closed set: `subjects | montages | simulation | roi |
-  leadfield`.
 - **`tit/server/kernels.py`** — Jupyter kernels driven **in-process** with
   `jupyter_client`, inside the container; the pipe is `WS /ws/kernels/{id}`.
   `MAX_KERNELS = 2`, 30-minute idle timeout, both reported by `GET /api/kernels`

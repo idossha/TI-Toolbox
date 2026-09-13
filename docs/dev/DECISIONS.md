@@ -42,9 +42,9 @@ rationale below consolidates later amendments without treating superseded design
 | 23 | 2026-09-03 | The embed ships inside the image and is drawn on the host GPU; no X11 anywhere | superseded by 27, restored by 29 |
 | 24 | 2026-09-03 | Compose remains the stack definition; the app realises it through the Engine API client | live |
 | 25 | 2026-09-05 | Landing page = Overview; batch = a scheduler cap; one shared terminal; run-page panes draw a packaged guide; the Viewer loads on command | live |
-| 26 | 2026-09-05 | Tetravox updates itself against a protocol range; electrode dots; one selection grammar; a pipeline is a job group | live; native panes replace the embed-specific electrode implementation (27) |
+| 26 | 2026-09-05 | Tetravox updates itself against a protocol range; electrode dots; one selection grammar; a pipeline is a job group | pipeline portion superseded 2026-09-13; native panes replace the embed-specific electrode implementation (27) |
 | 27 | 2026-09-06 | Native run-page panes; the viewer is a separate desktop application; jobs tables | pane half live; viewer half superseded by 29 |
-| 28 | 2026-09-06 | Managed host install of Tetravox; the pipeline's Subjects node and readiness gating; jobs tables on all three run pages | install half superseded by 29; the rest live |
+| 28 | 2026-09-06 | Managed host install of Tetravox; the pipeline's Subjects node and readiness gating; jobs tables on all three run pages | install half superseded by 29; pipeline portion superseded 2026-09-13; job tables live |
 | 29 | 2026-09-06 | **The embed is restored, baked in the image, on the Viewer's own two sub-pages.** Nothing installs Tetravox on the host | live |
 | 30 | 2026-09-07 | External audit response: the six scientific corrections, the server hardening, one release workflow | live |
 
@@ -142,6 +142,8 @@ serialization, or the server gains durable build-error identities.
 
 ### 2026-09-05/06 — One job table and one scheduler
 
+**Pipeline portion superseded 2026-09-13:** job tables and the shared scheduler remain supported.
+
 **Decision.** Simulator, Optimizer and Analyzer describe one job per row. Shared selection controls
 own selection semantics; the plan grid and action digest state the batch. The extra sticky run
 receipt was removed on September 6. A batch uses server groups and admission caps; a pipeline is
@@ -154,6 +156,8 @@ may use separate groups. No loops, conditionals or retry engine. **Revisit if.**
 become requirements; they need an explicit scheduler/contract change.
 
 ### 2026-09-05/06 — Pipeline canvas and notebook export
+
+**Superseded 2026-09-13:** the graphical pipeline feature was removed; see the removal decision below.
 
 **Decision.** Use controlled React Flow for the canvas and optional `nbformat` support for export.
 Export deterministic notebooks calling documented public APIs; retain the pipeline document in
@@ -324,6 +328,8 @@ The Tetravox delivery/update machinery shipped; migrating workflow panes into th
 subsequently reversed.
 
 ### 2026-09-05 — Overview, batch execution and explicit viewing
+
+**Pipeline portion superseded 2026-09-13:** graph execution and its dynamic binding adapter were removed.
 
 The R1–R5 program delivered aggregate Overview, a shared clearable console, scheduler-enforced
 batch caps, packaged Ernie guide anatomy and draft-versus-loaded Viewer state. The A–D program
@@ -656,13 +662,15 @@ validation, local-project checks and project-change cancellation in the main pro
 
 ### 2026-09-11 — Canvas fidelity to existing jobs
 
+**Superseded 2026-09-13:** the graphical pipeline feature was removed; see the removal decision below.
+
 **Decision:** preserve complete node configurations through edits, resolve explicit producer outputs,
 and make exported notebooks faithfully execute existing job functions. The canvas remains a visual
 composition layer, not a second scientific implementation.
 
 **Why:** the audit reproduced lost scientific settings after loaded-node edits, incomplete notebook
 configurations, and validation that hid planner errors. The maintainer authorized correcting these
-behaviors with incremental local tests; see [the scoped intent](canvas-intent-2026-09-11.md).
+behaviors with incremental local tests.
 
 **Cost:** configuration round-trip and notebook execution tests must cover the same non-default inputs
 as the underlying jobs. Unsupported bindings must report an error rather than guess an output.
@@ -672,17 +680,36 @@ as the underlying jobs. Unsupported bindings must report an error rather than gu
 
 ### 2026-09-11 — Plain notebook calls and shared processing forms
 
+**Superseded 2026-09-13:** the graphical pipeline feature was removed; see the removal decision below.
+
 **Decision:** exported notebook cells are ordered calls to existing scientific functions with
 explicit configurations. Canvas inspectors reuse the dedicated pages' settings components.
 
 **Why:** the maintainer clarified that notebook readers want the functions and inputs, not an
 embedded graph or execution framework, and that nodes need the same options as their pages.
 This supersedes the notebook adapter mechanism introduced with the earlier canvas fidelity change;
-full configuration preservation and exact producer bindings remain required. See
-[the clarified intent](canvas-functions-intent-2026-09-11.md).
+full configuration preservation and exact producer bindings remain required.
 
 **Cost:** export tests must exercise the emitted direct calls and compare complete inputs. Shared
 form tests must prove settings survive page and node edits without duplicate state or submission.
 
 **Revisit if:** an existing scientific function cannot express a supported job configuration;
 report that limitation rather than creating notebook-specific science.
+
+
+### 2026-09-13 — Remove the graphical pipeline feature
+
+**Decision:** remove the Canvas page, graph documents/API, graph execution adapters and graph-to-notebook
+export. Architecture §7.3 is retired without renumbering. Standalone Notebooks, dedicated processing
+pages, scientific functions and job groups remain supported.
+
+**Why:** the maintainer requested complete removal instead of maintaining the graphical workflow layer.
+This reverses the Canvas decisions of September 5–6 and September 11; the shared processing controls
+and standalone notebook workflow remain useful independently.
+
+**Alternatives rejected:** hiding the navigation entry would leave an unsupported graph API and
+execution path. Retaining graph import/export would preserve the same maintenance surface.
+
+**Compatibility:** existing graph files are not migrated or deleted from user projects. They are no
+longer executable by the application. Existing notebooks remain ordinary editable Python notebooks.
+React Flow is removed with its only consumer; notebook dependencies remain for standalone notebooks.

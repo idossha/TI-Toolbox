@@ -12,7 +12,7 @@
  *   npx playwright test --project=real docs-shots
  * ```
  *
- * It is **read-only against the project**: it opens existing notebooks, pipelines and simulations
+ * It is **read-only against the project**: it opens existing notebooks and simulations
  * and never submits a job, saves a notebook or writes a montage. The one exception is the scene
  * file `/api/view/open` always writes under `<project>/code/ti-toolbox/viewer/`, which the Viewer
  * writes on any open.
@@ -171,16 +171,4 @@ test("a notebook with real output — the seeded worked example", async () => {
   await expect(page.getByTestId("nb-output").first()).toBeVisible({ timeout: 20_000 });
   await page.getByTestId("nb-output").last().scrollIntoViewIfNeeded();
   await shot("notebooks");
-});
-
-test("the Pipeline canvas, with a graph on it", async () => {
-  test.setTimeout(120_000);
-  await gotoPage(page, "pipeline", "Pipeline");
-  await expectPage(page, "pipeline");
-  if ((await page.locator("[data-testid^='pipeline-node-']").count()) === 0) {
-    const sample = page.getByTestId("pipeline-sample");
-    if ((await sample.count()) > 0) await sample.click();
-  }
-  await expect(page.locator("[data-testid^='pipeline-node-']").first()).toBeVisible({ timeout: 20_000 });
-  await shot("pipeline");
 });

@@ -7,7 +7,7 @@ import { Field } from "../../ui/Field";
 import { Select } from "../../ui/Select";
 import { ANALYZER_ROI_MODES, TISSUE_OPTIONS, type AnalyzerRow } from "./JobRows";
 
-/** The same target and compartment controls for a page job or a pipeline step. */
+/** The same target and compartment controls for analysis jobs. */
 export function AnalyzerSettings({row,onChange,onOpenViewer}: {row:AnalyzerRow;onChange:(patch:Partial<AnalyzerRow>)=>void;onOpenViewer?:ComponentProps<typeof RoiPicker>["onOpenViewer"]}) {
   return (
           <div className="analysis-target-editor" data-testid="analysis-target-editor" data-row={row.id}>

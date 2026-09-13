@@ -160,16 +160,7 @@ def _resolve_tool_module_path(module: str) -> Path | None:
 #: default rule: if it looks like a path it must resolve inside the project root. That rule
 #: is what covers ``tit.tools.electrode_overlay``'s three positional paths, and every tool
 #: script added later without a policy entry of its own.
-TOOL_ARG_POLICY: dict[str, dict[str, str]] = {
-    "tit.tools.pipeline_resolve": {
-        "--pipeline": "name",
-        "--node": "name",
-        "--port": "name",
-        "--from-kind": "name",
-        "--subjects": "subjects",
-        "--project-dir": "root",
-    },
-}
+TOOL_ARG_POLICY: dict[str, dict[str, str]] = {}
 
 
 def _looks_like_a_path(value: str) -> bool:

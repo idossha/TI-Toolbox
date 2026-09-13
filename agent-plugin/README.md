@@ -30,7 +30,7 @@ these are the facts that changed:
   and no FreeSurfer. Any answer that cites `tit/gui/**` is wrong.
 - **New subsystems the skills now cover**: `tit/jobs` (kinds, the pure scheduler,
   the on-disk job store, the ETA model in `tit/jobs/eta.py`, the ten-value failure
-  taxonomy including *"Lost (server restarted mid-run)"*), `tit/pipeline`,
+  taxonomy including *"Lost (server restarted mid-run)"*),
   `tit/server/kernels.py` and notebooks, `tit/scene`, `tit/tetravox`,
   `tit/viewspec.py`, `tit/catalog.py`, `tit/launch.py`.
 - **The UI is a ten-row rail counting from ⌘0** (Overview … Jobs at ⌘9); Settings

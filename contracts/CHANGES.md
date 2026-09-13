@@ -1025,3 +1025,12 @@ Existing-output replacement through single/group jobs, pipeline runs and reruns 
 return 403 before creating jobs. Existing simulation output also requires explicit
 `overwrite: true`; enabled permission alone returns 409 without that confirmation.
 Request and response fields are unchanged.
+
+
+## 2026-09-13 — remove the graph Canvas contract
+
+Removed the `/api/pipelines*` graph editing, validation, execution, persistence and notebook-export
+endpoints, their Canvas-specific OpenAPI schemas, and `pipeline.schema.json`. The Canvas backend
+and its dynamic binding resolver are no longer shipped. Existing job groups, dependency plans,
+`PipelineConfig` (the scientific config union), and notebook APIs remain supported. Previously saved
+project files are left on disk; this change performs no project-data migration or deletion.

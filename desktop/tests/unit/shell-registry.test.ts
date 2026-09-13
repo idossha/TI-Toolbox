@@ -121,11 +121,10 @@ describe("the shortcut map (DESIGN.md §9: ⌘0 Overview … ⌘9 Jobs; Settings
     expect(shortcutOf("simulator")).toBe("3");
     expect(shortcutOf("optimizer") ?? shortcutOf("optimizer-flex")).toBe("2");
     expect(shortcutOf("analyzer")).toBe("4");
-    expect(shortcutOf("pipeline")).toBe("7");
-    expect(shortcutOf("notebooks")).toBe("8");
+    expect(shortcutOf("notebooks")).toBe("7");
     expect(shortcutOf("results")).toBe("6");
     expect(shortcutOf("viewer")).toBe("5");
-    expect(shortcutOf("jobs")).toBe("9");
+    expect(shortcutOf("jobs")).toBe("8");
     // Ten rows, ten digits, because the count starts at zero. Settings is not a rail
     // row, so it has no digit at all — ⌘, is its only chord.
     expect(shortcutOf("settings")).toBeUndefined();

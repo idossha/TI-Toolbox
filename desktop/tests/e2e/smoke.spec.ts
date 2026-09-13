@@ -8,8 +8,7 @@ import { connectLauncher, MOD, expectPage, expectSubject, gotoPage, launchElectr
  *
  * `registry.ts` makes a page's number its index in `NAV_ORDER` + 1, precisely so the rail, the
  * palette and the `?` sheet cannot disagree — and a spec that hard-codes the digit opts itself out
- * of that guarantee. Three tests in this file broke the day the Notebooks row was inserted after
- * Pipeline and moved every number after it; none of them was about Notebooks.
+ * of that guarantee. Navigation tests read the current bindings.
  *
  * The rail publishes the binding as `aria-keyshortcuts` ("Meta+8" / "Control+8"), which is both the
  * app's own statement of what the key is and the thing a screen-reader user is told. Pressing what
@@ -137,11 +136,7 @@ test("launcher connects and the shell renders its chrome around the landing page
   await expect(rail).toHaveAttribute("data-rail-mode", "icons");
   await page.screenshot({ path: join(ARTIFACTS, "subjects.png") });
 
-  // The bridge exists but the token never reaches the renderer. Thirteen entries: twelve, plus
-  // `saveFile`, which the Pipeline canvas added (`docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)`)
-  // because saving renderer-produced text to a file the user picks is a host action and the
-  // renderer had no way to do it at all — its `<a download>` on a blob: URL was inert in this
-  // shell and reported success anyway.
+  // The bridge includes host-side text export, while keeping the token out of the renderer.
   //
   // A fourteenth, `viewer`, existed for a few hours on 2026-09-06: V3 made viewing a
   // host-installed Tetravox desktop app, which needed a route through main to launch. The
@@ -178,10 +173,9 @@ test("keyboard shortcuts jump screens and toggle the jobs rail", async () => {
   const mod = MOD;
 
   // DESIGN.md §9: ⌘0 Overview · ⌘1 Pre-processing · ⌘2 Optimizer · ⌘3 Simulator · ⌘4 Analyzer ·
-  // ⌘5 Viewer · ⌘6 Results · ⌘7 Pipeline · ⌘8 Notebooks · ⌘9 Jobs. The number is the page's index
+  // ⌘5 Viewer · ⌘6 Results · ⌘7 Notebooks · ⌘8 Jobs. The number is the page's index
   // in `registry.ts`'s NAV_ORDER — counting from zero, so ten digits cover ten rows — which is why
   // the rail, the palette and the `?` sheet cannot disagree. Settings is not a rail row: ⌘, only.
-  await jumpTo("pipeline");
 
   await jumpTo("results");
 

@@ -71,8 +71,8 @@ describe("exTargets", () => {
     expect(targets[0]?.roiName).toBe("CIT168_2regions");
     expect(targets[0]?.roiNames).toEqual([]);
     expect(targets[0]?.roiAtlas).toEqual([
-      { atlas_path: "/atlases/CIT168.nii.gz", label: 10 },
-      { atlas_path: "/atlases/CIT168.nii.gz", label: 11 },
+      { atlas_path: "/atlases/CIT168.nii.gz", label: 10, atlas_space: "subject" },
+      { atlas_path: "/atlases/CIT168.nii.gz", label: 11, atlas_space: "subject" },
     ]);
   });
 

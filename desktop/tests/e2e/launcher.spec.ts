@@ -364,7 +364,7 @@ test("disconnected Overview renders without contacting a job server", async () =
   await page.locator("#project-dir").fill(projectDir);
   await expect(page.locator("#start-stack")).toBeEnabled();
   await expect(page.getByTestId("nav-rail")).toHaveAttribute("data-rail-mode", "labels");
-  for (const id of ["preprocess", "optimizer", "simulator", "analyzer", "viewer", "results", "pipeline", "notebooks", "jobs"]) {
+  for (const id of ["preprocess", "optimizer", "simulator", "analyzer", "viewer", "results", "notebooks", "jobs"]) {
     await expect(page.getByTestId(`nav-item-${id}`)).toBeVisible();
     await expect(page.getByTestId(`nav-item-${id}`)).toHaveAttribute("aria-disabled", "true");
   }

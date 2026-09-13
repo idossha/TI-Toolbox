@@ -7,8 +7,7 @@ import { isProjectHome } from "../env";
  * v3 (program U7, DESIGN.md §9) replaces the v2 grouping with **one flat, workflow-ordered rail**:
  * `NAV_ORDER` is the rail and the ⌘-numbers, `PINNED_ORDER` is the pair at the bottom, and a page
  * in neither is palette-only. A `PageDef`'s own `navGroup` and `shortcut` no longer decide where it
- * lands or which key reaches it — a page directory said "pipeline" and got two nav entries copied
- * from the PyQt tab strip; the rail says what the workflow is, once, here.
+ * lands or which key reaches it. The rail defines the workflow order here.
  */
 import type { LucideIcon } from "lucide-react";
 import type { ComponentType } from "react";
@@ -104,7 +103,6 @@ export const NAV_ORDER = [
   "analyzer",
   "viewer",
   "results",
-  "pipeline",
   "notebooks",
   "jobs",
 ] as const;
@@ -112,7 +110,7 @@ export const NAV_ORDER = [
 /**
  * Pinned to the bottom below a spacer, in this order: **System · Settings · Help**.
  *
- * None of the three takes a rail digit — all ten belong to the workflow rows (see
+ * None of the three takes a rail digit — the workflow digits belong to the workflow rows (see
  * `shortcutForSlot`). Settings keeps ⌘, and Help the `?` sheet; System has no chord at all, which
  * is right for a screen you open when something looks wrong rather than one you jump to mid-task.
  *
@@ -122,7 +120,7 @@ export const NAV_ORDER = [
  */
 export const PINNED_ORDER = ["system", "settings", "help"] as const;
 
-/** ⌘, opens Settings. The rail's digits are ⌘0–⌘9 and all ten belong to workflow rows, so this
+/** ⌘, opens Settings. The rail's digits are ⌘0–⌘9 and the workflow digits belong to workflow rows, so this
  *  alias is now Settings' only chord, and the `?` sheet spells it. */
 export const SHORTCUT_ALIASES: Record<string, string> = { ",": "settings" };
 

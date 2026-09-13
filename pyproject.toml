@@ -14,13 +14,9 @@ dynamic = ["version"]
 # interpreter, where an unpinned resolve would fight SimNIBS's pins.
 dependencies = []
 
-# `nbformat` is needed only by the pipeline canvas's notebook export
-# (tit.pipeline.notebook.export_notebook). Both container recipes' pip lines install it, so the
-# desktop app always has it; a bare `pip install tit` gets an honest 501 from
-# POST /api/pipelines/export until this extra is installed. It is an extra rather than a hard
-# dependency so the empty-`dependencies` policy above still holds.
+# Notebook file validation remains optional for bare Python installs; the container includes it.
 [project.optional-dependencies]
-pipeline = ["nbformat>=5.1.4"]
+notebooks = ["nbformat>=5.1.4"]
 # Host tests restore real scipy in stats modules; the container remains the real SimNIBS gate.
 test = [
   "pytest>=8", "pytest-cov>=5", "numpy>=1.26", "scipy>=1.11", "nibabel>=5",

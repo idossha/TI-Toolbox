@@ -31,8 +31,6 @@ export function ExistingOutputsDialog({
   noun = "output",
   onDecide,
   busy,
-  replaceDisabledReason,
-  skipWholeBatch = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -41,11 +39,9 @@ export function ExistingOutputsDialog({
   noun?: string;
   onDecide: (decision: ExistingOutputsDecision) => void;
   busy?: boolean;
-  replaceDisabledReason?: string;
-  skipWholeBatch?: boolean;
 }) {
   const settings = useQuery({ queryKey: ["settings"], queryFn: getSettings, enabled: open });
-  const canReplace = !replaceDisabledReason && !settings.isError && settings.data?.allow_unsafe_overrides === true;
+  const canReplace = !settings.isError && settings.data?.allow_unsafe_overrides === true;
   const rest = Math.max(0, total - existing);
   return (
     <Dialog
@@ -55,7 +51,7 @@ export function ExistingOutputsDialog({
       description={
         `${existing} of ${total} planned job${total === 1 ? "" : "s"} already ${existing === 1 ? "has" : "have"} ` +
         `${noun} on disk.` +
-        (!skipWholeBatch && rest > 0 ? ` The other ${rest} ${rest === 1 ? "job" : "jobs"} will run either way.` : "")
+        (rest > 0 ? ` The other ${rest} ${rest === 1 ? "job" : "jobs"} will run either way.` : "")
       }
       footer={
         <>
@@ -67,13 +63,12 @@ export function ExistingOutputsDialog({
           </Button>
           {/* The default: it is the safe answer, and it is what finishes a partly-completed batch. */}
           <Button variant="primary" loading={busy} onClick={() => onDecide("skip")} data-testid="existing-outputs-skip">
-            {skipWholeBatch ? "Skip pipeline" : rest > 0 ? `Skip ${existing}, run ${rest}` : "Skip them"}
+            {rest > 0 ? `Skip ${existing}, run ${rest}` : "Skip them"}
           </Button>
         </>
       }
     >
-      {!canReplace && <p className="field-help">{replaceDisabledReason ?? "Replacing outputs requires Allow unsafe overrides in this project’s Settings. Skip or cancel to keep existing outputs."}</p>}
-      {skipWholeBatch && <p className="field-help">Skipping queues no pipeline jobs. Its dependent steps cannot be partially skipped here.</p>}
+      {!canReplace && <p className="field-help">Replacing outputs requires Allow unsafe overrides in this project’s Settings. Skip or cancel to keep existing outputs.</p>}
       <p className="field-help" data-testid="existing-outputs-detail">
         Skipping leaves the existing {noun} untouched. Replacing overwrites {existing === 1 ? "it" : "them"}; this cannot be
         undone.

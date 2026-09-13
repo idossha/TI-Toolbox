@@ -224,32 +224,6 @@ class TestToolsArgumentJail:
         with pytest.raises(kinds.KindError, match="outside the project"):
             self._argv("tit.tools.electrode_overlay", ["~/.ssh/authorized_keys"])
 
-    def test_pipeline_resolve_accepts_its_planned_argv(self):
-        argv = self._argv(
-            "tit.tools.pipeline_resolve",
-            ["--pipeline", "demo", "--node", "sim1", "--port", "montages",
-             "--from-kind", "flex", "--subjects", "ernie,001",
-             "--project-dir", "/proj"],
-        )
-        assert argv[-1] == "/proj"
-
-    def test_pipeline_resolve_refuses_a_traversing_name(self):
-        for args in (
-            ["--pipeline", "../../escape", "--node", "sim1"],
-            ["--node", "../escape"],
-            ["--pipeline=../escape"],
-        ):
-            with pytest.raises(kinds.KindError, match="plain name"):
-                self._argv("tit.tools.pipeline_resolve", args)
-
-    def test_pipeline_resolve_refuses_another_projects_root(self):
-        with pytest.raises(kinds.KindError, match="project directory"):
-            self._argv("tit.tools.pipeline_resolve", ["--project-dir", "/etc"])
-
-    def test_pipeline_resolve_refuses_an_invalid_subject_id(self):
-        with pytest.raises(kinds.KindError, match="subject id"):
-            self._argv("tit.tools.pipeline_resolve", ["--subjects", "ernie,../../evil"])
-
     def test_a_tool_with_no_policy_still_has_its_paths_jailed(self):
         """The default rule covers every tool script added without a policy entry."""
         with pytest.raises(kinds.KindError, match="outside the project"):

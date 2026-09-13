@@ -33,7 +33,6 @@ wiki:
     - { title: Flex Search, url: /wiki/flex-search/ }
     - { title: Ex Search, url: /wiki/ex-search/ }
     - { title: Analyzer, url: /wiki/analyzer/ }
-    - { title: Pipeline, url: /wiki/pipelines/ }
     - { title: Notebooks, url: /wiki/notebooks/ }
     - { title: Results, url: /wiki/results/ }
     - { title: Viewer, url: /wiki/visualizers/ }

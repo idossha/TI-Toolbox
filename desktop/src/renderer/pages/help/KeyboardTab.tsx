@@ -4,9 +4,7 @@
  * '?' = Help"). This is a page you can browse to, unlike the `?` overlay
  * (`app/KeyboardSheet.tsx`) which needs you to already know the gesture — the two are deliberately
  * separate surfaces for the same facts, not a duplicate implementation. Both now derive the list
- * from `app/registry.ts`'s `NAV_ORDER`: this tab used to hardcode nine rows ending "⌘9 Settings",
- * and every later rail change — the Pipeline row, then the ⌘0-based numbering that gave all ten
- * digits to workflow rows and left Settings with only ⌘, — would have made that copy wrong again. A rail row must not need an edit here.
+ * from `app/registry.ts`'s `NAV_ORDER`, so rail changes cannot leave a stale shortcut list.
  *
  * There is no Freeview, no Gmsh and no X11 in this list, and there should never be again — v3
  * removed the external-viewer flow entirely (D3), and the old PyQt help tab's per-viewer shortcut

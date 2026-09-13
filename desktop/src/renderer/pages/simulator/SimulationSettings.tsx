@@ -9,7 +9,7 @@ import { Checkbox } from "../../ui/Toggle";
 import { ConductivityDialog, type CustomConductivities } from "./ConductivityDialog";
 import { CONDUCTIVITY_OPTIONS, OUTPUT_FIELDS, type JobSettings } from "./types";
 
-/** Shared per-job simulation controls, used by the Simulator and pipeline inspector. */
+/** Shared per-job simulation controls, used by the Simulator. */
 export function SimulationSettings({ value: draft, onChange: setDraft }: { value: JobSettings; onChange: (value: JobSettings) => void }) {
   const [tissueOpen, setTissueOpen] = useState(false);
   const invalid = draft.outputFields.length === 0;

@@ -9,10 +9,9 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 ---
 ### v3.0.0 (Unreleased)
 
-- Canvas edits preserve complete saved scientific configurations. Montage selection uses real catalog definitions; invalid drafts block actions, and undo/redo restores matching forms.
-- Notebook export writes ordered calls to existing scientific functions with full inputs. Canvas dynamic bindings use specific producer results per subject and isolated run files instead of historical output scans.
+- **Pipeline canvas removed** — use the dedicated processing pages or standalone Notebooks. Saved graph files are no longer opened or executed; existing notebooks, jobs and results remain available.
 
-- Canvas validation reports invalid node configurations before Run, and submission errors retain their specific explanation.
+
 
 - Optimizer subjects remain selectable before a leadfield exists, with generation available in the Goal cell and a disabled progress indicator while it runs. Completed generation refreshes the row automatically; Ex/mEx searches still require a completed leadfield.
 - Clicking a job in the expanded bottom panel opens its full Jobs page details.
@@ -84,10 +83,9 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 - **Ex-search electrode pairs align.** Search-space controls occupy their own row, keeping
   positive and negative electrode selectors paired in TI and mTI modes.
 
-- Canvas settings reuse the dedicated processing controls. Notebook exports contain ordered scientific function calls and are saved into project Notebooks without overwriting earlier exports.
 
 - **Navigation follows the working order.** Optimizer precedes Simulator; Viewer and Results
-  precede Pipeline, Notebooks and Jobs. Extensions follow those pages. Number shortcuts follow the new order.
+  precede Notebooks and Jobs. Extensions follow those pages. Number shortcuts follow the new order.
 - **Inputs need fewer clicks.** NIfTI masks accept file drops and editable server paths;
   multi-select picker rows toggle their selection when clicked. Simulator job settings expose
   tensor ratio and conductivity limits for anisotropic models.
@@ -149,7 +147,7 @@ and the [Wiki]({{ site.baseurl }}/wiki/) for a page per workflow.
 - **[Overview]({{ site.baseurl }}/wiki/overview/)** — a new landing page: one row per subject, one dot per artefact, and a per-stage readiness verdict, aggregated server-side across the whole project.
 - **[Jobs]({{ site.baseurl }}/wiki/jobs/)** — every long-running thing is now a job with a record: state, stage, elapsed time, CPU and memory, live console, artifacts, and a named failure category. There was no job registry in 2.x.
 - **[Notebooks]({{ site.baseurl }}/wiki/notebooks/)** — Jupyter inside the app, on the container's SimNIBS Python, with a seeded worked example that resolves *your* project.
-- **[Pipeline]({{ site.baseurl }}/wiki/pipelines/)** — a canvas: wire pre-processing, an optimizer, the simulator and the analyzer into one graph, run it as one job group, or export it as a notebook.
+- **Pipeline (removed before release)** — a canvas: wire pre-processing, an optimizer, the simulator and the analyzer into one graph, run it as one job group, or export it as a notebook.
 - **[Results]({{ site.baseurl }}/wiki/results/)** — one subject-first outputs browser, with simulation reports rendered inline instead of in your OS browser.
 - **Per-job tables on Simulator, Optimizer and Analyzer** — one row is one job, with its own subject, montage/method and target; **Duplicate** is the gesture for "same job, another subject". A run page submits its whole table as one request, and says how many groups it made.
 - **Free-hand electrode placement, folded into the [Simulator]({{ site.baseurl }}/wiki/simulator/)** — select a row, click the subject's own scalp in the 3-D pane, and the row takes that point in subject millimetres. This is the only pane that draws the selected subject; the others draw a packaged guide head.

@@ -38,10 +38,6 @@ current project workflow. The captures below illustrate tools within an open pro
       <p>Analyzer: one row per analysis, each row owning its own target.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/v3/pipeline.png" alt="Pipeline: wire the steps into a graph and run the whole thing as one job group." onclick="openLightbox(this)" />
-      <p>Pipeline: wire the steps into a graph and run the whole thing as one job group.</p>
-    </div>
-    <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/v3/notebooks.png" alt="Notebooks: Jupyter on the container's SimNIBS Python, with the project already resolved." onclick="openLightbox(this)" />
       <p>Notebooks: Jupyter on the container's SimNIBS Python, with the project already resolved.</p>
     </div>

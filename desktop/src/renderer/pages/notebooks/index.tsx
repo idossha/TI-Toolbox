@@ -114,8 +114,7 @@ function NotebookListPane({
       {notebooks.length === 0 ? (
         <p className="nb-list__empty">
           No notebooks yet. A new one opens with <code>tit</code> already imported and this
-          project&rsquo;s subjects listed — the pipeline canvas&rsquo;s exported notebooks land here
-          too.
+          project&rsquo;s subjects listed.
         </p>
       ) : (
         <ul className="nb-list__items">

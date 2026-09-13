@@ -162,7 +162,7 @@ separately from guide availability.
 **Viewer opening is a command.** `POST /api/view/open` resolves once and returns URL-addressed data
 for the embed and host-addressed scene data for export. Selection-only links prepare the Menu; explicit Open in viewer actions load the selected artifact. Optional atlas selection retains the server default when absent or unavailable. See §7.1.
 
-## 7. The viewer, the run-page renderer, pipelines and the selection grammar
+## 7. The viewer, the run-page renderer and the selection grammar
 
 ### 7.1 The viewer is the Tetravox embed, and it ships in the image
 
@@ -226,40 +226,11 @@ select nodes on the subject GM surface (area statistics) or voxels in the subjec
 so each subject gets its own registered target. Nearest-neighbor sampling preserves membership;
 `tests/numerical/test_analyzer_masks.py` pins transformed landmarks, membership, and units.
 
-### 7.3 Pipelines
+### 7.3 Pipeline canvas (removed)
 
-A pipeline is a typed DAG of existing job kinds, with a `subjects` source and ports `subjects`,
-`montages`, `simulation`, `roi`, `leadfield`. Each processing node owns its configuration; an edge
-transfers only its named binding. Readiness checks propagate required and produced capabilities and
-name subjects that cannot proceed. Shape validation returns structured issues; malformed documents
-are request errors.
-
-Saved node configurations are authoritative. Editing an exposed field preserves untouched and
-unexposed scientific values; partial form defaults must not rebuild the whole configuration.
-Node inspectors reuse the dedicated processing pages' controlled settings components so the same
-scientific options are available without maintaining parallel forms.
-Bindings refer to the selected producer's outputs, not unrelated historical results. Validation
-checks runner-compatible configurations before enabling submission. The canvas adds no scientific
-algorithms or independent execution semantics.
-
-One pipeline run uses one job group and the existing scheduler, cancellation and events. Static
-bindings resolve during planning. Dynamic bindings use intermediate resolve jobs and are merged into
-consumer configuration at admission, when producer files can exist. Pipeline execution introduces
-no separate retry, conditional or scheduling engine. Notebook export resolves the graph at export
-time and writes ordered calls to existing scientific functions with explicit inputs. Generated
-code has no graph, planner or job-adapter runtime; the saved document may remain in notebook
-metadata for round trips. Canvas documents stay in the project pipeline directory; notebook exports
-are created in the project notebook directory without replacing existing notebooks. Unsupported conversions are reported rather than replaced with invented
-scientific operations.
-
-The UI previews independently resolvable destinations. Partial previews cannot enable replacement;
-Skip on a conflicting pipeline queues no jobs because dependencies cannot be partially skipped there.
-New dynamic pipelines retain the non-overwrite path. Saved nested destructive flags do not substitute
-for the current submission's decision.
-
-Sources: [`pipeline schema`](../../contracts/pipeline.schema.json), [`tit/pipeline/`](../../tit/pipeline/),
-[`bindings.py`](../../tit/jobs/bindings.py),
-[`Pipeline API`](../../desktop/src/renderer/pages/pipeline/api.ts).
+The graphical pipeline feature was removed on 2026-09-13. Dedicated processing pages submit
+existing jobs and job groups; standalone Notebooks remain available for scripted workflows.
+This section number is reserved. See the removal decision in [DECISIONS.md](DECISIONS.md).
 
 ### 7.4 One selection grammar
 
@@ -386,9 +357,8 @@ save-file bridge or browser download.
 choice, including Rerun; old confirmation state and saved config flags confer no authority.
 The shared dialog offers Skip, Replace and rerun, or Cancel. Replace stays disabled unless the saved
 project setting is true; loading or failed settings checks confer no permission. Skip states whether
-new jobs will run; Pipeline Skip and job Rerun Skip queue nothing. Incomplete pipeline previews cannot
-enable Replace.
-Submission routes enforce project permission before single jobs, groups, pipelines or reruns create
+new jobs will run; job Rerun Skip queues nothing.
+Submission routes enforce project permission before single jobs, groups or reruns create
 jobs. Simulation overwrite intent reaches the subprocess and native SimNIBS session; ordinary runs
 retain native existence protection. Caller environment variables cannot supply permission.
 
@@ -491,11 +461,6 @@ paths, waits and representative per-job CPU/memory cost; do not multiply these i
 budget. Chip precedence is `blocked > wait > overwrite > skip > new`. Blocked-chip detection currently
 matches prose warnings because the wire plan lacks structured per-cell blockers; it is a preview
 limitation, not server admission authority. The terminal header identifies the actual job and state.
-
-Pipeline cards use shared density and tokens. Named ports supplement color; missing inputs lead to
-the node editor. A valid receipt states jobs and dependencies; an invalid receipt groups structured
-issues by node and offers Fix. The empty prompt leaves the canvas mounted and sample/import actions
-available. Samples still undergo current server validation.
 
 The Viewer Menu's subject/space tree and editable composition share selection. Meshes, surfaces,
 volumes and attachments retain server-classified kinds, filenames and size. The embed owns detailed

@@ -173,10 +173,6 @@
          <lastmod>2026-09-10</lastmod>
     </url>
     <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/jobs/bindings/</loc>
-         <lastmod>2026-09-10</lastmod>
-    </url>
-    <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/jobs/bootstrap/</loc>
          <lastmod>2026-09-10</lastmod>
     </url>
@@ -358,26 +354,6 @@
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/opt/mex/mex/</loc>
-         <lastmod>2026-09-10</lastmod>
-    </url>
-    <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pipeline/</loc>
-         <lastmod>2026-09-10</lastmod>
-    </url>
-    <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pipeline/document/</loc>
-         <lastmod>2026-09-10</lastmod>
-    </url>
-    <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pipeline/notebook/</loc>
-         <lastmod>2026-09-10</lastmod>
-    </url>
-    <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pipeline/plan/</loc>
-         <lastmod>2026-09-10</lastmod>
-    </url>
-    <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/pipeline/validate/</loc>
          <lastmod>2026-09-10</lastmod>
     </url>
     <url>
@@ -725,10 +701,6 @@
          <lastmod>2026-09-10</lastmod>
     </url>
     <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/pipelines/</loc>
-         <lastmod>2026-09-10</lastmod>
-    </url>
-    <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/plan/</loc>
          <lastmod>2026-09-10</lastmod>
     </url>
@@ -938,10 +910,6 @@
     </url>
     <url>
          <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/tools/nifti_to_mesh/</loc>
-         <lastmod>2026-09-10</lastmod>
-    </url>
-    <url>
-         <loc>https://idossha.github.io/TI-Toolbox/api/reference/tit/tools/pipeline_resolve/</loc>
          <lastmod>2026-09-10</lastmod>
     </url>
     <url>

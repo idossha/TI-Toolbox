@@ -40,10 +40,6 @@ layout: home
         <p>Tetravox: explore anatomy and electric fields in the integrated 3D viewer</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/v3/pipeline.png" alt="The Pipeline canvas connecting processing steps">
-        <p>Pipeline: connect your workflow, run it or export it as a notebook</p>
-      </div>
-      <div class="carousel-slide">
         <img src="{{ site.baseurl }}/assets/imgs/v3/notebooks.png" alt="A notebook with a plotted field and tables">
         <p>Notebooks: work interactively with your project and SimNIBS Python</p>
       </div>

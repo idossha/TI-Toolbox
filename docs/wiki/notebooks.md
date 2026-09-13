@@ -62,13 +62,6 @@ permanent; there is no "restore example".
 A written-out version of the same walkthrough, with its outputs, is the
 [Example Notebook]({{ site.baseurl }}/wiki/example-notebook/) page.
 
-## From the Pipeline canvas
-
-The [Pipeline]({{ site.baseurl }}/wiki/pipelines/) page exports any graph you have drawn as an
-`.ipynb` that calls only the documented [scripting API]({{ site.baseurl }}/wiki/scripting/) — the
-graph and the notebook run the same work. Import it here (**Import .ipynb**) to keep working on it
-in Python.
-
 > **What's new in v3.** 2.x shipped a Jupyter server in the container that you reached through a
 > browser on port 8888, separately from the GUI. v3 puts the notebook in the application, on the
 > same connection, with the same authentication, and with the project already resolved.

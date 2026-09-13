@@ -14,7 +14,7 @@ analysis target so we can modify our analysis input per job."* Two page sections
 - **TARGET** — the ROI is a cell of a job row (`JobRows.tsx`), stated in words and edited in a
   dialog holding the shared `pages/_shared/roi` picker scoped to that row. The page's own
   `SphereRows.tsx` is no longer mounted here (the picker's spherical mode is what a row uses; the
-  file survives because `pages/pipeline/editors.ts` imports its `Sphere`/`EMPTY_SPHERE`).
+  file supplies the shared `Sphere`/`EMPTY_SPHERE` definitions).
 - **OUTPUT** — `pages/results` owns a simulation's existing analyses; `ResultsPanel.tsx` deleted.
 
 What a row expands to is unchanged from 2.5.0's `build_single_analysis_commands`: one config per

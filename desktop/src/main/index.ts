@@ -739,7 +739,7 @@ function registerIpc(): void {
   ipcMain.handle(
     "tit:saveFile",
     async (e, text: unknown, options: unknown): Promise<TitSaveFileResult> => {
-      // Save-as for renderer-produced text (the Pipeline page's exported notebook). A renderer
+      // Save-as for renderer-produced text exports. A renderer
       // cannot save a file itself here -- an `<a download>` on a blob: URL needs a download
       // handler this app does not install, so the click silently did nothing.
       //

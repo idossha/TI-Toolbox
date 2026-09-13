@@ -31,7 +31,6 @@ source before scheduling them; remove a row when it ships.
 | Optimizer | Ex symmetric-bucket controls; consistent naming for Flex `output_folder` and Ex `run_name`; mixed-kind group submission |
 | Analyzer | Expose Python multi-sphere ROI union in the config and UI |
 | Jobs | Running-job ETA and bulk retry; current elapsed time and single-job Rerun remain available |
-| Pipelines | Share complete processing settings with dedicated pages; plain-function notebook export; notebook import round trip |
 | Notebooks | Detect outdated seeded examples without overwriting user edits; variable explorer and interactive plots |
 | Viewer | Decide whether unused per-layer overrides need a client; assess reference-scene marker visibility |
 | Test harness | Avoid tracked smoke-payload churn while preserving UI/HTTP replay equivalence |

@@ -103,8 +103,6 @@ _PATH_PARAM_RE = re.compile(r"\{([^}]+)\}")
 #     Both models now carry `tit.jobs.spec.JobKind`, the contract's enum as a Literal.
 #   * POST /api/system/terminate answers 200 with `{pid, terminated}`; the contract
 #     claimed a bodiless 204.  The contract was wrong and now describes what ships.
-#   * POST /api/pipelines/export raises 501 when nbformat is missing; the route now
-#     declares that response instead of leaving it undocumented.
 _KNOWN_FINDINGS: frozenset[str] = frozenset()
 
 

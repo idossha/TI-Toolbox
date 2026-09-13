@@ -12,7 +12,6 @@ Change log: [`CHANGES.md`](CHANGES.md).
 contracts/
   openapi.yaml                      ← the only hand-written API contract
   events.schema.json                ← hand-written
-  pipeline.schema.json              ← hand-written
   tetravox-viewspec-v2.schema.json  ← hand-written, host-facing
   generated/                        ← never hand-edited
     openapi.json                    ← openapi.yaml + the config dataclass schemas
@@ -24,7 +23,6 @@ contracts/
 |---|---|
 | `openapi.yaml` | **The contract of record.** Every path, method, response code and schema the UI may rely on. A schema carrying `x-tit-config: <ConfigName>` is a placeholder replaced at build time by the generated dataclass schema. |
 | `events.schema.json` | The job-event envelope streamed over `/ws/jobs` and `/ws/system`. One line of `<job>/events.jsonl` is one `Event`. |
-| `pipeline.schema.json` | The pipeline-canvas document (`/api/pipelines*`). |
 | `tetravox-viewspec-v2.schema.json` | The ViewSpec v2 document `GET /api/view/{kind}` returns and `POST /api/view/open` writes as `<kind>.tetravox.json`. Documents a subset of Tetravox's own engine-owned type; **its name is load-bearing** — it is the file's public `$id` — so it keeps the `-v2` spelling rather than following the naming of the files around it. |
 | `generated/config.schema.json` | Draft 2020-12 schemas for every config dataclass in `tit.config_io.CONFIG_CLASS_REGISTRY`, plus an `x-tit-classes` name → import-path index. |
 | `generated/openapi.json` | `openapi.yaml` with `config.schema.json`'s `$defs` merged in over the `x-tit-config` placeholders. This is what `openapi-typescript` reads. |

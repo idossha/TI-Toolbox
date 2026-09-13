@@ -373,34 +373,6 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     await call("/api/tetravox/activate", "POST", "/api/tetravox/activate", { body: { version: "0.4.0" } });
     await call("/api/tetravox/{version}", "DELETE", "/api/tetravox/0.4.0");
 
-    // pipelines (v1) -- the canvas (docs/dev/HISTORY.md § 2026-09-05/06 (Tetravox auto-update, selection, pipeline canvas) D1-D6).
-    // A pipeline is a DAG of existing job kinds; `run` submits the whole thing as ONE job group,
-    // so the interesting contract facts here are the palette, the validation shape, and that the
-    // run response carries a single group_id.
-    const pipelineDoc = {
-      version: 1,
-      name: "contract",
-      nodes: [
-        { id: "pre1", kind: "pre", config: { subject_ids: ["ernie"], create_m2m: true }, position: { x: 0, y: 0 } },
-        { id: "sim1", kind: "sim", config: { montages: [{ name: "Thalamus" }] }, position: { x: 220, y: 0 } },
-      ],
-      edges: [{ from: "pre1", to: "sim1", port: "subjects" }],
-    };
-    await call("/api/pipelines/kinds", "GET", "/api/pipelines/kinds");
-    await call("/api/pipelines/validate", "POST", "/api/pipelines/validate", { body: pipelineDoc });
-    const { json: pipelineRun } = await call("/api/pipelines/run", "POST", "/api/pipelines/run", {
-      body: { pipeline: pipelineDoc, parallel_subjects: 1 },
-    });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const runJobs = (pipelineRun as any).jobs as { group_id: string }[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect(new Set(runJobs.map((j) => j.group_id))).toEqual(new Set([(pipelineRun as any).group_id]));
-    await call("/api/pipelines/export", "POST", "/api/pipelines/export?format=ipynb", { body: pipelineDoc });
-    await call("/api/pipelines/{name}", "PUT", "/api/pipelines/contract", { body: pipelineDoc });
-    await call("/api/pipelines", "GET", "/api/pipelines");
-    await call("/api/pipelines/{name}", "GET", "/api/pipelines/contract");
-    await call("/api/pipelines/{name}", "DELETE", "/api/pipelines/contract");
-
     // notebooks and kernels (v1) -- NB lane, ARCHITECTURE §7.6. The order is the
     // lifecycle: create a notebook, read it, save it, start a kernel, drive it,
     // then take both away again.
