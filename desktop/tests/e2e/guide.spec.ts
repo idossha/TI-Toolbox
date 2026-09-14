@@ -152,7 +152,7 @@ test("the manifest's atlas and net ids are the packaged ones, and every asset re
 
 test("every guide surface keeps the TVSC1 budget: 3 MB and 150 000 triangles", async () => {
   const manifest = await (await api("/api/guide/manifest")).json();
-  expect(manifest.parts.map((p: { id: string }) => p.id).sort()).toEqual(["gm", "skin"]);
+  expect(manifest.parts.map((p: { id: string }) => p.id).sort()).toEqual(["gm", "skin", "subcortical"]);
   for (const part of manifest.parts) {
     const response = await api(part.url);
     expect(response.status, part.url).toBe(200);
