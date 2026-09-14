@@ -78,6 +78,7 @@ import {
   useSceneSurfaces,
 } from "./queries";
 import "./scene-pane.css";
+import { capDisplacements } from "./displacements";
 
 export type ScenePaneMode = "montage" | "target" | "inspect";
 
@@ -110,6 +111,8 @@ export interface ScenePaneProps {
   onPlace?: (world: Vec3) => void;
   /** Page-supplied markers, drawn instead of an EEG net's — the free-hand positions being placed. */
   placedMarkers?: SceneMarker[];
+  /** Optimized subject-space origins for the selected cap pairs. */
+  originalPositions?: { x: number; y: number; z: number }[];
   /**
    * A click on one of `placedMarkers` reports its index instead of placing a new point.
    *
@@ -134,7 +137,7 @@ export interface ScenePaneProps {
   atlas?: string | null;
   /** Called when the user changes the atlas in the pane's own selector, so the form follows. When
    *  it is absent the selector still works and the choice stays local to the pane. */
-  onAtlasChange?: (atlas: string) => void;
+  onAtlasChange?: (atlas: string, kind?: string) => void;
   /** `montage`: the pairs being edited. */
   pairs?: Pair[];
   onPairsChange?: (pairs: Pair[]) => void;
@@ -219,6 +222,7 @@ export function ScenePane({
   subject = null,
   onPlace,
   placedMarkers,
+  originalPositions,
   onPlacedPick,
   onPlacedHover,
   highlightMarkers,
@@ -282,14 +286,17 @@ export function ScenePane({
   const chooseAtlas = useCallback(
     (next: string) => {
       setLocalAtlas(next);
-      onAtlasChange?.(next);
+      onAtlasChange?.(next, (manifestData?.atlases.find((entry) => entry.id === next) as { kind?: string } | undefined)?.kind);
     },
-    [onAtlasChange],
+    [onAtlasChange, manifestData],
   );
+
+  const atlasPart = (manifestData?.atlases.find((entry) => entry.id === effectiveAtlas) as { kind?: string } | undefined)?.kind === "subcortical" ? "subcortical" : "gm";
 
   // Both hook sets always run (a `useQueries` with an empty list issues nothing), so switching
   // between the guide and a subject never changes the hook order.
-  const guideRequests = useGuideSurfaceRequests(drawnSubject ? undefined : guideManifest.data);
+  const allGuideRequests = useGuideSurfaceRequests(drawnSubject ? undefined : guideManifest.data);
+  const guideRequests = useMemo(() => allGuideRequests.filter((part) => part.id === "skin" || part.id === atlasPart), [allGuideRequests, atlasPart]);
   const guideSurfaces = useGuideSurfaces(guideRequests);
   const subjectRequests = useSceneSurfaceRequests(drawnSubject, subjectManifest.data);
   const subjectSurfaces = useSceneSurfaces(drawnSubject, subjectRequests);
@@ -325,7 +332,7 @@ export function ScenePane({
    * is cached, so these three references are the honest dependencies.
    */
   const skinData = surfaces[surfaceRequests.findIndex((part) => part.id === "skin")]?.data ?? null;
-  const gmData = surfaces[surfaceRequests.findIndex((part) => part.id === "gm")]?.data ?? null;
+  const gmData = surfaces[surfaceRequests.findIndex((part) => part.id === atlasPart)]?.data ?? null;
   const labelData = labels.data ?? null;
 
   /**
@@ -355,8 +362,8 @@ export function ScenePane({
     // disappears inside the head.
     if (gmData?.indices) {
       out.push({
-        id: "gm",
-        label: "GM",
+        id: atlasPart,
+        label: atlasPart === "subcortical" ? "Subcortical regions" : "GM",
         positions: gmData.positions,
         indices: gmData.indices,
         labels: alignment.aligned ? (labelData?.labels ?? null) : null,
@@ -385,7 +392,7 @@ export function ScenePane({
       });
     }
     return out.length > 0 ? out : NO_PARTS;
-  }, [gmData, skinData, labelData, alignment.aligned, gesture, showingPlacements]);
+  }, [gmData, skinData, labelData, alignment.aligned, gesture, showingPlacements, atlasPart]);
 
   const box6 = (box: number[] | null | undefined): Bounds | undefined =>
     box && box.length === 6 ? (box as Bounds) : undefined;
@@ -427,7 +434,11 @@ export function ScenePane({
 
   /** When the page supplies markers they ARE the markers — the positions it is collecting, or the
    *  saved set it is showing — and the net's electrodes stand down. */
-  const markers = placedMarkers ?? (gesture === "electrode" ? electrodeMarkers : NO_MARKERS);
+  // Never display subject coordinates on the packaged reference head while extraction is pending.
+  const markers = placedMarkers ? (drawnSubject ? placedMarkers : NO_MARKERS) : (gesture === "electrode" ? electrodeMarkers : NO_MARKERS);
+  const displacements = useMemo(() => drawnSubject && originalPositions
+    ? capDisplacements(originalPositions, activePairs, electrodeMarkers) : undefined,
+  [drawnSubject, originalPositions, activePairs, electrodeMarkers]);
 
   // ---- selection -----------------------------------------------------------------------------
   const formRegions = useMemo<SceneRegionRef[]>(() => regions ?? [], [regions]);
@@ -550,7 +561,7 @@ export function ScenePane({
 
   // ---- legend --------------------------------------------------------------------------------
   const selectedRegionRows = useMemo(
-    () => formRegions.filter((region) => legend.some((row) => row.id === region.id && row.hemi === region.hemi)),
+    () => formRegions.filter((region) => legend.some((row) => row.id === region.id && (row.hemi || undefined) === region.hemi)),
     [formRegions, legend],
   );
 
@@ -569,7 +580,7 @@ export function ScenePane({
       for (const region of selectedRegionRows) {
         // The swatch is the colour the region is actually painted in — its own, not one blue for
         // all of them. A legend whose swatches all match cannot tell a user which patch is which.
-        const row = legend.find((entry) => entry.id === region.id && entry.hemi === region.hemi);
+        const row = legend.find((entry) => entry.id === region.id && (entry.hemi || undefined) === region.hemi);
         const hex = row ? labelSwatchColor(legend, row.label) : null;
         rows.push({
           key: `roi-${region.hemi ?? ""}-${region.id}`,
@@ -644,7 +655,7 @@ export function ScenePane({
   }, [pageActive, mode, gesture, drawnSubject, guideId, manifestData, net, effectiveAtlas, state, message, parts, markers.length, legend, selection, selectedRegionRows, hovered]);
 
   const atlasOptions = useMemo(
-    () => (manifestData?.atlases ?? []).map((entry) => ({ value: String(entry.id), label: String(entry.id) })),
+    () => (manifestData?.atlases ?? []).map((entry) => ({ value: String(entry.id), label: entry.id === "labeling.nii.gz" ? "Subcortical (labeling.nii.gz)" : String(entry.id) })),
     [manifestData],
   );
 
@@ -678,6 +689,14 @@ export function ScenePane({
             onValueChange={chooseAtlas}
             options={atlasOptions}
           />
+          {onRegionsChange ? (
+            <Button
+              disabled={formRegions.length === 0}
+              onClick={() => onRegionsChange([], effectiveAtlas ?? undefined)}
+            >
+              Clear selection
+            </Button>
+          ) : null}
           <span className="scene-pane-hovered" data-testid="scene-pane-hovered">
             {hovered ?? ""}
           </span>
@@ -689,6 +708,7 @@ export function ScenePane({
             mode={CANVAS_MODE[gesture]}
             parts={parts}
             markers={markers}
+            connections={displacements}
             /*
              * Electrodes lie on the scalp, so the scalp hides the ones round the back — except the
              * page's own placements, which are never hidden.

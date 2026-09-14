@@ -3,7 +3,7 @@ import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { QueryClient, QueryClientProvider, focusManager } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SceneError, type SceneManifest, type SceneRegions } from "../../src/renderer/pages/_shared/scene/api";
+import { getGuideManifest, SceneError, type SceneManifest, type SceneRegions } from "../../src/renderer/pages/_shared/scene/api";
 import { useSceneManifest, useSceneRegions } from "../../src/renderer/pages/_shared/scene/queries";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -128,3 +128,16 @@ for (const { name, useScene, body, path } of CASES) {
     });
   });
 }
+
+
+it("refreshes the guide catalog even when an older installation cached it as immutable", async () => {
+  const fetcher = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(200, { atlases: [{ id: "labeling.nii.gz", kind: "subcortical" }] }));
+  vi.stubGlobal("fetch", fetcher);
+  try {
+    const manifest = await getGuideManifest();
+    expect(manifest.atlases[0]?.id).toBe("labeling.nii.gz");
+    expect(fetcher).toHaveBeenCalledWith("/api/guide/manifest", expect.objectContaining({ cache: "no-store" }));
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});

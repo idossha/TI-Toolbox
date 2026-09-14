@@ -38,6 +38,12 @@ for _mod_name in (
 _MEASURES = sys.modules["simnibs.optimization.tes_flex_optimization.measures"]
 _TFO = sys.modules["simnibs.optimization.tes_flex_optimization.tes_flex_optimization"]
 
+
+@pytest.fixture(autouse=True)
+def stub_runtime(monkeypatch):
+    monkeypatch.setattr("tit.opt.flex.runtime.integration_module", lambda: _TFO)
+
+
 from tit.opt.config import FlexConfig
 from tit.opt.flex import objectives
 from tit.opt.flex.objectives import (
@@ -136,23 +142,23 @@ class TestThresholdFreeFocality:
     """The pure-function threshold-free focality measure."""
 
     def test_matches_hand_computed_value(self):
-        # mean([0.4, 0.6, 0.5]) = 0.5; p95([0.1, 0.1, 0.2, 0.2]) = 0.2
-        # => 0.5 ** 1 / 0.2 = 2.5
+        # mean([0.4, 0.6, 0.5]) = 0.5; mean([0.1, 0.1, 0.2, 0.2]) = 0.15
+        # => 0.5 / 0.15 = 10/3
         e_roi = np.array([0.4, 0.6, 0.5])
         e_nonroi = np.array([0.1, 0.2, 0.1, 0.2])
-        assert threshold_free_focality(e_roi, e_nonroi) == pytest.approx(2.5)
+        assert threshold_free_focality(e_roi, e_nonroi) == pytest.approx(10 / 3)
 
     def test_matches_reference_formula(self):
         e_roi = np.array([0.4, 0.6, 0.5])
         e_nonroi = np.array([0.1, 0.2, 0.1, 0.2])
-        expected = np.mean(e_roi) / np.percentile(e_nonroi, 95.0)
+        expected = np.mean(e_roi) / np.mean(e_nonroi)
         assert threshold_free_focality(e_roi, e_nonroi) == pytest.approx(expected)
 
     def test_intensity_weight_raises_roi_to_one_plus_w(self):
-        # mean = 0.5, p95 = 0.2, w = 0.5 => 0.5 ** 1.5 / 0.2
+        # mean ROI = 0.5, mean background = 0.15, w = 0.5
         e_roi = np.array([0.4, 0.6, 0.5])
         e_nonroi = np.array([0.1, 0.2, 0.1, 0.2])
-        expected = 0.5**1.5 / 0.2
+        expected = 0.5**1.5 / 0.15
         assert threshold_free_focality(e_roi, e_nonroi, 0.5) == pytest.approx(expected)
 
     def test_intensity_weight_one_flips_ranking_toward_intensity(self):
@@ -193,16 +199,12 @@ class TestThresholdFreeFocality:
             diffuse = threshold_free_focality(e_roi, _flat(0.4), weight)
             assert focal > diffuse
 
-    def test_uses_p95_not_max(self):
-        # A single extreme outlier must not dominate the non-ROI term the way
-        # it would with a plain max.
-        e_roi = _flat(0.5)
-        clean = np.full(1000, 0.1)
-        with_outlier = clean.copy()
-        with_outlier[0] = 50.0
-        assert threshold_free_focality(e_roi, with_outlier) == pytest.approx(
-            threshold_free_focality(e_roi, clean), rel=0.05
-        )
+    def test_uses_background_mean_not_percentile_or_max(self):
+        # Authored samples: mean=2 while p95=4.4 and max=5.
+        # This is the discriminating case for the former percentile bug.
+        assert threshold_free_focality(
+            _flat(6), np.array([1.0, 1.0, 1.0, 5.0])
+        ) == pytest.approx(3.0)
 
     def test_zero_nonroi_stays_finite(self):
         value = threshold_free_focality(_flat(0.5), np.zeros(4))

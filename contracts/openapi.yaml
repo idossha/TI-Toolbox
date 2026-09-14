@@ -674,6 +674,71 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           description: unknown subject
+  /api/catalog/optimization-candidates:
+    get:
+      tags: [catalog]
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      operationId: optimizationCandidates
+      parameters:
+        - { name: subject, in: query, required: true, schema: { type: string } }
+        - { name: kind, in: query, required: true, schema: { type: string, enum: [flex, ex, mex] } }
+        - { name: run, in: query, required: true, schema: { type: string } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+        - { name: sort, in: query, schema: { type: string, default: roi_mean } }
+        - { name: descending, in: query, schema: { type: boolean, default: true } }
+      responses:
+        "200":
+          description: Candidate page with explicitly defined optimization estimates
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OptimizationCandidatePage" }
+  /api/catalog/optimization-candidates/{candidate_id}:
+    get:
+      tags: [catalog]
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      operationId: optimizationCandidate
+      parameters:
+        - { name: candidate_id, in: path, required: true, schema: { type: string } }
+        - { name: subject, in: query, required: true, schema: { type: string } }
+        - { name: kind, in: query, required: true, schema: { type: string, enum: [flex, ex, mex] } }
+        - { name: run, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Candidate and standard editable simulation config
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OptimizationCandidateDetail" }
+
+  /api/catalog/optimization-candidates/{candidate_id}/mapping:
+    get:
+      tags: [catalog]
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      operationId: optimizationCandidateMapping
+      parameters:
+        - { name: candidate_id, in: path, required: true, schema: { type: string } }
+        - { name: subject, in: query, required: true, schema: { type: string } }
+        - { name: run, in: query, required: true, schema: { type: string } }
+        - { name: eeg_net, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Candidate-specific unique assignment; distances are straight-line millimetres
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [eeg_net, pairs, optimized_positions, mapped_positions, distances]
+                properties:
+                  eeg_net: { type: string }
+                  pairs: { type: array, items: { type: array, items: { type: string } } }
+                  optimized_positions: { type: array, items: { type: array, items: { type: number } } }
+                  mapped_positions: { type: array, items: { type: array, items: { type: number } } }
+                  distances: { type: array, items: { type: number } }
+        "404":
+          description: Candidate or cap not found
+        "422":
+          description: Invalid candidate or cap
+
   /api/catalog/flex-runs:
     get:
       tags: [catalog]
@@ -2811,7 +2876,7 @@ paths:
                       type: object
                       required: [id, kind, triangles, vertices, bytes, fingerprint, url]
                       properties:
-                        id: { type: string, enum: [skin, gm] }
+                        id: { type: string, enum: [skin, gm, subcortical] }
                         kind: { type: string, enum: [surface] }
                         triangles: { type: integer }
                         vertices: { type: integer }
@@ -2845,6 +2910,8 @@ paths:
                       required: [id, hemispheres, regions, url]
                       properties:
                         id: { type: string }
+                        kind: { type: string, enum: [cortical, subcortical] }
+                        aligned_to: { type: string, enum: [gm, subcortical] }
                         hemispheres:
                           type: array
                           items: { type: string, enum: [lh, rh] }
@@ -2885,7 +2952,7 @@ paths:
         - in: query
           name: part
           required: true
-          schema: { type: string, enum: [skin, gm] }
+          schema: { type: string, enum: [skin, gm, subcortical] }
         - in: query
           name: format
           required: false
@@ -2956,7 +3023,7 @@ paths:
                 properties:
                   atlas: { type: string }
                   space: { type: string, enum: [guide-ras] }
-                  aligned_to: { type: string, enum: [gm] }
+                  aligned_to: { type: string, enum: [gm, subcortical] }
                   vertices: { type: integer }
                   radius_mm: { type: number }
                   labelled_fraction: { type: number }
@@ -2972,7 +3039,7 @@ paths:
                         id:
                           type: integer
                           description: the .annot row index, which is what a config's AtlasROI.label carries
-                        hemi: { type: string, enum: [lh, rh] }
+                        hemi: { type: string, enum: [lh, rh, ""] }
                         name: { type: string }
                         color: { type: string }
                   url: { type: string }
@@ -3271,6 +3338,63 @@ components:
   parameters: {}
 
   schemas:
+    OptimizationCandidate:
+      type: object
+      required: [id, objective, objective_label, objective_direction, metrics, metric_labels, comparison_key]
+      properties:
+        id: { type: string }
+        objective: { type: number, nullable: true }
+        objective_label: { type: string }
+        objective_direction: { type: string, enum: [minimize, maximize] }
+        metrics:
+          type: object
+          additionalProperties: { type: number, nullable: true }
+        metric_labels:
+          type: object
+          additionalProperties: { type: string }
+        comparison_key: { type: string }
+        replay_note: { type: string }
+        optimizer_termination:
+          type: object
+          required: [global, accepted_stage]
+          properties:
+            accepted_stage: { type: string, enum: [global, local] }
+            global: { $ref: '#/components/schemas/OptimizerTerminationStatus' }
+            local: { $ref: '#/components/schemas/OptimizerTerminationStatus' }
+        positions:
+          type: array
+          items: { type: array, minItems: 3, maxItems: 3, items: { type: number } }
+        pairs:
+          type: array
+          items: { type: array, minItems: 2, maxItems: 2, items: { type: string } }
+        eeg_net: { type: string }
+        currents_mA:
+          type: array
+          items: { type: number, nullable: true }
+    OptimizerTerminationStatus:
+      type: object
+      required: [success, message, iterations, evaluations]
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+        iterations: { type: integer, minimum: 0 }
+        evaluations: { type: integer, minimum: 0 }
+    OptimizationCandidatePage:
+      type: object
+      required: [candidates, total, legacy]
+      properties:
+        candidates:
+          type: array
+          items: { $ref: '#/components/schemas/OptimizationCandidate' }
+        total: { type: integer, minimum: 0 }
+        legacy: { type: boolean }
+    OptimizationCandidateDetail:
+      type: object
+      required: [candidate, simulation_config]
+      properties:
+        candidate: { $ref: '#/components/schemas/OptimizationCandidate' }
+        simulation_config: { $ref: '#/components/schemas/SimulationConfig' }
+
     # ------------------------------------------------------------------ notebooks and kernels
     NotebookEntry:
       type: object

@@ -225,7 +225,8 @@ class TestTISimulation:
             ]
             assert const.FIELD_TI_AVG in written_field_names
 
-    def test_run_calls_setup_and_simnibs(self):
+    @pytest.mark.parametrize("map_to_mni", [False, True])
+    def test_run_calls_setup_and_simnibs(self, map_to_mni):
         with (
             patch.object(_base_mod, "get_path_manager") as mock_pm,
             patch.object(_base_mod, "setup_montage_directories") as mock_setup_dirs,
@@ -234,9 +235,9 @@ class TestTISimulation:
             patch.object(_base_mod, "run_simnibs") as mock_run_simnibs,
             patch.object(_base_mod, "subprocess"),
             patch.object(_ti_mod, "extract_fields"),
-            patch.object(_ti_mod, "transform_dirs_to_nifti"),
-            patch.object(_ti_mod, "start_t1_to_mni"),
-            patch.object(_ti_mod, "finish_t1_to_mni"),
+            patch.object(_ti_mod, "transform_dirs_to_nifti") as mock_transform,
+            patch.object(_ti_mod, "start_t1_to_mni") as mock_start,
+            patch.object(_ti_mod, "finish_t1_to_mni") as mock_finish,
             patch.object(_ti_mod, "safe_move"),
             patch.object(_ti_mod, "mesh_io") as mock_mesh_io,
             patch.object(_ti_mod, "TI"),
@@ -261,7 +262,7 @@ class TestTISimulation:
             }
 
             sim = _ti_mod.TISimulation(
-                _make_sim_config(), _make_ti_montage(), MagicMock()
+                _make_sim_config(map_to_mni=map_to_mni), _make_ti_montage(), MagicMock()
             )
             sim.run("/fake/sim_dir")
 
@@ -269,6 +270,9 @@ class TestTISimulation:
                 "/fake/sim/test_ti", SimulationMode.TI
             )
             mock_run_simnibs.assert_called_once()
+            assert mock_transform.call_args.kwargs["map_to_mni"] is map_to_mni
+            assert mock_start.call_count == int(map_to_mni)
+            assert mock_finish.call_count == int(map_to_mni)
             mock_create.assert_called_once()
 
 
@@ -296,7 +300,8 @@ class TestMTISimulation:
             assert sim.montage.simulation_mode == SimulationMode.MTI
             assert sim.montage.num_pairs == 4
 
-    def test_run_returns_mti_result(self):
+    @pytest.mark.parametrize("map_to_mni", [False, True])
+    def test_run_returns_mti_result(self, map_to_mni):
         with (
             patch.object(_base_mod, "get_path_manager") as mock_pm,
             patch.object(_base_mod, "setup_montage_directories") as mock_setup_dirs,
@@ -305,9 +310,9 @@ class TestMTISimulation:
             patch.object(_base_mod, "run_simnibs") as mock_run_simnibs,
             patch.object(_base_mod, "subprocess"),
             patch.object(_mti_mod, "extract_fields"),
-            patch.object(_mti_mod, "transform_dirs_to_nifti"),
-            patch.object(_mti_mod, "start_t1_to_mni"),
-            patch.object(_mti_mod, "finish_t1_to_mni"),
+            patch.object(_mti_mod, "transform_dirs_to_nifti") as mock_transform,
+            patch.object(_mti_mod, "start_t1_to_mni") as mock_start,
+            patch.object(_mti_mod, "finish_t1_to_mni") as mock_finish,
             patch.object(_mti_mod, "safe_move"),
             patch.object(_mti_mod, "mesh_io") as mock_mesh_io,
             patch.object(_mti_mod, "TI"),
@@ -349,6 +354,7 @@ class TestMTISimulation:
             mock_get_ti.return_value = np.zeros((e_field_value.shape[0], 3))
 
             config = _make_sim_config(
+                map_to_mni=map_to_mni,
                 intensities=[1.0, 1.0, 1.0, 1.0],
                 output_fields=[
                     const.FIELD_TI_MAX,
@@ -372,6 +378,9 @@ class TestMTISimulation:
                 "/fake/sim/test_mti", SimulationMode.MTI
             )
             mock_run_simnibs.assert_called_once()
+            assert mock_transform.call_args.kwargs["map_to_mni"] is map_to_mni
+            assert mock_start.call_count == int(map_to_mni)
+            assert mock_finish.call_count == int(map_to_mni)
 
             # D3: the final envelope is computed over all four channel
             # fields at once, not a recursive TI-of-TI recombination.

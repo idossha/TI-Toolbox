@@ -9,6 +9,17 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 ---
 ### v3.0.0 (Unreleased)
 
+- **Bundled atlas previews** — Optimizer and Analyzer share precomputed reference cortical and subcortical surfaces, translucent skin, synchronized atlas/target selection, a clear-selection action and matching region legend colors. The atlas catalog refreshes after updates. Named Simulator montages also use reference anatomy; actual XYZ placement retains subject coordinates. Individualized volume inspection opens explicitly in TetraVox.
+
+- **Optimization candidate review** — Flex records valid evaluated montages with metrics, exact poses/current splits and provenance. Results links an intensity–focality plot, paged table and subject montage preview. Simulator drafts support reversible XYZ/cap placement, highlight snapped electrodes and show displacement distances. Compact channel rows omit redundant badges; XYZ colors identify channels and labels identify polarity.
+- **Flex objectives and runtime** — desktop jobs expose Mean TImax, Max TImax (99.9%), Threshold-free focality using mean non-ROI TImax with explicit intensity weighting, and Threshold-based focality with Fixed, Adaptive and Multi-threshold strategies. Historical p95 scores and legacy objectives retain distinct definitions. Developer jobs load the mounted integration without replacing installed SimNIBS. See [scientific compatibility]({{ site.baseurl }}/releases/v3.0.0/#focality-denominator-correction).
+- **Completed job logs** — terminal jobs settle on the final transcript. Reconnects resume at the last event, concurrent views share subscriptions and large log backfills no longer block status updates.
+- Flex rejects unsupported unequal-axis ellipses and invalid accepted optimizer results. Scalar
+  differential-evolution mutation settings now work. Final electrode simulations honor configured
+  gel thickness plus 2 mm rubber; see [scientific compatibility]({{ site.baseurl }}/releases/v3.0.0/#optimizer-scientific-compatibility).
+
+- **Simulation outputs and Ex counts** — MNI export is opt-in beside fsaverage mapping and skips MNI conversion when disabled. Ex shows electrode montage counts separately from total current-split evaluations.
+
 - Simulation output movement tolerates stale macOS AppleDouble sidecars, and mesh conversion excludes metadata sidecars and directories while retaining genuine data errors.
 
 - Native viewer discovery reuses compatible system TetraVox installations and their normal profiles. Scene handoffs ask before replacing a running window; cancellation leaves it untouched. Concurrent requests are serialized.

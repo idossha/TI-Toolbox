@@ -52,6 +52,12 @@ Packaged (see `manifest.json` for exact sizes and SHA-256 of every file):
 * `surfaces/skin.{tvsc,gii}`, `surfaces/gm.{tvsc,gii}` — the two surfaces the
   pane draws, extracted from tags 1005/1002, oriented outward and simplified to
   the frozen §S3 budget (≤ 150 000 triangles and ≤ 3 MB per TVSC1 payload);
+* `surfaces/subcortical.{tvsc,gii}` — 17 named deep-brain regions extracted
+  offline from the same Ernie `segmentation/labeling.nii.gz` using its full native
+  affine, with CSF, ventricles, cortex and white matter excluded. The matching
+  label payload retains original CHARM label IDs and LUT names/colours. Source
+  and LUT SHA-256 values are recorded in the manifest. Generated 2026-09-14;
+  no subject volume is read or transformed when this guide is requested;
 * `labels/<atlas>.gii` — grey matter plus per-vertex atlas labels and the
   atlas' own label table, for every cortical atlas the head model carries;
 * `legends/<atlas>.json` — the label → region id/name/colour legend;

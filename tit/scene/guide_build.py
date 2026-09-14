@@ -73,7 +73,9 @@ def _copy(src: Path, dest: Path) -> dict[str, Any]:
 
 def _write_json(dest: Path, body: Any) -> dict[str, Any]:
     dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text(json.dumps(body, indent=1, sort_keys=False) + "\n", encoding="utf-8")
+    dest.write_text(
+        json.dumps(body, indent=1, sort_keys=False) + "\n", encoding="utf-8"
+    )
     return {"bytes": dest.stat().st_size, "sha256": sha256_of(dest)}
 
 
@@ -89,6 +91,113 @@ def _union(boxes: list[list[float]]) -> list[float] | None:
             + [max(a, b) for a, b in zip(box[3:], other[3:])]
         )
     return box
+
+
+def build_subcortical(pm: Any, subject: str, out: Path) -> tuple[dict, dict]:
+    """Freeze reference label boundaries alongside their matching reference skin.
+
+    Only the developer build reads the label volume. Runtime requests reuse the
+    same compact binary surface and legend API as cortical atlas requests.
+    """
+    import nibabel as nib
+    import numpy as np
+
+    from tit.scene import gifti, tvsc
+    from tit.scene.volume_surfaces import surfaces
+
+    source = Path(pm.m2m(subject)) / "segmentation" / "labeling.nii.gz"
+    lut = source.with_name("labeling_LUT.txt")
+    rows = build.parse_lut_text(lut.read_text())
+    names = {row["id"]: row["name"] for row in rows}
+    result = surfaces(nib.load(str(source)), names, [], atlas_name=source.name)
+    positions = np.asarray(result["positions"], dtype=np.float32).reshape(-1, 3)
+    indices = np.asarray(result["indices"], dtype=np.uint32).reshape(-1, 3)
+    labels = np.asarray(result["labels"], dtype=np.uint16)
+    if not len(indices):
+        raise ValueError("Reference labeling has no subcortical regions")
+    kept = {entry["id"] for entry in result["entries"]}
+    legend = [
+        {**row, "label": row["id"], "hemi": "", "color": row["color"] or "#808080"}
+        for row in rows
+        if row["id"] in kept
+    ]
+    surface_blob = tvsc.encode(positions, indices)
+    if len(surface_blob) > build.MAX_BYTES or len(indices) > build.MAX_TRIANGLES:
+        raise ValueError("Reference subcortical surface exceeds the guide budget")
+
+    def write_blobs(directory: str, name: str, blobs: dict) -> dict:
+        files = {}
+        for fmt, blob in blobs.items():
+            rel = f"{directory}/{name}.{fmt}"
+            path = out / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(blob)
+            files[fmt] = rel
+            files[f"{fmt}_meta"] = {"bytes": len(blob), "sha256": sha256_of(path)}
+        return files
+
+    surface_files = write_blobs(
+        "surfaces",
+        "subcortical",
+        {
+            "tvsc": surface_blob,
+            "gii": gifti.encode_surface(positions, indices),
+        },
+    )
+    atlas_id = source.name
+    label_files = write_blobs(
+        "labels",
+        atlas_id,
+        {
+            "tvsc": tvsc.encode(positions, None, labels),
+            "gii": gifti.encode_surface(
+                positions, indices, labels, gifti.label_table_from_legend(legend)
+            ),
+        },
+    )
+    bbox = positions.min(axis=0).tolist() + positions.max(axis=0).tolist()
+    part = {
+        "id": "subcortical",
+        "kind": "surface",
+        "triangles": len(indices),
+        "vertices": len(positions),
+        "bytes": len(surface_blob),
+        "fingerprint": f"guide-{guide.GUIDE_VERSION}-subcortical",
+        "url": "/api/guide/surface?part=subcortical",
+        "simplified": True,
+        "within_budget": True,
+        "bbox": bbox,
+        "focus_bbox": bbox,
+        "files": surface_files,
+    }
+    legend_rel = f"legends/{atlas_id}.json"
+    legend_meta = _write_json(
+        out / legend_rel,
+        {
+            "atlas": atlas_id,
+            "space": guide.GUIDE_SPACE,
+            "aligned_to": "subcortical",
+            "vertices": len(positions),
+            "radius_mm": 0,
+            "labelled_fraction": 1,
+            "legend": legend,
+            "url": f"/api/guide/labels?atlas={atlas_id}",
+        },
+    )
+    atlas = {
+        "id": atlas_id,
+        "kind": "subcortical",
+        "hemispheres": [],
+        "aligned_to": "subcortical",
+        "regions": len(legend),
+        "url": f"/api/guide/regions?atlas={atlas_id}",
+        "files": label_files,
+        "legend_file": legend_rel,
+        "legend_meta": legend_meta,
+        "source_sha256": sha256_of(source),
+        "lut_sha256": sha256_of(lut),
+    }
+    return part, atlas
 
 
 def generate(project: str, subject: str, out: Path, label: str) -> dict[str, Any]:
@@ -175,6 +284,10 @@ def generate(project: str, subject: str, out: Path, label: str) -> dict[str, Any
             }
         )
 
+    subcortical, atlas = build_subcortical(pm, subject, out)
+    parts.append(subcortical)
+    atlases.append(atlas)
+
     nets: list[dict[str, Any]] = []
     for net_name in sorted(pm.list_eeg_caps(subject)):
         body = build.read_net(pm, subject, net_name)
@@ -234,19 +347,23 @@ def generate(project: str, subject: str, out: Path, label: str) -> dict[str, Any
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--project", required=True, help="BIDS project holding the source subject")
+    parser.add_argument(
+        "--project", required=True, help="BIDS project holding the source subject"
+    )
     parser.add_argument("--subject", default="ernie")
     parser.add_argument("--out", default=str(guide.GUIDE_DIR))
     parser.add_argument("--label", default="Ernie (SimNIBS example head)")
     args = parser.parse_args(argv)
     manifest = generate(args.project, args.subject, Path(args.out), args.label)
-    total = sum(
-        f["bytes"]
-        for entry in manifest["parts"] + manifest["atlases"]
-        for key, f in entry.get("files", {}).items()
-        if key.endswith("_meta")
-    ) + sum(n["bytes"] for n in manifest["nets"]) + sum(
-        a["legend_meta"]["bytes"] for a in manifest["atlases"]
+    total = (
+        sum(
+            f["bytes"]
+            for entry in manifest["parts"] + manifest["atlases"]
+            for key, f in entry.get("files", {}).items()
+            if key.endswith("_meta")
+        )
+        + sum(n["bytes"] for n in manifest["nets"])
+        + sum(a["legend_meta"]["bytes"] for a in manifest["atlases"])
     )
     for part in manifest["parts"]:
         print(

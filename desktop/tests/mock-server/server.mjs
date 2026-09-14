@@ -1990,6 +1990,42 @@ route("GET", "/api/catalog/ex-runs", (ctx) => {
   const kind = ctx.url.searchParams.get("kind");
   json(ctx.res, 200, kind ? entry[kind] ?? [] : [...entry.ex, ...entry.mex]);
 });
+// Authored asymmetric candidate fixture: scalable pagination without generated science fields.
+const candidateFixture = JSON.parse(readFileSync(join(fixturesDir, "optimization_candidates.json"), "utf8"));
+function mockCandidates(ctx) {
+  const subject = ctx.url.searchParams.get("subject");
+  const kind = ctx.url.searchParams.get("kind");
+  if (!(subject in flexRuns) || !["flex", "ex", "mex"].includes(kind)) return null;
+  return Array.from({ length: 60 }, (_, index) => ({
+    ...candidateFixture.candidates[index % 2], id: `trial-${index + 1}`,
+    comparison_key: `${subject}:${kind}:authored-domain`,
+  }));
+}
+route("GET", "/api/catalog/optimization-candidates", (ctx) => {
+  const rows = mockCandidates(ctx);
+  if (!rows) return json(ctx.res, 404, { detail: "unknown subject or kind" });
+  const sort = ctx.url.searchParams.get("sort") ?? "roi_mean";
+  const direction = ctx.url.searchParams.get("descending") === "false" ? 1 : -1;
+  rows.sort((a, b) => direction * ((sort === "objective" ? a.objective : a.metrics[sort] ?? 0) - (sort === "objective" ? b.objective : b.metrics[sort] ?? 0)));
+  const offset = Math.max(0, Number(ctx.url.searchParams.get("offset") ?? 0));
+  const limit = Math.max(1, Math.min(100, Number(ctx.url.searchParams.get("limit") ?? 50)));
+  json(ctx.res, 200, { candidates: rows.slice(offset, offset + limit), total: rows.length, legacy: false });
+});
+route("GET", "/api/catalog/optimization-candidates/:candidate", (ctx) => {
+  const candidate = mockCandidates(ctx)?.find((row) => row.id === ctx.params.candidate);
+  if (!candidate) return json(ctx.res, 404, { detail: "unknown candidate" });
+  const config = structuredClone(candidateFixture.simulation_config);
+  config.subject_id = ctx.url.searchParams.get("subject");
+  config.montages[0].name = `candidate_${candidate.id}`;
+  config.montages[0].provenance = { candidate_id: candidate.id, run: ctx.url.searchParams.get("run") };
+  json(ctx.res, 200, { candidate, simulation_config: config });
+});
+route("GET", "/api/catalog/optimization-candidates/:candidate/mapping", (ctx) => {
+  const candidate = candidateFixture.candidates.find((row) => row.id === ctx.params.candidate);
+  if (!candidate) return json(ctx.res, 404, { detail: "unknown candidate" });
+  const positions = candidate.positions;
+  json(ctx.res, 200, { eeg_net: ctx.url.searchParams.get("eeg_net"), pairs: [["E020", "E074"], ["E101", "E133"]], optimized_positions: positions, mapped_positions: positions, distances: [0, 0, 0, 0] });
+});
 route("GET", "/api/catalog/ex-runs/:run/results", (ctx) => {
   const subject = ctx.url.searchParams.get("subject");
   const kind = ctx.url.searchParams.get("kind");
@@ -2405,7 +2441,10 @@ route("GET", "/api/scene/volume-legend", (ctx) => {
 // the scene block gives — a second hand-written encoding could disagree with the format — and it
 // answers identically no matter which subjects a page has selected, which is precisely what the
 // guide gate counts requests for.
-const GUIDE_ATLASES = ["DK40", "HCP_MMP1"].filter((id) => sceneLegendFor(id));
+const guideRoot = join(here, "../../../tit/scene/guide");
+const subcorticalPart = JSON.parse(readFileSync(join(guideRoot, "manifest.json"), "utf8")).parts.find(p => p.id === "subcortical");
+const subcorticalLegend = JSON.parse(readFileSync(join(guideRoot, "legends/labeling.nii.gz.json"), "utf8"));
+const GUIDE_ATLASES = ["DK40", "HCP_MMP1", "labeling.nii.gz"];
 const GUIDE_NETS = Object.keys(NET_SIZES);
 
 route("GET", "/api/guide/manifest", (ctx) => {
@@ -2414,7 +2453,7 @@ route("GET", "/api/guide/manifest", (ctx) => {
     200,
     {
       guide: { id: "ernie", label: "Ernie (SimNIBS example head)" },
-      guide_version: 1,
+      guide_version: 2,
       // Never "subject-ras": the pane keys click-to-config off this value.
       space: "guide-ras",
       bbox: sceneBbox,
@@ -2432,7 +2471,7 @@ route("GET", "/api/guide/manifest", (ctx) => {
         max_deviation_mm: 0,
         bbox: part.head.bbox,
         focus_bbox: scenePartFocus(part.head),
-      })),
+      })).concat([{ ...subcorticalPart }]),
       nets: GUIDE_NETS.map((name) => ({
         name,
         electrodes: NET_SIZES[name] ?? 128,
@@ -2440,8 +2479,10 @@ route("GET", "/api/guide/manifest", (ctx) => {
       })),
       atlases: GUIDE_ATLASES.map((id) => ({
         id,
-        hemispheres: ["lh", "rh"],
-        regions: (sceneLegendFor(id) ?? []).length,
+        kind: id === "labeling.nii.gz" ? "subcortical" : "cortical",
+        aligned_to: id === "labeling.nii.gz" ? "subcortical" : "gm",
+        hemispheres: id === "labeling.nii.gz" ? [] : ["lh", "rh"],
+        regions: id === "labeling.nii.gz" ? subcorticalLegend.legend.length : (sceneLegendFor(id) ?? []).length,
         url: `/api/guide/regions?atlas=${encodeURIComponent(id)}`,
       })),
       volumes: [],
@@ -2473,6 +2514,7 @@ route("GET", "/api/guide/surface", (ctx) => {
   if (format !== "tvsc" && format !== "gii") {
     return json(ctx.res, 400, { detail: `Unknown guide format '${format}'; expected 'tvsc' or 'gii'` });
   }
+  if (part === "subcortical") return guideBytes(ctx, readFileSync(join(guideRoot, `surfaces/subcortical.${format}`)), `"guide-subcortical-${format}"`);
   const entry = sceneParts[part];
   if (!entry) return json(ctx.res, 404, { detail: `the guide has no part '${part}'; it has: skin, gm.` });
   guideBytes(ctx, entry.bytes, `"guide-${part}-${format}"`);
@@ -2483,6 +2525,7 @@ route("GET", "/api/guide/labels", (ctx) => {
   if (!GUIDE_ATLASES.includes(atlas)) {
     return json(ctx.res, 404, { detail: `the guide has no atlas '${atlas}'; it has: ${GUIDE_ATLASES.join(", ")}.` });
   }
+  if (atlas === "labeling.nii.gz") return guideBytes(ctx, readFileSync(join(guideRoot, "labels/labeling.nii.gz.tvsc")), '"guide-subcortical-labels"');
   guideBytes(ctx, sceneParts.gm.bytes, `"guide-labels-${atlas}"`);
 });
 
@@ -2491,6 +2534,7 @@ route("GET", "/api/guide/regions", (ctx) => {
   if (!GUIDE_ATLASES.includes(atlas)) {
     return json(ctx.res, 404, { detail: `the guide has no atlas '${atlas}'; it has: ${GUIDE_ATLASES.join(", ")}.` });
   }
+  if (atlas === "labeling.nii.gz") return json(ctx.res, 200, { ...subcorticalLegend, url: `/api/guide/labels?atlas=${atlas}`, cache: { state: "ready", built_ms: 0 } });
   json(ctx.res, 200, {
     atlas,
     space: "guide-ras",

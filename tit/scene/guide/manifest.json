@@ -3,7 +3,7 @@
   "id": "ernie",
   "label": "Ernie (SimNIBS example head)"
  },
- "guide_version": 1,
+ "guide_version": 2,
  "builder_version": "4",
  "space": "guide-ras",
  "bbox": [
@@ -17,7 +17,7 @@
  "focus_bbox": [
   -84.437,
   -92.398,
-  -50.713,
+  -60.64227294921875,
   83.398,
   136.157,
   99.952
@@ -29,7 +29,7 @@
    "triangles": 77032,
    "vertices": 38952,
    "bytes": 1391840,
-   "fingerprint": "guide-1-skin",
+   "fingerprint": "guide-2-skin",
    "url": "/api/guide/surface?part=skin",
    "simplified": false,
    "within_budget": true,
@@ -69,7 +69,7 @@
    "triangles": 145402,
    "vertices": 70586,
    "bytes": 2591888,
-   "fingerprint": "guide-1-gm",
+   "fingerprint": "guide-2-gm",
    "url": "/api/guide/surface?part=gm",
    "simplified": true,
    "within_budget": true,
@@ -100,6 +100,45 @@
     "gii_meta": {
      "bytes": 2444872,
      "sha256": "f21234aa215733cb02ce5f4f3a6e4b41e4213df7097cb57e8927c66104826070"
+    }
+   }
+  },
+  {
+   "id": "subcortical",
+   "kind": "surface",
+   "triangles": 79582,
+   "vertices": 39281,
+   "bytes": 1426388,
+   "fingerprint": "guide-2-subcortical",
+   "url": "/api/guide/surface?part=subcortical",
+   "simplified": true,
+   "within_budget": true,
+   "bbox": [
+    -36.737457275390625,
+    -16.3125,
+    -60.64227294921875,
+    39.762542724609375,
+    53.6875,
+    37.85772705078125
+   ],
+   "focus_bbox": [
+    -36.737457275390625,
+    -16.3125,
+    -60.64227294921875,
+    39.762542724609375,
+    53.6875,
+    37.85772705078125
+   ],
+   "files": {
+    "tvsc": "surfaces/subcortical.tvsc",
+    "tvsc_meta": {
+     "bytes": 1426388,
+     "sha256": "770b2d43a4be76dd83358e0c844fc336d927812770d8e402cdd3e2d5ee66ece0"
+    },
+    "gii": "surfaces/subcortical.gii",
+    "gii_meta": {
+     "bytes": 565623,
+     "sha256": "3813512a4259bfcd13e78a338f545095fae8cd0bb4debc48d89690ab747d4f43"
     }
    }
   }
@@ -248,6 +287,33 @@
     "bytes": 16806,
     "sha256": "43731b6857c234aaa5bab609fbe675683a7fc5633fa4417324b5b840df3d938f"
    }
+  },
+  {
+   "id": "labeling.nii.gz",
+   "kind": "subcortical",
+   "hemispheres": [],
+   "aligned_to": "subcortical",
+   "regions": 17,
+   "url": "/api/guide/regions?atlas=labeling.nii.gz",
+   "files": {
+    "tvsc": "labels/labeling.nii.gz.tvsc",
+    "tvsc_meta": {
+     "bytes": 549968,
+     "sha256": "233808468652f1d597775ff896cefbbd01dfeb853d19569ce13c045220b8bf69"
+    },
+    "gii": "labels/labeling.nii.gz.gii",
+    "gii_meta": {
+     "bytes": 568561,
+     "sha256": "3f832971f5cbcda1972bb18b033d61b01d0fb5e851e86263f0c5201ac54c422f"
+    }
+   },
+   "legend_file": "legends/labeling.nii.gz.json",
+   "legend_meta": {
+    "bytes": 2000,
+    "sha256": "5c73d167e45ff90efefd0bf72baf43250c47d59fdfe7ac4ba27de21b8da3ea47"
+   },
+   "source_sha256": "6307e3aac007f779bda48d2a821782f63a9f35bb7310fb5837c791bfc3445157",
+   "lut_sha256": "3a2de1f456663ae0240a4ddce3a01f4be4ca8f624a98501b883fe2e84c8e8d9b"
   }
  ],
  "volumes": [],
@@ -264,6 +330,6 @@
  "generated": {
   "subject": "ernie",
   "generator": "tit.scene.guide_build",
-  "seconds": 21.1
+  "seconds": 13.3
  }
 }

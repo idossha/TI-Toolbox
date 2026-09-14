@@ -116,7 +116,7 @@ function collectGroups(): { bodies: Record<string, unknown>[]; stop: () => void 
   return { bodies, stop: () => page.off("request", collect) };
 }
 
-test.beforeAll(async () => {
+async function launchOptimizer(): Promise<void> {
   const userDataDir = mkdtempSync(join(tmpdir(), "tit-e2e-"));
   app = await launchElectronApp({ userDataDir });
   page = await app.firstWindow();
@@ -140,7 +140,9 @@ test.beforeAll(async () => {
 
   await gotoPage(page, "optimizer", "Optimizer");
   await expectPage(page, "optimizer");
-});
+}
+
+test.beforeAll(launchOptimizer);
 
 test.afterAll(async () => {
   await app?.close();
@@ -400,39 +402,47 @@ test("duplicate, then re-point the copy: two subjects, two rows, each with its O
   await expect(optRows(page)).toHaveCount(1);
 });
 
-test("the flex variants are DERIVED from the focality mode, not chosen as methods", async () => {
-  // Coordinator, 2026-09-06: the Method column offers two methods, and `flex_adaptive` /
-  // `flex_pareto` are what a flex search BECOMES when its thresholds are derived or swept. The
-  // kind is read off the editor's own focality options (`jobKindFor`), exactly as in 2.5.0.
-  const row = optRows(page).first();
-  await expect(row.locator('td[data-cell="method"]').getByRole("combobox")).toHaveText("Flex");
-  await expect(row).toHaveAttribute("data-kind", "flex");
-  await expect(row.locator('td[data-cell="goal"]').getByRole("combobox")).toHaveText("mean");
-
-  // Goal `focality` in the row, then the mode in the editor.
-  await setOptCell(page, row, "goal", "focality");
+test("new searches offer all four scientific goals", async () => {
+  await clearOptRows(page);
+  const row = await addOptRow(page);
+  await setOptSubject(page, row, "ernie");
+  await expect(row.locator('td[data-cell="goal"]').getByRole("combobox")).toHaveText("Mean TImax");
+  await row.locator('td[data-cell="goal"]').getByRole("combobox").click();
+  await expect(page.getByRole("option", { name: "Mean TImax", exact: true })).toBeVisible();
+  await expect(page.getByRole("option", { name: "Max TImax (99.9%)", exact: true })).toBeVisible();
+  await expect(page.getByRole("option", { name: "Threshold-based focality", exact: true })).toBeVisible();
+  await page.getByRole("option", { name: "Threshold-free focality", exact: true }).click();
   const dialog = await openOptEditor(page, row);
-  await field("Threshold mode", dialog).getByRole("radio", { name: "Adaptive (single run)", exact: true }).click();
+  await expect(field("Intensity preference", dialog)).toBeVisible();
+  await pickCorticalTarget(dialog);
+  await expect(dialog.getByRole("radio", { name: /Fixed thresholds|Adaptive thresholds|Multi-threshold/ })).toHaveCount(0);
   await closeOptEditor(page);
-  await expect(row).toHaveAttribute("data-kind", "flex_adaptive");
-  // Line 2 states the variant, so the kind is readable without opening the editor.
-  await expect(optRowDetail(row)).toHaveText("goal focality (adaptive) · 2 pairs · 1 mA · ratio 1:1");
-
+  await expect(row).toHaveAttribute("data-kind", "flex");
   const groups = collectGroups();
   await expect(page.getByTestId("plan-stat-jobs").locator(".plan-stat-value")).toHaveText("1", { timeout: 15_000 });
   await pressRun();
   await expect.poll(() => groups.bodies.length, { timeout: 15_000 }).toBe(1);
   groups.stop();
-  expect((groups.bodies[0] as { kind: string }).kind).toBe("flex_adaptive");
+  expect((groups.bodies[0] as { kind: string }).kind).toBe("flex");
+});
 
-  const again = await openOptEditor(page, row);
-  await field("Threshold mode", again).getByRole("radio", { name: "Pareto sweep", exact: true }).click();
+test("threshold focality restores fixed, adaptive and multi-threshold controls", async () => {
+  await clearOptRows(page);
+  const row = await addOptRow(page);
+  await setOptSubject(page, row, "ernie");
+  await setOptCell(page, row, "goal", "Threshold-based focality");
+  const dialog = await openOptEditor(page, row);
+  await expect(dialog.getByRole("radio", { name: "Adaptive thresholds", exact: true })).toBeChecked();
+  await expect(field("Non-ROI share", dialog)).toBeVisible();
+  await dialog.getByRole("radio", { name: "Fixed thresholds", exact: true }).click();
+  await field("E-field thresholds", dialog).getByRole("textbox").fill("0.1,0.3");
+  await expect(field("Intensity preference", dialog)).toHaveCount(0);
+  await dialog.getByRole("radio", { name: "Multi-threshold", exact: true }).click();
+  await field("ROI thresholds", dialog).getByRole("textbox").fill("70,80");
+  await field("Non-ROI thresholds", dialog).getByRole("textbox").fill("10,20");
+  await expect(dialog.getByText(/4 threshold combinations/)).toBeVisible();
   await closeOptEditor(page);
   await expect(row).toHaveAttribute("data-kind", "flex_pareto");
-  await expect(optRowDetail(row)).toHaveText(/^goal focality \(Pareto\) · /);
-
-  await setOptCell(page, row, "goal", "mean");
-  await expect(row).toHaveAttribute("data-kind", "flex");
 });
 
 test("Ex: subjects remain selectable and missing leadfields can be generated before running", async () => {
@@ -492,10 +502,10 @@ test("Ex: subjects remain selectable and missing leadfields can be generated bef
   await pickSavedTarget(dialog, "L_Insula_target");
   await fillExBuckets(dialog);
   // The cost is stated beside the buckets that change it — the same function line 2 reads.
-  await expect(dialog.getByTestId("optimizer-cost-ex")).toHaveText("4 electrodes · 7 splits · 7 combinations");
+  await expect(dialog.getByTestId("optimizer-cost-ex")).toHaveText("4 electrodes · 1 montage · 7 current splits · 7 iterations");
   await closeOptEditor(page);
   await expect(optRowSummary(row)).toHaveText("Thalamus_target + L_Insula_target");
-  await expect(optRowDetail(row)).toHaveText("4 electrodes (TI) · 2 mA · 7 splits · 7 combinations");
+  await expect(optRowDetail(row)).toHaveText("4 electrodes (TI) · 2 mA · 1 montage · 7 current splits · 7 iterations");
 
   // Even a fully configured target cannot run against an absent leadfield.
   await setOptSubject(page, row, "101");
@@ -801,6 +811,10 @@ test("custom masks import and retain explicit space in Flex and Ex", async () =>
 
 
 test("leadfield completion refreshes the goal cell without changing row height", async () => {
+  // Earlier scenarios generated this same net. Use a fresh app session so their retained
+  // generation state cannot replace this scenario's Generate button with Ready.
+  await app.close();
+  await launchOptimizer();
   await clearOptRows(page);
   const row = await addOptRow(page);
   await setOptSubject(page, row, "101");

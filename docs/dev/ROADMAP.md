@@ -4,14 +4,13 @@ Priorities and completion criteria live here; [RELEASING.md](RELEASING.md) owns 
 procedure and [TESTING.md](TESTING.md) owns validation strategy and gaps. Remove completed
 work; retain consequential rationale in [DECISIONS.md](DECISIONS.md).
 
-Development continues on `main` until the official release.
 The current checkout is available for manual testing through the standard development loader.
 The internal image is published on Docker Hub; manual acceptance continues. No stable tag or public release is implied.
 
 | Remaining acceptance work | Completion criterion |
 |---|---|
 | Manual workflow testing | Colleagues exercise representative copied projects and report output/result behavior |
-| Rebuild the distribution candidate | Bake current source, renderer and compatible Tetravox embed; record immutable identities |
+| Rebuild the distribution candidate | Bake current source and renderer; verify the separately installed native TetraVox package and record immutable identities |
 | Clean image and loader acceptance | Test without checkout mounts; verify Python/Bash launchers, packaged cross-project Attach/Recreate, project switching and Electron close-stop on each supported host |
 | Hosted review | Run CI/security review on the actual candidate head; older results do not cover later fixes |
 | Platform and publication checks | Verify intended platforms, macOS signing/notarization and registry access before public promotion |

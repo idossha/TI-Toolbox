@@ -97,8 +97,8 @@ async function detailOf(res: Response): Promise<string> {
   return `${res.url} failed with HTTP ${res.status}`;
 }
 
-async function getJson<T>(url: string): Promise<{ body: T; building: boolean }> {
-  const res = await fetch(url, { credentials: "same-origin", headers: { accept: "application/json" } });
+async function getJson<T>(url: string, cache?: RequestCache): Promise<{ body: T; building: boolean }> {
+  const res = await fetch(url, { credentials: "same-origin", cache, headers: { accept: "application/json" } });
   if (res.status === 202) return { body: (await res.json()) as T, building: true };
   if (!res.ok) throw new SceneError(res.status, await detailOf(res));
   return { body: (await res.json()) as T, building: false };
@@ -163,7 +163,7 @@ export type GuideElectrodes = GuideElectrodesBody;
 export type GuideManifestPart = GuideManifestBody["parts"][number];
 
 export async function getGuideManifest(): Promise<GuideManifest> {
-  const { body } = await getJson<GuideManifest>("/api/guide/manifest");
+  const { body } = await getJson<GuideManifest>("/api/guide/manifest", "no-store");
   return body;
 }
 

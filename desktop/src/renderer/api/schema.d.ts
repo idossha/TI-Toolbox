@@ -1102,6 +1102,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/catalog/optimization-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["optimizationCandidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/catalog/optimization-candidates/{candidate_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["optimizationCandidate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/catalog/optimization-candidates/{candidate_id}/mapping": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["optimizationCandidateMapping"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/catalog/flex-runs": {
         parameters: {
             query?: never;
@@ -4161,7 +4209,7 @@ export interface paths {
                             focus_bbox?: number[] | null;
                             parts: {
                                 /** @enum {string} */
-                                id: "skin" | "gm";
+                                id: "skin" | "gm" | "subcortical";
                                 /** @enum {string} */
                                 kind: "surface";
                                 triangles: number;
@@ -4183,6 +4231,10 @@ export interface paths {
                             }[];
                             atlases: {
                                 id: string;
+                                /** @enum {string} */
+                                kind?: "cortical" | "subcortical";
+                                /** @enum {string} */
+                                aligned_to?: "gm" | "subcortical";
                                 hemispheres: ("lh" | "rh")[];
                                 regions: number;
                                 url: string;
@@ -4236,7 +4288,7 @@ export interface paths {
         get: {
             parameters: {
                 query: {
-                    part: "skin" | "gm";
+                    part: "skin" | "gm" | "subcortical";
                     format?: "tvsc" | "gii";
                 };
                 header?: never;
@@ -4379,7 +4431,7 @@ export interface paths {
                             /** @enum {string} */
                             space: "guide-ras";
                             /** @enum {string} */
-                            aligned_to?: "gm";
+                            aligned_to?: "gm" | "subcortical";
                             vertices?: number;
                             radius_mm?: number;
                             labelled_fraction?: number;
@@ -4389,7 +4441,7 @@ export interface paths {
                                 /** @description the .annot row index, which is what a config's AtlasROI.label carries */
                                 id: number;
                                 /** @enum {string} */
-                                hemi: "lh" | "rh";
+                                hemi: "lh" | "rh" | "";
                                 name: string;
                                 color: string;
                             }[];
@@ -4883,6 +4935,46 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        OptimizationCandidate: {
+            id: string;
+            objective: number | null;
+            objective_label: string;
+            /** @enum {string} */
+            objective_direction: "minimize" | "maximize";
+            metrics: {
+                [key: string]: number | null;
+            };
+            metric_labels: {
+                [key: string]: string;
+            };
+            comparison_key: string;
+            replay_note?: string;
+            optimizer_termination?: {
+                /** @enum {string} */
+                accepted_stage: "global" | "local";
+                global: components["schemas"]["OptimizerTerminationStatus"];
+                local?: components["schemas"]["OptimizerTerminationStatus"];
+            };
+            positions?: number[][];
+            pairs?: string[][];
+            eeg_net?: string;
+            currents_mA?: (number | null)[];
+        };
+        OptimizerTerminationStatus: {
+            success: boolean;
+            message: string;
+            iterations: number;
+            evaluations: number;
+        };
+        OptimizationCandidatePage: {
+            candidates: components["schemas"]["OptimizationCandidate"][];
+            total: number;
+            legacy: boolean;
+        };
+        OptimizationCandidateDetail: {
+            candidate: components["schemas"]["OptimizationCandidate"];
+            simulation_config: components["schemas"]["SimulationConfig"];
+        };
         NotebookEntry: {
             /** @description file name; may carry the one `examples/` prefix */
             name: string;
@@ -5903,7 +5995,8 @@ export interface components {
          *         Reserved for NIfTI output (handled externally by
          *         ``tit.tools.mesh2nii``, not by SimNIBS SESSION).
          *     map_to_mni : bool
-         *         Reserved; not currently passed to SimNIBS.
+         *         Generate MNI-space field and T1 NIfTI outputs after simulation.
+         *         Off by default; subject-space NIfTI outputs are always generated.
          *     map_to_fsavg : bool
          *         After each TI montage finishes, project its surface fields
          *         (``TI_max``, ``TI_normal``, ``hf_peak``, ``hf_sar``) onto fsaverage5
@@ -6085,6 +6178,18 @@ export interface components {
              * @default null
              */
             display_name: string | null;
+            /**
+             * Electrode Poses
+             * @default null
+             */
+            electrode_poses: number[][][] | null;
+            /**
+             * Provenance
+             * @default null
+             */
+            provenance: {
+                [key: string]: string;
+            } | null;
             /** @constant */
             _type: "Montage";
         };
@@ -6307,6 +6412,11 @@ export interface components {
              * @default false
              */
             disable_mapping_simulation: boolean;
+            /**
+             * Observe Background
+             * @default false
+             */
+            observe_background: boolean;
             /**
              * Output Folder
              * @default null
@@ -8289,13 +8399,13 @@ export interface components {
          *     MEAN : str
          *         Maximize mean field intensity in the ROI.
          *     MAX : str
-         *         Maximize peak field intensity in the ROI.
+         *         Maximize the 99.9th percentile field intensity in the ROI.
          *     FOCALITY : str
          *         Maximize ROI-to-non-ROI focality via SimNIBS's threshold-based
          *         ROC measure (``measures.ROC``).
          *     FOCALITY_TF : str
          *         Maximize a threshold-free focality contrast,
-         *         ``mean(E_ROI) ** (1 + w) / p95(E_nonROI)``.  Because it needs no
+         *         ``mean(E_ROI) ** (1 + w) / mean(E_nonROI)``.  Because it needs no
          *         thresholds it avoids the threshold-selection failure mode of the
          *         ROC goal, whose landscape flattens when the requested ROI and
          *         non-ROI thresholds are jointly infeasible (as happens at deep
@@ -9160,7 +9270,108 @@ export interface components {
     pathItems: never;
 }
 export type $defs = Record<string, never>;
+export interface operations {
+    optimizationCandidates: {
+        parameters: {
+            query: {
+                subject: string;
+                kind: "flex" | "ex" | "mex";
+                run: string;
+                offset?: number;
+                limit?: number;
+                sort?: string;
+                descending?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Candidate page with explicitly defined optimization estimates */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OptimizationCandidatePage"];
+                };
+            };
+        };
+    };
+    optimizationCandidate: {
+        parameters: {
+            query: {
+                subject: string;
+                kind: "flex" | "ex" | "mex";
+                run: string;
+            };
+            header?: never;
+            path: {
+                candidate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Candidate and standard editable simulation config */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OptimizationCandidateDetail"];
+                };
+            };
+        };
+    };
+    optimizationCandidateMapping: {
+        parameters: {
+            query: {
+                subject: string;
+                run: string;
+                eeg_net: string;
+            };
+            header?: never;
+            path: {
+                candidate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Candidate-specific unique assignment; distances are straight-line millimetres */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        eeg_net: string;
+                        pairs: string[][];
+                        optimized_positions: number[][];
+                        mapped_positions: number[][];
+                        distances: number[];
+                    };
+                };
+            };
+            /** @description Candidate or cap not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid candidate or cap */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+}
 type WithRequired<T, K extends keyof T> = T & {
     [P in K]-?: T[P];
 };
-export type operations = Record<string, never>;

@@ -18,7 +18,7 @@
  * clicks would leave four empty rows above the four they wrote, and the Save button would stay
  * disabled with no visible reason.
  */
-import { categoricalColor, rgbToHex, type Rgb, type SceneMarker } from "../../scene";
+import { categoricalColor, SCENE_CATEGORICAL, rgbToHex, type Rgb, type SceneMarker } from "../../scene";
 import type { ElectrodePosition } from "./api";
 
 /** Millimetres, to the same 0.1 mm step the editor's `NumberInput`s use. A pick carries float
@@ -64,14 +64,12 @@ export function renumber(positions: ElectrodePosition[]): ElectrodePosition[] {
   return positions.map((p, i) => (!p.label || AUTO_LABEL.test(p.label) ? { ...p, label: autoLabel(i) } : p));
 }
 
-/**
- * The colour that identifies one row — its dot on the scalp and its swatch in the table.
- *
- * Keyed on the row's **index**, not on its name: the name can be edited, and a colour that moved
- * when a user renamed an electrode would break the one thing this colour is for.
- */
+/** Pair index determines colour; electrode names distinguish the two polarities. */
 export function positionColor(index: number): Rgb {
-  return categoricalColor(index);
+  const channel = Math.floor(index / 2) % SCENE_CATEGORICAL.length;
+  if (channel === 0) return [0.8, 0.2, 0.2];
+  if (channel === 1) return [0, 114 / 255, 178 / 255];
+  return categoricalColor(channel);
 }
 
 /** The same colour as the `#rrggbb` the table's swatch needs. One source, two renderings. */
@@ -134,10 +132,9 @@ export function placementMarkers(positions: ElectrodePosition[]): SceneMarker[] 
     if (!isPlaced(p)) return;
     markers.push({
       id: p.label || autoLabel(i),
-      label: p.label || autoLabel(i),
+      label: autoLabel(i),
       world: [p.x, p.y, p.z],
-      // The row's own colour, not its pair's: the question a dot answers here is "which row am I",
-      // and the pair is already said by the name (`E1+`/`E1-`). See `SceneMarker.color`.
+      channel: Math.floor(i / 2),
       color: positionColor(i),
     });
   });

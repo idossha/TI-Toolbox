@@ -16,12 +16,12 @@
  * adapter falls back to `getJobLog` and splits the file into the same line model. Either way the
  * whole log is in the list — no paging control, and nothing for the user to click to see more.
  */
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { JobConsole } from "../../ui/Jobs";
-import { jobEventsToLogLines, mergeJobEvents, splitLogText, type JobLogLine } from "../jobs/logLines";
-import { subscribeJob, unsubscribeJob, useJobsStream } from "../jobs/useJobsStream";
-import { getJobEvents, getJobLog, TERMINAL_STATES, type JobStatus } from "./api";
+import { splitLogText, type JobLogLine } from "../jobs/logLines";
+import { useJobLogEvents } from "../jobs/useJobLogEvents";
+import { getJobLog, TERMINAL_STATES, type JobStatus } from "./api";
 import { reveal } from "./reveal";
 
 function fileToLogLines(text: string): JobLogLine[] {
@@ -32,31 +32,15 @@ function fileToLogLines(text: string): JobLogLine[] {
 
 export function JobRawLog({ job }: { job: JobStatus }) {
   const jobId = job.id;
-  const { eventsByJob } = useJobsStream();
   const running = !TERMINAL_STATES.includes(job.state);
-
-  useEffect(() => {
-    subscribeJob(jobId);
-    return () => unsubscribeJob(jobId);
-  }, [jobId]);
-
-  const backlog = useQuery({
-    queryKey: ["job-events", jobId],
-    queryFn: () => getJobEvents(jobId),
-    staleTime: 5_000,
-  });
-
-  const eventLines = useMemo(
-    () => jobEventsToLogLines(mergeJobEvents(backlog.data ?? [], eventsByJob[jobId] ?? [])),
-    [backlog.data, eventsByJob, jobId],
-  );
+  const { lines: eventLines, isLoading } = useJobLogEvents(jobId, job.state);
 
   // Only when the event stream has nothing to show — see the header comment. `tail` is omitted so
   // the server returns the whole file; a running job refetches so the fallback tails too.
   const file = useQuery({
-    queryKey: ["job-log", jobId, "full"],
+    queryKey: ["job-log", jobId, "full", running ? "live" : "final"],
     queryFn: () => getJobLog(jobId),
-    enabled: !backlog.isLoading && eventLines.length === 0,
+    enabled: !isLoading && eventLines.length === 0,
     refetchInterval: running ? 3000 : false,
   });
   const fileLines = useMemo(() => (file.data ? fileToLogLines(file.data) : []), [file.data]);

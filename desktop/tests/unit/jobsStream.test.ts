@@ -181,3 +181,34 @@ describe("confirmed job deletion", () => {
     stream.stop();
   });
 });
+
+describe("log replay recovery", () => {
+  beforeEach(() => { FakeSocket.instances = []; });
+  afterEach(() => vi.useRealTimers());
+  it("resumes after the received sequence without duplicate replay", async () => {
+    vi.useFakeTimers();
+    const stream = new JobsStream({ url: "ws://x", WebSocketImpl: FakeSocket, baseDelayMs: 1 });
+    stream.start();
+    const first = FakeSocket.instances[0]!;
+    first.open(); stream.subscribeJob("j1");
+    const event = { seq: 34, ts: 0, type: "log", msg: "finished" };
+    first.message({ type: "event", job_id: "j1", event }); first.drop();
+    await vi.runOnlyPendingTimersAsync();
+    const second = FakeSocket.instances[1]!; second.open();
+    expect(second.sent).toEqual([JSON.stringify({ subscribe: { j1: 35 } })]);
+    second.message({ type: "event", job_id: "j1", event });
+    expect(stream.getState().eventsByJob.j1).toEqual([event]); stream.stop();
+  });
+  it("two consoles share a subscription until both release it", () => {
+    const stream = new JobsStream({ url: "ws://x", WebSocketImpl: FakeSocket }); stream.start();
+    const socket = FakeSocket.instances[0]!; socket.open();
+    stream.subscribeJob("j1"); stream.subscribeJob("j1"); stream.unsubscribeJob("j1");
+    expect(socket.sent).toEqual([JSON.stringify({ subscribe: { j1: 0 } })]);
+    socket.message({ type: "event", job_id: "j1", event: { seq: 1, ts: 0, type: "log", msg: "tail" } });
+    expect(stream.getState().eventsByJob.j1).toHaveLength(1);
+    stream.unsubscribeJob("j1");
+    socket.message({ type: "event", job_id: "j1", event: { seq: 2, ts: 0, type: "log", msg: "late replay" } });
+    expect(stream.getState().eventsByJob.j1).toBeUndefined();
+    expect(socket.sent.at(-1)).toBe(JSON.stringify({ unsubscribe: ["j1"] })); stream.stop();
+  });
+});

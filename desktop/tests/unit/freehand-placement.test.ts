@@ -127,24 +127,27 @@ describe("removeAt", () => {
 });
 
 describe("colours", () => {
-  it("gives every row of a configuration its own colour", () => {
+  it("gives both electrodes of each channel the same colour", () => {
     const eight = Array.from({ length: 8 }, (_, i) => positionSwatch(i));
-    expect(new Set(eight).size).toBe(8);
+    expect(new Set(eight).size).toBe(4);
+    expect(eight[0]).toBe(eight[1]);
+    expect(eight[2]).toBe(eight[3]);
   });
 
   it("is stable per index — a renamed electrode keeps its colour", () => {
-    expect(positionColor(3)).toEqual(SCENE_CATEGORICAL[3]);
-    expect(positionSwatch(0)).toBe("#0072b2");
+    expect(positionColor(3)).toEqual(positionColor(2));
+    expect(positionSwatch(0)).toBe("#cc3333");
+    expect(positionSwatch(2)).toBe("#0072b2");
   });
 
   it("wraps only past the ramp, and is never the invisible black Okabe-Ito ends on", () => {
-    expect(positionSwatch(SCENE_CATEGORICAL.length)).toBe(positionSwatch(0));
+    expect(positionSwatch(SCENE_CATEGORICAL.length * 2)).toBe(positionSwatch(0));
     expect(SCENE_CATEGORICAL.some((c) => c[0] === 0 && c[1] === 0 && c[2] === 0)).toBe(false);
   });
 });
 
 describe("placementMarkers", () => {
-  it("draws one dot per placed row, each in that row's own colour", () => {
+  it("draws one dot per placed row, each in its channel colour", () => {
     const rows = clicks(blank(), [
       [1, 0, 0],
       [2, 0, 0],
@@ -158,6 +161,9 @@ describe("placementMarkers", () => {
 
   it("draws nothing for a blank row — a dot at the origin is a dot inside the head", () => {
     expect(placementMarkers(blank())).toEqual([]);
+    const four = placementMarkers(clicks(blank(), [[1,0,0],[2,0,0],[3,0,0],[4,0,0]]));
+    expect(four.map((marker) => marker.label)).toEqual(["E1+", "E1-", "E2+", "E2-"]);
+    expect(four.map((marker) => marker.channel)).toEqual([0,0,1,1]);
     expect(isBlankPosition({ label: "", x: 0, y: 0, z: 0.1 })).toBe(false);
   });
 });

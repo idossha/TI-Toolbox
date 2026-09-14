@@ -278,3 +278,11 @@ class TestRunParetoSweep:
             run_pareto_sweep(config)
 
         mock_read_manifest.assert_not_called()
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf"), 2.0, 0.0])
+def test_calibration_rejects_nonfinite_or_nonnegative_objective(value):
+    from tit.opt.flex.drivers import _achievable_intensity
+
+    with pytest.raises(ValueError, match="achievable ROI intensity"):
+        _achievable_intensity(_flex_result(value))

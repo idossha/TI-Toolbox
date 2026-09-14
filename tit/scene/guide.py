@@ -55,7 +55,7 @@ GUIDE_SPACE = "guide-ras"
 
 #: Bumped whenever the packaged bytes or the manifest's shape change, so a
 #: client can tell a stale cached manifest from a current one.
-GUIDE_VERSION = 1
+GUIDE_VERSION = 2
 
 #: Where the packaged assets live, relative to this file.
 GUIDE_DIR = Path(__file__).resolve().parent / "guide"
@@ -104,7 +104,9 @@ def _read_manifest(root: Path) -> dict[str, Any]:
             "`simnibs_python -m tit.scene.guide_build`."
         ) from exc
     except (OSError, ValueError) as exc:
-        raise GuideUnavailable(f"the packaged guide manifest is unreadable: {exc}") from exc
+        raise GuideUnavailable(
+            f"the packaged guide manifest is unreadable: {exc}"
+        ) from exc
     if not isinstance(body, dict) or "parts" not in body:
         raise GuideUnavailable(f"{path} is not a guide manifest")
     return body
@@ -199,7 +201,9 @@ def legend(atlas: str) -> dict[str, Any]:
     try:
         body = json.loads(asset.path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
-        raise GuideUnavailable(f"the guide legend for {atlas!r} is unreadable: {exc}") from exc
+        raise GuideUnavailable(
+            f"the guide legend for {atlas!r} is unreadable: {exc}"
+        ) from exc
     return body
 
 

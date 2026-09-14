@@ -627,3 +627,13 @@ class TestProjectMontageToFsaverage:
             config, self._montage(SimulationMode.TI), logger
         )
         assert logger.warning.called
+
+
+@pytest.mark.parametrize("map_to_mni", [False, True])
+def test_batch_nifti_forwards_mni_choice(map_to_mni):
+    from tit.sim import utils
+
+    specs = [{"mesh_dir": "/meshes", "output_dir": "/niftis"}]
+    with patch("tit.tools.mesh2nii.convert_mesh_dirs") as convert:
+        utils.transform_dirs_to_nifti(specs, "/m2m", MagicMock(), map_to_mni=map_to_mni)
+    convert.assert_called_once_with(specs=specs, m2m_dir="/m2m", map_to_mni=map_to_mni)

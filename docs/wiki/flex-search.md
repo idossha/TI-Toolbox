@@ -31,7 +31,7 @@ Flex Search uses differential evolution optimization to determine the best elect
 
 **Core capabilities:**
 
-- **Optimization Goals** (`OptGoal` enum): `mean`, `max`, `focality` (threshold-based ROC), or `focality_tf` (threshold-free focality)
+- **Desktop goals**: Mean TImax (`mean`, average in the ROI), Max TImax (`max`, 99.9th percentile in the ROI), Threshold-free focality (`focality_tf`, weighted mean ROI / mean non-ROI), and Threshold-based focality (`focality`, ROC scoring).
 - **Post-processing Methods** (`FieldPostproc` enum): `max_TI`, `dir_TI_normal`, or `dir_TI_tangential`
 - **ROI Definition**: `FlexConfig.SphericalROI`, `FlexConfig.AtlasROI`, or `FlexConfig.SubcorticalROI` dataclasses -- see [Defining the ROI](#defining-the-roi) below
 - **Anisotropy Support**: Four conductivity models (`scalar`, `vn`, `dir`, `mc`) with configurable max ratio and conductivity
@@ -133,7 +133,9 @@ roi = FlexConfig.SphericalROI(
 )
 ```
 
-## Focality Optimization with Dynamic Thresholding
+## Threshold-based focality
+
+Choose **Fixed**, **Adaptive**, or **Multi-threshold** under Threshold-based focality. Fixed uses explicit field thresholds; Adaptive derives thresholds from an initial intensity search; Multi-threshold runs multiple threshold pairs. Existing configurations retain the `pareto` strategy value. These choices do not alter the threshold-free objective described below.
 
 The focality optimization goal is a multi-objective function balancing ROI targeting with out-of-ROI field minimization:
 
@@ -164,29 +166,31 @@ As described in the [original paper](https://www.sciencedirect.com/science/artic
 
 ## Threshold-Free Focality Optimization
 
-The `focality_tf` goal targets the same objective as the ROC goal above -- concentrate the field in the ROI and keep it out of the non-ROI -- without asking the user to commit to a field threshold in advance. Instead of counting elements above and below a cutoff, it scores the ratio of the ROI field to the upper tail of the non-ROI field:
+The `focality_tf` goal shares the broad aim of the ROC goal above, but uses a different scoring criterion -- concentrate the field in the ROI and keep it out of the non-ROI -- without asking the user to commit to a field threshold in advance. Instead of counting elements above and below a cutoff, it scores the ratio of the mean ROI field to the mean non-ROI field:
 
 $$
 \texttt{focality\_tf} =
 \frac{\operatorname{mean}\!\left( E_{\mathrm{ROI}} \right)^{\,1+w}}
-     {p_{95}\!\left( E_{\text{non-ROI}} \right)}
+     {\operatorname{mean}\!\left( E_{\text{non-ROI}} \right)}
 $$
 
-Larger is better; the optimizer minimizes its negative. The denominator uses the 95th percentile rather than the mean or the maximum, so the score is driven by the hot spots that actually matter for off-target stimulation while staying insensitive to a handful of extreme elements.
+Larger is better; the optimizer minimizes its negative. Both means use the samples in the declared regions. Non-ROI is the declared comparison region: it can be the ROI complement or a separately specified region; it is not automatically every sample outside the ROI. This mean ratio does not constrain individual off-target hot spots; the non-ROI 95th percentile remains a separate diagnostic.
 
 ### The Intensity Weight
 
 The exponent $$w$$ is the `intensity_weight` parameter (range $$[0, 1]$$, default `0.0`) and controls the trade-off between focality and on-target strength:
 
-- **`intensity_weight = 0.0`** -- balanced "tail" form. The ROI field enters linearly, so a montage that halves the off-target field is worth as much as one that doubles the on-target field. This is the default.
-- **`intensity_weight = 1.0`** -- intensity-first. The ROI field is squared, so the objective strongly prefers solutions that deliver field to the target even at the cost of some spread.
+- **`intensity_weight = 0.0`** -- pure focality ratio, with no absolute intensity preference. Scaling both regions equally leaves the score unchanged. This is the default.
+- **`intensity_weight = 1.0`** -- intensity-weighted focality. The ROI mean is squared; the non-ROI mean still penalizes spread. This is not the intensity-only Mean TImax objective.
 - Intermediate values interpolate between the two.
 
 ### Why Threshold-Free Matters
 
-The ROC goal's result depends entirely on a threshold that the user has to choose before the optimization runs, and the [threshold analysis above](#focality-thresholds---critical-for-optimization-success) shows how much that choice moves the outcome. The deeper problem is that a threshold pair which is well-calibrated for one target can be **jointly infeasible for another**: if no montage on the scalp can simultaneously push the ROI above the lower bound and hold the non-ROI below the upper bound, every candidate scores identically, the objective landscape goes flat, and differential evolution has no gradient to follow. This is most likely exactly where optimization is needed most -- deep targets.
+The ROC goal depends on user-selected thresholds. It minimizes the distance from ideal ROI coverage above the ROI threshold and zero non-ROI coverage above the non-ROI threshold. These are scoring targets, not enforced constraints. Poorly chosen thresholds can make many candidates have identical coverage and therefore identical scores. An infeasible threshold pair does **not** imply that every candidate ties: partial coverage can still distinguish candidates. Solver termination does not establish that the requested thresholds were attained.
 
-`focality_tf` has no such failure mode. It is a continuous ratio, so it always ranks one candidate above another and always hands the optimizer a usable landscape, whatever the depth of the target.
+`focality_tf` avoids choosing threshold pairs. It can still assign equal scores to different candidates, and mesh discretization can create flat regions. Neither a finite contrast nor a solver stopping proves convergence, a global optimum, or useful target intensity. Nonfinite, signed-negative, empty, or numerically degenerate non-ROI values are rejected rather than rewarded with an inflated ratio.
+
+**Historical study below:** these measurements used the earlier p95-denominator `focality_tf`, except for the explicitly named intensity-weighted mean-ratio arm. They are preserved as historical evidence, not validation measurements of the corrected mean-denominator objective.
 
 That does not make it failure-proof, though -- a scale-free ratio objective trades one failure mode for a different one. Because it scores separation, not dose, it can rate a candidate highly for being cleanly separated from the non-ROI even when almost no field reached the target at all. In the mini-study below, a threshold-free direct-AUC run scored AUC 0.931 on just 0.047 V/m of on-target field, and `focality_tf` itself bottomed out at 0.084 V/m in its worst cell. Always read a focality or AUC score next to the ROI-mean field it was computed on.
 
@@ -194,21 +198,21 @@ That does not make it failure-proof, though -- a scale-free ratio objective trad
   <img src="{{ site.baseurl }}/assets/imgs/flex-search/focality-study_summary.png" alt="Optimization goal comparison across a 75-run focality mini-study" style="width: 100%; max-width: 900px;">
 </div>
 
-**Summary across all 75 flex-search runs (5 subjects x 3 deep atlas targets x 5 optimization goals): mean AUC per goal, the focality-vs-on-target-strength tradeoff for every run, and each goal's worst-case AUC and worst-case ROI field strength.** On average across the 15 subject-target cells, the threshold-free objectives outperformed both ROC threshold settings on focality (AUC); `focality_tf` (the shipped goal, `w = 0`) beat both ROC arms in 13 of 15 cells (86.7%), losing only at sub-101 and sub-103 L-hippocampus -- the one target where the aggressive threshold pair (0.4/0.2 V/m) turned out to be feasible. That same aggressive ROC goal failed outright where its threshold pair was jointly infeasible at depth: it scored below chance (AUC < 0.5) in 5 of its 15 cells, and collapsed to near-zero on-target field -- a separate, dose-based criterion -- in 6. `focality_tf` had no failures under either criterion. This does not make `focality` obsolete -- where a defensible and attainable threshold exists, it optimizes precisely the criterion the user cares about -- but it does mean the threshold has to be validated for the target at hand.
+**Summary across all 75 flex-search runs (5 subjects x 3 deep atlas targets x 5 optimization goals): mean AUC per goal, the focality-vs-on-target-strength tradeoff for every run, and each goal's worst-case AUC and worst-case ROI field strength.** On average across the 15 subject-target cells, the threshold-free objectives outperformed both ROC threshold settings on focality (AUC); `focality_tf` (the historical p95 goal, `w = 0`) beat both ROC arms in 13 of 15 cells (86.7%), losing only at sub-101 and sub-103 L-hippocampus -- the one target where the aggressive threshold pair (0.4/0.2 V/m) turned out to be feasible. That same aggressive ROC goal failed outright where its threshold pair was jointly infeasible at depth: it scored below chance (AUC < 0.5) in 5 of its 15 cells, and collapsed to near-zero on-target field -- a separate, dose-based criterion -- in 6. `focality_tf` had no failures under either criterion. This does not make `focality` obsolete -- where a defensible and attainable threshold exists, it optimizes precisely the criterion the user cares about -- but it does mean the threshold has to be validated for the target at hand.
 
 ### When to Use Which
 
 |                                               | `focality` (ROC)                                                                                                                   | `focality_tf` (threshold-free)                                                                               |
 | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | **Thresholds required**                       | Yes -- `thresholds` must be set                                                                                                    | No                                                                                                           |
-| **What is scored**                            | ROC separation of ROI and non-ROI elements at the chosen cutoff                                                                    | mean ROI field over the 95th percentile of the non-ROI field                                                 |
-| **Behavior at deep targets**                  | Can degenerate to a flat landscape if the thresholds are jointly infeasible                                                        | Stays graded; always ranks candidates                                                                        |
+| **What is scored**                            | ROC separation of ROI and non-ROI elements at the chosen cutoff                                                                    | mean ROI field raised to `1 + intensity_weight`, divided by mean non-ROI field                                                 |
+| **Behavior at deep targets**                  | Can have flat scores when candidates have identical threshold coverage                                                        | Avoids fixed thresholds; ties and flat regions remain possible                                                                        |
 | **Intensity trade-off**                       | Implicit in the threshold choice                                                                                                   | Explicit via `intensity_weight`                                                                              |
 | **Use when**                                  | You have a threshold you can defend and that the target can actually reach -- e.g. derived from a prior mean $$\mathrm{TI}_{\max}$$ pass | You do not want to commit to a threshold up front, or the target is deep enough that feasibility is in doubt |
 | **Worst case over 15 subject-target cells**\* | Min AUC 0.282; min ROI mean 0.015 V/m                                                                                              | Min AUC 0.783; min ROI mean 0.084 V/m                                                                        |
 | **Dose guarantee**                            | Not guaranteed -- always check ROI mean                                                                                            | Not guaranteed -- always check ROI mean                                                                      |
 
-\* From the mini-study below; the `focality` column here is specifically the aggressive `thresholds=0.4,0.2` V/m arm -- a different threshold choice will perform differently.
+\* Historical p95-denominator results, not a benchmark of the current mean-denominator objective. From the mini-study below; the `focality` column here is specifically the aggressive `thresholds=0.4,0.2` V/m arm -- a different threshold choice will perform differently.
 
 Both goals use the same ROI and non-ROI setup, so switching between them requires no change to the region definitions. One restriction applies only to `focality_tf`: it cannot be run with `detailed_results=True` (see [Detailed Results](#detailed-results)).
 
@@ -234,7 +238,7 @@ Read every number in this section with these in mind:
 | **`focality_tf` (w = 0) -- shipped** | **0.889 ± 0.056** | **0.276 ± 0.124** | 0.159 ± 0.075      | 1.776 ± 0.255  | 27.8 ± 29.0                  | 1.051 ± 0.088 |
 | threshold-free: intensity-weighted   | 0.828 ± 0.066     | 0.481 ± 0.083     | 0.301 ± 0.053      | 1.632 ± 0.356  | 74.7 ± 16.4                  | 0.846 ± 0.093 |
 
-**Correction: the "intensity-weighted" row above is not `intensity_weight = 1.0`.** That study arm maximized $$\operatorname{mean}(E_{\mathrm{ROI}})^{2} / \operatorname{mean}(E_{\text{non-ROI}})$$ -- a **mean** in the denominator. The shipped `focality_tf` at $$w = 1.0$$ computes $$\operatorname{mean}(E_{\mathrm{ROI}})^{1+w} / p_{95}(E_{\text{non-ROI}})$$ -- a **95th-percentile** denominator (see [The Intensity Weight](#the-intensity-weight) above and `threshold_free_focality` in `tit/opt/flex/objectives.py`). Do not read the row above as "what `intensity_weight = 1.0` gives" in the shipped code; no $$w > 0$$ run of the actual shipped objective was included in this study.
+**Historical formula distinction:** the intensity-weighted study arm used `mean(ROI)^2 / mean(non-ROI)`, the algebraic form now used at `intensity_weight = 1`. The study's `focality_tf` arms instead used a p95 denominator. Those historical arm labels and measured values have not been recomputed; they do not establish convergence or performance for the current implementation.
 
 ### Reliability
 
@@ -254,7 +258,7 @@ The aggressive `focality` (ROC 0.4/0.2 V/m) goal performs best, among its own th
   <img src="{{ site.baseurl }}/assets/imgs/flex-search/focality-study_roc.png" alt="Group ROC curves for each deep target across all five optimization goals" style="width: 100%; max-width: 900px;">
 </div>
 
-**Group ROC curves of the TI envelope (target gray matter vs. the other gray matter) for each of the three deep targets, comparing all five optimization goals by mean AUC over the 5 subjects; the shaded band shows ±1 SD across subjects for the shipped `focality_tf` (w = 0) arm only.** AUC drops sharply for the ROC threshold goals at R-thalamus and L-insula, while the threshold-free goals (direct AUC, `focality_tf`, intensity-weighted) stay high across all three targets.
+**Group ROC curves of the TI envelope (target gray matter vs. the other gray matter) for each of the three deep targets, comparing all five optimization goals by mean AUC over the 5 subjects; the shaded band shows ±1 SD across subjects for the historical p95 `focality_tf` (w = 0) arm only.** AUC drops sharply for the ROC threshold goals at R-thalamus and L-insula, while the threshold-free goals (direct AUC, `focality_tf`, intensity-weighted) stay high across all three targets.
 
 ### Worst case
 
@@ -274,7 +278,7 @@ By default the two TI channels carry equal current. The `optimize_current_ratio`
 
 Holding the _total_ fixed means the _per-channel_ current necessarily moves. Over the 1:3 to 3:1 grid each channel spans a quarter to three quarters of the total -- that is, **0.5x to 1.5x the configured `current_mA`** (the Optimizer's _Electrode Current_). With the default total of `2 x current_mA` and `current_mA = 2.0`, a channel is driven anywhere between `1.0 mA` and `3.0 mA`, with the pair always summing to `4.0 mA`. `current_mA` is therefore the center of the searched range, not a per-channel ceiling: choose it (or set `ratio_total_mA` directly) so that the 1.5x end is still within the dose you intend to deliver.
 
-The grid always contains the balanced 1:1 split -- `ratio_levels` is rounded up to the next odd number so the midpoint of the sweep is the exact even split. Enabling the ratio search therefore cannot return a worse solution than the equal-current montage it would otherwise have used.
+The grid always contains the balanced 1:1 split -- `ratio_levels` is rounded up to the next odd number so the midpoint of the sweep is the exact even split. The grid includes the equal-current split for each fixed placement. This does not guarantee a better final placement from a finite stochastic search.
 
 That guarantee is about the _objective value_ only. It is not a guarantee about the _delivered field_: under a focality-only objective with a tight off-target bound, the optimizer can pick an extreme split simply to turn the whole field down, since a weaker envelope is an easy way to satisfy a hard cap on off-target field. Measured on sub-101 L-hippocampus at a fixed 4 mA total, holding electrode positions fixed and varying only the split: 1:3 gives 0.185 V/m on target (focality ratio 1.64, attenuated); 2:2 gives 0.361 V/m (focality ratio 1.92, best on both); 3:1 gives 0.196 V/m (focality ratio 1.16, attenuated). Focality peaks near 1:1 in this example and drops off toward both extremes -- the extreme splits attenuate the whole field rather than sharpening it.
 
@@ -304,7 +308,7 @@ These ranges are from a single subject and from a reduced-budget sweep (`maxiter
 
 The ratio is optimized **jointly with electrode placement**, not applied as a post-hoc refinement. Every candidate placement is scored at its own best split, so the optimizer sees the landscape it will actually be evaluated on. Running a ratio sweep after the fact would only refine a montage that had already been selected under a 1:1 assumption -- a different, and worse, optimum.
 
-The joint search costs almost nothing. The FEM is linear, so for a fixed electrode placement the per-channel fields simply scale with the injected current: evaluating an additional split is a rescale of the already-computed fields and a re-combination of the envelope, with no new FEM solve. Candidate splits are ranked on a deterministic subsample of the non-ROI, and only the winning split is re-scored on the full non-ROI, so the several-million-element non-ROI is traversed once per evaluation rather than once per split.
+The joint search adds envelope and reduction work. The FEM is linear, so for a fixed electrode placement the per-channel fields simply scale with the injected current: evaluating an additional split is a rescale of the already-computed fields and a re-combination of the envelope, with no new FEM solve. Candidate splits are ranked on a deterministic subsample of the non-ROI, and only the winning split is re-scored on the full non-ROI, so the several-million-element non-ROI is traversed once per evaluation rather than once per split.
 
 Current-ratio optimization works with **any** goal (`mean`, `max`, `focality`, `focality_tf`). The winning split is applied to the final electrode simulation, so the fields written to disk are the ones the objective actually scored, and it is recorded in the run manifest (`flex_meta.json`).
 
@@ -341,13 +345,41 @@ print(f"Best value: {result.best_value:.4f}")
 
 Note that `thresholds` is not used by `focality_tf` and can be omitted; it remains required for the ROC-based `focality` goal.
 
+## Reviewing evaluated candidates
+
+Open a completed run in **Results → Evaluated candidates**. Expand the preview pane for a
+side-by-side table and plot. The plot defaults to ROI mean intensity versus recorded focality;
+select a row or a point to highlight the same candidate and update the existing montage preview.
+Selecting a point on another table page brings that row into view. **Use in Simulator** creates
+an editable draft of that candidate; nothing runs automatically.
+
+The plot loads up to 10,000 recorded candidates in the selected sort order, independently of the
+table page. The table still pages through the full history. Loading, incomplete history,
+and missing measurements are shown explicitly. Outlined points form the frontier among the loaded
+comparable evaluations, not all possible montages or a guaranteed global Pareto front. Historical
+p95-based ratios retain their own label. Read intensity alongside focality; a high ratio can still
+have a weak target field.
+
+Flex records valid trials under `candidate_history`, with scalar CSV metrics, full-precision geometry
+and a manifest describing the objective and stopping reason. Invalid placements are counted separately.
+Older runs retain their saved winner but have no fabricated trial history. Missing measurements are
+shown as unavailable. Intensity-only non-ROI measurements are opt-in because they add processing
+cost; threshold-free focality already evaluates its declared non-ROI.
+
+Flex metrics use unweighted samples from their declared regions. Ex's recorded whole-gray-matter
+mean includes the target, so it is not the same region definition. Ex replay also uses recorded
+CSV precision and editable Simulator electrode defaults because historical CSVs do not contain
+physical electrode dimensions. Final remeshed simulation fields may differ from optimization estimates.
+
 ### Detailed Results
+
+For callable or current-ratio objectives, MATLAB configuration export is deliberately omitted with a log message: SciPy cannot preserve the Python scoring function. Use the JSON configuration and candidate manifest; an empty MATLAB goal is not a reproducible objective. Native string goals still support MATLAB export.
 
 `detailed_results=True` cannot be combined with the current-ratio search or with the `focality_tf` goal. Both install a Python callable as the optimization goal, and SimNIBS cannot serialize a callable into its detailed-results HDF5 file, so requesting the combination raises an error before the run starts rather than failing partway through. Leave `detailed_results` at its default of `False` -- the GUI does not expose it -- and read run metadata from `flex_meta.json` instead.
 
 ## Multi-Start Optimization
 
-Flex Search supports multi-start optimization to ensure robust and reliable results by running multiple optimization iterations and selecting the best solution:
+Flex Search supports multiple starts to explore different initial conditions and retain the best valid evaluated solution. This can improve coverage but does not guarantee convergence:
 
 - **Multiple Runs**: Configure the number of optimization runs (default: 1, recommended: 3-5 for critical applications)
 - **Best Solution Selection**: Automatically selects the optimization run with the lowest function value
@@ -425,3 +457,7 @@ For positive margins, `avoid_landmark_regions=True` keeps fiducial-derived ear a
 The Scene pane follows the active job. Cortical regions remain clickable; masks, subcortical
 regions and spheres show a read-only target extent in subject space. Edit these targets in
 the job form. The preview shows geometry before search-specific tissue and mesh filtering.
+
+### Simulating a candidate on a cap
+
+In Simulator, use the placement selector to keep **Optimised (XYZ)** or snap the selected candidate to a subject cap. Snapping assigns distinct cap sites to this candidate, preserves its currents and electrode settings, and replaces the optimized poses with the cap placement. Switching back restores the recorded XYZ and orientations. The preview highlights the selected cap sites, with hollow original positions and dashed displacement links. Distances are straight-line millimetres, not distances along the scalp. Optimization metrics describe the original candidate; evaluate the snapped montage with a new simulation.

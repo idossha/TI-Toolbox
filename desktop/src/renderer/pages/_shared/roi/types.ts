@@ -98,7 +98,7 @@ export function emptyRoi(mode: RoiMode, space: RoiSpace = "subject"): RoiValue {
     case "cortical":
       return { mode, atlas: undefined, regions: [] };
     case "subcortical":
-      return { mode, atlasSpace: space, atlas: undefined, regions: [], tissues: "GM" };
+      return { mode, atlasSpace: "subject", atlas: "labeling.nii.gz", regions: [], tissues: "GM" };
     case "mask":
       return { mode, path: "", space, tissues: "GM" };
     case "saved":

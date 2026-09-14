@@ -103,6 +103,8 @@ For total_current=2.0mA, step=0.2mA, limit=1.6mA:
   (0.8, 1.2), (0.6, 1.4), (0.4, 1.6)
 ```
 
+The editor shows montage counts and total iterations separately. For fixed balanced currents, set the channel limit to half the total current (with a step no larger than that half); there is one split and iterations equal montages.
+
 **Total evaluations** = electrode combinations × current ratios. Each montage's two unit-current channel fields are computed once and rescaled per split — the FEM is linear, so a split costs almost nothing extra.
 
 ## Running a Search

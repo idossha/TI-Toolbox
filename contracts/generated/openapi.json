@@ -1228,6 +1228,280 @@
         }
       }
     },
+    "/api/catalog/optimization-candidates": {
+      "get": {
+        "tags": [
+          "catalog"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "operationId": "optimizationCandidates",
+        "parameters": [
+          {
+            "name": "subject",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "flex",
+                "ex",
+                "mex"
+              ]
+            }
+          },
+          {
+            "name": "run",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 100
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "default": "roi_mean"
+            }
+          },
+          {
+            "name": "descending",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Candidate page with explicitly defined optimization estimates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OptimizationCandidatePage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/catalog/optimization-candidates/{candidate_id}": {
+      "get": {
+        "tags": [
+          "catalog"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "operationId": "optimizationCandidate",
+        "parameters": [
+          {
+            "name": "candidate_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subject",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "flex",
+                "ex",
+                "mex"
+              ]
+            }
+          },
+          {
+            "name": "run",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Candidate and standard editable simulation config",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OptimizationCandidateDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/catalog/optimization-candidates/{candidate_id}/mapping": {
+      "get": {
+        "tags": [
+          "catalog"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "operationId": "optimizationCandidateMapping",
+        "parameters": [
+          {
+            "name": "candidate_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subject",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "run",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "eeg_net",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Candidate-specific unique assignment; distances are straight-line millimetres",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "eeg_net",
+                    "pairs",
+                    "optimized_positions",
+                    "mapped_positions",
+                    "distances"
+                  ],
+                  "properties": {
+                    "eeg_net": {
+                      "type": "string"
+                    },
+                    "pairs": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "optimized_positions": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    "mapped_positions": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    "distances": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Candidate or cap not found"
+          },
+          "422": {
+            "description": "Invalid candidate or cap"
+          }
+        }
+      }
+    },
     "/api/catalog/flex-runs": {
       "get": {
         "tags": [
@@ -5382,7 +5656,8 @@
                             "type": "string",
                             "enum": [
                               "skin",
-                              "gm"
+                              "gm",
+                              "subcortical"
                             ]
                           },
                           "kind": {
@@ -5466,6 +5741,20 @@
                         "properties": {
                           "id": {
                             "type": "string"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "cortical",
+                              "subcortical"
+                            ]
+                          },
+                          "aligned_to": {
+                            "type": "string",
+                            "enum": [
+                              "gm",
+                              "subcortical"
+                            ]
                           },
                           "hemispheres": {
                             "type": "array",
@@ -5566,7 +5855,8 @@
               "type": "string",
               "enum": [
                 "skin",
-                "gm"
+                "gm",
+                "subcortical"
               ]
             }
           },
@@ -5724,7 +6014,8 @@
                     "aligned_to": {
                       "type": "string",
                       "enum": [
-                        "gm"
+                        "gm",
+                        "subcortical"
                       ]
                     },
                     "vertices": {
@@ -5760,7 +6051,8 @@
                             "type": "string",
                             "enum": [
                               "lh",
-                              "rh"
+                              "rh",
+                              ""
                             ]
                           },
                           "name": {
@@ -6367,6 +6659,173 @@
     },
     "parameters": {},
     "schemas": {
+      "OptimizationCandidate": {
+        "type": "object",
+        "required": [
+          "id",
+          "objective",
+          "objective_label",
+          "objective_direction",
+          "metrics",
+          "metric_labels",
+          "comparison_key"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "objective": {
+            "type": "number",
+            "nullable": true
+          },
+          "objective_label": {
+            "type": "string"
+          },
+          "objective_direction": {
+            "type": "string",
+            "enum": [
+              "minimize",
+              "maximize"
+            ]
+          },
+          "metrics": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number",
+              "nullable": true
+            }
+          },
+          "metric_labels": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "comparison_key": {
+            "type": "string"
+          },
+          "replay_note": {
+            "type": "string"
+          },
+          "optimizer_termination": {
+            "type": "object",
+            "required": [
+              "global",
+              "accepted_stage"
+            ],
+            "properties": {
+              "accepted_stage": {
+                "type": "string",
+                "enum": [
+                  "global",
+                  "local"
+                ]
+              },
+              "global": {
+                "$ref": "#/components/schemas/OptimizerTerminationStatus"
+              },
+              "local": {
+                "$ref": "#/components/schemas/OptimizerTerminationStatus"
+              }
+            }
+          },
+          "positions": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": {
+                "type": "number"
+              }
+            }
+          },
+          "pairs": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "eeg_net": {
+            "type": "string"
+          },
+          "currents_mA": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "nullable": true
+            }
+          }
+        }
+      },
+      "OptimizerTerminationStatus": {
+        "type": "object",
+        "required": [
+          "success",
+          "message",
+          "iterations",
+          "evaluations"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "iterations": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "evaluations": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "OptimizationCandidatePage": {
+        "type": "object",
+        "required": [
+          "candidates",
+          "total",
+          "legacy"
+        ],
+        "properties": {
+          "candidates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OptimizationCandidate"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "legacy": {
+            "type": "boolean"
+          }
+        }
+      },
+      "OptimizationCandidateDetail": {
+        "type": "object",
+        "required": [
+          "candidate",
+          "simulation_config"
+        ],
+        "properties": {
+          "candidate": {
+            "$ref": "#/components/schemas/OptimizationCandidate"
+          },
+          "simulation_config": {
+            "$ref": "#/components/schemas/SimulationConfig"
+          }
+        }
+      },
       "NotebookEntry": {
         "type": "object",
         "required": [
@@ -10084,7 +10543,7 @@
         }
       },
       "SimulationConfig": {
-        "description": "Full configuration for a TI or mTI simulation run.\n\nPassed to :func:`tit.sim.run_simulation` to execute one or more\nmontage simulations for a single subject.  Electrode geometry,\nconductivity model, and output mapping options are all set here.\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier (e.g. ``\"sub-001\"``).\nmontages : list[Montage]\n    One or more :class:`Montage` definitions to simulate.\nconductivity : str\n    Tissue conductivity model.  One of:\n\n    - ``\"scalar\"`` -- isotropic scalar conductivities (default).\n    - ``\"vn\"`` -- volume-normalized anisotropic conductivities.\n    - ``\"dir\"`` -- directly-mapped anisotropic conductivities.\n    - ``\"mc\"`` -- mean-conductivity anisotropic conductivities.\n\n    The anisotropic modes (``\"vn\"``, ``\"dir\"``, ``\"mc\"``) require\n    DTI tensors registered to the head mesh.\nintensities : list[float]\n    Per-pair current intensities in mA.  Length must be 1 (broadcast\n    to all pairs) or match the total number of electrode pairs.\n    Defaults to ``[1.0, 1.0]``.\nelectrode_shape : str\n    Electrode shape (``\"ellipse\"`` or ``\"rect\"``).\nelectrode_dimensions : list[float]\n    ``[width, height]`` of each electrode in mm.\ngel_thickness : float\n    Conductive-gel layer thickness in mm.\nrubber_thickness : float\n    Rubber (silicone) layer thickness in mm.\nmap_to_surf : bool\n    Map results onto the cortical surface.  Must be ``True`` because\n    TI_normal calculation requires surface overlays.\nmap_to_vol : bool\n    Reserved for NIfTI output (handled externally by\n    ``tit.tools.mesh2nii``, not by SimNIBS SESSION).\nmap_to_mni : bool\n    Reserved; not currently passed to SimNIBS.\nmap_to_fsavg : bool\n    After each TI montage finishes, project its surface fields\n    (``TI_max``, ``TI_normal``, ``hf_peak``, ``hf_sar``) onto fsaverage5\n    for group surface analysis.  On by default; set ``False`` to skip.\n    Failures are logged and never abort the simulation.\nopen_in_gmsh : bool\n    Open results in Gmsh after simulation.\ntissues_in_niftis : str\n    Tissue selection for NIfTI export (``\"all\"`` or a\n    comma-separated list).\naniso_maxratio : float\n    Maximum eigenvalue ratio clamp for anisotropic conductivity\n    tensors.\naniso_maxcond : float\n    Maximum absolute conductivity clamp (S/m) for anisotropic\n    tensors.\noutput_fields : list[str]\n    Which volume-mesh fields to compute and write. Logical names from\n    :data:`tit.constants.SELECTABLE_OUTPUT_FIELDS`: ``\"TI_max\"``,\n    ``\"TI_avg\"``, ``\"hf_peak\"``, ``\"hf_sar\"``. ``\"TI_max\"`` maps to\n    ``mTI_max`` on disk for mTI meshes. Defaults to\n    ``[\"TI_max\"]`` only -- ``TI_avg`` and the safety fields\n    (``hf_peak``, ``hf_sar``) must be opted into.\ntissue_conductivities : dict[int, float] or None\n    Per-tissue conductivity overrides (S/m), keyed by SimNIBS tissue\n    number (1-based, matching ``tdcs.cond`` index + 1). ``None`` (the\n    default) uses SimNIBS's own tissue defaults for every tissue.\n    JSON object keys are always strings, so this round-trips as\n    ``{\"<tissue number>\": <S/m>}`` on disk; :func:`tit.config_io.deserialize_config`\n    coerces the keys back to ``int``, and this dataclass's own\n    ``__post_init__`` does the same for an instance built directly\n    with string keys. Consumed by ``tit.sim.__main__`` via\n    ``TISSUE_COND_<n>`` environment variables (the mechanism\n    ``tit.sim.base.BaseSimulation._apply_tissue_conductivities``\n    already reads) -- deprecated in favor of this field, which is\n    visible in the job's config and its manifest instead of being an\n    invisible process-environment side channel.\n\nRaises\n------\nValueError\n    If *conductivity* is not one of the valid model names, if\n    *output_fields* contains an unknown name, if *output_fields*\n    is empty, or if *tissue_conductivities* contains a non-positive\n    value.\n\nSee Also\n--------\nMontage : Electrode montage contained in ``montages``.\nrun_simulation : Entry point that consumes this config.\nparse_intensities : Helper to build the ``intensities`` list.",
+        "description": "Full configuration for a TI or mTI simulation run.\n\nPassed to :func:`tit.sim.run_simulation` to execute one or more\nmontage simulations for a single subject.  Electrode geometry,\nconductivity model, and output mapping options are all set here.\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier (e.g. ``\"sub-001\"``).\nmontages : list[Montage]\n    One or more :class:`Montage` definitions to simulate.\nconductivity : str\n    Tissue conductivity model.  One of:\n\n    - ``\"scalar\"`` -- isotropic scalar conductivities (default).\n    - ``\"vn\"`` -- volume-normalized anisotropic conductivities.\n    - ``\"dir\"`` -- directly-mapped anisotropic conductivities.\n    - ``\"mc\"`` -- mean-conductivity anisotropic conductivities.\n\n    The anisotropic modes (``\"vn\"``, ``\"dir\"``, ``\"mc\"``) require\n    DTI tensors registered to the head mesh.\nintensities : list[float]\n    Per-pair current intensities in mA.  Length must be 1 (broadcast\n    to all pairs) or match the total number of electrode pairs.\n    Defaults to ``[1.0, 1.0]``.\nelectrode_shape : str\n    Electrode shape (``\"ellipse\"`` or ``\"rect\"``).\nelectrode_dimensions : list[float]\n    ``[width, height]`` of each electrode in mm.\ngel_thickness : float\n    Conductive-gel layer thickness in mm.\nrubber_thickness : float\n    Rubber (silicone) layer thickness in mm.\nmap_to_surf : bool\n    Map results onto the cortical surface.  Must be ``True`` because\n    TI_normal calculation requires surface overlays.\nmap_to_vol : bool\n    Reserved for NIfTI output (handled externally by\n    ``tit.tools.mesh2nii``, not by SimNIBS SESSION).\nmap_to_mni : bool\n    Generate MNI-space field and T1 NIfTI outputs after simulation.\n    Off by default; subject-space NIfTI outputs are always generated.\nmap_to_fsavg : bool\n    After each TI montage finishes, project its surface fields\n    (``TI_max``, ``TI_normal``, ``hf_peak``, ``hf_sar``) onto fsaverage5\n    for group surface analysis.  On by default; set ``False`` to skip.\n    Failures are logged and never abort the simulation.\nopen_in_gmsh : bool\n    Open results in Gmsh after simulation.\ntissues_in_niftis : str\n    Tissue selection for NIfTI export (``\"all\"`` or a\n    comma-separated list).\naniso_maxratio : float\n    Maximum eigenvalue ratio clamp for anisotropic conductivity\n    tensors.\naniso_maxcond : float\n    Maximum absolute conductivity clamp (S/m) for anisotropic\n    tensors.\noutput_fields : list[str]\n    Which volume-mesh fields to compute and write. Logical names from\n    :data:`tit.constants.SELECTABLE_OUTPUT_FIELDS`: ``\"TI_max\"``,\n    ``\"TI_avg\"``, ``\"hf_peak\"``, ``\"hf_sar\"``. ``\"TI_max\"`` maps to\n    ``mTI_max`` on disk for mTI meshes. Defaults to\n    ``[\"TI_max\"]`` only -- ``TI_avg`` and the safety fields\n    (``hf_peak``, ``hf_sar``) must be opted into.\ntissue_conductivities : dict[int, float] or None\n    Per-tissue conductivity overrides (S/m), keyed by SimNIBS tissue\n    number (1-based, matching ``tdcs.cond`` index + 1). ``None`` (the\n    default) uses SimNIBS's own tissue defaults for every tissue.\n    JSON object keys are always strings, so this round-trips as\n    ``{\"<tissue number>\": <S/m>}`` on disk; :func:`tit.config_io.deserialize_config`\n    coerces the keys back to ``int``, and this dataclass's own\n    ``__post_init__`` does the same for an instance built directly\n    with string keys. Consumed by ``tit.sim.__main__`` via\n    ``TISSUE_COND_<n>`` environment variables (the mechanism\n    ``tit.sim.base.BaseSimulation._apply_tissue_conductivities``\n    already reads) -- deprecated in favor of this field, which is\n    visible in the job's config and its manifest instead of being an\n    invisible process-environment side channel.\n\nRaises\n------\nValueError\n    If *conductivity* is not one of the valid model names, if\n    *output_fields* contains an unknown name, if *output_fields*\n    is empty, or if *tissue_conductivities* contains a non-positive\n    value.\n\nSee Also\n--------\nMontage : Electrode montage contained in ``montages``.\nrun_simulation : Entry point that consumes this config.\nparse_intensities : Helper to build the ``intensities`` list.",
         "properties": {
           "subject_id": {
             "title": "Subject Id",
@@ -10273,6 +10732,42 @@
             "default": null,
             "title": "Display Name"
           },
+          "electrode_poses": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {
+                    "items": {
+                      "type": "number"
+                    },
+                    "type": "array"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Electrode Poses"
+          },
+          "provenance": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Provenance"
+          },
           "_type": {
             "const": "Montage"
           }
@@ -10440,6 +10935,11 @@
           "disable_mapping_simulation": {
             "default": false,
             "title": "Disable Mapping Simulation",
+            "type": "boolean"
+          },
+          "observe_background": {
+            "default": false,
+            "title": "Observe Background",
             "type": "boolean"
           },
           "output_folder": {
@@ -12592,7 +13092,7 @@
         "type": "string"
       },
       "OptGoal": {
-        "description": "Optimization goal.\n\nAttributes\n----------\nMEAN : str\n    Maximize mean field intensity in the ROI.\nMAX : str\n    Maximize peak field intensity in the ROI.\nFOCALITY : str\n    Maximize ROI-to-non-ROI focality via SimNIBS's threshold-based\n    ROC measure (``measures.ROC``).\nFOCALITY_TF : str\n    Maximize a threshold-free focality contrast,\n    ``mean(E_ROI) ** (1 + w) / p95(E_nonROI)``.  Because it needs no\n    thresholds it avoids the threshold-selection failure mode of the\n    ROC goal, whose landscape flattens when the requested ROI and\n    non-ROI thresholds are jointly infeasible (as happens at deep\n    targets).  The weight ``w`` is\n    :attr:`FlexConfig.intensity_weight`.",
+        "description": "Optimization goal.\n\nAttributes\n----------\nMEAN : str\n    Maximize mean field intensity in the ROI.\nMAX : str\n    Maximize the 99.9th percentile field intensity in the ROI.\nFOCALITY : str\n    Maximize ROI-to-non-ROI focality via SimNIBS's threshold-based\n    ROC measure (``measures.ROC``).\nFOCALITY_TF : str\n    Maximize a threshold-free focality contrast,\n    ``mean(E_ROI) ** (1 + w) / mean(E_nonROI)``.  Because it needs no\n    thresholds it avoids the threshold-selection failure mode of the\n    ROC goal, whose landscape flattens when the requested ROI and\n    non-ROI thresholds are jointly infeasible (as happens at deep\n    targets).  The weight ``w`` is\n    :attr:`FlexConfig.intensity_weight`.",
         "enum": [
           "mean",
           "max",

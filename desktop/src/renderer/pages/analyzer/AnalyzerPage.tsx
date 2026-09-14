@@ -34,7 +34,6 @@ import { usePageSession } from "../../app/pageSession";
 import { subjectsBlockedReason } from "../_shared/subjects";
 import { ExistingOutputsDialog, planCounts, RunPanel, RunWork, planDigest, planModelFrom, stepsFor, useRunShortcut, type PlanModel, type PlanResult as SharedPlanResult } from "../_shared/run";
 import { isRoiComplete, type RoiValue } from "../_shared/roi";
-import { ScenePane } from "../_shared/scene";
 import { TargetPreview } from "../_shared/scene/TargetPreview";
 import {
   AnalyzerJobRows,
@@ -363,8 +362,6 @@ export function AnalyzerPage() {
    * `onAtlasChange` writers, now pointed at one row rather than at a page-level ROI.
    */
   const activeRoi = activeRow?.roi;
-  const sceneRoi = corticalSceneRoi(activeRoi);
-  const sceneCortical = sceneRoi !== null;
   const scenePane = usePaneController({ pageId: "analyzer", name: "run" });
 
 
@@ -390,21 +387,7 @@ export function AnalyzerPage() {
           steps={ANALYZER_STEPS}
           paneControls={<PaneHeaderControls controller={scenePane} />}
           scene={
-            !sceneCortical ? <TargetPreview subject={activeRow?.subjectId} roi={activeRoi} /> : <ScenePane
-              mode="inspect"
-              atlas={sceneRoi?.atlas ?? null}
-              regions={sceneRoi?.regions}
-              onAtlasChange={
-                sceneCortical
-                  ? (atlas) => patchActiveRoi({ ...sceneRoi, atlas, regions: [] })
-                  : undefined
-              }
-              onRegionsChange={
-                sceneCortical
-                  ? (regions, atlas) => patchActiveRoi({ ...sceneRoi, atlas: atlas ?? sceneRoi.atlas, regions })
-                  : undefined
-              }
-            />
+            <TargetPreview subject={activeRow?.subjectId} roi={activeRoi} onRoiChange={patchActiveRoi} />
           }
         />
       }

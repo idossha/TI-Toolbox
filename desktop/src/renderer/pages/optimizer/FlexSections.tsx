@@ -13,12 +13,11 @@ import { SegmentedControl } from "../../ui/SegmentedControl";
 import { RoiPicker, type RoiValue } from "../_shared/roi";
 import type { EegNet } from "./api";
 import {
-  parsePctList,
-  sweepCombinationCount,
   type ElectrodeShape,
   type FlexFormState,
-  type FocalityMode,
   type NonRoiMethod,
+  type FocalityMode,
+  sweepCombinationCount,
 } from "./flexConfig";
 import { flexCost } from "./cost";
 
@@ -26,16 +25,13 @@ import { flexCost } from "./cost";
  *  whose longest option is a sentence sets its own min-content width and pushes past its grid
  *  column (the label/control overlap measured in round 1). */
 export const GOAL_OPTIONS = [
-  { value: "mean", label: "Mean" },
-  { value: "max", label: "Max" },
-  { value: "focality", label: "Focality" },
-  { value: "focality_tf", label: "Focality, threshold-free" },
+  { value: "mean", label: "Mean TImax" },
+  { value: "max", label: "Max TImax (99.9%)" },
+  { value: "focality_tf", label: "Threshold-free focality" },
+  { value: "focality", label: "Threshold-based focality" },
 ];
 
-const GOAL_HELP =
-  "Mean: maximize the average field in the ROI. Max: maximize its peak. Focality: maximize the " +
-  "ROI field while minimizing it elsewhere. Threshold-free focality: the same contrast with no " +
-  "thresholds to tune — it stays optimizable at deep targets where the threshold form goes flat.";
+const GOAL_HELP = "Mean TImax maximizes average TImax in the ROI. Max TImax maximizes the 99.9th percentile in the ROI. Threshold-free focality maximizes mean ROI / mean non-ROI TImax, weighted by your intensity preference. Threshold-based focality balances ROI coverage above a threshold against non-ROI exposure above a threshold.";
 
 export const POSTPROC_OPTIONS = [
   { value: "max_TI", label: "max_TI" },
@@ -58,9 +54,9 @@ const NON_ROI_METHOD_OPTIONS = [
 ];
 
 const FOCALITY_MODE_OPTIONS = [
-  { value: "manual", label: "Manual thresholds" },
-  { value: "adaptive", label: "Adaptive (single run)" },
-  { value: "pareto", label: "Pareto sweep" },
+  { value: "manual", label: "Fixed thresholds" },
+  { value: "adaptive", label: "Adaptive thresholds" },
+  { value: "pareto", label: "Multi-threshold" },
 ];
 
 const SHAPE_OPTIONS = [
@@ -87,7 +83,6 @@ export function ObjectiveSection({
   const isThreshold = form.goal === "focality";
   const isTf = form.goal === "focality_tf";
   const isFocality = isThreshold || isTf;
-  const combinations = sweepCombinationCount(form);
 
   return (
     <FormSection title="Objective">
@@ -104,7 +99,7 @@ export function ObjectiveSection({
           </Field>
         )}
         {isTf && (
-          <Field label="Intensity weight" help="0 = most focal (balanced), 1 = favours on-target intensity.">
+          <Field label="Intensity preference" help="0 optimizes mean ROI / mean non-ROI TImax without an absolute intensity preference. Increasing the weight favors stronger ROI intensity: score = mean(ROI)^(1 + weight) / mean(non-ROI).">
             <NumberInput value={form.intensityWeight} onValueChange={(v) => onChange({ intensityWeight: v ?? 0 })} min={0} max={1} step={0.05} />
           </Field>
         )}
@@ -139,10 +134,8 @@ export function ObjectiveSection({
           </>
         )}
       </>
-      {isThreshold && form.focalityMode === "pareto" && parsePctList(form.paretoRoiPcts).length > 0 && parsePctList(form.paretoNonRoiPcts).length > 0 && (
-        <p className="optimizer-cost optimizer-span" data-testid="optimizer-sweep-cost">
-          {combinations} threshold {combinations === 1 ? "combination" : "combinations"} · {flexCost(form).line}
-        </p>
+      {isThreshold && form.focalityMode === "pareto" && (
+        <p className="optimizer-cost optimizer-span">{sweepCombinationCount(form)} threshold combinations · {flexCost(form).line}</p>
       )}
       {isFocality && form.nonRoiMethod === "specific" && (
         <Field label="Non-ROI region" className="optimizer-span" layout="stacked">

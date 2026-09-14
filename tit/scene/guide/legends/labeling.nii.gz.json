@@ -1,0 +1,130 @@
+{
+ "atlas": "labeling.nii.gz",
+ "space": "guide-ras",
+ "aligned_to": "subcortical",
+ "vertices": 39281,
+ "radius_mm": 0,
+ "labelled_fraction": 1,
+ "legend": [
+  {
+   "id": 10,
+   "name": "Left-Thalamus-Proper",
+   "color": "#00760e",
+   "label": 10,
+   "hemi": ""
+  },
+  {
+   "id": 11,
+   "name": "Left-Caudate",
+   "color": "#7abadc",
+   "label": 11,
+   "hemi": ""
+  },
+  {
+   "id": 12,
+   "name": "Left-Putamen",
+   "color": "#ec0db0",
+   "label": 12,
+   "hemi": ""
+  },
+  {
+   "id": 13,
+   "name": "Left-Pallidum",
+   "color": "#0c30ff",
+   "label": 13,
+   "hemi": ""
+  },
+  {
+   "id": 16,
+   "name": "Brain-Stem",
+   "color": "#779fb0",
+   "label": 16,
+   "hemi": ""
+  },
+  {
+   "id": 17,
+   "name": "Left-Hippocampus",
+   "color": "#dcd814",
+   "label": 17,
+   "hemi": ""
+  },
+  {
+   "id": 18,
+   "name": "Left-Amygdala",
+   "color": "#67ffff",
+   "label": 18,
+   "hemi": ""
+  },
+  {
+   "id": 26,
+   "name": "Left-Accumbens-area",
+   "color": "#ffa500",
+   "label": 26,
+   "hemi": ""
+  },
+  {
+   "id": 28,
+   "name": "Left-VentralDC",
+   "color": "#a52a2a",
+   "label": 28,
+   "hemi": ""
+  },
+  {
+   "id": 49,
+   "name": "Right-Thalamus-Proper",
+   "color": "#00760e",
+   "label": 49,
+   "hemi": ""
+  },
+  {
+   "id": 50,
+   "name": "Right-Caudate",
+   "color": "#7abadc",
+   "label": 50,
+   "hemi": ""
+  },
+  {
+   "id": 51,
+   "name": "Right-Putamen",
+   "color": "#ec0db0",
+   "label": 51,
+   "hemi": ""
+  },
+  {
+   "id": 52,
+   "name": "Right-Pallidum",
+   "color": "#0d30ff",
+   "label": 52,
+   "hemi": ""
+  },
+  {
+   "id": 53,
+   "name": "Right-Hippocampus",
+   "color": "#dcd814",
+   "label": 53,
+   "hemi": ""
+  },
+  {
+   "id": 54,
+   "name": "Right-Amygdala",
+   "color": "#67ffff",
+   "label": 54,
+   "hemi": ""
+  },
+  {
+   "id": 58,
+   "name": "Right-Accumbens-area",
+   "color": "#ffa500",
+   "label": 58,
+   "hemi": ""
+  },
+  {
+   "id": 60,
+   "name": "Right-VentralDC",
+   "color": "#a52a2a",
+   "label": 60,
+   "hemi": ""
+  }
+ ],
+ "url": "/api/guide/labels?atlas=labeling.nii.gz"
+}

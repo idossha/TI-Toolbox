@@ -86,7 +86,7 @@ test("the Simulator's electrode shape is a segment, in the job's own settings ed
   // Proof the click reached the form and not just the control's own pressed state: the row says so
   // once the editor is done with.
   await dialog.getByRole("button", { name: "Done", exact: true }).click();
-  await expect(page.locator('tr[data-job-detail] [data-cell="custom"]').first()).toHaveText(/rect /);
+  await expect(page.locator('tr[data-job-detail] [data-cell="custom"]').first()).toHaveCount(0);
 
   await noRadioGroup();
 });

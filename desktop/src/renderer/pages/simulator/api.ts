@@ -150,3 +150,18 @@ export async function createSimJob(config: Record<string, unknown>, subjectIds: 
     "/api/jobs",
   );
 }
+
+export interface CandidateMapping {
+  eeg_net: string;
+  pairs: string[][];
+  optimized_positions: number[][];
+  mapped_positions: number[][];
+  distances: number[];
+}
+
+/** Resolve the selected candidate, never the run's final winner. */
+export async function getCandidateMapping(subject: string, run: string, candidateId: string, eegNet: string): Promise<CandidateMapping> {
+  return unwrap(await api.GET("/api/catalog/optimization-candidates/{candidate_id}/mapping", {
+    params: { path: { candidate_id: candidateId }, query: { subject, run, eeg_net: eegNet } },
+  }), "Candidate cap mapping");
+}

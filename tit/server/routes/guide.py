@@ -13,10 +13,11 @@ Three rules, each with the failure it prevents:
   is opened, and the manifest's relative paths are resolved back inside the
   package directory. A traversal segment cannot survive a membership test
   against a list the server wrote itself.
-* **The payloads are immutable, so they are cached hard.** ``ETag`` is the
+* **Binary payloads are cached hard; the catalog is refreshed.** ``ETag`` is the
   file's SHA-256 out of the manifest and ``Cache-Control`` is a year: unlike a
   subject's surface, this URL's content cannot change under a client without
-  the installation itself changing.
+  the installation itself changing. The manifest is not cached, so installation
+  updates do not leave the atlas selector using an obsolete catalog.
 * **The space is ``guide-ras``, and it is in every response.** A consumer that
   mistakes it for a research subject's RAS writes a silently wrong coordinate;
   saying so on the wire is what lets the desktop pane disable click-to-config
@@ -82,12 +83,12 @@ def _bytes_response(asset: guide.GuideAsset, if_none_match: str | None) -> Respo
     )
 
 
-def _json_response(body: Any) -> Response:
+def _json_response(body: Any, *, cache_control: str = IMMUTABLE_CACHE_CONTROL) -> Response:
     return Response(
         content=json.dumps(body),
         media_type="application/json",
         headers={
-            "cache-control": IMMUTABLE_CACHE_CONTROL,
+            "cache-control": cache_control,
             "x-guide-version": str(guide.GUIDE_VERSION),
         },
     )
@@ -134,7 +135,8 @@ def manifest() -> Any:
             "volumes": body.get("volumes", []),
             "provenance": body.get("provenance", {}),
             "cache": {"state": "ready", "built_ms": 0.0},
-        }
+        },
+        cache_control="private, no-store",
     )
 
 

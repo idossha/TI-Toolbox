@@ -27,6 +27,13 @@ describe("currentSplits", () => {
   it("is zero for a non-positive step, rather than dividing by it", () => {
     expect(currentSplits(2.0, 0, 1.6)).toBe(0);
   });
+  it("starts at an off-grid channel limit, including a single balanced split", () => {
+    // Backend visits (1.5,.5), (1.1,.9), (.7,1.3), rather than multiples of .4.
+    expect(currentSplits(2, 0.4, 1.5)).toBe(3);
+    expect(currentSplits(2, 0.3, 1)).toBe(1);
+    expect(currentSplits(2, 0.3, 0.9)).toBe(0);
+  });
+
 });
 
 describe("exCost", () => {
@@ -40,7 +47,7 @@ describe("exCost", () => {
     expect(cost.montages).toBe(4);
     expect(cost.splits).toBe(7);
     expect(cost.combinations).toBe(28);
-    expect(cost.line).toBe("6 electrodes · 7 splits · 28 combinations");
+    expect(cost.line).toBe("6 electrodes · 4 montages · 7 current splits · 28 iterations");
   });
 
   it("counts an electrode used in two buckets once", () => {
@@ -51,16 +58,33 @@ describe("exCost", () => {
     expect(exCost(form).electrodes).toBe(3);
   });
 
-  it("counts pool mode as four distinct electrodes, unordered within and between pairs", () => {
+  it("counts every ordered assignment of four distinct pool electrodes", () => {
     const form = { ...defaultExFormState(), electrodeMode: "all" as const, pool: ["A", "B", "C", "D", "E"] };
-    // 5·4·3·2 / 8 = 15
-    expect(exCost(form).montages).toBe(15);
+    // Choose the first pole in 5 ways, then 4, 3, and 2; the engine does not prune symmetry.
+    expect(exCost(form).montages).toBe(120);
   });
 
   it("is zero montages for a pool that cannot make one montage", () => {
     const form = { ...defaultExFormState(), electrodeMode: "all" as const, pool: ["A", "B", "C"] };
     expect(exCost(form).montages).toBe(0);
   });
+  it("has one iteration per montage when only balanced currents are allowed", () => {
+    const fixed = exCost({ ...defaultExFormState(), electrodeMode: "all", pool: ["A", "B", "C", "D"], channelLimit: 1 });
+    expect(fixed.splits).toBe(1);
+    expect(fixed.montages).toBe(24);
+    expect(fixed.combinations).toBe(fixed.montages);
+  });
+
+  it("matches explicit enumeration for small pools, including imported duplicate labels", () => {
+    for (const pool of [["A", "B", "C", "D", "E"], ["A", "A", "B", "C", "D"]]) {
+      const tuples = pool.flatMap(a => pool.flatMap(b => pool.flatMap(c => pool.map(d => [a, b, c, d]))));
+      const valid = tuples.filter(tuple => new Set(tuple).size === 4);
+      const cost = exCost({ ...defaultExFormState(), electrodeMode: "all", pool });
+      expect(cost.montages).toBe(valid.length);
+      expect(cost.combinations).toBe(valid.length * 7);
+    }
+  });
+
 });
 
 describe("mexCost", () => {

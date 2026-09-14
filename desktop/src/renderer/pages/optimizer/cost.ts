@@ -17,7 +17,7 @@ export interface SearchCost {
   montages: number;
   /** `montages × splits` — the number of candidate evaluations. */
   combinations: number;
-  /** "185 electrodes · 7 splits · 119 140 combinations", ready for a tile and for the digest. */
+  /** Human-readable montage and evaluation counts, shared by the editor and digest. */
   line: string;
 }
 
@@ -25,23 +25,27 @@ function n(value: number): string {
   return value.toLocaleString("en-US");
 }
 
-/**
- * How many two-channel current splits the sweep visits: `c1 = k·step` for `k = 1 …`, with both
- * `c1` and `total − c1` at or under the per-channel limit. Mirrors `tit.opt.ex`'s amplitude sweep,
- * which never assigns zero to a channel.
- */
+/** Counts the descending sweep used by tit.opt.ex.logic.generate_current_ratios. */
 export function currentSplits(totalCurrent: number, currentStep: number, channelLimit: number | null): number {
-  if (!(currentStep > 0) || !(totalCurrent > 0)) return 0;
-  const steps = Math.round(totalCurrent / currentStep);
-  const limit = channelLimit ?? totalCurrent;
-  let count = 0;
-  for (let k = 1; k < steps; k++) {
-    const c1 = k * currentStep;
-    // Floating-point steps (0.2 mA) do not land exactly on the limit; a 1e-9 slack keeps a
-    // deliberate "limit == total/2" from silently dropping the balanced split.
-    if (c1 <= limit + 1e-9 && totalCurrent - c1 <= limit + 1e-9) count++;
+  if (!Number.isFinite(totalCurrent) || !Number.isFinite(currentStep) || !(currentStep > 0) || !(totalCurrent > 0)) return 0;
+  const limit = channelLimit ?? totalCurrent - currentStep;
+  if (!Number.isFinite(limit) || limit <= 0) return 0;
+  const epsilon = currentStep * 0.01;
+  const maximum = Math.min(limit, totalCurrent - currentStep);
+  const minimum = Math.max(totalCurrent - limit, currentStep);
+  // The first split starts at the channel limit, not necessarily a multiple of the step.
+  return Math.max(0, Math.floor((maximum - minimum + epsilon) / currentStep) + 1);
+}
+
+/** Ordered, distinct-electrode tuples, including multiplicities in an imported pool. */
+function poolMontages(pool: string[]): number {
+  const occurrences = new Map<string, number>();
+  for (const electrode of pool) occurrences.set(electrode, (occurrences.get(electrode) ?? 0) + 1);
+  const selections = [1, 0, 0, 0, 0];
+  for (const multiplicity of occurrences.values()) {
+    for (let size = 4; size > 0; size--) selections[size] = selections[size]! + selections[size - 1]! * multiplicity;
   }
-  return count;
+  return selections[4]! * 24; // All four pole assignments are evaluated by the engine.
 }
 
 /** Distinct electrodes across the bucket set (an electrode used in two buckets is still one). */
@@ -63,11 +67,8 @@ export function exCost(form: ExFormState): SearchCost {
     electrodes = distinct(form.buckets, EX_BUCKET_KEYS);
     montages = product(form.buckets, EX_BUCKET_KEYS);
   } else {
-    // Four distinct electrodes from the pool, unordered within each pair and between the two
-    // pairs: n(n−1)(n−2)(n−3) orderings / (2 · 2 · 2).
-    const p = form.pool.length;
-    electrodes = p;
-    montages = p < 4 ? 0 : (p * (p - 1) * (p - 2) * (p - 3)) / 8;
+    electrodes = new Set(form.pool).size;
+    montages = poolMontages(form.pool);
   }
   const combinations = montages * splits;
   return {
@@ -75,7 +76,7 @@ export function exCost(form: ExFormState): SearchCost {
     splits,
     montages,
     combinations,
-    line: `${n(electrodes)} electrodes · ${n(splits)} splits · ${n(combinations)} combinations`,
+    line: `${n(electrodes)} electrodes · ${n(montages)} montage${montages === 1 ? "" : "s"} · ${n(splits)} current split${splits === 1 ? "" : "s"} · ${n(combinations)} iteration${combinations === 1 ? "" : "s"}`,
   };
 }
 

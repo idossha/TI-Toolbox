@@ -262,6 +262,31 @@ def configure_roi(opt, config: FlexConfig) -> None:
     ValueError
         If the ROI type is not recognised.
     """
+    observation_only = (
+        bool(getattr(config, "observe_background", False)) and not config.is_focality
+    )
+    if observation_only:
+        # Build the same anatomical complement as focality, but retain an
+        # intensity-only callable: adding an ROI must never change scoring.
+        from dataclasses import replace
+        from .objectives import make_objective
+        import numpy as np
+
+        original_config = config
+        config = replace(
+            config,
+            goal=FlexConfig.OptGoal.FOCALITY_TF,
+            non_roi_method=FlexConfig.NonROIMethod.EVERYTHING_ELSE,
+            non_roi=None,
+        )
+        score = make_objective(original_config.goal)
+
+        def intensity_only(fields):
+            return float(np.mean([score(channel[0]) for channel in fields]))
+
+        opt.goal = [intensity_only]
+        opt._observation_only_non_roi = True
+
     if isinstance(config.roi, FlexConfig.SphericalROI):
         _configure_spherical_roi(opt, config)
     elif isinstance(config.roi, FlexConfig.AtlasROI):

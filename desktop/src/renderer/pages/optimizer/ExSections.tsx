@@ -247,7 +247,7 @@ export function ExCurrentSection({ form, onChange }: { form: ExFormState; onChan
         <Field label="Step" help="Step size for current-ratio iterations.">
           <NumberInput value={form.currentStep} onValueChange={(v) => onChange({ currentStep: v ?? 0.2 })} unit="mA" min={0.01} max={2} step={0.01} />
         </Field>
-        <Field label="Channel limit" help="Maximum current per channel (must be ≤ total current).">
+        <Field label="Channel limit" help="Maximum current per channel. Set to half the total current for one balanced split without a ratio sweep.">
           <NumberInput value={form.channelLimit ?? undefined} onValueChange={(v) => onChange({ channelLimit: v ?? null })} unit="mA" min={0.1} max={10} step={0.1} />
         </Field>
       </div>

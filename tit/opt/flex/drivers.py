@@ -53,6 +53,7 @@ tit.opt.flex.__main__ : Dispatches to these by ``FlexConfig.mode``.
 from __future__ import annotations
 
 import copy
+import math
 import os
 
 from tit.opt.config import FlexConfig, FlexResult
@@ -62,17 +63,16 @@ def _achievable_intensity(result: FlexResult) -> float:
     """Achievable mean ROI intensity (V/m) from a completed ``goal="mean"`` run.
 
     SimNIBS's differential-evolution minimizer stores the *negative* of the
-    mean-field objective in ``best_value`` (it minimizes; the GUI's own
-    real-time parser and manifest fallback both took ``abs()`` for the same
-    reason -- see this module's docstring), so the sign is normalised here.
+    mean-field objective in ``best_value``. A positive penalty or nonfinite
+    result must never be interpreted as achieved intensity.
 
     Raises
     ------
     ValueError
         If the mean run did not report a usable (nonzero) intensity.
     """
-    intensity = abs(result.best_value)
-    if intensity <= 0:
+    intensity = -result.best_value
+    if not result.success or not math.isfinite(intensity) or intensity <= 0:
         raise ValueError(
             "Could not determine achievable ROI intensity from the mean "
             f"optimization run (best_value={result.best_value!r}, "

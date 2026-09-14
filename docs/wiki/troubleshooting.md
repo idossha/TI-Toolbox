@@ -316,6 +316,7 @@ for reference; use the [installation guide]({{ site.baseurl }}/installation/) fo
 |---|---|---|---|
 | `dev/loader/loader_dev.py`: `ModuleNotFoundError: No module named 'tit'` | main | `git pull` | 2026-08-26 |
 | `dev/loader/loader_dev.sh`: `unbound variable` on first run | main | | |
+| Developer Flex: “installed SimNIBS Flex integration predates candidate recording” | v3 candidate-review branch (unreleased) | The mounted checkout now supplies its Flex integration directly. Retry the job with the updated checkout; no installed-package replacement is needed. | 2026-09-13 maintainer reproduction |
 | `loader.py` hides the real `docker compose` error behind "simnibs service is not running" | main | see Part 1 for the environmental causes | |
 | Analyzer "Field" dropdown had no effect; voxel analysis silently used `TI_avg` | main | re-run analyses made with `TI_avg` enabled | |
 | mTI outputs named `TI_Max` not found by the analyzer (field renamed `mTI_max`) | main | rename `*_TI_Max.*` → `*_mTI_max.*`, or re-run | |
@@ -396,3 +397,11 @@ Early v3 builds refreshed the REST list but retained the deleted job in the live
 Update and reload the desktop app. Confirmed deletion now clears both stores and the selection;
 older queued updates cannot restore the row. A filesystem deletion failure is reported so you
 can resolve access permissions and retry, rather than receiving a false success notification.
+
+### Flex says succeeded but the terminal keeps advancing
+
+In affected preview builds, a long historical event backlog could continue replaying after the
+worker had exited. Reopening log views or reconnecting could replay it again. The corrected
+client resumes by sequence and loads the final saved transcript when the job finishes; long
+server backfills also drain without blocking status updates. Update the app and server together.
+This UI symptom alone does not mean that an optimizer is still computing.

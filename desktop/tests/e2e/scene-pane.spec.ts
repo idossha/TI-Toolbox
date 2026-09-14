@@ -21,7 +21,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Locator, type Page } from "@playwright/test";
 import { connectLauncher, expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
-import { expectRunPaneTab } from "./_runPane";
+import { expectRunPaneTab, showRunPaneTab } from "./_runPane";
 import { analysisRows, analysisTargetText, closeOptEditor, openOptEditor, optRows } from "./_jobs";
 import { cameraPosition, type OrbitCamera } from "../../src/renderer/scene/camera";
 
@@ -127,7 +127,7 @@ test.afterAll(async () => {
   await app?.close();
 });
 
-test("the pane draws the subject's own head with our own renderer — no iframe anywhere", async () => {
+test("the pane draws the bundled guide with our own renderer — no iframe anywhere", async () => {
   await expectRunPaneTab(page, "scene");
   const host = page.locator('[data-page-panel="simulator"]').getByTestId("scene-pane-host");
   await expect(host).toHaveAttribute("data-renderer", "native");
@@ -150,14 +150,9 @@ test("the pane draws the subject's own head with our own renderer — no iframe 
       firstPaintMs: number | null;
     };
   });
-  expect(debug).toMatchObject({ mode: "montage", gesture: "electrode", markers: 185, subject: "ernie" });
-  // Since 2026-09-06 the Simulator draws the SUBJECT (maintainer: "instead of having our default
-  // subject in the simulator, we should just load the selected subject") — a free-hand placement
-  // is a millimetre in this head and in no other. `guide` is therefore null here, and the space is
-  // said out loud either way, because a consumer that mixes the two writes a silently wrong
-  // coordinate. The guide's own gate is `guide.spec.ts`, on the Optimizer.
-  expect(debug.guide).toBeNull();
-  expect(debug.space).toBe("subject-ras");
+  expect(debug).toMatchObject({ mode: "montage", gesture: "electrode", markers: 185, subject: null });
+  expect(debug.guide).toBe("ernie");
+  expect(debug.space).toBe("guide-ras");
   expect(debug.parts.map((part) => part.id).sort()).toEqual(["gm", "skin"]);
   expect(debug.firstPaintMs).not.toBeNull();
 });
@@ -348,4 +343,45 @@ test("the grey matter is opaque everywhere, with the skin the only surface that 
     await expect(panel.getByRole("slider", { name: "Skin opacity", exact: true })).toHaveCount(1);
   }
   await gotoPage(page, "simulator", "Simulator");
+});
+
+test("bundled subcortical atlas and target settings synchronize without subject computation", async () => {
+  await gotoPage(page, "optimizer", "Optimizer");
+  await expectPage(page, "optimizer");
+  const row = optRows(page).first();
+  const editor = await openOptEditor(page, row, "settings");
+  await editor.getByRole("radio", { name: "Subcortical", exact: true }).click();
+  await closeOptEditor(page);
+  await showRunPaneTab(page, "scene");
+  await expect(page.locator('[data-page-active="true"]').getByTestId("scene-canvas")).toBeVisible();
+  const host = page.locator('[data-page-active="true"]').getByTestId("scene-pane-host");
+  await expect.poll(() => page.evaluate(() => window.__scenePane?.atlas)).toBe("labeling.nii.gz");
+  await expect(host).toHaveAttribute("data-state", "ready");
+  const state = await page.evaluate(() => ({ parts: window.__scenePane?.parts.map(p => p.id), space: window.__scenePane?.space }));
+  expect(state.parts).toEqual(["subcortical", "skin"]);
+  expect(state.space).toBe("guide-ras");
+  await expect(host.getByRole("button", { name: /Peel|Isolate|Reset visibility/ })).toHaveCount(0);
+  const picked = await page.evaluate(() => {
+    const scene = window.__scene!;
+    const points: [number, number][] = [];
+    for(let y=0.2;y<0.8;y+=0.04) for(let x=0.2;x<0.8;x+=0.04) points.push([x*scene.canvas.widthCss,y*scene.canvas.heightCss]);
+    const labels = scene.sampleRegions(points);
+    const index = labels.findIndex(label => label !== null);
+    return index < 0 ? null : points[index];
+  });
+  expect(picked).not.toBeNull();
+  const box = await canvasBox();
+  await page.mouse.click(box.x+picked![0],box.y+picked![1]);
+  await expect.poll(() => page.evaluate(() => window.__scenePane?.selectedRegions.length)).toBe(1);
+  const selectedName = await page.evaluate(() => window.__scenePane!.selectedRegions[0]!.name);
+  await expect(row).toContainText(selectedName);
+  await host.getByRole("button", { name: "Clear selection", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__scenePane?.selectedRegions.length)).toBe(0);
+  await expect(row).not.toContainText(selectedName);
+  await expect(host.getByRole("button", { name: "Clear selection", exact: true })).toBeDisabled();
+  await host.getByRole("combobox", { name: "Atlas", exact: true }).click();
+  await page.getByRole("option", { name: "DK40", exact: true }).click();
+  const updated = await openOptEditor(page, row, "settings");
+  await expect(updated.getByRole("radio", { name: "Cortical", exact: true })).toBeChecked();
+  await closeOptEditor(page);
 });

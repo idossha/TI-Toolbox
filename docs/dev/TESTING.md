@@ -196,3 +196,51 @@ Verified on 2026-09-10: 20 focused desktop tests and 54 backend tests passed (on
 ### GPU-preferred container acceptance
 
 Run `python3 -m pytest tests/test_launch_gpu.py tests/test_launch.py tests/test_bash_loader_lifecycle.py tests/test_pre_fastsurfer.py tests/test_native_fastsurfer.py -q` for launcher and job selection. Desktop GPU probe cases are in `src/main/docker/gpu.test.ts`. The image's `verify_runtime.py` rejects CPU-only PyTorch and validates the scientific ABI. A build-time CUDA version assertion proves packaging only: an NVIDIA host must also run the same-image launcher probe and a real FastSurfer job to prove GPU execution. Apple Silicon validates the unavailable-CUDA and native fallback routes.
+
+## Optimizer candidate and replay checks
+
+`tests/test_flex_candidates.py` checks valid-only streamed records and scoring isolation;
+`tests/test_candidate_catalog.py` uses authored histories and actual Ex CSV writers to test
+pagination, containment and replay validation. `tests/test_candidate_replay.py` pins independent
+per-carrier centres, orientation, current and layer settings. Their real-library siblings under
+`tests/numerical/` exercise actual SciPy/SimNIBS boundaries without FEM; run them with the image's
+`simnibs_python`, not the host scientific mocks.
+
+`candidate-browser.test.tsx` and `candidate-history.test.ts` cover linked selection across table pages, missing metrics/anatomy, historical labels, bounded history loading and cancellation. The hidden `desktop/tests/e2e/optimizer-candidates.spec.ts` verifies the table/plot layout, cross-page selection, exact Simulator draft, cap snapping, displacement annotations and restoration of original XYZ without automatic submission. `tests/numerical/test_candidate_snap.py` compares candidate-specific cap assignment against exhaustive enumeration, including invalid caps and path confinement. These are UI, metadata and assignment checks, not a remeshed-field guarantee.
+
+`dev/flex_candidate_benchmark.py` is an explicitly invoked real-subject benchmark. It requires a
+project, subject and new output directory; run observation off/on in separate serial processes with
+identical saved parameters. It loads the checkout integration only within that process. Receipts
+record the configuration, source hash, sample counts, potential-solve counts, setup/evaluation time
+and RSS. Its tiny `--optimizer-only` run checks execution and stopping status, not convergence.
+Never run its FEM work concurrently with another simulation or optimization.
+
+The developer-runtime regression is covered by `tests/test_flex_runtime.py` (source selection,
+installed fallback, and failed-import propagation), and the real optimizer contract now uses the
+production resolver. On 2026-09-13 the ordinary `simnibs_python -m tit.opt.flex` entry point completed
+a one-iteration ernie run from `/tmp` in the existing container, without a custom class loader or
+installed-package replacement. Output: `validation-loader-20260913` under the subject's flex-search
+directory. This proves normal driver execution, not convergence; final electrode simulation was off.
+
+### Flex objective regression case
+
+`tests/numerical/test_flex_candidate_metrics.py` checks the real-library three-goal contract using
+authored ROI samples 0..1000 and non-ROI [1,1,1,5]. Mean TImax is 500; Max TImax is 999
+(linear 99.9th percentile); pure Focality is 250. At weight 1 the score is 125000. The solver
+minimizes their negatives. The asymmetric non-ROI distinguishes mean from p95, and separate
+candidates prove that intensity weighting can reverse the pure-focality ranking. Scaling and
+invalid-field cases prevent accidental dose preference at zero weight and division artifacts.
+This deterministic test verifies formulas, not convergence on a particular head.
+
+The same fixture exercises the production builder for all three goals with current-ratio search
+on and off, substituting only FEM field acquisition. A strictly positive parallel-carrier
+fixture independently yields mean 501, percentile 1000, ratio 250.5, and weight-one score
+125500.5. This covers native/callable scoring and recorder dispatch without a head solve.
+Known upstream edge: exact zero vectors in both carriers produce NaN during maxTI normalization;
+nonfinite candidate rejection remains active. This edge has not been corrected in the upstream
+field routine and is not a claim about any observed dataset failure.
+
+Completed-log regressions: `desktop/tests/unit/job-log-completion.test.tsx` verifies final-tail
+retention and stability after succeeded/failed/cancelled states. `jobsStream.test.ts` covers
+reconnect cursors and shared consumers; `tests/test_jobs_manager.py` and `tests/test_jobs_routes.py`
+cover oversized backfill and ordered batch draining.

@@ -152,6 +152,7 @@ class TesFlexOptimization:
         self.time_str = time.strftime("%Y%m%d-%H%M%S")
         self.output_folder = None
         self.run_final_electrode_simulation = True
+        self.electrode_thickness = None
         self.open_in_gmsh = True
         self.detailed_results = False
         # [TI-TOOLBOX] visualize valid skin region (requires detailed_results=True)
@@ -222,6 +223,8 @@ class TesFlexOptimization:
 
         # track goal fun value (in ROI 0) and focality measures for later analysis
         self.optim_funvalue = None
+        self.optim_parameters = None
+        self.optimizer_termination = None
         self.goal_fun_value = None
         self.AUC = None
         self.integral_focality = None
@@ -1559,14 +1562,31 @@ class TesFlexOptimization:
         
         # save structure in .mat format
         if save_mat:
-            mat = self.to_dict()
-            scipy.io.savemat(
-                os.path.join(
-                    self.output_folder,
-                    "simnibs_simulation_{0}.mat".format(self.time_str),
-                ),
-                mat,
+            goals = self.goal if isinstance(self.goal, list) else [self.goal]
+            recorder = getattr(self, "_candidate_recorder", None)
+            ratio_scoring = (
+                recorder is not None
+                and recorder.config.get("optimize_current_ratio", False)
             )
+            if any(callable(goal) for goal in goals) or ratio_scoring:
+                # scipy.io.savemat silently writes a callable as an empty
+                # MATLAB struct; native goal strings also omit ratio scoring.
+                # Such a file would misrepresent the optimization on reload.
+                logger.warning(
+                    "Skipping MATLAB configuration export: callable/current-ratio "
+                    "objectives cannot be serialized faithfully. Preserve the "
+                    "original Python/JSON configuration; TI-Toolbox records it "
+                    "in candidate_manifest.json."
+                )
+            else:
+                mat = self.to_dict()
+                scipy.io.savemat(
+                    os.path.join(
+                        self.output_folder,
+                        "simnibs_simulation_{0}.mat".format(self.time_str),
+                    ),
+                    mat,
+                )
             
         # log settings in summary text
         self._log_summary_preopt()
@@ -1600,7 +1620,11 @@ class TesFlexOptimization:
                 x0=self._optimizer_options_std["init_vals"],
                 strategy="best1bin",
                 recombination=self._optimizer_options_std["recombination"],
-                mutation=tuple(self._optimizer_options_std["mutation"]),
+                mutation=(
+                    float(self._optimizer_options_std["mutation"])
+                    if np.isscalar(self._optimizer_options_std["mutation"])
+                    else tuple(self._optimizer_options_std["mutation"])
+                ),
                 tol=self._optimizer_options_std["tol"],
                 maxiter=self._optimizer_options_std["maxiter"],
                 popsize=self._optimizer_options_std["popsize"],
@@ -1615,6 +1639,15 @@ class TesFlexOptimization:
                 f"Specified optimization method: '{self.optimizer}' not implemented."
             )
         
+        self.optimizer_termination = {
+            "global": {
+                "success": bool(result.success),
+                "message": str(result.message),
+                "iterations": int(getattr(result, "nit", 0)),
+                "evaluations": int(getattr(result, "nfev", 0)),
+            },
+            "accepted_stage": "global",
+        }
         self.optim_funvalue = result.fun
         optim_x = result.x
         
@@ -1636,18 +1669,43 @@ class TesFlexOptimization:
                 options={"finite_diff_rel_step": 0.01},
             )
             logger.info(f"Local optimization finished! Best electrode position: {result.x}")
+            self.optimizer_termination["local"] = {
+                "success": bool(result.success),
+                "message": str(result.message),
+                "iterations": int(getattr(result, "nit", 0)),
+                "evaluations": int(getattr(result, "nfev", 0)),
+            }
         
             if self.optim_funvalue <= result.fun:
                 logger.info("Local optimization did not improve the results, proceeding with global optimization results.")
             else:
                 optim_x = result.x
                 self.optim_funvalue = result.fun
+                self.optimizer_termination["accepted_stage"] = "local"
                 
         # transform optimal electrode pos from array to list of list
+        self.optim_parameters = np.asarray(optim_x, dtype=float).copy()
         self.electrode_pos_opt = self.get_electrode_pos_from_array(optim_x)
+        recorder = getattr(self, "_candidate_recorder", None)
+        if recorder is not None:
+            recorder.finalize(self)
+            if not self._accepted_candidate_valid:
+                self.optim_funvalue = float("inf")
+                logger.error("Optimizer result does not identify a valid evaluated candidate")
+                self._finish_logger()
+                return
         
         # internally update electrodes to correspond to optimal electrode pos
-        self.get_nodes_electrode(electrode_pos=self.electrode_pos_opt)
+        accepted_nodes = self.get_nodes_electrode(electrode_pos=self.electrode_pos_opt)
+        if (
+            not np.isfinite(self.optim_funvalue)
+            or self.n_sim == 0
+            or isinstance(accepted_nodes[0], str)
+        ):
+            self.optim_funvalue = float("inf")
+            logger.error("No valid finite optimized electrode placement was accepted")
+            self._finish_logger()
+            return
 
         # [TI-TOOLBOX] Save optimized electrode positions to JSON file
         self._save_optimized_positions()
@@ -1664,6 +1722,7 @@ class TesFlexOptimization:
                 s = create_tdcs_session_from_array(
                     electrode_array=self.electrode[i_channel_stim],
                     fnamehead=self._mesh.fn,
+                    thickness=self.electrode_thickness,
                     pathfem=os.path.join(
                         self.output_folder, f"final_sim_{i_channel_stim}"
                     ),
@@ -1734,6 +1793,7 @@ class TesFlexOptimization:
                     s = create_tdcs_session_from_array(
                         electrode_array=mapped_electrodes[i_channel_stim],
                         fnamehead=self._mesh.fn,
+                        thickness=self.electrode_thickness,
                         pathfem=os.path.join(mapped_sim_folder, f"mapped_sim_{i_channel_stim}")
                     )
                     self.fn_mapped_sim.append(s.run()[0])

@@ -144,10 +144,11 @@ def convert_mesh_dir(
     fields: list[str] | None = None,
     skip_patterns: list[str] | None = None,
     max_workers: int | None = None,
+    map_to_mni: bool = True,
 ) -> None:
     """Batch-convert every ``.msh`` file in *mesh_dir* to NIfTI.
 
-    For each mesh two NIfTI sets are produced:
+    Subject-space NIfTI is always produced; MNI output is optional:
 
     * ``{basename}_subject_{field}.nii.gz``  – subject space
     * ``{basename}_MNI_{field}.nii.gz``      – MNI space
@@ -172,6 +173,8 @@ def convert_mesh_dir(
         Basenames containing any of these substrings are skipped.
         Defaults to ``["normal"]`` (surface-only meshes have no volume
         elements).
+    map_to_mni : bool
+        Include MNI-space outputs (default True for standalone conversion).
     max_workers : int | None
         Number of worker processes.  Defaults to the ``TI_NIFTI_WORKERS``
         environment variable, or ``min(n_tasks, cpu_count, 8)``.  Set to
@@ -182,7 +185,9 @@ def convert_mesh_dir(
     --------
     convert_mesh_dirs : Convert several directories in a single pool.
     """
-    tasks, temp_paths = _collect_tasks(mesh_dir, output_dir, fields, skip_patterns)
+    tasks, temp_paths = _collect_tasks(
+        mesh_dir, output_dir, fields, skip_patterns, map_to_mni
+    )
     if not tasks:
         logger.warning("No .msh files to convert in %s", mesh_dir)
         return
@@ -195,6 +200,7 @@ def convert_mesh_dirs(
     specs: list[dict],
     m2m_dir: str,
     max_workers: int | None = None,
+    map_to_mni: bool = True,
 ) -> None:
     """Convert several mesh directories to NIfTI in a single process pool.
 
@@ -212,6 +218,8 @@ def convert_mesh_dirs(
         as in :func:`convert_mesh_dir`).
     m2m_dir : str
         Path to the ``m2m_{subject}`` directory.
+    map_to_mni : bool
+        Include MNI-space outputs (default True for standalone conversion).
     max_workers : int | None
         Number of worker processes.  See :func:`convert_mesh_dir`.
 
@@ -227,6 +235,7 @@ def convert_mesh_dirs(
             spec["output_dir"],
             spec.get("fields"),
             spec.get("skip_patterns"),
+            map_to_mni,
         )
         all_tasks.extend(tasks)
         all_temp.extend(temp_paths)
@@ -245,6 +254,7 @@ def _collect_tasks(
     output_dir: str,
     fields: list[str] | None,
     skip_patterns: list[str] | None,
+    map_to_mni: bool = True,
 ) -> tuple[list[tuple], list[str]]:
     """Build the (tasks, temp_paths) for one mesh directory.
 
@@ -287,7 +297,10 @@ def _collect_tasks(
         tasks.append(
             (_subject_worker, src_path, os.path.join(output_dir, f"{base}_subject"))
         )
-        tasks.append((_mni_worker, src_path, os.path.join(output_dir, f"{base}_MNI")))
+        if map_to_mni:
+            tasks.append(
+                (_mni_worker, src_path, os.path.join(output_dir, f"{base}_MNI"))
+            )
 
     return tasks, temp_paths
 

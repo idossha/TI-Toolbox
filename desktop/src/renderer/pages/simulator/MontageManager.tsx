@@ -1,3 +1,5 @@
+import { positionSwatch } from "./freehandPlacement";
+import { candidateOriginalPairs, patchCandidateRow, restoreCandidateRow, snapCandidateRow } from "./candidateHandoff";
 /**
  * The Simulator's **Jobs table** — one row per job, and the row owns its inputs.
  *
@@ -39,7 +41,7 @@ import { ElectrodePairsEditor, type ElectrodePair } from "../../ui/ElectrodePair
 import { notify } from "../../ui/Toast";
 import { NumberInput } from "../../ui/NumberInput";
 import { channelCss } from "../_shared/scene/model";
-import { deleteFreehand, deleteMontage, getEegNets, getFlexMapping, getFlexRuns, getFreehand, getMontages, putMontage, type FlexRun, type FreehandConfig } from "./api";
+import { deleteFreehand, deleteMontage, getEegNets, getCandidateMapping, getFlexMapping, getFlexRuns, getFreehand, getMontages, putMontage, type FlexRun, type FreehandConfig } from "./api";
 import { OPTIMIZED, placementsFor, type FlexPlacement } from "./FlexTab";
 import { FreehandEditor } from "./FreehandEditor";
 import { useFreehandDraft } from "./freehandDraft";
@@ -56,7 +58,6 @@ import {
   newRowId,
   polarityLabel,
   rowPairCount,
-  settingsSummary,
   type JobSettings,
   type MontageKind,
   type MontagePreview,
@@ -320,7 +321,7 @@ function ChannelList({ row, onChange }: { row: SelectedRow; onChange: (currents:
     <>
       {values.map((v, i) => (
         <span className="job-channel" key={i} data-channel={i}>
-          <span className="job-channel-dot" style={{ background: channelCss(i) }} aria-hidden />
+          <span className="job-channel-dot" style={{ background: row.xyzPairs ? positionSwatch(i * 2) : channelCss(i) }} aria-hidden />
           <span className="job-channel-pair mono text-dense" data-cell="pair">
             {labels[i]}
           </span>
@@ -328,7 +329,7 @@ function ChannelList({ row, onChange }: { row: SelectedRow; onChange: (currents:
             value={v}
             onValueChange={(next) => onChange(values.map((old, idx) => (idx === i ? (next ?? old) : old)).join(","))}
             step={0.1}
-            min={0}
+            min={row.candidate ? undefined : 0}
             aria-label={`${row.name || "row"} channel ${i + 1} current (mA)`}
           />
           <span className="montage-unit">mA</span>
@@ -338,26 +339,12 @@ function ChannelList({ row, onChange }: { row: SelectedRow; onChange: (currents:
   );
 }
 
-/**
- * The chip line 2 carries when a job does not use the built-in defaults — on a half-filled row
- * too, because a row seeded from the last configured job is customised before it has a montage.
- */
-function customChip(row: SelectedRow, defaults: JobSettings) {
-  const summary = row.settings ? settingsSummary(row.settings, defaults) : "";
-  if (!summary) return null;
-  return (
-    <span className="job-custom-chip" data-cell="custom" title="This job does not use the built-in defaults">
-      custom: {summary}
-    </span>
-  );
-}
-
 /** What each channel of a row is, in words: its electrode pair, or its coordinate count. */
 export function channelLabels(row: SelectedRow, count: number): string[] {
   return Array.from({ length: count }, (_, i) => {
     const pair = row.pairs?.[i];
     if (pair) return `${pair[0]}–${pair[1]}`;
-    if (row.xyzPairs?.[i]) return "XYZ (2 pts)";
+    if (row.xyzPairs?.[i]) return "XYZ";
     return "—";
   });
 }
@@ -400,6 +387,7 @@ export interface JobsTableProps {
   /** subjectId -> eeg net names it has (from SubjectDetail.eeg_nets). */
   subjectNets: Record<string, string[]>;
   rows: SelectedRow[];
+  previewRowId?: string | null;
   onRowsChange: (next: SelectedRow[]) => void;
   /** The montage being written, owned by the page and shared with the scene pane. */
   draft: MontageDraft | null;
@@ -415,8 +403,6 @@ export interface JobsTableProps {
   /** The source of the active row, so the page can note that flex/free-hand carry their own
    *  coordinates rather than the previewed net's. */
   onActiveSourceChange?: (source: MontageSource | null) => void;
-  /** The built-in defaults — what a row that carries no settings of its own runs with. */
-  defaults: JobSettings;
   /** What a NEW row starts from: the settings of the row the user configured last, if any. */
   seedSettings?: JobSettings;
   /** Open this row's own settings editor (electrodes · conductivity · output fields). */
@@ -427,17 +413,18 @@ export function JobsTable({
   subjects,
   subjectNets,
   rows,
+  previewRowId,
   onRowsChange,
   draft,
   onDraftChange,
   onNetChange,
   onPreviewChange,
   onActiveSourceChange,
-  defaults,
   seedSettings,
   onEditSettings,
 }: JobsTableProps) {
   const queryClient = useQueryClient();
+  const [mappingCandidateIds, setMappingCandidateIds] = useState<Set<string>>(new Set());
   const montages = useQuery({ queryKey: ["montages"], queryFn: getMontages });
 
   const usable = useMemo(() => subjects.filter((s) => !s.blockedReason).map((s) => s.id), [subjects]);
@@ -499,7 +486,12 @@ export function JobsTable({
   // writes into the same rows. See `freehandDraft.tsx`.
   const { open: freehandOpen, setOpen: setFreehandOpen } = useFreehandDraft();
   /** The row the 3-D pane is drawing. Click a row (not a control in it) to change it. */
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(previewRowId ?? null);
+  const [seenPreviewRow, setSeenPreviewRow] = useState(previewRowId);
+  if (previewRowId !== seenPreviewRow) {
+    setSeenPreviewRow(previewRowId);
+    if (previewRowId) setActiveId(previewRowId);
+  }
 
   // The scene pane draws the net the editor is on. Reported in an effect, not during render: it
   // is the parent's state.
@@ -605,7 +597,7 @@ export function JobsTable({
   }, [rows]);
 
   const patch = useCallback(
-    (id: string, next: Partial<SelectedRow>) => onRowsChange(rows.map((r) => (r.id === id ? { ...r, ...next } : r))),
+    (id: string, next: Partial<SelectedRow>) => onRowsChange(rows.map((r) => (r.id === id ? patchCandidateRow(r, next) : r))),
     [rows, onRowsChange],
   );
 
@@ -683,6 +675,23 @@ export function JobsTable({
    * takes a fully-resolved `Montage`.
    */
   async function mapRowToNet(row: SelectedRow, net: string) {
+    if (row.candidate && row.source === "flex") {
+      const candidate = row.candidate;
+      setMappingCandidateIds((ids) => new Set(ids).add(row.id));
+      onRowsChange(rowsRef.current.map((current) => current.id === row.id ? { ...current, mappingPending: true } : current));
+      try {
+        const mapping = await getCandidateMapping(row.subjectId, candidate.run, candidate.id, net);
+        const pairs = mapping.pairs.map((pair) => [pair[0]!, pair[1]!] as [string, string]);
+        onRowsChange(rowsRef.current.map((current) => current.id === row.id && current.candidate === candidate
+          ? snapCandidateRow(current, net, pairs) : current));
+      } catch (err) {
+        onRowsChange(rowsRef.current.map((current) => current.id === row.id ? { ...current, mappingPending: undefined } : current));
+        notify.error("Could not snap this candidate to the cap.", err instanceof Error ? err.message : undefined);
+      } finally {
+        setMappingCandidateIds((ids) => { const next = new Set(ids); next.delete(row.id); return next; });
+      }
+      return;
+    }
     const known = placementsForRow(row).find((p) => p.value !== OPTIMIZED && netStem(p.value) === netStem(net));
     if (known) {
       applyFlexPlacement(row, known);
@@ -713,6 +722,10 @@ export function JobsTable({
   /** Switches a flex row between the optimiser's own coordinates and a net's labels. */
   function setRowPlacementMode(row: SelectedRow, mode: "optimised" | "mapped") {
     if (mode === "optimised") {
+      if (row.candidate) {
+        onRowsChange(rowsRef.current.map((current) => current.id === row.id ? restoreCandidateRow(current) : current));
+        return;
+      }
       const free = placementsForRow(row).find((p) => p.value === OPTIMIZED);
       if (free) applyFlexPlacement(row, free);
       return;
@@ -761,7 +774,7 @@ export function JobsTable({
 
   function duplicateRow(row: SelectedRow) {
     const at = rows.findIndex((r) => r.id === row.id);
-    const copy = { ...row, id: newRowId() };
+    const copy = { ...row, mappingPending: undefined, id: newRowId() };
     onRowsChange([...rows.slice(0, at + 1), copy, ...rows.slice(at + 1)]);
     setActiveId(copy.id);
   }
@@ -796,7 +809,9 @@ export function JobsTable({
   // drawn on the subject's scalp without a second request — "what will this job actually stimulate"
   // answered by the same click that selects it. Serialised as the dependency because `xyzPairs` is
   // a fresh nested array on every patch.
-  const activeXyz = activeSource === "freehand" ? JSON.stringify(activeRow?.xyzPairs ?? []) : "";
+  const activeXyz = activeRow?.xyzPairs?.length ? JSON.stringify(activeRow?.xyzPairs ?? []) : "";
+  const originalXyz = activeRow?.source === "flex" && activeNet
+    ? JSON.stringify(candidateOriginalPairs(activeRow) ?? placementsForRow(activeRow).find((placement) => placement.value === OPTIMIZED)?.xyzPairs ?? []) : "[]";
   useEffect(() => {
     if (activeXyz && activeName && activeSubject) {
       const pairs = JSON.parse(activeXyz) as [[number, number, number], [number, number, number]][];
@@ -807,9 +822,9 @@ export function JobsTable({
       });
     }
     onPreviewChange?.(
-      activeNet && activeName && activePairs?.length ? { net: activeNet, name: activeName, subject: activeSubject, pairs: activePairs } : null,
+      activeNet && activeName && activePairs?.length ? { net: activeNet, name: activeName, subject: activeSubject, pairs: activePairs, originalPositions: (JSON.parse(originalXyz) as NonNullable<SelectedRow["xyzPairs"]>).flat().map(([x, y, z]) => ({ x, y, z })) } : null,
     );
-  }, [activeNet, activeName, activePairs, activeSubject, activeXyz, onPreviewChange]);
+  }, [activeNet, activeName, activePairs, activeSubject, activeXyz, originalXyz, onPreviewChange]);
   useEffect(() => {
     onActiveSourceChange?.(activeSource);
   }, [activeSource, onActiveSourceChange]);
@@ -885,6 +900,9 @@ export function JobsTable({
    * its run two columns further right, past a gap).
    */
   function renderPickCell(row: SelectedRow) {
+    if (row.candidate) return <span className="job-candidate-source" title={`${row.candidate.run} · Candidate ${row.candidate.id}`}>
+      {row.candidate.run.split(/[\\/]/).filter(Boolean).at(-1) || "Selected candidate"}
+    </span>;
     if (row.source === "montage") {
       const nets = netsForSubject(row.subjectId);
       return (
@@ -929,6 +947,7 @@ export function JobsTable({
    * qualify it, so the cell is empty rather than holding a control that would do nothing.
    */
   function renderQualifierCell(row: SelectedRow) {
+    if (row.candidate && row.source !== "flex") return <span className="job-candidate-source" title={row.name}>{row.eegNet}</span>;
     if (row.source === "montage") {
       const options = montageOptions(row.eegNet);
       const selected = row.name && row.kind ? montageOptionValue(row.kind, row.name) : undefined;
@@ -958,12 +977,13 @@ export function JobsTable({
      * montage job. One select keeps every name whole and every job exactly two lines.
      */
     const options = placementsForRow(row);
-    const hasOptimised = options.some((o) => o.value === OPTIMIZED);
+    const hasOptimised = !!candidateOriginalPairs(row) || options.some((o) => o.value === OPTIMIZED);
     const nets = netsForSubject(row.subjectId);
     const choices = [
       ...(hasOptimised ? [{ value: OPTIMIZED, label: "Optimised (XYZ)" }] : []),
       ...nets.map((n) => ({ value: n, label: netStem(n) })),
     ];
+    if (mappingCandidateIds.has(row.id)) return <Select value="pending" onValueChange={() => {}} options={[{ value: "pending", label: "Snapping to cap…" }]} disabled aria-label="Placement" />;
     const current = row.eegNet ? nets.find((n) => netStem(n) === netStem(row.eegNet!)) : OPTIMIZED;
     return (
       <Select
@@ -971,7 +991,8 @@ export function JobsTable({
         onValueChange={(v) => (v === OPTIMIZED ? setRowPlacementMode(row, "optimised") : void mapRowToNet(row, v))}
         options={choices}
         placeholder="Placement"
-        aria-label="Placement"
+        disabled={mappingCandidateIds.has(row.id)}
+        aria-label={mappingCandidateIds.has(row.id) ? "Snapping to cap" : "Placement"}
       />
     );
   }
@@ -1133,8 +1154,7 @@ export function JobsTable({
                             <span className="job-polarity">{polarityLabel(row.kind ?? inferMontageKind(rowPairCount(row)))}</span>
                           </td>
                           <td colSpan={2} data-cell="detail">
-                            <div className="job-line2" data-cell="pairs">
-                              {customChip(row, defaults)}
+                            <div className="job-line2" data-cell="pairs" data-channels={rowPairCount(row)}>
                               <ChannelList row={row} onChange={(currents) => patch(row.id, { currents })} />
                             </div>
                           </td>
@@ -1142,7 +1162,6 @@ export function JobsTable({
                       ) : (
                         <td colSpan={4} data-cell="detail">
                           <div className="job-line2">
-                            {customChip(row, defaults)}
                             <span className="job-line2-empty">Pairs and currents appear once a montage is chosen</span>
                           </div>
                         </td>

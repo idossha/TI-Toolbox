@@ -211,7 +211,11 @@ class BaseSimulation(ABC):
         return S
 
     def _add_electrode_pair(
-        self, session: sim_struct.SESSION, pair_positions, current_mA: float
+        self,
+        session: sim_struct.SESSION,
+        pair_positions,
+        current_mA: float,
+        pair_index: int = 0,
     ):
         """Add one electrode pair as a TDCS list on *session*.
 
@@ -242,6 +246,9 @@ class BaseSimulation(ABC):
             el = tdcs.add_electrode()
             el.channelnr = idx + 1
             el.centre = pos
+            if self.montage.electrode_poses is not None:
+                pose = self.montage.electrode_poses[pair_index * 2 + idx]
+                el.pos_ydir = [pose[i][3] + 20 * pose[i][1] for i in range(3)]
             el.shape = cfg.electrode_shape
             el.dimensions = cfg.electrode_dimensions
             el.thickness = [cfg.gel_thickness, cfg.rubber_thickness]

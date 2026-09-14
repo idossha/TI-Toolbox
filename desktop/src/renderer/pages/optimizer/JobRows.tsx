@@ -30,7 +30,7 @@ import { SegmentedControl } from "../../ui/SegmentedControl";
 import { SelectionPicker } from "../../ui/SelectionList";
 import { RoiPicker, type RoiValue } from "../_shared/roi";
 import type { EegNet, Leadfield } from "./api";
-import { ElectrodesSection, ObjectiveSection, PostRunSection, SolverSection } from "./FlexSections";
+import { GOAL_OPTIONS, ElectrodesSection, ObjectiveSection, PostRunSection, SolverSection } from "./FlexSections";
 import { ExCurrentSection, ExElectrodesSection, LeadfieldStrip, MExCarrierSection, MExElectrodesSection } from "./ExSections";
 import { formatBytes } from "./exConfig";
 import { electrodesForNet, leadfieldPathFor, netKey, netOptions } from "./nets";
@@ -44,13 +44,6 @@ export interface OptimizerSubject {
   /** `undefined` when the subject has a head model; otherwise the J3 wording. */
   blockedReason?: string;
 }
-
-const GOAL_OPTIONS: { value: OptGoal; label: string }[] = [
-  { value: "mean", label: "mean" },
-  { value: "max", label: "max" },
-  { value: "focality", label: "focality" },
-  { value: "focality_tf", label: "focality_tf" },
-];
 
 /** One header boundary — pointer capture and arrow keys, the pane divider's own gesture. */
 function ColumnHandle({ label, width, onResize }: { label: string; width: number; onResize: (next: number) => void }) {
