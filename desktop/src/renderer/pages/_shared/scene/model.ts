@@ -75,7 +75,7 @@ export function regionsFromWireLabels(legend: SceneLegendRow[], labels: number[]
   const out: SceneRegionRef[] = [];
   for (const label of labels) {
     const row = byLabel.get(label);
-    if (row) out.push({ id: row.id, name: row.name, hemi: row.hemi });
+    if (row) out.push({ id: row.id, name: row.name, ...(row.hemi ? { hemi: row.hemi } : {}) });
   }
   return out;
 }

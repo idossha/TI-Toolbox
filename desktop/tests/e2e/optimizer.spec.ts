@@ -402,7 +402,7 @@ test("duplicate, then re-point the copy: two subjects, two rows, each with its O
   await expect(optRows(page)).toHaveCount(1);
 });
 
-test("new searches offer threshold-free goals and never expose retired threshold modes", async () => {
+test("new searches offer all four scientific goals", async () => {
   await clearOptRows(page);
   const row = await addOptRow(page);
   await setOptSubject(page, row, "ernie");
@@ -410,11 +410,12 @@ test("new searches offer threshold-free goals and never expose retired threshold
   await row.locator('td[data-cell="goal"]').getByRole("combobox").click();
   await expect(page.getByRole("option", { name: "Mean TImax", exact: true })).toBeVisible();
   await expect(page.getByRole("option", { name: "Max TImax (99.9%)", exact: true })).toBeVisible();
-  await page.getByRole("option", { name: "Focality", exact: true }).click();
+  await expect(page.getByRole("option", { name: "Threshold-based focality", exact: true })).toBeVisible();
+  await page.getByRole("option", { name: "Threshold-free focality", exact: true }).click();
   const dialog = await openOptEditor(page, row);
   await expect(field("Intensity preference", dialog)).toBeVisible();
   await pickCorticalTarget(dialog);
-  await expect(dialog.getByRole("radio", { name: /Manual thresholds|Adaptive|Pareto sweep/ })).toHaveCount(0);
+  await expect(dialog.getByRole("radio", { name: /Fixed thresholds|Adaptive thresholds|Multi-threshold/ })).toHaveCount(0);
   await closeOptEditor(page);
   await expect(row).toHaveAttribute("data-kind", "flex");
   const groups = collectGroups();
@@ -423,6 +424,25 @@ test("new searches offer threshold-free goals and never expose retired threshold
   await expect.poll(() => groups.bodies.length, { timeout: 15_000 }).toBe(1);
   groups.stop();
   expect((groups.bodies[0] as { kind: string }).kind).toBe("flex");
+});
+
+test("threshold focality restores fixed, adaptive and multi-threshold controls", async () => {
+  await clearOptRows(page);
+  const row = await addOptRow(page);
+  await setOptSubject(page, row, "ernie");
+  await setOptCell(page, row, "goal", "Threshold-based focality");
+  const dialog = await openOptEditor(page, row);
+  await expect(dialog.getByRole("radio", { name: "Adaptive thresholds", exact: true })).toBeChecked();
+  await expect(field("Non-ROI share", dialog)).toBeVisible();
+  await dialog.getByRole("radio", { name: "Fixed thresholds", exact: true }).click();
+  await field("E-field thresholds", dialog).getByRole("textbox").fill("0.1,0.3");
+  await expect(field("Intensity preference", dialog)).toHaveCount(0);
+  await dialog.getByRole("radio", { name: "Multi-threshold", exact: true }).click();
+  await field("ROI thresholds", dialog).getByRole("textbox").fill("70,80");
+  await field("Non-ROI thresholds", dialog).getByRole("textbox").fill("10,20");
+  await expect(dialog.getByText(/4 threshold combinations/)).toBeVisible();
+  await closeOptEditor(page);
+  await expect(row).toHaveAttribute("data-kind", "flex_pareto");
 });
 
 test("Ex: subjects remain selectable and missing leadfields can be generated before running", async () => {
@@ -482,10 +502,10 @@ test("Ex: subjects remain selectable and missing leadfields can be generated bef
   await pickSavedTarget(dialog, "L_Insula_target");
   await fillExBuckets(dialog);
   // The cost is stated beside the buckets that change it — the same function line 2 reads.
-  await expect(dialog.getByTestId("optimizer-cost-ex")).toHaveText("4 electrodes · 7 splits · 7 combinations");
+  await expect(dialog.getByTestId("optimizer-cost-ex")).toHaveText("4 electrodes · 1 montage · 7 current splits · 7 iterations");
   await closeOptEditor(page);
   await expect(optRowSummary(row)).toHaveText("Thalamus_target + L_Insula_target");
-  await expect(optRowDetail(row)).toHaveText("4 electrodes (TI) · 2 mA · 7 splits · 7 combinations");
+  await expect(optRowDetail(row)).toHaveText("4 electrodes (TI) · 2 mA · 1 montage · 7 current splits · 7 iterations");
 
   // Even a fully configured target cannot run against an absent leadfield.
   await setOptSubject(page, row, "101");

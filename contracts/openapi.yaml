@@ -2876,7 +2876,7 @@ paths:
                       type: object
                       required: [id, kind, triangles, vertices, bytes, fingerprint, url]
                       properties:
-                        id: { type: string, enum: [skin, gm] }
+                        id: { type: string, enum: [skin, gm, subcortical] }
                         kind: { type: string, enum: [surface] }
                         triangles: { type: integer }
                         vertices: { type: integer }
@@ -2910,6 +2910,8 @@ paths:
                       required: [id, hemispheres, regions, url]
                       properties:
                         id: { type: string }
+                        kind: { type: string, enum: [cortical, subcortical] }
+                        aligned_to: { type: string, enum: [gm, subcortical] }
                         hemispheres:
                           type: array
                           items: { type: string, enum: [lh, rh] }
@@ -2950,7 +2952,7 @@ paths:
         - in: query
           name: part
           required: true
-          schema: { type: string, enum: [skin, gm] }
+          schema: { type: string, enum: [skin, gm, subcortical] }
         - in: query
           name: format
           required: false
@@ -3021,7 +3023,7 @@ paths:
                 properties:
                   atlas: { type: string }
                   space: { type: string, enum: [guide-ras] }
-                  aligned_to: { type: string, enum: [gm] }
+                  aligned_to: { type: string, enum: [gm, subcortical] }
                   vertices: { type: integer }
                   radius_mm: { type: number }
                   labelled_fraction: { type: number }
@@ -3037,7 +3039,7 @@ paths:
                         id:
                           type: integer
                           description: the .annot row index, which is what a config's AtlasROI.label carries
-                        hemi: { type: string, enum: [lh, rh] }
+                        hemi: { type: string, enum: [lh, rh, ""] }
                         name: { type: string }
                         color: { type: string }
                   url: { type: string }

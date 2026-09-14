@@ -804,3 +804,32 @@ See the linked-candidate-review requirements and ARCHITECTURE §13.
 
 
 Cap placement follows the same selected-candidate identity: map that record rather than the run winner, keep the original poses for restoration, and clear poses when cap labels determine placement. Existing one-to-one Euclidean assignment is reused. The preview shows original-to-cap displacement in millimetres; this is not a scalp-geodesic calculation.
+
+
+## 2026-09-14 — Explicit simulation outputs and optimizer choices
+
+At the maintainer’s request, MNI conversion follows its opt-in flag end to end, with the control
+beside fsaverage. Ex preview counts follow the engine enumeration and current splits rather than
+assuming symmetry reduction. Flex restores threshold-based choices beside threshold-free focality;
+Multi-threshold names the existing `pareto` strategy without claiming a Pareto-front algorithm.
+This supersedes the desktop restriction to three goals in the September 13 presentation decision.
+Scientific objective definitions remain unchanged. See ARCHITECTURE §8.
+
+
+## 2026-09-14 — Inspect volume targets in the shared surface viewer
+
+The maintainer requested local volumetric atlas surfaces and access to buried regions. Reuse the
+run-page renderer with per-label visibility and picking. Peeling and isolation preserve anatomical
+coordinates; exploded displacement was rejected because it adds picking and coordinate ambiguity.
+Atlas metadata determines default subcortical visibility; explicit selections remain available.
+This replaces the native-only volumetric preview decision in ARCHITECTURE §7.2; native viewer
+export remains available independently. Cached meshes are display approximations, not analysis inputs.
+
+
+## 2026-09-14 — Bundle atlas guides instead of building subject previews
+
+Supersedes the earlier local-volume-surface and peel decision above at the maintainer’s request.
+Atlas browsing now reads precomputed Ernie surfaces through the existing guide endpoints, with
+synchronized target selection and translucent skin. No peel/isolate controls or request-time atlas
+meshing remain. Individualized inspection belongs in native TetraVox; actual Simulator XYZ
+placement still requires subject geometry. See ARCHITECTURE §7.2.

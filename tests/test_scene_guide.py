@@ -83,7 +83,9 @@ def test_recorded_sizes_and_digests_are_the_files_own(manifest: dict) -> None:
     for net in manifest["nets"]:
         path = guide.GUIDE_DIR / net["file"]
         assert path.stat().st_size == net["bytes"], net["file"]
-        assert hashlib.sha256(path.read_bytes()).hexdigest() == net["sha256"], net["file"]
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == net["sha256"], net[
+            "file"
+        ]
         checked += 1
     assert checked >= 6, "surfaces in two formats, three atlases and the nets"
 
@@ -95,13 +97,17 @@ def test_manifest_ids_equal_the_packaged_catalog_ids(manifest: dict) -> None:
     file with no manifest row is dead weight in every installation and, worse,
     an atlas the user cannot select even though it shipped.
     """
-    packaged_atlases = sorted(p.stem for p in (guide.GUIDE_DIR / "labels").glob("*.gii"))
+    packaged_atlases = sorted(
+        p.stem for p in (guide.GUIDE_DIR / "labels").glob("*.gii")
+    )
     assert sorted(guide.atlas_ids()) == packaged_atlases
     assert sorted(guide.atlas_ids()) == sorted(
         p.stem for p in (guide.GUIDE_DIR / "legends").glob("*.json")
     )
 
-    packaged_nets = sorted(p.name[: -len(".json")] for p in (guide.GUIDE_DIR / "nets").glob("*.json"))
+    packaged_nets = sorted(
+        p.name[: -len(".json")] for p in (guide.GUIDE_DIR / "nets").glob("*.json")
+    )
     assert sorted(guide.net_names()) == packaged_nets
 
     packaged_parts = sorted({p.stem for p in (guide.GUIDE_DIR / "surfaces").glob("*")})
@@ -114,7 +120,7 @@ def test_every_surface_stays_inside_the_frozen_tvsc_budget(manifest: dict) -> No
     ``decode`` is the independent reader: the triangle count asserted is the
     one in the TVSC1 header, not the one the generator recorded beside it.
     """
-    assert [p["id"] for p in manifest["parts"]] == ["skin", "gm"]
+    assert [p["id"] for p in manifest["parts"]] == ["skin", "gm", "subcortical"]
     for part in manifest["parts"]:
         blob = (guide.GUIDE_DIR / part["files"]["tvsc"]).read_bytes()
         payload = tvsc.decode(blob)
@@ -134,7 +140,7 @@ def test_the_budget_check_can_fail(manifest: dict) -> None:
 
 
 def test_no_head_model_volume_or_mesh_was_packaged() -> None:
-    """"Do not package a full m2m or rebuild at runtime" (R4), as a check.
+    """ "Do not package a full m2m or rebuild at runtime" (R4), as a check.
 
     The failure it prevents is silent and expensive: a generator change that
     started copying ``labeling.nii.gz`` or an ``.annot`` would add tens of MB
@@ -161,7 +167,9 @@ def test_provenance_and_licence_are_recorded(manifest: dict) -> None:
     assert "redistribution" in note.lower()
 
 
-def test_electrode_and_region_payloads_carry_names_a_form_can_use(manifest: dict) -> None:
+def test_electrode_and_region_payloads_carry_names_a_form_can_use(
+    manifest: dict,
+) -> None:
     """Name-based selection is the only selection the guide is allowed to drive."""
     net = manifest["nets"][0]["name"]
     electrodes = guide.electrodes(net)["electrodes"]
@@ -185,23 +193,25 @@ def test_every_packaged_atlas_carries_its_annot_colour_table() -> None:
     FreeSurfer colour table, so a legend that failed one of them was not built from an annotation.
     """
     for entry in guide.manifest()["atlases"]:
+        if entry.get("kind") == "subcortical":
+            continue
         legend = guide.legend(entry["id"])["legend"]
         assert legend, f"{entry['id']} has an empty legend"
 
         # 1. Every row has a colour, in the one form the renderer and the CSS swatch both parse.
         for row in legend:
-            assert re.fullmatch(r"#[0-9a-f]{6}", row["color"]), (
-                f"{entry['id']} {row['hemi']}.{row['name']}: {row['color']!r} is not '#rrggbb'"
-            )
+            assert re.fullmatch(
+                r"#[0-9a-f]{6}", row["color"]
+            ), f"{entry['id']} {row['hemi']}.{row['name']}: {row['color']!r} is not '#rrggbb'"
 
         # 2. Within one hemisphere the colours are distinct. This is the assertion that would have
         #    caught the defect the change is for: 70 regions all rendered in one blue.
         for hemi in ("lh", "rh"):
             rows = [row for row in legend if row["hemi"] == hemi]
             colours = {row["color"] for row in rows}
-            assert len(colours) == len(rows), (
-                f"{entry['id']} {hemi}: {len(rows)} regions share {len(colours)} colours"
-            )
+            assert len(colours) == len(
+                rows
+            ), f"{entry['id']} {hemi}: {len(rows)} regions share {len(colours)} colours"
 
         # 3. A region has the same colour in both hemispheres -- a FreeSurfer colour table is keyed
         #    by parcel, not by side, and a pane that coloured lh and rh differently would be
@@ -213,7 +223,9 @@ def test_every_packaged_atlas_carries_its_annot_colour_table() -> None:
         assert not mismatched, f"{entry['id']}: {mismatched} differ between hemispheres"
 
 
-def test_the_legend_colour_is_read_from_the_colour_table_and_not_invented(tmp_path) -> None:
+def test_the_legend_colour_is_read_from_the_colour_table_and_not_invented(
+    tmp_path,
+) -> None:
     """``build._load_reference_labels`` takes ``color`` from the ``.annot`` ctab, byte for byte.
 
     The guide's legends are files, so the test above can only check that they *look* like a colour
@@ -235,7 +247,9 @@ def test_the_legend_colour_is_read_from_the_colour_table_and_not_invented(tmp_pa
     # Six vertices: two of each row, so every named row appears in the payload.
     labels = numpy.array([0, 0, 1, 1, 2, 2], dtype=numpy.int32)
     annot = tmp_path / "lh.subj_TESTATLAS.annot"
-    fsio.write_annot(str(annot), labels, ctab, [n.decode() for n in names], fill_ctab=True)
+    fsio.write_annot(
+        str(annot), labels, ctab, [n.decode() for n in names], fill_ctab=True
+    )
 
     read_labels, read_ctab, read_names = fsio.read_annot(str(annot))
     del read_labels
@@ -269,7 +283,9 @@ def test_an_unknown_id_lists_what_is_packaged(manifest: dict) -> None:
         assert "it has:" in str(excinfo.value)
 
 
-def test_a_hand_edited_manifest_cannot_read_outside_the_package(tmp_path, monkeypatch) -> None:
+def test_a_hand_edited_manifest_cannot_read_outside_the_package(
+    tmp_path, monkeypatch
+) -> None:
     """The manifest's paths are data too, and data is not trusted with a path."""
     (tmp_path / "manifest.json").write_text(
         json.dumps(
@@ -287,7 +303,9 @@ def test_a_hand_edited_manifest_cannot_read_outside_the_package(tmp_path, monkey
         guide.surface("skin", "tvsc")
 
 
-def test_every_atlas_ships_tvsc_labels_aligned_to_the_grey_matter_surface(manifest: dict) -> None:
+def test_every_atlas_ships_tvsc_labels_aligned_to_the_grey_matter_surface(
+    manifest: dict,
+) -> None:
     """The pane's own renderer reads TVSC1 labels, so the package must carry them.
 
     Between 2026-09-05 and 2026-09-06 labels shipped as GIfTI only, on the
@@ -298,10 +316,37 @@ def test_every_atlas_ships_tvsc_labels_aligned_to_the_grey_matter_surface(manife
     fails a test instead of silently drawing a region centimetres from the one
     that was clicked.
     """
-    gm = tvsc.decode(guide.surface("gm", "tvsc").path.read_bytes())
     assert manifest["atlases"], "the guide packages no atlas at all"
     for atlas in manifest["atlases"]:
+        gm = tvsc.decode(
+            guide.surface(atlas.get("aligned_to", "gm"), "tvsc").path.read_bytes()
+        )
         payload = tvsc.decode(guide.labels(str(atlas["id"]), "tvsc").path.read_bytes())
         assert payload.labels is not None, f"{atlas['id']} carries no per-vertex labels"
         assert len(payload.labels) == len(gm.positions)
         assert payload.positions[0].tolist() == gm.positions[0].tolist()
+
+
+def test_subcortical_geometry_and_labels_are_aligned_and_filtered():
+    """A switched atlas must label its own vertices, not the cortical mesh."""
+    import numpy as np
+
+    surface = tvsc.decode(guide.surface("subcortical").path.read_bytes())
+    labels = tvsc.decode(guide.labels("labeling.nii.gz", "tvsc").path.read_bytes())
+    assert np.array_equal(surface.positions, labels.positions)
+    legend = guide.legend("labeling.nii.gz")
+    assert legend["aligned_to"] == "subcortical"
+    assert {row["id"] for row in legend["legend"]} == set(labels.labels.tolist())
+    names = {row["name"] for row in legend["legend"]}
+    assert {
+        "Left-Hippocampus",
+        "Right-Hippocampus",
+        "Brain-Stem",
+        "Left-Thalamus-Proper",
+    } <= names
+    assert not any(
+        "Ventricle" in name or "CSF" in name or "Cortex" in name for name in names
+    )
+    assert np.isfinite(surface.positions).all()
+    assert surface.indices.max() < len(surface.positions)
+    assert len(surface.positions) == legend["vertices"]

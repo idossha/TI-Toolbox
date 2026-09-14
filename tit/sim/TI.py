@@ -193,7 +193,7 @@ class TISimulation(BaseSimulation):
 
         # T1->MNI is independent of the field meshes; start it in the
         # background so it overlaps the mesh-to-NIfTI conversions.
-        t1_proc = start_t1_to_mni(self.m2m_dir, sid)
+        t1_proc = start_t1_to_mni(self.m2m_dir, sid) if self.config.map_to_mni else None
 
         self.logger.info("NIfTI transformation: Started")
         transform_dirs_to_nifti(
@@ -207,10 +207,12 @@ class TISimulation(BaseSimulation):
             ],
             self.m2m_dir,
             self.logger,
+            map_to_mni=self.config.map_to_mni,
         )
         self.logger.info("NIfTI transformation: \u2713 Complete")
 
-        finish_t1_to_mni(t1_proc, self.logger)
+        if t1_proc is not None:
+            finish_t1_to_mni(t1_proc, self.logger)
 
         return ti_path
 

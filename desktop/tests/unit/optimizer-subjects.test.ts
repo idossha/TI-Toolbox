@@ -72,11 +72,11 @@ describe("jobsForRow — one row, its own subject's paths", () => {
     ]);
   });
 
-  it("retains historic threshold modes but does not plan new retired searches", () => {
+  it("dispatches each threshold mode to its existing runner", () => {
     const base = flexRow("ernie");
     for (const mode of ["manual", "adaptive", "pareto"] as const) {
       const row = { ...base, flex: { ...base.flex, goal: "focality" as const, focalityMode: mode } };
-      expect(jobsForRow(row, resolve)).toEqual([]);
+      expect(jobsForRow(row, resolve)[0]?.kind).toBe(mode === "manual" ? "flex" : mode === "adaptive" ? "flex_adaptive" : "flex_pareto");
       expect(row.flex.focalityMode).toBe(mode);
     }
   });
@@ -163,10 +163,10 @@ describe("rowFormReason — the per-row half of the disabled-Run sentence", () =
     expect(rowFormReason(exRow("ernie", savedRoi(["A.csv"]), 4))).toBeNull();
   });
 
-  it("explains retirement for every historic threshold mode", () => {
+  it("allows all threshold modes", () => {
     const row = flexRow("ernie");
     for (const focalityMode of ["manual", "adaptive", "pareto"] as const) {
-      expect(rowFormReason({ ...row, flex: { ...row.flex, goal: "focality", focalityMode } })).toContain("retired");
+      expect(rowFormReason({ ...row, flex: { ...row.flex, goal: "focality", focalityMode } })).toBeNull();
     }
     expect(rowFormReason({ ...row, flex: { ...row.flex, goal: "focality_tf" } })).toBeNull();
   });

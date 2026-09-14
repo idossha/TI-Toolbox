@@ -273,7 +273,8 @@ class SimulationConfig:
         Reserved for NIfTI output (handled externally by
         ``tit.tools.mesh2nii``, not by SimNIBS SESSION).
     map_to_mni : bool
-        Reserved; not currently passed to SimNIBS.
+        Generate MNI-space field and T1 NIfTI outputs after simulation.
+        Off by default; subject-space NIfTI outputs are always generated.
     map_to_fsavg : bool
         After each TI montage finishes, project its surface fields
         (``TI_max``, ``TI_normal``, ``hf_peak``, ``hf_sar``) onto fsaverage5

@@ -199,7 +199,7 @@ derivatives/SimNIBS/sub-{ID}/Simulations/{montage}/
     └── montage_imgs/                     # combined_montage_visualization.png
 ```
 
-NIfTI exports are written in subject space, and in MNI space when MNI export is enabled — ROI inputs elsewhere in the toolbox accept either space, with automatic transformation between them.
+NIfTI exports are written in subject space by default. Enable **Generate MNI NIfTI outputs** beside the fsaverage option in job settings to also export MNI fields and the MNI anatomical reference — ROI inputs elsewhere in the toolbox accept either space, with automatic transformation between them.
 
 The GUI writes a JSON config and runs `simnibs_python -m tit.sim config.json`; the same command works from a shell (see [Scripting]({{ site.baseurl }}/wiki/scripting/) for the `SimulationConfig` fields).
 

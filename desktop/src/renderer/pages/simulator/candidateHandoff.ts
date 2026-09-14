@@ -25,6 +25,7 @@ export function candidateRow(value: unknown): SelectedRow {
     dimensions: numbers(config.electrode_dimensions) && config.electrode_dimensions.length === 2 ? config.electrode_dimensions as [number, number] : DEFAULT_JOB_SETTINGS.dimensions,
     gelThickness: typeof config.gel_thickness === "number" ? config.gel_thickness : DEFAULT_JOB_SETTINGS.gelThickness,
     outputFields: Array.isArray(config.output_fields) && config.output_fields.every((v) => typeof v === "string") ? config.output_fields : DEFAULT_JOB_SETTINGS.outputFields,
+    mapToMni: config.map_to_mni === true,
     mapToFsavg: config.map_to_fsavg === true,
     customConductivities: object(config.tissue_conductivities) ? config.tissue_conductivities as Record<string, number> : {},
   };

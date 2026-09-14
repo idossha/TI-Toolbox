@@ -8,6 +8,10 @@ const poses = pairs.flat().map(([x, y, z]) => [[1, 0, 0, x], [0, 1, 0, y], [0, 0
 const config = { subject_id: "101", montages: [{ _type: "Montage", name: "candidate-8", mode: "flex_free", electrode_pairs: pairs, electrode_poses: poses, eeg_net: null }], intensities: [0.7, -1.3], electrode_shape: "rect", electrode_dimensions: [9, 17], rubber_thickness: 2 };
 
 describe("candidate cap selection", () => {
+  it.each([false, true])("preserves explicit MNI opt-in %s when replaying a candidate", (mapToMni) => {
+    const row = candidateRow({ id: "8", subject: "101", run: "run-a", config: { ...config, map_to_mni: mapToMni } });
+    expect(buildSimulationConfig(row, DEFAULT_JOB_SETTINGS).map_to_mni).toBe(mapToMni);
+  });
   it("maps the chosen candidate without carrying optimized poses into labeled placement", () => {
     const row = candidateRow({ id: "8", subject: "101", run: "run-a", config });
     expect(isRunnableRow({ ...row, mappingPending: true })).toBe(false);

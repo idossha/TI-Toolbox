@@ -4,30 +4,21 @@ import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { expect, it, vi } from "vitest";
 import { TargetPreview } from "../../src/renderer/pages/_shared/scene/TargetPreview";
+const scene = vi.hoisted(() => ({ props: null as Record<string, unknown> | null }));
+vi.mock("../../src/renderer/pages/_shared/scene/ScenePane", () => ({ ScenePane: (props: Record<string, unknown>) => { scene.props = props; return <div>Reference atlas</div>; } }));
 
-it("prepares a target only on explicit native open and hands off the exported file", async () => {
-  const scene = { version: 2, datasets: [], layers: [] };
-  const fetchMock = vi.fn()
-    .mockResolvedValueOnce({ ok: true, json: async () => ({ scene }) })
-    .mockResolvedValueOnce({ ok: true, json: async () => ({ scene_path: "/mnt/project/target.tetravox.json" }) });
-  const openNativeTetravox = vi.fn().mockResolvedValue({ ok: true });
-  vi.stubGlobal("fetch", fetchMock);
-  Object.defineProperty(window, "tit", { configurable: true, value: { openNativeTetravox } });
-  const container = document.createElement("div");
-  const root = createRoot(container);
-  const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+it("selects a default bundled atlas and synchronizes atlas mode with the form", async () => {
+  const fetchMock = vi.fn(); vi.stubGlobal("fetch", fetchMock);
+  const container = document.createElement("div"); const root = createRoot(container);
+  const client = new QueryClient(); const change = vi.fn();
   try {
-    await act(async () => root.render(<QueryClientProvider client={client}><TargetPreview subject="101" roi={{ mode: "mask", path: "/mnt/target.nii.gz", space: "mni", tissues: "GM" }} /></QueryClientProvider>));
+    await act(async () => root.render(<QueryClientProvider client={client}><TargetPreview subject="101" roi={{ mode: "subcortical", atlas: undefined, atlasSpace: "subject", regions: [], tissues: "GM" }} onRoiChange={change} /></QueryClientProvider>));
+    expect(scene.props!.atlas).toBe("labeling.nii.gz");
+    expect(scene.props!.subject).toBeUndefined();
+    (scene.props!.onAtlasChange as (atlas: string, kind: string) => void)("DK40", "cortical");
+    expect(change).toHaveBeenLastCalledWith({ mode: "cortical", atlas: "DK40", regions: [] });
+    (scene.props!.onAtlasChange as (atlas: string, kind: string) => void)("labeling.nii.gz", "subcortical");
+    expect(change).toHaveBeenLastCalledWith({ mode: "subcortical", atlas: "labeling.nii.gz", atlasSpace: "subject", tissues: "GM", regions: [] });
     expect(fetchMock).not.toHaveBeenCalled();
-    await act(async () => container.querySelector("button")!.click());
-    await vi.waitFor(() => expect(openNativeTetravox).toHaveBeenCalledWith("/mnt/project/target.tetravox.json"));
-    expect(JSON.parse(fetchMock.mock.calls[0]![1].body)).toEqual({ subject: "101", roi: { kind: "mask", path: "/mnt/target.nii.gz", space: "mni" } });
-    expect(JSON.parse(fetchMock.mock.calls[1]![1].body)).toEqual({ scene, name: "target-preview" });
-    expect(container.querySelector("iframe")).toBeNull();
-  } finally {
-    act(() => root.unmount());
-    client.clear();
-    Reflect.deleteProperty(window, "tit");
-    vi.unstubAllGlobals();
-  }
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals(); }
 });

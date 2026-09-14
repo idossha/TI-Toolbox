@@ -31,7 +31,7 @@ Flex Search uses differential evolution optimization to determine the best elect
 
 **Core capabilities:**
 
-- **Desktop goals**: Mean TImax (`mean`, average in the ROI), Max TImax (`max`, 99.9th percentile in the ROI), or Focality (`focality_tf`, weighted mean ROI / mean non-ROI). The Python API retains legacy `focality` (threshold-based ROC) for explicit historical configurations.
+- **Desktop goals**: Mean TImax (`mean`, average in the ROI), Max TImax (`max`, 99.9th percentile in the ROI), Threshold-free focality (`focality_tf`, weighted mean ROI / mean non-ROI), and Threshold-based focality (`focality`, ROC scoring).
 - **Post-processing Methods** (`FieldPostproc` enum): `max_TI`, `dir_TI_normal`, or `dir_TI_tangential`
 - **ROI Definition**: `FlexConfig.SphericalROI`, `FlexConfig.AtlasROI`, or `FlexConfig.SubcorticalROI` dataclasses -- see [Defining the ROI](#defining-the-roi) below
 - **Anisotropy Support**: Four conductivity models (`scalar`, `vn`, `dir`, `mc`) with configurable max ratio and conductivity
@@ -133,9 +133,9 @@ roi = FlexConfig.SphericalROI(
 )
 ```
 
-## Focality Optimization with Dynamic Thresholding
+## Threshold-based focality
 
-**Legacy reference:** threshold-based modes are no longer offered for new desktop jobs. The following explains historical configurations; use Focality and review the evaluated candidates for the current workflow.
+Choose **Fixed**, **Adaptive**, or **Multi-threshold** under Threshold-based focality. Fixed uses explicit field thresholds; Adaptive derives thresholds from an initial intensity search; Multi-threshold runs multiple threshold pairs. Existing configurations retain the `pareto` strategy value. These choices do not alter the threshold-free objective described below.
 
 The focality optimization goal is a multi-objective function balancing ROI targeting with out-of-ROI field minimization:
 

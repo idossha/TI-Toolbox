@@ -91,7 +91,7 @@ describe("rowJobKind — the kind is derived, never chosen", () => {
   it("states the derived variant in words, and says nothing for a plain flex search", () => {
     expect(rowVariantLabel(flex({ goal: "mean" }))).toBe("");
     expect(rowVariantLabel(flex({ goal: "focality", focalityMode: "adaptive" }))).toBe("adaptive");
-    expect(rowVariantLabel(flex({ goal: "focality", focalityMode: "pareto" }))).toBe("Pareto");
+    expect(rowVariantLabel(flex({ goal: "focality", focalityMode: "pareto" }))).toBe("multi-threshold");
     expect(rowVariantLabel(emptyOptimizerRow({ method: "ex", exPairs: 2 }))).toBe("4 electrodes (TI)");
     expect(rowVariantLabel(emptyOptimizerRow({ method: "ex", exPairs: 4 }))).toBe("8 electrodes (mTI)");
   });
@@ -146,16 +146,16 @@ describe("what the row says about itself", () => {
       "goal focality (adaptive) · 2 pairs · 1 mA · ratio 1:1",
     );
     expect(optimizerMethodSummary({ ...flexRow, flex: { ...flexRow.flex, goal: "focality", focalityMode: "pareto" } })).toBe(
-      "goal focality (Pareto) · 2 pairs · 1 mA · ratio 1:1",
+      "goal focality (multi-threshold) · 2 pairs · 1 mA · ratio 1:1",
     );
     expect(optimizerMethodSummary({ ...flexRow, flex: { ...flexRow.flex, optimizeCurrentRatio: true } })).toContain("ratio sweep 21");
 
     const row = emptyOptimizerRow({ method: "ex" });
     const filled = { ...row, ex: { ...row.ex, buckets: { e1_plus: ["E1"], e1_minus: ["E2"], e2_plus: ["E3"], e2_minus: ["E4"] } } };
-    expect(optimizerMethodSummary(filled)).toBe("4 electrodes (TI) · 2 mA · 7 splits · 7 combinations");
+    expect(optimizerMethodSummary(filled)).toBe("4 electrodes (TI) · 2 mA · 1 montage · 7 current splits · 7 iterations");
     // The electrode count is the MONTAGE's, fixed by the pairs — an unfilled row used to report
     // the distinct pool ("0 electrodes"), which said nothing about the search.
-    expect(optimizerMethodSummary(row)).toBe("4 electrodes (TI) · 2 mA · 7 splits · 0 combinations");
+    expect(optimizerMethodSummary(row)).toBe("4 electrodes (TI) · 2 mA · 0 montages · 7 current splits · 0 iterations");
     // mEx sweeps no amplitudes, so it reports no splits.
     expect(optimizerMethodSummary(emptyOptimizerRow({ method: "ex", exPairs: 4 }))).toBe("8 electrodes (mTI) · 2 mA · 0 combinations");
   });

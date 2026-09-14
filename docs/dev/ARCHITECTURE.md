@@ -214,10 +214,16 @@ Electrode color expresses availability and channel membership, with no additiona
 The form, channel legend and preview share one palette and one selection model. Atlas clicks and ROI
 chips edit the same region list. Coordinate picking remains constrained by §3.
 
-Non-surface targets open explicitly in the native TetraVox application.
-`POST /api/scene/target-preview` caches a binary target extent on the subject T1 grid for masks,
-subcortical labels, spheres and saved ROI centers. Native previews do not change the form;
-incomplete requests and errors clear old geometry. Tissue and mesh filtering remain downstream.
+Optimizer and Analyzer select cortical and subcortical atlas regions on precomputed, packaged
+Ernie reference anatomy, including translucent skin. The scene atlas selector and target form share
+atlas/mode/region state; switching atlas clears incompatible labels. Subcortical targets default to
+`labeling.nii.gz`; its build-time label filter excludes background, CSF, ventricles and other
+non-subcortical compartments. No subject atlas extraction runs when browsing these guides.
+Only the selected atlas surface and skin are fetched. Guide coordinates never become scientific
+coordinates. Masks, spheres and saved coordinate targets retain explicit native TetraVox inspection.
+Simulator also uses the guide for named montage browsing; actual freehand/XYZ placements and snap
+displacements retain subject geometry to preserve their coordinate meaning. Peeling and isolation
+controls are omitted. `POST /api/scene/target-preview` remains the explicit native volume path.
 
 Optimizer mask targets explicitly declare Subject or MNI space. Subject masks retain their
 coordinates; MNI masks use SimNIBS’ subject registration with nearest-neighbor resampling,
@@ -296,6 +302,14 @@ Flex-to-simulation uses the electrode mapping as a montage input. A simulation i
 Flex does not promise a global optimum; exhaustive search is exhaustive only within its configured
 discretization. Flex's CPU setting does not imply parallel differential-evolution candidates.
 Run names and output folders identify real destinations, so replacement rules apply to repeated names.
+
+New Simulator jobs opt into MNI NIfTI export separately from fsaverage mapping, with adjacent
+controls. The MNI flag gates both anatomical and field conversion to avoid unwanted registration
+work. Ex previews count the engine’s electrode arrangements and valid current splits separately;
+total iterations are their product, including one split for fixed balanced currents.
+Flex exposes Mean TImax, Max TImax (ROI 99.9th percentile), Threshold-free focality and
+Threshold-based focality. The latter retains fixed, adaptive and multi-threshold execution;
+“Multi-threshold” is a presentation label for the existing `pareto` strategy, not a new objective.
 
 ## 9. DWI preprocessing runs as sibling containers
 

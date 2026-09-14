@@ -60,7 +60,6 @@ import {
   type PlanResult,
   type PlanStage,
 } from "../_shared/run";
-import { ScenePane } from "../_shared/scene";
 import { TargetPreview } from "../_shared/scene/TargetPreview";
 import { useOpenInViewer } from "../../app/openInViewer";
 import { getEegNets, getLeadfields, planFor, submitLeadfieldJob, validateFor, type EegNet, type Leadfield } from "./api";
@@ -429,7 +428,6 @@ function OptimizerPage() {
 
   // Cortical targets retain atlas picking; other targets show read-only extents from the form.
   const activeRow = rows.find((r) => r.id === activeRowId) ?? rows[0] ?? null;
-  const sceneCortical = !!activeRow && activeRow.method === "flex" && activeRow.roi.mode === "cortical";
 
   function patchActiveRoi(next: RoiValue): void {
     if (!activeRow) return;
@@ -467,23 +465,7 @@ function OptimizerPage() {
           parallel={parallelSubjects}
           paneControls={<PaneHeaderControls controller={scenePane} />}
           scene={
-            activeRow?.roi.mode !== "cortical"
-              ? <TargetPreview subject={activeRow?.subjectId} roi={activeRow?.roi} />
-              : <ScenePane
-              mode="target"
-              atlas={sceneCortical && activeRow?.roi.mode === "cortical" ? (activeRow.roi.atlas ?? null) : null}
-              regions={sceneCortical && activeRow?.roi.mode === "cortical" ? activeRow.roi.regions : undefined}
-              onAtlasChange={
-                sceneCortical && activeRow?.roi.mode === "cortical"
-                  ? (atlas) => patchActiveRoi({ ...(activeRow.roi as Extract<RoiValue, { mode: "cortical" }>), atlas })
-                  : undefined
-              }
-              onRegionsChange={
-                sceneCortical && activeRow?.roi.mode === "cortical"
-                  ? (regions) => patchActiveRoi({ ...(activeRow.roi as Extract<RoiValue, { mode: "cortical" }>), regions })
-                  : undefined
-              }
-            />
+            <TargetPreview subject={activeRow?.subjectId} roi={activeRow?.roi} onRoiChange={patchActiveRoi} allowAtlas={activeRow?.method === "flex"} />
           }
         />
       }

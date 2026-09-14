@@ -46,7 +46,8 @@ pytestmark = pytest.mark.skipif(
 def client(tmp_path: Path) -> TestClient:
     """A server bound to an EMPTY directory: the guide must not need a project."""
     return TestClient(
-        create_app(ServerSettings(project_dir=str(tmp_path), token=TOKEN)), base_url=BASE
+        create_app(ServerSettings(project_dir=str(tmp_path), token=TOKEN)),
+        base_url=BASE,
     )
 
 
@@ -57,9 +58,11 @@ def test_the_guide_answers_without_any_project_data(client: TestClient) -> None:
     subject* to have an ``m2m_`` directory, so on a fresh project it showed a
     "run charm first" sentence instead of anatomy.
     """
-    body = client.get("/api/guide/manifest", headers=BEARER).json()
+    response = client.get("/api/guide/manifest", headers=BEARER)
+    assert response.headers["cache-control"] == "private, no-store"
+    body = response.json()
     assert body["space"] == "guide-ras"
-    assert [p["id"] for p in body["parts"]] == ["skin", "gm"]
+    assert [p["id"] for p in body["parts"]] == ["skin", "gm", "subcortical"]
     assert body["nets"] and body["atlases"]
     assert body["cache"] == {"state": "ready", "built_ms": 0.0}
 
@@ -143,7 +146,9 @@ def test_every_guide_route_requires_auth(client: TestClient) -> None:
         assert client.get(url).status_code in (401, 403), url
 
 
-def test_every_guide_json_response_matches_the_contract_schema(client: TestClient) -> None:
+def test_every_guide_json_response_matches_the_contract_schema(
+    client: TestClient,
+) -> None:
     """The contract is the independent reader; the responses are the data.
 
     ``desktop/src/renderer/api/schema.d.ts`` is generated from this contract
@@ -190,3 +195,20 @@ def test_the_contract_schema_check_can_actually_fail(client: TestClient) -> None
     body["space"] = "subject-ras"
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.Draft202012Validator(schema).validate(body)
+
+
+def test_subcortical_reference_is_served_without_building(client, monkeypatch):
+    from tit.scene import volume_surfaces
+
+    def no_build(*args, **kwargs):
+        raise AssertionError("Guide requests must not extract any volume surface")
+
+    monkeypatch.setattr(volume_surfaces, "surfaces", no_build)
+    for url in (
+        "/api/guide/surface?part=subcortical",
+        "/api/guide/labels?atlas=labeling.nii.gz&format=tvsc",
+        "/api/guide/regions?atlas=labeling.nii.gz",
+    ):
+        response = client.get(url, headers=BEARER)
+        assert response.status_code == 200
+        assert len(response.content) > 100

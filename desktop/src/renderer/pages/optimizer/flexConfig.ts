@@ -109,9 +109,7 @@ export function defaultFlexFormState(): FlexFormState {
   };
 }
 
-/** "flex" (mean/max/focality_tf, and focality with manual thresholds), or the two orchestration
- *  job kinds for the ROC-focality Manual-alternative modes (see PARITY.md "adaptive/pareto" note
- *  for the open contract gap these two kinds carry). */
+/** Threshold modes dispatch to the existing adaptive and multi-threshold drivers. */
 export function jobKindFor(form: FlexFormState): "flex" | "flex_adaptive" | "flex_pareto" {
   if (form.goal !== "focality") return "flex";
   if (form.focalityMode === "adaptive") return "flex_adaptive";
@@ -132,12 +130,7 @@ export function sweepCombinationCount(form: FlexFormState): number {
   return parsePctList(form.paretoRoiPcts).length * parsePctList(form.paretoNonRoiPcts).length;
 }
 
-/**
- * Build the `FlexConfig`-shaped request body. `flex_adaptive`/`flex_pareto` jobs additionally
- * carry an `adaptive`/`pareto` block — a provisional shape (no `AdaptiveFocalityConfig`/
- * `ParetoSweepConfig` exists in `contracts/generated/config.schema.json` yet; see PARITY.md and the final report)
- * proposed for B4/F1b to formalise once those runners exist.
- */
+/** Build the existing FlexConfig shape, including its threshold driver settings. */
 export function buildFlexConfig(subjectId: string, form: FlexFormState, roi: RoiConfig, nonRoi: RoiConfig | undefined): FlexConfigWire {
   const isFocality = form.goal === "focality" || form.goal === "focality_tf";
   const kind = jobKindFor(form);
@@ -183,7 +176,7 @@ export function buildFlexConfig(subjectId: string, form: FlexFormState, roi: Roi
   };
 
   if (kind === "flex_adaptive") {
-    base.adaptive = { non_roi_pct: form.adaptiveNonRoiPct, roi_pct: form.adaptiveRoiPct };
+    base.adaptive = { nonroi_percentage: form.adaptiveNonRoiPct, roi_percentage: form.adaptiveRoiPct };
   }
   if (kind === "flex_pareto") {
     base.pareto = { roi_pcts: parsePctList(form.paretoRoiPcts), nonroi_pcts: parsePctList(form.paretoNonRoiPcts) };

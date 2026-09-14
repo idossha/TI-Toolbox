@@ -67,6 +67,7 @@ export function buildSimulationConfig(row: SelectedRow, defaults: GlobalParams):
     electrode_dimensions: params.dimensions,
     gel_thickness: params.gelThickness,
     output_fields: params.outputFields,
+    map_to_mni: params.mapToMni ?? false,
     map_to_fsavg: params.mapToFsavg ?? false,
   };
   if (row.candidate) delete config.tissue_conductivities;

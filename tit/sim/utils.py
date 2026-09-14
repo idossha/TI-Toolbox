@@ -725,7 +725,9 @@ def transform_to_nifti(
     )
 
 
-def transform_dirs_to_nifti(specs: list[dict], m2m_dir: str, logger) -> None:
+def transform_dirs_to_nifti(
+    specs: list[dict], m2m_dir: str, logger, *, map_to_mni: bool = False
+) -> None:
     """Convert several mesh directories to NIfTI in a single process pool.
 
     Thin wrapper over ``tit.tools.mesh2nii.convert_mesh_dirs``.  Overlaps
@@ -749,7 +751,7 @@ def transform_dirs_to_nifti(specs: list[dict], m2m_dir: str, logger) -> None:
     """
     from tit.tools.mesh2nii import convert_mesh_dirs
 
-    convert_mesh_dirs(specs=specs, m2m_dir=m2m_dir)
+    convert_mesh_dirs(specs=specs, m2m_dir=m2m_dir, map_to_mni=map_to_mni)
 
 
 def start_t1_to_mni(m2m_dir: str, subject_id: str) -> subprocess.Popen:

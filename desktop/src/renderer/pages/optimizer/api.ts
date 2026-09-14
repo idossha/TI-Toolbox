@@ -18,8 +18,7 @@ export type PipelineKind = components["schemas"]["PipelineKind"];
 export type ExConfigBody = components["schemas"]["ExConfig"];
 export type MExConfigBody = components["schemas"]["MExConfig"];
 export type LeadfieldConfigBody = components["schemas"]["LeadfieldConfig"];
-/** Flex configs are built field-by-field in `flexConfig.ts`; the schema type is a closed dataclass
- *  mirror that does not admit the two provisional `adaptive`/`pareto` blocks (see PARITY.md). */
+/** Flex configs are built field-by-field in `flexConfig.ts` and validated against the server schema. */
 export type FlexConfigWire = Record<string, unknown>;
 
 export async function getEegNets(subject: string): Promise<EegNet[]> {

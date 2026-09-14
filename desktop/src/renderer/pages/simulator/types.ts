@@ -59,6 +59,7 @@ export interface JobSettings {
   dimensions: [number, number];
   gelThickness: number;
   outputFields: string[];
+  mapToMni?: boolean;
   mapToFsavg?: boolean;
   customConductivities: Record<string, number>;
 }
@@ -72,6 +73,7 @@ export const DEFAULT_JOB_SETTINGS: JobSettings = {
   dimensions: [8, 8],
   gelThickness: 4,
   outputFields: ["TI_max"],
+  mapToMni: false,
   mapToFsavg: false,
   customConductivities: {},
 };
@@ -106,6 +108,7 @@ export function settingsSummary(settings: JobSettings, defaults: JobSettings): s
     parts.push(`${overrides} tissue override${overrides === 1 ? "" : "s"}`);
   }
   if (settings.outputFields.join(",") !== defaults.outputFields.join(",")) parts.push(settings.outputFields.join(", ") || "no fields");
+  if (!!settings.mapToMni !== !!defaults.mapToMni) parts.push(settings.mapToMni ? "MNI" : "no MNI");
   if (!!settings.mapToFsavg !== !!defaults.mapToFsavg) parts.push(settings.mapToFsavg ? "fsaverage" : "no fsaverage");
   return parts.join(" · ");
 }

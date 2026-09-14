@@ -6,16 +6,14 @@ import { frontierIds, intensityColor, metricDefinition, tradeoffCandidates, type
 import { candidateMetricsChanged, candidateRow, patchCandidateRow } from "../../src/renderer/pages/simulator/candidateHandoff";
 import { buildSimulationConfig } from "../../src/renderer/pages/simulator/buildConfig";
 import { DEFAULT_JOB_SETTINGS } from "../../src/renderer/pages/simulator/types";
-import { emptyOptimizerRow } from "../../src/renderer/pages/optimizer/rows";
 import { GOAL_OPTIONS } from "../../src/renderer/pages/optimizer/FlexSections";
-import { jobsForRow, rowFormReason } from "../../src/renderer/pages/optimizer/plan";
 
 const candidate = (id: string, target: number, background: number, key = "same-head-domain"): Candidate => ({ id, objective: -100, objective_label: "Minimized cost", objective_direction: "minimize", metrics: { roi_mean: target, background_p95: background }, metric_labels: {}, comparison_key: key, positions: [] });
 const poses = [11, 21, 31, 41].map((x) => [[0, -1, 0, x], [1, 0, 0, x + 2], [0, 0, 1, x + 3], [0, 0, 0, 1]]);
 const config = {
   subject_id: "ernie",
   montages: [{ _type: "Montage", name: "picked", mode: "flex_free", electrode_pairs: [[[11, 13, 14], [21, 23, 24]], [[31, 33, 34], [41, 43, 44]]], eeg_net: null, electrode_poses: poses, provenance: { run: "test-run", candidate_id: "trial-8" } }],
-  conductivity: "vn", aniso_maxratio: 8, aniso_maxcond: 1.5, intensities: [0.7, -1.3], electrode_shape: "rect", electrode_dimensions: [9, 17], gel_thickness: 3, rubber_thickness: 1, output_fields: ["TI_max"], map_to_fsavg: false,
+  conductivity: "vn", aniso_maxratio: 8, aniso_maxcond: 1.5, intensities: [0.7, -1.3], electrode_shape: "rect", electrode_dimensions: [9, 17], gel_thickness: 3, rubber_thickness: 1, output_fields: ["TI_max"], map_to_fsavg: false, map_to_mni: false,
 };
 const handoff = { id: "trial-8", subject: "ernie", kind: "flex", run: "test-run", config };
 
@@ -57,22 +55,12 @@ describe("normal simulation handoff", () => {
   });
 });
 
-it("historic threshold mode is visibly retired and cannot generate a new plan", () => {
-  const row = emptyOptimizerRow({ method: "flex" });
-  row.subjectId = "ernie";
-  row.flex.goal = "focality";
-  expect(rowFormReason(row)).toContain("retired");
-  expect(jobsForRow(row, { atlas: () => () => undefined, leadfield: () => null })).toEqual([]);
-  expect(row.flex.goal).toBe("focality");
-  row.flex.goal = "focality_tf";
-  expect(rowFormReason(row)).toBeNull();
-});
-
-it("presents the three scientific goals without renaming their definitions", () => {
+it("presents the four scientific goals without renaming their definitions", () => {
   expect(GOAL_OPTIONS).toEqual([
     { value: "mean", label: "Mean TImax" },
     { value: "max", label: "Max TImax (99.9%)" },
-    { value: "focality_tf", label: "Focality" },
+    { value: "focality_tf", label: "Threshold-free focality" },
+    { value: "focality", label: "Threshold-based focality" },
   ]);
 });
 

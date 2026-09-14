@@ -79,20 +79,21 @@ async function clickCanvas(dx = 0, dy = 0): Promise<void> {
   await page.mouse.click(box.x + box.width / 2 + dx, box.y + box.height / 2 + dy);
 }
 
-test("the Simulator pane draws the selected subject's own head", async () => {
+test("the Simulator starts on the bundled guide", async () => {
   await expect(host()).toHaveAttribute("data-state", "ready", { timeout: 20_000 });
   const debug = await page.evaluate(() => {
     const handle = window.__scenePane;
     if (!handle) throw new Error("window.__scenePane is absent — build out/ with VITE_SCENE_HOOKS=1");
     return { subject: handle.subject, guide: handle.guide, space: handle.space };
   });
-  expect(debug.subject).toBe("ernie");
-  expect(debug.guide).toBeNull();
-  expect(debug.space).toBe("subject-ras");
+  expect(debug.subject).toBeNull();
+  expect(debug.guide).toBe("ernie");
+  expect(debug.space).toBe("guide-ras");
 });
 
 test("a click with nothing selected places nothing, and says why", async () => {
   await openPlacementEditor();
+  await expect.poll(() => page.evaluate(() => window.__scenePane?.space)).toBe("subject-ras");
   // The gesture only exists while the editor is open and a subject is drawn.
   await expect(host()).toHaveAttribute("data-gesture", "place", { timeout: 20_000 });
   // No instructional copy anywhere (maintainer, 2026-09-06): the selected row and its ringed dot

@@ -97,7 +97,7 @@ describe("flex-search config building", () => {
     expect(jobKindFor({ ...form, goal: "focality", focalityMode: "pareto" })).toBe("flex_pareto");
   });
 
-  it("counts Pareto sweep combinations as the cartesian product of the two lists", () => {
+  it("counts multi-threshold sweep combinations as the cartesian product of the two lists", () => {
     const form = { ...defaultFlexFormState(), paretoRoiPcts: "80,70", paretoNonRoiPcts: "20,30,40" };
     expect(parsePctList(form.paretoRoiPcts)).toEqual([80, 70]);
     expect(sweepCombinationCount(form)).toBe(6);
@@ -121,12 +121,31 @@ describe("flex-search config building", () => {
     });
   });
 
-  it("carries an adaptive/pareto block for those job kinds (provisional shape — see PARITY.md)", () => {
+  it("carries canonical adaptive settings for the driver", () => {
     const form = { ...defaultFlexFormState(), goal: "focality" as const, focalityMode: "adaptive" as const, adaptiveRoiPct: 75, adaptiveNonRoiPct: 15 };
     const roi = roiToConfig(emptySphericalWithOneRow(), () => undefined)!;
     const config = buildFlexConfig("ernie", form, roi, undefined);
-    expect(config.adaptive).toEqual({ non_roi_pct: 15, roi_pct: 75 });
+    expect(config.adaptive).toEqual({ nonroi_percentage: 15, roi_percentage: 75 });
   });
+  it.each([
+    ["mean", "adaptive", "flex"],
+    ["max", "adaptive", "flex"],
+    ["focality_tf", "adaptive", "flex"],
+    ["focality", "manual", "flex"],
+    ["focality", "adaptive", "flex_adaptive"],
+    ["focality", "pareto", "flex_pareto"],
+  ] as const)("serializes %s / %s for %s without schema errors", async (goal, focalityMode, mode) => {
+    const form = { ...defaultFlexFormState(), goal, focalityMode, manualThresholds: "0.1,0.3", adaptiveRoiPct: 73, adaptiveNonRoiPct: 17, paretoRoiPcts: "70,80", paretoNonRoiPcts: "10,20" };
+    const config = buildFlexConfig("ernie", form, roiToConfig(emptySphericalWithOneRow(), () => undefined)!, undefined);
+    expect(jobKindFor(form)).toBe(mode);
+    expect(config.goal).toBe(goal);
+    if (mode === "flex_adaptive") expect(config.adaptive).toEqual({ roi_percentage: 73, nonroi_percentage: 17 });
+    if (mode === "flex_pareto") expect(config.pareto).toEqual({ roi_pcts: [70, 80], nonroi_pcts: [10, 20] });
+    if (goal === "focality" && focalityMode === "manual") expect(config.thresholds).toBe("0.1,0.3");
+    const result = await createAjvResolver("FlexConfig")({ ...config, mode } as never, undefined, { shouldUseNativeValidation: false, fields: {} } as never);
+    expect(result.errors).toEqual({});
+  });
+
 });
 
 function emptySphericalWithOneRow() {

@@ -369,7 +369,7 @@ export function OptimizerJobRows({
                       <Select
                         value={goal}
                         onValueChange={(v) => patch(row.id, { flex: { ...row.flex, goal: v as OptGoal } })}
-                        options={goal === "focality" ? [{ value: "focality", label: "Retired: threshold focality" }, ...GOAL_OPTIONS] : GOAL_OPTIONS}
+                        options={GOAL_OPTIONS}
                         aria-label="Goal"
                       />
                     )}

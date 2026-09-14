@@ -44,3 +44,22 @@ def test_genuine_corrupt_mesh_parser_error_propagates(tmp_path):
             _collect_tasks(str(tmp_path), str(tmp_path / "out"), ["magnE"], None)
 
     assert raised.value is error
+
+
+@pytest.mark.parametrize("map_to_mni", [False, True])
+def test_conversion_workers_honor_mni_opt_in(tmp_path, map_to_mni):
+    from tit.tools.mesh2nii import convert_mesh_dirs
+
+    (tmp_path / "carrier.msh").write_bytes(b"mesh input")
+    with (
+        patch("tit.tools.mesh2nii._subject_worker") as subject,
+        patch("tit.tools.mesh2nii._mni_worker") as mni,
+    ):
+        convert_mesh_dirs(
+            [{"mesh_dir": str(tmp_path), "output_dir": str(tmp_path / "out")}],
+            "/m2m",
+            max_workers=1,
+            map_to_mni=map_to_mni,
+        )
+    subject.assert_called_once()
+    assert mni.call_count == int(map_to_mni)

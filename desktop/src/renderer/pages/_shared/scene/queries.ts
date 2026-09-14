@@ -128,14 +128,14 @@ export function useSceneLabels(subject: string | null, atlas: string | null, rea
  * keys below contain no subject id, so changing the selected research subjects cannot invalidate
  * them, cannot refetch them, and cannot remount what they feed.
  *
- * `staleTime: Infinity` and `gcTime: Infinity` because the payloads are immutable for the life of
- * the installation — the server serves them with `Cache-Control: immutable` for the same reason.
- * A refetch would re-fetch bytes that cannot have changed.
+ * Geometry stays cached to avoid repeated decoding and GPU uploads. The small manifest refreshes
+ * on mount/focus so updates to the installed atlas catalog reach an already-open application.
  */
 const GUIDE_QUERY = { staleTime: Infinity, gcTime: Infinity, retry: retryScene } as const;
 
 export function useGuideManifest(): UseQueryResult<GuideManifest> {
-  return useQuery({ queryKey: ["guide", "manifest"], queryFn: getGuideManifest, ...GUIDE_QUERY });
+  // The catalog can change when the installation or mounted checkout is updated.
+  return useQuery({ queryKey: ["guide", "manifest"], queryFn: getGuideManifest, ...GUIDE_QUERY, staleTime: 0 });
 }
 
 export function useGuideElectrodes(net: string | null): UseQueryResult<GuideElectrodes> {

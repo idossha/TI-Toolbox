@@ -163,14 +163,14 @@ export function rowGoal(row: OptimizerRow): OptGoal | null {
 }
 
 /**
- * The **variant** a row's derived kind reads as, for line 2 — `adaptive`, `Pareto`, or the
+ * The **variant** a row's derived kind reads as, for line 2 — `adaptive`, `multi-threshold`, or the
  * electrode count that decides TI from mTI. Empty for a plain flex search, which has no variant to
  * state.
  */
 export function rowVariantLabel(row: OptimizerRow): string {
   if (row.method === "flex") {
     const kind = rowJobKind(row);
-    return kind === "flex_adaptive" ? "adaptive" : kind === "flex_pareto" ? "Pareto" : "";
+    return kind === "flex_adaptive" ? "adaptive" : kind === "flex_pareto" ? "multi-threshold" : "";
   }
   return `${row.exPairs * 2} electrodes (${row.exPairs === 4 ? "mTI" : "TI"})`;
 }
@@ -265,7 +265,7 @@ export function optimizerMethodSummary(row: OptimizerRow): string {
   }
   if (row.exPairs === 2) {
     const cost = exCost(row.ex);
-    return `${rowVariantLabel(row)} · ${row.ex.totalCurrent} mA · ${cost.splits} splits · ${count(cost.combinations)} combinations`;
+    return `${rowVariantLabel(row)} · ${row.ex.totalCurrent} mA · ${count(cost.montages)} montage${cost.montages === 1 ? "" : "s"} · ${cost.splits} current split${cost.splits === 1 ? "" : "s"} · ${count(cost.combinations)} iteration${cost.combinations === 1 ? "" : "s"}`;
   }
   return `${rowVariantLabel(row)} · ${row.mex.currentMa} mA · ${count(mexCost(row.mex).combinations)} combinations`;
 }

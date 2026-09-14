@@ -4209,7 +4209,7 @@ export interface paths {
                             focus_bbox?: number[] | null;
                             parts: {
                                 /** @enum {string} */
-                                id: "skin" | "gm";
+                                id: "skin" | "gm" | "subcortical";
                                 /** @enum {string} */
                                 kind: "surface";
                                 triangles: number;
@@ -4231,6 +4231,10 @@ export interface paths {
                             }[];
                             atlases: {
                                 id: string;
+                                /** @enum {string} */
+                                kind?: "cortical" | "subcortical";
+                                /** @enum {string} */
+                                aligned_to?: "gm" | "subcortical";
                                 hemispheres: ("lh" | "rh")[];
                                 regions: number;
                                 url: string;
@@ -4284,7 +4288,7 @@ export interface paths {
         get: {
             parameters: {
                 query: {
-                    part: "skin" | "gm";
+                    part: "skin" | "gm" | "subcortical";
                     format?: "tvsc" | "gii";
                 };
                 header?: never;
@@ -4427,7 +4431,7 @@ export interface paths {
                             /** @enum {string} */
                             space: "guide-ras";
                             /** @enum {string} */
-                            aligned_to?: "gm";
+                            aligned_to?: "gm" | "subcortical";
                             vertices?: number;
                             radius_mm?: number;
                             labelled_fraction?: number;
@@ -4437,7 +4441,7 @@ export interface paths {
                                 /** @description the .annot row index, which is what a config's AtlasROI.label carries */
                                 id: number;
                                 /** @enum {string} */
-                                hemi: "lh" | "rh";
+                                hemi: "lh" | "rh" | "";
                                 name: string;
                                 color: string;
                             }[];
@@ -5991,7 +5995,8 @@ export interface components {
          *         Reserved for NIfTI output (handled externally by
          *         ``tit.tools.mesh2nii``, not by SimNIBS SESSION).
          *     map_to_mni : bool
-         *         Reserved; not currently passed to SimNIBS.
+         *         Generate MNI-space field and T1 NIfTI outputs after simulation.
+         *         Off by default; subject-space NIfTI outputs are always generated.
          *     map_to_fsavg : bool
          *         After each TI montage finishes, project its surface fields
          *         (``TI_max``, ``TI_normal``, ``hf_peak``, ``hf_sar``) onto fsaverage5

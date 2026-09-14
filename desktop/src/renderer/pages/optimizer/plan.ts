@@ -41,10 +41,9 @@ export function jobsForRow(
   if (!row.subjectId) return [];
   if (row.method === "flex") {
     const form = row.flex;
-    if (form.goal === "focality") return [];
     const roi = roiToConfig(row.roi, resolve.atlas(row.subjectId, row.roi));
     if (!roi) return [];
-    const focality = form.goal === "focality_tf";
+    const focality = form.goal === "focality_tf" || form.goal === "focality";
     const nonRoi =
       focality && form.nonRoiMethod === "specific"
         ? roiToConfig(row.nonRoi, resolve.atlas(row.subjectId, row.nonRoi))
@@ -82,7 +81,6 @@ export function jobsForRow(
 export function rowFormReason(row: OptimizerRow): string | null {
   if (row.method === "flex") {
     const form = row.flex;
-    if (form.goal === "focality") return "Threshold focality is retired. Choose Mean TImax, Max TImax (99.9%), or Focality.";
     if (form.electrodeShape === "ellipse" && form.dimensionWidth !== form.dimensionHeight) return "Unequal ellipse dimensions are unsupported. Use equal dimensions or a rectangle.";
     if (form.enableMapping && !form.eegNet) return "Select an EEG net for the mapped-electrode simulation.";
     if (form.visualizeSkinElectrodes && !form.skinVisualizationNet) return "Select a visualization EEG net.";

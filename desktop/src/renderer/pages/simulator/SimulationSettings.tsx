@@ -123,7 +123,14 @@ export function SimulationSettings({ value: draft, onChange: setDraft }: { value
             {invalid && <span className="field-error">Select at least one output field.</span>}
           </section>
           <section>
-            <h4>Surface mapping</h4>
+            <h4>Standard-space outputs</h4>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+              <label className="checkbox-label-row">
+                <Checkbox checked={draft.mapToMni ?? false} onCheckedChange={(checked) => setDraft({ ...draft, mapToMni: checked })} />
+                Generate MNI NIfTI outputs
+              </label>
+              <HelpIcon variant="plain" title="MNI mapping" text="Transform fields and T1 to MNI space after simulation. Subject-space outputs are always generated." />
+            </div>
             <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
               <label className="checkbox-label-row">
                 <Checkbox checked={draft.mapToFsavg ?? false} onCheckedChange={(checked) => setDraft({ ...draft, mapToFsavg: checked })} />

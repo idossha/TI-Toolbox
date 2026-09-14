@@ -191,14 +191,13 @@ function SimulatorPage() {
     const fresh = emptyDraft();
     setMontageDraft({ ...fresh, pairs: withSlot(fresh.pairs, 0, electrode) });
   }
-  /**
-   * **Which head the pane draws.** The free-hand editor's subject while it is open — a placement is
-   * a coordinate in that subject's own mesh and in no other — then the previewed row's subject,
-   * then the shell's. `null` falls the pane back to the packaged guide, which is still the right
-   * answer for a project whose head models do not exist yet.
-   */
-  const sceneSubject =
-    (freehand.open ? (freehand.subject ?? usable[0]) : null) ?? montagePreview?.subject ?? shellSubject ?? usable[0] ?? null;
+  // Named montage choices use the packaged guide. Actual XYZ placement and snap
+  // displacements must retain their subject geometry; guide coordinates cannot run a simulation.
+  const sceneSubject = freehand.open
+    ? (freehand.subject ?? usable[0] ?? null)
+    : montagePreview?.positions || montagePreview?.originalPositions
+      ? (montagePreview.subject ?? null)
+      : null;
 
   /** The dots: the rows being placed, or the saved set the previewed job row runs. */
   const placedDots = useMemo(
