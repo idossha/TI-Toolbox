@@ -13,18 +13,16 @@
  * it started something; equally, a job you did start here must not disappear the instant it ends.
  */
 import { useEffect, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Pin, PinOff } from "lucide-react";
 import { IconButton } from "../../../ui/Button";
 import { JobConsole } from "../../../ui/Jobs";
-import { jobEventsToLogLines, mergeJobEvents } from "../../../app/jobs/logLines";
 import { JobStateChip, type JobState } from "../../../ui/Status";
 import { resolveFollowedJob, type FollowableJob, type RunStep, type TerminalSource } from "./terminalSources";
 import type { PlanModel } from "./planModel";
-import { subscribeJob, unsubscribeJob, useJobsStream } from "../../../app/jobs/useJobsStream";
+import { useJobLogEvents } from "../../../app/jobs/useJobLogEvents";
 import { useJobsModel } from "../../../app/jobs-rail/model";
 import { elapsedLabel } from "../../../app/jobs-rail/format";
-import { getJobEvents, type JobStatus } from "../../../app/jobs-rail/api";
+import { type JobStatus } from "../../../app/jobs-rail/api";
 import { reveal } from "../../../app/jobs-rail/reveal";
 import "./run.css";
 
@@ -80,7 +78,6 @@ export function JobTerminal({
   onSourceChange,
 }: JobTerminalProps) {
   const { all, now } = useJobsModel();
-  const { eventsByJob } = useJobsStream();
 
   const followable = useMemo(() => all.map((j) => toFollowable(j, now)), [all, now]);
   const job = useMemo(
@@ -89,29 +86,7 @@ export function JobTerminal({
   );
   const jobId = job?.id;
 
-  // Subscribe to the followed job's event stream for as long as it is the followed job.
-  useEffect(() => {
-    if (!jobId) return;
-    subscribeJob(jobId);
-    return () => unsubscribeJob(jobId);
-  }, [jobId]);
-
-  // A job that started before this page mounted — or a finished one the user pinned — has its
-  // backlog in REST, not in the socket's ring buffer.
-  const backlog = useQuery({
-    queryKey: ["job-events", jobId],
-    queryFn: () => getJobEvents(jobId as string),
-    enabled: !!jobId,
-    staleTime: 5_000,
-  });
-  // Dedupe by seq: `backlog.data` is the full REST history (react-query holds it per job id, so
-  // no local mirror is needed), the ring-buffered WS tail is `eventsByJob` — a job open long
-  // enough to have dropped early events from that 500-line buffer gets them back this way.
-  const history = backlog.data;
-  const lines = useMemo(() => {
-    if (!jobId) return [];
-    return jobEventsToLogLines(mergeJobEvents(history ?? [], eventsByJob[jobId] ?? []));
-  }, [history, eventsByJob, jobId]);
+  const { lines } = useJobLogEvents(jobId, job?.state);
 
   const pinned = !!pinnedJobId && pinnedJobId === jobId;
 

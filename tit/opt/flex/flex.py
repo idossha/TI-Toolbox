@@ -180,12 +180,40 @@ def _run_flex_search_inner(config: FlexConfig) -> FlexResult:
         os.makedirs(opt.output_folder, exist_ok=True)
         builder.configure_optimizer_options(opt, config, logger)
 
-        opt.run(cpus=config.cpus)
-        fvals[i] = opt.optim_funvalue
+        recorder = getattr(opt, "_candidate_recorder", None)
+        try:
+            opt.run(cpus=config.cpus)
+            if recorder is not None:
+                recorder.finalize(opt)
+        finally:
+            if recorder is not None:
+                recorder.close()
+            # Keep every restart's compact records before winner promotion
+            # removes the temporary solver directories.
+            history = Path(base_folder) / "candidate_history" / f"{i:02d}"
+            for name in (
+                "candidates.csv",
+                "candidate_geometry.jsonl",
+                "candidate_manifest.json",
+            ):
+                source = Path(folders[i]) / name
+                if source.is_file():
+                    history.mkdir(parents=True, exist_ok=True)
+                    shutil.move(str(source), str(history / name))
+        # A finite optimizer penalty is not evidence of a valid montage. The
+        # recorder ties the returned optimum to its successfully evaluated pose.
+        if (
+            getattr(opt, "_accepted_candidate_valid", False) is True
+            and getattr(opt, "_accepted_candidate_id", None)
+            and np.isfinite(opt.optim_funvalue)
+        ):
+            fvals[i] = opt.optim_funvalue
+        else:
+            logger.warning("Restart %d did not accept a recorded valid candidate", i)
         splits[i] = getattr(opt, "_best_current_split", None)
 
     # -- Select best --
-    valid_mask = fvals < float("inf")
+    valid_mask = np.isfinite(fvals)
     if not valid_mask.any():
         logger.error("All optimization runs failed")
         result = FlexResult(
@@ -199,7 +227,7 @@ def _run_flex_search_inner(config: FlexConfig) -> FlexResult:
         write_manifest(base_folder, config, result, label)
         return result
 
-    best_idx = int(np.argmin(fvals))
+    best_idx = int(np.argmin(np.where(valid_mask, fvals, np.inf)))
     logger.info(f"Best run: #{best_idx + 1} (value={fvals[best_idx]:.6f})")
 
     # -- Promote best to base folder --

@@ -893,3 +893,39 @@ def test_delete_reports_disk_failure(client, monkeypatch):
     response = client.delete("/api/jobs/example", headers=BEARER)
     assert response.status_code == 500
     assert "Could not remove the job from disk" in response.json()["detail"]
+
+
+def test_ws_backfill_drains_in_order_without_per_event_thread_hops(monkeypatch):
+    """A completed job's 1,024 authored lines drain promptly and retain the final line."""
+    import asyncio
+    import contextlib
+    import queue
+    from tit.server.routes import ws_jobs as module
+
+    source = queue.Queue()
+    for seq in range(1024):
+        source.put({"seq": seq, "msg": "final" if seq == 1023 else "evaluation"})
+    calls = 0
+    original = module.run_in_threadpool
+
+    async def counted(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return await original(*args, **kwargs)
+
+    monkeypatch.setattr(module, "run_in_threadpool", counted)
+
+    async def receive():
+        output = asyncio.Queue()
+        task = asyncio.create_task(module._pump(source, lambda item: item, output))
+        try:
+            received = [await asyncio.wait_for(output.get(), timeout=2) for _ in range(1024)]
+            assert [item["seq"] for item in received] == list(range(1024))
+            assert received[-1]["msg"] == "final"
+            assert calls < 10  # Backlog delivery must not incur 1,024 threadpool handoffs.
+        finally:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+
+    asyncio.run(receive())

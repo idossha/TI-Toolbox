@@ -752,6 +752,11 @@
           "title": "Disable Mapping Simulation",
           "type": "boolean"
         },
+        "observe_background": {
+          "default": false,
+          "title": "Observe Background",
+          "type": "boolean"
+        },
         "output_folder": {
           "anyOf": [
             {
@@ -995,7 +1000,7 @@
       "type": "string"
     },
     "OptGoal": {
-      "description": "Optimization goal.\n\nAttributes\n----------\nMEAN : str\n    Maximize mean field intensity in the ROI.\nMAX : str\n    Maximize peak field intensity in the ROI.\nFOCALITY : str\n    Maximize ROI-to-non-ROI focality via SimNIBS's threshold-based\n    ROC measure (``measures.ROC``).\nFOCALITY_TF : str\n    Maximize a threshold-free focality contrast,\n    ``mean(E_ROI) ** (1 + w) / p95(E_nonROI)``.  Because it needs no\n    thresholds it avoids the threshold-selection failure mode of the\n    ROC goal, whose landscape flattens when the requested ROI and\n    non-ROI thresholds are jointly infeasible (as happens at deep\n    targets).  The weight ``w`` is\n    :attr:`FlexConfig.intensity_weight`.",
+      "description": "Optimization goal.\n\nAttributes\n----------\nMEAN : str\n    Maximize mean field intensity in the ROI.\nMAX : str\n    Maximize the 99.9th percentile field intensity in the ROI.\nFOCALITY : str\n    Maximize ROI-to-non-ROI focality via SimNIBS's threshold-based\n    ROC measure (``measures.ROC``).\nFOCALITY_TF : str\n    Maximize a threshold-free focality contrast,\n    ``mean(E_ROI) ** (1 + w) / mean(E_nonROI)``.  Because it needs no\n    thresholds it avoids the threshold-selection failure mode of the\n    ROC goal, whose landscape flattens when the requested ROI and\n    non-ROI thresholds are jointly infeasible (as happens at deep\n    targets).  The weight ``w`` is\n    :attr:`FlexConfig.intensity_weight`.",
       "enum": [
         "mean",
         "max",
@@ -1765,6 +1770,42 @@
           ],
           "default": null,
           "title": "Display Name"
+        },
+        "electrode_poses": {
+          "anyOf": [
+            {
+              "items": {
+                "items": {
+                  "items": {
+                    "type": "number"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Electrode Poses"
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provenance"
         },
         "_type": {
           "const": "Montage"

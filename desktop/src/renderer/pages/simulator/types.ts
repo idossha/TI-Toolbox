@@ -33,6 +33,8 @@ export interface SelectedRow {
   xyzPairs?: [[number, number, number], [number, number, number]][];
   /** Per-row currents (mA), comma-separated — seeded from the row's polarity, editable. */
   currents: string;
+  /** Transient: never submit the previous placement while cap assignment is in flight. */
+  mappingPending?: boolean;
   /**
    * This job's own electrodes / conductivity / output fields.
    *
@@ -43,6 +45,9 @@ export interface SelectedRow {
    * copies whatever it had.
    */
   settings?: JobSettings;
+  /** Original candidate configuration preserves poses and provenance through normal job planning. */
+  candidate?: { id: string; requestId?: string; run: string; config: Record<string, unknown>; originalConfig?: Record<string, unknown>; originalCurrents: string; originalSettings: JobSettings };
+
 }
 
 /** Everything about a job that is not its subject, its electrodes' *positions* or its currents. */
@@ -131,7 +136,7 @@ export function emptyRow(subjectId = "", source: MontageSource = "montage", eegN
  * resolved electrodes, since `POST /api/jobs` carries a fully-resolved `Montage`.
  */
 export function isRunnableRow(row: SelectedRow): boolean {
-  if (!row.subjectId || !row.name) return false;
+  if (row.mappingPending || !row.subjectId || !row.name) return false;
   if (row.source === "montage") return (row.pairs?.length ?? 0) > 0;
   return (row.pairs?.length ?? 0) > 0 || (row.xyzPairs?.length ?? 0) > 0;
 }
@@ -235,6 +240,8 @@ export const CONDUCTIVITY_OPTIONS = [
  * from.
  */
 export interface MontagePreview {
+  /** Optimized origins, in the same pair order as the snapped cap names. */
+  originalPositions?: { x: number; y: number; z: number }[];
   name: string;
   subject?: string;
   net?: string;

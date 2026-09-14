@@ -45,7 +45,7 @@ rationale below consolidates later amendments without treating superseded design
 | 26 | 2026-09-05 | Tetravox updates itself against a protocol range; electrode dots; one selection grammar; a pipeline is a job group | pipeline portion superseded 2026-09-13; native panes replace the embed-specific electrode implementation (27) |
 | 27 | 2026-09-06 | Native run-page panes; the viewer is a separate desktop application; jobs tables | pane half live; viewer half superseded by 29 |
 | 28 | 2026-09-06 | Managed host install of Tetravox; the pipeline's Subjects node and readiness gating; jobs tables on all three run pages | install half superseded by 29; pipeline portion superseded 2026-09-13; job tables live |
-| 29 | 2026-09-06 | **The embed is restored, baked in the image, on the Viewer's own two sub-pages.** Nothing installs Tetravox on the host | live |
+| 29 | 2026-09-06 | **The embed is restored, baked in the image, on the Viewer's own two sub-pages.** Nothing installs Tetravox on the host | superseded by native TetraVox decision, 2026-09-13 |
 | 30 | 2026-09-07 | External audit response: the six scientific corrections, the server hardening, one release workflow | live |
 
 ## Runtime and distribution
@@ -64,6 +64,9 @@ unsettled. **Revisit if.** A supported native distribution can cover the whole w
 
 ### 2026-09-06 — Viewer embed and native workflow panes (ADR 27–29)
 
+**Superseded 2026-09-13:** the managed native TetraVox decision replaces the embed portion; run-page
+WebGL panes remain.
+
 **Decision.** Tetravox is baked into the image and served in the retained Viewer sub-page.
 Nothing installs Tetravox on the host. The Menu composes files; appearance belongs to Tetravox.
 Workflow panes use the app's own WebGL2 renderer and packaged reference anatomy.
@@ -76,6 +79,8 @@ subject-space placement requires the explicit subject-anatomy mode. **Revisit if
 and lifetime requirements converge.
 
 ### 2026-09-05/06 — Independent Tetravox delivery
+
+**Superseded 2026-09-13:** native package delivery replaces browser-bundle protocol negotiation.
 
 **Decision.** Pin protocol compatibility and required features, not a Tetravox version. Resolve
 published embed assets through the GitHub Releases API; verify digests and archive containment
@@ -727,7 +732,8 @@ additional TI-Toolbox operating-system sandbox. No new live external control cha
 **Why:** the maintainer requested native-only viewing and removal of the duplicate integration
 surface. This reverses the September 4 embed-convergence/protocol-range/update policy and later
 iframe viewport decisions. Scene generation, scientific coordinate distinctions and project-native
-selection/scene storage remain useful independently.
+selection/scene storage remain useful independently. Dedicated embedding code is retired in both
+projects; native rendering, scene loading, CLI and batch interfaces remain TetraVox responsibilities.
 
 **Compatibility:** browser sessions can prepare/download scenes but cannot launch host software;
 datasets must be reachable from the viewing host. TI-Toolbox saves prepared scene compositions;
@@ -744,3 +750,57 @@ Viewer uses a scene builder on the left and native launch controls above a saved
 Compatible system installations take precedence over creating a managed copy; the sole running managed copy is reused instead when applicable. Discovery checks package identity and version in conventional locations without executing candidates. System launches keep the normal profile and updater ownership; managed launches retain their separate profile. This amends the earlier always-managed native installation decision.
 
 TetraVox exposes second-instance file handoff but no public query for unsaved scene state. TI-Toolbox therefore confirms scene replacement whenever the selected application is running or process inspection is unavailable. It serializes requests, freezes the selected executable for consent and launch, and revalidates project access after confirmation. Blank launches only focus/open the application. A successful process handoff is not proof of completed scene rendering; an external application launch racing the final process check remains outside this coordination.
+
+### 2026-09-13 — Evaluated optimizer candidates and explicit replay
+
+**Decision:** retain valid Flex evaluations as scalar CSV records plus full-precision electrode poses,
+joined by candidate ID and accompanied by a configuration/metric manifest. Ex uses its existing CSV.
+One Results browser shows sortable estimates and the frontier among displayed comparable candidates.
+A selection becomes an editable Simulator draft, with provenance and no automatic execution.
+New desktop Flex jobs use intensity or threshold-free contrast; legacy threshold-based configurations
+are not silently reinterpreted. See [approved scope](../requirements/2026-09-13-optimizer-candidates-approved.md).
+
+**Why:** a single returned optimizer solution hides useful alternatives and a finite objective does
+not establish convergence. Threshold selection can produce an uninformative objective landscape.
+Recorded alternatives make the limitations and the montage-to-simulation transition inspectable.
+
+**Cost:** streamed geometry and metrics add disk I/O. Background observations for intensity remain
+opt-in until real-head time/RSS checks meet the approved budget. No full-field history, surrogate
+optimizer, exhaustive-search claim or cross-domain objective comparison is introduced.
+
+**Revisit if:** observed overhead exceeds the budget, the standard Simulator cannot reproduce a
+candidate geometry, or scientific validation finds the contrast unsuitable. Such cases must be
+reported rather than hidden by approximate replay or permissive success handling.
+
+
+### 2026-09-13 — Developer Flex uses the checkout integration
+
+**Decision:** resolve the Flex patch relative to the running TI-Toolbox checkout, under a separate
+SimNIBS sibling module name. Do not overwrite the container's installed package. Wheel deployments
+without the source resource retain the installed-runtime capability guard.
+
+**Why:** the developer loader mounts Python code but cannot refresh dependencies copied during image
+build. The new builder guard exposed that mismatch; the earlier custom benchmark loader bypassed it.
+Tests now exercise the production resolver and ordinary Flex CLI path. **Cost:** one source-module
+load per worker. **Revisit if:** integration packaging moves wholly inside the Python distribution.
+
+## 2026-09-13 — Restore the requested Flex objective definitions
+
+The maintainer corrected the candidate-review objective presentation: Mean TImax, Max TImax
+(ROI 99.9th percentile), and Focality. This supersedes the preview labels Target intensity,
+Target peak, and Target/background contrast. Focality now uses mean ROI / mean non-ROI, with
+the existing ROI exponent `1 + intensity_weight`; weight zero has no absolute-intensity
+preference. The earlier p95 denominator is not the requested focality definition. Historical
+records and study measurements retain their original definitions; new manifests identify the
+mean-denominator score. See §13 of ARCHITECTURE.md and the objective-correction requirements.
+
+## 2026-09-13 — Link candidate history, trade-off plot and montage
+
+The maintainer requested an intensity–focality scatter plot beside the table with shared selection.
+Reuse the existing native WebGL montage renderer rather than add a 2D projection. Plot loading is
+independent of the table page; selection navigates to the appropriate row. Missing non-ROI
+measurements are not synthesized. Frontier claims remain limited to compatible recorded points.
+See the linked-candidate-review requirements and ARCHITECTURE §13.
+
+
+Cap placement follows the same selected-candidate identity: map that record rather than the run winner, keep the original poses for restoration, and clear poses when cap labels determine placement. Existing one-to-one Euclidean assignment is reused. The preview shows original-to-cap displacement in millimetres; this is not a scalp-geodesic calculation.

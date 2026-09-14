@@ -222,13 +222,13 @@ class FlexConfig:
         MEAN : str
             Maximize mean field intensity in the ROI.
         MAX : str
-            Maximize peak field intensity in the ROI.
+            Maximize the 99.9th percentile field intensity in the ROI.
         FOCALITY : str
             Maximize ROI-to-non-ROI focality via SimNIBS's threshold-based
             ROC measure (``measures.ROC``).
         FOCALITY_TF : str
             Maximize a threshold-free focality contrast,
-            ``mean(E_ROI) ** (1 + w) / p95(E_nonROI)``.  Because it needs no
+            ``mean(E_ROI) ** (1 + w) / mean(E_nonROI)``.  Because it needs no
             thresholds it avoids the threshold-selection failure mode of the
             ROC goal, whose landscape flattens when the requested ROI and
             non-ROI thresholds are jointly infeasible (as happens at deep
@@ -603,6 +603,9 @@ class FlexConfig:
     enable_mapping: bool = False
     disable_mapping_simulation: bool = False
 
+    # Observation-only background fields are benchmark-gated independently of the goal.
+    observe_background: bool = False
+
     # ── output ──
     output_folder: str | None = None
     run_final_electrode_simulation: bool = False
@@ -710,7 +713,9 @@ class FlexConfig:
         # h5py cannot store a Python function. That failure fires only after the
         # optimization completes, so reject the combination up front.
         if self.detailed_results and (
-            self.goal is FlexConfig.OptGoal.FOCALITY_TF or self.optimize_current_ratio
+            self.goal is FlexConfig.OptGoal.FOCALITY_TF
+            or self.optimize_current_ratio
+            or self.observe_background
         ):
             trigger = (
                 "goal='focality_tf'"

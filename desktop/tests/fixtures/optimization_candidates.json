@@ -1,0 +1,251 @@
+{
+  "candidates": [
+    {
+      "id": "trial-1",
+      "objective": -1.0,
+      "objective_label": "Target mean",
+      "objective_direction": "minimize",
+      "metrics": {
+        "roi_mean": 1.0,
+        "roi_p99_9": 1.5,
+        "background_mean": 0.2,
+        "background_p95": 0.3333333333333333,
+        "contrast": 5
+      },
+      "metric_labels": {},
+      "comparison_key": "authored-ernie-surface-gm",
+      "positions": [
+        [
+          11,
+          13,
+          14
+        ],
+        [
+          21,
+          23,
+          24
+        ],
+        [
+          31,
+          33,
+          34
+        ],
+        [
+          41,
+          43,
+          44
+        ]
+      ],
+      "currents_mA": [
+        0.7,
+        -1.3
+      ]
+    },
+    {
+      "id": "trial-2",
+      "objective": -2.0,
+      "objective_label": "Target mean",
+      "objective_direction": "minimize",
+      "metrics": {
+        "roi_mean": 2.0,
+        "roi_p99_9": 2.5,
+        "background_mean": 0.4,
+        "background_p95": 0.6666666666666666,
+        "contrast": 5
+      },
+      "metric_labels": {},
+      "comparison_key": "authored-ernie-surface-gm",
+      "positions": [
+        [
+          11,
+          13,
+          14
+        ],
+        [
+          21,
+          23,
+          24
+        ],
+        [
+          31,
+          33,
+          34
+        ],
+        [
+          41,
+          43,
+          44
+        ]
+      ],
+      "currents_mA": [
+        0.7,
+        -1.3
+      ]
+    }
+  ],
+  "simulation_config": {
+    "subject_id": "ernie",
+    "montages": [
+      {
+        "_type": "Montage",
+        "name": "candidate_trial-2",
+        "mode": "flex_free",
+        "electrode_pairs": [
+          [
+            [
+              11,
+              13,
+              14
+            ],
+            [
+              21,
+              23,
+              24
+            ]
+          ],
+          [
+            [
+              31,
+              33,
+              34
+            ],
+            [
+              41,
+              43,
+              44
+            ]
+          ]
+        ],
+        "eeg_net": null,
+        "electrode_poses": [
+          [
+            [
+              0,
+              -1,
+              0,
+              11
+            ],
+            [
+              1,
+              0,
+              0,
+              13
+            ],
+            [
+              0,
+              0,
+              1,
+              14
+            ],
+            [
+              0,
+              0,
+              0,
+              1
+            ]
+          ],
+          [
+            [
+              0,
+              -1,
+              0,
+              21
+            ],
+            [
+              1,
+              0,
+              0,
+              23
+            ],
+            [
+              0,
+              0,
+              1,
+              24
+            ],
+            [
+              0,
+              0,
+              0,
+              1
+            ]
+          ],
+          [
+            [
+              0,
+              -1,
+              0,
+              31
+            ],
+            [
+              1,
+              0,
+              0,
+              33
+            ],
+            [
+              0,
+              0,
+              1,
+              34
+            ],
+            [
+              0,
+              0,
+              0,
+              1
+            ]
+          ],
+          [
+            [
+              0,
+              -1,
+              0,
+              41
+            ],
+            [
+              1,
+              0,
+              0,
+              43
+            ],
+            [
+              0,
+              0,
+              1,
+              44
+            ],
+            [
+              0,
+              0,
+              0,
+              1
+            ]
+          ]
+        ],
+        "provenance": {
+          "candidate_id": "trial-2",
+          "run": "authored"
+        }
+      }
+    ],
+    "conductivity": "scalar",
+    "aniso_maxratio": 10,
+    "aniso_maxcond": 2,
+    "intensities": [
+      0.7,
+      -1.3
+    ],
+    "electrode_shape": "rect",
+    "electrode_dimensions": [
+      9,
+      17
+    ],
+    "gel_thickness": 3,
+    "rubber_thickness": 1,
+    "output_fields": [
+      "TI_max"
+    ],
+    "map_to_fsavg": false
+  }
+}

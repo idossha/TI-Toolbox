@@ -168,7 +168,7 @@ test("a flex run previews its goal, its best value and its final electrode posit
   await expect(page.getByText("Run manifest")).toBeVisible();
 });
 
-test("an ex run previews its search config and the ten best montages", async () => {
+test("an ex run previews its search config and paginated evaluated candidates", async () => {
   await connect();
   await openResults();
   await page.getByTestId("results-node-ex:ernie:ex_L_Insula_20260812_090000").click();
@@ -183,11 +183,10 @@ test("an ex run previews its search config and the ten best montages", async () 
   // Its four electrode buckets.
   await expect(page.getByTestId("results-summary-ex")).toContainText("F7 FT7 T7 F5 FC5 AF7 F3");
 
-  // The ranked table: ten rows, best composite index first, projected onto the columns that matter.
-  const table = page.getByTestId("results-ex-table");
-  await expect(table.getByRole("table")).toContainText("TImax_ROI");
-  await expect(table.getByRole("table")).not.toContainText("TImean_GM");
-  await expect(table.getByRole("row")).toHaveCount(11); // header + 10
+  const table = page.getByTestId("candidate-browser").locator(".candidate-table");
+  await expect(table.getByRole("table")).toContainText("Target mean");
+  await expect(table.getByRole("row")).toHaveCount(51); // header + one page
+  await expect(page.getByTestId("candidate-browser")).toContainText("of 60");
 });
 
 test("selecting an ex-search run and an analysis swaps the preview for their tables", async () => {
@@ -195,9 +194,9 @@ test("selecting an ex-search run and an analysis swaps the preview for their tab
   await openResults();
 
   await page.getByTestId("results-node-ex:ernie:ex_L_Insula_20260812_090000").click();
-  await expect(page.getByTestId("results-ex-table")).toBeVisible();
-  // "TImax_ROI" appears only in the per-montage results table this run's preview renders.
-  await expect(page.getByTestId("results-ex-table").getByRole("table")).toContainText("TImax_ROI");
+  await expect(page.getByTestId("candidate-browser").locator(".candidate-table")).toBeVisible();
+  // Candidate metrics retain named target/background definitions.
+  await expect(page.getByTestId("candidate-browser").locator(".candidate-table").getByRole("table")).toContainText("Target mean");
   // The run's own artifacts, from the same cached list read the tree was built from.
   await expect(page.getByText("Final output")).toBeVisible();
   await expect(page.getByText("Ranked montages plot")).toBeVisible();

@@ -72,15 +72,13 @@ describe("jobsForRow — one row, its own subject's paths", () => {
     ]);
   });
 
-  it("derives the adaptive and Pareto job kinds from the row's own focality mode", () => {
+  it("retains historic threshold modes but does not plan new retired searches", () => {
     const base = flexRow("ernie");
-    const focal = (mode: "adaptive" | "pareto") => ({ ...base, flex: { ...base.flex, goal: "focality" as const, focalityMode: mode } });
-    expect(jobsForRow(focal("adaptive"), resolve)[0]?.kind).toBe("flex_adaptive");
-    expect(jobsForRow(focal("pareto"), resolve)[0]?.kind).toBe("flex_pareto");
-    // The kind and the config are read off ONE fact, so they cannot disagree.
-    const config = jobsForRow(focal("adaptive"), resolve)[0]?.config as { goal: string; adaptive: unknown };
-    expect(config.goal).toBe("focality");
-    expect(config.adaptive).toBeDefined();
+    for (const mode of ["manual", "adaptive", "pareto"] as const) {
+      const row = { ...base, flex: { ...base.flex, goal: "focality" as const, focalityMode: mode } };
+      expect(jobsForRow(row, resolve)).toEqual([]);
+      expect(row.flex.focalityMode).toBe(mode);
+    }
   });
 
   it("derives ex from mEx by the electrode count the row configured", () => {
@@ -165,14 +163,12 @@ describe("rowFormReason — the per-row half of the disabled-Run sentence", () =
     expect(rowFormReason(exRow("ernie", savedRoi(["A.csv"]), 4))).toBeNull();
   });
 
-  it("asks for a threshold only when focality is in manual mode", () => {
+  it("explains retirement for every historic threshold mode", () => {
     const row = flexRow("ernie");
-    expect(rowFormReason({ ...row, flex: { ...row.flex, goal: "focality", focalityMode: "manual" } })).toBe(
-      "Enter at least one E-field threshold.",
-    );
-    // Adaptive/Pareto derive their thresholds; the manual field is not theirs to fill.
-    expect(rowFormReason({ ...row, flex: { ...row.flex, goal: "focality", focalityMode: "adaptive" } })).toBeNull();
-    expect(rowFormReason({ ...row, flex: { ...row.flex, goal: "focality", focalityMode: "pareto" } })).toBeNull();
+    for (const focalityMode of ["manual", "adaptive", "pareto"] as const) {
+      expect(rowFormReason({ ...row, flex: { ...row.flex, goal: "focality", focalityMode } })).toContain("retired");
+    }
+    expect(rowFormReason({ ...row, flex: { ...row.flex, goal: "focality_tf" } })).toBeNull();
   });
 
   it("asks for the net a mapped-electrode simulation needs", () => {

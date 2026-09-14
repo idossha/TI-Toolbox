@@ -151,6 +151,8 @@ export interface SceneCanvasProps {
   parts: ScenePart[];
   /** Memoise this too. */
   markers?: SceneMarker[];
+  /** Subject-space displacement annotations, projected with the same orbit camera. */
+  connections?: { from: Vec3; to: Vec3; label: string }[];
   /**
    * Whether the surfaces hide the markers behind them. Default `true`.
    *
@@ -268,6 +270,7 @@ export function SceneCanvas({
   mode,
   parts,
   markers: markersProp,
+  connections,
   markersOccluded = true,
   markerScale,
   pickAnySurface,
@@ -440,9 +443,31 @@ export function SceneCanvas({
    * the same claim the GL marker pass makes with the depth buffer, done here with a dot product
    * because the overlay is DOM and cannot read the depth buffer per label.
    */
+  const connectionsRef = useRef<SVGSVGElement | null>(null);
+  const connectionDataRef = useRef(connections);
   const namesRef = useRef<HTMLDivElement | null>(null);
   const nameDataRef = useRef<{ world: Vec3[]; center: Vec3 }>({ world: [], center: [0, 0, 0] });
   const positionNames = useCallback((camera: OrbitCamera) => {
+    const overlay = connectionsRef.current;
+    const annotations = connectionDataRef.current ?? [];
+    const viewport = sizeRef.current;
+    const { eye: viewer } = cameraBasis(camera);
+    const headCenter = nameDataRef.current.center;
+    annotations.forEach((annotation, index) => {
+      const group = overlay?.children[index] as SVGGElement | undefined;
+      if (!group) return;
+      const a = projectToCanvas(camera, annotation.from, viewport.widthCss, viewport.heightCss);
+      const b = projectToCanvas(camera, annotation.to, viewport.widthCss, viewport.heightCss);
+      const facing = (point: Vec3) => point.reduce((sum, value, axis) => sum + (value - headCenter[axis]!) * (viewer[axis]! - value), 0) > 0;
+      group.style.display = a.inFront && b.inFront && facing(annotation.from) && facing(annotation.to) ? "" : "none";
+      const line = group.children[0]!;
+      line.setAttribute("x1", String(a.x)); line.setAttribute("y1", String(a.y));
+      line.setAttribute("x2", String(b.x)); line.setAttribute("y2", String(b.y));
+      const origin = group.children[1]!;
+      origin.setAttribute("cx", String(a.x)); origin.setAttribute("cy", String(a.y));
+      const label = group.children[2]!;
+      label.setAttribute("x", String((a.x + b.x) / 2)); label.setAttribute("y", String((a.y + b.y) / 2 - 7));
+    });
     const host = namesRef.current;
     if (!host) return;
     const { world, center } = nameDataRef.current;
@@ -517,10 +542,11 @@ export function SceneCanvas({
       (sceneBounds[1] + sceneBounds[4]) / 2,
       (sceneBounds[2] + sceneBounds[5]) / 2,
     ];
+    connectionDataRef.current = connections;
     nameDataRef.current = { world: markers.map((m) => m.world), center };
     const camera = cameraRef.current;
     if (camera) positionNames(camera);
-  }, [markers, sceneBounds, showNames, positionNames]);
+  }, [markers, sceneBounds, showNames, positionNames, connections]);
 
   const setGoal = useCallback(
     (next: OrbitCamera) => {
@@ -1132,6 +1158,13 @@ export function SceneCanvas({
         />
       </div>
 
+      {connections && connections.length > 0 && <svg ref={connectionsRef} data-testid="scene-displacements" aria-label="Optimized to cap electrode displacement, straight-line millimetres" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", overflow: "hidden" }}>
+        {connections.map((connection, index) => <g key={index}>
+          <line stroke="var(--ink, #18202b)" strokeWidth="1.5" strokeDasharray="4 4" />
+          <circle r="5" fill="white" stroke="var(--ink, #18202b)" strokeWidth="2" />
+          <text textAnchor="middle" fill="var(--ink, #18202b)" stroke="white" strokeWidth="3" paintOrder="stroke" fontSize="11">{connection.label}</text>
+        </g>)}
+      </svg>}
       {showNames && markers.length > 0 && (
         <div className="scene-names" data-testid="scene-names" ref={namesRef} aria-hidden>
           {markers.map((marker) => (

@@ -421,3 +421,24 @@ class TestSaveResults:
         with open(json_path) as f:
             data = json.load(f)
         assert data["best_run"] is None
+
+
+def test_promotion_preserves_candidate_records_from_all_points(tmp_path):
+    result = _make_sweep_result(base=str(tmp_path))
+    for index, point in enumerate(result.points):
+        history = Path(point.output_folder) / "candidate_history" / "00"
+        history.mkdir(parents=True)
+        (history / "candidate_geometry.jsonl").write_text(str(index))
+        point.status = "done"
+        point.focality_score = -float(index + 1)
+    _promote_best_run(result, str(tmp_path))
+    for index, point in enumerate(result.points):
+        preserved = (
+            tmp_path
+            / "candidate_history"
+            / f"point_{index:03d}"
+            / "00"
+            / "candidate_geometry.jsonl"
+        )
+        assert preserved.read_text() == str(index)
+        assert not Path(point.output_folder).exists()

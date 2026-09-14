@@ -109,6 +109,11 @@ class TISimulation(BaseSimulation):
         tdcs2.currents = [p2_A, -p2_A]
         tdcs2.electrode[0].centre = self.montage.electrode_pairs[1][0]
         tdcs2.electrode[1].centre = self.montage.electrode_pairs[1][1]
+        if self.montage.electrode_poses is not None:
+            for electrode, pose in zip(
+                tdcs2.electrode, self.montage.electrode_poses[2:]
+            ):
+                electrode.pos_ydir = [pose[i][3] + 20 * pose[i][1] for i in range(3)]
 
         return S
 

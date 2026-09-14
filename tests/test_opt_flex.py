@@ -73,7 +73,9 @@ class TestRunFlexSearch:
         (tmp_path / "m2m" / "001.msh").touch()
         mock_gpm.return_value = pm
 
-        opt_mock = MagicMock()
+        opt_mock = MagicMock(
+            _accepted_candidate_valid=True, _accepted_candidate_id="fixture"
+        )
         opt_mock.optim_funvalue = -0.025
         mock_builder.build_optimization.return_value = opt_mock
 
@@ -116,7 +118,9 @@ class TestRunFlexSearch:
         call_idx = [0]
 
         def side_effect(config):
-            opt = MagicMock()
+            opt = MagicMock(
+                _accepted_candidate_valid=True, _accepted_candidate_id="fixture"
+            )
             opt.optim_funvalue = values[call_idx[0]]
             call_idx[0] += 1
             return opt
@@ -167,7 +171,9 @@ class TestRunFlexSearch:
         call_idx = [0]
 
         def side_effect(config):
-            opt = MagicMock()
+            opt = MagicMock(
+                _accepted_candidate_valid=True, _accepted_candidate_id="fixture"
+            )
             opt.optim_funvalue = values[call_idx[0]]
             opt._best_current_split = splits[call_idx[0]]
             call_idx[0] += 1
@@ -214,7 +220,9 @@ class TestRunFlexSearch:
         (tmp_path / "m2m" / "001.msh").touch()
         mock_gpm.return_value = pm
 
-        opt_mock = MagicMock()
+        opt_mock = MagicMock(
+            _accepted_candidate_valid=True, _accepted_candidate_id="fixture"
+        )
         opt_mock.optim_funvalue = -0.025
         # install_ratio_search never ran, so the attribute is simply absent.
         del opt_mock._best_current_split
@@ -252,7 +260,9 @@ class TestRunFlexSearch:
         (tmp_path / "m2m" / "001.msh").touch()
         mock_gpm.return_value = pm
 
-        opt_mock = MagicMock()
+        opt_mock = MagicMock(
+            _accepted_candidate_valid=True, _accepted_candidate_id="fixture"
+        )
         opt_mock.optim_funvalue = float("inf")
         mock_builder.build_optimization.return_value = opt_mock
 
@@ -289,7 +299,9 @@ class TestRunFlexSearch:
         (tmp_path / "m2m" / "001.msh").touch()
         mock_gpm.return_value = pm
 
-        opt_mock = MagicMock()
+        opt_mock = MagicMock(
+            _accepted_candidate_valid=True, _accepted_candidate_id="fixture"
+        )
         opt_mock.optim_funvalue = -0.01
         mock_builder.build_optimization.return_value = opt_mock
 
@@ -454,3 +466,55 @@ class TestValidateFlexInputs:
             )
         )
         _validate_flex_inputs(config)  # must not raise
+
+
+@pytest.mark.parametrize("bad_value", [float("nan"), float("-inf"), float("inf")])
+def test_nonfinite_restart_cannot_displace_recorded_finite_winner(
+    tmp_path, monkeypatch, bad_value
+):
+    from tit.opt.flex import flex
+    from tit.opt.flex import manifest
+
+    pm = MagicMock()
+    pm.logs.return_value = str(tmp_path / "logs")
+    monkeypatch.setattr(flex, "get_path_manager", lambda: pm)
+    monkeypatch.setattr(
+        flex, "create_valid_skin_region_visualization", lambda *args: None
+    )
+    monkeypatch.setattr(manifest, "write_manifest", lambda *args, **kwargs: None)
+    opts = [
+        MagicMock(
+            optim_funvalue=value,
+            _accepted_candidate_valid=True,
+            _accepted_candidate_id=str(i),
+        )
+        for i, value in enumerate([-1.0, bad_value])
+    ]
+    monkeypatch.setattr(flex.builder, "build_optimization", MagicMock(side_effect=opts))
+    monkeypatch.setattr(flex.builder, "configure_optimizer_options", lambda *args: None)
+    monkeypatch.setattr(flex.builder, "generate_report", lambda *args: None)
+    result = flex._run_flex_search_inner(
+        _make_config(n_multistart=2, output_folder=str(tmp_path / "out"))
+    )
+    assert result.success
+    assert result.best_run_index == 0
+    assert result.best_value == -1.0
+
+
+def test_finite_unrecorded_penalty_is_not_a_completed_montage(tmp_path, monkeypatch):
+    from tit.opt.flex import flex, manifest
+
+    pm = MagicMock()
+    pm.logs.return_value = str(tmp_path / "logs")
+    monkeypatch.setattr(flex, "get_path_manager", lambda: pm)
+    monkeypatch.setattr(manifest, "write_manifest", lambda *args, **kwargs: None)
+    opt = MagicMock(
+        optim_funvalue=2.0, _accepted_candidate_valid=False, _accepted_candidate_id=None
+    )
+    monkeypatch.setattr(flex.builder, "build_optimization", lambda _: opt)
+    monkeypatch.setattr(flex.builder, "configure_optimizer_options", lambda *args: None)
+    result = flex._run_flex_search_inner(
+        _make_config(output_folder=str(tmp_path / "out"))
+    )
+    assert not result.success
+    assert result.best_run_index == -1

@@ -54,13 +54,22 @@ def _make_config(**overrides):
 
 
 @pytest.fixture
-def builder_env():
+def builder_env(monkeypatch):
     """Set up mocks for build_optimization tests."""
     import simnibs
     from simnibs.optimization.tes_flex_optimization.electrode_layout import (
         ElectrodeArrayPair,
     )
 
+    monkeypatch.setattr(
+        "tit.opt.flex.runtime.optimization_class",
+        lambda: simnibs.opt_struct.TesFlexOptimization,
+    )
+    from simnibs.optimization.tes_flex_optimization import tes_flex_optimization
+
+    monkeypatch.setattr(
+        "tit.opt.flex.runtime.integration_module", lambda: tes_flex_optimization
+    )
     opt_mock = MagicMock()
     simnibs.opt_struct.TesFlexOptimization.return_value = opt_mock
     ElectrodeArrayPair.return_value = MagicMock()
@@ -194,17 +203,16 @@ class TestBuildOptimization:
     @patch("tit.opt.flex.builder.os.makedirs")
     @patch("tit.opt.flex.builder.utils.configure_roi")
     @patch("tit.paths.get_path_manager")
-    def test_ratio_search_off_leaves_goal_fun_untouched(
+    def test_ratio_search_off_does_not_install_ratio_scoring(
         self, mock_gpm, mock_roi, mock_mkdirs, builder_env
     ):
-        import types
-
         _, pm, _ = builder_env
         mock_gpm.return_value = pm
         from tit.opt.flex.builder import build_optimization
 
-        result = build_optimization(_make_config())
-        assert not isinstance(result.goal_fun, types.FunctionType)
+        with patch("tit.opt.flex.objectives.install_ratio_search") as install:
+            build_optimization(_make_config())
+        install.assert_not_called()
 
     @patch("tit.opt.flex.builder.os.makedirs")
     @patch("tit.opt.flex.builder.utils.configure_roi")
@@ -379,7 +387,7 @@ class TestBuildOptimization:
         from tit.opt.flex.builder import build_optimization
 
         config = _make_config(
-            electrode=FlexElectrodeConfig(shape="ellipse", dimensions=[10.0, 8.0])
+            electrode=FlexElectrodeConfig(shape="ellipse", dimensions=[10.0, 10.0])
         )
         build_optimization(config)
         assert eap.call_count >= 2
@@ -883,3 +891,34 @@ class TestReportUnionFields:
         )
         assert coords == [[10, 20, 30], [-10, -20, -30]]
         assert radius == [8, 8]
+
+
+@patch("tit.opt.flex.builder.os.makedirs")
+@patch("tit.paths.get_path_manager")
+def test_unequal_ellipse_is_rejected_before_optimization(
+    mock_gpm, mock_mkdirs, builder_env
+):
+    _, pm, _ = builder_env
+    mock_gpm.return_value = pm
+    from tit.opt.flex.builder import build_optimization
+
+    config = _make_config(
+        electrode=FlexElectrodeConfig(shape="ellipse", dimensions=[20.0, 10.0])
+    )
+    with pytest.raises(ValueError, match="dimensions must be equal"):
+        build_optimization(config)
+
+
+@patch("tit.opt.flex.builder.os.makedirs")
+@patch("tit.opt.flex.builder.utils.configure_roi")
+@patch("tit.paths.get_path_manager")
+def test_gel_thickness_is_forwarded_with_explicit_rubber(
+    mock_gpm, mock_roi, mock_mkdirs, builder_env
+):
+    _, pm, _ = builder_env
+    mock_gpm.return_value = pm
+    from tit.opt.flex.builder import build_optimization
+
+    config = _make_config(electrode=FlexElectrodeConfig(gel_thickness=5.0))
+    opt = build_optimization(config)
+    assert opt.electrode_thickness == [5.0, 2.0]

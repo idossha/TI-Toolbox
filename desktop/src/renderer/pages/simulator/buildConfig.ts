@@ -41,19 +41,22 @@ export function buildSimulationConfig(row: SelectedRow, defaults: GlobalParams):
       ? (row.xyzPairs ?? []).map(([a, b]) => [a, b])
       : (row.pairs ?? []).map(([a, b]) => [a, b]);
 
+  const originalMontage = row.candidate?.config.montages as Record<string, unknown>[] | undefined;
   const montage: Record<string, unknown> = {
+    ...originalMontage?.[0],
     // `_type` is required by contracts/generated/config.schema.json's `Montage` def — `Montage` is itself a member
     // of the top-level `PipelineConfig` union, so `dev/build_schema.py` marks it with the same
     // `_type` discriminator (config_io.py's CONFIG_CLASS_REGISTRY) even when nested, and
     // `deserialize_config` checks it whenever present.
     _type: "Montage",
     name: row.name,
-    mode,
+    mode: row.candidate ? originalMontage?.[0]?.mode ?? mode : mode,
     electrode_pairs: electrodePairs,
     eeg_net: row.eegNet ?? null,
   };
 
   const config: Record<string, unknown> = {
+    ...row.candidate?.config,
     subject_id: row.subjectId,
     montages: [montage],
     conductivity: params.conductivity,
@@ -66,6 +69,7 @@ export function buildSimulationConfig(row: SelectedRow, defaults: GlobalParams):
     output_fields: params.outputFields,
     map_to_fsavg: params.mapToFsavg ?? false,
   };
+  if (row.candidate) delete config.tissue_conductivities;
   if (Object.keys(params.customConductivities).length > 0) {
     config.tissue_conductivities = params.customConductivities;
   }

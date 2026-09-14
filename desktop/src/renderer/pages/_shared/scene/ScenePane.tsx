@@ -78,6 +78,7 @@ import {
   useSceneSurfaces,
 } from "./queries";
 import "./scene-pane.css";
+import { capDisplacements } from "./displacements";
 
 export type ScenePaneMode = "montage" | "target" | "inspect";
 
@@ -110,6 +111,8 @@ export interface ScenePaneProps {
   onPlace?: (world: Vec3) => void;
   /** Page-supplied markers, drawn instead of an EEG net's — the free-hand positions being placed. */
   placedMarkers?: SceneMarker[];
+  /** Optimized subject-space origins for the selected cap pairs. */
+  originalPositions?: { x: number; y: number; z: number }[];
   /**
    * A click on one of `placedMarkers` reports its index instead of placing a new point.
    *
@@ -219,6 +222,7 @@ export function ScenePane({
   subject = null,
   onPlace,
   placedMarkers,
+  originalPositions,
   onPlacedPick,
   onPlacedHover,
   highlightMarkers,
@@ -427,7 +431,11 @@ export function ScenePane({
 
   /** When the page supplies markers they ARE the markers — the positions it is collecting, or the
    *  saved set it is showing — and the net's electrodes stand down. */
-  const markers = placedMarkers ?? (gesture === "electrode" ? electrodeMarkers : NO_MARKERS);
+  // Never display subject coordinates on the packaged reference head while extraction is pending.
+  const markers = placedMarkers ? (drawnSubject ? placedMarkers : NO_MARKERS) : (gesture === "electrode" ? electrodeMarkers : NO_MARKERS);
+  const displacements = useMemo(() => drawnSubject && originalPositions
+    ? capDisplacements(originalPositions, activePairs, electrodeMarkers) : undefined,
+  [drawnSubject, originalPositions, activePairs, electrodeMarkers]);
 
   // ---- selection -----------------------------------------------------------------------------
   const formRegions = useMemo<SceneRegionRef[]>(() => regions ?? [], [regions]);
@@ -689,6 +697,7 @@ export function ScenePane({
             mode={CANVAS_MODE[gesture]}
             parts={parts}
             markers={markers}
+            connections={displacements}
             /*
              * Electrodes lie on the scalp, so the scalp hides the ones round the back — except the
              * page's own placements, which are never hidden.

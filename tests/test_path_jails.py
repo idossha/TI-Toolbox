@@ -14,7 +14,7 @@ from fastapi import HTTPException
 from tit import viewspec
 from tit.server import notebooks
 from tit.server.routes.files import _resolve_jailed
-from tit.server.static import resolve_static_file, resolve_tetravox_file
+from tit.server.static import resolve_static_file
 
 
 @pytest.fixture
@@ -33,7 +33,7 @@ def tree(tmp_path):
     return root, inside, outside
 
 
-@pytest.mark.parametrize("surface", ["files", "viewspec", "static", "tetravox"])
+@pytest.mark.parametrize("surface", ["files", "viewspec", "static"])
 @pytest.mark.parametrize(
     "case",
     [
@@ -76,8 +76,7 @@ def test_file_jail_returns_only_canonical_inside_files(
     elif surface == "viewspec":
         result = viewspec.resolve_jailed(raw)
     else:
-        resolver = resolve_static_file if surface == "static" else resolve_tetravox_file
-        result = resolver(str(root), raw)
+        result = resolve_static_file(str(root), raw)
     if allowed:
         assert result == inside.resolve()
         assert result.read_text() == "inside"
@@ -85,7 +84,7 @@ def test_file_jail_returns_only_canonical_inside_files(
         assert result is None
 
 
-@pytest.mark.parametrize("surface", ["files", "viewspec", "static", "tetravox"])
+@pytest.mark.parametrize("surface", ["files", "viewspec", "static"])
 def test_filesystem_root_jail_accepts_a_real_nested_file(tree, monkeypatch, surface):
     _, inside, _ = tree
     root = Path(inside.anchor)
@@ -95,8 +94,7 @@ def test_filesystem_root_jail_accepts_a_real_nested_file(tree, monkeypatch, surf
     elif surface == "viewspec":
         result = viewspec.resolve_jailed(str(inside))
     else:
-        resolver = resolve_static_file if surface == "static" else resolve_tetravox_file
-        result = resolver(str(root), str(inside))
+        result = resolve_static_file(str(root), str(inside))
     assert result == inside.resolve()
 
 
@@ -135,10 +133,9 @@ def test_notebook_symlink_keeps_checked_alias_or_rejects_sibling(tmp_path, insid
         assert exc.value.code == "bad-name"
 
 
-@pytest.mark.parametrize("resolver", [resolve_static_file, resolve_tetravox_file])
-def test_asset_jail_accepts_nested_relative_path(tree, resolver):
+def test_asset_jail_accepts_nested_relative_path(tree):
     root, inside, _ = tree
-    assert resolver(str(root), "nested/target.txt") == inside.resolve()
+    assert resolve_static_file(str(root), "nested/target.txt") == inside.resolve()
 
 
 @pytest.mark.parametrize("inside", [True, False])

@@ -113,7 +113,10 @@ class mTISimulation(BaseSimulation):
 
         for i in range(n_pairs):
             self._add_electrode_pair(
-                S, self.montage.electrode_pairs[i], self.config.intensities[i]
+                S,
+                self.montage.electrode_pairs[i],
+                self.config.intensities[i],
+                pair_index=i,
             )
 
         return S

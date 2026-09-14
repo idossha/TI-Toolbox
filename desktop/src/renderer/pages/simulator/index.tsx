@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Zap, Info, Workflow } from "lucide-react";
 import { useQueries } from "@tanstack/react-query";
 import type { Subject } from "../../api/client";
@@ -7,7 +7,7 @@ import type { PageDef } from "../../app/registry";
 import { useSubject } from "../../app/subjectContext";
 import { useExecutionPrefs } from "../../app/executionPrefs";
 import { usePageSession } from "../../app/pageSession";
-import { EmptyState } from "../../ui/Feedback";
+import { Callout, EmptyState } from "../../ui/Feedback";
 import { ActionBar } from "../../ui/Chrome";
 import { FormSection, PageLayout, PaneHeaderControls, usePaneController } from "../../ui/Layout";
 import { IconButton } from "../../ui/Button";
@@ -28,6 +28,7 @@ import {
   type SelectedRow,
 } from "./types";
 import { RunPanel, RunWork, planDigest, stepsFor } from "../_shared/run";
+import { candidateMetricsChanged, candidateRow } from "./candidateHandoff";
 import { ScenePane, withSlot } from "../_shared/scene";
 import type { GlobalParams } from "./buildConfig";
 import { FreehandDraftProvider, useFreehandDraft } from "./freehandDraft";
@@ -75,6 +76,10 @@ const SIM_STEPS = stepsFor("sim");
 
 function SimulatorPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [handledCandidate, setHandledCandidate] = useState<string | null>(null);
+  const [candidateError, setCandidateError] = useState<string | null>(null);
+  const [candidatePreviewId, setCandidatePreviewId] = useState<string | null>(null);
   const { id: shellSubject, subjects } = useSubject();
   // `usePageSession`, not `useState`, for everything the *user* decided (lane N2): this page
   // unmounts on every navigation, so a plain `useState` meant a step onto Results discarded the
@@ -107,6 +112,26 @@ function SimulatorPage() {
   // can never edit it. The draft, when one is open, is what the pane is FOR and wins.
   const [montagePreview, setMontagePreview] = useState<MontagePreview | null>(null);
   const [activeSource, setActiveSource] = useState<MontageSource | null>(null);
+  const candidateState = location.state as { optimizationCandidate?: unknown } | null;
+  // A router handoff becomes local draft state once, including when this page was retained.
+  if (candidateState?.optimizationCandidate && handledCandidate !== location.key) {
+    setHandledCandidate(location.key);
+    try {
+      const row = candidateRow(candidateState.optimizationCandidate);
+      // Subject URL synchronization can replace the router key; the request ID stays stable.
+      row.id = `candidate-${row.candidate?.requestId ?? location.key}`;
+      setRows((previous) => previous.some((existing) => existing.id === row.id) ? previous : [...previous, row]);
+      setMontagePreview({ name: row.name, subject: row.subjectId, net: row.eegNet, pairs: row.pairs, positions: row.xyzPairs?.flat().map(([x, y, z]) => ({ x, y, z })) });
+      setActiveSource(row.source);
+      setCandidatePreviewId(row.id);
+      setCandidateError(null);
+    } catch (error) { setCandidateError(error instanceof Error ? error.message : String(error)); }
+  }
+  useEffect(() => {
+    if (candidateState?.optimizationCandidate && handledCandidate === location.key) {
+      navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: null });
+    }
+  }, [candidateState?.optimizationCandidate, handledCandidate, location.key, location.pathname, location.search, navigate]);
   /** The row whose own settings are being edited (`null` = the dialog is closed). */
   const [settingsRowId, setSettingsRowId] = useState<string | null>(null);
   const scenePane = usePaneController({ pageId: "simulator", name: "run" });
@@ -128,7 +153,7 @@ function SimulatorPage() {
   // The page starts with one empty job row seeded on the shell's primary subject: a table whose
   // first act is "press Add job" would make the page's own subject a thing to discover.
   const [seeded, setSeeded] = useState(false);
-  if (!seeded && rows.length === 0 && usable.length > 0) {
+  if (!seeded && rows.length === 0 && usable.length > 0 && !candidateState?.optimizationCandidate) {
     setSeeded(true);
     setRows([emptyRow(shellSubject && usable.includes(shellSubject) ? shellSubject : (usable[0] as string))]);
   }
@@ -211,7 +236,7 @@ function SimulatorPage() {
     />
   );
 
-  const previewIsMontage = activeSource === null || activeSource === "montage";
+  const previewIsMontage = activeSource === null || activeSource === "montage" || (activeSource === "flex" && !!montagePreview?.net);
 
   return (
     <>
@@ -252,6 +277,7 @@ function SimulatorPage() {
                 highlightMarkers={highlightMarkers}
                 selectedMarkers={selectedMarkers}
                 placedMarkers={placedDots}
+                originalPositions={!montageDraft && !freehand.open ? montagePreview?.originalPositions : undefined}
                 net={(montageDraft ? montageNet : (montagePreview?.net ?? montageNet)) ?? null}
                 pairs={montageDraft?.pairs ?? (previewIsMontage ? montagePreview?.pairs : undefined)}
                 showing={
@@ -279,6 +305,12 @@ function SimulatorPage() {
           actionBar={<ActionBar digest={digest} blocked={!!plan.blockedReason} primary={runButton} />}
       >
         <RunWork>
+          {candidateError && <Callout kind="danger">{candidateError}</Callout>}
+          {rows.some((row) => row.candidate) && <Callout kind="info">
+            Choose optimized positions or snap to a cap. Review the montage before running.
+            {rows.some(candidateMetricsChanged) && " A candidate draft has been edited; its optimization metrics no longer describe this simulation."}
+          </Callout>}
+
           {/*
            * JOBS (2026-09-06 rework): the one table where a run is described, first on the page and
            * `data-tier="1"` (§8 — never closed by `RunWork`'s fill controller). It replaces the
@@ -314,12 +346,12 @@ function SimulatorPage() {
                   />
                 ) : (
                   <JobsTable
-                    defaults={params}
                     seedSettings={seedSettings ?? undefined}
                     onEditSettings={(row) => setSettingsRowId(row.id)}
                     subjects={jobSubjects}
                     subjectNets={subjectNets}
                     rows={rows}
+                    previewRowId={candidatePreviewId}
                     onRowsChange={setRows}
                     draft={montageDraft}
                     onDraftChange={setMontageDraft}

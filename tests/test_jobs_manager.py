@@ -1416,3 +1416,37 @@ def test_delete_disk_failure_keeps_job_for_retry(manager, monkeypatch):
     monkeypatch.setattr(manager.registry, "delete", original)
     assert manager.delete(job_id) == "deleted"
     assert manager.get(job_id) is None
+
+
+def test_event_subscription_backfill_exceeding_live_queue_capacity(
+    tmp_path, monkeypatch
+):
+    """Authored history larger than the queue must return, retain its tail and accept live logs."""
+    import json
+    import queue
+    import tit.jobs.manager as manager_module
+
+    manager = JobManager(str(tmp_path), budget=Cost(cpus=1, mem_gb=1))
+    job_id = manager.submit("tools", {}, [])["id"]
+    path = tmp_path / "code" / "ti-toolbox" / "jobs" / job_id / "events.jsonl"
+    path.write_text(
+        "".join(
+            json.dumps({"seq": i, "type": "log", "msg": str(i)}) + "\n"
+            for i in range(4)
+        )
+    )
+    monkeypatch.setattr(manager_module, "SUBSCRIBER_QUEUE_MAXSIZE", 2)
+    # Fail immediately on the old blocking put, rather than hanging the regression suite.
+    original_put = queue.Queue.put
+    monkeypatch.setattr(
+        queue.Queue,
+        "put",
+        lambda self, item, block=True, timeout=None: original_put(
+            self, item, block=False
+        ),
+    )
+    subscription = manager.subscribe_events(job_id)
+    manager._publish_event(job_id, {"seq": 4, "type": "log", "msg": "final"})
+    assert [subscription.get_nowait()["seq"] for _ in range(5)] == list(range(5))
+    assert subscription.empty()
+    manager.unsubscribe_events(job_id, subscription)

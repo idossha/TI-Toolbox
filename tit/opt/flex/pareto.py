@@ -287,7 +287,7 @@ def generate_pareto_plot(result: ParetoSweepResult, output_path: str) -> None:
     """Save a Pareto trade-off scatter plot as a PNG.
 
     - x-axis: non-ROI threshold as % of achievable ROI mean
-    - y-axis: focality score (optim_funvalue; higher/closer to 0 = better)
+    - y-axis: objective value (optim_funvalue; lower = better within a threshold pair)
     - One line/series per unique ROI% value, coloured by series
     - Each point labelled with ``(roi%, nonroi%)``
     - Points with ``status != "done"`` are skipped
@@ -324,7 +324,7 @@ def generate_pareto_plot(result: ParetoSweepResult, output_path: str) -> None:
             )
 
     ax.set_xlabel("Non-ROI threshold (% of achievable ROI mean)")
-    ax.set_ylabel("Focality score (higher = better)")
+    ax.set_ylabel("Objective (lower = better within each threshold pair)")
     ax.set_title("Focality\u2013Threshold Trade-off Sweep")
     ax.legend()
     fig.tight_layout()
@@ -376,6 +376,17 @@ def _promote_best_run(result: ParetoSweepResult, base_folder: str) -> str | None
         Absolute path of the best point's temporary ``output_folder``, or
         ``None`` if no point reached ``status == "done"``.
     """
+    # Preserve replayable trials from every threshold pair; scores retain their
+    # own threshold provenance and must not be conflated across objectives.
+    for index, point in enumerate(result.points):
+        history = os.path.join(point.output_folder, "candidate_history")
+        if os.path.isdir(history):
+            destination = os.path.join(
+                base_folder, "candidate_history", f"point_{index:03d}"
+            )
+            os.makedirs(os.path.dirname(destination), exist_ok=True)
+            shutil.move(history, destination)
+
     done = [
         p for p in result.points if p.status == "done" and p.focality_score is not None
     ]

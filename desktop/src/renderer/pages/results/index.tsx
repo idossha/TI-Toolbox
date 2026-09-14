@@ -50,7 +50,6 @@ import {
   artifactUrl,
   getAnalyses,
   getAnalysisSummary,
-  getExRunResults,
   getExRuns,
   getFlexRuns,
   getGroupStats,
@@ -63,7 +62,8 @@ import {
   type GroupStatsDetail,
   type SimulationDetail,
 } from "./api";
-import { EX_COLUMN_LABELS, exRunConfigPath, parseExRunConfig, rankExRows, type ExTable } from "./preview/ex";
+import { exRunConfigPath, parseExRunConfig, type ExTable } from "./preview/ex";
+import { CandidateBrowser } from "./candidates/CandidateBrowser";
 import { flexManifestSummary, flexPositionsPath, flexSummaryPath, parseFlexPositions, parseFlexSummaryText } from "./preview/flex";
 import { parseSimulationConfig, simulationConfigPath, type SummaryRow } from "./preview/simulation";
 import { analysisView, type TableLike } from "./preview/analysis";
@@ -278,17 +278,6 @@ function Preview({
     queryFn: () => getExRuns(subject, preview.type === "exRun" ? preview.kind : "ex"),
     enabled: isExRun,
   });
-  const exResults = useQuery({
-    queryKey: [
-      "results-ex-run-results",
-      subject,
-      preview.type === "exRun" ? preview.kind : "ex",
-      preview.type === "exRun" ? preview.run : "",
-    ],
-    queryFn: () =>
-      getExRunResults((preview as { run: string }).run, subject, (preview as { kind: "ex" | "mex" }).kind),
-    enabled: isExRun,
-  });
   const analysisList = useQuery({
     queryKey: ["results-analyses", subject, preview.type === "analysis" ? preview.simulation : ""],
     queryFn: () => getAnalyses(subject, (preview as { simulation: string }).simulation),
@@ -381,7 +370,6 @@ function Preview({
     [flexPositions.data],
   );
   const exSummary = useMemo(() => (exConfig.data ? parseExRunConfig(exConfig.data) : undefined), [exConfig.data]);
-  const exTop = useMemo(() => rankExRows(exResults.data as ExTable | undefined), [exResults.data]);
   const analysisSummaryView = useMemo(
     () =>
       preview.type === "analysis"
@@ -490,6 +478,7 @@ function Preview({
     pending = flexSummary.isPending && flexRows.length === 0;
     sections = [
       { kind: "header", rows: flexRows },
+      { kind: "custom", title: "Evaluated candidates", content: <CandidateBrowser key={`${subject}:flex:${node.label}`} subject={subject} kind="flex" run={node.label} /> },
       flexElectrodes.length > 0 && {
         kind: "table" as const,
         title: "Final electrode positions",
@@ -509,18 +498,7 @@ function Preview({
         testid: "results-summary-ex",
         content: <BucketList buckets={exSummary?.buckets ?? []} />,
       },
-      {
-        kind: "table",
-        title: "Top 10 montages by composite index",
-        testid: "results-ex-table",
-        content: exResults.isPending ? (
-          <Skeleton height={160} />
-        ) : exResults.error ? (
-          <Callout kind="danger">Could not load results for this run.</Callout>
-        ) : (
-          <RankedTable table={exTop} labels={EX_COLUMN_LABELS} emptyMessage="No rows in this run's results table." />
-        ),
-      },
+      { kind: "custom", title: "Evaluated candidates", content: <CandidateBrowser key={`${subject}:${preview.type === "exRun" ? preview.kind : "ex"}:${node.label}`} subject={subject} kind={preview.type === "exRun" ? preview.kind : "ex"} run={preview.type === "exRun" ? preview.run : node.label} /> },
       { kind: "figures", figures },
       filesSection(),
     ];

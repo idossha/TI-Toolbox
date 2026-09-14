@@ -720,16 +720,19 @@ class JobManager:
         self, job_id: str, since: int = 0
     ) -> queue.Queue[dict[str, Any]]:
         """Backfill and stream a registered job; raise ``ValueError`` for unknown ids."""
-        q: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=SUBSCRIBER_QUEUE_MAXSIZE)
         with self._lock:
             # WebSocket subscription keys are client input, unlike scheduler-owned ids.
             # Match REST backfill's registration check before a key becomes a path.
             if job_id not in self._specs:
                 raise ValueError(f"unknown job: {job_id}")
-            for event in read_events(
-                events_path(self.project_dir, job_id), since=since
-            ):
-                q.put(event)
+            backlog = read_events(events_path(self.project_dir, job_id), since=since)
+            # No consumer exists until this method returns. A fixed-size blocking backfill
+            # deadlocked the manager (and its status updates) for logs over 10,000 events.
+            q: queue.Queue[dict[str, Any]] = queue.Queue(
+                maxsize=len(backlog) + SUBSCRIBER_QUEUE_MAXSIZE
+            )
+            for event in backlog:
+                q.put_nowait(event)
             self._event_subs.setdefault(job_id, []).append(q)
         return q
 

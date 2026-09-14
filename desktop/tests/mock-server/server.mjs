@@ -1990,6 +1990,42 @@ route("GET", "/api/catalog/ex-runs", (ctx) => {
   const kind = ctx.url.searchParams.get("kind");
   json(ctx.res, 200, kind ? entry[kind] ?? [] : [...entry.ex, ...entry.mex]);
 });
+// Authored asymmetric candidate fixture: scalable pagination without generated science fields.
+const candidateFixture = JSON.parse(readFileSync(join(fixturesDir, "optimization_candidates.json"), "utf8"));
+function mockCandidates(ctx) {
+  const subject = ctx.url.searchParams.get("subject");
+  const kind = ctx.url.searchParams.get("kind");
+  if (!(subject in flexRuns) || !["flex", "ex", "mex"].includes(kind)) return null;
+  return Array.from({ length: 60 }, (_, index) => ({
+    ...candidateFixture.candidates[index % 2], id: `trial-${index + 1}`,
+    comparison_key: `${subject}:${kind}:authored-domain`,
+  }));
+}
+route("GET", "/api/catalog/optimization-candidates", (ctx) => {
+  const rows = mockCandidates(ctx);
+  if (!rows) return json(ctx.res, 404, { detail: "unknown subject or kind" });
+  const sort = ctx.url.searchParams.get("sort") ?? "roi_mean";
+  const direction = ctx.url.searchParams.get("descending") === "false" ? 1 : -1;
+  rows.sort((a, b) => direction * ((sort === "objective" ? a.objective : a.metrics[sort] ?? 0) - (sort === "objective" ? b.objective : b.metrics[sort] ?? 0)));
+  const offset = Math.max(0, Number(ctx.url.searchParams.get("offset") ?? 0));
+  const limit = Math.max(1, Math.min(100, Number(ctx.url.searchParams.get("limit") ?? 50)));
+  json(ctx.res, 200, { candidates: rows.slice(offset, offset + limit), total: rows.length, legacy: false });
+});
+route("GET", "/api/catalog/optimization-candidates/:candidate", (ctx) => {
+  const candidate = mockCandidates(ctx)?.find((row) => row.id === ctx.params.candidate);
+  if (!candidate) return json(ctx.res, 404, { detail: "unknown candidate" });
+  const config = structuredClone(candidateFixture.simulation_config);
+  config.subject_id = ctx.url.searchParams.get("subject");
+  config.montages[0].name = `candidate_${candidate.id}`;
+  config.montages[0].provenance = { candidate_id: candidate.id, run: ctx.url.searchParams.get("run") };
+  json(ctx.res, 200, { candidate, simulation_config: config });
+});
+route("GET", "/api/catalog/optimization-candidates/:candidate/mapping", (ctx) => {
+  const candidate = candidateFixture.candidates.find((row) => row.id === ctx.params.candidate);
+  if (!candidate) return json(ctx.res, 404, { detail: "unknown candidate" });
+  const positions = candidate.positions;
+  json(ctx.res, 200, { eeg_net: ctx.url.searchParams.get("eeg_net"), pairs: [["E020", "E074"], ["E101", "E133"]], optimized_positions: positions, mapped_positions: positions, distances: [0, 0, 0, 0] });
+});
 route("GET", "/api/catalog/ex-runs/:run/results", (ctx) => {
   const subject = ctx.url.searchParams.get("subject");
   const kind = ctx.url.searchParams.get("kind");

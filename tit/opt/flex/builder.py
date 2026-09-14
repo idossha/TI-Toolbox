@@ -61,13 +61,18 @@ def build_optimization(config: FlexConfig):
     configure_optimizer_options : Apply DE solver parameters after build.
     tit.opt.flex.utils.configure_roi : Delegates ROI setup.
     """
-    from simnibs import opt_struct
+    from .runtime import optimization_class
     from simnibs.optimization.tes_flex_optimization.electrode_layout import (
         ElectrodeArrayPair,
     )
     from tit.paths import get_path_manager
 
-    opt = opt_struct.TesFlexOptimization()
+    opt = optimization_class()()
+    if not hasattr(opt, "optim_parameters"):
+        raise RuntimeError(
+            "The installed SimNIBS Flex integration predates candidate recording. "
+            "Update the TI-Toolbox runtime before starting this optimization."
+        )
 
     pm = get_path_manager()
     opt.subpath = pm.m2m(config.subject_id)
@@ -125,6 +130,8 @@ def build_optimization(config: FlexConfig):
 
     # Final electrode simulation control
     opt.run_final_electrode_simulation = config.run_final_electrode_simulation
+    # Match Simulator's gel/rubber model; never silently use SimNIBS's 1 mm gel.
+    opt.electrode_thickness = [float(config.electrode.gel_thickness), 2.0]
 
     # Detailed results control
     if config.detailed_results:
@@ -156,9 +163,15 @@ def build_optimization(config: FlexConfig):
     electrode_shape = config.electrode.shape
     dimensions = config.electrode.dimensions
 
-    # Calculate effective radius from dimensions for ElectrodeArrayPair layout
+    # SimNIBS supports circles here, not unequal-axis ellipses.
     if electrode_shape == "ellipse":
-        effective_radius = (dimensions[0] + dimensions[1]) / 4.0
+        if dimensions[0] != dimensions[1]:
+            raise ValueError(
+                "Flex optimization supports circular electrodes only: ellipse "
+                "dimensions must be equal. Unequal axes were previously "
+                "approximated as a circle; select equal axes or a rectangle."
+            )
+        effective_radius = dimensions[0] / 2.0
     else:  # rectangle
         effective_radius = max(dimensions) / 2.0
 
@@ -169,7 +182,6 @@ def build_optimization(config: FlexConfig):
 
         if electrode_shape == "ellipse":
             electrode_pair.radius = [effective_radius]
-            electrode_pair.dimensions = [dimensions[0], dimensions[1]]
         else:  # rectangle
             electrode_pair.radius = [0]
             electrode_pair.length_x = [dimensions[0]]
@@ -207,6 +219,9 @@ def build_optimization(config: FlexConfig):
             ratios=ratio_levels(total_mA, config.ratio_levels),
         )
 
+    from .candidates import install_candidate_recorder
+
+    install_candidate_recorder(opt, config)
     return opt
 
 

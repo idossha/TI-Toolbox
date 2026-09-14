@@ -52,6 +52,15 @@ async def _pump(
         except queue.Empty:
             continue
         await out_queue.put(wrap(item))
+        # Backfill can contain thousands of events. Do not pay a threadpool roundtrip for
+        # each already-queued item while the independent status pump races ahead of it.
+        for _ in range(255):
+            try:
+                item = source.get_nowait()
+            except queue.Empty:
+                break
+            await out_queue.put(wrap(item))
+        await asyncio.sleep(0)
 
 
 @ws_router.websocket("/ws/jobs")

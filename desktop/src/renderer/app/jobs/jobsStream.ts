@@ -71,6 +71,7 @@ export class JobsStream {
    * `subscribe` message on every (re)connect, since the server does not remember subscriptions
    * across a dropped socket. */
   private readonly wanted = new Map<string, number>();
+  private readonly consumers = new Map<string, number>();
   /** Job ids the WS stream touched since the in-flight seed request was issued; null when no
    * seed is in flight. These are newer than the snapshot and survive reconciliation. */
   private liveSinceSeed: Set<string> | null = null;
@@ -125,12 +126,21 @@ export class JobsStream {
 
   /** Start (or resume, from `sinceSeq`) receiving events for one job. */
   subscribeJob(jobId: string, sinceSeq = 0): void {
+    const count = this.consumers.get(jobId) ?? 0;
+    this.consumers.set(jobId, count + 1);
+    if (count > 0) return;
     this.wanted.set(jobId, sinceSeq);
     this.send({ subscribe: { [jobId]: sinceSeq } });
   }
 
   /** Stop receiving events for one job and drop its buffered event ring. */
   unsubscribeJob(jobId: string): void {
+    const count = this.consumers.get(jobId) ?? 0;
+    if (count > 1) {
+      this.consumers.set(jobId, count - 1);
+      return;
+    }
+    this.consumers.delete(jobId);
     this.wanted.delete(jobId);
     this.send({ unsubscribe: [jobId] });
     const eventsByJob = { ...this.state.eventsByJob };
@@ -141,6 +151,7 @@ export class JobsStream {
   /** Remove a confirmed deletion and reject older queued messages/snapshots for its id. */
   forgetJob(jobId: string): void {
     this.deleted.add(jobId);
+    this.consumers.delete(jobId);
     this.unsubscribeJob(jobId);
     const jobs = { ...this.state.jobs };
     delete jobs[jobId];
@@ -185,6 +196,10 @@ export class JobsStream {
         this.set({ jobs: { ...this.state.jobs, [msg.job.id]: msg.job } });
       } else if (msg.type === "event") {
         if (this.deleted.has(msg.job_id)) return;
+        const next = this.wanted.get(msg.job_id);
+        // A terminal view has unsubscribed, or this is a duplicate from an old socket.
+        if (next === undefined || msg.event.seq < next) return;
+        this.wanted.set(msg.job_id, msg.event.seq + 1);
         const existing = this.state.eventsByJob[msg.job_id] ?? [];
         const events = [...existing, msg.event];
         if (events.length > this.maxEventsPerJob) events.splice(0, events.length - this.maxEventsPerJob);

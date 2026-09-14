@@ -16,7 +16,7 @@
  *    with a row selected fills THAT row and leaves it selected, so the next click moves it.
  *  - **The coordinate is the one the renderer projected.** The row must hold the point that was
  *    clicked, to the 0.1 mm the editor's inputs use, not "some number changed".
- *  - **A dot appears for it, in that ROW's own colour** — read out of the drawing buffer, not off
+ *  - **A dot appears for it, in that row's channel colour** — read out of the drawing buffer, not off
  *    the model — and removing the row removes the dot: the table and the scalp are one state, not
  *    two that can disagree.
  *  - **It is never ambiguous which electrode is being manipulated**: the selected row is named in
@@ -271,23 +271,25 @@ function towards(pixel: { with: number[]; without: number[] }, candidates: [numb
   return best;
 }
 
-/** `SCENE_CATEGORICAL`'s first two, as bytes — the colours rows 1 and 2 get. */
+/** Channel colours as bytes: E1+/E1- are red; E2+/E2- are blue. */
 const RAMP: [number, number, number][] = [
+  [0xcc, 0x33, 0x33],
   [0x00, 0x72, 0xb2],
-  [0xe6, 0x9f, 0x00],
 ];
 
-test("each electrode has its own colour, on the scalp and in the table", async () => {
+test("both electrodes in a channel share their colour on the scalp and in the table", async () => {
   // One dot survived the removal above; select the next row and place a second, well clear of it.
   await page.getByTestId("freehand-row-1").click();
   await clickCanvas(-34, 30);
   await expect.poll(() => page.evaluate(() => window.__scene?.markers.length ?? 0)).toBe(2);
 
-  // The swatch beside the row and the pixel at the dot are the same claim, and the two rows differ.
+  // The first pair shares its channel colour in both the form and drawing buffer.
   const swatches = await page
     .locator('[data-testid^="freehand-swatch-"]')
     .evaluateAll((nodes) => nodes.slice(0, 2).map((n) => getComputedStyle(n as HTMLElement).backgroundColor));
-  expect(swatches[0]).not.toBe(swatches[1]);
+  expect(swatches).toEqual(["rgb(204, 51, 51)", "rgb(204, 51, 51)"]);
+  await expect(page.locator('[aria-label="Position 1 label"]')).toHaveValue("E1+");
+  await expect(page.locator('[aria-label="Position 2 label"]')).toHaveValue("E1-");
 
   // Clear the selection first: a selected dot wears a white ring, and colour identity is a property
   // of the electrode, not of which one happens to be selected. (Clicking the selected row toggles.)
@@ -299,10 +301,9 @@ test("each electrode has its own colour, on the scalp and in the table", async (
   // Each dot painted its pixel...
   expect(first.with).not.toEqual(first.without);
   expect(second.with).not.toEqual(second.without);
-  // ...and each moved it towards its OWN ramp colour, not the other's. That is the whole claim:
-  // two electrodes, two colours, read off the canvas rather than off the model.
+  // ...and both move towards the same red channel hue, read from painted pixels.
   expect(towards(first, RAMP)).toBe(0);
-  expect(towards(second, RAMP)).toBe(1);
+  expect(towards(second, RAMP)).toBe(0);
 
   // ...and the whole disc is on screen, not the crescent an embedded dot leaves above the scalp.
   expect((await dotIsWhole(0)).painted).toBe(5);
@@ -460,4 +461,7 @@ test("picking a saved free-hand set shows its positions on the same scalp", asyn
   await expect.poll(() => page.evaluate(() => window.__scene?.markers.length ?? 0), { timeout: 20_000 }).toBe(4);
   await expect(page.getByTestId("scene-pane-showing")).toContainText("custom_4electrode");
   await expect(page.getByTestId("scene-pane-showing")).toContainText("4 placed positions");
+  const markers = await page.evaluate(() => window.__scene!.markers);
+  expect(markers.map((marker) => marker.id)).toEqual(["E1+", "E1-", "E2+", "E2-"]);
+
 });

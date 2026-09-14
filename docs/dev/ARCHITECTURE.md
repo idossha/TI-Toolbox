@@ -125,8 +125,7 @@ real libraries. Published-result changes also require [release-specific scientif
 UI tests run hidden and assess state, geometry and rendering assertions. An unavailable quiet check
 is unverified, not passed.
 
-Frozen paths are [`viewer/protocol.ts`](../../desktop/src/renderer/viewer/protocol.ts),
-[`tit-bridge.d.ts`](../../desktop/src/shared/tit-bridge.d.ts) and [`contracts/`](../../contracts/).
+Frozen paths are [`tit-bridge.d.ts`](../../desktop/src/shared/tit-bridge.d.ts) and [`contracts/`](../../contracts/).
 Changes require this contract and a decision entry. Optional additions preserve prior behavior when
 absent. This review requirement does not imply that every platform or runtime gate is automated.
 
@@ -162,18 +161,24 @@ separately from guide availability.
 **Viewer opening is a command.** `POST /api/view/open` resolves once and returns URL-addressed data
 as host-addressed native scene data. Selection-only links prepare the Viewer; explicit Open in viewer actions load the selected artifact. Optional atlas selection retains the server default when absent or unavailable. See §7.1.
 
+Completed job logs use an authoritative final event snapshot after the worker exits and its event
+tail is drained. Live subscriptions resume from the next sequence and are reference-counted
+across views; a closed terminal view cannot consume delayed replay as new output.
+
 ## 7. The viewer, the run-page renderer and the selection grammar
 
 ### 7.1 Native TetraVox is installed for the host user
 
 TI-Toolbox discovers compatible TetraVox installations in conventional host locations and reuses their normal profile. When none is available, it manages a pinned official native release under the host user's application-data runtime directory. Main owns platform selection, checksum validation before extraction, installation
 status, consent and executable launch. No viewer bundle, iframe protocol or updater runs in Docker.
-Downloads use bounded streaming and failed installs remain unready and retryable.
+Downloads use bounded streaming and failed installs remain unready and retryable. Managed installation
+requires explicit consent, uses no administrator privileges and rejects unsupported package targets.
+Launch failures remain visible rather than being reported as a successful handoff.
 
 The Viewer page and its catalogue build a native `.tetravox.json` scene. Main resolves the returned
 container scene path against the active project and checks its real path before launching the known
 executable. Scene dataset paths are host-addressed; packaged reference assets are staged into the
-project when needed. A remote project without local filesystem access cannot be opened natively;
+project when needed. Export creates a native copy without overwriting the saved source scene. A remote project without local filesystem access cannot be opened natively;
 the browser can download the scene but cannot install or launch a host application.
 
 TetraVox owns camera, layer editing, file dialogs and native scene saving. TI's saved composition
@@ -184,6 +189,14 @@ not a filesystem sandbox; TetraVox has normal user permissions. No new live-cont
 Scene handoffs are serialized and require confirmation when the selected app is running or its process state cannot be checked. Cancellation never launches the scene. Blank launches only open/focus the app. If only the managed copy is running, it is reused instead of starting a system copy. System discovery does not modify existing installation or updater ownership. Optional status source/executable fields extend the desktop bridge; callers without them retain their previous rendering behavior.
 
 The Viewer is one bounded workspace: independently scrolling builder on the left, launch and saved-scene library on the right. Saved-scene deletion reports filesystem errors and removes no dataset. Optional scene health fields describe reference availability, not numerical validity; older API responses without them display no checked-health claim. External references are not probed by the server.
+
+**Native viewer release boundary.**
+
+The initial managed package is official TetraVox 0.4.0. The native-only source and managed-updater
+protection require an upstream release before its artifact can replace that pin. Windows private
+installation requires a verified official ZIP; the NSIS installer is intentionally not used because
+it can replace another TetraVox install through its shared registry identity. Linux x64 and macOS
+arm64/x64 have configured archives. Only macOS was runtime-render verified for this change.
 
 Sources: [`native installer`](../../desktop/src/main/tetravoxNative.ts),
 [`scene export`](../../tit/server/routes/viewers.py),
@@ -499,9 +512,9 @@ The Docker job server remains the owner of scheduling, project locks and derived
 
 The Settings explanation is the single explicit Apple GPU consent dialog; the main process validates the sender and active local project before installation. Apple GPU consent is a persistent user preference in the desktop user settings. On a verified local connection, an enabled preference resumes an already-installed runtime for that project. Switching or quitting stops the worker without clearing the preference; disabling clears it. Each worker remains scoped to its active project. Missing or broken installations require explicit setup again rather than background downloads. Host and requester heartbeats prevent a crashed client from leaving orphan computation. Auto selection first probes actual CUDA computation in the container, then uses an enabled native mailbox, then logs a CPU fallback. An explicit device override is respected; a stale mailbox fails visibly rather than silently selecting CPU. Remote connections and browser-only launchers do not install or invoke a local runtime.
 
-Requirements: [native FastSurfer](../requirements/2026-09-10-native-fastsurfer.md).
+Verification: [native FastSurfer acceptance](TESTING.md#native-fastsurfer-acceptance).
 
-The image ships CUDA 12.6-enabled PyTorch 2.7.1 and its user-space runtime. Host NVIDIA drivers and Docker GPU integration remain host prerequisites. Launchers probe GPU computation in a temporary, mount-free container before requesting GPUs on the project container. CPU-only hosts can still launch. Requirements: [GPU preference](../requirements/2026-09-10-gpu-preference.md).
+The image ships CUDA 12.6-enabled PyTorch 2.7.1 and its user-space runtime. Host NVIDIA drivers and Docker GPU integration remain host prerequisites. Launchers probe GPU computation in a temporary, mount-free container before requesting GPUs on the project container. CPU-only hosts can still launch. Verification: [GPU-preferred container acceptance](TESTING.md#gpu-preferred-container-acceptance).
 
 FastSurfer and FreeSurfer thread preferences live in the shared user configuration, not project settings. Automatic defaults use the available computation CPUs minus one, at least one, respecting container limits. Plans and new jobs resolve these defaults consistently; explicit scripting overrides remain available. The Pre-processing UI routes users to Settings → Pre-processing and does not keep per-project thread overrides.
 
@@ -509,10 +522,47 @@ FastSurfer and FreeSurfer thread preferences live in the shared user configurati
 Settings groups project preferences, preprocessing defaults, extensions, viewer management, and server details into horizontal tabs. Inactive panels retain unsaved drafts. The preprocessing page selects stages; FreeSurfer operation defaults and reconstruction/QSI resources are edited in Settings and resolved into each submitted configuration.
 
 
-### Native viewer release boundary
+## 13. Optimizer candidate records and replay
 
-The initial managed package is official TetraVox 0.4.0. The native-only source and managed-updater
-protection require an upstream release before its artifact can replace that pin. Windows private
-installation requires a verified official ZIP; the NSIS installer is intentionally not used because
-it can replace another TetraVox install through its shared registry identity. Linux x64 and macOS
-arm64/x64 have configured archives. Only macOS was runtime-render verified for this change.
+Flex writes valid evaluation metrics to `candidates.csv`, electrode poses to
+`candidate_geometry.jsonl`, and configuration/metric definitions to `candidate_manifest.json`.
+Restart records survive final-result promotion. New records include a head-mesh content digest and effective solver settings. Replay checks the digest on selection and again at execution; older records explicitly lack this verification. MATLAB export is omitted for callable or ratio goals because it cannot preserve their scoring function. Records carry stable IDs; missing or invalid geometry
+cannot become a simulation. Read-only catalog endpoints constrain paths to the project and paginate
+results. Raw objectives with different definitions are not compared as a common frontier.
+
+Simulator montages may carry subject-space `electrode_poses` and source `provenance`. Poses preserve
+centre and electrode y-direction, with a validated orthonormal frame; legacy montages remain valid
+without them. The normal simulation configuration remains authoritative. Changing the montage or
+subject clears exact-replay metadata; edits to scientific settings invalidate the source estimates.
+Native viewer handoff and analysis continue through their existing project workflows.
+
+Candidate cap placement resolves the selected history record through
+`GET /api/catalog/optimization-candidates/{candidate_id}/mapping`, scoped to its subject, run and
+project-confined cap data. It does not modify recorded history or substitute the run winner.
+Simulator retains the original configuration for reversible placement selection and blocks submission
+while mapping is pending; cap mode removes optimized poses so labels determine placement. Preview
+annotations use the same ordered pairs and subject-space cap coordinates, never reference-guide
+coordinates. Displacement distances are Euclidean millimetres, not travel along the scalp.
+
+Flex jobs resolve the TI-Toolbox integration from `resources/map-electrodes` relative to the
+running Python package, once per process. This keeps a developer checkout and its integration in
+sync without modifying installed SimNIBS or recreating Docker. Source-load failures remain errors;
+only installations without that resource fall back to the image's integration and its capability
+check. Ratio postprocessing uses the same resolved module.
+
+Flex exposes Mean TImax (ROI arithmetic mean), Max TImax (ROI 99.9th percentile), and
+Focality (mean ROI TImax raised to `1 + intensity_weight`, divided by mean non-ROI TImax).
+Weight zero is a pure ratio; larger weights favor ROI intensity while retaining the non-ROI
+penalty. Candidate manifests distinguish this mean-denominator definition from historical p95
+objectives so old scores cannot silently acquire a new scientific meaning.
+
+Candidate review links table rows, scatter points and the existing subject-space montage renderer
+through a single selection. Plot history is independent of table pagination; a plot selection
+reveals the corresponding row. Responsive columns use the preview pane width. Missing metrics,
+incompatible definitions and loading limits stay visible; the frontier is only over recorded
+comparable candidates. No new 2D coordinate projection or visualization dependency is introduced.
+
+The candidate plot loads at most 10,000 records in the selected sort order, using abortable
+500-record requests and an O(n log n) frontier calculation. The limit is displayed and does
+not limit table pagination or recorded files. This bounds client geometry/SVG work without
+silently presenting a page-local plot as a complete history.

@@ -362,7 +362,7 @@ test("a row on the Flex result source becomes a planned job, in either placement
   // only one a run that was never mapped onto a net has. It is the row's EEG-net cell, stated as a
   // choice rather than as a truncated option label.
   await setJobPlacement(page, row, "Optimised (XYZ)");
-  await expect(jobPairs(row)).toHaveText(["XYZ (2 pts)", "XYZ (2 pts)"]);
+  await expect(jobPairs(row)).toHaveText(["XYZ", "XYZ"]);
   await expect(row).toHaveAttribute("data-runnable", "true");
   await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job · /, { timeout: 15_000 });
 
@@ -407,7 +407,7 @@ test("a job's own electrodes reach its config, and its neighbour keeps the built
   await expect(dialog).toHaveCount(0);
 
   // Line 2 says so, on that row only.
-  await expect(jobDetail(first).locator('[data-cell="custom"]')).toHaveText(/^custom: rect 10×10/);
+  await expect(jobDetail(first).locator('[data-cell="custom"]')).toHaveCount(0);
   await expect(jobDetail(second).locator('[data-cell="custom"]')).toHaveCount(0);
 
   const bodies: Record<string, unknown>[] = [];
@@ -458,7 +458,7 @@ test("a job's own electrodes reach its config, and its neighbour keeps the built
   await again.getByRole("radio", { name: "Rectangle", exact: true }).click();
   await again.getByRole("button", { name: "Done", exact: true }).click();
   const third = await addJobRow(page);
-  await expect(jobDetail(third).locator('[data-cell="custom"]')).toHaveText(/^custom: rect /);
+  await expect(jobDetail(third).locator('[data-cell="custom"]')).toHaveCount(0);
   await third.getByRole("button", { name: /^Remove job / }).click();
 });
 

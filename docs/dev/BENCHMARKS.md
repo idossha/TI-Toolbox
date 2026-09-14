@@ -112,3 +112,66 @@ The managed FastSurfer 2.5.4 runtime completed a Docker-owned preprocessing job 
 Job `fce5d3e9307d48b5` used the isolated `tit-native-acceptance` container and the current source checkout. The hidden Electron test declined then accepted native consent and reran managed installation before submission. Output under `derivatives/fastsurfer/sub-nativeMetalSmokeB20260910` was readable on both host and container: 256³ voxels, 96 label values and 1,285,285 nonzero voxels. Container-side comparison verified exact voxel equality and matching affine between MGZ and derived NIfTI. The generated label sidecar was present. These checks validate transport and conversion, not anatomical segmentation quality.
 
 Reproduce with the opt-in script in [TESTING](TESTING.md#native-fastsurfer-acceptance), a new test subject and `TIT_NATIVE_TEST_INPUT` set to the same resampled fixture. Test inputs and receipts are retained in the project. A separate full-resolution cancellation run verified termination of the native process group after the Docker requester stopped.
+
+## 2026-09-13 — Flex non-ROI observation, ernie volume smoke
+
+Explicitly invoked `dev/flex_candidate_benchmark.py` in the existing Linux development container
+(Python 3.11.14), serial fresh processes, two CPUs, scalar conductivity, `max_TI`, 2 mA per carrier,
+10 mm circular electrodes. Subject-space sphere: (-35, -20, 50) mm, radius 15 mm, GM volume.
+15,466 target samples and 1,324,563 complementary GM samples. One warm-up plus three measured trials;
+small parameter perturbations retained the same discrete electrode footprint. This is a bounded
+fixed-placement overhead measurement, not independent-search convergence evidence.
+
+| Measurement | Target only | Non-ROI observed | Change |
+|---|---:|---:|---:|
+| Median warm evaluation | 0.6654 s | 1.3969 s | +109.9% |
+| Setup | 104.74 s | 161.32 s | +54.0% |
+| Process peak RSS | 5,534,400 KiB | 6,053,384 KiB | +9.4% |
+| Potential solves per trial | 2 | 2 | unchanged |
+
+All four objectives matched exactly and all four candidates remained valid. The 10% evaluation-time
+budget failed; the 20% peak-memory budget passed. `observe_background` therefore remains opt-in.
+Surface ROIs, searched ratios, varied placements and other heads remain unbenchmarked; these numbers
+must not be generalized to them. No AUC was computed. Process peak RSS includes preparation.
+
+Local receipts: project `000` → `code/ti-toolbox/candidate-observation-20260913-166c7a/`,
+`baseline-final/benchmark.json` and `observed/benchmark.json`. Both record the patched optimizer SHA256
+`5fffac207894bf3e5e207ef15d0f62cd7fca62f2928b0050a833f3c0b9b8036c`, configuration and saved parameters.
+The receipts contain local subject paths and are not published as repository fixtures. Reproduce in
+new output folders using the script's two-command example and the same subject/configuration.
+
+### Actual threshold-free search and selected-candidate FEM
+
+On the same target, a deliberate DE smoke (`seed=17`, `maxiter=1`, `popsize=1`, no polish)
+made 16 evaluations: three valid placements and 13 rejected placements, with six potential solves.
+The accepted contrast was 0.78227548. Solver status was `success=false`, maximum iterations exceeded;
+a valid returned candidate is not convergence. Another candidate had a higher target mean
+(0.37659901 V/m versus the winner's 0.20953420 V/m), demonstrating the intensity/contrast trade-off.
+
+The live candidate list/detail endpoints returned HTTP 200. The standard Simulator SESSION matched
+the saved centres, orientations, signed currents, dimensions and layers, then completed two serial
+remeshed carrier solves and cortical mapping in 366.46 seconds. Finite fields were verified, with
+identical GM mesh nodes/connectivity across carriers. Independently reduced final TI fields gave:
+
+| Metric | Online estimate | Remeshed SESSION | Difference |
+|---|---:|---:|---:|
+| Target mean, V/m | 0.20953420 | 0.21860216 | +4.33% |
+| Non-ROI p95, V/m | 0.26785219 | 0.27620445 | +3.12% |
+| ROI mean / non-ROI p95 | 0.78227548 | 0.79145055 | +1.17% |
+
+These are observations, not an accepted numerical-equivalence tolerance. SimNIBS reported electrode
+flux-magnitude calibration differences of 9.6% and 3.5%; its code subsequently rescales potentials
+using the requested current divided by mean electrode flux. This diagnostic is not the linear-solver
+residual or proof of exact per-electrode flux equality. No solver settings were changed to hide it.
+
+The test intentionally bypassed TI-Toolbox's full postprocessing runner, which can rewrite the
+original subject's cached T1 MNI image. Thus full job orchestration, Analyzer workflow and repeated-seed
+convergence remain unproven. This run predates the new mesh-digest recording guard and was explicitly
+labeled unverified for historical mesh identity; the guard itself has synthetic change-detection tests.
+The installed runtime was not replaced: the harness loaded the checkout integration in its process.
+
+Local run: `derivatives/SimNIBS/sub-ernie/flex-search/validation-20260913-166c7a/` in project `000`.
+Original receipts preserve effective-budget omissions in the early harness configuration;
+`validation_run_meta.json` records the actual one-iteration options rather than rewriting history.
+Replay receipts: `code/ti-toolbox/candidate-observation-20260913-166c7a/replay-v1/`.
+`dev/flex_candidate_replay.py` reproduces live API-to-SESSION validation in a new output directory.

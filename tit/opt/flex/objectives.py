@@ -8,7 +8,8 @@ candidate through a ROC distance that depends on user-supplied field thresholds
 requested ROI and non-ROI thresholds are jointly infeasible the ROC distance
 takes the same value for every candidate and the search landscape goes flat.
 :func:`threshold_free_focality` scores the ROI/non-ROI contrast directly, so no
-threshold has to be chosen and the landscape keeps a usable gradient.
+threshold has to be chosen. This removes dependence on user thresholds; it
+cannot guarantee a useful search landscape or adequate target intensity.
 
 **Current-ratio search.** The FEM solved by SimNIBS is linear, so for a fixed
 electrode placement the field of each channel scales with that channel's
@@ -48,16 +49,9 @@ import numpy as np
 #: interleave with the solver's goal lines in the same log file.
 logger = logging.getLogger("simnibs")
 
-#: Floor for the non-ROI denominator, keeping the contrast ratio finite when the
-#: non-ROI field is ~0 (or negative, for a signed post-processing component).
-#: Far below any physically meaningful E-field magnitude, so it never affects a
-#: real candidate.
-_DENOM_FLOOR = 1e-12
-
-#: Percentile of the non-ROI field used as the "spread" term.  The 95th
-#: percentile tracks the hot tail that actually competes with the target while
-#: ignoring single outlier elements that a plain max would chase.
-_NONROI_PERCENTILE = 95.0
+#: Numerical validity cutoff in V/m, not a focality/safety threshold. Reject
+#: unresolved background rather than rewarding division by an arbitrary floor.
+_MIN_NONROI_MEAN = 1e-12
 
 #: Percentile used as the "peak" ROI field, matching SimNIBS's ``"max"`` goal.
 _ROI_PEAK_PERCENTILE = 99.9
@@ -81,16 +75,15 @@ def threshold_free_focality(
 ) -> float:
     """Threshold-free focality contrast between ROI and non-ROI fields.
 
-    Computes ``mean(e_roi) ** (1 + w) / p95(e_nonroi)``, where ``w`` is
+    Computes ``mean(e_roi) ** (1 + w) / mean(e_nonroi)``, where ``w`` is
     *intensity_weight*.  Unlike SimNIBS's ROC-based focality goal this needs no
-    threshold, so it cannot be flattened by a threshold pair that no candidate
-    can satisfy.  The non-ROI is summarised by its 95th percentile rather than
-    its mean, so a candidate is judged against the hottest competing tissue
-    instead of a bulk average dominated by far-field elements.
+    user threshold. This avoids infeasible threshold pairs but does not
+    guarantee discrimination between candidates. Both domains use the arithmetic
+    mean of their samples; this does not constrain isolated background peaks.
 
     The weight trades the two terms off: ``w = 0`` gives the balanced form
-    (raising ROI mean and lowering the non-ROI tail count equally), while
-    ``w = 1`` squares the ROI term so raw ROI intensity dominates.
+    (a dimensionless target/background contrast), while ``w = 1`` squares
+    the target mean, increasing the reward for target intensity.
 
     Parameters
     ----------
@@ -106,25 +99,43 @@ def threshold_free_focality(
     float
         Focality contrast; larger is more focal.  Returns ``0.0`` (the worst
         possible score) for a degenerate candidate -- an empty ROI or non-ROI,
-        a non-positive mean ROI field, or a non-finite ratio.
+        nonfinite or signed-negative samples, a non-positive target mean,
+        background mean at or below 1e-12 V/m, or a non-finite ratio.
 
     Notes
     -----
-    A negative mean ROI field can arise from a signed post-processing component
-    (e.g. ``dir_TI_normal``) and means the target is not being driven in the
-    requested direction; it is floored at zero rather than raised to a
-    fractional power.
+    This contrast requires nonnegative amplitudes. Signed-negative components
+    are rejected rather than treated as absent stimulation. With w=0 the
+    score is scale invariant above the numerical cutoff, so high contrast
+    alone does not guarantee a useful target field. With w>0 its units are
+    (V/m)**w, and values cannot be compared across different weights.
+
+    Raises
+    ------
+    ValueError
+        If intensity_weight is nonfinite or outside [0, 1].
     """
+    weight = float(intensity_weight)
+    if not np.isfinite(weight) or not 0.0 <= weight <= 1.0:
+        raise ValueError("intensity_weight must be finite and in [0, 1]")
     roi = np.asarray(e_roi, dtype=float)
     non_roi = np.asarray(e_nonroi, dtype=float)
-    if roi.size == 0 or non_roi.size == 0:
+    if (
+        roi.size == 0
+        or non_roi.size == 0
+        or not np.isfinite(roi).all()
+        or not np.isfinite(non_roi).all()
+        or np.any(roi < 0)
+        or np.any(non_roi < 0)
+    ):
         return 0.0
 
-    mean_roi = max(float(np.mean(roi)), 0.0)
-    spread = max(float(np.percentile(non_roi, _NONROI_PERCENTILE)), _DENOM_FLOOR)
-
+    mean_roi = float(np.mean(roi))
+    background_mean = float(np.mean(non_roi))
+    if mean_roi <= 0 or background_mean <= _MIN_NONROI_MEAN:
+        return 0.0
     with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
-        value = float(mean_roi ** (1.0 + float(intensity_weight)) / spread)
+        value = float(np.power(mean_roi, 1.0 + weight) / background_mean)
 
     if not np.isfinite(value):
         return 0.0
@@ -456,7 +467,9 @@ def _install_split_applier(opt, state: dict) -> None:
             and electrode_pos is optimum
             and state.get("best_split") is not None
         ):
-            split = state["best_split"]
+            split = (
+                getattr(opt, "_accepted_current_split_mA", None) or state["best_split"]
+            )
             _apply_current_split(opt, split)
             logger.info(
                 "Applying optimized current split %.2f:%.2f mA to the final "
@@ -529,9 +542,9 @@ def install_ratio_search(
     Progress is logged to the ``"simnibs"`` logger in SimNIBS's own goal-line
     format, keeping live log monitoring functional.
     """
-    from simnibs.optimization.tes_flex_optimization.tes_flex_optimization import (
-        postprocess_e,
-    )
+    from .runtime import integration_module
+
+    postprocess_e = integration_module().postprocess_e
 
     base = float(base_mA)
     if base <= 0.0:
@@ -560,6 +573,8 @@ def install_ratio_search(
 
     def goal_fun(parameters):
         # Mirror SimNIBS's own goal_fun preamble.
+        opt._candidate_split_mA = None
+        opt._candidate_postprocessed = None
         opt.n_test += 1
         opt.electrode_pos = opt.get_electrode_pos_from_array(parameters)
         e = opt.update_field(electrode_pos=opt.electrode_pos, plot=False)
@@ -581,6 +596,9 @@ def install_ratio_search(
         roi_pp = postproc[0]
 
         has_non_roi = len(e[0]) > 1
+        score_non_roi = has_non_roi and not getattr(
+            opt, "_observation_only_non_roi", False
+        )
         if has_non_roi:
             non_a = np.asarray(e[0][1], dtype=float)
             non_b = np.asarray(e[1][1], dtype=float)
@@ -604,7 +622,7 @@ def install_ratio_search(
             roi = _combine(roi_a, roi_b, alpha_a, alpha_b, roi_dir, roi_pp)
             non = (
                 _combine(non_a_sub, non_b_sub, alpha_a, alpha_b, non_dir_sub, non_pp)
-                if has_non_roi
+                if score_non_roi
                 else empty
             )
             value = float(objective(roi, non))
@@ -621,6 +639,11 @@ def install_ratio_search(
             else empty
         )
         value = float(objective(roi, non))
+        # The recorder consumes these references immediately, then releases
+        # them. Report the split of this evaluation, not the best-so-far split.
+        opt._candidate_split_mA = (i1, i2)
+        opt._candidate_current_scale = (alpha_a, alpha_b)
+        opt._candidate_postprocessed = [[roi, non]] if has_non_roi else [[roi]]
 
         # Remember the split of the BEST candidate seen so far -- not of the
         # most recently evaluated one, which is rarely the winner.

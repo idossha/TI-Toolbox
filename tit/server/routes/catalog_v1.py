@@ -396,3 +396,67 @@ def put_notes(body: dict = Body(...)) -> dict:
 )
 def subject_info() -> dict:
     return catalog.subject_info_matrix(_pm())
+
+
+@router.get(
+    "/api/catalog/optimization-candidates", summary="Rank saved optimization candidates"
+)
+def optimization_candidates(
+    subject: str = Query(...),
+    kind: str = Query(...),
+    run: str = Query(...),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    sort: str = Query("roi_mean"),
+    descending: bool = Query(True),
+) -> dict:
+    from tit.opt.candidate_catalog import list_candidates
+
+    try:
+        return list_candidates(
+            _pm(), subject, kind, run, offset, limit, sort, descending
+        )
+    except FileNotFoundError as error:
+        raise HTTPException(404, str(error)) from error
+    except (ValueError, KeyError, TypeError) as error:
+        raise HTTPException(422, str(error)) from error
+
+
+@router.get(
+    "/api/catalog/optimization-candidates/{candidate_id}",
+    summary="Replay a saved optimization candidate",
+)
+def optimization_candidate(
+    candidate_id: str,
+    subject: str = Query(...),
+    kind: str = Query(...),
+    run: str = Query(...),
+) -> dict:
+    from tit.opt.candidate_catalog import candidate_detail
+
+    try:
+        return candidate_detail(_pm(), subject, kind, run, candidate_id)
+    except FileNotFoundError as error:
+        raise HTTPException(404, str(error)) from error
+    except (ValueError, KeyError, TypeError) as error:
+        raise HTTPException(422, str(error)) from error
+
+
+@router.get(
+    "/api/catalog/optimization-candidates/{candidate_id}/mapping",
+    summary="Map a selected Flex candidate onto an EEG cap",
+)
+def optimization_candidate_mapping(
+    candidate_id: str,
+    subject: str = Query(...),
+    run: str = Query(...),
+    eeg_net: str = Query(...),
+) -> dict:
+    from tit.opt.candidate_catalog import candidate_mapping
+
+    try:
+        return candidate_mapping(_pm(), subject, run, candidate_id, eeg_net)
+    except FileNotFoundError as error:
+        raise HTTPException(404, str(error)) from error
+    except (ValueError, KeyError, TypeError) as error:
+        raise HTTPException(422, str(error)) from error

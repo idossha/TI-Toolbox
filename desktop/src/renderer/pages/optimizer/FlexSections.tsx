@@ -5,7 +5,8 @@
  * solver_params}.py`; `pages/optimizer/PARITY.md` maps every control to where it now lives.
  */
 import { FormSection } from "../../ui/Layout";
-import { Field, TextInput } from "../../ui/Field";
+import { Field } from "../../ui/Field";
+import { Callout } from "../../ui/Feedback";
 import { NumberInput } from "../../ui/NumberInput";
 import { Select } from "../../ui/Select";
 import { Checkbox } from "../../ui/Toggle";
@@ -13,11 +14,8 @@ import { SegmentedControl } from "../../ui/SegmentedControl";
 import { RoiPicker, type RoiValue } from "../_shared/roi";
 import type { EegNet } from "./api";
 import {
-  parsePctList,
-  sweepCombinationCount,
   type ElectrodeShape,
   type FlexFormState,
-  type FocalityMode,
   type NonRoiMethod,
 } from "./flexConfig";
 import { flexCost } from "./cost";
@@ -26,16 +24,12 @@ import { flexCost } from "./cost";
  *  whose longest option is a sentence sets its own min-content width and pushes past its grid
  *  column (the label/control overlap measured in round 1). */
 export const GOAL_OPTIONS = [
-  { value: "mean", label: "Mean" },
-  { value: "max", label: "Max" },
-  { value: "focality", label: "Focality" },
-  { value: "focality_tf", label: "Focality, threshold-free" },
+  { value: "mean", label: "Mean TImax" },
+  { value: "max", label: "Max TImax (99.9%)" },
+  { value: "focality_tf", label: "Focality" },
 ];
 
-const GOAL_HELP =
-  "Mean: maximize the average field in the ROI. Max: maximize its peak. Focality: maximize the " +
-  "ROI field while minimizing it elsewhere. Threshold-free focality: the same contrast with no " +
-  "thresholds to tune — it stays optimizable at deep targets where the threshold form goes flat.";
+const GOAL_HELP = "Mean TImax maximizes average TImax in the ROI. Max TImax maximizes the 99.9th percentile in the ROI. Focality maximizes mean ROI / mean non-ROI TImax, weighted by your intensity preference.";
 
 export const POSTPROC_OPTIONS = [
   { value: "max_TI", label: "max_TI" },
@@ -55,12 +49,6 @@ const ANISOTROPY_OPTIONS = [
 const NON_ROI_METHOD_OPTIONS = [
   { value: "everything_else", label: "Everything else (default)" },
   { value: "specific", label: "Specific region" },
-];
-
-const FOCALITY_MODE_OPTIONS = [
-  { value: "manual", label: "Manual thresholds" },
-  { value: "adaptive", label: "Adaptive (single run)" },
-  { value: "pareto", label: "Pareto sweep" },
 ];
 
 const SHAPE_OPTIONS = [
@@ -87,13 +75,12 @@ export function ObjectiveSection({
   const isThreshold = form.goal === "focality";
   const isTf = form.goal === "focality_tf";
   const isFocality = isThreshold || isTf;
-  const combinations = sweepCombinationCount(form);
 
   return (
     <FormSection title="Objective">
       <>
         <Field label="Goal" help={GOAL_HELP}>
-          <Select value={form.goal} onValueChange={(v) => onChange({ goal: v as FlexFormState["goal"] })} options={GOAL_OPTIONS} />
+          <Select value={form.goal} onValueChange={(v) => onChange({ goal: v as FlexFormState["goal"] })} options={isThreshold ? [{ value: "focality", label: "Retired: threshold focality" }, ...GOAL_OPTIONS] : GOAL_OPTIONS} />
         </Field>
         <Field label="Post-processing" help={POSTPROC_HELP}>
           <Select value={form.postproc} onValueChange={(v) => onChange({ postproc: v as FlexFormState["postproc"] })} options={POSTPROC_OPTIONS} />
@@ -104,46 +91,16 @@ export function ObjectiveSection({
           </Field>
         )}
         {isTf && (
-          <Field label="Intensity weight" help="0 = most focal (balanced), 1 = favours on-target intensity.">
+          <Field label="Intensity preference" help="0 optimizes mean ROI / mean non-ROI TImax without an absolute intensity preference. Increasing the weight favors stronger ROI intensity: score = mean(ROI)^(1 + weight) / mean(non-ROI).">
             <NumberInput value={form.intensityWeight} onValueChange={(v) => onChange({ intensityWeight: v ?? 0 })} min={0} max={1} step={0.05} />
           </Field>
         )}
         {isThreshold && (
-          <Field label="Threshold mode" className="optimizer-span">
-            <SegmentedControl value={form.focalityMode} onValueChange={(v) => onChange({ focalityMode: v as FocalityMode })} options={FOCALITY_MODE_OPTIONS} aria-label="Threshold mode" />
-          </Field>
-        )}
-        {isThreshold && form.focalityMode === "manual" && (
-          <Field label="E-field thresholds" help="One value: non-ROI max = ROI min. Two: non-ROI max, ROI min. In V/m.">
-            <TextInput value={form.manualThresholds} onChange={(e) => onChange({ manualThresholds: e.target.value })} placeholder="e.g. 0.2 or 0.2,0.5" />
-          </Field>
-        )}
-        {isThreshold && form.focalityMode === "adaptive" && (
-          <>
-            <Field label="Non-ROI share" help="Percent of the achievable intensity found by a first mean-optimization run.">
-              <NumberInput value={form.adaptiveNonRoiPct} onValueChange={(v) => onChange({ adaptiveNonRoiPct: v ?? 20 })} min={1} max={99} unit="%" />
-            </Field>
-            <Field label="ROI share">
-              <NumberInput value={form.adaptiveRoiPct} onValueChange={(v) => onChange({ adaptiveRoiPct: v ?? 80 })} min={1} max={99} unit="%" />
-            </Field>
-          </>
-        )}
-        {isThreshold && form.focalityMode === "pareto" && (
-          <>
-            <Field label="ROI thresholds" help="Comma-separated percentages, e.g. 80 or 80,70.">
-              <TextInput value={form.paretoRoiPcts} onChange={(e) => onChange({ paretoRoiPcts: e.target.value })} />
-            </Field>
-            <Field label="Non-ROI thresholds" help="Comma-separated percentages, e.g. 20,30,40.">
-              <TextInput value={form.paretoNonRoiPcts} onChange={(e) => onChange({ paretoNonRoiPcts: e.target.value })} />
-            </Field>
-          </>
+          <div className="optimizer-span"><Callout kind="warning">
+            This saved configuration uses retired threshold focality ({form.focalityMode}). Its settings have not been changed. Choose Mean TImax, Max TImax (99.9%), or Focality to create a new run.
+          </Callout></div>
         )}
       </>
-      {isThreshold && form.focalityMode === "pareto" && parsePctList(form.paretoRoiPcts).length > 0 && parsePctList(form.paretoNonRoiPcts).length > 0 && (
-        <p className="optimizer-cost optimizer-span" data-testid="optimizer-sweep-cost">
-          {combinations} threshold {combinations === 1 ? "combination" : "combinations"} · {flexCost(form).line}
-        </p>
-      )}
       {isFocality && form.nonRoiMethod === "specific" && (
         <Field label="Non-ROI region" className="optimizer-span" layout="stacked">
           <RoiPicker value={nonRoi} onChange={onNonRoiChange} modes={["cortical", "subcortical", "spherical", "mask"]} subject={subject} />

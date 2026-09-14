@@ -971,6 +971,11 @@ def _validate_simulation_inputs(config: SimulationConfig) -> None:
         )
 
     for montage in config.montages:
+        digest = (montage.provenance or {}).get("head_mesh_sha256")
+        if digest is not None:
+            from tit.mesh_identity import verify_subject_mesh
+
+            verify_subject_mesh(pm, config.subject_id, digest)
         for pair in montage.electrode_pairs:
             if len(pair) != 2:
                 raise ValueError(

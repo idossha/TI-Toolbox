@@ -21,6 +21,8 @@ tit.sim.base.BaseSimulation : Uses ``SimulationConfig`` and ``Montage``
 
 from dataclasses import dataclass, field
 from enum import Enum
+import math
+from numbers import Real
 
 from tit import constants as const
 
@@ -108,6 +110,67 @@ class Montage:
     electrode_pairs: list[tuple[str | list[float], str | list[float]]]
     eeg_net: str | None = None
     display_name: str | None = None
+    # Full subject-space poses preserve rectangular-electrode orientation on candidate replay.
+    electrode_poses: list[list[list[float]]] | None = None
+    provenance: dict[str, str] | None = None
+
+    def __post_init__(self) -> None:
+        if self.electrode_poses is None:
+            return
+        positions = [position for pair in self.electrode_pairs for position in pair]
+        if (
+            not self.is_xyz
+            or not isinstance(self.electrode_poses, (list, tuple))
+            or len(self.electrode_poses) != len(positions)
+        ):
+            raise ValueError("Electrode poses require one pose per XYZ electrode.")
+        for pose, position in zip(self.electrode_poses, positions):
+            if (
+                not isinstance(pose, (list, tuple))
+                or len(pose) != 4
+                or any(
+                    not isinstance(row, (list, tuple)) or len(row) != 4 for row in pose
+                )
+            ):
+                raise ValueError("Each electrode pose must be a 4x4 matrix.")
+            if not all(
+                isinstance(value, Real)
+                and not isinstance(value, bool)
+                and math.isfinite(value)
+                for row in pose
+                for value in row
+            ):
+                raise ValueError("Electrode poses must be finite.")
+            if list(pose[3]) != [0, 0, 0, 1]:
+                raise ValueError("Electrode poses must be homogeneous transforms.")
+            if not isinstance(position, (list, tuple)) or len(position) != 3:
+                raise ValueError("Electrode poses require XYZ positions.")
+            if not all(
+                isinstance(value, Real)
+                and not isinstance(value, bool)
+                and math.isfinite(value)
+                for value in position
+            ):
+                raise ValueError("Electrode positions must be finite XYZ coordinates.")
+            if any(abs(pose[i][3] - position[i]) > 1e-9 for i in range(3)):
+                raise ValueError(
+                    "Electrode pose centres must match the montage positions."
+                )
+            for column in range(3):
+                if abs(sum(pose[i][column] ** 2 for i in range(3)) - 1) > 1e-5:
+                    raise ValueError("Electrode pose axes must be unit vectors.")
+            for left, right in ((0, 1), (0, 2), (1, 2)):
+                if abs(sum(pose[i][left] * pose[i][right] for i in range(3))) > 1e-5:
+                    raise ValueError("Electrode pose axes must be orthogonal.")
+            determinant = (
+                pose[0][0] * (pose[1][1] * pose[2][2] - pose[1][2] * pose[2][1])
+                - pose[0][1] * (pose[1][0] * pose[2][2] - pose[1][2] * pose[2][0])
+                + pose[0][2] * (pose[1][0] * pose[2][1] - pose[1][1] * pose[2][0])
+            )
+            if abs(determinant - 1.0) > 1e-5:
+                raise ValueError(
+                    "Electrode pose axes must form a right-handed rotation."
+                )
 
     @property
     def is_xyz(self) -> bool:
@@ -149,9 +212,7 @@ class Montage:
                 f"{const.PAIR_COUNT_RULE}."
             )
         return (
-            SimulationMode.TI
-            if n == const.TI_ELECTRODE_PAIRS
-            else SimulationMode.MTI
+            SimulationMode.TI if n == const.TI_ELECTRODE_PAIRS else SimulationMode.MTI
         )
 
     @property
