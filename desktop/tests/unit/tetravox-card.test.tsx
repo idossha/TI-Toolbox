@@ -4,7 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { TetravoxCard } from "../../src/renderer/pages/settings/TetravoxCard";
-import type { TitBridge, TitNativeTetravoxStatus } from "../../src/shared/tit-bridge";
+import type { TitBridge, TitNativeTetravoxProgress, TitNativeTetravoxStatus } from "../../src/shared/tit-bridge";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 let container: HTMLDivElement;
@@ -17,7 +17,7 @@ const checkNativeTetravoxUpdate = vi.fn();
 const locateNativeTetravox = vi.fn();
 const clearNativeTetravoxPath = vi.fn();
 const openNativeTetravox = vi.fn();
-const onNativeTetravoxProgress = vi.fn(() => () => {});
+const onNativeTetravoxProgress = vi.fn((_listener: (progress: TitNativeTetravoxProgress) => void) => () => {});
 
 function bridge(): TitBridge {
   return {
@@ -130,7 +130,7 @@ it("shows an Update action and pill when a newer release is known", async () => 
 it("renders a download progress bar while installing", async () => {
   const status: TitNativeTetravoxStatus = { supported: true, installed: false, installing: true, version: "", directory: "" };
   nativeTetravoxStatus.mockResolvedValue(status);
-  onNativeTetravoxProgress.mockImplementation((listener: (p: { phase: string; received: number; total: number }) => void) => {
+  onNativeTetravoxProgress.mockImplementation((listener: (p: TitNativeTetravoxProgress) => void) => {
     listener({ phase: "download", received: 42 * 1024 * 1024, total: 130 * 1024 * 1024 });
     return () => {};
   });
