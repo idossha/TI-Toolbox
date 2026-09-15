@@ -8,6 +8,8 @@ export interface TitSettings {
   lastProjectDir?: string;
   /** Set only by the native Apple GPU consent flow. */
   appleGpuEnabled?: boolean;
+  /** TetraVox application the user located themselves. Set only by the native picker. */
+  tetravoxPath?: string;
 }
 
 export interface TitConnectArgs {
@@ -94,19 +96,43 @@ export interface TitFastSurferBridge {
 }
 
 export interface TitNativeTetravoxStatus {
-  source?: "system" | "managed";
+  /** Which resolution step produced the selected application, if any. */
+  source?: "configured" | "managed" | "system" | "path";
   executable?: string;
   supported: boolean;
   installed: boolean;
   installing: boolean;
   version: string;
   directory: string;
+  /** Path the user chose in Settings, and whether it still identifies a compatible TetraVox. */
+  configuredPath?: string;
+  configuredPathValid?: boolean;
+  /** Newest published release, once `checkNativeTetravoxUpdate` has looked. */
+  latestVersion?: string;
+  /** Set when a managed install can be replaced by a newer published release. */
+  updateAvailable?: string;
   error?: string;
+}
+
+export interface TitNativeTetravoxProgress {
+  phase: "download" | "install" | "idle";
+  received?: number;
+  total?: number;
 }
 
 export interface TitBridge {
   nativeTetravoxStatus?(): Promise<TitNativeTetravoxStatus>;
   installNativeTetravox?(): Promise<TitNativeTetravoxStatus>;
+  /** Ask GitHub for the newest published release; also refreshes `updateAvailable`. */
+  checkNativeTetravoxUpdate?(): Promise<TitNativeTetravoxStatus>;
+  /** Download and switch to the newest published release of the managed copy. */
+  updateNativeTetravox?(): Promise<TitNativeTetravoxStatus>;
+  /** Open a native picker for an existing TetraVox application and remember it. */
+  locateNativeTetravox?(): Promise<TitNativeTetravoxStatus>;
+  /** Forget the configured path and fall back to normal resolution. */
+  clearNativeTetravoxPath?(): Promise<TitNativeTetravoxStatus>;
+  /** Install/update progress. Returns an unsubscribe function. */
+  onNativeTetravoxProgress?(listener: (progress: TitNativeTetravoxProgress) => void): () => void;
   /** Container scene path in the active project, or empty to open the application. */
   openNativeTetravox?(path: string): Promise<{ ok: boolean; reason?: string; cancelled?: boolean }>;
 

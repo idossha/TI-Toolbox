@@ -106,12 +106,20 @@ alongside the scene when archiving or moving it.
 
 ## Installing and updating the viewer
 
-**Settings → Viewer** shows the detected installation and provides **Launch TetraVox**. When no compatible installation is found, **Install TetraVox** installs the official **0.4.0** platform package in its per-user runtime
-directory after SHA256 verification. The first installation needs network access; later launches
-use the installed copy. There is no viewer bundle in the Docker image.
+**Settings → Viewer** shows which TetraVox is in use and provides **Launch TetraVox**. When no
+compatible installation is found, **Install TetraVox** downloads the official **0.4.0** platform
+package into its per-user runtime directory after SHA256 verification, showing download progress.
+The first installation needs network access; later launches use the installed copy. There is no
+viewer bundle in the Docker image.
 
-The pinned release predates TetraVox's new externally managed updater protection. Keep this copy
-at TI-Toolbox's pinned version rather than updating it from TetraVox's own menu. See
+**Locate TetraVox…** points TI-Toolbox at an installation it did not find — a portable copy, an
+AppImage, or any other location. The choice is remembered and takes precedence over everything
+else; **Use the automatic choice** forgets it again.
+
+For the copy TI-Toolbox installed, **Check for updates** asks GitHub for the newest TetraVox
+release and offers **Update to <version>**. The update installs only if the release publishes a
+checksum for this platform's package, and the previous managed version is removed afterwards.
+Update TI-Toolbox's managed copy from this card rather than from TetraVox's own menu. See
 [Desktop Application]({{ site.baseurl }}/wiki/desktop-app/#installing-and-managing-the-viewer)
 for platform support, host permissions and browser-only operation.
 

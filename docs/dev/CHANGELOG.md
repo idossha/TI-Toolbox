@@ -22,6 +22,8 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 
 - Simulation output movement tolerates stale macOS AppleDouble sidecars, and mesh conversion excludes metadata sidecars and directories while retaining genuine data errors.
 
+- **TetraVox detect-or-download** — one resolution order picks the viewer: a path you located in Settings, the copy TI-Toolbox installed, a system installation, then PATH. **Settings → Viewer** adds **Locate TetraVox…**, **Check for updates** and **Update to …**; installs and updates stream with progress and verify the checksum the official release publishes, so a new TetraVox needs no TI-Toolbox release. Older managed versions are removed after an update.
+
 - Native viewer discovery reuses compatible system TetraVox installations and their normal profiles. Scene handoffs ask before replacing a running window; cancellation leaves it untouched. Concurrent requests are serialized.
 
 - Viewer separates the scene builder and saved-scene library into independently scrolling panels. Saved scenes can be deleted and display reference-health checks without loading imaging data.

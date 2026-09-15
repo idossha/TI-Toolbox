@@ -9,16 +9,23 @@ The TI-Toolbox Desktop Application manages the scientific workflow in
 diffusion workflows start their own workers when needed. There is no X11 setup.
 
 Full viewing opens **[TetraVox](https://github.com/idossha/tetravox)** in a separate native window.
-TI-Toolbox first checks standard application locations for a compatible TetraVox installation
-(version 0.4.0 or later in the 0.x series) and reuses its normal profile. It does not replace or
-update that installation. Custom portable locations and AppImages are not discovered automatically.
-Settings and the Viewer identify when an existing installation is being used.
+TI-Toolbox picks one in a fixed order: the application you chose with **Locate TetraVox…**, then the
+copy TI-Toolbox installed for you, then a compatible installation in a standard application location,
+then a compatible `tetravox` on your `PATH`. Every candidate must identify itself as TetraVox 0.4.0
+or later in the 0.x series; none is run to find that out. An installation you maintain keeps its own
+profile and its own updater. Settings and the Viewer say which one is in use.
 
-If none is found, **Settings → Viewer** offers the pinned official **TetraVox 0.4.0** package.
-The download's SHA256 is checked before installation. Files live under TI-Toolbox's per-user
-application-data folder in `runtimes/tetravox-0.4.0-<platform>-<architecture>`, with a separate
-profile. Managed downloads cover macOS arm64/x64 and Linux x64; Windows can reuse an installed
-TetraVox, but managed Windows setup awaits a verified portable release package.
+If nothing is found, **Settings → Viewer** offers the official **TetraVox 0.4.0** package. Its
+SHA256 is checked before installation. Files live under TI-Toolbox's per-user application-data
+folder in `runtimes/tetravox-<version>-<platform>-<architecture>`, with a separate profile. Managed
+downloads cover macOS arm64/x64 and Linux x64; Windows can reuse an installed TetraVox, but managed
+Windows setup awaits a verified portable release package.
+
+**Check for updates** asks GitHub for the newest TetraVox release and offers to install it into a
+new version directory, verifying the SHA512 that release publishes for this platform's package in
+its update feed. A release without such a checksum installs nothing. Updates are never automatic,
+always ask first, and remove the previous managed version once the new one is in place — so a new
+TetraVox does not wait for a TI-Toolbox release.
 
 Opening a scene while TetraVox is running asks before replacing its current view. Cancel leaves
 the window untouched. TI-Toolbox cannot inspect unsaved viewer state, so it asks even if the open

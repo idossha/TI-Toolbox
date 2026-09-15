@@ -11,11 +11,21 @@ import type {
   TitStackStartResult,
   TitStackStatus,
   TitStackStopResult,
+  TitNativeTetravoxProgress,
 } from "../shared/tit-bridge";
 
 const tit: TitBridge = {
   nativeTetravoxStatus: () => ipcRenderer.invoke("tit:tetravox:status"),
   installNativeTetravox: () => ipcRenderer.invoke("tit:tetravox:install"),
+  checkNativeTetravoxUpdate: () => ipcRenderer.invoke("tit:tetravox:checkUpdate"),
+  updateNativeTetravox: () => ipcRenderer.invoke("tit:tetravox:update"),
+  locateNativeTetravox: () => ipcRenderer.invoke("tit:tetravox:locate"),
+  clearNativeTetravoxPath: () => ipcRenderer.invoke("tit:tetravox:clearPath"),
+  onNativeTetravoxProgress: (listener: (progress: TitNativeTetravoxProgress) => void) => {
+    const handler = (_event: unknown, progress: TitNativeTetravoxProgress) => listener(progress);
+    ipcRenderer.on("tit:tetravox:progress", handler);
+    return () => ipcRenderer.removeListener("tit:tetravox:progress", handler);
+  },
   openNativeTetravox: (path: string) => ipcRenderer.invoke("tit:tetravox:open", path),
   platform: () => process.platform,
   appVersion: () => ipcRenderer.invoke("tit:appVersion"),

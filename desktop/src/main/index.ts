@@ -4,12 +4,12 @@ import { basename, isAbsolute, join, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { app, BrowserWindow, Notification, dialog, ipcMain, net, protocol, session, shell } from "electron";
 import { initLog, log } from "./log";
-import { readSettings, updateSettings, setAppleGpuEnabled } from "./settings";
+import { readSettings, updateSettings, setAppleGpuEnabled, setTetravoxPath } from "./settings";
 import { LAUNCHER_ORIGIN, resolveRendererDir } from "./launcher";
 import { checkToken, waitForHealth } from "./health";
 import { nativeRuntime, resolveRuntime } from "./nativeRuntime";
 import { createViewerHandoff } from "./viewerHandoff";
-import { checkViewerScene, installNativeViewer, nativeViewerStatus, nativeViewerRunning, openNativeViewer } from "./tetravoxNative";
+import { checkViewerScene, checkViewerUpdate, identifyViewerPath, installNativeViewer, nativeViewerStatus, nativeViewerRunning, openNativeViewer, pruneManagedViewers, setConfiguredViewerPathProvider, setViewerProgressListener } from "./tetravoxNative";
 import { FastSurferWorker } from "./fastsurferWorker";
 import { installFastSurfer, probeFastSurfer, runtimePaths } from "./fastsurferInstall";
 import { stack } from "./stackHost";
@@ -661,22 +661,73 @@ function registerIpc(): void {
    */
   const fromLauncherWindow = (e: Electron.IpcMainInvokeEvent) => fromMainWindow(e) && isLauncherUrl(e.senderFrame?.url ?? "");
 
+  // The resolver reads the user's chosen path through this provider, so the viewer module never
+  // imports Electron and stays unit-testable.
+  setConfiguredViewerPathProvider(() => readSettings().tetravoxPath);
+  setViewerProgressListener((progress) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("tit:tetravox:progress", progress);
+  });
+
   ipcMain.handle("tit:tetravox:status", async (e) => {
     if (!fromMainWindow(e)) throw new Error("Untrusted viewer request.");
     return nativeViewerStatus(app.getPath("userData"));
   });
-  ipcMain.handle("tit:tetravox:install", async (e) => {
-    if (!fromMainWindow(e) || !mainWindow) throw new Error("Untrusted viewer request.");
-    const status = await nativeViewerStatus(app.getPath("userData"));
-    if (status.installed || status.installing || !status.supported) return status;
+  ipcMain.handle("tit:tetravox:checkUpdate", async (e) => {
+    if (!fromMainWindow(e)) throw new Error("Untrusted viewer request.");
+    try { return await checkViewerUpdate(app.getPath("userData")); }
+    catch (error) { return { ...await nativeViewerStatus(app.getPath("userData")), error: error instanceof Error ? error.message : String(error) }; }
+  });
+  /** Both install and update take the same consent: nothing is downloaded without an explicit yes. */
+  const installViewer = async (version: string | undefined, title: string, message: string) => {
+    const userData = app.getPath("userData");
+    const status = await nativeViewerStatus(userData);
+    if (status.installing || !status.supported || !mainWindow) return status;
     const consent = await dialog.showMessageBox(mainWindow, {
-      type: "question", title: "Install native TetraVox", buttons: ["Cancel", "Install TetraVox"], defaultId: 1, cancelId: 0,
-      message: "Install TetraVox for your TI-Toolbox user?",
-      detail: `TI-Toolbox downloads a verified official TetraVox release into ${status.directory}. No administrator installation is requested. TetraVox runs as a separate desktop application with your normal user file permissions. It is not restricted to a project sandbox.`,
+      type: "question", title, buttons: ["Cancel", version ? "Update TetraVox" : "Install TetraVox"], defaultId: 1, cancelId: 0,
+      message,
+      detail: `TI-Toolbox downloads an official TetraVox release into ${status.directory}, verifying its published checksum before anything is installed. No administrator installation is requested. TetraVox runs as a separate desktop application with your normal user file permissions. It is not restricted to a project sandbox.`,
     });
     if (consent.response !== 1) return status;
-    try { return await installNativeViewer(app.getPath("userData")); }
-    catch { return nativeViewerStatus(app.getPath("userData")); }
+    try {
+      const installed = await installNativeViewer(userData, version);
+      if (version) await pruneManagedViewers(userData, version);
+      return installed;
+    } catch { return nativeViewerStatus(userData); }
+  };
+  ipcMain.handle("tit:tetravox:install", async (e) => {
+    if (!fromMainWindow(e)) throw new Error("Untrusted viewer request.");
+    const status = await nativeViewerStatus(app.getPath("userData"));
+    if (status.installed) return status;
+    return installViewer(undefined, "Install native TetraVox", "Install TetraVox for your TI-Toolbox user?");
+  });
+  ipcMain.handle("tit:tetravox:update", async (e) => {
+    if (!fromMainWindow(e)) throw new Error("Untrusted viewer request.");
+    const userData = app.getPath("userData");
+    const status = await checkViewerUpdate(userData).catch(() => nativeViewerStatus(userData));
+    if (!status.updateAvailable) return status;
+    return installViewer(status.updateAvailable, "Update native TetraVox", `Update TetraVox to ${status.updateAvailable}?`);
+  });
+  ipcMain.handle("tit:tetravox:locate", async (e) => {
+    if (!fromMainWindow(e) || !mainWindow) throw new Error("Untrusted viewer request.");
+    const picked = await dialog.showOpenDialog(mainWindow, {
+      title: "Locate TetraVox",
+      properties: process.platform === "darwin" ? ["openFile", "treatPackageAsDirectory"] : ["openFile"],
+      filters: process.platform === "win32" ? [{ name: "Applications", extensions: ["exe"] }] : [],
+    });
+    const chosen = picked.filePaths[0];
+    if (picked.canceled || !chosen) return nativeViewerStatus(app.getPath("userData"));
+    try {
+      await identifyViewerPath(chosen);
+      setTetravoxPath(chosen);
+      return await nativeViewerStatus(app.getPath("userData"));
+    } catch (error) {
+      return { ...await nativeViewerStatus(app.getPath("userData")), error: error instanceof Error ? error.message : String(error) };
+    }
+  });
+  ipcMain.handle("tit:tetravox:clearPath", async (e) => {
+    if (!fromMainWindow(e)) throw new Error("Untrusted viewer request.");
+    setTetravoxPath(undefined);
+    return nativeViewerStatus(app.getPath("userData"));
   });
   const viewerHandoff = createViewerHandoff();
   ipcMain.handle("tit:tetravox:open", async (e, path: unknown) => {
