@@ -1,0 +1,22 @@
+.tetravox-card-body {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.tetravox-row-value {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.tetravox-row-value code {
+  overflow-wrap: anywhere;
+}
+
+.tetravox-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
