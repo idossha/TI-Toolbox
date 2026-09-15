@@ -23,9 +23,11 @@ import tit
 from tit.launch import (
     LaunchError,
     LaunchOptions,
+    container_name,
     default_image,
     logs as launch_logs,
     open_in_browser,
+    resolve_project,
     session_url,
     start,
     status as launch_status,
@@ -35,14 +37,15 @@ from tit.launch import (
 
 LAUNCH_EPILOG = """\
 examples:
-  tit launch --project ~/datasets/000        start (or attach) and open the UI
-  tit launch --project ~/datasets/000 --status
-  tit launch --project ~/datasets/000 --logs --follow
-  tit launch --project ~/datasets/000 --stop
+  tit launch --project ~/datasets/000 [--status|--logs|--stop]
 
-Regular launches open the browser; its container persists after closing the tab.
-Use --desktop to open Electron and stop its container on app close.
+Launches open the browser and the container persists; --desktop opens Electron and
+stops its container on app close. --dev changes only the *source* of the server and
+renderer (checkout mount + reload + its built UI); all else is identical.
+  --dev [DIR] run a checkout   --dev --build build the image   --dev --web Vite HMR
 """
+
+DEV_RENDERER = "/ti-toolbox/desktop/out/renderer"
 
 
 def launch_arguments() -> argparse.ArgumentParser:
@@ -108,6 +111,24 @@ def launch_arguments() -> argparse.ArgumentParser:
         metavar="SECONDS",
         help="how long to wait for the server to answer (default: 180)",
     )
+    parent.add_argument(
+        "--dev",
+        nargs="?",
+        const="",
+        default=os.environ.get("TIT_DEV_REPO_DIR")
+        or ("" if os.environ.get("TIT_DEV") else None),
+        metavar="DIR",
+        help="run this checkout's code, not the image's (see below)",
+    )
+    parent.add_argument(
+        "--print-config",
+        action="store_true",
+        help="print the resolved settings and exit; no Docker calls",
+    )
+    # Developer extras; described in the epilog rather than listed twice in the options block.
+    parent.add_argument("--no-mount-repo", action="store_true", help=argparse.SUPPRESS)
+    parent.add_argument("--build", action="store_true", help=argparse.SUPPRESS)
+    parent.add_argument("--web", action="store_true", help=argparse.SUPPRESS)
     mode = parent.add_mutually_exclusive_group()
     mode.add_argument(
         "--stop", action="store_true", help="stop and remove this project's container"
@@ -184,6 +205,40 @@ def prompt_launch(args: argparse.Namespace, *, requested: bool) -> None:
         return
 
 
+def dev_repo(args: argparse.Namespace) -> Path | None:
+    """The checkout ``--dev`` selects, or ``None`` for a regular user run.
+
+    ``--dev`` with no value means "the checkout this launcher lives in"; ``TIT_DEV_REPO_DIR``
+    (or ``TIT_DEV=1``) is the environment spelling of the same flag.  Only the *source* of
+    the server and renderer differs between the two modes; nothing else does.
+    """
+    if args.dev is None:
+        return None
+    root = (
+        Path(args.dev).expanduser()
+        if args.dev
+        else Path(__file__).resolve().parent.parent
+    )
+    root = root.resolve()
+    if not (root / "tit" / "launch.py").is_file() or not (root / "loader.py").is_file():
+        raise LaunchError(
+            f"not a TI-Toolbox checkout: {root}. Pass --dev DIR or set TIT_DEV_REPO_DIR."
+        )
+    return root
+
+
+def dev_overrides(args: argparse.Namespace) -> tuple[str, str, bool]:
+    """``(repo_dir, static_dir, server_reload)`` — the only three settings ``--dev`` changes.
+
+    They are the same three the root ``docker-compose.yml`` exposes as ``${TIT_REPO_DIR:-}``,
+    ``${TIT_STATIC_DIR:-}`` and ``${TIT_SERVER_RELOAD:-}``.  All three are empty for a user run.
+    """
+    root = dev_repo(args)
+    if root is None or args.no_mount_repo:
+        return "", "", False
+    return str(root), DEV_RENDERER, True
+
+
 def prepare_launch(args: argparse.Namespace, argv: list[str]) -> int | None:
     """Return an exit code on cancelled/unavailable input, otherwise prepare the options."""
     if args.desktop and (args.browser or args.no_open):
@@ -224,33 +279,18 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def launch_command(
-    args: argparse.Namespace,
-    *,
-    invocation: str = "tit launch",
-    repo_dir: str = "",
-    server_reload: bool = False,
-    static_dir: str = "",
-) -> int:
+def launch_command(args: argparse.Namespace, *, invocation: str = "tit launch") -> int:
     """Run one launch invocation, turning every failure into one actionable line.
 
     ``invocation`` is how this front door is spelled (``tit launch``, ``python
     loader.py``, ``python dev/loader/loader_dev.py``); it appears in the follow-up hints
     and in error messages, so the line printed is a line the user can actually retype.
 
-    ``repo_dir``/``server_reload``/``static_dir`` are the dev overrides — the same three
-    the root ``docker-compose.yml`` exposes as ``${TIT_REPO_DIR:-}``,
-    ``${TIT_SERVER_RELOAD:-}`` and ``${TIT_STATIC_DIR:-}``, and the only thing
-    ``dev/loader/docker-compose.dev.yml`` sets.  All three are off for a user run.
+    The dev overrides come from ``--dev`` via :func:`dev_overrides`, so every front door
+    computes them the same way.
     """
     try:
-        return _dispatch(
-            args,
-            invocation=invocation,
-            repo_dir=repo_dir,
-            server_reload=server_reload,
-            static_dir=static_dir,
-        )
+        return _dispatch(args, invocation=invocation)
     except (LaunchError, OSError) as err:
         print(f"{invocation}: {err}", file=sys.stderr)
         return 1
@@ -259,14 +299,60 @@ def launch_command(
         return 130
 
 
-def _dispatch(
-    args: argparse.Namespace,
-    *,
-    invocation: str,
-    repo_dir: str,
-    server_reload: bool,
-    static_dir: str,
-) -> int:
+def build_image(root: Path, image: str | None) -> int:
+    """``container/blueprint/build.sh --tag <image>`` — the only way to get a v3 image today."""
+    script = root / "container" / "blueprint" / "build.sh"
+    if not script.is_file():
+        raise LaunchError(f"{script} not found; is this a full checkout?")
+    tag = image or "idossha/ti-toolbox:dev"
+    print(f"[dev] {script} --tag {tag}")
+    return subprocess.run([str(script), "--tag", tag], cwd=str(root)).returncode
+
+
+def run_dev_web(root: Path, args: argparse.Namespace) -> int:
+    """Hand over to ``desktop/scripts/dev.ts`` — the one dev-loop implementation."""
+    desktop = root / "desktop"
+    image = args.image or default_image()
+    if not image.startswith("idossha/ti-toolbox:") or "@" in image:
+        raise LaunchError(
+            "--web supports tagged idossha/ti-toolbox images only. Drop --web for a "
+            "custom repository or digest."
+        )
+    if not (desktop / "node_modules").is_dir():
+        raise LaunchError("--web needs the desktop dependencies: npm --prefix desktop install")
+    env = dict(os.environ)
+    if args.project:
+        env["TIT_DEV_PROJECT_DIR"] = str(Path(args.project).expanduser().resolve())
+    if args.port:
+        env["TIT_DEV_PORT"] = str(args.port)
+    env["TIT_DEV_IMAGE_TAG"] = image.rsplit(":", 1)[-1]
+    env["TIT_LAUNCH_EXISTING"] = args.existing or ""
+    env["TIT_LAUNCH_CONTAINER"] = args.container or ""
+    env["TIT_DEV_MOUNT_REPO"] = "0" if args.no_mount_repo else "1"
+    print("[dev] npm run dev:web (desktop/scripts/dev.ts)")
+    return subprocess.run(["npm", "run", "dev:web"], cwd=str(desktop), env=env).returncode
+
+
+def _dispatch(args: argparse.Namespace, *, invocation: str) -> int:
+    repo_dir, static_dir, server_reload = dev_overrides(args)
+    root = dev_repo(args)
+    if args.build or args.web:
+        if root is None:
+            raise LaunchError("--build and --web need --dev; add --dev [DIR]")
+        return build_image(root, args.image) if args.build else run_dev_web(root, args)
+    if args.print_config:
+        project = resolve_project(args.project) if args.project else ""
+        print(f"mode      {'dev' if root else 'user'}")
+        print(f"project   {project}")
+        print(f"port      {args.port}")
+        print(f"image     {args.image or default_image()}")
+        print(f"container {container_name(project) if project else ''}")
+        print(f"origin    http://127.0.0.1:{args.port}")
+        print(f"ui        {'desktop' if args.desktop else 'browser'}")
+        print(f"repo_dir  {repo_dir}")
+        print(f"static    {static_dir}")
+        print(f"reload    {'1' if server_reload else ''}")
+        return 0
     if args.stop:
         removed = launch_stop(args.project)
         print(
@@ -286,7 +372,15 @@ def _dispatch(
     if args.logs:
         return launch_logs(args.project, follow=args.follow)
 
-    if args.desktop and not getattr(args, "dev_loader", False):
+    if repo_dir and not args.no_open:
+        built = Path(repo_dir) / "desktop" / "out" / "renderer" / "index.html"
+        if not built.is_file():
+            raise LaunchError(
+                f"this checkout has no built renderer ({built}). Run "
+                "`npm --prefix desktop run build`, or use --dev --web for Vite with live "
+                "edits, or --no-open to start only the API server."
+            )
+    if args.desktop:
         helper = Path(__file__).resolve().parent.parent / "dev" / "launch-electron.sh"
         executable = os.environ.get("TIT_ELECTRON_EXECUTABLE", "")
         if not executable and not helper.is_file():
@@ -315,8 +409,8 @@ def _dispatch(
             "TIT_STATIC_DIR",
         ):
             env.pop(key, None)
-        from tit.launch import resolve_project
-
+        if repo_dir:
+            env["TIT_DEV_REPO_DIR"] = repo_dir
         env["TIT_LAUNCH_PROJECT_DIR"] = resolve_project(args.project)
         env["TIT_LAUNCH_PORT"] = str(args.port)
         env["TIT_LAUNCH_TIMEOUT"] = str(args.timeout)

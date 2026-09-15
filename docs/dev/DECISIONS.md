@@ -833,3 +833,26 @@ Atlas browsing now reads precomputed Ernie surfaces through the existing guide e
 synchronized target selection and translucent skin. No peel/isolate controls or request-time atlas
 meshing remain. Individualized inspection belongs in native TetraVox; actual Simulator XYZ
 placement still requires subject geometry. See ARCHITECTURE §7.2.
+
+## 2026-09-15 — One launch model for users and developers
+
+**Decision:** There is a single launcher implementation. `loader.py` (backed by `tit.cli`) and the
+Python-free `loader.sh` each own one code path, and a `--dev [DIR]` flag — equivalently
+`TIT_DEV_REPO_DIR`, or `TIT_DEV=1` — switches only the *source* of the server and renderer:
+the checkout mounted at `/ti-toolbox`, `TIT_SERVER_RELOAD`, and `TIT_STATIC_DIR` pointing at the
+checkout's built renderer. Everything else is identical in both modes: the flag set
+(`--desktop`/`--browser`/`--no-open`), browser-by-default UI opening, port selection, the project
+hash and container name, attach/recreate prompts and stop semantics. `--print-config` prints the
+resolved settings without touching Docker and produces byte-identical output from every front
+door. `dev/loader/loader_dev.{sh,py}` are now thin shims that only select a checkout, and
+`dev/loader/docker-compose.dev.yml` is deleted — its three overrides are already parameters of the
+root `docker-compose.yml` and are now set in one place.
+
+**Why:** the user and developer paths had drifted (Electron-by-default for the Bash dev loader,
+browser for the user one; `--build`/`--web`/`--no-mount-repo` living only in a second Python
+launcher; a dev compose file that the shims did not even reference, since they looked for
+`dev/loader/docker-compose.yml`). Divergent launch behaviour meant developers were not exercising
+what users run. **Cost:** `--dev` no longer opens Electron by default; add `--desktop` for the
+Apple GPU consent flow. **Revisit if:** a developer-only setting appears that cannot be expressed
+as a source override. Supersedes the launcher parts of "Explicit loader and development modes"
+(2026-09-09); `loader.py` and `loader.sh` remain the user CLI entry points at the repository root.

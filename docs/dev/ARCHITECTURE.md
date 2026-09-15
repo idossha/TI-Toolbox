@@ -39,11 +39,17 @@ remain cached; the worker and temporary license mount are removed after executio
 
 ### Launch modes
 
-Regular `loader.py` and Python-free `loader.sh` open the browser by default; explicit `--desktop`
-delegates to Electron before starting Docker.
+There is one launch model. `loader.py` and Python-free `loader.sh` open the browser by default;
+explicit `--desktop` delegates to Electron before starting Docker. `--dev [DIR]` (equivalently
+`TIT_DEV_REPO_DIR`, or `TIT_DEV=1`) switches only the *source* of the server and renderer: the
+checkout is mounted at `/ti-toolbox`, the server reloads, and its built renderer is served.
+Flags, port selection, container naming/hash, attach/recreate and stop semantics are identical in
+both modes, so every entry point can attach to and stop the same container. `--print-config`
+reports the resolved settings without touching Docker and is byte-identical between `loader.sh`
+and `loader.py`.
 Standalone downloads keep the loader and `docker-compose.yml` together. Regular users need no checkout.
-Developer wrappers can live outside the source tree: `TIT_DEV_REPO_DIR` selects the checkout
-mounted at `/ti-toolbox`, independently of the project data path. An adjacent YAML or explicit
+Developer wrappers (`dev/loader/loader_dev.{sh,py}`) are thin shims and can live outside the source
+tree: `TIT_DEV_REPO_DIR` selects the checkout, independently of the project data path. An adjacent YAML or explicit
 `TIT_COMPOSE_FILE` selects the launch specification. Python bootstraps its
 launcher in a cache from the matching release branch and forwards the adjacent YAML via
 `TIT_COMPOSE_FILE`; an invalid explicit path fails rather than selecting a different configuration.

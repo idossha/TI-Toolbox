@@ -337,13 +337,15 @@ LOADER = REPO_ROOT / "loader.py"
 LOADER_SH = REPO_ROOT / "loader.sh"
 LOADER_DEV = REPO_ROOT / "dev" / "loader" / "loader_dev.py"
 LOADER_DEV_SH = REPO_ROOT / "dev" / "loader" / "loader_dev.sh"
-COMPOSE_DEV = REPO_ROOT / "dev" / "loader" / "docker-compose.dev.yml"
 
 
 def test_the_entry_points_exist_and_the_v2_ones_are_gone():
-    """Two user entry points at the root, two dev equivalents beside the dev compose."""
-    for path in (LOADER, LOADER_SH, LOADER_DEV, LOADER_DEV_SH, COMPOSE_DEV):
+    """Two user entry points at the root and two dev shims that only add ``--dev``."""
+    for path in (LOADER, LOADER_SH, LOADER_DEV, LOADER_DEV_SH):
         assert path.is_file(), f"missing entry point: {path}"
+    assert not (
+        REPO_ROOT / "dev" / "loader" / "docker-compose.dev.yml"
+    ).exists(), "the dev overrides come from --dev, not a second compose file"
     assert not (
         REPO_ROOT / "ti-toolbox.sh"
     ).exists(), "ti-toolbox.sh was replaced by loader.sh"
@@ -416,23 +418,21 @@ def test_shell_loaders_are_executable_and_parse(script):
 # ---------------------------------------------------------------------------------------
 
 
-def test_dev_overrides_match_compose():
-    """``docker-compose.dev.yml`` and ``loader_dev.py`` must set the same three variables.
+def test_dev_mode_is_the_only_difference_between_the_front_doors():
+    """``--dev`` sets exactly the three overrides the root compose file exposes."""
+    from types import SimpleNamespace
 
-    The dev file is what ``docker compose -f docker-compose.yml -f
-    dev/loader/docker-compose.dev.yml`` layers on; ``loader_dev.py`` sets the same three
-    through :func:`tit.launch.build_env`.  Two ways to say the same thing is fine; two
-    ways that say *different* things is a developer debugging the wrong container.
-    """
-    text = COMPOSE_DEV.read_text(encoding="utf-8")
-    assert "services:" in text and "tit:" in text
+    from tit import cli
+
+    user = SimpleNamespace(dev=None, no_mount_repo=False)
+    dev = SimpleNamespace(dev=str(REPO_ROOT), no_mount_repo=False)
+    unmounted = SimpleNamespace(dev=str(REPO_ROOT), no_mount_repo=True)
+    assert cli.dev_overrides(user) == ("", "", False)
+    assert cli.dev_overrides(dev) == (str(REPO_ROOT), cli.DEV_RENDERER, True)
+    assert cli.dev_overrides(unmounted) == ("", "", False)
+    compose = (REPO_ROOT / "docker-compose.yml").read_text(encoding="utf-8")
     for key in ("TIT_REPO_DIR", "TIT_SERVER_RELOAD", "TIT_STATIC_DIR"):
-        assert key in text, f"{COMPOSE_DEV.name} does not set {key}"
-    # Overrides only: no image, no ports, no volumes — the root file owns those.
-    for owned_by_root in ("image:", "ports:", "volumes:", "healthcheck:"):
-        assert (
-            owned_by_root not in text
-        ), f"{COMPOSE_DEV.name} redefines {owned_by_root}"
+        assert key in compose, f"docker-compose.yml does not expose {key}"
 
 
 def test_dev_overrides_reach_the_container_env():

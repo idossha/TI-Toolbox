@@ -167,16 +167,23 @@ def test_dev_handoff_preserves_checkout_and_renderer(tmp_path):
     assert result.stdout == f"{tmp_path}|/ti-toolbox/desktop/out/rendererTI-Toolbox closed.\n"
 
 
-def test_bash_dev_loader_defaults_to_desktop(tmp_path):
+def test_bash_dev_loader_opens_the_browser_like_the_user_loader(tmp_path):
+    """The dev shim must not change the UI: one launch model for users and developers."""
     root = HELPER.parent.parent
     (tmp_path / "tit").mkdir()
     (tmp_path / "tit" / "launch.py").touch()
-    (tmp_path / "loader.sh").write_text('#!/bin/bash\nprintf "%s" "$TIT_LAUNCH_UI"\n')
+    (tmp_path / "loader.py").touch()
+    (tmp_path / "loader.sh").write_text(
+        '#!/bin/bash\nprintf "%s|%s" "${TIT_LAUNCH_UI:-browser}" "$TIT_DEV_REPO_DIR"\n'
+    )
     env = {**os.environ, "TIT_DEV_REPO_DIR": str(tmp_path)}
     env.pop("TIT_LAUNCH_UI", None)
     result = subprocess.run(
         ["bash", str(root / "dev/loader/loader_dev.sh")],
-        env=env, capture_output=True, text=True, check=False,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert result.returncode == 0, result.stderr
-    assert result.stdout == "desktop"
+    assert result.stdout == f"browser|{tmp_path}"

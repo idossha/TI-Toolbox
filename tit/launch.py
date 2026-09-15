@@ -771,7 +771,7 @@ class LaunchOptions:
     The last three are the *dev overrides* — the three variables the compose file exposes
     as ``${TIT_REPO_DIR:-}``, ``${TIT_SERVER_RELOAD:-}`` and ``${TIT_STATIC_DIR:-}``, and
     the only difference between a user run and a developer run (see
-    ``dev/loader/docker-compose.dev.yml``).  They default to off, which is the only correct
+    ``--dev``).  They default to off, which is the only correct
     answer for a user: ``repo_dir`` bind-mounts a host directory over ``/ti-toolbox``, which
     is where the image installed its own ``tit`` from, so a non-empty value in a packaged or
     pip-installed run replaces the toolbox with whatever is at that path.

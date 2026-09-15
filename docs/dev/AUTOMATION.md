@@ -24,6 +24,7 @@ release image tags are immutable. Publication modes and credentials are covered 
 |---|---|
 | [Version updater](../../dev/update/README.md) | Dry-run/runtime version preparation; authored notes are preserved |
 | [Container build](../../container/blueprint/build.sh) | Build source, UI and verified optional tool assets into the runtime image |
+| [Launcher](../../loader.sh) | One launch model: `loader.sh`/`loader.py`, `--dev [DIR]` for a source-mounted checkout, `--print-config` for the resolved settings |
 | [Development commands](../../CONTRIBUTING.md#development-environment) | Start/attach the project's source-mounted backend and live frontend |
 | [Smoke harness](../../dev/smoke.sh) | Discover a stack and execute selected checks with output cleanup manifests |
 | [Contract guard](../../dev/contracts_check.py) | Detect generated-schema drift; regenerate through the desktop `gen` script |

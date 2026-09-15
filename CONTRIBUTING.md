@@ -60,14 +60,14 @@ requires an explicit Attach or Recreate choice; Attach keeps its existing projec
 mounts unchanged. Configuration differences never authorize automatic replacement. Check jobs before backend changes: reload can interrupt work. A container
 recreate changes its token; a plain restart preserves the token but still interrupts its processes.
 
-The standard manual test entry point is `bash dev/loader/loader_dev.sh`. It mounts the present checkout over the container code. The Bash dev loader opens Electron by default so Apple GPU consent is available; use `--browser` explicitly for browser testing. Browser sessions cannot install host software.
+The standard manual test entry point is `bash loader.sh --dev` (or `python3 loader.py --dev`). It mounts the present checkout over the container code and enables server reload; everything else — flags, ports, container names, attach/stop semantics, browser-by-default — is identical to a user launch. Add `--desktop` for Electron when you need Apple GPU consent; browser sessions cannot install host software. `dev/loader/loader_dev.{sh,py}` remain as thin shims that only select a checkout through `TIT_DEV_REPO_DIR`.
 
 Choose the execution mode explicitly:
 
 | Mode | Command | Code used |
 |---|---|---|
 | Run the built image | `bash loader.sh` or `python3 loader.py` | Image contents |
-| Develop inside Docker | `bash dev/loader/loader_dev.sh` or `python3 dev/loader/loader_dev.py` | The launched checkout/worktree mounted at `/ti-toolbox` |
+| Develop inside Docker | `bash loader.sh --dev` or `python3 loader.py --dev` | The launched checkout/worktree mounted at `/ti-toolbox` |
 | Desktop development | From `desktop/`: `npm run dev` | Local Electron/renderer build + mounted backend after project selection |
 | Docker + live frontend | From `desktop/`: `npm run dev:web` | Mounted backend + Vite frontend |
 | Host-only development | From `desktop/`: `npm run dev:host` | Local Python API + Vite browser; no container |
@@ -76,7 +76,7 @@ Both Bash entry points require Docker Compose and curl, **not host Python**. Bot
 points require Python 3.11+. With no arguments the loaders ask for a project and, when a TI-Toolbox container is running,
 an Attach/Recreate decision; explicit
 `--project`, `--image`, `--port`, `--no-open`, `--status`, `--logs` and `--stop` stay scriptable.
-New sessions created by dev loaders use their own checkout, including a branch or worktree;
+New sessions started with `--dev` use their own checkout, including a branch or worktree;
 Attach preserves the selected session instead. Build the checkout frontend
 with `npm --prefix desktop run build` after edits, or use Vite for live changes. A missing local
 bundle never silently falls back to the image's UI.
