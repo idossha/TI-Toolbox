@@ -215,3 +215,14 @@
   color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
+
+/* Below the run shape's 1100px breakpoint the scene sits in a full-width, content-sized pane
+   rather than a fixed-height column, so its 180px floor (sized for that column) reads as a
+   sliver. 360px keeps the WebGL stage a usable size at the width it now has. */
+@media (max-width: 1099px) {
+  .scene-pane-stage,
+  .scene-pane-embed,
+  .scene-pane-placeholder {
+    min-height: 360px;
+  }
+}

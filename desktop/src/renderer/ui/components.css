@@ -2164,11 +2164,30 @@ kbd.kbd {
     overflow: visible;
   }
   /* Below 1100px a 360px column leaves the form under 600px, so the right pane stops being a
-   * column (DESIGN.md §2.2). It stacks full width under the work pane. */
-  .page-layout-panel {
+   * column (DESIGN.md §2.2). It stacks full width under the work pane.
+   *
+   * The run shape's own width rule (`.page-layout-run .page-layout-panel:not([data-pane-width])`,
+   * two classes + an attribute selector inside `:not()` = specificity 0,3,0) outranks the bare
+   * `.page-layout-panel` above it (0,1,0) regardless of media query, so at a stacked width it kept
+   * resolving to `clamp(320px, 45vw, calc(100% - 566px))` — ~400-450px at ~1000px wide — instead
+   * of the 100% this block intends. The run page's panel (PLAN/TERMINAL/SCENE) sat pinned to a
+   * narrow column at the bottom-left with the right half of the window empty. Restate the same
+   * selector here, at equal specificity and later in source, so it wins. */
+  .page-layout-panel,
+  .page-layout-run .page-layout-panel:not([data-pane-width]) {
     width: 100%;
     position: static;
     max-height: none;
+    overflow: visible;
+  }
+  /* The run pane's own `[data-pane-kind="run"]` override (`overflow: hidden`, `max-height: none`,
+   * `align-self: stretch`) is more specific than the bare reset above and would otherwise clip the
+   * stacked panel to whatever height `align-self: stretch` resolves to in a column flow (which, with
+   * no fixed-height ancestor once `.page-layout` goes `height: auto` above, can be far shorter than
+   * its content — the PLAN/TERMINAL/SCENE squeeze). Let it size to its content and scroll with the
+   * page instead. */
+  .page-layout-panel[data-pane-kind="run"] {
+    align-self: auto;
     overflow: visible;
   }
 }

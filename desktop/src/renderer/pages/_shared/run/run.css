@@ -494,3 +494,18 @@
 .run-tabs-panel[hidden] {
   display: none;
 }
+
+/* ---------- Stacked layout (below the 1100px breakpoint `ui/components.css` collapses the run
+   shape's two columns at) ----------
+ *
+ * The panel is no longer a `height: 100%` sibling with a fixed pane width to fill — it is a
+ * full-width block sized by its own content, so the 180px floors above (sized for a 360-400px
+ * column that had the window's full height to grow into) read as squeezed even though nothing
+ * is clipped. Raise the floor so PLAN/TERMINAL/SCENE still read as real panes at the width they
+ * now have. */
+@media (max-width: 1099px) {
+  .job-terminal,
+  .run-tabs {
+    min-height: 320px;
+  }
+}

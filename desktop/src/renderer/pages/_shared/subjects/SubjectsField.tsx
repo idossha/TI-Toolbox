@@ -110,8 +110,17 @@ export function SubjectsField<T extends SubjectLike>({
       const host = field?.parentElement ?? null;
       const stretched = host !== null && getComputedStyle(host).display === "flex";
       const scroller = el.closest("[data-page-work-scroll]");
+      // Below the run shape's 1100px breakpoint (`ui/components.css`), `.page-layout-main-scroll`
+      // — this `scroller` — switches from a height-bound `overflow: auto` box to `overflow:
+      // visible`, sized by its own content instead of the pane. `scroller.clientHeight` there is
+      // no longer "the room available"; it is close to the column's own height, so `others`
+      // (everything else in the column) cancels most of it out and `available` comes back near
+      // zero — the table then fell to the 3-row floor below even on a tall window (the "very
+      // short scroll box" defect). Read the same signal the CSS breakpoint acts on rather than
+      // trusting a measurement that box stopped being meaningful.
+      const scrollerConstrained = scroller ? getComputedStyle(scroller).overflowY !== "visible" : false;
       let room = el.clientHeight;
-      if (!stretched && scroller) {
+      if (!stretched && scroller && scrollerConstrained) {
         // The COLUMN's own height, never the scrollport's `scrollHeight`: `scrollHeight` is
         // `max(content, box)` and so reports zero slack exactly when there is slack — the same
         // measurement trap `pages/_shared/run/RunWork.tsx` documents for the fill controller.
@@ -126,8 +135,11 @@ export function SubjectsField<T extends SubjectLike>({
         if (available > 0) room = available;
       }
       // Never smaller than three rows: a page with no room to give must still show a table, not a
-      // sliver. Everything above that is the page's own arithmetic.
-      room = Math.max(room, headH + rowH * 3);
+      // sliver. Everything above that is the page's own arithmetic. Stacked (unconstrained
+      // scroller): no page arithmetic runs at all here, so the floor is the whole answer — six to
+      // eight rows, not three, or the table reads as broken rather than as merely un-grown.
+      const minRows = !stretched && scroller && !scrollerConstrained ? 8 : 3;
+      room = Math.max(room, headH + rowH * minRows);
       // The cap is written back only on the shape whose height is its own content (a run page). On
       // a stretched box the layout already owns the height, and writing a `max-height` from a
       // measurement OF that height is a ratchet: one short measurement during load would pin the
