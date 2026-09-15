@@ -254,14 +254,10 @@ test("the shared existing-outputs dialog is one question with three answers", as
   await expect(dialog.getByTestId("existing-outputs-skip")).toBeVisible();
   await expect(dialog.getByTestId("existing-outputs-replace")).toHaveText("Replace and rerun");
   await expect(dialog.getByTestId("existing-outputs-cancel")).toHaveText("Cancel");
-  await expect(dialog.getByTestId("existing-outputs-replace")).toBeDisabled();
-  // Cancel queues nothing; saving the project permission still requires a fresh confirmation.
+  await expect(dialog.getByTestId("existing-outputs-replace")).toBeEnabled();
+  // Cancel queues nothing; every opening still requires a fresh confirmation.
   await dialog.getByTestId("existing-outputs-cancel").click();
   await expect(dialog).toHaveCount(0);
-  await gotoPage(page, "settings", "Settings");
-  await page.getByRole("switch", { name: "Allow unsafe overrides" }).click();
-  await page.getByRole("button", { name: "Save changes", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Save changes", exact: true })).toBeDisabled();
   await gotoPage(page, "preprocess", "Pre-processing");
   let submissions = 0;
   const observe = (request: import("@playwright/test").Request) => {

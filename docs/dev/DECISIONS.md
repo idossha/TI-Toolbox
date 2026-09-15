@@ -256,6 +256,24 @@ reached SimNIBS. **Cost.** Server/API submissions need project opt-in; direct Py
 Prior confirmation cannot authorize rerun.
 **Revisit if.** Authenticated per-user roles replace the current project trust model.
 
+### 2026-09-15 — Remove `allow_unsafe_overrides`; "Replace and rerun" is the one replacement control (reverses 2026-09-09)
+
+**Decision.** Dropped the project-scoped `allow_unsafe_overrides` setting and the redundant
+"Output safety" settings card. Existing-output replacement is now gated only by the per-run
+"Replace and rerun" choice plus its existing confirmation dialog (`overwrite`/
+`replace_existing_outputs`); `check_overwrite_permission` no longer 403s for a disabled project
+setting, only 409s pending that confirmation. Non-critical `/api/validate` findings were never
+server-enforced blockers, so nothing changed there beyond removing the stale settings-page text
+claiming otherwise.
+
+**Why.** The setting duplicated the "Replace and rerun" control it gated, and its text also
+described a "queue despite non-critical findings" effect that no route ever implemented. Two
+controls for one decision confused users without adding real safety.
+**Cost.** None measured; a stale `allow_unsafe_overrides` key in an old project's `settings.json`
+is now silently ignored rather than read.
+**Revisit if.** A real severity-graded validation model (critical vs. warning findings) is added
+and needs a queue-time gate again.
+
 ## Scientific decisions
 
 ### 2026-09-07 — Correct statistics, geometry and exposure (ADR 30)

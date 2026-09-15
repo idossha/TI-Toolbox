@@ -39,8 +39,9 @@ telemetry toggle, so this checklist tracks the v3 spec instead of a Qt diff.
       *accepts* the id (`tit/server/routes/settings.py`'s `_VALID_PANELS`), so an existing
       `settings.json` that lists it keeps loading; no page claims it, so it is simply ignored),
       each with its one-line description from the Qt extension's `EXTENSION_DESCRIPTION`.
-- [x] "Allow unsafe overrides" toggle (`settings.allow_unsafe_overrides`) with a warning callout
-      explaining the effect (lets a job be queued despite non-critical `/api/validate` findings).
+- [x] No "Allow unsafe overrides" toggle (removed 2026-09-15): it duplicated the Execution card's
+      "Replace and rerun" control, which is now always available, and its "queue despite
+      non-critical validation findings" claim never had a server-side gate to remove.
 - [x] Jupyter card: capability-gated on `capabilities.jupyter`; **no "start Jupyter" endpoint
       exists in the v1 contract** (only the boolean capability flag) — shown as a status line with
       the gap called out in the report, not a fabricated button.

@@ -5031,7 +5031,7 @@ components:
 
     Settings:
       type: object
-      required: [telemetry, panels, allow_unsafe_overrides, theme]
+      required: [telemetry, panels, theme]
       properties:
         telemetry: { $ref: "#/components/schemas/Telemetry" }
         panels:
@@ -5039,7 +5039,6 @@ components:
           items: { type: string }
           description: enabled optional panels (Source, Cluster Permutation, NIfTI Group Average, Nilearn Visuals, Quick Notes)
         image_tag: { type: [string, "null"] }
-        allow_unsafe_overrides: { type: boolean }
         theme: { type: string, enum: [system, light, dark] }
 
     # --------------------------------------------------------------- config placeholders (F1b fills)

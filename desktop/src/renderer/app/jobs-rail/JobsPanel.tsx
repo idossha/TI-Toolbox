@@ -5,11 +5,9 @@
  * actions in a pane on the right. Clicking a job opens its detail on the full Jobs page.
  */
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { IconButton } from "../../ui/Button";
 import { SegmentedControl } from "../../ui/SegmentedControl";
-import { getSettings } from "./api";
 import { HostPanel } from "./host/HostPanel";
 import { JobDetailPane } from "./JobDetailPane";
 import { JobsSplit } from "./JobsSplit";
@@ -28,7 +26,6 @@ export function JobsPanel({ model, onCollapse }: { model: JobsModel; onCollapse:
     onCollapse();
     navigate("/jobs", { state: { openJobId: id } });
   }
-  const settings = useQuery({ queryKey: ["jobs-settings"], queryFn: getSettings });
   const selected = selectedId ? model.all.find((j) => j.id === selectedId) : undefined;
 
   return (
@@ -67,7 +64,6 @@ export function JobsPanel({ model, onCollapse }: { model: JobsModel; onCollapse:
               <JobDetailPane
                 job={selected}
                 density="panel"
-                allowUnsafeOverrides={settings.data?.allow_unsafe_overrides ?? false}
                 onOpenJob={openJob}
               />
             }

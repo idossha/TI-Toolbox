@@ -787,16 +787,10 @@ def test_ws_jobs_rejects_foreign_origin(client: TestClient) -> None:
 
 
 @pytest.mark.parametrize("group", [False, True])
-@pytest.mark.parametrize("enabled", [False, True])
-def test_existing_sim_output_requires_project_permission_before_submission(
-    client, project, group, enabled
-):
-    from tit.server.routes.settings import _save_project_settings
-
+def test_existing_sim_output_with_explicit_overwrite_is_accepted(client, project, group):
     output = Path(get_path_manager().simulation("002", "m1"))
     output.mkdir(parents=True)
     (output / "previous.txt").write_text("keep")
-    _save_project_settings({"allow_unsafe_overrides": enabled})
     body = {
         "kind": "sim",
         "config": _sim_config("002"),
@@ -808,9 +802,7 @@ def test_existing_sim_output_requires_project_permission_before_submission(
     response = client.post(
         "/api/jobs/groups" if group else "/api/jobs", headers=BEARER, json=body
     )
-    assert response.status_code == (201 if enabled else 403), response.text
-    if not enabled:
-        assert client.get("/api/jobs", headers=BEARER).json() == []
+    assert response.status_code == 201, response.text
     assert (output / "previous.txt").read_text() == "keep"
 
 
@@ -828,7 +820,7 @@ def test_new_sim_output_with_overwrite_flag_needs_no_unsafe_permission(client):
     assert response.status_code == 201, response.text
 
 
-def test_rerun_rechecks_project_overwrite_permission(client):
+def test_rerun_reuses_the_original_jobs_overwrite_confirmation(client):
     response = client.post(
         "/api/jobs",
         headers=BEARER,
@@ -844,24 +836,35 @@ def test_rerun_rechecks_project_overwrite_permission(client):
     output.mkdir(parents=True)
     (output / "previous.txt").write_text("keep")
     response = client.post(f"/api/jobs/{response.json()['id']}/rerun", headers=BEARER)
-    assert response.status_code == 403
-    assert len(client.get("/api/jobs", headers=BEARER).json()) == 1
+    assert response.status_code == 201, response.text
+    assert len(client.get("/api/jobs", headers=BEARER).json()) == 2
 
 
-@pytest.mark.parametrize("enabled,status", [(False, 403), (True, 409)])
-def test_existing_sim_without_explicit_overwrite_is_rejected(client, enabled, status):
-    from tit.server.routes.settings import _save_project_settings
-
-    output = Path(get_path_manager().simulation("001", "m1"))
-    output.mkdir(parents=True)
-    (output / "previous.txt").write_text("keep")
-    _save_project_settings({"allow_unsafe_overrides": enabled})
+def test_rerun_without_a_stored_overwrite_confirmation_still_needs_one(client):
     response = client.post(
         "/api/jobs",
         headers=BEARER,
         json={"kind": "sim", "config": _sim_config("001"), "subject_ids": ["001"]},
     )
-    assert response.status_code == status
+    assert response.status_code == 201
+    output = Path(get_path_manager().simulation("001", "m1"))
+    output.mkdir(parents=True)
+    (output / "previous.txt").write_text("keep")
+    response = client.post(f"/api/jobs/{response.json()['id']}/rerun", headers=BEARER)
+    assert response.status_code == 409
+    assert len(client.get("/api/jobs", headers=BEARER).json()) == 1
+
+
+def test_existing_sim_without_explicit_overwrite_is_rejected(client):
+    output = Path(get_path_manager().simulation("001", "m1"))
+    output.mkdir(parents=True)
+    (output / "previous.txt").write_text("keep")
+    response = client.post(
+        "/api/jobs",
+        headers=BEARER,
+        json={"kind": "sim", "config": _sim_config("001"), "subject_ids": ["001"]},
+    )
+    assert response.status_code == 409
     assert client.get("/api/jobs", headers=BEARER).json() == []
 
 

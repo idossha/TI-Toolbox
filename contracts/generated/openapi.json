@@ -10509,7 +10509,6 @@
         "required": [
           "telemetry",
           "panels",
-          "allow_unsafe_overrides",
           "theme"
         ],
         "properties": {
@@ -10528,9 +10527,6 @@
               "string",
               "null"
             ]
-          },
-          "allow_unsafe_overrides": {
-            "type": "boolean"
           },
           "theme": {
             "type": "string",

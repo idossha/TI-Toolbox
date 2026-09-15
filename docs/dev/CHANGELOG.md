@@ -9,6 +9,7 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 ---
 ### v3.0.0 (Unreleased)
 
+- 2026-09-15: Removed the redundant **Allow unsafe overrides** setting — **Replace and rerun** is now the one, always-available control for replacing existing outputs.
 - **2026-09-15 — desktop launches need no `--project`** — `loader.sh`, `loader.py` and `tit launch` hand off to the desktop app without a project directory, which then opens its own project page just as a Dock launch does; `--project` still opens straight into one project. Browser runs (`--browser`, `--no-open`) still require a project, because their container is bound to one, and the terminal project prompt is now browser-only.
 
 - **Bundled atlas previews** — Optimizer and Analyzer share precomputed reference cortical and subcortical surfaces, translucent skin, synchronized atlas/target selection, a clear-selection action and matching region legend colors. The atlas catalog refreshes after updates. Named Simulator montages also use reference anatomy; actual XYZ placement retains subject coordinates. Individualized volume inspection opens explicitly in TetraVox.

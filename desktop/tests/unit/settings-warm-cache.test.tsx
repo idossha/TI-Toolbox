@@ -21,7 +21,6 @@ const SETTINGS_FIXTURE = {
   telemetry: { consented: true, enabled: false },
   panels: ["source", "quick-notes", "subject-info"],
   image_tag: null,
-  allow_unsafe_overrides: false,
   theme: "system" as const,
 };
 
@@ -106,7 +105,7 @@ describe("SettingsPage with a pre-warmed [\"settings\"] query cache", () => {
     expect(bodyText).toContain("Feature panels");
     expect(bodyText).toContain("Source");
     const replace = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Replace and rerun");
-    expect(replace?.disabled).toBe(true);
+    expect(replace?.disabled).toBe(false);
 
     const tabs = [...container.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
     expect(tabs.map((button) => button.textContent)).toEqual(["Project", "Pre-processing", "Extensions", "Viewer", "Server"]);

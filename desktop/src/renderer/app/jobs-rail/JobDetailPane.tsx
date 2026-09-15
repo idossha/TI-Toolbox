@@ -42,7 +42,6 @@ type ConfirmKind = "stop" | "force" | "delete";
 
 export interface JobDetailPaneProps {
   job: JobStatus | undefined;
-  allowUnsafeOverrides: boolean;
   /** Jump the pane to another job (a "waiting on" link, or a deleted job clearing the selection). */
   onOpenJob: (jobId: string | null) => void;
   /** `panel` drops the tabs to fit 260px; `page` shows raw log + artifacts beside the summary. */
@@ -55,7 +54,7 @@ export interface JobDetailPaneProps {
   headerControls?: ReactNode;
 }
 
-export function JobDetailPane({ job, allowUnsafeOverrides, onOpenJob, density = "page", headerControls }: JobDetailPaneProps) {
+export function JobDetailPane({ job, onOpenJob, density = "page", headerControls }: JobDetailPaneProps) {
   const queryClient = useQueryClient();
   const [rerunDecision, setRerunDecision] = useState<{ id: string; spec: RerunSpec; existing: number } | null>(null);
   const [checkingRerun, setCheckingRerun] = useState(false);
@@ -162,7 +161,7 @@ export function JobDetailPane({ job, allowUnsafeOverrides, onOpenJob, density = 
 
   const isTerminal = TERMINAL_STATES.includes(job.state);
   const canStop = job.state === "queued" || job.state === "running";
-  const canForce = allowUnsafeOverrides && !isTerminal;
+  const canForce = !isTerminal;
   const logPath = job.log_path ?? undefined;
 
   const summary = (

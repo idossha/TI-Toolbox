@@ -41,7 +41,7 @@ import { JobDetailPane } from "../../app/jobs-rail/JobDetailPane";
 import { JobsSelectionTable } from "./JobsSelectionTable";
 import { useJobsModel } from "../../app/jobs-rail/model";
 import { ALL, applyJobsFilters, useJobsUi } from "../../app/jobs-rail/store";
-import { JOB_KINDS, JOB_STATES, TERMINAL_STATES, cancelJob, getSettings, getSubjects, submitTestJob } from "../../app/jobs-rail/api";
+import { JOB_KINDS, JOB_STATES, TERMINAL_STATES, cancelJob, getSubjects, submitTestJob } from "../../app/jobs-rail/api";
 import "./jobs-page.css";
 
 /** One 28px filter: a 12px label that names the control, then the select. */
@@ -76,7 +76,6 @@ function JobsPage() {
   const { selectedId, select, filters, setFilter, grouped, setGrouped } = useJobsUi();
 
   const subjectsQuery = useQuery({ queryKey: ["jobs-subjects"], queryFn: getSubjects });
-  const settingsQuery = useQuery({ queryKey: ["jobs-settings"], queryFn: getSettings });
 
   const filtered = useMemo(() => applyJobsFilters(model.all, filters), [model.all, filters]);
 
@@ -230,7 +229,6 @@ function JobsPage() {
               <JobDetailPane
                 job={selected}
                 density="page"
-                allowUnsafeOverrides={settingsQuery.data?.allow_unsafe_overrides ?? false}
                 onOpenJob={(id) => {
                   if (id === null) setSelectedIds((ids) => ids.filter((item) => item !== selectedId));
                   select(id);

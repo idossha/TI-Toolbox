@@ -86,10 +86,9 @@ the server; client disconnection alone does not trigger this reconciliation.
 ## Replacing existing outputs
 
 Existing outputs require a fresh confirmation each time you run. **Replace and rerun**
-is available only when **Settings → Allow unsafe overrides** is enabled for the current
-project; it is disabled by default. **Skip** keeps existing results and runs only missing
-work; **Cancel** submits nothing. The permission is project-specific so another dataset
-does not inherit it, and API submissions are checked too.
+is the one control for replacing outputs, and it is always available. **Skip** keeps
+existing results and runs only missing work; **Cancel** submits nothing. API submissions
+are checked too and still require explicit overwrite confirmation.
 
 A pipeline's **Skip pipeline** option submits no jobs: its dependent steps cannot be
 partially skipped safely. Replacement is unavailable when dependent outputs cannot yet

@@ -39,7 +39,7 @@ async function launchApp(enablePanel: boolean): Promise<void> {
   await page.route("**/api/settings", (route) => {
     if (route.request().method() !== "GET") return route.continue();
     return route.fulfill({
-      json: { telemetry: { consented: true, enabled: false }, panels, image_tag: "idossha/simnibs:v2.3.1", allow_unsafe_overrides: false, theme: "system" },
+      json: { telemetry: { consented: true, enabled: false }, panels, image_tag: "idossha/simnibs:v2.3.1", theme: "system" },
     });
   });
   await page.addInitScript((p: string[]) => {

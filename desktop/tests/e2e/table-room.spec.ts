@@ -53,7 +53,6 @@ test.beforeAll(async () => {
         telemetry: { consented: true, enabled: false },
         panels: ALL_PANELS,
         image_tag: "idossha/simnibs:v2.3.1",
-        allow_unsafe_overrides: false,
         theme: "system",
       },
     });

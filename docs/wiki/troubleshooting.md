@@ -385,10 +385,9 @@ The running local development container and its local internal image were repair
 Updated runners pass that confirmation to SimNIBS's supported repeated-run option; there
 is no need to delete `simnibs_simulation*.mat` files manually.
 
-In **Settings**, enable **Allow unsafe overrides** for this project, then run again and
-confirm **Replace and rerun**. The permission is off by default, applies across job pages,
-and does not suppress subsequent confirmations. When disabled, choose **Skip** or **Cancel**.
-Use the current checkout with the development loader, or an image containing this fix.
+Run again and confirm **Replace and rerun**; it does not suppress subsequent confirmations.
+Choose **Skip** or **Cancel** to keep existing results instead. Use the current checkout
+with the development loader, or an image containing this fix.
 
 
 ### A deleted job remains in the Jobs list

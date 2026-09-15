@@ -394,7 +394,7 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     await call("/api/surfer-settings", "GET", "/api/surfer-settings");
     await call("/api/surfer-settings", "PUT", "/api/surfer-settings", { body: { fastsurfer_threads: 4, freesurfer_threads: null } });
     await call("/api/settings", "GET", "/api/settings");
-    await call("/api/settings", "PUT", "/api/settings", { body: { theme: "dark", panels: [], allow_unsafe_overrides: false, telemetry: { consented: true, enabled: false } } });
+    await call("/api/settings", "PUT", "/api/settings", { body: { theme: "dark", panels: [], telemetry: { consented: true, enabled: false } } });
 
     // Logged out last (Bearer auth, not the cookie session, so nothing above depended on it).
     await call("/auth/logout", "POST", "/auth/logout");

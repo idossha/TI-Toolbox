@@ -378,13 +378,13 @@ save-file bridge or browser download.
 
 ### Overwrite permission
 
-`allow_unsafe_overrides` is project-scoped and default-off. Existing outputs require a fresh UI
-choice, including Rerun; old confirmation state and saved config flags confer no authority.
-The shared dialog offers Skip, Replace and rerun, or Cancel. Replace stays disabled unless the saved
-project setting is true; loading or failed settings checks confer no permission. Skip states whether
-new jobs will run; job Rerun Skip queues nothing.
-Submission routes enforce project permission before single jobs, groups or reruns create
-jobs. Simulation overwrite intent reaches the subprocess and native SimNIBS session; ordinary runs
+Existing outputs require a fresh UI choice, including Rerun; old confirmation state and saved
+config flags confer no authority. The shared dialog offers Skip, Replace and rerun, or Cancel --
+"Replace and rerun" is the one control for replacing outputs, always available (no separate
+project setting gates it). Skip states whether new jobs will run; job Rerun Skip queues nothing.
+Submission routes still require explicit `overwrite`/`replace_existing_outputs` confirmation
+before single jobs, groups or reruns replace existing outputs (409 pending that confirmation).
+Simulation overwrite intent reaches the subprocess and native SimNIBS session; ordinary runs
 retain native existence protection. Caller environment variables cannot supply permission.
 
 Sources: [`overwrite_policy.py`](../../tit/server/overwrite_policy.py),

@@ -5948,7 +5948,6 @@ export interface components {
             /** @description enabled optional panels (Source, Cluster Permutation, NIfTI Group Average, Nilearn Visuals, Quick Notes) */
             panels: string[];
             image_tag?: string | null;
-            allow_unsafe_overrides: boolean;
             /** @enum {string} */
             theme: "system" | "light" | "dark";
         };

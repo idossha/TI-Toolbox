@@ -300,31 +300,10 @@ function SettingsPage() {
           <CardBody>
             {/* User-level, not per page (2026-09-06): the default answer to the existing-outputs
                 question and the scheduler-enforced `Subjects in parallel` cap every run uses. */}
-            <ExecutionCard allowUnsafeOverrides={settingsQuery.data?.allow_unsafe_overrides === true} />
+            <ExecutionCard />
           </CardBody>
         </Card>
 
-        <Card>
-          <CardHeader title="Output safety" />
-          <CardBody>
-            {form && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-                  <Switch
-                    checked={form.allow_unsafe_overrides}
-                    onCheckedChange={(allow_unsafe_overrides) => patch({ allow_unsafe_overrides })}
-                    aria-label="Allow unsafe overrides"
-                  />
-                  <span className="text-body">Allow unsafe overrides</span>
-                </div>
-                {form.allow_unsafe_overrides && (
-                  <Callout kind="warning">Allows replacing existing job outputs after confirmation and queuing jobs despite non-critical validation findings. Applies to this project. May produce invalid or unusable results.</Callout>
-                )}
-              </div>
-            )}
-
-          </CardBody>
-        </Card>
         <Card>
           <CardHeader title="Telemetry" />
           <CardBody>
@@ -458,7 +437,7 @@ const page: PageDef = {
 
 export default page;
 
-function ExecutionCard({ allowUnsafeOverrides }: { allowUnsafeOverrides: boolean }) {
+function ExecutionCard() {
   const existingOutputs = useExecutionPrefs((s) => s.existingOutputs);
   const parallelSubjects = useExecutionPrefs((s) => s.parallelSubjects);
   const setExecutionPrefs = useExecutionPrefs((s) => s.setExecutionPrefs);
@@ -466,11 +445,11 @@ function ExecutionCard({ allowUnsafeOverrides }: { allowUnsafeOverrides: boolean
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
       <Field label="Existing outputs" help="What a run does when a subject already has this output. You are still asked before a run that would touch existing outputs.">
         <SegmentedControl
-          value={allowUnsafeOverrides ? existingOutputs : "skip"}
+          value={existingOutputs}
           onValueChange={(v) => setExecutionPrefs({ existingOutputs: v as ExistingOutputPolicy })}
           options={[
             { value: "skip", label: "Skip existing outputs" },
-            { value: "replace", label: "Replace and rerun", disabled: !allowUnsafeOverrides, title: !allowUnsafeOverrides ? "Enable Allow unsafe overrides for this project first." : undefined },
+            { value: "replace", label: "Replace and rerun" },
           ]}
           aria-label="Existing outputs"
         />

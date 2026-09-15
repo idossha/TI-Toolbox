@@ -10,7 +10,7 @@ Two files, read-modify-write with an atomic replace on every write:
 - ``code/ti-toolbox/config/settings.json`` (project-level, new in v1 --
   no prior file covered this shape) for ``panels`` (replaces
   ``extensions.json``'s ``{"extensions": {name: bool}}`` with a plain enabled
-  list), ``image_tag``, ``allow_unsafe_overrides``, and ``theme``.
+  list), ``image_tag``, and ``theme``.
 """
 
 from __future__ import annotations
@@ -32,7 +32,6 @@ _SETTINGS_FILENAME = "settings.json"
 _DEFAULTS: dict[str, Any] = {
     "panels": [],
     "image_tag": None,
-    "allow_unsafe_overrides": False,
     "theme": "system",
 }
 
@@ -99,7 +98,6 @@ class Settings(BaseModel):
         )
     )
     image_tag: str | None = None
-    allow_unsafe_overrides: bool
     theme: Literal["system", "light", "dark"]
 
 
@@ -115,7 +113,6 @@ def _read_settings() -> dict[str, Any]:
         # must never return something `PUT` would reject.
         "panels": [p for p in project.get("panels", []) if p in _VALID_PANELS],
         "image_tag": project.get("image_tag"),
-        "allow_unsafe_overrides": bool(project.get("allow_unsafe_overrides", False)),
         "theme": project.get("theme", "system"),
     }
 
@@ -165,7 +162,6 @@ def put_settings(body: dict[str, Any]) -> Settings:
         {
             "panels": _validate_panels(body.get("panels", [])),
             "image_tag": body.get("image_tag"),
-            "allow_unsafe_overrides": bool(body.get("allow_unsafe_overrides", False)),
             "theme": _validate_theme(body.get("theme", "system")),
         }
     )

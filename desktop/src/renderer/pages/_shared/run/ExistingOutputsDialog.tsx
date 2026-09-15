@@ -13,8 +13,6 @@
  * re-pressed Run finish a partly-completed batch). `onDecide` hands the page a policy rather than a
  * boolean, so the page's own submit call keeps deciding what "replace" means for its job kind.
  */
-import { useQuery } from "@tanstack/react-query";
-import { getSettings } from "../../settings/api";
 import { Button } from "../../../ui/Button";
 import { Dialog } from "../../../ui/Overlay";
 
@@ -40,8 +38,6 @@ export function ExistingOutputsDialog({
   onDecide: (decision: ExistingOutputsDecision) => void;
   busy?: boolean;
 }) {
-  const settings = useQuery({ queryKey: ["settings"], queryFn: getSettings, enabled: open });
-  const canReplace = !settings.isError && settings.data?.allow_unsafe_overrides === true;
   const rest = Math.max(0, total - existing);
   return (
     <Dialog
@@ -58,7 +54,7 @@ export function ExistingOutputsDialog({
           <Button variant="ghost" onClick={() => onOpenChange(false)} data-testid="existing-outputs-cancel">
             Cancel
           </Button>
-          <Button variant="secondary" loading={busy} disabled={!canReplace} onClick={() => { if (canReplace) onDecide("replace"); }} data-testid="existing-outputs-replace">
+          <Button variant="secondary" loading={busy} onClick={() => onDecide("replace")} data-testid="existing-outputs-replace">
             Replace and rerun
           </Button>
           {/* The default: it is the safe answer, and it is what finishes a partly-completed batch. */}
@@ -68,7 +64,6 @@ export function ExistingOutputsDialog({
         </>
       }
     >
-      {!canReplace && <p className="field-help">Replacing outputs requires Allow unsafe overrides in this project’s Settings. Skip or cancel to keep existing outputs.</p>}
       <p className="field-help" data-testid="existing-outputs-detail">
         Skipping leaves the existing {noun} untouched. Replacing overwrites {existing === 1 ? "it" : "them"}; this cannot be
         undone.

@@ -1470,7 +1470,6 @@ def test_settings_roundtrip(client: TestClient) -> None:
             "telemetry": {"consented": True, "enabled": True},
             "panels": ["source", "quick-notes"],
             "image_tag": "v3.0.0",
-            "allow_unsafe_overrides": True,
             "theme": "dark",
         },
         headers=BEARER,
@@ -1479,7 +1478,6 @@ def test_settings_roundtrip(client: TestClient) -> None:
     body = r.json()
     assert body["panels"] == ["source", "quick-notes"]
     assert body["image_tag"] == "v3.0.0"
-    assert body["allow_unsafe_overrides"] is True
     assert body["theme"] == "dark"
     assert body["telemetry"] == {"consented": True, "enabled": True}
 
@@ -1538,7 +1536,6 @@ def test_settings_get_drops_a_retired_panel_id_so_put_accepts_its_own_output(
         {
             "panels": ["source", "subject-info", "quick-notes"],
             "image_tag": None,
-            "allow_unsafe_overrides": False,
             "theme": "system",
         }
     )
@@ -1550,6 +1547,21 @@ def test_settings_get_drops_a_retired_panel_id_so_put_accepts_its_own_output(
     r = client.put("/api/settings", json={**body, "theme": "light"}, headers=BEARER)
     assert r.status_code == 200, r.json()
     assert r.json()["panels"] == ["source", "quick-notes"]
+
+
+def test_settings_get_ignores_a_stale_allow_unsafe_overrides_key(
+    client: TestClient,
+) -> None:
+    """A project's ``settings.json`` written before 2026-09-15 may still carry the retired
+    ``allow_unsafe_overrides`` key. Reading it must not crash or surface the key."""
+    from tit.server.routes import settings as settings_route
+
+    settings_route._save_project_settings(
+        {"panels": [], "image_tag": None, "allow_unsafe_overrides": True, "theme": "system"}
+    )
+
+    body = client.get("/api/settings", headers=BEARER).json()
+    assert "allow_unsafe_overrides" not in body
 
 
 def test_system_terminate_refuses_pid_1(client: TestClient) -> None:

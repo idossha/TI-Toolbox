@@ -185,12 +185,13 @@ def test_scheduler_locks_cost_and_cancellation_eligibility():
     )
 
 
-def test_overwrite_permission_only_considers_selected_outputs(
-    licensed_project, monkeypatch
-):
+def test_overwrite_permission_never_blocks_preprocessing(licensed_project):
+    """Preprocessing carries its own explicit replace decision in
+    ``replace_existing_outputs`` -- the pipeline itself (not this HTTP-boundary check)
+    skips or refuses existing stages when it is unset, and honors it as sufficient
+    confirmation, like sim's ``overwrite`` request flag, when it is set."""
     from tit.server.overwrite_policy import check_overwrite_permission
 
-    monkeypatch.setattr("tit.server.routes.settings._load_project_settings", lambda: {})
     subject = reconstruction(licensed_project)
     config = {
         "run_freesurfer": True,
@@ -200,9 +201,7 @@ def test_overwrite_permission_only_considers_selected_outputs(
     }
     check_overwrite_permission("pre", config, ["001"])
     (subject / "mri/ThalamicNuclei.mgz").write_bytes(b"existing")
-    with pytest.raises(HTTPException) as caught:
-        check_overwrite_permission("pre", config, ["001"])
-    assert caught.value.status_code == 403
+    check_overwrite_permission("pre", config, ["001"])
 
 
 def test_pipeline_skips_reconstruction_and_runs_only_selected_missing_subregion(

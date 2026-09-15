@@ -71,7 +71,6 @@ test.beforeAll(async () => {
           telemetry: { consented: true, enabled: false },
           panels: ALL_PANELS,
           image_tag: "idossha/simnibs:v2.3.1",
-          allow_unsafe_overrides: false,
           theme: "system",
         },
       });
@@ -159,11 +158,11 @@ test("settings, results, jobs and viewer keep session-only page state beyond the
   await expectPage(page, "settings");
   await expect(page.locator("#settings-image-tag")).toBeVisible({ timeout: 20_000 });
   await page.locator("#settings-image-tag").fill("idossha/session-memory:round1");
-  const unsafe = page.getByRole("switch", { name: "Allow unsafe overrides" });
-  if (!(await unsafe.isChecked())) await unsafe.click();
+  const telemetry = page.getByRole("switch", { name: "Send anonymous usage data" });
+  if (!(await telemetry.isChecked())) await telemetry.click();
   await awayAndBack("settings");
   await expect(page.locator("#settings-image-tag")).toHaveValue("idossha/session-memory:round1");
-  await expect(page.getByRole("switch", { name: "Allow unsafe overrides" })).toBeChecked();
+  await expect(page.getByRole("switch", { name: "Send anonymous usage data" })).toBeChecked();
 
   await gotoPage(page, "results");
   await expectPage(page, "results");

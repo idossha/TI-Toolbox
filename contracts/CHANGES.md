@@ -1045,3 +1045,11 @@ project files are left on disk; this change performs no project-data migration o
 `missing_count`, and `health_message`. Existing clients may ignore them; absent fields
 must not be interpreted as verified paths. Scene deletion now reports filesystem
 failures instead of claiming success while the scene remains present.
+
+## 2026-09-15 — remove `Settings.allow_unsafe_overrides`
+
+Removed `allow_unsafe_overrides` from `Settings` (`required` no longer lists it). Existing-output
+replacement is now controlled solely by explicit `overwrite: true`/`replace_existing_outputs` on
+the request; `check_overwrite_permission` no longer 403s, only 409s pending confirmation. Non-critical
+`/api/validate` findings never blocked queuing server-side, so no behavior changed there. A stale
+`allow_unsafe_overrides` key in a project's `settings.json` is ignored on read, not rejected.
