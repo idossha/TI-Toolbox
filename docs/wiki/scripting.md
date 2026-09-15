@@ -4,434 +4,250 @@ title: Scripting
 permalink: /wiki/scripting/
 ---
 
-TI-Toolbox exposes the same functionality the interface offers as a **Python scripting API**. Import `tit` modules directly to build custom, reproducible pipelines.
+Every page of the app does its work by calling the `tit` Python API — it builds a config object,
+serialises it to JSON and runs the same module you can run yourself. This page walks the app page
+by page and shows, for each one, the call its **Run** button makes.
 
-## Why Script?
+A runnable version of the same sequence is the
+[Example Notebook]({{ site.baseurl }}/wiki/example-notebook/).
 
-| The interface | Scripting |
-|-----|-----------|
-| Interactive, visual feedback | Reproducible, version-controlled |
-| Configure job rows and subject batches visually | Generate batches programmatically |
-| Set parameters in forms | Programmatic parameter sweeps |
-| Point-and-click | Integrates with your own analysis code |
+## Where scripts run
 
-Both call the same underlying code. Everything you can do in the interface can be done in a script — the interface itself writes a JSON config and runs the same module you would.
+Scripting happens **inside the container** — that is where SimNIBS and `tit` live. Your project is
+mounted at `/mnt/<project_name>/` and everything is pre-installed.
 
-## Getting Started
+**1. The Notebooks page, in the app.** Open it and start typing; the kernel is the container's
+SimNIBS Python with your project mounted.
 
-All scripting happens **inside the container** — that is where SimNIBS and `tit` live. Your
-project is mounted at `/mnt/<project_name>/`, and everything is pre-installed; just import and go.
-
-Two ways in:
-
-**1. The Notebooks page, in the app.** Open it and start typing. The kernel is already in the
-container, with the project mounted, `tit` importable and completions working. This is the
-normal way in v3, and it works the same whether you launched from the desktop app or from
-`tit launch` in a browser.
-
-**2. `docker exec`**, from your own terminal (the app's **Terminal** pane is a read-only job log, not a shell):
+**2. `docker exec`**, from your own terminal:
 
 ```bash
 tit launch --project ~/datasets/000 --status   # prints the container's name
 docker exec -it ti-toolbox-<hash>-tit-1 bash
+simnibs_python my_script.py
 ```
-
-> The container is named after the project directory (`ti-toolbox-<hash>-tit-1`), so a machine
-> with two projects open has two containers. The v2 name `simnibs_container` is gone.
 
 > Installing `tit` on your **host** (`pip install tit`) gives you the
 > [`tit launch` launcher]({{ site.baseurl }}/installation/bash-cli/) and nothing else usable —
 > the scripting API needs SimNIBS, which is in the image.
 
-### Quick import check
+## The project
+
+In the GUI you open a project. In code, `get_path_manager` does the same: it is the object that
+knows where everything in a BIDS project lives, and every module uses it.
 
 ```python
-simnibs_python -c "from tit.sim import SimulationConfig; print('OK')"
-```
-
-## Development Environments
-
-Three ways to write and run scripts inside the container:
-
-### Notebooks (in the app)
-
-Best for interactive exploration, demos, and prototyping — and the shortest path in v3: the
-**Notebooks** page runs notebooks against a kernel inside the container, with your project
-mounted. Nothing to start, no port to open, no token to paste. Notebooks are saved into the
-project, so they travel with the data.
-
-The kernel is **"SimNIBS + TI-Toolbox"**, which gives full autocompletion and signature help
-for `tit` and `simnibs`.
-
-A fully executed example, with outputs and a downloadable `.ipynb`, is on the [Example Notebook]({{ site.baseurl }}/wiki/example-notebook/) page.
-
-### Neovim
-
-The container ships with Neovim pre-configured with LSP autocompletion, signature help, hover docs, and go-to-definition for `tit` and `simnibs` code.
-
-```bash
-nvim my_script.py
-```
-
-**Key bindings (active in Python files):**
-
-| Key | Action |
-|-----|--------|
-| `gd` | Go to definition |
-| `gr` | List references |
-| `K` | Hover documentation |
-| `<C-k>` (insert mode) | Signature help |
-| `<leader>rn` | Rename symbol |
-| `<Tab>` / `<S-Tab>` | Cycle completions |
-| `<CR>` | Confirm completion |
-| `<C-Space>` | Trigger completion manually |
-
-### Plain Scripts
-
-Write a `.py` file and run it directly:
-
-```bash
-simnibs_python my_script.py
-```
-
-Importing `tit` initializes logging. Initialize path resolution with `get_path_manager(project_root)` before calling APIs that use the active project.
-
-## Import Quick Reference
-
-```python
-# Core
 from tit import get_path_manager
+from tit.pre import discover_subjects
 
-# Simulation
-from tit.sim import SimulationConfig, Montage, run_simulation, load_montages
+pm = get_path_manager("/mnt/000")
+print(discover_subjects("/mnt/000"))
+```
 
-# Optimization
+| Call | GUI equivalent |
+|---|---|
+| `get_path_manager(project_dir)` | Opening a project |
+| `discover_subjects(project_dir)` | The subject list |
+| `pm.m2m(sid)` | The head model of a subject |
+| `pm.simulations(sid)` | The Simulator's results list |
+| `pm.flex_search(sid)` / `pm.ex_search(sid)` | The Optimizer's results list |
+
+## Pre-processing
+
+In the GUI you tick the conversion and head-model boxes on the **Pre-processing** page and press
+Run. Those tick boxes are the keyword arguments of `run_pipeline`.
+
+```python
+from tit.pre import run_pipeline, check_m2m_exists
+
+if not check_m2m_exists("/mnt/000", "ernie"):
+    run_pipeline(["ernie"], convert_dicom=True, create_m2m=True)
+```
+
+| Argument | GUI label | Default |
+|---|---|---|
+| `subject_ids` | Subject selection | required |
+| `convert_dicom` | Convert DICOM to NIfTI | `False` |
+| `create_m2m` | Create head model (charm) | `False` |
+| `run_fastsurfer` | FastSurfer segmentation | `False` |
+| `run_freesurfer` | FreeSurfer recon-all | `False` |
+| `run_tissue_analysis` | Tissue analysis | `False` |
+| `run_qsiprep` / `run_qsirecon` | DWI preprocessing / reconstruction | `False` |
+| `extract_dti` | Extract DTI tensor | `False` |
+| `skip_existing_outputs` | Skip completed steps | `False` |
+
+## Optimizer — flex-search
+
+In the GUI you fill the **Optimizer ▸ Flex** form — goal, current, electrode size, target ROI —
+and press Run. That form is `FlexConfig`.
+
+```python
 from tit.opt import FlexConfig, run_flex_search
+
+cfg = FlexConfig(
+    subject_id="ernie",
+    goal="mean",
+    postproc="max_TI",
+    current_mA=1.0,
+    electrode=FlexConfig.ElectrodeConfig(shape="ellipse", dimensions=[8.0, 8.0]),
+    roi=FlexConfig.SphericalROI(x=-37.0, y=-21.0, z=58.0, radius=10.0, use_mni=True),
+)
+result = run_flex_search(cfg)
+print(result.best_value, result.output_folder)
+```
+
+| Field | GUI label | Default |
+|---|---|---|
+| `subject_id` | Subject | required |
+| `goal` | Optimization goal (`mean`, `max`, `focality`, `focality_tf`) | required |
+| `postproc` | Field post-processing (`max_TI`, `dir_TI_normal`, `dir_TI_tangential`) | required |
+| `current_mA` | Current per channel (mA) | required |
+| `electrode` | Electrode Parameters box | required |
+| `roi` | Target ROI | required |
+| `anisotropy_type` | Conductivity | `"scalar"` |
+| `intensity_weight` | Intensity weight $w$ (`focality_tf` only) | `0.0` |
+| `eeg_net` / `enable_mapping` | Map result to an EEG net | `None` / `False` |
+| `n_multistart` | Restarts | `1` |
+| `max_iterations`, `population_size` | Solver settings (blank = SimNIBS default) | `None` |
+| `min_electrode_distance` | Minimum electrode distance (mm) | `5.0` |
+| `run_final_electrode_simulation` | Simulate the winning montage | `False` |
+
+ROI types: `FlexConfig.SphericalROI(x, y, z, radius, use_mni=, volumetric=, tissues=)`,
+`FlexConfig.AtlasROI(atlas_path, label, hemisphere)` for a cortical `.annot` region, and
+`FlexConfig.SubcorticalROI(atlas_path, label, tissues, atlas_space)` for a volumetric one. Each
+scalar field also accepts a list, which unions several regions into one target.
+
+The `focality_tf` goal maximises a threshold-free contrast:
+
+$$\frac{\overline{E}_{\mathrm{ROI}}^{\,1+w}}{p_{95}\!\left(E_{\mathrm{non\text{-}ROI}}\right)}$$
+
+## Optimizer — exhaustive search
+
+In the GUI you pick a leadfield, an ROI file and the electrodes to search on the **Optimizer ▸
+Ex** page. That is `ExConfig`.
+
+```python
 from tit.opt import ExConfig, run_ex_search
 
-# Analysis
-from tit.analyzer import Analyzer, run_group_analysis
-
-# Statistics
-from tit.stats import run_group_comparison, GroupComparisonConfig
-
-# Preprocessing
-from tit.pre import run_pipeline
+cfg = ExConfig(
+    subject_id="ernie",
+    leadfield_hdf="ernie_leadfield_EEG10-20_Okamoto_2004.hdf5",
+    roi_name="L-Insula.csv",
+    electrodes=ExConfig.PoolElectrodes(electrodes=["Fp1", "Fp2", "C3", "C4", "Cz", "Pz"]),
+)
+run_ex_search(cfg)
 ```
 
-## API Reference
+| Field | GUI label | Default |
+|---|---|---|
+| `leadfield_hdf` | Leadfield | required |
+| `roi_name` | ROI file | required |
+| `electrodes` | `PoolElectrodes` (one list) or `BucketElectrodes` (four lists) | required |
+| `total_current` | Total current (mA) | `2.0` |
+| `current_step` | Current step (mA) | `0.5` |
+| `channel_limit` | Per-channel limit (mA) | `None` |
+| `roi_radius` | ROI radius (mm) | `3.0` |
+| `roi_coordinate_space` | ROI coordinates (`subject`/`mni`) | `"subject"` |
+| `n_jobs` | Parallel workers | `-1` |
 
-### Preprocessing
+`MExConfig` + `run_m_ex_search` are the same fields for the multipolar (4-pair) search, with
+`current_mA` in place of `total_current`/`current_step`.
+
+## Simulator
+
+In the GUI you choose a montage from the dropdown, set the electrode parameters and press Run.
+The dropdown is the project's montage list; `load_montages` reads exactly that file.
 
 ```python
-from tit.pre import run_pipeline
+from tit.sim import SimulationConfig, run_simulation, load_montages, list_montage_names
 
-run_pipeline(
-    subject_ids=["101", "102"],
-    convert_dicom=True,       # DICOM -> NIfTI
-    run_recon=True,           # FreeSurfer recon-all
-    create_m2m=True,          # SimNIBS CHARM head mesh
-    parallel_recon=True,      # Run recon-all in parallel
-)
-```
+print(list_montage_names("GSN-HydroCel-185.csv", mode="U"))
+montages = load_montages(montage_names=["L_Insula"], eeg_net="GSN-HydroCel-185.csv")
 
-See also: `scripts/preprocess.py`
-
-### Simulation
-
-```python
-from tit.sim import SimulationConfig, Montage, run_simulation, load_montages
-
-# Option A: Load montages from the project's `montage_list.json`
-montages = load_montages(
-    montage_names=["L_Insula"],
-    eeg_net="GSN-HydroCel-185.csv",
-)
-
-# Option B: Define a montage explicitly
-montages = [
-    Montage(
-        name="Custom_Motor",
-        mode=Montage.Mode.NET,
-        electrode_pairs=[("E010", "E011"), ("E012", "E013")],
-        eeg_net="GSN-HydroCel-185.csv",
-    ),
-]
-
-config = SimulationConfig(
-    subject_id="101",
+cfg = SimulationConfig(
+    subject_id="ernie",
     montages=montages,
-    conductivity="scalar",        # "scalar", "vn", "dir", or "mc"
-    intensities=[1.0, 1.0],      # mA per electrode pair
-    electrode_shape="ellipse",    # "ellipse" or "rect"
-    electrode_dimensions=[8.0, 8.0],  # mm
-    gel_thickness=4.0,            # mm
-    rubber_thickness=2.0,         # mm
-    output_fields=["TI_max"],     # "TI_max", "TI_avg", "hf_peak", "hf_sar"
+    conductivity="scalar",
+    intensities=[1.0, 1.0],
+    output_fields=["TI_max"],
 )
-
-run_simulation(config)
+run_simulation(cfg)
 ```
 
-`output_fields` selects which volume-mesh fields the simulation computes and writes. It defaults to `["TI_max"]` only — `TI_avg` and the safety fields (`hf_peak`, `hf_sar`) are off unless explicitly requested.
+| Field | GUI label | Default |
+|---|---|---|
+| `subject_id` | Subject | required |
+| `montages` | Montage selection | required |
+| `conductivity` | Conductivity (`scalar`, `vn`, `dir`, `mc`) | `"scalar"` |
+| `intensities` | Current per pair (mA) | `[1.0, 1.0]` |
+| `electrode_shape` | Electrode shape | `"ellipse"` |
+| `electrode_dimensions` | Electrode dimensions (mm) | `[8.0, 8.0]` |
+| `gel_thickness` | Gel thickness (mm) | `4.0` |
+| `rubber_thickness` | Rubber thickness (mm) | `2.0` |
+| `output_fields` | Output fields (`TI_max`, `TI_avg`, `hf_peak`, `hf_sar`) | `["TI_max"]` |
+| `map_to_surf` / `map_to_vol` / `map_to_mni` / `map_to_fsavg` | Output mapping checkboxes | `True` / `False` / `False` / `True` |
 
-**Simulation types** (auto-detected from montage):
-- **TI** (2 electrode pairs): Standard temporal interference
-- **mTI** (4+ electrode pairs): Multi-channel TI with higher focality
+Two electrode pairs run a TI simulation, four or more run mTI — the API picks for you.
 
-**Conductivity models:**
-- `"scalar"` — Isotropic, fixed per tissue type (default)
-- `"vn"` — Volume-normalized anisotropic (requires DTI)
-- `"dir"` — Directly-mapped anisotropic (requires DTI)
-- `"mc"` — Mean-conductivity anisotropic (requires DTI)
+## Analyzer
 
-See also: `scripts/simulator.py`
-
-### Flex Search (Differential Evolution Optimization)
-
-Finds optimal electrode placements by searching over the full scalp surface.
-
-```python
-from tit.opt import FlexConfig, run_flex_search
-
-config = FlexConfig(
-    subject_id="101",
-    goal="mean",                  # "mean", "max", "focality", or "focality_tf"
-    postproc="max_TI",            # "max_TI", "dir_TI_normal", "dir_TI_tangential"
-    current_mA=2.0,
-    electrode=FlexConfig.ElectrodeConfig(
-        shape="ellipse",
-        dimensions=[8.0, 8.0],
-        gel_thickness=4.0,
-    ),
-    roi=FlexConfig.SphericalROI(
-        x=-35.0, y=5.0, z=5.0,
-        radius=10.0,
-        use_mni=True,
-    ),
-    n_multistart=3,               # Independent optimization runs
-    min_electrode_distance=5.0,   # mm
-    skin_region_margin_mm=0.0,    # Signed valid-skin-region margin in mm
-    avoid_landmark_regions=True,  # Keep eye/ear guards when expanding
-)
-
-result = run_flex_search(config)
-print(f"Best value: {result.best_value:.4f}")
-print(f"Output:     {result.output_folder}")
-```
-
-**ROI types:**
-- `FlexConfig.SphericalROI(x, y, z, radius, use_mni, volumetric, tissues)` — Sphere at MNI or subject coordinates. `volumetric=True` evaluates on volume tetrahedra instead of the cortical surface (for deep/subcortical targets); `tissues` (`"GM"`, `"WM"`, or `"both"`) then selects which compartments are included.
-- `FlexConfig.AtlasROI(atlas_path, label, hemisphere)` — Cortical surface region from a FreeSurfer `.annot` atlas.
-- `FlexConfig.SubcorticalROI(atlas_path, label, tissues, atlas_space)` — Volumetric subcortical region from a volumetric atlas. `atlas_space` (`"subject"` or `"mni"`) is the space of the atlas file.
-
-`x`/`y`/`z`/`radius` (`SphericalROI`) and `atlas_path`/`label`/`hemisphere` (`AtlasROI`) each accept either a single value or a parallel list of values — passing lists unions multiple regions into one combined target.
-
-See also: `scripts/flex.py`
-
-### Exhaustive Search
-
-Evaluates all electrode combinations from a candidate pool. Requires a pre-computed leadfield.
+In the GUI you choose a simulation, a space and a region on the **Analyzer** page. `Analyzer` is
+that form, and its methods return the numbers the results table shows.
 
 ```python
-from tit.opt import ExConfig, run_ex_search
-
-# Pooled mode: all electrodes can go to any channel position
-config = ExConfig(
-    subject_id="101",
-    leadfield_hdf="101_leadfield_EEG10-20_Okamoto_2004.hdf5",
-    roi_name="L-Insula.csv",
-    electrodes=ExConfig.PoolElectrodes(
-        electrodes=["Fp1", "Fp2", "C3", "C4", "Cz", "Pz", "T7", "T8"]
-    ),
-    total_current=2.0,
-    current_step=0.2,
-    channel_limit=1.2,
-)
-
-# Bucketed mode: electrodes pre-assigned to specific channel positions
-config = ExConfig(
-    subject_id="101",
-    leadfield_hdf="101_leadfield_EEG10-20_Okamoto_2004.hdf5",
-    roi_name="L-Insula.csv",
-    electrodes=ExConfig.BucketElectrodes(
-        e1_plus=["Fp1", "Fp2"],
-        e1_minus=["Pz", "Oz"],
-        e2_plus=["C3", "F3"],
-        e2_minus=["C4", "F4"],
-    ),
-    total_current=2.0,
-    current_step=0.5,
-)
-
-result = run_ex_search(config)
-```
-
-`roi_name` is the single-ROI CSV filename (the `.csv` suffix is appended automatically if missing); it also always supplies the metric-key prefix and output-directory label, even when `roi_names`/`roi_atlas` are used. To union multiple spherical ROIs into one combined target, pass `roi_names` (a list of CSV filenames whose spheres are OR-folded together) — when given, it replaces `roi_name` for the actual centers used, so include `roi_name`'s own file in the list if you want it counted too. `roi_atlas` (a list of `ExConfig.AtlasROI(atlas_path, label)` volumetric atlas/mask ROIs) unions in further, non-spherical regions:
-
-```python
-config = ExConfig(
-    subject_id="101",
-    leadfield_hdf="101_leadfield_EEG10-20_Okamoto_2004.hdf5",
-    roi_name="L-Insula.csv",
-    roi_names=["L-Insula.csv", "R-Insula.csv"],  # union of spherical centers
-    roi_coordinate_space="subject",  # space of roi_name/roi_names centers: "subject" (default) or "mni"
-    electrodes=ExConfig.PoolElectrodes(
-        electrodes=["Fp1", "Fp2", "C3", "C4", "Cz", "Pz", "T7", "T8"]
-    ),
-    total_current=2.0,
-    current_step=0.2,
-)
-
-# roi_names=[] means "no spherical centers at all" -- for a purely atlas-driven ROI
-config = ExConfig(
-    subject_id="101",
-    leadfield_hdf="101_leadfield_EEG10-20_Okamoto_2004.hdf5",
-    roi_name="L-Insula.csv",
-    roi_names=[],
-    roi_atlas=[ExConfig.AtlasROI(atlas_path="aseg.mgz", label=17)],  # label=None treats the file as a binary mask
-    electrodes=ExConfig.PoolElectrodes(
-        electrodes=["Fp1", "Fp2", "C3", "C4", "Cz", "Pz", "T7", "T8"]
-    ),
-    total_current=2.0,
-    current_step=0.2,
-)
-```
-
-`roi_atlas` is always subject space, regardless of `roi_coordinate_space`.
-
-See also: `scripts/ex.py`
-
-### Analysis
-
-Extract field statistics from simulation results.
-
-```python
-from tit.analyzer import Analyzer, run_group_analysis
-
-# Create an analyzer for a completed simulation
-analyzer = Analyzer(
-    subject_id="101",
-    simulation="L_Insula",   # Must match the montage name
-    space="voxel",           # "voxel" or "mesh"
-)
-
-# Spherical ROI analysis
-result = analyzer.analyze_sphere(
-    center=(-35.0, 5.0, 5.0),
-    radius=10.0,
-    coordinate_space="MNI",  # or "subject"
-    visualize=True,
-)
-print(f"Mean: {result.mean:.4f} V/m")
-print(f"Max:  {result.max:.4f} V/m")
-
-# Cortical atlas ROI analysis (requires FreeSurfer parcellation)
-result = analyzer.analyze_cortex(
-    atlas="DK40",
-    region="superiorfrontal",
-    visualize=True,
-)
-```
-
-#### Group Analysis
-
-```python
-group_result = run_group_analysis(
-    subject_ids=["101", "102", "103"],
-    simulation="L_Insula",
-    space="voxel",
-    analysis_type="spherical",
-    center=(-35.0, 5.0, 5.0),
-    radius=10.0,
-    coordinate_space="MNI",
-    visualize=True,
-)
-```
-
-See also: `scripts/analyzer.py`
-
-### Statistical Testing
-
-Cluster-based permutation testing for group comparisons.
-
-```python
-from tit.stats import run_group_comparison, GroupComparisonConfig
-
-subjects = GroupComparisonConfig.load_subjects("path/to/subjects.csv")
-
-config = GroupComparisonConfig(
-    analysis_name="active_vs_sham",
-    subjects=subjects,
-    test_type=GroupComparisonConfig.TestType.UNPAIRED,
-    alternative=GroupComparisonConfig.Alternative.TWO_SIDED,
-    cluster_stat=GroupComparisonConfig.ClusterStat.MASS,
-    n_permutations=1000,
-    tissue_type=GroupComparisonConfig.TissueType.GREY,
-)
-result = run_group_comparison(config)
-
-print(f"Significant clusters: {result.n_significant_clusters}")
-print(f"Significant voxels:   {result.n_significant_voxels}")
-print(f"Output:               {result.output_dir}")
-```
-
-See also: `scripts/cluster_permutation.py`
-
-### Full End-to-End Pipeline
-
-```python
-from tit.pre import run_pipeline
-from tit.opt import FlexConfig, run_flex_search
-from tit.sim import SimulationConfig, run_simulation, load_montages
 from tit.analyzer import Analyzer
 
-SUBJECTS = ["ernie"]
-EEG_NET = "GSN-HydroCel-185.csv"
-
-# 1. Preprocessing
-run_pipeline(subject_ids=SUBJECTS, create_m2m=True)
-
-# 2. Optimization
-for subj in SUBJECTS:
-    config = FlexConfig(
-        subject_id=subj,
-        goal="mean",
-        postproc="max_TI",
-        current_mA=2.0,
-        electrode=FlexConfig.ElectrodeConfig(),
-        roi=FlexConfig.SphericalROI(x=-35, y=5, z=5, radius=10.0, use_mni=True),
-        n_multistart=3,
-    )
-    run_flex_search(config)
-
-# 3. Simulation
-montages = load_montages(montage_names=["L_Insula"], eeg_net=EEG_NET)
-for subj in SUBJECTS:
-    config = SimulationConfig(
-        subject_id=subj,
-        montages=montages,
-        conductivity="scalar",
-        intensities=[1.0, 1.0],
-    )
-    run_simulation(config)
-
-# 4. Analysis
-for subj in SUBJECTS:
-    analyzer = Analyzer(subject_id=subj, simulation="L_Insula", space="voxel")
-    result = analyzer.analyze_sphere(
-        center=(-35.0, 5.0, 5.0),
-        radius=10.0,
-        coordinate_space="MNI",
-        visualize=True,
-    )
+analyzer = Analyzer(subject_id="ernie", simulation="L_Insula", space="mesh")
+roi = analyzer.analyze_cortex(atlas="DK40", region="lh.insula")
+print(roi.roi_mean, roi.roi_max, roi.roi_focality)
 ```
 
-See also: `scripts/pipeline.py`
+| Field | GUI label | Default |
+|---|---|---|
+| `subject_id` | Subject | required |
+| `simulation` | Simulation | required |
+| `space` | Space (`mesh` or `voxel`) | `"mesh"` |
+| `tissue_type` | Tissue (voxel space only) | `"GM"` |
+| `field` | Field file (blank = auto) | `None` |
+| `analyze_cortex(atlas, region, visualize)` | Cortical (atlas region) analysis | — |
+| `analyze_sphere(center, radius, coordinate_space, visualize)` | Spherical analysis | — |
 
-## JSON Config Interface
+`run_group_analysis(subject_ids, simulation, space, analysis_type, ...)` runs the same analysis
+across subjects, as the Analyzer's multi-subject mode does.
 
-Each module can also be invoked as a subprocess accepting a JSON config file. This is how the interface drives computation — every run page builds a config and the server runs exactly this:
+## Group statistics
+
+In the GUI you define a comparison on the **Statistics** page and press Run. That is
+`GroupComparisonConfig` plus `run_group_comparison`.
+
+```python
+from tit.stats import GroupComparisonConfig, run_group_comparison
+
+cfg = GroupComparisonConfig(
+    analysis_name="active_vs_sham",
+    subjects=GroupComparisonConfig.load_subjects("subjects.csv"),
+    test_type=GroupComparisonConfig.TestType.UNPAIRED,
+)
+res = run_group_comparison(cfg)
+```
+
+| Field | GUI label | Default |
+|---|---|---|
+| `analysis_name` | Analysis name | required |
+| `subjects` | Subject table (or a CSV via `load_subjects`) | required |
+| `test_type` | Test type (paired / unpaired / one-sample) | `UNPAIRED` |
+| `alternative` | Alternative hypothesis | `TWO_SIDED` |
+| `cluster_stat` | Cluster statistic (mass / size) | `MASS` |
+| `cluster_threshold` | Cluster-forming threshold | `0.05` |
+| `n_permutations` | Permutations | `1000` |
+| `alpha` | Alpha | `0.05` |
+| `tissue_type` | Tissue | `GREY` |
+| `space` | Space (`MNI` or `fsaverage`) | `MNI` |
+
+## The JSON config interface
+
+The app never calls these functions in-process — it writes the serialised config to JSON and runs
+the module. You can run the exact same thing:
 
 ```bash
 simnibs_python -m tit.sim        config.json
@@ -443,12 +259,14 @@ simnibs_python -m tit.stats      config.json
 simnibs_python -m tit.pre        config.json
 ```
 
-`tit.opt.mex` runs multipolar (4-pair, 8-electrode) exhaustive search, consuming `MExConfig`. See [Ex-Search's multipolar mode]({{ site.baseurl }}/wiki/ex-search/#multipolar-mti-mode) for the full workflow.
+Config files are written by `tit.config_io.write_config_json()`.
 
-Config files are generated programmatically via `tit.config_io.write_config_json()`.
-
-## AI Coding Agents
+## AI coding agents
 
 Full guide: [AI Assistant]({{ site.baseurl }}/wiki/ai-assistant/).
 
-If you write scripts with an AI assistant (Claude Code, Codex, Cursor, ...), install the [TI-Toolbox agent plugin](https://github.com/idossha/TI-Toolbox/tree/main/agent-plugin). It gives the assistant this wiki, the `tit` source and a read-only view of your project directory through an MCP server, so it stops guessing API fields. In Claude Code: `/plugin marketplace add idossha/TI-Toolbox` then `/plugin install ti-toolbox@ti-toolbox`.
+If you write scripts with an AI assistant, install the
+[TI-Toolbox agent plugin](https://github.com/idossha/TI-Toolbox/tree/main/agent-plugin): it gives
+the assistant this wiki, the `tit` source and a read-only view of your project through an MCP
+server, so it stops guessing API fields. In Claude Code:
+`/plugin marketplace add idossha/TI-Toolbox` then `/plugin install ti-toolbox@ti-toolbox`.

@@ -59,7 +59,8 @@ Every project gets one seeded notebook the first time you open the page:
 subjects, loads the first real TI field it finds, and plots and tabulates it. Deleting it is
 permanent; there is no "restore example".
 
-A written-out version of the same walkthrough, with its outputs, is the
+A downloadable notebook that walks the whole app — Pre-processing, Optimizer, Simulator,
+Analyzer — one cell per page, is the
 [Example Notebook]({{ site.baseurl }}/wiki/example-notebook/) page.
 
 > **What's new in v3.** 2.x shipped a Jupyter server in the container that you reached through a
