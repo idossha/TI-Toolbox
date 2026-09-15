@@ -19,10 +19,9 @@ The same thin JSON-config runner as :mod:`tit.opt.leadfield_runner` and
 :mod:`tit.stats.nifti_average`: read the spec, initialise the
 :class:`~tit.paths.PathManager` from ``project_dir``, do the work, exit 0/non-zero.
 ``project_init`` has no config dataclass (it is outside ``PipelineKind``, so
-``/api/validate`` and ``/api/plan`` 404 for it by design); its config is two optional booleans:
-``example_data`` (copy the bundled raw T1/T2) and ``example_subject`` (download the SimNIBS
-example subject with its ``m2m_ernie`` head model via :func:`tit.examples.fetch_ernie`, the
-``POST /api/project/example-subject`` route).
+``/api/validate`` and ``/api/plan`` 404 for it by design); its config is one optional boolean, ``example_subject``
+(download the SimNIBS example subject with its ``m2m_ernie`` head model via
+:func:`tit.examples.fetch_ernie`, the ``POST /api/project/example-subject`` route).
 
 Idempotent by construction: :func:`tit.project_init.initialize_project_structure` creates only
 what is missing, so re-running it on an established project is a no-op that still exits 0.
@@ -35,12 +34,7 @@ import sys
 from pathlib import Path
 
 from tit.paths import get_path_manager
-from tit.project_init import initialize_project_structure, setup_example_data
-
-
-def _toolbox_root() -> Path:
-    """The checkout/install root that holds the bundled example data (``tit/``'s parent)."""
-    return Path(__file__).resolve().parent.parent.parent
+from tit.project_init import initialize_project_structure
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -64,13 +58,6 @@ def main(argv: list[str] | None = None) -> int:
 
     initialize_project_structure(Path(project_dir))
     print(f"Project structure ready: {project_dir}", flush=True)
-
-    if data.get("example_data"):
-        copied = setup_example_data(_toolbox_root(), Path(project_dir))
-        print(
-            "Example data copied" if copied else "Example data already present; nothing copied",
-            flush=True,
-        )
 
     if data.get("example_subject"):
         from tit.examples import fetch_ernie

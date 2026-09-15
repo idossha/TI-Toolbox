@@ -634,7 +634,7 @@ function NotebooksPage() {
             <Stack gap={3} align="center" className="nb-page__blank">
               <EmptyState
                 icon={<BookOpen size={20} />}
-                message="No notebook open. Cells run on the container's SimNIBS Python, so tit, simnibs, numpy, nibabel, pandas and matplotlib are importable with nothing to install. For a worked example — a real field summarised, plotted and tabulated — open examples/getting-started."
+                message="No notebook open. Cells run on the container's SimNIBS Python, so tit, simnibs, numpy, nibabel, pandas and matplotlib are importable with nothing to install. For a worked example that walks every page against the example subject, open examples/example_workflow."
                 actionLabel={example === undefined ? "New notebook" : "Open the example"}
                 onAction={() => (example === undefined ? create.mutate() : setOpen(example.name))}
               />

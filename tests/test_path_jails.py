@@ -98,7 +98,7 @@ def test_filesystem_root_jail_accepts_a_real_nested_file(tree, monkeypatch, surf
     assert result == inside.resolve()
 
 
-@pytest.mark.parametrize("name", ["analysis", "examples/getting-started"])
+@pytest.mark.parametrize("name", ["analysis", "examples/example_workflow"])
 def test_notebook_jail_permits_new_files_without_creating_them(tmp_path, name):
     result = notebooks.notebook_path(tmp_path, name)
     expected = tmp_path / "code" / "ti-toolbox" / "notebooks" / (name + ".ipynb")
@@ -257,6 +257,7 @@ def test_example_stamp_outward_symlink_blocks_delete_before_mutation(tmp_path, e
     outside = tmp_path / "outside-stamp"
     if exists:
         outside.write_bytes(b"untouched")
+    (directory / "examples/.seeded").unlink()
     (directory / "examples/.seeded").symlink_to(outside)
     with pytest.raises(notebooks.NotebookError) as exc:
         notebooks.delete_notebook(tmp_path, notebooks.EXAMPLE_NAME)

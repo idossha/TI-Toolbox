@@ -29,7 +29,7 @@ _STATUS = {"bad-name": 422, "not-found": 404, "invalid": 422, "bad-notebook": 42
 # The path parameter is `{name:path}`, not `{name}`, because a name may carry the
 # one `examples/` prefix (:data:`tit.server.notebooks.EXAMPLES_DIR`) and a plain
 # path parameter stops at a separator -- so `GET
-# /api/notebooks/examples/getting-started.ipynb` 404'd and the seeded worked
+# /api/notebooks/examples/example_workflow.ipynb` 404'd and the seeded worked
 # example could not be opened at all. What keeps this safe is unchanged and was
 # never the router's pattern: every name goes through
 # :func:`tit.server.notebooks.normalise_name`, which accepts exactly one known
@@ -56,10 +56,9 @@ def _fail(error: nb.NotebookError) -> HTTPException:
 )
 def list_notebooks(request: Request) -> dict[str, Any]:
     root = _project_root(request)
-    # The worked example is seeded here, on the first listing a project ever
-    # gets, because it names *this* project's subjects and fields — there is
-    # nothing to ship in the image that would be correct before a project
-    # exists. A user who deletes it is not given it back.
+    # The packaged worked example is copied in on listing (first time, and
+    # again when the package's copy changed and the user never edited theirs).
+    # A user who deletes it is not given it back.
     try:
         nb.seed_example(root)
     except nb.NotebookError as error:  # a read-only project must still list

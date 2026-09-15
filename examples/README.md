@@ -2,7 +2,7 @@
 
 | File | What it is |
 |---|---|
-| `notebooks/example_workflow.ipynb` | The `tit` Python API in eight cells: project, example subject, pre-processing, optimizer, simulator, analyzer, results. Mirrored cell for cell on the wiki's [Example Notebook](https://idossha.github.io/TI-Toolbox/wiki/example-notebook/) page. |
+| `notebooks/example_workflow.ipynb` | Symlink to `tit/server/examples/example_workflow.ipynb`, the one source the app also seeds into every project as `examples/example_workflow.ipynb`. The `tit` Python API in eight cells: project, example subject, pre-processing, optimizer, simulator, analyzer, results. Mirrored cell for cell on the wiki's [Example Notebook](https://idossha.github.io/TI-Toolbox/wiki/example-notebook/) page. |
 
 ## Running the notebook
 

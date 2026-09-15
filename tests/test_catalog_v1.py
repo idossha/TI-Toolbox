@@ -1604,10 +1604,25 @@ def test_project_init_submits_a_job_or_degrades_to_503(client: TestClient) -> No
     """``project_init`` is in the contract's frozen JobKind enum but B1 has
     not yet added it to ``tit.jobs.spec.JOB_KINDS``/``tit.jobs.kinds`` -- this
     route must degrade to a clear 503, never a raw 500, until that lands."""
-    r = client.post("/api/project/init", json={"example_data": False}, headers=BEARER)
+    r = client.post("/api/project/init", json={}, headers=BEARER)
     assert r.status_code in (201, 503)
     if r.status_code == 201:
         assert r.json()["kind"] == "project_init"
+
+
+def test_project_status_round_trips_prompt_answers(client: TestClient) -> None:
+    """``GET/PATCH /api/project/status`` is how the desktop remembers that the
+    "Add the example subject?" dialog was answered -- server-side, per project."""
+    before = client.get("/api/project/status", headers=BEARER)
+    assert before.status_code == 200
+    assert before.json().get("example_subject_prompted") is not True
+    r = client.patch("/api/project/status", json={"example_subject_prompted": True}, headers=BEARER)
+    assert r.status_code == 200
+    assert r.json()["example_subject_prompted"] is True
+    after = client.get("/api/project/status", headers=BEARER)
+    assert after.json()["example_subject_prompted"] is True
+    # Old projects may still carry keys of removed features; they pass through.
+    assert "last_updated" in after.json()
 
 
 def test_example_subject_submits_a_project_init_job(client: TestClient) -> None:

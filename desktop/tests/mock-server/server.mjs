@@ -1728,9 +1728,17 @@ function params(matcher, pathname) {
 route("GET", "/api/version", (ctx) => json(ctx.res, 200, version));
 route("GET", "/api/capabilities", (ctx) => json(ctx.res, 200, capabilities));
 route("GET", "/api/project", (ctx) => json(ctx.res, 200, project));
+// The mock project already holds ernie, so the once-per-project "Add the example subject?"
+// dialog never fires against it; PATCH merges like tit.project_init.update_project_status.
+let projectStatus = { example_subjects: ["ernie"], example_subject_prompted: true };
+route("GET", "/api/project/status", (ctx) => json(ctx.res, 200, projectStatus));
+route("PATCH", "/api/project/status", async (ctx) => {
+  projectStatus = { ...projectStatus, ...((await ctx.body()) ?? {}) };
+  json(ctx.res, 200, projectStatus);
+});
 route("POST", "/api/project/init", async (ctx) => {
-  const body = await ctx.body();
-  const job = createJob({ kind: "project_init", config: { example_data: !!body.example_data }, subject_ids: [] });
+  await ctx.body();
+  const job = createJob({ kind: "project_init", config: {}, subject_ids: [] });
   json(ctx.res, 201, job.status);
 });
 route("POST", "/api/project/example-subject", async (ctx) => {
@@ -2615,9 +2623,9 @@ function notebookName(name) {
   return `${prefix}${rest}.ipynb`;
 }
 
-const EXAMPLE_NAME = "examples/getting-started.ipynb";
+const EXAMPLE_NAME = "examples/example_workflow.ipynb";
 
-/** Mirrors `tit.server.notebooks.EXAMPLE_INTRO`'s feature set, not its prose. */
+/** Mirrors the packaged example notebook's markdown feature set, not its prose. */
 const EXAMPLE_INTRO = [
   "# Getting started with TI-Toolbox notebooks",
   "",
@@ -2695,7 +2703,7 @@ function starterNotebook() {
         id: "intro",
         metadata: {},
         source:
-          "# New TI-Toolbox notebook\n\nThis kernel is the container's **SimNIBS Python**, so `tit`, `simnibs`, `numpy`, `nibabel`, `pandas` and `matplotlib` are all importable with nothing to install.\n\nRun the cell below with **\u21e7\u21b5**. For a worked example \u2014 a real field summarised, plotted and tabulated \u2014 open `examples/getting-started.ipynb`.",
+          "# New TI-Toolbox notebook\n\nThis kernel is the container's **SimNIBS Python**, so `tit`, `simnibs`, `numpy`, `nibabel`, `pandas` and `matplotlib` are all importable with nothing to install.\n\nRun the cell below with **\u21e7\u21b5**. For a worked example \u2014 a real field summarised, plotted and tabulated \u2014 open `examples/example_workflow.ipynb`.",
       },
       {
         cell_type: "code",

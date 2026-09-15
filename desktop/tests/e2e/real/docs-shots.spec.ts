@@ -162,7 +162,7 @@ test("a notebook with real output — the seeded worked example", async () => {
   test.setTimeout(120_000);
   await gotoPage(page, "notebooks", "Notebooks");
   await expectPage(page, "notebooks");
-  const example = page.getByTestId("nb-list-item").filter({ hasText: "getting-started" }).first();
+  const example = page.getByTestId("nb-list-item").filter({ hasText: "example_workflow" }).first();
   await expect(example).toBeVisible({ timeout: 20_000 });
   await example.click();
   await expect(page.getByTestId("nb-notebook")).toBeVisible({ timeout: 20_000 });

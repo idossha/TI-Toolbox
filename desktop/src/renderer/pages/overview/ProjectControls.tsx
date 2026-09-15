@@ -1,12 +1,20 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FolderOpen, Layers, Target, Waves, ChartNoAxesCombined, Box, Download } from "lucide-react";
 import { Button } from "../../ui/Button";
 import { Callout } from "../../ui/Feedback";
+import { Dialog } from "../../ui/Overlay";
 import { isElectron } from "../../env";
 import { api, unwrap } from "../../api/client";
 import { subscribeJob, useJobsStream } from "../../app/jobs/useJobsStream";
 import { TERMINAL_STATES } from "../../app/jobs-rail/api";
+import {
+  EXAMPLE_SUBJECT_PROMPT,
+  answerExampleSubjectPrompt,
+  shouldPromptForExampleSubject,
+  type ProjectStatus,
+  type PromptAnswer,
+} from "./exampleSubjectPrompt";
 
 function ProjectDirectoryForm({ switching = false, onCancel }: { switching?: boolean; onCancel?: () => void }) {
   const inputId = switching ? "switch-project-dir" : "project-dir";
@@ -126,9 +134,10 @@ export function OpenProject() {
 /**
  * `POST /api/project/example-subject`: a `project_init` job that runs `tit.examples.fetch_ernie`
  * (the notebook's cell 1 and `python -m tit.examples` are the same call). Progress is the job's
- * own stream — the same `/ws/jobs` store the rail reads — so nothing here polls.
+ * own stream — the same `/ws/jobs` store the rail reads — so nothing here polls. Shared by the
+ * toolbar button and the once-per-project dialog so both report on the same job.
  */
-export function AddExampleSubject() {
+function useExampleSubjectJob() {
   const queryClient = useQueryClient();
   const { jobs, eventsByJob } = useJobsStream();
   const [jobId, setJobId] = useState<string | null>(null);
@@ -149,17 +158,70 @@ export function AddExampleSubject() {
       subscribeJob(status.id);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not start the download.");
+      throw cause;
     }
   }
 
+  return { start, running, job, lastLog, error };
+}
+
+export function AddExampleSubject() {
+  const { start, running, job, lastLog, error } = useExampleSubjectJob();
   return (
     <div className="overview-example-subject">
-      <Button data-testid="add-example-subject" disabled={running} onClick={() => void start()}>
+      <Button data-testid="add-example-subject" disabled={running} onClick={() => start().catch(() => undefined)}>
         <Download size={14} aria-hidden /> {running ? "Adding example subject…" : "Add example subject (ernie, ~1.1 GB download)"}
       </Button>
       {job && <p role="status" className="overview-project-progress">{job.state}{job.progress ? ` · ${Math.round(job.progress.pct)}%` : ""}{lastLog ? ` · ${lastLog}` : ""}</p>}
       {error && <Callout kind="danger">{error}</Callout>}
     </div>
+  );
+}
+
+async function getProjectStatus(): Promise<ProjectStatus> {
+  return unwrap(await api.GET("/api/project/status"), "/api/project/status");
+}
+
+async function patchProjectStatus(patch: ProjectStatus): Promise<ProjectStatus> {
+  return unwrap(await api.PATCH("/api/project/status", { body: patch }), "/api/project/status");
+}
+
+/**
+ * Asked once per project, the first time its Overview loads: the answer is recorded in the
+ * project's own `project_status.json` (`example_subject_prompted`), so it follows the project,
+ * not the browser. Closing the dialog any other way counts as "Not now".
+ */
+export function ExampleSubjectPrompt() {
+  const queryClient = useQueryClient();
+  const statusQuery = useQuery({ queryKey: ["project-status"], queryFn: getProjectStatus });
+  const { start } = useExampleSubjectJob();
+  const [answered, setAnswered] = useState(false);
+  const open = !answered && shouldPromptForExampleSubject(statusQuery.data);
+
+  function answer(choice: PromptAnswer) {
+    setAnswered(true);
+    void answerExampleSubjectPrompt(choice, { persist: patchProjectStatus, startDownload: start })
+      .catch(() => undefined)
+      .finally(() => queryClient.invalidateQueries({ queryKey: ["project-status"] }));
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => { if (!next) answer("later"); }}
+      title={EXAMPLE_SUBJECT_PROMPT.title}
+      description={EXAMPLE_SUBJECT_PROMPT.body}
+      footer={
+        <>
+          <Button variant="secondary" data-testid="example-subject-later" onClick={() => answer("later")}>
+            {EXAMPLE_SUBJECT_PROMPT.later}
+          </Button>
+          <Button data-testid="example-subject-download" onClick={() => answer("download")}>
+            <Download size={14} aria-hidden /> {EXAMPLE_SUBJECT_PROMPT.download}
+          </Button>
+        </>
+      }
+    />
   );
 }
 

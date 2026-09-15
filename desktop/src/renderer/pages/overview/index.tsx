@@ -24,7 +24,7 @@ import {
   presenceCells,
   readyFor,
 } from "./model";
-import { AddExampleSubject, SwitchProject } from "./ProjectControls";
+import { AddExampleSubject, ExampleSubjectPrompt, SwitchProject } from "./ProjectControls";
 import { ProjectInsights } from "./ProjectInsights";
 import "./overview.css";
 
@@ -177,7 +177,7 @@ function OverviewPage() {
   if (data && rows.length === 0) {
     return (
       <PageLayout variant="browse">
-        <div className="overview-page"><div className="overview-project-toolbar"><AddExampleSubject /><SwitchProject /></div><ProjectInsights /><EmptyState icon={<LayoutGrid size={24} />} message="This project has no subjects yet." /></div>
+        <div className="overview-page"><ExampleSubjectPrompt /><div className="overview-project-toolbar"><AddExampleSubject /><SwitchProject /></div><ProjectInsights /><EmptyState icon={<LayoutGrid size={24} />} message="This project has no subjects yet." /></div>
       </PageLayout>
     );
   }
@@ -185,6 +185,7 @@ function OverviewPage() {
   return (
     <PageLayout variant="browse" rightPaneKind="preview" rightPaneWidth={360} rightPane={detail}>
       <div className="overview-page" style={{ ["--overview-cols" as string]: COLUMNS }}>
+        <ExampleSubjectPrompt />
         <div className="overview-project-toolbar"><AddExampleSubject /><SwitchProject /></div>
         {overviewQuery.error && <Callout kind="danger">Could not load this project's overview.</Callout>}
         {overviewQuery.isPending && <Skeleton rows={4} />}

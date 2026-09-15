@@ -120,7 +120,7 @@ test("renders a markdown cell, and edits it again on double-click", async () => 
 test("the example notebook renders headings, maths, a mono code block and a table", async () => {
   // The seeded worked example is the one cell that exercises every markdown
   // feature at once, which is why it is what this asserts against.
-  const example = page.getByTestId("nb-list-item").filter({ hasText: "getting-started" });
+  const example = page.getByTestId("nb-list-item").filter({ hasText: "example_workflow" });
   await expect(example).toBeVisible({ timeout: 15_000 });
   await expect(example).toHaveAttribute("data-example", "1");
   await example.click();
@@ -483,7 +483,7 @@ test("the empty state offers the example, and opens it", async () => {
   await action.click();
   await expect(page.getByTestId("nb-notebook")).toHaveAttribute(
     "data-notebook",
-    "examples/getting-started.ipynb",
+    "examples/example_workflow.ipynb",
     { timeout: 15_000 },
   );
 });

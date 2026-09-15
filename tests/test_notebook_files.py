@@ -120,31 +120,43 @@ def test_every_name_the_starter_cell_uses_exists() -> None:
     assert inspect.cleandoc(source)
 
 
-def test_the_example_notebook_is_a_worked_example(tmp_path: Path) -> None:
-    document = nb.example_notebook()
-    kinds = [cell["cell_type"] for cell in document["cells"]]
-    assert kinds == ["markdown", "code", "code", "code", "code"]
+def test_the_example_notebook_is_the_packaged_workflow(tmp_path: Path) -> None:
+    """The seeded file is a byte-for-byte copy of the one packaged source."""
+    import hashlib
 
-    prose = document["cells"][0]["source"]
-    # The prose exercises every markdown feature the renderer claims: heading,
-    # list, bold, italic, inline code, link, table, block and inline math.
-    for token in ("# ", "## ", "1. ", "**", "*nothing to install*", "`tit`", "](http", "| --- |", "$$", "$2\\,"):
-        assert token in prose, token
-
+    assert nb.EXAMPLE_SOURCE.is_file()
+    assert nb.seed_example(tmp_path) is True
+    seeded = nb.notebook_path(tmp_path, nb.EXAMPLE_NAME)
+    assert seeded.read_bytes() == nb.EXAMPLE_SOURCE.read_bytes()
+    stamp = nb.notebooks_dir(tmp_path) / "examples" / ".seeded"
+    assert stamp.read_text().strip() == hashlib.sha256(nb.EXAMPLE_SOURCE.read_bytes()).hexdigest()
+    document = nb.read_notebook(tmp_path, nb.EXAMPLE_NAME)
     code = [cell["source"] for cell in document["cells"] if cell["cell_type"] == "code"]
-    assert "import simnibs" in code[0]
-    assert "pd.DataFrame" in code[1]
-    assert "calc.get_TI_vectors" in code[2]
-    assert "matplotlib" in code[3]
-    # Without the inline magic this kernel's formatter offers a Figure only as
-    # text/plain, and the example's headline output is the words
-    # "<Figure size 900x340>" rather than a picture.
-    assert "%matplotlib inline" in code[3]
+    assert any("fetch_ernie" in source for source in code)
     for index, source in enumerate(code):
-        # IPython magics are not Python, so the plot cell is checked without
-        # its magic lines rather than skipped.
         program = "\n".join(line for line in source.splitlines() if not line.startswith("%"))
         compile(program, f"<example {index}>", "exec")
+
+
+def test_the_example_is_reseeded_only_when_packaged_and_unedited(tmp_path: Path) -> None:
+    source = tmp_path / "packaged.ipynb"
+    source.write_bytes(nb.EXAMPLE_SOURCE.read_bytes())
+    assert nb.seed_example(tmp_path, source) is True
+    assert nb.seed_example(tmp_path, source) is False
+    seeded = nb.notebook_path(tmp_path, nb.EXAMPLE_NAME)
+
+    # The user edits their copy: a later package change must not clobber it.
+    pristine = seeded.read_bytes()
+    seeded.write_bytes(pristine.replace(b"fetch_ernie", b"fetch_ernie  # mine"))
+    source.write_bytes(pristine.replace(b"# TI-Toolbox", b"# TI-Toolbox v2"))
+    assert nb.seed_example(tmp_path, source) is False
+    assert b"# mine" in seeded.read_bytes()
+
+    # Restore the untouched copy: the same package change now re-seeds it.
+    seeded.write_bytes(pristine)
+    assert nb.seed_example(tmp_path, source) is True
+    assert seeded.read_bytes() == source.read_bytes()
+    assert nb.seed_example(tmp_path, source) is False
 
 
 def test_the_example_is_seeded_once_and_stays_deleted(tmp_path: Path) -> None:
@@ -161,7 +173,7 @@ def test_the_example_is_seeded_once_and_stays_deleted(tmp_path: Path) -> None:
 
 
 def test_the_examples_directory_is_the_only_one_a_name_may_carry() -> None:
-    assert nb.normalise_name("examples/getting-started.ipynb") == nb.EXAMPLE_NAME
+    assert nb.normalise_name("examples/example_workflow.ipynb") == nb.EXAMPLE_NAME
     assert nb.normalise_name("examples/x") == "examples/x.ipynb"
     for bad in ["examples/../escape", "other/x", "examples/a/b", "examples/.hidden"]:
         with pytest.raises(nb.NotebookError):

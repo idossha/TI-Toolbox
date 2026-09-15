@@ -41,13 +41,13 @@ def test_project_init_has_an_executable_entry_point():
 
 
 def test_command_for_builds_the_runner_argv(tmp_path):
-    argv = kinds.command_for("project_init", {"example_data": False}, str(tmp_path / "c.json"))
+    argv = kinds.command_for("project_init", {}, str(tmp_path / "c.json"))
     assert argv[1:3] == ["-m", "tit.project_init"]
 
 
 def _write_config(tmp_path, **extra) -> str:
     path = tmp_path / "config.json"
-    payload = {"project_dir": str(tmp_path / "project"), "example_data": False}
+    payload = {"project_dir": str(tmp_path / "project")}
     payload.update(extra)
     (tmp_path / "project").mkdir()
     path.write_text(json.dumps(payload))

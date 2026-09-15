@@ -12,10 +12,23 @@ Everything lives in one directory, ``<project>/code/ti-toolbox/notebooks``,
 which is also where the pipeline's exported notebooks land. Names are a
 single path segment: there are no subdirectories, because a flat list is what
 the UI shows and a traversal is the only thing a name could otherwise buy.
+
+The worked example
+------------------
+``examples/example_workflow.ipynb`` is a byte-for-byte copy of the packaged
+``tit/server/examples/example_workflow.ipynb`` (the repository's
+``examples/notebooks/example_workflow.ipynb`` is a symlink to that same file, so
+there is exactly one source). :func:`seed_example` writes it on the first
+listing and records the packaged file's sha256 in ``examples/.seeded``. On later
+listings it re-copies the notebook only when the packaged file has changed
+*and* the project's copy still matches the hash that was recorded — a copy the
+user edited is theirs and is never overwritten. A deleted example is not given
+back: deleting it writes ``deleted`` into the stamp instead of a hash.
 """
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import secrets
@@ -36,12 +49,18 @@ _SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._-]{0,127}$")
 
 #: The one subdirectory a name may carry. There is exactly one because the UI
 #: shows a flat list and because a general subdirectory grammar buys nothing
-#: but a wider jail to defend — ``examples/getting-started.ipynb`` is a real
+#: but a wider jail to defend — ``examples/example_workflow.ipynb`` is a real
 #: path the maintainer named, not the first of an open set.
 EXAMPLES_DIR = "examples"
 
 #: The example notebook's own name, seeded on first listing.
-EXAMPLE_NAME = f"{EXAMPLES_DIR}/getting-started{NOTEBOOK_SUFFIX}"
+EXAMPLE_NAME = f"{EXAMPLES_DIR}/example_workflow{NOTEBOOK_SUFFIX}"
+
+#: The packaged source of the example (``pyproject.toml`` package-data).
+EXAMPLE_SOURCE = Path(__file__).resolve().parent / "examples" / "example_workflow.ipynb"
+
+#: Stamp content meaning "the user deleted the example; never seed it again".
+_DELETED = "deleted"
 
 
 class NotebookError(ValueError):
@@ -72,7 +91,7 @@ def normalise_name(name: str) -> str:
     """A caller's name as the file name it maps to, or raise.
 
     ``analysis``, ``analysis.ipynb``, ``Analysis 2.ipynb`` and
-    ``examples/getting-started.ipynb`` are all fine; ``../escape``, ``a/b`` and
+    ``examples/example_workflow.ipynb`` are all fine; ``../escape``, ``a/b`` and
     ``.hidden`` are not. The ``examples/`` prefix is the only directory a name
     may carry (:data:`EXAMPLES_DIR`).
     """
@@ -134,18 +153,30 @@ class NotebookEntry:
         }
 
 
-def seed_example(project_root: str | Path) -> bool:
-    """Write the example notebook if it is not there. True when it was written.
+def seed_example(project_root: str | Path, source: Path = EXAMPLE_SOURCE) -> bool:
+    """Copy the packaged example into the project. True when it was written.
 
-    Seeded on first listing rather than shipped in the image, because it names
-    *this* project: the cells resolve the project's own subjects and plot the
-    first TI field it actually has. A user who deletes it is not given it back
-    — it reappears only in a project that has never had one.
+    Written when absent, and re-written when *source* has changed since the
+    hash recorded in ``examples/.seeded`` **and** the project's copy is still
+    byte-identical to that recorded hash (i.e. the user never edited it). A
+    copy the user edited, or one seeded before the stamp carried a hash, is
+    left alone; a deleted example stays deleted (see the module docstring).
     """
     path = notebook_path(project_root, EXAMPLE_NAME)
-    if path.exists() or _example_was_deleted(project_root):
+    stamp = _example_stamp(project_root)
+    recorded = stamp.read_text(encoding="utf-8").strip() if stamp.is_file() else None
+    if recorded == _DELETED:
         return False
-    write_notebook(project_root, EXAMPLE_NAME, example_notebook())
+    packaged = source.read_bytes()
+    digest = hashlib.sha256(packaged).hexdigest()
+    if path.exists():
+        if recorded is None or recorded == digest:
+            return False
+        if hashlib.sha256(path.read_bytes()).hexdigest() != recorded:
+            return False  # the user edited their copy
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _atomic_text_write(path, packaged.decode("utf-8"))
+    _atomic_text_write(stamp, digest + "\n")
     return True
 
 
@@ -225,31 +256,6 @@ def starter_source() -> str:
     )
 
 
-def example_notebook() -> dict[str, Any]:
-    """The worked example: `examples/getting-started.ipynb`.
-
-    Four code cells, each proving something the previous one could not. It ends
-    on a matplotlib figure and two DataFrames deliberately: a notebook whose
-    only output is printed text has not shown that rich outputs work, and rich
-    outputs are half of why a notebook beats a script.
-
-    Every cell is asserted to run green in the container by
-    ``tests/e2e/real/notebooks.spec.ts``.
-    """
-    import nbformat
-
-    notebook = nbformat.v4.new_notebook()
-    notebook["metadata"] = _METADATA
-    notebook["cells"] = [
-        nbformat.v4.new_markdown_cell(EXAMPLE_INTRO),
-        nbformat.v4.new_code_cell(EXAMPLE_ENV),
-        nbformat.v4.new_code_cell(EXAMPLE_TABLE),
-        nbformat.v4.new_code_cell(EXAMPLE_CALC),
-        nbformat.v4.new_code_cell(EXAMPLE_PLOT),
-    ]
-    return dict(notebook)
-
-
 def new_notebook(project_root: str | Path | None = None) -> dict[str, Any]:
     """An empty nbformat v4 notebook with the starter cell already in it."""
     import nbformat
@@ -262,7 +268,7 @@ def new_notebook(project_root: str | Path | None = None) -> dict[str, Any]:
             "This kernel is the container's **SimNIBS Python**, so `tit`, `simnibs`, `numpy`, "
             "`nibabel`, `pandas` and `matplotlib` are all importable with nothing to install.\n\n"
             "Run the cell below with **⇧↵**. For a worked example — a real field summarised, "
-            "plotted and tabulated — open `examples/getting-started.ipynb`."
+            "plotted and tabulated — open `examples/example_workflow.ipynb`."
         ),
         nbformat.v4.new_code_cell(starter_source()),
     ]
@@ -340,20 +346,8 @@ def delete_notebook(project_root: str | Path, name: str) -> None:
     # next listing. The stamp is what makes "seed once" mean once.
     if stamp is not None:
         stamp.parent.mkdir(parents=True, exist_ok=True)
-        _atomic_text_write(
-            stamp, "the example notebook was deleted; do not seed it again\n"
-        )
+        _atomic_text_write(stamp, _DELETED + "\n")
 
-
-# ---------------------------------------------------------------------------
-# The example notebook's cells.
-#
-# They live here as plain strings rather than as a committed .ipynb because the
-# notebook is *written into the user's project*, and a file the app writes is
-# better generated from one source than copied from a fixture that then drifts
-# from the API it calls. Every name they use is exercised by
-# ``tests/test_notebook_files.py`` and run for real by the container e2e.
-# ---------------------------------------------------------------------------
 
 _METADATA = {
     "kernelspec": {
@@ -363,133 +357,3 @@ _METADATA = {
     },
     "language_info": {"name": "python"},
 }
-
-EXAMPLE_INTRO = """# Getting started with TI-Toolbox notebooks
-
-This notebook runs on the container's **SimNIBS Python**, so `tit`, `simnibs`, `numpy`,
-`nibabel`, `pandas` and `matplotlib` are all importable with *nothing to install*.
-
-## What it shows
-
-1. The environment — the project this kernel is bound to, and the SimNIBS it runs.
-2. This project's subjects and simulations, as a `pandas` table.
-3. A real `tit` computation: the temporal-interference envelope, `tit.calc.get_TI_vectors`.
-4. A real field from disk, summarised and plotted with `matplotlib`.
-
-## The maths it computes
-
-Two carriers at nearby frequencies produce an envelope whose amplitude at a point is
-
-$$
-|\\vec{E}_{\\mathrm{TI}}| = 2\\,\\bigl|\\,\\vec{E}_2\\,\\bigr| \\quad\\text{when}\\quad
-|\\vec{E}_2| < |\\vec{E}_1|\\cos\\theta,
-$$
-
-and $2\\,|\\vec{E}_1 \\times \\vec{E}_2| / |\\vec{E}_1 - \\vec{E}_2|$ otherwise — which is what
-`get_TI_vectors` evaluates per voxel.
-
-| step | module | cost |
-| --- | --- | --- |
-| environment | `tit`, `simnibs` | instant |
-| catalogue | `tit.catalog` | instant |
-| envelope | `tit.calc` | instant |
-| field summary | `nibabel`, `matplotlib` | a second or two |
-
-See the [TI-Toolbox wiki](https://idossha.github.io/TI-Toolbox/) for the full scripting API.
-Press **⇧↵** in a cell to run it; **A**/**B** insert, **DD** deletes, **M** makes a cell markdown.
-"""
-
-EXAMPLE_ENV = """# 1 — the environment. Nothing was installed for this: the kernel IS the
-# container's SimNIBS Python, the same interpreter every TI-Toolbox job runs on.
-import sys
-
-import simnibs
-
-from tit import catalog, get_path_manager
-
-pm = get_path_manager()
-print("project    ", pm.project_dir)
-print("python     ", ".".join(str(n) for n in sys.version_info[:3]))
-print("simnibs    ", simnibs.__version__)
-print("subjects   ", catalog.subject_ids(pm))
-"""
-
-EXAMPLE_TABLE = """# 2 — what this project holds, as a table. A DataFrame's HTML repr renders as a
-# real table here, which is why a notebook beats a printed dict.
-import os
-
-import pandas as pd
-
-rows = [
-    {
-        "subject": sid,
-        "head model": os.path.isdir(pm.m2m(sid)),
-        "simulations": len(pm.list_simulations(sid)),
-        "names": ", ".join(pm.list_simulations(sid)) or "—",
-    }
-    for sid in catalog.subject_ids(pm)
-]
-pd.DataFrame(rows).set_index("subject")
-"""
-
-EXAMPLE_CALC = """# 3 — a real TI-Toolbox computation. `tit.calc.get_TI_vectors` is the toolbox's
-# own envelope maths: the carrier's two channel fields in, the temporal-interference
-# envelope out, per voxel.
-import numpy as np
-
-from tit import calc
-
-# One carrier's two channels: orthogonal 1 V/m, then rotated towards each other,
-# then exactly aligned.
-E1 = np.array([[1.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
-E2 = np.array([[0.0, 1.0, 0.0], [0.5, 0.5, 0.0], [1.0, 0.0, 0.0]])
-
-# `fields` is a LIST — [E_1a, E_1b, ...], two consecutive entries per carrier.
-# Passing them as two positional arguments makes the second one `psi`.
-envelope = calc.get_TI_vectors([E1, E2])
-pd.DataFrame(
-    {
-        "|E1|": np.linalg.norm(E1, axis=1),
-        "|E2|": np.linalg.norm(E2, axis=1),
-        "|TI envelope|": np.linalg.norm(envelope, axis=1),
-    }
-)
-"""
-
-EXAMPLE_PLOT = """# 4 — a real field on disk, summarised and drawn.
-#
-# `%matplotlib inline` is not decoration. Without it this kernel's display
-# formatter offers a Figure only as `text/plain` — the cell prints
-# `<Figure size 900x340>` and no picture is ever produced. The magic registers
-# matplotlib_inline, which is what makes `image/png` part of the bundle.
-%matplotlib inline
-
-import glob
-
-import matplotlib.pyplot as plt
-import nibabel as nib
-
-subject = next((s for s in catalog.subject_ids(pm) if pm.list_simulations(s)), None)
-simulation = pm.list_simulations(subject)[0] if subject else None
-pattern = os.path.join(pm.simulations(subject), simulation, "TI", "niftis", "*TI_max.nii.gz")
-candidates = sorted(glob.glob(pattern))
-print(f"{subject} / {simulation}:", os.path.basename(candidates[0]) if candidates else "no TI volume")
-
-volume = nib.load(candidates[0])
-field = np.asarray(volume.dataobj, dtype=np.float32)
-inside = field[field > 0]
-print(f"{inside.size:,} non-zero voxels   mean {inside.mean():.4f}   p99 {np.percentile(inside, 99):.4f} V/m")
-
-figure, (left, right) = plt.subplots(1, 2, figsize=(9, 3.4))
-left.hist(inside, bins=80, color="#1f5bd7")
-left.set(title="TI field, non-zero voxels", xlabel="|TI| (V/m)", ylabel="voxels")
-slice_index = field.shape[2] // 2
-right.imshow(np.rot90(field[:, :, slice_index]), cmap="magma")
-right.set(title=f"axial slice z={slice_index}")
-right.axis("off")
-figure.tight_layout()
-# No trailing `figure` here: the inline backend already draws it at the end of
-# the cell, and returning it as well puts the SAME picture in the notebook
-# twice — once as display_data, once as the execute_result.
-plt.show()
-"""

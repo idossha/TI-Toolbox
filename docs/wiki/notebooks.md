@@ -55,13 +55,11 @@ up the first time.
 ## The worked example
 
 Every project gets one seeded notebook the first time you open the page:
-`examples/getting-started.ipynb`. It is not a static tutorial — it resolves **your** project's
-subjects, loads the first real TI field it finds, and plots and tabulates it. Deleting it is
-permanent; there is no "restore example".
-
-A downloadable notebook that walks the whole app — Pre-processing, Optimizer, Simulator,
-Analyzer — one cell per page, is the
-[Example Notebook]({{ site.baseurl }}/wiki/example-notebook/) page.
+`examples/example_workflow.ipynb` — the same notebook as the
+[Example Notebook]({{ site.baseurl }}/wiki/example-notebook/) page, which walks the whole app
+(Pre-processing, Optimizer, Simulator, Analyzer) one cell per page against the SimNIBS example
+subject. When a TI-Toolbox update ships a newer version of it, your copy is refreshed only if you
+never edited it; an edited copy is yours. Deleting it is permanent; there is no "restore example".
 
 > **What's new in v3.** 2.x shipped a Jupyter server in the container that you reached through a
 > browser on port 8888, separately from the GUI. v3 puts the notebook in the application, on the

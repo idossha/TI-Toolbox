@@ -1,14 +1,14 @@
 # Project Initialization (`tit/project_init/`)
 
-This package handles new-project scaffolding, the first-time user experience,
-and example-data setup for TI-Toolbox.
+This package handles new-project scaffolding and `project_status.json` for
+TI-Toolbox. The example subject (`ernie`, with its head model) is
+`tit.examples.fetch_ernie`, reached through `POST /api/project/example-subject`.
 
 ## Modules
 
 | Module | Responsibility |
 |--------|----------------|
 | `initializer.py` | BIDS directory scaffolding, metadata files, and **single source of truth** for `project_status.json` |
-| `example_data_manager.py` | Copies bundled example subjects (ernie, MNI152) into a new project |
 
 ## Ownership of `project_status.json`
 
@@ -28,36 +28,30 @@ No other module creates or overwrites this file.
 
 ## Lifecycle
 
-### 1. Project creation (host → container)
+### 1. Project creation
 
-The host-side `loader.py` starts the Docker container and runs an inline
-Python snippet:
+`POST /api/project/init` submits a `project_init` job
+(`simnibs_python -m tit.project_init spec.json`):
 
 ```
-loader.py
-  └─ run_project_init_in_container()
-       ├─ is_new_project(project_dir)          # checks for markers / data
-       │    └─ True → initialize_project_structure(project_dir)
-       │         ├─ creates BIDS directories
-       │         ├─ writes README, dataset_description.json (per derivative)
-       │         ├─ initialize_project_status()   ← CREATES project_status.json
-       │         └─ touches .initialized marker
-       └─ setup_example_data(toolbox_root, project_dir)
-            └─ ExampleDataManager.copy_example_data()
-                 ├─ checks is_new_project() (subjects exist? status flag?)
-                 ├─ copies NIfTI files into sub-ernie/, sub-MNI152/
-                 └─ update_project_status(…, {example_data_copied: True})
+tit.project_init.__main__
+  └─ initialize_project_structure(project_dir)
+       ├─ creates BIDS directories
+       ├─ writes README, dataset_description.json (per derivative)
+       ├─ initialize_project_status()   ← CREATES project_status.json
+       └─ touches .initialized marker
+  └─ example_subject: true → tit.examples.fetch_ernie(project_dir)
+       └─ update_project_status(…, {example_subjects: ["ernie"], …})
 ```
 
 ### 2. UI startup
 
-The desktop app reads the status file (never writes it) to decide whether to
-show its welcome screen, and calls `update_project_status()` only to record
-preferences such as `user_preferences.show_welcome`.
-
-Key invariant: the UI **never creates** `project_status.json`. If the file
-is missing (e.g. manual deletion), the user is treated as new and the
-welcome screen is shown, but nothing is written to disk.
+The desktop app reads the status file through `GET /api/project/status` and
+records answers to one-time prompts through `PATCH /api/project/status`
+(for example `example_subject_prompted` — the "Add the example subject?"
+dialog the Overview page shows once per project). Both go through
+`load_project_status` / `update_project_status`; the PATCH creates the file
+if it is missing, because an answer that is not persisted is asked again.
 
 ## `project_status.json` Schema
 
@@ -66,9 +60,9 @@ welcome screen is shown, but nothing is written to disk.
   "project_created": "2025-01-15T10:30:00",
   "last_updated": "2025-01-15T10:31:00",
   "config_created": true,
-  "example_data_copied": true,
-  "example_data_timestamp": "2025-01-15T10:30:05+00:00",
-  "example_subjects": ["sub-ernie", "sub-MNI152"],
+  "example_subjects": ["ernie"],
+  "example_subject_source": "https://github.com/simnibs/example-dataset/releases/download/v4.1/simnibs4_examples.zip",
+  "example_subject_prompted": true,
   "user_preferences": {
     "show_welcome": false
   },
@@ -101,19 +95,8 @@ project/
     └── project_status.json
 ```
 
-## Example Data
-
-For new projects, these subjects are copied automatically:
-
-| Subject | Files |
-|---------|-------|
-| `sub-ernie` | `sub-ernie_T1w.nii.gz`, `sub-ernie_T2w.nii.gz` |
-| `sub-MNI152` | `sub-MNI152_T1w.nii.gz` |
-
-Example data is only copied when:
-- No `sub-*` directories exist
-- `example_data_copied` is not `true` in the status file
-- No user NIfTI files or DICOM data are present
+Older projects may still carry `example_data_copied` / `example_data_timestamp`
+from the removed bundled-example-data path; they are ignored.
 
 ## Design Principles
 
@@ -123,5 +106,5 @@ Example data is only copied when:
    is missing; callers handle the empty case gracefully.
 3. **Merge-on-write** — `update_project_status()` deep-merges updates so
    nested keys (e.g. `user_preferences.show_welcome`) don't clobber siblings.
-4. **UI is read-only** — the desktop app reads status and updates
-   preferences but never creates the file from scratch.
+4. **UI writes through the API** — the desktop app never touches the file
+   itself; it reads and patches it through `/api/project/status`.

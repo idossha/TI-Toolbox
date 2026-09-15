@@ -164,6 +164,19 @@ class Project(BaseModel):
     name: str
 
 
+class ProjectStatus(BaseModel):
+    """``project_status.json`` as the API shows it. Only the keys the desktop reads or writes
+    are typed; everything else the file holds passes through untouched."""
+
+    model_config = ConfigDict(extra="allow")
+
+    example_subject_prompted: bool | None = Field(
+        default=None,
+        description="the desktop's 'Add the example subject?' dialog was answered (either way)",
+    )
+    example_subjects: list[str] | None = None
+
+
 class Subject(BaseModel):
     id: str = Field(description="without the sub- prefix")
     has_raw: bool

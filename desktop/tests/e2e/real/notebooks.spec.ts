@@ -121,13 +121,13 @@ test("the worked example runs every cell green, with a plot and tables", async (
     timeout: KERNEL_TIMEOUT,
   });
 
-  const example = page.getByTestId("nb-list-item").filter({ hasText: "getting-started" });
+  const example = page.getByTestId("nb-list-item").filter({ hasText: "example_workflow" });
   await expect(example).toBeVisible({ timeout: 30_000 });
   await expect(example).toHaveAttribute("data-example", "1");
   await example.click();
   await expect(page.getByTestId("nb-notebook")).toHaveAttribute(
     "data-notebook",
-    "examples/getting-started.ipynb",
+    "examples/example_workflow.ipynb",
     { timeout: 30_000 },
   );
 

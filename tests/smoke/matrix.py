@@ -920,7 +920,7 @@ ROWS: tuple[Row, ...] = (
         plannable=False,
         build=lambda ctx: Submission(
             kind="project_init",
-            config={"example_data": False},
+            config={},
             subject_ids=[],
         ),
         budget_s=60.0,

@@ -14,7 +14,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
-from . import example_data_manager
 
 logger = logging.getLogger(__name__)
 
@@ -275,7 +274,6 @@ def initialize_project_status(project_dir: Path) -> None:
         "project_created": current_time,
         "last_updated": current_time,
         "config_created": True,
-        "example_data_copied": False,
         "user_preferences": {"show_welcome": True},
         "project_metadata": {
             "name": project_dir.name,
@@ -337,27 +335,3 @@ def initialize_project_structure(project_dir: Path) -> None:
     print("  ✓ Project initialization complete!")
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     print("")
-
-
-def setup_example_data(toolbox_root: Path, project_dir: Path) -> bool:
-    """Copy bundled example data into *project_dir*.
-
-    Parameters
-    ----------
-    toolbox_root : Path
-        Root of the TI-Toolbox installation (contains example data).
-    project_dir : Path
-        Target project directory.
-
-    Returns
-    -------
-    bool
-        ``True`` on success, ``False`` on failure.
-    """
-    try:
-        success, _subjects = example_data_manager.setup_example_data(
-            str(toolbox_root), str(project_dir)
-        )
-        return bool(success)
-    except Exception:
-        return False

@@ -15,13 +15,14 @@ handling for the same "contract kind, no runner yet" situation).
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
 from tit.paths import get_path_manager
 from tit.server.host_path import host_project_dir
-from tit.server.schemas import Project
+from tit.server.schemas import Project, ProjectStatus
 
 router = APIRouter()
 
@@ -45,19 +46,57 @@ def project() -> Project:
     )
 
 
+@router.get(
+    "/api/project/status",
+    response_model=ProjectStatus,
+    summary="This project's project_status.json (empty when the file is missing)",
+)
+def project_status() -> dict[str, Any]:
+    from tit.project_init import load_project_status
+
+    return load_project_status(Path(_bound_project_dir()))
+
+
+@router.patch(
+    "/api/project/status",
+    response_model=ProjectStatus,
+    summary="Merge fields into project_status.json and return the result",
+)
+def patch_project_status(body: ProjectStatus) -> dict[str, Any]:
+    """Records one-time answers such as ``example_subject_prompted`` (the desktop's
+    "Add the example subject?" dialog). Creates the file when it is missing, because
+    an answer that is not persisted is asked again."""
+    from tit.project_init import load_project_status, update_project_status
+    from tit.project_init.initializer import initialize_project_status
+
+    project_dir = Path(_bound_project_dir())
+    updates = body.model_dump(exclude_none=True)
+    initialize_project_status(project_dir)
+    if updates and not update_project_status(project_dir, updates):
+        raise HTTPException(status_code=500, detail="Could not write project_status.json.")
+    return load_project_status(project_dir)
+
+
+def _bound_project_dir() -> str:
+    project_dir = get_path_manager().project_dir
+    if not project_dir:
+        raise HTTPException(status_code=409, detail="This server is not bound to a project.")
+    return str(project_dir)
+
+
 @router.post(
     "/api/project/init",
     status_code=201,
-    summary="Initialize this project's layout, optionally seeded with example data",
+    summary="Initialize this project's layout",
 )
 def init_project(body: dict[str, Any] | None = None) -> dict[str, Any]:
-    """``{example_data?}`` -> ``JobStatus`` for the ``project_init`` job.
+    """``{}`` -> ``JobStatus`` for the ``project_init`` job.
 
-    ``body`` is optional (an empty POST means "just initialize, no example
-    data") -- unlike most job-submit routes this one has no meaningful
-    ``subject_ids`` (project init runs once, before any subject exists).
+    ``body`` is optional and ignored -- unlike most job-submit routes this one
+    has no meaningful ``subject_ids`` (project init runs once, before any
+    subject exists). The example subject is ``POST /api/project/example-subject``.
     """
-    example_data = bool((body or {}).get("example_data", False))
+    del body
     try:
         from tit.jobs import api as jobs_api
     except ImportError as exc:  # pragma: no cover - tit.jobs is always importable
@@ -68,7 +107,7 @@ def init_project(body: dict[str, Any] | None = None) -> dict[str, Any]:
         return jobs_api.submit(
             {
                 "kind": "project_init",
-                "config": {"example_data": example_data},
+                "config": {},
                 "subject_ids": [],
                 "created_by": "gui",
             }

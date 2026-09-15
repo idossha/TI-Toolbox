@@ -7,7 +7,7 @@ permalink: /wiki/example-notebook/
 <p>
 <a href="{{ site.baseurl }}/assets/notebooks/example_workflow.ipynb" download>&#11015; Download example_workflow.ipynb</a>
 &nbsp;&nbsp;
-<a href="https://github.com/idossha/TI-Toolbox/blob/main/examples/notebooks/example_workflow.ipynb">View on GitHub</a>
+<a href="https://github.com/idossha/TI-Toolbox/blob/main/tit/server/examples/example_workflow.ipynb">View on GitHub</a>
 </p>
 
 This page mirrors the downloadable notebook cell for cell. To run it: open your project, go to
@@ -15,7 +15,9 @@ the app's [Notebooks]({{ site.baseurl }}/wiki/notebooks/) page, choose **Import 
 the *SimNIBS + TI-Toolbox* kernel — the kernel is the container's SimNIBS Python, so nothing needs
 installing. You do not need your own data: cell 1 fetches the SimNIBS example subject into
 whatever project folder you point `PROJECT` at. The notebook lives at
-[`examples/notebooks/`](https://github.com/idossha/TI-Toolbox/tree/main/examples) in the repository.
+[`tit/server/examples/`](https://github.com/idossha/TI-Toolbox/tree/main/tit/server/examples) in the
+repository and is also seeded into every project as `examples/example_workflow.ipynb` on the
+Notebooks page.
 
 # TI-Toolbox in eight cells
 

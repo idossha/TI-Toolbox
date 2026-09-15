@@ -1,8 +1,7 @@
 """Fetch the SimNIBS example subject (``ernie``) into a project.
 
-The bundled ``resources/example_data`` holds raw T1/T2 only; the optimizer, simulator and
-analyzer need a finished ``m2m_ernie`` head model, which charm takes 1-2 h to build. The
-SimNIBS example dataset (<https://github.com/simnibs/example-dataset>, GPL-3.0 -- licence vetted
+The optimizer, simulator and analyzer need a finished ``m2m_ernie`` head model, which charm
+takes 1-2 h to build. The SimNIBS example dataset (<https://github.com/simnibs/example-dataset>, GPL-3.0 -- licence vetted
 in ``tit/scene/guide/PROVENANCE.md``) ships one ready-made, so :func:`fetch_ernie` downloads that
 release once and lays it into the BIDS layout :class:`tit.paths.PathManager` expects::
 

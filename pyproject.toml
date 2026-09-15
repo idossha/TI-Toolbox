@@ -45,6 +45,8 @@ include = ["tit*"]
 # TI-Toolbox can serve /api/guide/* without a project on disk.
 [tool.setuptools.package-data]
 "tit.blender" = ["Electrode.blend"]
+# The example notebook tit.server.notebooks seeds into every project; examples/notebooks/ is a symlink to it.
+"tit.server" = ["examples/*.ipynb"]
 "tit.scene" = [
   "guide/manifest.json",
   "guide/PROVENANCE.md",

@@ -174,22 +174,51 @@ paths:
                 $ref: "#/components/schemas/Project"
         "401":
           $ref: "#/components/responses/Unauthorized"
-  /api/project/init:
-    post:
+  /api/project/status:
+    get:
       tags: [settings]
-      summary: Seed a fresh project directory, optionally with the bundled example dataset
-      description: >-
-        Long-running (copies/generates a BIDS tree) so it is a job (R3), not an inline response.
+      summary: This project's project_status.json (empty object when the file is missing)
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    patch:
+      tags: [settings]
+      summary: Merge fields into project_status.json (one-time prompt answers) and return it
       security: [{ cookieAuth: [] }, { bearerAuth: [] }]
       requestBody:
         required: true
         content:
           application/json:
             schema:
+              $ref: "#/components/schemas/ProjectStatus"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/project/init:
+    post:
+      tags: [settings]
+      summary: Seed a fresh project directory (BIDS layout); the example subject is /api/project/example-subject
+      description: >-
+        Long-running (generates a BIDS tree) so it is a job (R3), not an inline response.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
               type: object
-              required: [example_data]
-              properties:
-                example_data: { type: boolean }
+              properties: {}
       responses:
         "201":
           description: project-init job accepted
@@ -3722,6 +3751,14 @@ components:
         container_path: { type: string }
         host_path: { type: [string, "null"], description: from LOCAL_PROJECT_DIR when known }
         name: { type: string }
+    ProjectStatus:
+      type: object
+      additionalProperties: true
+      properties:
+        example_subject_prompted:
+          type: [boolean, "null"]
+          description: the desktop's "Add the example subject?" dialog was answered (either way)
+        example_subjects: { type: [array, "null"], items: { type: string } }
     Subject:
       type: object
       required: [id, has_raw, has_fastsurfer, has_freesurfer, has_m2m, n_simulations]

@@ -147,6 +147,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/project/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** This project's project_status.json (empty object when the file is missing) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProjectStatus"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Merge fields into project_status.json (one-time prompt answers) and return it */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ProjectStatus"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProjectStatus"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        trace?: never;
+    };
     "/api/project/init": {
         parameters: {
             query?: never;
@@ -157,8 +217,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Seed a fresh project directory, optionally with the bundled example dataset
-         * @description Long-running (copies/generates a BIDS tree) so it is a job (R3), not an inline response.
+         * Seed a fresh project directory (BIDS layout); the example subject is /api/project/example-subject
+         * @description Long-running (generates a BIDS tree) so it is a job (R3), not an inline response.
          */
         post: {
             parameters: {
@@ -167,11 +227,9 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
+            requestBody?: {
                 content: {
-                    "application/json": {
-                        example_data: boolean;
-                    };
+                    "application/json": Record<string, never>;
                 };
             };
             responses: {
@@ -5228,6 +5286,13 @@ export interface components {
             /** @description from LOCAL_PROJECT_DIR when known */
             host_path?: string | null;
             name: string;
+        };
+        ProjectStatus: {
+            /** @description the desktop's "Add the example subject?" dialog was answered (either way) */
+            example_subject_prompted?: boolean | null;
+            example_subjects?: string[] | null;
+        } & {
+            [key: string]: unknown;
         };
         Subject: {
             /** @description without the sub- prefix */
