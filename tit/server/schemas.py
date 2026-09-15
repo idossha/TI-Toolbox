@@ -164,6 +164,46 @@ class Project(BaseModel):
     name: str
 
 
+class ExampleDataFile(BaseModel):
+    """One content-addressed asset of an example sample (``tit/examples/catalog.json``)."""
+
+    name: str
+    bytes: int
+    sha256: str
+    url: str
+
+
+class ExampleDataSample(BaseModel):
+    """A sample as the catalogue describes it -- a set of files and where they land."""
+
+    id: str
+    title: str
+    group: str
+    description: str
+    source: str
+    source_url: str
+    licence: str
+    subject: str = Field(description="the BIDS subject label the files land under")
+    layout: Literal["raw", "headmodel"] = Field(
+        description="raw needs pre-processing; headmodel is ready to simulate"
+    )
+    bytes: int = Field(description="sum of the file sizes")
+    files: list[ExampleDataFile]
+
+
+class ExampleDataStatus(BaseModel):
+    """What this project already holds, read off disk with no network."""
+
+    id: str
+    installed: bool
+    bytes: int
+
+
+class ExampleDataCatalog(BaseModel):
+    samples: list[ExampleDataSample]
+    status: list[ExampleDataStatus]
+
+
 class ProjectStatus(BaseModel):
     """``project_status.json`` as the API shows it. Only the keys the desktop reads or writes
     are typed; everything else the file holds passes through untouched."""
@@ -172,9 +212,12 @@ class ProjectStatus(BaseModel):
 
     example_subject_prompted: bool | None = Field(
         default=None,
-        description="the desktop's 'Add the example subject?' dialog was answered (either way)",
+        description="the desktop's 'Add example data?' chooser was answered (either way)",
     )
     example_subjects: list[str] | None = None
+    example_samples: list[str] | None = Field(
+        default=None, description="tit.examples catalogue ids installed into this project"
+    )
 
 
 class Subject(BaseModel):

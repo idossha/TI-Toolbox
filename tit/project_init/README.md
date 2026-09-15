@@ -2,7 +2,7 @@
 
 This package handles new-project scaffolding and `project_status.json` for
 TI-Toolbox. The example subject (`ernie`, with its head model) is
-`tit.examples.fetch_ernie`, reached through `POST /api/project/example-subject`.
+`tit.examples.fetch`, reached through `POST /api/project/example-data`.
 
 ## Modules
 
@@ -40,7 +40,7 @@ tit.project_init.__main__
        ├─ writes README, dataset_description.json (per derivative)
        ├─ initialize_project_status()   ← CREATES project_status.json
        └─ touches .initialized marker
-  └─ example_subject: true → tit.examples.fetch_ernie(project_dir)
+  └─ example_sample: "<catalogue id>" → tit.examples.fetch(id, project_dir)
        └─ update_project_status(…, {example_subjects: ["ernie"], …})
 ```
 

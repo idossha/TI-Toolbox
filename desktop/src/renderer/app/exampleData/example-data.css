@@ -1,0 +1,61 @@
+.example-data-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.example-data-row {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 4px);
+  background: var(--surface-1, transparent);
+}
+
+.example-data-choose {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.example-data-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.example-data-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.example-data-title {
+  font-weight: 600;
+}
+
+.example-data-size,
+.example-data-meta {
+  color: var(--ink-2);
+  font-size: var(--text-caption-size, 11px);
+}
+
+.example-data-description {
+  color: var(--ink-2);
+  line-height: 1.4;
+}
+
+.example-data-installed {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ok, var(--ink-2));
+  font-size: var(--text-caption-size, 11px);
+  white-space: nowrap;
+}

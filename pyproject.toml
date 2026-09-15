@@ -47,6 +47,8 @@ include = ["tit*"]
 "tit.blender" = ["Electrode.blend"]
 # The example notebook tit.server.notebooks seeds into every project; examples/notebooks/ is a symlink to it.
 "tit.server" = ["examples/*.ipynb"]
+# The example-data catalogue: content-addressed sample manifest tit.examples fetches from.
+"tit.examples" = ["catalog.json"]
 "tit.scene" = [
   "guide/manifest.json",
   "guide/PROVENANCE.md",

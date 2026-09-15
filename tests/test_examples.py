@@ -1,46 +1,88 @@
-"""``tit.examples.fetch_ernie`` -- the on-demand SimNIBS example subject.
+"""``tit.examples`` -- the content-addressed example-data catalogue.
 
-No network: the URL opener is monkeypatched to serve a tiny synthetic zip whose members mirror
-the real ``v4.1/simnibs4_examples.zip`` layout (``m2m_ernie/``, ``org/ernie_T1.nii.gz`` at the
-archive root, no top-level folder). The sha256 constant is patched to that archive's digest;
-``test_sha_mismatch_rejected`` leaves it alone and checks nothing is written.
+No network: the URL opener is monkeypatched to serve synthetic bytes per catalogue URL, and the
+catalogue itself is replaced by a two-sample fixture whose hashes are of those bytes. The real
+``catalog.json`` is checked separately (shape, ids, layouts) without downloading anything.
 
 Reproduce: ``python3 -m pytest -q tests/test_examples.py``.
 """
 
 from __future__ import annotations
 
+import gzip
 import hashlib
 import io
 import json
-import zipfile
+import tarfile
 from pathlib import Path
 
 import pytest
 
 from tit import examples
+from tit.examples import __main__ as examples_main
+
+STORE = "https://example.invalid/store/"
 
 
-def _archive() -> bytes:
+def _tarball(subject: str) -> bytes:
     buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w") as zf:
-        zf.writestr("m2m_ernie/ernie.msh", b"mesh")
-        zf.writestr("m2m_ernie/T1.nii.gz", b"t1")
-        zf.writestr("m2m_ernie/segmentation/labeling.nii.gz", b"lab")
-        zf.writestr("m2m_ernie/eeg_positions/EEG10-10_UI_Jurak_2007.csv", b"csv")
-        zf.writestr("m2m_MNI152/MNI152.msh", b"not wanted")
-        zf.writestr("org/ernie_T1.nii.gz", b"rawT1")
-        zf.writestr("org/ernie_T2.nii.gz", b"rawT2")
-        zf.writestr("org/ernie_dMRI.nii.gz", b"not wanted")
-        zf.writestr("readme.txt", b"not wanted")
+    with gzip.GzipFile(fileobj=buf, mode="wb", mtime=0) as gz, tarfile.open(fileobj=gz, mode="w|") as tar:
+        for name, data in [
+            (f"m2m_{subject}/{subject}.msh", b"mesh"),
+            (f"m2m_{subject}/segmentation/labeling.nii.gz", b"lab"),
+        ]:
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
     return buf.getvalue()
 
 
-class _Resp(io.BytesIO):
-    def __init__(self, data: bytes):
-        super().__init__(data)
-        self.headers = {"Content-Length": str(len(data))}
+def _file(name: str, data: bytes) -> dict:
+    digest = hashlib.sha256(data).hexdigest()
+    return {"name": name, "bytes": len(data), "sha256": digest, "url": STORE + digest}
 
+
+T1 = b"rawT1"
+T2 = b"rawT2"
+ERNIE_TAR = _tarball("ernie")
+
+
+def _catalog() -> dict:
+    common = {
+        "source": "SimNIBS example dataset",
+        "source_url": "https://github.com/simnibs/example-dataset",
+        "licence": "GPL-3.0",
+        "group": "g",
+        "description": "d",
+    }
+    return {
+        "store": STORE,
+        "samples": [
+            {
+                "id": "ernie-t1",
+                "title": "Ernie raw",
+                "subject": "ernie",
+                "layout": "raw",
+                "files": [_file("sub-ernie_T1w.nii.gz", T1), _file("sub-ernie_T2w.nii.gz", T2)],
+                **common,
+            },
+            {
+                "id": "ernie-headmodel",
+                "title": "Ernie head model",
+                "subject": "ernie",
+                "layout": "headmodel",
+                "files": [
+                    _file("sub-ernie_T1w.nii.gz", T1),
+                    _file("sub-ernie_T2w.nii.gz", T2),
+                    _file("m2m_ernie.tar.gz", ERNIE_TAR),
+                ],
+                **common,
+            },
+        ],
+    }
+
+
+class _Resp(io.BytesIO):
     def __enter__(self):
         return self
 
@@ -50,73 +92,136 @@ class _Resp(io.BytesIO):
 
 @pytest.fixture
 def served(monkeypatch):
-    data = _archive()
+    """Serve each catalogue URL its own bytes, and record every URL opened."""
+    catalog = _catalog()
+    by_url = {}
+    for sample in catalog["samples"]:
+        for f in sample["files"]:
+            by_url[f["url"]] = {
+                "sub-ernie_T1w.nii.gz": T1,
+                "sub-ernie_T2w.nii.gz": T2,
+                "m2m_ernie.tar.gz": ERNIE_TAR,
+            }[f["name"]]
     calls: list[str] = []
-
-    def fake_urlopen(url):
-        calls.append(url)
-        return _Resp(data)
-
-    monkeypatch.setattr(examples.urllib.request, "urlopen", fake_urlopen)
-    return data, calls
-
-
-@pytest.fixture
-def pinned(served, monkeypatch):
-    data, calls = served
-    monkeypatch.setattr(examples, "RELEASE_SHA256", hashlib.sha256(data).hexdigest())
+    monkeypatch.setattr(examples, "_load_catalog", lambda: catalog)
+    monkeypatch.setattr(
+        examples.urllib.request, "urlopen", lambda url: (calls.append(url), _Resp(by_url[url]))[1]
+    )
     return calls
 
 
-def test_layout_matches_path_manager(tmp_path: Path, pinned, capsys):
+@pytest.fixture
+def corrupt(served, monkeypatch):
+    """The same store, serving one byte too few for every file."""
+    monkeypatch.setattr(
+        examples.urllib.request, "urlopen", lambda url: (served.append(url), _Resp(b"junk"))[1]
+    )
+    return served
+
+
+def test_headmodel_layout_matches_path_manager(tmp_path: Path, served, capsys):
     from tit.paths import get_path_manager
     from tit.pre import check_m2m_exists
 
-    m2m = examples.fetch_ernie(tmp_path)
+    m2m = examples.fetch("ernie-headmodel", tmp_path)
 
     pm = get_path_manager(str(tmp_path))
     assert str(m2m) == pm.m2m("ernie")
     assert check_m2m_exists(str(tmp_path), "ernie")
     assert (m2m / "ernie.msh").read_bytes() == b"mesh"
     assert (m2m / "segmentation" / "labeling.nii.gz").read_bytes() == b"lab"
-    assert (tmp_path / "sub-ernie" / "anat" / "sub-ernie_T1w.nii.gz").read_bytes() == b"rawT1"
-    assert (tmp_path / "sub-ernie" / "anat" / "sub-ernie_T2w.nii.gz").read_bytes() == b"rawT2"
-    assert not (tmp_path / "derivatives" / "SimNIBS" / "sub-MNI152").exists()
-    assert not (tmp_path / "readme.txt").exists()
+    assert (tmp_path / "sub-ernie" / "anat" / "sub-ernie_T1w.nii.gz").read_bytes() == T1
+    assert (tmp_path / "sub-ernie" / "anat" / "sub-ernie_T2w.nii.gz").read_bytes() == T2
+    assert not (tmp_path / "m2m_ernie.tar.gz").exists(), "the archive is unpacked, never kept"
     assert (tmp_path / "dataset_description.json").exists()
     assert (tmp_path / "derivatives" / "SimNIBS" / "dataset_description.json").exists()
     status = json.loads((tmp_path / "code" / "ti-toolbox" / "config" / "project_status.json").read_text())
     assert status["example_subjects"] == ["ernie"]
-    assert pinned == [examples.RELEASE_URL]
+    assert status["example_samples"] == ["ernie-headmodel"]
     assert "download 100%" in capsys.readouterr().out
 
 
-def test_idempotent_skip(tmp_path: Path, pinned):
-    examples.fetch_ernie(tmp_path)
-    examples.fetch_ernie(tmp_path)
-    assert pinned == [examples.RELEASE_URL], "second call must not download"
-    examples.fetch_ernie(tmp_path, force=True)
-    assert len(pinned) == 2
+def test_raw_layout_places_only_anat(tmp_path: Path, served):
+    anat = examples.fetch("ernie-t1", tmp_path)
+    assert anat == tmp_path / "sub-ernie" / "anat"
+    assert (anat / "sub-ernie_T1w.nii.gz").read_bytes() == T1
+    assert not (tmp_path / "derivatives").exists(), "a raw sample builds no head model"
 
 
-def test_sha_mismatch_rejected(tmp_path: Path, served):
-    with pytest.raises(ValueError, match="sha256 mismatch"):
-        examples.fetch_ernie(tmp_path)
+def test_fetch_ernie_is_the_headmodel_sample(tmp_path: Path, served):
+    assert examples.fetch_ernie(tmp_path) == examples._m2m_dir(tmp_path, "ernie")
+
+
+def test_idempotent_skip(tmp_path: Path, served):
+    examples.fetch("ernie-t1", tmp_path)
+    n = len(served)
+    examples.fetch("ernie-t1", tmp_path)
+    assert len(served) == n, "second call must not download"
+    examples.fetch("ernie-t1", tmp_path, force=True)
+    assert len(served) == n + 2
+
+
+def test_status_reports_installed_and_size(tmp_path: Path, served):
+    before = {s["id"]: s for s in examples.status(tmp_path)}
+    assert before["ernie-t1"]["installed"] is False
+    assert before["ernie-t1"]["bytes"] == len(T1) + len(T2)
+    examples.fetch("ernie-t1", tmp_path)
+    after = {s["id"]: s for s in examples.status(tmp_path)}
+    assert after["ernie-t1"]["installed"] is True
+    assert after["ernie-headmodel"]["installed"] is False, "its head model is still missing"
+
+
+def test_sha_mismatch_rejected(tmp_path: Path, corrupt):
+    with pytest.raises(ValueError, match="refusing to install"):
+        examples.fetch("ernie-headmodel", tmp_path)
     assert not (tmp_path / "derivatives").exists()
     assert not (tmp_path / "sub-ernie").exists()
 
 
-def test_cli(tmp_path: Path, pinned):
-    assert examples.main(["--project", str(tmp_path)]) == 0
-    assert (tmp_path / "derivatives" / "SimNIBS" / "sub-ernie" / "m2m_ernie").is_dir()
+def test_unknown_sample(tmp_path: Path, served):
+    with pytest.raises(KeyError, match="unknown example sample"):
+        examples.fetch("no-such-sample", tmp_path)
 
 
-def test_cli_reports_bad_archive(tmp_path: Path, served, capsys):
-    assert examples.main(["--project", str(tmp_path)]) == 1
-    assert "sha256 mismatch" in capsys.readouterr().err
+def test_progress_callback_counts_the_whole_sample(tmp_path: Path, served):
+    seen: list[tuple[str, str, int, int]] = []
+    examples.fetch("ernie-t1", tmp_path, progress=lambda *a: seen.append(a))
+    total = len(T1) + len(T2)
+    assert {p[3] for p in seen} == {total}
+    assert seen[-1][2] == total, "the last report is the whole sample"
 
 
-def test_project_init_runner_fetches_when_asked(tmp_path: Path, pinned):
+def test_cli(tmp_path: Path, served, capsys):
+    assert examples_main.main(["--project", str(tmp_path), "ernie-t1"]) == 0
+    assert (tmp_path / "sub-ernie" / "anat" / "sub-ernie_T1w.nii.gz").exists()
+    assert examples_main.main(["--project", str(tmp_path), "--list"]) == 0
+    out = capsys.readouterr().out
+    assert "ernie-t1" in out and "installed" in out
+
+
+def test_cli_defaults_to_the_head_model(tmp_path: Path, served):
+    assert examples_main.main(["--project", str(tmp_path)]) == 0
+    assert (tmp_path / "derivatives" / "SimNIBS" / "sub-ernie" / "m2m_ernie" / "ernie.msh").exists()
+
+
+def test_cli_reports_a_bad_download(tmp_path: Path, corrupt, capsys):
+    assert examples_main.main(["--project", str(tmp_path), "ernie-t1"]) == 1
+    assert "refusing to install" in capsys.readouterr().err
+
+
+def test_project_init_runner_fetches_the_named_sample(tmp_path: Path, served):
+    from tit.project_init.__main__ import main
+
+    project = tmp_path / "project"
+    project.mkdir()
+    config = tmp_path / "c.json"
+    config.write_text(json.dumps({"project_dir": str(project), "example_sample": "ernie-t1"}))
+    assert main([str(config)]) == 0
+    assert (project / "sub-ernie" / "anat" / "sub-ernie_T1w.nii.gz").exists()
+
+
+def test_project_init_runner_still_honours_the_old_boolean(tmp_path: Path, served):
+    """A job queued by a pre-2026-09-15 desktop carries ``example_subject: true``."""
     from tit.project_init.__main__ import main
 
     project = tmp_path / "project"
@@ -125,4 +230,28 @@ def test_project_init_runner_fetches_when_asked(tmp_path: Path, pinned):
     config.write_text(json.dumps({"project_dir": str(project), "example_subject": True}))
     assert main([str(config)]) == 0
     assert (project / "derivatives" / "SimNIBS" / "sub-ernie" / "m2m_ernie" / "ernie.msh").exists()
-    assert pinned == [examples.RELEASE_URL]
+
+
+# --------------------------------------------------------------- the real catalogue (no network)
+
+
+def test_shipped_catalogue_is_complete_and_content_addressed():
+    samples = examples.catalogue()
+    assert [s.id for s in samples] == ["mni152-t1", "ernie-t1", "ernie-headmodel", "mni152-headmodel"]
+    store = examples._load_catalog()["store"]
+    for s in samples:
+        assert s.layout in {"raw", "headmodel"}
+        assert s.subject in {"ernie", "MNI152"}
+        assert s.licence.startswith("GPL-3.0")
+        assert s.files, s.id
+        for f in s.files:
+            assert len(f.sha256) == 64 and f.bytes > 0
+            assert f.url == store + f.sha256, "an asset is named by its own hash"
+        if s.layout == "headmodel":
+            assert any(f.name == f"m2m_{s.subject}.tar.gz" for f in s.files)
+        else:
+            assert all(f.name.endswith(".nii.gz") for f in s.files)
+
+
+def test_the_head_model_sample_fetch_ernie_names_exists():
+    assert examples.sample_by_id(examples.ERNIE_HEADMODEL).layout == "headmodel"

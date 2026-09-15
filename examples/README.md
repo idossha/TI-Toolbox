@@ -7,7 +7,7 @@
 ## Running the notebook
 
 You do not need your own data. The notebook's first cell calls
-`tit.examples.fetch_ernie(PROJECT)`, which downloads the SimNIBS example subject
+`tit.examples.fetch_ernie(PROJECT)`, which downloads the `ernie-headmodel` example sample
 (`ernie`, with a finished `m2m_ernie` head model, GPL-3.0) into the project once.
 The same download is behind the app's **Add example subject** button on the Overview
 page and `python -m tit.examples --project DIR`.

@@ -24,15 +24,18 @@ that session or recreate it for the requested project. Closing Electron stops/re
 container and exits. Browser sessions opened from the CLI remain tied to their running
 container; change projects through the CLI. See [launch options]({{ site.baseurl }}/installation/bash-cli/).
 
-## Add example subject
+## Add example data
 
-Next to **Switch project**, **Add example subject (ernie, ~1.1 GB download)** fetches the
-SimNIBS example dataset (GPL-3.0) into the open project once: `sub-ernie/anat/` gets the T1/T2
-and `derivatives/SimNIBS/sub-ernie/m2m_ernie/` the finished charm head model, so the Optimizer,
-Simulator and Analyzer pages — and the [Example Notebook]({{ site.baseurl }}/wiki/example-notebook/)
-— work without pre-processing. It runs as a job (progress shows under the button and in the jobs
-rail) and is skipped when `m2m_ernie` already exists. The same download is
-`python -m tit.examples --project DIR` from a shell.
+Next to **Switch project**, **Add example data** opens *Help ▸ Example data* — the catalogue of
+four public datasets (SimNIBS example dataset, GPL-3.0) you can download into the open project:
+raw T1/T2 scans that still need pre-processing, and finished charm head models that the Optimizer,
+Simulator, Analyzer and the [Example Notebook]({{ site.baseurl }}/wiki/example-notebook/) can use
+straight away. The first time you open a new project the app asks **Add example data?** by itself
+and offers the same four samples, with the ready-to-simulate `ernie-headmodel` pre-ticked; the
+answer is recorded in the project's `project_status.json`, so it is asked once per project. Each
+download is a job (progress in the jobs rail) and is skipped when the sample is already present.
+See [Example Data]({{ site.baseurl }}/wiki/example-data/) for the sizes, licence and the
+`python -m tit.examples --project DIR` command line.
 
 ## Project information
 

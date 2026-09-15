@@ -38,8 +38,10 @@ it is the single object that knows where everything in a BIDS project lives.
 export `TIT_PROJECT_DIR` before starting the kernel. Everything else in the notebook derives
 from it.
 
-`fetch_ernie` downloads the SimNIBS example subject once (~1.1 GB, GPL-3.0) so every later cell has
-a head model. Skipped if already present. Same as the project page's *Add example subject* button.
+`fetch_ernie` downloads the `ernie-headmodel` sample once (627 MB, GPL-3.0) so every later cell has
+a head model. Skipped if already present. Same as ticking it in *Add example data?* or in
+*Help ▸ Example data* — see [Example Data]({{ site.baseurl }}/wiki/example-data/) for the other
+three samples and the `python -m tit.examples` command line.
 
 ```python
 import os

@@ -217,7 +217,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Seed a fresh project directory (BIDS layout); the example subject is /api/project/example-subject
+         * Seed a fresh project directory (BIDS layout); example data is /api/project/example-data
          * @description Long-running (generates a BIDS tree) so it is a job (R3), not an inline response.
          */
         post: {
@@ -251,18 +251,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/project/example-subject": {
+    "/api/project/example-data": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * The example-data catalogue and what this project already holds
+         * @description The four samples tit/examples/catalog.json lists, plus a per-sample {installed, bytes} read off this project's disk. No network: the desktop's chooser and Help tab draw from this.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description catalogue and status */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ExampleDataCatalog"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description this server is not bound to a project */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         put?: never;
         /**
-         * Download the SimNIBS example subject (ernie, with head model) into this project
-         * @description ~1 GB download, so it is a project_init job; a no-op when m2m_ernie already exists unless force.
+         * Download an example dataset into this project
+         * @description Up to ~630 MB, so it is a project_init job; a no-op when the sample's files are already in place unless force.
          */
         post: {
             parameters: {
@@ -274,6 +305,8 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
+                        /** @description a catalogue id; default ernie-headmodel */
+                        sample_id?: string;
                         force?: boolean;
                     };
                 };
@@ -289,6 +322,13 @@ export interface paths {
                     };
                 };
                 401: components["responses"]["Unauthorized"];
+                /** @description unknown sample_id */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
             };
         };
         delete?: never;
@@ -5288,11 +5328,47 @@ export interface components {
             name: string;
         };
         ProjectStatus: {
-            /** @description the desktop's "Add the example subject?" dialog was answered (either way) */
+            /** @description the desktop's "Add example data?" chooser was answered (either way) */
             example_subject_prompted?: boolean | null;
             example_subjects?: string[] | null;
+            /** @description tit.examples catalogue ids installed into this project */
+            example_samples?: string[] | null;
         } & {
             [key: string]: unknown;
+        };
+        ExampleDataFile: {
+            name: string;
+            bytes: number;
+            sha256: string;
+            url: string;
+        };
+        ExampleDataSample: {
+            id: string;
+            title: string;
+            group: string;
+            description: string;
+            source: string;
+            source_url: string;
+            licence: string;
+            /** @description the BIDS subject label the files land under */
+            subject: string;
+            /**
+             * @description raw needs pre-processing; headmodel is ready to simulate
+             * @enum {string}
+             */
+            layout: "raw" | "headmodel";
+            /** @description sum of the file sizes */
+            bytes: number;
+            files: components["schemas"]["ExampleDataFile"][];
+        };
+        ExampleDataStatus: {
+            id: string;
+            installed: boolean;
+            bytes: number;
+        };
+        ExampleDataCatalog: {
+            samples: components["schemas"]["ExampleDataSample"][];
+            status: components["schemas"]["ExampleDataStatus"][];
         };
         Subject: {
             /** @description without the sub- prefix */

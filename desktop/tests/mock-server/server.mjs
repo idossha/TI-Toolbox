@@ -1728,12 +1728,34 @@ function params(matcher, pathname) {
 route("GET", "/api/version", (ctx) => json(ctx.res, 200, version));
 route("GET", "/api/capabilities", (ctx) => json(ctx.res, 200, capabilities));
 route("GET", "/api/project", (ctx) => json(ctx.res, 200, project));
-// The mock project already holds ernie, so the once-per-project "Add the example subject?"
-// dialog never fires against it; PATCH merges like tit.project_init.update_project_status.
-let projectStatus = { example_subjects: ["ernie"], example_subject_prompted: true };
-route("GET", "/api/project/status", (ctx) => json(ctx.res, 200, projectStatus));
+// The mock project already holds ernie, so the once-per-project "Add example data?" chooser never
+// fires against it; PATCH merges like tit.project_init.update_project_status.
+// The fresh-project fixture: `TIT_MOCK_NO_PROJECT_STATUS=1`, or `POST /api/__mock/project-status
+// {"missing": true}` at run time, makes GET answer 404 the way a project with no
+// project_status.json on disk does — the case the chooser must still fire in.
+const NO_PROJECT_STATUS = process.env.TIT_MOCK_NO_PROJECT_STATUS === "1";
+let projectStatus = NO_PROJECT_STATUS
+  ? {}
+  : { example_subjects: ["ernie"], example_subject_prompted: true };
+let projectStatusMissing = NO_PROJECT_STATUS;
+let exampleDataInstalled = !NO_PROJECT_STATUS;
+
+// Mirrors tit/examples/catalog.json: four samples, two layouts. Sizes are the real ones so the
+// chooser's "627 MB" is the number a user will actually see.
+const exampleSamples = [
+  { id: "mni152-t1", title: "MNI152 template — T1", group: "Raw MRI (needs pre-processing)", description: "The MNI152 template's T1 alone: the smallest way to run Pre-process end to end and build a head model yourself.", source: "SimNIBS example dataset", source_url: "https://github.com/simnibs/example-dataset", licence: "GPL-3.0", subject: "MNI152", layout: "raw", bytes: 14915970, files: [] },
+  { id: "ernie-t1", title: "Ernie — T1 + T2", group: "Raw MRI (needs pre-processing)", description: "The SimNIBS example subject's raw T1 and T2: what a real study starts from.", source: "SimNIBS example dataset", source_url: "https://github.com/simnibs/example-dataset", licence: "GPL-3.0", subject: "ernie", layout: "raw", bytes: 35424659, files: [] },
+  { id: "ernie-headmodel", title: "Ernie — head model", group: "Head model (ready to simulate)", description: "Ernie's T1 + T2 with the finished charm head model m2m_ernie.", source: "SimNIBS example dataset", source_url: "https://github.com/simnibs/example-dataset", licence: "GPL-3.0", subject: "ernie", layout: "headmodel", bytes: 627045804, files: [] },
+  { id: "mni152-headmodel", title: "MNI152 template — head model", group: "Head model (ready to simulate)", description: "The MNI152 template's T1 with its finished charm head model m2m_MNI152.", source: "SimNIBS example dataset", source_url: "https://github.com/simnibs/example-dataset", licence: "GPL-3.0", subject: "MNI152", layout: "headmodel", bytes: 477129122, files: [] },
+];
+route("GET", "/api/project/status", (ctx) =>
+  projectStatusMissing
+    ? json(ctx.res, 404, { detail: "project_status.json not found" })
+    : json(ctx.res, 200, projectStatus),
+);
 route("PATCH", "/api/project/status", async (ctx) => {
   projectStatus = { ...projectStatus, ...((await ctx.body()) ?? {}) };
+  projectStatusMissing = false; // PATCH creates the file, as tit.project_init does.
   json(ctx.res, 200, projectStatus);
 });
 route("POST", "/api/project/init", async (ctx) => {
@@ -1741,9 +1763,21 @@ route("POST", "/api/project/init", async (ctx) => {
   const job = createJob({ kind: "project_init", config: {}, subject_ids: [] });
   json(ctx.res, 201, job.status);
 });
-route("POST", "/api/project/example-subject", async (ctx) => {
+route("GET", "/api/project/example-data", (ctx) =>
+  json(ctx.res, 200, {
+    samples: exampleSamples,
+    status: exampleSamples.map((s) => ({
+      id: s.id,
+      installed: exampleDataInstalled && s.id === "ernie-headmodel",
+      bytes: s.bytes,
+    })),
+  }),
+);
+route("POST", "/api/project/example-data", async (ctx) => {
   const body = (await ctx.body()) ?? {};
-  const job = createJob({ kind: "project_init", config: { example_subject: true, force: !!body.force }, subject_ids: [] });
+  const sampleId = body.sample_id ?? "ernie-headmodel";
+  if (!exampleSamples.some((s) => s.id === sampleId)) return json(ctx.res, 422, { detail: "unknown sample_id" });
+  const job = createJob({ kind: "project_init", config: { example_sample: sampleId, force: !!body.force }, subject_ids: [] });
   json(ctx.res, 201, job.status);
 });
 route("GET", "/api/catalog/subjects", (ctx) => json(ctx.res, 200, subjects));
@@ -3092,6 +3126,14 @@ route("POST", "/api/__mock/reset", (ctx) => {
 });
 // Mock-only: switch the project the overview routes describe (3 or 30 subjects). See
 // `makeLargeOverview` above for why two sizes exist.
+/** The fresh-project fixture: no project_status.json, nothing recorded, nothing installed. */
+route("POST", "/api/__mock/project-status", async (ctx) => {
+  const body = (await ctx.body()) ?? {};
+  projectStatusMissing = body.missing !== false;
+  projectStatus = projectStatusMissing ? {} : { example_subjects: ["ernie"], example_subject_prompted: true };
+  exampleDataInstalled = !projectStatusMissing;
+  json(ctx.res, 200, { missing: projectStatusMissing });
+});
 route("POST", "/api/__mock/project", async (ctx) => {
   const body = await ctx.body();
   const n = Number(body?.subjects ?? 3);

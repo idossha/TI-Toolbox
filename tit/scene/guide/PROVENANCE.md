@@ -14,8 +14,11 @@ rebuilt at runtime, and no source dataset is redistributed as such.
 | Head mesh | `ernie.msh`, 184 MB, 847 165 nodes, 5 899 838 elements |
 | Generated | 2026-09-05, in container `ti-toolbox-fad740e5-tit-1` (SimNIBS 4.6) |
 
-The same release archive (`v4.1/simnibs4_examples.zip`, sha256-pinned) is fetched at runtime into
-a user's project by `tit.examples.fetch_ernie` — it is downloaded from upstream, not redistributed.
+The same release archive (`v4.1/simnibs4_examples.zip`, sha256-pinned) is the sole source of the
+`example-data` store — raw T1/T2 NIfTIs byte-for-byte and one `m2m_<id>.tar.gz` per head model,
+each asset named by its own sha256 — which `tit.examples` fetches into a user's project on request
+(`dev/example-data/`, catalogue in `tit/examples/catalog.json`); every asset carries the GPL-3.0
+licence of the dataset it is derived from.
 
 ## Licence, and whether redistribution is permitted
 

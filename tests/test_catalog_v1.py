@@ -1612,7 +1612,7 @@ def test_project_init_submits_a_job_or_degrades_to_503(client: TestClient) -> No
 
 def test_project_status_round_trips_prompt_answers(client: TestClient) -> None:
     """``GET/PATCH /api/project/status`` is how the desktop remembers that the
-    "Add the example subject?" dialog was answered -- server-side, per project."""
+    "Add example data?" chooser was answered -- server-side, per project."""
     before = client.get("/api/project/status", headers=BEARER)
     assert before.status_code == 200
     assert before.json().get("example_subject_prompted") is not True
@@ -1625,17 +1625,37 @@ def test_project_status_round_trips_prompt_answers(client: TestClient) -> None:
     assert "last_updated" in after.json()
 
 
-def test_example_subject_submits_a_project_init_job(client: TestClient) -> None:
-    """``POST /api/project/example-subject`` is a ``project_init`` job with ``example_subject``
-    set -- the same runner, one more config flag -- so the GUI button reuses the jobs rail."""
-    r = client.post("/api/project/example-subject", headers=BEARER)
+def test_example_data_catalogue_lists_every_sample_with_status(client: TestClient) -> None:
+    """``GET /api/project/example-data`` is what the desktop's chooser and Help tab draw:
+    the catalogue plus a per-sample installed flag read off disk, with no network."""
+    r = client.get("/api/project/example-data", headers=BEARER)
+    assert r.status_code == 200
+    body = r.json()
+    ids = [s["id"] for s in body["samples"]]
+    assert ids == ["mni152-t1", "ernie-t1", "ernie-headmodel", "mni152-headmodel"]
+    assert [s["id"] for s in body["status"]] == ids
+    for sample in body["samples"]:
+        assert sample["layout"] in ("raw", "headmodel")
+        assert sample["bytes"] == sum(f["bytes"] for f in sample["files"])
+    assert all(isinstance(s["installed"], bool) for s in body["status"])
+
+
+def test_example_data_submits_a_project_init_job(client: TestClient) -> None:
+    """``POST /api/project/example-data`` is a ``project_init`` job carrying the sample id --
+    the same runner, one more config field -- so the chooser reuses the jobs rail."""
+    r = client.post("/api/project/example-data", json={"sample_id": "ernie-t1"}, headers=BEARER)
     assert r.status_code in (201, 503)
     if r.status_code == 201:
         body = r.json()
         assert body["kind"] == "project_init"
         detail = client.get(f"/api/jobs/{body['id']}", headers=BEARER)
         assert detail.status_code == 200
-        assert detail.json()["spec"]["config"]["example_subject"] is True
+        assert detail.json()["spec"]["config"]["example_sample"] == "ernie-t1"
+
+
+def test_example_data_rejects_an_unknown_sample(client: TestClient) -> None:
+    r = client.post("/api/project/example-data", json={"sample_id": "nope"}, headers=BEARER)
+    assert r.status_code == 422
 
 
 def test_capabilities_has_jupyter_bool(client: TestClient) -> None:

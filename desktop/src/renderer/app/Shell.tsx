@@ -14,6 +14,7 @@ import { useGlobalShortcuts } from "./keyboard";
 import { useConnection } from "./connection";
 import { clearPageSession } from "./pageSession";
 import { RetainedPages } from "./RetainedPages";
+import { ExampleDataPrompt } from "./exampleData/ExampleDataPrompt";
 import type { ResolvedPage } from "./registry";
 import { useSubjectSpine } from "./subjectSpine";
 import { useSubjectContext } from "./subjectContext";
@@ -150,6 +151,12 @@ export function Shell({ pages }: { pages: readonly ResolvedPage[] }) {
           data-subject={activeSubjectId ?? ""}
         >
           {unauthenticated ? <Unauthenticated /> : <RetainedPages key={sessionEpoch} pages={pages} />}
+          {/* Mounted here, beside the outlet, so the once-per-project "Add example data?" chooser
+              fires on the first arrival in a project whatever route that is — see its own doc
+              comment for the defect that mounting it inside Overview caused. `sessionEpoch`
+              remounts it when Electron reconnects the renderer to a different project, so the new
+              project gets its own question. */}
+          {!unauthenticated && <ExampleDataPrompt key={`example-data-${sessionEpoch}`} />}
           {/* Child routes validate navigation and own the catch-all redirect; pages live above. */}
           <Outlet />
         </div>

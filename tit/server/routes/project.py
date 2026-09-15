@@ -22,7 +22,7 @@ from fastapi import APIRouter, HTTPException
 
 from tit.paths import get_path_manager
 from tit.server.host_path import host_project_dir
-from tit.server.schemas import Project, ProjectStatus
+from tit.server.schemas import ExampleDataCatalog, Project, ProjectStatus
 
 router = APIRouter()
 
@@ -116,15 +116,41 @@ def init_project(body: dict[str, Any] | None = None) -> dict[str, Any]:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
-@router.post(
-    "/api/project/example-subject",
-    status_code=201,
-    summary="Download the SimNIBS example subject (ernie, with head model) into this project",
+@router.get(
+    "/api/project/example-data",
+    response_model=ExampleDataCatalog,
+    responses={409: {"description": "this server is not bound to a project"}},
+    summary="The example-data catalogue and what this project already holds",
 )
-def add_example_subject(body: dict[str, Any] | None = None) -> dict[str, Any]:
-    """``{force?}`` -> ``JobStatus`` for a ``project_init`` job that runs
-    :func:`tit.examples.fetch_ernie` (~1 GB download, skipped when ``m2m_ernie`` exists)."""
-    force = bool((body or {}).get("force", False))
+def example_data() -> dict[str, Any]:
+    """``{samples, status}`` -- :mod:`tit.examples`'s catalogue plus a per-sample
+    ``{installed, bytes}`` read off this project's disk. No network, so the desktop's chooser and
+    Help tab can draw the list before anything is downloaded."""
+    from tit import examples
+
+    project_dir = Path(_bound_project_dir())
+    return {
+        "samples": [s.to_dict() for s in examples.catalogue()],
+        "status": examples.status(project_dir),
+    }
+
+
+@router.post(
+    "/api/project/example-data",
+    status_code=201,
+    summary="Download an example dataset into this project",
+)
+def add_example_data(body: dict[str, Any] | None = None) -> dict[str, Any]:
+    """``{sample_id, force?}`` -> ``JobStatus`` for a ``project_init`` job that runs
+    :func:`tit.examples.fetch` (skipped when the sample's files are already in place)."""
+    from tit import examples
+
+    data = body or {}
+    sample_id = str(data.get("sample_id") or examples.ERNIE_HEADMODEL)
+    try:
+        examples.sample_by_id(sample_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     try:
         from tit.jobs import api as jobs_api
     except ImportError as exc:  # pragma: no cover
@@ -133,7 +159,7 @@ def add_example_subject(body: dict[str, Any] | None = None) -> dict[str, Any]:
         return jobs_api.submit(
             {
                 "kind": "project_init",
-                "config": {"example_subject": True, "force": force},
+                "config": {"example_sample": sample_id, "force": bool(data.get("force", False))},
                 "subject_ids": [],
                 "created_by": "gui",
             }

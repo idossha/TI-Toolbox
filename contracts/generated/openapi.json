@@ -243,7 +243,7 @@
         "tags": [
           "settings"
         ],
-        "summary": "Seed a fresh project directory (BIDS layout); the example subject is /api/project/example-subject",
+        "summary": "Seed a fresh project directory (BIDS layout); example data is /api/project/example-data",
         "description": "Long-running (generates a BIDS tree) so it is a job (R3), not an inline response.",
         "security": [
           {
@@ -281,13 +281,46 @@
         }
       }
     },
-    "/api/project/example-subject": {
+    "/api/project/example-data": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "The example-data catalogue and what this project already holds",
+        "description": "The four samples tit/examples/catalog.json lists, plus a per-sample {installed, bytes} read off this project's disk. No network: the desktop's chooser and Help tab draw from this.",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "catalogue and status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExampleDataCatalog"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "description": "this server is not bound to a project"
+          }
+        }
+      },
       "post": {
         "tags": [
           "settings"
         ],
-        "summary": "Download the SimNIBS example subject (ernie, with head model) into this project",
-        "description": "~1 GB download, so it is a project_init job; a no-op when m2m_ernie already exists unless force.",
+        "summary": "Download an example dataset into this project",
+        "description": "Up to ~630 MB, so it is a project_init job; a no-op when the sample's files are already in place unless force.",
         "security": [
           {
             "cookieAuth": []
@@ -303,6 +336,10 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "sample_id": {
+                    "type": "string",
+                    "description": "a catalogue id; default ernie-headmodel"
+                  },
                   "force": {
                     "type": "boolean"
                   }
@@ -324,6 +361,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "422": {
+            "description": "unknown sample_id"
           }
         }
       }
@@ -7667,7 +7707,7 @@
               "boolean",
               "null"
             ],
-            "description": "the desktop's \"Add the example subject?\" dialog was answered (either way)"
+            "description": "the desktop's \"Add example data?\" chooser was answered (either way)"
           },
           "example_subjects": {
             "type": [
@@ -7676,6 +7716,140 @@
             ],
             "items": {
               "type": "string"
+            }
+          },
+          "example_samples": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "tit.examples catalogue ids installed into this project"
+          }
+        }
+      },
+      "ExampleDataFile": {
+        "type": "object",
+        "required": [
+          "name",
+          "bytes",
+          "sha256",
+          "url"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "bytes": {
+            "type": "integer"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "ExampleDataSample": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "group",
+          "description",
+          "source",
+          "source_url",
+          "licence",
+          "subject",
+          "layout",
+          "bytes",
+          "files"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "group": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "source_url": {
+            "type": "string"
+          },
+          "licence": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string",
+            "description": "the BIDS subject label the files land under"
+          },
+          "layout": {
+            "type": "string",
+            "enum": [
+              "raw",
+              "headmodel"
+            ],
+            "description": "raw needs pre-processing; headmodel is ready to simulate"
+          },
+          "bytes": {
+            "type": "integer",
+            "description": "sum of the file sizes"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExampleDataFile"
+            }
+          }
+        }
+      },
+      "ExampleDataStatus": {
+        "type": "object",
+        "required": [
+          "id",
+          "installed",
+          "bytes"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "installed": {
+            "type": "boolean"
+          },
+          "bytes": {
+            "type": "integer"
+          }
+        }
+      },
+      "ExampleDataCatalog": {
+        "type": "object",
+        "required": [
+          "samples",
+          "status"
+        ],
+        "properties": {
+          "samples": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExampleDataSample"
+            }
+          },
+          "status": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExampleDataStatus"
             }
           }
         }

@@ -18,10 +18,11 @@ Shape
 The same thin JSON-config runner as :mod:`tit.opt.leadfield_runner` and
 :mod:`tit.stats.nifti_average`: read the spec, initialise the
 :class:`~tit.paths.PathManager` from ``project_dir``, do the work, exit 0/non-zero.
-``project_init`` has no config dataclass (it is outside ``PipelineKind``, so
-``/api/validate`` and ``/api/plan`` 404 for it by design); its config is one optional boolean, ``example_subject``
-(download the SimNIBS example subject with its ``m2m_ernie`` head model via
-:func:`tit.examples.fetch_ernie`, the ``POST /api/project/example-subject`` route).
+``project_init`` has no config dataclass (it is outside ``PipelineKind``, so ``/api/validate``
+and ``/api/plan`` 404 for it by design); its config is one optional ``example_sample`` (a
+:mod:`tit.examples` catalogue id to download, the ``POST /api/project/example-data`` route).
+The pre-2026-09-15 boolean ``example_subject`` still means ``ernie-headmodel``, so a queued job
+written by an older desktop keeps working.
 
 Idempotent by construction: :func:`tit.project_init.initialize_project_structure` creates only
 what is missing, so re-running it on an established project is a no-op that still exits 0.
@@ -59,11 +60,14 @@ def main(argv: list[str] | None = None) -> int:
     initialize_project_structure(Path(project_dir))
     print(f"Project structure ready: {project_dir}", flush=True)
 
-    if data.get("example_subject"):
-        from tit.examples import fetch_ernie
+    sample = data.get("example_sample") or (
+        "ernie-headmodel" if data.get("example_subject") else None
+    )
+    if sample:
+        from tit.examples import fetch
 
-        events.emit_stage("example_subject")
-        fetch_ernie(project_dir, force=bool(data.get("force", False)))
+        events.emit_stage("example_data")
+        fetch(sample, project_dir, force=bool(data.get("force", False)))
 
     events.emit_result({"project_dir": str(project_dir)})
     print("✓ Project initialization complete.", flush=True)

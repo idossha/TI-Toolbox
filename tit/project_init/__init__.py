@@ -2,7 +2,7 @@
 
 Provides utilities for detecting new projects, scaffolding BIDS-compliant
 directory structures, and reading/writing ``project_status.json``. The example
-subject is :func:`tit.examples.fetch_ernie`.
+data is :func:`tit.examples.fetch`.
 """
 
 from .initializer import (

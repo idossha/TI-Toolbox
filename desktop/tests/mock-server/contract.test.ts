@@ -189,7 +189,8 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     await call("/api/project/status", "GET", "/api/project/status");
     await call("/api/project/status", "PATCH", "/api/project/status", { body: { example_subject_prompted: true } });
     const { json: projectInit } = await call("/api/project/init", "POST", "/api/project/init", { body: {} });
-    const { json: exampleSubject } = await call("/api/project/example-subject", "POST", "/api/project/example-subject", { body: {} });
+    await call("/api/project/example-data", "GET", "/api/project/example-data");
+    const { json: exampleSubject } = await call("/api/project/example-data", "POST", "/api/project/example-data", { body: { sample_id: "ernie-headmodel" } });
     await call("/api/catalog/subjects", "GET", "/api/catalog/subjects");
     await call("/api/catalog/simulations", "GET", "/api/catalog/simulations?subject=ernie");
     await call("/api/catalog/simulations/{name}", "GET", "/api/catalog/simulations/Thalamus?subject=ernie");
