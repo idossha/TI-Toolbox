@@ -9,6 +9,8 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 ---
 ### v3.0.0 (Unreleased)
 
+- **2026-09-15 — desktop launches need no `--project`** — `loader.sh`, `loader.py` and `tit launch` hand off to the desktop app without a project directory, which then opens its own project page just as a Dock launch does; `--project` still opens straight into one project. Browser runs (`--browser`, `--no-open`) still require a project, because their container is bound to one, and the terminal project prompt is now browser-only.
+
 - **Bundled atlas previews** — Optimizer and Analyzer share precomputed reference cortical and subcortical surfaces, translucent skin, synchronized atlas/target selection, a clear-selection action and matching region legend colors. The atlas catalog refreshes after updates. Named Simulator montages also use reference anatomy; actual XYZ placement retains subject coordinates. Individualized volume inspection opens explicitly in TetraVox.
 
 - **Optimization candidate review** — Flex records valid evaluated montages with metrics, exact poses/current splits and provenance. Results links an intensity–focality plot, paged table and subject montage preview. Simulator drafts support reversible XYZ/cap placement, highlight snapped electrodes and show displacement distances. Compact channel rows omit redundant badges; XYZ colors identify channels and labels identify polarity.

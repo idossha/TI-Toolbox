@@ -20,7 +20,9 @@ Usage: bash loader.sh [--project DIR] [options]
 
 Start TI-Toolbox. The desktop app is the UI: it is downloaded, checksum-verified and
 cached on first run, and the browser is the fallback. Browser containers persist after
-closing the tab. Docker, Compose and curl are required; no host Python is needed.
+closing the tab. Docker, Compose and curl are required; no host Python is needed. --project
+is optional for the desktop app, which opens its own project page without one; the browser
+requires it.
 
   --image IMAGE:TAG   image override
   --port PORT        first host port to try (8765)
@@ -32,7 +34,7 @@ closing the tab. Docker, Compose and curl are required; no host Python is needed
   --container ID     select a running container for either action
   --dev [DIR]        run a source checkout, not the image's code (reload + its built UI)
   --print-config     print the resolved settings and exit; no Docker calls
-  --interactive      choose a project interactively
+  --interactive      choose a project interactively (browser mode)
   --status           show this project's container
   --logs [--follow]   print or follow its logs
   --stop             stop and remove its container
@@ -64,6 +66,16 @@ HELP
 done
 [ "$explicit_desktop" = 0 ] || { [ "$explicit_browser" = 0 ] && [ "$open_browser" = 1 ]; } || die '--desktop cannot be combined with --browser or --no-open'
 case "$running_action" in ""|attach|recreate) ;; *) die "--existing must be attach or recreate" ;; esac
+if [ -z "$ui" ]; then
+    # The desktop app is the default UI; --browser, --no-open and a --dev checkout opt out.
+    if [ "$explicit_browser" = 1 ] || [ "$open_browser" = 0 ] || [ -n "$repo" ]; then ui=browser; else ui=desktop; fi
+fi
+# The desktop app owns the project: with no --project it opens its own project page, exactly
+# as a Dock launch does, so neither the prompt nor the project requirement applies here.
+desktop_no_project=0
+if [ "$ui" = desktop ] && [ "$open_browser" = 1 ] && [ "$mode" = start ] && [ -z "$project" ]; then
+    desktop_no_project=1; interactive=0
+fi
 config="${XDG_CONFIG_HOME:-$HOME/.config}/ti-toolbox"
 if [ "$interactive" = 1 ]; then
     [ -t 0 ] || { printf 'ti-toolbox: interactive setup needs a terminal; pass --project DIR\n' >&2; exit 2; }
@@ -75,11 +87,15 @@ if [ "$interactive" = 1 ]; then
     read -r -p "Project directory${project:+ [$project]}: " answer || exit 2
     project="${answer:-$project}"
 fi
-case "$project" in \~/*) project="$HOME/${project#\~/}" ;; esac
-[ -d "$project" ] || die 'pass --project with an existing directory'
-project="$(cd "$project" && pwd -P)"
-case "$project" in *$'\n'*|*:*) die 'project path cannot contain newlines or colons' ;; esac
-[ "$project" != / ] || die 'choose a project directory, not the filesystem root'
+if [ "$desktop_no_project" = 1 ]; then
+    project=''
+else
+    case "$project" in \~/*) project="$HOME/${project#\~/}" ;; esac
+    [ -d "$project" ] || die 'pass --project with an existing directory'
+    project="$(cd "$project" && pwd -P)"
+    case "$project" in *$'\n'*|*:*) die 'project path cannot contain newlines or colons' ;; esac
+    [ "$project" != / ] || die 'choose a project directory, not the filesystem root'
+fi
 [[ "$port" =~ ^[0-9]+$ ]] && [ "$port" -gt 0 ] && [ "$port" -le 65535 ] || die 'port must be 1–65535'
 [[ "$timeout" =~ ^[0-9]+([.][0-9]+)?$ ]] || die 'timeout must be positive seconds'
 timeout="$(awk -v t="$timeout" 'BEGIN {print int(t)+(t>int(t))}')"
@@ -186,10 +202,6 @@ install_desktop_executable() {
     done
     desktop_exe="$(managed_executable "$root/$version")"
 }
-if [ -z "$ui" ]; then
-    # The desktop app is the default UI; --browser, --no-open and a --dev checkout opt out.
-    if [ "$explicit_browser" = 1 ] || [ "$open_browser" = 0 ] || [ -n "$repo" ]; then ui=browser; else ui=desktop; fi
-fi
 # Match the Python/Electron project hash so all entry points can attach and stop.
 project_stack() {
     local text="$1" h1 h2 i code hash
@@ -220,7 +232,7 @@ if [ "$print_config" = 1 ]; then
     printf 'project   %s\n' "$project"
     printf 'port      %s\n' "$port"
     printf 'image     %s\n' "$resolved_image"
-    printf 'container %s-tit-1\n' "$(project_stack "$project")"
+    printf 'container %s\n' "$([ -n "$project" ] && printf '%s-tit-1' "$(project_stack "$project")")"
     printf 'origin    http://127.0.0.1:%s\n' "$port"
     printf 'ui        %s\n' "$ui"
     printf 'repo_dir  %s\n' "$repo"
@@ -233,7 +245,9 @@ if [ "$print_config" = 1 ]; then
 fi
 if [ "$mode" = start ] && [ "$open_browser" = 1 ] && [ "$ui" = desktop ]; then
     helper="$script_dir/dev/launch-electron.sh"
-    export TIT_LAUNCH_PROJECT_DIR="$project" TIT_LAUNCH_EXISTING="$running_action" TIT_LAUNCH_CONTAINER="$container"
+    export TIT_LAUNCH_EXISTING="$running_action" TIT_LAUNCH_CONTAINER="$container"
+    # No project means "show the app's project page"; an unset variable is what a Dock launch has.
+    if [ -n "$project" ]; then export TIT_LAUNCH_PROJECT_DIR="$project"; else unset TIT_LAUNCH_PROJECT_DIR; fi
     export TIT_LAUNCH_PORT="$port" TIT_LAUNCH_TIMEOUT="$timeout"
     export TIT_LAUNCH_IMAGE="$image"
     # A checkout keeps the developer path: Electron from desktop/node_modules.
@@ -250,6 +264,8 @@ if [ "$mode" = start ] && [ "$open_browser" = 1 ] && [ "$ui" = desktop ]; then
     [ "$explicit_desktop" = 0 ] || die "${desktop_reason:-the desktop app is unavailable}"
     printf 'ti-toolbox: %s; opening the browser instead.\n' "${desktop_reason:-the desktop app is unavailable}" >&2
     ui=browser
+    # The browser container is bound to one project directory, which the app would have chosen.
+    [ -n "$project" ] || die 'pass --project with an existing directory'
 fi
 command -v docker >/dev/null || die 'install Docker first'
 docker info >/dev/null 2>&1 || die 'start Docker and try again'

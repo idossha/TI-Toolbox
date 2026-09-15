@@ -73,8 +73,9 @@ Choose the execution mode explicitly:
 | Host-only development | From `desktop/`: `npm run dev:host` | Local Python API + Vite browser; no container |
 
 Both Bash entry points require Docker Compose and curl, **not host Python**. Both Python entry
-points require Python 3.11+. With no arguments the loaders ask for a project and, when a TI-Toolbox container is running,
-an Attach/Recreate decision; explicit
+points require Python 3.11+. With no arguments the loaders open the desktop app, which asks for a project on its own page;
+browser runs (`--browser`, `--no-open`) ask on the terminal instead and require a project, and,
+when a TI-Toolbox container is running, an Attach/Recreate decision; explicit
 `--project`, `--image`, `--port`, `--no-open`, `--status`, `--logs` and `--stop` stay scriptable.
 New sessions started with `--dev` use their own checkout, including a branch or worktree;
 Attach preserves the selected session instead. Build the checkout frontend

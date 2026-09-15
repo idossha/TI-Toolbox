@@ -29,8 +29,11 @@ There is one experience: the **TI-Toolbox desktop app**. Either install it from 
 the same app either way:
 
 ```bash
-bash loader.sh --project /path/to/project          # or: python3 loader.py --project ...
+bash loader.sh                                     # or: python3 loader.py
 ```
+
+`--project` is optional: without it the app opens its own project page, exactly as it does when
+you launch it from the Dock. Pass `--project DIR` to open straight into one project.
 
 On first run the loader downloads the desktop app for your platform (~120 MB), verifies its
 SHA256 against the release's `SHA256SUMS`, caches it under your user data directory and starts
@@ -39,7 +42,7 @@ your platform, checksum mismatch) it prints one line saying why and opens the br
 instead, and the next run tries again.
 
 ```bash
-bash loader.sh --project DIR --browser        # browser UI; never downloads the app
+bash loader.sh --project DIR --browser        # browser UI (needs --project); no download
 bash loader.sh --project DIR --desktop        # require the app; fail instead of falling back
 bash loader.sh --project DIR --no-open        # print the session URL only
 bash loader.sh --project DIR --print-config   # resolved settings; no Docker, no download

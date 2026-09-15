@@ -38,7 +38,8 @@ def test_no_arguments_reach_launch_with_selected_settings(
         cli, "launch_command", lambda args, **kw: calls.append((args, kw)) or 0
     )
     loader = load_script(script)
-    assert loader.main([]) == 0
+    # The prompt is browser-only now: the desktop app has its own project page.
+    assert loader.main(["--browser", "--interactive"]) == 0
     args, kwargs = calls[0]
     assert (args.project, args.image, args.port, args.no_open, args.timeout) == (
         str(tmp_path),
@@ -47,6 +48,7 @@ def test_no_arguments_reach_launch_with_selected_settings(
         False,
         180,
     )
+    assert args.browser
     assert args.dev == (str(ROOT) if dev else None)
     assert cli.dev_overrides(args) == (
         (str(ROOT), cli.DEV_RENDERER, True) if dev else ("", "", False)
@@ -88,7 +90,7 @@ def test_remembers_project_for_enter_next_time(monkeypatch, tmp_path):
     answers = iter([str(tmp_path), ""])
     monkeypatch.setattr("builtins.input", lambda _: next(answers))
     for _ in range(2):
-        args = cli.launch_parser().parse_args([])
+        args = cli.launch_parser().parse_args(["--browser"])
         assert cli.prepare_launch(args, []) is None
         assert args.project == str(tmp_path)
 
@@ -102,7 +104,7 @@ def test_cancel_before_dispatch(monkeypatch, tmp_path, error, code):
         raise error
 
     monkeypatch.setattr("builtins.input", cancel)
-    assert cli.prepare_launch(cli.launch_parser().parse_args([]), []) == code
+    assert cli.prepare_launch(cli.launch_parser().parse_args(["--browser"]), []) == code
 
 
 @pytest.mark.parametrize(
@@ -112,7 +114,7 @@ def test_cancel_before_dispatch(monkeypatch, tmp_path, error, code):
 def test_all_front_doors_without_terminal_fail_actionably(script):
     command = ["bash"] if script.endswith(".sh") else [sys.executable]
     result = subprocess.run(
-        command + [str(ROOT / script)],
+        command + [str(ROOT / script), "--browser", "--interactive"],
         input="",
         capture_output=True,
         text=True,
@@ -158,7 +160,7 @@ def test_real_terminal_opens_wizard_and_eof_cancels(script, tmp_path):
     master, slave = pty.openpty()
     command = ["bash"] if script.endswith(".sh") else [sys.executable]
     process = subprocess.Popen(
-        command + [str(ROOT / script)],
+        command + [str(ROOT / script), "--browser", "--interactive"],
         stdin=slave,
         stdout=slave,
         stderr=slave,
@@ -227,7 +229,7 @@ def test_corrupt_remembered_path_still_prompts(monkeypatch, tmp_path):
     (cli.user_config_dir() / "last-project.txt").write_bytes(b"\xff")
     monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
     monkeypatch.setattr("builtins.input", lambda _: str(tmp_path))
-    args = cli.launch_parser().parse_args([])
+    args = cli.launch_parser().parse_args(["--browser"])
     assert cli.prepare_launch(args, []) is None
     assert args.project == str(tmp_path)
 

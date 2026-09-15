@@ -187,3 +187,89 @@ def test_bash_dev_loader_opens_the_browser_like_the_user_loader(tmp_path):
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout == f"browser|{tmp_path}"
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def _recorder(tmp_path):
+    """An executable that reports whether the project variable reached it at all."""
+    executable = tmp_path / "recorder"
+    executable.write_text(
+        '#!/bin/bash\nprintf "project=%s\\n" "${TIT_LAUNCH_PROJECT_DIR-unset}"\n'
+    )
+    executable.chmod(0o755)
+    return executable
+
+
+def _handoff(script, tmp_path, *flags):
+    command = ["bash"] if script.endswith(".sh") else [sys.executable]
+    return subprocess.run(
+        command + [str(ROOT / script), "--desktop", "--dev", str(ROOT), *flags],
+        env={
+            **os.environ,
+            "TIT_PYTHON": sys.executable,
+            "TIT_ELECTRON_EXECUTABLE": str(_recorder(tmp_path)),
+            "TIT_DEV_REPO_DIR": str(ROOT),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+
+
+@pytest.mark.parametrize("script", ["loader.sh", "loader.py"])
+def test_desktop_without_project_hands_off_with_no_project_variable(script, tmp_path):
+    """`--desktop` with no project must reach the app's own project page, not an error."""
+    result = _handoff(script, tmp_path)
+    assert result.returncode == 0, result.stderr
+    assert "project=unset" in result.stdout
+    assert "pass --project" not in result.stderr
+
+
+@pytest.mark.parametrize("script", ["loader.sh", "loader.py"])
+def test_desktop_with_project_still_passes_it_through(script, tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    result = _handoff(script, tmp_path, "--project", str(project))
+    assert result.returncode == 0, result.stderr
+    assert f"project={os.path.realpath(project)}" in result.stdout
+
+
+@pytest.mark.parametrize("script", ["loader.sh", "loader.py"])
+def test_browser_without_project_still_requires_one(script):
+    command = ["bash"] if script.endswith(".sh") else [sys.executable]
+    result = subprocess.run(
+        command + [str(ROOT / script), "--browser"],
+        env={**os.environ, "TIT_PYTHON": sys.executable},
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+    assert result.returncode != 0
+    assert "project" in (result.stderr + result.stdout).lower()
+
+
+@pytest.mark.parametrize("script", ["loader.sh", "loader.py"])
+def test_print_config_shows_an_empty_project_for_desktop_without_one(script):
+    """Both front doors resolve the desktop-no-project case identically."""
+    command = ["bash"] if script.endswith(".sh") else [sys.executable]
+    result = subprocess.run(
+        command + [str(ROOT / script), "--desktop", "--dev", str(ROOT), "--print-config"],
+        env={**os.environ, "TIT_PYTHON": sys.executable},
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    settings = dict(
+        line.split(None, 1) + [""] * (2 - len(line.split(None, 1)))
+        for line in result.stdout.splitlines()
+        if line.strip()
+    )
+    assert settings["project"] == ""
+    assert settings["container"] == ""
+    assert settings["ui"] == "desktop"

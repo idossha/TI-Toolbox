@@ -44,9 +44,9 @@ LAUNCH_EPILOG = """\
 examples:
   tit launch --project ~/datasets/000 [--status|--logs|--stop]
 
-Launches open the desktop app, downloaded and checksum-verified on first run; --browser
-(or --no-open) uses the browser, and so does a failed download. --dev changes only the
-*source* of the server and renderer (checkout mount + reload + its built UI).
+The desktop app is downloaded and checksum-verified on first run; without --project it opens
+its own project page. --browser, --no-open and a failed download use the browser, which does
+need --project. --dev changes only the *source* of the server and renderer (mount + reload).
   --dev [DIR] run a checkout   --dev --build build the image   --dev --web Vite HMR
 """
 
@@ -218,7 +218,7 @@ def launch_arguments() -> argparse.ArgumentParser:
     parent.add_argument(
         "--interactive",
         action="store_true",
-        help="prompt for a project (automatic with no arguments)",
+        help="prompt for a project (browser; automatic with no args)",
     )
     parent.add_argument(
         "--project",
@@ -405,7 +405,8 @@ def prepare_launch(args: argparse.Namespace, argv: list[str]) -> int | None:
         )
         return 2
     try:
-        prompt_launch(args, requested=not argv or args.interactive)
+        requested = (not argv or args.interactive) and not desktop_without_project(args)
+        prompt_launch(args, requested=requested)
     except EOFError:
         print("\nSetup cancelled: no input received.", file=sys.stderr)
         return 2
@@ -504,6 +505,19 @@ def wants_desktop(args: argparse.Namespace, root: Path | None) -> bool:
     return (os.environ.get("TIT_LAUNCH_UI") or "desktop") == "desktop"
 
 
+def desktop_without_project(args: argparse.Namespace) -> bool:
+    """True when the desktop app should open its own project page instead of one project.
+
+    The app has a project-entry page and starts its own container; a Dock launch carries no
+    ``TIT_LAUNCH_PROJECT_DIR`` at all. So ``--desktop`` without ``--project`` is not an error:
+    neither the prompt nor the project requirement applies. loader.sh's ``desktop_no_project``
+    is the same predicate.
+    """
+    if args.project or args.stop or args.status or args.logs or args.build or args.web:
+        return False
+    return wants_desktop(args, dev_repo(args))
+
+
 def _run_desktop(
     args: argparse.Namespace,
     executable: str,
@@ -527,7 +541,11 @@ def _run_desktop(
         env.pop(key, None)
     if repo_dir:
         env["TIT_DEV_REPO_DIR"] = repo_dir
-    env["TIT_LAUNCH_PROJECT_DIR"] = resolve_project(args.project)
+    # No project means "show the app's project page"; an unset variable is what a Dock launch has.
+    if args.project:
+        env["TIT_LAUNCH_PROJECT_DIR"] = resolve_project(args.project)
+    else:
+        env.pop("TIT_LAUNCH_PROJECT_DIR", None)
     env["TIT_LAUNCH_PORT"] = str(args.port)
     env["TIT_LAUNCH_TIMEOUT"] = str(args.timeout)
     env["TIT_LAUNCH_IMAGE"] = args.image or default_image()
