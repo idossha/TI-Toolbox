@@ -283,6 +283,7 @@ class InternalPackagingTests(unittest.TestCase):
             "TI-Toolbox-3.0.0.exe",
             "TI-Toolbox-3.0.0.AppImage",
             "ti-toolbox_3.0.0_amd64.deb",
+            "SHA256SUMS",
         ]
         release = {
             "isDraft": True,

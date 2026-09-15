@@ -63,13 +63,16 @@ The welcome Overview connects the desktop application to its matching scientific
 
 ## Command-line and development launch
 
-The regular CLI opens the browser by default. Use `--desktop` to give Electron ownership of
-the selected session. Developer browser mode remains convenient for fast iteration.
+The loaders are bootstrappers for this same app: they download it (verifying SHA256 against the
+release's `SHA256SUMS`), cache it under the user data directory and launch it, exactly as
+double-clicking the installed app would. The browser is the fallback when that cannot be done,
+and `--browser` asks for it explicitly. Developer browser mode remains convenient for fast iteration.
 
 | Entry point | Interface and lifetime |
 |---|---|
-| `python3 loader.py` / `bash loader.sh` | Browser by default; explicit `--stop` ends the session. |
-| Either loader with `--desktop` | Electron UI; closing the app stops/removes its container and exits. |
+| `python3 loader.py` / `bash loader.sh` | The desktop app, downloaded on first run; closing it stops/removes its container. |
+| Either loader with `--browser` (or `--no-open`) | Browser session; explicit `--stop` ends it. |
+| Either loader with `--desktop` | The desktop app, with an error instead of a browser fallback. |
 | `dev/loader/loader_dev.py` / `dev/loader/loader_dev.sh` | Browser with checkout mounts for newly created sessions. |
 | `npm run dev` in `desktop/` | Builds and opens welcome Overview; select a project in Electron. Closing stops its container. |
 | `npm run dev:web` | Browser with Vite; container remains until `npm run dev:down`. |

@@ -175,9 +175,11 @@ Each project gets a container named `ti-toolbox-<directory hash>-tit-1`, labelle
 the launcher selects the next free port when necessary. See `python3 loader.py --help`
 for the complete option reference.
 
-The regular CLI's optional `--desktop` mode requires `TIT_ELECTRON_EXECUTABLE` pointing to
-an installed executable, or a checkout built with `npm ci` and `npm run build` in `desktop/`.
-Missing Electron produces setup instructions rather than a browser fallback.
+The CLI opens the desktop app by default. In a checkout, `--dev` uses the Electron in
+`desktop/node_modules` (`npm ci` and `npm run build` in `desktop/`); without `--dev` the loader
+resolves `TIT_ELECTRON_EXECUTABLE`, then a managed install under the user data directory, then
+downloads and checksum-verifies the release build. A failure prints one line and falls back to
+the browser; `--desktop` turns that fallback into an error and `--browser` skips it entirely.
 
 For a Docker-free local API and frontend, run `npm run dev:host -- --project /path/to/project`
 from `desktop/` after the host setup in `CONTRIBUTING.md`. Scientific tools must be installed

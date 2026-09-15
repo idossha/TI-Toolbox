@@ -59,6 +59,14 @@ citation metadata and release announcements stay unchanged. Stable version prepa
 authored notes are preserved, and public-note generation requires explicit `--publish-notes` plus
 `--notes-file`. See `dev/update/README.md`. Do not promote the public release just to build locally.
 
+### Loader-verified checksum manifest
+
+`finalize` downloads every attached asset, writes `SHA256SUMS` over them and uploads it before the
+draft is published; `dev/update/verify_release_assets.py` requires it in the inventory. `loader.sh`
+and `tit/cli.py` refuse to install a desktop app whose SHA256 is not listed there
+(docs/dev/DECISIONS.md, 2026-09-15), so a release without this asset leaves every loader run in
+browser fallback.
+
 ### TetraVox dependency
 
 The image no longer includes a browser viewer bundle. Desktop installs the pinned official native

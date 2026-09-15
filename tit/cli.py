@@ -13,11 +13,16 @@ change how ``launch`` is spelled.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 from pathlib import Path
-import sys
-import subprocess
+import platform
 import shutil
+import subprocess
+import sys
+import tempfile
+import urllib.error
+import urllib.request
 
 import tit
 from tit.launch import (
@@ -39,13 +44,166 @@ LAUNCH_EPILOG = """\
 examples:
   tit launch --project ~/datasets/000 [--status|--logs|--stop]
 
-Launches open the browser and the container persists; --desktop opens Electron and
-stops its container on app close. --dev changes only the *source* of the server and
-renderer (checkout mount + reload + its built UI); all else is identical.
+Launches open the desktop app, downloaded and checksum-verified on first run; --browser
+(or --no-open) uses the browser, and so does a failed download. --dev changes only the
+*source* of the server and renderer (checkout mount + reload + its built UI).
   --dev [DIR] run a checkout   --dev --build build the image   --dev --web Vite HMR
 """
 
 DEV_RENDERER = "/ti-toolbox/desktop/out/renderer"
+
+# The desktop app is the product; the loader bootstraps it (docs/dev/DECISIONS.md, 2026-09-15).
+# Repository and asset names come from desktop/electron-builder.yml (`publish:`, `artifactName`)
+# and from dev/update/verify_release_assets.py, which is what the release actually attaches.
+RELEASE_REPO = "idossha/TI-Toolbox"
+RELEASE_BASE_URL = "https://github.com/idossha/TI-Toolbox/releases/download"
+CHECKSUM_ASSET = "SHA256SUMS"
+
+
+def release_base_url() -> str:
+    """Where release assets are fetched from; overridable so tests never touch the network."""
+    return os.environ.get("TIT_RELEASE_BASE_URL") or RELEASE_BASE_URL
+
+
+def desktop_data_dir() -> Path:
+    """Per-user data root that holds managed desktop installs (``<data>/app/<version>``)."""
+    override = os.environ.get("TIT_DATA_DIR")
+    if override:
+        return Path(override).expanduser()
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "TI-Toolbox"
+    if os.name == "nt":
+        base = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
+        return Path(base) / "TI-Toolbox"
+    root = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
+    return Path(root) / "ti-toolbox"
+
+
+def desktop_asset_name(version: str) -> str:
+    """The release asset for this platform, or ``""`` where no managed install exists."""
+    machine = platform.machine().lower()
+    if sys.platform == "darwin":
+        if machine in ("arm64", "aarch64"):
+            return f"TI-Toolbox-{version}-arm64-mac.zip"
+        return f"TI-Toolbox-{version}-mac.zip"
+    if sys.platform.startswith("linux") and machine in ("x86_64", "amd64"):
+        return f"TI-Toolbox-{version}.AppImage"
+    return ""
+
+
+def managed_executable(install_dir: Path) -> Path | None:
+    """Where the executable lands inside one managed ``<data>/app/<version>`` directory."""
+    if sys.platform == "darwin":
+        return install_dir / "TI-Toolbox.app" / "Contents" / "MacOS" / "TI-Toolbox"
+    if sys.platform.startswith("linux"):
+        return install_dir / "TI-Toolbox.AppImage"
+    return None
+
+
+def resolve_desktop_executable() -> str:
+    """``TIT_ELECTRON_EXECUTABLE`` -> managed install -> ``"download"`` -> ``""``.
+
+    ``loader.sh`` implements the same three steps in a function of the same name; the two
+    must agree, which ``--print-config``'s ``desktop_executable`` line lets a test assert
+    without any network.
+    """
+    override = os.environ.get("TIT_ELECTRON_EXECUTABLE", "")
+    if override and os.access(override, os.X_OK) and Path(override).is_file():
+        return override
+    version = tit.__version__
+    executable = managed_executable(desktop_data_dir() / "app" / version)
+    if executable is not None and os.access(executable, os.X_OK):
+        return str(executable)
+    return "download" if desktop_asset_name(version) else ""
+
+
+def _fetch(url: str, destination: Path, *, progress: bool = False) -> None:
+    with urllib.request.urlopen(url, timeout=120) as response:  # noqa: S310 - fixed https/file base
+        total = int(response.headers.get("Content-Length") or 0)
+        done = 0
+        with destination.open("wb") as handle:
+            while True:
+                chunk = response.read(262144)
+                if not chunk:
+                    break
+                handle.write(chunk)
+                done += len(chunk)
+                if progress and total:
+                    print(
+                        f"\rdownloading TI-Toolbox {done * 100 // total}%",
+                        end="",
+                        file=sys.stderr,
+                    )
+    if progress and total:
+        print("", file=sys.stderr)
+
+
+def _expected_checksum(base: str, asset: str) -> str:
+    """The recorded sha256 for ``asset``; installing unverified bytes is never allowed."""
+    with tempfile.TemporaryDirectory() as scratch:
+        sums = Path(scratch) / CHECKSUM_ASSET
+        _fetch(f"{base}/{CHECKSUM_ASSET}", sums)
+        for line in sums.read_text(encoding="utf-8").splitlines():
+            parts = line.split()
+            if len(parts) == 2 and parts[1].lstrip("*") == asset:
+                return parts[0]
+    raise LaunchError(f"{CHECKSUM_ASSET} does not list {asset}")
+
+
+def install_desktop_executable() -> str:
+    """Download, verify and atomically install the desktop app; return its path.
+
+    Raises :class:`LaunchError` with one printable reason; the caller falls back to the
+    browser unless ``--desktop`` was explicit.
+    """
+    version = tit.__version__
+    asset = desktop_asset_name(version)
+    if not asset:
+        raise LaunchError(
+            f"no desktop build for {sys.platform}/{platform.machine()}"
+        )
+    base = f"{release_base_url()}/v{version}"
+    root = desktop_data_dir() / "app"
+    root.mkdir(parents=True, exist_ok=True)
+    print(f"downloading the TI-Toolbox desktop app ({asset})", file=sys.stderr)
+    try:
+        expected = _expected_checksum(base, asset)
+        with tempfile.TemporaryDirectory(dir=str(root)) as scratch:
+            archive = Path(scratch) / asset
+            _fetch(f"{base}/{asset}", archive, progress=True)
+            digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+            if digest != expected:
+                raise LaunchError(f"checksum mismatch for {asset}")
+            staged = Path(scratch) / "app"
+            staged.mkdir()
+            if asset.endswith(".zip"):
+                # ``unzip`` preserves the symlinks and the executable bits inside a .app
+                # bundle; zipfile does not, and an unsigned-looking bundle will not start.
+                subprocess.run(
+                    ["unzip", "-q", str(archive), "-d", str(staged)],
+                    check=True,
+                    capture_output=True,
+                )
+            else:
+                target = staged / "TI-Toolbox.AppImage"
+                shutil.move(str(archive), str(target))
+                target.chmod(0o755)
+            executable = managed_executable(staged)
+            if executable is None or not executable.is_file():
+                raise LaunchError(f"{asset} did not contain the expected executable")
+            executable.chmod(0o755)
+            final = root / version
+            if final.exists():
+                shutil.rmtree(final, ignore_errors=True)
+            os.rename(staged, final)
+    except LaunchError:
+        raise
+    except (OSError, urllib.error.URLError, subprocess.CalledProcessError) as err:
+        raise LaunchError(f"could not download the desktop app ({err})") from err
+    for stale in root.iterdir():
+        if stale.is_dir() and stale.name != version:
+            shutil.rmtree(stale, ignore_errors=True)
+    return str(managed_executable(root / version))
 
 
 def launch_arguments() -> argparse.ArgumentParser:
@@ -84,7 +242,7 @@ def launch_arguments() -> argparse.ArgumentParser:
     parent.add_argument(
         "--desktop",
         action="store_true",
-        help="open Electron and stop its container on app close",
+        help="require the desktop app, never the browser",
     )
     parent.add_argument(
         "--no-open",
@@ -94,7 +252,7 @@ def launch_arguments() -> argparse.ArgumentParser:
     parent.add_argument(
         "--browser",
         action="store_true",
-        help="explicitly use the browser UI instead of Electron",
+        help="use the browser UI instead of the desktop app",
     )
     parent.add_argument(
         "--existing",
@@ -151,7 +309,7 @@ def launch_parser(prog: str = "tit launch") -> argparse.ArgumentParser:
     """
     return argparse.ArgumentParser(
         prog=prog,
-        description="Start the TI-Toolbox container for one project and open its UI in a browser.",
+        description="Start the TI-Toolbox container for one project and open its UI.",
         epilog=LAUNCH_EPILOG.replace("tit launch", prog),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         parents=[launch_arguments()],
@@ -270,8 +428,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser(
         "launch",
-        help="run the TI-Toolbox UI in a browser (no Electron required)",
-        description="Start the TI-Toolbox container for one project and open its UI in a browser.",
+        help="run the TI-Toolbox UI (desktop app by default, --browser for a browser)",
+        description="Start the TI-Toolbox container for one project and open its UI.",
         epilog=LAUNCH_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
         parents=[launch_arguments()],
@@ -333,6 +491,62 @@ def run_dev_web(root: Path, args: argparse.Namespace) -> int:
     return subprocess.run(["npm", "run", "dev:web"], cwd=str(desktop), env=env).returncode
 
 
+def wants_desktop(args: argparse.Namespace, root: Path | None) -> bool:
+    """The desktop app is the default UI; the browser is the fallback and the opt-out.
+
+    ``--browser`` and ``--no-open`` mean the browser explicitly, and a ``--dev`` checkout
+    keeps its historical browser default (developers ask for Electron with ``--desktop``).
+    """
+    if args.desktop:
+        return True
+    if args.browser or args.no_open or root is not None:
+        return False
+    return (os.environ.get("TIT_LAUNCH_UI") or "desktop") == "desktop"
+
+
+def _run_desktop(
+    args: argparse.Namespace,
+    executable: str,
+    helper: Path | None,
+    repo_dir: str,
+) -> int:
+    """Hand the container lifecycle to Electron; identical to double-clicking the app."""
+    env = dict(os.environ)
+    for key in (
+        "ELECTRON_RUN_AS_NODE",
+        "ELECTRON_RENDERER_URL",
+        "TIT_LAUNCH_CONTAINER_ID",
+        "TIT_DEV_SERVER_URL",
+        "TIT_DEV_SERVER_TOKEN",
+        "TIT_DEV_PROJECT_DIR",
+        "TIT_DEV_REPO_DIR",
+        "TIT_REPO_DIR",
+        "TIT_SERVER_RELOAD",
+        "TIT_STATIC_DIR",
+    ):
+        env.pop(key, None)
+    if repo_dir:
+        env["TIT_DEV_REPO_DIR"] = repo_dir
+    env["TIT_LAUNCH_PROJECT_DIR"] = resolve_project(args.project)
+    env["TIT_LAUNCH_PORT"] = str(args.port)
+    env["TIT_LAUNCH_TIMEOUT"] = str(args.timeout)
+    env["TIT_LAUNCH_IMAGE"] = args.image or default_image()
+    env.pop("TIT_IMAGE_TAG", None)
+    env["TIT_LAUNCH_EXISTING"] = args.existing or ""
+    env["TIT_LAUNCH_CONTAINER"] = args.container or ""
+    command = [executable] if executable else ["bash", str(helper)]
+    if not (Path(command[0]).is_file() or shutil.which(command[0])):
+        raise LaunchError(
+            "Electron launcher executable is unavailable; set TIT_ELECTRON_EXECUTABLE "
+            "to the installed desktop executable or explicitly use --browser."
+        )
+    returncode = subprocess.run(command, env=env, check=False).returncode
+    if returncode == 0 and executable:
+        print("TI-Toolbox closed.")
+    return returncode
+
+
+
 def _dispatch(args: argparse.Namespace, *, invocation: str) -> int:
     repo_dir, static_dir, server_reload = dev_overrides(args)
     root = dev_repo(args)
@@ -340,18 +554,23 @@ def _dispatch(args: argparse.Namespace, *, invocation: str) -> int:
         if root is None:
             raise LaunchError("--build and --web need --dev; add --dev [DIR]")
         return build_image(root, args.image) if args.build else run_dev_web(root, args)
+    desktop = wants_desktop(args, root)
     if args.print_config:
         project = resolve_project(args.project) if args.project else ""
+        executable = (
+            resolve_desktop_executable() if desktop and root is None else ""
+        )
         print(f"mode      {'dev' if root else 'user'}")
         print(f"project   {project}")
         print(f"port      {args.port}")
         print(f"image     {args.image or default_image()}")
         print(f"container {container_name(project) if project else ''}")
         print(f"origin    http://127.0.0.1:{args.port}")
-        print(f"ui        {'desktop' if args.desktop else 'browser'}")
+        print(f"ui        {'desktop' if desktop else 'browser'}")
         print(f"repo_dir  {repo_dir}")
         print(f"static    {static_dir}")
         print(f"reload    {'1' if server_reload else ''}")
+        print(f"desktop_executable {executable}")
         return 0
     if args.stop:
         removed = launch_stop(args.project)
@@ -380,54 +599,30 @@ def _dispatch(args: argparse.Namespace, *, invocation: str) -> int:
                 "`npm --prefix desktop run build`, or use --dev --web for Vite with live "
                 "edits, or --no-open to start only the API server."
             )
-    if args.desktop:
+    if desktop:
         helper = Path(__file__).resolve().parent.parent / "dev" / "launch-electron.sh"
-        executable = os.environ.get("TIT_ELECTRON_EXECUTABLE", "")
-        if not executable and not helper.is_file():
-            candidates = [
-                Path("/Applications/TI-Toolbox.app/Contents/MacOS/TI-Toolbox"),
-                Path.home() / "Applications/TI-Toolbox.app/Contents/MacOS/TI-Toolbox",
-            ]
-            executable = next((str(path) for path in candidates if path.is_file()), "")
-            executable = executable or shutil.which("ti-toolbox") or ""
-        if not executable and not helper.is_file():
-            raise LaunchError(
-                "Electron launcher is unavailable in this installation. Run loader.py from "
-                "a full checkout, install the desktop app, or explicitly pass --browser."
-            )
-        env = dict(os.environ)
-        for key in (
-            "ELECTRON_RUN_AS_NODE",
-            "ELECTRON_RENDERER_URL",
-            "TIT_LAUNCH_CONTAINER_ID",
-            "TIT_DEV_SERVER_URL",
-            "TIT_DEV_SERVER_TOKEN",
-            "TIT_DEV_PROJECT_DIR",
-            "TIT_DEV_REPO_DIR",
-            "TIT_REPO_DIR",
-            "TIT_SERVER_RELOAD",
-            "TIT_STATIC_DIR",
-        ):
-            env.pop(key, None)
-        if repo_dir:
-            env["TIT_DEV_REPO_DIR"] = repo_dir
-        env["TIT_LAUNCH_PROJECT_DIR"] = resolve_project(args.project)
-        env["TIT_LAUNCH_PORT"] = str(args.port)
-        env["TIT_LAUNCH_TIMEOUT"] = str(args.timeout)
-        env["TIT_LAUNCH_IMAGE"] = args.image or default_image()
-        env.pop("TIT_IMAGE_TAG", None)
-        env["TIT_LAUNCH_EXISTING"] = args.existing or ""
-        env["TIT_LAUNCH_CONTAINER"] = args.container or ""
-        command = [executable] if executable else ["bash", str(helper)]
-        if not shutil.which(command[0]):
-            raise LaunchError(
-                "Electron launcher executable is unavailable; set TIT_ELECTRON_EXECUTABLE "
-                "to the installed desktop executable or explicitly use --browser."
-            )
-        returncode = subprocess.run(command, env=env, check=False).returncode
-        if returncode == 0 and executable:
-            print("TI-Toolbox closed.")
-        return returncode
+        executable = ""
+        if repo_dir and helper.is_file():
+            pass  # developer path: Electron from desktop/node_modules
+        else:
+            helper = None
+            executable = resolve_desktop_executable()
+            if executable == "download":
+                try:
+                    executable = install_desktop_executable()
+                except LaunchError as err:
+                    executable = ""
+                    reason = str(err)
+            elif not executable:
+                reason = (
+                    f"no desktop build for {sys.platform}/{platform.machine()}"
+                )
+            if not executable:
+                if args.desktop:
+                    raise LaunchError(reason)
+                print(f"{invocation}: {reason}; opening the browser instead.", file=sys.stderr)
+        if executable or helper is not None:
+            return _run_desktop(args, executable, helper, repo_dir)
 
     options = LaunchOptions(
         project=args.project,

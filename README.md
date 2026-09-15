@@ -22,20 +22,34 @@ The source tree is **v3.0.0 (unreleased)**. The published release remains v2.5.0
 
 TI-Toolbox combines an Electron desktop application, one Docker image for the scientific environment, and the `tit` Python API. Start with the [installation guide](https://idossha.github.io/TI-Toolbox/installation/) and [desktop guide](https://idossha.github.io/TI-Toolbox/wiki/desktop-app/). For development, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Launching
+## How to run
 
-One launcher, one behaviour, for users and developers alike:
+There is one experience: the **TI-Toolbox desktop app**. Either install it from the
+[releases page](https://github.com/idossha/TI-Toolbox/releases), or run the loader — it is
+the same app either way:
 
 ```bash
 bash loader.sh --project /path/to/project          # or: python3 loader.py --project ...
-bash loader.sh --project /path/to/project --desktop   # Electron instead of the browser
-bash loader.sh --project /path/to/project --dev       # run this checkout's code, not the image's
-bash loader.sh --project /path/to/project --print-config   # resolved settings; no Docker calls
 ```
 
-`--dev` changes only the *source* of the server and renderer (checkout mount, server
-reload, the checkout's built UI). Flags, ports, container names, attach/stop semantics
-and the opened URL are identical with and without it. `--help` lists every option.
+On first run the loader downloads the desktop app for your platform (~120 MB), verifies its
+SHA256 against the release's `SHA256SUMS`, caches it under your user data directory and starts
+it; later runs launch the cached copy. If the download cannot be made (offline, no build for
+your platform, checksum mismatch) it prints one line saying why and opens the browser UI
+instead, and the next run tries again.
+
+```bash
+bash loader.sh --project DIR --browser        # browser UI; never downloads the app
+bash loader.sh --project DIR --desktop        # require the app; fail instead of falling back
+bash loader.sh --project DIR --no-open        # print the session URL only
+bash loader.sh --project DIR --print-config   # resolved settings; no Docker, no download
+bash loader.sh --project DIR --dev            # developers: run this checkout's code
+```
+
+`--dev` changes only the *source* of the server and renderer (checkout mount, server reload,
+the checkout's built UI) and uses the Electron in `desktop/node_modules`; flags, ports,
+container names, attach/stop semantics and the opened URL are identical with and without it.
+`--help` lists every option.
 
 ## How to Cite
 

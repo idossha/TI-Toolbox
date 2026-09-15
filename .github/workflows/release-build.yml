@@ -387,6 +387,20 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      # The loaders (loader.sh / tit/cli.py) refuse to install a desktop app they cannot
+      # verify, so the checksum manifest is a release artifact like any other.
+      - name: Publish the SHA256SUMS the loaders verify against
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p checksums
+          cd checksums
+          gh release download "v$RELEASE_VERSION" --clobber
+          rm -f SHA256SUMS
+          sha256sum -- * > SHA256SUMS
+          gh release upload "v$RELEASE_VERSION" SHA256SUMS --clobber
       - name: Verify every release artifact is attached
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

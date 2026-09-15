@@ -115,7 +115,11 @@ def test_regular_cli_hands_off_before_docker(docker, monkeypatch):
     from tit import cli
 
     _, commands, project = docker
-    monkeypatch.setenv("TIT_ELECTRON_EXECUTABLE", "/installed/electron")
+    # The override must name a real executable: the loader never launches a missing path.
+    electron = project / "installed-electron"
+    electron.write_text("#!/bin/sh\nexit 0\n")
+    electron.chmod(0o755)
+    monkeypatch.setenv("TIT_ELECTRON_EXECUTABLE", str(electron))
     for key in (
         "ELECTRON_RUN_AS_NODE",
         "ELECTRON_RENDERER_URL",
@@ -125,7 +129,6 @@ def test_regular_cli_hands_off_before_docker(docker, monkeypatch):
         "TIT_DEV_PROJECT_DIR",
     ):
         monkeypatch.setenv(key, "stale-session")
-    monkeypatch.setattr(cli.shutil, "which", lambda _: "/installed/electron")
     run = Mock(return_value=subprocess.CompletedProcess([], 0))
     monkeypatch.setattr(cli.subprocess, "run", run)
     args = cli.launch_parser().parse_args(
@@ -141,7 +144,7 @@ def test_regular_cli_hands_off_before_docker(docker, monkeypatch):
     )
     assert cli.launch_command(args) == 0
     assert commands == []
-    assert run.call_args.args[0] == ["/installed/electron"]
+    assert run.call_args.args[0] == [str(electron)]
     assert "stale-session" not in run.call_args.kwargs["env"].values()
     assert run.call_args.kwargs["env"]["TIT_LAUNCH_IMAGE"].startswith(
         "idossha/ti-toolbox:"
@@ -160,19 +163,28 @@ def test_project_collision_refuses_before_stopping_selected(docker, monkeypatch)
     assert not any(cmd[0] in ("stop", "rm", "run") for cmd in commands)
 
 
-def test_cached_install_discovers_path_executable_before_docker(docker, monkeypatch):
+def test_managed_install_is_launched_before_docker(docker, monkeypatch, tmp_path):
+    """A cached managed install is step 2 of resolve_desktop_executable; no download, no Docker."""
     from tit import cli
 
     _, commands, project = docker
     monkeypatch.delenv("TIT_ELECTRON_EXECUTABLE", raising=False)
+    monkeypatch.setenv("TIT_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setattr(cli, "__file__", str(project / "tit" / "cli.py"))
-    monkeypatch.setattr(cli.shutil, "which", lambda _: "/installed/ti-toolbox")
+    installed = cli.managed_executable(
+        tmp_path / "data" / "app" / cli.tit.__version__
+    )
+    if installed is None:
+        pytest.skip("no managed desktop build for this platform")
+    installed.parent.mkdir(parents=True)
+    installed.write_text("#!/bin/sh\nexit 0\n")
+    installed.chmod(0o755)
     run = Mock(return_value=subprocess.CompletedProcess([], 0))
     monkeypatch.setattr(cli.subprocess, "run", run)
     args = cli.launch_parser().parse_args(["--desktop", "--project", str(project)])
     assert cli.launch_command(args) == 0
     assert commands == []
-    assert run.call_args.args[0][0] != "bash"
+    assert run.call_args.args[0] == [str(installed)]
 
 
 @pytest.mark.parametrize(

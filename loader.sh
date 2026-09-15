@@ -9,7 +9,7 @@ port=8765 timeout=180 mode=start follow=0 open_browser=1 interactive=0
 repo="${TIT_DEV_REPO_DIR:-}"
 [ -z "${TIT_DEV:-}" ] || repo="${repo:-$PWD}"
 print_config=0
-running_action=""; container=""; ui="${TIT_LAUNCH_UI:-browser}"; explicit_browser=0; explicit_desktop=0
+running_action=""; container=""; ui="${TIT_LAUNCH_UI:-}"; explicit_browser=0; explicit_desktop=0
 [ "$#" -gt 0 ] || interactive=1
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -18,15 +18,15 @@ while [ "$#" -gt 0 ]; do
             cat <<'HELP'
 Usage: bash loader.sh [--project DIR] [options]
 
-Start TI-Toolbox in the browser. Use --desktop for Electron.
-Browser containers persist after closing the tab. Docker, Compose and curl are required;
-no host Python is needed.
+Start TI-Toolbox. The desktop app is the UI: it is downloaded, checksum-verified and
+cached on first run, and the browser is the fallback. Browser containers persist after
+closing the tab. Docker, Compose and curl are required; no host Python is needed.
 
   --image IMAGE:TAG   image override
   --port PORT        first host port to try (8765)
   --timeout SECONDS  startup wait (180)
-  --desktop          open Electron; app close stops its container
-  --browser          open the browser (default)
+  --desktop          require the desktop app; never fall back to the browser
+  --browser          use the browser instead of the desktop app
   --no-open          print the session URL without opening a UI
   --existing ACTION  attach or recreate the selected running container
   --container ID     select a running container for either action
@@ -85,6 +85,111 @@ case "$project" in *$'\n'*|*:*) die 'project path cannot contain newlines or col
 timeout="$(awk -v t="$timeout" 'BEGIN {print int(t)+(t>int(t))}')"
 [ "$timeout" -gt 0 ] || die 'timeout must be positive'
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd -P)"
+# --- desktop bootstrap -------------------------------------------------------------------
+# The desktop app is the product; this script only fetches and starts it (docs/dev/DECISIONS.md,
+# 2026-09-15). Names come from desktop/electron-builder.yml and dev/update/verify_release_assets.py.
+# tit/cli.py::resolve_desktop_executable implements the identical order; --print-config's
+# desktop_executable line is what a test compares.
+release_base_url="${TIT_RELEASE_BASE_URL:-https://github.com/idossha/TI-Toolbox/releases/download}"
+desktop_exe=''; desktop_reason=''
+tit_version() {
+    # The same value tit.__version__ reports, read the way this script already reads the
+    # image tag: the pinned default in the shared compose spec, without its leading "v".
+    local spec tag
+    spec="${TIT_COMPOSE_FILE:-$script_dir/docker-compose.yml}"
+    # shellcheck disable=SC2016
+    tag="$(sed -n 's/^[[:space:]]*image: idossha\/ti-toolbox:${TIT_IMAGE_TAG:-\([^}]*\)}.*/\1/p' "$spec" 2>/dev/null | head -1)"
+    printf '%s' "${tag#v}"
+}
+desktop_data_dir() {
+    if [ -n "${TIT_DATA_DIR:-}" ]; then printf '%s' "$TIT_DATA_DIR"; return 0; fi
+    case "$(uname -s)" in
+        Darwin) printf '%s' "$HOME/Library/Application Support/TI-Toolbox" ;;
+        *) printf '%s' "${XDG_DATA_HOME:-$HOME/.local/share}/ti-toolbox" ;;
+    esac
+}
+desktop_asset() {
+    case "$(uname -s):$(uname -m)" in
+        Darwin:arm64) printf 'TI-Toolbox-%s-arm64-mac.zip' "$1" ;;
+        Darwin:x86_64) printf 'TI-Toolbox-%s-mac.zip' "$1" ;;
+        Linux:x86_64) printf 'TI-Toolbox-%s.AppImage' "$1" ;;
+    esac
+}
+managed_executable() {
+    case "$(uname -s)" in
+        Darwin) printf '%s' "$1/TI-Toolbox.app/Contents/MacOS/TI-Toolbox" ;;
+        Linux) printf '%s' "$1/TI-Toolbox.AppImage" ;;
+    esac
+}
+# Sets desktop_exe to a path, to "download", or to '' (with desktop_reason).
+resolve_desktop_executable() {
+    local version exe
+    desktop_exe=''; desktop_reason=''
+    if [ -n "${TIT_ELECTRON_EXECUTABLE:-}" ] && [ -x "$TIT_ELECTRON_EXECUTABLE" ]; then
+        desktop_exe="$TIT_ELECTRON_EXECUTABLE"; return 0
+    fi
+    version="$(tit_version)"
+    if [ -z "$version" ]; then desktop_reason='could not determine the TI-Toolbox version'; return 0; fi
+    exe="$(managed_executable "$(desktop_data_dir)/app/$version")"
+    if [ -n "$exe" ] && [ -x "$exe" ]; then desktop_exe="$exe"; return 0; fi
+    if [ -z "$(desktop_asset "$version")" ]; then
+        desktop_reason="no desktop build for $(uname -s)/$(uname -m)"; return 0
+    fi
+    desktop_exe=download
+}
+sha256_of() {
+    if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | cut -d' ' -f1
+    elif command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1
+    else printf ''; fi
+}
+# Downloads, verifies and installs the app; sets desktop_exe or desktop_reason.
+install_desktop_executable() {
+    local version asset base root work_dir expected actual exe
+    version="$(tit_version)"; asset="$(desktop_asset "$version")"
+    base="$release_base_url/v$version"
+    root="$(desktop_data_dir)/app"
+    desktop_exe=''; desktop_reason=''
+    mkdir -p "$root" || { desktop_reason="could not create $root"; return 0; }
+    work_dir="$(mktemp -d "$root/.staging-XXXXXX")" || { desktop_reason="could not stage the download"; return 0; }
+    printf 'Downloading the TI-Toolbox desktop app (%s)\n' "$asset" >&2
+    if ! curl -fsSL "$base/SHA256SUMS" -o "$work_dir/SHA256SUMS"; then
+        rm -rf "$work_dir"; desktop_reason='could not download SHA256SUMS'; return 0
+    fi
+    expected="$(awk -v name="$asset" '{sub(/^[*]/, "", $2)} $2 == name {print $1}' "$work_dir/SHA256SUMS" | head -1)"
+    if [ -z "$expected" ]; then rm -rf "$work_dir"; desktop_reason="SHA256SUMS does not list $asset"; return 0; fi
+    if ! curl -fL --progress-bar "$base/$asset" -o "$work_dir/$asset"; then
+        rm -rf "$work_dir"; desktop_reason="could not download $asset"; return 0
+    fi
+    actual="$(sha256_of "$work_dir/$asset")"
+    if [ -z "$actual" ] || [ "$actual" != "$expected" ]; then
+        rm -rf "$work_dir"; desktop_reason="checksum mismatch for $asset"; return 0
+    fi
+    mkdir -p "$work_dir/app"
+    case "$asset" in
+        *.zip) unzip -q "$work_dir/$asset" -d "$work_dir/app" || { rm -rf "$work_dir"; desktop_reason="could not unpack $asset"; return 0; } ;;
+        *) mv "$work_dir/$asset" "$work_dir/app/TI-Toolbox.AppImage" ;;
+    esac
+    exe="$(managed_executable "$work_dir/app")"
+    if [ -z "$exe" ] || [ ! -f "$exe" ]; then
+        rm -rf "$work_dir"; desktop_reason="$asset did not contain the expected executable"; return 0
+    fi
+    chmod +x "$exe"
+    rm -rf "${root:?}/$version"
+    if ! mv "$work_dir/app" "$root/$version"; then
+        rm -rf "$work_dir"; desktop_reason='could not install the desktop app'; return 0
+    fi
+    rm -rf "$work_dir"
+    # One managed install at a time; older versions are never launched again.
+    for stale in "$root"/*; do
+        [ -d "$stale" ] && [ "$(basename "$stale")" != "$version" ] || continue
+        rm -rf "$stale"
+    done
+    desktop_exe="$(managed_executable "$root/$version")"
+}
+if [ -z "$ui" ]; then
+    # The desktop app is the default UI; --browser, --no-open and a --dev checkout opt out.
+    if [ "$explicit_browser" = 1 ] || [ "$open_browser" = 0 ] || [ -n "$repo" ]; then ui=browser; else ui=desktop; fi
+fi
 # Match the Python/Electron project hash so all entry points can attach and stop.
 project_stack() {
     local text="$1" h1 h2 i code hash
@@ -121,6 +226,9 @@ if [ "$print_config" = 1 ]; then
     printf 'repo_dir  %s\n' "$repo"
     printf 'static    %s\n' "$static"
     printf 'reload    %s\n' "$reload"
+    desktop_exe=''
+    if [ "$ui" = desktop ] && [ -z "$repo" ]; then resolve_desktop_executable; fi
+    printf 'desktop_executable %s\n' "$desktop_exe"
     exit 0
 fi
 if [ "$mode" = start ] && [ "$open_browser" = 1 ] && [ "$ui" = desktop ]; then
@@ -128,13 +236,20 @@ if [ "$mode" = start ] && [ "$open_browser" = 1 ] && [ "$ui" = desktop ]; then
     export TIT_LAUNCH_PROJECT_DIR="$project" TIT_LAUNCH_EXISTING="$running_action" TIT_LAUNCH_CONTAINER="$container"
     export TIT_LAUNCH_PORT="$port" TIT_LAUNCH_TIMEOUT="$timeout"
     export TIT_LAUNCH_IMAGE="$image"
-    if [ -f "$helper" ]; then exec bash "$helper"; fi
-    [ -n "${TIT_ELECTRON_EXECUTABLE:-}" ] && [ -x "$TIT_ELECTRON_EXECUTABLE" ] || die 'set TIT_ELECTRON_EXECUTABLE to the desktop executable, use the full checkout or --browser'
-    unset ELECTRON_RUN_AS_NODE TIT_LAUNCH_CONTAINER_ID TIT_DEV_SERVER_URL TIT_DEV_SERVER_TOKEN
-    unset ELECTRON_RENDERER_URL TIT_DEV_REPO_DIR TIT_REPO_DIR TIT_STATIC_DIR TIT_SERVER_RELOAD
-    "$TIT_ELECTRON_EXECUTABLE"
-    printf 'TI-Toolbox closed.\n'
-    exit 0
+    # A checkout keeps the developer path: Electron from desktop/node_modules.
+    if [ -n "$repo" ] && [ -f "$helper" ]; then exec bash "$helper"; fi
+    resolve_desktop_executable
+    [ "$desktop_exe" != download ] || install_desktop_executable
+    if [ -n "$desktop_exe" ]; then
+        unset ELECTRON_RUN_AS_NODE TIT_LAUNCH_CONTAINER_ID TIT_DEV_SERVER_URL TIT_DEV_SERVER_TOKEN
+        unset ELECTRON_RENDERER_URL TIT_DEV_REPO_DIR TIT_REPO_DIR TIT_STATIC_DIR TIT_SERVER_RELOAD
+        "$desktop_exe"
+        printf 'TI-Toolbox closed.\n'
+        exit 0
+    fi
+    [ "$explicit_desktop" = 0 ] || die "${desktop_reason:-the desktop app is unavailable}"
+    printf 'ti-toolbox: %s; opening the browser instead.\n' "${desktop_reason:-the desktop app is unavailable}" >&2
+    ui=browser
 fi
 command -v docker >/dev/null || die 'install Docker first'
 docker info >/dev/null 2>&1 || die 'start Docker and try again'

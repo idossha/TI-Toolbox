@@ -17,6 +17,8 @@ def verify_assets(version: str, release: dict) -> None:
         f"TI-Toolbox-{version}.exe",
         f"TI-Toolbox-{version}.AppImage",
         f"ti-toolbox_{version}_amd64.deb",
+        # The manifest loader.sh and tit/cli.py check before installing the desktop app.
+        "SHA256SUMS",
     }
     present = {
         asset["name"] for asset in release.get("assets", []) if asset.get("size", 0) > 0

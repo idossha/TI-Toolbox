@@ -883,3 +883,29 @@ what users run. **Cost:** `--dev` no longer opens Electron by default; add `--de
 Apple GPU consent flow. **Revisit if:** a developer-only setting appears that cannot be expressed
 as a source override. Supersedes the launcher parts of "Explicit loader and development modes"
 (2026-09-09); `loader.py` and `loader.sh` remain the user CLI entry points at the repository root.
+
+## 2026-09-15 — One experience: the loaders bootstrap the desktop app
+
+**Decision:** The desktop (Electron) application is the only user experience. `loader.sh` and
+`loader.py` (implementation `tit/cli.py`) are bootstrappers for it: in user mode they resolve
+`TIT_ELECTRON_EXECUTABLE`, then a managed install at `<data>/app/<version>/` (`~/Library/Application
+Support/TI-Toolbox` on macOS, `${XDG_DATA_HOME:-~/.local/share}/ti-toolbox` on Linux,
+`%LOCALAPPDATA%\TI-Toolbox` on Windows), then download the asset for the platform from GitHub
+release `v<version>` of `idossha/TI-Toolbox` — the names electron-builder produces
+(`TI-Toolbox-<ver>-arm64-mac.zip`, `TI-Toolbox-<ver>-mac.zip`, `TI-Toolbox-<ver>.AppImage`) —
+verify its SHA256 against the release's new `SHA256SUMS` asset, install it atomically and prune
+older versions. Any failure prints one reason and falls back to the browser; `--desktop` makes it
+an error instead, `--browser` and `--no-open` skip the download, and `--print-config` reports the
+decision as `desktop_executable` (a path, `download`, or empty) with no network. `--dev` is
+unchanged: the checkout is mounted and Electron comes from `desktop/node_modules` via
+`dev/launch-electron.sh`. Both loaders keep the resolution in one function named
+`resolve_desktop_executable`; `tests/test_desktop_bootstrap.py` asserts the two agree offline.
+
+**Why:** a separately maintained browser edition is a second product with its own defects, and the
+features users actually need — native TetraVox viewing, Apple-GPU FastSurfer consent,
+reveal-in-file-manager — require the Electron main process and cannot exist in a tab. Making the
+loader fetch the app removes the "install the app *or* run the loader" fork: both now end in the
+same binary. **Cost:** first run downloads ~120 MB, and the download can only work once a `v<ver>`
+release with those assets is published; until then every user-mode run falls back to the browser.
+**Revisit if:** a signed release cannot be produced for a supported platform, or a genuinely
+browser-only deployment (a shared remote server) becomes a supported product.

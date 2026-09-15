@@ -171,6 +171,10 @@ def test_regular_loader_hands_off_before_docker(tmp_path):
     helper_dir = checkout / "dev"
     helper_dir.mkdir(parents=True)
     (checkout / "loader.sh").write_text((ROOT / "loader.sh").read_text())
+    # The Electron-from-node_modules helper is the --dev path; a user run resolves the
+    # managed desktop install instead (docs/dev/DECISIONS.md, 2026-09-15).
+    (checkout / "tit").mkdir()
+    (checkout / "tit" / "launch.py").write_text("")
     (helper_dir / "launch-electron.sh").write_text(
         '#!/bin/bash\nprintf "%s|%s|%s|%s|%s" "$TIT_LAUNCH_PROJECT_DIR" '
         '"$TIT_LAUNCH_EXISTING" "$TIT_LAUNCH_CONTAINER" "$TIT_LAUNCH_PORT" "$TIT_LAUNCH_TIMEOUT"\n'
@@ -180,6 +184,8 @@ def test_regular_loader_hands_off_before_docker(tmp_path):
             "bash",
             str(checkout / "loader.sh"),
             "--desktop",
+            "--dev",
+            str(checkout),
             "--project",
             str(tmp_path),
             "--existing",

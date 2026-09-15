@@ -58,7 +58,7 @@ manifest and must not be substituted for general-purpose project deletion.
 
 ### Managed native FastSurfer
 
-In Electron Settings → System on Apple Silicon, **Enable Apple GPU** explains setup and asks for user-wide consent. The runtime lives under the Electron user-data directory in `runtimes/fastsurfer-2.5.4-arm64`. Downloads and Python setup require network access; computation is offline and sandboxed. Closing the desktop or changing projects ends native access. The browser launcher and remote servers retain container execution.
+In Electron Settings → System on Apple Silicon, **Enable Apple GPU** explains setup and asks for user-wide consent. The runtime lives under the Electron user-data directory in `runtimes/fastsurfer-2.5.4-arm64`. Downloads and Python setup require network access; computation is offline and sandboxed. Closing the desktop or changing projects ends native access. Browser fallback sessions and remote servers retain container execution; the Apple GPU path is one reason the desktop app, not the browser, is the product.
 
 Installation readiness requires the source, checkpoints and an arm64 Python with working MPS. Failed downloads can be retried. Do not move the managed virtual environment; its interpreter paths are installation-specific. Standard outputs remain under `derivatives/fastsurfer/sub-<id>` and the container creates the NIfTI/labels sidecars.
 
