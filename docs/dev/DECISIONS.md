@@ -47,6 +47,7 @@ rationale below consolidates later amendments without treating superseded design
 | 28 | 2026-09-06 | Managed host install of Tetravox; the pipeline's Subjects node and readiness gating; jobs tables on all three run pages | install half superseded by 29; pipeline portion superseded 2026-09-13; job tables live |
 | 29 | 2026-09-06 | **The embed is restored, baked in the image, on the Viewer's own two sub-pages.** Nothing installs Tetravox on the host | superseded by native TetraVox decision, 2026-09-13 |
 | 30 | 2026-09-07 | External audit response: the six scientific corrections, the server hardening, one release workflow | live |
+| 31 | 2026-09-15 | One TetraVox resolution order (configured, managed, system, PATH) and feed-verified managed updates | amends the install half of 2026-09-13 |
 
 ## Runtime and distribution
 
@@ -745,7 +746,33 @@ currently downloaded artifacts. An upstream release containing it is needed befo
 
 Viewer uses a scene builder on the left and native launch controls above a saved-scene library on the right. Each panel owns its scrolling so a growing library cannot stretch the page. Scene deletion removes only the saved document and its thumbnail/metadata; filesystem failures remain visible for retry. The scene-list API adds optional reference-health metadata from bounded JSON reads and project-local file checks, without loading scientific datasets or probing arbitrary external paths. External references are explicitly unchecked rather than reported as available. These checks describe file availability, not scientific validity or native rendering success.
 
+### 2026-09-15 — One resolution order for TetraVox, and updates without a TI-Toolbox release
+
+**Decision.** A single rule picks the viewer: a path the user located in Settings, then the managed
+copy TI-Toolbox installed, then a compatible system installation, then a compatible executable on
+PATH. Identity and version are still checked at every step and no candidate is executed to identify
+it. The managed copy is version-addressed under `runtimes/tetravox-<version>-<platform>-<arch>`, so
+Settings can check GitHub for the newest release on demand and install it after verifying the
+SHA512 the release's own `latest-<os>.yml` update feed publishes for that exact asset; the pinned
+baseline 0.4.0 keeps its SHA256 so a first install works without a feed. A release that publishes no
+checksum for this platform's asset installs nothing. Downloads run in the main process, stream to a
+temporary directory, are verified, moved into place atomically and report progress to the renderer;
+older managed versions are pruned after a successful update. Update checks are never automatic.
+
+**Why.** The maintainer asked for detect-or-download with an explicit override, and for TetraVox
+updates that do not wait on a TI-Toolbox release. Amends the 2026-09-13 decision below in one
+respect: the managed copy now outranks a system installation, because only the managed copy has a
+verified update path TI-Toolbox controls — which also removes the "reuse the sole running managed
+copy" special case. A user who prefers their own installation says so once with **Locate TetraVox…**.
+
+**Cost.** TI-Toolbox trusts the release's published update feed for non-baseline versions rather
+than a digest reviewed in this repository. Windows managed setup still awaits a verified portable
+package. **Revisit if.** TetraVox publishes signed checksums, or ships an installer TI-Toolbox
+should defer to.
+
 ### 2026-09-13 — Reuse installed native viewers and confirm scene replacement
+
+**Amended 2026-09-15:** the managed copy now precedes a system installation in the resolution order.
 
 Compatible system installations take precedence over creating a managed copy; the sole running managed copy is reused instead when applicable. Discovery checks package identity and version in conventional locations without executing candidates. System launches keep the normal profile and updater ownership; managed launches retain their separate profile. This amends the earlier always-managed native installation decision.
 
