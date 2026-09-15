@@ -22,6 +22,21 @@ The source tree is **v3.0.0 (unreleased)**. The published release remains v2.5.0
 
 TI-Toolbox combines an Electron desktop application, one Docker image for the scientific environment, and the `tit` Python API. Start with the [installation guide](https://idossha.github.io/TI-Toolbox/installation/) and [desktop guide](https://idossha.github.io/TI-Toolbox/wiki/desktop-app/). For development, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Launching
+
+One launcher, one behaviour, for users and developers alike:
+
+```bash
+bash loader.sh --project /path/to/project          # or: python3 loader.py --project ...
+bash loader.sh --project /path/to/project --desktop   # Electron instead of the browser
+bash loader.sh --project /path/to/project --dev       # run this checkout's code, not the image's
+bash loader.sh --project /path/to/project --print-config   # resolved settings; no Docker calls
+```
+
+`--dev` changes only the *source* of the server and renderer (checkout mount, server
+reload, the checkout's built UI). Flags, ports, container names, attach/stop semantics
+and the opened URL are identical with and without it. `--help` lists every option.
+
 ## How to Cite
 
 If you use TI-Toolbox in your research, please cite the journal article:

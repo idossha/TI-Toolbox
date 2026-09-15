@@ -86,36 +86,37 @@ stop it. The next browser launch asks Recreate or Attach again.
 
 #### Developer CLI and checkout location
 
-Developer mode needs a local TI-Toolbox checkout because it mounts your code over the image's
-`/ti-toolbox` directory. **The launcher files do not have to live inside that checkout.**
-Keep one developer launcher and `docker-compose.yml` together in any convenient folder:
-[loader_dev.py](https://raw.githubusercontent.com/idossha/TI-Toolbox/release/3.0.0/dev/loader/loader_dev.py) or
-[loader_dev.sh](https://raw.githubusercontent.com/idossha/TI-Toolbox/release/3.0.0/dev/loader/loader_dev.sh), plus
-[the YAML](https://raw.githubusercontent.com/idossha/TI-Toolbox/release/3.0.0/docker-compose.yml).
-
-From that folder, point to the checkout and choose your data project:
+There is one launcher for users and developers. `--dev [DIR]` changes only the *source* of the
+server and renderer: your checkout is mounted over the image's `/ti-toolbox`, the server reloads
+on Python edits, and the checkout's built renderer is served. Flags, port selection, container
+naming, attach/recreate and stop semantics are identical with and without it, so `loader.sh`,
+`loader.py`, Electron and the dev shims all address the same container.
 
 ```bash
-export TIT_DEV_REPO_DIR=/absolute/path/to/TI-Toolbox
-python3 loader_dev.py --project /absolute/path/to/dataset
-# or
-bash loader_dev.sh --project /absolute/path/to/dataset
+bash loader.sh --dev --project /absolute/path/to/dataset       # this checkout
+python3 loader.py --dev /absolute/path/to/TI-Toolbox --project /absolute/path/to/dataset
 ```
 
-`TIT_DEV_REPO_DIR` selects **source code**; `--project` selects **project data**. They are separate
-mounts. Without `--project`, the launcher asks for the data directory. When run inside the
-repository without `TIT_DEV_REPO_DIR`, the dev wrappers use their containing checkout.
-An explicit invalid checkout path fails instead of silently using another source tree.
+**The launcher files do not have to live inside the checkout.** Keep `loader.sh`/`loader.py` and
+`docker-compose.yml` together in any convenient folder and name the checkout explicitly, either
+with `--dev DIR` or with `TIT_DEV_REPO_DIR` (`TIT_DEV=1` means "this launcher's own checkout").
+The thin shims `dev/loader/loader_dev.sh` and `dev/loader/loader_dev.py` do exactly that and
+remain for convenience.
 
-Developer sessions enable Python reload and serve the checkout's built renderer. Build it once
-with `npm ci` and `npm run build` in the checkout's `desktop/` directory, or use `--web` for Vite
-hot reload. Running an already-built renderer needs no Node installation on the launcher host.
-**Attach** retains the existing container's mounts; choose **Recreate** to apply a different checkout.
+`--dev` selects **source code**; `--project` selects **project data**. They are separate mounts.
+Without `--project`, the launcher asks for the data directory. An explicit invalid checkout path
+fails instead of silently using another source tree.
 
-The Python dev loader also supports `--build` (build the image and exit) and `--web`
-(run the selected checkout's `npm run dev:web`). Pass `--no-mount-repo` to test the image's own
-code and interface. Direct CLI starts use the adjacent YAML; `TIT_COMPOSE_FILE` can explicitly
-select a different YAML file. The `--web`/npm development flow uses the YAML inside the selected checkout.
+Build the renderer once with `npm ci` and `npm run build` in the checkout's `desktop/` directory,
+or use `--dev --web` for Vite hot reload. Running an already-built renderer needs no Node
+installation on the launcher host. **Attach** retains the existing container's mounts; choose
+**Recreate** to apply a different checkout.
+
+`--dev --build` builds the image and exits; `--dev --web` runs the selected checkout's
+`npm run dev:web`. Pass `--no-mount-repo` to test the image's own code and interface, and
+`--print-config` to print the resolved project, port, image, container name and URL without
+touching Docker. Direct CLI starts use the adjacent YAML; `TIT_COMPOSE_FILE` can explicitly select
+a different YAML file. The `--web`/npm development flow uses the YAML inside the selected checkout.
 
 ### Build a development image
 

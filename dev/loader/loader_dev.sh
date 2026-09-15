@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Run a local checkout inside Docker; no host Python required.
+# Thin shim for `bash loader.sh --dev <checkout>`; kept so existing muscle memory and
+# a wrapper copied outside the checkout keep working. There is one launcher and one
+# behaviour: --dev changes only the source of the server and renderer.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO="${TIT_DEV_REPO_DIR-$HERE/../..}"
@@ -8,9 +10,11 @@ if [ ! -f "$REPO/tit/launch.py" ] || [ ! -f "$REPO/loader.sh" ]; then
     printf 'loader_dev.sh: not a TI-Toolbox checkout: %s. Set TIT_DEV_REPO_DIR to your local checkout.\n' "$REPO" >&2
     exit 2
 fi
-export TIT_DEV_REPO_DIR="$(cd "$REPO" && pwd -P)"
+REPO="$(cd "$REPO" && pwd -P)"
+export TIT_DEV_REPO_DIR="$REPO"
 if [ -z "${TIT_COMPOSE_FILE+x}" ] && [ -f "$HERE/docker-compose.yml" ]; then
     export TIT_COMPOSE_FILE="$HERE/docker-compose.yml"
 fi
-export TIT_LAUNCH_UI="${TIT_LAUNCH_UI:-desktop}"
-exec bash "$TIT_DEV_REPO_DIR/loader.sh" "$@"
+# TIT_DEV_REPO_DIR above is the environment spelling of --dev, so an argument-free
+# invocation still reaches the interactive project prompt.
+exec bash "$REPO/loader.sh" "$@"

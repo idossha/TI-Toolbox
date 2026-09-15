@@ -7,6 +7,8 @@ project="${TIT_PROJECT_DIR:-}"
 image="${TIT_IMAGE_TAG:-}"
 port=8765 timeout=180 mode=start follow=0 open_browser=1 interactive=0
 repo="${TIT_DEV_REPO_DIR:-}"
+[ -z "${TIT_DEV:-}" ] || repo="${repo:-$PWD}"
+print_config=0
 running_action=""; container=""; ui="${TIT_LAUNCH_UI:-browser}"; explicit_browser=0; explicit_desktop=0
 [ "$#" -gt 0 ] || interactive=1
 while [ "$#" -gt 0 ]; do
@@ -28,6 +30,8 @@ no host Python is needed.
   --no-open          print the session URL without opening a UI
   --existing ACTION  attach or recreate the selected running container
   --container ID     select a running container for either action
+  --dev [DIR]        run a source checkout, not the image's code (reload + its built UI)
+  --print-config     print the resolved settings and exit; no Docker calls
   --interactive      choose a project interactively
   --status           show this project's container
   --logs [--follow]   print or follow its logs
@@ -42,6 +46,10 @@ HELP
                 --existing) running_action="$2" ;; --container) container="$2" ;;
             esac
             shift 2 ;;
+        --dev)
+            if [ "$#" -ge 2 ] && case "$2" in --*) false ;; *) true ;; esac; then repo="$2"; shift 2
+            else repo="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"; shift; fi ;;
+        --print-config) print_config=1; shift ;;
         --no-open) open_browser=0; shift ;;
         --browser) ui=browser; explicit_browser=1; shift ;;
         --desktop) ui=desktop; explicit_desktop=1; shift ;;
@@ -77,6 +85,44 @@ case "$project" in *$'\n'*|*:*) die 'project path cannot contain newlines or col
 timeout="$(awk -v t="$timeout" 'BEGIN {print int(t)+(t>int(t))}')"
 [ "$timeout" -gt 0 ] || die 'timeout must be positive'
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd -P)"
+# Match the Python/Electron project hash so all entry points can attach and stop.
+project_stack() {
+    local text="$1" h1 h2 i code hash
+    h1=$((0xDEADBEEF ^ ${#text})); h2=$((0x41C6CE57 ^ ${#text}))
+    for ((i=0; i<${#text}; i++)); do
+        printf -v code '%d' "'${text:i:1}"
+        h1=$(( ((h1 ^ code) * 2654435761) & 0xFFFFFFFF ))
+        h2=$(( ((h2 ^ code) * 1597334677) & 0xFFFFFFFF ))
+    done
+    hash=$(( (((h1 ^ (h1 >> 16)) * 2246822507) ^ ((h2 ^ (h2 >> 13)) * 3266489909)) & 0xFFFFFFFF ))
+    printf 'ti-toolbox-%08x' "$hash"
+}
+# --dev changes only the source of the server and renderer; everything else is identical.
+if [ -n "$repo" ]; then
+    case "$repo" in \~/*) repo="$HOME/${repo#\~/}" ;; esac
+    [ -f "$repo/tit/launch.py" ] || die "not a TI-Toolbox checkout: $repo"
+    repo="$(cd "$repo" && pwd -P)"
+fi
+static=''; reload=''
+if [ -n "$repo" ]; then
+    static=/ti-toolbox/desktop/out/renderer; reload=1
+fi
+if [ "$print_config" = 1 ]; then
+    default_spec="${TIT_COMPOSE_FILE:-$script_dir/docker-compose.yml}"
+    # shellcheck disable=SC2016
+    resolved_image="${image:-$(sed -n 's/^[[:space:]]*image: idossha\/ti-toolbox:${TIT_IMAGE_TAG:-\([^}]*\)}.*/idossha\/ti-toolbox:\1/p' "$default_spec" 2>/dev/null)}"
+    printf 'mode      %s\n' "$([ -n "$repo" ] && printf dev || printf user)"
+    printf 'project   %s\n' "$project"
+    printf 'port      %s\n' "$port"
+    printf 'image     %s\n' "$resolved_image"
+    printf 'container %s-tit-1\n' "$(project_stack "$project")"
+    printf 'origin    http://127.0.0.1:%s\n' "$port"
+    printf 'ui        %s\n' "$ui"
+    printf 'repo_dir  %s\n' "$repo"
+    printf 'static    %s\n' "$static"
+    printf 'reload    %s\n' "$reload"
+    exit 0
+fi
 if [ "$mode" = start ] && [ "$open_browser" = 1 ] && [ "$ui" = desktop ]; then
     helper="$script_dir/dev/launch-electron.sh"
     export TIT_LAUNCH_PROJECT_DIR="$project" TIT_LAUNCH_EXISTING="$running_action" TIT_LAUNCH_CONTAINER="$container"
@@ -122,14 +168,8 @@ if [ -z "$image" ]; then
 fi
 case "$image" in *[!a-zA-Z0-9_./:@-]*|'') die 'invalid image reference' ;; esac
 [[ "$image" == */* ]] || image="idossha/ti-toolbox:$image"
-if [ -n "$repo" ]; then
-    [ -f "$repo/tit/launch.py" ] || die "not a TI-Toolbox checkout: $repo"
-    repo="$(cd "$repo" && pwd -P)"
-fi
-static=''; reload=''
-if [ -n "$repo" ]; then
-    static=/ti-toolbox/desktop/out/renderer; reload=1
-    [ "$open_browser" = 0 ] || [ -f "$repo/desktop/out/renderer/index.html" ] || die 'build the checkout UI with npm --prefix desktop run build, or use pnpm dev:web from desktop/'
+if [ -n "$repo" ] && [ "$open_browser" = 1 ]; then
+    [ -f "$repo/desktop/out/renderer/index.html" ] || die 'build the checkout UI with npm --prefix desktop run build, or use npm run dev:web from desktop/'
 fi
 read_env() { docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$ids" | sed -n "s/^$1=//p"; }
 # Discover by labels, current and legacy names, and image, including other projects.
@@ -221,15 +261,7 @@ else
         port=$((port+1)); [ "$port" -le 65535 ] && [ "$port" -lt $((first_port+64)) ] || die 'no free port found'
     done
     token="$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"
-    # Match the Python/Electron project hash so all entry points can attach and stop.
-    h1=$((0xDEADBEEF ^ ${#project})); h2=$((0x41C6CE57 ^ ${#project}))
-    for ((i=0; i<${#project}; i++)); do
-        printf -v code '%d' "'${project:i:1}"
-        h1=$(( ((h1 ^ code) * 2654435761) & 0xFFFFFFFF ))
-        h2=$(( ((h2 ^ code) * 1597334677) & 0xFFFFFFFF ))
-    done
-    hash=$(( (((h1 ^ (h1 >> 16)) * 2246822507) ^ ((h2 ^ (h2 >> 13)) * 3266489909)) & 0xFFFFFFFF ))
-    printf -v stack 'ti-toolbox-%08x' "$hash"
+    stack="$(project_stack "$project")"
     mkdir -p "$config"
     export LOCAL_PROJECT_DIR="$project" PROJECT_DIR_NAME="${project##*/}" TIT_USER_CONFIG="$config"
     export TIT_SERVER_TOKEN="$token" TIT_SERVER_PORT="$port" TIT_REPO_DIR="$repo" TIT_SERVER_RELOAD="$reload" TIT_STATIC_DIR="$static"

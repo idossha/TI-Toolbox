@@ -38,11 +38,6 @@ def test_no_arguments_reach_launch_with_selected_settings(
         cli, "launch_command", lambda args, **kw: calls.append((args, kw)) or 0
     )
     loader = load_script(script)
-    if dev:
-        renderer = tmp_path / "desktop" / "out" / "renderer"
-        renderer.mkdir(parents=True)
-        (renderer / "index.html").write_text("fixture renderer")
-        monkeypatch.setattr(loader, "DESKTOP", tmp_path / "desktop")
     assert loader.main([]) == 0
     args, kwargs = calls[0]
     assert (args.project, args.image, args.port, args.no_open, args.timeout) == (
@@ -52,8 +47,10 @@ def test_no_arguments_reach_launch_with_selected_settings(
         False,
         180,
     )
-    if dev:
-        assert kwargs["repo_dir"] == str(ROOT) and kwargs["server_reload"] is True
+    assert args.dev == (str(ROOT) if dev else None)
+    assert cli.dev_overrides(args) == (
+        (str(ROOT), cli.DEV_RENDERER, True) if dev else ("", "", False)
+    )
 
 
 def test_invalid_path_retries_and_explicit_settings_survive(monkeypatch, tmp_path):
@@ -242,15 +239,24 @@ def test_corrupt_remembered_path_still_prompts(monkeypatch, tmp_path):
 def test_dev_missing_renderer_never_selects_baked_ui(
     monkeypatch, tmp_path, flags, expected
 ):
-    loader = load_script("dev/loader/loader_dev.py")
-    monkeypatch.setattr(loader, "DESKTOP", tmp_path / "unbuilt-desktop")
+    """Without a built renderer a dev run must fail, not silently serve the image's UI."""
+    checkout = tmp_path / "checkout"
+    (checkout / "tit").mkdir(parents=True)
+    (checkout / "tit" / "launch.py").touch()
+    (checkout / "loader.py").touch()
     calls = []
-    monkeypatch.setattr(cli, "launch_command", lambda args, **kw: calls.append(kw) or 0)
-    assert loader.main(["--project", str(tmp_path), *flags]) == expected
-    if expected == 0:
-        assert calls[0]["static_dir"] == "/ti-toolbox/desktop/out/renderer"
-    else:
+    monkeypatch.setattr(cli, "start", lambda opts: calls.append(opts) or ("o", "t"))
+    monkeypatch.setattr(cli, "launch_stop", lambda project: [])
+    monkeypatch.setattr(cli, "launch_status", lambda project: None)
+    monkeypatch.setattr(cli, "launch_logs", lambda project, follow: 0)
+    argv = ["--project", str(tmp_path), "--dev", str(checkout), *flags]
+    args = cli.launch_parser().parse_args(argv)
+    if expected == 2:
+        assert cli.launch_command(args) == 1  # LaunchError, one actionable line
         assert calls == []
+    else:
+        assert cli.launch_command(args) in (0, 1)
+    assert cli.dev_overrides(args)[1] == cli.DEV_RENDERER
 
 
 @pytest.mark.parametrize(
@@ -265,17 +271,17 @@ def test_dev_missing_renderer_never_selects_baked_ui(
 def test_dev_web_preserves_launch_settings_and_rejects_unsupported_images(
     monkeypatch, tmp_path, image
 ):
+    """``--dev --web`` hands over to ``npm run dev:web`` with the same launch settings."""
     from types import SimpleNamespace
     from tit import launch
 
-    loader = load_script("dev/loader/loader_dev.py")
-    (tmp_path / "node_modules").mkdir()
-    monkeypatch.setattr(loader, "DESKTOP", tmp_path)
+    (tmp_path / "desktop" / "node_modules").mkdir(parents=True)
     monkeypatch.setattr(launch, "default_image", lambda: "idossha/ti-toolbox:current")
+    monkeypatch.setattr(cli, "default_image", lambda: "idossha/ti-toolbox:current")
     monkeypatch.setenv("TIT_DEV_MOUNT_REPO", "0")
     calls = []
     monkeypatch.setattr(
-        loader.subprocess,
+        cli.subprocess,
         "run",
         lambda argv, **kw: calls.append((argv, kw)) or SimpleNamespace(returncode=0),
     )
@@ -288,12 +294,20 @@ def test_dev_web_preserves_launch_settings_and_rejects_unsupported_images(
         container="selected-id",
     )
     unsupported = image is not None and (image.startswith("other/") or "@" in image)
-    assert loader.run_npm_dev_web(args) == (2 if unsupported else 0)
     if unsupported:
+        with pytest.raises(cli.LaunchError):
+            cli.run_dev_web(tmp_path, args)
         assert calls == []
-    else:
-        env = calls[0][1]["env"]
-        assert env["TIT_DEV_IMAGE_TAG"] == ("explicit" if image else "current")
-        assert env["TIT_DEV_MOUNT_REPO"] == "1"
-        assert env["TIT_DEV_PORT"] == "18888"
-        assert env["TIT_DEV_PROJECT_DIR"] == str(tmp_path.resolve())
+        return
+    assert cli.run_dev_web(tmp_path, args) == 0
+    argv, kwargs = calls[0]
+    assert argv == ["npm", "run", "dev:web"]
+    env = kwargs["env"]
+    assert env["TIT_DEV_PROJECT_DIR"] == str(tmp_path.resolve())
+    assert env["TIT_DEV_PORT"] == "18888"
+    assert env["TIT_DEV_IMAGE_TAG"] == (image or "idossha/ti-toolbox:current").rsplit(
+        ":", 1
+    )[-1]
+    assert env["TIT_LAUNCH_EXISTING"] == "attach"
+    assert env["TIT_LAUNCH_CONTAINER"] == "selected-id"
+    assert env["TIT_DEV_MOUNT_REPO"] == "1"

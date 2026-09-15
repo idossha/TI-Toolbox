@@ -1,9 +1,0 @@
-# Development overrides for the root compose specification.
-# The loader supplies the checkout path and optional built renderer.
-
-services:
-  tit:
-    environment:
-      TIT_REPO_DIR: ${TIT_REPO_DIR:-${DEV_CODEBASE_DIR:-..}}
-      TIT_SERVER_RELOAD: "1"
-      TIT_STATIC_DIR: ${TIT_STATIC_DIR:-}

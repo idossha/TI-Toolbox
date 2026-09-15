@@ -23,21 +23,23 @@ def test_dev_wrapper_selects_checkout_and_adjacent_yaml(tmp_path, language, relo
     (repo / "tit").mkdir(parents=True)
     (repo / "tit/__init__.py").touch()
     (repo / "tit/launch.py").touch()
+    (repo / "loader.py").touch()
     (repo / "tit/cli.py").write_text("""
 import argparse, json, os
-from types import SimpleNamespace
 def launch_parser(**kwargs):
     p = argparse.ArgumentParser(**kwargs)
+    p.add_argument('--dev', nargs='?', const='', default=os.environ.get('TIT_DEV_REPO_DIR'))
     p.set_defaults(status=False, logs=False, stop=False, no_open=True)
     return p
 def prepare_launch(args, argv): return None
 def launch_command(args, **kwargs):
-    print(json.dumps({'repo': kwargs['repo_dir'], 'compose': os.environ.get('TIT_COMPOSE_FILE')}))
+    print(json.dumps({'repo': args.dev, 'compose': os.environ.get('TIT_COMPOSE_FILE')}))
     return 0
 """)
     (repo / "loader.sh").write_text(
         'printf \'%s\\n%s\\n\' "$TIT_DEV_REPO_DIR" "$TIT_COMPOSE_FILE"\n'
     )
+    (repo / "loader.py").touch()
     location = tmp_path / "launch files" if relocated else repo / "dev/loader"
     location.mkdir(parents=True)
     script = location / f"loader_dev.{language}"
