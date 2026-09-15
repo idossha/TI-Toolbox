@@ -38,6 +38,11 @@ jobs:
           pip install -r docs/api_mkdocs/requirements.txt
           mkdocs build -f docs/api_mkdocs/mkdocs.yml --clean
 
+      - name: Copy the example notebook into the site (single source: examples/)
+        run: |
+          mkdir -p docs/assets/notebooks
+          cp examples/notebooks/example_workflow.ipynb docs/assets/notebooks/
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 

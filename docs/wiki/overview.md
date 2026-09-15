@@ -24,6 +24,16 @@ that session or recreate it for the requested project. Closing Electron stops/re
 container and exits. Browser sessions opened from the CLI remain tied to their running
 container; change projects through the CLI. See [launch options]({{ site.baseurl }}/installation/bash-cli/).
 
+## Add example subject
+
+Next to **Switch project**, **Add example subject (ernie, ~1.1 GB download)** fetches the
+SimNIBS example dataset (GPL-3.0) into the open project once: `sub-ernie/anat/` gets the T1/T2
+and `derivatives/SimNIBS/sub-ernie/m2m_ernie/` the finished charm head model, so the Optimizer,
+Simulator and Analyzer pages — and the [Example Notebook]({{ site.baseurl }}/wiki/example-notebook/)
+— work without pre-processing. It runs as a job (progress shows under the button and in the jobs
+rail) and is skipped when `m2m_ernie` already exists. The same download is
+`python -m tit.examples --project DIR` from a shell.
+
 ## Project information
 
 The header shows the project name and host path. Storage is measured in the background,

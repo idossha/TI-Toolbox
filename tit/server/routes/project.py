@@ -75,3 +75,29 @@ def init_project(body: dict[str, Any] | None = None) -> dict[str, Any]:
         )
     except (NotImplementedError, ValueError) as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.post(
+    "/api/project/example-subject",
+    status_code=201,
+    summary="Download the SimNIBS example subject (ernie, with head model) into this project",
+)
+def add_example_subject(body: dict[str, Any] | None = None) -> dict[str, Any]:
+    """``{force?}`` -> ``JobStatus`` for a ``project_init`` job that runs
+    :func:`tit.examples.fetch_ernie` (~1 GB download, skipped when ``m2m_ernie`` exists)."""
+    force = bool((body or {}).get("force", False))
+    try:
+        from tit.jobs import api as jobs_api
+    except ImportError as exc:  # pragma: no cover
+        raise HTTPException(status_code=503, detail=f"tit.jobs unavailable: {exc}") from exc
+    try:
+        return jobs_api.submit(
+            {
+                "kind": "project_init",
+                "config": {"example_subject": True, "force": force},
+                "subject_ids": [],
+                "created_by": "gui",
+            }
+        )
+    except (NotImplementedError, ValueError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc

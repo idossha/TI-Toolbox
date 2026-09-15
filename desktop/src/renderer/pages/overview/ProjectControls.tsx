@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { FolderOpen, Layers, Target, Waves, ChartNoAxesCombined, Box } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { FolderOpen, Layers, Target, Waves, ChartNoAxesCombined, Box, Download } from "lucide-react";
 import { Button } from "../../ui/Button";
 import { Callout } from "../../ui/Feedback";
 import { isElectron } from "../../env";
+import { api, unwrap } from "../../api/client";
+import { subscribeJob, useJobsStream } from "../../app/jobs/useJobsStream";
+import { TERMINAL_STATES } from "../../app/jobs-rail/api";
 
 function ProjectDirectoryForm({ switching = false, onCancel }: { switching?: boolean; onCancel?: () => void }) {
   const inputId = switching ? "switch-project-dir" : "project-dir";
@@ -115,6 +119,46 @@ export function OpenProject() {
           ))}
         </div>
       </section>
+    </div>
+  );
+}
+
+/**
+ * `POST /api/project/example-subject`: a `project_init` job that runs `tit.examples.fetch_ernie`
+ * (the notebook's cell 1 and `python -m tit.examples` are the same call). Progress is the job's
+ * own stream — the same `/ws/jobs` store the rail reads — so nothing here polls.
+ */
+export function AddExampleSubject() {
+  const queryClient = useQueryClient();
+  const { jobs, eventsByJob } = useJobsStream();
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const job = jobId ? jobs[jobId] : undefined;
+  const running = !!job && !TERMINAL_STATES.includes(job.state);
+  const lastLog = jobId ? [...(eventsByJob[jobId] ?? [])].reverse().find((e) => e.type === "log")?.msg : undefined;
+
+  useEffect(() => {
+    if (job && TERMINAL_STATES.includes(job.state)) void queryClient.invalidateQueries({ queryKey: ["overview"] });
+  }, [job, queryClient]);
+
+  async function start() {
+    setError("");
+    try {
+      const status = unwrap(await api.POST("/api/project/example-subject", { body: {} }), "/api/project/example-subject");
+      setJobId(status.id);
+      subscribeJob(status.id);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not start the download.");
+    }
+  }
+
+  return (
+    <div className="overview-example-subject">
+      <Button data-testid="add-example-subject" disabled={running} onClick={() => void start()}>
+        <Download size={14} aria-hidden /> {running ? "Adding example subject…" : "Add example subject (ernie, ~1.1 GB download)"}
+      </Button>
+      {job && <p role="status" className="overview-project-progress">{job.state}{job.progress ? ` · ${Math.round(job.progress.pct)}%` : ""}{lastLog ? ` · ${lastLog}` : ""}</p>}
+      {error && <Callout kind="danger">{error}</Callout>}
     </div>
   );
 }

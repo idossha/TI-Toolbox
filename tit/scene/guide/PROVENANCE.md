@@ -14,6 +14,9 @@ rebuilt at runtime, and no source dataset is redistributed as such.
 | Head mesh | `ernie.msh`, 184 MB, 847 165 nodes, 5 899 838 elements |
 | Generated | 2026-09-05, in container `ti-toolbox-fad740e5-tit-1` (SimNIBS 4.6) |
 
+The same release archive (`v4.1/simnibs4_examples.zip`, sha256-pinned) is fetched at runtime into
+a user's project by `tit.examples.fetch_ernie` — it is downloaded from upstream, not redistributed.
+
 ## Licence, and whether redistribution is permitted
 
 **Yes, it is permitted.** The SimNIBS example dataset is published in the

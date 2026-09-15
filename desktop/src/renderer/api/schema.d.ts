@@ -193,6 +193,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/project/example-subject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Download the SimNIBS example subject (ernie, with head model) into this project
+         * @description ~1 GB download, so it is a project_init job; a no-op when m2m_ernie already exists unless force.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        force?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description project-init job accepted */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["JobStatus"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/catalog/subjects": {
         parameters: {
             query?: never;

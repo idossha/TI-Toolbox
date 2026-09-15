@@ -36,6 +36,21 @@ simnibs_python my_script.py
 In the GUI you open a project. In code, `get_path_manager` does the same: it is the object that
 knows where everything in a BIDS project lives, and every module uses it.
 
+No data of your own yet? `tit.examples.fetch_ernie(project)` downloads the SimNIBS example subject
+(`ernie`, with its finished `m2m_ernie` head model, ~1.1 GB, GPL-3.0) into the project once and
+returns immediately when it is already there — the same call behind the Overview page's
+**Add example subject** button and `python -m tit.examples --project DIR`:
+
+```python
+import os
+from tit import get_path_manager
+from tit.examples import fetch_ernie
+
+PROJECT = os.environ.get("TIT_PROJECT_DIR") or "/path/to/your/project"
+pm = get_path_manager(PROJECT)
+fetch_ernie(PROJECT)
+```
+
 ```python
 from tit import get_path_manager
 from tit.pre import discover_subjects

@@ -199,6 +199,30 @@ paths:
                 $ref: "#/components/schemas/JobStatus"
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /api/project/example-subject:
+    post:
+      tags: [settings]
+      summary: Download the SimNIBS example subject (ernie, with head model) into this project
+      description: >-
+        ~1 GB download, so it is a project_init job; a no-op when m2m_ernie already exists unless force.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                force: { type: boolean }
+      responses:
+        "201":
+          description: project-init job accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /api/catalog/subjects:
     get:
       tags: [catalog]

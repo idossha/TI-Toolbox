@@ -9,6 +9,7 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 ---
 ### v3.0.0 (Unreleased)
 
+- 2026-09-15: **Example subject on demand** — `tit.examples.fetch_ernie(project)` downloads the SimNIBS example dataset (`ernie` with its `m2m_ernie` head model, ~1.1 GB, GPL-3.0, sha256-pinned) into a project; reachable as `python -m tit.examples --project DIR`, `POST /api/project/example-subject` and the Overview page's **Add example subject** button. The example notebook moved to `examples/notebooks/example_workflow.ipynb`, reads `TIT_PROJECT_DIR`, and fetches the subject in cell 1 so it runs without any data of your own.
 - 2026-09-15: Removed the redundant **Allow unsafe overrides** setting — **Replace and rerun** is now the one, always-available control for replacing existing outputs.
 - **2026-09-15 — desktop launches need no `--project`** — `loader.sh`, `loader.py` and `tit launch` hand off to the desktop app without a project directory, which then opens its own project page just as a Dock launch does; `--project` still opens straight into one project. Browser runs (`--browser`, `--no-open`) still require a project, because their container is bound to one, and the terminal project prompt is now browser-only.
 

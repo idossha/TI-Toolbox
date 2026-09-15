@@ -7,13 +7,15 @@ permalink: /wiki/example-notebook/
 <p>
 <a href="{{ site.baseurl }}/assets/notebooks/example_workflow.ipynb" download>&#11015; Download example_workflow.ipynb</a>
 &nbsp;&nbsp;
-<a href="https://github.com/idossha/TI-Toolbox/blob/main/docs/assets/notebooks/example_workflow.ipynb">View on GitHub</a>
+<a href="https://github.com/idossha/TI-Toolbox/blob/main/examples/notebooks/example_workflow.ipynb">View on GitHub</a>
 </p>
 
 This page mirrors the downloadable notebook cell for cell. To run it: open your project, go to
 the app's [Notebooks]({{ site.baseurl }}/wiki/notebooks/) page, choose **Import .ipynb**, and pick
 the *SimNIBS + TI-Toolbox* kernel — the kernel is the container's SimNIBS Python, so nothing needs
-installing. Change `PROJECT` and `SUBJECT` to match your own data.
+installing. You do not need your own data: cell 1 fetches the SimNIBS example subject into
+whatever project folder you point `PROJECT` at. The notebook lives at
+[`examples/notebooks/`](https://github.com/idossha/TI-Toolbox/tree/main/examples) in the repository.
 
 # TI-Toolbox in eight cells
 
@@ -22,19 +24,32 @@ page by page — Project, Pre-processing, Optimizer, Simulator, Analyzer — and
 each page's **Run** button makes. Nothing here is a helper we wrote for the notebook; every line
 is the public API.
 
-It runs against the public **Dataset 000**, subject `ernie`, inside the TI-Toolbox container.
+It runs against the SimNIBS example subject `ernie`, fetched into your own project by cell 1,
+inside the TI-Toolbox container.
 
 ## 1. Pick the project (app ▸ the project you opened)
 
 Opening a project in the app sets the project root. In code, `get_path_manager` does the same:
 it is the single object that knows where everything in a BIDS project lives.
 
+**Edit one line:** set `PROJECT` below to a folder on your machine (any empty folder works), or
+export `TIT_PROJECT_DIR` before starting the kernel. Everything else in the notebook derives
+from it.
+
+`fetch_ernie` downloads the SimNIBS example subject once (~1.1 GB, GPL-3.0) so every later cell has
+a head model. Skipped if already present. Same as the project page's *Add example subject* button.
+
 ```python
+import os
 from tit import get_path_manager
+from tit.examples import fetch_ernie
 from tit.pre import discover_subjects
 
-PROJECT = "/mnt/000"
+PROJECT = os.environ.get("TIT_PROJECT_DIR") or "/path/to/your/project"   # <-- edit me (or set TIT_PROJECT_DIR)
+SUBJECT = "ernie"
+
 pm = get_path_manager(PROJECT)
+fetch_ernie(PROJECT)
 
 print(discover_subjects(PROJECT))
 ```
@@ -42,13 +57,12 @@ print(discover_subjects(PROJECT))
 ## 2. Pre-processing (app ▸ Pre-processing ▸ Run)
 
 The Pre-processing page's checkboxes — *Convert DICOMs*, *Create head model (charm)* — are the
-keyword arguments of `run_pipeline`. It takes hours, and `sub-ernie` in Dataset 000 already ships
-with a finished head model, so the `if` below skips it. On your own subject, remove the guard.
+keyword arguments of `run_pipeline`. It takes hours, and the example subject fetched above already
+ships with a finished head model, so the `if` below skips it. On your own subjects this is the
+call that builds `m2m_<subject>`.
 
 ```python
 from tit.pre import run_pipeline, check_m2m_exists
-
-SUBJECT = "ernie"
 
 if not check_m2m_exists(PROJECT, SUBJECT):
     run_pipeline([SUBJECT], convert_dicom=True, create_m2m=True)
@@ -137,7 +151,7 @@ print(roi.region_name, roi.roi_mean, roi.roi_max, roi.roi_focality)
 
 ## 7. Group statistics (app ▸ Statistics)
 
-Dataset 000 has one subject, so there is no group to compare here. With several subjects, the
+The example project has one subject, so there is no group to compare here. With several subjects, the
 Statistics page calls `tit.stats.run_group_comparison` on a `GroupComparisonConfig` — see the
 [Scripting]({{ site.baseurl }}/wiki/scripting/) page for that one snippet.
 

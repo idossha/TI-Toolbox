@@ -187,6 +187,7 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     await call("/api/capabilities", "GET", "/api/capabilities");
     await call("/api/project", "GET", "/api/project");
     const { json: projectInit } = await call("/api/project/init", "POST", "/api/project/init", { body: { example_data: true } });
+    const { json: exampleSubject } = await call("/api/project/example-subject", "POST", "/api/project/example-subject", { body: {} });
     await call("/api/catalog/subjects", "GET", "/api/catalog/subjects");
     await call("/api/catalog/simulations", "GET", "/api/catalog/simulations?subject=ernie");
     await call("/api/catalog/simulations/{name}", "GET", "/api/catalog/simulations/Thalamus?subject=ernie");
@@ -309,6 +310,8 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     await call("/api/jobs/{id}", "DELETE", `/api/jobs/${rerunId}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await call("/api/jobs/{id}", "DELETE", `/api/jobs/${(projectInit as any).id}`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await call("/api/jobs/{id}", "DELETE", `/api/jobs/${(exampleSubject as any).id}`);
 
     // viewers (v1) -- D3 (docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)): no more Freeview/Gmsh launch
     // routes to exercise here (removed from the contract along with the routes); GET

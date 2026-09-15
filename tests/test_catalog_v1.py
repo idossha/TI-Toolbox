@@ -1610,6 +1610,19 @@ def test_project_init_submits_a_job_or_degrades_to_503(client: TestClient) -> No
         assert r.json()["kind"] == "project_init"
 
 
+def test_example_subject_submits_a_project_init_job(client: TestClient) -> None:
+    """``POST /api/project/example-subject`` is a ``project_init`` job with ``example_subject``
+    set -- the same runner, one more config flag -- so the GUI button reuses the jobs rail."""
+    r = client.post("/api/project/example-subject", headers=BEARER)
+    assert r.status_code in (201, 503)
+    if r.status_code == 201:
+        body = r.json()
+        assert body["kind"] == "project_init"
+        detail = client.get(f"/api/jobs/{body['id']}", headers=BEARER)
+        assert detail.status_code == 200
+        assert detail.json()["spec"]["config"]["example_subject"] is True
+
+
 def test_capabilities_has_jupyter_bool(client: TestClient) -> None:
     body = client.get("/api/capabilities", headers=BEARER).json()
     assert isinstance(body["jupyter"], bool)

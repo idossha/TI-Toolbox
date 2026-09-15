@@ -1733,6 +1733,11 @@ route("POST", "/api/project/init", async (ctx) => {
   const job = createJob({ kind: "project_init", config: { example_data: !!body.example_data }, subject_ids: [] });
   json(ctx.res, 201, job.status);
 });
+route("POST", "/api/project/example-subject", async (ctx) => {
+  const body = (await ctx.body()) ?? {};
+  const job = createJob({ kind: "project_init", config: { example_subject: true, force: !!body.force }, subject_ids: [] });
+  json(ctx.res, 201, job.status);
+});
 route("GET", "/api/catalog/subjects", (ctx) => json(ctx.res, 200, subjects));
 route("GET", "/api/catalog/simulations", (ctx) => {
   const subject = ctx.url.searchParams.get("subject");

@@ -374,6 +374,10 @@
 .overview-project-actions { display: flex; gap: 8px; margin-top: 4px; }
 .overview-project-progress { overflow-wrap: anywhere; margin: 0; color: var(--ink-2); }
 .overview-project-controls { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; }
+.overview-project-toolbar { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: flex-start; gap: 12px; }
+.overview-project-toolbar > .overview-project-controls { flex: 1 1 auto; }
+.overview-example-subject { display: flex; flex-direction: column; gap: 6px; }
+.overview-example-subject button { display: inline-flex; align-items: center; gap: 6px; }
 .overview-switch-project { width: 100%; padding: 20px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 .overview-workflows { margin-top: 36px; }
 .overview-workflows > h2 { font-size: 14px; margin: 0 0 22px; }

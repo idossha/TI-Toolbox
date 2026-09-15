@@ -19,8 +19,10 @@ The same thin JSON-config runner as :mod:`tit.opt.leadfield_runner` and
 :mod:`tit.stats.nifti_average`: read the spec, initialise the
 :class:`~tit.paths.PathManager` from ``project_dir``, do the work, exit 0/non-zero.
 ``project_init`` has no config dataclass (it is outside ``PipelineKind``, so
-``/api/validate`` and ``/api/plan`` 404 for it by design); its config is the single boolean
-``example_data``.
+``/api/validate`` and ``/api/plan`` 404 for it by design); its config is two optional booleans:
+``example_data`` (copy the bundled raw T1/T2) and ``example_subject`` (download the SimNIBS
+example subject with its ``m2m_ernie`` head model via :func:`tit.examples.fetch_ernie`, the
+``POST /api/project/example-subject`` route).
 
 Idempotent by construction: :func:`tit.project_init.initialize_project_structure` creates only
 what is missing, so re-running it on an established project is a no-op that still exits 0.
@@ -69,6 +71,12 @@ def main(argv: list[str] | None = None) -> int:
             "Example data copied" if copied else "Example data already present; nothing copied",
             flush=True,
         )
+
+    if data.get("example_subject"):
+        from tit.examples import fetch_ernie
+
+        events.emit_stage("example_subject")
+        fetch_ernie(project_dir, force=bool(data.get("force", False)))
 
     events.emit_result({"project_dir": str(project_dir)})
     print("✓ Project initialization complete.", flush=True)

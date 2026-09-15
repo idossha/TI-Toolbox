@@ -80,3 +80,6 @@ node_modules/
 
 # Local review surfaces are transient; durable decisions belong in docs/dev.
 .lavish/
+
+# Copied from examples/notebooks/ by the docs deploy workflow
+docs/assets/notebooks/
