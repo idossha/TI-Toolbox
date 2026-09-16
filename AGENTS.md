@@ -129,7 +129,9 @@ A change to numerical behavior in `tit/stats`, `tit/analyzer`, `tit/calc`, `tit/
 ## Conventions
 
 - `black tit/` before committing Python; type hints and Google-style docstrings on public APIs.
-- Custom exceptions from `tit/errors.py`; `logging.getLogger(__name__)` per module, and
+- Exception types live beside the code that raises them (`LaunchError` in `tit/launch.py`,
+  `PreprocessError` in `tit/pre/utils.py`, `KindError` in `tit/jobs/kinds.py`); there is no central
+  errors module. `logging.getLogger(__name__)` per module, and
   `setup_logging()` only at entry points (it adds no handlers of its own).
 - Every pipeline module exposes `simnibs_python -m tit.<module> config.json` (`sim`, `opt.flex`,
   `opt.ex`, `opt.mex`, `analyzer`, `stats`, `pre`), with `tit/config_io.py` doing the

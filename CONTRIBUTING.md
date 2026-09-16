@@ -140,7 +140,8 @@ review feedback and required checks before merge. A PR does not itself authorize
 
 ## Code and documentation conventions
 
-Python uses type hints, Google-style public API docstrings, project exceptions from `tit/errors.py`
+Python uses type hints, Google-style public API docstrings, exception types defined beside the code that raises them (`LaunchError` in `tit/launch.py`,
+`PreprocessError` in `tit/pre/utils.py`)
 and module loggers. Run `black` on changed Python files. Scientific logic stays in `tit`; paths go
 through PathManager. Use existing shared frontend controls and strict TypeScript.
 

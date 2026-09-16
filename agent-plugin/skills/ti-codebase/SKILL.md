@@ -23,8 +23,8 @@ Wire contract: `contracts/openapi.yaml`. **The PyQt5 package `tit/gui/` was
 deleted in v3.0.0** — do not cite it, do not restore patterns from it.
 
 Frozen interface paths (a change requires the contract edit **and** the
-`DECISIONS.md` entry in the same commit): `contracts/`,
-`desktop/src/renderer/viewer/protocol.ts`, `desktop/src/shared/tit-bridge.d.ts`.
+`DECISIONS.md` entry in the same commit): `contracts/` and
+`desktop/src/shared/tit-bridge.d.ts`.
 
 ## Module dependency graph
 
@@ -225,7 +225,7 @@ user, from a result they can no longer trust.
 
 ## Conventions
 
-- `black tit/` before committing. Custom exceptions from `tit/errors.py`.
+- `black tit/` before committing. Exception types live beside the code that raises them (`tit/launch.py`, `tit/pre/utils.py`, `tit/jobs/kinds.py`); there is no central errors module.
   `logging.getLogger(__name__)` per module; `setup_logging()` only at entry points.
 - Commit titles state the defect or the new truth, e.g.
   `fix(analyzer): voxel focality volumes in cm^3, geometry from the affine`.
