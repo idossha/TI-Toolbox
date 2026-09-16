@@ -967,29 +967,47 @@ td .katex-display, th .katex-display {
 }
 
 // -----------------------------------------------------------------------------
-// Home: architecture schematic (left column, under Quick start)
+// Home: "How it works" vertical flow (left column)
 // -----------------------------------------------------------------------------
 
-.stack__label { margin-top: 28px; }
-
-.stack {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+.flow {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.stack__card {
+.flow__step {
   position: relative;
   display: flex;
   flex-direction: column;
   gap: 3px;
-  padding: 10px 12px;
+  padding: 11px 14px 11px 16px;
+  margin: 0;
   border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-primary);
   border-radius: var(--radius);
   background: var(--color-surface);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &:hover { border-color: var(--color-text-muted); border-left-color: var(--color-primary); box-shadow: var(--shadow-sm); }
+
+  & + .flow__step::before {
+    content: "\2193";
+    position: absolute;
+    left: 14px;
+    top: -14px;
+    height: 12px;
+    line-height: 12px;
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    pointer-events: none;
+  }
 }
 
-.stack__eyebrow {
+.flow__eyebrow {
   font-family: var(--font-mono);
   font-size: 0.62rem;
   letter-spacing: 0.1em;
@@ -998,31 +1016,36 @@ td .katex-display, th .katex-display {
   margin: 0;
 }
 
-.stack__title {
-  font-size: 0.9rem;
+.flow__title {
+  font-size: 0.95rem;
   font-weight: 600;
   color: var(--color-heading);
   margin: 0;
 }
 
-.stack__body {
-  font-size: 0.8rem;
-  line-height: 1.45;
+.flow__body {
+  font-size: 0.85rem;
+  line-height: 1.5;
   color: var(--color-text-muted);
   margin: 0;
-
-  code {
-    font-size: 0.85em;
-    background: var(--color-surface-2);
-    color: var(--color-text);
-    border: 1px solid var(--color-border-soft);
-    border-radius: 4px;
-    padding: 0.05em 0.3em;
-  }
 }
 
-@media (max-width: 480px) {
-  .stack { grid-template-columns: 1fr; }
+.flow__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+}
+
+.flow__link {
+  font-size: 0.82rem;
+  font-weight: 500;
+  margin-top: 3px;
+  color: var(--color-primary);
+  text-decoration: none;
+
+  &::after { content: " \2192"; }
+  &:hover { text-decoration: underline; }
 }
 
 // -----------------------------------------------------------------------------

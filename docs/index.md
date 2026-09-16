@@ -8,42 +8,37 @@ layout: home
 
 <div class="home-grid">
 <section>
-<p class="home-section__title">Quick start</p>
-<ol class="quickstart" markdown="1">
-<li markdown="1">
-**Install Docker.** Install and start [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or Docker Engine on Linux).
-</li>
-<li markdown="1">
-**Load TI-Toolbox.** Follow the [installation guide]({{ site.baseurl }}/installation/) to load the matching image and launch the toolbox.
-</li>
-<li markdown="1">
-**Start working.** Open your project, then simulate, optimize and explore your results. The [wiki]({{ site.baseurl }}/wiki/) walks you through each tool.
-</li>
+<p class="home-section__title">How it works</p>
+<ol class="flow">
+  <li class="flow__step">
+    <p class="flow__eyebrow">01 / Entry point</p>
+    <p class="flow__title">A desktop app or a single script</p>
+    <p class="flow__body">Open the desktop app, or run the loader script from a terminal. Docker is the only prerequisite; everything else is fetched on first run.</p>
+    <a class="flow__link" href="{{ site.baseurl }}/installation/">Installation guide</a>
+  </li>
+  <li class="flow__step">
+    <p class="flow__eyebrow">02 / Container</p>
+    <p class="flow__title">A reproducible environment</p>
+    <p class="flow__body">Every simulation, optimization and analysis runs inside one published Docker image, so results are the same on any machine.</p>
+    <a class="flow__link" href="{{ site.baseurl }}/wiki/desktop-app/">How the app and container fit together</a>
+  </li>
+  <li class="flow__step">
+    <p class="flow__eyebrow">03 / Your data</p>
+    <p class="flow__title">One BIDS folder on your machine</p>
+    <p class="flow__body">Your project is a BIDS directory on your own disk, mounted into the container. Nothing leaves your machine.</p>
+    <a class="flow__link" href="{{ site.baseurl }}/wiki/pre-processing/#required-input-data-structure">Expected project layout</a>
+  </li>
+  <li class="flow__step">
+    <p class="flow__eyebrow">04 / Extensions</p>
+    <p class="flow__title">BIDS-friendly apps alongside</p>
+    <p class="flow__body">FastSurfer, QSIPrep, QSIRecon and Tetravox run beside the toolbox on the same project, and so can other BIDS Apps or Neurodesk containers.</p>
+    <p class="flow__links">
+      <a class="flow__link" href="{{ site.baseurl }}/wiki/fastsurfer/">FastSurfer</a>
+      <a class="flow__link" href="{{ site.baseurl }}/wiki/diffusion-processing/">QSIPrep / QSIRecon</a>
+      <a class="flow__link" href="{{ site.baseurl }}/wiki/visualizers/">Tetravox</a>
+    </p>
+  </li>
 </ol>
-
-<p class="home-section__title stack__label">How it fits together</p>
-<div class="stack">
-  <div class="stack__card">
-    <p class="stack__eyebrow">01 / Launcher</p>
-    <p class="stack__title">One command</p>
-    <p class="stack__body">Starts the container and opens the desktop app. Docker is the only prerequisite.</p>
-  </div>
-  <div class="stack__card">
-    <p class="stack__eyebrow">02 / Container</p>
-    <p class="stack__title">Computation</p>
-    <p class="stack__body">SimNIBS, the job server and every simulation run inside one published image.</p>
-  </div>
-  <div class="stack__card">
-    <p class="stack__eyebrow">03 / Your data</p>
-    <p class="stack__title">A BIDS project</p>
-    <p class="stack__body">One folder on your machine, mounted into the container. Results land under <code>derivatives/</code>.</p>
-  </div>
-  <div class="stack__card">
-    <p class="stack__eyebrow">04 / Extensions</p>
-    <p class="stack__title">Containerized apps</p>
-    <p class="stack__body">FastSurfer, QSIPrep, QSIRecon and Tetravox run as their own containers or apps beside the toolbox.</p>
-  </div>
-</div>
 </section>
 
 <section>
