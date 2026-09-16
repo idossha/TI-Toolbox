@@ -11,11 +11,11 @@ diffusion workflows start their own workers when needed. There is no X11 setup.
 Full viewing opens **[TetraVox](https://github.com/idossha/tetravox)** in a separate native window.
 TI-Toolbox picks one in a fixed order: the application you chose with **Locate TetraVox…**, then the
 copy TI-Toolbox installed for you, then a compatible installation in a standard application location,
-then a compatible `tetravox` on your `PATH`. Every candidate must identify itself as TetraVox 0.4.0
-or later in the 0.x series; none is run to find that out. An installation you maintain keeps its own
+then a compatible `tetravox` on your `PATH`. Every candidate must identify itself as a 0.x TetraVox
+at or after the pinned baseline; none is run to find that out. An installation you maintain keeps its own
 profile and its own updater. Settings and the Viewer say which one is in use.
 
-If nothing is found, **Settings → Viewer** offers the official **TetraVox 0.4.0** package. Its
+If nothing is found, **Settings → Viewer** offers the official pinned **TetraVox** package. Its
 SHA256 is checked before installation. Files live under TI-Toolbox's per-user application-data
 folder in `runtimes/tetravox-<version>-<platform>-<architecture>`, with a separate profile. Managed
 downloads cover macOS arm64/x64 and Linux x64; Windows can reuse an installed TetraVox, but managed
@@ -38,7 +38,7 @@ does not wrap it in an additional operating-system sandbox. Its renderer still u
 WebGL2 backend; native opening does not introduce a different rendering engine.
 
 The new TetraVox source supports an external-manager flag that disables its own updater, but the
-pinned **0.4.0 release predates that protection**. Keep this managed copy at TI-Toolbox's pinned
+pinned baseline release **predates that protection**. Keep this managed copy at TI-Toolbox's pinned
 version; do not use TetraVox's own updater to replace it. No automatic viewer-bundle updates run
 inside the container.
 

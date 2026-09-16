@@ -39,14 +39,19 @@ remain cached; the worker and temporary license mount are removed after executio
 
 ### Launch modes
 
-There is one launch model. `loader.py` and Python-free `loader.sh` open the browser by default;
-explicit `--desktop` delegates to Electron before starting Docker. `--dev [DIR]` (equivalently
-`TIT_DEV_REPO_DIR`, or `TIT_DEV=1`) switches only the *source* of the server and renderer: the
+There is one launch model, and the desktop application is it. `loader.py` (implementation
+`tit/cli.py`) and Python-free `loader.sh` bootstrap that app: they resolve
+`TIT_ELECTRON_EXECUTABLE`, then a managed install under the per-user data directory, then download
+and checksum-verify the release asset for the platform, and start it before Docker. Any failure
+prints one reason and falls back to the browser; `--desktop` makes that failure an error instead,
+and `--browser` or `--no-open` skips the download. Both loaders keep the resolution in one function
+named `resolve_desktop_executable`, and `--print-config` reports the outcome as
+`desktop_executable` without touching the network. `--dev [DIR]` (equivalently
+`TIT_DEV_REPO_DIR`, or `TIT_DEV=1`) keeps the browser default and takes Electron from
+`desktop/node_modules`; it switches only the *source* of the server and renderer: the
 checkout is mounted at `/ti-toolbox`, the server reloads, and its built renderer is served.
 Flags, port selection, container naming/hash, attach/recreate and stop semantics are identical in
-both modes, so every entry point can attach to and stop the same container. `--print-config`
-reports the resolved settings without touching Docker and is byte-identical between `loader.sh`
-and `loader.py`.
+both modes, so every entry point can attach to and stop the same container. `--print-config` output is byte-identical between `loader.sh` and `loader.py`.
 Standalone downloads keep the loader and `docker-compose.yml` together. Regular users need no checkout.
 Developer wrappers (`dev/loader/loader_dev.{sh,py}`) are thin shims and can live outside the source
 tree: `TIT_DEV_REPO_DIR` selects the checkout, independently of the project data path. An adjacent YAML or explicit
@@ -198,7 +203,9 @@ The Viewer is one bounded workspace: independently scrolling builder on the left
 
 **Native viewer release boundary.**
 
-The initial managed package is official TetraVox 0.4.0. The native-only source and managed-updater
+The managed package is the official TetraVox baseline pinned as `TETRAVOX_VERSION` in
+[`tetravoxNative.ts`](../../desktop/src/main/tetravoxNative.ts) — the one place that version is
+written; any 0.x release at or after it is accepted. The native-only source and managed-updater
 protection require an upstream release before its artifact can replace that pin. Windows private
 installation requires a verified official ZIP; the NSIS installer is intentionally not used because
 it can replace another TetraVox install through its shared registry identity. Linux x64 and macOS
@@ -358,8 +365,8 @@ maintainer-controlled action.
 
 ### Terminal launcher setup
 
-Terminal setup asks for the project, then opens a browser session by default. `--desktop` selects
-Electron explicitly. Container discovery
+Terminal setup starts the desktop app; `--browser` selects a browser session, which is also the
+fallback when the app cannot be resolved, and which asks for the project. Container discovery
 must precede any automatic reuse. Attach/Replace/Cancel is explicit; noninteractive invocation
 requires an explicit decision and, when ambiguous, a container identifier. Missing or cancelled
 input launches nothing. Selected existing project/image information must remain visible.

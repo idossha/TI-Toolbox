@@ -37,8 +37,9 @@ it and starting the corrected loader. Rebuild local frontend changes with
 
 Closing the desktop app stops the project's container and exits Electron. To change projects
 without quitting, use Switch project in Overview, type a path or browse, and confirm the new project.
-Terminal loaders open the browser by default, so they return after opening the page. With explicit
-`--desktop`, the terminal waits until Electron exits, then prints “TI-Toolbox closed.” on success.
+A terminal loader that starts the desktop app waits until Electron exits, then prints
+“TI-Toolbox closed.” on success. A browser session (`--browser`, or a fallback) returns as soon as
+the page is opened and keeps running.
 
 ### Quit warns about active jobs when none are running
 
@@ -80,7 +81,7 @@ That integration is removed; installing an embed manifest is no longer a repair 
 
 ### TetraVox offers to update its managed copy
 
-The pinned official **0.4.0** release predates the new external-manager updater protection.
+The pinned official baseline release predates the new external-manager updater protection.
 Keep the TI-Toolbox-managed installation at the pinned version; do not replace it using TetraVox's
 own updater. A future compatible native release must include that protection before relying on it.
 

@@ -45,7 +45,7 @@ Opening a result or job artifact launches TetraVox directly and keeps the curren
    SimNIBS wrote for it, morphometry curves like `lh.thickness`, and per-vertex data GIfTIs —
    matched to it by hemisphere. Tick one and the surface is coloured by it; a parcellation wins
    over a curve if you tick both, and the curve stays attached for you to switch to inside
-   TetraVox. The pinned native **0.4.0** release supports these surface attachments.
+   TetraVox. The pinned native release supports these surface attachments.
 
    Tick whatever belongs in the scene. You can tick outputs from **more than one simulation** —
    ticking a branch's own box takes the whole branch on or off, and a half-filled box means part of
@@ -107,7 +107,7 @@ alongside the scene when archiving or moving it.
 ## Installing and updating the viewer
 
 **Settings → Viewer** shows which TetraVox is in use and provides **Launch TetraVox**. When no
-compatible installation is found, **Install TetraVox** downloads the official **0.4.0** platform
+compatible installation is found, **Install TetraVox** downloads the official pinned platform
 package into its per-user runtime directory after SHA256 verification, showing download progress.
 The first installation needs network access; later launches use the installed copy. There is no
 viewer bundle in the Docker image.

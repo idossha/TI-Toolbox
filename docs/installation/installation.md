@@ -47,11 +47,14 @@ or, on macOS/Linux:
 bash loader.sh
 ```
 
-Enter your project directory when prompted; TI-Toolbox opens in your browser.
+On first run the launcher downloads the desktop app for your platform, verifies its checksum and
+starts it; `--project DIR` opens straight into a project, and without it the app opens its own
+project page. If the app cannot be downloaded the launcher says why and opens the browser UI
+instead, prompting for the project directory. Add `--browser` to choose the browser deliberately.
 Python needs version 3.11+; Bash needs curl and Docker Compose.
 
 If asked, choose **Recreate** (default) or **Attach** to an existing session.
-Closing the browser leaves it running; see the [CLI guide]({{ site.baseurl }}/installation/bash-cli/#stop-or-check-a-session)
+A browser session keeps running after the tab is closed; see the [CLI guide]({{ site.baseurl }}/installation/bash-cli/#stop-or-check-a-session)
 for stopping it.
 
 ## System requirements

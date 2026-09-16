@@ -34,7 +34,11 @@ or, on macOS/Linux:
 bash loader.sh
 ```
 
-Enter your project directory when prompted; TI-Toolbox opens in your browser.
+The launcher's job is to start the **desktop app**: on first run it downloads the build for your
+platform, verifies its SHA256 against the release's `SHA256SUMS`, caches it under your user data
+directory and starts it. `--project` is optional for the app — without it the app opens its own
+project page. `--desktop` refuses to fall back; `--browser` uses the browser instead and asks for
+the project directory; `--no-open` prints the session URL only.
 Python needs version 3.11+; Bash needs curl and Docker Compose.
 
 These downloads are the v3 preview. The first launch needs an internet connection to prepare
