@@ -156,8 +156,8 @@ without source/UI mounts. A later source fix invalidates claims based only on an
   review generated changes rather than treating a passing capture as permission to replace images.
 - Existing seeded project notebooks do not automatically update when the template changes. Use a
   fresh fixture or deliberately migrate the example when testing a repaired template.
-- The older [test-script reference](../../tests/README_TESTING.md) documents shell runner options;
-  it does not replace these desktop, numerical and artifact acceptance layers.
+- [tests/README_TESTING.md](../../tests/README_TESTING.md) documents the two shell runners in that
+  directory; it does not replace these desktop, numerical and artifact acceptance layers.
 
 ## Current verification and remaining gaps — 2026-09-09
 

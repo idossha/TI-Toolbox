@@ -52,18 +52,20 @@ tit/reporting/
     ├── base_generator.py          # BaseReportGenerator ABC
     ├── preprocessing.py           # PreprocessingReportGenerator
     ├── simulation.py              # SimulationReportGenerator
-    └── flex_search.py             # FlexSearchReportGenerator
+    ├── flex_search.py             # FlexSearchReportGenerator
+    └── dti_qc.py                  # DTI QC report
 ```
 
 ---
 
 ## Integration Status
 
-| Module | Status | Location |
-|--------|--------|----------|
-| Simulator (CLI) | ✅ Integrated | `tit/sim/simulator.py` |
-| Flex-Search | ✅ Integrated | `tit/opt/flex/flex.py` |
-| Preprocessing | ✅ Integrated | `tit/pre/structural.py` |
+| Generator | Called from |
+|---|---|
+| `PreprocessingReportGenerator` | `tit/pre/report.py`, `tit/pre/structural.py` |
+| `FlexSearchReportGenerator` | `tit/opt/flex/builder.py` |
+| DTI QC report | `tit/pre/qsi/dti_extractor.py` |
+| `SimulationReportGenerator` | constructed by its callers directly; no pipeline module imports it |
 
 ---
 
