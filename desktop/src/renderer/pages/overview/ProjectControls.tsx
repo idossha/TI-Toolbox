@@ -132,9 +132,10 @@ export function AddExampleData() {
     <div className="overview-example-subject">
       <Button
         data-testid="add-example-subject"
+        icon={<Download size={14} aria-hidden />}
         onClick={() => navigate("/help", { state: { tab: "example-data" } })}
       >
-        <Download size={14} aria-hidden /> Add example data
+        Add example data
       </Button>
     </div>
   );

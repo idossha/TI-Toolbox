@@ -82,9 +82,10 @@ export function ExampleDataPrompt() {
             variant="primary"
             disabled={selected.length === 0}
             data-testid="example-data-download"
+            icon={<Download size={14} aria-hidden />}
             onClick={() => answer("download")}
           >
-            <Download size={14} aria-hidden /> {EXAMPLE_DATA_PROMPT.download}
+            {EXAMPLE_DATA_PROMPT.download}
           </Button>
         </>
       }
