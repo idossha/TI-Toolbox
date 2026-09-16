@@ -19,7 +19,7 @@ import { Button } from "../../ui/Button";
 import { Callout } from "../../ui/Feedback";
 import { Dialog } from "../../ui/Overlay";
 import { ExampleDataList } from "./ExampleDataList";
-import { useExampleDataJobs } from "./useExampleDataJobs";
+import { useExampleData } from "./useExampleData";
 import {
   EXAMPLE_DATA_PROMPT,
   answerExampleDataPrompt,
@@ -49,7 +49,7 @@ export function ExampleDataPrompt() {
     // A project that answers this with a network failure is asked on the next visit, not nagged now.
     retry: false,
   });
-  const { start, error } = useExampleDataJobs();
+  const { start, error } = useExampleData();
   const [answered, setAnswered] = useState(false);
   const [selected, setSelected] = useState<string[]>([EXAMPLE_DATA_PROMPT.defaultSample]);
   const open =

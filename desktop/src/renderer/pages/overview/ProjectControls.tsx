@@ -124,7 +124,7 @@ export function OpenProject() {
  * Overview's toolbar entry to the example-data catalogue. It opens **Help ▸ Example data** — the
  * one list, with its Download buttons and job progress — rather than repeating the catalogue here;
  * the once-per-project chooser (`app/exampleData/ExampleDataPrompt`, mounted by `Shell`) is the
- * other surface, and both read the same `GET /api/project/example-data`.
+ * other surface, and both read the same `GET /api/example-data`.
  */
 export function AddExampleData() {
   const navigate = useNavigate();

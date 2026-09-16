@@ -209,27 +209,98 @@ def test_cli_reports_a_bad_download(tmp_path: Path, corrupt, capsys):
     assert "refusing to install" in capsys.readouterr().err
 
 
-def test_project_init_runner_fetches_the_named_sample(tmp_path: Path, served):
+def test_project_init_runner_never_fetches_example_data(tmp_path: Path, served):
+    """``project_init`` *initializes*, full stop.
+
+    Example data was briefly an ``example_sample`` config key on this job, so asking an
+    established project for a sample re-ran the initializer and reprinted its "New project
+    detected" banner. The runner now ignores the key entirely -- it opens no URL and writes no
+    subject -- and a download is :func:`tit.examples.fetch` behind ``POST /api/example-data``.
+    """
     from tit.project_init.__main__ import main
 
     project = tmp_path / "project"
     project.mkdir()
     config = tmp_path / "c.json"
-    config.write_text(json.dumps({"project_dir": str(project), "example_sample": "ernie-t1"}))
+    config.write_text(
+        json.dumps(
+            {
+                "project_dir": str(project),
+                # Both spellings the old job understood; both must now be inert.
+                "example_sample": "ernie-t1",
+                "example_subject": True,
+            }
+        )
+    )
     assert main([str(config)]) == 0
-    assert (project / "sub-ernie" / "anat" / "sub-ernie_T1w.nii.gz").exists()
+    assert served == [], "project_init must not touch the example-data store"
+    assert not (project / "sub-ernie").exists()
+    assert not (project / "derivatives" / "SimNIBS" / "sub-ernie").exists()
+    # It did do its actual job.
+    assert (project / "dataset_description.json").is_file()
 
 
-def test_project_init_runner_still_honours_the_old_boolean(tmp_path: Path, served):
-    """A job queued by a pre-2026-09-15 desktop carries ``example_subject: true``."""
-    from tit.project_init.__main__ import main
+def test_fetch_works_on_an_established_project(tmp_path: Path, served, capsys):
+    """Example data must not depend on ``project_init`` state in any way.
 
-    project = tmp_path / "project"
+    An established project -- markers, a real subject, derivatives -- takes a sample exactly as a
+    fresh one does: no initialization marker is consulted, no ``project_status.json`` is required
+    up front, and above all the initializer's "New project detected" banner is never printed,
+    because a download is not an initialization.
+    """
+    from tit.project_init.initializer import has_project_data_or_markers
+
+    project = tmp_path / "established"
+    (project / "sub-0042" / "anat").mkdir(parents=True)
+    (project / "sub-0042" / "anat" / "sub-0042_T1w.nii.gz").write_bytes(b"not really a nifti")
+    (project / "derivatives" / "SimNIBS").mkdir(parents=True)
+    (project / "code" / "ti-toolbox" / "config").mkdir(parents=True)
+    (project / "code" / "ti-toolbox" / "config" / ".initialized").touch()
+    assert has_project_data_or_markers(project)
+    # Deliberately absent: the fetch must not need it.
+    assert not (project / "code" / "ti-toolbox" / "config" / "project_status.json").exists()
+
+    capsys.readouterr()
+    examples.fetch("ernie-t1", project)
+    out = capsys.readouterr().out
+    assert "New project detected" not in out
+    assert "Initializing BIDS-compliant structure" not in out
+
+    assert (project / "sub-ernie" / "anat" / "sub-ernie_T1w.nii.gz").is_file()
+    assert (project / "sub-0042" / "anat" / "sub-0042_T1w.nii.gz").is_file(), "left alone"
+    # status() reads the disk, not any marker.
+    assert {s["id"]: s["installed"] for s in examples.status(project)}["ernie-t1"] is True
+    # Recording what was installed is allowed -- and is the only thing that writes the status file.
+    from tit.project_init import load_project_status
+
+    assert "ernie-t1" in load_project_status(project).get("example_samples", [])
+
+
+def test_fetch_needs_no_project_init_at_all(tmp_path: Path, served):
+    """Not even a directory that was ever initialized: a bare empty dir takes a sample."""
+    project = tmp_path / "bare"
     project.mkdir()
-    config = tmp_path / "c.json"
-    config.write_text(json.dumps({"project_dir": str(project), "example_subject": True}))
-    assert main([str(config)]) == 0
-    assert (project / "derivatives" / "SimNIBS" / "sub-ernie" / "m2m_ernie" / "ernie.msh").exists()
+    examples.fetch("ernie-t1", project)
+    assert (project / "sub-ernie" / "anat" / "sub-ernie_T1w.nii.gz").is_file()
+    assert {s["id"]: s["installed"] for s in examples.status(project)}["ernie-t1"] is True
+
+
+def test_examples_module_never_mentions_jobs_or_project_init_gating():
+    """The public surface is plain functions: no jobs, no stages, no init gating."""
+    source = Path(examples.__file__).read_text()
+    code = source.split('"""', 2)[-1]  # drop the module docstring
+    for banned in ("tit.jobs", "emit_stage", "emit_result", "is_new_project", "has_project_data"):
+        assert banned not in code, banned
+
+
+def test_project_init_module_does_not_import_examples():
+    """A guard on the shape, not just the behaviour: no ``tit.examples`` in the entry point."""
+    source = (Path(examples.__file__).parents[1] / "project_init" / "__main__.py").read_text()
+    body = "\n".join(
+        line for line in source.splitlines() if not line.lstrip().startswith(("#", ":"))
+    )
+    code = body.split('"""', 2)[-1]  # drop the module docstring, which may name the module in prose
+    assert "tit.examples" not in code and "from tit import examples" not in code
 
 
 # --------------------------------------------------------------- the real catalogue (no network)

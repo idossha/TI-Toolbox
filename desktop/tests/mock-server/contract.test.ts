@@ -189,8 +189,9 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     await call("/api/project/status", "GET", "/api/project/status");
     await call("/api/project/status", "PATCH", "/api/project/status", { body: { example_subject_prompted: true } });
     const { json: projectInit } = await call("/api/project/init", "POST", "/api/project/init", { body: {} });
-    await call("/api/project/example-data", "GET", "/api/project/example-data");
-    const { json: exampleSubject } = await call("/api/project/example-data", "POST", "/api/project/example-data", { body: { sample_id: "ernie-headmodel" } });
+    // Example data is a plain route, not a job: nothing to submit, nothing to delete below.
+    await call("/api/example-data", "GET", "/api/example-data");
+    await call("/api/example-data/{sample_id}", "POST", "/api/example-data/mni152-t1");
     await call("/api/catalog/subjects", "GET", "/api/catalog/subjects");
     await call("/api/catalog/simulations", "GET", "/api/catalog/simulations?subject=ernie");
     await call("/api/catalog/simulations/{name}", "GET", "/api/catalog/simulations/Thalamus?subject=ernie");
@@ -313,8 +314,6 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     await call("/api/jobs/{id}", "DELETE", `/api/jobs/${rerunId}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await call("/api/jobs/{id}", "DELETE", `/api/jobs/${(projectInit as any).id}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await call("/api/jobs/{id}", "DELETE", `/api/jobs/${(exampleSubject as any).id}`);
 
     // viewers (v1) -- D3 (docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)): no more Freeview/Gmsh launch
     // routes to exercise here (removed from the contract along with the routes); GET

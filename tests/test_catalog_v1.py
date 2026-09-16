@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from pathlib import Path
 
 import pytest
@@ -1626,9 +1627,9 @@ def test_project_status_round_trips_prompt_answers(client: TestClient) -> None:
 
 
 def test_example_data_catalogue_lists_every_sample_with_status(client: TestClient) -> None:
-    """``GET /api/project/example-data`` is what the desktop's chooser and Help tab draw:
-    the catalogue plus a per-sample installed flag read off disk, with no network."""
-    r = client.get("/api/project/example-data", headers=BEARER)
+    """``GET /api/example-data`` is what the desktop's chooser and Help tab draw: the catalogue
+    plus a per-sample installed flag read off disk and any live progress, with no network."""
+    r = client.get("/api/example-data", headers=BEARER)
     assert r.status_code == 200
     body = r.json()
     ids = [s["id"] for s in body["samples"]]
@@ -1637,25 +1638,184 @@ def test_example_data_catalogue_lists_every_sample_with_status(client: TestClien
     for sample in body["samples"]:
         assert sample["layout"] in ("raw", "headmodel")
         assert sample["bytes"] == sum(f["bytes"] for f in sample["files"])
-    assert all(isinstance(s["installed"], bool) for s in body["status"])
+    for entry in body["status"]:
+        assert isinstance(entry["installed"], bool)
+        # Nothing is running, so the progress fields are the idle triple.
+        assert (entry["downloading"], entry["received"], entry["total"]) == (False, 0, 0)
 
 
-def test_example_data_submits_a_project_init_job(client: TestClient) -> None:
-    """``POST /api/project/example-data`` is a ``project_init`` job carrying the sample id --
-    the same runner, one more config field -- so the chooser reuses the jobs rail."""
-    r = client.post("/api/project/example-data", json={"sample_id": "ernie-t1"}, headers=BEARER)
-    assert r.status_code in (201, 503)
-    if r.status_code == 201:
+@pytest.fixture(autouse=True)
+def _idle_example_data_state():
+    """No test may leave a download thread (or a recorded error) behind for the next one."""
+    from tit.server.routes import example_data as route
+
+    yield
+    if route._STATE.thread:
+        route._STATE.thread.join(timeout=10)
+    route._STATE.thread = None
+    route._STATE.sample_id = None
+    route._STATE.received = route._STATE.total = 0
+    route._STATE.errors.clear()
+
+
+def _no_network_fetch(monkeypatch, record: list[str] | None = None):
+    """Replace ``tit.examples.fetch`` so a route test never touches the real store."""
+
+    def fake(sample_id, project_dir, *, force=False, progress=None, log=None):
+        if record is not None:
+            record.append(sample_id)
+        return project_dir
+
+    monkeypatch.setattr("tit.examples.fetch", fake)
+
+
+def test_example_data_is_not_a_job(client: TestClient, monkeypatch) -> None:
+    """The old ``POST /api/project/example-data`` submitted a ``project_init`` job, which made
+    asking an established project for a sample reprint the initializer's banner. It is gone, and
+    nothing about example data goes through the jobs system any more."""
+    # Gone from the route modules entirely (the static catch-all still answers the old path, so
+    # assert on what the routers declare rather than on a status code).
+    from tit.server.routes import example_data as new_module
+    from tit.server.routes import project as project_module
+
+    project_paths = {r.path for r in project_module.router.routes}
+    assert "/api/project/example-data" not in project_paths
+    assert {r.path for r in new_module.router.routes} == {
+        "/api/example-data",
+        "/api/example-data/{sample_id}",
+    }
+
+    def job_count() -> int | None:
+        r = client.get("/api/jobs", headers=BEARER)
+        if r.status_code != 200:
+            return None
         body = r.json()
-        assert body["kind"] == "project_init"
-        detail = client.get(f"/api/jobs/{body['id']}", headers=BEARER)
-        assert detail.status_code == 200
-        assert detail.json()["spec"]["config"]["example_sample"] == "ernie-t1"
+        return len(body["items"] if isinstance(body, dict) else body)
+
+    _no_network_fetch(monkeypatch)
+    n_before = job_count()
+    r = client.post("/api/example-data/ernie-t1", headers=BEARER)
+    assert r.status_code == 200
+    assert "kind" not in r.json(), "a job status would carry a kind; this is a sample status"
+    if n_before is not None:
+        assert job_count() == n_before, "starting a download must queue no job"
+
+
+def test_example_data_start_reports_state_and_never_double_starts(
+    client: TestClient, monkeypatch
+) -> None:
+    """``POST`` starts one fetch and returns at once; a second POST while it runs returns the
+    in-flight state rather than an error, and does **not** start a competing download."""
+    import threading
+
+    from tit.server.routes import example_data as route
+
+    release = threading.Event()
+    started: list[str] = []
+
+    def slow_fetch(sample_id, project_dir, *, force=False, progress=None, log=None):
+        started.append(sample_id)
+        if progress:
+            progress(sample_id, "f", 10, 100)
+        release.wait(timeout=10)
+        return project_dir
+
+    monkeypatch.setattr("tit.examples.fetch", slow_fetch)
+    try:
+        first = client.post("/api/example-data/ernie-t1", headers=BEARER)
+        assert first.status_code == 200
+        assert first.json()["id"] == "ernie-t1"
+
+        # The GET the renderer polls reports it as running, with the bytes the fetch reported.
+        for _ in range(200):
+            entry = next(
+                e
+                for e in client.get("/api/example-data", headers=BEARER).json()["status"]
+                if e["id"] == "ernie-t1"
+            )
+            if entry["downloading"] and entry["total"]:
+                break
+            time.sleep(0.01)
+        assert entry["downloading"] is True
+        assert (entry["received"], entry["total"]) == (10, 100)
+
+        # A second request for another sample while busy: in-flight state, not an error, not a start.
+        second = client.post("/api/example-data/mni152-t1", headers=BEARER)
+        assert second.status_code == 200
+        assert second.json()["downloading"] is False, "the other sample is not the one running"
+        assert started == ["ernie-t1"], "no competing download was started"
+    finally:
+        release.set()
+        if route._STATE.thread:
+            route._STATE.thread.join(timeout=10)
+
+
+def test_example_data_reports_a_failed_fetch(client: TestClient, monkeypatch) -> None:
+    """A fetch that raises is reported on the sample's own row, not swallowed into a log."""
+    from tit.server.routes import example_data as route
+
+    def boom(sample_id, project_dir, *, force=False, progress=None, log=None):
+        raise OSError("the store is unreachable")
+
+    monkeypatch.setattr("tit.examples.fetch", boom)
+    assert client.post("/api/example-data/ernie-t1", headers=BEARER).status_code == 200
+    if route._STATE.thread:
+        route._STATE.thread.join(timeout=10)
+    entry = next(
+        e
+        for e in client.get("/api/example-data", headers=BEARER).json()["status"]
+        if e["id"] == "ernie-t1"
+    )
+    assert entry["downloading"] is False
+    assert "unreachable" in entry["error"]
+
+
+def test_example_data_route_needs_no_project_init_state(
+    project: Path, tmp_path_factory, monkeypatch
+) -> None:
+    """The route must work on a project that ``project_init`` never touched.
+
+    Only the new-project popup is tied to initialization. With ``project_status.json`` and the
+    ``.initialized`` marker deleted -- an established project that predates them, or one a user
+    assembled by hand -- ``GET`` still lists the catalogue and ``POST`` still starts a fetch.
+    """
+    telemetry_file = tmp_path_factory.mktemp("telemetry") / "telemetry.json"
+    monkeypatch.setattr("tit.telemetry._config_path", lambda: telemetry_file)
+    monkeypatch.setattr("tit.telemetry._cached_config", None)
+
+    config = project / "code" / "ti-toolbox" / "config"
+    for name in ("project_status.json", ".initialized"):
+        (config / name).unlink(missing_ok=True)
+    assert not (config / "project_status.json").exists()
+
+    started: list[str] = []
+    _no_network_fetch(monkeypatch, started)
+    client = TestClient(
+        create_app(ServerSettings(project_dir=str(project), token=TOKEN)),
+        base_url="http://127.0.0.1:8765",
+    )
+
+    body = client.get("/api/example-data", headers=BEARER).json()
+    assert [s["id"] for s in body["samples"]] == [
+        "mni152-t1",
+        "ernie-t1",
+        "ernie-headmodel",
+        "mni152-headmodel",
+    ]
+    r = client.post("/api/example-data/ernie-t1", headers=BEARER)
+    assert r.status_code == 200 and r.json()["id"] == "ernie-t1"
+
+    from tit.server.routes import example_data as route
+
+    if route._STATE.thread:
+        route._STATE.thread.join(timeout=10)
+    assert started == ["ernie-t1"]
+    # Nothing re-initialized the project behind the user's back.
+    assert not (config / ".initialized").exists()
 
 
 def test_example_data_rejects_an_unknown_sample(client: TestClient) -> None:
-    r = client.post("/api/project/example-data", json={"sample_id": "nope"}, headers=BEARER)
-    assert r.status_code == 422
+    assert client.post("/api/example-data/nope", headers=BEARER).status_code == 422
 
 
 def test_capabilities_has_jupyter_bool(client: TestClient) -> None:

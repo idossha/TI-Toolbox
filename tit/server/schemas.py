@@ -192,11 +192,22 @@ class ExampleDataSample(BaseModel):
 
 
 class ExampleDataStatus(BaseModel):
-    """What this project already holds, read off disk with no network."""
+    """What this project holds, read off disk, plus any download of it in flight.
+
+    ``installed``/``bytes`` need no network; ``downloading``/``received``/``total`` are the live
+    state of :mod:`tit.server.routes.example_data`'s single background fetch, which is why the
+    renderer can poll one endpoint instead of subscribing to a job stream.
+    """
 
     id: str
-    installed: bool
-    bytes: int
+    installed: bool = Field(description="every file of the sample is on disk")
+    bytes: int = Field(description="sum of the file sizes")
+    downloading: bool = Field(default=False, description="this sample is being fetched right now")
+    received: int = Field(default=0, description="bytes fetched so far; 0 unless downloading")
+    total: int = Field(default=0, description="bytes the running fetch expects; 0 unless downloading")
+    error: str | None = Field(
+        default=None, description="the message the last failed fetch of this sample ended with"
+    )
 
 
 class ExampleDataCatalog(BaseModel):

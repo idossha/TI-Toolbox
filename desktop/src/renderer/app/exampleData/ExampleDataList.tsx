@@ -3,8 +3,12 @@
  * data — one list, two chromes (the maintainer's "no third copy of the list").
  *
  * `mode="choose"` gives each row a checkbox and the caller collects the ticked ids; `mode="manage"`
- * gives each row its own **Download** button with that job's live progress, and says **Installed**
- * for what is already on disk. Both read the same `GET /api/project/example-data`.
+ * gives each row its own **Download** button with that sample's live progress, and says
+ * **Installed** for what is already on disk. Both read the same `GET /api/example-data`.
+ *
+ * Progress comes from **polling that one endpoint**, not from the jobs stream: the server answers
+ * each sample's `downloading`/`received`/`total` alongside `installed`, so a row needs no state of
+ * its own. The poll runs only while something is in flight and stops by itself when nothing is.
  */
 import { useQuery } from "@tanstack/react-query";
 import { Check, Download } from "lucide-react";
@@ -12,40 +16,40 @@ import { Button } from "../../ui/Button";
 import { Callout, Skeleton } from "../../ui/Feedback";
 import { Chip } from "../../ui/Status";
 import {
+  EXAMPLE_DATA_POLL_MS,
   EXAMPLE_DATA_QUERY_KEY,
   formatBytes,
   getExampleData,
   layoutTag,
-  type ExampleSample,
+  progressText,
 } from "./api";
 import "./example-data.css";
-
-export interface ExampleDataRowState {
-  /** A job for this sample is running; the text is its latest line. */
-  busy?: string;
-}
 
 export function ExampleDataList({
   mode,
   selected,
   onSelectedChange,
-  rowState,
   onDownload,
 }: {
   mode: "choose" | "manage";
   /** `choose` only: the ticked sample ids. */
   selected?: readonly string[];
   onSelectedChange?: (ids: string[]) => void;
-  rowState?: (sample: ExampleSample) => ExampleDataRowState;
   onDownload?: (sampleId: string) => void;
 }) {
-  const query = useQuery({ queryKey: EXAMPLE_DATA_QUERY_KEY, queryFn: getExampleData });
+  const query = useQuery({
+    queryKey: EXAMPLE_DATA_QUERY_KEY,
+    queryFn: getExampleData,
+    // Poll only while a download is in flight; `false` stops it the moment none is.
+    refetchInterval: (q) =>
+      q.state.data?.status.some((s) => s.downloading) ? EXAMPLE_DATA_POLL_MS : false,
+  });
   if (query.isPending) return <Skeleton rows={4} />;
   if (query.error || !query.data)
     return <Callout kind="danger">Could not load the example-data catalogue.</Callout>;
 
   const { samples, status } = query.data;
-  const installedOf = (id: string) => status.find((s) => s.id === id)?.installed === true;
+  const statusOf = (id: string) => status.find((s) => s.id === id);
   const toggle = (id: string) => {
     const now = selected ?? [];
     onSelectedChange?.(now.includes(id) ? now.filter((x) => x !== id) : [...now, id]);
@@ -54,8 +58,10 @@ export function ExampleDataList({
   return (
     <ul className="example-data-list" data-testid="example-data-list">
       {samples.map((sample) => {
-        const installed = installedOf(sample.id);
-        const busy = rowState?.(sample).busy;
+        const sampleStatus = statusOf(sample.id);
+        const installed = sampleStatus?.installed === true;
+        const busy = progressText(sampleStatus);
+        const failed = sampleStatus?.error;
         const checked = (selected ?? []).includes(sample.id);
         const row = (
           <>
@@ -92,6 +98,14 @@ export function ExampleDataList({
                     {" · "}
                     {sample.licence}
                   </span>
+                  {failed && (
+                    <span
+                      className="example-data-error"
+                      data-testid={`example-data-error-${sample.id}`}
+                    >
+                      {failed}
+                    </span>
+                  )}
                 </span>
                 {installed ? (
                   <span className="example-data-installed" data-testid={`example-data-installed-${sample.id}`}>

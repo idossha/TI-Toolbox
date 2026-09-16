@@ -2,9 +2,11 @@
 
 Modelled on 3D Slicer's ``SampleData`` module (and Tetravox's *Sample Data* dialog): the catalogue
 (:file:`catalog.json`, package data) lists every sample as a *set of files*, each named by its
-**sha256**, and the store is one GitHub release (``example-data`` on ``idossha/TI-Toolbox``) whose
-assets carry those hashes as names. Nothing is placed in a project until the downloaded bytes hash
-to the catalogue entry -- ``dev/example-data/`` stages and publishes the assets.
+**sha256**, and the store is one GitHub release (``v1`` on
+`idossha/ti-toolbox-example-data <https://github.com/idossha/ti-toolbox-example-data>`_, a
+repository of its own) whose assets carry those hashes as names. Nothing is placed in a project
+until the downloaded bytes hash to the catalogue entry -- that repository's ``scripts/`` stages
+and publishes the assets.
 
 Four samples: raw T1(+T2) MRIs that need pre-processing (``mni152-t1``, ``ernie-t1``) and finished
 charm head models ready for the optimizer, simulator and analyzer (``ernie-headmodel``,
@@ -14,11 +16,17 @@ charm head models ready for the optimizer, simulator and analyzer (``ernie-headm
     headmodel  the same anat files + m2m_<id>.tar.gz unpacked into
                <project>/derivatives/SimNIBS/sub-<id>/m2m_<id>/
 
+**This module is plain functions** -- :func:`catalogue`, :func:`status`, :func:`fetch` -- and
+knows nothing about jobs, stages or :mod:`tit.jobs.events`. Downloading example data is not a
+pipeline: it was briefly wired as a ``project_init`` job, which made asking an established
+project for a sample reprint the initializer's "New project detected" banner.
+
 Entry points: ``python -m tit.examples --project DIR [--list] [SAMPLE_ID ...]``, the server routes
-``GET/POST /api/project/example-data`` (a ``project_init`` job) and the desktop's *Add example
-data?* chooser and *Help > Example data* tab. Stdlib only, so it runs on the host and in the
-container, over a verified TLS context from :mod:`tit.certs`. :func:`fetch_ernie` is kept as the
-notebook's one-liner for ``ernie-headmodel``.
+``GET /api/example-data`` and ``POST /api/example-data/{sample_id}``
+(:mod:`tit.server.routes.example_data`, a background thread and a poll), and the desktop's *Add
+example data?* chooser and *Help > Example data* tab. Stdlib only, so it runs on the host and in
+the container, over a verified TLS context from :mod:`tit.certs`. :func:`fetch_ernie` is kept as
+the notebook's one-liner for ``ernie-headmodel``.
 """
 
 from __future__ import annotations

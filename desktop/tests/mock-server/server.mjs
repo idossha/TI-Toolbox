@@ -1256,7 +1256,7 @@ function stagesFor(kind) {
     case "nilearn":
       return ["render"];
     case "project_init":
-      return ["seed", "example_data"];
+      return ["project_init"];
     case "report":
       return ["render"];
     case "tools":
@@ -1280,7 +1280,7 @@ const LOGGER_FOR = {
   blender: "tit.blender",
   nifti_average: "tit.tools.nifti_average",
   nilearn: "tit.tools.nilearn_visuals",
-  project_init: "tit.pre.example_data",
+  project_init: "tit.project_init",
   // internal-only JobKinds (tit/jobs/spec.py::JOB_KINDS) reachable from the "pre" group DAG
   // (the per-subject report job) or standalone (an arbitrary module run as a "tools" job).
   report: "tit.reporting.core.assembler",
@@ -1738,7 +1738,8 @@ let projectStatus = NO_PROJECT_STATUS
   ? {}
   : { example_subjects: ["ernie"], example_subject_prompted: true };
 let projectStatusMissing = NO_PROJECT_STATUS;
-let exampleDataInstalled = !NO_PROJECT_STATUS;
+let exampleInstalledIds = new Set(NO_PROJECT_STATUS ? [] : ["ernie-headmodel"]);
+const exampleErrors = {};
 
 // Mirrors tit/examples/catalog.json: four samples, two layouts. Sizes are the real ones so the
 // chooser's "627 MB" is the number a user will actually see.
@@ -1763,22 +1764,48 @@ route("POST", "/api/project/init", async (ctx) => {
   const job = createJob({ kind: "project_init", config: {}, subject_ids: [] });
   json(ctx.res, 201, job.status);
 });
-route("GET", "/api/project/example-data", (ctx) =>
+// Example data is NOT a job: `GET` reports each sample's disk state plus the live progress of the
+// single in-flight fetch, and `POST` starts one and returns at once. The mock simulates the
+// download as a few ticks so the renderer's poll loop (and the e2e) sees progress then Installed.
+let exampleDownload = null; // { id, received, total, ticks }
+function exampleStatusOf(sample) {
+  const running = exampleDownload?.id === sample.id;
+  return {
+    id: sample.id,
+    installed: exampleInstalledIds.has(sample.id),
+    bytes: sample.bytes,
+    downloading: !!running,
+    received: running ? exampleDownload.received : 0,
+    total: running ? exampleDownload.total : 0,
+    error: exampleErrors[sample.id] ?? null,
+  };
+}
+route("GET", "/api/example-data", (ctx) => {
+  // Advance the simulated download one step per poll, so progress is deterministic.
+  if (exampleDownload) {
+    exampleDownload.received = Math.min(
+      exampleDownload.total,
+      exampleDownload.received + Math.ceil(exampleDownload.total / 3),
+    );
+    if (exampleDownload.received >= exampleDownload.total) {
+      exampleInstalledIds.add(exampleDownload.id);
+      exampleDownload = null;
+    }
+  }
   json(ctx.res, 200, {
     samples: exampleSamples,
-    status: exampleSamples.map((s) => ({
-      id: s.id,
-      installed: exampleDataInstalled && s.id === "ernie-headmodel",
-      bytes: s.bytes,
-    })),
-  }),
-);
-route("POST", "/api/project/example-data", async (ctx) => {
-  const body = (await ctx.body()) ?? {};
-  const sampleId = body.sample_id ?? "ernie-headmodel";
-  if (!exampleSamples.some((s) => s.id === sampleId)) return json(ctx.res, 422, { detail: "unknown sample_id" });
-  const job = createJob({ kind: "project_init", config: { example_sample: sampleId, force: !!body.force }, subject_ids: [] });
-  json(ctx.res, 201, job.status);
+    status: exampleSamples.map(exampleStatusOf),
+  });
+});
+route("POST", "/api/example-data/:sample_id", (ctx) => {
+  const sample = exampleSamples.find((s) => s.id === ctx.params.sample_id);
+  if (!sample) return json(ctx.res, 422, { detail: "unknown sample_id" });
+  // One at a time: a POST while another runs reports state, it does not start a second.
+  if (!exampleDownload && !exampleInstalledIds.has(sample.id)) {
+    delete exampleErrors[sample.id];
+    exampleDownload = { id: sample.id, received: 0, total: sample.bytes };
+  }
+  json(ctx.res, 200, exampleStatusOf(sample));
 });
 route("GET", "/api/catalog/subjects", (ctx) => json(ctx.res, 200, subjects));
 route("GET", "/api/catalog/simulations", (ctx) => {
@@ -3131,7 +3158,8 @@ route("POST", "/api/__mock/project-status", async (ctx) => {
   const body = (await ctx.body()) ?? {};
   projectStatusMissing = body.missing !== false;
   projectStatus = projectStatusMissing ? {} : { example_subjects: ["ernie"], example_subject_prompted: true };
-  exampleDataInstalled = !projectStatusMissing;
+  exampleInstalledIds = new Set(projectStatusMissing ? [] : ["ernie-headmodel"]);
+  exampleDownload = null;
   json(ctx.res, 200, { missing: projectStatusMissing });
 });
 route("POST", "/api/__mock/project", async (ctx) => {

@@ -59,3 +59,11 @@
   font-size: var(--text-caption-size, 11px);
   white-space: nowrap;
 }
+
+/* A fetch that failed, reported on its own row: the Download button stays, so it can be retried. */
+.example-data-error {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--danger-ink, var(--ink-2));
+  font-size: var(--text-xs, 0.75rem);
+}

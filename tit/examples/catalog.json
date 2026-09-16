@@ -1,6 +1,6 @@
 {
-  "$comment": "The example-data catalogue: what the desktop's chooser, Help > Example data, `python -m tit.examples` and the notebook offer. Files are content-addressed: `url` is the file's own sha256 on the `example-data` release of idossha/TI-Toolbox (3D Slicer's SlicerDataStore layout). Keep `bytes` and `sha256` exact -- tit.examples refuses a mismatch; dev/example-data/stage.py --write-catalog fills them from what it built.",
-  "store": "https://github.com/idossha/TI-Toolbox/releases/download/example-data/",
+  "$comment": "The example-data catalogue: what the desktop's chooser, Help > Example data, `python -m tit.examples` and the notebook offer. Files are content-addressed: `url` is the file's own sha256 on the `v1` release of idossha/ti-toolbox-example-data -- its own store repository (3D Slicer's SlicerDataStore layout, as Tetravox's sample store). Keep `bytes` and `sha256` exact -- tit.examples refuses a mismatch; that repository's scripts/stage.py --write-catalog fills them from what it built.",
+  "store": "https://github.com/idossha/ti-toolbox-example-data/releases/download/v1/",
   "samples": [
     {
       "id": "mni152-t1",
@@ -17,7 +17,7 @@
           "name": "sub-MNI152_T1w.nii.gz",
           "bytes": 14915970,
           "sha256": "5807425aa5ac6ce1f0800cc139d109b864ec117b53d5007a87c373e883f4d033",
-          "url": "https://github.com/idossha/TI-Toolbox/releases/download/example-data/5807425aa5ac6ce1f0800cc139d109b864ec117b53d5007a87c373e883f4d033"
+          "url": "https://github.com/idossha/ti-toolbox-example-data/releases/download/v1/5807425aa5ac6ce1f0800cc139d109b864ec117b53d5007a87c373e883f4d033"
         }
       ]
     },
@@ -36,13 +36,13 @@
           "name": "sub-ernie_T1w.nii.gz",
           "bytes": 15849916,
           "sha256": "27e33241fc7c44b42dd63d613e81cadaefdfad271fd7e844fea71d0db75942ad",
-          "url": "https://github.com/idossha/TI-Toolbox/releases/download/example-data/27e33241fc7c44b42dd63d613e81cadaefdfad271fd7e844fea71d0db75942ad"
+          "url": "https://github.com/idossha/ti-toolbox-example-data/releases/download/v1/27e33241fc7c44b42dd63d613e81cadaefdfad271fd7e844fea71d0db75942ad"
         },
         {
           "name": "sub-ernie_T2w.nii.gz",
           "bytes": 19574743,
           "sha256": "d435ec4de1aac30746fcd1b1708a10e8c2657fe284aea5fa85e1f062f54126b3",
-          "url": "https://github.com/idossha/TI-Toolbox/releases/download/example-data/d435ec4de1aac30746fcd1b1708a10e8c2657fe284aea5fa85e1f062f54126b3"
+          "url": "https://github.com/idossha/ti-toolbox-example-data/releases/download/v1/d435ec4de1aac30746fcd1b1708a10e8c2657fe284aea5fa85e1f062f54126b3"
         }
       ]
     },
@@ -61,19 +61,19 @@
           "name": "sub-ernie_T1w.nii.gz",
           "bytes": 15849916,
           "sha256": "27e33241fc7c44b42dd63d613e81cadaefdfad271fd7e844fea71d0db75942ad",
-          "url": "https://github.com/idossha/TI-Toolbox/releases/download/example-data/27e33241fc7c44b42dd63d613e81cadaefdfad271fd7e844fea71d0db75942ad"
+          "url": "https://github.com/idossha/ti-toolbox-example-data/releases/download/v1/27e33241fc7c44b42dd63d613e81cadaefdfad271fd7e844fea71d0db75942ad"
         },
         {
           "name": "sub-ernie_T2w.nii.gz",
           "bytes": 19574743,
           "sha256": "d435ec4de1aac30746fcd1b1708a10e8c2657fe284aea5fa85e1f062f54126b3",
-          "url": "https://github.com/idossha/TI-Toolbox/releases/download/example-data/d435ec4de1aac30746fcd1b1708a10e8c2657fe284aea5fa85e1f062f54126b3"
+          "url": "https://github.com/idossha/ti-toolbox-example-data/releases/download/v1/d435ec4de1aac30746fcd1b1708a10e8c2657fe284aea5fa85e1f062f54126b3"
         },
         {
           "name": "m2m_ernie.tar.gz",
           "bytes": 591621145,
           "sha256": "4daed985cb86b585ef80c24008632530a35a1f25e30eab967f1d476223c8539d",
-          "url": "https://github.com/idossha/TI-Toolbox/releases/download/example-data/4daed985cb86b585ef80c24008632530a35a1f25e30eab967f1d476223c8539d"
+          "url": "https://github.com/idossha/ti-toolbox-example-data/releases/download/v1/4daed985cb86b585ef80c24008632530a35a1f25e30eab967f1d476223c8539d"
         }
       ]
     },
@@ -92,13 +92,13 @@
           "name": "sub-MNI152_T1w.nii.gz",
           "bytes": 14915970,
           "sha256": "5807425aa5ac6ce1f0800cc139d109b864ec117b53d5007a87c373e883f4d033",
-          "url": "https://github.com/idossha/TI-Toolbox/releases/download/example-data/5807425aa5ac6ce1f0800cc139d109b864ec117b53d5007a87c373e883f4d033"
+          "url": "https://github.com/idossha/ti-toolbox-example-data/releases/download/v1/5807425aa5ac6ce1f0800cc139d109b864ec117b53d5007a87c373e883f4d033"
         },
         {
           "name": "m2m_MNI152.tar.gz",
           "bytes": 462213152,
           "sha256": "41ad8cc678b75bbfe76a4d79bb959cbb18e3f7155d91ba92d0ec15cc9ef49634",
-          "url": "https://github.com/idossha/TI-Toolbox/releases/download/example-data/41ad8cc678b75bbfe76a4d79bb959cbb18e3f7155d91ba92d0ec15cc9ef49634"
+          "url": "https://github.com/idossha/ti-toolbox-example-data/releases/download/v1/41ad8cc678b75bbfe76a4d79bb959cbb18e3f7155d91ba92d0ec15cc9ef49634"
         }
       ]
     }

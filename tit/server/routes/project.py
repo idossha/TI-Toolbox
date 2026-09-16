@@ -22,7 +22,7 @@ from fastapi import APIRouter, HTTPException
 
 from tit.paths import get_path_manager
 from tit.server.host_path import host_project_dir
-from tit.server.schemas import ExampleDataCatalog, Project, ProjectStatus
+from tit.server.schemas import Project, ProjectStatus
 
 router = APIRouter()
 
@@ -94,7 +94,8 @@ def init_project(body: dict[str, Any] | None = None) -> dict[str, Any]:
 
     ``body`` is optional and ignored -- unlike most job-submit routes this one
     has no meaningful ``subject_ids`` (project init runs once, before any
-    subject exists). The example subject is ``POST /api/project/example-subject``.
+    subject exists). Example data is ``POST /api/example-data/{sample_id}``
+    (:mod:`tit.server.routes.example_data`) -- a plain function, never a job.
     """
     del body
     try:
@@ -108,58 +109,6 @@ def init_project(body: dict[str, Any] | None = None) -> dict[str, Any]:
             {
                 "kind": "project_init",
                 "config": {},
-                "subject_ids": [],
-                "created_by": "gui",
-            }
-        )
-    except (NotImplementedError, ValueError) as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
-
-
-@router.get(
-    "/api/project/example-data",
-    response_model=ExampleDataCatalog,
-    responses={409: {"description": "this server is not bound to a project"}},
-    summary="The example-data catalogue and what this project already holds",
-)
-def example_data() -> dict[str, Any]:
-    """``{samples, status}`` -- :mod:`tit.examples`'s catalogue plus a per-sample
-    ``{installed, bytes}`` read off this project's disk. No network, so the desktop's chooser and
-    Help tab can draw the list before anything is downloaded."""
-    from tit import examples
-
-    project_dir = Path(_bound_project_dir())
-    return {
-        "samples": [s.to_dict() for s in examples.catalogue()],
-        "status": examples.status(project_dir),
-    }
-
-
-@router.post(
-    "/api/project/example-data",
-    status_code=201,
-    summary="Download an example dataset into this project",
-)
-def add_example_data(body: dict[str, Any] | None = None) -> dict[str, Any]:
-    """``{sample_id, force?}`` -> ``JobStatus`` for a ``project_init`` job that runs
-    :func:`tit.examples.fetch` (skipped when the sample's files are already in place)."""
-    from tit import examples
-
-    data = body or {}
-    sample_id = str(data.get("sample_id") or examples.ERNIE_HEADMODEL)
-    try:
-        examples.sample_by_id(sample_id)
-    except KeyError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    try:
-        from tit.jobs import api as jobs_api
-    except ImportError as exc:  # pragma: no cover
-        raise HTTPException(status_code=503, detail=f"tit.jobs unavailable: {exc}") from exc
-    try:
-        return jobs_api.submit(
-            {
-                "kind": "project_init",
-                "config": {"example_sample": sample_id, "force": bool(data.get("force", False))},
                 "subject_ids": [],
                 "created_by": "gui",
             }

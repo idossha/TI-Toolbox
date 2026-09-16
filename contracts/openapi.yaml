@@ -208,7 +208,7 @@ paths:
   /api/project/init:
     post:
       tags: [settings]
-      summary: Seed a fresh project directory (BIDS layout); example data is /api/project/example-data
+      summary: Seed a fresh project directory (BIDS layout); example data is /api/example-data
       description: >-
         Long-running (generates a BIDS tree) so it is a job (R3), not an inline response.
       security: [{ cookieAuth: [] }, { bearerAuth: [] }]
@@ -228,13 +228,15 @@ paths:
                 $ref: "#/components/schemas/JobStatus"
         "401":
           $ref: "#/components/responses/Unauthorized"
-  /api/project/example-data:
+  /api/example-data:
     get:
       tags: [settings]
-      summary: The example-data catalogue and what this project already holds
+      summary: The example-data catalogue, what is installed, and any download in flight
       description: >-
-        The four samples tit/examples/catalog.json lists, plus a per-sample {installed, bytes}
-        read off this project's disk. No network: the desktop's chooser and Help tab draw from this.
+        The samples tit/examples/catalog.json lists, plus a per-sample {installed, bytes} read off
+        this project's disk and the live progress of whichever sample is downloading right now.
+        Not a job: tit.examples is a plain function and this is the thin HTTP skin over it. The
+        renderer polls this while anything is downloading and stops when nothing is.
       security: [{ cookieAuth: [] }, { bearerAuth: [] }]
       responses:
         "200":
@@ -247,31 +249,37 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "409":
           description: this server is not bound to a project
+  /api/example-data/{sample_id}:
     post:
       tags: [settings]
-      summary: Download an example dataset into this project
+      summary: Start downloading one example sample into this project
       description: >-
-        Up to ~630 MB, so it is a project_init job; a no-op when the sample's files are already
-        in place unless force.
+        Starts the fetch on a background thread and returns at once; progress is read from
+        GET /api/example-data. One download at a time -- a POST while another is in flight is not
+        an error, it returns the in-flight state. Up to ~630 MB.
       security: [{ cookieAuth: [] }, { bearerAuth: [] }]
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                sample_id: { type: string, description: "a catalogue id; default ernie-headmodel" }
-                force: { type: boolean }
+      parameters:
+        - in: path
+          name: sample_id
+          required: true
+          schema: { type: string }
+          description: a catalogue id, e.g. ernie-headmodel
+        - in: query
+          name: force
+          required: false
+          schema: { type: boolean, default: false }
+          description: re-download even when the sample's files are already in place
       responses:
-        "201":
-          description: project-init job accepted
+        "200":
+          description: this sample's state, started or already busy
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JobStatus"
+                $ref: "#/components/schemas/ExampleDataStatus"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: this server is not bound to a project
         "422":
           description: unknown sample_id
   /api/catalog/subjects:
@@ -3815,11 +3823,17 @@ components:
           items: { $ref: "#/components/schemas/ExampleDataFile" }
     ExampleDataStatus:
       type: object
-      required: [id, installed, bytes]
+      required: [id, installed, bytes, downloading, received, total]
       properties:
         id: { type: string }
-        installed: { type: boolean }
-        bytes: { type: integer }
+        installed: { type: boolean, description: every file of the sample is on disk }
+        bytes: { type: integer, description: sum of the file sizes }
+        downloading: { type: boolean, description: this sample is being fetched right now }
+        received: { type: integer, description: bytes fetched so far; 0 unless downloading }
+        total: { type: integer, description: bytes the running fetch expects; 0 unless downloading }
+        error:
+          type: [string, "null"]
+          description: the message the last failed fetch of this sample ended with
     ExampleDataCatalog:
       type: object
       required: [samples, status]

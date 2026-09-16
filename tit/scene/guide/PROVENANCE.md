@@ -15,10 +15,12 @@ rebuilt at runtime, and no source dataset is redistributed as such.
 | Generated | 2026-09-05, in container `ti-toolbox-fad740e5-tit-1` (SimNIBS 4.6) |
 
 The same release archive (`v4.1/simnibs4_examples.zip`, sha256-pinned) is the sole source of the
-`example-data` store — raw T1/T2 NIfTIs byte-for-byte and one `m2m_<id>.tar.gz` per head model,
-each asset named by its own sha256 — which `tit.examples` fetches into a user's project on request
-(`dev/example-data/`, catalogue in `tit/examples/catalog.json`); every asset carries the GPL-3.0
-licence of the dataset it is derived from.
+**example-data store, which lives in its own repository**:
+<https://github.com/idossha/ti-toolbox-example-data> (release `v1`) — raw T1/T2 NIfTIs
+byte-for-byte and one `m2m_<id>.tar.gz` per head model, each asset named by its own sha256 — which
+`tit.examples` fetches into a user's project on request (catalogue in
+`tit/examples/catalog.json`; that repository's `scripts/` stages and publishes); every asset
+carries the GPL-3.0 licence of the dataset it is derived from.
 
 ## Licence, and whether redistribution is permitted
 

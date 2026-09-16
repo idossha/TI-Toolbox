@@ -2,8 +2,8 @@
  * Help ▸ Example data — the catalogue with a Download button per sample.
  *
  * The same rows the once-per-project chooser shows (`app/exampleData/ExampleDataList`), in the
- * page's own chrome: source and licence per row, live job progress while one downloads, and
- * **Installed** for what this project already holds. This is the one place a sample can be added
+ * page's own chrome: source and licence per row, live progress while one downloads (polled from
+ * `GET /api/example-data`, not a job stream), and **Installed** for what this project already holds. This is the one place a sample can be added
  * after the chooser has been answered — Overview's toolbar button opens this tab rather than
  * carrying a third copy of the list.
  */
@@ -12,11 +12,11 @@ import { Button } from "../../ui/Button";
 import { Callout } from "../../ui/Feedback";
 import { Card, CardBody, CardHeader } from "../../ui/Layout";
 import { ExampleDataList } from "../../app/exampleData/ExampleDataList";
-import { useExampleDataJobs } from "../../app/exampleData/useExampleDataJobs";
+import { useExampleData } from "../../app/exampleData/useExampleData";
 
 export function ExampleDataTab() {
   const navigate = useNavigate();
-  const { start, busyText, error } = useExampleDataJobs();
+  const { start, error } = useExampleData();
   return (
     <Card>
       <CardHeader title="Example data" />
@@ -30,7 +30,6 @@ export function ExampleDataTab() {
           </p>
           <ExampleDataList
             mode="manage"
-            rowState={(sample) => ({ busy: busyText(sample.id) })}
             onDownload={(id) => void start(id).catch(() => undefined)}
           />
           {error && <Callout kind="danger">{error}</Callout>}

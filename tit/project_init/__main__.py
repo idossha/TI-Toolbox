@@ -19,10 +19,12 @@ The same thin JSON-config runner as :mod:`tit.opt.leadfield_runner` and
 :mod:`tit.stats.nifti_average`: read the spec, initialise the
 :class:`~tit.paths.PathManager` from ``project_dir``, do the work, exit 0/non-zero.
 ``project_init`` has no config dataclass (it is outside ``PipelineKind``, so ``/api/validate``
-and ``/api/plan`` 404 for it by design); its config is one optional ``example_sample`` (a
-:mod:`tit.examples` catalogue id to download, the ``POST /api/project/example-data`` route).
-The pre-2026-09-15 boolean ``example_subject`` still means ``ernie-headmodel``, so a queued job
-written by an older desktop keeps working.
+and ``/api/plan`` 404 for it by design) and no config at all beyond ``project_dir``: it
+*initializes*, nothing else. Example data is **not** a job -- it is
+:func:`tit.examples.fetch`, reached through ``GET/POST /api/example-data``. It was briefly
+wired here as an ``example_sample`` config key, which meant asking an established project for
+example data re-ran the initializer and reprinted its "New project detected" banner; a download
+is not an initialization and does not belong in this entry point.
 
 Idempotent by construction: :func:`tit.project_init.initialize_project_structure` creates only
 what is missing, so re-running it on an established project is a no-op that still exits 0.
@@ -59,15 +61,6 @@ def main(argv: list[str] | None = None) -> int:
 
     initialize_project_structure(Path(project_dir))
     print(f"Project structure ready: {project_dir}", flush=True)
-
-    sample = data.get("example_sample") or (
-        "ernie-headmodel" if data.get("example_subject") else None
-    )
-    if sample:
-        from tit.examples import fetch
-
-        events.emit_stage("example_data")
-        fetch(sample, project_dir, force=bool(data.get("force", False)))
 
     events.emit_result({"project_dir": str(project_dir)})
     print("✓ Project initialization complete.", flush=True)

@@ -92,11 +92,11 @@ def is_new_project(project_dir: Path) -> bool:
     )
 
 
-def initialize_readme(project_dir: Path) -> None:
-    """Create a top-level README in *project_dir* if it does not exist."""
+def initialize_readme(project_dir: Path) -> bool:
+    """Create a top-level README in *project_dir*. Returns ``True`` when it wrote one."""
     readme_file = project_dir / "README"
     if readme_file.exists():
-        return
+        return False
     project_name = project_dir.name
     readme_content = f"""# {project_name}
 
@@ -133,13 +133,17 @@ For more information about TI-Toolbox, visit:
 This dataset follows the Brain Imaging Data Structure (BIDS) specification for organizing and describing neuroimaging data. For more information about BIDS, visit: https://bids.neuroimaging.io/
 """
     readme_file.write_text(readme_content)
+    return True
 
 
-def initialize_dataset_description(project_dir: Path) -> None:
-    """Write a BIDS ``dataset_description.json`` at the project root."""
+def initialize_dataset_description(project_dir: Path) -> bool:
+    """Write a BIDS ``dataset_description.json`` at the project root.
+
+    Returns ``True`` when it wrote one, ``False`` when the file was already there.
+    """
     dataset_file = project_dir / "dataset_description.json"
     if dataset_file.exists():
-        return
+        return False
     payload = {
         "Name": project_dir.name,
         "BIDSVersion": "1.6.0",
@@ -153,16 +157,20 @@ def initialize_dataset_description(project_dir: Path) -> None:
         "DatasetDOI": "",
     }
     dataset_file.write_text(json.dumps(payload, indent=2))
+    return True
 
 
 def initialize_derivative_dataset_description(
     project_dir: Path, derivative_name: str
-) -> None:
-    """Write a BIDS derivative ``dataset_description.json`` for *derivative_name*."""
+) -> bool:
+    """Write a BIDS derivative ``dataset_description.json`` for *derivative_name*.
+
+    Returns ``True`` when it wrote one, ``False`` when the file was already there.
+    """
     derivative_dir = project_dir / "derivatives" / derivative_name
     dataset_file = derivative_dir / "dataset_description.json"
     if dataset_file.exists():
-        return
+        return False
     derivative_dir.mkdir(parents=True, exist_ok=True)
     current_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     payload = {
@@ -176,6 +184,7 @@ def initialize_derivative_dataset_description(
         "DatasetLinks": {project_dir.name: "../../"},
     }
     dataset_file.write_text(json.dumps(payload, indent=2))
+    return True
 
 
 def _status_file_path(project_dir: Path) -> Path:
@@ -257,17 +266,18 @@ def update_project_status(project_dir: Path, updates: dict[str, Any]) -> bool:
         return False
 
 
-def initialize_project_status(project_dir: Path) -> None:
+def initialize_project_status(project_dir: Path) -> bool:
     """Create ``project_status.json`` **only if it does not already exist**.
 
     This is the sole place in the codebase that creates the file.
     Subsequent mutations must go through :func:`update_project_status`.
+    Returns ``True`` when it wrote the file.
     """
     config_dir = project_dir / "code" / "ti-toolbox" / "config"
     status_file = _status_file_path(project_dir)
     if status_file.exists():
         logger.debug("project_status.json already exists — skipping creation")
-        return
+        return False
     config_dir.mkdir(parents=True, exist_ok=True)
     current_time = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
     payload = {
@@ -282,56 +292,79 @@ def initialize_project_status(project_dir: Path) -> None:
         },
     }
     status_file.write_text(json.dumps(payload, indent=2))
+    return True
 
 
 def initialize_project_structure(project_dir: Path) -> None:
-    """Scaffold a full BIDS-compliant directory structure for a new project.
+    """Scaffold a full BIDS-compliant directory structure for *project_dir*.
+
+    Idempotent, and **honest about it**: the "New project detected" banner and the per-item
+    ``✓ … created`` lines are printed only for work this call actually did. An established
+    project -- one :func:`has_project_data_or_markers` recognises -- gets a single
+    ``Project structure verified`` line, because that is all that happened. (Before
+    2026-09-15 the banner and every ✓ printed unconditionally, so asking an established
+    project for anything that re-ran this looked like it was being re-initialised.)
 
     Parameters
     ----------
     project_dir : Path
-        Root directory of the new project.  Directories, metadata files,
-        README, and an initialization marker are created idempotently.
+        Root directory of the project.
     """
-    print("")
-    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    print(f"  New project detected: {project_dir.name}")
-    print("  Initializing BIDS-compliant structure...")
-    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    print("")
+    # Decided *before* anything is created, or the first mkdir would answer the question.
+    is_new = not has_project_data_or_markers(project_dir)
+    created: list[str] = []
 
-    print("Creating directory structure...")
-    (project_dir / "code" / "ti-toolbox" / "config").mkdir(parents=True, exist_ok=True)
-    (project_dir / "derivatives" / "freesurfer").mkdir(parents=True, exist_ok=True)
-    (project_dir / "derivatives" / "SimNIBS").mkdir(parents=True, exist_ok=True)
-    (project_dir / "sourcedata").mkdir(parents=True, exist_ok=True)
-    print("  ✓ Directories created")
+    def note(label: str, did: bool) -> None:
+        if did:
+            created.append(label)
 
-    print("Creating BIDS metadata files...")
-    initialize_readme(project_dir)
-    print("  ✓ README created")
+    if is_new:
+        print("")
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print(f"  New project detected: {project_dir.name}")
+        print("  Initializing BIDS-compliant structure...")
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print("")
 
-    initialize_dataset_description(project_dir)
-    print("  ✓ Root dataset_description.json created")
+    for rel in (
+        Path("code") / "ti-toolbox" / "config",
+        Path("derivatives") / "freesurfer",
+        Path("derivatives") / "SimNIBS",
+        Path("sourcedata"),
+    ):
+        target = project_dir / rel
+        existed = target.is_dir()
+        target.mkdir(parents=True, exist_ok=True)
+        note(f"{rel}/", not existed)
 
-    initialize_derivative_dataset_description(project_dir, "ti-toolbox")
-    print("  ✓ ti-toolbox dataset_description.json created")
+    note("README", initialize_readme(project_dir))
+    note("dataset_description.json", initialize_dataset_description(project_dir))
+    for derivative in ("ti-toolbox", "freesurfer", "SimNIBS"):
+        note(
+            f"derivatives/{derivative}/dataset_description.json",
+            initialize_derivative_dataset_description(project_dir, derivative),
+        )
+    note("project_status.json", initialize_project_status(project_dir))
 
-    initialize_derivative_dataset_description(project_dir, "freesurfer")
-    print("  ✓ freesurfer dataset_description.json created")
+    marker = project_dir / "code" / "ti-toolbox" / "config" / ".initialized"
+    existed = marker.exists()
+    marker.touch()
+    note("initialization marker", not existed)
 
-    initialize_derivative_dataset_description(project_dir, "SimNIBS")
-    print("  ✓ SimNIBS dataset_description.json created")
+    if not is_new and not created:
+        print(f"Project structure verified: {project_dir}", flush=True)
+        return
 
-    print("Creating project configuration...")
-    initialize_project_status(project_dir)
-    print("  ✓ Project status file created")
+    for label in created:
+        print(f"  ✓ {label} created")
+    if not created:
+        print("  (everything was already in place)")
 
-    (project_dir / "code" / "ti-toolbox" / "config" / ".initialized").touch()
-    print("  ✓ Initialization marker created")
-
-    print("")
-    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    print("  ✓ Project initialization complete!")
-    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    print("")
+    if is_new:
+        print("")
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print("  ✓ Project initialization complete!")
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print("")
+    else:
+        print(f"Project structure verified: {project_dir}", flush=True)

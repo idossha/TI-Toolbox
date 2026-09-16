@@ -217,7 +217,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Seed a fresh project directory (BIDS layout); example data is /api/project/example-data
+         * Seed a fresh project directory (BIDS layout); example data is /api/example-data
          * @description Long-running (generates a BIDS tree) so it is a job (R3), not an inline response.
          */
         post: {
@@ -251,7 +251,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/project/example-data": {
+    "/api/example-data": {
         parameters: {
             query?: never;
             header?: never;
@@ -259,8 +259,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * The example-data catalogue and what this project already holds
-         * @description The four samples tit/examples/catalog.json lists, plus a per-sample {installed, bytes} read off this project's disk. No network: the desktop's chooser and Help tab draw from this.
+         * The example-data catalogue, what is installed, and any download in flight
+         * @description The samples tit/examples/catalog.json lists, plus a per-sample {installed, bytes} read off this project's disk and the live progress of whichever sample is downloading right now. Not a job: tit.examples is a plain function and this is the thin HTTP skin over it. The renderer polls this while anything is downloading and stops when nothing is.
          */
         get: {
             parameters: {
@@ -291,37 +291,58 @@ export interface paths {
             };
         };
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/example-data/{sample_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
         /**
-         * Download an example dataset into this project
-         * @description Up to ~630 MB, so it is a project_init job; a no-op when the sample's files are already in place unless force.
+         * Start downloading one example sample into this project
+         * @description Starts the fetch on a background thread and returns at once; progress is read from GET /api/example-data. One download at a time -- a POST while another is in flight is not an error, it returns the in-flight state. Up to ~630 MB.
          */
         post: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description re-download even when the sample's files are already in place */
+                    force?: boolean;
+                };
                 header?: never;
-                path?: never;
+                path: {
+                    /** @description a catalogue id, e.g. ernie-headmodel */
+                    sample_id: string;
+                };
                 cookie?: never;
             };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        /** @description a catalogue id; default ernie-headmodel */
-                        sample_id?: string;
-                        force?: boolean;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
-                /** @description project-init job accepted */
-                201: {
+                /** @description this sample's state, started or already busy */
+                200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["JobStatus"];
+                        "application/json": components["schemas"]["ExampleDataStatus"];
                     };
                 };
                 401: components["responses"]["Unauthorized"];
+                /** @description this server is not bound to a project */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
                 /** @description unknown sample_id */
                 422: {
                     headers: {
@@ -5363,8 +5384,18 @@ export interface components {
         };
         ExampleDataStatus: {
             id: string;
+            /** @description every file of the sample is on disk */
             installed: boolean;
+            /** @description sum of the file sizes */
             bytes: number;
+            /** @description this sample is being fetched right now */
+            downloading: boolean;
+            /** @description bytes fetched so far; 0 unless downloading */
+            received: number;
+            /** @description bytes the running fetch expects; 0 unless downloading */
+            total: number;
+            /** @description the message the last failed fetch of this sample ended with */
+            error?: string | null;
         };
         ExampleDataCatalog: {
             samples: components["schemas"]["ExampleDataSample"][];

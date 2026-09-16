@@ -8,8 +8,10 @@ Four public datasets you can download into any open project, so you can learn TI
 every page before using your own data. They come from the
 [SimNIBS example dataset](https://github.com/simnibs/example-dataset) (**GPL-3.0**; the licence
 check is in `tit/scene/guide/PROVENANCE.md`) and are re-hosted content-addressed: every file is an
-asset named by its own sha256 on the `example-data` release of `idossha/TI-Toolbox`, and nothing is
-written into your project until the downloaded bytes hash to the catalogue entry.
+asset named by its own sha256 on the `v1` release of
+[`idossha/ti-toolbox-example-data`](https://github.com/idossha/ti-toolbox-example-data) — the data's
+own repository — and nothing is written into your project until the downloaded bytes hash to the
+catalogue entry.
 
 ## The catalogue
 
@@ -33,7 +35,7 @@ simulate* sample also unpacks `derivatives/SimNIBS/sub-<id>/m2m_<id>/`, so the
   samples as tick boxes, with `ernie-headmodel` pre-ticked. The answer (either way) is recorded in
   the project's `project_status.json`, so you are asked once per project, not once per machine.
 - **Help ▸ Example data** has the same list at any time, with a **Download** button per sample,
-  live job progress and an *Installed ✓* marker for what this project already holds. Overview's
+  live progress and an *Installed ✓* marker for what this project already holds. Overview's
   **Add example data** button opens that tab.
 - **From a shell or a notebook:**
 
@@ -48,9 +50,11 @@ simulate* sample also unpacks `derivatives/SimNIBS/sub-<id>/m2m_<id>/`, so the
   fetch_ernie(PROJECT)         # the ernie-headmodel shorthand the notebook uses
   ```
 
-Every route runs the same code and is idempotent: a sample already in place is skipped unless you
-pass `--force`. In the app the download is a job, so it shows in the jobs rail and survives you
-navigating away.
+Every route runs the same `tit.examples.fetch` and is idempotent: a sample already in place is
+skipped unless you pass `--force`. Downloading example data is **not** a job — it does not appear
+in the jobs rail — and it needs nothing from project initialization: any project directory, new or
+long-established, takes a sample. In the app one download runs at a time and the page polls its
+progress; clicking a second sample while one is running waits its turn rather than competing.
 
 ## Behind a proxy?
 

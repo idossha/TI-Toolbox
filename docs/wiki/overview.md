@@ -27,7 +27,8 @@ container; change projects through the CLI. See [launch options]({{ site.baseurl
 ## Add example data
 
 Next to **Switch project**, **Add example data** opens *Help ▸ Example data* — the catalogue of
-four public datasets (SimNIBS example dataset, GPL-3.0) you can download into the open project:
+four public datasets (SimNIBS example dataset, GPL-3.0) you can download into the open project
+(a plain download, not a job — it does not appear in the jobs rail):
 raw T1/T2 scans that still need pre-processing, and finished charm head models that the Optimizer,
 Simulator, Analyzer and the [Example Notebook]({{ site.baseurl }}/wiki/example-notebook/) can use
 straight away. The first time you open a new project the app asks **Add example data?** by itself

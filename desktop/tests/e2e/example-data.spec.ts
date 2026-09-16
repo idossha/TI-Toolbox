@@ -61,16 +61,19 @@ test("a project with no project_status.json is asked, and the four samples are t
   await expect(page.getByTestId("example-data-row-ernie-t1")).toContainText("needs pre-processing");
 });
 
-test("Download selected submits one job per ticked sample and never asks again", async () => {
+test("Download selected starts a plain fetch per ticked sample and never asks again", async () => {
   await setProjectStatusMissing(true);
   await launchAndConnect();
   await expect(page.getByRole("dialog")).toBeVisible({ timeout: 45_000 });
 
+  // A plain route, not a job: one POST per sample to /api/example-data/{id}, no job submission.
   const posts: string[] = [];
+  const jobPosts: string[] = [];
   page.on("request", (r) => {
-    if (r.method() === "POST" && new URL(r.url()).pathname === "/api/project/example-data") {
-      posts.push(String(r.postData()));
-    }
+    if (r.method() !== "POST") return;
+    const path = new URL(r.url()).pathname;
+    if (path.startsWith("/api/example-data/")) posts.push(path);
+    if (path === "/api/jobs" || path === "/api/project/example-data") jobPosts.push(path);
   });
   await page.getByTestId("example-data-check-mni152-t1").check();
   await page.getByTestId("example-data-download").click();
@@ -79,6 +82,7 @@ test("Download selected submits one job per ticked sample and never asks again",
   await expect.poll(() => posts.length, { timeout: 15_000 }).toBe(2);
   expect(posts.join("|")).toContain("ernie-headmodel");
   expect(posts.join("|")).toContain("mni152-t1");
+  expect(jobPosts, "a download must not go through the jobs system").toEqual([]);
 
   // The answer was persisted server-side, so a relaunch into the same project is not asked again.
   await app.close();
@@ -105,4 +109,25 @@ test("Overview's toolbar button opens Help ▸ Example data, the same list with 
   await expect(page.getByTestId("example-data-download-ernie-t1")).toBeVisible();
   // The mock project already holds the head model, so that row says so instead of offering it.
   await expect(page.getByTestId("example-data-installed-ernie-headmodel")).toBeVisible();
+});
+
+test("Help ▸ Example data shows polled progress and then Installed, with no job rail entry", async () => {
+  await setProjectStatusMissing(false);
+  await launchAndConnect();
+  await expect(page.getByTestId("overview-table")).toBeVisible({ timeout: 45_000 });
+
+  await page.getByTestId("add-example-subject").click();
+  await expect(page.getByTestId("help-example-data")).toBeVisible();
+
+  // The poll is what reports progress: GET /api/example-data repeats while a fetch is in flight.
+  let polls = 0;
+  page.on("request", (r) => {
+    if (r.method() === "GET" && new URL(r.url()).pathname === "/api/example-data") polls += 1;
+  });
+  const before = polls;
+  await page.getByTestId("example-data-download-ernie-t1").click();
+
+  // The mock finishes the download over a few polls, so the row ends as Installed.
+  await expect(page.getByTestId("example-data-installed-ernie-t1")).toBeVisible({ timeout: 30_000 });
+  expect(polls, "the catalogue was re-polled while the fetch ran").toBeGreaterThan(before + 1);
 });
