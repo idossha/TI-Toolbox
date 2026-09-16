@@ -289,8 +289,8 @@ def _labels_ready(pm, subject: str, atlas: str, fmt: str = "tvsc") -> Callable[[
 #: What ``?format=`` accepts on the two byte routes (decision E7).
 #:
 #: ``tvsc`` is the frozen compatibility payload from :mod:`tit.scene.tvsc`;
-#: ``gii`` is GIfTI, which the **Tetravox embed** reads and which needs no
-#: bespoke decoder on either side. Both are built from the same vertices and
+#: ``gii`` is GIfTI, a standard mesh any external viewer (TetraVox included)
+#: reads with no bespoke decoder on either side. Both are built from the same vertices and
 #: triangles by one call to :func:`tit.scene.build.build_surfaces`.
 #:
 #: The default remains ``tvsc`` until the compatibility route is intentionally

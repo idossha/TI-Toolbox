@@ -30,7 +30,7 @@ router = APIRouter()
 _MASK_UPLOAD_LIMIT = 64 * 1024 * 1024
 _MASK_DECOMPRESSED_LIMIT = 512 * 1024 * 1024
 
-# Own CSP for the sandboxed report iframe (TODO.md §2.6): reports embed
+# Own CSP for the sandboxed report iframe: reports embed
 # inline <script>/<style> (tit/reporting/core/templates.py) and are derived
 # from run data, so they never run in the app's own origin/CSP. The
 # ``sandbox allow-scripts`` directive is enforced here, server-side --
@@ -227,10 +227,11 @@ def raw(
     itself), and an encoded body would break both ``Content-Length`` and
     ranges.
 
-    This route is the whole reason the in-app viewer needs no X11 at all
-    (D3, ``docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)``): it is served to a
-    canvas inside the Tetravox embed's iframe, never to an external
-    Freeview/Gmsh process -- there is no X11 capability left to gate.
+    This route is the whole reason viewing needs no X11 at all
+    (``docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real
+    development loop)``): bytes are served to the app's own WebGL2 panes, or
+    named by an exported scene the native TetraVox app opens on the host --
+    never to an external Freeview/Gmsh process here.
     """
     resolved = _resolve_jailed("/" + path.lstrip("/"), roots=raw_jail_roots())
     lowered = resolved.name.lower()

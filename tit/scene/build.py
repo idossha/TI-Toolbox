@@ -640,8 +640,8 @@ def build_surfaces(pm: PathManager, sid: str) -> dict[str, dict]:
         part_started = time.perf_counter()
         result = simplify_to_budget(vertices, triangles, MAX_TRIANGLES, MAX_BYTES)
         # One extraction, one simplification, two serialisations (decision E7).
-        # `tvsc` is the frozen compatibility payload and `gii` is what the
-        # Tetravox embed reads; both are the SAME vertices and triangles, which
+        # `tvsc` is the frozen compatibility payload and `gii` is the standard
+        # GIfTI mesh; both are the SAME vertices and triangles, which
         # keeps the compatibility path honest until it is dropped from
         # `cache.FORMATS`.
         blobs = {
@@ -663,9 +663,7 @@ def build_surfaces(pm: PathManager, sid: str) -> dict[str, dict]:
             "simplified": bool(result.simplified),
             "cell_mm": round(result.cell, 4),
             "simplify_rounds": int(result.rounds),
-            "max_deviation_mm": round(
-                float(result.max_deviation), 4
-            ),
+            "max_deviation_mm": round(float(result.max_deviation), 4),
             "within_budget": bool(
                 len(result.triangles) <= MAX_TRIANGLES and len(blob) <= MAX_BYTES
             ),
@@ -771,7 +769,11 @@ def _load_reference_labels(
         # hemisphere never uses.
         row_to_wire = np.zeros(len(names) + 1, dtype=np.uint16)
         for row, raw_name in enumerate(names):
-            name = raw_name.decode("utf-8") if isinstance(raw_name, bytes) else str(raw_name)
+            name = (
+                raw_name.decode("utf-8")
+                if isinstance(raw_name, bytes)
+                else str(raw_name)
+            )
             if name == "unknown":
                 continue
             row_to_wire[row] = next_label
@@ -813,7 +815,8 @@ def atlas_region_count(pm: PathManager, sid: str, atlas_id: str) -> int:
         total += sum(
             1
             for raw in names
-            if (raw.decode("utf-8") if isinstance(raw, bytes) else str(raw)) != "unknown"
+            if (raw.decode("utf-8") if isinstance(raw, bytes) else str(raw))
+            != "unknown"
         )
     return total
 
@@ -857,7 +860,7 @@ def build_labels(pm: PathManager, sid: str, atlas_id: str) -> dict:
     labels = one_ring_mode_filter(raw_labels, gm_triangles)
     # Same alignment, two serialisations. The `gii` payload carries the GM
     # triangles plus the labels as a `NIFTI_INTENT_LABEL` array **with the
-    # atlas' own `<LabelTable>`**: without triangles the Tetravox embed has no
+    # atlas' own `<LabelTable>`**: without triangles a reader has no
     # surface to render or pick, without the table it reads the array as a
     # continuous scalar, and the row for `NO_REGION` has to come first because
     # an unnamed value maps to the table's first row (`tit/scene/gifti.py`).
@@ -889,9 +892,7 @@ def build_labels(pm: PathManager, sid: str, atlas_id: str) -> dict:
         "format_bytes": {name: len(data) for name, data in blobs.items()},
         "build_ms": round(build_ms, 1),
     }
-    return _publish_formats(
-        pm.project_dir, sid, _labels_key(atlas_id), fp, blobs, meta
-    )
+    return _publish_formats(pm.project_dir, sid, _labels_key(atlas_id), fp, blobs, meta)
 
 
 def _labels_key(atlas_id: str) -> str:

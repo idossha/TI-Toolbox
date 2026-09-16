@@ -543,8 +543,8 @@ def view_open(
     resolution produces two addressings of the same scene --
 
     * ``view``  -- every dataset an ``/api/files/raw/...`` URL.  This is what
-      the Viewer sub-page posts into the Tetravox embed's iframe, which fetches
-      its bytes back through this origin.
+      the Viewer sub-page reads to describe and preview the selection, fetching
+      those bytes back through this origin.
     * ``scene`` -- the same document with every path re-rooted onto the host,
       also written to ``<project>/code/ti-toolbox/viewer/<kind>.tetravox.json``
       so the file can be opened by a desktop Tetravox or kept as a record of
@@ -621,12 +621,12 @@ def view_open(
             _to_host(target, container_root, host_root) if host_root else None
         ),
         "scene": localised,
-        # The embed's own addressing, from the SAME resolution: `scene` is what
+        # The in-origin addressing, from the SAME resolution: `scene` is what
         # `build_view` produced (every dataset an /api/files/raw URL) and
         # `localised` is that document re-rooted onto the host. Returning both
-        # is what lets the Viewer sub-page post a scene to the iframe and the
-        # written file describe the same set of datasets, in the same order,
-        # without a second call that could resolve differently in between.
+        # is what lets the Viewer sub-page and the written file describe the
+        # same set of datasets, in the same order, without a second call that
+        # could resolve differently in between.
         "view": scene,
         "files": _scene_files(spec, localised),
         "dry_run": dry_run,

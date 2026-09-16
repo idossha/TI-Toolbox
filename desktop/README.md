@@ -38,7 +38,7 @@ tests/mock-server/        mock tit.server from tests/fixtures (port 8790) + its 
 
 ## Design gallery
 
-`dev/Gallery.tsx` (page id `dev`) renders every design-system primitive in every listed state, with
+`src/renderer/dev/Gallery.tsx` (page id `dev`) renders every design-system primitive in every listed state, with
 a light/dark toggle, for design QA screenshots (`tests/e2e/gallery.spec.ts`). It is excluded from a
 normal build:
 

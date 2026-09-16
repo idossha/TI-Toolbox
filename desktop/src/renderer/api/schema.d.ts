@@ -4007,14 +4007,14 @@ export interface paths {
         };
         /**
          * One scene surface (skin or gm) as TVSC1 or GIfTI binary
-         * @description The `tvsc` payload is the `TVSC1` layout frozen in `docs/dev/DECISIONS.md § 2026-09-04 (Scene service and retained pages)` §2.3: a 32-byte header (magic `TVSC`, version 1, `u32` vertexCount, `u32` indexCount, `u32` flags, 12 reserved bytes) then `float32` positions in world millimetres and `uint32` triangle indices. `format=gii` serves the same vertices and triangles as a GIfTI mesh for the embedded Tetravox renderer. `ETag` is the part plus its source fingerprint and the requested format, and the response is `must-revalidate`, because the same URL legitimately changes content after charm is re-run. `X-Scene-Vertices` / `X-Scene-Triangles` repeat the manifest's counts so a client can size a buffer before reading the body.
+         * @description The `tvsc` payload is the `TVSC1` layout frozen in `docs/dev/DECISIONS.md § 2026-09-04 (Scene service and retained pages)` §2.3: a 32-byte header (magic `TVSC`, version 1, `u32` vertexCount, `u32` indexCount, `u32` flags, 12 reserved bytes) then `float32` positions in world millimetres and `uint32` triangle indices. `format=gii` serves the same vertices and triangles as a GIfTI mesh for any GIfTI reader. `ETag` is the part plus its source fingerprint and the requested format, and the response is `must-revalidate`, because the same URL legitimately changes content after charm is re-run. `X-Scene-Vertices` / `X-Scene-Triangles` repeat the manifest's counts so a client can size a buffer before reading the body.
          */
         get: {
             parameters: {
                 query: {
                     subject: string;
                     part: "skin" | "gm";
-                    /** @description Which serialisation to serve. `tvsc` is the frozen `TVSC1` binary above; `gii` is GIfTI — `NIFTI_INTENT_POINTSET` (float32) plus `NIFTI_INTENT_TRIANGLE` (int32), `GZipBase64Binary` (a zlib stream), the coordinate system declared as `NIFTI_XFORM_SCANNER_ANAT` with an identity matrix — which the Tetravox embed reads with no bespoke decoder (`docs/dev/DECISIONS.md § 2026-09-05/06 (Independent Tetravox delivery)` decision E7). Both are built from the same vertices and triangles by one build, and the `ETag` names the format so one payload can never be revalidated as the other. */
+                    /** @description Which serialisation to serve. `tvsc` is the frozen `TVSC1` binary above; `gii` is GIfTI — `NIFTI_INTENT_POINTSET` (float32) plus `NIFTI_INTENT_TRIANGLE` (int32), `GZipBase64Binary` (a zlib stream), the coordinate system declared as `NIFTI_XFORM_SCANNER_ANAT` with an identity matrix — which any GIfTI reader takes with no bespoke decoder (`docs/dev/DECISIONS.md § 2026-09-05/06 (Independent Tetravox delivery)` decision E7). Both are built from the same vertices and triangles by one build, and the `ETag` names the format so one payload can never be revalidated as the other. */
                     format?: "tvsc" | "gii";
                     wait?: number;
                 };
@@ -4083,7 +4083,7 @@ export interface paths {
                 query: {
                     subject: string;
                     atlas: string;
-                    /** @description Which serialisation to serve. `tvsc` is the frozen `TVSC1` binary above; `gii` is GIfTI — `NIFTI_INTENT_POINTSET` (float32) plus `NIFTI_INTENT_TRIANGLE` (int32), `GZipBase64Binary` (a zlib stream), the coordinate system declared as `NIFTI_XFORM_SCANNER_ANAT` with an identity matrix — which the Tetravox embed reads with no bespoke decoder (`docs/dev/DECISIONS.md § 2026-09-05/06 (Independent Tetravox delivery)` decision E7). Both are built from the same vertices and triangles by one build, and the `ETag` names the format so one payload can never be revalidated as the other. */
+                    /** @description Which serialisation to serve. `tvsc` is the frozen `TVSC1` binary above; `gii` is GIfTI — `NIFTI_INTENT_POINTSET` (float32) plus `NIFTI_INTENT_TRIANGLE` (int32), `GZipBase64Binary` (a zlib stream), the coordinate system declared as `NIFTI_XFORM_SCANNER_ANAT` with an identity matrix — which any GIfTI reader takes with no bespoke decoder (`docs/dev/DECISIONS.md § 2026-09-05/06 (Independent Tetravox delivery)` decision E7). Both are built from the same vertices and triangles by one build, and the `ETag` names the format so one payload can never be revalidated as the other. */
                     format?: "tvsc" | "gii";
                     wait?: number;
                 };
@@ -4514,7 +4514,7 @@ export interface paths {
         };
         /**
          * One packaged atlas' grey-matter surface with per-vertex labels
-         * @description A GIfTI mesh carrying the guide's grey-matter triangles, a `NIFTI_INTENT_LABEL` array and the atlas' own `<LabelTable>` — the payload the embedded renderer draws and picks regions on. Its label values index the `legend[].label` field of `GET /api/guide/regions`.
+         * @description A GIfTI mesh carrying the guide's grey-matter triangles, a `NIFTI_INTENT_LABEL` array and the atlas' own `<LabelTable>` — the payload a renderer draws and picks regions on. Its label values index the `legend[].label` field of `GET /api/guide/regions`.
          */
         get: {
             parameters: {

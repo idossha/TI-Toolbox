@@ -1,4 +1,4 @@
-"""Host tests for the ``tit.server`` Phase-0 skeleton (FastAPI TestClient)."""
+"""Host tests for the ``tit.server`` app skeleton (FastAPI TestClient)."""
 
 from __future__ import annotations
 

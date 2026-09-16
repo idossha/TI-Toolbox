@@ -9,7 +9,7 @@ Layout, exactly as decision S2 freezes it::
 
 One key, one fingerprint, one sidecar -- and one payload file per
 serialisation in :data:`FORMATS`. ``tvsc`` remains the frozen compatibility
-payload and ``gii`` is what the Tetravox embed reads (plan decision E7); the
+payload and ``gii`` is the standard GIfTI interchange mesh; the
 sidecar describes the surface rather than its encoding, so there is exactly
 one of it.
 
@@ -169,7 +169,7 @@ def fingerprint(sources: list[str | os.PathLike[str]], version: str = "") -> str
 
 #: The serialisations one key can be cached in, and the file extension each
 #: uses. ``tvsc`` is :mod:`tit.scene.tvsc`, the frozen compatibility payload;
-#: ``gii`` is :mod:`tit.scene.gifti`, read by the Tetravox embed (decision E7).
+#: ``gii`` is :mod:`tit.scene.gifti`, the standard GIfTI interchange mesh.
 #: They are separate *files* under the same key and fingerprint, so a
 #: fingerprint change still expires both together and dropping one is dropping
 #: one entry from this tuple.
