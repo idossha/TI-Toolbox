@@ -967,61 +967,31 @@ td .katex-display, th .katex-display {
 }
 
 // -----------------------------------------------------------------------------
-// Home: architecture schematic
+// Home: architecture schematic (left column, under Quick start)
 // -----------------------------------------------------------------------------
 
+.stack__label { margin-top: 28px; }
+
 .stack {
-  padding: clamp(24px, 4vh, 48px) var(--gutter) 0;
-}
-
-.stack__heading {
-  font-size: clamp(1.3rem, 2vw, 1.6rem);
-  color: var(--color-heading);
-  margin: 0 0 0.35em;
-}
-
-.stack__lede {
-  color: var(--color-text-muted);
-  max-width: 68ch;
-  margin: 0 0 22px;
-}
-
-.stack__row {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  align-items: stretch;
-  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .stack__card {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 16px;
+  gap: 3px;
+  padding: 10px 12px;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius);
   background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
-
-  & + .stack__card::before {
-    content: "\2192";
-    position: absolute;
-    left: -14px;
-    top: 50%;
-    width: 14px;
-    transform: translate(0, -50%);
-    text-align: center;
-    color: var(--color-text-muted);
-    font-size: 0.9rem;
-    line-height: 1;
-    pointer-events: none;
-  }
 }
 
 .stack__eyebrow {
   font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--color-primary-dark);
@@ -1029,15 +999,15 @@ td .katex-display, th .katex-display {
 }
 
 .stack__title {
-  font-size: 0.98rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--color-heading);
   margin: 0;
 }
 
 .stack__body {
-  font-size: 0.88rem;
-  line-height: 1.5;
+  font-size: 0.8rem;
+  line-height: 1.45;
   color: var(--color-text-muted);
   margin: 0;
 
@@ -1051,59 +1021,8 @@ td .katex-display, th .katex-display {
   }
 }
 
-.stack__callout {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 12px;
-  margin-top: 16px;
-  padding: 14px 16px;
-  border: 1px solid var(--color-border-soft);
-  border-left: 4px solid var(--color-primary);
-  border-radius: var(--radius);
-  background: var(--color-primary-soft);
-  font-size: 0.9rem;
-  color: var(--color-text);
-}
-
-.stack__callout-title {
-  font-weight: 600;
-  color: var(--color-heading);
-}
-
-.stack__callout-body {
-  margin: 0;
-  color: var(--color-text-muted);
-  flex: 1 1 32ch;
-
-  code {
-    font-size: 0.85em;
-    background: var(--color-bg);
-    color: var(--color-text);
-    border: 1px solid var(--color-border-soft);
-    border-radius: 4px;
-    padding: 0.05em 0.3em;
-  }
-}
-
-@media (max-width: 1100px) {
-  .stack__row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .stack__card + .stack__card::before { content: none; }
-}
-
-@media (max-width: 720px) {
-  .stack__row { grid-template-columns: 1fr; }
-
-  .stack__card + .stack__card::before {
-    content: "\2193";
-    display: block;
-    position: absolute;
-    left: 50%;
-    top: -14px;
-    width: 14px;
-    height: 14px;
-    transform: translate(-50%, 0);
-  }
+@media (max-width: 480px) {
+  .stack { grid-template-columns: 1fr; }
 }
 
 // -----------------------------------------------------------------------------

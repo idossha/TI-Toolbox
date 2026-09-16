@@ -20,6 +20,30 @@ layout: home
 **Start working.** Open your project, then simulate, optimize and explore your results. The [wiki]({{ site.baseurl }}/wiki/) walks you through each tool.
 </li>
 </ol>
+
+<p class="home-section__title stack__label">How it fits together</p>
+<div class="stack">
+  <div class="stack__card">
+    <p class="stack__eyebrow">01 / Launcher</p>
+    <p class="stack__title">One command</p>
+    <p class="stack__body">Starts the container and opens the desktop app. Docker is the only prerequisite.</p>
+  </div>
+  <div class="stack__card">
+    <p class="stack__eyebrow">02 / Container</p>
+    <p class="stack__title">Computation</p>
+    <p class="stack__body">SimNIBS, the job server and every simulation run inside one published image.</p>
+  </div>
+  <div class="stack__card">
+    <p class="stack__eyebrow">03 / Your data</p>
+    <p class="stack__title">A BIDS project</p>
+    <p class="stack__body">One folder on your machine, mounted into the container. Results land under <code>derivatives/</code>.</p>
+  </div>
+  <div class="stack__card">
+    <p class="stack__eyebrow">04 / Extensions</p>
+    <p class="stack__title">Containerized apps</p>
+    <p class="stack__body">FastSurfer, QSIPrep, QSIRecon and Tetravox run as their own containers or apps beside the toolbox.</p>
+  </div>
+</div>
 </section>
 
 <section>
@@ -68,40 +92,3 @@ layout: home
 </section>
 </div>
 
-<section class="stack">
-<h2 class="stack__heading">One command, and the whole stack is running</h2>
-<p class="stack__lede">The interface runs on your machine, the science runs in one published container, and both work on the project directory you point them at.</p>
-
-<div class="stack__row">
-  <div class="stack__card">
-    <p class="stack__eyebrow">01 / Loader</p>
-    <p class="stack__title">One command</p>
-    <p class="stack__body"><code>loader.sh</code> starts the container and, on first run, downloads and checksum-verifies the desktop app. Docker is the only prerequisite.</p>
-  </div>
-  <div class="stack__card">
-    <p class="stack__eyebrow">02 / Desktop app</p>
-    <p class="stack__title">The interface</p>
-    <p class="stack__body">A native Electron app on the host. <code>--browser</code> serves the same interface in a browser tab as a fallback.</p>
-  </div>
-  <div class="stack__card">
-    <p class="stack__eyebrow">03 / Container</p>
-    <p class="stack__title">SimNIBS, server and jobs</p>
-    <p class="stack__body">One published image runs the job server; each job is a <code>simnibs_python -m tit.&lt;kind&gt;</code> process beside it. FreeSurfer and QSIPrep run as sibling containers.</p>
-  </div>
-  <div class="stack__card">
-    <p class="stack__eyebrow">04 / Your project</p>
-    <p class="stack__title">A BIDS directory</p>
-    <p class="stack__body">Your project folder is bind-mounted at <code>/mnt/&lt;name&gt;</code>, and it is the only host directory the container is given. Every result lands under <code>derivatives/</code>.</p>
-  </div>
-  <div class="stack__card">
-    <p class="stack__eyebrow">05 / Tetravox</p>
-    <p class="stack__title">Native 3D viewer</p>
-    <p class="stack__body">A separate viewer app that TI-Toolbox installs and keeps up to date. Scenes are handed over as <code>.tetravox.json</code> files.</p>
-  </div>
-</div>
-
-<div class="stack__callout">
-  <span class="stack__callout-title">Know your data boundary</span>
-  <p class="stack__callout-body">Your data stays on your machine: it lives in your own BIDS project directory, and results are written back beside it under <code>derivatives/</code>. The job server is published on loopback only (<code>127.0.0.1:8765</code>) and every request is authenticated with a per-session token.</p>
-</div>
-</section>
