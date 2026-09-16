@@ -143,10 +143,9 @@ by the parent `track_operation` wrapper (e.g. `pre_pipeline`).
 
 | Event Name | Trigger | File |
 |---|---|---|
-| `gui_launch` | GUI `MainWindow.__init__` | `tit/gui/main.py` |
 | `group_analysis` | `run_group_analysis()` | `tit/analyzer/group.py` |
 | `pre_charm` | `run_charm()` | `tit/pre/charm.py` |
-| `pre_recon_all` | `run_recon_all()` | `tit/pre/recon_all.py` |
+| `pre_fastsurfer` | `run_fastsurfer()` | `tit/pre/fastsurfer.py` |
 | `pre_dicom` | `run_dicom_to_nifti()` | `tit/pre/dicom2nifti.py` |
 | `pre_qsiprep` | `run_qsiprep()` | `tit/pre/qsi/qsiprep.py` |
 | `pre_qsirecon` | `run_qsirecon()` | `tit/pre/qsi/qsirecon.py` |
@@ -299,15 +298,12 @@ Replace `XXXXXXXXX` with the GA4 property ID (visible in Admin → Property Sett
 
 ### Streamlit Dashboard (recommended)
 
-A self-hosted Streamlit dashboard lives under `dev/telemetry/dashboard/`.
-It reads from the BigQuery export, is deployed to Cloud Run (public URL),
-and auto-redeploys on push to `main` via GitHub Actions. A daily BQ
-scheduled query rolls events into a `daily_metrics` aggregation table.
+A self-hosted dashboard reads from the BigQuery export and is deployed to
+Cloud Run. A daily BQ scheduled query rolls events into a `daily_metrics`
+aggregation table. Its code lives in its own repository,
+[idossha/TI-toolbox-stats](https://github.com/idossha/TI-toolbox-stats).
 
-- Code + architecture: [`dashboard/README.md`](dashboard/README.md)
-- One-time GCP setup: [`dashboard/MANUAL_SETUP.md`](dashboard/MANUAL_SETUP.md)
-
-### Looker Studio (legacy — superseded by dashboard/)
+### Looker Studio (legacy — superseded by the dashboard above)
 
 See [Looker Studio Dashboard](#looker-studio-dashboard) below. Kept as
 reference for anyone who prefers the click-ops path; the Streamlit
@@ -531,8 +527,6 @@ time.sleep(3)
 | `tit/opt/flex/flex.py` | `run_flex_search()` instrumentation |
 | `tit/opt/ex/ex.py` | `run_ex_search()` instrumentation |
 | `tit/analyzer/analyzer.py` | `analyze_sphere()` / `analyze_cortex()` instrumentation |
-| `tit/gui/main.py` | GUI consent dialog + `gui_launch` event |
-| `tit/gui/settings_menu.py` | Privacy toggle in gear menu |
 | `tests/test_telemetry.py` | 24 unit tests |
 | User config dir `/telemetry.json` | User-level config (persists across projects + containers) |
 

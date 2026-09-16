@@ -1,5 +1,9 @@
 # TI-Toolbox Security Master Document
 
+> **Historical record (v2.x).** This audit was written against the PyQt5-era tree. Paths it cites
+> — `tit/gui/`, `tit/core/`, `tit/cli/`, `tit/benchmark/` — no longer exist in v3; the current
+> policy is [SECURITY.md](../../SECURITY.md).
+
 **Date**: 2026-01-04
 **Project**: TI-Toolbox
 **Version**: 2.0 (Consolidated)
