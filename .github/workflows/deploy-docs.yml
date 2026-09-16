@@ -41,7 +41,7 @@ jobs:
       - name: Copy the example notebook into the site (single source is examples/)
         run: |
           mkdir -p docs/assets/notebooks
-          cp examples/notebooks/example_workflow.ipynb docs/assets/notebooks/
+          cp -L examples/notebooks/example_workflow.ipynb docs/assets/notebooks/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
