@@ -34,7 +34,6 @@ tit/__init__.py       setup_logging, add_file_handler, add_stream_handler,
   +-- tit.paths       PathManager singleton (depends on tit.constants)
   +-- tit.constants   pure constants, no internal deps (is_valid_pair_count here)
   +-- tit.logger      no internal deps
-  +-- tit.errors      custom exceptions
 
 science core
   tit.calc            the three envelope functions + the mTI direction search
@@ -62,7 +61,7 @@ tit.stats      run_group_comparison, run_correlation, engine (permutation), nift
 tit.pre        run_pipeline, DICOM->NIfTI, FastSurfer, CHARM, QSIPrep/QSIRecon
 tit.source     forward model + project_fields_to_fsaverage
 tit.reporting  assembler / generators / reportlets (HTML reports)
-tit.plotting, tit.blender, tit.tools, tit.project_init, tit.telemetry
+tit.plotting, tit.blender, tit.tools, tit.project_init, tit.telemetry, tit.examples
 
 tit.config_io  (de)serialisation with `_type` discriminators; used by tit.server
                job submission and every module's __main__ runner

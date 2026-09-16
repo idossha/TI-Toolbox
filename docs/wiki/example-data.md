@@ -29,7 +29,7 @@ make the head model report itself as missing.
 A *Raw MRI* part is what a real study starts from: you build its head model yourself on the
 [Pre-processing]({{ site.baseurl }}/wiki/pre-processing/) page (charm takes 1–2 h). A *Head model*
 part is a finished charm run, so the [Optimizer]({{ site.baseurl }}/wiki/flex-search/),
-[Simulator]({{ site.baseurl }}/wiki/gui/), [Analyzer]({{ site.baseurl }}/wiki/analyzer/) and the
+[Simulator]({{ site.baseurl }}/wiki/simulator/), [Analyzer]({{ site.baseurl }}/wiki/analyzer/) and the
 [Example Notebook]({{ site.baseurl }}/wiki/example-notebook/) work the moment it lands — you do not
 need that subject's raw MRIs for any of them.
 
