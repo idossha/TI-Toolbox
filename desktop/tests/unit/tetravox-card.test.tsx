@@ -17,7 +17,7 @@ const checkNativeTetravoxUpdate = vi.fn();
 const locateNativeTetravox = vi.fn();
 const clearNativeTetravoxPath = vi.fn();
 const openNativeTetravox = vi.fn();
-const onNativeTetravoxProgress = vi.fn((_listener: (progress: TitNativeTetravoxProgress) => void) => () => {});
+const onNativeTetravoxProgress = vi.fn<(listener: (progress: TitNativeTetravoxProgress) => void) => () => void>(() => () => {});
 
 function bridge(): TitBridge {
   return {
