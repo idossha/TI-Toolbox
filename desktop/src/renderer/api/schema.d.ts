@@ -1937,7 +1937,7 @@ export interface paths {
         };
         /**
          * Every project Overview fact in one bounded request
-         * @description The Overview page's single read (docs/dev/HISTORY.md § 2026-09-05 R1). One response carries every subject's presence columns, EEG nets/leadfields, output counts and workflow readiness, so the page's request count does not grow with the number of subjects, simulations or outputs. Detailed output discovery stays lazy and stays in Results.
+         * @description The Overview page's single read (docs/dev/DECISIONS.md § 2026-09-05 (Overview, batch execution and explicit viewing) R1). One response carries every subject's presence columns, EEG nets/leadfields, output counts and workflow readiness, so the page's request count does not grow with the number of subjects, simulations or outputs. Detailed output discovery stays lazy and stays in Results.
          */
         get: {
             parameters: {
@@ -2684,7 +2684,7 @@ export interface paths {
         put?: never;
         /**
          * Write the scene file the host-installed Tetravox desktop app opens
-         * @description V2 (docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)). Builds exactly the ViewSpec GET /api/view/{kind} would build for the same selection, rewrites every dataset and sidecar path from an /api/files/raw URL to the host's own absolute path, and writes it to <project>/code/ti-toolbox/viewer/<name>.tetravox.json -- the compound extension the Tetravox app registers as its scene type. This launches nothing: the server has no display, and the app it is written for runs on the host. One file per selection kind, overwritten on every Open, so the directory does not grow without bound.
+         * @description V2 (docs/dev/DECISIONS.md § 2026-09-06 (Native panes, job rows and notebooks)). Builds exactly the ViewSpec GET /api/view/{kind} would build for the same selection, rewrites every dataset and sidecar path from an /api/files/raw URL to the host's own absolute path, and writes it to <project>/code/ti-toolbox/viewer/<name>.tetravox.json -- the compound extension the Tetravox app registers as its scene type. This launches nothing: the server has no display, and the app it is written for runs on the host. One file per selection kind, overwritten on every Open, so the directory does not grow without bound.
          */
         post: {
             parameters: {
@@ -4007,14 +4007,14 @@ export interface paths {
         };
         /**
          * One scene surface (skin or gm) as TVSC1 or GIfTI binary
-         * @description The `tvsc` payload is the `TVSC1` layout frozen in `docs/dev/HISTORY.md § 2026-09-04 (scene service)` §2.3: a 32-byte header (magic `TVSC`, version 1, `u32` vertexCount, `u32` indexCount, `u32` flags, 12 reserved bytes) then `float32` positions in world millimetres and `uint32` triangle indices. `format=gii` serves the same vertices and triangles as a GIfTI mesh for the embedded Tetravox renderer. `ETag` is the part plus its source fingerprint and the requested format, and the response is `must-revalidate`, because the same URL legitimately changes content after charm is re-run. `X-Scene-Vertices` / `X-Scene-Triangles` repeat the manifest's counts so a client can size a buffer before reading the body.
+         * @description The `tvsc` payload is the `TVSC1` layout frozen in `docs/dev/DECISIONS.md § 2026-09-04 (Scene service and retained pages)` §2.3: a 32-byte header (magic `TVSC`, version 1, `u32` vertexCount, `u32` indexCount, `u32` flags, 12 reserved bytes) then `float32` positions in world millimetres and `uint32` triangle indices. `format=gii` serves the same vertices and triangles as a GIfTI mesh for the embedded Tetravox renderer. `ETag` is the part plus its source fingerprint and the requested format, and the response is `must-revalidate`, because the same URL legitimately changes content after charm is re-run. `X-Scene-Vertices` / `X-Scene-Triangles` repeat the manifest's counts so a client can size a buffer before reading the body.
          */
         get: {
             parameters: {
                 query: {
                     subject: string;
                     part: "skin" | "gm";
-                    /** @description Which serialisation to serve. `tvsc` is the frozen `TVSC1` binary above; `gii` is GIfTI — `NIFTI_INTENT_POINTSET` (float32) plus `NIFTI_INTENT_TRIANGLE` (int32), `GZipBase64Binary` (a zlib stream), the coordinate system declared as `NIFTI_XFORM_SCANNER_ANAT` with an identity matrix — which the Tetravox embed reads with no bespoke decoder (`docs/dev/HISTORY.md § 2026-09-04 (embed convergence)` decision E7). Both are built from the same vertices and triangles by one build, and the `ETag` names the format so one payload can never be revalidated as the other. */
+                    /** @description Which serialisation to serve. `tvsc` is the frozen `TVSC1` binary above; `gii` is GIfTI — `NIFTI_INTENT_POINTSET` (float32) plus `NIFTI_INTENT_TRIANGLE` (int32), `GZipBase64Binary` (a zlib stream), the coordinate system declared as `NIFTI_XFORM_SCANNER_ANAT` with an identity matrix — which the Tetravox embed reads with no bespoke decoder (`docs/dev/DECISIONS.md § 2026-09-05/06 (Independent Tetravox delivery)` decision E7). Both are built from the same vertices and triangles by one build, and the `ETag` names the format so one payload can never be revalidated as the other. */
                     format?: "tvsc" | "gii";
                     wait?: number;
                 };
@@ -4083,7 +4083,7 @@ export interface paths {
                 query: {
                     subject: string;
                     atlas: string;
-                    /** @description Which serialisation to serve. `tvsc` is the frozen `TVSC1` binary above; `gii` is GIfTI — `NIFTI_INTENT_POINTSET` (float32) plus `NIFTI_INTENT_TRIANGLE` (int32), `GZipBase64Binary` (a zlib stream), the coordinate system declared as `NIFTI_XFORM_SCANNER_ANAT` with an identity matrix — which the Tetravox embed reads with no bespoke decoder (`docs/dev/HISTORY.md § 2026-09-04 (embed convergence)` decision E7). Both are built from the same vertices and triangles by one build, and the `ETag` names the format so one payload can never be revalidated as the other. */
+                    /** @description Which serialisation to serve. `tvsc` is the frozen `TVSC1` binary above; `gii` is GIfTI — `NIFTI_INTENT_POINTSET` (float32) plus `NIFTI_INTENT_TRIANGLE` (int32), `GZipBase64Binary` (a zlib stream), the coordinate system declared as `NIFTI_XFORM_SCANNER_ANAT` with an identity matrix — which the Tetravox embed reads with no bespoke decoder (`docs/dev/DECISIONS.md § 2026-09-05/06 (Independent Tetravox delivery)` decision E7). Both are built from the same vertices and triangles by one build, and the `ETag` names the format so one payload can never be revalidated as the other. */
                     format?: "tvsc" | "gii";
                     wait?: number;
                 };
@@ -6075,7 +6075,7 @@ export interface components {
             space: "subject" | "mni";
             /** @description resolved_layers: by the time a ViewSpec leaves the server (from GET /api/view/{kind} or is accepted by POST /api/view/args), every layer's cal_min/cal_max is already resolved to concrete numbers -- percentile is carried for the client's display only (e.g. to preselect a threshold-mode control), never something the client must resolve itself. */
             layers: components["schemas"]["ViewLayer"][];
-            /** @description DEPRECATED (D3, docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)): the exact argv tail an external Freeview process would need (to_freeview_args). Kept for one release; no route launches Freeview any more (there is no X11 in this runtime). */
+            /** @description DEPRECATED (D3, docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)): the exact argv tail an external Freeview process would need (to_freeview_args). Kept for one release; no route launches Freeview any more (there is no X11 in this runtime). */
             freeview_args: string[];
             /** @description The real Tetravox ViewSpec v2 document (tit.viewspec.to_tetravox_viewspec) the embedded viewer's Engine.load() accepts directly -- datasets addressed by origin-relative /api/files/raw/... URLs (both DatasetRef.path and .absPath), layers in the engine's own vocabulary (VolumeLayer/MeshLayer). Derived from `layers` by a pure function, so the two always describe the same files. Untyped here (a generic object) because the full engine scene model is Tetravox-owned; the subset this server emits is hand-schema'd in contracts/tetravox-viewspec-v2.schema.json (host-facing). Optional, so an older server still satisfies this contract. */
             scene?: Record<string, never> | null;

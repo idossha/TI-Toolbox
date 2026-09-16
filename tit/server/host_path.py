@@ -11,7 +11,7 @@ compose stack does not put that variable *inside* the container (the root
 answered ``host_path: null`` -- while the very same container carried the answer twice over,
 in its ``tit.host_project_dir`` label and in the bind mount that produced ``/mnt/<name>``.
 That forced every client that needs a host path to run ``docker inspect`` itself
-(``dev/smoke.sh``, `docs/dev/HISTORY.md § 2026-09-03 (pipelines program)`).
+(``dev/smoke.sh``, `docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)`).
 
 So: the environment variable stays authoritative when it is set, and when it is not, the
 server asks the Docker Engine about *its own container* through the socket the stack already

@@ -518,7 +518,7 @@ def test_resolve_percentiles_does_not_overwrite_explicit_cal_min_max(
     assert calls == []  # never even attempted to read the file
 
 
-# ── R5: the optional `atlas` parameter (docs/dev/HISTORY.md § 2026-09-05) ───────
+# ── R5: the optional `atlas` parameter (docs/dev/DECISIONS.md § 2026-09-05 (Overview, batch execution and explicit viewing)) ───────
 #
 # The contract's promise is exactly two sentences: naming an atlas overlays THAT
 # atlas, and naming nothing leaves every previous caller's scene byte-for-byte

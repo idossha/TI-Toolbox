@@ -123,7 +123,7 @@ def _default_mni_atlas_path(requested: str | None = None) -> str | None:
     """The bundled MNI atlas file to overlay.
 
     *requested* is the optional ``atlas`` query parameter (R5,
-    ``docs/dev/HISTORY.md § 2026-09-05``): the **basename** of one of the
+    ``docs/dev/DECISIONS.md § 2026-09-05 (Overview, batch execution and explicit viewing)``): the **basename** of one of the
     bundled files, as ``GET /api/catalog/atlases?space=mni`` reports it. An
     id that matches nothing bundled falls through to the default rather
     than failing the whole view -- a stale bookmark or a project moved
@@ -307,7 +307,7 @@ def _grey_mesh_layer(sim_dir: str, sim: str) -> dict[str, Any] | None:
     ``ViewLayer`` contract's ``Literal["volume", "label"]`` (a mesh has no
     kind of its own there; ``build_view``'s ``custom`` branch uses the same
     convention). Hidden (``visible=False``) because these files run
-    24-420 MB (``docs/dev/HISTORY.md § 2026-09-03 (native desktop research)``) --
+    24-420 MB (``docs/dev/DECISIONS.md § 2026-09-03 (Native desktop research)``) --
     the dataset is declared lazy in the scene and fetched only if the user
     makes the layer visible.
     """
@@ -804,7 +804,7 @@ def build_view(
     that into a 404); an unrecognised *kind* also returns ``None``.
 
     *extras* and *overrides* are **additive and optional** (VM,
-    ``docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)``).  With neither
+    ``docs/dev/DECISIONS.md § 2026-09-06 (Native panes, job rows and notebooks)``).  With neither
     given -- which is every caller that existed before them -- this function
     returns exactly the document it returned before: *extras* adds no layer
     and :func:`apply_scene_overrides` is not called at all.  *extras* names
@@ -1639,7 +1639,7 @@ def resolve_percentiles(spec: dict[str, Any]) -> dict[str, Any]:
     return spec
 
 
-# ── Tetravox ViewSpec v2 (docs/dev/HISTORY.md § 2026-09-03 (Docker streamline) §1) ─────────
+# ── Tetravox ViewSpec v2 (docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop) §1) ─────────
 #
 # The scene the in-app viewer loads: a real Tetravox `ViewSpec` (v2, the
 # frozen `@tetravox/engine` `scene/types.ts`/`scene/serialize.ts` shape), not

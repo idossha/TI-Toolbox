@@ -1450,7 +1450,7 @@ helpers, :mod:<code>tit.opt.flex.manifest</code>); the server routes
 these dicts as-is, so the BIDS / derivative layout rules are never
 re-implemented outside <code>tit</code>.</p>
 <p>v1 additions (this module is extended, not replaced, for Stage 1 / lane B2 —
-see <code>docs/dev/HISTORY.md § 2026-08-27 (v3 build program)</code> §3 "Catalog"): subject/simulation detail,
+see <code>docs/dev/DECISIONS.md § 2026-08-27 (Electron and the job server)</code> §3 "Catalog"): subject/simulation detail,
 montage CRUD, EEG nets, atlases + regions, ROI CRUD, leadfields, flex/ex/mex
 runs, analyses, reports, freehand configs, the project-level group catalog,
 Quick Notes, and the subject-info presence matrix. A run/analysis directory
@@ -1597,7 +1597,7 @@ to see a not-yet-onboarded subject, :func:<code>list_subjects</code> /
 m2m, no FastSurfer/FreeSurfer -- so a project's own newly-arrived DICOMs
 (Dataset 000's <code>sub-102</code>, before its DICOM-conversion stage has ever
 run) were invisible to every page built on the catalog (lane FX5,
-<code>docs/dev/HISTORY.md § 2026-09-03 (pipelines program)</code>). Naturally sorted; a subject that
+<code>docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)</code>). Naturally sorted; a subject that
 already appears in :func:<code>subject_ids</code> is never repeated here even if
 <code>sourcedata/</code> also holds a copy of its DICOMs.</p>
 
@@ -1638,7 +1638,7 @@ already appears in :func:<code>subject_ids</code> is never repeated here even if
 <a id="__codelineno-0-172" name="__codelineno-0-172"></a><span class="sd">    m2m, no FastSurfer/FreeSurfer -- so a project&#39;s own newly-arrived DICOMs</span>
 <a id="__codelineno-0-173" name="__codelineno-0-173"></a><span class="sd">    (Dataset 000&#39;s ``sub-102``, before its DICOM-conversion stage has ever</span>
 <a id="__codelineno-0-174" name="__codelineno-0-174"></a><span class="sd">    run) were invisible to every page built on the catalog (lane FX5,</span>
-<a id="__codelineno-0-175" name="__codelineno-0-175"></a><span class="sd">    ``docs/dev/HISTORY.md § 2026-09-03 (pipelines program)``). Naturally sorted; a subject that</span>
+<a id="__codelineno-0-175" name="__codelineno-0-175"></a><span class="sd">    ``docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)``). Naturally sorted; a subject that</span>
 <a id="__codelineno-0-176" name="__codelineno-0-176"></a><span class="sd">    already appears in :func:`subject_ids` is never repeated here even if</span>
 <a id="__codelineno-0-177" name="__codelineno-0-177"></a><span class="sd">    ``sourcedata/`` also holds a copy of its DICOMs.</span>
 <a id="__codelineno-0-178" name="__codelineno-0-178"></a><span class="sd">    &quot;&quot;&quot;</span>

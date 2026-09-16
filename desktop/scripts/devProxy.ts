@@ -1,6 +1,6 @@
 /**
  * The Vite dev-server proxy for `/api`, `/auth` and `/ws` — and the one place the dev token is
- * spent (P2, `docs/dev/HISTORY.md § 2026-09-03 (pipelines program)` §2).
+ * spent (P2, `docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)` §2).
  *
  * The old dev loop made the *developer* carry the token: read it out of `docker inspect`, paste
  * `/auth/session?token=…` into a browser to mint a cookie, and export `TIT_DEV_ORIGINS=<vite

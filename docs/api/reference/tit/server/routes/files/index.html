@@ -1120,7 +1120,7 @@ can be resumed. No response ever carries a <code>Content-Encoding</code>: a
 itself), and an encoded body would break both <code>Content-Length</code> and
 ranges.</p>
 <p>This route is the whole reason the in-app viewer needs no X11 at all
-(D3, <code>docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)</code>): it is served to a
+(D3, <code>docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)</code>): it is served to a
 canvas inside the Tetravox embed's iframe, never to an external
 Freeview/Gmsh process -- there is no X11 capability left to gate.</p>
 
@@ -1270,7 +1270,7 @@ Freeview/Gmsh process -- there is no X11 capability left to gate.</p>
 <a id="__codelineno-0-228" name="__codelineno-0-228"></a><span class="sd">    ranges.</span>
 <a id="__codelineno-0-229" name="__codelineno-0-229"></a>
 <a id="__codelineno-0-230" name="__codelineno-0-230"></a><span class="sd">    This route is the whole reason the in-app viewer needs no X11 at all</span>
-<a id="__codelineno-0-231" name="__codelineno-0-231"></a><span class="sd">    (D3, ``docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)``): it is served to a</span>
+<a id="__codelineno-0-231" name="__codelineno-0-231"></a><span class="sd">    (D3, ``docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)``): it is served to a</span>
 <a id="__codelineno-0-232" name="__codelineno-0-232"></a><span class="sd">    canvas inside the Tetravox embed&#39;s iframe, never to an external</span>
 <a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="sd">    Freeview/Gmsh process -- there is no X11 capability left to gate.</span>
 <a id="__codelineno-0-234" name="__codelineno-0-234"></a><span class="sd">    &quot;&quot;&quot;</span>

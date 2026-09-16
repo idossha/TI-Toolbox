@@ -2,8 +2,8 @@
 # .github/workflows/release-build.yml and by `npm run package` / `package:dir` locally.
 # The release path this file serves is written up in docs/dev/RELEASE.md.
 #
-# It replaces the N0.4 native-packaging spike config that used to live here (docs/dev/HISTORY.md § 2026-09-03;
-# docs/dev/HISTORY.md § 2026-09-03 (native desktop research)). Three things changed, each because
+# It replaces the N0.4 native-packaging spike config that used to live here (docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop);
+# docs/dev/DECISIONS.md § 2026-09-03 (Native desktop research)). Three things changed, each because
 # the spike config could not have produced a shippable artifact:
 #
 #   1. The run spec ships. `src/main/stack.ts#resolveComposeFile` reads a `docker-compose.yml` at

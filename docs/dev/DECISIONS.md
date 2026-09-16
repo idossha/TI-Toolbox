@@ -5,7 +5,7 @@ choices, reversals and development milestones. [Interface design](ARCHITECTURE.m
 owns performance measurements, and [ROADMAP.md](ROADMAP.md) owns outstanding work.
 
 This combined record was condensed on 2026-09-09. The numbered decisions explain why;
-the milestone section records what shipped. Older `HISTORY.md` citations refer here; detailed
+the milestone section records what shipped. Citations that once named `HISTORY.md` point here; detailed
 retired program specifications remain in Git history. Git history retains full earlier narratives. Add an entry
 for a meaningful decision or milestone, not each fix or test run. Record **Decision / Why / Cost /
 Revisit if**; mark reversals explicitly and update the current contract with them.

@@ -9,7 +9,7 @@ mocked too; darrays hold real numpy arrays), and
 ``build_fsaverage_adjacency``'s bundled -> nilearn -> error fallback order
 (with scipy.sparse's return-shape stubbed just enough to satisfy the node-count
 check -- a real voxel-for-voxel/vertex-count validation against the actual
-vendored files runs on the host in docs/dev/HISTORY.md § 2026-09-03).
+vendored files runs on the host in docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)).
 """
 
 import sys

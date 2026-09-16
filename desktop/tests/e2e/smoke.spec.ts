@@ -205,7 +205,7 @@ test("keyboard shortcuts jump screens and toggle the jobs rail", async () => {
 });
 
 test("the rail's icon/label breakpoint updates on resize even while the Viewer streams (B5's flake)", async () => {
-  // B5 (docs/dev/HISTORY.md § 2026-09-03 (UI program) §4 finding 2): `NavRail.tsx`'s icon/label
+  // B5 (docs/dev/DECISIONS.md § 2026-09-02 (Workflow-first navigation and Tetravox) §4 finding 2): `NavRail.tsx`'s icon/label
   // breakpoint intermittently stayed "icons" after a resize to >=1440 specifically on the Viewer
   // page with a scene already loaded — i.e. while its postMessage channel to the embed is live —
   // never reproduced on a page with no iframe. This reproduces that exact condition end to end.

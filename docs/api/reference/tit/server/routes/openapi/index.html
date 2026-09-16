@@ -1031,7 +1031,7 @@
 route map of a server that can start jobs on the user's machine is not something to publish. The
 document itself is still worth serving -- a client (the smoke harness, a notebook, a future SDK)
 should be able to ask a <em>live</em> server what routes and what <code>JobKind</code>s it actually has instead of
-reading a checked-in file that may be a release behind (<code>docs/dev/HISTORY.md § 2026-09-03 (pipelines program)</code>
+reading a checked-in file that may be a release behind (<code>docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)</code>
 open issue 6). So the same document, at a path under <code>/api</code> that inherits the app's <code>require_auth</code>
 dependency like every other <code>/api</code> route.</p>
 <p>Identical to <code>python -m tit.server --dump-openapi &lt;path&gt;</code>: both call <code>app.openapi()</code>, which is

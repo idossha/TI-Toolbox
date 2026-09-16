@@ -1068,7 +1068,7 @@ compose stack does not put that variable <em>inside</em> the container (the root
 answered <code>host_path: null</code> -- while the very same container carried the answer twice over,
 in its <code>tit.host_project_dir</code> label and in the bind mount that produced <code>/mnt/&lt;name&gt;</code>.
 That forced every client that needs a host path to run <code>docker inspect</code> itself
-(<code>dev/smoke.sh</code>, <code>docs/dev/HISTORY.md § 2026-09-03 (pipelines program)</code>).</p>
+(<code>dev/smoke.sh</code>, <code>docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)</code>).</p>
 <p>So: the environment variable stays authoritative when it is set, and when it is not, the
 server asks the Docker Engine about <em>its own container</em> through the socket the stack already
 mounts for DooD (<code>/var/run/docker.sock</code>) and reads the answer off the container's own

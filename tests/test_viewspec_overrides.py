@@ -3,13 +3,13 @@
 Two lanes, in one file because they are one endpoint's optional inputs and one
 compatibility claim:
 
-* **VM** (``docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)``) -- scene
+* **VM** (``docs/dev/DECISIONS.md § 2026-09-06 (Native panes, job rows and notebooks)``) -- scene
   ``overrides`` and ``extras``.  Every control a page shows has to land in the
   scene file or the control is a lie; these tests are that claim, knob by knob.
   The UI that exposed them was withdrawn as "too much" (VM2), and the server
   half stays: it is tested, additive, and the next caller that wants a camera
   preset does not have to re-derive it.
-* **VM2** (``docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)``) -- the
+* **VM2** (``docs/dev/DECISIONS.md § 2026-09-06 (Native panes, job rows and notebooks)``) -- the
   explicit ``files`` list, which *is* the scene when it is given, and the
   ``/api/viewer/candidates`` catalogue behind the page's "+ Add…".
 

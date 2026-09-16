@@ -4,7 +4,7 @@ The failure these pin: ``GET /api/project`` answered ``host_path: null`` on ever
 because the only source it read (``LOCAL_PROJECT_DIR``) is interpolated into the compose file's
 ``volumes:`` entry and never put *inside* the container, so every client that needs to turn a
 container path into a host path had to shell out to ``docker inspect``
-(`docs/dev/HISTORY.md § 2026-09-03 (pipelines program)`).
+(`docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)`).
 """
 
 from __future__ import annotations

@@ -1479,7 +1479,7 @@ const groupParallelLimit = new Map();
 // `totalMs + 100`, at most 10 100 ms after it started -- so under one spec file's own traffic a
 // queued job unblocks within a few multiples of that.
 //
-// The defect this guards (critic, 2026-09-04, `docs/dev/HISTORY.md § 2026-09-04 (scene service)` §5a/§7.2):
+// The defect this guards (critic, 2026-09-04, `docs/dev/DECISIONS.md § 2026-09-04 (Scene service and retained pages)` §5a/§7.2):
 // `npx playwright test` starts exactly one `tests/mock-server/server.mjs` process for the WHOLE
 // invocation (`playwright.config.ts`'s `webServer`, `workers: 1`) and every spec FILE shares it, so
 // a job an earlier file created and never itself drove to a terminal state -- no assertion in that
@@ -2231,7 +2231,7 @@ route("GET", "/api/catalog/project-summary", (ctx) => {
 
 
 // ---------------------------------------------------------------------------------- scene (v1)
-// The six `GET /api/scene/*` routes (plan of record `docs/dev/HISTORY.md § 2026-09-04 (scene service)` §2.1). They
+// The six `GET /api/scene/*` routes (plan of record `docs/dev/DECISIONS.md § 2026-09-04 (Scene service and retained pages)` §2.1). They
 // exist here for two reasons, each with the failure it prevents:
 //
 //  - `contract.test.ts` asserts that every operation the contract declares is exercised against
@@ -2341,7 +2341,7 @@ function sceneElectrodePositions(names) {
  * `"Unknown subject: <id>"`, which is what the real server used to say and stopped saying in the
  * same round (lane FIX-B). A mock that keeps yesterday's wording lets a spec be written against a
  * sentence the product no longer sends, and that spec then passes for ever without having been
- * true (`docs/dev/HISTORY.md § 2026-09-04 (scene service)` O2).
+ * true (`docs/dev/DECISIONS.md § 2026-09-04 (Scene service and retained pages)` O2).
  *
  * Both branches are data-driven off `subjects.json`'s own `has_m2m`, so they follow the fixtures
  * rather than a second list. The shipped fixture set has no subject without a head model —
@@ -2541,7 +2541,7 @@ route("GET", "/api/scene/volume-legend", (ctx) => {
 });
 
 // ---------------------------------------------------------------------------------- guide (v1)
-// The five `GET /api/guide/*` routes (docs/dev/HISTORY.md § 2026-09-05 R4). The fixed guide scene is
+// The five `GET /api/guide/*` routes (docs/dev/DECISIONS.md § 2026-09-05 (Overview, batch execution and explicit viewing) R4). The fixed guide scene is
 // the same shapes as `/api/scene/*` with every project-dependent part removed: no `subject`, no
 // cache state, no 202. It reuses the SAME TVSC1 fixtures the scene routes serve, for the reason
 // the scene block gives — a second hand-written encoding could disagree with the format — and it
@@ -2689,7 +2689,7 @@ route("POST", "/api/plan/:kind", async (ctx) => {
 // widened contract or a `declared`/`exercised` mismatch in contract.test.ts would be the sign this
 // leaked into it by accident. `tests/e2e/_helpers.ts::resetMockJobs` calls it once per
 // `launchElectronApp` -- see that file's own comment for why (defect 1,
-// docs/dev/HISTORY.md § 2026-09-04 (scene service) §5a/§7.2) the `QUEUE_WATCHDOG_MS` mechanism above cannot
+// docs/dev/DECISIONS.md § 2026-09-04 (Scene service and retained pages) §5a/§7.2) the `QUEUE_WATCHDOG_MS` mechanism above cannot
 // do this by itself: the job the critic measured forcing `layout.spec.ts`'s right pane to Terminal
 // was 3 SECONDS old when observed -- legitimately still inside `runTimeline`'s own ~10.1s natural
 // lifetime, not stuck by any definition a wait-duration heuristic could catch. Only an explicit
@@ -3361,7 +3361,7 @@ route("POST", "/api/jobs/:id/force", (ctx) => {
 });
 
 // --- viewers (v1) ---
-// D3 (docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)): the external Freeview/Gmsh launch routes
+// D3 (docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)): the external Freeview/Gmsh launch routes
 // (POST /api/viewers/freeview, POST /api/viewers/gmsh) are removed -- there is no X11 in this
 // runtime; viewing is the Tetravox embed at /tetravox/ (served above), fed by GET
 // /api/files/raw/{path} and this route's `view` (a real Tetravox ViewSpec v2 document). `scene` is

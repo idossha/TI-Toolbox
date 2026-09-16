@@ -748,7 +748,7 @@ def test_notes_roundtrip(client: TestClient) -> None:
 
 def test_subject_info_matrix(client: TestClient) -> None:
     # "fastsurfer" alongside the legacy "freesurfer" column is W3b's addition
-    # (docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)'s D2/FastSurfer-in row) --
+    # (docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)'s D2/FastSurfer-in row) --
     # asserted by column *name* below rather than a fixed index, so this
     # test does not re-break the next time that lane adds a column.
     body = client.get("/api/catalog/subject-info", headers=BEARER).json()
@@ -1841,7 +1841,7 @@ def test_schema_routes(client: TestClient) -> None:
 
 
 def test_view_returns_a_valid_scene_no_x11_needed(client: TestClient) -> None:
-    """D3 (docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)): the in-app viewer needs no
+    """D3 (docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)): the in-app viewer needs no
     X11 capability at all any more -- it is the Tetravox embed, fed by
     /api/files/raw, and GET /api/view/{kind} builds its scene unconditionally."""
     spec = client.get(

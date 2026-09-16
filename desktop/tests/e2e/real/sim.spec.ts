@@ -13,7 +13,7 @@ import { createAndSelectMontage, deleteMontage } from "./_simMontage";
  * completion is `--full`/S1's job.
  *
  * Subject and net match the fixture matrix's "sim (TI)" row: `sub-101`, `BioSemi-128-A1.csv` — the
- * maintainer's own succeeded config (`docs/dev/HISTORY.md § 2026-09-03 (pipelines program)` §0).
+ * maintainer's own succeeded config (`docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)` §0).
  */
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL as string;
 const TOKEN = process.env.TIT_E2E_TOKEN as string;

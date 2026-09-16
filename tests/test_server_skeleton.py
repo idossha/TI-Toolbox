@@ -432,7 +432,7 @@ def test_version_schema_hash_changes_when_schema_json_changes(
 
 def test_capabilities_shape(client: TestClient) -> None:
     body = client.get("/api/capabilities", headers=BEARER).json()
-    # D3 (docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)): x11_display/freeview/gmsh/freesurfer are gone
+    # D3 (docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)): x11_display/freeview/gmsh/freesurfer are gone
     booleans = {"docker_socket", "bpy", "jupyter", "fastsurfer"}
     assert set(body) == booleans
     assert all(isinstance(body[key], bool) for key in booleans)
@@ -632,7 +632,7 @@ def test_csp_no_longer_grants_wasm_eval_in_the_app_origin() -> None:
     """V4: nothing in this origin instantiates WASM any more.
 
     D3 moved the in-app viewer into the embed's own iframe and CSP; V4
-    (``docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)``) removed the embed
+    (``docs/dev/DECISIONS.md § 2026-09-06 (Native panes, job rows and notebooks)``) removed the embed
     outright. Neither ``eval`` nor WASM instantiation is granted anywhere this
     server serves.
     """

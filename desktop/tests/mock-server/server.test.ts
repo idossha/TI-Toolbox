@@ -214,7 +214,7 @@ describe("mock server: GET/HEAD /api/files/raw/{path}", () => {
   });
 });
 
-// VE (docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)): one resolution, two addressings. `view`
+// VE (docs/dev/DECISIONS.md § 2026-09-06 (Native panes, job rows and notebooks)): one resolution, two addressings. `view`
 // is what the embed at /tetravox/ is posted; `scene` is the host-path document written to disk.
 describe("POST /api/view/open", () => {
   it("names a file the Tetravox app will treat as a scene, in both path languages", async () => {
@@ -264,7 +264,7 @@ describe("POST /api/view/open", () => {
   });
 });
 
-// Defect 1 (docs/dev/HISTORY.md § 2026-09-04 (scene service) §5a/§7.2, fix-round lane FIX-C): one
+// Defect 1 (docs/dev/DECISIONS.md § 2026-09-04 (Scene service and retained pages) §5a/§7.2, fix-round lane FIX-C): one
 // `server.mjs` process backs a whole `npx playwright test` invocation (`playwright.config.ts`'s
 // `webServer`), so a job an earlier spec FILE created and never itself drove to a terminal state
 // keeps `isReady()`'s same-(kind,subject) exclusivity slot for every later file too. Server.mjs's

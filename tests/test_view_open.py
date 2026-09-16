@@ -1,6 +1,6 @@
 """``POST /api/view/open`` — the scene file the host Tetravox desktop app opens.
 
-V2 (``docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)``).  Three properties
+V2 (``docs/dev/DECISIONS.md § 2026-09-06 (Native panes, job rows and notebooks)``).  Three properties
 are worth a test each, and each is a way the feature can fail *silently*:
 
 1. **The file name ends in ``.tetravox.json``.**  Measured in the Tetravox repo

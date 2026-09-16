@@ -1058,7 +1058,7 @@
     <div class="doc doc-contents first">
 
         <p>Cross-platform process-tree primitives for <code>tit/jobs/runner.py</code> (N0.6 spike; see
-<code>docs/dev/HISTORY.md § 2026-09-03</code>).</p>
+<code>docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)</code>).</p>
 <p>POSIX and Windows disagree about almost everything a "kill this job's whole process tree"
 primitive needs: how a child gets its own process group at spawn time, and what a caller sends
 to ask for a graceful vs. a hard stop. Each function below picks the right primitive for the
@@ -1276,7 +1276,7 @@ unconditionally raises <code>AttributeError</code> at the point of use, before <
 <code>psutil.NoSuchProcess</code>/<code>AccessDenied</code> guard around the call site ever gets a chance to
 catch it (that guard's exception tuple never included <code>AttributeError</code>). This was the bug
 at <code>tit/jobs/runner.py:213</code> before this module existed -- see
-<code>docs/dev/HISTORY.md § 2026-09-03</code> for the fix and how it was verified.</p>
+<code>docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)</code> for the fix and how it was verified.</p>
 
 
             <details class="quote">
@@ -1308,7 +1308,7 @@ at <code>tit/jobs/runner.py:213</code> before this module existed -- see
 <a id="__codelineno-0-89" name="__codelineno-0-89"></a><span class="sd">    ``psutil.NoSuchProcess``/``AccessDenied`` guard around the call site ever gets a chance to</span>
 <a id="__codelineno-0-90" name="__codelineno-0-90"></a><span class="sd">    catch it (that guard&#39;s exception tuple never included ``AttributeError``). This was the bug</span>
 <a id="__codelineno-0-91" name="__codelineno-0-91"></a><span class="sd">    at ``tit/jobs/runner.py:213`` before this module existed -- see</span>
-<a id="__codelineno-0-92" name="__codelineno-0-92"></a><span class="sd">    ``docs/dev/HISTORY.md § 2026-09-03`` for the fix and how it was verified.</span>
+<a id="__codelineno-0-92" name="__codelineno-0-92"></a><span class="sd">    ``docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)`` for the fix and how it was verified.</span>
 <a id="__codelineno-0-93" name="__codelineno-0-93"></a><span class="sd">    &quot;&quot;&quot;</span>
 <a id="__codelineno-0-94" name="__codelineno-0-94"></a>    <span class="k">if</span> <span class="n">is_windows</span><span class="p">():</span>
 <a id="__codelineno-0-95" name="__codelineno-0-95"></a>        <span class="n">proc</span><span class="o">.</span><span class="n">kill</span><span class="p">()</span>

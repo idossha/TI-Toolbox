@@ -315,13 +315,13 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await call("/api/jobs/{id}", "DELETE", `/api/jobs/${(projectInit as any).id}`);
 
-    // viewers (v1) -- D3 (docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)): no more Freeview/Gmsh launch
+    // viewers (v1) -- D3 (docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)): no more Freeview/Gmsh launch
     // routes to exercise here (removed from the contract along with the routes); GET
     // /api/view/{kind} now returns a real Tetravox ViewSpec v2 `scene`, and POST /api/view/args
     // (deliberately not declared in the contract -- see its yaml comment) is covered directly by
     // its own vitest in server.test.ts / tit's own tests/test_catalog_v1.py.
     await call("/api/view/{kind}", "GET", "/api/view/subject?subject=ernie");
-    // V2 (docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)): the scene file the host-installed
+    // V2 (docs/dev/DECISIONS.md § 2026-09-06 (Native panes, job rows and notebooks)): the scene file the host-installed
     // Tetravox app opens.
     await call("/api/view/open", "POST", "/api/view/open", { body: { kind: "subject", subject: "ernie" } });
     // VM: saved compositions. The path is /api/viewer/presets, not /api/view/presets, because the

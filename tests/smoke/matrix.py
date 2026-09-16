@@ -1,4 +1,4 @@
-"""The smoke matrix: one row per kind of ``docs/dev/HISTORY.md § 2026-09-03 (pipelines program)`` §3.
+"""The smoke matrix: one row per kind of ``docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)`` §3.
 
 What this pins
 --------------

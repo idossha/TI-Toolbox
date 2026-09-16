@@ -624,7 +624,7 @@ class TestNiftiFileNotFound:
 # ============================================================================
 
 #: The file set the maintainer's own group-comparison job left on disk while reporting
-#: `artifacts: []` -- the evidence row of docs/dev/HISTORY.md § 2026-09-03 (pipelines program).
+#: `artifacts: []` -- the evidence row of docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop).
 _STATS_OUTPUTS = [
     "average_non_responders.nii.gz",
     "average_responders.nii.gz",

@@ -1113,13 +1113,13 @@
 lookups, the six audit-bug fixes, percentile resolution, the Tetravox
 <code>ViewSpec</code> v2 <code>scene</code> document); this module only maps the query params
 to <code>build_view</code>.</p>
-<p>D3 (<code>docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)</code>): the external Freeview/Gmsh
+<p>D3 (<code>docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)</code>): the external Freeview/Gmsh
 launch routes (<code>POST /api/viewers/freeview</code>, <code>POST /api/viewers/gmsh</code>),
 <code>_require_x11</code> and the <code>viewer</code> job-kind submission they drove are
 <strong>removed</strong> -- there is no X11 in this runtime. <code>freeview_args</code> itself
 stays on the response for one release (deprecated) so an old client
 mid-migration does not break; :func:<code>view_args</code> still exists to preview it.</p>
-<p>V2 (<code>docs/dev/HISTORY.md § 2026-09-06 (native panes, external viewer)</code>): viewing is the
+<p>V2 (<code>docs/dev/DECISIONS.md § 2026-09-06 (Native panes, job rows and notebooks)</code>): viewing is the
 <strong>host-installed Tetravox desktop app</strong>, not an embed served from this
 origin. <code>POST /api/view/open</code> (bottom of this module) writes the scene
 document that app opens; it still launches nothing server-side, because the

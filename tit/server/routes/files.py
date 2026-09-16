@@ -228,7 +228,7 @@ def raw(
     ranges.
 
     This route is the whole reason the in-app viewer needs no X11 at all
-    (D3, ``docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)``): it is served to a
+    (D3, ``docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)``): it is served to a
     canvas inside the Tetravox embed's iframe, never to an external
     Freeview/Gmsh process -- there is no X11 capability left to gate.
     """

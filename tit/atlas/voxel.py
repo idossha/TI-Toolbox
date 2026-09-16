@@ -142,7 +142,7 @@ class VoxelAtlasManager:
         sidecar colour table next to the atlas, else the bundled standard
         FreeSurfer colour table). Validated voxel-for-voxel against live
         ``mri_segstats`` output on real recon-all data -- see
-        ``docs/dev/HISTORY.md § 2026-09-03``.
+        ``docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)``.
 
         Caches the label file next to the atlas, in ``mri_segstats
         --sum``'s own text layout (other modules parse this exact sidecar

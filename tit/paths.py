@@ -45,7 +45,7 @@ def natural_key(text: str) -> list[int | str]:
 
 
 # ============================================================================
-# PACKAGE RESOURCES (N0.6 spike -- docs/dev/HISTORY.md § 2026-09-03)
+# PACKAGE RESOURCES (N0.6 spike -- docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop))
 # ============================================================================
 #
 # Distinct from everything else in this module: PathManager resolves *project* directories

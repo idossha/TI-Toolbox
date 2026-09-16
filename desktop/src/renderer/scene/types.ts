@@ -68,7 +68,7 @@ export interface LegendEntry {
 
 /**
  * A pick, with the *place* it happened — what `onPickAt` reports (lane SCC's request, §6.1 of
- * `docs/dev/HISTORY.md § 2026-09-04 (scene service)`).
+ * `docs/dev/DECISIONS.md § 2026-09-04 (Scene service and retained pages)`).
  *
  * `onPick` answers "which region", which is enough to add a region to an ROI and not enough to put
  * a sphere centre where the user clicked. This carries the world point under the cursor as well, so

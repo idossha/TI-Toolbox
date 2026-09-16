@@ -32,7 +32,7 @@ Where the numbers come from
     (15 mm electrode-to-skin, 1 mm bounding-box margin), or a value read from
     the ``.annot``/``.gii`` pair by ``nibabel`` -- a different reader than the
     builder's KD-tree path. Measured results are printed so a run can be
-    pasted into ``docs/dev/HISTORY.md § 2026-09-04 (scene service)``.
+    pasted into ``docs/dev/DECISIONS.md § 2026-09-04 (Scene service and retained pages)``.
 
 Deliberately elsewhere
     Format bytes, clustering properties, cache semantics and route behaviour

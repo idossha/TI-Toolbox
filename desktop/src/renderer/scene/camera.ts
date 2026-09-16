@@ -1,5 +1,5 @@
 /**
- * Orbit-camera maths — pure, DOM-free, GPU-free (plan `docs/dev/HISTORY.md § 2026-09-04 (scene service)`, S4).
+ * Orbit-camera maths — pure, DOM-free, GPU-free (plan `docs/dev/DECISIONS.md § 2026-09-04 (Scene service and retained pages)`, S4).
  *
  * Everything the scene needs to turn "the user dragged 40 px right" into a matrix lives here, and
  * nothing here touches a canvas. That split is the whole reason the renderer is testable without a

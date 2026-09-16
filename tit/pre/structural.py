@@ -653,7 +653,7 @@ def _run_pipeline_inner(
     )
 
     # One subject at a time: FastSurfer peaks at ~4.8 GiB RSS per subject
-    # (docs/dev/HISTORY.md § 2026-09-03), so parallelism across subjects
+    # (docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)), so parallelism across subjects
     # is the job scheduler's memory-budgeted decision (tit.jobs), not a
     # thread pool inside this loop.
     for sid in subject_list:

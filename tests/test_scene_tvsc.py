@@ -2,7 +2,7 @@
 
 What this pins
     Every byte of ``tit/scene/tvsc.py`` against the spec table frozen in
-    ``docs/dev/HISTORY.md § 2026-09-04 (scene service)`` §2.3, and the three committed fixtures
+    ``docs/dev/DECISIONS.md § 2026-09-04 (Scene service and retained pages)`` §2.3, and the three committed fixtures
     that compatibility clients can use to validate their own readers.
 
 Where the numbers come from

@@ -1,12 +1,12 @@
 /**
- * The six `GET /api/scene/*` fetchers (plan of record `docs/dev/HISTORY.md § 2026-09-04 (scene service)` §2.1, built
+ * The six `GET /api/scene/*` fetchers (plan of record `docs/dev/DECISIONS.md § 2026-09-04 (Scene service and retained pages)` §2.1, built
  * by lane SCA) and the polling rule a cold cache needs.
  *
  * The **shapes below are the contract's**, read out of the generated `api/schema.d.ts` (`npm run
  * gen:api` ← `contracts/generated/openapi.json` ← `contracts/openapi.yaml`) rather than hand-written
  * a second time. Lane SCC typed them by hand because the six paths were not in the generated
  * `paths` map yet and regenerating a file several lanes share was not its change to make
- * (`docs/dev/HISTORY.md § 2026-09-04 (scene service)` §6.7); they are generated now. *Failure it prevents:* a
+ * (`docs/dev/DECISIONS.md § 2026-09-04 (Scene service and retained pages)` §6.7); they are generated now. *Failure it prevents:* a
  * hand-typed `built_ms: number` or `world: [number, number, number]` says the server always sends
  * something it does not, and nothing fails until the value is missing at runtime. What the routes
  * really answer with is pinned on the Python side by
@@ -134,7 +134,7 @@ export function labelsUrl(subject: string, atlas: string): string {
 // ------------------------------------------------------------------------------------- the guide
 
 /**
- * The **fixed guide scene** (`docs/dev/HISTORY.md § 2026-09-05` R4): one immutable head, packaged
+ * The **fixed guide scene** (`docs/dev/DECISIONS.md § 2026-09-05 (Overview, batch execution and explicit viewing)` R4): one immutable head, packaged
  * with the installation, that the three run panes draw instead of the first selected research
  * subject.
  *

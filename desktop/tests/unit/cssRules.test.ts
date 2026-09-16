@@ -145,7 +145,7 @@ describe("v2 density — geometry", () => {
     expect(field).toMatch(/min-height:\s*var\(--row-h\)/);
   });
 
-  // L4 ("nothing overlaps", plan `docs/dev/HISTORY.md § 2026-09-04 (scene service)` §4): the section header is a
+  // L4 ("nothing overlaps", plan `docs/dev/DECISIONS.md § 2026-09-04 (Scene service and retained pages)` §4): the section header is a
   // 28px band on --surface-2 — the same object §4.3 defines for a table header — and it is NOT
   // sticky any more. A sticky header inside the pane's own scroller paints over its own body:
   // measured on the Optimizer at 1280x800, five controls (the Target radios, the atlas combobox

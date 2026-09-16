@@ -1,7 +1,7 @@
 """Unit tests for :mod:`tit.pre.fastsurfer`.
 
 The runner is always mocked -- FastSurfer itself takes ~5 minutes and 4.8 GiB
-per subject (``docs/dev/HISTORY.md § 2026-09-03``). One integration test
+per subject (``docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)``). One integration test
 at the bottom runs the real thing, and skips unless ``$FASTSURFER_HOME`` points
 at a checkout (it will run inside the TI-Toolbox image, per plan D1).
 """
@@ -255,7 +255,7 @@ def test_real_fastsurfer_checkout_is_runnable():
 
     Deliberately does not run a segmentation (~5 min, 4.8 GiB): the full
     smoke command for Phase C is in
-    ``docs/dev/HISTORY.md § 2026-09-03 (Docker streamline)``.
+    ``docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)``.
     """
     script = fs.fastsurfer_script()
     assert script is not None, f"no {fs.RUN_SCRIPT} under {fs.fastsurfer_home()}"
