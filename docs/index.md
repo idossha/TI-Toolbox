@@ -14,19 +14,28 @@ layout: home
     <p class="flow__eyebrow">01 / Entry point</p>
     <p class="flow__title">A desktop app or a single script</p>
     <p class="flow__body">Open the desktop app, or run the loader script from a terminal. Docker is the only prerequisite; everything else is fetched on first run.</p>
-    <a class="flow__link" href="{{ site.baseurl }}/installation/">Installation guide</a>
+    <p class="flow__links">
+      <a class="flow__link" href="{{ site.baseurl }}/installation/">Installation guide</a>
+      <a class="flow__link" href="https://www.docker.com/products/docker-desktop/">Docker Desktop</a>
+    </p>
   </li>
   <li class="flow__step">
     <p class="flow__eyebrow">02 / Container</p>
     <p class="flow__title">A reproducible environment</p>
     <p class="flow__body">Every simulation, optimization and analysis runs inside one published Docker image, so results are the same on any machine.</p>
-    <a class="flow__link" href="{{ site.baseurl }}/wiki/desktop-app/">How the app and container fit together</a>
+    <p class="flow__links">
+      <a class="flow__link" href="https://hub.docker.com/r/idossha/ti-toolbox">Image on Docker Hub</a>
+      <a class="flow__link" href="https://simnibs.github.io/simnibs/">SimNIBS</a>
+    </p>
   </li>
   <li class="flow__step">
     <p class="flow__eyebrow">03 / Your data</p>
     <p class="flow__title">One BIDS folder on your machine</p>
     <p class="flow__body">Your project is a BIDS directory on your own disk, mounted into the container. Nothing leaves your machine.</p>
-    <a class="flow__link" href="{{ site.baseurl }}/wiki/pre-processing/#required-input-data-structure">Expected project layout</a>
+    <p class="flow__links">
+      <a class="flow__link" href="{{ site.baseurl }}/wiki/pre-processing/#required-input-data-structure">Expected project layout</a>
+      <a class="flow__link" href="https://bids.neuroimaging.io/">BIDS standard</a>
+    </p>
   </li>
   <li class="flow__step">
     <p class="flow__eyebrow">04 / Extensions</p>
@@ -36,6 +45,8 @@ layout: home
       <a class="flow__link" href="{{ site.baseurl }}/wiki/fastsurfer/">FastSurfer</a>
       <a class="flow__link" href="{{ site.baseurl }}/wiki/diffusion-processing/">QSIPrep / QSIRecon</a>
       <a class="flow__link" href="{{ site.baseurl }}/wiki/visualizers/">Tetravox</a>
+      <a class="flow__link" href="https://bids-apps.neuroimaging.io/">BIDS Apps</a>
+      <a class="flow__link" href="https://www.neurodesk.org/">Neurodesk</a>
     </p>
   </li>
 </ol>

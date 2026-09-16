@@ -632,7 +632,7 @@ table {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--content-gap);
   padding: clamp(16px, 3vh, 32px) var(--gutter) 0;
-  align-items: start;
+  align-items: stretch;
   font-size: 0.95rem;
 }
 
@@ -970,13 +970,16 @@ td .katex-display, th .katex-display {
 // Home: "How it works" vertical flow (left column)
 // -----------------------------------------------------------------------------
 
+.home-grid > section { display: flex; flex-direction: column; min-height: 0; }
+
 .flow {
   list-style: none;
   margin: 0;
   padding: 0;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .flow__step {
@@ -984,23 +987,26 @@ td .katex-display, th .katex-display {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  padding: 11px 14px 11px 16px;
+  justify-content: center;
+  flex: 1 1 0;
+  padding: 12px 16px;
   margin: 0;
   border: 1px solid var(--color-border);
-  border-left: 3px solid var(--color-primary);
   border-radius: var(--radius);
   background: var(--color-surface);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 
-  &:hover { border-color: var(--color-text-muted); border-left-color: var(--color-primary); box-shadow: var(--shadow-sm); }
+  &:hover { border-color: var(--color-text-muted); box-shadow: var(--shadow-sm); }
 
   & + .flow__step::before {
     content: "\2193";
     position: absolute;
-    left: 14px;
+    left: 50%;
     top: -14px;
-    height: 12px;
-    line-height: 12px;
+    height: 14px;
+    line-height: 14px;
+    transform: translateX(-50%);
+    text-align: center;
     font-size: 0.8rem;
     color: var(--color-text-muted);
     pointer-events: none;
