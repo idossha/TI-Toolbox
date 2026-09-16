@@ -3,7 +3,8 @@
  *
  * Progress is **not** here: `ExampleDataList` polls `GET /api/example-data` while anything is
  * downloading and reads each row's state straight off that one answer, so there is no per-sample
- * bookkeeping to keep in sync. All this hook owns is the POST and its failure message.
+ * bookkeeping to keep in sync. All this hook owns is the POST (of one `dataset/part` id) and
+ * its failure message.
  */
 import { useCallback, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -14,10 +15,10 @@ export function useExampleData() {
   const [error, setError] = useState("");
 
   const start = useCallback(
-    async (sampleId: string) => {
+    async (partId: string, force = false) => {
       setError("");
       try {
-        await startExampleData(sampleId);
+        await startExampleData(partId, force);
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "Could not start the download.");
         throw cause;

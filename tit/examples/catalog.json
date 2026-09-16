@@ -1,104 +1,98 @@
 {
-  "$comment": "The example-data catalogue: what the desktop's chooser, Help > Example data, `python -m tit.examples` and the notebook offer. Files are content-addressed: `url` is the file's own sha256 on the `v1` release of idossha/ti-toolbox-example-data -- its own store repository (3D Slicer's SlicerDataStore layout, as Tetravox's sample store). Keep `bytes` and `sha256` exact -- tit.examples refuses a mismatch; that repository's scripts/stage.py --write-catalog fills them from what it built.",
+  "$comment": "The example-data catalogue: what the desktop's chooser, Help > Example data, `python -m tit.examples` and the notebook offer. A **dataset** (one head) is a set of independently downloadable **parts**; a part is installed, detected and fetched on its own, so deleting the NIfTIs never makes the head model look absent. Files are content-addressed: `url` is the file's own sha256 on the `v1` release of idossha/ti-toolbox-example-data -- its own store repository (3D Slicer's SlicerDataStore layout, as Tetravox's sample store). Keep `bytes` and `sha256` exact -- tit.examples refuses a mismatch; that repository's scripts/stage.py --write-catalog fills them from what it built. A part's placement is catalogue-declared: `dest` is where its files land (a `.tar.gz` is unpacked there), `verify` the paths that must exist for it to count as installed, `target` what fetch() reports -- all relative to the project root with {subject} substituted, all matched case-insensitively. Adding a third part (a FreeSurfer tree, a worked simulation) is therefore an edit to this file alone.",
   "store": "https://github.com/idossha/ti-toolbox-example-data/releases/download/v1/",
-  "samples": [
+  "datasets": [
     {
-      "id": "mni152-t1",
-      "title": "MNI152 template \u2014 T1",
-      "group": "Raw MRI (needs pre-processing)",
-      "description": "The MNI152 template's T1 alone: the smallest way to run Pre-process end to end and build a head model yourself.",
-      "source": "SimNIBS example dataset",
-      "source_url": "https://github.com/simnibs/example-dataset",
-      "licence": "GPL-3.0 (SimNIBS example dataset; redistribution vetted in tit/scene/guide/PROVENANCE.md)",
-      "subject": "MNI152",
-      "layout": "raw",
-      "files": [
-        {
-          "name": "sub-MNI152_T1w.nii.gz",
-          "bytes": 14915970,
-          "sha256": "5807425aa5ac6ce1f0800cc139d109b864ec117b53d5007a87c373e883f4d033",
-          "url": "https://github.com/idossha/ti-toolbox-example-data/releases/download/v1/5807425aa5ac6ce1f0800cc139d109b864ec117b53d5007a87c373e883f4d033"
-        }
-      ]
-    },
-    {
-      "id": "ernie-t1",
-      "title": "Ernie \u2014 T1 + T2",
-      "group": "Raw MRI (needs pre-processing)",
-      "description": "The SimNIBS example subject's raw T1 and T2: what a real study starts from. Pre-process builds its head model (1\u20132 h).",
+      "id": "ernie",
+      "title": "Ernie \u2014 SimNIBS example subject",
+      "description": "The SimNIBS example head: a real adult T1 and T2, and the charm head model built from them.",
       "source": "SimNIBS example dataset",
       "source_url": "https://github.com/simnibs/example-dataset",
       "licence": "GPL-3.0 (SimNIBS example dataset; redistribution vetted in tit/scene/guide/PROVENANCE.md)",
       "subject": "ernie",
-      "layout": "raw",
-      "files": [
+      "parts": [
         {
-          "name": "sub-ernie_T1w.nii.gz",
-          "bytes": 15849916,
-          "sha256": "27e33241fc7c44b42dd63d613e81cadaefdfad271fd7e844fea71d0db75942ad",
-          "url": "https://github.com/idossha/ti-toolbox-example-data/releases/download/v1/27e33241fc7c44b42dd63d613e81cadaefdfad271fd7e844fea71d0db75942ad"
+          "id": "nifti",
+          "title": "Raw MRI",
+          "meaning": "Raw T1/T2 \u2014 needs pre-processing",
+          "dest": "sub-{subject}/anat",
+          "files": [
+            {
+              "name": "sub-ernie_T1w.nii.gz",
+              "bytes": 15849916,
+              "sha256": "27e33241fc7c44b42dd63d613e81cadaefdfad271fd7e844fea71d0db75942ad",
+              "url": "https://github.com/idossha/ti-toolbox-example-data/releases/download/v1/27e33241fc7c44b42dd63d613e81cadaefdfad271fd7e844fea71d0db75942ad"
+            },
+            {
+              "name": "sub-ernie_T2w.nii.gz",
+              "bytes": 19574743,
+              "sha256": "d435ec4de1aac30746fcd1b1708a10e8c2657fe284aea5fa85e1f062f54126b3",
+              "url": "https://github.com/idossha/ti-toolbox-example-data/releases/download/v1/d435ec4de1aac30746fcd1b1708a10e8c2657fe284aea5fa85e1f062f54126b3"
+            }
+          ]
         },
         {
-          "name": "sub-ernie_T2w.nii.gz",
-          "bytes": 19574743,
-          "sha256": "d435ec4de1aac30746fcd1b1708a10e8c2657fe284aea5fa85e1f062f54126b3",
-          "url": "https://github.com/idossha/ti-toolbox-example-data/releases/download/v1/d435ec4de1aac30746fcd1b1708a10e8c2657fe284aea5fa85e1f062f54126b3"
+          "id": "headmodel",
+          "title": "Head model",
+          "meaning": "Head model \u2014 ready for optimizer, simulator, analyzer",
+          "dest": "derivatives/SimNIBS/sub-{subject}",
+          "target": "derivatives/SimNIBS/sub-{subject}/m2m_{subject}",
+          "verify": [
+            "m2m_{subject}/{subject}.msh"
+          ],
+          "derivative": "SimNIBS",
+          "files": [
+            {
+              "name": "m2m_ernie.tar.gz",
+              "bytes": 591621145,
+              "sha256": "4daed985cb86b585ef80c24008632530a35a1f25e30eab967f1d476223c8539d",
+              "url": "https://github.com/idossha/ti-toolbox-example-data/releases/download/v1/4daed985cb86b585ef80c24008632530a35a1f25e30eab967f1d476223c8539d"
+            }
+          ]
         }
       ]
     },
     {
-      "id": "ernie-headmodel",
-      "title": "Ernie \u2014 head model",
-      "group": "Head model (ready to simulate)",
-      "description": "Ernie's T1 + T2 with the finished charm head model m2m_ernie: the optimizer, simulator, analyzer and the example notebook run on it immediately.",
-      "source": "SimNIBS example dataset",
-      "source_url": "https://github.com/simnibs/example-dataset",
-      "licence": "GPL-3.0 (SimNIBS example dataset; redistribution vetted in tit/scene/guide/PROVENANCE.md)",
-      "subject": "ernie",
-      "layout": "headmodel",
-      "files": [
-        {
-          "name": "sub-ernie_T1w.nii.gz",
-          "bytes": 15849916,
-          "sha256": "27e33241fc7c44b42dd63d613e81cadaefdfad271fd7e844fea71d0db75942ad",
-          "url": "https://github.com/idossha/ti-toolbox-example-data/releases/download/v1/27e33241fc7c44b42dd63d613e81cadaefdfad271fd7e844fea71d0db75942ad"
-        },
-        {
-          "name": "sub-ernie_T2w.nii.gz",
-          "bytes": 19574743,
-          "sha256": "d435ec4de1aac30746fcd1b1708a10e8c2657fe284aea5fa85e1f062f54126b3",
-          "url": "https://github.com/idossha/ti-toolbox-example-data/releases/download/v1/d435ec4de1aac30746fcd1b1708a10e8c2657fe284aea5fa85e1f062f54126b3"
-        },
-        {
-          "name": "m2m_ernie.tar.gz",
-          "bytes": 591621145,
-          "sha256": "4daed985cb86b585ef80c24008632530a35a1f25e30eab967f1d476223c8539d",
-          "url": "https://github.com/idossha/ti-toolbox-example-data/releases/download/v1/4daed985cb86b585ef80c24008632530a35a1f25e30eab967f1d476223c8539d"
-        }
-      ]
-    },
-    {
-      "id": "mni152-headmodel",
-      "title": "MNI152 template \u2014 head model",
-      "group": "Head model (ready to simulate)",
-      "description": "The MNI152 template's T1 with its finished charm head model m2m_MNI152: a standard-space head for group-level or atlas-driven work.",
+      "id": "mni152",
+      "title": "MNI152 template",
+      "description": "The MNI152 standard-space template head: its T1, and the charm head model built from it \u2014 a standard-space head for group-level or atlas-driven work.",
       "source": "SimNIBS example dataset",
       "source_url": "https://github.com/simnibs/example-dataset",
       "licence": "GPL-3.0 (SimNIBS example dataset; redistribution vetted in tit/scene/guide/PROVENANCE.md)",
       "subject": "MNI152",
-      "layout": "headmodel",
-      "files": [
+      "parts": [
         {
-          "name": "sub-MNI152_T1w.nii.gz",
-          "bytes": 14915970,
-          "sha256": "5807425aa5ac6ce1f0800cc139d109b864ec117b53d5007a87c373e883f4d033",
-          "url": "https://github.com/idossha/ti-toolbox-example-data/releases/download/v1/5807425aa5ac6ce1f0800cc139d109b864ec117b53d5007a87c373e883f4d033"
+          "id": "nifti",
+          "title": "Raw MRI",
+          "meaning": "Raw T1 \u2014 needs pre-processing",
+          "dest": "sub-{subject}/anat",
+          "files": [
+            {
+              "name": "sub-MNI152_T1w.nii.gz",
+              "bytes": 14915970,
+              "sha256": "5807425aa5ac6ce1f0800cc139d109b864ec117b53d5007a87c373e883f4d033",
+              "url": "https://github.com/idossha/ti-toolbox-example-data/releases/download/v1/5807425aa5ac6ce1f0800cc139d109b864ec117b53d5007a87c373e883f4d033"
+            }
+          ]
         },
         {
-          "name": "m2m_MNI152.tar.gz",
-          "bytes": 462213152,
-          "sha256": "41ad8cc678b75bbfe76a4d79bb959cbb18e3f7155d91ba92d0ec15cc9ef49634",
-          "url": "https://github.com/idossha/ti-toolbox-example-data/releases/download/v1/41ad8cc678b75bbfe76a4d79bb959cbb18e3f7155d91ba92d0ec15cc9ef49634"
+          "id": "headmodel",
+          "title": "Head model",
+          "meaning": "Head model \u2014 ready for optimizer, simulator, analyzer",
+          "dest": "derivatives/SimNIBS/sub-{subject}",
+          "target": "derivatives/SimNIBS/sub-{subject}/m2m_{subject}",
+          "verify": [
+            "m2m_{subject}/{subject}.msh"
+          ],
+          "derivative": "SimNIBS",
+          "files": [
+            {
+              "name": "m2m_MNI152.tar.gz",
+              "bytes": 462213152,
+              "sha256": "41ad8cc678b75bbfe76a4d79bb959cbb18e3f7155d91ba92d0ec15cc9ef49634",
+              "url": "https://github.com/idossha/ti-toolbox-example-data/releases/download/v1/41ad8cc678b75bbfe76a4d79bb959cbb18e3f7155d91ba92d0ec15cc9ef49634"
+            }
+          ]
         }
       ]
     }

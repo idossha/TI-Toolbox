@@ -32,9 +32,9 @@ four public datasets (SimNIBS example dataset, GPL-3.0) you can download into th
 raw T1/T2 scans that still need pre-processing, and finished charm head models that the Optimizer,
 Simulator, Analyzer and the [Example Notebook]({{ site.baseurl }}/wiki/example-notebook/) can use
 straight away. The first time you open a new project the app asks **Add example data?** by itself
-and offers the same four samples, with the ready-to-simulate `ernie-headmodel` pre-ticked; the
-answer is recorded in the project's `project_status.json`, so it is asked once per project. Each
-download is a job (progress in the jobs rail) and is skipped when the sample is already present.
+and lists the same parts under their dataset, with the ready-to-simulate `ernie/headmodel`
+pre-ticked; the answer is recorded in the project's `project_status.json`, so it is asked once per
+project. Each part downloads on its own and is skipped when it is already present.
 See [Example Data]({{ site.baseurl }}/wiki/example-data/) for the sizes, licence and the
 `python -m tit.examples --project DIR` command line.
 

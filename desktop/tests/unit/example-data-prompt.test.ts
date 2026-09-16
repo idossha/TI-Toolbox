@@ -37,7 +37,7 @@ describe("shouldPromptForExampleData", () => {
   it("never asks twice, and never asks a project that already has example data", () => {
     expect(shouldPromptForExampleData({ example_subject_prompted: true })).toBe(false);
     expect(shouldPromptForExampleData({ example_subjects: ["ernie"] })).toBe(false);
-    expect(shouldPromptForExampleData({ example_samples: ["mni152-t1"] })).toBe(false);
+    expect(shouldPromptForExampleData({ example_samples: ["mni152/nifti"] })).toBe(false);
   });
 
   it("empty lists are not an answer — that project is still asked", () => {
@@ -58,18 +58,18 @@ describe("answerExampleDataPrompt", () => {
 
   it("Download selected persists the answer and starts one job per ticked sample", async () => {
     const server = fakeServer();
-    await answerExampleDataPrompt("download", ["ernie-headmodel", "mni152-t1"], server);
+    await answerExampleDataPrompt("download", ["ernie/headmodel", "mni152/nifti"], server);
     expect(server.read().example_subject_prompted).toBe(true);
     expect(server.startDownload.mock.calls.map((c) => c[0])).toEqual([
-      "ernie-headmodel",
-      "mni152-t1",
+      "ernie/headmodel",
+      "mni152/nifti",
     ]);
     expect(shouldPromptForExampleData(server.read())).toBe(false);
   });
 
   it("Not now persists the answer without downloading", async () => {
     const server = fakeServer();
-    await answerExampleDataPrompt("later", ["ernie-headmodel"], server);
+    await answerExampleDataPrompt("later", ["ernie/headmodel"], server);
     expect(server.read().example_subject_prompted).toBe(true);
     expect(server.startDownload).not.toHaveBeenCalled();
     expect(shouldPromptForExampleData(server.read())).toBe(false);
@@ -79,7 +79,7 @@ describe("answerExampleDataPrompt", () => {
     const server = fakeServer();
     server.startDownload.mockRejectedValueOnce(new Error("offline"));
     await expect(
-      answerExampleDataPrompt("download", ["ernie-headmodel"], server),
+      answerExampleDataPrompt("download", ["ernie/headmodel"], server),
     ).rejects.toThrow("offline");
     expect(server.read().example_subject_prompted).toBe(true);
   });

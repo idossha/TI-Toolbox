@@ -1,11 +1,12 @@
 /**
- * Help ▸ Example data — the catalogue with a Download button per sample.
+ * Help ▸ Example data — the catalogue with an action per **part**.
  *
  * The same rows the once-per-project chooser shows (`app/exampleData/ExampleDataList`), in the
- * page's own chrome: source and licence per row, live progress while one downloads (polled from
- * `GET /api/example-data`, not a job stream), and **Installed** for what this project already holds. This is the one place a sample can be added
- * after the chooser has been answered — Overview's toolbar button opens this tab rather than
- * carrying a third copy of the list.
+ * page's own chrome: each dataset headed by its provenance and licence, each of its parts with its
+ * own Download, its own live progress while it runs (polled from `GET /api/example-data`, not a job
+ * stream), and its own **Installed ✓** with a quiet Re-download. This is the one place a part can
+ * be added after the chooser has been answered — Overview's toolbar button opens this tab rather
+ * than carrying a third copy of the list.
  */
 import { useNavigate } from "react-router-dom";
 import { Button } from "../../ui/Button";
@@ -25,16 +26,17 @@ export function ExampleDataTab() {
           <p className="text-body" style={{ color: "var(--ink-2)", marginBottom: "var(--space-3)" }}>
             Public datasets downloaded into this project, so you can learn TI-Toolbox and test every
             page before using your own data. Each file is verified against its own sha256 before
-            anything is written. A head model is ready for the Optimizer, Simulator and Analyzer
-            immediately; a raw MRI goes through Pre-process first (1–2 h of charm).
+            anything is written. Every part downloads and is detected on its own: a head model is
+            ready for the Optimizer, Simulator and Analyzer immediately, while a raw MRI goes
+            through Pre-process first (1–2 h of charm).
           </p>
           <ExampleDataList
             mode="manage"
-            onDownload={(id) => void start(id).catch(() => undefined)}
+            onDownload={(id, force) => void start(id, force).catch(() => undefined)}
           />
           {error && <Callout kind="danger">{error}</Callout>}
           <p className="text-body" style={{ color: "var(--ink-2)", marginTop: "var(--space-3)" }}>
-            The packaged example notebook runs the whole workflow on <code>ernie-headmodel</code> —
+            The packaged example notebook runs the whole workflow on <code>ernie</code> —
             a montage simulation, a flex-search optimization and a field analysis — and its first
             cell is this same download (<code>fetch_ernie</code>). Open it from{" "}
             <Button variant="ghost" size="sm" onClick={() => navigate("/notebooks")}>

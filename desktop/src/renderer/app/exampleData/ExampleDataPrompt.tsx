@@ -51,7 +51,7 @@ export function ExampleDataPrompt() {
   });
   const { start, error } = useExampleData();
   const [answered, setAnswered] = useState(false);
-  const [selected, setSelected] = useState<string[]>([EXAMPLE_DATA_PROMPT.defaultSample]);
+  const [selected, setSelected] = useState<string[]>([EXAMPLE_DATA_PROMPT.defaultPart]);
   const open =
     !answered && shouldPromptForExampleData(statusForPrompt(statusQuery.data ?? { state: "loading" }));
 

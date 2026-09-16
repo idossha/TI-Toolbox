@@ -43,7 +43,7 @@ test.afterEach(async () => {
   await setProjectStatusMissing(false);
 });
 
-test("a project with no project_status.json is asked, and the four samples are the choices", async () => {
+test("a project with no project_status.json is asked, and the parts are grouped by dataset", async () => {
   await setProjectStatusMissing(true);
   await launchAndConnect();
 
@@ -51,17 +51,26 @@ test("a project with no project_status.json is asked, and the four samples are t
   await expect(dialog).toBeVisible({ timeout: 45_000 });
   await expect(dialog).toContainText("Add example data?");
   await expect(page.getByTestId("example-data-list")).toBeVisible();
-  for (const id of ["mni152-t1", "ernie-t1", "ernie-headmodel", "mni152-headmodel"]) {
-    await expect(page.getByTestId(`example-data-row-${id}`)).toBeVisible();
+  // Two datasets, each heading its own independently downloadable parts.
+  for (const dataset of ["ernie", "mni152"]) {
+    await expect(page.getByTestId(`example-data-dataset-${dataset}`)).toBeVisible();
+    for (const part of ["nifti", "headmodel"]) {
+      await expect(page.getByTestId(`example-data-row-${dataset}/${part}`)).toBeVisible();
+    }
   }
-  // Default-checked: the only sample that runs the optimizer/simulator/analyzer immediately.
-  await expect(page.getByTestId("example-data-check-ernie-headmodel")).toBeChecked();
-  await expect(page.getByTestId("example-data-check-ernie-t1")).not.toBeChecked();
-  await expect(page.getByTestId("example-data-row-ernie-headmodel")).toContainText("ready to simulate");
-  await expect(page.getByTestId("example-data-row-ernie-t1")).toContainText("needs pre-processing");
+  // Default-checked: the only part that runs the optimizer/simulator/analyzer immediately.
+  await expect(page.getByTestId("example-data-check-ernie/headmodel")).toBeChecked();
+  await expect(page.getByTestId("example-data-check-ernie/nifti")).not.toBeChecked();
+  await expect(page.getByTestId("example-data-check-mni152/headmodel")).not.toBeChecked();
+  await expect(page.getByTestId("example-data-row-ernie/headmodel")).toContainText(
+    "ready for optimizer, simulator, analyzer",
+  );
+  await expect(page.getByTestId("example-data-row-ernie/nifti")).toContainText(
+    "needs pre-processing",
+  );
 });
 
-test("Download selected starts a plain fetch per ticked sample and never asks again", async () => {
+test("Download selected queues one plain fetch per ticked part and never asks again", async () => {
   await setProjectStatusMissing(true);
   await launchAndConnect();
   await expect(page.getByRole("dialog")).toBeVisible({ timeout: 45_000 });
@@ -75,13 +84,13 @@ test("Download selected starts a plain fetch per ticked sample and never asks ag
     if (path.startsWith("/api/example-data/")) posts.push(path);
     if (path === "/api/jobs" || path === "/api/project/example-data") jobPosts.push(path);
   });
-  await page.getByTestId("example-data-check-mni152-t1").check();
+  await page.getByTestId("example-data-check-mni152/nifti").check();
   await page.getByTestId("example-data-download").click();
 
   await expect(page.getByRole("dialog")).toBeHidden();
   await expect.poll(() => posts.length, { timeout: 15_000 }).toBe(2);
-  expect(posts.join("|")).toContain("ernie-headmodel");
-  expect(posts.join("|")).toContain("mni152-t1");
+  expect(posts.join("|")).toContain("/api/example-data/ernie/headmodel");
+  expect(posts.join("|")).toContain("/api/example-data/mni152/nifti");
   expect(jobPosts, "a download must not go through the jobs system").toEqual([]);
 
   // The answer was persisted server-side, so a relaunch into the same project is not asked again.
@@ -106,9 +115,12 @@ test("Overview's toolbar button opens Help ▸ Example data, the same list with 
   await page.getByTestId("add-example-subject").click();
   await expect(page.getByTestId("shell-content")).toHaveAttribute("data-page", "help");
   await expect(page.getByTestId("help-example-data")).toBeVisible();
-  await expect(page.getByTestId("example-data-download-ernie-t1")).toBeVisible();
-  // The mock project already holds the head model, so that row says so instead of offering it.
-  await expect(page.getByTestId("example-data-installed-ernie-headmodel")).toBeVisible();
+  await expect(page.getByTestId("example-data-download-ernie/nifti")).toBeVisible();
+  // The mock project already holds ernie's head model, so that row says so instead of offering it
+  // — and only that part: its NIfTIs are a separate row, still offering Download.
+  await expect(page.getByTestId("example-data-installed-ernie/headmodel")).toBeVisible();
+  await expect(page.getByTestId("example-data-redownload-ernie/headmodel")).toBeVisible();
+  await expect(page.getByTestId("example-data-download-mni152/headmodel")).toBeVisible();
 });
 
 test("Help ▸ Example data shows polled progress and then Installed, with no job rail entry", async () => {
@@ -125,9 +137,15 @@ test("Help ▸ Example data shows polled progress and then Installed, with no jo
     if (r.method() === "GET" && new URL(r.url()).pathname === "/api/example-data") polls += 1;
   });
   const before = polls;
-  await page.getByTestId("example-data-download-ernie-t1").click();
+  await page.getByTestId("example-data-download-ernie/nifti").click();
+
+  // The button is replaced by a slim inline bar, not a percent-in-a-box.
+  const bar = page.getByTestId("example-data-progress-ernie/nifti").getByRole("progressbar");
+  await expect(bar).toBeVisible({ timeout: 15_000 });
 
   // The mock finishes the download over a few polls, so the row ends as Installed.
-  await expect(page.getByTestId("example-data-installed-ernie-t1")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("example-data-installed-ernie/nifti")).toBeVisible({ timeout: 30_000 });
   expect(polls, "the catalogue was re-polled while the fetch ran").toBeGreaterThan(before + 1);
+  // Its head model was already installed and is untouched: the parts are independent.
+  await expect(page.getByTestId("example-data-installed-ernie/headmodel")).toBeVisible();
 });

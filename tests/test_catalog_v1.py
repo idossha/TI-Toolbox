@@ -1626,22 +1626,32 @@ def test_project_status_round_trips_prompt_answers(client: TestClient) -> None:
     assert "last_updated" in after.json()
 
 
-def test_example_data_catalogue_lists_every_sample_with_status(client: TestClient) -> None:
-    """``GET /api/example-data`` is what the desktop's chooser and Help tab draw: the catalogue
-    plus a per-sample installed flag read off disk and any live progress, with no network."""
+def test_example_data_catalogue_lists_every_part_with_status(client: TestClient) -> None:
+    """``GET /api/example-data`` is what the desktop's chooser and Help tab draw: the datasets,
+    their independently downloadable parts, and a per-part installed flag read off disk with any
+    live progress -- no network."""
     r = client.get("/api/example-data", headers=BEARER)
     assert r.status_code == 200
     body = r.json()
-    ids = [s["id"] for s in body["samples"]]
-    assert ids == ["mni152-t1", "ernie-t1", "ernie-headmodel", "mni152-headmodel"]
-    assert [s["id"] for s in body["status"]] == ids
-    for sample in body["samples"]:
-        assert sample["layout"] in ("raw", "headmodel")
-        assert sample["bytes"] == sum(f["bytes"] for f in sample["files"])
+    assert [d["id"] for d in body["datasets"]] == ["ernie", "mni152"]
+    part_ids = [p["id"] for d in body["datasets"] for p in d["parts"]]
+    assert part_ids == ["ernie/nifti", "ernie/headmodel", "mni152/nifti", "mni152/headmodel"]
+    assert [s["id"] for s in body["status"]] == part_ids
+    for dataset in body["datasets"]:
+        assert dataset["bytes"] == sum(p["bytes"] for p in dataset["parts"])
+        for part in dataset["parts"]:
+            assert part["dataset"] == dataset["id"]
+            assert part["bytes"] == sum(f["bytes"] for f in part["files"])
+            assert part["meaning"]
     for entry in body["status"]:
         assert isinstance(entry["installed"], bool)
-        # Nothing is running, so the progress fields are the idle triple.
-        assert (entry["downloading"], entry["received"], entry["total"]) == (False, 0, 0)
+        # Nothing is running, so the progress fields are the idle quadruple.
+        assert (entry["downloading"], entry["queued"], entry["received"], entry["total"]) == (
+            False,
+            False,
+            0,
+            0,
+        )
 
 
 @pytest.fixture(autouse=True)
@@ -1652,18 +1662,15 @@ def _idle_example_data_state():
     yield
     if route._STATE.thread:
         route._STATE.thread.join(timeout=10)
-    route._STATE.thread = None
-    route._STATE.sample_id = None
-    route._STATE.received = route._STATE.total = 0
-    route._STATE.errors.clear()
+    route._STATE.reset()
 
 
 def _no_network_fetch(monkeypatch, record: list[str] | None = None):
     """Replace ``tit.examples.fetch`` so a route test never touches the real store."""
 
-    def fake(sample_id, project_dir, *, force=False, progress=None, log=None):
+    def fake(dataset_id, part_id=None, project_dir=None, *, force=False, progress=None, log=None):
         if record is not None:
-            record.append(sample_id)
+            record.append(f"{dataset_id}/{part_id}")
         return project_dir
 
     monkeypatch.setattr("tit.examples.fetch", fake)
@@ -1682,7 +1689,7 @@ def test_example_data_is_not_a_job(client: TestClient, monkeypatch) -> None:
     assert "/api/project/example-data" not in project_paths
     assert {r.path for r in new_module.router.routes} == {
         "/api/example-data",
-        "/api/example-data/{sample_id}",
+        "/api/example-data/{dataset_id}/{part_id}",
     }
 
     def job_count() -> int | None:
@@ -1694,18 +1701,19 @@ def test_example_data_is_not_a_job(client: TestClient, monkeypatch) -> None:
 
     _no_network_fetch(monkeypatch)
     n_before = job_count()
-    r = client.post("/api/example-data/ernie-t1", headers=BEARER)
+    r = client.post("/api/example-data/ernie/nifti", headers=BEARER)
     assert r.status_code == 200
-    assert "kind" not in r.json(), "a job status would carry a kind; this is a sample status"
+    assert "kind" not in r.json(), "a job status would carry a kind; this is a part status"
     if n_before is not None:
         assert job_count() == n_before, "starting a download must queue no job"
 
 
-def test_example_data_start_reports_state_and_never_double_starts(
+def test_example_data_start_reports_state_and_queues_the_rest(
     client: TestClient, monkeypatch
 ) -> None:
-    """``POST`` starts one fetch and returns at once; a second POST while it runs returns the
-    in-flight state rather than an error, and does **not** start a competing download."""
+    """``POST`` starts one part's fetch and returns at once; a second POST while it runs is
+    **queued**, not an error and not a competing download -- which is what the chooser's
+    "Download selected" leans on when several parts are ticked."""
     import threading
 
     from tit.server.routes import example_data as route
@@ -1713,25 +1721,27 @@ def test_example_data_start_reports_state_and_never_double_starts(
     release = threading.Event()
     started: list[str] = []
 
-    def slow_fetch(sample_id, project_dir, *, force=False, progress=None, log=None):
-        started.append(sample_id)
+    def slow_fetch(dataset_id, part_id=None, project_dir=None, *, force=False, progress=None, log=None):
+        full = f"{dataset_id}/{part_id}"
+        started.append(full)
         if progress:
-            progress(sample_id, "f", 10, 100)
+            progress(full, "f", 10, 100)
         release.wait(timeout=10)
         return project_dir
 
     monkeypatch.setattr("tit.examples.fetch", slow_fetch)
     try:
-        first = client.post("/api/example-data/ernie-t1", headers=BEARER)
+        first = client.post("/api/example-data/ernie/nifti", headers=BEARER)
         assert first.status_code == 200
-        assert first.json()["id"] == "ernie-t1"
+        assert first.json()["id"] == "ernie/nifti"
+        assert first.json()["dataset"] == "ernie" and first.json()["part"] == "nifti"
 
         # The GET the renderer polls reports it as running, with the bytes the fetch reported.
         for _ in range(200):
             entry = next(
                 e
                 for e in client.get("/api/example-data", headers=BEARER).json()["status"]
-                if e["id"] == "ernie-t1"
+                if e["id"] == "ernie/nifti"
             )
             if entry["downloading"] and entry["total"]:
                 break
@@ -1739,32 +1749,35 @@ def test_example_data_start_reports_state_and_never_double_starts(
         assert entry["downloading"] is True
         assert (entry["received"], entry["total"]) == (10, 100)
 
-        # A second request for another sample while busy: in-flight state, not an error, not a start.
-        second = client.post("/api/example-data/mni152-t1", headers=BEARER)
+        # A second request for another part while busy: queued, not an error, not a second thread.
+        second = client.post("/api/example-data/mni152/nifti", headers=BEARER)
         assert second.status_code == 200
-        assert second.json()["downloading"] is False, "the other sample is not the one running"
-        assert started == ["ernie-t1"], "no competing download was started"
+        assert second.json()["downloading"] is False, "the other part is not the one running"
+        assert second.json()["queued"] is True
+        assert started == ["ernie/nifti"], "no competing download was started"
     finally:
         release.set()
         if route._STATE.thread:
             route._STATE.thread.join(timeout=10)
+    # The worker drained its queue rather than dropping the second part on the floor.
+    assert started == ["ernie/nifti", "mni152/nifti"]
 
 
 def test_example_data_reports_a_failed_fetch(client: TestClient, monkeypatch) -> None:
-    """A fetch that raises is reported on the sample's own row, not swallowed into a log."""
+    """A fetch that raises is reported on the part's own row, not swallowed into a log."""
     from tit.server.routes import example_data as route
 
-    def boom(sample_id, project_dir, *, force=False, progress=None, log=None):
+    def boom(dataset_id, part_id=None, project_dir=None, *, force=False, progress=None, log=None):
         raise OSError("the store is unreachable")
 
     monkeypatch.setattr("tit.examples.fetch", boom)
-    assert client.post("/api/example-data/ernie-t1", headers=BEARER).status_code == 200
+    assert client.post("/api/example-data/ernie/nifti", headers=BEARER).status_code == 200
     if route._STATE.thread:
         route._STATE.thread.join(timeout=10)
     entry = next(
         e
         for e in client.get("/api/example-data", headers=BEARER).json()["status"]
-        if e["id"] == "ernie-t1"
+        if e["id"] == "ernie/nifti"
     )
     assert entry["downloading"] is False
     assert "unreachable" in entry["error"]
@@ -1796,26 +1809,22 @@ def test_example_data_route_needs_no_project_init_state(
     )
 
     body = client.get("/api/example-data", headers=BEARER).json()
-    assert [s["id"] for s in body["samples"]] == [
-        "mni152-t1",
-        "ernie-t1",
-        "ernie-headmodel",
-        "mni152-headmodel",
-    ]
-    r = client.post("/api/example-data/ernie-t1", headers=BEARER)
-    assert r.status_code == 200 and r.json()["id"] == "ernie-t1"
+    assert [d["id"] for d in body["datasets"]] == ["ernie", "mni152"]
+    r = client.post("/api/example-data/ernie/nifti", headers=BEARER)
+    assert r.status_code == 200 and r.json()["id"] == "ernie/nifti"
 
     from tit.server.routes import example_data as route
 
     if route._STATE.thread:
         route._STATE.thread.join(timeout=10)
-    assert started == ["ernie-t1"]
+    assert started == ["ernie/nifti"]
     # Nothing re-initialized the project behind the user's back.
     assert not (config / ".initialized").exists()
 
 
-def test_example_data_rejects_an_unknown_sample(client: TestClient) -> None:
-    assert client.post("/api/example-data/nope", headers=BEARER).status_code == 422
+def test_example_data_rejects_an_unknown_dataset_or_part(client: TestClient) -> None:
+    assert client.post("/api/example-data/nope/nifti", headers=BEARER).status_code == 422
+    assert client.post("/api/example-data/ernie/nope", headers=BEARER).status_code == 422
 
 
 def test_capabilities_has_jupyter_bool(client: TestClient) -> None:

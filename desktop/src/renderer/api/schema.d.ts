@@ -260,7 +260,7 @@ export interface paths {
         };
         /**
          * The example-data catalogue, what is installed, and any download in flight
-         * @description The samples tit/examples/catalog.json lists, plus a per-sample {installed, bytes} read off this project's disk and the live progress of whichever sample is downloading right now. Not a job: tit.examples is a plain function and this is the thin HTTP skin over it. The renderer polls this while anything is downloading and stops when nothing is.
+         * @description The datasets tit/examples/catalog.json lists, each with its independently downloadable parts, plus one status entry per part -- {installed, bytes} read off this project's disk and the live progress of whichever part is downloading right now. Parts are detected independently: deleting a subject's anat/ does not make its head model look absent. Not a job: tit.examples is a plain function and this is the thin HTTP skin over it. The renderer polls this while anything is downloading or queued and stops when nothing is.
          */
         get: {
             parameters: {
@@ -271,7 +271,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description catalogue and status */
+                /** @description catalogue and per-part status */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -298,7 +298,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/example-data/{sample_id}": {
+    "/api/example-data/{dataset_id}/{part_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -308,25 +308,27 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Start downloading one example sample into this project
-         * @description Starts the fetch on a background thread and returns at once; progress is read from GET /api/example-data. One download at a time -- a POST while another is in flight is not an error, it returns the in-flight state. Up to ~630 MB.
+         * Start downloading one part of one example dataset into this project
+         * @description Starts the fetch on a background worker and returns at once; progress is read from GET /api/example-data. One download at a time -- a POST while another is in flight is not an error, the part is appended to the worker's queue and comes back as queued, which is how the chooser's "Download selected" sends several parts. Up to ~590 MB per part.
          */
         post: {
             parameters: {
                 query?: {
-                    /** @description re-download even when the sample's files are already in place */
+                    /** @description re-download even when the part's files are already in place */
                     force?: boolean;
                 };
                 header?: never;
                 path: {
-                    /** @description a catalogue id, e.g. ernie-headmodel */
-                    sample_id: string;
+                    /** @description a catalogue dataset id, e.g. ernie */
+                    dataset_id: string;
+                    /** @description a part of that dataset, e.g. headmodel */
+                    part_id: string;
                 };
                 cookie?: never;
             };
             requestBody?: never;
             responses: {
-                /** @description this sample's state, started or already busy */
+                /** @description this part's state, started, queued or already installed */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -343,7 +345,7 @@ export interface paths {
                     };
                     content?: never;
                 };
-                /** @description unknown sample_id */
+                /** @description unknown dataset or part */
                 422: {
                     headers: {
                         [name: string]: unknown;
@@ -5352,7 +5354,7 @@ export interface components {
             /** @description the desktop's "Add example data?" chooser was answered (either way) */
             example_subject_prompted?: boolean | null;
             example_subjects?: string[] | null;
-            /** @description tit.examples catalogue ids installed into this project */
+            /** @description tit.examples DATASET/PART ids installed into this project */
             example_samples?: string[] | null;
         } & {
             [key: string]: unknown;
@@ -5363,42 +5365,57 @@ export interface components {
             sha256: string;
             url: string;
         };
-        ExampleDataSample: {
+        ExampleDataPart: {
+            /** @description the DATASET/PART id, e.g. ernie/headmodel */
+            id: string;
+            /** @description the dataset this part belongs to */
+            dataset: string;
+            /** @description the part id within the dataset, e.g. headmodel */
+            part: string;
+            title: string;
+            /** @description one line: what this part lets you do the moment it lands */
+            meaning: string;
+            /** @description the BIDS subject label the files land under */
+            subject: string;
+            /** @description sum of the file sizes */
+            bytes: number;
+            files: components["schemas"]["ExampleDataFile"][];
+        };
+        ExampleDataset: {
             id: string;
             title: string;
-            group: string;
             description: string;
             source: string;
             source_url: string;
             licence: string;
             /** @description the BIDS subject label the files land under */
             subject: string;
-            /**
-             * @description raw needs pre-processing; headmodel is ready to simulate
-             * @enum {string}
-             */
-            layout: "raw" | "headmodel";
-            /** @description sum of the file sizes */
+            /** @description sum of every part's size */
             bytes: number;
-            files: components["schemas"]["ExampleDataFile"][];
+            parts: components["schemas"]["ExampleDataPart"][];
         };
         ExampleDataStatus: {
+            /** @description the DATASET/PART id, e.g. ernie/headmodel */
             id: string;
-            /** @description every file of the sample is on disk */
+            dataset: string;
+            part: string;
+            /** @description every verify path of the part is on disk */
             installed: boolean;
             /** @description sum of the file sizes */
             bytes: number;
-            /** @description this sample is being fetched right now */
+            /** @description this part is being fetched right now */
             downloading: boolean;
+            /** @description this part is waiting behind the running one */
+            queued: boolean;
             /** @description bytes fetched so far; 0 unless downloading */
             received: number;
             /** @description bytes the running fetch expects; 0 unless downloading */
             total: number;
-            /** @description the message the last failed fetch of this sample ended with */
+            /** @description the message the last failed fetch of this part ended with */
             error?: string | null;
         };
         ExampleDataCatalog: {
-            samples: components["schemas"]["ExampleDataSample"][];
+            datasets: components["schemas"]["ExampleDataset"][];
             status: components["schemas"]["ExampleDataStatus"][];
         };
         Subject: {

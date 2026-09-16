@@ -19,8 +19,8 @@ export const EXAMPLE_DATA_PROMPT = {
   body: "Learn TI-Toolbox and test every page before using your own data.",
   download: "Download selected",
   later: "Not now",
-  /** Pre-ticked: the only sample that runs the optimizer, simulator and analyzer immediately. */
-  defaultSample: "ernie-headmodel",
+  /** Pre-ticked: the only part that runs the optimizer, simulator and analyzer immediately. */
+  defaultPart: "ernie/headmodel",
 } as const;
 
 /** Result of the project-status read, as the prompt needs to see it. */
@@ -47,16 +47,19 @@ export type PromptAnswer = "download" | "later";
 /**
  * Persist the answer first, then act on it. The record is written for both answers so the chooser
  * is shown exactly once; a failed download does not re-arm it — Help ▸ Example data remains.
+ *
+ * The ticked parts are POSTed **one after another, in order**: the server runs one download at a
+ * time and appends the rest to its worker queue, so the sequence here is the order they land in.
  */
 export async function answerExampleDataPrompt(
   answer: PromptAnswer,
-  sampleIds: readonly string[],
+  partIds: readonly string[],
   deps: {
     persist: (patch: ProjectStatus) => Promise<unknown>;
-    startDownload: (sampleId: string) => Promise<unknown>;
+    startDownload: (partId: string) => Promise<unknown>;
   },
 ): Promise<void> {
   await deps.persist({ example_subject_prompted: true });
   if (answer !== "download") return;
-  for (const id of sampleIds) await deps.startDownload(id);
+  for (const id of partIds) await deps.startDownload(id);
 }

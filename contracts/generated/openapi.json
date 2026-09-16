@@ -287,7 +287,7 @@
           "settings"
         ],
         "summary": "The example-data catalogue, what is installed, and any download in flight",
-        "description": "The samples tit/examples/catalog.json lists, plus a per-sample {installed, bytes} read off this project's disk and the live progress of whichever sample is downloading right now. Not a job: tit.examples is a plain function and this is the thin HTTP skin over it. The renderer polls this while anything is downloading and stops when nothing is.",
+        "description": "The datasets tit/examples/catalog.json lists, each with its independently downloadable parts, plus one status entry per part -- {installed, bytes} read off this project's disk and the live progress of whichever part is downloading right now. Parts are detected independently: deleting a subject's anat/ does not make its head model look absent. Not a job: tit.examples is a plain function and this is the thin HTTP skin over it. The renderer polls this while anything is downloading or queued and stops when nothing is.",
         "security": [
           {
             "cookieAuth": []
@@ -298,7 +298,7 @@
         ],
         "responses": {
           "200": {
-            "description": "catalogue and status",
+            "description": "catalogue and per-part status",
             "content": {
               "application/json": {
                 "schema": {
@@ -316,13 +316,13 @@
         }
       }
     },
-    "/api/example-data/{sample_id}": {
+    "/api/example-data/{dataset_id}/{part_id}": {
       "post": {
         "tags": [
           "settings"
         ],
-        "summary": "Start downloading one example sample into this project",
-        "description": "Starts the fetch on a background thread and returns at once; progress is read from GET /api/example-data. One download at a time -- a POST while another is in flight is not an error, it returns the in-flight state. Up to ~630 MB.",
+        "summary": "Start downloading one part of one example dataset into this project",
+        "description": "Starts the fetch on a background worker and returns at once; progress is read from GET /api/example-data. One download at a time -- a POST while another is in flight is not an error, the part is appended to the worker's queue and comes back as queued, which is how the chooser's \"Download selected\" sends several parts. Up to ~590 MB per part.",
         "security": [
           {
             "cookieAuth": []
@@ -334,12 +334,21 @@
         "parameters": [
           {
             "in": "path",
-            "name": "sample_id",
+            "name": "dataset_id",
             "required": true,
             "schema": {
               "type": "string"
             },
-            "description": "a catalogue id, e.g. ernie-headmodel"
+            "description": "a catalogue dataset id, e.g. ernie"
+          },
+          {
+            "in": "path",
+            "name": "part_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "a part of that dataset, e.g. headmodel"
           },
           {
             "in": "query",
@@ -349,12 +358,12 @@
               "type": "boolean",
               "default": false
             },
-            "description": "re-download even when the sample's files are already in place"
+            "description": "re-download even when the part's files are already in place"
           }
         ],
         "responses": {
           "200": {
-            "description": "this sample's state, started or already busy",
+            "description": "this part's state, started, queued or already installed",
             "content": {
               "application/json": {
                 "schema": {
@@ -370,7 +379,7 @@
             "description": "this server is not bound to a project"
           },
           "422": {
-            "description": "unknown sample_id"
+            "description": "unknown dataset or part"
           }
         }
       }
@@ -7733,7 +7742,7 @@
             "items": {
               "type": "string"
             },
-            "description": "tit.examples catalogue ids installed into this project"
+            "description": "tit.examples DATASET/PART ids installed into this project"
           }
         }
       },
@@ -7760,29 +7769,72 @@
           }
         }
       },
-      "ExampleDataSample": {
+      "ExampleDataPart": {
+        "type": "object",
+        "required": [
+          "id",
+          "dataset",
+          "part",
+          "title",
+          "meaning",
+          "subject",
+          "bytes",
+          "files"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "the DATASET/PART id, e.g. ernie/headmodel"
+          },
+          "dataset": {
+            "type": "string",
+            "description": "the dataset this part belongs to"
+          },
+          "part": {
+            "type": "string",
+            "description": "the part id within the dataset, e.g. headmodel"
+          },
+          "title": {
+            "type": "string"
+          },
+          "meaning": {
+            "type": "string",
+            "description": "one line: what this part lets you do the moment it lands"
+          },
+          "subject": {
+            "type": "string",
+            "description": "the BIDS subject label the files land under"
+          },
+          "bytes": {
+            "type": "integer",
+            "description": "sum of the file sizes"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExampleDataFile"
+            }
+          }
+        }
+      },
+      "ExampleDataset": {
         "type": "object",
         "required": [
           "id",
           "title",
-          "group",
           "description",
           "source",
           "source_url",
           "licence",
           "subject",
-          "layout",
           "bytes",
-          "files"
+          "parts"
         ],
         "properties": {
           "id": {
             "type": "string"
           },
           "title": {
-            "type": "string"
-          },
-          "group": {
             "type": "string"
           },
           "description": {
@@ -7801,22 +7853,14 @@
             "type": "string",
             "description": "the BIDS subject label the files land under"
           },
-          "layout": {
-            "type": "string",
-            "enum": [
-              "raw",
-              "headmodel"
-            ],
-            "description": "raw needs pre-processing; headmodel is ready to simulate"
-          },
           "bytes": {
             "type": "integer",
-            "description": "sum of the file sizes"
+            "description": "sum of every part's size"
           },
-          "files": {
+          "parts": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ExampleDataFile"
+              "$ref": "#/components/schemas/ExampleDataPart"
             }
           }
         }
@@ -7825,19 +7869,29 @@
         "type": "object",
         "required": [
           "id",
+          "dataset",
+          "part",
           "installed",
           "bytes",
           "downloading",
+          "queued",
           "received",
           "total"
         ],
         "properties": {
           "id": {
+            "type": "string",
+            "description": "the DATASET/PART id, e.g. ernie/headmodel"
+          },
+          "dataset": {
+            "type": "string"
+          },
+          "part": {
             "type": "string"
           },
           "installed": {
             "type": "boolean",
-            "description": "every file of the sample is on disk"
+            "description": "every verify path of the part is on disk"
           },
           "bytes": {
             "type": "integer",
@@ -7845,7 +7899,11 @@
           },
           "downloading": {
             "type": "boolean",
-            "description": "this sample is being fetched right now"
+            "description": "this part is being fetched right now"
+          },
+          "queued": {
+            "type": "boolean",
+            "description": "this part is waiting behind the running one"
           },
           "received": {
             "type": "integer",
@@ -7860,21 +7918,21 @@
               "string",
               "null"
             ],
-            "description": "the message the last failed fetch of this sample ended with"
+            "description": "the message the last failed fetch of this part ended with"
           }
         }
       },
       "ExampleDataCatalog": {
         "type": "object",
         "required": [
-          "samples",
+          "datasets",
           "status"
         ],
         "properties": {
-          "samples": {
+          "datasets": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ExampleDataSample"
+              "$ref": "#/components/schemas/ExampleDataset"
             }
           },
           "status": {

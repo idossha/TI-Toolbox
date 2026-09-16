@@ -1,69 +1,156 @@
+/**
+ * Example data: datasets as headed groups, parts as rows. The action column is deliberately quiet
+ * — an inline Download button, a 4px bar while it runs, a muted Installed pill after — so a list
+ * of four rows reads as chrome rather than as four competing calls to action.
+ */
 .example-data-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  gap: var(--space-4, 16px);
 }
 
-.example-data-row {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm, 4px);
-  background: var(--surface-1, transparent);
-}
-
-.example-data-choose {
+.example-dataset-head {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 8px 10px;
-  cursor: pointer;
-}
-
-.example-data-body {
-  display: flex;
-  flex: 1;
   flex-direction: column;
   gap: 2px;
-  min-width: 0;
+  margin-bottom: var(--space-2, 8px);
 }
 
-.example-data-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.example-data-title {
+.example-dataset-title {
+  margin: 0;
+  font-size: var(--text-body-size, 13px);
   font-weight: 600;
 }
 
-.example-data-size,
-.example-data-meta {
+.example-dataset-description,
+.example-dataset-meta {
+  margin: 0;
   color: var(--ink-2);
   font-size: var(--text-caption-size, 11px);
-}
-
-.example-data-description {
-  color: var(--ink-2);
   line-height: 1.4;
 }
 
-.example-data-installed {
+.example-part-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 4px);
+}
+
+.example-part + .example-part {
+  border-top: 1px solid var(--line);
+}
+
+.example-part-main {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  padding: 6px 10px;
+  min-height: 30px;
+}
+
+/* In the chooser the whole row is the checkbox's label, so it must look clickable. */
+label.example-part-main {
+  cursor: pointer;
+}
+
+.example-part-body {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  gap: var(--space-2, 8px);
+  min-width: 0;
+}
+
+.example-part-name {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.example-part-meaning {
+  flex: 1;
+  color: var(--ink-2);
+  font-size: var(--text-caption-size, 11px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.example-part-size {
+  color: var(--ink-2);
+  font-size: var(--text-caption-size, 11px);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* One fixed column so Download, the bar and Installed all occupy the same width — nothing on the
+   row shifts sideways when a download starts or finishes. */
+.example-part-action {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1, 4px);
+  flex: 0 0 140px;
+}
+
+.example-part-progress {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.example-part-track {
+  position: relative;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.example-part-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: inherit;
+  transition: width var(--duration-fast, 120ms) var(--ease-out, ease-out);
+}
+
+/* Before the first byte the server knows no total; a 0%-wide bar reads as stuck. */
+.example-part-track.is-indeterminate .example-part-fill {
+  width: 40%;
+  animation: indeterminate 1.2s ease-in-out infinite;
+}
+
+.example-part-bytes {
+  color: var(--ink-2);
+  font-size: var(--text-caption-size, 11px);
+  text-align: right;
+}
+
+.example-part-installed {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  color: var(--ok, var(--ink-2));
+  gap: 3px;
+  color: var(--ink-2);
   font-size: var(--text-caption-size, 11px);
   white-space: nowrap;
 }
 
-/* A fetch that failed, reported on its own row: the Download button stays, so it can be retried. */
-.example-data-error {
-  display: block;
-  margin-top: var(--space-1);
-  color: var(--danger-ink, var(--ink-2));
-  font-size: var(--text-xs, 0.75rem);
+/* A fetch that failed, reported under its own row; the Download button stays, so does Retry. */
+.example-part-error {
+  padding: 0 10px 6px 10px;
+}
+
+.example-part-retry {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
 }

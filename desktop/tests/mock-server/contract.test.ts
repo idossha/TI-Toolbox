@@ -191,7 +191,7 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     const { json: projectInit } = await call("/api/project/init", "POST", "/api/project/init", { body: {} });
     // Example data is a plain route, not a job: nothing to submit, nothing to delete below.
     await call("/api/example-data", "GET", "/api/example-data");
-    await call("/api/example-data/{sample_id}", "POST", "/api/example-data/mni152-t1");
+    await call("/api/example-data/{dataset_id}/{part_id}", "POST", "/api/example-data/mni152/nifti");
     await call("/api/catalog/subjects", "GET", "/api/catalog/subjects");
     await call("/api/catalog/simulations", "GET", "/api/catalog/simulations?subject=ernie");
     await call("/api/catalog/simulations/{name}", "GET", "/api/catalog/simulations/Thalamus?subject=ernie");

@@ -1738,17 +1738,35 @@ let projectStatus = NO_PROJECT_STATUS
   ? {}
   : { example_subjects: ["ernie"], example_subject_prompted: true };
 let projectStatusMissing = NO_PROJECT_STATUS;
-let exampleInstalledIds = new Set(NO_PROJECT_STATUS ? [] : ["ernie-headmodel"]);
+let exampleInstalledIds = new Set(NO_PROJECT_STATUS ? [] : ["ernie/headmodel"]);
 const exampleErrors = {};
 
-// Mirrors tit/examples/catalog.json: four samples, two layouts. Sizes are the real ones so the
-// chooser's "627 MB" is the number a user will actually see.
-const exampleSamples = [
-  { id: "mni152-t1", title: "MNI152 template — T1", group: "Raw MRI (needs pre-processing)", description: "The MNI152 template's T1 alone: the smallest way to run Pre-process end to end and build a head model yourself.", source: "SimNIBS example dataset", source_url: "https://github.com/simnibs/example-dataset", licence: "GPL-3.0", subject: "MNI152", layout: "raw", bytes: 14915970, files: [] },
-  { id: "ernie-t1", title: "Ernie — T1 + T2", group: "Raw MRI (needs pre-processing)", description: "The SimNIBS example subject's raw T1 and T2: what a real study starts from.", source: "SimNIBS example dataset", source_url: "https://github.com/simnibs/example-dataset", licence: "GPL-3.0", subject: "ernie", layout: "raw", bytes: 35424659, files: [] },
-  { id: "ernie-headmodel", title: "Ernie — head model", group: "Head model (ready to simulate)", description: "Ernie's T1 + T2 with the finished charm head model m2m_ernie.", source: "SimNIBS example dataset", source_url: "https://github.com/simnibs/example-dataset", licence: "GPL-3.0", subject: "ernie", layout: "headmodel", bytes: 627045804, files: [] },
-  { id: "mni152-headmodel", title: "MNI152 template — head model", group: "Head model (ready to simulate)", description: "The MNI152 template's T1 with its finished charm head model m2m_MNI152.", source: "SimNIBS example dataset", source_url: "https://github.com/simnibs/example-dataset", licence: "GPL-3.0", subject: "MNI152", layout: "headmodel", bytes: 477129122, files: [] },
+// Mirrors tit/examples/catalog.json: two datasets, each with an independently downloadable nifti
+// and headmodel part. Sizes are the real ones so the chooser's "564 MB" is the number a user will
+// actually see.
+const exampleDatasets = [
+  {
+    id: "ernie", title: "Ernie — SimNIBS example subject",
+    description: "The SimNIBS example head: a real adult T1 and T2, and the charm head model built from them.",
+    source: "SimNIBS example dataset", source_url: "https://github.com/simnibs/example-dataset",
+    licence: "GPL-3.0", subject: "ernie", bytes: 627045804,
+    parts: [
+      { id: "ernie/nifti", dataset: "ernie", part: "nifti", title: "Raw MRI", meaning: "Raw T1/T2 — needs pre-processing", subject: "ernie", bytes: 35424659, files: [] },
+      { id: "ernie/headmodel", dataset: "ernie", part: "headmodel", title: "Head model", meaning: "Head model — ready for optimizer, simulator, analyzer", subject: "ernie", bytes: 591621145, files: [] },
+    ],
+  },
+  {
+    id: "mni152", title: "MNI152 template",
+    description: "The MNI152 standard-space template head: its T1, and the charm head model built from it — a standard-space head for group-level or atlas-driven work.",
+    source: "SimNIBS example dataset", source_url: "https://github.com/simnibs/example-dataset",
+    licence: "GPL-3.0", subject: "MNI152", bytes: 477129122,
+    parts: [
+      { id: "mni152/nifti", dataset: "mni152", part: "nifti", title: "Raw MRI", meaning: "Raw T1 — needs pre-processing", subject: "MNI152", bytes: 14915970, files: [] },
+      { id: "mni152/headmodel", dataset: "mni152", part: "headmodel", title: "Head model", meaning: "Head model — ready for optimizer, simulator, analyzer", subject: "MNI152", bytes: 462213152, files: [] },
+    ],
+  },
 ];
+const exampleParts = exampleDatasets.flatMap((d) => d.parts);
 route("GET", "/api/project/status", (ctx) =>
   projectStatusMissing
     ? json(ctx.res, 404, { detail: "project_status.json not found" })
@@ -1767,17 +1785,21 @@ route("POST", "/api/project/init", async (ctx) => {
 // Example data is NOT a job: `GET` reports each sample's disk state plus the live progress of the
 // single in-flight fetch, and `POST` starts one and returns at once. The mock simulates the
 // download as a few ticks so the renderer's poll loop (and the e2e) sees progress then Installed.
-let exampleDownload = null; // { id, received, total, ticks }
-function exampleStatusOf(sample) {
-  const running = exampleDownload?.id === sample.id;
+let exampleDownload = null; // { id, received, total }
+const exampleQueue = []; // parts waiting their turn behind the running one
+function exampleStatusOf(part) {
+  const running = exampleDownload?.id === part.id;
   return {
-    id: sample.id,
-    installed: exampleInstalledIds.has(sample.id),
-    bytes: sample.bytes,
+    id: part.id,
+    dataset: part.dataset,
+    part: part.part,
+    installed: exampleInstalledIds.has(part.id),
+    bytes: part.bytes,
     downloading: !!running,
+    queued: exampleQueue.includes(part.id),
     received: running ? exampleDownload.received : 0,
     total: running ? exampleDownload.total : 0,
-    error: exampleErrors[sample.id] ?? null,
+    error: exampleErrors[part.id] ?? null,
   };
 }
 route("GET", "/api/example-data", (ctx) => {
@@ -1789,23 +1811,33 @@ route("GET", "/api/example-data", (ctx) => {
     );
     if (exampleDownload.received >= exampleDownload.total) {
       exampleInstalledIds.add(exampleDownload.id);
-      exampleDownload = null;
+      const next = exampleQueue.shift();
+      const part = next && exampleParts.find((p) => p.id === next);
+      exampleDownload = part ? { id: part.id, received: 0, total: part.bytes } : null;
     }
   }
   json(ctx.res, 200, {
-    samples: exampleSamples,
-    status: exampleSamples.map(exampleStatusOf),
+    datasets: exampleDatasets,
+    status: exampleParts.map(exampleStatusOf),
   });
 });
-route("POST", "/api/example-data/:sample_id", (ctx) => {
-  const sample = exampleSamples.find((s) => s.id === ctx.params.sample_id);
-  if (!sample) return json(ctx.res, 422, { detail: "unknown sample_id" });
-  // One at a time: a POST while another runs reports state, it does not start a second.
-  if (!exampleDownload && !exampleInstalledIds.has(sample.id)) {
-    delete exampleErrors[sample.id];
-    exampleDownload = { id: sample.id, received: 0, total: sample.bytes };
+route("POST", "/api/example-data/:dataset_id/:part_id", (ctx) => {
+  const id = `${ctx.params.dataset_id}/${ctx.params.part_id}`;
+  const part = exampleParts.find((p) => p.id === id);
+  if (!part) return json(ctx.res, 422, { detail: "unknown dataset or part" });
+  const force = ctx.url.searchParams.get("force") === "true";
+  if (force) exampleInstalledIds.delete(part.id);
+  // One at a time: a POST while another runs queues the part, it does not start a second.
+  if (!exampleDownload) {
+    delete exampleErrors[part.id];
+    if (force || !exampleInstalledIds.has(part.id)) {
+      exampleDownload = { id: part.id, received: 0, total: part.bytes };
+    }
+  } else if (exampleDownload.id !== part.id && !exampleQueue.includes(part.id)) {
+    delete exampleErrors[part.id];
+    exampleQueue.push(part.id);
   }
-  json(ctx.res, 200, exampleStatusOf(sample));
+  json(ctx.res, 200, exampleStatusOf(part));
 });
 route("GET", "/api/catalog/subjects", (ctx) => json(ctx.res, 200, subjects));
 route("GET", "/api/catalog/simulations", (ctx) => {
@@ -3158,8 +3190,9 @@ route("POST", "/api/__mock/project-status", async (ctx) => {
   const body = (await ctx.body()) ?? {};
   projectStatusMissing = body.missing !== false;
   projectStatus = projectStatusMissing ? {} : { example_subjects: ["ernie"], example_subject_prompted: true };
-  exampleInstalledIds = new Set(projectStatusMissing ? [] : ["ernie-headmodel"]);
+  exampleInstalledIds = new Set(projectStatusMissing ? [] : ["ernie/headmodel"]);
   exampleDownload = null;
+  exampleQueue.length = 0;
   json(ctx.res, 200, { missing: projectStatusMissing });
 });
 route("POST", "/api/__mock/project", async (ctx) => {

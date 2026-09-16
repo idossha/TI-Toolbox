@@ -165,7 +165,7 @@ class Project(BaseModel):
 
 
 class ExampleDataFile(BaseModel):
-    """One content-addressed asset of an example sample (``tit/examples/catalog.json``)."""
+    """One content-addressed asset of an example part (``tit/examples/catalog.json``)."""
 
     name: str
     bytes: int
@@ -173,45 +173,61 @@ class ExampleDataFile(BaseModel):
     url: str
 
 
-class ExampleDataSample(BaseModel):
-    """A sample as the catalogue describes it -- a set of files and where they land."""
+class ExampleDataPart(BaseModel):
+    """One independently downloadable piece of a dataset -- its NIfTIs, or its head model.
+
+    Each part is fetched and detected on its own, which is the whole point of the split: deleting
+    ``sub-ernie/anat`` must not make ``ernie/headmodel`` look absent.
+    """
+
+    id: str = Field(description="the DATASET/PART id, e.g. ernie/headmodel")
+    dataset: str = Field(description="the dataset this part belongs to")
+    part: str = Field(description="the part id within the dataset, e.g. headmodel")
+    title: str
+    meaning: str = Field(description="one line: what this part lets you do the moment it lands")
+    subject: str = Field(description="the BIDS subject label the files land under")
+    bytes: int = Field(description="sum of the file sizes")
+    files: list[ExampleDataFile]
+
+
+class ExampleDataset(BaseModel):
+    """One head, with its provenance and its parts."""
 
     id: str
     title: str
-    group: str
     description: str
     source: str
     source_url: str
     licence: str
     subject: str = Field(description="the BIDS subject label the files land under")
-    layout: Literal["raw", "headmodel"] = Field(
-        description="raw needs pre-processing; headmodel is ready to simulate"
-    )
-    bytes: int = Field(description="sum of the file sizes")
-    files: list[ExampleDataFile]
+    bytes: int = Field(description="sum of every part's size")
+    parts: list[ExampleDataPart]
 
 
 class ExampleDataStatus(BaseModel):
-    """What this project holds, read off disk, plus any download of it in flight.
+    """What this project holds of one part, read off disk, plus any download of it in flight.
 
-    ``installed``/``bytes`` need no network; ``downloading``/``received``/``total`` are the live
-    state of :mod:`tit.server.routes.example_data`'s single background fetch, which is why the
-    renderer can poll one endpoint instead of subscribing to a job stream.
+    ``installed``/``bytes`` need no network; ``downloading``/``queued``/``received``/``total`` are
+    the live state of :mod:`tit.server.routes.example_data`'s single background worker, which is
+    why the renderer can poll one endpoint instead of subscribing to a job stream.
     """
 
-    id: str
-    installed: bool = Field(description="every file of the sample is on disk")
+    id: str = Field(description="the DATASET/PART id, e.g. ernie/headmodel")
+    dataset: str
+    part: str
+    installed: bool = Field(description="every verify path of the part is on disk")
     bytes: int = Field(description="sum of the file sizes")
-    downloading: bool = Field(default=False, description="this sample is being fetched right now")
+    downloading: bool = Field(default=False, description="this part is being fetched right now")
+    queued: bool = Field(default=False, description="this part is waiting behind the running one")
     received: int = Field(default=0, description="bytes fetched so far; 0 unless downloading")
     total: int = Field(default=0, description="bytes the running fetch expects; 0 unless downloading")
     error: str | None = Field(
-        default=None, description="the message the last failed fetch of this sample ended with"
+        default=None, description="the message the last failed fetch of this part ended with"
     )
 
 
 class ExampleDataCatalog(BaseModel):
-    samples: list[ExampleDataSample]
+    datasets: list[ExampleDataset]
     status: list[ExampleDataStatus]
 
 
@@ -227,7 +243,7 @@ class ProjectStatus(BaseModel):
     )
     example_subjects: list[str] | None = None
     example_samples: list[str] | None = Field(
-        default=None, description="tit.examples catalogue ids installed into this project"
+        default=None, description="tit.examples DATASET/PART ids installed into this project"
     )
 
 

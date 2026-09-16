@@ -1,28 +1,21 @@
 /**
- * The example-data catalogue as rows, shared by the once-per-project chooser and Help ▸ Example
- * data — one list, two chromes (the maintainer's "no third copy of the list").
+ * The example-data catalogue as **datasets with parts**, shared by the once-per-project chooser and
+ * Help ▸ Example data — one list, two chromes (the maintainer's "no third copy of the list").
  *
- * `mode="choose"` gives each row a checkbox and the caller collects the ticked ids; `mode="manage"`
- * gives each row its own **Download** button with that sample's live progress, and says
- * **Installed** for what is already on disk. Both read the same `GET /api/example-data`.
+ * Each dataset is a heading (title, one-line description, and in `manage` its provenance and
+ * licence) over its parts, and every part is its own `PartRow`: independently downloadable,
+ * independently detected. That is the whole reason for the shape — the old catalogue's head-model
+ * *sample* contained the NIfTIs, so deleting `sub-ernie/anat` flipped a 590 MB head model still
+ * sitting on disk to "not installed".
  *
- * Progress comes from **polling that one endpoint**, not from the jobs stream: the server answers
- * each sample's `downloading`/`received`/`total` alongside `installed`, so a row needs no state of
- * its own. The poll runs only while something is in flight and stops by itself when nothing is.
+ * Progress comes from **polling `GET /api/example-data`**, not from the jobs stream: the server
+ * answers each part's `downloading`/`queued`/`received`/`total` alongside `installed`, so a row
+ * needs no state of its own. The poll runs only while something is in flight and stops by itself.
  */
 import { useQuery } from "@tanstack/react-query";
-import { Check, Download } from "lucide-react";
-import { Button } from "../../ui/Button";
 import { Callout, Skeleton } from "../../ui/Feedback";
-import { Chip } from "../../ui/Status";
-import {
-  EXAMPLE_DATA_POLL_MS,
-  EXAMPLE_DATA_QUERY_KEY,
-  formatBytes,
-  getExampleData,
-  layoutTag,
-  progressText,
-} from "./api";
+import { EXAMPLE_DATA_POLL_MS, EXAMPLE_DATA_QUERY_KEY, getExampleData, isBusy } from "./api";
+import { PartRow } from "./PartRow";
 import "./example-data.css";
 
 export function ExampleDataList({
@@ -32,23 +25,23 @@ export function ExampleDataList({
   onDownload,
 }: {
   mode: "choose" | "manage";
-  /** `choose` only: the ticked sample ids. */
+  /** `choose` only: the ticked part ids (`ernie/headmodel`). */
   selected?: readonly string[];
   onSelectedChange?: (ids: string[]) => void;
-  onDownload?: (sampleId: string) => void;
+  onDownload?: (partId: string, force?: boolean) => void;
 }) {
   const query = useQuery({
     queryKey: EXAMPLE_DATA_QUERY_KEY,
     queryFn: getExampleData,
-    // Poll only while a download is in flight; `false` stops it the moment none is.
+    // Poll only while a download is in flight or waiting; `false` stops it the moment none is.
     refetchInterval: (q) =>
-      q.state.data?.status.some((s) => s.downloading) ? EXAMPLE_DATA_POLL_MS : false,
+      q.state.data?.status.some(isBusy) ? EXAMPLE_DATA_POLL_MS : false,
   });
   if (query.isPending) return <Skeleton rows={4} />;
   if (query.error || !query.data)
     return <Callout kind="danger">Could not load the example-data catalogue.</Callout>;
 
-  const { samples, status } = query.data;
+  const { datasets, status } = query.data;
   const statusOf = (id: string) => status.find((s) => s.id === id);
   const toggle = (id: string) => {
     const now = selected ?? [];
@@ -56,76 +49,41 @@ export function ExampleDataList({
   };
 
   return (
-    <ul className="example-data-list" data-testid="example-data-list">
-      {samples.map((sample) => {
-        const sampleStatus = statusOf(sample.id);
-        const installed = sampleStatus?.installed === true;
-        const busy = progressText(sampleStatus);
-        const failed = sampleStatus?.error;
-        const checked = (selected ?? []).includes(sample.id);
-        const row = (
-          <>
-            <span className="example-data-head">
-              <span className="example-data-title">{sample.title}</span>
-              <Chip kind={sample.layout === "headmodel" ? "success" : "neutral"}>
-                {layoutTag(sample.layout)}
-              </Chip>
-              <span className="example-data-size">{formatBytes(sample.bytes)}</span>
-            </span>
-            <span className="example-data-description">{sample.description}</span>
-          </>
-        );
-        return (
-          <li key={sample.id} className="example-data-row" data-testid={`example-data-row-${sample.id}`}>
-            {mode === "choose" ? (
-              <label className="example-data-choose">
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  data-testid={`example-data-check-${sample.id}`}
-                  onChange={() => toggle(sample.id)}
-                />
-                <span className="example-data-body">{row}</span>
-              </label>
-            ) : (
-              <div className="example-data-choose">
-                <span className="example-data-body">
-                  {row}
-                  <span className="example-data-meta">
-                    <a href={sample.source_url} target="_blank" rel="noreferrer">
-                      {sample.source}
-                    </a>
-                    {" · "}
-                    {sample.licence}
-                  </span>
-                  {failed && (
-                    <span
-                      className="example-data-error"
-                      data-testid={`example-data-error-${sample.id}`}
-                    >
-                      {failed}
-                    </span>
-                  )}
-                </span>
-                {installed ? (
-                  <span className="example-data-installed" data-testid={`example-data-installed-${sample.id}`}>
-                    <Check size={14} aria-hidden /> Installed
-                  </span>
-                ) : (
-                  <Button
-                    size="sm"
-                    disabled={busy !== undefined}
-                    data-testid={`example-data-download-${sample.id}`}
-                    onClick={() => onDownload?.(sample.id)}
-                  >
-                    <Download size={14} aria-hidden /> {busy ?? "Download"}
-                  </Button>
-                )}
-              </div>
+    <div className="example-data-list" data-testid="example-data-list">
+      {datasets.map((dataset) => (
+        <section
+          key={dataset.id}
+          className="example-dataset"
+          data-testid={`example-data-dataset-${dataset.id}`}
+        >
+          <header className="example-dataset-head">
+            <h4 className="example-dataset-title">{dataset.title}</h4>
+            <p className="example-dataset-description">{dataset.description}</p>
+            {mode === "manage" && (
+              <p className="example-dataset-meta">
+                <a href={dataset.source_url} target="_blank" rel="noreferrer">
+                  {dataset.source}
+                </a>
+                {" · "}
+                {dataset.licence}
+              </p>
             )}
-          </li>
-        );
-      })}
-    </ul>
+          </header>
+          <ul className="example-part-list">
+            {dataset.parts.map((part) => (
+              <PartRow
+                key={part.id}
+                part={part}
+                status={statusOf(part.id)}
+                mode={mode}
+                checked={(selected ?? []).includes(part.id)}
+                onToggle={toggle}
+                onDownload={onDownload}
+              />
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
   );
 }

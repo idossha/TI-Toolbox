@@ -36,11 +36,12 @@ simnibs_python my_script.py
 In the GUI you open a project. In code, `get_path_manager` does the same: it is the object that
 knows where everything in a BIDS project lives, and every module uses it.
 
-No data of your own yet? `tit.examples.fetch_ernie(project)` downloads the `ernie-headmodel` sample
-(`ernie`, with its finished `m2m_ernie` head model, ~1.1 GB, GPL-3.0) into the project once and
-returns immediately when it is already there — the same call behind the Overview page's
-**Add example data** button and `python -m tit.examples --project DIR`; `tit.examples.fetch(id,
-project)` takes any of the four [catalogue ids]({{ site.baseurl }}/wiki/example-data/):
+No data of your own yet? `tit.examples.fetch_ernie(project)` downloads both parts of the `ernie`
+dataset (its raw T1/T2 and its finished `m2m_ernie` head model, ~1.1 GB, GPL-3.0) into the project
+once and returns immediately when they are already there — the same call behind the Overview page's
+**Add example data** button and `python -m tit.examples --project DIR`; `tit.examples.fetch(dataset,
+part, project)` takes any [catalogue part id]({{ site.baseurl }}/wiki/example-data/), such as
+`fetch("mni152", "headmodel", project)`:
 
 ```python
 import os
