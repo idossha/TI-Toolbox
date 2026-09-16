@@ -25,6 +25,7 @@ import urllib.error
 import urllib.request
 
 import tit
+from tit.certs import ssl_context
 from tit.launch import (
     LaunchError,
     LaunchOptions,
@@ -118,7 +119,8 @@ def resolve_desktop_executable() -> str:
 
 
 def _fetch(url: str, destination: Path, *, progress: bool = False) -> None:
-    with urllib.request.urlopen(url, timeout=120) as response:  # noqa: S310 - fixed https/file base
+    context = ssl_context() if url.startswith("https:") else None
+    with urllib.request.urlopen(url, timeout=120, context=context) as response:  # noqa: S310 - fixed https/file base
         total = int(response.headers.get("Content-Length") or 0)
         done = 0
         with destination.open("wb") as handle:

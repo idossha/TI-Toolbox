@@ -105,7 +105,7 @@ def served(monkeypatch):
     calls: list[str] = []
     monkeypatch.setattr(examples, "_load_catalog", lambda: catalog)
     monkeypatch.setattr(
-        examples.urllib.request, "urlopen", lambda url: (calls.append(url), _Resp(by_url[url]))[1]
+        examples.urllib.request, "urlopen", lambda url, **kw: (calls.append(url), _Resp(by_url[url]))[1]
     )
     return calls
 
@@ -114,7 +114,7 @@ def served(monkeypatch):
 def corrupt(served, monkeypatch):
     """The same store, serving one byte too few for every file."""
     monkeypatch.setattr(
-        examples.urllib.request, "urlopen", lambda url: (served.append(url), _Resp(b"junk"))[1]
+        examples.urllib.request, "urlopen", lambda url, **kw: (served.append(url), _Resp(b"junk"))[1]
     )
     return served
 
@@ -255,3 +255,115 @@ def test_shipped_catalogue_is_complete_and_content_addressed():
 
 def test_the_head_model_sample_fetch_ernie_names_exists():
     assert examples.sample_by_id(examples.ERNIE_HEADMODEL).layout == "headmodel"
+
+
+# ------------------------------------------------------------------- regressions (2026-09-15)
+
+
+def test_installed_detection_is_case_insensitive(tmp_path: Path, served):
+    """A project holding ``sub-Ernie/m2m_Ernie`` reports ernie installed.
+
+    The container filesystem is case-sensitive and the host's is not, so an existing SimNIBS
+    ``Ernie`` tree looked absent only in the container.
+    """
+    anat = tmp_path / "sub-Ernie" / "anat"
+    anat.mkdir(parents=True)
+    (anat / "sub-Ernie_T1w.nii.gz").write_bytes(T1)
+    (anat / "sub-Ernie_T2w.nii.gz").write_bytes(T2)
+    m2m = tmp_path / "derivatives" / "SimNIBS" / "sub-Ernie" / "m2m_Ernie"
+    m2m.mkdir(parents=True)
+    (m2m / "Ernie.msh").write_bytes(b"mesh")
+
+    by_id = {s["id"]: s["installed"] for s in examples.status(tmp_path)}
+    assert by_id["ernie-t1"] is True
+    assert by_id["ernie-headmodel"] is True
+    examples.fetch("ernie-headmodel", tmp_path)
+    assert not served, "an installed sample must not be downloaded again"
+
+
+def test_fetch_reuses_an_existing_differently_cased_tree(tmp_path: Path, served):
+    """``fetch`` fills the ``sub-Ernie`` tree already on disk instead of making a second one.
+
+    On a case-insensitive host filesystem the two names *are* one directory, so this asserts
+    identity rather than spelling; the container run in the changelog covers the case-sensitive leg.
+    """
+    (tmp_path / "sub-Ernie" / "anat").mkdir(parents=True)
+    simnibs_sub = tmp_path / "derivatives" / "SimNIBS" / "sub-Ernie"
+    simnibs_sub.mkdir(parents=True)
+
+    m2m = examples.fetch("ernie-headmodel", tmp_path)
+
+    assert m2m.parent.samefile(simnibs_sub)
+    assert (m2m / f"{m2m.name[len('m2m_') :]}.msh").read_bytes() == b"mesh"
+    assert (tmp_path / "sub-Ernie" / "anat" / "sub-ernie_T1w.nii.gz").read_bytes() == T1
+    assert [d.name for d in simnibs_sub.parent.iterdir() if d.is_dir()] == ["sub-Ernie"]
+    assert {s["id"]: s["installed"] for s in examples.status(tmp_path)}["ernie-headmodel"] is True
+
+
+def test_downloads_use_a_verifying_tls_context(tmp_path: Path, served, monkeypatch):
+    """Every download carries a verifying context -- never an unverified one."""
+    import ssl
+
+    seen: list[ssl.SSLContext] = []
+    inner = examples.urllib.request.urlopen
+
+    def record(url, **kw):
+        seen.append(kw["context"])
+        return inner(url)
+
+    monkeypatch.setattr(examples.urllib.request, "urlopen", record)
+    examples.fetch("ernie-t1", tmp_path)
+    assert seen
+    for ctx in seen:
+        assert ctx.verify_mode == ssl.CERT_REQUIRED
+        assert ctx.check_hostname is True
+
+
+def test_ssl_cert_file_is_honoured(tmp_path: Path, monkeypatch):
+    """A TLS-inspecting proxy's bundle is used when ``SSL_CERT_FILE`` names it."""
+    import ssl
+
+    from tit import certs
+
+    bundle = tmp_path / "proxy-ca.pem"
+    bundle.write_bytes(Path(ssl.get_default_verify_paths().openssl_cafile or _certifi()).read_bytes())
+    monkeypatch.setenv("SSL_CERT_FILE", str(bundle))
+    assert certs.ca_bundle() == str(bundle)
+    monkeypatch.delenv("SSL_CERT_FILE")
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", str(bundle))
+    assert certs.ca_bundle() == str(bundle)
+
+
+def _certifi() -> str:
+    import certifi
+
+    return certifi.where()
+
+
+def test_ssl_context_never_disables_verification(monkeypatch):
+    """No environment makes :func:`tit.certs.ssl_context` skip verification."""
+    import ssl
+
+    from tit import certs
+
+    monkeypatch.delenv("SSL_CERT_FILE", raising=False)
+    monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
+    monkeypatch.setattr(certs, "_certifi_bundle", lambda: None)
+    monkeypatch.setattr(certs, "_SYSTEM_CA_BUNDLES", ())
+    ctx = certs.ssl_context()
+    assert ctx.verify_mode == ssl.CERT_REQUIRED
+    assert ctx.check_hostname is True
+
+
+def test_no_source_disables_certificate_verification():
+    """A guard: the toolbox must never build an unverified TLS context."""
+    import tit
+
+    root = Path(tit.__file__).parent
+    offenders = []
+    for path in root.rglob("*.py"):
+        text = path.read_text(encoding="utf-8")
+        for needle in ("= ssl.CERT_NONE", "_create_unverified_context(", ".check_hostname = False"):
+            if needle in text:
+                offenders.append(f"{path.relative_to(root)}: {needle}")
+    assert not offenders, offenders

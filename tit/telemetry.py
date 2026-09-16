@@ -65,6 +65,7 @@ from pathlib import Path
 from typing import Any, Generator
 
 import tit
+from tit import certs
 from tit import constants as const
 
 logger = logging.getLogger(__name__)
@@ -353,44 +354,13 @@ def _system_params() -> dict[str, str]:
 # ---------------------------------------------------------------------------
 
 
-# System CA bundle paths to try when the default SSL context has no certs
-# (common in conda-based environments like SimNIBS inside Docker).
-_CA_BUNDLE_PATHS = (
-    "/etc/ssl/certs/ca-certificates.crt",  # Debian / Ubuntu
-    "/etc/pki/tls/certs/ca-bundle.crt",  # RHEL / CentOS / Fedora
-    "/etc/ssl/cert.pem",  # Alpine / macOS
-    "/etc/ssl/ca-bundle.pem",  # openSUSE
-)
+def _ssl_context() -> ssl.SSLContext:
+    """A verifying context from :mod:`tit.certs` (SSL_CERT_FILE / certifi / system bundle).
 
-
-def _ssl_context() -> ssl.SSLContext | None:
-    """Return an SSL context that can verify GA4's certificate.
-
-    The default context works on most hosts, but inside Docker the
-    conda-built Python used by SimNIBS often has no CA bundle.
-    This helper falls back to well-known system CA paths.
-
-    Returns ``None`` (use default context) when certs are fine,
-    or a configured :class:`ssl.SSLContext` when a system bundle was
-    found.
+    The conda Python inside the container has no usable default CA bundle; verification is never
+    disabled -- telemetry that cannot verify GA4's certificate is dropped like any other failure.
     """
-    # Fast path: default context works
-    ctx = ssl.create_default_context()
-    if ctx.get_ca_certs():
-        return None  # urllib will use its own default — no override needed
-
-    # Try system CA bundles
-    for ca_path in _CA_BUNDLE_PATHS:
-        if os.path.isfile(ca_path):
-            ctx.load_verify_locations(ca_path)
-            return ctx
-
-    # Last resort: no verification (still encrypted, just no cert check).
-    # Acceptable for anonymous telemetry — not for auth or sensitive data.
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-    return ctx
+    return certs.ssl_context()
 
 
 def _send_ga4(payload: dict[str, Any]) -> None:

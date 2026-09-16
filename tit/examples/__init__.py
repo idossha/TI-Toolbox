@@ -17,7 +17,8 @@ charm head models ready for the optimizer, simulator and analyzer (``ernie-headm
 Entry points: ``python -m tit.examples --project DIR [--list] [SAMPLE_ID ...]``, the server routes
 ``GET/POST /api/project/example-data`` (a ``project_init`` job) and the desktop's *Add example
 data?* chooser and *Help > Example data* tab. Stdlib only, so it runs on the host and in the
-container. :func:`fetch_ernie` is kept as the notebook's one-liner for ``ernie-headmodel``.
+container, over a verified TLS context from :mod:`tit.certs`. :func:`fetch_ernie` is kept as the
+notebook's one-liner for ``ernie-headmodel``.
 """
 
 from __future__ import annotations
@@ -25,13 +26,17 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+import ssl
 import tarfile
 import tempfile
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
 from typing import Any, Callable
+
+from tit.certs import ca_bundle_hint, ssl_context
 
 __all__ = [
     "Sample",
@@ -112,35 +117,70 @@ def sample_by_id(sample_id: str) -> Sample:
     raise KeyError(f"unknown example sample {sample_id!r}; see `python -m tit.examples --list`")
 
 
-# ----------------------------------------------------------------------------- placement
+# ------------------------------------------------------------- placement and detection
+#
+# The toolbox always *writes* the catalogue's own subject label (``ernie``, ``MNI152``) --
+# ``sub-ernie/anat``, ``derivatives/SimNIBS/sub-ernie/m2m_ernie``. It *reads* case-insensitively:
+# SimNIBS itself ships ``m2m_ernie`` while plenty of projects on disk say ``sub-Ernie``/``m2m_Ernie``,
+# and the container filesystem is case-sensitive where macOS is not -- which is exactly why an
+# already-installed ernie showed up as absent in the container and not on the host.
+
+
+def _resolve(parent: Path, name: str) -> Path:
+    """*parent*/*name*, or an existing sibling that differs only in case."""
+    exact = parent / name
+    if exact.exists() or not parent.is_dir():
+        return exact
+    lowered = name.lower()
+    for entry in parent.iterdir():
+        if entry.name.lower() == lowered:
+            return entry
+    return exact
+
+
+def _subject_dir(project_dir: Path, subject: str) -> Path:
+    """``<project>/sub-<subject>``, matching an existing directory of any case."""
+    return _resolve(project_dir, f"sub-{subject}")
 
 
 def _anat_dir(project_dir: Path, subject: str) -> Path:
-    return project_dir / f"sub-{subject}" / "anat"
+    return _subject_dir(project_dir, subject) / "anat"
 
 
 def _m2m_dir(project_dir: Path, subject: str) -> Path:
-    return project_dir / "derivatives" / "SimNIBS" / f"sub-{subject}" / f"m2m_{subject}"
+    """``<project>/derivatives/SimNIBS/sub-<subject>/m2m_<subject>``, of any case on disk."""
+    simnibs = project_dir / "derivatives" / "SimNIBS"
+    sub = _resolve(simnibs, f"sub-{subject}")
+    # Reuse the case the subject directory settled on, so sub-Ernie/m2m_Ernie is found.
+    label = sub.name[len("sub-") :]
+    return _resolve(sub, f"m2m_{label}")
 
 
-def _is_headmodel_archive(f: SampleFile) -> bool:
+def _is_archive(f: SampleFile) -> bool:
     return f.name.endswith(".tar.gz")
 
 
 def _destination(project_dir: Path, sample: Sample, f: SampleFile) -> Path:
     """Where the file's *content* ends up: the unpacked ``m2m_<id>`` for an archive, else anat."""
-    if _is_headmodel_archive(f):
+    if _is_archive(f):
         return _m2m_dir(project_dir, sample.subject)
-    return _anat_dir(project_dir, sample.subject) / f.name
+    return _resolve(_anat_dir(project_dir, sample.subject), f.name)
+
+
+def _target_dir(project_dir: Path, sample: Sample) -> Path:
+    """The directory :func:`fetch` reports as the one it filled."""
+    if sample.layout == "headmodel":
+        return _m2m_dir(project_dir, sample.subject)
+    return _anat_dir(project_dir, sample.subject)
 
 
 def _installed(project_dir: Path, sample: Sample) -> bool:
     for f in sample.files:
         dest = _destination(project_dir, sample, f)
-        if _is_headmodel_archive(f):
-            if not dest.is_dir() or not (dest / f"{sample.subject}.msh").is_file():
+        if not _is_archive(f):
+            if not dest.is_file():
                 return False
-        elif not dest.is_file():
+        elif not dest.is_dir() or not _resolve(dest, f"{dest.name[len('m2m_') :]}.msh").is_file():
             return False
     return True
 
@@ -151,21 +191,38 @@ def status(project_dir: str | Path) -> list[dict[str, Any]]:
     return [{"id": s.id, "installed": _installed(root, s), "bytes": s.bytes} for s in catalogue()]
 
 
-# ------------------------------------------------------------------------------ download
+# ------------------------------------------------------------------- download and install
 
 
-def _download(f: SampleFile, dest: Path, *, on_bytes: Callable[[int], None] | None = None) -> str:
-    """Stream ``f.url`` to *dest*, returning its sha256; whole-percent progress via *on_bytes*."""
-    h = hashlib.sha256()
+def _download(f: SampleFile, dest: Path, on_bytes: Callable[[int], None]) -> None:
+    """Stream ``f.url`` to *dest* in one pass, verifying size and sha256 before returning.
+
+    Raises :class:`ValueError` on a size/hash mismatch and :class:`OSError` on a transport
+    failure -- a TLS failure carries :func:`~tit.certs.ca_bundle_hint`.
+    """
+    digest = hashlib.sha256()
     received = 0
-    with urllib.request.urlopen(f.url) as resp, open(dest, "wb") as out:  # noqa: S310 - pinned https URL
-        while chunk := resp.read(1 << 20):
-            out.write(chunk)
-            h.update(chunk)
-            received += len(chunk)
-            if on_bytes:
+    try:
+        with (
+            urllib.request.urlopen(  # noqa: S310 - pinned https URL, verified context
+                f.url, context=ssl_context(), timeout=60
+            ) as resp,
+            dest.open("wb") as out,
+        ):
+            while chunk := resp.read(1 << 20):
+                out.write(chunk)
+                digest.update(chunk)
+                received += len(chunk)
                 on_bytes(received)
-    return h.hexdigest()
+    except urllib.error.URLError as exc:
+        if isinstance(exc.reason, ssl.SSLError):
+            raise OSError(f"{f.name}: {ca_bundle_hint()} ({exc.reason})") from exc
+        raise OSError(f"{f.name}: download failed ({exc.reason})") from exc
+    if received != f.bytes or digest.hexdigest() != f.sha256:
+        raise ValueError(
+            f"{f.name}: downloaded {received} B with sha256 {digest.hexdigest()}; the catalogue "
+            f"says {f.bytes} B / {f.sha256} -- refusing to install it"
+        )
 
 
 def _safe_members(tar: tarfile.TarFile, prefix: str) -> list[tarfile.TarInfo]:
@@ -181,18 +238,20 @@ def _safe_members(tar: tarfile.TarFile, prefix: str) -> list[tarfile.TarInfo]:
 
 
 def _place(project_dir: Path, sample: Sample, f: SampleFile, tmp_file: Path) -> None:
+    """Move one staged file into the project: unpack an archive, otherwise drop it in ``anat``."""
     dest = _destination(project_dir, sample, f)
-    if _is_headmodel_archive(f):
-        prefix = f"m2m_{sample.subject}"
-        with tarfile.open(tmp_file, "r:gz") as tar:
-            members = _safe_members(tar, prefix)
-            if dest.exists():
-                shutil.rmtree(dest)
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            tar.extractall(dest.parent, members=members)  # noqa: S202 - members vetted above
-    else:
-        dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if not _is_archive(f):
         shutil.move(str(tmp_file), dest)
+        return
+    with tarfile.open(tmp_file, "r:gz") as tar:
+        members = _safe_members(tar, f.name[: -len(".tar.gz")])
+        if dest.exists():
+            shutil.rmtree(dest)
+        tar.extractall(dest.parent, members=members)  # noqa: S202 - members vetted above
+        extracted = dest.parent / f.name[: -len(".tar.gz")]
+        if extracted != dest:  # the project uses another case; keep the case already on disk
+            extracted.rename(dest)
 
 
 def _register(project_dir: Path, sample: Sample) -> None:
@@ -242,43 +301,38 @@ def fetch(
     """
     sample = sample_by_id(sample_id)
     root = Path(project_dir).expanduser().resolve()
-    target = (_m2m_dir if sample.layout == "headmodel" else _anat_dir)(root, sample.subject)
+    target = _target_dir(root, sample)
     if _installed(root, sample) and not force:
         log(f"{sample.id} already present: {target}", flush=True)
         return target
 
-    total = sample.bytes
-    done_before = 0
+    total = max(sample.bytes, 1)
+    done = 0
     last_pct = -1
+
+    def report(name: str, base: int, received: int) -> None:
+        nonlocal last_pct
+        if progress:
+            progress(sample.id, name, base + received, total)
+        pct = (base + received) * 100 // total
+        if pct != last_pct:
+            last_pct = pct
+            log(f"download {pct}%", flush=True)
+
     with tempfile.TemporaryDirectory(prefix="tit-examples-") as tmp:
         staged: list[tuple[SampleFile, Path]] = []
         for f in sample.files:
             tmp_file = Path(tmp) / f.name
             log(f"downloading {f.name} ({f.bytes / 1e6:.0f} MB)", flush=True)
-
-            def on_bytes(received: int, *, name: str = f.name, base: int = done_before) -> None:
-                nonlocal last_pct
-                if progress:
-                    progress(sample.id, name, base + received, total)
-                pct = (base + received) * 100 // max(total, 1)
-                if pct != last_pct:
-                    log(f"download {pct}%", flush=True)
-                    last_pct = pct
-
-            digest = _download(f, tmp_file, on_bytes=on_bytes)
-            size = tmp_file.stat().st_size
-            if digest != f.sha256 or size != f.bytes:
-                raise ValueError(
-                    f"{f.name}: downloaded {size} B with sha256 {digest}; the catalogue says "
-                    f"{f.bytes} B / {f.sha256} -- refusing to install it"
-                )
+            _download(f, tmp_file, lambda n, name=f.name, base=done: report(name, base, n))
             staged.append((f, tmp_file))
-            done_before += f.bytes
+            done += f.bytes
         log("checksums ok; installing", flush=True)
         for f, tmp_file in staged:
             _place(root, sample, f, tmp_file)
 
     _register(root, sample)
+    target = _target_dir(root, sample)
     log(f"{sample.id} ready: {target}", flush=True)
     return target
 

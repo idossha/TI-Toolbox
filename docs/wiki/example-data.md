@@ -51,3 +51,9 @@ simulate* sample also unpacks `derivatives/SimNIBS/sub-<id>/m2m_<id>/`, so the
 Every route runs the same code and is idempotent: a sample already in place is skipped unless you
 pass `--force`. In the app the download is a job, so it shows in the jobs rail and survives you
 navigating away.
+
+## Behind a proxy?
+
+Downloads verify the store's TLS certificate against `certifi`, falling back to your system CA
+bundle. If your network inspects TLS, point `SSL_CERT_FILE` (or `REQUESTS_CA_BUNDLE`) at your
+organisation's CA bundle before starting the toolbox; certificate verification is never disabled.
