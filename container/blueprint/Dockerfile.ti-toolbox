@@ -1,5 +1,6 @@
 # Dockerfile.ti-toolbox — the one recipe for idossha/ti-toolbox:<ver>.
-# SimNIBS 4.6 + tit + tit.server + FastSurfer + the built UI + the Tetravox embed.
+# SimNIBS 4.6 + tit + tit.server + FastSurfer + the built UI. No viewer bundle:
+# TetraVox is a native host application the desktop app installs for the user.
 # Built by container/blueprint/build.sh; see container/blueprint/README.md for the why.
 
 # --- source: the tree both the UI build and the final stage use, so both get one commit ---

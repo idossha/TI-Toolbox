@@ -48,7 +48,7 @@ Step-by-step instructions per platform are in the
 | **SimNIBS** | 4.6, with the toolbox's patches applied at build time |
 | **Python** | 3.11 — SimNIBS's own environment, which is also the Notebooks kernel |
 | **FastSurfer** | 2.5.4, CPU-only, `--seg_only`, with its checkpoints pre-downloaded |
-| **Tetravox Embed** | The viewer, served by the container and drawn on your machine's GPU |
+| **No viewer** | TetraVox is a native application on your machine, installed by the desktop app and drawn on your own GPU |
 | **`tit` + `tit.server`** | The scientific package and the API the app talks to |
 | **Not included** | Gmsh, Qt/PyQt5, any X server, FreeSurfer `recon-all`, the MATLAB Runtime |
 

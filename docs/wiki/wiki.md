@@ -21,7 +21,6 @@ server fit together.
 - **[Flex Search](flex-search)** - The Optimizer's *Flex* method: differential-evolution electrode optimization
 - **[Ex Search](ex-search)** - The Optimizer's *Ex* method: exhaustive search over a leadfield matrix
 - **[Analyzer](analyzer)** - Field analysis in mesh and voxel space, one target per job row
-- **[Pipeline](pipelines)** - Wire the steps into a graph and run the whole thing as one job group
 - **[Notebooks](notebooks)** - Jupyter on the container's SimNIBS Python, inside the app
 - **[Results](results)** - Every output a subject has, with reports rendered in place
 - **[Viewer](visualizers)** - Tetravox, shipped in the image and drawn in the app window

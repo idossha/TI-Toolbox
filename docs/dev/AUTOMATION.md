@@ -8,7 +8,7 @@ owns unresolved work. Workflow and script source is authoritative for inputs and
 
 | Source | Trigger and responsibility |
 |---|---|
-| [CircleCI](../../.circleci/config.yml) | Source and desktop checks; full image build selected explicitly with `build_image` and compatible embed inputs |
+| [CircleCI](../../.circleci/config.yml) | Source and desktop checks; full image build selected explicitly with `build_image` |
 | [Release build](../../.github/workflows/release-build.yml) | Stable tags, manual dispatch or reusable invocation; export, internal distribution and public release modes |
 | [Docs deploy](../../.github/workflows/deploy-docs.yml) | Relevant `main` pushes or manual dispatch; builds MkDocs API then Jekyll, checks assets and deploys Pages |
 | [CodeQL](../../.github/workflows/code-ql-analysis.yml) | Configured pushes, PRs and weekly schedule; static analysis |

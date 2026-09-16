@@ -6,8 +6,8 @@ permalink: /gallery/gmsh-freeview/
 
 <link rel="stylesheet" href="{{ '/assets/css/lightbox.css' | relative_url }}">
 
-<p><em>V2 gallery (deprecated): TI-Toolbox's built-in viewer is now Tetravox Embed, rendered inside the app
-window — see the <a href="{{ site.baseurl }}/wiki/visualizers/">Viewer</a> page. The Gmsh and
+<p><em>V2 gallery (deprecated): TI-Toolbox's viewer is now the native TetraVox application,
+opened in its own window — see the <a href="{{ site.baseurl }}/wiki/visualizers/">Viewer</a> page. The Gmsh and
 Freeview screenshots below are retained from the classic bash/CLI workflow for legacy users.
 See <a href="{{ site.baseurl }}/wiki/legacy-v2/">Legacy v2 users</a> for version-specific documentation.</em></p>
 
