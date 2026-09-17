@@ -1284,7 +1284,15 @@ class Analyzer:
             )
             tissues = nib.load(str(Path(self.m2m_path) / "final_tissues.nii.gz"))
             grid = np.squeeze(np.asarray(tissues.dataobj))
-            if mask is not None:
+            if spheres:
+                # A sphere is framed as the sphere the user typed, inside grey
+                # matter — not as the sulcal fragments its surface patch makes.
+                on_grid = np.zeros(grid.shape, dtype=np.int16)
+                for index, (x, y, z, r) in enumerate(spheres, start=1):
+                    centre = np.dot(np.linalg.inv(tissues.affine), [x, y, z, 1.0])[:3]
+                    inside = _world_distance_grid(tissues.affine, centre, grid.shape) <= float(r)
+                    on_grid[inside & (grid == GM_TISSUE_LABEL) & (on_grid == 0)] = index
+            elif mask is not None:
                 src = nib.Nifti1Image(np.asarray(mask, dtype=np.int16), affine)
                 on_grid = np.asarray(
                     resample_from_to(src, (grid.shape, tissues.affine), order=0).dataobj
@@ -1307,6 +1315,13 @@ class Analyzer:
                 if spheres and len(spheres) == 1:
                     x, y, z, r = spheres[0]
                     sphere = ((float(x), float(y), float(z)), float(r))
+                if sphere is not None:
+                    # One typed sphere: framed by the sphere rule, never split
+                    # into the grey-matter fragments it covers.
+                    path = str(Path(scratch) / "sphere.nii")
+                    nib.save(nib.Nifti1Image(np.asarray(on_grid > 0, dtype=np.uint8), tissues.affine), path)
+                    self._roi_plate(mask_path=path, space="subject", out_dir=plate_dir, name=region_name, sphere=sphere)
+                    return plate_dir
                 # One file per region value: the confirmation unions them into
                 # one plate and keeps each region's own colour and count.
                 entries = []
