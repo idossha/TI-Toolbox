@@ -5844,7 +5844,7 @@ export interface components {
             totals: components["schemas"]["OverviewTotals"];
         };
         /** @enum {string} */
-        PipelineKind: "pre" | "sim" | "flex" | "flex_adaptive" | "flex_pareto" | "ex" | "mex" | "leadfield" | "analyzer" | "stats" | "source" | "blender" | "nifti_average" | "nilearn";
+        PipelineKind: "pre" | "sim" | "flex" | "flex_adaptive" | "flex_pareto" | "ex" | "mex" | "recip" | "leadfield" | "analyzer" | "stats" | "source" | "blender" | "nifti_average" | "nilearn";
         ValidateError: {
             path: string;
             message: string;
@@ -5915,7 +5915,7 @@ export interface components {
             resolved?: components["schemas"]["PlanResolved"] | null;
         };
         /** @enum {string} */
-        JobKind: "pre" | "sim" | "flex" | "flex_adaptive" | "flex_pareto" | "ex" | "mex" | "leadfield" | "analyzer" | "stats" | "source" | "blender" | "nifti_average" | "nilearn" | "project_init" | "tools" | "report";
+        JobKind: "pre" | "sim" | "flex" | "flex_adaptive" | "flex_pareto" | "ex" | "mex" | "recip" | "leadfield" | "analyzer" | "stats" | "source" | "blender" | "nifti_average" | "nilearn" | "project_init" | "tools" | "report";
         /** @enum {string} */
         JobState: "queued" | "running" | "succeeded" | "failed" | "cancelled" | "skipped" | "lost";
         JobProgress: {
@@ -7019,6 +7019,119 @@ export interface components {
              * @default within_pairs
              */
             symmetry_pairing: string;
+        };
+        /**
+         * RecipConfig
+         * @description Full configuration for reciprocity search.
+         *
+         *     Reciprocity search picks a montage from a precomputed leadfield with no
+         *     FEM solve and no exhaustive sweep: by the reciprocity theorem, electrode
+         *     *i*'s leadfield column evaluated at the target **is** the scalp potential
+         *     a unit dipole at the target would produce at *i*, so the best bipolar
+         *     pair for a target direction is simply ``argmax_i`` minus ``argmin_i`` of
+         *     that potential.  The top-ranked pairs are then combined into
+         *     *n_channels*-channel montages and scored with the same TI envelope the
+         *     exhaustive searches use (:func:`tit.calc.get_TI_vectors`).
+         *
+         *     Attributes
+         *     ----------
+         *     subject_id : str
+         *         Subject identifier matching the m2m directory name.
+         *     leadfield_hdf : str
+         *         Leadfield HDF5 to read -- an absolute path, or a filename relative to
+         *         the subject's ``leadfields`` directory.
+         *     target : PointTarget or RoiTarget
+         *         Where the reciprocity source sits.  :class:`PointTarget` is one
+         *         coordinate (plus an optional inclusion radius); :class:`RoiTarget`
+         *         reuses the exhaustive search's ROI inputs unchanged.
+         *     direction : list of float or None
+         *         Target field direction ``[dx, dy, dz]`` in the target's space, or
+         *         ``None`` to maximise envelope amplitude in any direction.  Normalised
+         *         by the runner; a zero vector is rejected.
+         *     objective : str
+         *         ``"intensity"`` (rank by ROI mean) or ``"focality"`` (rank by
+         *         ``focality_tf``).
+         *     focality_weight : float
+         *         Intensity weight ``w`` in ``focality_tf = roi_mean**(1 + w) /
+         *         gm_p95``, in ``[0, 1]``.  Used only when *objective* is
+         *         ``"focality"``; the same definition as ``FlexConfig`` goal
+         *         ``"focality_tf"``.
+         *     n_channels : int
+         *         Electrode pairs (current channels) in the montage: 2 (TI) or 4 (mTI).
+         *         The wire contract declares an int in ``[2, 4]``; 3 is rejected
+         *         because the verified envelope (:func:`tit.calc.get_TI_vectors`,
+         *         :func:`tit.constants.is_valid_pair_count`) is defined for an even
+         *         number of channels only.
+         *     current_mA : float
+         *         Current per channel, in mA.
+         *     top_k : int or None
+         *         Reciprocity-ranked pairs kept for the combinatorial stage.  ``None``
+         *         uses :data:`DEFAULT_TOP_K` for *n_channels*.
+         *     gm_subsample : int
+         *         Grey-matter elements sampled (seed 0) outside the ROI, for the
+         *         background percentile.
+         *     run_name : str or None
+         *         Output directory name under ``recip-search/``.  Defaults to a
+         *         datetime stamp.
+         *
+         *     Raises
+         *     ------
+         *     ValueError
+         *         Any field outside the ranges above.
+         *
+         *     See Also
+         *     --------
+         *     RecipResult : Result container returned by :func:`~tit.opt.recip.recip.run_recip_search`.
+         *     tit.opt.recip.recip.run_recip_search : Consumes this config.
+         */
+        RecipConfig: {
+            /** Subject Id */
+            subject_id: string;
+            /** Leadfield Hdf */
+            leadfield_hdf: string;
+            /** Target */
+            target: components["schemas"]["PointTarget"] | components["schemas"]["RoiTarget"];
+            /**
+             * Direction
+             * @default null
+             */
+            direction: number[] | null;
+            /**
+             * Objective
+             * @default intensity
+             * @enum {string}
+             */
+            objective: "intensity" | "focality";
+            /**
+             * Focality Weight
+             * @default 0
+             */
+            focality_weight: number;
+            /**
+             * N Channels
+             * @default 2
+             */
+            n_channels: number;
+            /**
+             * Current Ma
+             * @default 1
+             */
+            current_mA: number;
+            /**
+             * Top K
+             * @default null
+             */
+            top_k: number | null;
+            /**
+             * Gm Subsample
+             * @default 100000
+             */
+            gm_subsample: number;
+            /**
+             * Run Name
+             * @default null
+             */
+            run_name: string | null;
         };
         /**
          * AnalyzerConfig
@@ -8366,7 +8479,7 @@ export interface components {
             glass_brain_cmap: string;
         };
         /** @description Union of every config dataclass a job/validate/plan "config" body can carry. The real discriminant is the `kind`/path parameter alongside it, not a field on the object itself; this union exists so generated TS types cover every shape before dev/build_contract.py replaces each placeholder member with its generated schema. */
-        PipelineConfig: components["schemas"]["SimulationConfig"] | components["schemas"]["Montage"] | components["schemas"]["FlexConfig"] | components["schemas"]["ExConfig"] | components["schemas"]["MExConfig"] | components["schemas"]["AnalyzerConfig"] | components["schemas"]["PreprocessConfig"] | components["schemas"]["QSIPrepConfig"] | components["schemas"]["QSIReconConfig"] | components["schemas"]["GroupComparisonConfig"] | components["schemas"]["CorrelationConfig"] | components["schemas"]["SourceConfig"] | components["schemas"]["LeadfieldConfig"] | components["schemas"]["MontageConfig"] | components["schemas"]["VectorConfig"] | components["schemas"]["RegionConfig"] | components["schemas"]["SubcorticalConfig"] | components["schemas"]["NiftiAverageConfig"] | components["schemas"]["NilearnConfig"];
+        PipelineConfig: components["schemas"]["SimulationConfig"] | components["schemas"]["Montage"] | components["schemas"]["FlexConfig"] | components["schemas"]["ExConfig"] | components["schemas"]["MExConfig"] | components["schemas"]["RecipConfig"] | components["schemas"]["AnalyzerConfig"] | components["schemas"]["PreprocessConfig"] | components["schemas"]["QSIPrepConfig"] | components["schemas"]["QSIReconConfig"] | components["schemas"]["GroupComparisonConfig"] | components["schemas"]["CorrelationConfig"] | components["schemas"]["SourceConfig"] | components["schemas"]["LeadfieldConfig"] | components["schemas"]["MontageConfig"] | components["schemas"]["VectorConfig"] | components["schemas"]["RegionConfig"] | components["schemas"]["SubcorticalConfig"] | components["schemas"]["NiftiAverageConfig"] | components["schemas"]["NilearnConfig"];
         /** ActivityDay */
         ActivityDay: {
             /** Date */
@@ -8965,6 +9078,117 @@ export interface components {
              * @enum {string}
              */
             _type: "PoolElectrodes";
+        };
+        /**
+         * PointTarget
+         * @description A single target coordinate.
+         *
+         *     Attributes
+         *     ----------
+         *     xyz : list of float
+         *         ``[x, y, z]`` in millimetres.
+         *     space : str
+         *         ``"subject"`` (default) or ``"mni"``.  An MNI point is
+         *         transformed with ``simnibs.mni2subject_coords`` before use.
+         *     radius_mm : float
+         *         Elements within this distance of *xyz* form the target set.
+         *         ``0`` (default) selects the single nearest element.
+         */
+        PointTarget: {
+            /** Xyz */
+            xyz: number[];
+            /**
+             * Space
+             * @default subject
+             * @enum {string}
+             */
+            space: "subject" | "mni";
+            /**
+             * Radius Mm
+             * @default 0
+             */
+            radius_mm: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            _type: "PointTarget";
+        };
+        /**
+         * RoiTarget
+         * @description An ROI target, using the exhaustive search's ROI inputs unchanged.
+         *
+         *     Attributes
+         *     ----------
+         *     roi_names : list of str or None
+         *         ROI CSV filenames under the subject's ``rois`` directory, whose
+         *         spherical masks are OR-folded into one region.  ``None`` or ``[]``
+         *         means "no spherical centers", which then requires *roi_atlas*.
+         *     roi_atlas : list of ExConfig.AtlasROI or None
+         *         Volumetric atlas or mask ROI(s) unioned with the spherical
+         *         centers.
+         *     roi_radius : float
+         *         Spherical radius in mm around each CSV center.
+         *     roi_coordinate_space : str
+         *         Space of the CSV centers -- ``"subject"`` (default) or ``"mni"``.
+         */
+        RoiTarget: {
+            /**
+             * Roi Names
+             * @default null
+             */
+            roi_names: string[] | null;
+            /**
+             * Roi Atlas
+             * @default null
+             */
+            roi_atlas: components["schemas"]["RecipConfigAtlasROI"][] | null;
+            /**
+             * Roi Radius
+             * @default 3
+             */
+            roi_radius: number;
+            /**
+             * Roi Coordinate Space
+             * @default subject
+             * @enum {string}
+             */
+            roi_coordinate_space: "subject" | "mni";
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            _type: "RoiTarget";
+        };
+        /**
+         * AtlasROI
+         * @description Volumetric atlas or mask ROI, unioned with the spherical center(s).
+         *
+         *     Attributes
+         *     ----------
+         *     atlas_path : str
+         *         Path to a volumetric atlas or mask file -- NIfTI (``.nii``,
+         *         ``.nii.gz``) or FreeSurfer (``.mgz``), e.g. one discovered by
+         *         :class:`tit.atlas.voxel.VoxelAtlasManager`.
+         *     label : int or None
+         *         Integer label to select within the atlas (elements are
+         *         included where the voxel value equals *label*).  ``None``
+         *         treats the whole file as a binary mask (voxel value ``> 0``).
+         */
+        RecipConfigAtlasROI: {
+            /** Atlas Path */
+            atlas_path: string;
+            /**
+             * Label
+             * @default null
+             */
+            label: number | null;
+            /**
+             * Atlas Space
+             * @default subject
+             * @enum {string}
+             */
+            atlas_space: "subject" | "mni";
         };
         /**
          * AnalysisMode

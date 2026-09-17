@@ -95,14 +95,17 @@ def run_directory(pm, subject: str, kind: str, run: str) -> Path:
         or "\\" in run
     ):
         raise ValueError("Unknown subject or invalid optimization run.")
+    # Looked up by name, not by attribute: a kind other than this run's is
+    # never resolved on *pm* at all.
     getter = {
-        "flex": pm.flex_search_run,
-        "ex": pm.ex_search_run,
-        "mex": pm.m_ex_search_run,
+        "flex": "flex_search_run",
+        "ex": "ex_search_run",
+        "mex": "m_ex_search_run",
+        "recip": "recip_search_run",
     }.get(kind)
     if getter is None:
         raise ValueError("Unknown optimization kind.")
-    directory = _safe(Path(pm.project_dir), Path(getter(subject, run)))
+    directory = _safe(Path(pm.project_dir), Path(getattr(pm, getter)(subject, run)))
     if not directory.is_dir():
         raise FileNotFoundError("Optimization run not found.")
     return directory
@@ -184,7 +187,10 @@ def _ex_rows(root: Path, directory: Path, kind: str) -> list[dict]:
                     "Results are too large for interactive review; use the CSV."
                 )
             labels = parse_montage_string(row["Montage"])
-            if len(labels) != (4 if kind == "ex" else 8):
+            # Ex is always 2 pairs and mEx always 4; a reciprocity run writes
+            # whatever its n_channels was, so only the shape is checked there.
+            expected = {"ex": (4,), "mex": (8,)}.get(kind, (4, 8))
+            if len(labels) not in expected:
                 raise ValueError(
                     "Saved montage pair count does not match the optimization kind."
                 )
@@ -194,7 +200,7 @@ def _ex_rows(root: Path, directory: Path, kind: str) -> list[dict]:
                 )
             rows.append(
                 {
-                    "id": f"ex-{index}",
+                    "id": f"{'recip' if kind == 'recip' else 'ex'}-{index}",
                     "objective": _number(row.get("Composite_Index")),
                     "objective_label": "Composite index",
                     "objective_direction": "maximize",
@@ -220,7 +226,7 @@ def _ex_rows(root: Path, directory: Path, kind: str) -> list[dict]:
                         for i in range(len(labels) // 2)
                     ],
                     "_manifest": {"config": config},
-                    "replay_note": "Simulator defaults for electrode geometry; Ex history records leadfield estimates, not a full-electrode model.",
+                    "replay_note": "Simulator defaults for electrode geometry; leadfield-based history records estimates, not a full-electrode model.",
                 }
             )
             if len(rows) > _MAX_ROWS:

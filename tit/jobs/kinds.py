@@ -41,6 +41,7 @@ MODULE_FOR_KIND: dict[str, str] = {
     "flex_pareto": "tit.opt.flex",
     "ex": "tit.opt.ex",
     "mex": "tit.opt.mex",
+    "recip": "tit.opt.recip",
     "leadfield": "tit.opt.leadfield_runner",
     "analyzer": "tit.analyzer",
     "stats": "tit.stats",

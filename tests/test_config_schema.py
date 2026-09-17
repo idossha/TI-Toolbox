@@ -56,7 +56,7 @@ from tit.config_io import (  # noqa: E402
     serialize_config,
 )
 from tit.config_io import _deserialize_union  # noqa: E402
-from tit.opt.config import ExConfig, FlexConfig, MExConfig  # noqa: E402
+from tit.opt.config import ExConfig, FlexConfig, MExConfig, RecipConfig  # noqa: E402
 from tit.sim.config import Montage, SimulationConfig  # noqa: E402
 from tit.analyzer.config import AnalyzerConfig  # noqa: E402
 from tit.pre.config import (  # noqa: E402
@@ -163,6 +163,15 @@ def _sample_instances() -> dict[str, object]:
                 e4_plus=["P3"],
                 e4_minus=["P4"],
             ),
+        ),
+        "RecipConfig": RecipConfig(
+            subject_id="001",
+            leadfield_hdf="lf.hdf5",
+            target=RecipConfig.PointTarget(xyz=[1.0, 2.0, 3.0], radius_mm=5.0),
+            direction=[0.0, 0.0, 1.0],
+            objective="focality",
+            focality_weight=0.5,
+            n_channels=4,
         ),
         "AnalyzerConfig": AnalyzerConfig(
             mode="group",

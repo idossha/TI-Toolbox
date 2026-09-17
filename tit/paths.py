@@ -516,6 +516,10 @@ class PathManager:
         """Path to multipolar exhaustive-search results for *sid*."""
         return os.path.join(self.sub(sid), "m-ex-search")
 
+    def recip_search(self, sid: str) -> str:
+        """Path to reciprocity-search results for *sid*."""
+        return os.path.join(self.sub(sid), "recip-search")
+
     def flex_search(self, sid: str) -> str:
         """Path to flex-search results for *sid*."""
         return os.path.join(self.sub(sid), "flex-search")
@@ -607,6 +611,10 @@ class PathManager:
     def m_ex_search_run(self, sid: str, run: str) -> str:
         """Path to a specific multipolar exhaustive-search run directory."""
         return os.path.join(self.m_ex_search(sid), run)
+
+    def recip_search_run(self, sid: str, run: str) -> str:
+        """Path to a specific reciprocity-search run directory."""
+        return os.path.join(self.recip_search(sid), run)
 
     def flex_search_run(self, sid: str, name: str) -> str:
         """Path to a specific flex-search run directory."""

@@ -422,7 +422,7 @@ def keys_for(
                     requests.append(LockRequest(f"subject:{sid}:sim:{name}"))
         elif kind in ("flex", "flex_adaptive", "flex_pareto"):
             requests.append(LockRequest(f"subject:{sid}:m2m", mode="read"))
-        elif kind in ("ex", "mex"):
+        elif kind in ("ex", "mex", "recip"):
             run_name = config.get("run_name") or "default"
             requests.append(LockRequest(f"subject:{sid}:{kind}:{run_name}"))
             requests.append(LockRequest(f"subject:{sid}:leadfields", mode="read"))

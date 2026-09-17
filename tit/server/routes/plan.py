@@ -459,6 +459,45 @@ def _plan_ex(
     }
 
 
+def _plan_recip(
+    kind: str, pm: PathManager, config: Any, subject_ids: list[str], warnings: list[str]
+) -> tuple[list[PlanJob], dict[str, Any]]:
+    """Plan a reciprocity search: one job per subject, with a candidate bound.
+
+    The exact candidate count depends on which electrodes the reciprocity map
+    ranks highest (combinations sharing an electrode are dropped), which needs
+    the leadfield; the plan reports the enumeration's upper bound instead.
+    """
+    from math import comb
+
+    from tit.opt.config import DEFAULT_TOP_K
+
+    subjects = subject_ids or ([config.subject_id] if config.subject_id else [])
+    jobs: list[PlanJob] = []
+    for sid in subjects:
+        run_name = config.run_name or time.strftime("%Y%m%d_%H%M%S")
+        output_dir = pm.recip_search_run(sid, run_name)
+        exists = _dir_exists(output_dir)
+        jobs.append(
+            PlanJob(
+                kind=kind,
+                subject=sid,
+                output_dir=output_dir,
+                exists=exists,
+                will_overwrite=exists,
+            )
+        )
+
+    top_k = config.top_k or DEFAULT_TOP_K[config.n_channels]
+    return jobs, {
+        "search_space": {
+            "n_combinations": comb(top_k, config.n_channels),
+            "top_k": top_k,
+            "n_channels": config.n_channels,
+        }
+    }
+
+
 def _plan_mex(
     kind: str, pm: PathManager, config: Any, subject_ids: list[str], warnings: list[str]
 ) -> tuple[list[PlanJob], dict[str, Any]]:
@@ -945,6 +984,8 @@ def plan(kind: str, body: PlanRequest) -> PlanResult:
         jobs, resolved = _plan_ex(kind, pm, config, subject_ids, warnings)
     elif kind == "mex":
         jobs, resolved = _plan_mex(kind, pm, config, subject_ids, warnings)
+    elif kind == "recip":
+        jobs, resolved = _plan_recip(kind, pm, config, subject_ids, warnings)
     elif kind == "leadfield":
         jobs, resolved = _plan_leadfield(kind, pm, config, subject_ids, warnings)
     elif kind == "analyzer":

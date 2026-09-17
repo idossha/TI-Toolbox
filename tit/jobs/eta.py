@@ -175,6 +175,8 @@ FIXED_MIN: dict[str, float] = {
     "sim": (0.8 + 1.4) / EMULATION_FACTOR,
     "ex": 2.0 / EMULATION_FACTOR,
     "mex": 2.0 / EMULATION_FACTOR,
+    #: leadfield subset read plus the reciprocity map itself (milliseconds).
+    "recip": (5.0 / 60.0) / EMULATION_FACTOR,
     "flex": 1.0 / EMULATION_FACTOR,
     "flex_adaptive": 1.0 / EMULATION_FACTOR,
     "flex_pareto": 1.0 / EMULATION_FACTOR,
@@ -194,6 +196,14 @@ PER_UNIT_MIN: dict[str, float] = {
     "flex_adaptive": 12.0 / EMULATION_FACTOR,
     "flex_pareto": 12.0 / EMULATION_FACTOR,
 }
+#: Native minutes per reciprocity candidate, by channel count: the 2-channel
+#: Grossman closed form is ~0.02 s on the evaluation subset, while the 4-channel
+#: mTI envelope runs a direction search and costs ~1 s.
+RECIP_PER_CANDIDATE_MIN: dict[int, float] = {
+    2: (0.02 / 60.0) / EMULATION_FACTOR,
+    4: (1.0 / 60.0) / EMULATION_FACTOR,
+}
+
 #: An anisotropic (DTI) conductivity model costs more per solve than the isotropic default.
 ANISOTROPY_FACTOR = 1.3
 #: DE budget the flex constant was measured at: ``population_size x max_iterations``.
@@ -277,7 +287,7 @@ def _flex_units(config: dict[str, Any]) -> float:
 
 
 def _search_combinations(resolved: dict[str, Any] | None) -> int | None:
-    """``n_combinations`` as ``tit.server.routes.plan`` already resolved it for ex/mEx."""
+    """``n_combinations`` as ``tit.server.routes.plan`` resolved it for ex/mEx/recip."""
     if not isinstance(resolved, dict):
         return None
     space = resolved.get("search_space")
@@ -378,6 +388,16 @@ def eta_minutes(
         if combos is None:
             return None
         per_job = FIXED_MIN[kind] + PER_UNIT_MIN[kind] * combos
+    elif kind == "recip":
+        combos = _search_combinations(resolved)
+        if combos is None:
+            return None
+        n_channels = config.get("n_channels", 2)
+        per_candidate = RECIP_PER_CANDIDATE_MIN.get(
+            n_channels if isinstance(n_channels, int) else 2,
+            RECIP_PER_CANDIDATE_MIN[4],
+        )
+        per_job = FIXED_MIN["recip"] + per_candidate * combos
     elif kind in ("flex", "flex_adaptive", "flex_pareto"):
         per_job = FIXED_MIN[kind] + PER_UNIT_MIN[kind] * _flex_units(config)
     else:

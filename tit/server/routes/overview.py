@@ -151,6 +151,7 @@ def _counts(pm: Any, catalog: Any, sid: str, simulations: list[str]) -> Overview
         _safe(catalog.flex_runs, pm, sid),
         _safe(catalog.ex_runs, pm, sid, "ex"),
         _safe(catalog.ex_runs, pm, sid, "mex"),
+        _safe(catalog.ex_runs, pm, sid, "recip"),
     ):
         optimizations += n(runs)
     analyses = 0

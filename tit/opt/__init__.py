@@ -12,6 +12,8 @@ interference (TI) brain stimulation:
 * **Multipolar exhaustive search** -- the same brute-force evaluation
   extended to four bipolar electrode pairs (eight electrodes), scored
   with the N>2 mTI envelope.
+* **Reciprocity search** -- picks the montage straight out of a leadfield
+  by the reciprocity theorem, with no FEM solve and no sweep.
 
 Public API
 ----------
@@ -33,12 +35,19 @@ run_ex_search
     Run exhaustive grid search over electrode combinations.
 run_m_ex_search
     Run multipolar exhaustive grid search over four electrode pairs.
+RecipConfig
+    Configuration dataclass for reciprocity search.
+RecipResult
+    Result container returned by :func:`run_recip_search`.
+run_recip_search
+    Pick a montage from a leadfield by reciprocity.
 
 See Also
 --------
 tit.opt.flex : Flex-search subpackage with builder, manifest, and pareto utilities.
 tit.opt.ex : Exhaustive-search subpackage with engine and result handling.
 tit.opt.mex : Multipolar exhaustive-search subpackage.
+tit.opt.recip : Reciprocity-search subpackage.
 tit.opt.leadfield : Leadfield matrix generation via SimNIBS.
 """
 
@@ -49,6 +58,8 @@ from tit.opt.config import (
     ExResult,
     MExConfig,
     MExResult,
+    RecipConfig,
+    RecipResult,
 )
 
 
@@ -60,6 +71,7 @@ def __getattr__(name: str):
         "run_ex_search": "tit.opt.ex.ex",
         "run_flex_search": "tit.opt.flex.flex",
         "run_m_ex_search": "tit.opt.mex.mex",
+        "run_recip_search": "tit.opt.recip.recip",
     }
     if name not in modules:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
@@ -76,8 +88,11 @@ __all__ = [
     "ExResult",
     "MExConfig",
     "MExResult",
+    "RecipConfig",
+    "RecipResult",
     # Functions
     "run_flex_search",
     "run_ex_search",
     "run_m_ex_search",
+    "run_recip_search",
 ]

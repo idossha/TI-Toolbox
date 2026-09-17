@@ -62,6 +62,7 @@ SIMPLE_KIND_CLASS: dict[str, str] = {
     "flex_pareto": "FlexConfig",
     "ex": "ExConfig",
     "mex": "MExConfig",
+    "recip": "RecipConfig",
     "leadfield": "LeadfieldConfig",
     "analyzer": "AnalyzerConfig",
     "source": "SourceConfig",

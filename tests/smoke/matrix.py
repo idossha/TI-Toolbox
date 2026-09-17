@@ -227,6 +227,9 @@ def _sim_submission(ctx: Ctx, pairs: list[list[str]], suffix: str) -> Submission
 
 _EX_LEADFIELD = "derivatives/SimNIBS/sub-ernie/leadfields/ernie_leadfield_EEG10-10_UI_Jurak_2007.hdf5"
 
+#: ernie's subject-space segmentation; labels 10 and 49 are the two thalami.
+_ERNIE_LABELING = "derivatives/SimNIBS/sub-ernie/m2m_ernie/segmentation/labeling.nii.gz"
+
 #: The one EEG net every sub-101 fixture uses: the only net with a leadfield on this
 #: project, and the net `tests/smoke/payloads/source.json` recorded from the UI.
 _SOURCE_NET = "EEG10-10_UI_Jurak_2007"
@@ -250,6 +253,31 @@ def _ex_submission(ctx: Ctx) -> Submission:
             "total_current": 2.0,
             "current_step": 0.5,
             "run_name": ctx.name("ex"),
+        },
+        subject_ids=["ernie"],
+    )
+
+
+def _recip_submission(ctx: Ctx) -> Submission:
+    return Submission(
+        kind="recip",
+        config={
+            "subject_id": "ernie",
+            "leadfield_hdf": ctx.p(_EX_LEADFIELD),
+            "target": {
+                "_type": "SubcorticalROI",
+                "atlas_path": ctx.p(_ERNIE_LABELING),
+                "label": [10, 49],
+                "atlas_space": "subject",
+            },
+            "direction": None,
+            "objective": "intensity",
+            "focality_weight": 0,
+            "n_channels": 2,
+            "current_mA": 1.0,
+            "top_k": None,
+            "gm_subsample": 100000,
+            "run_name": ctx.name("recip"),
         },
         subject_ids=["ernie"],
     )
@@ -667,6 +695,25 @@ ROWS: tuple[Row, ...] = (
         ],
         catalog=_catalog_run_listed(
             "ex-runs", "run_name", lambda ctx: ctx.name("mex"), subject="ernie", kind="mex"
+        ),
+    ),
+    Row(
+        id="recip",
+        kind="recip",
+        behaviour=COMPLETED,
+        subject="ernie",
+        why_subject="Same leadfield as `ex`; the thalamus (labeling.nii.gz labels 10 and 49) "
+        "is the validated reciprocity target, and the run needs no FEM solve at all.",
+        build=_recip_submission,
+        budget_s=600.0,
+        banner=(r"^recip_search$", r"TI Reciprocity Search"),
+        creates=lambda ctx: [ctx.simnibs("ernie", "recip-search", ctx.name("recip"))],
+        expect_files=lambda ctx: [
+            ctx.simnibs("ernie", "recip-search", ctx.name("recip"), "summary.json"),
+            ctx.simnibs("ernie", "recip-search", ctx.name("recip"), "candidates.csv"),
+        ],
+        catalog=_catalog_run_listed(
+            "ex-runs", "run_name", lambda ctx: ctx.name("recip"), subject="ernie", kind="recip"
         ),
     ),
     Row(

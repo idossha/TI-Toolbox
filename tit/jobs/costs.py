@@ -21,6 +21,7 @@ DEFAULT_COSTS: dict[str, Cost] = {
     "flex_pareto": Cost(cpus=2, mem_gb=6),
     "ex": Cost(cpus=2, mem_gb=6),
     "mex": Cost(cpus=2, mem_gb=6),
+    "recip": Cost(cpus=1, mem_gb=6),
     "leadfield": Cost(cpus=2, mem_gb=8),
     "analyzer": Cost(cpus=1, mem_gb=4),
     "stats": Cost(cpus=1, mem_gb=4),

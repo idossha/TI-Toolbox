@@ -48,6 +48,7 @@ rationale below consolidates later amendments without treating superseded design
 | 29 | 2026-09-06 | **The embed is restored, baked in the image, on the Viewer's own two sub-pages.** Nothing installs Tetravox on the host | superseded by native TetraVox decision, 2026-09-13 |
 | 30 | 2026-09-07 | External audit response: the six scientific corrections, the server hardening, one release workflow | live |
 | 31 | 2026-09-15 | One TetraVox resolution order (configured, managed, system, PATH) and feed-verified managed updates | amends the install half of 2026-09-13 |
+| 32 | 2026-09-17 | Reciprocity search is a third optimizer (`recip`), reusing the leadfield, the ex ROI inputs and the verified envelope | live |
 
 ## Runtime and distribution
 
@@ -927,3 +928,36 @@ same binary. **Cost:** first run downloads ~120 MB, and the download can only wo
 release with those assets is published; until then every user-mode run falls back to the browser.
 **Revisit if:** a signed release cannot be produced for a supported platform, or a genuinely
 browser-only deployment (a shared remote server) becomes a supported product.
+
+## 2026-09-17 — Reciprocity search as a third optimizer (ADR 32)
+
+**Decision:** Add a `recip` job kind and a `tit/opt/recip/` package that picks a montage from an
+existing leadfield with no FEM solve and no exhaustive sweep. Electrode *i*'s leadfield column at
+the target is, by reciprocity, the scalp potential a unit dipole at the target would produce at
+*i*, so every pair is ranked in one vectorised difference; only the top `top_k` pairs (40 at two
+channels, 12 at four) are combined and scored. The engine is pure NumPy plus `h5py` — SimNIBS is
+imported only for MNI point transforms — and the envelope comes from `tit.calc.get_TI_vectors` /
+`get_TI_dir`, never a local reimplementation or a recursive nTI. The target is a `_type`-discriminated
+union: `PointTarget` (xyz, space, radius_mm), or one of the ROI dataclasses flex-search already
+uses — `SphericalROI`, `SubcorticalROI`, `AtlasROI` — so a client builds one ROI object for every
+optimizer. A cortical `AtlasROI` type-checks but the runner rejects it: a FreeSurfer `.annot`
+surface region has no volume elements in the leadfield mesh. The reciprocity
+score uses the ROI-mean field, and the evaluation subset (ROI plus a seed-0 non-ROI grey-matter
+subsample) is chosen before any leadfield column is read.
+
+**Why:** flex-search costs an FEM solve per candidate and ex-search enumerates thousands of
+montages; on ernie the reciprocity pick lands within 1% of the exhaustive optimum in milliseconds,
+so the expensive searches become a refinement step rather than the only way to get a montage.
+Reusing the flex ROI specs and the ex output pair (`run_config.json`, `final_output.csv`) means no new
+ROI grammar for the UI and no second reader for the Simulator's replay catalog or its results list
+(`GET /api/catalog/ex-runs?kind=recip`).
+
+**Cost:** `n_channels` is contractually an int in `[2, 4]` but only 2 and 4 are accepted —
+`tit.calc.get_TI_vectors` (`tit.constants.is_valid_pair_count`) is defined for an even number of
+channels, and inventing an odd-channel envelope would be new, unverified science. The metrics are
+leadfield estimates with point electrodes, and the background percentile is a subsample, so they
+are comparable within a run and against ex-search but are not a full-electrode simulation. The
+candidate set is bounded by `top_k`, so reciprocity search is not exhaustive by construction.
+
+**Revisit if:** an odd-channel envelope is published and verified in `tit.calc`, or the top-`k`
+truncation is shown to miss the exhaustive optimum on a real head by more than a few percent.

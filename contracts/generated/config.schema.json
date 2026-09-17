@@ -2488,6 +2488,210 @@
       "type": "object",
       "additionalProperties": false
     },
+    "RecipConfig": {
+      "description": "Full configuration for reciprocity search.\n\nReciprocity search picks a montage from a precomputed leadfield with no\nFEM solve and no exhaustive sweep: by the reciprocity theorem, electrode\n*i*'s leadfield column evaluated at the target **is** the scalp potential\na unit dipole at the target would produce at *i*, so the best bipolar\npair for a target direction is simply ``argmax_i`` minus ``argmin_i`` of\nthat potential.  The top-ranked pairs are then combined into\n*n_channels*-channel montages and scored with the same TI envelope the\nexhaustive searches use (:func:`tit.calc.get_TI_vectors`).\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier matching the m2m directory name.\nleadfield_hdf : str\n    Leadfield HDF5 to read -- an absolute path, or a filename relative to\n    the subject's ``leadfields`` directory.\ntarget : PointTarget or FlexConfig.SphericalROI or FlexConfig.AtlasROI or FlexConfig.SubcorticalROI\n    Where the reciprocity source sits, as a ``_type``-discriminated\n    object.  :class:`PointTarget` is one coordinate plus an optional\n    inclusion radius; the three ROI forms are the very dataclasses\n    flex-search already uses, so a client builds one ROI object for every\n    optimizer.  A cortical ``AtlasROI`` (a FreeSurfer ``.annot`` surface\n    region) is accepted by the type but rejected by the runner, which has\n    only the leadfield's volume elements to work with.\ndirection : list of float or None\n    Target field direction ``[dx, dy, dz]`` in the target's space, or\n    ``None`` to maximise envelope amplitude in any direction.  Normalised\n    by the runner; a zero vector is rejected.\nobjective : str\n    ``\"intensity\"`` (rank by ROI mean) or ``\"focality\"`` (rank by\n    ``focality_tf``).\nfocality_weight : float\n    Intensity weight ``w`` in ``focality_tf = roi_mean**(1 + w) /\n    gm_p95``, in ``[0, 1]``.  Used only when *objective* is\n    ``\"focality\"``; the same definition as ``FlexConfig`` goal\n    ``\"focality_tf\"``.\nn_channels : int\n    Electrode pairs (current channels) in the montage: 2 (TI) or 4 (mTI).\n    The wire contract declares an int in ``[2, 4]``; 3 is rejected\n    because the verified envelope (:func:`tit.calc.get_TI_vectors`,\n    :func:`tit.constants.is_valid_pair_count`) is defined for an even\n    number of channels only.\ncurrent_mA : float\n    Current per channel, in mA.\ntop_k : int or None\n    Reciprocity-ranked pairs kept for the combinatorial stage.  ``None``\n    uses :data:`DEFAULT_TOP_K` for *n_channels*.\ngm_subsample : int\n    Grey-matter elements sampled (seed 0) outside the ROI, for the\n    background percentile.\nrun_name : str or None\n    Output directory name under ``recip-search/``.  Defaults to a\n    datetime stamp.\n\nRaises\n------\nValueError\n    Any field outside the ranges above.\n\nSee Also\n--------\nRecipResult : Result container returned by :func:`~tit.opt.recip.recip.run_recip_search`.\ntit.opt.recip.recip.run_recip_search : Consumes this config.",
+      "properties": {
+        "subject_id": {
+          "title": "Subject Id",
+          "type": "string"
+        },
+        "leadfield_hdf": {
+          "title": "Leadfield Hdf",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "oneOf": [
+            {
+              "$ref": "#/$defs/PointTarget"
+            },
+            {
+              "$ref": "#/$defs/SphericalROI"
+            },
+            {
+              "$ref": "#/$defs/RecipConfigAtlasROI"
+            },
+            {
+              "$ref": "#/$defs/SubcorticalROI"
+            }
+          ],
+          "discriminator": {
+            "propertyName": "_type"
+          }
+        },
+        "direction": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Direction"
+        },
+        "objective": {
+          "default": "intensity",
+          "enum": [
+            "intensity",
+            "focality"
+          ],
+          "title": "Objective",
+          "type": "string"
+        },
+        "focality_weight": {
+          "default": 0.0,
+          "title": "Focality Weight",
+          "type": "number"
+        },
+        "n_channels": {
+          "default": 2,
+          "title": "N Channels",
+          "type": "integer"
+        },
+        "current_mA": {
+          "default": 1.0,
+          "title": "Current Ma",
+          "type": "number"
+        },
+        "top_k": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Top K"
+        },
+        "gm_subsample": {
+          "default": 100000,
+          "title": "Gm Subsample",
+          "type": "integer"
+        },
+        "run_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run Name"
+        }
+      },
+      "required": [
+        "subject_id",
+        "leadfield_hdf",
+        "target"
+      ],
+      "title": "RecipConfig",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "PointTarget": {
+      "description": "A single target coordinate.\n\nAttributes\n----------\nxyz : list of float\n    ``[x, y, z]`` in millimetres.\nspace : str\n    ``\"subject\"`` (default) or ``\"mni\"``.  An MNI point is\n    transformed with ``simnibs.mni2subject_coords`` before use.\nradius_mm : float\n    Elements within this distance of *xyz* form the target set.\n    ``0`` (default) selects the single nearest element.",
+      "properties": {
+        "xyz": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Xyz",
+          "type": "array"
+        },
+        "space": {
+          "default": "subject",
+          "enum": [
+            "subject",
+            "mni"
+          ],
+          "title": "Space",
+          "type": "string"
+        },
+        "radius_mm": {
+          "default": 0.0,
+          "title": "Radius Mm",
+          "type": "number"
+        },
+        "_type": {
+          "const": "PointTarget"
+        }
+      },
+      "required": [
+        "xyz",
+        "_type"
+      ],
+      "title": "PointTarget",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "RecipConfigAtlasROI": {
+      "description": "Cortical surface ROI from a FreeSurfer annotation atlas.\n\nEach of *atlas_path*, *label*, *hemisphere* accepts either a single\nvalue (one region) or a list (a union of several regions evaluated as\none combined target).  Because ``.annot`` files are per-hemisphere,\ncarrying a per-region *hemisphere* (and matching *atlas_path*) allows a\ntarget that spans **both** hemispheres, or even different atlases.\nScalars broadcast to the number of labels; lists must match its length.\n\nAttributes\n----------\natlas_path : str or list of str\n    Path(s) to the FreeSurfer ``.annot`` annotation file(s).\nlabel : int or list of int\n    Integer label index/indices within the annotation atlas.\nhemisphere : str or list of str\n    Hemisphere(s) to use (``\"lh\"`` or ``\"rh\"``), one per label.\n\nRaises\n------\nValueError\n    If *label* is empty, or *atlas_path*/*hemisphere* is a list whose\n    length neither equals 1 nor the number of labels.",
+      "properties": {
+        "atlas_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "title": "Atlas Path"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            }
+          ],
+          "title": "Label"
+        },
+        "hemisphere": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "default": "lh",
+          "title": "Hemisphere"
+        },
+        "_type": {
+          "const": "AtlasROI"
+        }
+      },
+      "required": [
+        "atlas_path",
+        "label",
+        "_type"
+      ],
+      "title": "AtlasROI",
+      "type": "object",
+      "additionalProperties": false
+    },
     "RegionConfig": {
       "description": "Configuration for cortical region mesh export (STL or PLY).\n\nExtracts atlas-labelled cortical regions and optionally the whole GM\nsurface from a SimNIBS surface mesh.\n\nAll paths are resolved automatically from ``subject_id`` +\n``simulation_name`` via PathManager.\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier.\nsimulation_name : str\n    Name of the simulation directory.\nformat : Format\n    Output mesh format (``\"stl\"`` or ``\"ply\"``).\natlas : str\n    Atlas name, e.g. ``\"DK40\"``.\nsurface : Surface\n    Cortical surface type (``\"central\"``, ``\"pial\"``, or ``\"white\"``).\nfield_name : str\n    Scalar field to map onto region meshes.\nskip_regions : bool\n    Skip per-region export (export only whole GM).\nskip_whole_gm : bool\n    Skip whole-GM export.\nregions : list of str\n    Region names to export.  Empty means all regions.\nkeep_meshes : bool\n    Also save intermediate ``.msh`` files alongside PLY/STL.\nscalars : bool\n    PLY-only: embed raw scalar values instead of vertex colours.\ncolormap : str\n    Matplotlib colormap name for PLY vertex colours.\nfield_range : tuple of float or None\n    ``(vmin, vmax)`` for colour normalisation.\nglobal_from_nifti : str or None\n    Path to a NIfTI for computing a global colour range.\n\nSee Also\n--------\ntit.blender.region_exporter.run_regions : Entry point that\n    consumes this config.",
       "properties": {
@@ -3162,6 +3366,7 @@
     "QSIPrepSettings": "tit.pre.config.QSIPrepSettings",
     "QSIReconConfig": "tit.pre.qsi.config.QSIReconConfig",
     "QSIReconSettings": "tit.pre.config.QSIReconSettings",
+    "RecipConfig": "tit.opt.config.RecipConfig",
     "RegionConfig": "tit.blender.config.RegionConfig",
     "SimulationConfig": "tit.sim.config.SimulationConfig",
     "SourceConfig": "tit.source.config.SourceConfig",

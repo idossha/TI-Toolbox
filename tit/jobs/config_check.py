@@ -29,6 +29,7 @@ CONFIG_CLASS_FOR_KIND: dict[str, str] = {
     "flex_pareto": "FlexConfig",
     "ex": "ExConfig",
     "mex": "MExConfig",
+    "recip": "RecipConfig",
 }
 
 

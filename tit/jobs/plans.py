@@ -37,6 +37,7 @@ GROUP_KINDS: tuple[str, ...] = (
     "flex_pareto",
     "ex",
     "mex",
+    "recip",
 )
 
 #: kind -> the :data:`tit.config_io.CONFIG_CLASS_REGISTRY` key its config deserializes as
@@ -51,6 +52,7 @@ _KIND_CONFIG_CLASS: dict[str, str] = {
     "flex_pareto": "FlexConfig",
     "ex": "ExConfig",
     "mex": "MExConfig",
+    "recip": "RecipConfig",
 }
 
 

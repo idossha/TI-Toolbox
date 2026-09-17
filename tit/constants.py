@@ -924,6 +924,7 @@ TELEMETRY_OP_SIM_MTI = "sim_mti"
 # -- Optimization --
 TELEMETRY_OP_FLEX_SEARCH = "flex_search"
 TELEMETRY_OP_EX_SEARCH = "ex_search"
+TELEMETRY_OP_RECIP_SEARCH = "recip_search"
 # -- Analysis --
 TELEMETRY_OP_ANALYSIS = "analysis"
 TELEMETRY_OP_GROUP_ANALYSIS = "group_analysis"

@@ -309,6 +309,7 @@ All entry points use these same Python modules and path-manager output locations
 | Simulation | SimNIBS solves each montage channel, then TI metrics are derived; high-frequency and TI field artifacts belong to the simulation | [`tit/sim/`](../../tit/sim/), [`calc.py`](../../tit/calc.py), [`fields.py`](../../tit/fields.py) |
 | Flex search | Differential evolution over electrode placement, optional multi-start selection, net mapping and full-resolution simulation | [`tit/opt/flex/`](../../tit/opt/flex/) |
 | Ex / mEx search | Exhaustive evaluation within configured electrode buckets and current discretization | [`tit/opt/ex/`](../../tit/opt/ex/), [`tit/opt/mex/`](../../tit/opt/mex/) |
+| Reciprocity search | Ranks every electrode pair by the target's reciprocity map read straight from the leadfield, then scores the disjoint combinations of the top pairs with the verified envelope; no FEM solve and no sweep | [`tit/opt/recip/`](../../tit/opt/recip/) |
 | Analysis and statistics | Subject/cohort metrics over selected fields, spaces and targets | [`tit/analyzer/`](../../tit/analyzer/), [`tit/stats/`](../../tit/stats/) |
 
 Flex-to-simulation uses the electrode mapping as a montage input. A simulation is not an optimizer;
@@ -320,6 +321,17 @@ New Simulator jobs opt into MNI NIfTI export separately from fsaverage mapping, 
 controls. The MNI flag gates both anatomical and field conversion to avoid unwanted registration
 work. Ex previews count the engine’s electrode arrangements and valid current splits separately;
 total iterations are their product, including one split for fixed balanced currents.
+Reciprocity search is a leadfield reader, not a solver: its metrics are the same leadfield
+estimates an exhaustive search reports, its background is a fixed random non-ROI grey-matter
+subsample (seed 0) rather than the whole grey matter, and its score uses the ROI-mean target field,
+never a single centroid element. Its target is either a point or one of the ROI objects flex-search already takes
+(`SphericalROI`, `SubcorticalROI`; a cortical `.annot` `AtlasROI` is refused, having no volume
+elements), and its runs list through `GET /api/catalog/ex-runs?kind=recip`.
+`n_channels` is declared in the contract as an int in `[2, 4]` and
+accepted at 2 and 4 only, because the verified envelope (`tit.calc.get_TI_vectors`) is defined for
+an even number of channels. A run writes `run_config.json` and `final_output.csv` in the ex-search
+shape, so the Simulator's replay catalog reads it with the existing reader.
+
 Flex exposes Mean TImax, Max TImax (ROI 99.9th percentile), Threshold-free focality and
 Threshold-based focality. The latter retains fixed, adaptive and multi-threshold execution;
 “Multi-threshold” is a presentation label for the existing `pareto` strategy, not a new objective.

@@ -32,6 +32,7 @@ wiki:
     - { title: Simulator, url: /wiki/simulator/ }
     - { title: Flex Search, url: /wiki/flex-search/ }
     - { title: Ex Search, url: /wiki/ex-search/ }
+    - { title: Reciprocity Search, url: /wiki/reciprocity-search/ }
     - { title: Analyzer, url: /wiki/analyzer/ }
     - { title: Notebooks, url: /wiki/notebooks/ }
     - { title: Results, url: /wiki/results/ }

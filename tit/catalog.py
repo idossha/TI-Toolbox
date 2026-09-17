@@ -1540,10 +1540,11 @@ def _ex_best(run_dir: str, *, project_root: str | None = None) -> dict | None:
 
 
 def ex_runs(pm: PathManager, sid: str, kind: str = "ex") -> list[dict] | None:
-    """Ex/mEx-search runs for *sid*; ``None`` if the subject is unknown."""
+    """Ex/mEx/reciprocity-search runs for *sid*; ``None`` if the subject is unknown."""
     if sid not in subject_ids(pm):
         return None
-    root = pm.ex_search(sid) if kind == "ex" else pm.m_ex_search(sid)
+    accessor = {"ex": "ex_search", "mex": "m_ex_search", "recip": "recip_search"}
+    root = getattr(pm, accessor.get(kind, "ex_search"))(sid)
     if not _project_paths_safe(pm, root) or not os.path.isdir(root):
         return []
     out = []
@@ -1574,7 +1575,12 @@ def ex_run_results(pm: PathManager, sid: str, kind: str, run: str) -> dict | Non
     """Full ``final_output.csv`` of one ex/mEx run, as ``TableData``."""
     if sid not in subject_ids(pm):
         return None
-    root = pm.ex_search_run(sid, run) if kind == "ex" else pm.m_ex_search_run(sid, run)
+    accessor = {
+        "ex": "ex_search_run",
+        "mex": "m_ex_search_run",
+        "recip": "recip_search_run",
+    }
+    root = getattr(pm, accessor.get(kind, "ex_search_run"))(sid, run)
     csv_path = os.path.join(root, "final_output.csv")
     if not _project_paths_safe(pm, csv_path):
         return None

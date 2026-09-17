@@ -20,6 +20,7 @@ server fit together.
 - **[Simulator](simulator)** - One row per simulation job, with free-hand electrode placement on the subject's own scalp
 - **[Flex Search](flex-search)** - The Optimizer's *Flex* method: differential-evolution electrode optimization
 - **[Ex Search](ex-search)** - The Optimizer's *Ex* method: exhaustive search over a leadfield matrix
+- **[Reciprocity Search](reciprocity-search)** - The Optimizer's *Reciprocity* method: the montage read straight out of the leadfield, in milliseconds
 - **[Analyzer](analyzer)** - Field analysis in mesh and voxel space, one target per job row
 - **[Notebooks](notebooks)** - Jupyter on the container's SimNIBS Python, inside the app
 - **[Results](results)** - Every output a subject has, with reports rendered in place

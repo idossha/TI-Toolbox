@@ -1283,3 +1283,234 @@ def search_backend_for_mode(mode):
     if mode == SEARCH_MODE_MTI:
         return "tit.opt.mex", MExConfig
     raise ValueError(f"Unknown search mode: {mode!r}")
+
+
+# ── Reciprocity search config ────────────────────────────────────────────────
+
+#: ``_type`` -> the target class :class:`RecipConfig` accepts under it. The ROI
+#: forms are the flex/ex ROI dataclasses themselves, so a UI that can already
+#: build an ROI for those optimizers sends the same object here. Filled in
+#: below, once the classes it names exist.
+_RECIP_TARGET_CLASSES: dict[str, type] = {}
+
+#: Channel counts :class:`RecipConfig` accepts. The wire contract declares
+#: ``n_channels`` as an int in ``[2, 4]``; 3 is rejected at validation because
+#: ``tit.calc.get_TI_vectors`` (``tit.constants.is_valid_pair_count``) is
+#: defined for an even number of channels only.
+VALID_RECIP_CHANNELS: tuple[int, ...] = (2, 4)
+
+#: Reciprocity-ranked pairs kept per channel count when ``top_k`` is unset.
+#: Chosen so the combinatorial stage stays small: 780 candidates at 2
+#: channels, and 495 four-channel combinations before the disjointness filter.
+DEFAULT_TOP_K: dict[int, int] = {2: 40, 3: 16, 4: 12}
+
+
+@dataclass
+class RecipConfig:
+    """Full configuration for reciprocity search.
+
+    Reciprocity search picks a montage from a precomputed leadfield with no
+    FEM solve and no exhaustive sweep: by the reciprocity theorem, electrode
+    *i*'s leadfield column evaluated at the target **is** the scalp potential
+    a unit dipole at the target would produce at *i*, so the best bipolar
+    pair for a target direction is simply ``argmax_i`` minus ``argmin_i`` of
+    that potential.  The top-ranked pairs are then combined into
+    *n_channels*-channel montages and scored with the same TI envelope the
+    exhaustive searches use (:func:`tit.calc.get_TI_vectors`).
+
+    Attributes
+    ----------
+    subject_id : str
+        Subject identifier matching the m2m directory name.
+    leadfield_hdf : str
+        Leadfield HDF5 to read -- an absolute path, or a filename relative to
+        the subject's ``leadfields`` directory.
+    target : PointTarget or FlexConfig.SphericalROI or FlexConfig.AtlasROI or FlexConfig.SubcorticalROI
+        Where the reciprocity source sits, as a ``_type``-discriminated
+        object.  :class:`PointTarget` is one coordinate plus an optional
+        inclusion radius; the three ROI forms are the very dataclasses
+        flex-search already uses, so a client builds one ROI object for every
+        optimizer.  A cortical ``AtlasROI`` (a FreeSurfer ``.annot`` surface
+        region) is accepted by the type but rejected by the runner, which has
+        only the leadfield's volume elements to work with.
+    direction : list of float or None
+        Target field direction ``[dx, dy, dz]`` in the target's space, or
+        ``None`` to maximise envelope amplitude in any direction.  Normalised
+        by the runner; a zero vector is rejected.
+    objective : str
+        ``"intensity"`` (rank by ROI mean) or ``"focality"`` (rank by
+        ``focality_tf``).
+    focality_weight : float
+        Intensity weight ``w`` in ``focality_tf = roi_mean**(1 + w) /
+        gm_p95``, in ``[0, 1]``.  Used only when *objective* is
+        ``"focality"``; the same definition as ``FlexConfig`` goal
+        ``"focality_tf"``.
+    n_channels : int
+        Electrode pairs (current channels) in the montage: 2 (TI) or 4 (mTI).
+        The wire contract declares an int in ``[2, 4]``; 3 is rejected
+        because the verified envelope (:func:`tit.calc.get_TI_vectors`,
+        :func:`tit.constants.is_valid_pair_count`) is defined for an even
+        number of channels only.
+    current_mA : float
+        Current per channel, in mA.
+    top_k : int or None
+        Reciprocity-ranked pairs kept for the combinatorial stage.  ``None``
+        uses :data:`DEFAULT_TOP_K` for *n_channels*.
+    gm_subsample : int
+        Grey-matter elements sampled (seed 0) outside the ROI, for the
+        background percentile.
+    run_name : str or None
+        Output directory name under ``recip-search/``.  Defaults to a
+        datetime stamp.
+
+    Raises
+    ------
+    ValueError
+        Any field outside the ranges above.
+
+    See Also
+    --------
+    RecipResult : Result container returned by :func:`~tit.opt.recip.recip.run_recip_search`.
+    tit.opt.recip.recip.run_recip_search : Consumes this config.
+    """
+
+    # ── Nested target types ───────────────────────────────────────────────
+    @dataclass
+    class PointTarget:
+        """A single target coordinate.
+
+        Attributes
+        ----------
+        xyz : list of float
+            ``[x, y, z]`` in millimetres.
+        space : str
+            ``"subject"`` (default) or ``"mni"``.  An MNI point is
+            transformed with ``simnibs.mni2subject_coords`` before use.
+        radius_mm : float
+            Elements within this distance of *xyz* form the target set.
+            ``0`` (default) selects the single nearest element.
+        """
+
+        xyz: list[float]
+        space: Literal["subject", "mni"] = "subject"
+        radius_mm: float = 0.0
+
+        def __post_init__(self):
+            self.xyz = [float(v) for v in _as_list(self.xyz)]
+            if len(self.xyz) != 3:
+                raise ValueError("target xyz must have three coordinates")
+            self.space = str(self.space).strip().lower()
+            if self.space not in ("subject", "mni"):
+                raise ValueError("target space must be 'subject' or 'mni'")
+            self.radius_mm = float(self.radius_mm)
+            if self.radius_mm < 0:
+                raise ValueError("radius_mm must be >= 0")
+
+    # ── Required fields ────────────────────────────────────────────────
+    subject_id: str
+    leadfield_hdf: str
+    target: (
+        PointTarget
+        | FlexConfig.SphericalROI
+        | FlexConfig.AtlasROI
+        | FlexConfig.SubcorticalROI
+    )
+
+    # ── Search parameters ──────────────────────────────────────────────
+    direction: list[float] | None = None
+    objective: Literal["intensity", "focality"] = "intensity"
+    focality_weight: float = 0.0
+    n_channels: int = 2
+    current_mA: float = 1.0
+    top_k: int | None = None
+    gm_subsample: int = 100_000
+
+    # ── Output naming (defaults to datetime stamp) ─────────────────────
+    run_name: str | None = None
+
+    def __post_init__(self):
+        if isinstance(self.target, dict):
+            data = dict(self.target)
+            type_name = data.pop("_type", None) or (
+                "PointTarget" if "xyz" in data else None
+            )
+            target_class = _RECIP_TARGET_CLASSES.get(type_name)
+            if target_class is None:
+                raise ValueError(
+                    "target needs a '_type' of "
+                    f"{sorted(_RECIP_TARGET_CLASSES)}; got {type_name!r}"
+                )
+            self.target = target_class(**data)
+
+        if self.direction is not None:
+            self.direction = [float(v) for v in self.direction]
+            if len(self.direction) != 3:
+                raise ValueError("direction must be [dx, dy, dz] or null")
+            if not any(self.direction):
+                raise ValueError("direction must have a non-zero norm")
+
+        self.objective = str(self.objective).strip().lower()
+        if self.objective not in ("intensity", "focality"):
+            raise ValueError("objective must be 'intensity' or 'focality'")
+        self.focality_weight = float(self.focality_weight)
+        if not 0.0 <= self.focality_weight <= 1.0:
+            raise ValueError("focality_weight must be in [0, 1]")
+
+        self.n_channels = int(self.n_channels)
+        if self.n_channels not in VALID_RECIP_CHANNELS:
+            raise ValueError(
+                "n_channels must be 2 or 4 -- the verified TI envelope is "
+                "defined for an even number of channels (tit.calc.get_TI_vectors)"
+            )
+        if self.current_mA <= 0:
+            raise ValueError("current_mA must be positive")
+        if self.top_k is not None:
+            self.top_k = int(self.top_k)
+            if self.top_k < self.n_channels:
+                raise ValueError("top_k must be >= n_channels")
+        self.gm_subsample = int(self.gm_subsample)
+        if self.gm_subsample < 0:
+            raise ValueError("gm_subsample must be >= 0")
+
+
+@dataclass
+class RecipResult:
+    """Result from a reciprocity search run.
+
+    Attributes
+    ----------
+    success : bool
+        True if the search completed without error.
+    output_dir : str
+        Absolute path to the output directory.
+    n_candidates : int
+        Montage candidates evaluated.
+    best : dict or None
+        Best candidate's electrode pairs and metrics.
+    results_csv : str or None
+        Path to ``candidates.csv``.
+    config_json : str or None
+        Path to ``summary.json``.
+
+    See Also
+    --------
+    RecipConfig : Configuration consumed by :func:`~tit.opt.recip.recip.run_recip_search`.
+    tit.opt.recip.recip.run_recip_search : Returns this result.
+    """
+
+    success: bool
+    output_dir: str
+    n_candidates: int
+    best: dict | None = None
+    results_csv: str | None = None
+    config_json: str | None = None
+
+
+_RECIP_TARGET_CLASSES.update(
+    {
+        "PointTarget": RecipConfig.PointTarget,
+        "SphericalROI": FlexConfig.SphericalROI,
+        "AtlasROI": FlexConfig.AtlasROI,
+        "SubcorticalROI": FlexConfig.SubcorticalROI,
+    }
+)

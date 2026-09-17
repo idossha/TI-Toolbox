@@ -259,8 +259,8 @@ def flex_run_mapping(
     "/api/catalog/ex-runs", summary="Ex-search (or mEx-search) runs for a subject"
 )
 def ex_runs(subject: str = Query(...), kind: str = Query("ex")) -> list[dict]:
-    if kind not in ("ex", "mex"):
-        raise HTTPException(status_code=422, detail="kind must be ex or mex")
+    if kind not in ("ex", "mex", "recip"):
+        raise HTTPException(status_code=422, detail="kind must be ex, mex or recip")
     return _or_404(catalog.ex_runs(_pm(), subject, kind), f"Unknown subject: {subject}")
 
 
@@ -268,8 +268,8 @@ def ex_runs(subject: str = Query(...), kind: str = Query("ex")) -> list[dict]:
     "/api/catalog/ex-runs/{run}/results", summary="Full results table of one ex/mEx run"
 )
 def ex_run_results(run: str, subject: str = Query(...), kind: str = Query(...)) -> dict:
-    if kind not in ("ex", "mex"):
-        raise HTTPException(status_code=422, detail="kind must be ex or mex")
+    if kind not in ("ex", "mex", "recip"):
+        raise HTTPException(status_code=422, detail="kind must be ex, mex or recip")
     return _or_404(
         catalog.ex_run_results(_pm(), subject, kind, run),
         f"Unknown run: {subject}/{kind}/{run}",

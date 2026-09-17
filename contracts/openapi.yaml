@@ -17,7 +17,7 @@ info:
 
     Config request bodies (`config` fields below) are `dict[str, Any]`, validated server-side with
     `tit.config_io.deserialize_config`. Their real shapes are the `contracts/generated/config.schema.json` `$defs`
-    (`SimulationConfig`, `Montage`, `FlexConfig`, `ExConfig`, `MExConfig`, `AnalyzerConfig`,
+    (`SimulationConfig`, `Montage`, `FlexConfig`, `ExConfig`, `MExConfig`, `RecipConfig`, `AnalyzerConfig`,
     `PreprocessConfig`, `QSIPrepConfig`, `QSIReconConfig`, `GroupComparisonConfig`,
     `CorrelationConfig`, `SourceConfig`, `LeadfieldConfig`, `MontageConfig`,
     `VectorConfig`, `RegionConfig`) merged into this document's `components.schemas`
@@ -4536,6 +4536,7 @@ components:
           flex_pareto,
           ex,
           mex,
+          recip,
           leadfield,
           analyzer,
           stats,
@@ -4680,6 +4681,7 @@ components:
           flex_pareto,
           ex,
           mex,
+          recip,
           leadfield,
           analyzer,
           stats,
@@ -5235,6 +5237,11 @@ components:
       additionalProperties: true
       x-tit-config: MExConfig
       description: "injected from contracts/generated/config.schema.json by dev/build_contract.py"
+    RecipConfig:
+      type: object
+      additionalProperties: true
+      x-tit-config: RecipConfig
+      description: "injected from contracts/generated/config.schema.json by dev/build_contract.py"
     AnalyzerConfig:
       type: object
       additionalProperties: true
@@ -5317,6 +5324,7 @@ components:
         - $ref: "#/components/schemas/FlexConfig"
         - $ref: "#/components/schemas/ExConfig"
         - $ref: "#/components/schemas/MExConfig"
+        - $ref: "#/components/schemas/RecipConfig"
         - $ref: "#/components/schemas/AnalyzerConfig"
         - $ref: "#/components/schemas/PreprocessConfig"
         - $ref: "#/components/schemas/QSIPrepConfig"

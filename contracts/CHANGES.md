@@ -1053,3 +1053,15 @@ replacement is now controlled solely by explicit `overwrite: true`/`replace_exis
 the request; `check_overwrite_permission` no longer 403s, only 409s pending confirmation. Non-critical
 `/api/validate` findings never blocked queuing server-side, so no behavior changed there. A stale
 `allow_unsafe_overrides` key in a project's `settings.json` is ignored on read, not rejected.
+
+## 2026-09-17 — `recip`: the reciprocity-search job kind
+
+`JobKind` and `PipelineKind` gain `recip`, and a `RecipConfig` placeholder joins the
+`PipelineConfig` union (generated from `tit.opt.config.RecipConfig`, newly registered in
+`tit.config_io.CONFIG_CLASS_REGISTRY`). The config's `target` is a `_type`-discriminated union of
+`PointTarget` (`xyz`, `space`, `radius_mm`) and the three ROI dataclasses flex-search already
+uses (`SphericalROI`, `AtlasROI`, `SubcorticalROI`), so no new ROI shape enters the contract.
+`GET /api/catalog/ex-runs` and `/ex-runs/{run}/results` accept `kind=recip`. Additive
+only: every existing kind, schema and field is untouched. `n_channels` is typed as an int and
+documented as `[2, 4]`; the server rejects 3 at validation because the verified envelope is defined
+for an even number of channels.
