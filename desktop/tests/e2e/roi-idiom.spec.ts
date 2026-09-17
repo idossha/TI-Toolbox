@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Locator, type Page } from "@playwright/test";
 import { connectLauncher, expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
+import { showRunPaneTab } from "./_runPane";
 import { analysisRows, closeAnalysisTarget, closeOptEditor, openAnalysisTarget, openOptEditor, optRows, setOptCell } from "./_jobs";
 
 /**
@@ -207,4 +208,41 @@ test("defect 2b: every region option can be found by its accessible name", async
   // The full list is still one hover away.
   await expect(field("Region(s)", editor).getByRole("combobox")).toHaveAttribute("title", /bankssts/);
   await closeOptEditor(page);
+});
+
+test("the ROI mode decides the pane, for Ex and mEx exactly as for Flex", async () => {
+  // Defect (screenshot 2026-09-17 13:19): the Optimizer passed
+  // `allowAtlas={activeRow?.method === "flex"}` to `TargetPreview`, so an Ex row targeting a
+  // subcortical atlas — a target `roiModesFor` offers and `tit/opt/ex/roi.py` accepts — showed
+  // only the "Open target in TetraVox" button while a Flex row with the same target showed the
+  // live scene. The mode decides, never the method.
+  await gotoPage(page, "optimizer", "Optimizer");
+  await expectPage(page, "optimizer");
+  const pane = page.locator('[data-page-active="true"]');
+
+  // One leg, not two: "mEx is Ex with eight electrodes" (optimizer.spec.ts) — the method cell
+  // offers Flex and Ex only, and an mEx row *is* an Ex row, with the same `roi`.
+  for (const method of ["Ex"] as const) {
+    await pickMethod(method);
+    let editor = await openOptEditor(page, optRows(page).first());
+    // Saved ROI CSVs have no anatomy to draw: the native button is the right answer there.
+    await editor.locator(".roi-picker .segmented").first().getByRole("radio", { name: "Saved", exact: true }).click();
+    await closeOptEditor(page);
+    await showRunPaneTab(page, "scene");
+    await expect(pane.getByTestId("target-preview")).toBeVisible();
+    await expect(pane.getByTestId("scene-pane-host")).toHaveCount(0);
+
+    editor = await openOptEditor(page, optRows(page).first());
+    await editor.locator(".roi-picker .segmented").first().getByRole("radio", { name: "Subcortical", exact: true }).click();
+    await closeOptEditor(page);
+    await showRunPaneTab(page, "scene");
+    await expect(pane.getByTestId("scene-pane-host")).toBeVisible();
+    await expect(pane.getByTestId("scene-canvas")).toBeVisible({ timeout: 30_000 });
+    await expect(pane.getByTestId("target-preview")).toHaveCount(0);
+  }
+
+  // ...and Flex is unchanged.
+  await pickMethod("Flex");
+  await showRunPaneTab(page, "scene");
+  await expect(pane.getByTestId("scene-pane-host")).toBeVisible();
 });

@@ -5,9 +5,18 @@ import type { RoiValue } from "../roi";
 import { targetPreviewRoi } from "./targetPreviewModel";
 import { ScenePane } from "./ScenePane";
 
-/** Atlas names are selected on bundled reference anatomy; coordinates remain subject-specific. */
-export function TargetPreview({ subject, roi, onRoiChange, allowAtlas = true }: {
-  subject: string | undefined; roi: RoiValue | undefined; onRoiChange?: (roi: RoiValue) => void; allowAtlas?: boolean;
+/**
+ * Atlas names are selected on bundled reference anatomy; coordinates remain subject-specific.
+ *
+ * The ROI *mode* decides what is shown, and nothing else: an atlas target (cortical or
+ * subcortical, or a row that has not chosen yet) gets the live `ScenePane`, and the modes with no
+ * anatomy to draw — a saved ROI CSV, a spherical target, a mask file — get the native TetraVox
+ * button. There is deliberately no per-method gate: Ex and mEx target subcortical atlases exactly
+ * as Flex does (`rows.ts::roiModesFor`, `tit/opt/ex/roi.py`), and gating on `method === "flex"`
+ * was what left Ex rows with only a button (fixed 2026-09-17).
+ */
+export function TargetPreview({ subject, roi, onRoiChange }: {
+  subject: string | undefined; roi: RoiValue | undefined; onRoiChange?: (roi: RoiValue) => void;
 }) {
   const target = targetPreviewRoi(roi);
   const preview = useMutation({ mutationFn: async () => {
@@ -19,7 +28,7 @@ export function TargetPreview({ subject, roi, onRoiChange, allowAtlas = true }: 
     if (!response.ok || !result.scene) throw new Error(result.detail ?? "Could not prepare a native target scene.");
     await openNativeScene(await exportNativeScene(result.scene, "target-preview"));
   } });
-  if (allowAtlas && (!roi || roi.mode === "cortical" || roi.mode === "subcortical")) {
+  if (!roi || roi.mode === "cortical" || roi.mode === "subcortical") {
     return <ScenePane mode="target" atlas={roi?.atlas ?? (roi?.mode === "subcortical" ? "labeling.nii.gz" : null)} regions={roi?.regions}
       onAtlasChange={(atlas, kind) => onRoiChange?.(kind === "subcortical"
         ? { mode: "subcortical", atlas, atlasSpace: "subject", tissues: "GM", regions: [] }

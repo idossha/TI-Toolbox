@@ -465,7 +465,7 @@ function OptimizerPage() {
           parallel={parallelSubjects}
           paneControls={<PaneHeaderControls controller={scenePane} />}
           scene={
-            <TargetPreview subject={activeRow?.subjectId} roi={activeRow?.roi} onRoiChange={patchActiveRoi} allowAtlas={activeRow?.method === "flex"} />
+            <TargetPreview subject={activeRow?.subjectId} roi={activeRow?.roi} onRoiChange={patchActiveRoi} />
           }
         />
       }

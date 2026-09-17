@@ -22,3 +22,32 @@ it("selects a default bundled atlas and synchronizes atlas mode with the form", 
     expect(fetchMock).not.toHaveBeenCalled();
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals(); }
 });
+
+it("shows the live scene for an atlas target and the native button only for the modes with no anatomy", async () => {
+  // Regression: the Optimizer gated the pane on `method === "flex"`, so an Ex or mEx row
+  // targeting a subcortical atlas — which `roiModesFor` offers and `tit/opt/ex/roi.py`
+  // accepts — got only "Open target in TetraVox". The mode alone decides.
+  const fetchMock = vi.fn(); vi.stubGlobal("fetch", fetchMock);
+  const client = new QueryClient();
+  const render = async (roi: Parameters<typeof TargetPreview>[0]["roi"]) => {
+    const container = document.createElement("div"); const root = createRoot(container);
+    await act(async () => root.render(<QueryClientProvider client={client}><TargetPreview subject="101" roi={roi} /></QueryClientProvider>));
+    const html = container.innerHTML;
+    act(() => root.unmount());
+    return html;
+  };
+  try {
+    scene.props = null;
+    expect(await render({ mode: "subcortical", atlas: "labeling.nii.gz", atlasSpace: "subject", regions: [], tissues: "GM" })).toContain("Reference atlas");
+    expect(scene.props).not.toBeNull();
+    expect(await render({ mode: "cortical", atlas: "DK40", regions: [] })).toContain("Reference atlas");
+    for (const roi of [
+      { mode: "saved", selected: [], combine: false, radius: 10, space: "subject" },
+      { mode: "spherical", spheres: [], space: "subject", volumetric: false, tissues: "GM" },
+    ] as const) {
+      const html = await render(roi as never);
+      expect(html).toContain("Open target in TetraVox");
+      expect(html).not.toContain("Reference atlas");
+    }
+  } finally { client.clear(); vi.unstubAllGlobals(); }
+});
