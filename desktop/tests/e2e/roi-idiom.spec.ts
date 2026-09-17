@@ -136,6 +136,7 @@ test("defect 2a: a saved-ROI row is not a subject row", async () => {
 
   // The saved ROIs the fixture gives ernie (tests/fixtures/rois_seed.json) live in the row's editor.
   const dialog = await openOptEditor(page, optRows(page).first());
+  await dialog.locator(".roi-picker .segmented").first().getByRole("radio", { name: "Saved", exact: true }).click();
   await expect(dialog.locator(".roi-saved-row")).toHaveCount(3);
   console.log(
     `FIXD-ROWS subject-picker-row=${await page.locator(".subject-picker-row").count()} ` +

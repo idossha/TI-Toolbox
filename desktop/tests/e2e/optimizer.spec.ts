@@ -71,6 +71,9 @@ async function pickCorticalTarget(dialog: Locator, region = "L · bankssts"): Pr
 
 /** Ticks a saved ROI inside an open row editor — the ex/mEx target gesture. */
 async function pickSavedTarget(dialog: Locator, name: string): Promise<void> {
+  // A fresh Ex row targets a subcortical region (so the scene pane draws); saved CSVs are opted into.
+  const saved = dialog.locator(".roi-picker .segmented").first().getByRole("radio", { name: "Saved", exact: true });
+  if (!(await saved.isChecked())) await saved.click();
   await dialog.getByText(name, { exact: true }).locator("xpath=ancestor::label[1]").getByRole("checkbox").click();
 }
 
@@ -491,7 +494,8 @@ test("Ex: subjects remain selectable and missing leadfields can be generated bef
   expect((await electrodeSection.boundingBox())!.y).toBeGreaterThan(
     (await targetSection.boundingBox())!.y + (await targetSection.boundingBox())!.height,
   );
-  await expect(dialog.getByRole("radio", { name: "Saved", exact: true })).toBeChecked();
+  // A fresh Ex row targets a subcortical region so the scene pane draws; saved CSVs are opted into.
+  await expect(dialog.getByRole("radio", { name: "Subcortical", exact: true })).toBeChecked();
   await pickSavedTarget(dialog, "Thalamus_target");
   await pickSavedTarget(dialog, "L_Insula_target");
   await fillExBuckets(dialog);
