@@ -281,3 +281,42 @@ def test_print_config_shows_an_empty_project_for_desktop_without_one(script):
     assert settings["project"] == ""
     assert settings["container"] == ""
     assert settings["ui"] == "desktop"
+
+
+@pytest.mark.parametrize("script", ["loader.sh", "loader.py"])
+def test_dev_handoff_carries_the_checkout_to_electron(script, tmp_path):
+    """Electron starts the container, so ``--dev`` must reach it or nothing is bind-mounted.
+
+    Found by running `bash loader.sh --dev --project ~/datasets/000` for real on 2026-09-17:
+    the Electron window opened, but the container had no `/ti-toolbox` mount and empty
+    `TIT_REPO_DIR`/`TIT_STATIC_DIR`/`TIT_SERVER_RELOAD`, because only `tit/cli.py` exported
+    `TIT_DEV_REPO_DIR` for the handoff.
+    """
+    recorder = tmp_path / "recorder"
+    recorder.write_text(
+        '#!/bin/bash\nprintf "repo=%s\\n" "${TIT_DEV_REPO_DIR-unset}"\n'
+    )
+    recorder.chmod(0o755)
+    command = ["bash"] if script.endswith(".sh") else [sys.executable]
+    result = subprocess.run(
+        command
+        + [
+            str(ROOT / script),
+            "--desktop",
+            "--dev",
+            str(ROOT),
+            "--project",
+            str(tmp_path),
+        ],
+        env={
+            **os.environ,
+            "TIT_ELECTRON_EXECUTABLE": str(recorder),
+            "TIT_DEV_NO_BUILD": "1",
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    assert f"repo={ROOT}" in result.stdout, result.stdout

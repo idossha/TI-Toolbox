@@ -320,13 +320,16 @@ if [ "$mode" = start ] && [ "$open_browser" = 1 ] && [ "$ui" = desktop ]; then
     if [ -n "$project" ]; then export TIT_LAUNCH_PROJECT_DIR="$project"; else unset TIT_LAUNCH_PROJECT_DIR; fi
     export TIT_LAUNCH_PORT="$port" TIT_LAUNCH_TIMEOUT="$timeout"
     export TIT_LAUNCH_IMAGE="$image"
+    # --dev is a bind mount, and Electron is what starts the container, so the checkout has to
+    # travel with the handoff; tit/cli.py::_run_desktop sets the same variable.
     # A checkout keeps the developer path: Electron from desktop/node_modules.
-    if [ -n "$repo" ] && [ -f "$helper" ]; then exec bash "$helper"; fi
+    if [ -n "$repo" ] && [ -f "$helper" ]; then export TIT_DEV_REPO_DIR="$repo"; exec bash "$helper"; fi
     resolve_desktop_executable
     [ "$desktop_exe" != download ] || install_desktop_executable
     if [ -n "$desktop_exe" ]; then
         unset ELECTRON_RUN_AS_NODE TIT_LAUNCH_CONTAINER_ID TIT_DEV_SERVER_URL TIT_DEV_SERVER_TOKEN
         unset ELECTRON_RENDERER_URL TIT_DEV_REPO_DIR TIT_REPO_DIR TIT_STATIC_DIR TIT_SERVER_RELOAD
+        [ -z "$repo" ] || export TIT_DEV_REPO_DIR="$repo"
         "$desktop_exe"
         printf 'TI-Toolbox closed.\n'
         exit 0
