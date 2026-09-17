@@ -39,20 +39,19 @@ export function TargetPreview({ subject, roi, onRoiChange }: {
     await openNativeScene(await exportNativeScene(result.scene, "target-preview"));
   } });
 
+  // Sits on the atlas toolbar's own line, left of the atlas picker and Clear selection: no "Space"
+  // caption (the two segments say Subject and MNI) and no row of its own, because the pane's
+  // vertical space is the scarce thing on this page (layout budget, 1280x800).
   const spaceSwitch = roi && onRoiChange ? (
-    <div className="scene-pane-space" data-testid="scene-pane-space">
-      {/* No "Space" caption: the two segments say Subject and MNI, which is the whole label, and
-          the pane's vertical space is the scarce thing on this page (layout budget, 1280x800). */}
-      <RoiSpaceControl value={roi} onChange={onRoiChange} label="Target space" id="scene-pane-space-control" />
-    </div>
+    <RoiSpaceControl value={roi} onChange={onRoiChange} label="Target space" id="scene-pane-space-control" />
   ) : null;
 
   if (!roi || roi.mode === "cortical" || roi.mode === "subcortical") {
     // Deliberately NOT `data-testid="target-preview"`: that id means "the modes with no anatomy
     // showed their TetraVox button instead of the pane", and specs assert it is absent here.
     return <div className="scene-pane-wrap" data-testid="scene-pane-wrap">
-      {spaceSwitch}
       <ScenePane mode="target"
+        toolbarLead={spaceSwitch}
         subject={space === "mni" ? null : subject}
         guide={space === "mni" ? "mni" : "default"}
         atlas={roi?.atlas ?? (roi?.mode === "subcortical" && space === "subject" ? "labeling.nii.gz" : null)}

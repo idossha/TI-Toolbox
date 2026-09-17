@@ -31,7 +31,7 @@
  *  - **Every failure is a sentence, not an error box** — the server's own `detail` verbatim, and a
  *    page that still works without the pane.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   SCENE_DEBUG,
   SceneCanvas,
@@ -93,6 +93,8 @@ export type SceneGesture = "electrode" | "region" | "place" | "none";
 
 export interface ScenePaneProps {
   mode: ScenePaneMode;
+  /** Rendered first in the atlas toolbar, on the same line as the atlas picker and Clear selection. */
+  toolbarLead?: ReactNode;
   /**
    * Draw **this subject's own head** instead of the packaged guide.
    *
@@ -232,6 +234,7 @@ const CANVAS_MODE: Record<SceneGesture, "montage" | "target" | "inspect"> = {
 
 export function ScenePane({
   mode,
+  toolbarLead,
   subject = null,
   guide = "default",
   onPlace,
@@ -741,6 +744,7 @@ export function ScenePane({
       ) : null}
       {wantsRegions && atlasOptions.length > 0 ? (
         <div className="scene-pane-atlas" data-testid="scene-pane-atlas">
+          {toolbarLead}
           <Select
             aria-label="Atlas"
             value={effectiveAtlas ?? ""}
