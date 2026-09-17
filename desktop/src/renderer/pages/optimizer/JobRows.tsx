@@ -121,6 +121,8 @@ export function OptimizerJobRows({
   onGenerateLeadfield,
   leadfieldGenerationState,
   onOpenViewer,
+  activeBucket,
+  onActiveBucketChange,
 }: {
   subjects: OptimizerSubject[];
   /** `GET /api/catalog/eeg-nets` per subject — a row's own net options. */
@@ -135,6 +137,10 @@ export function OptimizerJobRows({
   onGenerateLeadfield: (subject: string, net: string) => void;
   leadfieldGenerationState: (subject: string, net: string | null) => string | null;
   onOpenViewer?: () => void;
+  /** The bucket the scene pane's next electrode click fills; the editor reports the one the user
+   *  last focused, so "the pane never holds the selection" extends to which bucket is being filled. */
+  activeBucket?: string | null;
+  onActiveBucketChange?: (key: string) => void;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const { box, width, cols, setColumn } = useColumnWidths();
@@ -446,6 +452,8 @@ export function OptimizerJobRows({
         onGenerateLeadfield={onGenerateLeadfield}
         generatingLeadfield={editing ? !!leadfieldGenerationState(editing.subjectId, editing.net) : false}
         onOpenViewer={onOpenViewer}
+        activeBucket={activeBucket}
+        onActiveBucketChange={onActiveBucketChange}
       />
     </div>
   );
@@ -476,6 +484,8 @@ function RowEditor({
   onGenerateLeadfield,
   generatingLeadfield,
   onOpenViewer,
+  activeBucket,
+  onActiveBucketChange,
 }: {
   row: OptimizerRow | null;
   onClose: () => void;
@@ -485,6 +495,8 @@ function RowEditor({
   onGenerateLeadfield: (subject: string, net: string) => void;
   generatingLeadfield: boolean;
   onOpenViewer?: () => void;
+  activeBucket?: string | null;
+  onActiveBucketChange?: (key: string) => void;
 }) {
   if (!row) return null;
 
@@ -594,12 +606,12 @@ function RowEditor({
           <>
             {row.exPairs === 2 ? (
               <>
-                <ExElectrodesSection countControl={electrodeCountControl} form={row.ex} onChange={patchEx} electrodes={electrodes} disabled={!row.net} />
+                <ExElectrodesSection countControl={electrodeCountControl} form={row.ex} onChange={patchEx} electrodes={electrodes} disabled={!row.net} activeBucket={activeBucket} onActiveBucketChange={onActiveBucketChange} />
                 <ExCurrentSection form={row.ex} onChange={patchEx} />
               </>
             ) : (
               <>
-                <MExElectrodesSection countControl={electrodeCountControl} form={row.mex} onChange={patchMex} electrodes={electrodes} disabled={!row.net} />
+                <MExElectrodesSection countControl={electrodeCountControl} form={row.mex} onChange={patchMex} electrodes={electrodes} disabled={!row.net} activeBucket={activeBucket} onActiveBucketChange={onActiveBucketChange} />
                 <MExCarrierSection form={row.mex} onChange={patchMex} />
               </>
             )}

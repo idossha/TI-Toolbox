@@ -35,6 +35,7 @@ import {
   type MExFormState,
 } from "./exConfig";
 import { leadfieldFor, netOptions } from "./nets";
+import { POOL_KEY } from "./buckets";
 import { exCost, mexCost } from "./cost";
 
 /** A `?` popover for the two mTI options whose consequences a label cannot carry. */
@@ -138,12 +139,16 @@ function BucketGrid({
   onChange,
   electrodes,
   disabled,
+  activeBucket,
+  onActiveBucketChange,
 }: {
   keys: readonly string[];
   values: Record<string, string[]>;
   onChange: (key: string, electrodes: string[]) => void;
   electrodes: string[];
   disabled?: boolean;
+  activeBucket?: string | null;
+  onActiveBucketChange?: (key: string) => void;
 }) {
   const options: SelectionItem[] = electrodes.map((e) => ({ id: e, label: e }));
   // No wrapper grid: `FormSection` already lays its children out as a `.form-grid`, and nesting a
@@ -158,7 +163,24 @@ function BucketGrid({
   return (
     <>
       {keys.map((key) => (
-        <Field key={key} label={BUCKET_LABELS[key] ?? key} help={BUCKET_TOOLTIPS[key]}>
+        /*
+         * `display: contents` (`.optimizer-bucket`), so the wrapper is invisible to the form grid
+         * and the Field keeps its label gutter — a real grid item here squeezed every bucket into
+         * half a column (the measurement the comment above records).
+         *
+         * Focusing a bucket makes it the one the scene pane's next electrode click fills. The pane
+         * shows the same buckets in the same colours, so "which one am I filling" has to be
+         * answered by where the user's attention already is, not by a second control.
+         */
+        <div
+          key={key}
+          className="optimizer-bucket"
+          data-bucket={key}
+          data-active={activeBucket === key ? "true" : "false"}
+          onFocusCapture={() => onActiveBucketChange?.(key)}
+          onPointerDownCapture={() => onActiveBucketChange?.(key)}
+        >
+        <Field label={BUCKET_LABELS[key] ?? key} help={BUCKET_TOOLTIPS[key]}>
           <SelectionPicker
             items={options}
             value={values[key] ?? []}
@@ -172,6 +194,7 @@ function BucketGrid({
             disabled={disabled}
           />
         </Field>
+        </div>
       ))}
     </>
   );
@@ -184,12 +207,16 @@ export function ExElectrodesSection({
   electrodes,
   disabled,
   countControl,
+  activeBucket,
+  onActiveBucketChange,
 }: {
   form: ExFormState;
   onChange: (patch: Partial<ExFormState>) => void;
   electrodes: string[];
   disabled?: boolean;
   countControl?: ReactNode;
+  activeBucket?: string | null;
+  onActiveBucketChange?: (key: string) => void;
 }) {
   const cost = exCost(form);
   return (
@@ -207,8 +234,15 @@ export function ExElectrodesSection({
         />
       </Field>
       {form.electrodeMode === "bucketed" ? (
-        <BucketGrid keys={EX_BUCKET_KEYS} values={form.buckets} onChange={(k, v) => onChange({ buckets: { ...form.buckets, [k]: v } })} electrodes={electrodes} disabled={disabled} />
+        <BucketGrid keys={EX_BUCKET_KEYS} values={form.buckets} onChange={(k, v) => onChange({ buckets: { ...form.buckets, [k]: v } })} electrodes={electrodes} disabled={disabled} activeBucket={activeBucket} onActiveBucketChange={onActiveBucketChange} />
       ) : (
+        <div
+          className="optimizer-bucket"
+          data-bucket={POOL_KEY}
+          data-active={(activeBucket ?? POOL_KEY) === POOL_KEY ? "true" : "false"}
+          onFocusCapture={() => onActiveBucketChange?.(POOL_KEY)}
+          onPointerDownCapture={() => onActiveBucketChange?.(POOL_KEY)}
+        >
         <Field label="Electrode pool" help="Any electrode in this set can be assigned to any position." className="optimizer-span">
           <SelectionPicker
             items={electrodes.map((e) => ({ id: e, label: e }))}
@@ -223,6 +257,7 @@ export function ExElectrodesSection({
             disabled={disabled}
           />
         </Field>
+        </div>
       )}
       <p className="optimizer-cost optimizer-span" data-testid="optimizer-cost-ex">
         {cost.line}
@@ -262,18 +297,22 @@ export function MExElectrodesSection({
   electrodes,
   disabled,
   countControl,
+  activeBucket,
+  onActiveBucketChange,
 }: {
   form: MExFormState;
   onChange: (patch: Partial<MExFormState>) => void;
   electrodes: string[];
   disabled?: boolean;
   countControl?: ReactNode;
+  activeBucket?: string | null;
+  onActiveBucketChange?: (key: string) => void;
 }) {
   const cost = mexCost(form);
   return (
     <FormSection title="Electrodes">
       {countControl && <div className="optimizer-span">{countControl}</div>}
-      <BucketGrid keys={MEX_BUCKET_KEYS} values={form.buckets} onChange={(k, v) => onChange({ buckets: { ...form.buckets, [k]: v } })} electrodes={electrodes} disabled={disabled} />
+      <BucketGrid keys={MEX_BUCKET_KEYS} values={form.buckets} onChange={(k, v) => onChange({ buckets: { ...form.buckets, [k]: v } })} electrodes={electrodes} disabled={disabled} activeBucket={activeBucket} onActiveBucketChange={onActiveBucketChange} />
       <p className="optimizer-cost optimizer-span" data-testid="optimizer-cost-mex">
         {cost.line}
       </p>

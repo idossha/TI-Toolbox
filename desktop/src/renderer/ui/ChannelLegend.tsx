@@ -60,3 +60,54 @@ export function ChannelLegend({ pairs, activeChannel, onActivate, className }: C
     </div>
   );
 }
+
+/**
+ * The bucket legend above the Optimizer's scene pane — the same chip row, for a search's electrode
+ * buckets instead of a montage's pairs.
+ *
+ * It answers the two questions the coloured dots raise and cannot answer themselves — *which hue
+ * is E2-* and *which bucket does the next click fill* — and clicking a chip makes that bucket the
+ * active one. Like `ChannelLegend` it owns no selection: the buckets are the row's form state, and
+ * the only thing this holds is which of them the next pick goes into.
+ */
+export interface BucketLegendProps {
+  buckets: readonly { key: string; label: string; channel: number; count: number }[];
+  activeKey: string | null;
+  onActivate?: (key: string) => void;
+  className?: string;
+}
+
+export function BucketLegend({ buckets, activeKey, onActivate, className }: BucketLegendProps) {
+  if (buckets.length === 0) return null;
+  return (
+    <div
+      className={`channel-legend ${className ?? ""}`.trim()}
+      role="group"
+      aria-label="Electrode buckets"
+      data-testid="bucket-legend"
+    >
+      {buckets.map((bucket) => {
+        const active = bucket.key === activeKey;
+        return (
+          <button
+            key={bucket.key}
+            type="button"
+            className="channel-chip"
+            data-testid={`bucket-chip-${bucket.key}`}
+            data-bucket={bucket.key}
+            data-channel={bucket.channel}
+            data-count={bucket.count}
+            data-active={active ? "true" : "false"}
+            data-color={channelCss(bucket.channel)}
+            aria-pressed={active}
+            title={`${bucket.label}: ${bucket.count} electrode${bucket.count === 1 ? "" : "s"}`}
+            onClick={() => onActivate?.(bucket.key)}
+          >
+            <span className="channel-chip-dot" style={{ background: channelCss(bucket.channel) }} aria-hidden />
+            <span className="channel-chip-name">{`${bucket.label} · ${bucket.count}`}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}

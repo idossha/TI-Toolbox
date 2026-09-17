@@ -10,7 +10,14 @@
  * |-----------|-----------|---------------------------------------------------|----------------------|
  * | `montage` | Simulator | toggle that electrode into the active pair slot   | editing a pair re-colours its dots |
  * | `target`  | Optimizer | add/remove that atlas region from the ROI         | the ROI picker's region list IS the pane's selection |
+ * | `target`  | Optimizer (Ex/mEx, **Electrodes** gesture) | toggle that electrode into the active bucket | editing a bucket re-colours its dots |
  * | `inspect` | Analyzer  | add/remove that atlas region from the analysis ROI | the analysis ROI is drawn where it will be measured |
+ *
+ * An Ex/mEx row names a leadfield, and a leadfield is an EEG net: the pane draws that net's cap on
+ * the head exactly as the Simulator does, and a **Target | Electrodes** segmented control in the
+ * atlas toolbar says which of the two a click edits. One gesture is live at a time, so the pane
+ * can still state in one phrase what the next click will do — a pane where a click meant "region
+ * or electrode, whichever you hit" is a pane that cannot.
  *
  * Four rules, each with the failure it prevents:
  *
@@ -49,6 +56,7 @@ import { usePageActive } from "../../../app/pageActivity";
 import { Skeleton } from "../../../ui/Feedback";
 import { Button } from "../../../ui/Button";
 import { Select } from "../../../ui/Select";
+import { SegmentedControl } from "../../../ui/SegmentedControl";
 import { ChannelLegend } from "../../../ui/ChannelLegend";
 import { SceneError, type GuideId, type GuideManifest, type SceneLegendRow, type SceneManifest } from "./api";
 import {
@@ -145,6 +153,23 @@ export interface ScenePaneProps {
    */
   /** `montage`: the EEG net file name the manifest lists (`"EEG10-10_UI_Jurak_2007.csv"`). */
   net?: string | null;
+  /**
+   * `target`: the EEG net whose cap is drawn ALONGSIDE the atlas — an Ex/mEx row's leadfield net.
+   *
+   * Spelled either way (`"<net>"` or `"<net>.csv"`): the leadfield catalog reports the bare name
+   * and the scene manifest the cap filename (`pages/optimizer/nets.ts`), and a pane that compared
+   * them for equality would draw no electrodes at all on the real project.
+   */
+  electrodeNet?: string | null;
+  /** Electrode name → channel index, which is the marker's colour. Anything absent draws neutral
+   *  grey. The page owns it — it is derived from the row's buckets, never held here. */
+  electrodeChannels?: Record<string, number>;
+  /** A click on an electrode while the **Electrodes** gesture is live. Supplying it (with
+   *  `electrodeNet`) is what puts the Target | Electrodes control in the toolbar. */
+  onElectrodePick?: (name: string) => void;
+  /** The page's own legend for those colours, drawn above the stage — the bucket equivalent of
+   *  `<ChannelLegend>`, which the page owns because the buckets are its form state. */
+  electrodeLegend?: ReactNode;
   /** `target`/`inspect`: the cortical atlas id (`"DK40"`). Omitted, the pane picks the guide's
    *  first packaged atlas and its own selector chooses from there. */
   atlas?: string | null;
@@ -196,6 +221,9 @@ export interface ScenePaneDebug {
   hovered: string | null;
   /** Milliseconds from the pane having a guide to the first frame the renderer drew. */
   firstPaintMs: number | null;
+  /** The channel each drawn marker is painted in, by electrode name — a marker with no channel is
+   *  absent and draws neutral grey. What a spec reads instead of a pixel to check a bucket's hue. */
+  markerChannels: Record<string, number>;
   /** The whole legend, so a spec can map a wire label back to its region without a second fetch. */
   legend: SceneLegendRow[];
 }
@@ -212,6 +240,9 @@ const hexToRgb = (hex: string): [number, number, number] => [
   parseInt(hex.slice(3, 5), 16) / 255,
   parseInt(hex.slice(5, 7), 16) / 255,
 ];
+
+/** `"EEG10-10_UI_Jurak_2007.csv"` and `"EEG10-10_UI_Jurak_2007"` are one net. */
+const bareNet = (name: string): string => name.replace(/\.csv$/i, "");
 
 const NO_PARTS: ScenePart[] = [];
 const NO_MARKERS: SceneMarker[] = [];
@@ -245,6 +276,10 @@ export function ScenePane({
   highlightMarkers,
   selectedMarkers,
   net = null,
+  electrodeNet = null,
+  electrodeChannels,
+  onElectrodePick,
+  electrodeLegend,
   atlas = null,
   onAtlasChange,
   pairs,
@@ -299,6 +334,14 @@ export function ScenePane({
    * electrode gesture over them would write a millimetre's label into a montage pair.
    */
   const showingPlacements = !!placedMarkers;
+  /**
+   * Outside `montage`, a cap is drawn only when the page offers both a net and a writer for it:
+   * the Optimizer's Ex/mEx rows. The user then chooses which of the two selections a click edits —
+   * the target regions or the electrode buckets — and `region` stays the default, because the
+   * target is what the page is otherwise for.
+   */
+  const capOffered = mode !== "montage" && !!electrodeNet && !!onElectrodePick;
+  const [pickKind, setPickKind] = useState<"region" | "electrode">("region");
   const gesture: SceneGesture =
     onPlace && drawnSubject
       ? "place"
@@ -306,9 +349,11 @@ export function ScenePane({
         ? "none"
         : mode === "montage"
           ? "electrode"
-          : onRegionsChange
-            ? "region"
-            : "none";
+          : capOffered && pickKind === "electrode"
+            ? "electrode"
+            : onRegionsChange
+              ? "region"
+              : "none";
 
   /**
    * The atlas the pane draws. Always one in `target`/`inspect`, even when the form has no atlas of
@@ -352,10 +397,14 @@ export function ScenePane({
 
   /** Only a net the MANIFEST lists is fetched; a catalog net the guide does not have is a note,
    *  not an error — the montage still works perfectly well from the form. */
-  const netListed = mode === "montage" && !!net && (manifestData?.nets.some((entry) => entry.name === net) ?? false);
-  const netMissing = mode === "montage" && !!net && !!manifestData && !netListed;
-  const guideElectrodes = useGuideElectrodes(!drawnSubject && netListed ? net : null, guide);
-  const subjectElectrodes = useSceneElectrodes(drawnSubject, netListed ? net : null);
+  const wantedNet = mode === "montage" ? net : capOffered ? electrodeNet : null;
+  /** The manifest's own spelling of the wanted net — the two catalogs disagree about the `.csv`
+   *  suffix (`pages/optimizer/nets.ts`), and the fetch has to use the manifest's. */
+  const listedNet =
+    (wantedNet ? manifestData?.nets.find((entry) => bareNet(entry.name) === bareNet(wantedNet))?.name : undefined) ?? null;
+  const netMissing = !!wantedNet && !!manifestData && !listedNet;
+  const guideElectrodes = useGuideElectrodes(!drawnSubject ? listedNet : null, guide);
+  const subjectElectrodes = useSceneElectrodes(drawnSubject, listedNet);
   const electrodes = drawnSubject ? subjectElectrodes : guideElectrodes;
   const guideRegionsQuery = useGuideRegions(drawnSubject ? null : effectiveAtlas, guide);
   const subjectRegionsQuery = useSceneRegions(drawnSubject, effectiveAtlas);
@@ -450,7 +499,10 @@ export function ScenePane({
 
   // ---- montage -------------------------------------------------------------------------------
   const activePairs = useMemo<Pair[]>(() => pairs ?? [], [pairs]);
-  const channels = useMemo(() => channelByElectrode(activePairs), [activePairs]);
+  // The Simulator's channels come from its pairs; the Optimizer's come from its buckets, already
+  // reduced to the same "name -> channel" shape by the page that owns them.
+  const pairChannels = useMemo(() => channelByElectrode(activePairs), [activePairs]);
+  const channels = mode === "montage" ? pairChannels : (electrodeChannels ?? {});
   const electrodeMarkers = useMemo(
     () => (electrodes.data ? markersFromElectrodes(electrodes.data.electrodes, channels) : NO_MARKERS),
     [electrodes.data, channels],
@@ -491,13 +543,16 @@ export function ScenePane({
   const formRegions = useMemo<SceneRegionRef[]>(() => regions ?? [], [regions]);
   const selection = useMemo<SceneSelection>(() => {
     if (gesture === "electrode") {
+      // The Optimizer's buckets say everything through the hue (an electrode's colour is its whole
+      // state), and the ROI stays painted so the target is still visible while the cap is picked.
+      if (mode !== "montage") return { markers: [], regions: wireLabelsFor(legend, formRegions) };
       return { markers: markerIndicesFor(electrodeMarkers, placedElectrodes(activePairs)), regions: [] };
     }
     // In `place` the selection IS the answer to "which electrode does the next click move", so it
     // is exactly the page's selected marker — the renderer rings and enlarges it.
     if (gesture === "place") return { markers: selectedMarkers ?? [], regions: [] };
     return { markers: [], regions: wireLabelsFor(legend, formRegions) };
-  }, [gesture, electrodeMarkers, activePairs, legend, formRegions, selectedMarkers]);
+  }, [mode, gesture, electrodeMarkers, activePairs, legend, formRegions, selectedMarkers]);
 
   // ---- picking -------------------------------------------------------------------------------
   const onPick = useCallback(
@@ -510,6 +565,12 @@ export function ScenePane({
       if (gesture === "electrode" && target.kind === "marker") {
         const name = electrodeMarkers[target.index]?.id;
         if (!name) return;
+        // The Optimizer: the row's ex/mEx form is the only owner of the buckets, so the pick is
+        // handed straight to it and the new colours arrive back through `electrodeChannels`.
+        if (mode !== "montage") {
+          onElectrodePick?.(name);
+          return;
+        }
         if (!onPairsChange || activePairs.length === 0) {
           onRequestPairs?.(name);
           return;
@@ -527,7 +588,7 @@ export function ScenePane({
       // Deliberately nothing else. A pick on the guide names an electrode or a region; it can never
       // produce a coordinate, because these millimetres are `guide-ras`.
     },
-    [gesture, electrodeMarkers, onPairsChange, onRequestPairs, activePairs, cursor, legend, formRegions, onRegionsChange, onPlacedPick, effectiveAtlas],
+    [mode, gesture, electrodeMarkers, onElectrodePick, onPairsChange, onRequestPairs, activePairs, cursor, legend, formRegions, onRegionsChange, onPlacedPick, effectiveAtlas],
   );
 
   /**
@@ -648,8 +709,12 @@ export function ScenePane({
   /** One phrase saying what a click does — the pane's own instruction, never a tooltip. */
   const hint = ((): string => {
     if (note) return note;
-    if (netMissing) return `The guide has no ${net} electrode positions — the montage still works from the form.`;
+    if (netMissing)
+      return mode === "montage"
+        ? `The guide has no ${net} electrode positions — the montage still works from the form.`
+        : `This head model has no ${electrodeNet} electrode positions — the buckets still work from the form.`;
     if (sideError) return sideError instanceof SceneError ? sideError.message : "Some of this scene could not be loaded.";
+    if (gesture === "electrode" && mode !== "montage") return "Click an electrode to add or remove it from the active bucket.";
     if (gesture === "electrode") {
       return activePairs.length === 0
         ? "Click an electrode to start a montage."
@@ -689,7 +754,7 @@ export function ScenePane({
       guide: guideId,
       guideId: drawnSubject ? null : guide,
       space: manifestData?.space ?? null,
-      net: mode === "montage" ? net : null,
+      net: mode === "montage" ? net : (listedNet ?? electrodeNet),
       atlas: effectiveAtlas,
       state,
       message,
@@ -700,6 +765,9 @@ export function ScenePane({
         labelled: !!part.labels,
       })),
       markers: markers.length,
+      markerChannels: Object.fromEntries(
+        markers.flatMap((marker) => (marker.channel === undefined ? [] : [[marker.id, marker.channel] as const])),
+      ),
       regions: legend.length,
       selection,
       selectedRegions: selectedRegionRows,
@@ -713,7 +781,7 @@ export function ScenePane({
     return () => {
       if (window.__scenePane === handle) delete window.__scenePane;
     };
-  }, [pageActive, mode, gesture, drawnSubject, guideId, guide, manifestData, net, effectiveAtlas, state, message, parts, markers.length, legend, selection, selectedRegionRows, hovered]);
+  }, [pageActive, mode, gesture, drawnSubject, guideId, guide, manifestData, net, effectiveAtlas, state, message, parts, markers, legend, selection, selectedRegionRows, hovered]);
 
   const atlasOptions = useMemo(
     () => (manifestData?.atlases ?? []).map((entry) => ({ value: String(entry.id), label: entry.id === "labeling.nii.gz" ? "Subcortical (labeling.nii.gz)" : String(entry.id) })),
@@ -729,6 +797,7 @@ export function ScenePane({
       data-state={state}
       data-renderer="native"
       data-active-channel={activeChannel ?? ""}
+      data-pick={capOffered ? pickKind : ""}
     >
       {showing || gesture === "electrode" ? (
         <div className="scene-pane-head">
@@ -738,13 +807,30 @@ export function ScenePane({
             </p>
           ) : null}
           {gesture === "electrode" ? (
-            <ChannelLegend pairs={activePairs} activeChannel={activeChannel} onActivate={activateChannel} />
+            mode === "montage" ? (
+              <ChannelLegend pairs={activePairs} activeChannel={activeChannel} onActivate={activateChannel} />
+            ) : (
+              electrodeLegend
+            )
           ) : null}
         </div>
       ) : null}
       {wantsRegions && atlasOptions.length > 0 ? (
         <div className="scene-pane-atlas" data-testid="scene-pane-atlas">
           {toolbarLead}
+          {/* Two selections on one pane, one gesture at a time: the pane can only state what the
+              next click does if the user has said which of the two it edits. */}
+          {capOffered ? (
+            <SegmentedControl
+              aria-label="What a click edits"
+              value={pickKind}
+              onValueChange={(value) => setPickKind(value === "electrode" ? "electrode" : "region")}
+              options={[
+                { value: "region", label: "Target" },
+                { value: "electrode", label: "Electrodes" },
+              ]}
+            />
+          ) : null}
           <Select
             aria-label="Atlas"
             value={effectiveAtlas ?? ""}

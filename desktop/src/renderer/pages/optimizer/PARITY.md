@@ -191,3 +191,32 @@ did ("Queued 3 searches in 2 groups (ex, flex)") instead of implying an atomic b
       radii, mask paths and saved-ROI names are kept and reinterpreted.
 - [x] An MNI ROI is transformed into the subject at job start and the run folder gets
       `roi_confirmation.png` + `.json` (`tit/roi_confirmation.py`), shown in the job's Artifacts tab.
+
+## Beyond parity: the leadfield's cap on the head (2026-09-17)
+
+Maintainer: *"in the ex-search, when choosing the leadfield for the search, we should render the
+electrodes so the users can see the cap distribution on the head like we do in the simulator. Then,
+selected electrodes should be rendered with colors to represent buckets/pool."*
+
+- [x] An Ex/mEx row with a net draws that net's electrodes on the scene pane, on the row's own head
+      in subject space and on the packaged guide otherwise — the same decision the target pane
+      already made, and the same markers the Simulator's `montage` pane draws.
+- [x] A **Target | Electrodes** segmented control in the pane's atlas toolbar says which selection a
+      click edits. `Target` stays the default; one gesture is live at a time, so the pane can still
+      state in one phrase what the next click does (`data-gesture` on `scene-pane-host`).
+- [x] Unassigned electrodes are neutral grey. A bucketed one takes **its channel's** Okabe-Ito hue —
+      `E1±` channel 1, `E2±` channel 2, `E3±` 3, `E4±` 4 — so the pane and the Simulator's montage
+      legend mean the same thing by "pair 2 is orange". The pole is not a second glyph: the pane's
+      contract is that an electrode's colour is its whole state (`_shared/scene/ScenePane.tsx`).
+      Ex's "All combinations" pool is one hue.
+- [x] A `<BucketLegend>` above the canvas names those colours and counts each bucket, and clicking a
+      chip makes that bucket the active one — the bucket equivalent of `<ChannelLegend>`.
+- [x] A click on a dot toggles it into the bucket the row editor last focused (E1+, or the pool, by
+      default). The pane never holds the selection: the pick is written into the row's
+      `ExFormState` / `MExFormState`, and the new colours arrive back as `electrodeChannels`.
+      `pages/optimizer/buckets.ts` is the whole mapping, `tests/unit/optimizer-buckets.test.ts`
+      pins it, and `tests/e2e/scene-pane.spec.ts` pins both directions in the real renderer.
+- [ ] Open: a row whose target is a **saved ROI CSV** or a mask has no scene pane at all (those
+      modes offer the native TetraVox button instead), so its cap is not drawn either. Drawing the
+      cap for those rows means deciding what anatomy sits under it, which is the target pane's
+      question, not this one's.

@@ -22,7 +22,7 @@ import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Locator, type Page } from "@playwright/test";
 import { connectLauncher, expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
 import { expectRunPaneTab, showRunPaneTab } from "./_runPane";
-import { analysisRows, analysisTargetText, closeOptEditor, openOptEditor, optRows } from "./_jobs";
+import { analysisRows, analysisTargetText, closeOptEditor, openOptEditor, optRows, setOptCell } from "./_jobs";
 import { cameraPosition, type OrbitCamera } from "../../src/renderer/scene/camera";
 
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL ?? "http://127.0.0.1:8790";
@@ -386,5 +386,64 @@ test("bundled subcortical atlas and target settings synchronize without subject 
   await page.getByRole("option", { name: "DK40", exact: true }).click();
   const updated = await openOptEditor(page, row, "settings");
   await expect(updated.getByRole("radio", { name: "Cortical", exact: true })).toBeChecked();
+  await closeOptEditor(page);
+});
+
+/**
+ * The Optimizer's **Electrodes** gesture: an Ex row names a leadfield, a leadfield is an EEG net,
+ * and the pane draws that net's cap on the head exactly as the Simulator does — with each dot in
+ * its bucket's channel hue, so the search space is visible as a cap distribution rather than as
+ * four lists of names.
+ *
+ * Both directions of the one selection again: the row's buckets colour the dots, and a click on a
+ * dot lands in the row's active bucket. The row's form is the only owner throughout.
+ */
+test("an Ex row's leadfield net is drawn on the head, coloured by bucket", async () => {
+  await gotoPage(page, "optimizer", "Optimizer");
+  await expectPage(page, "optimizer");
+  const row = optRows(page).first();
+  await setOptCell(page, row, "method", "Ex");
+  // Choosing Ex fills the leadfield by itself — the subject's first computed matrix.
+  await expect(row.locator('td[data-cell="net"]')).toContainText(NET, { timeout: 20_000 });
+
+  const host = page.locator('[data-page-panel="optimizer"]').getByTestId("scene-pane-host");
+  await expectRunPaneTab(page, "scene");
+  await expect(host).toHaveAttribute("data-state", "ready", { timeout: 20_000 });
+  // The target is still what the pane opens on: the cap is the other gesture, never the default.
+  await expect(host).toHaveAttribute("data-gesture", "region");
+  await host.getByRole("radio", { name: "Electrodes", exact: true }).click();
+  await expect(host).toHaveAttribute("data-gesture", "electrode");
+  await expect.poll(() => page.evaluate(() => window.__scenePane?.markers ?? 0), { timeout: 20_000 }).toBe(185);
+  // Nothing is bucketed yet, so every dot is neutral grey — no channel at all.
+  expect(await page.evaluate(() => window.__scenePane?.markerChannels ?? {})).toEqual({});
+
+  // FORM -> PANE. E7 into E1+, in the row's own editor.
+  const editor = await openOptEditor(page, row, "settings");
+  await field("E1+", editor).getByRole("combobox").click();
+  const list = page.getByRole("dialog").filter({ hasText: "E1+ — choose electrodes" });
+  await list.getByPlaceholder("Filter electrodes…").fill("E7");
+  await list.getByRole("option", { name: "E7", exact: true }).click();
+  await list.getByRole("button", { name: "Done" }).click();
+  await closeOptEditor(page);
+  // Channel 0 is the first pair's Okabe-Ito hue — the same one the Simulator paints pair 1 in.
+  await expect
+    .poll(() => page.evaluate(() => window.__scenePane?.markerChannels ?? {}), { timeout: 10_000 })
+    .toEqual({ E7: 0 });
+  await expect(page.getByTestId("bucket-chip-e1_plus")).toHaveAttribute("data-count", "1");
+  await expect(page.getByTestId("bucket-chip-e1_plus")).toHaveAttribute("data-active", "true");
+
+  // PANE -> FORM. A click on a dot toggles it into the bucket the editor last focused (E1+).
+  await page.waitForFunction(() => window.__scene?.camera.settled === true, null, { timeout: 20_000 });
+  const scene = await readScene();
+  const target = await chooseMarker(scene);
+  const box = await canvasBox();
+  await page.mouse.click(box.x + target.x, box.y + target.y);
+  await expect
+    .poll(() => page.evaluate(() => Object.keys(window.__scenePane?.markerChannels ?? {}).sort()), { timeout: 10_000 })
+    .toEqual([...new Set(["E7", target.id])].sort());
+
+  // The form is the source of truth: read the bucket back out of the row's editor.
+  const check = await openOptEditor(page, row, "settings");
+  await expect(field("E1+", check).getByRole("combobox")).toContainText(target.id);
   await closeOptEditor(page);
 });

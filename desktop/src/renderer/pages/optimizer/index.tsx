@@ -60,7 +60,17 @@ import {
   type PlanResult,
   type PlanStage,
 } from "../_shared/run";
-import { TargetPreview } from "../_shared/scene/TargetPreview";
+import { TargetPreview, type TargetElectrodes } from "../_shared/scene/TargetPreview";
+import { BucketLegend } from "../../ui/ChannelLegend";
+import {
+  POOL_KEY,
+  bucketChannels,
+  bucketLegendRows,
+  exBucketView,
+  mexBucketView,
+  resolveActiveBucket,
+  toggleBucketElectrode,
+} from "./buckets";
 import { useOpenInViewer } from "../../app/openInViewer";
 import { getEegNets, getLeadfields, planFor, submitLeadfieldJob, validateFor, type EegNet, type Leadfield } from "./api";
 import { leadfieldPathFor, defaultNet } from "./nets";
@@ -158,6 +168,15 @@ function OptimizerPage() {
   const [rows, setRows] = usePageSession<OptimizerRow[]>("jobRows", []);
   const [leadfieldJobs, setLeadfieldJobs] = usePageSession<Record<string, string>>("leadfieldJobs", {});
   const [activeRowId, setActiveRowId] = usePageSession<string | null>("activeRow", null);
+  /**
+   * The bucket the next electrode click in the scene pane fills — "the bucket last focused in the
+   * row editor", and E1+ (or the pool) until the user focuses one.
+   *
+   * Page state rather than row state because it is not part of the search: it is where the user's
+   * attention is, it survives the editor dialog closing, and a row that carried it would write it
+   * into a config it has no field for.
+   */
+  const [activeBucket, setActiveBucket] = usePageSession<string | null>("activeBucket", null);
   const [pinnedJobId, setPinnedJobId] = usePageSession<string | null>("pinnedJob", null);
   // The jobs this Run press started: they keep their log and final status line in the terminal
   // after they finish, instead of the pane emptying itself the moment the run succeeds
@@ -444,6 +463,41 @@ function OptimizerPage() {
   // Cortical targets retain atlas picking; other targets show read-only extents from the form.
   const activeRow = rows.find((r) => r.id === activeRowId) ?? rows[0] ?? null;
 
+  /**
+   * The electrode cap the pane draws for the active row, and its buckets as colours.
+   *
+   * `undefined` for a Flex row or a row with no net: there is no cap to draw and no bucket to
+   * click into, so the pane stays the target pane it has always been.
+   */
+  const paneElectrodes = ((): TargetElectrodes | undefined => {
+    if (!activeRow || activeRow.method !== "ex" || !activeRow.net) return undefined;
+    const view = activeRow.exPairs === 4 ? mexBucketView(activeRow.mex) : exBucketView(activeRow.ex);
+    const bucket = resolveActiveBucket(view, activeBucket);
+    return {
+      net: activeRow.net,
+      channels: bucketChannels(view),
+      legend: (
+        <BucketLegend buckets={bucketLegendRows(view)} activeKey={bucket} onActivate={setActiveBucket} />
+      ),
+      onPick: (name: string) => {
+        // The row's form is the only owner: the pick is written back through the same object the
+        // editor's own selection lists write, and the new colours come back down as `channels`.
+        const next = toggleBucketElectrode(view, bucket, name);
+        setRows(
+          rows.map((r) =>
+            r.id !== activeRow.id
+              ? r
+              : bucket === POOL_KEY
+                ? { ...r, ex: { ...r.ex, pool: next[POOL_KEY] ?? [] } }
+                : r.exPairs === 4
+                  ? { ...r, mex: { ...r.mex, buckets: next } }
+                  : { ...r, ex: { ...r.ex, buckets: next } },
+          ),
+        );
+      },
+    };
+  })();
+
   function patchActiveRoi(next: RoiValue): void {
     if (!activeRow) return;
     setRows(rows.map((r) => (r.id === activeRow.id ? { ...r, roi: next } : r)));
@@ -480,7 +534,7 @@ function OptimizerPage() {
           parallel={parallelSubjects}
           paneControls={<PaneHeaderControls controller={scenePane} />}
           scene={
-            <TargetPreview subject={activeRow?.subjectId} roi={activeRow?.roi} onRoiChange={patchActiveRoi} />
+            <TargetPreview subject={activeRow?.subjectId} roi={activeRow?.roi} onRoiChange={patchActiveRoi} electrodes={paneElectrodes} />
           }
         />
       }
@@ -548,6 +602,8 @@ function OptimizerPage() {
                   onActiveRowChange={setActiveRowId}
                   onGenerateLeadfield={(subject, net) => generateLeadfield.mutate({ subject, net })}
                   leadfieldGenerationState={leadfieldGenerationState}
+                  activeBucket={activeBucket}
+                  onActiveBucketChange={setActiveBucket}
                   onOpenViewer={openViewer}
                 />
               )}

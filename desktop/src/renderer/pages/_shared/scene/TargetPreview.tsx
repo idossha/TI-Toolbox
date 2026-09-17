@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "../../../ui/Button";
 import { openNativeScene, exportNativeScene } from "../../../viewer/native";
@@ -24,8 +25,23 @@ import { ScenePane } from "./ScenePane";
  * to draw — a saved ROI CSV, a spherical target, a mask file — get the native TetraVox button,
  * with the space control above it either way.
  */
-export function TargetPreview({ subject, roi, onRoiChange }: {
+/**
+ * The electrode cap an Ex/mEx row's leadfield defines, and the row's buckets as its colours.
+ *
+ * Passed through rather than derived here: the buckets are the row's form state and `optimizer/`
+ * owns them (the pane never holds the selection), so this component only decides *where* on the
+ * pane they go.
+ */
+export interface TargetElectrodes {
+  net: string | null;
+  channels: Record<string, number>;
+  legend: ReactNode;
+  onPick: (name: string) => void;
+}
+
+export function TargetPreview({ subject, roi, onRoiChange, electrodes }: {
   subject: string | undefined; roi: RoiValue | undefined; onRoiChange?: (roi: RoiValue) => void;
+  electrodes?: TargetElectrodes;
 }) {
   const target = targetPreviewRoi(roi);
   const space = roi?.space ?? "subject";
@@ -52,6 +68,10 @@ export function TargetPreview({ subject, roi, onRoiChange }: {
     return <div className="scene-pane-wrap" data-testid="scene-pane-wrap">
       <ScenePane mode="target"
         toolbarLead={spaceSwitch}
+        electrodeNet={electrodes?.net ?? null}
+        electrodeChannels={electrodes?.channels}
+        electrodeLegend={electrodes?.legend}
+        onElectrodePick={electrodes?.onPick}
         subject={space === "mni" ? null : subject}
         guide={space === "mni" ? "mni" : "default"}
         atlas={roi?.atlas ?? (roi?.mode === "subcortical" && space === "subject" ? "labeling.nii.gz" : null)}

@@ -387,3 +387,12 @@
 .optimizer-current-row {
   --control-w: 96px;
 }
+
+/*
+ * A bucket's wrapper exists only to report focus (which bucket the scene pane's next electrode
+ * click fills) and to carry the active flag. `display: contents` keeps it out of the form grid, so
+ * the `Field` inside stays a grid item with its own label gutter.
+ */
+.optimizer-bucket {
+  display: contents;
+}
