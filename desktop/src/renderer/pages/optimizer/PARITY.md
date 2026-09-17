@@ -189,8 +189,12 @@ did ("Queued 3 searches in 2 groups (ex, flex)") instead of implying an atomic b
       shipped MNI atlases.
 - [x] Changing space clears an atlas selection that has no equivalent and says so; coordinates,
       radii, mask paths and saved-ROI names are kept and reinterpreted.
-- [x] An MNI ROI is transformed into the subject at job start and the run folder gets
-      `roi_confirmation.png` + `.json` (`tit/roi_confirmation.py`), shown in the job's Artifacts tab.
+- [x] The ROI is resolved into the subject at job start — in **every** space, not only MNI — and the
+      run folder gets `roi_plate.png` + `roi_plate.json` (`tit/figures/roi_plate.py`, called through
+      `tit/roi_confirmation.py`), shown in the job's Artifacts tab: three panels with the ROI centred
+      and filling the view, the framing rule and the per-region voxel counts in the JSON. On a
+      desktop with TetraVox, `desktop/src/main/roiPlates.ts` redraws the PNG with it when the job
+      finishes.
 
 ## Beyond parity: the leadfield's cap on the head (2026-09-17)
 

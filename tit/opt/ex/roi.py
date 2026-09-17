@@ -127,8 +127,8 @@ def atlas_roi_entries(
     return entries
 
 
-def confirm_mni_atlas_targets(config, m2m_path: str, out_dir: str) -> list:
-    """Write ``roi_confirmation.{png,json}`` for every MNI atlas target.
+def confirm_atlas_targets(config, m2m_path: str, out_dir: str) -> list:
+    """Write the ROI plate for every atlas target, in whatever space.
 
     Called before the search starts, so the artefact exists even if the run is
     cancelled — the whole point is to let a person check the ROI landed where
@@ -140,11 +140,14 @@ def confirm_mni_atlas_targets(config, m2m_path: str, out_dir: str) -> list:
         {
             "atlas_path": target.atlas_path,
             "label": target.label,
-            "space": "mni",
+            "space": str(getattr(target, "atlas_space", "subject")).lower(),
         }
         for target in (getattr(config, "roi_atlas", None) or [])
-        if str(getattr(target, "atlas_space", "subject")).lower() == "mni"
     ]
     if not entries:
         return []
     return confirm_rois(entries, m2m=m2m_path, out_dir=out_dir)
+
+
+#: The name this had while the check was for MNI targets only.
+confirm_mni_atlas_targets = confirm_atlas_targets

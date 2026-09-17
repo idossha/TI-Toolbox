@@ -17,6 +17,18 @@ interface JobsWsMessage {
 let socket: WebSocket | null = null;
 const notified = new Set<string>();
 
+/**
+ * What else a finished job triggers. The notifier owns the one `/ws/jobs` connection main has, so
+ * anything that must happen when a job ends hangs off it rather than opening a second socket.
+ * Today that is the host-side Tetravox pass over the job's ROI plates (`roiPlates.ts`).
+ */
+type JobFinishedListener = (jobId: string, state: "succeeded" | "failed") => void;
+let onJobFinished: JobFinishedListener | undefined;
+
+export function setJobFinishedListener(listener?: JobFinishedListener): void {
+  onJobFinished = listener;
+}
+
 export function stopNotifyingJobCompletions(): void {
   try {
     socket?.close();
@@ -55,6 +67,11 @@ export function notifyJobCompletions(origin: string, token: string): void {
       if (job.state !== "succeeded" && job.state !== "failed") return;
       if (notified.has(job.id)) return;
       notified.add(job.id);
+      try {
+        onJobFinished?.(job.id, job.state as "succeeded" | "failed");
+      } catch (err) {
+        log("warn", `job-finished listener threw: ${err instanceof Error ? err.message : String(err)}`);
+      }
       if (Notification.isSupported()) {
         new Notification({
           title: job.state === "succeeded" ? "Job finished" : "Job failed",

@@ -454,22 +454,19 @@ class Analyzer:
             track_operation(const.TELEMETRY_OP_ANALYSIS),
             tempfile.TemporaryDirectory() as scratch,
         ):
-            if coordinate_space == "mni":
-                # The MNI mask is transformed into this subject BEFORE it is
-                # measured, and the transform leaves roi_confirmation.{png,json}
-                # beside the results: a misplaced ROI is invisible in every
-                # number this analysis produces (tit/roi_confirmation.py).
-                from tit.roi_confirmation import confirm_roi
-
-                confirm_roi(
-                    atlas_path=mask_path,
-                    space="mni",
-                    m2m=str(self.m2m_path),
-                    out_dir=self._resolve_output_dir(
-                        analysis_type="mask", region_name=region_name
-                    ),
-                    name=region_name,
-                )
+            # The ROI is resolved into this subject BEFORE it is measured, and
+            # leaves roi_plate.{png,json} beside the results -- in every space,
+            # because a subject mask off by a slice is as invisible in the
+            # numbers as a bad MNI transform (tit/roi_confirmation.py).
+            plate_dir = self._resolve_output_dir(
+                analysis_type="mask", region_name=region_name
+            )
+            self._roi_plate(
+                mask_path=mask_path,
+                space=coordinate_space,
+                out_dir=plate_dir,
+                name=region_name,
+            )
             prepared = prepare_mask(
                 mask_path, coordinate_space, str(self.m2m_path), scratch, binary=True
             )
@@ -487,7 +484,7 @@ class Analyzer:
                 )
                 if not mask.any():
                     raise ValueError("Mask does not overlap the gray-matter surface")
-                return self._analyze_mesh_roi(
+                result = self._analyze_mesh_roi(
                     surface,
                     self._field_values(surface),
                     self._node_areas(surface),
@@ -496,6 +493,8 @@ class Analyzer:
                     analysis_type="mask",
                     visualize=visualize,
                 )
+                self._roi_field_plate(plate_dir)
+                return result
             img = nib.load(str(self.field_path))
             field_arr = self._squeeze_4d(img.get_fdata())
             sampled = (
@@ -516,7 +515,7 @@ class Analyzer:
                 raise ValueError(
                     "Mask does not overlap positive field values in the selected tissue"
                 )
-            return self._analyze_voxel_roi(
+            result = self._analyze_voxel_roi(
                 field_arr,
                 roi_mask,
                 analysis_mask,
@@ -525,6 +524,8 @@ class Analyzer:
                 analysis_type="mask",
                 visualize=visualize,
             )
+            self._roi_field_plate(plate_dir)
+            return result
 
     # ------------------------------------------------------------------
     # Mesh: spherical
@@ -1185,6 +1186,47 @@ class Analyzer:
         """Name a spherical ROI: one sphere keeps the classic name."""
         parts = [f"sphere_x{x:.2f}_y{y:.2f}_z{z:.2f}_r{r}" for x, y, z, r in spheres]
         return "+".join(parts)
+
+    # ------------------------------------------------------------------
+    # ROI plates (tit/figures/roi_plate.py)
+    # ------------------------------------------------------------------
+
+    def _roi_plate(self, *, mask_path, space, out_dir, name, sphere=None) -> None:
+        """The ROI plate for this analysis's target, written before it runs."""
+        from tit.roi_confirmation import confirm_roi
+
+        confirm_roi(
+            atlas_path=str(mask_path),
+            space=space,
+            m2m=str(self.m2m_path),
+            out_dir=out_dir,
+            name=name,
+            sphere=sphere,
+        )
+
+    def _roi_field_plate(self, out_dir) -> None:
+        """The same framing with the field drawn inside the ROI, at the end.
+
+        Only when the field this analysis measured exists as a **volume**: a
+        mesh field has no voxels to mask, and a plate drawn from a different
+        file than the table came from would be a picture that contradicts it.
+        """
+        from pathlib import Path as _Path
+
+        from tit.figures.roi_plate import write_roi_plate
+        from tit.roi_confirmation import MASK_NAME
+
+        field = _Path(str(self.field_path))
+        mask = _Path(out_dir) / MASK_NAME
+        if not mask.is_file() or field.suffix not in (".nii", ".gz"):
+            return
+        write_roi_plate(
+            mask_path=str(mask),
+            m2m=str(self.m2m_path),
+            out_dir=str(out_dir),
+            field_path=str(field),
+            title=f"{field.stem} in the ROI",
+        )
 
     def _resolve_output_dir(
         self,

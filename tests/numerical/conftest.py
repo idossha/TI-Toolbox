@@ -17,15 +17,27 @@ import sys
 
 import pytest
 
-_REAL_PACKAGES = ("numpy", "scipy", "scipy.ndimage", "scipy.stats", "nibabel")
+# matplotlib is here for the ROI plate (tit/figures/roi_plate.py): the mock
+# answers any attribute, so `from matplotlib.colors import to_rgba` raises
+# "matplotlib is not a package" and the plate silently degrades to no picture.
+_REAL_PACKAGES = (
+    "numpy",
+    "scipy",
+    "scipy.ndimage",
+    "scipy.stats",
+    "nibabel",
+    "matplotlib",
+    "matplotlib.pyplot",
+)
+_SWAPPED = ("scipy", "nibabel", "matplotlib")
 _RELOAD_MODULES = ("tit.stats.engine", "tit.stats.nifti")
 
 
 def _swap_in_real():
-    """Remove mocked scipy/nibabel from sys.modules and import the real ones."""
+    """Remove the mocked packages from sys.modules and import the real ones."""
     saved = {}
     for key in list(sys.modules):
-        if key.split(".")[0] in ("scipy", "nibabel"):
+        if key.split(".")[0] in _SWAPPED:
             saved[key] = sys.modules.pop(key)
     try:
         for name in _REAL_PACKAGES:
@@ -48,7 +60,7 @@ def real_numeric_stack():
     yield
     # Restore the mocked stack for the remainder of the session.
     for key in list(sys.modules):
-        if key.split(".")[0] in ("scipy", "nibabel"):
+        if key.split(".")[0] in _SWAPPED:
             del sys.modules[key]
     sys.modules.update(saved)
     for name in _RELOAD_MODULES:

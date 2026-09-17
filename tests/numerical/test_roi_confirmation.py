@@ -104,11 +104,26 @@ def test_gm_overlap_is_a_fraction_when_the_roi_straddles_the_boundary(tmp_path, 
     assert summary["gm_overlap"] == 0.5
 
 
-def test_a_subject_space_roi_has_nothing_to_confirm(tmp_path, m2m):
-    path = _volume(tmp_path / "a.nii.gz", np.ones((4, 4, 4), dtype=np.uint8), np.eye(4))
+def test_a_subject_space_roi_is_confirmed_too(tmp_path, m2m):
+    """The check is no longer for MNI ROIs only: a subject mask off by a slice
+    is as invisible in the numbers as a bad transform."""
+    affine = np.diag([1.0, 1.0, 1.0, 1.0])
+    affine[:3, 3] = [-6.0, -6.0, -6.0]
+    mask = np.zeros((12, 12, 12), dtype=np.uint8)
+    mask[8:10, 4:6, 2:4] = 1
+    path = _volume(tmp_path / "a.nii.gz", mask, affine)
     out = tmp_path / "run"
-    assert roi_confirmation.confirm_roi(atlas_path=path, space="subject", m2m=str(m2m), out_dir=str(out)) is None
-    assert not out.exists()
+
+    summary = roi_confirmation.confirm_roi(
+        atlas_path=path, space="subject", m2m=str(m2m), out_dir=str(out), name="Hand-drawn"
+    )
+
+    assert summary is not None
+    assert summary["space"] == "subject"
+    assert summary["voxels"] == 8
+    assert summary["cursor_rule"] == "single"
+    assert (out / roi_confirmation.MASK_NAME).is_file()
+    assert (out / roi_confirmation.JSON_NAME).is_file()
 
 
 def test_a_failure_is_a_log_line_and_never_an_exception(tmp_path, m2m, caplog):

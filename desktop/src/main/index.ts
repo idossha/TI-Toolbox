@@ -13,7 +13,8 @@ import { checkViewerScene, checkViewerUpdate, identifyViewerPath, installNativeV
 import { FastSurferWorker } from "./fastsurferWorker";
 import { installFastSurfer, probeFastSurfer, runtimePaths } from "./fastsurferInstall";
 import { stack } from "./stackHost";
-import { notifyJobCompletions, stopNotifyingJobCompletions } from "./jobsNotifier";
+import { notifyJobCompletions, setJobFinishedListener, stopNotifyingJobCompletions } from "./jobsNotifier";
+import { renderPlatesForJob } from "./roiPlates";
 import {
   containerToHostPath,
   hasDotSegment,
@@ -181,6 +182,18 @@ async function connect(win: BrowserWindow, args: TitConnectArgs): Promise<TitCon
   projectRootCache = null; // A new session may point at a different project.
   void resumeFastSurferWorker();
   notifyJobCompletions(url.origin, args.token);
+  setJobFinishedListener((jobId) => {
+    // The container drew each ROI plate with matplotlib already; this redraws it with the viewer
+    // the user inspects with, in place, and is a no-op on a machine with no Tetravox.
+    void renderPlatesForJob(jobId, {
+      artifactPaths: jobArtifactPaths,
+      toHostPath: async (containerPath) => {
+        const resolved = await resolveHostPathStrict(containerPath);
+        return resolved.ok ? resolved.path : null;
+      },
+      viewerExecutable: async () => (await nativeViewerStatus(app.getPath("userData"))).executable ?? undefined,
+    });
+  });
   log("info", `connected to ${url.origin}; loading session from ${pageOrigin}`);
   // The server sets the HttpOnly cookie and 303s to "/"; the token is in this URL exactly once.
   void win.loadURL(`${pageOrigin}/auth/session?token=${encodeURIComponent(args.token)}`);
@@ -286,6 +299,7 @@ async function showLauncher(win: BrowserWindow, error?: string): Promise<void> {
   serverOrigin = null;
   activeSession = null;
   projectRootCache = null;
+  setJobFinishedListener(undefined);
   stopNotifyingJobCompletions();
   void win.loadURL(`${LAUNCHER_ORIGIN}/${error ? `?error=${encodeURIComponent(error)}` : ""}`);
 }
@@ -367,6 +381,21 @@ async function resolveHostPathStrict(pathFromServer: string): Promise<PathResolv
  * `selectDirectory`'s existing "cancelled" contract) when the picked path is outside every known
  * mount, so a page can never receive a host path it has no business seeing.
  */
+/** The container paths of everything one job produced; `[]` when it cannot be asked. */
+async function jobArtifactPaths(jobId: string): Promise<string[]> {
+  if (!activeSession) return [];
+  try {
+    const res = await net.fetch(`${activeSession.origin}/api/jobs/${encodeURIComponent(jobId)}`, {
+      headers: { authorization: `Bearer ${activeSession.token}` },
+    });
+    if (!res.ok) return [];
+    const job = (await res.json()) as { artifacts?: { path?: string }[] };
+    return (job.artifacts ?? []).map((artifact) => artifact.path).filter((path): path is string => !!path);
+  } catch {
+    return [];
+  }
+}
+
 async function resolveContainerPathForBrowse(hostPath: string): Promise<string | null> {
   const current = stack.getCurrent();
   if (current) {
@@ -476,6 +505,7 @@ async function handleQuitRequest(triggerWindow: BrowserWindow | null, proceed: (
   }
   if (!mayQuit) return;
   await stopFastSurferWorker();
+  setJobFinishedListener(undefined);
   stopNotifyingJobCompletions();
   quitGate.approve();
   proceed();

@@ -16,7 +16,7 @@ from tit.opt.config import MExConfig, MExResult
 from tit.opt.ex.results import process_and_save
 from tit.opt.ex.roi import (
     atlas_roi_entries,
-    confirm_mni_atlas_targets,
+    confirm_atlas_targets,
     mni_roi_files_to_subject_space,
 )
 from tit.opt.ex.symmetry import build_symmetry_mirror_map
@@ -106,11 +106,10 @@ def _run_m_ex_search_inner(config: MExConfig) -> MExResult:
     if len(roi_files) > 1:
         logger.info("Combining %d ROIs into one target: %s", len(roi_files), roi_names)
 
-    # MNI atlas targets are transformed into the subject first, and the
-    # transform leaves a confirmation image and JSON in the run folder
-    # (tit/roi_confirmation.py): a misplaced ROI is invisible in every number
-    # this search produces.
-    confirm_mni_atlas_targets(config, pm.m2m(config.subject_id), output_dir)
+    # Every atlas target is resolved into the subject first, and leaves an ROI
+    # plate and a JSON in the run folder (tit/roi_confirmation.py): a misplaced
+    # ROI is invisible in every number this search produces.
+    confirm_atlas_targets(config, pm.m2m(config.subject_id), output_dir)
 
     atlas_entries = atlas_roi_entries(
         config, pm.m2m(config.subject_id), os.path.join(output_dir, "masks")

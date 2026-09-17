@@ -1036,6 +1036,56 @@ self-consistently wrong.
 cost a cold build (the 202 state is what makes that legible); the installation carries a second
 packaged guide. **Revisit if:** the per-subject build cost on a large cohort makes the pane feel
 slow enough that a "draw the guide instead" preference is worth having.
+## 2026-09-17 — ROI plates: framing rules, two renderers, host-side TetraVox pass
+
+**Decision:** `tit/figures/roi_plate.py` replaces the MNI-only matplotlib confirmation
+(`tit/roi_confirmation.py`, which is now its caller). Three parts:
+
+**1. The ROI is centred in the view and fills it, by a rule that is written down.**
+`plan_framing` reads the subject-space mask and returns the cursor and the zoom, recording in the
+sidecar which of five rules it used. *single*: one region — cursor at its centroid, **snapped to
+the nearest in-mask voxel**, because a C-shaped hippocampus's centroid is in the ventricle beside
+it; zoom so the bounding box fills 60 % of the panel with a 4 mm margin, one zoom shared by all
+three panels so the scale bar means the same thing in each. *union*: several regions spanning
+**≤ 60 mm** (bilateral thalami, an ROI union) — one row, cursor at the union's centroid snapped
+into the **largest** region, zoom to the union. *per-region*: several regions spanning more than
+60 mm, where one zoom would shrink each to nothing — one A/B/C row per region, largest first, each
+with its own cursor and zoom and labelled with its name and voxel count, four rows at most and the
+rest counted in `omitted_regions`. *sphere*: the centre and radius the user typed, not the
+rasterisation's centroid and bounding box. *empty*: no plate, a JSON naming the reason and one
+terminal line. 60 mm is a little over both thalami plus the third ventricle: wider than that is two
+targets, not one. Connected components below `max(10 voxels, 2 % of the largest)` are *islands*,
+not regions — a real segmentation label carries dozens of single-voxel specks and each would
+otherwise be a row — and they are drawn in the largest region's colour and counted.
+
+**2. Two renderers, one framing.** matplotlib in the container (so a headless run still gets a
+plate) and TetraVox on the host (so the plate and the viewer the user inspects with cannot
+disagree). The job document is written by the **Python** side, once, whoever runs it; Electron only
+rewrites its absolute container paths to host paths. The mask TetraVox loads is the plate's own
+region map written beside it, not the source file: for a binary mask the plan's region values are
+*component* indices, and pointing TetraVox at the original made it colour and reveal labels that
+were not in it — the first single-region plate came out with no ROI on it at all.
+
+**3. The pass runs from Electron main.** The container cannot run TetraVox (a host GPU
+application), so the job writes the matplotlib plate plus a `*.plate-request.json` and the job
+document, and `desktop/src/main/roiPlates.ts`, on the `/ws/jobs` completion event, runs
+`Tetravox --job … --quiet` offscreen per request and lets it overwrite the PNG in place. No
+TetraVox, an unmapped path, a non-zero exit or a timeout: the matplotlib plate stands and one line
+goes to the log.
+
+**`TETRAVOX_VERSION` stays 0.4.0.** Every action these documents use (`figure`, `mmPerPx`,
+`labelColors`, `visibleLabels`, `threshold.mode`, `save-scene`) was verified by running the real
+plates against the installed **0.5.2**, and the resolution order accepts any 0.4+ install, so the
+pass works on both. Bumping the managed-download baseline needs the three per-platform release
+SHA256s, which is a release-engineering change with none of this feature's risk; it is left to
+whoever next touches the download.
+
+**Cost:** two extra NIfTIs beside each plate (the region map, and the field masked to the ROI) and
+one extra GPU process per job on the host. **Revisit if:** a batch of many targets makes the
+per-job TetraVox pass (capped at 8 plates) contend with the user's own window, or if TetraVox
+gains a `figure` whose panels may each carry their own cursor — a per-region plate is matplotlib
+only today for exactly that reason.
+
 ## 2026-09-17 — One loader, `--dev` is a bind mount, `loader_dev` is gone
 
 **Decision:** `loader.sh` and `loader.py` are the only entry points. `dev/loader/loader_dev.sh`

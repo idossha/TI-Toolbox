@@ -1,66 +1,86 @@
-"""Prove, at the start of a job, that an MNI ROI landed where the user meant.
+"""Prove, at the start of a job, that the ROI it is about is the ROI you meant.
 
 Why this exists
 ---------------
-An MNI-space ROI is not the ROI that runs.  Every runner transforms it into the
-subject with the ``m2m_`` registration first (``mni2subject`` /
-:func:`tit.opt.masks.prepare_mask`), and from that moment every number the job
-produces is about the *transformed* mask.  A transform that put the putamen in
-the wrong hemisphere, or 15 mm anterior, or half outside the head, is therefore
-the one error in this pipeline that no later number can reveal: the optimisation
-converges, the focality ratio is finite, the analyzer's table is full — and all
-of it is self-consistently about the wrong voxels.
+A number about an ROI is only as good as the ROI.  An MNI ROI is not the ROI
+that runs — every runner transforms it into the subject with the ``m2m_``
+registration first (``mni2subject`` / :func:`tit.opt.masks.prepare_mask`), and a
+transform that put the putamen in the wrong hemisphere, or 15 mm anterior, or
+half outside the head, is the one error in this pipeline that no later number can
+reveal: the optimisation converges, the focality ratio is finite, the analyzer's
+table is full — and all of it is self-consistently about the wrong voxels.
 
-So the transform happens **first**, before any expensive work, and it leaves
-behind an artefact a person can look at:
+A **subject-space** ROI has the same failure modes with none of the transform:
+an atlas label with detached islands, a hand-drawn mask off by a slice, a sphere
+whose centre was typed in guide coordinates.  So the check is no longer for MNI
+ROIs only.  Every optimizer and every analyzer run writes it, for every target,
+in every space, *before* the expensive work starts.
 
-``roi_confirmation.png``
-    Three orthogonal slices of the subject's own ``T1.nii.gz`` at the mask's
-    centroid, with the subject-space mask drawn over them.
-``roi_confirmation.json``
-    ``centroid_ras`` (the subject's own millimetres), ``voxels``,
-    ``gm_overlap`` (the fraction of the mask's voxels that are grey matter in
-    ``final_tissues.nii.gz``), plus what it was made from.
+What it leaves behind is the ROI plate (:mod:`tit.figures.roi_plate`):
+
+``roi_plate.png``
+    Three orthogonal slices of the subject's own ``T1.nii.gz``, with the ROI
+    centred and filling the view, drawn in a 40 % fill under an opaque outline.
+``roi_plate.json``
+    ``centroid_ras`` (the subject's own millimetres), ``voxels``, ``gm_overlap``
+    (the fraction of the ROI's voxels that are grey matter in
+    ``final_tissues.nii.gz``), the framing rule that was chosen, and what it was
+    all made from.
+``roi_mask.nii``
+    The subject-space mask itself, kept rather than thrown away with a scratch
+    directory, because the host-side renderer needs a file it can open.
 
 and prints one line to the job's terminal.
 
 Two rules, each with the failure it prevents:
 
-* **A picture never fails a job.**  Everything here is wrapped: matplotlib may
-  be absent, the T1 may be unreadable, the output directory may be read-only.
-  None of that is a reason to refuse to run an optimisation.  A failure is one
-  log line.
-* **It reports the mask that will actually be used**, not a second computation
-  of it — the same :func:`tit.opt.masks.prepare_mask` call the runner makes, on
-  the same label, after the same island cleanup.  A confirmation image derived
+* **A picture never fails a job.**  Everything here is wrapped: matplotlib may be
+  absent, the T1 may be unreadable, the output directory may be read-only.  None
+  of that is a reason to refuse to run an optimisation.  A failure is one log
+  line.
+* **It reports the mask that will actually be used**, not a second computation of
+  it — the same :func:`tit.opt.masks.prepare_mask` call the runner makes, on the
+  same label, after the same island cleanup.  A confirmation derived
   independently could agree with the user and disagree with the run.
 """
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 from pathlib import Path
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
 #: Grey matter in charm's ``final_tissues.nii.gz`` (SimNIBS tissue numbering).
 GM_TISSUE_LABEL = 2
 
-PNG_NAME = "roi_confirmation.png"
-JSON_NAME = "roi_confirmation.json"
+#: The mask the plate is drawn from, kept beside it.
+MASK_NAME = "roi_mask.nii"
+
+from tit.figures.roi_plate import (  # noqa: E402  - re-exported for callers
+    FIELD_PLATE_JSON,
+    FIELD_PLATE_PNG,
+    PLATE_JSON as JSON_NAME,
+    PLATE_PNG as PNG_NAME,
+)
 
 #: Set to ``1`` to skip the artefact entirely (a batch that wants no pictures).
+#: The older name is still honoured so an existing batch script keeps working.
 DISABLE_ENV = "TIT_NO_ROI_CONFIRMATION"
 
 
 def enabled() -> bool:
-    return os.environ.get(DISABLE_ENV, "").strip().lower() not in ("1", "true", "yes")
+    from tit.figures import roi_plate
+
+    if os.environ.get(DISABLE_ENV, "").strip().lower() in ("1", "true", "yes"):
+        return False
+    return roi_plate.enabled()
 
 
-def _subject_mask(atlas_path: str, label: int | None, space: str, m2m: str, scratch: str):
+def _subject_mask(
+    atlas_path: str, label: int | None, space: str, m2m: str, scratch: str
+):
     """The binary mask, in the subject's own voxels, that the job will use.
 
     A label is selected *before* the transform: ``prepare_mask`` resamples with
@@ -119,77 +139,6 @@ def _gm_overlap(mask_image, m2m: str) -> float | None:
     return float(np.mean(np.rint(sampled) == GM_TISSUE_LABEL))
 
 
-def _render(mask_image, m2m: str, centroid_voxel, destination: Path, title: str) -> None:
-    """Three orthogonal T1 slices at the centroid with the mask drawn over them."""
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    import nibabel as nib
-    import numpy as np
-    from nibabel.processing import resample_from_to
-
-    t1_path = Path(m2m) / "T1.nii.gz"
-    background_image = None
-    if t1_path.is_file():
-        # Resampled onto the MASK's grid, so one set of indices addresses both
-        # and the slice a reader sees is the slice the numbers describe.
-        background_image = resample_from_to(nib.load(str(t1_path)), mask_image, order=1)
-
-    # Reoriented to RAS before slicing. charm's conformed space stores ernie's volume with its
-    # axes permuted, so index 0 was an axial plane labelled "sagittal" and every panel was rotated
-    # by an arbitrary amount. A picture that misinforms is worse than no picture, and
-    # `as_closest_canonical` is the one line that makes axis 0/1/2 mean x/y/z everywhere.
-    canonical = nib.as_closest_canonical(mask_image)
-    mask = np.squeeze(np.asarray(canonical.dataobj)) > 0
-    background = None
-    if background_image is not None:
-        background = np.squeeze(
-            np.asarray(
-                nib.as_closest_canonical(background_image).dataobj, dtype=np.float32
-            )
-        )
-        if background.ndim != 3:
-            background = None
-    # The centroid in the canonical grid's own voxels (it is the same world point).
-    index = [
-        int(round(v))
-        for v in nib.affines.apply_affine(
-            np.linalg.inv(canonical.affine),
-            nib.affines.apply_affine(mask_image.affine, np.asarray(centroid_voxel)),
-        )
-    ]
-    planes = [(0, "sagittal"), (1, "coronal"), (2, "axial")]
-    figure, axes = plt.subplots(1, 3, figsize=(9, 3.2), facecolor="black")
-    for axis, (plane, name) in zip(axes, planes):
-        cut = min(max(index[plane], 0), mask.shape[plane] - 1)
-        slicer: list[Any] = [slice(None)] * 3
-        slicer[plane] = cut
-        layer = mask[tuple(slicer)].T
-        axis.set_facecolor("black")
-        if background is not None:
-            grey = background[tuple(slicer)].T
-            finite = grey[np.isfinite(grey)]
-            top = float(np.percentile(finite, 99)) if finite.size else 1.0
-            axis.imshow(grey, cmap="gray", origin="lower", vmin=0, vmax=max(top, 1e-6))
-        axis.imshow(
-            np.ma.masked_where(~layer, layer.astype(float)),
-            cmap="autumn",
-            origin="lower",
-            alpha=0.55,
-            vmin=0,
-            vmax=1,
-        )
-        axis.set_title(name, color="white", fontsize=9)
-        axis.set_xticks([])
-        axis.set_yticks([])
-    figure.suptitle(title, color="white", fontsize=10)
-    figure.tight_layout()
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    figure.savefig(str(destination), dpi=120, facecolor="black")
-    plt.close(figure)
-
-
 def confirm_roi(
     *,
     atlas_path: str,
@@ -198,94 +147,89 @@ def confirm_roi(
     out_dir: str,
     label: int | None = None,
     name: str = "",
+    sphere: tuple | None = None,
+    field_path: str | None = None,
 ) -> dict | None:
-    """Write the confirmation artefacts for one ROI and return their summary.
+    """Write the ROI plate for one target and return its summary.
 
-    Returns ``None`` when there is nothing to confirm (a subject-space ROI, the
-    artefact switched off) or when the artefact could not be produced — never
-    raises, because a job must not fail because a picture did.
+    Args:
+        atlas_path: the ROI's source volume (an atlas, or a mask).
+        space: ``"mni"`` or ``"subject"`` — both get a plate; only MNI is
+            transformed on the way.
+        m2m: the subject's ``m2m_`` directory.
+        out_dir: where the plate goes.
+        label: one label of *atlas_path*, or ``None`` for the whole mask.
+        name: what to call this ROI.
+        sphere: ``(centre_ras, radius_mm)`` when the ROI is a sphere, so the
+            plate frames the sphere the user typed rather than its rasterisation.
+        field_path: when given, the **field** plate is written instead — the
+            field masked to the ROI, in inferno, with a colour bar.
+
+    Returns:
+        The summary dict, or ``None`` when the plate was switched off or could
+        not be written — never raises, because a job must not fail because a
+        picture did.
     """
-    if not enabled() or str(space).lower() != "mni":
+    if not enabled():
         return None
     import tempfile
+
+    from tit.figures.roi_plate import write_roi_plate
 
     try:
         import nibabel as nib
         import numpy as np
 
+        destination = Path(out_dir)
+        destination.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix="roi-confirm-") as scratch:
-            mask_image = _subject_mask(atlas_path, label, "mni", m2m, scratch)
-            mask = np.squeeze(np.asarray(mask_image.dataobj)) > 0
-            voxels = np.argwhere(mask)
-            if not len(voxels):
-                raise ValueError("the transformed mask is empty")
-            centroid_voxel = voxels.mean(axis=0)
-            centroid = nib.affines.apply_affine(mask_image.affine, centroid_voxel)
+            mask_image = _subject_mask(
+                atlas_path, label, str(space).lower(), m2m, scratch
+            )
+            mask = np.squeeze(np.asarray(mask_image.dataobj))
+            # Kept, not thrown away with the scratch directory: the host-side
+            # Tetravox pass needs a file it can open long after the job ended.
+            mask_path = destination / MASK_NAME
+            nib.save(
+                nib.Nifti1Image(
+                    np.asarray(mask > 0, dtype=np.int16), mask_image.affine
+                ),
+                str(mask_path),
+            )
+            voxels = np.argwhere(mask > 0)
             spacing = np.abs(np.linalg.det(mask_image.affine[:3, :3]))
-            overlap = _gm_overlap(mask_image, m2m)
-            label_name = name or (f"label {label}" if label is not None else Path(atlas_path).name)
-            summary = {
+            overlap = _gm_overlap(mask_image, m2m) if len(voxels) else None
+            centroid = (
+                nib.affines.apply_affine(mask_image.affine, voxels.mean(axis=0))
+                if len(voxels)
+                else np.zeros(3)
+            )
+            label_name = name or (
+                f"label {label}" if label is not None else Path(atlas_path).name
+            )
+            extra = {
                 "roi": label_name,
-                "space": "mni",
+                "space": str(space).lower(),
                 "source": atlas_path,
                 "label": label,
-                "voxels": int(len(voxels)),
                 "volume_mm3": round(float(len(voxels) * spacing), 1),
                 "centroid_ras": [round(float(v), 1) for v in centroid],
                 "gm_overlap": None if overlap is None else round(overlap, 3),
-                "image": PNG_NAME,
             }
-            destination = Path(out_dir)
-            try:
-                _render(
-                    mask_image,
-                    m2m,
-                    centroid_voxel,
-                    destination / PNG_NAME,
-                    f"{label_name} (MNI to subject)",
-                )
-            except Exception as exc:  # noqa: BLE001 - a picture never fails a job
-                logger.warning("ROI confirmation image could not be drawn: %s", exc)
-                summary["image"] = None
-            destination.mkdir(parents=True, exist_ok=True)
-            (destination / JSON_NAME).write_text(
-                json.dumps(summary, indent=1) + "\n", encoding="utf-8"
+            summary = write_roi_plate(
+                mask_path=str(mask_path),
+                m2m=m2m,
+                out_dir=str(destination),
+                field_path=field_path,
+                names=[label_name],
+                spheres=[sphere] if sphere else None,
+                title=label_name,
+                extra=extra,
             )
-            # The desktop's job Artifacts tab previews a PNG inline, so announcing
-            # the file is the whole of "show it in the job's results".
-            _announce(destination, summary)
-        x, y, z = summary["centroid_ras"]
-        overlap_text = (
-            "GM overlap unknown"
-            if summary["gm_overlap"] is None
-            else f"GM overlap {summary['gm_overlap'] * 100:.0f} %"
-        )
-        # print(), not logger: the desktop captures the runner's stdout as the
-        # job's terminal, and this line is for the person watching it.
-        print(
-            f"ROI {label_name} (MNI->subject): {summary['voxels']} voxels, "
-            f"centroid ({x:g}, {y:g}, {z:g}) mm, {overlap_text} "
-            f"-- see {PNG_NAME}",
-            flush=True,
-        )
         return summary
     except Exception as exc:  # noqa: BLE001 - never fail a job over a check
         logger.warning("ROI confirmation could not be written: %s", exc)
         return None
-
-
-def _announce(destination: Path, summary: dict) -> None:
-    """Report the artefacts as job artifacts, when a job is what is running."""
-    try:
-        from tit.jobs.events import emit_artifact
-
-        if summary.get("image"):
-            emit_artifact(
-                str(destination / PNG_NAME), "png", f"ROI confirmation — {summary['roi']}"
-            )
-        emit_artifact(str(destination / JSON_NAME), "json", "ROI confirmation (values)")
-    except Exception as exc:  # noqa: BLE001 - outside a job there is no sink
-        logger.debug("ROI confirmation artifacts not announced: %s", exc)
 
 
 def confirm_rois(entries, *, m2m: str, out_dir: str) -> list[dict]:
