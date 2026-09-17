@@ -93,6 +93,9 @@ def _subject_mask(
 
     from tit.opt.masks import prepare_mask
 
+    if str(atlas_path).endswith(".annot"):
+        # A cortical target lives on a surface; the plate needs voxels.
+        return _annot_mask(atlas_path, label, m2m, scratch)
     source = atlas_path
     if label is not None:
         image = nib.load(atlas_path)
@@ -105,6 +108,50 @@ def _subject_mask(
         nib.save(nib.Nifti1Image(binary, image.affine), source)
     prepared = prepare_mask(source, space, m2m, scratch, binary=True)
     return nib.load(prepared)
+
+
+def _annot_mask(annot_path: str, label: int | None, m2m: str, scratch: str):
+    """Rasterise one region of a FreeSurfer ``.annot`` onto the subject's T1 grid.
+
+    The labelled vertices of the hemisphere's *central* surface are marked on
+    the grid, grown by one voxel so a 1 mm sheet does not fall between voxel
+    centres, and kept only where ``final_tissues`` says grey matter (2). It is
+    the same cortex the search evaluates, drawn as voxels for the plate; the
+    voxel count is therefore indicative, not the search's own vertex count.
+    """
+    import nibabel as nib
+    import numpy as np
+    from nibabel.freesurfer import read_annot
+    from scipy import ndimage
+
+    name = Path(annot_path).name
+    hemi = name.split(".")[0]
+    if hemi not in ("lh", "rh"):
+        raise ValueError(f"{annot_path}: hemisphere prefix must be lh or rh")
+    surface = Path(m2m) / "surfaces" / f"{hemi}.central.gii"
+    if not surface.is_file():
+        raise FileNotFoundError(f"{surface} is needed to draw a cortical target")
+    vertex_labels, _, names = read_annot(annot_path)
+    if label is None:
+        selected = vertex_labels >= 0
+    else:
+        selected = vertex_labels == int(label)
+    if not selected.any():
+        raise ValueError(f"{annot_path} has no vertices with label {label}")
+    coords = np.asarray(nib.load(str(surface)).darrays[0].data, dtype=float)[selected]
+    tissues = nib.load(str(Path(m2m) / "final_tissues.nii.gz"))
+    gm = np.squeeze(np.asarray(tissues.dataobj)) == 2
+    ijk = np.rint(nib.affines.apply_affine(np.linalg.inv(tissues.affine), coords)).astype(int)
+    inside = np.all((ijk >= 0) & (ijk < np.array(gm.shape)), axis=1)
+    mask = np.zeros(gm.shape, dtype=bool)
+    mask[tuple(ijk[inside].T)] = True
+    mask = ndimage.binary_dilation(mask, iterations=1) & gm
+    if not mask.any():
+        raise ValueError(f"{annot_path} label {label} touches no grey-matter voxel")
+    Path(scratch).mkdir(parents=True, exist_ok=True)
+    out = Path(scratch) / f"annot-{hemi}-{label}.nii"
+    nib.save(nib.Nifti1Image(mask.astype(np.uint8), tissues.affine), str(out))
+    return nib.load(str(out))
 
 
 def _gm_overlap(mask_image, m2m: str) -> float | None:
@@ -141,12 +188,12 @@ def _gm_overlap(mask_image, m2m: str) -> float | None:
 
 def confirm_roi(
     *,
-    atlas_path: str,
-    space: str,
+    atlas_path: str | list[str],
+    space: str | list[str],
     m2m: str,
     out_dir: str,
-    label: int | None = None,
-    name: str = "",
+    label: int | None | list[int | None] = None,
+    name: str | list[str] = "",
     sphere: tuple | None = None,
     field_path: str | None = None,
 ) -> dict | None:
@@ -183,19 +230,28 @@ def confirm_roi(
         destination = Path(out_dir)
         destination.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix="roi-confirm-") as scratch:
-            mask_image = _subject_mask(
-                atlas_path, label, str(space).lower(), m2m, scratch
-            )
-            mask = np.squeeze(np.asarray(mask_image.dataobj))
+            sources = atlas_path if isinstance(atlas_path, list) else [atlas_path]
+            labels = label if isinstance(label, list) else [label] * len(sources)
+            spaces = space if isinstance(space, list) else [space] * len(sources)
+            region_names = name if isinstance(name, list) else [name] * len(sources)
+            mask_image = None
+            mask = None
+            # A union of regions is ONE target for the search, so it is one
+            # mask and one plate; each region keeps its own value so the plate
+            # can colour it, and the framing decides one row or several.
+            for index, (src, lab, spc) in enumerate(zip(sources, labels, spaces), start=1):
+                part = _subject_mask(src, lab, str(spc).lower(), m2m, scratch)
+                data = np.squeeze(np.asarray(part.dataobj)) > 0
+                if mask is None:
+                    mask_image = part
+                    mask = np.zeros(data.shape, dtype=np.int16)
+                elif data.shape != mask.shape:
+                    raise ValueError(f"{src}: grid differs from the first region's")
+                mask[data & (mask == 0)] = index
             # Kept, not thrown away with the scratch directory: the host-side
             # Tetravox pass needs a file it can open long after the job ended.
             mask_path = destination / MASK_NAME
-            nib.save(
-                nib.Nifti1Image(
-                    np.asarray(mask > 0, dtype=np.int16), mask_image.affine
-                ),
-                str(mask_path),
-            )
+            nib.save(nib.Nifti1Image(mask, mask_image.affine), str(mask_path))
             voxels = np.argwhere(mask > 0)
             spacing = np.abs(np.linalg.det(mask_image.affine[:3, :3]))
             overlap = _gm_overlap(mask_image, m2m) if len(voxels) else None
@@ -204,12 +260,14 @@ def confirm_roi(
                 if len(voxels)
                 else np.zeros(3)
             )
-            label_name = name or (
-                f"label {label}" if label is not None else Path(atlas_path).name
-            )
+            names = [
+                nm or (f"label {lab}" if lab is not None else Path(src).name)
+                for nm, lab, src in zip(region_names, labels, sources)
+            ]
+            label_name = " + ".join(names)
             extra = {
                 "roi": label_name,
-                "space": str(space).lower(),
+                "space": [str(x).lower() for x in spaces] if len(sources) > 1 else str(spaces[0]).lower(),
                 "source": atlas_path,
                 "label": label,
                 "volume_mm3": round(float(len(voxels) * spacing), 1),
@@ -221,7 +279,7 @@ def confirm_roi(
                 m2m=m2m,
                 out_dir=str(destination),
                 field_path=field_path,
-                names=[label_name],
+                names=names,
                 spheres=[sphere] if sphere else None,
                 title=label_name,
                 extra=extra,
@@ -233,13 +291,23 @@ def confirm_roi(
 
 
 def confirm_rois(entries, *, m2m: str, out_dir: str) -> list[dict]:
-    """:func:`confirm_roi` over several targets; the first one keeps the plain
-    file names, the rest are suffixed so a union of regions leaves one artefact
-    per region rather than overwriting each other."""
-    out: list[dict] = []
-    for index, entry in enumerate(entries):
-        directory = out_dir if index == 0 else os.path.join(out_dir, f"roi_{index + 1}")
-        summary = confirm_roi(m2m=m2m, out_dir=directory, **entry)
-        if summary:
-            out.append(summary)
-    return out
+    """:func:`confirm_roi` over a search's targets, as **one** plate.
+
+    A search treats several regions as one union target, so the confirmation
+    is one mask and one plate too — never a directory per region. Each region
+    keeps its own colour in the plate and its own voxel count in the sidecar.
+    """
+    entries = list(entries)
+    if not entries:
+        return []
+    summary = confirm_roi(
+        m2m=m2m,
+        out_dir=out_dir,
+        atlas_path=[e["atlas_path"] for e in entries],
+        label=[e.get("label") for e in entries],
+        space=[e.get("space", "subject") for e in entries],
+        name=[e.get("name", "") for e in entries],
+        sphere=entries[0].get("sphere") if len(entries) == 1 else None,
+        field_path=entries[0].get("field_path"),
+    )
+    return [summary] if summary else []

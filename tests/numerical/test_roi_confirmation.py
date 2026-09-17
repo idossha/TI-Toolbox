@@ -146,7 +146,9 @@ def test_the_env_switch_turns_the_whole_artefact_off(tmp_path, m2m, monkeypatch)
     assert roi_confirmation.confirm_roi(atlas_path=path, space="mni", m2m=str(m2m), out_dir=str(tmp_path / "r")) is None
 
 
-def test_several_targets_do_not_overwrite_each_others_artefacts(tmp_path, m2m):
+def test_several_targets_are_one_union_plate_in_one_directory(tmp_path, m2m):
+    """A search treats a union of regions as one target, so the confirmation
+    is one mask, one plate and one directory — never ``roi_2/``."""
     affine = np.diag([1.0, 1.0, 1.0, 1.0])
     affine[:3, 3] = [-6.0, -6.0, -6.0]
     atlas = np.zeros((12, 12, 12), dtype=np.uint16)
@@ -156,12 +158,18 @@ def test_several_targets_do_not_overwrite_each_others_artefacts(tmp_path, m2m):
     out = tmp_path / "run"
     summaries = roi_confirmation.confirm_rois(
         [
-            {"atlas_path": path, "label": 7, "space": "mni"},
-            {"atlas_path": path, "label": 8, "space": "mni"},
+            {"atlas_path": path, "label": 7, "space": "mni", "name": "seven"},
+            {"atlas_path": path, "label": 8, "space": "mni", "name": "eight"},
         ],
         m2m=str(m2m),
         out_dir=str(out),
     )
-    assert len(summaries) == 2
+    assert len(summaries) == 1
+    assert summaries[0]["roi"] == "seven + eight"
+    assert set(summaries[0]["voxels_by_region"]) == {"seven", "eight"}
     assert (out / roi_confirmation.JSON_NAME).is_file()
-    assert (out / "roi_2" / roi_confirmation.JSON_NAME).is_file()
+    assert not (out / "roi_2").exists()
+    import nibabel as nib
+
+    mask = np.asarray(nib.load(str(out / roi_confirmation.MASK_NAME)).dataobj)
+    assert set(np.unique(mask)) == {0, 1, 2}
