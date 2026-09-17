@@ -19,6 +19,7 @@ import {
   getExRuns,
   getFlexRuns,
   getGroupCatalog,
+  getRecipRuns,
   getReports,
   getSimulationsFor,
   type Analysis,
@@ -41,6 +42,7 @@ interface SubjectQueries {
   flexRuns: FlexRun[] | undefined;
   exRuns: ExRun[] | undefined;
   mexRuns: ExRun[] | undefined;
+  recipRuns: ExRun[] | undefined;
   reports: Report[] | undefined;
 }
 
@@ -78,6 +80,9 @@ export function useSubjectOutputs(subjects: string[], selected: string | undefin
   const mex = useQueries({
     queries: wanted.map((id) => ({ queryKey: ["results-ex-runs", id, "mex"], queryFn: () => getExRuns(id, "mex") })),
   });
+  const recip = useQueries({
+    queries: wanted.map((id) => ({ queryKey: ["results-recip-runs", id], queryFn: () => getRecipRuns(id) })),
+  });
   const reports = useQueries({
     queries: wanted.map((id) => ({ queryKey: ["results-reports", id], queryFn: () => getReports(id) })),
   });
@@ -89,6 +94,7 @@ export function useSubjectOutputs(subjects: string[], selected: string | undefin
       flexRuns: flex[i]?.data,
       exRuns: ex[i]?.data,
       mexRuns: mex[i]?.data,
+      recipRuns: recip[i]?.data,
       reports: reports[i]?.data,
     };
   });
@@ -115,13 +121,14 @@ export function useSubjectOutputs(subjects: string[], selected: string | undefin
     const q = perSubject[id];
     // A subject is only reported once every one of its five list reads has landed: a partial tree
     // would print a count that shrinks as the rest arrives.
-    const ready = q && q.simulations && q.flexRuns && q.exRuns && q.mexRuns && q.reports;
+    const ready = q && q.simulations && q.flexRuns && q.exRuns && q.mexRuns && q.recipRuns && q.reports;
     bySubject[id] = ready
       ? outputsTreeFor(id, {
           simulations: q.simulations!,
           flexRuns: q.flexRuns!,
           exRuns: q.exRuns!,
           mexRuns: q.mexRuns!,
+          recipRuns: q.recipRuns!,
           analyses: analysesBySubject[id] ?? {},
           reports: q.reports!,
         })
@@ -129,7 +136,7 @@ export function useSubjectOutputs(subjects: string[], selected: string | undefin
   }
 
   const pending =
-    [...simulations, ...flex, ...ex, ...mex, ...reports, ...analyses].some((q) => q.isPending) || group.isPending;
+    [...simulations, ...flex, ...ex, ...mex, ...recip, ...reports, ...analyses].some((q) => q.isPending) || group.isPending;
 
   return { bySubject, group: group.data ? groupOutputsFor(group.data) : undefined, pending };
 }

@@ -11,7 +11,7 @@
  */
 import type { Analysis, Artifact, ExRun, FlexRun, GroupCatalog, Report, SimulationDetail } from "./api";
 
-export type OutputKind = "simulation" | "flex" | "ex" | "mex" | "analysis" | "report";
+export type OutputKind = "simulation" | "flex" | "ex" | "mex" | "recip" | "analysis" | "report";
 
 /** How the preview pane renders the selected node. One variant per catalog read. */
 export type PreviewRef =
@@ -64,6 +64,9 @@ export interface SubjectCatalog {
   /** Keyed by simulation name — `GET /api/catalog/analyses?subject=&simulation=` is per simulation. */
   analyses: Record<string, Analysis[]>;
   reports: Report[];
+  /** `recip-search/` runs. Optional while the `recip` job kind is still landing (lane A): a
+   *  catalog that does not report them yet reads as "this subject has none", not as a crash. */
+  recipRuns?: ExRun[];
 }
 
 /** The `Group` pseudo-subject's id. Pinned under a rule at the bottom of the subject list. */
@@ -133,6 +136,24 @@ function exNode(subject: string, run: ExRun, kind: "ex" | "mex"): OutputNode {
   };
 }
 
+/**
+ * One `recip-search/<run>/` directory. It is listed like an ex run — same `ExRun` shape, since the
+ * runner writes the same `montage.json` / results CSV / figures — but previews as its artifacts
+ * rather than through `GET /api/catalog/ex-runs/{run}/results`, whose `kind` is `ex | mex` and is
+ * a contract another lane owns.
+ */
+function recipNode(subject: string, run: ExRun): OutputNode {
+  return {
+    id: `recip:${subject}:${run.run_name}`,
+    kind: "recip",
+    label: run.run_name,
+    badges: ["recip"],
+    path: run.path,
+    created: run.created,
+    preview: { type: "artifacts", artifacts: run.artifacts },
+  };
+}
+
 function analysisNode(subject: string, simulation: string, a: Analysis): OutputNode {
   return {
     id: `analysis:${subject}:${simulation}/${a.name}`,
@@ -173,12 +194,14 @@ export function outputsTreeFor(subject: string, data: SubjectCatalog): SubjectOu
   const analyses = Object.entries(data.analyses).flatMap(([simulation, list]) =>
     list.map((a) => analysisNode(subject, simulation, a)),
   );
+  const recip = (data.recipRuns ?? []).map((r) => recipNode(subject, r));
   const reports = data.reports.map((r) => reportNode(subject, r));
 
   const groups = [
     group("simulation", "Simulations", simulations),
     group("flex", "Flex runs", flex),
     group("ex", "Ex / mEx runs", exmex),
+    group("recip", "Reciprocity runs", recip),
     group("analysis", "Analyses", analyses),
     group("report", "Reports", reports),
   ].filter((g) => g.count > 0);
@@ -240,7 +263,8 @@ export function truncatePathLeft(path: string, max = 40): string {
 /** Does this node belong in the segment the user picked? `ex` and `mex` share one segment. */
 export function matchesFilter(node: OutputNode, filter: OutputFilter): boolean {
   if (filter === "all") return true;
-  if (filter === "exmex") return node.kind === "ex" || node.kind === "mex";
+  // One segment for every leadfield search: ex, mEx and reciprocity answer the same question.
+  if (filter === "exmex") return node.kind === "ex" || node.kind === "mex" || node.kind === "recip";
   return node.kind === filter;
 }
 
@@ -292,6 +316,7 @@ export function outputsStatusValue(outputs: SubjectOutputs | undefined): string 
     if (g.kind === "simulation") parts.push(plural(g.count, "simulation"));
     else if (g.kind === "flex") parts.push(plural(g.count, "flex run"));
     else if (g.kind === "ex" || g.kind === "mex") parts.push(plural(g.count, "search run"));
+    else if (g.kind === "recip") parts.push(plural(g.count, "reciprocity run"));
     else if (g.kind === "analysis") parts.push(plural(g.count, "analysis", "analyses"));
     else if (g.kind === "report") parts.push(plural(g.count, "report"));
     else parts.push(plural(g.count, "group output"));

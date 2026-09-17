@@ -29,18 +29,22 @@ import type { RoiValue } from "../../src/renderer/pages/_shared/roi";
 const cortical: RoiValue = { mode: "cortical", atlas: "DK40", regions: [{ id: 1, name: "insula", hemi: "lh" }] };
 
 describe("the method vocabulary", () => {
-  it("offers exactly two methods — a search is free-placement or exhaustive", () => {
-    // Coordinator, 2026-09-06: the five job kinds this page submits are not five methods. A method
-    // is the kind of SEARCH; the kind is derived from options the row's editor already holds.
-    expect(OPT_METHODS.map((m) => m.value)).toEqual(["flex", "ex"]);
+  it("offers exactly three methods — free placement, exhaustive, or reciprocity", () => {
+    // Coordinator, 2026-09-06: the job kinds this page submits are not the methods. A method is the
+    // kind of SEARCH; the kind is derived from options the row's editor already holds. Reciprocity
+    // is a third method rather than an Ex option because it does not search at all.
+    expect(OPT_METHODS.map((m) => m.value)).toEqual(["flex", "ex", "recip"]);
     expect(isFlexMethod("flex")).toBe(true);
     expect(isFlexMethod("ex")).toBe(false);
+    expect(isFlexMethod("recip")).toBe(false);
   });
 
   it("offers each family only the ROI modes it can express", () => {
     expect(roiModesFor("flex")).toEqual(["cortical", "subcortical", "spherical", "mask"]);
     // There is no cortical ex-search target: the leadfield is volumetric.
     expect(roiModesFor("ex")).toEqual(["saved", "subcortical", "mask"]);
+    // Recip's ROI target is a `_type`-discriminated ROI config, which a saved CSV is not.
+    expect(roiModesFor("recip")).toEqual(["subcortical", "spherical", "mask"]);
   });
 
   it("clears the target when the family changes, and is a no-op otherwise", () => {
