@@ -1,15 +1,15 @@
-"""Tests that verify example scripts in scripts/ have valid syntax and reference real APIs."""
+"""Tests that verify example scripts in examples/scripts/ have valid syntax and reference real APIs."""
 
 import os
 from pathlib import Path
 
 import pytest
 
-SCRIPTS_DIR = Path(__file__).resolve().parent.parent / "scripts"
+SCRIPTS_DIR = Path(__file__).resolve().parent.parent / "examples" / "scripts"
 
 
 def _script_paths():
-    """Yield all .py files under scripts/."""
+    """Yield all .py files under examples/scripts/."""
     if not SCRIPTS_DIR.is_dir():
         return
     for p in sorted(SCRIPTS_DIR.glob("*.py")):
@@ -32,7 +32,7 @@ def _read_script(name: str) -> str:
 class TestScriptSyntax:
     @pytest.mark.parametrize("script", list(_script_paths()), ids=lambda p: p.name)
     def test_scripts_have_valid_python_syntax(self, script):
-        """Every .py file under scripts/ must be syntactically valid Python."""
+        """Every .py file under examples/scripts/ must be syntactically valid Python."""
         source = script.read_text(encoding="utf-8")
         compile(source, str(script), "exec")
 

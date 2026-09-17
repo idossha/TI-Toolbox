@@ -485,7 +485,7 @@ def tool_list_launch_paths(_: Dict[str, Any]) -> Dict[str, Any]:
 
 _SOURCE_PREFIXES = (
     "tit/",
-    "scripts/",
+    "examples/",
     "docs/",
     "tests/",
     "container/",
@@ -1196,7 +1196,7 @@ TOOLS: List[Dict[str, Any]] = [
     {
         "name": "list_source_dir",
         "description": "List a directory of the TI-Toolbox repo (default 'tit'). Readable "
-        "roots: tit/, scripts/, docs/, tests/, container/, dev/, contracts/, desktop/src/, "
+        "roots: tit/, examples/, docs/, tests/, container/, dev/, contracts/, desktop/src/, "
         "desktop/tests/, agent-plugin/. node_modules and build output are "
         "never listed.",
         "inputSchema": {
@@ -1208,7 +1208,7 @@ TOOLS: List[Dict[str, Any]] = [
     },
     {
         "name": "read_source_file",
-        "description": "Read a text file from the TI-Toolbox repo, e.g. 'tit/sim/config.py' or 'scripts/flex.py'. "
+        "description": "Read a text file from the TI-Toolbox repo, e.g. 'tit/sim/config.py' or 'examples/scripts/flex.py'. "
         "Optional line range. Use to check dataclass fields, defaults and docstrings.",
         "inputSchema": {
             "type": "object",

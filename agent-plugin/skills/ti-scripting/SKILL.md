@@ -223,7 +223,7 @@ That directory also holds `status.json`, `events.jsonl` and `stdout.log` for the
 
 ## Example scripts in the repo
 
-`scripts/preprocess.py`, `scripts/simulator.py`, `scripts/flex.py`, `scripts/ex.py`,
-`scripts/analyzer.py`, `scripts/leadfield.py`, `scripts/pipeline.py`,
-`scripts/cluster_permutation.py`, `scripts/blender.py` — read them with
-`read_source_file("scripts/<name>.py")`.
+`examples/scripts/preprocess.py`, `examples/scripts/simulator.py`, `examples/scripts/flex.py`, `examples/scripts/ex.py`,
+`examples/scripts/analyzer.py`, `examples/scripts/leadfield.py`, `examples/scripts/pipeline.py`,
+`examples/scripts/cluster_permutation.py`, `examples/scripts/blender.py` — read them with
+`read_source_file("examples/scripts/<name>.py")`.

@@ -174,4 +174,4 @@ Local run: `derivatives/SimNIBS/sub-ernie/flex-search/validation-20260913-166c7a
 Original receipts preserve effective-budget omissions in the early harness configuration;
 `validation_run_meta.json` records the actual one-iteration options rather than rewriting history.
 Replay receipts: `code/ti-toolbox/candidate-observation-20260913-166c7a/replay-v1/`.
-`dev/flex_candidate_replay.py` reproduces live API-to-SESSION validation in a new output directory.
+(The one-off `dev/flex_candidate_replay.py` validation script was removed on 2026-09-17; the benchmark script above remains.)
