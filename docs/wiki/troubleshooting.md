@@ -24,7 +24,7 @@ The page has two parts. **Part 1** covers things outside the toolbox's control �
 An early v3 Electron launcher handoff cleared the requested checkout before starting Docker.
 The container could therefore serve its baked UI despite starting through a dev loader.
 
-Use the updated `dev/loader/loader_dev.sh --desktop --project /path/to/project`.
+Use the updated `bash loader.sh --dev --project /path/to/project`.
 Development launches now preserve the checkout mount and serve its built renderer.
 If an existing container was started with the old configuration, finish its jobs before stopping
 it and starting the corrected loader. Rebuild local frontend changes with
@@ -189,9 +189,9 @@ subprocess.CalledProcessError: Command '['docker', 'images', '--format', …]' r
 
 **Applies to:** earlier loader revisions, including the initial `release/3.0.0` candidate.
 **Cause:** the launcher required an explicit project and had no terminal project prompt.
-**Fix:** update the source checkout. Running `loader.py`, `loader.sh`,
-`dev/loader/loader_dev.py`, or `dev/loader/loader_dev.sh` without arguments in a terminal
-now prompts only for the project and remembers the last selected path. For scripts or other
+**Fix:** update the source checkout. Running `loader.py` or `loader.sh` without
+arguments now opens the desktop app's own project page, and `--browser` in a terminal
+prompts only for the project and remembers the last selected path. For scripts or other
 noninteractive sessions, pass `--project` and any
 other settings explicitly. See the [launcher reference]({{ site.baseurl }}/installation/bash-cli/#launch)
 for `--interactive`, reconnect behavior, and advanced command-line options.
@@ -315,8 +315,8 @@ for reference; use the [installation guide]({{ site.baseurl }}/installation/) fo
 
 | Symptom | Fixed in | Note / workaround on older versions | Source |
 |---|---|---|---|
-| `dev/loader/loader_dev.py`: `ModuleNotFoundError: No module named 'tit'` | main | `git pull` | 2026-08-26 |
-| `dev/loader/loader_dev.sh`: `unbound variable` on first run | main | | |
+| `dev/loader/loader_dev.py`: `ModuleNotFoundError: No module named 'tit'` (script removed 2026-09-17; use `--dev`) | main | `git pull` | 2026-08-26 |
+| `dev/loader/loader_dev.sh`: `unbound variable` on first run (script removed 2026-09-17; use `--dev`) | main | | |
 | Developer Flex: “installed SimNIBS Flex integration predates candidate recording” | v3 candidate-review branch (unreleased) | The mounted checkout now supplies its Flex integration directly. Retry the job with the updated checkout; no installed-package replacement is needed. | 2026-09-13 maintainer reproduction |
 | `loader.py` hides the real `docker compose` error behind "simnibs service is not running" | main | see Part 1 for the environmental causes | |
 | Analyzer "Field" dropdown had no effect; voxel analysis silently used `TI_avg` | main | re-run analyses made with `TI_avg` enabled | |

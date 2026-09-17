@@ -167,30 +167,32 @@ def test_dev_handoff_preserves_checkout_and_renderer(tmp_path):
     assert result.stdout == f"{tmp_path}|/ti-toolbox/desktop/out/rendererTI-Toolbox closed.\n"
 
 
-def test_bash_dev_loader_never_chooses_the_ui(tmp_path):
-    """The dev shim must not change the UI: one launch model for users and developers.
+def test_the_dev_repo_environment_variable_still_selects_a_checkout(tmp_path):
+    """``TIT_DEV_REPO_DIR`` is the environment spelling of ``--dev``; there is no second script.
 
-    It sets ``TIT_DEV_REPO_DIR`` and nothing else; ``loader.sh`` alone decides ``ui``,
-    and since 2026-09-17 ``--dev`` resolves to the desktop app just like a user run.
+    The removed ``dev/loader/loader_dev.sh`` only exported this variable, so the one loader
+    has to honour it on its own (docs/dev/DECISIONS.md, 2026-09-17).
     """
-    root = HELPER.parent.parent
-    (tmp_path / "tit").mkdir()
-    (tmp_path / "tit" / "launch.py").touch()
-    (tmp_path / "loader.py").touch()
-    (tmp_path / "loader.sh").write_text(
-        '#!/bin/bash\nprintf "%s|%s" "${TIT_LAUNCH_UI:-browser}" "$TIT_DEV_REPO_DIR"\n'
-    )
-    env = {**os.environ, "TIT_DEV_REPO_DIR": str(tmp_path)}
+    checkout = tmp_path / "checkout"
+    (checkout / "tit").mkdir(parents=True)
+    (checkout / "tit" / "launch.py").touch()
+    (checkout / "loader.py").touch()
+    env = {
+        **os.environ,
+        "TIT_DEV_REPO_DIR": str(checkout),
+        "TIT_RELEASE_BASE_URL": "file:///nonexistent",
+    }
     env.pop("TIT_LAUNCH_UI", None)
     result = subprocess.run(
-        ["bash", str(root / "dev/loader/loader_dev.sh")],
+        ["bash", str(ROOT / "loader.sh"), "--print-config", "--project", str(tmp_path)],
         env=env,
         capture_output=True,
         text=True,
         check=False,
     )
     assert result.returncode == 0, result.stderr
-    assert result.stdout == f"browser|{tmp_path}"
+    assert f"repo_dir  {checkout}" in result.stdout, result.stdout
+    assert "ui        desktop" in result.stdout, result.stdout
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -215,6 +217,8 @@ def _handoff(script, tmp_path, *flags):
             "TIT_PYTHON": sys.executable,
             "TIT_ELECTRON_EXECUTABLE": str(_recorder(tmp_path)),
             "TIT_DEV_REPO_DIR": str(ROOT),
+            # The handoff is what is under test, not npm; see ensure_dev_bundle.
+            "TIT_DEV_NO_BUILD": "1",
         },
         capture_output=True,
         text=True,

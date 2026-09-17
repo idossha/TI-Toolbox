@@ -38,6 +38,7 @@ from tit.launch import (
     start,
     status as launch_status,
     stop as launch_stop,
+    translate_project_path,
     user_config_dir,
 )
 
@@ -211,10 +212,10 @@ def install_desktop_executable() -> str:
 def launch_arguments() -> argparse.ArgumentParser:
     """The ``launch`` options, as a reusable parent parser.
 
-    Declared once and shared by three front doors so they cannot drift: the ``tit
-    launch`` subcommand below, ``loader.py`` at the repository root, and
-    ``dev/loader/loader_dev.py``.  ``add_help=False`` because a parent parser must not
-    install a second ``-h``.
+    Declared once and shared by the two front doors so they cannot drift: the ``tit
+    launch`` subcommand below and ``loader.py`` at the repository root (``loader.sh``
+    hand-writes the same set, and a parity test holds them together).  ``add_help=False``
+    because a parent parser must not install a second ``-h``.
     """
     parent = argparse.ArgumentParser(add_help=False)
     parent.add_argument(
@@ -306,8 +307,8 @@ def launch_arguments() -> argparse.ArgumentParser:
 def launch_parser(prog: str = "tit launch") -> argparse.ArgumentParser:
     """A standalone parser for the launch options, for front doors with no subcommand.
 
-    ``loader.py`` and ``dev/loader/loader_dev.py`` use this so that their ``--help`` is
-    the same one screen ``tit launch --help`` prints, under their own name.
+    ``loader.py`` uses this so that its ``--help`` is the same one screen ``tit launch
+    --help`` prints, under its own name.
     """
     return argparse.ArgumentParser(
         prog=prog,
@@ -350,7 +351,7 @@ def prompt_launch(args: argparse.Namespace, *, requested: bool) -> None:
         if not value:
             print("Enter a project directory.")
             continue
-        path = Path(value).expanduser()
+        path = Path(translate_project_path(value)).expanduser()
         if not path.is_dir():
             print(f"Directory does not exist: {path}")
             continue
@@ -444,8 +445,8 @@ def launch_command(args: argparse.Namespace, *, invocation: str = "tit launch") 
     """Run one launch invocation, turning every failure into one actionable line.
 
     ``invocation`` is how this front door is spelled (``tit launch``, ``python
-    loader.py``, ``python dev/loader/loader_dev.py``); it appears in the follow-up hints
-    and in error messages, so the line printed is a line the user can actually retype.
+    loader.py``); it appears in the follow-up hints and in error messages, so the line
+    printed is a line the user can actually retype.
 
     The dev overrides come from ``--dev`` via :func:`dev_overrides`, so every front door
     computes them the same way.
@@ -492,6 +493,45 @@ def run_dev_web(root: Path, args: argparse.Namespace) -> int:
     env["TIT_DEV_MOUNT_REPO"] = "0" if args.no_mount_repo else "1"
     print("[dev] npm run dev:web (desktop/scripts/dev.ts)")
     return subprocess.run(["npm", "run", "dev:web"], cwd=str(desktop), env=env).returncode
+
+
+def ensure_dev_bundle(root: Path) -> None:
+    """Build the checkout's renderer when ``--dev`` needs it, instead of asking for it.
+
+    The container serves ``desktop/out/renderer`` from the mounted checkout, so a missing
+    or stale bundle is a broken window, not an instruction to print.  ``loader.sh``'s
+    ``ensure_dev_bundle`` is the same three steps; ``TIT_DEV_NO_BUILD=1`` skips them
+    (tests, CI, or a `npm run dev` session that owns the directory).
+    """
+    if os.environ.get("TIT_DEV_NO_BUILD"):
+        return
+    desktop = root / "desktop"
+    if not shutil.which("npm"):
+        raise LaunchError(
+            "the --dev renderer needs npm; install Node.js, or pass --no-open"
+        )
+    if not (desktop / "node_modules").is_dir():
+        print(
+            "installing the desktop dependencies (npm --prefix desktop ci)",
+            file=sys.stderr,
+        )
+        if subprocess.run(["npm", "--prefix", str(desktop), "ci"]).returncode != 0:
+            raise LaunchError("npm ci failed in desktop/")
+    index = desktop / "out" / "renderer" / "index.html"
+    stale = index.is_file() and any(
+        path.stat().st_mtime > index.stat().st_mtime
+        for path in (desktop / "src").rglob("*")
+        if path.is_file()
+    )
+    if not index.is_file() or stale:
+        print(
+            "building the checkout UI (npm --prefix desktop run build)", file=sys.stderr
+        )
+        if (
+            subprocess.run(["npm", "--prefix", str(desktop), "run", "build"]).returncode
+            != 0
+        ):
+            raise LaunchError("npm run build failed in desktop/")
 
 
 def wants_desktop(args: argparse.Namespace) -> bool:
@@ -614,13 +654,7 @@ def _dispatch(args: argparse.Namespace, *, invocation: str) -> int:
         return launch_logs(args.project, follow=args.follow)
 
     if repo_dir and not args.no_open:
-        built = Path(repo_dir) / "desktop" / "out" / "renderer" / "index.html"
-        if not built.is_file():
-            raise LaunchError(
-                f"this checkout has no built renderer ({built}). Run "
-                "`npm --prefix desktop run build`, or use --dev --web for Vite with live "
-                "edits, or --no-open to start only the API server."
-            )
+        ensure_dev_bundle(Path(repo_dir))
     if desktop:
         helper = Path(__file__).resolve().parent.parent / "dev" / "launch-electron.sh"
         executable = ""

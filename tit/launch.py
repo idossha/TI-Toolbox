@@ -792,6 +792,36 @@ class LaunchOptions:
     session_project: str = ""
 
 
+def on_wsl() -> bool:
+    """True inside WSL2, where a Windows path and a Linux path can name the same directory."""
+    if os.environ.get("WSL_DISTRO_NAME"):
+        return True
+    try:
+        version = Path("/proc/version").read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return False
+    return "microsoft" in version.lower()
+
+
+_WINDOWS_DRIVE = re.compile(r"^([A-Za-z]):[\\/](.*)$", re.DOTALL)
+
+
+def translate_project_path(raw: str) -> str:
+    """On WSL2, ``C:\\Users\\me\\project`` is ``/mnt/c/Users/me/project``; elsewhere unchanged.
+
+    Docker Desktop is handed the Linux spelling, and ``/mnt/c/...`` already is one, so it
+    passes straight through. ``loader.sh`` applies the identical rule before it validates
+    the directory, which keeps ``--print-config`` byte-identical on WSL too.
+    """
+    if not raw or not on_wsl():
+        return raw
+    match = _WINDOWS_DRIVE.match(raw)
+    if not match:
+        return raw
+    drive, rest = match.groups()
+    return f"/mnt/{drive.lower()}/" + rest.replace("\\", "/").lstrip("/")
+
+
 def resolve_project(raw: str | None) -> str:
     """The absolute, real path of the project directory, or a message saying what is wrong."""
     if not raw:
@@ -799,7 +829,7 @@ def resolve_project(raw: str | None) -> str:
             "no project directory given. Pass --project /path/to/bids-project (or set "
             "TIT_PROJECT_DIR); TI-Toolbox opens one project at a time and will not guess which."
         )
-    path = Path(raw).expanduser()
+    path = Path(translate_project_path(raw)).expanduser()
     if not path.is_dir():
         raise LaunchError(f"project directory does not exist: {path}")
     return os.path.realpath(path)

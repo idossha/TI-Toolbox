@@ -463,8 +463,8 @@ def tool_list_launch_paths(_: Dict[str, Any]) -> Dict[str, Any]:
                 "how": "cd desktop && npm run dev  — container + Vite (HMR) + Electron, "
                 "already connected. `npm run dev:web` is the same without Electron "
                 "at http://127.0.0.1:5173/; `npm run dev:down` stops this project's "
-                "container. Developer overrides come from `--dev [DIR]` on the same launcher, "
-                "driven by dev/loader/loader_dev.{py,sh}.",
+                "container. Developer overrides come from `--dev [DIR]` on the same "
+                "loader.sh/loader.py that users run; there is no separate dev loader.",
             },
         ],
         "server": {

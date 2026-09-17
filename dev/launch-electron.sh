@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Kept after the 2026-09-17 loader consolidation because it is the one place that knows how to
+# find Electron in a checkout (desktop/node_modules) and fall back to the installed app.
 # The regular loaders delegate container ownership to Electron before touching Docker.
 # No dependency installation or renderer rebuild here: that could disturb an active dev session.
 set -euo pipefail

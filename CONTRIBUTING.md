@@ -60,14 +60,20 @@ requires an explicit Attach or Recreate choice; Attach keeps its existing projec
 mounts unchanged. Configuration differences never authorize automatic replacement. Check jobs before backend changes: reload can interrupt work. A container
 recreate changes its token; a plain restart preserves the token but still interrupts its processes.
 
-The standard manual test entry point is `bash loader.sh --dev` (or `python3 loader.py --dev`). It mounts the present checkout over the container code and enables server reload; everything else — flags, ports, container names, attach/stop semantics — is identical to a user launch, including the UI: `--dev` opens the same Electron window, taking Electron from `desktop/node_modules` rather than downloading the released app (a user launch downloads and checksum-verifies it on first run), and falling back to the installed app if the checkout has no Electron built. Developers therefore always exercise the Electron-only surface — native TetraVox open, the container GPU probe, Apple GPU consent, file dialogs. Add `--browser` when you explicitly want a browser tab; browser sessions cannot install host software. `dev/loader/loader_dev.{sh,py}` remain as thin shims that only select a checkout through `TIT_DEV_REPO_DIR`.
+### Run your changes
+
+There is one loader, in two equivalent spellings: `bash loader.sh` and `python3 loader.py`. They take the same flags, print the same `--help`, and produce byte-identical `--print-config`. With no arguments either one starts the desktop app on its own project page; `--browser` is the only opt-out and it prompts for a project directory in the terminal.
+
+`--dev [DIR]` is the whole developer story — there is no `loader_dev` (removed 2026-09-17). It bind-mounts a checkout (by default the one the loader file lives in) at `/ti-toolbox`, so `tit/` edits reload in place and the container serves that checkout's `desktop/out/renderer`. Everything else — flags, ports, container names, attach/stop semantics, and the UI — is identical to a user launch: `--dev` opens the same Electron window, taking Electron from `desktop/node_modules` rather than downloading the released app, and falling back to the installed app when the checkout has no Electron. Developers therefore always exercise the Electron-only surface — native TetraVox open, the container GPU probe, Apple GPU consent, file dialogs.
+
+If `desktop/out` is missing or older than `desktop/src`, `--dev` runs `npm --prefix desktop run build` itself (and `npm ci` first when `desktop/node_modules` is absent), printing one line before it does. Set `TIT_DEV_NO_BUILD=1` when an `npm run dev` session already owns that directory.
 
 Choose the execution mode explicitly:
 
 | Mode | Command | Code used |
 |---|---|---|
 | Run the built image | `bash loader.sh` or `python3 loader.py` | Image contents |
-| Develop inside Docker | `bash loader.sh --dev` or `python3 loader.py --dev` | The launched checkout/worktree mounted at `/ti-toolbox`, in the Electron window |
+| Develop inside Docker | `bash loader.sh --dev` or `python3 loader.py --dev` | The launched checkout/worktree bind-mounted at `/ti-toolbox`, in the Electron window |
 | Desktop development | From `desktop/`: `npm run dev` | Local Electron/renderer build + mounted backend after project selection |
 | Docker + live frontend | From `desktop/`: `npm run dev:web` | Mounted backend + Vite frontend |
 | Host-only development | From `desktop/`: `npm run dev:host` | Local Python API + Vite browser; no container |

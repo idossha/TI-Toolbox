@@ -48,7 +48,10 @@ and `--browser` or `--no-open` skips the download. Both loaders keep the resolut
 named `resolve_desktop_executable`, and `--print-config` reports the outcome as
 `desktop_executable` without touching the network. `--dev [DIR]` (equivalently
 `TIT_DEV_REPO_DIR`, or `TIT_DEV=1`) switches only the *source* of the server and renderer: the
-checkout is mounted at `/ti-toolbox`, the server reloads, and its built renderer is served. It
+checkout — the one the loader itself lives in when no `DIR` is given — is bind-mounted at
+`/ti-toolbox`, the server reloads, and its built renderer is served. A missing or stale
+`desktop/out` is built by the loader itself (`ensure_dev_bundle`, `npm ci` first when
+`desktop/node_modules` is absent; `TIT_DEV_NO_BUILD=1` opts out). It
 does **not** change the UI — a checkout opens the same Electron window a user gets, taking
 Electron from `desktop/node_modules` and, when that is absent, the installed desktop app with
 `TIT_DEV_REPO_DIR` set (`dev/launch-electron.sh` prints the `npm ci && npm run build` line it
@@ -56,8 +59,11 @@ would have preferred). Only `--browser` and `--no-open` select the browser.
 Flags, port selection, container naming/hash, attach/recreate and stop semantics are identical in
 both modes, so every entry point can attach to and stop the same container. `--print-config` output is byte-identical between `loader.sh` and `loader.py`.
 Standalone downloads keep the loader and `docker-compose.yml` together. Regular users need no checkout.
-Developer wrappers (`dev/loader/loader_dev.{sh,py}`) are thin shims and can live outside the source
-tree: `TIT_DEV_REPO_DIR` selects the checkout, independently of the project data path. An adjacent YAML or explicit
+There are exactly two entry points, `loader.sh` and `loader.py`; no developer-only wrapper exists
+(removed 2026-09-17). Either can live outside the source tree: `--dev DIR` or `TIT_DEV_REPO_DIR`
+selects the checkout, independently of the project data path. On WSL2 a Windows `--project` path
+(`C:\Users\me\project`) is translated to its `/mnt/c/...` spelling by both loaders
+(`tit/launch.py::translate_project_path`); macOS and Linux are untouched. An adjacent YAML or explicit
 `TIT_COMPOSE_FILE` selects the launch specification. Python bootstraps its
 launcher in a cache from the matching release branch and forwards the adjacent YAML via
 `TIT_COMPOSE_FILE`; an invalid explicit path fails rather than selecting a different configuration.

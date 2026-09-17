@@ -23,9 +23,7 @@ def load_script(path):
     return module
 
 
-@pytest.mark.parametrize(
-    "script,dev", [("loader.py", False), ("dev/loader/loader_dev.py", True)]
-)
+@pytest.mark.parametrize("script,dev", [("loader.py", False)])
 def test_no_arguments_reach_launch_with_selected_settings(
     monkeypatch, tmp_path, script, dev
 ):
@@ -107,10 +105,7 @@ def test_cancel_before_dispatch(monkeypatch, tmp_path, error, code):
     assert cli.prepare_launch(cli.launch_parser().parse_args(["--browser"]), []) == code
 
 
-@pytest.mark.parametrize(
-    "script",
-    ["loader.py", "dev/loader/loader_dev.py", "loader.sh", "dev/loader/loader_dev.sh"],
-)
+@pytest.mark.parametrize("script", ["loader.py", "loader.sh"])
 def test_all_front_doors_without_terminal_fail_actionably(script):
     command = ["bash"] if script.endswith(".sh") else [sys.executable]
     result = subprocess.run(
@@ -148,10 +143,7 @@ def test_management_prompt_only_requests_project(monkeypatch, tmp_path):
     os.name == "nt",
     reason="PTY transport is POSIX; prompt logic is platform-independent",
 )
-@pytest.mark.parametrize(
-    "script",
-    ["loader.py", "dev/loader/loader_dev.py", "loader.sh", "dev/loader/loader_dev.sh"],
-)
+@pytest.mark.parametrize("script", ["loader.py", "loader.sh"])
 def test_real_terminal_opens_wizard_and_eof_cancels(script, tmp_path):
     import pty
     import select

@@ -200,6 +200,8 @@ def test_regular_loader_hands_off_before_docker(tmp_path):
         capture_output=True,
         text=True,
         stdin=subprocess.DEVNULL,
+        # The handoff is under test, not npm: this synthetic checkout has no desktop/.
+        env={**os.environ, "TIT_DEV_NO_BUILD": "1"},
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout == f"{tmp_path}|attach|chosen|19876|45"

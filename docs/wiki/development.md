@@ -100,16 +100,16 @@ python3 loader.py --dev /absolute/path/to/TI-Toolbox --project /absolute/path/to
 **The launcher files do not have to live inside the checkout.** Keep `loader.sh`/`loader.py` and
 `docker-compose.yml` together in any convenient folder and name the checkout explicitly, either
 with `--dev DIR` or with `TIT_DEV_REPO_DIR` (`TIT_DEV=1` means "this launcher's own checkout").
-The thin shims `dev/loader/loader_dev.sh` and `dev/loader/loader_dev.py` do exactly that and
-remain for convenience.
+There is no second, developer-only script: `--dev` is the whole difference.
 
 `--dev` selects **source code**; `--project` selects **project data**. They are separate mounts.
 Without `--project`, the launcher asks for the data directory. An explicit invalid checkout path
 fails instead of silently using another source tree.
 
-Build the renderer once with `npm ci` and `npm run build` in the checkout's `desktop/` directory,
-or use `--dev --web` for Vite hot reload. Running an already-built renderer needs no Node
-installation on the launcher host. **Attach** retains the existing container's mounts; choose
+`--dev` builds the checkout's renderer itself when `desktop/out` is missing or older than
+`desktop/src` (running `npm ci` first if `desktop/node_modules` is absent), printing one line
+before it does; `TIT_DEV_NO_BUILD=1` skips that when another `npm run dev` owns the directory.
+`--dev --web` gives Vite hot reload instead. **Attach** retains the existing container's mounts; choose
 **Recreate** to apply a different checkout.
 
 `--dev --build` builds the image and exits; `--dev --web` runs the selected checkout's

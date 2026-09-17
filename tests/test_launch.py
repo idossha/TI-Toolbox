@@ -330,22 +330,20 @@ def test_cli_runs_on_a_bare_interpreter_with_no_third_party_imports():
 
 
 # ---------------------------------------------------------------------------------------
-# The four front doors: loader.py, loader.sh, dev/loader/loader_dev.{py,sh}
+# The two front doors: loader.py and loader.sh
 # ---------------------------------------------------------------------------------------
 
 LOADER = REPO_ROOT / "loader.py"
 LOADER_SH = REPO_ROOT / "loader.sh"
-LOADER_DEV = REPO_ROOT / "dev" / "loader" / "loader_dev.py"
-LOADER_DEV_SH = REPO_ROOT / "dev" / "loader" / "loader_dev.sh"
 
 
 def test_the_entry_points_exist_and_the_v2_ones_are_gone():
-    """Two user entry points at the root and two dev shims that only add ``--dev``."""
-    for path in (LOADER, LOADER_SH, LOADER_DEV, LOADER_DEV_SH):
+    """Exactly two entry points at the root; ``--dev`` replaced every dev-only wrapper."""
+    for path in (LOADER, LOADER_SH):
         assert path.is_file(), f"missing entry point: {path}"
     assert not (
-        REPO_ROOT / "dev" / "loader" / "docker-compose.dev.yml"
-    ).exists(), "the dev overrides come from --dev, not a second compose file"
+        REPO_ROOT / "dev" / "loader"
+    ).exists(), "there is one loader; --dev is a flag, not a second script"
     assert not (
         REPO_ROOT / "ti-toolbox.sh"
     ).exists(), "ti-toolbox.sh was replaced by loader.sh"
@@ -354,7 +352,7 @@ def test_the_entry_points_exist_and_the_v2_ones_are_gone():
     ).exists(), "the compose file moved to the root"
 
 
-@pytest.mark.parametrize("script", [LOADER, LOADER_DEV])
+@pytest.mark.parametrize("script", [LOADER])
 def test_loader_help_is_one_screen(script):
     """``--help`` has to fit a terminal, or nobody reads the one line they needed."""
     result = subprocess.run(
@@ -370,7 +368,7 @@ def test_loader_help_is_one_screen(script):
     assert script.name in result.stdout
 
 
-@pytest.mark.parametrize("script", [LOADER, LOADER_DEV])
+@pytest.mark.parametrize("script", [LOADER])
 def test_loader_offers_the_same_options_as_tit_launch(script):
     """The front doors share one option set (``tit.cli.launch_arguments``), so this cannot drift."""
     result = subprocess.run(
@@ -405,7 +403,7 @@ def test_loader_reports_a_missing_project_without_touching_docker():
     assert "python loader.py:" in result.stderr
 
 
-@pytest.mark.parametrize("script", [LOADER_SH, LOADER_DEV_SH])
+@pytest.mark.parametrize("script", [LOADER_SH])
 def test_shell_loaders_are_executable_and_parse(script):
     """``bash -n`` catches a syntax error that would otherwise surface on a user's machine."""
     assert os.access(script, os.X_OK), f"{script} is not executable"
@@ -493,7 +491,7 @@ def test_python_m_tit_cli_is_runnable():
     assert "--project" in result.stdout, "python -m tit.cli produced no help output"
 
 
-@pytest.mark.parametrize("script", [LOADER_SH, LOADER_DEV_SH])
+@pytest.mark.parametrize("script", [LOADER_SH])
 def test_shell_help_does_not_need_python(tmp_path, script):
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -588,7 +586,8 @@ esac
     result = subprocess.run(
         [
             "/bin/bash",
-            str(LOADER_DEV_SH if dev else LOADER_SH),
+            str(LOADER_SH),
+            *(["--dev"] if dev else []),
             "--project",
             str(project),
             "--port",
@@ -634,3 +633,81 @@ def test_invalid_explicit_compose_does_not_fall_back(tmp_path, monkeypatch, kind
         launch.LaunchError, match="Compose file does not exist or is not a file"
     ):
         launch.load_spec()
+
+
+# ---------------------------------------------------------------------------------------
+# WSL2: a Windows --project path and its /mnt spelling are the same directory
+# ---------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        (r"C:\Users\me\project", "/mnt/c/Users/me/project"),
+        ("D:/data/bids", "/mnt/d/data/bids"),
+        ("/mnt/c/Users/me/project", "/mnt/c/Users/me/project"),
+        ("/home/me/project", "/home/me/project"),
+        ("", ""),
+    ],
+)
+def test_windows_project_paths_are_translated_on_wsl(monkeypatch, raw, expected):
+    """Docker Desktop needs the Linux spelling; loader.sh mirrors this exact rule."""
+    monkeypatch.setenv("WSL_DISTRO_NAME", "Ubuntu")
+    assert launch.translate_project_path(raw) == expected
+
+
+def test_nothing_is_translated_off_wsl(monkeypatch):
+    """macOS and plain Linux never see a drive letter, and must not invent one."""
+    monkeypatch.delenv("WSL_DISTRO_NAME", raising=False)
+    monkeypatch.setattr(launch, "on_wsl", lambda: False)
+    assert launch.translate_project_path(r"C:\Users\me\project") == r"C:\Users\me\project"
+
+
+# ---------------------------------------------------------------------------------------
+# One loader, two spellings: the same flags and the same refusals
+# ---------------------------------------------------------------------------------------
+
+
+def _flags(text):
+    import re
+
+    return set(re.findall(r"--[a-z][a-z-]+", text))
+
+
+def test_both_loaders_document_exactly_the_same_flags():
+    """``loader.sh`` hand-parses what argparse declares, so the two --help screens must agree.
+
+    Byte-identical text is not the promise (argparse lays its own out); the *vocabulary* is,
+    because a flag that only one of them knows is a flag a user will type at the wrong one.
+    """
+    shell = subprocess.run(
+        ["bash", str(LOADER_SH), "--help"], capture_output=True, text=True, cwd=REPO_ROOT
+    )
+    python = subprocess.run(
+        [sys.executable, str(LOADER), "--help"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+    )
+    assert shell.returncode == 0 and python.returncode == 0
+    assert _flags(shell.stdout) == _flags(python.stdout), (
+        sorted(_flags(shell.stdout) - _flags(python.stdout)),
+        sorted(_flags(python.stdout) - _flags(shell.stdout)),
+    )
+
+
+@pytest.mark.parametrize("flag", ["--build", "--web"])
+def test_the_developer_shortcuts_refuse_alike_without_dev(flag):
+    """Same precondition, same sentence, from both front doors."""
+    shell = subprocess.run(
+        ["bash", str(LOADER_SH), flag], capture_output=True, text=True, cwd=REPO_ROOT
+    )
+    python = subprocess.run(
+        [sys.executable, str(LOADER), flag],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+    )
+    for result in (shell, python):
+        assert result.returncode != 0
+        assert "--build and --web need --dev" in result.stderr, result.stderr

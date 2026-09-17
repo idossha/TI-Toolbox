@@ -269,3 +269,74 @@ def test_dev_without_a_project_reaches_the_apps_own_project_page(tmp_path):
         assert result.returncode == 0, result.stderr
         assert "ui        desktop" in result.stdout
     assert results[0].stdout == results[1].stdout
+
+
+# ---------------------------------------------------------------------------------------
+# One loader, two spellings: every flag combination has to agree byte for byte
+# ---------------------------------------------------------------------------------------
+
+PARITY_CASES = {
+    "no-args": [],
+    "dev": ["--dev", "{root}"],
+    "dev-browser": ["--dev", "{root}", "--browser"],
+    "project": ["--project", "{project}"],
+    "dev-project": ["--dev", "{root}", "--project", "{project}"],
+    "browser-project": ["--browser", "--project", "{project}"],
+}
+
+
+@pytest.mark.parametrize("case", sorted(PARITY_CASES), ids=sorted(PARITY_CASES))
+def test_both_loaders_print_the_same_config(tmp_path, case):
+    """``loader.sh`` and ``loader.py`` are one launcher spelled twice (DECISIONS, 2026-09-17).
+
+    ``--print-config`` is the whole resolved state — mode, project, port, image, container
+    name, origin, UI, the three ``--dev`` overrides and the desktop executable — so a
+    byte-identical comparison over these six invocations is what keeps a hand-written bash
+    parser and an argparse parser from drifting. No Docker and no network: the release base
+    URL points at nothing, so both resolve the same ``download``/``""``.
+    """
+    arguments = [
+        part.format(root=ROOT, project=tmp_path) for part in PARITY_CASES[case]
+    ]
+    env = environment(tmp_path, TIT_RELEASE_BASE_URL="file:///nonexistent")
+    results = [
+        subprocess.run(
+            command + [str(ROOT / script), "--print-config", *arguments],
+            capture_output=True,
+            text=True,
+            env=env,
+            stdin=subprocess.DEVNULL,
+        )
+        for command, script in ((["bash"], "loader.sh"), ([sys.executable], "loader.py"))
+    ]
+    for result in results:
+        assert result.returncode == 0, result.stderr
+    assert results[0].stdout == results[1].stdout, (
+        results[0].stdout,
+        results[1].stdout,
+    )
+
+
+def test_no_arguments_at_all_never_demands_a_project(tmp_path):
+    """``bash loader.sh`` with nothing to say opens the app's own project page.
+
+    The desktop default owns the project, so the old ``pass --project`` death is a
+    regression, not a policy. ``--print-config`` is the argument-free path made observable.
+    """
+    env = environment(tmp_path, TIT_RELEASE_BASE_URL="file:///nonexistent")
+    results = [
+        subprocess.run(
+            command + [str(ROOT / script), "--print-config"],
+            capture_output=True,
+            text=True,
+            env=env,
+            stdin=subprocess.DEVNULL,
+        )
+        for command, script in ((["bash"], "loader.sh"), ([sys.executable], "loader.py"))
+    ]
+    for result in results:
+        assert result.returncode == 0, result.stderr
+        assert "pass --project" not in result.stderr
+        assert "project   \n" in result.stdout + "\n", result.stdout
+        assert "ui        desktop" in result.stdout
+    assert results[0].stdout == results[1].stdout

@@ -989,3 +989,27 @@ same config produced before; flex and ex write a small derived `.nii` under
 still shows the islands until `python -m tit.scene.guide_build --project <ernie project>` is re-run
 and its assets committed. **Revisit if:** a subject's segmentation is legitimately multi-component
 at these ratios, or SimNIBS fixes the labeling upstream.
+
+## 2026-09-17 — One loader, `--dev` is a bind mount, `loader_dev` is gone
+
+**Decision:** `loader.sh` and `loader.py` are the only entry points. `dev/loader/loader_dev.sh`
+and `dev/loader/loader_dev.py` are deleted, and every reference now reads `bash loader.sh --dev`
+or `python3 loader.py --dev`. `--dev [DIR]` — default: the checkout the loader file lives in —
+bind-mounts that checkout at `/ti-toolbox` exactly as the v2 dev loader did, so `tit/` edits are
+live under the server's reloader and the renderer served is the checkout's `desktop/out/renderer`.
+When that bundle is missing or older than `desktop/src`, the loader builds it (`npm --prefix
+desktop run build`, preceded by `npm ci` when `node_modules` is absent) after printing one line,
+instead of telling the developer to; `TIT_DEV_NO_BUILD=1` opts out. No `--dev` is a regular user
+run. With no arguments at all, both loaders open the desktop app's own project page and never say
+"pass --project"; `--browser` keeps the terminal welcome prompt. On WSL2 a Windows `--project`
+path is translated to `/mnt/<drive>/...` in both loaders (`translate_project_path`); macOS and
+Linux are unchanged.
+
+**Why:** three scripts implemented one idea. The shims only exported `TIT_DEV_REPO_DIR`, which
+`--dev` already means, and every doc had to explain which of the three to type; the loaders had
+also drifted apart on `--print-config` with no project (bash demanded one, Python printed an empty
+line). The build instruction was the other half: a developer who forgot `npm run build` got an
+error telling them to run a command the loader could run itself. **Cost:** a `--dev` start can now
+take a minute on its first run while npm builds, and `TIT_DEV_NO_BUILD=1` is a new thing to know
+when running `npm run dev` beside it. **Revisit if:** the renderer moves to Vite HMR inside
+Electron by default, which would remove the built-bundle precondition altogether.

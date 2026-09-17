@@ -73,7 +73,7 @@ and `--browser` asks for it explicitly. Developer browser mode remains convenien
 | `python3 loader.py` / `bash loader.sh` | The desktop app, downloaded on first run; closing it stops/removes its container. |
 | Either loader with `--browser` (or `--no-open`) | Browser session; explicit `--stop` ends it. |
 | Either loader with `--desktop` | The desktop app, with an error instead of a browser fallback. |
-| `dev/loader/loader_dev.py` / `dev/loader/loader_dev.sh` | Browser with checkout mounts for newly created sessions. |
+| Either loader with `--dev [DIR]` | The desktop app, serving a mounted checkout's code instead of the image's. |
 | `npm run dev` in `desktop/` | Builds and opens welcome Overview; select a project in Electron. Closing stops its container. |
 | `npm run dev:web` | Browser with Vite; container remains until `npm run dev:down`. |
 

@@ -8,7 +8,7 @@ image="${TIT_IMAGE_TAG:-}"
 port=8765 timeout=180 mode=start follow=0 open_browser=1 interactive=0
 repo="${TIT_DEV_REPO_DIR:-}"
 [ -z "${TIT_DEV:-}" ] || repo="${repo:-$PWD}"
-print_config=0
+print_config=0 build=0 web=0
 running_action=""; container=""; ui="${TIT_LAUNCH_UI:-}"; explicit_browser=0; explicit_desktop=0
 [ "$#" -gt 0 ] || interactive=1
 while [ "$#" -gt 0 ]; do
@@ -32,12 +32,14 @@ requires it.
   --no-open          print the session URL without opening a UI
   --existing ACTION  attach or recreate the selected running container
   --container ID     select a running container for either action
-  --dev [DIR]        run a source checkout, not the image's code (reload + its built UI)
+  --dev [DIR]        mount a source checkout over the image's code (reload + its built UI)
+  --dev --build      build the image from that checkout; --dev --web runs Vite (dev:web)
   --print-config     print the resolved settings and exit; no Docker calls
   --interactive      choose a project interactively (browser mode)
   --status           show this project's container
   --logs [--follow]   print or follow its logs
   --stop             stop and remove its container
+  --help, -h         this screen (--project-dir is accepted for --project)
 HELP
             exit 0 ;;
         --project|--project-dir|--image|--port|--timeout|--existing|--container)
@@ -52,6 +54,8 @@ HELP
             if [ "$#" -ge 2 ] && case "$2" in --*) false ;; *) true ;; esac; then repo="$2"; shift 2
             else repo="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"; shift; fi ;;
         --print-config) print_config=1; shift ;;
+        --build) build=1; shift ;;
+        --web) web=1; shift ;;
         --no-open) open_browser=0; shift ;;
         --browser) ui=browser; explicit_browser=1; shift ;;
         --desktop) ui=desktop; explicit_desktop=1; shift ;;
@@ -89,10 +93,23 @@ if [ "$interactive" = 1 ]; then
     read -r -p "Project directory${project:+ [$project]}: " answer || exit 2
     project="${answer:-$project}"
 fi
-if [ "$desktop_no_project" = 1 ]; then
+# --print-config reports what the flags resolve to and starts nothing, so "no project yet" is
+# an answer there, not an error; loader.py prints the same empty line.
+if [ "$desktop_no_project" = 1 ] || { [ "$print_config" = 1 ] && [ -z "$project" ]; }; then
     project=''
 else
     case "$project" in \~/*) project="$HOME/${project#\~/}" ;; esac
+    # WSL2 only: a path copied from Explorer ("C:\Users\me\project") names the same
+    # directory Linux calls /mnt/c/Users/me/project, and Docker Desktop needs the latter.
+    # tit/launch.py::translate_project_path is the same rule. macOS and Linux never match.
+    if [ -n "${WSL_DISTRO_NAME:-}" ] || { [ -r /proc/version ] && grep -qi microsoft /proc/version 2>/dev/null; }; then
+        case "$project" in
+            [A-Za-z]:[/\\]*)
+                wsl_drive="$(printf '%s' "${project%%:*}" | tr '[:upper:]' '[:lower:]')"
+                wsl_rest="${project#?:}"; wsl_rest="${wsl_rest//\\//}"
+                project="/mnt/$wsl_drive$wsl_rest" ;;
+        esac
+    fi
     [ -d "$project" ] || die 'pass --project with an existing directory'
     project="$(cd "$project" && pwd -P)"
     case "$project" in *$'\n'*|*:*) die 'project path cannot contain newlines or colons' ;; esac
@@ -204,6 +221,14 @@ install_desktop_executable() {
     done
     desktop_exe="$(managed_executable "$root/$version")"
 }
+compose_image() {
+    # The image the shared spec pins, as one reference; tit/launch.py::default_image reads
+    # the same line of the same file.
+    local spec
+    spec="${TIT_COMPOSE_FILE:-$script_dir/docker-compose.yml}"
+    # shellcheck disable=SC2016
+    sed -n 's/^[[:space:]]*image: idossha\/ti-toolbox:${TIT_IMAGE_TAG:-\([^}]*\)}.*/idossha\/ti-toolbox:\1/p' "$spec" 2>/dev/null | head -1
+}
 # Match the Python/Electron project hash so all entry points can attach and stop.
 project_stack() {
     local text="$1" h1 h2 i code hash
@@ -226,10 +251,52 @@ static=''; reload=''
 if [ -n "$repo" ]; then
     static=/ti-toolbox/desktop/out/renderer; reload=1
 fi
+# The container serves the checkout's own renderer bundle, so --dev builds it rather than
+# telling the developer to. TIT_DEV_NO_BUILD=1 skips this (tests, CI, an active `npm run dev`).
+ensure_dev_bundle() {
+    local desktop index stale
+    desktop="$1/desktop"
+    [ -z "${TIT_DEV_NO_BUILD:-}" ] || return 0
+    command -v npm >/dev/null || die 'the --dev renderer needs npm; install Node.js, or pass --no-open'
+    if [ ! -d "$desktop/node_modules" ]; then
+        printf 'ti-toolbox: installing the desktop dependencies (npm --prefix desktop ci)\n' >&2
+        npm --prefix "$desktop" ci >&2 || die 'npm ci failed in desktop/'
+    fi
+    index="$desktop/out/renderer/index.html"
+    stale=''
+    [ ! -f "$index" ] || stale="$(find "$desktop/src" -newer "$index" -print 2>/dev/null | head -1)"
+    if [ ! -f "$index" ] || [ -n "$stale" ]; then
+        printf 'ti-toolbox: building the checkout UI (npm --prefix desktop run build)\n' >&2
+        npm --prefix "$desktop" run build >&2 || die 'npm run build failed in desktop/'
+    fi
+}
+# --build and --web are developer shortcuts over the same checkout; tit/cli.py handles them
+# in the same position, before --print-config.
+if [ "$build" = 1 ] || [ "$web" = 1 ]; then
+    [ -n "$repo" ] || die '--build and --web need --dev; add --dev [DIR]'
+    if [ "$build" = 1 ]; then
+        blueprint="$repo/container/blueprint/build.sh"
+        [ -f "$blueprint" ] || die "$blueprint not found; is this a full checkout?"
+        build_tag="${image:-idossha/ti-toolbox:dev}"
+        printf '[dev] %s --tag %s\n' "$blueprint" "$build_tag"
+        cd "$repo" && exec "$blueprint" --tag "$build_tag"
+    fi
+    web_image="${image:-$(compose_image)}"
+    case "$web_image" in
+        idossha/ti-toolbox:*) case "$web_image" in *@*) web_image='' ;; esac ;;
+        *) web_image='' ;;
+    esac
+    [ -n "$web_image" ] || die '--web supports tagged idossha/ti-toolbox images only. Drop --web for a custom repository or digest.'
+    [ -d "$repo/desktop/node_modules" ] || die 'the --web loop needs the desktop dependencies: npm --prefix desktop install'
+    [ -z "$project" ] || export TIT_DEV_PROJECT_DIR="$project"
+    export TIT_DEV_PORT="$port" TIT_DEV_IMAGE_TAG="${web_image##*:}"
+    export TIT_LAUNCH_EXISTING="$running_action" TIT_LAUNCH_CONTAINER="$container"
+    export TIT_DEV_MOUNT_REPO=1
+    printf '[dev] npm run dev:web (desktop/scripts/dev.ts)\n'
+    cd "$repo/desktop" && exec npm run dev:web
+fi
 if [ "$print_config" = 1 ]; then
-    default_spec="${TIT_COMPOSE_FILE:-$script_dir/docker-compose.yml}"
-    # shellcheck disable=SC2016
-    resolved_image="${image:-$(sed -n 's/^[[:space:]]*image: idossha\/ti-toolbox:${TIT_IMAGE_TAG:-\([^}]*\)}.*/idossha\/ti-toolbox:\1/p' "$default_spec" 2>/dev/null)}"
+    resolved_image="${image:-$(compose_image)}"
     printf 'mode      %s\n' "$([ -n "$repo" ] && printf dev || printf user)"
     printf 'project   %s\n' "$project"
     printf 'port      %s\n' "$port"
@@ -245,6 +312,7 @@ if [ "$print_config" = 1 ]; then
     printf 'desktop_executable %s\n' "$desktop_exe"
     exit 0
 fi
+if [ -n "$repo" ] && [ "$mode" = start ] && [ "$open_browser" = 1 ]; then ensure_dev_bundle "$repo"; fi
 if [ "$mode" = start ] && [ "$open_browser" = 1 ] && [ "$ui" = desktop ]; then
     helper="$script_dir/dev/launch-electron.sh"
     export TIT_LAUNCH_EXISTING="$running_action" TIT_LAUNCH_CONTAINER="$container"
@@ -301,9 +369,6 @@ if [ -z "$image" ]; then
 fi
 case "$image" in *[!a-zA-Z0-9_./:@-]*|'') die 'invalid image reference' ;; esac
 [[ "$image" == */* ]] || image="idossha/ti-toolbox:$image"
-if [ -n "$repo" ] && [ "$open_browser" = 1 ]; then
-    [ -f "$repo/desktop/out/renderer/index.html" ] || die 'build the checkout UI with npm --prefix desktop run build, or use npm run dev:web from desktop/'
-fi
 read_env() { docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$ids" | sed -n "s/^$1=//p"; }
 # Discover by labels, current and legacy names, and image, including other projects.
 running_ids="$(docker ps --format '{{.ID}}|{{.Names}}|{{.Image}}|{{.Labels}}' | awk -F '|' '$4 ~ /(^|,)tit.service=/ && $4 !~ /(^|,)tit.service=tit(,|$)/ {next} tolower($2) ~ /^ti[-_]toolbox([-_]|$)/ || tolower($3) ~ /(^|\/)ti[-_]toolbox(:|@|$)/ || $4 ~ /(^|,)tit.stack=ti-toolbox(-v3)?(,|$)/ {print $1}')"

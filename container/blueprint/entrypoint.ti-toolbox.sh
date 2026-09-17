@@ -34,7 +34,7 @@ if [ $# -gt 0 ]; then
     exec "$@"
 fi
 
-# TIT_SERVER_RELOAD=1 (set only by `npm run dev` and dev/loader/loader_dev.py) runs the server under
+# TIT_SERVER_RELOAD=1 (set only by `npm run dev` and a loader's `--dev`) runs the server under
 # uvicorn's reloader so an edit to tit/server/** or tit/jobs/** in the bind-mounted worktree
 # restarts it instead of needing `docker restart`. --reload-dir is not optional here: uvicorn's
 # default watch root is the working directory, which is the whole mounted repo — including
