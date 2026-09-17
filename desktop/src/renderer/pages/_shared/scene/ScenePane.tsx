@@ -266,7 +266,24 @@ export function ScenePane({
   const wantedSubject = guide === "mni" ? null : subject;
   const subjectManifest = useSceneManifest(wantedSubject);
   const guideManifest = useGuideManifest(guide);
-  const drawnSubject = wantedSubject && subjectManifest.data && !subjectManifest.data.building ? wantedSubject : null;
+  /**
+   * A subject is drawn only once its manifest has arrived, is not still building — and **can draw
+   * the atlas the form names**.
+   *
+   * The last clause is not a nicety. A subject's scene carries its cortical parcellations and no
+   * subcortical atlas at all (`tit/server/routes/scene.py` builds `parts` from the head mesh and
+   * `atlases` from the `.annot` files; `labeling.nii.gz` is a *volume*, and only the packaged guide
+   * freezes a surface for it). Drawing the subject for a subcortical target would therefore show
+   * plain grey cortex with nothing pickable on it, which is worse than the guide: the user's target
+   * would have no anatomy at all. So the pane falls back, and says which head it is showing.
+   */
+  const subjectReady = !!wantedSubject && !!subjectManifest.data && !subjectManifest.data.building;
+  const subjectHasAtlas =
+    !subjectReady ||
+    !atlas ||
+    mode === "montage" ||
+    (subjectManifest.data?.atlases ?? []).some((entry) => String(entry.id) === atlas);
+  const drawnSubject = subjectReady && subjectHasAtlas ? wantedSubject : null;
   const manifest = drawnSubject ? subjectManifest : guideManifest;
   const manifestData = manifest.data as GuideManifest | SceneManifest | undefined;
   const guideId = drawnSubject ? null : (guideManifest.data?.guide?.id ?? null);
@@ -642,6 +659,8 @@ export function ScenePane({
     // past for ever.
     if (gesture === "place") return "";
     if (showingPlacements) return `${placedMarkers.length} placed positions${drawnSubject ? ` on ${drawnSubject}` : ""}.`;
+    if (subjectReady && !subjectHasAtlas)
+      return `${wantedSubject} has no ${atlas} of its own — showing the reference head, where that atlas is packaged.`;
     if (guide === "mni") return "MNI152 template — the ROI is chosen here and transformed into each subject before the job runs.";
     if (wantedSubject && !drawnSubject) {
       // Three states, each a sentence, never an error box: the server's own 404 detail names the

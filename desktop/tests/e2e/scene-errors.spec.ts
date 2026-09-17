@@ -28,7 +28,10 @@ for (const endpoint of ["manifest", "surface"] as const) {
       page = await app.firstWindow();
       let requests = 0;
       let allowSuccess = false;
-      await page.route(`**/api/guide/${endpoint}*`, async (route) => {
+      // Both sources, because since 2026-09-17 the Optimizer's pane reads the SUBJECT's scene and
+      // falls back to the guide: faulting only one leaves the other drawing, and the state the
+      // user sees is "ready", which is exactly what this spec used to miss.
+      await page.route(`**/api/{guide,scene}/${endpoint}*`, async (route) => {
         requests++;
         if (allowSuccess) return route.continue();
         return route.fulfill({ status: 500, json: { detail: `Synthetic ${endpoint} read failed` } });

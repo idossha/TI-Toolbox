@@ -97,6 +97,12 @@ def _gm_overlap(mask_image, m2m: str) -> float | None:
     if not tissues_path.is_file():
         return None
     tissues = nib.load(str(tissues_path))
+    # charm writes final_tissues.nii.gz with a trailing singleton axis (256,256,208,1);
+    # scipy's map_coordinates wants coordinates.shape[0] == input.ndim, so the volume
+    # is squeezed to the three axes the affine actually describes.
+    volume = np.squeeze(np.asarray(tissues.dataobj))
+    if volume.ndim != 3:
+        return None
     mask = np.asarray(mask_image.dataobj) > 0
     voxels = np.argwhere(mask)
     if not len(voxels):
@@ -104,7 +110,7 @@ def _gm_overlap(mask_image, m2m: str) -> float | None:
     world = nib.affines.apply_affine(mask_image.affine, voxels)
     in_tissue = nib.affines.apply_affine(np.linalg.inv(tissues.affine), world)
     sampled = map_coordinates(
-        np.asarray(tissues.dataobj).astype(np.float32),
+        volume.astype(np.float32),
         in_tissue.T,
         order=0,
         mode="constant",
@@ -124,18 +130,38 @@ def _render(mask_image, m2m: str, centroid_voxel, destination: Path, title: str)
     from nibabel.processing import resample_from_to
 
     t1_path = Path(m2m) / "T1.nii.gz"
-    background = None
+    background_image = None
     if t1_path.is_file():
         # Resampled onto the MASK's grid, so one set of indices addresses both
         # and the slice a reader sees is the slice the numbers describe.
-        background = np.asarray(
-            resample_from_to(nib.load(str(t1_path)), mask_image, order=1).dataobj,
-            dtype=np.float32,
+        background_image = resample_from_to(nib.load(str(t1_path)), mask_image, order=1)
+
+    # Reoriented to RAS before slicing. charm's conformed space stores ernie's volume with its
+    # axes permuted, so index 0 was an axial plane labelled "sagittal" and every panel was rotated
+    # by an arbitrary amount. A picture that misinforms is worse than no picture, and
+    # `as_closest_canonical` is the one line that makes axis 0/1/2 mean x/y/z everywhere.
+    canonical = nib.as_closest_canonical(mask_image)
+    mask = np.squeeze(np.asarray(canonical.dataobj)) > 0
+    background = None
+    if background_image is not None:
+        background = np.squeeze(
+            np.asarray(
+                nib.as_closest_canonical(background_image).dataobj, dtype=np.float32
+            )
         )
-    mask = np.asarray(mask_image.dataobj) > 0
-    index = [int(round(v)) for v in centroid_voxel]
+        if background.ndim != 3:
+            background = None
+    # The centroid in the canonical grid's own voxels (it is the same world point).
+    index = [
+        int(round(v))
+        for v in nib.affines.apply_affine(
+            np.linalg.inv(canonical.affine),
+            nib.affines.apply_affine(mask_image.affine, np.asarray(centroid_voxel)),
+        )
+    ]
+    planes = [(0, "sagittal"), (1, "coronal"), (2, "axial")]
     figure, axes = plt.subplots(1, 3, figsize=(9, 3.2), facecolor="black")
-    for axis, (plane, name) in zip(axes, enumerate(("sagittal", "coronal", "axial"))):
+    for axis, (plane, name) in zip(axes, planes):
         cut = min(max(index[plane], 0), mask.shape[plane] - 1)
         slicer: list[Any] = [slice(None)] * 3
         slicer[plane] = cut
@@ -189,7 +215,7 @@ def confirm_roi(
 
         with tempfile.TemporaryDirectory(prefix="roi-confirm-") as scratch:
             mask_image = _subject_mask(atlas_path, label, "mni", m2m, scratch)
-            mask = np.asarray(mask_image.dataobj) > 0
+            mask = np.squeeze(np.asarray(mask_image.dataobj)) > 0
             voxels = np.argwhere(mask)
             if not len(voxels):
                 raise ValueError("the transformed mask is empty")

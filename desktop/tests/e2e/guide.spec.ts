@@ -75,10 +75,13 @@ test.afterAll(async () => {
 });
 
 test("the pane draws the guide, and says so rather than naming the subject", async () => {
-  await gotoPage(page, "optimizer", "Optimizer");
-  await expectPage(page, "optimizer");
+  // The SIMULATOR, not the Optimizer: since 2026-09-17 a targeting pane draws the row's own
+  // subject (`scene-space.spec.ts`), and the montage pane is where the fixed guide's whole
+  // argument — name electrodes, never produce a coordinate — still holds.
+  await gotoPage(page, "simulator", "Simulator");
+  await expectPage(page, "simulator");
   await expectRunPaneTab(page, "scene");
-  await expect(page.locator('[data-page-panel="optimizer"]').getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready", {
+  await expect(page.locator('[data-page-panel="simulator"]').getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready", {
     timeout: 20_000,
   });
   const debug = await page.evaluate(() => {
@@ -93,8 +96,12 @@ test("the pane draws the guide, and says so rather than naming the subject", asy
   expect(guideRequests.some((url) => url.startsWith("/api/guide/manifest"))).toBe(true);
 });
 
-test("changing the selected subjects costs zero guide requests and zero remounts", async () => {
+test("changing the selected subjects costs zero guide requests", async () => {
+  // The previous test now runs on the Simulator (2026-09-17), so this one navigates for itself.
+  await gotoPage(page, "optimizer", "Optimizer");
+  await expectPage(page, "optimizer");
   const optimizer = page.locator('[data-page-panel="optimizer"]');
+  await expect(optimizer.getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready", { timeout: 20_000 });
   const original = await optimizer.getByTestId("scene-canvas").elementHandle();
   if (!original) throw new Error("the Optimizer scene canvas is missing");
 
@@ -110,16 +117,16 @@ test("changing the selected subjects costs zero guide requests and zero remounts
   // Generous: a re-key would have fired long before this.
   await page.waitForTimeout(1500);
 
+  // Zero guide requests: the packaged payloads are cached for ever and keyed on nothing
+  // subject-specific, so the shell's subject cannot cost a byte.
   expect(guideRequests).toEqual([]);
-  // The SAME canvas element — a remount would have thrown away a 145 k-triangle upload and the
-  // camera the user had orbited to.
-  expect(await original.evaluate((node) => node.isConnected)).toBe(true);
-  expect(
-    await original.evaluate(
-      (node) => node === document.querySelector('[data-page-panel="optimizer"] [data-testid="scene-canvas"]'),
-    ),
-  ).toBe(true);
+  // The pane is still drawing, on the same head, after all three switches: the head it draws is
+  // the ROW's subject (2026-09-17), and the shell's subject is not the row's.
   await expect(optimizer.getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready");
+  expect(await page.evaluate(() => window.__scenePane?.guide ?? window.__scenePane?.subject)).toBe("ernie");
+  // The strict "same canvas ELEMENT" claim was dropped with that decision: the pane may now
+  // legitimately re-key when the head it draws changes, and asserting element identity across a
+  // shell-subject change would pin the old rule rather than the new behaviour.
   await original.dispose();
 });
 

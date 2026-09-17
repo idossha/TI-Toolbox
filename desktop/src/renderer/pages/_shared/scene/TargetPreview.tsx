@@ -41,13 +41,16 @@ export function TargetPreview({ subject, roi, onRoiChange }: {
 
   const spaceSwitch = roi && onRoiChange ? (
     <div className="scene-pane-space" data-testid="scene-pane-space">
-      <span className="field-help">Space</span>
+      {/* No "Space" caption: the two segments say Subject and MNI, which is the whole label, and
+          the pane's vertical space is the scarce thing on this page (layout budget, 1280x800). */}
       <RoiSpaceControl value={roi} onChange={onRoiChange} label="Target space" id="scene-pane-space-control" />
     </div>
   ) : null;
 
   if (!roi || roi.mode === "cortical" || roi.mode === "subcortical") {
-    return <div className="scene-pane-wrap" data-testid="target-preview">
+    // Deliberately NOT `data-testid="target-preview"`: that id means "the modes with no anatomy
+    // showed their TetraVox button instead of the pane", and specs assert it is absent here.
+    return <div className="scene-pane-wrap" data-testid="scene-pane-wrap">
       {spaceSwitch}
       <ScenePane mode="target"
         subject={space === "mni" ? null : subject}
