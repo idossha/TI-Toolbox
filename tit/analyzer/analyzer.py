@@ -329,11 +329,13 @@ class Analyzer:
 
         with track_operation(const.TELEMETRY_OP_ANALYSIS):
             dispatch = {"mesh": self._sphere_mesh, "voxel": self._sphere_voxel}
-            return dispatch[self.space](
+            result = dispatch[self.space](
                 [(center[0], center[1], center[2], radius)],
                 coordinate_space,
                 visualize,
             )
+            self._field_plate_after()
+            return result
 
     def analyze_spheres(
         self,
@@ -380,7 +382,9 @@ class Analyzer:
 
         with track_operation(const.TELEMETRY_OP_ANALYSIS):
             dispatch = {"mesh": self._sphere_mesh, "voxel": self._sphere_voxel}
-            return dispatch[self.space](spheres, coordinate_space, visualize)
+            result = dispatch[self.space](spheres, coordinate_space, visualize)
+            self._field_plate_after()
+            return result
 
     def analyze_cortex(
         self,
@@ -425,7 +429,9 @@ class Analyzer:
 
         with track_operation(const.TELEMETRY_OP_ANALYSIS):
             dispatch = {"mesh": self._cortex_mesh, "voxel": self._cortex_voxel}
-            return dispatch[self.space](atlas, region, visualize)
+            result = dispatch[self.space](atlas, region, visualize)
+            self._field_plate_after()
+            return result
 
     def analyze_mask(
         self,
@@ -543,8 +549,10 @@ class Analyzer:
         node_areas = self._node_areas(surface)
 
         mask = np.zeros(len(coords), dtype=bool)
+        subject_spheres = []
         for x, y, z, radius in spheres:
             center_arr = self._maybe_transform_coords((x, y, z), coordinate_space)
+            subject_spheres.append((*[float(v) for v in center_arr], float(radius)))
             mask |= np.linalg.norm(coords - center_arr, axis=1) <= radius
 
         if len(spheres) > 1:
@@ -555,6 +563,13 @@ class Analyzer:
                 len(mask),
             )
 
+        self._last_plate_dir = self._plate_from_geometry(
+            analysis_type="spherical",
+            region_name=self._sphere_region_name(spheres),
+            points=coords[mask],
+            spheres=subject_spheres,
+            coordinate_space=coordinate_space,
+        )
         return self._analyze_mesh_roi(
             surface,
             values,
@@ -627,6 +642,13 @@ class Analyzer:
             len(mask),
         )
 
+        self._last_plate_dir = self._plate_from_geometry(
+            analysis_type="cortical",
+            region_name=region_name,
+            points=surface.nodes.node_coord[mask],
+            atlas=atlas,
+            region_labels=region_labels,
+        )
         return self._analyze_mesh_roi(
             surface,
             values,
@@ -662,10 +684,20 @@ class Analyzer:
         # ||A (v - c)|| (SCI-05): the header-zoom form assumes orthogonal voxel
         # axes and yields the wrong ellipsoid for any sheared affine.
         sphere_mask = np.zeros(shape[:3], dtype=bool)
+        subject_spheres = []
         for cx, cy, cz, radius in spheres:
             center_arr = self._maybe_transform_coords((cx, cy, cz), coordinate_space)
+            subject_spheres.append((*[float(v) for v in center_arr], float(radius)))
             voxel_center = np.dot(inv_affine, np.append(center_arr, 1))[:3]
             sphere_mask |= _world_distance_grid(affine, voxel_center, shape) <= radius
+        self._last_plate_dir = self._plate_from_geometry(
+            analysis_type="spherical",
+            region_name=self._sphere_region_name(spheres),
+            mask=sphere_mask,
+            affine=affine,
+            spheres=subject_spheres,
+            coordinate_space=coordinate_space,
+        )
 
         if len(spheres) > 1:
             logger.info(
@@ -724,13 +756,25 @@ class Analyzer:
         from tit.atlas.islands import keep_main_components
 
         region_mask_raw = np.zeros_like(atlas_arr, dtype=bool)
-        for rid, name in zip(ids, regions):
+        # One value per region, so the plate can colour and count them apart.
+        region_values = np.zeros(atlas_arr.shape, dtype=np.int16)
+        for index, (rid, name) in enumerate(zip(ids, regions), start=1):
             # Per label, not on the union: a union of two structures is legitimately
             # disconnected, and each of them separately is what has islands.
             one, _, _ = keep_main_components(atlas_arr == rid, what=str(name))
             region_mask_raw = region_mask_raw | one
+            region_values[one & (region_values == 0)] = index
         region_name = "+".join(regions)
         region_labels = list(regions)
+        self._last_plate_dir = self._plate_from_geometry(
+            analysis_type="cortical",
+            region_name=region_name,
+            mask=region_values,
+            affine=affine,
+            names=[str(r) for r in regions],
+            atlas=atlas,
+            region_labels=region_labels,
+        )
 
         positive_mask = field_arr > 0
         tissue_mask = self._voxel_tissue_mask(img, field_arr.shape[:3], affine)
@@ -1203,6 +1247,87 @@ class Analyzer:
             name=name,
             sphere=sphere,
         )
+
+    def _plate_from_geometry(
+        self,
+        *,
+        analysis_type: str,
+        region_name: str,
+        mask=None,
+        affine=None,
+        points=None,
+        names=None,
+        spheres=None,
+        **dir_kwargs,
+    ) -> str | None:
+        """Write the ROI plate for a sphere or cortical target, before it is measured.
+
+        The target arrives as either a boolean voxel *mask* on the field's
+        grid (voxel analyses) or the *points* of the surface nodes it covers
+        (mesh analyses); both are put on the subject's T1 grid — nearest
+        neighbour for a mask, one-voxel growth kept inside grey matter for
+        nodes, the same rasterisation the search's cortical targets use — so
+        every analysis leaves the same ``roi_plate.{png,json}`` the mask
+        analysis does. Never raises: a job must not fail over a picture.
+        """
+        import tempfile
+
+        try:
+            import nibabel as nib
+            from nibabel.processing import resample_from_to
+            from scipy import ndimage
+
+            from tit.roi_confirmation import GM_TISSUE_LABEL
+
+            plate_dir = self._resolve_output_dir(
+                analysis_type=analysis_type, region_name=region_name, **dir_kwargs
+            )
+            tissues = nib.load(str(Path(self.m2m_path) / "final_tissues.nii.gz"))
+            grid = np.squeeze(np.asarray(tissues.dataobj))
+            if mask is not None:
+                src = nib.Nifti1Image(np.asarray(mask, dtype=np.int16), affine)
+                on_grid = np.asarray(
+                    resample_from_to(src, (grid.shape, tissues.affine), order=0).dataobj
+                ).astype(np.int16)
+            else:
+                ijk = np.rint(
+                    nib.affines.apply_affine(np.linalg.inv(tissues.affine), np.asarray(points, dtype=float))
+                ).astype(int)
+                inside = np.all((ijk >= 0) & (ijk < np.array(grid.shape)), axis=1)
+                on_grid = np.zeros(grid.shape, dtype=bool)
+                on_grid[tuple(ijk[inside].T)] = True
+                on_grid = ndimage.binary_dilation(on_grid, iterations=1) & (grid == GM_TISSUE_LABEL)
+            from tit.roi_confirmation import confirm_rois
+
+            with tempfile.TemporaryDirectory(prefix="roi-geom-") as scratch:
+                values = [int(v) for v in np.unique(on_grid) if v > 0]
+                if not values:
+                    raise ValueError(f"{region_name}: the target covers no voxel of the T1 grid")
+                sphere = None
+                if spheres and len(spheres) == 1:
+                    x, y, z, r = spheres[0]
+                    sphere = ((float(x), float(y), float(z)), float(r))
+                # One file per region value: the confirmation unions them into
+                # one plate and keeps each region's own colour and count.
+                entries = []
+                for index, value in enumerate(values):
+                    path = str(Path(scratch) / f"target-{value}.nii")
+                    part = np.asarray(on_grid == value, dtype=np.uint8)
+                    nib.save(nib.Nifti1Image(part, tissues.affine), path)
+                    label = names[index] if isinstance(names, list) and index < len(names) else region_name
+                    entries.append({"atlas_path": path, "space": "subject", "name": label, "sphere": sphere})
+                confirm_rois(entries, m2m=str(self.m2m_path), out_dir=plate_dir)
+            return plate_dir
+        except Exception as exc:  # noqa: BLE001 - never fail a job over a check
+            logger.warning("ROI plate could not be written: %s", exc)
+            return None
+
+    def _field_plate_after(self) -> None:
+        """The field-in-ROI plate for the analysis that just ran, if it left a mask."""
+        plate_dir = getattr(self, "_last_plate_dir", None)
+        self._last_plate_dir = None
+        if plate_dir:
+            self._roi_field_plate(plate_dir)
 
     def _roi_field_plate(self, out_dir) -> None:
         """The same framing with the field drawn inside the ROI, at the end.
